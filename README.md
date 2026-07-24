@@ -43,6 +43,8 @@ Early, active development. Send feedback and art! The system is being rebuilt on
 
 ## Installation (manual)
 
+**Requires Foundry VTT v13 or newer** (verified on v14).
+
 1. In the Foundry **Game Systems** menu, click **Install System**.
 2. Enter the manifest URL: `https://github.com/domfortunato/air-bladder/releases/latest/download/system.json`
 
