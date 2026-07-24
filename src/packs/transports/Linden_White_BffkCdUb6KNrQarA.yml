@@ -1,0 +1,27 @@
+_id: BffkCdUb6KNrQarA
+name: Linden White
+type: transport
+img: systems/air-bladder/icons/horse.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    transportSource: background-2e
+system:
+  description: 'From the Outrider background. Highly trained and agile, it can perform intricate maneuvers in a time of need (no DEX save to flee). 4 HP. +3 slots.'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  transportKind: mount
+  slots: 3
+  load: 0
+  slow: false
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!BffkCdUb6KNrQarA'

@@ -1,0 +1,32 @@
+name: Manse
+type: spellbook
+flags:
+  core:
+    sourceId: Item.Y4GJu6bZb7Cd7YvR
+img: systems/air-bladder/icons/spellbook.png
+effects: []
+_id: i8UVjbIUw4Xpv5pJ
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  description: >-
+    <p>A sturdy, furnished cottage appears for 12 hours. You can permit and
+    forbid entry to it at will.</p>
+  weightless: false
+  equipped: true
+  bulky: false
+  quantity: 1
+  slots: 1
+folder: null
+sort: 0
+_key: '!items!i8UVjbIUw4Xpv5pJ'

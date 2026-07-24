@@ -1,0 +1,30 @@
+name: Primal Surge
+type: spellbook
+flags:
+  core:
+    sourceId: Item.dUu3zPvAW7OuXAcd
+img: systems/air-bladder/icons/spellbook.png
+effects: []
+_id: i93owALoJpKfBGGz
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  description: <p>An creature rapidly evolves into a future version of its species.</p>
+  weightless: false
+  equipped: true
+  bulky: false
+  quantity: 1
+  slots: 1
+folder: null
+sort: 0
+_key: '!items!i93owALoJpKfBGGz'

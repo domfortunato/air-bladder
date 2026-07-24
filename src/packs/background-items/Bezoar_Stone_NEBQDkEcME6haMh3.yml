@@ -1,0 +1,26 @@
+_id: NEBQDkEcME6haMh3
+name: Bezoar Stone
+type: item
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: 'Ingesting it cures any poison (1 use, unless retrieved).'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 1
+    max: 1
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!NEBQDkEcME6haMh3'

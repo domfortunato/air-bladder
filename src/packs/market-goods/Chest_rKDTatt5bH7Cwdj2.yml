@@ -1,0 +1,26 @@
+_id: rKDTatt5bH7Cwdj2
+name: Chest
+type: item
+img: systems/air-bladder/icons/chest.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    marketSource: 2e
+system:
+  description: 'A sturdy wooden chest with a lock, for keeping valuables from idle hands.'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 25
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!rKDTatt5bH7Cwdj2'

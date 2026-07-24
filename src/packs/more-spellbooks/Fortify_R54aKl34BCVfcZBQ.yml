@@ -1,0 +1,30 @@
+_id: R54aKl34BCVfcZBQ
+name: Fortify
+type: spellbook
+img: systems/air-bladder/icons/spellbook.png
+effects: []
+folder: null
+sort: 0
+flags: {}
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  wBjuzO9m8tt5ZLAf: 3
+system:
+  description: >-
+    <p>Damage from heat, ice, acid or electricity are impaired against a target
+    for the next hour.</p>
+  weightless: false
+  equipped: false
+  bulky: false
+  quantity: 1
+  slots: 1
+_key: '!items!R54aKl34BCVfcZBQ'

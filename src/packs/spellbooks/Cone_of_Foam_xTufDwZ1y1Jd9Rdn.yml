@@ -1,0 +1,30 @@
+name: Cone of Foam
+type: spellbook
+flags:
+  core:
+    sourceId: Item.FVK62PTkolqaiHEd
+img: systems/air-bladder/icons/spellbook.png
+effects: []
+_id: xTufDwZ1y1Jd9Rdn
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  description: <p>Dense foam sprays from your hand, coating the target.</p>
+  weightless: false
+  equipped: false
+  bulky: false
+  quantity: 1
+  slots: 1
+folder: null
+sort: 0
+_key: '!items!xTufDwZ1y1Jd9Rdn'

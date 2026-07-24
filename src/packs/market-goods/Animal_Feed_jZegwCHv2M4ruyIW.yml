@@ -1,0 +1,26 @@
+_id: jZegwCHv2M4ruyIW
+name: Animal Feed
+type: item
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    marketSource: 2e
+system:
+  description: A sack of fodder to keep a mount or beast fed and willing.
+  weightless: false
+  equipped: false
+  bulky: true
+  cost: 5
+  quantity: 1
+  uses:
+    value: 3
+    max: 3
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!jZegwCHv2M4ruyIW'

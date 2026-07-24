@@ -1,0 +1,28 @@
+_id: 4bg3JYBcALXjjtat
+name: Stablehand
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 8700
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 87
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: Blanket
+    - name: Rope
+    - name: Shovel
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!4bg3JYBcALXjjtat'

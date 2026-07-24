@@ -1,0 +1,26 @@
+_id: iZ91HSUzXUSbSoI9
+name: Tent
+type: item
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: barebones
+system:
+  description: fits 2
+  weightless: false
+  equipped: false
+  bulky: true
+  cost: 20
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!iZ91HSUzXUSbSoI9'

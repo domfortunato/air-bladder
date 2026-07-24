@@ -1,0 +1,30 @@
+_id: sSul1Ml4XWeFazJF
+name: Ephemeral Audio
+type: spellbook
+img: systems/air-bladder/icons/spellbook.png
+effects: []
+folder: null
+sort: 0
+flags: {}
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  wBjuzO9m8tt5ZLAf: 3
+system:
+  description: >-
+    <p>Point to a spot. Anyone nearby hears a sound you choose at any
+    volume.</p>
+  weightless: false
+  equipped: false
+  bulky: false
+  quantity: 1
+  slots: 1
+_key: '!items!sSul1Ml4XWeFazJF'

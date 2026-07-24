@@ -1,0 +1,317 @@
+_id: VUZWf9PpzYlqc52c
+name: Sphinx
+type: npc
+sort: 100001
+flags: {}
+img: systems/air-bladder/icons/monster.png
+items:
+  - _id: hacHxCCLb8Y5SQGA
+    name: Claws
+    type: item
+    sort: 100000
+    flags: {}
+    img: icons/svg/mystery-man.svg
+    effects: []
+    _stats:
+      coreVersion: '12.327'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+    system:
+      description: ''
+      weightless: false
+      equipped: true
+      bulky: false
+      damageFormula: 2d6k
+      criticalDamage: ''
+      blast: false
+      uses:
+        value: 0
+        max: 0
+      quantity: 1
+      slots: 0
+      armor: 0
+      numberOfUses: 0
+    folder: null
+    ownership:
+      default: 0
+    _key: '!actors.items!VUZWf9PpzYlqc52c.hacHxCCLb8Y5SQGA'
+  - _id: B14fUy4wQzTU7NEG
+    name: Roar (Save)
+    type: item
+    sort: 200000
+    flags: {}
+    img: icons/svg/mystery-man.svg
+    effects: []
+    _stats:
+      coreVersion: '12.327'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+    system:
+      description: >-
+        <p>Roar: Anyone who hears the sphinx&rsquo;s roar must save WIL or flee
+        in fear.</p>
+      weightless: false
+      equipped: true
+      bulky: false
+      damageFormula: ''
+      criticalDamage: ''
+      blast: false
+      uses:
+        value: 0
+        max: 0
+      quantity: 1
+      slots: 0
+      armor: 0
+      numberOfUses: 0
+    folder: null
+    ownership:
+      default: 0
+    _key: '!actors.items!VUZWf9PpzYlqc52c.B14fUy4wQzTU7NEG'
+  - _id: E0ecL3ZMZrxKUcIb
+    name: Comprehend
+    type: item
+    sort: 1600001
+    flags:
+      core:
+        sourceId: Item.5LXeOzyNxeFaR9Er
+    img: icons/svg/mystery-man.svg
+    effects: []
+    _stats:
+      coreVersion: '12.327'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+    system:
+      description: <p>You become fluent in all languages for a short while.</p>
+      weightless: false
+      equipped: true
+      bulky: false
+      damageFormula: ''
+      criticalDamage: ''
+      blast: false
+      uses:
+        value: 0
+        max: 0
+      quantity: 1
+      slots: 1
+      armor: 0
+      numberOfUses: 0
+    folder: null
+    ownership:
+      default: 0
+    _key: '!actors.items!VUZWf9PpzYlqc52c.E0ecL3ZMZrxKUcIb'
+  - _id: 4JqI09mlKf3c6r4I
+    name: Detect Magic
+    type: item
+    sort: 2200001
+    flags:
+      core:
+        sourceId: Item.RG7HUsA0OrkZDLxM
+    img: icons/svg/mystery-man.svg
+    effects: []
+    _stats:
+      coreVersion: '12.327'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+    system:
+      description: <p>You can see or hear nearby magical auras.</p>
+      weightless: false
+      equipped: true
+      bulky: false
+      damageFormula: ''
+      criticalDamage: ''
+      blast: false
+      uses:
+        value: 0
+        max: 0
+      quantity: 1
+      slots: 1
+      armor: 0
+      numberOfUses: 0
+    folder: null
+    ownership:
+      default: 0
+    _key: '!actors.items!VUZWf9PpzYlqc52c.4JqI09mlKf3c6r4I'
+  - _id: HQ1x8rsWSkKZhGvY
+    name: Telekinesis
+    type: item
+    sort: 8600001
+    flags:
+      core:
+        sourceId: Item.cg3gFfX5gJXOhjvE
+    img: icons/svg/mystery-man.svg
+    effects: []
+    _stats:
+      coreVersion: '12.327'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+    system:
+      description: <p>You may mentally move 1 item under 60lbs.</p>
+      weightless: false
+      equipped: true
+      bulky: false
+      damageFormula: ''
+      criticalDamage: ''
+      blast: false
+      uses:
+        value: 0
+        max: 0
+      quantity: 1
+      slots: 1
+      armor: 0
+      numberOfUses: 0
+    folder: null
+    ownership:
+      default: 0
+    _key: '!actors.items!VUZWf9PpzYlqc52c.HQ1x8rsWSkKZhGvY'
+effects: []
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  bDeEK9GSahKwiAGH: 3
+system:
+  hp:
+    value: 12
+    max: 12
+  abilities:
+    STR:
+      value: 12
+      max: 12
+    DEX:
+      value: 10
+      max: 10
+    WIL:
+      value: 15
+      max: 15
+  description: >
+    <ul>
+
+    <li>  Large monsters with bird wings, the body of a lion, and a human
+
+    face. Collect puzzles, riddles, and obscure knowledge. May pose
+
+    riddles to those they meet, attacking and consuming any who cannot
+
+    give the correct answer.</li>
+
+    <li>  Roar: Anyone who hears the sphinx&#39;s roar must save WIL or flee in
+
+    fear.</li>
+
+    <li>  Can innately cast <em>Comprehend</em>, <em>Detect Magic,</em> and
+    <em>Telekinesis</em>.
+
+    Once per day each.</li>
+
+    </ul>
+  armor: null
+prototypeToken:
+  flags: {}
+  name: Sphinx
+  displayName: 0
+  width: 1
+  height: 1
+  lockRotation: false
+  rotation: 0
+  actorLink: false
+  disposition: -1
+  displayBars: 0
+  bar1:
+    attribute: abilities.STR
+  bar2:
+    attribute: hp
+  randomImg: false
+  light:
+    dim: 0
+    bright: 0
+    angle: 360
+    alpha: 1
+    animation:
+      speed: 5
+      intensity: 5
+      type: null
+      reverse: false
+    negative: false
+    priority: 0
+    color: null
+    coloration: 1
+    attenuation: 0.5
+    luminosity: 0.5
+    saturation: 0
+    contrast: 0
+    shadows: 0
+    darkness:
+      min: 0
+      max: 1
+  texture:
+    src: icons/svg/mystery-man.svg
+    tint: '#ffffff'
+    scaleX: 1
+    scaleY: 1
+    anchorX: 0.5
+    anchorY: 0.5
+    offsetX: 0
+    offsetY: 0
+    fit: contain
+    rotation: 0
+    alphaThreshold: 0.75
+  sight:
+    angle: 360
+    enabled: false
+    range: 0
+    brightness: 1
+    visionMode: basic
+    color: null
+    attenuation: 0.1
+    saturation: 0
+    contrast: 0
+  appendNumber: false
+  prependAdjective: false
+  hexagonalShape: 0
+  alpha: 1
+  detectionModes: []
+  occludable:
+    radius: 0
+  ring:
+    enabled: false
+    colors:
+      ring: null
+      background: null
+    effects: 1
+    subject:
+      scale: 1
+      texture: null
+folder: null
+_key: '!actors!VUZWf9PpzYlqc52c'

@@ -1,0 +1,16 @@
+# Compendium packs are LevelDB databases. Several of their internal files
+# (CURRENT, LOG, LOG.old) are plain ASCII, so git's autocrlf conversion mangles
+# them on Windows checkouts: CURRENT becomes "MANIFEST-000007\r\n", LevelDB
+# looks for a manifest whose name ends in \r, and the pack fails to open.
+# Treat the whole tree as binary so it round-trips byte-for-byte on every OS.
+packs/** -text
+
+# The Foundry CLI reads and writes pack YAML with LF. Pinning it here keeps the
+# working tree identical to what the CLI produces, so extracting a pack never
+# shows up as spurious whitespace churn on Windows.
+src/packs/** text eol=lf
+
+# Image assets are binary; keep autocrlf from ever touching them.
+*.png -text
+*.webp -text
+*.jpg -text

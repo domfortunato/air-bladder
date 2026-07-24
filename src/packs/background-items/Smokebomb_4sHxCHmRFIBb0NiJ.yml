@@ -1,0 +1,26 @@
+_id: 4sHxCHmRFIBb0NiJ
+name: Smokebomb
+type: item
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: barebones
+system:
+  description: ''
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!4sHxCHmRFIBb0NiJ'

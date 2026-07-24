@@ -1,0 +1,28 @@
+_id: Rq3OCHSJLVAwVKT8
+name: Jailer
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 5400
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 54
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: 'Chain, 10ft'
+    - name: Manacles
+    - name: Whistle
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!Rq3OCHSJLVAwVKT8'

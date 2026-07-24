@@ -1,0 +1,28 @@
+_id: Ab49bVY7RAbfR0xP
+name: Dowser
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 3200
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 32
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: Dowsing Rod
+    - name: Sealable Bottle
+    - name: Shovel
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!Ab49bVY7RAbfR0xP'

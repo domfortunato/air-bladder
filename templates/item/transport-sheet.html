@@ -1,0 +1,70 @@
+<form class="cairn" autocomplete="off">
+    <div class="item-sheet-grid transport">
+        <!-- Portrait -->
+        <div class="item-sheet-section-portrait">
+            <img class="portrait" src="{{data.img}}" data-edit="img" title="{{data.name}}" />
+        </div>
+        <!-- Name -->
+        <div class="item-sheet-section-name">
+            <input class="name-input" type="text" name="name" value="{{data.name}}" placeholder="{{ localize 'CAIRN.Name' }}" />
+        </div>
+
+        <!-- Type: worn (sack/backpack), mount (beast), or vehicle (cart/wagon).
+             Sets the icon and directory visibility; none weighs on the carrier. -->
+        <div class="resource-counter long-counter">
+            <label class="large-resource-label" for="system.transportKind">{{ localize 'CAIRN.TransportKind' }}</label>
+            <div class="resource-input-wrapper">
+                <select name="system.transportKind" id="system.transportKind">
+                    {{selectOptions transportKinds selected=data.system.transportKind localize=true}}
+                </select>
+            </div>
+        </div>
+
+        <!-- Capacity it holds -->
+        <div class="resource-counter long-counter">
+            <label class="large-resource-label" for="system.slots" data-tooltip="{{ localize 'CAIRN.TransportCapacity' }}">{{ localize 'CAIRN.Slots' }}</label>
+            <div class="resource-input-wrapper">
+                <input type="number" min="0" step="1" name="system.slots" id="system.slots"
+                       value="{{data.system.slots}}" data-dtype="Number" />
+            </div>
+        </div>
+
+        <!-- Bulky -->
+        <div class="resource-counter long-counter">
+            <label class="large-resource-label" for="system.bulky">{{ localize 'CAIRN.Bulky' }}</label>
+            <div class="resource-input-wrapper">
+                <input type="checkbox" {{checked data.system.bulky}} name="system.bulky" id="system.bulky"
+                       value="{{data.system.bulky}}" data-dtype="Boolean" />
+            </div>
+        </div>
+
+        <!-- Slow -->
+        <div class="resource-counter long-counter">
+            <label class="large-resource-label" for="system.slow">{{ localize 'CAIRN.TransportSlow' }}</label>
+            <div class="resource-input-wrapper">
+                <input type="checkbox" {{checked data.system.slow}} name="system.slow" id="system.slow"
+                       value="{{data.system.slow}}" data-dtype="Boolean" />
+            </div>
+        </div>
+
+        <!-- Cost -->
+        <div class="resource-counter long-counter">
+            <label class="large-resource-label" for="system.cost">{{ localize 'CAIRN.Cost' }}</label>
+            <div class="resource-input-wrapper">
+                <input type="number" min="0" step="1" name="system.cost" id="system.cost"
+                       value="{{data.system.cost}}" data-dtype="Number" />
+            </div>
+        </div>
+
+        <div class="item-sheet-section-tabs">
+            <nav class="tabs" data-group="primary">
+                <a class="item" data-group="primary" data-tab="description">{{ localize 'CAIRN.Description' }}</a>
+            </nav>
+            <section class="content">
+                <div class="tab" data-group="primary" data-tab="description">
+                    {{ editor enrichedDescription target="system.description" button=true owner=owner editable=editable engine="prosemirror" collaborate=true }}
+                </div>
+            </section>
+        </div>
+    </div>
+</form>

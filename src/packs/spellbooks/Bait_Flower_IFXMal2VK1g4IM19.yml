@@ -1,0 +1,32 @@
+name: Bait Flower
+type: spellbook
+flags:
+  core:
+    sourceId: Item.kpFMzMClBjFtlYra
+img: systems/air-bladder/icons/spellbook.png
+effects: []
+_id: IFXMal2VK1g4IM19
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  description: >-
+    <p>A plant sprouts from the ground that emanates the smell of decaying
+    flesh.</p>
+  weightless: false
+  equipped: false
+  bulky: false
+  quantity: 1
+  slots: 1
+folder: null
+sort: 0
+_key: '!items!IFXMal2VK1g4IM19'

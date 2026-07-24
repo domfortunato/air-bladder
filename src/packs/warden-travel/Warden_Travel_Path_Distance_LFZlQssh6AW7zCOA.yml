@@ -1,0 +1,56 @@
+_id: LFZlQssh6AW7zCOA
+name: 'Warden: Travel - Path Distance'
+img: icons/svg/d20-grey.svg
+description: Cairn 2e Path Distance (reference). Choose by how far the two points are apart.
+results:
+  - _id: kL6I5wI0XRacskBl
+    type: text
+    text: <strong>Short</strong> &mdash; +1 Watch.
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 1
+      - 1
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!LFZlQssh6AW7zCOA.kL6I5wI0XRacskBl'
+  - _id: N5HpY8mHHsLnl7AN
+    type: text
+    text: <strong>Medium</strong> &mdash; +2 Watches.
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!LFZlQssh6AW7zCOA.N5HpY8mHHsLnl7AN'
+  - _id: YHkR2xF5a5ZgeoIw
+    type: text
+    text: <strong>Long</strong> &mdash; +3 Watches.
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!LFZlQssh6AW7zCOA.YHkR2xF5a5ZgeoIw'
+formula: 1d3
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!tables!LFZlQssh6AW7zCOA'

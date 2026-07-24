@@ -1,0 +1,32 @@
+name: Summon Cube
+type: spellbook
+flags:
+  core:
+    sourceId: Item.pHbiWh1THf4synHm
+img: systems/air-bladder/icons/spellbook.png
+effects: []
+_id: s46R7D1xp65K3hWE
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  description: >-
+    <p>Once per second you may summon or banish a 3-foot-wide cube of earth. New
+    cubes must be affixed to the earth or to other cubes.</p>
+  weightless: false
+  equipped: true
+  bulky: false
+  quantity: 1
+  slots: 1
+folder: null
+sort: 0
+_key: '!items!s46R7D1xp65K3hWE'

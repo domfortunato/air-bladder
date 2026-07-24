@@ -1,0 +1,28 @@
+_id: RAXUf52YL9KuOXjq
+name: Fisher
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 3900
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 39
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: Air Bladder
+    - name: Fishing Rod
+    - name: Net
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!RAXUf52YL9KuOXjq'

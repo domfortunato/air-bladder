@@ -1,0 +1,32 @@
+name: Swarm
+type: spellbook
+flags:
+  core:
+    sourceId: Item.Ne0PyZuCaDsZjN1O
+img: systems/air-bladder/icons/spellbook.png
+effects: []
+_id: bgZbst28ACRpQfCD
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  description: >-
+    <p>You become a swarm of crows, rats, or piranhas. You can only be harmed by
+    blast attacks.</p>
+  weightless: false
+  equipped: true
+  bulky: false
+  quantity: 1
+  slots: 1
+folder: null
+sort: 0
+_key: '!items!bgZbst28ACRpQfCD'

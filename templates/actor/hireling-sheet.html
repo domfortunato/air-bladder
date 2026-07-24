@@ -1,0 +1,129 @@
+<form class="cairn hireling" autocomplete="off">
+    <div class="charater-sheet-grid">
+        <!-- Portrait: click to pick/paste a custom image; the die rolls a random
+             shipped portrait (same features as a player character). -->
+        <div class="portrait-wrap">
+            <img class="portrait" src="{{data.img}}" title="{{ localize 'CAIRN.ChoosePortrait' }}" />
+            {{#if generationEnabled}}
+            <a class="portrait-roll" title="{{ localize 'CAIRN.RollPortrait' }}"><i class="fas fa-dice-d20"></i></a>
+            {{/if}}
+        </div>
+        <!-- Name, profession, day rate, HP -->
+        <div class="character-sheet-section-name">
+            <div class="name-line">
+                <input class="name-input" type="text" name="name" value="{{data.name}}"
+                    placeholder="{{ localize 'CAIRN.Name' }}" />
+                {{#if generationEnabled}}
+                <a class="name-roll" title="{{ localize 'CAIRN.RollName' }}"><i class="fas fa-dice-d20"></i></a>
+                {{/if}}
+            </div>
+            <div class="profession-line">
+                <span class="background-label">{{ localize 'CAIRN.Profession' }}</span>
+                <input class="profession-input" type="text" name="system.profession"
+                    value="{{data.system.profession}}" placeholder="{{ localize 'CAIRN.Profession' }}" />
+                {{#if generationEnabled}}
+                <a class="profession-roll" title="{{ localize 'CAIRN.RollProfession' }}"><i class="fas fa-dice-d20"></i></a>
+                {{/if}}
+            </div>
+            <div class="day-rate-line">
+                <span class="background-label">{{ localize 'CAIRN.DayRate' }}</span>
+                <input class="day-rate-input" type="number" min="0" step="1" name="system.dayRate"
+                    value="{{data.system.dayRate}}" title="{{ localize 'CAIRN.DayRateHint' }}" />
+                <span class="day-rate-suffix">{{ localize 'CAIRN.DayRateSuffix' }}</span>
+            </div>
+        </div>
+        <!-- Buttons -->
+        <div class="character-sheet-section-buttons">
+            <button id="rest-button" type="button" class="strict-size-button" data-tooltip="{{ localize 'CAIRN.RestTip' }}" {{#if data.system.deprived}}disabled{{/if}}><i class="fas fa-campground"></i> {{ localize 'CAIRN.Rest' }}</button>
+            <button id="restore-abilities-button" type="button" class="strict-size-button" data-tooltip="{{ localize 'CAIRN.RestoreTip' }}" {{#if data.system.deprived}}disabled{{/if}}><i class="fas fa-heart-pulse"></i> {{ localize 'CAIRN.RestoreAbilities' }}</button>
+        </div>
+        <!-- Abilities (identical behaviour + tooltips to a player character) -->
+        <div class="character-sheet-section-abilities">
+            <!-- HP tops the column (above STR), same size as the ability boxes. No
+                 save roll — it's a resource, not an ability. -->
+            <div class="resource-counter hp-counter {{#if hpLow}}low{{/if}}">
+                <label data-tooltip="{{ localize 'CAIRN.HitProtectionTip' }}">{{ localize 'CAIRN.HitProtection' }}</label>
+                <div class="resource-input-wrapper">
+                    <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.value" id="system.hp.value"
+                           value="{{data.system.hp.value}}" data-dtype="Number" title="{{ localize 'CAIRN.Current' }}" />
+                    <span> / </span>
+                    <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.max"
+                           value="{{data.system.hp.max}}" data-dtype="Number" title="{{ localize 'CAIRN.Maximum' }}" />
+                </div>
+            </div>
+            {{#each data.system.abilities as |ability key|}}
+            <div class="resource-counter {{key}}-counter {{#if (lookup ../abilityPeril key)}}peril{{/if}} {{#if (lookup ../abilityLow key)}}low{{/if}}">
+                <a class="resource-roll" data-ability="{{key}}" data-roll="d20cs<=@abilities.{{key}}.value"
+                    data-label="{{{ localize 'CAIRN.Save' key=key}}}" data-tooltip="{{ lookup ../abilityTips key }}"><i class="fas fa-dice-d20 roll-icon"></i> {{ localize key }}</a>
+                <div class="resource-input-wrapper">
+                    <input type="number" min="0" max="18" step="1" class="stat-input" name="system.abilities.{{key}}.value" value="{{ability.value}}"
+                        data-dtype="Number" title="{{ localize 'CAIRN.Current' }}" />
+                    <span> / </span>
+                    <input type="number" min="0" max="18" step="1" class="stat-input" name="system.abilities.{{key}}.max" value="{{ability.max}}" data-dtype="Number"
+                        title="{{ localize 'CAIRN.Maximum' }}" />
+                </div>
+                {{#if (lookup ../criticalToggle key)}}
+                <a class="critical-toggle {{#if (lookup ../criticalActive key)}}active{{/if}}" data-key="{{key}}"
+                    title="{{ localize 'CAIRN.CriticalDamageToggle' }}"><i class="fas fa-skull"></i></a>
+                {{/if}}
+            </div>
+            {{/each}}
+        </div>
+        <!-- Armor + Deprived -->
+        <div class="character-sheet-section-others">
+            <div class="resource-counter long-counter armor-counter {{#if data.system.armorOverridden}}armor-overridden{{/if}}">
+                <label data-tooltip="{{ localize 'CAIRN.ArmorTip' }}">{{ localize 'CAIRN.Armor' }}</label>
+                <div class="resource-input-wrapper">
+                    <input type="number" min="0" max="3" step="1" class="armor-input" value="{{data.system.armor}}"
+                        title="{{#if data.system.armorOverridden}}{{ localize 'CAIRN.ArmorOverrideActive' }}{{else}}{{ localize 'CAIRN.ArmorAuto' }}{{/if}}" />
+                    {{#if data.system.armorOverridden}}
+                    <a class="armor-reset" title="{{ localize 'CAIRN.ArmorReset' }}"><i class="fas fa-rotate-left"></i></a>
+                    {{/if}}
+                </div>
+            </div>
+
+            <div class="resource-counter long-counter deprived-counter">
+                <label data-tooltip="{{ localize 'CAIRN.DeprivedTip' }}">{{ localize 'CAIRN.Deprived' }}</label>
+                <div class="resource-input-wrapper">
+                    <input type="checkbox" class="deprived-check" {{checked data.system.deprived}} />
+                </div>
+            </div>
+
+            {{#if data.system.usePanic}}
+            <div class="resource-counter long-counter deprived-counter">
+                <label data-tooltip="{{ localize 'CAIRN.PanickedTip' }}">{{ localize 'CAIRN.Panicked' }}</label>
+                <div class="resource-input-wrapper">
+                    <input type="checkbox" class="panicked-check" {{checked data.system.panicked}} />
+                </div>
+            </div>
+            {{/if}}
+        </div>
+        <div class="character-sheet-section-tabs">
+            <!-- Attribute-loss status banners: 0-height when healthy, otherwise one
+                 bar per active condition (Dead / STR Critical / Paralyzed /
+                 Delirious / Overburdened). -->
+            <div class="critical-banner">
+                {{#each statusBanners}}
+                <div class="status-banner status-{{this.key}}">
+                    <i class="fas {{this.icon}}"></i>
+                    <span><strong>{{this.label}}:</strong> {{this.text}}</span>
+                </div>
+                {{/each}}
+            </div>
+            <nav class="tabs" data-group="primary">
+                <a class="item" data-group="primary" data-tab="items">
+                    {{ localize 'CAIRN.Items' }} ({{data.system.slotsUsed}} / {{data.system.slotsMax}})
+                </a>
+                <a class="item" data-group="primary" data-tab="notes">{{ localize 'CAIRN.Notes' }}</a>
+            </nav>
+            <section class="content">
+                <div class="tab" data-group="primary" data-tab="items">
+                    {{> "systems/air-bladder/templates/parts/items-list.html" withFatigue=1 withShop=1}}
+                </div>
+                <div class="tab" data-group="primary" data-tab="notes">
+                    {{ editor enrichedNotes target="system.notes" button=true owner=owner editable=editable engine="prosemirror" collaborate=true }}
+                </div>
+            </section>
+        </div>
+    </div>
+</form>

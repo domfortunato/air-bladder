@@ -1,0 +1,29 @@
+_id: 3F0tvRm0EX0E2LhE
+name: Astrologer
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 600
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 6
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: Candle
+      uses: 3
+    - name: Marbles
+    - name: Spyglass
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!3F0tvRm0EX0E2LhE'

@@ -1,0 +1,27 @@
+_id: 61JYVgxGAm98uJKX
+name: Stray Fogger
+type: transport
+img: systems/air-bladder/icons/horse.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    transportSource: background-2e
+system:
+  description: From the Outrider background. Wild but very fast (even in Tough terrain). Rides light. 4 HP. +2 slots.
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  transportKind: mount
+  slots: 2
+  load: 0
+  slow: false
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!61JYVgxGAm98uJKX'

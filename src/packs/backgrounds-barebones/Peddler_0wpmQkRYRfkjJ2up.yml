@@ -1,0 +1,29 @@
+_id: 0wpmQkRYRfkjJ2up
+name: Peddler
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 7300
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 73
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: Random Additional Gear
+    - name: Sack
+  containers:
+    - name: Cart
+      slots: 4
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!0wpmQkRYRfkjJ2up'

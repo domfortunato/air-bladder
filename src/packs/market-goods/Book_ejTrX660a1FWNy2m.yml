@@ -1,0 +1,26 @@
+_id: ejTrX660a1FWNy2m
+name: Book
+type: item
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    marketSource: 2e
+system:
+  description: 'A bound volume of someone''s knowledge, faith, or folly.'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 50
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!ejTrX660a1FWNy2m'

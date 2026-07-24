@@ -1,0 +1,37 @@
+name: Raise Dead
+type: spellbook
+flags:
+  core:
+    sourceId: Item.9DuFZgeUj3IMwet0
+  exportSource:
+    world: cairn
+    system: cairn
+    coreVersion: 0.7.5
+    systemVersion: 1.0.0
+img: systems/air-bladder/icons/spellbook.png
+effects: []
+_id: 09jsLVPMusbW5jyQ
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  description: >-
+    <p>A skeleton rises from the ground to serve you. They are incredibly stupid
+    and can only obey simple orders.</p>
+  weightless: false
+  equipped: true
+  bulky: false
+  quantity: 1
+  slots: 1
+folder: null
+sort: 0
+_key: '!items!09jsLVPMusbW5jyQ'

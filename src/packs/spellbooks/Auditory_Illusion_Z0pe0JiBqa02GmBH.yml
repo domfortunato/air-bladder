@@ -1,0 +1,32 @@
+name: Auditory Illusion
+type: spellbook
+flags:
+  core:
+    sourceId: Item.fdmW4nMQYwGZeMcN
+img: systems/air-bladder/icons/spellbook.png
+effects: []
+_id: Z0pe0JiBqa02GmBH
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  description: >-
+    <p>You create illusory sounds that seem to come from a direction of your
+    choice.</p>
+  weightless: false
+  equipped: false
+  bulky: false
+  quantity: 1
+  slots: 1
+folder: null
+sort: 0
+_key: '!items!Z0pe0JiBqa02GmBH'

@@ -1,0 +1,29 @@
+_id: n9tYr8THPkcrF0tp
+name: Root Knife
+type: weapon
+img: systems/air-bladder/icons/weapons.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: A stout knife for cutting roots and stems. It takes an edge to flesh just as well.
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+  damageFormula: d6
+  criticalDamage: ''
+  blast: false
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!n9tYr8THPkcrF0tp'

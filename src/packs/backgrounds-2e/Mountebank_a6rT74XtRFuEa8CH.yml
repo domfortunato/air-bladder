@@ -1,0 +1,87 @@
+_id: a6rT74XtRFuEa8CH
+name: Mountebank
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    backgroundSource: srd-2e
+system:
+  source: 2e
+  archetype: Thief
+  description: '<p>Wits are your sharpest weapon, a facade your strongest shield. But when you do lose, you lose badly.</p>'
+  names:
+    - Ambrose
+    - Lucius
+    - Beauregard
+    - Cornelius
+    - Aria
+    - Toph
+    - Indigo
+    - Delphine
+    - Solene
+    - Noa
+  startingGear:
+    - name: Rations
+      uses: 3
+    - name: Torch
+      uses: 3
+    - name: Trick Playing Cards
+    - name: Fancy Hat
+    - name: Cane Sword
+  containers:
+    - name: Cart
+      slots: 4
+  tables:
+    - question: 'How was your fraud exposed?'
+      options:
+        - description: 'Your "patients" kept reporting miraculous recoveries, despite your lack of training. Start with Bandages (3 uses) and a knack for healing.'
+          items:
+            - name: Bandages
+              uses: 3
+        - description: 'After seducing a wealthy patron, their family hired a criminal gang to retrieve you. You got away and need to lay low. Start with Beauty Cream, 2 uses. Apply to appear irresistibly beautiful for the next 12 hours.'
+          items:
+            - name: Beauty Cream
+              uses: 2
+        - description: 'You were a peddler of fake prophesies, but when one turned out to be true, it drew unwanted attention. Roll on the Omens table, but keep the result to yourself. Start with a concealable Knife (d6, petty).'
+          items:
+            - name: Knife
+        - description: 'Your latest stunt destroyed a priceless artifact and injured a dozen bystanders. Start with a Captain''s Uniform (petty), a Ceremonial Sword (harmless, 60gp), and a Bouquet of Flowers.'
+          items:
+            - name: 'Captain''s Uniform'
+            - name: Ceremonial Sword
+            - name: Bouquet of Flowers
+        - description: 'You were cursed by a hedgewitch for fooling some innocent village folk. Magic acts unpredictably in your hands (WIL save to avoid disaster). If you are the target of magic, the same applies to its wielder.'
+        - description: 'Your "seances" with the dead were in actuality a ruse involving a cleverly hidden spellbook of Auditory Illusion. Inevitably, a patron discovered your secret. Start with the Spellbook and a bundle of scarves. Auditory Illusion: You create illusory sounds that seem to come from a direction of your choice. Produces random and occasionally inopportune sounds throughout the day.'
+          items:
+            - name: Spellbook (Auditory Illusion)
+    - question: 'What keepsake could always identify you?'
+      options:
+        - description: 'Royal Crest: Born into royalty, you chose a different life. The crest grants you access but also alerts your family of your whereabouts. Petty.'
+          items:
+            - name: Royal Crest
+        - description: 'Miracle Oil: A smelly, slippery concoction. 2 uses.'
+          items:
+            - name: Miracle Oil
+              uses: 2
+        - description: 'Surgeon''s Soap: A lye and ash block that makes skin temporarily transparent, revealing the anatomy within. 4 uses.'
+          items:
+            - name: 'Surgeon''s Soap'
+              uses: 4
+        - description: 'Goat Powder: Derived from the placenta of a baby goat. Temporarily cures any affliction, but symptoms return within hours.'
+          items:
+            - name: Goat Powder
+        - description: 'Cursed Sapphire: Worth 200gp, it noticeably returns to your pocket shortly after you spend it. You can''t seem to get rid of it.'
+          items:
+            - name: Cursed Sapphire
+        - description: 'Alchemical Tattoo: A dog, cat, or bird that can leave your body on demand. It follows your commands to the best of its abilities and can pass its injuries (as STR loss) back onto you. Petty.'
+          items:
+            - name: Alchemical Tattoo
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!a6rT74XtRFuEa8CH'

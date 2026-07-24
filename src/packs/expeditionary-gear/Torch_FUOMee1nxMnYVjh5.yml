@@ -1,0 +1,37 @@
+_id: FUOMee1nxMnYVjh5
+name: Torch
+type: item
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+folder: null
+sort: 0
+flags: {}
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  cost: 5
+  description: 'A pitch-soaked brand that burns bright for an hour — light, and fire when you need it.'
+  weightless: false
+  equipped: false
+  bulky: false
+  damageFormula: ''
+  criticalDamage: ''
+  blast: false
+  uses:
+    value: 0
+    max: 0
+  quantity: 1
+  slots: 1
+  armor: 0
+  numberOfUses: 0
+_key: '!items!FUOMee1nxMnYVjh5'

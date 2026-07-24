@@ -1,0 +1,30 @@
+_id: 5wJTmzdnRmc4s7C1
+name: Blessing
+type: spellbook
+img: systems/air-bladder/icons/spellbook.png
+effects: []
+folder: null
+sort: 0
+flags: {}
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  wBjuzO9m8tt5ZLAf: 3
+system:
+  description: >-
+    <p>Target’s attacks are enhanced and non-Blast attacks are impaired against
+    them until they next take damage.</p>
+  weightless: false
+  equipped: false
+  bulky: false
+  quantity: 1
+  slots: 1
+_key: '!items!5wJTmzdnRmc4s7C1'

@@ -1,0 +1,26 @@
+_id: 4BeE7LPICF3TRtFo
+name: Gloves
+type: item
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: 'A plain pair of gloves against cold, thorns, and rough work.'
+  weightless: true
+  equipped: false
+  bulky: false
+  cost: 20
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!4BeE7LPICF3TRtFo'

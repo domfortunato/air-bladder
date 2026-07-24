@@ -1,0 +1,39 @@
+name: Net
+type: item
+flags:
+  core:
+    sourceId: Item.M4gugVCltP2mhgER
+img: systems/air-bladder/icons/tools.png
+effects: []
+_id: MnTO11a4CyCTaPPN
+system:
+  cost: 10
+  description: 'A weighted net for snaring fish, fowl, or a foe who won''t hold still.'
+  weightless: true
+  equipped: false
+  bulky: false
+  damageFormula: ''
+  criticalDamage: ''
+  blast: false
+  uses:
+    value: 0
+    max: 0
+  quantity: 1
+  numberOfUses: 0
+  slots: 1
+  armor: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+folder: null
+sort: 0
+_stats:
+  systemId: cairn
+  systemVersion: 0.10.26
+  coreVersion: '12.327'
+  createdTime: null
+  modifiedTime: 1665822366370
+  lastModifiedBy: Vw4BPOEKqYJ80wk3
+  compendiumSource: Item.M4gugVCltP2mhgER
+  duplicateSource: null
+_key: '!items!MnTO11a4CyCTaPPN'

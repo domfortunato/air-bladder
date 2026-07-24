@@ -1,0 +1,29 @@
+_id: BnXd5WgvZjq1DJoI
+name: Leech Collector
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 5900
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 59
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: Gloves
+    - name: Leech
+      uses: 3
+    - name: Net
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!BnXd5WgvZjq1DJoI'

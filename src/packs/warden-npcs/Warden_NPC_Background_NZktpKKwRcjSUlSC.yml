@@ -1,0 +1,277 @@
+_id: NZktpKKwRcjSUlSC
+name: 'Warden: NPC - Background'
+img: icons/svg/d20-grey.svg
+description: Cairn 2e NPC background (Warden's Guide, NPC Tables).
+results:
+  - _id: gaqrswSPEJtVCG2m
+    type: text
+    text: Academic
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 1
+      - 1
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!NZktpKKwRcjSUlSC.gaqrswSPEJtVCG2m'
+  - _id: vvTM1uWCxfU6ZmdB
+    type: text
+    text: Assassin
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!NZktpKKwRcjSUlSC.vvTM1uWCxfU6ZmdB'
+  - _id: jgMUYAedSnVFT8Ef
+    type: text
+    text: Blacksmith
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!NZktpKKwRcjSUlSC.jgMUYAedSnVFT8Ef'
+  - _id: YuvtFrO5L61olAru
+    type: text
+    text: Farmer
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!NZktpKKwRcjSUlSC.YuvtFrO5L61olAru'
+  - _id: p8fIogFnVmYre847
+    type: text
+    text: General
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!NZktpKKwRcjSUlSC.p8fIogFnVmYre847'
+  - _id: UY9hF14gy1tcxfp4
+    type: text
+    text: Gravedigger
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!NZktpKKwRcjSUlSC.UY9hF14gy1tcxfp4'
+  - _id: 976YcCkDWUZyRZc0
+    type: text
+    text: Guard
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 7
+      - 7
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!NZktpKKwRcjSUlSC.976YcCkDWUZyRZc0'
+  - _id: YWXDV1ptf5L8Dq0P
+    type: text
+    text: Healer
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 8
+      - 8
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!NZktpKKwRcjSUlSC.YWXDV1ptf5L8Dq0P'
+  - _id: eiAszoUIyyrjMtai
+    type: text
+    text: Jailer
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 9
+      - 9
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!NZktpKKwRcjSUlSC.eiAszoUIyyrjMtai'
+  - _id: zEHeIpSfgBWPg4vx
+    type: text
+    text: Laborer
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 10
+      - 10
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!NZktpKKwRcjSUlSC.zEHeIpSfgBWPg4vx'
+  - _id: fLVKgTK16sOnzjyN
+    type: text
+    text: Lord
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 11
+      - 11
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!NZktpKKwRcjSUlSC.fLVKgTK16sOnzjyN'
+  - _id: kjywMV4oA7V1L6PK
+    type: text
+    text: Merchant
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 12
+      - 12
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!NZktpKKwRcjSUlSC.kjywMV4oA7V1L6PK'
+  - _id: HxXen1z3ch0J0E4w
+    type: text
+    text: Monk
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 13
+      - 13
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!NZktpKKwRcjSUlSC.HxXen1z3ch0J0E4w'
+  - _id: JDjjoOcsgUs8MAvo
+    type: text
+    text: Mystic
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 14
+      - 14
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!NZktpKKwRcjSUlSC.JDjjoOcsgUs8MAvo'
+  - _id: ck3edQpfesbVum6n
+    type: text
+    text: Outlander
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 15
+      - 15
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!NZktpKKwRcjSUlSC.ck3edQpfesbVum6n'
+  - _id: tiRO4qzNhVdLmzfe
+    type: text
+    text: Peddler
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 16
+      - 16
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!NZktpKKwRcjSUlSC.tiRO4qzNhVdLmzfe'
+  - _id: OpzG8WvE4zxUfO8U
+    type: text
+    text: Politician
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 17
+      - 17
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!NZktpKKwRcjSUlSC.OpzG8WvE4zxUfO8U'
+  - _id: SewlGcDIUbLoxaaY
+    type: text
+    text: Spy
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 18
+      - 18
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!NZktpKKwRcjSUlSC.SewlGcDIUbLoxaaY'
+  - _id: WnBYPUZTzIC2tJBf
+    type: text
+    text: Thief
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 19
+      - 19
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!NZktpKKwRcjSUlSC.WnBYPUZTzIC2tJBf'
+  - _id: df4tJ9jsU02lCrBQ
+    type: text
+    text: Thug
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 20
+      - 20
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!NZktpKKwRcjSUlSC.df4tJ9jsU02lCrBQ'
+formula: 1d20
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!tables!NZktpKKwRcjSUlSC'

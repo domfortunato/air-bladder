@@ -1,0 +1,31 @@
+_id: FKatod3PlLNH5cJc
+name: Foolishness
+type: spellbook
+img: systems/air-bladder/icons/spellbook.png
+effects: []
+folder: null
+sort: 0
+flags: {}
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  wBjuzO9m8tt5ZLAf: 3
+system:
+  description: >-
+    <p>A target you touch becomes vulnerable to wild mood swings, sweeping
+    conclusions and silly behavior. They also lose 1d6 WIL for 24 hours (down to
+    a minimum of 1).</p>
+  weightless: false
+  equipped: false
+  bulky: false
+  quantity: 1
+  slots: 1
+_key: '!items!FKatod3PlLNH5cJc'

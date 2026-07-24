@@ -1,0 +1,32 @@
+name: Push/Pull
+type: spellbook
+flags:
+  core:
+    sourceId: Item.P189valRdUqrtmzB
+img: systems/air-bladder/icons/spellbook.png
+effects: []
+_id: fi7RYeSGtRiEgphx
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  description: >-
+    <p>An object of any size is pulled directly towards you or pushed directly
+    away from you with the strength of one man.</p>
+  weightless: false
+  equipped: true
+  bulky: false
+  quantity: 1
+  slots: 1
+folder: null
+sort: 0
+_key: '!items!fi7RYeSGtRiEgphx'

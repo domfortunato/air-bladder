@@ -1,0 +1,29 @@
+_id: kT7XsUr36SN0UskH
+name: Hunter
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 5100
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 51
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: Trap
+    - name: Rope
+    - name: Smoking Herbs
+      uses: 3
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!kT7XsUr36SN0UskH'

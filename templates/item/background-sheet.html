@@ -1,0 +1,57 @@
+<form class="cairn" autocomplete="off">
+    <div class="item-sheet-grid background">
+        <!-- Portrait -->
+        <div class="item-sheet-section-portrait">
+            <img class="portrait" src="{{data.img}}" data-edit="img" title="{{data.name}}" />
+        </div>
+        <!-- Name -->
+        <div class="item-sheet-section-name">
+            <input class="name-input" type="text" name="name" value="{{data.name}}" placeholder="{{ localize 'CAIRN.Name' }}" />
+        </div>
+
+        <div class="item-sheet-section-tabs">
+            <nav class="tabs" data-group="primary">
+                <a class="item" data-group="primary" data-tab="description">{{ localize 'CAIRN.Description' }}</a>
+                <a class="item" data-group="primary" data-tab="details">{{ localize 'CAIRN.BackgroundDetails' }}</a>
+            </nav>
+            <section class="content">
+                <div class="tab" data-group="primary" data-tab="description">
+                    {{ editor enrichedDescription target="system.description" button=true owner=owner editable=editable engine="prosemirror" collaborate=true }}
+                </div>
+
+                <div class="tab background-details" data-group="primary" data-tab="details">
+                    <p class="background-source">
+                        <strong>{{ localize 'CAIRN.BackgroundSource' }}:</strong> {{data.system.source}}
+                    </p>
+
+                    {{#if data.system.names.length}}
+                    <h3>{{ localize 'CAIRN.BackgroundNames' }}</h3>
+                    <p class="background-names">
+                        {{~#each data.system.names~}}{{this}}{{#unless @last}}, {{/unless}}{{~/each~}}
+                    </p>
+                    {{/if}}
+
+                    {{#if data.system.startingGear.length}}
+                    <h3>{{ localize 'CAIRN.BackgroundStartingGear' }}</h3>
+                    <ul class="background-gear">
+                        {{#each startingGearRows}}
+                        <li>{{this.name}}{{#if this.tags.length}} <em>({{#each this.tags}}{{this}}{{#unless @last}}, {{/unless}}{{/each}})</em>{{/if}}</li>
+                        {{/each}}
+                    </ul>
+                    {{/if}}
+
+                    {{#each data.system.tables}}
+                    <div class="background-table">
+                        <h3>{{this.question}}</h3>
+                        <ol>
+                            {{#each this.options}}
+                            <li>{{this.description}}</li>
+                            {{/each}}
+                        </ol>
+                    </div>
+                    {{/each}}
+                </div>
+            </section>
+        </div>
+    </div>
+</form>

@@ -1,0 +1,37 @@
+name: Sling
+type: weapon
+flags:
+  core:
+    sourceId: Item.8FRmdUHeJx4PVAf2
+img: systems/air-bladder/icons/weapons.png
+effects: []
+_id: OCOPpIkkvUL5fZKQ
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  cost: 5
+  description: 'A leather sling that hurls stones with surprising force. Ammunition lies free underfoot.'
+  weightless: false
+  equipped: true
+  bulky: false
+  damageFormula: 1d4
+  criticalDamage: ''
+  blast: false
+  uses:
+    value: 0
+    max: 0
+  quantity: 1
+  slots: 1
+folder: null
+sort: 0
+_key: '!items!OCOPpIkkvUL5fZKQ'

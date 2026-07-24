@@ -1,0 +1,29 @@
+_id: AwpIufIFqpByy9kR
+name: Oil Collector
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 7100
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 71
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: Lantern
+    - name: Oil Can
+      uses: 6
+    - name: Sealable Bottle
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!AwpIufIFqpByy9kR'

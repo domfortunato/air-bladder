@@ -1,0 +1,28 @@
+_id: J88gxfGtjB3RP4Yx
+name: Carpenter
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 1800
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 18
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: Hammer
+    - name: Metal File
+    - name: Saw
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!J88gxfGtjB3RP4Yx'

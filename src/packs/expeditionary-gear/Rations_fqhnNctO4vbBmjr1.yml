@@ -1,0 +1,38 @@
+_id: fqhnNctO4vbBmjr1
+name: Rations
+type: item
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+folder: null
+sort: 0
+flags: {}
+system:
+  cost: 10
+  description: 'Preserved trail food — dry, dense, and enough to keep you going for days.'
+  weightless: false
+  equipped: false
+  bulky: false
+  damageFormula: ''
+  criticalDamage: ''
+  blast: false
+  uses:
+    value: 3
+    max: 3
+  quantity: 3
+  relic: false
+  slots: 1
+  armor: 0
+  numberOfUses: 0
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+_stats:
+  systemId: cairn
+  systemVersion: 0.10.28
+  coreVersion: '12.327'
+  createdTime: null
+  modifiedTime: 1666221463811
+  lastModifiedBy: XjPpHewhii3UoI5l
+  compendiumSource: null
+  duplicateSource: null
+_key: '!items!fqhnNctO4vbBmjr1'

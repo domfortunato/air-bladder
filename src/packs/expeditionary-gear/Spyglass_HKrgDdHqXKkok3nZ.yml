@@ -1,0 +1,39 @@
+name: Spyglass
+type: item
+flags:
+  core:
+    sourceId: Item.o7iPgcqqACjqk68B
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+_id: HKrgDdHqXKkok3nZ
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  cost: 40
+  description: 'A collapsing brass glass for spotting trouble — or opportunity — from afar.'
+  weightless: false
+  equipped: false
+  bulky: false
+  damageFormula: ''
+  criticalDamage: ''
+  blast: false
+  uses:
+    value: 0
+    max: 0
+  quantity: 1
+  slots: 1
+  armor: null
+  numberOfUses: 0
+folder: null
+sort: 0
+_key: '!items!HKrgDdHqXKkok3nZ'

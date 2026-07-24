@@ -1,0 +1,37 @@
+name: Sword
+type: weapon
+flags:
+  core:
+    sourceId: Item.tPCULxQqJNCCJjOY
+img: systems/air-bladder/icons/weapons.png
+effects: []
+_id: 1k4xfzZwGS583eRa
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  cost: 10
+  description: 'A reliable one-handed blade, balanced for cut and thrust.'
+  weightless: false
+  equipped: true
+  bulky: false
+  damageFormula: 1d8
+  criticalDamage: ''
+  blast: false
+  uses:
+    value: 0
+    max: 0
+  quantity: 1
+  slots: 1
+folder: null
+sort: 0
+_key: '!items!1k4xfzZwGS583eRa'

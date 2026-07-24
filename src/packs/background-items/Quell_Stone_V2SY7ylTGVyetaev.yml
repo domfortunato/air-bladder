@@ -1,0 +1,26 @@
+_id: V2SY7ylTGVyetaev
+name: Quell Stone
+type: item
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: Extinguishes any nearby flames once exposed to air.
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 2
+    max: 2
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!V2SY7ylTGVyetaev'

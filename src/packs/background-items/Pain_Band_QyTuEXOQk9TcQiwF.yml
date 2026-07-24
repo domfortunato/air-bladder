@@ -1,0 +1,26 @@
+_id: QyTuEXOQk9TcQiwF
+name: Pain Band
+type: item
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: 'Touch an injured creature to transfer their wounds to you. (Exchange their lost STR with your own.) Recharge: Wear the ring while in perfect health. You will lose 1 STR, permanently.'
+  weightless: true
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 1
+    max: 1
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!QyTuEXOQk9TcQiwF'

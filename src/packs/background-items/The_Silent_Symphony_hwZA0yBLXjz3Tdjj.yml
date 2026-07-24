@@ -1,0 +1,26 @@
+_id: hwZA0yBLXjz3Tdjj
+name: The Silent Symphony
+type: item
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: 'Bound in fluorescent wrap. Very rare, it chronicles the subtle signs used by those employing invisibility magic.'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!hwZA0yBLXjz3Tdjj'

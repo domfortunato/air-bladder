@@ -1,0 +1,108 @@
+_id: AR4vIXPz5du9xJSJ
+name: 'Market: Transports & Containers'
+img: icons/svg/d20-grey.svg
+description: 'Air Bladder marketplace — Transports & Containers. Drag a transport in to stock it; capacity and price are read off the document. Buying one creates a container Actor owned by the buyer.'
+results:
+  - _id: szrSAiu6UHCkElGF
+    type: pack
+    text: Backpack
+    img: systems/air-bladder/icons/backpack.png
+    weight: 1
+    range:
+      - 1
+      - 1
+    drawn: false
+    documentCollection: air-bladder.transports
+    documentId: z2ktgE5i5T8eKiaT
+    flags: {}
+    _key: '!tables.results!AR4vIXPz5du9xJSJ.szrSAiu6UHCkElGF'
+  - _id: UvA8XiiuAN3doLGn
+    type: pack
+    text: Sack
+    img: systems/air-bladder/icons/sack.png
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    documentCollection: air-bladder.transports
+    documentId: EdHP3c1VebhHVqa9
+    flags: {}
+    _key: '!tables.results!AR4vIXPz5du9xJSJ.UvA8XiiuAN3doLGn'
+  - _id: AFiAzReKwQeDe1Ti
+    type: pack
+    text: Mule
+    img: systems/air-bladder/icons/donkey.png
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    documentCollection: air-bladder.transports
+    documentId: mehfBhWC1FV0rT9b
+    flags: {}
+    _key: '!tables.results!AR4vIXPz5du9xJSJ.AFiAzReKwQeDe1Ti'
+  - _id: 5QlHSCqf7ZEDmQdr
+    type: pack
+    text: Horse
+    img: systems/air-bladder/icons/horse.png
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    documentCollection: air-bladder.transports
+    documentId: 5tGnlGd0MQ6d4uw0
+    flags: {}
+    _key: '!tables.results!AR4vIXPz5du9xJSJ.5QlHSCqf7ZEDmQdr'
+  - _id: ahZCObQJ7UDjXVA3
+    type: pack
+    text: Handcart
+    img: systems/air-bladder/icons/handcart.png
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    documentCollection: air-bladder.transports
+    documentId: FyYz3T0pY5QyzHy7
+    flags: {}
+    _key: '!tables.results!AR4vIXPz5du9xJSJ.ahZCObQJ7UDjXVA3'
+  - _id: y9QbY3gVRr6Gbigm
+    type: pack
+    text: Cart
+    img: systems/air-bladder/icons/cart.png
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    documentCollection: air-bladder.transports
+    documentId: oT8z0sR4GtrjDYJK
+    flags: {}
+    _key: '!tables.results!AR4vIXPz5du9xJSJ.y9QbY3gVRr6Gbigm'
+  - _id: r9adaZCT2y12Gikw
+    type: pack
+    text: Wagon
+    img: systems/air-bladder/icons/wagon.png
+    weight: 1
+    range:
+      - 7
+      - 7
+    drawn: false
+    documentCollection: air-bladder.transports
+    documentId: DkxLT9dFGX7ULaAP
+    flags: {}
+    _key: '!tables.results!AR4vIXPz5du9xJSJ.r9adaZCT2y12Gikw'
+formula: 1d7
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!tables!AR4vIXPz5du9xJSJ'

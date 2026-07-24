@@ -1,0 +1,28 @@
+_id: 9AwFkSgxMCPd8cn4
+name: Herald
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 4700
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 47
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: Mask
+    - name: Signal Flag
+    - name: Whistle
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!9AwFkSgxMCPd8cn4'

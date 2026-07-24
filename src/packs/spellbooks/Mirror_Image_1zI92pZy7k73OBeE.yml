@@ -1,0 +1,30 @@
+name: Mirror Image
+type: spellbook
+flags:
+  core:
+    sourceId: Item.TqTOLjB4uA0GEgSc
+img: systems/air-bladder/icons/spellbook.png
+effects: []
+_id: 1zI92pZy7k73OBeE
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  description: <p>An illusory duplicate of yourself appears and is under your control.</p>
+  weightless: false
+  equipped: true
+  bulky: false
+  quantity: 1
+  slots: 1
+folder: null
+sort: 0
+_key: '!items!1zI92pZy7k73OBeE'

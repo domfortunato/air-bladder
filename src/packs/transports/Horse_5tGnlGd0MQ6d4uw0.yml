@@ -1,0 +1,27 @@
+_id: 5tGnlGd0MQ6d4uw0
+name: Horse
+type: transport
+img: systems/air-bladder/icons/horse.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    transportSource: 2e
+system:
+  description: A riding horse. Bears four slots of gear and covers open ground quickly.
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 75
+  quantity: 1
+  transportKind: mount
+  slots: 4
+  load: 0
+  slow: false
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!5tGnlGd0MQ6d4uw0'

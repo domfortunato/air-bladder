@@ -1,0 +1,30 @@
+name: Elasticity
+type: spellbook
+flags:
+  core:
+    sourceId: Item.lWZMyZ4HrhRqHn1v
+img: systems/air-bladder/icons/spellbook.png
+effects: []
+_id: djWVofRP0OhX8xMj
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  description: <p>Your body can stretch up to 10ft.</p>
+  weightless: false
+  equipped: false
+  bulky: false
+  quantity: 1
+  slots: 1
+folder: null
+sort: 0
+_key: '!items!djWVofRP0OhX8xMj'

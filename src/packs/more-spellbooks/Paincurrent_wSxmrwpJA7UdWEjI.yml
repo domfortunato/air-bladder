@@ -1,0 +1,30 @@
+_id: wSxmrwpJA7UdWEjI
+name: Paincurrent
+type: spellbook
+img: systems/air-bladder/icons/spellbook.png
+effects: []
+folder: null
+sort: 0
+flags: {}
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  wBjuzO9m8tt5ZLAf: 3
+system:
+  description: >-
+    <p>An arc of electricity passes from your fingertips to a target you touch.
+    They take 1d8 damage (1d12 if wearing metal armor).</p>
+  weightless: false
+  equipped: false
+  bulky: false
+  quantity: 1
+  slots: 1
+_key: '!items!wSxmrwpJA7UdWEjI'

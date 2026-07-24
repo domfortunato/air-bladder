@@ -1,0 +1,29 @@
+_id: C5FUVbJaVV3VD9F3
+name: Monk
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 6700
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 67
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: Candle
+      uses: 3
+    - name: Cloak
+    - name: Songbook
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!C5FUVbJaVV3VD9F3'

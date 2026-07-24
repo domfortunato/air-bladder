@@ -1,0 +1,27 @@
+_id: KEFTTx6uJgWp4bVE
+name: Blacklegged Dandy
+type: transport
+img: systems/air-bladder/icons/horse.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    transportSource: background-2e
+system:
+  description: From the Outrider background. Hardy and adaptable. Tough or Perilous terrain are one step easier. 6 HP. +4 slots.
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  transportKind: mount
+  slots: 4
+  load: 0
+  slow: false
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!KEFTTx6uJgWp4bVE'

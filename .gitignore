@@ -1,0 +1,15 @@
+node_modules/
+.idea/
+.DS_Store
+
+# Generated LevelDB compendia, built from src/packs/ by `npm run build:packs`.
+# The leading slash matters: an unanchored `packs/` matches at any depth and
+# would also ignore src/packs/, the actual source of truth.
+/packs/
+
+# Screenshots and artifacts from tools/dev/smoke.mjs
+/tools/dev/out/
+
+# Raw game-icons.net source PNGs (staging). The shipped, class-named copies live
+# in icons/; this folder is the untouched originals and is not part of the system.
+/game-icons-dot-net/

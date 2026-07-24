@@ -1,0 +1,37 @@
+name: Bow
+type: weapon
+flags:
+  core:
+    sourceId: Item.ZtxtYyErOFOUIxpS
+img: systems/air-bladder/icons/weapons.png
+effects: []
+_id: iQFZEdDJKyjvGtY8
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  cost: 20
+  description: 'A wooden bow that looses arrows at range. Keep your quiver stocked.'
+  weightless: false
+  equipped: true
+  bulky: true
+  damageFormula: 1d6
+  criticalDamage: ''
+  blast: false
+  uses:
+    value: 0
+    max: 0
+  quantity: 1
+  slots: 2
+folder: null
+sort: 0
+_key: '!items!iQFZEdDJKyjvGtY8'

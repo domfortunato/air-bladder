@@ -1,0 +1,29 @@
+_id: m7b05hPJdKYYDndF
+name: Barber-Surgeon
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 800
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 8
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: Bandages
+      uses: 3
+    - name: Scissors
+    - name: Sedative
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!m7b05hPJdKYYDndF'

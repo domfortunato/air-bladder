@@ -1,0 +1,32 @@
+name: Sense
+type: spellbook
+flags:
+  core:
+    sourceId: Item.7670SM8KmGR6MPxn
+img: systems/air-bladder/icons/spellbook.png
+effects: []
+_id: ccD8DUMv4i2ol8Le
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  description: >-
+    <p>Choose one kind of object (key, gold, arrow, jug, etc.). You can sense
+    the nearest example.</p>
+  weightless: false
+  equipped: true
+  bulky: false
+  quantity: 1
+  slots: 1
+folder: null
+sort: 0
+_key: '!items!ccD8DUMv4i2ol8Le'

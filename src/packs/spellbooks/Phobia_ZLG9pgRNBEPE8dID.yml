@@ -1,0 +1,30 @@
+name: Phobia
+type: spellbook
+flags:
+  core:
+    sourceId: Item.CsX5TxSdAvlhmdlA
+img: systems/air-bladder/icons/spellbook.png
+effects: []
+_id: ZLG9pgRNBEPE8dID
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  description: <p>A nearby creature becomes terrified of an object of your choice.</p>
+  weightless: false
+  equipped: true
+  bulky: false
+  quantity: 1
+  slots: 1
+folder: null
+sort: 0
+_key: '!items!ZLG9pgRNBEPE8dID'

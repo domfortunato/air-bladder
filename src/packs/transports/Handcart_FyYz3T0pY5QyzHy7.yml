@@ -1,0 +1,27 @@
+_id: FyYz3T0pY5QyzHy7
+name: Handcart
+type: transport
+img: systems/air-bladder/icons/handcart.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    transportSource: 2e
+system:
+  description: 'A small cart pulled by hand. Holds four slots — no beast required, but you are the one doing the hauling.'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 15
+  quantity: 1
+  transportKind: vehicle
+  slots: 4
+  load: 0
+  slow: false
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!FyYz3T0pY5QyzHy7'

@@ -1,0 +1,32 @@
+name: Befuddle
+type: spellbook
+flags:
+  core:
+    sourceId: Item.7IJ3YZr7Hfjm5fZm
+img: systems/air-bladder/icons/spellbook.png
+effects: []
+_id: t5YNPmDiZmQT1edO
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  description: >-
+    <p>A creature of your choice is unable to form new short-term memories for
+    the duration of the spell.</p>
+  weightless: false
+  equipped: false
+  bulky: false
+  quantity: 1
+  slots: 1
+folder: null
+sort: 0
+_key: '!items!t5YNPmDiZmQT1edO'

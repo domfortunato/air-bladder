@@ -1,0 +1,29 @@
+_id: dMrrAJA2Mkr7NN8o
+name: Spiked Boots
+type: weapon
+img: systems/air-bladder/icons/weapons.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: 'Cracks heads (d8) as easily as it does ice and muck. Travel is also a bit slower, but easier.'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 15
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+  damageFormula: d8
+  criticalDamage: ''
+  blast: false
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!dMrrAJA2Mkr7NN8o'

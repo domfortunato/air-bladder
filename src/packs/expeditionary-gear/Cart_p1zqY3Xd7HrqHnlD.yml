@@ -1,0 +1,38 @@
+name: Cart
+type: item
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+folder: null
+sort: 0
+flags:
+  core:
+    sourceId: Item.vNHShpXPgUnAE1f1
+_id: p1zqY3Xd7HrqHnlD
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  XdVZurdf0C9IKG6I: 3
+system:
+  description: <p>Cart (+4 slots, bulky)</p>
+  weightless: false
+  equipped: false
+  bulky: false
+  damageFormula: ''
+  criticalDamage: ''
+  blast: false
+  uses:
+    value: 0
+    max: 0
+  quantity: 1
+  slots: 0
+  armor: 0
+  numberOfUses: 0
+_key: '!items!p1zqY3Xd7HrqHnlD'

@@ -1,0 +1,27 @@
+_id: z2ktgE5i5T8eKiaT
+name: Backpack
+type: transport
+img: systems/air-bladder/icons/backpack.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    transportSource: 2e
+system:
+  description: A sturdy pack worn on the back. Holds four slots of gear or Fatigue. Every adventurer starts with one — this is a spare.
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 10
+  quantity: 1
+  transportKind: worn
+  slots: 4
+  load: 1
+  slow: false
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!z2ktgE5i5T8eKiaT'

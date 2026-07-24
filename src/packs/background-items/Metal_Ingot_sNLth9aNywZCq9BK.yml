@@ -1,0 +1,26 @@
+_id: sNLth9aNywZCq9BK
+name: Metal Ingot
+type: item
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: 'A heavy bar of counterfeit gold — convincing enough at a glance, and almost as good as the real thing to the right buyer.'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!sNLth9aNywZCq9BK'

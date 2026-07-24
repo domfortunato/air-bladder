@@ -1,0 +1,27 @@
+_id: oT8z0sR4GtrjDYJK
+name: Cart
+type: transport
+img: systems/air-bladder/icons/cart.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    transportSource: 2e
+system:
+  description: 'A two-wheeled cart, pulled by hand or beast. Holds four slots; bulky and awkward over rough country.'
+  weightless: false
+  equipped: false
+  bulky: true
+  cost: 30
+  quantity: 1
+  transportKind: vehicle
+  slots: 4
+  load: 0
+  slow: false
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!oT8z0sR4GtrjDYJK'

@@ -1,0 +1,27 @@
+{
+  "name": "air-bladder",
+  "version": "1.0.0",
+  "scripts": {
+    "lint": "eslint --fix --ext .js ./module --format node_modules/eslint-plugin-i18n-json/formatter.js lang/*",
+    "build:packs": "node tools/packs.mjs build",
+    "extract:packs": "node tools/packs.mjs extract",
+    "dev:smoke": "node tools/dev/smoke.mjs",
+    "check:warden": "node tools/dev/warden-check.mjs"
+  },
+  "browserslist": [
+    "last 3 versions"
+  ],
+  "author": "smcabrera",
+  "license": "MIT",
+  "private": true,
+  "devDependencies": {
+    "@foundryvtt/foundryvtt-cli": "^3.0.4",
+    "@typhonjs-fvtt/eslint-config-foundry.js": "^0.8.0",
+    "eslint": "^8.25.0",
+    "eslint-plugin-i18n-json": "^4.0.0",
+    "eslint-plugin-import": "^2.26.0",
+    "js-yaml": "^5.2.1",
+    "playwright": "^1.49.0",
+    "standard": "^16.0.3"
+  }
+}

@@ -1,0 +1,28 @@
+_id: G9UxEcBlo0pfMcBY
+name: Toymaker
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 9500
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 95
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: Glue
+    - name: Pliers
+    - name: Scissors
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!G9UxEcBlo0pfMcBY'

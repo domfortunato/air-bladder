@@ -1,0 +1,28 @@
+_id: xOXeeIOMguIh1r0G
+name: Jeweler
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 5600
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 56
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: Magnifying Glass
+    - name: Pliers
+    - name: Tongs
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!xOXeeIOMguIh1r0G'

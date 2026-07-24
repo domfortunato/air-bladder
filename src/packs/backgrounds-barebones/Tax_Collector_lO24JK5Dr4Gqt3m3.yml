@@ -1,0 +1,29 @@
+_id: lO24JK5Dr4Gqt3m3
+name: Tax Collector
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 9100
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 91
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: 'Parchment & Ink'
+      uses: 3
+    - name: Sealable Bottle
+    - name: Whistle
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!lO24JK5Dr4Gqt3m3'

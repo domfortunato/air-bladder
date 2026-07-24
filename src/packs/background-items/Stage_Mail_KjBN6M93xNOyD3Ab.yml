@@ -1,0 +1,27 @@
+_id: KjBN6M93xNOyD3Ab
+name: Stage Mail
+type: armor
+img: systems/air-bladder/icons/armor.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: 'Well-worn costume armor, more convincing than it has any right to be — and, once, more protective than anyone expected.'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+  armor: 1
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!KjBN6M93xNOyD3Ab'

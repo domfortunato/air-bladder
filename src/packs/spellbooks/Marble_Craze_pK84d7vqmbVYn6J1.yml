@@ -1,0 +1,30 @@
+name: Marble Craze
+type: spellbook
+flags:
+  core:
+    sourceId: Item.ngwKIvWih6SsQPK4
+img: systems/air-bladder/icons/spellbook.png
+effects: []
+_id: pK84d7vqmbVYn6J1
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  description: <p>Your pockets are full of marbles, and will refill every 30 seconds.</p>
+  weightless: false
+  equipped: true
+  bulky: false
+  quantity: 1
+  slots: 1
+folder: null
+sort: 0
+_key: '!items!pK84d7vqmbVYn6J1'

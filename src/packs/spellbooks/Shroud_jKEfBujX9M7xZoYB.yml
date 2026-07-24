@@ -1,0 +1,30 @@
+name: Shroud
+type: spellbook
+flags:
+  core:
+    sourceId: Item.UgdlNqFFZHogQtrJ
+img: systems/air-bladder/icons/spellbook.png
+effects: []
+_id: jKEfBujX9M7xZoYB
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  description: <p>A creature you touch is invisible until they move.</p>
+  weightless: false
+  equipped: true
+  bulky: false
+  quantity: 1
+  slots: 1
+folder: null
+sort: 0
+_key: '!items!jKEfBujX9M7xZoYB'

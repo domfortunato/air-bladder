@@ -1,0 +1,375 @@
+[
+  {
+    "name": "Alchemist",
+    "rate": 30,
+    "hp": 2,
+    "armor": 0,
+    "abilities": {
+      "STR": 8,
+      "DEX": 10,
+      "WIL": 14
+    },
+    "gear": [
+      {
+        "name": "Rations",
+        "uses": 3
+      },
+      {
+        "name": "Torch",
+        "uses": 3
+      },
+      {
+        "name": "Dagger"
+      },
+      {
+        "name": "Acid"
+      },
+      {
+        "name": "Lens"
+      },
+      {
+        "name": "Gloves"
+      }
+    ]
+  },
+  {
+    "name": "Animal Handler",
+    "rate": 5,
+    "hp": 3,
+    "armor": 0,
+    "abilities": {
+      "STR": 9,
+      "DEX": 14,
+      "WIL": 12
+    },
+    "gear": [
+      {
+        "name": "Rations",
+        "uses": 3
+      },
+      {
+        "name": "Torch",
+        "uses": 3
+      },
+      {
+        "name": "Dagger"
+      },
+      {
+        "name": "Cage"
+      },
+      {
+        "name": "Rope"
+      },
+      {
+        "name": "Hawk"
+      }
+    ]
+  },
+  {
+    "name": "Blacksmith",
+    "rate": 15,
+    "hp": 3,
+    "armor": 1,
+    "abilities": {
+      "STR": 14,
+      "DEX": 9,
+      "WIL": 8
+    },
+    "gear": [
+      {
+        "name": "Rations",
+        "uses": 3
+      },
+      {
+        "name": "Lantern"
+      },
+      {
+        "name": "Oil Can",
+        "uses": 6
+      },
+      {
+        "name": "Hammer"
+      },
+      {
+        "name": "Iron Tongs"
+      },
+      {
+        "name": "Gambeson"
+      }
+    ]
+  },
+  {
+    "name": "Bodyguard",
+    "rate": 10,
+    "hp": 4,
+    "armor": 1,
+    "abilities": {
+      "STR": 13,
+      "DEX": 11,
+      "WIL": 9
+    },
+    "gear": [
+      {
+        "name": "Rations",
+        "uses": 3
+      },
+      {
+        "name": "Torch",
+        "uses": 3
+      },
+      {
+        "name": "Sword"
+      },
+      {
+        "name": "Helmet"
+      }
+    ]
+  },
+  {
+    "name": "Local Guide",
+    "rate": 5,
+    "hp": 3,
+    "armor": 0,
+    "abilities": {
+      "STR": 10,
+      "DEX": 13,
+      "WIL": 11
+    },
+    "gear": [
+      {
+        "name": "Rations",
+        "uses": 3
+      },
+      {
+        "name": "Torch",
+        "uses": 3
+      },
+      {
+        "name": "Compass"
+      },
+      {
+        "name": "Rope"
+      },
+      {
+        "name": "Shovel"
+      }
+    ]
+  },
+  {
+    "name": "Lockpick",
+    "rate": 10,
+    "hp": 2,
+    "armor": 0,
+    "abilities": {
+      "STR": 9,
+      "DEX": 14,
+      "WIL": 11
+    },
+    "gear": [
+      {
+        "name": "Rations",
+        "uses": 3
+      },
+      {
+        "name": "Lantern"
+      },
+      {
+        "name": "Oil Can",
+        "uses": 6
+      },
+      {
+        "name": "Cudgel"
+      },
+      {
+        "name": "Lockpick"
+      },
+      {
+        "name": "Metal File"
+      }
+    ]
+  },
+  {
+    "name": "Navigator",
+    "rate": 10,
+    "hp": 3,
+    "armor": 0,
+    "abilities": {
+      "STR": 8,
+      "DEX": 12,
+      "WIL": 13
+    },
+    "gear": [
+      {
+        "name": "Rations",
+        "uses": 3
+      },
+      {
+        "name": "Torches",
+        "uses": 3
+      },
+      {
+        "name": "Dagger"
+      },
+      {
+        "name": "Compass"
+      },
+      {
+        "name": "Sextant"
+      }
+    ]
+  },
+  {
+    "name": "Sailor",
+    "rate": 5,
+    "hp": 2,
+    "armor": 0,
+    "abilities": {
+      "STR": 12,
+      "DEX": 11,
+      "WIL": 9
+    },
+    "gear": [
+      {
+        "name": "Rations",
+        "uses": 3
+      },
+      {
+        "name": "Lantern"
+      },
+      {
+        "name": "Oil Can",
+        "uses": 6
+      },
+      {
+        "name": "Sling"
+      },
+      {
+        "name": "Spyglass"
+      },
+      {
+        "name": "Rope"
+      }
+    ]
+  },
+  {
+    "name": "Scholar",
+    "rate": 20,
+    "hp": 2,
+    "armor": 0,
+    "abilities": {
+      "STR": 7,
+      "DEX": 11,
+      "WIL": 15
+    },
+    "gear": [
+      {
+        "name": "Rations",
+        "uses": 3
+      },
+      {
+        "name": "Candle",
+        "uses": 3
+      },
+      {
+        "name": "Parchment & Ink",
+        "uses": 3
+      },
+      {
+        "name": "Stylus"
+      },
+      {
+        "name": "Staff"
+      },
+      {
+        "name": "Robes"
+      }
+    ]
+  },
+  {
+    "name": "Tracker",
+    "rate": 5,
+    "hp": 4,
+    "armor": 0,
+    "abilities": {
+      "STR": 12,
+      "DEX": 13,
+      "WIL": 10
+    },
+    "gear": [
+      {
+        "name": "Rations",
+        "uses": 3
+      },
+      {
+        "name": "Torch",
+        "uses": 3
+      },
+      {
+        "name": "Crossbow"
+      },
+      {
+        "name": "Chains"
+      }
+    ]
+  },
+  {
+    "name": "Trapper",
+    "rate": 5,
+    "hp": 3,
+    "armor": 0,
+    "abilities": {
+      "STR": 11,
+      "DEX": 12,
+      "WIL": 10
+    },
+    "gear": [
+      {
+        "name": "Rations",
+        "uses": 3
+      },
+      {
+        "name": "Torch",
+        "uses": 3
+      },
+      {
+        "name": "Bow"
+      },
+      {
+        "name": "Trap"
+      },
+      {
+        "name": "Sack"
+      }
+    ]
+  },
+  {
+    "name": "Veteran Bodyguard",
+    "rate": 20,
+    "hp": 6,
+    "armor": 2,
+    "abilities": {
+      "STR": 14,
+      "DEX": 12,
+      "WIL": 11
+    },
+    "gear": [
+      {
+        "name": "Rations",
+        "uses": 3
+      },
+      {
+        "name": "Torch",
+        "uses": 3
+      },
+      {
+        "name": "Long Sword"
+      },
+      {
+        "name": "Helmet"
+      },
+      {
+        "name": "Gambeson"
+      }
+    ]
+  }
+]

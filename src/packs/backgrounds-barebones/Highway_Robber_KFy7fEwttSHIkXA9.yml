@@ -1,0 +1,28 @@
+_id: KFy7fEwttSHIkXA9
+name: Highway Robber
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 5000
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 50
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: Grappling Hook
+    - name: Rope
+    - name: Signal Flag
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!KFy7fEwttSHIkXA9'

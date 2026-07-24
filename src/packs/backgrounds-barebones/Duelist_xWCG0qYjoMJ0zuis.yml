@@ -1,0 +1,28 @@
+_id: xWCG0qYjoMJ0zuis
+name: Duelist
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 3300
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 33
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: Cloak
+    - name: Gloves
+    - name: Whetstone
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!xWCG0qYjoMJ0zuis'

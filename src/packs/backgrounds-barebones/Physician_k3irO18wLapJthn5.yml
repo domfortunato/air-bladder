@@ -1,0 +1,29 @@
+_id: k3irO18wLapJthn5
+name: Physician
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 7500
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 75
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: Antitoxin
+    - name: Bandages
+      uses: 3
+    - name: Crowbar
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!k3irO18wLapJthn5'

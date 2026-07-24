@@ -1,0 +1,310 @@
+_id: 9xGnh92OBt8Hkp2d
+name: Hooded Men
+type: npc
+sort: 100001
+flags: {}
+img: systems/air-bladder/icons/monster.png
+items:
+  - _id: zT19z4NuCKpPE9xF
+    name: Leystaff*
+    type: item
+    sort: 100000
+    flags: {}
+    img: icons/svg/mystery-man.svg
+    effects: []
+    _stats:
+      coreVersion: '12.327'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+    system:
+      description: ''
+      weightless: false
+      equipped: true
+      bulky: false
+      damageFormula: d8
+      criticalDamage: ''
+      blast: false
+      uses:
+        value: 0
+        max: 0
+      quantity: 1
+      slots: 1
+      armor: 0
+      numberOfUses: 0
+    folder: null
+    ownership:
+      default: 0
+    _key: '!actors.items!9xGnh92OBt8Hkp2d.zT19z4NuCKpPE9xF'
+  - _id: aA27BMtGr4mFu3bT
+    name: Charm
+    type: item
+    sort: 1400001
+    flags:
+      core:
+        sourceId: Item.e2bqe6cDAE8DZPPm
+    img: icons/svg/mystery-man.svg
+    effects: []
+    _stats:
+      coreVersion: '12.327'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+    system:
+      description: <p>A creature you can see treats you as a friend.</p>
+      weightless: false
+      equipped: false
+      bulky: false
+      damageFormula: ''
+      criticalDamage: ''
+      blast: false
+      uses:
+        value: 0
+        max: 0
+      quantity: 1
+      slots: 1
+      armor: 0
+      numberOfUses: 0
+    folder: null
+    ownership:
+      default: 0
+    _key: '!actors.items!9xGnh92OBt8Hkp2d.aA27BMtGr4mFu3bT'
+  - _id: E9AGxR1cqYzm7Snz
+    name: Hypnotize
+    type: item
+    sort: 4000001
+    flags:
+      core:
+        sourceId: Item.HyP8l1cpWoyognXB
+    img: icons/svg/mystery-man.svg
+    effects: []
+    _stats:
+      coreVersion: '12.327'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+    system:
+      description: >-
+        <p>A creature enters a trance and will truthfully answer one yes or no
+        questions you ask it.</p>
+      weightless: false
+      equipped: false
+      bulky: false
+      damageFormula: ''
+      criticalDamage: ''
+      blast: false
+      uses:
+        value: 0
+        max: 0
+      quantity: 1
+      slots: 1
+      armor: 0
+      numberOfUses: 0
+    folder: null
+    ownership:
+      default: 0
+    _key: '!actors.items!9xGnh92OBt8Hkp2d.E9AGxR1cqYzm7Snz'
+  - _id: zjCKsof6lmldwjrD
+    name: Push/Pull
+    type: item
+    sort: 6400001
+    flags:
+      core:
+        sourceId: Item.P189valRdUqrtmzB
+    img: icons/svg/mystery-man.svg
+    effects: []
+    _stats:
+      coreVersion: '12.327'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+    system:
+      description: >-
+        <p>An object of any size is pulled directly towards you or pushed
+        directly away from you with the strength of one man.</p>
+      weightless: false
+      equipped: false
+      bulky: false
+      damageFormula: ''
+      criticalDamage: ''
+      blast: false
+      uses:
+        value: 0
+        max: 0
+      quantity: 1
+      slots: 1
+      armor: 0
+      numberOfUses: 0
+    folder: null
+    ownership:
+      default: 0
+    _key: '!actors.items!9xGnh92OBt8Hkp2d.zjCKsof6lmldwjrD'
+  - _id: EHN1VODChI0LCfUx
+    name: Beast Form
+    type: item
+    sort: 1100001
+    flags:
+      core:
+        sourceId: Item.Ps330tEit9SCUKhV
+    img: icons/svg/mystery-man.svg
+    effects: []
+    _stats:
+      coreVersion: '12.327'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+    system:
+      description: <p>You and your possessions transform into a mundane animal.</p>
+      weightless: false
+      equipped: false
+      bulky: false
+      damageFormula: ''
+      criticalDamage: ''
+      blast: false
+      uses:
+        value: 0
+        max: 0
+      quantity: 1
+      slots: 1
+      armor: 0
+      numberOfUses: 0
+    folder: null
+    ownership:
+      default: 0
+    _key: '!actors.items!9xGnh92OBt8Hkp2d.EHN1VODChI0LCfUx'
+effects: []
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  bDeEK9GSahKwiAGH: 3
+system:
+  hp:
+    value: 12
+    max: 12
+  abilities:
+    STR:
+      value: 9
+      max: 9
+    DEX:
+      value: 12
+      max: 12
+    WIL:
+      value: 14
+      max: 14
+  description: >
+    <ul>
+
+    <li>The Watchers of the Wood; a cult that derive their power from leylines,
+    rune stones, and the like.<br></li>
+
+    <li>Critical damage: leech a part of the victim&#39;s soul (1d4 WIL
+    damage).<br></li>
+
+    </ul>
+  armor: null
+prototypeToken:
+  flags: {}
+  name: Hooded Men
+  displayName: 0
+  width: 1
+  height: 1
+  lockRotation: false
+  rotation: 0
+  actorLink: false
+  disposition: -1
+  displayBars: 0
+  bar1:
+    attribute: abilities.STR
+  bar2:
+    attribute: hp
+  randomImg: false
+  light:
+    dim: 0
+    bright: 0
+    angle: 360
+    alpha: 1
+    animation:
+      speed: 5
+      intensity: 5
+      type: null
+      reverse: false
+    negative: false
+    priority: 0
+    color: null
+    coloration: 1
+    attenuation: 0.5
+    luminosity: 0.5
+    saturation: 0
+    contrast: 0
+    shadows: 0
+    darkness:
+      min: 0
+      max: 1
+  texture:
+    src: icons/svg/mystery-man.svg
+    tint: '#ffffff'
+    scaleX: 1
+    scaleY: 1
+    anchorX: 0.5
+    anchorY: 0.5
+    offsetX: 0
+    offsetY: 0
+    fit: contain
+    rotation: 0
+    alphaThreshold: 0.75
+  sight:
+    angle: 360
+    enabled: false
+    range: 0
+    brightness: 1
+    visionMode: basic
+    color: null
+    attenuation: 0.1
+    saturation: 0
+    contrast: 0
+  appendNumber: false
+  prependAdjective: false
+  hexagonalShape: 0
+  alpha: 1
+  detectionModes: []
+  occludable:
+    radius: 0
+  ring:
+    enabled: false
+    colors:
+      ring: null
+      background: null
+    effects: 1
+    subject:
+      scale: 1
+      texture: null
+folder: null
+_key: '!actors!9xGnh92OBt8Hkp2d'

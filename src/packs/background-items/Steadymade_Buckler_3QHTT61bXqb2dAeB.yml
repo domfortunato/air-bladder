@@ -1,0 +1,27 @@
+_id: 3QHTT61bXqb2dAeB
+name: Steadymade Buckler
+type: armor
+img: systems/air-bladder/icons/armor.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: 'While holding this shield, you cannot be moved so long as both feet are planted on firm ground.'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+  armor: 1
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!3QHTT61bXqb2dAeB'

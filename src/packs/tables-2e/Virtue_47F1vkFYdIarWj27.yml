@@ -1,0 +1,147 @@
+_id: 47F1vkFYdIarWj27
+name: Virtue
+img: icons/svg/d20-grey.svg
+description: Cairn 2e Virtue trait.
+results:
+  - _id: QgsrVrU9Tu9ONlq5
+    type: text
+    text: Ambitious
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 1
+      - 1
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!47F1vkFYdIarWj27.QgsrVrU9Tu9ONlq5'
+  - _id: 9Nm6DlKshXumHVQs
+    type: text
+    text: Cautious
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!47F1vkFYdIarWj27.9Nm6DlKshXumHVQs'
+  - _id: SNpiN7rzOCoTHeam
+    type: text
+    text: Courageous
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!47F1vkFYdIarWj27.SNpiN7rzOCoTHeam'
+  - _id: 8lPbOGiRkBhquCUp
+    type: text
+    text: Disciplined
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!47F1vkFYdIarWj27.8lPbOGiRkBhquCUp'
+  - _id: HQWRxqEtdqL1GTFJ
+    type: text
+    text: Gregarious
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!47F1vkFYdIarWj27.HQWRxqEtdqL1GTFJ'
+  - _id: VqewMUHcGIFZwey9
+    type: text
+    text: Honorable
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!47F1vkFYdIarWj27.VqewMUHcGIFZwey9'
+  - _id: 3OsqckQtBbeKtB2J
+    type: text
+    text: Humble
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 7
+      - 7
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!47F1vkFYdIarWj27.3OsqckQtBbeKtB2J'
+  - _id: zYNEaLut5avrdYKZ
+    type: text
+    text: Merciful
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 8
+      - 8
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!47F1vkFYdIarWj27.zYNEaLut5avrdYKZ'
+  - _id: V36Hi4vthNQtvWHb
+    type: text
+    text: Serene
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 9
+      - 9
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!47F1vkFYdIarWj27.V36Hi4vthNQtvWHb'
+  - _id: wH0lcX08AWdY0PQy
+    type: text
+    text: Tolerant
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 10
+      - 10
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!47F1vkFYdIarWj27.wH0lcX08AWdY0PQy'
+formula: 1d10
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!tables!47F1vkFYdIarWj27'

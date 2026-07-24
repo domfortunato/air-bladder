@@ -1,0 +1,30 @@
+name: Shuffle
+type: spellbook
+flags:
+  core:
+    sourceId: Item.cW5rLiFqqJL9ewf7
+img: systems/air-bladder/icons/spellbook.png
+effects: []
+_id: 3kBu8oyEXBfIO8M6
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  description: <p>Two creatures you can see instantly switch places.</p>
+  weightless: false
+  equipped: true
+  bulky: false
+  quantity: 1
+  slots: 1
+folder: null
+sort: 0
+_key: '!items!3kBu8oyEXBfIO8M6'

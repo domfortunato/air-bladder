@@ -1,0 +1,28 @@
+_id: K4t9nq0pooT0jIWZ
+name: Cobbler
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 2500
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 25
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: Pliers
+    - name: Sack
+    - name: Sewing Kit
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!K4t9nq0pooT0jIWZ'

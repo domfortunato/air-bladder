@@ -1,0 +1,26 @@
+_id: z8LgxWkUqjz8qsk4
+name: Bandages
+type: item
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: Clean linen strips for binding wounds and stanching blood.
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 30
+  quantity: 1
+  uses:
+    value: 3
+    max: 3
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!z8LgxWkUqjz8qsk4'

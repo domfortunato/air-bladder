@@ -1,0 +1,32 @@
+name: Disassemble
+type: spellbook
+flags:
+  core:
+    sourceId: Item.y9ZPP3xyh57Rr1u8
+img: systems/air-bladder/icons/spellbook.png
+effects: []
+_id: E8vwECW4aGhtuNHq
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  description: >-
+    <p>Any of your body parts may be detached and reattached at will, without
+    causing pain or damage. You can still control them.</p>
+  weightless: false
+  equipped: false
+  bulky: false
+  quantity: 1
+  slots: 1
+folder: null
+sort: 0
+_key: '!items!E8vwECW4aGhtuNHq'

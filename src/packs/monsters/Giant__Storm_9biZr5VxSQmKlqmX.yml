@@ -1,0 +1,232 @@
+_id: 9biZr5VxSQmKlqmX
+name: Giant, Storm
+type: npc
+sort: 100001
+flags: {}
+img: systems/air-bladder/icons/monster.png
+items:
+  - _id: zc8o5evMNJGtr6DO
+    name: Giant Greatsword
+    type: item
+    sort: 100000
+    flags: {}
+    img: icons/svg/mystery-man.svg
+    effects: []
+    _stats:
+      coreVersion: '12.327'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+    system:
+      description: ''
+      weightless: false
+      equipped: true
+      bulky: false
+      damageFormula: 2d10k
+      criticalDamage: ''
+      blast: false
+      uses:
+        value: 0
+        max: 0
+      quantity: 1
+      slots: 3
+      armor: 0
+      numberOfUses: 0
+    folder: null
+    ownership:
+      default: 0
+    _key: '!actors.items!9biZr5VxSQmKlqmX.zc8o5evMNJGtr6DO'
+  - _id: 1RnTyYFvLuJGQD7X
+    name: Chainmail
+    type: item
+    sort: 300000
+    flags:
+      core:
+        sourceId: Item.XUSozi5cljs4LWmf
+    img: icons/svg/mystery-man.svg
+    effects: []
+    _stats:
+      coreVersion: '12.327'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+    system:
+      description: ''
+      weightless: false
+      equipped: true
+      bulky: false
+      damageFormula: ''
+      criticalDamage: ''
+      blast: false
+      uses:
+        value: 0
+        max: 0
+      quantity: 1
+      slots: 5
+      armor: 2
+      numberOfUses: 0
+    folder: null
+    ownership:
+      default: 0
+    _key: '!actors.items!9biZr5VxSQmKlqmX.1RnTyYFvLuJGQD7X'
+  - _id: cPVPyFY5SKNOUCu9
+    name: Lightning Bolts
+    type: item
+    sort: 400000
+    flags: {}
+    img: icons/svg/mystery-man.svg
+    effects: []
+    _stats:
+      coreVersion: '12.327'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+    system:
+      description: ''
+      weightless: false
+      equipped: true
+      bulky: false
+      damageFormula: d12
+      criticalDamage: ''
+      blast: false
+      uses:
+        value: 0
+        max: 0
+      quantity: 1
+      slots: 0
+      armor: 0
+      numberOfUses: 0
+    folder: null
+    ownership:
+      default: 0
+    _key: '!actors.items!9biZr5VxSQmKlqmX.cPVPyFY5SKNOUCu9'
+effects: []
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  bDeEK9GSahKwiAGH: 3
+system:
+  hp:
+    value: 15
+    max: 15
+  abilities:
+    STR:
+      value: 20
+      max: 20
+    DEX:
+      value: 14
+      max: 14
+    WIL:
+      value: 18
+      max: 18
+  description: >
+    <ul>
+
+    <li>22’ tall humanoids with bronze-hued skin and light-colored hair. Live in
+    mountain peaks and deep waters.<br></li>
+
+    <li>Unharmed by lightning, can summon storms at their will.<br></li>
+
+    <li>Can summon lightning bolts to attack nearby enemies for d12
+    damage.<br></li>
+
+    </ul>
+  armor: null
+prototypeToken:
+  flags: {}
+  name: Giant, Storm
+  displayName: 0
+  width: 1
+  height: 1
+  lockRotation: false
+  rotation: 0
+  actorLink: false
+  disposition: -1
+  displayBars: 0
+  bar1:
+    attribute: abilities.STR
+  bar2:
+    attribute: hp
+  randomImg: false
+  light:
+    dim: 0
+    bright: 0
+    angle: 360
+    alpha: 1
+    animation:
+      speed: 5
+      intensity: 5
+      type: null
+      reverse: false
+    negative: false
+    priority: 0
+    color: null
+    coloration: 1
+    attenuation: 0.5
+    luminosity: 0.5
+    saturation: 0
+    contrast: 0
+    shadows: 0
+    darkness:
+      min: 0
+      max: 1
+  texture:
+    src: icons/svg/mystery-man.svg
+    tint: '#ffffff'
+    scaleX: 1
+    scaleY: 1
+    anchorX: 0.5
+    anchorY: 0.5
+    offsetX: 0
+    offsetY: 0
+    fit: contain
+    rotation: 0
+    alphaThreshold: 0.75
+  sight:
+    angle: 360
+    enabled: false
+    range: 0
+    brightness: 1
+    visionMode: basic
+    color: null
+    attenuation: 0.1
+    saturation: 0
+    contrast: 0
+  appendNumber: false
+  prependAdjective: false
+  hexagonalShape: 0
+  alpha: 1
+  detectionModes: []
+  occludable:
+    radius: 0
+  ring:
+    enabled: false
+    colors:
+      ring: null
+      background: null
+    effects: 1
+    subject:
+      scale: 1
+      texture: null
+folder: null
+_key: '!actors!9biZr5VxSQmKlqmX'

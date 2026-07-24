@@ -1,0 +1,32 @@
+name: Attract
+type: spellbook
+flags:
+  core:
+    sourceId: Item.kGLEso7vOY9XtwKn
+img: systems/air-bladder/icons/spellbook.png
+effects: []
+_id: R446KCEYPYbG9mRp
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  description: >-
+    <p>Two objects are strongly magnetically attracted to each other if they
+    come within 10 feet.</p>
+  weightless: false
+  equipped: false
+  bulky: false
+  quantity: 1
+  slots: 1
+folder: null
+sort: 0
+_key: '!items!R446KCEYPYbG9mRp'

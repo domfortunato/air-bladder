@@ -1,0 +1,26 @@
+_id: E7Nr9ZADifGDW5wz
+name: Everbloom Band
+type: item
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: 'A circlet adorned with flowers that never wilt. On Critical Damage, the flowers dissolve into dust, but you act as if your save succeeded (STR loss still occurs).'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!E7Nr9ZADifGDW5wz'

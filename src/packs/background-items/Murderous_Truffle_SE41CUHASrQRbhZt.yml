@@ -1,0 +1,26 @@
+_id: SE41CUHASrQRbhZt
+name: Murderous Truffle
+type: item
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: 'Pungent, highly toxic, and very rare (worth 50gp to assassins). Illegal pretty much everywhere.'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 50
+  quantity: 1
+  uses:
+    value: 1
+    max: 1
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!SE41CUHASrQRbhZt'

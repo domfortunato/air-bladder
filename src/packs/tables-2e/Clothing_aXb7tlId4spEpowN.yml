@@ -1,0 +1,147 @@
+_id: aXb7tlId4spEpowN
+name: Clothing
+img: icons/svg/d20-grey.svg
+description: Cairn 2e Clothing trait.
+results:
+  - _id: BJAcfmlsK0JAUaMG
+    type: text
+    text: Antique
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 1
+      - 1
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!aXb7tlId4spEpowN.BJAcfmlsK0JAUaMG'
+  - _id: NqhXBAVZzTE2jsEE
+    type: text
+    text: Bloody
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!aXb7tlId4spEpowN.NqhXBAVZzTE2jsEE'
+  - _id: I16pLbszR8ENT2mt
+    type: text
+    text: Elegant
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!aXb7tlId4spEpowN.I16pLbszR8ENT2mt'
+  - _id: mTZ3zjNB6FItS2bl
+    type: text
+    text: Filthy
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!aXb7tlId4spEpowN.mTZ3zjNB6FItS2bl'
+  - _id: L5H11OimZY7cLRc9
+    type: text
+    text: Foreign
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!aXb7tlId4spEpowN.L5H11OimZY7cLRc9'
+  - _id: c61Op9bCSGLhDc6L
+    type: text
+    text: Frayed
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!aXb7tlId4spEpowN.c61Op9bCSGLhDc6L'
+  - _id: DTheFJrGXaUfg9ad
+    type: text
+    text: Frumpy
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 7
+      - 7
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!aXb7tlId4spEpowN.DTheFJrGXaUfg9ad'
+  - _id: FwTNstfT9bZH8U0Z
+    type: text
+    text: Livery
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 8
+      - 8
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!aXb7tlId4spEpowN.FwTNstfT9bZH8U0Z'
+  - _id: EB5jpol431S8JpFL
+    type: text
+    text: Rancid
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 9
+      - 9
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!aXb7tlId4spEpowN.EB5jpol431S8JpFL'
+  - _id: 22veT0N1c2cTsq2g
+    type: text
+    text: Soiled
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 10
+      - 10
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!aXb7tlId4spEpowN.22veT0N1c2cTsq2g'
+formula: 1d10
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!tables!aXb7tlId4spEpowN'

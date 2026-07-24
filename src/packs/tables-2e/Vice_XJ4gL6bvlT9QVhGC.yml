@@ -1,0 +1,147 @@
+_id: XJ4gL6bvlT9QVhGC
+name: Vice
+img: icons/svg/d20-grey.svg
+description: Cairn 2e Vice trait.
+results:
+  - _id: G5NQxm0Sm97PvBKP
+    type: text
+    text: Aggressive
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 1
+      - 1
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!XJ4gL6bvlT9QVhGC.G5NQxm0Sm97PvBKP'
+  - _id: H9vZPjzj2zbJWj67
+    type: text
+    text: Bitter
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!XJ4gL6bvlT9QVhGC.H9vZPjzj2zbJWj67'
+  - _id: H05DyovscfLxkdmi
+    type: text
+    text: Craven
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!XJ4gL6bvlT9QVhGC.H05DyovscfLxkdmi'
+  - _id: ZMmUCkGKLTAC2zs0
+    type: text
+    text: Deceitful
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!XJ4gL6bvlT9QVhGC.ZMmUCkGKLTAC2zs0'
+  - _id: xmpKH4eVrQZyckjB
+    type: text
+    text: Greedy
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!XJ4gL6bvlT9QVhGC.xmpKH4eVrQZyckjB'
+  - _id: tTbaiDdnhjI8poKv
+    type: text
+    text: Lazy
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!XJ4gL6bvlT9QVhGC.tTbaiDdnhjI8poKv'
+  - _id: 7F1zCvSVXvdO1uK5
+    type: text
+    text: Nervous
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 7
+      - 7
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!XJ4gL6bvlT9QVhGC.7F1zCvSVXvdO1uK5'
+  - _id: rnB7vVPzEj6RDAym
+    type: text
+    text: Rude
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 8
+      - 8
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!XJ4gL6bvlT9QVhGC.rnB7vVPzEj6RDAym'
+  - _id: JwRvQCLtWp95Bt59
+    type: text
+    text: Vain
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 9
+      - 9
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!XJ4gL6bvlT9QVhGC.JwRvQCLtWp95Bt59'
+  - _id: wrjAvnElS5zG6kwU
+    type: text
+    text: Vengeful
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 10
+      - 10
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!XJ4gL6bvlT9QVhGC.wrjAvnElS5zG6kwU'
+formula: 1d10
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!tables!XJ4gL6bvlT9QVhGC'

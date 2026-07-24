@@ -1,0 +1,26 @@
+_id: cv9gIH8porY6G3Cl
+name: Mapping Paper
+type: item
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: Rolls of durable paper for charting the lands you cross. Still mostly blank.
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!cv9gIH8porY6G3Cl'

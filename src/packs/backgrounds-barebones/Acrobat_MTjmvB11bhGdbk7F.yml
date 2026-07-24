@@ -1,0 +1,28 @@
+_id: MTjmvB11bhGdbk7F
+name: Acrobat
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 200
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 2
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: 'Pole, 10ft'
+    - name: Rope
+    - name: Smokebomb
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!MTjmvB11bhGdbk7F'

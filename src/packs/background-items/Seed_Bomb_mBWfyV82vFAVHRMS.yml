@@ -1,0 +1,29 @@
+_id: mBWfyV82vFAVHRMS
+name: Seed Bomb
+type: weapon
+img: systems/air-bladder/icons/weapons.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: 'A canvas sack filled with seeds that explode on impact. d6 damage (blast, 3 uses).'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 3
+    max: 3
+  damageFormula: d6
+  criticalDamage: ''
+  blast: true
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!mBWfyV82vFAVHRMS'

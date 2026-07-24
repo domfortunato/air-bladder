@@ -1,0 +1,88 @@
+_id: PGAroifa8y3D4UdS
+name: Greenwise
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    backgroundSource: srd-2e
+system:
+  source: 2e
+  archetype: Wizard
+  description: '<p>You delve deep into the Wood, prying its secrets from between rough boughs and whispering leaves. To this verdant kingdom, you are no mere scholar but its confidant as well.</p>'
+  names:
+    - Gunther
+    - Moss
+    - Fern
+    - Lichen
+    - Root
+    - Willow
+    - Sage
+    - Yarrow
+    - Rowan
+    - Ash
+  startingGear:
+    - name: Rations
+      uses: 3
+    - name: Torch
+      uses: 3
+    - name: Iron Pot
+    - name: Root Knife
+    - name: Healing Salve
+      uses: 1
+    - name: Twine Bauble
+  containers: []
+  tables:
+    - question: 'How has the Wood failed you ?'
+      options:
+        - description: 'An ill-tempered forest spirit cursed you for stealing, marking you as an enemy of their kind. Take a Bezoar Stone. Ingesting it cures any poison (1 use, unless retrieved).'
+          items:
+            - name: Bezoar Stone
+              uses: 1
+        - description: A close friend disappeared into the forest. Now you see their face in any tea you brew. Take a Soporific Concoction (3 uses).
+          items:
+            - name: Soporific Concoction
+              uses: 3
+        - description: 'You were poisoned, losing your sense of taste and smell. You can now withstand noxious fumes and always carry Antitoxin (2 uses).'
+          items:
+            - name: Antitoxin
+              uses: 2
+        - description: 'Your radical experiments turned your skin green, and you now gain nourishment as a plant. You don''t need Rations, but a day without sufficient sunlight and water leaves you deprived.'
+        - description: 'Your impressive corpseflower won a local contest then promptly killed a judge. You fled, but not without the Prize Money (100gp) and a warrant for your arrest.'
+          bonusGold: 100
+        - description: You created a restorative tincture that also causes accidental infertility. Take a Healing Potion that completely restores STR. Only you know of its unintended side-effects.
+          items:
+            - name: Healing Potion
+              uses: 1
+    - question: 'What keeps you safe while in the Wood?'
+      options:
+        - description: 'Amadou: A vermilion fungus that catches fire quite easily. 3 uses.'
+          items:
+            - name: Amadou
+              uses: 3
+        - description: 'Delphinium: Breathe water for up to one hour. 1 use, but can be divided into fractional doses.'
+          items:
+            - name: Delphinium
+              uses: 1
+        - description: 'Tacky Stalk: A woody reed that hardens into a permanent adhesive when chewed. 2 uses.'
+          items:
+            - name: Tacky Stalk
+              uses: 2
+        - description: 'Wisp Lantern: Caged in wrought iron, provides a dim light so long as the wisp is able to feed on nearby pain and fear.'
+          items:
+            - name: Wisp Lantern
+        - description: 'Seed Bomb: A canvas sack filled with seeds that explode on impact. d6 damage (blast, 3 uses).'
+          items:
+            - name: Seed Bomb
+              uses: 3
+        - description: 'Briarvine: Entangles any creature up to horse size (STR to break free). Reusable.'
+          items:
+            - name: Briarvine
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!PGAroifa8y3D4UdS'

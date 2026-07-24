@@ -1,0 +1,27 @@
+_id: DkxLT9dFGX7ULaAP
+name: Wagon
+type: transport
+img: systems/air-bladder/icons/wagon.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    transportSource: 2e
+system:
+  description: 'A large four-wheeled wagon. Hauls eight slots of gear, but needs a beast to draw it and travels slow.'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 200
+  quantity: 1
+  transportKind: vehicle
+  slots: 8
+  load: 0
+  slow: true
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!DkxLT9dFGX7ULaAP'

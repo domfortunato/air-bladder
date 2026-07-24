@@ -1,0 +1,277 @@
+_id: doNKixIVOmT2kF9v
+name: 'Warden: Monster - Attack (Type)'
+img: icons/svg/d20-grey.svg
+description: Cairn 2e monster attack type (Creating Monsters). Roll with Attack (Critical Damage).
+results:
+  - _id: TZAwCYUozMZtKId3
+    type: text
+    text: Bites
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 1
+      - 1
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!doNKixIVOmT2kF9v.TZAwCYUozMZtKId3'
+  - _id: r0ECMUMuvgMoNAzL
+    type: text
+    text: Blunts
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!doNKixIVOmT2kF9v.r0ECMUMuvgMoNAzL'
+  - _id: OAW6nAFMYr8lTWSD
+    type: text
+    text: Burns
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!doNKixIVOmT2kF9v.OAW6nAFMYr8lTWSD'
+  - _id: CHzDHMDUb1abWOVe
+    type: text
+    text: Freezes
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!doNKixIVOmT2kF9v.CHzDHMDUb1abWOVe'
+  - _id: w0hqq9OveG7yDiQJ
+    type: text
+    text: Gases
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!doNKixIVOmT2kF9v.w0hqq9OveG7yDiQJ'
+  - _id: ahxjq0lVtTeJdKJb
+    type: text
+    text: Kicks
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!doNKixIVOmT2kF9v.ahxjq0lVtTeJdKJb'
+  - _id: LmfKlHAQqJbKB9Z0
+    type: text
+    text: Punches
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 7
+      - 7
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!doNKixIVOmT2kF9v.LmfKlHAQqJbKB9Z0'
+  - _id: IjRn3DCFYrIRetmK
+    type: text
+    text: Shoots
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 8
+      - 8
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!doNKixIVOmT2kF9v.IjRn3DCFYrIRetmK'
+  - _id: oU2LrIoRIUHxL15q
+    type: text
+    text: Slams
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 9
+      - 9
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!doNKixIVOmT2kF9v.oU2LrIoRIUHxL15q'
+  - _id: Pt2FklrWhMCZT9tv
+    type: text
+    text: Slashes
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 10
+      - 10
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!doNKixIVOmT2kF9v.Pt2FklrWhMCZT9tv'
+  - _id: 0RL3jGkOa2FnWqPe
+    type: text
+    text: Slices
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 11
+      - 11
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!doNKixIVOmT2kF9v.0RL3jGkOa2FnWqPe'
+  - _id: GQBf6a8pO0phLxgp
+    type: text
+    text: Smashes
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 12
+      - 12
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!doNKixIVOmT2kF9v.GQBf6a8pO0phLxgp'
+  - _id: M1qPHEMpOfIAqq4A
+    type: text
+    text: Sprays
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 13
+      - 13
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!doNKixIVOmT2kF9v.M1qPHEMpOfIAqq4A'
+  - _id: fnVYzWOQ0f50XajP
+    type: text
+    text: Squeezes
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 14
+      - 14
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!doNKixIVOmT2kF9v.fnVYzWOQ0f50XajP'
+  - _id: UFoyDusCMDTGrjbE
+    type: text
+    text: Stabs
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 15
+      - 15
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!doNKixIVOmT2kF9v.UFoyDusCMDTGrjbE'
+  - _id: FBdnhAb85WmHnujl
+    type: text
+    text: Stings
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 16
+      - 16
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!doNKixIVOmT2kF9v.FBdnhAb85WmHnujl'
+  - _id: 5BHS4dHkZIHQ9DFm
+    type: text
+    text: Throws
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 17
+      - 17
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!doNKixIVOmT2kF9v.5BHS4dHkZIHQ9DFm'
+  - _id: pIK3KNYoOIQtTrIF
+    type: text
+    text: Touches
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 18
+      - 18
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!doNKixIVOmT2kF9v.pIK3KNYoOIQtTrIF'
+  - _id: 1BIkZV8qFM5NRFwx
+    type: text
+    text: Whips
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 19
+      - 19
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!doNKixIVOmT2kF9v.1BIkZV8qFM5NRFwx'
+  - _id: udmyBjLJxACLjuHe
+    type: text
+    text: Zaps
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 20
+      - 20
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!doNKixIVOmT2kF9v.udmyBjLJxACLjuHe'
+formula: 1d20
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!tables!doNKixIVOmT2kF9v'

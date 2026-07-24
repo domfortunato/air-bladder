@@ -1,0 +1,26 @@
+_id: V2rxUhC2ASF7GEkD
+name: Salt pouch
+type: item
+img: systems/air-bladder/icons/sack.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: 'A pouch of coarse salt: preserves food, seasons a meal, and wards off some unclean things.'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!V2rxUhC2ASF7GEkD'

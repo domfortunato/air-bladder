@@ -1,0 +1,32 @@
+name: Telepathy
+type: spellbook
+flags:
+  core:
+    sourceId: Item.RH28KFM3Pg7Po5RL
+img: systems/air-bladder/icons/spellbook.png
+effects: []
+_id: VX1BanTk5M0WRcmS
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  description: >-
+    <p>Two creatures can hear each other's thoughts, no matter how far apart
+    they move.</p>
+  weightless: false
+  equipped: true
+  bulky: false
+  quantity: 1
+  slots: 1
+folder: null
+sort: 0
+_key: '!items!VX1BanTk5M0WRcmS'

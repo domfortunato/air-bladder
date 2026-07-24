@@ -1,0 +1,128 @@
+{
+  "TYPES.Actor.character": "Postać gracza",
+  "TYPES.Actor.container": "Pojemnik",
+  "TYPES.Actor.npc": "Bohater niezależny",
+  "TYPES.Item.armor": "Pancerz",
+  "TYPES.Item.item": "Dowolna rzecz",
+  "TYPES.Item.weapon": "Broń",
+  "TYPES.Item.spellbook": "Księga zaklęć",
+  "TYPES.Item.object": "Przedmiot",
+  "CAIRN.AddFatigue": "Dodaj zmęczenie",
+  "CAIRN.AddItem": "Dodaj przedmiot",
+  "CAIRN.AddContainer": "Dodaj pojemnik",
+  "CAIRN.AddFeature": "Dodaj cechę",
+  "CAIRN.Armor": "Pancerz",
+  "CAIRN.Background": "Przeszłość",
+  "CAIRN.Blast": "Podmuch",
+  "CAIRN.BoldMeanEquipped": "(pogrubienie - używany)",
+  "CAIRN.Bulky": "Nieporęczny",
+  "CAIRN.CharacterGenerator": "Losuj postać",
+  "CAIRN.CharacterRegeneratorConfirm": "Czy na pewno chcesz usunąć i stworzyć ponownie tę postać?",
+  "CAIRN.CharacterRegeneratorTitle": "Usunąć postać i stworzyć ponownie?",
+  "CAIRN.Containers": "Pojemniki",
+  "CAIRN.ContainerAlreadyOwned": "Ten pojemnik jest już czyjąś własnością.",
+  "CAIRN.CreateItem": "Stwórz przedmiot",
+  "CAIRN.CreateContainer": "Stwórz pojemnik",
+  "CAIRN.CreateFeature": "Stwórz cechę",
+  "CAIRN.CriticalDamage": "Obrażenia krytyczne",
+  "CAIRN.Damage": "Obrażenia",
+  "CAIRN.Dead": "Martwy",
+  "CAIRN.DeleteItem": "Usuń przedmiot",
+  "CAIRN.Deprived": "Dyskomfort",
+  "CAIRN.Description": "Opis",
+  "CAIRN.DieOfFate": "Kość Losu",
+  "CAIRN.Equipped": "Używany",
+  "CAIRN.EditItem": "Edytuj przedmiot",
+  "CAIRN.EditFeature": "Edytuj cechę",
+  "CAIRN.Fatigue": "Zmęczenie",
+  "CAIRN.Fail": "Porażka",
+  "CAIRN.Features": "Cechy",
+  "CAIRN.FeaturesInfo": "Dodatkowe cechy postaci z efektem mechanicznym. Mogą wynikać ze specjalnych zdolności lub zostać nabyte jako efekt doświadczenia.",
+  "CAIRN.Gold": "Złoto",
+  "CAIRN.HitProtection": "OCHR",
+  "CAIRN.Item": "Przedmiot",
+  "CAIRN.Items": "Przedmioty",
+  "CAIRN.MaxUses": "Maks. użyć",
+  "CAIRN.ModifiedElements": "Modyfikowane elementy",
+  "CAIRN.Name": "Nazwa",
+  "CAIRN.NoItemToDelete": "Brak przedmiotów do usunięcia.",
+  "CAIRN.Notes": "Notatki",
+  "CAIRN.Notify": {
+    "MaxSlotsOccupied": "Maksymalna liczba miejsc jest już zajęta.",
+    "ConfirmDelete": "Usunąć"
+  },
+  "CAIRN.Quantity": "Ilość",
+  "CAIRN.Owner": "Właściciel",
+  "CAIRN.OverburdenByGold": "Postać może być przeciążona przez zbyt dużą ilość złota",
+  "CAIRN.Panicked": "Panika",
+  "CAIRN.RemoveFatigue": "Usuń zmęczenie",
+  "CAIRN.RegenerateCharacter": "Generuj",
+  "CAIRN.Rest": "Odpoczynek",
+  "CAIRN.RestoreAbilities": "Odnów zdolności",
+  "CAIRN.RollDamage": "Rzut na obrażenia",
+  "CAIRN.Rolling": "Rzut",
+  "CAIRN.RollingDmgWith": "Rzut na obrażenia",
+  "CAIRN.RollingWithPanic": "Panika",
+  "CAIRN.Role": "Rola",
+  "CAIRN.Save": "rzut obronny {key}",
+  "CAIRN.Scars": "Otrzymuje bliznę",
+  "CAIRN.Settings": {
+    "MaxEquipSlots": {
+      "label": "Limit ekwipunku",
+      "hint": "Maksymalna liczba miejsc w ekwipunku postaci gracza, używana do śledzenia obciążenia postaci."
+    },
+    "UseGoldThreshold": {
+      "label": "Limit mieszka złota",
+      "hint": "Określa liczbę sztuk złota, która zajmuje już miejsce w ekwipunku. Zero oznacza, że złoto nie jest wliczane do obciążenia.",
+      "message": "Złoto liczone jako przedmioty"
+    },
+    "UsePanic": {
+      "label": "Panika",
+      "hint": "Postacie graczy mogą ulec panice (reguła drugiej edycji)."
+    },
+    "UseItemIcons": {
+      "label": "Pokaż ikony przedmiotów",
+      "hint": "Pokaż ikony dla nietórych przedmiotów w ekwipunku, przydatne do szybkiego rozpoznawania ich rodzaju."
+    },
+    "UseCairnDiceNotation": {
+      "label": "Użyj notacji Cairn do rzutów",
+      "hint": "Interpretuj zapis rzutów w stylu 'd6+d6' tak, jak opisano w regułach Cairn (rzut dwoma kośćmi i wybór większej wartości)."
+    },
+    "ShowGenerateHeader":{
+      "label":"Przycisk generowania w nagłówku",
+      "hint": "Pokaż przycisk 'Generuj' w nagłówku karty postaci."
+    },
+    "ShowFeatures":{
+      "label":"Sekcja cech postaci w opisie",
+      "hint": "Pokaż dodatkową sekcję 'Cechy postaci' w zakładce 'Opis'"
+    },
+    "ShowContainerActors": {
+      "label":"Pokaż kontenery",
+      "hint": "Pokaż kontenery na liście aktorów."
+    },
+    "CharacterInventoryLimit": {
+      "label":"Limit ekwipunku dla postaci",
+      "hint": "Limit ekwipunku może być definiowany oddzielnie dla każdej postaci."
+    }
+  },
+  "CAIRN.Slots": "Miejsca",
+  "CAIRN.Spellbook": "Księga zaklęć",
+  "CAIRN.StrSave": "Musi zdać test SIŁ",
+  "CAIRN.RollStrSave": "Rzut obronny SIŁ",
+  "CAIRN.Success": "Sukces",
+  "CAIRN.Type": "Typ",
+  "CAIRN.Uses": "Użycia",
+  "CAIRN.UpdateFeature": "Zapisz cechę",
+  "CAIRN.Weapon": "Broń",
+  "CAIRN.Weightless": "Drobiazg",
+  "CAIRN.ItemAddQuantity": "Dodaj",
+  "CAIRN.ItemEquip": "Użyj",
+  "CAIRN.ItemRemoveQuantity": "Usuń",
+  "CAIRN.ItemUnequip": "Odłóż",
+  "CAIRN.ApplyDamage": "Zadaj obrażenia",
+  "CAIRN.Cost": "Koszt",
+  "CAIRN.SetLimit": "Ustaw limit",
+  "DEX": "ZRE",
+  "STR": "SIŁ",
+  "WIL": "WOL"
+}

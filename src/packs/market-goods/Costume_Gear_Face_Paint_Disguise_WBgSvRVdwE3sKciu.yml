@@ -1,0 +1,26 @@
+_id: WBgSvRVdwE3sKciu
+name: 'Costume Gear (Face Paint, Disguise)'
+type: item
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    marketSource: 2e
+system:
+  description: 'Paint, wigs, and props for becoming someone you''re not.'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 15
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!WBgSvRVdwE3sKciu'

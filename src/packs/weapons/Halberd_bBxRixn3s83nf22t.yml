@@ -1,0 +1,37 @@
+name: Halberd
+type: weapon
+flags:
+  core:
+    sourceId: Item.rnT2kjn2hMAiopWO
+img: systems/air-bladder/icons/weapons.png
+effects: []
+_id: bBxRixn3s83nf22t
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  cost: 20
+  description: 'A long polearm crowned with axe, spike, and hook. Reach and menace both.'
+  weightless: false
+  equipped: true
+  bulky: true
+  damageFormula: 1d10
+  criticalDamage: ''
+  blast: false
+  uses:
+    value: 0
+    max: 0
+  quantity: 1
+  slots: 2
+folder: null
+sort: 0
+_key: '!items!bBxRixn3s83nf22t'

@@ -1,0 +1,78 @@
+_id: hfrT4PEztXqyvhCg
+name: Rill Runner
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    backgroundSource: srd-2e
+system:
+  source: 2e
+  archetype: Fighter
+  description: '<p>You sing the stories of rivers and lakes, your talents soothing friends and the elements alike. You''ve seen more than most, but somehow it never seems to be enough.</p>'
+  names:
+    - Gale
+    - Piper
+    - Brook
+    - Adair
+    - Stone
+    - Dale
+    - Wren
+    - Cliff
+    - Rain
+    - Robin
+  startingGear:
+    - name: Rations
+      uses: 3
+    - name: Torch
+      uses: 3
+    - name: Water Shoes
+    - name: Brigandine
+    - name: Compass
+    - name: Dagger
+  containers: []
+  tables:
+    - question: 'What songs are you best known for?'
+      options:
+        - description: 'The Tinker''s Two-Step. A humorous fairy tale about a gift-giving traveler. Start with a Reed Whistle. Anyone in earshot must pass a WIL save to perform an act of violence.'
+          items:
+            - name: Reed Whistle
+        - description: 'The Sylph and Her Lover. A bawdy tale of lost love. Start with a Breeze Knot (3 charges). Creates a strong breeze. Recharge: Tie it to a mast during a storm.'
+          items:
+            - name: Breeze Knot
+        - description: 'Harper''s Devotion. A sad, short tale about a musician that falls in love with a star. Start with a Celestial Lute. Reveals the constellations above, no matter the weather.'
+          items:
+            - name: Celestial Lute
+        - description: 'The Reed Fisher. A celebrated song about a massive carp that always seems to get away. Begin with a spool of River Twine (5 uses). Each dip into the river guarantees a catch, though it might not be pleasant.'
+          items:
+            - name: River Twine
+              uses: 5
+        - description: Song of the Silver Stream. A wordless lullaby that mimics flowing water. Take a Stone Flute that can calm almost any river.
+          items:
+            - name: Stone Flute
+        - description: 'The Thrush and the Meadow. A moody tale told in alternating chorus. Start with a Feather Quill (1 use, petty). A map drawn with this quill reveals the most expedient course between any two points.'
+          items:
+            - name: Feather Quill
+              uses: 1
+    - question: 'What pays your way across the land?'
+      options:
+        - description: 'Performance: Performing at taverns always yields both room and board. Sometimes you even get tips! Start with an extra 10gp.'
+          bonusGold: 10
+        - description: 'Bodyguard: You are a protector for those afraid to travel alone. Start with a Rapier (d8).'
+          items:
+            - name: Rapier
+        - description: 'Wares: You buy low and sell high, always making just enough to get by. Take a single item worth 20gp (or less) from the gear table.'
+          bonusGold: 20
+        - description: 'Transport: You deliver "delicate" packages throughout the lands. You have at least one contact in any major town.'
+        - description: 'Sailor''s Friend: Over troubled waters and dangerous winds, you always make sure a ship reaches its destination. For you, passage is always free.'
+        - description: 'Guide: You shepherd caravans and travelers across water-soaked lands. Start with a map (petty) relevant to your next journey.'
+          items:
+            - name: Map
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!hfrT4PEztXqyvhCg'

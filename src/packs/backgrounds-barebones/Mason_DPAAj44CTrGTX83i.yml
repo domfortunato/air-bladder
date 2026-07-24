@@ -1,0 +1,28 @@
+_id: DPAAj44CTrGTX83i
+name: Mason
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 6300
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 63
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: Chisel
+    - name: Fan
+    - name: Hammer
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!DPAAj44CTrGTX83i'

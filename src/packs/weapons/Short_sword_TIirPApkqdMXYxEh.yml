@@ -1,0 +1,29 @@
+_id: TIirPApkqdMXYxEh
+name: Short sword
+type: weapon
+img: systems/air-bladder/icons/weapons.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: 'A plain, reliable blade issued by the Order of the Glass Sigil. Kept sharp, kept ready.'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+  damageFormula: d6
+  criticalDamage: ''
+  blast: false
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!TIirPApkqdMXYxEh'

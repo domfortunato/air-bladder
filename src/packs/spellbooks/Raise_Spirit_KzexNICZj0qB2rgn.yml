@@ -1,0 +1,30 @@
+name: Raise Spirit
+type: spellbook
+flags:
+  core:
+    sourceId: Item.9DuFZgeUj3IMwet0
+img: systems/air-bladder/icons/spellbook.png
+effects: []
+_id: KzexNICZj0qB2rgn
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  description: <p>The spirit of a dead body manifests and will answer 1 question.</p>
+  weightless: false
+  equipped: true
+  bulky: false
+  quantity: 1
+  slots: 1
+folder: null
+sort: 0
+_key: '!items!KzexNICZj0qB2rgn'

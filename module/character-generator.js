@@ -1,0 +1,1409 @@
+import { CairnActor } from "./actor/actor.js";
+import { compendiumInfoFromString, drawTableText, findCompendiumItem } from "./compendium.js";
+import { Cairn } from "./config.js";
+import { evaluateFormula } from "./utils.js";
+import { resolveGearItem, SPELL_PACKS, GEAR_ALIASES, spellScrollItem } from "./gear.js";
+import { iconForTransport } from "./icons.js";
+import { SETTINGS_NS } from "./settings.js";
+
+// Foundry validates a document flag's scope against real package ids, so flags
+// use the system id "air-bladder" (NOT the internal "cairn" JS/settings namespace,
+// which is fine for game.settings but is rejected by Document#getFlag/setFlag).
+const FLAG_SCOPE = "air-bladder";
+
+/*
+ * Cairn 2e character generation.
+ *
+ * Gear is NEVER inlined here: a background's starting gear, a bond's item, and a
+ * choice-table option's items are all BY-NAME references into the editable gear
+ * pool. `resolveGearItem` (module/gear.js) turns each reference into a fresh
+ * owned-item payload cloned from the current pack document — so editing a pool
+ * item flows into every character generated afterwards. That single-source-of-
+ * truth is the whole reason this system was rebuilt off the fork's inlined model.
+ */
+
+/* -------------------------------------------------------------------------- */
+/*  Portrait / token art                                                       */
+/* -------------------------------------------------------------------------- */
+
+// The manifest is a list of paired basenames that live in BOTH
+// character_portraits/ and character_tokens/ (see tools/import/portraits.mjs).
+// Fetched lazily and cached so neither generation nor the gallery needs the
+// FILES_BROWSE permission that listing a server folder would require -- both run
+// player-side.
+let _portraitManifest = null;
+
+/** @returns {Promise<{portraitDir:String, tokenDir:String, names:String[]}>} */
+export const getPortraitManifest = async () => {
+  if (_portraitManifest === null) {
+    try {
+      const resp = await fetch("systems/air-bladder/module/portrait-manifest.json");
+      _portraitManifest = resp.ok ? await resp.json() : { names: [] };
+    } catch {
+      _portraitManifest = { names: [] };
+    }
+  }
+  return _portraitManifest;
+};
+
+/** A random {img, token} pair from the manifest, or null if none are shipped. */
+export const randomPortraitPair = async () => {
+  const m = await getPortraitManifest();
+  if (!m?.names?.length) return null;
+  const name = m.names[Math.floor(Math.random() * m.names.length)];
+  return { img: `${m.portraitDir}/${name}`, token: `${m.tokenDir}/${name}` };
+};
+
+/**
+ * The prepped token image paired with a portrait path by basename, or null when
+ * the portrait isn't one of the shipped ones (e.g. a custom upload the player
+ * browsed to). Callers decide the fallback.
+ * @param {String} portraitPath
+ * @returns {Promise<String|null>}
+ */
+export const pairedTokenFor = async (portraitPath) => {
+  const m = await getPortraitManifest();
+  const base = String(portraitPath ?? "").split("/").pop();
+  return m?.names?.includes(base) ? `${m.tokenDir}/${base}` : null;
+};
+
+/* -------------------------------------------------------------------------- */
+/*  Shared dice/table rolls                                                    */
+/* -------------------------------------------------------------------------- */
+
+/** @param {String} formula @returns {Promise<{STR:Number,DEX:Number,WIL:Number}>} */
+export const rollAbilities = async (formula) => ({
+  STR: (await evaluateFormula(formula)).total,
+  DEX: (await evaluateFormula(formula)).total,
+  WIL: (await evaluateFormula(formula)).total,
+});
+
+/** @param {String} formula @returns {Promise<Number>} */
+export const rollHitProtection = async (formula) => (await evaluateFormula(formula)).total;
+
+/** @param {String} formula @returns {Promise<Number>} */
+export const rollGold = async (formula) => (await evaluateFormula(formula)).total;
+
+/**
+ * Roll an age from the formula (2d20 + 10 by default), then floor it at the
+ * "min-age" setting (default 21): the result is the greater of the roll and the
+ * floor. Always applied — a Warden who wants no floor sets min-age below 12, the
+ * lowest a 2d20 + 10 roll can produce, so it never binds. This is the single
+ * choke point for age (generation AND the sheet's age re-roll both go through
+ * here), so every character sheet gets the floor.
+ * @param {String} formula @returns {Promise<Number>}
+ */
+export const rollAge = async (formula) => {
+  const rolled = (await evaluateFormula(formula)).total;
+  const floor = Number(game.settings.get(SETTINGS_NS, "min-age")) || 0;
+  return Math.max(rolled, floor);
+};
+
+/**
+ * Draw one text result from each named table (used for the eight 2e traits).
+ * @param {Object<string,string>} items  key -> "pack;TableName"
+ * @returns {Promise<Object<string,string>>}
+ */
+export const rollTextItems = async (items) => {
+  const data = {};
+  for (const [key, value] of Object.entries(items)) {
+    const [compendium, table] = compendiumInfoFromString(value);
+    data[key] = await drawTableText(compendium, table);
+  }
+  return data;
+};
+
+/**
+ * Roll a name off a name table, given a "pack;Table Name" config string. Cairn 2e
+ * dropped 1e's name tables, so everything that needs a random person's name — a
+ * hireling, a Barebones character — draws from the Warden NPC name table. Uses
+ * roll(), never draw(), so the table's drawn state is never mutated.
+ * @param {String} config  "packId;Table Name"
+ * @param {String} fallback  used when the table is missing or empty
+ * @returns {Promise<String>}
+ */
+export const rollNameFromTable = async (config, fallback) => {
+  const [packName, tableName] = compendiumInfoFromString(config);
+  const pack = game.packs.get(packName);
+  const table = pack ? (await pack.getDocuments()).find((t) => t.name === tableName) : null;
+  if (!table) return fallback;
+  const { results } = await table.roll();
+  return results[0]?.text?.trim() || fallback;
+};
+
+/* -------------------------------------------------------------------------- */
+/*  Gear references -> owned items                                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Resolve one gear reference {name, quantity?, uses?} to an owned-item payload,
+ * or null on a miss (resolveGearItem warns). The `uses`/`quantity` on a reference
+ * override the pool item, letting two backgrounds grant the same pool item with
+ * different counts.
+ * @param {{name:String, quantity?:Number, uses?:Number}} ref
+ * @returns {Promise<Object|null>}
+ */
+const resolveRef = (ref) =>
+  resolveGearItem(ref.name, { quantity: ref.quantity ?? 1, uses: ref.uses });
+
+/** Resolve an array of references, dropping any that miss. @returns {Promise<Object[]>} */
+export const resolveRefs = async (refs) =>
+  (await Promise.all((refs ?? []).map(resolveRef))).filter(Boolean);
+
+/**
+ * Tag a built item with the generation source that granted it, so the sheet can
+ * later find and remove exactly those items when that source is re-rolled (a
+ * specific bond or background question). Starting gear carries the "background"
+ * source; base/bought gear carries none and is never touched by a re-roll.
+ * @param {Object} item @param {String} source  e.g. "bond:<id>" or "question:0"
+ */
+export const withGrantSource = (item, source) => ({
+  ...item,
+  flags: { ...(item.flags ?? {}), [FLAG_SCOPE]: { ...(item.flags?.[FLAG_SCOPE] ?? {}), grantSource: source } },
+});
+
+/** Mundane background gear that needs no "Background" source chip — light and
+ *  food whose provenance nobody tracks. Left untagged on purpose. */
+const UNTAGGED_MUNDANE_GEAR = /\b(rations?|torch(es)?|lanterns?)\b/i;
+
+/** Tag built starting gear "background" (so it can show a source chip later),
+ *  EXCEPT the mundane items above, which stay untagged. */
+const tagBackgroundGear = (items) =>
+  items.map((it) => (UNTAGGED_MUNDANE_GEAR.test(it.name) ? it : withGrantSource(it, "background")));
+
+/* -------------------------------------------------------------------------- */
+/*  Bonds                                                                       */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Draw a Cairn 2e bond from the tables-2e "Bonds" RollTable. Each result's
+ * mechanical payload rides in flags.air-bladder: starting gold and a gear reference
+ * (resolved here against the pool); the result text is the narrative. Uses
+ * roll(), never draw(), so the table's drawn state is never mutated.
+ * @returns {Promise<{description:String, gold:Number, items:Object[]}|null>}
+ */
+export const drawBond = async () => {
+  const pack = game.packs.get("air-bladder.tables-2e");
+  const table = pack ? (await pack.getDocuments()).find((t) => t.name === "Bonds") : null;
+  if (!table) return null;
+  const { results } = await table.roll();
+  const result = results[0];
+  if (!result) return null;
+  return {
+    description: result.text ?? "",
+    gold: result.getFlag(FLAG_SCOPE, "gold") ?? 0,
+    // Items are unflagged here; bondRecordFrom tags them with the bond's id.
+    items: await resolveRefs(result.getFlag(FLAG_SCOPE, "items") ?? []),
+  };
+};
+
+/**
+ * Wrap a drawn bond in a record with a stable id, and source-tag its items with
+ * that id (`bond:<id>`) so the sheet can re-roll or remove one bond among several
+ * and keep the inventory in sync. A character can hold several bonds (Fieldwarden
+ * always rolls twice; Outrider's "Always pay your debts" option does too).
+ * @param {{description:String, gold:Number, items:Object[]}} drawn
+ */
+export const bondRecordFrom = (drawn) => {
+  if (!drawn) return null;   // no Bonds table / no result — don't fabricate a blank bond
+  const id = foundry.utils.randomID();
+  return {
+    bond: { id, description: drawn.description ?? "", gold: drawn.gold ?? 0 },
+    items: (drawn.items ?? []).map((it) => withGrantSource(it, `bond:${id}`)),
+  };
+};
+
+/** Does this text instruct rolling another bond? (Fieldwarden bg, Outrider option.) */
+export const mentionsSecondBond = (text) =>
+  /roll a second time on the bonds table/i.test(String(text ?? ""));
+
+/* -------------------------------------------------------------------------- */
+/*  Background choice tables                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Roll each of a background's two d6 choice tables (e.g. "What went horribly
+ * wrong?") and collect what the rolled option grants: narrative, gear (resolved
+ * against the pool), and bonus gold. Each table becomes a structured
+ * {question, answer, gold} entry, index-aligned with bg.system.tables, so the
+ * sheet can re-roll one question in isolation later; its items are tagged
+ * question:<i>.
+ *
+ * An option may also grant a CONTAINER (Kettlewright's donkey, Outrider's horse,
+ * Bonekeeper's burial wagon). A container is an Actor, not an embedded item, so
+ * those specs are only collected here and minted once the character Actor exists
+ * — see grantContainers.
+ * @param {CairnItem} bg
+ * @returns {Promise<{questions:{question:String,answer:String,gold:Number}[], items:Object[], containers:Object[], gold:Number}>}
+ */
+export const applyChoiceTables = async (bg) => {
+  const out = { questions: [], items: [], containers: [], gold: 0 };
+  const tables = bg.system.tables ?? [];
+  for (let i = 0; i < tables.length; i++) {
+    const table = tables[i];
+    const options = table.options ?? [];
+    if (!options.length) {
+      out.questions.push({ question: table.question ?? "", answer: "", gold: 0 });
+      continue;
+    }
+    const roll = await evaluateFormula(`1d${options.length}`);
+    const opt = options[roll.total - 1] ?? options[0];
+    const gold = opt.bonusGold ?? 0;
+    const items = (await resolveRefs(opt.items)).map((it) => withGrantSource(it, `question:${i}`));
+    out.items.push(...items);
+    out.containers.push(...(opt.containers ?? []).map((c) => ({ ...c, grantSource: `question:${i}` })));
+    out.gold += gold;
+    out.questions.push({ question: table.question ?? "", answer: opt.description ?? "", gold });
+  }
+  return out;
+};
+
+/* -------------------------------------------------------------------------- */
+/*  Background-granted containers                                              */
+/* -------------------------------------------------------------------------- */
+
+/** A wagon or cart is a vehicle; anything else a background grants (a donkey, a
+ *  horse breed) is a mount. No container weighs on the carrier — they are reached
+ *  through the Containers tab and never count against the carrier's own slots. */
+const containerKindFor = (name) => (/\b(wagon|cart|sled|sledge)\b/i.test(name) ? "vehicle" : "mount");
+
+/**
+ * Mint the container Actors a background's rolled options granted, keeper-linked
+ * to the new character and inheriting its ownership — the same shape the shop
+ * produces (marketplace.js acquireTransport), so a granted donkey and a bought
+ * one behave identically.
+ *
+ * The spec's name is resolved against the editable `transports` pack first, so a
+ * Warden who retunes "Donkey" there changes every donkey granted afterwards; the
+ * grant's own `slots` still wins, because that number is the background's (a
+ * Rivertooth is +6 where a Blacklegged Dandy is +4). A name with no pack document
+ * — the one-off beasts — is minted from the spec alone.
+ *
+ * Each container is flagged with the question that granted it, so a re-roll or a
+ * regenerate can delete exactly those and leave bought/manual containers alone.
+ * @param {CairnActor} actor
+ * @param {Object[]} specs  {name, slots, grantSource, load?, carried_by?}
+ * @returns {Promise<CairnActor[]>}  the containers created
+ */
+export const grantContainers = async (actor, specs) => {
+  if (!actor || !specs?.length) return [];
+  // Containers are Actors; a player regenerating their own character can't create
+  // them. Skip with a notice so generation completes rather than throwing midway.
+  if (!game.user.hasPermission("ACTOR_CREATE")) {
+    ui.notifications.warn(game.i18n.localize("CAIRN.Notify.NoActorCreate"));
+    return [];
+  }
+  const pack = game.packs.get("air-bladder.transports");
+  const docs = pack ? await pack.getDocuments() : [];
+  const made = [];
+  for (const spec of specs) {
+    const doc = docs.find((d) => d.name.toLowerCase() === String(spec.name).toLowerCase());
+    const kind = doc?.system.transportKind ?? containerKindFor(spec.name);
+    const art = doc?.img ?? iconForTransport(spec.name, kind);
+    const container = await CairnActor.create({
+      type: "container",
+      name: spec.name,
+      img: art,
+      prototypeToken: { texture: { src: art } },
+      system: {
+        // Capacity is read as system.slots.value (calcCurrentMaxSlots) even though
+        // a transport document carries a plain number.
+        slots: { value: spec.slots ?? doc?.system.slots ?? 0 },
+        description: doc?.system.description ?? "",
+        transportKind: kind,
+        // A mount/vehicle carries its own pool and costs its keeper nothing; the
+        // spec's `load` describes what it costs the beast PULLING it, which this
+        // system does not model (containers do not nest) — it stays in the prose.
+        load: 0,
+        cost: doc?.system.cost ?? 0,
+      },
+      flags: { [FLAG_SCOPE]: { grantSource: spec.grantSource ?? "background" } },
+    });
+    if (!container) continue;
+    await actor.createOwnedContainer(container);
+    await container.update({ ownership: foundry.utils.deepClone(actor.ownership) });
+    made.push(container);
+  }
+  return made;
+};
+
+/**
+ * Every container keeper-linked to this actor that GENERATION granted (it carries
+ * a grantSource flag). Bought and hand-made containers have no such flag and are
+ * never returned, so a regenerate cannot delete a player's mule.
+ * @param {CairnActor} actor @returns {CairnActor[]}
+ */
+export const grantedContainersOf = (actor) =>
+  (game.actors ?? []).filter(
+    (a) => a.type === "container" && a.system?.keeper === actor.uuid && a.getFlag(FLAG_SCOPE, "grantSource")
+  );
+
+/**
+ * Delete every generation-granted container this actor keeps (a regenerate
+ * re-rolls the background's options, so last roll's donkey has to go).
+ *
+ * The keeper's uuid list is pruned FIRST, deliberately: CairnActor#_onDelete
+ * prunes it too, but from a non-awaited async walk of game.actors, so letting it
+ * race means it can write back a stale array and drop the container granted
+ * moments later. Pruning up front makes that filter a no-op.
+ * @param {CairnActor} actor
+ */
+export const clearGrantedContainers = async (actor) => {
+  const granted = grantedContainersOf(actor);
+  if (!granted.length) return;
+  const gone = new Set(granted.map((c) => c.uuid));
+  await actor.update({ "system.containers": (actor.system.containers ?? []).filter((u) => !gone.has(u)) });
+  for (const c of granted) await c.delete();
+};
+
+/**
+ * Swap the containers granted by ONE source (a re-rolled question): delete just
+ * that source's, mint the new option's. Containers from other questions, and any
+ * the player bought, are untouched — the Actor-side twin of the sheet's
+ * _replaceGrantedItems.
+ * @param {CairnActor} actor @param {String} source e.g. "question:1"
+ * @param {Object[]} specs  the new option's container specs
+ */
+export const replaceGrantedContainers = async (actor, source, specs) => {
+  const stale = grantedContainersOf(actor).filter((c) => c.getFlag(FLAG_SCOPE, "grantSource") === source);
+  if (stale.length) {
+    const gone = new Set(stale.map((c) => c.uuid));
+    await actor.update({ "system.containers": (actor.system.containers ?? []).filter((u) => !gone.has(u)) });
+    for (const c of stale) await c.delete();
+  }
+  return grantContainers(actor, (specs ?? []).map((c) => ({ ...c, grantSource: source })));
+};
+
+/* -------------------------------------------------------------------------- */
+/*  Generation                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Generate a Cairn 2e character: 3d6 abilities, 1d6 HP, a 2e background (chosen or
+ * random) with a name drawn from its list and its starting gear granted from the
+ * pool (weapons/armor equipped), a bond supplying gold and an item, the eight
+ * physical/personality traits and age, and the background's two d6 choice tables
+ * rolled for extra gear, gold, and story.
+ * @param {CairnItem|null} chosenBg  a background Item, or null to pick at random
+ * @returns {Promise<Object|null>}
+ */
+export const generate2eCharacter = async (chosenBg = null) => {
+  const pack = game.packs.get("air-bladder.backgrounds-2e");
+  const backgrounds = pack ? await pack.getDocuments() : [];
+  if (!chosenBg && !backgrounds.length) {
+    ui.notifications?.warn("No 2e backgrounds are installed.");
+    return null;
+  }
+  // A chosen background (from a picker / persisted across regenerate) is used
+  // as-is; otherwise pick at random. Everything else derives from it.
+  const bg = chosenBg ?? backgrounds[Math.floor(Math.random() * backgrounds.length)];
+  const names = bg.system.names ?? [];
+  const name = names.length ? names[Math.floor(Math.random() * names.length)] : bg.name;
+
+  // Starting gear: resolve each reference against the editable pool, tag it
+  // "background", and equip weapons/armor so Armor derives to its intended value
+  // (pool items are equipped:false).
+  const gear = tagBackgroundGear(await resolveRefs(bg.system.startingGear));
+  for (const it of gear) {
+    if (it.type === "weapon" || it.type === "armor") it.system.equipped = true;
+  }
+
+  const traits = await rollTextItems(Cairn.characterGenerator2e.biography.items);
+  const age = String(await rollAge(Cairn.characterGenerator2e.biography.age));
+  const choices = await applyChoiceTables(bg);
+
+  // One bond by default; the Fieldwarden background and Outrider's "Always pay
+  // your debts" option each add another. Each bond has a stable id so its granted
+  // items can be re-rolled/removed later.
+  const extraBonds =
+    (mentionsSecondBond(bg.system.description) ? 1 : 0) +
+    choices.questions.filter((q) => mentionsSecondBond(q.answer)).length;
+  const bonds = [];
+  const bondItems = [];
+  let bondGold = 0;
+  for (let i = 0; i < 1 + extraBonds; i++) {
+    const rec = bondRecordFrom(await drawBond());
+    if (!rec) continue;
+    bonds.push(rec.bond);
+    bondItems.push(...rec.items);
+    bondGold += rec.bond.gold;
+  }
+
+  return {
+    name,
+    hp: await rollHitProtection("1d6"),
+    gold: (await rollGold(Cairn.characterGenerator2e.gold)) + bondGold + choices.gold,
+    abilities: await rollAbilities("3d6"),
+    background: bg.name,
+    backgroundUuid: bg.uuid,
+    contentSource: "2e",
+    bonds,
+    age,
+    traits,
+    items: [...gear, ...bondItems, ...choices.items],
+    // Container Actors cannot ride in items[]; they are minted after the actor
+    // exists (createActorWithCharacter / updateActorWithCharacter).
+    // A background can grant a container outright as well as from a choice table
+    // — the Mountebank's cart is part of the act, not a roll. Both kinds go here;
+    // Barebones and changeBackground already combined them the same way.
+    containers: [
+      ...(bg.system.containers ?? []).map((c) => ({ ...c, grantSource: "background" })),
+      ...choices.containers,
+    ],
+    questions: choices.questions,
+  };
+};
+
+/* ==========================================================================
+ * Cairn Barebones
+ *
+ * Barebones and 2e are ONE system that differs only in how a character is made,
+ * so everything below is generation and nothing else. A Barebones background is
+ * the same `background` Item type 2e uses — it simply carries a name and three
+ * gear references, with the archetype/names/choice-table fields left empty.
+ *
+ * Its three creation steps are RollTables in `tables-barebones` whose results
+ * REFERENCE pool items, so a Warden restocks a step by dragging an item into the
+ * table. Rolling is always table.roll(), never draw(): drawing marks results as
+ * used and would silently exhaust a table over a campaign.
+ * ======================================================================== */
+
+const BAREBONES_BG_PACK = "air-bladder.backgrounds-barebones";
+const BAREBONES_TABLE_PACK = "air-bladder.tables-barebones";
+
+/** The 100 Barebones background documents. @returns {Promise<CairnItem[]>} */
+export const getBarebonesBackgrounds = async () => {
+  const pack = game.packs.get(BAREBONES_BG_PACK);
+  return pack ? pack.getDocuments() : [];
+};
+
+/** The Barebones background with this name — used to keep it across a regenerate
+ *  (Barebones characters are keyed by uuid like 2e; this is the fallback for one
+ *  generated before the uuid was stored). @returns {Promise<CairnItem|null>} */
+export const getBarebonesBackgroundByName = async (name) =>
+  (await getBarebonesBackgrounds()).find((b) => b.name === name) ?? null;
+
+/** One table out of the Barebones pack, by name. @returns {Promise<RollTable|null>} */
+const barebonesTable = async (name) => {
+  const pack = game.packs.get(BAREBONES_TABLE_PACK);
+  if (!pack) return null;
+  return (await pack.getDocuments()).find((t) => t.name === name) ?? null;
+};
+
+/** Every spellbook across both packs, cached. @returns {Promise<CairnItem[]>} */
+let _spellbooks = null;
+const getSpellbooks = async () => {
+  if (_spellbooks === null) {
+    _spellbooks = [];
+    for (const key of SPELL_PACKS) {
+      const pack = game.packs.get(key);
+      if (pack) _spellbooks.push(...(await pack.getDocuments()));
+    }
+  }
+  return _spellbooks;
+};
+
+/** A random spellbook as an owned item, named for the spell it holds. The
+ *  inventory list adds the "Spellbook — " prefix at display time
+ *  (templates/parts/items-list.html), so the stored name stays the bare spell
+ *  name — baking the prefix in here too would double it. */
+const randomSpellbookItem = async () => {
+  const books = await getSpellbooks();
+  if (!books.length) return null;
+  const b = books[Math.floor(Math.random() * books.length)];
+  return { name: b.name, type: b.type, img: b.img, system: foundry.utils.deepClone(b.system) };
+};
+
+/** A random spellbook as a single-use petty scroll. The spell's effect is the
+ *  description; casting consumes it. */
+const randomScrollItem = async () => {
+  const books = await getSpellbooks();
+  if (!books.length) return null;
+  const b = books[Math.floor(Math.random() * books.length)];
+  return spellScrollItem(b);   // shared scroll shape — see gear.js
+};
+
+/**
+ * Turn one rolled table result into something a character can be given.
+ * Three shapes, decided by what the result points at:
+ *   - a TRANSPORT document  → a container spec (minted as an Actor later)
+ *   - a nested ROLLTABLE    → roll that table and resolve its result instead
+ *   - anything else         → the pool item of that name, or, for the SRD's two
+ *                             instruction rows, a random spellbook or scroll
+ * @param {TableResult} result
+ * @returns {Promise<{item?:Object, container?:Object, name:String}|null>}
+ */
+const resolveBarebonesResult = async (result) => {
+  if (!result) return null;
+  const name = String(result.text ?? "").trim();
+  const collection = result.documentCollection ?? "";
+
+  if (collection === "air-bladder.transports") {
+    const doc = await findCompendiumItem(collection, name);
+    return doc ? { container: { name: doc.name, slots: doc.system.slots ?? 0 }, name } : null;
+  }
+  if (collection === BAREBONES_TABLE_PACK) {
+    const nested = await findCompendiumItem(collection, name);
+    if (!nested) return null;
+    const { results } = await nested.roll();
+    return resolveBarebonesResult(results[0]);
+  }
+  const lower = name.toLowerCase();
+  if (lower === "scroll of random spellbook") {
+    const s = await randomScrollItem();
+    return s ? { item: s, name: s.name } : null;
+  }
+  if (lower === "spellbook" || lower === "random spellbook") {
+    const s = await randomSpellbookItem();
+    return s ? { item: s, name: s.name } : null;
+  }
+  if (lower === "none") return { name };            // the armor table's empty row
+  const item = await resolveGearItem(name);
+  return item ? { item, name: item.name } : null;
+};
+
+/** Roll a Barebones creation table and resolve what came up. */
+const rollBarebonesTable = async (tableName) => {
+  const table = await barebonesTable(tableName);
+  if (!table) return null;
+  const { results } = await table.roll();
+  return resolveBarebonesResult(results[0]);
+};
+
+/**
+ * Roll one item off the Additional Gear table (creation step 6), rerolling a
+ * name already held — the SRD lets you reroll duplicate gear — and rerolling a
+ * transport, which is a container Actor and cannot be an extra item here.
+ * @param {Set<string>} avoid  lowercased names already granted
+ */
+/** The starting-gear rows the SRD writes as an INSTRUCTION rather than an item.
+ *  Kept as one list so the dispatch below and the duplicate-guard that seeds
+ *  `avoid` can never disagree about what counts as a literal item. */
+const INSTRUCTION_ROWS = new Set([
+  "random additional gear", "scroll of random spellbook", "spellbook", "random spellbook",
+]);
+
+const rollAdditionalGear = async (avoid = new Set()) => {
+  for (let tries = 0; tries < 50; tries++) {
+    const got = await rollBarebonesTable("Barebones: Creation - Additional Gear");
+    if (!got?.item) continue;                        // a cart/wagon, or unresolved
+    if (avoid.has(got.name.toLowerCase())) continue;
+    return got.item;
+  }
+  return null;
+};
+
+/**
+ * Resolve a background's starting gear, honouring the rows the SRD writes as an
+ * INSTRUCTION rather than an item. Nine Barebones backgrounds grant one — the
+ * Acolyte's "Spellbook", the Fence's "Random Additional Gear", the Cultist's
+ * "Scroll of Random Spellbook" — and a plain reference lookup silently drops
+ * every one of them, leaving those characters an item short with no error. (See
+ * CLAUDE.md: "not every table entry is an object", and nobody notices until
+ * someone rolls Acolyte.)
+ *
+ * 2e backgrounds carry no such rows, so this is a pass-through for them; it is
+ * shared so that generation and a background swap can never disagree.
+ * @param {CairnItem} bg
+ * @param {Set<string>} [avoid]  names already granted, for the Additional Gear roll
+ * @returns {Promise<Object[]>}
+ */
+export const resolveStartingGear = async (bg, avoid = new Set()) => {
+  const out = [];
+  const refs = bg.system.startingGear ?? [];
+
+  // Seed `avoid` with everything this background grants OUTRIGHT, before rolling
+  // anything. The SRD says to reroll duplicates, and `avoid` was only being filled
+  // as the loop went — so an item listed AFTER the "Random Additional Gear" row
+  // was invisible to that roll and could be handed out twice. The Merchant is
+  // "Random Additional Gear, Stylus, Wagon" and Stylus is row 90 of the same d100
+  // table, so roughly one Merchant in a hundred carried two of them (likewise the
+  // Fence and Peddler, whose Sack sits after the roll). Seeding up front
+  // makes the guard independent of the order the SRD happens to list gear in.
+  // Both the reference name and what it resolves to are added, because an alias
+  // means those differ ("Torches" -> "Torch") and the roll compares resolved
+  // names.
+  for (const ref of refs) {
+    const name = String(ref.name).trim().toLowerCase();
+    if (INSTRUCTION_ROWS.has(name)) continue;
+    avoid.add(name);
+    const alias = GEAR_ALIASES.get(name);
+    if (alias) avoid.add(alias.toLowerCase());
+  }
+
+  for (const ref of refs) {
+    const lower = String(ref.name).trim().toLowerCase();
+    let item = null;
+    if (lower === "random additional gear") item = await rollAdditionalGear(avoid);
+    else if (lower === "scroll of random spellbook") item = await randomScrollItem();
+    else if (lower === "spellbook" || lower === "random spellbook") item = await randomSpellbookItem();
+    else item = await resolveGearItem(ref.name, { quantity: ref.quantity ?? 1, uses: ref.uses });
+    if (item) { out.push(item); avoid.add(item.name.toLowerCase()); }
+  }
+  return out;
+};
+
+/**
+ * Generate a Cairn Barebones character: a random d100 background (a name plus
+ * three items), 3d6 abilities, 1d6 HP, 3d6 coins, the same eight traits and age
+ * as 2e, and the SRD's equipment procedure — the background's gear, the base
+ * Rations and Torch, a rolled Armor and Weapon (equipped), and one roll on
+ * Additional Gear (a second if Armor came up None).
+ *
+ * Two GM-gated extras: a bond, which REPLACES the Additional Gear step because a
+ * bond already grants an item and rolling both overloads a ten-slot inventory;
+ * and a "failed career", a second background name as pure flavor (no items).
+ *
+ * @param {CairnItem|null} chosenBg  a Barebones background Item, or null for random
+ * @returns {Promise<Object|null>}
+ */
+export const generateBarebonesCharacter = async (chosenBg = null) => {
+  const backgrounds = await getBarebonesBackgrounds();
+  if (!chosenBg && !backgrounds.length) {
+    ui.notifications?.warn("No Barebones backgrounds are installed.");
+    return null;
+  }
+  const bg = chosenBg ?? backgrounds[Math.floor(Math.random() * backgrounds.length)];
+
+  // The background's three items, and (Merchant/Peddler only) its transport.
+  // `avoid` is threaded in because one of those "items" can be a roll on the
+  // Additional Gear table, which must not hand back something already granted.
+  const avoid = new Set(["rations", "torch"]);
+  const bgItems = tagBackgroundGear(await resolveStartingGear(bg, avoid));
+  const containers = (bg.system.containers ?? []).map((c) => ({ ...c, grantSource: "background" }));
+
+  // Every Barebones character starts with these; they come from the background's
+  // table in the SRD, not from the background, so they carry no source chip.
+  const base = (await resolveRefs([{ name: "Rations", uses: 3 }, { name: "Torch", uses: 3 }]));
+
+  // Step 5: Armor and Weapon, both equipped. "None" armor buys an extra gear roll.
+  const weaponRoll = await rollBarebonesTable("Barebones: Creation - Weapon");
+  const weapon = weaponRoll?.item ?? null;
+  if (weapon) { weapon.system.equipped = true; avoid.add(weapon.name.toLowerCase()); }
+
+  const armorRoll = await rollBarebonesTable("Barebones: Creation - Armor");
+  const armor = armorRoll?.item ?? null;
+  if (armor) { armor.system.equipped = true; avoid.add(armor.name.toLowerCase()); }
+  const extraGearRoll = !armor;
+
+  const bondsEnabled = game.settings.get(SETTINGS_NS, "show-bonds-barebones");
+
+  // Step 6 — skipped entirely when bonds are on (the bond takes its place).
+  const extras = [];
+  if (!bondsEnabled) {
+    for (let i = 0; i < 1 + (extraGearRoll ? 1 : 0); i++) {
+      const x = await rollAdditionalGear(avoid);
+      if (x) { extras.push(x); avoid.add(x.name.toLowerCase()); }
+    }
+  }
+
+  // Barebones bonds are a SINGLE optional bond — no second bond and no background
+  // questions, both of which are 2e. Like 2e it supplies starting gold and an item.
+  const bonds = [];
+  const bondItems = [];
+  let bondGold = 0;
+  if (bondsEnabled) {
+    const rec = bondRecordFrom(await drawBond());
+    if (rec) {
+      bonds.push(rec.bond);
+      bondItems.push(...rec.items);
+      bondGold += rec.bond.gold;
+    }
+  }
+
+  // A failed career (Knave-style): a second background name, plus one Petty
+  // keepsake item drawn from that career's gear (weightless, so it costs no slot).
+  let failedCareer = "";
+  const failedCareerItems = [];
+  if (game.settings.get(SETTINGS_NS, "barebones-failed-career") && backgrounds.length > 1) {
+    const pool = backgrounds.filter((b) => b.name !== bg.name);
+    const chosenFailed = pool[Math.floor(Math.random() * pool.length)];
+    failedCareer = chosenFailed.name;
+    const fcItem = await failedCareerItemFromBg(chosenFailed);
+    if (fcItem) failedCareerItems.push(fcItem);
+  }
+
+  return {
+    name: await rollNameFromTable(Cairn.barebonesGenerator.name, bg.name),
+    hp: await rollHitProtection(Cairn.barebonesGenerator.hitProtection),
+    gold: (await rollGold(Cairn.barebonesGenerator.gold)) + bondGold,
+    abilities: await rollAbilities(Cairn.barebonesGenerator.ability),
+    background: bg.name,
+    backgroundUuid: bg.uuid,
+    contentSource: "barebones",
+    failedCareer,
+    bonds,
+    age: String(await rollAge(Cairn.characterGenerator2e.biography.age)),
+    traits: await rollTextItems(Cairn.characterGenerator2e.biography.items),
+    items: [...bgItems, ...base, ...(weapon ? [weapon] : []), ...(armor ? [armor] : []), ...extras, ...bondItems, ...failedCareerItems],
+    containers,
+    questions: [],
+  };
+};
+
+/* -------------------------------------------------------------------------- */
+/*  Source-aware entry points                                                   */
+/* -------------------------------------------------------------------------- */
+
+/** The content sources a Warden has enabled, in display order. */
+export const CONTENT_SOURCES = [
+  { key: "2e", setting: "content-source-2e", label: "CAIRN.ContentSource2e" },
+  { key: "barebones", setting: "content-source-barebones", label: "CAIRN.ContentSourceBarebones" },
+];
+
+/** The enabled sources. @returns {{key:String,label:String}[]} */
+export const enabledContentSources = () =>
+  CONTENT_SOURCES.filter((s) => game.settings.get(SETTINGS_NS, s.setting));
+
+/**
+ * Which content source to generate from: the only enabled one, or a prompt when
+ * a Warden has enabled both. Falls back to 2e if a Warden has turned everything
+ * off, so the Generate button can never do nothing.
+ * @returns {Promise<String>}
+ */
+export const promptContentSource = async () => {
+  const sources = enabledContentSources();
+  if (sources.length === 1) return sources[0].key;
+  if (!sources.length) return "2e";
+  const buttons = sources.map((s) => ({ action: s.key, label: game.i18n.localize(s.label) }));
+  const chosen = await foundry.applications.api.DialogV2.wait({
+    window: { title: game.i18n.localize("CAIRN.ContentSourceTitle") },
+    content: `<p>${game.i18n.localize("CAIRN.ContentSourcePrompt")}</p>`,
+    buttons,
+    rejectClose: false,
+  });
+  // Dismissing the picker resolves null; default to the first source (2e) so the
+  // Generate button never does nothing. (The ?? was previously on the Promise
+  // itself, i.e. dead — the fallback only worked by luck downstream.)
+  return chosen ?? sources[0].key;
+};
+
+/**
+ * Source-aware character generation. A background may be passed to keep it
+ * across a regenerate; its own `system.source` then decides the path, so a
+ * character never switches edition behind the player's back.
+ * @param {CairnItem|null} [background]
+ * @param {String|null} [source]  skip the prompt and use this source
+ * @returns {Promise<Object|null>}
+ */
+export const generateCharacter = async (background = null, source = null) => {
+  const chosen = background?.system?.source ?? source ?? (await promptContentSource());
+  return chosen === "barebones"
+    ? generateBarebonesCharacter(background)
+    : generate2eCharacter(background);
+};
+
+/* ==========================================================================
+ * Choosing a background
+ *
+ * Both editions store a background as a document with a uuid, and both tag the
+ * gear it grants, so ONE picker and ONE swap serve both — the differences are in
+ * the data, not the code. 2e backgrounds carry an archetype and a description, so
+ * the picker groups and previews them; Barebones ones carry neither, so it falls
+ * back to a flat list whose summary is the gear the background grants.
+ * ======================================================================== */
+
+/** The pack a content source's backgrounds live in. */
+const BG_PACK_FOR = { "2e": "air-bladder.backgrounds-2e", barebones: BAREBONES_BG_PACK };
+
+/** Every background for a content source. @returns {Promise<CairnItem[]>} */
+export const getBackgroundsFor = async (source) => {
+  const pack = game.packs.get(BG_PACK_FOR[source] ?? BG_PACK_FOR["2e"]);
+  return pack ? pack.getDocuments() : [];
+};
+
+/** Archetype grouping order; anything else falls to the end, alphabetically. */
+const ARCHETYPE_ORDER = ["Fighter", "Wizard", "Thief"];
+
+/**
+ * Backgrounds grouped by archetype, each group name-sorted. A source whose
+ * backgrounds carry no archetype (Barebones) comes back as ONE unnamed group,
+ * which the picker renders as a plain alphabetical list.
+ * @returns {Promise<{archetype:String, backgrounds:CairnItem[]}[]>}
+ */
+export const getBackgroundsByArchetype = async (source) => {
+  const backgrounds = await getBackgroundsFor(source);
+  if (!backgrounds.some((b) => b.system.archetype)) {
+    return [{ archetype: "", backgrounds: [...backgrounds].sort((x, y) => x.name.localeCompare(y.name)) }];
+  }
+  const groups = new Map();
+  for (const bg of backgrounds) {
+    const a = bg.system.archetype || "Other";
+    if (!groups.has(a)) groups.set(a, []);
+    groups.get(a).push(bg);
+  }
+  const order = [
+    ...ARCHETYPE_ORDER.filter((a) => groups.has(a)),
+    ...[...groups.keys()].filter((a) => !ARCHETYPE_ORDER.includes(a)).sort(),
+  ];
+  return order.map((a) => ({
+    archetype: a,
+    backgrounds: groups.get(a).sort((x, y) => x.name.localeCompare(y.name)),
+  }));
+};
+
+/**
+ * The one-line summary shown beside a background's name in the picker: the first
+ * sentence of its description, or — for a background with no prose, which is
+ * every Barebones one — the gear it grants. The gear line is DERIVED from the
+ * references rather than stored, so it cannot go stale when a Warden edits them.
+ * @param {CairnItem} bg
+ * @returns {String}
+ */
+export const backgroundTagline = (bg) => {
+  const text = String(bg.system?.description ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  if (text) return (text.match(/^.*?[.!?](\s|$)/)?.[0] ?? text).trim();
+  const gear = (bg.system?.startingGear ?? []).map((g) => g.name);
+  const carried = (bg.system?.containers ?? []).map((c) => `${c.name} (+${c.slots} slots)`);
+  return [...gear, ...carried].join(", ");
+};
+
+/** Escape for interpolation into the picker's HTML. */
+const bgEsc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+/** Sentinel radio value for the "Random" row. */
+const BG_RANDOM = "__random__";
+
+/**
+ * The background picker. Grouped by archetype with a live description panel when
+ * the source has prose (2e); a single wide column when it does not (Barebones),
+ * where each row already shows everything the background gives you and a panel
+ * would only repeat it.
+ *
+ * Instance pattern (as _onEditPortrait): render, then wire listeners on
+ * dialog.element. Button callbacks resolve directly and a wrapped close() covers
+ * manual dismissal (X / Escape); the `done` guard stops that close from
+ * overwriting a choice already made.
+ * @param {String} source  "2e" | "barebones"
+ * @param {String|null} currentUuid  pre-checked, so the dialog opens on the current pick
+ * @returns {Promise<{bg: CairnItem|null}|false>}  bg null = random; false = cancelled
+ */
+export const promptBackground = async (source, currentUuid = null) => {
+  const groups = await getBackgroundsByArchetype(source);
+  const all = groups.flatMap((g) => g.backgrounds);
+  if (!all.length) return false;
+  const hasProse = all.some((b) => b.system.description);
+
+  let list = `<label class="bg-pick-row"><input type="radio" name="bg" value="${BG_RANDOM}"${currentUuid ? "" : " checked"}>
+    <span class="bg-pick-name"><i class="fas fa-dice"></i> ${game.i18n.localize("CAIRN.RandomBackground")}</span></label>`;
+  const descs = {};
+  for (const g of groups) {
+    if (g.archetype) list += `<div class="bg-pick-group">${bgEsc(g.archetype)}</div>`;
+    for (const bg of g.backgrounds) {
+      descs[bg.uuid] = bg.system.description ?? "";
+      list += `<label class="bg-pick-row"><input type="radio" name="bg" value="${bg.uuid}"${bg.uuid === currentUuid ? " checked" : ""}>
+        <span class="bg-pick-name">${bgEsc(bg.name)}</span>
+        <span class="bg-pick-tag">${bgEsc(backgroundTagline(bg))}</span></label>`;
+    }
+  }
+  const content = hasProse
+    ? `<div class="bg-picker"><div class="bg-pick-list">${list}</div><div class="bg-pick-desc"></div></div>`
+    : `<div class="bg-picker single"><div class="bg-pick-list">${list}</div></div>`;
+
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (v) => { if (!done) { done = true; resolve(v); } };
+    const dialog = new foundry.applications.api.DialogV2({
+      window: { title: game.i18n.localize("CAIRN.ChooseBackground"), icon: "fas fa-book-open" },
+      position: { width: hasProse ? 620 : 560 },
+      content,
+      buttons: [
+        {
+          action: "choose",
+          label: game.i18n.localize("CAIRN.Choose"),
+          default: true,
+          callback: () => {
+            const form = dialog.element.querySelector("form") ?? dialog.element;
+            // Nothing checked (a Warden emptied the pack) reads as Random.
+            finish(form?.elements?.bg?.value || BG_RANDOM);
+          },
+        },
+        { action: "cancel", label: game.i18n.localize("CAIRN.Cancel"), callback: () => finish(false) },
+      ],
+    });
+    const origClose = dialog.close.bind(dialog);
+    dialog.close = (...a) => { finish(false); return origClose(...a); };
+    dialog.render(true).then(() => {
+      if (!hasProse) return;
+      const panel = dialog.element.querySelector(".bg-pick-desc");
+      const update = (v) => {
+        panel.innerHTML = v === BG_RANDOM
+          ? `<em>${game.i18n.localize("CAIRN.RandomBackgroundHint")}</em>`
+          : (descs[v] ?? "");
+      };
+      dialog.element.querySelectorAll('input[name="bg"]').forEach((r) => {
+        r.addEventListener("change", () => update(r.value));
+        if (r.checked) update(r.value);
+      });
+    });
+  }).then(async (choice) => {
+    if (!choice) return false;
+    return { bg: choice === BG_RANDOM ? null : await fromUuid(choice) };
+  });
+};
+
+/**
+ * Pick a failed career: a second Barebones background NAME, flavour only.
+ *
+ * Deliberately not `promptBackground`. That returns a document and swaps a real
+ * background, gear and all; this stores a bare string and grants nothing. Sharing
+ * one function would mean one of the two callers passing a flag saying "but don't
+ * actually do the thing", which is how the system this descends from ended up with
+ * four near-identical background swappers.
+ * @param {String|null} [currentName]
+ * @returns {Promise<{name: String}|false>}  false when cancelled
+ */
+export const promptFailedCareer = async (currentName = null) => {
+  const backgrounds = await getBarebonesBackgrounds();
+  if (!backgrounds.length) return false;
+  const sorted = [...backgrounds].sort((a, b) => a.name.localeCompare(b.name));
+
+  let list = `<label class="bg-pick-row"><input type="radio" name="bg" value="${BG_RANDOM}"${currentName ? "" : " checked"}>
+    <span class="bg-pick-name"><i class="fas fa-dice"></i> ${game.i18n.localize("CAIRN.RandomBackground")}</span></label>`;
+  for (const bg of sorted) {
+    // Show the career's gear so the player can see what the keepsake item might be.
+    const gear = (bg.system?.startingGear ?? []).map((g) => bgEsc(g.name)).join(", ");
+    list += `<label class="bg-pick-row"><input type="radio" name="bg" value="${bgEsc(bg.name)}"${bg.name === currentName ? " checked" : ""}>
+      <span class="bg-pick-name">${bgEsc(bg.name)}</span>${gear ? `<span class="bg-pick-tag">${gear}</span>` : ""}</label>`;
+  }
+
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (v) => { if (!done) { done = true; resolve(v); } };
+    const dialog = new foundry.applications.api.DialogV2({
+      window: { title: game.i18n.localize("CAIRN.ChangeFailedCareer"), icon: "fas fa-user-slash" },
+      position: { width: 420 },
+      content: `<div class="bg-picker single"><div class="bg-pick-list">${list}</div></div>`,
+      buttons: [
+        {
+          action: "choose",
+          label: game.i18n.localize("CAIRN.Choose"),
+          default: true,
+          callback: () => {
+            const form = dialog.element.querySelector("form") ?? dialog.element;
+            finish(form?.elements?.bg?.value || BG_RANDOM);
+          },
+        },
+        { action: "cancel", label: game.i18n.localize("CAIRN.Cancel"), callback: () => finish(false) },
+      ],
+    });
+    const origClose = dialog.close.bind(dialog);
+    dialog.close = (...a) => { finish(false); return origClose(...a); };
+    dialog.render(true);
+  }).then((choice) => {
+    if (!choice) return false;
+    if (choice === BG_RANDOM) return { name: sorted[Math.floor(Math.random() * sorted.length)].name };
+    return { name: choice };
+  });
+};
+
+/**
+ * A random Barebones background name for the failed-career field, avoiding
+ * `exclude` (normally the character's real background, mirroring generation).
+ * Flavour only — grants nothing. Empty string if the pack is empty.
+ * @param {String} [exclude]
+ * @returns {Promise<String>}
+ */
+export const rollFailedCareerName = async (exclude = "") => {
+  const backgrounds = await getBarebonesBackgrounds();
+  const pool = backgrounds.filter((b) => b.name !== exclude);
+  const from = pool.length ? pool : backgrounds;
+  return from.length ? from[Math.floor(Math.random() * from.length)].name : "";
+};
+
+/**
+ * One Petty keepsake item drawn at random from a Barebones background's gear — the
+ * single thing the character kept from the career that didn't work out. Forced
+ * weightless so it never costs a slot (and so can never be displaced by fatigue,
+ * which is just 1-slot items); the "Failed Career" chip comes from the grant flag,
+ * the "Petty" chip from weightless. Null when the career has no resolvable gear.
+ * @param {CairnItem} bg  a Barebones background Item
+ * @returns {Promise<Object|null>}
+ */
+const failedCareerItemFromBg = async (bg) => {
+  const gear = bg?.system?.startingGear ?? [];
+  if (!gear.length) return null;
+  const ref = gear[Math.floor(Math.random() * gear.length)];
+  const item = await resolveRef(ref);
+  if (!item) return null;
+  item.system = { ...(item.system ?? {}), weightless: true, bulky: false };
+  return withGrantSource(item, "failed-career");
+};
+
+/**
+ * The same keepsake, resolved by failed-career NAME — the sheet's re-roll path,
+ * where only the stored name is on hand.
+ * @param {String} careerName
+ * @returns {Promise<Object|null>}
+ */
+export const buildFailedCareerItem = async (careerName) =>
+  failedCareerItemFromBg(await getBarebonesBackgroundByName(careerName));
+
+/**
+ * Swap a character's background WITHOUT re-rolling the character. Replaces the
+ * background name/uuid, the gear it granted, its containers, and (2e) its two
+ * questions and the gear those granted, adjusting coins for the question delta.
+ * KEEPS abilities, HP, name, traits, age, bonds, portrait, omen, scars, notes,
+ * conditions, and anything bought or picked up — regenerating all of that is
+ * Regenerate's job, and conflating the two is why the fork needed four functions.
+ *
+ * Bonds are deliberately NOT re-rolled: a new background's second-bond
+ * entitlement surfaces the sheet's "Add a bond" link instead of silently rolling.
+ * A null `newBg` picks a random one, never the current.
+ * @param {CairnActor} actor
+ * @param {CairnItem|null} [newBg]
+ */
+export const changeBackground = async (actor, newBg = null) => {
+  const source = actor.system.contentSource || "2e";
+  let bg = newBg;
+  if (!bg) {
+    const backgrounds = await getBackgroundsFor(source);
+    if (!backgrounds.length) return;
+    const pool = backgrounds.filter((b) => b.uuid !== actor.system.backgroundUuid);
+    const from = pool.length ? pool : backgrounds;
+    bg = from[Math.floor(Math.random() * from.length)];
+  }
+
+  // Out with the old: everything the OLD background put there, and nothing else.
+  // Matched by the grant tag; legacy untagged starting gear is matched by the old
+  // background's own reference names, one item apiece, so a character generated
+  // before tagging existed still swaps cleanly.
+  const oldBg = actor.system.backgroundUuid ? await fromUuid(actor.system.backgroundUuid) : null;
+  const toDelete = [];
+  const claimed = new Set();
+  for (const i of actor.items) {
+    const src = String(i.getFlag(FLAG_SCOPE, "grantSource") ?? "");
+    if (src === "background" || src.startsWith("question:")) { claimed.add(i.id); toDelete.push(i.id); }
+  }
+  for (const g of oldBg?.system?.startingGear ?? []) {
+    const hit = actor.items.find(
+      (i) => !claimed.has(i.id) && !i.getFlag(FLAG_SCOPE, "grantSource") && i.name === g.name
+    );
+    if (hit) { claimed.add(hit.id); toDelete.push(hit.id); }
+  }
+  if (toDelete.length) await actor.deleteEmbeddedDocuments("Item", toDelete, { render: false });
+  await clearGrantedContainers(actor);
+
+  // In with the new. Weapons and armor arrive equipped, as at generation, so
+  // Armor derives to the value the background intends. resolveStartingGear, not a
+  // plain reference lookup, so a Barebones background whose gear includes an SRD
+  // instruction ("Spellbook", "Random Additional Gear") grants it here too.
+  const gear = tagBackgroundGear(await resolveStartingGear(bg));
+  for (const it of gear) {
+    if (it.type === "weapon" || it.type === "armor") it.system.equipped = true;
+  }
+  const choices = await applyChoiceTables(bg);
+  const newItems = [...gear, ...choices.items];
+  if (newItems.length) await actor.createEmbeddedDocuments("Item", newItems, { render: false });
+  await grantContainers(actor, [
+    ...(bg.system.containers ?? []).map((c) => ({ ...c, grantSource: "background" })),
+    ...choices.containers,
+  ]);
+
+  // Trade the old questions' coins for the new ones'.
+  const oldQGold = (actor.system.questions ?? []).reduce((n, q) => n + (q.gold ?? 0), 0);
+  await actor.update({
+    "system.background": bg.name,
+    "system.backgroundUuid": bg.uuid,
+    "system.questions": choices.questions,
+    "system.gold": Math.max(0, (actor.system.gold ?? 0) - oldQGold + choices.gold),
+  });
+};
+
+/* -------------------------------------------------------------------------- */
+/*  Actor create / update                                                       */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * @param {Object} characterData
+ * @returns {Object} Foundry create/update data for a character
+ */
+const characterToActorData = (characterData) => ({
+  name: characterData.name,
+  system: {
+    abilities: {
+      STR: { value: characterData.abilities.STR, max: characterData.abilities.STR },
+      DEX: { value: characterData.abilities.DEX, max: characterData.abilities.DEX },
+      WIL: { value: characterData.abilities.WIL, max: characterData.abilities.WIL },
+    },
+    hp: { max: characterData.hp, value: characterData.hp },
+    background: characterData.background,
+    backgroundUuid: characterData.backgroundUuid ?? "",
+    contentSource: characterData.contentSource ?? "2e",
+    // Barebones-only flavor (empty on 2e / when the setting is off). Set
+    // unconditionally so a regenerate re-rolls or clears it with the rest.
+    failedCareer: characterData.failedCareer ?? "",
+    // Multiple bonds live in system.bonds (each with a stable id).
+    bonds: characterData.bonds ?? [],
+    age: characterData.age ?? "",
+    ...(characterData.traits ? { traits: characterData.traits } : {}),
+    // 2e stores the background's two choice-table answers as structured,
+    // individually re-rollable questions.
+    biography: characterData.biography ?? "",
+    questions: characterData.questions ?? [],
+    // Omens and Scars are never generated: a player enables and fills each by
+    // hand. Set unconditionally so regenerating in place resets both.
+    omenEnabled: false,
+    omen: "",
+    scarEnabled: false,
+    scars: [],
+    // A fresh (or regenerated) character is never critically wounded (STR-only).
+    critical: false,
+    // Armor is auto-derived from equipped gear; no manual override on (re)generate.
+    armorOverride: null,
+    gold: characterData.gold,
+  },
+  items: characterData.items,
+  prototypeToken: {
+    name: characterData.name,
+    disposition: CONST.TOKEN_DISPOSITIONS.FRIENDLY,
+    actorLink: true,
+    vision: true,
+  },
+  type: "character",
+});
+
+/**
+ * @param {Object} characterData
+ * @returns {Promise<CairnActor|null>}
+ */
+export const createActorWithCharacter = async (characterData) => {
+  if (!characterData) return null;
+  const data = characterToActorData(characterData);
+  // A random portrait + its paired token, assigned ONLY here on creation.
+  // characterToActorData deliberately omits img/texture.src, so Regenerate (which
+  // goes through updateActorWithCharacter with the same data) cannot disturb a
+  // portrait the player picked -- the persistence is by omission.
+  const pair = await randomPortraitPair();
+  if (pair) {
+    data.img = pair.img;
+    data.prototypeToken.texture = { src: pair.token };
+  }
+  const actor = await CairnActor.create(data);
+  await grantContainers(actor, characterData.containers);
+  return actor;
+};
+
+/**
+ * @param {CairnActor} actor
+ * @param {Object} characterData
+ * @returns {Promise<CairnActor>}
+ */
+export const updateActorWithCharacter = async (actor, characterData) => {
+  if (!characterData) return actor;
+  const data = characterToActorData(characterData);
+  await actor.deleteEmbeddedDocuments("Item", [], { deleteAll: true, render: false });
+  // Containers are Actors, so re-rolling the inventory has to clear them by hand.
+  // Only GENERATION-granted ones (they carry a grantSource flag) are deleted —
+  // a bought mule or a hand-made chest survives a regenerate.
+  await clearGrantedContainers(actor);
+  await actor.update(data);
+  await grantContainers(actor, characterData.containers);
+  for (const token of actor.getActiveTokens()) {
+    await token.document.update({ name: actor.name });
+  }
+  return actor;
+};
+
+/** @returns {Promise<CairnActor|null>} */
+export const createCharacter = async () => createActorWithCharacter(await generateCharacter());
+
+/**
+ * Regenerate an existing character: re-roll stats/gear/bond/traits but PERSIST the
+ * background (keyed by uuid), so "Regenerate" re-rolls the character within the
+ * same background.
+ * @param {CairnActor} actor
+ * @returns {Promise<CairnActor>}
+ */
+export const regenerateActor = async (actor) => {
+  let bg = actor.system.backgroundUuid ? await fromUuid(actor.system.backgroundUuid) : null;
+  // A Barebones character made before backgrounds had uuids is keyed by name.
+  if (!bg && actor.system.contentSource === "barebones") {
+    bg = await getBarebonesBackgroundByName(actor.system.background);
+  }
+  return updateActorWithCharacter(actor, await generateCharacter(bg, actor.system.contentSource));
+};
+
+/* ==========================================================================
+ * Hirelings
+ * A GM-created helper drawn from Cairn 2e's twelve example hirelings
+ * (resources/hirelings.md, shipped as module/hirelings-2e.json by
+ * tools/import/hirelings-2e.mjs). Each is a canonical statblock: a Profession, a
+ * daily rate, fixed HP + STR/DEX/WIL, and a specific gear loadout (its weapon and
+ * armor included). No bonds/omens/scars/traits/questions -- hirelings are
+ * deliberately simple.
+ *
+ * Its gear is BY-NAME REFERENCES into the editable pool, exactly like a
+ * background's starting gear: resolveGearItem clones the current pool document,
+ * so editing an item flows into every hireling generated afterwards.
+ * ======================================================================== */
+
+/** The 2e hirelings catalogue (shipped runtime data), fetched once and cached. */
+let _hirelings2e = null;
+export const getHirelings2e = async () => {
+  if (_hirelings2e === null) {
+    try {
+      const resp = await fetch("systems/air-bladder/module/hirelings-2e.json");
+      _hirelings2e = resp.ok ? await resp.json() : [];
+    } catch {
+      _hirelings2e = [];
+    }
+  }
+  return _hirelings2e;
+};
+
+/**
+ * A random hireling entry, optionally avoiding a profession name so a re-roll
+ * always changes.
+ * @param {String|null} avoidName
+ * @returns {Promise<Object|null>}
+ */
+const randomHireling = async (avoidName = null) => {
+  const list = await getHirelings2e();
+  if (!list.length) return null;
+  const pool = avoidName ? list.filter((h) => h.name !== avoidName) : list;
+  const from = pool.length ? pool : list;
+  return from[Math.floor(Math.random() * from.length)];
+};
+
+/**
+ * A hireling's name. 2e characters take their name from their background's name
+ * list, which a hireling has no equivalent of, so this draws from the Warden's
+ * 2e NPC name table -- a hireling IS an NPC. roll(), never draw(), so the
+ * Warden's table keeps a clean drawn state.
+ * @returns {Promise<String>}
+ */
+const rollHirelingName = () =>
+  rollNameFromTable(Cairn.hirelingGenerator.name, game.i18n.localize("CAIRN.Hireling"));
+
+/**
+ * A hireling's canonical loadout, resolved from the pool: weapons and armor
+ * equipped (so Armor derives via calcArmor to the book value -- pool items are
+ * equipped:false), each tagged grantSource "profession" so a profession re-roll
+ * replaces exactly these and leaves GM-added gear alone.
+ * @param {Object} entry
+ * @returns {Promise<Object[]>}
+ */
+const buildHirelingItems = async (entry) => {
+  const items = await resolveRefs(entry?.gear ?? []);
+  return items.map((item) => {
+    if (item.type === "weapon" || item.type === "armor") item.system.equipped = true;
+    return withGrantSource(item, "profession");
+  });
+};
+
+const hirelingAbilityData = (abilities) => ({
+  STR: { value: abilities.STR, max: abilities.STR },
+  DEX: { value: abilities.DEX, max: abilities.DEX },
+  WIL: { value: abilities.WIL, max: abilities.WIL },
+});
+
+/** Generate a full hireling from a random 2e statblock. @returns {Promise<Object>} */
+export const generateHireling = async () => {
+  const h = await randomHireling();
+  return {
+    name: await rollHirelingName(),
+    profession: h?.name ?? "",
+    rate: h?.rate ?? 0,
+    abilities: h?.abilities ?? { STR: 10, DEX: 10, WIL: 10 },
+    hp: h?.hp ?? 6,
+    items: await buildHirelingItems(h),
+  };
+};
+
+/** @returns {Object} Foundry create/update data for a hireling. */
+const hirelingToActorData = (h) => ({
+  name: h.name || "Hireling",
+  type: "hireling",
+  system: {
+    profession: h.profession ?? "",
+    dayRate: h.rate ?? 0,
+    abilities: hirelingAbilityData(h.abilities),
+    hp: { value: h.hp, max: h.hp },
+    gold: 0,
+    deprived: false,
+    panicked: false,
+    critical: false,
+    armorOverride: null,
+  },
+  items: h.items,
+});
+
+/**
+ * Create a fully-generated hireling actor with a random portrait + paired token
+ * (assigned on creation only, like a player character; re-rolls preserve it by
+ * omission).
+ * @returns {Promise<CairnActor>}
+ */
+export const createHireling = async () => {
+  const data = hirelingToActorData(await generateHireling());
+  const pair = await randomPortraitPair();
+  if (pair) {
+    data.img = pair.img;
+    data.prototypeToken = { ...(data.prototypeToken ?? {}), texture: { src: pair.token } };
+  }
+  return CairnActor.create(data);
+};
+
+/**
+ * Full re-roll of an existing hireling: a fresh random statblock (new profession,
+ * day-rate, abilities, HP and gear). Keeps the name, portrait and free-form notes
+ * -- the update omits them.
+ * @param {CairnActor} actor
+ * @returns {Promise<CairnActor>}
+ */
+export const regenerateHireling = async (actor) => {
+  const h = await generateHireling();
+  await actor.deleteEmbeddedDocuments("Item", [], { deleteAll: true, render: false });
+  await actor.update({
+    system: {
+      profession: h.profession,
+      dayRate: h.rate,
+      abilities: hirelingAbilityData(h.abilities),
+      hp: { value: h.hp, max: h.hp },
+      critical: false,
+    },
+    items: h.items,
+  });
+  return actor;
+};
+
+/**
+ * Profession re-roll: swap to a different example hireling and adopt its whole
+ * canonical statblock -- Profession, day-rate, abilities, HP and granted gear (a
+ * 2e hireling's stats ARE its profession). Keeps the name, portrait, notes and
+ * any GM-added items.
+ * @param {CairnActor} actor
+ * @returns {Promise<CairnActor>}
+ */
+export const rerollHirelingProfession = async (actor) => {
+  const h = await randomHireling(actor.system.profession);
+  const items = await buildHirelingItems(h);
+  const stale = actor.items
+    .filter((i) => i.getFlag(FLAG_SCOPE, "grantSource") === "profession")
+    .map((i) => i.id);
+  if (stale.length) await actor.deleteEmbeddedDocuments("Item", stale, { render: false });
+  if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false });
+  await actor.update({
+    system: {
+      profession: h?.name ?? "",
+      dayRate: h?.rate ?? 0,
+      abilities: hirelingAbilityData(h?.abilities ?? { STR: 10, DEX: 10, WIL: 10 }),
+      hp: { value: h?.hp ?? 6, max: h?.hp ?? 6 },
+      critical: false,
+    },
+  });
+  return actor;
+};
+
+/**
+ * Re-roll only a hireling's NAME, leaving its statblock alone.
+ * @param {CairnActor} actor
+ * @returns {Promise<CairnActor>}
+ */
+export const rerollHirelingName = async (actor) => {
+  await actor.update({ name: await rollHirelingName() });
+  for (const token of actor.getActiveTokens()) {
+    await token.document.update({ name: actor.name });
+  }
+  return actor;
+};

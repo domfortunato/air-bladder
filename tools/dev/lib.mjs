@@ -1,0 +1,73 @@
+/**
+ * Helpers for driving a local Foundry instance from Playwright.
+ * See the "Local dev loop" section of CLAUDE.md for setup.
+ */
+
+export const FOUNDRY_URL = process.env.FOUNDRY_URL ?? "http://localhost:30000";
+
+/** Foundry's minimum supported resolution; below this it logs a console error. */
+export const VIEWPORT = { width: 1600, height: 1000 };
+
+/**
+ * Clear the things that block automated clicks: the one-time usage-data consent
+ * prompt, and tour overlays, which cover the screen and swallow pointer events.
+ */
+export async function dismissChrome(page) {
+  const decline = page.getByRole("button", { name: /Decline Sharing/i });
+  if (await decline.count()) {
+    await decline.first().click().catch(() => {});
+    await page.waitForTimeout(800);
+  }
+
+  // Exit via the API so the dismissal persists, then sweep any leftover nodes.
+  await page.evaluate(() => {
+    try {
+      for (const t of globalThis.game?.tours?.contents ?? []) {
+        if (t.status === "in-progress") t.exit();
+      }
+    } catch { /* the setup page does not expose game.tours */ }
+  }).catch(() => {});
+  await page.waitForTimeout(400);
+  await page.evaluate(() => {
+    document.querySelectorAll(".tour-overlay, .tour.active").forEach(e => e.remove());
+  }).catch(() => {});
+}
+
+/**
+ * Collect real console errors. Two known-irrelevant messages are filtered:
+ * the viewport warning (an artifact of the headless window size) and the
+ * hardware-acceleration warning (headless Chromium has no GPU).
+ */
+export function watchErrors(page) {
+  const errors = [];
+  const ignore = [/requires a screen resolution/i, /hardware acceleration/i];
+  page.on("console", m => {
+    if (m.type() !== "error") return;
+    const t = m.text();
+    if (ignore.some(re => re.test(t))) return;
+    errors.push(t);
+  });
+  page.on("pageerror", e => errors.push(`pageerror: ${e.message}`));
+  return errors;
+}
+
+/** Join the world as the first available user (the Gamemaster on a fresh world). */
+export async function joinAsGM(page) {
+  await page.goto(`${FOUNDRY_URL}/join`, { waitUntil: "networkidle", timeout: 60000 });
+
+  // Foundry v14 hides <select> behind custom elements, so Playwright's
+  // selectOption() sees it as invisible. Drive the underlying element directly.
+  await page.evaluate(() => {
+    const s = document.querySelector('select[name="userid"]');
+    if (!s) return;
+    const opt = [...s.options].find(o => o.value);
+    if (!opt) return;
+    s.value = opt.value;
+    s.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await page.locator('button[type="submit"][name="join"], form#join-game button[type="submit"]')
+    .first().click({ timeout: 15000 });
+
+  await page.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
+  await dismissChrome(page);
+}

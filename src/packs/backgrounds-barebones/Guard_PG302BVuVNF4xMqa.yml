@@ -1,0 +1,28 @@
+_id: PG302BVuVNF4xMqa
+name: Guard
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 4600
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 46
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: Lantern
+    - name: Manacles
+    - name: Whistle
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!PG302BVuVNF4xMqa'

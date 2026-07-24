@@ -1,0 +1,39 @@
+_id: FKKbSpcTlbf2OAQN
+name: Card Deck
+type: item
+flags:
+  core:
+    sourceId: Item.M2BxqAt0x6pfsSDy
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+system:
+  cost: 5
+  description: 'A deck of playing cards for passing time and parting fools from their coin.'
+  weightless: true
+  equipped: false
+  bulky: false
+  damageFormula: ''
+  criticalDamage: ''
+  blast: false
+  uses:
+    value: 0
+    max: 0
+  quantity: 1
+  numberOfUses: 0
+  slots: 1
+  armor: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+folder: null
+sort: 0
+_stats:
+  systemId: cairn
+  systemVersion: 0.10.26
+  coreVersion: '12.327'
+  createdTime: null
+  modifiedTime: 1665822374847
+  lastModifiedBy: Vw4BPOEKqYJ80wk3
+  compendiumSource: Item.M2BxqAt0x6pfsSDy
+  duplicateSource: null
+_key: '!items!FKKbSpcTlbf2OAQN'

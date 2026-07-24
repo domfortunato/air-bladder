@@ -1,0 +1,26 @@
+_id: G4cEC44FUF1BGOH8
+name: Diseased Crop
+type: item
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: Quickly decays any plant it touches.
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 6
+    max: 6
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!G4cEC44FUF1BGOH8'

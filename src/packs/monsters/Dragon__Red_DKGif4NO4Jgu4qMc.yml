@@ -1,0 +1,234 @@
+_id: DKGif4NO4Jgu4qMc
+name: Dragon, Red
+type: npc
+sort: 100001
+flags: {}
+img: systems/air-bladder/icons/monster.png
+items:
+  - _id: FDoaP3CPPaw0kAhI
+    name: Bite
+    type: item
+    sort: 100000
+    flags: {}
+    img: icons/svg/mystery-man.svg
+    effects: []
+    _stats:
+      coreVersion: '12.327'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+    system:
+      description: ''
+      weightless: false
+      equipped: true
+      bulky: false
+      damageFormula: 2d10k
+      criticalDamage: ''
+      blast: false
+      uses:
+        value: 0
+        max: 0
+      quantity: 1
+      slots: 0
+      armor: 0
+      numberOfUses: 0
+    folder: null
+    ownership:
+      default: 0
+    _key: '!actors.items!DKGif4NO4Jgu4qMc.FDoaP3CPPaw0kAhI'
+  - _id: fx3PgWX4kHk3JgkW
+    name: Breath Fire (Cone)
+    type: item
+    sort: 200000
+    flags: {}
+    img: icons/svg/mystery-man.svg
+    effects: []
+    _stats:
+      coreVersion: '12.327'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+    system:
+      description: ''
+      weightless: false
+      equipped: true
+      bulky: false
+      damageFormula: d12
+      criticalDamage: ''
+      blast: false
+      uses:
+        value: 0
+        max: 0
+      quantity: 1
+      slots: 0
+      armor: 0
+      numberOfUses: 0
+    folder: null
+    ownership:
+      default: 0
+    _key: '!actors.items!DKGif4NO4Jgu4qMc.fx3PgWX4kHk3JgkW'
+  - _id: 6cOwa6SD1ooQPp2X
+    name: Scale Hide
+    type: item
+    sort: 200000
+    flags:
+      core:
+        sourceId: Item.AjnPp8cG4Cg5HAR1
+    img: icons/svg/mystery-man.svg
+    effects: []
+    _stats:
+      coreVersion: '12.327'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+    system:
+      description: ''
+      weightless: false
+      equipped: true
+      bulky: false
+      damageFormula: ''
+      criticalDamage: ''
+      blast: false
+      uses:
+        value: 0
+        max: 0
+      quantity: 1
+      slots: 0
+      armor: 3
+      numberOfUses: 0
+    folder: null
+    ownership:
+      default: 0
+    _key: '!actors.items!DKGif4NO4Jgu4qMc.6cOwa6SD1ooQPp2X'
+effects: []
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  bDeEK9GSahKwiAGH: 3
+system:
+  hp:
+    value: 15
+    max: 15
+  abilities:
+    STR:
+      value: 18
+      max: 18
+    DEX:
+      value: 12
+      max: 12
+    WIL:
+      value: 16
+      max: 16
+  description: >
+    <ul>
+
+    <li>Gargantuan, proud, greedy, and cruel.   Guarding their massive hoards
+    atop the highest mountains, these are the most dangerous dragons of
+    existence.<br></li>
+
+    <li>Arrogant and tyrannical, act on impulse when angered, frequently wiping
+    out civilizations as a show of power.<br></li>
+
+    <li>Breathes fire in a cone for d12 damage to all caught in the
+    flames.<br></li>
+
+    </ul>
+  armor: null
+prototypeToken:
+  flags: {}
+  name: Dragon, Red
+  displayName: 0
+  width: 1
+  height: 1
+  lockRotation: false
+  rotation: 0
+  actorLink: false
+  disposition: -1
+  displayBars: 0
+  bar1:
+    attribute: abilities.STR
+  bar2:
+    attribute: hp
+  randomImg: false
+  light:
+    dim: 0
+    bright: 0
+    angle: 360
+    alpha: 1
+    animation:
+      speed: 5
+      intensity: 5
+      type: null
+      reverse: false
+    negative: false
+    priority: 0
+    color: null
+    coloration: 1
+    attenuation: 0.5
+    luminosity: 0.5
+    saturation: 0
+    contrast: 0
+    shadows: 0
+    darkness:
+      min: 0
+      max: 1
+  texture:
+    src: icons/svg/mystery-man.svg
+    tint: '#ffffff'
+    scaleX: 1
+    scaleY: 1
+    anchorX: 0.5
+    anchorY: 0.5
+    offsetX: 0
+    offsetY: 0
+    fit: contain
+    rotation: 0
+    alphaThreshold: 0.75
+  sight:
+    angle: 360
+    enabled: false
+    range: 0
+    brightness: 1
+    visionMode: basic
+    color: null
+    attenuation: 0.1
+    saturation: 0
+    contrast: 0
+  appendNumber: false
+  prependAdjective: false
+  hexagonalShape: 0
+  alpha: 1
+  detectionModes: []
+  occludable:
+    radius: 0
+  ring:
+    enabled: false
+    colors:
+      ring: null
+      background: null
+    effects: 1
+    subject:
+      scale: 1
+      texture: null
+folder: null
+_key: '!actors!DKGif4NO4Jgu4qMc'

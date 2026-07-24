@@ -1,0 +1,26 @@
+_id: yvGIyWdqgBVi6CWW
+name: Royal Crest
+type: item
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: 'Born into royalty, you chose a different life. The Royal Crest grants you access but also alerts your family of your whereabouts.'
+  weightless: true
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!yvGIyWdqgBVi6CWW'

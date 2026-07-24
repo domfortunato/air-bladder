@@ -1,0 +1,26 @@
+_id: w8iD5bnOmmcNjZ02
+name: 'Tinker''s Paste'
+type: item
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: Seals shut any fist-sized opening.
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 3
+    max: 3
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!w8iD5bnOmmcNjZ02'

@@ -1,0 +1,38 @@
+_id: OnAjoNs3GNUOBX7W
+name: Blank Book
+type: item
+flags:
+  core:
+    sourceId: Item.clmg7Re309O9fclk
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  description: ''
+  weightless: false
+  equipped: false
+  bulky: false
+  damageFormula: ''
+  criticalDamage: ''
+  blast: false
+  uses:
+    value: 0
+    max: 0
+  quantity: 1
+  slots: 1
+  armor: null
+  numberOfUses: 0
+folder: null
+sort: 0
+_key: '!items!OnAjoNs3GNUOBX7W'

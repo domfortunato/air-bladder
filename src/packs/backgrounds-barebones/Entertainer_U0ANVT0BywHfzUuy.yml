@@ -1,0 +1,28 @@
+_id: U0ANVT0BywHfzUuy
+name: Entertainer
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 3400
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 34
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: Dice
+    - name: Songbook
+    - name: Wig
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!U0ANVT0BywHfzUuy'

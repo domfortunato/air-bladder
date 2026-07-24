@@ -1,0 +1,277 @@
+_id: ur6YzwCwwTIprSMu
+name: 'Warden: NPC - Vice'
+img: icons/svg/d20-grey.svg
+description: Cairn 2e NPC vice (Warden's Guide, NPC Tables). The d20 NPC version, distinct from the d10 PC Vice in tables-2e.
+results:
+  - _id: 16GVj241S52s3BT5
+    type: text
+    text: Aloof
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 1
+      - 1
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!ur6YzwCwwTIprSMu.16GVj241S52s3BT5'
+  - _id: a5qVTPFzFHX1don4
+    type: text
+    text: Corrupt
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!ur6YzwCwwTIprSMu.a5qVTPFzFHX1don4'
+  - _id: RvHKgJXTOXzSexES
+    type: text
+    text: Craven
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!ur6YzwCwwTIprSMu.RvHKgJXTOXzSexES'
+  - _id: kGiisLsqA2uHfpUP
+    type: text
+    text: Cruel
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!ur6YzwCwwTIprSMu.kGiisLsqA2uHfpUP'
+  - _id: UirbqDzknGETx8fW
+    type: text
+    text: Cynical
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!ur6YzwCwwTIprSMu.UirbqDzknGETx8fW'
+  - _id: OslrjkiwCFDeV5aa
+    type: text
+    text: Deceptive
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!ur6YzwCwwTIprSMu.OslrjkiwCFDeV5aa'
+  - _id: LrQysCubQonD8DU4
+    type: text
+    text: Greedy
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 7
+      - 7
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!ur6YzwCwwTIprSMu.LrQysCubQonD8DU4'
+  - _id: C9q5JZJFh8ZiuuOt
+    type: text
+    text: Impulsive
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 8
+      - 8
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!ur6YzwCwwTIprSMu.C9q5JZJFh8ZiuuOt'
+  - _id: s9tza3He8jaxznic
+    type: text
+    text: Incompetent
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 9
+      - 9
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!ur6YzwCwwTIprSMu.s9tza3He8jaxznic'
+  - _id: oEtlqAbhjeaSjOQM
+    type: text
+    text: Inflexible
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 10
+      - 10
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!ur6YzwCwwTIprSMu.oEtlqAbhjeaSjOQM'
+  - _id: SS8QYkZE4fmxu3HE
+    type: text
+    text: Manipulative
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 11
+      - 11
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!ur6YzwCwwTIprSMu.SS8QYkZE4fmxu3HE'
+  - _id: Sm0SJ0O7GrfVCYBf
+    type: text
+    text: Mercurial
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 12
+      - 12
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!ur6YzwCwwTIprSMu.Sm0SJ0O7GrfVCYBf'
+  - _id: 2oEWzN7LA82JMipC
+    type: text
+    text: Naive
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 13
+      - 13
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!ur6YzwCwwTIprSMu.2oEWzN7LA82JMipC'
+  - _id: ilr0ph9lGBf2HzqN
+    type: text
+    text: Pedantic
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 14
+      - 14
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!ur6YzwCwwTIprSMu.ilr0ph9lGBf2HzqN'
+  - _id: TiQ3vfvILD6QmrwR
+    type: text
+    text: Ruthless
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 15
+      - 15
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!ur6YzwCwwTIprSMu.TiQ3vfvILD6QmrwR'
+  - _id: FqvlGive3TAqyrDg
+    type: text
+    text: Sarcastic
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 16
+      - 16
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!ur6YzwCwwTIprSMu.FqvlGive3TAqyrDg'
+  - _id: 9vgvxhPaOe87VJdZ
+    type: text
+    text: Selfish
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 17
+      - 17
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!ur6YzwCwwTIprSMu.9vgvxhPaOe87VJdZ'
+  - _id: Q1uRh27mPW8decn2
+    type: text
+    text: Stubborn
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 18
+      - 18
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!ur6YzwCwwTIprSMu.Q1uRh27mPW8decn2'
+  - _id: 0HG2H2tZcWoUIqrF
+    type: text
+    text: Vain
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 19
+      - 19
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!ur6YzwCwwTIprSMu.0HG2H2tZcWoUIqrF'
+  - _id: rHA4cBfeVu7zfDbH
+    type: text
+    text: Xenophobic
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 20
+      - 20
+    drawn: false
+    documentCollection: ''
+    documentId: null
+    flags: {}
+    _key: '!tables.results!ur6YzwCwwTIprSMu.rHA4cBfeVu7zfDbH'
+formula: 1d20
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!tables!ur6YzwCwwTIprSMu'

@@ -1,0 +1,28 @@
+_id: YDcGoj0ApAZBtpdL
+name: Tanner
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 9000
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 90
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: Gloves
+    - name: Pliers
+    - name: Tar
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!YDcGoj0ApAZBtpdL'

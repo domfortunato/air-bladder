@@ -1,0 +1,28 @@
+_id: XN2Ds7d46sGCq6sl
+name: Fence
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 3800
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 38
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: Bolt Cutters
+    - name: Random Additional Gear
+    - name: Sack
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!XN2Ds7d46sGCq6sl'

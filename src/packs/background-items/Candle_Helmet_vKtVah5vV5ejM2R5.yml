@@ -1,0 +1,27 @@
+_id: vKtVah5vV5ejM2R5
+name: Candle Helmet
+type: armor
+img: systems/air-bladder/icons/armor.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: A helm fitted with a bracket for a lit candle — armor and a hands-free light in one.
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 6
+    max: 6
+  armor: 1
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!vKtVah5vV5ejM2R5'

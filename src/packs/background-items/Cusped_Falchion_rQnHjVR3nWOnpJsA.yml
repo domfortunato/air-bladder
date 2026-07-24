@@ -1,0 +1,29 @@
+_id: rQnHjVR3nWOnpJsA
+name: Cusped Falchion
+type: weapon
+img: systems/air-bladder/icons/weapons.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: 'A broad, curved field-blade with a hooked tip — as at home reaping crops as reaping thieves.'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+  damageFormula: d8
+  criticalDamage: ''
+  blast: false
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!rQnHjVR3nWOnpJsA'

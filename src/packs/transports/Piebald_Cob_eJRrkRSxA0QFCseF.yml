@@ -1,0 +1,27 @@
+_id: eJRrkRSxA0QFCseF
+name: Piebald Cob
+type: transport
+img: systems/air-bladder/icons/horse.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    transportSource: background-2e
+system:
+  description: 'From the Outrider background. Intelligent, it can understand simple commands and even has an instinct for danger. 6 HP. +4 slots.'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  transportKind: mount
+  slots: 4
+  load: 0
+  slow: false
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!eJRrkRSxA0QFCseF'

@@ -1,0 +1,132 @@
+{
+  "TYPES.Actor.character": "Personaje jugador",
+  "TYPES.Actor.container": "Contenedor",
+  "TYPES.Actor.npc": "Personaje no-jugador",
+  "TYPES.Item.armor": "Armadura",
+  "TYPES.Item.item": "Objeto",
+  "TYPES.Item.weapon": "Arma",
+  "TYPES.Item.spellbook": "Hechizo",
+  "TYPES.Item.object": "Artículo",
+  "CAIRN.AddFatigue": "Añadir fatiga",
+  "CAIRN.AddItem": "Añadir objeto",
+  "CAIRN.AddContainer": "Añadir contenedor",
+  "CAIRN.AddFeature": "Añadir rasgo",
+  "CAIRN.Armor": "Armadura",
+  "CAIRN.Background": "Trasfondo",
+  "CAIRN.Blast": "Estallido",
+  "CAIRN.BoldMeanEquipped": "(negrita significa equipado)",
+  "CAIRN.Bulky": "Voluminoso",
+  "CAIRN.CharacterGenerator": "Crear personaje",
+  "CAIRN.CharacterRegeneratorConfirm": "¿Estás seguro de que quieres borrar y regenerar este personaje?",
+  "CAIRN.CharacterRegeneratorTitle": "¿Borrar este personaje y regenerarlo?",
+  "CAIRN.Containers": "Contenedores",
+  "CAIRN.ContainerAlreadyOwned": "El contenedor ya es propiedad de otro personaje",
+  "CAIRN.CreateItem": "Crear objeto",
+  "CAIRN.CreateContainer": "Crear contenedor",
+  "CAIRN.CreateFeature": "Crear rasgo",
+  "CAIRN.CriticalDamage": "Daño crítico",
+  "CAIRN.Damage": "Daño",
+  "CAIRN.Dead": "Muerto",
+  "CAIRN.Deprived": "Exhausto",
+  "CAIRN.Description": "Descripción",
+  "CAIRN.DieOfFate": "Dado del Destino",
+  "CAIRN.DeleteItem": "Eliminar objeto",
+  "CAIRN.EditItem": "Editar objeto",
+  "CAIRN.EditFeature": "Editar rasgo", 
+  "CAIRN.Equipped": "Equipado",
+  "CAIRN.Fatigue": "Fatiga",
+  "CAIRN.Fail": "Fallo",
+  "CAIRN.Features": "Rasgos",
+  "CAIRN.FeaturesInfo": "Rasgos de personaje adicionales con algún efecto mecánico.",
+  "CAIRN.Gold": "Oro",
+  "CAIRN.HitProtection": "PG",
+  "CAIRN.Item": "Objeto",
+  "CAIRN.Items": "Equipo",
+  "CAIRN.MaxUses": "Max # de usos",
+  "CAIRN.ModifiedElements": "Elementos modificados",
+  "CAIRN.Name": "Nombre",
+  "CAIRN.NoItemToDelete": "No se encuentra el objeto a eliminar.",
+  "CAIRN.Notes": "Notas",
+  "CAIRN.Notify": {
+    "MaxSlotsOccupied": "Máximo de espacios de inventario ocupados",
+    "ConfirmDelete": "Borrar"
+  },
+  "CAIRN.Owner": "Propietario/a",
+  "CAIRN.OverburdenByGold": "El personaje puede estar sobrecargado por el oro",
+  "CAIRN.Quantity": "Cantidad",
+  "CAIRN.Panicked": "Pánico",
+  "CAIRN.RemoveFatigue": "Quitar fatiga",
+  "CAIRN.RegenerateCharacter": "Regenerar",
+  "CAIRN.Rest": "Descansar",
+  "CAIRN.RestoreAbilities": "Restaurar caract.",
+  "CAIRN.RollDamage": "Tirar daño",
+  "CAIRN.Rolling": "Tirada",
+  "CAIRN.RollingDmgWith": "Daño con",
+  "CAIRN.RollingWithPanic": "Pánico",
+  "CAIRN.Role": "Role",
+  "CAIRN.Save": "salvación {key}",
+  "CAIRN.Scars": "Obtienes una cicatriz",
+  "CAIRN.Settings": {
+    "MaxEquipSlots": {
+      "label": "Límite de equipo",
+      "hint": "Número máximo de espacios de inventario para los personajes jugadores, utilizados para gestionar la carga del personaje."
+    },
+    "UseGoldThreshold": {
+      "label": "Utilizar límite de oro",
+      "hint": "Define el límite del número de piezas de oro que pueden ocupar el espacio del inventario. Cero significa que las piezas de oro son siempre insignificantes.",
+      "message": "El oro cuenta como inventario"
+    },
+    "ShowGoldNotCost": {
+      "label": "Mostrar el oro en lugar del coste en los contenedores",
+      "hint": "Esto permite colocar oro (incluyendo el control de su peso) dentro de los contenedores.",
+      "message": "El peso del oro se redondea al alza en lugar de a la baja cuando se registra en contenedores."
+    },
+    "UsePanic": {
+      "label": "Usar la condición de Pánico",
+      "hint": "Utiliza la condición de Pánico de 2e para los personajes jugadores."
+    },
+    "UseItemIcons": {
+    "label": "Mostrar iconos de objetos",
+    "hint": "Mostrar iconos de algunos objetos del inventario para reconocer rápidamente el tipo."
+   },
+   "UseCairnDiceNotation": {
+     "label": "Utilizar la notación de dados de Cairn",
+     "hint": "Interpretar la notación de los dados en Cairn como 'd6+d6' tal y como se describe en las reglas."
+   }, 
+   "ShowGenerateHeader":{
+       "label":"Mostrar botón de regeneración",
+       "hint": "Mostrar el botón 'regenerar' en la cabecera de la hoja de personaje"
+   },
+   "ShowFeatures":{
+     "label":"Mostrar la sección de rasgos",
+     "hint": "Mostrar lista adicional de 'rasgos' en la pestaña de descripción del personaje."
+   },
+   "ShowContainerActors": {
+      "label":"Mostrar actores contenedores",
+      "hint": "Muestra los contenedores en la lista de actores"
+   },
+    "CharacterInventoryLimit": {
+      "label":"Límite de equipo del personaje",
+      "hint": "El límite de equipo se define por personaje, en lugar de ser un valor global."
+   }
+  },
+  "CAIRN.Slots": "Espacios",
+  "CAIRN.Spellbook": "Hechizo",
+  "CAIRN.StrSave": "Debe superar una salvación de FUE",
+  "CAIRN.RollStrSave": "Tirar salvación de FUE",
+  "CAIRN.Success": "Exito",
+  "CAIRN.Type": "Tipo",
+  "CAIRN.Uses": "# de usos",
+  "CAIRN.UpdateFeature": "Actualizar rasgo",
+  "CAIRN.Weapon": "Arma",
+  "CAIRN.Weightless": "Insignificante",
+  "CAIRN.ItemAddQuantity": "Añadir",
+  "CAIRN.ItemEquip": "Equipar",
+  "CAIRN.ItemRemoveQuantity": "Quitar",
+  "CAIRN.ItemUnequip": "Desequipar",
+  "CAIRN.ApplyDamage": "Aplicar daño",
+  "CAIRN.Cost": "Coste",
+  "DEX": "DES",
+  "STR": "FUE",
+  "WIL": "VOL"
+}

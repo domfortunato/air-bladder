@@ -1,0 +1,2021 @@
+@font-face {
+    src: url("../fonts/Alegreya-Regular.woff2");
+    font-family: "Alegreya";
+}
+
+@font-face {
+    src: url("../fonts/Alegreya-Medium.woff2");
+    font-family: "Alegreya";
+    font-weight: 500;
+}
+
+@font-face {
+    src: url("../fonts/Alegreya-Bold.woff2");
+    font-family: "Alegreya";
+    font-weight: bold;
+}
+
+/******************************************************************************
+ * General style.                                                             * 
+ ******************************************************************************/
+
+/* Sheet palette. The sheet always renders on Foundry's light parchment (AppV1
+   windows are force-tagged theme-light), so these are tuned for parchment, not
+   the viewer's theme:
+     --ab-muted         readable muted/secondary text (replaces a scattered
+                        `grey`/#888, which was too low-contrast on parchment),
+     --ab-surface       warm off-white for the white controls (Rest / Restore /
+                        Die of Fate) so they sit IN the parchment instead of
+                        glaring as cold-white patches; their black border still
+                        marks them as controls,
+     --ab-surface-hover the same, one step darker, for their hover. */
+.cairn {
+    --ab-muted: #4a4335;
+    --ab-surface: #f1ead8;
+    --ab-surface-hover: #e7ded0;
+}
+
+.cairn.sheet.actor,
+.cairn.sheet.item {
+    min-height: 480px;
+    min-width: 480px;
+}
+
+/* Sheet background: intentionally left to Foundry. Cairn sheets are AppV1
+   windows, which Foundry force-tags `themed theme-light` regardless of the
+   player's colour scheme, so .window-content falls back to Foundry's own light
+   parchment (ui/parchment.jpg) -- warm, characterful, and always light, so the
+   sheet's dark text and black bars stay readable. We used to force a flat
+   #f5f5f5 here (which also killed the parchment via background-image: none);
+   that override was removed 2026-07-23. Do NOT re-add a background here. */
+
+.cairn .editor {
+    height: 100%;
+    min-height: 480px;
+}
+
+/******************************************************************************
+ * Character sheet grid.                                                      * 
+ ******************************************************************************/
+
+.charater-sheet-grid {
+    display: grid;
+    column-gap: 8px;
+    /* Match the 2px gap between the ability rows (STR/DEX/WIL) so the HP/Gold
+       row sits the same distance above STR/Armor as the ability rows sit apart,
+       rather than leaving a jarring wider band between them. */
+    row-gap: 2px;
+    grid-template-columns: 140px 1fr 1fr;
+    grid-template-rows: minmax(140px, auto) 112px 1fr;
+    height: 100%;
+}
+
+.character-sheet-section-name {
+    grid-column-start: 2;
+    grid-column-end: 4;
+
+    display: grid;
+    column-gap: 8px;
+    row-gap: 2px;
+    /* name / background line / background description (or failed career) /
+       HP + Gold. The third row is 1fr so it ABSORBS any slack when the section
+       is stretched to the portrait's 140px (a Barebones character has no
+       description), pushing the HP/Gold counters down to sit flush with the
+       portrait's bottom edge instead of leaving a floating gap below them. A 2e
+       description sizes the row to its own content (fr's auto minimum) and grows
+       row 1 of the outer grid to match. */
+    grid-template-rows: 46px 24px 1fr min-content;
+    align-content: start;
+    grid-template-columns: 1fr 1fr;
+}
+
+/* The three buttons stack flush as one evenly-spaced set. They are a touch
+   shorter than a counter row (32px) so the fixed 112px stack has a little slack
+   at its foot rather than crowding the tabs below. */
+.character-sheet-section-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.character-sheet-section-buttons button {
+    height: 32px;
+    flex: 0 0 auto;
+}
+
+#die-of-fate-button {
+    /* Distinguished from the two utility buttons not by a box glow but by a teal
+       TEXT glow that lights up its label + d6 icon -- the same idea as a selected
+       tab, in teal (the complement of the tabs' red) so it reads as
+       related-but-distinct and marks the deliberate action. */
+    background: var(--ab-surface);
+    color: black;
+    border: 2px solid black;
+    font-weight: bold;
+    text-shadow: 0 0 8px #12a3b4;
+}
+
+#die-of-fate-button:hover {
+    text-shadow: 0 0 12px #12a3b4;
+}
+
+.character-sheet-section-abilities {
+    display: grid;
+    row-gap: 2px;
+    grid-template-rows: 36px 36px 36px;
+}
+
+.character-sheet-section-others {
+    display: grid;
+    row-gap: 2px;
+    grid-template-rows: 36px 36px 36px;
+}
+
+.character-sheet-section-tabs {
+    grid-column-start: 1;
+    grid-column-end: 4;
+
+    display: grid;
+    /* First (auto) track is the status-banner wrapper: 0 height while empty,
+       grows to coloured bars when an attribute is critically wounded. */
+    grid-template-rows: auto 36px 1fr;
+}
+
+/******************************************************************************
+ * Container sheet grid.                                                      * 
+ ******************************************************************************/
+
+.container-sheet-grid {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: 140px 1fr 1fr;
+    grid-template-rows: 140px 1fr;
+    height: 100%;
+}
+
+/* A container's name section reuses the character grid (name / line / 1fr /
+   bottom-row), but a container only has name, owner, slots and cost — with no
+   explicit placement the Slots counter jammed into the 24px owner line at the
+   top-right. Place owner across the width and drop Slots + Cost into the bottom
+   row (row 4), like the character's HP + Gold, so the 1fr row 3 absorbs the slack
+   and they sit flush with the portrait's foot. */
+.container-sheet-grid .background-input {
+    grid-column: 1 / 3;
+    grid-row: 2;
+    align-self: center;
+}
+.container-sheet-grid .slots-counter {
+    grid-row: 4;
+    align-self: end;
+}
+
+/******************************************************************************
+ * Item sheet grid.                                                           * 
+ ******************************************************************************/
+
+.item-sheet-grid {
+    display: grid;
+    column-gap: 8px;
+    row-gap: 8px;
+    grid-template-columns: 140px 1fr 1fr;
+    grid-template-rows: 46px 36px 36px 36px 36px 36px 1fr;
+    height: 100%;
+}
+
+.item-sheet-section-portrait {
+    grid-column-start: 1;
+    grid-column-end: 2;
+    grid-row-start: 1;
+    grid-row-end: 7;
+}
+
+.item-sheet-section-name {
+    grid-column-start: 2;
+    grid-column-end: 4;
+    grid-row-start: 1;
+    grid-row-end: 2;
+}
+
+.item-sheet-section-tabs {
+    grid-column-start: 1;
+    grid-column-end: 4;
+    grid-row-start: 7;
+    grid-row-end: 7;
+
+    display: grid;
+    grid-template-rows: 36px 1fr;
+}
+
+/******************************************************************************
+ * Portrait and name section.                                                 * 
+ ******************************************************************************/
+
+.portrait {
+    border: 2px solid black;
+    border-radius: 5px;
+    height: 140px;
+    width: 100%;
+    object-fit: contain;
+    /* Stay 140px at the top even when row 1 grows for a tall description. */
+    align-self: start;
+    cursor: pointer;
+}
+
+/* Transports/containers get a consistent black-and-white look: the source art is
+   colour Foundry core icons, shown grayscale (display only -- nothing bundled). */
+.container-sheet-grid .portrait,
+.cairn-container-gallery .cairn-portrait-choice {
+    filter: grayscale(1);
+}
+
+/* Give a quick colour peek on hover so the picker is still easy to read. */
+.cairn-container-gallery .cairn-portrait-choice:hover {
+    filter: grayscale(0);
+}
+
+.cairn-portrait-browse {
+    align-self: center;
+    flex: 0 0 auto;
+    width: auto;
+}
+
+/* The name and its random-name die share row 1 of the name grid: the input
+   grows, the die sits at its right (present only in random-generation mode). */
+.name-line {
+    grid-column: 1 / 3;
+    grid-row: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+/* The name-roll <a> sits OUTSIDE the black name input, on the LIGHT
+   window-content (rgb245) — so it needs a DARK colour to read there, exactly like
+   the sibling profession-roll (a light colour is invisible on it). This is the
+   character sheet's long-standing grey; the hireling darkens it below to match
+   its profession-roll. */
+.name-line .name-roll {
+    flex: 0 0 auto;
+    cursor: pointer;
+    color: var(--ab-muted);
+}
+
+.name-line .name-roll:hover {
+    color: #191813;
+}
+
+/* Hireling: the name-roll takes the SAME dark colour as the profession-roll (both
+   dark@0.55 on the light field), so the two rollers read identically. The 0.55
+   opacity comes from the shared .hireling rule below. */
+.hireling .name-line .name-roll {
+    color: #191813;
+}
+
+.hireling .name-line .name-roll:hover {
+    color: #191813;
+    opacity: 1;
+}
+
+/* Row 3 of the name grid: 2e's background description. */
+.background-description {
+    grid-column: 1 / 3;
+    grid-row: 3;
+    font-size: 13px;
+}
+
+.background-description :first-child {
+    margin-top: 0;
+}
+
+.background-description :last-child {
+    margin-bottom: 0;
+}
+
+/* Barebones "Failed career:" line. Sits in the same row-3 slot the 2e background
+   description occupies -- the two never coexist -- so it renders directly under
+   the Background line. Secondary to the Background: smaller, greyed label. */
+.failed-career-block {
+    grid-column: 1 / 3;
+    grid-row: 3;
+    align-self: start;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.failed-career-line,
+.failed-career-item-line {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+}
+
+.failed-career-label {
+    flex: 0 0 auto;
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
+    font-size: 15px;
+    font-variant: small-caps;
+    color: var(--ab-muted);
+}
+
+.failed-career-name {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
+    font-size: 15px;
+    font-variant: small-caps;
+}
+
+/* Keepsake-item line: like the career line but a step quieter — it's a detail of
+   the flavour above it. */
+.failed-career-item-label {
+    flex: 0 0 auto;
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
+    font-size: 13px;
+    font-variant: small-caps;
+    color: var(--ab-muted);
+}
+
+.failed-career-item-name {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
+    font-size: 13px;
+    font-variant: small-caps;
+}
+
+/* Roll Character is always rendered so the Randomization toggle can show/hide it
+   in place; Foundry has renamed the header-button element across versions, so
+   match both. */
+.window-header .header-button.cairn-header-hidden,
+.header-control.cairn-header-hidden {
+    display: none;
+}
+
+.name-input {
+    grid-column-start: 1;
+    grid-column-end: 3;
+
+    background: black !important;
+    border: none !important;
+    color: #f5f5f5 !important;
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif !important;
+    font-size: 23px !important;
+    font-variant: small-caps;
+    font-weight: 500;
+    padding: 8px !important;
+    height: 100% !important;
+}
+
+.background-input {
+    background: none !important;
+    border: none !important;
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif !important;
+    font-size: 17px !important;
+    font-variant: small-caps;
+    /* Fill the background line so the content-source note sits at its end. */
+    flex: 1 1 auto;
+    min-width: 0;
+    height: auto !important;
+}
+
+/******************************************************************************
+ * Generic resources counters style.                                          * 
+ ******************************************************************************/
+
+.resource-counter {
+    border: 2px solid black;
+    border-radius: 5px;
+    display: flex;
+    height: 36px;
+}
+
+.resource-counter a,
+.resource-counter label {
+    background-color: black;
+    color: #f5f5f5;
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
+    font-size: 17px;
+    font-weight: 500;
+    line-height: 32px;
+    text-align: center;
+}
+
+.resource-input-wrapper {
+    display: flex;
+}
+
+.resource-input-wrapper input {
+    background: none !important;
+    border: none !important;
+    margin: auto;
+    text-align: center !important;
+    width: 100%;
+}
+
+.resource-input-wrapper input:focus {
+    box-shadow: none;
+}
+
+.resource-input-wrapper span {
+    margin: auto;
+    text-align: center;
+}
+
+/******************************************************************************
+ * Sheet checkboxes (Deprived / Panicked conditions + Omen / Scars).          *
+ *                                                                            *
+ * Native checkboxes render as a stark white box that clashes with both the   *
+ * parchment and the warm controls. Restyle them appearance:none so the box    *
+ * takes the same flat --ab-surface as the Rest / Restore / Die of Fate        *
+ * buttons, with a black border + black tick -- which reads on BOTH the black  *
+ * condition bars (border vanishes into the black, cream box still shows) and  *
+ * the parchment (border + tick both show). Purely visual; the input still     *
+ * toggles and fires its change handler as before.                            *
+ ******************************************************************************/
+.cairn .deprived-check,
+.cairn .panicked-check,
+.cairn .omen-enable,
+.cairn .scar-enable,
+.cairn .scar-check {
+    appearance: none;
+    -webkit-appearance: none;
+    box-sizing: border-box;
+    /* width/height/background/border take !important + the .cairn prefix's extra
+       specificity to beat `.resource-input-wrapper input`, which forces the
+       Deprived/Panicked boxes to width:100% and background/border: none. */
+    width: 18px !important;
+    height: 18px !important;
+    background: var(--ab-surface) !important;
+    border: 2px solid black !important;
+    border-radius: 3px;
+    cursor: pointer;
+    position: relative;
+    flex: 0 0 auto;
+    vertical-align: middle;
+}
+
+/* Deprived / Panicked sit alone in a flex .resource-input-wrapper: centre the box. */
+.cairn .deprived-check,
+.cairn .panicked-check {
+    margin: auto;
+}
+
+/* Omen / Scars checkboxes precede their label text: a small gap instead. */
+.cairn .omen-enable,
+.cairn .scar-enable,
+.cairn .scar-check {
+    margin: 0 5px 0 0;
+}
+
+.cairn .deprived-check:checked::after,
+.cairn .panicked-check:checked::after,
+.cairn .omen-enable:checked::after,
+.cairn .scar-enable:checked::after,
+.cairn .scar-check:checked::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 5px;
+    height: 9px;
+    border: solid black;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+    pointer-events: none;
+}
+
+/******************************************************************************
+ * Stacked resources counters style.                                          * 
+ ******************************************************************************/
+
+.stacked-counter {
+    flex-direction: column;
+    height: auto;
+}
+
+.stacked-input-wrapper {
+    display: flex;
+    line-height: 19px;
+}
+
+.stacked-input-wrapper input {
+    background: none !important;
+    border: none !important;
+    margin: auto;
+    text-align: center !important;
+    height: 19px !important;
+    width: 100%;
+}
+
+.stacked-input-wrapper input:focus {
+    box-shadow: none;
+}
+
+.stacked-input-wrapper span {
+    margin: auto;
+    text-align: center;
+}
+
+/******************************************************************************
+ * Specific resources counters style.                                         * 
+ ******************************************************************************/
+
+.hp-counter label,
+.slots-counter label,
+.STR-counter a,
+.DEX-counter a,
+.WIL-counter a {
+    width: 50%;
+}
+
+.hp-counter .resource-input-wrapper,
+.slots-counter .resource-input-wrapper,
+.STR-counter .resource-input-wrapper,
+.DEX-counter .resource-input-wrapper,
+.WIL-counter .resource-input-wrapper {
+    width: 50%;
+}
+
+.long-counter label {
+    width: 70%;
+}
+
+.long-counter .resource-input-wrapper {
+    width: 30%;
+}
+
+.middle-counter label {
+    width: 50%;
+}
+
+.middle-counter .resource-input-wrapper {
+    width: 50%;
+}
+
+.short-counter label {
+    width: 45%;
+}
+
+.short-counter .resource-input-wrapper {
+    width: 55%;
+}
+
+.short-resource-label {
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+    width: 45%;
+    padding-left: 4px;
+    padding-right: 4px;
+}
+
+.hp-counter,
+.deprived-counter,
+.slots-counter {
+    align-self: end;
+}
+
+/* STR/DEX/WIL are three separate boxes with a 2px gap, NOT one welded stack, so
+   they each inherit border-radius:5px from .resource-counter. Do not reinstate
+   the squared-off middle corners -- DEX ends up the odd box out. */
+
+/******************************************************************************
+ * Tabs.                                                                      * 
+ ******************************************************************************/
+
+.cairn .tabs {
+    display: flex;
+}
+
+.cairn .tabs a {
+    border-bottom: 2px solid black;
+    border-top: 2px solid black;
+    flex-grow: 1;
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
+    font-size: 17px;
+    font-weight: bold;
+    line-height: 32px;
+}
+
+.cairn .tab {
+    height: 100%;
+}
+
+/******************************************************************************
+ * Items list.                                                                * 
+ ******************************************************************************/
+
+.cairn-items-list-header {
+    border-bottom: 1px solid #b5b3a4;
+    display: flex;
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif !important;
+    font-weight: bold;
+    justify-content: space-between;
+    line-height: 36px;
+    height: 36px;
+}
+
+.cairn-items-list-header .end {
+    margin-left: auto;
+}
+
+.cairn-items-list-row {
+    border-bottom: 1px solid #b5b3a4;
+}
+
+.cairn-items-list-row:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.cairn-items-list-row:hover .cairn-item-controls {
+    opacity: 1.0;
+}
+
+.cairn-items-list-row-header {
+    display: flex;
+    justify-content: space-between;
+}
+
+.cairn-item-name-and-tags {
+    display: flex;
+    line-height: 26px;
+    height: 26px;
+    gap: 4px;
+}
+
+.cairn-item-tag {
+    align-self: center;
+    background: rgba(0, 0, 0, 0.05);
+    border: 1px solid #999;
+    border-radius: 3px;
+    display: inline-block;
+    font-size: 11px;
+    line-height: 16px;
+    padding: 0 3px;
+    height: 18px;
+}
+
+.cairn-item-uses i {
+    font-size: 10px;
+}
+
+.cairn-item-controls {
+    display: flex;
+    height: 26px;
+    opacity: 0.7;
+    gap: 4px;
+}
+
+.cairn-item-controls a {
+    text-align: center;
+    width: 18px;
+}
+
+.cairn-item-name-and-tags .fas,
+.cairn-item-controls .fas {
+    line-height: 26px;
+}
+
+.item-toggle-equipped {
+    color: var(--color-text-dark-inactive);
+}
+
+.item-toggle-equipped.equipped {
+    color: var(--color-text-dark-primary);
+}
+
+.crit-dmg.long-counter label {
+    width: 40%;
+}
+
+.crit-dmg.long-counter .resource-input-wrapper {
+    width: 60%;
+}
+
+.weapon.item-sheet-grid {
+    grid-template-rows: 46px 36px 36px 36px 36px 1fr;
+}
+
+.weapon.item-sheet-grid .item-sheet-section-tabs {
+    grid-row-start: 6;
+    grid-row-end: 6;
+}
+
+
+.armor.item-sheet-grid,
+.object.item-sheet-grid {
+    grid-template-rows: 46px 36px 36px 36px 36px 1fr;
+}
+
+.spellbook.item-sheet-grid {
+    grid-template-rows: 46px 36px 46px 1fr;
+}
+
+.armor.item-sheet-grid .item-sheet-section-tabs,
+.object.item-sheet-grid .item-sheet-section-tabs {
+    grid-row-start: 6;
+    grid-row-end: 6;
+}
+
+.spellbook.item-sheet-grid .item-sheet-section-tabs {
+    grid-row-start: 4;
+    grid-row-end: 4;
+}
+
+.small-resource-label {
+    max-width: fit-content;
+    padding-left: 0.8rem;
+    padding-right: 0.8rem;
+}
+
+.tiny-resource-label {
+    max-width: fit-content;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+}
+
+.container.item-sheet-grid {
+    grid-template-rows: 46px 36px 46px 1fr;
+}
+
+.container.item-sheet-grid .item-sheet-section-tabs {
+    grid-row-start: 4;
+    grid-row-end: 4;
+}
+
+/* Transport item sheet: five fields (Type / Slots / Bulky / Slow / Cost) were
+   crammed into tight 36px rows beside the portrait. Give them taller rows and a
+   roomier gap so the form breathes; the portrait spans the field rows and the
+   description takes the rest. */
+.transport.item-sheet-grid {
+    row-gap: 12px;
+    grid-template-rows: 46px 40px 40px 40px 1fr;
+}
+
+.transport.item-sheet-grid .item-sheet-section-portrait {
+    grid-row: 1 / 5;
+}
+
+.transport.item-sheet-grid .item-sheet-section-tabs {
+    grid-row-start: 5;
+    grid-row-end: 5;
+}
+
+.weapon-desc-divider {
+    font-style: italic;
+}
+
+.strict-size-button {
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+    text-align: left;
+    /* Slightly smaller so "Restore Abilities" + its icon fits the 140px column
+       without truncating once the label is left-aligned. */
+    font-size: 12px;
+    padding-left: 6px;
+    padding-right: 2px;
+}
+
+/* Keep a little gap between the button icon and its left-aligned label. */
+.strict-size-button i {
+    margin-right: 5px;
+}
+
+/* Rest / Restore Abilities share the Die of Fate look -- white fill, black
+   border, bold, left-aligned -- MINUS its glow, so the three read as a set while
+   Die of Fate stays the emphasised one. */
+.character-sheet-section-buttons .strict-size-button {
+    background: var(--ab-surface);
+    color: black;
+    border: 2px solid black;
+    font-weight: bold;
+}
+
+.character-sheet-section-buttons .strict-size-button:hover:not(:disabled) {
+    background: var(--ab-surface-hover);
+}
+
+.character-sheet-section-buttons .strict-size-button:disabled {
+    opacity: 0.45;
+}
+
+.overburdened-gold {
+    border-color: var(--color-level-error-border);
+}
+
+.description {
+    display: flex;
+    flex-direction: column;
+}
+
+.features {
+    max-height: 150px;
+    overflow: auto;
+    margin-bottom: 16px;
+}
+
+/******************************************************************************
+ * Chat messages + dice rolls.                                                *
+ *                                                                            *
+ * The custom black-and-white / Alegreya re-skin was removed 2026-07-23 so     *
+ * chat cards, dice rolls and system-posted buttons fall back to Foundry's     *
+ * default (themed) styling. Only the two functional layout rules the system's *
+ * own chat content relies on are kept below.                                  *
+ ******************************************************************************/
+
+.chat-message .flavor-dice-roll {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.chat-message .icon-action {
+    margin-left: auto;
+}
+
+/* Speaker name on chat cards: much larger + bold so the roller reads at a glance.
+   (Foundry's default .message-sender is 14px / weight 400.) */
+.chat-message .message-sender {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+/* Cairn's save/attack cards tag the total "Success"/"Fail" via
+   .dice-total.success / .failure. Colour those words with Foundry's own level
+   tokens (constant across light/dark, so they read on either theme) so a
+   result registers at a glance -- green for success, red for a fail. */
+.dice-roll .dice-total.success {
+    color: var(--color-level-success, #26b231);
+    font-weight: bold;
+}
+
+.dice-roll .dice-total.failure {
+    color: var(--color-level-error, #ce0707);
+    font-weight: bold;
+}
+
+/* The "Mark Critical Damage" button posted after a failed STR save. Kept on
+   Foundry's default (theme-aware) button chrome -- only the label colour is
+   left alone so it stays readable in both themes -- but given a red border and
+   red text glow: the Die of Fate accent's idea (#die-of-fate-button) recast in
+   Foundry's error red, marking this consequential, opt-in action. */
+.mark-critical-damage {
+    font-weight: bold;
+    border-color: var(--color-level-error, #ce0707);
+    text-shadow: 0 0 8px var(--color-level-error, #ce0707);
+}
+
+.mark-critical-damage:hover {
+    text-shadow: 0 0 12px var(--color-level-error, #ce0707);
+}
+
+.grey-comment {
+    font-size: smaller;
+    color: var(--ab-muted);
+    font-style: italic;
+}
+
+.indent {
+    margin-left: 16px;
+}
+
+.compact-check {
+    text-align: end;
+    margin-right: 8px;
+    line-height: 1em !important;
+}
+
+.hidden {
+    display: none;
+}
+
+/* Container/transport actors (packs, mounts, vehicles) show grayscale art on
+   their sheet; the actor-directory thumbnail is grayed to match, so the same
+   actor never reads colour in the list and grey on its sheet. Set in
+   renderActorDirectory (cairn.js). */
+.actor.cairn-grayscale-portrait img {
+    filter: grayscale(1);
+}
+
+/* ---- Marketplace (buy/take gear from the reference catalog) ---- */
+.items-header-controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.marketplace {
+    display: flex;
+    flex-direction: column;
+}
+
+.marketplace .mkt-header {
+    display: flex;
+    gap: 20px;
+    font-weight: bold;
+    font-size: 15px;
+    padding: 2px 4px 6px;
+    border-bottom: 2px solid var(--color-border);
+}
+
+.marketplace .mkt-header i {
+    opacity: 0.7;
+}
+
+.marketplace .mkt-hint {
+    font-style: italic;
+    opacity: 0.75;
+    font-size: 12px;
+    margin: 6px 4px 2px;
+}
+
+.marketplace .mkt-list {
+    flex: 1 1 auto;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.marketplace .mkt-cat-name {
+    font-variant: small-caps;
+    font-weight: bold;
+    font-size: 15px;
+    letter-spacing: 0.04em;
+    margin: 10px 0 2px;
+    padding: 2px 4px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.marketplace .mkt-row {
+    border-bottom: 1px solid var(--color-border);
+}
+
+.marketplace .mkt-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 4px;
+}
+
+.marketplace .mkt-row-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.marketplace .mkt-name {
+    font-weight: bold;
+}
+
+.marketplace .mkt-tags {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.marketplace .mkt-chip {
+    font-size: 10px;
+    background: var(--color-data-background);
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    padding: 0 5px;
+    line-height: 15px;
+    white-space: nowrap;
+}
+
+.marketplace .mkt-desc {
+    padding: 2px 6px 8px 6px;
+    font-size: 13px;
+    opacity: 0.9;
+}
+
+.marketplace .mkt-desc .mkt-nodesc {
+    opacity: 0.55;
+}
+
+.marketplace .mkt-search {
+    margin-left: auto;
+    flex: 0 1 180px;
+    height: 24px;
+    font-size: 12px;
+}
+
+.marketplace .mkt-slots {
+    flex: 0 0 auto;
+    width: 54px;
+    text-align: right;
+    font-size: 11px;
+    opacity: 0.7;
+    white-space: nowrap;
+}
+
+.marketplace .mkt-cost {
+    flex: 0 0 auto;
+    width: 48px;
+    text-align: right;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+.marketplace .mkt-cost i {
+    opacity: 0.6;
+    font-size: 11px;
+}
+
+.marketplace .mkt-actions {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 4px;
+}
+
+.marketplace .mkt-actions button {
+    width: 48px;
+    line-height: 22px;
+    padding: 0;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.marketplace .mkt-buy:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* Coins-as-slots: "100 Gold" rows shown in a character's inventory. */
+.gold-slot-row .gold-slot-icon {
+    opacity: 0.6;
+    margin-right: 2px;
+    color: #b8860b;
+}
+
+.gold-slot-row .cairn-item-title {
+    font-style: italic;
+    opacity: 0.85;
+}
+
+/******************************************************************************
+ * Description tab: traits (pronouns/age/sentence/pick-lists), Omen, Scars.
+ ******************************************************************************/
+.character-traits {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Pronouns and Age side by side at the top. */
+.character-traits .bio-top {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 16px;
+    row-gap: 4px;
+}
+
+/* The constructed trait sentence — the default read view of the character's
+   traits, sitting above the (collapsed) pick-lists. */
+.character-traits .trait-sentence {
+    margin: 4px 0;
+    padding: 0;
+    font-style: italic;
+    line-height: 1.5;
+}
+
+/* Collapsible pick-list section: header + toggle, then the trait grid. */
+.character-traits .trait-picklist-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.character-traits .trait-picklist-label {
+    font-weight: bold;
+    flex: 0 0 auto;
+}
+
+.character-traits .trait-toggle {
+    flex: 0 0 auto;
+    cursor: pointer;
+}
+
+/* The 8 trait dropdowns: two columns, column-major (physical traits left). */
+.character-traits .trait-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: repeat(4, auto);
+    grid-auto-flow: column;
+    column-gap: 16px;
+    row-gap: 4px;
+    margin-top: 6px;
+}
+
+/* Separate the traits block from the Omen/Scar block below it. */
+.character-omen-scar {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--color-border-light-tertiary, #c9c7b8);
+}
+
+/* Disabled-state text for the Omen field (mirrors .scar-display). */
+.omen-display {
+    flex: 1 1 auto;
+    color: var(--ab-muted);
+    font-style: italic;
+}
+
+/* Label on the left, control on the right (not stacked). */
+.character-traits .trait-row,
+.character-omen-scar .omen-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+/* The grid supplies row spacing; drop the per-row margin inside it. */
+.character-traits .trait-row {
+    margin-bottom: 0;
+}
+
+.character-traits .trait-label,
+.character-omen-scar .omen-label {
+    flex: 0 0 auto;
+    min-width: 96px;
+    font-weight: bold;
+    margin-bottom: 0;
+}
+
+/* Pronouns and Age hug their fields instead of reserving the 96px column. */
+.character-traits .pronouns-row .trait-label,
+.character-traits .age-row .trait-label {
+    min-width: auto;
+}
+
+.character-traits .age-row .trait-input {
+    flex: 0 0 auto;
+    width: 56px;
+}
+
+.character-omen-scar .omen-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.character-traits .trait-input,
+.character-omen-scar .omen-input {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* Enabled multi-line omen textarea: top-align the label + dice against its first line. */
+.character-omen-scar .omen-row.omen-enabled {
+    align-items: flex-start;
+}
+
+.character-omen-scar .omen-row.omen-enabled .omen-label,
+.character-omen-scar .omen-row.omen-enabled .omen-roll {
+    padding-top: 4px;
+}
+
+textarea.omen-input {
+    resize: vertical;
+    font-family: inherit;
+}
+
+.character-omen-scar .omen-roll,
+.character-traits .age-roll {
+    flex: 0 0 auto;
+    cursor: pointer;
+}
+
+.character-omen-scar .scar-section {
+    margin-top: 8px;
+}
+
+.character-omen-scar .scar-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.character-omen-scar .scar-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: bold;
+    flex: 0 0 auto;
+    min-width: 96px;
+}
+
+.character-omen-scar .scar-toggle {
+    flex: 0 0 auto;
+    cursor: pointer;
+}
+
+/* Scars: one checkbox per scar, each with its full description. */
+.scar-list {
+    max-height: 260px;
+    overflow: auto;
+    margin-top: 4px;
+    border: 1px solid var(--color-border-light-tertiary, #c9c7b8);
+    border-radius: 4px;
+}
+
+.scar-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 6px 8px;
+    margin-bottom: 0;
+    cursor: pointer;
+}
+
+.scar-option + .scar-option {
+    border-top: 1px solid var(--color-border-light-tertiary, #c9c7b8);
+}
+
+.scar-option .scar-check {
+    flex: 0 0 auto;
+    margin-top: 3px;
+}
+
+.scar-option .scar-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.scar-option .scar-name {
+    font-weight: bold;
+}
+
+.scar-option .scar-desc {
+    font-size: smaller;
+    color: var(--ab-muted);
+}
+
+.scar-display {
+    font-style: italic;
+    color: var(--ab-muted);
+}
+
+/******************************************************************************
+ * Notes tab: bonds + background questions above the free-form notes editor.
+ ******************************************************************************/
+.bond-block,
+.question-block {
+    margin: 0 0 8px 0;
+}
+
+.bond-line,
+.question-line {
+    margin: 0;
+}
+
+.bond-answer,
+.question-answer {
+    margin: 2px 0 0 0;
+}
+
+.bond-remove {
+    margin-left: 6px;
+    cursor: pointer;
+}
+
+.bond-add {
+    display: inline-block;
+    margin: 0 0 8px 0;
+    cursor: pointer;
+}
+
+.notes-divider {
+    margin: 10px 0;
+}
+
+.bond-reroll,
+.question-reroll {
+    margin-left: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+/* Placeholder for the empty notes editor. */
+.editor-content[data-edit="system.notes"]:empty::before {
+    content: "Write your character notes here.";
+    color: var(--ab-muted);
+    font-style: italic;
+    pointer-events: none;
+}
+
+/******************************************************************************
+ * Header polish, status banners, critical damage, armor override.
+ ******************************************************************************/
+/* 2e background: name reads as a header; the content source note sits at the
+   right of the same line. */
+.background-line {
+    /* Spans BOTH columns of the name grid and is pinned to row 2. Without this
+       it is a single-column auto-flow item, which pushes HP up beside it into
+       row 2 / column 2 and strands Gold alone on row 3 -- the counters must
+       instead sit together on the last row, HP above STR and Gold above Armor. */
+    grid-column: 1 / 3;
+    grid-row: 2;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+}
+
+/* The background name reads as a header, matching the size of the free-text
+   .background-input it replaces on a hand-made character. */
+.background-name {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
+    font-size: 17px;
+    font-variant: small-caps;
+}
+
+/* Barebones: a "Background:" label precedes the (pickable) background name. */
+.background-label {
+    flex: 0 0 auto;
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
+    font-size: 17px;
+    font-variant: small-caps;
+    color: var(--ab-muted);
+}
+
+.content-source-label {
+    flex: 0 0 auto;
+    margin-left: auto;
+    white-space: nowrap;
+    font-size: 12px;
+    font-variant: small-caps;
+    color: var(--ab-muted);
+}
+
+/* Dice + magnifier beside the background name: re-roll it, or open the picker.
+   Sit tight against the name so they read as controls on it, not on the line. */
+.background-roll,
+.background-pick {
+    flex: 0 0 auto;
+    color: var(--ab-muted);
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.background-roll:hover,
+.background-pick:hover {
+    color: var(--color-text-hyperlink, #44191a);
+    text-shadow: none;
+}
+
+/* ---- the background picker (DialogV2) ----
+   Two columns for a source with prose (2e: list + live description); one wide
+   column for a source without it (Barebones), where each row already shows the
+   gear and a panel would only repeat it. */
+.bg-picker {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.bg-picker.single {
+    grid-template-columns: 1fr;
+}
+
+.bg-pick-list {
+    max-height: 380px;
+    overflow-y: auto;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: 4px;
+}
+
+.bg-pick-group {
+    font-variant: small-caps;
+    font-weight: bold;
+    color: var(--color-text-subtle);
+    margin: 6px 4px 2px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.bg-pick-row {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: baseline;
+    gap: 6px;
+    padding: 3px 4px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.bg-pick-row input[type="radio"] {
+    grid-column: 1;
+    grid-row: 1 / 3;
+}
+
+.bg-pick-name {
+    grid-column: 2;
+    font-weight: bold;
+}
+
+.bg-pick-tag {
+    grid-column: 2;
+    font-size: 12px;
+    color: var(--color-text-subtle);
+}
+
+.bg-pick-desc {
+    font-size: 13px;
+    overflow-y: auto;
+    max-height: 380px;
+    padding-right: 4px;
+}
+
+/* Re-roll / pick controls on the failed-career line. Dimmed to match the label
+   they follow -- this is flavour, and should not compete with the background
+   controls above it. */
+.failed-career-roll,
+.failed-career-pick,
+.failed-career-item-roll {
+    flex: 0 0 auto;
+    cursor: pointer;
+    opacity: 0.55;
+    font-size: 12px;
+}
+
+.failed-career-roll:hover,
+.failed-career-pick:hover,
+.failed-career-item-roll:hover {
+    opacity: 1;
+}
+
+/* Attribute-loss status banners: one coloured bar per active condition. The
+   wrapper is always present (0-height when empty). */
+.status-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 4px;
+    margin-bottom: 6px;
+    font-size: 13px;
+}
+
+.status-banner i {
+    flex: 0 0 auto;
+    font-size: 15px;
+}
+
+.status-dead { background: #1a1a1a; }
+.status-critical { background: #c62828; }
+.status-paralyzed { background: #1565c0; }
+.status-delirious { background: #6a1b9a; }
+.status-encumbered { background: #bf360c; }
+
+/* STR-only Critical Damage skull toggle, pinned to the right of the counter
+   (which must be positioned for the absolute skull to anchor to it). */
+.character-sheet-section-abilities .resource-counter {
+    position: relative;
+}
+
+.character-sheet-section-abilities .resource-counter a.critical-toggle {
+    position: absolute;
+    right: 3px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: auto;
+    background: none;
+    color: #c62828;
+    font-size: 11px;
+    line-height: 1;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 2;
+}
+
+.character-sheet-section-abilities .resource-counter:hover a.critical-toggle {
+    opacity: 0.5;
+}
+
+.character-sheet-section-abilities .resource-counter a.critical-toggle.active {
+    opacity: 1;
+}
+
+/* Below max (but not in peril): the current value shows amber. */
+.hp-counter.low .resource-input-wrapper input[name$=".value"],
+.character-sheet-section-abilities .resource-counter.low .resource-input-wrapper input[name$=".value"] {
+    color: #c07800;
+}
+
+.character-sheet-section-abilities .resource-counter.peril {
+    border-color: #c62828;
+}
+
+/* Peril's red wins over amber (listed after .low). */
+.character-sheet-section-abilities .resource-counter.peril .resource-input-wrapper input[name$=".value"] {
+    color: #c62828;
+}
+
+/* Stat inputs (HP + abilities) are numeric; hide the number spinners. */
+.stat-input {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+.stat-input::-webkit-outer-spin-button,
+.stat-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* Armor is editable (override). Numeric, no spinners; an active override shows
+   amber, with a reset-to-auto icon beside it. */
+.armor-input {
+    width: 3em;
+    text-align: center;
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+.armor-input::-webkit-outer-spin-button,
+.armor-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.armor-counter.armor-overridden .armor-input {
+    color: #c07800;
+    font-weight: bold;
+}
+
+.armor-reset {
+    margin-left: 4px;
+    cursor: pointer;
+    opacity: 0.7;
+}
+.armor-reset:hover { opacity: 1; }
+
+/* The d20 save-roll icon at the left of the STR/DEX/WIL labels. */
+.resource-roll .roll-icon {
+    font-size: 11px;
+    margin-right: 3px;
+    opacity: 0.9;
+}
+
+/* Confirmation dialogs: blank line before the yes/no question. */
+.cairn-confirm-q {
+    margin-top: 12px;
+    margin-bottom: 0;
+    font-weight: bold;
+}
+
+/******************************************************************************
+ * Grant-source chip + inventory drag-to-reorder.
+ ******************************************************************************/
+/* Grant-source tag (Background / Bond / Question): a monochrome chip in
+   small-caps with a darker border so a source reads distinctly from the
+   mechanical tags (Bulky, Armor, Damage) without using colour. */
+/* Grant tags share the mechanical tags' dark text (inherited) and are set apart
+   only by their darker border -- the text was #333 (lighter than the mechanical
+   #191813), which read as washed-out, so it now inherits the same dark ink. */
+.cairn-grant-tag {
+    font-variant: small-caps;
+    letter-spacing: 0.3px;
+    border-color: #555;
+}
+
+/* Grab cursor on reorderable rows only when reorder is enabled. */
+.cairn-reorder-enabled .cairn-items-list-row[data-item-id] {
+    cursor: grab;
+}
+.cairn-reorder-enabled .cairn-items-list-row[data-item-id]:active {
+    cursor: grabbing;
+}
+
+/* Footer hint, shown only when drag-to-reorder is enabled. */
+.cairn-reorder-hint {
+    display: none;
+    padding: 8px 4px 2px;
+    font-size: 12px;
+    font-style: italic;
+    color: var(--ab-muted);
+}
+.cairn-reorder-enabled .cairn-reorder-hint {
+    display: block;
+}
+.cairn-reorder-hint i {
+    opacity: 0.7;
+    margin-right: 3px;
+}
+
+/* Footer hint explaining the grant-source chips, shown only when those tags are
+   enabled. Padded to stand clear of the item rows on its own; tightened when it
+   trails the reorder hint so the two footer lines group together. */
+.cairn-grant-hint {
+    display: none;
+    padding: 8px 4px 2px;
+    font-size: 12px;
+    font-style: italic;
+    color: var(--ab-muted);
+}
+.cairn-grant-tags-enabled .cairn-grant-hint {
+    display: block;
+}
+.cairn-reorder-enabled .cairn-grant-hint {
+    padding-top: 2px;
+}
+.cairn-grant-hint i {
+    opacity: 0.7;
+    margin-right: 3px;
+}
+
+/******************************************************************************
+ * Portrait: the sheet thumbnail, its re-roll die, and the picker gallery.     *
+ ******************************************************************************/
+
+/* Wraps the portrait so the "random portrait" die can sit on it. Occupies the
+   same first grid cell the bare <img> used to, pinned to the top of row 1. */
+.portrait-wrap {
+    position: relative;
+    align-self: start;
+    display: block;
+}
+
+.portrait-wrap .portrait {
+    display: block;
+}
+
+/* Random-portrait die, overlaid bottom-right on the portrait. Gated by
+   generationEnabled in the template, matching the background roller. */
+.portrait-roll {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    border: 1px solid #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    opacity: 0.85;
+}
+
+.portrait-roll:hover {
+    opacity: 1;
+    background: #000;
+}
+
+.cairn-portrait-gallery {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.cairn-portrait-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 72px);
+    gap: 6px;
+    max-height: 420px;
+    overflow-y: auto;
+    justify-content: center;
+    padding: 4px;
+}
+
+.cairn-portrait-choice {
+    width: 72px;
+    height: 72px;
+    object-fit: cover;
+    border: 2px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.cairn-portrait-choice:hover {
+    border-color: var(--color-shadow-primary, #ff0000);
+}
+
+.cairn-portrait-choice.selected {
+    border-color: #12a3b4;
+    box-shadow: 0 0 6px #12a3b4;
+}
+
+.cairn-portrait-url {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.cairn-portrait-url-input {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.cairn-portrait-url-set {
+    flex: 0 0 auto;
+    width: auto;
+}
+
+/* CC BY 4.0 attribution for the portrait art, shown at the foot of the picker
+   next to the art it credits. */
+.cairn-portrait-credit {
+    margin-top: 4px;
+    text-align: center;
+    font-size: 11px;
+    font-style: italic;
+    opacity: 0.7;
+}
+
+.cairn-portrait-credit a {
+    color: inherit;
+    text-decoration: underline;
+}
+
+
+/******************************************************************************
+ * Hireling sheet. A stripped character sheet: name/profession/day-rate stack   *
+ * in place of the background block, HP joins the ability column, and there is  *
+ * no Description tab.                                                          *
+ ******************************************************************************/
+
+/* The character sheet lays this section out as a grid (name / background line /
+   counters). A hireling has none of that, so it becomes a simple stack. */
+.hireling .character-sheet-section-name {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.hireling .name-line,
+.hireling .profession-line,
+.hireling .day-rate-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+/* .name-input positions itself with grid-column on the character sheet; under
+   the flex stack above it needs to stretch instead. */
+.hireling .name-input,
+.hireling .profession-input {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* Day rate is a short number ("30") with a trailing "gp/day", so the input stays
+   narrow rather than stretching like the profession field. */
+.hireling .day-rate-input {
+    flex: 0 0 auto;
+    width: 56px;
+    min-width: 0;
+}
+
+.hireling .day-rate-suffix {
+    flex: 0 0 auto;
+    opacity: 0.7;
+    font-size: 12px;
+}
+
+.hireling .name-roll,
+.hireling .profession-roll {
+    flex: 0 0 auto;
+    cursor: pointer;
+    opacity: 0.55;
+    font-size: 12px;
+}
+
+.hireling .name-roll:hover,
+.hireling .profession-roll:hover {
+    opacity: 1;
+}
+
+/* HP joins STR/DEX/WIL as a fourth box in the abilities column, so that column
+   holds four counters. Let the middle grid row grow to fit them. */
+.hireling .charater-sheet-grid {
+    grid-template-rows: minmax(140px, auto) auto 1fr;
+}
+
+.hireling .character-sheet-section-abilities {
+    grid-template-rows: repeat(4, 36px);
+}
+
+
+/******************************************************************************
+ * Transports & containers.                                                    *
+ ******************************************************************************/
+
+/* A transport's slot column reads "+N" (capacity it HOLDS), not the cost-to-carry
+   every other shop row shows — bold to mark it as a gain rather than a spend.
+   (The green tint was dropped 2026-07-23 with the marketplace de-skin.) */
+.marketplace .mkt-capacity {
+    opacity: 0.9;
+    font-weight: bold;
+}
+
+/******************************************************************************
+ * Configure Settings tab: grouped, compact rows.                             *
+ ******************************************************************************/
+
+/* Section headers injected into the GM's Configure Settings tab (cairn.js
+   renderSettingsConfig) to group the system's settings. Uses currentColor so it
+   adapts to Foundry's light/dark themes. */
+.cairn-settings-header {
+    margin: 1.1em 0 0.4em;
+    padding-bottom: 0.2em;
+    border-bottom: 1px solid;
+    opacity: 0.75;
+    font-weight: 700;
+    font-size: 0.95em;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.cairn-settings-header:first-child {
+    margin-top: 0;
+}
+
+/* Every setting renders as one compact row: the label carries the whole
+   description as plain (non-bold) body text on one line, the control sits at the
+   far right, and there is no hint beneath. Foundry splits each row 50/50 (label |
+   form-fields), which crushes a long label, so we give the label the full width
+   and take the control out of flow, pinned right. The .form-group qualifier
+   out-specifies core's `.form-group .form-fields`. */
+.cairn-setting-compact {
+    position: relative;
+    padding-right: 70px;      /* room for the pinned control (checkbox or number) */
+    min-height: 28px;
+    align-items: center;
+}
+
+/* A Barebones sub-option greyed out because Barebones sheets aren't offered. */
+.cairn-setting-compact.cairn-setting-disabled {
+    opacity: 0.45;
+}
+
+.cairn-setting-compact label {
+    font-weight: 400;
+    flex: 1 1 auto;           /* label takes the full row width */
+}
+
+.cairn-setting-compact label strong {
+    font-weight: 700;         /* re-bold specific phrases (e.g. source names) */
+}
+
+.form-group.cairn-setting-compact .form-fields {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    flex: none;
+    width: auto;
+    min-width: 0;
+    justify-content: flex-end;
+}
+
+/* Number settings (equipment limit, coins per slot) keep a small fixed-width box
+   at the right instead of a checkbox. */
+.form-group.cairn-setting-compact .form-fields input[type="number"] {
+    width: 56px;
+    flex: 0 0 auto;
+    text-align: center;
+}
+
+.cairn-setting-compact .hint {
+    display: none;
+}
+
+/******************************************************************************
+ * Counter value vs. max, container-tab states, fatigue rows, tab padding.    *
+ ******************************************************************************/
+
+/* Current vs. max: the current value (left) is bold black; the max (right) is
+   smaller and grey, and the "/" separator is a point LARGER than the max (13px
+   vs 12px) so it reads a touch stronger as the divider while sharing the max's
+   grey; the pair still trails the bold current value. The bump is safe because
+   the counter is a fixed 36px, so a bigger "/" does not grow the box. Reinforces
+   the left=current convention; the inputs' title tooltips name each explicitly on
+   hover. The grey (#6b6559) sits on the light parchment, so it is darker than a
+   mid-grey would be for legibility while staying clearly below the current value. */
+.hp-counter .resource-input-wrapper input[name$=".value"],
+.character-sheet-section-abilities .resource-input-wrapper input[name$=".value"] {
+    font-weight: bold;
+}
+
+.hp-counter .resource-input-wrapper input[name$=".max"],
+.character-sheet-section-abilities .resource-input-wrapper input[name$=".max"] {
+    font-size: 12px;
+    color: #6b6559;
+}
+
+.hp-counter .resource-input-wrapper span,
+.character-sheet-section-abilities .resource-input-wrapper span {
+    font-size: 13px;
+    color: #6b6559;
+}
+
+/* Containers tab: empty state nudges you to the market, and the homebrew
+   "Custom container" path sits below as a quiet secondary affordance. */
+.container-empty {
+    text-align: center;
+    padding: 20px 12px;
+    color: var(--ab-muted);
+}
+
+.container-empty p {
+    margin: 0 0 8px;
+    font-style: italic;
+}
+
+.container-empty-shop {
+    font-weight: bold;
+}
+
+.container-custom {
+    display: inline-block;
+    margin-top: 10px;
+    padding-top: 8px;
+    font-size: 0.9em;
+    color: var(--ab-muted);
+}
+
+.container-custom:hover {
+    color: #12a3b4;
+}
+
+/* Fatigue fills inventory slots; give those rows the Die of Fate's teal
+   signature (a tint plus the same #12a3b4 glow) so a player can see at a glance
+   how much of their load is fatigue. */
+.fatigue-row {
+    background: rgba(18, 163, 180, 0.12);
+    box-shadow: 0 0 8px #12a3b4;
+    text-shadow: 0 0 8px #12a3b4;
+    border-radius: 2px;
+}
+
+/* Breathing room between the tab headers and the tab content. */
+.description,
+.tab[data-tab="notes"] {
+    padding-top: 12px;
+}
+
+.character-omen-scar .omen-roll.disabled {
+    opacity: 0.4;
+    pointer-events: none;
+    cursor: default;
+}
+
+/* "Compatible with Cairn" badge + CC BY-SA attribution at the foot of the
+   Description tab (both 2e and Barebones sheets). The badge is self-bordered
+   black-on-white, so it reads on either sheet theme. */
+.cairn-compat-footer {
+    margin-top: 18px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(0, 0, 0, 0.15);
+    text-align: center;
+}
+
+.cairn-compat-footer a {
+    display: block;
+}
+
+.cairn-compat-footer img {
+    display: block;
+    width: 150px;
+    max-width: 100%;
+    height: auto;
+    margin: 0 auto;
+}
+
+.cairn-compat-caption {
+    margin-top: 6px;
+    font-size: 11px;
+    font-style: italic;
+    opacity: 0.7;
+    text-align: center;
+}
+
+.cairn-compat-caption a {
+    color: inherit;
+    text-decoration: underline;
+}

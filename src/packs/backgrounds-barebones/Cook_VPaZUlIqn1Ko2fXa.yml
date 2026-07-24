@@ -1,0 +1,29 @@
+_id: VPaZUlIqn1Ko2fXa
+name: Cook
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 2600
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 26
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: Flour
+    - name: Pail
+    - name: Smoking Herbs
+      uses: 3
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!VPaZUlIqn1Ko2fXa'

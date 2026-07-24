@@ -1,0 +1,26 @@
+_id: kn52CLapIB1HCyHF
+name: Spark Dust
+type: item
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: Ignites easily and quickly. Useful for starting a fire or as an incendiary device.
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 3
+    max: 3
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!kn52CLapIB1HCyHF'

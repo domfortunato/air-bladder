@@ -1,0 +1,26 @@
+_id: 9KnDZ80fEwIkPJu3
+name: Reed Whistle
+type: item
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: Anyone in earshot must pass a WIL save to perform an act of violence.
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!9KnDZ80fEwIkPJu3'

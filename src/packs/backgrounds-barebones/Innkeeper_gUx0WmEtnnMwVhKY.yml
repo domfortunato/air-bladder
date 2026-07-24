@@ -1,0 +1,30 @@
+_id: gUx0WmEtnnMwVhKY
+name: Innkeeper
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 5300
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 53
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: Alcohol
+    - name: Bandages
+      uses: 3
+    - name: 'Parchment & Ink'
+      uses: 3
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!gUx0WmEtnnMwVhKY'

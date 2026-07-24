@@ -1,0 +1,385 @@
+_id: Q8tYL8ZJadzMk3QO
+name: Eye of Terror
+type: npc
+sort: 100001
+flags: {}
+img: systems/air-bladder/icons/monster.png
+items:
+  - _id: Om0T3yG55BLuJx3g
+    name: Bite
+    type: item
+    sort: 100000
+    flags: {}
+    img: icons/svg/mystery-man.svg
+    effects: []
+    _stats:
+      coreVersion: '12.327'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+    system:
+      description: ''
+      weightless: false
+      equipped: true
+      bulky: false
+      damageFormula: 2d8k
+      criticalDamage: ''
+      blast: false
+      uses:
+        value: 0
+        max: 0
+      quantity: 1
+      slots: 0
+      armor: 0
+      numberOfUses: 0
+    folder: null
+    ownership:
+      default: 0
+    _key: '!actors.items!Q8tYL8ZJadzMk3QO.Om0T3yG55BLuJx3g'
+  - _id: mNh4NDnbB9BjdJAJ
+    name: Charm
+    type: item
+    sort: 1400001
+    flags:
+      core:
+        sourceId: Item.e2bqe6cDAE8DZPPm
+    img: icons/svg/mystery-man.svg
+    effects: []
+    _stats:
+      coreVersion: '12.327'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+    system:
+      description: <p>A creature you can see treats you as a friend.</p>
+      weightless: false
+      equipped: true
+      bulky: false
+      damageFormula: ''
+      criticalDamage: ''
+      blast: false
+      uses:
+        value: 0
+        max: 0
+      quantity: 1
+      slots: 0
+      armor: 0
+      numberOfUses: 0
+    folder: null
+    ownership:
+      default: 0
+    _key: '!actors.items!Q8tYL8ZJadzMk3QO.mNh4NDnbB9BjdJAJ'
+  - _id: GJrpsdtNRwDjEysG
+    name: Phobia
+    type: item
+    sort: 6100001
+    flags:
+      core:
+        sourceId: Item.CsX5TxSdAvlhmdlA
+    img: icons/svg/mystery-man.svg
+    effects: []
+    _stats:
+      coreVersion: '12.327'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+    system:
+      description: <p>A nearby creature becomes terrified of an object of your choice.</p>
+      weightless: false
+      equipped: true
+      bulky: false
+      damageFormula: ''
+      criticalDamage: ''
+      blast: false
+      uses:
+        value: 0
+        max: 0
+      quantity: 1
+      slots: 0
+      armor: 0
+      numberOfUses: 0
+    folder: null
+    ownership:
+      default: 0
+    _key: '!actors.items!Q8tYL8ZJadzMk3QO.GJrpsdtNRwDjEysG'
+  - _id: oePagHgJD9tkkOs4
+    name: Telekinesis
+    type: item
+    sort: 8600001
+    flags:
+      core:
+        sourceId: Item.cg3gFfX5gJXOhjvE
+    img: icons/svg/mystery-man.svg
+    effects: []
+    _stats:
+      coreVersion: '12.327'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+    system:
+      description: <p>You may mentally move 1 item under 60lbs.</p>
+      weightless: false
+      equipped: true
+      bulky: false
+      damageFormula: ''
+      criticalDamage: ''
+      blast: false
+      uses:
+        value: 0
+        max: 0
+      quantity: 1
+      slots: 0
+      armor: 0
+      numberOfUses: 0
+    folder: null
+    ownership:
+      default: 0
+    _key: '!actors.items!Q8tYL8ZJadzMk3QO.oePagHgJD9tkkOs4'
+  - _id: ILzSNw5HYDOvgK13
+    name: Sleep
+    type: item
+    sort: 7300001
+    flags:
+      core:
+        sourceId: Item.lZMTA1sZTnSnjvvx
+    img: icons/svg/mystery-man.svg
+    effects: []
+    _stats:
+      coreVersion: '12.327'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+    system:
+      description: <p>A creature you can see falls into a light sleep.</p>
+      weightless: false
+      equipped: true
+      bulky: false
+      damageFormula: ''
+      criticalDamage: ''
+      blast: false
+      uses:
+        value: 0
+        max: 0
+      quantity: 1
+      slots: 0
+      armor: 0
+      numberOfUses: 0
+    folder: null
+    ownership:
+      default: 0
+    _key: '!actors.items!Q8tYL8ZJadzMk3QO.ILzSNw5HYDOvgK13'
+  - _id: AXygoOTUdwT9hyc9
+    name: Shuffle
+    type: item
+    sort: 7200001
+    flags:
+      core:
+        sourceId: Item.cW5rLiFqqJL9ewf7
+    img: icons/svg/mystery-man.svg
+    effects: []
+    _stats:
+      coreVersion: '12.327'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+    system:
+      description: <p>Two creatures you can see instantly switch places.</p>
+      weightless: false
+      equipped: true
+      bulky: false
+      damageFormula: ''
+      criticalDamage: ''
+      blast: false
+      uses:
+        value: 0
+        max: 0
+      quantity: 1
+      slots: 0
+      armor: 0
+      numberOfUses: 0
+    folder: null
+    ownership:
+      default: 0
+    _key: '!actors.items!Q8tYL8ZJadzMk3QO.AXygoOTUdwT9hyc9'
+  - _id: VrCJuiZP2y7M7EIW
+    name: Vision
+    type: item
+    sort: 9300001
+    flags:
+      core:
+        sourceId: Item.SdqkLbmzraBi33BL
+    img: icons/svg/mystery-man.svg
+    effects: []
+    _stats:
+      coreVersion: '12.327'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+    system:
+      description: <p>You completely control what a creature sees.</p>
+      weightless: false
+      equipped: true
+      bulky: false
+      damageFormula: ''
+      criticalDamage: ''
+      blast: false
+      uses:
+        value: 0
+        max: 0
+      quantity: 1
+      slots: 0
+      armor: 0
+      numberOfUses: 0
+    folder: null
+    ownership:
+      default: 0
+    _key: '!actors.items!Q8tYL8ZJadzMk3QO.VrCJuiZP2y7M7EIW'
+effects: []
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  bDeEK9GSahKwiAGH: 3
+system:
+  hp:
+    value: 12
+    max: 12
+  abilities:
+    STR:
+      value: 12
+      max: 12
+    DEX:
+      value: 8
+      max: 8
+    WIL:
+      value: 16
+      max: 16
+  description: >-
+    <ul>
+
+    <li style="box-sizing: border-box; margin: 0.25em 0px;">Floating spheres
+    with a large maw, one big central eye, and several small eyes on stalks
+    scattered through the body. Scheming and greedy, lair deep underground.</li>
+
+    <li style="box-sizing: border-box; margin: 0.25em 0px;">Cancels any magic
+    effect in a nearby range facing its central eye.</li>
+
+    <li style="box-sizing: border-box; margin: 0.25em 0px;">The eyestalks cast
+    one of those spells each round randomly: (1-Charm, 2-Phobia, 3-Telekinesis,
+    4-Sleep, 5-Shuffle, 6-Vision).</li>
+
+    </ul>
+  armor: null
+prototypeToken:
+  flags: {}
+  name: Eye of Terror
+  displayName: 0
+  width: 1
+  height: 1
+  lockRotation: false
+  rotation: 0
+  actorLink: false
+  disposition: -1
+  displayBars: 0
+  bar1:
+    attribute: abilities.STR
+  bar2:
+    attribute: hp
+  randomImg: false
+  light:
+    dim: 0
+    bright: 0
+    angle: 360
+    alpha: 1
+    animation:
+      speed: 5
+      intensity: 5
+      type: null
+      reverse: false
+    negative: false
+    priority: 0
+    color: null
+    coloration: 1
+    attenuation: 0.5
+    luminosity: 0.5
+    saturation: 0
+    contrast: 0
+    shadows: 0
+    darkness:
+      min: 0
+      max: 1
+  texture:
+    src: icons/svg/mystery-man.svg
+    tint: '#ffffff'
+    scaleX: 1
+    scaleY: 1
+    anchorX: 0.5
+    anchorY: 0.5
+    offsetX: 0
+    offsetY: 0
+    fit: contain
+    rotation: 0
+    alphaThreshold: 0.75
+  sight:
+    angle: 360
+    enabled: false
+    range: 0
+    brightness: 1
+    visionMode: basic
+    color: null
+    attenuation: 0.1
+    saturation: 0
+    contrast: 0
+  appendNumber: false
+  prependAdjective: false
+  hexagonalShape: 0
+  alpha: 1
+  detectionModes: []
+  occludable:
+    radius: 0
+  ring:
+    enabled: false
+    colors:
+      ring: null
+      background: null
+    effects: 1
+    subject:
+      scale: 1
+      texture: null
+folder: null
+_key: '!actors!Q8tYL8ZJadzMk3QO'

@@ -1,0 +1,35 @@
+name: Shield
+type: armor
+flags:
+  core:
+    sourceId: Item.eYGGXSUUHqf8pUNT
+img: systems/air-bladder/icons/armor.png
+effects: []
+_id: 7r2YpGYPQI2SarO3
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  cost: 10
+  description: 'A broad wooden shield banded with iron. Ready to catch what your armor can''t.'
+  weightless: false
+  equipped: true
+  bulky: false
+  uses:
+    value: 0
+    max: 0
+  armor: 1
+  quantity: 1
+  slots: 1
+folder: null
+sort: 0
+_key: '!items!7r2YpGYPQI2SarO3'

@@ -1,0 +1,29 @@
+_id: TSn8DasTWv7D9gWy
+name: Gnarled Staff
+type: weapon
+img: systems/air-bladder/icons/weapons.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: 'A twisted length of hardwood, gift of a druid who taught you the language of trees. It hums faintly in old forests.'
+  weightless: false
+  equipped: false
+  bulky: true
+  cost: 0
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+  damageFormula: d8
+  criticalDamage: ''
+  blast: false
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!TSn8DasTWv7D9gWy'

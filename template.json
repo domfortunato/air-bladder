@@ -1,0 +1,195 @@
+{
+  "Actor": {
+    "types": [
+      "character",
+      "npc",
+      "container",
+      "hireling"
+    ],
+    "templates": {
+      "actorBase": {
+        "hp": {
+          "value": 6,
+          "max": 6
+        },
+        "abilities": {
+          "STR": {
+            "value": 10,
+            "max": 10
+          },
+          "DEX": {
+            "value": 10,
+            "max": 10
+          },
+          "WIL": {
+            "value": 10,
+            "max": 10
+          }
+        }
+      }
+    },
+    "character": {
+      "templates": [
+        "base",
+        "actorBase"
+      ],
+      "contentSource": "2e",
+      "generationEnabled": true,
+      "failedCareer": "",
+      "backgroundUuid": "",
+      "background": "",
+      "bonds": [],
+      "age": "",
+      "traits": {
+        "physique": "",
+        "skin": "",
+        "hair": "",
+        "face": "",
+        "speech": "",
+        "clothing": "",
+        "virtue": "",
+        "vice": ""
+      },
+      "biography": "",
+      "questions": [],
+      "pronouns": "",
+      "omenEnabled": false,
+      "omen": "",
+      "scarEnabled": false,
+      "scars": [],
+      "deprived": false,
+      "panicked": false,
+      "critical": false,
+      "armorOverride": null,
+      "gold": 0,
+      "containers": [],
+      "features": []
+    },
+    "npc": {
+      "templates": [
+        "base",
+        "actorBase"
+      ],
+      "description": "",
+      "armor": 0,
+      "slots": 0,
+      "features":[],
+      "containers": []
+    },
+    "container": {
+      "templates": [
+        "base"
+      ],
+      "description": "",
+      "slots": 0,
+      "keeper": "",
+      "cost": 0,
+      "transportKind": "",
+      "load": 0
+    },
+    "hireling": {
+      "templates": [
+        "base",
+        "actorBase"
+      ],
+      "generationEnabled": true,
+      "profession": "",
+      "dayRate": 0,
+      "notes": "",
+      "deprived": false,
+      "panicked": false,
+      "critical": false,
+      "armorOverride": null,
+      "gold": 0,
+      "containers": []
+    }
+  },
+  "Item": {
+    "types": [
+      "item",
+      "weapon",
+      "armor",
+      "spellbook",
+      "object",
+      "background",
+      "transport"
+    ],
+    "templates": {
+      "universal": {
+        "description": "",
+        "weightless": false,
+        "equipped": false,
+        "bulky": false,
+        "cost": 0,
+        "quantity": 1
+      },
+      "withDamage": {
+        "damageFormula": "",
+        "criticalDamage": "",
+        "blast": false
+      },
+      "consumable": {
+        "uses": {
+          "value": 0,
+          "max": 0
+        }
+      }
+    },
+    "item": {
+      "templates": [
+        "base",
+        "universal",
+        "withDamage",
+        "consumable"
+      ]      
+    },
+    "weapon": {
+      "templates": [
+        "base",
+        "universal",
+        "withDamage",
+        "consumable"
+      ]
+    },
+    "armor": {
+      "templates": [
+        "base",
+        "universal",
+        "consumable"
+      ],
+      "armor": 1
+    },
+    "spellbook": {
+      "templates": [
+        "base",
+        "universal"
+      ]
+    },
+    "object": {
+      "templates": [
+        "base",
+        "universal",
+        "consumable"
+      ]
+    },
+    "background": {
+      "source": "2e",
+      "archetype": "",
+      "description": "",
+      "names": [],
+      "startingGear": [],
+      "containers": [],
+      "tables": []
+    },
+    "transport": {
+      "templates": [
+        "base",
+        "universal"
+      ],
+      "transportKind": "worn",
+      "slots": 0,
+      "load": 0,
+      "slow": false
+    }
+  }
+}

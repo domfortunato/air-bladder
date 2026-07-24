@@ -1,0 +1,39 @@
+name: Chain, 10ft
+type: item
+flags:
+  core:
+    sourceId: Item.3uWyC9Xo1E51Wde8
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+_id: mZnM5OCzVXtKgqrE
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  cost: 10
+  description: 'Ten feet of heavy iron chain, for binding, hauling, or barring a door.'
+  weightless: false
+  equipped: false
+  bulky: false
+  damageFormula: ''
+  criticalDamage: ''
+  blast: false
+  uses:
+    value: 0
+    max: 0
+  quantity: 1
+  slots: 1
+  armor: null
+  numberOfUses: 0
+folder: null
+sort: 0
+_key: '!items!mZnM5OCzVXtKgqrE'

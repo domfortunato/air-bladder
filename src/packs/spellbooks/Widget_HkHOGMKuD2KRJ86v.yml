@@ -1,0 +1,32 @@
+name: Widget
+type: spellbook
+flags:
+  core:
+    sourceId: Item.dSQra235076AXNjp
+img: systems/air-bladder/icons/spellbook.png
+effects: []
+_id: HkHOGMKuD2KRJ86v
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  description: >-
+    <p>A primitive version of a drawn tool or item appears before you, and
+    disappears after a short time.</p>
+  weightless: false
+  equipped: true
+  bulky: false
+  quantity: 1
+  slots: 1
+folder: null
+sort: 0
+_key: '!items!HkHOGMKuD2KRJ86v'

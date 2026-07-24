@@ -1,0 +1,30 @@
+name: Vision
+type: spellbook
+flags:
+  core:
+    sourceId: Item.SdqkLbmzraBi33BL
+img: systems/air-bladder/icons/spellbook.png
+effects: []
+_id: PhywO6PxlcRfmtKj
+_stats:
+  coreVersion: '12.327'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+system:
+  description: <p>You completely control what a creature sees.</p>
+  weightless: false
+  equipped: true
+  bulky: false
+  quantity: 1
+  slots: 1
+folder: null
+sort: 0
+_key: '!items!PhywO6PxlcRfmtKj'

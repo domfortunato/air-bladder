@@ -1,0 +1,26 @@
+_id: N2OGbnmlaeOKDBa0
+name: Fireflask
+type: item
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: 'Highly alcoholic, yet strangely delicious. When thrown, it creates a wall of flames 10ft high that burns out after a few minutes. 1 use.'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 1
+    max: 1
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!N2OGbnmlaeOKDBa0'

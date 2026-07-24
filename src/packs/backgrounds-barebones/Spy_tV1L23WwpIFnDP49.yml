@@ -1,0 +1,28 @@
+_id: tV1L23WwpIFnDP49
+name: Spy
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 8600
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 86
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: Disguise Kit
+    - name: Garrotte
+    - name: Mirror
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!tV1L23WwpIFnDP49'

@@ -1,0 +1,29 @@
+_id: aKRkTFNK4mHKyzxx
+name: Painter
+type: background
+img: systems/air-bladder/icons/background.png
+effects: []
+folder: null
+sort: 7200
+flags:
+  air-bladder:
+    backgroundSource: barebones
+    roll: 72
+system:
+  source: barebones
+  archetype: ''
+  description: ''
+  names: []
+  startingGear:
+    - name: Paint
+    - name: 'Parchment & Ink'
+      uses: 3
+    - name: Stylus
+  containers: []
+  tables: []
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!aKRkTFNK4mHKyzxx'

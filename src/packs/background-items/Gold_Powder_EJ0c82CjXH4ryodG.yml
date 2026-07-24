@@ -1,0 +1,26 @@
+_id: EJ0c82CjXH4ryodG
+name: Gold Powder
+type: item
+img: systems/air-bladder/icons/generic-item.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: 'Glittering dust that lends a rich golden sheen to whatever it''s dusted over. Enough to gild a lie a few times over.'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 3
+    max: 3
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!EJ0c82CjXH4ryodG'

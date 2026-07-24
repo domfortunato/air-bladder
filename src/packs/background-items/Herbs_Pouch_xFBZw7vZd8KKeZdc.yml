@@ -1,0 +1,26 @@
+_id: xFBZw7vZd8KKeZdc
+name: Herbs Pouch
+type: item
+img: systems/air-bladder/icons/sack.png
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: Restore 1 STR.
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 3
+    max: 3
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!xFBZw7vZd8KKeZdc'

@@ -1,0 +1,38 @@
+name: Glue
+type: item
+flags:
+  core:
+    sourceId: Item.EdgoLJELJgJIwHB9
+img: systems/air-bladder/icons/tools.png
+effects: []
+_id: 0TANRClFeY4uhtoy
+system:
+  description: ''
+  weightless: true
+  equipped: false
+  bulky: false
+  damageFormula: ''
+  criticalDamage: ''
+  blast: false
+  uses:
+    value: 0
+    max: 0
+  quantity: 1
+  numberOfUses: 0
+  slots: 1
+  armor: null
+ownership:
+  default: 0
+  tw8WBuj1heybSIqW: 3
+folder: null
+sort: 0
+_stats:
+  systemId: cairn
+  systemVersion: 0.10.26
+  coreVersion: '12.327'
+  createdTime: null
+  modifiedTime: 1665822351146
+  lastModifiedBy: Vw4BPOEKqYJ80wk3
+  compendiumSource: Item.EdgoLJELJgJIwHB9
+  duplicateSource: null
+_key: '!items!0TANRClFeY4uhtoy'
