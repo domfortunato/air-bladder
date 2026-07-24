@@ -65,5 +65,5 @@ Air Bladder mixes several licensing regimes — please keep the attribution inta
 ---
 
 <p align="center">
-  <img src="logo/Cairn-2e-Compatible.png" alt="Compatible with Cairn 2e" width="200">
+  <img src="logo/Cairn-2e-Compatible_white.jpg" alt="Compatible with Cairn 2e" width="200">
 </p>
