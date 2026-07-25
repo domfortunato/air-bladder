@@ -30,11 +30,15 @@ export class CairnItem extends Item {
     // A container that a background/question rolled, but recorded as a plain
     // (weightless) inventory item because the Containers tab is off. It keeps its
     // grantSource for the re-roll machinery, so the "Container" tag rides on a
-    // separate flag and takes precedence over the source label.
+    // separate flag and takes precedence over the source label. That flag also
+    // suppresses the "Petty" (weightless) chip in the inventory row — a cart isn't
+    // a petty item, it just isn't tracked as cargo when the feature is off.
     const grantSource = this.getFlag("air-bladder", "grantSource");
+    const isContainerItem = !!this.getFlag("air-bladder", "containerItem");
+    this.system.isContainerItem = isContainerItem;
     this.system.grantLabel =
       !game.settings.get(SETTINGS_NS, "show-grant-tags") ? ""
-      : this.getFlag("air-bladder", "containerItem") ? game.i18n.localize("CAIRN.GrantContainer")
+      : isContainerItem ? game.i18n.localize("CAIRN.GrantContainer")
       : grantSource === "background" ? game.i18n.localize("CAIRN.GrantBackground")
       : typeof grantSource === "string" && grantSource.startsWith("bond:") ? game.i18n.localize("CAIRN.GrantBond")
       : typeof grantSource === "string" && grantSource.startsWith("question:") ? game.i18n.localize("CAIRN.GrantQuestion")
