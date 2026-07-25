@@ -44,7 +44,12 @@ function* stringsFromDoc(doc) {
   // RollTable — has a top-level results[] array.
   if (Array.isArray(doc.results)) {
     if (doc.name) yield { ns: "table.name", en: doc.name, context: "table" };
-    if (doc.description) yield { ns: "table.desc", en: doc.description, context: `${name} · description` };
+    // A RollTable's `description` is authoring / GM-procedure metadata (marketplace
+    // stocking notes, "roll each dungeon cycle", one-line trait-table labels) shown
+    // only on Foundry's EDITABLE RollTable config sheet — there is no read-only
+    // surface to translate it on without risking a save writing the Spanish back
+    // over the English source, and no player ever sees it. Deliberately NOT
+    // extracted. Table RESULTS (what players/Wardens read when rolling) ARE, below.
     for (const r of doc.results) {
       const range = Array.isArray(r.range) ? r.range.join("-") : "";
       if (r.text) yield { ns: "table.result", en: r.text, context: `${name} · ${range}`.trim() };

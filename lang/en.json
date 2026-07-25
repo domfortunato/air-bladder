@@ -143,7 +143,7 @@
     "DropFailed": "Couldn't move that item — you may not have permission to change the receiving sheet.",
     "DropNoSource": "You can't take that item — you don't have permission to change the sheet it came from.",
     "NoActorCreate": "Only the Warden can create containers and transports.",
-    "NoContainerRegen": "This character has a container (a mount, cart or pack), which only the Warden can change — ask them to re-roll it for you."
+    "NoContainerRegen": "Regenerating this character could add or remove a container (a mount, cart or pack), which only the Warden can do — ask them to re-roll it for you."
   },
   "CAIRN.Marketplace": "Marketplace",
   "CAIRN.TransportMarketTitle": "Transports & Containers",

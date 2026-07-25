@@ -61,12 +61,25 @@ export class CairnActorSheet extends ActorSheet {
     // into the active language for rendering only. These are plain data copies (not
     // the stored documents, which stay English), so name-matching elsewhere is
     // unaffected. A no-op in an English world (overlay null); a miss shows English.
-    data.items = data.items.map((i) => localizeNameDesc(i));
+    // An NPC monster stores its attacks/features as embedded items; the extractor
+    // files those under monster.itemName/monster.itemDesc, not the gear item.*
+    // namespaces. Characters/hirelings/containers hold gear → item.* (the default).
+    const itemNs =
+      this.actor.type === "npc"
+        ? { nameNs: "monster.itemName", descNs: "monster.itemDesc" }
+        : undefined;
+    data.items = data.items.map((i) => localizeNameDesc(i, itemNs));
     // Compendium monsters have "description" instead of "biography"
     if (this.actor.system.showBio) {
       data.enrichedBiography = await foundry.applications.ux.TextEditor.enrichHTML(this.actor.system.biography, { async: true });
     } else {
-      data.enrichedDescription = await foundry.applications.ux.TextEditor.enrichHTML(this.actor.system.description, { async: true });
+      // An NPC monster's description translates via the monster.desc namespace —
+      // display only, enriched into a derived field, never written back to the doc.
+      const rawDescription =
+        this.actor.type === "npc"
+          ? t("monster.desc", this.actor.system.description)
+          : this.actor.system.description;
+      data.enrichedDescription = await foundry.applications.ux.TextEditor.enrichHTML(rawDescription, { async: true });
     }
     data.enrichedNotes = await foundry.applications.ux.TextEditor.enrichHTML(this.actor.system.notes, { async: true });
 
