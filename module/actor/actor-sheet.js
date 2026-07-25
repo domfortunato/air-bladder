@@ -521,36 +521,45 @@ export class CairnActorSheet extends ActorSheet {
    * @private
    */
   _buildTraitSentence(traits = {}, age = "") {
-    const t = (k) => String(traits?.[k] ?? "").trim();
+    // i18n-driven so the whole sentence localizes: each clause/conjunction is a
+    // CAIRN.Bio.* key (English defaults reproduce the original wording exactly),
+    // and each trait VALUE goes through the content overlay (table.result), so a
+    // Spanish world reads coherent Spanish once both the UI keys and the trait
+    // tables are translated. Age is a number and is never overlaid.
+    const F = (k, data) => game.i18n.format(k, data);
+    const val = (key) => {
+      const raw = String(traits?.[key] ?? "").trim();
+      return raw ? t("table.result", raw) : "";
+    };
+    const sep = game.i18n.localize("CAIRN.Bio.ListSep");
+    const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
     const andList = (arr) =>
       arr.length <= 1 ? (arr[0] ?? "")
-      : arr.length === 2 ? `${arr[0]} and ${arr[1]}`
-      : `${arr.slice(0, -1).join(", ")}, and ${arr[arr.length - 1]}`;
+      : arr.length === 2 ? F("CAIRN.Bio.ListTwo", { first: arr[0], second: arr[1] })
+      : F("CAIRN.Bio.ListMore", { init: arr.slice(0, -1).join(sep), last: arr[arr.length - 1] });
 
     const parts = [];
     const physical = [
-      t("physique") && `a ${t("physique")} Physique`,
-      t("skin") && `${t("skin")} Skin`,
-      t("hair") && `${t("hair")} Hair`,
+      val("physique") && F("CAIRN.Bio.Physique", { value: val("physique") }),
+      val("skin") && F("CAIRN.Bio.Skin", { value: val("skin") }),
+      val("hair") && F("CAIRN.Bio.Hair", { value: val("hair") }),
     ].filter(Boolean);
-    if (physical.length) parts.push(`You have ${andList(physical)}.`);
+    if (physical.length) parts.push(F("CAIRN.Bio.Physical", { list: andList(physical) }));
 
     const faceSpeech = [
-      t("face") && `your Face is ${t("face")}`,
-      t("speech") && `your Speech ${t("speech")}`,
+      val("face") && F("CAIRN.Bio.Face", { value: val("face") }),
+      val("speech") && F("CAIRN.Bio.Speech", { value: val("speech") }),
     ].filter(Boolean);
-    if (faceSpeech.length) {
-      const clause = faceSpeech.join(", ");
-      parts.push(clause.charAt(0).toUpperCase() + clause.slice(1) + ".");
-    }
+    // Capitalize the assembled sentence, not a fragment, so it works in any language.
+    if (faceSpeech.length) parts.push(cap(F("CAIRN.Bio.FaceSpeech", { list: faceSpeech.join(sep) })));
 
-    if (t("clothing")) parts.push(`You have ${t("clothing")} Clothing.`);
+    if (val("clothing")) parts.push(F("CAIRN.Bio.Clothing", { value: val("clothing") }));
 
-    const viceVirtue = [t("vice"), t("virtue")].filter(Boolean);
-    if (viceVirtue.length) parts.push(`You are ${andList(viceVirtue)}.`);
+    const viceVirtue = [val("vice"), val("virtue")].filter(Boolean);
+    if (viceVirtue.length) parts.push(F("CAIRN.Bio.ViceVirtue", { list: andList(viceVirtue) }));
 
     const ageStr = String(age ?? "").trim();
-    if (ageStr) parts.push(`You are ${ageStr} years old.`);
+    if (ageStr) parts.push(F("CAIRN.Bio.Age", { value: ageStr }));
 
     return parts.join(" ");
   }
