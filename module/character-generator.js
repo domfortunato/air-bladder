@@ -287,6 +287,12 @@ const containerKindFor = (name) => (/\b(wagon|cart|sled|sledge)\b/i.test(name) ?
  */
 export const grantContainers = async (actor, specs) => {
   if (!actor || !specs?.length) return [];
+  // Honor the containers feature toggle: a world with the Containers tab off gets
+  // NO generation-granted containers at all. Keeps the setting's meaning honest
+  // (off = no containers), and means a (re)roll in such a world never has to create
+  // or delete a container Actor — so a player can regenerate freely. (Marketplace
+  // transports are a separate, deliberate opt-in and are gated in marketplace.js.)
+  if (!game.settings.get(SETTINGS_NS, "show-containers-tab")) return [];
   // Containers are Actors; a player regenerating their own character can't create
   // them. Skip with a notice so generation completes rather than throwing midway.
   if (!game.user.hasPermission("ACTOR_CREATE")) {
@@ -339,6 +345,65 @@ export const grantedContainersOf = (actor) =>
   );
 
 /**
+ * May the current user run a (re)generation that could create or delete this
+ * actor's container Actors? Deleting an Actor requires an Assistant GM+ (Foundry
+ * gates it by ROLE, with no player-grantable permission — unlike ACTOR_CREATE), so
+ * a plain player cannot. This is the UP-FRONT guard: (re)generation deletes items
+ * BEFORE it touches containers, so a mid-way permission throw corrupts the
+ * character — better to refuse before mutating anything, with a clear notice.
+ *
+ * A container op is only in play when there is an existing granted container to
+ * delete, or when the containers feature is enabled and a fresh roll might grant
+ * one. With the feature off, generation grants none (see grantContainers), so a
+ * player regenerates freely. Pass `source` to scope the delete check to one grant
+ * source (a single question's containers) rather than all of them.
+ * @param {CairnActor} actor @param {String|null} source
+ * @returns {Boolean} true to proceed
+ */
+export const canRegenerateContainers = (actor, source = null) => {
+  if (game.user.isGM) return true; // isGM === role >= ASSISTANT, exactly what Actor delete needs
+  const mayCreate = game.settings.get(SETTINGS_NS, "show-containers-tab");
+  const existing = grantedContainersOf(actor);
+  const mustDelete = source
+    ? existing.some((c) => c.getFlag(FLAG_SCOPE, "grantSource") === source)
+    : existing.length > 0;
+  if (!mayCreate && !mustDelete) return true; // no Actor create/delete needed
+  ui.notifications.warn(game.i18n.localize("CAIRN.Notify.NoContainerRegen"));
+  return false;
+};
+
+/**
+ * Delete container Actors, then prune the keeper's uuid list to match — restoring
+ * any that fail to delete, so a failed delete can never orphan a container (a live
+ * Actor missing from the list). The prune stays AHEAD of a successful delete to
+ * beat CairnActor#_onDelete's own async prune (see clearGrantedContainers); on
+ * failure the uuid goes back. Returns the containers that were actually removed.
+ * @param {CairnActor} actor @param {CairnActor[]} targets
+ * @returns {Promise<CairnActor[]>}
+ * @private
+ */
+const deleteContainers = async (actor, targets) => {
+  if (!targets.length) return [];
+  const gone = new Set(targets.map((c) => c.uuid));
+  await actor.update({ "system.containers": (actor.system.containers ?? []).filter((u) => !gone.has(u)) });
+  const removed = [];
+  try {
+    for (const c of targets) { await c.delete(); removed.push(c); }
+    return removed;
+  } catch (err) {
+    // A delete failed — those containers still exist. Put their uuids back so the
+    // list matches reality (no orphan), then re-raise so the caller aborts. The
+    // up-front guard should make this unreachable for a player.
+    const stillHere = targets.filter((c) => !removed.includes(c) && game.actors.get(c.id)).map((c) => c.uuid);
+    if (stillHere.length) {
+      const current = actor.system.containers ?? [];
+      await actor.update({ "system.containers": [...new Set([...current, ...stillHere])] });
+    }
+    throw err;
+  }
+};
+
+/**
  * Delete every generation-granted container this actor keeps (a regenerate
  * re-rolls the background's options, so last roll's donkey has to go).
  *
@@ -349,11 +414,7 @@ export const grantedContainersOf = (actor) =>
  * @param {CairnActor} actor
  */
 export const clearGrantedContainers = async (actor) => {
-  const granted = grantedContainersOf(actor);
-  if (!granted.length) return;
-  const gone = new Set(granted.map((c) => c.uuid));
-  await actor.update({ "system.containers": (actor.system.containers ?? []).filter((u) => !gone.has(u)) });
-  for (const c of granted) await c.delete();
+  await deleteContainers(actor, grantedContainersOf(actor));
 };
 
 /**
@@ -366,11 +427,7 @@ export const clearGrantedContainers = async (actor) => {
  */
 export const replaceGrantedContainers = async (actor, source, specs) => {
   const stale = grantedContainersOf(actor).filter((c) => c.getFlag(FLAG_SCOPE, "grantSource") === source);
-  if (stale.length) {
-    const gone = new Set(stale.map((c) => c.uuid));
-    await actor.update({ "system.containers": (actor.system.containers ?? []).filter((u) => !gone.has(u)) });
-    for (const c of stale) await c.delete();
-  }
+  await deleteContainers(actor, stale);
   return grantContainers(actor, (specs ?? []).map((c) => ({ ...c, grantSource: source })));
 };
 
@@ -1053,6 +1110,7 @@ export const buildFailedCareerItem = async (careerName) =>
  * @param {CairnItem|null} [newBg]
  */
 export const changeBackground = async (actor, newBg = null) => {
+  if (!canRegenerateContainers(actor)) return; // bail before deleting anything
   const source = actor.system.contentSource || "2e";
   let bg = newBg;
   if (!bg) {
@@ -1215,6 +1273,7 @@ export const createCharacter = async () => createActorWithCharacter(await genera
  * @returns {Promise<CairnActor>}
  */
 export const regenerateActor = async (actor) => {
+  if (!canRegenerateContainers(actor)) return actor; // bail before wiping items
   let bg = actor.system.backgroundUuid ? await fromUuid(actor.system.backgroundUuid) : null;
   // A Barebones character made before backgrounds had uuids is keyed by name.
   if (!bg && actor.system.contentSource === "barebones") {

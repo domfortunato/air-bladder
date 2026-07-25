@@ -1,4 +1,4 @@
-import { regenerateActor, drawBond, bondRecordFrom, withGrantSource, mentionsSecondBond, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, regenerateHireling, rerollHirelingProfession, rerollHirelingName, rollNameFromTable, rollAge } from "../character-generator.js";
+import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, mentionsSecondBond, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, regenerateHireling, rerollHirelingProfession, rerollHirelingName, rollNameFromTable, rollAge } from "../character-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, getInfoFromDropData, stripPar } from "../utils.js";
 import { SETTINGS_NS } from "../settings.js";
@@ -417,6 +417,9 @@ export class CairnActorSheet extends ActorSheet {
     this._rerolling = true;
     try {
       const idx = Number(event.currentTarget.dataset.index);
+      // A question's option can grant a container (an Actor); bail before replacing
+      // anything if this user can't manage those (see canRegenerateContainers).
+      if (!canRegenerateContainers(this.actor, `question:${idx}`)) return;
       const bg = this.actor.system.backgroundUuid
         ? await fromUuid(this.actor.system.backgroundUuid)
         : null;
