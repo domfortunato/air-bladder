@@ -27,7 +27,16 @@ const rows = Object.entries(en).map(([key, enVal]) => {
   return { key, context: "ui", en: enVal, es: esVal ?? "", notes: "", status };
 });
 
+// Stale rows: es.json keys the current en.json no longer has (the key was renamed
+// or removed). Carry the orphaned Spanish forward so a resuming translator can port
+// or discard it rather than lose it; import skips status=stale rows so they never
+// re-enter es.json. en is blank because the source key is gone.
+const stale = Object.keys(es)
+  .filter((key) => !(key in en))
+  .map((key) => ({ key, context: "stale — key removed from en.json", en: "", es: es[key], notes: "", status: "stale" }));
+rows.push(...stale);
+
 const out = path.join(ROOT, "tools", "i18n", "tsv", "ui.tsv");
 writeTSV(out, rows);
 const done = rows.filter((r) => r.status === "done").length;
-console.log(`UI: ${rows.length} keys → ${path.relative(ROOT, out)}  (${done} pre-filled from es.json, ${rows.length - done} todo)`);
+console.log(`UI: ${rows.length} keys → ${path.relative(ROOT, out)}  (${done} pre-filled from es.json, ${rows.length - done - stale.length} todo, ${stale.length} stale)`);

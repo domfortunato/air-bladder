@@ -61,13 +61,16 @@ const errors = [];
 const warnings = [];
 let imported = 0;
 let skipped = 0; // empty es (todo) — legitimately left to English
+let staleIgnored = 0; // status=stale rows — review-only, never re-imported
 
 // Accumulate into in-memory targets; write once at the end (or not, if --dry).
 const ui = loadJSON(UI_JSON);
 const content = loadJSON(CONTENT_JSON);
 
+// content-stale.tsv is a review-only orphan list (see extract-content.mjs), never
+// an import source — re-importing it would re-bloat the JSON with dead keys.
 const tsvFiles = fs.existsSync(TSV_DIR)
-  ? fs.readdirSync(TSV_DIR).filter((f) => f === "ui.tsv" || (f.startsWith("content-") && f.endsWith(".tsv")))
+  ? fs.readdirSync(TSV_DIR).filter((f) => f === "ui.tsv" || (f.startsWith("content-") && f.endsWith(".tsv") && f !== "content-stale.tsv"))
   : [];
 
 if (!tsvFiles.length) {
@@ -81,6 +84,10 @@ for (const file of tsvFiles.sort()) {
   for (const row of rows) {
     const { key, en, es, status } = row;
     const where = `${file} · ${isUI ? key : `${key} · "${en.slice(0, 40)}${en.length > 40 ? "…" : ""}"`}`;
+
+    // Stale rows (orphaned by a source change) are informational only — never write
+    // them back, or a removed/renamed key would return to the shipped JSON.
+    if (status === "stale") { staleIgnored++; continue; }
 
     if (!es) {
       if (status === "done") errors.push(`${where}: status=done but es is empty`);
@@ -109,6 +116,7 @@ for (const file of tsvFiles.sort()) {
 console.log(`\nimport-i18n → ${LANG}  (from ${path.relative(ROOT, TSV_DIR)}/, ${tsvFiles.length} file(s))`);
 console.log(`  imported : ${imported}`);
 console.log(`  skipped  : ${skipped}   (empty es → English fallback)`);
+if (staleIgnored) console.log(`  stale    : ${staleIgnored}   (review-only, not imported)`);
 console.log(`  warnings : ${warnings.length}`);
 console.log(`  errors   : ${errors.length}`);
 

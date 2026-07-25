@@ -89,12 +89,16 @@ function* stringsFromDoc(doc) {
 
 let totalRows = 0;
 const perPack = [];
+// Every current source string's composite key, across ALL packs — used after the
+// loop to find overlay translations that no longer match any source (stale).
+const currentKeys = new Set();
 
 for (const pack of listPacks()) {
   const map = new Map(); // (ns \0 normalizedEn) → row ; first occurrence keeps its context
   for (const { doc } of readPack(pack)) {
     for (const s of stringsFromDoc(doc)) {
       const k = `${s.ns}\0${normalizeKey(s.en)}`;
+      currentKeys.add(k);
       if (!map.has(k)) {
         const es = priorEs(s.ns, s.en);
         map.set(k, { key: s.ns, context: s.context, en: s.en, es, notes: "", status: es && es !== s.en ? "done" : "todo" });
@@ -110,7 +114,32 @@ for (const pack of listPacks()) {
   totalRows += rows.length;
 }
 
+// Stale rows: overlay translations whose (ns, normKey) no longer matches any
+// current source string (the English drifted, or the doc was removed). Emitted to
+// ONE review file because the overlay isn't pack-attributed (a table.result string
+// can't be traced back to a single pack). These carry the prior translation so a
+// resuming translator can revise rather than lose it; they are read-only — import
+// never re-imports content-stale.tsv. en = the normalized old English (best record
+// we still have, since the overlay is keyed by the normalized form).
+const staleRows = [];
+for (const [ns, entries] of Object.entries(OVERLAY)) {
+  if (!entries || typeof entries !== "object") continue;
+  for (const [normEn, es] of Object.entries(entries)) {
+    if (!currentKeys.has(`${ns}\0${normEn}`)) {
+      staleRows.push({ key: ns, context: "stale — source removed or changed", en: normEn, es, notes: "", status: "stale" });
+    }
+  }
+}
+const staleFile = path.join(OUT, "content-stale.tsv");
+if (staleRows.length) {
+  staleRows.sort((a, b) => a.key.localeCompare(b.key) || a.en.localeCompare(b.en));
+  writeTSV(staleFile, staleRows);
+} else if (fs.existsSync(staleFile)) {
+  fs.rmSync(staleFile); // no orphans now → don't leave a stale stale-file behind
+}
+
 console.log(`\nExtracted ${totalRows} translatable content string(s) → ${path.relative(ROOT, OUT)}/\n`);
 for (const { pack, rows } of perPack.sort((a, b) => b.rows - a.rows)) {
   console.log(`   ${String(rows).padStart(5)}  content-${pack}.tsv`);
 }
+if (staleRows.length) console.log(`\n   ${String(staleRows.length).padStart(5)}  content-stale.tsv  (orphaned translations to revise)`);
