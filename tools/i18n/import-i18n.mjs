@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Import filled translator TSVs back into the shipped JSON:
- *   tools/i18n/tsv/ui.tsv         → lang/<lang>.json          (UI; nested by dotted key)
+ *   tools/i18n/tsv/ui.tsv         → lang/<lang>.json          (UI; flat dotted keys)
  *   tools/i18n/tsv/content-*.tsv  → lang/content/<lang>.json  (overlay: {ns:{normKey(en):es}})
  *
  * A validating gate, not a dumb writer. A row with a non-empty `es` is REJECTED
@@ -21,7 +21,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ROOT, readTSV, normalizeKey } from "./lib.mjs";
-import { checkPair } from "./validate.mjs";
+import { checkPair, flattenLang } from "./validate.mjs";
 
 const argVal = (flag, def) => {
   const i = process.argv.indexOf(flag);
@@ -35,17 +35,6 @@ const UI_JSON = path.join(ROOT, "lang", `${LANG}.json`);
 const CONTENT_JSON = path.join(ROOT, "lang", "content", `${LANG}.json`);
 
 const loadJSON = (f) => (fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf8")) : {});
-
-/** Set obj.a.b.c = val, creating intermediate objects. Preserves existing keys/order. */
-const setDeep = (obj, dotted, val) => {
-  const parts = dotted.split(".");
-  let o = obj;
-  for (let i = 0; i < parts.length - 1; i++) {
-    if (o[parts[i]] == null || typeof o[parts[i]] !== "object") o[parts[i]] = {};
-    o = o[parts[i]];
-  }
-  o[parts[parts.length - 1]] = val;
-};
 
 /** Recursively sort object keys for a stable, diff-friendly generated file. */
 const sortDeep = (o) =>
@@ -64,7 +53,14 @@ let skipped = 0; // empty es (todo) — legitimately left to English
 let staleIgnored = 0; // status=stale rows — review-only, never re-imported
 
 // Accumulate into in-memory targets; write once at the end (or not, if --dry).
-const ui = loadJSON(UI_JSON);
+// The UI file (en.json/es.json) is flat dotted keys — with a couple of dotted keys
+// whose VALUES are nested groups (CAIRN.Settings, CAIRN.Notify). flattenLang (the
+// same flattener extraction uses to build the TSV) collapses those to flat leaf
+// keys, so we merge and write ONE uniform shape. Writing nested here instead would
+// leave a flat "CAIRN.Foo" key beside a new nested {CAIRN:{Foo}} object; Foundry
+// expands both and the group object clobbers its flat siblings — wiping most of the
+// translated UI at runtime while i18n:check still reports full coverage.
+const ui = flattenLang(loadJSON(UI_JSON));
 const content = loadJSON(CONTENT_JSON);
 
 // content-stale.tsv is a review-only orphan list (see extract-content.mjs), never
@@ -104,7 +100,7 @@ for (const file of tsvFiles.sort()) {
     if (es === en) warnings.push(`${where}: es == en (untranslated, or intentional proper noun)`);
     if (trailingTrap(en, es)) warnings.push(`${where}: es drops a trailing space/em-dash that en carries`);
 
-    if (isUI) setDeep(ui, key, es);
+    if (isUI) ui[key] = es;
     else {
       (content[key] ??= {})[normalizeKey(en)] = es;
     }
