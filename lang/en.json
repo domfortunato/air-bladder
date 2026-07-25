@@ -91,6 +91,7 @@
   "CAIRN.GrantBond": "Bond",
   "CAIRN.GrantQuestion": "Question",
   "CAIRN.GrantFailedCareer": "Failed Career",
+  "CAIRN.GrantContainer": "Container",
   "CAIRN.GrantTagsHint": "Items tagged Background, Bond, Question or Failed Career were granted during character generation.",
   "CAIRN.ReorderHint": "Drag an item to reorder your inventory.",
   "CAIRN.Bond": "Bond",

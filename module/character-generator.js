@@ -287,25 +287,46 @@ const containerKindFor = (name) => (/\b(wagon|cart|sled|sledge)\b/i.test(name) ?
  */
 export const grantContainers = async (actor, specs) => {
   if (!actor || !specs?.length) return [];
-  // Honor the containers feature toggle: a world with the Containers tab off gets
-  // NO generation-granted containers at all. Keeps the setting's meaning honest
-  // (off = no containers), and means a (re)roll in such a world never has to create
-  // or delete a container Actor — so a player can regenerate freely. (Marketplace
-  // transports are a separate, deliberate opt-in and are gated in marketplace.js.)
-  if (!game.settings.get(SETTINGS_NS, "show-containers-tab")) return [];
-  // Containers are Actors; a player regenerating their own character can't create
-  // them. Skip with a notice so generation completes rather than throwing midway.
+  const pack = game.packs.get("air-bladder.transports");
+  const docs = pack ? await pack.getDocuments() : [];
+  // Resolve a spec against the editable transports pack (art/description/kind), with
+  // sensible fallbacks for one-off beasts the pack doesn't carry.
+  const resolve = (spec) => {
+    const doc = docs.find((d) => d.name.toLowerCase() === String(spec.name).toLowerCase());
+    const kind = doc?.system.transportKind ?? containerKindFor(spec.name);
+    return { doc, kind, art: doc?.img ?? iconForTransport(spec.name, kind) };
+  };
+
+  // Containers tab OFF: record each rolled container as a WEIGHTLESS inventory item
+  // instead of a container Actor. It's owner-editable, so a player can (re)roll it
+  // with no Actor create/delete, and it keeps the flavor — named, iconed and
+  // described like the container it stands for, and tagged "Container" (via the
+  // containerItem flag; see item.js). grantSource stays background/question:X so the
+  // re-roll/replacement machinery deletes and replaces it like the other granted gear.
+  if (!game.settings.get(SETTINGS_NS, "show-containers-tab")) {
+    const items = specs.map((spec) => {
+      const { doc, art } = resolve(spec);
+      return {
+        type: "item",
+        name: spec.name,
+        img: art,
+        system: { weightless: true, description: doc?.system.description ?? "" },
+        flags: { [FLAG_SCOPE]: { grantSource: spec.grantSource ?? "background", containerItem: true } },
+      };
+    });
+    await actor.createEmbeddedDocuments("Item", items, { render: false });
+    return [];
+  }
+
+  // Containers tab ON: mint real container Actors. Creating an Actor needs
+  // ACTOR_CREATE (a player can't), so skip with a notice rather than throw midway.
   if (!game.user.hasPermission("ACTOR_CREATE")) {
     ui.notifications.warn(game.i18n.localize("CAIRN.Notify.NoActorCreate"));
     return [];
   }
-  const pack = game.packs.get("air-bladder.transports");
-  const docs = pack ? await pack.getDocuments() : [];
   const made = [];
   for (const spec of specs) {
-    const doc = docs.find((d) => d.name.toLowerCase() === String(spec.name).toLowerCase());
-    const kind = doc?.system.transportKind ?? containerKindFor(spec.name);
-    const art = doc?.img ?? iconForTransport(spec.name, kind);
+    const { doc, kind, art } = resolve(spec);
     const container = await CairnActor.create({
       type: "container",
       name: spec.name,

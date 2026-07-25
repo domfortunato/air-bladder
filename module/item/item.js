@@ -27,9 +27,14 @@ export class CairnItem extends Item {
     // flags.air-bladder.grantSource ("background" / "bond:<id>" / "question:<i>"),
     // set at generation; the re-roll/replacement machinery keys off it, so the
     // display-only "show-grant-tags" setting never affects the flag itself.
+    // A container that a background/question rolled, but recorded as a plain
+    // (weightless) inventory item because the Containers tab is off. It keeps its
+    // grantSource for the re-roll machinery, so the "Container" tag rides on a
+    // separate flag and takes precedence over the source label.
     const grantSource = this.getFlag("air-bladder", "grantSource");
     this.system.grantLabel =
       !game.settings.get(SETTINGS_NS, "show-grant-tags") ? ""
+      : this.getFlag("air-bladder", "containerItem") ? game.i18n.localize("CAIRN.GrantContainer")
       : grantSource === "background" ? game.i18n.localize("CAIRN.GrantBackground")
       : typeof grantSource === "string" && grantSource.startsWith("bond:") ? game.i18n.localize("CAIRN.GrantBond")
       : typeof grantSource === "string" && grantSource.startsWith("question:") ? game.i18n.localize("CAIRN.GrantQuestion")
