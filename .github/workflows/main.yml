@@ -32,7 +32,7 @@ jobs:
           download: https://github.com/${{github.repository}}/releases/download/${{github.event.release.tag_name}}/system.zip
 
       # Create a zip file with all files required by the system to add to the release
-      - run: zip -r ./system.zip README.md LICENSE.txt system.json template.json css/ fonts/ icons/ lang/ logo/ module/ packs/ templates/ character_portraits/ character_tokens/
+      - run: zip -r ./system.zip README.md README.es.md LICENSE.txt system.json template.json css/ fonts/ icons/ lang/ logo/ lydia-comer/ module/ packs/ templates/ character_portraits/ character_tokens/
 
       # Create a release for this specific version
       - name: Update Release with Files
