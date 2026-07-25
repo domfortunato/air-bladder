@@ -7,8 +7,8 @@
  * Two sibling folders hold the art, one image per character with matching
  * filenames in each:
  *
- *   character_portraits/<name>.png   shown on the actor sheet (actor.img)
- *   character_tokens/<name>.png      prepped token art (prototypeToken texture)
+ *   character_portraits/<name>.webp   shown on the actor sheet (actor.img)
+ *   character_tokens/<name>.webp      prepped token art (prototypeToken texture)
  *
  * The manifest is a plain list of the paired basenames. It exists because the
  * client cannot enumerate a server folder without the FILES_BROWSE permission,
@@ -32,11 +32,11 @@ const TOKENS = path.join(root, "character_tokens");
 const OUT = path.join(root, "module", "portrait-manifest.json");
 const dry = process.argv.includes("--dry");
 
-const pngs = dir =>
-  new Set(fs.readdirSync(dir).filter(f => f.toLowerCase().endsWith(".png")));
+const webps = dir =>
+  new Set(fs.readdirSync(dir).filter(f => f.toLowerCase().endsWith(".webp")));
 
-const portraits = pngs(PORTRAITS);
-const tokens = pngs(TOKENS);
+const portraits = webps(PORTRAITS);
+const tokens = webps(TOKENS);
 
 const paired = [...portraits].filter(f => tokens.has(f)).sort();
 const orphanPortraits = [...portraits].filter(f => !tokens.has(f)).sort();
