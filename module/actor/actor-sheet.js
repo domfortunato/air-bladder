@@ -91,12 +91,19 @@ export class CairnActorSheet extends ActorSheet {
         const texts = table ? table.results.map((r) => r.text).sort() : [];
         return {
           key,
-          label: tableName,
+          // The trait-category label IS a tables-2e table name (Physique, Skin…),
+          // so localize it via the same table.name namespace as the compendium list.
+          label: t("table.name", tableName),
           value,
-          options: texts.map((text) => ({ text, selected: text === value })),
+          // Display-only: the <option> VALUE stays the English trait text (what
+          // system.traits.<key> stores on save), only the visible label is
+          // localized. So picking a Spanish option never bakes a Spanish string,
+          // and `selected` still matches English↔English. (See i18n-content.js.)
+          options: texts.map((text) => ({ value: text, display: t("table.result", text), selected: text === value })),
           // An off-table value (legacy free-typed) is preserved as its own option
           // so switching to a dropdown never silently drops it.
           customValue: value && !texts.includes(value) ? value : "",
+          customDisplay: value && !texts.includes(value) ? t("table.result", value) : "",
         };
       });
 

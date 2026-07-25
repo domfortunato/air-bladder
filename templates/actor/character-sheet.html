@@ -206,10 +206,10 @@
                                         <select class="trait-input" name="system.traits.{{this.key}}">
                                             <option value="" {{#unless this.value}}selected{{/unless}}></option>
                                             {{#if this.customValue}}
-                                            <option value="{{this.customValue}}" selected>{{this.customValue}}</option>
+                                            <option value="{{this.customValue}}" selected>{{this.customDisplay}}</option>
                                             {{/if}}
                                             {{#each this.options}}
-                                            <option value="{{this.text}}" {{#if this.selected}}selected{{/if}}>{{this.text}}</option>
+                                            <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.display}}</option>
                                             {{/each}}
                                         </select>
                                     </div>

@@ -84,6 +84,43 @@ Hooks.on("renderCompendium", (app, html) => {
   });
 });
 
+// Table draws to chat: localize the drawn result text into the active language.
+// Table-agnostic and synchronous (preCreateChatMessage isn't awaited) — it matches
+// each rendered result cell against the table.result overlay with English fallback,
+// so it covers EVERY draw path (world tables, compendium tables, our own draws in
+// damage.js, and a Warden rolling a pack table by hand) without resolving the source
+// table. An enriched result (e.g. an @UUID link) whose rendered HTML no longer equals
+// its raw key simply misses and stays English — the same graceful degradation as the
+// rest of the overlay. The .table-results markup is unique to RollTable draw cards,
+// so non-draw messages (damage, saves) are never touched. See i18n-content.js.
+Hooks.on("preCreateChatMessage", (message, data) => {
+  if (!contentLocalized()) return;
+  const content = message.content ?? data?.content ?? "";
+  if (!content.includes("table-results")) return;
+  const el = document.createElement("div");
+  el.innerHTML = content;
+  const cells = el.querySelectorAll(".table-results li");
+  if (!cells.length) return;
+  let changed = false;
+  const swap = (node, html) => {
+    // Read the whole cell (text-type results land in .description, sometimes .name),
+    // look it up as a table.result, and write the translation back if there is one.
+    const en = (html ? node.innerHTML : node.textContent).trim();
+    if (!en) return;
+    const es = t("table.result", en);
+    if (es === en) return;
+    if (html) node.innerHTML = es; else node.textContent = es;
+    changed = true;
+  };
+  for (const li of cells) {
+    const nameEl = li.querySelector("strong.name, .name");
+    if (nameEl && !nameEl.querySelector("a")) swap(nameEl, false); // skip @UUID document links
+    const descEl = li.querySelector(".description");
+    if (descEl) swap(descEl, true);
+  }
+  if (changed) message.updateSource({ content: el.innerHTML });
+});
+
 // Cairn calls the Game Master the "Warden". When the setting is on, override
 // the localized GM role labels before any UI that reads them renders (Players
 // list, User Management, permission dialogs). Settings are readable by `setup`,
