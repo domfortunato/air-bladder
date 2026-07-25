@@ -63,6 +63,15 @@ word list — so the same term is always translated the same way everywhere (we
 agree on one word for "Warden," one for "background," and so on). If you hit a
 term that isn't in the glossary, note it and we'll add it.
 
+A **starter glossary** already lives at [`tools/i18n/glossary.tsv`](../tools/i18n/glossary.tsv),
+seeded from the existing Spanish in the system and the terms Cairn players
+already know (FUE/DES/VOL, *fatiga*, *espacios*, *insignificante*…). A handful of
+2e / Warden terms are marked **"CONFIRM w/ fsmalecho"** (*vínculo*, *presagio*,
+*asalariado*, *Custodio*) — those are proposals waiting on your call, not
+decisions. The optional check `npm run i18n:check -- --glossary` flags any
+translated line that uses an English term one way but its Spanish another, so the
+same word never drifts across two screens.
+
 ## The order of work — pace yourself
 
 Two stages, and you never face all of it at once:

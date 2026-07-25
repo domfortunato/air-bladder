@@ -1,0 +1,37 @@
+﻿en	es	kind	source	notes
+STR	FUE	attribute	es.json	Fuerza
+DEX	DES	attribute	es.json	Destreza
+WIL	VOL	attribute	es.json	Voluntad
+Deprived	Exhausto	condition	es.json	inflects: exhausta/exhaustos
+Panicked	Pánico	condition	es.json	Panic -> Pánico too
+Dead	Muerto	condition	es.json	inflects: muerta
+Paralyzed	Paralizado	condition	1e SRD	DEX 0; confirm w/ fsmalecho
+Fatigue	Fatiga	mechanic	es.json
+Hit Protection	PG	mechanic	es.json	abbrev (Puntos de Guardia); keep "PG"
+Armor	Armadura	mechanic	es.json
+Slots	Espacios	mechanic	es.json	inventory slots
+Save	salvación	mechanic	es.json	lowercase mid-sentence
+Damage	Daño	mechanic	es.json
+Critical Damage	Daño crítico	mechanic	es.json
+Blast	Estallido	mechanic	es.json
+Success	Éxito	mechanic	es.json	es.json has "Exito" (missing accent) -- fix on import
+Fail	Fallo	mechanic	es.json
+Gold	Oro	mechanic	es.json
+Die of Fate	Dado del Destino	mechanic	es.json
+Rest	Descansar	mechanic	es.json
+petty	Insignificante	item-tag	es.json	Weightless -> Insignificante
+bulky	Voluminoso	item-tag	es.json
+Weapon	Arma	item-type	es.json
+Item	Objeto	item-type	es.json
+Container	Contenedor	item-type	es.json
+Spellbook	Hechizo	item-type	es.json	literal "spell"; Grimorio = spellbook -- confirm w/ fsmalecho
+Equipped	Equipado	ui	es.json	inflects: equipada
+Feature	Rasgo	ui	es.json
+Background	Trasfondo	2e-term	es.json
+Scar	Cicatriz	2e-term	es.json	from "Obtienes una cicatriz"
+Bond	vínculo	2e-term	Guía (per plan)	CONFIRM w/ fsmalecho
+Omen	presagio	2e-term	Guía (per plan)	CONFIRM w/ fsmalecho
+Hireling	asalariado	2e-term	README.es provisional	CONFIRM w/ fsmalecho
+Warden	Custodio	2e-term	README.es provisional	the GM; CONFIRM w/ fsmalecho
+Archetype	arquetipo	fork-term	fork-authored	Wizard/Fighter/Thief; CONFIRM
+Coins	Monedas	ui	fork-authored	fork relabels Gold->Coins on the sheet; CONFIRM
