@@ -12,7 +12,7 @@ system:
   description: 'A small cart pulled by hand. Holds four slots — no beast required, but you are the one doing the hauling.'
   weightless: false
   equipped: false
-  bulky: false
+  bulky: true
   cost: 15
   quantity: 1
   transportKind: vehicle
