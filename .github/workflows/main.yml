@@ -6,12 +6,23 @@ name: Release Creation
 on:
   release:
     types: [published]
+  # Manual fallback: build + attach assets to an existing release tag from the
+  # Actions tab. Use this when a publish did not fire the release event (e.g. a
+  # draft that had been un-published once), or to rebuild a release's assets.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to (re)build and attach system.json + system.zip to (e.g. 0.1.0)"
+        required: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # Check out the tagged commit (from the release event, or the manual input).
       - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
 
       # Build the LevelDB compendia from src/packs/ (packs/ is gitignored)
       - uses: actions/setup-node@v4
@@ -27,23 +38,26 @@ jobs:
         with:
           files: "system.json"
         env:
-          version: ${{github.event.release.tag_name}}
+          version: ${{ github.event.release.tag_name || inputs.tag }}
           manifest: https://github.com/${{github.repository}}/releases/latest/download/system.json
-          download: https://github.com/${{github.repository}}/releases/download/${{github.event.release.tag_name}}/system.zip
+          download: https://github.com/${{github.repository}}/releases/download/${{ github.event.release.tag_name || inputs.tag }}/system.zip
 
       # Create a zip file with all files required by the system to add to the release
       - run: zip -r ./system.zip README.md README.es.md LICENSE.txt system.json template.json css/ fonts/ icons/ lang/ logo/ lydia-comer/ module/ packs/ templates/ character_portraits/ character_tokens/
 
-      # Create a release for this specific version
+      # Create/update the release with the built files
       - name: Update Release with Files
         id: create_version_release
         uses: ncipollo/release-action@v1
         with:
           allowUpdates: true # Set this to false if you want to prevent updating existing releases
           name: ${{ github.event.release.name }}
+          # Manual runs carry no release name/body — don't blank them on update.
+          omitNameDuringUpdate: true
+          omitBodyDuringUpdate: true
           draft: false
           prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
           artifacts: "./system.json, ./system.zip"
-          tag: ${{ github.event.release.tag_name }}
+          tag: ${{ github.event.release.tag_name || inputs.tag }}
           body: ${{ github.event.release.body }}
