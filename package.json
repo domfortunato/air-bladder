@@ -9,6 +9,7 @@
     "dev:actors": "node tools/dev/actors.mjs",
     "check:warden": "node tools/dev/warden-check.mjs",
     "i18n:extract": "node tools/i18n/extract-ui.mjs && node tools/i18n/extract-content.mjs",
+    "i18n:import": "node tools/i18n/import-i18n.mjs",
     "i18n:check": "node tools/i18n/check.mjs"
   },
   "browserslist": [
