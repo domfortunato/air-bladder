@@ -11,6 +11,7 @@ import { createCairnMacro, rollItemMacro } from "./macros.js";
 import { Damage } from "./damage.js";
 import { registerSettings, SETTINGS_NS, migrateSettingsNamespace } from "./settings.js";
 import { iconForTransport } from "./icons.js";
+import { loadContentOverlay, t, contentLocalized } from "./i18n-content.js";
 
 Hooks.once("init", async function () {
   game.cairn = {
@@ -54,6 +55,33 @@ Hooks.once("ready", async () => {
   // could not map to this package — they rendered as "Unmapped" and a Warden
   // could not reach them. Carry any already-chosen value over to the real one.
   await migrateSettingsNamespace();
+});
+
+// Load the content-localization overlay (compendium names/descriptions) for the
+// active language, as soon as i18n is up and before sheets render. An English
+// world — or a language with no overlay shipped — gets none, and every content
+// string stays English (module/i18n-content.js).
+Hooks.once("i18nInit", loadContentOverlay);
+
+// Compendium browser: translate the visible entry names into the active language.
+// Display-only — the pack index and documents stay English; each render rebuilds
+// names from the index, so re-translating every render is idempotent. Names are
+// only match keys internally (drag uses data-entry-id, not text), so this is safe.
+Hooks.on("renderCompendium", (app, html) => {
+  if (!contentLocalized()) return;
+  const meta = app.collection?.metadata;
+  const ns =
+    meta?.type === "Actor" ? "monster.name" :
+    meta?.type === "RollTable" ? "table.name" :
+    (meta?.name ?? "").startsWith("backgrounds") ? "bg.name" :
+    "item.name";
+  const root = html instanceof HTMLElement ? html : (html?.[0] ?? html);
+  root?.querySelectorAll?.(".entry-name").forEach((el) => {
+    if (el.children.length) return; // don't clobber an icon/child, only plain-text names
+    const en = el.textContent.trim();
+    const es = t(ns, en);
+    if (es !== en) el.textContent = es;
+  });
 });
 
 // Cairn calls the Game Master the "Warden". When the setting is on, override

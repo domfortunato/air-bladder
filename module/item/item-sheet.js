@@ -1,4 +1,5 @@
 import { resolveGearItem } from "../gear.js";
+import { t } from "../i18n-content.js";
 
 /**
  * Extend the basic ItemSheet with some very simple modifications
@@ -32,7 +33,15 @@ export class CairnItemSheet extends ItemSheet {
   /** @override */
   async getData() {
     const data = await super.getData();
-    data.enrichedDescription = await foundry.applications.ux.TextEditor.implementation.enrichHTML(data.item.system.description, { async: true });
+    // Content localization for READ-ONLY (locked pack) entries only. An editable
+    // sheet — an owned item, or an unlocked pack a Warden is editing — keeps the
+    // canonical English so a save never writes a translated string back onto the
+    // document. The name is left to the compendium list; here we localize the
+    // description (a display-only derived field, never the stored value).
+    const localize = !this.isEditable;
+    const descNs = this.item.type === "background" ? "bg.desc" : "item.desc";
+    const descSrc = localize ? t(descNs, data.item.system.description) : data.item.system.description;
+    data.enrichedDescription = await foundry.applications.ux.TextEditor.implementation.enrichHTML(descSrc, { async: true });
     data.enrichedCriticalDamage = await foundry.applications.ux.TextEditor.implementation.enrichHTML(data.item.system.criticalDamage, { async: true });
     // Transport kind pick-list (worn / mount / vehicle) for the transport sheet's
     // <select>; keys are stored, values are localized by selectOptions.
@@ -60,7 +69,7 @@ export class CairnItemSheet extends ItemSheet {
           if (s.weightless) tags.push(game.i18n.localize("CAIRN.Weightless"));
           const uses = g.uses ?? s.uses?.max ?? 0;
           if (uses) tags.push(game.i18n.format("CAIRN.NUses", { n: uses }));
-          return { name: g.name, tags };
+          return { name: localize ? t("item.name", g.name) : g.name, tags };
         })
       );
     }

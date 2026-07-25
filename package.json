@@ -6,7 +6,10 @@
     "build:packs": "node tools/packs.mjs build",
     "extract:packs": "node tools/packs.mjs extract",
     "dev:smoke": "node tools/dev/smoke.mjs",
-    "check:warden": "node tools/dev/warden-check.mjs"
+    "dev:actors": "node tools/dev/actors.mjs",
+    "check:warden": "node tools/dev/warden-check.mjs",
+    "i18n:extract": "node tools/i18n/extract-ui.mjs && node tools/i18n/extract-content.mjs",
+    "i18n:check": "node tools/i18n/check.mjs"
   },
   "browserslist": [
     "last 3 versions"

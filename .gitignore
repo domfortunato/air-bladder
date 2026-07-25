@@ -13,3 +13,7 @@ node_modules/
 # Raw game-icons.net source PNGs (staging). The shipped, class-named copies live
 # in icons/; this folder is the untouched originals and is not part of the system.
 /game-icons-dot-net/
+
+# Generated translator TSVs, built from src/packs/ by `npm run i18n:extract`.
+# The filled translations land in lang/*.json (UI) and lang/content/*.json.
+/tools/i18n/tsv/

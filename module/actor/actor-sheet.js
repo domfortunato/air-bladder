@@ -3,6 +3,7 @@ import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, getInfoFromDropData, stripPar } from "../utils.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART, CONTAINER_ICON, iconForItem } from "../icons.js";
+import { localizeNameDesc, t } from "../i18n-content.js";
 
 /**
  * Extend the basic ActorSheet with some very simple modifications
@@ -56,6 +57,11 @@ export class CairnActorSheet extends ActorSheet {
       );
       data.items.sort((a,b) => a.name == game.i18n.localize("CAIRN.Fatigue") ? 1 : b.name == game.i18n.localize("CAIRN.Fatigue") ? -1 : 0 )
     }
+    // Display-only content localization: translate inventory item names/descriptions
+    // into the active language for rendering only. These are plain data copies (not
+    // the stored documents, which stay English), so name-matching elsewhere is
+    // unaffected. A no-op in an English world (overlay null); a miss shows English.
+    data.items = data.items.map((i) => localizeNameDesc(i));
     // Compendium monsters have "description" instead of "biography"
     if (this.actor.system.showBio) {
       data.enrichedBiography = await foundry.applications.ux.TextEditor.enrichHTML(this.actor.system.biography, { async: true });
@@ -124,8 +130,12 @@ export class CairnActorSheet extends ActorSheet {
       const bgUuid = this.actor.system.backgroundUuid;
       const bg = bgUuid ? await fromUuid(bgUuid) : null;
       data.backgroundDescription = bg?.system?.description
-        ? await foundry.applications.ux.TextEditor.enrichHTML(bg.system.description, { async: true })
+        ? await foundry.applications.ux.TextEditor.enrichHTML(t("bg.desc", bg.system.description), { async: true })
         : "";
+      // Translated background name for the header (generated case). The editable
+      // input for a hand-made character keeps the raw system.background so a Warden
+      // never edits a translated string.
+      data.backgroundName = t("bg.name", this.actor.system.background ?? "");
       const SOURCE_LABELS = { "2e": "Cairn 2e", "barebones": "Cairn Barebones" };
       data.contentSourceLabel =
         SOURCE_LABELS[this.actor.system.contentSource] ?? this.actor.system.contentSource;
@@ -172,7 +182,11 @@ export class CairnActorSheet extends ActorSheet {
       // re-rollable questions. Questions are 2e; bonds are 2e by default but a
       // Warden can lend them to Barebones (show-bonds-barebones), so show the
       // section whenever the character actually has one.
-      data.bonds = this._effectiveBonds();
+      // Translate bond prose for display (bonds are drawn from the Bonds table →
+      // table.result). A composed bond string that doesn't match a source key
+      // falls back to English; the count/entitlement below is unaffected.
+      data.bonds = this._effectiveBonds()
+        .map((b) => ({ ...b, description: t("table.result", b.description) }));
       data.showBonds = data.is2eBackground || data.bonds.length > 0;
       // "Add a bond" shows only while below the background's entitlement (base 1,
       // plus a second for Fieldwarden / Outrider's debt option). A fresh character
@@ -180,6 +194,14 @@ export class CairnActorSheet extends ActorSheet {
       data.canAddBond = data.bonds.length < (await this._bondEntitlement(bg));
       // Divider between the bonds/questions area and the free-form notes editor.
       data.showNotesDivider = data.showBonds;
+      // Questions render from a translated copy (template iterates `questions`, not
+      // system.questions): each prompt is a bg.question, each answer a background
+      // option description (bg.optionDesc). Misses fall back to English.
+      data.questions = (this.actor.system.questions ?? []).map((q) => ({
+        ...q,
+        question: t("bg.question", q.question ?? ""),
+        answer: t("bg.optionDesc", q.answer ?? ""),
+      }));
 
       // Attribute-loss statuses, ability tooltips, peril/low cues, critical skull.
       this._computeStatContext(data);

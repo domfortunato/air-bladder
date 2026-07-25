@@ -1,5 +1,6 @@
 import { findCompendiumItem } from "./compendium.js";
 import { iconForTransport } from "./icons.js";
+import { localizeNameDesc } from "./i18n-content.js";
 
 /**
  * The marketplace: a shop dialog a character opens from their Inventory tab.
@@ -264,18 +265,22 @@ export const openMarketplace = async (actor, opts = {}) => {
   const built = [];
   const sections = categories.map((cat) => {
     const rows = cat.items.map((data) => {
+      // Display-only translation: the row SHOWS the localized name/description, but
+      // `built` keeps the English payload so Buy/Take creates the canonical item
+      // (which then displays translated via the inventory surface).
+      const d = localizeNameDesc(data);
       if (data.type === "transport") {
         const idx = built.push(data) - 1;
         const cap = data.system.slots ?? 0;
         const tags = transportChips(data).map((c) => `<span class="mkt-chip">${esc(c)}</span>`).join("");
         const metaHtml = `<span class="mkt-slots mkt-capacity" title="${game.i18n.localize("CAIRN.TransportCapacity")}">+${cap} ${esc(labelFor(cap))}</span>`;
-        return rowHtml({ idx, cost: data.system.cost ?? 0, name: data.name, tagsHtml: tags, metaHtml, descHtml: descHtmlOf(data.system.description) });
+        return rowHtml({ idx, cost: data.system.cost ?? 0, name: d.name, tagsHtml: tags, metaHtml, descHtml: descHtmlOf(d.system.description) });
       }
       const idx = built.push(data) - 1;
       const slots = slotCost(data.system);
       const tags = chips(data).map((c) => `<span class="mkt-chip">${esc(c)}</span>`).join("");
       const metaHtml = `<span class="mkt-slots">${slots} ${esc(labelFor(slots))}</span>`;
-      return rowHtml({ idx, cost: data.system.cost ?? 0, name: data.name, tagsHtml: tags, metaHtml, descHtml: descHtmlOf(data.system.description) });
+      return rowHtml({ idx, cost: data.system.cost ?? 0, name: d.name, tagsHtml: tags, metaHtml, descHtml: descHtmlOf(d.system.description) });
     }).join("");
     return `<div class="mkt-cat"><div class="mkt-cat-name">${esc(cat.name)}</div>${rows}</div>`;
   }).join("");

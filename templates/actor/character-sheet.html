@@ -20,7 +20,7 @@
                 {{#if isBarebonesBackground}}
                 <span class="background-label">{{ localize 'CAIRN.BackgroundLabel' }}</span>
                 {{/if}}
-                <span class="background-name">{{data.system.background}}</span>
+                <span class="background-name">{{backgroundName}}</span>
                 {{#if generationEnabled}}
                 <a class="background-roll" title="{{ localize 'CAIRN.RollBackground' }}"><i class="fas fa-dice-d20"></i></a>
                 <a class="background-pick" title="{{ localize 'CAIRN.ChangeBackground' }}"><i class="fas fa-magnifying-glass"></i></a>
@@ -307,7 +307,7 @@
                     {{/if}}{{/if}}
                     {{/if}}
                     {{#if is2eBackground}}
-                    {{#each data.system.questions}}
+                    {{#each questions}}
                     <div class="question-block">
                         <p class="question-line"><strong>{{this.question}}</strong>{{#if ../generationEnabled}}<a class="question-reroll"
                                 data-index="{{@index}}" title="{{ localize 'CAIRN.RerollQuestion' }}"><i
