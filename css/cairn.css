@@ -2262,3 +2262,108 @@ textarea.omen-input {
 .bg-item-chip.is-snapshot {
     background: rgba(34, 170, 102, 0.18);
 }
+
+/* Background authoring toolbar (Test ×10 / Duplicate) + Test-×10 report dialog. */
+.bg-edit-toolbar {
+    display: flex;
+    gap: 12px;
+    margin: 2px 0 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.bg-edit-toolbar.readonly {
+    border-bottom: none;
+    margin-bottom: 4px;
+}
+
+.bg-edit-toolbar a {
+    cursor: pointer;
+    font-size: 0.85em;
+    text-decoration: underline;
+}
+
+.bg-preview {
+    font-size: 0.9em;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.bg-preview h4 {
+    margin: 10px 0 2px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.bg-preview-ok {
+    color: #1a7a3a;
+    font-weight: bold;
+}
+
+.bg-preview-problems {
+    list-style: none;
+    margin: 0 0 4px;
+    padding: 0;
+}
+
+.bg-preview-problems li {
+    margin: 2px 0;
+}
+
+.bg-preview-error {
+    color: #a11;
+}
+
+.bg-preview-warn {
+    color: #9a6a00;
+}
+
+.bg-preview-gear,
+.bg-preview-options {
+    margin: 2px 0;
+    padding-left: 22px;
+}
+
+.bg-preview-options li {
+    margin: 4px 0;
+}
+
+.bg-preview-items {
+    font-size: 0.9em;
+    opacity: 0.85;
+    padding-left: 4px;
+}
+
+.bg-preview-fired {
+    display: inline-block;
+    min-width: 34px;
+    font-variant-numeric: tabular-nums;
+    font-weight: bold;
+    opacity: 0.7;
+}
+
+.bg-preview-gold {
+    color: #9a6a00;
+    font-weight: bold;
+}
+
+.bg-preview-blank {
+    opacity: 0.6;
+}
+
+.bg-preview-sample {
+    margin-top: 8px;
+    font-style: italic;
+    opacity: 0.8;
+}
+
+.bg-kind.ok {
+    color: #2a6;
+}
+
+.bg-kind.bad {
+    color: #a11;
+}
+
+.bg-kind.warn {
+    color: #9a6a00;
+}

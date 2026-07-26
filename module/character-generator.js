@@ -357,6 +357,142 @@ export const applyChoiceTables = async (bg) => {
 };
 
 /* -------------------------------------------------------------------------- */
+/*  Authoring preview / linter                                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * How a single gear/option reference would resolve at generation. A snapshot is
+ * self-contained; an instruction row rolls a random item; a by-name reference
+ * resolves only if the canonical packs carry that name; an empty name never
+ * resolves. This is the check the sheet's preview surfaces so a grant that would
+ * silently vanish (resolveGearItem returns null on a miss, resolveRefs drops it)
+ * becomes visible before it reaches a player — or another GM.
+ * @returns {Promise<"snapshot"|"rolled"|"name"|"missing"|"empty">}
+ */
+const classifyRef = async (ref) => {
+  if (ref?.itemData) return "snapshot";
+  const lower = String(ref?.name ?? "").trim().toLowerCase();
+  if (!lower) return "empty";
+  if (INSTRUCTION_ROWS.has(lower)) return "rolled";
+  return (await resolveGearItem(ref.name)) ? "name" : "missing";
+};
+
+/**
+ * A dry-run report on a draft background, powering the sheet's "Test ×10" button.
+ * Two halves, no actor created and nothing persisted:
+ *  - a STATIC lint (deterministic): every starting-gear ref and every table-option
+ *    item classified snapshot/rolled/name/missing/empty, plus discovery checks
+ *    (source must be "2e", an archetype, at least one example name). This is the
+ *    pre-share, is-it-self-contained linter (docs/custom-backgrounds-plan.md §7/§9).
+ *  - a SAMPLING run (n iterations of the REAL applyChoiceTables): which of each
+ *    table's six options fired and the choice-gold spread, so a Warden sees the
+ *    shape of what they built.
+ * @param {CairnItem} bg
+ * @param {Number} [n=10]
+ * @returns {Promise<Object>}
+ */
+export const previewBackground = async (bg, n = 10) => {
+  const problems = [];
+  const sys = bg.system ?? {};
+
+  if (sys.source !== "2e") problems.push({ level: "warn", msg: game.i18n.localize("CAIRN.BgAuthor.LintSource") });
+  if (!sys.archetype) problems.push({ level: "warn", msg: game.i18n.localize("CAIRN.BgAuthor.LintArchetype") });
+  if (!(sys.names ?? []).some((s) => String(s).trim())) problems.push({ level: "warn", msg: game.i18n.localize("CAIRN.BgAuthor.LintNames") });
+
+  const gear = [];
+  for (const ref of sys.startingGear ?? []) {
+    const kind = await classifyRef(ref);
+    gear.push({ name: ref.name ?? "", kind });
+    if (kind === "missing") problems.push({ level: "error", msg: game.i18n.format("CAIRN.BgAuthor.LintMissingGear", { name: ref.name }) });
+    if (kind === "empty") problems.push({ level: "warn", msg: game.i18n.localize("CAIRN.BgAuthor.LintEmptyGear") });
+  }
+
+  const tables = [];
+  const rawTables = sys.tables ?? [];
+  for (let ti = 0; ti < rawTables.length; ti++) {
+    const options = [];
+    for (let oi = 0; oi < (rawTables[ti].options ?? []).length; oi++) {
+      const opt = rawTables[ti].options[oi];
+      const items = [];
+      for (const it of opt.items ?? []) {
+        const kind = await classifyRef(it);
+        items.push({ name: it.name ?? "", kind });
+        if (kind === "missing") problems.push({ level: "error", msg: game.i18n.format("CAIRN.BgAuthor.LintMissingOption", { t: ti + 1, o: oi + 1, name: it.name }) });
+      }
+      const blank = !String(opt.description ?? "").trim() && !items.length && !(opt.bonusGold > 0) && !(opt.containers ?? []).length;
+      if (blank) problems.push({ level: "warn", msg: game.i18n.format("CAIRN.BgAuthor.LintEmptyOption", { t: ti + 1, o: oi + 1 }) });
+      options.push({ description: opt.description ?? "", bonusGold: opt.bonusGold ?? 0, items, blank });
+    }
+    tables.push({ question: rawTables[ti].question ?? "", options, fired: new Array(options.length).fill(0) });
+  }
+
+  let goldMin = Infinity, goldMax = -Infinity, goldSum = 0;
+  for (let i = 0; i < n; i++) {
+    const choices = await applyChoiceTables(bg);
+    const g = choices.gold ?? 0;
+    goldSum += g; goldMin = Math.min(goldMin, g); goldMax = Math.max(goldMax, g);
+    choices.questions.forEach((q, ti) => {
+      const idx = tables[ti]?.options.findIndex((o) => o.description === q.answer) ?? -1;
+      if (idx >= 0) tables[ti].fired[idx] += 1;
+    });
+  }
+  const sampling = {
+    n,
+    goldMin: goldMin === Infinity ? 0 : goldMin,
+    goldMax: goldMax === -Infinity ? 0 : goldMax,
+    goldAvg: n ? Math.round(goldSum / n) : 0,
+  };
+
+  return { name: bg.name, gear, tables, sampling, problems };
+};
+
+/* -------------------------------------------------------------------------- */
+/*  Duplicate a background into an editable world pack                         */
+/* -------------------------------------------------------------------------- */
+
+/** The world Item compendium custom backgrounds are duplicated into. */
+const CUSTOM_BG_PACK = "world.custom-backgrounds";
+
+/**
+ * The GM's editable "Custom Backgrounds" world compendium, created on first use.
+ * A world pack (never a system pack — Foundry overwrites those on update) is the
+ * only place user backgrounds survive; the discovery scan finds them there
+ * regardless of pack name, so this is purely a predictable, auto-created home.
+ * @returns {Promise<CompendiumCollection|null>}
+ */
+const ensureCustomBackgroundPack = async () => {
+  const existing = game.packs.get(CUSTOM_BG_PACK);
+  if (existing) return existing;
+  return foundry.documents.collections.CompendiumCollection.createCompendium({
+    type: "Item",
+    label: "Custom Backgrounds",
+    name: "custom-backgrounds",
+  });
+};
+
+/**
+ * Copy a background into the GM's editable world pack as a fully-formed starting
+ * point to rename and rework — the "Duplicate into my backgrounds" action
+ * (docs/custom-backgrounds-plan.md §8). By-name gear references are kept as-is
+ * (they point at shipped items every install already has, so the copy is portable
+ * within the system); a GM who wants a one-off item re-drops it to snapshot. The
+ * copy is forced to source "2e" so it is immediately discoverable.
+ * @param {CairnItem} bg
+ * @returns {Promise<CairnItem|null>}
+ */
+export const duplicateBackgroundToWorld = async (bg) => {
+  const pack = await ensureCustomBackgroundPack();
+  if (!pack) return null;
+  const data = bg.toObject();
+  delete data._id;
+  delete data.folder;
+  data.name = `${bg.name} (${game.i18n.localize("CAIRN.BgAuthor.CopySuffix")})`;
+  data.system = { ...data.system, source: "2e" };
+  const created = await Item.implementation.create(data, { pack: pack.collection });
+  return created ?? null;
+};
+
+/* -------------------------------------------------------------------------- */
 /*  Background-granted containers                                              */
 /* -------------------------------------------------------------------------- */
 

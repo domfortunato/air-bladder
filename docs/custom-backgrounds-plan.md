@@ -37,9 +37,20 @@ toggle); the **authoring sheet is the remaining build.**
   zero console errors): editor renders, handlers persist, both drop targets snapshot,
   generation grants the snapshot from starting gear AND a rolled question, and a
   locked shipped background still renders read-only.
-- **Not yet built:** the "Test ×10" preview/linter (§9) and the "Duplicate into my
-  backgrounds" action (§8). A GM can already hand-author or edit a `background` Item
-  (source `2e`) in a world compendium through the new form.
+- **Also built (this slice):** the **"Test ×10" preview/linter** (§9) and the
+  **"Duplicate into my backgrounds"** action (§8). Test ×10 (`previewBackground`)
+  dry-runs the draft: a deterministic resolution lint (every gear/option grant
+  classified snapshot/name/rolled/missing/empty, plus discovery checks) that surfaces
+  a grant which would silently vanish, and a 10-iteration sample of the real
+  `applyChoiceTables` showing which options fired and the choice-gold spread — shown
+  in a DialogV2 report; it doubles as the pre-share self-contained linter. Duplicate
+  (`duplicateBackgroundToWorld`) copies a background — available on locked shipped
+  ones — into the GM's `world.custom-backgrounds` compendium (created on first use),
+  forced to source `2e`, and opens the copy. Verified live
+  (`tools/dev/probe-bg-tools.mjs`, 13 checks, zero console errors).
+- **Remaining (nice-to-have, not release-gating):** single-item JSON export / the
+  Module-Maker sharing path (§11 step 7) — Foundry already exports a single Item to
+  JSON from the sidebar, so this is largely documentation.
 - **Deferred nicety:** a visual "homebrew" marker in the picker (see the resolved
   open question in §10). The union works without it; entries are functional peers.
 
@@ -281,9 +292,12 @@ _Two resolved 2026-07-26; the rest not blocking:_
    **DONE 2026-07-26** — same slice; each option takes prose + bonus gold + snapshot items.
 4. ~~Snapshot serialization + generation reads `itemData` when present, else name.~~
    **DONE 2026-07-26** — `resolveRef` / `resolveStartingGear` honour `itemData`.
-5. "Test ×10" preview / linter. **← next**
-6. "Duplicate into my backgrounds" action + a world-pack home.
-7. Sharing polish (single-item JSON export; document the Module Maker path).
+5. ~~"Test ×10" preview / linter.~~ **DONE 2026-07-26** — `previewBackground` +
+   DialogV2 report; static resolution lint + sampled option/gold spread.
+6. ~~"Duplicate into my backgrounds" action + a world-pack home.~~ **DONE 2026-07-26**
+   — `duplicateBackgroundToWorld` → `world.custom-backgrounds` (created on first use).
+7. Sharing polish (single-item JSON export; document the Module Maker path). **← next
+   (nice-to-have; Foundry's sidebar already exports a single Item to JSON).**
 
 ## 12. Research sources
 

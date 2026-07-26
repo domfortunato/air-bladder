@@ -1,5 +1,60 @@
 import { resolveGearItem } from "../gear.js";
+import { previewBackground, duplicateBackgroundToWorld } from "../character-generator.js";
 import { t } from "../i18n-content.js";
+
+/** HTML-escape for report text built by hand (not through Handlebars). */
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+/** Badge markup for a resolved/unresolved gear reference kind. */
+const kindBadge = (kind) => {
+  const map = {
+    snapshot: ["fa-camera", "ok", "CAIRN.BgAuthor.KindSnapshot"],
+    name: ["fa-check", "ok", "CAIRN.BgAuthor.KindName"],
+    rolled: ["fa-dice", "ok", "CAIRN.BgAuthor.KindRolled"],
+    missing: ["fa-triangle-exclamation", "bad", "CAIRN.BgAuthor.KindMissing"],
+    empty: ["fa-minus", "warn", "CAIRN.BgAuthor.KindEmpty"],
+  };
+  const [icon, cls, label] = map[kind] ?? map.empty;
+  return `<span class="bg-kind ${cls}" title="${esc(game.i18n.localize(label))}"><i class="fas ${icon}"></i></span>`;
+};
+
+/**
+ * Render a previewBackground() report to HTML for the Test-×10 dialog: a problems
+ * banner (errors then warnings, or a green all-clear), the starting gear with
+ * resolution badges, and each table's options with how often each fired across the
+ * sample plus the choice-gold spread.
+ */
+const renderPreviewReport = (r) => {
+  const parts = [];
+  if (!r.problems.length) {
+    parts.push(`<p class="bg-preview-ok"><i class="fas fa-check-circle"></i> ${esc(game.i18n.localize("CAIRN.BgAuthor.LintClean"))}</p>`);
+  } else {
+    const row = (p) => `<li class="bg-preview-${p.level}"><i class="fas ${p.level === "error" ? "fa-circle-xmark" : "fa-circle-exclamation"}"></i> ${esc(p.msg)}</li>`;
+    const errs = r.problems.filter((p) => p.level === "error");
+    const warns = r.problems.filter((p) => p.level === "warn");
+    parts.push(`<ul class="bg-preview-problems">${errs.map(row).join("")}${warns.map(row).join("")}</ul>`);
+  }
+
+  if (r.gear.length) {
+    parts.push(`<h4>${esc(game.i18n.localize("CAIRN.BackgroundStartingGear"))}</h4>`);
+    parts.push(`<ul class="bg-preview-gear">${r.gear.map((g) => `<li>${kindBadge(g.kind)} ${esc(g.name) || `<em>${esc(game.i18n.localize("CAIRN.BgAuthor.Unnamed"))}</em>`}</li>`).join("")}</ul>`);
+  }
+
+  r.tables.forEach((t) => {
+    parts.push(`<h4>${esc(t.question) || `<em>${esc(game.i18n.localize("CAIRN.BgAuthor.Unnamed"))}</em>`}</h4>`);
+    const rows = t.options.map((o, i) => {
+      const items = o.items.map((it) => `${kindBadge(it.kind)} ${esc(it.name)}`).join(", ");
+      const gold = o.bonusGold ? ` <span class="bg-preview-gold">+${o.bonusGold}g</span>` : "";
+      const fired = `<span class="bg-preview-fired">${t.fired[i]}/${r.sampling.n}</span>`;
+      const desc = esc(o.description) || `<em class="bg-preview-blank">${esc(game.i18n.localize("CAIRN.BgAuthor.EmptyOption"))}</em>`;
+      return `<li>${fired} ${desc}${gold}${items ? `<div class="bg-preview-items">${items}</div>` : ""}</li>`;
+    });
+    parts.push(`<ol class="bg-preview-options">${rows.join("")}</ol>`);
+  });
+
+  parts.push(`<p class="bg-preview-sample">${esc(game.i18n.format("CAIRN.BgAuthor.GoldSpread", { avg: r.sampling.goldAvg, min: r.sampling.goldMin, max: r.sampling.goldMax }))}</p>`);
+  return `<div class="bg-preview">${parts.join("")}</div>`;
+};
 
 /** A custom 2e background always has exactly two d6 question tables, six options
  *  each — a fixed form, not an open-ended builder (see docs/custom-backgrounds-plan.md
@@ -98,6 +153,7 @@ export class CairnItemSheet extends ItemSheet {
       };
     }
     if (this.item.type === "background") {
+      data.isGM = game.user.isGM;
       if (this.isEditable) await this._prepareBackgroundEditor(data);
       else await this._prepareBackgroundReadOnly(data, localize);
     }
@@ -206,6 +262,13 @@ export class CairnItemSheet extends ItemSheet {
   activateListeners(html) {
     super.activateListeners(html);
 
+    // "Duplicate into my backgrounds" works on a LOCKED shipped background too, so
+    // it wires before the editable guard.
+    if (this.item.type === "background") {
+      html.find(".bg-duplicate").click((ev) => this._onDuplicateBackground(ev));
+      html.find(".bg-test").click((ev) => this._onTestBackground(ev));
+    }
+
     // Everything below here is only needed if the sheet is editable
     if (!this.options.editable) return;
 
@@ -303,6 +366,39 @@ export class CairnItemSheet extends ItemSheet {
       tables[Number(t)].options[Number(o)].items.splice(Number(i), 1);
       item.update({ "system.tables": tables });
     });
+  }
+
+  /* -------------------------------------------- */
+
+  /**
+   * "Test ×10": a dry-run report on this draft — resolution lint plus a sampled
+   * option/gold spread — shown in a dialog. Reuses the real generator logic
+   * (previewBackground), so it doubles as the pre-share self-contained linter.
+   * @private
+   */
+  async _onTestBackground(event) {
+    event.preventDefault();
+    const report = await previewBackground(this.item, 10);
+    new foundry.applications.api.DialogV2({
+      window: { title: game.i18n.format("CAIRN.BgAuthor.TestTitle", { name: this.item.name }), icon: "fas fa-flask" },
+      position: { width: 560 },
+      content: renderPreviewReport(report),
+      buttons: [{ action: "close", label: game.i18n.localize("CAIRN.Close"), default: true }],
+    }).render(true);
+  }
+
+  /**
+   * "Duplicate into my backgrounds": copy this background into the GM's editable
+   * world compendium (created on first use) as a starting point, and open the copy.
+   * Available on locked shipped backgrounds — the intended way to fork one.
+   * @private
+   */
+  async _onDuplicateBackground(event) {
+    event.preventDefault();
+    const copy = await duplicateBackgroundToWorld(this.item);
+    if (!copy) return;
+    ui.notifications.info(game.i18n.format("CAIRN.BgAuthor.Duplicated", { name: copy.name }));
+    copy.sheet.render(true);
   }
 
   /* -------------------------------------------- */

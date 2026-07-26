@@ -23,6 +23,11 @@
                 {{!-- Editable authoring form (world-pack / owned backgrounds) --}}
                 <div class="tab background-editor" data-group="primary" data-tab="details">
 
+                    <div class="bg-edit-toolbar">
+                        <a class="bg-test" title="{{ localize 'CAIRN.BgAuthor.TestHint' }}"><i class="fas fa-flask"></i> {{ localize 'CAIRN.BgAuthor.Test' }}</a>
+                        {{#if isGM}}<a class="bg-duplicate" title="{{ localize 'CAIRN.BgAuthor.DuplicateHint' }}"><i class="fas fa-copy"></i> {{ localize 'CAIRN.BgAuthor.Duplicate' }}</a>{{/if}}
+                    </div>
+
                     <div class="bg-edit-row">
                         <label>{{ localize 'CAIRN.BackgroundSource' }}</label>
                         <select name="system.source">
@@ -95,6 +100,11 @@
                 {{else}}
                 {{!-- Read-only view (locked shipped packs) --}}
                 <div class="tab background-details" data-group="primary" data-tab="details">
+                    {{#if isGM}}
+                    <div class="bg-edit-toolbar readonly">
+                        <a class="bg-duplicate" title="{{ localize 'CAIRN.BgAuthor.DuplicateHint' }}"><i class="fas fa-copy"></i> {{ localize 'CAIRN.BgAuthor.Duplicate' }}</a>
+                    </div>
+                    {{/if}}
                     <p class="background-source">
                         <strong>{{ localize 'CAIRN.BackgroundSource' }}:</strong> {{data.system.source}}
                     </p>
