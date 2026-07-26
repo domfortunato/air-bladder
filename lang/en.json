@@ -277,6 +277,10 @@
       "label": "Offer Cairn 2e character sheets",
       "hint": "Offer the 20 Cairn 2e backgrounds when generating a character. With more than one source enabled, Generate asks which to use."
     },
+    "ContentSourceCustom": {
+      "label": "Offer GM's Custom 2e backgrounds",
+      "hint": "Include GM-authored 2e backgrounds from your world's compendiums when generating a character. They appear alongside the shipped Cairn 2e backgrounds; turn off 'Offer Cairn 2e character sheets' to generate from your custom ones only."
+    },
     "ContentSourceBarebones": {
       "label": "Offer Cairn Barebones character sheets",
       "hint": "Offer the 100 Cairn Barebones backgrounds when generating a character. Barebones characters follow the same rules as 2e ones — only creation differs."

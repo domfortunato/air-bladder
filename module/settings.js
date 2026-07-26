@@ -18,7 +18,8 @@ export const SETTING_KEYS = [
   "show-features-section", "show-containers-tab", "use-warden-title",
   "min-age",
   // Character Generation
-  "content-source-2e", "content-source-barebones", "barebones-failed-career",
+  "content-source-2e", "content-source-custom", "content-source-barebones",
+  "barebones-failed-career",
   "show-omens-barebones", "show-bonds-barebones", "show-generate-header",
   // Inventory & Encumbrance
   "max-equip-slots", "character-inventory-limit", "use-gold-threshold",
@@ -173,6 +174,20 @@ export const registerSettings = () => {
     config: true,
     type: Boolean,
     default: true,
+    requiresReload: false,
+  });
+
+  // GM-authored 2e backgrounds living in a world compendium. They are 2e-format
+  // and share the 2e generation path -- with content-source-2e on they merge into
+  // the same picker; with it off they are the only backgrounds (a homebrew-only
+  // game). Default off: a fresh world has no custom backgrounds to offer.
+  game.settings.register(SETTINGS_NS, "content-source-custom", {
+    name: game.i18n.localize("CAIRN.Settings.ContentSourceCustom.label"),
+    hint: game.i18n.localize("CAIRN.Settings.ContentSourceCustom.hint"),
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
     requiresReload: false,
   });
 

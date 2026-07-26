@@ -1,8 +1,37 @@
 # Design note: GM-authored custom 2e backgrounds
 
-**Status:** Planning only — not started, no code written.
-**Date:** 2026-07-23
-**Scope decision:** Deferred past Air Bladder v1 (see [§8](#8-v1-scope-decision)).
+**Status:** In progress — the **discovery slice is built** (2026-07-26); the
+editable authoring sheet is still to come.
+**Date:** 2026-07-23 (revised 2026-07-26 — timeline moved up, discovery slice built).
+**Scope decision:** ~~Deferred past Air Bladder v1~~ — pulled forward. See
+[§8](#8-v1-scope-decision) for what shipped and what remains.
+
+## 0. Progress (2026-07-26)
+
+The **picker/discovery model is settled and coded** (Design Y + a homebrew-only
+toggle); the **authoring sheet is the remaining build.**
+
+- **Design Y (decided):** custom backgrounds are 2e-format and run the 2e
+  generator, so they do **not** get a third level-1 source button — they fold into
+  the existing "Cairn 2e" pick. When both shipped 2e and custom are enabled, the
+  archetype picker shows them together.
+- **Homebrew-only is possible (decided):** a third world setting,
+  `content-source-custom` (default off), gates the world-pack scan independently.
+  Shipped-2e off + custom on = a game that generates only from the GM's own
+  backgrounds. The "2e" level-1 button appears when *either* toggle is on.
+- **Built this slice:** the `content-source-custom` setting; a zero-config scan
+  (`getCustomBackgrounds`) of world Item compendiums for `background` items with
+  `system.source === "2e"`; `getBackgroundsFor("2e")` now returns a toggle-gated,
+  id-deduped **union** of the shipped pack and world backgrounds
+  (`get2eBackgrounds`), with an empty-pool fallback to the shipped pack;
+  `CONTENT_SOURCES` "2e" entry now enabled when `content-source-2e || content-source-custom`.
+- **Not yet built:** the editable authoring sheet (§5.3 / §3 gap 1), snapshot-on-drop
+  item grants (§6 Fork A), the "Test ×10" preview/linter (§9), and the "Duplicate
+  into my backgrounds" action (§8). Until the sheet lands, a GM can still exercise
+  the discovery slice by hand-authoring a `background` Item (source `2e`) in a world
+  compendium via Foundry's default item sheet.
+- **Deferred nicety:** a visual "homebrew" marker in the picker (see the resolved
+  open question in §10). The union works without it; entries are functional peers.
 
 A planning session on how to let Game Masters author their own **Cairn 2e-style**
 backgrounds — tagline, example names, starting gear, and the two d6 question
@@ -87,13 +116,17 @@ it, editable.
    system offers a "New Custom Background" affordance that lazily creates a world
    pack and drops a blank background into it.
 
-2. **Discovery — decouple generation from the hardcoded pack.** Recommended:
-   *zero-config* — generation scans all `background`-type Items with
-   `system.source === "2e"` across world compendiums **plus** the shipped pack,
-   unioned and de-duped by id. The GM just makes a background and it appears. (The
-   explicit alternative — a world setting listing extra background packs — trades
-   convenience for control.) This is an isolated code change in one function; **no
-   data migration.**
+2. **Discovery — decouple generation from the hardcoded pack. BUILT (2026-07-26).**
+   *Zero-config, as recommended:* `getCustomBackgrounds()` scans all
+   `background`-type Items with `system.source === "2e"` across **world** Item
+   compendiums (location is the discriminator — world vs system pack), and
+   `get2eBackgrounds()` unions them de-duped by id with the shipped pack. Each half
+   is gated by its own toggle (`content-source-2e` for shipped, `content-source-custom`
+   for world), so the same function serves the merged pick, the shipped-only default,
+   and a homebrew-only game — with an empty-pool fallback to the shipped pack. An
+   isolated change in `character-generator.js`; **no data migration.** (The rejected
+   alternative — a world setting listing extra background packs by id — traded
+   zero-config convenience for control we did not need.)
 
 3. **Authoring — an editable background sheet.** The real build. Turn the
    read-only details tab into a form:
@@ -161,6 +194,14 @@ travel.
 
 ## 8. v1 scope decision
 
+> **Revised 2026-07-26 — timeline moved up.** The original decision (below) was to
+> defer the whole feature. That still holds for the *authoring sheet*, but the
+> **discovery slice was pulled forward and built** now (see §0): the toggles, the
+> world-pack scan, and the merged/homebrew-only picker are done. Discovery is
+> non-breaking on its own and gives a hand-authoring GM a working path immediately;
+> the authoring sheet remains the deferred centrepiece. Publishing is still not
+> gated on any of it.
+
 **Defer the authoring feature past Air Bladder v1. Do not gate publishing on it.**
 
 - v1's job is a clean, playable, publishable 2e system. The 20 shipped backgrounds
@@ -203,10 +244,14 @@ linter from [§7](#7-the-portability-trade-off-state-this-plainly).
 
 ## 10. Remaining open questions
 
-_None blocking. Candidates to settle when the feature is picked up:_
+_Two resolved 2026-07-26; the rest not blocking:_
 
-- **Discovery default** — zero-config scan vs an explicit "extra packs" setting
-  (or both). Leaning zero-config with the shipped pack always included.
+- **Discovery default — RESOLVED: zero-config scan**, shipped pack always
+  available, custom scan gated by `content-source-custom`. Built. (No explicit
+  "extra packs" list — the world-pack scan needs no configuration.)
+- **A "custom" marker in the picker — RESOLVED as a deferred nicety.** The union
+  works without it and entries are functional peers; a "homebrew" badge/group can be
+  added to the picker template later. Not built in the discovery slice.
 - **Duplicate-to-world UX** — where the action lives (background sheet header?
   compendium context menu?) and whether it also copies referenced items as
   snapshots at duplicate time.
@@ -215,13 +260,12 @@ _None blocking. Candidates to settle when the feature is picked up:_
   `template.json` model and rely on defensive generation (skip + notify on bad
   data). The system's AppV1 posture argues for the latter unless sheet work forces
   the migration.
-- **A "custom" marker** in the picker — optional nicety so a GM can distinguish
-  their homebrew from shipped entries (functionally they are peers).
 
 ## 11. Rough sequencing when picked up
 
-1. Discovery: union world background packs with the shipped pack (isolated change).
-2. Editable background sheet — names + archetype + gear rows (drag → snapshot).
+1. ~~Discovery: union world background packs with the shipped pack (isolated change).~~
+   **DONE 2026-07-26** — `content-source-custom` toggle + `get2eBackgrounds` union.
+2. Editable background sheet — names + archetype + gear rows (drag → snapshot). **← next**
 3. The fixed 2×6 table builder (the largest single piece; prototype the
    drag-item-onto-an-option gesture first).
 4. Snapshot serialization + generation reads `itemData` when present, else name.

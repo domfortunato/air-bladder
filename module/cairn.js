@@ -271,6 +271,7 @@ Hooks.on("renderSettingsConfig", (app, element) => {
     );
   };
   boldPhrase("content-source-2e", "Cairn 2e");
+  boldPhrase("content-source-custom", "Custom 2e");
   boldPhrase("content-source-barebones", "Cairn Barebones");
 });
 

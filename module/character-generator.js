@@ -825,13 +825,27 @@ export const generateBarebonesCharacter = async (chosenBg = null) => {
 
 /** The content sources a Warden has enabled, in display order. */
 export const CONTENT_SOURCES = [
-  { key: "2e", setting: "content-source-2e", label: "CAIRN.ContentSource2e" },
-  { key: "barebones", setting: "content-source-barebones", label: "CAIRN.ContentSourceBarebones" },
+  {
+    key: "2e",
+    label: "CAIRN.ContentSource2e",
+    // The 2e generation path is offered when EITHER the shipped 2e backgrounds or
+    // GM-authored custom (homebrew) 2e backgrounds are enabled. Custom backgrounds
+    // are 2e-format and run the 2e generator, so they share its level-1 button
+    // rather than adding a third one; getBackgroundsFor("2e") then unions whichever
+    // pools are on. Shipped off + custom on = a homebrew-only game.
+    enabled: () =>
+      game.settings.get(SETTINGS_NS, "content-source-2e") ||
+      game.settings.get(SETTINGS_NS, "content-source-custom"),
+  },
+  {
+    key: "barebones",
+    label: "CAIRN.ContentSourceBarebones",
+    enabled: () => game.settings.get(SETTINGS_NS, "content-source-barebones"),
+  },
 ];
 
 /** The enabled sources. @returns {{key:String,label:String}[]} */
-export const enabledContentSources = () =>
-  CONTENT_SOURCES.filter((s) => game.settings.get(SETTINGS_NS, s.setting));
+export const enabledContentSources = () => CONTENT_SOURCES.filter((s) => s.enabled());
 
 /**
  * Which content source to generate from: the only enabled one, or a prompt when
@@ -884,8 +898,52 @@ export const generateCharacter = async (background = null, source = null) => {
 /** The pack a content source's backgrounds live in. */
 const BG_PACK_FOR = { "2e": "air-bladder.backgrounds-2e", barebones: BAREBONES_BG_PACK };
 
+/**
+ * GM-authored custom backgrounds: every `background` Item with source "2e" that
+ * lives in a WORLD compendium. Location, not a flag, is the discriminator —
+ * shipped 2e backgrounds live in the system pack, homebrew ones in the world.
+ * Foundry overwrites system packs on update, so user content MUST live in a world
+ * pack to survive; scanning world Item packs for source-"2e" backgrounds is how we
+ * find it with zero configuration. Only called when the custom toggle is on.
+ * @returns {Promise<CairnItem[]>}
+ */
+const getCustomBackgrounds = async () => {
+  const out = [];
+  for (const pack of game.packs) {
+    if (pack.metadata.type !== "Item" || pack.metadata.packageType !== "world") continue;
+    for (const doc of await pack.getDocuments()) {
+      if (doc.type === "background" && doc.system?.source === "2e") out.push(doc);
+    }
+  }
+  return out;
+};
+
+/**
+ * The 2e background pool: the shipped pack and/or the world's custom backgrounds,
+ * each gated by its own toggle and unioned de-duped by id. Shipped-off + custom-on
+ * is a homebrew-only game. An empty union (everything off, or custom-on with no
+ * world backgrounds yet) falls back to the shipped pack so the picker is never
+ * empty — the same "can never do nothing" invariant promptContentSource holds at
+ * the source level.
+ * @returns {Promise<CairnItem[]>}
+ */
+const get2eBackgrounds = async () => {
+  const byId = new Map();
+  const addShipped = async () => {
+    const pack = game.packs.get(BG_PACK_FOR["2e"]);
+    if (pack) for (const b of await pack.getDocuments()) byId.set(b.id, b);
+  };
+  if (game.settings.get(SETTINGS_NS, "content-source-2e")) await addShipped();
+  if (game.settings.get(SETTINGS_NS, "content-source-custom")) {
+    for (const b of await getCustomBackgrounds()) byId.set(b.id, b);
+  }
+  if (!byId.size) await addShipped();
+  return [...byId.values()];
+};
+
 /** Every background for a content source. @returns {Promise<CairnItem[]>} */
 export const getBackgroundsFor = async (source) => {
+  if (source === "2e") return get2eBackgrounds();
   const pack = game.packs.get(BG_PACK_FOR[source] ?? BG_PACK_FOR["2e"]);
   return pack ? pack.getDocuments() : [];
 };
