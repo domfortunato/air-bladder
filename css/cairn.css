@@ -717,7 +717,8 @@
     grid-template-rows: 46px 36px 36px 36px 36px 1fr;
 }
 
-.spellbook.item-sheet-grid {
+.spellbook.item-sheet-grid,
+.background.item-sheet-grid {
     grid-template-rows: 46px 36px 46px 1fr;
 }
 
@@ -727,7 +728,8 @@
     grid-row-end: 6;
 }
 
-.spellbook.item-sheet-grid .item-sheet-section-tabs {
+.spellbook.item-sheet-grid .item-sheet-section-tabs,
+.background.item-sheet-grid .item-sheet-section-tabs {
     grid-row-start: 4;
     grid-row-end: 4;
 }
@@ -2057,4 +2059,206 @@ textarea.omen-input {
 .cairn-compat-caption a {
     color: inherit;
     text-decoration: underline;
+}
+
+/******************************************************************************
+ * Background authoring form (editable custom 2e backgrounds).                *
+ * Read-only shipped backgrounds use .background-details above; this styles    *
+ * the editable form a Warden gets on a world-pack background.                 *
+ ******************************************************************************/
+.background-editor {
+    overflow-y: auto;
+    padding: 4px 8px 12px;
+}
+
+.background-editor h3 {
+    margin: 12px 0 4px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+    font-size: 1.05em;
+}
+
+.background-editor .bg-edit-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 4px 0;
+}
+
+.background-editor .bg-edit-row label {
+    flex: 0 0 90px;
+    font-weight: bold;
+}
+
+.background-editor .bg-edit-row select {
+    flex: 1;
+}
+
+.background-editor .bg-edit-hint {
+    margin: 4px 0;
+    font-size: 0.85em;
+    font-style: italic;
+    opacity: 0.75;
+}
+
+/* Example names — a wrapping list of small pills. */
+.bg-name-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.bg-name-item {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.bg-name-item .bg-name-input {
+    width: 110px;
+}
+
+/* Starting gear rows + table-option chips. */
+.bg-gear-list {
+    border: 1px dashed rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    padding: 4px;
+}
+
+.bg-gear-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 2px 0;
+}
+
+.bg-gear-item .bg-gear-name {
+    flex: 1;
+}
+
+.bg-gear-item .bg-gear-uses {
+    width: 56px;
+}
+
+.bg-gear-item.bg-missing .bg-gear-name {
+    color: #a11;
+}
+
+.bg-gear-tags {
+    font-size: 0.8em;
+    font-style: italic;
+    opacity: 0.7;
+    white-space: nowrap;
+}
+
+.bg-snapshot-badge {
+    color: #2a6;
+}
+
+.bg-drop-hint {
+    margin: 2px 0 0;
+    font-size: 0.8em;
+    font-style: italic;
+    opacity: 0.55;
+}
+
+.bg-drop-hint-inline {
+    display: inline;
+    margin-left: 4px;
+}
+
+.bg-name-add,
+.bg-gear-add {
+    display: inline-block;
+    margin: 4px 0 0;
+    font-size: 0.85em;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.bg-name-remove,
+.bg-gear-remove,
+.bg-option-item-remove {
+    cursor: pointer;
+    opacity: 0.55;
+}
+
+.bg-name-remove:hover,
+.bg-gear-remove:hover,
+.bg-option-item-remove:hover {
+    opacity: 1;
+    color: #a11;
+}
+
+/* The two d6 tables. */
+.bg-edit-table {
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    padding: 6px;
+    margin: 6px 0;
+}
+
+.bg-table-question {
+    width: 100%;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.bg-edit-options {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.bg-edit-option {
+    margin: 6px 0;
+}
+
+.bg-option-desc {
+    width: 100%;
+    resize: vertical;
+}
+
+.bg-option-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 2px;
+}
+
+.bg-option-gold-label {
+    font-size: 0.8em;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.bg-option-gold {
+    width: 56px;
+}
+
+.bg-option-items {
+    flex: 1;
+    min-height: 24px;
+    border: 1px dashed rgba(0, 0, 0, 0.25);
+    border-radius: 4px;
+    padding: 2px 4px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+}
+
+.bg-item-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 6px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.08);
+    font-size: 0.82em;
+    white-space: nowrap;
+}
+
+.bg-item-chip.is-snapshot {
+    background: rgba(34, 170, 102, 0.18);
 }

@@ -25,11 +25,21 @@ toggle); the **authoring sheet is the remaining build.**
   id-deduped **union** of the shipped pack and world backgrounds
   (`get2eBackgrounds`), with an empty-pool fallback to the shipped pack;
   `CONTENT_SOURCES` "2e" entry now enabled when `content-source-2e || content-source-custom`.
-- **Not yet built:** the editable authoring sheet (§5.3 / §3 gap 1), snapshot-on-drop
-  item grants (§6 Fork A), the "Test ×10" preview/linter (§9), and the "Duplicate
-  into my backgrounds" action (§8). Until the sheet lands, a GM can still exercise
-  the discovery slice by hand-authoring a `background` Item (source `2e`) in a world
-  compendium via Foundry's default item sheet.
+- **Built next (this slice):** the **editable authoring sheet** (§5.3 / §3 gap 1)
+  and **snapshot-on-drop item grants** (§6 Fork A). The background item sheet is now
+  a form when editable (world pack / owned) and stays read-only on locked shipped
+  packs. It edits source, archetype, example names (add/remove), starting gear
+  (add-by-name **or** drag an Item → frozen snapshot, with uses + derived tags), and
+  the fixed **2×6** d6 question tables (prose + bonus gold + item grants by drag →
+  snapshot). Generation now resolves a snapshot from its `itemData` (self-contained,
+  resolves even when the item is in no pack) — `character-generator.js` `resolveRef`
+  + `resolveStartingGear`. Verified live (`tools/dev/probe-bg-author.mjs`, 13 checks,
+  zero console errors): editor renders, handlers persist, both drop targets snapshot,
+  generation grants the snapshot from starting gear AND a rolled question, and a
+  locked shipped background still renders read-only.
+- **Not yet built:** the "Test ×10" preview/linter (§9) and the "Duplicate into my
+  backgrounds" action (§8). A GM can already hand-author or edit a `background` Item
+  (source `2e`) in a world compendium through the new form.
 - **Deferred nicety:** a visual "homebrew" marker in the picker (see the resolved
   open question in §10). The union works without it; entries are functional peers.
 
@@ -265,11 +275,13 @@ _Two resolved 2026-07-26; the rest not blocking:_
 
 1. ~~Discovery: union world background packs with the shipped pack (isolated change).~~
    **DONE 2026-07-26** — `content-source-custom` toggle + `get2eBackgrounds` union.
-2. Editable background sheet — names + archetype + gear rows (drag → snapshot). **← next**
-3. The fixed 2×6 table builder (the largest single piece; prototype the
-   drag-item-onto-an-option gesture first).
-4. Snapshot serialization + generation reads `itemData` when present, else name.
-5. "Test ×10" preview / linter.
+2. ~~Editable background sheet — names + archetype + gear rows (drag → snapshot).~~
+   **DONE 2026-07-26.**
+3. ~~The fixed 2×6 table builder (prototype the drag-item-onto-an-option gesture first).~~
+   **DONE 2026-07-26** — same slice; each option takes prose + bonus gold + snapshot items.
+4. ~~Snapshot serialization + generation reads `itemData` when present, else name.~~
+   **DONE 2026-07-26** — `resolveRef` / `resolveStartingGear` honour `itemData`.
+5. "Test ×10" preview / linter. **← next**
 6. "Duplicate into my backgrounds" action + a world-pack home.
 7. Sharing polish (single-item JSON export; document the Module Maker path).
 

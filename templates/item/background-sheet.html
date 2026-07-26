@@ -19,6 +19,81 @@
                     {{ editor enrichedDescription target="system.description" button=true owner=owner editable=editable engine="prosemirror" collaborate=true }}
                 </div>
 
+                {{#if isBackgroundEditor}}
+                {{!-- Editable authoring form (world-pack / owned backgrounds) --}}
+                <div class="tab background-editor" data-group="primary" data-tab="details">
+
+                    <div class="bg-edit-row">
+                        <label>{{ localize 'CAIRN.BackgroundSource' }}</label>
+                        <select name="system.source">
+                            {{ selectOptions sourceChoices selected=data.system.source localize=false }}
+                        </select>
+                    </div>
+                    <div class="bg-edit-row">
+                        <label>{{ localize 'CAIRN.BgAuthor.Archetype' }}</label>
+                        <select name="system.archetype">
+                            {{ selectOptions archetypeChoices selected=data.system.archetype localize=false blank="—" }}
+                        </select>
+                    </div>
+                    <p class="bg-edit-hint">{{ localize 'CAIRN.BgAuthor.SourceHint' }}</p>
+
+                    <h3>{{ localize 'CAIRN.BackgroundNames' }}</h3>
+                    <div class="bg-name-list">
+                        {{#each editNames}}
+                        <div class="bg-name-item">
+                            <input class="bg-name-input" type="text" data-i="{{@index}}" value="{{this}}" placeholder="{{ localize 'CAIRN.BgAuthor.NamePlaceholder' }}" />
+                            <a class="bg-name-remove" data-i="{{@index}}" title="{{ localize 'CAIRN.Remove' }}"><i class="fas fa-times"></i></a>
+                        </div>
+                        {{/each}}
+                    </div>
+                    <a class="bg-name-add"><i class="fas fa-plus"></i> {{ localize 'CAIRN.BgAuthor.AddName' }}</a>
+
+                    <h3>{{ localize 'CAIRN.BackgroundStartingGear' }}</h3>
+                    <div class="bg-gear-list" data-drop="gear">
+                        {{#each editGear}}
+                        <div class="bg-gear-item{{#if this.missing}} bg-missing{{/if}}">
+                            <input class="bg-gear-name" type="text" data-i="{{@index}}" value="{{this.name}}" placeholder="{{ localize 'CAIRN.BgAuthor.GearPlaceholder' }}" />
+                            {{#if this.isSnapshot}}<span class="bg-snapshot-badge" title="{{ localize 'CAIRN.BgAuthor.SnapshotHint' }}"><i class="fas fa-camera"></i></span>{{/if}}
+                            <input class="bg-gear-uses" type="number" min="0" data-i="{{@index}}" value="{{this.uses}}" title="{{ localize 'CAIRN.NUsesTitle' }}" placeholder="{{ localize 'CAIRN.Uses' }}" />
+                            {{#if this.tags.length}}<span class="bg-gear-tags">{{#each this.tags}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</span>{{/if}}
+                            <a class="bg-gear-remove" data-i="{{@index}}" title="{{ localize 'CAIRN.Remove' }}"><i class="fas fa-times"></i></a>
+                        </div>
+                        {{/each}}
+                        <p class="bg-drop-hint">{{ localize 'CAIRN.BgAuthor.DropGearHint' }}</p>
+                    </div>
+                    <a class="bg-gear-add"><i class="fas fa-plus"></i> {{ localize 'CAIRN.BgAuthor.AddGear' }}</a>
+
+                    <h3>{{ localize 'CAIRN.BgAuthor.Tables' }}</h3>
+                    <p class="bg-edit-hint">{{ localize 'CAIRN.BgAuthor.TablesHint' }}</p>
+                    {{#each editTables}}
+                    <div class="bg-edit-table">
+                        <input class="bg-table-question" type="text" data-t="{{@index}}" value="{{this.question}}" placeholder="{{ localize 'CAIRN.BgAuthor.QuestionPlaceholder' }}" />
+                        <ol class="bg-edit-options">
+                            {{#each this.options}}
+                            <li class="bg-edit-option">
+                                <textarea class="bg-option-desc" rows="2" data-t="{{@../index}}" data-o="{{@index}}" placeholder="{{ localize 'CAIRN.BgAuthor.OptionPlaceholder' }}">{{this.description}}</textarea>
+                                <div class="bg-option-meta">
+                                    <label class="bg-option-gold-label">{{ localize 'CAIRN.BgAuthor.BonusGold' }}
+                                        <input class="bg-option-gold" type="number" min="0" data-t="{{@../index}}" data-o="{{@index}}" value="{{this.bonusGold}}" />
+                                    </label>
+                                    <div class="bg-option-items" data-drop="option" data-t="{{@../index}}" data-o="{{@index}}">
+                                        {{#each this.items}}
+                                        <span class="bg-item-chip{{#if this.isSnapshot}} is-snapshot{{/if}}">
+                                            {{#if this.isSnapshot}}<i class="fas fa-camera"></i> {{/if}}{{this.name}}
+                                            <a class="bg-option-item-remove" data-t="{{@../../index}}" data-o="{{@../index}}" data-i="{{@index}}"><i class="fas fa-times"></i></a>
+                                        </span>
+                                        {{/each}}
+                                        <span class="bg-drop-hint bg-drop-hint-inline">{{ localize 'CAIRN.BgAuthor.DropItemHint' }}</span>
+                                    </div>
+                                </div>
+                            </li>
+                            {{/each}}
+                        </ol>
+                    </div>
+                    {{/each}}
+                </div>
+                {{else}}
+                {{!-- Read-only view (locked shipped packs) --}}
                 <div class="tab background-details" data-group="primary" data-tab="details">
                     <p class="background-source">
                         <strong>{{ localize 'CAIRN.BackgroundSource' }}:</strong> {{data.system.source}}
@@ -51,6 +126,7 @@
                     </div>
                     {{/each}}
                 </div>
+                {{/if}}
             </section>
         </div>
     </div>
