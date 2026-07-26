@@ -2,7 +2,7 @@
   "id": "air-bladder",
   "title": "Air Bladder (Cairn)",
   "description": "Air Bladder — a Cairn 2nd-edition-content game system for Foundry VTT. Compatible with Cairn by Yochai Gal.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "compatibility": {
     "minimum": "13",
     "verified": "14"
@@ -23,6 +23,10 @@
     {
       "name": "Dom Bosco",
       "url": "https://github.com/domfortunato"
+    },
+    {
+      "name": "Malecho",
+      "url": "https://github.com/fsmalecho"
     },
     {
       "name": "Claude Code",

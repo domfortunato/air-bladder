@@ -75,6 +75,7 @@ For development, clone this repo into `Data/systems/air-bladder` (a directory ju
 Air Bladder mixes several licensing regimes — please keep the attribution intact:
 
 - **Game text — CC BY-SA 4.0.** The Cairn rules and text (1st and 2nd edition) are by **Yochai Gal**, licensed [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). 2e content in this system inherits that license; derivatives must share alike and attribute Yochai Gal.
+- **Spanish translation — CC BY-SA 4.0.** The Castilian Spanish (es-ES) translation is by **[Malecho](https://github.com/fsmalecho)**. As a derivative of the CC BY-SA game text, the translation is likewise licensed [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
 - **Code — MIT.** The Foundry system code descends from the original **Cairn-FoundryVTT by Yochai Gal & Oskar Świda** (MIT), itself descended from the Electric Bastionland system. See `LICENSE.txt`.
 - **"Compatible with Cairn"** — the compatibility badge is used per the terms on [cairnrpg.com/resources/logos](https://cairnrpg.com/resources/logos) (CC BY-SA 4.0, Yochai Gal).
 - **Air Bladder logo — © Lydia Comer, all rights reserved.** The logo and related artwork in `lydia-comer/` are by **[Lydia Comer](https://linktr.ee/lydiadidmyink)**, licensed to the Air Bladder system for inclusion and unmodified redistribution as part of the system and its forks; all other uses require permission. See `lydia-comer/license.txt`.

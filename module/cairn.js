@@ -11,7 +11,7 @@ import { createCairnMacro, rollItemMacro } from "./macros.js";
 import { Damage } from "./damage.js";
 import { registerSettings, SETTINGS_NS, migrateSettingsNamespace } from "./settings.js";
 import { iconForTransport } from "./icons.js";
-import { loadContentOverlay, t, contentLocalized } from "./i18n-content.js";
+import { loadContentOverlay, t, translationOf, contentLocalized } from "./i18n-content.js";
 
 Hooks.once("init", async function () {
   game.cairn = {
@@ -107,8 +107,11 @@ Hooks.on("preCreateChatMessage", (message, data) => {
     // look it up as a table.result, and write the translation back if there is one.
     const en = (html ? node.innerHTML : node.textContent).trim();
     if (!en) return;
-    const es = t("table.result", en);
-    if (es === en) return;
+    // translationOf (not t) returns overlay-or-undefined, never the English source,
+    // so the value written below is provably from our trusted overlay JSON — DOM text
+    // can't round-trip back out as markup (js/xss-through-dom).
+    const es = translationOf("table.result", en);
+    if (es === undefined || es === en) return;
     if (html) node.innerHTML = es; else node.textContent = es;
     changed = true;
   };

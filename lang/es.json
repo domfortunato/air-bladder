@@ -308,7 +308,7 @@
   "CAIRN.ItemEquip": "Equipar",
   "CAIRN.ItemRemoveQuantity": "Eliminar",
   "CAIRN.ItemUnequip": "Desequipar",
-  "CAIRN.ApplyDamage": "Aplicar daño",
+  "CAIRN.ApplyDamage": "Infligir daño",
   "CAIRN.Cost": "Coste",
   "CAIRN.SetLimit": "Establecer limite",
   "DEX": "DES",
@@ -332,3 +332,4 @@
   "CAIRN.RollBackground": "Generar un trasfondo aleatorio",
   "CAIRN.ChangeBackground": "Cambiar trasfondo"
 }
+

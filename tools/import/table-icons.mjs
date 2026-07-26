@@ -75,9 +75,11 @@ for (const pack of ALL_PACKS) {
 }
 
 /** RollTable result text can carry HTML entities ("Quill &amp; Ink"); decode for name matching. */
+// decode &amp; LAST so a literal "&amp;lt;" doesn't double-unescape into "<".
 const decode = (s) => String(s)
-  .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-  .replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").replace(/&apos;/g, "'");
+  .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+  .replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").replace(/&apos;/g, "'")
+  .replace(/&amp;/g, "&");
 const nameHit = (text) => text && byName.get(decode(text).toLowerCase());
 
 /** Target img for one result, or null to leave it alone. */
