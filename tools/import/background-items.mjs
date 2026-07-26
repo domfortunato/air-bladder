@@ -48,7 +48,8 @@ const DEST = "background-items";
 
 // mirror module/gear.js
 const GEAR_ALIASES = new Map([["lockpick","Lockpicks"],["hand drill","Hand-Drill"],["torches","Torch"],["rope (25ft)","Rope"],["chain (10ft)","Chain, 10ft"],["chains (10ft)","Chain, 10ft"],["chains","Chain, 10ft"],["chain","Chain, 10ft"],["pole (10ft)","Pole, 10ft"],["pole","Pole, 10ft"],["plate","Plate Mail"],["simple instrument (pipes, lute, etc.)","Instrument"],["simple instruments (pipes, lute, etc.)","Instrument"],["boltcutters","Bolt Cutters"],["tent (fits 2)","Tent"]]);
-const decode = (s) => String(s).replace(/&amp;/g,"&").replace(/&#0?39;/g,"'").replace(/&apos;/g,"'");
+// decode &amp; LAST so a literal "&amp;#039;" doesn't double-unescape into "'".
+const decode = (s) => String(s).replace(/&#0?39;/g,"'").replace(/&apos;/g,"'").replace(/&amp;/g,"&");
 const spell = (n) => { const s=decode(n).trim(); const m=s.match(/^spellbook\s*\((.+)\)$/i)||s.match(/^scroll\s*\((.+)\)$/i)||s.match(/^(.+?)\s+spellbook$/i); return m?m[1]:null; };
 const norm = (n) => { if(n==null) return null; if(spell(n)) return null; const raw=decode(n).trim(); return (GEAR_ALIASES.get(raw.toLowerCase())??raw).toLowerCase(); };
 
