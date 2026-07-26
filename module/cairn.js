@@ -196,6 +196,13 @@ Hooks.once("ready", async () => {
     await Actor.updateDocuments(updates);          // one batch, so it can't half-finish
     console.log(`Air Bladder | remapped ${updates.length} container(s) to class icons`);
   }
+
+  // Custom character portraits: make sure the GM's folder exists, then refresh the
+  // cached image list so players (who cannot scan folders) see the current set.
+  // Both are non-fatal — a host that forbids folder ops just leaves the pool empty
+  // and generation falls back to the shipped art.
+  await characterGenerator.ensureCustomPortraitFolder();
+  await characterGenerator.refreshCustomPortraits();
 });
 
 // Dialogs get the black-and-white sheet look. The styling lives in css/cairn.css

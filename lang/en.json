@@ -179,6 +179,10 @@
   "CAIRN.BrowsePortrait": "Browse for another image…",
   "CAIRN.PortraitUrlPlaceholder": "Paste an image URL…",
   "CAIRN.PortraitUrlSet": "Set",
+  "CAIRN.PortraitTabShipped": "Jon Aspeheim",
+  "CAIRN.PortraitTabCustom": "Custom",
+  "CAIRN.RefreshCustomPortraits": "Refresh",
+  "CAIRN.CustomPortraitsEmpty": "No custom portraits found. Drop images into your custom portrait folder, then Refresh.",
   "CAIRN.PortraitCredit": "Portraits by <a href=\"https://jonaspeheim.itch.io/\" target=\"_blank\" rel=\"noopener\">Jon Aspeheim</a> · <a href=\"https://creativecommons.org/licenses/by/4.0/\" target=\"_blank\" rel=\"noopener\">CC BY 4.0</a>",
   "CAIRN.Owner": "Owner",
   "CAIRN.OverburdenByGold": "Character may be overburdened by gold",
@@ -242,6 +246,10 @@
     "ShowGenerateHeader": {
       "label": "Show a Roll Character button on the character sheet header",
       "hint": "Show 'Regenerate' button at character sheet header"
+    },
+    "CustomPortraitFolder": {
+      "label": "Custom character portrait folder",
+      "hint": "A folder of your own character portraits (relative to the Foundry data root). When it holds images, new characters and hirelings use them instead of the shipped Jon Aspeheim art, and the portrait picker gains a 'Custom' tab. Leave empty or unfilled to use only the shipped portraits. The default folder is created for you — just drop images in and click Refresh in the picker."
     },
     "ShowGrantTags": {
       "label": "Show grant-source tags (Background / Bond / Question) on inventory",

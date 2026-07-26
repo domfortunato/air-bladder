@@ -21,6 +21,7 @@ export const SETTING_KEYS = [
   "content-source-2e", "content-source-custom", "content-source-barebones",
   "barebones-failed-career",
   "show-omens-barebones", "show-bonds-barebones", "show-generate-header",
+  "custom-portrait-folder", "custom-portrait-list",
   // Inventory & Encumbrance
   "max-equip-slots", "character-inventory-limit", "use-gold-threshold",
   "show-gold-not-cost", "show-container-actors", "enable-inventory-reorder",
@@ -248,6 +249,33 @@ export const registerSettings = () => {
     type: Boolean,
     default: true,
     requiresReload: true,
+  });
+
+  // A GM-curated folder of custom character portraits (per-world local pool). When
+  // it holds images, new characters/hirelings draw ONLY from it and the portrait
+  // picker gains a "Custom" tab; empty, everything falls back to the shipped Jon
+  // Aspeheim art. Default is a folder at the Foundry data root -- NEVER inside the
+  // system folder, which is overwritten on update. Portraits are its OWN token
+  // (no paired token art), so each image doubles as portrait and token.
+  game.settings.register(SETTINGS_NS, "custom-portrait-folder", {
+    name: game.i18n.localize("CAIRN.Settings.CustomPortraitFolder.label"),
+    hint: game.i18n.localize("CAIRN.Settings.CustomPortraitFolder.hint"),
+    scope: "world",
+    config: true,
+    type: String,
+    default: "air-bladder-portraits",
+    requiresReload: false,
+  });
+
+  // The scanned file list for the folder above, cached so players (who lack the
+  // FILES_BROWSE permission a folder scan needs) can still see and pick custom
+  // portraits. A GM refresh (or GM login) rewrites it. Not shown in the UI.
+  game.settings.register(SETTINGS_NS, "custom-portrait-list", {
+    scope: "world",
+    config: false,
+    type: Array,
+    default: [],
+    requiresReload: false,
   });
 
   // ---- Inventory & Encumbrance ---------------------------------------------

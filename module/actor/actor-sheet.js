@@ -1,4 +1,4 @@
-import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, mentionsSecondBond, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, regenerateHireling, rerollHirelingProfession, rerollHirelingName, rollNameFromTable, rollAge } from "../character-generator.js";
+import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, mentionsSecondBond, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, getCustomPortraitPaths, refreshCustomPortraits, regenerateHireling, rerollHirelingProfession, rerollHirelingName, rollNameFromTable, rollAge } from "../character-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, getInfoFromDropData, stripPar } from "../utils.js";
 import { SETTINGS_NS } from "../settings.js";
@@ -1331,28 +1331,39 @@ export class CairnActorSheet extends ActorSheet {
   }
 
   /**
-   * Dice on the portrait: roll a random shipped portrait, avoiding the current one
-   * so it always changes. Reuses _setPortrait so the paired token swaps too.
+   * Dice on the portrait: roll a random one from the effective pool, avoiding the
+   * current so it always changes. The pool matches auto-assignment — the GM's
+   * custom portraits when they have any, else the shipped Aspeheim art. Reuses
+   * _setPortrait so the paired token swaps too (custom portraits are their own).
    * @param {Event} event
    * @private
    */
   async _onRollPortrait(event) {
     event.preventDefault();
     event.stopPropagation();
-    const manifest = await getPortraitManifest();
-    const names = manifest?.names ?? [];
-    if (!names.length) return;
-    const dir = manifest.portraitDir ?? "systems/air-bladder/character_portraits";
-    const all = names.map((n) => `${dir}/${n}`);
+    const custom = getCustomPortraitPaths();
+    let all;
+    if (custom.length) {
+      all = custom;
+    } else {
+      const manifest = await getPortraitManifest();
+      const names = manifest?.names ?? [];
+      if (!names.length) return;
+      const dir = manifest.portraitDir ?? "systems/air-bladder/character_portraits";
+      all = names.map((n) => `${dir}/${n}`);
+    }
     const pool = all.filter((src) => src !== this.actor.img);
     const choices = pool.length ? pool : all;
     await this._setPortrait(choices[Math.floor(Math.random() * choices.length)]);
   }
 
   /**
-   * Portrait picker: a gallery of the shipped portraits, a paste-a-URL row, and
-   * (for users who may browse files) an escape to Foundry's FilePicker. Picking
-   * any of them swaps the portrait AND its paired token via _setPortrait.
+   * Portrait picker. Two galleries behind a tab toggle — the shipped Jon Aspeheim
+   * art and the GM's custom folder — plus a paste-a-URL row and (for FILES_BROWSE
+   * users) a FilePicker escape. Picking any image swaps the portrait AND its token
+   * via _setPortrait. The Aspeheim credit shows only under its own tab; the Custom
+   * tab appears when there are custom portraits or the viewer is a GM (who can add
+   * them). Shared by the PC and hireling sheets — they route here identically.
    * @param {Event} event
    * @private
    */
@@ -1362,12 +1373,41 @@ export class CairnActorSheet extends ActorSheet {
     const names = manifest?.names ?? [];
     const portraitDir = manifest?.portraitDir ?? "systems/air-bladder/character_portraits";
     const current = this.actor.img;
+    const custom = getCustomPortraitPaths();
+    const isGM = game.user.isGM;
+    const showCustom = custom.length > 0 || isGM;
 
-    const cells = names.map((n) => {
-      const src = `${portraitDir}/${n}`;
+    const cellFor = (src) => {
       const sel = src === current ? " selected" : "";
-      return `<img class="cairn-portrait-choice${sel}" src="${src}" data-src="${src}" title="${n}" />`;
-    }).join("");
+      const title = String(src).split("/").pop();
+      return `<img class="cairn-portrait-choice${sel}" src="${src}" data-src="${src}" title="${title}" />`;
+    };
+    const shippedCells = names.map((n) => cellFor(`${portraitDir}/${n}`)).join("");
+    const customCells = custom.map(cellFor).join("");
+
+    // Start on the tab holding the current portrait, so re-opening lands where you
+    // are; default to shipped otherwise.
+    const startTab = custom.includes(current) && custom.length ? "custom" : "shipped";
+    const tab = (id, label) =>
+      `<button type="button" class="cairn-portrait-tab${id === startTab ? " active" : ""}" data-tab="${id}">${label}</button>`;
+    const tabsBar = showCustom
+      ? `<div class="cairn-portrait-tabs">
+          ${tab("shipped", game.i18n.localize("CAIRN.PortraitTabShipped"))}
+          ${tab("custom", game.i18n.localize("CAIRN.PortraitTabCustom"))}
+        </div>`
+      : "";
+
+    const refreshBtn = isGM
+      ? `<button type="button" class="cairn-portrait-refresh"><i class="fas fa-rotate"></i> ${game.i18n.localize("CAIRN.RefreshCustomPortraits")}</button>`
+      : "";
+    const emptyHint = `<div class="cairn-portrait-empty"${custom.length ? " hidden" : ""}>${game.i18n.localize("CAIRN.CustomPortraitsEmpty")}</div>`;
+    const customPane = showCustom
+      ? `<div class="cairn-portrait-pane" data-pane="custom"${startTab === "custom" ? "" : " hidden"}>
+          <div class="cairn-portrait-grid">${customCells}</div>
+          ${emptyHint}
+          ${refreshBtn}
+        </div>`
+      : "";
 
     const canBrowse = game.user.can("FILES_BROWSE");
     const browseBtn = canBrowse
@@ -1382,10 +1422,14 @@ export class CairnActorSheet extends ActorSheet {
       </div>`;
 
     const content = `<div class="cairn-portrait-gallery">
-        <div class="cairn-portrait-grid">${cells}</div>
+        ${tabsBar}
+        <div class="cairn-portrait-pane" data-pane="shipped"${startTab === "shipped" ? "" : " hidden"}>
+          <div class="cairn-portrait-grid">${shippedCells}</div>
+          <div class="cairn-portrait-credit">${game.i18n.localize("CAIRN.PortraitCredit")}</div>
+        </div>
+        ${customPane}
         ${urlRow}
         ${browseBtn}
-        <div class="cairn-portrait-credit">${game.i18n.localize("CAIRN.PortraitCredit")}</div>
       </div>`;
 
     const dialog = new foundry.applications.api.DialogV2({
@@ -1397,12 +1441,39 @@ export class CairnActorSheet extends ActorSheet {
     await dialog.render(true);
 
     const root = dialog.element;
-    root.querySelectorAll(".cairn-portrait-choice").forEach((img) => {
+    const wireChoice = (img) =>
       img.addEventListener("click", async () => {
         await this._setPortrait(img.dataset.src);
         dialog.close();
       });
+    root.querySelectorAll(".cairn-portrait-choice").forEach(wireChoice);
+
+    // Tab toggle: show the clicked pane, hide the other, move the active marker.
+    root.querySelectorAll(".cairn-portrait-tab").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.tab;
+        root.querySelectorAll(".cairn-portrait-tab").forEach((b) => b.classList.toggle("active", b === btn));
+        root.querySelectorAll(".cairn-portrait-pane").forEach((p) => { p.hidden = p.dataset.pane !== id; });
+      });
     });
+
+    // Refresh: re-scan the custom folder (GM), then rebuild the custom grid in place.
+    const refresh = root.querySelector(".cairn-portrait-refresh");
+    if (refresh) {
+      refresh.addEventListener("click", async () => {
+        refresh.disabled = true;
+        const list = await refreshCustomPortraits();
+        const grid = root.querySelector('[data-pane="custom"] .cairn-portrait-grid');
+        const hint = root.querySelector('[data-pane="custom"] .cairn-portrait-empty');
+        if (grid) {
+          grid.innerHTML = list.map(cellFor).join("");
+          grid.querySelectorAll(".cairn-portrait-choice").forEach(wireChoice);
+        }
+        if (hint) hint.hidden = list.length > 0;
+        refresh.disabled = false;
+      });
+    }
+
     const urlInput = root.querySelector(".cairn-portrait-url-input");
     const applyUrl = async () => {
       const value = urlInput?.value.trim();

@@ -1751,6 +1751,45 @@ textarea.omen-input {
     text-decoration: underline;
 }
 
+/* Two-tab toggle: shipped Jon Aspeheim art vs the GM's custom folder. */
+.cairn-portrait-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--color-border-light-tertiary, #7a7971);
+}
+
+.cairn-portrait-tab {
+    flex: 0 0 auto;
+    width: auto;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    padding: 4px 12px;
+    cursor: pointer;
+    opacity: 0.6;
+}
+
+.cairn-portrait-tab.active {
+    opacity: 1;
+    border-bottom-color: #12a3b4;
+    font-weight: bold;
+}
+
+.cairn-portrait-refresh,
+.cairn-portrait-browse {
+    flex: 0 0 auto;
+    width: auto;
+}
+
+.cairn-portrait-empty {
+    text-align: center;
+    font-size: 12px;
+    font-style: italic;
+    opacity: 0.7;
+    padding: 16px 8px;
+}
+
 
 /******************************************************************************
  * Hireling sheet. A stripped character sheet: name/profession/day-rate stack   *

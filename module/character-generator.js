@@ -46,8 +46,84 @@ export const getPortraitManifest = async () => {
   return _portraitManifest;
 };
 
-/** A random {img, token} pair from the manifest, or null if none are shipped. */
+// --- Custom portraits (GM-curated, per-world local pool) --------------------
+// A folder of the GM's own portraits, scanned into a world setting so players
+// (who lack FILES_BROWSE) can still see and pick them. When non-empty it REPLACES
+// the shipped art for auto-assignment; empty, everything falls back to Aspeheim.
+// Custom portraits have no paired token file, so each image doubles as its token.
+
+const IMAGE_RE = /\.(?:webp|png|jpe?g|gif|svg|avif|bmp)$/i;
+
+/** The Foundry FilePicker implementation, across v13/v14 namespacing. */
+const filePicker = () =>
+  foundry.applications.apps?.FilePicker?.implementation
+  ?? foundry.applications.apps?.FilePicker
+  ?? globalThis.FilePicker;
+
+/** The configured custom-portrait folder (data-root-relative), or "" if blank. */
+const customPortraitFolder = () =>
+  String(game.settings.get(SETTINGS_NS, "custom-portrait-folder") ?? "").trim();
+
+/**
+ * The cached custom portrait image paths. Written by a GM refresh, read by anyone
+ * — so players need no FILES_BROWSE to use custom portraits. Always a string[].
+ * @returns {String[]}
+ */
+export const getCustomPortraitPaths = () => {
+  const list = game.settings.get(SETTINGS_NS, "custom-portrait-list");
+  return Array.isArray(list) ? list.filter((s) => typeof s === "string" && s) : [];
+};
+
+/**
+ * Ensure the custom-portrait folder exists (GM-side; needs FILES permission).
+ * Non-fatal: a host that forbids creation just leaves it absent and the feature
+ * falls back to shipped art. Never throws.
+ */
+export const ensureCustomPortraitFolder = async () => {
+  const dir = customPortraitFolder();
+  if (!dir) return;
+  const FP = filePicker();
+  try {
+    await FP.browse("data", dir); // already there
+  } catch {
+    try { await FP.createDirectory("data", dir); }
+    catch { /* permission/quirk — leave absent, shipped art still works */ }
+  }
+};
+
+/**
+ * Scan the custom-portrait folder and cache its image list into the world setting.
+ * GM only (writing a world setting and listing a folder both require it). Returns
+ * the fresh list; non-fatal — on failure keeps and returns the prior cache.
+ * @returns {Promise<String[]>}
+ */
+export const refreshCustomPortraits = async () => {
+  if (!game.user?.isGM) return getCustomPortraitPaths();
+  const dir = customPortraitFolder();
+  if (!dir) { await game.settings.set(SETTINGS_NS, "custom-portrait-list", []); return []; }
+  try {
+    const res = await filePicker().browse("data", dir);
+    const files = (res?.files ?? []).filter((f) => IMAGE_RE.test(f));
+    await game.settings.set(SETTINGS_NS, "custom-portrait-list", files);
+    return files;
+  } catch (e) {
+    console.warn("Air Bladder | could not scan custom portrait folder:", e);
+    return getCustomPortraitPaths();
+  }
+};
+
+/**
+ * A random {img, token} portrait pair for a new character/hireling. Draws ONLY
+ * from the GM's custom pool when it is non-empty (a custom portrait is its own
+ * token); otherwise from the shipped Aspeheim pairs. Null only if BOTH are empty.
+ * @returns {Promise<{img:String, token:String}|null>}
+ */
 export const randomPortraitPair = async () => {
+  const custom = getCustomPortraitPaths();
+  if (custom.length) {
+    const path = custom[Math.floor(Math.random() * custom.length)];
+    return { img: path, token: path };
+  }
   const m = await getPortraitManifest();
   if (!m?.names?.length) return null;
   const name = m.names[Math.floor(Math.random() * m.names.length)];
