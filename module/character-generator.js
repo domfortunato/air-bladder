@@ -212,15 +212,37 @@ export const rollNameFromTable = async (config, fallback) => {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Resolve one gear reference {name, quantity?, uses?} to an owned-item payload,
- * or null on a miss (resolveGearItem warns). The `uses`/`quantity` on a reference
- * override the pool item, letting two backgrounds grant the same pool item with
- * different counts.
- * @param {{name:String, quantity?:Number, uses?:Number}} ref
+ * Turn a snapshot (a frozen copy of an item, as authored on a custom background
+ * via drag-to-snapshot) into a fresh owned-item payload. This is the portable
+ * counterpart to by-name resolution: the item travels *inside* the background, so
+ * a GM's one-off gear resolves even on a table that has never seen it. Per-grant
+ * quantity/uses still override, exactly as by-name resolution does.
+ * @param {Object} data  a serialized item {name, type, img, system}
+ * @param {{quantity?:Number, uses?:Number}} [overrides]
+ * @returns {Object}
+ */
+const ownedFromSnapshot = (data, { quantity, uses } = {}) => {
+  const system = foundry.utils.deepClone(data.system ?? {});
+  system.quantity = quantity ?? system.quantity ?? 1;
+  system.equipped = false;
+  if (uses != null) system.uses = { value: uses, max: uses };
+  return { name: data.name, type: data.type ?? "item", img: data.img, system };
+};
+
+/**
+ * Resolve one gear reference to an owned-item payload, or null on a miss
+ * (resolveGearItem warns). A reference is EITHER a snapshot (`itemData`, a frozen
+ * copy authored on a custom background — self-contained, always resolves) OR a
+ * by-name pointer {name, quantity?, uses?} into the canonical packs. The
+ * `uses`/`quantity` on a reference override, letting two backgrounds grant the
+ * same item with different counts.
+ * @param {{name:String, quantity?:Number, uses?:Number, itemData?:Object}} ref
  * @returns {Promise<Object|null>}
  */
 const resolveRef = (ref) =>
-  resolveGearItem(ref.name, { quantity: ref.quantity ?? 1, uses: ref.uses });
+  ref?.itemData
+    ? Promise.resolve(ownedFromSnapshot(ref.itemData, { quantity: ref.quantity ?? 1, uses: ref.uses }))
+    : resolveGearItem(ref.name, { quantity: ref.quantity ?? 1, uses: ref.uses });
 
 /** Resolve an array of references, dropping any that miss. @returns {Promise<Object[]>} */
 export const resolveRefs = async (refs) =>
@@ -788,7 +810,10 @@ export const resolveStartingGear = async (bg, avoid = new Set()) => {
   for (const ref of refs) {
     const lower = String(ref.name).trim().toLowerCase();
     let item = null;
-    if (lower === "random additional gear") item = await rollAdditionalGear(avoid);
+    // A snapshot travels inside the background (custom-authored gear), so it
+    // resolves without ever touching the canonical packs or the instruction rows.
+    if (ref.itemData) item = ownedFromSnapshot(ref.itemData, { quantity: ref.quantity ?? 1, uses: ref.uses });
+    else if (lower === "random additional gear") item = await rollAdditionalGear(avoid);
     else if (lower === "scroll of random spellbook") item = await randomScrollItem();
     else if (lower === "spellbook" || lower === "random spellbook") item = await randomSpellbookItem();
     else item = await resolveGearItem(ref.name, { quantity: ref.quantity ?? 1, uses: ref.uses });
