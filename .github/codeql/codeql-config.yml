@@ -1,0 +1,11 @@
+name: "Air Bladder CodeQL config"
+
+# `tools/` is developer/build tooling (importers, pack build, i18n, release, dev
+# probes). It is NOT part of the shipped system (see the release zip's file list in
+# .github/workflows/main.yml — no `tools/`), and it runs only on a maintainer's
+# machine against trusted local/SRD inputs. Scanning it produces false positives
+# (HTML-entity decoders flagged as "double-escaping", git-driving scripts flagged as
+# injection) with no shipped attack surface, so it is out of scope for the product
+# security scan. Shipped runtime code (module/, templates/) is still fully scanned.
+paths-ignore:
+  - tools

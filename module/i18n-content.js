@@ -69,6 +69,20 @@ export const t = (ns, en) => {
 };
 
 /**
+ * Raw overlay lookup: the translation, or `undefined` on ANY miss — unlike t(), it
+ * does NOT fall back to the English source. Use where the written value must be
+ * provably from the overlay (e.g. assigning innerHTML): callers get overlay-or-nothing,
+ * never the source string, so DOM-read text can never round-trip back out as markup.
+ */
+export const translationOf = (ns, en) => {
+  if (OVERLAY === null || en == null) return undefined;
+  const table = OVERLAY[ns];
+  if (!table) return undefined;
+  const hit = table[normalizeKey(en)];
+  return hit == null ? undefined : hit;
+};
+
+/**
  * Return a shallow copy of an item-like object ({ name, system: { description } })
  * with its display name/description translated under the given namespaces. The
  * original is NEVER mutated — callers hand this to a template, never back to a
