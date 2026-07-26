@@ -30,9 +30,7 @@
 
                     <div class="bg-edit-row">
                         <label>{{ localize 'CAIRN.BackgroundSource' }}</label>
-                        <select name="system.source">
-                            {{ selectOptions sourceChoices selected=data.system.source localize=false }}
-                        </select>
+                        <span class="bg-source-fixed">{{sourceLabel}}</span>
                     </div>
                     <div class="bg-edit-row">
                         <label>{{ localize 'CAIRN.BgAuthor.Archetype' }}</label>

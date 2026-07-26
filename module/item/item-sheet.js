@@ -191,7 +191,12 @@ export class CairnItemSheet extends ItemSheet {
   async _prepareBackgroundEditor(data) {
     data.isBackgroundEditor = true;
     data.archetypeChoices = { Wizard: "Wizard", Fighter: "Fighter", Thief: "Thief" };
-    data.sourceChoices = { "2e": "Cairn 2e", barebones: "Barebones", "srd-2e": "SRD 2e" };
+    // Source is FIXED for a custom background — it is always Cairn 2e (that is the
+    // whole feature; Barebones authoring is out of scope, and only source "2e" is
+    // discovered). Shown read-only, never an editable pick-list, so a GM can't
+    // silently make their background undiscoverable by choosing another source.
+    const SOURCE_LABELS = { "2e": "Cairn 2e", barebones: "Barebones", "srd-2e": "SRD 2e" };
+    data.sourceLabel = SOURCE_LABELS[this.item.system.source] ?? this.item.system.source ?? "Cairn 2e";
     data.editNames = [...(this.item.system.names ?? [])];
     data.editGear = await Promise.all(
       (this.item.system.startingGear ?? []).map(async (g) => {

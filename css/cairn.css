@@ -2367,3 +2367,8 @@ textarea.omen-input {
 .bg-kind.warn {
     color: #9a6a00;
 }
+
+.bg-source-fixed {
+    font-weight: bold;
+    align-self: center;
+}
