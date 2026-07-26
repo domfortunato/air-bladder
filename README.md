@@ -28,7 +28,7 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 - Tooltips for players
 - Marketplace and containers
 - Warden-facing roll tables
-- A gallery of 80 CC BY 4.0 character portraits by Jon Aspeheim
+- A gallery of 80 CC BY 4.0 character portraits by [Jon Aspeheim](https://jonaspeheim.itch.io/)
 - Minimal automation
 
 ## Screenshots
@@ -79,7 +79,7 @@ Air Bladder mixes several licensing regimes — please keep the attribution inta
 - **Code — MIT.** The Foundry system code descends from the original **Cairn-FoundryVTT by Yochai Gal & Oskar Świda** (MIT), itself descended from the Electric Bastionland system. See `LICENSE.txt`.
 - **"Compatible with Cairn"** — the compatibility badge is used per the terms on [cairnrpg.com/resources/logos](https://cairnrpg.com/resources/logos) (CC BY-SA 4.0, Yochai Gal).
 - **Air Bladder logo — © Lydia Comer, all rights reserved.** The logo and related artwork in `lydia-comer/` are by **[Lydia Comer](https://linktr.ee/lydiadidmyink)**, licensed to the Air Bladder system for inclusion and unmodified redistribution as part of the system and its forks; all other uses require permission. See `lydia-comer/license.txt`.
-- **Character art — CC BY 4.0.** The 80 paired portrait/token images in `character_portraits/` and `character_tokens/` are by **Jon Aspeheim**, licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) (see the `license.txt` in each folder). Plain CC BY: redistribution is fine, attribution is required. Keep this credit if the art ships.
+- **Character art — CC BY 4.0.** The 80 paired portrait/token images in `character_portraits/` and `character_tokens/` are by **[Jon Aspeheim](https://jonaspeheim.itch.io/)** (source: [Lemur's Portraits](https://jonaspeheim.itch.io/lemurs-portraits)), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) (see the `license.txt` in each folder). Plain CC BY: redistribution is fine, attribution is required. The artist states these portraits were created without AI. Keep this credit if the art ships.
 - **Item & container icons — CC BY 3.0.** The class icons in `icons/` (gear, spellbooks, transports, containers, monsters) are from [game-icons.net](https://game-icons.net) by **Lorc, Delapouite & Skoll**, licensed [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). Per-icon author and source-page credits are recorded in `icons/CREDITS.md`.
 
 ---

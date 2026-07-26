@@ -1,6 +1,9 @@
-All images contained in this zip file are licensed under the Creative Commons 4.0 Attribution License (CC BY 4.0).
+All images contained in this folder are licensed under the Creative Commons 4.0 Attribution License (CC BY 4.0).
 
-Artist: Jon Aspeheim
+Artist: Jon Aspeheim — https://jonaspeheim.itch.io/
+Source: https://jonaspeheim.itch.io/lemurs-portraits
+
+The artist states on the source page that these portraits were created without AI.
 
 For more details on the license, please visit:
 https://creativecommons.org/licenses/by/4.0/
