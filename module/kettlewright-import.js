@@ -1,5 +1,5 @@
 import { resolveGearItem, buildGearItem } from "./gear.js";
-import { getBackgroundsFor, withGrantSource } from "./character-generator.js";
+import { getBackgroundsFor, withGrantSource, FLAG_SCOPE } from "./character-generator.js";
 import { CairnActor } from "./actor/actor.js";
 import { Cairn } from "./config.js";
 
@@ -31,6 +31,69 @@ const isAbsoluteUrl = (s) => /^https?:\/\//i.test(String(s ?? ""));
 
 /** A single free-text scars blob -> multiple entries (Air Bladder scars is an array). */
 const splitScars = (s) => String(s ?? "").split(/[\n;]+/).map((x) => x.trim()).filter(Boolean);
+
+/* -------------------------------------------------------------------------- */
+/*  Grant provenance: which source produced which imported item                 */
+/* -------------------------------------------------------------------------- */
+
+/** Loose text identity: whitespace collapsed, quotes straightened, case ignored. */
+const norm = (s) => String(s ?? "").replace(/[’‘]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, " ").trim().toLowerCase();
+
+/**
+ * Re-tag imported items with the grant source that actually produced them.
+ *
+ * Every imported item starts tagged `imported`, which no re-roll targets — so
+ * re-rolling a bond or a background question ADDED the new option's items while
+ * the originals stayed forever, and the sheet grew a duplicate every time. The
+ * inventory could only ever accumulate.
+ *
+ * We can do better than that, because a Kettlewright answer is the option's own
+ * description, verbatim: once the answer is matched back to its option we know
+ * exactly which items that option grants, and can hand the matching imported
+ * items over to `question:<i>` / `bond:<id>` so a re-roll replaces them properly.
+ *
+ * Matching is by name, first unclaimed item wins — the same best-effort standard
+ * the rest of the importer works to, since Kettlewright's item list carries no
+ * provenance of its own. An item that can't be matched keeps `imported` and is
+ * simply never auto-removed, which is the safe direction to fail in: a stray
+ * duplicate is recoverable by hand, a silently deleted item is not.
+ *
+ * @param {Object[]} items    the built item payloads, mutated in place
+ * @param {Object[]} granted  [{name}] the source is known to grant
+ * @param {String} source     the grantSource tag to apply
+ * @returns {Number} how many items were re-tagged
+ */
+const retagGranted = (items, granted, source) => {
+  let n = 0;
+  for (const g of granted ?? []) {
+    const want = norm(g?.name);
+    if (!want) continue;
+    const hit = items.find(
+      (it) => norm(it.name) === want && it.flags?.[FLAG_SCOPE]?.grantSource === "imported",
+    );
+    if (!hit) continue;
+    hit.flags[FLAG_SCOPE].grantSource = source;
+    n++;
+  }
+  return n;
+};
+
+/**
+ * Find the Bonds-table entry a Kettlewright bond came from, by matching its text.
+ * Returns the entry's mechanical payload — the items it grants — or null.
+ * Read-only: never roll()s or draw()s, so the table's state is untouched.
+ * @param {String} text
+ * @returns {Promise<{items: Object[], gold: Number}|null>}
+ */
+const findBondEntry = async (text) => {
+  const want = norm(text);
+  if (!want) return null;
+  const pack = game.packs.get("air-bladder.tables-2e");
+  const table = pack ? (await pack.getDocuments()).find((t) => t.name === "Bonds") : null;
+  const hit = table?.results?.find((r) => norm(r.text) === want);
+  if (!hit) return null;
+  return { items: hit.getFlag(FLAG_SCOPE, "items") ?? [], gold: hit.getFlag(FLAG_SCOPE, "gold") ?? 0 };
+};
 
 /* -------------------------------------------------------------------------- */
 /*  Background questions: a notes blob -> structured question/answer pairs      */
@@ -222,6 +285,7 @@ export const kettlewrightToActorData = async (json) => {
   let background = bgName;
   let backgroundUuid = "";
   let bgQuestions = []; // the matched background's question prompts, in table order
+  let bgTables = []; // …and the full tables, so an answer can be traced to its option
   if (bgName) {
     const pool = await getBackgroundsFor("2e");
     const hit = pool.find((b) => b.name.toLowerCase() === bgName.toLowerCase());
@@ -229,7 +293,8 @@ export const kettlewrightToActorData = async (json) => {
       background = hit.name;
       backgroundUuid = hit.uuid;
       report.background = { name: hit.name, matched: true };
-      bgQuestions = (hit.system?.tables ?? []).map((t) => String(t?.question ?? "").trim());
+      bgTables = hit.system?.tables ?? [];
+      bgQuestions = bgTables.map((t) => String(t?.question ?? "").trim());
     } else {
       report.background = { name: bgName, matched: false };
     }
@@ -268,6 +333,15 @@ export const kettlewrightToActorData = async (json) => {
   const scars = splitScars(json.scars);
   const bondsText = String(json.bonds ?? "").trim();
   const bonds = bondsText ? [{ id: foundry.utils.randomID(), description: bondsText, gold: 0 }] : [];
+  // Same trick as the questions: a Kettlewright bond is a Bonds-table entry
+  // verbatim, so the items it granted can be handed to `bond:<id>` and become
+  // re-rollable instead of accumulating.
+  if (bonds.length) {
+    const entry = await findBondEntry(bondsText);
+    if (entry) {
+      report.regranted = (report.regranted ?? 0) + retagGranted(items, entry.items, `bond:${bonds[0].id}`);
+    }
+  }
   const omens = String(json.omens ?? "");
   let notes = String(json.notes ?? "");
 
@@ -285,6 +359,18 @@ export const kettlewrightToActorData = async (json) => {
       questions = bgQuestions.map((q, i) => ({ question: q, answer: qa.answers[i], gold: 0 }));
       notes = qa.leftover;
       report.questions = qa.found;
+
+      // A Kettlewright answer is the option's own description verbatim, so it can
+      // be traced back to the option — and therefore to the items that option
+      // grants. Hand those imported items to `question:<i>` so a later re-roll
+      // replaces them instead of stacking a second copy beside them.
+      bgTables.forEach((table, i) => {
+        const answer = norm(qa.answers[i]);
+        if (!answer) return;
+        const opt = (table?.options ?? []).find((o) => norm(o?.description) === answer);
+        if (!opt) return;
+        report.regranted = (report.regranted ?? 0) + retagGranted(items, opt.items, `question:${i}`);
+      });
     }
   }
   // Kettlewright's traits blob is a parseable sentence, not opaque prose: it maps

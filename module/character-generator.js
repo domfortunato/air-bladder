@@ -9,7 +9,9 @@ import { SETTINGS_NS } from "./settings.js";
 // Foundry validates a document flag's scope against real package ids, so flags
 // use the system id "air-bladder" (NOT the internal "cairn" JS/settings namespace,
 // which is fine for game.settings but is rejected by Document#getFlag/setFlag).
-const FLAG_SCOPE = "air-bladder";
+/** Flag scope for grant provenance. Exported so other modules (the Kettlewright
+ *  importer) tag and read the same namespace rather than hardcoding a copy. */
+export const FLAG_SCOPE = "air-bladder";
 
 /*
  * Cairn 2e character generation.

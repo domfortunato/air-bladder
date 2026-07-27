@@ -9,6 +9,7 @@
     "dev:smoke": "node tools/dev/smoke.mjs",
     "dev:site": "node tools/dev/site-check.mjs",
     "dev:kw-traits": "node tools/dev/e2e-kettlewright-traits.mjs",
+    "dev:kw-reroll": "node tools/dev/e2e-kettlewright-reroll.mjs",
     "check:traits": "node tools/dev/trait-parse-check.mjs",
     "dev:actors": "node tools/dev/actors.mjs",
     "dev:players": "node tools/dev/create-players.mjs",
