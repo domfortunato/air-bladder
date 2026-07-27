@@ -3,8 +3,20 @@ Air Bladder logo and related artwork
 Artist: Lydia Comer (https://linktr.ee/lydiadidmyink)
 
 © Lydia Comer. All rights reserved. Licensed to the Air Bladder system for
-inclusion and unmodified redistribution as part of the system and its forks;
-all other uses require permission.
+inclusion and unmodified redistribution as part of the system and its forks,
+and for unmodified use in representing and promoting the project — the project
+website, package listings, and release announcements. All other uses require
+permission.
+
+The artwork may not be modified, and may not be used separately from Air
+Bladder.
 
 This grant covers all files in this folder (the Airbladder*.webp logo variants)
 and any further contributions by Lydia Comer to the Air Bladder system.
+
+Grant history:
+  2026-07-25  Original grant: inclusion and unmodified redistribution as part
+              of the system and its forks.
+  2026-07-27  Extended by the artist to cover unmodified promotional use of the
+              wordmark for the project (added when the project website went up
+              at https://domfortunato.github.io/air-bladder/).
