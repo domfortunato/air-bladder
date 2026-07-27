@@ -39,7 +39,7 @@ const GEAR_ALIASES = new Map([
   ["rope (25ft)", "Rope"], ["chain (10ft)", "Chain, 10ft"], ["chains (10ft)", "Chain, 10ft"],
   ["chains", "Chain, 10ft"], ["chain", "Chain, 10ft"], ["pole (10ft)", "Pole, 10ft"],
   ["pole", "Pole, 10ft"], ["plate", "Plate Mail"],
-  ["simple instrument (pipes, lute, etc.)", "Instrument"], ["simple instruments (pipes, lute, etc.)", "Instrument"],
+  ["simple instrument (pipes, lute, etc.)", "Simple Instruments (Pipes, Lute, etc.)"],
   ["boltcutters", "Bolt Cutters"], ["tent (fits 2)", "Tent"],
 ]);
 const decode = (s) => String(s).replace(/&amp;/g, "&").replace(/&#0?39;/g, "'").replace(/&apos;/g, "'");

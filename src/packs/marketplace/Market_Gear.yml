@@ -497,9 +497,9 @@ results:
     documentId: VOgGpeBdCgMwCAoM
     flags: {}
     _key: '!tables.results!fJjoJfcLih1EYReu.FRBUXE05otuqvTbk'
-  - _id: brfJhEKaAStHIIiZ
+  - _id: 6VoDvvCtDGfAKwvH
     type: pack
-    text: Instrument
+    text: 'Simple Instruments (Pipes, Lute, etc.)'
     img: systems/air-bladder/icons/generic-item.png
     weight: 1
     range:
@@ -509,7 +509,7 @@ results:
     documentCollection: air-bladder.trinkets
     documentId: 54XcUmj6ELWJLemZ
     flags: {}
-    _key: '!tables.results!fJjoJfcLih1EYReu.brfJhEKaAStHIIiZ'
+    _key: '!tables.results!fJjoJfcLih1EYReu.6VoDvvCtDGfAKwvH'
   - _id: LCkjf1vGYlL2EDnd
     type: pack
     text: Smoking Pipe

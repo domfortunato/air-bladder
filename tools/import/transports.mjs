@@ -89,7 +89,9 @@ const TRANSPORTS = [
     description: "A riding horse. Bears four slots of gear and covers open ground quickly.",
   },
   {
-    name: "Handcart", transportKind: "vehicle", slots: 4, load: 0, cost: 15,
+    // Bulky, like the Cart it is a smaller cousin of (fixed in 22ca7f3, but only
+    // in the pack YAML — a rerun silently un-fixed it until this line existed).
+    name: "Handcart", transportKind: "vehicle", slots: 4, load: 0, cost: 15, bulky: true,
     img: "icons/environment/settlement/wagon.webp",
     description: "A small cart pulled by hand. Holds four slots — no beast required, but you are the one doing the hauling.",
   },

@@ -93,8 +93,7 @@ const ALIASES = new Map([
   ["pole (10ft)", "Pole, 10ft"],
   ["pole", "Pole, 10ft"],
   ["plate", "Plate Mail"],
-  ["simple instrument (pipes, lute, etc.)", "Instrument"],
-  ["simple instruments (pipes, lute, etc.)", "Instrument"],
+  ["simple instrument (pipes, lute, etc.)", "Simple Instruments (Pipes, Lute, etc.)"],
   ["boltcutters", "Bolt Cutters"],
   // The shop's tent IS the pool's tent: the barebones item is already bulky
   // with "fits 2" as its description. Without this the shop cannot see it and

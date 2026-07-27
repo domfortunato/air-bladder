@@ -63,8 +63,7 @@ const ALIASES = new Map([
   ["chains", "Chain, 10ft"],
   ["pole (10ft)", "Pole, 10ft"],
   ["plate", "Plate Mail"],
-  ["simple instrument (pipes, lute, etc.)", "Instrument"],
-  ["simple instruments (pipes, lute, etc.)", "Instrument"],
+  ["simple instrument (pipes, lute, etc.)", "Simple Instruments (Pipes, Lute, etc.)"],
 ]);
 
 const res = await fetch(SRC);

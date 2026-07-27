@@ -1055,7 +1055,7 @@ results:
   - _id: GHvSAx3jQlvd4IzG
     type: pack
     text: Sextant
-    img: systems/air-bladder/icons/tools.png
+    img: systems/air-bladder/icons/generic-item.png
     weight: 1
     range:
       - 82
