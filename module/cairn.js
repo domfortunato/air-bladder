@@ -5,6 +5,8 @@ import { CairnItem } from "./item/item.js";
 import { CairnItemSheet } from "./item/item-sheet.js";
 import { createCharacter, createHireling } from "./character-generator.js";
 import * as characterGenerator from "./character-generator.js";
+import { importKettlewrightCharacter } from "./kettlewright-import.js";
+import * as kettlewrightImport from "./kettlewright-import.js";
 import { Cairn } from "./config.js";
 import { CairnCombat } from "./combat.js";
 import { createCairnMacro, rollItemMacro } from "./macros.js";
@@ -19,6 +21,7 @@ Hooks.once("init", async function () {
     CairnItem,
     config: Cairn,
     characterGenerator: characterGenerator,
+    kettlewrightImport: kettlewrightImport,
     rollItemMacro,
   };
 
@@ -300,6 +303,7 @@ Hooks.on("renderActorDirectory", (app, html) => {
           <button class="create-hireling-button"><i class="fas fa-user-plus"></i>${game.i18n.localize(
           "CAIRN.CreateHireling"
         )}</button>
+          ${game.user.isGM ? `<button class="import-kettlewright-button"><i class="fas fa-file-import"></i>${game.i18n.localize("CAIRN.KWImport.Button")}</button>` : ""}
         </div>
         `
       );
@@ -313,6 +317,13 @@ Hooks.on("renderActorDirectory", (app, html) => {
         .querySelector(".create-hireling-button")
         .addEventListener("click", async () => {
           const actor = await createHireling();
+          if (actor) actor.sheet.render(true);
+        });
+      // GM-only: import a Kettlewright character export into a new Actor.
+      section
+        .querySelector(".import-kettlewright-button")
+        ?.addEventListener("click", async () => {
+          const actor = await importKettlewrightCharacter();
           if (actor) actor.sheet.render(true);
         });
     }
