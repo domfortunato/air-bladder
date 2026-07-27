@@ -115,6 +115,15 @@ npm run i18n:check -- --glossary  # advisory: flags a term translated inconsiste
 The generated `tools/i18n/tsv/` directory is git-ignored — it is disposable output,
 never committed. Only the JSON (and `glossary.tsv`) are tracked.
 
+**`i18n:extract` overwrites every TSV from the committed JSON, silently.** It is
+loss-free only for translations that have already been *imported* — a filled cell
+that hasn't been through `i18n:import` does not survive the next extract, and
+since the TSVs aren't in git, nothing reports what was lost. This matters most in
+the brokered flow: when a translator returns a filled spreadsheet, **import it
+before you extract again**, and don't re-extract to "refresh" a spreadsheet
+someone is still working in. The translator guide now warns about this too, but
+the tooling does not yet enforce it.
+
 ## Merging a pull request
 
 **Never use GitHub's green "Merge pull request" button.** This is not a style

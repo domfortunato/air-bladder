@@ -55,7 +55,9 @@ That's it — the translation scripts are offline and only read the English sour
 ### The loop, step by step (content)
 
 ```bash
-# 1. Sync the working spreadsheets to the current source (carries your prior work forward)
+# 1. Sync the working spreadsheets to the current source.
+#    WARNING: this OVERWRITES the TSVs from the committed JSON. Run i18n:import
+#    first if you have filled cells you haven't imported yet (see the note below).
 npm run i18n:extract
 
 # 2. Open a pack's TSV and fill the `es` column, e.g.
@@ -73,10 +75,19 @@ git add lang/content/es.json          # and lang/es.json too, if you touched the
 git commit -m "es: translate armor descriptions"
 ```
 
-> **Do not commit the TSVs.** `tools/i18n/tsv/` is git-ignored on purpose — they're
-> regenerated from the committed JSON every time you run `i18n:extract`, so your
-> work is never lost even though the spreadsheet isn't versioned. Only the JSON is
-> committed and reviewed.
+> **Do not commit the TSVs.** `tools/i18n/tsv/` is git-ignored on purpose. Only the
+> JSON is committed and reviewed.
+>
+> ⚠️ **`i18n:extract` OVERWRITES every TSV** — it rebuilds them from the committed
+> JSON. Anything you typed into a cell and have **not** yet run `i18n:import` on is
+> gone, with no prompt and no way to get it back (the TSVs aren't in git either, so
+> nothing will even show you what disappeared).
+>
+> **So: import before you extract.** Once a translation is in `lang/es.json` /
+> `lang/content/es.json`, the next `extract` pre-fills it straight back into the
+> spreadsheet and it's safe forever. It's the gap between *typed* and *imported*
+> that's dangerous — step 3 above is what makes your work permanent, not step 2.
+> If you're stopping mid-file, run `npm run i18n:import` before you close the laptop.
 
 ## The spreadsheet columns
 
@@ -154,12 +165,18 @@ per PR:
 There's **no deadline** and no wrong order — import merges whatever you've filled,
 so you can ship a pack at a time.
 
-## Two gotchas worth knowing
+## Three gotchas worth knowing
 
-- **Always `npm run i18n:extract` before you start.** It folds your existing
-  `lang/es.json` edits and prior content translations back into the spreadsheets,
-  so a later `i18n:import` never overwrites older work with a stale cell. (You've
-  been editing `lang/es.json` directly — that's fine; extract picks those up.)
+- **Start a session with `npm run i18n:extract` — but only on a clean slate.** It
+  folds your existing `lang/es.json` edits and prior content translations back into
+  the spreadsheets, so a later `i18n:import` never overwrites older work with a
+  stale cell. (You've been editing `lang/es.json` directly — that's fine; extract
+  picks those up.)
+- **End a session with `npm run i18n:import`.** That is the step that makes a
+  translation permanent. `extract` rebuilds every TSV from the committed JSON, so a
+  filled-but-unimported cell does not survive the next `extract` — and because the
+  TSVs are git-ignored, nothing warns you and nothing can recover it. Typed is not
+  saved; imported is saved.
 - **If a `content-stale.tsv` appears**, it lists translations whose English source
   changed or was removed. It's **review-only** (never re-imported). Move any still-good
   Spanish into the matching current row in the normal `content-<pack>.tsv`, then
