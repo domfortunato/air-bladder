@@ -15,17 +15,26 @@ export const placeholders = (s) =>
   (String(s).replace(/@[A-Za-z]+\[[^\]]*\](?:\{[^}]*\})?/g, "").match(/\{[^}]+\}/g) ?? []).sort();
 
 /**
- * HTML tag multiset, attributes stripped and case-folded, order-independent:
- * <a href="…"> and </a> both reduce to <a>/</a>, <strong> to <strong>, etc.
- * Compares STRUCTURE, so a translator may re-order tags for grammar but cannot
- * drop or add one.
+ * Inline emphasis tags a translator may freely ADD or DROP: they are cosmetic
+ * (bolding a term, italicising a phrase) and can never corrupt a sheet the way a
+ * dropped </p>/<li> can. Bolding "fuerza" where English has no bold is a valid
+ * stylistic choice, not a structural error, so these are exempt from the parity
+ * check in BOTH directions.
+ */
+const INLINE_EMPHASIS = new Set(["b", "i", "u", "s", "em", "strong", "small", "sub", "sup", "mark"]);
+
+/**
+ * STRUCTURAL HTML tag multiset, attributes stripped and case-folded,
+ * order-independent: <a href="…"> and </a> both reduce to <a>/</a>. Inline
+ * emphasis (see INLINE_EMPHASIS) is filtered out first, so it is ignored entirely.
+ * Compares STRUCTURE, so a translator may re-order structural tags for grammar,
+ * and add/drop emphasis for style, but cannot drop or add a structural tag.
  */
 export const htmlTags = (s) =>
   (String(s).match(/<\/?[a-z][a-z0-9]*\b[^>]*>/gi) ?? [])
-    .map((t) => {
-      const m = t.match(/^<(\/?)\s*([a-z0-9]+)/i);
-      return `<${m[1]}${m[2].toLowerCase()}>`;
-    })
+    .map((t) => t.match(/^<(\/?)\s*([a-z0-9]+)/i))
+    .filter((m) => !INLINE_EMPHASIS.has(m[2].toLowerCase()))
+    .map((m) => `<${m[1]}${m[2].toLowerCase()}>`)
     .sort();
 
 /**
