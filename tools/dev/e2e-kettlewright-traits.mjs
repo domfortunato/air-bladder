@@ -37,7 +37,14 @@ await page.waitForTimeout(600);
 page.on("filechooser", (fc) => fc.setFiles(fixture).catch(() => {}));
 await page.evaluate(() => document.querySelector(".import-kettlewright-button")?.click());
 await page.waitForFunction(() => !!game.actors.getName("Solene"), null, { timeout: 20000 }).catch(() => {});
-await page.waitForTimeout(800);
+// Both windows must be on screen before z-order can be judged: the sheet renders
+// asynchronously after create() resolves, so measuring too early reads a missing
+// sheet as z-index 0 and the assertion passes vacuously.
+await page.waitForFunction(
+  () => !!document.querySelector(".application.dialog") && !!document.querySelector(".app.window-app.sheet"),
+  null, { timeout: 15000 },
+).catch(() => {});
+await page.waitForTimeout(1200); // let the deferred bringToFront land
 
 const out = await page.evaluate(() => {
   const a = game.actors.getName("Solene");
@@ -51,6 +58,10 @@ const out = await page.evaluate(() => {
     questions: a?.system?.questions ?? [],
     notes: a?.system?.notes ?? "",
     summary: dlg?.textContent?.replace(/\s+/g, " ").trim() ?? "",
+    // The summary must sit ABOVE the auto-rendered sheet. The sheet renders after
+    // create() resolves and would otherwise bury it — see showImportSummary.
+    zDialog: Number(getComputedStyle(dlg ?? document.body).zIndex) || 0,
+    zSheet: Number(getComputedStyle(document.querySelector(".app.window-app.sheet") ?? document.body).zIndex) || 0,
   };
 });
 
@@ -84,6 +95,18 @@ check("a1 starts", a1.slice(0, 34), "Surgeon's Soap: A lye and ash bloc");
 if (/keepsake/i.test(a0)) { bad++; console.log("  FAIL  answer 0 ran on into question 1"); }
 // And the question text must not be left behind in Notes as well.
 if (/fraud exposed/i.test(out.notes)) { bad++; console.log("  FAIL  questions were ALSO left in Notes"); }
+
+// The summary must open in FRONT of the character sheet, not behind it.
+console.log("");
+if (!out.zSheet) {
+  bad++;
+  console.log("  FAIL  z-order    no character sheet on screen — the check would pass vacuously");
+} else if (out.zDialog > out.zSheet) {
+  console.log(`  ok    z-order    summary ${out.zDialog} > sheet ${out.zSheet}`);
+} else {
+  bad++;
+  console.log(`  FAIL  z-order    summary ${out.zDialog} is behind sheet ${out.zSheet}`);
+}
 
 if (errors.length) { bad++; console.log("Console errors:\n" + errors.join("\n")); }
 

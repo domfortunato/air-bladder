@@ -396,8 +396,9 @@ const pickJsonFileText = () =>
  * fatigue count, whether the background matched or was kept as text, and which
  * containers were flattened away — so the GM can fix up the sheet knowingly.
  * @param {CairnActor} actor @param {Object} report
+ * @returns {Promise<void>}
  */
-const showImportSummary = (actor, report) => {
+const showImportSummary = async (actor, report) => {
   const L = (k) => game.i18n.localize(k);
   const F = (k, d) => game.i18n.format(k, d);
   const parts = [];
@@ -429,12 +430,42 @@ const showImportSummary = (actor, report) => {
     parts.push(`<p class="kwi-ok"><i class="fas fa-check"></i> ${F("CAIRN.KWImport.TraitsMapped", { count: report.traits, age: esc(report.age) || "—" })}</p>`);
   }
 
-  new foundry.applications.api.DialogV2({
+  const dialog = new foundry.applications.api.DialogV2({
     window: { title: F("CAIRN.KWImport.SummaryTitle", { name: esc(actor.name) }), icon: "fas fa-file-import" },
     position: { width: 460 },
     content: `<div class="kwi-summary">${parts.join("")}</div>`,
     buttons: [{ action: "ok", label: L("CAIRN.Close"), default: true }],
-  }).render(true);
+  });
+  await dialog.render(true);
+
+  // Put the summary in front of the character sheet. It is the only place that says
+  // what didn't import cleanly, so it must not open buried.
+  //
+  // The ordering is the opposite of what it looks like. Creating the actor
+  // auto-renders its sheet, but that render is kicked off asynchronously and lands
+  // AFTER create() resolves — i.e. after this dialog has already drawn — so the
+  // sheet takes the next number from the shared z-index counter and covers us
+  // (measured: summary 101, sheet 102). Raising the dialog inline here is useless:
+  // it only bumps a counter the sheet is about to out-bid.
+  //
+  // Worse, the sheet claims its z AFTER its own render hook fires, so the hook
+  // alone isn't late enough either — hence the extra macrotask.
+  const raise = () => setTimeout(() => dialog.bringToFront?.(), 0);
+  if (actor.sheet?.rendered) raise();
+  else {
+    let fallback = null;
+    const hookId = Hooks.on("renderCairnActorSheet", (app) => {
+      if (app?.actor?.id !== actor.id) return;
+      Hooks.off("renderCairnActorSheet", hookId);
+      clearTimeout(fallback);
+      raise();
+    });
+    // Safety net: a sheet that never renders must not leave the summary buried.
+    fallback = setTimeout(() => {
+      Hooks.off("renderCairnActorSheet", hookId);
+      raise();
+    }, 1000);
+  }
 };
 
 /**
@@ -462,6 +493,6 @@ export const importKettlewrightCharacter = async () => {
   }
   const { data, report } = await kettlewrightToActorData(json);
   const actor = await CairnActor.create(data);
-  if (actor) showImportSummary(actor, report);
+  if (actor) await showImportSummary(actor, report);
   return actor;
 };
