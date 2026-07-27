@@ -25,14 +25,23 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", ".
 // The module imports Foundry-only siblings at load time, so pull just the parser
 // out of the source text rather than importing the whole importer.
 const src = fs.readFileSync(path.join(ROOT, "module", "kettlewright-import.js"), "utf8");
-const start = src.indexOf("export const parseTraitSentence");
-const end = src.indexOf("export const resolveVirtueVice");
-if (start === -1 || end === -1) {
-  console.error("Could not locate parseTraitSentence in module/kettlewright-import.js");
-  process.exit(1);
-}
-const { parseTraitSentence } = await import(
-  "data:text/javascript," + encodeURIComponent(src.slice(start, end))
+const slice = (from, to) => {
+  const a = src.indexOf(from);
+  // Search for the end marker AFTER the start, or a banner comment earlier in the
+  // file wins and the slice comes out empty (or backwards).
+  const b = a === -1 ? -1 : src.indexOf(to, a + from.length);
+  if (a === -1 || b === -1) {
+    console.error(`Could not locate ${from} in module/kettlewright-import.js`);
+    process.exit(1);
+  }
+  return src.slice(a, b);
+};
+const load = async (code) => import("data:text/javascript," + encodeURIComponent(code));
+const { parseTraitSentence } = await load(
+  slice("export const parseTraitSentence", "export const resolveVirtueVice")
+);
+const { parseQuestionAnswers } = await load(
+  slice("export const parseQuestionAnswers", "/* ---")
 );
 
 const tableValues = (name) => {
@@ -102,5 +111,45 @@ run("Unparseable free text", "A wandering sort, difficult to describe.", {
   age: "",
 });
 
-console.log(failures === 0 ? "\nPASS — trait parsing is correct." : `\nFAIL — ${failures} assertion(s).`);
+/* ---- Background questions ------------------------------------------------ */
+
+const MOUNTEBANK = ["How was your fraud exposed?", "What keepsake could always identify you?"];
+
+const runQA = (label, notes, questions, expect) => {
+  console.log(`\n${label}`);
+  const got = parseQuestionAnswers(notes, questions);
+  eq("found", got.found, expect.found);
+  (expect.answers ?? []).forEach((want, i) => eq(`answer[${i}]`, got.answers[i], want));
+  if (expect.leftover !== undefined) eq("leftover", got.leftover, expect.leftover);
+};
+
+runQA("Solene's notes (real export)", fixture.notes, MOUNTEBANK, {
+  found: 2,
+  answers: [
+    "You were cursed by a hedgewitch for fooling some innocent village folk. Magic acts unpredictably in your hands (WIL save to avoid disaster). If you are the target of magic, the same applies to its wielder.",
+    "Surgeon's Soap: A lye and ash block that makes skin temporarily transparent, revealing the anatomy within. 4 uses.",
+  ],
+  leftover: "",
+});
+
+// A player's own writing above the questions must survive in Notes.
+runQA("Player's own note kept",
+  "Remember to bribe the guard.\n\nHow was your fraud exposed?\nCaught in the act.",
+  MOUNTEBANK,
+  { found: 1, answers: ["Caught in the act.", ""], leftover: "Remember to bribe the guard." });
+
+// Questions in the other order: answers must follow the question, not the index.
+runQA("Questions in reverse order",
+  "What keepsake could always identify you?\nA brass ring.\n\nHow was your fraud exposed?\nA rival talked.",
+  MOUNTEBANK,
+  { found: 2, answers: ["A rival talked.", "A brass ring."] });
+
+// No questions present -> nothing claimed, notes untouched.
+runQA("Free-form notes only", "Just some thoughts.", MOUNTEBANK,
+  { found: 0, answers: ["", ""], leftover: "Just some thoughts." });
+
+// Unmatched background -> no questions to look for.
+runQA("No background questions", fixture.notes, [], { found: 0, leftover: fixture.notes });
+
+console.log(failures === 0 ? "\nPASS — import parsing is correct." : `\nFAIL — ${failures} assertion(s).`);
 process.exit(failures === 0 ? 0 : 1);

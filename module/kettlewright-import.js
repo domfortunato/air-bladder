@@ -33,6 +33,62 @@ const isAbsoluteUrl = (s) => /^https?:\/\//i.test(String(s ?? ""));
 const splitScars = (s) => String(s ?? "").split(/[\n;]+/).map((x) => x.trim()).filter(Boolean);
 
 /* -------------------------------------------------------------------------- */
+/*  Background questions: a notes blob -> structured question/answer pairs      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Kettlewright writes the two background questions and the player's answers into
+ * the free-text `notes` field, as the question line followed by the answer:
+ *
+ *   How was your fraud exposed?
+ *   You were cursed by a hedgewitch for fooling some innocent village folk. …
+ *
+ *   What keepsake could always identify you?
+ *   Surgeon's Soap: A lye and ash block that makes skin temporarily transparent. …
+ *
+ * Once the background has matched, we know exactly what those questions are — they
+ * are `system.tables[].question` on the background Item — so the blob can be split
+ * back into `system.questions`, which is what the sheet renders and re-rolls,
+ * instead of sitting in Notes as undifferentiated prose.
+ *
+ * Matching is whitespace-tolerant and case-insensitive but otherwise exact: a
+ * question either is the background's question or it isn't. Anything not claimed
+ * by a question stays in Notes, so a player's own writing is never eaten.
+ *
+ * @param {String} notes
+ * @param {String[]} questions  the background's prompts, in table order
+ * @returns {{ answers: String[], leftover: String, found: Number }}
+ *          answers is index-aligned with `questions` ("" where not found).
+ */
+export const parseQuestionAnswers = (notes, questions) => {
+  const text = String(notes ?? "");
+  const answers = questions.map(() => "");
+  if (!text.trim() || !questions.length) return { answers, leftover: text, found: 0 };
+
+  // Locate each question in the blob. Escape it, then let any run of whitespace
+  // match any other, so a rewrap or a stray double space doesn't lose the match.
+  const hits = [];
+  questions.forEach((q, i) => {
+    if (!q) return;
+    const pattern = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+    const m = text.match(new RegExp(pattern, "i"));
+    if (m?.index != null) hits.push({ i, start: m.index, end: m.index + m[0].length });
+  });
+  if (!hits.length) return { answers, leftover: text, found: 0 };
+
+  // Answers run from the end of one question to the start of the next, in the
+  // order they APPEAR — which needn't be the background's table order.
+  hits.sort((a, b) => a.start - b.start);
+  hits.forEach((h, n) => {
+    const stop = n + 1 < hits.length ? hits[n + 1].start : text.length;
+    answers[h.i] = text.slice(h.end, stop).trim();
+  });
+
+  // Whatever precedes the first question is the player's own note; keep it.
+  return { answers, leftover: text.slice(0, hits[0].start).trim(), found: hits.length };
+};
+
+/* -------------------------------------------------------------------------- */
 /*  Traits: one English sentence -> eight typed slots + age                     */
 /* -------------------------------------------------------------------------- */
 
@@ -165,6 +221,7 @@ export const kettlewrightToActorData = async (json) => {
   const bgName = json.custom_background || json.background || "";
   let background = bgName;
   let backgroundUuid = "";
+  let bgQuestions = []; // the matched background's question prompts, in table order
   if (bgName) {
     const pool = await getBackgroundsFor("2e");
     const hit = pool.find((b) => b.name.toLowerCase() === bgName.toLowerCase());
@@ -172,6 +229,7 @@ export const kettlewrightToActorData = async (json) => {
       background = hit.name;
       backgroundUuid = hit.uuid;
       report.background = { name: hit.name, matched: true };
+      bgQuestions = (hit.system?.tables ?? []).map((t) => String(t?.question ?? "").trim());
     } else {
       report.background = { name: bgName, matched: false };
     }
@@ -212,6 +270,23 @@ export const kettlewrightToActorData = async (json) => {
   const bonds = bondsText ? [{ id: foundry.utils.randomID(), description: bondsText, gold: 0 }] : [];
   const omens = String(json.omens ?? "");
   let notes = String(json.notes ?? "");
+
+  // Background questions: recoverable only because the background matched — an
+  // unmatched background means we don't know what the questions were, so the blob
+  // stays in Notes untouched.
+  let questions = [];
+  if (bgQuestions.length) {
+    const qa = parseQuestionAnswers(notes, bgQuestions);
+    if (qa.found) {
+      // gold stays 0 deliberately. That field exists so a LATER re-roll can reverse
+      // the gold this system granted; the import granted none (the character's gold
+      // came over as a total), and inventing a figure here would make a re-roll
+      // deduct coins the character may never have been given.
+      questions = bgQuestions.map((q, i) => ({ question: q, answer: qa.answers[i], gold: 0 }));
+      notes = qa.leftover;
+      report.questions = qa.found;
+    }
+  }
   // Kettlewright's traits blob is a parseable sentence, not opaque prose: it maps
   // back onto the eight typed slots and system.age. Only if the parse yields
   // nothing at all does it fall back to landing in Notes under a label — better an
@@ -258,6 +333,7 @@ export const kettlewrightToActorData = async (json) => {
       notes,
       traits,
       age,
+      questions,
       bonds,
       scarEnabled: scars.length > 0,
       scars,
@@ -344,6 +420,9 @@ const showImportSummary = (actor, report) => {
   }
   // Traits either became structured fields or stayed prose — say which, because the
   // difference is visible on the sheet (populated dropdowns vs a paragraph in Notes).
+  if (report.questions) {
+    parts.push(`<p class="kwi-ok"><i class="fas fa-check"></i> ${F("CAIRN.KWImport.QuestionsMapped", { count: report.questions })}</p>`);
+  }
   if (report.traitsUnparsed) {
     parts.push(`<p class="kwi-warn"><i class="fas fa-circle-exclamation"></i> ${L("CAIRN.KWImport.TraitsUnparsed")}</p>`);
   } else if (report.traits) {

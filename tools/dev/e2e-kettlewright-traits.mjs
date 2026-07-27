@@ -48,6 +48,8 @@ const out = await page.evaluate(() => {
     age: a?.system?.age ?? "",
     // The sentence must NOT also be dumped into Notes once it parsed.
     notesHasTraitBlob: /Physique/i.test(a?.system?.notes ?? ""),
+    questions: a?.system?.questions ?? [],
+    notes: a?.system?.notes ?? "",
     summary: dlg?.textContent?.replace(/\s+/g, " ").trim() ?? "",
   };
 });
@@ -68,6 +70,21 @@ if (!out.created) { console.log("FAIL: no actor was created"); process.exit(1); 
 for (const [k, v] of Object.entries(EXPECTED)) check(k, out.traits?.[k] ?? "", v);
 check("age", String(out.age), EXPECTED_AGE);
 if (out.notesHasTraitBlob) { bad++; console.log("  FAIL  the trait sentence was ALSO duplicated into Notes"); }
+
+// Background questions: the Mountebank prompts, matched to the player's answers.
+console.log("");
+check("questions", out.questions.length, 2);
+check("q0", out.questions[0]?.question ?? "", "How was your fraud exposed?");
+check("q1", out.questions[1]?.question ?? "", "What keepsake could always identify you?");
+const a0 = out.questions[0]?.answer ?? "";
+const a1 = out.questions[1]?.answer ?? "";
+check("a0 starts", a0.slice(0, 34), "You were cursed by a hedgewitch fo");
+check("a1 starts", a1.slice(0, 34), "Surgeon's Soap: A lye and ash bloc");
+// An answer must not swallow the question that follows it.
+if (/keepsake/i.test(a0)) { bad++; console.log("  FAIL  answer 0 ran on into question 1"); }
+// And the question text must not be left behind in Notes as well.
+if (/fraud exposed/i.test(out.notes)) { bad++; console.log("  FAIL  questions were ALSO left in Notes"); }
+
 if (errors.length) { bad++; console.log("Console errors:\n" + errors.join("\n")); }
 
 console.log(`\nsummary dialog: ${out.summary.slice(0, 200)}`);
