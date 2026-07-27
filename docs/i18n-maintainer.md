@@ -30,7 +30,8 @@ whatever the other path committed), so a project can switch between them mid-way
 
 1. **Git-comfortable contributor (e.g. fsmalecho).** Opens a pull request editing
    `lang/<lang>.json` and/or `lang/content/<lang>.json` directly, or fills the
-   TSVs and PRs those. Review, run the gates below, merge.
+   TSVs and PRs those. Review, run the gates below, then merge it **the way
+   described in "Merging a pull request" — not with GitHub's merge button.**
 2. **Non-git translator (a likely successor).** Works only in spreadsheets. You
    broker the round-trip: generate the TSVs, hand them off, receive them back
    filled, import, and commit. The translator never touches git or Foundry — the
@@ -59,6 +60,61 @@ npm run i18n:check -- --glossary  # advisory: flags a term translated inconsiste
 
 The generated `tools/i18n/tsv/` directory is git-ignored — it is disposable output,
 never committed. Only the JSON (and `glossary.tsv`) are tracked.
+
+## Merging a pull request
+
+**Never use GitHub's green "Merge pull request" button.** This is not a style
+preference — the merge would be destroyed silently, and the contributor's work
+with it.
+
+`origin` is a Gitea repo that **push-mirrors** to GitHub. The mirror force-syncs
+refs, so anything that exists only on GitHub is overwritten on the next sync. A
+merge made with GitHub's button is exactly that: a commit on GitHub's `master`
+that Gitea has never seen. It survives until the next sync and then vanishes.
+This is the same mechanism that once pruned release tags and turned releases into
+drafts — see the mirror rule in [`RELEASE.md`](../RELEASE.md).
+
+Merge locally instead, and let the mirror carry it, exactly as with any other
+commit:
+
+```bash
+git fetch github pull/<N>/head:pr-<N>   # the PR's commits as a local branch
+git checkout master
+git merge --no-ff pr-<N> -m "Merge <who> <what> (PR #<N>)"
+
+npm run i18n:check                      # gates BEFORE the push (see above)
+npm run i18n:check -- --glossary        # advisory
+
+git push origin master                  # Gitea. Never push to the `github` remote.
+git branch -d pr-<N>
+```
+
+Then confirm the mirror synced (Gitea → repo → Settings → Mirror → *Synchronize
+Now*, if sync-on-push is off).
+
+**Let the PR close itself. Do not close it by hand.** GitHub watches whether the
+PR's head commit becomes reachable from `master` and flips the PR to **Merged**
+when it does, with no button pressed — but only while the PR is still *open*. A
+PR you close first stays merely *closed* forever, even when the identical commits
+land minutes later.
+
+Two things therefore have to hold, and the two Spanish PRs are the worked example
+of each:
+
+- **Keep their commits.** Merge `--no-ff` on the contributor's actual branch
+  rather than re-typing their changes, so the SHA survives. Both PRs got this
+  right — `refs/pull/2/head` and `refs/pull/3/head` are both ancestors of
+  `master` today.
+- **Push before the PR closes.** **#3** was still open when its merge reached
+  GitHub, and reads as *merged*. **#2** was closed manually at 16:34 UTC and its
+  commit landed around 16:44 — ten minutes too late. It reads as merely *closed*,
+  permanently, despite the work being in `master` the whole time.
+
+Both shipped the translation; only one gave the contributor the merged-PR credit
+on their profile. When someone donates work, get them the badge.
+
+**This rule is not specific to translations.** Any pull request against this
+repo — a code fix, a doc typo — merges the same way, for the same reason.
 
 ## Resuming a stalled translation
 
