@@ -31,6 +31,21 @@ Spanish in a spreadsheet — the maintainer handles everything technical.
 
 That's the entire loop, repeated one batch at a time.
 
+> **Translating into another language?** This guide says "Spanish" throughout
+> because Spanish is the translation currently in progress — it's the example, not
+> a limit. The tooling takes any locale code, and your spreadsheet's column is
+> named after your language rather than `es`. Only two bits of advice here are
+> genuinely Spanish-specific: the suggestion to adapt the official Spanish edition
+> (which exists for Spanish and may not for your language), and the starter
+> glossary. Say hello and we'll set up the rest.
+>
+> For honesty's sake: Air Bladder ships partial Danish, French, German, Polish and
+> Brazilian Portuguese interface files inherited from the original Cairn system,
+> covering 15–30% of the current interface and unmaintained. Spanish is the only
+> language with translated game content. Untranslated text falls back to English
+> string by string, so nothing breaks — but if you're picking a language up, you're
+> starting nearer the beginning than those numbers suggest.
+
 ## The spreadsheet
 
 Each spreadsheet is a simple table — one row per phrase — with these columns:
@@ -54,11 +69,19 @@ A few easy rules (with examples in the file):
   or tag got dropped, so small slips are caught before they ever reach a player.
   You don't have to be perfect — the checker has your back.
 
-## You won't be translating from scratch
+## You won't be translating from scratch — but please don't use AI
 
 Cairn 2e already has an **official Spanish edition** (the *Guía del jugador*). For
 the core game content, you'll mostly be **adapting and confirming** that existing
-Spanish rather than inventing it. We'll also give you a **glossary** — a shared
+Spanish rather than inventing it.
+
+The one shortcut to skip is machine translation. Running the **game text** through
+a translation engine isn't what this is for — the value is your judgement about
+register, idiom, and when a word is a rules term rather than an ordinary one. It
+matters for credit, too: the translation ships under CC BY-SA 4.0 with your name
+on it as its author, and that should mean something you actually wrote.
+
+We'll also give you a **glossary** — a shared
 word list — so the same term is always translated the same way everywhere (we
 agree on one word for "Warden," one for "background," and so on). If you hit a
 term that isn't in the glossary, note it and we'll add it.

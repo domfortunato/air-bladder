@@ -32,6 +32,18 @@ npm install
 
 That's it — the translation scripts are offline and only read the English source.
 
+> **Another language?** Every command below takes `--lang <code>` and defaults to
+> `es`, and your TSV's translation column is named after your locale rather than
+> `es`. So `npm run i18n:extract -- --lang fr` writes an `fr` column, and
+> `npm run i18n:import -- --lang fr` writes `lang/fr.json` +
+> `lang/content/fr.json`. Nothing else differs.
+>
+> Where you'd start from: Spanish is the only language with translated game
+> content, and the Danish, French, German, Polish and Brazilian Portuguese
+> interface files inherited from the original Cairn system sit at 15–30% and
+> aren't maintained. Untranslated strings fall back to English individually, so
+> partial work always ships.
+
 ## Three commands, one loop
 
 | Command | What it does |
@@ -99,11 +111,21 @@ after release.
 You don't have to be perfect — the importer catches these before they reach a
 player.
 
-## Don't translate from scratch — adapt the official Spanish
+## You don't have to translate from scratch — just don't use AI to translate
 
 Cairn 2e has an **official Spanish edition** (*Guía del jugador*). For core
-content, prefer **adapting and confirming** that wording over inventing new
-Spanish. To keep terms consistent across every screen, there's a shared word list
+content, **adapting and confirming** that wording beats inventing new Spanish —
+it's less work for you and more consistent for players.
+
+Machine translation is the one shortcut to skip — specifically for the **game
+text**, which is what this whole pipeline moves. What makes a translation worth
+shipping is the judgement an engine can't supply: register, idiom, and knowing
+when a word is a rules term rather than an ordinary word. It also matters for
+credit —
+the translation ships under CC BY-SA 4.0 **with your name on it as its author**,
+and that should mean something you actually wrote.
+
+To keep terms consistent across every screen, there's a shared word list
 at [`tools/i18n/glossary.tsv`](../tools/i18n/glossary.tsv) (FUE/DES/VOL, *fatiga*,
 *espacios*, *insignificante*, …). A few 2e / Warden terms are marked
 **"CONFIRM w/ fsmalecho"** (*vínculo*, *presagio*, *asalariado*, *Custodio*) —

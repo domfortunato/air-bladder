@@ -52,7 +52,15 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 
 Early, active development. Send feedback and art! The system is being rebuilt on the original's **editable-compendium** architecture — gear lives in Item compendia that a Warden can edit in one place, and character generation and the marketplace reference those packs by name.
 
-**Translators welcome** — see [docs/TRANSLATING.md](docs/TRANSLATING.md) for how the translation workflow works. No coding required.
+## Languages
+
+The interface is translated into **Spanish** (82% of the current strings, by [Malecho](https://github.com/fsmalecho)), and game *content* — backgrounds, items, spells, tables — is translated into Spanish only.
+
+Danish, French, German, Polish and Brazilian Portuguese interface files are inherited from the original Cairn system. They cover **15–30%** of the current interface, predate most of this system's features, and are **not actively maintained** — a game in those languages is mostly English in practice. Anything untranslated falls back to English string by string, so a partial translation is always usable rather than broken.
+
+The tooling is language-agnostic (`--lang <code>` throughout), so a new language needs no code changes — only a translator.
+
+**Translators welcome** — see [docs/TRANSLATING.md](docs/TRANSLATING.md) for the no-coding workflow, or [docs/translating-self-service.md](docs/translating-self-service.md) if you'd rather work in git.
 
 ## Installation (manual)
 

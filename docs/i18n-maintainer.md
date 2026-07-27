@@ -23,6 +23,60 @@ Two properties make this safe to hand around:
   it is a *validating gate*: a dropped `{placeholder}`, a broken HTML tag set, or a
   mangled `@UUID[...]` target is rejected before it can reach a player.
 
+## Where the languages actually stand
+
+Measured by this gate (`npm run i18n:check --lang <code>`), against 348 English
+keys. "Translated" means present *and* different from the English:
+
+| Locale | Translated | Content overlay | Note |
+|---|---|---|---|
+| `es` Spanish | 284 (82%) | ✅ the only one | actively maintained |
+| `pl` Polish | 104 (30%) | — | inherited from the original Cairn system |
+| `de` German | 58 (17%) | — | inherited |
+| `da` Danish | 57 (16%) | — | inherited |
+| `pt-BR` Portuguese | 55 (16%) | — | inherited |
+| `fr` French | 53 (15%) | — | inherited; **fails the gate** (see below) |
+
+**Spanish is the translation; the other five are fragments.** They came from the
+1e system and never grew as this fork added ~250 keys, so a German session is
+mostly English. That is not a bug — English fallback is per string and by design —
+but do not describe those languages as supported.
+
+`fr.json` currently fails `i18n:check` outright: `CAIRN.CharacterRegeneratorConfirm`
+drops the `<p>` tags its English carries. The inherited files have never been
+through this gate, so assume the others hold similar defects until checked.
+
+`cn.json` was removed (2026-07-27): it shipped in `lang/` but was never listed in
+`system.json` `languages`, so Foundry never loaded it — 17% of a 1e interface that
+no player could ever have seen.
+
+## Any locale, not just Spanish
+
+Every tool takes `--lang <code>` and defaults to `es`:
+
+```bash
+node tools/i18n/extract-ui.mjs --lang fr     # → ui.tsv with an `fr` column
+node tools/i18n/extract-content.mjs --lang fr
+node tools/i18n/import-i18n.mjs  --lang fr   # → lang/fr.json + lang/content/fr.json
+node tools/i18n/check.mjs        --lang fr
+```
+
+Two details worth knowing:
+
+- **The TSV's translation column is named after the locale**, so a French
+  translator fills a column headed `fr`. In code that cell is always `row.tr` —
+  the file format carries the locale, the tooling does not. `readTSV` still
+  accepts an older `es`-headed TSV, so a spreadsheet filled before this change
+  imports fine.
+- **The glossary is per-locale**: `tools/i18n/glossary-<lang>.tsv`, with the
+  unsuffixed `glossary.tsv` serving Spanish because it predates this. A locale
+  with no glossary simply skips the drift check instead of failing.
+
+The content advice in the translator guides is Spanish-specific for a reason that
+doesn't travel: "adapt the official Spanish edition" works because *Guía del
+jugador* exists. A language with no official Cairn edition gets no such shortcut,
+and starts from a blank glossary.
+
 ## Two ways a translation arrives
 
 Both paths write the same JSON and compose cleanly (extract pre-fills from
