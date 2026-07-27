@@ -24,12 +24,12 @@ const OUT = outArg === -1 ? path.join(ROOT, "tools", "i18n", "tsv") : process.ar
 const langArg = process.argv.indexOf("--lang");
 const LANG = langArg === -1 ? "es" : process.argv[langArg + 1];
 
-// Pre-fill the es column from the existing content overlay so a re-extract after
+// Pre-fill the translation column from the existing content overlay so a re-extract after
 // a pack edit carries prior translations forward (idempotent, loss-free) rather
-// than handing the translator blank cells — mirrors extract-ui.mjs's es-prefill.
+// than handing the translator blank cells — mirrors extract-ui.mjs's prefill.
 const overlayPath = path.join(ROOT, "lang", "content", `${LANG}.json`);
 const OVERLAY = fs.existsSync(overlayPath) ? JSON.parse(fs.readFileSync(overlayPath, "utf8")) : {};
-const priorEs = (ns, en) => OVERLAY[ns]?.[normalizeKey(en)] ?? "";
+const priorTr = (ns, en) => OVERLAY[ns]?.[normalizeKey(en)] ?? "";
 
 const ACTOR_TYPES = new Set(["character", "npc", "container", "hireling"]);
 
@@ -105,8 +105,8 @@ for (const pack of listPacks()) {
       const k = `${s.ns}\0${normalizeKey(s.en)}`;
       currentKeys.add(k);
       if (!map.has(k)) {
-        const es = priorEs(s.ns, s.en);
-        map.set(k, { key: s.ns, context: s.context, en: s.en, es, notes: "", status: es && es !== s.en ? "done" : "todo" });
+        const tr = priorTr(s.ns, s.en);
+        map.set(k, { key: s.ns, context: s.context, en: s.en, tr, notes: "", status: tr && tr !== s.en ? "done" : "todo" });
       }
     }
   }
@@ -114,7 +114,7 @@ for (const pack of listPacks()) {
   if (!rows.length) continue;
   // Stable order (namespace, then English) so re-extraction never reshuffles.
   rows.sort((a, b) => a.key.localeCompare(b.key) || a.en.localeCompare(b.en));
-  writeTSV(path.join(OUT, `content-${pack}.tsv`), rows);
+  writeTSV(path.join(OUT, `content-${pack}.tsv`), rows, LANG);
   perPack.push({ pack, rows: rows.length });
   totalRows += rows.length;
 }
@@ -129,16 +129,16 @@ for (const pack of listPacks()) {
 const staleRows = [];
 for (const [ns, entries] of Object.entries(OVERLAY)) {
   if (!entries || typeof entries !== "object") continue;
-  for (const [normEn, es] of Object.entries(entries)) {
+  for (const [normEn, tr] of Object.entries(entries)) {
     if (!currentKeys.has(`${ns}\0${normEn}`)) {
-      staleRows.push({ key: ns, context: "stale — source removed or changed", en: normEn, es, notes: "", status: "stale" });
+      staleRows.push({ key: ns, context: "stale — source removed or changed", en: normEn, tr, notes: "", status: "stale" });
     }
   }
 }
 const staleFile = path.join(OUT, "content-stale.tsv");
 if (staleRows.length) {
   staleRows.sort((a, b) => a.key.localeCompare(b.key) || a.en.localeCompare(b.en));
-  writeTSV(staleFile, staleRows);
+  writeTSV(staleFile, staleRows, LANG);
 } else if (fs.existsSync(staleFile)) {
   fs.rmSync(staleFile); // no orphans now → don't leave a stale stale-file behind
 }

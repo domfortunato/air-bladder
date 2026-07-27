@@ -60,7 +60,20 @@ export const normalizeKey = (s) => String(s).replace(/\s+/g, " ").trim();
 // line per row, so tabs/newlines/backslashes inside a cell are escaped reversibly.
 
 const BOM = "﻿";
-export const TSV_COLS = ["key", "context", "en", "es", "notes", "status"];
+
+/**
+ * The translation column is named after the TARGET LOCALE, so a French
+ * translator fills a column headed `fr` rather than one headed `es`. In code the
+ * cell is always `row.tr` — the file format carries the locale, the tooling does
+ * not, which is the whole reason a second language is possible at all.
+ */
+export const tsvCols = (lang) => ["key", "context", "en", lang, "notes", "status"];
+
+/** Which header cell holds the translation, tolerating an older `es`-headed TSV. */
+const trColumn = (header, lang) =>
+  header.includes(lang) ? lang
+    : header.includes("es") ? "es"   // a TSV generated before the column was localized
+      : header[3];                    // last resort: the translation is always 4th
 
 const encCell = (s) => String(s ?? "")
   .replace(/\\/g, "\\\\")
@@ -71,23 +84,34 @@ const encCell = (s) => String(s ?? "")
 const decCell = (s) => String(s ?? "")
   .replace(/\\([\\nt])/g, (_, c) => (c === "n" ? "\n" : c === "t" ? "\t" : "\\"));
 
-/** Write rows (objects keyed by TSV_COLS) to a UTF-8-BOM, CRLF, tab-separated file. */
-export const writeTSV = (file, rows) => {
+/**
+ * Write rows to a UTF-8-BOM, CRLF, tab-separated file. Each row is keyed by
+ * key/context/en/notes/status plus `tr` for the translation, which lands in the
+ * locale-named column.
+ */
+export const writeTSV = (file, rows, lang = "es") => {
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  const lines = [TSV_COLS.join("\t")];
-  for (const r of rows) lines.push(TSV_COLS.map((c) => encCell(r[c])).join("\t"));
+  const cols = tsvCols(lang);
+  const cell = (r, c) => encCell(c === lang ? r.tr : r[c]);
+  const lines = [cols.join("\t")];
+  for (const r of rows) lines.push(cols.map((c) => cell(r, c)).join("\t"));
   fs.writeFileSync(file, BOM + lines.join("\r\n") + "\r\n");
 };
 
-/** Read a TSV written by writeTSV back into an array of row objects. */
-export const readTSV = (file) => {
+/**
+ * Read a TSV written by writeTSV back into row objects, exposing the
+ * translation as `tr` whatever the column happens to be called.
+ */
+export const readTSV = (file, lang = "es") => {
   const text = fs.readFileSync(file, "utf8").replace(/^﻿/, "");
   const lines = text.split(/\r?\n/).filter((l) => l.length > 0);
   const header = lines.shift().split("\t");
+  const tr = trColumn(header, lang);
   return lines.map((line) => {
     const cells = line.split("\t");
     const r = {};
     header.forEach((h, i) => { r[h] = decCell(cells[i] ?? ""); });
+    r.tr = r[tr] ?? "";
     return r;
   });
 };
