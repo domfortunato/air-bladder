@@ -1136,20 +1136,36 @@ export const generateCharacter = async (background = null, source = null) => {
 const BG_PACK_FOR = { "2e": "air-bladder.backgrounds-2e", barebones: BAREBONES_BG_PACK };
 
 /**
- * GM-authored custom backgrounds: every `background` Item with source "2e" that
- * lives in a WORLD compendium. Location, not a flag, is the discriminator —
- * shipped 2e backgrounds live in the system pack, homebrew ones in the world.
- * Foundry overwrites system packs on update, so user content MUST live in a world
- * pack to survive; scanning world Item packs for source-"2e" backgrounds is how we
- * find it with zero configuration. Only called when the custom toggle is on.
+ * Homebrew backgrounds: every `background` Item with source "2e" that lives in a
+ * WORLD or MODULE compendium. Location, not a flag, is the discriminator — shipped
+ * 2e backgrounds live in the system pack (governed by the 2e toggle, excluded
+ * here), a GM's own homebrew in the editable world pack, and shared homebrew in an
+ * installed module's pack. The module case is how a GM shares a set: bundle the
+ * world "Custom Backgrounds" pack into a module (Foundry's Module Maker); the
+ * recipient installs it and the backgrounds show up here. Module packs are usually
+ * locked/read-only, which is fine — they are a source; editing goes through the
+ * "Duplicate into Custom Backgrounds" action, which copies into the world pack.
+ *
+ * System packs are overwritten on update, so authored content must live in a world
+ * (or shipped-via-module) pack to survive. Scanning is zero-config: we read the
+ * lightweight pack INDEX first and only materialize documents that are actually
+ * source-"2e" backgrounds, so admitting (potentially large, third-party) module
+ * item packs costs a cheap index read, not a full load. Only called when the custom
+ * toggle is on.
  * @returns {Promise<CairnItem[]>}
  */
 const getCustomBackgrounds = async () => {
   const out = [];
   for (const pack of game.packs) {
-    if (pack.metadata.type !== "Item" || pack.metadata.packageType !== "world") continue;
-    for (const doc of await pack.getDocuments()) {
-      if (doc.type === "background" && doc.system?.source === "2e") out.push(doc);
+    if (pack.metadata.type !== "Item") continue;
+    const pt = pack.metadata.packageType;
+    if (pt !== "world" && pt !== "module") continue;
+    const index = await pack.getIndex({ fields: ["system.source"] });
+    for (const entry of index) {
+      if (entry.type === "background" && entry.system?.source === "2e") {
+        const doc = await pack.getDocument(entry._id);
+        if (doc) out.push(doc);
+      }
     }
   }
   return out;

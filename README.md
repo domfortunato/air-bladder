@@ -24,6 +24,7 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 
 - Random or manual generation of both Cairn 2e and Cairn Barebones characters — each style can be toggled on or off
 - Barebones sheets support optional homebrew features
+- Warden-authored custom 2e backgrounds — create, preview/lint, and [share them across worlds](docs/sharing-custom-backgrounds.md)
 - Random or manual generation of hireling sheets
 - Tooltips for players
 - Marketplace and containers
@@ -46,10 +47,6 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 <img src="docs/images/game-settings.png" alt="The Warden's game settings" width="480">
 
 *The Warden's game settings, grouped by section.*
-
-## Planned Features
-
-- Warden-configurable custom 2e-style backgrounds (background, starting gear, questions, items), fully supported by random character generation
 
 ## Status
 

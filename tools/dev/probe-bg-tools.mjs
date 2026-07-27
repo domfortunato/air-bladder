@@ -65,7 +65,15 @@ const result = await page.evaluate(async () => {
   out.copyInWorldPack = copy?.pack === "world.custom-backgrounds";
   out.copyGearCount = (copy?.system?.startingGear ?? []).length;
   out.copyTablesCount = (copy?.system?.tables ?? []).length;
-  out.discovered = (await CG.getBackgroundsFor?.("2e")) ? true : "n/a"; // getBackgroundsFor may be gated by settings
+  // Regression: the index-first world/module scan still surfaces a world-pack
+  // background. Turn the custom source on so getBackgroundsFor unions it in, then
+  // confirm the freshly-duplicated copy is discovered by id.
+  const NS = "air-bladder";
+  const priorCustom = game.settings.get(NS, "content-source-custom");
+  await game.settings.set(NS, "content-source-custom", true);
+  const pool = await CG.getBackgroundsFor("2e");
+  out.worldPackDiscovered = pool.some((b) => b.id === copy?.id);
+  await game.settings.set(NS, "content-source-custom", priorCustom);
 
   // Cleanup: drop the whole world pack we created.
   const created = game.packs.get("world.custom-backgrounds");
@@ -90,6 +98,7 @@ const checks = [
   ["duplicate → world pack", result.copyInWorldPack === true],
   ["duplicate name suffixed", /\(Copy\)$/.test(result.copyName ?? "")],
   ["duplicate carried gear + tables", result.copyGearCount > 0 && result.copyTablesCount > 0],
+  ["world-pack bg discovered by index-first scan", result.worldPackDiscovered === true],
   ["world pack cleaned up", result.packRemoved === true],
 ];
 

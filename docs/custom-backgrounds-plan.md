@@ -203,11 +203,18 @@ everywhere."** If a GM drags the shipped *Rations* into their background, they g
 not a bug — it is the price of portability, and it is the correct trade for a
 shareable unit. Worth documenting so nobody is surprised.
 
-**Sharing mechanisms, lightest → heaviest**, all enabled by the self-contained unit:
+**Sharing mechanisms, lightest → heaviest**, all enabled by the self-contained unit
+and all **working as of 2026-07-27** (see `docs/sharing-custom-backgrounds.md`):
 
 - Export a single background Item to JSON (one GM sends another a file).
 - Export a world compendium of them.
 - Package a set as a no-code module via Foundry's built-in **Module Maker** (v11+).
+
+The module path needed a code change to land: the discovery scan
+(`character-generator.js` `getCustomBackgrounds`) originally only walked **world**
+Item packs, so a module-delivered set was invisible. It now scans **world OR
+module** Item packs (index-first, so it stays cheap even with big third-party
+packs). A module pack is a read-only source; editing goes through Duplicate.
 
 A pre-share **validation/linter** (same engine as the preview below) confirms a
 background is fully self-contained — no dangling name-only references that won't
@@ -296,8 +303,12 @@ _Two resolved 2026-07-26; the rest not blocking:_
    DialogV2 report; static resolution lint + sampled option/gold spread.
 6. ~~"Duplicate into my backgrounds" action + a world-pack home.~~ **DONE 2026-07-26**
    — `duplicateBackgroundToWorld` → `world.custom-backgrounds` (created on first use).
-7. Sharing polish (single-item JSON export; document the Module Maker path). **← next
-   (nice-to-have; Foundry's sidebar already exports a single Item to JSON).**
+7. ~~Sharing polish (single-item JSON export; document the Module Maker path).~~
+   **DONE 2026-07-27** — the discovery scan now admits **module** Item packs
+   (index-first), so Foundry's Module Maker is a real "install a module → toggle
+   Custom on" sharing path, not just world→world. JSON export uses Foundry's
+   built-in per-item Export/Import Data (no bespoke button). GM how-to:
+   `docs/sharing-custom-backgrounds.md`.
 
 ## 12. Research sources
 
