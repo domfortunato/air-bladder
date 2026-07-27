@@ -1,6 +1,7 @@
 import { resolveGearItem, buildGearItem } from "./gear.js";
 import { getBackgroundsFor, withGrantSource } from "./character-generator.js";
 import { CairnActor } from "./actor/actor.js";
+import { Cairn } from "./config.js";
 
 /**
  * One-way importer: a Kettlewright (kettlewright.com) character export JSON ->
@@ -30,6 +31,95 @@ const isAbsoluteUrl = (s) => /^https?:\/\//i.test(String(s ?? ""));
 
 /** A single free-text scars blob -> multiple entries (Air Bladder scars is an array). */
 const splitScars = (s) => String(s ?? "").split(/[\n;]+/).map((x) => x.trim()).filter(Boolean);
+
+/* -------------------------------------------------------------------------- */
+/*  Traits: one English sentence -> eight typed slots + age                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Kettlewright stores the eight 2e traits and the character's age as a single
+ * English sentence, built from the same 2e tables Air Bladder ships — and, as it
+ * happens, in almost exactly the phrasing our own sheet emits (`CAIRN.Bio.*`):
+ *
+ *   "You have a Stout Physique, Birthmarked Skin, and Long Hair. Your Face is
+ *    Pale, your Speech Precise. You have Rancid Clothing. You are Honorable and
+ *    Craven. You are 36 years old."
+ *
+ * So it parses back into `system.traits.*` and `system.age` instead of landing in
+ * Notes as prose, which is what it used to do — the reason an imported character
+ * arrived with empty trait dropdowns and no age.
+ *
+ * Anchored on the capitalised CATEGORY words, not on sentence shape, so a missing
+ * trait, a dropped Oxford comma, or extra whitespace doesn't derail the rest. Every
+ * shipped trait value is a single word, which is what makes the anchors sufficient.
+ * @param {String} text
+ * @returns {{ traits: Object, age: String, pair: String[] }}  pair = the raw
+ *          "You are X and Y" words, which need the tables to tell virtue from vice.
+ */
+export const parseTraitSentence = (text) => {
+  const s = String(text ?? "");
+  const traits = {};
+  const grab = (re, key) => {
+    const m = s.match(re);
+    if (m?.[1]) traits[key] = m[1];
+  };
+
+  // "<value> Physique" / "<value> Skin" / … — the word immediately before the label.
+  grab(/\b([A-Za-z][A-Za-z'-]*)\s+Physique\b/i, "physique");
+  grab(/\b([A-Za-z][A-Za-z'-]*)\s+Skin\b/i, "skin");
+  grab(/\b([A-Za-z][A-Za-z'-]*)\s+Hair\b/i, "hair");
+  grab(/\b([A-Za-z][A-Za-z'-]*)\s+Clothing\b/i, "clothing");
+  // "your Face is <value>" / "your Speech <value>" — here the label comes first.
+  grab(/\bFace\s+is\s+([A-Za-z][A-Za-z'-]*)/i, "face");
+  grab(/\bSpeech\s+(?:is\s+)?([A-Za-z][A-Za-z'-]*)/i, "speech");
+
+  // "You are 36 years old." Digits only, so it can never collide with the
+  // virtue/vice clause below, which requires two words.
+  const age = s.match(/\b(\d{1,3})\s+years?\s+old\b/i)?.[1] ?? "";
+
+  // "You are Honorable and Craven." Both captures are words, so the age clause
+  // cannot match here either. Which is which is decided by the tables, not by
+  // position — see resolveVirtueVice.
+  const m = s.match(/\bYou\s+are\s+([A-Za-z][A-Za-z'-]*)\s+and\s+([A-Za-z][A-Za-z'-]*)/i);
+  const pair = m ? [m[1], m[2]] : [];
+
+  return { traits, age, pair };
+};
+
+/**
+ * Decide which of the two words is the virtue and which the vice by looking them
+ * up in the shipped tables.
+ *
+ * Position is NOT reliable: Kettlewright writes virtue-then-vice ("Honorable and
+ * Craven") while Air Bladder's own sentence writes vice-then-virtue, so trusting
+ * the order would silently swap the two on every single import. The table lookup
+ * is also self-correcting if either app changes its phrasing later.
+ *
+ * Falls back to Kettlewright's observed order when the tables can't decide —
+ * a custom or translated value that appears in neither list.
+ * @param {String[]} pair
+ * @returns {Promise<{virtue?: String, vice?: String}>}
+ */
+export const resolveVirtueVice = async (pair) => {
+  if (pair.length !== 2) return {};
+  const [a, b] = pair;
+  const values = async (key) => {
+    const ref = Cairn?.characterGenerator2e?.biography?.items?.[key];
+    if (!ref) return new Set();
+    const [packName, tableName] = String(ref).split(";");
+    const pack = game.packs.get(packName);
+    if (!pack) return new Set();
+    const table = (await pack.getDocuments()).find((t) => t.name === tableName);
+    return new Set((table?.results ?? []).map((r) => String(r.text ?? "").trim().toLowerCase()));
+  };
+  const [virtues, vices] = await Promise.all([values("virtue"), values("vice")]);
+  const isV = (w) => virtues.has(w.toLowerCase());
+  const isX = (w) => vices.has(w.toLowerCase());
+
+  if (isV(a) && isX(b)) return { virtue: a, vice: b };
+  if (isX(a) && isV(b)) return { virtue: b, vice: a };
+  return { virtue: a, vice: b }; // Kettlewright order
+};
 
 /**
  * Map one Kettlewright item record to an owned-item payload, tracking how it
@@ -122,12 +212,24 @@ export const kettlewrightToActorData = async (json) => {
   const bonds = bondsText ? [{ id: foundry.utils.randomID(), description: bondsText, gold: 0 }] : [];
   const omens = String(json.omens ?? "");
   let notes = String(json.notes ?? "");
-  const traits = String(json.traits ?? "").trim();
-  if (traits) {
-    // Air Bladder traits is eight typed slots — a single Kettlewright blob has no
-    // structured home, so it lands in Notes under a label.
-    const label = game.i18n.localize("CAIRN.KWImport.TraitsLabel");
-    notes = (notes ? `${notes}\n\n` : "") + `${label} ${traits}`;
+  // Kettlewright's traits blob is a parseable sentence, not opaque prose: it maps
+  // back onto the eight typed slots and system.age. Only if the parse yields
+  // nothing at all does it fall back to landing in Notes under a label — better an
+  // unstructured record than a silently dropped one.
+  const traitText = String(json.traits ?? "").trim();
+  let traits = {};
+  let age = "";
+  if (traitText) {
+    const parsed = parseTraitSentence(traitText);
+    traits = { ...parsed.traits, ...(await resolveVirtueVice(parsed.pair)) };
+    age = parsed.age;
+    report.traits = Object.keys(traits).length;
+    report.age = age;
+    if (!report.traits && !age) {
+      const label = game.i18n.localize("CAIRN.KWImport.TraitsLabel");
+      notes = (notes ? `${notes}\n\n` : "") + `${label} ${traitText}`;
+      report.traitsUnparsed = true;
+    }
   }
 
   // Armor is a string column in Kettlewright; a numeric value forces Air Bladder's
@@ -154,6 +256,8 @@ export const kettlewrightToActorData = async (json) => {
       contentSource: "2e",
       description: String(json.description ?? ""),
       notes,
+      traits,
+      age,
       bonds,
       scarEnabled: scars.length > 0,
       scars,
@@ -237,6 +341,13 @@ const showImportSummary = (actor, report) => {
   }
   if (report.containers.length) {
     parts.push(`<p>${L("CAIRN.KWImport.ContainersFlattened")}</p><ul>${report.containers.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>`);
+  }
+  // Traits either became structured fields or stayed prose — say which, because the
+  // difference is visible on the sheet (populated dropdowns vs a paragraph in Notes).
+  if (report.traitsUnparsed) {
+    parts.push(`<p class="kwi-warn"><i class="fas fa-circle-exclamation"></i> ${L("CAIRN.KWImport.TraitsUnparsed")}</p>`);
+  } else if (report.traits) {
+    parts.push(`<p class="kwi-ok"><i class="fas fa-check"></i> ${F("CAIRN.KWImport.TraitsMapped", { count: report.traits, age: esc(report.age) || "—" })}</p>`);
   }
 
   new foundry.applications.api.DialogV2({

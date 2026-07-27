@@ -211,6 +211,8 @@
   "CAIRN.KWImport.BadJson": "That file isn't valid JSON — pick a Kettlewright character export.",
   "CAIRN.KWImport.BadShape": "That JSON doesn't look like a Kettlewright character export.",
   "CAIRN.KWImport.TraitsLabel": "Traits (imported):",
+  "CAIRN.KWImport.TraitsMapped": "Traits: {count} of 8 mapped to the character sheet, age {age}.",
+  "CAIRN.KWImport.TraitsUnparsed": "Traits couldn't be read as the usual sentence — kept as text in Notes.",
   "CAIRN.KWImport.SummaryTitle": "Imported: {name}",
   "CAIRN.KWImport.BgMatched": "Background matched: {name}.",
   "CAIRN.KWImport.BgUnmatched": "Background \"{name}\" didn't match a shipped background — kept as text.",
