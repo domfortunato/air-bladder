@@ -5,15 +5,23 @@
  * lang/<lang>.json where a key already has one. Column 1 is the dotted i18n key
  * (CAIRN.Deprived, CAIRN.Settings.MaxEquipSlots.label). Offline.
  *
- *   node tools/i18n/extract-ui.mjs [--lang es]
+ * Refuses to run if the existing ui.tsv holds translations that aren't in the JSON
+ * yet (they would be destroyed) — import them first, or pass --force to discard.
+ *
+ *   node tools/i18n/extract-ui.mjs [--lang es] [--force]
  */
 import fs from "node:fs";
 import path from "node:path";
-import { ROOT, writeTSV } from "./lib.mjs";
+import { ROOT, writeTSV, guardOverwrite } from "./lib.mjs";
 import { flattenLang } from "./validate.mjs";
 
 const langArg = process.argv.indexOf("--lang");
 const LANG = langArg === -1 ? "es" : process.argv[langArg + 1];
+const FORCE = process.argv.includes("--force");
+// Mirrors extract-content.mjs, so `--out` can hold a second locale's sheets in
+// their own folder instead of fighting over tools/i18n/tsv/.
+const outArg = process.argv.indexOf("--out");
+const OUT = outArg === -1 ? path.join(ROOT, "tools", "i18n", "tsv") : process.argv[outArg + 1];
 
 const load = (f) => {
   const p = path.join(ROOT, f);
@@ -39,7 +47,8 @@ const stale = Object.keys(target)
   .map((key) => ({ key, context: "stale — key removed from en.json", en: "", tr: target[key], notes: "", status: "stale" }));
 rows.push(...stale);
 
-const out = path.join(ROOT, "tools", "i18n", "tsv", "ui.tsv");
+const out = path.join(OUT, "ui.tsv");
+guardOverwrite([{ file: out, rows }], LANG, FORCE);
 writeTSV(out, rows, LANG);
 const done = rows.filter((r) => r.status === "done").length;
 console.log(`UI → ${LANG}: ${rows.length} keys → ${path.relative(ROOT, out)}  (${done} pre-filled from lang/${LANG}.json, ${rows.length - done - stale.length} todo, ${stale.length} stale)`);

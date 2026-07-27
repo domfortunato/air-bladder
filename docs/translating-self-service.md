@@ -34,9 +34,17 @@ That's it — the translation scripts are offline and only read the English sour
 
 > **Another language?** Every command below takes `--lang <code>` and defaults to
 > `es`, and your TSV's translation column is named after your locale rather than
-> `es`. So `npm run i18n:extract -- --lang fr` writes an `fr` column, and
-> `npm run i18n:import -- --lang fr` writes `lang/fr.json` +
-> `lang/content/fr.json`. Nothing else differs.
+> `es`. Give your sheets their own folder with `--out`, so they never collide with
+> someone else's language:
+>
+> ```bash
+> npm run i18n:extract -- --lang fr --out tools/i18n/tsv-fr
+> npm run i18n:import  -- --lang fr --tsv tools/i18n/tsv-fr   # → lang/fr.json + lang/content/fr.json
+> npm run i18n:check   -- --lang fr
+> ```
+>
+> Nothing else differs. (Extracting one locale over another's sheets is refused,
+> so you'll be told rather than surprised.)
 >
 > Where you'd start from: Spanish is the only language with translated game
 > content, and the Danish, French, German, Polish and Brazilian Portuguese
@@ -78,16 +86,18 @@ git commit -m "es: translate armor descriptions"
 > **Do not commit the TSVs.** `tools/i18n/tsv/` is git-ignored on purpose. Only the
 > JSON is committed and reviewed.
 >
-> ⚠️ **`i18n:extract` OVERWRITES every TSV** — it rebuilds them from the committed
-> JSON. Anything you typed into a cell and have **not** yet run `i18n:import` on is
-> gone, with no prompt and no way to get it back (the TSVs aren't in git either, so
-> nothing will even show you what disappeared).
+> ⚠️ **`i18n:extract` rebuilds every TSV from the committed JSON**, so a cell you
+> typed but never imported would be gone — the TSVs aren't in git either, so
+> nothing could show you what disappeared.
 >
-> **So: import before you extract.** Once a translation is in `lang/es.json` /
-> `lang/content/es.json`, the next `extract` pre-fills it straight back into the
-> spreadsheet and it's safe forever. It's the gap between *typed* and *imported*
-> that's dangerous — step 3 above is what makes your work permanent, not step 2.
-> If you're stopping mid-file, run `npm run i18n:import` before you close the laptop.
+> **It now refuses instead.** If a spreadsheet holds a translation that isn't in
+> `lang/es.json` yet, `extract` stops, names the files, writes nothing, and tells
+> you to run `npm run i18n:import` first. You'd have to pass `--force` to lose
+> work, and it says so.
+>
+> Don't lean on it, though: **import before you extract**, and run
+> `npm run i18n:import` before you close the laptop mid-file. Step 3 is what makes
+> your work permanent, not step 2. Typed is not saved; imported is saved.
 
 ## The spreadsheet columns
 
@@ -174,9 +184,9 @@ so you can ship a pack at a time.
   picks those up.)
 - **End a session with `npm run i18n:import`.** That is the step that makes a
   translation permanent. `extract` rebuilds every TSV from the committed JSON, so a
-  filled-but-unimported cell does not survive the next `extract` — and because the
-  TSVs are git-ignored, nothing warns you and nothing can recover it. Typed is not
-  saved; imported is saved.
+  filled-but-unimported cell would not survive the next `extract`. It now refuses
+  to run in that situation rather than destroying anything — but the guard is a
+  safety net, not the plan. Typed is not saved; imported is saved.
 - **If a `content-stale.tsv` appears**, it lists translations whose English source
   changed or was removed. It's **review-only** (never re-imported). Move any still-good
   Spanish into the matching current row in the normal `content-<pack>.tsv`, then

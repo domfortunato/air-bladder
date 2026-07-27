@@ -16,13 +16,14 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { ROOT, listPacks, readPack, writeTSV, normalizeKey } from "./lib.mjs";
+import { ROOT, listPacks, readPack, writeTSV, normalizeKey, guardOverwrite } from "./lib.mjs";
 
 const outArg = process.argv.indexOf("--out");
 const OUT = outArg === -1 ? path.join(ROOT, "tools", "i18n", "tsv") : process.argv[outArg + 1];
 
 const langArg = process.argv.indexOf("--lang");
 const LANG = langArg === -1 ? "es" : process.argv[langArg + 1];
+const FORCE = process.argv.includes("--force");
 
 // Pre-fill the translation column from the existing content overlay so a re-extract after
 // a pack edit carries prior translations forward (idempotent, loss-free) rather
@@ -94,6 +95,7 @@ function* stringsFromDoc(doc) {
 
 let totalRows = 0;
 const perPack = [];
+const pending = []; // [{ file, rows }] — written only after guardOverwrite clears them
 // Every current source string's composite key, across ALL packs — used after the
 // loop to find overlay translations that no longer match any source (stale).
 const currentKeys = new Set();
@@ -114,7 +116,9 @@ for (const pack of listPacks()) {
   if (!rows.length) continue;
   // Stable order (namespace, then English) so re-extraction never reshuffles.
   rows.sort((a, b) => a.key.localeCompare(b.key) || a.en.localeCompare(b.en));
-  writeTSV(path.join(OUT, `content-${pack}.tsv`), rows, LANG);
+  // Collected, not written: nothing may hit disk until the overwrite guard has
+  // seen every file, or a refusal would leave half the spreadsheets rebuilt.
+  pending.push({ file: path.join(OUT, `content-${pack}.tsv`), rows });
   perPack.push({ pack, rows: rows.length });
   totalRows += rows.length;
 }
@@ -136,6 +140,14 @@ for (const [ns, entries] of Object.entries(OVERLAY)) {
   }
 }
 const staleFile = path.join(OUT, "content-stale.tsv");
+
+// Guard, then write — everything or nothing. content-stale.tsv is deliberately
+// NOT guarded: import never reads it, so "unimported work" there is a category
+// error, and blocking on it would print advice (`run i18n:import`) that cannot
+// clear the block.
+guardOverwrite(pending, LANG, FORCE);
+for (const { file, rows } of pending) writeTSV(file, rows, LANG);
+
 if (staleRows.length) {
   staleRows.sort((a, b) => a.key.localeCompare(b.key) || a.en.localeCompare(b.en));
   writeTSV(staleFile, staleRows, LANG);

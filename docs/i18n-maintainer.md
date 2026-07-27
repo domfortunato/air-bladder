@@ -115,14 +115,31 @@ npm run i18n:check -- --glossary  # advisory: flags a term translated inconsiste
 The generated `tools/i18n/tsv/` directory is git-ignored — it is disposable output,
 never committed. Only the JSON (and `glossary.tsv`) are tracked.
 
-**`i18n:extract` overwrites every TSV from the committed JSON, silently.** It is
-loss-free only for translations that have already been *imported* — a filled cell
-that hasn't been through `i18n:import` does not survive the next extract, and
-since the TSVs aren't in git, nothing reports what was lost. This matters most in
-the brokered flow: when a translator returns a filled spreadsheet, **import it
-before you extract again**, and don't re-extract to "refresh" a spreadsheet
-someone is still working in. The translator guide now warns about this too, but
-the tooling does not yet enforce it.
+**`i18n:extract` overwrites every TSV from the committed JSON.** It is loss-free
+only for translations already run through `i18n:import` — a filled cell that
+hasn't been imported has no other copy, and since the TSVs aren't in git, nothing
+could report or recover what was lost. So `extract` now **refuses** rather than
+warns, in three tiers:
+
+| Situation | Behaviour |
+|---|---|
+| Sheet holds a translation the JSON doesn't have | **Blocks** (exit 1) — nothing written; import first, or `--force` to discard |
+| Sheet's value merely *differs* from the JSON | **Warns**, proceeds — the JSON's copy is safe, and the sheet is usually just stale after a merged PR |
+| Sheet belongs to a different locale | **Blocks**, and tells you to use `--out`, explicitly *not* to import |
+
+The three tiers exist because a guard that cries wolf is worse than none: block on
+everything and people reach for `--force` by reflex, and then the tier that
+matters stops working. Only the first tier describes work that exists nowhere
+else. The third prints different advice on purpose — "run `i18n:import`" would be
+*destructive* there, filing one language's text into another's JSON.
+
+Guard is all-or-nothing per run: `extract-content` collects every pending write
+and clears the guard before any file hits disk, so a refusal never leaves half
+the sheets rebuilt.
+
+In the brokered flow this matters most when a translator returns a filled
+spreadsheet: **import it before you extract again**, and never re-extract to
+"refresh" a sheet someone is still filling.
 
 ## Merging a pull request
 
