@@ -43,6 +43,10 @@ const { parseTraitSentence } = await load(
 const { parseQuestionAnswers } = await load(
   slice("export const parseQuestionAnswers", "/* ---")
 );
+// This slice runs up to the next docblock, so it ends on a dangling "/**".
+const { bestTextMatch } = await load(
+  slice("/** Loose text identity", "* Re-tag imported items").replace(/\/\*+\s*$/, "")
+);
 
 const tableValues = (name) => {
   const dir = path.join(ROOT, "src", "packs", "tables-2e");
@@ -150,6 +154,55 @@ runQA("Free-form notes only", "Just some thoughts.", MOUNTEBANK,
 
 // Unmatched background -> no questions to look for.
 runQA("No background questions", fixture.notes, [], { found: 0, leftover: fixture.notes });
+
+/* -------------------------------------------------------------------------- */
+/*  bestTextMatch: answer -> the option it came from                            */
+/* -------------------------------------------------------------------------- */
+
+// Real options, so the thresholds are exercised against the spread of wording
+// the game text actually has rather than against invented sentences.
+const jongleur = YAML.load(fs.readFileSync(
+  path.join(ROOT, "src", "packs", "backgrounds-2e", "Jongleur_LFOAOlXTH0Bsk2g4.yml"), "utf8"));
+const trinkets = jongleur.system.tables[1].options;
+const performance = jongleur.system.tables[0].options;
+const nameOf = (opt) => opt?.items?.[0]?.name ?? "(none)";
+
+console.log("\nbestTextMatch");
+
+// Every option must match itself, or nothing else here means anything.
+for (const table of jongleur.system.tables) {
+  for (const opt of table.options) {
+    const hit = bestTextMatch(opt.description, table.options, (o) => o.description);
+    if (hit !== opt) { failures++; console.log(`  FAIL  self-match   ${nameOf(opt)} -> ${nameOf(hit)}`); }
+  }
+}
+console.log(`  ok    self-match   all ${jongleur.system.tables.reduce((n, t) => n + t.options.length, 0)} options`);
+
+// THE BUG: Kettlewright says "dark-grey", our copy says "dark-gray". One letter,
+// and the exact match that used to be the only match silently lost the item.
+eq("grey vs gray", nameOf(bestTextMatch(
+  "Ghost Violin: A dark-grey violin that plays a haunting tune, mirrored by an invisible, distant twin.",
+  trinkets, (o) => o.description)), "Ghost Violin");
+
+// Longer drift in the middle of a sentence still resolves.
+eq("reworded", nameOf(bestTextMatch(
+  "Tragic Tales: Banned in polite company, this book grows less bawdy and more harrowing towards the end. Worth 100gp.",
+  trinkets, (o) => o.description)), "Tragic Tales");
+
+// Text from a different table must NOT be forced onto the nearest option.
+eq("wrong table", bestTextMatch(performance[0].description, trinkets, (o) => o.description), null);
+
+// Nor should free-form writing of the player's own.
+eq("free text", bestTextMatch("A fiddle my mother left me.", trinkets, (o) => o.description), null);
+
+// Ambiguity is left unmatched: re-tagging the wrong item means a later re-roll
+// deletes something the player owns.
+const twins = [
+  { description: "A brass key, cold to the touch, that opens nothing you have found." },
+  { description: "A brass key, warm to the touch, that opens nothing you have found." },
+];
+eq("ambiguous", bestTextMatch("A brass key, cool to the touch, that opens nothing you have found.",
+  twins, (o) => o.description), null);
 
 console.log(failures === 0 ? "\nPASS — import parsing is correct." : `\nFAIL — ${failures} assertion(s).`);
 process.exit(failures === 0 ? 0 : 1);

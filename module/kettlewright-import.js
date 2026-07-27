@@ -39,6 +39,64 @@ const splitScars = (s) => String(s ?? "").split(/[\n;]+/).map((x) => x.trim()).f
 /** Loose text identity: whitespace collapsed, quotes straightened, case ignored. */
 const norm = (s) => String(s ?? "").replace(/[’‘]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, " ").trim().toLowerCase();
 
+/** Jaccard overlap of the two texts' word sets, 0..1. */
+const similarity = (a, b) => {
+  const words = (s) => new Set(norm(s).split(/[^a-z0-9']+/).filter(Boolean));
+  const wa = words(a);
+  const wb = words(b);
+  if (!wa.size || !wb.size) return 0;
+  let shared = 0;
+  for (const w of wa) if (wb.has(w)) shared++;
+  return shared / (wa.size + wb.size - shared);
+};
+
+const MIN_SIMILARITY = 0.75; // below this, "close" is not close enough to act on
+const MIN_MARGIN = 0.2;      // and it must beat the runner-up by this much
+
+/**
+ * Find the candidate whose text is the one `text` came from, tolerating small
+ * wording drift.
+ *
+ * Exact identity is tried first and is what almost always fires. The fallback
+ * exists because our copy of the game text and Kettlewright's are now maintained
+ * separately, so they drift by a word here and there — Tripp's Ghost Violin is a
+ * "dark-grey violin" in Kettlewright and a "dark-gray" one here, and that single
+ * letter was enough to lose the match, leaving the item untagged and therefore
+ * un-re-rollable.
+ *
+ * Deliberately conservative, because a wrong match re-tags the wrong item and a
+ * later re-roll would then delete it: the best candidate must clear
+ * MIN_SIMILARITY *and* beat the runner-up by MIN_MARGIN. Options within one table
+ * describe entirely different things, so genuine matches score far above their
+ * rivals; anything ambiguous is simply left unmatched, which costs nothing but a
+ * duplicate the player can delete.
+ *
+ * Safe on long prose only. Do NOT reuse this for item names — the fork learned
+ * that fuzzy matching short strings confidently proposes Pail≈Nails, Bowl≈Bow.
+ *
+ * @param {String} text
+ * @param {Array} candidates
+ * @param {(c: any) => String} textOf
+ * @returns {any|null}
+ */
+export const bestTextMatch = (text, candidates, textOf) => {
+  const want = norm(text);
+  // Array.from, because a RollTable's results are a Collection: it has .find but
+  // no .length, so a raw candidates?.length check reads every table as empty.
+  const list = Array.from(candidates ?? []);
+  if (!want || !list.length) return null;
+  const exact = list.find((c) => norm(textOf(c)) === want);
+  if (exact) return exact;
+
+  const scored = list
+    .map((c) => ({ c, score: similarity(want, textOf(c)) }))
+    .sort((a, b) => b.score - a.score);
+  const [best, next] = scored;
+  if (best.score < MIN_SIMILARITY) return null;
+  if (next && best.score - next.score < MIN_MARGIN) return null;
+  return best.c;
+};
+
 /**
  * Re-tag imported items with the grant source that actually produced them.
  *
@@ -86,11 +144,10 @@ const retagGranted = (items, granted, source) => {
  * @returns {Promise<{items: Object[], gold: Number}|null>}
  */
 const findBondEntry = async (text) => {
-  const want = norm(text);
-  if (!want) return null;
+  if (!norm(text)) return null;
   const pack = game.packs.get("air-bladder.tables-2e");
   const table = pack ? (await pack.getDocuments()).find((t) => t.name === "Bonds") : null;
-  const hit = table?.results?.find((r) => norm(r.text) === want);
+  const hit = bestTextMatch(text, table?.results ?? [], (r) => r.text);
   if (!hit) return null;
   return { items: hit.getFlag(FLAG_SCOPE, "items") ?? [], gold: hit.getFlag(FLAG_SCOPE, "gold") ?? 0 };
 };
@@ -365,9 +422,7 @@ export const kettlewrightToActorData = async (json) => {
       // grants. Hand those imported items to `question:<i>` so a later re-roll
       // replaces them instead of stacking a second copy beside them.
       bgTables.forEach((table, i) => {
-        const answer = norm(qa.answers[i]);
-        if (!answer) return;
-        const opt = (table?.options ?? []).find((o) => norm(o?.description) === answer);
+        const opt = bestTextMatch(qa.answers[i], table?.options ?? [], (o) => o?.description ?? "");
         if (!opt) return;
         report.regranted = (report.regranted ?? 0) + retagGranted(items, opt.items, `question:${i}`);
       });

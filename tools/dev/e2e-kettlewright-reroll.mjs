@@ -18,11 +18,31 @@ const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: VIEWPORT });
 const errors = watchErrors(page);
 await joinAsGM(page);
+// Clear any Solene a previous run left behind. Without this the import below is
+// unnecessary: waitForFunction sees the STALE actor immediately, the assertions
+// run against it, and a run that imported nothing at all reports success.
+await page.evaluate(async () => {
+  for (const a of game.actors.filter((a) => a.name === "Solene")) await a.delete();
+});
 await page.evaluate(() => ui.sidebar.changeTab?.("actors", "primary") ?? ui.sidebar.activateTab?.("actors"));
-await page.waitForTimeout(500);
-page.on("filechooser", (fc) => fc.setFiles(fixture).catch(() => {}));
+// Wait for the button rather than sleeping at it: a bare click on a not-yet-
+// rendered directory silently no-ops, and every assertion downstream then reads
+// a missing actor as a pass or an opaque TypeError.
+await page.waitForTimeout(600); // the button renders before its listener is bound
+page.on("filechooser", (fc) => fc.setFiles(fixture).catch((e) => console.log("setFiles failed:", e.message)));
 await page.evaluate(() => document.querySelector(".import-kettlewright-button")?.click());
-await page.waitForFunction(() => !!game.actors.getName("Solene"), null, { timeout: 20000 }).catch(() => {});
+try {
+  // Generous, because resolveGearItem re-reads the gear packs per item: the first
+  // import after a pack rebuild or server restart takes ~25s cold, ~3s warm.
+  await page.waitForFunction(() => !!game.actors.getName("Solene"), null, { timeout: 60000 });
+} catch {
+  console.log("FAIL  the import never produced an actor — nothing below could be tested");
+  await browser.close();
+  process.exit(1);
+}
+// And for its sheet, which the importer renders on its own; the re-roll control
+// lives there.
+await page.waitForSelector(".app.window-app.sheet", { timeout: 15000 }).catch(() => {});
 await page.waitForTimeout(2500);
 
 const out = await page.evaluate(async () => {

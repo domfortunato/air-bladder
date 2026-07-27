@@ -31,12 +31,19 @@ const page = await browser.newPage({ viewport: VIEWPORT });
 const errors = watchErrors(page);
 await joinAsGM(page);
 
+// A Solene left over from an aborted run would satisfy every wait below without
+// this run importing anything at all. Start from nothing.
+await page.evaluate(async () => {
+  for (const a of game.actors.filter((a) => a.name === "Solene")) await a.delete();
+});
 await page.evaluate(() => ui.sidebar.changeTab?.("actors", "primary") ?? ui.sidebar.activateTab?.("actors"));
 await page.waitForTimeout(600);
 
 page.on("filechooser", (fc) => fc.setFiles(fixture).catch(() => {}));
 await page.evaluate(() => document.querySelector(".import-kettlewright-button")?.click());
-await page.waitForFunction(() => !!game.actors.getName("Solene"), null, { timeout: 20000 }).catch(() => {});
+// Generous, because resolveGearItem re-reads the gear packs per item: the first
+// import after a pack rebuild or server restart takes ~25s cold, ~3s warm.
+await page.waitForFunction(() => !!game.actors.getName("Solene"), null, { timeout: 60000 }).catch(() => {});
 // Both windows must be on screen before z-order can be judged: the sheet renders
 // asynchronously after create() resolves, so measuring too early reads a missing
 // sheet as z-index 0 and the assertion passes vacuously.
