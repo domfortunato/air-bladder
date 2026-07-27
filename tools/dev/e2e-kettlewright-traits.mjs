@@ -57,6 +57,10 @@ const out = await page.evaluate(() => {
     notesHasTraitBlob: /Physique/i.test(a?.system?.notes ?? ""),
     questions: a?.system?.questions ?? [],
     notes: a?.system?.notes ?? "",
+    // This fixture carries no usable portrait URL, so the import must fall back to
+    // a random shipped portrait + its paired token rather than the blank default.
+    img: a?.img ?? "",
+    tokenImg: a?.prototypeToken?.texture?.src ?? "",
     summary: dlg?.textContent?.replace(/\s+/g, " ").trim() ?? "",
     // The summary must sit ABOVE the auto-rendered sheet. The sheet renders after
     // create() resolves and would otherwise bury it — see showImportSummary.
@@ -95,6 +99,20 @@ check("a1 starts", a1.slice(0, 34), "Surgeon's Soap: A lye and ash bloc");
 if (/keepsake/i.test(a0)) { bad++; console.log("  FAIL  answer 0 ran on into question 1"); }
 // And the question text must not be left behind in Notes as well.
 if (/fraud exposed/i.test(out.notes)) { bad++; console.log("  FAIL  questions were ALSO left in Notes"); }
+
+// A portrait must have been assigned: this export has no absolute image URL, so the
+// importer draws one at random exactly as generation does.
+console.log("");
+const base = (p) => String(p).split("/").pop();
+if (!out.img || /mystery-man|\/svg\//i.test(out.img)) {
+  bad++;
+  console.log(`  FAIL  portrait   no random portrait assigned (img ${JSON.stringify(out.img)})`);
+} else if (base(out.img) !== base(out.tokenImg)) {
+  bad++;
+  console.log(`  FAIL  portrait   token does not pair with the portrait (${base(out.img)} vs ${base(out.tokenImg)})`);
+} else {
+  console.log(`  ok    portrait   ${out.img} with paired token`);
+}
 
 // The summary must open in FRONT of the character sheet, not behind it.
 console.log("");

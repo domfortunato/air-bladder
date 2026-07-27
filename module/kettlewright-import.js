@@ -1,5 +1,5 @@
 import { resolveGearItem, buildGearItem } from "./gear.js";
-import { getBackgroundsFor, withGrantSource, FLAG_SCOPE } from "./character-generator.js";
+import { getBackgroundsFor, withGrantSource, randomPortraitPair, FLAG_SCOPE } from "./character-generator.js";
 import { CairnActor } from "./actor/actor.js";
 import { Cairn } from "./config.js";
 
@@ -435,9 +435,18 @@ export const kettlewrightToActorData = async (json) => {
     },
     type: "character",
   };
-  // Only a directly-usable absolute URL can travel across apps; otherwise leave
-  // Foundry's default portrait (never a random one — that would misrepresent the import).
+  // Portraits rarely travel: only a directly-usable absolute URL works across apps.
+  // Failing that, draw a random portrait + paired token exactly as generation does,
+  // so an import lands looking like a character rather than a blank silhouette. The
+  // player can swap it from the sheet's portrait gallery either way.
   if (json.custom_image && isAbsoluteUrl(json.image_url)) data.img = json.image_url;
+  else {
+    const pair = await randomPortraitPair();
+    if (pair) {
+      data.img = pair.img;
+      data.prototypeToken.texture = { src: pair.token };
+    }
+  }
 
   return { data, report };
 };
