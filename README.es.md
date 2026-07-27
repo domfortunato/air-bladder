@@ -15,7 +15,14 @@
 </div>
 
 <!--
-  Traducción al español (Latinoamérica) — BORRADOR.
+  Traducción al español (Latinoamérica).
+
+  MANTENIMIENTO: este archivo lo mantiene el proyecto, NO el traductor del
+  sistema. La traducción del juego (lang/es.json, lang/content/es.json) es obra
+  de un traductor humano; este README es documentación del proyecto y se
+  actualiza junto con README.md, que es la versión de referencia. Al cambiar
+  README.md, actualiza también este archivo.
+
   Términos por confirmar contra la "Guía del jugador" oficial de Cairn 2e, para
   que coincidan con la traducción dentro del sistema:
     Warden  -> "Custodio"    (provisional)
@@ -33,6 +40,7 @@ Air Bladder es un sistema complementario amigable, no el sistema oficial de Cair
 
 - Generación aleatoria o manual de personajes tanto de Cairn 2e como de Cairn Barebones; cada estilo se puede activar o desactivar.
 - Las hojas Barebones admiten funciones caseras (homebrew) opcionales.
+- Trasfondos personalizados de 2e creados por el Custodio: créalos, previsualízalos, revísalos y [compártelos entre mundos](docs/sharing-custom-backgrounds.md).
 - Generación aleatoria o manual de hojas de asalariados.
 - Ayudas contextuales para jugadores.
 - Mercado y contenedores.
@@ -56,15 +64,19 @@ Air Bladder es un sistema complementario amigable, no el sistema oficial de Cair
 
 *La configuración de juego del Custodio, agrupada por secciones.*
 
-## Funciones planificadas
-
-- Trasfondos personalizados al estilo 2e configurables por el Custodio (trasfondo, equipo inicial, preguntas, objetos), totalmente compatibles con la generación aleatoria de personajes.
-
 ## Estado
 
 Desarrollo temprano y activo. ¡Envía comentarios y arte! El sistema se está reconstruyendo sobre la arquitectura de **compendios editables** del original: el equipo vive en compendios de objetos que el Custodio puede editar en un solo lugar, y la generación de personajes y el mercado hacen referencia a esos compendios por su nombre.
 
-**Traductores bienvenidos** — consulta [docs/TRANSLATING.md](docs/TRANSLATING.md) (en inglés) para ver cómo funciona el proceso de traducción. No hace falta programar.
+## Idiomas
+
+La interfaz está traducida al **español** (el 82 % de las cadenas actuales, por [Malecho](https://github.com/fsmalecho)), y el *contenido* del juego —trasfondos, objetos, hechizos, tablas— está traducido únicamente al español.
+
+Los archivos de interfaz en alemán, danés, francés, polaco y portugués de Brasil se heredaron del sistema original de Cairn. Cubren entre el **15 % y el 30 %** de la interfaz actual, son anteriores a la mayoría de las funciones de este sistema y **no reciben mantenimiento**: en la práctica, una partida en esos idiomas está mayormente en inglés. Todo lo que no esté traducido recae en el inglés cadena por cadena, así que una traducción parcial siempre se puede usar en lugar de quedar rota.
+
+Las herramientas son independientes del idioma (`--lang <código>` en todas), así que un idioma nuevo no requiere ningún cambio de código: solo un traductor.
+
+**Traductores bienvenidos** — consulta [docs/TRANSLATING.md](docs/TRANSLATING.md) (en inglés) para el flujo sin programación, o [docs/translating-self-service.md](docs/translating-self-service.md) si prefieres trabajar con git.
 
 ## Instalación (manual)
 
