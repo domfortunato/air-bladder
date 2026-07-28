@@ -6,9 +6,11 @@
  *
  * What it does:
  *   1. validates the version (X.Y.Z, no leading "v")
- *   2. refuses if the working tree has uncommitted TRACKED changes, or the tag exists
- *   3. bumps `version` in system.json (minimal, single-line edit)
- *   4. commits "Release X.Y.Z", creates an annotated tag, and pushes the branch + tag
+ *   2. refuses unless you are on `master` — releases are never cut from a branch
+ *   3. refuses if the working tree has uncommitted TRACKED changes, or the tag exists
+ *   4. prints the commits since the last tag, so you see what you are shipping
+ *   5. bumps `version` in system.json (minimal, single-line edit)
+ *   6. commits "Release X.Y.Z", creates an annotated tag, and pushes the branch + tag
  *      to `origin`
  *
  * The tag originates on `origin` (Gitea), so the Gitea->GitHub push mirror PROTECTS
@@ -32,17 +34,36 @@ const version = process.argv[2];
 if (!version) die("Usage: npm run release <version>   e.g. npm run release 0.1.1");
 if (!/^\d+\.\d+\.\d+$/.test(version)) die(`Version must be X.Y.Z (digits only, no leading "v"). Got: ${version}`);
 
-// 1. Working tree must be clean of TRACKED changes (untracked scratch files are fine).
+// 1. Releases are cut from master, never from a branch. Work lives on `dev` and
+//    reaches master by merge. Without this guard `git push origin HEAD` below would
+//    happily publish a branch and tag unmerged work — see docs/git-flow.md.
+const branch = capture("git rev-parse --abbrev-ref HEAD");
+if (branch !== "master") {
+  die(`Releases are cut from master. You are on "${branch}".\n` +
+      `    git checkout master && git merge ${branch}`);
+}
+
+// 2. Working tree must be clean of TRACKED changes (untracked scratch files are fine).
 const dirty = capture("git status --porcelain --untracked-files=no");
 if (dirty) die(`Working tree has uncommitted changes — commit or stash them first:\n${dirty}`);
 
-// 2. The tag must not already exist locally.
+// 3. The tag must not already exist locally.
 if (capture(`git tag --list ${version}`)) {
   die(`Tag ${version} already exists. Pick a new version, or remove it first:\n` +
       `    git tag -d ${version} && git push origin :refs/tags/${version}`);
 }
 
-// 3. Bump system.json version (targeted single-line replace, so the diff stays minimal).
+// 4. Show what is about to ship. A forgotten merge shows up here as an empty list,
+//    which is far cheaper to notice now than after the tag exists.
+const lastTag = capture("git tag --sort=-v:refname").split("\n")[0];
+if (lastTag) {
+  const log = capture(`git log --oneline ${lastTag}..HEAD`);
+  console.log(`\nShipping since ${lastTag}:`);
+  console.log(log ? log.split("\n").map((l) => `  ${l}`).join("\n") : "  (nothing — no commits since that tag)");
+  console.log("");
+}
+
+// 5. Bump system.json version (targeted single-line replace, so the diff stays minimal).
 const sysPath = path.join(ROOT, "system.json");
 const before = fs.readFileSync(sysPath, "utf8");
 const after = before.replace(/("version"\s*:\s*")[^"]*(")/, `$1${version}$2`);
@@ -69,4 +90,7 @@ Next:
   2. Verify the install manifest returns 200:
      https://github.com/<owner>/<repo>/releases/latest/download/system.json
   3. (Optional) add release notes on the GitHub release; rebuilds preserve them.
+  4. Sync the development branch, or the next merge conflicts on the version bump
+     this commit just made:
+         git checkout dev && git merge master && git push origin dev
 `);
