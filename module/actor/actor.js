@@ -385,10 +385,12 @@ export class CairnActor extends Actor {
     if (this.type !== "container" || this.system.keeper == "") return;
     const keeper = game.actors.find((a) => a.uuid == this.system.keeper);
     if (!keeper) return;
-    if (keeper.sheet._state > 0) {
-      // sheet visible
-      keeper.sheet.render(false);
-    }
+    // ClientDocument#render re-renders only the applications actually open for
+    // this document -- the same swap already made in _onDelete below. The old
+    // `keeper.sheet._state > 0` probe read a private member AND constructed a
+    // sheet as a side effect, because `.sheet` is a lazily-constructing getter:
+    // asking "is the sheet open?" built one for every keeper that had none.
+    keeper.render(false);
   }
 
   /** @override */

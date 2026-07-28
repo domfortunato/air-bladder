@@ -547,10 +547,13 @@ const pickJsonFileText = () =>
       reader.onerror = () => finish(null);
       reader.readAsText(file);
     });
+    // Cancelling the OS dialog fires `cancel` on the input (Chromium 113+, which
+    // covers every Foundry v14 client). Without it the promise stayed pending
+    // forever and the detached input was never collected -- harmless in practice,
+    // but it meant "cancel" and "still choosing" were indistinguishable, so a
+    // caller could never tell the two apart.
+    input.addEventListener("cancel", () => finish(null));
     input.click();
-    // If the OS picker is cancelled there is no reliable event; the promise simply
-    // stays pending (no actor is created, the hidden input is already detached on
-    // any later resolve). Harmless for a one-shot GM action.
   });
 
 /**
