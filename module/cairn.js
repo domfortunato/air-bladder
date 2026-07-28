@@ -238,25 +238,44 @@ Hooks.once("ready", async () => {
   if (!game.user.isGM) return;
   if (game.users.activeGM && game.users.activeGM !== game.user) return;
 
-  const updates = game.actors
-    .filter((a) => a.type === "container" && LEGACY_CONTAINER_ART.has(a.img))
-    .map((a) => {
-      const art = iconForTransport(a.name, a.system?.transportKind);
-      return { _id: a.id, img: art, "prototypeToken.texture.src": art };
-    });
-  if (updates.length) {
-    await Actor.updateDocuments(updates);          // one batch, so it can't half-finish
-    console.log(`Air Bladder | remapped ${updates.length} container(s) to class icons`);
-  }
+  // Each phase is isolated, because Foundry cannot catch a failure here for us:
+  // Hooks.#call wraps a hook callback in a SYNCHRONOUS try/catch, so a rejected
+  // promise from an async callback escapes it entirely. Unguarded, one bad document
+  // in a migration became a bare unhandled rejection AND silently skipped every phase
+  // after it — custom portraits would simply stop working with no visible cause and
+  // nothing in the log tying it to the migration. Failing one phase must not cost the
+  // others; all three are independent.
+  const phase = async (label, fn) => {
+    try {
+      await fn();
+    } catch (err) {
+      console.error(`Air Bladder | ${label} failed (continuing):`, err);
+    }
+  };
 
-  await migrateIconsToSvg();
+  await phase("container art migration", async () => {
+    const updates = game.actors
+      .filter((a) => a.type === "container" && LEGACY_CONTAINER_ART.has(a.img))
+      .map((a) => {
+        const art = iconForTransport(a.name, a.system?.transportKind);
+        return { _id: a.id, img: art, "prototypeToken.texture.src": art };
+      });
+    if (updates.length) {
+      await Actor.updateDocuments(updates);        // one batch, so it can't half-finish
+      console.log(`Air Bladder | remapped ${updates.length} container(s) to class icons`);
+    }
+  });
+
+  await phase("icon .png -> .svg migration", migrateIconsToSvg);
 
   // Custom character portraits: make sure the GM's folder exists, then refresh the
   // cached image list so players (who cannot scan folders) see the current set.
   // Both are non-fatal — a host that forbids folder ops just leaves the pool empty
   // and generation falls back to the shipped art.
-  await characterGenerator.ensureCustomPortraitFolder();
-  await characterGenerator.refreshCustomPortraits();
+  await phase("custom portrait folder", async () => {
+    await characterGenerator.ensureCustomPortraitFolder();
+    await characterGenerator.refreshCustomPortraits();
+  });
 });
 
 /**
