@@ -21,7 +21,8 @@
     "i18n:check": "node tools/i18n/check.mjs",
     "release": "node tools/release.mjs",
     "dev:enc-damage": "node tools/dev/e2e-encumbered-damage.mjs",
-    "dev:data-model": "node tools/dev/e2e-data-model.mjs"
+    "dev:data-model": "node tools/dev/e2e-data-model.mjs",
+    "dev:content-overlay": "node tools/dev/e2e-content-overlay.mjs"
   },
   "browserslist": [
     "last 3 versions"

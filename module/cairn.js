@@ -95,23 +95,30 @@ Hooks.on("renderCompendium", (app, html) => {
 });
 
 // Table draws to chat: localize the drawn result text into the active language.
-// Table-agnostic and synchronous (preCreateChatMessage isn't awaited) — it matches
-// each rendered result cell against the table.result overlay with English fallback,
-// so it covers EVERY draw path (world tables, compendium tables, our own draws in
-// damage.js, and a Warden rolling a pack table by hand) without resolving the source
-// table. An enriched result (e.g. an @UUID link) whose rendered HTML no longer equals
-// its raw key simply misses and stays English — the same graceful degradation as the
-// rest of the overlay. The .table-results markup is unique to RollTable draw cards,
-// so non-draw messages (damage, saves) are never touched. See i18n-content.js.
-Hooks.on("preCreateChatMessage", (message, data) => {
+//
+// RENDER-TIME, NOT CREATE-TIME. This rewrites the already-rendered DOM of one
+// client's chat card and never touches the ChatMessage document. That is the whole
+// point: the stored message stays English, so a reader sees the draw in THEIR
+// language (Foundry's language setting is client-scoped, so mixed-language tables
+// are normal), the log re-localizes for free if a world switches language, and
+// messages this system did not author — core's own RollTable#draw cards, other
+// modules' draws — are only ever restyled locally, never permanently modified.
+// Doing this in preCreateChatMessage instead (via updateSource) baked the roller's
+// language into the stored document, breaking the display-only invariant that
+// i18n-content.js:10-11 states.
+//
+// Table-agnostic: it matches each rendered result cell against the table.result
+// overlay with English fallback, so it covers EVERY draw path (world tables,
+// compendium tables, our own draws in damage.js, and a Warden rolling a pack table
+// by hand) without resolving the source table. An enriched result (e.g. an @UUID
+// link) whose rendered HTML no longer equals its raw key simply misses and stays
+// English — the same graceful degradation as the rest of the overlay. The
+// .table-results markup is unique to RollTable draw cards, so non-draw messages
+// (damage, saves) are never touched. See i18n-content.js.
+const localizeTableResults = (root) => {
   if (!contentLocalized()) return;
-  const content = message.content ?? data?.content ?? "";
-  if (!content.includes("table-results")) return;
-  const el = document.createElement("div");
-  el.innerHTML = content;
-  const cells = el.querySelectorAll(".table-results li");
-  if (!cells.length) return;
-  let changed = false;
+  const cells = root?.querySelectorAll?.(".table-results li");
+  if (!cells?.length) return;
   const swap = (node, html) => {
     // Read the whole cell (text-type results land in .description, sometimes .name),
     // look it up as a table.result, and write the translation back if there is one.
@@ -123,7 +130,6 @@ Hooks.on("preCreateChatMessage", (message, data) => {
     const es = translationOf("table.result", en);
     if (es === undefined || es === en) return;
     if (html) node.innerHTML = es; else node.textContent = es;
-    changed = true;
   };
   for (const li of cells) {
     const nameEl = li.querySelector("strong.name, .name");
@@ -131,8 +137,7 @@ Hooks.on("preCreateChatMessage", (message, data) => {
     const descEl = li.querySelector(".description");
     if (descEl) swap(descEl, true);
   }
-  if (changed) message.updateSource({ content: el.innerHTML });
-});
+};
 
 // Cairn calls the Game Master the "Warden". When the setting is on, override
 // the localized GM role labels before any UI that reads them renders (Players
@@ -360,6 +365,9 @@ Hooks.on("renderActorDirectory", (app, html) => {
 });
 
 Hooks.on("renderChatMessageHTML", (message, html, data) => {
+  // Display-only content overlay for RollTable draw cards (see above).
+  localizeTableResults(html);
+
   // Roll Str Save
   const token = canvas?.scene?.tokens?.get(message.speaker?.token);
 

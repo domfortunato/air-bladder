@@ -1,6 +1,6 @@
 import { findCompendiumItem } from "./compendium.js";
 import { iconForTransport } from "./icons.js";
-import { localizeNameDesc } from "./i18n-content.js";
+import { localizeNameDesc, t } from "./i18n-content.js";
 
 /**
  * The marketplace: a shop dialog a character opens from their Inventory tab.
@@ -49,7 +49,10 @@ const ownedPayload = (doc) => ({
 /**
  * Read the marketplace pack into shopper-facing categories. Each category's items
  * are owned-item payloads resolved from that table's pack results, in table order.
- * @returns {Promise<{categories: {name:string, items:object[]}[]}>}
+ *
+ * `name` is the ENGLISH identity (callers filter on it via opts.only/opts.exclude,
+ * and CATEGORY_ORDER sorts by it); `label` is what a heading should render.
+ * @returns {Promise<{categories: {name:string, label:string, items:object[]}[]}>}
  */
 export const getMarketplaceCatalog = async () => {
   const pack = game.packs.get(MARKETPLACE_PACK);
@@ -61,6 +64,13 @@ export const getMarketplaceCatalog = async () => {
     const i = CATEGORY_ORDER.indexOf(stripPrefix(name));
     return i === -1 ? CATEGORY_ORDER.length : i;
   };
+  // The heading's translation key is the table's FULL document name ("Market:
+  // Weapons") — that is what the content extractor emits under table.name, so
+  // stripping first would leave a translator holding a key ("Weapons") the overlay
+  // never produces. Translate, then strip. The strip is generic because a
+  // translated prefix is not "Market:" ("Mercado:", …); a translation carrying no
+  // prefix at all is left whole, and a miss degrades to the English behaviour.
+  const displayName = (fullName) => t("table.name", fullName).replace(/^[^:]+:\s*/, "").trim();
   tables.sort((a, b) => orderOf(a.name) - orderOf(b.name) || a.name.localeCompare(b.name));
 
   const categories = [];
@@ -72,7 +82,7 @@ export const getMarketplaceCatalog = async () => {
       const doc = await findCompendiumItem(result.documentCollection, result.text);
       if (doc) items.push(ownedPayload(doc));
     }
-    if (items.length) categories.push({ name: stripPrefix(table.name), items });
+    if (items.length) categories.push({ name: stripPrefix(table.name), label: displayName(table.name), items });
   }
   return { categories };
 };
@@ -279,7 +289,7 @@ export const openMarketplace = async (actor, opts = {}) => {
       const metaHtml = `<span class="mkt-slots">${slots} ${esc(labelFor(slots))}</span>`;
       return rowHtml({ idx, cost: data.system.cost ?? 0, name: d.name, tagsHtml: tags, metaHtml, descHtml: descHtmlOf(d.system.description) });
     }).join("");
-    return `<div class="mkt-cat"><div class="mkt-cat-name">${esc(cat.name)}</div>${rows}</div>`;
+    return `<div class="mkt-cat"><div class="mkt-cat-name">${esc(cat.label ?? cat.name)}</div>${rows}</div>`;
   }).join("");
 
   const content = `<div class="marketplace">

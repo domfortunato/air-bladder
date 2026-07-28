@@ -5,6 +5,7 @@ import { evaluateFormula } from "./utils.js";
 import { resolveGearItem, SPELL_PACKS, GEAR_ALIASES, spellScrollItem } from "./gear.js";
 import { iconForTransport } from "./icons.js";
 import { SETTINGS_NS } from "./settings.js";
+import { t } from "./i18n-content.js";
 
 // Foundry validates a document flag's scope against real package ids, so flags
 // use the system id "air-bladder" (NOT the internal "cairn" JS/settings namespace,
@@ -703,7 +704,7 @@ export const generate2eCharacter = async (chosenBg = null) => {
   const pack = game.packs.get("air-bladder.backgrounds-2e");
   const backgrounds = pack ? await pack.getDocuments() : [];
   if (!chosenBg && !backgrounds.length) {
-    ui.notifications?.warn("No 2e backgrounds are installed.");
+    ui.notifications?.warn(game.i18n.localize("CAIRN.NoBackgrounds2e"));
     return null;
   }
   // A chosen background (from a picker / persisted across regenerate) is used
@@ -975,7 +976,7 @@ export const resolveStartingGear = async (bg, avoid = new Set()) => {
 export const generateBarebonesCharacter = async (chosenBg = null) => {
   const backgrounds = await getBarebonesBackgrounds();
   if (!chosenBg && !backgrounds.length) {
-    ui.notifications?.warn("No Barebones backgrounds are installed.");
+    ui.notifications?.warn(game.i18n.localize("CAIRN.NoBackgroundsBarebones"));
     return null;
   }
   const bg = chosenBg ?? backgrounds[Math.floor(Math.random() * backgrounds.length)];
@@ -1240,11 +1241,30 @@ export const getBackgroundsByArchetype = async (source) => {
  * @returns {String}
  */
 export const backgroundTagline = (bg) => {
-  const text = String(bg.system?.description ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  // Display-only, so everything here goes through the overlay: the first sentence
+  // is taken from the TRANSLATED description (a first sentence sliced off English
+  // and then looked up would never match a key), and gear names use the same
+  // item.name namespace the inventory does.
+  const text = t("bg.desc", String(bg.system?.description ?? "")).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
   if (text) return (text.match(/^.*?[.!?](\s|$)/)?.[0] ?? text).trim();
-  const gear = (bg.system?.startingGear ?? []).map((g) => g.name);
-  const carried = (bg.system?.containers ?? []).map((c) => `${c.name} (+${c.slots} slots)`);
+  const slots = game.i18n.localize("CAIRN.Slots").toLowerCase();
+  const gear = (bg.system?.startingGear ?? []).map((g) => t("item.name", g.name));
+  const carried = (bg.system?.containers ?? []).map((c) => `${t("item.name", c.name)} (+${c.slots} ${slots})`);
   return [...gear, ...carried].join(", ");
+};
+
+/**
+ * Display label for an archetype. The stored value is the English identity (it
+ * groups and sorts, and a Warden-authored background may carry anything), so it is
+ * translated only on the way to the screen, falling back to the raw string for a
+ * custom archetype that has no key.
+ * @param {String} archetype
+ * @returns {String}
+ */
+const archetypeLabel = (archetype) => {
+  const key = `CAIRN.Archetype.${archetype}`;
+  const hit = game.i18n.localize(key);
+  return hit === key ? archetype : hit;
 };
 
 /** Escape for interpolation into the picker's HTML. */
@@ -1276,11 +1296,13 @@ export const promptBackground = async (source, currentUuid = null) => {
     <span class="bg-pick-name"><i class="fas fa-dice"></i> ${game.i18n.localize("CAIRN.RandomBackground")}</span></label>`;
   const descs = {};
   for (const g of groups) {
-    if (g.archetype) list += `<div class="bg-pick-group">${bgEsc(g.archetype)}</div>`;
+    if (g.archetype) list += `<div class="bg-pick-group">${bgEsc(archetypeLabel(g.archetype))}</div>`;
     for (const bg of g.backgrounds) {
-      descs[bg.uuid] = bg.system.description ?? "";
+      // Display-only, exactly as the sheet renders the same two fields — the radio
+      // VALUE stays the uuid, so what gets chosen is unaffected by language.
+      descs[bg.uuid] = t("bg.desc", bg.system.description ?? "");
       list += `<label class="bg-pick-row"><input type="radio" name="bg" value="${bg.uuid}"${bg.uuid === currentUuid ? " checked" : ""}>
-        <span class="bg-pick-name">${bgEsc(bg.name)}</span>
+        <span class="bg-pick-name">${bgEsc(t("bg.name", bg.name))}</span>
         <span class="bg-pick-tag">${bgEsc(backgroundTagline(bg))}</span></label>`;
     }
   }
@@ -1350,9 +1372,11 @@ export const promptFailedCareer = async (currentName = null) => {
     <span class="bg-pick-name"><i class="fas fa-dice"></i> ${game.i18n.localize("CAIRN.RandomBackground")}</span></label>`;
   for (const bg of sorted) {
     // Show the career's gear so the player can see what the keepsake item might be.
-    const gear = (bg.system?.startingGear ?? []).map((g) => bgEsc(g.name)).join(", ");
+    const gear = (bg.system?.startingGear ?? []).map((g) => bgEsc(t("item.name", g.name))).join(", ");
+    // Display-only: the radio VALUE keeps the English name (it is what gets stored
+    // as the failed career), only the visible label is localized.
     list += `<label class="bg-pick-row"><input type="radio" name="bg" value="${bgEsc(bg.name)}"${bg.name === currentName ? " checked" : ""}>
-      <span class="bg-pick-name">${bgEsc(bg.name)}</span>${gear ? `<span class="bg-pick-tag">${gear}</span>` : ""}</label>`;
+      <span class="bg-pick-name">${bgEsc(t("bg.name", bg.name))}</span>${gear ? `<span class="bg-pick-tag">${gear}</span>` : ""}</label>`;
   }
 
   return new Promise((resolve) => {

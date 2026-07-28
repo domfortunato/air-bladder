@@ -7,6 +7,40 @@ import { localizeNameDesc, t } from "../i18n-content.js";
 import { FATIGUE_NAME } from "../item/item.js";
 
 /**
+ * Memoized compendium reads for the sheet's static pick-lists (traits, scars, omens).
+ *
+ * `getData` runs on EVERY render, and AppV1 sets `submitOnChange: true` — so every
+ * field edit, every item add/remove and every damage application re-read a pack and
+ * constructed all 11 tables-2e RollTables from scratch. That is the cold-pack stall
+ * the header-button workaround further down already documents.
+ *
+ * These are shipped tables that do not change during play. The hooks below cover the
+ * one case that isn't true: a Warden unlocking the pack and editing a table.
+ *
+ * The PROMISE is cached, so concurrent renders share a single round-trip, and what
+ * it resolves to is the RAW documents — translation stays per-render, so switching
+ * language still re-localizes for free.
+ */
+const PACK_DOC_CACHE = new Map();
+
+const cachedPackDocuments = (packName) => {
+  if (!PACK_DOC_CACHE.has(packName)) {
+    const pack = game.packs.get(packName);
+    // Drop a rejection rather than caching it forever; the caller sees the same
+    // error it would have seen before, and the next render retries.
+    const p = pack
+      ? pack.getDocuments().catch((err) => { PACK_DOC_CACHE.delete(packName); throw err; })
+      : Promise.resolve([]);
+    PACK_DOC_CACHE.set(packName, p);
+  }
+  return PACK_DOC_CACHE.get(packName);
+};
+
+for (const hook of ["createRollTable", "updateRollTable", "deleteRollTable"]) {
+  Hooks.on(hook, () => PACK_DOC_CACHE.clear());
+}
+
+/**
  * Extend the basic ActorSheet with some very simple modifications
  * @extends {ActorSheet}
  */
@@ -123,7 +157,7 @@ export class CairnActorSheet extends foundry.appv1.sheets.ActorSheet {
       const byPack = {};
       for (const ref of Object.values(mapping)) {
         const [packName] = ref.split(";");
-        if (!(packName in byPack)) byPack[packName] = game.packs.get(packName) ? await game.packs.get(packName).getDocuments() : [];
+        if (!(packName in byPack)) byPack[packName] = await cachedPackDocuments(packName);
       }
       data.traitRows = Object.entries(mapping).map(([key, ref]) => {
         const [packName, tableName] = ref.split(";");
@@ -156,11 +190,7 @@ export class CairnActorSheet extends foundry.appv1.sheets.ActorSheet {
       // Scars pick-list from the same tables-2e pack. Neither Omen nor Scar is
       // generated: a player ticks the field's checkbox to enable it, then rolls
       // (Omen) or checks scars. Both are descriptive only.
-      const tables2e =
-        byPack["air-bladder.tables-2e"] ??
-        (game.packs.get("air-bladder.tables-2e")
-          ? await game.packs.get("air-bladder.tables-2e").getDocuments()
-          : []);
+      const tables2e = byPack["air-bladder.tables-2e"] ?? (await cachedPackDocuments("air-bladder.tables-2e"));
       const scarTable = tables2e.find((t) => t.name === "Scars");
       const selectedScars = this.actor.system.scars ?? [];
       data.scarOptions = scarTable
@@ -634,8 +664,7 @@ export class CairnActorSheet extends foundry.appv1.sheets.ActorSheet {
   async _onRollOmen(event) {
     event.preventDefault();
     if (!this.actor.system.omenEnabled) return;
-    const pack = game.packs.get("air-bladder.tables-2e");
-    const tables = pack ? await pack.getDocuments() : [];
+    const tables = await cachedPackDocuments("air-bladder.tables-2e");
     const omenTable = tables.find((t) => t.name === "Omens");
     if (!omenTable) {
       ui.notifications.warn(game.i18n.localize("CAIRN.OmenTableMissing"));
