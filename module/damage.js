@@ -154,7 +154,16 @@ export class Damage {
     }
 
     static async _rollScarsTable(damage) {
+        // findCompendiumItem resolves to undefined on a miss (it only warns to the
+        // console), so this dereference used to throw mid-damage-resolution if the
+        // pack were absent, renamed, or the table deleted from the world copy.
+        // Failing loudly but harmlessly is right here: the Warden asked for a scar
+        // and needs to know it did not happen.
         const table = await findCompendiumItem("air-bladder.utils", "Scars");
+        if (!table) {
+            ui.notifications?.warn(game.i18n.localize("CAIRN.Notify.NoScarsTable"));
+            return;
+        }
         const roll = new Roll(damage.toString());
         await table.draw({ roll });
     }

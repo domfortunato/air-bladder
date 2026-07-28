@@ -192,7 +192,8 @@
     "ContainerNoPermission": "You can't attach {name} — you don't have permission to change it. Ask the Warden.",
     "ContainerLinkFailed": "Couldn't attach {name}; nothing was changed.",
     "NoActorCreate": "Only the Warden can create containers and transports.",
-    "NoContainerRegen": "Regenerating this character could add or remove a container (a mount, cart or pack), which only the Warden can do — ask them to re-roll it for you."
+    "NoContainerRegen": "Regenerating this character could add or remove a container (a mount, cart or pack), which only the Warden can do — ask them to re-roll it for you.",
+    "NoScarsTable": "The Scars table is missing from the compendium — roll the scar by hand."
   },
   "CAIRN.Marketplace": "Marketplace",
   "CAIRN.TransportMarketTitle": "Transports & Containers",
