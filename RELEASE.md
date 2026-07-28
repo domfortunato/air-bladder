@@ -33,6 +33,10 @@ source, so the mirror carries it to GitHub and protects it.
 Work lives on `dev`; `master` is the released state. A release is a merge plus a
 tag — see [docs/git-flow.md](docs/git-flow.md).
 
+**Run the pre-release checks first** — the full list is
+[docs/release-testing.md](docs/release-testing.md). Do it on `dev`, before the merge,
+while a failure is still cheap to fix.
+
 1. Merge the work into `master` and make sure it is current:
    ```bash
    git checkout master && git pull && git merge dev
