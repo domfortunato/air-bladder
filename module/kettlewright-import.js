@@ -1,5 +1,6 @@
 import { resolveGearItem, buildGearItem } from "./gear.js";
 import { getBackgroundsFor, withGrantSource, randomPortraitPair, FLAG_SCOPE } from "./character-generator.js";
+import { SETTINGS_NS } from "./settings.js";
 import { CairnActor } from "./actor/actor.js";
 import { Cairn } from "./config.js";
 
@@ -439,6 +440,16 @@ export const kettlewrightToActorData = async (json) => {
     const parsed = parseTraitSentence(traitText);
     traits = { ...parsed.traits, ...(await resolveVirtueVice(parsed.pair)) };
     age = parsed.age;
+    // The Warden's "min-age" floor applies to an imported character too. Generation
+    // enforces it in rollAge; an import bypasses that entirely, so a Kettlewright
+    // character could walk in younger than the setting allows. An age we could not
+    // parse is left blank rather than invented — unknown is not the same as young.
+    const floor = Number(game.settings.get(SETTINGS_NS, "min-age")) || 0;
+    const parsedAge = parseInt(age, 10);
+    if (Number.isFinite(parsedAge) && parsedAge < floor) {
+      report.ageRaised = { from: parsedAge, to: floor };
+      age = String(floor);
+    }
     report.traits = Object.keys(traits).length;
     report.age = age;
     if (!report.traits && !age) {
@@ -553,12 +564,10 @@ const showImportSummary = async (actor, report) => {
   const F = (k, d) => game.i18n.format(k, d);
   const parts = [];
 
+  // Only a matched background reaches here — importKettlewrightCharacter refuses
+  // the import otherwise, so there is no "unmatched" case left to render.
   if (report.background) {
-    parts.push(
-      report.background.matched
-        ? `<p class="kwi-ok"><i class="fas fa-check"></i> ${F("CAIRN.KWImport.BgMatched", { name: esc(report.background.name) })}</p>`
-        : `<p class="kwi-warn"><i class="fas fa-circle-exclamation"></i> ${F("CAIRN.KWImport.BgUnmatched", { name: esc(report.background.name) })}</p>`
-    );
+    parts.push(`<p class="kwi-ok"><i class="fas fa-check"></i> ${F("CAIRN.KWImport.BgMatched", { name: esc(report.background.name) })}</p>`);
   }
 
   parts.push(`<p>${F("CAIRN.KWImport.ItemCounts", { matched: report.matched.length, fallback: report.fallback.length, fatigue: report.fatigue })}</p>`);
@@ -578,6 +587,10 @@ const showImportSummary = async (actor, report) => {
     parts.push(`<p class="kwi-warn"><i class="fas fa-circle-exclamation"></i> ${L("CAIRN.KWImport.TraitsUnparsed")}</p>`);
   } else if (report.traits) {
     parts.push(`<p class="kwi-ok"><i class="fas fa-check"></i> ${F("CAIRN.KWImport.TraitsMapped", { count: report.traits, age: esc(report.age) || "—" })}</p>`);
+  }
+  // Say so when the age on the sheet is not the age in the export.
+  if (report.ageRaised) {
+    parts.push(`<p class="kwi-warn"><i class="fas fa-circle-exclamation"></i> ${F("CAIRN.KWImport.AgeRaised", report.ageRaised)}</p>`);
   }
 
   const dialog = new foundry.applications.api.DialogV2({
@@ -642,6 +655,25 @@ export const importKettlewrightCharacter = async () => {
     return null;
   }
   const { data, report } = await kettlewrightToActorData(json);
+
+  // Refuse rather than half-import. Without a matching background there is no
+  // question list, so the answers stay an undifferentiated blob in Notes and none
+  // of the items a question granted can be traced to it — the character arrives
+  // looking complete while quietly missing the things that make it re-rollable.
+  // A named background nobody has is usually a Kettlewright custom one: the fix is
+  // to author it here (Custom Backgrounds) and import again, which is why the
+  // message names it.
+  if (!report.background?.matched) {
+    const name = report.background?.name;
+    ui.notifications.error(
+      name
+        ? game.i18n.format("CAIRN.KWImport.BgNoMatch", { name })
+        : game.i18n.localize("CAIRN.KWImport.BgMissing"),
+      { permanent: true },
+    );
+    return null;
+  }
+
   const actor = await CairnActor.create(data);
   if (actor) await showImportSummary(actor, report);
   return actor;
