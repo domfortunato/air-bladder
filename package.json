@@ -29,7 +29,8 @@
     "dev:portrait-folder": "node tools/dev/e2e-portrait-folder.mjs",
     "dev:directory-buttons": "node tools/dev/e2e-directory-buttons.mjs",
     "dev:warden-rename": "node tools/dev/e2e-warden-rename.mjs",
-    "dev:icons": "node tools/dev/e2e-icons.mjs"
+    "dev:icons": "node tools/dev/e2e-icons.mjs",
+    "dev:icon-canvas": "node tools/dev/e2e-icon-migration-canvas.mjs"
   },
   "browserslist": [
     "last 3 versions"
