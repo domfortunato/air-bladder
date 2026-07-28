@@ -27,3 +27,6 @@ node_modules/
 # things that turned out wrong, licensing caveats — that are useful locally and
 # not something to publish.
 /CLAUDE.md
+
+# Staging area for replacement token art (tools/import/tokens-from-png.mjs)
+new-tokens/
