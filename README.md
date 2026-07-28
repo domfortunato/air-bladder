@@ -24,7 +24,7 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 
 - Random or manual generation of both Cairn 2e and Cairn Barebones characters — each style can be toggled on or off
 - Barebones sheets support optional homebrew features
-- Warden-authored custom 2e backgrounds — create, preview/lint, and [share them across worlds](docs/sharing-custom-backgrounds.md)
+- Warden-authored custom 2e backgrounds — create, preview/lint, and [share them across worlds](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md)
 - Random or manual generation of hireling sheets
 - Tooltips for players
 - Marketplace and containers
@@ -36,15 +36,15 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 
 <table>
   <tr>
-    <td><img src="docs/images/sheet-items.png" alt="Character sheet — Items tab" width="250"></td>
-    <td><img src="docs/images/sheet-description.png" alt="Character sheet — Description tab" width="250"></td>
-    <td><img src="docs/images/sheet-background-notes.png" alt="Character sheet — Background & Notes tab" width="250"></td>
+    <td><img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/sheet-items.png" alt="Character sheet — Items tab" width="250"></td>
+    <td><img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/sheet-description.png" alt="Character sheet — Description tab" width="250"></td>
+    <td><img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/sheet-background-notes.png" alt="Character sheet — Background & Notes tab" width="250"></td>
   </tr>
 </table>
 
 *The character sheet — Items, Description, and Background & Notes tabs. The red banner is the automatic **Critical Damage** condition, shown when STR is damaged.*
 
-<img src="docs/images/game-settings.png" alt="The Warden's game settings" width="480">
+<img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/game-settings.png" alt="The Warden's game settings" width="480">
 
 *The Warden's game settings, grouped by section.*
 
@@ -60,7 +60,7 @@ Danish, French, German, Polish and Brazilian Portuguese interface files are inhe
 
 The tooling is language-agnostic (`--lang <code>` throughout), so a new language needs no code changes — only a translator.
 
-**Translators welcome** — see [docs/TRANSLATING.md](docs/TRANSLATING.md) for the no-coding workflow, or [docs/translating-self-service.md](docs/translating-self-service.md) if you'd rather work in git.
+**Translators welcome** — see [docs/TRANSLATING.md](https://github.com/domfortunato/air-bladder/blob/master/docs/TRANSLATING.md) for the no-coding workflow, or [docs/translating-self-service.md](https://github.com/domfortunato/air-bladder/blob/master/docs/translating-self-service.md) if you'd rather work in git.
 
 ## Installation (manual)
 

@@ -40,7 +40,7 @@ Air Bladder es un sistema complementario amigable, no el sistema oficial de Cair
 
 - Generación aleatoria o manual de personajes tanto de Cairn 2e como de Cairn Barebones; cada estilo se puede activar o desactivar.
 - Las hojas Barebones admiten funciones caseras (homebrew) opcionales.
-- Trasfondos personalizados de 2e creados por el Custodio: créalos, previsualízalos, revísalos y [compártelos entre mundos](docs/sharing-custom-backgrounds.md).
+- Trasfondos personalizados de 2e creados por el Custodio: créalos, previsualízalos, revísalos y [compártelos entre mundos](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md).
 - Generación aleatoria o manual de hojas de asalariados.
 - Ayudas contextuales para jugadores.
 - Mercado y contenedores.
@@ -52,15 +52,15 @@ Air Bladder es un sistema complementario amigable, no el sistema oficial de Cair
 
 <table>
   <tr>
-    <td><img src="docs/images/sheet-items.png" alt="Hoja de personaje — pestaña de Objetos" width="250"></td>
-    <td><img src="docs/images/sheet-description.png" alt="Hoja de personaje — pestaña de Descripción" width="250"></td>
-    <td><img src="docs/images/sheet-background-notes.png" alt="Hoja de personaje — pestaña de Trasfondo y notas" width="250"></td>
+    <td><img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/sheet-items.png" alt="Hoja de personaje — pestaña de Objetos" width="250"></td>
+    <td><img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/sheet-description.png" alt="Hoja de personaje — pestaña de Descripción" width="250"></td>
+    <td><img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/sheet-background-notes.png" alt="Hoja de personaje — pestaña de Trasfondo y notas" width="250"></td>
   </tr>
 </table>
 
 *La hoja de personaje: pestañas de Objetos, Descripción, y Trasfondo y notas. La franja roja es la condición automática de **Daño Crítico**, que aparece cuando la FUE recibe daño.*
 
-<img src="docs/images/game-settings.png" alt="La configuración de juego del Custodio" width="480">
+<img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/game-settings.png" alt="La configuración de juego del Custodio" width="480">
 
 *La configuración de juego del Custodio, agrupada por secciones.*
 
@@ -76,7 +76,7 @@ Los archivos de interfaz en alemán, danés, francés, polaco y portugués de Br
 
 Las herramientas son independientes del idioma (`--lang <código>` en todas), así que un idioma nuevo no requiere ningún cambio de código: solo un traductor.
 
-**Traductores bienvenidos** — consulta [docs/TRANSLATING.md](docs/TRANSLATING.md) (en inglés) para el flujo sin programación, o [docs/translating-self-service.md](docs/translating-self-service.md) si prefieres trabajar con git.
+**Traductores bienvenidos** — consulta [docs/TRANSLATING.md](https://github.com/domfortunato/air-bladder/blob/master/docs/TRANSLATING.md) (en inglés) para el flujo sin programación, o [docs/translating-self-service.md](https://github.com/domfortunato/air-bladder/blob/master/docs/translating-self-service.md) si prefieres trabajar con git.
 
 ## Instalación (manual)
 
