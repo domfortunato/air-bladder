@@ -73,6 +73,12 @@ The tooling is language-agnostic (`--lang <code>` throughout), so a new language
 
 For development, clone this repo into `Data/systems/air-bladder` (a directory junction works), run `npm install`, then `npm run build:packs` before launching Foundry. `npm run dev:smoke` drives a headless load as a sanity check.
 
+To try **unreleased** work, clone the `dev` branch instead — that is where everything in progress lives. The `npm run build:packs` step is required either way: the compendium packs are generated from `src/packs/` and are not stored in git, so an unbuilt clone loads with every compendium empty.
+
+## Contributing
+
+Pull requests welcome — open them against **`dev`**, not `master`. See [CONTRIBUTING.md](https://github.com/domfortunato/air-bladder/blob/master/CONTRIBUTING.md) for the details, and [docs/git-flow.md](https://github.com/domfortunato/air-bladder/blob/master/docs/git-flow.md) for how branches and releases work here.
+
 ## AI Disclosure
 
 **Generative-AI art will never appear in this repo — ever.** The code, on the other hand, was written entirely with [Claude Code](https://www.anthropic.com/claude-code), using Yochai Gal's original Cairn repo as a base.
