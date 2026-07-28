@@ -72,7 +72,20 @@ const r = await page.evaluate(async () => {
       img.onerror = () => done(false);
       img.src = `/${src}`;
     });
-    checked.push({ src, status: res?.status ?? 0, svg: body.trimStart().startsWith("<svg"), renders });
+    // An SVG with only a viewBox has NO intrinsic size, so it rasterises at the
+    // browser's 300x150 fallback — a token drew at 150x150 where its PNG had been
+    // 512x512. naturalWidth is how that shows up: it reports the RASTER size, so
+    // it is the one number that catches a soft token before a player does.
+    const natural = await new Promise((done) => {
+      const img = new Image();
+      img.onload = () => done(img.naturalWidth);
+      img.onerror = () => done(0);
+      img.src = `/${src}`;
+    });
+    checked.push({
+      src, status: res?.status ?? 0, svg: body.trimStart().startsWith("<svg"), renders, natural,
+      sized: /<svg[^>]*\swidth="\d+"/.test(body),
+    });
   }
   return { stale, checked };
 });
@@ -95,6 +108,16 @@ const notRendered = r.checked.filter((c) => !c.renders);
 notRendered.length === 0
   ? ok("every icon decodes and renders in the browser")
   : fail(`did not render: ${notRendered.map((n) => n.src).join(", ")}`);
+
+const unsized = r.checked.filter((c) => c.status === 200 && !c.sized);
+unsized.length === 0
+  ? ok("every icon declares an intrinsic width/height")
+  : fail(`no width/height (will rasterise at the 300x150 fallback): ${unsized.map((n) => n.src).join(", ")}`);
+
+const small = r.checked.filter((c) => c.renders && c.natural < 512);
+small.length === 0
+  ? ok(`every icon rasterises at full size (${r.checked[0]?.natural}px)`)
+  : fail(`rasterised below 512px: ${small.map((n) => `${n.src} (${n.natural}px)`).join(", ")}`);
 
 /* --- 4. the migration itself, on a document planted with the OLD path ------- */
 

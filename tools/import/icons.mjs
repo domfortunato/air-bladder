@@ -52,13 +52,32 @@ const ICONS = {
 // CSS expects; the system never recolours them.
 const url = (author, slug) => `https://game-icons.net/icons/ffffff/000000/1x1/${author}/${slug}.svg`;
 
+/**
+ * game-icons.net ships `<svg viewBox="0 0 512 512">` with NO width/height, so the
+ * file has no intrinsic size. An SVG without one is rasterised at the browser's
+ * fallback (300x150), which Foundry then squares off — a token drew at 150x150
+ * where the PNG it replaced was 512x512, i.e. visibly soft the moment anyone
+ * zoomed in. Caught on the canvas during the 0.1.6 upgrade test; nothing that
+ * only fetches or decodes the file can see it.
+ *
+ * Stamp the viewBox's own dimensions in. ~30 bytes, and rasterisation becomes
+ * deterministic at the size the art was drawn for.
+ */
+const withIntrinsicSize = (svg) => {
+  if (/<svg[^>]*\swidth=/.test(svg)) return svg;
+  const box = svg.match(/viewBox="0 0 (\d+) (\d+)"/);
+  if (!box) throw new Error("no viewBox to derive an intrinsic size from");
+  return svg.replace(/<svg /, `<svg width="${box[1]}" height="${box[2]}" `);
+};
+
 let bytes = 0;
 let changed = 0;
 for (const [file, [author, slug]] of Object.entries(ICONS)) {
   const res = await fetch(url(author, slug));
   if (!res.ok) throw new Error(`${file}: HTTP ${res.status} from ${url(author, slug)}`);
-  const svg = await res.text();
-  if (!svg.trimStart().startsWith("<svg")) throw new Error(`${file}: response is not an SVG`);
+  const raw = await res.text();
+  if (!raw.trimStart().startsWith("<svg")) throw new Error(`${file}: response is not an SVG`);
+  const svg = withIntrinsicSize(raw);
   bytes += Buffer.byteLength(svg);
 
   const dest = path.join(outDir, `${file}.svg`);
