@@ -1,5 +1,5 @@
-_id: CKtCKavhhEiwxVfM
-name: Sedative
+_id: ORUGHwFvCa3qZmUA
+name: Explosive
 type: item
 img: systems/air-bladder/icons/generic-item.svg
 effects: []
@@ -23,4 +23,4 @@ ownership:
 _stats:
   systemId: air-bladder
   coreVersion: '14.365'
-_key: '!items!CKtCKavhhEiwxVfM'
+_key: '!items!ORUGHwFvCa3qZmUA'

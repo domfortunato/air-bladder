@@ -9,11 +9,11 @@ flags:
   air-bladder:
     gearSource: barebones
 system:
-  description: 'Needle, thread, and pins for mending cloth, sail, or skin at a pinch.'
+  description: ''
   weightless: false
   equipped: false
   bulky: false
-  cost: 20
+  cost: 0
   quantity: 1
   uses:
     value: 0

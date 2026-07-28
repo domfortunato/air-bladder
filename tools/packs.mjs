@@ -53,5 +53,21 @@ for (const { name } of packs) {
   }
 }
 
+// A pack removed from system.json leaves its built directory behind forever:
+// nothing here ever looked at what was already in packs/, only at what was
+// declared. Three orphans from the removed 1e generator packs sat there for days,
+// and they SHIP — the release zip takes packs/ wholesale, so a deleted pack keeps
+// going out to users. Prune on build, and say which, rather than deleting quietly.
+if (mode === "build" && fs.existsSync(outRoot)) {
+  const declared = new Set(packs.map(p => p.name));
+  const orphans = fs.readdirSync(outRoot, { withFileTypes: true })
+    .filter(d => d.isDirectory() && !declared.has(d.name))
+    .map(d => d.name);
+  for (const name of orphans) {
+    fs.rmSync(path.join(outRoot, name), { recursive: true, force: true });
+    console.log(`  pruned   ${name.padEnd(30)} (not in system.json)`);
+  }
+}
+
 if (failed) process.exit(1);
 console.log(`${mode === "build" ? "Built" : "Extracted"} ${packs.length} packs.`);

@@ -13,7 +13,7 @@ results:
       - 1
     drawn: false
     documentCollection: air-bladder.expeditionary-gear
-    documentId: iE8sDNgJAg9cIt6V
+    documentId: PvQAOAcZBzQNoFTq
     flags: {}
     _key: '!tables.results!QRMWM7tJxy5mzw7R.G5ZVWOYnthvQX5bH'
   - _id: pQiHroKWQHIPNTAb
@@ -539,14 +539,14 @@ results:
   - _id: Gaim4vxI47CyWb2Y
     type: pack
     text: Hourglass
-    img: systems/air-bladder/icons/tools.svg
+    img: systems/air-bladder/icons/generic-item.svg
     weight: 1
     range:
       - 42
       - 42
     drawn: false
-    documentCollection: air-bladder.tools
-    documentId: kQEZ4sy1PtdHzM2a
+    documentCollection: air-bladder.expeditionary-gear
+    documentId: Ck5TmC7KSJ1Ep4Av
     flags: {}
     _key: '!tables.results!QRMWM7tJxy5mzw7R.Gaim4vxI47CyWb2Y'
   - _id: wkDp3OD3jjGIWSvD
@@ -701,8 +701,8 @@ results:
       - 54
       - 54
     drawn: false
-    documentCollection: air-bladder.trinkets
-    documentId: tVsIjzXH1dGoJWg7
+    documentCollection: air-bladder.expeditionary-gear
+    documentId: nOmok6uN3M25MP6O
     flags: {}
     _key: '!tables.results!QRMWM7tJxy5mzw7R.5D9xvO2nY1XnFj39'
   - _id: TZ6vCRc7dh0OpkCN
@@ -963,7 +963,7 @@ results:
     documentId: HWwFxMbKrE6yQjRp
     flags: {}
     _key: '!tables.results!QRMWM7tJxy5mzw7R.AdCQDNS5KR4FrCBN'
-  - _id: YJVsOApjVjtJztYS
+  - _id: p6te9qWAE1kwwcbZ
     type: pack
     text: Sack
     img: systems/air-bladder/icons/sack.svg
@@ -975,7 +975,7 @@ results:
     documentCollection: air-bladder.expeditionary-gear
     documentId: fElAGNYed7PDBrZ3
     flags: {}
-    _key: '!tables.results!QRMWM7tJxy5mzw7R.YJVsOApjVjtJztYS'
+    _key: '!tables.results!QRMWM7tJxy5mzw7R.p6te9qWAE1kwwcbZ'
   - _id: gc06InjFIRh2vmws
     type: pack
     text: Saw
@@ -1055,14 +1055,14 @@ results:
   - _id: GHvSAx3jQlvd4IzG
     type: pack
     text: Sextant
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/icons/tools.svg
     weight: 1
     range:
       - 82
       - 82
     drawn: false
     documentCollection: air-bladder.tools
-    documentId: IzNsTxg8wPE9qIIC
+    documentId: gNmGMjrhnspDxgFe
     flags: {}
     _key: '!tables.results!QRMWM7tJxy5mzw7R.GHvSAx3jQlvd4IzG'
   - _id: WAdD4cpnSDJCN2mG

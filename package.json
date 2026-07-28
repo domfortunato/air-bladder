@@ -13,6 +13,7 @@
     "dev:kw-guards": "node tools/dev/e2e-kettlewright-guards.mjs",
     "check:traits": "node tools/dev/trait-parse-check.mjs",
     "check:fields": "node tools/dev/field-audit.mjs",
+    "check:refs": "node tools/dev/ref-audit.mjs",
     "dev:actors": "node tools/dev/actors.mjs",
     "dev:players": "node tools/dev/create-players.mjs",
     "check:warden": "node tools/dev/warden-check.mjs",
