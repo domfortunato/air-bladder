@@ -2372,3 +2372,24 @@ textarea.omen-input {
     font-weight: bold;
     align-self: center;
 }
+
+/* Kettlewright import: the pre-flight options dialog. Deliberately plain — this
+   is a Foundry dialog, so it wears the core skin; only the checkbox row needs
+   help, since a bare <input> + <span> otherwise sits misaligned. */
+.kwi-options .kwi-check {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin: 10px 0 4px;
+    cursor: pointer;
+}
+.kwi-options .kwi-check input {
+    flex: 0 0 auto;
+    margin: 0;
+}
+.kwi-options .kwi-hint {
+    margin: 0 0 4px 26px;
+    font-size: 12px;
+    font-style: italic;
+    color: var(--ab-muted);
+}

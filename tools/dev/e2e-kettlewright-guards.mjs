@@ -1,24 +1,27 @@
 #!/usr/bin/env node
 /**
- * The two rules an import must obey regardless of what the export says:
+ * What an import does regardless of what the export says:
  *
- *   1. A background that matches nothing is refused outright — no half-imported
- *      character, an error the GM cannot miss, and no Actor left behind.
- *   2. The Warden's "min-age" floor applies to imported characters too. Generation
- *      enforces it in rollAge; an import goes nowhere near that, so without this
- *      a Kettlewright character walks in younger than the setting allows.
+ *   1. Gate ON (the default): a background that matches nothing is refused
+ *      outright — no half-imported character, no Actor left behind, and an error
+ *      that both names the background and says how to get past it.
+ *   2. Gate OFF: the same file imports, background kept as plain text, no
+ *      questions — and the summary says what that cost.
+ *   3. The Warden's "min-age" floor applies to imported characters too.
+ *      Generation enforces it in rollAge; an import goes nowhere near that, so
+ *      without this a Kettlewright character walks in younger than allowed.
  *
  *   npm run dev:kw-guards        (dev world on :30000, which runs the working tree)
  *
- * Both go through the real button, not the mapping function, because both rules
- * live in the flow around it.
+ * All three go through the real button — including the options dialog that now
+ * precedes the file picker — because the rules live in the flow, not the mapping.
  */
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, confirmImportOptions } from "./lib.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const fixture = path.join(ROOT, "tools", "dev", "fixtures", "kettlewright-solene.json");
@@ -47,8 +50,11 @@ await page.waitForTimeout(600);
 let file = bogus;
 page.on("filechooser", (fc) => fc.setFiles(file).catch((e) => console.log("setFiles failed:", e.message)));
 
-const importAndWait = async (expectName) => {
+// The button now opens an options dialog before the file picker. Answer it the way
+// a Warden would: tick or untick the gate, then press the import button.
+const importAndWait = async (expectName, { requireBackground = true } = {}) => {
   await page.evaluate(() => document.querySelector(".import-kettlewright-button")?.click());
+  await confirmImportOptions(page, { requireBackground });
   // ~25s cold (resolveGearItem re-reads the gear packs per item), ~3s warm.
   return page
     .waitForFunction((n) => !!game.actors.getName(n), expectName, { timeout: 60000 })
@@ -56,7 +62,7 @@ const importAndWait = async (expectName) => {
     .catch(() => false);
 };
 
-/* 1. Unmatched background --------------------------------------------------- */
+/* 1. Gate ON: an unmatched background is refused ----------------------------- */
 const madeBogus = await importAndWait("Guardrail");
 const refusal = await page.evaluate(() => ({
   actors: game.actors.filter((a) => a.name === "Guardrail").length,
@@ -65,7 +71,24 @@ const refusal = await page.evaluate(() => ({
     .map((n) => n.textContent.trim()).join(" | "),
 }));
 
-/* 2. min-age floor ---------------------------------------------------------- */
+/* 2. Gate OFF: the same file imports, as plain text -------------------------- */
+const madeUngated = await importAndWait("Guardrail", { requireBackground: false });
+const ungated = await page.evaluate(() => {
+  const a = game.actors.getName("Guardrail");
+  return {
+    background: a?.system?.background ?? "",
+    uuid: a?.system?.backgroundUuid ?? "",
+    questions: (a?.system?.questions ?? []).length,
+    // The LAST one: summaries from earlier steps are still on screen, and
+    // querySelector would keep returning the first for the rest of the run.
+    summary: [...document.querySelectorAll(".kwi-summary")].pop()?.textContent ?? "",
+  };
+});
+await page.evaluate(async () => {
+  for (const a of game.actors.filter((a) => a.name === "Guardrail")) await a.delete();
+});
+
+/* 3. min-age floor ----------------------------------------------------------- */
 file = fixture;
 const before = await page.evaluate((f) => {
   const b = game.settings.get("air-bladder", "min-age");
@@ -74,7 +97,7 @@ const before = await page.evaluate((f) => {
 const madeSolene = await importAndWait("Solene");
 const aged = await page.evaluate(() => {
   const a = game.actors.getName("Solene");
-  return { age: a?.system?.age ?? "", summary: document.querySelector(".kwi-summary")?.textContent ?? "" };
+  return { age: a?.system?.age ?? "", summary: [...document.querySelectorAll(".kwi-summary")].pop()?.textContent ?? "" };
 });
 await page.evaluate(async (b) => {
   await game.settings.set("air-bladder", "min-age", b);
@@ -90,9 +113,18 @@ const check = (label, ok, detail) => {
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${label.padEnd(16)} ${detail}`);
 };
 
-console.log("unmatched background");
+console.log("unmatched background, gate ON");
 check("no actor", !madeBogus && refusal.actors === 0, `created=${refusal.actors}`);
 check("error shown", /cheesemonger/i.test(refusal.error), JSON.stringify(refusal.error.slice(0, 90)));
+// The refusal is only actionable if it says how to get past it.
+check("names escape", /untick/i.test(refusal.error), "message points at the checkbox");
+
+console.log("\nunmatched background, gate OFF");
+check("imported", madeUngated, `background=${JSON.stringify(ungated.background)}`);
+check("kept as text", ungated.background === "Cheesemonger" && !ungated.uuid, `uuid=${JSON.stringify(ungated.uuid)}`);
+// No background means no question list to split the answers against.
+check("no questions", ungated.questions === 0, `questions=${ungated.questions}`);
+check("summary warns", /re-rolled|plain text/i.test(ungated.summary), ungated.summary ? "warning rendered" : "no summary");
 
 console.log("\nmin-age floor");
 check("imported", madeSolene, `floor=${FLOOR}, export says ${FIXTURE_AGE}`);

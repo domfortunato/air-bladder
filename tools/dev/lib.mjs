@@ -71,3 +71,24 @@ export async function joinAsGM(page) {
   await page.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
   await dismissChrome(page);
 }
+
+/**
+ * Answer the Kettlewright importer's options dialog, which opens between the
+ * import button and the file picker. Ticks or unticks the background gate, then
+ * presses the button that opens the picker.
+ *
+ * Shared, because three e2es drive this flow and a dialog nobody dismisses looks
+ * exactly like an importer that silently did nothing.
+ */
+export async function confirmImportOptions(page, { requireBackground = true } = {}) {
+  await page.waitForSelector(".kwi-options", { timeout: 15000 });
+  await page.evaluate((req) => {
+    const cb = document.querySelector('.kwi-options input[name="requireBackground"]');
+    if (cb && cb.checked !== req) cb.click();
+  }, requireBackground);
+  await page.evaluate(() => {
+    const btn = [...document.querySelectorAll(".dialog-v2 button, .application.dialog button, dialog.application button")]
+      .find((b) => b.dataset.action === "import");
+    btn?.click();
+  });
+}

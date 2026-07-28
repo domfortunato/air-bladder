@@ -564,10 +564,15 @@ const showImportSummary = async (actor, report) => {
   const F = (k, d) => game.i18n.format(k, d);
   const parts = [];
 
-  // Only a matched background reaches here — importKettlewrightCharacter refuses
-  // the import otherwise, so there is no "unmatched" case left to render.
+  // An unmatched background only reaches here when the GM turned the gate off, so
+  // spell out what they gave up: without the background's question list there is
+  // nothing to split the answers against, and nothing to re-roll them from.
   if (report.background) {
-    parts.push(`<p class="kwi-ok"><i class="fas fa-check"></i> ${F("CAIRN.KWImport.BgMatched", { name: esc(report.background.name) })}</p>`);
+    parts.push(
+      report.background.matched
+        ? `<p class="kwi-ok"><i class="fas fa-check"></i> ${F("CAIRN.KWImport.BgMatched", { name: esc(report.background.name) })}</p>`
+        : `<p class="kwi-warn"><i class="fas fa-circle-exclamation"></i> ${F("CAIRN.KWImport.BgUnmatched", { name: esc(report.background.name) })} ${L("CAIRN.KWImport.BgUnmatchedCost")}</p>`
+    );
   }
 
   parts.push(`<p>${F("CAIRN.KWImport.ItemCounts", { matched: report.matched.length, fallback: report.fallback.length, fatigue: report.fatigue })}</p>`);
@@ -632,6 +637,51 @@ const showImportSummary = async (actor, report) => {
 };
 
 /**
+ * Ask what to do before the file dialog opens, because the answer decides whether
+ * the file is even usable. One option today: whether a background that matches
+ * nothing is refused.
+ *
+ * It defaults ON every time rather than remembering the last answer — it is a
+ * safety gate, and a gate that silently stays open because of something you did
+ * last week is not one. A Warden importing a run of custom-background characters
+ * pays one extra click each.
+ *
+ * @returns {Promise<{requireBackground: Boolean}|null>} null if cancelled
+ */
+const promptImportOptions = async () => {
+  const L = (k) => game.i18n.localize(k);
+  const result = await foundry.applications.api.DialogV2.wait({
+    window: { title: L("CAIRN.KWImport.Button"), icon: "fas fa-file-import" },
+    position: { width: 460 },
+    content: `
+      <div class="kwi-options">
+        <p>${L("CAIRN.KWImport.OptionsIntro")}</p>
+        <label class="kwi-check">
+          <input type="checkbox" name="requireBackground" checked>
+          <span>${L("CAIRN.KWImport.RequireBg")}</span>
+        </label>
+        <p class="kwi-hint">${L("CAIRN.KWImport.RequireBgHint")}</p>
+      </div>`,
+    buttons: [
+      {
+        action: "import",
+        label: L("CAIRN.KWImport.ChooseFile"),
+        icon: "fas fa-file-import",
+        default: true,
+        // The checkbox is read here rather than from a form submit: DialogV2 hands
+        // the button its own element, and this dialog has one field.
+        callback: (_ev, button) => ({
+          requireBackground: !!button.form?.elements?.requireBackground?.checked,
+        }),
+      },
+      { action: "cancel", label: L("CAIRN.Cancel"), callback: () => null },
+    ],
+    rejectClose: false,
+  });
+  return result ?? null;
+};
+
+/**
  * GM flow: pick a Kettlewright export, parse it, create a new character Actor from
  * it, and show a review summary. Returns the created Actor (or null).
  * @returns {Promise<CairnActor|null>}
@@ -641,6 +691,8 @@ export const importKettlewrightCharacter = async () => {
     ui.notifications.warn(game.i18n.localize("CAIRN.KWImport.GmOnly"));
     return null;
   }
+  const options = await promptImportOptions();
+  if (!options) return null;
   const text = await pickJsonFileText();
   if (text == null) return null;
   let json;
@@ -656,14 +708,15 @@ export const importKettlewrightCharacter = async () => {
   }
   const { data, report } = await kettlewrightToActorData(json);
 
-  // Refuse rather than half-import. Without a matching background there is no
-  // question list, so the answers stay an undifferentiated blob in Notes and none
-  // of the items a question granted can be traced to it — the character arrives
-  // looking complete while quietly missing the things that make it re-rollable.
-  // A named background nobody has is usually a Kettlewright custom one: the fix is
-  // to author it here (Custom Backgrounds) and import again, which is why the
-  // message names it.
-  if (!report.background?.matched) {
+  // Refuse rather than half-import, unless the GM turned the gate off. Without a
+  // matching background there is no question list, so the answers stay an
+  // undifferentiated blob in Notes and none of the items a question granted can be
+  // traced to it — the character arrives looking complete while quietly missing the
+  // things that make it re-rollable. A named background nobody has is usually a
+  // Kettlewright custom one: the fix is either to author it here (Custom
+  // Backgrounds) and import again, or to accept the loss by unticking the gate,
+  // which is why the message names the background AND the escape.
+  if (options.requireBackground && !report.background?.matched) {
     const name = report.background?.name;
     ui.notifications.error(
       name

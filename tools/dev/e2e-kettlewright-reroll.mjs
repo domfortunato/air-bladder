@@ -11,7 +11,7 @@
  */
 import { chromium } from "playwright";
 import path from "node:path";
-import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, confirmImportOptions } from "./lib.mjs";
 
 const fixture = path.resolve("tools/dev/fixtures/kettlewright-solene.json");
 const browser = await chromium.launch();
@@ -31,6 +31,7 @@ await page.evaluate(() => ui.sidebar.changeTab?.("actors", "primary") ?? ui.side
 await page.waitForTimeout(600); // the button renders before its listener is bound
 page.on("filechooser", (fc) => fc.setFiles(fixture).catch((e) => console.log("setFiles failed:", e.message)));
 await page.evaluate(() => document.querySelector(".import-kettlewright-button")?.click());
+await confirmImportOptions(page);
 try {
   // Generous, because resolveGearItem re-reads the gear packs per item: the first
   // import after a pack rebuild or server restart takes ~25s cold, ~3s warm.
