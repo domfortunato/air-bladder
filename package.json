@@ -25,7 +25,8 @@
     "dev:content-overlay": "node tools/dev/e2e-content-overlay.mjs",
     "dev:sheet-ids": "node tools/dev/e2e-sheet-ids.mjs",
     "dev:container-link": "node tools/dev/e2e-container-link.mjs",
-    "dev:portrait-folder": "node tools/dev/e2e-portrait-folder.mjs"
+    "dev:portrait-folder": "node tools/dev/e2e-portrait-folder.mjs",
+    "dev:directory-buttons": "node tools/dev/e2e-directory-buttons.mjs"
   },
   "browserslist": [
     "last 3 versions"

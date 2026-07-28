@@ -298,7 +298,13 @@ Hooks.on("renderSettingsConfig", (app, element) => {
 
 Hooks.on("renderActorDirectory", (app, html) => {
   if (game.user.can("ACTOR_CREATE")) {
-    if (!document.getElementById('cairn-character-gen-button')) {
+    // Scope the "already injected?" test to THIS directory, not the document.
+    // Foundry renders a second, independent ActorDirectory when the tab is
+    // popped out, and a document-wide getElementById sees the docked one's
+    // button and skips injection -- so the popped-out window had no Generate,
+    // Hireling or Import buttons at all. The id is duplicated across the two
+    // windows by design; the class is what the click handlers below bind to.
+    if (!html.querySelector("#cairn-character-gen-button")) {
       const section = document.createElement("header");
       section.classList.add("character-generator");
       section.classList.add("directory-header");
