@@ -133,6 +133,13 @@ export class CairnItemSheet extends foundry.appv1.sheets.ItemSheet {
   /** @override */
   async getData() {
     const data = await super.getData();
+    // See CairnActorSheet#getData for the why: AppV1 hands templates
+    // `document.toObject(false)`, which a TypeDataModel resolves against the
+    // SCHEMA, so prepareData's derived values (isEquipable, hasPlusMinus,
+    // isFatigue, grantLabel, icon, useItemIcons) never reach the template.
+    // Spreading the live model restores stored + derived together. Templates read
+    // `data.system.*`, which is AppV1's context.data — not the context root.
+    data.data.system = { ...this.item.system };
     // Content localization for READ-ONLY (locked pack) entries only. An editable
     // sheet — an owned item, or an unlocked pack a Warden is editing — keeps the
     // canonical English so a save never writes a translated string back onto the

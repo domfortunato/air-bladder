@@ -36,6 +36,26 @@ export class CairnActorSheet extends foundry.appv1.sheets.ActorSheet {
   /** @override */
   async getData() {
     const data = await super.getData();
+    // AppV1 hands templates `document.toObject(false)`, and under a TypeDataModel
+    // that walks the SCHEMA — so every value prepareData computes onto
+    // `this.system` (slotsUsed, slotsMax, encumbered, armor, coinsPerSlot,
+    // containerObjects, goldSlots, showBio…) is simply absent, and each one
+    // renders as a blank with no error anywhere. Re-attach them: a DataModel
+    // assigns its schema fields as own enumerable properties, so spreading the
+    // live model yields stored + derived together as one plain object.
+    //
+    // Plain COPIES, deliberately: the content-localization pass below rewrites
+    // item names and descriptions for display, and must never touch the documents.
+    //
+    // Templates address these as `data.system` / `data.items`, which is AppV1's
+    // `context.data` — NOT the context root — so the finished values are written
+    // back onto it at the end of this method.
+    data.system = { ...this.actor.system };
+    const liveItems = new Map(this.actor.items.map((i) => [i.id, i]));
+    data.items = data.items.map((i) => ({
+      ...i,
+      system: { ...(liveItems.get(i._id)?.system ?? i.system) },
+    }));
     if (game.settings.get(SETTINGS_NS, "enable-inventory-reorder")) {
       // Manual order: honour each item's stored `sort` (Foundry's native field,
       // written by the drag-to-reorder handler), falling back to name. Fatigue is
@@ -244,6 +264,12 @@ export class CairnActorSheet extends foundry.appv1.sheets.ActorSheet {
       data.generationEnabled = this.actor.system.generationEnabled !== false;
     }
 
+    // Publish the finished system data and item list where the templates look.
+    // AppV1's context is {data, items, actor, …} and every sheet reads
+    // `data.system.*` / `data.items`, i.e. context.data — so re-ASSIGNING
+    // context.items (as the sorting and localization passes above do) never
+    // reached the rendered sheet; only in-place sorts did.
+    Object.assign(data.data, { system: data.system, items: data.items });
     return data;
   }
 
@@ -297,17 +323,17 @@ export class CairnActorSheet extends foundry.appv1.sheets.ActorSheet {
   }
 
   /**
-   * The actor's bonds as an array, migrating a legacy single system.bond into a
-   * one-element list (id "legacy") so old characters still display and operate.
+   * The actor's bonds as an array, copied so callers can splice it freely.
+   *
+   * This used to fold a legacy singular `system.bond` into a one-element list.
+   * That shim went with the data-model move: `bond`/`bondGold` were never
+   * declared as schema fields, no world was ever built on the version that wrote
+   * them, and a strict schema drops them anyway.
    * @returns {{id: String, description: String, gold: Number}[]}
    * @private
    */
   _effectiveBonds() {
-    const bonds = foundry.utils.duplicate(this.actor.system.bonds ?? []);
-    if (!bonds.length && this.actor.system.bond) {
-      bonds.push({ id: "legacy", description: this.actor.system.bond, gold: this.actor.system.bondGold ?? 0 });
-    }
-    return bonds;
+    return foundry.utils.duplicate(this.actor.system.bonds ?? []);
   }
 
   /**
@@ -351,10 +377,10 @@ export class CairnActorSheet extends foundry.appv1.sheets.ActorSheet {
       const drawn = await drawBond();
       if (!drawn) return;
       const newItems = (drawn.items ?? []).map((it) => withGrantSource(it, `bond:${id}`));
-      await this._replaceGrantedItems(`bond:${id}`, newItems, id === "legacy" ? "bond" : null);
+      await this._replaceGrantedItems(`bond:${id}`, newItems);
       const gold = Math.max(0, (this.actor.system.gold ?? 0) - (bonds[idx].gold ?? 0) + drawn.gold);
       bonds[idx] = { id, description: drawn.description, gold: drawn.gold };
-      await this.actor.update({ "system.bonds": bonds, "system.gold": gold, "system.bond": "" });
+      await this.actor.update({ "system.bonds": bonds, "system.gold": gold });
     } finally {
       this._rerolling = false;
     }
@@ -378,7 +404,7 @@ export class CairnActorSheet extends foundry.appv1.sheets.ActorSheet {
       await this.actor.createEmbeddedDocuments("Item", rec.items, { render: false });
     }
     const gold = (this.actor.system.gold ?? 0) + rec.bond.gold;
-    await this.actor.update({ "system.bonds": bonds, "system.gold": gold, "system.bond": "" });
+    await this.actor.update({ "system.bonds": bonds, "system.gold": gold });
   }
 
   /**
@@ -393,28 +419,23 @@ export class CairnActorSheet extends foundry.appv1.sheets.ActorSheet {
     const bonds = this._effectiveBonds();
     const idx = bonds.findIndex((b) => b.id === id);
     if (idx < 0) return;
-    await this._replaceGrantedItems(`bond:${id}`, [], id === "legacy" ? "bond" : null);
+    await this._replaceGrantedItems(`bond:${id}`, []);
     const gold = Math.max(0, (this.actor.system.gold ?? 0) - (bonds[idx].gold ?? 0));
     bonds.splice(idx, 1);
-    await this.actor.update({ "system.bonds": bonds, "system.gold": gold, "system.bond": "" });
+    await this.actor.update({ "system.bonds": bonds, "system.gold": gold });
   }
 
   /**
    * Delete the actor's items previously granted by `source` and create the new
    * ones in their place, so re-rolling a bond/question keeps the inventory tab in
-   * sync. `legacyFallback` also matches an older flat source tag. render:false --
-   * the pending actor.update re-renders once.
+   * sync. render:false -- the pending actor.update re-renders once.
    * @param {String} source  e.g. "bond:ab12" or "question:1"
    * @param {Object[]} newItems  resolved + withGrantSource() item data
-   * @param {String|null} [legacyFallback]
    * @private
    */
-  async _replaceGrantedItems(source, newItems, legacyFallback = null) {
+  async _replaceGrantedItems(source, newItems) {
     const oldIds = this.actor.items
-      .filter((i) => {
-        const gs = i.getFlag("air-bladder", "grantSource");
-        return gs === source || (legacyFallback && gs === legacyFallback);
-      })
+      .filter((i) => i.getFlag("air-bladder", "grantSource") === source)
       .map((i) => i.id);
     if (oldIds.length) {
       await this.actor.deleteEmbeddedDocuments("Item", oldIds, { render: false });
@@ -1101,7 +1122,7 @@ export class CairnActorSheet extends foundry.appv1.sheets.ActorSheet {
                 name: form.itemname.value,
                 img: CONTAINER_ICON,
                 "prototypeToken.texture.src": CONTAINER_ICON,
-                "system.slots.value": form.itemslots.value,
+                "system.slots": form.itemslots.value,
               });
               await this.actor.createOwnedContainer(result);
             }

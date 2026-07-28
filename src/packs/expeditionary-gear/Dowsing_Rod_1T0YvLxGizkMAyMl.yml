@@ -33,7 +33,5 @@ system:
     value: 0
     max: 0
   quantity: 1
-  slots: 1
   armor: null
-  numberOfUses: 0
 _key: '!items!1T0YvLxGizkMAyMl'

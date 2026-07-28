@@ -322,17 +322,22 @@ export class CairnActor extends Actor {
     return Math.min(armor, 3);
   }
 
+  /**
+   * The actor's slot capacity. `system.slots` is a plain number on EVERY actor
+   * type: 0 means "no override, use the Warden's max-equip-slots setting". An
+   * npc or container states its own capacity there; a character or hireling only
+   * has one if the Warden set a per-character limit (the equipment-limit dialog,
+   * gated by the character-inventory-limit setting).
+   *
+   * It used to be `{value: N}` for npc/container and a bare number for
+   * character/hireling — the reason npcs could hold nothing at all, since
+   * template.json declared a bare number and this read `.value` off it.
+   * @returns {number}
+   */
   calcCurrentMaxSlots() {
-    if (
-      ["npc", "container"].includes(this.type) &&
-      this.system.slots &&
-      this.system.slots.value > 0
-    )
-      return this.system.slots.value;
-    if (game.settings.get(SETTINGS_NS, "character-inventory-limit")) {
-      if (this.system.slots == undefined) this.system.slots = game.settings.get(SETTINGS_NS, "max-equip-slots");
-      return this.system.slots;
-    }
+    const override = this.system.slots ?? 0;
+    if (["npc", "container"].includes(this.type) && override > 0) return override;
+    if (game.settings.get(SETTINGS_NS, "character-inventory-limit") && override > 0) return override;
     return game.settings.get(SETTINGS_NS, "max-equip-slots");
   }
 

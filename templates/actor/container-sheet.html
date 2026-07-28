@@ -10,10 +10,10 @@
                 {{data.system.ownedBy}}
             </div>
             <div class="resource-counter slots-counter">
-                <label for="system.slots.value">{{ localize 'CAIRN.Slots' }}</label>
+                <label for="system.slots">{{ localize 'CAIRN.Slots' }}</label>
                 <div class="resource-input-wrapper">
-                    <input type="text" name="system.slots.value" id="system.slots.value"
-                           value="{{data.system.slots.value}}" data-dtype="Number" />
+                    <input type="text" name="system.slots" id="system.slots"
+                           value="{{data.system.slots}}" data-dtype="Number" />
                 </div>
             </div>
              <!-- Cost/Gold -->
@@ -29,10 +29,10 @@
                 </div>
             {{else}}
                 <div class="resource-counter slots-counter">
-                    <label class="large-resource-label" for="system.cost.value">{{ localize 'CAIRN.Cost' }}</label>
+                    <label class="large-resource-label" for="system.cost">{{ localize 'CAIRN.Cost' }}</label>
                     <div class="resource-input-wrapper">
-                        <input type="text" name="system.cost.value" id="system.cost.value"
-                            value="{{data.system.cost.value}}" data-dtype="Number" />
+                        <input type="text" name="system.cost" id="system.cost"
+                            value="{{data.system.cost}}" data-dtype="Number" />
                     </div>
                 </div>
             {{/if}}

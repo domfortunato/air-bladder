@@ -1,141 +1,154 @@
 # template.json → TypeDataModel migration
 
-**Status: planned, not started.** Survey work done 2026-07-27; nothing in `module/`
-has changed for it yet.
+**Status: done.** Planned 2026-07-27, carried out 2026-07-28. `template.json` is
+deleted; the eleven sub-type schemas live in `module/data-models.js` and are
+registered on `CONFIG.Actor.dataModels` / `CONFIG.Item.dataModels` at `init`, with
+the sub-types themselves declared in `system.json` under `documentTypes`.
 
-## Why, and why now
+## Why, and why then
 
-Foundry 14.365's server emits this the moment it sees a `template.json` on disk
+Foundry 14.365's server emitted this the moment it saw a `template.json` on disk
 (`dist/packages/system.mjs`):
 
 > System template.json is deprecated. System-provided Document types should be
 > defined in system.json, and optionally be associated with a system data model.
 > **Support for template.json will be removed in V16.**
 
-It goes into `packages.warnings`, which drives the warning badge on the system's
-Setup-screen entry — so **every installed user already sees a warning**, and the
-system breaks outright on V16.
+It went into `packages.warnings`, which drives the warning badge on the system's
+Setup-screen entry — so every installed user already saw a warning, and the system
+would have broken outright on V16.
 
-The window matters more than the deadline. **There are no worlds built on Air
-Bladder yet.** Today this is a refactor with a test suite. The moment somebody
-builds a world on 0.1.4, the same change needs `migrateData` shims, a
-compatibility story, and a release that cannot be taken back. Do it while it is
-free.
+The window mattered more than the deadline. **There were no worlds built on Air
+Bladder.** That made this a refactor with a test suite rather than a migration with
+a compatibility story, `migrateData` shims and a release that could not be taken
+back.
 
-## What actually has to happen
+## What the migration actually found
 
-1. Declare sub-types in `system.json` under `documentTypes`.
-2. Write `TypeDataModel` subclasses and register them on
-   `CONFIG.Actor.dataModels` / `CONFIG.Item.dataModels` at `init`.
-3. **Delete `template.json`.** The warning is triggered by the file existing, so
-   declaring `documentTypes` alone does not clear it.
+The survey work was the point. Four things turned up that a straight
+transcription of `template.json` into schema fields would have shipped as bugs.
 
-Types: Actor `character`, `npc`, `container`, `hireling`; Item `item`, `weapon`,
-`armor`, `spellbook`, `object`, `background`, `transport`.
+### 1. `system.slots` carried two shapes under one name
 
-## Survey 1 — what the pack data actually contains
+| type | shape before | meaning |
+|---|---|---|
+| `character` / `hireling` | plain number | per-character equipment-limit override |
+| `npc` / `container` | `{ value: N }` | carrying capacity |
 
-Taken from `src/packs/**/*.yml` (674 docs). This is what a schema must accept
-without dropping or erroring, since these are the shipped documents.
+`template.json` declared a plain number for npc/container while
+`calcCurrentMaxSlots` read `.value` off it — which is why **NPCs could not hold
+anything at all**. Four call sites wrote it in two shapes and two templates read a
+third.
 
-```
-Actor.npc        abilities(object) armor(null|number) description(string) hp(object)
+**Settled on a plain number everywhere**, 0 meaning "no override, use the Warden's
+`max-equip-slots` setting". That also makes minting a container from a bought
+transport a straight copy, since `Item.transport.slots` was already a plain number.
 
-Item.armor       armor cost quantity slots uses(object) + bulky equipped weightless description
-Item.item        armor(null|number) blast bulky cost criticalDamage damageFormula description
-                 equipped numberOfUses quantity relic slots uses weightless
-Item.spellbook   bulky description equipped quantity slots weightless
-Item.transport   bulky cost description equipped load quantity slots slow transportKind weightless
-Item.weapon      blast bulky cost criticalDamage damageFormula description equipped quantity
-                 slots uses weightless
-Item.background  archetype containers description names source startingGear tables
-```
+### 2. `system.cost` was being corrupted by six sheets
 
-**Fields appearing in pack data that `template.json` does not declare for that
-type** — verified individually, because "it looks unused" is not evidence:
+Every item sheet and the container sheet bound `name="system.cost.value"`, while
+`template.json`, all 1047 pack documents and **every reader** (`marketplace.js`
+×4, `character-generator.js`, `gear.js`) treat `cost` as a plain number. Editing
+an item's Cost on its own sheet replaced the number with `{value: N}`, after which
+the marketplace read its price as `NaN`. All six now bind `system.cost`.
 
-| field | verdict |
+### 3. Nine fields were persisted but never declared
+
+The original survey concluded that everything undeclared was derived. That was
+wrong. These are written through `update()` or bound to a sheet input, and a
+strict schema would have dropped each one silently:
+
+| type | fields |
 |---|---|
-| `numberOfUses` | **Dead.** Zero references in `module/` or `templates/`. Drop. |
-| `relic` | **Dead.** One mention, in a comment in `gear.js:129`. Drop. |
-| `armor` on `Item.item` | Dead on plain items (`armor` is read on `Item.armor`). Drop from the `item` schema. |
-| `slots` on `item`/`weapon`/`armor`/`spellbook` | **Dead on these four.** Packs carry values (`Axe: 1`, `Bow: 2`) but nothing reads them: `calcSlotsUsed` (`actor.js:294`) computes purely from `bulky`/`weightless`/`quantity`. Drop. |
-| `slots` on `Item.transport` | **LOAD-BEARING. Declare it.** `transport-sheet.html:27` binds an input to it, `marketplace.js:210` reads it to mint a container's capacity, `:274` renders the capacity chip. |
+| `character` | `description`, `notes` (both ProseMirror targets — the Notes tab), `slots` |
+| `npc` | `background`, `gold`, `biography`, `notes` |
+| `container` | `gold`, `biography` |
+| `hireling` | `slots` |
 
-The `slots` split is the trap in this whole migration: the same field name is dead
-on four item types and required on a fifth. A schema that treats it uniformly
-either keeps four fields of junk or silently breaks transport capacity — the exact
-failure mode this document exists to prevent.
+`system.gold` on an npc is not cosmetic — `_calcGoldSlots()` runs for every actor
+type, so an NPC hoard occupies slots.
 
-**`Actor.npc.armor` is `null|number`** in the pack data, so it needs
-`NumberField({nullable: true})` or those monster docs fail validation. (`Item.item`
-carries a nullable `armor` too, but that one is dead and being dropped;
-`Item.armor.armor` is always a number.)
+### 4. `Item.item.armor` is load-bearing, not dead
 
-**Open question for `Actor.npc.armor`:** it is stored in the packs AND overwritten
-during data prep (`_prepareNpcData` sets `this.system.armor = this.calcArmor()`).
-That is the same stored-vs-derived collision that caused the HP data-loss bug fixed
-in `04babe5`. Check whether the stored value is doing any work before declaring it,
-and whether anything persists the derived one back.
+The plan's first draft said to drop it. `calcArmor()` (`actor.js:315`)
+deliberately sums `system.armor` over **both** the `armor` and `item` types, and
+`items-list.html` renders the tag. No shipped item carries a non-zero value, but a
+Warden's homebrew amulet can, and `tools/dev/e2e-data-model.mjs` now asserts it
+(armor 2 + item 1 = 3).
 
-## Survey 2 — declared vs. used
+`numberOfUses`, `relic`, and `slots` on `item`/`weapon`/`armor`/`spellbook` **are**
+dead — verified individually, not as a group. They were stripped from the 381 pack
+YAML files that carried them (427 lines) so `build:packs` → `extract:packs` stays
+byte-stable; no importer re-adds them.
 
-48 fields declared in `template.json`. **29 more are read in `module/` or
-`templates/` but never declared** — they are derived, computed onto the model
-during `prepareData`:
+## The trap that nearly shipped
 
-```
-armorOverridden bond bondGold characterEquipmentLimit coinRowLabel coinTip
-coinsPerSlot containerObjects encumbered goldSlots grantLabel hasGoldThreshold
-hasPlusMinus icon id isContainerItem isEquipable isFatigue maybeTooMuchGold
-ownedBy showBio showContainersTab showDesc showFeatures showGoldNotCost slotsMax
-slotsUsed useItemIcons usePanic
-```
+**`Document#toObject(false)` returns schema fields only.**
 
-**This is fine and must stay that way.** Assigning a non-schema property onto a
-DataModel instance in `prepareData` works and is the Foundry pattern; `toObject()`
-serialises only schema fields, so derived values correctly never persist.
+AppV1's `DocumentSheet#getData` hands templates `this.document.toObject(false)`,
+and under a `TypeDataModel` that resolves against `this.constructor.schema`
+(`common/abstract/data.mjs:826`). Every value `prepareData` computes onto
+`this.system` — `slotsUsed`, `slotsMax`, `encumbered`, `armor`, `coinsPerSlot`,
+`goldSlots`, `containerObjects`, `showBio`, and on items `isEquipable`,
+`hasPlusMinus`, `isFatigue`, `grantLabel`, `icon` — became invisible to every
+template at once. Nothing threw. The smoke test's only symptom was a tab reading
+`Items ( / )` instead of `Items (0 / 10)`.
 
-**One exception, checked individually:** `system.bond` is the only one of the 29
-ever written through `update()` — at `actor-sheet.js:357` and `:381`, both clearing
-the legacy singular bond to `""` as part of the old single-bond → `bonds[]`
-migration. With no existing worlds there is nothing to migrate: **delete those two
-writes and `_effectiveBonds()`'s legacy branch** rather than declaring `bond` in
-the schema.
+Both sheets now re-attach it in `getData()`. A DataModel assigns its schema fields
+as own enumerable properties (`_initialize`, same file), so spreading the live
+model yields stored + derived together as one plain object.
 
-## Decisions to make while doing it
+Fixed in passing, since it was the same line of enquiry: AppV1's context is
+`{data, items, actor, …}` and every template reads `data.system.*` / `data.items`,
+i.e. `context.data`. So *re-assigning* `context.items` — which the sorting and
+content-localization passes did — never reached the rendered sheet; only the
+in-place sorts did. `getData` now publishes the finished values onto `context.data`
+before returning.
 
-- **`system.slots` shape.** Currently broken (review finding #10): `template.json`
-  declares a Number for npc/container, `calcCurrentMaxSlots` reads `.value`, and
-  four sites write it in three different shapes. With NPCs unable to hold anything
-  as a result, the schema is the place to settle it. Pick one shape, make all four
-  writers and `container-sheet.html` agree.
-- **Whether to fold in the 46 duplicate DOM ids.** Unrelated, but touches the same
-  templates. Probably a separate commit.
+## Decisions taken
 
-## Test plan
+- **One `migrateData`, deliberately.** `CairnDataModel.migrateData` coerces
+  `slots` and `cost` from `{value: N}` back to a number. This is not a legacy-world
+  story — it is input coercion for two fields whose shape changed in this same
+  commit, and without it any container minted by 0.1.0–0.1.4 fails validation
+  outright rather than quietly.
+- **Legacy `system.bond` deleted, not declared.** `bond`/`bondGold` were only ever
+  read by `_effectiveBonds()`'s migration branch and cleared by three `update()`
+  calls. All gone, along with `_replaceGrantedItems`' now-unreachable
+  `legacyFallback` parameter.
+- **Derived values stay undeclared.** Around thirty computed properties are
+  assigned onto `this.system` in `prepareData`. That is the documented Foundry
+  pattern and `toObject()` correctly ignores them. Declaring one would turn it into
+  stored state and reintroduce the stored-vs-derived collision behind the Hit
+  Protection data-loss bug.
+- **`Actor.npc.armor` left alone.** Declared `NumberField({nullable: true})`
+  because 202 of 205 monsters store `null`. It is also overwritten every
+  `prepareData` by `_prepareNpcData` (`armor = calcArmor()`), so an authored value
+  never reaches the sheet. That collision predates this migration and is not
+  resolved by it.
 
-The schema is strict, so the failure mode is *silent field loss*, not an error.
-Guard against it by exercising every write path:
+## Guarding it from here
 
-- `npm run dev:smoke` — 22 packs, 1095 docs, sheet renders, zero console errors.
-- Generate a character on **every** background (`tools/dev/item-usage.mjs` lists
-  them) and diff `toObject().system` against the pre-migration shape.
-- Every actor type's sheet opens and round-trips a field edit: character, npc,
-  container, hireling.
-- Every item type's sheet: item, weapon, armor, spellbook, object, background,
-  transport.
-- `dev:enc-damage`, `dev:kw-{traits,reroll,guards}`, `check:traits`,
-  `check:warden`, `i18n:check`.
-- Marketplace buy/take, container grant + delete, hireling generate + re-roll.
-- **Rebuild the packs and confirm 674 docs still load** — pack YAML carries fields
-  the schema will not declare, so this is where silent dropping would show.
+The failure mode is *silent field loss*: a field the schema forgets is dropped on
+the next write with no error, no warning and no console output. Two new gates:
 
-## Risks
+- **`npm run check:fields`** (`tools/dev/field-audit.mjs`) — loads the real schemas
+  under a stub `foundry` global and diffs them against every persisted `system.*`
+  path: sheet `name=`/`target=` bindings attributed per sub-type, `"system.x"`
+  string literals in `module/`, and every `system` key in `src/packs`. Exits
+  non-zero on an undeclared path; lists pack fields that will be dropped.
+- **`npm run dev:data-model`** (`tools/dev/e2e-data-model.mjs`) — drives the live
+  world: generation on all 20 backgrounds, a field round-trip on all four Actor
+  and all seven Item sub-types (reading **source** back, since derived data would
+  mask a drop), derived data reaching the sheet, armor derivation, the
+  transport → container mint, and hireling generation.
 
-- **Silent field loss** is the whole risk. A field the schema forgets is dropped
-  on the next write with no error. The declared-vs-used survey above is the
-  defence; redo it after writing the schemas and diff the two lists.
-- The dev world's existing actors were created under the old model. They are
-  disposable — but expect validation noise from them, and do not read that noise
-  as a schema bug without checking against a freshly generated actor.
+Run both after any change to `module/data-models.js`.
+
+## Verification (2026-07-28, Foundry 14.365)
+
+`dev:smoke` (22 packs, 1095 docs, zero console errors) · `check:fields` ·
+`check:traits` · `check:warden` · `i18n:check` · `dev:enc-damage` · `dev:kw-traits` ·
+`dev:kw-reroll` · `dev:kw-guards` · `dev:data-model` — all passing. Pre-existing
+container Actors carrying the old `{value: N}` shape load and report correct
+capacity through `migrateData`.

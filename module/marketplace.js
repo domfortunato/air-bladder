@@ -204,10 +204,7 @@ export const acquireTransport = async (actor, doc, pay) => {
     img: art,
     prototypeToken: { texture: { src: art } },
     system: {
-      // Container capacity is read as system.slots.value (calcCurrentMaxSlots),
-      // so it is written as an object here even though the transport document
-      // carries a plain number.
-      slots: { value: doc.system.slots ?? 0 },
+      slots: doc.system.slots ?? 0,
       description: doc.system.description ?? "",
       transportKind: doc.system.transportKind ?? "",
       load: doc.system.load ?? 0,

@@ -569,9 +569,7 @@ export const grantContainers = async (actor, specs) => {
       img: art,
       prototypeToken: { texture: { src: art } },
       system: {
-        // Capacity is read as system.slots.value (calcCurrentMaxSlots) even though
-        // a transport document carries a plain number.
-        slots: { value: spec.slots ?? doc?.system.slots ?? 0 },
+        slots: spec.slots ?? doc?.system.slots ?? 0,
         description: doc?.system.description ?? "",
         transportKind: kind,
         // A mount/vehicle carries its own pool and costs its keeper nothing; the

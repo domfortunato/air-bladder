@@ -13,6 +13,7 @@ import { createCairnMacro, rollItemMacro } from "./macros.js";
 import { Damage } from "./damage.js";
 import { registerSettings, SETTINGS_NS, migrateSettingsNamespace } from "./settings.js";
 import { iconForTransport } from "./icons.js";
+import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS } from "./data-models.js";
 import { loadContentOverlay, t, translationOf, contentLocalized } from "./i18n-content.js";
 
 Hooks.once("init", async function () {
@@ -28,6 +29,12 @@ Hooks.once("init", async function () {
   // Define custom Entity classes
   CONFIG.Actor.documentClass = CairnActor;
   CONFIG.Item.documentClass = CairnItem;
+
+  // Sub-type shapes. These replace template.json, which Foundry deprecated in v14
+  // and removes in V16 — the sub-types themselves are declared in system.json
+  // under documentTypes, and their schemas live in module/data-models.js.
+  CONFIG.Actor.dataModels = ACTOR_DATA_MODELS;
+  CONFIG.Item.dataModels = ITEM_DATA_MODELS;
 
   // configure combat
   CONFIG.Combat.documentClass = CairnCombat;

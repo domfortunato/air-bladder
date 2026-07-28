@@ -39,6 +39,23 @@
   "styles": [
     "css/cairn.css"
   ],
+  "documentTypes": {
+    "Actor": {
+      "character": {},
+      "npc": {},
+      "container": {},
+      "hireling": {}
+    },
+    "Item": {
+      "item": {},
+      "weapon": {},
+      "armor": {},
+      "spellbook": {},
+      "object": {},
+      "background": {},
+      "transport": {}
+    }
+  },
   "packs": [
     {
       "name": "armor",

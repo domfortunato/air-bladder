@@ -31,7 +31,6 @@ system:
     value: 0
     max: 0
   quantity: 1
-  slots: 1
 folder: null
 sort: 0
 _key: '!items!fZ5pC0Yo00zfz6xO'
