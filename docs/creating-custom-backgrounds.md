@@ -19,9 +19,14 @@ Writing one from a blank sheet means filling twelve question-table options befor
 you can see anything work. Copying a real background gives you a complete, correct
 example to edit down.
 
-1. Open the **Compendium** sidebar tab → **Cairn 2e Backgrounds** → click any
-   background (say *Fieldwarden*).
-2. On its sheet, click **Duplicate into Custom Backgrounds**.
+1. Open the **Compendium** sidebar tab → **Air Bladder - Items** → **Backgrounds (2e)**
+   → click any background (say *Fieldwarden*).
+2. Switch to the **Details** tab and click **Duplicate into Custom Backgrounds**.
+
+The button is on **Details**, not Description, and a shipped background opens on
+Description — so if you cannot see it, you are on the wrong tab. You do **not** need
+to import the background into your world first; the button works directly on a
+locked compendium entry.
 
 That does two things: it creates a world compendium called **Custom Backgrounds**
 the first time you use it, and it puts an editable copy inside, named
@@ -30,10 +35,19 @@ the first time you use it, and it puts an editable copy inside, named
 Open that copy and you have the authoring sheet. Rename it, then work through the
 fields below, replacing the borrowed content as you go.
 
-> **Starting from nothing instead:** create an Item, set its type to **Background**,
-> and drag it into your *Custom Backgrounds* compendium. You get the same sheet with
-> empty fields. There is no separate "new background" button — the Duplicate route is
-> the intended path, and this one exists because the Item type is public.
+## Starting from nothing instead
+
+There is no separate "new background" button. Duplicating is the intended path, but
+the Background item type is public, so you can start from an empty one:
+
+1. Open the **Items** sidebar tab and click **Create Item**.
+2. Name it and set **Type** to **Background**.
+3. Fill in the fields described below.
+4. On the **Details** tab, click **Duplicate into Custom Backgrounds** to file it in
+   the world compendium — created for you if it does not exist yet.
+
+Step 4 is not optional. A background sitting loose in the Items sidebar is not a
+content source and will never appear in the picker.
 
 ---
 
@@ -41,10 +55,13 @@ fields below, replacing the borrowed content as you go.
 
 The background sheet has two tabs.
 
-**Description** is a rich-text editor. This is the prose a player reads in the
-picker and at the top of their character sheet. The **first sentence** is used on
-its own as the tagline in the picker's list, so lead with something that reads well
-truncated.
+**Description** is the prose a player reads in the picker and at the top of their
+character sheet. The **first sentence** is used on its own as the tagline in the
+picker's list, so lead with something that reads well truncated.
+
+It is a rich-text field, and its edit button only appears when you hover over the
+top-right corner of the box — so an empty Description can look like a static panel
+rather than something you can type in.
 
 **Details** is the authoring form. It has a toolbar with **Test ×10** and
 **Duplicate into Custom Backgrounds**, then four sections.
