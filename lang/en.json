@@ -188,6 +188,8 @@
     "ContainerFull": "{name} won't fit — the container is full.",
     "DropFailed": "Couldn't move that item — you may not have permission to change the receiving sheet.",
     "DropNoSource": "You can't take that item — you don't have permission to change the sheet it came from.",
+    "ContainerNoPermission": "You can't attach {name} — you don't have permission to change it. Ask the Warden.",
+    "ContainerLinkFailed": "Couldn't attach {name}; nothing was changed.",
     "NoActorCreate": "Only the Warden can create containers and transports.",
     "NoContainerRegen": "Regenerating this character could add or remove a container (a mount, cart or pack), which only the Warden can do — ask them to re-roll it for you."
   },

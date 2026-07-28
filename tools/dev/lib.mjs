@@ -73,6 +73,43 @@ export async function joinAsGM(page) {
 }
 
 /**
+ * Join the world as a NAMED user — the only way to exercise permission behaviour,
+ * since a GM passes every ownership check and so can never reproduce a player's
+ * failure. Pair with `create-players.mjs`, which seeds Alice and Bob.
+ *
+ * Give each session its own browser CONTEXT: Foundry keys the session cookie per
+ * origin, so two pages in one context are the same logged-in user.
+ *
+ * @param {import("playwright").Page} page
+ * @param {String} name  a User name that already exists in the world
+ */
+export async function joinAs(page, name) {
+  await page.goto(`${FOUNDRY_URL}/join`, { waitUntil: "networkidle", timeout: 60000 });
+  // The join form is rendered client-side, so it can still be absent at
+  // networkidle. Wait for the control itself rather than the network.
+  await page.waitForSelector('select[name="userid"] option[value]:not([value=""])', {
+    state: "attached", timeout: 30000,
+  });
+
+  const picked = await page.evaluate((name) => {
+    // v14 hides <select> behind custom elements — drive the underlying element.
+    const s = document.querySelector('select[name="userid"]');
+    if (!s) return null;
+    const opt = [...s.options].find((o) => o.textContent.trim() === name);
+    if (!opt) return null;
+    s.value = opt.value;
+    s.dispatchEvent(new Event("change", { bubbles: true }));
+    return opt.value;
+  }, name);
+  if (!picked) throw new Error(`joinAs: no user named "${name}" — run \`npm run dev:players\` first`);
+
+  await page.locator('button[type="submit"][name="join"], form#join-game button[type="submit"]')
+    .first().click({ timeout: 15000 });
+  await page.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
+  await dismissChrome(page);
+}
+
+/**
  * Answer the Kettlewright importer's options dialog, which opens between the
  * import button and the file picker. Ticks or unticks the background gate, then
  * presses the button that opens the picker.

@@ -23,7 +23,8 @@
     "dev:enc-damage": "node tools/dev/e2e-encumbered-damage.mjs",
     "dev:data-model": "node tools/dev/e2e-data-model.mjs",
     "dev:content-overlay": "node tools/dev/e2e-content-overlay.mjs",
-    "dev:sheet-ids": "node tools/dev/e2e-sheet-ids.mjs"
+    "dev:sheet-ids": "node tools/dev/e2e-sheet-ids.mjs",
+    "dev:container-link": "node tools/dev/e2e-container-link.mjs"
   },
   "browserslist": [
     "last 3 versions"

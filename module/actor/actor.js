@@ -210,17 +210,52 @@ export class CairnActor extends Actor {
     }
   }
 
+  /**
+   * Attach a container Actor to this actor. The link is TWO writes — this actor
+   * lists the container's uuid, the container's `keeper` points back — and both
+   * must land or neither, because either half alone is a broken state.
+   *
+   * The old code wrote this actor first and the container second, with no
+   * permission check and no catch. Containers are visible to players by default
+   * (`show-container-actors`, and mounts/vehicles show in the directory), so a
+   * player could drag a Warden's pack mule onto their own sheet: the first update
+   * succeeded (they own their character), the second was refused. That left the
+   * character listing a container whose `keeper` was still empty — unopenable, and
+   * still claimable by anyone else. `_onDropItem` already refuses a transfer up
+   * front for the same reason; this now matches.
+   *
+   * @param {CairnActor} data  the container Actor to attach
+   */
   async createOwnedContainer(data) {
-    if (!this.system.containers) this.system.containers = [];
     if (!data || data.type != "container") return;
-    if (this.system.containers.find((c) => c.uuid == data.uuid) != undefined)
-      return;
+    const containers = this.system.containers ?? [];
+    if (containers.includes(data.uuid)) return;
 
-    const newValue = this.system.containers;
-    newValue.push(data.uuid);
-    await this.update({ "system.containers": newValue });
-    // update container owner - named 'keeper' to avoid conflict.
-    await data.update({ "system.keeper": this.uuid });
+    // Refuse before writing anything. Both documents are written below, so both
+    // need write access — asking canUserModify directly says exactly that, and
+    // answers true for a GM.
+    if (!this.canUserModify(game.user, "update") || !data.canUserModify(game.user, "update")) {
+      ui.notifications.warn(
+        game.i18n.format("CAIRN.Notify.ContainerNoPermission", { name: data.name })
+      );
+      return;
+    }
+
+    // A NEW array, not the live one. Pushing onto this.system.containers mutates
+    // the prepared model in place, so a failed or rolled-back update would leave
+    // the in-memory copy holding a link that was never persisted.
+    await this.update({ "system.containers": [...containers, data.uuid] });
+    try {
+      // update container owner - named 'keeper' to avoid conflict.
+      await data.update({ "system.keeper": this.uuid });
+    } catch (err) {
+      // Undo our half rather than leave the pair inconsistent.
+      await this.update({ "system.containers": containers });
+      ui.notifications.error(
+        game.i18n.format("CAIRN.Notify.ContainerLinkFailed", { name: data.name })
+      );
+      console.error("Air Bladder | container link failed, rolled back", err);
+    }
   }
 
   async createOwnedFeature(data) {

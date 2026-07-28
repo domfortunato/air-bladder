@@ -225,7 +225,16 @@ export const acquireTransport = async (actor, doc, pay) => {
   await actor.createOwnedContainer(container);
   // Player-ownable: give the transport the same ownership as the character who
   // bought it, so its owning player can open and manage it (GMs always can).
-  await container.update({ ownership: foundry.utils.deepClone(actor.ownership) });
+  //
+  // GM-only, because Foundry refuses an `ownership` write from anyone below
+  // Assistant ("ownership may only be modified by a GM or Assistant GM user") —
+  // this threw for a player in a world where the Warden had granted ACTOR_CREATE,
+  // AFTER the container was created and linked but BEFORE the gold was deducted,
+  // so they got a free transport and an uncaught error. A player doesn't need it
+  // anyway: Foundry makes the creating user an owner of what they create.
+  if (game.user.isGM) {
+    await container.update({ ownership: foundry.utils.deepClone(actor.ownership) });
+  }
   if (pay) {
     await actor.update({ "system.gold": (actor.system.gold ?? 0) - cost });
     ui.notifications.info(game.i18n.format("CAIRN.Notify.Bought", { name: doc.name, cost }));
