@@ -58,9 +58,9 @@
             </div>
             {{/if}}
             <div class="resource-counter hp-counter {{#if hpLow}}low{{/if}}">
-                <label for="system.hp.value" data-tooltip="{{ localize 'CAIRN.HitProtectionTip' }}">{{ localize 'CAIRN.HitProtection' }}</label>
+                <label for="{{@root.idp}}-system.hp.value" data-tooltip="{{ localize 'CAIRN.HitProtectionTip' }}">{{ localize 'CAIRN.HitProtection' }}</label>
                 <div class="resource-input-wrapper">
-                    <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.value" id="system.hp.value"
+                    <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.value" id="{{@root.idp}}-system.hp.value"
                            value="{{data.system.hp.value}}" data-dtype="Number" title="{{ localize 'CAIRN.Current' }}" />
                     <span> / </span>
                     <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.max" value="{{data.system.hp.max}}" data-dtype="Number" title="{{ localize 'CAIRN.Maximum' }}" />
@@ -68,11 +68,11 @@
             </div>
             <div class="resource-counter deprived-counter long-counter {{#if data.system.maybeTooMuchGold }}overburdened-gold{{/if}}"
             {{#if data.system.maybeTooMuchGold }} title="{{localize 'CAIRN.OverburdenByGold'}}" {{/if}} >
-                <label for="system.gold" data-tooltip="{{ data.system.coinTip }}">
+                <label for="{{@root.idp}}-system.gold" data-tooltip="{{ data.system.coinTip }}">
                     {{ localize 'CAIRN.Gold' }}
                 </label>
                 <div class="resource-input-wrapper">
-                    <input type="number" name="system.gold" id="system.gold" value="{{data.system.gold}}" data-dtype="Number" />
+                    <input type="number" name="system.gold" id="{{@root.idp}}-system.gold" value="{{data.system.gold}}" data-dtype="Number" />
                 </div>
             </div>
             

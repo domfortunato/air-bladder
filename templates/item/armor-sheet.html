@@ -10,34 +10,34 @@
         </div>
         <!-- Equipped -->
         <div class="resource-counter long-counter">
-            <label class="large-resource-label" for="system.equipped">{{ localize 'CAIRN.Equipped' }}</label>
+            <label class="large-resource-label" for="{{@root.idp}}-system.equipped">{{ localize 'CAIRN.Equipped' }}</label>
             <div class="resource-input-wrapper">
-                <input type="checkbox" {{checked data.system.equipped}} name="system.equipped" id="system.equipped"
+                <input type="checkbox" {{checked data.system.equipped}} name="system.equipped" id="{{@root.idp}}-system.equipped"
                        value="{{data.system.equipped}}" data-dtype="Boolean" {{ disabled (not item.system.isEquipable) }} />
             </div>
         </div>
         <!-- Armor -->
         <div class="resource-counter long-counter">
-            <label class="large-resource-label" for="system.armor">{{ localize 'CAIRN.Armor' }}</label>
+            <label class="large-resource-label" for="{{@root.idp}}-system.armor">{{ localize 'CAIRN.Armor' }}</label>
             <div class="resource-input-wrapper">
-                <input type="text" name="system.armor" id="system.armor"
+                <input type="text" name="system.armor" id="{{@root.idp}}-system.armor"
                        value="{{data.system.armor}}" data-dtype="Number" />
             </div>
         </div>
 
         <!-- Bulky -->
         <div class="resource-counter long-counter">
-            <label class="large-resource-label" for="system.bulky">{{ localize 'CAIRN.Bulky' }}</label>
+            <label class="large-resource-label" for="{{@root.idp}}-system.bulky">{{ localize 'CAIRN.Bulky' }}</label>
             <div class="resource-input-wrapper">
-                <input type="checkbox" {{checked data.system.bulky}} name="system.bulky" id="system.bulky"
+                <input type="checkbox" {{checked data.system.bulky}} name="system.bulky" id="{{@root.idp}}-system.bulky"
                        value="{{data.system.bulky}}" data-dtype="Boolean" />
             </div>
         </div>
         <!-- Weightless -->
         <div class="resource-counter long-counter">
-            <label class="large-resource-label" for="system.weightless">{{ localize 'CAIRN.Weightless' }}</label>
+            <label class="large-resource-label" for="{{@root.idp}}-system.weightless">{{ localize 'CAIRN.Weightless' }}</label>
             <div class="resource-input-wrapper">
-                <input type="checkbox" {{checked data.system.weightless}} name="system.weightless" id="system.weightless"
+                <input type="checkbox" {{checked data.system.weightless}} name="system.weightless" id="{{@root.idp}}-system.weightless"
                         value="{{data.system.weightless}}" data-dtype="Boolean" />
             </div>
         </div>
@@ -45,17 +45,17 @@
 
         <!-- Number of uses -->
         <div class="resource-counter long-counter">
-            <label class="large-resource-label" for="system.uses.value">{{ localize 'CAIRN.Uses' }}</label>
+            <label class="large-resource-label" for="{{@root.idp}}-system.uses.value">{{ localize 'CAIRN.Uses' }}</label>
             <div class="resource-input-wrapper">
-                <input type="text" name="system.uses.value" id="system.uses.value"
+                <input type="text" name="system.uses.value" id="{{@root.idp}}-system.uses.value"
                         value="{{data.system.uses.value}}" data-dtype="Number" />
             </div>
         </div>
 
         <div class="resource-counter long-counter">
-            <label class="large-resource-label" for="system.uses.max">{{ localize 'CAIRN.MaxUses' }}</label>
+            <label class="large-resource-label" for="{{@root.idp}}-system.uses.max">{{ localize 'CAIRN.MaxUses' }}</label>
             <div class="resource-input-wrapper">
-                <input type="text" name="system.uses.max" id="system.uses.max"
+                <input type="text" name="system.uses.max" id="{{@root.idp}}-system.uses.max"
                       value="{{data.system.uses.max}}" data-dtype="Number" />
             </div>
         </div>
@@ -65,9 +65,9 @@
 
          <!-- Cost -->
          <div class="resource-counter long-counter">
-            <label class="large-resource-label" for="system.cost">{{ localize 'CAIRN.Cost' }}</label>
+            <label class="large-resource-label" for="{{@root.idp}}-system.cost">{{ localize 'CAIRN.Cost' }}</label>
             <div class="resource-input-wrapper">
-                <input type="text" name="system.cost" id="system.cost"
+                <input type="text" name="system.cost" id="{{@root.idp}}-system.cost"
                     value="{{data.system.cost}}" data-dtype="Number" />
             </div>
         </div>

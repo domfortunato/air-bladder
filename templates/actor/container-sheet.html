@@ -10,9 +10,9 @@
                 {{data.system.ownedBy}}
             </div>
             <div class="resource-counter slots-counter">
-                <label for="system.slots">{{ localize 'CAIRN.Slots' }}</label>
+                <label for="{{@root.idp}}-system.slots">{{ localize 'CAIRN.Slots' }}</label>
                 <div class="resource-input-wrapper">
-                    <input type="text" name="system.slots" id="system.slots"
+                    <input type="text" name="system.slots" id="{{@root.idp}}-system.slots"
                            value="{{data.system.slots}}" data-dtype="Number" />
                 </div>
             </div>
@@ -20,18 +20,18 @@
             {{#if data.system.showGoldNotCost }}
                 <div class="resource-counter slots-counter {{#if data.system.maybeTooMuchGold }}overburdened-gold{{/if}}"
                 {{#if data.system.maybeTooMuchGold }} title="{{localize 'CAIRN.OverburdenByGold'}}" {{/if}} >
-                    <label for="system.gold" >
+                    <label for="{{@root.idp}}-system.gold" >
                         {{ localize 'CAIRN.Gold' }}
                     </label>
                     <div class="resource-input-wrapper">
-                        <input type="number" name="system.gold" id="system.gold" value="{{data.system.gold}}" data-dtype="Number" />
+                        <input type="number" name="system.gold" id="{{@root.idp}}-system.gold" value="{{data.system.gold}}" data-dtype="Number" />
                     </div>
                 </div>
             {{else}}
                 <div class="resource-counter slots-counter">
-                    <label class="large-resource-label" for="system.cost">{{ localize 'CAIRN.Cost' }}</label>
+                    <label class="large-resource-label" for="{{@root.idp}}-system.cost">{{ localize 'CAIRN.Cost' }}</label>
                     <div class="resource-input-wrapper">
-                        <input type="text" name="system.cost" id="system.cost"
+                        <input type="text" name="system.cost" id="{{@root.idp}}-system.cost"
                             value="{{data.system.cost}}" data-dtype="Number" />
                     </div>
                 </div>

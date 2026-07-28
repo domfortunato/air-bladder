@@ -10,70 +10,70 @@
         </div>
         <!-- Equipped -->
         <div class="resource-counter long-counter">
-            <label class="large-resource-label" for="system.equipped">{{ localize 'CAIRN.Equipped' }}</label>
+            <label class="large-resource-label" for="{{@root.idp}}-system.equipped">{{ localize 'CAIRN.Equipped' }}</label>
             <div class="resource-input-wrapper">
-                <input type="checkbox" {{checked data.system.equipped}} name="system.equipped" id="system.equipped"
+                <input type="checkbox" {{checked data.system.equipped}} name="system.equipped" id="{{@root.idp}}-system.equipped"
                     value="{{data.system.equipped}}" data-dtype="Boolean" />
             </div>
         </div>
 
           <!-- Bulky -->
           <div class="resource-counter long-counter">
-            <label class="large-resource-label" for="system.bulky">{{ localize 'CAIRN.Bulky' }}</label>
+            <label class="large-resource-label" for="{{@root.idp}}-system.bulky">{{ localize 'CAIRN.Bulky' }}</label>
             <div class="resource-input-wrapper">
-                <input type="checkbox" {{checked data.system.bulky}} name="system.bulky" id="system.bulky"
+                <input type="checkbox" {{checked data.system.bulky}} name="system.bulky" id="{{@root.idp}}-system.bulky"
                         value="{{data.system.bulky}}" data-dtype="Boolean" />
             </div>
         </div>
 
         <!-- Weightless -->
         <div class="resource-counter long-counter">
-            <label class="large-resource-label" for="system.weightless">{{ localize 'CAIRN.Weightless' }}</label>
+            <label class="large-resource-label" for="{{@root.idp}}-system.weightless">{{ localize 'CAIRN.Weightless' }}</label>
             <div class="resource-input-wrapper">
-                <input type="checkbox" {{checked data.system.weightless}} name="system.weightless" id="system.weightless"
+                <input type="checkbox" {{checked data.system.weightless}} name="system.weightless" id="{{@root.idp}}-system.weightless"
                         value="{{data.system.weightless}}" data-dtype="Boolean" />
             </div>
         </div>
       
         <!-- Quantity -->
         <div class="resource-counter long-counter">
-            <label class="large-resource-label" for="system.quantity">{{ localize 'CAIRN.Quantity' }}</label>
+            <label class="large-resource-label" for="{{@root.idp}}-system.quantity">{{ localize 'CAIRN.Quantity' }}</label>
             <div class="resource-input-wrapper">
-                <input type="text" name="system.quantity" id="system.quantity"
+                <input type="text" name="system.quantity" id="{{@root.idp}}-system.quantity"
                         value="{{data.system.quantity}}" data-dtype="Number" />
             </div>
         </div>
 
         <!-- Number of uses -->
         <div class="resource-counter long-counter">
-            <label class="large-resource-label" for="system.uses.value">{{ localize 'CAIRN.Uses' }}</label>
+            <label class="large-resource-label" for="{{@root.idp}}-system.uses.value">{{ localize 'CAIRN.Uses' }}</label>
             <div class="resource-input-wrapper">
-                <input type="text" name="system.uses.value" id="system.uses.value"
+                <input type="text" name="system.uses.value" id="{{@root.idp}}-system.uses.value"
                        value="{{data.system.uses.value}}" data-dtype="Number" />
             </div>
         </div>
 
         <div class="resource-counter long-counter">
-            <label class="large-resource-label" for="system.uses.max">{{ localize 'CAIRN.MaxUses' }}</label>
+            <label class="large-resource-label" for="{{@root.idp}}-system.uses.max">{{ localize 'CAIRN.MaxUses' }}</label>
             <div class="resource-input-wrapper">
-                <input type="text" name="system.uses.max" id="system.uses.max"
+                <input type="text" name="system.uses.max" id="{{@root.idp}}-system.uses.max"
                       value="{{data.system.uses.max}}" data-dtype="Number" />
             </div>
         </div>
               
         <!-- Blast -->
         <div class="resource-counter long-counter">
-            <label class="large-resource-label" for="system.blast">{{ localize 'CAIRN.Blast' }}</label>
+            <label class="large-resource-label" for="{{@root.idp}}-system.blast">{{ localize 'CAIRN.Blast' }}</label>
             <div class="resource-input-wrapper">
-                <input type="checkbox" {{checked data.system.blast}} name="system.blast" id="system.blast"
+                <input type="checkbox" {{checked data.system.blast}} name="system.blast" id="{{@root.idp}}-system.blast"
                        value="{{data.system.blast}}" data-dtype="Boolean" />
             </div>
         </div>
         <!-- Damage -->
         <div class="resource-counter long-counter">
-            <label class="large-resource-label" for="system.damageFormula">{{ localize 'CAIRN.Damage' }}</label>
+            <label class="large-resource-label" for="{{@root.idp}}-system.damageFormula">{{ localize 'CAIRN.Damage' }}</label>
             <div class="resource-input-wrapper">
-                <input type="text" name="system.damageFormula" id="system.damageFormula"
+                <input type="text" name="system.damageFormula" id="{{@root.idp}}-system.damageFormula"
                        value="{{data.system.damageFormula}}" data-dtype="String" />
             </div>
         </div>
@@ -81,9 +81,9 @@
 
         <!-- Cost -->
         <div class="resource-counter long-counter">
-            <label class="large-resource-label" for="system.cost">{{ localize 'CAIRN.Cost' }}</label>
+            <label class="large-resource-label" for="{{@root.idp}}-system.cost">{{ localize 'CAIRN.Cost' }}</label>
             <div class="resource-input-wrapper">
-                <input type="text" name="system.cost" id="system.cost"
+                <input type="text" name="system.cost" id="{{@root.idp}}-system.cost"
                        value="{{data.system.cost}}" data-dtype="Number" />
             </div>
         </div>

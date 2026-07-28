@@ -133,6 +133,10 @@ export class CairnItemSheet extends foundry.appv1.sheets.ItemSheet {
   /** @override */
   async getData() {
     const data = await super.getData();
+    // Per-window id prefix for label[for]/input[id] pairs — see CairnActorSheet#getData.
+    // Item sheets are the worst case: with two open, clicking "Bulky" on the second
+    // toggled the first item's checkbox and submitOnChange saved it.
+    data.idp = `air-bladder-${this.appId}`;
     // See CairnActorSheet#getData for the why: AppV1 hands templates
     // `document.toObject(false)`, which a TypeDataModel resolves against the
     // SCHEMA, so prepareData's derived values (isEquipable, hasPlusMinus,

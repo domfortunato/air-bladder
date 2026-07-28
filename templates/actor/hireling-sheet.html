@@ -44,7 +44,7 @@
             <div class="resource-counter hp-counter {{#if hpLow}}low{{/if}}">
                 <label data-tooltip="{{ localize 'CAIRN.HitProtectionTip' }}">{{ localize 'CAIRN.HitProtection' }}</label>
                 <div class="resource-input-wrapper">
-                    <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.value" id="system.hp.value"
+                    <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.value" id="{{@root.idp}}-system.hp.value"
                            value="{{data.system.hp.value}}" data-dtype="Number" title="{{ localize 'CAIRN.Current' }}" />
                     <span> / </span>
                     <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.max"

@@ -84,6 +84,16 @@ export class CairnActorSheet extends foundry.appv1.sheets.ActorSheet {
     // Templates address these as `data.system` / `data.items`, which is AppV1's
     // `context.data` — NOT the context root — so the finished values are written
     // back onto it at the end of this method.
+    // Per-window id prefix for label[for]/input[id] pairs. Templates hardcoded the
+    // field path as the DOM id ("system.gold"), so every open sheet of a type used
+    // the SAME ids — and `label[for]` resolves against the first match in tree
+    // order, so with two sheets open a click on the second sheet's label toggled
+    // the FIRST sheet's checkbox, which submitOnChange then saved. Foundry requires
+    // package-namespaced ids and namespaces its own with the app instance.
+    // `appId` is assigned immediately before getData and re-read from the DOM on
+    // re-render, so it exists here and is stable for the window's lifetime.
+    data.idp = `air-bladder-${this.appId}`;
+
     data.system = { ...this.actor.system };
     const liveItems = new Map(this.actor.items.map((i) => [i.id, i]));
     data.items = data.items.map((i) => ({
