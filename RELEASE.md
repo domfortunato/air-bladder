@@ -30,8 +30,15 @@ source, so the mirror carries it to GitHub and protects it.
 
 ## Steps
 
-1. Be on your main branch with a clean tree; `git pull` so it's current.
-2. `npm run release X.Y.Z`
+Work lives on `dev`; `master` is the released state. A release is a merge plus a
+tag — see [docs/git-flow.md](docs/git-flow.md).
+
+1. Merge the work into `master` and make sure it is current:
+   ```bash
+   git checkout master && git pull && git merge dev
+   ```
+2. `npm run release X.Y.Z` — it refuses to run anywhere but `master`, and prints
+   the commits it is about to ship. An empty list means step 1 did not happen.
 3. **If `origin` mirrors to GitHub**, make sure the mirror syncs the new tag
    (enable "sync on push" once, or trigger a sync). If `origin` *is* GitHub, skip
    this — the tag is already there.
@@ -41,6 +48,15 @@ source, so the mirror carries it to GitHub and protects it.
    `https://github.com/<owner>/<repo>/releases/latest/download/system.json`
 6. (Optional) add release notes on the GitHub release. Rebuilds preserve them
    (`omitBodyDuringUpdate`).
+7. **Sync `dev`, or the next merge conflicts.** The release commit bumps
+   `system.json` on `master` only, so `dev` is behind by that line every time:
+   ```bash
+   git checkout dev && git merge master && git push origin dev
+   ```
+
+Don't merge and then sit on it. The website redeploys from `master` on the merge
+while users still install the previous tag, so a delay between step 1 and step 2
+publishes documentation for a version nobody can install yet.
 
 ## Rebuilding / recovering a release
 
