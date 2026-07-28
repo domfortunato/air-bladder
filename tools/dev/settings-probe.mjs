@@ -41,6 +41,16 @@ try {
     const mod = await import("/systems/air-bladder/module/settings.js");
     out.declared = mod.SETTING_KEYS.length;
     out.missing = mod.SETTING_KEYS.filter((k) => !game.settings.settings.has(`${mod.SETTINGS_NS}.${k}`));
+    // `ns` above counts CONFIG-VISIBLE settings, so compare like with like: a
+    // setting registered with `config: false` is deliberately absent from the UI
+    // (custom-portrait-list is an internal cache) and must not read as misfiled.
+    out.declaredVisible = mod.SETTING_KEYS.filter(
+      (k) => game.settings.settings.get(`${mod.SETTINGS_NS}.${k}`)?.config
+    ).length;
+    out.hidden = mod.SETTING_KEYS.filter(
+      (k) => game.settings.settings.has(`${mod.SETTINGS_NS}.${k}`) &&
+        !game.settings.settings.get(`${mod.SETTINGS_NS}.${k}`)?.config
+    );
     out.systemId = game.system.id;
     out.knownPackage = !!(game.system.id === "air-bladder");
 
@@ -65,9 +75,10 @@ try {
 
   const mine = r.namespaces["air-bladder"] ?? 0;
   const stale = r.namespaces["cairn"] ?? 0;
-  mine === r.declared && !r.missing.length
-    ? ok(`all ${r.declared} declared settings registered under "air-bladder" — Foundry can map them`)
-    : fail(`${mine} registered vs ${r.declared} declared${r.missing.length ? `; missing: ${r.missing.join(", ")}` : ""}`);
+  mine === r.declaredVisible && !r.missing.length
+    ? ok(`all ${r.declared} declared settings registered under "air-bladder" — Foundry can map them`
+        + (r.hidden.length ? ` (${r.hidden.length} hidden by design: ${r.hidden.join(", ")})` : ""))
+    : fail(`${mine} config-visible vs ${r.declaredVisible} expected${r.missing.length ? `; missing: ${r.missing.join(", ")}` : ""}`);
   stale === 0 ? ok(`nothing left under the unmappable "cairn" namespace`)
               : fail(`${stale} setting(s) still under "cairn" — they render as Unmapped`);
 

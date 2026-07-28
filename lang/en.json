@@ -188,6 +188,7 @@
     "ContainerFull": "{name} won't fit — the container is full.",
     "DropFailed": "Couldn't move that item — you may not have permission to change the receiving sheet.",
     "DropNoSource": "You can't take that item — you don't have permission to change the sheet it came from.",
+    "PortraitFolderScanned": "Custom portrait folder scanned — {count} image(s) found.",
     "ContainerNoPermission": "You can't attach {name} — you don't have permission to change it. Ask the Warden.",
     "ContainerLinkFailed": "Couldn't attach {name}; nothing was changed.",
     "NoActorCreate": "Only the Warden can create containers and transports.",

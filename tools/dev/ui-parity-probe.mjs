@@ -259,7 +259,16 @@ try {
     // Every registered setting must be reachable on this tab -- a key that is
     // registered but never rendered is invisible to a Warden.
     const settings = await import("/systems/air-bladder/module/settings.js");
-    out.declaredKeys = settings.SETTING_KEYS;
+    // Only settings registered with `config: true` appear on this tab. One is
+    // hidden by design (custom-portrait-list, an internal cache written by a GM
+    // scan), so comparing against the raw key list reads a deliberate omission as
+    // a missing setting.
+    out.declaredKeys = settings.SETTING_KEYS.filter(
+      (k) => game.settings.settings.get(`${NS}.${k}`)?.config
+    );
+    out.hiddenKeys = settings.SETTING_KEYS.filter(
+      (k) => game.settings.settings.has(`${NS}.${k}`) && !game.settings.settings.get(`${NS}.${k}`)?.config
+    );
     out.renderedKeys = [...cfgEl.querySelectorAll(`[name^="${NS}."]`)].map((i) => i.name.slice(NS.length + 1));
     await cfg.close();
 
@@ -418,17 +427,34 @@ try {
   // Every registered key is reachable on the tab.
   const missingFromTab = (r.declaredKeys ?? []).filter((k) => !r.renderedKeys?.includes(k));
   missingFromTab.length === 0
-    ? ok(`every registered setting (${r.declaredKeys.length}) is reachable on the Configure Settings tab`)
+    ? ok(`every configurable setting (${r.declaredKeys.length}) is reachable on the Configure Settings tab`
+        + (r.hiddenKeys?.length ? ` (${r.hiddenKeys.length} hidden by design: ${r.hiddenKeys.join(", ")})` : ""))
     : fail(`registered but not rendered: ${missingFromTab.join(", ")}`);
 
-  // Each setting under the RIGHT heading, not merely under some heading.
+  // Each setting under the RIGHT heading, not merely under some heading. Group
+  // headers are POSITIONAL — Foundry renders them in registration order — so this
+  // is the guard against a new setting silently landing under the wrong one.
+  //
+  // Brought back in step 2026-07-28: three settings had been added since these
+  // lists were written, and the probe could not report it because it crashed on a
+  // missing import before ever reaching here (see lib.mjs / dismissChrome).
+  // `content-source-custom` and `custom-portrait-folder` are correctly inside the
+  // Character Generation block.
+  //
+  // OPEN QUESTION, deliberately encoded as reality rather than as a failure:
+  // `min-age` is registered as the LAST General setting, one line above the
+  // "Character Generation" header comment — but it is a generation parameter and
+  // arguably belongs in that group. Moving it also reorders SETTING_KEYS, which is
+  // documented as "in registration order — used by the migration", so it is not a
+  // free change. Left where it is pending a decision.
   const EXPECTED = {
     "Inventory & Encumbrance": ["max-equip-slots", "character-inventory-limit", "use-gold-threshold",
       "show-gold-not-cost", "show-container-actors", "enable-inventory-reorder"],
-    "Character Generation": ["content-source-2e", "content-source-barebones", "barebones-failed-career",
-      "show-omens-barebones", "show-bonds-barebones", "show-generate-header"],
+    "Character Generation": ["content-source-2e", "content-source-custom", "content-source-barebones",
+      "barebones-failed-career", "show-omens-barebones", "show-bonds-barebones", "show-generate-header",
+      "custom-portrait-folder"],
     "General Settings": ["use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
-      "show-features-section", "show-containers-tab", "use-warden-title"],
+      "show-features-section", "show-containers-tab", "use-warden-title", "min-age"],
   };
   for (const [group, keys] of Object.entries(EXPECTED)) {
     const got = r.grouped?.[group] ?? [];

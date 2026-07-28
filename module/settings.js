@@ -265,6 +265,30 @@ export const registerSettings = () => {
     type: String,
     default: "air-bladder-portraits",
     requiresReload: false,
+    // requiresReload: false was a claim nothing made true. Both functions that act
+    // on this setting ran only in the `ready` hook and from the gallery's GM
+    // refresh button, so changing the folder did NOTHING: no reload prompt, the new
+    // folder was never created, and the cached custom-portrait-list still held the
+    // OLD folder's files. Every character generated afterwards silently drew from
+    // the old folder, and if it had been moved the assigned img paths 404'd on both
+    // sheet and token.
+    //
+    // onChange fires on every client, so this is GM-gated: scanning a folder needs
+    // FILES_BROWSE and writing custom-portrait-list is a world-setting write. The
+    // work happens once, on the GM who made the change, and every other client
+    // picks the new list up through the setting.
+    //
+    // Imported dynamically to avoid a static cycle — character-generator.js already
+    // imports SETTINGS_NS from here.
+    onChange: async () => {
+      if (!game.user?.isGM) return;
+      const gen = await import("./character-generator.js");
+      await gen.ensureCustomPortraitFolder();
+      const files = await gen.refreshCustomPortraits();
+      ui.notifications.info(
+        game.i18n.format("CAIRN.Notify.PortraitFolderScanned", { count: files.length })
+      );
+    },
   });
 
   // The scanned file list for the folder above, cached so players (who lack the
