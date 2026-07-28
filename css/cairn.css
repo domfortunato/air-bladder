@@ -24,15 +24,16 @@
    the viewer's theme:
      --ab-muted         readable muted/secondary text (replaces a scattered
                         `grey`/#888, which was too low-contrast on parchment),
-     --ab-surface       warm off-white for the white controls (Rest / Restore /
-                        Die of Fate) so they sit IN the parchment instead of
-                        glaring as cold-white patches; their black border still
-                        marks them as controls,
-     --ab-surface-hover the same, one step darker, for their hover. */
+     --ab-surface       warm off-white for the sheet's custom checkboxes, so they
+                        sit IN the parchment instead of glaring as cold-white
+                        patches; their black border still marks them as controls.
+
+   The Rest / Restore / Die of Fate buttons used this pair too until 2026-07-28.
+   They now take Foundry's own button chrome -- only Die of Fate keeps its teal
+   text glow -- so --ab-surface-hover went with them. */
 .cairn {
     --ab-muted: #4a4335;
     --ab-surface: #f1ead8;
-    --ab-surface-hover: #e7ded0;
 }
 
 .cairn.sheet.actor,
@@ -104,13 +105,12 @@
 }
 
 #die-of-fate-button {
-    /* Distinguished from the two utility buttons not by a box glow but by a teal
-       TEXT glow that lights up its label + d6 icon -- the same idea as a selected
-       tab, in teal (the complement of the tabs' red) so it reads as
-       related-but-distinct and marks the deliberate action. */
-    background: var(--ab-surface);
-    color: black;
-    border: 2px solid black;
+    /* Foundry's default button chrome, like Rest and Restore beside it (the
+       black-bordered cream fill all three carried was dropped 2026-07-28). What
+       still sets this one apart is deliberately NOT a box: a teal TEXT glow that
+       lights up its label + d6 icon -- the same idea as a selected tab, in teal
+       (the complement of the tabs' red) so it reads as related-but-distinct and
+       marks the deliberate action. Keep the glow if the chrome changes again. */
     font-weight: bold;
     text-shadow: 0 0 8px #12a3b4;
 }
@@ -434,13 +434,14 @@
 /******************************************************************************
  * Sheet checkboxes (Deprived / Panicked conditions + Omen / Scars).          *
  *                                                                            *
- * Native checkboxes render as a stark white box that clashes with both the   *
- * parchment and the warm controls. Restyle them appearance:none so the box    *
- * takes the same flat --ab-surface as the Rest / Restore / Die of Fate        *
- * buttons, with a black border + black tick -- which reads on BOTH the black  *
- * condition bars (border vanishes into the black, cream box still shows) and  *
- * the parchment (border + tick both show). Purely visual; the input still     *
- * toggles and fires its change handler as before.                            *
+ * Native checkboxes render as a stark white box that clashes with the        *
+ * parchment. Restyle them appearance:none so the box takes a flat warm       *
+ * --ab-surface -- these are now its only user, the Rest / Restore / Die of   *
+ * Fate buttons having shared it until 2026-07-28 -- with a black border and  *
+ * a black tick, which reads on BOTH the black condition bars (border         *
+ * vanishes into the black, cream box still shows) and the parchment (border  *
+ * + tick both show). Purely visual; the input still toggles and fires its    *
+ * change handler as before.                                                  *
  ******************************************************************************/
 .cairn .deprived-check,
 .cairn .panicked-check,
@@ -794,20 +795,10 @@
     margin-right: 5px;
 }
 
-/* Rest / Restore Abilities share the Die of Fate look -- white fill, black
-   border, bold, left-aligned -- MINUS its glow, so the three read as a set while
-   Die of Fate stays the emphasised one. */
-.character-sheet-section-buttons .strict-size-button {
-    background: var(--ab-surface);
-    color: black;
-    border: 2px solid black;
-    font-weight: bold;
-}
-
-.character-sheet-section-buttons .strict-size-button:hover:not(:disabled) {
-    background: var(--ab-surface-hover);
-}
-
+/* Rest / Restore Abilities take Foundry's default button colours, including its
+   hover. They used to share Die of Fate's cream fill + black border; that whole
+   look went 2026-07-28 in favour of the core chrome. Only the sizing/alignment
+   rules above and the disabled state below are ours now. */
 .character-sheet-section-buttons .strict-size-button:disabled {
     opacity: 0.45;
 }

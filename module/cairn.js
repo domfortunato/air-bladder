@@ -220,15 +220,14 @@ Hooks.once("ready", async () => {
   await characterGenerator.refreshCustomPortraits();
 });
 
-// Dialogs get the black-and-white sheet look. The styling lives in css/cairn.css
-// (.cairn-dialog); here we just tag each dialog on render. Covers both the AppV1
-// Dialog (renderDialog) and ApplicationV2 DialogV2 (renderDialogV2). World-wide by
-// design: in a Cairn world essentially every dialog is the system's, and one
-// uniform look is the point -- the CSS themes only chrome (header, body, action
-// button row), never inner form content, so a core or module dialog is
-// recoloured but never structurally broken.
-Hooks.on("renderDialog", (app) => app.element?.addClass?.("cairn-dialog"));
-Hooks.on("renderDialogV2", (app) => app.element?.classList?.add?.("cairn-dialog"));
+// Two hooks used to tag every dialog world-wide with `.cairn-dialog` so
+// css/cairn.css could give it the sheet's black-and-white chrome. f00e72c
+// (2026-07-23) reverted dialogs to Foundry's own theme-aware look and deleted
+// that CSS, but left these behind -- so they ran on every dialog any package
+// opened, to add a class that styled nothing, under a comment claiming styles
+// that no longer existed. Removed 2026-07-28. Dialogs are Foundry's surface now;
+// if that is ever revisited, re-add BOTH hooks (AppV1 `renderDialog` and V2
+// `renderDialogV2`) alongside the CSS, not one without the other.
 
 /**
  * Group and compact the system's rows in the GM's Configure Settings tab.

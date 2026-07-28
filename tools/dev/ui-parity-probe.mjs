@@ -88,9 +88,30 @@ try {
 
     out.dexRadius = style(".DEX-counter", "borderTopLeftRadius");
     out.strRadius = style(".STR-counter", "borderBottomLeftRadius");
-    out.restBg = style("#rest-button", "backgroundColor");
-    out.restoreBg = style("#restore-abilities-button", "backgroundColor");
-    out.fateBg = style("#die-of-fate-button", "backgroundColor");
+    // The three header buttons were reverted to Foundry's own chrome on
+    // 2026-07-28 (they had carried a cream fill + 2px black border). "Foundry's
+    // default" is MEASURED, not hardcoded: a bare button appended to the same
+    // container inherits our sizing rules but none of our colour ones, so it is
+    // the reference. Hardcoding a colour would fail the day Foundry repaints its
+    // buttons, which is exactly the kind of stale assertion this file collected.
+    const chrome = (el) => {
+      if (!el) return null;
+      const s = getComputedStyle(el);
+      return `${s.backgroundColor} | ${s.borderTopWidth} ${s.borderTopColor}`;
+    };
+    out.restBg = chrome(root.querySelector("#rest-button"));
+    out.restoreBg = chrome(root.querySelector("#restore-abilities-button"));
+    out.fateBg = chrome(root.querySelector("#die-of-fate-button"));
+    const refHost = root.querySelector(".character-sheet-section-buttons");
+    let ref = null;
+    if (refHost) {
+      ref = document.createElement("button");
+      ref.type = "button";
+      ref.textContent = "probe";
+      refHost.appendChild(ref);
+      out.defaultBtn = chrome(ref);
+      ref.remove();
+    }
     out.fateGlow = style("#die-of-fate-button", "textShadow");
 
     // Header buttons live on the window frame, not inside the form.
@@ -187,22 +208,14 @@ try {
     out.fatigueRow = !!fatigueEl;
     out.fatigueGlow = fatigueEl ? getComputedStyle(fatigueEl).boxShadow : null;
 
-    // --- Dialogs get the sheet's black-and-white chrome. Render (don't await a
-    // button press) so the element can be inspected, then close it.
-    const dlg = new foundry.applications.api.DialogV2({
-      window: { title: "probe" },
-      content: "<p>probe</p>",
-      buttons: [{ action: "ok", label: "OK" }],
-    });
-    await dlg.render(true);
-    await new Promise((res) => setTimeout(res, 400));
-    out.dialogThemed = dlg.element?.classList?.contains("cairn-dialog") ?? false;
-    const dlgBtn = dlg.element?.querySelector(".form-footer button");
-    out.dialogBtnBg = dlgBtn ? getComputedStyle(dlgBtn).backgroundColor : null;
-    out.dialogHeaderBg = dlg.element
-      ? getComputedStyle(dlg.element.querySelector(".window-header")).backgroundColor
-      : null;
-    await dlg.close();
+    // Dialogs used to be checked here for a black title bar and white buttons.
+    // f00e72c (2026-07-23) deliberately reverted every non-sheet surface --
+    // dialogs included -- to Foundry's own theme-aware chrome, and the CSS that
+    // themed them was deleted. These assertions outlived it by five days only
+    // because the probe crashed on a missing import before reaching them. There
+    // is nothing of ours left on a dialog to assert, so they are gone rather
+    // than inverted: a test that we did NOT style something is not worth its
+    // upkeep. If dialogs are ever themed again, re-add checks HERE.
 
     // --- No untranslated keys anywhere on either sheet. A missing lang entry
     // renders the raw "CAIRN.Foo" key as visible text, which is easy to ship
@@ -336,13 +349,14 @@ try {
     ? ok(`STR is rounded on every corner (${r.strRadius})`)
     : fail(`STR's lower corners are square (${r.strRadius})`);
 
-  // The three portrait buttons.
-  const white = (c) => /rgb\(\s*255,\s*255,\s*255\s*\)/.test(c ?? "");
-  white(r.restBg) && white(r.restoreBg) && white(r.fateBg)
-    ? ok("Rest / Restore Abilities / Die of Fate all have white backgrounds")
-    : fail(`button backgrounds not white: rest=${r.restBg} restore=${r.restoreBg} fate=${r.fateBg}`);
+  // The three portrait buttons: Foundry's chrome, and ONLY Die of Fate's glow
+  // is ours. Until 2026-07-28 all three took a cream fill and a 2px black
+  // border; the fill/border went, the teal text glow stayed.
+  r.defaultBtn && r.restBg === r.defaultBtn && r.restoreBg === r.defaultBtn && r.fateBg === r.defaultBtn
+    ? ok(`Rest / Restore / Die of Fate use Foundry's own button chrome (${r.defaultBtn})`)
+    : fail(`buttons deviate from Foundry's default (${r.defaultBtn}):\n        rest=${r.restBg}\n        restore=${r.restoreBg}\n        fate=${r.fateBg}`);
   r.fateGlow && r.fateGlow !== "none"
-    ? ok(`Die of Fate carries its glow (${r.fateGlow})`)
+    ? ok(`Die of Fate keeps its teal text glow (${r.fateGlow})`)
     : fail("Die of Fate has no text glow");
 
   // Header.
@@ -400,14 +414,7 @@ try {
     ? ok(`fatigue rows carry the teal glow (${r.fatigueGlow})`)
     : fail(`fatigue row not styled: present=${r.fatigueRow} shadow=${r.fatigueGlow}`);
 
-  // Dialogs.
-  r.dialogThemed ? ok("dialogs are tagged cairn-dialog") : fail("dialog was not tagged cairn-dialog");
-  /rgb\(\s*0,\s*0,\s*0\s*\)/.test(r.dialogHeaderBg ?? "")
-    ? ok(`dialog title bar is black (${r.dialogHeaderBg})`)
-    : fail(`dialog title bar not themed: ${r.dialogHeaderBg}`);
-  /rgb\(\s*255,\s*255,\s*255\s*\)/.test(r.dialogBtnBg ?? "")
-    ? ok(`dialog buttons match the sheet's white/black look (${r.dialogBtnBg})`)
-    : fail(`dialog button not themed: ${r.dialogBtnBg}`);
+  // (Dialogs are Foundry's own chrome now -- see the note in the page context.)
 
   r.rawKeys?.length === 0
     ? ok("no untranslated CAIRN.* keys render on either the 2e or Barebones sheet")
