@@ -3,7 +3,7 @@ name: Ghast
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.png
+img: systems/air-bladder/icons/monster.svg
 items:
   - _id: 1TiwZnpQoMgWI2mX
     name: Claws*

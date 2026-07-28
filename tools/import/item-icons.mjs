@@ -20,7 +20,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
-import { iconForItem, iconForTransport, iconForActor, ICON_DIR } from "../../module/icons.js";
+import { iconForItem, iconForTransport, iconForActor, ICON_DIR, TOOLS_ICON } from "../../module/icons.js";
 
 const YAML = createRequire(import.meta.url)("js-yaml");
 
@@ -36,7 +36,7 @@ const ACTOR_PACKS = ["monsters"];
 /** The class icon for a doc, given its pack. Mirrors module/icons.js. */
 const iconForDoc = (pack, doc) => {
   if (ACTOR_PACKS.includes(pack)) return iconForActor(doc.type, doc.name);
-  if (pack === "tools") return `${ICON_DIR}/tools.png`;                 // whole pack is tools
+  if (pack === "tools") return TOOLS_ICON;                              // whole pack is tools
   if (pack === "transports") return iconForTransport(doc.name, doc.system?.transportKind);
   return iconForItem(doc.type, doc.name);                              // null for backgrounds
 };

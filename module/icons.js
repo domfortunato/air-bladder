@@ -1,9 +1,9 @@
 /**
  * Item / actor art by class.
  *
- * The PNGs live in systems/air-bladder/icons/ and are game-icons.net glyphs
- * (CC BY 3.0 — see icons/CREDITS.md). This is the ONE source of truth for "which
- * picture does this thing get", shared by:
+ * The SVGs live in systems/air-bladder/icons/ and are game-icons.net glyphs
+ * (CC BY 3.0 — see icons/CREDITS.md; authored by tools/import/icons.mjs). This is
+ * the ONE source of truth for "which picture does this thing get", shared by:
  *   - the pack-data importer (tools/import/item-icons.mjs), which stamps every
  *     pool item / monster at author time;
  *   - generation (a resolved gear item, a random scroll, an owned container);
@@ -14,7 +14,10 @@
  */
 
 export const ICON_DIR = "systems/air-bladder/icons";
-const P = (n) => `${ICON_DIR}/${n}.png`;
+// SVG since 2026-07-28 (they were 512x512 PNGs: 492 KB in every release against
+// 25 KB now, and blurry when scaled up as a token). module/cairn.js migrates the
+// .png paths already baked into documents in existing worlds.
+const P = (n) => `${ICON_DIR}/${n}.svg`;
 
 /**
  * Container / transport art. Keyed on the name first (so "Handcart" and "Cart"
@@ -48,7 +51,7 @@ export const iconForTransport = (name = "", kind = "") => {
  * at runtime falls through to the generic bindle.
  * @param {String} type  item type: weapon | armor | spellbook | transport | item | object | background
  * @param {String} [name]
- * @returns {String}  a systems/air-bladder/icons/*.png path
+ * @returns {String}  a systems/air-bladder/icons/*.svg path
  */
 export const iconForItem = (type = "item", name = "") => {
   switch (type) {
@@ -68,6 +71,14 @@ export const iconForItem = (type = "item", name = "") => {
 
 /** The generated single-use spell scroll's art. */
 export const SPELLSCROLL_ICON = P("spellscroll");
+/**
+ * The tools pack's art. Tools are not detectable by name — being a tool is a
+ * whole pack, not a word — so the importer maps that pack directly. Exported
+ * rather than written out there, because a literal path in the importer is a
+ * second source of truth: it silently kept the whole pack on .png through the
+ * 2026-07-28 SVG swap.
+ */
+export const TOOLS_ICON = P("tools");
 /** Default art for a bare, hand-made container actor. */
 export const CONTAINER_ICON = P("chest");
 

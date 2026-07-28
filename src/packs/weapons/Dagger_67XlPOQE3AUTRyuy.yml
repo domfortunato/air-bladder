@@ -3,7 +3,7 @@ type: weapon
 flags:
   core:
     sourceId: Item.oBy7XRCKN2goXJUL
-img: systems/air-bladder/icons/weapons.png
+img: systems/air-bladder/icons/weapons.svg
 effects: []
 _id: 67XlPOQE3AUTRyuy
 _stats:

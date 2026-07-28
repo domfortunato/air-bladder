@@ -6,7 +6,7 @@ results:
   - _id: mZPbve6CGiCSCoMm
     type: pack
     text: Spear
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 1
@@ -19,7 +19,7 @@ results:
   - _id: B0r2Ux4acN6VPg0W
     type: pack
     text: Sword
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 2
@@ -32,7 +32,7 @@ results:
   - _id: fXsprs2gZi0XORZ4
     type: pack
     text: Mace
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 3
@@ -45,7 +45,7 @@ results:
   - _id: YtMcjaBGLN4Y0CIs
     type: pack
     text: Axe
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 4
@@ -58,7 +58,7 @@ results:
   - _id: 0xPLl6Duoe3hKrhE
     type: pack
     text: Flail
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 5

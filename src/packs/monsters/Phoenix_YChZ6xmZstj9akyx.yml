@@ -3,7 +3,7 @@ name: Phoenix
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.png
+img: systems/air-bladder/icons/monster.svg
 items:
   - _id: Q4t8lDkOZXMHdqHO
     name: Chainmail

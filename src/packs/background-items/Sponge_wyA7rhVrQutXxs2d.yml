@@ -4,7 +4,7 @@ type: item
 flags:
   core:
     sourceId: Item.gtRFFa3609dOkZzl
-img: systems/air-bladder/icons/generic-item.png
+img: systems/air-bladder/icons/generic-item.svg
 effects: []
 _stats:
   coreVersion: '12.327'

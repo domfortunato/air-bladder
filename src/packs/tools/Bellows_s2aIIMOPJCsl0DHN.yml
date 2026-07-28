@@ -3,7 +3,7 @@ type: item
 flags:
   core:
     sourceId: Item.EKwYUuCN7aMyiXhB
-img: systems/air-bladder/icons/tools.png
+img: systems/air-bladder/icons/tools.svg
 effects: []
 _id: s2aIIMOPJCsl0DHN
 _stats:

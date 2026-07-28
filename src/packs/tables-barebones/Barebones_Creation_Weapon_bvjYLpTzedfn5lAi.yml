@@ -45,7 +45,7 @@ results:
   - _id: 1Y5bLuNrNSsQeFKO
     type: pack
     text: Sling
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 4
@@ -58,7 +58,7 @@ results:
   - _id: EZdwajN6L20aViZk
     type: pack
     text: Bow
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 5
@@ -71,7 +71,7 @@ results:
   - _id: IucU3AHCeGP0kWBJ
     type: pack
     text: Crossbow
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 6

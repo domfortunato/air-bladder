@@ -3,7 +3,7 @@ name: Triton
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.png
+img: systems/air-bladder/icons/monster.svg
 items:
   - _id: 8iXInz6fX2zxfBTl
     name: Scaled Skin

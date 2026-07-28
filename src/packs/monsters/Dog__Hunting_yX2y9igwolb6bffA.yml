@@ -3,7 +3,7 @@ name: Dog, Hunting
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.png
+img: systems/air-bladder/icons/monster.svg
 items:
   - _id: MRKc31qrVk8FSvZp
     name: Bite

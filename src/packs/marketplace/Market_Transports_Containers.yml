@@ -6,7 +6,7 @@ results:
   - _id: szrSAiu6UHCkElGF
     type: pack
     text: Backpack
-    img: systems/air-bladder/icons/backpack.png
+    img: systems/air-bladder/icons/backpack.svg
     weight: 1
     range:
       - 1
@@ -19,7 +19,7 @@ results:
   - _id: UvA8XiiuAN3doLGn
     type: pack
     text: Sack
-    img: systems/air-bladder/icons/sack.png
+    img: systems/air-bladder/icons/sack.svg
     weight: 1
     range:
       - 2
@@ -32,7 +32,7 @@ results:
   - _id: AFiAzReKwQeDe1Ti
     type: pack
     text: Mule
-    img: systems/air-bladder/icons/donkey.png
+    img: systems/air-bladder/icons/donkey.svg
     weight: 1
     range:
       - 3
@@ -45,7 +45,7 @@ results:
   - _id: 5QlHSCqf7ZEDmQdr
     type: pack
     text: Horse
-    img: systems/air-bladder/icons/horse.png
+    img: systems/air-bladder/icons/horse.svg
     weight: 1
     range:
       - 4
@@ -58,7 +58,7 @@ results:
   - _id: ahZCObQJ7UDjXVA3
     type: pack
     text: Handcart
-    img: systems/air-bladder/icons/handcart.png
+    img: systems/air-bladder/icons/handcart.svg
     weight: 1
     range:
       - 5
@@ -71,7 +71,7 @@ results:
   - _id: y9QbY3gVRr6Gbigm
     type: pack
     text: Cart
-    img: systems/air-bladder/icons/cart.png
+    img: systems/air-bladder/icons/cart.svg
     weight: 1
     range:
       - 6
@@ -84,7 +84,7 @@ results:
   - _id: r9adaZCT2y12Gikw
     type: pack
     text: Wagon
-    img: systems/air-bladder/icons/wagon.png
+    img: systems/air-bladder/icons/wagon.svg
     weight: 1
     range:
       - 7

@@ -3,7 +3,7 @@ name: Medusa
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.png
+img: systems/air-bladder/icons/monster.svg
 items:
   - _id: 6u0kRErBNNPH1wsf
     name: Snake Bites*

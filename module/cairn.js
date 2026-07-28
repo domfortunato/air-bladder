@@ -249,6 +249,8 @@ Hooks.once("ready", async () => {
     console.log(`Air Bladder | remapped ${updates.length} container(s) to class icons`);
   }
 
+  await migrateIconsToSvg();
+
   // Custom character portraits: make sure the GM's folder exists, then refresh the
   // cached image list so players (who cannot scan folders) see the current set.
   // Both are non-fatal — a host that forbids folder ops just leaves the pool empty
@@ -256,6 +258,53 @@ Hooks.once("ready", async () => {
   await characterGenerator.ensureCustomPortraitFolder();
   await characterGenerator.refreshCustomPortraits();
 });
+
+/**
+ * The class icons shipped as 512x512 PNGs up to 0.1.6 and are SVGs from 0.1.7 on
+ * (492 KB -> 25 KB, and crisp at token size). An image path is COPIED onto a
+ * document when it is created, so every item, container and monster already in a
+ * world still points at a .png that the update deleted — a broken image on every
+ * sheet, every token and every marketplace row.
+ *
+ * Rewrite only our own icons/*.png paths, so an uploaded or hand-picked image is
+ * never touched. Idempotent by construction: a rewritten path no longer matches.
+ * Batched per collection so a failure cannot leave half a world remapped.
+ */
+const ICON_PNG = /^systems\/air-bladder\/icons\/([a-z-]+)\.png$/;
+const toSvg = (src) => (ICON_PNG.test(src ?? "") ? src.replace(/\.png$/, ".svg") : null);
+
+const migrateIconsToSvg = async () => {
+  let count = 0;
+
+  const itemUpdates = game.items.filter((i) => toSvg(i.img)).map((i) => ({ _id: i.id, img: toSvg(i.img) }));
+  if (itemUpdates.length) { await Item.updateDocuments(itemUpdates); count += itemUpdates.length; }
+
+  const actorUpdates = [];
+  for (const a of game.actors) {
+    const img = toSvg(a.img);
+    const tok = toSvg(a.prototypeToken?.texture?.src);
+    if (img || tok) {
+      const u = { _id: a.id };
+      if (img) u.img = img;
+      if (tok) u["prototypeToken.texture.src"] = tok;
+      actorUpdates.push(u);
+    }
+    // Owned items carry their own copy of the path.
+    const owned = a.items.filter((i) => toSvg(i.img)).map((i) => ({ _id: i.id, img: toSvg(i.img) }));
+    if (owned.length) { await a.updateEmbeddedDocuments("Item", owned); count += owned.length; }
+  }
+  if (actorUpdates.length) { await Actor.updateDocuments(actorUpdates); count += actorUpdates.length; }
+
+  // Unlinked tokens hold their own texture rather than the actor's.
+  for (const scene of game.scenes) {
+    const tokens = scene.tokens
+      .filter((t) => toSvg(t.texture?.src))
+      .map((t) => ({ _id: t.id, "texture.src": toSvg(t.texture.src) }));
+    if (tokens.length) { await scene.updateEmbeddedDocuments("Token", tokens); count += tokens.length; }
+  }
+
+  if (count) console.log(`Air Bladder | moved ${count} document(s) from .png to .svg class icons`);
+};
 
 // Two hooks used to tag every dialog world-wide with `.cairn-dialog` so
 // css/cairn.css could give it the sheet's black-and-white chrome. f00e72c

@@ -3,7 +3,7 @@ name: Dragon, Gold
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.png
+img: systems/air-bladder/icons/monster.svg
 items:
   - _id: gk0Twk5L6VfVRrB8
     name: Bite

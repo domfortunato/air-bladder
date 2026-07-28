@@ -3,7 +3,7 @@ name: Mind Lasher
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.png
+img: systems/air-bladder/icons/monster.svg
 items:
   - _id: 5FWMTKelLt8tRC2p
     name: Rubber Skin

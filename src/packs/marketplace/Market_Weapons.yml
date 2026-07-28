@@ -6,7 +6,7 @@ results:
   - _id: TQQlKmK759hSBEcj
     type: pack
     text: Axe
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 1
@@ -19,7 +19,7 @@ results:
   - _id: mFNgphbBcoU7RuK5
     type: pack
     text: Bow
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 2
@@ -32,7 +32,7 @@ results:
   - _id: jVSpP1BKsMcUp0Rh
     type: pack
     text: Crossbow
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 3
@@ -45,7 +45,7 @@ results:
   - _id: hI4KlTDX9Eb5TW9Z
     type: pack
     text: Cudgel
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 4
@@ -58,7 +58,7 @@ results:
   - _id: NL3XnpXqSGAnq9Zz
     type: pack
     text: Dagger
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 5
@@ -71,7 +71,7 @@ results:
   - _id: tEwu22tPtCGNY7aZ
     type: pack
     text: Flail
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 6
@@ -84,7 +84,7 @@ results:
   - _id: j9wSB74FFcMwiMnI
     type: pack
     text: Halberd
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 7
@@ -97,7 +97,7 @@ results:
   - _id: 9RrgtPfkN3XqEmfp
     type: pack
     text: Long Sword
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 8
@@ -110,7 +110,7 @@ results:
   - _id: eIau8XixHS9VdmBe
     type: pack
     text: Mace
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 9
@@ -123,7 +123,7 @@ results:
   - _id: i5i4mBBU2LTglzHs
     type: pack
     text: Sickle
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 10
@@ -136,7 +136,7 @@ results:
   - _id: E6EI0mFVHnT39S4x
     type: pack
     text: Sling
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 11
@@ -149,7 +149,7 @@ results:
   - _id: ZbmcZWGDh8R5vLhp
     type: pack
     text: Spear
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 12
@@ -162,7 +162,7 @@ results:
   - _id: l6FJL0HBG4Cz0lMN
     type: pack
     text: Staff
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 13
@@ -175,7 +175,7 @@ results:
   - _id: bCEp0xNLW65EMDE4
     type: pack
     text: Sword
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 14
@@ -188,7 +188,7 @@ results:
   - _id: KJGFQGdLt1aF0VVi
     type: pack
     text: War Hammer
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 15

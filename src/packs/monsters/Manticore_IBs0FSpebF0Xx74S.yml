@@ -3,7 +3,7 @@ name: Manticore
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.png
+img: systems/air-bladder/icons/monster.svg
 items:
   - _id: 3Knp8TWU40aRothV
     name: Claws

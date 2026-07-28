@@ -3,7 +3,7 @@ name: Sahuagin
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.png
+img: systems/air-bladder/icons/monster.svg
 items:
   - _id: xfWC5ER6jOwasm4J
     name: Trident

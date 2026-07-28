@@ -6,7 +6,7 @@ results:
   - _id: 6ptne5MRSLCrm57I
     type: pack
     text: Dagger
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 1
@@ -19,7 +19,7 @@ results:
   - _id: il6oJzkTYKJufFfG
     type: pack
     text: Cudgel
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 2
@@ -32,7 +32,7 @@ results:
   - _id: we9KEDLx0uQRhEmo
     type: pack
     text: Sickle
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 3
@@ -45,7 +45,7 @@ results:
   - _id: 8cmNZKXRGHleG8fA
     type: pack
     text: Staff
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 4

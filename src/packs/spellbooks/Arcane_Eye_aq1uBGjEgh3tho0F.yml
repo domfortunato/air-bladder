@@ -3,7 +3,7 @@ type: spellbook
 flags:
   core:
     sourceId: Item.UCs1Xce7QwP2WkSQ
-img: systems/air-bladder/icons/spellbook.png
+img: systems/air-bladder/icons/spellbook.svg
 effects: []
 _id: aq1uBGjEgh3tho0F
 _stats:

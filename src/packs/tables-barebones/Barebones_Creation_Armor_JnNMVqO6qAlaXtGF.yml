@@ -17,7 +17,7 @@ results:
   - _id: TCtSCOXooo1QMPeR
     type: pack
     text: Shield
-    img: systems/air-bladder/icons/armor.png
+    img: systems/air-bladder/icons/armor.svg
     weight: 1
     range:
       - 2
@@ -30,7 +30,7 @@ results:
   - _id: BnjeqKy4EVqTh0Gb
     type: pack
     text: Helmet
-    img: systems/air-bladder/icons/armor.png
+    img: systems/air-bladder/icons/armor.svg
     weight: 1
     range:
       - 3
@@ -43,7 +43,7 @@ results:
   - _id: BXHDUAscrQcHtSVq
     type: pack
     text: Gambeson
-    img: systems/air-bladder/icons/armor.png
+    img: systems/air-bladder/icons/armor.svg
     weight: 1
     range:
       - 4
@@ -56,7 +56,7 @@ results:
   - _id: 0uU5HGaXVlt169Ub
     type: pack
     text: Chainmail
-    img: systems/air-bladder/icons/armor.png
+    img: systems/air-bladder/icons/armor.svg
     weight: 1
     range:
       - 5
@@ -69,7 +69,7 @@ results:
   - _id: Gi8M1P4eBWIympjA
     type: pack
     text: Plate Mail
-    img: systems/air-bladder/icons/armor.png
+    img: systems/air-bladder/icons/armor.svg
     weight: 1
     range:
       - 6

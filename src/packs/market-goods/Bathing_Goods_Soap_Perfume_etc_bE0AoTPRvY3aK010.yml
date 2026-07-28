@@ -1,7 +1,7 @@
 _id: bE0AoTPRvY3aK010
 name: 'Bathing Goods (Soap, Perfume, etc.)'
 type: item
-img: systems/air-bladder/icons/generic-item.png
+img: systems/air-bladder/icons/generic-item.svg
 effects: []
 folder: null
 sort: 0

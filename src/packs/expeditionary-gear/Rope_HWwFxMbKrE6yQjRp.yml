@@ -1,7 +1,7 @@
 name: Rope
 type: item
 flags: {}
-img: systems/air-bladder/icons/generic-item.png
+img: systems/air-bladder/icons/generic-item.svg
 effects: []
 _id: HWwFxMbKrE6yQjRp
 _stats:

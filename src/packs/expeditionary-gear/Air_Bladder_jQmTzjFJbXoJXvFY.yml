@@ -1,7 +1,7 @@
 name: Air Bladder
 type: item
 flags: {}
-img: systems/air-bladder/icons/generic-item.png
+img: systems/air-bladder/icons/generic-item.svg
 effects: []
 _id: jQmTzjFJbXoJXvFY
 _stats:

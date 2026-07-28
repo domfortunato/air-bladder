@@ -3,7 +3,7 @@ name: Mantis, Giant
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.png
+img: systems/air-bladder/icons/monster.svg
 items:
   - _id: lLQC5grer7uoYFlt
     name: Chiteneous Hide

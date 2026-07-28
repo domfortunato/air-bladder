@@ -6,7 +6,7 @@ results:
   - _id: HF4NlpsmII7Gz6IB
     type: pack
     text: Halberd
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 1
@@ -19,7 +19,7 @@ results:
   - _id: MnohVuPxCFOZn4vc
     type: pack
     text: War Hammer
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 2
@@ -32,7 +32,7 @@ results:
   - _id: 1C5nWvXmHHtsz74z
     type: pack
     text: Long Sword
-    img: systems/air-bladder/icons/weapons.png
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 3

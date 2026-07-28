@@ -1,7 +1,7 @@
 name: Hand Axe
 type: weapon
 flags: {}
-img: systems/air-bladder/icons/weapons.png
+img: systems/air-bladder/icons/weapons.svg
 effects: []
 _id: 3Tu0D2xU9XqT15uE
 _stats:

@@ -1,7 +1,7 @@
 name: Lantern
 type: item
 flags: {}
-img: systems/air-bladder/icons/tools.png
+img: systems/air-bladder/icons/tools.svg
 effects: []
 _id: pMVVPnTrgpggZHYN
 _stats:

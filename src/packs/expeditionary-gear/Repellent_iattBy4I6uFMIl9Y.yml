@@ -3,7 +3,7 @@ type: item
 flags:
   core:
     sourceId: Item.3xQ6BiZeqKlZ2Qmp
-img: systems/air-bladder/icons/generic-item.png
+img: systems/air-bladder/icons/generic-item.svg
 effects: []
 _id: iattBy4I6uFMIl9Y
 _stats:
