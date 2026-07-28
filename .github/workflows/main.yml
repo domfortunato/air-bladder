@@ -33,12 +33,8 @@ jobs:
     # One source of truth for the tag across both triggers:
     #   tag push        -> github.ref_name
     #   manual dispatch -> inputs.tag
-    # The leading `github.event.release.tag_name` term is vestigial now that the
-    # release trigger is gone -- it always resolves empty and falls through. Left in
-    # place rather than removed: this expression is on the path every release takes,
-    # and an empty leading term is proven harmless where an edit is not.
     env:
-      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag || github.ref_name }}
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       # Checkout the triggering ref: the tagged commit on a tag push, or the selected
       # branch on a manual run. No explicit `ref` needed.
@@ -74,13 +70,20 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           allowUpdates: true # Set this to false if you want to prevent updating existing releases
-          name: ${{ github.event.release.name }}
-          # A tag-push / manual run carries no release name/body — don't blank them on update.
+          # No `name`/`body` inputs: neither trigger carries them, and the action falls back
+          # to the tag for the name. The omit flags then stop an update from blanking notes
+          # written by hand on the release page.
           omitNameDuringUpdate: true
           omitBodyDuringUpdate: true
           draft: false
+          # `prerelease: false` applies to NEWLY created releases only. Without the omit
+          # flag, allowUpdates would also force an existing release back to false — so
+          # rebuilding an old release's assets via workflow_dispatch would silently undo
+          # a pre-release marking. 0.1.0-0.1.6 are marked pre-release by hand; this keeps
+          # that intact. (ncipollo/release-action: "This will preserve the existing
+          # prerelease state during updates.")
           prerelease: false
+          omitPrereleaseDuringUpdate: true
           token: ${{ secrets.GITHUB_TOKEN }}
           artifacts: "./system.json, ./system.zip"
           tag: ${{ env.RELEASE_TAG }}
-          body: ${{ github.event.release.body }}
