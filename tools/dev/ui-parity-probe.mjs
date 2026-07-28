@@ -448,20 +448,20 @@ try {
   // `content-source-custom` and `custom-portrait-folder` are correctly inside the
   // Character Generation block.
   //
-  // OPEN QUESTION, deliberately encoded as reality rather than as a failure:
-  // `min-age` is registered as the LAST General setting, one line above the
-  // "Character Generation" header comment — but it is a generation parameter and
-  // arguably belongs in that group. Moving it also reorders SETTING_KEYS, which is
-  // documented as "in registration order — used by the migration", so it is not a
-  // free change. Left where it is pending a decision.
+  // `min-age` moved from the end of General to the end of Character Generation on
+  // 2026-07-28. It is a parameter of the character being generated, and grouping is
+  // positional, so the fix was to move the register() call. The cost once feared —
+  // "reordering SETTING_KEYS breaks the migration" — was not real: that loop is
+  // order-independent, and the stored key string never changed, so no configured
+  // value was disturbed.
   const EXPECTED = {
     "Inventory & Encumbrance": ["max-equip-slots", "character-inventory-limit", "use-gold-threshold",
       "show-gold-not-cost", "show-container-actors", "enable-inventory-reorder"],
     "Character Generation": ["content-source-2e", "content-source-custom", "content-source-barebones",
       "barebones-failed-career", "show-omens-barebones", "show-bonds-barebones", "show-generate-header",
-      "custom-portrait-folder"],
+      "custom-portrait-folder", "min-age"],
     "General Settings": ["use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
-      "show-features-section", "show-containers-tab", "use-warden-title", "min-age"],
+      "show-features-section", "show-containers-tab", "use-warden-title"],
   };
   for (const [group, keys] of Object.entries(EXPECTED)) {
     const got = r.grouped?.[group] ?? [];

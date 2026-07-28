@@ -4,7 +4,8 @@
  *
  *   1. Settings sections render General → Character Generation → Inventory.
  *   2. The Features toggle reads "Show Features List on character's Description tab".
- *   3. The single min-age setting sits under the General header (no on/off toggle).
+ *   3. The single min-age setting sits under the Character Generation header
+ *      (no on/off toggle).
  *   4. rollAge() ALWAYS floors the roll at min-age — both generation and the sheet
  *      re-roll go through it — and a floor below 12 never binds (the off switch).
  */
@@ -100,12 +101,14 @@ try {
     ? ok(`Features toggle relabelled ("${r.featuresLabel}")`)
     : fail(`Features label is "${r.featuresLabel}"`);
 
-  // 3. single age setting under General, no on/off toggle
+  // 3. single age setting under Character Generation, no on/off toggle.
+  //    It sat under General until 2026-07-28; it is a parameter of the character
+  //    being generated, and settings grouping is positional, so it moved.
   !r.hasEnabledSetting
     ? ok("no separate min-age on/off toggle exists (the value is the only control)")
     : fail("a min-age-enabled toggle is still registered");
-  r.minAgeGroup === "General Settings"
-    ? ok("the minimum-age setting sits under General Settings")
+  r.minAgeGroup === "Character Generation"
+    ? ok("the minimum-age setting sits under Character Generation")
     : fail(`min-age group placement: ${r.minAgeGroup}`);
   r.minAgeInputType === "number"
     ? ok("the minimum-age value is a number field")
