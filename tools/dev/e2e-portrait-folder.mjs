@@ -85,8 +85,12 @@ res.folderExists
   ? ok("folder created", res.existedFirst ? "(already existed from a prior run)" : "created without a reload")
   : fail("folder created", "the folder was never created");
 
-Array.isArray(res.afterSwitch) && res.afterSwitch.length === 0
-  ? ok("stale cache dropped on switch", "no longer serving the old folder's files")
+// The point is that the OLD folder's entries are gone, not that the list is empty
+// — a re-run finds the probe image this test uploaded last time, and a real scan
+// returning the folder's actual contents is correct behaviour.
+Array.isArray(res.afterSwitch) && !res.afterSwitch.some((f) => f.startsWith("stale/"))
+  ? ok("stale cache dropped on switch", res.afterSwitch.length
+      ? `rescanned to ${res.afterSwitch.length} real file(s)` : "emptied")
   : fail("stale cache dropped on switch", JSON.stringify(res.afterSwitch));
 
 if (res.uploadError) {
