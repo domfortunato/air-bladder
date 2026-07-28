@@ -3,7 +3,7 @@ import { CairnActor } from "./actor/actor.js";
 import { CairnActorSheet } from "./actor/actor-sheet.js";
 import { CairnItem, FATIGUE_NAME } from "./item/item.js";
 import { CairnItemSheet } from "./item/item-sheet.js";
-import { createCharacter, createHireling } from "./character-generator.js";
+import { createCharacter, createHireling, FLAG_SCOPE } from "./character-generator.js";
 import * as characterGenerator from "./character-generator.js";
 import { importKettlewrightCharacter } from "./kettlewright-import.js";
 import * as kettlewrightImport from "./kettlewright-import.js";
@@ -149,21 +149,58 @@ Hooks.on("setup", () => {
   foundry.utils.setProperty(game.i18n.translations, "USER.RoleAssistant", game.i18n.localize("CAIRN.AssistantWarden"));
 });
 
-// One-time-feeling but idempotent migration: rename the default GM account to
-// "Warden". Only the acting GM writes (avoids multi-GM races); it matches only
-// the default names, which stop matching once renamed, so re-runs are no-ops.
+// Rename the default GM account to "Warden". Only the acting GM writes (avoids
+// multi-GM races).
+//
+// The name is a WORLD value but the label is localized per CLIENT, so whichever
+// GM logs in first decides what every other player sees. That used to be
+// one-way and unrecoverable: the rename matched only the two default names, so
+// the moment it wrote, nothing matched again -- a GM who then switched language,
+// or turned the setting off, was stuck with the old name and no way back short
+// of editing the user by hand.
+//
+// Remembering the name we replaced fixes both halves. `renamedFrom` marks the
+// accounts this system renamed (so a deliberately-named GM is never touched),
+// lets a language switch re-apply the new label, and lets the original name come
+// back if the setting is turned off. Idempotent: it writes only when the stored
+// name and the wanted name actually differ.
 Hooks.once("ready", async () => {
-  if (!game.settings.get(SETTINGS_NS, "use-warden-title")) return;
   if (!game.user.isGM) return;
   if (game.users.activeGM && game.users.activeGM !== game.user) return;
 
+  const on = game.settings.get(SETTINGS_NS, "use-warden-title");
   const warden = game.i18n.localize("CAIRN.Warden");
   const defaults = ["gamemaster", "game master"];
-  const toRename = game.users.filter(
-    (u) => u.role === CONST.USER_ROLES.GAMEMASTER && defaults.includes(u.name.trim().toLowerCase())
-  );
-  for (const u of toRename) {
-    await u.update({ name: warden });
+
+  // Foundry enforces UNIQUE user names and rejects the update outright. A world
+  // with two GMs -- or one where somebody already typed "Warden" by hand -- would
+  // otherwise throw out of this hook on the second account, aborting the loop and
+  // leaving a half-applied rename. Skip a name that is already spoken for, and
+  // keep going if a write fails for any other reason.
+  const nameTaken = (name, self) => game.users.some((x) => x.id !== self.id && x.name === name);
+
+  for (const u of game.users) {
+    if (u.role !== CONST.USER_ROLES.GAMEMASTER) continue;
+    const previous = u.getFlag(FLAG_SCOPE, "renamedFrom");
+    const ours = previous !== undefined;
+    try {
+      if (!on) {
+        // Setting off: hand back the name we took, and only that.
+        if (!ours) continue;
+        if (!nameTaken(previous, u)) await u.update({ name: previous });
+        await u.unsetFlag(FLAG_SCOPE, "renamedFrom");
+        continue;
+      }
+
+      if (!ours && !defaults.includes(u.name.trim().toLowerCase())) continue;
+      if (u.name === warden || nameTaken(warden, u)) continue;
+      // Read the old name BEFORE the update -- u.name is the new one afterwards.
+      const original = u.name;
+      await u.update({ name: warden });
+      if (!ours) await u.setFlag(FLAG_SCOPE, "renamedFrom", original);
+    } catch (err) {
+      console.warn(`Air Bladder | could not rename user "${u.name}":`, err);
+    }
   }
 });
 
