@@ -11,9 +11,14 @@ on:
   push:
     tags:
       - "[0-9]+.[0-9]+.[0-9]+"
-  # Also fire if a release is published directly on GitHub.
-  release:
-    types: [published]
+  # There is deliberately NO `release: [published]` trigger. It used to be here, from
+  # when 0.1.0 was assembled by hand on GitHub. It did not cause the mirror bug -- it
+  # HID it: a release made in GitHub's UI creates a GitHub-only tag, this trigger built
+  # and attached both assets so everything looked correct, and then the next mirror sync
+  # pruned the tag and silently demoted the release to a draft. Without it, a
+  # GitHub-made release simply has no assets -- broken immediately and visibly, while
+  # you are still looking at it. workflow_dispatch below covers every legitimate rebuild.
+  #
   # Manual fallback: (re)build + attach assets to an existing tag from the Actions
   # tab. Use if a tag push somehow didn't fire, or to rebuild a release's assets.
   workflow_dispatch:
@@ -25,15 +30,18 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # One source of truth for the tag across all three triggers:
+    # One source of truth for the tag across both triggers:
     #   tag push        -> github.ref_name
-    #   release publish -> github.event.release.tag_name
     #   manual dispatch -> inputs.tag
+    # The leading `github.event.release.tag_name` term is vestigial now that the
+    # release trigger is gone -- it always resolves empty and falls through. Left in
+    # place rather than removed: this expression is on the path every release takes,
+    # and an empty leading term is proven harmless where an edit is not.
     env:
       RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag || github.ref_name }}
     steps:
-      # Checkout the triggering ref: the tagged commit on a tag push / release
-      # event, or the selected branch on a manual run. No explicit `ref` needed.
+      # Checkout the triggering ref: the tagged commit on a tag push, or the selected
+      # branch on a manual run. No explicit `ref` needed.
       - uses: actions/checkout@v4
 
       # Build the LevelDB compendia from src/packs/ (packs/ is gitignored)
