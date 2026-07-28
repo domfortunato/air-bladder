@@ -51,13 +51,32 @@ Item.weapon      blast bulky cost criticalDamage damageFormula description equip
 Item.background  archetype containers description names source startingGear tables
 ```
 
-**Three fields appear in pack data that `template.json` never declared:**
-`slots`, `numberOfUses`, `relic` (and `armor` on plain items). They are inert —
-nothing reads them — so the schema should simply not declare them and let them be
-dropped. Confirm nothing reads them before deleting: `grep -rn "numberOfUses\|relic"`.
+**Fields appearing in pack data that `template.json` does not declare for that
+type** — verified individually, because "it looks unused" is not evidence:
 
-**`armor` is `null|number`** on both `Actor.npc` and `Item.item`. A
-`NumberField({nullable: true})` is required, or those docs fail validation.
+| field | verdict |
+|---|---|
+| `numberOfUses` | **Dead.** Zero references in `module/` or `templates/`. Drop. |
+| `relic` | **Dead.** One mention, in a comment in `gear.js:129`. Drop. |
+| `armor` on `Item.item` | Dead on plain items (`armor` is read on `Item.armor`). Drop from the `item` schema. |
+| `slots` on `item`/`weapon`/`armor`/`spellbook` | **Dead on these four.** Packs carry values (`Axe: 1`, `Bow: 2`) but nothing reads them: `calcSlotsUsed` (`actor.js:294`) computes purely from `bulky`/`weightless`/`quantity`. Drop. |
+| `slots` on `Item.transport` | **LOAD-BEARING. Declare it.** `transport-sheet.html:27` binds an input to it, `marketplace.js:210` reads it to mint a container's capacity, `:274` renders the capacity chip. |
+
+The `slots` split is the trap in this whole migration: the same field name is dead
+on four item types and required on a fifth. A schema that treats it uniformly
+either keeps four fields of junk or silently breaks transport capacity — the exact
+failure mode this document exists to prevent.
+
+**`Actor.npc.armor` is `null|number`** in the pack data, so it needs
+`NumberField({nullable: true})` or those monster docs fail validation. (`Item.item`
+carries a nullable `armor` too, but that one is dead and being dropped;
+`Item.armor.armor` is always a number.)
+
+**Open question for `Actor.npc.armor`:** it is stored in the packs AND overwritten
+during data prep (`_prepareNpcData` sets `this.system.armor = this.calcArmor()`).
+That is the same stored-vs-derived collision that caused the HP data-loss bug fixed
+in `04babe5`. Check whether the stored value is doing any work before declaring it,
+and whether anything persists the derived one back.
 
 ## Survey 2 — declared vs. used
 
