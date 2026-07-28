@@ -2,6 +2,7 @@ import { resolveGearItem, buildGearItem } from "./gear.js";
 import { getBackgroundsFor, withGrantSource, randomPortraitPair, FLAG_SCOPE } from "./character-generator.js";
 import { SETTINGS_NS } from "./settings.js";
 import { CairnActor } from "./actor/actor.js";
+import { FATIGUE_NAME } from "./item/item.js";
 import { Cairn } from "./config.js";
 
 /**
@@ -359,7 +360,7 @@ export const kettlewrightToActorData = async (json) => {
   }
 
   // --- Items: flatten every container's contents onto the character ---------
-  const FATIGUE = game.i18n.localize("CAIRN.Fatigue");
+  const FATIGUE = FATIGUE_NAME;
   const items = [];
   for (const kw of json.items ?? []) {
     // "Carrying X" markers are Kettlewright's container-load bookkeeping; with

@@ -1,0 +1,19 @@
+Alegreya
+--------
+
+The three webfonts in this folder — Alegreya-Regular.woff2, Alegreya-Medium.woff2
+and Alegreya-Bold.woff2 — are the Alegreya typeface by Juan Pablo del Peral and
+the Alegreya Project Authors (Huerta Tipográfica).
+
+    Copyright 2011 The Alegreya Project Authors
+    (https://github.com/huertatipografica/Alegreya)
+
+Licensed under the SIL Open Font License, Version 1.1. The full licence text is
+in OFL.txt beside this file, as clause 2 of that licence requires: the copyright
+notice and the licence must travel with every copy of the font, original or
+modified.
+
+Source: https://github.com/huertatipografica/Alegreya
+        https://fonts.google.com/specimen/Alegreya
+
+The fonts are redistributed unmodified, converted to WOFF2 for web delivery.

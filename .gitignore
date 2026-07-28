@@ -21,3 +21,9 @@ node_modules/
 # Generated translator TSVs, built from src/packs/ by `npm run i18n:extract`.
 # The filled translations land in lang/*.json (UI) and lang/content/*.json.
 /tools/i18n/tsv/
+
+# Project context for Claude Code. Deliberately untracked: air-bladder is a
+# public repo, and this file records candid working notes — deliberate deviations,
+# things that turned out wrong, licensing caveats — that are useful locally and
+# not something to publish.
+/CLAUDE.md

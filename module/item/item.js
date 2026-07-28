@@ -1,4 +1,17 @@
 import { SETTINGS_NS } from "../settings.js";
+
+/**
+ * The stored name of a Fatigue item. ENGLISH, always — Foundry's language setting
+ * is per-client, so an item created under the translated name was invisible to
+ * every other language: a Spanish player's "Fatiga" did not match the English GM's
+ * remove filter, and the − button silently did nothing for them both ways round.
+ *
+ * Storing it in English also keeps the system's own rule (i18n-content.js): stored
+ * documents stay English and translation happens at display. The sheet localizes
+ * the label it shows, so nobody actually reads this string.
+ */
+export const FATIGUE_NAME = "Fatigue";
+
 /**
  * Extend the basic Item with some very simple modifications.
  * @extends {Item}
@@ -19,7 +32,7 @@ export class CairnItem extends Item {
       if (this.system.uses.value > this.system.uses.max)
         this.system.uses.value = this.system.uses.max;
     }
-    this.system.isFatigue = this.name == game.i18n.localize("CAIRN.Fatigue");
+    this.system.isFatigue = this.name === FATIGUE_NAME;
 
     // Grant-source chip (Background / Bond / Question) shown beside the item's
     // other tags, so the three sources are distinguishable. Starting gear and
@@ -59,7 +72,7 @@ export class CairnItem extends Item {
           this.system.icon = "shield";
           break;
         case "item":
-          if (this.name == game.i18n.localize("CAIRN.Fatigue")) {
+          if (this.name === FATIGUE_NAME) {
             this.system.icon = "weight-hanging";
           }
           break;

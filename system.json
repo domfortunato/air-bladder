@@ -43,156 +43,134 @@
     {
       "name": "armor",
       "label": "Armor",
-      "path": "packs/armor.db",
       "type": "Item",
-      "system": "cairn"
+      "system": "air-bladder"
     },
     {
       "name": "backgrounds-2e",
       "label": "Backgrounds (2e)",
-      "path": "packs/backgrounds-2e.db",
       "type": "Item",
-      "system": "cairn"
+      "system": "air-bladder"
     },
     {
       "name": "backgrounds-barebones",
       "label": "Backgrounds (Barebones)",
-      "path": "packs/backgrounds-barebones.db",
       "type": "Item",
-      "system": "cairn"
+      "system": "air-bladder"
     },
     {
       "name": "tables-2e",
       "label": "Tables (2e)",
-      "path": "packs/tables-2e.db",
       "type": "RollTable",
-      "system": "cairn"
+      "system": "air-bladder"
     },
     {
       "name": "tables-barebones",
       "label": "Tables (Barebones)",
-      "path": "packs/tables-barebones.db",
       "type": "RollTable",
-      "system": "cairn"
+      "system": "air-bladder"
     },
     {
       "name": "expeditionary-gear",
       "label": "Expeditionary Gear",
-      "path": "packs/expeditionary-gear.db",
       "type": "Item",
-      "system": "cairn"
+      "system": "air-bladder"
     },
     {
       "name": "extra",
       "label": "Extra",
-      "path": "packs/extra.db",
       "type": "Item",
-      "system": "cairn"
+      "system": "air-bladder"
     },
     {
       "name": "background-items",
       "label": "Background Items",
-      "path": "packs/background-items.db",
       "type": "Item",
-      "system": "cairn"
+      "system": "air-bladder"
     },
     {
       "name": "market-goods",
       "label": "Market Goods",
-      "path": "packs/market-goods.db",
       "type": "Item",
-      "system": "cairn"
+      "system": "air-bladder"
     },
     {
       "name": "transports",
       "label": "Transports & Containers",
-      "path": "packs/transports.db",
       "type": "Item",
-      "system": "cairn"
+      "system": "air-bladder"
     },
     {
       "name": "marketplace",
       "label": "Marketplace",
-      "path": "packs/marketplace.db",
       "type": "RollTable",
-      "system": "cairn"
+      "system": "air-bladder"
     },
     {
       "name": "utils",
       "label": "Utils",
-      "path": "packs/utils.db",
       "type": "RollTable",
-      "system": "cairn"
+      "system": "air-bladder"
     },
     {
       "name": "monsters",
       "label": "Monsters",
-      "path": "packs/monsters.db",
       "type": "Actor",
-      "system": "cairn"
+      "system": "air-bladder"
     },
     {
       "name": "spellbooks",
       "label": "Spellbooks",
-      "path": "packs/spellbooks.db",
       "type": "Item",
-      "system": "cairn"
+      "system": "air-bladder"
     },
     {
       "name": "more-spellbooks",
       "label": "More Spellbooks",
-      "path": "packs/more-spellbooks.db",
       "type": "Item",
-      "system": "cairn"
+      "system": "air-bladder"
     },
     {
       "name": "tools",
       "label": "Tools",
-      "path": "packs/tools.db",
       "type": "Item",
-      "system": "cairn"
+      "system": "air-bladder"
     },
     {
       "name": "trinkets",
       "label": "Trinkets",
-      "path": "packs/trinkets.db",
       "type": "Item",
-      "system": "cairn"
+      "system": "air-bladder"
     },
     {
       "name": "weapons",
       "label": "Weapons",
-      "path": "packs/weapons.db",
       "type": "Item",
-      "system": "cairn"
+      "system": "air-bladder"
     },
     {
       "name": "warden-encounters",
       "label": "Warden — Encounters & Reactions",
-      "path": "packs/warden-encounters.db",
       "type": "RollTable",
-      "system": "cairn"
+      "system": "air-bladder"
     },
     {
       "name": "warden-travel",
       "label": "Warden — Weather & Travel",
-      "path": "packs/warden-travel.db",
       "type": "RollTable",
-      "system": "cairn"
+      "system": "air-bladder"
     },
     {
       "name": "warden-npcs",
       "label": "Warden — NPCs",
-      "path": "packs/warden-npcs.db",
       "type": "RollTable",
-      "system": "cairn"
+      "system": "air-bladder"
     },
     {
       "name": "warden-monsters",
       "label": "Warden — Monsters",
-      "path": "packs/warden-monsters.db",
       "type": "RollTable",
-      "system": "cairn"
+      "system": "air-bladder"
     }
   ],
   "packFolders": [

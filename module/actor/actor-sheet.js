@@ -4,17 +4,17 @@ import { evaluateFormula, getInfoFromDropData, stripPar } from "../utils.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART, CONTAINER_ICON, iconForItem } from "../icons.js";
 import { localizeNameDesc, t } from "../i18n-content.js";
+import { FATIGUE_NAME } from "../item/item.js";
 
 /**
  * Extend the basic ActorSheet with some very simple modifications
  * @extends {ActorSheet}
  */
-export class CairnActorSheet extends ActorSheet {
+export class CairnActorSheet extends foundry.appv1.sheets.ActorSheet {
   /** @override */
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
       classes: ["cairn", "sheet", "actor"],
-      template: "systems/air-bladder/templates/actor/actor-sheet.html",
       width: 600,
       height: 750,
       tabs: [
@@ -55,7 +55,7 @@ export class CairnActorSheet extends ActorSheet {
           ? 0
           : 1
       );
-      data.items.sort((a,b) => a.name == game.i18n.localize("CAIRN.Fatigue") ? 1 : b.name == game.i18n.localize("CAIRN.Fatigue") ? -1 : 0 )
+      data.items.sort((a, b) => (a.name === FATIGUE_NAME ? 1 : b.name === FATIGUE_NAME ? -1 : 0))
     }
     // Display-only content localization: translate inventory item names/descriptions
     // into the active language for rendering only. These are plain data copies (not
@@ -69,6 +69,14 @@ export class CairnActorSheet extends ActorSheet {
         ? { nameNs: "monster.itemName", descNs: "monster.itemDesc" }
         : undefined;
     data.items = data.items.map((i) => localizeNameDesc(i, itemNs));
+    // Fatigue is STORED in English (see FATIGUE_NAME) so its identity survives a
+    // mixed-language table. Its label is localized here, at display time, from the
+    // UI key every language file already carries — so a Spanish player still reads
+    // "Fatiga" without the stored document ever being translated.
+    const fatigueLabel = game.i18n.localize("CAIRN.Fatigue");
+    data.items = data.items.map((i) =>
+      i.name === FATIGUE_NAME ? { ...i, name: fatigueLabel } : i
+    );
     // Compendium monsters have "description" instead of "biography"
     if (this.actor.system.showBio) {
       data.enrichedBiography = await foundry.applications.ux.TextEditor.enrichHTML(this.actor.system.biography, { async: true });
@@ -1025,7 +1033,7 @@ export class CairnActorSheet extends ActorSheet {
         return;
       }
       const item = this.actor.getOwnedItem(li.data("itemId"));
-      if (item.name == game.i18n.localize("CAIRN.Fatigue")) return;
+      if (item.name === FATIGUE_NAME) return;
       item.sheet.render(true);
   }
 
@@ -1038,7 +1046,7 @@ export class CairnActorSheet extends ActorSheet {
   async _onItemCreate(event) {
     event.preventDefault();
     const template = "systems/air-bladder/templates/dialog/add-item-dialog.html";
-    const content = await renderTemplate(template);
+    const content = await foundry.applications.handlebars.renderTemplate(template);
 
     new Dialog({
       title: game.i18n.localize("CAIRN.CreateItem"),
@@ -1076,7 +1084,7 @@ export class CairnActorSheet extends ActorSheet {
       return;
     }
     const template = "systems/air-bladder/templates/dialog/add-container-dialog.html";
-    const content = await renderTemplate(template);
+    const content = await foundry.applications.handlebars.renderTemplate(template);
 
     new Dialog({
       title: game.i18n.localize("CAIRN.CreateContainer"),
@@ -1113,7 +1121,7 @@ export class CairnActorSheet extends ActorSheet {
   async _onFeatureCreate(event) {
     event.preventDefault();
     const template = "systems/air-bladder/templates/dialog/add-feature-dialog.html";
-    const content = await renderTemplate(template);
+    const content = await foundry.applications.handlebars.renderTemplate(template);
 
     new Dialog({
       title: game.i18n.localize("CAIRN.CreateFeature"),
@@ -1146,7 +1154,7 @@ export class CairnActorSheet extends ActorSheet {
 
   async _onFeatureEdit(item) {
     const template = "systems/air-bladder/templates/dialog/add-feature-dialog.html";
-    const content = await renderTemplate(template, item);
+    const content = await foundry.applications.handlebars.renderTemplate(template, item);
     
     new Dialog({
       title: game.i18n.localize("CAIRN.EditFeature"),
@@ -1518,7 +1526,7 @@ export class CairnActorSheet extends ActorSheet {
     }
 
     this.actor.createOwnedItem({
-      name: game.i18n.localize("CAIRN.Fatigue"),
+      name: FATIGUE_NAME,
       type: "item",
     });
   }
@@ -1533,7 +1541,7 @@ export class CairnActorSheet extends ActorSheet {
 
     // Find a fatigue to delete
     const fatigues = this.actor.items.filter(
-      (i) => i.name === game.i18n.localize("CAIRN.Fatigue")
+      (i) => i.name === FATIGUE_NAME
     );
 
     if (fatigues.length > 0) {
@@ -1594,7 +1602,7 @@ export class CairnActorSheet extends ActorSheet {
   _buildDamageRollMessage(label, targetIds) {
     const rollMessageTpl = "systems/air-bladder/templates/chat/dmg-roll-card.html";
     const tplData = { label: label, targets: targetIds };
-    return renderTemplate(rollMessageTpl, tplData);
+    return foundry.applications.handlebars.renderTemplate(rollMessageTpl, tplData);
   }
 
   _onItemDescriptionToggle(event) {
@@ -1913,7 +1921,12 @@ export class CairnActorSheet extends ActorSheet {
   _getSubmitData(updateData) {
     const data = super._getSubmitData(updateData);
     if (
-      this.actor.type === "character" &&
+      // Hirelings too: actor.js routes character AND hireling through
+      // _prepareCharacterData, so both have system.hp.value zeroed on encumbrance
+      // or panic, and the hireling sheet binds an editable input to it. AppV1 sets
+      // submitOnClose, so without this a hireling loses its stored HP by having its
+      // sheet closed.
+      ["character", "hireling"].includes(this.actor.type) &&
       (this.actor.system.encumbered || this.actor.system.panicked)
     ) {
       // The submit object may be flattened ("system.hp.value") or expanded.

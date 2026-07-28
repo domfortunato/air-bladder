@@ -18,7 +18,8 @@
     "i18n:extract": "node tools/i18n/extract.mjs",
     "i18n:import": "node tools/i18n/import-i18n.mjs",
     "i18n:check": "node tools/i18n/check.mjs",
-    "release": "node tools/release.mjs"
+    "release": "node tools/release.mjs",
+    "dev:enc-damage": "node tools/dev/e2e-encumbered-damage.mjs"
   },
   "browserslist": [
     "last 3 versions"

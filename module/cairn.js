@@ -1,7 +1,7 @@
 // Import Modules
 import { CairnActor } from "./actor/actor.js";
 import { CairnActorSheet } from "./actor/actor-sheet.js";
-import { CairnItem } from "./item/item.js";
+import { CairnItem, FATIGUE_NAME } from "./item/item.js";
 import { CairnItemSheet } from "./item/item-sheet.js";
 import { createCharacter, createHireling } from "./character-generator.js";
 import * as characterGenerator from "./character-generator.js";
@@ -413,19 +413,6 @@ const configureHandleBar = () => {
 
   foundry.applications.handlebars.loadTemplates(templatePaths);
 
-  // If you need to add Handlebars helpers, here are a few useful examples:
-  Handlebars.registerHelper("concat", function () {
-    let outStr = "";
-
-    for (const arg in arguments) {
-      if (typeof arguments[arg] !== "object") {
-        outStr += arguments[arg];
-      }
-    }
-
-    return outStr;
-  });
-
   Handlebars.registerHelper("toLowerCase", function (str) {
     return str.toLowerCase();
   });
@@ -455,15 +442,7 @@ const configureHandleBar = () => {
   });
 
  Handlebars.registerHelper("isFatigue", function (val) {
-    return val == game.i18n.localize("CAIRN.Fatigue");
-  });
-
-  Handlebars.registerHelper("not", function (val) {
-    return !val;
-  });
-
-  Handlebars.registerHelper("eq", function (a, b) {
-    return a === b;
+    return val === FATIGUE_NAME;
   });
 
   // True when `str` already begins with `prefix`. Used to keep the spellbook name

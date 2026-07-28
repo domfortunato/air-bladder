@@ -28,7 +28,13 @@ export class Damage {
         if (!token?.actor) return null;
 
         const armor = token.actor.system.armor;
-        const hp = token.actor.system.hp.value;
+        // HP comes from SOURCE, not the derived value. _prepareCharacterData zeroes
+        // system.hp.value whenever the actor is encumbered or panicked, and this
+        // result is written straight back with update() — so reading the derived 0
+        // and persisting it destroyed the stored Hit Protection, even when armor
+        // absorbed the hit entirely (dmg 0 <= hp 0 still writes 0). Armor and STR
+        // are safe to read derived; only HP is overwritten during data prep.
+        const hp = token.actor.toObject().system.hp.value;
         const str = token.actor.system.abilities.STR.value;
 
         let { dmg, newHp, newStr } = this._calculateHpAndStr(damage, armor, hp, str);

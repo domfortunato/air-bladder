@@ -359,22 +359,31 @@ export class CairnActor extends Actor {
   }
 
   /** @override */
-  _onDelete(options, userId) {
+  async _onDelete(options, userId) {
     const id = this.uuid;
     super._onDelete(options, userId);
-    game.actors.forEach(async (ac) => {
+    // _onDelete runs on EVERY connected client — that is what the userId argument
+    // is for. Without this guard one container delete fired the same prune from
+    // every browser: clients that do not own the keeper got a permission-error
+    // toast for an action they did not take, and clients that do own it raced each
+    // other writing the same array. Let the acting client do it once.
+    if (userId !== game.user.id) return;
+    // Sequential, not forEach(async …): the callbacks there are never awaited, so
+    // the prunes overlapped and could write back a stale array.
+    for (const ac of game.actors) {
       // Hirelings and NPCs share the character data model (and so can keep
       // containers); without them here a deleted container leaves a dangling uuid.
       if ((ac.type == "character" || ac.type == "hireling" || ac.type == "npc") && ac.system.containers?.includes(id)) {
         await ac.update({
           "system.containers": ac.system.containers.filter((it) => it !== id),
         });
-        if (ac.sheet._state > 0) {
-          // sheet visible
-          ac.sheet.render(false);
-        }
+        // ClientDocument#render re-renders only the applications actually open for
+        // this document. The old `ac.sheet._state > 0` probe read a private member
+        // AND instantiated a sheet on every actor it touched, because `.sheet` is a
+        // lazily-constructing getter.
+        ac.render(false);
       }
-    });
+    }
   }
 
 
