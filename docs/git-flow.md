@@ -72,11 +72,25 @@ redeploys from `master` on the merge. Tag straight after the merge.
 
 ## Continuous integration
 
-Nothing runs on a push to `dev` — the workflows trigger on `master`, on pull requests
-targeting `master`, and on version tags. So keep a **standing draft pull request from
-`dev` into `master`**. `pull_request` events fire on every push to the head branch, so the
-PR re-runs CodeQL on each push to `dev`, and doubles as a live diff of what is queued for
-the next release. Never merge it through GitHub — see below.
+**CodeQL scans `dev`** — `.github/workflows/codeql-analysis.yml` triggers on pushes to
+`master` and `dev`. That is the point of scanning at all: a finding on `master` alone would
+only ever describe code that had already shipped.
+
+The other two workflows are release-only by design. *Release Creation* triggers on version
+tags, and *Pages* on pushes to `master` — so a site change made on `dev` has no preview and
+goes live at the merge.
+
+A standing draft PR `dev` → `master` was considered for this and rejected: GitHub
+auto-closes a pull request once its commits reach the base branch, so it would be marked
+merged at every release and cannot be reopened. To see what is queued without one, use the
+compare view, which is always current:
+
+```
+https://github.com/domfortunato/air-bladder/compare/master...dev
+```
+
+Open a pull request when you actually want review comments on something — not as a
+permanent fixture.
 
 ## Testing unreleased work
 
