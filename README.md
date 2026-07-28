@@ -26,7 +26,7 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 
 - Random or manual generation of both Cairn 2e and Cairn Barebones characters — each style can be toggled on or off
 - Barebones sheets support optional homebrew features
-- Warden-authored custom 2e backgrounds — create, preview/lint, and [share them across worlds](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md)
+- Warden-authored custom 2e backgrounds — [create and lint your own](https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md), then [share them across worlds](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md)
 - Random or manual generation of hireling sheets
 - Tooltips for players
 - Marketplace and containers
