@@ -173,6 +173,19 @@ class CharacterData extends CairnDataModel {
   }
 }
 
+/**
+ * One model for every non-player actor. The `hireling` type was folded into this
+ * one: a hireling was only ever an NPC you were paying, so it carried a parallel
+ * schema and a parallel sheet for the sake of three fields. `profession`,
+ * `dayRate` and the `forHire` flag now live here, the day rate showing only when
+ * `forHire` is ticked. `hireling` is migrated to `npc` on load (see
+ * `migrateHirelingActors` in cairn.js) and is no longer a registered type.
+ *
+ * The union is deliberate rather than minimal: the 205 shipped monsters are `npc`
+ * documents and 204 of them carry `system.description`, so the merged sheet keeps
+ * the Description tab a hireling sheet never had. Dropping it would have made
+ * every monster's text unreachable without a single error to show for it.
+ */
 class NpcData extends CairnDataModel {
   static defineSchema() {
     return {
@@ -190,6 +203,19 @@ class NpcData extends CairnDataModel {
       slots: capacity(),
       features: objList(),
       containers: strList(),
+      // --- folded in from the retired `hireling` type ---
+      generationEnabled: bool(true),
+      // Relabelled "Career/Role" on the sheet; the stored key stays `profession`
+      // so migrated hirelings keep their value without a rename pass.
+      profession: str(),
+      dayRate: money(0),
+      // Gates the day-rate row. Default false: most NPCs are not for hire, and a
+      // day rate on a wolf reads as a bug.
+      forHire: bool(false),
+      deprived: bool(),
+      panicked: bool(),
+      critical: bool(),
+      armorOverride: optInt(),
     };
   }
 }
@@ -210,24 +236,9 @@ class ContainerData extends CairnDataModel {
   }
 }
 
-class HirelingData extends CairnDataModel {
-  static defineSchema() {
-    return {
-      ...vitals(),
-      generationEnabled: bool(true),
-      profession: str(),
-      dayRate: money(0),
-      notes: html(),
-      deprived: bool(),
-      panicked: bool(),
-      critical: bool(),
-      armorOverride: optInt(),
-      gold: purse(),
-      slots: capacity(),
-      containers: strList(),
-    };
-  }
-}
+/* HirelingData is gone — folded into NpcData above, which the `hireling` type now
+   points at as well (see ACTOR_DATA_MODELS). Nothing to migrate: an existing
+   hireling validates against the merged schema unchanged, since it is a superset. */
 
 /* -------------------------------------------- */
 /*  Items                                        */
@@ -329,7 +340,17 @@ export const ACTOR_DATA_MODELS = {
   character: CharacterData,
   npc: NpcData,
   container: ContainerData,
-  hireling: HirelingData,
+  // `hireling` is an ALIAS of npc: same schema, same sheet, same behaviour. A
+  // hireling was only ever an NPC you were paying.
+  //
+  // Deliberately an alias rather than a deletion. Foundry treats a document's
+  // `type` as immutable, so retiring the type would mean recreating every
+  // existing hireling as a new document — new ids, and therefore broken scene
+  // token links and broken container `keeper` uuids — in every world already on
+  // 0.1.7. Pointing the type at this model costs one line, needs no migration,
+  // and leaves nothing orphaned. The only difference that remains is at CREATION
+  // (a hireling rolls a random portrait); once made, the two are the same thing.
+  hireling: NpcData,
 };
 
 export const ITEM_DATA_MODELS = {

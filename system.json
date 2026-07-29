@@ -51,7 +51,7 @@
         "htmlFields": ["description", "biography"]
       },
       "hireling": {
-        "htmlFields": ["notes"]
+        "htmlFields": ["description", "biography", "notes"]
       }
     },
     "Item": {

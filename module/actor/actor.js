@@ -41,6 +41,29 @@ export class CairnActor extends Actor {
       );
     }
 
+    // Picking "Hireling" in the Create Actor dialog rolls a portrait, so a
+    // hand-made one arrives looking like somebody instead of Foundry's
+    // mystery-man. Deliberately NOT extended to `npc`: the 205 shipped monsters
+    // are npc documents and each carries its own art, and a hand-made npc is as
+    // often a monster as a person.
+    //
+    // `!data.img` guards it — an explicit image always wins, which is what keeps
+    // pack imports and the generator's own paired art untouched. The import is
+    // dynamic to avoid a cycle: character-generator.js imports this module.
+    if (data.type === "hireling" && !data.img) {
+      try {
+        const { randomPortraitPair } = await import("../character-generator.js");
+        const pair = await randomPortraitPair();
+        if (pair) {
+          data.img = pair.img;
+          foundry.utils.mergeObject(data, { prototypeToken: { texture: { src: pair.token } } }, { override: false });
+        }
+      } catch (err) {
+        // A missing manifest must not block creating an actor.
+        console.warn("Air Bladder | could not assign a random hireling portrait:", err);
+      }
+    }
+
     // A container made by hand — the Warden's route to an Item Pile — arrived
     // wearing Foundry's mystery-man, because nothing stamped its class icon.
     // (`iconForActor` existed for this and was called from nowhere in `module/`;
@@ -68,8 +91,12 @@ export class CairnActor extends Actor {
     
     // A hireling shares the character's inventory/armor/HP model wholesale --
     // slots, coins-as-slots, encumbrance, derived armor. Only the sheet differs.
-    if (this.type === "character" || this.type === "hireling") this._prepareCharacterData();
-    if (this.type === "npc") this._prepareNpcData();
+    // npc joins this branch: it shares the hireling's sheet now, which reads
+    // `armorOverridden`, `coinTip` and `maybeTooMuchGold` — none of which
+    // `_prepareNpcData` ever set. That function was a near-duplicate of this one
+    // minus the armor override and the coin accounting, so npc gains both rather
+    // than the sheet gaining a second set of conditionals.
+    if (["character", "hireling", "npc"].includes(this.type)) this._prepareCharacterData();
     if (this.type === "container") this._prepareContainerData();
   }
 

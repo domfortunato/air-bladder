@@ -1786,8 +1786,12 @@ export const generateHireling = async () => {
 /** @returns {Object} Foundry create/update data for a hireling. */
 const hirelingToActorData = (h) => ({
   name: h.name || "Hireling",
-  type: "hireling",
+  // `npc`, not `hireling`: the two are one type now and the directory button that
+  // makes these says "Generate NPC". A generated one IS for hire, so the flag is
+  // set and its day rate shows.
+  type: "npc",
   system: {
+    forHire: true,
     profession: h.profession ?? "",
     dayRate: h.rate ?? 0,
     abilities: hirelingAbilityData(h.abilities),

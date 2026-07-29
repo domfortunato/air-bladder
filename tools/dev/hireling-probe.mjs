@@ -193,7 +193,12 @@ try {
       hasProfession: !!node?.querySelector?.(".profession-input"),
       hasDayRate: !!node?.querySelector?.(".day-rate-input"),
       // A hireling has no Description tab -- that is the point of the stripped sheet.
-      noDescriptionTab: ![...(node?.querySelectorAll?.("nav .item") ?? [])]
+      // The Description tab is now REQUIRED, not forbidden. The two non-player
+      // types were merged onto one sheet, and the 205 shipped monsters are `npc`
+      // documents keeping prose in system.description — a two-tab sheet would
+      // make all of it unreachable. This assertion was the exact opposite until
+      // that merge.
+      hasDescriptionTab: [...(node?.querySelectorAll?.("nav .item") ?? [])]
         .some((t) => t.dataset.tab === "description"),
     };
 
@@ -233,7 +238,7 @@ try {
 
     r.sheet.inDom ? ok(`${r.sheet.cls} rendered [${r.sheet.tabs.join(" | ")}]`) : fail("hireling sheet did not appear in the DOM");
     r.sheet.hasProfession && r.sheet.hasDayRate ? ok("sheet shows the Profession and Day Rate fields") : fail("sheet is missing the Profession/Day Rate fields");
-    r.sheet.noDescriptionTab ? ok("no Description tab (the stripped 2-tab hireling sheet)") : fail("hireling sheet has a Description tab");
+    r.sheet.hasDescriptionTab ? ok("has a Description tab (one merged non-player sheet, so monster prose stays reachable)") : fail("no Description tab — monster/NPC description text would be unreachable");
   }
 } catch (e) {
   fail(`${e.name}: ${e.message}`);

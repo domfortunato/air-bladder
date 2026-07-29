@@ -1,63 +1,153 @@
-{{!-- No <form> here: ApplicationV2 supplies it. --}}
+{{!-- The one non-player sheet. Serves BOTH the `npc` and `hireling` types, which
+      are the same thing now (see ACTOR_DATA_MODELS): a hireling is an NPC you are
+      paying. This is the old hireling layout — the better of the two — carrying
+      the NPC tab set, because the 205 shipped monsters are `npc` documents and 204
+      of them keep prose in `system.description`. A hireling's two tabs would have
+      left every monster's text unreachable.
+
+      No <form> here: ApplicationV2 supplies it. --}}
     <div class="charater-sheet-grid">
-        <!-- Portrait. NPCs keep Foundry's own image editing (data-action="editImage"
-             reads data-edit) rather than the character portrait gallery. -->
-        <img class="portrait" src="{{actor.img}}" data-action="editImage" data-edit="img" title="{{actor.name}}" />
-        <!-- Name, background, HP and deprived -->
-        {{!-- npc-name-section: this sheet has no background-description block, so
-              the shared grid's auto-placement lands HP in the 24px Role row and
-              strands Gold below it. The modifier pins both to the foot. --}}
-        <div class="character-sheet-section-name npc-name-section">
-            <input class="name-input" type="text" name="name" value="{{actor.name}}" placeholder="{{ localize 'CAIRN.Name' }}" />
-            <input class="background-input" type="text" name="system.background" value="{{system.background}}"
-                placeholder="{{ localize 'CAIRN.Role' }}" />
-            <div class="resource-counter hp-counter">
-                <label for="{{@root.idp}}-system.hp.value">{{ localize 'CAIRN.HitProtection' }}</label>
-                <div class="resource-input-wrapper">
-                    <input type="text" name="system.hp.value" id="{{@root.idp}}-system.hp.value"
-                           value="{{system.hp.value}}" data-dtype="Number" />
-                    <span> / </span>
-                    <input type="text" name="system.hp.max" value="{{system.hp.max}}" data-dtype="Number" />
-                </div>
+        <!-- Portrait: click to pick/paste a custom image; the die rolls a random
+             shipped portrait (same features as a player character). -->
+        <div class="portrait-wrap">
+            <img class="portrait" src="{{actor.img}}" title="{{ localize 'CAIRN.ChoosePortrait' }}" />
+            {{#if generationEnabled}}
+            <a class="portrait-roll" data-action="rollPortrait" title="{{ localize 'CAIRN.RollPortrait' }}"><i class="fas fa-dice-d20"></i></a>
+            {{/if}}
+        </div>
+        <!-- Name, career/role, optional day rate, then HP + Gold -->
+        <div class="character-sheet-section-name">
+            <div class="name-line">
+                <input class="name-input" type="text" name="name" value="{{actor.name}}"
+                    placeholder="{{ localize 'CAIRN.Name' }}" />
+                {{#if generationEnabled}}
+                <a class="name-roll" data-action="rollName" title="{{ localize 'CAIRN.RollName' }}"><i class="fas fa-dice-d20"></i></a>
+                {{/if}}
             </div>
-            <div class="resource-counter deprived-counter middle-counter">
-                <label for="{{@root.idp}}-system.gold">{{ localize 'CAIRN.Gold' }}</label>
-                <div class="resource-input-wrapper">
-                    <input type="text" name="system.gold" id="{{@root.idp}}-system.gold" value="{{system.gold}}" data-dtype="Number" />
+            {{!-- Stored as `system.profession`; labelled "Career/Role" because it
+                  covers both a hireling's trade and a plain NPC's part in the
+                  world. The key is deliberately NOT renamed — every existing
+                  hireling would need rewriting for a label change. --}}
+            <div class="profession-line">
+                <span class="background-label">{{ localize 'CAIRN.CareerRole' }}</span>
+                <input class="profession-input" type="text" name="system.profession"
+                    value="{{system.profession}}" placeholder="{{ localize 'CAIRN.CareerRole' }}" />
+                {{#if generationEnabled}}
+                <a class="profession-roll" data-action="rollProfession" title="{{ localize 'CAIRN.RollProfession' }}"><i class="fas fa-dice-d20"></i></a>
+                {{/if}}
+            </div>
+            {{!-- Most NPCs are not for hire, and a day rate on a wolf reads as a
+                  bug — so the rate is behind a flag that is off by default. The
+                  checkbox is form-bound (`name=`), so ticking it submits and the
+                  re-render reveals the row. --}}
+            <div class="for-hire-line">
+                <label class="for-hire-label" data-tooltip="{{ localize 'CAIRN.ForHireTip' }}">
+                    <input type="checkbox" class="for-hire-check" name="system.forHire" {{checked system.forHire}} />
+                    {{ localize 'CAIRN.ForHire' }}
+                </label>
+            </div>
+            {{#if system.forHire}}
+            <div class="day-rate-line">
+                <span class="background-label">{{ localize 'CAIRN.DayRate' }}</span>
+                <input class="day-rate-input" type="number" min="0" step="1" name="system.dayRate"
+                    value="{{system.dayRate}}" title="{{ localize 'CAIRN.DayRateHint' }}" />
+                <span class="day-rate-suffix">{{ localize 'CAIRN.DayRateSuffix' }}</span>
+            </div>
+            {{/if}}
+            {{!-- HP and Gold share the foot row, as they do on the character sheet.
+                  HP used to top the STR/DEX/WIL column, where it read as a fourth
+                  ability score and left the two counter columns uneven — four
+                  facing three, so the row beside WIL was simply empty. --}}
+            <div class="npc-vitals-line">
+                <div class="resource-counter middle-counter hp-counter {{#if hpLow}}low{{/if}}">
+                    <label data-tooltip="{{ localize 'CAIRN.HitProtectionTip' }}">{{ localize 'CAIRN.HitProtection' }}</label>
+                    <div class="resource-input-wrapper">
+                        <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.value" id="{{@root.idp}}-system.hp.value"
+                               value="{{system.hp.value}}" data-dtype="Number" title="{{ localize 'CAIRN.Current' }}" />
+                        <span> / </span>
+                        <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.max"
+                               value="{{system.hp.max}}" data-dtype="Number" title="{{ localize 'CAIRN.Maximum' }}" />
+                    </div>
+                </div>
+                <div class="resource-counter middle-counter gold-counter {{#if system.maybeTooMuchGold}}overburdened-gold{{/if}}"
+                    {{#if system.maybeTooMuchGold}}data-tooltip="{{ localize 'CAIRN.OverburdenByGold' }}"{{/if}}>
+                    <label for="{{@root.idp}}-system.gold" data-tooltip="{{ system.coinTip }}">{{ localize 'CAIRN.Gold' }}</label>
+                    <div class="resource-input-wrapper">
+                        <input type="number" min="0" step="1" name="system.gold" id="{{@root.idp}}-system.gold"
+                               value="{{system.gold}}" data-dtype="Number" />
+                    </div>
                 </div>
             </div>
         </div>
         <!-- Buttons -->
         <div class="character-sheet-section-buttons">
-            <button id="rest-button" type="button" data-action="rest" {{#if system.deprived}}disabled{{/if}}>{{ localize 'CAIRN.Rest' }}</button>
-            <button id="restore-abilities-button" type="button" data-action="restoreAbilities" {{#if system.deprived}}disabled{{/if}}>{{ localize 'CAIRN.RestoreAbilities' }}</button>
-            <button id="die-of-fate-button" type="button" data-action="dieOfFate">{{ localize 'CAIRN.DieOfFate' }}</button>
+            <button id="rest-button" type="button" data-action="rest" class="strict-size-button" data-tooltip="{{ localize 'CAIRN.RestTip' }}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-campground"></i> {{ localize 'CAIRN.Rest' }}</button>
+            <button id="restore-abilities-button" type="button" data-action="restoreAbilities" class="strict-size-button" data-tooltip="{{ localize 'CAIRN.RestoreTip' }}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-heart-pulse"></i> {{ localize 'CAIRN.RestoreAbilities' }}</button>
+            <button id="die-of-fate-button" type="button" data-action="dieOfFate" class="strict-size-button" data-tooltip="{{ localize 'CAIRN.DieOfFateTip' }}"><i class="fas fa-dice-d6"></i> {{ localize 'CAIRN.DieOfFate' }}</button>
         </div>
-        <!-- Abilities -->
+        <!-- Abilities (identical behaviour + tooltips to a player character) -->
         <div class="character-sheet-section-abilities">
+            {{!-- STR/DEX/WIL only. HP lives in the name block above, which leaves
+                  these three facing Armor/Deprived/Panicked exactly. --}}
             {{#each system.abilities as |ability key|}}
-            <div class="resource-counter {{key}}-counter">
+            <div class="resource-counter {{key}}-counter {{#if (lookup ../abilityPeril key)}}peril{{/if}} {{#if (lookup ../abilityLow key)}}low{{/if}}">
                 <a class="resource-roll" data-action="rollAbility" data-ability="{{key}}" data-roll="d20cs<=@abilities.{{key}}.value"
-                    data-label="{{{ localize 'CAIRN.Save' key=(localize key) }}}">{{ localize key }}</a>
+                    data-label="{{{ localize 'CAIRN.Save' key=(localize key)}}}" data-tooltip="{{ lookup ../abilityTips key }}"><i class="fas fa-dice-d20 roll-icon"></i> {{ localize key }}</a>
                 <div class="resource-input-wrapper">
-                    <input type="text" name="system.abilities.{{key}}.value" value="{{ability.value}}"
-                        data-dtype="Number" />
+                    <input type="number" min="0" max="18" step="1" class="stat-input" name="system.abilities.{{key}}.value" value="{{ability.value}}"
+                        data-dtype="Number" title="{{ localize 'CAIRN.Current' }}" />
                     <span> / </span>
-                    <input type="text" name="system.abilities.{{key}}.max" value="{{ability.max}}" data-dtype="Number" />
+                    <input type="number" min="0" max="18" step="1" class="stat-input" name="system.abilities.{{key}}.max" value="{{ability.max}}" data-dtype="Number"
+                        title="{{ localize 'CAIRN.Maximum' }}" />
                 </div>
+                {{#if (lookup ../criticalToggle key)}}
+                <a class="critical-toggle {{#if (lookup ../criticalActive key)}}active{{/if}}" data-action="toggleCritical" data-key="{{key}}"
+                    title="{{ localize 'CAIRN.CriticalDamageToggle' }}"><i class="fas fa-skull"></i></a>
+                {{/if}}
             </div>
             {{/each}}
         </div>
-        <!-- Armor and gold, not relevant for NPCs -->
+        <!-- Armor + Deprived + Panicked -->
         <div class="character-sheet-section-others">
-            <div class="resource-counter long-counter">
-                <label>{{ localize 'CAIRN.Armor' }}</label>
+            <div class="resource-counter long-counter armor-counter {{#if system.armorOverridden}}armor-overridden{{/if}}">
+                <label data-tooltip="{{ localize 'CAIRN.ArmorTip' }}">{{ localize 'CAIRN.Armor' }}</label>
                 <div class="resource-input-wrapper">
-                    <span>{{system.armor}}</span>
+                    <input type="number" min="0" max="3" step="1" class="armor-input" value="{{system.armor}}"
+                        title="{{#if system.armorOverridden}}{{ localize 'CAIRN.ArmorOverrideActive' }}{{else}}{{ localize 'CAIRN.ArmorAuto' }}{{/if}}" />
+                    {{#if system.armorOverridden}}
+                    <a class="armor-reset" data-action="armorReset" title="{{ localize 'CAIRN.ArmorReset' }}"><i class="fas fa-rotate-left"></i></a>
+                    {{/if}}
                 </div>
             </div>
+
+            <div class="resource-counter long-counter deprived-counter">
+                <label data-tooltip="{{ localize 'CAIRN.DeprivedTip' }}">{{ localize 'CAIRN.Deprived' }}</label>
+                <div class="resource-input-wrapper">
+                    <input type="checkbox" class="deprived-check" {{checked system.deprived}} />
+                </div>
+            </div>
+
+            {{#if system.usePanic}}
+            <div class="resource-counter long-counter deprived-counter">
+                <label data-tooltip="{{ localize 'CAIRN.PanickedTip' }}">{{ localize 'CAIRN.Panicked' }}</label>
+                <div class="resource-input-wrapper">
+                    <input type="checkbox" class="panicked-check" {{checked system.panicked}} />
+                </div>
+            </div>
+            {{/if}}
         </div>
         <div class="character-sheet-section-tabs">
+            <!-- Attribute-loss status banners: 0-height when healthy, otherwise one
+                 bar per active condition (Dead / STR Critical / Paralyzed /
+                 Delirious / Overburdened). -->
+            <div class="critical-banner">
+                {{#each statusBanners}}
+                <div class="status-banner status-{{this.key}}">
+                    <i class="fas {{this.icon}}"></i>
+                    <span><strong>{{this.label}}:</strong> {{this.text}}</span>
+                </div>
+                {{/each}}
+            </div>
             <nav class="tabs" data-group="primary">
                 <a class="item {{tabs.items.cssClass}}" data-action="tab" data-group="primary" data-tab="items" id="set-equipment-limit"
                 {{#if system.characterEquipmentLimit}}title="{{localize 'CAIRN.EquipmentLimitTip'}}"{{/if}}>
@@ -72,7 +162,7 @@
             </nav>
             <section class="content">
                 <div class="tab {{tabs.items.cssClass}}" data-group="primary" data-tab="items">
-                    {{> "systems/air-bladder/templates/parts/items-list.html" }}
+                    {{> "systems/air-bladder/templates/parts/items-list.html" withFatigue=1 withShop=1}}
                 </div>
                 {{#if system.showContainersTab}}
                 <div class="tab {{tabs.containers.cssClass}}" data-group="primary" data-tab="containers">

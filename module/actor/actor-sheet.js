@@ -31,7 +31,9 @@ const TAB_LABELS = {
 const TAB_IDS = {
   character: ["items", "containers", "description", "notes"],
   npc: ["items", "containers", "description", "notes"],
-  hireling: ["items", "notes"],
+  // Same set as npc: one sheet, one tab set. A hireling used to get only
+  // items+notes, so anything written in its Description was unreachable.
+  hireling: ["items", "containers", "description", "notes"],
   container: ["items", "description"],
 };
 
@@ -227,7 +229,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   _initializeApplicationOptions(options) {
     const applied = super._initializeApplicationOptions(options);
-    if (options.document?.type === "hireling") applied.classes.push("hireling");
+    // Both non-player types share one sheet, so both need the class its layout is
+    // scoped to. PREFIXED deliberately: the old name was `hireling`, which stopped
+    // describing anything once npc used the same template, and a bare `.npc` is
+    // exactly the generic token the note above warns about.
+    if (["npc", "hireling"].includes(options.document?.type)) {
+      applied.classes.push("cairn-npc-sheet");
+    }
     return applied;
   }
 
@@ -238,9 +246,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * @override
    */
   _configureRenderParts(_options) {
+    // `hireling` renders the NPC sheet: the two types are one thing now (see
+    // ACTOR_DATA_MODELS), so there is one template rather than two that had to be
+    // kept in step by hand.
+    const t = this.actor.type === "hireling" ? "npc" : this.actor.type;
     return {
       form: {
-        template: `systems/air-bladder/templates/actor/${this.actor.type}-sheet.html`,
+        template: `systems/air-bladder/templates/actor/${t}-sheet.html`,
         templates: [
           "systems/air-bladder/templates/parts/items-list.html",
           "systems/air-bladder/templates/parts/container-list.html",
@@ -335,7 +347,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const popOut = { action: "detach", icon: "fas fa-arrow-up-right-from-square", label: "CAIRN.PopOut" };
 
     const isChar = this.actor.type === "character";
-    const isHireling = this.actor.type === "hireling";
+    // npc and hireling are one thing, so both get the NPC generation controls.
+    const isHireling = ["hireling", "npc"].includes(this.actor.type);
     const generates = (isChar || isHireling)
       && this.actor.isOwner
       && game.settings.get(SETTINGS_NS, "show-generate-header");
@@ -571,9 +584,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // because the field has always defaulted to empty.
     if (this.actor.type === "container") context.transportKinds = TRANSPORT_KINDS;
 
-    // Hirelings reuse the character's STR/DEX/WIL/HP behaviour and tooltips, but
-    // none of the background/traits/bonds machinery.
-    if (this.actor.type === "hireling") {
+    // Non-player actors reuse the character's STR/DEX/WIL/HP behaviour and
+    // tooltips, but none of the background/traits/bonds machinery. npc is here
+    // too now that it shares the sheet — without it the per-field dice and the
+    // ability tooltips were simply absent on an NPC.
+    if (["hireling", "npc"].includes(this.actor.type)) {
       this._computeStatContext(context);
       // Same random-generation switch as a character: gates the per-field dice
       // (name, profession, portrait).
@@ -1151,7 +1166,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onRollActor(event) {
     event.preventDefault();
-    if (this.actor.type === "hireling") {
+    if (["hireling", "npc"].includes(this.actor.type)) {
       await regenerateHireling(this.actor);
       return;
     }
@@ -1232,7 +1247,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onRollName(event) {
     event.preventDefault();
-    if (this.actor.type === "hireling") {
+    if (["hireling", "npc"].includes(this.actor.type)) {
       await rerollHirelingName(this.actor);
       return;
     }
@@ -2158,10 +2173,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   _processFormData(event, form, formData) {
     const data = super._processFormData(event, form, formData);
     if (
-      // Hirelings too: actor.js routes character AND hireling through
-      // _prepareCharacterData, so both have system.hp.value zeroed on encumbrance
-      // or panic, and the hireling sheet binds an editable input to it.
-      ["character", "hireling"].includes(this.actor.type) &&
+      // Every actor whose HP the sheet binds as an editable input AND whose
+      // prepareData zeroes it. actor.js routes character, hireling AND npc
+      // through _prepareCharacterData, so all three zero system.hp.value on
+      // encumbrance or panic — omitting npc here would persist that derived 0
+      // back over the real value on the next submit. See the same trap in
+      // memory: derived state must never round-trip through a form.
+      ["character", "hireling", "npc"].includes(this.actor.type) &&
       (this.actor.system.encumbered || this.actor.system.panicked)
     ) {
       foundry.utils.deleteProperty(data, "system.hp.value");

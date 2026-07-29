@@ -167,10 +167,10 @@ try {
       await new Promise((r) => setTimeout(r, 400));
       const entry = { type, ...(node() ? window.__abLayout(node()) : { error: "never rendered" }) };
       // The NPC header specifically. Region-overlap cannot see this one: HP and
-      // Gold are both inside the name section, so nothing "overlaps" — HP simply
-      // sat in the wrong grid row (up in the 24px Role line, overflowing it)
-      // while Gold was stranded below. Assert the pair share a row at the foot.
-      if (type === "npc" && node()) {
+      // Gold are both inside the name section, so nothing "overlaps" — the defect
+      // was which row each sat on. Both non-player types share this sheet, so both
+      // are checked.
+      if (["npc", "hireling"].includes(type) && node()) {
         const sec = node().querySelector(".character-sheet-section-name");
         const s = sec?.getBoundingClientRect();
         const box = (sel) => {
@@ -179,8 +179,12 @@ try {
           const r = el.getBoundingClientRect();
           return { top: Math.round(r.top - s.top), bottom: Math.round(r.bottom - s.top) };
         };
-        entry.npcHeader = { hp: box(".hp-counter"), gold: box(".deprived-counter"), role: box(".background-input"),
-          sectionH: s ? Math.round(s.height) : null };
+        entry.npcHeader = {
+          hp: box(".npc-vitals-line .hp-counter"),
+          gold: box(".npc-vitals-line .gold-counter"),
+          role: box(".profession-input"),
+          sectionH: s ? Math.round(s.height) : null,
+        };
       }
       out.push(entry);
       await actor.sheet.close();

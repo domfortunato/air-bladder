@@ -455,12 +455,12 @@
 
 /* Hireling: the name-roll takes the SAME dark colour as the profession-roll (both
    dark@0.55 on the light field), so the two rollers read identically. The 0.55
-   opacity comes from the shared .hireling rule below. */
-.hireling .name-line .name-roll {
+   opacity comes from the shared .cairn-npc-sheet rule below. */
+.cairn-npc-sheet .name-line .name-roll {
     color: var(--ab-ink);
 }
 
-.hireling .name-line .name-roll:hover {
+.cairn-npc-sheet .name-line .name-roll:hover {
     color: var(--ab-ink);
     opacity: 1;
 }
@@ -2044,15 +2044,54 @@ textarea.omen-input {
 
 /* The character sheet lays this section out as a grid (name / background line /
    counters). A hireling has none of that, so it becomes a simple stack. */
-.hireling .character-sheet-section-name {
+.cairn-npc-sheet .character-sheet-section-name {
     display: flex;
     flex-direction: column;
     gap: 4px;
 }
 
-.hireling .name-line,
-.hireling .profession-line,
-.hireling .day-rate-line {
+/* HP and Gold share the foot row of the header, matching the character sheet. The
+   name section is a flex COLUMN, so this is a nested flex ROW rather than the grid
+   placement the character sheet uses; each counter takes an equal half so the pair
+   lines up with the 213px counters in the blocks below. */
+.cairn-npc-sheet .npc-vitals-line {
+    display: flex;
+    gap: 8px;
+    margin-top: 2px;
+}
+
+.cairn-npc-sheet .npc-vitals-line .resource-counter {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+/* "For Hire" is a plain inline label+checkbox, not a counter: it is a switch that
+   reveals the day rate, and dressing it as a labelled value box would imply it
+   holds one. */
+.cairn-npc-sheet .for-hire-line {
+    display: flex;
+    align-items: center;
+}
+
+.cairn-npc-sheet .for-hire-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
+    font-variant: small-caps;
+    font-size: 15px;
+    color: var(--ab-ink-muted, inherit);
+    cursor: pointer;
+}
+
+.cairn-npc-sheet .for-hire-check {
+    flex: 0 0 auto;
+    margin: 0;
+}
+
+.cairn-npc-sheet .name-line,
+.cairn-npc-sheet .profession-line,
+.cairn-npc-sheet .day-rate-line {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -2061,46 +2100,46 @@ textarea.omen-input {
 
 /* .name-input positions itself with grid-column on the character sheet; under
    the flex stack above it needs to stretch instead. */
-.hireling .name-input,
-.hireling .profession-input {
+.cairn-npc-sheet .name-input,
+.cairn-npc-sheet .profession-input {
     flex: 1 1 auto;
     min-width: 0;
 }
 
 /* Day rate is a short number ("30") with a trailing "gp/day", so the input stays
    narrow rather than stretching like the profession field. */
-.hireling .day-rate-input {
+.cairn-npc-sheet .day-rate-input {
     flex: 0 0 auto;
     width: 56px;
     min-width: 0;
 }
 
-.hireling .day-rate-suffix {
+.cairn-npc-sheet .day-rate-suffix {
     flex: 0 0 auto;
     opacity: 0.7;
     font-size: 12px;
 }
 
-.hireling .name-roll,
-.hireling .profession-roll {
+.cairn-npc-sheet .name-roll,
+.cairn-npc-sheet .profession-roll {
     flex: 0 0 auto;
     cursor: pointer;
     opacity: 0.55;
     font-size: 12px;
 }
 
-.hireling .name-roll:hover,
-.hireling .profession-roll:hover {
+.cairn-npc-sheet .name-roll:hover,
+.cairn-npc-sheet .profession-roll:hover {
     opacity: 1;
 }
 
 /* HP joins STR/DEX/WIL as a fourth box in the abilities column, so that column
    holds four counters. Let the middle grid row grow to fit them. */
-.hireling .charater-sheet-grid {
+.cairn-npc-sheet .charater-sheet-grid {
     grid-template-rows: auto auto 1fr;
 }
 
-.hireling .character-sheet-section-abilities {
+.cairn-npc-sheet .character-sheet-section-abilities {
     grid-template-rows: repeat(4, 36px);
 }
 

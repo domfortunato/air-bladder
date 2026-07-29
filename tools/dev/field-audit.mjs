@@ -108,11 +108,17 @@ const walk = (dir, ext) =>
     return e.isDirectory() ? walk(p, ext) : p.endsWith(ext) ? [p] : [];
   });
 
-/** Sheet template -> the sub-type it renders. */
+/**
+ * Sheet template -> the sub-type(s) it renders.
+ *
+ * An array where one template serves several types: every binding in it must be
+ * declared on ALL of them, or the sheet writes a field one type has and another
+ * silently drops. `npc-sheet.html` serves both npc and hireling, which are one
+ * thing now — this is what would catch the two schemas drifting apart again.
+ */
 const SHEET_TYPE = {
   "actor/character-sheet.html": "character",
-  "actor/hireling-sheet.html": "hireling",
-  "actor/npc-sheet.html": "npc",
+  "actor/npc-sheet.html": ["npc", "hireling"],
   "actor/container-sheet.html": "container",
   "item/item-sheet.html": "item",
   "item/weapon-sheet.html": "weapon",
@@ -138,12 +144,15 @@ const partPaths = new Set(
 
 const problems = [];
 
-for (const [rel, type] of Object.entries(SHEET_TYPE)) {
+for (const [rel, spec] of Object.entries(SHEET_TYPE)) {
   const file = at("templates", ...rel.split("/"));
   if (!fs.existsSync(file)) { problems.push(`missing sheet template: ${rel}`); continue; }
+  const types = Array.isArray(spec) ? spec : [spec];
   for (const p of boundIn(readFile(file))) {
-    if (!declared[type].has(p)) {
-      problems.push(`${rel} binds system.${p} — not declared on ${type}`);
+    for (const type of types) {
+      if (!declared[type]?.has(p)) {
+        problems.push(`${rel} binds system.${p} — not declared on ${type}`);
+      }
     }
   }
 }
