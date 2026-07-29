@@ -31,7 +31,8 @@
     "dev:warden-rename": "node tools/dev/e2e-warden-rename.mjs",
     "dev:icons": "node tools/dev/e2e-icons.mjs",
     "dev:icon-canvas": "node tools/dev/e2e-icon-migration-canvas.mjs",
-    "dev:dialogs": "node tools/dev/e2e-dialogs.mjs"
+    "dev:dialogs": "node tools/dev/e2e-dialogs.mjs",
+    "dev:sheet-basics": "node tools/dev/e2e-sheet-basics.mjs"
   },
   "browserslist": [
     "last 3 versions"
