@@ -164,7 +164,7 @@
   "CAIRN.TransportLoad": "Espacios que ocupa",
   "CAIRN.TransportKind": "Tipo",
   "CAIRN.Hireling": "Seguidor",
-  "CAIRN.CreateHireling": "Crear seguidor",
+  "CAIRN.CreateHireling": "Generar PNJ",
   "CAIRN.Profession": "Profesión",
   "CAIRN.RollProfession": "Profesión aleatoria (vuelve a generar su equipo y sus características)",
   "CAIRN.DayRate": "Seguidor/Pago por día",
