@@ -1,4 +1,7 @@
-<form class="custom-dialog">
+{{!-- A DIV, not a FORM. DialogV2 already renders its content inside its own
+      <form>, and the HTML parser silently drops a nested <form> start tag --
+      taking this element's class with it. --}}
+<div class="custom-dialog">
   <div class="form-group">
     <label>{{localize 'CAIRN.Name'}}:</label>
     <input
@@ -19,4 +22,4 @@
       data-dtype="Number"
     />
   </div>
-</form>
+</div>

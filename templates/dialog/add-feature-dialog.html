@@ -1,4 +1,7 @@
-<form class="custom-dialog" style="gap: 4px">
+{{!-- A DIV, not a FORM. DialogV2 already renders its content inside its own
+      <form>, and the HTML parser silently drops a nested <form> start tag --
+      taking this element's class with it. --}}
+<div class="custom-dialog" style="gap: 4px">
   <div class="form-group">
     <label>{{localize 'CAIRN.Name'}}:</label>
     <input
@@ -40,6 +43,6 @@
     <label class="compact-check"> {{localize 'CAIRN.Armor'}}</label>
     <input type="checkbox" name="armor" {{#if armor}}checked{{/if}}/>   
     <label class="compact-check"> {{localize 'CAIRN.Deprived'}}</label>
-    <input type="checkbox" name="deprived" {{#if deprived}}checked{{/if}}/>         
+    <input type="checkbox" name="deprived" {{#if deprived}}checked{{/if}}/>
   </div>
-</form>
+</div>

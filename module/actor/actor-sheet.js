@@ -7,6 +7,13 @@ import { localizeNameDesc, t } from "../i18n-content.js";
 import { FATIGUE_NAME } from "../item/item.js";
 
 /**
+ * The checkbox names on the add/edit-feature dialog, which are also the keys the
+ * feature record stores them under. Create and Edit read the same form template,
+ * so they must read the same list — it used to be declared twice, inline.
+ */
+const FEATURE_FLAGS = ["str", "dex", "wil", "hp", "armor", "dmg", "crit", "deprived", "blast"];
+
+/**
  * Memoized compendium reads for the sheet's static pick-lists (traits, scars, omens).
  *
  * `getData` runs on EVERY render, and AppV1 sets `submitOnChange: true` — so every
@@ -1108,27 +1115,28 @@ export class CairnActorSheet extends foundry.appv1.sheets.ActorSheet {
     const template = "systems/air-bladder/templates/dialog/add-item-dialog.html";
     const content = await foundry.applications.handlebars.renderTemplate(template);
 
-    new Dialog({
-      title: game.i18n.localize("CAIRN.CreateItem"),
+    await foundry.applications.api.DialogV2.prompt({
+      window: { title: game.i18n.localize("CAIRN.CreateItem") },
       content,
-      buttons: {
-        create: {
-          icon: '<i class="fas fa-check"></i>',
-          label: game.i18n.localize("CAIRN.CreateItem"),
-          callback: (html) => {
-            const form = html[0].querySelector("form");
-            if (form.itemname.value.trim() !== "") {
-              this.actor.createOwnedItem({
-                name: form.itemname.value,
-                type: form.itemtype.value,
-                weightless: form.itempetty.checked,
-              });
-            }
-          },
+      ok: {
+        icon: "fas fa-check",
+        label: game.i18n.localize("CAIRN.CreateItem"),
+        // DialogV2 hands the callback the clicked BUTTON; button.form is the
+        // dialog's own form, which is why the content template must not carry
+        // one of its own.
+        callback: (event, button) => {
+          const form = button.form;
+          if (form.itemname.value.trim() !== "") {
+            this.actor.createOwnedItem({
+              name: form.itemname.value,
+              type: form.itemtype.value,
+              weightless: form.itempetty.checked,
+            });
+          }
         },
       },
-      default: "create",
-    }).render(true);
+      rejectClose: false,
+    });
   }
 
   /* -------------------------------------------- */
@@ -1146,30 +1154,28 @@ export class CairnActorSheet extends foundry.appv1.sheets.ActorSheet {
     const template = "systems/air-bladder/templates/dialog/add-container-dialog.html";
     const content = await foundry.applications.handlebars.renderTemplate(template);
 
-    new Dialog({
-      title: game.i18n.localize("CAIRN.CreateContainer"),
+    await foundry.applications.api.DialogV2.prompt({
+      window: { title: game.i18n.localize("CAIRN.CreateContainer") },
       content,
-      buttons: {
-        create: {
-          icon: '<i class="fas fa-check"></i>',
-          label: game.i18n.localize("CAIRN.CreateContainer"),
-          callback: async (html) => {
-            const form = html[0].querySelector("form");
-            if (form.itemname.value.trim() !== "") {
-              const result = await Actor.create({
-                type: "container",
-                name: form.itemname.value,
-                img: CONTAINER_ICON,
-                "prototypeToken.texture.src": CONTAINER_ICON,
-                "system.slots": form.itemslots.value,
-              });
-              await this.actor.createOwnedContainer(result);
-            }
-          },
+      ok: {
+        icon: "fas fa-check",
+        label: game.i18n.localize("CAIRN.CreateContainer"),
+        callback: async (event, button) => {
+          const form = button.form;
+          if (form.itemname.value.trim() !== "") {
+            const result = await Actor.create({
+              type: "container",
+              name: form.itemname.value,
+              img: CONTAINER_ICON,
+              "prototypeToken.texture.src": CONTAINER_ICON,
+              "system.slots": form.itemslots.value,
+            });
+            await this.actor.createOwnedContainer(result);
+          }
         },
       },
-      default: "create",
-    }).render(true);
+      rejectClose: false,
+    });
   }
 
   /* -------------------------------------------- */
@@ -1183,67 +1189,59 @@ export class CairnActorSheet extends foundry.appv1.sheets.ActorSheet {
     const template = "systems/air-bladder/templates/dialog/add-feature-dialog.html";
     const content = await foundry.applications.handlebars.renderTemplate(template);
 
-    new Dialog({
-      title: game.i18n.localize("CAIRN.CreateFeature"),
+    await foundry.applications.api.DialogV2.prompt({
+      window: { title: game.i18n.localize("CAIRN.CreateFeature") },
+      position: { width: 500 },
       content,
-      buttons: {
-        create: {
-          icon: '<i class="fas fa-check"></i>',
-          label: game.i18n.localize("CAIRN.CreateFeature"),
-          callback: async (html) => {
-            const form = html[0].querySelector("form");
-            if (form.itemname.value.trim() !== "") {
-              const data = {
-                "name": form.itemname.value,
-                "description": form.itemdesc.value,
-              };
-              const checks = ['str','dex','wil','hp','armor','dmg','crit','deprived','blast'];
-              checks.forEach((c) => {
-                data[c] = form[c].checked;
-              });
-              await this.actor.createOwnedFeature(data);
-            }
-          },
+      ok: {
+        icon: "fas fa-check",
+        label: game.i18n.localize("CAIRN.CreateFeature"),
+        callback: async (event, button) => {
+          const form = button.form;
+          if (form.itemname.value.trim() !== "") {
+            const data = {
+              "name": form.itemname.value,
+              "description": form.itemdesc.value,
+            };
+            FEATURE_FLAGS.forEach((c) => {
+              data[c] = form[c].checked;
+            });
+            await this.actor.createOwnedFeature(data);
+          }
         },
       },
-      default: "create",
-    },{
-      "width": 500,
-    }).render(true);
+      rejectClose: false,
+    });
   }
 
   async _onFeatureEdit(item) {
     const template = "systems/air-bladder/templates/dialog/add-feature-dialog.html";
     const content = await foundry.applications.handlebars.renderTemplate(template, item);
     
-    new Dialog({
-      title: game.i18n.localize("CAIRN.EditFeature"),
+    await foundry.applications.api.DialogV2.prompt({
+      window: { title: game.i18n.localize("CAIRN.EditFeature") },
+      position: { width: 500 },
       content,
-      buttons: {
-        update: {
-          icon: '<i class="fas fa-check"></i>',
-          label: game.i18n.localize("CAIRN.UpdateFeature"),
-          callback: async (html) => {
-            const form = html[0].querySelector("form");
-            if (form.itemname.value.trim() !== "") {
-              const newItem = item;
-              newItem.name  = form.itemname.value;
-              newItem.description = form.itemdesc.value;
-              const checks = ['str','dex','wil','hp','armor','dmg','crit','deprived','blast'];
-              checks.forEach((c) => {
-                newItem[c] = form[c].checked;
-              });
-              const features = this.actor.system.features.filter((f) => f.id != newItem.id);
-              features.push(newItem);
-              await this.actor.update({"system.features":features});
-            }
-          },
+      ok: {
+        icon: "fas fa-check",
+        label: game.i18n.localize("CAIRN.UpdateFeature"),
+        callback: async (event, button) => {
+          const form = button.form;
+          if (form.itemname.value.trim() !== "") {
+            const newItem = item;
+            newItem.name  = form.itemname.value;
+            newItem.description = form.itemdesc.value;
+            FEATURE_FLAGS.forEach((c) => {
+              newItem[c] = form[c].checked;
+            });
+            const features = this.actor.system.features.filter((f) => f.id != newItem.id);
+            features.push(newItem);
+            await this.actor.update({"system.features":features});
+          }
         },
       },
-      default: "update",
-    },{
-      "width": 500,
-    }).render(true);
+      rejectClose: false,
+    });
   }
 
   /**
@@ -1778,12 +1776,14 @@ export class CairnActorSheet extends foundry.appv1.sheets.ActorSheet {
   async _onRegenerateCharacter(event) {
     event.preventDefault();
 
-    const confirm = await Dialog.confirm({
-      title: game.i18n.localize("CAIRN.CharacterRegeneratorTitle"),
+    // DialogV2.confirm already makes "No" the default button, so V1's
+    // defaultYes: false has no equivalent to carry over.
+    const confirm = await foundry.applications.api.DialogV2.confirm({
+      window: { title: game.i18n.localize("CAIRN.CharacterRegeneratorTitle") },
       content: `<p>${game.i18n.localize(
         "CAIRN.CharacterRegeneratorConfirm"
       )}</p>`,
-      defaultYes: false,
+      rejectClose: false,
     });
 
     if (confirm) {

@@ -30,7 +30,8 @@
     "dev:directory-buttons": "node tools/dev/e2e-directory-buttons.mjs",
     "dev:warden-rename": "node tools/dev/e2e-warden-rename.mjs",
     "dev:icons": "node tools/dev/e2e-icons.mjs",
-    "dev:icon-canvas": "node tools/dev/e2e-icon-migration-canvas.mjs"
+    "dev:icon-canvas": "node tools/dev/e2e-icon-migration-canvas.mjs",
+    "dev:dialogs": "node tools/dev/e2e-dialogs.mjs"
   },
   "browserslist": [
     "last 3 versions"

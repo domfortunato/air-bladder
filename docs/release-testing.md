@@ -58,6 +58,7 @@ changed, which **fails while a world is open**, so stop the server for it.
 | `npm run dev:enc-damage` | the damage flow, including a real canvas draw |
 | `npm run dev:container-link` | container linking **as a real player** — a GM passes every ownership check, so only this catches permission bugs |
 | `npm run dev:sheet-ids` | per-window DOM ids, via a real label click |
+| `npm run dev:dialogs` | the four sheet dialogs (add item, add/edit feature, regenerate confirm) — that `button.form` reaches the right fields, the content templates carry no nested `<form>`, and the confirm still defaults to No |
 | `npm run dev:portrait-folder` | the custom-portrait setting takes effect with no reload |
 | `npm run dev:directory-buttons` | the Actor Directory buttons, docked **and** popped out |
 | `npm run dev:warden-rename` | the GM rename cycle across page reloads |
