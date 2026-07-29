@@ -1,6 +1,8 @@
 # Branches and releases
 
-Two long-lived branches, and one direction of travel.
+Two long-lived branches, and one direction of travel. Short-lived topic branches feed
+`dev` when a piece of work outlasts the release cadence — see
+[Topic branches](#topic-branches).
 
 | Branch | Holds | Who pushes |
 |---|---|---|
@@ -35,6 +37,45 @@ nothing is ever applied to `master` directly.
 
 The cost is that a README typo waits for the next release. That is cheaper than a second
 code path nobody remembers.
+
+## Topic branches
+
+Nearly all work belongs directly on `dev`. The exception is work that **takes longer than
+the gap between releases and is broken in the middle** — a sheet framework migration, say,
+where a half-finished actor sheet is a broken actor sheet.
+
+That work needs somewhere to live, because otherwise it holds every release hostage until
+it is done. A topic branch is not a bypass of `dev`: it *feeds* `dev`, and nothing reaches
+`master` except through `dev`, exactly as above.
+
+```sh
+git checkout dev
+git checkout -b appv2-migration
+# work, commit, push
+git push -u origin appv2-migration
+```
+
+Name it lowercase-kebab, after the work rather than the person or the date:
+`appv2-migration`, `i18n-content-overlay`.
+
+Three rules keep it from turning into a fork:
+
+- **Merge `dev` into it regularly**, not once at the end. A branch that has not seen `dev`
+  in a month is resolving conflicts against software it was never tested against.
+- **Merge it back at every releasable milestone**, not when the whole project is finished.
+  Break the work into pieces that each stand alone and ship each one. The branch should
+  outlive a release or two, not a season.
+- **Delete it when the work lands.** Only `master` and `dev` are permanent.
+
+Two things behave differently on a topic branch, both worth knowing and neither worth
+changing:
+
+- **It is public within seconds.** The Gitea mirror carries every branch to GitHub, so
+  anyone can clone it and test — useful for exactly the kind of large change that earns a
+  branch in the first place.
+- **CodeQL does not scan it.** The workflow triggers on `master` and `dev` only, so
+  findings arrive when the branch merges rather than as you go. On a long branch, merge
+  into `dev` early enough that the scan is still useful.
 
 ## Day to day
 
