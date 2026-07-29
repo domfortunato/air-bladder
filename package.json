@@ -32,7 +32,8 @@
     "dev:icons": "node tools/dev/e2e-icons.mjs",
     "dev:icon-canvas": "node tools/dev/e2e-icon-migration-canvas.mjs",
     "dev:dialogs": "node tools/dev/e2e-dialogs.mjs",
-    "dev:sheet-basics": "node tools/dev/e2e-sheet-basics.mjs"
+    "dev:sheet-basics": "node tools/dev/e2e-sheet-basics.mjs",
+    "dev:theme": "node tools/dev/probe-theme.mjs"
   },
   "browserslist": [
     "last 3 versions"
