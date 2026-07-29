@@ -1,5 +1,5 @@
 import { findCompendiumItem } from "./compendium.js";
-import { iconForTransport } from "./icons.js";
+import { iconForTransport, TRANSPORT_KINDS } from "./icons.js";
 import { localizeNameDesc, t } from "./i18n-content.js";
 
 /**
@@ -108,18 +108,11 @@ const chips = (item) => {
   return out;
 };
 
-/** transportKind -> its localized chip label. */
-const KIND_LABEL = {
-  worn: "CAIRN.TransportWorn",
-  mount: "CAIRN.TransportMount",
-  vehicle: "CAIRN.TransportVehicle",
-};
-
 /** Chips for a transport row: its kind, then slow/bulky flavour. */
 const transportChips = (item) => {
   const s = item.system;
   const out = [];
-  if (KIND_LABEL[s.transportKind]) out.push(game.i18n.localize(KIND_LABEL[s.transportKind]));
+  if (TRANSPORT_KINDS[s.transportKind]) out.push(game.i18n.localize(TRANSPORT_KINDS[s.transportKind]));
   if (s.bulky) out.push(game.i18n.localize("CAIRN.Bulky"));
   if (s.slow) out.push(game.i18n.localize("CAIRN.TransportSlow"));
   return out;

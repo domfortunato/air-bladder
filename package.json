@@ -26,6 +26,7 @@
     "dev:content-overlay": "node tools/dev/e2e-content-overlay.mjs",
     "dev:sheet-ids": "node tools/dev/e2e-sheet-ids.mjs",
     "dev:container-link": "node tools/dev/e2e-container-link.mjs",
+    "dev:item-pile": "node tools/dev/e2e-item-pile.mjs",
     "dev:portrait-folder": "node tools/dev/e2e-portrait-folder.mjs",
     "dev:directory-buttons": "node tools/dev/e2e-directory-buttons.mjs",
     "dev:warden-rename": "node tools/dev/e2e-warden-rename.mjs",

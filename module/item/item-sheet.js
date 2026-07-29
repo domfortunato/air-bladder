@@ -1,6 +1,7 @@
 import { resolveGearItem } from "../gear.js";
 import { previewBackground, duplicateBackgroundToWorld } from "../character-generator.js";
 import { t } from "../i18n-content.js";
+import { TRANSPORT_KINDS } from "../icons.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -224,15 +225,11 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     context.enrichedDescription = await enrich(descSrc, { relativeTo: this.item });
     context.enrichedCriticalDamage = await enrich(this.item.system.criticalDamage, { relativeTo: this.item });
 
-    // Transport kind pick-list (worn / mount / vehicle) for the transport sheet's
-    // <select>; keys are stored, values are localized by selectOptions.
-    if (this.item.type === "transport") {
-      context.transportKinds = {
-        worn: "CAIRN.TransportWorn",
-        mount: "CAIRN.TransportMount",
-        vehicle: "CAIRN.TransportVehicle",
-      };
-    }
+    // Transport kind pick-list for the transport sheet's <select>; keys are
+    // stored, values are localized by selectOptions. The vocabulary lives in
+    // icons.js, which is where the kinds are documented and where the art is
+    // keyed off them.
+    if (this.item.type === "transport") context.transportKinds = TRANSPORT_KINDS;
     if (this.item.type === "background") {
       context.isGM = game.user.isGM;
       if (this.isEditable) await this._prepareBackgroundEditor(context);

@@ -20,29 +20,94 @@ export const ICON_DIR = "systems/air-bladder/icons";
 const P = (n) => `${ICON_DIR}/${n}.svg`;
 
 /**
- * Container / transport art. Keyed on the name first (so "Handcart" and "Cart"
- * differ), then falls back on transportKind for exotic names — the named mounts
- * (Heavy Destrier, Piebald Cob, …) carry no give-away word, but they are all
- * kind "mount", which resolves to the horse.
- * @param {String} name
- * @param {String} [kind]  transportKind: "worn" | "mount" | "vehicle"
+ * The `transportKind` vocabulary, and each kind's label key — ONE definition,
+ * because it was previously written out separately in `item-sheet.js` (the
+ * transport sheet's pick-list) and `marketplace.js` (the shop's chips), which is
+ * two places to forget when a kind is added.
+ *
+ * "pile" is a loot heap or stash: a container that nothing carries. It is the
+ * only kind that is not a way of moving things around, which is why it shows in
+ * the Actor Directory (see `cairn.js`) — a character's Containers tab is the one
+ * place something no character holds could never be reached from.
+ *
+ * The transport ITEM sheet offers it too, from this same list. Nothing in the
+ * shipped `transports` pack uses it and a purchasable pile would be odd, but one
+ * vocabulary with a strange corner beats two that drift.
  */
-export const iconForTransport = (name = "", kind = "") => {
-  const n = String(name).toLowerCase();
-  if (n.includes("backpack")) return P("backpack");
-  if (/\bsacks?\b/.test(n) || n.includes("pouch") || n.includes("satchel")) return P("sack");
-  if (n.includes("handcart")) return P("handcart");           // before "cart"
-  if (n.includes("cart")) return P("cart");
-  if (n.includes("wagon")) return P("wagon");
-  if (n.includes("donkey") || n.includes("mule")) return P("donkey");
-  if (n.includes("chest") || n.includes("crate") || n.includes("coffer") ||
-      n.includes("barrel") || n.includes("box")) return P("chest");
-  if (n.includes("horse")) return P("horse");
-  if (kind === "worn") return P("sack");
-  if (kind === "vehicle") return P("wagon");
-  if (kind === "mount") return P("horse");
-  return P("chest");                                          // a bare container
+export const TRANSPORT_KINDS = {
+  worn: "CAIRN.TransportWorn",
+  mount: "CAIRN.TransportMount",
+  vehicle: "CAIRN.TransportVehicle",
+  pile: "CAIRN.TransportPile",
 };
+
+/**
+ * What a container IS, as one classification with two consumers: its art, and
+ * the label its sheet shows.
+ *
+ * They were one function returning a path, which meant a sheet could only say
+ * "Mount" — true of a Heavy Destrier and useless, since nothing on that sheet
+ * said "horse" anywhere. Splitting the decision out lets the label be as specific
+ * as the picture already was, and guarantees the two never disagree.
+ *
+ * `mule` and `donkey` share one glyph but are separate classes for exactly that
+ * reason: a Mule labelled "Donkey" would be wrong, where a Mule DRAWN as a donkey
+ * is just the art we have.
+ */
+export const CONTAINER_CLASSES = {
+  pile: { icon: "stack", label: "CAIRN.ClassPile" },
+  backpack: { icon: "backpack", label: "CAIRN.ClassBackpack" },
+  sack: { icon: "sack", label: "CAIRN.ClassSack" },
+  handcart: { icon: "handcart", label: "CAIRN.ClassHandcart" },
+  cart: { icon: "cart", label: "CAIRN.ClassCart" },
+  wagon: { icon: "wagon", label: "CAIRN.ClassWagon" },
+  mule: { icon: "donkey", label: "CAIRN.ClassMule" },
+  donkey: { icon: "donkey", label: "CAIRN.ClassDonkey" },
+  horse: { icon: "horse", label: "CAIRN.ClassHorse" },
+  chest: { icon: "chest", label: "CAIRN.ClassChest" },
+};
+
+/**
+ * Classify a container / transport. Keyed on the NAME first (so "Handcart" and
+ * "Cart" differ), then falling back on transportKind for exotic names — the
+ * named mounts (Heavy Destrier, Piebald Cob, …) carry no give-away word, but
+ * they are all kind "mount", so they classify as a horse. That fallback is why
+ * a Destrier's sheet can say "Horse" without anyone writing it down.
+ * @param {String} name
+ * @param {String} [kind]  transportKind: "worn" | "mount" | "vehicle" | "pile"
+ * @returns {String}  a key of CONTAINER_CLASSES
+ */
+export const containerClass = (name = "", kind = "") => {
+  const n = String(name).toLowerCase();
+  // Kind FIRST for a pile, unlike every other class. The others are named after
+  // the thing they are ("Cart", "Mule") so the name is the better signal, but a
+  // pile is named for what is IN it — "Bandit Loot", "Spoils of the Barrow" —
+  // and would otherwise fall through to the chest.
+  if (kind === "pile") return "pile";
+  if (n.includes("backpack")) return "backpack";
+  if (/\bsacks?\b/.test(n) || n.includes("pouch") || n.includes("satchel")) return "sack";
+  if (n.includes("handcart")) return "handcart";              // before "cart"
+  if (n.includes("cart")) return "cart";
+  if (n.includes("wagon")) return "wagon";
+  if (n.includes("mule")) return "mule";                      // before "donkey"
+  if (n.includes("donkey")) return "donkey";
+  if (n.includes("chest") || n.includes("crate") || n.includes("coffer") ||
+      n.includes("barrel") || n.includes("box")) return "chest";
+  if (n.includes("horse")) return "horse";
+  if (n.includes("pile") || n.includes("hoard") || n.includes("stash")) return "pile";
+  if (kind === "worn") return "sack";
+  if (kind === "vehicle") return "wagon";
+  if (kind === "mount") return "horse";
+  return "chest";                                             // a bare container
+};
+
+/** Container / transport art, from its class. */
+export const iconForTransport = (name = "", kind = "") =>
+  P(CONTAINER_CLASSES[containerClass(name, kind)].icon);
+
+/** The i18n key naming what a container is: "Horse", "Wagon", "Item Pile", … */
+export const containerClassLabel = (name = "", kind = "") =>
+  CONTAINER_CLASSES[containerClass(name, kind)].label;
 
 /**
  * Gear art by item type, with a few name-based specialisations for the generic
@@ -95,7 +160,7 @@ export const iconForActor = (type = "", name = "") => {
 
 /** The class-icon gallery offered when a player re-arts a container / transport. */
 export const CONTAINER_ART = [
-  P("chest"), P("backpack"), P("sack"),
+  P("chest"), P("backpack"), P("sack"), P("stack"),
   P("horse"), P("donkey"),
   P("cart"), P("handcart"), P("wagon"),
 ];

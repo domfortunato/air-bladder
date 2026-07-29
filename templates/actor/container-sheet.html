@@ -5,9 +5,25 @@
         <!-- Name and slots -->
         <div class="character-sheet-section-name">
             <input class="name-input" type="text" name="name" value="{{actor.name}}" placeholder="{{ localize 'CAIRN.Name' }}" />
-            <!-- Background, not relevant for containers -->
+            {{!-- What this container is ("Horse", "Wagon", "Item Pile"), then who
+                  keeps it. The class is derived from the name and the type, so a
+                  Heavy Destrier reads "Horse" without anyone writing that down.
+                  A pile has no keeper, so the owner half is simply absent. --}}
             <div class="background-input">
-                {{system.ownedBy}}
+                <span class="container-class">{{system.classLabel}}</span>
+                {{#if system.ownedBy}}<span class="container-owner">{{system.ownedBy}}</span>{{/if}}
+            </div>
+            {{!-- Its own row, NOT alongside Slots and Cost: the name section is a
+                  two-column grid, so a third counter there gets an implicit third
+                  column and every label is squeezed ("Mount" rendered as "Moun").
+                  Row 3 is the 1fr slack row and was empty. --}}
+            <div class="resource-counter container-type-counter">
+                <label class="large-resource-label" for="{{@root.idp}}-system.transportKind">{{ localize 'CAIRN.TransportKind' }}</label>
+                <div class="resource-input-wrapper">
+                    <select name="system.transportKind" id="{{@root.idp}}-system.transportKind">
+                        {{selectOptions transportKinds selected=system.transportKind localize=true blank=""}}
+                    </select>
+                </div>
             </div>
             <div class="resource-counter slots-counter">
                 <label for="{{@root.idp}}-system.slots">{{ localize 'CAIRN.Slots' }}</label>

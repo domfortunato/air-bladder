@@ -63,6 +63,7 @@ changed, which **fails while a world is open**, so stop the server for it.
 | `npm run dev:icon-canvas` | the icon migration reaches scene tokens and the canvas ends correct after a reload |
 | `npm run dev:enc-damage` | the damage flow, including a real canvas draw |
 | `npm run dev:container-link` | container linking **as a real player** — a GM passes every ownership check, so only this catches permission bugs |
+| `npm run dev:item-pile` | the container class label and Item Piles. Walks **every** shipped transport asserting its label and its art agree (they come from one classifier, so drift shows as "Horse" beside a picture of a cart), then makes a pile: class art on creation, re-arting on a type change, hand-picked art left alone, the sheet's Type control, directory visibility, and — **as Alice** — that a pile refuses a player with no rights and works once granted them |
 | `npm run dev:sheet-ids` | per-window DOM ids, via a real label click |
 | `npm run dev:sheet-basics` | that editing a field commits with no save button (text, number, `<select>`, `<textarea>`), that one change makes exactly one update, and that each tab shows one panel and only one |
 | `npm run dev:dialogs` | the four sheet dialogs (add item, add/edit feature, regenerate confirm) — that `button.form` reaches the right fields, the content templates carry no nested `<form>`, and the confirm still defaults to No |

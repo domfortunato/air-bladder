@@ -299,6 +299,37 @@
     align-self: end;
 }
 
+/* Type sits in row 3 -- the 1fr slack row -- in the left column, directly under
+   the class line. Putting it in row 4 with Slots and Cost gives the two-column
+   grid an implicit THIRD column and squeezes all three, which clipped "Mount"
+   to "Moun". Its own row also lets the select take a real width, which the
+   longest option ("Item Pile") needs. */
+.container-sheet-grid .container-type-counter {
+    grid-row: 3;
+    grid-column: 1;
+    align-self: start;
+}
+
+.container-sheet-grid .container-type-counter select {
+    background: none;
+    border: none;
+    width: 100%;
+    color: inherit;
+    font-family: inherit;
+}
+
+/* What the container IS ("Horse", "Item Pile"), then who keeps it -- a pile has
+   no keeper, so the second half is simply absent rather than an empty gap. */
+.container-sheet-grid .container-class {
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
+    font-variant: small-caps;
+    font-size: 18px;
+}
+
+.container-sheet-grid .container-owner::before {
+    content: " · ";
+}
+
 /******************************************************************************
  * Item sheet grid.                                                           * 
  ******************************************************************************/

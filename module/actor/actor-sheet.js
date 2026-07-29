@@ -2,7 +2,7 @@ import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, wit
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, stripPar } from "../utils.js";
 import { SETTINGS_NS } from "../settings.js";
-import { CONTAINER_ART, CONTAINER_ICON } from "../icons.js";
+import { CONTAINER_ART, CONTAINER_ICON, TRANSPORT_KINDS } from "../icons.js";
 import { localizeNameDesc, t } from "../i18n-content.js";
 import { FATIGUE_NAME } from "../item/item.js";
 
@@ -557,6 +557,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.enrichedNotes = await enrich(this.actor.system.notes);
 
     if (this.actor.type === "character") await this._prepareCharacterContext(context);
+
+    // The container's Type pick-list. Blank is offered because a hand-made
+    // container legitimately has no kind — it is a chest on the floor — and
+    // because the field has always defaulted to empty.
+    if (this.actor.type === "container") context.transportKinds = TRANSPORT_KINDS;
 
     // Hirelings reuse the character's STR/DEX/WIL/HP behaviour and tooltips, but
     // none of the background/traits/bonds machinery.

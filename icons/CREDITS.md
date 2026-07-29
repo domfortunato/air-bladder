@@ -32,6 +32,7 @@ credited under CC BY 3.0. The icons used here are by **Lorc**, **Delapouite** an
 | `cart.svg` | carts | Cartwheel | Lorc | <https://game-icons.net/1x1/lorc/cartwheel.html> |
 | `handcart.svg` | handcarts | Wheelbarrow | Delapouite | <https://game-icons.net/1x1/delapouite/wheelbarrow.html> |
 | `wagon.svg` | wagons | Cartwheel | Lorc | <https://game-icons.net/1x1/lorc/cartwheel.html> |
+| `stack.svg` | item piles (loot left in a scene) | Stack | Delapouite | <https://game-icons.net/1x1/delapouite/stack.html> |
 
 `wagon.svg` is a copy of the same **Cartwheel** icon used for `cart.svg`; if a
 distinct wagon glyph is wanted later, replace the file and update this row.

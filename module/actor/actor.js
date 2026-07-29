@@ -1,5 +1,5 @@
 import { SETTINGS_NS } from "../settings.js";
-import { iconForItem } from "../icons.js";
+import { iconForItem, iconForTransport, containerClassLabel, CONTAINER_CLASSES, ICON_DIR } from "../icons.js";
 /**
  * Extend the base Actor entity by defining a custom roll data structure which is ideal for the Simple system.
  * @extends {Actor}
@@ -23,6 +23,17 @@ export class CairnActor extends Actor {
         },
         { override: false }
       );
+    }
+
+    // A container made by hand — the Warden's route to an Item Pile — arrived
+    // wearing Foundry's mystery-man, because nothing stamped its class icon.
+    // (`iconForActor` existed for this and was called from nowhere in `module/`;
+    // only the pack importer used it.) An explicit `img` always wins: the
+    // marketplace passes the transport's own art.
+    if (data.type === "container" && !data.img) {
+      const art = iconForTransport(data.name ?? "", data.system?.transportKind ?? "");
+      data.img = art;
+      foundry.utils.mergeObject(data, { prototypeToken: { texture: { src: art } } }, { override: false });
     }
     return super.create(data, options);
   }
@@ -142,6 +153,14 @@ export class CairnActor extends Actor {
   }
 
   _prepareContainerData() {
+    // What this container IS, in one word, on every container sheet. Derived
+    // rather than stored: it follows the name and the type with nothing to keep
+    // in step, and it is the only thing that tells a player a "Heavy Destrier"
+    // is a horse — the name does not say so and neither did anything else.
+    this.system.classLabel = game.i18n.localize(
+      containerClassLabel(this.name, this.system.transportKind)
+    );
+
     this.system.slotsUsed = this.calcSlotsUsed();
     this.system.slotsMax = this.calcCurrentMaxSlots();
     this.system.encumbered =
@@ -391,6 +410,36 @@ export class CairnActor extends Actor {
     // sheet as a side effect, because `.sheet` is a lazily-constructing getter:
     // asking "is the sheet open?" built one for every keeper that had none.
     keeper.render(false);
+  }
+
+  /**
+   * Re-art a container when its type changes — but ONLY if it is still wearing
+   * one of our class icons. Turning a chest into an Item Pile should look like
+   * one, and `img` is a stored copy that no amount of derived data will move.
+   *
+   * The same rule the icon migration uses: touch our own `icons/*.svg` and
+   * nothing else, so a Warden who picked their own art (or browsed to a file)
+   * keeps it. Idempotent — re-running on an already-correct path is a no-op.
+   * @override
+   */
+  async _preUpdate(changed, options, user) {
+    const result = await super._preUpdate(changed, options, user);
+    if (result === false) return false;
+    if (this.type !== "container") return result;
+    const kind = changed.system?.transportKind;
+    if (kind === undefined || kind === this.system.transportKind) return result;
+
+    // Our own class art, plus Foundry's default — a container in an existing
+    // world predates the create-time stamping above and is still on mystery-man,
+    // which nobody chose either.
+    const ours = new Set(Object.values(CONTAINER_CLASSES).map((c) => `${ICON_DIR}/${c.icon}.svg`));
+    ours.add(CONST.DEFAULT_TOKEN);
+    if (!ours.has(this.img)) return result;
+    const art = iconForTransport(changed.name ?? this.name, kind);
+    if (art === this.img) return result;
+    changed.img = art;
+    foundry.utils.setProperty(changed, "prototypeToken.texture.src", art);
+    return result;
   }
 
   /** @override */

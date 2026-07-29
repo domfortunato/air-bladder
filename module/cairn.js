@@ -466,9 +466,12 @@ Hooks.on("renderActorDirectory", (app, html) => {
       // Plain/worn containers stay hidden (they're reached via a character's
       // Containers tab), but transport MOUNTS and VEHICLES are standalone
       // carriers that travel alongside — they show in the directory so they can
-      // be selected, placed as tokens, and owned by players.
+      // be selected, placed as tokens, and owned by players. An ITEM PILE is the
+      // same argument taken further: nothing carries it at all, so the Containers
+      // tab is the one place it could never be reached from.
       const kind = actor.system?.transportKind;
-      const directoryTransport = actor.type == "container" && (kind === "mount" || kind === "vehicle");
+      const standalone = kind === "mount" || kind === "vehicle" || kind === "pile";
+      const directoryTransport = actor.type == "container" && standalone;
       a.classList.toggle('hidden', actor.type == "container" && !directoryTransport);
     }
   });
