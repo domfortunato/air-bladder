@@ -665,7 +665,7 @@
 }
 
 /******************************************************************************
- * Sheet checkboxes (Deprived / Panicked conditions + Omen / Scars).          *
+ * Sheet checkboxes (Deprived / Panicked / For Hire + Omen / Scars).          *
  *                                                                            *
  * Native checkboxes render as a stark white box that clashes with the        *
  * parchment. Restyle them appearance:none so the box takes a flat warm       *
@@ -679,6 +679,7 @@
  ******************************************************************************/
 .cairn .deprived-check,
 .cairn .panicked-check,
+.cairn .for-hire-check,
 .cairn .omen-enable,
 .cairn .scar-enable,
 .cairn .scar-check {
@@ -717,13 +718,16 @@
    (foundry2.css:5). */
 .cairn .deprived-check::before,
 .cairn .panicked-check::before,
+.cairn .for-hire-check::before,
 .cairn .omen-enable::before,
 .cairn .scar-enable::before,
 .cairn .scar-check::before {
     content: none;
 }
 
-/* Omen / Scars checkboxes precede their label text: a small gap instead. */
+/* Omen / Scars checkboxes precede their label text: a small gap instead. "For Hire"
+   is NOT here on purpose -- its label is a flex row with its own `gap`, so a margin
+   would double the space. */
 .cairn .omen-enable,
 .cairn .scar-enable,
 .cairn .scar-check {
@@ -732,6 +736,7 @@
 
 .cairn .deprived-check:checked::after,
 .cairn .panicked-check:checked::after,
+.cairn .for-hire-check:checked::after,
 .cairn .omen-enable:checked::after,
 .cairn .scar-enable:checked::after,
 .cairn .scar-check:checked::after {
@@ -2037,13 +2042,13 @@ textarea.omen-input {
 
 
 /******************************************************************************
- * Hireling sheet. A stripped character sheet: name/profession/day-rate stack   *
- * in place of the background block, HP joins the ability column, and there is  *
- * no Description tab.                                                          *
+ * The NPC sheet (serves `npc` and its `hireling` alias). A character sheet     *
+ * with the background block replaced by a name / career / for-hire / day-rate  *
+ * stack; same tab set, same counters.                                          *
  ******************************************************************************/
 
 /* The character sheet lays this section out as a grid (name / background line /
-   counters). A hireling has none of that, so it becomes a simple stack. */
+   counters). An NPC has none of that, so it becomes a simple stack. */
 .cairn-npc-sheet .character-sheet-section-name {
     display: flex;
     flex-direction: column;
@@ -2133,14 +2138,36 @@ textarea.omen-input {
     opacity: 1;
 }
 
-/* HP joins STR/DEX/WIL as a fourth box in the abilities column, so that column
-   holds four counters. Let the middle grid row grow to fit them. */
+/* Row 1 sizes to the name stack, which is taller or shorter than a character's
+   header depending on whether "For Hire" is ticked (the day-rate row appears), so
+   it is `auto` rather than the character sheet's fixed track. */
 .cairn-npc-sheet .charater-sheet-grid {
     grid-template-rows: auto auto 1fr;
 }
 
+/* Three rows, not four. HP used to be a fourth box in this column and the track
+   count was never brought back down when it moved up to the vitals line, leaving
+   a 36px phantom row under WIL. */
 .cairn-npc-sheet .character-sheet-section-abilities {
-    grid-template-rows: repeat(4, 36px);
+    grid-template-rows: repeat(3, 36px);
+}
+
+/* Description tab: the Features list, then a labelled description editor. The
+   heading exists so the single remaining editor reads as the description rather
+   than as a second, unlabelled notes box (the Notes tab owns free-form notes). */
+.cairn-npc-sheet .npc-description-section {
+    display: flex;
+    flex-direction: column;
+    min-height: 220px;
+}
+
+.cairn-npc-sheet .npc-description-label {
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
+    font-variant: small-caps;
+    font-size: 17px;
+    color: var(--ab-ink);
+    border-bottom: 1px solid var(--ab-rule);
+    margin: 0 0 4px 0;
 }
 
 

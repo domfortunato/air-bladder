@@ -235,6 +235,17 @@ try {
     const weapon = actor.items.find((i) => i.type === "weapon")
       ?? await Item.create({ name: "Theme Probe Blade", type: "weapon" });
 
+    // The NPC sheet was never covered here, and it is not just the character sheet
+    // in another skin: it owns the career/for-hire stack and a labelled Description
+    // heading of its own. A GENERATED hireling is used because it arrives with gear,
+    // a profession and a day rate; description and a feature are added by hand,
+    // since nothing generates either and both are drawn on this tab.
+    const npc = await game.cairn.characterGenerator.createHireling();
+    await npc.update({
+      "system.description": "<p>Theme probe prose, so the Description tab is not blank.</p>",
+      "system.features": [{ id: "themeprobe1", name: "Theme Probe Feature", str: true, description: "<p>x</p>" }],
+    });
+
     const open = async (doc) => {
       await doc.sheet.render(true);
       const node = () => {
@@ -249,11 +260,15 @@ try {
     };
 
     return {
-      actorId: actor.id,
+      actorId: actor.id, npcId: npc.id,
       weaponId: weapon.id, weaponOwned: !!weapon.parent,
+      // `slug` is explicit because it names the screenshot file, and the class name
+      // it used to be derived from is `CairnActorSheet` for BOTH actors — so adding
+      // the NPC silently overwrote the character's image.
       sheets: [
-        { ...(await open(actor)), what: `${actor.name} (character)` },
-        { ...(await open(weapon)), what: `${weapon.name} (weapon)` },
+        { ...(await open(actor)), what: `${actor.name} (character)`, slug: "character" },
+        { ...(await open(npc)), what: `${npc.name} (npc)`, slug: "npc" },
+        { ...(await open(weapon)), what: `${weapon.name} (weapon)`, slug: "weapon" },
       ],
     };
   });
@@ -349,16 +364,16 @@ try {
           app?.bringToFront?.() ?? app?.bringToTop?.();
         }, sheet.sel);
         await page.waitForTimeout(150);
-        const slug = sheet.label.replace(/^Cairn|Sheet$/g, "").toLowerCase();
-        await page.locator(sheet.sel).screenshot({ path: path.join(outDir, `theme-${slug}-${scheme}.png`) });
+        await page.locator(sheet.sel).screenshot({ path: path.join(outDir, `theme-${sheet.slug}-${scheme}.png`) });
       }
     }
   }
 
-  await page.evaluate(async ([a, w, owned]) => {
+  await page.evaluate(async ([a, n, w, owned]) => {
     if (!owned) await game.items.get(w)?.delete();
     await game.actors.get(a)?.delete();
-  }, [targets.actorId, targets.weaponId, targets.weaponOwned]);
+    await game.actors.get(n)?.delete();
+  }, [targets.actorId, targets.npcId, targets.weaponId, targets.weaponOwned]);
 
   /**
    * Light is the shipping, accepted appearance, so it is the BASELINE: only a

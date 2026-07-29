@@ -7,10 +7,13 @@
 
       No <form> here: ApplicationV2 supplies it. --}}
     <div class="charater-sheet-grid">
-        <!-- Portrait: click to pick/paste a custom image; the die rolls a random
-             shipped portrait (same features as a player character). -->
+        <!-- Portrait: click for the same gallery a player character gets (shipped
+             art + the GM's custom portraits + paste-a-URL + Browse), the die rolls
+             a random one. `editPortrait` is what opens it; without that attribute
+             the image was inert, since ApplicationV2 dispatches clicks only through
+             the actions map. -->
         <div class="portrait-wrap">
-            <img class="portrait" src="{{actor.img}}" title="{{ localize 'CAIRN.ChoosePortrait' }}" />
+            <img class="portrait" src="{{actor.img}}" data-action="editPortrait" title="{{ localize 'CAIRN.ChoosePortrait' }}" />
             {{#if generationEnabled}}
             <a class="portrait-roll" data-action="rollPortrait" title="{{ localize 'CAIRN.RollPortrait' }}"><i class="fas fa-dice-d20"></i></a>
             {{/if}}
@@ -69,7 +72,12 @@
                                value="{{system.hp.max}}" data-dtype="Number" title="{{ localize 'CAIRN.Maximum' }}" />
                     </div>
                 </div>
-                <div class="resource-counter middle-counter gold-counter {{#if system.maybeTooMuchGold}}overburdened-gold{{/if}}"
+                {{!-- `long-counter`, matching the character sheet's Gold box, NOT
+                      `middle-counter`. The counters are 213px in both columns, so a
+                      50% label put this bar's right edge at 485 while Armor's --
+                      directly below it, at 70% -- sat at 526. Widths come from the
+                      COUNTER class; there is nothing to align by hand. --}}
+                <div class="resource-counter long-counter gold-counter {{#if system.maybeTooMuchGold}}overburdened-gold{{/if}}"
                     {{#if system.maybeTooMuchGold}}data-tooltip="{{ localize 'CAIRN.OverburdenByGold' }}"{{/if}}>
                     <label for="{{@root.idp}}-system.gold" data-tooltip="{{ system.coinTip }}">{{ localize 'CAIRN.Gold' }}</label>
                     <div class="resource-input-wrapper">
@@ -170,14 +178,33 @@
                 </div>
                 {{/if}}
                 <div class="tab {{tabs.description.cssClass}}" data-group="primary" data-tab="description">
-                    {{#if system.showBio }}
-                    <prose-mirror name="system.biography" value="{{system.biography}}" relative
-                        data-document-uuid="{{actor.uuid}}"></prose-mirror>
-                    {{/if}}
-                    {{#if system.showDesc }}
-                    <prose-mirror name="system.description" value="{{system.description}}" relative
-                        data-document-uuid="{{actor.uuid}}"></prose-mirror>
-                    {{/if}}
+                    <div class="description">
+                        {{!-- Features are ALWAYS shown here, unlike the character
+                              sheet, where they sit behind the "show-features
+                              section" world setting. A monster's attacks and
+                              special abilities are its statblock, not an optional
+                              extra, so a Warden must never have to find a setting
+                              to record them. --}}
+                        <div class="features">
+                            {{> "systems/air-bladder/templates/parts/feature-list.html"}}
+                        </div>
+                        {{!-- ONE editor on this tab, and it is the description --
+                              the monster/NPC prose that 204 of the 205 shipped
+                              monsters carry. There used to be a second, unlabelled
+                              `system.biography` editor above it, guarded by
+                              `system.showBio`; that guard was written when
+                              `biography` could be undefined, and under a
+                              TypeDataModel it initialises to "" and so is
+                              PERMANENTLY true. Two identical boxes, one of which no
+                              shipped NPC has ever used. Free-form notes belong on
+                              the Notes tab; the field survives in NpcData, so
+                              anything typed into it before is still on the doc. --}}
+                        <div class="npc-description-section">
+                            <h3 class="npc-description-label">{{ localize 'CAIRN.Description' }}</h3>
+                            <prose-mirror name="system.description" value="{{system.description}}" relative
+                                data-document-uuid="{{actor.uuid}}"></prose-mirror>
+                        </div>
+                    </div>
                 </div>
                 <div class="tab {{tabs.notes.cssClass}}" data-group="primary" data-tab="notes">
                     <prose-mirror name="system.notes" value="{{system.notes}}" relative

@@ -86,9 +86,17 @@ export class CairnActor extends Actor {
     this.system.useItemIcons = game.settings.get(SETTINGS_NS, "use-item-icons");
     this.system.showFeatures = game.settings.get(SETTINGS_NS, "show-features-section");
     this.system.showContainersTab = game.settings.get(SETTINGS_NS, "show-containers-tab");
+    // Both of these are now PERMANENTLY TRUE and no template reads either. They
+    // date from template.json, where `biography`/`description` could be absent or
+    // null; a TypeDataModel HTMLField initialises to "", which is neither. That is
+    // how the NPC sheet ended up rendering two editors on its Description tab (an
+    // always-true `{{#if system.showBio}}` above an always-true
+    // `{{#if system.showDesc}}`) — fixed 2026-07-29 by rendering one, ungated.
+    // Do not build a new conditional on these; they cannot be false.
     this.system.showBio = (this.system.biography !== undefined && this.system.biography !== null);
     this.system.showDesc = (this.system.description !== undefined && this.system.description !== null);
-    
+
+
     // A hireling shares the character's inventory/armor/HP model wholesale --
     // slots, coins-as-slots, encumbrance, derived armor. Only the sheet differs.
     // npc joins this branch: it shares the hireling's sheet now, which reads

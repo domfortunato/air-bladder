@@ -20,12 +20,21 @@
  *   5. Profession re-roll replaces only profession-tagged gear: a GM-added item
  *      survives.
  *   6. Name re-roll changes the name and leaves the statblock alone.
- *   7. Revert the pool item and delete the test actor.
+ *   7. Render the sheet and check the merged NPC layout: a Description tab exists,
+ *      Features show there even with the world setting OFF, that tab holds exactly
+ *      ONE editor (the description -- notes belong on the Notes tab), the portrait
+ *      opens the picker, and no checkbox is left on Foundry's own styling.
+ *   7b. CLICK those controls, because a present `data-action` proves only that the
+ *      attribute is there: the portrait must really open the gallery, Add Feature
+ *      must really open its dialog, and a feature must round-trip through
+ *      system.features and appear on the tab. Both feature dialogs are answered
+ *      rather than dismissed -- see the notes inline, each cost a hung run.
+ *   8. Revert the pool item and delete the test actor.
  * Exits non-zero on any failed assertion or console error.
  */
 
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, withSettings } from "./lib.mjs";
 
 const browser = await chromium.launch();
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
@@ -37,7 +46,7 @@ const ok = (m) => console.log(`  ok    ${m}`);
 try {
   await joinAsGM(page);
 
-  const r = await page.evaluate(async () => {
+  const r = await withSettings(page, () => page.evaluate(async () => {
     const CG = game.cairn.characterGenerator;
     const gear = await import("/systems/air-bladder/module/gear.js");
 
@@ -172,6 +181,12 @@ try {
 
     // 7. The sheet itself renders (the probe above is all data; a template typo
     //    would sail straight through it).
+    //    Force the features world setting OFF first. The character sheet hides its
+    //    Features list when this is off; a non-player sheet must NOT, because a
+    //    monster's attacks are its statblock rather than an optional extra. Left at
+    //    whatever the world happens to hold, that assertion passes for the wrong
+    //    reason. Restored from Node by withSettings, so a throw here cannot leak it.
+    await game.settings.set("air-bladder", "show-features-section", false);
     await actor.sheet.render(true);
     for (let i = 0; i < 40 && !(actor.sheet.element instanceof HTMLElement); i++) {
       await new Promise((res) => setTimeout(res, 100));
@@ -200,11 +215,98 @@ try {
       // that merge.
       hasDescriptionTab: [...(node?.querySelectorAll?.("nav .item") ?? [])]
         .some((t) => t.dataset.tab === "description"),
+      // Features are ALWAYS on for a non-player actor -- a monster's attacks are
+      // its statblock, so they must not sit behind the world setting the character
+      // sheet gates them with. Assert against the setting turned OFF, or the check
+      // passes for the wrong reason in a world that happens to have it on.
+      featuresSettingOff: !game.settings.get("air-bladder", "show-features-section"),
+      hasFeatures: !!node?.querySelector?.('[data-tab="description"] .feature-create'),
+      // Exactly ONE editor on Description (the description) and one on Notes.
+      // There were two here: an always-true `showBio` guard put an unlabelled
+      // biography box above the description.
+      descEditors: [...(node?.querySelectorAll?.('[data-tab="description"] prose-mirror') ?? [])]
+        .map((p) => p.getAttribute("name")),
+      notesEditors: [...(node?.querySelectorAll?.('[data-tab="notes"] prose-mirror') ?? [])]
+        .map((p) => p.getAttribute("name")),
+      // ApplicationV2 dispatches clicks through the actions map only, so a portrait
+      // with no data-action is inert however good it looks.
+      portraitAction: node?.querySelector?.(".portrait")?.dataset?.action ?? null,
+      // Every checkbox on the sheet must be house-style. "For Hire" was the one
+      // left on Foundry's own: transparent fill, white border, core glyph.
+      unstyledChecks: [...(node?.querySelectorAll?.('input[type="checkbox"]') ?? [])]
+        .filter((c) => getComputedStyle(c).appearance !== "none"
+          || getComputedStyle(c).backgroundColor === "rgba(0, 0, 0, 0)")
+        .map((c) => [...c.classList].join(".") || "(no class)"),
     };
 
+    // 7b. Clicking things, not just finding them. `data-action` present proves the
+    //     attribute is there; only a click proves the handler is registered for THIS
+    //     actor type and does not throw halfway through.
+    const settle = (ms = 400) => new Promise((res) => setTimeout(res, ms));
+    const live = {};
+
+    // Portrait -> the same gallery a character gets.
+    node?.querySelector(".portrait")?.click();
+    await settle(600);
+    live.galleryOpened = !!document.querySelector(".cairn-portrait-gallery");
+    // Spread first: close() deletes from the live instances map as we walk it.
+    for (const app of [...foundry.applications.instances.values()]) {
+      if (app.element?.querySelector?.(".cairn-portrait-gallery")) await app.close();
+    }
+    await settle(300);
+
+    // Add Feature -> a feature record on the actor, then remove it again. Features
+    // live in system.features (an ArrayField), not as embedded Items, so a handler
+    // that assumed `character` would fail here and nowhere else.
+    //
+    // Add Feature opens a DialogV2 PROMPT: nothing is created until OK is pressed,
+    // and the name must be non-blank. A first version of this check clicked the
+    // control, dismissed the dialog and reported a bug that was not there.
+    //
+    // Split in two deliberately. The CLICK is checked as far as "the dialog opened",
+    // and no further: driving DialogV2's OK from inside page.evaluate hung the run,
+    // and the dialog is shared with the character sheet and covered by dev:dialogs.
+    // What is specific to an NPC is the STORAGE — features are an ArrayField on
+    // system.features, not embedded Items — so the round trip is exercised through
+    // the same method the dialog's callback calls.
+    const beforeFeatures = actor.system.features?.length ?? 0;
+    node?.querySelector('[data-tab="description"] .feature-create')?.click();
+    await settle(700);
+    const dlg = [...foundry.applications.instances.values()]
+      .find((a) => a.element?.querySelector?.('[name="itemname"]'));
+    live.featureDialogOpened = !!dlg;
+    if (dlg) await dlg.close();
+    await settle(300);
+
+    await actor.createOwnedFeature({ name: "PROBE Feature", description: "probe", str: true });
+    live.featureAdded = (actor.system.features?.length ?? 0) === beforeFeatures + 1;
+    const added = actor.system.features?.find((f) => f.name === "PROBE Feature");
+    // Only meaningful if one was actually created -- otherwise "the count matches"
+    // is true because nothing ever happened.
+    if (added) {
+      // It must also REACH the sheet: the list is rendered from the same array, and
+      // a Description tab that dropped the partial would still pass the count check.
+      await actor.sheet.render(false);
+      await settle(500);
+      const n2 = actor.sheet.element instanceof HTMLElement ? actor.sheet.element : actor.sheet.element?.[0];
+      live.featureShown = [...(n2?.querySelectorAll?.('[data-tab="description"] .cairn-feature-title') ?? [])]
+        .some((t) => t.textContent.includes("PROBE Feature"));
+      // deleteOwnedFeature asks "Delete <name>?" through a MODAL DialogV2.confirm,
+      // so awaiting it directly waits forever for a click that never comes -- which
+      // is exactly how this probe hung. Kick it off, answer the dialog, then await.
+      const deletion = actor.deleteOwnedFeature(added.id);
+      await settle(600);
+      const confirmDlg = [...foundry.applications.instances.values()]
+        .find((a) => a.element?.querySelector?.('button[data-action="yes"]'));
+      live.deleteConfirmed = !!confirmDlg;
+      confirmDlg?.element.querySelector('button[data-action="yes"]').click();
+      await deletion;
+      live.featureRemoved = (actor.system.features?.length ?? 0) === beforeFeatures;
+    }
+
     await actor.delete();
-    return { catalogue, gen, armorCase, editFlowed, editTarget, survive, rename, sheet };
-  });
+    return { catalogue, gen, armorCase, editFlowed, editTarget, survive, rename, sheet, live };
+  }));
 
   if (r.error) {
     fail(r.error);
@@ -239,6 +341,43 @@ try {
     r.sheet.inDom ? ok(`${r.sheet.cls} rendered [${r.sheet.tabs.join(" | ")}]`) : fail("hireling sheet did not appear in the DOM");
     r.sheet.hasProfession && r.sheet.hasDayRate ? ok("sheet shows the Profession and Day Rate fields") : fail("sheet is missing the Profession/Day Rate fields");
     r.sheet.hasDescriptionTab ? ok("has a Description tab (one merged non-player sheet, so monster prose stays reachable)") : fail("no Description tab — monster/NPC description text would be unreachable");
+
+    r.sheet.featuresSettingOff
+      ? (r.sheet.hasFeatures
+        ? ok("Features show on Description with the world setting OFF (a statblock is not optional)")
+        : fail("Features are missing from the Description tab — they must not follow the character sheet's world setting"))
+      : fail("could not force show-features-section off, so the Features check would prove nothing");
+
+    JSON.stringify(r.sheet.descEditors) === JSON.stringify(["system.description"])
+      ? ok("Description tab has exactly one editor, the description")
+      : fail(`Description tab editors are [${r.sheet.descEditors.join(", ")}] — expected only system.description (notes belong on the Notes tab)`);
+    JSON.stringify(r.sheet.notesEditors) === JSON.stringify(["system.notes"])
+      ? ok("Notes tab has exactly one editor, the notes")
+      : fail(`Notes tab editors are [${r.sheet.notesEditors.join(", ")}] — expected only system.notes`);
+
+    r.sheet.portraitAction === "editPortrait"
+      ? ok("portrait opens the picker (data-action=editPortrait, same as a character)")
+      : fail(`portrait carries data-action="${r.sheet.portraitAction}" — it must be editPortrait or clicking it does nothing`);
+
+    r.sheet.unstyledChecks.length === 0
+      ? ok("every checkbox is house-style")
+      : fail(`checkbox(es) left on Foundry's own styling: ${r.sheet.unstyledChecks.join(", ")}`);
+
+    r.live.galleryOpened
+      ? ok("clicking the portrait really opens the portrait gallery")
+      : fail("clicking the portrait opened nothing");
+    r.live.featureDialogOpened
+      ? ok("Add Feature opens its dialog on an NPC")
+      : fail("Add Feature opened no dialog");
+    r.live.featureAdded
+      ? ok("createOwnedFeature stores a feature on an NPC")
+      : fail("createOwnedFeature stored nothing — system.features may be missing from NpcData");
+    // Vacuous unless something was created, so both are only reported in that case.
+    if (r.live.featureAdded) {
+      r.live.featureShown ? ok("the new feature appears on the Description tab") : fail("the feature was stored but the Description tab does not list it");
+      r.live.deleteConfirmed ? ok("deleting a feature asks for confirmation") : fail("no confirmation dialog appeared for a feature delete");
+      r.live.featureRemoved ? ok("the confirmed delete removes the feature") : fail("deleteOwnedFeature left the record behind");
+    }
   }
 } catch (e) {
   fail(`${e.name}: ${e.message}`);

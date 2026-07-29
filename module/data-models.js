@@ -178,8 +178,9 @@ class CharacterData extends CairnDataModel {
  * one: a hireling was only ever an NPC you were paying, so it carried a parallel
  * schema and a parallel sheet for the sake of three fields. `profession`,
  * `dayRate` and the `forHire` flag now live here, the day rate showing only when
- * `forHire` is ticked. `hireling` is migrated to `npc` on load (see
- * `migrateHirelingActors` in cairn.js) and is no longer a registered type.
+ * `forHire` is ticked. `hireling` is NOT migrated away -- it stays registered as an
+ * alias of this model (see ACTOR_DATA_MODELS below for why a real retirement would
+ * cost every existing hireling its document id).
  *
  * The union is deliberate rather than minimal: the 205 shipped monsters are `npc`
  * documents and 204 of them carry `system.description`, so the merged sheet keeps

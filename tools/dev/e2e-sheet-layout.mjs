@@ -185,6 +185,21 @@ try {
           role: box(".profession-input"),
           sectionH: s ? Math.round(s.height) : null,
         };
+        // The black label bar of Gold must end where Armor's does, directly below
+        // it. Neither the overlap nor the underfilled check can see this: both
+        // counters are correctly placed and completely filled — they just divide
+        // themselves at different percentages, so the bars step in and out.
+        // Measured 2026-07-29 with Gold on `middle-counter`: 485 vs 526.
+        const root = node();
+        const edge = (sel) => {
+          const el = root.querySelector(sel);
+          if (!el) return null;
+          return Math.round(el.getBoundingClientRect().right - root.getBoundingClientRect().left);
+        };
+        entry.barEdges = {
+          gold: edge(".npc-vitals-line .gold-counter > label"),
+          armor: edge(".armor-counter > label"),
+        };
       }
       out.push(entry);
       await actor.sheet.close();
@@ -207,6 +222,13 @@ try {
       else if (h.hp.top !== h.gold.top) fail(r.type, `npc header: HP and Gold on different rows (HP top ${h.hp.top}, Gold top ${h.gold.top})`);
       else if (h.hp.top < h.role.bottom) fail(r.type, `npc header: HP (top ${h.hp.top}) rides up into the Role line (bottom ${h.role.bottom})`);
       else ok(r.type, `npc header: HP and Gold share the foot row (top ${h.hp.top}, below Role at ${h.role.bottom})`);
+    }
+
+    const b = r.barEdges;
+    if (b) {
+      if (b.gold === null || b.armor === null) fail(r.type, "npc header: Gold/Armor label bars not both found");
+      else if (Math.abs(b.gold - b.armor) > 1) fail(r.type, `npc header: Gold label bar ends at ${b.gold}, Armor's at ${b.armor} — they must line up`);
+      else ok(r.type, `npc header: Gold and Armor label bars line up (right edge ${b.gold})`);
     }
   }
 } catch (e) {

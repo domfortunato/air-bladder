@@ -1198,8 +1198,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   /**
    * Click the portrait to pick a new one. A container gets the transport/container
    * art gallery instead of the character portrait gallery -- different art, and no
-   * paired token file. NPCs keep Foundry's own image editing (their template wires
-   * `editImage` directly).
+   * paired token file. Every other type, NPCs included, gets the character portrait
+   * gallery: an NPC is as much a face at the table as a PC is.
    * @this {CairnActorSheet}
    */
   static async #onEditPortrait(event) {
