@@ -165,16 +165,17 @@
     flex: 1;
 }
 
-/* AppV1's {{editor}} helper wraps in .editor; ApplicationV2 uses the
-   <prose-mirror> custom element. Both exist while the migration is half done. */
-.cairn .editor,
+/* Give the editor room. Height only -- do NOT set `display` here. Foundry lays
+   <prose-mirror> out as `display: flex; flex-direction: column` and its
+   .editor-content is `position: absolute; inset: 0` inside a `flex: 1`
+   container (foundry2.css:13548, :13581, :13589). Overriding display to block
+   leaves the container with no height, so the editable area computes to 0px:
+   the editor renders, reports contenteditable="true", holds the right value,
+   and simply cannot be clicked into. That is what "the notes editor doesn't
+   work" turned out to be. Gated by `npm run dev:notes-editor`. */
 .cairn prose-mirror {
     height: 100%;
     min-height: 480px;
-}
-
-.cairn prose-mirror {
-    display: block;
 }
 
 /******************************************************************************
@@ -487,6 +488,39 @@
 .window-header .header-button.cairn-header-hidden,
 .header-control.cairn-header-hidden {
     display: none;
+}
+
+/* An empty notes editor prompts for what to put in it. ProseMirror has no
+   placeholder of its own and an empty document is `<p><br></p>` (so `:empty`
+   never matches), hence the class the sheet keeps in step as the player types.
+   Drawn OVER the content rather than inside it: anything placed in the editable
+   area becomes part of the document and gets saved. Foundry already sets
+   `position: relative` on prose-mirror, so this anchors to it. */
+.cairn prose-mirror[data-placeholder].cairn-editor-empty::before {
+    content: attr(data-placeholder);
+    position: absolute;
+    top: 8px;
+    left: 10px;
+    pointer-events: none;
+    opacity: 0.65;
+    font-style: italic;
+    color: var(--ab-faint);
+}
+
+/* The two generation buttons carry TEXT, unlike Foundry's own frame buttons.
+   This rule is COSMETIC ONLY -- measured, not assumed. Foundry's
+   `.application .window-header button.header-control` sets --button-size:1.5rem,
+   but nothing pins a width, so the button grows to fit its label with or without
+   this block (144px bare, 104px with it). What actually makes the text work is
+   dropping the `icon` class in _renderFrame. So no !important here: it was
+   written in on the assumption that @layer system would lose the cascade, and
+   the probe showed the rule was not needed at all, let alone forced. */
+.cairn.sheet .window-header button.cairn-header-button {
+    flex: none;
+    gap: 4px;
+    padding: 0 6px;
+    font-size: var(--font-size-12);
+    white-space: nowrap;
 }
 
 .name-input {

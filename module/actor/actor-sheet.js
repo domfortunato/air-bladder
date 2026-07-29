@@ -132,20 +132,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   static DEFAULT_OPTIONS = {
     classes: ["cairn", "sheet", "actor"],
     position: { width: 600, height: 750 },
-    window: {
-      resizable: true,
-      // Random-generation mode. Both entries are declared here and filtered per
-      // render by _getHeaderControls — which is what replaced AppV1's header
-      // surgery: rewriting the title bar's innerHTML by hand, jQuery event
-      // namespaces to stop handlers stacking on re-render, and a no-op `onclick`
-      // to dodge Foundry's 500ms deferred header wiring. None of that survives.
-      // v14 regenerates these entries every time the menu opens, so a label that
-      // depends on state (Randomization On/Off) just works.
-      controls: [
-        { action: "rollActor", icon: "fas fa-dice-d6", label: "CAIRN.RegenerateCharacter", ownership: "OWNER" },
-        { action: "toggleGeneration", icon: "fas fa-toggle-on", label: "CAIRN.RandomizationOn", ownership: "OWNER" },
-      ],
-    },
+    window: { resizable: true },
     form: { submitOnChange: true },
     actions: {
       // Header
@@ -302,37 +289,112 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   /* -------------------------------------------- */
 
   /**
-   * Show the generation controls only where they apply. The Warden can turn the
-   * whole pair off (`show-generate-header`), only characters and hirelings have
-   * them at all, and "Roll Character" hides while Randomization is off — which is
-   * the toggle's entire purpose.
+   * Roll Character and the Randomization toggle, INLINE in the title bar.
+   *
+   * These were briefly `window.controls`, which is the tidier declaration — but
+   * v14 renders controls into the ⋮ dropdown only (`_renderHeaderControl` builds
+   * `<li>` elements for a ContextMenu), and burying a control the Warden uses
+   * every session behind a menu is a downgrade from what AppV1 showed. Frame
+   * buttons are the supported way back: core's own `_getFrameButtons`
+   * (`api/application.mjs:738`) renders straight into `.window-header`, and
+   * `DocumentSheetV2` already ships two of them (Copy UUID, Import).
+   *
+   * Two consequences, both handled rather than lived with:
+   *
+   *  - Frame buttons are built in `_renderFrame`, which runs ONLY on first
+   *    render. So state cannot be expressed by re-returning a different array
+   *    the way header controls could — #syncGenerationButtons keeps them in
+   *    step on every render instead. That is a far cry from AppV1's surgery
+   *    (which rewrote the header's innerHTML and had to namespace jQuery events
+   *    to stop handlers stacking): these are elements we created once, and only
+   *    their label, icon and hidden state move.
+   *  - There is no `ownership` filter on frame buttons, unlike header controls,
+   *    so the ownership gate is explicit below.
+   *
+   * `show-generate-header` is `requiresReload: true`, so reading it once at
+   * frame time is correct — it cannot change under an open sheet.
    * @override
    */
-  _getHeaderControls() {
-    const controls = super._getHeaderControls();
+  _getFrameButtons(options) {
+    const buttons = super._getFrameButtons(options);
     const isChar = this.actor.type === "character";
     const isHireling = this.actor.type === "hireling";
-    const show = (isChar || isHireling) && game.settings.get(SETTINGS_NS, "show-generate-header");
-    if (!show) {
-      controls.findSplice((c) => c.action === "rollActor");
-      controls.findSplice((c) => c.action === "toggleGeneration");
-      return controls;
+    if (!isChar && !isHireling) return buttons;
+    if (!game.settings.get(SETTINGS_NS, "show-generate-header")) return buttons;
+    if (!this.actor.isOwner) return buttons;
+
+    // Both are ALWAYS created. Roll Character is hidden in place when
+    // Randomization is off rather than omitted, so the toggle can reveal it
+    // without rebuilding the frame — which first render is the only chance to do.
+    return [
+      // Character → "Roll Character"; hireling → "Roll NPC". Same control, same
+      // action; only the wording differs.
+      { action: "rollActor", icon: "fas fa-dice-d6", label: isHireling ? "CAIRN.RollNpc" : "CAIRN.RegenerateCharacter" },
+      { action: "toggleGeneration", icon: "fas fa-toggle-on", label: "CAIRN.RandomizationOn" },
+      ...buttons,
+    ];
+  }
+
+  /* -------------------------------------------- */
+
+  /**
+   * Give our two frame buttons visible text.
+   *
+   * `templates/generic/frame-buttons.hbs` renders icon-only buttons and puts the
+   * label in `aria-label`, which is right for Foundry's own (Copy UUID, Import)
+   * and wrong for these: "Randomization: On" is a STATE READOUT, and a readout
+   * you have to hover to read is not a readout. So the labels are added after
+   * core has built the frame — decorating elements core owns, not replacing its
+   * template.
+   * @override
+   */
+  async _renderFrame(options) {
+    const frame = await super._renderFrame(options);
+    for (const action of ["rollActor", "toggleGeneration"]) {
+      const button = frame.querySelector(`.window-header button[data-action="${action}"]`);
+      if (!button) continue;
+      // The template puts the glyph on the BUTTON as classes and leaves it
+      // empty. Text needs the glyph in a child instead, so move it.
+      const glyph = [...button.classList].filter((c) => c === "fas" || c.startsWith("fa-"));
+      button.classList.remove(...glyph, "icon");
+      button.classList.add("cairn-header-button");
+      const icon = document.createElement("i");
+      icon.className = glyph.join(" ");
+      // A tooltip that repeats text already on screen is noise. `data-tooltip`
+      // is valueless in the template and falls back to aria-label, so drop it.
+      button.removeAttribute("data-tooltip");
+      button.append(icon, document.createTextNode(button.getAttribute("aria-label") ?? ""));
     }
+    this.#syncGenerationButtons(frame);
+    return frame;
+  }
+
+  /* -------------------------------------------- */
+
+  /**
+   * Keep the two title-bar buttons in step with generation mode: the toggle's
+   * own label and icon, and whether Roll Character is showing at all — hiding it
+   * while Randomization is off is that toggle's entire purpose.
+   *
+   * Called from both `_renderFrame` (first paint) and `_onRender` (every
+   * subsequent one), because the frame is built once and the content many times.
+   * @param {HTMLElement} [root] The frame, when it is not yet `this.element`.
+   */
+  #syncGenerationButtons(root = this.element) {
+    const roll = root?.querySelector('.window-header button[data-action="rollActor"]');
+    const toggle = root?.querySelector('.window-header button[data-action="toggleGeneration"]');
+    if (!roll && !toggle) return;
     // Legacy actors predate the field, so absent means enabled.
-    const genEnabled = this.actor.system.generationEnabled !== false;
-    const roll = controls.find((c) => c.action === "rollActor");
-    if (roll) {
-      if (!genEnabled) controls.findSplice((c) => c.action === "rollActor");
-      // Both sheet types offer the same control; only the label differs
-      // (character → "Roll Character", hireling → "Roll NPC").
-      else roll.label = isHireling ? "CAIRN.RollNpc" : "CAIRN.RegenerateCharacter";
-    }
-    const toggle = controls.find((c) => c.action === "toggleGeneration");
-    if (toggle) {
-      toggle.label = genEnabled ? "CAIRN.RandomizationOn" : "CAIRN.RandomizationOff";
-      toggle.icon = genEnabled ? "fas fa-toggle-on" : "fas fa-toggle-off";
-    }
-    return controls;
+    const on = this.actor.system.generationEnabled !== false;
+    roll?.classList.toggle("cairn-header-hidden", !on);
+    if (!toggle) return;
+    const label = game.i18n.localize(on ? "CAIRN.RandomizationOn" : "CAIRN.RandomizationOff");
+    toggle.setAttribute("aria-label", label);
+    toggle.lastChild.textContent = label;
+    toggle.querySelector("i")?.classList.replace(
+      on ? "fa-toggle-off" : "fa-toggle-on",
+      on ? "fa-toggle-on" : "fa-toggle-off"
+    );
   }
 
   /* -------------------------------------------- */
@@ -643,6 +705,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     await super._onRender(context, options);
     const el = this.element;
 
+    // The title-bar generation buttons live on the frame, which is built once —
+    // so their state is re-applied here, on every render of the content.
+    this.#syncGenerationButtons();
+
     // When drag-to-reorder is enabled, mark the sheet so item rows show a grab
     // cursor and the reorder hint appears.
     el.classList.toggle(
@@ -736,13 +802,33 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     });
 
     // ProseMirror only commits via its (easily missed) save button, so a player
-    // can't just switch tabs to escape edit mode. Save any open editor when the
-    // player mouses down outside it. `save()` on the custom element replaces
+    // can't just switch tabs to escape edit mode. Save every editor when the
+    // player mouses down outside one. `save()` on the custom element replaces
     // AppV1's `this.editors` / `saveEditor(name)`, which have no V2 equivalent.
+    //
+    // Selector is `prose-mirror`, NOT `prose-mirror[open]`: `open` is only an
+    // ATTRIBUTE on a toggled editor. Ours are always-active, where `open` is a
+    // getter that returns true and no attribute is ever written — so the
+    // attribute selector matched nothing and click-away silently stopped
+    // saving. `save()` is a no-op on an editor that is not active.
     el.addEventListener("mousedown", (ev) => {
       if (ev.target.closest("prose-mirror")) return;
-      el.querySelectorAll("prose-mirror[open]").forEach((editor) => editor.save());
+      el.querySelectorAll("prose-mirror").forEach((editor) => editor.save());
     });
+
+    // Placeholder prompt in an empty editor. ProseMirror has no placeholder of
+    // its own, and an "empty" document is `<p><br></p>`, so :empty never
+    // matches — the state is carried on a data attribute instead and kept in
+    // step as the player types.
+    for (const editor of el.querySelectorAll("prose-mirror[data-placeholder]")) {
+      const sync = () => editor.classList.toggle(
+        "cairn-editor-empty",
+        !(editor.querySelector(".editor-content")?.textContent ?? "").trim()
+      );
+      sync();
+      editor.addEventListener("input", sync);
+      editor.addEventListener("change", sync);
+    }
   }
 
   /* -------------------------------------------- */

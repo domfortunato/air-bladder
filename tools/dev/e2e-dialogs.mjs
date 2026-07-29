@@ -163,47 +163,17 @@ cont && cont.slots === 5 && cont.keeper
   : fail("container created and linked", JSON.stringify(cont));
 
 /* ---------------------------------------------------- header controls ---- */
-// Roll Character and the Randomization toggle used to be inline title-bar
-// buttons whose HTML the sheet rewrote by hand. On ApplicationV2 they are
-// declarative `window.controls` entries rendered into the ⋮ menu, and v14
-// rebuilds that menu from _getHeaderControls on every open — which is what makes
-// a state-dependent label work without touching the DOM. Drive the real menu:
-// calling the handler directly would not test any of that.
-const sheetSel = await page.evaluate((id) => {
-  const el = game.actors.get(id).sheet.element;
-  return `#${CSS.escape((el instanceof HTMLElement ? el : el?.[0]).id)}`;
-}, actorId);
-
-const openControls = async () => {
-  await page.locator(`${sheetSel} button[data-action="toggleControls"]`).click();
-  await page.waitForTimeout(400);
-  return page.evaluate(() =>
-    [...document.querySelectorAll("#context-menu li.context-item")].map((li) => li.textContent.trim())
-  );
-};
-const clickControl = async (label) => {
-  await page.locator("#context-menu li.context-item", { hasText: label }).first().click();
-  await page.waitForTimeout(900);
-};
-
-let entries = await openControls();
-entries.some((e) => e === "Roll Character") && entries.some((e) => e.startsWith("Randomization"))
-  ? ok("generation controls in ⋮ menu", entries.filter((e) => /Roll|Random/.test(e)).join(" | "))
-  : fail("generation controls in ⋮ menu", entries.join(" | "));
-
-// Toggling Randomization off must hide Roll Character and flip the label —
-// the behaviour AppV1 achieved by rewriting the header's innerHTML.
-await clickControl("Randomization");
-entries = await openControls();
-!entries.includes("Roll Character") && entries.some((e) => e === "Randomization: Off")
-  ? ok("toggle hides Roll Character", entries.filter((e) => /Roll|Random/.test(e)).join(" | "))
-  : fail("toggle hides Roll Character", entries.join(" | "));
-await clickControl("Randomization");   // back on
+// Roll Character and the Randomization toggle are INLINE title-bar buttons
+// (`_getFrameButtons`), not ⋮ menu entries. They were briefly `window.controls`
+// during the AppV2 port, which is where this probe used to drive them from; the
+// menu is the wrong home for a control used every session, so they moved back
+// out. Their labelling and state live in `npm run dev:header-buttons` — all this
+// needs is the click that opens the regenerate dialog.
+const sheetSel = await page.evaluate((id) => `#${game.actors.get(id).sheet.element.id}`, actorId);
 
 /* --------------------------------------------------------- regenerate ---- */
 // DialogV2.confirm must default to No, replacing V1's defaultYes: false.
-await openControls();
-await clickControl("Roll Character");
+await page.locator(`${sheetSel} .window-header button[data-action="rollActor"]`).click();
 await page.waitForTimeout(600);
 const defaultIsNo = await page.evaluate(() => {
   const d = document.querySelector("dialog.dialog");

@@ -286,8 +286,8 @@
                         </div>
                         {{/if}}
                         {{#if system.showDesc }}
-                        <prose-mirror name="system.description" value="{{system.description}}" toggled collaborate relative
-                            data-document-uuid="{{actor.uuid}}">{{{enrichedDescription}}}</prose-mirror>
+                        <prose-mirror name="system.description" value="{{system.description}}" relative
+                            data-document-uuid="{{actor.uuid}}"></prose-mirror>
                         {{/if}}
                         <div class="cairn-compat-footer">
                             <a href="https://cairnrpg.com" target="_blank" rel="noopener" title="{{ localize 'CAIRN.CompatibleAlt' }}">
@@ -326,8 +326,17 @@
                     {{/each}}
                     {{/if}}
                     {{#if showNotesDivider}}<hr class="notes-divider" />{{/if}}
-                    <prose-mirror name="system.notes" value="{{system.notes}}" toggled collaborate relative
-                        data-document-uuid="{{actor.uuid}}">{{{enrichedNotes}}}</prose-mirror>
+                    {{!-- No `toggled`: a toggled editor is opened by a pencil that Foundry
+                          hides until you hover it, so the field looked dead. Always-active
+                          means click and type. And no `collaborate`: it routes activation
+                          through _createCollaborativeEditorView, which AWAITS a handshake --
+                          long enough for the next render (submitOnChange fires one per
+                          committed edit) to detach the element mid-activation, and
+                          ProseMirrorMenu.render then throws on a null node. Gated by
+                          `npm run dev:notes-editor`; the race shows up in dev:ui-parity. --}}
+                    <prose-mirror name="system.notes" value="{{system.notes}}" relative
+                        data-placeholder="{{ localize 'CAIRN.NotesPlaceholder' }}"
+                        data-document-uuid="{{actor.uuid}}"></prose-mirror>
                 </div>
             </section>
         </div>

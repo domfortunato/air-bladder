@@ -78,17 +78,18 @@
                 {{/if}}
                 <div class="tab {{tabs.description.cssClass}}" data-group="primary" data-tab="description">
                     {{#if system.showBio }}
-                    <prose-mirror name="system.biography" value="{{system.biography}}" toggled collaborate relative
-                        data-document-uuid="{{actor.uuid}}">{{{enrichedBiography}}}</prose-mirror>
+                    <prose-mirror name="system.biography" value="{{system.biography}}" relative
+                        data-document-uuid="{{actor.uuid}}"></prose-mirror>
                     {{/if}}
                     {{#if system.showDesc }}
-                    <prose-mirror name="system.description" value="{{system.description}}" toggled collaborate relative
-                        data-document-uuid="{{actor.uuid}}">{{{enrichedDescription}}}</prose-mirror>
+                    <prose-mirror name="system.description" value="{{system.description}}" relative
+                        data-document-uuid="{{actor.uuid}}"></prose-mirror>
                     {{/if}}
                 </div>
                 <div class="tab {{tabs.notes.cssClass}}" data-group="primary" data-tab="notes">
-                    <prose-mirror name="system.notes" value="{{system.notes}}" toggled collaborate relative
-                        data-document-uuid="{{actor.uuid}}">{{{enrichedNotes}}}</prose-mirror>
+                    <prose-mirror name="system.notes" value="{{system.notes}}" relative
+                        data-placeholder="{{ localize 'CAIRN.NotesPlaceholder' }}"
+                        data-document-uuid="{{actor.uuid}}"></prose-mirror>
                 </div>
             </section>
         </div>

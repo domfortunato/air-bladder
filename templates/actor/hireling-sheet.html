@@ -123,8 +123,9 @@
                     {{> "systems/air-bladder/templates/parts/items-list.html" withFatigue=1 withShop=1}}
                 </div>
                 <div class="tab {{tabs.notes.cssClass}}" data-group="primary" data-tab="notes">
-                    <prose-mirror name="system.notes" value="{{system.notes}}" toggled collaborate relative
-                        data-document-uuid="{{actor.uuid}}">{{{enrichedNotes}}}</prose-mirror>
+                    <prose-mirror name="system.notes" value="{{system.notes}}" relative
+                        data-placeholder="{{ localize 'CAIRN.NotesPlaceholder' }}"
+                        data-document-uuid="{{actor.uuid}}"></prose-mirror>
                 </div>
             </section>
         </div>
