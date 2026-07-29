@@ -24,7 +24,7 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 
 ## Key Features
 
-- Random or manual generation of characters from Cairn 2e, **Custom Cairn 2e**, and Cairn Barebones background — The Warden can toggle each source on or off
+- Random or manual generation of characters from Cairn 2e, **Custom Cairn 2e**, and Cairn Barebones backgrounds — The Warden can toggle each source on or off
 - .json character import from the Official Cairn app, [Kettlewright!](https://kettlewright.com/)
 - Optional homebrew features that mix 2e features with Barebones
 - Warden-authored custom 2e backgrounds — [create and lint your own](https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md), then [share them across worlds](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md)
@@ -32,9 +32,9 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 - Character Sheet tooltips for players
 - Pop-out Character Sheets! Yes, we're on AppV2 and ready for Foundry v15!
 - Marketplace and containers; horses, carts, wagons, chests, and ITEM PILES!
-- Warden-facing roll tables! 
+- Warden-facing roll tables!
 - A gallery of 80 CC BY 4.0 character portraits with matching icons by [Jon Aspeheim](https://jonaspeheim.itch.io/)
-- Minimal automation; with buttons for rest, restoring abilites, panicked and critical damage
+- Minimal automation; with buttons for rest, restoring abilities, panicked and critical damage
 
 ## Features on the Horizon
 - Monster and Encounter Generators (optional)
