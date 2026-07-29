@@ -102,7 +102,10 @@ export const spellScrollItem = (book, { quantity = 1, uses } = {}) => ({
   type: "item",
   img: SPELLSCROLL_ICON,
   system: {
-    ...foundry.utils.deepClone(book.system),
+    // toObject() rather than deepClone — see resolveGearItem. The spread saved
+    // this one from mutating the pack, but it also copied prepared/derived
+    // fields off the live model into stored data.
+    ...book.system.toObject(),
     weightless: true,
     equipped: false,
     quantity,
@@ -209,7 +212,15 @@ export const resolveGearItem = async (name, { quantity = 1, uses } = {}) => {
     name: found.name,
     type: found.type,
     img: found.img,
-    system: foundry.utils.deepClone(found.system),
+    // toObject(), NOT deepClone. `found.system` is a TypeDataModel, and
+    // foundry.utils.deepClone returns any non-plain object UNCHANGED — by
+    // reference (common/utils/helpers.mjs:280-282, "Unsupported advanced
+    // objects"). So this used to hand back the compendium document's own
+    // system, and the two writes below mutated the pack in place: every item
+    // resolved in a session aliased one object per pack entry, last write wins.
+    // It was invisible until a grant asked for `uses`, because everything else
+    // was writing the same value back.
+    system: found.system.toObject(),
   };
   item.system.quantity = quantity;
   if (uses != null) item.system.uses = { value: uses, max: uses };

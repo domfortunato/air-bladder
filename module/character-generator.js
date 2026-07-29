@@ -824,7 +824,9 @@ const randomSpellbookItem = async () => {
   const books = await getSpellbooks();
   if (!books.length) return null;
   const b = books[Math.floor(Math.random() * books.length)];
-  return { name: b.name, type: b.type, img: b.img, system: foundry.utils.deepClone(b.system) };
+  // toObject(), not deepClone — deepClone returns a TypeDataModel by reference,
+  // so this would alias the compendium document. See gear.js resolveGearItem.
+  return { name: b.name, type: b.type, img: b.img, system: b.system.toObject() };
 };
 
 /** A random spellbook as a single-use petty scroll. The spell's effect is the

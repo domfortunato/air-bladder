@@ -37,13 +37,19 @@ export const TRANSPORTS_CATEGORY = "Transports & Containers";
 const CATEGORY_ORDER = ["Weapons", "Armor", "Gear", TRANSPORTS_CATEGORY];
 const MARKETPLACE_PACK = "air-bladder.marketplace";
 
-/** A resolved pool document → a fresh owned-item payload (deep clone, so the pack
- *  doc is never mutated); carries the item's cost/description/tags. */
+/** A resolved pool document → a fresh owned-item payload; carries the item's
+ *  cost/description/tags.
+ *
+ *  toObject(), NOT deepClone. The comment here used to claim deepClone meant
+ *  "the pack doc is never mutated", and that was exactly backwards:
+ *  foundry.utils.deepClone returns any non-plain object unchanged, by reference
+ *  (common/utils/helpers.mjs:280-282), and `doc.system` is a TypeDataModel. So a
+ *  buyer setting a quantity wrote it into the compendium entry, for everyone. */
 const ownedPayload = (doc) => ({
   name: doc.name,
   type: doc.type,
   img: doc.img,
-  system: foundry.utils.deepClone(doc.system),
+  system: doc.system.toObject(),
 });
 
 /**
