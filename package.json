@@ -40,7 +40,8 @@
     "dev:parity": "node tools/dev/parity-probe.mjs",
     "dev:grant-hint": "node tools/dev/grant-hint-probe.mjs",
     "dev:header-buttons": "node tools/dev/probe-header-buttons.mjs",
-    "dev:notes-editor": "node tools/dev/e2e-notes-editor.mjs"
+    "dev:notes-editor": "node tools/dev/e2e-notes-editor.mjs",
+    "dev:sanitize": "node tools/dev/e2e-sanitize.mjs"
   },
   "browserslist": [
     "last 3 versions"

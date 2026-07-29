@@ -2,6 +2,7 @@ import { resolveGearItem } from "../gear.js";
 import { previewBackground, duplicateBackgroundToWorld } from "../character-generator.js";
 import { t } from "../i18n-content.js";
 import { TRANSPORT_KINDS } from "../icons.js";
+import { bindEditorClickAwaySave } from "../utils.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -336,6 +337,26 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
    * action system does not cover.
    * @override
    */
+  /**
+   * Frame-level listeners, bound once. The frame survives re-render, so binding
+   * these in `_onRender` would stack a duplicate on every redraw.
+   *
+   * NOTE there is deliberately no `_preClose` editor save here. The item templates
+   * use `<prose-mirror toggled>`, and a toggled editor commits only through its own
+   * save button — which looks like it should mean "type a description, hit ✕, lose
+   * it". Measured (`npm run dev:notes-editor`), it does not: on close the element's
+   * `disconnectedCallback` calls `save()` (prosemirror-editor.mjs:130-138), the
+   * resulting `change` still bubbles to the form inside the detached subtree, and
+   * ApplicationV2 accepts a submit while the application is CLOSING
+   * (application.mjs:2159-2161). Adding a `_preClose` save changed nothing, so it
+   * was removed rather than shipped as insurance against a bug that isn't there.
+   * @override
+   */
+  _onFirstRender(context, options) {
+    super._onFirstRender(context, options);
+    bindEditorClickAwaySave(this.element);
+  }
+
   async _onRender(context, options) {
     await super._onRender(context, options);
     if (!this.isEditable) return;

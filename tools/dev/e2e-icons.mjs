@@ -19,8 +19,22 @@
  *
  * Usage: npm run dev:icons
  */
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { VIEWPORT, joinAsGM, watchErrors, dismissChrome } from "./lib.mjs";
+
+// Every icon the system SHIPS, read off disk — NOT only the ones some document
+// happens to reference. That distinction is the whole point: this probe used to
+// derive its list from documents alone, so it checked 15 of 17 files and a newly
+// added icon was invisible to it until content pointed at one. `stack.svg` was
+// added, passed a green run the same day, and shipped rasterising at 150x150.
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+const SHIPPED = fs
+  .readdirSync(path.join(ROOT, "icons"))
+  .filter((f) => f.endsWith(".svg"))
+  .map((f) => `systems/air-bladder/icons/${f}`);
 
 let failed = false;
 const ok = (m) => console.log(`  ok    ${m}`);
@@ -32,14 +46,16 @@ const errors = watchErrors(page);
 await joinAsGM(page);
 await dismissChrome(page);
 
-const r = await page.evaluate(async () => {
+const r = await page.evaluate(async (SHIPPED) => {
   const PNG = /^systems\/air-bladder\/icons\/[a-z-]+\.png$/;
   const ICON = /^systems\/air-bladder\/icons\/[a-z-]+\.(png|svg)$/;
   const stale = [];
-  const used = new Set();
+  const used = new Set(SHIPPED);
+  const referenced = new Set();
   const note = (src, where) => {
     if (!ICON.test(src ?? "")) return;
     used.add(src);
+    referenced.add(src);
     if (PNG.test(src)) stale.push(`${where}: ${src}`);
   };
 
@@ -87,11 +103,11 @@ const r = await page.evaluate(async () => {
       sized: /<svg[^>]*\swidth="\d+"/.test(body),
     });
   }
-  return { stale, checked };
-});
+  return { stale, checked, shipped: SHIPPED.length, referenced: referenced.size };
+}, SHIPPED);
 
 r.stale.length === 0
-  ? ok(`no document is still on a .png class icon (${r.checked.length} distinct icons in use)`)
+  ? ok(`no document is still on a .png class icon (${r.checked.length} checked: ${r.shipped} shipped, ${r.referenced} referenced)`)
   : fail(`${r.stale.length} still on .png, e.g.\n        ${r.stale.slice(0, 5).join("\n        ")}`);
 
 const bad = r.checked.filter((c) => c.status !== 200);

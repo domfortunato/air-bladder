@@ -583,7 +583,15 @@ export const grantContainers = async (actor, specs) => {
     });
     if (!container) continue;
     await actor.createOwnedContainer(container);
-    await container.update({ ownership: foundry.utils.deepClone(actor.ownership) });
+    // GM-only, for the same reason as the identical write in `marketplace.js`
+    // (`acquireTransport`): Foundry refuses an `ownership` write from anyone below
+    // Assistant, so for a player with ACTOR_CREATE this threw AFTER the container
+    // was created and linked — aborting the loop, so any remaining containers were
+    // never granted and the sheet never opened. A player doesn't need it: Foundry
+    // makes the creating user an owner of what they create.
+    if (game.user.isGM) {
+      await container.update({ ownership: foundry.utils.deepClone(actor.ownership) });
+    }
     made.push(container);
   }
   return made;

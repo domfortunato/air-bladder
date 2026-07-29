@@ -46,6 +46,7 @@ const ICONS = {
   "handcart": ["delapouite", "wheelbarrow"],
   // Deliberately the same glyph as `cart` — see the note at the foot of CREDITS.md.
   "wagon": ["lorc", "cartwheel"],
+  "stack": ["delapouite", "stack"],
 };
 
 // White glyph on a black field, which is what the PNGs were and what the sheet

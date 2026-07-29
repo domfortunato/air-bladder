@@ -1,6 +1,6 @@
 import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, mentionsSecondBond, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, getCustomPortraitPaths, refreshCustomPortraits, regenerateHireling, rerollHirelingProfession, rerollHirelingName, rollNameFromTable, rollAge } from "../character-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
-import { evaluateFormula, stripPar } from "../utils.js";
+import { evaluateFormula, stripPar, bindEditorClickAwaySave } from "../utils.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART, CONTAINER_ICON, TRANSPORT_KINDS } from "../icons.js";
 import { localizeNameDesc, t } from "../i18n-content.js";
@@ -777,6 +777,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * ApplicationV2 — the action system covers no other event type.
    * @override
    */
+  /**
+   * Listeners that belong to the FRAME, which is built once and survives every
+   * re-render. Binding these in `_onRender` instead would stack a duplicate on
+   * each redraw — and this sheet redraws on every committed keystroke, because
+   * `submitOnChange` is on.
+   * @override
+   */
+  _onFirstRender(context, options) {
+    super._onFirstRender(context, options);
+    bindEditorClickAwaySave(this.element);
+  }
+
   async _onRender(context, options) {
     await super._onRender(context, options);
     const el = this.element;
@@ -875,21 +887,6 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     on(".scar-check", "change", () => {
       const scars = [...el.querySelectorAll(".scar-check:checked")].map((o) => o.value);
       this.actor.update({ "system.scars": scars }, { render: false });
-    });
-
-    // ProseMirror only commits via its (easily missed) save button, so a player
-    // can't just switch tabs to escape edit mode. Save every editor when the
-    // player mouses down outside one. `save()` on the custom element replaces
-    // AppV1's `this.editors` / `saveEditor(name)`, which have no V2 equivalent.
-    //
-    // Selector is `prose-mirror`, NOT `prose-mirror[open]`: `open` is only an
-    // ATTRIBUTE on a toggled editor. Ours are always-active, where `open` is a
-    // getter that returns true and no attribute is ever written — so the
-    // attribute selector matched nothing and click-away silently stopped
-    // saving. `save()` is a no-op on an editor that is not active.
-    el.addEventListener("mousedown", (ev) => {
-      if (ev.target.closest("prose-mirror")) return;
-      el.querySelectorAll("prose-mirror").forEach((editor) => editor.save());
     });
 
     // Placeholder prompt in an empty editor. ProseMirror has no placeholder of

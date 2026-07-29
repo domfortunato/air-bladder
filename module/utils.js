@@ -61,3 +61,58 @@ export const getInfoFromDropData = async (dropData) => {
 export const stripPar = (text) => {
   return text.replace("<p>", "").replace("</p>", "");
 };
+
+/* -------------------------------------------- */
+/*  ProseMirror editors on a sheet              */
+/* -------------------------------------------- */
+
+/**
+ * Commit every ACTIVE ProseMirror editor under `root`.
+ *
+ * `save()` dispatches a bubbling `change`, which the form's own listener turns
+ * into a submit — and ApplicationV2 deliberately still accepts that while the
+ * application is CLOSING (`application.mjs:2159-2161`), which is what makes this
+ * safe to call from `_preClose`.
+ *
+ * The `.active` filter is NOT belt-and-braces. `save()` on a TOGGLED editor
+ * unconditionally calls `this.#editor.destroy()` (prosemirror-editor.mjs:325), and
+ * a toggled editor that was never opened has no `#editor` — so saving it throws a
+ * TypeError. An item sheet carries two of these (description and criticalDamage);
+ * open one, close the sheet, and the untouched one takes the whole close down with
+ * it. `.active` is the exact public proxy for the element's private `#active`
+ * flag: set at the end of `#activateEditor` (:222) and cleared in `save()` (:326).
+ * An inactive editor holds no unsaved edits by definition, so skipping it costs
+ * nothing.
+ *
+ * @param {HTMLElement} [root]
+ */
+export const saveSheetEditors = (root) => {
+  root?.querySelectorAll("prose-mirror.active").forEach((editor) => editor.save());
+};
+
+/**
+ * Wire "mouse down anywhere outside an editor commits it".
+ *
+ * ProseMirror only commits through its own easily-missed save button, and
+ * ApplicationV2 has no `submitOnClose`, so without this a player types a
+ * description, closes the sheet, and the text is gone — silently: no error, and
+ * the editor's own `disconnectedCallback` save (prosemirror-editor.mjs:130-138)
+ * fires from an already-detached node.
+ *
+ * Selector is `prose-mirror`, NOT `prose-mirror[open]`: `open` is only an
+ * ATTRIBUTE on a toggled editor. An always-active editor exposes `open` as a
+ * getter and never writes the attribute, so the attribute selector matched
+ * nothing and click-away silently stopped saving.
+ *
+ * **Bind once per application, from `_onFirstRender`.** `this.element` is the
+ * FRAME and survives re-render, so binding from `_onRender` stacks another
+ * listener on every redraw — and every one of them saves every editor.
+ *
+ * @param {HTMLElement} root  The application frame.
+ */
+export const bindEditorClickAwaySave = (root) => {
+  root.addEventListener("mousedown", (ev) => {
+    if (ev.target.closest("prose-mirror")) return;
+    saveSheetEditors(root);
+  });
+};

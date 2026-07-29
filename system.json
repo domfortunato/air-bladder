@@ -41,19 +41,41 @@
   ],
   "documentTypes": {
     "Actor": {
-      "character": {},
-      "npc": {},
-      "container": {},
-      "hireling": {}
+      "character": {
+        "htmlFields": ["biography", "description", "notes"]
+      },
+      "npc": {
+        "htmlFields": ["description", "biography", "notes"]
+      },
+      "container": {
+        "htmlFields": ["description", "biography"]
+      },
+      "hireling": {
+        "htmlFields": ["notes"]
+      }
     },
     "Item": {
-      "item": {},
-      "weapon": {},
-      "armor": {},
-      "spellbook": {},
-      "object": {},
-      "background": {},
-      "transport": {}
+      "item": {
+        "htmlFields": ["description", "criticalDamage"]
+      },
+      "weapon": {
+        "htmlFields": ["description", "criticalDamage"]
+      },
+      "armor": {
+        "htmlFields": ["description"]
+      },
+      "spellbook": {
+        "htmlFields": ["description"]
+      },
+      "object": {
+        "htmlFields": ["description"]
+      },
+      "background": {
+        "htmlFields": ["description"]
+      },
+      "transport": {
+        "htmlFields": ["description"]
+      }
     }
   },
   "packs": [

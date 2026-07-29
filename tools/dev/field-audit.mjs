@@ -40,6 +40,7 @@ const at = (...p) => path.join(ROOT, ...p);
 class StubField {
   constructor(opts = {}) { this.options = opts; }
 }
+class StubHTMLField extends StubField {}
 class StubSchemaField extends StubField {
   constructor(schema, opts) { super(opts); this.fields = schema; }
 }
@@ -52,7 +53,7 @@ globalThis.foundry = {
   data: {
     fields: {
       StringField: StubField,
-      HTMLField: StubField,
+      HTMLField: StubHTMLField,
       NumberField: StubField,
       BooleanField: StubField,
       ObjectField: StubField,
@@ -83,6 +84,18 @@ for (const [type, cls] of Object.entries({ ...ACTOR_DATA_MODELS, ...ITEM_DATA_MO
   declared[type] = paths(cls.defineSchema());
 }
 const anyDeclared = new Set(Object.values(declared).flatMap((s) => [...s]));
+
+/** HTMLField paths only, one flat set per sub-type. Nested SchemaFields are walked
+ *  so a future `system.foo.bar` HTMLField is caught too. */
+const htmlPaths = (schema, prefix = "") => {
+  const out = new Set();
+  for (const [key, field] of Object.entries(schema)) {
+    const p = prefix ? `${prefix}.${key}` : key;
+    if (field instanceof StubHTMLField) out.add(p);
+    else if (field instanceof StubSchemaField) for (const sub of htmlPaths(field.fields, p)) out.add(sub);
+  }
+  return out;
+};
 
 /* -------------------------------------------- */
 /*  2. Persisted paths                            */
@@ -178,7 +191,45 @@ for (const file of walk(at("src", "packs"), ".yml")) {
 }
 
 /* -------------------------------------------- */
-/*  3. Report                                     */
+/*  3. Server-side sanitization declarations      */
+/* -------------------------------------------- */
+
+// Declaring an HTMLField in the data model does NOTHING for security: the Foundry
+// SERVER never loads module/data-models.js. The only channel telling it which
+// system.* paths hold HTML is system.json -> documentTypes.<Doc>.<subtype>.htmlFields
+// (common/data/fields.mjs: "it is essential to declare this field in the package
+// manifest so that it receives proper server-side validation of its contents").
+// Undeclared, the field is stored VERBATIM on every write and a player can XSS the
+// GM through their own character's notes. There is no client-side fallback, and
+// enrichHTML does not sanitize. So the schema and the manifest must agree, and an
+// HTMLField added later must not be able to slip through unlisted.
+
+const manifest = JSON.parse(readFile(at("system.json")));
+const DOC_OF = {
+  ...Object.fromEntries(Object.keys(ACTOR_DATA_MODELS).map((t) => [t, "Actor"])),
+  ...Object.fromEntries(Object.keys(ITEM_DATA_MODELS).map((t) => [t, "Item"])),
+};
+
+for (const [type, cls] of Object.entries({ ...ACTOR_DATA_MODELS, ...ITEM_DATA_MODELS })) {
+  const want = htmlPaths(cls.defineSchema());
+  const got = new Set(manifest.documentTypes?.[DOC_OF[type]]?.[type]?.htmlFields ?? []);
+  for (const p of want) {
+    if (!got.has(p)) {
+      problems.push(
+        `system.json documentTypes.${DOC_OF[type]}.${type}.htmlFields omits "${p}" ` +
+        `— that HTMLField is NEVER sanitized server-side`
+      );
+    }
+  }
+  for (const p of got) {
+    if (!want.has(p)) {
+      problems.push(`system.json declares ${DOC_OF[type]}.${type}.htmlFields "${p}" — no such HTMLField in the schema`);
+    }
+  }
+}
+
+/* -------------------------------------------- */
+/*  4. Report                                     */
 /* -------------------------------------------- */
 
 const dedup = [...new Set(problems)];

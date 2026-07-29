@@ -42,10 +42,22 @@ Hooks.once("init", async function () {
     formula: "1d20",
   };
 
-  // Register sheet application classes
-  foundry.documents.collections.Actors.unregisterSheet("core", foundry.appv1.sheets.ActorSheet);
+  // Register sheet application classes.
+  //
+  // No `unregisterSheet("core", …)` calls: core's `_registerDefaultSheets`
+  // (client/applications/sheets/_module.mjs:84) has no Actor or Item entry, so
+  // there has never been a core sheet to unregister on this target — the two calls
+  // that used to be here were no-ops that named `foundry.appv1.sheets.ActorSheet`
+  // and `…ItemSheet`. Those are deprecated {since: 13, until: 16}; at removal they
+  // become `undefined`, `unregisterSheet` reads `sheetClass.name`
+  // (document-sheet-config.mjs:472) and the whole system fails to load out of
+  // `init`. Removing them is the fix and it costs nothing today.
+  //
+  // The "cairn" scope is deliberate and must NOT be renamed to "air-bladder": it
+  // is baked into the `core.sheetClasses` setting of every existing world as
+  // `cairn.CairnActorSheet`, so changing it silently resets any sheet a Warden
+  // chose by hand.
   foundry.documents.collections.Actors.registerSheet("cairn", CairnActorSheet, { makeDefault: true });
-  foundry.documents.collections.Items.unregisterSheet("core", foundry.appv1.sheets.ItemSheet);
   foundry.documents.collections.Items.registerSheet("cairn", CairnItemSheet, { makeDefault: true });
 
   registerSettings();
@@ -481,8 +493,18 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   // Display-only content overlay for RollTable draw cards (see above).
   localizeTableResults(html);
 
-  // Roll Str Save
-  const token = canvas?.scene?.tokens?.get(message.speaker?.token);
+  // Roll Str Save.
+  //
+  // Resolve the token from the scene the message was SPOKEN in, not from whatever
+  // scene the viewer is currently looking at. `canvas.scene` is a property of the
+  // viewer, not of the message, so reading it meant that the moment the party
+  // changed scene the lookup missed and the button was hidden on every damage card
+  // already in the log — for the owner and the GM alike, and permanently, since
+  // the chat log re-renders against the new scene too. `speaker.scene` is recorded
+  // on the message itself and does not move.
+  const speaker = message.speaker ?? {};
+  const scene = speaker.scene ? game.scenes?.get(speaker.scene) : canvas?.scene;
+  const token = scene?.tokens?.get(speaker.token);
 
   if (token?.actor) {
     if (token.actor.testUserPermission(game.user, "OWNER") || game.user.isGM) {

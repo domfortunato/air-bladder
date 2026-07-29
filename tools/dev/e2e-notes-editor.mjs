@@ -157,6 +157,74 @@ try {
       ? ok("click-away saved what was typed", JSON.stringify(after.stored.slice(0, 60)))
       : fail("click-away saved what was typed", `stored ${JSON.stringify(after.stored.slice(0, 80))}`);
   }
+
+  /* -------------------------------------------- */
+  /*  Item sheets — closing must not eat the text  */
+  /* -------------------------------------------- */
+
+  // The actor loop above never touched an item sheet, which is how the same class
+  // of data loss shipped there unnoticed. Item templates use `<prose-mirror
+  // toggled>`: a toggled editor commits ONLY through its own save button, typing
+  // fires no `change`, ApplicationV2 has no `submitOnClose`, and the element's own
+  // disconnectedCallback save runs from an already-detached node. So the player
+  // types a description, hits the X, and it is gone — silently.
+  //
+  // Closing is the assertion. Click-away is checked too, but it is the weaker of
+  // the two: the X and Esc are not mousedowns inside the sheet.
+  for (const type of ["item", "weapon", "spellbook"]) {
+    console.log(`\n${type} (item sheet)`);
+    const field = "system.description";
+
+    const setup = await page.evaluate(async ({ type, field }) => {
+      for (const i of game.items.filter((i) => i.name.startsWith("ZZ Notes"))) await i.delete();
+      const item = await CONFIG.Item.documentClass.create({ name: `ZZ Notes ${type}`, type });
+      await item.update({ [field]: "" });
+      await item.sheet.render(true);
+      for (let i = 0; i < 40 && !item.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 700));
+      const el = item.sheet.element;
+      const pm = el.querySelector(`prose-mirror[name="${field}"]`);
+      // Toggled editors open via a pencil button that Foundry keeps display:none
+      // until hover, so a real click is unreliable here — press it directly. The
+      // point of this probe is what happens on CLOSE, not how the toggle looks.
+      pm?.querySelector("button")?.click();
+      await new Promise((r) => setTimeout(r, 500));
+      return {
+        id: item.id,
+        sheetId: el.id,
+        found: !!pm,
+        opened: pm?.querySelector(".editor-content")?.getAttribute("contenteditable") === "true",
+      };
+    }, { type, field });
+
+    if (!setup.found) { fail("editor present", `no prose-mirror[name="${field}"]`); continue; }
+    ok("editor present", field);
+    setup.opened ? ok("editor opens for typing") : fail("editor opens for typing", "not contenteditable after toggle");
+    if (!setup.opened) continue;
+
+    try {
+      await page.locator(`#${setup.sheetId} prose-mirror[name="${field}"] .editor-content`).click({ timeout: 8000 });
+      await page.keyboard.type(TYPED);
+      await page.waitForTimeout(300);
+    } catch (e) {
+      fail("can click into the editor", e.message.split("\n")[0]);
+      continue;
+    }
+
+    const closed = await page.evaluate(async ({ id, field }) => {
+      const item = game.items.get(id);
+      await item.sheet.close();
+      await new Promise((r) => setTimeout(r, 1200));
+      const stored = foundry.utils.getProperty(item, field) ?? "";
+      await item.delete();
+      return { stored };
+    }, { id: setup.id, field });
+
+    closed.stored.includes(TYPED)
+      ? ok("closing the sheet saved the text", JSON.stringify(closed.stored.slice(0, 60)))
+      : fail("closing the sheet saved the text",
+          `stored ${JSON.stringify(closed.stored.slice(0, 80))} — the description was discarded`);
+  }
 } catch (e) {
   fail("probe threw", `${e.name}: ${e.message}`);
 } finally {
