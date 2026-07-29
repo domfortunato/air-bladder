@@ -134,6 +134,14 @@ confirm it fails with its fix removed. `dev:icon-canvas` is the pattern: it plan
 document holding the *old* state and watches it get rewritten, because asserting "nothing
 is in the old state" passes trivially on an already-migrated world.
 
+**When the defect is how much WORK happens, count it — an assertion on the output cannot
+fail.** `findCompendiumItem` loaded a whole pack per lookup, so opening the shop did 78
+full pack loads to resolve 77 items. The catalog was correct before and after; there was
+no wrong value to assert on. `dev:compendium` instruments the call and discriminates on
+the query (empty = a full pack load, `{_id}` = the cheap single fetch), which fails at 78
+and passes at 1. The same shape fits any fix whose whole effect is cost: round-trips,
+renders, listeners, document writes.
+
 **Expect noise, not failures, from software rendering.** Headless Chromium here has no
 GPU; the canvas runs on SwiftShader at roughly 3–4 FPS. `dev:smoke` filters Foundry's
 hardware-acceleration warning and the viewport warning. Canvas probes are slow rather
