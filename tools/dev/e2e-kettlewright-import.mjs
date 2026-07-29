@@ -33,6 +33,20 @@ const hasButton = await page.evaluate(() => !!document.querySelector(".import-ke
 page.on("filechooser", (fc) => fc.setFiles(tmp).catch(() => {}));
 
 await page.evaluate(() => document.querySelector(".import-kettlewright-button")?.click());
+
+// The button no longer opens the file chooser directly: it first shows an
+// OPTIONS dialog ("Require a matching background") whose Import button is what
+// actually calls the picker. Without this the probe sat on that dialog and
+// reported `summaryShown: true` — because the options dialog is a dialog too.
+// Assert we are on the right one rather than clicking whatever is on screen.
+await page.waitForSelector('[data-action="import"]', { timeout: 10000 }).catch(() => {});
+const optionsDialogFound = await page.evaluate(() => {
+  const btn = document.querySelector('[data-action="import"]');
+  if (!btn) return false;
+  btn.click();
+  return true;
+});
+
 // Wait for the import to finish: the actor appears + the summary dialog renders.
 await page.waitForFunction(() => !!game.actors.getName("Yorsa E2E"), null, { timeout: 15000 }).catch(() => {});
 await page.waitForTimeout(800);
@@ -60,9 +74,10 @@ await browser.close();
 fs.rmSync(tmp, { force: true });
 
 console.log(JSON.stringify(out, null, 2));
-const ok = hasButton && out.actorCreated && out.itemCount === 3 && out.bgUuidSet && out.armor === 1
+const ok = hasButton && optionsDialogFound && out.actorCreated && out.itemCount === 3 && out.bgUuidSet && out.armor === 1
   && JSON.stringify(out.scars) === JSON.stringify(["Nicked", "Burned"]) && out.summaryShown && errors.length === 0;
 if (!hasButton) console.log("FAIL: import button not injected");
+if (!optionsDialogFound) console.log("FAIL: no [data-action=import] options dialog appeared");
 if (errors.length) console.log("Console errors:\n" + errors.join("\n"));
 console.log(ok ? "e2e passed" : "e2e FAILED");
 process.exit(ok ? 0 : 1);

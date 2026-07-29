@@ -172,13 +172,23 @@ try {
 
     // 7. The sheet itself renders (the probe above is all data; a template typo
     //    would sail straight through it).
-    actor.sheet.render(true);
-    await new Promise((res) => setTimeout(res, 3000));
+    await actor.sheet.render(true);
+    for (let i = 0; i < 40 && !(actor.sheet.element instanceof HTMLElement); i++) {
+      await new Promise((res) => setTimeout(res, 100));
+    }
+    await new Promise((res) => setTimeout(res, 500));
     const el = actor.sheet.element;
-    const node = el?.[0] ?? el;              // AppV1 returns jQuery
+    // Order matters, and getting it backwards fails SILENTLY. An ApplicationV2
+    // sheet root is a <form>, and HTMLFormElement is indexed by its own
+    // controls — so `el?.[0]` is not undefined, it is the first <input>.
+    // `el?.[0] ?? el` therefore hands back an input whose querySelector finds
+    // nothing, and every DOM assertion reads false with no error.
+    const node = el instanceof HTMLElement ? el : el?.[0];
     const sheet = {
       cls: actor.sheet.constructor.name,
-      inDom: !!document.querySelector(".app.window-app"),
+      // ApplicationV2 frames are `.application`; `.app.window-app` is the AppV1
+      // window template and matches nothing after the port.
+      inDom: !!document.querySelector(".application, .app.window-app"),
       tabs: [...(node?.querySelectorAll?.("nav .item, .tabs .item") ?? [])].map((t) => t.textContent.trim()),
       hasProfession: !!node?.querySelector?.(".profession-input"),
       hasDayRate: !!node?.querySelector?.(".day-rate-input"),

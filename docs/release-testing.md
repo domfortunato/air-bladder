@@ -48,6 +48,7 @@ Run from `c:\Users\domin\code\air-bladder`, on the branch you are about to merge
 | `npm run check:fields` | pack documents match the data model, **and `system.json` `documentTypes.*.htmlFields` matches the `HTMLField`s in the schemas, both directions**. That second half is a security check, not tidiness: the Foundry server never loads the data models, so an `HTMLField` missing from the manifest is never sanitized — see `dev:sanitize` |
 | `npm run check:traits` | the trait-sentence parser |
 | `npm run i18n:check` | translation coverage, placeholder/HTML mismatches, stale keys — language files **against each other** |
+| `npm run check:probes` | that **every probe under `tools/dev/` is reachable as an npm script**. A probe with no script is a probe nobody runs, and an unrun probe rots silently — it keeps passing in the imagination while testing nothing. This gate exists because on 2026-07-29 there were **18** of them; see "The 18 orphans" below for what they were hiding |
 | `npm run i18n:source` | the code **against `lang/en.json`**: a key referenced but missing (the user sees `CAIRN.Whatever`), a key nothing references (dead weight a translator is still asked to translate), and user-visible English that never reaches `game.i18n` at all. That last class is invisible to `i18n:check` by construction — an unlocalized string is identical in every language file because it is in none of them, which is how `title="Double click to change limit"` shipped as the only hint that feature existed |
 
 ### With Foundry running on :30000
@@ -87,9 +88,61 @@ changed, which **fails while a world is open**, so stop the server for it.
 | `npm run dev:kw-reroll` | Kettlewright import — re-rollable grants |
 | `npm run dev:kw-guards` | Kettlewright import — refusals and guards |
 | `npm run dev:site` | the landing page renders from `file://` with no broken images |
+| `npm run dev:gear` | that **every gear name any grant path can hand a character resolves to a real pool item** — starting gear, choice-table options, bond payloads, hireling loadouts, harvested from the shipped packs in the running world. `tools/import/README.md` names this as the *only* protection the hand-maintained gear pool has, in place of an importer |
+| `npm run dev:phase2` | that a generated character's gear is a live **copy of the editable pool item** — edit the pool, regenerate, see the change |
+| `npm run dev:marketplace` | the shop is a **reference catalog** over that same pool, plus the buy/take flows |
+| `npm run dev:transports` | transports are editable documents the shop references; buying mints a keeper-linked container Actor; the worn/mount slot distinction |
+| `npm run dev:barebones` | Barebones generation follows the SRD procedure **and** goes through the same editable pool 2e uses |
+| `npm run dev:hireling` | a generated hireling matches its book statblock exactly, and its gear is a live copy of the pool rather than a second inlined loadout |
+| `npm run dev:portrait` | generation assigns a shipped portrait **and its paired token**, a regenerate disturbs neither, and the picker's swap keeps the two in step |
+| `npm run dev:settings` | that the settings are **reachable by a Warden** — a namespace naming no installed package renders them under "Unmapped": present in the data, invisible in the UI. Every other probe passes while that is broken |
+| `npm run dev:age-override` | the minimum-age floor binds in generation **and** in the sheet re-roll |
+| `npm run dev:bg-picker` | the background picker across both editions, and that the swap is surgical |
+| `npm run dev:bg-containers` | background-granted beasts and vehicles — minted as container Actors, replaced on regenerate, and a player's own container left alone |
+| `npm run dev:bg-author` | the custom-background authoring sheet: array edits persist, drag-to-snapshot, and generation resolves a snapshot in no canonical pack |
+| `npm run dev:bg-tools` | "Test ×10" preview/linter and "Duplicate into my backgrounds" |
+| `npm run dev:kw-import` | the Kettlewright importer end to end, through the real options dialog and file chooser |
+| `npm run dev:kw-import-data` | the same importer at the data level — field mapping without the UI |
+| `npm run dev:directory-ui` | the Actor Directory's generate-character icon and grayscale container thumbnails |
+| `npm run check:item-usage` | (offline) which pool items are actually referenced by a consumer, and which are orphans |
 
 Not tests, but useful: `dev:actors` and `dev:players` create fixtures, `unpause.mjs`
 unpauses a world.
+
+### The 18 orphans
+
+Everything from `dev:gear` down was written, worked, and then **had no npm script**, so
+none of it was in this document and none of it ran. Swept 2026-07-29. What eighteen unrun
+probes were holding:
+
+- **One real content defect.** `dev:gear` was red: `Hawk` and `Robes` — gear for Cairn 2e's
+  Animal Handler and Scholar hirelings — resolved to nothing, so both generated a piece
+  short. The pool has no importer *by design*; this probe is the invariant that replaces
+  one, and it was not wired.
+- **Four probes rotted by the ApplicationV2 port**, each failing in a way that reads as
+  "no result" rather than "error". Handlers are now private statics reachable only through
+  the `actions` map, so a probe must **click the element carrying the `data-action`** the
+  way a user does — `sheet._onRollAge(...)` and friends no longer exist.
+- **Two probes asserting a skin that was deliberately reverted.** `f00e72c` moved every
+  non-sheet surface back to Foundry's own colours so they would be theme-aware. Asserting
+  Alegreya on a chat card asserts a bug. Deleted one, trimmed the other, and wrote *why*
+  into its header so nobody restores them.
+- **One probe hanging the renderer.** A bare `generateCharacter()` falls through to
+  `promptContentSource()`, a `DialogV2.wait()` that blocks for a human. Inside
+  `page.evaluate` that never returns and Playwright eventually reports **"Target crashed"** —
+  naming neither the dialog nor the wait. Pass the source explicitly.
+
+Two traps worth carrying forward:
+
+- **`el?.[0] ?? el` is wrong on ApplicationV2, and fails silently.** The compat idiom for
+  "jQuery or HTMLElement" must be `el instanceof HTMLElement ? el : el?.[0]`. An AppV2 sheet
+  root is a `<form>`, and **`HTMLFormElement` is indexed by its own controls** — so `el[0]`
+  is not `undefined`, it is the first `<input>`. The reversed order hands back an input
+  whose `querySelector` matches nothing, and every DOM assertion reads false with no error.
+- **A probe can pass having exercised nothing.** `age-override` asserted the re-rolled age
+  obeyed a floor of 99 — but generation obeys the same floor, so had the click done nothing
+  the assertion would still have been true. It now asserts the control *exists* first. When
+  a probe's precondition and its assertion share a cause, green means nothing.
 
 ---
 

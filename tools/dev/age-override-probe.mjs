@@ -50,7 +50,22 @@ try {
     const actor = await gen.createActorWithCharacter(await gen.generate2eCharacter(bg));
     out.actorId = actor.id;
     out.genAge = Number(actor.system.age);          // 2. generation obeyed it
-    await actor.sheet._onRollAge(new Event("x"));    // 4. sheet re-roll obeys it
+    // 4. The SHEET's re-roll obeys it too. ApplicationV2 keeps its handlers in
+    //    private static methods reachable only through the `actions` map, so a
+    //    probe drives them the way a user does — by clicking the element that
+    //    carries the data-action. (This used to call `sheet._onRollAge` direct,
+    //    which stopped existing at the AppV2 port and threw.)
+    await actor.sheet.render(true);
+    for (let i = 0; i < 30 && !(actor.sheet.element instanceof HTMLElement); i++) {
+      await new Promise((res) => setTimeout(res, 100));
+    }
+    await new Promise((res) => setTimeout(res, 300));
+    const ageBtn = actor.sheet.element?.querySelector?.('[data-action="rollAge"]');
+    out.ageBtnFound = !!ageBtn;
+    ageBtn?.click();
+    for (let i = 0; i < 30 && Number(actor.system.age) === out.genAge; i++) {
+      await new Promise((res) => setTimeout(res, 100));
+    }
     out.sheetAge = Number(actor.system.age);
 
     await game.settings.set(NS, "min-age", prevMin);
@@ -124,6 +139,13 @@ try {
   r.genAge >= 99
     ? ok(`generation obeyed the override (generated age ${r.genAge})`)
     : fail(`a generated character came out age ${r.genAge}, below the 99 floor`);
+  // Assert the control EXISTS before trusting what it produced. Generation also
+  // obeys the floor, so if the click silently did nothing, sheetAge would still
+  // be >= 99 and the check below would pass green having exercised nothing —
+  // which is exactly how this probe rotted unnoticed.
+  r.ageBtnFound
+    ? ok("the sheet exposes a [data-action=rollAge] control")
+    : fail("no [data-action=rollAge] control on the rendered sheet — the re-roll check below proves nothing");
   r.sheetAge >= 99
     ? ok(`the sheet's age re-roll obeyed the override (re-rolled to ${r.sheetAge})`)
     : fail(`the sheet re-roll produced ${r.sheetAge}, below the 99 floor`);

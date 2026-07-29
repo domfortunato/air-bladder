@@ -44,7 +44,25 @@
     "dev:notes-editor": "node tools/dev/e2e-notes-editor.mjs",
     "dev:sanitize": "node tools/dev/e2e-sanitize.mjs",
     "dev:i18n-render": "node tools/dev/e2e-i18n-render.mjs",
-    "dev:compendium": "node tools/dev/e2e-compendium-lookup.mjs"
+    "dev:compendium": "node tools/dev/e2e-compendium-lookup.mjs",
+    "check:probes": "node tools/dev/probe-wiring-check.mjs",
+    "check:item-usage": "node tools/dev/item-usage.mjs",
+    "dev:gear": "node tools/dev/gear-probe.mjs",
+    "dev:phase2": "node tools/dev/phase2-probe.mjs",
+    "dev:marketplace": "node tools/dev/marketplace-probe.mjs",
+    "dev:transports": "node tools/dev/transport-probe.mjs",
+    "dev:barebones": "node tools/dev/barebones-probe.mjs",
+    "dev:hireling": "node tools/dev/hireling-probe.mjs",
+    "dev:portrait": "node tools/dev/portrait-probe.mjs",
+    "dev:settings": "node tools/dev/settings-probe.mjs",
+    "dev:age-override": "node tools/dev/age-override-probe.mjs",
+    "dev:bg-picker": "node tools/dev/background-picker-probe.mjs",
+    "dev:bg-containers": "node tools/dev/bg-container-probe.mjs",
+    "dev:bg-author": "node tools/dev/probe-bg-author.mjs",
+    "dev:bg-tools": "node tools/dev/probe-bg-tools.mjs",
+    "dev:kw-import": "node tools/dev/e2e-kettlewright-import.mjs",
+    "dev:kw-import-data": "node tools/dev/probe-kettlewright-import.mjs",
+    "dev:directory-ui": "node tools/dev/probe-ui-batch.mjs"
   },
   "browserslist": [
     "last 3 versions"

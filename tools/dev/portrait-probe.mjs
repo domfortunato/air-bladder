@@ -44,7 +44,13 @@ try {
     const manifest = { count: m.names.length, portraitDir: m.portraitDir, tokenDir: m.tokenDir };
 
     // 2. Generate a character and inspect the assigned art.
-    const actor = await CG.createActorWithCharacter(await CG.generateCharacter());
+    // Pass the source EXPLICITLY. A bare generateCharacter() falls through to
+    // promptContentSource(), a DialogV2.wait() that blocks until a human
+    // answers — inside page.evaluate that never returns, and the renderer is
+    // eventually killed with "Target crashed" rather than anything naming a
+    // dialog. Only bites when >1 content source is enabled, which is why it
+    // looked like an intermittent hang.
+    const actor = await CG.createActorWithCharacter(await CG.generateCharacter(null, "2e"));
     const img1 = actor.img;
     const tok1 = actor.prototypeToken.texture.src;
     const base1 = img1.split("/").pop();
