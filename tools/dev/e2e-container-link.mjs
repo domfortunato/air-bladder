@@ -73,14 +73,23 @@ const claim = await alicePage.evaluate(async ({ pcId, muleUuid }) => {
   try {
     await pc.sheet.render(true);
     await new Promise((r) => setTimeout(r, 1200));
-    // The real handler the drop path calls. Caught, not awaited bare: the
-    // PRE-FIX code rejects here ("User Alice lacks permission to update Actor"),
-    // and an uncaught rejection would abort the run instead of reporting which
-    // assertions failed. A throw is itself a finding — a drop handler should not
-    // leave an unhandled rejection in a player's console.
+    // Drive the WHOLE drop path, not one handler: a real DragEvent carrying the
+    // drag payload, through `_onDrop`. This used to call `_onDropActor` with drop
+    // DATA, which was ApplicationV1's signature — ApplicationV2 resolves the uuid
+    // first and hands the handler a Document, so the old call silently fell out at
+    // the type check and reported a "silent failure" that was the probe's own.
+    // Going in via `_onDrop` means the resolution step is exercised too and the
+    // probe stops caring which internal signature is current.
+    //
+    // Caught, not awaited bare: the PRE-FIX code rejects here ("User Alice lacks
+    // permission to update Actor"), and an uncaught rejection would abort the run
+    // instead of reporting which assertions failed. A throw is itself a finding —
+    // a drop handler should not leave an unhandled rejection in a player's console.
     let threw = null;
     try {
-      await pc.sheet._onDropActor(new Event("drop"), { type: "Actor", uuid: muleUuid });
+      const dt = new DataTransfer();
+      dt.setData("text/plain", JSON.stringify({ type: "Actor", uuid: muleUuid }));
+      await pc.sheet._onDrop(new DragEvent("drop", { dataTransfer: dt }));
     } catch (err) {
       threw = String(err?.message ?? err);
     }

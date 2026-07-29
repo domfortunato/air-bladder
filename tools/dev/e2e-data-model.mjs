@@ -148,17 +148,19 @@ const derived = await page.evaluate(async () => {
   const goods = await pack.getDocuments();
   await actor.createEmbeddedDocuments("Item", [goods[0].toObject()]);
   await actor.update({ "system.gold": 250 });
-  const sheetData = await actor.sheet.getData();
+  // ApplicationV2's context hook is `_prepareContext`, and it publishes system
+  // data at the context ROOT rather than under AppV1's `context.data` sub-object.
+  const sheetData = await actor.sheet._prepareContext({});
   const out = {
-    slotsUsed: sheetData.data.system.slotsUsed,
-    slotsMax: sheetData.data.system.slotsMax,
-    encumbered: sheetData.data.system.encumbered,
-    goldSlots: sheetData.data.system.goldSlots,
-    coinsPerSlot: sheetData.data.system.coinsPerSlot,
-    armor: sheetData.data.system.armor,
-    itemHasDerived: sheetData.data.items?.[0]?.system?.isEquipable !== undefined,
+    slotsUsed: sheetData.system.slotsUsed,
+    slotsMax: sheetData.system.slotsMax,
+    encumbered: sheetData.system.encumbered,
+    goldSlots: sheetData.system.goldSlots,
+    coinsPerSlot: sheetData.system.coinsPerSlot,
+    armor: sheetData.system.armor,
+    itemHasDerived: sheetData.items?.[0]?.system?.isEquipable !== undefined,
     // stored fields must still be there alongside the derived ones
-    gold: sheetData.data.system.gold,
+    gold: sheetData.system.gold,
   };
   // Armor is derived from equipped gear via calcArmor(), which reads
   // item.system.armor on BOTH armor and item types — the field the survey nearly

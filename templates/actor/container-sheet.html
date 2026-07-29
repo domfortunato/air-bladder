@@ -1,30 +1,30 @@
-<form class="cairn" autocomplete="off">
+{{!-- No <form> here: ApplicationV2 supplies it. --}}
     <div class="container-sheet-grid">
         <!-- Portrait -->
-        <img class="portrait" src="{{data.img}}" title="{{ localize 'CAIRN.ChooseContainerArt' }}" />
+        <img class="portrait" src="{{actor.img}}" data-action="editPortrait" title="{{ localize 'CAIRN.ChooseContainerArt' }}" />
         <!-- Name and slots -->
         <div class="character-sheet-section-name">
-            <input class="name-input" type="text" name="name" value="{{data.name}}" placeholder="{{ localize 'CAIRN.Name' }}" />
+            <input class="name-input" type="text" name="name" value="{{actor.name}}" placeholder="{{ localize 'CAIRN.Name' }}" />
             <!-- Background, not relevant for containers -->
             <div class="background-input">
-                {{data.system.ownedBy}}
+                {{system.ownedBy}}
             </div>
             <div class="resource-counter slots-counter">
                 <label for="{{@root.idp}}-system.slots">{{ localize 'CAIRN.Slots' }}</label>
                 <div class="resource-input-wrapper">
                     <input type="text" name="system.slots" id="{{@root.idp}}-system.slots"
-                           value="{{data.system.slots}}" data-dtype="Number" />
+                           value="{{system.slots}}" data-dtype="Number" />
                 </div>
             </div>
              <!-- Cost/Gold -->
-            {{#if data.system.showGoldNotCost }}
-                <div class="resource-counter slots-counter {{#if data.system.maybeTooMuchGold }}overburdened-gold{{/if}}"
-                {{#if data.system.maybeTooMuchGold }} title="{{localize 'CAIRN.OverburdenByGold'}}" {{/if}} >
+            {{#if system.showGoldNotCost }}
+                <div class="resource-counter slots-counter {{#if system.maybeTooMuchGold }}overburdened-gold{{/if}}"
+                {{#if system.maybeTooMuchGold }} title="{{localize 'CAIRN.OverburdenByGold'}}" {{/if}} >
                     <label for="{{@root.idp}}-system.gold" >
                         {{ localize 'CAIRN.Gold' }}
                     </label>
                     <div class="resource-input-wrapper">
-                        <input type="number" name="system.gold" id="{{@root.idp}}-system.gold" value="{{data.system.gold}}" data-dtype="Number" />
+                        <input type="number" name="system.gold" id="{{@root.idp}}-system.gold" value="{{system.gold}}" data-dtype="Number" />
                     </div>
                 </div>
             {{else}}
@@ -32,7 +32,7 @@
                     <label class="large-resource-label" for="{{@root.idp}}-system.cost">{{ localize 'CAIRN.Cost' }}</label>
                     <div class="resource-input-wrapper">
                         <input type="text" name="system.cost" id="{{@root.idp}}-system.cost"
-                            value="{{data.system.cost}}" data-dtype="Number" />
+                            value="{{system.cost}}" data-dtype="Number" />
                     </div>
                 </div>
             {{/if}}
@@ -40,17 +40,17 @@
         </div>
         <div class="character-sheet-section-tabs">
             <nav class="tabs" data-group="primary">
-                <a class="item" data-group="primary" data-tab="items">{{ localize 'CAIRN.Items' }} ({{data.system.slotsUsed}} / {{data.system.slotsMax}})</a>
-                <a class="item" data-group="primary" data-tab="description">{{ localize 'CAIRN.Description' }}</a>
+                <a class="item {{tabs.items.cssClass}}" data-action="tab" data-group="primary" data-tab="items">{{ localize 'CAIRN.Items' }} ({{system.slotsUsed}} / {{system.slotsMax}})</a>
+                <a class="item {{tabs.description.cssClass}}" data-action="tab" data-group="primary" data-tab="description">{{ localize 'CAIRN.Description' }}</a>
             </nav>
             <section class="content">
-                <div class="tab" data-group="primary" data-tab="items">
+                <div class="tab {{tabs.items.cssClass}}" data-group="primary" data-tab="items">
                     {{> "systems/air-bladder/templates/parts/items-list.html" withShop=1 container=1}}
                 </div>
-                <div class="tab" data-group="primary" data-tab="description">
-                    {{ editor enrichedBiography target="system.biography" button=true owner=owner editable=editable engine="prosemirror" collaborate=true }}
+                <div class="tab {{tabs.description.cssClass}}" data-group="primary" data-tab="description">
+                    <prose-mirror name="system.biography" value="{{system.biography}}" toggled collaborate relative
+                        data-document-uuid="{{actor.uuid}}">{{{enrichedBiography}}}</prose-mirror>
                 </div>
             </section>
         </div>
     </div>
-</form>

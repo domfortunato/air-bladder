@@ -61,6 +61,7 @@ changed, which **fails while a world is open**, so stop the server for it.
 | `npm run dev:sheet-basics` | that editing a field commits with no save button (text, number, `<select>`, `<textarea>`), that one change makes exactly one update, and that each tab shows one panel and only one |
 | `npm run dev:dialogs` | the four sheet dialogs (add item, add/edit feature, regenerate confirm) — that `button.form` reaches the right fields, the content templates carry no nested `<form>`, and the confirm still defaults to No |
 | `npm run dev:theme` | that the sheets stay readable in **both** colour schemes: every text and border colour measured against its real backdrop, in light and dark. Light is the baseline, so it only fails on something dark breaks. `-- --shots` also writes the four screenshots |
+| `npm run dev:sheet-layout` | that no two regions of a sheet grid overlap, on all four actor types. Generates **six** characters, because whether the layout fits depends on how long that background's description happens to be — one sample passes where six catch it |
 | `npm run dev:portrait-folder` | the custom-portrait setting takes effect with no reload |
 | `npm run dev:directory-buttons` | the Actor Directory buttons, docked **and** popped out |
 | `npm run dev:warden-rename` | the GM rename cycle across page reloads |

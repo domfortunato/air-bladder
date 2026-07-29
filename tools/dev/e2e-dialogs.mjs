@@ -26,7 +26,16 @@ await dismissChrome(page);
 
 // A throwaway actor, so nothing in the dev world is disturbed. The Features
 // section is behind a GM setting, so turn it on and put it back afterwards.
+//
+// Sweep leftovers FIRST. This probe creates a world Actor by name and later looks
+// it up the same way, so a run that dies midway leaves one behind — and every
+// later run then finds the STALE sack, whose keeper points at an actor that no
+// longer exists, and fails identically forever. One real failure otherwise turns
+// into a permanent one, which reads exactly like a code bug and is not.
 const { actorId, featuresWere } = await page.evaluate(async () => {
+  for (const stale of game.actors.filter((a) => ["ZZ DialogV2 Probe", "ZZ Probe Sack"].includes(a.name))) {
+    await stale.delete().catch(() => {});
+  }
   const was = game.settings.get("air-bladder", "show-features-section");
   if (!was) await game.settings.set("air-bladder", "show-features-section", true);
   const a = await Actor.create({ name: "ZZ DialogV2 Probe", type: "character" });
@@ -153,13 +162,49 @@ cont && cont.slots === 5 && cont.keeper
   ? ok("container created and linked", JSON.stringify(cont))
   : fail("container created and linked", JSON.stringify(cont));
 
+/* ---------------------------------------------------- header controls ---- */
+// Roll Character and the Randomization toggle used to be inline title-bar
+// buttons whose HTML the sheet rewrote by hand. On ApplicationV2 they are
+// declarative `window.controls` entries rendered into the ⋮ menu, and v14
+// rebuilds that menu from _getHeaderControls on every open — which is what makes
+// a state-dependent label work without touching the DOM. Drive the real menu:
+// calling the handler directly would not test any of that.
+const sheetSel = await page.evaluate((id) => {
+  const el = game.actors.get(id).sheet.element;
+  return `#${CSS.escape((el instanceof HTMLElement ? el : el?.[0]).id)}`;
+}, actorId);
+
+const openControls = async () => {
+  await page.locator(`${sheetSel} button[data-action="toggleControls"]`).click();
+  await page.waitForTimeout(400);
+  return page.evaluate(() =>
+    [...document.querySelectorAll("#context-menu li.context-item")].map((li) => li.textContent.trim())
+  );
+};
+const clickControl = async (label) => {
+  await page.locator("#context-menu li.context-item", { hasText: label }).first().click();
+  await page.waitForTimeout(900);
+};
+
+let entries = await openControls();
+entries.some((e) => e === "Roll Character") && entries.some((e) => e.startsWith("Randomization"))
+  ? ok("generation controls in ⋮ menu", entries.filter((e) => /Roll|Random/.test(e)).join(" | "))
+  : fail("generation controls in ⋮ menu", entries.join(" | "));
+
+// Toggling Randomization off must hide Roll Character and flip the label —
+// the behaviour AppV1 achieved by rewriting the header's innerHTML.
+await clickControl("Randomization");
+entries = await openControls();
+!entries.includes("Roll Character") && entries.some((e) => e === "Randomization: Off")
+  ? ok("toggle hides Roll Character", entries.filter((e) => /Roll|Random/.test(e)).join(" | "))
+  : fail("toggle hides Roll Character", entries.join(" | "));
+await clickControl("Randomization");   // back on
+
 /* --------------------------------------------------------- regenerate ---- */
 // DialogV2.confirm must default to No, replacing V1's defaultYes: false.
-await page.evaluate((id) => {
-  const sheet = game.actors.get(id).sheet;
-  sheet._onRegenerateCharacter(new MouseEvent("click"));
-}, actorId);
-await page.waitForTimeout(1200);
+await openControls();
+await clickControl("Roll Character");
+await page.waitForTimeout(600);
 const defaultIsNo = await page.evaluate(() => {
   const d = document.querySelector("dialog.dialog");
   if (!d) return null;

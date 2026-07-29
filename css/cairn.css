@@ -142,6 +142,29 @@
    sheet does not preview the post-port state. The probe paints on the measured
    AppV2 backdrop to simulate it. */
 
+/* ApplicationV2 drops three things AppV1's window chrome supplied, and every
+   sheet grid in this file was laid out against them. Restored here rather than
+   re-tuning the grids, because the geometry is deliberate and documented:
+
+   1. `overflow: hidden auto` on .window-content (foundry2.css:6237). AppV2 uses a
+      flat `overflow: hidden`, so a sheet taller than its window is CLIPPED
+      instead of scrolling. That is not a cosmetic difference: the grid stops
+      being able to grow, its rows collapse to their minimums, and the name
+      section's HP/Gold counters end up painted on top of STR and Armor.
+   2. `padding: 8px` (foundry2.css:13146). AppV2 uses --spacer-16, i.e. double,
+      which costs 16px of height on a layout with fixed 140px/112px rows.
+   3. `.window-content > * { flex: 1 }` (foundry2.css:13150), which is what lets
+      the grid take the full height and then exceed it. Without it the grid is
+      `flex: 0 1 auto` and gets shrunk to the window instead. */
+.cairn.sheet .window-content {
+    padding: 8px;
+    overflow: hidden auto;
+}
+
+.cairn.sheet .window-content > * {
+    flex: 1;
+}
+
 /* AppV1's {{editor}} helper wraps in .editor; ApplicationV2 uses the
    <prose-mirror> custom element. Both exist while the migration is half done. */
 .cairn .editor,
@@ -166,7 +189,14 @@
        rather than leaving a jarring wider band between them. */
     row-gap: 2px;
     grid-template-columns: 140px 1fr 1fr;
-    grid-template-rows: minmax(140px, auto) 112px 1fr;
+    /* Row 1 is `auto`, NOT `minmax(140px, auto)`. Both grow for a long background
+       description, but `minmax` sets the track's MINIMUM to 140px — so when the
+       sheet is short of height (a tall description plus a tall tab body), grid
+       shrinks the track back toward that minimum and the name section spills its
+       HP/Gold counters over STR and Armor. `auto` takes its minimum from the
+       content, so it can never be squeezed below what it holds. The 140px floor
+       is not lost: the portrait in column 1 is 140px tall and sets it. */
+    grid-template-rows: auto 112px 1fr;
     height: 100%;
 }
 
@@ -1944,7 +1974,7 @@ textarea.omen-input {
 /* HP joins STR/DEX/WIL as a fourth box in the abilities column, so that column
    holds four counters. Let the middle grid row grow to fit them. */
 .hireling .charater-sheet-grid {
-    grid-template-rows: minmax(140px, auto) auto 1fr;
+    grid-template-rows: auto auto 1fr;
 }
 
 .hireling .character-sheet-section-abilities {
