@@ -19,7 +19,8 @@
 </div>
 
 <!--
-  Traducción al español (Latinoamérica).
+  Traducción al español de España (es-ES), para que coincida con la traducción
+  del sistema.
 
   MANTENIMIENTO: este archivo lo mantiene el proyecto, NO el traductor del
   sistema. La traducción del juego (lang/es.json, lang/content/es.json) es obra
@@ -27,14 +28,16 @@
   actualiza junto con README.md, que es la versión de referencia. Al cambiar
   README.md, actualiza también este archivo.
 
-  Términos por confirmar contra la "Guía del jugador" oficial de Cairn 2e, para
-  que coincidan con la traducción dentro del sistema:
-    Warden  -> "Custodio"    (provisional)
-    hireling -> "asalariado"  (provisional)
-  Los nombres propios, ediciones (Cairn 2e, Barebones) y licencias no se traducen.
+  Terminología: usa siempre lo que el jugador VE en el sistema, es decir
+  lang/es.json, no una conjetura de este archivo:
+    Warden   -> "Guardián"  (CAIRN.Warden)
+    Hireling -> "Seguidor"  (CAIRN.Hireling)
+    Items    -> "Equipo"    (CAIRN.Items, la pestaña de la hoja)
+  Los nombres propios, ediciones (Cairn 2e, Barebones), módulos (Item Piles) y
+  licencias no se traducen.
 -->
 
-Un sistema de juego para [Foundry VTT](https://foundryvtt.com) para jugar contenido de **Cairn 2e** y de la **Edición Barebones de Cairn**: trasfondos detallados, algunas opciones que añaden funciones de 2e a las hojas Barebones, y tablas del Custodio de 2e. **Compatible con [Cairn](https://cairnrpg.com) de Yochai Gal.**
+Un sistema de juego para [Foundry VTT](https://foundryvtt.com) para jugar contenido de **Cairn 2e** y de la **Edición Barebones de Cairn**: trasfondos detallados, algunas opciones que añaden funciones de 2e a las hojas Barebones, y tablas del Guardián de 2e. **Compatible con [Cairn](https://cairnrpg.com) de Yochai Gal.**
 
 ## Resumen
 
@@ -42,58 +45,70 @@ Air Bladder es un sistema complementario amigable, no el sistema oficial de Cair
 
 ## Características principales
 
-- Generación aleatoria o manual de personajes tanto de Cairn 2e como de Cairn Barebones; cada estilo se puede activar o desactivar.
-- Las hojas Barebones admiten funciones caseras (homebrew) opcionales.
-- Trasfondos personalizados de 2e creados por el Custodio: créalos, previsualízalos, revísalos y [compártelos entre mundos](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md).
-- Generación aleatoria o manual de hojas de asalariados.
-- Ayudas contextuales para jugadores.
-- Mercado y contenedores.
-- Tablas orientadas al Custodio.
-- Una galería de 80 retratos de personaje con licencia CC BY 4.0, de [Jon Aspeheim](https://jonaspeheim.itch.io/).
-- Automatización mínima.
+- Generación aleatoria o manual de personajes a partir de trasfondos de Cairn 2e, **Cairn 2e personalizado** y Cairn Barebones — el Guardián puede activar o desactivar cada fuente
+- Importación de personajes en `.json` desde la aplicación oficial de Cairn, ¡[Kettlewright!](https://kettlewright.com/)
+- Funciones caseras (*homebrew*) opcionales que mezclan características de 2e con Barebones
+- Trasfondos de 2e personalizados, creados por el Guardián — [créalos y revísalos](https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md) y después [compártelos entre mundos](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md)
+- Generación aleatoria o manual de PNJ y seguidores
+- Ayudas contextuales en la hoja de personaje para los jugadores
+- ¡Hojas de personaje desacoplables! Sí, ya estamos en AppV2 y listos para Foundry v15
+- Mercado y contenedores; caballos, carros, carretas, cofres y ¡PILAS DE OBJETOS con Item Piles!
+- ¡Tablas de tiradas orientadas al Guardián!
+- Una galería de 80 retratos de personaje con sus iconos a juego, con licencia CC BY 4.0, de [Jon Aspeheim](https://jonaspeheim.itch.io/)
+- Automatización mínima; con botones para descansar, restaurar características, pánico y daño crítico
+
+## Funciones en el horizonte
+- Generadores de monstruos y encuentros (opcional)
+- Magia GLOG (opcional)
 
 ## Capturas de pantalla
 
 <table>
   <tr>
-    <td><img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/sheet-items.png" alt="Hoja de personaje — pestaña de Objetos" width="250"></td>
+    <td><img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/sheet-items.png" alt="Hoja de personaje — pestaña de Equipo" width="250"></td>
     <td><img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/sheet-description.png" alt="Hoja de personaje — pestaña de Descripción" width="250"></td>
     <td><img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/sheet-background-notes.png" alt="Hoja de personaje — pestaña de Trasfondo y notas" width="250"></td>
   </tr>
 </table>
 
-*La hoja de personaje: pestañas de Objetos, Descripción, y Trasfondo y notas. La franja roja es la condición automática de **Daño Crítico**, que aparece cuando la FUE recibe daño.*
+*La hoja de personaje: pestañas de Equipo, Descripción, y Trasfondo y notas. La franja roja es la condición automática de **Daño Crítico**, que aparece cuando la FUE recibe daño.*
 
-<img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/game-settings.png" alt="La configuración de juego del Custodio" width="480">
+<img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/game-settings.png" alt="La configuración de juego del Guardián" width="480">
 
-*La configuración de juego del Custodio, agrupada por secciones.*
+*La configuración de juego del Guardián, agrupada por secciones.*
 
 ## Estado
 
-Desarrollo temprano y activo. ¡Envía comentarios y arte! El sistema se está reconstruyendo sobre la arquitectura de **compendios editables** del original: el equipo vive en compendios de objetos que el Custodio puede editar en un solo lugar, y la generación de personajes y el mercado hacen referencia a esos compendios por su nombre.
+Desarrollo temprano y activo. ¡Envía comentarios y arte! El sistema se está reconstruyendo sobre la arquitectura de **compendios editables** del original: el equipo vive en compendios de objetos que el Guardián puede editar en un solo lugar, y la generación de personajes y el mercado hacen referencia a esos compendios por su nombre.
 
 ## Idiomas
 
-La interfaz está traducida al **español** (el 82 % de las cadenas actuales, por [Malecho](https://github.com/fsmalecho)), y el *contenido* del juego —trasfondos, objetos, hechizos, tablas— está traducido únicamente al español.
+La interfaz está traducida al **español** (el 72 % de las cadenas actuales, por [Malecho](https://github.com/fsmalecho)), y el *contenido* del juego —trasfondos, objetos, hechizos, tablas— está traducido únicamente al español.
 
 Los archivos de interfaz en alemán, danés, francés, polaco y portugués de Brasil se heredaron del sistema original de Cairn. Cubren entre el **15 % y el 30 %** de la interfaz actual, son anteriores a la mayoría de las funciones de este sistema y **no reciben mantenimiento**: en la práctica, una partida en esos idiomas está mayormente en inglés. Todo lo que no esté traducido recae en el inglés cadena por cadena, así que una traducción parcial siempre se puede usar en lugar de quedar rota.
 
 Las herramientas son independientes del idioma (`--lang <código>` en todas), así que un idioma nuevo no requiere ningún cambio de código: solo un traductor.
 
-**Traductores bienvenidos** — consulta [docs/TRANSLATING.md](https://github.com/domfortunato/air-bladder/blob/master/docs/TRANSLATING.md) (en inglés) para el flujo sin programación, o [docs/translating-self-service.md](https://github.com/domfortunato/air-bladder/blob/master/docs/translating-self-service.md) si prefieres trabajar con git.
+**¡Se busca ayuda con las traducciones!** — consulta [docs/TRANSLATING.md](https://github.com/domfortunato/air-bladder/blob/master/docs/TRANSLATING.md) (en inglés) para el flujo sin programación, o [docs/translating-self-service.md](https://github.com/domfortunato/air-bladder/blob/master/docs/translating-self-service.md) si prefieres trabajar con git.
 
 ## Instalación (manual)
 
 **Requiere Foundry VTT v14.**
 
 1. En el menú **Sistemas de juego** de Foundry, haz clic en **Instalar sistema**.
-2. Ingresa la URL del manifiesto: `https://github.com/domfortunato/air-bladder/releases/latest/download/system.json`
+2. Introduce la URL del manifiesto: `https://github.com/domfortunato/air-bladder/releases/latest/download/system.json`
 
 Para desarrollo, clona este repositorio en `Data/systems/air-bladder` (una unión de directorios / *junction* funciona), ejecuta `npm install` y luego `npm run build:packs` antes de iniciar Foundry. `npm run dev:smoke` realiza una carga sin interfaz (*headless*) como verificación básica.
 
+Para probar el trabajo **aún no publicado**, clona la rama `dev`: ahí vive todo lo que está en curso. El paso `npm run build:packs` hace falta en ambos casos: los compendios se generan a partir de `src/packs/` y no se guardan en git, así que un clon sin compilar carga con todos los compendios vacíos.
+
+## Cómo contribuir
+
+Las *pull requests* son bienvenidas: ábrelas contra **`dev`**, no contra `master`. Consulta [CONTRIBUTING.md](https://github.com/domfortunato/air-bladder/blob/master/CONTRIBUTING.md) (en inglés) para los detalles, y [docs/git-flow.md](https://github.com/domfortunato/air-bladder/blob/master/docs/git-flow.md) para saber cómo funcionan aquí las ramas y las versiones.
+
 ## Divulgación sobre IA
 
-**El arte generado por IA nunca aparecerá en este repositorio, jamás.** El código, en cambio, se escribió por completo con [Claude Code](https://www.anthropic.com/claude-code), usando como base el repositorio original de Cairn de Yochai Gal.
+**El arte generado por IA nunca aparecerá en este repositorio, jamás.** El código, en cambio, se escribió con [Claude Code](https://www.anthropic.com/claude-code), usando como base el repositorio original de Cairn de Yochai Gal.
 
 ## Créditos y licencias
 
@@ -106,6 +121,7 @@ Air Bladder combina varios regímenes de licencia; por favor, conserva la atribu
 - **Logo de Air Bladder — © Lydia Comer, todos los derechos reservados.** El logo y el material gráfico relacionado en `lydia-comer/` son de **[Lydia Comer](https://linktr.ee/lydiadidmyink)**, con licencia para el sistema Air Bladder para su inclusión y redistribución sin modificaciones como parte del sistema y sus bifurcaciones (*forks*), y para su uso sin modificaciones en la representación del proyecto; cualquier otro uso requiere permiso. Consulta `lydia-comer/license.txt`.
 - **Arte de personajes — CC BY 4.0.** Las 80 imágenes emparejadas de retrato/token en `character_portraits/` y `character_tokens/` son de **[Jon Aspeheim](https://jonaspeheim.itch.io/)** (fuente: [Lemur's Portraits](https://jonaspeheim.itch.io/lemurs-portraits)), con licencia [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) (consulta el `license.txt` en cada carpeta). CC BY simple: la redistribución está permitida y la atribución es obligatoria. El artista indica que estos retratos se crearon sin IA. Conserva este crédito si el arte se distribuye.
 - **Íconos de objetos y contenedores — CC BY 3.0.** Los íconos de clase en `icons/` (equipo, grimorios, transportes, contenedores, monstruos) provienen de [game-icons.net](https://game-icons.net) por **Lorc, Delapouite y Skoll**, con licencia [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). Los créditos de autor y de la página de origen de cada ícono están en `icons/CREDITS.md`.
+- **Tipografía Alegreya — SIL Open Font License 1.1.** Las tres fuentes web de `fonts/` son **Alegreya**, de Juan Pablo del Peral y los autores del Proyecto Alegreya ([Huerta Tipográfica](https://github.com/huertatipografica/Alegreya)), © 2011, con licencia [OFL 1.1](https://openfontlicense.org/). Se redistribuyen sin modificaciones; la licencia exige que su aviso acompañe a cada copia, por lo que `fonts/OFL.txt` y `fonts/license.txt` se distribuyen junto a ellas.
 
 ### Colaboradores
 

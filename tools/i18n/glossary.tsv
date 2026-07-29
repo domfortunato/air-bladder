@@ -31,7 +31,7 @@ Background	Trasfondo	2e-term	es.json
 Scar	Cicatriz	2e-term	es.json	from "Obtienes una cicatriz"
 Bond	vínculo	2e-term	Guía (per plan)	CONFIRM w/ fsmalecho
 Omen	presagio	2e-term	Guía (per plan)	CONFIRM w/ fsmalecho
-Hireling	asalariado	2e-term	README.es provisional	CONFIRM w/ fsmalecho
-Warden	Custodio	2e-term	README.es provisional	the GM; CONFIRM w/ fsmalecho
+Hireling	Seguidor	2e-term	es.json	was "asalariado", a README.es guess; es.json is what the player sees
+Warden	Guardián	2e-term	es.json	the GM; was "Custodio", a README.es guess; es.json is what the player sees
 Archetype	arquetipo	fork-term	fork-authored	Wizard/Fighter/Thief; CONFIRM
 Coins	Monedas	ui	fork-authored	fork relabels Gold->Coins on the sheet; CONFIRM
