@@ -285,10 +285,14 @@
                             {{> "systems/air-bladder/templates/parts/feature-list.html"}}
                         </div>
                         {{/if}}
-                        {{#if system.showDesc }}
-                        <prose-mirror name="system.description" value="{{system.description}}" relative
-                            data-document-uuid="{{actor.uuid}}"></prose-mirror>
-                        {{/if}}
+                        {{!-- No free-form editor here. A character's `system.description`
+                              is orphaned -- nothing generates it and nothing else renders
+                              it (the italic trait line is `traitSentence`, derived) -- so
+                              this was a second, unlabelled notes box competing with the
+                              real one on the Background & Notes tab. The field survives in
+                              CharacterData, so anything typed into it is still on the
+                              document. NPCs keep theirs: a compendium monster carries its
+                              text in `description` rather than `biography`. --}}
                         <div class="cairn-compat-footer">
                             <a href="https://cairnrpg.com" target="_blank" rel="noopener" title="{{ localize 'CAIRN.CompatibleAlt' }}">
                                 <img src="systems/air-bladder/logo/Cairn-2e-Compatible.png" alt="{{ localize 'CAIRN.CompatibleAlt' }}" />
