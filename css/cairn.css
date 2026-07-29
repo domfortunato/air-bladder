@@ -42,17 +42,35 @@
     min-width: 480px;
 }
 
-/* Sheet background: intentionally left to Foundry. Cairn sheets are AppV1
-   windows, which Foundry force-tags `themed theme-light` regardless of the
-   player's colour scheme, so .window-content falls back to Foundry's own light
-   parchment (ui/parchment.jpg) -- warm, characterful, and always light, so the
-   sheet's dark text and black bars stay readable. We used to force a flat
-   #f5f5f5 here (which also killed the parchment via background-image: none);
-   that override was removed 2026-07-23. Do NOT re-add a background here. */
+/* Sheet background: intentionally left to Foundry. Do NOT set one here -- we
+   used to force a flat #f5f5f5 (which also killed the parchment via
+   background-image: none); that override was removed 2026-07-23.
 
-.cairn .editor {
+   The two sheet families now differ, and it matters:
+
+   - The ACTOR sheet is still AppV1, which Foundry force-tags `themed
+     theme-light` (client/appv1/api/application-v1.mjs:79-81) regardless of the
+     player's colour scheme. So .window-content always falls back to Foundry's
+     light parchment and the sheet's dark text and black bars stay readable.
+   - The ITEM sheet is ApplicationV2 and gets NO such tag, so it follows the
+     player's colour scheme. Verified in both schemes 2026-07-28: it reads
+     correctly either way, because its styling is black label bars with white
+     text on a transparent content background, which Foundry themes for us.
+
+   When the actor sheet ports, it loses the forced light too. Check it in dark
+   before assuming the same holds -- it carries much more custom light-assuming
+   surface than the item sheet does. */
+
+/* AppV1's {{editor}} helper wraps in .editor; ApplicationV2 uses the
+   <prose-mirror> custom element. Both exist while the migration is half done. */
+.cairn .editor,
+.cairn prose-mirror {
     height: 100%;
     min-height: 480px;
+}
+
+.cairn prose-mirror {
+    display: block;
 }
 
 /******************************************************************************

@@ -18,6 +18,10 @@ const result = await page.evaluate(async () => {
   const out = {};
   const SWORD = "Probe Snapshot Blade ZZ";
 
+  // AppV1's `element` is a jQuery object; ApplicationV2's is the HTMLElement.
+  // Works either way so this probe survives the sheet migration.
+  const sheetRoot = (app) => (app.element instanceof HTMLElement ? app.element : app.element?.[0]);
+
   // A source item that exists in NO canonical pack, so if it resolves at
   // generation it can only have come from the snapshot.
   const src = await Item.create({
@@ -31,23 +35,27 @@ const result = await page.evaluate(async () => {
   });
 
   const sheet = bg.sheet;
-  await sheet._render(true);
-  for (let i = 0; i < 30 && !(sheet.element && sheet.element[0]); i++) {
+  await sheet.render(true);
+  for (let i = 0; i < 30 && !sheet.element; i++) {
     await new Promise((r) => setTimeout(r, 100));
   }
-  const root = sheet.element[0];
+  const root = sheetRoot(sheet);
   if (!root) { out.error = "sheet element never rendered"; return out; }
 
   out.hasEditor = !!root.querySelector(".background-editor");
-  out.sourceVal = root.querySelector('select[name="system.source"]')?.value;
+  // Source is deliberately NOT a pick-list: a GM must not be able to make their
+  // background undiscoverable by choosing another source. It renders as fixed text.
+  out.sourceVal = root.querySelector(".bg-source-fixed")?.textContent.trim();
   out.archetypeVal = root.querySelector('select[name="system.archetype"]')?.value;
   out.tableCount = root.querySelectorAll(".bg-edit-table").length;
   out.optionCount = root.querySelectorAll(".bg-edit-option").length;
   out.optionDropZones = root.querySelectorAll('[data-drop="option"]').length;
 
-  // Handler: add an example name via the real click handler.
-  sheet.element.find(".bg-name-add").trigger("click");
-  await new Promise((r) => setTimeout(r, 200));
+  // Handler: add an example name via a real click. Under ApplicationV2 this is a
+  // declarative `data-action`, so a native click is what exercises the wiring —
+  // there is no handler bound to the element to trigger directly any more.
+  root.querySelector(".bg-name-add")?.click();
+  await new Promise((r) => setTimeout(r, 400));
   out.namesAfterAdd = (bg.system.names ?? []).length;
 
   // Drop the sword onto the starting-gear zone.
@@ -92,9 +100,9 @@ const result = await page.evaluate(async () => {
   const roDocs = await roPack.getDocuments();
   const roBg = roDocs.find((d) => d.name === "Jongleur") ?? roDocs[0];
   const roSheet = roBg.sheet;
-  await roSheet._render(true);
-  for (let i = 0; i < 30 && !(roSheet.element && roSheet.element[0]); i++) await new Promise((r) => setTimeout(r, 100));
-  const roRoot = roSheet.element[0];
+  await roSheet.render(true);
+  for (let i = 0; i < 30 && !roSheet.element; i++) await new Promise((r) => setTimeout(r, 100));
+  const roRoot = sheetRoot(roSheet);
   out.readOnly = {
     locked: roPack.locked,
     hasReadOnly: !!roRoot.querySelector(".background-details"),
@@ -113,7 +121,7 @@ await browser.close();
 
 const checks = [
   ["editor renders", result.hasEditor === true],
-  ["source = 2e", result.sourceVal === "2e"],
+  ["source shown as fixed text", result.sourceVal === "Cairn 2e"],
   ["archetype = Fighter", result.archetypeVal === "Fighter"],
   ["2 tables padded", result.tableCount === 2],
   ["12 options padded", result.optionCount === 12],
