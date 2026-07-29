@@ -61,13 +61,14 @@ changed, which **fails while a world is open**, so stop the server for it.
 | `npm run dev:data-model` | the TypeDataModel schemas |
 | `npm run dev:icons` | no document left on a `.png` icon; every icon 200s, is really SVG, and rasterises at full size. Its list comes from the **`icons/` directory**, not from icons in use by documents — it used to be the latter, so it checked 15 of 17 files and a newly added icon stayed invisible to it until content pointed at one |
 | `npm run dev:sanitize` | that the server actually strips scripts from a system `HTMLField`. Writes a payload **as a real player** (Alice) to their own character's `system.notes` and to an owned weapon's description, and asserts both come back cleaned with their benign content intact. Needed alongside `check:fields` because the manifest declaration only takes effect at server STARTUP — an un-restarted edit is indistinguishable from no edit |
+| `npm run dev:compendium` | the shared name→document lookup in `module/compendium.js`. **Counts** full pack loads while opening the shop, because the catalog is correct either way and the entire defect is how much work happens — a functional assertion cannot fail. Also that a missing table degrades to `undefined`/`""` instead of throwing, and that adding a *row* to a shipped table invalidates the sheet's pack cache |
 | `npm run dev:icon-canvas` | the icon migration reaches scene tokens and the canvas ends correct after a reload |
 | `npm run dev:enc-damage` | the damage flow, including a real canvas draw |
 | `npm run dev:container-link` | container linking **as a real player** — a GM passes every ownership check, so only this catches permission bugs |
 | `npm run dev:item-pile` | the container class label and Item Piles. Walks **every** shipped transport asserting its label and its art agree (they come from one classifier, so drift shows as "Horse" beside a picture of a cart), then makes a pile: class art on creation, re-arting on a type change, hand-picked art left alone, the sheet's Type control, directory visibility, and — **as Alice** — that a pile refuses a player with no rights and works once granted them |
 | `npm run dev:sheet-ids` | per-window DOM ids, via a real label click |
 | `npm run dev:sheet-basics` | that editing a field commits with no save button (text, number, `<select>`, `<textarea>`), that one change makes exactly one update, and that each tab shows one panel and only one |
-| `npm run dev:dialogs` | the four sheet dialogs (add item, add/edit feature, regenerate confirm) — that `button.form` reaches the right fields, the content templates carry no nested `<form>`, and the confirm still defaults to No |
+| `npm run dev:dialogs` | the four sheet dialogs (add item, add/edit feature, regenerate confirm) — that `button.form` reaches the right fields, the content templates carry no nested `<form>`, the confirm still defaults to No, that Add Item **opens on** the right type, and that editing a feature leaves it where it was in the list |
 | `npm run dev:theme` | that the sheets stay readable in **both** colour schemes: every text and border colour measured against its real backdrop, in light and dark. Light is the baseline, so it only fails on something dark breaks. `-- --shots` also writes the four screenshots |
 | `npm run dev:sheet-layout` | that no two regions of a sheet grid overlap, on all four actor types. Generates **six** characters, because whether the layout fits depends on how long that background's description happens to be — one sample passes where six catch it |
 | `npm run dev:notes-editor` | that the Notes editor can be **typed into** and saves, on all four actor types, plus the empty-field placeholder. It types with the keyboard and touches no button, because the regression it exists for left the editor present, upgraded, `contenteditable="true"` and holding the right value — while being 0px tall and therefore unclickable. Also covers three **item** sheets, typing into the toggled description editor and then closing the sheet — the actor loop had left every item sheet untested |
@@ -119,6 +120,14 @@ passes while exercising nothing.
 
 **A probe that fails once and passes on re-run is a race, not a flake.** Do not re-run
 and call it green. Find out what the first run raced against.
+
+**A precondition a previous run left behind is not a precondition.** `dev:dialogs` set
+`show-containers-tab`, slept 1s and clicked the tab — but that setting is registered
+`requiresReload: true`, so it never appears on an already-open sheet. It only ever worked
+because an earlier run had left the setting on; the first run against a world where it was
+off timed out, and every run after that passed. When a probe changes a setting, either
+reload or check how that setting is registered. (Found 2026-07-29 by the "failed once,
+passed on re-run" rule below.)
 
 **A test that cannot fail is worse than none** — it reports success. When adding one,
 confirm it fails with its fix removed. `dev:icon-canvas` is the pattern: it plants a

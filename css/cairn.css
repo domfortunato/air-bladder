@@ -279,7 +279,13 @@
     display: grid;
     gap: 8px;
     grid-template-columns: 140px 1fr 1fr;
-    grid-template-rows: 140px 1fr;
+    /* `auto`, not a hard 140px, for the reason spelled out on the character grid
+       above: a fixed track cannot grow for its content, so the name section spills
+       out of it. This was fine until the Type control joined the container's name
+       section (Item Piles) and pushed it to 148px inside a 140px track — an 8px
+       overflow that `npm run dev:sheet-layout` reports on the `container` type.
+       The 140px floor is not lost; the portrait in column 1 sets it. */
+    grid-template-rows: auto 1fr;
     height: 100%;
 }
 

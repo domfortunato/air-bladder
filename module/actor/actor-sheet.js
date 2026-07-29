@@ -64,7 +64,15 @@ const cachedPackDocuments = (packName) => {
   return PACK_DOC_CACHE.get(packName);
 };
 
-for (const hook of ["createRollTable", "updateRollTable", "deleteRollTable"]) {
+// TableResult as well as RollTable: adding a row to a table fires ONLY
+// createTableResult — the parent RollTable is not updated — so a Warden who
+// unlocked the pack and added a Scar, an Omen or a trait watched the sheet's
+// pick-lists keep serving the cached table for the rest of the session. Editing
+// or deleting a row is the same story.
+for (const hook of [
+  "createRollTable", "updateRollTable", "deleteRollTable",
+  "createTableResult", "updateTableResult", "deleteTableResult",
+]) {
   Hooks.on(hook, () => PACK_DOC_CACHE.clear());
 }
 
@@ -1534,12 +1542,17 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         callback: async (dialogEvent, button) => {
           const form = button.form;
           if (form.itemname.value.trim() !== "") {
-            const newItem = item;
-            newItem.name = form.itemname.value;
-            newItem.description = form.itemdesc.value;
+            // Copy, never mutate `item`. `system.features` is an ArrayField of
+            // ObjectField, and an ObjectField hands back the SOURCE object by
+            // reference — so assigning to `item` edited the actor's stored data
+            // in place, before (and regardless of) the update. A rejected or
+            // refused update then left the sheet showing values the document did
+            // not have, until something re-read it from source.
+            const newItem = { ...item, name: form.itemname.value, description: form.itemdesc.value };
             FEATURE_FLAGS.forEach((c) => { newItem[c] = form[c].checked; });
-            const features = this.actor.system.features.filter((f) => f.id !== newItem.id);
-            features.push(newItem);
+            // Replace in place rather than filter+push, so editing a feature does
+            // not silently move it to the bottom of the list.
+            const features = this.actor.system.features.map((f) => (f.id === newItem.id ? newItem : f));
             await this.actor.update({ "system.features": features });
           }
         },

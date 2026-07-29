@@ -76,7 +76,16 @@ Hooks.once("ready", async () => {
   // Settings used to be registered under the "cairn" namespace, which Foundry
   // could not map to this package — they rendered as "Unmapped" and a Warden
   // could not reach them. Carry any already-chosen value over to the real one.
-  await migrateSettingsNamespace();
+  //
+  // Caught here, not left to escape: Hooks.#call wraps a hook callback in a
+  // SYNCHRONOUS try/catch, so a rejection out of an async one is not caught at
+  // all — it surfaces as a bare unhandled rejection naming neither the system
+  // nor the migration. (Same reasoning as the `phase` helper below.)
+  try {
+    await migrateSettingsNamespace();
+  } catch (err) {
+    console.error("Air Bladder | settings namespace migration failed (continuing):", err);
+  }
 });
 
 // Load the content-localization overlay (compendium names/descriptions) for the

@@ -44,9 +44,16 @@ export const SETTING_KEYS = [
  * so it cannot clobber a deliberate change. The old documents are left in place —
  * they are inert once unregistered, and keeping them means a mis-migration is
  * recoverable.
+ *
+ * Single-writer, like the two `ready` migrations in cairn.js. `isGM` alone is not
+ * enough: with two GMs connected, both pass it and both run this concurrently, and
+ * each `has()` check reads a store that the other's write has not reached yet. Two
+ * Setting DOCUMENTS then exist for one key — Foundry keeps the first it indexes, so
+ * the second is permanently shadowed and the losing GM's value is silently gone.
  */
 export const migrateSettingsNamespace = async () => {
   if (!game.user?.isGM) return;
+  if (game.users.activeGM && game.users.activeGM !== game.user) return;
   const store = game.settings.storage.get("world");
   const has = (key) => !!store.find((s) => s.key === key);
   const moved = [];

@@ -125,7 +125,8 @@ check("as seen by the GM: description", asGm.desc);
 
 await gmPage.evaluate(async ({ pcId }) => { await game.actors.get(pcId)?.delete(); }, { pcId: scene.pcId });
 
-const errs = [...gmErrors(), ...aliceErrors()];
+// watchErrors returns the accumulating ARRAY, not a getter.
+const errs = [...gmErrors, ...aliceErrors];
 if (errs.length) { console.log(""); for (const e of errs) fail("console error", e); }
 
 console.log(`\n${failures ? `SANITIZE PROBE FAILED — ${failures} problem(s)` : "Sanitize probe passed."}`);

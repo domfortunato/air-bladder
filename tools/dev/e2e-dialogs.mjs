@@ -67,6 +67,16 @@ classKept
   ? ok(".custom-dialog survived parsing")
   : fail(".custom-dialog survived parsing", "class was dropped with a nested <form>");
 
+// The type it OPENS on, before anything is chosen. Two options carried
+// `selected`, and the last one wins, so Add Item defaulted to "object" — the type
+// with no damage, no armor and no uses. Read `.value`, not the attribute: the
+// attribute is what was wrong, the value is what the form actually submits.
+const defaultType = await page.evaluate(() =>
+  document.querySelector("dialog.dialog select[name='itemtype']")?.value ?? null);
+defaultType === "item"
+  ? ok("add-item defaults to Item", defaultType)
+  : fail("add-item defaults to Item", `defaults to "${defaultType}"`);
+
 await page.fill("dialog.dialog input[name='itemname']", "Probe Lantern");
 await page.selectOption("dialog.dialog select[name='itemtype']", "weapon").catch(async () => {
   // v14 hides <select> behind a custom element; set it directly.
@@ -114,6 +124,15 @@ if (!hasFeatureDialog) {
     ? ok("feature created, all 9 flags read", `str=${feat.str} blast=${feat.blast} dex=${feat.dex}`)
     : fail("feature created, all 9 flags read", JSON.stringify(feat));
 
+  // A SECOND feature, so the edit below has an order to preserve. With one
+  // feature there is no observable difference between replacing it in place and
+  // removing it and pushing it back on.
+  await page.locator(".feature-create").first().click();
+  await page.waitForSelector("dialog.dialog input[name='itemname']", { timeout: 5000 });
+  await page.fill("dialog.dialog input[name='itemname']", "Probe Feature Two");
+  await page.locator("dialog.dialog button[data-action='ok']").click();
+  await page.waitForTimeout(1200);
+
   // Edit reads the SAME template as Create and must read the same flag list --
   // that list used to be declared twice, inline, once per dialog.
   await page.locator(".feature-edit").first().click();
@@ -128,22 +147,46 @@ if (!hasFeatureDialog) {
   await page.locator("dialog.dialog button[data-action='ok']").click();
   await page.waitForTimeout(1200);
 
-  const edited = await page.evaluate((id) =>
-    game.actors.get(id).system.features?.find((f) => f.name === "Probe Feature Edited") ?? null, actorId);
+  const after = await page.evaluate((id) => {
+    const fs = game.actors.get(id).system.features ?? [];
+    return { names: fs.map((f) => f.name), edited: fs.find((f) => f.name === "Probe Feature Edited") ?? null };
+  }, actorId);
+  const edited = after.edited;
   edited && edited.str === false && edited.wil === true && edited.blast === true
     ? ok("feature edited, flags round-tripped", `str=${edited.str} wil=${edited.wil} blast=${edited.blast}`)
     : fail("feature edited, flags round-tripped", JSON.stringify(edited));
+
+  // Editing the FIRST feature must leave it first. The handler filtered it out
+  // and pushed it back, so every edit silently sent that feature to the bottom
+  // of the list -- on a sheet where the Warden chose the order.
+  after.names[0] === "Probe Feature Edited" && after.names[1] === "Probe Feature Two"
+    ? ok("edit keeps list order", after.names.join(", "))
+    : fail("edit keeps list order", `order is now ${after.names.join(", ")}`);
 }
 
 /* ----------------------------------------------------------- container ---- */
 // Behind its own GM setting and an ACTOR_CREATE permission check, and it is the
 // one dialog that creates a world Actor rather than an owned document.
+//
+// `show-containers-tab` is registered `requiresReload: true` -- deliberately, it
+// changes which PARTS the sheet has -- so setting it does NOT make the tab appear
+// on an already-open sheet, however long you wait. This used to set it, sleep 1s
+// and click, which only ever worked because a previous run had left the setting
+// ON: the first run on a world where it was off timed out, and every run after
+// that passed. Exactly the stale-precondition trap docs/release-testing.md warns
+// about, and it hid this whole section on a clean world. Reload and re-open.
 const containersWere = await page.evaluate(async () => {
   const was = game.settings.get("air-bladder", "show-containers-tab");
   if (!was) await game.settings.set("air-bladder", "show-containers-tab", true);
   return was;
 });
-await page.waitForTimeout(1000);
+if (!containersWere) {
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
+  await dismissChrome(page);
+  await page.evaluate((id) => game.actors.get(id).sheet.render(true), actorId);
+  await page.waitForTimeout(2500);
+}
 await page.locator(`nav.tabs a[data-tab="containers"]`).first().click();
 await page.waitForTimeout(600);
 await page.locator(".container-create").first().click();

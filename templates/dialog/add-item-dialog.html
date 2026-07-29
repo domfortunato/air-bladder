@@ -20,7 +20,10 @@
       <option value="armor">{{localize 'TYPES.Item.armor'}}</option>
       <option value="weapon">{{localize 'TYPES.Item.weapon'}}</option>
       <option value="spellbook">{{localize 'TYPES.Item.spellbook'}}</option>
-      <option value="object" selected>{{localize 'TYPES.Item.object'}}</option>
+      {{!-- Exactly ONE selected. "item" is the default; this carried `selected`
+            on both, and the LAST one wins, so Add Item silently created an
+            "object" — the type with no damage, armor or uses. --}}
+      <option value="object">{{localize 'TYPES.Item.object'}}</option>
     </select>
   </div>
   <div class="form-group">
