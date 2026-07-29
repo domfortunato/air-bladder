@@ -92,6 +92,47 @@ if (byName.length) {
   console.log("  ok    every reference resolves to a document of the same name");
 }
 
+/* ---- no two canonical gear packs may hold the same item NAME ----------------
+ *
+ * Gear is granted BY NAME: module/gear.js walks CANONICAL_GEAR_PACKS and takes
+ * the first index entry that matches. A second document with the same name is
+ * therefore unreachable — and unreachable in a way nothing else here can see,
+ * because every reference still resolves and every grant still succeeds. The
+ * only symptom is a Warden editing the copy that never wins.
+ *
+ * 17 of these had accumulated by 2026-07-29, from two importers disagreeing
+ * about where the pool is: background-items.mjs moved an item out of a type
+ * pack, barebones.mjs could not see the new home in its POOL_PACKS scan,
+ * declared the item missing and re-authored it with a fresh id. Both are fixed;
+ * this is what stops it coming back quietly a third time. */
+const CANONICAL_GEAR_PACKS = [
+  "expeditionary-gear", "tools", "trinkets", "extra",
+  "weapons", "armor", "market-goods", "background-items",
+];
+const gearByName = new Map();
+for (const pack of CANONICAL_GEAR_PACKS) {
+  const dir = path.join(srcRoot, pack);
+  if (!fs.existsSync(dir)) continue;
+  for (const f of fs.readdirSync(dir).filter((n) => n.endsWith(".yml"))) {
+    const doc = load(fs.readFileSync(path.join(dir, f), "utf8"));
+    if (!doc?.name) continue;
+    const key = String(doc.name).toLowerCase();
+    if (!gearByName.has(key)) gearByName.set(key, []);
+    gearByName.get(key).push(pack);
+  }
+}
+const dupes = [...gearByName.entries()].filter(([, packs]) => packs.length > 1);
+if (dupes.length) {
+  failed = true;
+  console.error(`\nDUPLICATE GEAR NAMES — ${dupes.length} name(s) in more than one canonical pack:`);
+  for (const [name, packs] of dupes) {
+    console.error(`  ${name} — ${packs.join(", ")}   (resolves to ${packs.sort((a, b) =>
+      CANONICAL_GEAR_PACKS.indexOf(a) - CANONICAL_GEAR_PACKS.indexOf(b))[0]}, the rest are dead)`);
+  }
+} else {
+  console.log(`  ok    ${gearByName.size} gear names, each in exactly one canonical pack`);
+}
+
 if (verbose && !failed) {
   console.log(`\nindexed ${byId.size} documents`);
 }

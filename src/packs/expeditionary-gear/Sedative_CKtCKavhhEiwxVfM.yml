@@ -9,11 +9,11 @@ flags:
   air-bladder:
     gearSource: barebones
 system:
-  description: ''
+  description: 'A calming draught that dulls pain and slows a racing heart — or drops a target outright.'
   weightless: false
   equipped: false
   bulky: false
-  cost: 0
+  cost: 30
   quantity: 1
   uses:
     value: 0

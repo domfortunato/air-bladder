@@ -78,22 +78,62 @@ const destDir = PP(DEST);
 if (!DRY) fs.mkdirSync(destDir, { recursive: true });
 const destIds = new Set(readPack(DEST).map((e) => e.doc._id));
 
+// Dedupe on NAME, not on _id.
+//
+// Gear resolution is by name: module/gear.js walks CANONICAL_GEAR_PACKS and takes
+// the first index entry whose name matches. So two documents sharing a name ARE
+// duplicates however their ids differ — one of them is unreachable, and it is the
+// one in whichever pack comes later, i.e. always the background-items copy.
+//
+// This used to test `destIds.has(doc._id)`. That worked only while both copies
+// descended from the same document. Four items (Acid, Marbles, Iron Tongs,
+// Sextant) had been re-authored with FRESH ids, so the id test missed, the move
+// branch fired, and the script filed a second copy inside background-items
+// itself — turning 17 cross-pack collisions into 4 worse in-pack ones. Measured
+// 2026-07-29; the by-id check had left all 17 in place for weeks.
+const destByName = new Map(readPack(DEST).map((e) => [String(e.doc.name).toLowerCase(), e]));
+
+// What a player can actually tell apart. Identity and bookkeeping fields (_id,
+// _key, _stats, sort, folder) are excluded on purpose: two copies of Acid differ
+// only in _id, and reporting that as a content change would cry wolf on every
+// run and train the reader to skim past the line that matters.
+const contentOf = (d) => JSON.stringify({
+  name: d.name, type: d.type, img: d.img, system: d.system, flags: d.flags, effects: d.effects,
+});
+
 let moved = 0, deduped = 0;
 const byPack = {};
+const replaced = [];
 for (const pack of SOURCE_PACKS) {
   for (const { file, base, doc } of readPack(pack)) {
     if (!isBackgroundItem(doc.name)) continue;
-    if (destIds.has(doc._id)) {                       // canonical copy already in DEST — drop the re-authored dupe
+    const key = String(doc.name).toLowerCase();
+    const twin = destByName.get(key);
+    if (twin) {
+      // Both exist. Keep the SOURCE copy's content and drop the DEST one, then
+      // fall through to the move. Deliberately conservative: the source copy is
+      // the one that has been WINNING resolution all along (type packs precede
+      // background-items in CANONICAL_GEAR_PACKS), so consolidating cannot change
+      // what a character is handed. It also happened to be the better document in
+      // every observed case -- the DEST copies of Iron Tongs and Sextant had lost
+      // their tools.svg class icon to the generic bag, and the DEST Marbles said
+      // weightless:true where the SRD's Astrologer line marks no (_petty_).
+      if (contentOf(twin.doc) !== contentOf(doc)) replaced.push(doc.name);
       deduped++;
-      if (!DRY) fs.rmSync(file);
-      continue;
+      if (!DRY) fs.rmSync(twin.file);
+      destByName.delete(key);
     }
     (byPack[pack] ??= []).push(doc.name);
     moved++;
-    destIds.add(doc._id);
+    destByName.set(key, { file: path.join(destDir, base), base, doc });
     if (!DRY) fs.renameSync(file, path.join(destDir, base));
   }
 }
 
 console.log(`\n${DRY ? "[dry] would move" : "moved"}: ${moved} item(s) into src/packs/${DEST}/  |  deduped: ${deduped}`);
 for (const [pack, names] of Object.entries(byPack)) console.log(`  from ${pack} (${names.length}): ${names.sort().join(", ")}`);
+// Name a dedupe that actually discarded different content, so a silent content
+// change can never hide inside a routine "deduped: N".
+if (replaced.length) {
+  console.log(`  ${DRY ? "would replace" : "replaced"} ${replaced.length} DIFFERING ${DEST} copy(ies) with the type-pack version: ${replaced.sort().join(", ")}`);
+}

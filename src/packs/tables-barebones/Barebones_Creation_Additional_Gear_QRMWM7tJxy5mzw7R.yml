@@ -12,7 +12,7 @@ results:
       - 1
       - 1
     drawn: false
-    documentCollection: air-bladder.expeditionary-gear
+    documentCollection: air-bladder.background-items
     documentId: PvQAOAcZBzQNoFTq
     flags: {}
     _key: '!tables.results!QRMWM7tJxy5mzw7R.G5ZVWOYnthvQX5bH'
@@ -246,7 +246,7 @@ results:
       - 19
       - 19
     drawn: false
-    documentCollection: air-bladder.expeditionary-gear
+    documentCollection: air-bladder.background-items
     documentId: AL12OaM6JRqWtoxp
     flags: {}
     _key: '!tables.results!QRMWM7tJxy5mzw7R.kP6QrhBeYdc6VDCk'
@@ -324,7 +324,7 @@ results:
       - 25
       - 25
     drawn: false
-    documentCollection: air-bladder.expeditionary-gear
+    documentCollection: air-bladder.background-items
     documentId: ORUGHwFvCa3qZmUA
     flags: {}
     _key: '!tables.results!QRMWM7tJxy5mzw7R.a3pr3gmAZzCAjQO6'
@@ -337,7 +337,7 @@ results:
       - 26
       - 26
     drawn: false
-    documentCollection: air-bladder.expeditionary-gear
+    documentCollection: air-bladder.background-items
     documentId: dKWCXazD3yqwVv5r
     flags: {}
     _key: '!tables.results!QRMWM7tJxy5mzw7R.SvkQ6hCuWzsqAhD9'
@@ -350,7 +350,7 @@ results:
       - 27
       - 27
     drawn: false
-    documentCollection: air-bladder.trinkets
+    documentCollection: air-bladder.background-items
     documentId: dZHoTfgyORHvQKxJ
     flags: {}
     _key: '!tables.results!QRMWM7tJxy5mzw7R.wmCvAMHpopD953iG'
@@ -662,7 +662,7 @@ results:
       - 51
       - 51
     drawn: false
-    documentCollection: air-bladder.trinkets
+    documentCollection: air-bladder.background-items
     documentId: tZ3CYLDNGqZgE6E8
     flags: {}
     _key: '!tables.results!QRMWM7tJxy5mzw7R.FPGq6dw2PNJrVQMH'
@@ -701,7 +701,7 @@ results:
       - 54
       - 54
     drawn: false
-    documentCollection: air-bladder.expeditionary-gear
+    documentCollection: air-bladder.background-items
     documentId: nOmok6uN3M25MP6O
     flags: {}
     _key: '!tables.results!QRMWM7tJxy5mzw7R.5D9xvO2nY1XnFj39'
@@ -753,7 +753,7 @@ results:
       - 58
       - 58
     drawn: false
-    documentCollection: air-bladder.expeditionary-gear
+    documentCollection: air-bladder.background-items
     documentId: UReZxhF4Nd7kglqt
     flags: {}
     _key: '!tables.results!QRMWM7tJxy5mzw7R.kf3GdAgZLy3ABNmW'
@@ -870,7 +870,7 @@ results:
       - 67
       - 67
     drawn: false
-    documentCollection: air-bladder.expeditionary-gear
+    documentCollection: air-bladder.background-items
     documentId: azWC6SUisXkhPYXF
     flags: {}
     _key: '!tables.results!QRMWM7tJxy5mzw7R.qtLOBGnC96xDNsqP'
@@ -896,7 +896,7 @@ results:
       - 69
       - 69
     drawn: false
-    documentCollection: air-bladder.expeditionary-gear
+    documentCollection: air-bladder.background-items
     documentId: ImPdersUEpcSygUW
     flags: {}
     _key: '!tables.results!QRMWM7tJxy5mzw7R.8MVVpgB8qUnVs3J6'
@@ -1055,13 +1055,13 @@ results:
   - _id: GHvSAx3jQlvd4IzG
     type: pack
     text: Sextant
-    img: systems/air-bladder/icons/tools.svg
+    img: systems/air-bladder/icons/generic-item.svg
     weight: 1
     range:
       - 82
       - 82
     drawn: false
-    documentCollection: air-bladder.tools
+    documentCollection: air-bladder.background-items
     documentId: gNmGMjrhnspDxgFe
     flags: {}
     _key: '!tables.results!QRMWM7tJxy5mzw7R.GHvSAx3jQlvd4IzG'
@@ -1100,7 +1100,7 @@ results:
       - 85
       - 85
     drawn: false
-    documentCollection: air-bladder.expeditionary-gear
+    documentCollection: air-bladder.background-items
     documentId: 4sHxCHmRFIBb0NiJ
     flags: {}
     _key: '!tables.results!QRMWM7tJxy5mzw7R.Q95TIFijhxQw1mjA'
@@ -1178,7 +1178,7 @@ results:
       - 91
       - 91
     drawn: false
-    documentCollection: air-bladder.expeditionary-gear
+    documentCollection: air-bladder.background-items
     documentId: 5QfDzIBV3BqPi7zD
     flags: {}
     _key: '!tables.results!QRMWM7tJxy5mzw7R.lkpgmDlMW3qNAvO7'
@@ -1243,7 +1243,7 @@ results:
       - 96
       - 96
     drawn: false
-    documentCollection: air-bladder.expeditionary-gear
+    documentCollection: air-bladder.background-items
     documentId: bXEz3nKz7v1Undhh
     flags: {}
     _key: '!tables.results!QRMWM7tJxy5mzw7R.9RLaFjfzegVSErPV'
@@ -1282,7 +1282,7 @@ results:
       - 99
       - 99
     drawn: false
-    documentCollection: air-bladder.expeditionary-gear
+    documentCollection: air-bladder.background-items
     documentId: 6SicIDkLoeKuCzxC
     flags: {}
     _key: '!tables.results!QRMWM7tJxy5mzw7R.7acSPRSD2ClH19DK'

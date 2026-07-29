@@ -9,11 +9,11 @@ flags:
   air-bladder:
     gearSource: barebones
 system:
-  description: ''
+  description: 'A curved reaping-blade. It cuts grain and throats with equal ease.'
   weightless: false
   equipped: false
   bulky: false
-  cost: 0
+  cost: 5
   quantity: 1
   uses:
     value: 0

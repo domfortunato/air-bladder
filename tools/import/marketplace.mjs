@@ -86,7 +86,13 @@ const CATEGORY_PACK = { Weapons: "weapons", Armor: "armor" };
 // Pool packs to resolve a catalog name against (dir names), in the same
 // precedence module/gear.js uses. market-goods is NOT here: shop-only goods are
 // referenced by explicit documentCollection, never resolved by search.
-const CANONICAL = ["expeditionary-gear", "tools", "trinkets", "extra", "weapons", "armor"];
+// `background-items` belongs here for the same reason it belongs in
+// barebones.mjs POOL_PACKS: it is in module/gear.js CANONICAL_GEAR_PACKS, so a
+// scan that omits it can conclude an item is absent when it is merely
+// consolidated, and author a near-duplicate. No shop row currently names a
+// background-only item (that is what makes one "background-only"), so this
+// changes nothing today — it keeps the mirror honest for when one does.
+const CANONICAL = ["expeditionary-gear", "tools", "trinkets", "extra", "weapons", "armor", "background-items"];
 
 // ---- KEEP IN SYNC with module/gear.js GEAR_ALIASES ----
 const ALIASES = new Map([

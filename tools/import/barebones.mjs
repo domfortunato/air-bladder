@@ -355,7 +355,16 @@ for (const p of TARGET_PACKS) {
 // more than the resolver searches makes the importer skip authoring an item it
 // can see but generation cannot reach, and the grant silently resolves to
 // nothing. That is precisely how Sedative and Sewing Kit went missing once.
-const POOL_PACKS = ["expeditionary-gear", "tools", "trinkets", "extra", "weapons", "armor", "market-goods"];
+// The hazard runs BOTH ways, and only one direction was written down. Searching
+// more than the resolver does (above) skips authoring an item generation cannot
+// reach. Searching LESS re-authors one that already exists: `background-items`
+// is in module/gear.js CANONICAL_GEAR_PACKS but was missing here, so every item
+// background-items.mjs consolidated became invisible to this scan, was declared
+// missing, and got re-authored into a type pack with a FRESH id — a duplicate
+// name across two packs, which is also an id different enough to defeat the
+// dedupe on the other side. That is where all 17 collisions came from
+// (diagnosed 2026-07-29). Keep this list equal to CANONICAL_GEAR_PACKS.
+const POOL_PACKS = ["expeditionary-gear", "tools", "trinkets", "extra", "weapons", "armor", "market-goods", "background-items"];
 
 /** Every item the RESOLVER can reach, by lowercased name -> {pack, id, img, type}. */
 const scanPool = () => {
