@@ -43,7 +43,8 @@ try {
 }
 // And for its sheet, which the importer renders on its own; the re-roll control
 // lives there.
-await page.waitForSelector(".app.window-app.sheet", { timeout: 15000 }).catch(() => {});
+// `.app.window-app` was the ApplicationV1 window; V2 frames are `.application`.
+await page.waitForSelector(".application.sheet", { timeout: 15000 }).catch(() => {});
 await page.waitForTimeout(2500);
 
 const out = await page.evaluate(async () => {
@@ -59,22 +60,28 @@ const out = await page.evaluate(async () => {
   const soap = a.items.find((i) => /surgeon/i.test(i.name));
   const tagged = soap ? srcOf(soap) : "(item missing)";
 
-  // Drive the sheet's own re-roll handler directly. Clicking the DOM was
-  // ambiguous: a d6 landing on the option it already had is indistinguishable
-  // from a click that never fired. Retry until the answer actually changes so the
-  // assertion below is always meaningful.
+  // CLICK the control, and retry until the answer actually changes. A single
+  // click proves nothing on its own -- a d6 landing on the option it already had
+  // is indistinguishable from a click that never fired -- which is why this used
+  // to call the handler directly instead. That is no longer possible (the
+  // handler is a private static in ApplicationV2's `actions` map), and it is no
+  // longer necessary: the retry loop below already disambiguates, and going
+  // through the DOM additionally proves the control is wired to something.
   const sheet = a.sheet;
   await sheet.render(true);
   await new Promise((r) => setTimeout(r, 800));
-  const btn = sheet.element?.[0]?.querySelector?.('.question-reroll[data-index="1"]')
+  const findBtn = () => sheet.element?.querySelector?.('.question-reroll[data-index="1"]')
     ?? document.querySelector('.question-reroll[data-index="1"]');
+  const btn = findBtn();
 
   let attempts = 0;
   while (attempts < 12 && a.system.questions?.[1]?.answer === answerBefore) {
     attempts++;
     sheet._rerolling = false; // clear the double-click guard between attempts
-    await sheet._onRerollQuestion({ preventDefault() {}, currentTarget: { dataset: { index: "1" } } });
-    await new Promise((r) => setTimeout(r, 400));
+    // Re-query each pass: a re-roll re-renders the sheet, which replaces the
+    // part and with it the element captured before the loop.
+    findBtn()?.click();
+    await new Promise((r) => setTimeout(r, 500));
   }
   await new Promise((r) => setTimeout(r, 1200));
 
