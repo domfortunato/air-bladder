@@ -10,7 +10,7 @@
  *      leaves 2e characters alone.
  *
  * Drives a real Barebones character rather than inspecting config, because every
- * one of these is a getData/handler question and reading the setting back proves
+ * one of these is a context/handler question and reading the setting back proves
  * nothing about whether the sheet honours it.
  */
 import { chromium } from "playwright";
@@ -50,22 +50,35 @@ try {
       out.generatedCareer = actor.system.failedCareer;
       out.background = actor.system.background;
 
-      const ctx1 = await actor.sheet.getData();
+      // getData() became _prepareContext(options) at the ApplicationV2 port. It
+      // takes the render options rather than nothing, so pass an empty object.
+      const ctx1 = await actor.sheet._prepareContext({});
       out.shownWithSetting = ctx1.showFailedCareer;
       out.omenHiddenForBarebones = ctx1.showOmen;
 
-      // 1. the dice re-rolls it, and never to the real background
-      await actor.sheet._onRollFailedCareer(new Event("click"));
+      // 1. the dice re-rolls it, and never to the real background.
+      //
+      // Clicked, not called: the handler is a PRIVATE static in the actions map
+      // now (#onRollFailedCareer), so there is nothing to invoke from outside.
+      // Going through the DOM is the better test anyway -- it exercises the
+      // action dispatch and the isEditable gate that wraps every entry.
+      await actor.sheet.render(true);
+      for (let i = 0; i < 20 && !actor.sheet.element; i++) await new Promise((res) => setTimeout(res, 150));
+      await new Promise((res) => setTimeout(res, 350));
+      const dice = actor.sheet.element?.querySelector('[data-action="rollFailedCareer"]');
+      out.diceControlExists = !!dice;
+      dice?.click();
+      await new Promise((res) => setTimeout(res, 700));
       out.afterRoll = actor.system.failedCareer;
 
       // 2. turning the setting off hides the line on an EXISTING character
       await game.settings.set(NS, "barebones-failed-career", false);
-      out.shownWithoutSetting = (await actor.sheet.getData()).showFailedCareer;
+      out.shownWithoutSetting = (await actor.sheet._prepareContext({})).showFailedCareer;
       await game.settings.set(NS, "barebones-failed-career", true);
 
       // 3. the omens setting opens the field for Barebones...
       await game.settings.set(NS, "show-omens-barebones", true);
-      out.omenShownWhenEnabled = (await actor.sheet.getData()).showOmen;
+      out.omenShownWhenEnabled = (await actor.sheet._prepareContext({})).showOmen;
       await game.settings.set(NS, "show-omens-barebones", false);
 
       // ...and a 2e character is unaffected either way
@@ -74,8 +87,8 @@ try {
       const c2 = await gen.generate2eCharacter(bg2);
       const a2 = await gen.createActorWithCharacter(c2);
       out.made.push(a2.id);
-      out.omenShownFor2e = (await a2.sheet.getData()).showOmen;
-      out.careerHiddenFor2e = (await a2.sheet.getData()).showFailedCareer;
+      out.omenShownFor2e = (await a2.sheet._prepareContext({})).showOmen;
+      out.careerHiddenFor2e = (await a2.sheet._prepareContext({})).showFailedCareer;
 
       // the picker exists and is name-only (no gear side effects)
       out.hasPrompt = typeof gen.promptFailedCareer === "function";
@@ -94,6 +107,11 @@ try {
                     : fail("no failed career generated with the setting on");
   r.shownWithSetting ? ok("the sheet shows the failed-career line for a Barebones character")
                      : fail("failed-career line hidden despite the setting being on");
+  // Without this, "the dice re-rolls it" passes vacuously when the control is
+  // absent: nothing runs, the generated value stays put, and it was already
+  // different from the background.
+  r.diceControlExists ? ok("the re-roll control is on the rendered sheet")
+                      : fail('no [data-action="rollFailedCareer"] on the sheet — nothing was clicked');
   r.afterRoll && r.afterRoll !== r.background
     ? ok(`the dice re-rolls it: "${r.generatedCareer}" -> "${r.afterRoll}" (never the real background "${r.background}")`)
     : fail(`re-roll produced "${r.afterRoll}" against background "${r.background}"`);

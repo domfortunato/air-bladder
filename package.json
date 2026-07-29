@@ -34,7 +34,10 @@
     "dev:dialogs": "node tools/dev/e2e-dialogs.mjs",
     "dev:sheet-basics": "node tools/dev/e2e-sheet-basics.mjs",
     "dev:theme": "node tools/dev/probe-theme.mjs",
-    "dev:sheet-layout": "node tools/dev/e2e-sheet-layout.mjs"
+    "dev:sheet-layout": "node tools/dev/e2e-sheet-layout.mjs",
+    "dev:ui-parity": "node tools/dev/ui-parity-probe.mjs",
+    "dev:parity": "node tools/dev/parity-probe.mjs",
+    "dev:grant-hint": "node tools/dev/grant-hint-probe.mjs"
   },
   "browserslist": [
     "last 3 versions"

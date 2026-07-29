@@ -8,6 +8,12 @@ means it runs only when someone remembers it. That is not hypothetical: before t
 existed, 21 test scripts were spread across three partial lists — `CLAUDE.md` named 4,
 `RELEASE.md` named 4, the release skill named 7, and no list was complete.
 
+Nor was it hypothetical the second time. Three probes — `ui-parity`, `parity`,
+`grant-hint` — were never given an `npm` script and so were never on this list, and all
+three quietly rotted against ApplicationV1 internals until the AppV2 port. `ui-parity`
+alone carries 30 assertions, including the only geometry checks in the suite. **A probe
+without a script name is a probe nobody runs.** (Wired up 2026-07-29.)
+
 ---
 
 ## Why there are two passes
@@ -62,6 +68,9 @@ changed, which **fails while a world is open**, so stop the server for it.
 | `npm run dev:dialogs` | the four sheet dialogs (add item, add/edit feature, regenerate confirm) — that `button.form` reaches the right fields, the content templates carry no nested `<form>`, and the confirm still defaults to No |
 | `npm run dev:theme` | that the sheets stay readable in **both** colour schemes: every text and border colour measured against its real backdrop, in light and dark. Light is the baseline, so it only fails on something dark breaks. `-- --shots` also writes the four screenshots |
 | `npm run dev:sheet-layout` | that no two regions of a sheet grid overlap, on all four actor types. Generates **six** characters, because whether the layout fits depends on how long that background's description happens to be — one sample passes where six catch it |
+| `npm run dev:ui-parity` | the character sheet's stat-block **geometry** and computed styles — counter alignment and spacing, corner radii, button chrome measured against a reference button, the Cairn badge, the container market link, the settings sheet's positional grouping, and a sweep for untranslated `CAIRN.*` keys on every tab of a 2e *and* a Barebones character |
+| `npm run dev:parity` | the failed-career field (re-roll, live setting) and the Barebones omens gate |
+| `npm run dev:grant-hint` | the grant-source tags footer hint follows its setting |
 | `npm run dev:portrait-folder` | the custom-portrait setting takes effect with no reload |
 | `npm run dev:directory-buttons` | the Actor Directory buttons, docked **and** popped out |
 | `npm run dev:warden-rename` | the GM rename cycle across page reloads |

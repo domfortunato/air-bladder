@@ -6,8 +6,8 @@
  * one is checked as GEOMETRY or COMPUTED STYLE — never by reading the stylesheet
  * back, which only proves a rule was written, not that it applied or won.
  *
- * Rolls a real character (the header buttons and the Gold counter only exist on
- * a generated one) and deletes it afterwards.
+ * Rolls a real character (the Gold counter only exists on a generated one) and
+ * deletes it afterwards.
  */
 import { chromium } from "playwright";
 import { VIEWPORT, joinAsGM, watchErrors, dismissChrome } from "./lib.mjs";
@@ -52,7 +52,7 @@ try {
     await actor.sheet.render(true);
     await new Promise((res) => setTimeout(res, 1200));
 
-    const root = actor.sheet.element[0];
+    const root = actor.sheet.element;
     const box = (sel) => {
       const el = root.querySelector(sel);
       if (!el) return null;
@@ -114,26 +114,15 @@ try {
     }
     out.fateGlow = style("#die-of-fate-button", "textShadow");
 
-    // Header buttons live on the window frame, not inside the form.
-    const win = root.closest(".app, .application") ?? root;
-    const btn = (cls) => {
-      const el = win.querySelector(`.${cls}-${actor.id}`);
-      return el ? { text: el.textContent.trim(), hidden: getComputedStyle(el).display === "none" } : null;
-    };
-    out.rollCharacter = btn("regenerate-character-button");
-    out.toggle = btn("toggle-generation-button");
-
-    // The toggle must actually flip mode, hide Roll Character, and relabel itself.
-    out.genBefore = actor.system.generationEnabled !== false;
-    await actor.sheet._onToggleGeneration(new Event("click"));
-    out.genAfter = actor.system.generationEnabled !== false;
-    out.rollAfterToggle = btn("regenerate-character-button");
-    out.toggleAfter = btn("toggle-generation-button");
-
-    // Leave the sheet in the ON state — the screenshot should show both header
-    // buttons, and this doubles as a check that the toggle flips back.
-    await actor.sheet._onToggleGeneration(new Event("click"));
-    out.rollRestored = btn("regenerate-character-button");
+    // The header buttons used to be asserted here: Roll Character and the
+    // Randomization toggle, each found by a per-actor class on markup the sheet
+    // painted into the title bar itself. The ApplicationV2 port deleted all of
+    // that -- they are `window.controls` entries now, rendered by core into the
+    // ⋮ menu, and there is no per-actor class to select. The coverage was not
+    // lost, it MOVED: `npm run dev:dialogs` drives the real menu and asserts the
+    // same five things (both entries present, the toggle flips the mode, Roll
+    // Character disappears, the label reads "Randomization: Off", it comes back).
+    // Duplicating it here would mean two probes to update for one behaviour.
 
     // --- Description tab: the background description moved to the HEADER, and
     // the Cairn-compatible badge sits at the foot.
@@ -149,7 +138,7 @@ try {
     // --- Containers tab: empty state + the custom-container escape hatch. The
     // setting was enabled and the client reloaded before this evaluate, so the
     // tab is real here, not a runtime-painted nav item.
-    const cRoot = actor.sheet.element[0];
+    const cRoot = actor.sheet.element;
     out.containerEmpty = !!cRoot.querySelector(".container-empty");
     out.containerShop = !!cRoot.querySelector(".container-empty-shop");
     out.containerCustom = !!cRoot.querySelector(".container-custom");
@@ -168,7 +157,12 @@ try {
     // window title. Title matching is brittle and was the source of a long
     // false-negative hunt.
     const shopLink = cRoot.querySelector(".cairn-items-list-header .container-shop");
-    out.shopLinkBound = Object.keys(globalThis.jQuery?._data?.(shopLink, "events") ?? {});
+    // Was `jQuery._data(el, "events")`, which only ever saw jQuery-bound
+    // handlers. The sheet dispatches through ApplicationV2's `actions` map now,
+    // and native listeners cannot be introspected at all — so report the action
+    // NAME instead. On a failure that is the useful fact anyway: a link with no
+    // data-action reaches no handler, whatever is bound to it.
+    out.shopLinkAction = shopLink?.dataset.action ?? null;
     shopLink?.click();
     // Poll rather than sleep: the first open builds the catalog, which loads the
     // marketplace pack and resolves every row against the gear packs.
@@ -192,7 +186,8 @@ try {
     // editable pool (the background doc itself stores only names).
     const bgDoc = await fromUuid(actor.system.backgroundUuid);
     if (bgDoc) {
-      const ctx = await bgDoc.sheet.getData();
+      // getData() became _prepareContext(options) at the ApplicationV2 port.
+      const ctx = await bgDoc.sheet._prepareContext({});
       out.bgGearRows = (ctx.startingGearRows ?? []).map((r) => `${r.name}: ${r.tags.join("|")}`);
       out.bgGearTagged = (ctx.startingGearRows ?? []).filter((r) => r.tags.length).length;
       out.bgGearTotal = (ctx.startingGearRows ?? []).length;
@@ -204,7 +199,7 @@ try {
     ]);
     await actor.sheet.render(true);
     await new Promise((res) => setTimeout(res, 600));
-    const fatigueEl = actor.sheet.element[0].querySelector(".fatigue-row");
+    const fatigueEl = actor.sheet.element.querySelector(".fatigue-row");
     out.fatigueRow = !!fatigueEl;
     out.fatigueGlow = fatigueEl ? getComputedStyle(fatigueEl).boxShadow : null;
 
@@ -224,7 +219,7 @@ try {
     const sweep = async (a) => {
       await a.sheet.render(true);
       await new Promise((res) => setTimeout(res, 700));
-      const el = a.sheet.element[0];
+      const el = a.sheet.element;
       for (const tab of ["items", "containers", "description", "notes"]) {
         el.querySelector(`.tabs .item[data-tab="${tab}"]`)?.click();
         await new Promise((res) => setTimeout(res, 250));
@@ -308,7 +303,7 @@ try {
     await game.settings.set(NS, "show-containers-tab", wasTab);
     await actor.sheet.render(true);
     await new Promise((res) => setTimeout(res, 400));
-    out.tabPresentAfterReload = !!actor.sheet.element[0].querySelector('.tabs .item[data-tab="containers"]');
+    out.tabPresentAfterReload = !!actor.sheet.element.querySelector('.tabs .item[data-tab="containers"]');
 
     await game.settings.set(NS, "show-generate-header", was);
     return out;
@@ -359,25 +354,8 @@ try {
     ? ok(`Die of Fate keeps its teal text glow (${r.fateGlow})`)
     : fail("Die of Fate has no text glow");
 
-  // Header.
-  r.rollCharacter?.text === "Roll Character"
-    ? ok('the header button reads "Roll Character"')
-    : fail(`header button reads "${r.rollCharacter?.text ?? "(absent)"}"`);
-  r.toggle?.text === "Randomization: On"
-    ? ok('the Randomization toggle is present and reads "Randomization: On"')
-    : fail(`toggle reads "${r.toggle?.text ?? "(absent)"}"`);
-  r.genBefore === true && r.genAfter === false
-    ? ok("the toggle flips generation mode off")
-    : fail(`toggle did not flip the mode: ${r.genBefore} -> ${r.genAfter}`);
-  r.rollAfterToggle?.hidden === true
-    ? ok("switching Randomization off hides Roll Character")
-    : fail("Roll Character stayed visible with Randomization off");
-  r.toggleAfter?.text === "Randomization: Off"
-    ? ok("the toggle relabels itself to Randomization: Off")
-    : fail(`toggle label after flip: "${r.toggleAfter?.text}"`);
-  r.rollRestored?.hidden === false
-    ? ok("switching Randomization back on restores Roll Character")
-    : fail("Roll Character did not come back when Randomization was re-enabled");
+  // (The header generation controls are asserted by `npm run dev:dialogs` now —
+  // see the note in the page context.)
 
   // Description: background blurb belongs in the header, not the tab.
   r.descInHeader && !r.descInTab
@@ -399,7 +377,7 @@ try {
     : fail("no custom-container link on the Containers tab");
   r.containerShopOpens
     ? ok(`clicking it actually OPENS the shop ("${r.containerShopTitle}")`)
-    : fail(`the market link opened no shop. handlers=[${r.shopLinkBound?.join(",")}] `
+    : fail(`the market link opened no shop. data-action=${r.shopLinkAction} `
          + `tabActive=${r.tabActive} dialogs=[${r.openDialogTitles?.join(" | ")}]`);
   r.containerShopCategories?.length === 1 && r.containerShopCategories[0] === "Transports & Containers"
     ? ok(`the container shop is scoped to one category (${r.containerShopCategories.join(", ")})`)
