@@ -70,9 +70,11 @@ try {
       a.sheet.render(true);
       await new Promise(r => setTimeout(r, 3000));
       const el = a.sheet.element;
-      const node = el?.[0] ?? el;            // AppV1 returns jQuery
+      const node = el instanceof HTMLElement ? el : el?.[0];   // AppV1 returns jQuery
       out.sheetClass = a.sheet.constructor.name;
-      out.inDom = !!document.querySelector(".app.window-app");
+      // Ask the sheet for its own element rather than matching a framework class:
+      // AppV1 windows are `.app.window-app`, ApplicationV2's are `.application`.
+      out.inDom = !!node?.isConnected;
       out.tabs = [...(node?.querySelectorAll?.("nav .item, .tabs .item") ?? [])].map(t => t.textContent.trim());
       await a.delete();
     } catch (e) { out.error = `${e.name}: ${e.message}`; }

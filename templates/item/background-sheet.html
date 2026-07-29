@@ -1,31 +1,35 @@
-<form class="cairn" autocomplete="off">
+{{!-- No <form> here: ApplicationV2 supplies it (DocumentSheetV2 sets tag: "form").
+      A nested one is dropped by the parser, taking this element's class with it. --}}
     <div class="item-sheet-grid background">
         <!-- Portrait -->
         <div class="item-sheet-section-portrait">
-            <img class="portrait" src="{{data.img}}" data-edit="img" title="{{data.name}}" />
+            <img class="portrait" src="{{item.img}}" data-action="editImage" data-edit="img" title="{{item.name}}" />
         </div>
         <!-- Name -->
         <div class="item-sheet-section-name">
-            <input class="name-input" type="text" name="name" value="{{data.name}}" placeholder="{{ localize 'CAIRN.Name' }}" />
+            <input class="name-input" type="text" name="name" value="{{item.name}}" placeholder="{{ localize 'CAIRN.Name' }}" />
         </div>
 
         <div class="item-sheet-section-tabs">
             <nav class="tabs" data-group="primary">
-                <a class="item" data-group="primary" data-tab="description">{{ localize 'CAIRN.Description' }}</a>
-                <a class="item" data-group="primary" data-tab="details">{{ localize 'CAIRN.BackgroundDetails' }}</a>
-            </nav>
+            {{#each tabs}}
+            <a class="item {{this.cssClass}}" data-action="tab" data-group="{{this.group}}"
+                data-tab="{{this.id}}">{{ localize this.label }}</a>
+            {{/each}}
+        </nav>
             <section class="content">
-                <div class="tab" data-group="primary" data-tab="description">
-                    {{ editor enrichedDescription target="system.description" button=true owner=owner editable=editable engine="prosemirror" collaborate=true }}
+                <div class="tab {{tabs.description.cssClass}}" data-group="primary" data-tab="description">
+                    <prose-mirror name="system.description" value="{{system.description}}" toggled collaborate relative
+                        data-document-uuid="{{item.uuid}}">{{{enrichedDescription}}}</prose-mirror>
                 </div>
 
                 {{#if isBackgroundEditor}}
                 {{!-- Editable authoring form (world-pack / owned backgrounds) --}}
-                <div class="tab background-editor" data-group="primary" data-tab="details">
+                <div class="tab background-editor {{tabs.details.cssClass}}" data-group="primary" data-tab="details">
 
                     <div class="bg-edit-toolbar">
-                        <a class="bg-test" title="{{ localize 'CAIRN.BgAuthor.TestHint' }}"><i class="fas fa-flask"></i> {{ localize 'CAIRN.BgAuthor.Test' }}</a>
-                        {{#if isGM}}<a class="bg-duplicate" title="{{ localize 'CAIRN.BgAuthor.DuplicateHint' }}"><i class="fas fa-copy"></i> {{ localize 'CAIRN.BgAuthor.Duplicate' }}</a>{{/if}}
+                        <a class="bg-test" data-action="testBackground" title="{{ localize 'CAIRN.BgAuthor.TestHint' }}"><i class="fas fa-flask"></i> {{ localize 'CAIRN.BgAuthor.Test' }}</a>
+                        {{#if isGM}}<a class="bg-duplicate" data-action="duplicateBackground" title="{{ localize 'CAIRN.BgAuthor.DuplicateHint' }}"><i class="fas fa-copy"></i> {{ localize 'CAIRN.BgAuthor.Duplicate' }}</a>{{/if}}
                     </div>
 
                     <div class="bg-edit-row">
@@ -35,7 +39,7 @@
                     <div class="bg-edit-row">
                         <label>{{ localize 'CAIRN.BgAuthor.Archetype' }}</label>
                         <select name="system.archetype">
-                            {{ selectOptions archetypeChoices selected=data.system.archetype localize=false blank="—" }}
+                            {{ selectOptions archetypeChoices selected=system.archetype localize=false blank="—" }}
                         </select>
                     </div>
                     <p class="bg-edit-hint">{{ localize 'CAIRN.BgAuthor.SourceHint' }}</p>
@@ -45,11 +49,11 @@
                         {{#each editNames}}
                         <div class="bg-name-item">
                             <input class="bg-name-input" type="text" data-i="{{@index}}" value="{{this}}" placeholder="{{ localize 'CAIRN.BgAuthor.NamePlaceholder' }}" />
-                            <a class="bg-name-remove" data-i="{{@index}}" title="{{ localize 'CAIRN.Remove' }}"><i class="fas fa-times"></i></a>
+                            <a class="bg-name-remove" data-action="removeName" data-i="{{@index}}" title="{{ localize 'CAIRN.Remove' }}"><i class="fas fa-times"></i></a>
                         </div>
                         {{/each}}
                     </div>
-                    <a class="bg-name-add"><i class="fas fa-plus"></i> {{ localize 'CAIRN.BgAuthor.AddName' }}</a>
+                    <a class="bg-name-add" data-action="addName"><i class="fas fa-plus"></i> {{ localize 'CAIRN.BgAuthor.AddName' }}</a>
 
                     <h3>{{ localize 'CAIRN.BackgroundStartingGear' }}</h3>
                     <div class="bg-gear-list" data-drop="gear">
@@ -59,12 +63,12 @@
                             {{#if this.isSnapshot}}<span class="bg-snapshot-badge" title="{{ localize 'CAIRN.BgAuthor.SnapshotHint' }}"><i class="fas fa-camera"></i></span>{{/if}}
                             <input class="bg-gear-uses" type="number" min="0" data-i="{{@index}}" value="{{this.uses}}" title="{{ localize 'CAIRN.NUsesTitle' }}" placeholder="{{ localize 'CAIRN.Uses' }}" />
                             {{#if this.tags.length}}<span class="bg-gear-tags">{{#each this.tags}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}</span>{{/if}}
-                            <a class="bg-gear-remove" data-i="{{@index}}" title="{{ localize 'CAIRN.Remove' }}"><i class="fas fa-times"></i></a>
+                            <a class="bg-gear-remove" data-action="removeGear" data-i="{{@index}}" title="{{ localize 'CAIRN.Remove' }}"><i class="fas fa-times"></i></a>
                         </div>
                         {{/each}}
                         <p class="bg-drop-hint">{{ localize 'CAIRN.BgAuthor.DropGearHint' }}</p>
                     </div>
-                    <a class="bg-gear-add"><i class="fas fa-plus"></i> {{ localize 'CAIRN.BgAuthor.AddGear' }}</a>
+                    <a class="bg-gear-add" data-action="addGear"><i class="fas fa-plus"></i> {{ localize 'CAIRN.BgAuthor.AddGear' }}</a>
 
                     <h3>{{ localize 'CAIRN.BgAuthor.Tables' }}</h3>
                     <p class="bg-edit-hint">{{ localize 'CAIRN.BgAuthor.TablesHint' }}</p>
@@ -83,7 +87,7 @@
                                         {{#each this.items}}
                                         <span class="bg-item-chip{{#if this.isSnapshot}} is-snapshot{{/if}}">
                                             {{#if this.isSnapshot}}<i class="fas fa-camera"></i> {{/if}}{{this.name}}
-                                            <a class="bg-option-item-remove" data-t="{{@../../index}}" data-o="{{@../index}}" data-i="{{@index}}"><i class="fas fa-times"></i></a>
+                                            <a class="bg-option-item-remove" data-action="removeOptionItem" data-t="{{@../../index}}" data-o="{{@../index}}" data-i="{{@index}}"><i class="fas fa-times"></i></a>
                                         </span>
                                         {{/each}}
                                         <span class="bg-drop-hint bg-drop-hint-inline">{{ localize 'CAIRN.BgAuthor.DropItemHint' }}</span>
@@ -97,24 +101,24 @@
                 </div>
                 {{else}}
                 {{!-- Read-only view (locked shipped packs) --}}
-                <div class="tab background-details" data-group="primary" data-tab="details">
+                <div class="tab background-details {{tabs.details.cssClass}}" data-group="primary" data-tab="details">
                     {{#if isGM}}
                     <div class="bg-edit-toolbar readonly">
-                        <a class="bg-duplicate" title="{{ localize 'CAIRN.BgAuthor.DuplicateHint' }}"><i class="fas fa-copy"></i> {{ localize 'CAIRN.BgAuthor.Duplicate' }}</a>
+                        <a class="bg-duplicate" data-action="duplicateBackground" title="{{ localize 'CAIRN.BgAuthor.DuplicateHint' }}"><i class="fas fa-copy"></i> {{ localize 'CAIRN.BgAuthor.Duplicate' }}</a>
                     </div>
                     {{/if}}
                     <p class="background-source">
-                        <strong>{{ localize 'CAIRN.BackgroundSource' }}:</strong> {{data.system.source}}
+                        <strong>{{ localize 'CAIRN.BackgroundSource' }}:</strong> {{system.source}}
                     </p>
 
-                    {{#if data.system.names.length}}
+                    {{#if system.names.length}}
                     <h3>{{ localize 'CAIRN.BackgroundNames' }}</h3>
                     <p class="background-names">
-                        {{~#each data.system.names~}}{{this}}{{#unless @last}}, {{/unless}}{{~/each~}}
+                        {{~#each system.names~}}{{this}}{{#unless @last}}, {{/unless}}{{~/each~}}
                     </p>
                     {{/if}}
 
-                    {{#if data.system.startingGear.length}}
+                    {{#if system.startingGear.length}}
                     <h3>{{ localize 'CAIRN.BackgroundStartingGear' }}</h3>
                     <ul class="background-gear">
                         {{#each startingGearRows}}
@@ -123,7 +127,7 @@
                     </ul>
                     {{/if}}
 
-                    {{#each data.system.tables}}
+                    {{#each system.tables}}
                     <div class="background-table">
                         <h3>{{this.question}}</h3>
                         <ol>
@@ -138,4 +142,3 @@
             </section>
         </div>
     </div>
-</form>

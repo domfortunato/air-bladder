@@ -48,8 +48,12 @@ await page.waitForFunction(() => !!game.actors.getName("Solene"), null, { timeou
 // Both windows must be on screen before z-order can be judged: the sheet renders
 // asynchronously after create() resolves, so measuring too early reads a missing
 // sheet as z-index 0 and the assertion passes vacuously.
+//
+// The sheet selector is `.application.cairn.sheet`, not AppV1's `.app.window-app`
+// -- and it is qualified with `.cairn` on purpose, since `.application.sheet`
+// alone would also match a core sheet that happened to be open.
 await page.waitForFunction(
-  () => !!document.querySelector(".application.dialog") && !!document.querySelector(".app.window-app.sheet"),
+  () => !!document.querySelector(".application.dialog") && !!document.querySelector(".application.cairn.sheet"),
   null, { timeout: 15000 },
 ).catch(() => {});
 await page.waitForTimeout(1200); // let the deferred bringToFront land
@@ -73,7 +77,7 @@ const out = await page.evaluate(() => {
     // The summary must sit ABOVE the auto-rendered sheet. The sheet renders after
     // create() resolves and would otherwise bury it — see showImportSummary.
     zDialog: Number(getComputedStyle(dlg ?? document.body).zIndex) || 0,
-    zSheet: Number(getComputedStyle(document.querySelector(".app.window-app.sheet") ?? document.body).zIndex) || 0,
+    zSheet: Number(getComputedStyle(document.querySelector(".application.cairn.sheet") ?? document.body).zIndex) || 0,
   };
 });
 

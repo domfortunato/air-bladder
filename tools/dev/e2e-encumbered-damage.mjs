@@ -76,13 +76,29 @@ const out = await page.evaluate(async () => {
   const sheet = hire.sheet;
   await sheet.render(true);
   await new Promise((r) => setTimeout(r, 900));
-  // What the sheet would actually submit, derived-zero and all.
-  const submitted = sheet._getSubmitData({});
+
+  // What the sheet would actually submit, derived-zero and all. The guard moved
+  // from AppV1's `_getSubmitData(updateData)` to ApplicationV2's
+  // `_processFormData(event, form, formData)`, which receives the extracted form
+  // data rather than reading the DOM itself.
+  const form = sheet.element instanceof HTMLElement ? sheet.element : sheet.element[0];
+  const formData = new foundry.applications.ux.FormDataExtended(form);
+  const submitted = sheet._processFormData(null, form, formData);
   results.submitKeepsHp =
     "system.hp.value" in submitted ||
     submitted?.system?.hp?.value !== undefined;
+
+  // Then the real path. This used to close the sheet, because AppV1 submitted on
+  // close — ApplicationV2 has no submitOnClose at all, so that gesture now writes
+  // nothing and would pass whether the guard worked or not. Editing a field is
+  // what submits now (submitOnChange), so drive that instead.
+  const nameInput = form.querySelector('input[name="name"]');
+  nameInput.value = `${NAME}-hireling-renamed`;
+  nameInput.dispatchEvent(new Event("change", { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 900));
+  results.hirelingRenamed = hire.name === `${NAME}-hireling-renamed`;
   await sheet.close();
-  await new Promise((r) => setTimeout(r, 700));
+  await new Promise((r) => setTimeout(r, 500));
   results.hirelingSourceAfter = hire.toObject().system.hp.value;
 
   for (const a of game.actors.filter((a) => a.name.startsWith(NAME))) await a.delete();
@@ -111,8 +127,11 @@ check("STR untouched", out.strAfterHit === 10,
 
 console.log("\nhireling sheet submit");
 check("guard strips HP", !out.submitKeepsHp, "system.hp.value removed from submit data");
+// The rename proves the submit actually HAPPENED. Without it, "stored HP survives"
+// passes trivially on a sheet that never wrote anything at all.
+check("a real submit ran", out.hirelingRenamed, "editing the name field committed");
 check("stored HP survives", out.hirelingSourceAfter === 4,
-  `source=${out.hirelingSourceAfter} (expected 4: opening and closing must not write)`);
+  `source=${out.hirelingSourceAfter} (expected 4: a submit must not persist the derived 0)`);
 
 if (errors.length) { bad++; console.log("Console errors:\n" + errors.join("\n")); }
 console.log(bad === 0 ? "\nencumbered-damage e2e passed" : `\nencumbered-damage e2e FAILED — ${bad}`);

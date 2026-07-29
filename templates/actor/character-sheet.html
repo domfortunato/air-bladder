@@ -1,18 +1,19 @@
-<form class="cairn" autocomplete="off">
+{{!-- No <form> here: ApplicationV2 supplies it (DocumentSheetV2 sets tag: "form").
+      A nested one is dropped by the parser, taking this element's class with it. --}}
     <div class="charater-sheet-grid">
         <!-- Portrait: click to pick from the shipped gallery, d20 to re-roll one -->
         <div class="portrait-wrap">
-            <img class="portrait" src="{{data.img}}" title="{{ localize 'CAIRN.ChoosePortrait' }}" />
+            <img class="portrait" src="{{actor.img}}" data-action="editPortrait" title="{{ localize 'CAIRN.ChoosePortrait' }}" />
             {{#if generationEnabled}}
-            <a class="portrait-roll" title="{{ localize 'CAIRN.RollPortrait' }}"><i class="fas fa-dice-d20"></i></a>
+            <a class="portrait-roll" data-action="rollPortrait" title="{{ localize 'CAIRN.RollPortrait' }}"><i class="fas fa-dice-d20"></i></a>
             {{/if}}
         </div>
         <!-- Name, background, HP and deprived -->
         <div class="character-sheet-section-name">
             <div class="name-line">
-                <input class="name-input" type="text" name="name" value="{{data.name}}" placeholder="{{ localize 'CAIRN.Name' }}" />
+                <input class="name-input" type="text" name="name" value="{{actor.name}}" placeholder="{{ localize 'CAIRN.Name' }}" />
                 {{#if generationEnabled}}
-                <a class="name-roll" title="{{ localize 'CAIRN.RollName' }}"><i class="fas fa-dice-d20"></i></a>
+                <a class="name-roll" data-action="rollName" title="{{ localize 'CAIRN.RollName' }}"><i class="fas fa-dice-d20"></i></a>
                 {{/if}}
             </div>
             <div class="background-line">
@@ -22,14 +23,14 @@
                 {{/if}}
                 <span class="background-name">{{backgroundName}}</span>
                 {{#if generationEnabled}}
-                <a class="background-roll" title="{{ localize 'CAIRN.RollBackground' }}"><i class="fas fa-dice-d20"></i></a>
-                <a class="background-pick" title="{{ localize 'CAIRN.ChangeBackground' }}"><i class="fas fa-magnifying-glass"></i></a>
+                <a class="background-roll" data-action="rollBackground" title="{{ localize 'CAIRN.RollBackground' }}"><i class="fas fa-dice-d20"></i></a>
+                <a class="background-pick" data-action="pickBackground" title="{{ localize 'CAIRN.ChangeBackground' }}"><i class="fas fa-magnifying-glass"></i></a>
                 {{/if}}
                 {{else}}
-                <input class="background-input" type="text" name="system.background" value="{{data.system.background}}"
+                <input class="background-input" type="text" name="system.background" value="{{system.background}}"
                     placeholder="{{ localize 'CAIRN.Background' }}" />
                 {{/if}}
-                {{#if data.system.contentSource}}
+                {{#if system.contentSource}}
                 <span class="content-source-label">({{ localize 'CAIRN.Source' }} {{contentSourceLabel}})</span>
                 {{/if}}
             </div>
@@ -44,15 +45,15 @@
                     <span class="failed-career-label">{{ localize 'CAIRN.FailedCareerLabel' }}</span>
                     <span class="failed-career-name">{{failedCareer}}</span>
                     {{#if generationEnabled}}
-                    <a class="failed-career-roll" title="{{ localize 'CAIRN.RollFailedCareer' }}"><i class="fas fa-dice-d20"></i></a>
-                    <a class="failed-career-pick" title="{{ localize 'CAIRN.ChangeFailedCareer' }}"><i class="fas fa-magnifying-glass"></i></a>
+                    <a class="failed-career-roll" data-action="rollFailedCareer" title="{{ localize 'CAIRN.RollFailedCareer' }}"><i class="fas fa-dice-d20"></i></a>
+                    <a class="failed-career-pick" data-action="pickFailedCareer" title="{{ localize 'CAIRN.ChangeFailedCareer' }}"><i class="fas fa-magnifying-glass"></i></a>
                     {{/if}}
                 </div>
                 <div class="failed-career-item-line">
                     <span class="failed-career-item-label">{{ localize 'CAIRN.FailedCareerItemLabel' }}</span>
                     <span class="failed-career-item-name">{{failedCareerItem}}</span>
                     {{#if generationEnabled}}
-                    <a class="failed-career-item-roll" title="{{ localize 'CAIRN.RollFailedCareerItem' }}"><i class="fas fa-dice-d20"></i></a>
+                    <a class="failed-career-item-roll" data-action="rollFailedCareerItem" title="{{ localize 'CAIRN.RollFailedCareerItem' }}"><i class="fas fa-dice-d20"></i></a>
                     {{/if}}
                 </div>
             </div>
@@ -61,33 +62,33 @@
                 <label for="{{@root.idp}}-system.hp.value" data-tooltip="{{ localize 'CAIRN.HitProtectionTip' }}">{{ localize 'CAIRN.HitProtection' }}</label>
                 <div class="resource-input-wrapper">
                     <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.value" id="{{@root.idp}}-system.hp.value"
-                           value="{{data.system.hp.value}}" data-dtype="Number" title="{{ localize 'CAIRN.Current' }}" />
+                           value="{{system.hp.value}}" data-dtype="Number" title="{{ localize 'CAIRN.Current' }}" />
                     <span> / </span>
-                    <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.max" value="{{data.system.hp.max}}" data-dtype="Number" title="{{ localize 'CAIRN.Maximum' }}" />
+                    <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.max" value="{{system.hp.max}}" data-dtype="Number" title="{{ localize 'CAIRN.Maximum' }}" />
                 </div>
             </div>
-            <div class="resource-counter deprived-counter long-counter {{#if data.system.maybeTooMuchGold }}overburdened-gold{{/if}}"
-            {{#if data.system.maybeTooMuchGold }} title="{{localize 'CAIRN.OverburdenByGold'}}" {{/if}} >
-                <label for="{{@root.idp}}-system.gold" data-tooltip="{{ data.system.coinTip }}">
+            <div class="resource-counter deprived-counter long-counter {{#if system.maybeTooMuchGold }}overburdened-gold{{/if}}"
+            {{#if system.maybeTooMuchGold }} title="{{localize 'CAIRN.OverburdenByGold'}}" {{/if}} >
+                <label for="{{@root.idp}}-system.gold" data-tooltip="{{ system.coinTip }}">
                     {{ localize 'CAIRN.Gold' }}
                 </label>
                 <div class="resource-input-wrapper">
-                    <input type="number" name="system.gold" id="{{@root.idp}}-system.gold" value="{{data.system.gold}}" data-dtype="Number" />
+                    <input type="number" name="system.gold" id="{{@root.idp}}-system.gold" value="{{system.gold}}" data-dtype="Number" />
                 </div>
             </div>
-            
+
         </div>
         <!-- Buttons -->
         <div class="character-sheet-section-buttons">
-            <button id="rest-button" type="button" class="strict-size-button" data-tooltip="{{ localize 'CAIRN.RestTip' }}" {{#if data.system.deprived}}disabled{{/if}}><i class="fas fa-campground"></i> {{ localize 'CAIRN.Rest' }}</button>
-            <button id="restore-abilities-button" type="button" class="strict-size-button" data-tooltip="{{ localize 'CAIRN.RestoreTip' }}" {{#if data.system.deprived}}disabled{{/if}}><i class="fas fa-heart-pulse"></i> {{ localize 'CAIRN.RestoreAbilities' }}</button>
-            <button id="die-of-fate-button" type="button" class="strict-size-button" data-tooltip="{{ localize 'CAIRN.DieOfFateTip' }}"><i class="fas fa-dice-d6"></i> {{ localize 'CAIRN.DieOfFate' }}</button>
+            <button id="rest-button" type="button" data-action="rest" class="strict-size-button" data-tooltip="{{ localize 'CAIRN.RestTip' }}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-campground"></i> {{ localize 'CAIRN.Rest' }}</button>
+            <button id="restore-abilities-button" type="button" data-action="restoreAbilities" class="strict-size-button" data-tooltip="{{ localize 'CAIRN.RestoreTip' }}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-heart-pulse"></i> {{ localize 'CAIRN.RestoreAbilities' }}</button>
+            <button id="die-of-fate-button" type="button" data-action="dieOfFate" class="strict-size-button" data-tooltip="{{ localize 'CAIRN.DieOfFateTip' }}"><i class="fas fa-dice-d6"></i> {{ localize 'CAIRN.DieOfFate' }}</button>
         </div>
         <!-- Abilities -->
         <div class="character-sheet-section-abilities">
-            {{#each data.system.abilities as |ability key|}}
+            {{#each system.abilities as |ability key|}}
             <div class="resource-counter {{key}}-counter {{#if (lookup ../abilityPeril key)}}peril{{/if}} {{#if (lookup ../abilityLow key)}}low{{/if}}">
-                <a class="resource-roll" data-ability="{{key}}" data-roll="d20cs<=@abilities.{{key}}.value"
+                <a class="resource-roll" data-action="rollAbility" data-ability="{{key}}" data-roll="d20cs<=@abilities.{{key}}.value"
                     data-label="{{{ localize 'CAIRN.Save' key=key}}}" data-tooltip="{{ lookup ../abilityTips key }}"><i class="fas fa-dice-d20 roll-icon"></i> {{ localize key }}</a>
                 <div class="resource-input-wrapper">
                     <input type="number" min="0" max="18" step="1" class="stat-input" name="system.abilities.{{key}}.value" value="{{ability.value}}"
@@ -97,7 +98,7 @@
                         title="{{ localize 'CAIRN.Maximum' }}" />
                 </div>
                 {{#if (lookup ../criticalToggle key)}}
-                <a class="critical-toggle {{#if (lookup ../criticalActive key)}}active{{/if}}" data-key="{{key}}"
+                <a class="critical-toggle {{#if (lookup ../criticalActive key)}}active{{/if}}" data-action="toggleCritical" data-key="{{key}}"
                     title="{{ localize 'CAIRN.CriticalDamageToggle' }}"><i class="fas fa-skull"></i></a>
                 {{/if}}
             </div>
@@ -105,13 +106,13 @@
         </div>
         <!-- (panic) deprived and armor -->
         <div class="character-sheet-section-others">
-            <div class="resource-counter long-counter armor-counter {{#if data.system.armorOverridden}}armor-overridden{{/if}}">
+            <div class="resource-counter long-counter armor-counter {{#if system.armorOverridden}}armor-overridden{{/if}}">
                 <label data-tooltip="{{ localize 'CAIRN.ArmorTip' }}">{{ localize 'CAIRN.Armor' }}</label>
                 <div class="resource-input-wrapper">
-                    <input type="number" min="0" max="3" step="1" class="armor-input" value="{{data.system.armor}}"
-                        title="{{#if data.system.armorOverridden}}{{ localize 'CAIRN.ArmorOverrideActive' }}{{else}}{{ localize 'CAIRN.ArmorAuto' }}{{/if}}" />
-                    {{#if data.system.armorOverridden}}
-                    <a class="armor-reset" title="{{ localize 'CAIRN.ArmorReset' }}"><i class="fas fa-rotate-left"></i></a>
+                    <input type="number" min="0" max="3" step="1" class="armor-input" value="{{system.armor}}"
+                        title="{{#if system.armorOverridden}}{{ localize 'CAIRN.ArmorOverrideActive' }}{{else}}{{ localize 'CAIRN.ArmorAuto' }}{{/if}}" />
+                    {{#if system.armorOverridden}}
+                    <a class="armor-reset" data-action="armorReset" title="{{ localize 'CAIRN.ArmorReset' }}"><i class="fas fa-rotate-left"></i></a>
                     {{/if}}
                 </div>
             </div>
@@ -119,19 +120,19 @@
             <div class="resource-counter long-counter deprived-counter">
                 <label data-tooltip="{{ localize 'CAIRN.DeprivedTip' }}">{{ localize 'CAIRN.Deprived' }}</label>
                 <div class="resource-input-wrapper">
-                    <input type="checkbox" class="deprived-check" {{checked data.system.deprived}} />
+                    <input type="checkbox" class="deprived-check" {{checked system.deprived}} />
                 </div>
             </div>
 
-            {{#if data.system.usePanic}}
+            {{#if system.usePanic}}
             <div class="resource-counter long-counter deprived-counter">
                 <label data-tooltip="{{ localize 'CAIRN.PanickedTip' }}">{{ localize 'CAIRN.Panicked' }}</label>
                 <div class="resource-input-wrapper">
-                    <input type="checkbox" class="panicked-check" {{checked data.system.panicked}} />
+                    <input type="checkbox" class="panicked-check" {{checked system.panicked}} />
                 </div>
             </div>
             {{/if}}
-            
+
         </div>
         <div class="character-sheet-section-tabs">
             <!-- Attribute-loss status banners (2e): empty/0-height when healthy,
@@ -145,28 +146,35 @@
                 </div>
                 {{/each}}
             </div>
+            {{!-- The nav is hand-written rather than using Foundry's shipped
+                  tab-navigation partial, because every label carries live data:
+                  slot counts, container counts, and a Notes tab that renames
+                  itself once a background is attached.
+                  NOTE the `--` form. A short `{{! }}` comment ends at the FIRST
+                  `}}`, so one containing a handlebars expression spills the rest
+                  of itself onto the sheet as literal text. --}}
             <nav class="tabs" data-group="primary">
-                <a class="item" data-group="primary" data-tab="items" id="set-equipment-limit" 
-                    {{#if data.system.characterEquipmentLimit}}title="Double click to change limit"{{/if}}>
-                    {{#if data.system.characterEquipmentLimit}}<i class="fas fa-gears" style="opacity:0.5;z-index:5000" ></i>{{/if}} 
-                    {{ localize 'CAIRN.Items' }} ({{data.system.slotsUsed}} / {{data.system.slotsMax}})
+                <a class="item {{tabs.items.cssClass}}" data-action="tab" data-group="primary" data-tab="items" id="set-equipment-limit"
+                    {{#if system.characterEquipmentLimit}}title="Double click to change limit"{{/if}}>
+                    {{#if system.characterEquipmentLimit}}<i class="fas fa-gears" style="opacity:0.5;z-index:5000" ></i>{{/if}}
+                    {{ localize 'CAIRN.Items' }} ({{system.slotsUsed}} / {{system.slotsMax}})
                 </a>
-                {{#if data.system.showContainersTab}}
-                <a class="item" data-group="primary" data-tab="containers">{{ localize 'CAIRN.Containers' }} ({{data.system.containers.length}}) </a>
+                {{#if system.showContainersTab}}
+                <a class="item {{tabs.containers.cssClass}}" data-action="tab" data-group="primary" data-tab="containers">{{ localize 'CAIRN.Containers' }} ({{system.containers.length}}) </a>
                 {{/if}}
-                <a class="item" data-group="primary" data-tab="description">{{ localize 'CAIRN.Description' }}</a>
-                <a class="item" data-group="primary" data-tab="notes">{{#if showBackgroundNotesLabel}}{{ localize 'CAIRN.BackgroundAndNotes' }}{{else}}{{ localize 'CAIRN.Notes' }}{{/if}}</a>
+                <a class="item {{tabs.description.cssClass}}" data-action="tab" data-group="primary" data-tab="description">{{ localize 'CAIRN.Description' }}</a>
+                <a class="item {{tabs.notes.cssClass}}" data-action="tab" data-group="primary" data-tab="notes">{{#if showBackgroundNotesLabel}}{{ localize 'CAIRN.BackgroundAndNotes' }}{{else}}{{ localize 'CAIRN.Notes' }}{{/if}}</a>
             </nav>
             <section class="content">
-                <div class="tab" data-group="primary" data-tab="items">                   
+                <div class="tab {{tabs.items.cssClass}}" data-group="primary" data-tab="items">
                     {{> "systems/air-bladder/templates/parts/items-list.html" withFatigue=1 withShop=1}}
                 </div>
-                {{#if data.system.showContainersTab}}
-                <div class="tab" data-group="primary" data-tab="containers">
+                {{#if system.showContainersTab}}
+                <div class="tab {{tabs.containers.cssClass}}" data-group="primary" data-tab="containers">
                     {{> "systems/air-bladder/templates/parts/container-list.html"}}
                 </div>
                 {{/if}}
-                <div class="tab" data-group="primary" data-tab="description">
+                <div class="tab {{tabs.description.cssClass}}" data-group="primary" data-tab="description">
                     <div class="description">
                         {{#if traitRows}}
                         <div class="character-traits">
@@ -175,14 +183,14 @@
                                 <div class="trait-row pronouns-row">
                                     <label class="trait-label">{{ localize 'CAIRN.Pronouns' }}</label>
                                     <input class="trait-input" type="text" name="system.pronouns"
-                                        value="{{data.system.pronouns}}" maxlength="20" />
+                                        value="{{system.pronouns}}" maxlength="20" />
                                 </div>
                                 {{#if showAge}}
                                 <div class="trait-row age-row">
                                     <label class="trait-label">{{ localize 'CAIRN.Age' }}</label>
-                                    <input class="trait-input" type="text" name="system.age" value="{{data.system.age}}" />
+                                    <input class="trait-input" type="text" name="system.age" value="{{system.age}}" />
                                     {{#if generationEnabled}}
-                                    <a class="age-roll" title="{{ localize 'CAIRN.RollAge' }}"><i class="fas fa-dice-d20"></i></a>
+                                    <a class="age-roll" data-action="rollAge" title="{{ localize 'CAIRN.RollAge' }}"><i class="fas fa-dice-d20"></i></a>
                                     {{/if}}
                                 </div>
                                 {{/if}}
@@ -195,7 +203,7 @@
                             <div class="trait-picklist-section">
                                 <div class="trait-picklist-header">
                                     <label class="trait-picklist-label">{{ localize 'CAIRN.Traits' }}</label>
-                                    <a class="trait-toggle" title="{{ localize 'CAIRN.ToggleTraits' }}"><i
+                                    <a class="trait-toggle" data-action="toggleTraits" title="{{ localize 'CAIRN.ToggleTraits' }}"><i
                                             class="fas {{#if traitsCollapsed}}fa-plus-square{{else}}fa-minus-square{{/if}}"></i></a>
                                 </div>
                                 {{#unless traitsCollapsed}}
@@ -222,36 +230,36 @@
                         {{#if showScars}}
                         <div class="character-omen-scar">
                             {{#if showOmen}}
-                            <div class="omen-row {{#if data.system.omenEnabled}}omen-enabled{{/if}}">
+                            <div class="omen-row {{#if system.omenEnabled}}omen-enabled{{/if}}">
                                 <label class="omen-label">
-                                    <input type="checkbox" class="omen-enable" {{checked data.system.omenEnabled}} />
+                                    <input type="checkbox" class="omen-enable" {{checked system.omenEnabled}} />
                                     {{ localize 'CAIRN.Omen' }}
                                 </label>
-                                {{#if data.system.omenEnabled}}
+                                {{#if system.omenEnabled}}
                                 <textarea class="omen-input" name="system.omen" rows="4"
-                                    placeholder="{{ localize 'CAIRN.OmenPlaceholder' }}">{{data.system.omen}}</textarea>
+                                    placeholder="{{ localize 'CAIRN.OmenPlaceholder' }}">{{system.omen}}</textarea>
                                 {{#if generationEnabled}}
-                                <a class="omen-roll" title="{{ localize 'CAIRN.RollOmen' }}"><i class="fas fa-dice-d20"></i></a>
+                                <a class="omen-roll" data-action="rollOmen" title="{{ localize 'CAIRN.RollOmen' }}"><i class="fas fa-dice-d20"></i></a>
                                 {{/if}}
                                 {{else}}
-                                <span class="omen-display">{{#if data.system.omen}}{{data.system.omen}}{{else}}{{ localize 'CAIRN.OmenPlaceholder' }}{{/if}}</span>
+                                <span class="omen-display">{{#if system.omen}}{{system.omen}}{{else}}{{ localize 'CAIRN.OmenPlaceholder' }}{{/if}}</span>
                                 {{/if}}
                             </div>
                             {{/if}}
                             <div class="scar-section">
                                 <div class="scar-header">
                                     <label class="scar-label">
-                                        <input type="checkbox" class="scar-enable" {{checked data.system.scarEnabled}} />
+                                        <input type="checkbox" class="scar-enable" {{checked system.scarEnabled}} />
                                         {{ localize 'CAIRN.ScarsSection' }}
                                     </label>
-                                    {{#if data.system.scarEnabled}}
-                                    <a class="scar-toggle" title="{{ localize 'CAIRN.ToggleScars' }}"><i
+                                    {{#if system.scarEnabled}}
+                                    <a class="scar-toggle" data-action="toggleScars" title="{{ localize 'CAIRN.ToggleScars' }}"><i
                                             class="fas {{#if scarsCollapsed}}fa-plus-square{{else}}fa-minus-square{{/if}}"></i></a>
                                     {{else}}
                                     <span class="scar-display">{{ localize 'CAIRN.ScarsHint' }}</span>
                                     {{/if}}
                                 </div>
-                                {{#if data.system.scarEnabled}}
+                                {{#if system.scarEnabled}}
                                     {{#unless scarsCollapsed}}
                                     <div class="scar-list">
                                         {{#each scarOptions}}
@@ -272,13 +280,14 @@
                             </div>
                         </div>
                         {{/if}}
-                        {{#if data.system.showFeatures}}
+                        {{#if system.showFeatures}}
                         <div class="features">
                             {{> "systems/air-bladder/templates/parts/feature-list.html"}}
                         </div>
                         {{/if}}
-                        {{#if data.system.showDesc }}
-                            {{ editor enrichedDescription target="system.description" button=true owner=owner editable=editable engine="prosemirror" collaborate=true }}
+                        {{#if system.showDesc }}
+                        <prose-mirror name="system.description" value="{{system.description}}" toggled collaborate relative
+                            data-document-uuid="{{actor.uuid}}">{{{enrichedDescription}}}</prose-mirror>
                         {{/if}}
                         <div class="cairn-compat-footer">
                             <a href="https://cairnrpg.com" target="_blank" rel="noopener" title="{{ localize 'CAIRN.CompatibleAlt' }}">
@@ -288,28 +297,28 @@
                         </div>
                     </div>
                 </div>
-                <div class="tab" data-group="primary" data-tab="notes">
+                <div class="tab {{tabs.notes.cssClass}}" data-group="primary" data-tab="notes">
                     {{! Bonds + the background's re-rollable questions sit above the
                         free-form notes editor. Both are 2e content. }}
                     {{#if showBonds}}
                     {{#each bonds}}
                     <div class="bond-block">
-                        <p class="bond-line"><strong>{{ localize 'CAIRN.Bond' }}:</strong>{{#if ../generationEnabled}}<a class="bond-reroll"
+                        <p class="bond-line"><strong>{{ localize 'CAIRN.Bond' }}:</strong>{{#if ../generationEnabled}}<a class="bond-reroll" data-action="rerollBond"
                                 data-bond-id="{{this.id}}" title="{{ localize 'CAIRN.RerollBond' }}"><i
-                                    class="fas fa-dice-d20"></i></a>{{#if @index}}<a class="bond-remove"
+                                    class="fas fa-dice-d20"></i></a>{{#if @index}}<a class="bond-remove" data-action="removeBond"
                                 data-bond-id="{{this.id}}" title="{{ localize 'CAIRN.RemoveBond' }}"><i
                                     class="fas fa-xmark"></i></a>{{/if}}{{/if}}</p>
                         <p class="bond-answer">{{this.description}}</p>
                     </div>
                     {{/each}}
                     {{#if generationEnabled}}{{#if canAddBond}}
-                    <a class="bond-add" title="{{ localize 'CAIRN.AddBond' }}"><i class="fas fa-plus"></i> {{ localize 'CAIRN.AddBond' }}</a>
+                    <a class="bond-add" data-action="addBond" title="{{ localize 'CAIRN.AddBond' }}"><i class="fas fa-plus"></i> {{ localize 'CAIRN.AddBond' }}</a>
                     {{/if}}{{/if}}
                     {{/if}}
                     {{#if is2eBackground}}
                     {{#each questions}}
                     <div class="question-block">
-                        <p class="question-line"><strong>{{this.question}}</strong>{{#if ../generationEnabled}}<a class="question-reroll"
+                        <p class="question-line"><strong>{{this.question}}</strong>{{#if ../generationEnabled}}<a class="question-reroll" data-action="rerollQuestion"
                                 data-index="{{@index}}" title="{{ localize 'CAIRN.RerollQuestion' }}"><i
                                     class="fas fa-dice-d20"></i></a>{{/if}}</p>
                         <p class="question-answer">{{this.answer}}</p>
@@ -317,9 +326,9 @@
                     {{/each}}
                     {{/if}}
                     {{#if showNotesDivider}}<hr class="notes-divider" />{{/if}}
-                    {{ editor enrichedNotes target="system.notes" button=true owner=owner editable=editable engine="prosemirror" collaborate=true }}
+                    <prose-mirror name="system.notes" value="{{system.notes}}" toggled collaborate relative
+                        data-document-uuid="{{actor.uuid}}">{{{enrichedNotes}}}</prose-mirror>
                 </div>
             </section>
         </div>
     </div>
-</form>

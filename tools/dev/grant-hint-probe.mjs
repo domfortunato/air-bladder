@@ -31,14 +31,16 @@ try {
     const readHint = async (enabled) => {
       await game.settings.set(NS, "show-grant-tags", enabled);
       await actor.sheet.render(true);
-      for (let i = 0; i < 20 && !actor.sheet.element?.[0]; i++) await new Promise((res) => setTimeout(res, 150));
+      for (let i = 0; i < 20 && !actor.sheet.element; i++) await new Promise((res) => setTimeout(res, 150));
       await new Promise((res) => setTimeout(res, 350));
-      const root = actor.sheet.element?.[0];
+      const root = actor.sheet.element;
       const hint = root?.querySelector(".cairn-grant-hint");
       const reorder = root?.querySelector(".cairn-reorder-hint");
       return {
-        // The class lands on the inner content element (activateListeners' `html`),
-        // not the outer window -- exactly like cairn-reorder-enabled.
+        // Asserted with closest(), not against a known element, because the port
+        // moved where the class lands: AppV1's activateListeners marked the inner
+        // content element, ApplicationV2's _onRender marks the outer window. Both
+        // are ancestors of the hint, so the descendant CSS still applies.
         rootHasClass: !!hint?.closest(".cairn-grant-tags-enabled"),
         display: hint ? getComputedStyle(hint).display : null,
         text: hint ? hint.textContent.trim() : null,

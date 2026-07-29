@@ -1,19 +1,20 @@
-<form class="cairn" autocomplete="off">
+{{!-- No <form> here: ApplicationV2 supplies it (DocumentSheetV2 sets tag: "form").
+      A nested one is dropped by the parser, taking this element's class with it. --}}
     <div class="item-sheet-grid">
         <!-- Portrait -->
         <div class="item-sheet-section-portrait">
-            <img class="portrait" src="{{data.img}}" data-edit="img" title="{{data.name}}" />
+            <img class="portrait" src="{{item.img}}" data-action="editImage" data-edit="img" title="{{item.name}}" />
         </div>
         <!-- Name -->
         <div class="item-sheet-section-name">
-            <input class="name-input" type="text" name="name" value="{{data.name}}" placeholder="{{ localize 'CAIRN.Name' }}" />
+            <input class="name-input" type="text" name="name" value="{{item.name}}" placeholder="{{ localize 'CAIRN.Name' }}" />
         </div>
         <!-- Equipped -->
         <div class="resource-counter long-counter">
             <label class="large-resource-label" for="{{@root.idp}}-system.equipped">{{ localize 'CAIRN.Equipped' }}</label>
             <div class="resource-input-wrapper">
-                <input type="checkbox" {{checked data.system.equipped}} name="system.equipped" id="{{@root.idp}}-system.equipped"
-                    value="{{data.system.equipped}}" data-dtype="Boolean" />
+                <input type="checkbox" {{checked system.equipped}} name="system.equipped" id="{{@root.idp}}-system.equipped"
+                    value="{{system.equipped}}" data-dtype="Boolean" />
             </div>
         </div>
 
@@ -21,8 +22,8 @@
           <div class="resource-counter long-counter">
             <label class="large-resource-label" for="{{@root.idp}}-system.bulky">{{ localize 'CAIRN.Bulky' }}</label>
             <div class="resource-input-wrapper">
-                <input type="checkbox" {{checked data.system.bulky}} name="system.bulky" id="{{@root.idp}}-system.bulky"
-                        value="{{data.system.bulky}}" data-dtype="Boolean" />
+                <input type="checkbox" {{checked system.bulky}} name="system.bulky" id="{{@root.idp}}-system.bulky"
+                        value="{{system.bulky}}" data-dtype="Boolean" />
             </div>
         </div>
 
@@ -30,8 +31,8 @@
         <div class="resource-counter long-counter">
             <label class="large-resource-label" for="{{@root.idp}}-system.weightless">{{ localize 'CAIRN.Weightless' }}</label>
             <div class="resource-input-wrapper">
-                <input type="checkbox" {{checked data.system.weightless}} name="system.weightless" id="{{@root.idp}}-system.weightless"
-                        value="{{data.system.weightless}}" data-dtype="Boolean" />
+                <input type="checkbox" {{checked system.weightless}} name="system.weightless" id="{{@root.idp}}-system.weightless"
+                        value="{{system.weightless}}" data-dtype="Boolean" />
             </div>
         </div>
       
@@ -40,7 +41,7 @@
             <label class="large-resource-label" for="{{@root.idp}}-system.quantity">{{ localize 'CAIRN.Quantity' }}</label>
             <div class="resource-input-wrapper">
                 <input type="text" name="system.quantity" id="{{@root.idp}}-system.quantity"
-                        value="{{data.system.quantity}}" data-dtype="Number" />
+                        value="{{system.quantity}}" data-dtype="Number" />
             </div>
         </div>
 
@@ -49,7 +50,7 @@
             <label class="large-resource-label" for="{{@root.idp}}-system.uses.value">{{ localize 'CAIRN.Uses' }}</label>
             <div class="resource-input-wrapper">
                 <input type="text" name="system.uses.value" id="{{@root.idp}}-system.uses.value"
-                       value="{{data.system.uses.value}}" data-dtype="Number" />
+                       value="{{system.uses.value}}" data-dtype="Number" />
             </div>
         </div>
 
@@ -57,7 +58,7 @@
             <label class="large-resource-label" for="{{@root.idp}}-system.uses.max">{{ localize 'CAIRN.MaxUses' }}</label>
             <div class="resource-input-wrapper">
                 <input type="text" name="system.uses.max" id="{{@root.idp}}-system.uses.max"
-                      value="{{data.system.uses.max}}" data-dtype="Number" />
+                      value="{{system.uses.max}}" data-dtype="Number" />
             </div>
         </div>
               
@@ -65,8 +66,8 @@
         <div class="resource-counter long-counter">
             <label class="large-resource-label" for="{{@root.idp}}-system.blast">{{ localize 'CAIRN.Blast' }}</label>
             <div class="resource-input-wrapper">
-                <input type="checkbox" {{checked data.system.blast}} name="system.blast" id="{{@root.idp}}-system.blast"
-                       value="{{data.system.blast}}" data-dtype="Boolean" />
+                <input type="checkbox" {{checked system.blast}} name="system.blast" id="{{@root.idp}}-system.blast"
+                       value="{{system.blast}}" data-dtype="Boolean" />
             </div>
         </div>
         <!-- Damage -->
@@ -74,7 +75,7 @@
             <label class="large-resource-label" for="{{@root.idp}}-system.damageFormula">{{ localize 'CAIRN.Damage' }}</label>
             <div class="resource-input-wrapper">
                 <input type="text" name="system.damageFormula" id="{{@root.idp}}-system.damageFormula"
-                       value="{{data.system.damageFormula}}" data-dtype="String" />
+                       value="{{system.damageFormula}}" data-dtype="String" />
             </div>
         </div>
         
@@ -84,23 +85,26 @@
             <label class="large-resource-label" for="{{@root.idp}}-system.cost">{{ localize 'CAIRN.Cost' }}</label>
             <div class="resource-input-wrapper">
                 <input type="text" name="system.cost" id="{{@root.idp}}-system.cost"
-                       value="{{data.system.cost}}" data-dtype="Number" />
+                       value="{{system.cost}}" data-dtype="Number" />
             </div>
         </div>
         
         <div class="item-sheet-section-tabs">
             <nav class="tabs" data-group="primary">
-                <a class="item" data-group="primary" data-tab="description">{{ localize 'CAIRN.Description' }}</a>
-                <a class="item" data-group="primary" data-tab="crit-dmg">{{ localize 'CAIRN.CriticalDamage' }}</a>
-            </nav>
+            {{#each tabs}}
+            <a class="item {{this.cssClass}}" data-action="tab" data-group="{{this.group}}"
+                data-tab="{{this.id}}">{{ localize this.label }}</a>
+            {{/each}}
+        </nav>
             <section class="content">
-                <div class="tab" data-group="primary" data-tab="description">
-                    {{ editor enrichedDescription target="system.description" button=true owner=owner editable=editable engine="prosemirror" collaborate=true }}
+                <div class="tab {{tabs.description.cssClass}}" data-group="primary" data-tab="description">
+                    <prose-mirror name="system.description" value="{{system.description}}" toggled collaborate relative
+                        data-document-uuid="{{item.uuid}}">{{{enrichedDescription}}}</prose-mirror>
                 </div>
-                <div class="tab" data-group="primary" data-tab="crit-dmg">
-                    {{ editor enrichedCriticalDamage target="system.criticalDamage" button=true owner=owner editable=editable engine="prosemirror" collaborate=true }}
+                <div class="tab {{tabs.[crit-dmg].cssClass}}" data-group="primary" data-tab="crit-dmg">
+                    <prose-mirror name="system.criticalDamage" value="{{system.criticalDamage}}" toggled collaborate relative
+                        data-document-uuid="{{item.uuid}}">{{{enrichedCriticalDamage}}}</prose-mirror>
                 </div>
             </section>
         </div>
     </div>
-</form>

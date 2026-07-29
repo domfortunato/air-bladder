@@ -31,6 +31,16 @@ export async function dismissChrome(page) {
   await page.evaluate(() => {
     document.querySelectorAll(".tour-overlay, .tour.active").forEach(e => e.remove());
   }).catch(() => {});
+
+  // Notifications, which are NOT chrome you can ignore. Headless Chromium always
+  // raises a PERMANENT hardware-acceleration warning, and it renders in the
+  // top-right — directly over a window's header controls. Anything driving the
+  // `⋮` menu fails with "notification intercepts pointer events" and looks like a
+  // broken sheet rather than a covered button.
+  await page.evaluate(() => {
+    try { ui.notifications?.clear?.(); } catch { /* pre-ready */ }
+    document.querySelectorAll("#notifications > li").forEach(e => e.remove());
+  }).catch(() => {});
 }
 
 /**
