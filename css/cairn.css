@@ -646,6 +646,24 @@
     margin: auto;
 }
 
+/* Switch OFF the glyph Foundry draws inside the box.
+   `appearance: none` removes the native widget and nothing else, and Foundry
+   draws its checkbox entirely with pseudo-elements: ::before is a Font Awesome
+   square, `\f0c8`, swapped for a check-square `\f14a` when checked
+   (foundry2.css:3887-3891). So the core checkbox kept rendering INSIDE ours --
+   a second, smaller box stacked on the first, which is exactly what it looked
+   like. Ours draws its own tick in ::after below.
+   No !important needed: those rules are in `@layer elements.forms` and this
+   file is in `@layer system`, which is declared later and so wins outright
+   (foundry2.css:5). */
+.cairn .deprived-check::before,
+.cairn .panicked-check::before,
+.cairn .omen-enable::before,
+.cairn .scar-enable::before,
+.cairn .scar-check::before {
+    content: none;
+}
+
 /* Omen / Scars checkboxes precede their label text: a small gap instead. */
 .cairn .omen-enable,
 .cairn .scar-enable,

@@ -64,6 +64,22 @@ try {
       return el ? getComputedStyle(el)[prop] : null;
     };
 
+    // The sheet's custom checkboxes must be ONE box, not two. `appearance: none`
+    // removes the native widget only -- Foundry draws the whole control with
+    // pseudo-elements (::before is a Font Awesome square, swapped for a
+    // check-square when checked), so its glyph renders INSIDE ours unless it is
+    // switched off, giving a smaller checkbox stacked on the larger one. It
+    // renders, it toggles, it logs nothing; it just looks wrong.
+    out.checkboxes = [".deprived-check", ".panicked-check"].map((sel) => {
+      const el = root.querySelector(sel);
+      if (!el) return { sel, missing: true };
+      return {
+        sel,
+        before: getComputedStyle(el, "::before").content,
+        size: Math.round(el.getBoundingClientRect().width),
+      };
+    });
+
     // The Notes tab is titled for its extra content on a generated character.
     out.notesTabLabel = root.querySelector('.tabs .item[data-tab="notes"]')?.textContent?.trim() ?? null;
     // Gold uses the 70/30 long-counter split, matching Armor/Deprived beneath it.
@@ -353,6 +369,12 @@ try {
   r.fateGlow && r.fateGlow !== "none"
     ? ok(`Die of Fate keeps its teal text glow (${r.fateGlow})`)
     : fail("Die of Fate has no text glow");
+
+  // One box per checkbox: core's own glyph must be off inside our custom ones.
+  const doubled = (r.checkboxes ?? []).filter((c) => c.missing || c.before !== "none");
+  (r.checkboxes ?? []).length && !doubled.length
+    ? ok(`the custom checkboxes draw one box each (${r.checkboxes.map((c) => `${c.size}px`).join(", ")})`)
+    : fail(`a core checkbox glyph is rendering inside ours: ${JSON.stringify(doubled)}`);
 
   // (The header generation controls are asserted by `npm run dev:dialogs` now —
   // see the note in the page context.)
