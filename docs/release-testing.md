@@ -45,7 +45,7 @@ Run from `c:\Users\domin\code\air-bladder`, on the branch you are about to merge
 | Command | Checks |
 |---|---|
 | `npm run check:refs` | every compendium reference in every shipped table resolves, and resolves to a document with the *right name* |
-| `npm run check:fields` | pack documents match the data model |
+| `npm run check:fields` | pack documents match the data model, **and `system.json` `documentTypes.*.htmlFields` matches the `HTMLField`s in the schemas, both directions**. That second half is a security check, not tidiness: the Foundry server never loads the data models, so an `HTMLField` missing from the manifest is never sanitized — see `dev:sanitize` |
 | `npm run check:traits` | the trait-sentence parser |
 | `npm run i18n:check` | translation coverage, placeholder/HTML mismatches, stale keys |
 
@@ -59,7 +59,8 @@ changed, which **fails while a world is open**, so stop the server for it.
 |---|---|
 | `npm run dev:smoke` | system loads, shipped packs non-empty, a character sheet renders, zero console errors |
 | `npm run dev:data-model` | the TypeDataModel schemas |
-| `npm run dev:icons` | no document left on a `.png` icon; every icon 200s, is really SVG, and rasterises at full size |
+| `npm run dev:icons` | no document left on a `.png` icon; every icon 200s, is really SVG, and rasterises at full size. Its list comes from the **`icons/` directory**, not from icons in use by documents — it used to be the latter, so it checked 15 of 17 files and a newly added icon stayed invisible to it until content pointed at one |
+| `npm run dev:sanitize` | that the server actually strips scripts from a system `HTMLField`. Writes a payload **as a real player** (Alice) to their own character's `system.notes` and to an owned weapon's description, and asserts both come back cleaned with their benign content intact. Needed alongside `check:fields` because the manifest declaration only takes effect at server STARTUP — an un-restarted edit is indistinguishable from no edit |
 | `npm run dev:icon-canvas` | the icon migration reaches scene tokens and the canvas ends correct after a reload |
 | `npm run dev:enc-damage` | the damage flow, including a real canvas draw |
 | `npm run dev:container-link` | container linking **as a real player** — a GM passes every ownership check, so only this catches permission bugs |
@@ -69,7 +70,7 @@ changed, which **fails while a world is open**, so stop the server for it.
 | `npm run dev:dialogs` | the four sheet dialogs (add item, add/edit feature, regenerate confirm) — that `button.form` reaches the right fields, the content templates carry no nested `<form>`, and the confirm still defaults to No |
 | `npm run dev:theme` | that the sheets stay readable in **both** colour schemes: every text and border colour measured against its real backdrop, in light and dark. Light is the baseline, so it only fails on something dark breaks. `-- --shots` also writes the four screenshots |
 | `npm run dev:sheet-layout` | that no two regions of a sheet grid overlap, on all four actor types. Generates **six** characters, because whether the layout fits depends on how long that background's description happens to be — one sample passes where six catch it |
-| `npm run dev:notes-editor` | that the Notes editor can be **typed into** and saves, on all four actor types, plus the empty-field placeholder. It types with the keyboard and touches no button, because the regression it exists for left the editor present, upgraded, `contenteditable="true"` and holding the right value — while being 0px tall and therefore unclickable |
+| `npm run dev:notes-editor` | that the Notes editor can be **typed into** and saves, on all four actor types, plus the empty-field placeholder. It types with the keyboard and touches no button, because the regression it exists for left the editor present, upgraded, `contenteditable="true"` and holding the right value — while being 0px tall and therefore unclickable. Also covers three **item** sheets, typing into the toggled description editor and then closing the sheet — the actor loop had left every item sheet untested |
 | `npm run dev:header-buttons` | the inline title-bar buttons — Roll Character, the Randomization toggle, and Pop Out: labels, state (the toggle hides Roll Character and relabels itself), that an unrelated re-render leaves them alone, that no label is clipped or escapes the header, and that ⋮ sits to their right. Pop Out is clicked **for real**: it must open a browser window, move the sheet into it, hide itself, and come back on re-dock — the settle time varies 1–2.5s, so every wait polls the condition rather than sleeping |
 | `npm run dev:ui-parity` | the character sheet's stat-block **geometry** and computed styles — counter alignment and spacing, corner radii, button chrome measured against a reference button, that the custom checkboxes draw **one** box (core draws its checkbox with pseudo-elements, which `appearance: none` does not remove, so its glyph renders inside ours), the Cairn badge, the container market link, the settings sheet's positional grouping, and a sweep for untranslated `CAIRN.*` keys on every tab of a 2e *and* a Barebones character |
 | `npm run dev:parity` | the failed-career field (re-roll, live setting) and the Barebones omens gate |
