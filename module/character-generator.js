@@ -466,9 +466,13 @@ const CUSTOM_BG_PACK = "world.custom-backgrounds";
 const ensureCustomBackgroundPack = async () => {
   const existing = game.packs.get(CUSTOM_BG_PACK);
   if (existing) return existing;
+  // The label is stored on the pack, so it is fixed in whatever language the
+  // Warden was running when it was first created — Foundry has no i18n for
+  // world-compendium labels. Localizing here at least means a Spanish Warden's
+  // world does not acquire an English compendium out of nowhere.
   return foundry.documents.collections.CompendiumCollection.createCompendium({
     type: "Item",
-    label: "Custom Backgrounds",
+    label: game.i18n.localize("CAIRN.CustomBackgroundsPack"),
     name: "custom-backgrounds",
   });
 };

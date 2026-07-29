@@ -27,7 +27,7 @@
       {{/if}}
       <a class="cairn-item-title" data-action="itemDescription">
         {{#markItemUsed item}}
-        {{#boldIf item.system.equipped}}{{#if (eq item.type "spellbook")}}{{#unless (startsWith item.name (localize 'CAIRN.SpellbookPrefix'))}}{{ localize 'CAIRN.SpellbookPrefix' }}{{/unless}}{{/if}}{{item.name}}{{/boldIf}}
+        {{#boldIf item.system.equipped}}{{#if (eq item.type "spellbook")}}{{ spellbookPrefix item.name }}{{/if}}{{item.name}}{{/boldIf}}
         {{/markItemUsed}}
       </a>
       {{#if item.system.grantLabel}}

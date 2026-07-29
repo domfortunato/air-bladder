@@ -35,7 +35,7 @@
             {{#each system.abilities as |ability key|}}
             <div class="resource-counter {{key}}-counter">
                 <a class="resource-roll" data-action="rollAbility" data-ability="{{key}}" data-roll="d20cs<=@abilities.{{key}}.value"
-                    data-label="{{{ localize 'CAIRN.Save' key=key }}}">{{ localize key }}</a>
+                    data-label="{{{ localize 'CAIRN.Save' key=(localize key) }}}">{{ localize key }}</a>
                 <div class="resource-input-wrapper">
                     <input type="text" name="system.abilities.{{key}}.value" value="{{ability.value}}"
                         data-dtype="Number" />
@@ -57,7 +57,7 @@
         <div class="character-sheet-section-tabs">
             <nav class="tabs" data-group="primary">
                 <a class="item {{tabs.items.cssClass}}" data-action="tab" data-group="primary" data-tab="items" id="set-equipment-limit"
-                {{#if system.characterEquipmentLimit}}title="Double click to change limit"{{/if}}>
+                {{#if system.characterEquipmentLimit}}title="{{localize 'CAIRN.EquipmentLimitTip'}}"{{/if}}>
                     {{#if system.characterEquipmentLimit}}<i class="fas fa-gears" style="opacity:0.5;z-index:5000" ></i>{{/if}}
                     {{ localize 'CAIRN.Items' }} ({{system.slotsUsed}} / {{system.slotsMax}})
                 </a>

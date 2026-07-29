@@ -50,7 +50,6 @@
   "CAIRN.GoldTip": "Las monedas pesan: las primeras {n} son insignificantes (sin peso); cada {n} adicional ocupa un espacio del inventario.",
   "CAIRN.GoldTipWeightless": "El oro no tiene peso en este juego — nunca ocupa espacios en el inventario.",
   "CAIRN.HitProtection": "PG",
-  "CAIRN.Item": "Objeto",
   "CAIRN.Items": "Equipo",
   "CAIRN.MaxUses": "Max # de usos",
   "CAIRN.NUses": "{n} usos",
@@ -115,7 +114,7 @@
   "CAIRN.DeprivedConfirm": "¿Tu personaje está exhausto?",
   "CAIRN.PanickedTip": "<p>Un personaje que se encuentre rodeado de enemigos, en completa oscuridad o enfrentándose a sus mayores miedos puede sufrir <em>pánico</em>. En estas situaciones, una tirada fallida de <strong>VOL</strong> provoca pánico.</p><p>Un personaje en <em>pánico</em> tiene 0 <strong>PG</strong>, no actúa en la primera ronda de combate y todos sus ataques se dan con <em>desventaja</em>.</p><p>Un personaje en <em>pánico</em> debe tirar una <strong>salvación de VOL</strong> para superar su estado como una <strong>acción</strong> en su <strong>turno</strong>.</p>",
   "CAIRN.PanickedConfirm": "¿Tu personaje ha entrado en pánico?",
-  "CAIRN.CriticalDamageStatus": "Daño crítico",
+  "CAIRN.CriticalDamageStatusFor": "Daño crítico — {key}",
   "CAIRN.MarkCriticalDamage": "Marcar daño crítico",
   "CAIRN.CriticalDamageToggle": "Daño crítico (FUE): marcar o desmarcar. Un PJ herido de gravedad solo puede arrastrarse por el suelo hasta que sea estabilizado.",
   "CAIRN.CriticalDamageBanner": "solo puede arrastrarse — estabilizarse con ayuda o morir en menos de una hora.",
@@ -132,7 +131,7 @@
   "CAIRN.ArmorReset": "Restablecer la armadura a partir de las piezas de armadura equipadas",
   "CAIRN.Notify": {
     "MaxSlotsOccupied": "Se han utilizado todos los espacios de inventario.",
-    "ConfirmDelete": "Eliminar",
+    "ConfirmDeleteNamed": "¿Eliminar {name}?",
     "NotEnoughGold": "No hay suficiente oro para {name} ({cost}).",
     "Bought": "{name} comprado por {cost} de oro.",
     "Took": "Se ha tomado {name}.",
@@ -161,7 +160,6 @@
   "CAIRN.TransportVehicle": "Vehículo",
   "CAIRN.TransportSlow": "Lento",
   "CAIRN.TransportCapacity": "Espacios que puede albergar",
-  "CAIRN.TransportLoad": "Espacios que ocupa",
   "CAIRN.TransportKind": "Tipo",
   "CAIRN.Hireling": "Seguidor",
   "CAIRN.CreateHireling": "Generar PNJ",
@@ -170,8 +168,6 @@
   "CAIRN.DayRate": "Seguidor/Pago por día",
   "CAIRN.DayRateHint": "Salario diario en oro, según la tabla de seguidores de Cairn 2e",
   "CAIRN.DayRateSuffix": "mo/día",
-  "CAIRN.RollHireling": "Volver a tirar",
-  "CAIRN.RollHirelingTip": "Volver a crear este seguidor — Un nuevo bloque de características de 2e: nueva profesión, pago por día, características, PG y equipo (conserva el nombre, el retrato y las notas)",
   "CAIRN.RollName": "Genera un nombre aleatorio",
   "CAIRN.ChoosePortrait": "Elige un retrato",
   "CAIRN.ChooseContainerArt": "Elige el arte para el contenedor",
@@ -219,13 +215,11 @@
     },
     "UseGoldThreshold": {
       "label": "Oro que ocupa un espacio del inventario (0 = insignificante)",
-      "hint": "Establece la cantidad de monedas de oro que ocupa un espacio completo del inventario. El cero significa que las piezas de oro son siempre insignificantes...",
-      "message": "El oro se contabiliza como parte del inventario"
+      "hint": "Establece la cantidad de monedas de oro que ocupa un espacio completo del inventario. El cero significa que las piezas de oro son siempre insignificantes..."
     },
     "ShowGoldNotCost": {
       "label": "Los contenedores pueden almacenar oro y calcular su peso",
-      "hint": "Esto permite introducir oro (incluido el seguimiento del peso) en los contenedores.",
-      "message": "El peso del oro se redondea al alza en lugar de a la baja cuando se registra en contenedores."
+      "hint": "Esto permite introducir oro (incluido el seguimiento del peso) en los contenedores."
     },
     "UsePanic": {
       "label": "Usar la condición de 2e \"Pánico\" para todos los personajes jugadores",
@@ -295,14 +289,12 @@
     }
   },
   "CAIRN.Slots": "Espacios",
-  "CAIRN.Spellbook": "Hechizo",
   "CAIRN.StrSave": "Debes superar una salvación de FUE",
   "CAIRN.RollStrSave": "Tirada de salvación de FUE",
   "CAIRN.Success": "Exito",
   "CAIRN.Type": "Tipo",
   "CAIRN.Uses": "Usos disponibles",
   "CAIRN.UpdateFeature": "Actualizar mejora",
-  "CAIRN.Weapon": "Arma",
   "CAIRN.Weightless": "Insignificante",
   "CAIRN.ItemAddQuantity": "Añadir",
   "CAIRN.ItemEquip": "Equipar",
@@ -318,8 +310,6 @@
   "CAIRN.ContentSourcePrompt": "¿A partir de qué edición se debería generar este personaje?",
   "CAIRN.ContentSource2e": "Cairn 2e",
   "CAIRN.ContentSourceBarebones": "Cairn Barebones",
-  "CAIRN.FailedCareer": "Carrera fallida",
-  "CAIRN.FailedCareerTip": "La carrera que no salió bien: al personaje le queda un recuerdo de aquel trabajo, Insignificante.",
   "CAIRN.RollFailedCareer": "Tira para obtener una carrera fallida aleatoria",
   "CAIRN.ChangeFailedCareer": "Cambiar carrera fallida",
   "CAIRN.FailedCareerItemLabel": "Objeto de carrera fallida:",

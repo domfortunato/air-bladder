@@ -100,11 +100,14 @@ const slotCost = (system) => (system.bulky ? 2 : system.weightless ? 0 : 1);
 const chips = (item) => {
   const s = item.system;
   const out = [];
-  if (s.damageFormula) out.push(`${s.damageFormula} ${game.i18n.localize("CAIRN.Damage")}`);
-  if (s.armor) out.push(`${game.i18n.localize("CAIRN.Armor")} ${s.armor}`);
+  // Format keys, not "<number> <noun>": word order is not universal, and
+  // CAIRN.Uses is the sheet's field LABEL ("Available uses"), which read as
+  // "3 Available uses" when borrowed as a unit noun — wrong in English too.
+  if (s.damageFormula) out.push(game.i18n.format("CAIRN.NDamage", { n: s.damageFormula }));
+  if (s.armor) out.push(game.i18n.format("CAIRN.NArmor", { n: s.armor }));
   if (s.bulky) out.push(game.i18n.localize("CAIRN.Bulky"));
   if (s.weightless) out.push(game.i18n.localize("CAIRN.Weightless"));
-  if (s.uses?.max) out.push(`${s.uses.max} ${game.i18n.localize("CAIRN.Uses")}`);
+  if (s.uses?.max) out.push(game.i18n.format("CAIRN.NUses", { n: s.uses.max }));
   return out;
 };
 

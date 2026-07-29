@@ -47,7 +47,8 @@ Run from `c:\Users\domin\code\air-bladder`, on the branch you are about to merge
 | `npm run check:refs` | every compendium reference in every shipped table resolves, and resolves to a document with the *right name* |
 | `npm run check:fields` | pack documents match the data model, **and `system.json` `documentTypes.*.htmlFields` matches the `HTMLField`s in the schemas, both directions**. That second half is a security check, not tidiness: the Foundry server never loads the data models, so an `HTMLField` missing from the manifest is never sanitized — see `dev:sanitize` |
 | `npm run check:traits` | the trait-sentence parser |
-| `npm run i18n:check` | translation coverage, placeholder/HTML mismatches, stale keys |
+| `npm run i18n:check` | translation coverage, placeholder/HTML mismatches, stale keys — language files **against each other** |
+| `npm run i18n:source` | the code **against `lang/en.json`**: a key referenced but missing (the user sees `CAIRN.Whatever`), a key nothing references (dead weight a translator is still asked to translate), and user-visible English that never reaches `game.i18n` at all. That last class is invisible to `i18n:check` by construction — an unlocalized string is identical in every language file because it is in none of them, which is how `title="Double click to change limit"` shipped as the only hint that feature existed |
 
 ### With Foundry running on :30000
 
@@ -61,6 +62,7 @@ changed, which **fails while a world is open**, so stop the server for it.
 | `npm run dev:data-model` | the TypeDataModel schemas |
 | `npm run dev:icons` | no document left on a `.png` icon; every icon 200s, is really SVG, and rasterises at full size. Its list comes from the **`icons/` directory**, not from icons in use by documents — it used to be the latter, so it checked 15 of 17 files and a newly added icon stayed invisible to it until content pointed at one |
 | `npm run dev:sanitize` | that the server actually strips scripts from a system `HTMLField`. Writes a payload **as a real player** (Alice) to their own character's `system.notes` and to an owned weapon's description, and asserts both come back cleaned with their benign content intact. Needed alongside `check:fields` because the manifest declaration only takes effect at server STARTUP — an un-restarted edit is indistinguishable from no edit |
+| `npm run dev:i18n-render` | that the localized surfaces come out **localized**, which neither offline check can see: a string routed through `game.i18n` still renders English if the value fed into it is a raw stored token, or if a guard compares a stored English name against a translated one. It swaps `game.i18n.translations` for a copy carrying **unique sentinels** and asserts the sentinel reaches the DOM — so every assertion is its own negative control, since the pre-fix code emitted the English literal and no sentinel matches it. Covers the ability-save label, the Critical Damage banner, the spellbook display prefix (both directions), the equipment-limit tooltip, the delete confirmation, the archetype dropdown and the shop chips |
 | `npm run dev:compendium` | the shared name→document lookup in `module/compendium.js`. **Counts** full pack loads while opening the shop, because the catalog is correct either way and the entire defect is how much work happens — a functional assertion cannot fail. Also that a missing table degrades to `undefined`/`""` instead of throwing, and that adding a *row* to a shipped table invalidates the sheet's pack cache |
 | `npm run dev:icon-canvas` | the icon migration reaches scene tokens and the canvas ends correct after a reload |
 | `npm run dev:enc-damage` | the damage flow, including a real canvas draw |
@@ -128,6 +130,23 @@ because an earlier run had left the setting on; the first run against a world wh
 off timed out, and every run after that passed. When a probe changes a setting, either
 reload or check how that setting is registered. (Found 2026-07-29 by the "failed once,
 passed on re-run" rule below.)
+
+**Two derived artifacts compared to each other cannot show a defect in what they
+were derived from.** `i18n:check` compares `es.json` to `en.json`, which makes it
+structurally blind to a string that was never localized at all — such a string is
+identical in both files because it is in neither. That is how a hardcoded
+`title="Double click to change limit"` shipped as the only hint its feature existed.
+`i18n:source` closes it by comparing the **code** to `en.json`, and `dev:i18n-render`
+closes the runtime half. The shape generalises: whenever a gate diffs two outputs of
+the same pipeline, ask what a defect in the pipeline itself would look like to it.
+
+**A probe with no `npm` script is a probe nobody runs — and it rots silently.**
+`spellbook-prefix-probe.mjs` had none, and had decayed to selecting
+`actor.sheet.element?.[0]`, an ApplicationV1 idiom that returns `undefined` on an
+AppV2 sheet; every assertion read `null`. Its unique assertion was folded into
+`dev:i18n-render` and the file deleted. **18 more probes under `tools/dev/` still
+have no script** (`npm run` them by path to see which still work) — assume each has
+rotted until it is run.
 
 **A test that cannot fail is worse than none** — it reports success. When adding one,
 confirm it fails with its fix removed. `dev:icon-canvas` is the pattern: it plants a

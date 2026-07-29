@@ -83,8 +83,11 @@ const EXTRA_TABS = {
  */
 const gearTags = (s = {}, usesOverride) => {
   const tags = [];
-  if (s.armor) tags.push(`${s.armor} ${game.i18n.localize("CAIRN.Armor")}`);
-  if (s.damageFormula) tags.push(`${s.damageFormula} ${game.i18n.localize("CAIRN.Damage")}`);
+  // Format keys, not "<number> <noun>" — and the same two the marketplace chips
+  // use, which had drifted to the opposite word order ("Armor 1" there, "1 Armor"
+  // here) for the identical fact.
+  if (s.armor) tags.push(game.i18n.format("CAIRN.NArmor", { n: s.armor }));
+  if (s.damageFormula) tags.push(game.i18n.format("CAIRN.NDamage", { n: s.damageFormula }));
   if (s.bulky) tags.push(game.i18n.localize("CAIRN.Bulky"));
   if (s.weightless) tags.push(game.i18n.localize("CAIRN.Weightless"));
   const uses = usesOverride ?? s.uses?.max ?? 0;
@@ -269,7 +272,12 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
    */
   async _prepareBackgroundEditor(context) {
     context.isBackgroundEditor = true;
-    context.archetypeChoices = { Wizard: "Wizard", Fighter: "Fighter", Thief: "Thief" };
+    // Keyed by the STORED English identity (that is what goes on the document);
+    // only the label is localized. CAIRN.Archetype.* already existed for the
+    // background picker — this dropdown was the one place still showing English.
+    context.archetypeChoices = Object.fromEntries(
+      ["Wizard", "Fighter", "Thief"].map((a) => [a, game.i18n.localize(`CAIRN.Archetype.${a}`)])
+    );
     // Source is FIXED for a custom background — it is always Cairn 2e (that is the
     // whole feature; Barebones authoring is out of scope, and only source "2e" is
     // discovered). Shown read-only, never an editable pick-list, so a GM can't

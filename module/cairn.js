@@ -604,11 +604,25 @@ const configureHandleBar = () => {
     return val === FATIGUE_NAME;
   });
 
-  // True when `str` already begins with `prefix`. Used to keep the spellbook name
-  // prefix idempotent: a name that already reads "Spellbook — ..." (older data, or
-  // a hand-typed one) must not get a second prefix bolted on at display time.
-  Handlebars.registerHelper("startsWith", function (str, prefix) {
-    return typeof str === "string" && typeof prefix === "string" && str.startsWith(prefix);
+  // The display prefix for a spellbook row, or "" when the name already carries
+  // one. Keeping this idempotent needs BOTH forms tested, which is why it is a
+  // helper rather than an {{#unless startsWith}} in the template:
+  //
+  //   - the stored name is English ("Spellbook (Detect Magic)" is shipped pack
+  //     data), and the content overlay translates names only where it has an
+  //     entry — so `item.name` here may be either language;
+  //   - the old guard compared that name against the TRANSLATED prefix alone, so
+  //     on a Spanish client it never matched and every spellbook rendered
+  //     "Hechizo — Spellbook — Detect Magic".
+  //
+  // The English forms are stored-data constants, like FATIGUE_NAME — not UI
+  // strings. Both separators appear in shipped names.
+  const STORED_SPELLBOOK_PREFIXES = ["Spellbook — ", "Spellbook ("];
+  Handlebars.registerHelper("spellbookPrefix", function (name) {
+    const n = String(name ?? "");
+    const localized = game.i18n.localize("CAIRN.SpellbookPrefix");
+    const carried = [...STORED_SPELLBOOK_PREFIXES, localized].some((p) => n.startsWith(p));
+    return carried ? "" : localized;
   });
 
   Handlebars.registerHelper("markItemUsed", function (item, options) {

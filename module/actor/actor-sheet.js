@@ -761,7 +761,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       banners.push({ key: "dead", icon: "fa-skull", label: L("CAIRN.Dead"), text: L("CAIRN.DeadBanner") });
     } else {
       if (strCritical)
-        banners.push({ key: "critical", icon: "fa-heart-crack", label: `${L("CAIRN.CriticalDamageStatus")} — STR`, text: L("CAIRN.CriticalDamageBanner") });
+        // One format key rather than "<status> — STR": the ability name is
+        // itself localized (STR/FUE), and a translation may not want it last.
+        banners.push({
+          key: "critical",
+          icon: "fa-heart-crack",
+          label: game.i18n.format("CAIRN.CriticalDamageStatusFor", { key: L("STR") }),
+          text: L("CAIRN.CriticalDamageBanner"),
+        });
       if (paralyzed)
         banners.push({ key: "paralyzed", icon: "fa-lock", label: L("CAIRN.Paralyzed"), text: L("CAIRN.ParalyzedBanner") });
       if (delirious)

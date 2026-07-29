@@ -20,6 +20,7 @@
     "i18n:extract": "node tools/i18n/extract.mjs",
     "i18n:import": "node tools/i18n/import-i18n.mjs",
     "i18n:check": "node tools/i18n/check.mjs",
+    "i18n:source": "node tools/i18n/source-check.mjs",
     "release": "node tools/release.mjs",
     "dev:enc-damage": "node tools/dev/e2e-encumbered-damage.mjs",
     "dev:data-model": "node tools/dev/e2e-data-model.mjs",
@@ -42,6 +43,7 @@
     "dev:header-buttons": "node tools/dev/probe-header-buttons.mjs",
     "dev:notes-editor": "node tools/dev/e2e-notes-editor.mjs",
     "dev:sanitize": "node tools/dev/e2e-sanitize.mjs",
+    "dev:i18n-render": "node tools/dev/e2e-i18n-render.mjs",
     "dev:compendium": "node tools/dev/e2e-compendium-lookup.mjs"
   },
   "browserslist": [

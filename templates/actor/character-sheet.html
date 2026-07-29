@@ -89,7 +89,7 @@
             {{#each system.abilities as |ability key|}}
             <div class="resource-counter {{key}}-counter {{#if (lookup ../abilityPeril key)}}peril{{/if}} {{#if (lookup ../abilityLow key)}}low{{/if}}">
                 <a class="resource-roll" data-action="rollAbility" data-ability="{{key}}" data-roll="d20cs<=@abilities.{{key}}.value"
-                    data-label="{{{ localize 'CAIRN.Save' key=key}}}" data-tooltip="{{ lookup ../abilityTips key }}"><i class="fas fa-dice-d20 roll-icon"></i> {{ localize key }}</a>
+                    data-label="{{{ localize 'CAIRN.Save' key=(localize key)}}}" data-tooltip="{{ lookup ../abilityTips key }}"><i class="fas fa-dice-d20 roll-icon"></i> {{ localize key }}</a>
                 <div class="resource-input-wrapper">
                     <input type="number" min="0" max="18" step="1" class="stat-input" name="system.abilities.{{key}}.value" value="{{ability.value}}"
                         data-dtype="Number" title="{{ localize 'CAIRN.Current' }}" />
@@ -155,7 +155,7 @@
                   of itself onto the sheet as literal text. --}}
             <nav class="tabs" data-group="primary">
                 <a class="item {{tabs.items.cssClass}}" data-action="tab" data-group="primary" data-tab="items" id="set-equipment-limit"
-                    {{#if system.characterEquipmentLimit}}title="Double click to change limit"{{/if}}>
+                    {{#if system.characterEquipmentLimit}}title="{{localize 'CAIRN.EquipmentLimitTip'}}"{{/if}}>
                     {{#if system.characterEquipmentLimit}}<i class="fas fa-gears" style="opacity:0.5;z-index:5000" ></i>{{/if}}
                     {{ localize 'CAIRN.Items' }} ({{system.slotsUsed}} / {{system.slotsMax}})
                 </a>

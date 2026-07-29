@@ -1,5 +1,21 @@
 import { SETTINGS_NS } from "../settings.js";
 import { iconForItem, iconForTransport, containerClassLabel, CONTAINER_CLASSES, ICON_DIR } from "../icons.js";
+
+/** Document names go into dialog HTML; a name is user-authored text. */
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+/**
+ * "Delete <name>?" as ONE format key, never `localize("…Delete") + " " + name + "?"`.
+ * Spanish opens the question with "¿", which concatenating a trailing "?" cannot
+ * produce — the sentence has to be the translator's to write, whole.
+ */
+const confirmDelete = (name) =>
+  foundry.applications.api.DialogV2.confirm({
+    content: game.i18n.format("CAIRN.Notify.ConfirmDeleteNamed", { name: esc(name) }),
+    rejectClose: false,
+    modal: true,
+  });
+
 /**
  * Extend the base Actor entity by defining a custom roll data structure which is ideal for the Simple system.
  * @extends {Actor}
@@ -289,15 +305,7 @@ export class CairnActor extends Actor {
   async deleteOwnedItem(itemId) {
     const item = this.items.get(itemId);
     if (item) {
-      const proceed = await foundry.applications.api.DialogV2.confirm({
-        content:
-          game.i18n.localize("CAIRN.Notify.ConfirmDelete") +
-          " " +
-          item.name +
-          "?",
-        rejectClose: false,
-        modal: true,
-      });
+      const proceed = await confirmDelete(item.name);
       if (!proceed) return;
       await item.delete();
       if (this.type == "container") {
@@ -311,15 +319,7 @@ export class CairnActor extends Actor {
   async deleteOwnedContainer(itemId) {
     const container = this.getOwnedContainer(itemId);
     if (!container) return;
-    const proceed = await foundry.applications.api.DialogV2.confirm({
-      content:
-        game.i18n.localize("CAIRN.Notify.ConfirmDelete") +
-        " " +
-        container.name +
-        "?",
-      rejectClose: false,
-      modal: true,
-    });
+    const proceed = await confirmDelete(container.name);
     if (!proceed) return;
     const containers = this.system.containers.filter((c) => c !== itemId);
     const actor = game.actors.find((a) => a.uuid == itemId);
@@ -331,15 +331,7 @@ export class CairnActor extends Actor {
   async deleteOwnedFeature(itemId) {
     const ft = this.getOwnedFeature(itemId);
     if (!ft) return;
-    const proceed = await foundry.applications.api.DialogV2.confirm({
-      content:
-        game.i18n.localize("CAIRN.Notify.ConfirmDelete") +
-        " " +
-        ft.name +
-        "?",
-      rejectClose: false,
-      modal: true,
-    });
+    const proceed = await confirmDelete(ft.name);
     if (!proceed) return;
     const features = this.system.features.filter((c) => c.id !== itemId);
     await this.update({ "system.features": features });
