@@ -713,10 +713,19 @@ export const replaceGrantedContainers = async (actor, source, specs) => {
  * @returns {Promise<Object|null>}
  */
 export const generate2eCharacter = async (chosenBg = null) => {
-  const pack = game.packs.get("air-bladder.backgrounds-2e");
-  const backgrounds = pack ? await pack.getDocuments() : [];
+  // Draw from getBackgroundsFor("2e"), NOT from the shipped pack directly. This
+  // read `game.packs.get("air-bladder.backgrounds-2e")` inline, so random
+  // generation ignored both content toggles: a Warden running a homebrew-only
+  // game (shipped off, custom on) still got shipped backgrounds, and their own
+  // were never rolled at all. Only the picker and changeBackground went through
+  // the union, which is why it looked like a settings bug rather than a
+  // generation one. generateBarebonesCharacter had it right all along via
+  // getBarebonesBackgrounds(). Reported as issue #9.
+  const backgrounds = await getBackgroundsFor("2e");
   if (!chosenBg && !backgrounds.length) {
-    ui.notifications?.warn(game.i18n.localize("CAIRN.NoBackgrounds2e"));
+    ui.notifications?.warn(game.i18n.localize(customOnly()
+      ? "CAIRN.NoCustomBackgrounds"
+      : "CAIRN.NoBackgrounds2e"));
     return null;
   }
   // A chosen background (from a picker / persisted across regenerate) is used
@@ -1161,6 +1170,16 @@ export const generateCharacter = async (background = null, source = null) => {
 const BG_PACK_FOR = { "2e": "air-bladder.backgrounds-2e", barebones: BAREBONES_BG_PACK };
 
 /**
+ * A homebrew-only game: the Warden has switched the shipped 2e backgrounds OFF
+ * and their own ON. The distinction that matters is "off on purpose" versus
+ * "nothing configured" — only the first forbids falling back to shipped content.
+ * @returns {Boolean}
+ */
+const customOnly = () =>
+  !game.settings.get(SETTINGS_NS, "content-source-2e") &&
+  game.settings.get(SETTINGS_NS, "content-source-custom");
+
+/**
  * Homebrew backgrounds: every `background` Item with source "2e" that lives in a
  * WORLD or MODULE compendium. Location, not a flag, is the discriminator — shipped
  * 2e backgrounds live in the system pack (governed by the 2e toggle, excluded
@@ -1211,11 +1230,19 @@ const get2eBackgrounds = async () => {
     const pack = game.packs.get(BG_PACK_FOR["2e"]);
     if (pack) for (const b of await pack.getDocuments()) byId.set(b.id, b);
   };
-  if (game.settings.get(SETTINGS_NS, "content-source-2e")) await addShipped();
+  const shippedOn = game.settings.get(SETTINGS_NS, "content-source-2e");
+  if (shippedOn) await addShipped();
   if (game.settings.get(SETTINGS_NS, "content-source-custom")) {
     for (const b of await getCustomBackgrounds()) byId.set(b.id, b);
   }
-  if (!byId.size) await addShipped();
+  // Fall back ONLY when no toggle expressed a preference. A homebrew-only game
+  // with nothing authored yet must NOT be quietly handed the shipped pack: the
+  // Warden switched it off on purpose, and substituting it is the same mistake
+  // as defaulting a dismissed dialog to 2e (issue #6) — an explicit instruction
+  // overridden by a convenience. The caller notifies and generates nothing
+  // instead, which is recoverable; silently generating from content you disabled
+  // is not, because nothing tells you it happened.
+  if (!byId.size && !customOnly()) await addShipped();
   return [...byId.values()];
 };
 
@@ -1495,7 +1522,14 @@ export const changeBackground = async (actor, newBg = null) => {
   let bg = newBg;
   if (!bg) {
     const backgrounds = await getBackgroundsFor(source);
-    if (!backgrounds.length) return;
+    // Say why nothing happened. An empty pool is now reachable on purpose (a
+    // homebrew-only game with nothing authored yet), so a bare `return` would
+    // read as a dead button.
+    if (!backgrounds.length) {
+      ui.notifications?.warn(game.i18n.localize(
+        source === "2e" && customOnly() ? "CAIRN.NoCustomBackgrounds" : "CAIRN.NoBackgrounds2e"));
+      return;
+    }
     const pool = backgrounds.filter((b) => b.uuid !== actor.system.backgroundUuid);
     const from = pool.length ? pool : backgrounds;
     bg = from[Math.floor(Math.random() * from.length)];

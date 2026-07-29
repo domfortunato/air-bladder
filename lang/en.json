@@ -104,6 +104,7 @@
   "CAIRN.Name": "Name",
   "CAIRN.NoItemToDelete": "Cannot find Item to delete.",
   "CAIRN.NoBackgrounds2e": "No 2e backgrounds are installed.",
+  "CAIRN.NoCustomBackgrounds": "No custom backgrounds found. Author one in the Custom Backgrounds compendium, or re-enable the shipped Cairn 2e backgrounds in settings.",
   "CAIRN.NoBackgroundsBarebones": "No Barebones backgrounds are installed.",
   "CAIRN.Notes": "Notes",
   "CAIRN.BackgroundAndNotes": "Background & Notes",

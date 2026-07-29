@@ -98,6 +98,7 @@ changed, which **fails while a world is open**, so stop the server for it.
 | `npm run dev:settings` | that the settings are **reachable by a Warden** — a namespace naming no installed package renders them under "Unmapped": present in the data, invisible in the UI. Every other probe passes while that is broken |
 | `npm run dev:age-override` | the minimum-age floor binds in generation **and** in the sheet re-roll |
 | `npm run dev:bg-picker` | the background picker across both editions, and that the swap is surgical |
+| `npm run dev:content-sources` | that the content-source toggles govern **generation**, not just the picker. Creates a real custom background in a world pack and walks all four toggle combinations, asserting *which background the generated character came out with* — because asserting pool size passes in 3 of 4 cases whichever code is in place, and asserting "a character appeared" passes in all 4. Also that homebrew-only with nothing authored yet does **not** quietly refill from the shipped pack |
 | `npm run dev:bg-containers` | background-granted beasts and vehicles — minted as container Actors, replaced on regenerate, and a player's own container left alone |
 | `npm run dev:bg-author` | the custom-background authoring sheet: array edits persist, drag-to-snapshot, and generation resolves a snapshot in no canonical pack |
 | `npm run dev:bg-tools` | "Test ×10" preview/linter and "Duplicate into my backgrounds" |

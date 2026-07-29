@@ -57,6 +57,7 @@
     "dev:settings": "node tools/dev/settings-probe.mjs",
     "dev:age-override": "node tools/dev/age-override-probe.mjs",
     "dev:bg-picker": "node tools/dev/background-picker-probe.mjs",
+    "dev:content-sources": "node tools/dev/e2e-content-sources.mjs",
     "dev:bg-containers": "node tools/dev/bg-container-probe.mjs",
     "dev:bg-author": "node tools/dev/probe-bg-author.mjs",
     "dev:bg-tools": "node tools/dev/probe-bg-tools.mjs",
