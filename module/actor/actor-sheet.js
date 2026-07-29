@@ -821,6 +821,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // matches — the state is carried on a data attribute instead and kept in
     // step as the player types.
     for (const editor of el.querySelectorAll("prose-mirror[data-placeholder]")) {
+      // The prompt is drawn by `.editor-container::before`, one level down,
+      // because <prose-mirror> starts at the top of the MENU BAR — anchoring it
+      // there puts the hint on the toolbar. `attr()` only reads the element the
+      // pseudo belongs to, so the text is handed down as a custom property,
+      // which inherits and so is in place whenever ProseMirror gets round to
+      // building that container (it is created on activation, not at render).
+      editor.style.setProperty("--ab-placeholder", JSON.stringify(editor.dataset.placeholder));
       const sync = () => editor.classList.toggle(
         "cairn-editor-empty",
         !(editor.querySelector(".editor-content")?.textContent ?? "").trim()

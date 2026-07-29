@@ -48,6 +48,33 @@ try {
       await new Promise((r) => setTimeout(r, 400));
       const pm = el.querySelector(`prose-mirror[name="${field}"]`);
       const content = pm?.querySelector(".editor-content");
+
+      // WHERE the placeholder lands, not just whether it is switched on. A
+      // pseudo-element has no getBoundingClientRect, so find whichever element
+      // carries the ::before, then place it from that host's box plus the
+      // pseudo's own offsets. The bug this exists for drew the hint over the
+      // toolbar: the class was set, the text was right, and it was unreadable.
+      const placed = (() => {
+        if (!pm) return null;
+        const hosts = [pm, ...pm.querySelectorAll(".editor-container, .editor-content")];
+        const host = hosts.find((h) => {
+          const c = getComputedStyle(h, "::before").content;
+          return c && c !== "none" && c !== "normal" && c !== '""';
+        });
+        if (!host) return { drawn: false };
+        const s = getComputedStyle(host, "::before");
+        const hb = host.getBoundingClientRect();
+        const box = (n) => { const b = n?.getBoundingClientRect(); return b && { top: b.top, bottom: b.bottom, left: b.left, right: b.right }; };
+        return {
+          drawn: true,
+          host: host === pm ? "prose-mirror" : host.className,
+          text: s.content,
+          at: { top: hb.top + parseFloat(s.top || 0), left: hb.left + parseFloat(s.left || 0) },
+          menu: box(pm.querySelector(".menu-container")),
+          content: box(pm.querySelector(".editor-content")),
+        };
+      })();
+
       return {
         id: actor.id,
         sheetId: el.id,
@@ -56,6 +83,7 @@ try {
         editable: content?.getAttribute("contenteditable"),
         placeholder: pm?.getAttribute("data-placeholder") ?? null,
         placeholderShown: pm?.classList.contains("cairn-editor-empty") ?? null,
+        placed,
       };
     }, { type, field });
 
@@ -71,6 +99,29 @@ try {
       setup.placeholderShown
         ? ok("empty editor shows its placeholder", `"${setup.placeholder}"`)
         : fail("empty editor shows its placeholder", "the cairn-editor-empty class is absent");
+
+      const p = setup.placed;
+      if (!p?.drawn) {
+        fail("the placeholder is actually drawn", "no ::before with content on the editor");
+      } else if (!p.text.includes(setup.placeholder)) {
+        // Reaching this means the class is on and the box is right and the
+        // prompt still says nothing -- e.g. attr() reading an element that
+        // does not carry the attribute.
+        fail("the placeholder is actually drawn", `::before content is ${p.text}`);
+      } else if (!p.content) {
+        fail("placeholder sits in the editable area", "no .editor-content to compare against");
+      } else if (p.menu && p.at.top < p.menu.bottom) {
+        fail("placeholder clears the toolbar",
+          `drawn at y=${Math.round(p.at.top)} on ${p.host}, but the menu bar runs to y=${Math.round(p.menu.bottom)}`);
+      } else if (p.at.top < p.content.top || p.at.top > p.content.bottom
+              || p.at.left < p.content.left || p.at.left > p.content.right) {
+        fail("placeholder sits in the editable area",
+          `drawn at ${Math.round(p.at.left)},${Math.round(p.at.top)}; content box is `
+          + `${Math.round(p.content.left)},${Math.round(p.content.top)}-`
+          + `${Math.round(p.content.right)},${Math.round(p.content.bottom)}`);
+      } else {
+        ok("placeholder sits in the editable area", `on ${p.host}`);
+      }
     }
 
     // Type like a player: click the content and use the keyboard.
