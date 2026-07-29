@@ -9,6 +9,65 @@ export const FOUNDRY_URL = process.env.FOUNDRY_URL ?? "http://localhost:30000";
 export const VIEWPORT = { width: 1600, height: 1000 };
 
 /**
+ * Run `fn` and put every world setting back the way it was, even if `fn` throws.
+ *
+ *   await withSettings(page, async () => { ...probe body... });
+ *
+ * Why this exists, and why the restore has to live HERE rather than inside the
+ * probe's `page.evaluate`: on 2026-07-29 `age-override-probe` set `min-age` to 99
+ * to test the age floor, then threw on the next line (an AppV2 casualty —
+ * `sheet._onRollAge` had stopped existing). Its restore sat *after* the throw,
+ * inside the same evaluate, so it never ran. The setting stayed at 99 in the dev
+ * world, and from then on EVERY character generated aged 99 and the age re-roll
+ * looked broken — it was flooring to 99 too, so the value never visibly changed.
+ * The user hit it as a system bug hours later.
+ *
+ * An exception inside `page.evaluate` propagates into Node, so a Node-level
+ * `finally` still runs when an in-page one would have been skipped. Anything a
+ * probe changes about the world it shares with a human belongs in that finally.
+ *
+ * Restores by diffing against the snapshot, so it touches only what actually
+ * moved, and reports what it put back — a silent repair would hide a probe that
+ * leaks on every run.
+ */
+export async function withSettings(page, fn) {
+  const NS = "air-bladder";
+  const snapshot = await page.evaluate((ns) => {
+    const out = {};
+    for (const [key, cfg] of game.settings.settings) {
+      if (!key.startsWith(`${ns}.`) || cfg.scope === "client") continue;
+      try { out[key.slice(ns.length + 1)] = game.settings.get(ns, key.slice(ns.length + 1)); } catch { /* unreadable */ }
+    }
+    return out;
+  }, NS);
+
+  try {
+    return await fn();
+  } finally {
+    try {
+      const restored = await page.evaluate(async ({ ns, snapshot }) => {
+        const changed = [];
+        for (const [key, was] of Object.entries(snapshot)) {
+          let now;
+          try { now = game.settings.get(ns, key); } catch { continue; }
+          if (JSON.stringify(now) === JSON.stringify(was)) continue;
+          await game.settings.set(ns, key, was);
+          changed.push(`${key}: ${JSON.stringify(now)} -> ${JSON.stringify(was)}`);
+        }
+        return changed;
+      }, { ns: NS, snapshot });
+      if (restored.length) {
+        console.log(`  note  restored ${restored.length} leaked setting(s):`);
+        for (const c of restored) console.log(`          ${c}`);
+      }
+    } catch (e) {
+      // Never let cleanup mask the real failure.
+      console.error(`  note  could not restore settings: ${e.message}`);
+    }
+  }
+}
+
+/**
  * Clear the things that block automated clicks: the one-time usage-data consent
  * prompt, and tour overlays, which cover the screen and swallow pointer events.
  */

@@ -21,7 +21,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors, confirmImportOptions } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, confirmImportOptions, withSettings } from "./lib.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const fixture = path.join(ROOT, "tools", "dev", "fixtures", "kettlewright-solene.json");
@@ -88,22 +88,27 @@ await page.evaluate(async () => {
   for (const a of game.actors.filter((a) => a.name === "Guardrail")) await a.delete();
 });
 
-/* 3. min-age floor ----------------------------------------------------------- */
-file = fixture;
-const before = await page.evaluate((f) => {
-  const b = game.settings.get("air-bladder", "min-age");
-  return game.settings.set("air-bladder", "min-age", f).then(() => b);
-}, FLOOR);
-const madeSolene = await importAndWait("Solene");
-const aged = await page.evaluate(() => {
-  const a = game.actors.getName("Solene");
-  return { age: a?.system?.age ?? "", summary: [...document.querySelectorAll(".kwi-summary")].pop()?.textContent ?? "" };
+/* 3. min-age floor -----------------------------------------------------------
+ * Wrapped in withSettings because this drives `min-age` and this file is
+ * top-level statements with no enclosing try: a throw anywhere between the set
+ * and the restore below would abort the script and leave the floor raised in the
+ * world. That exact leak, from a different probe, had every character generated
+ * afterwards come out aged 99 with a dead-looking age re-roll. The restore has to
+ * run in Node to survive a throw inside page.evaluate. */
+let madeSolene, aged;
+await withSettings(page, async () => {
+  file = fixture;
+  await page.evaluate((f) => game.settings.set("air-bladder", "min-age", f), FLOOR);
+  madeSolene = await importAndWait("Solene");
+  aged = await page.evaluate(() => {
+    const a = game.actors.getName("Solene");
+    return { age: a?.system?.age ?? "", summary: [...document.querySelectorAll(".kwi-summary")].pop()?.textContent ?? "" };
+  });
 });
-await page.evaluate(async (b) => {
-  await game.settings.set("air-bladder", "min-age", b);
+await page.evaluate(async () => {
   await game.actors.getName("Solene")?.delete();
   for (const a of game.actors.filter((a) => a.name === "Guardrail")) await a.delete();
-}, before);
+});
 await browser.close();
 fs.rmSync(bogus, { force: true });
 

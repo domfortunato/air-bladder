@@ -8,9 +8,17 @@
  *      (no on/off toggle).
  *   4. rollAge() ALWAYS floors the roll at min-age — both generation and the sheet
  *      re-roll go through it — and a floor below 12 never binds (the off switch).
+ *
+ * This probe drives `min-age` to 99 and MUST put it back. It once did not: it
+ * threw between the two (`sheet._onRollAge` had gone in the AppV2 port) and its
+ * in-page restore never ran, so the dev world kept a floor of 99 and every
+ * character generated afterwards was aged 99, with the age re-roll appearing dead
+ * because it floored to 99 too. Hence `withSettings`, whose restore runs in Node
+ * and therefore survives a throw inside `page.evaluate`. Do not move the restore
+ * back inside the evaluate.
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, withSettings } from "./lib.mjs";
 
 const browser = await chromium.launch();
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
@@ -22,7 +30,7 @@ const ok = (m) => console.log(`  ok    ${m}`);
 try {
   await joinAsGM(page);
 
-  const r = await page.evaluate(async () => {
+  const r = await withSettings(page, () => page.evaluate(async () => {
     const NS = "air-bladder";
     const out = {};
 
@@ -103,7 +111,7 @@ try {
 
     await app.close();
     return out;
-  });
+  }));
 
   // 1. section order
   const wanted = ["General Settings", "Character Generation", "Inventory & Encumbrance"];
