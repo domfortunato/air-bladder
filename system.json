@@ -4,7 +4,7 @@
   "description": "Air Bladder — a game system for Cairn 2nd Edition and Barebones, the OSR RPG by Yochai Gal, on Foundry VTT. Cairn character generation, backgrounds, marketplace, and Warden tables; descended from Into the Odd. A companion system compatible with Cairn — not the official Cairn system.",
   "version": "0.1.7",
   "compatibility": {
-    "minimum": "13",
+    "minimum": "14",
     "verified": "14"
   },
   "license": "LICENSE.txt",
