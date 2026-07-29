@@ -24,15 +24,21 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 
 ## Key Features
 
-- Random or manual generation of both Cairn 2e and Cairn Barebones characters — each style can be toggled on or off
-- Barebones sheets support optional homebrew features
+- Random or manual generation of characters from Cairn 2e, **Custom Cairn 2e**, and Cairn Barebones background — The Warden can toggle each source on or off
+- .json character import from the Official Cairn app, [Kettlewright!](https://kettlewright.com/)
+- Optional homebrew features that mix 2e features with Barebones
 - Warden-authored custom 2e backgrounds — [create and lint your own](https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md), then [share them across worlds](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md)
-- Random or manual generation of hireling sheets
-- Tooltips for players
-- Marketplace and containers
-- Warden-facing roll tables
-- A gallery of 80 CC BY 4.0 character portraits by [Jon Aspeheim](https://jonaspeheim.itch.io/)
-- Minimal automation
+- Random or manual generation of NPC/Hirelings
+- Character Sheet tooltips for players
+- Pop-out Character Sheets! Yes, we're on AppV2 and ready for Foundry v15!
+- Marketplace and containers; horses, carts, wagons, chests, and ITEM PILES!
+- Warden-facing roll tables! 
+- A gallery of 80 CC BY 4.0 character portraits with matching icons by [Jon Aspeheim](https://jonaspeheim.itch.io/)
+- Minimal automation; with buttons for rest, restoring abilites, panicked and critical damage
+
+## Features on the Horizon
+- Monster and Encounter Generators (optional)
+- GLOG Magic (optional)
 
 ## Screenshots
 
@@ -62,7 +68,7 @@ Danish, French, German, Polish and Brazilian Portuguese interface files are inhe
 
 The tooling is language-agnostic (`--lang <code>` throughout), so a new language needs no code changes — only a translator.
 
-**Translators welcome** — see [docs/TRANSLATING.md](https://github.com/domfortunato/air-bladder/blob/master/docs/TRANSLATING.md) for the no-coding workflow, or [docs/translating-self-service.md](https://github.com/domfortunato/air-bladder/blob/master/docs/translating-self-service.md) if you'd rather work in git.
+**Translation Help Requested!** — see [docs/TRANSLATING.md](https://github.com/domfortunato/air-bladder/blob/master/docs/TRANSLATING.md) for the no-coding workflow, or [docs/translating-self-service.md](https://github.com/domfortunato/air-bladder/blob/master/docs/translating-self-service.md) if you'd rather work in git.
 
 ## Installation (manual)
 
@@ -81,7 +87,7 @@ Pull requests welcome — open them against **`dev`**, not `master`. See [CONTRI
 
 ## AI Disclosure
 
-**Generative-AI art will never appear in this repo — ever.** The code, on the other hand, was written entirely with [Claude Code](https://www.anthropic.com/claude-code), using Yochai Gal's original Cairn repo as a base.
+**Generative-AI art will never appear in this repo — ever.** The code, on the other hand, was written with [Claude Code](https://www.anthropic.com/claude-code), using Yochai Gal's original Cairn repo as a base.
 
 ## Credits & licenses
 
