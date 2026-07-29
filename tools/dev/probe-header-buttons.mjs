@@ -59,6 +59,13 @@ try {
       return {
         roll: one("rollActor"),
         toggle: one("toggleGeneration"),
+        popOut: one("detach"),
+        canDetach: sheet._canDetach(),
+        // Left-to-right order of every button in the title bar. The ⋮ menu is
+        // written into the header's static markup BEFORE the slot frame buttons
+        // are inserted into, so without intervention it sits to the left of our
+        // labelled buttons — which is what this records.
+        order: [...(header?.querySelectorAll("button") ?? [])].map((b) => b.dataset.action),
         refWidth: ref ? Math.round(ref.getBoundingClientRect().width) : null,
         // Nothing of ours should be left in the ⋮ menu.
         menuHasOurs: !!header?.querySelector('[data-action="rollActor"], [data-action="toggleGeneration"]')
@@ -164,7 +171,104 @@ try {
     : fail('a hireling reads "Roll NPC"', `text="${hireling.roll?.text}"`);
   !npc.roll && !npc.toggle
     ? ok("an NPC sheet has neither button")
-    : fail("an NPC sheet has neither button", JSON.stringify(npc));
+    : fail("an NPC sheet has neither button", JSON.stringify({ roll: npc.roll, toggle: npc.toggle }));
+
+  console.log("\nPop Out");
+  initial.popOut?.text === "Pop Out"
+    ? ok("Pop Out carries visible text", `${initial.popOut.width}px`)
+    : fail("Pop Out carries visible text", `text="${initial.popOut?.text}"`);
+  // It is core's `detach` action, not one of ours -- if this ever stops being
+  // true, the button has quietly become something we have to maintain.
+  initial.popOut && initial.canDetach
+    ? ok("wired to core's detach action", 'data-action="detach", _canDetach() true')
+    : fail("wired to core's detach action", `canDetach=${initial.canDetach}`);
+  !initial.popOut?.clipped && !initial.popOut?.overflowsHeader && initial.popOut?.hidden === false
+    ? ok("shown, unclipped, inside the title bar")
+    : fail("shown, unclipped, inside the title bar", JSON.stringify(initial.popOut));
+  // Not gated by generation: an NPC has no Roll/Randomization but still pops out.
+  npc.popOut?.text === "Pop Out"
+    ? ok("an NPC sheet still gets it", "not gated by show-generate-header")
+    : fail("an NPC sheet still gets it", `popOut=${JSON.stringify(npc.popOut)}`);
+  off.popOut?.hidden === false
+    ? ok("Randomization off leaves it alone", "only Roll Character hides")
+    : fail("Randomization off leaves it alone", `hidden=${off.popOut?.hidden}`);
+
+  console.log("\ntitle-bar order");
+  // ⋮ and ✕ are the chrome; everything labelled belongs to the left of them.
+  const order = initial.order ?? [];
+  const iMenu = order.indexOf("toggleControls");
+  const labelled = ["rollActor", "toggleGeneration", "detach"].map((a) => order.indexOf(a));
+  iMenu > -1 && labelled.every((i) => i > -1 && i < iMenu)
+    ? ok("⋮ sits to the right of our buttons", order.join(" "))
+    : fail("⋮ sits to the right of our buttons", order.join(" "));
+  order.at(-1) === "close"
+    ? ok("✕ stays last", order.join(" "))
+    : fail("✕ stays last", order.join(" "));
+
+  /* --- Pop Out actually pops out ---------------------------------------- */
+  // Rendering a button labelled "Pop Out" proves nothing about detaching, and
+  // detaching is the entire feature. So click it for real and follow the sheet
+  // into the browser window it opens.
+  //
+  // Every wait here POLLS the condition instead of sleeping: the move settled
+  // anywhere between 1.0s and 2.5s across runs, so a fixed delay would report a
+  // slow machine as a broken feature.
+  console.log("\nPop Out detaches for real");
+  const info = await page.evaluate(async () => {
+    const actor = await Actor.create({ name: "ZZ Header Detach", type: "character" });
+    await actor.sheet.render(true);
+    for (let i = 0; i < 40 && !actor.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
+    await new Promise((r) => setTimeout(r, 500));
+    return { sheetId: actor.sheet.element.id, actorId: actor.id };
+  });
+
+  const [popup] = await Promise.all([
+    page.context().waitForEvent("page", { timeout: 20000 }).catch(() => null),
+    page.locator(`#${info.sheetId} .window-header button[data-action="detach"]`).click(),
+  ]);
+  for (let i = 0; i < 40; i++) {
+    if (await page.evaluate((id) => !!foundry.applications.instances.get(id)?.window?.windowId, info.sheetId)) break;
+    await page.waitForTimeout(500);
+  }
+  const detached = await page.evaluate((i) => {
+    const app = foundry.applications.instances.get(i.sheetId);
+    return {
+      windowId: app?.window?.windowId ?? null,
+      leftMainDocument: !document.getElementById(i.sheetId),
+      popOutHidden: app?.element?.querySelector('button[data-action="detach"]')
+        ?.classList.contains("cairn-header-hidden") ?? null,
+    };
+  }, info);
+
+  popup ? ok("clicking it opens a window", await popup.title().catch(() => "?"))
+        : fail("clicking it opens a window", "no popup within 20s");
+  detached.windowId && detached.leftMainDocument
+    ? ok("the sheet moves into that window", detached.windowId)
+    : fail("the sheet moves into that window", JSON.stringify(detached));
+  // _onDetach, not _updateFrame: the latter runs before the move completes and
+  // leaves the button showing on an already-detached sheet.
+  detached.popOutHidden === true
+    ? ok("Pop Out hides once detached", "_onDetach fired after the move settled")
+    : fail("Pop Out hides once detached", `popOutHidden=${detached.popOutHidden}`);
+
+  const reattached = await page.evaluate(async (i) => {
+    const app = foundry.applications.instances.get(i.sheetId);
+    await app.attachWindow();
+    for (let n = 0; n < 40 && app.window.windowId; n++) await new Promise((r) => setTimeout(r, 500));
+    const res = {
+      windowId: app.window.windowId ?? null,
+      backInMainDocument: !!document.getElementById(i.sheetId),
+      popOutHidden: app.element?.querySelector('button[data-action="detach"]')
+        ?.classList.contains("cairn-header-hidden") ?? null,
+    };
+    await app.close();
+    await game.actors.get(i.actorId)?.delete();
+    return res;
+  }, info);
+
+  !reattached.windowId && reattached.backInMainDocument && reattached.popOutHidden === false
+    ? ok("re-docking brings it back", "_onAttach")
+    : fail("re-docking brings it back", JSON.stringify(reattached));
 } catch (e) {
   fail("probe threw", `${e.name}: ${e.message}`);
 } finally {

@@ -317,20 +317,32 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   _getFrameButtons(options) {
     const buttons = super._getFrameButtons(options);
+
+    // Pop Out is a shortcut to the ⋮ menu's Detach, which opens the sheet in its
+    // own browser window. `detach` is CORE's action (application.mjs:72, :86) —
+    // this only surfaces it, so there is no behaviour of ours to get wrong.
+    // Every actor type gets it and it is NOT gated by `show-generate-header`:
+    // it is a plain window control with nothing to do with generation, and
+    // hiding it behind that setting would be arbitrary.
+    const popOut = { action: "detach", icon: "fas fa-arrow-up-right-from-square", label: "CAIRN.PopOut" };
+
     const isChar = this.actor.type === "character";
     const isHireling = this.actor.type === "hireling";
-    if (!isChar && !isHireling) return buttons;
-    if (!game.settings.get(SETTINGS_NS, "show-generate-header")) return buttons;
-    if (!this.actor.isOwner) return buttons;
+    const generates = (isChar || isHireling)
+      && this.actor.isOwner
+      && game.settings.get(SETTINGS_NS, "show-generate-header");
+    if (!generates) return [popOut, ...buttons];
 
-    // Both are ALWAYS created. Roll Character is hidden in place when
-    // Randomization is off rather than omitted, so the toggle can reveal it
-    // without rebuilding the frame — which first render is the only chance to do.
+    // Roll Character and the toggle are both ALWAYS created. Roll Character is
+    // hidden in place when Randomization is off rather than omitted, so the
+    // toggle can reveal it without rebuilding the frame — which first render is
+    // the only chance to do.
     return [
       // Character → "Roll Character"; hireling → "Roll NPC". Same control, same
       // action; only the wording differs.
       { action: "rollActor", icon: "fas fa-dice-d6", label: isHireling ? "CAIRN.RollNpc" : "CAIRN.RegenerateCharacter" },
       { action: "toggleGeneration", icon: "fas fa-toggle-on", label: "CAIRN.RandomizationOn" },
+      popOut,
       ...buttons,
     ];
   }
@@ -350,7 +362,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   async _renderFrame(options) {
     const frame = await super._renderFrame(options);
-    for (const action of ["rollActor", "toggleGeneration"]) {
+    for (const action of ["rollActor", "toggleGeneration", "detach"]) {
       const button = frame.querySelector(`.window-header button[data-action="${action}"]`);
       if (!button) continue;
       // The template puts the glyph on the BUTTON as classes and leaves it
@@ -365,8 +377,67 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       button.removeAttribute("data-tooltip");
       button.append(icon, document.createTextNode(button.getAttribute("aria-label") ?? ""));
     }
+
+    // Send the ⋮ menu to the right-hand end, next to ✕.
+    //
+    // It is not a frame button — `_renderFrame` writes it into the header's
+    // static markup between the title and ✕ (application.mjs:848-850), and
+    // `_renderFrameButtons` then inserts everything else `beforebegin` of ✕
+    // (:887). So anything we add necessarily lands to its RIGHT, leaving ⋮
+    // stranded at the front of a row of labelled buttons.
+    //
+    // Its ContextMenu is bound by selector to the application root
+    // (application.mjs:1887), and `#window.controls` holds this element, so
+    // moving the node breaks neither.
+    const header = frame.querySelector(".window-header");
+    const controls = header?.querySelector('button[data-action="toggleControls"]');
+    const close = header?.querySelector('button[data-action="close"]');
+    if (controls && close) close.before(controls);
+
     this.#syncGenerationButtons(frame);
     return frame;
+  }
+
+  /* -------------------------------------------- */
+
+  /**
+   * Hide Pop Out once the sheet is already popped out, and bring it back when it
+   * re-docks.
+   *
+   * Detaching does NOT re-render — `render()` short-circuits to `#move`
+   * (application.mjs:537) — so `_onRender` never fires and the button cannot
+   * update itself the way the Randomization toggle does. `_updateFrame` looks
+   * like the answer and is not: `#move` calls it BEFORE the async
+   * window-opening work that sets `window.windowId`, so `_canDetach()` still
+   * reads true at that point and the button stays visible. Measured, not
+   * assumed — that was the first attempt.
+   *
+   * These two are the hooks core fires once the move has actually happened
+   * (application.mjs:1323, :1427).
+   *
+   * Re-docking itself stays in the ⋮ menu, where core puts Attach and keeps it
+   * correct; a frame button is built once and cannot follow.
+   * @override
+   */
+  _onDetach(from, to) {
+    super._onDetach(from, to);
+    this.#syncPopOut();
+  }
+
+  /** @override */
+  _onAttach(from, to) {
+    super._onAttach(from, to);
+    this.#syncPopOut();
+  }
+
+  /**
+   * Show Pop Out exactly when core would offer Detach in the ⋮ menu, using
+   * core's own predicate rather than a second opinion about what "detached"
+   * means.
+   */
+  #syncPopOut() {
+    this.element?.querySelector('.window-header button[data-action="detach"]')
+      ?.classList.toggle("cairn-header-hidden", !this._canDetach());
   }
 
   /* -------------------------------------------- */
