@@ -133,7 +133,19 @@ planted.img === OLD
 
 await page.reload({ waitUntil: "networkidle", timeout: 60000 });
 await page.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
-await page.waitForTimeout(800);
+
+// POLL for the rewrite; do NOT sleep a fixed interval. `game.ready === true` does
+// not mean the migration has finished: Hooks.callAll does not await an async
+// callback, so the ready hook is still in flight after the flag is set — and this
+// one runs two other phases, each a server round trip, before the icon pass. An
+// 800ms sleep passed on most runs and failed on some, which read as a flaky probe
+// and was really a race against work nobody can await from outside.
+let waited = 0;
+for (; waited < 30000; waited += 250) {
+  const img = await page.evaluate((id) => game.items.get(id)?.img ?? null, planted.id);
+  if (img?.endsWith(".svg")) break;
+  await page.waitForTimeout(250);
+}
 
 const after = await page.evaluate(async (id) => {
   const it = game.items.get(id);
@@ -143,8 +155,8 @@ const after = await page.evaluate(async (id) => {
 }, planted.id);
 
 after === "systems/air-bladder/icons/generic-item.svg"
-  ? ok(`the ready migration rewrote it (${after})`)
-  : fail(`migration did not rewrite the planted item: "${after}"`);
+  ? ok(`the ready migration rewrote it after ${waited}ms (${after})`)
+  : fail(`migration did not rewrite the planted item after ${waited}ms: "${after}"`);
 
 console.log(`\nconsole errors: ${errors.length}`);
 for (const e of errors.slice(0, 8)) console.log(`  ${e}`);
