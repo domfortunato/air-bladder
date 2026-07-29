@@ -95,7 +95,26 @@ try {
       const overflowY = content ? getComputedStyle(content).overflowY : "";
       const scrollable = ["auto", "scroll"].includes(overflowY);
 
-      return { overlaps, spilling, scrollable, overflowY, count: children.length };
+      // A counter whose children do not fill it leaves a visible empty box.
+      // Overlap and spill checks are blind to this: the counter sits correctly in
+      // the grid and nothing collides — the void is INSIDE it. The container
+      // sheet's Type row shipped that way, its label taking 33px of text width
+      // and its select 89px inside a 213px counter, because the row carried no
+      // width modifier (`middle-counter`) and `large-resource-label` — which
+      // looks like it sizes the label — is styled nowhere, in any of its 38 uses.
+      // Widths come from the COUNTER class, never the label class.
+      //
+      // 12px of slack absorbs the ~3px of border/padding every counter carries.
+      const underfilled = [];
+      for (const c of root.querySelectorAll(".resource-counter")) {
+        const cw = c.getBoundingClientRect().width;
+        if (cw < 2) continue;                                  // hidden tab
+        const kids = [...c.children].reduce((n, k) => n + k.getBoundingClientRect().width, 0);
+        const gap = Math.round(cw - kids);
+        if (gap > 12) underfilled.push(`${[...c.classList].join(".")} (${gap}px empty of ${Math.round(cw)})`);
+      }
+
+      return { overlaps, spilling, scrollable, overflowY, count: children.length, underfilled };
     };
   });
 
@@ -128,6 +147,7 @@ try {
     if (r.overlaps.length) fail(who, `regions overlap: ${r.overlaps.join(", ")}`);
     else if (r.spilling.length) fail(who, `region overflows its box: ${r.spilling.join(", ")}`);
     else if (!r.scrollable) fail(who, `.window-content cannot scroll (overflow-y: ${r.overflowY})`);
+    else if (r.underfilled?.length) fail(who, `counter left part-empty: ${r.underfilled.join(", ")}`);
     else ok(who, `${r.count} regions, none overlapping`);
   }
 
@@ -174,6 +194,7 @@ try {
     if (r.overlaps.length) fail(r.type, `regions overlap: ${r.overlaps.join(", ")}`);
     else if (r.spilling.length) fail(r.type, `region overflows its box: ${r.spilling.join(", ")}`);
     else if (!r.scrollable) fail(r.type, `.window-content cannot scroll (overflow-y: ${r.overflowY})`);
+    else if (r.underfilled?.length) fail(r.type, `counter left part-empty: ${r.underfilled.join(", ")}`);
     else ok(r.type, `${r.count} regions, none overlapping`);
 
     const h = r.npcHeader;

@@ -17,7 +17,16 @@
                   two-column grid, so a third counter there gets an implicit third
                   column and every label is squeezed ("Mount" rendered as "Moun").
                   Row 3 is the 1fr slack row and was empty. --}}
-            <div class="resource-counter container-type-counter">
+            {{!-- `middle-counter` is what splits a counter 50/50 into label bar +
+                  value box. Without it this row had NO width rule at all: the
+                  label took its text width (33px) and the select its own (89px),
+                  filling 122px of the counter's 213px and leaving 91px of empty
+                  box hanging off the right. `large-resource-label` looks like it
+                  should size the label but is styled nowhere — all 38 uses of it
+                  get their widths from the COUNTER class beside it, which is why
+                  Cost in this same sheet renders correctly (it carries
+                  `slots-counter`). --}}
+            <div class="resource-counter middle-counter container-type-counter">
                 <label class="large-resource-label" for="{{@root.idp}}-system.transportKind">{{ localize 'CAIRN.TransportKind' }}</label>
                 <div class="resource-input-wrapper">
                     <select name="system.transportKind" id="{{@root.idp}}-system.transportKind">
