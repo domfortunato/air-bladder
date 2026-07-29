@@ -49,6 +49,69 @@ let failed = false;
 const ok = (m) => console.log(`  ok    ${m}`);
 const fail = (m) => { console.error(`  FAIL  ${m}`); failed = true; };
 
+/* Cancelling the content-source picker must create NOTHING.
+ *
+ * The picker only appears when more than one source is enabled, so the probe
+ * turns both on and restores them afterwards. Dismissing used to fall through to
+ * "2e" under the rule that the Generate button never does nothing — which is
+ * right for a Warden who has switched every source off (a configuration gap) and
+ * wrong for a ✕ (an instruction). It left a stray actor behind every time.
+ * Reported as issue #6. */
+const cancel = await page.evaluate(async () => {
+  const NS = "air-bladder";
+  const prior = {
+    twoE: game.settings.get(NS, "content-source-2e"),
+    bare: game.settings.get(NS, "content-source-barebones"),
+  };
+  await game.settings.set(NS, "content-source-2e", true);
+  await game.settings.set(NS, "content-source-barebones", true);
+  await ui.sidebar.changeTab?.("actors", "primary");
+  await new Promise((res) => setTimeout(res, 600));
+
+  const before = game.actors.size;
+
+  // Assert on what generateCharacter RESOLVES, not on an actor count after a
+  // fixed sleep. Generating a 2e character rolls tables, resolves gear from
+  // packs and can mint container Actors — comfortably longer than any sleep
+  // worth writing. A count read too early shows "nothing was created" whether
+  // the fix works or not, and the negative control proved exactly that: with
+  // the fix reverted the probe still passed.
+  const CG = game.cairn.characterGenerator;
+  const pending = CG.generateCharacter();
+  await new Promise((res) => setTimeout(res, 1200));
+  const dlg = [...document.querySelectorAll(".application.dialog, dialog.application")].pop();
+  const closeBtn = dlg?.querySelector('[data-action="close"]');
+  const shown = !!dlg && !!closeBtn;
+  closeBtn?.click();
+  const resolved = await pending;
+
+  // Belt and braces: the wired-up button must not create one either. Poll for a
+  // new actor rather than sleeping once.
+  document.querySelector(".create-character-generator-button")?.click();
+  await new Promise((res) => setTimeout(res, 1000));
+  const dlg2 = [...document.querySelectorAll(".application.dialog, dialog.application")].pop();
+  dlg2?.querySelector('[data-action="close"]')?.click();
+  let after = game.actors.size;
+  for (let i = 0; i < 100 && after === before; i++) {
+    await new Promise((res) => setTimeout(res, 100));
+    after = game.actors.size;
+  }
+
+  await game.settings.set(NS, "content-source-2e", prior.twoE);
+  await game.settings.set(NS, "content-source-barebones", prior.bare);
+  return { shown, before, after, resolvedNull: resolved === null, resolved: resolved === null ? null : typeof resolved };
+});
+
+cancel.shown
+  ? ok("the content-source picker opens with a dismiss control")
+  : fail("no content-source picker with a [data-action=close] appeared — the cancel check below proves nothing");
+cancel.resolvedNull
+  ? ok("dismissing the picker resolves generateCharacter() to null")
+  : fail(`dismissing the picker resolved to ${cancel.resolved}, not null — a character was generated`);
+cancel.after === cancel.before
+  ? ok(`dismissing the picker created no actor (${cancel.before} before and after)`)
+  : fail(`dismissing the picker created ${cancel.after - cancel.before} actor(s)`);
+
 r.docked.length === 3
   ? ok(`docked directory has its 3 buttons (${r.docked.join(", ")})`)
   : fail(`docked directory buttons: ${JSON.stringify(r.docked)}`);

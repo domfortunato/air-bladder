@@ -220,6 +220,28 @@
     grid-template-columns: 1fr 1fr;
 }
 
+/* The NPC sheet shares .character-sheet-section-name with the character sheet,
+   but has one fewer child: there is no background-description block to occupy
+   row 3. Auto-placement therefore shifts everything up a row — HP lands in the
+   24px background line beside Role (where, being 36px tall, it overflows its own
+   row and crowds the name bar) and Gold is stranded alone in the 1fr slack row,
+   while the min-content row 4 collapses to 0px and goes unused. Measured
+   2026-07-29: HP top 36, Gold top 102, rows "46px 24px 64px 0px".
+
+   Pin both counters to the last row so they sit together at the foot, which is
+   where the character sheet's own auto-placement puts them. Do not "fix" this by
+   deleting the 1fr row — it is what pushes the pair flush with the portrait's
+   bottom edge. Reported as issue #7. */
+.npc-name-section .hp-counter {
+    grid-row: 4;
+    grid-column: 1;
+}
+
+.npc-name-section .deprived-counter {
+    grid-row: 4;
+    grid-column: 2;
+}
+
 /* The three buttons stack flush as one evenly-spaced set. They are a touch
    shorter than a counter row (32px) so the fixed 112px stack has a little slack
    at its foot rather than crowding the tabs below. */

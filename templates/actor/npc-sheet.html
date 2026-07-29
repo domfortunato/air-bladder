@@ -4,7 +4,10 @@
              reads data-edit) rather than the character portrait gallery. -->
         <img class="portrait" src="{{actor.img}}" data-action="editImage" data-edit="img" title="{{actor.name}}" />
         <!-- Name, background, HP and deprived -->
-        <div class="character-sheet-section-name">
+        {{!-- npc-name-section: this sheet has no background-description block, so
+              the shared grid's auto-placement lands HP in the 24px Role row and
+              strands Gold below it. The modifier pins both to the foot. --}}
+        <div class="character-sheet-section-name npc-name-section">
             <input class="name-input" type="text" name="name" value="{{actor.name}}" placeholder="{{ localize 'CAIRN.Name' }}" />
             <input class="background-input" type="text" name="system.background" value="{{system.background}}"
                 placeholder="{{ localize 'CAIRN.Role' }}" />

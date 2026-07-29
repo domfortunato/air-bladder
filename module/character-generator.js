@@ -1116,10 +1116,17 @@ export const promptContentSource = async () => {
     buttons,
     rejectClose: false,
   });
-  // Dismissing the picker resolves null; default to the first source (2e) so the
-  // Generate button never does nothing. (The ?? was previously on the Promise
-  // itself, i.e. dead — the fallback only worked by luck downstream.)
-  return chosen ?? sources[0].key;
+  // Dismissing the picker resolves null, and that is returned AS null: closing a
+  // chooser with ✕ is an explicit "not now", so nothing should be created.
+  //
+  // This used to default to the first source (2e) under the same "the Generate
+  // button never does nothing" rule that covers the no-sources-enabled case
+  // above. Those two are not the same case. Everything OFF is a configuration
+  // gap the Warden did not mean to create, so falling back is a kindness; a ✕ is
+  // an instruction. Conflating them meant cancelling the dialog silently made a
+  // 2e character (reported as issue #6), which is the more annoying of the two
+  // failures because it leaves a stray actor behind to delete.
+  return chosen ?? null;
 };
 
 /**
@@ -1132,6 +1139,9 @@ export const promptContentSource = async () => {
  */
 export const generateCharacter = async (background = null, source = null) => {
   const chosen = background?.system?.source ?? source ?? (await promptContentSource());
+  // Only reachable when the picker was dismissed — a background or an explicit
+  // source never yields null, so Regenerate cannot land here.
+  if (!chosen) return null;
   return chosen === "barebones"
     ? generateBarebonesCharacter(background)
     : generate2eCharacter(background);

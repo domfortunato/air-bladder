@@ -145,7 +145,24 @@ try {
       };
       for (let k = 0; k < 60 && !node(); k++) await new Promise((r) => setTimeout(r, 100));
       await new Promise((r) => setTimeout(r, 400));
-      out.push({ type, ...(node() ? window.__abLayout(node()) : { error: "never rendered" }) });
+      const entry = { type, ...(node() ? window.__abLayout(node()) : { error: "never rendered" }) };
+      // The NPC header specifically. Region-overlap cannot see this one: HP and
+      // Gold are both inside the name section, so nothing "overlaps" — HP simply
+      // sat in the wrong grid row (up in the 24px Role line, overflowing it)
+      // while Gold was stranded below. Assert the pair share a row at the foot.
+      if (type === "npc" && node()) {
+        const sec = node().querySelector(".character-sheet-section-name");
+        const s = sec?.getBoundingClientRect();
+        const box = (sel) => {
+          const el = sec?.querySelector(sel);
+          if (!el || !s) return null;
+          const r = el.getBoundingClientRect();
+          return { top: Math.round(r.top - s.top), bottom: Math.round(r.bottom - s.top) };
+        };
+        entry.npcHeader = { hp: box(".hp-counter"), gold: box(".deprived-counter"), role: box(".background-input"),
+          sectionH: s ? Math.round(s.height) : null };
+      }
+      out.push(entry);
       await actor.sheet.close();
       await actor.delete();
     }
@@ -158,6 +175,14 @@ try {
     else if (r.spilling.length) fail(r.type, `region overflows its box: ${r.spilling.join(", ")}`);
     else if (!r.scrollable) fail(r.type, `.window-content cannot scroll (overflow-y: ${r.overflowY})`);
     else ok(r.type, `${r.count} regions, none overlapping`);
+
+    const h = r.npcHeader;
+    if (h) {
+      if (!h.hp || !h.gold || !h.role) fail(r.type, "npc header: HP/Gold/Role not all present in the name section");
+      else if (h.hp.top !== h.gold.top) fail(r.type, `npc header: HP and Gold on different rows (HP top ${h.hp.top}, Gold top ${h.gold.top})`);
+      else if (h.hp.top < h.role.bottom) fail(r.type, `npc header: HP (top ${h.hp.top}) rides up into the Role line (bottom ${h.role.bottom})`);
+      else ok(r.type, `npc header: HP and Gold share the foot row (top ${h.hp.top}, below Role at ${h.role.bottom})`);
+    }
   }
 } catch (e) {
   fail("probe threw", `${e.name}: ${e.message}`);
