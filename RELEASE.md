@@ -37,6 +37,15 @@ tag — see [docs/git-flow.md](docs/git-flow.md).
 [docs/release-testing.md](docs/release-testing.md). Do it on `dev`, before the merge,
 while a failure is still cheap to fix.
 
+**Bring `README.es.md` up to date with `README.md`.** Both ship inside `system.zip`,
+so whatever the Spanish one says at tag time is what a Spanish reader downloads. It
+is hand-maintained and nothing checks it — `npm run i18n:check` covers `lang/*.json`
+only — so it drifts one English edit at a time. Diff both against the previous tag,
+carry the changes across using [tools/i18n/glossary.tsv](tools/i18n/glossary.tsv) for
+terminology, and treat version numbers, URLs and the required-Foundry-version line as
+facts that must match exactly. Add and correct; don't re-voice the translator's
+existing wording.
+
 1. Merge the work into `master` and make sure it is current:
    ```bash
    git checkout master && git pull && git merge dev
