@@ -90,7 +90,7 @@ changed, which **fails while a world is open**, so stop the server for it.
 | `npm run dev:portrait-folder` | the custom-portrait setting takes effect with no reload |
 | `npm run dev:directory-buttons` | the Actor Directory buttons, docked **and** popped out |
 | `npm run dev:warden-rename` | the GM rename cycle across page reloads |
-| `npm run dev:content-overlay` | the content-translation overlay |
+| `npm run dev:content-overlay` | the content-translation overlay — chat cards, marketplace headings, and the background picker. **Polls** for the picker rather than sleeping at it: it waited a flat 700ms, `promptBackground` grew to ~1.1s before it renders anything, and the miss was swallowed by an optional-chained `?.click()`, so the dialog was never dismissed and the probe HUNG instead of failing. Opens on a `picker rendered` assertion for that reason — a probe that reads an element that is not there yet reports every field as `undefined`, which is indistinguishable from a translation bug |
 | `npm run check:warden` | Warden-facing settings |
 | `npm run dev:kw-traits` | Kettlewright import — traits and age |
 | `npm run dev:kw-reroll` | Kettlewright import — re-rollable grants |

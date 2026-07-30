@@ -188,27 +188,48 @@ const pick = await page.evaluate(async () => {
     const tagline = gen.backgroundTagline(bg);
 
     // Open the picker, read the rendered rows, then dismiss it.
+    //
+    // POLL for the dialog; do not sleep at it. This waited a flat 700ms, and
+    // promptBackground now spends ~1.1s in getBackgroundsByArchetype before it
+    // renders at all. At 700ms there is no .bg-picker and no Cancel button, the
+    // `?.click()` below swallowed the miss, and the promise never settled — so
+    // this probe HUNG rather than failed, which is strictly worse: a release
+    // checklist stalls on it instead of reporting anything.
     const p = gen.promptBackground("2e", null);
-    await new Promise((r) => setTimeout(r, 700));
-    const root = document.querySelector(".bg-picker");
-    const row = [...(root?.querySelectorAll(".bg-pick-row") ?? [])]
-      .find((l) => l.querySelector("input")?.value === bg.uuid);
-    const groups = [...(root?.querySelectorAll(".bg-pick-group") ?? [])].map((g) => g.textContent.trim());
-    const out = {
-      tagline,
-      rowName: row?.querySelector(".bg-pick-name")?.textContent.trim(),
-      rowValue: row?.querySelector("input")?.value,
-      uuid: bg.uuid,
-      groups,
-    };
-    [...document.querySelectorAll("button")].find((b) => b.dataset.action === "cancel")?.click();
-    await p.catch(() => {});
-    return out;
+    p.catch(() => {});                       // never let the dismissal path go unhandled
+    let root = null;
+    for (let i = 0; i < 60 && !root; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+      root = document.querySelector(".bg-picker");
+    }
+    try {
+      const row = [...(root?.querySelectorAll(".bg-pick-row") ?? [])]
+        .find((l) => l.querySelector("input")?.value === bg.uuid);
+      const groups = [...(root?.querySelectorAll(".bg-pick-group") ?? [])].map((g) => g.textContent.trim());
+      return {
+        rendered: !!root,
+        tagline,
+        rowName: row?.querySelector(".bg-pick-name")?.textContent.trim(),
+        rowValue: row?.querySelector("input")?.value,
+        uuid: bg.uuid,
+        groups,
+      };
+    } finally {
+      // Close it whatever happened above. The button is the real user path, but a
+      // dialog left open blocks every probe that joins after this one.
+      const cancel = [...document.querySelectorAll("button")].find((b) => b.dataset.action === "cancel");
+      if (cancel) cancel.click();
+      else for (const d of document.querySelectorAll("dialog[open]")) d.close();
+      await p.catch(() => {});
+    }
   } finally {
     i18n._setOverlay(null);
   }
 });
 
+pick.rendered
+  ? ok("picker rendered", `${pick.groups.length} archetype group(s)`)
+  : fail("picker rendered", "no .bg-picker after 6s — every assertion below is vacuous");
 pick.rowName === "NOMBRE-PROBE"
   ? ok("picker name translated", `"${pick.rowName}"`)
   : fail("picker name translated", `row shows "${pick.rowName}"`);
