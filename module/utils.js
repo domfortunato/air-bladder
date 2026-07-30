@@ -120,12 +120,60 @@ export const getInfoFromDropData = async (dropData) => {
  * stays ONE function rather than a safe variant beside an unsafe one — there is then
  * no unsafe helper left for future code to reach for by mistake.
  *
+ * **The unwrap happens on the DOM, never on the string, and that is the whole
+ * security property of this function.** The first version kept `stripPar`'s two
+ * `.replace()` calls and ran them on `cleanHTML`'s SERIALIZED output, which
+ * `innerHTML` then re-parses — and string surgery between a serialize and a parse
+ * promotes inert text into live markup. `<iframe>` is an allowed tag whose content
+ * is RAWTEXT, so the cleaner sees the inside as a single text node, copies it
+ * untouched, and serializes it unescaped. That let a stored
+ * `<iframe></ifra<p>me><img src=x onerror=…>` survive cleaning with its `<p>`
+ * intact; deleting that `<p>` spliced `</ifra` + `me>` into `</iframe>`, ending the
+ * frame early and turning the trailing `<img>` into a live element. Observed
+ * executing in the GM's client through this exact sink, 2026-07-30, with the
+ * unstripped string as the control. Unwrapping the first paragraph ELEMENT is
+ * equivalent for every well-formed input and cannot splice anything, because the
+ * output is re-serialized from a parsed tree rather than edited as text.
+ *
  * @param {String} [text]
  * @return {String} sanitized HTML, safe to assign to innerHTML
  */
 export const cleanDescription = (text) => {
   if (!text) return "";
-  return foundry.utils.cleanHTML(String(text)).replace("<p>", "").replace("</p>", "");
+  // A <template> and not a <div>: template content is INERT, so parsing here does
+  // not fetch the images and media a description references. A detached div is not
+  // inert — it cost a duplicate request per call, and `dev:feature-xss`'s 404
+  // bookkeeping caught it. One caller only asks whether the result is empty
+  // (actor-sheet.js, the crit line), which must not hit the network at all.
+  const tpl = document.createElement("template");
+  tpl.innerHTML = foundry.utils.cleanHTML(String(text));
+  // Core's allow-list is calibrated for core's sinks — a chat bubble and a tooltip,
+  // both plain <div>s. OURS is inside the sheet, and the sheet is a <form> that
+  // submits on change, so two attributes core has no reason to strip are live
+  // controls here. Both were OBSERVED working, 2026-07-30:
+  //
+  //   data-action  ApplicationV2 dispatches from one listener on the whole app
+  //                element via closest("[data-action]") (application.mjs:1918-1921),
+  //                so an injected <button data-action="itemCreate"> ran the action
+  //                on the GM's click. Paired with the allowed `style`, an invisible
+  //                full-sheet overlay makes that click any click.
+  //   name         FormDataExtended reads every named control in the form, so an
+  //                injected <input name="system.gold"> reached _processFormData
+  //                (seen as [10,9999] — it only failed to overwrite because it
+  //                collided with the real field; a path the sheet does not already
+  //                render has nothing to collide with).
+  //
+  // Stripped here rather than at the two call sites so no future sink has to
+  // remember. `style` and `id` are left: without a dispatchable action or a form
+  // name, an overlay is cosmetic, and stripping them would break legitimate
+  // ProseMirror output.
+  for (const el of tpl.content.querySelectorAll("[data-action], [name]")) {
+    el.removeAttribute("data-action");
+    el.removeAttribute("name");
+  }
+  const first = tpl.content.firstElementChild;
+  if (first?.tagName === "P") first.replaceWith(...first.childNodes);
+  return tpl.innerHTML;
 };
 
 /* -------------------------------------------- */

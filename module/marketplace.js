@@ -87,7 +87,25 @@ export const getMarketplaceCatalog = async () => {
     // which is exactly how the previous fix to this got applied to one of them and
     // not the other. It also means a row dragged in from the Items SIDEBAR now
     // stocks the shop, which is the promise this file opens with and was not true.
-    const items = (await findTableItems(results)).map(ownedPayload);
+    //
+    // ...and that is exactly why the Item filter is here. findTableItems resolves a
+    // row by uuid, so it returns whatever the row points AT — and inviting sidebar
+    // drops invites a JournalEntry (a price list, a shop note), a Macro or a Scene
+    // into a Market table, none of which have `system`. `ownedPayload` would throw
+    // on `doc.system.toObject()` inside getMarketplaceCatalog, which no caller
+    // awaits (actor-sheet.js #onItemShop), so the whole shop silently failed to
+    // open for every player — not just the bad row. An Actor row is the quiet half:
+    // it has `system`, renders a shop row, and throws later at Buy on an unknown
+    // Item subtype. Warn rather than drop in silence: the Warden put it there.
+    const resolved = await findTableItems(results);
+    const items = resolved
+      .filter((doc) => {
+        if (doc.documentName === "Item") return true;
+        console.warn(`Marketplace: ignoring ${doc.documentName} "${doc.name}" in table `
+          + `"${table.name}" — only Items can stock a shop.`);
+        return false;
+      })
+      .map(ownedPayload);
     if (items.length) categories.push({ name: stripPrefix(table.name), label: displayName(table.name), items });
   }
   return { categories };

@@ -37,9 +37,31 @@ import { VIEWPORT, joinAsGM, joinAs, watchErrors, dismissChrome, watchdog, withS
 const ACTOR_NAME = "ZZ Feature XSS PC";
 
 // The benign tail separates "cleaned" from "blanked" or "never written".
+//
+// The iframe clause is the SECOND half of the threat and it is not decoration.
+// Everything before it attacks the allow-list, which core's cleaner holds; this
+// attacks what OUR helper does after the cleaner returns. `<iframe>` is an allowed
+// tag whose content is RAWTEXT, so the cleaner treats the inside as one text node
+// and serializes it unescaped — a stored `<p>` comes back through cleaning intact.
+// cleanDescription then deleted the first `<p>` from that serialized string, which
+// spliced `</ifra` + `me>` into `</iframe>`, closed the frame early, and made the
+// trailing `<img onerror>` a live element in the GM's DOM. Confirmed executing
+// 2026-07-30 and fixed by unwrapping on the DOM instead. A top-level `onerror`
+// payload cannot see this class of bug: it dies in the cleaner either way.
+// The last two clauses are the THIRD half of the threat: markup core's allow-list
+// deliberately permits, which is inert in core's own sinks (a chat bubble, a
+// tooltip) and is a live control in ours, because this sink sits inside the sheet's
+// <form>. `data-action` is dispatched by one listener on the whole application
+// element, so an injected button runs a sheet action on the GM's click; a named
+// input is read by FormDataExtended on the next submit. Both observed working
+// 2026-07-30 before cleanDescription started stripping the two attributes.
 const PAYLOAD =
   '<img src=x onerror="window.__xss=1"><script>window.__xss=2</script>' +
-  '<a href="javascript:alert(1)">j</a><em>keep me</em>';
+  '<a href="javascript:alert(1)">j</a>' +
+  '<iframe></ifra<p>me><img src=x onerror="window.__xss=3"></iframe>' +
+  '<button data-action="itemCreate" id="zz-xss-action">a</button>' +
+  '<input name="system.gold" value="9999" data-dtype="Number" id="zz-xss-input">' +
+  '<em>keep me</em>';
 
 let failed = false;
 const ok = (m) => console.log(`  ok    ${m}`);
@@ -126,10 +148,28 @@ try {
 
     const seen = await gmPage.evaluate((sid) => {
       const panel = document.querySelector(`#${sid} .cairn-items-list-row.expanded .item-description`);
+      if (!panel) return { xss: window.__xss ?? 0, html: null };
+      // The text INSIDE an <iframe> is rawtext, not markup, and it legitimately
+      // still reads `onerror="…"` after cleaning. Testing the raw innerHTML for
+      // that substring would fail against correct output, so the string tests run
+      // against a copy with iframe contents emptied; whether that text ever became
+      // markup is answered structurally below, by counting elements.
+      const view = panel.cloneNode(true);
+      for (const f of view.querySelectorAll("iframe")) f.textContent = "";
       return {
         xss: window.__xss ?? 0,
-        html: panel ? panel.innerHTML : null,
-        onerrorAttrs: panel ? [...panel.querySelectorAll("*")].filter((el) => el.hasAttribute("onerror")).length : null,
+        html: panel.innerHTML,
+        markup: view.innerHTML,
+        handlerAttrs: [...panel.querySelectorAll("*")]
+          .filter((el) => [...el.attributes].some((a) => a.name.toLowerCase().startsWith("on"))).length,
+        // One <img> is the cleaned top-level one. A second means the iframe was
+        // spliced shut and its rawtext was re-parsed into live elements.
+        imgs: panel.querySelectorAll("img").length,
+        // Sheet-control injection. The elements may survive — they are on core's
+        // allow-list — but they must arrive DISARMED.
+        actionAttrs: panel.querySelectorAll("[data-action]").length,
+        namedInputs: panel.querySelectorAll("[name]").length,
+        injectedSurvives: !!panel.querySelector("#zz-xss-action"),
       };
     }, sheetId);
 
@@ -148,27 +188,42 @@ try {
       [/onerror/i, "onerror="],
       [/<script/i, "<script>"],
       [/javascript:/i, "javascript:"],
-    ].filter(([re]) => re.test(seen.html)).map(([, n]) => n);
+    ].filter(([re]) => re.test(seen.markup)).map(([, n]) => n);
 
-    if (dirty.length) fail(`injected HTML still carries ${dirty.join(", ")} — ${JSON.stringify(seen.html)}`);
-    else ok(`injected HTML is clean — ${JSON.stringify(seen.html)}`);
+    if (dirty.length) fail(`injected markup still carries ${dirty.join(", ")} — ${JSON.stringify(seen.markup)}`);
+    else ok(`injected markup is clean — ${JSON.stringify(seen.markup)}`);
 
-    if (seen.onerrorAttrs) fail(`${seen.onerrorAttrs} element(s) in the panel still carry an onerror attribute`);
+    if (seen.handlerAttrs) fail(`${seen.handlerAttrs} element(s) in the panel carry an event-handler attribute`);
     else ok("no element in the panel carries an event-handler attribute");
+
+    // The iframe-splice regression, structurally. Text inside the frame must have
+    // stayed text: a second <img> element means cleanDescription edited the
+    // serialized string and innerHTML re-parsed the result into live markup.
+    if (seen.imgs > 1) {
+      fail(`${seen.imgs} <img> elements in the panel — the iframe was closed early and its `
+        + `rawtext became live markup (post-sanitisation string surgery). Panel: ${JSON.stringify(seen.html)}`);
+    } else ok("iframe rawtext stayed text — nothing escaped the frame");
 
     if (seen.xss) fail(`the payload EXECUTED in the GM's client (window.__xss = ${seen.xss})`);
     else ok("nothing executed in the GM's client");
 
-    // Positive control 3. The planted <img src=x> cannot resolve, so the browser
-    // logs a 404 — and that 404 is the PROOF the image was live in the document
-    // and fetched. It is the exact moment `onerror` would have fired; that it did
-    // not is the finding fixed. No 404 would mean the img never made it into the
-    // DOM, which would make "nothing executed" meaningless.
-    const notFound = gmErrors.filter((e) => /Failed to load resource/i.test(e) && /404/.test(e));
-    if (notFound.length) ok("the sanitized <img> was fetched and 404'd, with no handler to fire");
-    else fail("no 404 for the planted <img> — it never reached the DOM, so 'nothing executed' proves nothing");
-    // Consumed, so the generic console-error sweep below does not re-report them.
-    for (const e of notFound) gmErrors.splice(gmErrors.indexOf(e), 1);
+    // Injected sheet controls, disarmed. The positive control is that the element
+    // itself is still there: if the whole button vanished, these two would pass
+    // without the attribute strip doing anything.
+    if (!seen.injectedSurvives) {
+      fail("the injected <button> vanished entirely — the two assertions below would "
+        + "pass whether or not attributes are stripped");
+    } else ok("the injected element survived cleaning (so the strip is what disarms it)");
+
+    if (seen.actionAttrs) fail(`${seen.actionAttrs} injected element(s) still carry data-action — `
+      + "a GM click on one runs a sheet action");
+    else ok("no injected element carries data-action");
+
+    if (seen.namedInputs) fail(`${seen.namedInputs} injected element(s) still carry a form name — `
+      + "they ride the sheet's next submit");
+    else ok("no injected element carries a form name");
+
+    // Positive control 3 is asserted after cleanup — see below.
   });
 } finally {
   // From Node, not from an in-page finally: an exception inside page.evaluate
@@ -177,6 +232,23 @@ try {
     await gmPage.evaluate(async (id) => { await game.actors.get(id)?.delete(); }, pcId).catch(() => {});
   }
 }
+
+// Positive control 3. The planted <img src=x> cannot resolve, so the browser logs a
+// 404 — and that 404 is the PROOF the image was live in the document and fetched. It
+// is the exact moment `onerror` would have fired; that it did not is the finding
+// fixed. No 404 would mean the img never made it into the DOM, which would make
+// "nothing executed" prove nothing.
+//
+// Counted HERE, after cleanup, not at a snapshot taken right after the click. The
+// sheet re-renders while settings are restored and while the actor is deleted, and a
+// re-render re-creates the panel and re-requests the image — so a later 404 arrived
+// after the snapshot had already consumed the first one and was reported as an
+// unexplained console error. The number of fetches is not the assertion; "at least
+// one" is.
+const notFound = gmErrors.filter((e) => /Failed to load resource/i.test(e) && /404/.test(e));
+if (notFound.length) ok("the sanitized <img> was fetched and 404'd, with no handler to fire");
+else fail("no 404 for the planted <img> — it never reached the DOM, so 'nothing executed' proves nothing");
+for (const e of notFound) gmErrors.splice(gmErrors.indexOf(e), 1);
 
 if (gmErrors.length) { console.log(""); for (const e of gmErrors) fail(`console error: ${e}`); }
 

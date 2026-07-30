@@ -187,6 +187,61 @@ const out = await page.evaluate(async () => {
     keptPack: oldWay.includes(packItem?.uuid),
   };
 
+  /* ---- PHASE 4: a NON-ITEM row must not take the whole shop down ---------- */
+  // Resolving by uuid means resolving to whatever the row points AT, and inviting
+  // sidebar drops (phase 2) invites a JournalEntry, Macro or Scene into a Market
+  // table. None has `system`, so ownedPayload's doc.system.toObject() threw inside
+  // getMarketplaceCatalog — which #onItemShop does not await, so the shop silently
+  // stopped opening for EVERY player and every category, not just the bad row.
+  //
+  // This mutates a SHIPPED pack table, so the row is removed again from Node's
+  // finally as well as here; `res.phase4.rowId` carries it out for that.
+  res.phase4 = { ran: false };
+  const pack = game.packs.get("air-bladder.marketplace");
+  const wasLocked = pack?.locked ?? null;
+  res.phase4.wasLocked = wasLocked;
+  try {
+    // The pack SHIPS locked, so this is only reachable once a Warden unlocks it to
+    // customise the shop — which is this system's whole editable-compendium
+    // premise, and the same gesture that lets them drag a sidebar row in at all.
+    // Unlocked here and restored below, both in-page and from Node.
+    if (wasLocked) await pack.configure({ locked: false });
+    const table = (await pack.getDocuments()).find((t) => t.results.size > 0);
+    const journal = await JournalEntry.create({ name: "ZZ TR Shop Note" });
+    const [row] = await table.createEmbeddedDocuments("TableResult", [
+      { type: "document", documentUuid: journal.uuid, name: journal.name, range: [900, 900] },
+    ]);
+    res.phase4.rowId = row.id;
+    res.phase4.tableUuid = table.uuid;
+    res.phase4.ran = true;
+
+    // The mechanism control FIRST: prove this row really is fatal to the old code,
+    // so a green assertion below cannot be "the row was harmless all along".
+    try {
+      const resolvedRow = await fromUuid(journal.uuid);
+      const _ = { system: resolvedRow.system.toObject() };   // what ownedPayload does
+      res.phase4.controlThrew = false;
+    } catch (e) {
+      res.phase4.controlThrew = true;
+      res.phase4.controlMessage = String(e.message ?? e).split("\n")[0];
+    }
+
+    // Then the real path, unguarded by try: it must simply not throw.
+    const catalog = await mk.getMarketplaceCatalog();
+    res.phase4.categories = catalog.categories.length;
+    res.phase4.items = catalog.categories.reduce((n, c) => n + c.items.length, 0);
+    res.phase4.journalStocked = catalog.categories
+      .some((c) => c.items.some((i) => i.name === "ZZ TR Shop Note"));
+
+    await row.delete();
+    await journal.delete();
+    res.phase4.rowId = null;
+  } catch (e) {
+    res.phase4.threw = String(e.message ?? e).split("\n")[0];
+  } finally {
+    if (wasLocked && pack && !pack.locked) await pack.configure({ locked: true });
+  }
+
   await cleanup();
   return res;
 });
@@ -250,6 +305,45 @@ out.oldWay.droppedWorld
 out.oldWay.keptPack
   ? ok("the old algorithm did keep the compendium row", "so it was working, just not for world rows")
   : fail("the old algorithm resolved nothing at all", "the control is broken, not the code");
+
+console.log("\nphase 4 — a non-Item row in a Market table cannot close the shop");
+if (!out.phase4?.ran) {
+  fail("phase 4 never ran", out.phase4?.threw ?? "setup failed — the assertions below are absent, not passing");
+} else if (out.phase4.threw) {
+  fail("getMarketplaceCatalog THREW on a JournalEntry row", `${out.phase4.threw} — `
+    + "the shop silently fails to open for every player");
+} else {
+  out.phase4.controlThrew
+    ? ok("the control confirms the row is fatal unfiltered", out.phase4.controlMessage)
+    : fail("a JournalEntry row did NOT break ownedPayload", "the row is harmless here, so the "
+        + "assertions below pass for free");
+  out.phase4.items > 50
+    ? ok("the shop still stocked its catalogue", `${out.phase4.items} items in ${out.phase4.categories} categories`)
+    : fail("the shop came back near-empty", `${out.phase4.items} items — it did not survive the bad row`);
+  !out.phase4.journalStocked
+    ? ok("the JournalEntry row was filtered out, not sold")
+    : fail("a JournalEntry is on sale in the shop", "the filter admitted a non-Item");
+}
+// The probe writes a row into a SHIPPED pack table. It deletes it in-page on the
+// happy path; this is the belt for every other path, from Node, where a throw
+// inside page.evaluate still lands.
+if (out.phase4?.rowId || out.phase4?.wasLocked) {
+  const swept = await page.evaluate(async ({ tableUuid, rowId, wasLocked }) => {
+    const pack = game.packs.get("air-bladder.marketplace");
+    if (pack?.locked && rowId) await pack.configure({ locked: false });
+    if (rowId && tableUuid) {
+      const t = await fromUuid(tableUuid);
+      await t?.deleteEmbeddedDocuments("TableResult", [rowId]);
+    }
+    for (const j of game.journal.filter((j) => j.name?.startsWith("ZZ TR"))) await j.delete();
+    if (wasLocked && pack && !pack.locked) await pack.configure({ locked: true });
+    return { relocked: pack?.locked ?? null };
+  }, { tableUuid: out.phase4.tableUuid, rowId: out.phase4.rowId, wasLocked: out.phase4.wasLocked })
+    .catch((e) => ({ error: String(e.message ?? e) }));
+  if (out.phase4.wasLocked && swept.relocked !== true) {
+    fail("the marketplace pack was left UNLOCKED", JSON.stringify(swept));
+  }
+}
 
 if (errors.length) { console.log(""); for (const e of errors) fail(`console error: ${e}`); }
 
