@@ -1,5 +1,5 @@
 import { SETTINGS_NS } from "../settings.js";
-import { SPELLBOOK_ICON, SPELLSCROLL_ICON } from "../icons.js";
+import { iconForItem, SPELLBOOK_ICON, SPELLSCROLL_ICON } from "../icons.js";
 
 /**
  * The stored name of a Fatigue item. ENGLISH, always — Foundry's language setting
@@ -49,6 +49,23 @@ export class CairnItem extends Item {
   async _preCreate(data, options, user) {
     const allowed = await super._preCreate(data, options, user);
     if (allowed === false) return false;
+
+    // Class art for anything created WITHOUT its own image. Foundry's Item schema
+    // initialises `img` to `icons/svg/item-bag.svg`, so every item made through the
+    // Create Item dialog kept the generic bag: a hand-made weapon, armor, spellbook
+    // or scroll looked nothing like the shipped ones. `Actor#createOwnedItem` has
+    // always done this for items it mints; the world/dialog path never did.
+    //
+    // It also unblocked the scroll art. `_preUpdate` only re-arts an item whose
+    // image is still ours to change, and a bag was not — so ticking Scroll on a
+    // dialog-created spellbook silently left the bag in place.
+    if (!this.img || this.img === this.constructor.DEFAULT_ICON) {
+      const art = this.type === "spellbook" && this.system.scroll
+        ? SPELLSCROLL_ICON
+        : iconForItem(this.type, this.name);
+      this.updateSource({ img: art });
+    }
+
     if (this.type !== "spellbook" || !this.system.scroll) return;
     const pinned = { ...SCROLL_PINNED };
     // A scroll created straight from the flag arrives UNSPENT — pinning only `max`
@@ -83,8 +100,14 @@ export class CairnItem extends Item {
     foundry.utils.mergeObject(changed, {
       system: becomingScroll ? { ...SCROLL_PINNED, "uses.value": 1 } : BOOK_PINNED,
     });
+    // Re-art only while the image is still ours to change — a Warden who picked their
+    // own keeps it. The default bag counts as ours: items created before the
+    // class-art fill above still carry it, and leaving those on a bag was the whole
+    // reported defect.
     const was = becomingScroll ? SPELLBOOK_ICON : SPELLSCROLL_ICON;
-    if (this.img === was) changed.img = becomingScroll ? SPELLSCROLL_ICON : SPELLBOOK_ICON;
+    if (this.img === was || this.img === this.constructor.DEFAULT_ICON) {
+      changed.img = becomingScroll ? SPELLSCROLL_ICON : SPELLBOOK_ICON;
+    }
   }
 
   /**

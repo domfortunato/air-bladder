@@ -92,6 +92,13 @@ const flag = await page.evaluate(async () => {
   out.freshFromFlag = snap(fresh);
   await fresh.delete();
 
+  // No img supplied at all, then ticked — the exact path that shipped a bag icon.
+  const bare = await getDocumentClass("Item").create({ name: "zz-scroll-bare", type: "spellbook" });
+  out.bareBook = snap(bare);
+  await bare.update({ "system.scroll": true });
+  out.bareTicked = snap(bare);
+  await bare.delete();
+
   // ...but an explicit count is the caller's, not ours: this is how the migration
   // carries a SPENT scroll across without refilling it.
   const spentAtBirth = await getDocumentClass("Item").create({
@@ -121,6 +128,9 @@ eq("unticking restores the book",
   { weightless: false, uses: { value: 0, max: 0 }, img: BOOK_ICON });
 eq("a scroll created straight from the flag arrives unspent",
   flag.freshFromFlag.uses, { value: 1, max: 1 });
+eq("a spellbook created with no image gets the book art, and the scroll art when ticked",
+  { created: flag.bareBook.img, ticked: flag.bareTicked.img },
+  { created: BOOK_ICON, ticked: SCROLL_ICON });
 eq("...but an explicit count is the caller's (a migrated spent scroll stays spent)",
   flag.spentAtBirth.uses, { value: 0, max: 1 });
 
@@ -249,6 +259,7 @@ const dialog = await page.evaluate(async () => {
     name: scrollDoc.name, type: scrollDoc.type, flag: scrollDoc.system.scroll,
     weightless: scrollDoc.system.weightless,
     uses: { value: scrollDoc.system.uses.value, max: scrollDoc.system.uses.max },
+    img: scrollDoc.img,
   };
   await scrollDoc?.sheet?.close();
   await scrollDoc?.delete();
@@ -257,7 +268,9 @@ const dialog = await page.evaluate(async () => {
   ({ p, form } = await open());
   await pick(form, false);
   const bookDoc = await p.catch(() => null);
-  out.book = bookDoc && { type: bookDoc.type, flag: bookDoc.system.scroll, weightless: bookDoc.system.weightless };
+  out.book = bookDoc && {
+    type: bookDoc.type, flag: bookDoc.system.scroll, weightless: bookDoc.system.weightless, img: bookDoc.img,
+  };
   await bookDoc?.sheet?.close();
   await bookDoc?.delete();
   return out;
@@ -269,11 +282,15 @@ dialog.options.includes("Spellscroll*")
 dialog.prefilledName === "Spellscroll"
   ? ok("choosing it pre-fills the name, so an unnamed create is not called \"Spellbook\"")
   : fail(`name pre-fill was "${dialog.prefilledName}"`);
-eq("creating through the dialog yields a flagged, petty, single-use scroll",
+// `img` is asserted here because BOTH reported paths went wrong on it and neither
+// showed up anywhere else: a dialog-created item keeps Foundry's `item-bag.svg`
+// unless _preCreate fills the class art, and `_preUpdate` then refuses to re-art it
+// because a bag was not "ours to change".
+eq("creating through the dialog yields a flagged, petty, single-use scroll with scroll art",
   dialog.scroll,
-  { name: "Spellscroll", type: "spellbook", flag: true, weightless: true, uses: { value: 1, max: 1 } });
-eq("and the plain Spellbook option beside it still makes a book",
-  dialog.book, { type: "spellbook", flag: false, weightless: false });
+  { name: "Spellscroll", type: "spellbook", flag: true, weightless: true, uses: { value: 1, max: 1 }, img: SCROLL_ICON });
+eq("and the plain Spellbook option beside it still makes a book, with book art",
+  dialog.book, { type: "spellbook", flag: false, weightless: false, img: BOOK_ICON });
 
 // The assertions above are their OWN negative control: with the hook switched off in
 // the live page, the option must be gone. Seconds, in this same session — the

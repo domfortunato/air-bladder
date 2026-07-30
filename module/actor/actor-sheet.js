@@ -1061,9 +1061,25 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (this.actor.system.contentSource === "barebones") {
       return game.settings.get(SETTINGS_NS, "show-bonds-barebones") ? 1 : 0;
     }
-    const bgSecond = bg?.system?.description && mentionsSecondBond(bg.system.description) ? 1 : 0;
+    // The authoring checkbox OR the prose sentence — one extra either way, never two
+    // (generate2eCharacter counts it the same way).
+    const bgSecond =
+      bg?.system?.secondBond || (bg?.system?.description && mentionsSecondBond(bg.system.description)) ? 1 : 0;
     const qSecond = (this.actor.system.questions ?? []).filter((q) => mentionsSecondBond(q.answer ?? "")).length;
     return 1 + bgSecond + qSecond;
+  }
+
+  /**
+   * The bonds table this character's background names, or "" for the shipped 2e one.
+   * Re-rolling and adding a bond must draw from the SAME table generation used, or a
+   * custom background's bonds silently become 2e bonds the first time a player uses
+   * the d20 beside one.
+   * @returns {Promise<String>}
+   */
+  async _bondsTableName() {
+    const uuid = this.actor.system.backgroundUuid;
+    const bg = uuid ? await fromUuid(uuid) : null;
+    return bg?.system?.bondsTable ?? "";
   }
 
   /**
@@ -1882,7 +1898,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       const bonds = this._effectiveBonds();
       const idx = bonds.findIndex((b) => b.id === id);
       if (idx < 0) return;
-      const drawn = await drawBond();
+      const drawn = await drawBond(await this._bondsTableName());
       if (!drawn) return;
       const newItems = (drawn.items ?? []).map((it) => withGrantSource(it, `bond:${id}`));
       await this._replaceGrantedItems(`bond:${id}`, newItems);
@@ -1904,7 +1920,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     event.preventDefault();
     const bonds = this._effectiveBonds();
     if (bonds.length >= (await this._bondEntitlement())) return;
-    const rec = bondRecordFrom(await drawBond());
+    const rec = bondRecordFrom(await drawBond(await this._bondsTableName()));
     if (!rec) return;
     bonds.push(rec.bond);
     if (rec.items.length) {

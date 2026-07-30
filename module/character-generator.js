@@ -283,15 +283,78 @@ const tagBackgroundGear = (items) =>
  * roll(), never draw(), so the table's drawn state is never mutated.
  * @returns {Promise<{description:String, gold:Number, items:Object[]}|null>}
  */
-export const drawBond = async () => {
+/**
+ * A rolled result's narrative text.
+ *
+ * `TableResult#text` is DEPRECATED — `{since: 13, until: 15}`, one major sooner than
+ * the AppV1 sheets — and survives only as a shim that logs a compatibility warning on
+ * every read (common/documents/table-result.mjs:89). This is what it did: a text row
+ * keeps its prose in `description`, and any other row type (a document or compendium
+ * reference) is identified by `name`.
+ */
+export const resultText = (result) =>
+  (result?.type === "text" ? result.description : result?.name) ?? "";
+
+/**
+ * Find a bonds table BY NAME, for a custom background that names its own.
+ *
+ * By name rather than by uuid, deliberately, and for the same reason a background's
+ * gear references are by name (see duplicateBackgroundToWorld): a uuid pointing into
+ * one world's pack is dead the moment the background is shared, which is the whole
+ * point of authoring one. A world RollTable is looked at FIRST because that is the
+ * easiest thing for a Warden to make — Tables tab, New Table — then any pack.
+ * @returns {Promise<RollTable|null>}
+ */
+const findBondsTableByName = async (name) => {
+  const wanted = String(name).trim();
+  const world = game.tables?.find((t) => t.name === wanted);
+  if (world) return world;
+  for (const pack of game.packs) {
+    if (pack.metadata.type !== "RollTable") continue;
+    const entry = (await pack.getIndex()).find((e) => e.name === wanted);
+    if (entry) return pack.getDocument(entry._id);
+  }
+  return null;
+};
+
+/** The shipped 2e Bonds table. */
+const shippedBondsTable = async () => {
   const pack = game.packs.get("air-bladder.tables-2e");
-  const table = pack ? (await pack.getDocuments()).find((t) => t.name === "Bonds") : null;
+  return pack ? (await pack.getDocuments()).find((t) => t.name === "Bonds") ?? null : null;
+};
+
+/**
+ * Draw a Cairn 2e bond. With no argument this is the shipped `tables-2e` "Bonds"
+ * table, whose each result carries its mechanical payload in flags.air-bladder
+ * (starting gold and a gear reference, resolved here); the result text is the
+ * narrative. Uses roll(), never draw(), so the table's drawn state is never mutated.
+ *
+ * `tableName` is a custom background's own bonds table. Such a table is NARRATIVE
+ * ONLY by design: Foundry's RollTable UI cannot author custom flags, so a hand-made
+ * row has no gold and no gear — and rather than invent structure by parsing its prose,
+ * the payload simply comes back empty and the text carries the meaning, which is the
+ * same call the system makes everywhere else about mechanical text. The shipped table
+ * keeps its automatic payload because the importer writes those flags.
+ *
+ * A named table that cannot be found falls back to the shipped one, so a typo or a
+ * table left behind when a background was shared degrades to a normal 2e bond rather
+ * than to no bond at all.
+ * @param {String} [tableName]
+ * @returns {Promise<{description:String, gold:Number, items:Object[]}|null>}
+ */
+export const drawBond = async (tableName) => {
+  const wanted = String(tableName ?? "").trim();
+  let table = wanted ? await findBondsTableByName(wanted) : null;
+  if (wanted && !table) {
+    console.warn(`Air Bladder | no RollTable named "${wanted}" — falling back to the 2e Bonds table`);
+  }
+  table ??= await shippedBondsTable();
   if (!table) return null;
   const { results } = await table.roll();
   const result = results[0];
   if (!result) return null;
   return {
-    description: result.text ?? "",
+    description: resultText(result),
     gold: result.getFlag(FLAG_SCOPE, "gold") ?? 0,
     // Items are unflagged here; bondRecordFrom tags them with the bond's id.
     items: await resolveRefs(result.getFlag(FLAG_SCOPE, "items") ?? []),
@@ -749,14 +812,19 @@ export const generate2eCharacter = async (chosenBg = null) => {
   // One bond by default; the Fieldwarden background and Outrider's "Always pay
   // your debts" option each add another. Each bond has a stable id so its granted
   // items can be re-rolled/removed later.
+  // The background-level extra is an OR, not a sum: a custom background may carry the
+  // `secondBond` checkbox AND describe it in prose, and that must still be one extra
+  // bond, not two. Per-question extras stay a sum — each rolled answer that says to
+  // roll again really does add one.
   const extraBonds =
-    (mentionsSecondBond(bg.system.description) ? 1 : 0) +
+    (bg.system.secondBond || mentionsSecondBond(bg.system.description) ? 1 : 0) +
     choices.questions.filter((q) => mentionsSecondBond(q.answer)).length;
   const bonds = [];
   const bondItems = [];
   let bondGold = 0;
   for (let i = 0; i < 1 + extraBonds; i++) {
-    const rec = bondRecordFrom(await drawBond());
+    // A custom background may name its own bonds table; empty means the 2e one.
+    const rec = bondRecordFrom(await drawBond(bg.system.bondsTable));
     if (!rec) continue;
     bonds.push(rec.bond);
     bondItems.push(...rec.items);

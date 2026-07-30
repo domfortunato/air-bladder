@@ -42,6 +42,26 @@
                             {{ selectOptions archetypeChoices selected=system.archetype localize=false blank="—" }}
                         </select>
                     </div>
+                    {{!-- Two bonds instead of one. A checkbox rather than prose,
+                          because the shipped 2e backgrounds say it in a sentence that
+                          `mentionsSecondBond` matches, and a custom background cannot
+                          depend on an English sentence surviving translation or
+                          rewording. --}}
+                    <div class="bg-edit-row">
+                        <label for="{{@root.idp}}-system.secondBond">{{ localize 'CAIRN.BgAuthor.SecondBond' }}</label>
+                        <input type="checkbox" id="{{@root.idp}}-system.secondBond" name="system.secondBond"
+                            {{checked system.secondBond}} value="{{system.secondBond}}" data-dtype="Boolean" />
+                    </div>
+                    <p class="bg-edit-hint">{{ localize 'CAIRN.BgAuthor.SecondBondHint' }}</p>
+                    {{!-- A bonds table of the author's own, by NAME so a shared
+                          background still resolves it. Narrative-only: Foundry's table
+                          UI cannot author the gold/gear flags the shipped rows carry. --}}
+                    <div class="bg-edit-row">
+                        <label for="{{@root.idp}}-system.bondsTable">{{ localize 'CAIRN.BgAuthor.BondsTable' }}</label>
+                        <input type="text" id="{{@root.idp}}-system.bondsTable" name="system.bondsTable"
+                            value="{{system.bondsTable}}" placeholder="{{ localize 'CAIRN.BgAuthor.BondsTablePlaceholder' }}" />
+                    </div>
+                    <p class="bg-edit-hint">{{ localize 'CAIRN.BgAuthor.BondsTableHint' }}</p>
                     <p class="bg-edit-hint">{{ localize 'CAIRN.BgAuthor.SourceHint' }}</p>
 
                     <h3>{{ localize 'CAIRN.BackgroundNames' }}</h3>

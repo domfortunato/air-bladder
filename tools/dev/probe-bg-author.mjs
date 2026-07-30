@@ -94,6 +94,46 @@ const result = await page.evaluate(async () => {
   out.genHasSnapshotGear = (cd?.items ?? []).some((g) => g.name === SWORD && gs(g) === "background");
   out.genQuestionGrantedSnapshot = (cd?.items ?? []).filter((g) => g.name === SWORD && String(gs(g)).startsWith("question:")).length;
 
+  // Bonds: one by default, two once the author ticks "Grants two bonds". Asserted in
+  // BOTH directions in one pass, so the check is its own negative control — a field
+  // the generator ignored would give 1 and 1. This background's description says
+  // nothing about bonds, so the prose path (`mentionsSecondBond`) is not in play.
+  out.hasSecondBondBox = !!root.querySelector('input[name="system.secondBond"]');
+  out.bondsDefault = (cd?.bonds ?? []).length;
+  out.bondsDefaultFrom2e = (cd?.bonds ?? []).every((b) => (b.description ?? "").length > 0);
+  await bg.update({ "system.secondBond": true });
+  const cd2 = await game.cairn.characterGenerator.generate2eCharacter(bg);
+  out.bondsWithFlag = (cd2?.bonds ?? []).length;
+
+  // A bonds table of the author's own: a plain world RollTable, named on the
+  // background. One row, so the drawn text is knowable, and NO flags — which is the
+  // point: a hand-made table cannot carry the gold/gear payload the 2e rows do, so the
+  // bond must come back with the text and zero gold rather than fabricating either.
+  out.hasBondsTableField = !!root.querySelector('input[name="system.bondsTable"]');
+  const BOND_TEXT = "You owe the ferryman a debt he will collect.";
+  const customTable = await getDocumentClass("RollTable").create({
+    name: "ZZ Probe Bonds",
+    formula: "1d1",
+    results: [{ type: "text", description: BOND_TEXT, range: [1, 1] }],
+  });
+  await bg.update({ "system.bondsTable": "ZZ Probe Bonds", "system.secondBond": false });
+  const cd3 = await game.cairn.characterGenerator.generate2eCharacter(bg);
+  out.customBond = {
+    count: (cd3?.bonds ?? []).length,
+    description: cd3?.bonds?.[0]?.description ?? null,
+    gold: cd3?.bonds?.[0]?.gold ?? null,
+  };
+
+  // A name that resolves to nothing must fall back to the 2e table, not to no bond.
+  await bg.update({ "system.bondsTable": "ZZ No Such Table" });
+  const cd4 = await game.cairn.characterGenerator.generate2eCharacter(bg);
+  out.missingTableFallback = {
+    count: (cd4?.bonds ?? []).length,
+    isCustom: (cd4?.bonds?.[0]?.description ?? "") === BOND_TEXT,
+  };
+  await customTable.delete();
+  await bg.update({ "system.bondsTable": "" });
+
   // A LOCKED shipped background must still render the read-only view (that path
   // was refactored alongside the editor).
   const roPack = game.packs.get("air-bladder.backgrounds-2e");
@@ -131,6 +171,13 @@ const checks = [
   ["gear snapshot kept type+bulky", result.gearSnapshot.type === "weapon" && result.gearSnapshot.bulky === true],
   ["option drop → snapshot w/ itemData", result.optionSnapshot.hasItemData === true],
   ["generation resolved snapshot gear (not in any pack)", result.genHasSnapshotGear === true],
+  ["\"Grants two bonds\" box on the authoring form", result.hasSecondBondBox === true],
+  ["one bond by default, two with the box ticked", result.bondsDefault === 1 && result.bondsWithFlag === 2],
+  ["default bonds carry text (the 2e table resolved)", result.bondsDefaultFrom2e === true],
+  ["\"Bonds table\" field on the authoring form", result.hasBondsTableField === true],
+  ["a named world table supplies the bond text", result.customBond?.count === 1 && result.customBond?.description === "You owe the ferryman a debt he will collect."],
+  ["a hand-made row grants no gold (narrative only)", result.customBond?.gold === 0],
+  ["an unresolvable table name falls back to 2e, not to nothing", result.missingTableFallback?.count === 1 && result.missingTableFallback?.isCustom === false],
   ["locked shipped bg → read-only view", result.readOnly?.hasReadOnly === true && result.readOnly?.hasEditor === false],
   ["read-only view lists gear + 2 tables", result.readOnly?.gearListed > 0 && result.readOnly?.tables === 2],
 ];

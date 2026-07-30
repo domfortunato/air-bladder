@@ -367,6 +367,19 @@ class BackgroundData extends CairnDataModel {
       startingGear: objList(),
       containers: objList(),
       tables: objList(),
+      // "This background grants a second bond." A real field, because the shipped 2e
+      // backgrounds express it in PROSE — Fieldwarden's description says "roll a
+      // second time on the bonds table" and `mentionsSecondBond` regexes for that
+      // sentence. A custom background cannot rely on matching an English sentence,
+      // so authors get a checkbox. Both are honoured, and counted as ONE extra
+      // rather than summed, so ticking the box on a background that also says the
+      // sentence does not hand out three bonds.
+      secondBond: bool(),
+      // The NAME of a RollTable this background draws its bonds from; empty means the
+      // shipped 2e Bonds table. A name, not a uuid, so a shared background still
+      // resolves in the recipient's world — the same portability rule the by-name gear
+      // references follow. Such a table is narrative-only; see drawBond.
+      bondsTable: str(),
     };
   }
 }
