@@ -92,7 +92,7 @@ const CATEGORY_PACK = { Weapons: "weapons", Armor: "armor" };
 // consolidated, and author a near-duplicate. No shop row currently names a
 // background-only item (that is what makes one "background-only"), so this
 // changes nothing today — it keeps the mirror honest for when one does.
-const CANONICAL = ["expeditionary-gear", "tools", "trinkets", "extra", "weapons", "armor", "background-items"];
+const CANONICAL = ["expeditionary-gear", "tools", "trinkets", "weapons", "armor", "background-items"];
 
 // ---- KEEP IN SYNC with module/gear.js GEAR_ALIASES ----
 const ALIASES = new Map([

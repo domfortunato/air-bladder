@@ -43,7 +43,7 @@ const readPack = (p) => {
 
 // The type packs that hold background specials. market-goods is left alone (its
 // items are shop stock, never background-only).
-const SOURCE_PACKS = ["expeditionary-gear", "tools", "trinkets", "extra", "weapons", "armor"];
+const SOURCE_PACKS = ["expeditionary-gear", "tools", "trinkets", "weapons", "armor"];
 const DEST = "background-items";
 
 // mirror module/gear.js

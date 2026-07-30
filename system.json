@@ -111,13 +111,7 @@
     },
     {
       "name": "expeditionary-gear",
-      "label": "Expeditionary Gear",
-      "type": "Item",
-      "system": "air-bladder"
-    },
-    {
-      "name": "extra",
-      "label": "Extra",
+      "label": "Gear",
       "type": "Item",
       "system": "air-bladder"
     },
@@ -222,7 +216,6 @@
         "armor",
         "tools",
         "expeditionary-gear",
-        "extra",
         "market-goods",
         "background-items",
         "transports",

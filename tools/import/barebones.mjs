@@ -74,7 +74,7 @@ const dry = process.argv.includes("--dry");
 
 const SRC = "https://raw.githubusercontent.com/yochaigal/cairn/main/barebones/rules/barebones-character-creation.md";
 
-const TARGET_PACKS = ["armor", "weapons", "tools", "trinkets", "expeditionary-gear", "extra"];
+const TARGET_PACKS = ["armor", "weapons", "tools", "trinkets", "expeditionary-gear"];
 const BG_PACK = "backgrounds-barebones";
 const TABLE_PACK = "tables-barebones";
 const packDir = (p) => path.join(root, "src", "packs", p);
@@ -173,7 +173,10 @@ const categorize = (item) => {
   if (item.type === "weapon") return "weapons";
   if (item.type === "armor") return "armor";
   const n = item.name.toLowerCase();
-  if (EXTRA.test(n)) return "extra";
+  // The `extra` pack was retired 2026-07-29 (it held one item, Lodestone, now in
+  // trinkets). This class routes there rather than to a pack that no longer
+  // exists -- without it a rerun would recreate src/packs/extra and undo the move.
+  if (EXTRA.test(n)) return "trinkets";
   if (TRINKET.test(n)) return "trinkets";
   if (TOOL.test(n)) return "tools";
   return "expeditionary-gear";
@@ -364,7 +367,7 @@ for (const p of TARGET_PACKS) {
 // name across two packs, which is also an id different enough to defeat the
 // dedupe on the other side. That is where all 17 collisions came from
 // (diagnosed 2026-07-29). Keep this list equal to CANONICAL_GEAR_PACKS.
-const POOL_PACKS = ["expeditionary-gear", "tools", "trinkets", "extra", "weapons", "armor", "market-goods", "background-items"];
+const POOL_PACKS = ["expeditionary-gear", "tools", "trinkets", "weapons", "armor", "market-goods", "background-items"];
 
 /** Every item the RESOLVER can reach, by lowercased name -> {pack, id, img, type}. */
 const scanPool = () => {

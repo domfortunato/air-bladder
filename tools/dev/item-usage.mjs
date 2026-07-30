@@ -32,8 +32,12 @@ const readPack = (pack) => {
     .map((f) => YAML.load(fs.readFileSync(path.join(dir, f), "utf8"))).filter(Boolean);
 };
 
-// ---- mirror module/gear.js (kept in sync by hand) -------------------------
-const CANONICAL_GEAR_PACKS = ["expeditionary-gear", "tools", "trinkets", "extra", "weapons", "armor", "market-goods"];
+// ---- mirror module/gear.js (drift is gated by tools/dev/ref-audit.mjs) ----
+// `background-items` was MISSING here, which is why this report cried wolf: every
+// item background-items.mjs had consolidated out of a type pack was invisible to
+// the scan and counted as a dangling grant. 268 of them, all tagged [bg]. Same bug
+// class as the 17 duplicate names — an audit that searches less than the resolver.
+const CANONICAL_GEAR_PACKS = ["expeditionary-gear", "tools", "trinkets", "weapons", "armor", "market-goods", "background-items"];
 const GEAR_ALIASES = new Map([
   ["lockpick", "Lockpicks"], ["hand drill", "Hand-Drill"], ["torches", "Torch"],
   ["rope (25ft)", "Rope"], ["chain (10ft)", "Chain, 10ft"], ["chains (10ft)", "Chain, 10ft"],

@@ -29,7 +29,7 @@ const DRY = process.argv.includes("--dry");
 
 // Item + Actor packs. Every RollTable pack is excluded.
 const ITEM_PACKS = ["armor", "weapons", "spellbooks", "more-spellbooks", "tools",
-  "expeditionary-gear", "extra", "market-goods", "trinkets", "transports",
+  "expeditionary-gear", "market-goods", "trinkets", "transports",
   "background-items", "backgrounds-2e", "backgrounds-barebones"];
 const ACTOR_PACKS = ["monsters"];
 

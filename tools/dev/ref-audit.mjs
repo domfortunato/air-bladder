@@ -106,7 +106,7 @@ if (byName.length) {
  * declared the item missing and re-authored it with a fresh id. Both are fixed;
  * this is what stops it coming back quietly a third time. */
 const CANONICAL_GEAR_PACKS = [
-  "expeditionary-gear", "tools", "trinkets", "extra",
+  "expeditionary-gear", "tools", "trinkets",
   "weapons", "armor", "market-goods", "background-items",
 ];
 const gearByName = new Map();
@@ -131,6 +131,62 @@ if (dupes.length) {
   }
 } else {
   console.log(`  ok    ${gearByName.size} gear names, each in exactly one canonical pack`);
+}
+
+/* ---------------------------------------------------------------------------
+ * The pack list above is declared in four places, and they must not drift.
+ *
+ * Until now that was enforced by a paragraph of comment in each file, and the
+ * comments were right about the hazard and powerless to stop it: the 17 duplicate
+ * gear names of 2026-07-29 came from exactly this, two importers disagreeing about
+ * where the pool is. Retiring the one-item `extra` pack meant editing SIX
+ * hand-maintained copies, which is the moment to make it a check.
+ *
+ * `module/gear.js` is the source of truth -- it is what the running resolver
+ * walks. Only lists that are meant to BE the pool are compared:
+ *
+ *   - barebones.mjs POOL_PACKS  — "every item the resolver can reach"
+ *   - item-usage.mjs, this file — audits of that same pool
+ *
+ * Three others look similar and are deliberately different, so they are left out
+ * rather than papered over: marketplace.mjs CANONICAL excludes `market-goods`
+ * (it authors INTO it), background-items.mjs SOURCE_PACKS names only the type
+ * packs it consolidates OUT of, and barebones.mjs TARGET_PACKS is the set it
+ * writes rather than reads.
+ * ------------------------------------------------------------------------- */
+const listIn = (relPath, constName) => {
+  const src = fs.readFileSync(path.join(root, relPath), "utf8");
+  const m = new RegExp(`const ${constName}\\s*=\\s*\\[([\\s\\S]*?)\\]`).exec(src);
+  if (!m) return null;
+  return [...m[1].matchAll(/["']([\w.-]+)["']/g)]
+    .map((x) => x[1].replace(/^air-bladder\./, ""));
+};
+
+const truth = listIn("module/gear.js", "CANONICAL_GEAR_PACKS");
+if (!truth?.length) {
+  failed = true;
+  console.error("\nCANONICAL_GEAR_PACKS could not be read out of module/gear.js");
+} else {
+  const mirrors = [
+    ["tools/dev/ref-audit.mjs", "CANONICAL_GEAR_PACKS"],
+    ["tools/dev/item-usage.mjs", "CANONICAL_GEAR_PACKS"],
+    ["tools/import/barebones.mjs", "POOL_PACKS"],
+  ];
+  const drifted = [];
+  for (const [rel, name] of mirrors) {
+    const got = listIn(rel, name);
+    if (!got) { drifted.push(`${rel}: ${name} not found (renamed?)`); continue; }
+    if (got.join(",") !== truth.join(",")) {
+      drifted.push(`${rel}: ${name} = [${got.join(", ")}]`);
+    }
+  }
+  if (drifted.length) {
+    failed = true;
+    console.error(`\nPACK LIST DRIFT — module/gear.js has [${truth.join(", ")}]:`);
+    for (const d of drifted) console.error(`  ${d}`);
+  } else {
+    console.log(`  ok    ${mirrors.length} mirrored pack list(s) match module/gear.js`);
+  }
 }
 
 if (verbose && !failed) {

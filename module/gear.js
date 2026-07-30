@@ -31,8 +31,9 @@ import { iconForItem, SPELLSCROLL_ICON } from "./icons.js";
 export const CANONICAL_GEAR_PACKS = [
   "air-bladder.expeditionary-gear",
   "air-bladder.tools",
+  // Holds Lodestone, moved here 2026-07-29 when the one-item `extra` pack was
+  // retired -- so the three backgrounds that grant it by name still resolve.
   "air-bladder.trinkets",
-  "air-bladder.extra",
   "air-bladder.weapons",
   "air-bladder.armor",
   "air-bladder.market-goods",
