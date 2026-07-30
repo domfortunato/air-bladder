@@ -70,7 +70,8 @@
     "dev:forhire": "node tools/dev/e2e-forhire-migration.mjs",
     "dev:bg-drop-guard": "node tools/dev/e2e-background-drop-guard.mjs",
     "dev:token-defaults": "node tools/dev/e2e-token-defaults.mjs",
-    "check:licence": "node tools/dev/licence-check.mjs"
+    "check:licence": "node tools/dev/licence-check.mjs",
+    "dev:npc-wording": "node tools/dev/e2e-npc-wording.mjs"
   },
   "browserslist": [
     "last 3 versions"

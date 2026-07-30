@@ -607,6 +607,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // (name, profession, portrait).
       context.generationEnabled = this.actor.system.generationEnabled !== false;
     }
+
+    // Tooltips that have an NPC wording must resolve through `_wording` like the
+    // dialogs do. npc-sheet.html used to hardcode `CAIRN.DeprivedTipNpc`, which
+    // bypassed the rule entirely and so stayed English in every language no matter
+    // what a translator did — while the Panicked tooltip beside it, which has no
+    // variant, was translated. Resolving here keeps ONE rule and lets the template
+    // stay dumb.
+    context.deprivedTipKey = this._wording("CAIRN.DeprivedTip");
+    context.panickedTipKey = this._wording("CAIRN.PanickedTip");
     return context;
   }
 
@@ -994,10 +1003,23 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * would just be two strings for a translator to keep in step (and would trip
    * `i18n:check`'s equal-to-English report).
    *
-   * `game.i18n.has()` consults the fallback strings too, so an `…Npc` key that
-   * exists in en.json but not yet in a translation resolves to the English NPC
-   * wording rather than to the PC-worded translation. That is Foundry's normal
-   * behaviour for an untranslated key, and `i18n:check` reports it as missing.
+   * **`has(npcKey, false)`, not `has(npcKey)`.** The default is `fallback: true`,
+   * which consults `_fallback` — the English strings — as well as the active
+   * language (client/helpers/localization.mjs:390-396). Since every `…Npc` variant
+   * exists in en.json, the test was unconditionally true in EVERY language, and the
+   * NPC sheet served the English variant in place of a base key the translator had
+   * already done. Not a missing translation: a working one, discarded.
+   *
+   * It was a regression, not a pre-existing gap. Before the Hireling→NPC fold the
+   * hireling sheet used the base keys, so those strings rendered in Spanish in
+   * 0.1.7 and in English afterwards. And because only SOME variants exist —
+   * `RestTipNpc` and `PanickedTipNpc` do not — a dialog came out half-translated:
+   * the tip in Spanish, the question beneath it in English.
+   *
+   * With `fallback: false` the rule reads the way the name does: use the NPC wording
+   * when THIS language has it, otherwise the translated base string, and English
+   * only when the language has neither. A translator adding `…Npc` keys turns the
+   * NPC wording on for their language with no code change.
    * @param {String} key
    * @returns {String} the same key, or its `…Npc` variant
    * @private
@@ -1005,7 +1027,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   _wording(key) {
     if (this.actor.type === "character") return key;
     const npcKey = `${key}Npc`;
-    return game.i18n.has(npcKey) ? npcKey : key;
+    return game.i18n.has(npcKey, false) ? npcKey : key;
   }
 
   /** Open the own sheet of the item (or owned container) a row represents. */

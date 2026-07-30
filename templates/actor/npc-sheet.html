@@ -134,7 +134,7 @@
                   non-player actors. Panicked/Rest/Restore keep the shared strings --
                   those already say "character" and "the party". --}}
             <div class="resource-counter long-counter deprived-counter">
-                <label data-tooltip="{{ localize 'CAIRN.DeprivedTipNpc' }}">{{ localize 'CAIRN.Deprived' }}</label>
+                <label data-tooltip="{{ localize deprivedTipKey }}">{{ localize 'CAIRN.Deprived' }}</label>
                 <div class="resource-input-wrapper">
                     <input type="checkbox" class="deprived-check" {{checked system.deprived}} />
                 </div>
@@ -142,7 +142,7 @@
 
             {{#if system.usePanic}}
             <div class="resource-counter long-counter deprived-counter">
-                <label data-tooltip="{{ localize 'CAIRN.PanickedTip' }}">{{ localize 'CAIRN.Panicked' }}</label>
+                <label data-tooltip="{{ localize panickedTipKey }}">{{ localize 'CAIRN.Panicked' }}</label>
                 <div class="resource-input-wrapper">
                     <input type="checkbox" class="panicked-check" {{checked system.panicked}} />
                 </div>
