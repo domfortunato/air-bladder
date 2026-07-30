@@ -23,8 +23,24 @@ const confirmDelete = (name) =>
 export class CairnActor extends Actor {
   equipContainers = [];
 
-  /** @override */
-  static async create(data, options = {}) {
+  /**
+   * Create-time defaults. They live in `_preCreate`, NOT in a `static create`
+   * override, because a static only runs for callers that name this class:
+   * compendium importAll, an Adventure import, and anything reaching for the
+   * global `Actor` all route through `createDocuments` → `_preCreate` and never
+   * touch a static — so defaults kept there were silently skipped on exactly
+   * the bulk paths that create the most documents at once.
+   *
+   * An explicit value in the creation data always wins: the `=== undefined`
+   * tests below are the `_preCreate` spelling of a `mergeObject(...,
+   * {overwrite: false})`, and core uses the same idiom for its own create-time
+   * default (canvas-document.mjs:125, `("sort" in data)`).
+   * @override
+   */
+  async _preCreate(data, options, user) {
+    const allowed = await super._preCreate(data, options, user);
+    if (allowed === false) return false;
+
     // Hirelings are player-facing helpers, so they get the same friendly, linked
     // token defaults a character does. Monsters must NOT — they are `npc` too.
     //
@@ -35,15 +51,11 @@ export class CairnActor extends Actor {
     // defaults — `actorLink` is a BooleanField with no initial (false) and
     // `disposition` initials to HOSTILE (common/documents/token.mjs:62,73-74) — and
     // arrived red-ringed and unlinked, so HP edited on the token never reached the
-    // sheet. It was friendly and linked in 0.1.7; 1d2a214 records the portrait as
-    // the only intended create-time difference, so this was collateral.
-    //
-    // Widening the test to plain `npc` would be the wrong fix: all 205 shipped
-    // monsters are npc documents and must stay hostile and unlinked. `forHire` says
-    // exactly the thing that matters here — this NPC is in the party's employ.
-    //
-    // `hireling` stays in the test for documents created before the fold, and for a
-    // Warden picking the still-registered alias in the Create Actor dialog.
+    // sheet. Widening the test to plain `npc` would be the wrong fix: all 205
+    // shipped monsters are npc documents and must stay hostile and unlinked.
+    // `forHire` says exactly the thing that matters — this NPC is in the party's
+    // employ. `hireling` stays in the test for documents created before the fold,
+    // and for a Warden picking the still-registered alias in Create Actor.
     const isHireling =
       data.type === "hireling" || (data.type === "npc" && data.system?.forHire === true);
     if (data.type === "character" || isHireling) {
@@ -52,24 +64,14 @@ export class CairnActor extends Actor {
       // with no `vision` key — so `cleanData` pruned it silently and it has never done
       // anything. The v14 path is `sight.enabled`, and turning sight ON for these
       // tokens is a behaviour change, not this fix; left for a deliberate decision.
-      //
-      // `overwrite: false`, not `override: false`. All three merges in this method
-      // said `override`, which is not an option `mergeObject` accepts
-      // (common/utils/helpers.mjs:1126) — so it was dropped and `overwrite` kept its
-      // default of TRUE. Every one of these merges therefore clobbered exactly the
-      // caller-supplied value its comment promised to protect, and did so silently:
-      // a wrong option name is not a typo any linter or runtime sees. Caught by
-      // `dev:token-defaults` asserting the promise rather than the outcome.
-      foundry.utils.mergeObject(
-        data,
-        {
-          prototypeToken: {
-            disposition: CONST.TOKEN_DISPOSITIONS.FRIENDLY,
-            actorLink: true,
-          },
-        },
-        { overwrite: false }
-      );
+      const changes = {};
+      if (data.prototypeToken?.disposition === undefined) {
+        changes["prototypeToken.disposition"] = CONST.TOKEN_DISPOSITIONS.FRIENDLY;
+      }
+      if (data.prototypeToken?.actorLink === undefined) {
+        changes["prototypeToken.actorLink"] = true;
+      }
+      if (Object.keys(changes).length) this.updateSource(changes);
     }
 
     // Picking "Hireling" in the Create Actor dialog rolls a portrait, so a
@@ -86,8 +88,11 @@ export class CairnActor extends Actor {
         const { randomPortraitPair } = await import("../character-generator.js");
         const pair = await randomPortraitPair();
         if (pair) {
-          data.img = pair.img;
-          foundry.utils.mergeObject(data, { prototypeToken: { texture: { src: pair.token } } }, { overwrite: false });
+          const changes = { img: pair.img };
+          if (data.prototypeToken?.texture?.src === undefined) {
+            changes["prototypeToken.texture.src"] = pair.token;
+          }
+          this.updateSource(changes);
         }
       } catch (err) {
         // A missing manifest must not block creating an actor.
@@ -102,10 +107,12 @@ export class CairnActor extends Actor {
     // marketplace passes the transport's own art.
     if (data.type === "container" && !data.img) {
       const art = iconForTransport(data.name ?? "", data.system?.transportKind ?? "");
-      data.img = art;
-      foundry.utils.mergeObject(data, { prototypeToken: { texture: { src: art } } }, { overwrite: false });
+      const changes = { img: art };
+      if (data.prototypeToken?.texture?.src === undefined) {
+        changes["prototypeToken.texture.src"] = art;
+      }
+      this.updateSource(changes);
     }
-    return super.create(data, options);
   }
 
   /**
@@ -463,7 +470,7 @@ export class CairnActor extends Actor {
     const keeper = game.actors.find((a) => a.uuid == this.system.keeper);
     if (!keeper) return;
     // ClientDocument#render re-renders only the applications actually open for
-    // this document -- the same swap already made in _onDelete below. The old
+    // this document -- the same swap already made in _onDeleteOperation below. The old
     // `keeper.sheet._state > 0` probe read a private member AND constructed a
     // sheet as a side effect, because `.sheet` is a lazily-constructing getter:
     // asking "is the sheet open?" built one for every keeper that had none.
@@ -507,31 +514,43 @@ export class CairnActor extends Actor {
     this._synchronizeKeeperSheet();
   }
 
-  /** @override */
-  async _onDelete(options, userId) {
-    const id = this.uuid;
-    super._onDelete(options, userId);
-    // _onDelete runs on EVERY connected client — that is what the userId argument
-    // is for. Without this guard one container delete fired the same prune from
-    // every browser: clients that do not own the keeper got a permission-error
-    // toast for an action they did not take, and clients that do own it raced each
-    // other writing the same array. Let the acting client do it once.
-    if (userId !== game.user.id) return;
-    // Sequential, not forEach(async …): the callbacks there are never awaited, so
-    // the prunes overlapped and could write back a stale array.
+  /**
+   * Prune deleted containers from every keeper's uuid list — ONCE per delete
+   * operation, over the whole batch. This was a per-document `_onDelete` walk,
+   * and that shape loses a race with itself on a bulk delete: Foundry fires the
+   * per-document callbacks without awaiting them (client-backend.mjs:472), so
+   * deleting two containers kept by the same actor interleaved two
+   * read-modify-writes of the same array — each read the pre-delete list, each
+   * filtered out only its own uuid, and whichever update landed last put the
+   * other container's uuid back, dangling. Batch-wise, the list is read once
+   * and every deleted uuid leaves in one write. `_onDeleteOperation` is also
+   * awaited by the workflow (client-backend.mjs:478), so a caller that awaits
+   * a delete sees the prune already done.
+   * @override
+   */
+  static async _onDeleteOperation(documents, operation, user) {
+    await super._onDeleteOperation(documents, operation, user);
+    // Post-operation events fire on EVERY connected client — that is what the
+    // `user` argument is for. Without this guard one container delete fired the
+    // same prune from every browser: clients that do not own the keeper got a
+    // permission-error toast for an action they did not take. Let the acting
+    // client do it once (`isSelf` is core's own idiom — token.mjs:3150).
+    if (!user.isSelf) return;
+    const gone = new Set(documents.filter((d) => d.type === "container").map((d) => d.uuid));
+    if (!gone.size) return;
     for (const ac of game.actors) {
       // Hirelings and NPCs share the character data model (and so can keep
       // containers); without them here a deleted container leaves a dangling uuid.
-      if ((ac.type == "character" || ac.type == "hireling" || ac.type == "npc") && ac.system.containers?.includes(id)) {
-        await ac.update({
-          "system.containers": ac.system.containers.filter((it) => it !== id),
-        });
-        // ClientDocument#render re-renders only the applications actually open for
-        // this document. The old `ac.sheet._state > 0` probe read a private member
-        // AND instantiated a sheet on every actor it touched, because `.sheet` is a
-        // lazily-constructing getter.
-        ac.render(false);
-      }
+      if (!["character", "hireling", "npc"].includes(ac.type)) continue;
+      const list = ac.system.containers ?? [];
+      const pruned = list.filter((u) => !gone.has(u));
+      if (pruned.length === list.length) continue;
+      await ac.update({ "system.containers": pruned });
+      // ClientDocument#render re-renders only the applications actually open for
+      // this document. The old `ac.sheet._state > 0` probe read a private member
+      // AND instantiated a sheet on every actor it touched, because `.sheet` is a
+      // lazily-constructing getter.
+      ac.render(false);
     }
   }
 

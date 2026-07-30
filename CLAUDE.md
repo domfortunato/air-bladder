@@ -164,9 +164,10 @@ translating). `README.md` carries credits and licensing.
 
 ## Testing
 
-**`docs/release-testing.md` is the full list — 64 scripts, what each covers, and
-what to run before tagging vs after publishing. Keep it in step with
-`package.json`; a probe not listed there runs only when someone remembers it.**
+**`docs/release-testing.md` is the full list — 67 probes (`check:probes` states
+the current count), what each covers, and what to run before tagging vs after
+publishing. Keep it in step with `package.json`; a probe not listed there runs
+only when someone remembers it.**
 
 - `npm run dev:smoke` — headless Chromium against the local dev world on :30000,
   which loads this working tree via a directory junction. Asserts the system

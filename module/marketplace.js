@@ -210,7 +210,10 @@ export const acquireTransport = async (actor, doc, pay) => {
   // Give it a real portrait AND a matching map token; fall back to the transport
   // class icon if the document somehow carries no art.
   const art = doc.img ?? iconForTransport(doc.name, doc.system.transportKind);
-  const container = await Actor.create({
+  // getDocumentClass, not the global `Actor` — the global is not
+  // CONFIG.Actor.documentClass, so it reaches the same _preCreate defaults only
+  // by way of `implementation`; naming the configured class says what runs.
+  const container = await getDocumentClass("Actor").create({
     type: "container",
     name: doc.name,
     img: art,

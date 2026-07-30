@@ -428,46 +428,46 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       el.querySelectorAll(selector).forEach((node) => node.addEventListener("change", handler));
 
     // --- Example names ---------------------------------------------------------
-    on(".bg-name-input", (ev) => {
+    on(".bg-name-input", async (ev) => {
       const names = [...(item.system.names ?? [])];
       names[Number(ev.currentTarget.dataset.i)] = ev.currentTarget.value;
-      item.update({ "system.names": names });
+      await item.update({ "system.names": names });
     });
 
     // --- Starting gear ---------------------------------------------------------
-    on(".bg-gear-name", (ev) => {
+    on(".bg-gear-name", async (ev) => {
       const gear = foundry.utils.deepClone(item.system.startingGear ?? []);
       const i = Number(ev.currentTarget.dataset.i);
       gear[i].name = ev.currentTarget.value;
       // Typing a name over a snapshot converts the row back to a by-name pointer.
       delete gear[i].itemData;
-      item.update({ "system.startingGear": gear });
+      await item.update({ "system.startingGear": gear });
     });
-    on(".bg-gear-uses", (ev) => {
+    on(".bg-gear-uses", async (ev) => {
       const gear = foundry.utils.deepClone(item.system.startingGear ?? []);
       const i = Number(ev.currentTarget.dataset.i);
       const v = parseInt(ev.currentTarget.value, 10);
       if (Number.isNaN(v) || v <= 0) delete gear[i].uses;
       else gear[i].uses = v;
-      item.update({ "system.startingGear": gear });
+      await item.update({ "system.startingGear": gear });
     });
 
     // --- The two d6 tables -----------------------------------------------------
-    on(".bg-table-question", (ev) => {
+    on(".bg-table-question", async (ev) => {
       const tables = this._normalizedTables();
       tables[Number(ev.currentTarget.dataset.t)].question = ev.currentTarget.value;
-      item.update({ "system.tables": tables });
+      await item.update({ "system.tables": tables });
     });
-    on(".bg-option-desc", (ev) => {
+    on(".bg-option-desc", async (ev) => {
       const tables = this._normalizedTables();
       tables[Number(ev.currentTarget.dataset.t)].options[Number(ev.currentTarget.dataset.o)].description = ev.currentTarget.value;
-      item.update({ "system.tables": tables });
+      await item.update({ "system.tables": tables });
     });
-    on(".bg-option-gold", (ev) => {
+    on(".bg-option-gold", async (ev) => {
       const tables = this._normalizedTables();
       const v = parseInt(ev.currentTarget.value, 10);
       tables[Number(ev.currentTarget.dataset.t)].options[Number(ev.currentTarget.dataset.o)].bonusGold = Number.isNaN(v) ? 0 : Math.max(0, v);
-      item.update({ "system.tables": tables });
+      await item.update({ "system.tables": tables });
     });
   }
 

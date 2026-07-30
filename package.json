@@ -75,7 +75,9 @@
     "check:manifest": "node tools/dev/manifest-check.mjs",
     "dev:npc-wording": "node tools/dev/e2e-npc-wording.mjs",
     "dev:table-results": "node tools/dev/e2e-table-results.mjs",
-    "dev:relic-tab": "node tools/dev/e2e-relic-tab.mjs"
+    "dev:relic-tab": "node tools/dev/e2e-relic-tab.mjs",
+    "dev:doc-lifecycle": "node tools/dev/e2e-doc-lifecycle.mjs",
+    "dev:listeners": "node tools/dev/e2e-listeners.mjs"
   },
   "browserslist": [
     "last 3 versions"

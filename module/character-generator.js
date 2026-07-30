@@ -687,9 +687,10 @@ export const canRegenerateContainers = (actor, source = null) => {
 /**
  * Delete container Actors, then prune the keeper's uuid list to match — restoring
  * any that fail to delete, so a failed delete can never orphan a container (a live
- * Actor missing from the list). The prune stays AHEAD of a successful delete to
- * beat CairnActor#_onDelete's own async prune (see clearGrantedContainers); on
- * failure the uuid goes back. Returns the containers that were actually removed.
+ * Actor missing from the list). The prune stays AHEAD of a successful delete so
+ * CairnActor._onDeleteOperation's own prune finds nothing left to do (see
+ * clearGrantedContainers); on failure the uuid goes back. Returns the containers
+ * that were actually removed.
  * @param {CairnActor} actor @param {CairnActor[]} targets
  * @returns {Promise<CairnActor[]>}
  * @private
@@ -719,10 +720,9 @@ const deleteContainers = async (actor, targets) => {
  * Delete every generation-granted container this actor keeps (a regenerate
  * re-rolls the background's options, so last roll's donkey has to go).
  *
- * The keeper's uuid list is pruned FIRST, deliberately: CairnActor#_onDelete
- * prunes it too, but from a non-awaited async walk of game.actors, so letting it
- * race means it can write back a stale array and drop the container granted
- * moments later. Pruning up front makes that filter a no-op.
+ * The keeper's uuid list is pruned FIRST, deliberately: CairnActor's
+ * _onDeleteOperation prunes it too, and pruning up front makes that pass a
+ * no-op — one writer to the array instead of two.
  * @param {CairnActor} actor
  */
 export const clearGrantedContainers = async (actor) => {
@@ -1731,11 +1731,20 @@ export const createActorWithCharacter = async (characterData) => {
 export const updateActorWithCharacter = async (actor, characterData) => {
   if (!characterData) return actor;
   const data = characterToActorData(characterData);
+  // Items go through createEmbeddedDocuments, never through `actor.update({items})`:
+  // the update route creates the embedded documents server-side without firing a
+  // single createItem hook, so anything listening — a module, a world script —
+  // sees a regenerate as an actor whose inventory changed with no item ever
+  // created. changeBackground above has used the hook-firing route all along.
+  // `render: false` + data-update last mirrors it: one render, inventory present.
+  const items = data.items ?? [];
+  delete data.items;
   await actor.deleteEmbeddedDocuments("Item", [], { deleteAll: true, render: false });
   // Containers are Actors, so re-rolling the inventory has to clear them by hand.
   // Only GENERATION-granted ones (they carry a grantSource flag) are deleted —
   // a bought mule or a hand-made chest survives a regenerate.
   await clearGrantedContainers(actor);
+  if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false });
   await actor.update(data);
   await grantContainers(actor, characterData.containers);
   for (const token of actor.getActiveTokens()) {
@@ -1899,6 +1908,10 @@ export const createHireling = async () => {
 export const regenerateHireling = async (actor) => {
   const h = await generateHireling();
   await actor.deleteEmbeddedDocuments("Item", [], { deleteAll: true, render: false });
+  // createEmbeddedDocuments, never `items` inside the update: the update route
+  // creates embedded documents without firing createItem hooks. Same order as
+  // rerollHirelingProfession below — create render:false, then one update renders.
+  if (h.items?.length) await actor.createEmbeddedDocuments("Item", h.items, { render: false });
   await actor.update({
     system: {
       // Set alongside the rate, never separately: `forHire` gates the day-rate row,
@@ -1910,7 +1923,6 @@ export const regenerateHireling = async (actor) => {
       hp: { value: h.hp, max: h.hp },
       critical: false,
     },
-    items: h.items,
   });
   return actor;
 };

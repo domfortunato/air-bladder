@@ -15,10 +15,14 @@
  * threw, nothing logged, and the sheet looked correct — the damage only shows on
  * the canvas, and then only as a red ring and HP that will not stick.
  *
- * Every case creates through **`CONFIG.Actor.documentClass`**, never the global
- * `Actor`. They are not the same class: the global skips this system's `static
- * create` override entirely, so a probe using it would exercise a path no user
- * takes and pass no matter what the override said.
+ * Most cases create through **`CONFIG.Actor.documentClass`** — the class users
+ * reach. One case deliberately uses the global `Actor` instead: the defaults
+ * now live in `_preCreate`, which EVERY creation route hits (createDocuments
+ * resolves `this.implementation`), and the global-Actor case stands in for the
+ * routes that never call a static override by name — compendium importAll and
+ * Adventure import. When the defaults lived in `static create`, those routes
+ * skipped them silently; that case is the one that goes red if anyone moves
+ * the defaults back.
  *
  * The monster case is the one that matters most. Widening the branch to plain
  * `npc` fixes the hireling and quietly turns all 205 shipped monsters friendly and
@@ -84,13 +88,41 @@ const out = await page.evaluate(async () => {
   const pc = await Cls.create({ name: "ZZ Tok Character", type: "character" });
   snap(pc, "character (positive control)", true);
 
-  // An explicit disposition must still win -- the merge is overwrite:false, so a
-  // caller (or a pack import) that states one keeps it.
+  // An explicit disposition must still win -- `_preCreate` only fills fields the
+  // creation data leaves unstated, so a caller (or a pack import) that states
+  // one keeps it.
   const explicit = await Cls.create({
     name: "ZZ Tok Explicit", type: "hireling",
     prototypeToken: { disposition: CONST.TOKEN_DISPOSITIONS.HOSTILE },
   });
   res.explicitKept = explicit.prototypeToken.disposition === D.HOSTILE;
+
+  // The bulk-import shape: the GLOBAL `Actor`, which is NOT this system's class.
+  // importAll and an Adventure import route the same way -- createDocuments ->
+  // implementation -> _preCreate -- and never call a `static create` override,
+  // which is where these defaults used to live and why they were skipped on
+  // exactly the paths that create the most documents at once.
+  const viaGlobal = await Actor.create({ name: "ZZ Tok Global Hireling", type: "hireling" });
+  snap(viaGlobal, "hireling via the global Actor (the importAll shape)", true);
+
+  // Negative control: reassign `_preCreate` to the base class's and prove the
+  // defaults DISAPPEAR. If this still comes out friendly and linked, something
+  // other than the override is supplying the defaults and every green above is
+  // meaningless. Restored in the finally so a throw cannot leave the swap in.
+  const proto = Cls.prototype;
+  const origPreCreate = proto._preCreate;
+  let off = null;
+  try {
+    proto._preCreate = Object.getPrototypeOf(proto)._preCreate;
+    off = await Cls.create({ name: "ZZ Tok Control", type: "hireling" });
+    res.control = {
+      friendly: off.prototypeToken.disposition === D.FRIENDLY,
+      actorLink: off.prototypeToken.actorLink,
+    };
+  } finally {
+    proto._preCreate = origPreCreate;
+  }
+  if (off) await off.delete();
 
   // The user-visible end of it: a real token placed on a real scene.
   const scene = game.scenes.current ?? game.scenes.contents[0];
@@ -102,7 +134,7 @@ const out = await page.evaluate(async () => {
     if (td) await scene.deleteEmbeddedDocuments("Token", [td.id]);
   } else res.placedSkipped = "no scene in this world";
 
-  for (const a of [gen, mon, legacy, forHire, pc, explicit]) await a.delete();
+  for (const a of [gen, mon, legacy, forHire, pc, explicit, viaGlobal]) await a.delete();
   return res;
 });
 
@@ -122,8 +154,15 @@ for (const c of out.cases) {
   }
 }
 
-if (out.explicitKept) ok("an explicitly-stated disposition still wins (merge is overwrite:false)");
+if (out.explicitKept) ok("an explicitly-stated disposition still wins (_preCreate fills only unstated fields)");
 else fail("an explicitly-stated disposition was overwritten — pack imports would lose theirs");
+
+if (out.control && !out.control.friendly && !out.control.actorLink) {
+  ok("with _preCreate swapped to the base class's, the defaults vanish — the override is load-bearing");
+} else {
+  fail(`negative control: defaults survived a disabled _preCreate (${JSON.stringify(out.control)}) — `
+    + "the assertions above cannot fail and prove nothing");
+}
 
 if (out.placedSkipped) console.log(`  note  placed-token check skipped: ${out.placedSkipped}`);
 else if (out.placed?.disposition === 1 && out.placed?.actorLink === true) {

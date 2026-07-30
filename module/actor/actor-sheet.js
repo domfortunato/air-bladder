@@ -3,7 +3,7 @@ import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, sourceLabel } from "../utils.js";
 import { resultText } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
-import { CONTAINER_ART, CONTAINER_ICON, TRANSPORT_KINDS } from "../icons.js";
+import { CONTAINER_ART, TRANSPORT_KINDS } from "../icons.js";
 import { localizeNameDesc, t } from "../i18n-content.js";
 import { FATIGUE_NAME } from "../item/item.js";
 
@@ -875,16 +875,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // (derived from gear, or an override). Typing a 0-3 value stores an override
     // that supersedes the gear value; clearing it — or the reset icon — returns
     // to auto (system.armorOverride = null).
-    on(".armor-input", "change", (ev) => {
+    on(".armor-input", "change", async (ev) => {
       const raw = ev.currentTarget.value.trim();
       if (raw === "") {
-        this.actor.update({ "system.armorOverride": null });
+        await this.actor.update({ "system.armorOverride": null });
         return;
       }
       let n = Math.trunc(Number(raw));
       if (!Number.isFinite(n)) n = 0;
       n = Math.min(3, Math.max(0, n));
-      this.actor.update({ "system.armorOverride": n });
+      await this.actor.update({ "system.armorOverride": n });
     });
 
     // Deprived / Panicked are class-managed (no form name): toggling ON asks for
@@ -904,27 +904,27 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     // Enabling Omen reveals the field; disabling it clears the stored omen so the
     // field resets to the placeholder hint (not a hidden value).
-    on(".omen-enable", "change", (ev) => {
+    on(".omen-enable", "change", async (ev) => {
       const enabled = ev.currentTarget.checked;
       const data = { "system.omenEnabled": enabled };
       if (!enabled) data["system.omen"] = "";
-      this.actor.update(data);
+      await this.actor.update(data);
     });
 
     // Enabling Scars reveals the checklist; disabling it clears every picked scar.
-    on(".scar-enable", "change", (ev) => {
+    on(".scar-enable", "change", async (ev) => {
       const enabled = ev.currentTarget.checked;
       const data = { "system.scarEnabled": enabled };
       if (!enabled) data["system.scars"] = [];
-      this.actor.update(data);
+      await this.actor.update(data);
     });
 
     // Scars are a checkbox list: persist the set of checked names (including
     // empty). Managed here rather than via form serialization so unchecking the
     // last one reliably stores an empty array. render:false keeps scroll/state.
-    on(".scar-check", "change", () => {
+    on(".scar-check", "change", async () => {
       const scars = [...el.querySelectorAll(".scar-check:checked")].map((o) => o.value);
-      this.actor.update({ "system.scars": scars }, { render: false });
+      await this.actor.update({ "system.scars": scars }, { render: false });
     });
 
     // Placeholder prompt in an empty editor. ProseMirror has no placeholder of
@@ -1481,10 +1481,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         // DialogV2 hands the callback the clicked BUTTON; button.form is the
         // dialog's own form, which is why the content template must not carry
         // one of its own.
-        callback: (dialogEvent, button) => {
+        callback: async (dialogEvent, button) => {
           const form = button.form;
           if (form.itemname.value.trim() !== "") {
-            this.actor.createOwnedItem({
+            await this.actor.createOwnedItem({
               name: form.itemname.value,
               type: form.itemtype.value,
               weightless: form.itempetty.checked,
@@ -1525,11 +1525,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /** @this {CairnActorSheet} */
-  static #onItemToggleEquipped(event, target) {
+  static async #onItemToggleEquipped(event, target) {
     event.preventDefault();
     const row = CairnActorSheet.#row(target);
     const item = this.actor.getOwnedItem(row?.dataset.itemId);
-    if (item) item.update({ "system.equipped": !item.system.equipped });
+    if (item) await item.update({ "system.equipped": !item.system.equipped });
   }
 
   /** Not exactly quantity, this is about uses. @this {CairnActorSheet} */
@@ -1593,13 +1593,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /** @this {CairnActorSheet} */
-  static #onAddFatigue(event) {
+  static async #onAddFatigue(event) {
     event.preventDefault();
     if (this.actor.isEncumbered()) {
       ui.notifications.warn(game.i18n.localize("CAIRN.Notify.MaxSlotsOccupied"));
       return;
     }
-    this.actor.createOwnedItem({ name: FATIGUE_NAME, type: "item" });
+    await this.actor.createOwnedItem({ name: FATIGUE_NAME, type: "item" });
   }
 
   /** @this {CairnActorSheet} */
@@ -1680,11 +1680,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         callback: async (dialogEvent, button) => {
           const form = button.form;
           if (form.itemname.value.trim() !== "") {
-            const result = await Actor.create({
+            // No `img` here on purpose: CairnActor._preCreate names the art from
+            // the container's own name (a "Barrel" gets barrel art), so hardcoding
+            // the chest icon would defeat it. getDocumentClass, not the global
+            // `Actor` — the global is not CONFIG.Actor.documentClass.
+            const result = await getDocumentClass("Actor").create({
               type: "container",
               name: form.itemname.value,
-              img: CONTAINER_ICON,
-              "prototypeToken.texture.src": CONTAINER_ICON,
               "system.slots": form.itemslots.value,
             });
             await this.actor.createOwnedContainer(result);
@@ -1831,15 +1833,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * Dead/Paralyzed/Delirious are automatic (ability at 0), not toggled here.
    * @this {CairnActorSheet}
    */
-  static #onToggleCritical(event) {
+  static async #onToggleCritical(event) {
     event.preventDefault();
-    this.actor.update({ "system.critical": this.actor.system.critical !== true });
+    await this.actor.update({ "system.critical": this.actor.system.critical !== true });
   }
 
   /** @this {CairnActorSheet} */
-  static #onArmorReset(event) {
+  static async #onArmorReset(event) {
     event.preventDefault();
-    this.actor.update({ "system.armorOverride": null });
+    await this.actor.update({ "system.armorOverride": null });
   }
 
   /**
@@ -1891,8 +1893,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       content: `<input name="slots" type="number" autofocus value="${this.actor.calcCurrentMaxSlots()}">`,
       ok: {
         label: game.i18n.localize("CAIRN.SetLimit"),
-        callback: (dialogEvent, button) => {
-          this.actor.update({ "system.slots": button.form.elements.slots.valueAsNumber });
+        // DialogV2 awaits a callback's return value, so awaiting here holds the
+        // dialog's promise open until the write lands.
+        callback: async (dialogEvent, button) => {
+          await this.actor.update({ "system.slots": button.form.elements.slots.valueAsNumber });
         },
       },
       rejectClose: false,
