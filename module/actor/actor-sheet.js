@@ -1182,10 +1182,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * list before refusing the one they chose. `#onRollBackground` deliberately does
    * NOT — it asks nothing, so `changeBackground`'s own guard is the first and only
    * refusal, and a second copy here would be dead code that reads as protection.
+   * The warning key is passed explicitly. `canRegenerateContainers` was written for
+   * the REGENERATE path and its default sentence ends "ask them to re-roll it for
+   * you" — which, on a background swap, tells a player to request an operation that
+   * would discard their abilities, HP and traits when all they did was try to change
+   * a background. Same refusal, different thing being refused, so a different
+   * sentence.
    * @returns {Boolean} false, having already warned, if the swap would be refused
    */
   _mayChangeBackground() {
-    return canRegenerateContainers(this.actor);
+    return canRegenerateContainers(this.actor, null, "CAIRN.Notify.NoContainerBackground");
   }
 
   /**

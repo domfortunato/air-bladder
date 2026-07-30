@@ -672,7 +672,7 @@ export const grantedContainersOf = (actor) =>
  * @param {CairnActor} actor @param {String|null} source
  * @returns {Boolean} true to proceed
  */
-export const canRegenerateContainers = (actor, source = null) => {
+export const canRegenerateContainers = (actor, source = null, warnKey = "CAIRN.Notify.NoContainerRegen") => {
   if (game.user.isGM) return true; // isGM === role >= ASSISTANT, exactly what Actor delete needs
   const mayCreate = game.settings.get(SETTINGS_NS, "show-containers-tab");
   const existing = grantedContainersOf(actor);
@@ -680,7 +680,13 @@ export const canRegenerateContainers = (actor, source = null) => {
     ? existing.some((c) => c.getFlag(FLAG_SCOPE, "grantSource") === source)
     : existing.length > 0;
   if (!mayCreate && !mustDelete) return true; // no Actor create/delete needed
-  ui.notifications.warn(game.i18n.localize("CAIRN.Notify.NoContainerRegen"));
+  // The refusal is shared; the SENTENCE is not. This guard began as the
+  // regenerate check and its message says "ask them to re-roll it for you" —
+  // correct there, and wrong the moment the background swap started calling it,
+  // because that instructs a player to request an operation that discards their
+  // abilities, HP and traits when all they touched was a background. Callers that
+  // refuse a different operation pass their own key.
+  ui.notifications.warn(game.i18n.localize(warnKey));
   return false;
 };
 

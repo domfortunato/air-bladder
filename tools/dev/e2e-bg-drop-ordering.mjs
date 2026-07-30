@@ -81,7 +81,13 @@ try {
         containers: game.settings.get(NS, "show-containers-tab"),
         reorder: game.settings.get(NS, "enable-inventory-reorder"),
       },
-      noRegenWarning: game.i18n.localize("CAIRN.Notify.NoContainerRegen"),
+      // The sentence a refused background swap must show, and the one it must NOT.
+      // They are different keys because they refuse different operations: the
+      // regenerate wording ends "ask them to re-roll it for you", which on a
+      // background swap tells a player to request something that discards their
+      // abilities, HP and traits.
+      bgWarning: game.i18n.localize("CAIRN.Notify.NoContainerBackground"),
+      regenWarning: game.i18n.localize("CAIRN.Notify.NoContainerRegen"),
     };
 
     const pack = game.packs.get("air-bladder.backgrounds-2e")
@@ -207,10 +213,13 @@ try {
         + "refuse this, so the premise of the whole leg has moved");
     } else if (p.asked) {
       fail(`asked ${p.asked} destructive question(s) and then refused — the ordering defect`);
-    } else if (!p.warns.some((w) => w === setup.noRegenWarning)) {
+    } else if (!p.warns.some((w) => w === setup.bgWarning)) {
       fail(`refused without asking, but said nothing useful: ${JSON.stringify(p.warns)}`);
+    } else if (p.warns.some((w) => w === setup.regenWarning)) {
+      fail("refused with the REGENERATE wording — it tells the player to ask the Warden to "
+        + `re-roll their character, which discards abilities, HP and traits: ${JSON.stringify(p.warns)}`);
     } else {
-      ok(`refused up front, unasked ("${setup.noRegenWarning}")`);
+      ok(`refused up front, unasked, in the background's own words ("${setup.bgWarning}")`);
     }
   }
 
