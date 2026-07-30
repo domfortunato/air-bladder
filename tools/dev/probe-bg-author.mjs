@@ -134,6 +134,56 @@ const result = await page.evaluate(async () => {
   await customTable.delete();
   await bg.update({ "system.bondsTable": "" });
 
+  // Dropping a background onto a character SWAPS the background (issue #10). It used to
+  // fall through to the inventory transfer path and be pocketed as a 1-slot item — and
+  // on an encumbered character the capacity refusal rejected it outright, so nothing
+  // happened at all.
+  //
+  // Two distinct things, easy to confuse: the swap MUST rewrite the inventory (the old
+  // background's grants out, the new one's gear in — `gearGained`), and the background
+  // DOCUMENT must never itself be in there (`pocketed`).
+  const target = await getDocumentClass("Actor").create({ name: "zz-bg-drop", type: "character" });
+  await target.sheet.render(true);
+  for (let i = 0; i < 30 && !target.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
+  const itemsBefore = target.items.size;
+
+  // Answer the confirmation the drop raises. DialogV2.confirm is modal, so the click
+  // has to come from outside the awaited call or the probe deadlocks.
+  const answer = (action) => {
+    const tick = setInterval(() => {
+      const btn = [...document.querySelectorAll("dialog button[data-action]")]
+        .find((b) => b.dataset.action === action);
+      if (btn) { clearInterval(tick); btn.click(); }
+    }, 100);
+    setTimeout(() => clearInterval(tick), 8000);
+  };
+
+  answer("no");
+  await target.sheet._onDropBackground(bg);
+  out.dropDeclined = { background: target.system.background, items: target.items.size };
+
+  answer("yes");
+  await target.sheet._onDropBackground(bg);
+  out.dropAccepted = {
+    background: target.system.background,
+    uuid: target.system.backgroundUuid === bg.uuid,
+    // The background document itself must NOT be in the inventory.
+    pocketed: target.items.some((i) => i.type === "background"),
+    gearGained: target.items.size > itemsBefore,
+  };
+
+  // An NPC has no background at all, so it must refuse rather than pocket it.
+  const npc = await getDocumentClass("Actor").create({ name: "zz-bg-drop-npc", type: "npc" });
+  await npc.sheet.render(true);
+  for (let i = 0; i < 30 && !npc.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
+  await npc.sheet._onDropBackground(bg);
+  out.dropOnNpc = { pocketed: npc.items.some((i) => i.type === "background"), items: npc.items.size };
+  await npc.sheet.close();
+  await npc.delete();
+
+  await target.sheet.close();
+  await target.delete();
+
   // A LOCKED shipped background must still render the read-only view (that path
   // was refactored alongside the editor).
   const roPack = game.packs.get("air-bladder.backgrounds-2e");
@@ -178,6 +228,11 @@ const checks = [
   ["a named world table supplies the bond text", result.customBond?.count === 1 && result.customBond?.description === "You owe the ferryman a debt he will collect."],
   ["a hand-made row grants no gold (narrative only)", result.customBond?.gold === 0],
   ["an unresolvable table name falls back to 2e, not to nothing", result.missingTableFallback?.count === 1 && result.missingTableFallback?.isCustom === false],
+  ["declining the drop changes nothing", result.dropDeclined?.background === "" && result.dropDeclined?.items === 0],
+  ["dropping a background swaps it", result.dropAccepted?.background === "Probe Background ZZ" && result.dropAccepted?.uuid === true],
+  ["...rewrites the inventory with the new background's gear", result.dropAccepted?.gearGained === true],
+  ["...and never puts the background document in the inventory", result.dropAccepted?.pocketed === false],
+  ["an NPC refuses a background instead of pocketing it", result.dropOnNpc?.pocketed === false && result.dropOnNpc?.items === 0],
   ["locked shipped bg → read-only view", result.readOnly?.hasReadOnly === true && result.readOnly?.hasEditor === false],
   ["read-only view lists gear + 2 tables", result.readOnly?.gearListed > 0 && result.readOnly?.tables === 2],
 ];

@@ -1070,6 +1070,41 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
+   * A background dropped on a sheet: swap to it, after asking.
+   *
+   * Only a character HAS a background — `NpcData` carries no `background` or
+   * `backgroundUuid` — so any other actor type says so rather than silently doing
+   * nothing or, as before, pocketing the document as gear.
+   *
+   * Confirmed because it is destructive and a drop is easy to do by accident:
+   * `changeBackground` deletes everything the old background granted (its starting
+   * gear, its rolled answers' items and containers) and re-rolls the new one's. The
+   * prompt names the background, since the likeliest mistake is dropping the wrong one.
+   * Bonds and the portrait survive — that is `changeBackground`'s contract, shared with
+   * the picker.
+   * @param {CairnItem} bg
+   * @returns {Promise<null>} never an item: nothing is added to the inventory
+   */
+  async _onDropBackground(bg) {
+    if (!this.isEditable) return null;
+    if (this.actor.type !== "character") {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.BackgroundNotCharacter"));
+      return null;
+    }
+    const ok = await foundry.applications.api.DialogV2.confirm({
+      window: { title: game.i18n.localize("CAIRN.ChangeBackgroundTitle") },
+      content:
+        `<div class="cairn-confirm">${game.i18n.localize("CAIRN.ChangeBackgroundTip")}` +
+        `<p class="cairn-confirm-q">${game.i18n.format("CAIRN.ChangeBackgroundQ", { name: bg.name })}</p></div>`,
+      rejectClose: false,
+      modal: true,
+    });
+    if (!ok) return null;
+    await changeBackground(this.actor, bg);
+    return null;
+  }
+
+  /**
    * The bonds table this character's background names, or "" for the shipped 2e one.
    * Re-rolling and adding a bond must draw from the SAME table generation used, or a
    * custom background's bonds silently become 2e bonds the first time a player uses
@@ -2243,6 +2278,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   async _onDropItem(event, originalItem) {
     if (!originalItem) return null;
+
+    // A background is not inventory. Dropping one CHANGES the character's background —
+    // the same operation as the magnifier's picker — so it is intercepted before any
+    // capacity check and before any create. Without this it fell through to the
+    // transfer path below and became an owned item: `BackgroundData` declares neither
+    // `weightless` nor `bulky`, so it cost a slot, and on an encumbered character the
+    // refusal below rejected the drop outright, so nothing happened at all.
+    if (originalItem.type === "background") return this._onDropBackground(originalItem);
+
     // The Actor the item currently belongs to; null for a world or compendium item.
     const originalActor = originalItem.actor;
 

@@ -449,5 +449,9 @@
   "CAIRN.RandomBackground": "Random",
   "CAIRN.RandomBackgroundHint": "A background is picked at random — never the one you have now.",
   "CAIRN.RollBackground": "Roll a random background",
-  "CAIRN.ChangeBackground": "Change background"
+  "CAIRN.ChangeBackground": "Change background",
+  "CAIRN.ChangeBackgroundTitle": "Change background",
+  "CAIRN.ChangeBackgroundTip": "The old background's starting gear and the items its questions granted are removed, and the new background's are rolled in their place. Bonds, portrait and notes are kept.",
+  "CAIRN.ChangeBackgroundQ": "Change this character's background to {name}?",
+  "CAIRN.Notify.BackgroundNotCharacter": "Only a player character has a background."
 }
