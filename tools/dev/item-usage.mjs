@@ -9,8 +9,7 @@
  *   - Barebones bgs      startingGear[].name
  *   - 2e Bonds table     per-result flag items
  *   - Hirelings          gear names (module/hirelings-2e.json)
- *   - Marketplace tables result.text (the item name)
- *   - SRD creation tables + legacy gear-tables  result.text
+ *   - Marketplace tables the row's own label (the item name)
  *   - default gear       Rations, Torch  (config.js startingItems)
  *   - GEAR_ALIASES       alias targets
  * Spell grants ("Scroll (X)", "X Spellbook") route to the spellbook packs and are
@@ -104,13 +103,22 @@ try {
   walk(hire);
 } catch {}
 
-// Marketplace + SRD + legacy gear-tables: the row's own label is the item name.
-// Since v13 that is `name` on a document row (`text` was split into name +
-// description and is removed in v15); `text` stays as the fallback because the two
-// SRD packs below are legacy content that may still be in the old shape.
-const rowLabel = (r) => r.name ?? r.text;
-for (const pack of ["marketplace"]) for (const t of readPack(pack)) for (const r of t.results ?? []) add(rowLabel(r), "market");
-for (const pack of ["character-creation-tables-srd", "gear-tables"]) for (const t of readPack(pack)) for (const r of t.results ?? []) add(rowLabel(r), "srd");
+// Marketplace: the row's own label is the item name. v13 split `TableResult#text`
+// into TWO fields, and which one holds the label depends on the row type — a
+// document row carries it in `name`, a text row in `description`. `r.name ?? r.text`
+// is therefore only half right: it reads a document row correctly and a text row not
+// at all. `text` stays last as a fallback for any content still in the pre-v13 shape.
+const rowLabel = (r) => (r.type === "text" ? r.description : r.name) ?? r.text;
+const marketTables = readPack("marketplace");
+if (!marketTables.length) {
+  // A pack that has been renamed or retired reads as an empty list, not an error,
+  // and an empty list here quietly shrinks the CONSUMER set — which turns every
+  // item it would have claimed into a reported orphan. Say so instead.
+  console.error("  FAIL  src/packs/marketplace/ read to zero tables — this check is "
+    + "matching nothing; every shop item will be reported as an orphan");
+  process.exitCode = 1;
+}
+for (const t of marketTables) for (const r of t.results ?? []) add(rowLabel(r), "market");
 
 // default gear + alias targets
 ["Rations", "Torch"].forEach((n) => add(n, "default"));

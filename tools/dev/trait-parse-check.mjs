@@ -48,11 +48,25 @@ const { bestTextMatch } = await load(
   slice("/** Loose text identity", "* Re-tag imported items").replace(/\/\*+\s*$/, "")
 );
 
+// v13 split `TableResult#text` in two, and the halves went to DIFFERENT fields: a
+// text row's value is now `description`, a document row's is `name`. That is the
+// rule `resultText` encodes in module/compendium.js, and reading `r.text` here
+// silently produced a set of `"undefined"` — so the virtue/vice split fell through
+// to its positional default and only two downstream assertions complained, about
+// the wrong thing. Hence the floor below: a table this reads to zero values is a
+// broken check, not an empty table.
 const tableValues = (name) => {
   const dir = path.join(ROOT, "src", "packs", "tables-2e");
   const file = fs.readdirSync(dir).find((f) => f.startsWith(`${name}_`));
   const doc = YAML.load(fs.readFileSync(path.join(dir, file), "utf8"));
-  return new Set((doc.results ?? []).map((r) => String(r.text).trim().toLowerCase()));
+  const values = (doc.results ?? [])
+    .map((r) => String((r.type === "text" ? r.description : r.name) ?? "").trim().toLowerCase())
+    .filter(Boolean);
+  if (values.length < 10) {
+    throw new Error(`${name} table read to ${values.length} value(s) from ${file} — `
+      + "the row schema has changed under this check; it is matching nothing, not passing");
+  }
+  return new Set(values);
 };
 const virtues = tableValues("Virtue");
 const vices = tableValues("Vice");
