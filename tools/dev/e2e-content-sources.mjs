@@ -65,6 +65,16 @@ try {
         });
       const shipped = await game.packs.get("air-bladder.backgrounds-2e").getDocuments();
       out.shippedCount = shipped.length;
+      out.shippedNames = shipped.map((b) => b.name);
+
+      // How many custom backgrounds this world ALREADY has. Authoring them is a
+      // shipped feature, so any real world has some, and asserting "the pool is
+      // exactly my one homebrew" made this gate go red in every world where the
+      // feature had ever been used — blaming the toggles for the Warden's content.
+      // Every count below is relative to this.
+      await set(false, true);
+      out.baseline = (await CG.getBackgroundsFor("2e")).map((b) => b.name);
+
       const data = shipped[0].toObject();
       delete data._id;
       data.name = CUSTOM;
@@ -91,14 +101,27 @@ try {
     return out;
   });
 
-  // 1. Homebrew-only: the pool is the custom background ALONE, and generation
-  //    actually draws from it. This is the assertion the bug failed.
-  r.customOnly.pool === 1 && r.customOnly.names[0] === r.custom
-    ? ok(`custom-only: the pool is the homebrew background alone (${r.customOnly.names.join(", ")})`)
-    : fail(`custom-only pool is ${r.customOnly.pool} [${r.customOnly.names.slice(0, 3).join(", ")}], expected just "${r.custom}"`);
-  r.customOnly.bg === r.custom
-    ? ok(`custom-only: generation drew from it ("${r.customOnly.bg}")`)
-    : fail(`custom-only generated "${r.customOnly.bg}" — generation ignored the toggles and used the shipped pack`);
+  const base = r.baseline ?? [];
+  const shippedIn = (names) => names.filter((n) => r.shippedNames.includes(n));
+  if (base.length) console.log(`  note  this world already has ${base.length} custom background(s); `
+    + "every count below is relative to that");
+
+  // 1. Homebrew-only: NO shipped background is in the pool, and generation draws
+  //    from what is. That is what the bug failed — not the pool's exact size,
+  //    which the Warden's own backgrounds legitimately change.
+  !shippedIn(r.customOnly.names).length && r.customOnly.names.includes(r.custom)
+    && r.customOnly.pool === base.length + 1
+    ? ok(`custom-only: the pool is homebrew only (${r.customOnly.pool}, no shipped background in it)`)
+    // Name which of the three conditions actually broke. Reporting only the shipped
+    // leak once produced "contains 0 SHIPPED background(s): []" on a failing
+    // assertion, which reads as a passing one.
+    : fail(`custom-only pool is ${r.customOnly.pool} (expected ${base.length + 1}), contains `
+      + `${shippedIn(r.customOnly.names).length} SHIPPED background(s) `
+      + `${JSON.stringify(shippedIn(r.customOnly.names).slice(0, 3))}, and `
+      + `${r.customOnly.names.includes(r.custom) ? "does" : "does NOT"} contain "${r.custom}"`);
+  !r.shippedNames.includes(r.customOnly.bg)
+    ? ok(`custom-only: generation drew from the homebrew pool ("${r.customOnly.bg}")`)
+    : fail(`custom-only generated "${r.customOnly.bg}", which is SHIPPED — generation ignored the toggles`);
 
   // 2. Shipped-only: the custom background must NOT leak in.
   r.shippedOnly.pool === r.shippedCount && !r.shippedOnly.names.includes(r.custom)
@@ -106,19 +129,32 @@ try {
     : fail(`shipped-only pool is ${r.shippedOnly.pool} and ${r.shippedOnly.names.includes(r.custom) ? "INCLUDES" : "excludes"} the homebrew`);
 
   // 3. Both on: the union, deduped.
-  r.both.pool === r.shippedCount + 1 && r.both.names.includes(r.custom)
-    ? ok(`both on: the union is ${r.both.pool} (${r.shippedCount} shipped + 1 homebrew)`)
-    : fail(`both on: pool is ${r.both.pool}, expected ${r.shippedCount + 1} including the homebrew`);
+  r.both.pool === r.shippedCount + base.length + 1 && r.both.names.includes(r.custom)
+    ? ok(`both on: the union is ${r.both.pool} (${r.shippedCount} shipped + ${base.length + 1} homebrew)`)
+    : fail(`both on: pool is ${r.both.pool}, expected ${r.shippedCount + base.length + 1} including the homebrew`);
 
   // 4. Homebrew-only with nothing authored must NOT quietly fall back to the
   //    shipped pack — the Warden switched it off on purpose. Generating nothing
   //    is recoverable and is reported; generating from disabled content is not.
-  r.customOnlyEmpty.pool === 0
-    ? ok("custom-only with none authored: the pool is empty, not silently refilled with shipped content")
-    : fail(`custom-only with none authored fell back to ${r.customOnlyEmpty.pool} shipped background(s)`);
-  r.customOnlyEmpty.made === false
-    ? ok("custom-only with none authored: no character generated (the caller warns instead)")
-    : fail(`custom-only with none authored still generated a character ("${r.customOnlyEmpty.bg}")`);
+  //
+  // "Nothing authored" is a state a world with its own custom backgrounds cannot
+  // be put into without deleting the Warden's content, which no probe may do. So
+  // the pool count is still checkable (it must come back to the baseline, not to
+  // 20), while the "generates nothing" half is SKIPPED and says so — a skip that
+  // announces itself, rather than an assertion quietly satisfied by a pool that
+  // was never empty.
+  r.customOnlyEmpty.pool === base.length
+    ? ok(`custom-only with the probe's background deleted: the pool is back to ${base.length}, `
+      + "not silently refilled with shipped content")
+    : fail(`custom-only fell back to ${r.customOnlyEmpty.pool} background(s), expected ${base.length}`);
+  if (base.length) {
+    console.log("  --    empty-pool case not checked: this world has its own custom backgrounds, "
+      + "so the pool cannot be emptied without deleting the Warden's content");
+  } else {
+    r.customOnlyEmpty.made === false
+      ? ok("custom-only with none authored: no character generated (the caller warns instead)")
+      : fail(`custom-only with none authored still generated a character ("${r.customOnlyEmpty.bg}")`);
+  }
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {

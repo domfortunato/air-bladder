@@ -53,7 +53,17 @@ function* stringsFromDoc(doc) {
     // extracted. Table RESULTS (what players/Wardens read when rolling) ARE, below.
     for (const r of doc.results) {
       const range = Array.isArray(r.range) ? r.range.join("-") : "";
-      if (r.text) yield { ns: "table.result", en: r.text, context: `${name} · ${range}`.trim() };
+      // v13 split `TableResult#text` in two and the halves went to DIFFERENT
+      // fields: a text row's value is `description`, a document row's is `name`.
+      // This read `r.text`, so after the migration it extracted NOTHING for any
+      // table — silently, because a row with no string is indistinguishable here
+      // from a row that had none to begin with. Every rolled trait, bond, event,
+      // weather and shop line was therefore missing from the translator's
+      // spreadsheets. Same rule as `resultText` in module/compendium.js, which is
+      // what the runtime overlay looks these up by; the two MUST agree or a
+      // translated string is stored under a key nothing ever queries.
+      const en = (r.type === "text" ? r.description : r.name) ?? "";
+      if (en) yield { ns: "table.result", en, context: `${name} · ${range}`.trim() };
     }
     return;
   }
@@ -140,6 +150,19 @@ for (const [ns, entries] of Object.entries(OVERLAY)) {
   }
 }
 const staleFile = path.join(OUT, "content-stale.tsv");
+
+// A pack full of RollTables that yields no `table.result` rows is this extractor
+// having lost the field it reads, not a pack of empty tables — the failure that
+// went unnoticed above, where the spreadsheets simply came out short. Refuse to
+// write rather than hand a translator a corpus with a hole in it.
+const tableResultRows = pending.reduce(
+  (n, p) => n + p.rows.filter((r) => r.key === "table.result").length, 0
+);
+if (!tableResultRows) {
+  console.error("no table.result strings were extracted at all — the TableResult row schema "
+    + "has moved under this tool, so it is reading nothing rather than finding nothing");
+  process.exit(1);
+}
 
 // Guard, then write — everything or nothing. content-stale.tsv is deliberately
 // NOT guarded: import never reads it, so "unimported work" there is a category

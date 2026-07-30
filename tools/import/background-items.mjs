@@ -65,7 +65,20 @@ const addBg = (n, src) => { const k=norm(n); if(!k) return; (bgSources.get(k) ??
 for (const { doc } of readPack("backgrounds-2e")) { for (const g of doc.system?.startingGear ?? []) addBg(g.name, doc.name); for (const t of doc.system?.tables ?? []) for (const o of t.options ?? []) for (const it of o.items ?? []) addBg(it.name, doc.name); }
 for (const { doc } of readPack("backgrounds-barebones")) for (const g of doc.system?.startingGear ?? []) addBg(g.name, doc.name);
 for (const { doc } of readPack("tables-2e")) for (const r of doc.results ?? []) for (const sc of ["air-bladder","cairn"]) for (const it of r.flags?.[sc]?.items ?? []) addBg(it.name ?? it, "bond");
-for (const { doc } of readPack("marketplace")) for (const r of doc.results ?? []) addKeep(r.text);
+// v13 split `TableResult#text` in two and the halves went to DIFFERENT fields: a
+// text row's value is `description`, a document row's is `name`. Reading `r.text`
+// made the marketplace contribute NOTHING to `keep`, which does not error — it
+// quietly widens "special background item" to include gear the shop sells, and
+// this tool MOVES the files it classifies. Hence the floor below.
+for (const { doc } of readPack("marketplace")) {
+  for (const r of doc.results ?? []) addKeep((r.type === "text" ? r.description : r.name) ?? "");
+}
+if (!keep.size) {
+  console.error("the marketplace contributed no item names — the TableResult row schema has "
+    + "moved under this importer, so it is reading nothing rather than finding nothing. "
+    + "Relocating on this basis would move shop gear into the background pack.");
+  process.exit(1);
+}
 try { const h = JSON.parse(fs.readFileSync(path.join(ROOT,"module","hirelings-2e.json"),"utf8")); const walk=(o)=>{ if(Array.isArray(o))o.forEach(walk); else if(o&&typeof o==="object"){ if(typeof o.name==="string"&&(o.uses!==undefined||o.tags!==undefined||o.equipped!==undefined))addKeep(o.name); Object.values(o).forEach(walk);} }; walk(h);} catch {}
 ["Rations","Torch"].forEach(addKeep);
 for (const t of GEAR_ALIASES.values()) addKeep(t);
