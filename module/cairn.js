@@ -457,6 +457,70 @@ const migrateScrollsToSpellbooks = async () => {
 // `renderDialogV2`) alongside the CSS, not one without the other.
 
 /**
+ * "Spellscroll" in the Create Item type list — without a spellscroll TYPE.
+ *
+ * Core builds that list from `Object.keys(game.model.Item)`, labelled through
+ * `CONFIG.Item.typeLabels` (client-document.mjs `createDialog`), so as a TYPE only a
+ * declared document type can ever appear there. Declaring one is the wrong shape for
+ * the same reasons a `relic` type was: a scroll carries no data a spellbook does not,
+ * and Foundry treats `type` as immutable — so a book could never be converted into a
+ * scroll or back, which is the whole affordance the flag buys.
+ *
+ * The dialog's other seam does the job instead. Its OK handler runs
+ * `FormDataExtended` over the WHOLE form and passes the result straight to
+ * `cls.create()`, so a field added here reaches the new document, and
+ * `CairnItem._preCreate` pins petty + one use from the flag. The extra option
+ * deliberately carries `value="spellbook"`, the same as its neighbour: two options may
+ * share a value, and `selectedOptions[0].dataset` is what tells them apart —
+ * `select.value` cannot, and does not need to.
+ *
+ * The name is PRE-FILLED rather than left to the placeholder, because core's fallback
+ * for an empty name is `defaultName({type})` and the type here really is "spellbook":
+ * an unnamed create would otherwise produce a scroll called "Spellbook".
+ *
+ * Degrades quietly. If core reworks this dialog the option stops appearing, and the
+ * worst case is a plain spellbook that the sheet's Scroll box still converts.
+ */
+Hooks.on("renderDialogV2", (dialog, element) => {
+  const root = element instanceof HTMLElement ? element : element?.[0];
+  const select = root?.querySelector('select[name="type"]');
+  const form = select?.form;
+  if (!select || !form || select.querySelector("option[data-ab-scroll]")) return;
+
+  // Identify the ITEM create dialog specifically: this hook sees every DialogV2 in
+  // the world, including the system's own five and any other package's.
+  const bookOption = select.querySelector('option[value="spellbook"]');
+  const itemTypes = getDocumentClass("Item").TYPES;
+  if (!bookOption || [...select.options].some((o) => !itemTypes.includes(o.value))) return;
+
+  const label = game.i18n.localize("CAIRN.Spellscroll");
+  const option = document.createElement("option");
+  option.value = "spellbook";
+  option.dataset.abScroll = "1";
+  option.textContent = label;
+  bookOption.after(option);
+
+  // `data-dtype` is load-bearing: FormDataExtended casts the string "false" to false
+  // for a Boolean field, where a BooleanField handed that non-empty STRING would
+  // coerce it to true and every item created here would be a scroll.
+  const flag = document.createElement("input");
+  flag.type = "hidden";
+  flag.name = "system.scroll";
+  flag.value = "false";
+  flag.dataset.dtype = "Boolean";
+  form.append(flag);
+
+  const nameInput = form.querySelector('input[name="name"]');
+  select.addEventListener("change", () => {
+    const scroll = select.selectedOptions[0]?.dataset.abScroll === "1";
+    flag.value = scroll ? "true" : "false";
+    if (!nameInput) return;
+    if (scroll && !nameInput.value) nameInput.value = label;
+    else if (!scroll && nameInput.value === label) nameInput.value = "";
+  });
+});
+
+/**
  * Group and compact the system's rows in the GM's Configure Settings tab.
  *
  * Foundry renders a flat list of every setting with a bold name and a hint

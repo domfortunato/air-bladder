@@ -16,7 +16,11 @@
  *      under the bare spell name,
  *   4. the inventory row reads "Spellscroll — X" for a scroll and "Spellbook — X"
  *      for a book, and never double-prefixes a legacy stored name,
- *   5. the ready migration converts the OLD shape (`type: "item"` named
+ *   5. the Create Item dialog offers "Spellscroll" and creating through it really
+ *      produces a flagged scroll — while its neighbour "Spellbook" still does not,
+ *      since both options share `value="spellbook"` and only a dataset marker
+ *      separates them,
+ *   6. the ready migration converts the OLD shape (`type: "item"` named
  *      "Spellscroll — X") in all three places it can hide — a world item, an owned
  *      item, and an unlinked scene token's delta — preserving flags, sort and
  *      spent-ness. Planted and watched, because on an already-converted world
@@ -191,7 +195,86 @@ rows.titles.some((t) => t.startsWith("Spellbook — Bafflement"))
   ? ok("and the book row as \"Spellbook — Bafflement\"")
   : fail(`sheet rows were ${JSON.stringify(rows.titles)}`);
 
-/* --- 5. the migration, on planted OLD-shape scrolls -------------------------- */
+/* --- 5. the Create Item dialog -------------------------------------------- */
+
+console.log("\ncreate-item dialog");
+// Driven through the REAL dialog, not by calling create() with a flag: the whole
+// point is that the choice travels from a <select> option through
+// FormDataExtended into the document, and only a real submit exercises that.
+const dialog = await page.evaluate(async () => {
+  const open = async () => {
+    const p = getDocumentClass("Item").createDialog();
+    await new Promise((r) => setTimeout(r, 500));
+    const form = [...document.querySelectorAll("dialog form")].find((f) => f.querySelector('select[name="type"]'));
+    return { p, form };
+  };
+
+  // ALWAYS dismisses the dialog, even when the option it wants is missing.
+  // DialogV2 is modal and its promise only settles when a button is pressed, so an
+  // early `return` here left the awaited createDialog() pending forever: the probe
+  // deadlocked instead of failing, and only the harness timeout ended it. Any probe
+  // that opens a dialog owes it a button press on every path.
+  const pick = async (form, wantScroll) => {
+    const select = form.querySelector('select[name="type"]');
+    const dlg = form.closest("dialog");
+    const idx = [...select.options].findIndex((o) =>
+      o.value === "spellbook" && (o.dataset.abScroll === "1") === wantScroll);
+    if (idx < 0) {
+      // Still press OK. Cancelling makes DialogV2.prompt REJECT, and closing it by
+      // hand settles nothing at all — the awaited promise stayed pending and the
+      // probe hung for seven minutes instead of failing. Pressing OK always settles
+      // it; the caller deletes whatever that created.
+      dlg.querySelector('button[data-action="ok"]').click();
+      return null;
+    }
+    select.selectedIndex = idx;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 150));
+    const prefilled = form.querySelector('input[name="name"]').value;
+    dlg.querySelector('button[data-action="ok"]').click();
+    return prefilled;
+  };
+
+  const out = {};
+  let { p, form } = await open();
+  const options = [...form.querySelectorAll('select[name="type"] option')]
+    .map((o) => `${o.textContent.trim()}${o.dataset.abScroll ? "*" : ""}`);
+  out.options = options;
+  out.prefilledName = await pick(form, true);
+  // A cancelled DialogV2.prompt REJECTS, so this has to be caught or the whole
+  // evaluate throws and the later assertions never report.
+  const scrollDoc = await p.catch(() => null);
+  out.scroll = scrollDoc && {
+    name: scrollDoc.name, type: scrollDoc.type, flag: scrollDoc.system.scroll,
+    weightless: scrollDoc.system.weightless,
+    uses: { value: scrollDoc.system.uses.value, max: scrollDoc.system.uses.max },
+  };
+  await scrollDoc?.sheet?.close();
+  await scrollDoc?.delete();
+
+  // The plain Spellbook option must still make a plain book.
+  ({ p, form } = await open());
+  await pick(form, false);
+  const bookDoc = await p.catch(() => null);
+  out.book = bookDoc && { type: bookDoc.type, flag: bookDoc.system.scroll, weightless: bookDoc.system.weightless };
+  await bookDoc?.sheet?.close();
+  await bookDoc?.delete();
+  return out;
+});
+
+dialog.options.includes("Spellscroll*")
+  ? ok(`the type list offers it: ${dialog.options.join(", ")}`)
+  : fail(`no Spellscroll option — list was ${dialog.options.join(", ")}`);
+dialog.prefilledName === "Spellscroll"
+  ? ok("choosing it pre-fills the name, so an unnamed create is not called \"Spellbook\"")
+  : fail(`name pre-fill was "${dialog.prefilledName}"`);
+eq("creating through the dialog yields a flagged, petty, single-use scroll",
+  dialog.scroll,
+  { name: "Spellscroll", type: "spellbook", flag: true, weightless: true, uses: { value: 1, max: 1 } });
+eq("and the plain Spellbook option beside it still makes a book",
+  dialog.book, { type: "spellbook", flag: false, weightless: false });
+
+/* --- 6. the migration, on planted OLD-shape scrolls -------------------------- */
 
 console.log("\nthe ready migration");
 // The token gets its OWN actor, whose inventory is otherwise empty, so the delta
