@@ -1,4 +1,81 @@
-MIT License
+Air Bladder — licensing
+=======================
+
+THIS DISTRIBUTION IS NOT UNDER A SINGLE LICENCE.
+
+The MIT text at the bottom of this file covers the SOFTWARE ONLY — the code that
+makes up the Foundry VTT system. Everything else that ships alongside it is
+licensed separately by its own author, on terms MIT neither restates nor
+overrides. In particular, MIT grants no rights whatsoever over the Cairn game
+text, the character art, the icons, the fonts, or the Air Bladder logo.
+
+Air Bladder is a fan implementation of Cairn 2e by Yochai Gal. It is not
+published, endorsed or approved by him.
+
+Full credits, with links and attribution requirements, are in README.md under
+"Credits & licenses". That section is canonical and this file mirrors it; if the
+two ever disagree, README.md is right and this file is the bug.
+
+
+What ships under which licence
+------------------------------
+
+Code — MIT
+    module/  templates/  css/  tools/  system.json  and the build scripts.
+    The MIT notice below applies to these and only these. The system code
+    descends from Cairn-FoundryVTT by Yochai Gal & Oskar Świda (MIT), itself
+    descended from the Electric Bastionland system.
+
+Game text — CC BY-SA 4.0, © Yochai Gal
+    https://creativecommons.org/licenses/by-sa/4.0/
+    The Cairn rules and text (1st and 2nd edition), and so the compendium content
+    in packs/ and src/packs/ that reproduces them: backgrounds, items, monsters,
+    tables and their descriptions.
+    ATTRIBUTION IS REQUIRED AND SHAREALIKE IS NOT WAIVED. A derivative of this
+    text must carry the same licence. The MIT grant below does not reach it and
+    cannot be used to relicense it, including by a fork of this repository.
+
+Spanish translation — CC BY-SA 4.0, © Malecho (https://github.com/fsmalecho)
+    https://creativecommons.org/licenses/by-sa/4.0/
+    The Castilian (es-ES) translation. As a derivative of the CC BY-SA game text
+    it inherits that licence, ShareAlike included.
+
+"Compatible with Cairn 2e" badge — CC BY-SA 4.0, © Yochai Gal
+    logo/  — used per the terms at https://cairnrpg.com/resources/logos
+    Ship it unmodified; see logo/README.md.
+
+Air Bladder logo — © Lydia Comer. ALL RIGHTS RESERVED.
+    lydia-comer/  — https://linktr.ee/lydiadidmyink
+    NOT a Creative Commons licence, and not covered by MIT. Licensed to the Air
+    Bladder system for inclusion and unmodified redistribution as part of the
+    system and its forks, and for unmodified use in representing the project.
+    The artwork may not be modified and may not be used separately from Air
+    Bladder. All other uses require the artist's permission.
+    Full terms and grant history: lydia-comer/license.txt.
+
+Character portraits and tokens — CC BY 4.0, © Jon Aspeheim
+    character_portraits/  character_tokens/
+    https://creativecommons.org/licenses/by/4.0/
+    https://jonaspeheim.itch.io/lemurs-portraits
+    Redistribution is fine; attribution is required. Keep the credit if the art
+    ships. The artist states these were created without AI.
+    See the license.txt in each folder.
+
+Item & container icons — CC BY 3.0
+    icons/  — game-icons.net, by Lorc, Delapouite & Skoll
+    https://creativecommons.org/licenses/by/3.0/
+    Per-icon author and source-page attribution: icons/CREDITS.md.
+
+Alegreya typeface — SIL Open Font License 1.1
+    fonts/  — © 2011 The Alegreya Project Authors (Huerta Tipográfica)
+    https://openfontlicense.org/
+    Redistributed unmodified. Clause 2 requires the notice travel with every
+    copy, so fonts/OFL.txt and fonts/license.txt ship beside the fonts. The OFL
+    also forbids selling the fonts on their own.
+
+
+MIT License — the CODE only, as scoped above
+--------------------------------------------
 
 Copyright (c) 2020-2026 Yochai Gal, Oskar Świda, and Air Bladder contributors
 
