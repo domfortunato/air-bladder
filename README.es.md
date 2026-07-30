@@ -28,6 +28,13 @@
   actualiza junto con README.md, que es la versión de referencia. Al cambiar
   README.md, actualiza también este archivo.
 
+  ESTE ARCHIVO ES UNA TRADUCCIÓN FIEL DE README.md. No debe contener ninguna
+  sección, dato ni crédito que no esté en el original: si algo merece figurar
+  aquí, primero se añade a README.md y después se traduce. Una sección que
+  existía solo en español (créditos a colaboradores) se eliminó el 2026-07-30
+  precisamente por esto -- dejaba a una persona acreditada en un solo idioma y
+  las dos versiones divergían sin que nada lo detectara.
+
   Terminología: usa siempre lo que el jugador VE en el sistema, es decir
   lang/es.json, no una conjetura de este archivo:
     Warden   -> "Guardián"  (CAIRN.Warden)
@@ -51,7 +58,7 @@ Air Bladder es un sistema complementario amigable, no el sistema oficial de Cair
 - Trasfondos de 2e personalizados, creados por el Guardián — [créalos y revísalos](https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md) y después [compártelos entre mundos](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md)
 - Generación aleatoria o manual de PNJ y seguidores
 - Ayudas contextuales en la hoja de personaje para los jugadores
-- ¡Hojas de personaje desacoplables! Sí, ya estamos en AppV2 y listos para Foundry v15
+- ¡Hojas de personaje desacoplables! Sí, ya estamos completamente en AppV2: listos para la v16, cuando Foundry retire el marco de trabajo V1
 - Mercado y contenedores; caballos, carros, carretas, cofres y ¡PILAS DE OBJETOS con Item Piles!
 - ¡Tablas de tiradas orientadas al Guardián!
 - Una galería de 80 retratos de personaje con sus iconos a juego, con licencia CC BY 4.0, de [Jon Aspeheim](https://jonaspeheim.itch.io/)
@@ -83,7 +90,7 @@ Desarrollo temprano y activo. ¡Envía comentarios y arte! El sistema se está r
 
 ## Idiomas
 
-La interfaz está traducida al **español** (el 72 % de las cadenas actuales, por [Malecho](https://github.com/fsmalecho)), y el *contenido* del juego —trasfondos, objetos, hechizos, tablas— está traducido únicamente al español.
+La interfaz está traducida al **español** (el 66 % de las cadenas actuales, por [Malecho](https://github.com/fsmalecho)), y el *contenido* del juego —trasfondos, objetos, hechizos, tablas— está traducido únicamente al español.
 
 Los archivos de interfaz en alemán, danés, francés, polaco y portugués de Brasil se heredaron del sistema original de Cairn. Cubren entre el **15 % y el 30 %** de la interfaz actual, son anteriores a la mayoría de las funciones de este sistema y **no reciben mantenimiento**: en la práctica, una partida en esos idiomas está mayormente en inglés. Todo lo que no esté traducido recae en el inglés cadena por cadena, así que una traducción parcial siempre se puede usar en lugar de quedar rota.
 
@@ -115,17 +122,13 @@ Las *pull requests* son bienvenidas: ábrelas contra **`dev`**, no contra `maste
 Air Bladder combina varios regímenes de licencia; por favor, conserva la atribución intacta:
 
 - **Texto del juego — CC BY-SA 4.0.** Las reglas y el texto de Cairn (1.ª y 2.ª edición) son de **Yochai Gal**, con licencia [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). El contenido de 2e en este sistema hereda esa licencia; las obras derivadas deben compartirse igual y atribuir a Yochai Gal.
-- **Traducción al español — CC BY-SA 4.0.** La traducción al español de España (es-ES) es de **[Malecho](https://github.com/fsmalecho)**. Como obra derivada del texto del juego con licencia CC BY-SA, la traducción se licencia igualmente bajo [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
-- **Código — MIT.** El código del sistema de Foundry desciende del **Cairn-FoundryVTT** original, de **Yochai Gal y Oskar Świda** (MIT), que a su vez desciende del sistema Electric Bastionland. Consulta `LICENSE.txt`.
+- **Traducción al español — CC BY-SA 4.0.** La traducción al español de España (es-ES) es de **[Malecho](https://github.com/fsmalecho)**: `lang/es.json` (interfaz) y `lang/content/es.json` (contenido del juego). Como obra derivada del texto del juego con licencia CC BY-SA, la traducción se licencia igualmente bajo [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+- **Código — MIT.** El código del sistema de Foundry desciende del **Cairn-FoundryVTT** original, de **Yochai Gal y Oskar Świda** (MIT), que a su vez desciende del sistema Electric Bastionland. Consulta `LICENSE.txt`. La misma licencia MIT cubre las cadenas de interfaz de `lang/`: los archivos en alemán, danés, francés, polaco y portugués de Brasil se heredaron de Cairn-FoundryVTT y se distribuyen bajo su licencia.
 - **«Compatible con Cairn»** — la insignia de compatibilidad se usa según los términos de [cairnrpg.com/resources/logos](https://cairnrpg.com/resources/logos) (CC BY-SA 4.0, Yochai Gal).
 - **Logo de Air Bladder — © Lydia Comer, todos los derechos reservados.** El logo y el material gráfico relacionado en `lydia-comer/` son de **[Lydia Comer](https://linktr.ee/lydiadidmyink)**, con licencia para el sistema Air Bladder para su inclusión y redistribución sin modificaciones como parte del sistema y sus bifurcaciones (*forks*), y para su uso sin modificaciones en la representación del proyecto; cualquier otro uso requiere permiso. Consulta `lydia-comer/license.txt`.
 - **Arte de personajes — CC BY 4.0.** Las 80 imágenes emparejadas de retrato/token en `character_portraits/` y `character_tokens/` son de **[Jon Aspeheim](https://jonaspeheim.itch.io/)** (fuente: [Lemur's Portraits](https://jonaspeheim.itch.io/lemurs-portraits)), con licencia [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) (consulta el `license.txt` en cada carpeta). CC BY simple: la redistribución está permitida y la atribución es obligatoria. El artista indica que estos retratos se crearon sin IA. Conserva este crédito si el arte se distribuye.
 - **Íconos de objetos y contenedores — CC BY 3.0.** Los íconos de clase en `icons/` (equipo, grimorios, transportes, contenedores, monstruos) provienen de [game-icons.net](https://game-icons.net) por **Lorc, Delapouite y Skoll**, con licencia [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). Los créditos de autor y de la página de origen de cada ícono están en `icons/CREDITS.md`.
 - **Tipografía Alegreya — SIL Open Font License 1.1.** Las tres fuentes web de `fonts/` son **Alegreya**, de Juan Pablo del Peral y los autores del Proyecto Alegreya ([Huerta Tipográfica](https://github.com/huertatipografica/Alegreya)), © 2011, con licencia [OFL 1.1](https://openfontlicense.org/). Se redistribuyen sin modificaciones; la licencia exige que su aviso acompañe a cada copia, por lo que `fonts/OFL.txt` y `fonts/license.txt` se distribuyen junto a ellas.
-
-### Colaboradores
-
-Con agradecimiento a **somewhatcyclops**, por correcciones a la documentación de trasfondos personalizados.
 
 ---
 

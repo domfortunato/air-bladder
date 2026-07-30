@@ -30,7 +30,7 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 - Warden-authored custom 2e backgrounds — [create and lint your own](https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md), then [share them across worlds](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md)
 - Random or manual generation of NPC/Hirelings
 - Character Sheet tooltips for players
-- Pop-out Character Sheets! Yes, we're on AppV2 and ready for Foundry v15!
+- Pop-out Character Sheets! Yes, we're fully on AppV2 — ready for v16, when Foundry removes the V1 framework
 - Marketplace and containers; horses, carts, wagons, chests, and ITEM PILES!
 - Warden-facing roll tables!
 - A gallery of 80 CC BY 4.0 character portraits with matching icons by [Jon Aspeheim](https://jonaspeheim.itch.io/)
@@ -62,7 +62,7 @@ Early, active development. Send feedback and art! The system is being rebuilt on
 
 ## Languages
 
-The interface is translated into **Spanish** (72% of the current strings, by [Malecho](https://github.com/fsmalecho)), and game *content* — backgrounds, items, spells, tables — is translated into Spanish only.
+The interface is translated into **Spanish** (66% of the current strings, by [Malecho](https://github.com/fsmalecho)), and game *content* — backgrounds, items, spells, tables — is translated into Spanish only.
 
 Danish, French, German, Polish and Brazilian Portuguese interface files are inherited from the original Cairn system. They cover **15–30%** of the current interface, predate most of this system's features, and are **not actively maintained** — a game in those languages is mostly English in practice. Anything untranslated falls back to English string by string, so a partial translation is always usable rather than broken.
 
