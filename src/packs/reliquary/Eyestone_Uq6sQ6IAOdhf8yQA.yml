@@ -1,0 +1,28 @@
+_id: Uq6sQ6IAOdhf8yQA
+name: Eyestone
+type: item
+img: systems/air-bladder/icons/generic-item.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    relicSource: srd-2e
+system:
+  description: Choose an object created by living creatures. You can sense the nearest example.
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 3
+    max: 3
+  relic: true
+  recharge: Place in a bucket of rainwater overnight.
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!Uq6sQ6IAOdhf8yQA'

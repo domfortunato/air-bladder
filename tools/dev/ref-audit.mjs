@@ -50,6 +50,21 @@ for (const pack of packDirs) {
 
 /* ---- walk every table result ---------------------------------------------- */
 
+/**
+ * Not for sale, by decision (2026-07-29): relics, spellbooks and spell scrolls.
+ *
+ * Relics are Warden-placed treasure and spellbooks are found, not shopped for. The
+ * shop is built ENTIRELY from the `marketplace` tables' compendium references, so
+ * a pack that no table names is unbuyable — which means today this holds by
+ * OMISSION, and omission is not a decision anyone can see. One dragged-in result
+ * would quietly put a d8 Mace of the Kingslayer on the shelf for 0gp.
+ *
+ * Checked here rather than filtered at runtime: a filter over a catalog that
+ * cannot contain them would be dead code that reads as protection.
+ */
+const NO_SALE_PACKS = ["reliquary", "spellbooks", "more-spellbooks"];
+const forSale = [];
+
 const dangling = [];
 const byName = [];
 let checked = 0, tables = 0;
@@ -63,6 +78,10 @@ for (const pack of packDirs) {
       // numeric legacy form too rather than silently skipping a whole table.
       if (r.type !== "pack" && r.type !== 2) continue;
       checked++;
+      if (pack === "marketplace") {
+        const from = String(r.documentCollection ?? "").replace(/^air-bladder\./, "");
+        if (NO_SALE_PACKS.includes(from)) forSale.push(`${d.name} -> "${r.text}" (from ${from})`);
+      }
       const key = `${r.documentCollection}/${r.documentId}`;
       const hit = byId.get(key);
       if (!hit) { dangling.push(`${d.name} [${(r.range ?? []).join("-")}] -> "${r.text}" (${key})`); continue; }
@@ -131,6 +150,14 @@ if (dupes.length) {
   }
 } else {
   console.log(`  ok    ${gearByName.size} gear names, each in exactly one canonical pack`);
+}
+
+if (forSale.length) {
+  failed = true;
+  console.error(`\nFOR SALE BUT SHOULD NOT BE — ${forSale.length} marketplace result(s) from a no-sale pack:`);
+  for (const f of forSale) console.error(`  ${f}`);
+} else {
+  console.log(`  ok    nothing from ${NO_SALE_PACKS.join(" / ")} is on sale`);
 }
 
 /* ---------------------------------------------------------------------------

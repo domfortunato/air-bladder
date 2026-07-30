@@ -1,0 +1,28 @@
+_id: Ar3Dwb45qNho4dSv
+name: Roc Feather
+type: item
+img: systems/air-bladder/icons/generic-item.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    relicSource: srd-2e
+system:
+  description: Hold while falling to float safely to the ground from any height.
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 1
+    max: 1
+  relic: true
+  recharge: ''
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!Ar3Dwb45qNho4dSv'

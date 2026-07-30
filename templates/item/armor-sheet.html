@@ -42,11 +42,24 @@
                         value="{{system.weightless}}" data-dtype="Boolean" />
             </div>
         </div>
+
+        <!-- Relic. A flag, not a type: this same box appears on the item, weapon,
+             armor and object sheets, because a relic can be any of them. Ticking it
+             reveals the Recharge tab; filling that in relabels the counter above
+             from "uses" to "charges", which is the only thing separating the two in
+             2e. -->
+        <div class="resource-counter long-counter">
+            <label class="large-resource-label" for="{{@root.idp}}-system.relic" data-tooltip="{{ localize 'CAIRN.RelicTip' }}">{{ localize 'CAIRN.Relic' }}</label>
+            <div class="resource-input-wrapper">
+                <input type="checkbox" {{checked system.relic}} name="system.relic" id="{{@root.idp}}-system.relic"
+                        value="{{system.relic}}" data-dtype="Boolean" />
+            </div>
+        </div>
                 
 
         <!-- Number of uses -->
         <div class="resource-counter long-counter">
-            <label class="large-resource-label" for="{{@root.idp}}-system.uses.value">{{ localize 'CAIRN.Uses' }}</label>
+            <label class="large-resource-label" for="{{@root.idp}}-system.uses.value">{{ localize @root.usesLabel }}</label>
             <div class="resource-input-wrapper">
                 <input type="text" name="system.uses.value" id="{{@root.idp}}-system.uses.value"
                         value="{{system.uses.value}}" data-dtype="Number" />
@@ -54,7 +67,7 @@
         </div>
 
         <div class="resource-counter long-counter">
-            <label class="large-resource-label" for="{{@root.idp}}-system.uses.max">{{ localize 'CAIRN.MaxUses' }}</label>
+            <label class="large-resource-label" for="{{@root.idp}}-system.uses.max">{{ localize @root.maxUsesLabel }}</label>
             <div class="resource-input-wrapper">
                 <input type="text" name="system.uses.max" id="{{@root.idp}}-system.uses.max"
                       value="{{system.uses.max}}" data-dtype="Number" />
@@ -85,6 +98,13 @@
                     <prose-mirror name="system.description" value="{{system.description}}" toggled collaborate relative
                         data-document-uuid="{{item.uuid}}">{{{enrichedDescription}}}</prose-mirror>
                 </div>
+                {{#if system.relic}}
+                <div class="tab {{tabs.recharge.cssClass}}" data-group="primary" data-tab="recharge">
+                    <p class="recharge-hint">{{ localize 'CAIRN.RechargeHint' }}</p>
+                    <prose-mirror name="system.recharge" value="{{system.recharge}}" toggled collaborate relative
+                        data-document-uuid="{{item.uuid}}">{{{enrichedRecharge}}}</prose-mirror>
+                </div>
+                {{/if}}
             </section>
         </div>
     </div>

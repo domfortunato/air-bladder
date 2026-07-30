@@ -56,19 +56,19 @@
     },
     "Item": {
       "item": {
-        "htmlFields": ["description", "criticalDamage"]
+        "htmlFields": ["description", "criticalDamage", "recharge"]
       },
       "weapon": {
-        "htmlFields": ["description", "criticalDamage"]
+        "htmlFields": ["description", "criticalDamage", "recharge"]
       },
       "armor": {
-        "htmlFields": ["description"]
+        "htmlFields": ["description", "recharge"]
       },
       "spellbook": {
         "htmlFields": ["description"]
       },
       "object": {
-        "htmlFields": ["description"]
+        "htmlFields": ["description", "recharge"]
       },
       "background": {
         "htmlFields": ["description"]
@@ -176,6 +176,12 @@
       "system": "air-bladder"
     },
     {
+      "name": "reliquary",
+      "label": "Reliquary",
+      "type": "Item",
+      "system": "air-bladder"
+    },
+    {
       "name": "weapons",
       "label": "Weapons",
       "type": "Item",
@@ -216,6 +222,7 @@
         "armor",
         "tools",
         "expeditionary-gear",
+        "reliquary",
         "market-goods",
         "background-items",
         "transports",

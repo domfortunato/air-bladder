@@ -265,12 +265,40 @@ const consumable = () => ({
   uses: new fields.SchemaField({ value: int(0), max: int(0) }),
 });
 
+/**
+ * Relic fields (Cairn 2e Reliquary).
+ *
+ * A relic is NOT a type. Every relic is also an ordinary thing — a stone, a
+ * sword, a helm, a pair of shoes — and the reliquary proves it: three relics
+ * carry weapon damage and three grant +1 Armor. A `relic` type would have to
+ * re-implement damage rolling, armor summing and equip behaviour for those six,
+ * and could not represent a helm whose horns are a weapon at all. As a flag they
+ * keep everything, and `iconForItem` gives a relic sword the sword art free.
+ *
+ * `recharge` is the whole of the "uses vs charges" distinction. Across all 46
+ * shipped relics the equivalence is EXACT: every "N charges" relic states a
+ * Recharge condition, every "N uses" relic does not, and none carries both. So
+ * both land in the existing `uses` counter and the sheet relabels it "Charges"
+ * when `recharge` is filled. A relic that can never be recharged simply leaves it
+ * empty; one with no counter at all leaves `uses.max` at 0.
+ *
+ * NOTE `relic` had a previous life: it was a boolean in the inherited 1e
+ * template.json, verified dead and stripped from 381 pack files during the
+ * TypeDataModel migration. Reusing the name is deliberate — a residual
+ * `relic: false` on an old document already means exactly what it says.
+ */
+const relicFields = () => ({
+  relic: bool(),
+  recharge: html(),
+});
+
 class ItemData extends CairnDataModel {
   static defineSchema() {
     return {
       ...universal(),
       ...withDamage(),
       ...consumable(),
+      ...relicFields(),
       // Declared because `calcArmor()` deliberately sums armor over BOTH `armor`
       // and `item` types, and items-list.html renders the tag. No shipped item
       // carries a non-zero value, but a Warden's homebrew amulet can.
@@ -281,13 +309,13 @@ class ItemData extends CairnDataModel {
 
 class WeaponData extends CairnDataModel {
   static defineSchema() {
-    return { ...universal(), ...withDamage(), ...consumable() };
+    return { ...universal(), ...withDamage(), ...consumable(), ...relicFields() };
   }
 }
 
 class ArmorData extends CairnDataModel {
   static defineSchema() {
-    return { ...universal(), ...consumable(), armor: int(1) };
+    return { ...universal(), ...consumable(), ...relicFields(), armor: int(1) };
   }
 }
 
@@ -299,7 +327,7 @@ class SpellbookData extends CairnDataModel {
 
 class ObjectData extends CairnDataModel {
   static defineSchema() {
-    return { ...universal(), ...consumable() };
+    return { ...universal(), ...consumable(), ...relicFields() };
   }
 }
 

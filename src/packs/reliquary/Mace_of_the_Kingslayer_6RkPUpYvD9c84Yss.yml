@@ -1,0 +1,31 @@
+_id: 6RkPUpYvD9c84Yss
+name: Mace of the Kingslayer
+type: weapon
+img: systems/air-bladder/icons/weapons.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    relicSource: srd-2e
+system:
+  description: 'Hold the weapon aloft and shout an order or declaration. Any who fail a WIL save must obey, against their better judgment.'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 2
+    max: 2
+  relic: true
+  recharge: Deliver a fatal blow to the leader of a group or faction.
+  damageFormula: d8
+  criticalDamage: ''
+  blast: false
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!6RkPUpYvD9c84Yss'

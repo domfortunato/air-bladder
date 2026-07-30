@@ -28,8 +28,12 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 const DRY = process.argv.includes("--dry");
 
 // Item + Actor packs. Every RollTable pack is excluded.
+// `reliquary` is stamped like any other item pack, which is the point of relics
+// being a FLAG rather than a type: iconForItem sees `weapon`/`armor`/`item` and
+// hands a relic sword the sword and a relic helm the shield, with no relic-specific
+// art to invent. (Obliteration Scroll gets the scroll icon off its name, too.)
 const ITEM_PACKS = ["armor", "weapons", "spellbooks", "more-spellbooks", "tools",
-  "expeditionary-gear", "market-goods", "trinkets", "transports",
+  "expeditionary-gear", "market-goods", "trinkets", "transports", "reliquary",
   "background-items", "backgrounds-2e", "backgrounds-barebones"];
 const ACTOR_PACKS = ["monsters"];
 

@@ -1,0 +1,28 @@
+_id: Fik2Qov1w6sWAdBA
+name: Soul Clump
+type: item
+img: systems/air-bladder/icons/generic-item.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    relicSource: srd-2e
+system:
+  description: 'A hard, fist-sized ball covered in small bumps. When rolled on a flat surface, it collects any objects smaller than its current mass, which subsequently increases as more items are attached to its surface. Only living creatures are immune.'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+  relic: true
+  recharge: ''
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!Fik2Qov1w6sWAdBA'

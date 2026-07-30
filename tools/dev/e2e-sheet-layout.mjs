@@ -55,7 +55,7 @@ try {
      * own content is taller than their box.
      */
     window.__abLayout = (root) => {
-      const grid = root.querySelector(".charater-sheet-grid, .container-sheet-grid");
+      const grid = root.querySelector(".charater-sheet-grid, .container-sheet-grid, .item-sheet-grid");
       if (!grid) return { error: "no sheet grid" };
       const children = [...grid.children].filter((el) => {
         const r = el.getBoundingClientRect();
@@ -114,7 +114,24 @@ try {
         if (gap > 12) underfilled.push(`${[...c.classList].join(".")} (${gap}px empty of ${Math.round(cw)})`);
       }
 
-      return { overlaps, spilling, scrollable, overflowY, count: children.length, underfilled };
+      // A counter label whose text does not FIT is worse than one that overflows,
+      // because it neither overflows nor ellipsises — it wraps to a second line
+      // that the counter's fixed 36px height hides, and the tail of the label just
+      // is not there. "Available charges" rendered as "Available" this way, and a
+      // screenshot review passed it twice. `scrollWidth` is no help (it equals
+      // clientWidth once the text has wrapped); the tell is scrollHeight.
+      //
+      // This is a translation gate as much as a layout one: any language whose word
+      // for a counter is longer than the English loses its label silently.
+      const clippedLabels = [];
+      for (const l of root.querySelectorAll(".resource-counter > label, .resource-counter > a")) {
+        if (l.getBoundingClientRect().width < 2) continue;             // hidden tab
+        if (l.scrollHeight > l.clientHeight + 1) {
+          clippedLabels.push(`"${l.textContent.trim()}" (${l.scrollHeight}px of text in ${l.clientHeight}px)`);
+        }
+      }
+
+      return { overlaps, spilling, scrollable, overflowY, count: children.length, underfilled, clippedLabels };
     };
   });
 
@@ -148,6 +165,7 @@ try {
     else if (r.spilling.length) fail(who, `region overflows its box: ${r.spilling.join(", ")}`);
     else if (!r.scrollable) fail(who, `.window-content cannot scroll (overflow-y: ${r.overflowY})`);
     else if (r.underfilled?.length) fail(who, `counter left part-empty: ${r.underfilled.join(", ")}`);
+    else if (r.clippedLabels?.length) fail(who, `counter label does not fit: ${r.clippedLabels.join(", ")}`);
     else ok(who, `${r.count} regions, none overlapping`);
   }
 
@@ -214,6 +232,7 @@ try {
     else if (r.spilling.length) fail(r.type, `region overflows its box: ${r.spilling.join(", ")}`);
     else if (!r.scrollable) fail(r.type, `.window-content cannot scroll (overflow-y: ${r.overflowY})`);
     else if (r.underfilled?.length) fail(r.type, `counter left part-empty: ${r.underfilled.join(", ")}`);
+    else if (r.clippedLabels?.length) fail(r.type, `counter label does not fit: ${r.clippedLabels.join(", ")}`);
     else ok(r.type, `${r.count} regions, none overlapping`);
 
     const h = r.npcHeader;
@@ -230,6 +249,54 @@ try {
       else if (Math.abs(b.gold - b.armor) > 1) fail(r.type, `npc header: Gold label bar ends at ${b.gold}, Armor's at ${b.armor} — they must line up`);
       else ok(r.type, `npc header: Gold and Armor label bars line up (right edge ${b.gold})`);
     }
+  }
+
+  /* ---- item sheets, which own their own grid and their own counters ---------- */
+
+  // Added because the defect that prompted this check was on an ITEM sheet: a relic's
+  // "Available charges" label wrapped to a hidden second line and read "Available".
+  // Both label states are exercised, since only the longer one failed — a plain item
+  // (uses) and a relic with a recharge condition (charges).
+  console.log("\nitem sheets");
+  const items = await page.evaluate(async () => {
+    const out = [];
+    const cases = [
+      ["item (uses)", { name: "ZZ Layout Item", type: "item" }],
+      ["item (relic/charges)", { name: "ZZ Layout Relic", type: "item", system: { relic: true, recharge: "<p>x</p>" } }],
+      ["weapon", { name: "ZZ Layout Weapon", type: "weapon" }],
+      ["armor", { name: "ZZ Layout Armor", type: "armor" }],
+    ];
+    for (const [label, data] of cases) {
+      const item = await CONFIG.Item.documentClass.create(data);
+      await item.sheet.render(true);
+      const node = () => {
+        const e = item.sheet.element;
+        return e instanceof HTMLElement ? e : e?.[0];
+      };
+      for (let k = 0; k < 60 && !node(); k++) await new Promise((r) => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 400));
+      out.push({ type: label, ...(node() ? window.__abLayout(node()) : { error: "never rendered" }) });
+      await item.sheet.close();
+      await item.delete();
+    }
+    return out;
+  });
+
+  // LABELS ONLY on item sheets — deliberately not the region-overlap invariant.
+  //
+  // That check is sound on an actor sheet, where every grid child has visible
+  // content, and it is a false positive here: `.item-sheet-section-portrait` is a
+  // grid child that STRETCHES to the full grid height (measured 746px on the weapon
+  // and armor sheets) while the <img> inside it is 140px. So it does intersect the
+  // tabs section, and nothing whatsoever is drawn in the overlap — confirmed by
+  // screenshot, and tab clicks still work because the tabs paint later. Reporting
+  // it would mean a permanently red gate over a non-defect, which is worse than no
+  // gate. If the item grid is ever retuned so those sections carry real content,
+  // this is the line to revisit.
+  for (const r of items) {
+    if (r.error) { fail(r.type, r.error); continue; }
+    if (r.clippedLabels?.length) fail(r.type, `counter label does not fit: ${r.clippedLabels.join(", ")}`);
+    else ok(r.type, `${r.count} regions, no clipped labels`);
   }
 } catch (e) {
   fail("probe threw", `${e.name}: ${e.message}`);

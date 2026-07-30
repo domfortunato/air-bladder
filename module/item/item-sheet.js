@@ -76,6 +76,13 @@ const EXTRA_TABS = {
 };
 
 /**
+ * Recharge, for relics. Keyed on the DOCUMENT rather than the type — which is the
+ * whole point of `relic` being a flag: a relic is equally an item, a weapon, an
+ * armor or an object, so no entry in EXTRA_TABS above could express it.
+ */
+const RELIC_TAB = { id: "recharge", label: "CAIRN.Recharge" };
+
+/**
  * Derive the display tags (Armor / Damage / bulky / petty / uses) for a gear row
  * from an item's system data. Works for both a resolved pack document and a
  * snapshot's frozen system copy, so an authored one-off reads the same way a
@@ -197,6 +204,7 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     if (!config) return config;
     const extra = EXTRA_TABS[this.item.type];
     if (extra) config.tabs.push(extra);
+    if (this.item.system?.relic) config.tabs.push(RELIC_TAB);
     return config;
   }
 
@@ -228,6 +236,16 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const enrich = foundry.applications.ux.TextEditor.implementation.enrichHTML;
     context.enrichedDescription = await enrich(descSrc, { relativeTo: this.item });
     context.enrichedCriticalDamage = await enrich(this.item.system.criticalDamage, { relativeTo: this.item });
+    context.enrichedRecharge = await enrich(this.item.system.recharge ?? "", { relativeTo: this.item });
+
+    // "Charges" and "Uses" are ONE counter. Across all 46 shipped relics the
+    // distinction is exactly this: a relic that states a recharge condition has
+    // charges, one that does not has uses, and none has both. So the label follows
+    // `recharge` rather than a second field or a mode flag — nothing to keep in
+    // step, and a relic that can never be recharged just reads "uses".
+    const recharges = !!foundry.utils.getProperty(this.item, "system.recharge");
+    context.usesLabel = recharges ? "CAIRN.Charges" : "CAIRN.Uses";
+    context.maxUsesLabel = recharges ? "CAIRN.MaxCharges" : "CAIRN.MaxUses";
 
     // Transport kind pick-list for the transport sheet's <select>; keys are
     // stored, values are localized by selectOptions. The vocabulary lives in
