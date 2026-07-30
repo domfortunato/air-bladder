@@ -77,7 +77,12 @@ export const CONTAINER_CLASSES = {
  * @param {String} [kind]  transportKind: "worn" | "mount" | "vehicle" | "pile"
  * @returns {String}  a key of CONTAINER_CLASSES
  */
-export const containerClass = (name = "", kind = "") => {
+export const containerClass = (name = "", kind = "", stored = "") => {
+  // An explicit class wins outright. The keyword table below is English, so it is
+  // the only thing a Warden working in another language can say "this is a
+  // backpack" with — and because both the art and the sheet's class label come
+  // through here, saying it once fixes both.
+  if (stored && CONTAINER_CLASSES[stored]) return stored;
   const n = String(name).toLowerCase();
   // Kind FIRST for a pile, unlike every other class. The others are named after
   // the thing they are ("Cart", "Mule") so the name is the better signal, but a
@@ -102,12 +107,12 @@ export const containerClass = (name = "", kind = "") => {
 };
 
 /** Container / transport art, from its class. */
-export const iconForTransport = (name = "", kind = "") =>
-  P(CONTAINER_CLASSES[containerClass(name, kind)].icon);
+export const iconForTransport = (name = "", kind = "", stored = "") =>
+  P(CONTAINER_CLASSES[containerClass(name, kind, stored)].icon);
 
 /** The i18n key naming what a container is: "Horse", "Wagon", "Item Pile", … */
-export const containerClassLabel = (name = "", kind = "") =>
-  CONTAINER_CLASSES[containerClass(name, kind)].label;
+export const containerClassLabel = (name = "", kind = "", stored = "") =>
+  CONTAINER_CLASSES[containerClass(name, kind, stored)].label;
 
 /**
  * Gear art by item type, with a few name-based specialisations for the generic

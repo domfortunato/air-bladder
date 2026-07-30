@@ -233,6 +233,18 @@ class ContainerData extends CairnDataModel {
       transportKind: str(),
       load: int(0),
       gold: purse(),
+      // What this container IS ("backpack", "cart", "horse"...), when someone has
+      // said so explicitly. BLANK MEANS INFER, which is why it defaults empty and
+      // needs no migration: every container that predates this field keeps being
+      // classified from its name exactly as before.
+      //
+      // It exists because the inference is a list of ENGLISH keywords
+      // (icons.js containerClass), and it decides two things at once: the art
+      // stamped at creation and the one-word class label on the sheet. A Warden
+      // typing "Mochila" or "Rucksack" got a chest for both -- consistently wrong,
+      // and unfixable from inside a keyword list without asking every translator
+      // for a synonym table.
+      containerClass: str(),
     };
   }
 }

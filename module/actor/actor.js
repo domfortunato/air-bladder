@@ -106,7 +106,11 @@ export class CairnActor extends Actor {
     // only the pack importer used it.) An explicit `img` always wins: the
     // marketplace passes the transport's own art.
     if (data.type === "container" && !data.img) {
-      const art = iconForTransport(data.name ?? "", data.system?.transportKind ?? "");
+      const art = iconForTransport(
+        data.name ?? "",
+        data.system?.transportKind ?? "",
+        data.system?.containerClass ?? "",
+      );
       const changes = { img: art };
       if (data.prototypeToken?.texture?.src === undefined) {
         changes["prototypeToken.texture.src"] = art;
@@ -242,12 +246,15 @@ export class CairnActor extends Actor {
   }
 
   _prepareContainerData() {
-    // What this container IS, in one word, on every container sheet. Derived
-    // rather than stored: it follows the name and the type with nothing to keep
-    // in step, and it is the only thing that tells a player a "Heavy Destrier"
-    // is a horse — the name does not say so and neither did anything else.
+    // What this container IS, in one word, on every container sheet. Still derived
+    // by default — it follows the name and the type with nothing to keep in step,
+    // and it is the only thing that tells a player a "Heavy Destrier" is a horse,
+    // since the name does not say so and neither does anything else. `containerClass`
+    // overrides it when someone has said outright what the thing is, which is the
+    // only route available to a Warden whose language the keyword table does not
+    // speak. Art and this label go through the same call, so they cannot disagree.
     this.system.classLabel = game.i18n.localize(
-      containerClassLabel(this.name, this.system.transportKind)
+      containerClassLabel(this.name, this.system.transportKind, this.system.containerClass)
     );
 
     this.system.slotsUsed = this.calcSlotsUsed();

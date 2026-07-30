@@ -33,7 +33,7 @@ await dismissChrome(page);
 // longer exists, and fails identically forever. One real failure otherwise turns
 // into a permanent one, which reads exactly like a code bug and is not.
 const { actorId, featuresWere } = await page.evaluate(async () => {
-  for (const stale of game.actors.filter((a) => ["ZZ DialogV2 Probe", "ZZ Probe Sack"].includes(a.name))) {
+  for (const stale of game.actors.filter((a) => ["ZZ DialogV2 Probe", "ZZ Probe Mochila"].includes(a.name))) {
     await stale.delete().catch(() => {});
   }
   const was = game.settings.get("air-bladder", "show-features-section");
@@ -191,19 +191,57 @@ await page.locator(`nav.tabs a[data-tab="containers"]`).first().click();
 await page.waitForTimeout(600);
 await page.locator(".container-create").first().click();
 await page.waitForSelector("dialog.dialog input[name='itemslots']", { timeout: 5000 });
-await page.fill("dialog.dialog input[name='itemname']", "ZZ Probe Sack");
+await page.fill("dialog.dialog input[name='itemname']", "ZZ Probe Mochila");
 await page.fill("dialog.dialog input[name='itemslots']", "5");
+// Named in Spanish ON PURPOSE. A container's art and its one-word class label
+// both come from a list of ENGLISH keywords, so "Mochila" classified as a chest
+// and there was no way to say otherwise -- the affordance was English-only. The
+// Kind select is that way. Setting .value directly for the same reason the item
+// type does above: v14 hides <select> behind a custom element.
+await page.evaluate(() => {
+  const s = document.querySelector("dialog.dialog select[name='itemclass']");
+  s.value = "backpack";
+  s.dispatchEvent(new Event("change", { bubbles: true }));
+});
 await page.locator("dialog.dialog button[data-action='ok']").click();
 await page.waitForTimeout(1500);
 
-const cont = await page.evaluate((id) => {
-  const c = game.actors.find((a) => a.name === "ZZ Probe Sack");
+const cont = await page.evaluate(async (id) => {
+  const c = game.actors.find((a) => a.name === "ZZ Probe Mochila");
   if (!c) return null;
-  return { slots: Number(c.system.slots), keeper: c.system.keeper === game.actors.get(id).uuid };
+  // The control: what the NAME alone would have produced. If this ever comes back
+  // "backpack" the probe has stopped testing anything -- the picker and the
+  // keyword table would agree and the assertions below would pass either way.
+  const { containerClass } = await import("/systems/air-bladder/module/icons.js");
+  return {
+    slots: Number(c.system.slots),
+    keeper: c.system.keeper === game.actors.get(id).uuid,
+    stored: c.system.containerClass,
+    art: c.img.split("/").pop(),
+    label: c.system.classLabel,
+    fromNameAlone: containerClass(c.name, c.system.transportKind),
+  };
 }, actorId);
 cont && cont.slots === 5 && cont.keeper
-  ? ok("container created and linked", JSON.stringify(cont))
+  ? ok("container created and linked", `slots=${cont.slots} keeper=${cont.keeper}`)
   : fail("container created and linked", JSON.stringify(cont));
+
+if (!cont) {
+  fail("the Kind select drove the container's class", "no container to inspect");
+} else if (cont.fromNameAlone !== "chest") {
+  fail("the Kind select drove the container's class",
+    `the name "ZZ Probe Mochila" now classifies as "${cont.fromNameAlone}" on its own, `
+    + "so this section no longer tests the picker");
+} else if (cont.stored !== "backpack") {
+  fail("the Kind select drove the container's class", `stored class is "${cont.stored}"`);
+} else if (cont.art !== "backpack.svg") {
+  fail("the Kind select drove the container's ART", `art is ${cont.art}, wanted backpack.svg`);
+} else if (cont.label !== "Backpack") {
+  fail("the Kind select drove the container's LABEL", `label is "${cont.label}", wanted Backpack`);
+} else {
+  ok("the Kind select drove art AND label", `a Spanish name the keyword table calls a `
+    + `"${cont.fromNameAlone}" is a ${cont.art.replace(".svg", "")} labelled "${cont.label}"`);
+}
 
 /* ---------------------------------------------------- header controls ---- */
 // Roll Character and the Randomization toggle are INLINE title-bar buttons
@@ -232,7 +270,7 @@ await page.waitForTimeout(500);
 
 /* ----------------------------------------------------------- teardown ---- */
 await page.evaluate(async ({ id, was, contWas }) => {
-  await game.actors.find((a) => a.name === "ZZ Probe Sack")?.delete();
+  await game.actors.find((a) => a.name === "ZZ Probe Mochila")?.delete();
   await game.actors.get(id)?.delete();
   if (!was) await game.settings.set("air-bladder", "show-features-section", false);
   if (!contWas) await game.settings.set("air-bladder", "show-containers-tab", false);

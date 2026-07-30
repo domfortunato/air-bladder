@@ -231,6 +231,8 @@
   "CAIRN.TransportMount": "Mount",
   "CAIRN.TransportVehicle": "Vehicle",
   "CAIRN.TransportPile": "Item Pile",
+  "CAIRN.ContainerClass": "Kind",
+  "CAIRN.ContainerClassAuto": "From the name",
   "CAIRN.ClassPile": "Item Pile",
   "CAIRN.ClassBackpack": "Backpack",
   "CAIRN.ClassSack": "Sack",

@@ -3,7 +3,7 @@ import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, sourceLabel } from "../utils.js";
 import { resultText } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
-import { CONTAINER_ART, TRANSPORT_KINDS } from "../icons.js";
+import { CONTAINER_ART, CONTAINER_CLASSES, TRANSPORT_KINDS } from "../icons.js";
 import { localizeNameDesc, t } from "../i18n-content.js";
 import { FATIGUE_NAME } from "../item/item.js";
 
@@ -1675,7 +1675,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       return;
     }
     const template = "systems/air-bladder/templates/dialog/add-container-dialog.html";
-    const content = await foundry.applications.handlebars.renderTemplate(template);
+    // The class list comes from CONTAINER_CLASSES itself, so a class added there
+    // appears here without a second list to keep in step. `mule` and `donkey`
+    // share art but are different words, and both are offered — the label is what
+    // the sheet will show.
+    const classes = Object.entries(CONTAINER_CLASSES).map(([key, v]) => ({ key, label: v.label }));
+    const content = await foundry.applications.handlebars.renderTemplate(template, { classes });
 
     await foundry.applications.api.DialogV2.prompt({
       window: { title: game.i18n.localize("CAIRN.CreateContainer") },
@@ -1705,6 +1710,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
               type: "container",
               name: form.itemname.value,
               "system.slots": form.itemslots.value,
+              // Blank means "read the name", which is what this dialog always did.
+              "system.containerClass": form.itemclass?.value ?? "",
             });
             await this.actor.createOwnedContainer(result);
           }
