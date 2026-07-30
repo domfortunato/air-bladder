@@ -865,8 +865,21 @@ const configureHandleBar = () => {
   // Derived from the prefix rather than asking translators for a second key: a
   // language file that carries "CAIRN.SpellbookPrefix" alone stays complete, and
   // there is no way for the two keys to drift apart.
+  //
+  // The trailing separator is stripped by what it is NOT — anything that is not a
+  // letter or a digit — rather than by a list of the punctuation we happened to
+  // think of. That list was `[\s—:(-]`, i.e. whitespace, EM dash, colon, paren,
+  // hyphen; it did not include the EN dash U+2013, which is visually near-identical
+  // to the em dash `en.json` ships and is the conventional dash in several of the
+  // languages this system has files for. A translator writing "Hechizo – " got
+  // bare "Hechizo –", so the parenthesised form came out "Hechizo – (" and never
+  // matched a translated "Hechizo (Detectar Magia)" — re-creating exactly the
+  // doubled prefix this helper exists to prevent, in the one shape five shipped
+  // backgrounds use. A comma had the same problem. Nothing told a translator: no
+  // doc mentions these keys, and a punctuation constraint nobody states is a
+  // constraint nobody keeps.
   const prefixForms = (prefix) => {
-    const bare = String(prefix ?? "").replace(/[\s—:(-]+$/, "");
+    const bare = String(prefix ?? "").replace(/[^\p{L}\p{N}]+$/u, "");
     return bare ? [prefix, `${bare} (`, `${bare}(`] : [];
   };
 

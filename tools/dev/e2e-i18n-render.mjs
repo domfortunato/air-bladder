@@ -32,7 +32,15 @@ const S = {
   save: "ZZ-salvación de {key}",
   crit: "ZZ-daño crítico — {key}",
   spellbook: "ZZ-hechizo — ",
-  spellscroll: "ZZ-pergamino — ",
+  // EN dash U+2013, deliberately, and not interchangeable with the line above.
+  // The prefix guard derives the parenthesised form by stripping the trailing
+  // separator, and it used to do that with a hand-written list of punctuation
+  // ([\s—:(-]) that included the EM dash and not the EN dash — which is visually
+  // near-identical and is the conventional dash in several of the languages this
+  // system ships files for. With both sentinels on an em dash the probe could not
+  // see that: it tested the one separator the list happened to contain. One of
+  // each is what makes this assertion about separators at all.
+  spellscroll: "ZZ-pergamino – ",
   del: "ZZ-¿eliminar {name}?",
   limit: "ZZ-doble clic para cambiar el límite",
   wizard: "ZZ-mago",
@@ -100,8 +108,13 @@ try {
         // Hexenbane, Mountebank, Foundling). Stored translated here rather than
         // driven through an overlay because the helper only ever sees the display
         // string — this is byte-for-byte the input the overlay would give it.
-        { name: `${S.spellbook.replace(/\s*—\s*$/, "")} (Aro de Cáñamo)`, type: "spellbook" },
-        { name: `${S.spellscroll.replace(/\s*—\s*$/, "")} (Adherir)`, type: "spellbook", system: { scroll: true } },
+        // Written out, NOT derived from S.spellbook by re-running the strip the
+        // helper performs. Re-deriving would make the probe agree with the
+        // implementation by construction — the expected string has to come from
+        // somewhere the code under test cannot influence, and the assertions
+        // further down already compare against these same literals.
+        { name: "ZZ-hechizo (Aro de Cáñamo)", type: "spellbook" },
+        { name: "ZZ-pergamino (Adherir)", type: "spellbook", system: { scroll: true } },
         { name: "ZZ Probe Torch", type: "item", system: { uses: { value: 3, max: 3 } } },
       ]);
 
