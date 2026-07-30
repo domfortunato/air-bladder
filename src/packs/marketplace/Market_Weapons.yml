@@ -4,198 +4,183 @@ img: icons/svg/d20-grey.svg
 description: Air Bladder marketplace — Weapons. Drag an item in to stock it; prices are read off the item.
 results:
   - _id: TQQlKmK759hSBEcj
-    type: pack
-    text: Axe
+    type: document
+    name: Axe
     img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 1
       - 1
     drawn: false
-    documentCollection: air-bladder.weapons
-    documentId: SXlTyf9AwMrZPkIi
+    documentUuid: Compendium.air-bladder.weapons.Item.SXlTyf9AwMrZPkIi
     flags: {}
     _key: '!tables.results!lyzjOHCdLIY3luL4.TQQlKmK759hSBEcj'
   - _id: mFNgphbBcoU7RuK5
-    type: pack
-    text: Bow
+    type: document
+    name: Bow
     img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 2
       - 2
     drawn: false
-    documentCollection: air-bladder.weapons
-    documentId: iQFZEdDJKyjvGtY8
+    documentUuid: Compendium.air-bladder.weapons.Item.iQFZEdDJKyjvGtY8
     flags: {}
     _key: '!tables.results!lyzjOHCdLIY3luL4.mFNgphbBcoU7RuK5'
   - _id: jVSpP1BKsMcUp0Rh
-    type: pack
-    text: Crossbow
+    type: document
+    name: Crossbow
     img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 3
       - 3
     drawn: false
-    documentCollection: air-bladder.weapons
-    documentId: mjddKpJ42HUs5GA7
+    documentUuid: Compendium.air-bladder.weapons.Item.mjddKpJ42HUs5GA7
     flags: {}
     _key: '!tables.results!lyzjOHCdLIY3luL4.jVSpP1BKsMcUp0Rh'
   - _id: hI4KlTDX9Eb5TW9Z
-    type: pack
-    text: Cudgel
+    type: document
+    name: Cudgel
     img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 4
       - 4
     drawn: false
-    documentCollection: air-bladder.weapons
-    documentId: PtHPURu548JUKwuU
+    documentUuid: Compendium.air-bladder.weapons.Item.PtHPURu548JUKwuU
     flags: {}
     _key: '!tables.results!lyzjOHCdLIY3luL4.hI4KlTDX9Eb5TW9Z'
   - _id: NL3XnpXqSGAnq9Zz
-    type: pack
-    text: Dagger
+    type: document
+    name: Dagger
     img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 5
       - 5
     drawn: false
-    documentCollection: air-bladder.weapons
-    documentId: 67XlPOQE3AUTRyuy
+    documentUuid: Compendium.air-bladder.weapons.Item.67XlPOQE3AUTRyuy
     flags: {}
     _key: '!tables.results!lyzjOHCdLIY3luL4.NL3XnpXqSGAnq9Zz'
   - _id: tEwu22tPtCGNY7aZ
-    type: pack
-    text: Flail
+    type: document
+    name: Flail
     img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 6
       - 6
     drawn: false
-    documentCollection: air-bladder.weapons
-    documentId: aaJtV09Zt0hKS2bt
+    documentUuid: Compendium.air-bladder.weapons.Item.aaJtV09Zt0hKS2bt
     flags: {}
     _key: '!tables.results!lyzjOHCdLIY3luL4.tEwu22tPtCGNY7aZ'
   - _id: j9wSB74FFcMwiMnI
-    type: pack
-    text: Halberd
+    type: document
+    name: Halberd
     img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 7
       - 7
     drawn: false
-    documentCollection: air-bladder.weapons
-    documentId: bBxRixn3s83nf22t
+    documentUuid: Compendium.air-bladder.weapons.Item.bBxRixn3s83nf22t
     flags: {}
     _key: '!tables.results!lyzjOHCdLIY3luL4.j9wSB74FFcMwiMnI'
   - _id: 9RrgtPfkN3XqEmfp
-    type: pack
-    text: Long Sword
+    type: document
+    name: Long Sword
     img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 8
       - 8
     drawn: false
-    documentCollection: air-bladder.weapons
-    documentId: guIdahhZ813WVHLy
+    documentUuid: Compendium.air-bladder.weapons.Item.guIdahhZ813WVHLy
     flags: {}
     _key: '!tables.results!lyzjOHCdLIY3luL4.9RrgtPfkN3XqEmfp'
   - _id: eIau8XixHS9VdmBe
-    type: pack
-    text: Mace
+    type: document
+    name: Mace
     img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 9
       - 9
     drawn: false
-    documentCollection: air-bladder.weapons
-    documentId: GAdVOvcq4KsPnCho
+    documentUuid: Compendium.air-bladder.weapons.Item.GAdVOvcq4KsPnCho
     flags: {}
     _key: '!tables.results!lyzjOHCdLIY3luL4.eIau8XixHS9VdmBe'
   - _id: i5i4mBBU2LTglzHs
-    type: pack
-    text: Sickle
+    type: document
+    name: Sickle
     img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 10
       - 10
     drawn: false
-    documentCollection: air-bladder.weapons
-    documentId: caDKrOr1tkXkLVCk
+    documentUuid: Compendium.air-bladder.weapons.Item.caDKrOr1tkXkLVCk
     flags: {}
     _key: '!tables.results!lyzjOHCdLIY3luL4.i5i4mBBU2LTglzHs'
   - _id: E6EI0mFVHnT39S4x
-    type: pack
-    text: Sling
+    type: document
+    name: Sling
     img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 11
       - 11
     drawn: false
-    documentCollection: air-bladder.weapons
-    documentId: OCOPpIkkvUL5fZKQ
+    documentUuid: Compendium.air-bladder.weapons.Item.OCOPpIkkvUL5fZKQ
     flags: {}
     _key: '!tables.results!lyzjOHCdLIY3luL4.E6EI0mFVHnT39S4x'
   - _id: ZbmcZWGDh8R5vLhp
-    type: pack
-    text: Spear
+    type: document
+    name: Spear
     img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 12
       - 12
     drawn: false
-    documentCollection: air-bladder.weapons
-    documentId: 2Z807kXPnYap0hUU
+    documentUuid: Compendium.air-bladder.weapons.Item.2Z807kXPnYap0hUU
     flags: {}
     _key: '!tables.results!lyzjOHCdLIY3luL4.ZbmcZWGDh8R5vLhp'
   - _id: l6FJL0HBG4Cz0lMN
-    type: pack
-    text: Staff
+    type: document
+    name: Staff
     img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 13
       - 13
     drawn: false
-    documentCollection: air-bladder.weapons
-    documentId: fZ5pC0Yo00zfz6xO
+    documentUuid: Compendium.air-bladder.weapons.Item.fZ5pC0Yo00zfz6xO
     flags: {}
     _key: '!tables.results!lyzjOHCdLIY3luL4.l6FJL0HBG4Cz0lMN'
   - _id: bCEp0xNLW65EMDE4
-    type: pack
-    text: Sword
+    type: document
+    name: Sword
     img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 14
       - 14
     drawn: false
-    documentCollection: air-bladder.weapons
-    documentId: 1k4xfzZwGS583eRa
+    documentUuid: Compendium.air-bladder.weapons.Item.1k4xfzZwGS583eRa
     flags: {}
     _key: '!tables.results!lyzjOHCdLIY3luL4.bCEp0xNLW65EMDE4'
   - _id: KJGFQGdLt1aF0VVi
-    type: pack
-    text: War Hammer
+    type: document
+    name: War Hammer
     img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 15
       - 15
     drawn: false
-    documentCollection: air-bladder.weapons
-    documentId: 79R642H2PeClxCNZ
+    documentUuid: Compendium.air-bladder.weapons.Item.79R642H2PeClxCNZ
     flags: {}
     _key: '!tables.results!lyzjOHCdLIY3luL4.KJGFQGdLt1aF0VVi'
 formula: 1d15

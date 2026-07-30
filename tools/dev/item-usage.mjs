@@ -104,9 +104,13 @@ try {
   walk(hire);
 } catch {}
 
-// Marketplace + SRD + legacy gear-tables: result.text is the item name
-for (const pack of ["marketplace"]) for (const t of readPack(pack)) for (const r of t.results ?? []) add(r.text, "market");
-for (const pack of ["character-creation-tables-srd", "gear-tables"]) for (const t of readPack(pack)) for (const r of t.results ?? []) add(r.text, "srd");
+// Marketplace + SRD + legacy gear-tables: the row's own label is the item name.
+// Since v13 that is `name` on a document row (`text` was split into name +
+// description and is removed in v15); `text` stays as the fallback because the two
+// SRD packs below are legacy content that may still be in the old shape.
+const rowLabel = (r) => r.name ?? r.text;
+for (const pack of ["marketplace"]) for (const t of readPack(pack)) for (const r of t.results ?? []) add(rowLabel(r), "market");
+for (const pack of ["character-creation-tables-srd", "gear-tables"]) for (const t of readPack(pack)) for (const r of t.results ?? []) add(rowLabel(r), "srd");
 
 // default gear + alias targets
 ["Rations", "Torch"].forEach((n) => add(n, "default"));

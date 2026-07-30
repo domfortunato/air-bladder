@@ -5,80 +5,68 @@ description: 'Cairn 2e Weather Difficulty (reference). Look up the effect of the
 results:
   - _id: Tdr8GIXSGQm9CNIQ
     type: text
-    text: <strong>Nice</strong> &mdash; Favorable conditions for travel. <em>(Clear skies, sunny.)</em>
+    description: <strong>Nice</strong> &mdash; Favorable conditions for travel. <em>(Clear skies, sunny.)</em>
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 1
       - 1
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!8tDBjEgzOrxphqUg.Tdr8GIXSGQm9CNIQ'
   - _id: H7hF1gLHr54CorPj
     type: text
-    text: <strong>Fair</strong> &mdash; Favorable conditions for travel. <em>(Overcast, breezy.)</em>
+    description: <strong>Fair</strong> &mdash; Favorable conditions for travel. <em>(Overcast, breezy.)</em>
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 2
       - 2
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!8tDBjEgzOrxphqUg.H7hF1gLHr54CorPj'
   - _id: cov6227bB7jqClgI
     type: text
-    text: <strong>Unpleasant</strong> &mdash; Add a <strong>Fatigue</strong> <em>or</em> add one watch to the journey. <em>(Gusting winds, rain showers, sweltering heat, chill air.)</em>
+    description: <strong>Unpleasant</strong> &mdash; Add a <strong>Fatigue</strong> <em>or</em> add one watch to the journey. <em>(Gusting winds, rain showers, sweltering heat, chill air.)</em>
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 3
       - 3
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!8tDBjEgzOrxphqUg.cov6227bB7jqClgI'
   - _id: gvQrCp5i4chbj1E7
     type: text
-    text: '<strong>Inclement</strong> &mdash; Add a <strong>Fatigue</strong> <em>or</em> add +1 watch. Increase <em>Warden: Travel - Terrain Difficulty</em> by a step. <em>(Thunderstorms, lightning, rain, muddy ground.)</em>'
+    description: '<strong>Inclement</strong> &mdash; Add a <strong>Fatigue</strong> <em>or</em> add +1 watch. Increase <em>Warden: Travel - Terrain Difficulty</em> by a step. <em>(Thunderstorms, lightning, rain, muddy ground.)</em>'
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 4
       - 4
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!8tDBjEgzOrxphqUg.gvQrCp5i4chbj1E7'
   - _id: JzkFe9vNDHW66Pqn
     type: text
-    text: '<strong>Extreme</strong> &mdash; Add a <strong>Fatigue</strong> <em>and</em> add +1 watch. Increase <em>Warden: Travel - Terrain Difficulty</em> by a step. <em>(Blizzards, freezing winds, flooding, mud slides.)</em>'
+    description: '<strong>Extreme</strong> &mdash; Add a <strong>Fatigue</strong> <em>and</em> add +1 watch. Increase <em>Warden: Travel - Terrain Difficulty</em> by a step. <em>(Blizzards, freezing winds, flooding, mud slides.)</em>'
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 5
       - 5
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!8tDBjEgzOrxphqUg.JzkFe9vNDHW66Pqn'
   - _id: r7E3Gbt1lD1rZgIh
     type: text
-    text: <strong>Catastrophic</strong> &mdash; Most parties cannot travel under these conditions. <em>(Tornados, tidal waves, hurricane, volcanic eruption.)</em>
+    description: <strong>Catastrophic</strong> &mdash; Most parties cannot travel under these conditions. <em>(Tornados, tidal waves, hurricane, volcanic eruption.)</em>
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 6
       - 6
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!8tDBjEgzOrxphqUg.r7E3Gbt1lD1rZgIh'
 formula: 1d6

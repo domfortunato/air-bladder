@@ -68,6 +68,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+import { packUuid } from "./uuid.mjs";
 
 const require = createRequire(import.meta.url);
 const yaml = require("js-yaml");
@@ -428,16 +429,17 @@ const tableYaml = (category, refs) => {
     const rid = idFor(`air-bladder-market-result:${category}:${i}:${ref.text}`);
     return [
       `  - _id: ${rid}`,
-      "    type: pack",
-      `    text: ${y(ref.text)}`,
+      // v13 merged `type: pack` into `type: document`, and a document row's label
+      // is `name` — `text` is a shim that goes in v15.
+      "    type: document",
+      `    name: ${y(ref.text)}`,
       "    img: icons/svg/item-bag.svg",
       "    weight: 1",
       "    range:",
       `      - ${i + 1}`,
       `      - ${i + 1}`,
       "    drawn: false",
-      `    documentCollection: ${ref.documentCollection}`,
-      `    documentId: ${ref.documentId}`,
+      `    documentUuid: ${packUuid(ref.documentCollection, ref.documentId)}`,
       "    flags: {}",
       `    _key: '!tables.results!${tid}.${rid}'`,
     ].join("\n");

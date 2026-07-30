@@ -5,132 +5,112 @@ description: Cairn 2e Virtue trait.
 results:
   - _id: QgsrVrU9Tu9ONlq5
     type: text
-    text: Ambitious
+    description: Ambitious
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 1
       - 1
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!47F1vkFYdIarWj27.QgsrVrU9Tu9ONlq5'
   - _id: 9Nm6DlKshXumHVQs
     type: text
-    text: Cautious
+    description: Cautious
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 2
       - 2
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!47F1vkFYdIarWj27.9Nm6DlKshXumHVQs'
   - _id: SNpiN7rzOCoTHeam
     type: text
-    text: Courageous
+    description: Courageous
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 3
       - 3
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!47F1vkFYdIarWj27.SNpiN7rzOCoTHeam'
   - _id: 8lPbOGiRkBhquCUp
     type: text
-    text: Disciplined
+    description: Disciplined
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 4
       - 4
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!47F1vkFYdIarWj27.8lPbOGiRkBhquCUp'
   - _id: HQWRxqEtdqL1GTFJ
     type: text
-    text: Gregarious
+    description: Gregarious
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 5
       - 5
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!47F1vkFYdIarWj27.HQWRxqEtdqL1GTFJ'
   - _id: VqewMUHcGIFZwey9
     type: text
-    text: Honorable
+    description: Honorable
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 6
       - 6
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!47F1vkFYdIarWj27.VqewMUHcGIFZwey9'
   - _id: 3OsqckQtBbeKtB2J
     type: text
-    text: Humble
+    description: Humble
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 7
       - 7
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!47F1vkFYdIarWj27.3OsqckQtBbeKtB2J'
   - _id: zYNEaLut5avrdYKZ
     type: text
-    text: Merciful
+    description: Merciful
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 8
       - 8
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!47F1vkFYdIarWj27.zYNEaLut5avrdYKZ'
   - _id: V36Hi4vthNQtvWHb
     type: text
-    text: Serene
+    description: Serene
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 9
       - 9
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!47F1vkFYdIarWj27.V36Hi4vthNQtvWHb'
   - _id: wH0lcX08AWdY0PQy
     type: text
-    text: Tolerant
+    description: Tolerant
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 10
       - 10
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!47F1vkFYdIarWj27.wH0lcX08AWdY0PQy'
 formula: 1d10

@@ -44,7 +44,7 @@ Run from `c:\Users\domin\code\air-bladder`, on the branch you are about to merge
 
 | Command | Checks |
 |---|---|
-| `npm run check:refs` | every compendium reference in every shipped table resolves, and resolves to a document with the *right name* |
+| `npm run check:refs` | every compendium reference in every shipped table resolves, and resolves to a document with the *right name*. Also asserts it found **at least `EXPECTED_REFS` (198) references at all** — because this gate reads a schema, and a schema rename turns it into a gate that checks nothing while still printing "passed". That is not hypothetical: v13 renamed the row type `pack`→`document` and replaced `documentCollection`+`documentId` with `documentUuid`, so its `if (r.type !== "pack") continue` skipped every row in every table. 198 references one run, 0 the next, green both times. Raise the constant deliberately when content adds references |
 | `npm run check:fields` | pack documents match the data model, **and `system.json` `documentTypes.*.htmlFields` matches the `HTMLField`s in the schemas, both directions**. That second half is a security check, not tidiness: the Foundry server never loads the data models, so an `HTMLField` missing from the manifest is never sanitized — see `dev:sanitize` |
 | `npm run check:traits` | the trait-sentence parser |
 | `npm run i18n:check` | translation coverage, placeholder/HTML mismatches, stale keys — language files **against each other** |

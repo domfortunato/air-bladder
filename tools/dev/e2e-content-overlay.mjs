@@ -50,7 +50,7 @@ const res = await page.evaluate(async () => {
       name: "Content Overlay Probe",
       formula: "1d1",
       replacement: true,
-      results: [{ type: CONST.TABLE_RESULT_TYPES.TEXT, text: EN, range: [1, 1] }],
+      results: [{ type: CONST.TABLE_RESULT_TYPES.TEXT, description: EN, range: [1, 1] }],
     });
     created.push(table);
 
@@ -119,7 +119,7 @@ const off = await page.evaluate(async () => {
       name: "Content Overlay Probe (off)",
       formula: "1d1",
       replacement: true,
-      results: [{ type: CONST.TABLE_RESULT_TYPES.TEXT, text: EN, range: [1, 1] }],
+      results: [{ type: CONST.TABLE_RESULT_TYPES.TEXT, description: EN, range: [1, 1] }],
     });
     created.push(table);
     i18n._setOverlay(null);

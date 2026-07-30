@@ -4,11 +4,11 @@
  *
  *   node tools/dev/ref-audit.mjs [--verbose]
  *
- * A RollTable result of type `pack` carries a documentCollection + documentId.
- * If that id names nothing, the table still LOOKS fine — it draws, it prints the
- * item's name to chat, and the generator quietly grants nothing. There is no
- * error, no warning, and no way for a player to tell the difference between "you
- * rolled a Wig" and "you rolled a Wig and received it".
+ * A RollTable result of type `document` carries a `documentUuid`. If that uuid
+ * names nothing, the table still LOOKS fine — it draws, it prints the item's name
+ * to chat, and the generator quietly grants nothing. There is no error, no
+ * warning, and no way for a player to tell the difference between "you rolled a
+ * Wig" and "you rolled a Wig and received it".
  *
  * That is not hypothetical: 16 of the 100 rows on Barebones: Creation - Additional
  * Gear pointed at items that did not exist (2026-07-28). They had been authored
@@ -67,27 +67,50 @@ const forSale = [];
 
 const dangling = [];
 const byName = [];
+const malformed = [];
 let checked = 0, tables = 0;
+
+/**
+ * How many compendium references there are supposed to BE.
+ *
+ * Because this gate reads a schema, and a schema rename turns it into a gate that
+ * checks nothing while still printing "passed". That is exactly what happened on
+ * 2026-07-30: v13 renamed the row type from `pack` to `document` and replaced
+ * documentCollection+documentId with documentUuid, so `if (r.type !== "pack")
+ * continue` skipped every row in every table. 198 references one run, 0 the next,
+ * green both times.
+ *
+ * Raise this deliberately when content adds references. A gate that cannot notice
+ * it has stopped looking is worse than no gate, because it is believed.
+ */
+const EXPECTED_REFS = 198;
 
 for (const pack of packDirs) {
   for (const d of docsIn(pack)) {
     if (!Array.isArray(d.results)) continue;
     tables++;
     for (const r of d.results) {
-      // Foundry writes the type as the string "pack" in YAML; tolerate the
-      // numeric legacy form too rather than silently skipping a whole table.
-      if (r.type !== "pack" && r.type !== 2) continue;
-      checked++;
-      if (pack === "marketplace") {
-        const from = String(r.documentCollection ?? "").replace(/^air-bladder\./, "");
-        if (NO_SALE_PACKS.includes(from)) forSale.push(`${d.name} -> "${r.text}" (from ${from})`);
+      // v13 merged the "compendium"/"pack" row type into "document". The legacy
+      // numeric form is tolerated rather than silently skipping a whole table.
+      if (r.type !== "document" && r.type !== 2) continue;
+      // "Compendium.<packageName>.<packName>.<DocumentName>.<id>" -> the two
+      // parts this indexes by. Anything else is not a compendium reference.
+      const parts = String(r.documentUuid ?? "").split(".");
+      if (parts[0] !== "Compendium" || parts.length !== 5) {
+        malformed.push(`${d.name} [${(r.range ?? []).join("-")}] -> "${r.name}" (documentUuid: ${r.documentUuid ?? "missing"})`);
+        continue;
       }
-      const key = `${r.documentCollection}/${r.documentId}`;
+      const [, pkg, packName, , id] = parts;
+      checked++;
+      if (pack === "marketplace" && NO_SALE_PACKS.includes(packName)) {
+        forSale.push(`${d.name} -> "${r.name}" (from ${packName})`);
+      }
+      const key = `${pkg}.${packName}/${id}`;
       const hit = byId.get(key);
-      if (!hit) { dangling.push(`${d.name} [${(r.range ?? []).join("-")}] -> "${r.text}" (${key})`); continue; }
+      if (!hit) { dangling.push(`${d.name} [${(r.range ?? []).join("-")}] -> "${r.name}" (${key})`); continue; }
       // Resolving is necessary but not sufficient: an id that points at the WRONG
       // document draws the right name and grants something else entirely.
-      if (hit.name !== r.text) byName.push(`${d.name} -> "${r.text}" resolves to "${hit.name}" in ${hit.pack}`);
+      if (hit.name !== r.name) byName.push(`${d.name} -> "${r.name}" resolves to "${hit.name}" in ${hit.pack}`);
     }
   }
 }
@@ -95,6 +118,20 @@ for (const pack of packDirs) {
 console.log(`${tables} table(s), ${checked} compendium reference(s) across ${packDirs.length} packs`);
 
 let failed = false;
+
+if (checked < EXPECTED_REFS) {
+  failed = true;
+  console.error(`\nUNDER-COUNTED — found ${checked} compendium reference(s), expected at least `
+    + `${EXPECTED_REFS}. This gate reads a schema; if content did not shrink, it has stopped `
+    + "looking. Check the row type and documentUuid shape before raising EXPECTED_REFS.");
+}
+
+if (malformed.length) {
+  failed = true;
+  console.error(`\nMALFORMED — ${malformed.length} document row(s) carry no usable documentUuid:`);
+  for (const d of malformed) console.error(`  ${d}`);
+}
+
 if (dangling.length) {
   failed = true;
   console.error(`\nDANGLING — ${dangling.length} reference(s) name a document that does not exist:`);

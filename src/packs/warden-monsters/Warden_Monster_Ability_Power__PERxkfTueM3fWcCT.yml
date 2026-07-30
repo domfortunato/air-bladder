@@ -5,262 +5,222 @@ description: Cairn 2e monster ability (Creating Monsters). Roll with Ability (Ta
 results:
   - _id: 0licCqPB48uWHXsj
     type: text
-    text: Absorbs
+    description: Absorbs
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 1
       - 1
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!PERxkfTueM3fWcCT.0licCqPB48uWHXsj'
   - _id: h7DOcJwpdkXPcWbL
     type: text
-    text: Amplifies
+    description: Amplifies
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 2
       - 2
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!PERxkfTueM3fWcCT.h7DOcJwpdkXPcWbL'
   - _id: kINxgdy1NKOP08eJ
     type: text
-    text: Attracts
+    description: Attracts
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 3
       - 3
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!PERxkfTueM3fWcCT.kINxgdy1NKOP08eJ'
   - _id: 01H46YFOBqCvFokh
     type: text
-    text: Binds
+    description: Binds
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 4
       - 4
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!PERxkfTueM3fWcCT.01H46YFOBqCvFokh'
   - _id: GDQGHNQL5vhrcD89
     type: text
-    text: Camouflages
+    description: Camouflages
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 5
       - 5
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!PERxkfTueM3fWcCT.GDQGHNQL5vhrcD89'
   - _id: HnqexhMJNRZZe9mE
     type: text
-    text: Conjures
+    description: Conjures
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 6
       - 6
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!PERxkfTueM3fWcCT.HnqexhMJNRZZe9mE'
   - _id: Kyqij8JCamq2xtXi
     type: text
-    text: Controls
+    description: Controls
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 7
       - 7
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!PERxkfTueM3fWcCT.Kyqij8JCamq2xtXi'
   - _id: NRqZDic5OEuRcpB0
     type: text
-    text: Disables
+    description: Disables
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 8
       - 8
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!PERxkfTueM3fWcCT.NRqZDic5OEuRcpB0'
   - _id: uewBB8tVQUqLDHWf
     type: text
-    text: Duplicates
+    description: Duplicates
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 9
       - 9
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!PERxkfTueM3fWcCT.uewBB8tVQUqLDHWf'
   - _id: akVrAWwGG4ey3sfS
     type: text
-    text: Grows
+    description: Grows
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 10
       - 10
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!PERxkfTueM3fWcCT.akVrAWwGG4ey3sfS'
   - _id: iiFBRA12rZGYvxHi
     type: text
-    text: Manipulates
+    description: Manipulates
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 11
       - 11
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!PERxkfTueM3fWcCT.iiFBRA12rZGYvxHi'
   - _id: eE79dkENly6DnfJ2
     type: text
-    text: Reflects
+    description: Reflects
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 12
       - 12
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!PERxkfTueM3fWcCT.eE79dkENly6DnfJ2'
   - _id: m46fCa7hzoXYtJE4
     type: text
-    text: Regenerates
+    description: Regenerates
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 13
       - 13
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!PERxkfTueM3fWcCT.m46fCa7hzoXYtJE4'
   - _id: 7eiI6cZnEI8trj48
     type: text
-    text: Resists
+    description: Resists
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 14
       - 14
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!PERxkfTueM3fWcCT.7eiI6cZnEI8trj48'
   - _id: 93qiEZ2BHX0dpZSS
     type: text
-    text: Reverses
+    description: Reverses
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 15
       - 15
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!PERxkfTueM3fWcCT.93qiEZ2BHX0dpZSS'
   - _id: RBpOVwHaMxGUjHOs
     type: text
-    text: Shapes
+    description: Shapes
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 16
       - 16
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!PERxkfTueM3fWcCT.RBpOVwHaMxGUjHOs'
   - _id: SHamrcMUoNvOM16P
     type: text
-    text: Shrinks
+    description: Shrinks
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 17
       - 17
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!PERxkfTueM3fWcCT.SHamrcMUoNvOM16P'
   - _id: EhHDoVh2ukSZ2FTF
     type: text
-    text: Transforms
+    description: Transforms
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 18
       - 18
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!PERxkfTueM3fWcCT.EhHDoVh2ukSZ2FTF'
   - _id: 8MDDfnPfrddfLptw
     type: text
-    text: Traps
+    description: Traps
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 19
       - 19
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!PERxkfTueM3fWcCT.8MDDfnPfrddfLptw'
   - _id: 1nn9g9V9sSchKLrj
     type: text
-    text: Zaps
+    description: Zaps
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 20
       - 20
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!PERxkfTueM3fWcCT.1nn9g9V9sSchKLrj'
 formula: 1d20

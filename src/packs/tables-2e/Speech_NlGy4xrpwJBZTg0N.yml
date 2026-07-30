@@ -5,132 +5,112 @@ description: Cairn 2e Speech trait.
 results:
   - _id: s3bCsK4KRzL2IIJs
     type: text
-    text: Blunt
+    description: Blunt
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 1
       - 1
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!NlGy4xrpwJBZTg0N.s3bCsK4KRzL2IIJs'
   - _id: 9Yd2F3Zp8jrAtiKL
     type: text
-    text: Booming
+    description: Booming
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 2
       - 2
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!NlGy4xrpwJBZTg0N.9Yd2F3Zp8jrAtiKL'
   - _id: fouJDIjH01aes4wL
     type: text
-    text: Cryptic
+    description: Cryptic
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 3
       - 3
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!NlGy4xrpwJBZTg0N.fouJDIjH01aes4wL'
   - _id: 33FphJYmJRCgB2Et
     type: text
-    text: Droning
+    description: Droning
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 4
       - 4
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!NlGy4xrpwJBZTg0N.33FphJYmJRCgB2Et'
   - _id: mRatDP3B2F1k9iAz
     type: text
-    text: Formal
+    description: Formal
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 5
       - 5
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!NlGy4xrpwJBZTg0N.mRatDP3B2F1k9iAz'
   - _id: r7F3XjTrVE1seZFk
     type: text
-    text: Gravelly
+    description: Gravelly
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 6
       - 6
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!NlGy4xrpwJBZTg0N.r7F3XjTrVE1seZFk'
   - _id: Cl4PHEVHlOTrrWeW
     type: text
-    text: Precise
+    description: Precise
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 7
       - 7
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!NlGy4xrpwJBZTg0N.Cl4PHEVHlOTrrWeW'
   - _id: 83fQFrKdFBwDkF2R
     type: text
-    text: Squeaky
+    description: Squeaky
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 8
       - 8
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!NlGy4xrpwJBZTg0N.83fQFrKdFBwDkF2R'
   - _id: 8evAf8HsnulHB5u4
     type: text
-    text: Stuttering
+    description: Stuttering
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 9
       - 9
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!NlGy4xrpwJBZTg0N.8evAf8HsnulHB5u4'
   - _id: wpwPwGDZc2crPRis
     type: text
-    text: Whispery
+    description: Whispery
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 10
       - 10
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!NlGy4xrpwJBZTg0N.wpwPwGDZc2crPRis'
 formula: 1d10

@@ -5,132 +5,112 @@ description: Cairn 2e Face trait.
 results:
   - _id: ccJXlRpEQDIAxJCB
     type: text
-    text: Bony
+    description: Bony
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 1
       - 1
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!llLMTuRePiBc3giY.ccJXlRpEQDIAxJCB'
   - _id: CLupHSN71UIclAFZ
     type: text
-    text: Broken
+    description: Broken
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 2
       - 2
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!llLMTuRePiBc3giY.CLupHSN71UIclAFZ'
   - _id: YmERGCPccES5gLUp
     type: text
-    text: Chiseled
+    description: Chiseled
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 3
       - 3
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!llLMTuRePiBc3giY.YmERGCPccES5gLUp'
   - _id: I9m9hHPKAiIgXZdU
     type: text
-    text: Elongated
+    description: Elongated
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 4
       - 4
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!llLMTuRePiBc3giY.I9m9hHPKAiIgXZdU'
   - _id: AH9nD1CRiq0RwVfI
     type: text
-    text: Pale
+    description: Pale
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 5
       - 5
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!llLMTuRePiBc3giY.AH9nD1CRiq0RwVfI'
   - _id: Ar5h6S6WR0742fFj
     type: text
-    text: Perfect
+    description: Perfect
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 6
       - 6
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!llLMTuRePiBc3giY.Ar5h6S6WR0742fFj'
   - _id: sL1YJ0oPNn2THOyz
     type: text
-    text: Rakish
+    description: Rakish
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 7
       - 7
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!llLMTuRePiBc3giY.sL1YJ0oPNn2THOyz'
   - _id: sroCSzHlMZKkE6hS
     type: text
-    text: Sharp
+    description: Sharp
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 8
       - 8
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!llLMTuRePiBc3giY.sroCSzHlMZKkE6hS'
   - _id: FhW8cXHzDtUnA1HT
     type: text
-    text: Square
+    description: Square
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 9
       - 9
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!llLMTuRePiBc3giY.FhW8cXHzDtUnA1HT'
   - _id: zhG2sYW8cfQQkuO6
     type: text
-    text: Sunken
+    description: Sunken
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 10
       - 10
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!llLMTuRePiBc3giY.zhG2sYW8cfQQkuO6'
 formula: 1d10

@@ -65,6 +65,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+import { packUuid } from "./uuid.mjs";
 
 const require = createRequire(import.meta.url);
 const yaml = require("js-yaml");
@@ -485,16 +486,18 @@ for (const bg of backgrounds) {
 const resultYaml = (tid, i, r) => {
   const rid = idFor(`air-bladder-bb-result:${tid}:${i}:${r.text}`);
   const range = r.range ?? [i + 1, i + 1];
+  // `text` names a document row and carries prose on a text row — two different
+  // schema fields since v13, and `text` is neither of them any more.
   const lines = [
     `  - _id: ${rid}`,
-    `    type: ${r.pack ? "pack" : "text"}`,
-    `    text: ${y(r.text)}`,
+    `    type: ${r.pack ? "document" : "text"}`,
+    `    ${r.pack ? "name" : "description"}: ${y(r.text)}`,
     `    img: ${y(r.img ?? "icons/svg/item-bag.svg")}`,
     "    weight: 1",
     "    range:", `      - ${range[0]}`, `      - ${range[1]}`,
     "    drawn: false",
   ];
-  if (r.pack) lines.push(`    documentCollection: ${r.pack}`, `    documentId: ${r.id}`);
+  if (r.pack) lines.push(`    documentUuid: ${packUuid(r.pack, r.id)}`);
   lines.push("    flags: {}", `    _key: '!tables.results!${tid}.${rid}'`);
   return lines.join("\n");
 };

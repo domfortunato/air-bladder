@@ -157,7 +157,9 @@ try {
     // assertion fails forever, looking exactly like a code bug.
     const sweep = async () => {
       const t = await scars();
-      const junk = t.results.filter((r) => r.text === MARK).map((r) => r.id);
+      // `r.name`, not `r.text`: a text row keeps its prose in `description` since v13
+      // and `text` is a shim removed in v15. This row is created with a `name`.
+      const junk = t.results.filter((r) => r.name === MARK).map((r) => r.id);
       if (junk.length) await t.deleteEmbeddedDocuments("TableResult", junk);
     };
 

@@ -5,80 +5,68 @@ description: 'Cairn 2e Winter weather. The Warden rolls d6 each day; see <em>War
 results:
   - _id: xpUvZUkPJq6nKdcK
     type: text
-    text: <strong>Fair</strong>
+    description: <strong>Fair</strong>
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 1
       - 1
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!vrso6jC2GMo9HSkF.xpUvZUkPJq6nKdcK'
   - _id: wnOTD6UZZ4CBEapF
     type: text
-    text: <strong>Unpleasant</strong>
+    description: <strong>Unpleasant</strong>
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 2
       - 2
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!vrso6jC2GMo9HSkF.wnOTD6UZZ4CBEapF'
   - _id: ygYCXk1DMdyiR1FP
     type: text
-    text: <strong>Inclement</strong>
+    description: <strong>Inclement</strong>
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 3
       - 3
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!vrso6jC2GMo9HSkF.ygYCXk1DMdyiR1FP'
   - _id: jsAgR0uGdhsTlZhe
     type: text
-    text: <strong>Inclement</strong>
+    description: <strong>Inclement</strong>
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 4
       - 4
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!vrso6jC2GMo9HSkF.jsAgR0uGdhsTlZhe'
   - _id: T46WX9qJhDsajsiW
     type: text
-    text: <strong>Extreme</strong>
+    description: <strong>Extreme</strong>
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 5
       - 5
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!vrso6jC2GMo9HSkF.T46WX9qJhDsajsiW'
   - _id: nzsawCGeG9rJTA8k
     type: text
-    text: <strong>Extreme</strong>
+    description: <strong>Extreme</strong>
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 6
       - 6
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!vrso6jC2GMo9HSkF.nzsawCGeG9rJTA8k'
 formula: 1d6

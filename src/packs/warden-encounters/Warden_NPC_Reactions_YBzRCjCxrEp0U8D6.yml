@@ -5,67 +5,57 @@ description: Cairn 2e Reactions. When an NPC or creature's disposition to the pa
 results:
   - _id: TpCkDbd8bBcMGBFY
     type: text
-    text: <strong>Hostile</strong>
+    description: <strong>Hostile</strong>
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 2
       - 2
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!YBzRCjCxrEp0U8D6.TpCkDbd8bBcMGBFY'
   - _id: BmFSB0mPNZVQIYCu
     type: text
-    text: <strong>Wary</strong>
+    description: <strong>Wary</strong>
     img: icons/svg/d20-black.svg
     weight: 3
     range:
       - 3
       - 5
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!YBzRCjCxrEp0U8D6.BmFSB0mPNZVQIYCu'
   - _id: BZAWbIhCuVmZPlYI
     type: text
-    text: <strong>Curious</strong>
+    description: <strong>Curious</strong>
     img: icons/svg/d20-black.svg
     weight: 3
     range:
       - 6
       - 8
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!YBzRCjCxrEp0U8D6.BZAWbIhCuVmZPlYI'
   - _id: 67I7ZAKpOh8ClGnu
     type: text
-    text: <strong>Kind</strong>
+    description: <strong>Kind</strong>
     img: icons/svg/d20-black.svg
     weight: 3
     range:
       - 9
       - 11
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!YBzRCjCxrEp0U8D6.67I7ZAKpOh8ClGnu'
   - _id: ZpqvjR4U4TK21h1O
     type: text
-    text: <strong>Helpful</strong>
+    description: <strong>Helpful</strong>
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 12
       - 12
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!YBzRCjCxrEp0U8D6.ZpqvjR4U4TK21h1O'
 formula: 2d6

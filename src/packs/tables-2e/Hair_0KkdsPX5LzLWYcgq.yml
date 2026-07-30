@@ -5,132 +5,112 @@ description: Cairn 2e Hair trait.
 results:
   - _id: 6NcCQmzgHWCfdCyo
     type: text
-    text: Bald
+    description: Bald
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 1
       - 1
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!0KkdsPX5LzLWYcgq.6NcCQmzgHWCfdCyo'
   - _id: xF4m93hIO2j7qr7z
     type: text
-    text: Braided
+    description: Braided
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 2
       - 2
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!0KkdsPX5LzLWYcgq.xF4m93hIO2j7qr7z'
   - _id: 9KRVuVGAIuTqsMH2
     type: text
-    text: Curly
+    description: Curly
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 3
       - 3
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!0KkdsPX5LzLWYcgq.9KRVuVGAIuTqsMH2'
   - _id: JlA3k4prJlyFz6GW
     type: text
-    text: Filthy
+    description: Filthy
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 4
       - 4
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!0KkdsPX5LzLWYcgq.JlA3k4prJlyFz6GW'
   - _id: 8qioINvCKON2hZI7
     type: text
-    text: Frizzy
+    description: Frizzy
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 5
       - 5
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!0KkdsPX5LzLWYcgq.8qioINvCKON2hZI7'
   - _id: AGIpG9RzQgPfMBW5
     type: text
-    text: Long
+    description: Long
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 6
       - 6
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!0KkdsPX5LzLWYcgq.AGIpG9RzQgPfMBW5'
   - _id: jRY31xihKG37vW4N
     type: text
-    text: Luxurious
+    description: Luxurious
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 7
       - 7
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!0KkdsPX5LzLWYcgq.jRY31xihKG37vW4N'
   - _id: VFfOFhcTe81MXRC0
     type: text
-    text: Oily
+    description: Oily
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 8
       - 8
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!0KkdsPX5LzLWYcgq.VFfOFhcTe81MXRC0'
   - _id: CJ4OjhvWFgJx7B67
     type: text
-    text: Wavy
+    description: Wavy
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 9
       - 9
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!0KkdsPX5LzLWYcgq.CJ4OjhvWFgJx7B67'
   - _id: LySJt5w4E09IYPl1
     type: text
-    text: Wispy
+    description: Wispy
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 10
       - 10
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!0KkdsPX5LzLWYcgq.LySJt5w4E09IYPl1'
 formula: 1d10

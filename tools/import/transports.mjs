@@ -56,6 +56,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+import { packUuid } from "./uuid.mjs";
 
 const require = createRequire(import.meta.url);
 const yaml = require("js-yaml");
@@ -212,16 +213,16 @@ const tableYaml = (refs) => {
     const rid = idFor(`air-bladder-market-result:${CATEGORY}:${i}:${ref.text}`);
     return [
       `  - _id: ${rid}`,
-      "    type: pack",
-      `    text: ${y(ref.text)}`,
+      // See marketplace.mjs: `pack` and `text` are both v15 removals.
+      "    type: document",
+      `    name: ${y(ref.text)}`,
       `    img: ${y(ref.img)}`,
       "    weight: 1",
       "    range:",
       `      - ${i + 1}`,
       `      - ${i + 1}`,
       "    drawn: false",
-      `    documentCollection: ${ref.documentCollection}`,
-      `    documentId: ${ref.documentId}`,
+      `    documentUuid: ${packUuid(ref.documentCollection, ref.documentId)}`,
       "    flags: {}",
       `    _key: '!tables.results!${tid}.${rid}'`,
     ].join("\n");

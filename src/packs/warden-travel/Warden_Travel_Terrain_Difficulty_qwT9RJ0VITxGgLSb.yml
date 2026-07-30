@@ -5,41 +5,35 @@ description: Cairn 2e Terrain Difficulty (reference). Choose by the terrain cros
 results:
   - _id: Go5zCdwA9ALCnVc0
     type: text
-    text: '<strong>Easy</strong> &mdash; Plains, plateaus, valleys. Penalty: none. <em>(Safe areas for rest, fellow travelers, good visibility.)</em>'
+    description: '<strong>Easy</strong> &mdash; Plains, plateaus, valleys. Penalty: none. <em>(Safe areas for rest, fellow travelers, good visibility.)</em>'
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 1
       - 1
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!qwT9RJ0VITxGgLSb.Go5zCdwA9ALCnVc0'
   - _id: O4oURlYacwx9F00z
     type: text
-    text: '<strong>Tough</strong> &mdash; Forests, deserts, hills. Penalty: +1 Watch. <em>(Wild animals, flooding, broken equipment, falling rocks, unsafe shelters, hunter&rsquo;s traps.)</em>'
+    description: '<strong>Tough</strong> &mdash; Forests, deserts, hills. Penalty: +1 Watch. <em>(Wild animals, flooding, broken equipment, falling rocks, unsafe shelters, hunter&rsquo;s traps.)</em>'
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 2
       - 2
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!qwT9RJ0VITxGgLSb.O4oURlYacwx9F00z'
   - _id: EKMvNGu3mOSqcz6i
     type: text
-    text: '<strong>Perilous</strong> &mdash; Mountains, jungles, swamp. Penalty: +2 Watches. <em>(Quicksand, sucking mud, choking vines, unclean water, poisonous plants and animals, poor navigation.)</em>'
+    description: '<strong>Perilous</strong> &mdash; Mountains, jungles, swamp. Penalty: +2 Watches. <em>(Quicksand, sucking mud, choking vines, unclean water, poisonous plants and animals, poor navigation.)</em>'
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 3
       - 3
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!qwT9RJ0VITxGgLSb.EKMvNGu3mOSqcz6i'
 formula: 1d3
