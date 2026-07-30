@@ -29,7 +29,7 @@
  * Usage: npm run dev:spellscroll
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors, dismissChrome } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, dismissChrome, watchdog, withHookOff } from "./lib.mjs";
 
 const BOOK_ICON = "systems/air-bladder/icons/spellbook.svg";
 const SCROLL_ICON = "systems/air-bladder/icons/spellscroll.svg";
@@ -42,6 +42,7 @@ const eq = (label, got, want) =>
     : fail(`${label}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`);
 
 const browser = await chromium.launch();
+watchdog(180000, "spellscroll probe");
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
 const errors = watchErrors(page);
 await joinAsGM(page);
@@ -273,6 +274,44 @@ eq("creating through the dialog yields a flagged, petty, single-use scroll",
   { name: "Spellscroll", type: "spellbook", flag: true, weightless: true, uses: { value: 1, max: 1 } });
 eq("and the plain Spellbook option beside it still makes a book",
   dialog.book, { type: "spellbook", flag: false, weightless: false });
+
+// The assertions above are their OWN negative control: with the hook switched off in
+// the live page, the option must be gone. Seconds, in this same session — the
+// alternative (stub module/cairn.js, relaunch, restore) cost ~11 minutes across two
+// runs and left the stub in the tree when the harness killed one mid-flight.
+const t0 = Date.now();
+const listWithout = await withHookOff(page, "renderDialogV2", "abSpellscrollTypeOption", () =>
+  page.evaluate(async () => {
+    const p = getDocumentClass("Item").createDialog();
+    await new Promise((r) => setTimeout(r, 500));
+    const form = [...document.querySelectorAll("dialog form")].find((f) => f.querySelector('select[name="type"]'));
+    const labels = [...form.querySelectorAll('select[name="type"] option')].map((o) => o.textContent.trim());
+    // Always press a button: an unanswered modal prompt never settles.
+    form.closest("dialog").querySelector('button[data-action="ok"]').click();
+    const doc = await p.catch(() => null);
+    await doc?.sheet?.close();
+    await doc?.delete();
+    return labels;
+  }));
+
+!listWithout.includes("Spellscroll")
+  ? ok(`with the hook off the option is gone, so the check above is load-bearing (${Date.now() - t0}ms)`)
+  : fail(`the option survived with the hook off — the assertions above prove nothing: ${listWithout.join(", ")}`);
+
+const listRestored = await page.evaluate(async () => {
+  const p = getDocumentClass("Item").createDialog();
+  await new Promise((r) => setTimeout(r, 500));
+  const form = [...document.querySelectorAll("dialog form")].find((f) => f.querySelector('select[name="type"]'));
+  const labels = [...form.querySelectorAll('select[name="type"] option')].map((o) => o.textContent.trim());
+  form.closest("dialog").querySelector('button[data-action="ok"]').click();
+  const doc = await p.catch(() => null);
+  await doc?.sheet?.close();
+  await doc?.delete();
+  return labels;
+});
+listRestored.includes("Spellscroll")
+  ? ok("and it comes back when the hook is restored")
+  : fail("the hook did not come back — later sections would be testing a disabled system");
 
 /* --- 6. the migration, on planted OLD-shape scrolls -------------------------- */
 

@@ -480,8 +480,13 @@ const migrateScrollsToSpellbooks = async () => {
  *
  * Degrades quietly. If core reworks this dialog the option stops appearing, and the
  * worst case is a plain spellbook that the sheet's Scroll box still converts.
+ *
+ * Registered as a NAMED function expression so a probe can find it in
+ * `Hooks.events.renderDialogV2` and switch it off in the live page — that is how
+ * dev:spellscroll negative-controls this feature without editing source and
+ * re-running (tools/dev/lib.mjs `withHookOff`). Renaming it breaks that probe.
  */
-Hooks.on("renderDialogV2", (dialog, element) => {
+Hooks.on("renderDialogV2", function abSpellscrollTypeOption(dialog, element) {
   const root = element instanceof HTMLElement ? element : element?.[0];
   const select = root?.querySelector('select[name="type"]');
   const form = select?.form;

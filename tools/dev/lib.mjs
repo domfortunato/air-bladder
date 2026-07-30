@@ -103,6 +103,73 @@ export async function dismissChrome(page) {
 }
 
 /**
+ * Fail the run after `ms` instead of hanging until the harness gives up.
+ *
+ * Written after a probe deadlocked for SEVEN MINUTES: `DialogV2` is modal and its
+ * promise settles only on a button press, so one code path that returned without
+ * pressing anything left an awaited `createDialog()` pending forever. A hang is the
+ * worst failure mode there is — it costs the whole harness timeout and reports
+ * nothing about what broke — and it is the normal shape of failure for any probe
+ * that awaits a dialog, a socket round trip, or a poll.
+ *
+ * Call once, right after launching the browser. `unref()` so a probe that finishes
+ * early is not held open by the timer.
+ */
+export function watchdog(ms = 120000, label = "probe") {
+  const t = setTimeout(() => {
+    console.error(`\n  FAIL  ${label} exceeded ${ms}ms — treating as a hang, not a slow run`);
+    process.exit(1);
+  }, ms);
+  t.unref();
+  return t;
+}
+
+/**
+ * Run `fn` with one of the system's hooks unregistered, then put it back.
+ *
+ * This is how a probe negative-controls a hook-based feature WITHOUT editing source
+ * and re-running: `Hooks.events` is a public registry of `{hook, id, fn}` entries and
+ * `Hooks.off` takes either the id or the function, so the feature can be switched off
+ * in the live page, asserted absent, and switched back on — seconds, one session, and
+ * the repo is never dirty.
+ *
+ * The alternative cost real time and left a hazard: stubbing `module/cairn.js` and
+ * re-running meant a full browser launch per direction, and when the harness killed
+ * one run mid-flight the stub stayed in the working tree. Same reasoning as
+ * `withSettings` above — the restore belongs in a Node-level `finally`, where a throw
+ * inside the page cannot skip it.
+ *
+ * Identifies the handler by FUNCTION NAME, so the hook must be registered as a named
+ * function expression. That is deliberate: matching on `fn.toString()` would silently
+ * stop matching the day the implementation is reworded.
+ *
+ * @param {import("playwright").Page} page
+ * @param {String} hook     e.g. "renderDialogV2"
+ * @param {String} fnName   the registered handler's function name
+ * @param {Function} fn     Node-side callback run while the hook is off
+ */
+export async function withHookOff(page, hook, fnName, fn) {
+  const found = await page.evaluate(([hook, fnName]) => {
+    const entry = (Hooks.events[hook] ?? []).find((e) => e.fn?.name === fnName);
+    if (!entry) return false;
+    globalThis.__abHookOff = { hook, fn: entry.fn };
+    Hooks.off(hook, entry.id);
+    return true;
+  }, [hook, fnName]);
+  if (!found) throw new Error(`withHookOff: no "${fnName}" handler registered for ${hook}`);
+  try {
+    return await fn();
+  } finally {
+    await page.evaluate(() => {
+      const saved = globalThis.__abHookOff;
+      if (!saved) return;
+      Hooks.on(saved.hook, saved.fn);
+      delete globalThis.__abHookOff;
+    });
+  }
+}
+
+/**
  * Collect real console errors. Two known-irrelevant messages are filtered:
  * the viewport warning (an artifact of the headless window size) and the
  * hardware-acceleration warning (headless Chromium has no GPU).

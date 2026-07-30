@@ -218,6 +218,32 @@ confirm it fails with its fix removed. `dev:icon-canvas` is the pattern: it plan
 document holding the *old* state and watches it get rewritten, because asserting "nothing
 is in the old state" passes trivially on an already-migrated world.
 
+**…and prove that INSIDE the run, not by editing source and running again.** Stubbing the
+fix in `module/`, relaunching, then restoring costs a browser launch per direction and
+leaves the stub in the working tree if anything kills the run mid-flight. Both happened on
+2026-07-29: ~11 minutes across two runs, one of which died to a hang and left
+`if (true) return;` in `module/cairn.js`. In-page fault injection does the same job in
+**seconds**, in the run you were making anyway:
+
+| the fix is | switch it off with |
+| --- | --- |
+| a hook | `Hooks.off` — `Hooks.events` is a public `{hook, id, fn}` registry; `lib.mjs` `withHookOff(page, hook, fnName, fn)` wraps it, restoring in a Node-level `finally`. Register the handler as a **named** function expression so the probe can find it |
+| a document override (`_preUpdate`, `prepareData`) | reassign the prototype method to the base class's for the duration |
+| a CSS rule | walk `document.styleSheets`, blank the property, put it back |
+| a translated string | `dev:i18n-render`'s trick — swap `game.i18n.translations` for a copy carrying unique **sentinels**, so a pre-fix code path emitting the English literal cannot match. Every assertion becomes its own negative control and no second run exists at all |
+
+`dev:spellscroll` shows the shape: it asserts the Create-Item dialog offers "Spellscroll",
+then switches the hook off, asserts the option is **gone**, and switches it back — 5.2s
+inside an 80s run, versus 11 minutes and a dirty tree.
+
+**A hang is the worst failure mode, and dialogs are how you get one.** `DialogV2` is modal
+and its promise settles only on a button press, so a probe path that returns without
+pressing anything waits forever: it burns the whole harness timeout and reports nothing.
+Cancelling is not the escape either — a cancelled `DialogV2.prompt` *rejects*, so an
+uncaught `await` throws past the assertions. Press a button on **every** path, `.catch()`
+the promise, and call `lib.mjs` `watchdog(ms, label)` after launching the browser so any
+future hang dies with a message instead of a timeout.
+
 **When the defect is how much WORK happens, count it — an assertion on the output cannot
 fail.** `findCompendiumItem` loaded a whole pack per lookup, so opening the shop did 78
 full pack loads to resolve 77 items. The catalog was correct before and after; there was
