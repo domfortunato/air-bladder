@@ -120,6 +120,49 @@ export class CairnActor extends Actor {
   }
 
   /**
+   * Taking an EXISTING npc into the party's employ gets the same token defaults
+   * `_preCreate` gives one generated as a hireling.
+   *
+   * `forHire` is not a create-time property: it is a checkbox on the NPC sheet, and
+   * ticking it on a monster-shaped npc is the natural way to hire someone who is
+   * already in the world. `_preCreate` is never revisited, so nothing re-applied
+   * the defaults — the actor kept Foundry's own (`disposition` HOSTILE,
+   * `actorLink` false, common/documents/token.mjs:62,73-74) and its token arrived
+   * red-ringed and unlinked, so HP edited on the token never reached the sheet.
+   * That is exactly the bug `b3eefa6` fixed for GENERATED hirelings, reachable by
+   * the other route; observed 2026-07-30.
+   *
+   * Only from the Foundry defaults, and only on the false->true edge. A Warden who
+   * has deliberately made a hireling NEUTRAL, or unlinked it on purpose, keeps that
+   * — the same "an explicit value wins" rule `_preCreate` follows, applied to a
+   * value chosen earlier rather than passed in the same breath. Un-ticking is not
+   * the mirror image and does nothing: ceasing to be for hire is not a reason to
+   * turn someone hostile.
+   *
+   * Only the prototype, which is all this can honestly promise. Tokens already on
+   * a scene are their own documents and are left alone.
+   */
+  #applyForHireTokenDefaults(changed) {
+    // flattenObject, so this reads the same whether the caller passed
+    // `{system: {forHire: true}}` (the sheet, via expandObject) or the flat
+    // `{"system.forHire": true}` (any API caller). getProperty would miss the
+    // second: it walks dot paths and cannot see a key that CONTAINS the dots.
+    const flat = foundry.utils.flattenObject(changed);
+    if (flat["system.forHire"] !== true) return;
+    if (this.system.forHire === true) return;                 // already hired
+
+    const D = CONST.TOKEN_DISPOSITIONS;
+    if (this.prototypeToken.disposition === D.HOSTILE
+      && flat["prototypeToken.disposition"] === undefined) {
+      foundry.utils.setProperty(changed, "prototypeToken.disposition", D.FRIENDLY);
+    }
+    if (this.prototypeToken.actorLink === false
+      && flat["prototypeToken.actorLink"] === undefined) {
+      foundry.utils.setProperty(changed, "prototypeToken.actorLink", true);
+    }
+  }
+
+  /**
    * Augment the basic actor data with additional dynamic data.
    */
   prepareData() {
@@ -485,18 +528,31 @@ export class CairnActor extends Actor {
   }
 
   /**
-   * Re-art a container when its type changes — but ONLY if it is still wearing
-   * one of our class icons. Turning a chest into an Item Pile should look like
-   * one, and `img` is a stored copy that no amount of derived data will move.
+   * Two type-exclusive jobs, in the one `_preUpdate` this class is allowed to have.
    *
-   * The same rule the icon migration uses: touch our own `icons/*.svg` and
-   * nothing else, so a Warden who picked their own art (or browsed to a file)
-   * keeps it. Idempotent — re-running on an already-correct path is a no-op.
+   * **npc / hireling** — `#applyForHireTokenDefaults`, above: ticking "For hire"
+   * gets the token defaults `_preCreate` gives a generated hireling.
+   *
+   * **container** — re-art it when its type changes, but ONLY if it is still
+   * wearing one of our class icons. Turning a chest into an Item Pile should look
+   * like one, and `img` is a stored copy that no amount of derived data will move.
+   * The same rule the icon migration uses: touch our own `icons/*.svg` and nothing
+   * else, so a Warden who picked their own art (or browsed to a file) keeps it.
+   * Idempotent — re-running on an already-correct path is a no-op.
    * @override
    */
   async _preUpdate(changed, options, user) {
     const result = await super._preUpdate(changed, options, user);
     if (result === false) return false;
+
+    // ONE _preUpdate for the whole class. There were briefly two, and the second
+    // silently won — a duplicate method in a class body is not an error, the later
+    // definition simply replaces the earlier, so the first became dead code that
+    // still read like working code. Caught only by instrumenting the loaded
+    // prototype and seeing the wrong function body come back. The two concerns are
+    // type-exclusive, so they dispatch here rather than each owning a hook.
+    if (["npc", "hireling"].includes(this.type)) this.#applyForHireTokenDefaults(changed);
+
     if (this.type !== "container") return result;
     const kind = changed.system?.transportKind;
     if (kind === undefined || kind === this.system.transportKind) return result;
@@ -507,7 +563,14 @@ export class CairnActor extends Actor {
     const ours = new Set(Object.values(CONTAINER_CLASSES).map((c) => `${ICON_DIR}/${c.icon}.svg`));
     ours.add(CONST.DEFAULT_TOKEN);
     if (!ours.has(this.img)) return result;
-    const art = iconForTransport(changed.name ?? this.name, kind);
+    // The stored class still wins here, exactly as it does at creation. Without
+    // it, changing a transportKind would re-art a container away from the class
+    // its owner picked by hand — the one thing that override exists to prevent.
+    const art = iconForTransport(
+      changed.name ?? this.name,
+      kind,
+      changed.system?.containerClass ?? this.system.containerClass ?? "",
+    );
     if (art === this.img) return result;
     changed.img = art;
     foundry.utils.setProperty(changed, "prototypeToken.texture.src", art);

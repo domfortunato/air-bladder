@@ -134,7 +134,39 @@ const out = await page.evaluate(async () => {
     if (td) await scene.deleteEmbeddedDocuments("Token", [td.id]);
   } else res.placedSkipped = "no scene in this world";
 
-  for (const a of [gen, mon, legacy, forHire, pc, explicit, viaGlobal]) await a.delete();
+  // ---- hired LATER, not at creation ------------------------------------------
+  // forHire is a checkbox on the NPC sheet, so the natural way to take an existing
+  // npc into the party's employ never goes near _preCreate. Nothing re-applied the
+  // defaults, so the actor kept Foundry's own -- hostile, unlinked -- and HP typed
+  // on its token never reached the sheet. Observed 2026-07-30; this is the same
+  // bug b3eefa6 fixed for GENERATED hirelings, by the other route.
+  const late = await Cls.create({ name: "ZZ Tok Hired Later", type: "npc" });
+  res.lateBefore = {
+    hostile: late.prototypeToken.disposition === D.HOSTILE,
+    actorLink: late.prototypeToken.actorLink,
+  };
+  await late.update({ "system.forHire": true });
+  res.lateAfter = {
+    friendly: late.prototypeToken.disposition === D.FRIENDLY,
+    actorLink: late.prototypeToken.actorLink,
+  };
+
+  // ...but only from Foundry's defaults. A Warden who deliberately made a hireling
+  // NEUTRAL keeps it -- the same "an explicit value wins" rule _preCreate follows,
+  // applied to a value chosen earlier rather than passed in the same breath.
+  const chosen = await Cls.create({
+    name: "ZZ Tok Hired Later Neutral", type: "npc",
+    prototypeToken: { disposition: D.NEUTRAL },
+  });
+  await chosen.update({ "system.forHire": true });
+  res.deliberateKept = chosen.prototypeToken.disposition === D.NEUTRAL;
+
+  // And un-ticking is not the mirror image: ceasing to be for hire is no reason to
+  // turn someone hostile.
+  await late.update({ "system.forHire": false });
+  res.unhiredStaysFriendly = late.prototypeToken.disposition === D.FRIENDLY;
+
+  for (const a of [gen, mon, legacy, forHire, pc, explicit, viaGlobal, late, chosen]) await a.delete();
   return res;
 });
 
@@ -163,6 +195,26 @@ if (out.control && !out.control.friendly && !out.control.actorLink) {
   fail(`negative control: defaults survived a disabled _preCreate (${JSON.stringify(out.control)}) — `
     + "the assertions above cannot fail and prove nothing");
 }
+
+console.log("\nhired after creation (the checkbox, not the generator)");
+// The precondition, stated: if a plain npc were already friendly and linked the
+// assertion below would pass without anything re-applying anything.
+if (out.lateBefore?.hostile && out.lateBefore?.actorLink === false) {
+  ok("a plain npc starts hostile and unlinked, as Foundry makes it");
+} else {
+  fail(`a plain npc started ${JSON.stringify(out.lateBefore)} — it is already friendly, `
+    + "so the assertion below proves nothing");
+}
+if (out.lateAfter?.friendly && out.lateAfter?.actorLink === true) {
+  ok("ticking For hire re-applies friendly + linked");
+} else {
+  fail(`ticking For hire left the prototype ${JSON.stringify(out.lateAfter)} — its token arrives `
+    + "red-ringed and unlinked, so HP edited on the token never reaches the sheet");
+}
+if (out.deliberateKept) ok("a deliberately-chosen disposition survives being hired (NEUTRAL kept)");
+else fail("hiring overwrote a disposition the Warden had chosen on purpose");
+if (out.unhiredStaysFriendly) ok("un-ticking For hire does not turn them hostile again");
+else fail("un-ticking For hire made them hostile — that is not the mirror image of hiring");
 
 if (out.placedSkipped) console.log(`  note  placed-token check skipped: ${out.placedSkipped}`);
 else if (out.placed?.disposition === 1 && out.placed?.actorLink === true) {
