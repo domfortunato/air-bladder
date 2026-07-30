@@ -68,7 +68,8 @@
     "dev:feature-xss": "node tools/dev/e2e-feature-xss.mjs",
     "dev:roll-npc": "node tools/dev/e2e-roll-npc.mjs",
     "dev:forhire": "node tools/dev/e2e-forhire-migration.mjs",
-    "dev:bg-drop-guard": "node tools/dev/e2e-background-drop-guard.mjs"
+    "dev:bg-drop-guard": "node tools/dev/e2e-background-drop-guard.mjs",
+    "dev:token-defaults": "node tools/dev/e2e-token-defaults.mjs"
   },
   "browserslist": [
     "last 3 versions"

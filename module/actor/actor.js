@@ -25,19 +25,50 @@ export class CairnActor extends Actor {
 
   /** @override */
   static async create(data, options = {}) {
-    // Hirelings are player-facing helpers, so they get the same friendly, linked,
-    // sighted token defaults a character does.
-    if (data.type === "character" || data.type === "hireling") {
+    // Hirelings are player-facing helpers, so they get the same friendly, linked
+    // token defaults a character does. Monsters must NOT — they are `npc` too.
+    //
+    // **`system.forHire` is the discriminator, not the type.** The Hireling->NPC
+    // fold made the two one type, so a `type === "hireling"` test stopped matching
+    // anything the generator produces: `hirelingToActorData` emits `type: "npc"`.
+    // Every generated hireling therefore fell through to Foundry's own schema
+    // defaults — `actorLink` is a BooleanField with no initial (false) and
+    // `disposition` initials to HOSTILE (common/documents/token.mjs:62,73-74) — and
+    // arrived red-ringed and unlinked, so HP edited on the token never reached the
+    // sheet. It was friendly and linked in 0.1.7; 1d2a214 records the portrait as
+    // the only intended create-time difference, so this was collateral.
+    //
+    // Widening the test to plain `npc` would be the wrong fix: all 205 shipped
+    // monsters are npc documents and must stay hostile and unlinked. `forHire` says
+    // exactly the thing that matters here — this NPC is in the party's employ.
+    //
+    // `hireling` stays in the test for documents created before the fold, and for a
+    // Warden picking the still-registered alias in the Create Actor dialog.
+    const isHireling =
+      data.type === "hireling" || (data.type === "npc" && data.system?.forHire === true);
+    if (data.type === "character" || isHireling) {
+      // No `vision: true` here. It is not a field of PrototypeToken in v14 —
+      // `defineSchema` keeps an explicit `included` set (common/data/data.mjs:614-616)
+      // with no `vision` key — so `cleanData` pruned it silently and it has never done
+      // anything. The v14 path is `sight.enabled`, and turning sight ON for these
+      // tokens is a behaviour change, not this fix; left for a deliberate decision.
+      //
+      // `overwrite: false`, not `override: false`. All three merges in this method
+      // said `override`, which is not an option `mergeObject` accepts
+      // (common/utils/helpers.mjs:1126) — so it was dropped and `overwrite` kept its
+      // default of TRUE. Every one of these merges therefore clobbered exactly the
+      // caller-supplied value its comment promised to protect, and did so silently:
+      // a wrong option name is not a typo any linter or runtime sees. Caught by
+      // `dev:token-defaults` asserting the promise rather than the outcome.
       foundry.utils.mergeObject(
         data,
         {
           prototypeToken: {
             disposition: CONST.TOKEN_DISPOSITIONS.FRIENDLY,
             actorLink: true,
-            vision: true,
           },
         },
-        { override: false }
+        { overwrite: false }
       );
     }
 
@@ -56,7 +87,7 @@ export class CairnActor extends Actor {
         const pair = await randomPortraitPair();
         if (pair) {
           data.img = pair.img;
-          foundry.utils.mergeObject(data, { prototypeToken: { texture: { src: pair.token } } }, { override: false });
+          foundry.utils.mergeObject(data, { prototypeToken: { texture: { src: pair.token } } }, { overwrite: false });
         }
       } catch (err) {
         // A missing manifest must not block creating an actor.
@@ -72,7 +103,7 @@ export class CairnActor extends Actor {
     if (data.type === "container" && !data.img) {
       const art = iconForTransport(data.name ?? "", data.system?.transportKind ?? "");
       data.img = art;
-      foundry.utils.mergeObject(data, { prototypeToken: { texture: { src: art } } }, { override: false });
+      foundry.utils.mergeObject(data, { prototypeToken: { texture: { src: art } } }, { overwrite: false });
     }
     return super.create(data, options);
   }
