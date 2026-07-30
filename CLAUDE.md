@@ -146,22 +146,35 @@ Commit messages. They are long and they explain *why* — treat `git log` as the
 design record. `docs/` holds the durable plans (i18n, custom backgrounds,
 translating). `README.md` carries credits and licensing.
 
-## Four licences, not one
+## Licensing — six regimes, and the traps
 
-1. **Code — MIT.**
-2. **Game text — CC BY-SA 4.0**, Yochai Gal. Attribution required; derivatives
-   inherit ShareAlike. Includes the "Compatible with Cairn" badge in `logo/`.
-3. **Character portrait/token art — CC BY 4.0**, Jon Aspeheim. Attribution only;
-   confirmed human-made (no AI), credited in `README.md`.
-4. **Item icons — CC BY 3.0**, game-icons.net. Per-icon author attribution is in
-   `icons/CREDITS.md`, which must stay in step with the `ICONS` table in
-   `tools/import/icons.mjs` — add a row to one, add a row to the other. Hand-adding
-   an SVG instead of running the importer is how `stack.svg` shipped with no
-   intrinsic size, rasterising at 150×150.
-5. **The Air Bladder logo — all rights reserved**, Lydia Comer, used by bespoke
-   grant. NOT a Creative Commons licence; do not treat it as one.
+**The inventory lives in `README.md` (canonical) and `LICENSE.txt`, and
+`check:licence` holds them in step.** It is not repeated here any more. This section
+used to carry a third copy under the heading "Four licences, not one", listing five
+regimes while six shipped — the OFL fonts were missing, and their clause 2 requires
+the notice travel with every copy. Nothing checked it, because the gate compares the
+two files that matter and had no reason to know about a list in the working notes.
+**A third copy of a list is a third thing to drift**; if something here needs a
+regime named, name the file that holds it.
 
-(Yes, that is five. The heading is inherited.)
+What belongs here is what those two files do not say:
+
+- **The Air Bladder logo is NOT Creative Commons.** All rights reserved, Lydia Comer,
+  by bespoke grant. Do not treat it as CC, and do not reach for it as the manifest's
+  cover image — that is the reason `media` is deliberately absent from `system.json`.
+- **`icons/CREDITS.md` must stay in step with the `ICONS` table in
+  `tools/import/icons.mjs`** — add a row to one, add a row to the other. Hand-adding
+  an SVG instead of running the importer is how `stack.svg` shipped with no intrinsic
+  size, rasterising at 150×150.
+- **The character portraits are confirmed human-made** (no AI). That is what makes the
+  system eligible under Foundry's content policy, so keep the credit if the art ships.
+- **`lang/` is split between two regimes by PROVENANCE, not by content** (settled
+  2026-07-30): the five inherited interface files travel under upstream's MIT, while
+  Malecho's `lang/es.json` and `lang/content/es.json` are CC BY-SA as derivatives of
+  the game text. So two files of the same kind sit under different licences on
+  purpose. `check:licence` now also asserts every directory the release zip ships is
+  named by some clause — `lang/` had been named by none, which the "these and only
+  these" wording makes an exclusion rather than an oversight.
 
 ## Testing
 
