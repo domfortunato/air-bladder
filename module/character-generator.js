@@ -1907,6 +1907,9 @@ export const regenerateHireling = async (actor) => {
   await actor.deleteEmbeddedDocuments("Item", [], { deleteAll: true, render: false });
   await actor.update({
     system: {
+      // Set alongside the rate, never separately: `forHire` gates the day-rate row,
+      // so writing a rate without it stores a number the sheet will never render.
+      forHire: true,
       profession: h.profession,
       dayRate: h.rate,
       abilities: hirelingAbilityData(h.abilities),
@@ -1936,6 +1939,8 @@ export const rerollHirelingProfession = async (actor) => {
   if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false });
   await actor.update({
     system: {
+      // See regenerateHireling: the flag travels with the rate it gates.
+      forHire: true,
       profession: h?.name ?? "",
       dayRate: h?.rate ?? 0,
       abilities: hirelingAbilityData(h?.abilities ?? { STR: 10, DEX: 10, WIL: 10 }),

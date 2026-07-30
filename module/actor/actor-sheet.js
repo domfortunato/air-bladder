@@ -1,6 +1,6 @@
 import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, mentionsSecondBond, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, getCustomPortraitPaths, refreshCustomPortraits, regenerateHireling, rerollHirelingProfession, rerollHirelingName, rollNameFromTable, rollAge } from "../character-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
-import { evaluateFormula, stripPar, bindEditorClickAwaySave } from "../utils.js";
+import { evaluateFormula, cleanDescription, bindEditorClickAwaySave } from "../utils.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART, CONTAINER_ICON, TRANSPORT_KINDS } from "../icons.js";
 import { localizeNameDesc, t } from "../i18n-content.js";
@@ -1268,24 +1268,41 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   /* -------------------------------------------- */
 
   /**
-   * Roll the whole actor again. A character asks first (it discards a lot); a
-   * hireling's statblock is disposable by design, so it just re-rolls.
+   * Roll the whole actor again. BOTH branches ask first.
+   *
+   * The NPC branch used to re-roll on a single click, on the reasoning that "a
+   * hireling's statblock is disposable by design". That was written when only
+   * `hireling` reached it. Folding hireling into npc silently widened it to the
+   * whole bestiary: all 205 shipped monsters are `type: npc`, none of them declares
+   * `generationEnabled` (so it defaults true, data-models.js:208) and
+   * `show-generate-header` defaults true — so the button renders on every monster
+   * for anyone who owns it, and `regenerateHireling` deletes every embedded Item
+   * and overwrites the statblock. One click turned a shipped Gorilla into an
+   * Alchemist (observed 2026-07-30: `Fists*` → six pieces of gear, STR 14→8, HP
+   * 4→2), with no dialog and no undo.
+   *
+   * The confirmation is NOT worded via `_wording()`: that helper picks a `…Npc`
+   * variant whenever `game.i18n.has()` is true, and `has()` consults the English
+   * fallback, so a variant key silently un-translates a string every language
+   * already has. These are new keys with no base-key twin, so they carry no such
+   * risk.
    * @this {CairnActorSheet}
    */
   static async #onRollActor(event) {
     event.preventDefault();
-    if (["hireling", "npc"].includes(this.actor.type)) {
-      await regenerateHireling(this.actor);
-      return;
-    }
+    const isNpc = ["hireling", "npc"].includes(this.actor.type);
     // DialogV2.confirm already makes "No" the default button, so V1's
     // defaultYes: false has no equivalent to carry over.
     const confirm = await foundry.applications.api.DialogV2.confirm({
-      window: { title: game.i18n.localize("CAIRN.CharacterRegeneratorTitle") },
-      content: `<p>${game.i18n.localize("CAIRN.CharacterRegeneratorConfirm")}</p>`,
+      window: {
+        title: game.i18n.localize(isNpc ? "CAIRN.NpcRegeneratorTitle" : "CAIRN.CharacterRegeneratorTitle"),
+      },
+      content: `<p>${game.i18n.localize(isNpc ? "CAIRN.NpcRegeneratorConfirm" : "CAIRN.CharacterRegeneratorConfirm")}</p>`,
       rejectClose: false,
     });
-    if (confirm) await regenerateActor(this.actor);
+    if (!confirm) return;
+    if (isNpc) await regenerateHireling(this.actor);
+    else await regenerateActor(this.actor);
   }
 
   /**
@@ -1509,12 +1526,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     this._toggleRowDescription(row, () => {
       const item = this.actor.items.get(row.dataset.itemId);
       if (!item) return null;
-      const crit = item.system.criticalDamage && stripPar(item.system.criticalDamage) !== ""
-        ? `<div><i class="fa-regular fa-skull"></i> <i>${stripPar(item.system.criticalDamage)}</i></div>`
+      const crit = cleanDescription(item.system.criticalDamage) !== ""
+        ? `<div><i class="fa-regular fa-skull"></i> <i>${cleanDescription(item.system.criticalDamage)}</i></div>`
         : "";
       const div = document.createElement("div");
       div.className = "item-description";
-      div.innerHTML = `${stripPar(item.system.description)}${crit}`;
+      div.innerHTML = `${cleanDescription(item.system.description)}${crit}`;
       return div;
     });
   }
@@ -1710,7 +1727,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       if (!feature) return null;
       const div = document.createElement("div");
       div.className = "item-description";
-      div.innerHTML = stripPar(feature.description);
+      // cleanDescription, not stripPar: `system.features` is an ObjectField interior,
+      // so the server never sanitizes it and this was a player→GM XSS. See utils.js.
+      div.innerHTML = cleanDescription(feature.description);
       return div;
     });
   }

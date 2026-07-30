@@ -76,6 +76,8 @@
   "CAIRN.CharacterGenerator": "Generate character",
   "CAIRN.CharacterRegeneratorConfirm": "Are you sure you want to roll a new character?</p><p>Note that the given background will persist unless you click the magnifier next to the Background under your character's name.</p><p>The given portrait and notes field (bottom of notes tab) will persist. You can change them manually.",
   "CAIRN.CharacterRegeneratorTitle": "Roll a new character?",
+  "CAIRN.NpcRegeneratorConfirm": "Are you sure you want to roll this NPC again?</p><p>Everything it is carrying will be deleted, and its abilities, HP, career and day rate will be replaced. This cannot be undone.",
+  "CAIRN.NpcRegeneratorTitle": "Roll this NPC again?",
   "CAIRN.Containers": "Containers",
   "CAIRN.ContainerAlreadyOwned": "Container already owned by someone.",
   "CAIRN.CreateItem": "Create Item",

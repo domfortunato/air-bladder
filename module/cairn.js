@@ -291,6 +291,8 @@ Hooks.once("ready", async () => {
 
   await phase("spellscroll -> flagged spellbook migration", migrateScrollsToSpellbooks);
 
+  await phase("hireling forHire migration", migrateHirelingsForHire);
+
   // Custom character portraits: make sure the GM's folder exists, then refresh the
   // cached image list so players (who cannot scan folders) see the current set.
   // Both are non-fatal — a host that forbids folder ops just leaves the pool empty
@@ -445,6 +447,43 @@ const migrateScrollsToSpellbooks = async () => {
   }
 
   if (count) console.log(`Air Bladder | converted ${count} spellscroll(s) to flagged spellbooks`);
+};
+
+/**
+ * `forHire` gates the day-rate row on the merged NPC sheet, and it was born
+ * `false`. The field arrived with the Hireling->NPC fold and nothing writes it
+ * except `hirelingToActorData` on CREATE — so every hireling already living in a
+ * 0.1.7 world initialises `false` on upgrade and its stored `system.dayRate`
+ * silently stops rendering. The value is not lost (it sits untouched in `_source`),
+ * which is exactly what makes it hard to notice: the sheet just quietly drops a row.
+ *
+ * The general rule this is an instance of: **a new field whose default contradicts
+ * what every existing document should have needs a migration.** Adding one to the
+ * schema is not enough, and a fresh-world validation cannot see the difference.
+ *
+ * `hireling` documents are the whole population by construction — `npc` had no
+ * `dayRate` field before the fold, so an npc cannot have carried one out of 0.1.7.
+ * The `dayRate` clause exists for npcs re-rolled on an unreleased `dev` build,
+ * where Roll NPC wrote a rate without the flag (fixed at the same time in
+ * character-generator.js).
+ *
+ * World actors only. An unlinked token's delta stores DIFFERENCES from its base
+ * actor and `forHire` never existed, so no delta can be carrying one — flipping the
+ * base actor is enough for its tokens to follow. That is why this needs none of the
+ * scene-token walk the spellscroll migration above does.
+ *
+ * Idempotent by construction: a migrated actor no longer matches `forHire !== true`.
+ */
+const migrateHirelingsForHire = async () => {
+  const updates = game.actors
+    .filter((a) => ["hireling", "npc"].includes(a.type)
+      && a.system?.forHire !== true
+      && (a.type === "hireling" || Number(a.system?.dayRate) > 0))
+    .map((a) => ({ _id: a.id, "system.forHire": true }));
+  if (updates.length) {
+    await Actor.updateDocuments(updates);          // one batch, so it can't half-finish
+    console.log(`Air Bladder | marked ${updates.length} hireling(s) as for hire`);
+  }
 };
 
 // Two hooks used to tag every dialog world-wide with `.cairn-dialog` so

@@ -63,6 +63,10 @@ changed, which **fails while a world is open**, so stop the server for it.
 | `npm run dev:data-model` | the TypeDataModel schemas |
 | `npm run dev:icons` | no document left on a `.png` icon; every icon 200s, is really SVG, and rasterises at full size. Its list comes from the **`icons/` directory**, not from icons in use by documents — it used to be the latter, so it checked 15 of 17 files and a newly added icon stayed invisible to it until content pointed at one |
 | `npm run dev:sanitize` | that the server actually strips scripts from a system `HTMLField`. Writes a payload **as a real player** (Alice) to their own character's `system.notes` and to an owned weapon's description, and asserts both come back cleaned with their benign content intact. Needed alongside `check:fields` because the manifest declaration only takes effect at server STARTUP — an un-restarted edit is indistinguishable from no edit |
+| `npm run dev:feature-xss` | the OTHER half of the sanitization threat, which `dev:sanitize` cannot reach. `htmlFields` addresses top-level schema paths, and `system.features` is an `ArrayField(ObjectField)` — the server has no schema for an ObjectField's interior, so **no manifest edit can ever make it clean what is stored there** (`check:fields` is blind for the same reason, and says so). The defence is the sink, so this asserts the sink: Alice writes a payload to a feature on her **own** character, the GM expands it, and nothing executes. Three positive controls, all load-bearing — the payload must reach storage verbatim, the panel must actually render with its benign tail intact, and the sanitized `<img>` must still 404 (which is the proof it was live in the DOM at the moment `onerror` would have fired) |
+| `npm run dev:roll-npc` | that Roll NPC **asks first**. It routes an npc to `regenerateHireling`, which deletes every embedded Item and overwrites the statblock, and it used to do that on one click — harmless for a hireling, which is what it was written for, and a one-click no-undo wipe of any of the 205 shipped monsters after the Hireling→NPC fold. Asserts the dialog opens, that declining leaves the statblock *and* `_stats.modifiedTime` alone, and — the assertion that makes the other two mean anything — that accepting really does regenerate. The decline check waits **8s**, because regeneration takes ~5s and an earlier version waited 1.5s and reported the destructive behaviour absent |
+| `npm run dev:forhire` | the `forHire` migration, i.e. that a hireling upgraded from 0.1.7 keeps its day rate on screen. Seeds a pre-migration actor and **reloads**, so the real `ready`-hook path runs; a fresh-world validation cannot see this class of defect by construction. Asserts the flag flips, the rate survives, the sheet renders the row again, the migration **names itself in the log** as the writer — and that a plain monster is left alone, because an over-broad migration passes every other check while putting a day-rate row on every wolf |
+| `npm run dev:bg-drop-guard` | that **only a player character accepts a background**. Dropping one is not an inventory add — it *changes* the background, deleting everything the old one granted — so on any other type it must be refused outright, with a warning rather than silently. Covers all four routes a background can arrive by (compendium, world item, another character's inventory, and an unlinked token's delta) across npc, hireling and container, asserts a refused transfer takes nothing from the donor, and ends on a positive control: a character must still accept one, or every refusal above is satisfied by a handler that refuses everything |
 | `npm run dev:i18n-render` | that the localized surfaces come out **localized**, which neither offline check can see: a string routed through `game.i18n` still renders English if the value fed into it is a raw stored token, or if a guard compares a stored English name against a translated one. It swaps `game.i18n.translations` for a copy carrying **unique sentinels** and asserts the sentinel reaches the DOM — so every assertion is its own negative control, since the pre-fix code emitted the English literal and no sentinel matches it. Covers the ability-save label, the Critical Damage banner, the spellbook display prefix (both directions), the equipment-limit tooltip, the delete confirmation, the archetype dropdown and the shop chips |
 | `npm run dev:compendium` | the shared name→document lookup in `module/compendium.js`. **Counts** full pack loads while opening the shop, because the catalog is correct either way and the entire defect is how much work happens — a functional assertion cannot fail. Also that a missing table degrades to `undefined`/`""` instead of throwing, and that adding a *row* to a shipped table invalidates the sheet's pack cache |
 | `npm run dev:icon-canvas` | the icon migration reaches scene tokens and the canvas ends correct after a reload |
@@ -177,6 +181,15 @@ the **previous** version first, seed real content (characters with inventories, 
 container, a world item, an **unlinked scene token** — five distinct branches), then
 install the new build over it and boot the same world.
 
+Add a branch to that list for whatever the release's own migration touches. For the
+`forHire` one, that is **a hireling with a day rate** — `npm run dev:forhire` covers it on
+`:30000`, but the seeded upgrade world should carry one too, because that is the document
+whose sheet quietly loses a row.
+
+**A new field whose default contradicts what existing documents should have needs a
+migration.** Adding it to the schema is not enough, and this pass is the only one that can
+tell the difference.
+
 **Count live documents, do not trust file size.** LevelDB keeps deleted records until
 compaction, so an 80 KB `actors.db` can mean zero actors — and a run against that world
 passes while exercising nothing.
@@ -187,6 +200,19 @@ passes while exercising nothing.
 
 **A probe that fails once and passes on re-run is a race, not a flake.** Do not re-run
 and call it green. Find out what the first run raced against.
+
+**And the rule runs in both directions: a probe reporting NOTHING HAPPENED is making the
+same kind of claim, and deserves the same suspicion.** Both probes written for the
+2026-07-30 review returned a clean negative on their first run, and both negatives were
+artifacts of the probe — one waited 1.5s for a 5s operation, the other hand-built a
+document without the `id` its lookup keys on, so the code under test bailed before
+reaching the line being tested. Taken at face value either would have killed a real
+defect, one of them a live player→GM XSS.
+
+So: **a negative result from a probe you just wrote is evidence about the probe until you
+have shown it can go positive.** Give every negative assertion a positive control in the
+same run — `dev:sanitize`'s benign tail and `dev:roll-npc`'s accept-path are exactly this,
+and they are why neither can be fooled by "the write never landed".
 
 **A precondition a previous run left behind is not a precondition.** `dev:dialogs` set
 `show-containers-tab`, slept 1s and clicked the tab — but that setting is registered

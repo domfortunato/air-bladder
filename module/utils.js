@@ -58,8 +58,44 @@ export const getInfoFromDropData = async (dropData) => {
   return { actor, item };
 };
 
-export const stripPar = (text) => {
-  return text.replace("<p>", "").replace("</p>", "");
+/**
+ * Sanitize a stored description and unwrap its leading paragraph, ready to assign
+ * to `innerHTML`.
+ *
+ * Unwrapping the `<p>` ProseMirror always adds is cosmetic — an inline description
+ * panel does not want a block. **The cleaning is not**, and it is why this stopped
+ * being called `stripPar`: it was two literal `.replace()` calls and nothing else,
+ * a name that sounds cosmetic on a helper that is now load-bearing for security.
+ *
+ * `system.features[]` is an `ArrayField(ObjectField)` (`data-models.js:171,205`), and
+ * `htmlFields` in `system.json` addresses TOP-LEVEL SCHEMA PATHS: the server has no
+ * schema for the interior of an ObjectField, so it can never sanitize what is stored
+ * in there no matter what the manifest declares. A player writing raw HTML into a
+ * feature description on their OWN character therefore had it stored byte-for-byte
+ * and injected into the GM's DOM — a player→GM XSS, observed end-to-end 2026-07-30,
+ * the same escalation as the declared-field hole closed the day before and NOT
+ * fixable the same way.
+ *
+ * Cleaning at the SINK is the whole fix. Filtering our own dialog would be theatre:
+ * the attacker owns the browser that writes the document and can call
+ * `actor.update()` directly.
+ *
+ * `foundry.utils.cleanHTML` is core's own allow-list cleaner
+ * (`client/utils/helpers.mjs:15`) — tags from `ALLOWED_HTML_TAGS`, attributes from
+ * `ALLOWED_HTML_ATTRIBUTES`, which admits no `on*` handler and no `<script>`, and
+ * validates URL schemes on href/src/cite. Core uses it for exactly this shape of
+ * injection (`chat-bubbles.mjs:212`, `tooltip-manager.mjs:251`).
+ *
+ * Every caller assigns the result to `innerHTML` or tests it for emptiness, so this
+ * stays ONE function rather than a safe variant beside an unsafe one — there is then
+ * no unsafe helper left for future code to reach for by mistake.
+ *
+ * @param {String} [text]
+ * @return {String} sanitized HTML, safe to assign to innerHTML
+ */
+export const cleanDescription = (text) => {
+  if (!text) return "";
+  return foundry.utils.cleanHTML(String(text)).replace("<p>", "").replace("</p>", "");
 };
 
 /* -------------------------------------------- */
