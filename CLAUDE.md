@@ -84,7 +84,10 @@ against the reason, not against the fact.
 
 - ~~**Sheets are AppV1**~~ — **NO LONGER TRUE as of 2026-07-29.** Both sheets are
   ApplicationV2 (`HandlebarsApplicationMixin(ItemSheetV2 / ActorSheetV2)`), merged to
-  `dev`; there is no AppV1 and no jQuery left in `module/`. This was the ONLY
+  `dev`; there is no AppV1 left in `module/`. **One jQuery call survives** —
+  `damage.js:55` `$(event.currentTarget)`, in the chat Apply-damage button, which is
+  not a sheet and which no probe exercises. This file claimed "no jQuery left" until
+  2026-07-30; it was never true. This was the ONLY
   deviation with an externally-set expiry (AppV1 removal in **v16**, per the shipped
   client `appv1/api/application-v1.mjs:59-64` — not v15, which this file used to say), and
   it is now closed. Kept here only so nobody re-plans it.
@@ -161,7 +164,7 @@ translating). `README.md` carries credits and licensing.
 
 ## Testing
 
-**`docs/release-testing.md` is the full list — 30 scripts, what each covers, and
+**`docs/release-testing.md` is the full list — 63 scripts, what each covers, and
 what to run before tagging vs after publishing. Keep it in step with
 `package.json`; a probe not listed there runs only when someone remembers it.**
 

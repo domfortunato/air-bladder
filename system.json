@@ -9,6 +9,9 @@
   },
   "license": "LICENSE.txt",
   "url": "https://domfortunato.github.io/air-bladder/",
+  "readme": "https://github.com/domfortunato/air-bladder#readme",
+  "bugs": "https://github.com/domfortunato/air-bladder/issues",
+  "changelog": "https://github.com/domfortunato/air-bladder/releases",
   "manifest": "https://github.com/domfortunato/air-bladder/releases/latest/download/system.json",
   "download": "https://github.com/domfortunato/air-bladder/releases/latest/download/system.zip",
   "authors": [
@@ -37,7 +40,9 @@
     "module/cairn.js"
   ],
   "styles": [
-    "css/cairn.css"
+    {
+      "src": "css/cairn.css"
+    }
   ],
   "documentTypes": {
     "Actor": {

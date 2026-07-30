@@ -205,6 +205,14 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const extra = EXTRA_TABS[this.item.type];
     if (extra) config.tabs.push(extra);
     if (this.item.system?.relic) config.tabs.push(RELIC_TAB);
+    // Unticking Relic removes the tab you are standing on. Exactly the failure the
+    // actor sheet's Containers tab has, and it carries the same guard with the same
+    // comment: `_prepareTabs` only defaults the group when it is UNSET (`??=`), so
+    // without this the group keeps pointing at "recharge", nothing matches, no panel
+    // gets `.active`, and core's `.tab[data-tab]:not(.active){display:none}` hides the
+    // entire sheet body with no error. `submitOnChange` re-renders on the untick, so
+    // it is immediate. Add a guard here alongside any future document-dependent tab.
+    if (!config.tabs.some((t) => t.id === this.tabGroups[group])) this.tabGroups[group] = config.initial;
     return config;
   }
 
