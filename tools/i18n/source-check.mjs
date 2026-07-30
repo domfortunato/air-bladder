@@ -64,6 +64,7 @@ const CORE_RESOLVED = [/^TYPES\./];
 const collectKeys = () => {
   const used = new Map(); // key -> "file:line" of its first use
   const prefixes = new Map(); // dynamic prefix -> "file:line"
+  const suffixes = new Map(); // dynamic suffix -> "file:line"
   const note = (map, k, site) => { if (!map.has(k)) map.set(k, site); };
 
   for (const f of [...JS_FILES, ...TPL_FILES]) {
@@ -89,8 +90,17 @@ const collectKeys = () => {
     const dyn = /`((?:CAIRN|TYPES)\.[\w.]*)\$\{/g;
     let m;
     while ((m = dyn.exec(src))) note(prefixes, m[1], at(m.index));
+
+    // The mirror image: `${key}Npc` derives a VARIANT of a key held in a variable,
+    // so there is no static prefix to record — the literal part is the tail. Used by
+    // actor-sheet's _wording(), which swaps a shared prompt for its NPC phrasing.
+    // A suffix cannot stand alone as licence (that would excuse any key ending in
+    // it), so a variant only counts as referenced when the key it is derived FROM is
+    // itself referenced — see `unused` below.
+    const suf = /`\$\{[^}]+\}([A-Za-z][\w.]*)`/g;
+    while ((m = suf.exec(src))) note(suffixes, m[1], at(m.index));
   }
-  return { used, prefixes };
+  return { used, prefixes, suffixes };
 };
 
 // ---------------------------------------------------------------------------
@@ -232,14 +242,19 @@ const scanJs = () => {
 
 const en = flattenKeys(JSON.parse(fs.readFileSync(path.join(ROOT, "lang/en.json"), "utf8")));
 const enSet = new Set(en);
-const { used, prefixes } = collectKeys();
+const { used, prefixes, suffixes } = collectKeys();
+
+/** A `${key}Npc`-style variant of a key that IS referenced counts as referenced. */
+const isVariantOfUsed = (k) =>
+  [...suffixes.keys()].some((s) => k.endsWith(s) && used.has(k.slice(0, -s.length)));
 
 const missing = [...used.keys()].filter((k) => !enSet.has(k));
 const unused = en.filter(
   (k) =>
     !used.has(k) &&
     !CORE_RESOLVED.some((re) => re.test(k)) &&
-    ![...prefixes.keys()].some((p) => k.startsWith(p)));
+    ![...prefixes.keys()].some((p) => k.startsWith(p)) &&
+    !isVariantOfUsed(k));
 const hardcoded = [...scanTemplates(), ...scanJs()];
 
 const list = (label, rows, fmt) => {
@@ -249,8 +264,9 @@ const list = (label, rows, fmt) => {
 
 console.log(`\nsource vs lang/en.json`);
 console.log(`  scanned     : ${JS_FILES.length} js, ${TPL_FILES.length} templates`);
-console.log(`  en.json keys: ${en.length}   referenced: ${used.size}   dynamic prefixes: ${prefixes.size}`);
+console.log(`  en.json keys: ${en.length}   referenced: ${used.size}   dynamic prefixes: ${prefixes.size}   suffixes: ${suffixes.size}`);
 if (VERBOSE && prefixes.size) for (const [p, site] of prefixes) console.log(`      ${p}*  @ ${site}`);
+if (VERBOSE && suffixes.size) for (const [s, site] of suffixes) console.log(`      *${s}  @ ${site}`);
 console.log("");
 
 list("keys used but missing from en.json", missing, (k) => `${k}   @ ${used.get(k)}`);

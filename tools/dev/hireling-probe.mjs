@@ -304,8 +304,41 @@ try {
       live.featureRemoved = (actor.system.features?.length ?? 0) === beforeFeatures;
     }
 
+    // 7c. The shared confirmations must address an NPC, not a player's character.
+    //      Deprived/Panicked/Rest/Restore all come from the character sheet, where
+    //      they ask "Is your character deprived?" and explain a rule that opens
+    //      "A PC that lacks a crucial need" -- nonsense asked of a wolf.
+    const sh = actor.sheet;
+    const words = {
+      // Resolved by key existence, so the two halves are checked separately: a
+      // variant IS used where the wording differs...
+      deprivedQ: sh._wording("CAIRN.DeprivedConfirm"),
+      deprivedTip: sh._wording("CAIRN.DeprivedTip"),
+      panickedQ: sh._wording("CAIRN.PanickedConfirm"),
+      restQ: sh._wording("CAIRN.RestConfirm"),
+      restoreQ: sh._wording("CAIRN.RestoreConfirm"),
+      // ...and is NOT invented where it does not. PanickedTip/RestTip already say
+      // "character"/"the party", and a duplicate string is one more thing to keep
+      // in step in every language.
+      panickedTip: sh._wording("CAIRN.PanickedTip"),
+      restTip: sh._wording("CAIRN.RestTip"),
+    };
+
+    // End to end, through the real dialog: tick Deprived and read what it says.
+    const deprivedBox = node?.querySelector(".deprived-check");
+    if (deprivedBox) {
+      deprivedBox.click();
+      await settle(700);
+      const confirm = [...foundry.applications.instances.values()]
+        .find((a) => a.element?.querySelector?.(".cairn-confirm"));
+      live.deprivedDialogText = confirm?.element.querySelector(".cairn-confirm")?.textContent ?? "";
+      // Decline, so the condition is not left set on the actor about to be deleted.
+      confirm?.element.querySelector('button[data-action="no"]')?.click();
+      await settle(400);
+    }
+
     await actor.delete();
-    return { catalogue, gen, armorCase, editFlowed, editTarget, survive, rename, sheet, live };
+    return { catalogue, gen, armorCase, editFlowed, editTarget, survive, rename, sheet, live, words };
   }));
 
   if (r.error) {
@@ -378,6 +411,23 @@ try {
       r.live.deleteConfirmed ? ok("deleting a feature asks for confirmation") : fail("no confirmation dialog appeared for a feature delete");
       r.live.featureRemoved ? ok("the confirmed delete removes the feature") : fail("deleteOwnedFeature left the record behind");
     }
+
+    const w = r.words;
+    const varied = ["deprivedQ", "deprivedTip", "panickedQ", "restQ", "restoreQ"]
+      .filter((k) => !w[k].endsWith("Npc"));
+    varied.length === 0
+      ? ok("Deprived/Panicked/Rest/Restore prompts use their NPC wording")
+      : fail(`still on the player-character wording: ${varied.join(", ")}`);
+    const overreach = ["panickedTip", "restTip"].filter((k) => w[k].endsWith("Npc"));
+    overreach.length === 0
+      ? ok("strings that already read neutrally were not duplicated")
+      : fail(`needless NPC variant invented for: ${overreach.join(", ")}`);
+
+    const dt = r.live.deprivedDialogText ?? "";
+    if (!dt) fail("ticking Deprived opened no confirmation dialog");
+    else if (/your character|\bPC\b/.test(dt)) fail(`the Deprived dialog still addresses a player character: "${dt.slice(0, 90)}…"`);
+    else if (!/this NPC/.test(dt)) fail(`the Deprived dialog does not address the NPC: "${dt.slice(0, 90)}…"`);
+    else ok("the Deprived confirmation reads as being about this NPC");
   }
 } catch (e) {
   fail(`${e.name}: ${e.message}`);

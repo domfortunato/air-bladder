@@ -960,12 +960,41 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * @private
    */
   async _confirmAction(titleKey, tipKey, questionKey) {
+    const k = (key) => this._wording(key);
     return foundry.applications.api.DialogV2.confirm({
       window: { title: game.i18n.localize(titleKey) },
-      content: `<div class="cairn-confirm">${game.i18n.localize(tipKey)}<p class="cairn-confirm-q">${game.i18n.localize(questionKey)}</p></div>`,
+      content: `<div class="cairn-confirm">${game.i18n.localize(k(tipKey))}<p class="cairn-confirm-q">${game.i18n.localize(k(questionKey))}</p></div>`,
       rejectClose: false,
       modal: true,
     });
+  }
+
+  /**
+   * Prefer the NPC wording of a string when this sheet is a non-player actor.
+   *
+   * Rest, Restore, Deprived and Panicked are shared with the character sheet, and
+   * their prompts were written for a player: "Is your character deprived?", and a
+   * Deprived rule that says "A PC that lacks a crucial need". Asked of a wolf or a
+   * hired blacksmith that reads as a bug.
+   *
+   * Resolved by key EXISTENCE rather than a lookup table, so a string only diverges
+   * where the wording genuinely differs -- `CAIRN.PanickedTip` and `CAIRN.RestTip`
+   * already say "character" and "the party", and duplicating them under a second key
+   * would just be two strings for a translator to keep in step (and would trip
+   * `i18n:check`'s equal-to-English report).
+   *
+   * `game.i18n.has()` consults the fallback strings too, so an `…Npc` key that
+   * exists in en.json but not yet in a translation resolves to the English NPC
+   * wording rather than to the PC-worded translation. That is Foundry's normal
+   * behaviour for an untranslated key, and `i18n:check` reports it as missing.
+   * @param {String} key
+   * @returns {String} the same key, or its `…Npc` variant
+   * @private
+   */
+  _wording(key) {
+    if (this.actor.type === "character") return key;
+    const npcKey = `${key}Npc`;
+    return game.i18n.has(npcKey) ? npcKey : key;
   }
 
   /** Open the own sheet of the item (or owned container) a row represents. */
