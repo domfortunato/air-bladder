@@ -1690,6 +1690,17 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
             // the container's own name (a "Barrel" gets barrel art), so hardcoding
             // the chest icon would defeat it. getDocumentClass, not the global
             // `Actor` — the global is not CONFIG.Actor.documentClass.
+            //
+            // The result is deliberately not checked, unlike `acquireTransport`,
+            // which does. That asymmetry is not an oversight: acquireTransport NEEDS
+            // the value — it dereferences `container.update()` and then deducts the
+            // price, so an unchecked refusal would throw and still charge the buyer.
+            // Here the value goes straight to createOwnedContainer, whose own first
+            // line returns on a falsy document, and nothing follows it. The realistic
+            // refusal (a player without ACTOR_CREATE) is already caught above, with a
+            // message. What is left is a third-party `preCreateActor` veto, which
+            // resolves undefined and says nothing — and explaining its own veto is
+            // the vetoing module's job, not ours.
             const result = await getDocumentClass("Actor").create({
               type: "container",
               name: form.itemname.value,
