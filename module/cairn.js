@@ -472,9 +472,24 @@ const migrateScrollsToSpellbooks = async () => {
  * base actor is enough for its tokens to follow. That is why this needs none of the
  * scene-token walk the spellscroll migration above does.
  *
- * Idempotent by construction: a migrated actor no longer matches `forHire !== true`.
+ * Runs ONCE, gated on a stored marker — NOT on the state it writes, which is what it
+ * used to do under a comment claiming "idempotent by construction: a migrated actor no
+ * longer matches `forHire !== true`". That claim was inherited from the three sibling
+ * migrations above, where it is true because their "before" value is unreachable once
+ * migrated: a remapped container is no longer one of the legacy art paths, a `.svg`
+ * icon is never `.png` again, a flagged spellbook stays flagged. `forHire` is a
+ * CHECKBOX on the NPC sheet (npc-sheet.html, `submitOnChange`), and `dayRate` is not
+ * cleared when it is unticked — so unticking put the actor straight back into the
+ * selection set and the next world load ticked it again, silently. For every pre-fold
+ * `type: "hireling"` document, which is the entire population this exists for, "For
+ * hire" could not be turned off at all. Observed 2026-07-30: untick through the sheet,
+ * reload, it is back on.
+ *
+ * The marker is set even when nothing matched. A fresh world has no hirelings to
+ * migrate and must still record that the one-shot has happened, or it is not one-shot.
  */
 const migrateHirelingsForHire = async () => {
+  if (game.settings.get(SETTINGS_NS, "forhire-migrated")) return;
   const updates = game.actors
     .filter((a) => ["hireling", "npc"].includes(a.type)
       && a.system?.forHire !== true
@@ -484,6 +499,9 @@ const migrateHirelingsForHire = async () => {
     await Actor.updateDocuments(updates);          // one batch, so it can't half-finish
     console.log(`Air Bladder | marked ${updates.length} hireling(s) as for hire`);
   }
+  // Only after the writes land: a throw above leaves the marker unset, so a failed
+  // migration is retried next load rather than being recorded as done.
+  await game.settings.set(SETTINGS_NS, "forhire-migrated", true);
 };
 
 // Two hooks used to tag every dialog world-wide with `.cairn-dialog` so

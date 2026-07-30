@@ -85,6 +85,25 @@ export const migrateSettingsNamespace = async () => {
  * then Inventory & Encumbrance.
  */
 export const registerSettings = () => {
+  // Not a setting anyone sets: the completion marker for the forHire migration.
+  // `config: false` means it is never rendered, so it cannot disturb the positional
+  // grouping described above no matter where it sits — it is first only so the
+  // three visible blocks stay contiguous and easy to read.
+  //
+  // A marker rather than a state test, because `system.forHire` is a CHECKBOX. The
+  // three sibling migrations get away with selecting on current state because their
+  // "before" value is unreachable once migrated (a remapped container is no longer
+  // one of the legacy art paths; a .svg icon is never .png again). Unticking
+  // "For hire" puts an actor straight back into the selection set, so the migration
+  // re-ticked it on every world load and the Warden could not turn it off at all.
+  // Observed: untick through the sheet, reload, and it is back on.
+  game.settings.register(SETTINGS_NS, "forhire-migrated", {
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false,
+  });
+
   // ---- General -------------------------------------------------------------
   game.settings.register(SETTINGS_NS, "use-panic", {
     name: game.i18n.localize("CAIRN.Settings.UsePanic.label"),
