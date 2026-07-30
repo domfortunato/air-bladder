@@ -21,10 +21,14 @@ What ships under which licence
 ------------------------------
 
 Code — MIT
-    module/  templates/  css/  tools/  system.json  and the build scripts.
-    The MIT notice below applies to these and only these. The system code
-    descends from Cairn-FoundryVTT by Yochai Gal & Oskar Świda (MIT), itself
-    descended from the Electric Bastionland system.
+    module/  templates/  css/  tools/  lang/  system.json  and the build
+    scripts. The MIT notice below applies to these and only these. The system
+    code descends from Cairn-FoundryVTT by Yochai Gal & Oskar Świda (MIT),
+    itself descended from the Electric Bastionland system.
+    lang/ holds the interface strings. The Danish, French, German, Polish and
+    Brazilian Portuguese files are inherited from Cairn-FoundryVTT and travel
+    under its MIT licence; they are not actively maintained here. The Castilian
+    files are covered by the Spanish clause below instead.
 
 Game text — CC BY-SA 4.0, © Yochai Gal
     https://creativecommons.org/licenses/by-sa/4.0/
@@ -37,8 +41,9 @@ Game text — CC BY-SA 4.0, © Yochai Gal
 
 Spanish translation — CC BY-SA 4.0, © Malecho (https://github.com/fsmalecho)
     https://creativecommons.org/licenses/by-sa/4.0/
-    The Castilian (es-ES) translation. As a derivative of the CC BY-SA game text
-    it inherits that licence, ShareAlike included.
+    lang/es.json (interface) and lang/content/es.json (game content) — the
+    Castilian (es-ES) translation. As a derivative of the CC BY-SA game text it
+    inherits that licence, ShareAlike included.
 
 "Compatible with Cairn 2e" badge — CC BY-SA 4.0, © Yochai Gal
     logo/  — used per the terms at https://cairnrpg.com/resources/logos

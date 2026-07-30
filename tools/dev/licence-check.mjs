@@ -16,7 +16,7 @@
  * file should look like every other licence file. Both produce exactly the shape
  * this rejects.
  *
- * Three checks, all offline:
+ * Four checks, all offline:
  *
  *   1. LICENSE.txt does not OPEN as a bare licence template.
  *   2. Every licence named in README's "Credits & licenses" is named in
@@ -25,6 +25,15 @@
  *   3. Every repo path LICENSE.txt points at exists — the per-asset notices it
  *      delegates to are the attribution itself, so a rotted pointer is a broken
  *      licence, not a broken link.
+ *   4. Every directory the release zip SHIPS is named by some clause. This is
+ *      check 3's other direction and it was blind: `lang/` shipped named by
+ *      nothing at all, which the rewrite's own "these and only these" turns from
+ *      silence into an affirmative exclusion — seven interface files, five of
+ *      them other people's inherited work, left with no grant. The two fail
+ *      differently, which is why both are needed: a rotted pointer shows itself
+ *      the moment someone follows it, an unnamed directory never does. What
+ *      ships is read from the workflow, not from a list kept here, because a
+ *      second list drifts exactly as LICENSE.txt drifted from README.
  *
  * Scope, stated plainly: it checks the two files agree on WHICH licences apply.
  * It cannot check the licences are correct, and a regime added to README under a
@@ -116,6 +125,38 @@ for (const p of [...paths].sort()) {
   missing++;
 }
 if (!missing) ok(`all ${paths.size} referenced paths exist (${[...paths].sort().join(", ")})`);
+
+/* 4. Every SHIPPED path is named by some clause ----------------------------- */
+
+// The other direction, and the one that was blind. Check 3 asks "does everything
+// LICENSE.txt names exist"; nothing asked "is everything that ships named". Those
+// fail differently: a rotted pointer is visible the moment someone follows it,
+// whereas an unnamed directory is silent forever — and LICENSE.txt now says the
+// MIT grant applies to its listed paths "and only these", which turns an omission
+// from silence into an affirmative exclusion. lang/ shipped unnamed that way.
+//
+// The manifest is the source of what ships, not a hand-kept list here: a second
+// list would drift from the workflow exactly as LICENSE.txt drifted from README.
+const workflow = readFileSync(join(ROOT, ".github/workflows/main.yml"), "utf8");
+const zipLine = workflow.split("\n").find((l) => l.includes("zip -r ./system.zip"));
+if (!zipLine) {
+  fail("could not find the release zip command in .github/workflows/main.yml — "
+    + "this check cannot tell what ships");
+} else {
+  const shipped = zipLine
+    .replace(/^.*zip -r \.\/system\.zip/, "")
+    .trim()
+    .split(/\s+/)
+    .filter((p) => p.endsWith("/"));            // directories; loose files are prose
+  const named = [...paths].map((p) => p.split("/")[0]);
+  const unnamed = shipped.filter((dir) => !named.includes(dir.replace(/\/$/, "")));
+  if (unnamed.length) {
+    fail(`the release zip ships ${unnamed.join(", ")}, which LICENSE.txt names in no clause — `
+      + 'and its MIT clause says "these and only these", so an unnamed path is excluded, not implied');
+  } else {
+    ok(`every shipped directory is named by a clause (${shipped.length} checked)`);
+  }
+}
 
 console.log(`\n${failed ? "LICENCE CHECK FAILED" : "Licence check passed."}`);
 process.exit(failed ? 1 : 0);
