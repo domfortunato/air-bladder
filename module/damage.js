@@ -52,8 +52,11 @@ export class Damage {
      * @param {*} data 
      */
     static onClickChatMessageApplyButton(event, html, data) {
-        const btn = $(event.currentTarget);
-        const targets = btn.data("targets");
+        // currentTarget, not target: the handler hangs off the anchor and a real
+        // pointer lands on the icon inside it. dataset reads the same
+        // data-targets attribute jQuery's .data() did, minus .data()'s implicit
+        // type coercion -- the value is a plain `;`-joined token-id string.
+        const targets = event.currentTarget.dataset.targets;
 
         let targetsList = targets.split(';');
 

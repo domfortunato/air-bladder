@@ -84,10 +84,11 @@ against the reason, not against the fact.
 
 - ~~**Sheets are AppV1**~~ — **NO LONGER TRUE as of 2026-07-29.** Both sheets are
   ApplicationV2 (`HandlebarsApplicationMixin(ItemSheetV2 / ActorSheetV2)`), merged to
-  `dev`; there is no AppV1 left in `module/`. **One jQuery call survives** —
-  `damage.js:55` `$(event.currentTarget)`, in the chat Apply-damage button, which is
-  not a sheet and which no probe exercises. This file claimed "no jQuery left" until
-  2026-07-30; it was never true. This was the ONLY
+  `dev`; there is no AppV1 left in `module/`. **And since 2026-07-30, no jQuery
+  either** — the last call (`damage.js:55`, the chat Apply-damage button) was
+  converted only after `dev:enc-damage` grew a section that clicks the real button,
+  because this file had claimed "no jQuery left" once before while it was never
+  true; this time the claim is grep-verified and probe-covered. This was the ONLY
   deviation with an externally-set expiry (AppV1 removal in **v16**, per the shipped
   client `appv1/api/application-v1.mjs:59-64` — not v15, which this file used to say), and
   it is now closed. Kept here only so nobody re-plans it.
