@@ -1,6 +1,6 @@
 import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, mentionsSecondBond, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, getCustomPortraitPaths, refreshCustomPortraits, regenerateHireling, rerollHirelingProfession, rerollHirelingName, rollNameFromTable, rollAge } from "../character-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
-import { evaluateFormula, cleanDescription, bindEditorClickAwaySave } from "../utils.js";
+import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, sourceLabel } from "../utils.js";
 import { resultText } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART, CONTAINER_ICON, TRANSPORT_KINDS } from "../icons.js";
@@ -16,19 +16,6 @@ const { ActorSheetV2 } = foundry.applications.sheets;
  * so they must read the same list — it used to be declared twice, inline.
  */
 const FEATURE_FLAGS = ["str", "dex", "wil", "hp", "armor", "dmg", "crit", "deprived", "blast"];
-
-/**
- * A content source's display name — "Cairn 2e", "Cairn Barebones" — falling back to the
- * raw value for a legacy character whose source is something else. Two callers now: the
- * "(Source: …)" line on the sheet header, and the refusal when a background of the other
- * edition is dropped, which names both sides.
- *
- * The two names are literals rather than i18n keys, as they were when this lived inline
- * in _prepareContext: they are the editions' proper names, and `Cairn` is not translated
- * anywhere else in the system either.
- */
-const SOURCE_LABELS = { "2e": "Cairn 2e", "barebones": "Cairn Barebones" };
-const sourceLabel = (source) => SOURCE_LABELS[source] ?? source;
 
 /** Tab labels by id. The nav itself is hand-written in each template, because
  *  every label carries live data (slot counts, container counts, and a Notes tab
@@ -1136,18 +1123,34 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const bgSource = bg.system?.source || "2e";
     const mySource = this.actor.system.contentSource || "2e";
     if (bgSource !== mySource) {
+      // Named for what they CARRY, not for where they came from: both are edition
+      // labels, and a translator reading en.json alone could only guess that from
+      // `{background}` / `{character}`, which read like a background and a
+      // character name.
       ui.notifications.warn(game.i18n.format("CAIRN.Notify.BackgroundWrongSource", {
-        background: sourceLabel(bgSource),
-        character: sourceLabel(mySource),
+        backgroundEdition: sourceLabel(bgSource),
+        characterEdition: sourceLabel(mySource),
       }));
       return null;
     }
     if (!this._mayChangeBackground()) return null;
+    // Through the content overlay, like every other background-name surface: the
+    // sheet header (_prepareContext), the picker and the failed-career list all
+    // show `t("bg.name", …)`, so naming the raw English here would ask a Spanish
+    // Warden about "Aeronaut" the moment after their own sheet called it
+    // "Aeronauta". Latent while lang/content/es.json is empty — and this is the one
+    // call site that would NOT come along when the content phase lands.
+    //
+    // Escaped because the result is interpolated into HTML. `bg.name` is a stored
+    // document field, and a world Item is creatable by any player a Warden has
+    // granted Create Item to — the same player→GM path as the feature-description
+    // XSS, and this dialog renders in the GM's client.
+    const bgName = foundry.utils.escapeHTML(t("bg.name", bg.name));
     const ok = await foundry.applications.api.DialogV2.confirm({
       window: { title: game.i18n.localize("CAIRN.ChangeBackgroundTitle") },
       content:
         `<div class="cairn-confirm">${game.i18n.localize("CAIRN.ChangeBackgroundTip")}` +
-        `<p class="cairn-confirm-q">${game.i18n.format("CAIRN.ChangeBackgroundQ", { name: bg.name })}</p></div>`,
+        `<p class="cairn-confirm-q">${game.i18n.format("CAIRN.ChangeBackgroundQ", { name: bgName })}</p></div>`,
       rejectClose: false,
       modal: true,
     });

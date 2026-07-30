@@ -14,6 +14,22 @@ import { iconForItem, SPELLBOOK_ICON, SPELLSCROLL_ICON } from "../icons.js";
 export const FATIGUE_NAME = "Fatigue";
 
 /**
+ * The stored name a scroll created from the Create Item dialog gets when the user
+ * types none — ENGLISH, for the same reason as FATIGUE_NAME above, and this is the
+ * one place the type list's own label must NOT be reused. That label is localized,
+ * and localizing it was right for the <option> and wrong for the name: a Spanish
+ * Warden's unnamed scroll was stored as "Pergamino", so the same document read
+ * differently to every other client and matched nothing that looks a spellbook up
+ * by name (gear resolution, the background-swap identity match, the content
+ * overlay's own English keys).
+ *
+ * Pre-filled at all rather than left blank because core's fallback for an empty
+ * name is `defaultName({type})`, and the type here really is "spellbook" — so an
+ * unnamed create would otherwise produce a scroll called "Spellbook".
+ */
+export const SPELLSCROLL_NAME = "Spellscroll";
+
+/**
  * Every spellscroll is petty and single-use — the Warden's rule, and the one thing
  * that separates a scroll from the book of the same spell. So it is derived from
  * the `scroll` flag rather than typed in: the sheet offers no Petty box and no Max

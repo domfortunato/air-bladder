@@ -32,10 +32,12 @@ const S = {
   save: "ZZ-salvación de {key}",
   crit: "ZZ-daño crítico — {key}",
   spellbook: "ZZ-hechizo — ",
+  spellscroll: "ZZ-pergamino — ",
   del: "ZZ-¿eliminar {name}?",
   limit: "ZZ-doble clic para cambiar el límite",
   wizard: "ZZ-mago",
   uses: "ZZ-{n} usos",
+  edition: "ZZ-Cairn 2ª ed.",
 };
 
 let out = {};
@@ -52,8 +54,10 @@ try {
         "CAIRN.Save": S.save,
         "CAIRN.CriticalDamageStatusFor": S.crit,
         "CAIRN.SpellbookPrefix": S.spellbook,
+        "CAIRN.SpellscrollPrefix": S.spellscroll,
         "CAIRN.EquipmentLimitTip": S.limit,
         "CAIRN.Archetype.Wizard": S.wizard,
+        "CAIRN.ContentSource2e": S.edition,
         "CAIRN.NUses": S.uses,
         "CAIRN.Notify": { ConfirmDeleteNamed: S.del },
       },
@@ -90,6 +94,14 @@ try {
       await actor.createEmbeddedDocuments("Item", [
         { name: "Magic Missile", type: "spellbook" },
         { name: "Spellbook — Hempen Hoop", type: "spellbook" },
+        // The doubling guard has to cope with a name that is ALREADY in the
+        // display language, which is what the content overlay hands the row for
+        // every shipped grant spelled "Spellbook (X)" (Bonekeeper, Half-Witch,
+        // Hexenbane, Mountebank, Foundling). Stored translated here rather than
+        // driven through an overlay because the helper only ever sees the display
+        // string — this is byte-for-byte the input the overlay would give it.
+        { name: `${S.spellbook.replace(/\s*—\s*$/, "")} (Aro de Cáñamo)`, type: "spellbook" },
+        { name: `${S.spellscroll.replace(/\s*—\s*$/, "")} (Adherir)`, type: "spellbook", system: { scroll: true } },
         { name: "ZZ Probe Torch", type: "item", system: { uses: { value: 3, max: 3 } } },
       ]);
 
@@ -107,7 +119,10 @@ try {
       const titles = [...root.querySelectorAll(".cairn-item-title")].map((t) => t.textContent.trim());
       r.spellbookBare = titles.find((t) => /Magic Missile/.test(t)) ?? null;
       r.spellbookPrefixed = titles.find((t) => /Hempen Hoop/.test(t)) ?? null;
+      r.spellbookParen = titles.find((t) => /Aro de Cáñamo/.test(t)) ?? null;
+      r.spellscrollParen = titles.find((t) => /Adherir/.test(t)) ?? null;
       r.limitTitle = root.querySelector("#set-equipment-limit")?.getAttribute("title") ?? null;
+      r.sheetEdition = root.querySelector(".content-source-label")?.textContent.trim() ?? null;
       // The prefix is a DISPLAY affordance: generation must never bake it into a
       // stored name, or a second one gets bolted on at render time forever after.
       // (Folded in from the old spellbook-prefix-probe, which had no npm script
@@ -135,6 +150,10 @@ try {
       r.archetypeOptions = bgRoot
         ? [...bgRoot.querySelectorAll("select option")].map((o) => o.textContent.trim()).filter(Boolean)
         : [];
+      // The SAME edition label as the character sheet above. It was a second
+      // hardcoded map that had already drifted — one sheet said "Cairn Barebones",
+      // the other "Barebones" — so both surfaces are read here and compared.
+      r.bgEdition = bgRoot?.querySelector(".bg-source-fixed")?.textContent.trim() ?? null;
 
       // ---- shop chips: a unit noun, not the sheet's field label -------------
       // CAIRN.Uses is "Available uses", the LABEL above the uses input. Borrowed
@@ -165,7 +184,21 @@ try {
   is(out.critBanner, S.crit.replace("{key}", S.str), "the Critical Damage banner localizes STR");
   is(out.spellbookBare, `${S.spellbook}Magic Missile`, "a bare spellbook name gets the localized prefix");
   is(out.spellbookPrefixed, "Spellbook — Hempen Hoop", "a name already carrying the STORED English prefix is left alone");
+  // The guard knew four STORED English forms but only the em-dash LOCALIZED one,
+  // so a translated name in the parenthesised shape — the shape every shipped
+  // spellbook grant uses — was not recognised and got a second prefix bolted on.
+  is(out.spellbookParen, "ZZ-hechizo (Aro de Cáñamo)",
+    "a name carrying the LOCALIZED prefix in its parenthesised form is left alone too");
+  is(out.spellscrollParen, "ZZ-pergamino (Adherir)", "and the same for a scroll");
   is(out.limitTitle, S.limit, "the equipment-limit tooltip comes from i18n");
+  // Edition names were literals on the argument that they are proper names — but
+  // CAIRN.ContentSource2e already existed for the source picker and is already in
+  // es.json, so a language that adapted it got a picker and a sheet naming the same
+  // edition two different ways. Whether to adapt it is the translator's one call.
+  out.sheetEdition?.includes(S.edition)
+    ? ok(`the character sheet's source line localizes the edition (${JSON.stringify(out.sheetEdition)})`)
+    : fail(`character sheet source line is ${JSON.stringify(out.sheetEdition)}, expected to contain ${JSON.stringify(S.edition)}`);
+  is(out.bgEdition, S.edition, "and the background sheet names it the SAME way, from the same key");
   const doubled = (out.storedSpellbookNames ?? []).filter((n) => (n.match(/Spellbook —/g) ?? []).length > 1);
   doubled.length === 0
     ? ok(`no STORED spellbook name carries a doubled prefix (${JSON.stringify(out.storedSpellbookNames)})`)

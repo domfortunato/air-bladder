@@ -2,7 +2,7 @@ import { resolveGearItem } from "../gear.js";
 import { previewBackground, duplicateBackgroundToWorld } from "../character-generator.js";
 import { t } from "../i18n-content.js";
 import { TRANSPORT_KINDS } from "../icons.js";
-import { bindEditorClickAwaySave } from "../utils.js";
+import { bindEditorClickAwaySave, sourceLabel } from "../utils.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -308,8 +308,10 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     // whole feature; Barebones authoring is out of scope, and only source "2e" is
     // discovered). Shown read-only, never an editable pick-list, so a GM can't
     // silently make their background undiscoverable by choosing another source.
-    const SOURCE_LABELS = { "2e": "Cairn 2e", barebones: "Barebones", "srd-2e": "SRD 2e" };
-    context.sourceLabel = SOURCE_LABELS[this.item.system.source] ?? this.item.system.source ?? "Cairn 2e";
+    // `|| "2e"` matches the schema default, so a background whose source somehow
+    // reads empty shows the edition it will actually be discovered under rather
+    // than a blank. Shared with the actor sheet — see utils.js `sourceLabel`.
+    context.sourceLabel = sourceLabel(this.item.system.source || "2e");
     context.editNames = [...(this.item.system.names ?? [])];
     context.editGear = await Promise.all(
       (this.item.system.startingGear ?? []).map(async (g) => {

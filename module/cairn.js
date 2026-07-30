@@ -1,7 +1,7 @@
 // Import Modules
 import { CairnActor } from "./actor/actor.js";
 import { CairnActorSheet } from "./actor/actor-sheet.js";
-import { CairnItem, FATIGUE_NAME } from "./item/item.js";
+import { CairnItem, FATIGUE_NAME, SPELLSCROLL_NAME } from "./item/item.js";
 import { CairnItemSheet } from "./item/item-sheet.js";
 import { createCharacter, createHireling, FLAG_SCOPE } from "./character-generator.js";
 import * as characterGenerator from "./character-generator.js";
@@ -513,9 +513,9 @@ const migrateHirelingsForHire = async () => {
  * share a value, and `selectedOptions[0].dataset` is what tells them apart —
  * `select.value` cannot, and does not need to.
  *
- * The name is PRE-FILLED rather than left to the placeholder, because core's fallback
- * for an empty name is `defaultName({type})` and the type here really is "spellbook":
- * an unnamed create would otherwise produce a scroll called "Spellbook".
+ * The name is PRE-FILLED rather than left to the placeholder, and with the ENGLISH
+ * `SPELLSCROLL_NAME` rather than the localized option label — see that constant for
+ * both halves of why.
  *
  * Degrades quietly. If core reworks this dialog the option stops appearing, and the
  * worst case is a plain spellbook that the sheet's Scroll box still converts.
@@ -537,6 +537,10 @@ Hooks.on("renderDialogV2", function abSpellscrollTypeOption(dialog, element) {
   const itemTypes = getDocumentClass("Item").TYPES;
   if (!bookOption || [...select.options].some((o) => !itemTypes.includes(o.value))) return;
 
+  // Two strings, deliberately: the option is READ, so it is localized; the name is
+  // STORED, so it is English (SPELLSCROLL_NAME). They were one variable, which made
+  // the type list's label leak into the document and broke the system's own
+  // English-storage invariant (item.js, i18n-content.js) on every non-English client.
   const label = game.i18n.localize("CAIRN.Spellscroll");
   const option = document.createElement("option");
   option.value = "spellbook";
@@ -559,8 +563,8 @@ Hooks.on("renderDialogV2", function abSpellscrollTypeOption(dialog, element) {
     const scroll = select.selectedOptions[0]?.dataset.abScroll === "1";
     flag.value = scroll ? "true" : "false";
     if (!nameInput) return;
-    if (scroll && !nameInput.value) nameInput.value = label;
-    else if (!scroll && nameInput.value === label) nameInput.value = "";
+    if (scroll && !nameInput.value) nameInput.value = SPELLSCROLL_NAME;
+    else if (!scroll && nameInput.value === SPELLSCROLL_NAME) nameInput.value = "";
   });
 });
 
@@ -815,27 +819,49 @@ const configureHandleBar = () => {
 
   // The display prefix for a spellbook row — "Spellbook — " for a book,
   // "Spellscroll — " for a scroll — or "" when the name already carries one.
-  // Keeping this idempotent needs BOTH forms tested, which is why it is a
-  // helper rather than an {{#unless startsWith}} in the template:
+  // Keeping this idempotent needs EVERY form tested, which is why it is a helper
+  // rather than an {{#unless startsWith}} in the template:
   //
-  //   - the stored name is English ("Spellbook (Detect Magic)" is shipped pack
-  //     data), and the content overlay translates names only where it has an
-  //     entry — so `item.name` here may be either language;
-  //   - the old guard compared that name against the TRANSLATED prefix alone, so
-  //     on a Spanish client it never matched and every spellbook rendered
-  //     "Hechizo — Spellbook — Detect Magic".
+  //   - the stored name is English, and the content overlay translates it only
+  //     where it has an entry — so `item.name` here may be either language;
+  //   - the original guard compared that name against the TRANSLATED prefix
+  //     alone, so on a Spanish client it never matched and every spellbook
+  //     rendered "Hechizo — Spellbook — Detect Magic".
   //
   // The English forms are stored-data constants, like FATIGUE_NAME — not UI
-  // strings. Both separators appear in shipped names. A scroll is checked against
-  // BOTH families, not just its own: scrolls were stored as "Spellscroll — X"
-  // before they became flagged spellbooks, the migration strips that, and a
-  // hand-typed name may carry either.
+  // strings. A scroll is checked against BOTH families, not just its own: scrolls
+  // were stored as "Spellscroll — X" before they became flagged spellbooks, the
+  // migration strips that, and a hand-typed name may carry either.
   const STORED_SPELLBOOK_PREFIXES = ["Spellbook — ", "Spellbook (", "Spellscroll — ", "Spellscroll ("];
+
+  // Both shapes a prefix takes in front of a name: "Kind — X" and "Kind (X)".
+  // The English list above carries both by hand; the LOCALIZED side used to carry
+  // only the em-dash one, and that asymmetry was the bug. Five shipped 2e
+  // backgrounds spell their grant "Spellbook (Detect Magic)" — Bonekeeper,
+  // Foundling, Half-Witch, Hexenbane, Mountebank — so the parenthesised shape is
+  // the one a content overlay is most likely to be translating, and a translated
+  // "Hechizo (Detectar Magia)" matched nothing and got a second "Hechizo — "
+  // bolted on. Observed, not reasoned: dev:i18n-render rendered
+  // "ZZ-hechizo — ZZ-hechizo (Aro de Cáñamo)".
+  //
+  // Derived from the prefix rather than asking translators for a second key: a
+  // language file that carries "CAIRN.SpellbookPrefix" alone stays complete, and
+  // there is no way for the two keys to drift apart.
+  const prefixForms = (prefix) => {
+    const bare = String(prefix ?? "").replace(/[\s—:(-]+$/, "");
+    return bare ? [prefix, `${bare} (`, `${bare}(`] : [];
+  };
+
   Handlebars.registerHelper("spellbookPrefix", function (name, scroll) {
     const n = String(name ?? "");
     const localized = game.i18n.localize(scroll ? "CAIRN.SpellscrollPrefix" : "CAIRN.SpellbookPrefix");
-    const both = [game.i18n.localize("CAIRN.SpellbookPrefix"), game.i18n.localize("CAIRN.SpellscrollPrefix")];
-    const carried = [...STORED_SPELLBOOK_PREFIXES, ...both].some((p) => n.startsWith(p));
+    const localizedForms = [
+      ...prefixForms(game.i18n.localize("CAIRN.SpellbookPrefix")),
+      ...prefixForms(game.i18n.localize("CAIRN.SpellscrollPrefix")),
+    ];
+    // `p &&` is load-bearing: "".startsWith("") is true, so one language file
+    // shipping an empty prefix would strip the prefix off every row in the game.
+    const carried = [...STORED_SPELLBOOK_PREFIXES, ...localizedForms].some((p) => p && n.startsWith(p));
     return carried ? "" : localized;
   });
 

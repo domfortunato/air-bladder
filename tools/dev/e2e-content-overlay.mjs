@@ -15,6 +15,10 @@
  *   1. the RENDERED card shows the translation, and
  *   2. the STORED message content is still English.
  *
+ * Then, for the surfaces that name a background: the marketplace headings, the
+ * picker rows, and the drop confirm — each of which has at some point rendered raw
+ * English beside a sheet showing the same field translated.
+ *
  * Usage: npm run dev:content-overlay
  */
 
@@ -242,6 +246,79 @@ pick.tagline === "Descripción de prueba."
 pick.groups.length && pick.groups.every((g) => g && !/^\s*$/.test(g))
   ? ok("archetype headings render", pick.groups.join(", "))
   : fail("archetype headings render", JSON.stringify(pick.groups));
+
+/* -------------------------------------------- */
+
+// The drop confirm names the background, and it was the ONE background-name surface
+// still formatting the raw English while the sheet header, the picker and the
+// failed-career list all went through t("bg.name", …). Invisible today because
+// lang/content/es.json is empty, and it would NOT have come along when the content
+// phase lands — hence a gate now rather than a note.
+//
+// Driven by calling _onDropBackground directly: what routes a drop there is already
+// covered by dev:bg-drop-guard (which arrival routes reach it) and dev:bg-drop-order
+// (when it may be offered at all). What is under test here is only the string.
+console.log("\nbackground drop confirm");
+
+let dropActorId = null;
+try {
+  const drop = await page.evaluate(async () => {
+    const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+    const bg = (await game.packs.get("air-bladder.backgrounds-2e").getDocuments())[0];
+    const actor = await CONFIG.Actor.documentClass.create({
+      name: "ZZ Drop Confirm Probe", type: "character", system: { contentSource: "2e" },
+    });
+    const out = { actorId: actor.id, en: bg.name };
+    try {
+      i18n._setOverlay({ "bg.name": { [bg.name]: "NOMBRE-PROBE" } });
+      await actor.sheet.render(true);
+      for (let i = 0; i < 60 && !actor.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
+
+      const p = actor.sheet._onDropBackground(bg);
+      p.catch(() => {});
+      // Poll, never sleep: a fixed wait is an assertion about someone else's timing,
+      // and when it is wrong this hangs on an unanswered modal instead of failing.
+      let dlg = null;
+      for (let i = 0; i < 60 && !dlg; i++) {
+        await new Promise((r) => setTimeout(r, 100));
+        dlg = [...foundry.applications.instances.values()].find((a) => a.constructor.name === "DialogV2");
+      }
+      // .dialog-content only — the window frame text carries the Yes/No labels, and
+      // an English button label in the haystack would break the "no English" half.
+      out.text = (dlg?.element?.querySelector(".dialog-content") ?? dlg?.element)?.textContent
+        ?.replace(/\s+/g, " ").trim() ?? null;
+      // rejectClose is false on this dialog, so closing settles to null rather than
+      // throwing — the swap is refused and nothing is changed.
+      dlg?.close();
+      await p.catch(() => {});
+    } finally {
+      i18n._setOverlay(null);
+      await actor.sheet?.close().catch(() => {});
+    }
+    return out;
+  });
+
+  dropActorId = drop.actorId;
+  if (!drop.text) {
+    fail("confirm rendered", "no DialogV2 after 6s — the assertions below are vacuous");
+  } else {
+    ok("confirm rendered", `"${drop.text.slice(0, 60)}…"`);
+    drop.text.includes("NOMBRE-PROBE")
+      ? ok("confirm name translated", '"NOMBRE-PROBE"')
+      : fail("confirm name translated", `confirm text was "${drop.text}"`);
+    !drop.text.includes(drop.en)
+      ? ok("English name is gone", `not "${drop.en}"`)
+      : fail("English name is gone", `confirm still names the English "${drop.en}"`);
+  }
+} finally {
+  // From NODE. A throw inside the evaluate above cannot skip this, and a probe
+  // actor left behind is exactly the stale world state the next run's precondition
+  // would be quietly satisfied by.
+  if (dropActorId) {
+    await page.evaluate(async (id) => { await game.actors.get(id)?.delete(); }, dropActorId)
+      .catch(() => {});
+  }
+}
 
 /* -------------------------------------------- */
 

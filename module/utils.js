@@ -25,6 +25,36 @@ export const evaluateFormula = async (formula, data) => {
 };
 
 /**
+ * A content source's display name — "Cairn 2e", "Cairn Barebones".
+ *
+ * ONE definition, in `utils.js` rather than beside either sheet, because there were
+ * two and they had already drifted: the actor sheet said "Cairn Barebones" and the
+ * background sheet said "Barebones", so the same edition was named differently on
+ * two sheets a Warden has open side by side. The background sheet's map also carried
+ * an `srd-2e` entry, which cannot occur — `srd-2e` is a value of the
+ * `flags.air-bladder.backgroundSource` PROVENANCE flag, never of `system.source`,
+ * whose schema defaults to "2e" (data-models.js `BackgroundData`).
+ *
+ * Localized rather than literal, which reverses the old comment's reasoning. The
+ * argument for literals was that these are the editions' proper names — but
+ * `CAIRN.ContentSource2e` and `CAIRN.ContentSourceBarebones` already existed for the
+ * source picker and are already in `es.json`, so a language that adapts them got a
+ * picker and a sheet header naming the same edition two different ways. Whether an
+ * edition name should be adapted at all is the translator's call to make once, not a
+ * decision to take away from them at half the call sites.
+ *
+ * An unrecognised source falls back to the raw stored value, so a legacy character
+ * whose source is something else reads as that rather than as blank.
+ * @param {String} source
+ * @return {String}
+ */
+const SOURCE_KEYS = { "2e": "CAIRN.ContentSource2e", barebones: "CAIRN.ContentSourceBarebones" };
+export const sourceLabel = (source) => {
+  const key = SOURCE_KEYS[source];
+  return key ? game.i18n.localize(key) : String(source ?? "");
+};
+
+/**
  * @param {String} str
  * @param {Object} data
  * @return {String}

@@ -19,7 +19,9 @@
  *   5. the Create Item dialog offers "Spellscroll" and creating through it really
  *      produces a flagged scroll — while its neighbour "Spellbook" still does not,
  *      since both options share `value="spellbook"` and only a dataset marker
- *      separates them,
+ *      separates them; driven under a SENTINEL label, because the option is read
+ *      and the pre-filled name is stored, and only a non-English client can tell
+ *      those two apart,
  *   6. the ready migration converts the OLD shape (`type: "item"` named
  *      "Spellscroll — X") in all three places it can hide — a world item, an owned
  *      item, and an unlinked scene token's delta — preserving flags, sort and
@@ -212,7 +214,18 @@ console.log("\ncreate-item dialog");
 // Driven through the REAL dialog, not by calling create() with a flag: the whole
 // point is that the choice travels from a <select> option through
 // FormDataExtended into the document, and only a real submit exercises that.
-const dialog = await page.evaluate(async () => {
+// Driven under a SENTINEL translation of CAIRN.Spellscroll, because the defect it
+// guards is invisible in English: the option label and the stored name were one
+// variable, so in an English world both read "Spellscroll" whichever code is in
+// place. Under the sentinel they must diverge — the <option> is read, so it is
+// translated; the name is stored, so it is English. Each assertion below is
+// therefore its own negative control (tools/dev/e2e-i18n-render.mjs, same method).
+const SCROLL_LABEL = "ZZ-pergamino";
+const dialog = await page.evaluate(async (SCROLL_LABEL) => {
+  const original = game.i18n.translations;
+  game.i18n.translations = foundry.utils.mergeObject(
+    foundry.utils.deepClone(original), { "CAIRN.Spellscroll": SCROLL_LABEL }, { inplace: false }
+  );
   const open = async () => {
     const p = getDocumentClass("Item").createDialog();
     await new Promise((r) => setTimeout(r, 500));
@@ -247,41 +260,48 @@ const dialog = await page.evaluate(async () => {
   };
 
   const out = {};
-  let { p, form } = await open();
-  const options = [...form.querySelectorAll('select[name="type"] option')]
-    .map((o) => `${o.textContent.trim()}${o.dataset.abScroll ? "*" : ""}`);
-  out.options = options;
-  out.prefilledName = await pick(form, true);
-  // A cancelled DialogV2.prompt REJECTS, so this has to be caught or the whole
-  // evaluate throws and the later assertions never report.
-  const scrollDoc = await p.catch(() => null);
-  out.scroll = scrollDoc && {
-    name: scrollDoc.name, type: scrollDoc.type, flag: scrollDoc.system.scroll,
-    weightless: scrollDoc.system.weightless,
-    uses: { value: scrollDoc.system.uses.value, max: scrollDoc.system.uses.max },
-    img: scrollDoc.img,
-  };
-  await scrollDoc?.sheet?.close();
-  await scrollDoc?.delete();
+  try {
+    let { p, form } = await open();
+    const options = [...form.querySelectorAll('select[name="type"] option')]
+      .map((o) => `${o.textContent.trim()}${o.dataset.abScroll ? "*" : ""}`);
+    out.options = options;
+    out.prefilledName = await pick(form, true);
+    // A cancelled DialogV2.prompt REJECTS, so this has to be caught or the whole
+    // evaluate throws and the later assertions never report.
+    const scrollDoc = await p.catch(() => null);
+    out.scroll = scrollDoc && {
+      name: scrollDoc.name, type: scrollDoc.type, flag: scrollDoc.system.scroll,
+      weightless: scrollDoc.system.weightless,
+      uses: { value: scrollDoc.system.uses.value, max: scrollDoc.system.uses.max },
+      img: scrollDoc.img,
+    };
+    await scrollDoc?.sheet?.close();
+    await scrollDoc?.delete();
 
-  // The plain Spellbook option must still make a plain book.
-  ({ p, form } = await open());
-  await pick(form, false);
-  const bookDoc = await p.catch(() => null);
-  out.book = bookDoc && {
-    type: bookDoc.type, flag: bookDoc.system.scroll, weightless: bookDoc.system.weightless, img: bookDoc.img,
-  };
-  await bookDoc?.sheet?.close();
-  await bookDoc?.delete();
+    // The plain Spellbook option must still make a plain book.
+    ({ p, form } = await open());
+    await pick(form, false);
+    const bookDoc = await p.catch(() => null);
+    out.book = bookDoc && {
+      type: bookDoc.type, flag: bookDoc.system.scroll, weightless: bookDoc.system.weightless, img: bookDoc.img,
+    };
+    await bookDoc?.sheet?.close();
+    await bookDoc?.delete();
+  } finally {
+    // In the page, not in Node: `translations` is per-client and dies with the
+    // page, but a throw above would otherwise leave section 6 running in a
+    // half-translated client and reporting it as a migration failure.
+    game.i18n.translations = original;
+  }
   return out;
-});
+}, SCROLL_LABEL);
 
-dialog.options.includes("Spellscroll*")
-  ? ok(`the type list offers it: ${dialog.options.join(", ")}`)
-  : fail(`no Spellscroll option — list was ${dialog.options.join(", ")}`);
+dialog.options.includes(`${SCROLL_LABEL}*`)
+  ? ok(`the type list offers it, under its TRANSLATED label: ${dialog.options.join(", ")}`)
+  : fail(`no ${SCROLL_LABEL} option — list was ${dialog.options.join(", ")}`);
 dialog.prefilledName === "Spellscroll"
-  ? ok("choosing it pre-fills the name, so an unnamed create is not called \"Spellbook\"")
-  : fail(`name pre-fill was "${dialog.prefilledName}"`);
+  ? ok("choosing it pre-fills the name in ENGLISH, so an unnamed create is neither \"Spellbook\" nor translated")
+  : fail(`name pre-fill was "${dialog.prefilledName}", want the English "Spellscroll" — a stored name must not follow the client's language`);
 // `img` is asserted here because BOTH reported paths went wrong on it and neither
 // showed up anywhere else: a dialog-created item keeps Foundry's `item-bag.svg`
 // unless _preCreate fills the class art, and `_preUpdate` then refuses to re-art it
