@@ -218,6 +218,26 @@ try {
           gold: edge(".npc-vitals-line .gold-counter > label"),
           armor: edge(".armor-counter > label"),
         };
+        // The two Description-tab section headings must render as the SAME
+        // heading. This is the one sheet that shows both at once, and the
+        // Features header comes from the partial the character sheet also uses,
+        // so checking it here covers both. Typography only, no geometry — so an
+        // inactive tab still resolves it.
+        // Measured 2026-07-29: the Features <h3> carried no class, and core's
+        // `body.game .app h1,...,h6` (the V1 compatibility layer) styles the TAG
+        // directly, so the `!important` font-family on `.cairn-items-list-header`
+        // could never reach it: 28px Signika beside 17px small-caps Alegreya.
+        const face = (sel) => {
+          const el = root.querySelector(sel);
+          if (!el) return null;
+          const cs = getComputedStyle(el);
+          const family = cs.fontFamily.split(",")[0].replace(/["']/g, "").trim();
+          return `${family} ${cs.fontSize} ${cs.fontWeight} ${cs.fontVariantCaps}`;
+        };
+        entry.headings = {
+          features: face(".features .cairn-items-list-header h3"),
+          description: face(".npc-description-label"),
+        };
       }
       out.push(entry);
       await actor.sheet.close();
@@ -248,6 +268,13 @@ try {
       if (b.gold === null || b.armor === null) fail(r.type, "npc header: Gold/Armor label bars not both found");
       else if (Math.abs(b.gold - b.armor) > 1) fail(r.type, `npc header: Gold label bar ends at ${b.gold}, Armor's at ${b.armor} — they must line up`);
       else ok(r.type, `npc header: Gold and Armor label bars line up (right edge ${b.gold})`);
+    }
+
+    const hd = r.headings;
+    if (hd) {
+      if (!hd.features || !hd.description) fail(r.type, "description tab: Features/Description headings not both found");
+      else if (hd.features !== hd.description) fail(r.type, `description tab: Features renders "${hd.features}", Description renders "${hd.description}" — both must be the same heading`);
+      else ok(r.type, `description tab: Features and Description headings match (${hd.features})`);
     }
   }
 
