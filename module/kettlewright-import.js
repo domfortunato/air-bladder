@@ -1,4 +1,5 @@
 import { resolveGearItem, buildGearItem } from "./gear.js";
+import { resultText } from "./compendium.js";
 import { getBackgroundsFor, withGrantSource, randomPortraitPair, FLAG_SCOPE } from "./character-generator.js";
 import { SETTINGS_NS } from "./settings.js";
 import { CairnActor } from "./actor/actor.js";
@@ -149,7 +150,7 @@ const findBondEntry = async (text) => {
   if (!norm(text)) return null;
   const pack = game.packs.get("air-bladder.tables-2e");
   const table = pack ? (await pack.getDocuments()).find((t) => t.name === "Bonds") : null;
-  const hit = bestTextMatch(text, table?.results ?? [], (r) => r.text);
+  const hit = bestTextMatch(text, table?.results ?? [], resultText);
   if (!hit) return null;
   return { items: hit.getFlag(FLAG_SCOPE, "items") ?? [], gold: hit.getFlag(FLAG_SCOPE, "gold") ?? 0 };
 };
@@ -288,7 +289,7 @@ export const resolveVirtueVice = async (pair) => {
     const pack = game.packs.get(packName);
     if (!pack) return new Set();
     const table = (await pack.getDocuments()).find((t) => t.name === tableName);
-    return new Set((table?.results ?? []).map((r) => String(r.text ?? "").trim().toLowerCase()));
+    return new Set(Array.from(table?.results ?? []).map((r) => resultText(r).trim().toLowerCase()));
   };
   const [virtues, vices] = await Promise.all([values("virtue"), values("vice")]);
   const isV = (w) => virtues.has(w.toLowerCase());

@@ -60,6 +60,50 @@ export const drawTable = async (compendiumName, tableName, options = {}) => {
 };
 
 /**
+ * A rolled result's narrative text.
+ *
+ * `TableResult#text` is DEPRECATED — `{since: 13, until: 15}`, one major sooner than
+ * the AppV1 sheets — and survives only as a shim that logs a compatibility warning on
+ * every read (common/documents/table-result.mjs:89-94). This is what it did: a text row
+ * keeps its prose in `description`, and any other row type (a document reference) is
+ * identified by `name`.
+ *
+ * It lives HERE, next to the other table readers, and not in character-generator.js
+ * where it was written. It was applied at exactly one of its call sites for three
+ * months — the sheet, the importer, the shop and the generator itself each kept
+ * reading `.text` — and a helper nobody can find in the module they are editing is
+ * how that happens.
+ *
+ * @param {TableResult} result
+ * @returns {String}
+ */
+export const resultText = (result) =>
+  (result?.type === "text" ? result.description : result?.name) ?? "";
+
+/**
+ * A rolled result rendered the way it would appear in chat: prose for a text row,
+ * a content link for a document row.
+ *
+ * Replaces `TableResult#getChatText()`, deprecated `{since: 13, until: 15}`
+ * (client/documents/table-result.mjs:120-124). The body is core's own expression
+ * from that method, so the output is byte-identical to what shipped.
+ *
+ * `getHTML()` is core's nominated successor and is NOT a drop-in here. It is async,
+ * it enriches to real HTML, and it wraps the result in a template — whereas this
+ * value is stored on the actor as one of the eight 2e trait strings and rendered as
+ * plain text. Swapping it in would put markup into `system.traits.*` on every
+ * generated character, and the content-translation overlay keys on the English
+ * source string, so every trait would also lose its translation.
+ *
+ * @param {TableResult} result
+ * @returns {String}
+ */
+export const resultChatText = (result) =>
+  (result?.type === CONST.TABLE_RESULT_TYPES.DOCUMENT
+    ? `@UUID[${result.documentUuid}]{${result.name}}`
+    : result?.description) ?? "";
+
+/**
  * @param {String} compendium
  * @param {String} table
  * @returns {Promise.<String>}  the drawn result's chat text, or "" if the table
@@ -67,7 +111,7 @@ export const drawTable = async (compendiumName, tableName, options = {}) => {
  */
 export const drawTableText = async (compendium, table) => {
   const draw = await drawTable(compendium, table);
-  return draw?.results?.[0]?.getChatText() ?? "";
+  return resultChatText(draw?.results?.[0]);
 };
 
 /**
@@ -81,19 +125,38 @@ export const drawTableItem = async (compendium, table) => {
 };
 
 /**
+ * The documents a table's results point at.
+ *
+ * Resolves each row by its `documentUuid`, which is the only non-deprecated way to
+ * do it: `documentCollection` (common/documents/table-result.mjs:115-123) and
+ * `documentId` (:102-107) both go in v15, and `TABLE_RESULT_TYPES.COMPENDIUM` with
+ * them (common/constants.mjs:954-964) — v13 merged the "compendium" row type into
+ * "document".
+ *
+ * That merge is why a row dragged in from the ITEMS SIDEBAR is silently missing
+ * from the shop today. The type check is not what drops it: the deprecated
+ * `COMPENDIUM` getter returns `"document"`, so a world row matches. It dies one line
+ * later, in `findCompendiumItem(result.documentCollection, …)` — for a world
+ * document that getter returns the document NAME ("Item"), which is not a pack id,
+ * so the lookup warns and returns undefined. `fromUuid` resolves both kinds.
+ *
+ * Resolving by uuid also means resolving by ID, so renaming an item in a pack no
+ * longer breaks every table that points at it. All 198 shipped document rows carry
+ * a `documentUuid`; there is no row this cannot resolve that the name lookup could.
+ *
+ * A row that resolves to nothing is warned about rather than skipped in silence —
+ * that is a broken content reference, and `findCompendiumItem` used to say so.
+ *
  * @param {TableResult[]} results
- * @returns {Promise.<Item[]>}
+ * @returns {Promise.<Document[]>}
  */
 export const findTableItems = async (results) => {
   const items = [];
-  let item = null;
   for (const result of results) {
-    if (result.type === CONST.TABLE_RESULT_TYPES.COMPENDIUM) {
-      item = await findCompendiumItem(result.documentCollection, result.text);
-      if (item) {
-        items.push(item);
-      }
-    }
+    if (result.type !== CONST.TABLE_RESULT_TYPES.DOCUMENT) continue;
+    const doc = await fromUuid(result.documentUuid);
+    if (doc) items.push(doc);
+    else console.warn(`findTableItems: unresolvable result uuid (${result.documentUuid})`);
   }
   return items;
 };

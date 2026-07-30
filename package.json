@@ -71,7 +71,8 @@
     "dev:bg-drop-guard": "node tools/dev/e2e-background-drop-guard.mjs",
     "dev:token-defaults": "node tools/dev/e2e-token-defaults.mjs",
     "check:licence": "node tools/dev/licence-check.mjs",
-    "dev:npc-wording": "node tools/dev/e2e-npc-wording.mjs"
+    "dev:npc-wording": "node tools/dev/e2e-npc-wording.mjs",
+    "dev:table-results": "node tools/dev/e2e-table-results.mjs"
   },
   "browserslist": [
     "last 3 versions"

@@ -1,5 +1,5 @@
 import { CairnActor } from "./actor/actor.js";
-import { compendiumInfoFromString, drawTableText, findCompendiumItem } from "./compendium.js";
+import { compendiumInfoFromString, drawTableText, resultText } from "./compendium.js";
 import { Cairn } from "./config.js";
 import { evaluateFormula } from "./utils.js";
 import { resolveGearItem, SPELL_PACKS, GEAR_ALIASES, spellScrollItem } from "./gear.js";
@@ -207,7 +207,7 @@ export const rollNameFromTable = async (config, fallback) => {
   const table = pack ? (await pack.getDocuments()).find((t) => t.name === tableName) : null;
   if (!table) return fallback;
   const { results } = await table.roll();
-  return results[0]?.text?.trim() || fallback;
+  return resultText(results[0]).trim() || fallback;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -275,25 +275,6 @@ const tagBackgroundGear = (items) =>
 /* -------------------------------------------------------------------------- */
 /*  Bonds                                                                       */
 /* -------------------------------------------------------------------------- */
-
-/**
- * Draw a Cairn 2e bond from the tables-2e "Bonds" RollTable. Each result's
- * mechanical payload rides in flags.air-bladder: starting gold and a gear reference
- * (resolved here against the pool); the result text is the narrative. Uses
- * roll(), never draw(), so the table's drawn state is never mutated.
- * @returns {Promise<{description:String, gold:Number, items:Object[]}|null>}
- */
-/**
- * A rolled result's narrative text.
- *
- * `TableResult#text` is DEPRECATED — `{since: 13, until: 15}`, one major sooner than
- * the AppV1 sheets — and survives only as a shim that logs a compatibility warning on
- * every read (common/documents/table-result.mjs:89). This is what it did: a text row
- * keeps its prose in `description`, and any other row type (a document or compendium
- * reference) is identified by `name`.
- */
-export const resultText = (result) =>
-  (result?.type === "text" ? result.description : result?.name) ?? "";
 
 /**
  * Find a bonds table BY NAME, for a custom background that names its own.
@@ -934,22 +915,35 @@ const randomScrollItem = async () => {
  *   - a nested ROLLTABLE    → roll that table and resolve its result instead
  *   - anything else         → the pool item of that name, or, for the SRD's two
  *                             instruction rows, a random spellbook or scroll
+ *
+ * The first two branches now ask what the referenced document IS, rather than which
+ * pack it came out of. They used to compare `result.documentCollection` against two
+ * hardcoded pack ids — `documentCollection` is deprecated `{since: 13, until: 15}`,
+ * but the pack id was only ever standing in for the question the docstring above
+ * actually asks. Keying on the document closes a gap as a side effect: a Warden's
+ * own Barebones table pointing at a world RollTable, or at a transport they made,
+ * used to fall through to the gear-pool lookup and resolve to nothing.
+ *
+ * The third branch deliberately still resolves BY NAME against the gear pool, and
+ * not by uuid. That is the pool's whole job — one canonical Dagger, whichever pack
+ * a table points at — and it is why 116 of the 124 shipped Barebones rows do not
+ * need their uuid at all.
+ *
  * @param {TableResult} result
  * @returns {Promise<{item?:Object, container?:Object, name:String}|null>}
  */
 const resolveBarebonesResult = async (result) => {
   if (!result) return null;
-  const name = String(result.text ?? "").trim();
-  const collection = result.documentCollection ?? "";
+  const name = resultText(result).trim();
+  const doc = result.type === CONST.TABLE_RESULT_TYPES.DOCUMENT
+    ? await fromUuid(result.documentUuid)
+    : null;
 
-  if (collection === "air-bladder.transports") {
-    const doc = await findCompendiumItem(collection, name);
-    return doc ? { container: { name: doc.name, slots: doc.system.slots ?? 0 }, name } : null;
+  if (doc?.documentName === "Item" && doc.type === "transport") {
+    return { container: { name: doc.name, slots: doc.system.slots ?? 0 }, name };
   }
-  if (collection === BAREBONES_TABLE_PACK) {
-    const nested = await findCompendiumItem(collection, name);
-    if (!nested) return null;
-    const { results } = await nested.roll();
+  if (doc?.documentName === "RollTable") {
+    const { results } = await doc.roll();
     return resolveBarebonesResult(results[0]);
   }
   const lower = name.toLowerCase();

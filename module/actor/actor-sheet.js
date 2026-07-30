@@ -1,6 +1,7 @@
 import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, mentionsSecondBond, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, getCustomPortraitPaths, refreshCustomPortraits, regenerateHireling, rerollHirelingProfession, rerollHirelingName, rollNameFromTable, rollAge } from "../character-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cleanDescription, bindEditorClickAwaySave } from "../utils.js";
+import { resultText } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART, CONTAINER_ICON, TRANSPORT_KINDS } from "../icons.js";
 import { localizeNameDesc, t } from "../i18n-content.js";
@@ -639,7 +640,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       const [packName, tableName] = ref.split(";");
       const table = (byPack[packName] ?? []).find((tbl) => tbl.name === tableName);
       const value = this.actor.system.traits?.[key] ?? "";
-      const texts = table ? table.results.map((r) => r.text).sort() : [];
+      const texts = table ? table.results.map(resultText).sort() : [];
       return {
         key,
         // The trait-category label IS a tables-2e table name (Physique, Skin…),
@@ -671,9 +672,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const selectedScars = this.actor.system.scars ?? [];
     context.scarOptions = scarTable
       ? scarTable.results.map((r) => ({
-          name: r.text,
+          name: resultText(r),
           description: r.flags?.["air-bladder"]?.description ?? "",
-          selected: selectedScars.includes(r.text),
+          selected: selectedScars.includes(resultText(r)),
         }))
       : [];
     context.scarDisplay = selectedScars.length ? selectedScars.join(", ") : null;
@@ -1899,7 +1900,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       return;
     }
     const { results } = await omenTable.roll();
-    await this.actor.update({ "system.omen": results?.[0]?.text ?? "" });
+    await this.actor.update({ "system.omen": resultText(results?.[0]) });
   }
 
   /**

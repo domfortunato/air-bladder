@@ -1,4 +1,4 @@
-import { findCompendiumItem } from "./compendium.js";
+import { findTableItems } from "./compendium.js";
 import { iconForTransport, TRANSPORT_KINDS } from "./icons.js";
 import { localizeNameDesc, t } from "./i18n-content.js";
 
@@ -7,7 +7,7 @@ import { localizeNameDesc, t } from "./i18n-content.js";
  *
  * Unlike the fork's inlined price list, the catalog is a REFERENCE pack. The
  * `air-bladder.marketplace` compendium holds one RollTable per category
- * ("Market: Weapons/Armor/Gear"), each a list of type:"pack" results pointing at
+ * ("Market: Weapons/Armor/Gear"), each a list of document results pointing at
  * items in the editable gear pool. A row's price, description, and tags are read
  * off the referenced Item at open time — so editing a pool item's cost in Foundry
  * updates the shop, and dragging an item into a table stocks it. Bundles ("Common
@@ -82,12 +82,12 @@ export const getMarketplaceCatalog = async () => {
   const categories = [];
   for (const table of tables) {
     const results = [...table.results].sort((a, b) => (a.range?.[0] ?? 0) - (b.range?.[0] ?? 0));
-    const items = [];
-    for (const result of results) {
-      if (result.type !== CONST.TABLE_RESULT_TYPES.COMPENDIUM) continue;
-      const doc = await findCompendiumItem(result.documentCollection, result.text);
-      if (doc) items.push(ownedPayload(doc));
-    }
+    // findTableItems, not a second copy of the same loop. It used to be inlined
+    // here, and the two copies then had to be fixed twice for the same defect —
+    // which is exactly how the previous fix to this got applied to one of them and
+    // not the other. It also means a row dragged in from the Items SIDEBAR now
+    // stocks the shop, which is the promise this file opens with and was not true.
+    const items = (await findTableItems(results)).map(ownedPayload);
     if (items.length) categories.push({ name: stripPrefix(table.name), label: displayName(table.name), items });
   }
   return { categories };
