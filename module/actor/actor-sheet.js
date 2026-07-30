@@ -1142,6 +1142,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       }));
       return null;
     }
+    if (!this._mayChangeBackground()) return null;
     const ok = await foundry.applications.api.DialogV2.confirm({
       window: { title: game.i18n.localize("CAIRN.ChangeBackgroundTitle") },
       content:
@@ -1153,6 +1154,35 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (!ok) return null;
     await changeBackground(this.actor, bg);
     return null;
+  }
+
+  /**
+   * May this user swap this character's background at all? Ask BEFORE offering the
+   * swap, not after.
+   *
+   * `changeBackground` already refuses when the answer is no, and warns — but it
+   * refuses at the very top, after the UI has already asked. So a player in a
+   * containers-on world was shown "change this character's background to X? this
+   * deletes its granted gear", answered yes, and got a warning and no change. A
+   * destructive question that cannot be honoured is worse than a plain refusal: it
+   * tells the player the swap is theirs to make, and then takes it back.
+   *
+   * The refusal itself is correct and is not the bug — containers are Actors and
+   * Foundry gates Actor deletion on ASSISTANT, so no player can regenerate them
+   * (see `canRegenerateContainers`). Note how blunt that guard is: with the
+   * Containers tab ON it refuses for EVERY non-GM, whatever the character is
+   * carrying, because a fresh roll might mint one. So this is not rare — it is
+   * every player in such a world, every time.
+   *
+   * Both places the sheet offers the swap call this first: the drop, above, and the
+   * magnifier's picker, which otherwise let a player browse the whole background
+   * list before refusing the one they chose. `#onRollBackground` deliberately does
+   * NOT — it asks nothing, so `changeBackground`'s own guard is the first and only
+   * refusal, and a second copy here would be dead code that reads as protection.
+   * @returns {Boolean} false, having already warned, if the swap would be refused
+   */
+  _mayChangeBackground() {
+    return canRegenerateContainers(this.actor);
   }
 
   /**
@@ -1947,6 +1977,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onPickBackground(event) {
     event.preventDefault();
+    if (!this._mayChangeBackground()) return;   // don't offer a list we can't act on
     const result = await promptBackground(
       this.actor.system.contentSource || "2e",
       this.actor.system.backgroundUuid
@@ -2349,16 +2380,30 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   async _onDropItem(event, originalItem) {
     if (!originalItem) return null;
 
-    // A background is not inventory. Dropping one CHANGES the character's background —
-    // the same operation as the magnifier's picker — so it is intercepted before any
-    // capacity check and before any create. Without this it fell through to the
-    // transfer path below and became an owned item: `BackgroundData` declares neither
-    // `weightless` nor `bulky`, so it cost a slot, and on an encumbered character the
-    // refusal below rejected the drop outright, so nothing happened at all.
-    if (originalItem.type === "background") return this._onDropBackground(originalItem);
-
     // The Actor the item currently belongs to; null for a world or compendium item.
     const originalActor = originalItem.actor;
+
+    // A background ARRIVING here is not inventory. Dropping one CHANGES the
+    // character's background — the same operation as the magnifier's picker — so it
+    // is intercepted before any capacity check and before any create. Without this
+    // it fell through to the transfer path below and became an owned item:
+    // `BackgroundData` declares neither `weightless` nor `bulky`, so it cost a slot,
+    // and on an encumbered character the refusal below rejected the drop outright,
+    // so nothing happened at all.
+    //
+    // ARRIVING is the load-bearing word, and the `!== this.actor` term is what says
+    // it. A background already in this inventory — the 0.1.7 artefact upgraded
+    // worlds still carry — is a draggable row like any other, and dragging it to
+    // REORDER it is a sort, not a swap. Without the term the sort never happened:
+    // the drag raised the destructive prompt and, answered yes, renamed the
+    // character's background to the item being dragged and deleted the gear the
+    // real one granted. Note it cannot instead move below the same-actor branch and
+    // rely on position — a background dragged off ANOTHER character's sheet is a
+    // legitimate arrival route that must still be intercepted, and dev:bg-drop-guard
+    // covers it.
+    if (originalItem.type === "background" && originalActor !== this.actor) {
+      return this._onDropBackground(originalItem);
+    }
 
     // Same-actor drop: this is a reorder within our own inventory, not a
     // transfer. Honour it only when the GM has enabled drag-to-reorder.

@@ -164,7 +164,7 @@ translating). `README.md` carries credits and licensing.
 
 ## Testing
 
-**`docs/release-testing.md` is the full list — 63 scripts, what each covers, and
+**`docs/release-testing.md` is the full list — 64 scripts, what each covers, and
 what to run before tagging vs after publishing. Keep it in step with
 `package.json`; a probe not listed there runs only when someone remembers it.**
 
