@@ -92,25 +92,35 @@ export const spellNameFromGrant = (name) => {
 export const isScrollGrant = (name) => /^scroll\s*\(.+\)$/i.test(String(name).trim());
 
 /**
- * A single-use petty scroll built from a resolved spellbook document: type "item",
- * weightless (petty), one use, the spell's own text as its description, named
- * "Spellscroll — X". THE one definition of "what a scroll is", shared by named
- * scroll grants (resolveGearItem) and the random-scroll path
- * (character-generator.js randomScrollItem) so the two cannot drift.
+ * A single-use petty scroll built from a resolved spellbook document: the SAME
+ * spellbook type with `scroll` ticked, the spell's own text as its description, and
+ * stored under the bare spell name — the inventory row adds the "Spellscroll — "
+ * prefix at display time, exactly as it does for a book. THE one definition of
+ * "what a scroll is", shared by named scroll grants (resolveGearItem) and the
+ * random-scroll path (character-generator.js randomScrollItem) so the two cannot
+ * drift.
+ *
+ * This used to emit `type: "item"` under the name "Spellscroll — X", which made a
+ * generated scroll a THIRD representation no Warden could author or recognise: not
+ * a spellbook, not flagged, identifiable only by a word in its name (which is what
+ * `iconForItem` keys the scroll art off). `CairnItem._preUpdate` re-pins petty and
+ * the use count on every write, so the values below are the initial state rather
+ * than the only thing holding the invariant.
  */
 export const spellScrollItem = (book, { quantity = 1, uses } = {}) => ({
-  name: `Spellscroll — ${book.name}`,
-  type: "item",
+  name: book.name,
+  type: "spellbook",
   img: SPELLSCROLL_ICON,
   system: {
     // toObject() rather than deepClone — see resolveGearItem. The spread saved
     // this one from mutating the pack, but it also copied prepared/derived
     // fields off the live model into stored data.
     ...book.system.toObject(),
+    scroll: true,
     weightless: true,
     equipped: false,
     quantity,
-    uses: { value: uses ?? 1, max: uses ?? 1 },
+    uses: { value: uses ?? 1, max: 1 },
   },
 });
 

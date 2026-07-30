@@ -319,9 +319,30 @@ class ArmorData extends CairnDataModel {
   }
 }
 
+/**
+ * A spellbook, and — with `scroll` ticked — a spellscroll.
+ *
+ * A scroll is NOT a type, for the same reason a relic is not (see relicFields
+ * above), only more so: given the rule that every spellscroll is petty and
+ * single-use, a scroll carries no data a spellbook does not. It is a spellbook
+ * with two values pinned, and its text IS the spell's text. A `spellscroll` type
+ * would duplicate this model and its sheet to express that, and because Foundry
+ * treats a document's `type` as immutable, a book could never become a scroll.
+ *
+ * `uses` exists ONLY to serve the scroll case — a book has no uses — which is why
+ * the sheet shows the counter only when `scroll` is ticked. The invariant itself
+ * (petty, max 1 use, not equippable) is enforced on the document in
+ * `CairnItem._preCreate`/`_preUpdate`, not here, so that EVERY path agrees: the
+ * sheet checkbox, generation, a drag-and-drop copy, and `createOwnedItem` (which
+ * rewrites `system.weightless` from a top-level field and would otherwise quietly
+ * un-petty a scroll).
+ *
+ * `uses.value` stays free so a player can mark a scroll spent; only `max` is
+ * pinned.
+ */
 class SpellbookData extends CairnDataModel {
   static defineSchema() {
-    return { ...universal() };
+    return { ...universal(), ...consumable(), scroll: bool() };
   }
 }
 

@@ -1,6 +1,6 @@
 {{!-- No <form> here: ApplicationV2 supplies it (DocumentSheetV2 sets tag: "form").
       A nested one is dropped by the parser, taking this element's class with it. --}}
-<div class="item-sheet-grid spellbook">
+<div class="item-sheet-grid spellbook{{#if system.scroll}} has-scroll-uses{{/if}}">
     <!-- Portrait -->
     <div class="item-sheet-section-portrait">
         <img class="portrait" src="{{item.img}}" data-action="editImage" data-edit="img" title="{{item.name}}" />
@@ -20,6 +20,18 @@
     </div>
 
 
+    <!-- Scroll. A flag, not a type: a spellscroll IS this spell, written once on
+         paper. Ticking it pins petty + one use and swaps the art (CairnItem
+         _preUpdate), which is why there is no Petty box and no Max uses field
+         here -- the rule is the same for every scroll, so it is not a question. -->
+    <div class="resource-counter long-counter">
+        <label class="large-resource-label" for="{{@root.idp}}-system.scroll" data-tooltip="{{ localize 'CAIRN.ScrollTip' }}">{{ localize 'CAIRN.Scroll' }}</label>
+        <div class="resource-input-wrapper">
+            <input type="checkbox" {{checked system.scroll}} name="system.scroll" id="{{@root.idp}}-system.scroll"
+                value="{{system.scroll}}" data-dtype="Boolean" />
+        </div>
+    </div>
+
     <!-- Cost -->
     <div class="resource-counter long-counter">
         <label class="large-resource-label" for="{{@root.idp}}-system.cost">{{ localize 'CAIRN.Cost' }}</label>
@@ -37,6 +49,20 @@
                 data-dtype="Number" />
         </div>
     </div>
+
+    {{#if system.scroll}}
+    <!-- Used up? The one editable half of the counter: max is pinned at 1, and the
+         value drops to 0 when the scroll is read. A book never shows this.
+         Placed LAST, so ticking Scroll appends a row instead of shuffling the four
+         counters a book already has. -->
+    <div class="resource-counter long-counter">
+        <label class="large-resource-label" for="{{@root.idp}}-system.uses.value">{{ localize 'CAIRN.Uses' }}</label>
+        <div class="resource-input-wrapper">
+            <input type="text" name="system.uses.value" id="{{@root.idp}}-system.uses.value"
+                value="{{system.uses.value}}" data-dtype="Number" />
+        </div>
+    </div>
+    {{/if}}
 
     <div class="item-sheet-section-tabs">
         <nav class="tabs" data-group="primary">

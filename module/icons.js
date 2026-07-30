@@ -134,8 +134,14 @@ export const iconForItem = (type = "item", name = "") => {
   return P("generic-item");
 };
 
-/** The generated single-use spell scroll's art. */
+/**
+ * The two faces of a spellbook document. `scroll` swaps between them, so both are
+ * named here and neither is written out at the call site: an item.js that hardcoded
+ * the paths would be a second source of truth, which is how the tools pack was left
+ * behind on .png through the 2026-07-28 SVG swap.
+ */
 export const SPELLSCROLL_ICON = P("spellscroll");
+export const SPELLBOOK_ICON = P("spellbook");
 /**
  * The tools pack's art. Tools are not detectable by name — being a tool is a
  * whole pack, not a word — so the importer maps that pack directly. Exported

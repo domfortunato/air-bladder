@@ -985,14 +985,13 @@
     width: 60%;
 }
 
-.weapon.item-sheet-grid {
-    grid-template-rows: 46px 36px 36px 36px 36px 1fr;
-}
-
-.weapon.item-sheet-grid .item-sheet-section-tabs {
-    grid-row-start: 6;
-    grid-row-end: 6;
-}
+/* The weapon sheet uses the BASE row set (six rows, tabs at seven). It used to
+   declare one row fewer, with the tabs at six, which was right for its eight
+   counters — until the Relic checkbox made nine. The ninth auto-placed into an
+   implicit row below the tabs, putting **Cost** at y=1059 of a 1000px viewport:
+   present in the DOM, off the bottom of the window, and impossible to set. Found
+   2026-07-29 by the counter-visibility check in dev:sheet-layout. Do not
+   re-introduce a shorter override without counting the counters. */
 
 
 .armor.item-sheet-grid,
@@ -1015,6 +1014,23 @@
 .background.item-sheet-grid .item-sheet-section-tabs {
     grid-row-start: 4;
     grid-row-end: 4;
+}
+
+/* A scroll shows one counter more than a book (its remaining use), which makes FIVE
+   — an odd number, so the fifth lands alone on a third counter row. Row counts in
+   this file are hand-declared per item type and the tabs section is pinned to a
+   numbered row, so a new counter needs both a new row and the tabs moved down.
+   Without this the extra counter auto-places into an IMPLICIT row beneath the tabs:
+   measured 2026-07-29 with Quantity at y=676 of a 720px grid, off the bottom of the
+   window and hit-tested to the canvas. It was in the DOM, so the region count still
+   looked right. */
+.spellbook.item-sheet-grid.has-scroll-uses {
+    grid-template-rows: 46px 36px 46px 36px 1fr;
+}
+
+.spellbook.item-sheet-grid.has-scroll-uses .item-sheet-section-tabs {
+    grid-row-start: 5;
+    grid-row-end: 5;
 }
 
 .small-resource-label {

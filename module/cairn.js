@@ -289,6 +289,8 @@ Hooks.once("ready", async () => {
 
   await phase("icon .png -> .svg migration", migrateIconsToSvg);
 
+  await phase("spellscroll -> flagged spellbook migration", migrateScrollsToSpellbooks);
+
   // Custom character portraits: make sure the GM's folder exists, then refresh the
   // cached image list so players (who cannot scan folders) see the current set.
   // Both are non-fatal — a host that forbids folder ops just leaves the pool empty
@@ -344,6 +346,105 @@ const migrateIconsToSvg = async () => {
   }
 
   if (count) console.log(`Air Bladder | moved ${count} document(s) from .png to .svg class icons`);
+};
+
+/**
+ * Spellscrolls were generated as `type: "item"` named "Spellscroll — X" until they
+ * became spellbooks with `system.scroll` ticked. Convert the old shape so there is
+ * ONE representation of a scroll: otherwise a character's existing scrolls are
+ * invisible to everything that now keys off the flag (the sheet's Scroll box, the
+ * display prefix, the not-equippable rule), and a Warden looking at two scrolls
+ * side by side would find only one of them editable as such.
+ *
+ * A document's `type` is immutable in Foundry, so this is a create-then-delete, not
+ * an update — the trap the hireling merge hit. Create first so a failure can never
+ * lose a scroll; the transient duplicate costs nothing, since a scroll is petty at
+ * both ends and no slot count moves.
+ *
+ * Carried across: the name (with the prefix stripped, since the inventory row adds
+ * it back at display time), the spell text, cost, quantity, whether the use was
+ * already spent, `sort` (so drag-ordered inventories keep their order) and ALL
+ * flags — `flags.air-bladder.grantSource` is how a bond or question re-roll finds
+ * the items it granted, so dropping it would orphan them.
+ *
+ * Idempotent: a converted scroll is no longer `type: "item"`, so a re-run matches
+ * nothing.
+ */
+const STORED_SCROLL_PREFIXES = ["Spellscroll — ", "Spellscroll ("];
+
+/** True for a pre-flag scroll. The name prefix is the only marker the old shape
+ *  had — which is the defect being fixed, and it also catches a Warden's
+ *  hand-built "Spellscroll — X" generic item, the only authoring path there was. */
+const isLegacyScroll = (item) =>
+  item.type === "item" && STORED_SCROLL_PREFIXES.some((p) => item.name?.startsWith(p));
+
+/** "Spellscroll — Adhere" / "Spellscroll (Adhere)" -> "Adhere". */
+const bareScrollName = (name) => {
+  const s = String(name ?? "");
+  for (const p of STORED_SCROLL_PREFIXES) {
+    if (!s.startsWith(p)) continue;
+    const rest = s.slice(p.length);
+    return (p.endsWith("(") ? rest.replace(/\)\s*$/, "") : rest).trim();
+  }
+  return s;
+};
+
+const asFlaggedScroll = (old) => {
+  const o = old.toObject();
+  return {
+    name: bareScrollName(o.name),
+    type: "spellbook",
+    img: o.img,                       // already the scroll art, or a Warden's own
+    sort: o.sort ?? 0,
+    flags: o.flags ?? {},
+    system: {
+      description: o.system?.description ?? "",
+      cost: o.system?.cost ?? 0,
+      quantity: o.system?.quantity ?? 1,
+      scroll: true,
+      weightless: true,
+      equipped: false,
+      // A spent scroll stays spent. `max` is pinned at 1 by the invariant anyway.
+      uses: { value: Math.min(o.system?.uses?.value ?? 1, 1), max: 1 },
+    },
+  };
+};
+
+const migrateScrollsToSpellbooks = async () => {
+  let count = 0;
+  const ItemCls = getDocumentClass("Item");
+
+  /** @param {Document|null} parent  the owning Actor, or null for world items */
+  const convert = async (parent, items) => {
+    const legacy = items.filter(isLegacyScroll);
+    if (!legacy.length) return;
+    const payload = legacy.map(asFlaggedScroll);
+    const ids = legacy.map((i) => i.id);
+    if (parent) {
+      await parent.createEmbeddedDocuments("Item", payload);
+      await parent.deleteEmbeddedDocuments("Item", ids);
+    } else {
+      await ItemCls.createDocuments(payload);
+      await ItemCls.deleteDocuments(ids);
+    }
+    count += legacy.length;
+  };
+
+  await convert(null, [...game.items]);
+  for (const actor of game.actors) await convert(actor, [...actor.items]);
+
+  // An unlinked token keeps its own copy of the actor's items in its delta, so the
+  // world actor's inventory says nothing about it. Writing through the synthetic
+  // `token.actor` updates that delta. Linked tokens are skipped — they ARE the
+  // world actor already handled above, and converting twice would duplicate.
+  for (const scene of game.scenes) {
+    for (const token of scene.tokens) {
+      if (token.actorLink || !token.actor) continue;
+      await convert(token.actor, [...token.actor.items]);
+    }
+  }
+
+  if (count) console.log(`Air Bladder | converted ${count} spellscroll(s) to flagged spellbooks`);
 };
 
 // Two hooks used to tag every dialog world-wide with `.cairn-dialog` so
@@ -604,8 +705,9 @@ const configureHandleBar = () => {
     return val === FATIGUE_NAME;
   });
 
-  // The display prefix for a spellbook row, or "" when the name already carries
-  // one. Keeping this idempotent needs BOTH forms tested, which is why it is a
+  // The display prefix for a spellbook row — "Spellbook — " for a book,
+  // "Spellscroll — " for a scroll — or "" when the name already carries one.
+  // Keeping this idempotent needs BOTH forms tested, which is why it is a
   // helper rather than an {{#unless startsWith}} in the template:
   //
   //   - the stored name is English ("Spellbook (Detect Magic)" is shipped pack
@@ -616,12 +718,16 @@ const configureHandleBar = () => {
   //     "Hechizo — Spellbook — Detect Magic".
   //
   // The English forms are stored-data constants, like FATIGUE_NAME — not UI
-  // strings. Both separators appear in shipped names.
-  const STORED_SPELLBOOK_PREFIXES = ["Spellbook — ", "Spellbook ("];
-  Handlebars.registerHelper("spellbookPrefix", function (name) {
+  // strings. Both separators appear in shipped names. A scroll is checked against
+  // BOTH families, not just its own: scrolls were stored as "Spellscroll — X"
+  // before they became flagged spellbooks, the migration strips that, and a
+  // hand-typed name may carry either.
+  const STORED_SPELLBOOK_PREFIXES = ["Spellbook — ", "Spellbook (", "Spellscroll — ", "Spellscroll ("];
+  Handlebars.registerHelper("spellbookPrefix", function (name, scroll) {
     const n = String(name ?? "");
-    const localized = game.i18n.localize("CAIRN.SpellbookPrefix");
-    const carried = [...STORED_SPELLBOOK_PREFIXES, localized].some((p) => n.startsWith(p));
+    const localized = game.i18n.localize(scroll ? "CAIRN.SpellscrollPrefix" : "CAIRN.SpellbookPrefix");
+    const both = [game.i18n.localize("CAIRN.SpellbookPrefix"), game.i18n.localize("CAIRN.SpellscrollPrefix")];
+    const carried = [...STORED_SPELLBOOK_PREFIXES, ...both].some((p) => n.startsWith(p));
     return carried ? "" : localized;
   });
 

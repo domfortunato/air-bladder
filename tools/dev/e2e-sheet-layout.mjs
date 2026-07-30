@@ -292,6 +292,17 @@ try {
       ["item (relic/charges)", { name: "ZZ Layout Relic", type: "item", system: { relic: true, recharge: "<p>x</p>" } }],
       ["weapon", { name: "ZZ Layout Weapon", type: "weapon" }],
       ["armor", { name: "ZZ Layout Armor", type: "armor" }],
+      // Both faces of a spellbook: ticking `scroll` adds a counter ("Available
+      // uses") that a book does not show, so the two states have different label
+      // sets and only the scroll's can clip.
+      ["spellbook (book)", { name: "ZZ Layout Book", type: "spellbook" }],
+      ["spellbook (scroll)", { name: "ZZ Layout Scroll", type: "spellbook", system: { scroll: true } }],
+      // Every remaining type, because the grid's row count is declared PER TYPE and
+      // the visibility check below is what catches one counter too many. Covering
+      // four of seven types is how the weapon sheet's Cost sat off-screen unnoticed.
+      ["object", { name: "ZZ Layout Object", type: "object" }],
+      ["transport", { name: "ZZ Layout Transport", type: "transport" }],
+      ["background", { name: "ZZ Layout Background", type: "background" }],
     ];
     for (const [label, data] of cases) {
       const item = await CONFIG.Item.documentClass.create(data);
@@ -302,7 +313,31 @@ try {
       };
       for (let k = 0; k < 60 && !node(); k++) await new Promise((r) => setTimeout(r, 100));
       await new Promise((r) => setTimeout(r, 400));
-      out.push({ type: label, ...(node() ? window.__abLayout(node()) : { error: "never rendered" }) });
+      const entry = { type: label, ...(node() ? window.__abLayout(node()) : { error: "never rendered" }) };
+      // Every counter must actually be ON TOP at its own centre. This grid declares
+      // a fixed row count per item type with the tabs section pinned to a numbered
+      // row, so one counter too many auto-places into an implicit row BELOW the
+      // tabs — off the bottom of the window, present in the DOM, and invisible to
+      // both the region count and the clipped-label check. That is exactly how the
+      // scroll's fifth counter shipped hidden for one commit.
+      //
+      // Hit-testing, not geometry: the section-portrait stretches across the whole
+      // grid by design, so "does it intersect something" cannot distinguish this
+      // from that. Counters only — they are the elements a Warden must be able to
+      // read and click.
+      const root = node();
+      entry.hidden = root
+        ? [...root.querySelectorAll(".resource-counter")].flatMap((c) => {
+            const r = c.getBoundingClientRect();
+            if (!r.width || !r.height) return [`${c.textContent.trim()} (zero-size)`];
+            const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+            if (c === hit || c.contains(hit)) return [];
+            const label = c.querySelector("label")?.textContent.trim() ?? "(unlabelled)";
+            return [`${label} covered by ${hit?.className || hit?.tagName || "nothing"}`];
+          })
+        : [];
+      entry.counters = root ? root.querySelectorAll(".resource-counter").length : 0;
+      out.push(entry);
       await item.sheet.close();
       await item.delete();
     }
@@ -323,7 +358,8 @@ try {
   for (const r of items) {
     if (r.error) { fail(r.type, r.error); continue; }
     if (r.clippedLabels?.length) fail(r.type, `counter label does not fit: ${r.clippedLabels.join(", ")}`);
-    else ok(r.type, `${r.count} regions, no clipped labels`);
+    else if (r.hidden?.length) fail(r.type, `counter present but not visible: ${r.hidden.join(", ")}`);
+    else ok(r.type, `${r.count} regions, ${r.counters ?? "all"} counters visible, no clipped labels`);
   }
 } catch (e) {
   fail("probe threw", `${e.name}: ${e.message}`);

@@ -1,4 +1,5 @@
 import { SETTINGS_NS } from "../settings.js";
+import { SPELLBOOK_ICON, SPELLSCROLL_ICON } from "../icons.js";
 
 /**
  * The stored name of a Fatigue item. ENGLISH, always — Foundry's language setting
@@ -13,10 +14,79 @@ import { SETTINGS_NS } from "../settings.js";
 export const FATIGUE_NAME = "Fatigue";
 
 /**
+ * Every spellscroll is petty and single-use — the Warden's rule, and the one thing
+ * that separates a scroll from the book of the same spell. So it is derived from
+ * the `scroll` flag rather than typed in: the sheet offers no Petty box and no Max
+ * uses field for a spellbook, and these values are written whenever the flag is.
+ *
+ * `uses.value` is deliberately absent: it is set once, on the transition to
+ * `scroll: true` (a fresh scroll has its use), and left alone afterwards so
+ * marking one spent survives the next save. Forcing it here would silently refill
+ * every scroll on every edit.
+ */
+const SCROLL_PINNED = { weightless: true, equipped: false, "uses.max": 1 };
+
+/** What ticking `scroll` off restores: a book is not petty and has no uses. */
+const BOOK_PINNED = { weightless: false, "uses.max": 0, "uses.value": 0 };
+
+/**
  * Extend the basic Item with some very simple modifications.
  * @extends {Item}
  */
 export class CairnItem extends Item {
+  /**
+   * Hold a spellbook to the scroll invariant at write time, whichever path wrote
+   * it: the sheet's Scroll box, generation, a drag-and-drop copy, an importer, or
+   * `Actor#createOwnedItem` (which rebuilds `system.weightless` from a top-level
+   * field, so it would hand back an un-petty scroll on its own).
+   *
+   * Written to the document rather than derived in `prepareData`, so the stored
+   * data is true — a derived-only petty flag would be a lie to anything reading the
+   * document instead of the prepared model, and re-deriving a value that a form
+   * also binds is how the HP clobber bug worked.
+   * @override
+   */
+  async _preCreate(data, options, user) {
+    const allowed = await super._preCreate(data, options, user);
+    if (allowed === false) return false;
+    if (this.type !== "spellbook" || !this.system.scroll) return;
+    const pinned = { ...SCROLL_PINNED };
+    // A scroll created straight from the flag arrives UNSPENT — pinning only `max`
+    // left `value` at the schema default of 0, so a new scroll rendered as already
+    // used up. One created with an explicit count keeps it, which is what lets the
+    // spellscroll migration carry a spent scroll across without refilling it.
+    if (foundry.utils.getProperty(data ?? {}, "system.uses.value") === undefined) {
+      pinned["uses.value"] = 1;
+    }
+    this.updateSource({ system: pinned });
+  }
+
+  /**
+   * The same invariant on edit, plus the two transitions. Ticking Scroll makes a
+   * fresh scroll (its one use unspent) and unticking restores a book; while the
+   * flag merely stays on, `uses.value` is left alone so a spent scroll stays spent.
+   *
+   * The art follows the flag only when it is still ours to change — a Warden who
+   * picked their own image keeps it.
+   * @override
+   */
+  async _preUpdate(changed, options, user) {
+    const allowed = await super._preUpdate(changed, options, user);
+    if (allowed === false) return false;
+    if (this.type !== "spellbook") return;
+    if (changed.system?.scroll === undefined) {
+      // No transition: just hold the invariant for a scroll being edited.
+      if (this.system.scroll) foundry.utils.mergeObject(changed, { system: SCROLL_PINNED });
+      return;
+    }
+    const becomingScroll = !!changed.system.scroll;
+    foundry.utils.mergeObject(changed, {
+      system: becomingScroll ? { ...SCROLL_PINNED, "uses.value": 1 } : BOOK_PINNED,
+    });
+    const was = becomingScroll ? SPELLBOOK_ICON : SPELLSCROLL_ICON;
+    if (this.img === was) changed.img = becomingScroll ? SPELLSCROLL_ICON : SPELLBOOK_ICON;
+  }
+
   /**
    * Augment the basic item data with additional dynamic data.
    */
@@ -24,8 +94,11 @@ export class CairnItem extends Item {
     super.prepareData();
     // Items in containers cannot be equippable.
     const actorType = this.actor ? this.actor.type : "";
+    // A spellscroll is read once and consumed, never held ready, so it is the one
+    // spellbook that cannot be equipped.
     this.system.isEquipable =
       ["weapon", "armor", "spellbook"].includes(this.type) &&
+      !this.system.scroll &&
       actorType != "container";
     this.system.hasPlusMinus = (this.system.uses?.max ?? 0) > 0;
     if (this.system.uses) {
@@ -63,7 +136,7 @@ export class CairnItem extends Item {
       this.system.icon = "";
       switch (this.type) {
         case "spellbook":
-          this.system.icon = "book";
+          this.system.icon = this.system.scroll ? "scroll" : "book";
           break;
         case "weapon":
           this.system.icon = "sword";
