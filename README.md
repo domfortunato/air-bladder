@@ -102,10 +102,6 @@ Air Bladder mixes several licensing regimes — please keep the attribution inta
 - **Item & container icons — CC BY 3.0.** The class icons in `icons/` (gear, spellbooks, transports, containers, monsters) are from [game-icons.net](https://game-icons.net) by **Lorc, Delapouite & Skoll**, licensed [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). Per-icon author and source-page credits are recorded in `icons/CREDITS.md`.
 - **Alegreya typeface — SIL Open Font License 1.1.** The three webfonts in `fonts/` are **Alegreya** by Juan Pablo del Peral and the Alegreya Project Authors ([Huerta Tipográfica](https://github.com/huertatipografica/Alegreya)), © 2011, licensed [OFL 1.1](https://openfontlicense.org/). Redistributed unmodified; the licence requires its notice travel with every copy, so `fonts/OFL.txt` and `fonts/license.txt` ship with them.
 
-### Contributors
-
-With thanks to **somewhatcyclops**, for corrections to the custom-background documentation.
-
 ---
 
 <p align="center">
