@@ -1641,20 +1641,18 @@ export const changeBackground = async (actor, newBg = null) => {
 
   // Trade the old questions' coins for the new ones'.
   const oldQGold = (actor.system.questions ?? []).reduce((n, q) => n + (q.gold ?? 0), 0);
-  const update = {
+  // No `contentSource` here on purpose: a character does not change edition. Every
+  // caller is source-scoped — the picker only ever offers this character's own
+  // edition, and a cross-edition DROP is refused outright (_onDropBackground) — so a
+  // background arriving here always matches. Code to follow a differing source would
+  // be unreachable, and unreachable code that looks like protection is worse than
+  // none.
+  await actor.update({
     "system.background": bg.name,
     "system.backgroundUuid": bg.uuid,
     "system.questions": choices.questions,
     "system.gold": Math.max(0, (actor.system.gold ?? 0) - oldQGold + choices.gold),
-  };
-  // Follow the background's own source when it differs. Reachable since a background
-  // can be DROPPED on a sheet (a Barebones character handed a 2e background), and
-  // without this the sheet's "(Source: …)" line would name the source the character no
-  // longer has — and `_bondEntitlement` would keep applying Barebones' bond rules to a
-  // 2e background. A no-op on the picker path, which only offers same-source options.
-  const bgSource = bg.system?.source;
-  if (bgSource && bgSource !== actor.system.contentSource) update["system.contentSource"] = bgSource;
-  await actor.update(update);
+  });
 };
 
 /* -------------------------------------------------------------------------- */

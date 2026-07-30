@@ -16,6 +16,19 @@ const { ActorSheetV2 } = foundry.applications.sheets;
  */
 const FEATURE_FLAGS = ["str", "dex", "wil", "hp", "armor", "dmg", "crit", "deprived", "blast"];
 
+/**
+ * A content source's display name — "Cairn 2e", "Cairn Barebones" — falling back to the
+ * raw value for a legacy character whose source is something else. Two callers now: the
+ * "(Source: …)" line on the sheet header, and the refusal when a background of the other
+ * edition is dropped, which names both sides.
+ *
+ * The two names are literals rather than i18n keys, as they were when this lived inline
+ * in _prepareContext: they are the editions' proper names, and `Cairn` is not translated
+ * anywhere else in the system either.
+ */
+const SOURCE_LABELS = { "2e": "Cairn 2e", "barebones": "Cairn Barebones" };
+const sourceLabel = (source) => SOURCE_LABELS[source] ?? source;
+
 /** Tab labels by id. The nav itself is hand-written in each template, because
  *  every label carries live data (slot counts, container counts, and a Notes tab
  *  that renames itself once a background is attached). */
@@ -669,9 +682,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // input for a hand-made character keeps the raw system.background so a Warden
     // never edits a translated string.
     context.backgroundName = t("bg.name", this.actor.system.background ?? "");
-    const SOURCE_LABELS = { "2e": "Cairn 2e", "barebones": "Cairn Barebones" };
-    context.contentSourceLabel =
-      SOURCE_LABELS[this.actor.system.contentSource] ?? this.actor.system.contentSource;
+    context.contentSourceLabel = sourceLabel(this.actor.system.contentSource);
 
     // A generated background (either edition) is a linked document, so its name
     // is a header rather than a free-text field; a hand-made character keeps the
@@ -1076,6 +1087,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * `backgroundUuid` — so any other actor type says so rather than silently doing
    * nothing or, as before, pocketing the document as gear.
    *
+   * A background of the OTHER edition is refused the same way. "A character does not
+   * change edition" is the rule the picker already follows (#onPickBackground only ever
+   * offers this character's own source), and the drop was the one way around it.
+   * Refusing is also the only correct answer to what it actually did when measured: a
+   * Barebones character keeps its generated Rations/Torch/weapon/armor — none of which
+   * the 2e background knows to remove — so it ended up carrying BOTH loadouts, with
+   * duplicates.
+   *
    * Confirmed because it is destructive and a drop is easy to do by accident:
    * `changeBackground` deletes everything the old background granted (its starting
    * gear, its rolled answers' items and containers) and re-rolls the new one's. The
@@ -1089,6 +1108,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (!this.isEditable) return null;
     if (this.actor.type !== "character") {
       ui.notifications.warn(game.i18n.localize("CAIRN.Notify.BackgroundNotCharacter"));
+      return null;
+    }
+    const bgSource = bg.system?.source || "2e";
+    const mySource = this.actor.system.contentSource || "2e";
+    if (bgSource !== mySource) {
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.BackgroundWrongSource", {
+        background: sourceLabel(bgSource),
+        character: sourceLabel(mySource),
+      }));
       return null;
     }
     const ok = await foundry.applications.api.DialogV2.confirm({

@@ -172,6 +172,26 @@ const result = await page.evaluate(async () => {
     gearGained: target.items.size > itemsBefore,
   };
 
+  // A BAREBONES character must refuse a 2e background outright — a character does not
+  // change edition, the rule the picker already follows. Measured before it was
+  // refused: the swap left the Barebones character's generated Rations/Torch/weapon/
+  // armor in place (the 2e background knows nothing about them) and added its own on
+  // top, duplicates included.
+  const bbActor = await getDocumentClass("Actor").create({
+    name: "zz-bb-drop", type: "character", system: { contentSource: "barebones" },
+  });
+  await bbActor.createEmbeddedDocuments("Item", [{ name: "zz-kept", type: "item" }]);
+  await bbActor.sheet.render(true);
+  for (let i = 0; i < 30 && !bbActor.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
+  await bbActor.sheet._onDropBackground(bg);          // no confirm should even appear
+  out.dropCrossSource = {
+    background: bbActor.system.background,
+    contentSource: bbActor.system.contentSource,
+    items: bbActor.items.size,
+  };
+  await bbActor.sheet.close();
+  await bbActor.delete();
+
   // An NPC has no background at all, so it must refuse rather than pocket it.
   const npc = await getDocumentClass("Actor").create({ name: "zz-bg-drop-npc", type: "npc" });
   await npc.sheet.render(true);
@@ -232,6 +252,7 @@ const checks = [
   ["dropping a background swaps it", result.dropAccepted?.background === "Probe Background ZZ" && result.dropAccepted?.uuid === true],
   ["...rewrites the inventory with the new background's gear", result.dropAccepted?.gearGained === true],
   ["...and never puts the background document in the inventory", result.dropAccepted?.pocketed === false],
+  ["a Barebones character refuses a 2e background", result.dropCrossSource?.background === "" && result.dropCrossSource?.contentSource === "barebones" && result.dropCrossSource?.items === 1],
   ["an NPC refuses a background instead of pocketing it", result.dropOnNpc?.pocketed === false && result.dropOnNpc?.items === 0],
   ["locked shipped bg → read-only view", result.readOnly?.hasReadOnly === true && result.readOnly?.hasEditor === false],
   ["read-only view lists gear + 2 tables", result.readOnly?.gearListed > 0 && result.readOnly?.tables === 2],

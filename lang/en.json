@@ -453,5 +453,6 @@
   "CAIRN.ChangeBackgroundTitle": "Change background",
   "CAIRN.ChangeBackgroundTip": "The old background's starting gear and the items its questions granted are removed, and the new background's are rolled in their place. Bonds, portrait and notes are kept.",
   "CAIRN.ChangeBackgroundQ": "Change this character's background to {name}?",
-  "CAIRN.Notify.BackgroundNotCharacter": "Only a player character has a background."
+  "CAIRN.Notify.BackgroundNotCharacter": "Only a player character has a background.",
+  "CAIRN.Notify.BackgroundWrongSource": "That is a {background} background and this is a {character} character. A character does not change edition."
 }
