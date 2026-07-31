@@ -28,7 +28,12 @@
  * Re-runnable and byte-stable: every id is a sha256 of a fixed seed, so a rerun
  * with unchanged input produces no diff.
  *
- * Run AFTER tools/import/transports.mjs, which authors the input.
+ * Run AFTER tools/import/transports.mjs (which authors the input) AND after
+ * tools/import/item-icons.mjs: this pack is not in item-icons' own list — the
+ * Actor docs inherit whatever art the source Items carry at read time, so a run
+ * before the stamp silently regresses every icon here to the Foundry-stock webp
+ * the TRANSPORTS table names. item-icons' "name collisions across doc packs"
+ * warning naming Cart/Horse/etc. is the symptom that this happened.
  */
 import crypto from "node:crypto";
 import fs from "node:fs";

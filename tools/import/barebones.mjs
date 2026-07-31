@@ -579,18 +579,22 @@ tables.push({
     if (META.has(key)) return { text: g.name, img: "icons/svg/book.svg", range };
     if (TRANSPORTS.has(key)) {
       const nm = TRANSPORTS.get(key);
-      // Prefer the TRANSPORT document over the like-named gear item: rolling a
-      // cart here should give you a thing with slots, not a 1-slot object.
-      const dir = packDir("transports");
+      // Prefer the NPC ACTOR document over the like-named gear item: rolling a
+      // cart here should give you a thing with slots, not a 1-slot object. The
+      // Actor pack (mounts.mjs) is where a vehicle's real fields live now; the
+      // legacy transport Item is kept only as mounts.mjs's source material.
+      // Reading the PREVIOUS run's output is the same pattern the transports
+      // lookup here always used — ids are name-hashed, so they are stable.
+      const dir = packDir("mounts-transports");
       const f = fs.existsSync(dir) ? fs.readdirSync(dir).find((f) => f.startsWith(`${nm}_`)) : null;
       if (!f) {
-        // transports.mjs has not run yet (a from-nothing rebuild). Leave a text
+        // mounts.mjs has not run yet (a from-nothing rebuild). Leave a text
         // row rather than a broken reference; a rerun in order fixes it.
-        console.warn(`WARNING: no transport document for "${nm}" — run transports.mjs, then rerun this`);
+        console.warn(`WARNING: no mount/vehicle document for "${nm}" — run transports.mjs then mounts.mjs, then rerun this`);
         return { text: nm, range };
       }
       const t = load(fs.readFileSync(path.join(dir, f), "utf8"));
-      return { text: nm, img: t?.img, pack: "air-bladder.transports", id: t?._id, range };
+      return { text: nm, img: t?.img, pack: "air-bladder.mounts-transports", id: t?._id, range };
     }
     return poolResult(g.name, range);
   }),

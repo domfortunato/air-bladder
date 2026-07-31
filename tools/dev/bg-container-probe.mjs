@@ -10,8 +10,9 @@
  *   node tools/dev/bg-container-probe.mjs   (needs Foundry running, world launched)
  *
  * Steps, driven headless as GM:
- *   1. Every container name the background pack grants has an editable document
- *      in the `transports` pack, and none of them is stocked by the shop.
+ *   1. Every container name the background pack grants has an editable npc
+ *      Actor in the `mounts-transports` pack — the pack grantContainers
+ *      resolves against — and none of them is stocked by the shop.
  *   2. Generating an Outrider mints a container Actor keeper-linked to the
  *      character, with the capacity the rolled option specified, kind `mount`,
  *      and the buyer's ownership. A mount costs its keeper no slots.
@@ -48,10 +49,14 @@ try {
         // `container` actors keeper-linked through the owner's array.
         (a.system?.connectedTo === actor.uuid || a.system?.keeper === actor.uuid));
 
-    // 1. Every granted name exists as a document; none is in the shop.
+    // 1. Every granted name exists as a document; none is in the shop. The
+    //    documents are npc ACTORS in mounts-transports now -- that pack is what
+    //    grantContainers resolves against, so this is the pack whose absence
+    //    review #5 caught (the old Item pack still ships, but nothing grants
+    //    from it).
     const bgPack = game.packs.get("air-bladder.backgrounds-2e");
-    const tPack = game.packs.get("air-bladder.transports");
-    if (!bgPack || !tPack) return { error: "backgrounds-2e or transports pack missing" };
+    const tPack = game.packs.get("air-bladder.mounts-transports");
+    if (!bgPack || !tPack) return { error: "backgrounds-2e or mounts-transports pack missing" };
     const bgs = await bgPack.getDocuments();
     const tDocs = await tPack.getDocuments();
     const tByName = new Map(tDocs.map((d) => [d.name.toLowerCase(), d]));
@@ -217,6 +222,13 @@ try {
       capacityFromGrant: minted?.system.slotsMax === 6,
       // an unknown beast has no document at all and is minted from the spec alone
       got: minted?.system.description,
+      // THE stat-block assertion, as a LITERAL: Rivertooth's document states
+      // 4 HP and the schema default is 6, so this is the line that goes red
+      // when grants resolve against a pack whose documents carry no hp — the
+      // shipped review-#5 defect (resolving against the legacy Item pack).
+      // Asserting "minted hp equals the doc's hp" instead would pass whenever
+      // BOTH reads miss, which is the assertion sharing the bug's assumption.
+      hpFromDoc: minted?.system.hp.value === 4 && minted?.system.hp.max === 4,
     };
     const [bespoke] = await gen.grantContainers(actor, [
       { name: "PROBE Unknown Beast", slots: 5, grantSource: "question:9" },
@@ -224,11 +236,28 @@ try {
     if (bespoke) made.push(bespoke);
     edit.fallbackMinted = bespoke?.system.slotsMax === 5 && bespoke?.type === "npc";
 
+    // NEGATIVE CONTROL, in-page: starve grantContainers of the Actor pack (an
+    // instance property shadowing CompendiumCollection#getDocuments — the
+    // prototype is untouched and `delete` removes the shadow) and the same
+    // grant must come back out with the phantom 6/6 and no marker, i.e. the
+    // shipped defect reproduced. If it doesn't, hpFromDoc above is not
+    // load-bearing.
+    tPack.getDocuments = async () => [];
+    const [starved] = await gen.grantContainers(actor, [
+      { name: "Rivertooth", slots: 6, grantSource: "question:9" },
+    ]);
+    delete tPack.getDocuments;
+    if (starved) made.push(starved);
+    const control = {
+      reproduced: starved?.system.hp.max === 6 && starved?.system.description !== marker,
+      hp: starved?.system.hp.max,
+    };
+
     await doc.update({ "system.description": origDesc });
     if (wasLocked) await tPack.configure({ locked: true });
 
     for (const a of made) { try { await a.delete(); } catch { /* already gone */ } }
-    return { setup, grant, regen, reroll, startingContainer, edit };
+    return { setup, grant, regen, reroll, startingContainer, edit, control };
   });
 
   if (r.error) {
@@ -263,7 +292,9 @@ try {
 
     r.edit.flowed ? ok("EDIT FLOWS THROUGH: a pack edit reaches the next beast granted") : fail(`the pack edit did NOT reach the granted beast (got "${r.edit.got}")`);
     r.edit.capacityFromGrant ? ok("the background's own capacity still wins over the document's") : fail("the grant's slots did not win");
+    r.edit.hpFromDoc ? ok("STAT BLOCK FLOWS: a granted Rivertooth carries its document's 4 HP, not the schema's 6") : fail("the granted beast did not carry the document's hp (phantom default instead)");
     r.edit.fallbackMinted ? ok("a beast with no document is minted from the grant alone") : fail("the no-document fallback did not mint correctly");
+    r.control.reproduced ? ok(`NEGATIVE CONTROL: starved of the Actor pack, the grant reverts to the phantom ${r.control.hp} HP`) : fail(`negative control did not reproduce the defect (hp ${r.control.hp})`);
   }
 } catch (e) {
   fail(`${e.name}: ${e.message}`);

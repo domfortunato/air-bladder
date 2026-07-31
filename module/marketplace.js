@@ -258,6 +258,12 @@ export const acquireTransport = async (actor, doc, pay) => {
   // if the document somehow carries no art.
   const art = doc.img ?? iconForTransport(doc.name, doc.system.transportKind, doc.system.containerClass);
   const s = doc.system;
+  // An Actor row states `inanimate` outright. A legacy `transport` Item has no
+  // such field, so infer it from transportKind: worn packs and vehicles are
+  // things, only a mount is a creature. Without this a bought Backpack came out
+  // animate — and, having no hp field either, was handed the schema's default
+  // 6 HP on the way through (the same phantom-6 trap mounts.mjs documents).
+  const inanimate = s.inanimate ?? (s.transportKind ? s.transportKind !== "mount" : false);
   // An npc, not a `container`. What is bought is now the same kind of document as
   // what the compendium ships, so a Horse bought from the shop and a Horse
   // dragged out of Mounts & Transports are the same thing -- which they were not
@@ -279,15 +285,17 @@ export const acquireTransport = async (actor, doc, pay) => {
       slots: s.slots ?? 0,
       description: s.description ?? "",
       containerClass: s.containerClass ?? "",
-      inanimate: s.inanimate ?? false,
+      inanimate,
       cost,
       // Not rollable: "Roll NPC" would overwrite a book statblock.
       generationEnabled: false,
     },
   };
-  // Carry a stat block across when the source has one. A vehicle has none, and
-  // must not be handed the schema's default 6 HP on the way through.
+  // Carry a stat block across when the source has one. An inanimate thing with
+  // none (a legacy Item row, which has no hp field at all) is written as 0/0
+  // explicitly, or the schema default hands a cart six hit points.
   if (s.hp) payload.system.hp = { value: s.hp.value ?? 0, max: s.hp.max ?? 0 };
+  else if (inanimate) payload.system.hp = { value: 0, max: 0 };
   if (s.armorOverride !== undefined && s.armorOverride !== null) {
     payload.system.armorOverride = s.armorOverride;
   }

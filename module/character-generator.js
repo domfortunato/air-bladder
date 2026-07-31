@@ -558,11 +558,11 @@ const containerKindFor = (name) => (/\b(wagon|cart|sled|sledge)\b/i.test(name) ?
  * produces (marketplace.js acquireTransport), so a granted donkey and a bought
  * one behave identically.
  *
- * The spec's name is resolved against the editable `transports` pack first, so a
- * Warden who retunes "Donkey" there changes every donkey granted afterwards; the
- * grant's own `slots` still wins, because that number is the background's (a
- * Rivertooth is +6 where a Blacklegged Dandy is +4). A name with no pack document
- * — the one-off beasts — is minted from the spec alone.
+ * The spec's name is resolved against the editable Mounts & Transports Actor
+ * pack first, so a Warden who retunes "Donkey" there changes every donkey granted
+ * afterwards; the grant's own `slots` still wins, because that number is the
+ * background's (a Rivertooth is +6 where a Blacklegged Dandy is +4). A name with
+ * no pack document — the one-off beasts — is minted from the spec alone.
  *
  * Each container is flagged with the question that granted it, so a re-roll or a
  * regenerate can delete exactly those and leave bought/manual containers alone.
@@ -572,13 +572,21 @@ const containerKindFor = (name) => (/\b(wagon|cart|sled|sledge)\b/i.test(name) ?
  */
 export const grantContainers = async (actor, specs) => {
   if (!actor || !specs?.length) return [];
-  const pack = game.packs.get("air-bladder.transports");
+  // The Mounts & Transports ACTOR pack, not the legacy transport Item pack. The
+  // payload below copies hp / armorOverride / inanimate / containerClass off the
+  // resolved document, and only the Actor documents HAVE those fields — resolving
+  // against the Item pack made every one of those reads a miss, so a granted
+  // Rivertooth arrived with the schema's default 6 HP instead of its stated 8
+  // (review #5, critical: the pack was stocked by nothing).
+  const pack = game.packs.get("air-bladder.mounts-transports");
   const docs = pack ? await pack.getDocuments() : [];
-  // Resolve a spec against the editable transports pack (art/description/kind), with
-  // sensible fallbacks for one-off beasts the pack doesn't carry.
+  // Resolve a spec against that editable pack (art/stats/description), with
+  // sensible fallbacks for one-off beasts the pack doesn't carry. `kind` only
+  // matters on the no-document path (icon + class inference by name); a resolved
+  // Actor carries its class outright.
   const resolve = (spec) => {
     const doc = docs.find((d) => d.name.toLowerCase() === String(spec.name).toLowerCase());
-    const kind = doc?.system.transportKind ?? containerKindFor(spec.name);
+    const kind = doc ? (doc.system.inanimate ? "vehicle" : "mount") : containerKindFor(spec.name);
     return { doc, kind, art: doc?.img ?? iconForTransport(spec.name, kind) };
   };
 
@@ -608,10 +616,10 @@ export const grantContainers = async (actor, specs) => {
         connectedTo: actor.uuid,
         slots: spec.slots ?? doc?.system.slots ?? 0,
         description: doc?.system.description ?? "",
-        // A transport Item carries no class, so infer it from the name the way
-        // the sheet does. Leaving it blank would have shipped a horse whose art
-        // and one-word label were both decided by a keyword table at render
-        // time, rather than recorded once at creation.
+        // The Actor document records its class; a one-off beast with no document
+        // infers it from the name the way the sheet does. Leaving it blank would
+        // have shipped a horse whose art and one-word label were both decided by
+        // a keyword table at render time, rather than recorded once at creation.
         containerClass: doc?.system.containerClass || containerClass(spec.name, kind),
         inanimate: doc?.system.inanimate ?? false,
         cost: doc?.system.cost ?? 0,
@@ -958,7 +966,10 @@ const randomScrollItem = async () => {
 /**
  * Turn one rolled table result into something a character can be given.
  * Three shapes, decided by what the result points at:
- *   - a TRANSPORT document  → a container spec (minted as an Actor later)
+ *   - a carrier document    → a container spec (minted as a connected NPC later);
+ *                             either a Mounts & Transports npc Actor or a legacy
+ *                             `transport` Item — old worlds' tables still point
+ *                             at the Item pack
  *   - a nested ROLLTABLE    → roll that table and resolve its result instead
  *   - anything else         → the pool item of that name, or, for the SRD's two
  *                             instruction rows, a random spellbook or scroll
@@ -987,6 +998,13 @@ const resolveBarebonesResult = async (result) => {
     : null;
 
   if (doc?.documentName === "Item" && doc.type === "transport") {
+    return { container: { name: doc.name, slots: doc.system.slots ?? 0 }, name };
+  }
+  // A row can point at a Mounts & Transports NPC now (the shipped Barebones
+  // Cart/Wagon rows do, and a Warden's own table can too). Same shape out: a
+  // container SPEC, not the document — grantContainers re-resolves by name, so
+  // the grant still picks up the Warden's edits to the pack document.
+  if (doc?.documentName === "Actor" && doc.type === "npc") {
     return { container: { name: doc.name, slots: doc.system.slots ?? 0 }, name };
   }
   if (doc?.documentName === "RollTable") {

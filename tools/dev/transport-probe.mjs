@@ -7,17 +7,21 @@
  *   node tools/dev/transport-probe.mjs    (needs Foundry running, world launched)
  *
  * Steps, driven headless as GM:
- *   1. The `transports` pack holds the 7 documents; the shop's "Transports &
- *      Containers" table references them and reads capacity/cost off the doc.
- *   2. Buy a MOUNT (Mule): a container Actor is created with the document's
- *      capacity, keeper-linked to the buyer, coins deducted, and the buyer's
- *      OWN slot usage is unchanged -- a mount carries its own pool.
- *   3. Buy a WORN container (Backpack): the buyer's slot usage rises by `load`,
- *      and the sheet shows a worn-container row explaining the cost.
- *   4. Edit the Mule document's capacity in the pack, buy another, and assert the
- *      new container reflects the edit -- the reference guarantee.
+ *   1. The shop's "Transports & Containers" table references the Mounts &
+ *      Transports ACTOR pack for mounts/vehicles (13 npc documents) and the
+ *      legacy `transports` Item pack for the worn shapes (Backpack, Sack),
+ *      and reads capacity/cost off the referenced document either way.
+ *   2. Buy a MOUNT (Mule): a connected NPC is created with the document's
+ *      capacity, coins deducted, and the buyer's OWN slot usage is unchanged
+ *      -- a mount carries its own pool.
+ *   3. Buy a WORN container (Backpack, an Item row): inanimate with hp 0/0 is
+ *      INFERRED at the till, because the Item states neither.
+ *   3b. Buy a VEHICLE (Cart, an Actor row): inanimate and hp 0/0 cross the till
+ *      from the document -- the review-#5 stat-block guarantee.
+ *   4. Edit the Mule ACTOR document's capacity in the pack, buy another, and
+ *      assert the new NPC reflects the edit -- the reference guarantee.
  *   5. Buying refuses when the buyer cannot afford it.
- *   6. Mounts/vehicles are directory-visible; worn containers stay hidden.
+ *   6. Everything bought is an npc now, so all of it is directory-visible.
  *   7. Revert the document and delete every actor the probe made.
  * Exits non-zero on any failed assertion or console error.
  */
@@ -39,28 +43,40 @@ try {
     const mkt = await import("/systems/air-bladder/module/marketplace.js");
     const made = [];                      // actors to clean up
 
-    // 1. The pack + the shop table that references it.
+    // 1. The two packs + the shop table. Mount/vehicle rows reference the ACTOR
+    //    pack now (that is where the stat block lives); only the worn shapes —
+    //    Backpack, Sack — still reference the legacy Item pack, because they
+    //    are CONTAINER_CLASSES rows with no Actor document on purpose.
     const pack = game.packs.get("air-bladder.transports");
     if (!pack) return { error: "air-bladder.transports pack is not registered" };
+    const aPack = game.packs.get("air-bladder.mounts-transports");
+    if (!aPack) return { error: "air-bladder.mounts-transports pack is not registered" };
     const docs = await pack.getDocuments();
+    const aDocs = await aPack.getDocuments();
     const catalog = await mkt.getMarketplaceCatalog();
     const cat = (catalog.categories ?? []).find((c) => c.name === "Transports & Containers");
     if (!cat) return { error: "no 'Transports & Containers' category in the marketplace" };
 
-    const mule = docs.find((d) => d.name === "Mule");
+    const mule = aDocs.find((d) => d.name === "Mule");
+    const cartDoc = aDocs.find((d) => d.name === "Cart");
     const backpack = docs.find((d) => d.name === "Backpack");
-    if (!mule || !backpack) return { error: "Mule/Backpack missing from the transports pack" };
+    if (!mule || !cartDoc) return { error: "Mule/Cart missing from the mounts-transports pack" };
+    if (!backpack) return { error: "Backpack missing from the transports pack" };
 
     const shopMule = cat.items.find((i) => i.name === "Mule");
     const setup = {
       packCount: docs.length,
-      // The pack holds two kinds: what the shop stocks, and the beasts a 2e
-      // background rolls up (Outrider's horses, the Bonekeeper's burial wagon).
-      // Both are editable documents; only the first kind is for sale.
+      // The Item pack still holds two kinds (shop-stocked + background beasts),
+      // as mounts.mjs's source material and for old worlds' tables.
       stockedCount: docs.filter((d) => d.getFlag("air-bladder", "transportSource") === "2e").length,
       beastCount: docs.filter((d) => d.getFlag("air-bladder", "transportSource") === "background-2e").length,
       allTransportType: docs.every((d) => d.type === "transport"),
+      actorCount: aDocs.filter((d) => d.documentName === "Actor").length,
       shopCount: cat.items.length,
+      // THE review-#5 assertion: a mount's shop row resolves to the Actor
+      // document, not the legacy Item. `documentName` is what routes the buy.
+      shopRowIsActor: shopMule?.documentName === "Actor",
+      wornRowIsItem: cat.items.find((i) => i.name === "Backpack")?.documentName === "Item",
       // The shop row must READ the document, not carry its own copy.
       shopReadsDoc: shopMule?.system.slots === mule.system.slots && shopMule?.system.cost === mule.system.cost,
       muleSlots: mule.system.slots,
@@ -115,11 +131,33 @@ try {
       got: buyer.system.slotsUsed,
       // No worn-container inventory row is produced any more.
       noRow: !(buyer.system.wornContainerRows ?? []).some((r) => r.name === "Backpack"),
+      // The Item row carries no `inanimate` and no hp, so both are INFERRED at
+      // the till: a worn pack is a thing, and a thing gets 0/0, not the schema's
+      // default 6. Literals on purpose -- an animate 6 HP Backpack is exactly
+      // what shipped before the inference existed.
+      inanimate: packActor?.system.inanimate === true,
+      hpZero: packActor?.system.hp.value === 0 && packActor?.system.hp.max === 0,
     };
 
-    // 4. Edit the Mule document; a newly bought one must reflect it.
-    const wasLocked = pack.locked;
-    if (wasLocked) await pack.configure({ locked: false });
+    // 3b. Buy a Cart (vehicle, from the ACTOR pack): the stat block crosses the
+    //     till. The Actor document states inanimate:true and hp 0/0 outright;
+    //     fed from the Item pack instead, the bought cart came out animate with
+    //     the phantom 6 HP -- the shape review #5 caught.
+    await buyThrough(cartDoc);
+    const cartActor = game.actors.find((a) => a.type === "npc" && a.name === "Cart" && a.system.connectedTo === buyer.uuid);
+    if (cartActor) made.push(cartActor);
+    const vehicle = {
+      created: !!cartActor,
+      capacityRight: cartActor?.system.slotsMax === cartDoc.system.slots,
+      inanimate: cartActor?.system.inanimate === true,
+      hpZero: cartActor?.system.hp.value === 0 && cartActor?.system.hp.max === 0,
+      classCarried: cartActor?.system.containerClass === cartDoc.system.containerClass,
+    };
+
+    // 4. Edit the Mule ACTOR document (the one the shop row references now);
+    //    a newly bought one must reflect it -- the reference guarantee.
+    const wasLocked = aPack.locked;
+    if (wasLocked) await aPack.configure({ locked: false });
     const origSlots = mule.system.slots;
     await mule.update({ "system.slots": origSlots + 5 });
     const catalog2 = await mkt.getMarketplaceCatalog();
@@ -134,7 +172,7 @@ try {
       expected: origSlots + 5,
     };
     await mule.update({ "system.slots": origSlots });
-    if (wasLocked) await pack.configure({ locked: true });
+    if (wasLocked) await aPack.configure({ locked: true });
 
     // 5. Affordability: a pauper cannot buy a Wagon.
     const pauper = await CONFIG.Actor.documentClass.create({
@@ -162,7 +200,7 @@ try {
     };
 
     for (const a of made) { try { await a.delete(); } catch { /* already gone */ } }
-    return { setup, mount, worn, edit, afford, directory };
+    return { setup, mount, worn, vehicle, edit, afford, directory };
   });
 
   if (r.error) {
@@ -178,6 +216,9 @@ try {
       ? ok("8 background-granted beasts share the pack but not the shop")
       : fail(`expected 8 beasts / 15 docs, got ${r.setup.beastCount}/${r.setup.packCount}`);
     r.setup.allTransportType ? ok("all are the `transport` Item type") : fail("some pack docs are not type transport");
+    r.setup.actorCount === 13 ? ok("13 npc Actors in mounts-transports") : fail(`expected 13 Actors in mounts-transports, got ${r.setup.actorCount}`);
+    r.setup.shopRowIsActor ? ok("a mount's shop row resolves to the ACTOR document") : fail("the Mule shop row still resolves to the legacy Item");
+    r.setup.wornRowIsItem ? ok("a worn shape's row stays on the Item pack (no Actor doc by design)") : fail("the Backpack row does not resolve to the Item pack");
     r.setup.shopReadsDoc ? ok(`shop reads the document (Mule +${r.setup.muleSlots}, ${r.setup.muleCost}gp)`) : fail("shop row does not match the document");
 
     r.mount.created ? ok("buying a mount minted a connected NPC") : fail("no connected NPC was created");
@@ -189,6 +230,15 @@ try {
     r.worn.created ? ok("buying a worn container minted a connected NPC") : fail("no worn container NPC created");
     r.worn.slotsUnchanged ? ok(`a worn container costs its carrier no slots (${r.worn.before} -> ${r.worn.got})`) : fail(`worn container charged the carrier: ${r.worn.before} -> ${r.worn.got}`);
     r.worn.noRow ? ok("a worn container shows no inventory row (reached via the Containers tab)") : fail("a worn container still shows an inventory row");
+    r.worn.inanimate && r.worn.hpZero
+      ? ok("a bought Backpack is inanimate with hp 0/0 (inferred at the till)")
+      : fail(`a bought Backpack came out wrong: inanimate=${r.worn.inanimate}, hpZero=${r.worn.hpZero}`);
+
+    r.vehicle.created && r.vehicle.capacityRight ? ok("buying a Cart minted a connected NPC with the document's capacity") : fail(`Cart buy wrong: ${JSON.stringify(r.vehicle)}`);
+    r.vehicle.inanimate && r.vehicle.hpZero
+      ? ok("the Cart's stat block crossed the till: inanimate, hp 0/0 (not the phantom 6)")
+      : fail(`the Cart came out animate or with phantom HP: inanimate=${r.vehicle.inanimate}, hpZero=${r.vehicle.hpZero}`);
+    r.vehicle.classCarried ? ok("containerClass carried from the document") : fail("containerClass was not carried");
 
     r.edit.flowed ? ok(`EDIT FLOWS THROUGH: capacity ${r.edit.expected} on the next one bought`) : fail(`document edit did not flow through (got ${r.edit.got}, expected ${r.edit.expected})`);
 

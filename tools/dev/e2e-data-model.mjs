@@ -192,19 +192,22 @@ const containers = await page.evaluate(async () => {
   const transports = await game.packs.get("air-bladder.transports").getDocuments();
   const mule = transports.find((t) => t.system.slots > 0) ?? transports[0];
   // The real marketplace path, not a reimplementation of it — acquireTransport is
-  // where a transport Item becomes a container Actor, i.e. where the slots shape
-  // used to be converted.
+  // where a transport document becomes a connected NPC, i.e. where the slots
+  // shape used to be converted. (It minted a `container` keeper-linked through
+  // the owner's array before containers-as-NPCs; this section asserted that
+  // old shape long after the code stopped producing it.)
   const mkt = await import("/systems/air-bladder/module/marketplace.js");
   const bought = await mkt.acquireTransport(actor, mule, true);
-  const container = game.actors.find((a) => a.type === "container" && a.system.keeper === actor.uuid);
-  if (!container) return { error: "no container minted" };
+  const container = game.actors.find((a) => a.type === "npc" && a.system.connectedTo === actor.uuid);
+  if (!container) return { error: "no connected npc minted" };
   const csrc = container.toObject().system;
   const out = {
     transportSlots: mule.system.slots,
     containerSlots: csrc.slots,
     containerSlotsIsNumber: typeof csrc.slots === "number",
     containerCapacity: container.calcCurrentMaxSlots(),
-    linked: (actor.toObject().system.containers ?? []).includes(container.uuid),
+    // ONE link, derived: the owner's list comes from each child's connectedTo.
+    linked: actor.connectedActors().some((c) => c.id === container.id),
     bought: bought === undefined ? "n/a" : bought,
   };
   await container.delete();
@@ -216,8 +219,8 @@ else fail("container slots", "not a plain number");
 if (containers.containerCapacity === containers.transportSlots)
   ok("capacity carried", `${containers.containerCapacity} from the transport`);
 else fail("capacity carried", `transport ${containers.transportSlots} -> container ${containers.containerCapacity}`);
-if (containers.linked) ok("keeper link", "container registered on the owner");
-else fail("keeper link", "container not registered");
+if (containers.linked) ok("connected link", "derived onto the owner's list");
+else fail("connected link", "the owner's derived list did not pick it up");
 
 /* -------------------------------------------- */
 

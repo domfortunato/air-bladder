@@ -41,9 +41,15 @@
  * Generation resolves a grant by name here and falls back to the background's own
  * numbers if it finds nothing (module/character-generator.js grantContainers).
  *
- * Run order: barebones.mjs -> marketplace.mjs -> THIS. marketplace.mjs wipes the
- * whole marketplace table dir, so it must run first or it will delete the shop
- * table written here. Rebuild afterwards: npm run build:packs (stop Foundry first).
+ * Run order: barebones.mjs -> marketplace.mjs -> THIS -> item-icons.mjs ->
+ * mounts.mjs -> table-icons.mjs. marketplace.mjs wipes the whole marketplace table
+ * dir, so it must run first or it will delete the shop table written here.
+ * mounts.mjs runs after because it derives the NPC Actors (pack `mounts-transports`)
+ * that this table's mount/vehicle rows reference — the ids are deterministic, so
+ * referencing forward is safe, and check:refs catches a run that stopped short —
+ * and it must come after item-icons.mjs or the Actor docs inherit unstamped art
+ * (see the mounts.mjs header). Rebuild afterwards: npm run build:packs (stop
+ * Foundry first).
  *
  * Idempotent: both dirs' own docs are rewritten from scratch and every id is
  * name-hashed, so a rerun is byte-identical.
@@ -269,12 +275,22 @@ const write = (t) => {
 
 const refs = [];
 for (const t of TRANSPORTS) {
-  refs.push({
-    text: t.name,
-    img: t.img,
-    documentCollection: `air-bladder.${PACK}`,
-    documentId: write(t),
-  });
+  const itemId = write(t);
+  // The shop row points at the document that buying it MINTS FROM. Mounts and
+  // vehicles are NPC Actors now (mounts.mjs derives them from the Items written
+  // above), so their rows reference the Actor pack — the Actor is where the stat
+  // block lives, and a row still pointing at the Item fed the shop a document
+  // with no hp and no `inanimate`, which is how the new pack shipped stocked by
+  // nothing (review #5, critical). Backpack and Sack stay Item rows on purpose:
+  // worn containers are CONTAINER_CLASSES shapes, not documents, so there is no
+  // Actor to point at.
+  //
+  // The id seed MUST match mounts.mjs idFor("air-bladder-mount:" + name) — this
+  // runs before mounts.mjs, so the reference is to a document the NEXT importer
+  // writes. Run out of order and check:refs catches the dangling uuid.
+  refs.push(t.transportKind === "worn"
+    ? { text: t.name, img: t.img, documentCollection: `air-bladder.${PACK}`, documentId: itemId }
+    : { text: t.name, img: t.img, documentCollection: "air-bladder.mounts-transports", documentId: idFor(`air-bladder-mount:${t.name}`) });
 }
 
 // The background beasts are authored into the same pack but stay OUT of `refs`,
