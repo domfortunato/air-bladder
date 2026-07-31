@@ -39,6 +39,7 @@
   "esmodules": [
     "module/cairn.js"
   ],
+  "socket": true,
   "styles": [
     {
       "src": "css/cairn.css"

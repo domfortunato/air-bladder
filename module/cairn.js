@@ -190,26 +190,50 @@ Hooks.on("setup", () => {
  *
  * `Actor.create` needs ACTOR_CREATE, which players do not have, and granting it
  * world-wide to make one background work would let players create any actor at
- * all. So the player emits and exactly one GM client writes.
+ * all. So the player emits and exactly one GM client writes. This only works at
+ * all because `system.json` declares `"socket": true` — the server binds no
+ * handler for `system.<id>` without it and silently discards every emit, which
+ * is exactly how this shipped doing nothing (review #5, critical).
  *
  * THIS IS A PRIVILEGE BOUNDARY AND IS TREATED AS ONE. Anything arriving here was
  * composed by a client we do not control: a player can emit whatever they like on
  * this socket, including a payload that is not a container at all. So the payload
  * is not trusted, it is REBUILT — only known fields are copied, the type is
- * forced, and the connection must point at an actor the requesting user can
- * already modify. Without that last check a player could connect a new actor to
- * someone else's character, or to none, and have the Warden's client sign it.
+ * forced, and the connection must point at an actor the SENDER can already
+ * modify. Two identity rules make that check real (both learned from review #5,
+ * which found the first version reading the requester out of the attacker's own
+ * payload — a "guard" any player could satisfy with a GM's public user id,
+ * because testUserPermission short-circuits to OWNER for any GM):
+ *
+ *   - WHO asked is `senderId`, the handler's second argument. Foundry's server
+ *     re-emits a custom-socket event as (payload, this.user.id) with the id
+ *     taken from the authenticated session — it is the one thing about the
+ *     message a client cannot forge. Nothing inside `msg` names the sender.
+ *   - WHAT it attaches to must be a WORLD Actor. `fromUuid` resolves more than
+ *     those: an embedded Item resolves and delegates getUserLevel to its parent
+ *     (so "OWNER" passes), and a compendium doc resolves too. Either would put
+ *     a nonsense uuid in `connectedTo` on a document the Warden's client signed.
+ *
+ * Registered at init, not ready: the client buffers inbound socket events from
+ * connect and REPLAYS them one line before the ready hook fires, so a listener
+ * registered on ready misses anything a player sent while the GM's world was
+ * still loading. `game.socket` exists from Game.connect, well before init ends.
  */
-Hooks.once("ready", () => {
-  game.socket.on(`system.${game.system.id}`, async (msg) => {
+Hooks.once("init", () => {
+  game.socket.on(`system.${game.system.id}`, async (msg, senderId) => {
     if (msg?.action !== "grantActors") return;
     // Exactly ONE client acts, or every logged-in GM mints its own copy.
     if (game.users.activeGM !== game.user) return;
 
     const owner = await fromUuid(msg.ownerUuid);
-    const user = game.users.get(msg.userId);
+    const user = game.users.get(senderId);
     if (!owner || !user) return;
-    // The requester must already own the character they are attaching to.
+    // A world Actor, not whatever else the uuid resolved to.
+    if (!(owner instanceof getDocumentClass("Actor")) || owner.pack || owner.parent) {
+      console.warn(`Air Bladder | refused a grant request from ${user.name}: ${msg.ownerUuid} is not a world Actor`);
+      return;
+    }
+    // The SENDER must already own the character they are attaching to.
     if (!owner.testUserPermission(user, "OWNER")) {
       console.warn(`Air Bladder | refused a grant request from ${user.name}: not an owner of ${owner.name}`);
       return;

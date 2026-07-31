@@ -689,11 +689,15 @@ export const requestGrantedActors = async (payloads, owner) => {
     ui.notifications.warn(game.i18n.localize("CAIRN.Notify.NoGmForGrant"));
     return;
   }
+  // No `userId` in the payload, deliberately. The broker identifies the sender
+  // by the server-authenticated id Foundry passes as the handler's second
+  // argument — a self-declared id in the message is exactly what an attacker
+  // would forge, and the first version of this socket was ownable because the
+  // receiving side trusted it (review #5).
   game.socket.emit(`system.${game.system.id}`, {
     action: "grantActors",
     payloads,
     ownerUuid: owner.uuid,
-    userId: game.user.id,
   });
 };
 
