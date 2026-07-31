@@ -249,9 +249,11 @@ export const acquireTransport = async (actor, doc, pay) => {
     ui.notifications.warn(game.i18n.format("CAIRN.Notify.NotEnoughGold", { name: doc.name, cost }));
     return false;
   }
-  // A container cannot itself keep a container — no nesting.
-  if (actor.type === "container") {
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.ContainerFull", { name: doc.name }));
+  // A container cannot itself keep a container — no nesting. Not a type test
+  // any more: an npc mule IS a container, and its own sheet carries the shop
+  // link this guard exists for (review #5). canKeepConnected holds the rule.
+  if (!actor.canKeepConnected) {
+    ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoNesting", { name: actor.name }));
     return false;
   }
   // Give it a real portrait AND a matching map token; fall back to the class icon

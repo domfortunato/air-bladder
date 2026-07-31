@@ -3,7 +3,7 @@ import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, sourceLabel } from "../utils.js";
 import { resultText } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
-import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES, TRANSPORT_KINDS, containerClassSlots } from "../icons.js";
+import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES, TRANSPORT_KINDS, containerClassSlots, containerClass, containerClassAnimate } from "../icons.js";
 import { localizeNameDesc, t } from "../i18n-content.js";
 import { FATIGUE_NAME } from "../item/item.js";
 
@@ -1760,6 +1760,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       ui.notifications.warn(game.i18n.localize("CAIRN.Notify.NoActorCreate"));
       return;
     }
+    // No nesting: the Connected tab (and this button) renders on an npc
+    // container's own sheet too — refuse BEFORE the dialog, not after the
+    // Warden has filled it in.
+    if (!this.actor.canKeepConnected) {
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoNesting", { name: this.actor.name }));
+      return;
+    }
     const template = "systems/air-bladder/templates/dialog/add-container-dialog.html";
     // The class list comes from CONTAINER_CLASSES itself, so a class added there
     // appears here without a second list to keep in step. `mule` and `donkey`
@@ -1777,29 +1784,42 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         callback: async (dialogEvent, button) => {
           const form = button.form;
           if (form.itemname.value.trim() !== "") {
+            // An NPC, not a legacy `container` — this button was the last
+            // module-side path still minting the dissolved type (review #5).
+            // The class the Warden picked (or, blank, the one the name infers)
+            // decides animacy off CONTAINER_CLASSES itself: a hand-made Mule is
+            // a creature with the schema's default stat block, a hand-made
+            // Barrel is a thing and gets 0/0 explicitly — the same phantom-6
+            // rule mounts.mjs and acquireTransport follow.
+            //
             // No `img` here on purpose: CairnActor._preCreate names the art from
             // the container's own name (a "Barrel" gets barrel art), so hardcoding
             // the chest icon would defeat it. getDocumentClass, not the global
             // `Actor` — the global is not CONFIG.Actor.documentClass.
             //
-            // The result is deliberately not checked, unlike `acquireTransport`,
-            // which does. That asymmetry is not an oversight: acquireTransport NEEDS
-            // the value — it dereferences `container.update()` and then deducts the
-            // price, so an unchecked refusal would throw and still charge the buyer.
-            // Here the value goes straight to createOwnedContainer, whose own first
-            // line returns on a falsy document, and nothing follows it. The realistic
-            // refusal (a player without ACTOR_CREATE) is already caught above, with a
-            // message. What is left is a third-party `preCreateActor` veto, which
-            // resolves undefined and says nothing — and explaining its own veto is
-            // the vetoing module's job, not ours.
-            const result = await getDocumentClass("Actor").create({
-              type: "container",
+            // The result is deliberately not checked: a third-party
+            // `preCreateActor` veto resolves undefined and says nothing — and
+            // explaining its own veto is the vetoing module's job, not ours.
+            // (The realistic refusal, a player without ACTOR_CREATE, is caught
+            // above with a message.)
+            const cls = form.itemclass?.value ?? "";
+            const animate = containerClassAnimate(cls || containerClass(form.itemname.value));
+            await getDocumentClass("Actor").create({
+              type: "npc",
               name: form.itemname.value,
-              "system.slots": form.itemslots.value,
-              // Blank means "read the name", which is what this dialog always did.
-              "system.containerClass": form.itemclass?.value ?? "",
+              system: {
+                slots: Number(form.itemslots.value) || 0,
+                // Blank means "read the name", which is what this dialog always did.
+                containerClass: cls,
+                inanimate: !animate,
+                // Connected at CREATION — no window in which it exists as a
+                // free-standing loot pile between two awaits, and no second
+                // write for a permission wall to break in half.
+                connectedTo: this.actor.uuid,
+                generationEnabled: false,
+                ...(animate ? {} : { hp: { value: 0, max: 0 } }),
+              },
             });
-            await this.actor.createOwnedContainer(result);
           }
         },
       },

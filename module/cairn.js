@@ -238,6 +238,13 @@ Hooks.once("init", () => {
       console.warn(`Air Bladder | refused a grant request from ${user.name}: not an owner of ${owner.name}`);
       return;
     }
+    // ...and the target must be able to KEEP. Alice owns the mule her horse
+    // grant minted (ownership is copied), so without this she could aim a
+    // second request at the mule and chain-nest through the Warden's client.
+    if (!owner.canKeepConnected) {
+      console.warn(`Air Bladder | refused a grant request from ${user.name}: ${owner.name} cannot keep connected actors`);
+      return;
+    }
     // A background grants a handful; anything more is not a background.
     const payloads = Array.isArray(msg.payloads) ? msg.payloads.slice(0, 8) : [];
     const clean = payloads.map((p) => ({

@@ -154,6 +154,36 @@ try {
       classCarried: cartActor?.system.containerClass === cartDoc.system.containerClass,
     };
 
+    // 3c. NO NESTING, restated for a world without a container type: a thing
+    //     that is KEPT cannot keep (the buyer's mule refuses a second mule,
+    //     whatever it is), an INANIMATE thing cannot keep (the cart refuses),
+    //     and a free-standing animate npc — a porter, a hireling — still can,
+    //     exactly as a character can. The old guard tested type==="container"
+    //     and matched none of these (review #5).
+    const muleRow = cat.items.find((i) => i.name === "Mule");
+    const nestKept = await mkt.acquireTransport(muleActor, muleRow, false);
+    const nestThing = await mkt.acquireTransport(cartActor, muleRow, false);
+    const porter = await CONFIG.Actor.documentClass.create({ name: "PROBE Porter", type: "npc" });
+    made.push(porter);
+    const porterCan = await mkt.acquireTransport(porter, muleRow, false);
+    const porterMule = game.actors.find((a) => a.name === "Mule" && a.system.connectedTo === porter.uuid);
+    if (porterMule) made.push(porterMule);
+    // In-page control: shadow the predicate open on the kept mule (an instance
+    // property over the prototype getter; `delete` removes it) — the same buy
+    // must then SUCCEED, proving the guard is what refused above rather than
+    // some other wall.
+    Object.defineProperty(muleActor, "canKeepConnected", { value: true, configurable: true });
+    const nestForced = await mkt.acquireTransport(muleActor, muleRow, false);
+    delete muleActor.canKeepConnected;
+    const nested = game.actors.find((a) => a.name === "Mule" && a.system.connectedTo === muleActor.uuid);
+    if (nested) made.push(nested);
+    const nesting = {
+      keptRefused: nestKept === false,
+      thingRefused: nestThing === false,
+      personAllowed: porterCan === true && !!porterMule,
+      controlReproduced: nestForced === true && !!nested,
+    };
+
     // 4. Edit the Mule ACTOR document (the one the shop row references now);
     //    a newly bought one must reflect it -- the reference guarantee.
     const wasLocked = aPack.locked;
@@ -200,7 +230,7 @@ try {
     };
 
     for (const a of made) { try { await a.delete(); } catch { /* already gone */ } }
-    return { setup, mount, worn, vehicle, edit, afford, directory };
+    return { setup, mount, worn, vehicle, nesting, edit, afford, directory };
   });
 
   if (r.error) {
@@ -239,6 +269,13 @@ try {
       ? ok("the Cart's stat block crossed the till: inanimate, hp 0/0 (not the phantom 6)")
       : fail(`the Cart came out animate or with phantom HP: inanimate=${r.vehicle.inanimate}, hpZero=${r.vehicle.hpZero}`);
     r.vehicle.classCarried ? ok("containerClass carried from the document") : fail("containerClass was not carried");
+
+    r.nesting.keptRefused ? ok("NO NESTING: a kept mule refuses to buy a carrier") : fail("a kept mule bought a carrier — chain nesting is open");
+    r.nesting.thingRefused ? ok("NO NESTING: an inanimate cart refuses too") : fail("an inanimate cart bought a carrier");
+    r.nesting.personAllowed ? ok("a free-standing npc person can still keep a mule") : fail("the nesting guard over-blocks: a porter cannot buy a mule");
+    r.nesting.controlReproduced
+      ? ok("NEGATIVE CONTROL: predicate forced open, the same buy succeeds")
+      : fail("negative control MISSED — something other than the guard refused the nested buy");
 
     r.edit.flowed ? ok(`EDIT FLOWS THROUGH: capacity ${r.edit.expected} on the next one bought`) : fail(`document edit did not flow through (got ${r.edit.got}, expected ${r.edit.expected})`);
 

@@ -205,6 +205,7 @@
     "LeftOverloaded": "You left the marketplace over capacity — HP stays 0 until you free a slot.",
     "NoMarketplace": "The marketplace catalogue is unavailable.",
     "ContainerFull": "{name} won't fit — the container is full.",
+    "NoNesting": "{name} can't keep that — a container cannot keep a container.",
     "DropFailed": "Couldn't move that item — you may not have permission to change the receiving sheet.",
     "DropNoSource": "You can't take that item — you don't have permission to change the sheet it came from.",
     "PortraitFolderScanned": "Custom portrait folder scanned — {count} image(s) found.",

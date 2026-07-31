@@ -214,17 +214,26 @@ const cont = await page.evaluate(async (id) => {
   // keyword table would agree and the assertions below would pass either way.
   const { containerClass } = await import("/systems/air-bladder/module/icons.js");
   return {
+    // An npc connected at creation now, not a `container` keeper-linked after
+    // (review #5: this dialog was the last module path minting the dissolved
+    // type). A backpack is a thing: inanimate, hp 0/0, never the phantom 6.
+    type: c.type,
     slots: Number(c.system.slots),
-    keeper: c.system.keeper === game.actors.get(id).uuid,
+    connected: c.system.connectedTo === game.actors.get(id).uuid,
+    inanimate: c.system.inanimate,
+    hpMax: c.system.hp.max,
     stored: c.system.containerClass,
     art: c.img.split("/").pop(),
     label: c.system.classLabel,
     fromNameAlone: containerClass(c.name, c.system.transportKind),
   };
 }, actorId);
-cont && cont.slots === 5 && cont.keeper
-  ? ok("container created and linked", `slots=${cont.slots} keeper=${cont.keeper}`)
-  : fail("container created and linked", JSON.stringify(cont));
+cont && cont.type === "npc" && cont.slots === 5 && cont.connected
+  ? ok("an npc created and connected", `slots=${cont.slots} connected=${cont.connected}`)
+  : fail("an npc created and connected", JSON.stringify(cont));
+cont && cont.inanimate === true && cont.hpMax === 0
+  ? ok("a hand-made backpack is a thing", "inanimate, hp 0/0 — not the phantom 6")
+  : fail("a hand-made backpack is a thing", `inanimate=${cont?.inanimate} hpMax=${cont?.hpMax}`);
 
 if (!cont) {
   fail("the Kind select drove the container's class", "no container to inspect");

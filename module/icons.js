@@ -75,9 +75,9 @@ export const CONTAINER_CLASSES = {
   handcart: { icon: "handcart", label: "CAIRN.ClassHandcart", slots: 4 },
   cart: { icon: "cart", label: "CAIRN.ClassCart", slots: 4 },
   wagon: { icon: "wagon", label: "CAIRN.ClassWagon", slots: 8 },
-  mule: { icon: "donkey", label: "CAIRN.ClassMule", slots: 6 },
-  donkey: { icon: "donkey", label: "CAIRN.ClassDonkey", slots: 4 },
-  horse: { icon: "horse", label: "CAIRN.ClassHorse", slots: 4 },
+  mule: { icon: "donkey", label: "CAIRN.ClassMule", slots: 6, animate: true },
+  donkey: { icon: "donkey", label: "CAIRN.ClassDonkey", slots: 4, animate: true },
+  horse: { icon: "horse", label: "CAIRN.ClassHorse", slots: 4, animate: true },
   chest: { icon: "chest", label: "CAIRN.ClassChest", slots: 6 },
   crate: { icon: "crate", label: "CAIRN.ClassCrate", slots: 6 },
   barrel: { icon: "barrel", label: "CAIRN.ClassBarrel", slots: 4 },
@@ -86,6 +86,11 @@ export const CONTAINER_CLASSES = {
 
 /** A class's default capacity, or 0 ("use the world setting") if it has none. */
 export const containerClassSlots = (cls) => CONTAINER_CLASSES[cls]?.slots ?? 0;
+
+/** Is this class a CREATURE? Drives the `inanimate` default when a container is
+ *  made by hand: a mule gets a stat block, a barrel gets 0/0. One table for
+ *  art, label, capacity AND animacy, so they cannot drift apart. */
+export const containerClassAnimate = (cls) => !!CONTAINER_CLASSES[cls]?.animate;
 
 /**
  * Classify a container / transport. Keyed on the NAME first (so "Handcart" and

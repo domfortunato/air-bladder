@@ -104,8 +104,12 @@ export class CairnActor extends Actor {
     // wearing Foundry's mystery-man, because nothing stamped its class icon.
     // (`iconForActor` existed for this and was called from nowhere in `module/`;
     // only the pack importer used it.) An explicit `img` always wins: the
-    // marketplace passes the transport's own art.
-    if (data.type === "container" && !data.img) {
+    // marketplace passes the transport's own art. An npc qualifies only when
+    // its creation data SAYS it is a container (a class, or inanimate) — a
+    // hand-made npc is as often a monster, and monsters keep mystery-man.
+    const isContainerish = data.type === "container"
+      || (data.type === "npc" && (data.system?.containerClass || data.system?.inanimate));
+    if (isContainerish && !data.img) {
       const art = iconForTransport(
         data.name ?? "",
         data.system?.transportKind ?? "",
@@ -224,6 +228,14 @@ export class CairnActor extends Actor {
     // the two were merged. An NPC can now BE a container, so it needs the owner /
     // formerly-owner line the container sheet has always had.
     this._prepareConnectionLabel();
+    // ...and the one-word class label ("Horse", "Crate") the container sheet has
+    // always shown. Derived only when something says this npc IS a container —
+    // a stored class or inanimate — so a monster's sheet derives nothing.
+    if (this.type === "npc" && (this.system.containerClass || this.system.inanimate)) {
+      this.system.classLabel = game.i18n.localize(
+        containerClassLabel(this.name, "", this.system.containerClass)
+      );
+    }
 
     // Coins are heavy (Cairn 2e, p.9). The first N coins stay petty (weightless);
     // every further N fills a slot -- N is the GM's "coins per slot" setting
@@ -397,6 +409,13 @@ export class CairnActor extends Actor {
    */
   async createOwnedContainer(data) {
     if (!data || data.type != "container") return;
+    // No nesting — checked HERE so every caller (the drop handler, the custom
+    // dialog, anything else) hits the same wall. See canKeepConnected for why
+    // the test is not `type === "container"` any more.
+    if (!this.canKeepConnected) {
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoNesting", { name: this.name }));
+      return;
+    }
     const containers = this.system.containers ?? [];
     if (containers.includes(data.uuid)) return;
 
@@ -574,6 +593,28 @@ export class CairnActor extends Actor {
    * `undefined` for a dangling uuid and the template rendered it as a blank row.
    * @returns {CairnActor[]}
    */
+  /**
+   * May this actor KEEP connected actors? The no-nesting rule ("a container
+   * cannot itself keep a container"), restated for a world where a container is
+   * an NPC. `type === "container"` alone stopped being the test the moment the
+   * type dissolved (review #5: an npc mule could buy a cart from its own tab).
+   * Three signals, any one disqualifying:
+   *   - the legacy `container` type never could;
+   *   - an INANIMATE thing is a container by definition — a cart cannot keep;
+   *   - a thing that is itself KEPT (`connectedTo`/`keeper` set) cannot keep
+   *     further, which is what actually stops the chain: a character's mule is
+   *     connected, so the mule refuses the cart, whatever the cart is.
+   * A free-standing animate npc (a person, a hireling) passes — they can keep a
+   * mule exactly as a character can.
+   * @returns {boolean}
+   */
+  get canKeepConnected() {
+    return this.type !== "container"
+      && !this.system?.inanimate
+      && !this.system?.connectedTo
+      && !this.system?.keeper;
+  }
+
   connectedActors() {
     const mine = game.actors.filter((a) => a.system?.connectedTo === this.uuid);
     const legacy = (this.system.containers ?? [])
