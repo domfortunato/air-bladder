@@ -217,6 +217,49 @@ class NpcData extends CairnDataModel {
       panicked: bool(),
       critical: bool(),
       armorOverride: optInt(),
+      /* --- containers-as-NPCs (see docs/containers.md) ------------------------
+         There is no separate "container" any more: an NPC that has `slots` and a
+         `connectedTo` IS one. The trigger was the Outrider's horses, which carry
+         "8 HP, 1 Armor, hooves (d10+d10)" as PROSE in their description because
+         ContainerData has nowhere to put any of it -- a warhorse the party rides
+         into a fight could not be hit, because of a type choice rather than a
+         rules one. NpcData was already a near-superset (it has `slots` AND
+         `containers`), so folding the two is the same move that folded Hireling
+         into NPC, for the same reason. */
+
+      // uuid of the Actor this one is connected to; blank means connected to
+      // nobody, which is exactly what a loot pile is. Named `connectedTo` rather
+      // than "owner" or "keeper" deliberately: a horse is not owned by its rider
+      // in any sense the sheet should assert, and `keeper` existed only to dodge
+      // a Foundry collision on `owner`.
+      connectedTo: str(),
+
+      // Hides the HP/STR/DEX/WIL block. Modelled on SpellbookData's `scroll`
+      // (item.js) -- a schema boolean, not a Foundry flag, that hides the fields
+      // it makes meaningless.
+      //
+      // NOT called "container": container-ness is already fully expressed by
+      // `slots` + `connectedTo`, and it would be the WRONG discriminator anyway,
+      // because a horse is a container that very much wants a stat block. The
+      // real axis is creature-or-thing. A cart, a wagon and a loot pile tick it;
+      // a horse, a mule and a wolf do not. Default false so an NPC stays a
+      // creature unless someone says otherwise -- deriving it from "no stats
+      // filled in" would hide the block on every freshly created monster, which
+      // is precisely when you need somewhere to type its HP.
+      inanimate: bool(),
+
+      // What this thing IS ("sack", "cart", "horse"...) when someone has said so
+      // explicitly; BLANK MEANS INFER from the name. Drives art, map token, the
+      // one-word class label and the default slot count from a single field, so
+      // they cannot drift apart. The inference is a list of ENGLISH keywords
+      // (icons.js containerClass), so this is also the only way a Warden working
+      // in another language can say "this is a backpack".
+      containerClass: str(),
+
+      // Purchase price. Needed because mounts and vehicles become Actors stocked
+      // in the shop, and NpcData had only `gold` (what it CARRIES), never what it
+      // COSTS.
+      cost: money(0),
     };
   }
 }

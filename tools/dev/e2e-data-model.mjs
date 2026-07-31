@@ -221,6 +221,53 @@ else fail("keeper link", "container not registered");
 
 /* -------------------------------------------- */
 
+/* The containers-as-NPCs fields. A container is becoming "an NPC with `slots` and
+   a `connectedTo`", so these four live on NpcData. Declaring a field and
+   PERSISTING one look identical until you read it back off the collection --
+   a mis-declared field is silently dropped by schema cleaning with no error
+   anywhere -- so every assertion here writes a value and re-reads it. The closed
+   -schema check at the end is the control: without it "the value came back" would
+   also be true of an object that simply kept whatever it was handed. */
+console.log("\ncontainers-as-NPCs fields (NpcData)");
+const npcFields = await page.evaluate(async () => {
+  const Cls = CONFIG.Actor.documentClass;   // not the global Actor -- see docs
+  const a = await Cls.create({ name: "ZZ Schema NpcFields", type: "npc" });
+  const pick = (s) => ({
+    connectedTo: s.connectedTo, inanimate: s.inanimate,
+    containerClass: s.containerClass, cost: s.cost,
+  });
+  const defaults = pick(a.system);
+  await a.update({
+    "system.connectedTo": "Actor.abcdef1234567890",
+    "system.inanimate": true,
+    "system.containerClass": "crate",
+    "system.cost": 42,
+    // Written ON PURPOSE and expected to vanish. If an undeclared key survived,
+    // "the value came back" would be true of anything and every assertion above
+    // would pass whether or not the field is really in the schema.
+    "system.zzNotAField": "should vanish",
+  });
+  const fresh = game.actors.get(a.id).system;
+  const persisted = pick(fresh);
+  const closed = !("zzNotAField" in fresh) && "connectedTo" in fresh;
+  await a.delete();
+  return { defaults, persisted, closed };
+});
+const wantDefaults = { connectedTo: "", inanimate: false, containerClass: "", cost: 0 };
+const wantStored = { connectedTo: "Actor.abcdef1234567890", inanimate: true, containerClass: "crate", cost: 42 };
+for (const [k, v] of Object.entries(wantDefaults)) {
+  if (npcFields.defaults[k] === v) ok(`${k} default`, JSON.stringify(v));
+  else fail(`${k} default`, `got ${JSON.stringify(npcFields.defaults[k])}, want ${JSON.stringify(v)}`);
+}
+for (const [k, v] of Object.entries(wantStored)) {
+  if (npcFields.persisted[k] === v) ok(`${k} persists`, JSON.stringify(v));
+  else fail(`${k} persists`, `got ${JSON.stringify(npcFields.persisted[k])}, want ${JSON.stringify(v)}`);
+}
+if (npcFields.closed) ok("schema closed", "declared fields present, stowaways dropped");
+else fail("schema closed", "an undeclared key survived, so persistence proves nothing");
+
+/* -------------------------------------------- */
+
 console.log("\nhireling generation");
 const hire = await page.evaluate(async () => {
   const actor = await game.cairn.characterGenerator.createHireling();
