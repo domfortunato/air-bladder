@@ -117,11 +117,82 @@ try {
     await game.actors.get(ctrlId)?.delete();
     await c.owner.delete();
 
+    /* ---- deleting a CONNECTED owner unlinks + stamps the survivors ---- */
+    // The case the field exists for, and the one the first version of this
+    // probe never covered (review #5): no deliberate unlink first — the owner
+    // dies while the link is live, and the mule must come out the other side a
+    // labelled loot pile, not a dangler. _onDeleteOperation's writes are
+    // awaited by the delete workflow, so they have landed when delete()
+    // resolves.
+    const d0 = await mk();
+    const heirId = d0.cart.id;
+    await d0.owner.delete();
+    const heir = game.actors.get(heirId);
+    heir?.prepareData();
+    const ownerDeath = {
+      stillExists: !!heir,
+      connectedTo: heir?.system.connectedTo,
+      formerly: heir?.system.formerlyBelongedTo,
+      label: heir?.system.ownedBy,
+    };
+    await heir?.delete();
+
+    // NEGATIVE CONTROL: shadow the class's own _onDeleteOperation with a no-op
+    // and the same death must leave the mule dangling — the shipped behaviour
+    // reproduced — or the stamping assertion above is not load-bearing.
+    const origOp = Cls._onDeleteOperation;
+    Cls._onDeleteOperation = async () => {};
+    const d1 = await mk();
+    const dangId = d1.cart.id;
+    const dangOwnerUuid = d1.owner.uuid;
+    await d1.owner.delete();
+    const dangler = game.actors.get(dangId);
+    const deathControl = {
+      reproduced: dangler?.system.connectedTo === dangOwnerUuid && !dangler?.system.formerlyBelongedTo,
+      got: dangler?.system.connectedTo,
+    };
+    Cls._onDeleteOperation = origOp;
+    await dangler?.delete();
+
+    /* ---- the owner's OPEN sheet follows link changes ---- */
+    // The list is DERIVED, so a link change writes nothing to the owner: only
+    // _synchronizeOwnerSheets makes the open tab true. Review #5: a bought
+    // mount never appeared; a deleted one left a phantom row.
+    const until = async (fn, ms = 6000) => {
+      const t0 = Date.now();
+      while (Date.now() - t0 < ms) { if (fn()) return true; await new Promise((r) => setTimeout(r, 150)); }
+      return fn();
+    };
+    const watcher = await Cls.create({ name: "ZZ Unlink Watch", type: "character" });
+    const wSheet = watcher.sheet;
+    await wSheet.render(true);
+    await until(() => wSheet.element instanceof HTMLElement);
+    const mule = await Cls.create({
+      name: "ZZ Unlink Watch Mule", type: "npc", system: { connectedTo: watcher.uuid, slots: 6 },
+    });
+    const rowSel = () => wSheet.element?.querySelector(`[data-item-id="${mule.uuid}"]`);
+    const rerender = { appeared: await until(() => !!rowSel()) };
+    await mule.delete();
+    rerender.vanished = await until(() => !rowSel());
+
+    // NEGATIVE CONTROL: no-op the sync on the prototype and a new connected
+    // mule must NOT appear on the still-open sheet — the pre-fix staleness.
+    const realSync = proto._synchronizeOwnerSheets;
+    proto._synchronizeOwnerSheets = function () {};
+    const mule2 = await Cls.create({
+      name: "ZZ Unlink Watch Mule2", type: "npc", system: { connectedTo: watcher.uuid, slots: 6 },
+    });
+    await new Promise((r) => setTimeout(r, 900));
+    rerender.controlStale = !wSheet.element?.querySelector(`[data-item-id="${mule2.uuid}"]`);
+    proto._synchronizeOwnerSheets = realSync;
+    await mule2.delete();
+    await watcher.delete();
+
     DialogV2.confirm = orig;
-    return { unlink, orphan, del, control };
+    return { unlink, orphan, del, control, ownerDeath, deathControl, rerender };
   });
 
-  const { unlink, orphan, del, control } = out;
+  const { unlink, orphan, del, control, ownerDeath, deathControl, rerender } = out;
 
   console.log("\nunlink: it survives, connected to nobody");
   unlink.askedOnce
@@ -162,6 +233,31 @@ try {
     ? ok("reproduced — the old one leaves it alive", "so the delete assertion can fail")
     : bad("reproduced — the old one leaves it alive",
       "the control deleted it too, so nothing above is load-bearing");
+
+  console.log("\ndeleting a CONNECTED owner");
+  ownerDeath.stillExists && ownerDeath.connectedTo === ""
+    ? ok("the mule survives, unlinked", `connectedTo=${JSON.stringify(ownerDeath.connectedTo)}`)
+    : bad("the mule survives, unlinked", JSON.stringify(ownerDeath));
+  // The LITERAL, as everywhere in this file: comparing to the (deleted) owner's
+  // name read back would agree with itself when both are empty.
+  ownerDeath.formerly === "ZZ Unlink Owner" && /^Formerly belonged to ZZ Unlink Owner$/.test(ownerDeath.label ?? "")
+    ? ok("stamped with the dead owner's name", `"${ownerDeath.label}"`)
+    : bad("stamped with the dead owner's name", JSON.stringify(ownerDeath));
+  deathControl.reproduced
+    ? ok("negative control: a no-op operation leaves it dangling", "so the stamp assertion can fail")
+    : bad("negative control: a no-op operation leaves it dangling", JSON.stringify(deathControl));
+
+  console.log("\nthe owner's open sheet follows link changes");
+  rerender.appeared
+    ? ok("a new connected mule appears on the open tab")
+    : bad("a new connected mule appears on the open tab", "no row rendered — the sheet is stale");
+  rerender.vanished
+    ? ok("a deleted one leaves it")
+    : bad("a deleted one leaves it", "phantom row after delete");
+  rerender.controlStale
+    ? ok("negative control: with the sync no-opped, the row never comes", "the pre-fix staleness reproduced")
+    : bad("negative control: with the sync no-opped, the row never comes",
+      "row appeared anyway — something else renders, the assertion is not load-bearing");
 } catch (e) {
   bad("threw", `${e.name}: ${e.message}`);
 } finally {

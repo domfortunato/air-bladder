@@ -373,9 +373,10 @@ export class CairnActor extends Actor {
       // (a weapon's damage, an armor value) would otherwise lose it.
       system: { ...(itemData.system ?? {}), weightless: itemData.weightless },
     }]);
-    if (this.type == "container") {
-      this._synchronizeKeeperSheet();
-    }
+    // The owner's Connected row shows this actor's slotsUsed, so a content
+    // change refreshes the owner's open sheet. Ungated: an npc can be a
+    // container now, and the call is a no-op for anything unconnected.
+    this._synchronizeOwnerSheets();
   }
 
   /**
@@ -441,9 +442,9 @@ export class CairnActor extends Actor {
       const proceed = await confirmDelete(item.name);
       if (!proceed) return;
       await item.delete();
-      if (this.type == "container") {
-        this._synchronizeKeeperSheet();
-      }
+      // Same as createOwnedItem: the owner's row shows slotsUsed — ungated,
+      // no-op for anything unconnected.
+      this._synchronizeOwnerSheets();
     } else {
       await ui.notifications.error(game.i18n.localize("CAIRN.NoItemToDelete"));
     }
@@ -641,17 +642,26 @@ export class CairnActor extends Actor {
     return this.system.slotsUsed >= this.calcCurrentMaxSlots();
   }
 
-  _synchronizeKeeperSheet() {
-    // Synchronize container owner sheet
-    if (this.type !== "container" || this.system.keeper == "") return;
-    const keeper = game.actors.find((a) => a.uuid == this.system.keeper);
-    if (!keeper) return;
-    // ClientDocument#render re-renders only the applications actually open for
-    // this document -- the same swap already made in _onDeleteOperation below. The old
-    // `keeper.sheet._state > 0` probe read a private member AND constructed a
-    // sheet as a side effect, because `.sheet` is a lazily-constructing getter:
-    // asking "is the sheet open?" built one for every keeper that had none.
-    keeper.render(false);
+  /**
+   * Re-render the OWNER's open sheet when this actor's link state — or anything
+   * a Connected row shows (name, slots, class) — changes. The owner's list is
+   * DERIVED from each child's `connectedTo` at render, so a link change writes
+   * nothing to the owner document: no update, no render, a stale tab. That was
+   * exactly review #5's finding — this method used to gate on
+   * `type === "container"` + `keeper`, so a bought mount never appeared on the
+   * Connected tab and a deleted one left a phantom row.
+   *
+   * ClientDocument#render re-renders only the applications actually open for
+   * the document (the old `keeper.sheet._state > 0` probe read a private member
+   * AND constructed a sheet as a side effect, because `.sheet` is a lazily-
+   * constructing getter), so this is cheap in the common no-sheet case.
+   * @param {string[]} [also]  FORMER owner uuids, stashed by _preUpdate — the
+   *   sheet a cleared link just vanished from is precisely the one no current
+   *   field still points at
+   */
+  _synchronizeOwnerSheets(also = []) {
+    const refs = new Set([this.system.connectedTo, this.system.keeper, ...also].filter(Boolean));
+    for (const uuid of refs) game.actors.find((a) => a.uuid === uuid)?.render(false);
   }
 
   /**
@@ -679,6 +689,14 @@ export class CairnActor extends Actor {
     // prototype and seeing the wrong function body come back. The two concerns are
     // type-exclusive, so they dispatch here rather than each owning a hook.
     if (["npc", "hireling"].includes(this.type)) this.#applyForHireTokenDefaults(changed);
+
+    // A changed link must re-render the FORMER owner's sheet too (an unlinked
+    // mule has to vanish from the tab it was on), and by _onUpdate the old
+    // value is gone — stash it on `options`, which travel with the operation
+    // to _onUpdate on every client.
+    if (changed.system && ("connectedTo" in changed.system || "keeper" in changed.system)) {
+      options.airBladderFormerOwners = [this.system.connectedTo, this.system.keeper].filter(Boolean);
+    }
 
     if (this.type !== "container") return result;
     const kind = changed.system?.transportKind;
@@ -708,12 +726,27 @@ export class CairnActor extends Actor {
   _onUpdate(changed, options, userId) {
     this.system.slotsMax = this.calcCurrentMaxSlots();
     super._onUpdate(changed, options, userId);
-    this._synchronizeKeeperSheet();
+    this._synchronizeOwnerSheets(options.airBladderFormerOwners ?? []);
+  }
+
+  /** @override */
+  _onCreate(data, options, userId) {
+    super._onCreate(data, options, userId);
+    // A mount bought or granted arrives with `connectedTo` already set, and its
+    // creation writes nothing to the owner (the list is derived) — so the
+    // owner's open sheet learns about it here, on every client, or not at all.
+    this._synchronizeOwnerSheets();
   }
 
   /**
-   * Prune deleted containers from every keeper's uuid list — ONCE per delete
-   * operation, over the whole batch. This was a per-document `_onDelete` walk,
+   * Three delete-time jobs, batch-wise. (1) Every client re-renders the open
+   * sheets of the deleted actors' OWNERS — the derived Connected list changed
+   * with no owner write to say so. (2) On the acting client, a deleted OWNER's
+   * still-connected children are unlinked and stamped `formerlyBelongedTo` with
+   * its name — a dead character's mule becomes a labelled loot pile. (3) The
+   * original job: prune deleted legacy containers from every keeper's uuid
+   * list — ONCE per delete operation, over the whole batch. That last one was
+   * a per-document `_onDelete` walk,
    * and that shape loses a race with itself on a bulk delete: Foundry fires the
    * per-document callbacks without awaiting them (client-backend.mjs:472), so
    * deleting two containers kept by the same actor interleaved two
@@ -727,12 +760,42 @@ export class CairnActor extends Actor {
    */
   static async _onDeleteOperation(documents, operation, user) {
     await super._onDeleteOperation(documents, operation, user);
+    // EVERY client re-renders the deleted actors' owners first — a deleted mule
+    // must leave the Connected tab on all of them, and the derived list changes
+    // with no owner update to trigger a render. (The WRITES below stay
+    // acting-client-only.)
+    const ownerRefs = new Set(documents.flatMap((d) => [d.system?.connectedTo, d.system?.keeper]).filter(Boolean));
+    for (const uuid of ownerRefs) game.actors.find((a) => a.uuid === uuid)?.render(false);
+
     // Post-operation events fire on EVERY connected client — that is what the
     // `user` argument is for. Without this guard one container delete fired the
     // same prune from every browser: clients that do not own the keeper got a
     // permission-error toast for an action they did not take. Let the acting
     // client do it once (`isSelf` is core's own idiom — token.mjs:3150).
     if (!user.isSelf) return;
+
+    // THE OTHER DIRECTION: the deleted actor was an OWNER. Anything still
+    // connected to it becomes an unlinked pile carrying the former owner's
+    // NAME — the exact scenario `formerlyBelongedTo` exists for: the commonest
+    // way a loot pile comes into existence is the character dying and being
+    // deleted, which is precisely when a uuid resolves to nothing. Review #5
+    // found the field was only ever written on a deliberate unlink, never
+    // here. A child that is itself in the delete batch is skipped — it is on
+    // its way out, and updating it mid-delete is a write to a corpse.
+    const deletedIds = new Set(documents.map((d) => d.id));
+    for (const d of documents) {
+      for (const child of game.actors) {
+        if (deletedIds.has(child.id)) continue;
+        if (child.system?.connectedTo !== d.uuid && child.system?.keeper !== d.uuid) continue;
+        const patch = { "system.formerlyBelongedTo": d.name };
+        // Clear whichever link field this type's schema actually has —
+        // `connectedTo` on npc, `keeper` on legacy containers.
+        if (child.system.connectedTo !== undefined) patch["system.connectedTo"] = "";
+        if (child.system.keeper !== undefined) patch["system.keeper"] = "";
+        await child.update(patch);
+      }
+    }
+
     const gone = new Set(documents.filter((d) => d.type === "container").map((d) => d.uuid));
     if (!gone.size) return;
     for (const ac of game.actors) {
