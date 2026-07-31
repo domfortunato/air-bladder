@@ -40,6 +40,14 @@ const ACTOR_TYPES = new Set(["character", "npc", "container", "hireling"]);
  * A pure generator: no side effects, so the caller owns dedup/collection.
  */
 function* stringsFromDoc(doc) {
+  // Pack-internal FOLDER documents (mounts-transports ships two, the repo's
+  // first). They fell through every branch here to the Item fallthrough and
+  // reached the translator as `item.name` rows — but no overlay surface reads
+  // a folder's name, so the row promised a translation nothing would ever
+  // display (review #5). Recognised by `_key`, the one field that says what a
+  // record IS regardless of shape; if folder names ever get an overlay
+  // surface, give them their own ns rather than un-skipping this.
+  if (String(doc._key ?? "").startsWith("!folders!")) return;
   const name = doc.name ?? "(unnamed)";
 
   // RollTable — has a top-level results[] array.

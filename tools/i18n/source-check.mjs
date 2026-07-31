@@ -68,7 +68,16 @@ const collectKeys = () => {
   const note = (map, k, site) => { if (!map.has(k)) map.set(k, site); };
 
   for (const f of [...JS_FILES, ...TPL_FILES]) {
-    const src = fs.readFileSync(f, "utf8");
+    let src = fs.readFileSync(f, "utf8");
+    // Strip JS BLOCK comments before scanning (newline-preserving, so the
+    // recorded line numbers hold). A JSDoc that QUOTES a key otherwise counts
+    // as a use: actor.js documents its old concatenation as
+    // `localize("CAIRN.Owner") + ...`, and that mention alone kept CAIRN.Owner
+    // looking referenced while it sat orphaned in all 7 locales (review #5).
+    // Line comments are left alone deliberately — `//` also begins every URL
+    // inside a string, and truncating those lines would silently drop real
+    // keys that follow on the same line.
+    if (f.endsWith(".js")) src = src.replace(/\/\*[\s\S]*?\*\//g, blank);
     const at = (i) => `${rel(f)}:${lineOf(src, i)}`;
 
     // Literals: a localize()/format() argument, or any bare CAIRN.*/TYPES.*
