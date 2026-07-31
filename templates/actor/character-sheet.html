@@ -160,7 +160,9 @@
                     {{ localize 'CAIRN.Items' }} ({{system.slotsUsed}} / {{system.slotsMax}})
                 </a>
                 {{#if system.showContainersTab}}
-                <a class="item {{tabs.containers.cssClass}}" data-action="tab" data-group="primary" data-tab="containers">{{ localize 'CAIRN.Containers' }} ({{system.containers.length}}) </a>
+                {{!-- Counts `containerObjects`, NOT the legacy `containers` array --
+                      see the note on the NPC sheet's copy of this row. --}}
+                <a class="item {{tabs.containers.cssClass}}" data-action="tab" data-group="primary" data-tab="containers">{{ localize 'CAIRN.Connected' }} ({{system.containerObjects.length}}) </a>
                 {{/if}}
                 <a class="item {{tabs.description.cssClass}}" data-action="tab" data-group="primary" data-tab="description">{{ localize 'CAIRN.Description' }}</a>
                 <a class="item {{tabs.notes.cssClass}}" data-action="tab" data-group="primary" data-tab="notes">{{#if showBackgroundNotesLabel}}{{ localize 'CAIRN.BackgroundAndNotes' }}{{else}}{{ localize 'CAIRN.Notes' }}{{/if}}</a>

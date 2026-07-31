@@ -22,7 +22,13 @@ const FEATURE_FLAGS = ["str", "dex", "wil", "hp", "armor", "dmg", "crit", "depri
  *  that renames itself once a background is attached). */
 const TAB_LABELS = {
   items: "CAIRN.Items",
-  containers: "CAIRN.Containers",
+  // The tab ID stays `containers` -- it is internal, and renaming it would touch
+  // both templates, the `show-containers-tab` setting and the tab filter for no
+  // gain anyone can see. What a person READS is "Connected", because once a
+  // container is just an NPC with a `connectedTo`, the tab is not about
+  // containers: it lists mounts, vehicles, loot piles AND hirelings, who have
+  // never had a link back to whoever hired them.
+  containers: "CAIRN.Connected",
   description: "CAIRN.Description",
   notes: "CAIRN.Notes",
 };

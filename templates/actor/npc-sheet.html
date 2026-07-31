@@ -205,7 +205,11 @@
                     {{ localize 'CAIRN.Items' }} ({{system.slotsUsed}} / {{system.slotsMax}})
                 </a>
                 {{#if system.showContainersTab}}
-                <a class="item {{tabs.containers.cssClass}}" data-action="tab" data-group="primary" data-tab="containers">{{ localize 'CAIRN.Containers' }} ({{system.containers.length}})</a>
+                {{!-- Counts `containerObjects`, NOT the legacy `containers` array:
+                      the list is derived from each connected actor's own
+                      `connectedTo`, so counting the array would disagree with the
+                      rows below it the moment either side is used alone. --}}
+                <a class="item {{tabs.containers.cssClass}}" data-action="tab" data-group="primary" data-tab="containers">{{ localize 'CAIRN.Connected' }} ({{system.containerObjects.length}})</a>
                 {{/if}}
                 <a class="item {{tabs.description.cssClass}}" data-action="tab" data-group="primary" data-tab="description">{{ localize 'CAIRN.Description' }}</a>
                 <a class="item {{tabs.notes.cssClass}}" data-action="tab" data-group="primary" data-tab="notes">{{ localize 'CAIRN.Notes' }}</a>

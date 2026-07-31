@@ -26,7 +26,6 @@
   "CAIRN.CharacterGenerator": "Crear personaje",
   "CAIRN.CharacterRegeneratorConfirm": "¿Estás seguro de que quieres crear un nuevo personaje?</p><p>Ten en cuenta que el trasfondo seleccionado permanecerá activo a menos que hagas clic en la lupa situada junto a la opción «Trasfondo», debajo del nombre de tu personaje.</p><p>El retrato y el campo de notas asignados (en la parte inferior de la pestaña «Notas») se mantendrán. Puedes modificarlos manualmente.",
   "CAIRN.CharacterRegeneratorTitle": "¿Crear un nuevo personaje?",
-  "CAIRN.Containers": "Contenedores",
   "CAIRN.ContainerAlreadyOwned": "El contenedor ya es propiedad de otra persona.",
   "CAIRN.CreateItem": "Crear objeto",
   "CAIRN.CreateContainer": "Crear contenedor",

@@ -186,6 +186,60 @@ else {
     : fail("gold was actually deducted", `gold is ${buy.goldAfter}, expected ${500 - buy.cost}`);
 }
 
+/* ---- the Connected tab, derived from `connectedTo` ---- */
+
+/* The list the tab renders is DERIVED from each connected actor's own
+   `connectedTo` (CairnActor#connectedActors), not from the owner's
+   `system.containers` array. That is the point: one place stores the fact, so it
+   cannot disagree with itself, a deleted actor simply stops appearing, and there
+   is no second write to lose. This asserts the new path works with the legacy
+   array left EMPTY -- otherwise the union would be carrying it and the old
+   two-way link would still be doing all the work unnoticed. */
+console.log("\nconnected actors (derived, no legacy array)");
+const connected = await gmPage.evaluate(async () => {
+  const Cls = CONFIG.Actor.documentClass;
+  const owner = await Cls.create({ name: "ZZ Connected Owner", type: "character" });
+  const horse = await Cls.create({
+    name: "ZZ Connected Horse", type: "npc",
+    system: { connectedTo: owner.uuid, slots: 4 },
+  });
+  const stranger = await Cls.create({ name: "ZZ Unconnected", type: "npc" });
+  owner.prepareData();
+  const listed = (owner.system.containerObjects ?? []).map((a) => a.name);
+  const arrayLen = (owner.system.containers ?? []).length;
+
+  // Disconnecting must remove it with no second write anywhere.
+  await horse.update({ "system.connectedTo": "" });
+  owner.prepareData();
+  const afterUnlink = (owner.system.containerObjects ?? []).map((a) => a.name);
+
+  // And a DELETED actor must simply stop appearing -- the case that used to
+  // leave a dangling uuid rendering as a blank row.
+  await horse.update({ "system.connectedTo": owner.uuid });
+  owner.prepareData();
+  const beforeDelete = (owner.system.containerObjects ?? []).length;
+  await horse.delete();
+  owner.prepareData();
+  const afterDelete = (owner.system.containerObjects ?? []).length;
+
+  const ids = [owner.id, stranger.id];
+  for (const id of ids) await game.actors.get(id)?.delete().catch(() => {});
+  return { listed, arrayLen, afterUnlink, beforeDelete, afterDelete };
+});
+
+connected.listed.length === 1 && connected.listed[0] === "ZZ Connected Horse"
+  ? ok("connectedTo alone puts it on the tab", `[${connected.listed.join(", ")}]`)
+  : fail("connectedTo alone puts it on the tab", JSON.stringify(connected.listed));
+connected.arrayLen === 0
+  ? ok("with the legacy array empty", "so the union is not doing the work")
+  : fail("with the legacy array empty", `system.containers has ${connected.arrayLen}`);
+connected.afterUnlink.length === 0
+  ? ok("clearing connectedTo removes it", "one write, no bookkeeping")
+  : fail("clearing connectedTo removes it", JSON.stringify(connected.afterUnlink));
+connected.beforeDelete === 1 && connected.afterDelete === 0
+  ? ok("a deleted actor stops appearing", "no dangling uuid, no blank row")
+  : fail("a deleted actor stops appearing", `${connected.beforeDelete} -> ${connected.afterDelete}`);
+
 /* ---- cleanup -------------------------------- */
 
 await gmPage.evaluate(async ({ pcId, muleId, containerId }) => {

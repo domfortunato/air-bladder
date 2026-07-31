@@ -218,9 +218,7 @@ export class CairnActor extends Actor {
     if (!this.system.containers) {
       this.system.containers = [];
     }
-    this.system.containerObjects = this.system.containers.map((it) =>
-      game.actors.find((a) => a.uuid == it)
-    );
+    this.system.containerObjects = this.connectedActors();
 
     // Coins are heavy (Cairn 2e, p.9). The first N coins stay petty (weightless);
     // every further N fills a slot -- N is the GM's "coins per slot" setting
@@ -281,11 +279,9 @@ export class CairnActor extends Actor {
     this.system.slotsMax = this.calcCurrentMaxSlots();
     this.system.encumbered =
       this.system.slotsUsed >= this.calcCurrentMaxSlots();
-    // NPCs can keep containers too (the Containers tab, gated by the setting).
+    // NPCs can keep containers too (the Connected tab, gated by the setting).
     if (!this.system.containers) this.system.containers = [];
-    this.system.containerObjects = this.system.containers.map((it) =>
-      game.actors.find((a) => a.uuid == it)
-    );
+    this.system.containerObjects = this.connectedActors();
   }
 
   _prepareContainerData() {
@@ -458,6 +454,43 @@ export class CairnActor extends Actor {
     if (!proceed) return;
     const features = this.system.features.filter((c) => c.id !== itemId);
     await this.update({ "system.features": features });
+  }
+
+  /**
+   * Every Actor connected to this one — what the Connected tab lists.
+   *
+   * DERIVED, deliberately, and this is the point of `connectedTo`. The old model
+   * was a two-way link: the owner kept a `system.containers` uuid array and the
+   * container kept a `keeper` uuid pointing back, which meant two writes per
+   * change and a whole family of bugs when only one of them landed — a uuid left
+   * pointing at a deleted actor, a container whose keeper was set while the
+   * parent's half was silently dropped by schema cleaning, and a delete race
+   * where two prunes interleaved read-modify-writes on the same array and
+   * whichever finished last re-dangled the other's entry.
+   *
+   * Computing the list from the child's own `connectedTo` deletes that entire
+   * class: there is one place the fact is stored, so it cannot disagree with
+   * itself, and a deleted actor simply stops appearing. It costs one pass over
+   * `game.actors` per prepare, which is nothing next to the bookkeeping it removes.
+   *
+   * The legacy `system.containers` array is still unioned in so worlds built
+   * before this keep showing their containers. That half goes away with `keeper`
+   * itself; until then, note the `.filter(Boolean)` — the old `.map()` returned
+   * `undefined` for a dangling uuid and the template rendered it as a blank row.
+   * @returns {CairnActor[]}
+   */
+  connectedActors() {
+    const mine = game.actors.filter((a) => a.system?.connectedTo === this.uuid);
+    const legacy = (this.system.containers ?? [])
+      .map((uuid) => game.actors.find((a) => a.uuid === uuid))
+      .filter(Boolean);
+    const seen = new Set(mine.map((a) => a.id));
+    for (const a of legacy) {
+      if (seen.has(a.id)) continue;
+      seen.add(a.id);
+      mine.push(a);
+    }
+    return mine;
   }
 
   calcSlotsUsed() {
