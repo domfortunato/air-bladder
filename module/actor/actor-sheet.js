@@ -756,6 +756,28 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * @private
    */
   _computeStatContext(context) {
+    // An INANIMATE actor has no stat block, so it has no derived conditions
+    // either -- and this is a correctness guard, not a cosmetic one. Every
+    // condition below is derived from an ability being at or below zero
+    // (`dead = STR <= 0`), which is exactly the state a crate or a loot pile
+    // sits in permanently. Without this the sheet would announce that a barrel
+    // is Dead, Paralyzed and Delirious, all three at once, and the red peril
+    // cues would paint a stat block the template is not even drawing.
+    //
+    // Everything is still defined rather than left undefined: the template
+    // reads these keys unconditionally in a few places, and a missing lookup in
+    // Handlebars is silently empty, which would hide a future mistake here.
+    if (this.actor.system.inanimate) {
+      context.abilityPeril = {};
+      context.abilityLow = {};
+      context.hpLow = false;
+      context.criticalToggle = {};
+      context.criticalActive = {};
+      context.abilityTips = {};
+      context.statusBanners = [];
+      return;
+    }
+
     const ab = this.actor.system.abilities ?? {};
     const val = (k) => Number(ab[k]?.value);
     const max = (k) => Number(ab[k]?.max);

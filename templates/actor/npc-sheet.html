@@ -43,10 +43,29 @@
                   bug — so the rate is behind a flag that is off by default. The
                   checkbox is form-bound (`name=`), so ticking it submits and the
                   re-render reveals the row. --}}
+            {{!-- A thing cannot be for hire, so this row goes when Inanimate is on.
+                  Note the asymmetry below is deliberate: Inanimate is shown
+                  UNCONDITIONALLY. Hiding each behind the other looks tidier and
+                  deadlocks the moment both are somehow true -- neither box on
+                  screen, and no way to clear either. Only one of them hides. --}}
+            {{#unless system.inanimate}}
             <div class="for-hire-line">
                 <label class="for-hire-label" data-tooltip="{{ localize 'CAIRN.ForHireTip' }}">
                     <input type="checkbox" class="for-hire-check" name="system.forHire" {{checked system.forHire}} />
                     {{ localize 'CAIRN.ForHire' }}
+                </label>
+            </div>
+            {{/unless}}
+            {{!-- Creature or thing. Ticking it drops the whole stat block -- HP,
+                  STR/DEX/WIL, Armor, Deprived/Panicked, the Rest and Restore
+                  buttons and every derived condition -- leaving the name, Gold,
+                  inventory and tabs. That is a cart, a crate or a loot pile.
+                  MUST live outside every block it hides, or ticking it would be a
+                  one-way trip with no checkbox left to untick. --}}
+            <div class="inanimate-line">
+                <label class="inanimate-label" data-tooltip="{{ localize 'CAIRN.InanimateTip' }}">
+                    <input type="checkbox" class="inanimate-check" name="system.inanimate" {{checked system.inanimate}} />
+                    {{ localize 'CAIRN.Inanimate' }}
                 </label>
             </div>
             {{#if system.forHire}}
@@ -62,6 +81,12 @@
                   ability score and left the two counter columns uneven — four
                   facing three, so the row beside WIL was simply empty. --}}
             <div class="npc-vitals-line">
+                {{!-- HP goes when `inanimate` is ticked; GOLD DOES NOT. A chest, a
+                      sack or a loot pile holds coins, and coins take slots for every
+                      actor type, so the Gold box has to survive here. Hiding the
+                      whole vitals line would have taken it along -- which is why
+                      only the HP counter is wrapped. --}}
+                {{#unless system.inanimate}}
                 <div class="resource-counter middle-counter hp-counter {{#if hpLow}}low{{/if}}">
                     <label data-tooltip="{{ localize 'CAIRN.HitProtectionTip' }}">{{ localize 'CAIRN.HitProtection' }}</label>
                     <div class="resource-input-wrapper">
@@ -72,6 +97,7 @@
                                value="{{system.hp.max}}" data-dtype="Number" title="{{ localize 'CAIRN.Maximum' }}" />
                     </div>
                 </div>
+                {{/unless}}
                 {{!-- `long-counter`, matching the character sheet's Gold box, NOT
                       `middle-counter`. The counters are 213px in both columns, so a
                       50% label put this bar's right edge at 485 while Armor's --
@@ -87,12 +113,17 @@
                 </div>
             </div>
         </div>
+        {{!-- Rest, Restore Abilities and the Die of Fate are all creature actions:
+              a cart does not rest and a barrel has no abilities to restore. --}}
+        {{#unless system.inanimate}}
         <!-- Buttons -->
         <div class="character-sheet-section-buttons">
             <button id="rest-button" type="button" data-action="rest" class="strict-size-button" data-tooltip="{{ localize 'CAIRN.RestTip' }}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-campground"></i> {{ localize 'CAIRN.Rest' }}</button>
             <button id="restore-abilities-button" type="button" data-action="restoreAbilities" class="strict-size-button" data-tooltip="{{ localize 'CAIRN.RestoreTip' }}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-heart-pulse"></i> {{ localize 'CAIRN.RestoreAbilities' }}</button>
             <button id="die-of-fate-button" type="button" data-action="dieOfFate" class="strict-size-button" data-tooltip="{{ localize 'CAIRN.DieOfFateTip' }}"><i class="fas fa-dice-d6"></i> {{ localize 'CAIRN.DieOfFate' }}</button>
         </div>
+        {{/unless}}
+        {{#unless system.inanimate}}
         <!-- Abilities (identical behaviour + tooltips to a player character) -->
         <div class="character-sheet-section-abilities">
             {{!-- STR/DEX/WIL only. HP lives in the name block above, which leaves
@@ -115,6 +146,11 @@
             </div>
             {{/each}}
         </div>
+        {{/unless}}
+        {{!-- Armor, Deprived and Panicked are creature state too. Armor especially:
+              it is DERIVED from worn gear, and an inanimate container's "worn"
+              inventory is just cargo, so an armoured crate is a category error. --}}
+        {{#unless system.inanimate}}
         <!-- Armor + Deprived + Panicked -->
         <div class="character-sheet-section-others">
             <div class="resource-counter long-counter armor-counter {{#if system.armorOverridden}}armor-overridden{{/if}}">
@@ -149,6 +185,7 @@
             </div>
             {{/if}}
         </div>
+        {{/unless}}
         <div class="character-sheet-section-tabs">
             <!-- Attribute-loss status banners: 0-height when healthy, otherwise one
                  bar per active condition (Dead / STR Critical / Paralyzed /

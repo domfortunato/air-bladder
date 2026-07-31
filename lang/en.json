@@ -280,6 +280,8 @@
   "CAIRN.CareerRole": "Career/Role",
   "CAIRN.ForHire": "For Hire",
   "CAIRN.ForHireTip": "Tick if this NPC can be hired, to show their daily rate.",
+  "CAIRN.Inanimate": "Inanimate",
+  "CAIRN.InanimateTip": "Tick for a thing rather than a creature — a cart, a chest, a loot pile. Hides the stat block; keeps gold and inventory.",
   "CAIRN.DayRateHint": "Daily wage in gold, from the Cairn 2e hirelings table",
   "CAIRN.DayRateSuffix": "gp/day",
   "CAIRN.RollName": "Roll a random name",

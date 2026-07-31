@@ -77,6 +77,7 @@
     "dev:table-results": "node tools/dev/e2e-table-results.mjs",
     "dev:relic-tab": "node tools/dev/e2e-relic-tab.mjs",
     "dev:doc-lifecycle": "node tools/dev/e2e-doc-lifecycle.mjs",
+    "dev:inanimate": "node tools/dev/e2e-inanimate.mjs",
     "dev:listeners": "node tools/dev/e2e-listeners.mjs"
   },
   "browserslist": [
