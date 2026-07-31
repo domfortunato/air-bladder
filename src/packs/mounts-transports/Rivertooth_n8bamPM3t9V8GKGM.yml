@@ -14,7 +14,7 @@ flags:
   air-bladder:
     transportSource: background-2e
 system:
-  description: From the Outrider background. Impressively strong, capable of carrying heavy loads. 4 HP. +6 slots (only +2 slots if carrying two people).
+  description: 'From the Outrider background. Impressively strong, capable of carrying heavy loads. 4 HP. +6 slots (only +2 slots if carrying two people).'
   hp:
     value: 4
     max: 4

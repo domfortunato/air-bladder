@@ -14,7 +14,7 @@ flags:
   air-bladder:
     transportSource: background-2e
 system:
-  description: From the Outrider background. Intelligent, it can understand simple commands and even has an instinct for danger. 6 HP. +4 slots.
+  description: 'From the Outrider background. Intelligent, it can understand simple commands and even has an instinct for danger. 6 HP. +4 slots.'
   hp:
     value: 6
     max: 6

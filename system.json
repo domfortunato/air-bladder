@@ -169,12 +169,6 @@
       "system": "air-bladder"
     },
     {
-      "name": "transports",
-      "label": "Transports & Containers",
-      "type": "Item",
-      "system": "air-bladder"
-    },
-    {
       "name": "marketplace",
       "label": "Marketplace",
       "type": "RollTable",
@@ -272,7 +266,6 @@
         "reliquary",
         "market-goods",
         "background-items",
-        "transports",
         "spellbooks",
         "more-spellbooks",
         "backgrounds-2e",

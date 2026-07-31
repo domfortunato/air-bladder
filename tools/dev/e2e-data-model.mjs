@@ -189,7 +189,10 @@ console.log("\ncontainers and marketplace");
 const containers = await page.evaluate(async () => {
   const actor = await Actor.create({ name: "__rt_mkt", type: "character" });
   await actor.update({ "system.gold": 500 });
-  const transports = await game.packs.get("air-bladder.transports").getDocuments();
+  // The mounts-transports ACTOR pack — the legacy transports Item pack is
+  // dissolved, so what the shop resolves and what this feeds acquireTransport
+  // are npc documents either way.
+  const transports = await game.packs.get("air-bladder.mounts-transports").getDocuments();
   const mule = transports.find((t) => t.system.slots > 0) ?? transports[0];
   // The real marketplace path, not a reimplementation of it — acquireTransport is
   // where a transport document becomes a connected NPC, i.e. where the slots

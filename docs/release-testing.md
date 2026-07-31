@@ -107,7 +107,7 @@ changed, which **fails while a world is open**, so stop the server for it.
 | `npm run dev:gear` | that **every gear name any grant path can hand a character resolves to a real pool item** — starting gear, choice-table options, bond payloads, hireling loadouts, harvested from the shipped packs in the running world. `tools/import/README.md` names this as the *only* protection the hand-maintained gear pool has, in place of an importer |
 | `npm run dev:phase2` | that a generated character's gear is a live **copy of the editable pool item** — edit the pool, regenerate, see the change |
 | `npm run dev:marketplace` | the shop is a **reference catalog** over that same pool, plus the buy/take flows |
-| `npm run dev:transports` | transports are editable documents the shop references; buying mints a keeper-linked container Actor; the worn/mount slot distinction |
+| `npm run dev:transports` | the Mounts & Transports Actor pack is the shop's ONLY source (15 npc documents in 3 folders; the legacy `transports` Item pack is asserted gone); buying mints a connected NPC carrying the document's stat block; the worn/mount slot distinction; no nesting |
 | `npm run dev:barebones` | Barebones generation follows the SRD procedure **and** goes through the same editable pool 2e uses |
 | `npm run dev:hireling` | a generated hireling matches its book statblock exactly, and its gear is a live copy of the pool rather than a second inlined loadout |
 | `npm run dev:portrait` | generation assigns a shipped portrait **and its paired token**, a regenerate disturbs neither, and the picker's swap keeps the two in step |

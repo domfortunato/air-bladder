@@ -49,10 +49,10 @@
  *     Looked up by normalised name, so a re-casing upstream cannot silently drop
  *     a description; anything unmatched is warned about rather than lost quietly.
  *
- * Run order: barebones.mjs -> THIS -> transports.mjs. Barebones first, or the
+ * Run order: barebones.mjs -> THIS -> mounts.mjs. Barebones first, or the
  * shop cannot see the gear it authors and stocks a near-duplicate beside it;
- * transports after, because this wipes the whole marketplace table dir and would
- * delete the shop table transports.mjs writes there.
+ * mounts after, because this wipes the whole marketplace table dir and would
+ * delete the Transports & Containers shop table mounts.mjs writes there.
  * Idempotent: market-goods + marketplace dirs are wiped and rewritten, ids are
  * name-hashed, and re-patching an already-priced item is a no-op. Rebuild the
  * LevelDB packs afterwards: npm run build:packs (stop Foundry first).

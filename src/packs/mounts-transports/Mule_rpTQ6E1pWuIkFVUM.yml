@@ -14,7 +14,7 @@ flags:
   air-bladder:
     transportSource: 2e
 system:
-  description: A stubborn but tireless pack animal. Carries six slots of gear, and sets its own unhurried pace (slow).
+  description: 'A stubborn but tireless pack animal. Carries six slots of gear, and sets its own unhurried pace (slow).'
   slots: 6
   cost: 30
   containerClass: mule

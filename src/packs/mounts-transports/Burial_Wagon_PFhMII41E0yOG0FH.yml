@@ -14,7 +14,7 @@ flags:
   air-bladder:
     transportSource: background-2e
 system:
-  description: From the Bonekeeper background. A burial wagon (+6 slots, slow) from your last job. It came with a stubborn old donkey (+4 slots, only +2 slots if pulling wagon).
+  description: 'From the Bonekeeper background. A burial wagon (+6 slots, slow) from your last job. It came with a stubborn old donkey (+4 slots, only +2 slots if pulling wagon).'
   hp:
     value: 0
     max: 0

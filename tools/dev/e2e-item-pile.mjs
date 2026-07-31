@@ -57,14 +57,18 @@ try {
   await dismissChrome(gmPage);
 
   /* --- 1. every shipped transport labels and draws consistently ----------- */
+  // The mounts-transports ACTOR pack — the legacy transports Item pack is
+  // dissolved. Every document stores its containerClass, so the label and the
+  // icon both come off the stored class; what this asserts is that the stored
+  // class, the shipped art and the label all still agree per document.
   console.log("\nclass labels");
   const classes = await gmPage.evaluate(async () => {
     const icons = await import("/systems/air-bladder/module/icons.js");
-    const docs = await game.packs.get("air-bladder.transports").getDocuments();
+    const docs = await game.packs.get("air-bladder.mounts-transports").getDocuments();
     return docs.map((d) => ({
       name: d.name,
-      label: game.i18n.localize(icons.containerClassLabel(d.name, d.system.transportKind)),
-      icon: icons.iconForTransport(d.name, d.system.transportKind).split("/").pop(),
+      label: game.i18n.localize(icons.containerClassLabel(d.name, "", d.system.containerClass)),
+      icon: icons.iconForTransport(d.name, "", d.system.containerClass).split("/").pop(),
       // The art the classifier picks must still be the art the pack ships, or
       // the refactor silently re-arted 15 documents.
       packImg: d.img.split("/").pop(),

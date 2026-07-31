@@ -49,13 +49,13 @@
  * is wiped before each run; the two new pack dirs are ours entirely and are
  * rewritten whole. Every id is name-hashed, so a rerun is byte-identical.
  *
- * Run order: THIS -> marketplace.mjs -> transports.mjs.
+ * Run order: THIS -> marketplace.mjs -> mounts.mjs.
  * This must precede marketplace.mjs: the shop authors a near-duplicate of any
  * item it cannot find in the pool, so the Barebones gear has to be there first
  * or the shop stocks its own "Sewing kit" beside the real "Sewing Kit". It reads
- * the transports pack (for the Cart/Wagon rows), which is checked in, so running
- * before transports.mjs is fine except on a from-nothing rebuild -- in which case
- * rerun this afterwards.
+ * the mounts-transports Actor pack (for the Cart/Wagon rows), which is checked
+ * in, so running before mounts.mjs is fine except on a from-nothing rebuild --
+ * in which case rerun this afterwards.
  *
  * Game text: CC BY-SA 4.0, Yochai Gal (attribution required; see README).
  */
@@ -109,8 +109,9 @@ const META = new Set([
   "spellbook", "random spellbook", "scroll of random spellbook", "random additional gear",
 ]);
 
-// A thing with its own slots is a container Actor, never an embedded item, so
-// these route to the transports pack instead of being authored as gear.
+// A thing with its own slots is a connected NPC, never an embedded item, so
+// these route to the mounts-transports Actor pack instead of being authored as
+// gear.
 const TRANSPORTS = new Map([["cart", "Cart"], ["wagon", "Wagon"]]);
 
 /* ------------------------------------------------------------------ helpers */
@@ -590,7 +591,7 @@ tables.push({
       if (!f) {
         // mounts.mjs has not run yet (a from-nothing rebuild). Leave a text
         // row rather than a broken reference; a rerun in order fixes it.
-        console.warn(`WARNING: no mount/vehicle document for "${nm}" — run transports.mjs then mounts.mjs, then rerun this`);
+        console.warn(`WARNING: no mount/vehicle document for "${nm}" — run mounts.mjs, then rerun this`);
         return { text: nm, range };
       }
       const t = load(fs.readFileSync(path.join(dir, f), "utf8"));

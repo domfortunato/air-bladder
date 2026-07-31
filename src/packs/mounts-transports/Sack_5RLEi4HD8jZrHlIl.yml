@@ -1,27 +1,31 @@
-_id: EdHP3c1VebhHVqa9
+_id: 5RLEi4HD8jZrHlIl
 name: Sack
-type: transport
+type: npc
 img: systems/air-bladder/icons/sack.svg
+prototypeToken:
+  name: Sack
+  texture:
+    src: systems/air-bladder/icons/sack.svg
+items: []
 effects: []
-folder: null
+folder: GrfAVGCTK0OAzEaH
 sort: 0
 flags:
   air-bladder:
     transportSource: 2e
 system:
   description: 'A plain cloth sack for hauling loose goods. Easy to carry, and easy to drop and run.'
-  weightless: false
-  equipped: false
-  bulky: false
-  cost: 10
-  quantity: 1
-  transportKind: worn
+  hp:
+    value: 0
+    max: 0
   slots: 2
-  load: 1
-  slow: false
+  cost: 10
+  containerClass: sack
+  inanimate: true
+  generationEnabled: false
 ownership:
   default: 0
 _stats:
   systemId: air-bladder
   coreVersion: '14.365'
-_key: '!items!EdHP3c1VebhHVqa9'
+_key: '!actors!5RLEi4HD8jZrHlIl'

@@ -7,17 +7,19 @@
  *   node tools/dev/transport-probe.mjs    (needs Foundry running, world launched)
  *
  * Steps, driven headless as GM:
- *   1. The shop's "Transports & Containers" table references the Mounts &
- *      Transports ACTOR pack for mounts/vehicles (13 npc documents) and the
- *      legacy `transports` Item pack for the worn shapes (Backpack, Sack),
- *      and reads capacity/cost off the referenced document either way.
+ *   1. ONE pack: the shop's "Transports & Containers" table references the
+ *      Mounts & Transports ACTOR pack for every row — 15 npc documents in 3
+ *      folders (Containers / Mounts / Transports), the worn shapes included —
+ *      and the legacy `transports` Item pack is asserted GONE. Capacity/cost
+ *      are read off the referenced document.
  *   2. Buy a MOUNT (Mule): a connected NPC is created with the document's
  *      capacity, coins deducted, and the buyer's OWN slot usage is unchanged
  *      -- a mount carries its own pool.
- *   3. Buy a WORN container (Backpack, an Item row): inanimate with hp 0/0 is
- *      INFERRED at the till, because the Item states neither.
- *   3b. Buy a VEHICLE (Cart, an Actor row): inanimate and hp 0/0 cross the till
- *      from the document -- the review-#5 stat-block guarantee.
+ *   3. Buy a WORN container (Backpack): inanimate and hp 0/0 cross the till
+ *      from its document. 3a: the till's LEGACY Item branch (old worlds'
+ *      tables) still INFERS both from a synthesized transport-Item payload.
+ *   3b. Buy a VEHICLE (Cart): inanimate and hp 0/0 cross the till from the
+ *      document -- the review-#5 stat-block guarantee.
  *   4. Edit the Mule ACTOR document's capacity in the pack, buy another, and
  *      assert the new NPC reflects the edit -- the reference guarantee.
  *   5. Buying refuses when the buyer cannot afford it.
@@ -43,15 +45,13 @@ try {
     const mkt = await import("/systems/air-bladder/module/marketplace.js");
     const made = [];                      // actors to clean up
 
-    // 1. The two packs + the shop table. Mount/vehicle rows reference the ACTOR
-    //    pack now (that is where the stat block lives); only the worn shapes —
-    //    Backpack, Sack — still reference the legacy Item pack, because they
-    //    are CONTAINER_CLASSES rows with no Actor document on purpose.
-    const pack = game.packs.get("air-bladder.transports");
-    if (!pack) return { error: "air-bladder.transports pack is not registered" };
+    // 1. ONE pack now: mounts-transports, npc Actors only. The legacy
+    //    `transports` Item pack is dissolved — its worn shapes (Backpack,
+    //    Sack) are Actor documents in a Containers folder, and every shop row
+    //    references the Actor pack. Its continued absence is asserted: a
+    //    resurrected Item pack would mean the dissolution regressed.
     const aPack = game.packs.get("air-bladder.mounts-transports");
     if (!aPack) return { error: "air-bladder.mounts-transports pack is not registered" };
-    const docs = await pack.getDocuments();
     const aDocs = await aPack.getDocuments();
     const catalog = await mkt.getMarketplaceCatalog();
     const cat = (catalog.categories ?? []).find((c) => c.name === "Transports & Containers");
@@ -59,24 +59,26 @@ try {
 
     const mule = aDocs.find((d) => d.name === "Mule");
     const cartDoc = aDocs.find((d) => d.name === "Cart");
-    const backpack = docs.find((d) => d.name === "Backpack");
-    if (!mule || !cartDoc) return { error: "Mule/Cart missing from the mounts-transports pack" };
-    if (!backpack) return { error: "Backpack missing from the transports pack" };
+    const backpack = aDocs.find((d) => d.name === "Backpack");
+    if (!mule || !cartDoc || !backpack) return { error: "Mule/Cart/Backpack missing from the mounts-transports pack" };
 
     const shopMule = cat.items.find((i) => i.name === "Mule");
     const setup = {
-      packCount: docs.length,
-      // The Item pack still holds two kinds (shop-stocked + background beasts),
-      // as mounts.mjs's source material and for old worlds' tables.
-      stockedCount: docs.filter((d) => d.getFlag("air-bladder", "transportSource") === "2e").length,
-      beastCount: docs.filter((d) => d.getFlag("air-bladder", "transportSource") === "background-2e").length,
-      allTransportType: docs.every((d) => d.type === "transport"),
-      actorCount: aDocs.filter((d) => d.documentName === "Actor").length,
+      legacyPackGone: !game.packs.get("air-bladder.transports"),
+      actorCount: aDocs.filter((d) => d.documentName === "Actor" && d.type === "npc").length,
+      // The pack holds two kinds: what the shop stocks, and the beasts a 2e
+      // background rolls up. Both are editable documents; only the first kind
+      // is for sale.
+      stockedCount: aDocs.filter((d) => d.getFlag("air-bladder", "transportSource") === "2e").length,
+      beastCount: aDocs.filter((d) => d.getFlag("air-bladder", "transportSource") === "background-2e").length,
+      folderCount: aPack.folders.size,
+      wornInContainers: ["Backpack", "Sack"].every((n) =>
+        aDocs.find((d) => d.name === n)?.folder?.name === "Containers"),
       shopCount: cat.items.length,
-      // THE review-#5 assertion: a mount's shop row resolves to the Actor
-      // document, not the legacy Item. `documentName` is what routes the buy.
+      // THE review-#5 assertion: every shop row resolves to an Actor document.
+      // `documentName` is what routes the buy.
       shopRowIsActor: shopMule?.documentName === "Actor",
-      wornRowIsItem: cat.items.find((i) => i.name === "Backpack")?.documentName === "Item",
+      wornRowIsActor: cat.items.find((i) => i.name === "Backpack")?.documentName === "Actor",
       // The shop row must READ the document, not carry its own copy.
       shopReadsDoc: shopMule?.system.slots === mule.system.slots && shopMule?.system.cost === mule.system.cost,
       muleSlots: mule.system.slots,
@@ -118,8 +120,11 @@ try {
       buyerSlotsUnchanged: buyer.system.slotsUsed === slotsBefore,
     };
 
-    // 3. Buy the Backpack (worn): a worn container costs the carrier nothing and
-    //    shows no inventory row -- it lives only on the Containers tab.
+    // 3. Buy the Backpack (worn, an Actor row like everything else now): a worn
+    //    container costs the carrier nothing and shows no inventory row -- it
+    //    lives only on the Connected tab. Its document states inanimate and
+    //    hp 0/0 outright, and both must cross the till. Literals on purpose --
+    //    an animate 6 HP Backpack is exactly what once shipped.
     const slotsBeforeWorn = buyer.system.slotsUsed;
     await buyThrough(backpack);
     const packActor = game.actors.find((a) => a.type === "npc" && a.name === "Backpack" && a.system.connectedTo === buyer.uuid);
@@ -131,12 +136,24 @@ try {
       got: buyer.system.slotsUsed,
       // No worn-container inventory row is produced any more.
       noRow: !(buyer.system.wornContainerRows ?? []).some((r) => r.name === "Backpack"),
-      // The Item row carries no `inanimate` and no hp, so both are INFERRED at
-      // the till: a worn pack is a thing, and a thing gets 0/0, not the schema's
-      // default 6. Literals on purpose -- an animate 6 HP Backpack is exactly
-      // what shipped before the inference existed.
       inanimate: packActor?.system.inanimate === true,
       hpZero: packActor?.system.hp.value === 0 && packActor?.system.hp.max === 0,
+    };
+
+    // 3a. The LEGACY Item branch of the till, kept for old worlds' tables. No
+    //     shipped row exercises it any more, so a synthesized transport-Item
+    //     payload does: it states neither `inanimate` nor hp, and the till must
+    //     INFER a worn thing at 0/0 rather than mint the phantom animate 6.
+    await mkt.acquireTransport(buyer, {
+      name: "PROBE Legacy Pack", documentName: "Item", type: "transport", img: null,
+      system: { slots: 4, cost: 0, transportKind: "worn", description: "" },
+    }, false);
+    const legacyActor = game.actors.find((a) => a.type === "npc" && a.name === "PROBE Legacy Pack" && a.system.connectedTo === buyer.uuid);
+    if (legacyActor) made.push(legacyActor);
+    const legacy = {
+      created: !!legacyActor,
+      inanimate: legacyActor?.system.inanimate === true,
+      hpZero: legacyActor?.system.hp.value === 0 && legacyActor?.system.hp.max === 0,
     };
 
     // 3b. Buy a Cart (vehicle, from the ACTOR pack): the stat block crosses the
@@ -230,25 +247,32 @@ try {
     };
 
     for (const a of made) { try { await a.delete(); } catch { /* already gone */ } }
-    return { setup, mount, worn, vehicle, nesting, edit, afford, directory };
+    return { setup, mount, worn, legacy, vehicle, nesting, edit, afford, directory };
   });
 
   if (r.error) {
     fail(r.error);
   } else {
-    console.log(`  pack: ${r.setup.packCount} transports; shop lists ${r.setup.shopCount}`);
+    console.log(`  pack: ${r.setup.actorCount} npc Actors; shop lists ${r.setup.shopCount}`);
+    r.setup.legacyPackGone
+      ? ok("the legacy transports Item pack is GONE", "dissolved into the Actor pack")
+      : fail("the legacy transports Item pack is registered again", "the dissolution regressed");
+    r.setup.actorCount === 15
+      ? ok("15 npc Actors in mounts-transports", "13 mounts/vehicles + Backpack + Sack")
+      : fail(`expected 15 Actors in mounts-transports, got ${r.setup.actorCount}`);
+    r.setup.folderCount === 3 && r.setup.wornInContainers
+      ? ok("3 folders, worn shapes in Containers")
+      : fail(`folders=${r.setup.folderCount}, wornInContainers=${r.setup.wornInContainers}`);
     r.setup.stockedCount === 7 && r.setup.shopCount === 7
-      ? ok("7 transport documents shipped, and the shop stocks all 7")
-      : fail(`expected 7 stocked transports in pack and shop, got ${r.setup.stockedCount}/${r.setup.shopCount}`);
+      ? ok("7 stocked, and the shop lists all 7")
+      : fail(`expected 7 stocked / 7 shop rows, got ${r.setup.stockedCount}/${r.setup.shopCount}`);
     // Covered in depth by tools/dev/bg-container-probe.mjs; asserted here so a
     // beast can never leak into the shop unnoticed.
-    r.setup.beastCount === 8 && r.setup.packCount === 15
+    r.setup.beastCount === 8
       ? ok("8 background-granted beasts share the pack but not the shop")
-      : fail(`expected 8 beasts / 15 docs, got ${r.setup.beastCount}/${r.setup.packCount}`);
-    r.setup.allTransportType ? ok("all are the `transport` Item type") : fail("some pack docs are not type transport");
-    r.setup.actorCount === 13 ? ok("13 npc Actors in mounts-transports") : fail(`expected 13 Actors in mounts-transports, got ${r.setup.actorCount}`);
-    r.setup.shopRowIsActor ? ok("a mount's shop row resolves to the ACTOR document") : fail("the Mule shop row still resolves to the legacy Item");
-    r.setup.wornRowIsItem ? ok("a worn shape's row stays on the Item pack (no Actor doc by design)") : fail("the Backpack row does not resolve to the Item pack");
+      : fail(`expected 8 beasts, got ${r.setup.beastCount}`);
+    r.setup.shopRowIsActor ? ok("a mount's shop row resolves to the ACTOR document") : fail("the Mule shop row does not resolve to an Actor");
+    r.setup.wornRowIsActor ? ok("a worn shape's row resolves to the ACTOR document too") : fail("the Backpack row does not resolve to the Actor pack");
     r.setup.shopReadsDoc ? ok(`shop reads the document (Mule +${r.setup.muleSlots}, ${r.setup.muleCost}gp)`) : fail("shop row does not match the document");
 
     r.mount.created ? ok("buying a mount minted a connected NPC") : fail("no connected NPC was created");
@@ -261,8 +285,12 @@ try {
     r.worn.slotsUnchanged ? ok(`a worn container costs its carrier no slots (${r.worn.before} -> ${r.worn.got})`) : fail(`worn container charged the carrier: ${r.worn.before} -> ${r.worn.got}`);
     r.worn.noRow ? ok("a worn container shows no inventory row (reached via the Containers tab)") : fail("a worn container still shows an inventory row");
     r.worn.inanimate && r.worn.hpZero
-      ? ok("a bought Backpack is inanimate with hp 0/0 (inferred at the till)")
+      ? ok("a bought Backpack is inanimate with hp 0/0 (stated by its document)")
       : fail(`a bought Backpack came out wrong: inanimate=${r.worn.inanimate}, hpZero=${r.worn.hpZero}`);
+
+    r.legacy.created && r.legacy.inanimate && r.legacy.hpZero
+      ? ok("the LEGACY Item branch still infers: worn Item row -> inanimate, hp 0/0")
+      : fail(`legacy Item till-inference broken: ${JSON.stringify(r.legacy)}`);
 
     r.vehicle.created && r.vehicle.capacityRight ? ok("buying a Cart minted a connected NPC with the document's capacity") : fail(`Cart buy wrong: ${JSON.stringify(r.vehicle)}`);
     r.vehicle.inanimate && r.vehicle.hpZero
