@@ -158,6 +158,78 @@ try {
     ? ok("unticking restores the whole stat block")
     : bad("unticking restores the whole stat block", JSON.stringify({ stored: out.storedOff, ...backAgain }));
 
+  /* ---- the container art picker ---- */
+  console.log("\nthe art picker treats an inanimate NPC as a container");
+  const pick = await page.evaluate(async () => {
+    const Cls = CONFIG.Actor.documentClass;
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const a = await Cls.create({ name: "ZZ Art Picker", type: "npc", system: { inanimate: true } });
+    const sheet = a.sheet;
+    await sheet.render(true);
+    await sleep(800);
+
+    // Route: an inanimate npc must get the CONTAINER gallery, not 80 portraits.
+    sheet.element.querySelector(".portrait")?.click();
+    await sleep(900);
+    const dlg = [...document.querySelectorAll("dialog")].pop();
+    const gallery = dlg?.querySelector(".cairn-container-gallery");
+    const cells = [...(dlg?.querySelectorAll(".cairn-portrait-choice") ?? [])];
+    const classed = cells.filter((c) => c.dataset.class).length;
+    const hasBrowse = !!dlg?.querySelector(".cairn-portrait-browse");
+    const barrel = cells.find((c) => c.dataset.class === "barrel");
+    barrel?.click();
+    await sleep(1200);
+    // The dialog must be GONE before anything else opens one -- a settled
+    // DialogV2 lingers in the DOM while its close transition runs.
+    for (let i = 0; i < 40 && document.querySelector("dialog.dialog"); i++) await sleep(100);
+
+    const afterPick = {
+      img: a.img,
+      token: a.prototypeToken.texture.src,
+      cls: a.system.containerClass,
+      slots: a.system.slots,
+      label: a.system.classLabel,
+    };
+
+    // A capacity someone typed must survive a later art change.
+    await a.update({ "system.slots": 12 });
+    await sheet._setContainerArt("systems/air-bladder/icons/crate.svg", "crate");
+    const afterSecond = { cls: a.system.containerClass, slots: a.system.slots };
+
+    // The Browse escape stores no class, so the label falls back to the name.
+    await sheet._setContainerArt("icons/svg/chest.svg", "");
+    const afterBrowse = { img: a.img, cls: a.system.containerClass };
+
+    await sheet.close();
+    await a.delete();
+    return { isContainerGallery: !!gallery, cellCount: cells.length, classed, hasBrowse, afterPick, afterSecond, afterBrowse };
+  });
+
+  pick.isContainerGallery
+    ? ok("an inanimate NPC gets the container gallery", "not the 80-portrait one")
+    : bad("an inanimate NPC gets the container gallery", "it opened the character portrait picker");
+  pick.cellCount === 13 && pick.classed === 13
+    ? ok("every class is offered, each carrying its key", `${pick.cellCount} cells`)
+    : bad("every class is offered, each carrying its key", `${pick.cellCount} cells, ${pick.classed} classed`);
+  pick.hasBrowse
+    ? ok("the Browse escape is present", "a Warden can use their own art")
+    : bad("the Browse escape is present", "no browse button");
+  pick.afterPick.cls === "barrel" && /barrel\.svg$/.test(pick.afterPick.img)
+    ? ok("picking barrel sets art AND class", `${pick.afterPick.cls}`)
+    : bad("picking barrel sets art AND class", JSON.stringify(pick.afterPick));
+  pick.afterPick.token === pick.afterPick.img
+    ? ok("the map token follows the portrait", "one field, no drift")
+    : bad("the map token follows the portrait", JSON.stringify(pick.afterPick));
+  pick.afterPick.slots === 4
+    ? ok("an unset capacity takes the class default", "barrel = 4")
+    : bad("an unset capacity takes the class default", `slots=${pick.afterPick.slots}`);
+  pick.afterSecond.cls === "crate" && pick.afterSecond.slots === 12
+    ? ok("a capacity someone TYPED is not overwritten", "12 survived a re-art to crate")
+    : bad("a capacity someone TYPED is not overwritten", JSON.stringify(pick.afterSecond));
+  pick.afterBrowse.cls === ""
+    ? ok("custom art stores no class", "the label falls back to the name")
+    : bad("custom art stores no class", JSON.stringify(pick.afterBrowse));
+
   /* ---- negative control: remove the guard, in page ---- */
   console.log("\n   negative control: _computeStatContext guard removed");
   const ctrl = await page.evaluate(async ({ READ }) => {

@@ -3,7 +3,7 @@ import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, sourceLabel } from "../utils.js";
 import { resultText } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
-import { CONTAINER_ART, CONTAINER_CLASSES, TRANSPORT_KINDS } from "../icons.js";
+import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES, TRANSPORT_KINDS, containerClassSlots } from "../icons.js";
 import { localizeNameDesc, t } from "../i18n-content.js";
 import { FATIGUE_NAME } from "../item/item.js";
 
@@ -1347,8 +1347,33 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * there is no paired token file -- the same image serves both.
    * @private
    */
-  async _setContainerArt(img) {
-    await this.actor.update({ img, "prototypeToken.texture.src": img });
+  /**
+   * Re-art a container, and record WHAT IT IS while we are at it.
+   *
+   * Picking from the gallery is not really picking a picture — it is saying "this
+   * is a barrel". The class key drives three things through one field: the art,
+   * the one-word label on the sheet, and the default capacity. Setting only the
+   * image would leave a thing that looks like a barrel and calls itself a chest,
+   * which is the exact drift `containerClass` was added to stop.
+   *
+   * `cls` is absent when the art came from the FilePicker — a Warden's own image
+   * is not any of our classes, so the stored class is cleared and the label falls
+   * back to inferring from the name.
+   *
+   * Capacity is only filled in when it is still 0 (i.e. "use the world setting",
+   * never touched). A Warden who typed 12 into a crate meant 12, and choosing a
+   * different picture is not a request to lose it.
+   * @param {String} img
+   * @param {String} [cls] a key of CONTAINER_CLASSES
+   */
+  async _setContainerArt(img, cls) {
+    const patch = { img, "prototypeToken.texture.src": img };
+    if (cls !== undefined) patch["system.containerClass"] = cls;
+    if (cls && !Number(this.actor.system.slots)) {
+      const dflt = containerClassSlots(cls);
+      if (dflt) patch["system.slots"] = dflt;
+    }
+    await this.actor.update(patch);
     for (const token of this.actor.getActiveTokens()) {
       await token.document.update({ "texture.src": img });
     }
@@ -1419,7 +1444,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * @this {CairnActorSheet}
    */
   static async #onEditPortrait(event) {
-    return this.actor.type === "container"
+    // An INANIMATE npc is a container in every sense that matters here, so it
+    // gets the container gallery rather than 80 human portraits. Routing on the
+    // type alone stopped being right the moment a crate became an npc document.
+    const isContainerish = this.actor.type === "container" || this.actor.system.inanimate === true;
+    return isContainerish
       ? this._pickContainerArt(event)
       : this._pickPortrait(event);
   }
@@ -2220,10 +2249,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     event.preventDefault();
     const current = this.actor.img;
 
-    const cells = CONTAINER_ART.map((src) => {
-      const sel = src === current ? " selected" : "";
-      const label = src.split("/").pop().replace(/\.\w+$/, "").replace(/[-_]/g, " ");
-      return `<img class="cairn-portrait-choice${sel}" src="${src}" data-src="${src}" title="${label}" />`;
+    // Labelled by CLASS, not by filename. The old version derived a caption from
+    // the image path ("donkey" for both the mule and the donkey, "stack" for the
+    // item pile), which is the file's name rather than the thing's.
+    const stored = this.actor.system.containerClass;
+    const cells = CONTAINER_ART_CHOICES.map(({ key, src, label }) => {
+      const sel = key === stored || (!stored && src === current) ? " selected" : "";
+      const title = game.i18n.localize(label);
+      return `<img class="cairn-portrait-choice${sel}" src="${src}" data-src="${src}" `
+        + `data-class="${key}" title="${title}" alt="${title}" />`;
     }).join("");
 
     const canBrowse = game.user.can("FILES_BROWSE");
@@ -2247,7 +2281,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const root = dialog.element;
     root.querySelectorAll(".cairn-portrait-choice").forEach((img) => {
       img.addEventListener("click", async () => {
-        await this._setContainerArt(img.dataset.src);
+        await this._setContainerArt(img.dataset.src, img.dataset.class);
         dialog.close();
       });
     });
@@ -2261,7 +2295,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
           type: "image",
           current: "icons/containers",
           callback: async (path) => {
-            await this._setContainerArt(path);
+            // A Warden's own image is none of our classes, so clear the stored
+            // one and let the label fall back to inferring from the name --
+            // rather than leaving a custom picture labelled "Chest".
+            await this._setContainerArt(path, "");
             dialog.close();
           },
         }).render(true);

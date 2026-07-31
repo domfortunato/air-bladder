@@ -47,6 +47,12 @@ const ICONS = {
   // Deliberately the same glyph as `cart` — see the note at the foot of CREDITS.md.
   "wagon": ["lorc", "cartwheel"],
   "stack": ["delapouite", "stack"],
+  // Storage a Warden can pick from the container art list. `box` is deliberately
+  // NOT called "cardboard box" -- the glyph is a plain closed box and cardboard
+  // has no place in Cairn.
+  "crate": ["delapouite", "wooden-crate"],
+  "barrel": ["delapouite", "barrel"],
+  "box": ["delapouite", "cardboard-box-closed"],
 };
 
 // White glyph on a black field, which is what the PNGs were and what the sheet

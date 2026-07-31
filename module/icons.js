@@ -54,18 +54,38 @@ export const TRANSPORT_KINDS = {
  * reason: a Mule labelled "Donkey" would be wrong, where a Mule DRAWN as a donkey
  * is just the art we have.
  */
+/**
+ * Every kind of container a Warden can pick, as art + label + a default capacity.
+ *
+ * `slots` is the third thing this table carries, and it is what lets the plain
+ * storage containers stop being DOCUMENTS. A sack, a chest, a crate and a barrel
+ * have no authored content — no HP, no armor, no rules text, nothing but a shape
+ * and a capacity — so shipping one pack document each would be shipping a row of
+ * this table with extra steps. Anything with content (the Outrider's six breeds,
+ * a named wagon) stays a document; anything that is only a shape lives here.
+ *
+ * `slots: 0` means "use the world's max-equip-slots setting" (see
+ * `capacity()` / `calcCurrentMaxSlots`), which is right for a pile: loot on the
+ * floor is not a manufactured object with a fixed capacity.
+ */
 export const CONTAINER_CLASSES = {
-  pile: { icon: "stack", label: "CAIRN.ClassPile" },
-  backpack: { icon: "backpack", label: "CAIRN.ClassBackpack" },
-  sack: { icon: "sack", label: "CAIRN.ClassSack" },
-  handcart: { icon: "handcart", label: "CAIRN.ClassHandcart" },
-  cart: { icon: "cart", label: "CAIRN.ClassCart" },
-  wagon: { icon: "wagon", label: "CAIRN.ClassWagon" },
-  mule: { icon: "donkey", label: "CAIRN.ClassMule" },
-  donkey: { icon: "donkey", label: "CAIRN.ClassDonkey" },
-  horse: { icon: "horse", label: "CAIRN.ClassHorse" },
-  chest: { icon: "chest", label: "CAIRN.ClassChest" },
+  pile: { icon: "stack", label: "CAIRN.ClassPile", slots: 0 },
+  backpack: { icon: "backpack", label: "CAIRN.ClassBackpack", slots: 4 },
+  sack: { icon: "sack", label: "CAIRN.ClassSack", slots: 2 },
+  handcart: { icon: "handcart", label: "CAIRN.ClassHandcart", slots: 4 },
+  cart: { icon: "cart", label: "CAIRN.ClassCart", slots: 4 },
+  wagon: { icon: "wagon", label: "CAIRN.ClassWagon", slots: 8 },
+  mule: { icon: "donkey", label: "CAIRN.ClassMule", slots: 6 },
+  donkey: { icon: "donkey", label: "CAIRN.ClassDonkey", slots: 4 },
+  horse: { icon: "horse", label: "CAIRN.ClassHorse", slots: 4 },
+  chest: { icon: "chest", label: "CAIRN.ClassChest", slots: 6 },
+  crate: { icon: "crate", label: "CAIRN.ClassCrate", slots: 6 },
+  barrel: { icon: "barrel", label: "CAIRN.ClassBarrel", slots: 4 },
+  box: { icon: "box", label: "CAIRN.ClassBox", slots: 2 },
 };
+
+/** A class's default capacity, or 0 ("use the world setting") if it has none. */
+export const containerClassSlots = (cls) => CONTAINER_CLASSES[cls]?.slots ?? 0;
 
 /**
  * Classify a container / transport. Keyed on the NAME first (so "Handcart" and
@@ -96,8 +116,12 @@ export const containerClass = (name = "", kind = "", stored = "") => {
   if (n.includes("wagon")) return "wagon";
   if (n.includes("mule")) return "mule";                      // before "donkey"
   if (n.includes("donkey")) return "donkey";
-  if (n.includes("chest") || n.includes("crate") || n.includes("coffer") ||
-      n.includes("barrel") || n.includes("box")) return "chest";
+  // Crate, barrel and box used to fall into `chest` for want of their own art.
+  // Order matters: "chest" before "box" so a "Boxwood Chest" is still a chest.
+  if (n.includes("crate")) return "crate";
+  if (n.includes("barrel") || n.includes("cask") || n.includes("keg")) return "barrel";
+  if (n.includes("chest") || n.includes("coffer")) return "chest";
+  if (n.includes("box") || n.includes("case")) return "box";
   if (n.includes("horse")) return "horse";
   if (n.includes("pile") || n.includes("hoard") || n.includes("stash")) return "pile";
   if (kind === "worn") return "sack";
@@ -169,9 +193,23 @@ export const iconForActor = (type = "", name = "") => {
   return null;
 };
 
-/** The class-icon gallery offered when a player re-arts a container / transport. */
-export const CONTAINER_ART = [
-  P("chest"), P("backpack"), P("sack"), P("stack"),
-  P("horse"), P("donkey"),
-  P("cart"), P("handcart"), P("wagon"),
-];
+/**
+ * The gallery offered when someone re-arts a container.
+ *
+ * DERIVED from CONTAINER_CLASSES rather than hand-listed. It used to be its own
+ * array of nine paths, which meant adding a class and adding it to the picker
+ * were two edits — and the previous list had already drifted, offering no way to
+ * choose a mule (distinct capacity from a donkey) and omitting the pile entirely.
+ * One table, one source.
+ *
+ * Each entry carries the CLASS KEY, not just the image, because picking art is
+ * really picking what the thing IS: the same key drives the art, the one-word
+ * label on the sheet and the default capacity, so choosing "barrel" must not be
+ * able to leave a thing that looks like a barrel and calls itself a chest.
+ */
+export const CONTAINER_ART_CHOICES = Object.entries(CONTAINER_CLASSES).map(
+  ([key, { icon, label, slots }]) => ({ key, src: P(icon), label, slots }),
+);
+
+/** Just the image paths, for anything that only needs to know what art exists. */
+export const CONTAINER_ART = CONTAINER_ART_CHOICES.map((c) => c.src);
