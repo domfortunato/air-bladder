@@ -19,7 +19,12 @@
         <div class="cairn-item-controls">
             <a class="item-control item-edit" data-action="itemEdit" title="{{ localize 'CAIRN.EditItem' }}"><i class="fas fa-edit"></i></a>
             <a class="item-control container-unlink" data-action="containerUnlink" title="{{ localize 'CAIRN.UnlinkContainer' }}"><i class="fas fa-link-slash"></i></a>
+            {{!-- GM-only: Actor deletion is role-gated (Assistant+) with no
+                  player-grantable permission, so for a player this icon promised
+                  an action the server always refuses. They keep unlink. --}}
+            {{#if @root.canDeleteActors}}
             <a class="item-control item-delete" data-action="itemDelete" title="{{ localize 'CAIRN.DeleteContainer' }}"><i class="fas fa-trash"></i></a>
+            {{/if}}
         </div>
     </div>
 </div>

@@ -190,6 +190,50 @@ else {
     : fail("gold was actually deducted", `gold is ${buy.goldAfter}, expected ${500 - buy.cost}`);
 }
 
+/* ---- the trash icon is the Warden's, not the player's ---- */
+
+/* Actor deletion is role-gated (Assistant+) with NO player-grantable
+   permission, so a player's trash on the Connected tab promised an action the
+   server always refuses (review #5). Same template, two users: the row Alice
+   just bought must offer her unlink but not trash, and the same row on the
+   Warden's screen must offer both — the GM half is what makes the player
+   absence load-bearing rather than a row that renders no icons at all. */
+console.log("\nthe Connected tab's trash icon");
+const icons = await alicePage.evaluate(async (pcId) => {
+  const pc = game.actors.get(pcId);
+  await pc.sheet.render(true);
+  await new Promise((r) => setTimeout(r, 1000));
+  const row = pc.sheet.element?.querySelector('.cairn-items-list-row[data-is-container="true"]');
+  return row ? {
+    rowFound: true,
+    unlink: !!row.querySelector('[data-action="containerUnlink"]'),
+    trash: !!row.querySelector('[data-action="itemDelete"]'),
+  } : { rowFound: false };
+}, scene.pcId);
+const gmIcons = await gmPage.evaluate(async (pcId) => {
+  const pc = game.actors.get(pcId);
+  await pc.sheet.render(true);
+  await new Promise((r) => setTimeout(r, 1000));
+  const row = pc.sheet.element?.querySelector('.cairn-items-list-row[data-is-container="true"]');
+  const trash = !!row?.querySelector('[data-action="itemDelete"]');
+  await pc.sheet.close();
+  return { rowFound: !!row, trash };
+}, scene.pcId);
+
+if (!icons.rowFound || !gmIcons.rowFound) {
+  fail("connected row rendered for both users", JSON.stringify({ alice: icons.rowFound, gm: gmIcons.rowFound }));
+} else {
+  !icons.trash
+    ? ok("no trash for a player", "the server would refuse it anyway")
+    : fail("no trash for a player", "an affordance for an action players cannot take");
+  icons.unlink
+    ? ok("unlink stays theirs", "drop the sack and walk away")
+    : fail("unlink stays theirs", "player lost the one control they can use");
+  gmIcons.trash
+    ? ok("the Warden still gets the trash", "same template, role-gated icon")
+    : fail("the Warden still gets the trash", "the icon vanished for everyone — the player assertion proves nothing");
+}
+
 /* ---- the Connected tab, derived from `connectedTo` ---- */
 
 /* The list the tab renders is DERIVED from each connected actor's own

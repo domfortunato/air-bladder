@@ -65,6 +65,7 @@ const READ = `(sheet) => {
     gold:      vis('input[name="system.gold"]'),
     inanimateBox: vis('.inanimate-check'),
     forHireBox:   vis('.for-hire-check'),
+    dayRate:      vis('.day-rate-line'),
     itemsTab:  vis('[data-tab="items"]'),
     banners:   [...el.querySelectorAll('.status-banner')].map((b) => b.className),
     visiblePanels: [...el.querySelectorAll('.tab[data-tab]')].filter((p) => {
@@ -84,8 +85,11 @@ try {
       name: "ZZ Inanimate Probe",
       type: "npc",
       // Zeroed on purpose: this is the state that makes the derived conditions
-      // fire, so a crate at 0/0/0 is the case that matters.
-      system: { abilities: { STR: { value: 0, max: 0 }, DEX: { value: 0, max: 0 }, WIL: { value: 0, max: 0 } }, gold: 25 },
+      // fire, so a crate at 0/0/0 is the case that matters. For Hire on too:
+      // review #5 found the day-rate row outliving the checkbox that reveals it
+      // when Inanimate hid the For Hire box, so this probe starts as a hireling
+      // and turns into a thing — the exact sequence that stranded the row.
+      system: { abilities: { STR: { value: 0, max: 0 }, DEX: { value: 0, max: 0 }, WIL: { value: 0, max: 0 } }, gold: 25, forHire: true, dayRate: 5 },
     });
     const sheet = a.sheet;
     await sheet.render(true);
@@ -149,6 +153,14 @@ try {
   !asThing.forHireBox
     ? ok("For Hire is hidden", "a thing cannot be hired")
     : bad("For Hire is hidden", "still on screen");
+  // The control half first: the row must EXIST as a creature (forHire is on),
+  // or its absence as a thing proves nothing.
+  asCreature.dayRate
+    ? ok("day-rate row shows while a for-hire creature", "the hidden-state assertion can fail")
+    : bad("day-rate row shows while a for-hire creature", "never rendered — nothing below is load-bearing");
+  !asThing.dayRate
+    ? ok("day-rate row goes with it", "no orphaned rate on a crate")
+    : bad("day-rate row goes with it", "the row outlives the checkbox that reveals it");
 
   console.log("\nand it is not a one-way trip");
   out.reachable

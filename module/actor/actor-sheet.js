@@ -503,6 +503,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
     context.actor = this.actor;
+    // Whether this user can DELETE a connected actor. Foundry gates Actor
+    // deletion by ROLE (Assistant+, and isGM is exactly role >= ASSISTANT) with
+    // no player-grantable permission — so a player's trash icon on the
+    // Connected tab was an affordance for an action the server always refuses
+    // (review #5). The template hides it; unlink and edit remain theirs.
+    context.canDeleteActors = game.user.isGM;
     // Per-window id prefix for label[for]/input[id] pairs. Templates hardcoded the
     // field path as the DOM id ("system.gold"), so every open sheet of a type used
     // the SAME ids — and `label[for]` resolves against the first match in tree
@@ -1593,9 +1599,17 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     event.preventDefault();
     const row = CairnActorSheet.#row(target);
     if (!row) return;
-    if (row.dataset.isContainer) this.actor.deleteOwnedContainer(row.dataset.itemId);
-    else this.actor.deleteOwnedItem(row.dataset.itemId);
-    slideUp(row, () => this.render(false));
+    if (row.dataset.isContainer) {
+      // No optimistic slide for a connected ACTOR: the confirm can be declined
+      // and the server can refuse (Actor delete is Assistant+, ungrantable), and
+      // sliding first showed the player a delete that never happened before the
+      // re-render put the row back (review #5). On success, the delete's own
+      // _onDeleteOperation re-renders this sheet and the row goes with it.
+      this.actor.deleteOwnedContainer(row.dataset.itemId);
+    } else {
+      this.actor.deleteOwnedItem(row.dataset.itemId);
+      slideUp(row, () => this.render(false));
+    }
   }
 
   /**

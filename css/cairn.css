@@ -2186,6 +2186,16 @@ textarea.omen-input {
     grid-template-rows: auto auto 1fr;
 }
 
+/* Inanimate drops the buttons/abilities/others sections entirely, so with three
+   tracks the tab section AUTO-PLACES into row 2 — the `auto` track — and sizes
+   to its content minimum while the 1fr third row sits EMPTY below it: a ~97px
+   tab body over ~400px of dead space, no error anywhere (review #5). Two tracks
+   put the tabs in the 1fr. The template stamps the class; nothing here reads
+   document state. */
+.cairn-npc-sheet .charater-sheet-grid.inanimate-grid {
+    grid-template-rows: auto 1fr;
+}
+
 /* Three rows, not four. HP used to be a fourth box in this column and the track
    count was never brought back down when it moved up to the vitals line, leaving
    a 36px phantom row under WIL. */

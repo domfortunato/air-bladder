@@ -6,7 +6,7 @@
       left every monster's text unreachable.
 
       No <form> here: ApplicationV2 supplies it. --}}
-    <div class="charater-sheet-grid">
+    <div class="charater-sheet-grid{{#if system.inanimate}} inanimate-grid{{/if}}">
         <!-- Portrait: click for the same gallery a player character gets (shipped
              art + the GM's custom portraits + paste-a-URL + Browse), the die rolls
              a random one. `editPortrait` is what opens it; without that attribute
@@ -77,6 +77,13 @@
                     {{ localize 'CAIRN.Inanimate' }}
                 </label>
             </div>
+            {{!-- Gated on inanimate TOO: the For Hire box that reveals this row
+                  hides under inanimate, so a hireling turned into a thing kept
+                  its day-rate row with the checkbox that controls it gone — the
+                  one-way trap the comment above reasons about, one level down
+                  (review #5). Untick Inanimate and both come back; no deadlock,
+                  since Inanimate itself never hides. --}}
+            {{#unless system.inanimate}}
             {{#if system.forHire}}
             <div class="day-rate-line">
                 <span class="background-label">{{ localize 'CAIRN.DayRate' }}</span>
@@ -85,6 +92,7 @@
                 <span class="day-rate-suffix">{{ localize 'CAIRN.DayRateSuffix' }}</span>
             </div>
             {{/if}}
+            {{/unless}}
             {{!-- HP and Gold share the foot row, as they do on the character sheet.
                   HP used to top the STR/DEX/WIL column, where it read as a fourth
                   ability score and left the two counter columns uneven — four
