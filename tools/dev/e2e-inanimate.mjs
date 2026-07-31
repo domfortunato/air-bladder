@@ -187,6 +187,11 @@ try {
     const gallery = dlg?.querySelector(".cairn-container-gallery");
     const cells = [...(dlg?.querySelectorAll(".cairn-portrait-choice") ?? [])];
     const classed = cells.filter((c) => c.dataset.class).length;
+    const srcs = cells.map((c) => c.dataset.src);
+    const classes = cells.map((c) => c.dataset.class);
+    // The two files that spent a year as the same cartwheel glyph.
+    const [cartSvg, wagonSvg] = await Promise.all(
+      ["cart", "wagon"].map((n) => fetch(`systems/air-bladder/icons/${n}.svg`).then((r) => r.text())));
     const hasBrowse = !!dlg?.querySelector(".cairn-portrait-browse");
     const barrel = cells.find((c) => c.dataset.class === "barrel");
     barrel?.click();
@@ -214,15 +219,28 @@ try {
 
     await sheet.close();
     await a.delete();
-    return { isContainerGallery: !!gallery, cellCount: cells.length, classed, hasBrowse, afterPick, afterSecond, afterBrowse };
+    return { isContainerGallery: !!gallery, cellCount: cells.length, classed, srcs, classes,
+      cartWagonDiffer: cartSvg !== wagonSvg, hasBrowse, afterPick, afterSecond, afterBrowse };
   });
 
   pick.isContainerGallery
     ? ok("an inanimate NPC gets the container gallery", "not the 80-portrait one")
     : bad("an inanimate NPC gets the container gallery", "it opened the character portrait picker");
-  pick.cellCount === 13 && pick.classed === 13
-    ? ok("every class is offered, each carrying its key", `${pick.cellCount} cells`)
-    : bad("every class is offered, each carrying its key", `${pick.cellCount} cells, ${pick.classed} classed`);
+  // 12 cells for 13 classes: the gallery shows each GLYPH once, and mule/donkey
+  // share Skoll's donkey (game-icons.net has no mule). Removing the dedupe
+  // filter fails BOTH of the first two assertions — 13 cells, donkey.svg twice.
+  pick.cellCount === 12 && pick.classed === 12
+    ? ok("one cell per glyph, each carrying its class key", `${pick.cellCount} cells for 13 classes`)
+    : bad("one cell per glyph, each carrying its class key", `${pick.cellCount} cells, ${pick.classed} classed`);
+  new Set(pick.srcs).size === pick.srcs.length
+    ? ok("no two cells wear the same image", "the doubled donkey is gone")
+    : bad("no two cells wear the same image", JSON.stringify(pick.srcs));
+  pick.classes.includes("mule") && !pick.classes.includes("donkey")
+    ? ok("the shared donkey glyph belongs to the MULE", "donkey stays a name-inferred class")
+    : bad("the shared donkey glyph belongs to the MULE", JSON.stringify(pick.classes));
+  pick.cartWagonDiffer
+    ? ok("cart and wagon wear different glyphs", "wagon.svg is no longer a copy of cart.svg")
+    : bad("cart and wagon wear different glyphs", "the two files are byte-identical again");
   pick.hasBrowse
     ? ok("the Browse escape is present", "a Warden can use their own art")
     : bad("the Browse escape is present", "no browse button");

@@ -31,11 +31,8 @@ credited under CC BY 3.0. The icons used here are by **Lorc**, **Delapouite** an
 | `horse.svg` | riding mounts | Horse Head | Delapouite | <https://game-icons.net/1x1/delapouite/horse-head.html> |
 | `cart.svg` | carts | Cartwheel | Lorc | <https://game-icons.net/1x1/lorc/cartwheel.html> |
 | `handcart.svg` | handcarts | Wheelbarrow | Delapouite | <https://game-icons.net/1x1/delapouite/wheelbarrow.html> |
-| `wagon.svg` | wagons | Cartwheel | Lorc | <https://game-icons.net/1x1/lorc/cartwheel.html> |
+| `wagon.svg` | wagons | Old Wagon | Delapouite | <https://game-icons.net/1x1/delapouite/old-wagon.html> |
 | `stack.svg` | item piles (loot left in a scene) | Stack | Delapouite | <https://game-icons.net/1x1/delapouite/stack.html> |
 | `crate.svg` | crates | Wooden Crate | Delapouite | <https://game-icons.net/1x1/delapouite/wooden-crate.html> |
 | `barrel.svg` | barrels | Barrel | Delapouite | <https://game-icons.net/1x1/delapouite/barrel.html> |
 | `box.svg` | boxes | Cardboard Box Closed | Delapouite | <https://game-icons.net/1x1/delapouite/cardboard-box-closed.html> |
-
-`wagon.svg` is a copy of the same **Cartwheel** icon used for `cart.svg`; if a
-distinct wagon glyph is wanted later, replace the file and update this row.

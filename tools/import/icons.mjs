@@ -44,8 +44,10 @@ const ICONS = {
   "horse": ["delapouite", "horse-head"],
   "cart": ["lorc", "cartwheel"],
   "handcart": ["delapouite", "wheelbarrow"],
-  // Deliberately the same glyph as `cart` — see the note at the foot of CREDITS.md.
-  "wagon": ["lorc", "cartwheel"],
+  // Used to be the cartwheel again, which put two identical wheels in the
+  // container art picker. The picker dedupes shared GLYPHS (mule/donkey), but
+  // these were two files, invisible to it — so the wagon gets its own art.
+  "wagon": ["delapouite", "old-wagon"],
   "stack": ["delapouite", "stack"],
   // Storage a Warden can pick from the container art list. `box` is deliberately
   // NOT called "cardboard box" -- the glyph is a plain closed box and cardboard

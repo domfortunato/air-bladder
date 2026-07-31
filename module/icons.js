@@ -211,10 +211,19 @@ export const iconForActor = (type = "", name = "") => {
  * really picking what the thing IS: the same key drives the art, the one-word
  * label on the sheet and the default capacity, so choosing "barrel" must not be
  * able to leave a thing that looks like a barrel and calls itself a chest.
+ *
+ * Each GLYPH appears once: when classes share art, the first one in the table
+ * owns the cell. That is the mule/donkey pair — game-icons.net has no mule (a
+ * probe of every author 404s), so both wear Skoll's donkey, and offering the
+ * picture twice just looks broken. Mule wins by table order because it is the
+ * beast in the open 2e marketplace text. `donkey` stays a full class — a thing
+ * NAMED Donkey still classifies, labels and defaults to 4 slots — it is only
+ * not a click target, which costs a Warden working in another language the
+ * ability to say "this is a Donkey" by art alone. Accepted 2026-07-31.
  */
-export const CONTAINER_ART_CHOICES = Object.entries(CONTAINER_CLASSES).map(
-  ([key, { icon, label, slots }]) => ({ key, src: P(icon), label, slots }),
-);
+export const CONTAINER_ART_CHOICES = Object.entries(CONTAINER_CLASSES)
+  .filter(([, v], i, arr) => arr.findIndex(([, w]) => w.icon === v.icon) === i)
+  .map(([key, { icon, label, slots }]) => ({ key, src: P(icon), label, slots }));
 
 /** Just the image paths, for anything that only needs to know what art exists. */
 export const CONTAINER_ART = CONTAINER_ART_CHOICES.map((c) => c.src);

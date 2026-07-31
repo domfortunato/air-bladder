@@ -2296,9 +2296,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // Labelled by CLASS, not by filename. The old version derived a caption from
     // the image path ("donkey" for both the mule and the donkey, "stack" for the
     // item pile), which is the file's name rather than the thing's.
+    // A stored class without a cell of its own (donkey — the gallery shows each
+    // glyph once) highlights the cell wearing its art instead of nothing.
     const stored = this.actor.system.containerClass;
+    const offered = new Set(CONTAINER_ART_CHOICES.map((c) => c.key));
     const cells = CONTAINER_ART_CHOICES.map(({ key, src, label }) => {
-      const sel = key === stored || (!stored && src === current) ? " selected" : "";
+      const sel = key === stored || (!offered.has(stored) && src === current) ? " selected" : "";
       const title = game.i18n.localize(label);
       return `<img class="cairn-portrait-choice${sel}" src="${src}" data-src="${src}" `
         + `data-class="${key}" title="${title}" alt="${title}" />`;
