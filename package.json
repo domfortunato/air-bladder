@@ -78,6 +78,7 @@
     "dev:relic-tab": "node tools/dev/e2e-relic-tab.mjs",
     "dev:doc-lifecycle": "node tools/dev/e2e-doc-lifecycle.mjs",
     "dev:inanimate": "node tools/dev/e2e-inanimate.mjs",
+    "dev:container-unlink": "node tools/dev/e2e-container-unlink.mjs",
     "dev:listeners": "node tools/dev/e2e-listeners.mjs"
   },
   "browserslist": [

@@ -175,6 +175,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // Containers
       containerShop: owned(CairnActorSheet.#onContainerShop),
       containerCreate: owned(CairnActorSheet.#onContainerCreate),
+      containerUnlink: owned(CairnActorSheet.#onContainerUnlink),
       // Features
       featureCreate: owned(CairnActorSheet.#onFeatureCreate),
       featureEdit: owned(CairnActorSheet.#onFeatureEdit),
@@ -1556,6 +1557,24 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (row.dataset.isContainer) this.actor.deleteOwnedContainer(row.dataset.itemId);
     else this.actor.deleteOwnedItem(row.dataset.itemId);
     slideUp(row, () => this.render(false));
+  }
+
+  /**
+   * Unlink a connected actor: it survives, connected to nobody, which under the
+   * container rule IS a loot pile. Sits beside the trash rather than replacing
+   * it, because "destroy this cart" and "drop this cart here" are different
+   * intentions and the tab used to offer only one icon for both — one that
+   * asked "Delete X?" and then unlinked.
+   * @this {CairnActorSheet}
+   */
+  static #onContainerUnlink(event, target) {
+    event.preventDefault();
+    const row = CairnActorSheet.#row(target);
+    if (!row?.dataset.isContainer) return;
+    // Not slid up: unlinking leaves the actor in the world, and the row simply
+    // stops matching on the next render. Animating it away would suggest the
+    // thing itself had gone.
+    this.actor.unlinkOwnedContainer(row.dataset.itemId).then(() => this.render(false));
   }
 
   /** @this {CairnActorSheet} */

@@ -43,6 +43,15 @@
                   bug — so the rate is behind a flag that is off by default. The
                   checkbox is form-bound (`name=`), so ticking it submits and the
                   re-render reveals the row. --}}
+            {{!-- "Owner: X" while connected, "Formerly belonged to X" once
+                  unlinked, nothing if it was never connected to anyone. The
+                  container sheet has always had this line; an NPC can now BE a
+                  container, so it needs it too. --}}
+            {{#if system.ownedBy}}
+            <div class="background-input">
+                <span class="container-owner">{{system.ownedBy}}</span>
+            </div>
+            {{/if}}
             {{!-- A thing cannot be for hire, so this row goes when Inanimate is on.
                   Note the asymmetry below is deliberate: Inanimate is shown
                   UNCONDITIONALLY. Hiding each behind the other looks tidier and

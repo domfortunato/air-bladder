@@ -219,6 +219,11 @@ export class CairnActor extends Actor {
       this.system.containers = [];
     }
     this.system.containerObjects = this.connectedActors();
+    // NOTE this is the live path for character, hireling AND npc (see the type
+    // dispatch above) -- `_prepareNpcData` below is dead code and has been since
+    // the two were merged. An NPC can now BE a container, so it needs the owner /
+    // formerly-owner line the container sheet has always had.
+    this._prepareConnectionLabel();
 
     // Coins are heavy (Cairn 2e, p.9). The first N coins stay petty (weightless);
     // every further N fills a slot -- N is the GM's "coins per slot" setting
@@ -282,6 +287,9 @@ export class CairnActor extends Actor {
     // NPCs can keep containers too (the Connected tab, gated by the setting).
     if (!this.system.containers) this.system.containers = [];
     this.system.containerObjects = this.connectedActors();
+    // An NPC can now BE a container, so it needs the same owner / formerly-owner
+    // line the container sheet has always had.
+    this._prepareConnectionLabel();
   }
 
   _prepareContainerData() {
@@ -301,13 +309,7 @@ export class CairnActor extends Actor {
     this.system.encumbered =
       this.system.slotsUsed >= this.calcCurrentMaxSlots();
     this.system.maybeTooMuchGold = false;
-    if (this.system.keeper && this.system.keeper != "") {
-      const actor = game.actors.find((a) => a.uuid == this.system.keeper);
-      if (actor) {
-        this.system.ownedBy =
-          game.i18n.localize("CAIRN.Owner") + ": " + actor.name;
-      }
-    }
+    this._prepareConnectionLabel();
 
     this.system.coinsPerSlot = this._coinsPerSlot();
     this.system.coinRowLabel = game.i18n.format("CAIRN.NGold", { n: this.system.coinsPerSlot });
@@ -435,16 +437,69 @@ export class CairnActor extends Actor {
     }
   }
 
+  /**
+   * DELETE a connected actor, for real.
+   *
+   * This used to be the only control on the tab, and it did not delete: it
+   * filtered the owner's array and cleared `keeper` while the dialog asked
+   * "Delete X?" — so a Warden aiming to destroy a crate got a crate that still
+   * existed, now belonging to nobody. Harmless-looking then; under the new rule
+   * ("a container connected to nobody IS a loot pile") it silently creates one
+   * in the middle of the world every time.
+   *
+   * The two operations are now separate and both are honest about what they do.
+   * @param {String} itemId uuid of the connected actor
+   */
   async deleteOwnedContainer(itemId) {
     const container = this.getOwnedContainer(itemId);
     if (!container) return;
     const proceed = await confirmDelete(container.name);
     if (!proceed) return;
-    const containers = this.system.containers.filter((c) => c !== itemId);
     const actor = game.actors.find((a) => a.uuid == itemId);
-    await this.update({ "system.containers": containers });
-    // update container owner - named 'keeper' to avoid conflict.
-    await actor.update({ "system.keeper": "" });
+    // Prune the legacy array first. `connectedActors` no longer needs it, but a
+    // world written before this still has entries, and leaving one behind would
+    // re-dangle exactly the way the old two-way link did.
+    if (this.system.containers?.includes(itemId)) {
+      await this.update({ "system.containers": this.system.containers.filter((c) => c !== itemId) });
+    }
+    await actor?.delete();
+  }
+
+  /**
+   * UNLINK a connected actor: it survives, connected to nobody.
+   *
+   * Which, under the rule, is precisely a loot pile — so this is the useful
+   * gesture, not a lesser delete. Drop the sack on the floor and walk away.
+   *
+   * The previous owner's name is snapshotted as a STRING rather than left as a
+   * uuid to resolve later. The commonest reason a pile exists is that its owner
+   * died and was deleted, which is exactly when a uuid resolves to nothing: the
+   * one fact worth keeping would be destroyed by the event that made it
+   * interesting.
+   * @param {String} itemId uuid of the connected actor
+   */
+  async unlinkOwnedContainer(itemId) {
+    const container = this.getOwnedContainer(itemId);
+    if (!container) return;
+    const proceed = await foundry.applications.api.DialogV2.confirm({
+      window: { title: game.i18n.localize("CAIRN.UnlinkContainerTitle") },
+      content: `<div class="cairn-confirm"><p class="cairn-confirm-q">${
+        game.i18n.format("CAIRN.UnlinkContainerQ", {
+          name: foundry.utils.escapeHTML(container.name),
+        })}</p></div>`,
+      rejectClose: false,
+      modal: true,
+    });
+    if (!proceed) return;
+    const actor = game.actors.find((a) => a.uuid == itemId);
+    if (this.system.containers?.includes(itemId)) {
+      await this.update({ "system.containers": this.system.containers.filter((c) => c !== itemId) });
+    }
+    await actor?.update({
+      "system.connectedTo": "",
+      "system.keeper": "",
+      "system.formerlyBelongedTo": this.name,
+    });
   }
 
   async deleteOwnedFeature(itemId) {
@@ -454,6 +509,33 @@ export class CairnActor extends Actor {
     if (!proceed) return;
     const features = this.system.features.filter((c) => c.id !== itemId);
     await this.update({ "system.features": features });
+  }
+
+  /**
+   * The one line under the name saying who this belongs to — or who it USED to.
+   *
+   * Three states, and the third is the one worth having: connected (name the
+   * owner), never connected (say nothing), or unlinked (name whoever had it
+   * last). That last line is why `formerlyBelongedTo` is a stored string rather
+   * than a uuid — see the field's own note.
+   *
+   * Built with `format`, not concatenation. The previous version was
+   * `localize("CAIRN.Owner") + ": " + actor.name`, which hands a translator a
+   * fixed word order and a hardcoded colon; a language wanting "de X" or the name
+   * first cannot express it, and no gate can see the problem because every piece
+   * is individually localized.
+   */
+  _prepareConnectionLabel() {
+    const link = this.system.connectedTo || this.system.keeper || "";
+    this.system.ownedBy = "";
+    if (link) {
+      const owner = game.actors.find((a) => a.uuid === link);
+      if (owner) this.system.ownedBy = game.i18n.format("CAIRN.OwnerNamed", { name: owner.name });
+    } else if (this.system.formerlyBelongedTo) {
+      this.system.ownedBy = game.i18n.format("CAIRN.FormerlyBelongedTo", {
+        name: this.system.formerlyBelongedTo,
+      });
+    }
   }
 
   /**

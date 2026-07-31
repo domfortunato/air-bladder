@@ -11,9 +11,15 @@
             </a>
         </div>
 
+        {{!-- TWO controls, deliberately. The trash used to be the only one and it
+              did not delete -- it asked "Delete X?" and then unlinked, which under
+              the container rule quietly drops a loot pile in the world. "Destroy
+              this cart" and "leave this cart here" are different intentions and
+              now have different icons. --}}
         <div class="cairn-item-controls">
             <a class="item-control item-edit" data-action="itemEdit" title="{{ localize 'CAIRN.EditItem' }}"><i class="fas fa-edit"></i></a>
-            <a class="item-control item-delete" data-action="itemDelete" title="{{ localize 'CAIRN.DeleteItem' }}"><i class="fas fa-trash"></i></a>
+            <a class="item-control container-unlink" data-action="containerUnlink" title="{{ localize 'CAIRN.UnlinkContainer' }}"><i class="fas fa-link-slash"></i></a>
+            <a class="item-control item-delete" data-action="itemDelete" title="{{ localize 'CAIRN.DeleteContainer' }}"><i class="fas fa-trash"></i></a>
         </div>
     </div>
 </div>

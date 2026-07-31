@@ -260,6 +260,13 @@ class NpcData extends CairnDataModel {
       // in the shop, and NpcData had only `gold` (what it CARRIES), never what it
       // COSTS.
       cost: money(0),
+
+      // Who this used to be connected to, snapshotted as a STRING at unlink time
+      // rather than derived from `connectedTo`. Deliberate: the commonest way a
+      // loot pile comes into existence is the character dying and being deleted,
+      // which is exactly when a uuid resolves to nothing. A name is the only form
+      // of this fact that survives the event that creates the need for it.
+      formerlyBelongedTo: str(),
     };
   }
 }
@@ -288,6 +295,9 @@ class ContainerData extends CairnDataModel {
       // and unfixable from inside a keyword list without asking every translator
       // for a synonym table.
       containerClass: str(),
+      // Mirrors NpcData: a legacy container can be unlinked too, and without the
+      // field here the write would be silently dropped by schema cleaning.
+      formerlyBelongedTo: str(),
     };
   }
 }
