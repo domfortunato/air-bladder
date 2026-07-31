@@ -520,6 +520,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // Plain COPIES, deliberately: the content-localization pass below rewrites
     // item names and descriptions for display, and must never touch the documents.
     context.system = { ...this.actor.system };
+    // Recomputed at RENDER time, not taken from prepareDerivedData.
+    //
+    // The Connected list is derived from other actors' `connectedTo`, and nothing
+    // re-prepares THIS actor when a different one is created, connected or
+    // deleted — Foundry only re-prepares the document that changed. So the
+    // prepared copy goes stale the moment a background grants a mount or a
+    // purchase lands, and the tab shows the previous state until something else
+    // happens to touch the owner. Rebuilding it here costs one pass over
+    // game.actors per render and cannot be stale by construction.
+    context.system.containerObjects = this.actor.connectedActors();
     let items = this.actor.items.map((i) => ({
       _id: i.id,
       name: i.name,

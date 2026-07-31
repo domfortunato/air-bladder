@@ -43,7 +43,10 @@ try {
     const made = [];
     const track = (a) => { if (a) made.push(a); return a; };
     const containersOf = (actor) =>
-      game.actors.filter((a) => a.type === "container" && a.system?.keeper === actor.uuid);
+      game.actors.filter((a) =>
+        // Granted beasts are npc documents connected by `connectedTo` now, not
+        // `container` actors keeper-linked through the owner's array.
+        (a.system?.connectedTo === actor.uuid || a.system?.keeper === actor.uuid));
     const named = (actor, re) => actor.items.filter((i) => re.test(i.name));
 
     // 1. Packs + every reference resolves.

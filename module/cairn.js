@@ -185,6 +185,65 @@ Hooks.on("setup", () => {
 // lets a language switch re-apply the new label, and lets the original name come
 // back if the setting is turned off. Idempotent: it writes only when the stored
 // name and the wanted name actually differ.
+/**
+ * GM-side broker for the Actors a PLAYER's character generation grants.
+ *
+ * `Actor.create` needs ACTOR_CREATE, which players do not have, and granting it
+ * world-wide to make one background work would let players create any actor at
+ * all. So the player emits and exactly one GM client writes.
+ *
+ * THIS IS A PRIVILEGE BOUNDARY AND IS TREATED AS ONE. Anything arriving here was
+ * composed by a client we do not control: a player can emit whatever they like on
+ * this socket, including a payload that is not a container at all. So the payload
+ * is not trusted, it is REBUILT — only known fields are copied, the type is
+ * forced, and the connection must point at an actor the requesting user can
+ * already modify. Without that last check a player could connect a new actor to
+ * someone else's character, or to none, and have the Warden's client sign it.
+ */
+Hooks.once("ready", () => {
+  game.socket.on(`system.${game.system.id}`, async (msg) => {
+    if (msg?.action !== "grantActors") return;
+    // Exactly ONE client acts, or every logged-in GM mints its own copy.
+    if (game.users.activeGM !== game.user) return;
+
+    const owner = await fromUuid(msg.ownerUuid);
+    const user = game.users.get(msg.userId);
+    if (!owner || !user) return;
+    // The requester must already own the character they are attaching to.
+    if (!owner.testUserPermission(user, "OWNER")) {
+      console.warn(`Air Bladder | refused a grant request from ${user.name}: not an owner of ${owner.name}`);
+      return;
+    }
+    // A background grants a handful; anything more is not a background.
+    const payloads = Array.isArray(msg.payloads) ? msg.payloads.slice(0, 8) : [];
+    const clean = payloads.map((p) => ({
+      type: "npc",                                   // forced, never taken from the wire
+      name: String(p?.name ?? "").slice(0, 120),
+      img: String(p?.img ?? ""),
+      prototypeToken: { texture: { src: String(p?.img ?? "") } },
+      system: {
+        connectedTo: owner.uuid,                     // forced to the verified owner
+        slots: Number(p?.system?.slots) || 0,
+        description: String(p?.system?.description ?? ""),
+        containerClass: String(p?.system?.containerClass ?? ""),
+        inanimate: !!p?.system?.inanimate,
+        cost: Number(p?.system?.cost) || 0,
+        generationEnabled: false,
+        ...(p?.system?.hp ? { hp: { value: Number(p.system.hp.value) || 0, max: Number(p.system.hp.max) || 0 } } : {}),
+        ...(p?.system?.armorOverride != null ? { armorOverride: Number(p.system.armorOverride) || 0 } : {}),
+      },
+      // Only the one flag generation uses to find its own grants later.
+      flags: { [FLAG_SCOPE]: { grantSource: String(p?.flags?.[FLAG_SCOPE]?.grantSource ?? "background") } },
+    })).filter((p) => p.name);
+    if (!clean.length) return;
+
+    const made = await getDocumentClass("Actor").createDocuments(clean);
+    for (const a of made) {
+      await a.update({ ownership: foundry.utils.deepClone(owner.ownership) });
+    }
+  });
+});
+
 Hooks.once("ready", async () => {
   if (!game.user.isGM) return;
   if (game.users.activeGM && game.users.activeGM !== game.user) return;

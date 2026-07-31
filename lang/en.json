@@ -211,6 +211,7 @@
     "ContainerNoPermission": "You can't attach {name} — you don't have permission to change it. Ask the Warden.",
     "ContainerLinkFailed": "Couldn't attach {name}; nothing was changed.",
     "NoActorCreate": "Only the Warden can create containers and transports.",
+    "NoGmForGrant": "No Warden is logged in, so the mount this background grants could not be created. Ask them to open the world, then re-roll.",
     "NoContainerRegen": "Regenerating this character could add or remove a container (a mount, cart or pack), which only the Warden can do — ask them to re-roll it for you.",
     "NoContainerBackground": "Changing this character's background could add or remove a container (a mount, cart or pack), which only the Warden can do — ask them to change it for you.",
     "NoScarsTable": "The Scars table is missing from the compendium — roll the scar by hand."

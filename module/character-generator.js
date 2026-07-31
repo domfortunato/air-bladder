@@ -3,7 +3,7 @@ import { compendiumInfoFromString, drawTableText, resultText } from "./compendiu
 import { Cairn } from "./config.js";
 import { evaluateFormula } from "./utils.js";
 import { resolveGearItem, SPELL_PACKS, GEAR_ALIASES, spellScrollItem } from "./gear.js";
-import { iconForTransport } from "./icons.js";
+import { containerClass, iconForTransport } from "./icons.js";
 import { SETTINGS_NS } from "./settings.js";
 import { t } from "./i18n-content.js";
 
@@ -582,55 +582,58 @@ export const grantContainers = async (actor, specs) => {
     return { doc, kind, art: doc?.img ?? iconForTransport(spec.name, kind) };
   };
 
-  // Containers tab OFF: record each rolled container as a WEIGHTLESS inventory item
-  // instead of a container Actor. It's owner-editable, so a player can (re)roll it
-  // with no Actor create/delete, and it keeps the flavor — named, iconed and
-  // described like the container it stands for, and tagged "Container" (via the
-  // containerItem flag; see item.js). grantSource stays background/question:X so the
-  // re-roll/replacement machinery deletes and replaces it like the other granted gear.
-  if (!game.settings.get(SETTINGS_NS, "show-containers-tab")) {
-    const items = specs.map((spec) => {
-      const { doc, art } = resolve(spec);
-      return {
-        type: "item",
-        name: spec.name,
-        img: art,
-        system: { weightless: true, description: doc?.system.description ?? "" },
-        flags: { [FLAG_SCOPE]: { grantSource: spec.grantSource ?? "background", containerItem: true } },
-      };
-    });
-    await actor.createEmbeddedDocuments("Item", items, { render: false });
-    return [];
-  }
-
-  // Containers tab ON: mint real container Actors. Creating an Actor needs
-  // ACTOR_CREATE (a player can't), so skip with a notice rather than throw midway.
-  if (!game.user.hasPermission("ACTOR_CREATE")) {
-    ui.notifications.warn(game.i18n.localize("CAIRN.Notify.NoActorCreate"));
-    return [];
-  }
-  const made = [];
-  for (const spec of specs) {
+  /* A granted beast or vehicle is ALWAYS an Actor now.
+   *
+   * There used to be a fork here: with the Containers tab off, each rolled
+   * container was recorded as a weightless inventory ITEM instead. That was
+   * tolerable while a container was a bag of slots. It is not tolerable now --
+   * an Outrider's horse is a creature with 6 HP, and collapsing it into an
+   * inventory line because a DISPLAY setting is off is a lie about what the
+   * character has. The user's words: "an outrider's horse should never appear in
+   * their inventory."
+   *
+   * Deleting the fork exposed what it was really doing, which was not display at
+   * all: it was the reason a PLAYER could generate an Outrider. Minting an Actor
+   * needs ACTOR_CREATE, which players do not have, so the item branch was a
+   * permissions workaround wearing a display setting's name. Hence the broker
+   * below. */
+  const payloads = specs.map((spec) => {
     const { doc, kind, art } = resolve(spec);
-    const container = await CairnActor.create({
-      type: "container",
+    return {
+      type: "npc",
       name: spec.name,
       img: art,
       prototypeToken: { texture: { src: art } },
       system: {
+        connectedTo: actor.uuid,
         slots: spec.slots ?? doc?.system.slots ?? 0,
         description: doc?.system.description ?? "",
-        transportKind: kind,
-        // A mount/vehicle carries its own pool and costs its keeper nothing; the
-        // spec's `load` describes what it costs the beast PULLING it, which this
-        // system does not model (containers do not nest) — it stays in the prose.
-        load: 0,
+        // A transport Item carries no class, so infer it from the name the way
+        // the sheet does. Leaving it blank would have shipped a horse whose art
+        // and one-word label were both decided by a keyword table at render
+        // time, rather than recorded once at creation.
+        containerClass: doc?.system.containerClass || containerClass(spec.name, kind),
+        inanimate: doc?.system.inanimate ?? false,
         cost: doc?.system.cost ?? 0,
+        generationEnabled: false,
+        ...(doc?.system.hp ? { hp: { value: doc.system.hp.value, max: doc.system.hp.max } } : {}),
+        ...(doc?.system.armorOverride != null ? { armorOverride: doc.system.armorOverride } : {}),
       },
       flags: { [FLAG_SCOPE]: { grantSource: spec.grantSource ?? "background" } },
-    });
+    };
+  });
+
+  // A player cannot create an Actor, so ask the Warden's client to do it. Returns
+  // [] on the player's side -- the documents appear when the GM's client answers.
+  if (!game.user.hasPermission("ACTOR_CREATE")) {
+    await requestGrantedActors(payloads, actor);
+    return [];
+  }
+
+  const made = [];
+  for (const payload of payloads) {
+    const container = await CairnActor.create(payload);
     if (!container) continue;
-    await actor.createOwnedContainer(container);
     // GM-only, for the same reason as the identical write in `marketplace.js`
     // (`acquireTransport`): Foundry refuses an `ownership` write from anyone below
     // Assistant, so for a player with ACTOR_CREATE this threw AFTER the container
@@ -653,8 +656,38 @@ export const grantContainers = async (actor, specs) => {
  */
 export const grantedContainersOf = (actor) =>
   (game.actors ?? []).filter(
-    (a) => a.type === "container" && a.system?.keeper === actor.uuid && a.getFlag(FLAG_SCOPE, "grantSource")
+    (a) => (a.system?.connectedTo === actor.uuid || a.system?.keeper === actor.uuid)
+      && a.getFlag(FLAG_SCOPE, "grantSource")
   );
+
+/**
+ * Ask the Warden's client to create the Actors a player's generation granted.
+ *
+ * `Actor.create` needs ACTOR_CREATE, which players do not have, and granting it
+ * world-wide to fix one background would let players create any actor at all.
+ * This is Foundry's standard shape for a player-initiated GM action: emit on the
+ * system socket, let exactly ONE client — `game.users.activeGM`, so two logged-in
+ * GMs cannot both act and mint doubles — do the write.
+ *
+ * Fire-and-forget by design. Generation must not block on another client
+ * answering, and the documents simply appear when it does. The one thing worth
+ * saying out loud is the case where nobody can act.
+ * @param {object[]} payloads
+ * @param {CairnActor} owner
+ */
+export const requestGrantedActors = async (payloads, owner) => {
+  if (!payloads.length) return;
+  if (!game.users.activeGM) {
+    ui.notifications.warn(game.i18n.localize("CAIRN.Notify.NoGmForGrant"));
+    return;
+  }
+  game.socket.emit(`system.${game.system.id}`, {
+    action: "grantActors",
+    payloads,
+    ownerUuid: owner.uuid,
+    userId: game.user.id,
+  });
+};
 
 /**
  * May the current user run a (re)generation that could create or delete this
@@ -674,12 +707,20 @@ export const grantedContainersOf = (actor) =>
  */
 export const canRegenerateContainers = (actor, source = null, warnKey = "CAIRN.Notify.NoContainerRegen") => {
   if (game.user.isGM) return true; // isGM === role >= ASSISTANT, exactly what Actor delete needs
-  const mayCreate = game.settings.get(SETTINGS_NS, "show-containers-tab");
+  // CREATION is no longer a reason to refuse: a player's grants are brokered to
+  // the Warden's client over the system socket (requestGrantedActors). Only a
+  // DELETE still needs Assistant+, because there is no broker for it and there
+  // should not be -- a socket that deletes actors on request is a very different
+  // thing from one that creates the ones a background just rolled.
+  //
+  // This used to read `show-containers-tab` as `mayCreate`, which is how a
+  // DISPLAY setting came to decide a permission: with the tab on, every non-GM
+  // was refused whether or not anything needed deleting. That coupling is gone.
   const existing = grantedContainersOf(actor);
   const mustDelete = source
     ? existing.some((c) => c.getFlag(FLAG_SCOPE, "grantSource") === source)
     : existing.length > 0;
-  if (!mayCreate && !mustDelete) return true; // no Actor create/delete needed
+  if (!mustDelete) return true;
   // The refusal is shared; the SENTENCE is not. This guard began as the
   // regenerate check and its message says "ask them to re-roll it for you" —
   // correct there, and wrong the moment the background swap started calling it,

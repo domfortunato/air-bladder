@@ -43,7 +43,10 @@ try {
     const mkt = await import("/systems/air-bladder/module/marketplace.js");
     const made = [];
     const keptBy = (actor) =>
-      game.actors.filter((a) => a.type === "container" && a.system?.keeper === actor.uuid);
+      game.actors.filter((a) =>
+        // Granted beasts are npc documents connected by `connectedTo` now, not
+        // `container` actors keeper-linked through the owner's array.
+        (a.system?.connectedTo === actor.uuid || a.system?.keeper === actor.uuid));
 
     // 1. Every granted name exists as a document; none is in the shop.
     const bgPack = game.packs.get("air-bladder.backgrounds-2e");
@@ -90,12 +93,18 @@ try {
     const grant = {
       count: kept.length,
       name: horse?.name,
-      kind: horse?.system.transportKind,
+      // `transportKind` is retired; what a thing IS is its containerClass.
+      kind: horse?.system.containerClass,
       capacity: horse?.system.slotsMax,
       wanted: spec?.slots,
       capacityRight: horse?.system.slotsMax === spec?.slots,
-      keeperLinked: horse?.system.keeper === actor.uuid,
-      listed: (actor.system.containers ?? []).includes(horse?.uuid),
+      keeperLinked: horse?.system.connectedTo === actor.uuid,
+      // Derived, not the legacy array -- generation writes one link now.
+      // `connectedActors()`, not the PREPARED copy: nothing re-prepares this
+      // actor when a different one is connected to it, so the prepared list is
+      // stale until something else touches the owner. The sheet rebuilds it at
+      // render for the same reason.
+      listed: actor.connectedActors().some((c) => c.id === horse?.id),
       flagged: horse?.getFlag("air-bladder", "grantSource")?.startsWith("question:"),
       // A mount travels alongside: it must cost the rider nothing. Compare the
       // rider's usage against the same actor with the container detached, so this
@@ -213,7 +222,7 @@ try {
       { name: "PROBE Unknown Beast", slots: 5, grantSource: "question:9" },
     ]);
     if (bespoke) made.push(bespoke);
-    edit.fallbackMinted = bespoke?.system.slotsMax === 5 && bespoke?.system.transportKind === "mount";
+    edit.fallbackMinted = bespoke?.system.slotsMax === 5 && bespoke?.type === "npc";
 
     await doc.update({ "system.description": origDesc });
     if (wasLocked) await tPack.configure({ locked: true });
@@ -232,8 +241,8 @@ try {
 
     r.grant.count === 1 ? ok(`generating an Outrider minted exactly 1 container ("${r.grant.name}")`) : fail(`expected 1 container, got ${r.grant.count}`);
     r.grant.capacityRight ? ok(`capacity +${r.grant.capacity} matches the rolled option`) : fail(`capacity ${r.grant.capacity} != option's ${r.grant.wanted}`);
-    r.grant.kind === "mount" ? ok("kind is `mount`") : fail(`kind is ${r.grant.kind}, expected mount`);
-    r.grant.keeperLinked && r.grant.listed ? ok("keeper-linked both ways") : fail("keeper link is one-sided or missing");
+    r.grant.kind === "horse" ? ok("classified as a horse") : fail(`class is ${r.grant.kind}, expected horse`);
+    r.grant.keeperLinked && r.grant.listed ? ok("connected, and derived onto the owner's tab") : fail("connectedTo missing, or the owner's list did not derive it");
     r.grant.flagged ? ok("flagged with the question that granted it") : fail("missing the grantSource flag");
     r.grant.ownershipCopied ? ok("inherits the character's ownership (player-ownable)") : fail("ownership was not copied");
     r.grant.wornRows === 0 && r.grant.slotsUsed === r.grant.slotsWithout
