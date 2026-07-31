@@ -1,0 +1,28 @@
+_id: rpTQ6E1pWuIkFVUM
+name: Mule
+type: npc
+img: systems/air-bladder/icons/donkey.svg
+prototypeToken:
+  name: Mule
+  texture:
+    src: systems/air-bladder/icons/donkey.svg
+items: []
+effects: []
+folder: CCMtMzMwK7XAuWfq
+sort: 0
+flags:
+  air-bladder:
+    transportSource: 2e
+system:
+  description: A stubborn but tireless pack animal. Carries six slots of gear, and sets its own unhurried pace (slow).
+  slots: 6
+  cost: 30
+  containerClass: mule
+  inanimate: false
+  generationEnabled: false
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!actors!rpTQ6E1pWuIkFVUM'

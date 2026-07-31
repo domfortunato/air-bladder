@@ -47,39 +47,74 @@
   "documentTypes": {
     "Actor": {
       "character": {
-        "htmlFields": ["biography", "description", "notes"]
+        "htmlFields": [
+          "biography",
+          "description",
+          "notes"
+        ]
       },
       "npc": {
-        "htmlFields": ["description", "biography", "notes"]
+        "htmlFields": [
+          "description",
+          "biography",
+          "notes"
+        ]
       },
       "container": {
-        "htmlFields": ["description", "biography"]
+        "htmlFields": [
+          "description",
+          "biography"
+        ]
       },
       "hireling": {
-        "htmlFields": ["description", "biography", "notes"]
+        "htmlFields": [
+          "description",
+          "biography",
+          "notes"
+        ]
       }
     },
     "Item": {
       "item": {
-        "htmlFields": ["description", "criticalDamage", "recharge"]
+        "htmlFields": [
+          "description",
+          "criticalDamage",
+          "recharge"
+        ]
       },
       "weapon": {
-        "htmlFields": ["description", "criticalDamage", "recharge"]
+        "htmlFields": [
+          "description",
+          "criticalDamage",
+          "recharge"
+        ]
       },
       "armor": {
-        "htmlFields": ["description", "recharge"]
+        "htmlFields": [
+          "description",
+          "recharge"
+        ]
       },
       "spellbook": {
-        "htmlFields": ["description"]
+        "htmlFields": [
+          "description"
+        ]
       },
       "object": {
-        "htmlFields": ["description", "recharge"]
+        "htmlFields": [
+          "description",
+          "recharge"
+        ]
       },
       "background": {
-        "htmlFields": ["description"]
+        "htmlFields": [
+          "description"
+        ]
       },
       "transport": {
-        "htmlFields": ["description"]
+        "htmlFields": [
+          "description"
+        ]
       }
     }
   },
@@ -153,6 +188,12 @@
     {
       "name": "monsters",
       "label": "Monsters",
+      "type": "Actor",
+      "system": "air-bladder"
+    },
+    {
+      "name": "mounts-transports",
+      "label": "Mounts & Transports",
       "type": "Actor",
       "system": "air-bladder"
     },
@@ -241,7 +282,8 @@
       "name": "Air Bladder - Actors",
       "sorting": "a",
       "packs": [
-        "monsters"
+        "monsters",
+        "mounts-transports"
       ]
     },
     {

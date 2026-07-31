@@ -1,0 +1,32 @@
+_id: pqAZIXEBPlCn9kEH
+name: Heavy Destrier
+type: npc
+img: systems/air-bladder/icons/horse.svg
+prototypeToken:
+  name: Heavy Destrier
+  texture:
+    src: systems/air-bladder/icons/horse.svg
+items: []
+effects: []
+folder: CCMtMzMwK7XAuWfq
+sort: 0
+flags:
+  air-bladder:
+    transportSource: background-2e
+system:
+  description: From the Outrider background. A beast built for war, an imposing creature. 8 HP, 1 Armor, hooves (d10+d10), +2 slots.
+  hp:
+    value: 8
+    max: 8
+  armorOverride: 1
+  slots: 2
+  cost: 0
+  containerClass: horse
+  inanimate: false
+  generationEnabled: false
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!actors!pqAZIXEBPlCn9kEH'

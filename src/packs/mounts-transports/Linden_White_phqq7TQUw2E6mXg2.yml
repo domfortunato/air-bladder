@@ -1,0 +1,31 @@
+_id: phqq7TQUw2E6mXg2
+name: Linden White
+type: npc
+img: systems/air-bladder/icons/horse.svg
+prototypeToken:
+  name: Linden White
+  texture:
+    src: systems/air-bladder/icons/horse.svg
+items: []
+effects: []
+folder: CCMtMzMwK7XAuWfq
+sort: 0
+flags:
+  air-bladder:
+    transportSource: background-2e
+system:
+  description: From the Outrider background. Highly trained and agile, it can perform intricate maneuvers in a time of need (no DEX save to flee). 4 HP. +3 slots.
+  hp:
+    value: 4
+    max: 4
+  slots: 3
+  cost: 0
+  containerClass: horse
+  inanimate: false
+  generationEnabled: false
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!actors!phqq7TQUw2E6mXg2'
