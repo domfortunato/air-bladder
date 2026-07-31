@@ -153,13 +153,17 @@ const buy = await alicePage.evaluate(async (pcId) => {
   if (!doc) return { error: "no affordable transport in the catalogue" };
   const okBuy = await mkt.acquireTransport(pc, doc, true);
   await new Promise((r) => setTimeout(r, 600));
-  const uuid = (pc.system.containers ?? []).at(-1);
-  const container = uuid ? await fromUuid(uuid) : null;
+  // Read the DERIVED list, not the legacy array. A purchase connects the new
+  // actor with a single `connectedTo` write; the owner's `system.containers` is
+  // no longer written at all, so looking there reports a successful buy as a
+  // failed link.
+  pc.prepareData();
+  const container = (pc.system.containerObjects ?? []).at(-1) ?? null;
   return {
     okBuy,
     name: doc.name,
-    listed: !!uuid,
-    keeper: container?.system.keeper ?? null,
+    listed: !!container,
+    keeper: container?.system.connectedTo ?? null,
     pcUuid: pc.uuid,
     containerId: container?.id ?? null,
     // Foundry makes the creating user an owner, which is why the GM-only

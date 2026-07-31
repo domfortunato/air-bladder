@@ -82,15 +82,21 @@ try {
       mkt.acquireTransport(buyer, cat.items.find((i) => i.name === doc.name), true);
     await buyThrough(mule);
 
-    const muleActor = game.actors.find((a) => a.type === "container" && a.name === "Mule" && a.system.keeper === buyer.uuid);
+    // Buying now mints an NPC connected by `connectedTo` -- the same document kind
+    // the Mounts & Transports pack ships, rather than a slots-only container.
+    const muleActor = game.actors.find((a) => a.type === "npc" && a.name === "Mule" && a.system.connectedTo === buyer.uuid);
     if (muleActor) made.push(muleActor);
     const mount = {
       created: !!muleActor,
       capacity: muleActor?.system.slotsMax,
       capacityRight: muleActor?.system.slotsMax === mule.system.slots,
       kind: muleActor?.system.transportKind,
-      keeperLinked: muleActor?.system.keeper === buyer.uuid,
-      listedOnBuyer: (buyer.system.containers ?? []).includes(muleActor?.uuid),
+      // ONE link now, not two. The old model wrote the container's `keeper` AND
+      // the buyer's `containers` array, and every container bug came from only
+      // one of them landing. The owner's list is derived from `connectedTo`, so
+      // "linked" and "listed" are the same fact read twice.
+      keeperLinked: muleActor?.system.connectedTo === buyer.uuid,
+      listedOnBuyer: (buyer.system.containerObjects ?? []).some((c) => c.id === muleActor?.id),
       paid: buyer.system.gold === goldBefore - mule.system.cost,
       // A mount carries its own pool: the buyer's own load must not change.
       buyerSlotsUnchanged: buyer.system.slotsUsed === slotsBefore,
@@ -100,7 +106,7 @@ try {
     //    shows no inventory row -- it lives only on the Containers tab.
     const slotsBeforeWorn = buyer.system.slotsUsed;
     await buyThrough(backpack);
-    const packActor = game.actors.find((a) => a.type === "container" && a.name === "Backpack" && a.system.keeper === buyer.uuid);
+    const packActor = game.actors.find((a) => a.type === "npc" && a.name === "Backpack" && a.system.connectedTo === buyer.uuid);
     if (packActor) made.push(packActor);
     const worn = {
       created: !!packActor,
@@ -119,7 +125,7 @@ try {
     const catalog2 = await mkt.getMarketplaceCatalog();
     const cat2 = catalog2.categories.find((c) => c.name === "Transports & Containers");
     await mkt.acquireTransport(buyer, cat2.items.find((i) => i.name === "Mule"), true);
-    const mules = game.actors.filter((a) => a.type === "container" && a.name === "Mule" && a.system.keeper === buyer.uuid);
+    const mules = game.actors.filter((a) => a.type === "npc" && a.name === "Mule" && a.system.connectedTo === buyer.uuid);
     const newMule = mules[mules.length - 1];
     if (newMule && !made.includes(newMule)) made.push(newMule);
     const edit = {
@@ -140,18 +146,19 @@ try {
     const refused = await mkt.acquireTransport(pauper, cat3.items.find((i) => i.name === "Wagon"), true);
     const afford = {
       refused: refused === false,
-      noActor: !game.actors.find((a) => a.type === "container" && a.system.keeper === pauper.uuid),
+      noActor: !game.actors.find((a) => a.system.connectedTo === pauper.uuid),
       goldIntact: pauper.system.gold === 1,
     };
 
-    // 6. Directory visibility rule (the predicate cairn.js applies).
-    const visible = (a) => {
-      const kind = a.system?.transportKind;
-      return !(a.type === "container" && !(kind === "mount" || kind === "vehicle"));
-    };
+    // 6. Directory visibility. Bought carriers are npc documents now, so they
+    //    appear in the Actors directory like any other NPC -- which is what the
+    //    user asked for ("as long as I see it in the actors tab"). The old rule
+    //    hid `container` actors unless their transportKind was mount/vehicle;
+    //    there is nothing left for it to hide.
+    const visible = (a) => a.type !== "container";
     const directory = {
       mountShown: muleActor ? visible(muleActor) : false,
-      wornHidden: packActor ? !visible(packActor) : false,
+      wornShown: packActor ? visible(packActor) : false,
     };
 
     for (const a of made) { try { await a.delete(); } catch { /* already gone */ } }
@@ -173,13 +180,13 @@ try {
     r.setup.allTransportType ? ok("all are the `transport` Item type") : fail("some pack docs are not type transport");
     r.setup.shopReadsDoc ? ok(`shop reads the document (Mule +${r.setup.muleSlots}, ${r.setup.muleCost}gp)`) : fail("shop row does not match the document");
 
-    r.mount.created ? ok("buying a mount minted a container Actor") : fail("no container Actor was created");
+    r.mount.created ? ok("buying a mount minted a connected NPC") : fail("no connected NPC was created");
     r.mount.capacityRight ? ok(`mount capacity ${r.mount.capacity} matches the document`) : fail(`mount capacity ${r.mount.capacity} != document`);
-    r.mount.keeperLinked && r.mount.listedOnBuyer ? ok("keeper-linked both ways (container.keeper + buyer.containers)") : fail("keeper link is one-sided or missing");
+    r.mount.keeperLinked && r.mount.listedOnBuyer ? ok("connected, and derived onto the buyer's tab") : fail("connectedTo is missing, or the buyer's list did not derive it");
     r.mount.paid ? ok("coins deducted") : fail("coins were not deducted correctly");
     r.mount.buyerSlotsUnchanged ? ok("a MOUNT costs the buyer no slots (carries its own pool)") : fail("buying a mount changed the buyer's slot usage");
 
-    r.worn.created ? ok("buying a worn container minted a container Actor") : fail("no worn container Actor created");
+    r.worn.created ? ok("buying a worn container minted a connected NPC") : fail("no worn container NPC created");
     r.worn.slotsUnchanged ? ok(`a worn container costs its carrier no slots (${r.worn.before} -> ${r.worn.got})`) : fail(`worn container charged the carrier: ${r.worn.before} -> ${r.worn.got}`);
     r.worn.noRow ? ok("a worn container shows no inventory row (reached via the Containers tab)") : fail("a worn container still shows an inventory row");
 
@@ -187,8 +194,8 @@ try {
 
     r.afford.refused && r.afford.noActor && r.afford.goldIntact ? ok("an unaffordable transport is refused, mints nothing, spends nothing") : fail("affordability check did not hold");
 
-    r.directory.mountShown ? ok("mounts/vehicles are directory-visible") : fail("mount would be hidden from the directory");
-    r.directory.wornHidden ? ok("worn containers stay hidden (reached via the Containers tab)") : fail("worn container would show in the directory");
+    r.directory.mountShown ? ok("mounts are directory-visible") : fail("mount would be hidden from the directory");
+    r.directory.wornShown ? ok("so are worn containers -- everything bought is an npc now") : fail("a bought container would be hidden");
   }
 } catch (e) {
   fail(`${e.name}: ${e.message}`);

@@ -45,9 +45,21 @@ const MARKETPLACE_PACK = "air-bladder.marketplace";
  *  foundry.utils.deepClone returns any non-plain object unchanged, by reference
  *  (common/utils/helpers.mjs:280-282), and `doc.system` is a TypeDataModel. So a
  *  buyer setting a quantity wrote it into the compendium entry, for everyone. */
+/**
+ * A shop row's data. `doc` is an Item OR an npc Actor (a mount or a vehicle),
+ * and `documentName` is carried through because the two are bought by different
+ * routes -- an Item becomes an embedded item, an Actor is minted and connected.
+ * Without it the buy handler would have to guess from `type`, which is exactly
+ * the sort of inference that breaks when someone adds a new subtype.
+ *
+ * `toObject()`, not the DataModel: `deepClone(doc.system)` hands back the
+ * compendium document's own object BY REFERENCE, and the shop then writes the
+ * buyer's quantity into the pack.
+ */
 const ownedPayload = (doc) => ({
   name: doc.name,
   type: doc.type,
+  documentName: doc.documentName,
   img: doc.img,
   system: doc.system.toObject(),
 });
@@ -97,12 +109,19 @@ export const getMarketplaceCatalog = async () => {
     // open for every player — not just the bad row. An Actor row is the quiet half:
     // it has `system`, renders a shop row, and throws later at Buy on an unknown
     // Item subtype. Warn rather than drop in silence: the Warden put it there.
+    // ...which is why this is an ALLOW-LIST of two document types rather than a
+    // blanket Item check. Mounts and vehicles are Actors now (they carry stat
+    // blocks, which no Item can), so the shop has to stock them — but widening
+    // this to "anything with a `system`" would let the JournalEntry back in by a
+    // different door. `npc` specifically: a Scene and a Macro are still refused,
+    // and an Actor of any other type is not something you buy.
+    const SELLABLE = { Item: () => true, Actor: (d) => d.type === "npc" };
     const resolved = await findTableItems(results);
     const items = resolved
       .filter((doc) => {
-        if (doc.documentName === "Item") return true;
+        if (SELLABLE[doc.documentName]?.(doc)) return true;
         console.warn(`Marketplace: ignoring ${doc.documentName} "${doc.name}" in table `
-          + `"${table.name}" — only Items can stock a shop.`);
+          + `"${table.name}" — a shop can stock Items and npc Actors.`);
         return false;
       })
       .map(ownedPayload);
@@ -113,6 +132,16 @@ export const getMarketplaceCatalog = async () => {
 
 /** Slots an item occupies: bulky = 2, weightless/petty = 0, otherwise 1. */
 const slotCost = (system) => (system.bulky ? 2 : system.weightless ? 0 : 1);
+
+/**
+ * Does this row buy a thing that CARRIES, rather than a thing you carry?
+ *
+ * Two shapes qualify, and both are checked because the pack is mid-move: the
+ * legacy `transport` Item, and an npc Actor from Mounts & Transports. Checking
+ * only `type` would treat an Actor row as ordinary gear -- rendering it with a
+ * one-slot footprint instead of its capacity, and buying it as an embedded item.
+ */
+const isCarrier = (data) => data.documentName === "Actor" || data.type === "transport";
 
 /** A compact mechanics label for a shop row (damage / armor / bulky / petty / uses). */
 const chips = (item) => {
@@ -225,27 +254,45 @@ export const acquireTransport = async (actor, doc, pay) => {
     ui.notifications.warn(game.i18n.format("CAIRN.Notify.ContainerFull", { name: doc.name }));
     return false;
   }
-  // Give it a real portrait AND a matching map token; fall back to the transport
-  // class icon if the document somehow carries no art.
-  const art = doc.img ?? iconForTransport(doc.name, doc.system.transportKind);
+  // Give it a real portrait AND a matching map token; fall back to the class icon
+  // if the document somehow carries no art.
+  const art = doc.img ?? iconForTransport(doc.name, doc.system.transportKind, doc.system.containerClass);
+  const s = doc.system;
+  // An npc, not a `container`. What is bought is now the same kind of document as
+  // what the compendium ships, so a Horse bought from the shop and a Horse
+  // dragged out of Mounts & Transports are the same thing -- which they were not
+  // before, when buying flattened a stat block into a slots-only container.
+  //
   // getDocumentClass, not the global `Actor` — the global is not
   // CONFIG.Actor.documentClass, so it reaches the same _preCreate defaults only
   // by way of `implementation`; naming the configured class says what runs.
-  const container = await getDocumentClass("Actor").create({
-    type: "container",
+  const payload = {
+    type: "npc",
     name: doc.name,
     img: art,
     prototypeToken: { texture: { src: art } },
     system: {
-      slots: doc.system.slots ?? 0,
-      description: doc.system.description ?? "",
-      transportKind: doc.system.transportKind ?? "",
-      load: doc.system.load ?? 0,
+      // Connected at CREATION, so there is no window in which it exists
+      // unattached -- which, under the container rule, would be a loot pile
+      // flickering into the world between two awaits.
+      connectedTo: actor.uuid,
+      slots: s.slots ?? 0,
+      description: s.description ?? "",
+      containerClass: s.containerClass ?? "",
+      inanimate: s.inanimate ?? false,
       cost,
+      // Not rollable: "Roll NPC" would overwrite a book statblock.
+      generationEnabled: false,
     },
-  });
+  };
+  // Carry a stat block across when the source has one. A vehicle has none, and
+  // must not be handed the schema's default 6 HP on the way through.
+  if (s.hp) payload.system.hp = { value: s.hp.value ?? 0, max: s.hp.max ?? 0 };
+  if (s.armorOverride !== undefined && s.armorOverride !== null) {
+    payload.system.armorOverride = s.armorOverride;
+  }
+  const container = await getDocumentClass("Actor").create(payload);
   if (!container) return false;
-  await actor.createOwnedContainer(container);
   // Player-ownable: give the transport the same ownership as the character who
   // bought it, so its owning player can open and manage it (GMs always can).
   //
@@ -308,7 +355,7 @@ export const openMarketplace = async (actor, opts = {}) => {
       // `built` keeps the English payload so Buy/Take creates the canonical item
       // (which then displays translated via the inventory surface).
       const d = localizeNameDesc(data);
-      if (data.type === "transport") {
+      if (isCarrier(data)) {
         const idx = built.push(data) - 1;
         const cap = data.system.slots ?? 0;
         const tags = transportChips(data).map((c) => `<span class="mkt-chip">${esc(c)}</span>`).join("");
@@ -382,7 +429,7 @@ export const openMarketplace = async (actor, opts = {}) => {
         btn.disabled = true;
         const pay = btn.classList.contains("mkt-buy");
         // A transport mints a container Actor; everything else is an embedded item.
-        if (data.type === "transport") await acquireTransport(actor, data, pay);
+        if (isCarrier(data)) await acquireTransport(actor, data, pay);
         else await acquire(actor, foundry.utils.deepClone(data), pay);
         refresh();
         return;
