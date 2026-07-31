@@ -39,12 +39,27 @@ while a failure is still cheap to fix.
 
 **Bring `README.es.md` up to date with `README.md`.** Both ship inside `system.zip`,
 so whatever the Spanish one says at tag time is what a Spanish reader downloads. It
-is hand-maintained and nothing checks it — `npm run i18n:check` covers `lang/*.json`
-only — so it drifts one English edit at a time. Diff both against the previous tag,
-carry the changes across using [tools/i18n/glossary.tsv](tools/i18n/glossary.tsv) for
-terminology, and treat version numbers, URLs and the required-Foundry-version line as
-facts that must match exactly. Add and correct; don't re-voice the translator's
-existing wording.
+drifts one English edit at a time, and nothing checks it — `npm run i18n:check` covers
+`lang/*.json` only.
+
+**`README.md` is the source of truth, and `README.es.md` is a translation of it — not a
+parallel document.** Anything in the Spanish file that is not in the English file does
+not belong there; delete it rather than reconcile it. Anything worth saying goes into
+`README.md` first and is then translated. Diff both against the previous tag, carry every
+change across, and treat version numbers, URLs and the required-Foundry-version line as
+facts that must match exactly. [tools/i18n/glossary.tsv](tools/i18n/glossary.tsv) and the
+system's own terms (Warden → "Guardián", Hireling → "Seguidor") keep it reading like the
+app, which is worth doing but is not a gate.
+
+**No human translator maintains this file** — the README can change every release and
+nobody is being asked to keep pace with that. It is project documentation, so translating
+it is part of the same commit that changed the English. Do not defer to its existing
+wording as though it were someone else's work.
+
+This is the opposite of `lang/es.json` and `lang/content/es.json`, which **are** a human
+translator's, are licensed CC BY-SA as derivatives of the game text, and must not be
+rewritten. Two files with "es" in the name, two different regimes — see
+[docs/i18n-maintainer.md](docs/i18n-maintainer.md).
 
 1. Merge the work into `master` and make sure it is current:
    ```bash
