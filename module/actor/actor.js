@@ -238,12 +238,24 @@ export class CairnActor extends Actor {
     this.system.hasGoldThreshold = this.system.coinsPerSlot > 0;
 
     if (this.system.encumbered) {
-      this.system.hp.value = 0;
+      // Being encumbered zeroes HP (Cairn 2e) — for the creatures that live by
+      // the player rules: characters and hirelings. NOT for an npc. An NPC can
+      // BE a container now, and a container holding exactly its capacity is its
+      // NORMAL state, not an injury — folding containers into npc had put a
+      // full crate on this line, where it read 0 HP on its own sheet and its
+      // token bar, and _processFormData (which strips the HP input while
+      // encumbered, so the derived 0 never persists) made the phantom
+      // uncorrectable (review #5). The pre-merge _prepareNpcData never zeroed
+      // HP either — the merge added it to NPCs by accident, not decision.
+      if (this.type !== "npc") this.system.hp.value = 0;
       if (this.system.goldSlots > 0) {
         this.system.maybeTooMuchGold = true;
       }
     }
 
+    // Panic stays for all three types: unlike encumbrance it is a checkbox the
+    // Warden ticks deliberately, never a state a full inventory derives, and a
+    // panicked horse at 0 HP is the rule working as intended.
     this.system.usePanic = game.settings.get(SETTINGS_NS, "use-panic") > 0;
     if (this.system.usePanic && this.system.panicked) {
       this.system.hp.value = 0;

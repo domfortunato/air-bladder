@@ -2478,16 +2478,19 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   _processFormData(event, form, formData) {
     const data = super._processFormData(event, form, formData);
-    if (
-      // Every actor whose HP the sheet binds as an editable input AND whose
-      // prepareData zeroes it. actor.js routes character, hireling AND npc
-      // through _prepareCharacterData, so all three zero system.hp.value on
-      // encumbrance or panic — omitting npc here would persist that derived 0
-      // back over the real value on the next submit. See the same trap in
-      // memory: derived state must never round-trip through a form.
-      ["character", "hireling", "npc"].includes(this.actor.type) &&
-      (this.actor.system.encumbered || this.actor.system.panicked)
-    ) {
+    // Strip system.hp.value from the submit EXACTLY when prepareData derives it
+    // to 0, so a derived 0 never persists over the real stored value — and ONLY
+    // then, or the strip becomes its own bug: an npc at capacity (a full crate,
+    // which no longer zeroes — that is a container's normal state, review #5)
+    // would otherwise have every HP edit silently dropped, un-editable for as
+    // long as it stayed full. character and hireling zero on encumbrance or
+    // panic; npc only on panic. Keep this condition in step with
+    // _prepareCharacterData — the two are one rule stated twice.
+    const derivedZero =
+      (["character", "hireling"].includes(this.actor.type)
+        && (this.actor.system.encumbered || this.actor.system.panicked))
+      || (this.actor.type === "npc" && this.actor.system.panicked);
+    if (derivedZero) {
       foundry.utils.deleteProperty(data, "system.hp.value");
     }
     return data;

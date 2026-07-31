@@ -114,6 +114,55 @@ const out = await page.evaluate(async () => {
   await new Promise((r) => setTimeout(r, 500));
   results.hirelingSourceAfter = hire.toObject().system.hp.value;
 
+  /* 2b. An npc at capacity keeps its HP ------------------------------------ */
+  // A container is an NPC with `slots` (+ `connectedTo`), and holding exactly
+  // its capacity is a container's NORMAL state — the character rule
+  // ("encumbered zeroes HP") must not reach it. It did (review #5): folding
+  // containers into npc put a full mule on the character path, where its sheet
+  // and token bar read 0 HP, and the submit strip made the phantom
+  // uncorrectable. Animate on purpose: `inanimate` would hide the HP input the
+  // submit half of this section needs.
+  const mule = await CONFIG.Actor.documentClass.create({
+    name: `${NAME}-mule`, type: "npc",
+    system: { hp: { value: 4, max: 6 }, slots: 2 },
+  });
+  await mule.createEmbeddedDocuments("Item", [{ name: "Anvil", type: "item", system: { bulky: true } }]);
+  results.npcEncumbered = mule.system.encumbered === true;
+  results.npcDerivedHp = mule.system.hp.value;             // must stay 4
+  results.npcSourceHp = mule.toObject().system.hp.value;
+
+  // ...and its HP input still submits: the strip guard must not fire on an npc
+  // that is merely full, or a full mule's HP is un-editable for as long as it
+  // stays full.
+  const mSheet = mule.sheet;
+  await mSheet.render(true);
+  await new Promise((r) => setTimeout(r, 900));
+  const mForm = mSheet.element instanceof HTMLElement ? mSheet.element : mSheet.element[0];
+  const mFD = new foundry.applications.ux.FormDataExtended(mForm);
+  const mSubmitted = mSheet._processFormData(null, mForm, mFD);
+  results.npcSubmitKeepsHp =
+    "system.hp.value" in mSubmitted || mSubmitted?.system?.hp?.value !== undefined;
+  await mSheet.close();
+
+  // NEGATIVE CONTROL, on the prototype: re-apply the old zeroing after prepare
+  // and the same full mule must read 0 again — proof the type gate is what the
+  // assertion above measures, not a mule that was never really encumbered.
+  const proto = CONFIG.Actor.documentClass.prototype;
+  const origPrep = proto._prepareCharacterData;
+  proto._prepareCharacterData = function (...args) {
+    origPrep.apply(this, args);
+    if (this.system.encumbered) this.system.hp.value = 0;  // the pre-fix line
+  };
+  mule.prepareData();
+  results.npcControlZeroed = mule.system.hp.value === 0;
+  proto._prepareCharacterData = origPrep;
+  // reset() first: the control wrote its 0 into the DERIVED model, and the fixed
+  // prepare never touches an npc's hp — so without rebuilding from source the
+  // 0 lingers and the restore reads the control's own residue, not the fix.
+  mule.reset();
+  mule.prepareData();
+  results.npcRestored = mule.system.hp.value === 4;
+
   /* 3. The chat Apply-damage button ---------------------------------------- */
   // Chat litter from this section (the card itself plus the per-target detail
   // messages _showDetails posts) is swept by id-diff at the end.
@@ -211,6 +260,15 @@ check("guard strips HP", !out.submitKeepsHp, "system.hp.value removed from submi
 check("a real submit ran", out.hirelingRenamed, "editing the name field committed");
 check("stored HP survives", out.hirelingSourceAfter === 4,
   `source=${out.hirelingSourceAfter} (expected 4: a submit must not persist the derived 0)`);
+
+console.log("\nnpc at capacity (a full container is not a dying creature)");
+check("npc encumbered", out.npcEncumbered, "a bulky item fills its 2 slots exactly");
+check("npc HP NOT zeroed", out.npcDerivedHp === 4,
+  `derived=${out.npcDerivedHp}, source=${out.npcSourceHp} (a full mule keeps its HP; the character rule stops at npc)`);
+check("npc HP input submits", out.npcSubmitKeepsHp,
+  "the strip guard does not fire on a merely-full npc — its HP stays editable");
+check("negative control", out.npcControlZeroed && out.npcRestored,
+  `old zeroing on the prototype reproduces the 0 (${out.npcControlZeroed}) and restores (${out.npcRestored})`);
 
 console.log("\nthe chat Apply-damage button");
 check("card + button render", out.applyButtonRendered, "damage card in the log with .apply-dmg");
