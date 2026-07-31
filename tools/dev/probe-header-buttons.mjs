@@ -169,9 +169,21 @@ try {
   hireling.roll?.text === "Roll NPC"
     ? ok('a hireling reads "Roll NPC"', hireling.roll.text)
     : fail('a hireling reads "Roll NPC"', `text="${hireling.roll?.text}"`);
-  !npc.roll && !npc.toggle
-    ? ok("an NPC sheet has neither button")
-    : fail("an NPC sheet has neither button", JSON.stringify({ roll: npc.roll, toggle: npc.toggle }));
+  // This used to assert an NPC sheet had NEITHER button, and it was correct when
+  // written -- `hireling` and `npc` were separate types and only the hireling got
+  // generation controls. The Hireling->NPC fold (1d2a214) made them one type
+  // discriminated by `system.forHire`, so a plain NPC now carries the same header,
+  // and f674730 answered the danger that creates -- a one-click no-undo wipe of any
+  // of the 205 shipped monsters -- by making Roll NPC CONFIRM rather than by hiding
+  // it. `dev:roll-npc` owns that confirmation; this probe owns the header.
+  //
+  // The stale assertion outlived the design by a day and stayed red, which is the
+  // real lesson: an expectation written against a type split has to be revisited
+  // when the split goes away, or the gate reports a decision as a defect.
+  npc.roll?.text === "Roll NPC" && npc.toggle?.text?.startsWith("Randomization")
+    ? ok("an NPC sheet gets the same header as a hireling", `"${npc.roll.text}" | "${npc.toggle.text}"`)
+    : fail("an NPC sheet gets the same header as a hireling",
+      JSON.stringify({ roll: npc.roll, toggle: npc.toggle }));
 
   console.log("\nPop Out");
   initial.popOut?.text === "Pop Out"
@@ -185,7 +197,9 @@ try {
   !initial.popOut?.clipped && !initial.popOut?.overflowsHeader && initial.popOut?.hidden === false
     ? ok("shown, unclipped, inside the title bar")
     : fail("shown, unclipped, inside the title bar", JSON.stringify(initial.popOut));
-  // Not gated by generation: an NPC has no Roll/Randomization but still pops out.
+  // Pop Out is core's, not ours, so it must survive independently of the generation
+  // header -- proven below by the Randomization-off case, where Roll Character hides
+  // and Pop Out does not.
   npc.popOut?.text === "Pop Out"
     ? ok("an NPC sheet still gets it", "not gated by show-generate-header")
     : fail("an NPC sheet still gets it", `popOut=${JSON.stringify(npc.popOut)}`);
