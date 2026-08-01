@@ -1,4 +1,4 @@
-import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, mentionsSecondBond, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, getCustomPortraitPaths, refreshCustomPortraits, regenerateHireling, rerollHirelingProfession, rerollHirelingName, rollNameFromTable, rollAge } from "../character-generator.js";
+import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, mentionsSecondBond, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, getCustomPortraitPaths, regenerateHireling, rerollHirelingProfession, rerollHirelingName, rollNameFromTable, rollAge } from "../character-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, sourceLabel } from "../utils.js";
 import { resultText } from "../compendium.js";
@@ -7,6 +7,7 @@ import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES, containerClassSlots, containe
 import { NPC_ROLES } from "../data-models.js";
 import { localizeNameDesc, t } from "../i18n-content.js";
 import { FATIGUE_NAME } from "../item/item.js";
+import { pickArt } from "../art-picker.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -548,18 +549,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // happens to touch the owner. Rebuilding it here costs one pass over
     // game.actors per render and cannot be stale by construction.
     context.system.containerObjects = this.actor.connectedActors();
-    // Role-driven pick-lists for the NPC sheet header. The variety list is the
+    // Role-driven pick-lists for the NPC sheet header. The Kind list is the
     // CONTAINER_CLASSES table filtered to the current role, so a class added
     // there appears here with nothing else to keep in step; the input itself
-    // stays free text — a Warden's own word is a legal variety.
+    // stays free text — a Warden's own word is a legal Kind.
     if (["npc", "hireling"].includes(this.actor.type)) {
       const role = this.actor.npcRole;
       context.roleChoices = Object.fromEntries(NPC_ROLES.map((r) => [
         r, game.i18n.localize(`CAIRN.Role${r.charAt(0).toUpperCase()}${r.slice(1)}`),
       ]));
       context.showCareer = ["npc", "hireling"].includes(role);
-      context.showVariety = ["mount", "transport", "container"].includes(role);
-      context.varietyOptions = Object.entries(CONTAINER_CLASSES)
+      context.showKind = ["mount", "transport", "container"].includes(role);
+      context.kindOptions = Object.entries(CONTAINER_CLASSES)
         .filter(([, v]) => v.role === role)
         .map(([key, v]) => ({ key, label: game.i18n.localize(v.label) }));
     }
@@ -1396,10 +1397,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * which is the exact drift `containerClass` was added to stop.
    *
    * `cls` is absent when the art came from the FilePicker — and then the stored
-   * variety is left ALONE. It used to be cleared, which made choosing your own
+   * Kind is left ALONE. It used to be cleared, which made choosing your own
    * mule painting cost the mule its identity (label, default capacity, the
-   * variety field itself); under roles, art is just art, and only the gallery's
-   * glyphs carry a variety claim (docs/npc-roles-plan.md).
+   * Kind field itself); under roles, art is just art, and only the gallery's
+   * glyphs carry a Kind claim (docs/npc-roles-plan.md).
    *
    * Capacity is only filled in when it is still 0 (i.e. "use the world setting",
    * never touched). A Warden who typed 12 into a crate meant 12, and choosing a
@@ -1815,10 +1816,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
     const candidates = game.actors
       .filter((a) => a.uuid !== this.actor.uuid
+        // `canBeConnected` is false for every character now (a PC is never
+        // kept), so the Round 2 pair-rule clause that used to sit here — offer
+        // characters only to another character — has nothing left to exclude.
         && a.canBeConnected
-        // The pair rule: characters are valid targets (Round 2), but only
-        // under another character — an NPC keeper never sees them offered.
-        && !(a.type === "character" && this.actor.type !== "character")
         && !a.system?.connectedTo
         && !this.actor.wouldCreateConnectionCycle(a)
         && a.canUserModify(game.user, "update"))
@@ -1866,12 +1867,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
     const child = this.actor;
     if (child.system.connectedTo) return;             // one upward link, ever
+    // Refuse from the child's own end. This replaces the Round 2 pair-rule
+    // clause in the filter below (which offered a character none but other
+    // characters): a PC is never kept, so there is no keeper to narrow to —
+    // and unlike a filter that quietly returns an empty list, this says why.
+    // It covers the monster and unlinked-token cases in the same breath.
+    if (!child.canBeConnected) {
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.CannotConnect", { name: child.name }));
+      return;
+    }
     const keepers = game.actors
       .filter((k) => k.uuid !== child.uuid
         && k.canKeepConnected
-        // The pair rule, seen from below: a character attaches only under
-        // another character.
-        && !(child.type === "character" && k.type !== "character")
         // Cycle check runs from the PROSPECTIVE KEEPER's side, exactly as
         // connectActor will: if the chain above k passes through child, the
         // link would loop.
@@ -2487,203 +2494,55 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // glyph once) highlights the cell wearing its art instead of nothing.
     const stored = this.actor.system.containerClass;
     const offered = new Set(CONTAINER_ART_CHOICES.map((c) => c.key));
-    const cells = CONTAINER_ART_CHOICES.map(({ key, src, label }) => {
-      const sel = key === stored || (!offered.has(stored) && src === current) ? " selected" : "";
-      const title = game.i18n.localize(label);
-      return `<img class="cairn-portrait-choice${sel}" src="${src}" data-src="${src}" `
-        + `data-class="${key}" title="${title}" alt="${title}" />`;
-    }).join("");
+    const cells = CONTAINER_ART_CHOICES.map(({ key, src, label }) => ({
+      key,
+      src,
+      label: game.i18n.localize(label),
+      selected: key === stored || (!offered.has(stored) && src === current),
+    }));
 
-    const canBrowse = game.user.can("FILES_BROWSE");
-    const browseBtn = canBrowse
-      ? `<button type="button" class="cairn-portrait-browse"><i class="fas fa-folder-open"></i> ${game.i18n.localize("CAIRN.BrowsePortrait")}</button>`
-      : "";
-
-    const content = `<div class="cairn-portrait-gallery cairn-container-gallery">
-        <div class="cairn-portrait-grid">${cells}</div>
-        ${browseBtn}
-      </div>`;
-
-    const dialog = new foundry.applications.api.DialogV2({
-      window: { title: game.i18n.localize("CAIRN.ChooseContainerArt"), icon: "fas fa-image" },
-      position: { width: 520 },
-      content,
-      buttons: [{ action: "close", label: game.i18n.localize("CAIRN.Close"), default: true }],
+    await pickArt({
+      current,
+      title: game.i18n.localize("CAIRN.ChooseContainerArt"),
+      classes: { label: game.i18n.localize("CAIRN.ContainerArtTabKinds"), cells },
+      // No Aspeheim here — a sack has no face. Custom and Game-Icons ride along
+      // so a Warden can dress a thing in their own art without leaving for the
+      // FilePicker; both arrive with no class key, so the stored Kind survives.
+      custom: true,
+      gameIcons: true,
+      browseStart: "icons/containers",
+      onPick: (src, { cls }) => this._setContainerArt(src, cls),
     });
-    await dialog.render(true);
-
-    const root = dialog.element;
-    root.querySelectorAll(".cairn-portrait-choice").forEach((img) => {
-      img.addEventListener("click", async () => {
-        await this._setContainerArt(img.dataset.src, img.dataset.class);
-        dialog.close();
-      });
-    });
-    const browse = root.querySelector(".cairn-portrait-browse");
-    if (browse) {
-      browse.addEventListener("click", () => {
-        const FP = foundry.applications.apps?.FilePicker?.implementation
-          ?? foundry.applications.apps?.FilePicker
-          ?? FilePicker;
-        new FP({
-          type: "image",
-          current: "icons/containers",
-          callback: async (path) => {
-            // Only the picture was touched, so only the picture changes: the
-            // stored variety survives a custom image (cls deliberately absent —
-            // see _setContainerArt). A mule wearing the Warden's own painting
-            // is still a mule.
-            await this._setContainerArt(path);
-            dialog.close();
-          },
-        }).render(true);
-      });
-    }
   }
 
   /**
-   * Portrait picker. Two galleries behind a tab toggle — the shipped Jon Aspeheim
-   * art and the GM's custom folder — plus a paste-a-URL row and (for FILES_BROWSE
-   * users) a FilePicker escape. Picking any image swaps the portrait AND its token
-   * via _setPortrait. The Aspeheim credit shows only under its own tab; the Custom
-   * tab appears when there are custom portraits or the viewer is a GM (who can add
-   * them). Shared by the PC and hireling sheets — they route here identically.
+   * Portrait picker — the actor counterpart to _pickContainerArt. Which
+   * galleries appear is a ROLE question, not a type question:
+   *
+   *   Player Character   Aspeheim + Custom
+   *   NPC / Hireling     Aspeheim + Custom + Game-Icons
+   *   Monster            Custom + Game-Icons
+   *
+   * Aspeheim's art is human faces, so a Monster is not offered it; nothing else
+   * is withheld anywhere, and the URL row and Browse escape are on every sheet.
+   * Thing roles (mount, transport, container) never reach here — _onEditPortrait
+   * routes them to the container gallery instead.
+   *
+   * Picking swaps the portrait AND its token via _setPortrait.
    * @private
    */
   async _pickPortrait(event) {
     event.preventDefault();
-    const manifest = await getPortraitManifest();
-    const names = manifest?.names ?? [];
-    const portraitDir = manifest?.portraitDir ?? "systems/air-bladder/character_portraits";
-    const current = this.actor.img;
-    const custom = getCustomPortraitPaths();
-    const isGM = game.user.isGM;
-    const showCustom = custom.length > 0 || isGM;
-
-    const cellFor = (src) => {
-      const sel = src === current ? " selected" : "";
-      const title = String(src).split("/").pop();
-      return `<img class="cairn-portrait-choice${sel}" src="${src}" data-src="${src}" title="${title}" />`;
-    };
-    const shippedCells = names.map((n) => cellFor(`${portraitDir}/${n}`)).join("");
-    const customCells = custom.map(cellFor).join("");
-
-    // Start on the tab holding the current portrait, so re-opening lands where you
-    // are; default to shipped otherwise.
-    const startTab = custom.includes(current) && custom.length ? "custom" : "shipped";
-    const tab = (id, label) =>
-      `<button type="button" class="cairn-portrait-tab${id === startTab ? " active" : ""}" data-tab="${id}">${label}</button>`;
-    const tabsBar = showCustom
-      ? `<div class="cairn-portrait-tabs">
-          ${tab("shipped", game.i18n.localize("CAIRN.PortraitTabShipped"))}
-          ${tab("custom", game.i18n.localize("CAIRN.PortraitTabCustom"))}
-        </div>`
-      : "";
-
-    const refreshBtn = isGM
-      ? `<button type="button" class="cairn-portrait-refresh"><i class="fas fa-rotate"></i> ${game.i18n.localize("CAIRN.RefreshCustomPortraits")}</button>`
-      : "";
-    const emptyHint = `<div class="cairn-portrait-empty"${custom.length ? " hidden" : ""}>${game.i18n.localize("CAIRN.CustomPortraitsEmpty")}</div>`;
-    const customPane = showCustom
-      ? `<div class="cairn-portrait-pane" data-pane="custom"${startTab === "custom" ? "" : " hidden"}>
-          <div class="cairn-portrait-grid">${customCells}</div>
-          ${emptyHint}
-          ${refreshBtn}
-        </div>`
-      : "";
-
-    const canBrowse = game.user.can("FILES_BROWSE");
-    const browseBtn = canBrowse
-      ? `<button type="button" class="cairn-portrait-browse"><i class="fas fa-folder-open"></i> ${game.i18n.localize("CAIRN.BrowsePortrait")}</button>`
-      : "";
-
-    // Paste-an-image-URL row: lets any owner set a custom portrait without the
-    // FILES_BROWSE permission the Browse button needs (so it works for players).
-    const urlRow = `<div class="cairn-portrait-url">
-        <input type="text" class="cairn-portrait-url-input" placeholder="${game.i18n.localize("CAIRN.PortraitUrlPlaceholder")}" />
-        <button type="button" class="cairn-portrait-url-set">${game.i18n.localize("CAIRN.PortraitUrlSet")}</button>
-      </div>`;
-
-    const content = `<div class="cairn-portrait-gallery">
-        ${tabsBar}
-        <div class="cairn-portrait-pane" data-pane="shipped"${startTab === "shipped" ? "" : " hidden"}>
-          <div class="cairn-portrait-grid">${shippedCells}</div>
-          <div class="cairn-portrait-credit">${game.i18n.localize("CAIRN.PortraitCredit")}</div>
-        </div>
-        ${customPane}
-        ${urlRow}
-        ${browseBtn}
-      </div>`;
-
-    const dialog = new foundry.applications.api.DialogV2({
-      window: { title: game.i18n.localize("CAIRN.ChoosePortrait"), icon: "fas fa-image" },
-      position: { width: 520 },
-      content,
-      buttons: [{ action: "close", label: game.i18n.localize("CAIRN.Close"), default: true }],
+    const isMonster = this.actor.npcRole === "monster";
+    await pickArt({
+      current: this.actor.img,
+      title: game.i18n.localize("CAIRN.ChoosePortrait"),
+      shipped: !isMonster,
+      custom: true,
+      gameIcons: this.actor.type !== "character",
+      browseStart: (await getPortraitManifest())?.portraitDir ?? "systems/air-bladder/character_portraits",
+      onPick: (src) => this._setPortrait(src),
     });
-    await dialog.render(true);
-
-    const root = dialog.element;
-    const wireChoice = (img) =>
-      img.addEventListener("click", async () => {
-        await this._setPortrait(img.dataset.src);
-        dialog.close();
-      });
-    root.querySelectorAll(".cairn-portrait-choice").forEach(wireChoice);
-
-    // Tab toggle: show the clicked pane, hide the other, move the active marker.
-    root.querySelectorAll(".cairn-portrait-tab").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.dataset.tab;
-        root.querySelectorAll(".cairn-portrait-tab").forEach((b) => b.classList.toggle("active", b === btn));
-        root.querySelectorAll(".cairn-portrait-pane").forEach((p) => { p.hidden = p.dataset.pane !== id; });
-      });
-    });
-
-    // Refresh: re-scan the custom folder (GM), then rebuild the custom grid in place.
-    const refresh = root.querySelector(".cairn-portrait-refresh");
-    if (refresh) {
-      refresh.addEventListener("click", async () => {
-        refresh.disabled = true;
-        const list = await refreshCustomPortraits();
-        const grid = root.querySelector('[data-pane="custom"] .cairn-portrait-grid');
-        const hint = root.querySelector('[data-pane="custom"] .cairn-portrait-empty');
-        if (grid) {
-          grid.innerHTML = list.map(cellFor).join("");
-          grid.querySelectorAll(".cairn-portrait-choice").forEach(wireChoice);
-        }
-        if (hint) hint.hidden = list.length > 0;
-        refresh.disabled = false;
-      });
-    }
-
-    const urlInput = root.querySelector(".cairn-portrait-url-input");
-    const applyUrl = async () => {
-      const value = urlInput?.value.trim();
-      if (!value) return;
-      await this._setPortrait(value);
-      dialog.close();
-    };
-    root.querySelector(".cairn-portrait-url-set")?.addEventListener("click", applyUrl);
-    urlInput?.addEventListener("keydown", (ev) => {
-      if (ev.key === "Enter") { ev.preventDefault(); applyUrl(); }
-    });
-    const browse = root.querySelector(".cairn-portrait-browse");
-    if (browse) {
-      browse.addEventListener("click", () => {
-        const FP = foundry.applications.apps?.FilePicker?.implementation
-          ?? foundry.applications.apps?.FilePicker
-          ?? FilePicker;
-        new FP({
-          type: "image",
-          current: portraitDir,
-          callback: async (path) => {
-            await this._setPortrait(path);
-            dialog.close();
-          },
-        }).render(true);
-      });
-    }
   }
 
   /* -------------------------------------------- */

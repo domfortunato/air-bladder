@@ -199,16 +199,16 @@ class CharacterData extends CairnDataModel {
       gold: purse(),
       slots: capacity(),
       features: objList(),
-      // PC → PC connections (Round 2, docs/npc-roles-plan.md): a character can
-      // BE kept by another character — the party-roster reading. Without this
-      // field the connect write is silently dropped by schema cleaning, which
-      // is exactly the "unknown keys in update data" trap. An NPC never keeps
-      // a PC; that pair is refused in connectActor, not here.
-      connectedTo: str(),
-      // Stamped at unlink time, same contract as NpcData's field: a NAME, not
-      // a uuid, because the keeper being deleted is the common reason the link
-      // broke. No character sheet renders it today; unlink writes it blind.
-      formerlyBelongedTo: str(),
+      // NO `connectedTo` / `formerlyBelongedTo` HERE, and do not re-add them.
+      // **A PC is never kept** (settled 2026-07-31, superseding Round 2's PC→PC
+      // party-roster reading): a character KEEPS npcs, hirelings, mounts,
+      // transports and containers, and is the top of every chain. Round 2 had
+      // added `connectedTo` here so a character could be a connection TARGET —
+      // and it was load-bearing for exactly that, since schema cleaning drops
+      // an update to a field the model does not declare, silently. Its absence
+      // is now the same wall in reverse: with no field to write, "keep a PC" is
+      // unrepresentable rather than merely refused. Verified before removal
+      // that no character in the dev world stored either value.
     };
   }
 }
@@ -282,7 +282,7 @@ class NpcData extends CairnDataModel {
       // THING_ROLES hide the block — and migrateData still reads it off old
       // documents. Do not re-add it.
 
-      // The VARIETY: what this thing is ("sack", "cart", "horse", or anything a
+      // The KIND: what this thing is ("sack", "cart", "horse", or anything a
       // Warden types) when someone has said so explicitly; BLANK MEANS INFER
       // from the name. A known class drives art, map token, the one-word label
       // and the default slot count from a single field, so they cannot drift
@@ -320,11 +320,11 @@ class NpcData extends CairnDataModel {
    * absent.
    *
    * That bit, and this is the fix (2026-07-31, found by rewriting
-   * `dev:item-pile` onto the variety control). The guard used to include
-   * `|| source.containerClass`, so ANY update touching the variety and not also
+   * `dev:item-pile` onto the Kind control). The guard used to include
+   * `|| source.containerClass`, so ANY update touching the Kind and not also
    * naming the role re-derived one — and `deriveNpcRole` reads `inanimate`,
    * which a modern document does not have, so it answered "npc". Setting a
-   * crate's variety demoted it to a plain NPC: stat block back, gold counter
+   * crate's Kind demoted it to a plain NPC: stat block back, gold counter
    * back, capacity rules gone. The art picker did it too (`_setContainerArt`
    * writes `{"system.containerClass": cls}` and nothing else), so choosing a
    * barrel picture for a barrel silently un-made it. The sheet's own submit was

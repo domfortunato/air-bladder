@@ -4,7 +4,7 @@ Settled in conversation 2026-07-31, on top of the `containers-as-npcs` branch. T
 records the decisions and their reasons so the build doesn't re-argue them.
 
 **STATUS: BUILT, same day.** Gated by `npm run dev:roles` (the sheet composition,
-keeping matrix, cycle guard, tab reset, art/variety decoupling) and
+keeping matrix, cycle guard, tab reset, art/Kind decoupling) and
 `npm run dev:role-migration` (both migration layers); the migration's one
 non-obvious constraint — "role absent in the database" is not observable from a
 running client, so selection keys on type + legacy keys + day rate — is documented
@@ -23,7 +23,7 @@ misleads: it names two concepts and holds one.
 
 A new `role` field on `NpcData`, stored, defaulting to `npc`:
 
-| Role | Stat block | Career | Day rate | Variety | Connections tab |
+| Role | Stat block | Career | Day rate | Kind | Connections tab |
 |-----------|------------|--------|----------|---------|-----------------|
 | NPC | yes | yes | — | — | read/write |
 | Hireling | yes | yes | **yes** | — | read/write |
@@ -77,11 +77,11 @@ Description and Notes: Items, Description, Connections, Notes.
   vanishes under the sheet showing it blanks the body — the role change handler
   needs a `tabGroups` reset (same trap the Reliquary tab hit).
 
-## Variety — an editable field, decoupled from art
+## Kind — an editable field, decoupled from art
 
 `containerClass` (already a free `str()` in the schema) is surfaced as a visible,
 **editable text input** on Mount/Transport/Container sheets, with the known
-varieties as datalist suggestions, partitioned by role from the one
+Kinds as datalist suggestions, partitioned by role from the one
 `CONTAINER_CLASSES` table:
 
 - **Mount**: Horse (4 slots), Mule (6), Donkey (4)
@@ -91,24 +91,24 @@ varieties as datalist suggestions, partitioned by role from the one
 
 Crate and Barrel stay — they ship with their own art and cost nothing to keep.
 
-- A **known** variety key brings its default art and slot count; an **unknown**
+- A **known** Kind key brings its default art and slot count; an **unknown**
   one (a Warden types "Saddlebags") brings nothing and takes the world-default
   slots until a number is typed. Defaults never overwrite a hand-entered
   capacity — same rule as today.
 - **Custom art becomes just art.** The gallery keeps its double duty (picking
   the mule glyph still says "this is a mule"), but the FilePicker path stops
-  clearing the stored variety. A mule with the Warden's own mule painting is
-  still variety "mule", 6 slots, labelled Mule. Only the picture changes.
-- Name inference (blank variety reads the name) survives as fallback but stops
-  being load-bearing: role answers every behavioral question; variety is
-  label + defaults. Custom variety strings display verbatim (Warden content,
+  clearing the stored Kind. A mule with the Warden's own mule painting is
+  still Kind "mule", 6 slots, labelled Mule. Only the picture changes.
+- Name inference (blank Kind reads the name) survives as fallback but stops
+  being load-bearing: role answers every behavioral question; Kind is
+  label + defaults. Custom Kind strings display verbatim (Warden content,
   not our i18n).
 
-## Pile-ness is a variety, not a state
+## Pile-ness is a Kind, not a state
 
-An Item Pile is a container variety a Warden deliberately picks — **nothing
+An Item Pile is a container Kind a Warden deliberately picks — **nothing
 becomes a pile automatically any more**. When a dead PC's container is unlinked
-it keeps its variety (a Backpack stays a Backpack); `formerlyBelongedTo` still
+it keeps its Kind (a Backpack stays a Backpack); `formerlyBelongedTo` still
 records whose it was. The old derived notion ("a pile is a container connected
 to nobody") is gone: any NPC-line actor can simply be unconnected.
 
@@ -125,7 +125,7 @@ derived from what's already stored:
 - everything else → **NPC**
 
 After it runs, `forHire` and `inanimate` are gone as stored state. It touches no
-art, no names, no varieties, no slot counts — nothing recurring, nothing that
+art, no names, no Kinds, no slot counts — nothing recurring, nothing that
 rewrites Warden content.
 
 ## The legacy `container` type is REMOVED — 2026-07-31, later the same day
@@ -174,7 +174,7 @@ Round 2 settled that Gold hides on a thing or a mount as a ROLE fact.
 
 Old `container`-typed documents are NOT converted to npc. A full in-place
 migration (`migrateContainerType`: type change via `ForcedReplacement` of
-`system`, `keeper`→`connectedTo`, kind baked into role + variety, probe-gated
+`system`, `keeper`→`connectedTo`, `transportKind` baked into role + Kind, probe-gated
 with a marker-set control run) was built, proven green, and **removed the same
 day**: the only worlds running this system are the two on this machine, and the
 one being wiped at upgrade time is cheaper than carrying the code. Do not
@@ -215,17 +215,27 @@ table above changes in one column: **Gold now follows the role too.**
   end), which is safe because every caller is a manual gesture: the automatic
   flows (marketplace buys, generation grants, the socket mint) write
   `connectedTo` directly and never pass through these methods.
-- **PC → PC connections exist.** Characters become valid connection targets —
-  `CharacterData` grows `connectedTo` (+ `formerlyBelongedTo` for unlink);
-  without the schema field the connect write would be silently dropped by
-  cleaning. One PC can keep several PCs (the party-roster reading). **An NPC
-  must never keep a PC** — pairwise-refused in `connectActor`, and the picker
-  never offers it.
+- ~~**PC → PC connections exist.**~~ **RETRACTED 2026-07-31: A PC IS NEVER
+  KEPT.** Round 2 made characters valid connection targets so one PC could hold
+  a party roster of PCs; the user retired that. A character KEEPS — npcs,
+  hirelings, mounts, transports, containers — and is the top of every chain.
+  Consequences, all landed: `CharacterData` no longer declares `connectedTo` or
+  `formerlyBelongedTo`; `canBeConnected` refuses every character (no branch
+  needed — `npcRole` is null for a character, so the existing role test already
+  says no); the pairwise "an NPC must never keep a PC" rule and its notice are
+  gone, because a general "no character is a legal target" swallows the special
+  case; and both pickers drop their character clauses.
+  **The schema removal is the load-bearing half, not the guard.** Measured with
+  an in-page control that forces `canBeConnected` open: `connectActor` then
+  RETURNS TRUE while storing nothing, because cleaning drops an update to a
+  field the model does not declare. So the method reports success on a write
+  that never happened — the guard is what makes the refusal *honest*, the schema
+  is what makes it *true*. `dev:roles` asserts both halves separately.
 - **Ownership follows connection.** Connecting a PC → NPC copies the PC's
   ownership onto the NPC (the marketplace-buy precedent, `deepClone` of the
   whole ownership object), executed GM-side — free, since manual connects are
-  Warden-only. PC → PC grants nothing: a character's ownership is never
-  rewritten.
+  Warden-only. (The "PC → PC grants nothing" half of this rule went with PC→PC
+  itself — a connection target can no longer be a character at all.)
 - **One upward link at a time STANDS.** "One connection to a PC and one to an
   NPC" was probed as both-at-once and rejected — every keeper-death, ownership
   and authoritative-tab question forks under two parents. Enforced as

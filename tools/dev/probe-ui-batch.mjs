@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Actor-directory presentation:
- *   1. The "Generate character" button uses the d6 icon.
+ *   1. The "Generate PC" button uses the d6 icon.
  *   2. Container/transport actor thumbnails are grayscale; characters are not.
  *
  * This probe used to cover two more things. Both were removed on purpose, and

@@ -108,7 +108,7 @@ try {
       created: !!muleActor,
       capacity: muleActor?.system.slotsMax,
       capacityRight: muleActor?.system.slotsMax === mule.system.slots,
-      variety: muleActor?.system.containerClass,
+      kind: muleActor?.system.containerClass,
       // ONE link now, not two. The old model wrote the container's `keeper` AND
       // the buyer's `containers` array, and every container bug came from only
       // one of them landing. The owner's list is derived from `connectedTo`, so

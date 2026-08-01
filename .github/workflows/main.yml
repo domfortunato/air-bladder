@@ -62,7 +62,7 @@ jobs:
       # template.json was dropped when the sub-type schemas moved to TypeDataModel
       # (module/data-models.js). zip skips a missing file silently, so this listed a
       # file that had not existed for releases without anyone noticing.
-      - run: zip -r ./system.zip README.md README.es.md LICENSE.txt system.json css/ fonts/ icons/ lang/ logo/ lydia-comer/ module/ packs/ templates/ character_portraits/ character_tokens/
+      - run: zip -r ./system.zip README.md README.es.md LICENSE.txt system.json css/ fonts/ game-icons/ icons/ lang/ logo/ lydia-comer/ module/ packs/ templates/ character_portraits/ character_tokens/
 
       # Create/update the release with the built files
       - name: Update Release with Files

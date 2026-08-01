@@ -3,6 +3,7 @@ import { previewBackground, duplicateBackgroundToWorld } from "../character-gene
 import { t } from "../i18n-content.js";
 import { TRANSPORT_KINDS } from "../icons.js";
 import { bindEditorClickAwaySave, sourceLabel } from "../utils.js";
+import { pickArt } from "../art-picker.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -141,6 +142,12 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     window: { resizable: true },
     form: { submitOnChange: true },
     actions: {
+      // OVERRIDES core's `editImage`, which opens a bare FilePicker. Every item
+      // template's portrait carries data-action="editImage", so declaring it
+      // here routes all seven of them — gear, weapons, armor, spellbooks,
+      // objects, transports and backgrounds — through the system's art picker
+      // instead, which is where the Game-Icons gallery lives.
+      editImage: CairnItemSheet.#onEditImage,
       duplicateBackground: CairnItemSheet.#onDuplicateBackground,
       testBackground: CairnItemSheet.#onTestBackground,
       addName: CairnItemSheet.#onAddName,
@@ -490,6 +497,31 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       content: renderPreviewReport(report),
       buttons: [{ action: "close", label: game.i18n.localize("CAIRN.Close"), default: true }],
     }).render(true);
+  }
+
+  /**
+   * The item art picker, in place of core's bare FilePicker.
+   *
+   * Two galleries: the Warden's custom folder and Game-Icons. No Aspeheim —
+   * those are character portraits, and a longsword has no face. The URL row and
+   * the Browse escape are still there, so nothing a Warden could do before is
+   * taken away; core's FilePicker was only ever the Browse half of this.
+   *
+   * Items carry no token, so this writes `img` alone — the actor pickers pair a
+   * token with it, and copying that here would put a texture on a document that
+   * has nowhere to keep one.
+   * @this {CairnItemSheet}
+   */
+  static async #onEditImage(event) {
+    event.preventDefault();
+    await pickArt({
+      current: this.item.img,
+      title: game.i18n.localize("CAIRN.ChooseItemArt"),
+      custom: true,
+      gameIcons: true,
+      browseStart: this.item.img,
+      onPick: (src) => this.item.update({ img: src }),
+    });
   }
 
   /**

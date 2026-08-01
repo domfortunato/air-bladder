@@ -2081,6 +2081,69 @@ textarea.omen-input {
     padding: 16px 8px;
 }
 
+/* The Game-Icons gallery browses in two steps: 23 category folders, then that
+   category's thumbnails. Both live in one pane and swap by `hidden`, so the
+   dialog never resizes between them — the grid below reuses .cairn-portrait-grid
+   so a thumbnail is the same object everywhere in the picker. */
+.cairn-icon-folders {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+    gap: 6px;
+    max-height: 420px;
+    overflow-y: auto;
+    padding: 4px;
+}
+
+.cairn-icon-folder {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: auto;
+    padding: 6px 8px;
+    background: none;
+    border: 1px solid var(--ab-rule);
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: left;
+    line-height: 1.2;
+}
+
+.cairn-icon-folder:hover {
+    border-color: var(--ab-accent);
+}
+
+/* The face is the category's first icon. These are white-on-black glyphs, so
+   they need no background of their own and must not be object-fit: cover — a
+   crop would cut the glyph rather than a photograph's edges. */
+.cairn-icon-folder img {
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    border-radius: 3px;
+}
+
+.cairn-icon-folder span {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 12px;
+}
+
+.cairn-icon-back {
+    width: auto;
+    align-self: flex-start;
+    background: none;
+    border: none;
+    padding: 2px 4px;
+    margin-bottom: 4px;
+    cursor: pointer;
+    opacity: 0.8;
+}
+
+.cairn-icon-back:hover {
+    opacity: 1;
+}
+
 
 /******************************************************************************
  * The NPC sheet (serves `npc` and its `hireling` alias). A character sheet     *

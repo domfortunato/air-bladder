@@ -35,7 +35,7 @@
                   replaced the For Hire and Inanimate checkboxes (two booleans
                   could say "for-hire inanimate chest"; a pick-list cannot).
                   Form-bound, so picking commits and the re-render recomposes
-                  the sheet: stat block, career, variety, day rate and the
+                  the sheet: stat block, career, kind, day rate and the
                   Connections tab all follow it. It is NEVER hidden by anything
                   it hides — the old checkboxes' deadlock lesson, kept. --}}
             <div class="profession-line role-line">
@@ -60,18 +60,21 @@
                 {{/if}}
             </div>
             {{/if}}
-            {{!-- The VARIETY — what kind of mount/transport/container. Free
-                  text over a role-filtered datalist: a known key brings its
-                  default art and capacity (CairnActor._preUpdate), a Warden's
-                  own word is just the label, verbatim. --}}
-            {{#if showVariety}}
-            <div class="profession-line variety-line">
-                <span class="background-label">{{ localize 'CAIRN.Variety' }}</span>
-                <input class="profession-input variety-input" type="text" name="system.containerClass"
-                    value="{{system.containerClass}}" list="{{@root.idp}}-varieties"
-                    placeholder="{{ localize 'CAIRN.VarietyHint' }}" />
-                <datalist id="{{@root.idp}}-varieties">
-                    {{#each varietyOptions}}<option value="{{key}}">{{label}}</option>{{/each}}
+            {{!-- The KIND — what a mount/transport/container IS, in one word,
+                  as against the Role, which is what it DOES for you. Free text
+                  over a role-filtered datalist: a known key brings its default
+                  art and capacity (CairnActor._preUpdate), a Warden's own word
+                  is just the label, verbatim. Stored as `system.containerClass`
+                  — the field name is deliberately NOT renamed to match, because
+                  that is a migration and this is a label. --}}
+            {{#if showKind}}
+            <div class="profession-line kind-line">
+                <span class="background-label">{{ localize 'CAIRN.Kind' }}</span>
+                <input class="profession-input kind-input" type="text" name="system.containerClass"
+                    value="{{system.containerClass}}" list="{{@root.idp}}-kinds"
+                    placeholder="{{ localize 'CAIRN.KindHint' }}" />
+                <datalist id="{{@root.idp}}-kinds">
+                    {{#each kindOptions}}<option value="{{key}}">{{label}}</option>{{/each}}
                 </datalist>
             </div>
             {{/if}}

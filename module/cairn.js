@@ -791,9 +791,9 @@ Hooks.on("renderActorDirectory", (app, html) => {
     // 2026-07-31, which under the roles model matched nothing at all: the
     // conversion had already made every container an npc, so the setting below
     // silently hid nobody and no thumbnail was ever greyed. The mapping is the
-    // old `transportKind` vocabulary one-for-one — kind mount → role mount,
-    // kind vehicle → role transport, kind worn/blank → role container — with
-    // the pile now a container VARIETY rather than a kind of its own.
+    // old `transportKind` vocabulary one-for-one — transportKind mount → role
+    // mount, vehicle → role transport, worn/blank → role container — with the
+    // pile now a container KIND rather than a category of its own.
     const containerLine = actor.isThing || actor.npcRole === "mount";
     a.classList.toggle('cairn-grayscale-portrait', containerLine);
 

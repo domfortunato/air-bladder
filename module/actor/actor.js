@@ -113,7 +113,7 @@ export class CairnActor extends Actor {
     // (`iconForActor` existed for this and was called from nowhere in `module/`;
     // only the pack importer used it.) An explicit `img` always wins: the
     // marketplace passes the transport's own art. An npc qualifies only when
-    // its creation data SAYS it is a container-line thing (a variety, or a
+    // its creation data SAYS it is a container-line thing (a Kind, or a
     // mount/transport/container role) — a hand-made npc is as often a monster,
     // and monsters keep mystery-man.
     const artRole = data.system?.role;
@@ -252,10 +252,10 @@ export class CairnActor extends Actor {
     // container, so it needs the owner / formerly-owner line the retired
     // container sheet used to carry.
     this._prepareConnectionLabel();
-    // ...and the one-word variety label ("Horse", "Crate") the container sheet
+    // ...and the one-word Kind label ("Horse", "Crate") the container sheet
     // has always shown. Derived only when something says this npc IS a
-    // container-line thing — a stored variety, or a mount/transport/container
-    // role — so a monster's sheet derives nothing. A variety the class table
+    // container-line thing — a stored Kind, or a mount/transport/container
+    // role — so a monster's sheet derives nothing. A Kind the class table
     // does not know is a Warden's own word and displays verbatim; running it
     // through the label lookup would silently swap it for a name inference.
     const cls = this.system.containerClass;
@@ -602,10 +602,14 @@ export class CairnActor extends Actor {
     // document, permanently empty tab. Link the token if you want it in the
     // graph; that makes `token.actor` the world Actor and `isToken` false.
     if (this.isToken) return false;
-    // Round 2: a character can BE kept — by another character only (the
-    // party-roster reading). The pair rule ("an NPC never keeps a PC") is a
-    // property of the EDGE, not of either end, so it lives in connectActor.
-    if (this.type === "character") return true;
+    // A PC is never kept (2026-07-31). Round 2 had allowed PC→PC as a party
+    // roster; the user retired it — a character keeps npcs, hirelings, mounts,
+    // transports and containers, and is the top of every chain. No branch is
+    // needed to say so: `npcRole` is null for a character, so the line below
+    // already refuses it, and the pair rule connectActor used to carry ("an
+    // NPC never keeps a PC") is now a special case of "no character is a legal
+    // target at all". CharacterData no longer declares `connectedTo`, so this
+    // is belt and braces over a write the schema would drop anyway.
     return this.npcRole !== null && this.npcRole !== "monster";
   }
 
@@ -664,13 +668,15 @@ export class CairnActor extends Actor {
       ui.notifications.warn(game.i18n.format("CAIRN.Notify.CannotConnect", { name: target.name }));
       return false;
     }
-    // The pair rule: an NPC never keeps a PC. Neither end alone can answer
-    // this — a character is a legal target and an NPC is a legal keeper; it is
-    // the COMBINATION that is refused.
-    if (target.type === "character" && this.type !== "character") {
-      ui.notifications.warn(game.i18n.format("CAIRN.Notify.NpcCannotKeepPc", { name: target.name }));
-      return false;
-    }
+    // The pair rule that used to sit here — "an NPC never keeps a PC" — is
+    // gone because the general case swallowed it: a PC is never kept BY
+    // ANYONE, so `canBeConnected` above refuses every character and no
+    // combination needs testing. Its NpcCannotKeepPc notice retired with it —
+    // deliberately NOT written here in full, because `check:i18n`'s source gate
+    // counts a key quoted in a comment as a reference and would then report the
+    // en.json entry I just deleted as missing. The refusal a Warden now sees is
+    // the plain CannotConnect.
+    //
     // ONE upward link at a time (Round 2, settled over "both at once"). The
     // picker already filtered connected actors out, but a drop never went
     // through the picker — without this wall it could steal a connected actor
@@ -695,10 +701,10 @@ export class CairnActor extends Actor {
     });
     // Ownership follows connection: hanging an NPC under a PC hands the PC's
     // players the keys (the marketplace-buy precedent — same wholesale copy).
-    // PC → PC grants nothing: a character's ownership is never rewritten. The
-    // Warden gate above means this always runs GM-side, so the write cannot
-    // be refused.
-    if (this.type === "character" && target.type !== "character") {
+    // The `target.type !== "character"` half of this test went with PC→PC —
+    // a target can no longer BE a character. The Warden gate above means this
+    // always runs GM-side, so the write cannot be refused.
+    if (this.type === "character") {
       await target.update({ ownership: foundry.utils.deepClone(this.ownership) });
     }
     return true;
@@ -789,7 +795,7 @@ export class CairnActor extends Actor {
    *
    * **npc / hireling** — `#applyHirelingTokenDefaults`, above (picking the
    * Hireling role gets the token defaults `_preCreate` gives a generated one),
-   * and the variety defaults: typing a KNOWN `containerClass` brings its art and
+   * and the Kind defaults: typing a KNOWN `containerClass` brings its art and
    * capacity, because `img` is a stored copy that no amount of derived data will
    * move. Touch our own `icons/*.svg` and nothing else, so a Warden who picked
    * their own art keeps it; idempotent, since a correct path is left alone.
@@ -814,12 +820,12 @@ export class CairnActor extends Actor {
     if (["npc", "hireling"].includes(this.type)) {
       this.#applyHirelingTokenDefaults(changed);
 
-      // Typing a KNOWN variety brings its defaults, exactly as picking its
+      // Typing a KNOWN Kind brings its defaults, exactly as picking its
       // glyph from the gallery would: art (only while the current image is
       // ours or Foundry's default — a Warden's own picture is never
       // overwritten) and capacity (only while still 0, the same "a typed
       // value wins" rule _setContainerArt follows). An unknown word — a
-      // Warden's own variety — changes nothing but the label.
+      // Warden's own Kind — changes nothing but the label.
       const flat = foundry.utils.flattenObject(changed);
       const cls = flat["system.containerClass"];
       if (cls && cls !== this.system.containerClass && CONTAINER_CLASSES[cls]) {

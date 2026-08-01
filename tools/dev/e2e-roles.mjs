@@ -82,7 +82,7 @@ const READ = `(sheet) => {
     gold:      vis('input[name="system.gold"]'),
     roleSelect: vis('.role-select'),
     career:    vis('input[name="system.profession"]'),
-    variety:   vis('input[name="system.containerClass"]'),
+    kind:      vis('input[name="system.containerClass"]'),
     dayRate:   vis('.day-rate-line'),
     itemsTab:  vis('[data-tab="items"]'),
     connectionsTab: vis('a[data-tab="containers"]'),
@@ -195,17 +195,17 @@ try {
   !asThing.career && !asThing.dayRate
     ? ok("career and day rate go with the role", "no orphaned rate on a crate")
     : bad("career and day rate go with the role", JSON.stringify(asThing));
-  asThing.variety && !asHireling.variety
-    ? ok("the variety field rides the container role", "absent on a hireling, present on a thing")
-    : bad("the variety field rides the container role", JSON.stringify({ thing: asThing.variety, hireling: asHireling.variety }));
+  asThing.kind && !asHireling.kind
+    ? ok("the Kind field rides the container role", "absent on a hireling, present on a thing")
+    : bad("the Kind field rides the container role", JSON.stringify({ thing: asThing.kind, hireling: asHireling.kind }));
 
   console.log("\na mount is a creature with no purse");
   out.storedMount === "mount" && asMount.hp && asMount.str && asMount.armor
     ? ok("the stat block stays", "a warhorse can be hit")
     : bad("the stat block stays", JSON.stringify({ stored: out.storedMount, ...asMount }));
-  !asMount.gold && asMount.variety
-    ? ok("Gold hides, variety shows", "no purse on the horse")
-    : bad("Gold hides, variety shows", JSON.stringify(asMount));
+  !asMount.gold && asMount.kind
+    ? ok("Gold hides, Kind shows", "no purse on the horse")
+    : bad("Gold hides, Kind shows", JSON.stringify(asMount));
 
   console.log("\nand it is not a one-way trip");
   out.reachable
@@ -285,21 +285,31 @@ try {
     const cycleRefused = !(await b2.connectActor(b1));
     const b1Untouched = !b1.system.connectedTo;
 
-    /* ---- Round 2 ---- */
-    // PC → PC. The keeper carries a DISTINCTIVE default (OBSERVER) so the
-    // ownership assertions below can tell "copied" from "left alone".
+    /* ---- Round 2, as amended 2026-07-31: A PC IS NEVER KEPT ---- */
+    // This leg used to assert the opposite — "a PC keeps another PC", the
+    // party-roster reading. The user retired PC→PC: a character keeps npcs,
+    // hirelings, mounts, transports and containers and is the top of every
+    // chain. So the assertions invert, and the schema field they were the
+    // fail-witness FOR is gone.
+    //
+    // The keeper carries a DISTINCTIVE default (OBSERVER) so the ownership
+    // assertions below can tell "copied" from "left alone".
     const pc2 = await Cls.create({ name: "ZZ Roles PC Keeper", type: "character", ownership: { default: 2 } });
     const pcChild = await Cls.create({ name: "ZZ Roles PC Child", type: "character", ownership: { default: 0 } });
-    // Fail-without-the-fix witness for CharacterData.connectedTo: without the
-    // schema field, cleaning drops the write silently and pcChildUp is false.
-    const pcPcLinked = await pc2.connectActor(pcChild);
-    const pcChildUp = pcChild.system.connectedTo === pc2.uuid;
+    const pcPcRefused = !(await pc2.connectActor(pcChild));
+    const pcChildUp = !!pcChild.system.connectedTo;               // must be false
     const rosterHasChild = pc2.connectedActors().some((x) => x.id === pcChild.id);
-    // PC → PC must NOT rewrite the child's ownership.
+    // The STRUCTURAL half, and the one a re-added field would fail: refusing in
+    // connectActor is a guard someone can delete, but CharacterData not
+    // declaring `connectedTo` makes the write unrepresentable — cleaning drops
+    // it with no error. Assert the field is absent from the source itself.
+    const pcHasNoLinkField = !("connectedTo" in (pcChild._source.system ?? {}));
+    // A refused connect must not have rewritten ownership either.
     const pcChildOwnershipUntouched = (pcChild.ownership.default ?? 0) === 0;
 
-    // An NPC never keeps a PC — the pair rule. pc is FREE here (it keeps h,
-    // nothing keeps it), so nothing but the pair rule can refuse.
+    // Nor does an NPC keep a PC. Same rule, other keeper: `pc` is FREE here
+    // (it keeps h, nothing keeps it), so only "no character is a legal target"
+    // can refuse it.
     const npcKeepsPcRefused = !(await b1.connectActor(pc));
     const pcStillFree = !pc.system.connectedTo;
 
@@ -317,7 +327,7 @@ try {
     for (const x of [s, g, h, m, b1, b2, monster, pcChild, pc2, pc]) await x.delete();
     return { connectedHirelingKeeps, sackLinked, sackConnectedTo: sackConnectedTo ? "set" : "",
       mountKeeps, monsterConnectable, cycleRefused, b1Untouched,
-      pcPcLinked, pcChildUp, rosterHasChild, pcChildOwnershipUntouched,
+      pcPcRefused, pcChildUp, rosterHasChild, pcHasNoLinkField, pcChildOwnershipUntouched,
       npcKeepsPcRefused, pcStillFree, stealRefused, sackStillWithHireling,
       grantLinked, grantOwnershipCopied };
   });
@@ -335,12 +345,15 @@ try {
     ? ok("an NPC→NPC loop is refused at connect time", "A→B→A never lands")
     : bad("an NPC→NPC loop is refused at connect time", JSON.stringify(matrix));
 
-  console.log("\nRound 2: PC→PC, the pair rule, one link, ownership");
-  matrix.pcPcLinked && matrix.pcChildUp && matrix.rosterHasChild
-    ? ok("a PC keeps another PC", "the party-roster reading, stored and listed")
-    : bad("a PC keeps another PC", JSON.stringify(matrix));
+  console.log("\nRound 2: a PC is never kept, one link, ownership");
+  matrix.pcPcRefused && !matrix.pcChildUp && !matrix.rosterHasChild && matrix.pcChildOwnershipUntouched
+    ? ok("a PC cannot be kept by a PC", "refused, nothing written, no roster row")
+    : bad("a PC cannot be kept by a PC", JSON.stringify(matrix));
+  matrix.pcHasNoLinkField
+    ? ok("CharacterData declares no connectedTo", "the write is unrepresentable, not merely refused")
+    : bad("CharacterData declares no connectedTo", JSON.stringify(matrix));
   matrix.npcKeepsPcRefused && matrix.pcStillFree
-    ? ok("an NPC never keeps a PC", "pair-refused, nothing written")
+    ? ok("an NPC never keeps a PC", "refused, nothing written")
     : bad("an NPC never keeps a PC", JSON.stringify(matrix));
   matrix.stealRefused && matrix.sackStillWithHireling
     ? ok("a connected actor cannot be stolen", "single-parent enforced in connectActor itself")
@@ -348,9 +361,10 @@ try {
   matrix.grantLinked && matrix.grantOwnershipCopied
     ? ok("PC → NPC connect copies the PC's ownership", "the marketplace precedent")
     : bad("PC → NPC connect copies the PC's ownership", JSON.stringify(matrix));
-  matrix.pcChildOwnershipUntouched
-    ? ok("PC → PC leaves the child PC's ownership alone")
-    : bad("PC → PC leaves the child PC's ownership alone", "a character's ownership was rewritten");
+  // "PC → PC leaves the child's ownership alone" was asserted here. It is now
+  // part of the refusal assertion above — with the connect refused there is no
+  // ownership step to reach, and a separate line naming a relationship that can
+  // no longer exist would read as though PC→PC still worked.
 
   /* ---- the Connections tab: monster exclusion + the vanishing-tab reset ---- */
   console.log("\nthe Connections tab follows the role");
@@ -586,18 +600,20 @@ try {
     await sheet._setContainerArt("systems/air-bladder/icons/crate.svg", "crate");
     const afterSecond = { cls: a.system.containerClass, slots: a.system.slots };
 
-    // The Browse escape (no cls argument) must leave the variety ALONE now —
+    // The Browse escape (no cls argument) must leave the Kind ALONE now —
     // custom art is just art, it no longer costs the crate its identity.
     await sheet._setContainerArt("icons/svg/chest.svg");
     const afterBrowse = { img: a.img, cls: a.system.containerClass };
 
-    // TYPING a known variety brings its defaults the way the glyph does: fresh
+    // TYPING a known Kind brings its defaults the way the glyph does: fresh
     // thing, slots untouched, wagon typed → 8 slots and wagon art.
-    const t = await Cls.create({ name: "ZZ Typed Variety", type: "npc", system: { role: "transport" } });
+    // Named "ZZ Roles …" so the sweep at the top of this file collects them if
+    // a run aborts before the explicit deletes below.
+    const t = await Cls.create({ name: "ZZ Roles Typed Kind", type: "npc", system: { role: "transport" } });
     await t.update({ "system.containerClass": "wagon" });
     const afterTyped = { cls: t.system.containerClass, slots: t.system.slots, img: t.img };
     // ...but an unknown word is just a label: nothing else moves.
-    const u = await Cls.create({ name: "ZZ Custom Variety", type: "npc", system: { role: "container" } });
+    const u = await Cls.create({ name: "ZZ Roles Custom Kind", type: "npc", system: { role: "container" } });
     await u.update({ "system.containerClass": "Saddlebags" });
     const afterCustom = { cls: u.system.containerClass, slots: u.system.slots, label: u.system.classLabel };
     await t.delete(); await u.delete();
@@ -630,8 +646,8 @@ try {
     ? ok("the Browse escape is present", "a Warden can use their own art")
     : bad("the Browse escape is present", "no browse button");
   pick.afterPick.cls === "barrel" && /barrel\.svg$/.test(pick.afterPick.img)
-    ? ok("picking barrel sets art AND variety", `${pick.afterPick.cls}`)
-    : bad("picking barrel sets art AND variety", JSON.stringify(pick.afterPick));
+    ? ok("picking barrel sets art AND Kind", `${pick.afterPick.cls}`)
+    : bad("picking barrel sets art AND Kind", JSON.stringify(pick.afterPick));
   pick.afterPick.token === pick.afterPick.img
     ? ok("the map token follows the portrait", "one field, no drift")
     : bad("the map token follows the portrait", JSON.stringify(pick.afterPick));
@@ -642,11 +658,11 @@ try {
     ? ok("a capacity someone TYPED is not overwritten", "12 survived a re-art to crate")
     : bad("a capacity someone TYPED is not overwritten", JSON.stringify(pick.afterSecond));
   pick.afterBrowse.cls === "crate"
-    ? ok("custom art keeps the stored variety", "only the picture changed")
-    : bad("custom art keeps the stored variety", JSON.stringify(pick.afterBrowse));
+    ? ok("custom art keeps the stored Kind", "only the picture changed")
+    : bad("custom art keeps the stored Kind", JSON.stringify(pick.afterBrowse));
   pick.afterTyped.cls === "wagon" && pick.afterTyped.slots === 8 && /wagon\.svg$/.test(pick.afterTyped.img)
-    ? ok("typing a known variety brings its defaults", "wagon → 8 slots + wagon art")
-    : bad("typing a known variety brings its defaults", JSON.stringify(pick.afterTyped));
+    ? ok("typing a known Kind brings its defaults", "wagon → 8 slots + wagon art")
+    : bad("typing a known Kind brings its defaults", JSON.stringify(pick.afterTyped));
   pick.afterCustom.cls === "Saddlebags" && !Number(pick.afterCustom.slots) && pick.afterCustom.label === "Saddlebags"
     ? ok("a Warden's own word is just a label", "verbatim, no defaults invented")
     : bad("a Warden's own word is just a label", JSON.stringify(pick.afterCustom));

@@ -29,9 +29,9 @@
         language the table does not speak, and it also serves English names it
         was never going to guess ("Bag of Holding"). --}}
   <div class="form-group">
-    <label>{{localize 'CAIRN.ContainerClass'}}:</label>
+    <label>{{localize 'CAIRN.Kind'}}:</label>
     <select name="itemclass" data-dtype="String">
-      <option value="">{{localize 'CAIRN.ContainerClassAuto'}}</option>
+      <option value="">{{localize 'CAIRN.KindAuto'}}</option>
       {{#each classes}}
         <option value="{{this.key}}">{{localize this.label}}</option>
       {{/each}}

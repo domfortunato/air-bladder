@@ -49,6 +49,27 @@ export const getPortraitManifest = async () => {
   return _portraitManifest;
 };
 
+// The Game-Icons gallery: 1,239 game-icons.net glyphs in 23 categories, browsed
+// category-first in the portrait picker (see tools/import/game-icons.mjs). Same
+// lazy-fetch-and-cache shape as the portraits above, and for the same reason —
+// a player picking art cannot enumerate a server folder. Kept here rather than
+// in icons.js because that file is deliberately Foundry-free so the Node
+// importers can import it; a fetch would end that.
+let _gameIconManifest = null;
+
+/** @returns {Promise<{iconDir:String, categories:{key:String, names:String[]}[]}>} */
+export const getGameIconManifest = async () => {
+  if (_gameIconManifest === null) {
+    try {
+      const resp = await fetch("systems/air-bladder/module/game-icons-manifest.json");
+      _gameIconManifest = resp.ok ? await resp.json() : { categories: [] };
+    } catch {
+      _gameIconManifest = { categories: [] };
+    }
+  }
+  return _gameIconManifest;
+};
+
 // --- Custom portraits (GM-curated, per-world local pool) --------------------
 // A folder of the GM's own portraits, scanned into a world setting so players
 // (who lack FILES_BROWSE) can still see and pick them. When non-empty it REPLACES

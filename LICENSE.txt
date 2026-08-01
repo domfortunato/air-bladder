@@ -66,10 +66,17 @@ Character portraits and tokens — CC BY 4.0, © Jon Aspeheim
     ships. The artist states these were created without AI.
     See the license.txt in each folder.
 
-Item & container icons — CC BY 3.0
-    icons/  — game-icons.net, by Lorc, Delapouite & Skoll
+game-icons.net art — CC BY 3.0
+    icons/       — the class icons, by Lorc, Delapouite & Skoll
+    game-icons/  — the Game-Icons picker gallery, 1,239 glyphs in 23
+                   categories by 16 contributors
     https://creativecommons.org/licenses/by/3.0/
-    Per-icon author and source-page attribution: icons/CREDITS.md.
+    Two paths, one grant: same source, same licence, different jobs. Per-icon
+    author and source-page attribution: icons/CREDITS.md and
+    game-icons/CREDITS.md. Those files ARE the attribution — the shipped path
+    records only the category, because the artist lives in the download's
+    folder structure and the flatten discards it. The upstream notice ships
+    verbatim as game-icons/license.txt.
 
 Alegreya typeface — SIL Open Font License 1.1
     fonts/  — © 2011 The Alegreya Project Authors (Huerta Tipográfica)

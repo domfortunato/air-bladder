@@ -80,7 +80,7 @@ try {
       system: { role: "container", containerClass: "crate" },
     });
     // EXACTLY the write `_setContainerArt` makes when a Warden picks a glyph
-    // from the container gallery: the variety, and nothing else.
+    // from the container gallery: the Kind, and nothing else.
     await crate.update({ "system.containerClass": "barrel" });
     const afterArtPick = crate.system.role;
     await crate.delete();
@@ -106,8 +106,8 @@ try {
   // It used to derive (a mount class gave "mount"), and that clause is what made
   // the two failures below reachable.
   shim.classAlone === "npc"
-    ? ok("a variety alone does NOT derive — it is not evidence of a legacy source")
-    : fail(`a variety alone derived ${JSON.stringify(shim.classAlone)}`);
+    ? ok("a Kind alone does NOT derive — it is not evidence of a legacy source")
+    : fail(`a Kind alone derived ${JSON.stringify(shim.classAlone)}`);
   shim.plain === "npc"
     ? ok("everything else derives npc")
     : fail(`plain derived ${JSON.stringify(shim.plain)}`);
@@ -117,7 +117,7 @@ try {
   shim.afterArtPick === "container"
     ? ok("picking container art leaves the role alone", "role container survived")
     : fail("picking container art leaves the role alone",
-      `a crate became "${shim.afterArtPick}" because its variety was written`);
+      `a crate became "${shim.afterArtPick}" because its Kind was written`);
 
   /* --- seed the pre-migration state ------------------------------------ */
 

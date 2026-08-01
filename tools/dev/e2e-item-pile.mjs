@@ -16,8 +16,8 @@
  * the one place it can never appear), and a player needs ownership to use it —
  * which is also the natural "the party has found it" switch, so this asserts the
  * refusal is visible rather than silent. Since the roles work a pile is a
- * VARIETY of an npc, not a type and not a kind, and this drives the variety box
- * the Warden actually types in.
+ * container KIND, not a document type and not a `transportKind` of its own, and
+ * this drives the Kind box the Warden actually types in.
  *
  *   npm run dev:item-pile      (needs Alice — npm run dev:players)
  */
@@ -109,7 +109,8 @@ try {
     // it. "Loot Pile" would pass on the name alone and prove nothing.
     //
     // An npc with role container: the `container` TYPE is retired (2026-07-31)
-    // and cannot be created. The pile is a VARIETY now, not a kind — the
+    // and cannot be created. The pile is a container KIND now, not a
+    // `transportKind` — the
     // control it is set with is the free-text `containerClass` box, not the
     // retired sheet's `transportKind` pick-list.
     const mk = (name, extra = {}) => Impl.create({
@@ -140,7 +141,7 @@ try {
         classText: pile.system.classLabel ?? null,
         selectValue: input?.value ?? null,
         options: list.map((o) => o.text).filter(Boolean),
-        // Not clipped: the variety box has its own row for exactly this reason.
+        // Not clipped: the Kind box has its own row for exactly this reason.
         clipped: input ? input.scrollWidth > input.clientWidth + 1 : null,
       },
       pileId: pile.id,
@@ -163,11 +164,11 @@ try {
     ? ok("hand-picked art is never overwritten", made.customKept)
     : fail("hand-picked art is never overwritten", made.customKept);
   made.sheet.classText === "Item Pile" && made.sheet.selectValue === "pile"
-    ? ok("the sheet shows and stores the variety", `"${made.sheet.classText}"`)
-    : fail("the sheet shows and stores the variety", JSON.stringify(made.sheet));
+    ? ok("the sheet shows and stores the Kind", `"${made.sheet.classText}"`)
+    : fail("the sheet shows and stores the Kind", JSON.stringify(made.sheet));
   made.sheet.options.includes("Item Pile") && made.sheet.clipped === false
-    ? ok("the Variety control offers it, unclipped", made.sheet.options.join(" / "))
-    : fail("the Variety control offers it, unclipped", JSON.stringify(made.sheet));
+    ? ok("the Kind control offers it, unclipped", made.sheet.options.join(" / "))
+    : fail("the Kind control offers it, unclipped", JSON.stringify(made.sheet));
 
   /* --- 3. the directory shows it ----------------------------------------- */
   console.log("\nreachability");

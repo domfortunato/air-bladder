@@ -195,7 +195,7 @@ What belongs here is what those two files do not say:
 
 ## Testing
 
-**`docs/release-testing.md` is the full list — 70 probes (`check:probes` states
+**`docs/release-testing.md` is the full list — 71 probes (`check:probes` states
 the current count), what each covers, and what to run before tagging vs after
 publishing. Keep it in step with `package.json`; a probe not listed there runs
 only when someone remembers it.**

@@ -77,6 +77,7 @@
     "dev:table-results": "node tools/dev/e2e-table-results.mjs",
     "dev:relic-tab": "node tools/dev/e2e-relic-tab.mjs",
     "dev:doc-lifecycle": "node tools/dev/e2e-doc-lifecycle.mjs",
+    "dev:art-picker": "node tools/dev/e2e-art-picker.mjs",
     "dev:roles": "node tools/dev/e2e-roles.mjs",
     "dev:container-unlink": "node tools/dev/e2e-container-unlink.mjs",
     "dev:socket-grant": "node tools/dev/socket-grant-probe.mjs",

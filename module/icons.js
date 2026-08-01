@@ -87,7 +87,7 @@ export const CONTAINER_CLASSES = {
 /** A class's default capacity, or 0 ("use the world setting") if it has none. */
 export const containerClassSlots = (cls) => CONTAINER_CLASSES[cls]?.slots ?? 0;
 
-/** Which role a variety implies: "mount", "transport" or "container" for a known
+/** Which role a Kind implies: "mount", "transport" or "container" for a known
  *  class, "" for a blank or Warden-invented one (see docs/npc-roles-plan.md).
  *  Lives on the same table as art, label and capacity so they cannot drift. */
 export const containerClassRole = (cls) => CONTAINER_CLASSES[cls]?.role ?? "";
@@ -101,13 +101,20 @@ export const containerClassAnimate = (cls) => containerClassRole(cls) === "mount
  * Classify a container / transport. Keyed on the NAME first (so "Handcart" and
  * "Cart" differ), then falling back on transportKind for exotic names — the
  * named mounts (Heavy Destrier, Piebald Cob, …) carry no give-away word, but
- * they are all kind "mount", so they classify as a horse. That fallback is why
- * a Destrier's sheet can say "Horse" without anyone writing it down.
+ * they are all transportKind "mount", so they classify as a horse. That
+ * fallback is why a Destrier's sheet can say "Horse" without anyone writing it
+ * down.
+ *
+ * The middle parameter is named `legacyKind`, not `kind`, on purpose: "Kind" is
+ * now the sheet's word for the RETURN value — the container class — and this is
+ * the retired `transportKind` vocabulary it falls back on. One word for both
+ * would put the deprecated term and its replacement in the same signature.
  * @param {String} name
- * @param {String} [kind]  transportKind: "worn" | "mount" | "vehicle" | "pile"
- * @returns {String}  a key of CONTAINER_CLASSES
+ * @param {String} [legacyKind]  transportKind: "worn" | "mount" | "vehicle" | "pile"
+ * @param {String} [stored]  an already-decided container class; wins outright
+ * @returns {String}  a key of CONTAINER_CLASSES — the thing's Kind
  */
-export const containerClass = (name = "", kind = "", stored = "") => {
+export const containerClass = (name = "", legacyKind = "", stored = "") => {
   // An explicit class wins outright. The keyword table below is English, so it is
   // the only thing a Warden working in another language can say "this is a
   // backpack" with — and because both the art and the sheet's class label come
@@ -118,7 +125,7 @@ export const containerClass = (name = "", kind = "", stored = "") => {
   // the thing they are ("Cart", "Mule") so the name is the better signal, but a
   // pile is named for what is IN it — "Bandit Loot", "Spoils of the Barrow" —
   // and would otherwise fall through to the chest.
-  if (kind === "pile") return "pile";
+  if (legacyKind === "pile") return "pile";
   if (n.includes("backpack")) return "backpack";
   if (/\bsacks?\b/.test(n) || n.includes("pouch") || n.includes("satchel")) return "sack";
   if (n.includes("handcart")) return "handcart";              // before "cart"
@@ -134,19 +141,19 @@ export const containerClass = (name = "", kind = "", stored = "") => {
   if (n.includes("box") || n.includes("case")) return "box";
   if (n.includes("horse")) return "horse";
   if (n.includes("pile") || n.includes("hoard") || n.includes("stash")) return "pile";
-  if (kind === "worn") return "sack";
-  if (kind === "vehicle") return "wagon";
-  if (kind === "mount") return "horse";
+  if (legacyKind === "worn") return "sack";
+  if (legacyKind === "vehicle") return "wagon";
+  if (legacyKind === "mount") return "horse";
   return "chest";                                             // a bare container
 };
 
 /** Container / transport art, from its class. */
-export const iconForTransport = (name = "", kind = "", stored = "") =>
-  P(CONTAINER_CLASSES[containerClass(name, kind, stored)].icon);
+export const iconForTransport = (name = "", legacyKind = "", stored = "") =>
+  P(CONTAINER_CLASSES[containerClass(name, legacyKind, stored)].icon);
 
-/** The i18n key naming what a container is: "Horse", "Wagon", "Item Pile", … */
-export const containerClassLabel = (name = "", kind = "", stored = "") =>
-  CONTAINER_CLASSES[containerClass(name, kind, stored)].label;
+/** The i18n key naming a thing's Kind: "Horse", "Wagon", "Item Pile", … */
+export const containerClassLabel = (name = "", legacyKind = "", stored = "") =>
+  CONTAINER_CLASSES[containerClass(name, legacyKind, stored)].label;
 
 /**
  * Gear art by item type, with a few name-based specialisations for the generic
