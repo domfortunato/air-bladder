@@ -1,0 +1,28 @@
+_id: pUYpMnOzChu4Hjag
+name: Jar of Ants
+type: item
+img: systems/air-bladder/icons/generic-item.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    relicSource: srd-2e
+system:
+  description: 'Break to release a colony of fire ants [6 HP, 2 STR, 10 DEX, 1 WIL, bite (d10), detachment]. Consumes a ration every two days.'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+  relic: true
+  recharge: ''
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!pUYpMnOzChu4Hjag'

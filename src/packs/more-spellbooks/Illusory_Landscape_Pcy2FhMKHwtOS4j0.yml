@@ -1,7 +1,7 @@
 _id: Pcy2FhMKHwtOS4j0
 name: Illusory Landscape
 type: spellbook
-img: systems/air-bladder/icons/spellbook.png
+img: systems/air-bladder/icons/spellbook.svg
 effects: []
 folder: null
 sort: 0
@@ -24,5 +24,4 @@ system:
   equipped: false
   bulky: false
   quantity: 1
-  slots: 1
 _key: '!items!Pcy2FhMKHwtOS4j0'

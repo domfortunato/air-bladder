@@ -1,0 +1,28 @@
+_id: iQuW35aGbm3BnzEu
+name: Stone Eater
+type: item
+img: systems/air-bladder/icons/generic-item.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    relicSource: srd-2e
+system:
+  description: 'A rodent-sized centipede that consumes and digests stone, capable of cutting a small tunnel in under an hour. It can be used more than once, but only if you can catch it (DEX 18).'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 1
+    max: 1
+  relic: true
+  recharge: ''
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!iQuW35aGbm3BnzEu'

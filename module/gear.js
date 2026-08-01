@@ -31,8 +31,9 @@ import { iconForItem, SPELLSCROLL_ICON } from "./icons.js";
 export const CANONICAL_GEAR_PACKS = [
   "air-bladder.expeditionary-gear",
   "air-bladder.tools",
+  // Holds Lodestone, moved here 2026-07-29 when the one-item `extra` pack was
+  // retired -- so the three backgrounds that grant it by name still resolve.
   "air-bladder.trinkets",
-  "air-bladder.extra",
   "air-bladder.weapons",
   "air-bladder.armor",
   "air-bladder.market-goods",
@@ -58,8 +59,9 @@ export const GEAR_ALIASES = new Map([
   ["pole (10ft)", "Pole, 10ft"],
   ["pole", "Pole, 10ft"],
   ["plate", "Plate Mail"],
-  ["simple instrument (pipes, lute, etc.)", "Instrument"],
-  ["simple instruments (pipes, lute, etc.)", "Instrument"],
+  // The pack item carries the SRD shop's plural spelling, pairing it with
+  // "Complex Instruments (Bagpipes, Fiddle, etc.)"; Jongleur grants the singular.
+  ["simple instrument (pipes, lute, etc.)", "Simple Instruments (Pipes, Lute, etc.)"],
   ["boltcutters", "Bolt Cutters"],
   // The shop's tent IS the pool's tent: the barebones item is already bulky
   // with "fits 2" as its description. Without this the shop cannot see it and
@@ -90,22 +92,35 @@ export const spellNameFromGrant = (name) => {
 export const isScrollGrant = (name) => /^scroll\s*\(.+\)$/i.test(String(name).trim());
 
 /**
- * A single-use petty scroll built from a resolved spellbook document: type "item",
- * weightless (petty), one use, the spell's own text as its description, named
- * "Spellscroll — X". THE one definition of "what a scroll is", shared by named
- * scroll grants (resolveGearItem) and the random-scroll path
- * (character-generator.js randomScrollItem) so the two cannot drift.
+ * A single-use petty scroll built from a resolved spellbook document: the SAME
+ * spellbook type with `scroll` ticked, the spell's own text as its description, and
+ * stored under the bare spell name — the inventory row adds the "Spellscroll — "
+ * prefix at display time, exactly as it does for a book. THE one definition of
+ * "what a scroll is", shared by named scroll grants (resolveGearItem) and the
+ * random-scroll path (character-generator.js randomScrollItem) so the two cannot
+ * drift.
+ *
+ * This used to emit `type: "item"` under the name "Spellscroll — X", which made a
+ * generated scroll a THIRD representation no Warden could author or recognise: not
+ * a spellbook, not flagged, identifiable only by a word in its name (which is what
+ * `iconForItem` keys the scroll art off). `CairnItem._preUpdate` re-pins petty and
+ * the use count on every write, so the values below are the initial state rather
+ * than the only thing holding the invariant.
  */
 export const spellScrollItem = (book, { quantity = 1, uses } = {}) => ({
-  name: `Spellscroll — ${book.name}`,
-  type: "item",
+  name: book.name,
+  type: "spellbook",
   img: SPELLSCROLL_ICON,
   system: {
-    ...foundry.utils.deepClone(book.system),
+    // toObject() rather than deepClone — see resolveGearItem. The spread saved
+    // this one from mutating the pack, but it also copied prepared/derived
+    // fields off the live model into stored data.
+    ...book.system.toObject(),
+    scroll: true,
     weightless: true,
     equipped: false,
     quantity,
-    uses: { value: uses ?? 1, max: uses ?? 1 },
+    uses: { value: uses ?? 1, max: 1 },
   },
 });
 
@@ -165,10 +180,17 @@ export const buildGearItem = (g) => {
  * per-grant quantity/uses overrides applied. Returns null on a miss (and warns);
  * generation should degrade gracefully rather than throw.
  *
- * Not cached: `pack.getDocuments()` returns the pack's live documents, so an
- * in-session edit to an item is reflected on the next resolve — which is the
- * whole point of the editable-compendium model (edit → regenerate → change
- * appears).
+ * Still not cached: the match is found in the pack INDEX (names only, kept in
+ * memory and updated live when a document changes), then that one document is
+ * materialized with `getDocument`. So an in-session edit to an item is reflected
+ * on the next resolve — the whole point of the editable-compendium model (edit →
+ * regenerate → change appears) — without loading every document in eight packs.
+ *
+ * This runs once per gear name, and `getDocuments()` was walking ~1,000 documents
+ * across eight packs each time to read one name off each. Measured on the dev
+ * world (Foundry 14.365): twenty names went 34.5s -> 5.2s, and the six a typical
+ * Kettlewright character carries cost 1.8s cold (building the indexes, once per
+ * session) and 0ms warm, against ~1.7s PER NAME before.
  */
 export const resolveGearItem = async (name, { quantity = 1, uses } = {}) => {
   const spell = spellNameFromGrant(name);
@@ -180,8 +202,9 @@ export const resolveGearItem = async (name, { quantity = 1, uses } = {}) => {
   for (const key of packs) {
     const pack = game.packs.get(key);
     if (!pack) continue;
-    const docs = await pack.getDocuments();
-    const doc = docs.find((d) => d.name.toLowerCase() === lower);
+    const entry = (await pack.getIndex()).find((e) => e.name.toLowerCase() === lower);
+    if (!entry) continue;
+    const doc = await pack.getDocument(entry._id);
     if (doc) { found = doc; break; }
   }
   if (!found) {
@@ -200,7 +223,15 @@ export const resolveGearItem = async (name, { quantity = 1, uses } = {}) => {
     name: found.name,
     type: found.type,
     img: found.img,
-    system: foundry.utils.deepClone(found.system),
+    // toObject(), NOT deepClone. `found.system` is a TypeDataModel, and
+    // foundry.utils.deepClone returns any non-plain object UNCHANGED — by
+    // reference (common/utils/helpers.mjs:280-282, "Unsupported advanced
+    // objects"). So this used to hand back the compendium document's own
+    // system, and the two writes below mutated the pack in place: every item
+    // resolved in a session aliased one object per pack entry, last write wins.
+    // It was invisible until a grant asked for `uses`, because everything else
+    // was writing the same value back.
+    system: found.system.toObject(),
   };
   item.system.quantity = quantity;
   if (uses != null) item.system.uses = { value: uses, max: uses };

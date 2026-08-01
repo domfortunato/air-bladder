@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Air Bladder — a Cairn 2e game system for Foundry VTT</title>
+<meta name="description" content="Air Bladder is a Foundry VTT game system for Cairn 2nd Edition and Barebones, the OSR RPG by Yochai Gal. Character generation, backgrounds, marketplace, and Warden tables.">
+<link rel="icon" href="lydia-comer/Airbladder01.webp">
+<link rel="stylesheet" href="style.css">
+<meta property="og:title" content="Air Bladder — Cairn 2e for Foundry VTT">
+<meta property="og:description" content="A Foundry VTT game system for Cairn 2nd Edition and Barebones Edition. Compatible with Cairn by Yochai Gal.">
+<meta property="og:image" content="lydia-comer/Airbladder02.webp">
+<meta property="og:type" content="website">
+</head>
+<body>
+
+<header class="masthead">
+  <picture>
+    <source media="(prefers-color-scheme: dark)"  srcset="lydia-comer/Airbladder06.webp">
+    <source media="(prefers-color-scheme: light)" srcset="lydia-comer/Airbladder02.webp">
+    <img class="wordmark" alt="Air Bladder" src="lydia-comer/Airbladder01.webp" width="520">
+  </picture>
+
+  <p class="tagline">
+    A <a href="https://foundryvtt.com">Foundry VTT</a> game system for
+    <strong>Cairn 2e</strong> and <strong>Cairn Barebones Edition</strong>.
+  </p>
+
+  <nav class="toplinks">
+    <a class="btn btn-primary" href="#install">Install</a>
+    <a class="btn" href="https://github.com/domfortunato/air-bladder">GitHub</a>
+    <a class="btn" href="https://github.com/domfortunato/air-bladder/releases">Releases</a>
+  </nav>
+</header>
+
+<main>
+
+<section class="lede">
+  <p>
+    Air Bladder is a friendly companion system — <em>not</em> the official Cairn system.
+    It gives you verbose 2e backgrounds, character and hireling generation, a marketplace,
+    containers, and Warden-facing roll tables, with minimal automation and a lot of tooltips.
+  </p>
+  <p class="whence">
+    It descends from <a href="https://github.com/yochaigal/Cairn-FoundryVTT">yochaigal/Cairn-FoundryVTT</a>
+    by Yochai Gal &amp; Oskar Świda, which descends from the Electric Bastionland system and Into the Odd.
+    <em>Air Bladder</em> is the first item in the Gear table on p.&nbsp;17 of the Cairn 2e Player's Guide.
+  </p>
+</section>
+
+<section id="install">
+  <h2>Install</h2>
+  <p class="req">Requires <strong>Foundry VTT v14</strong>.</p>
+  <ol class="steps">
+    <li>In Foundry's <strong>Game Systems</strong> menu, click <strong>Install System</strong>.</li>
+    <li>Paste this manifest URL and install:</li>
+  </ol>
+  <div class="manifest">
+    <code id="manifest-url">https://github.com/domfortunato/air-bladder/releases/latest/download/system.json</code>
+    <button type="button" id="copy-manifest" data-label="Copy">Copy</button>
+  </div>
+</section>
+
+<section id="features">
+  <h2>What you get</h2>
+  <ul class="features">
+    <li>Random or manual generation of both <strong>Cairn 2e</strong> and <strong>Barebones</strong> characters — each style can be toggled on or off</li>
+    <li>Barebones sheets support optional homebrew features</li>
+    <li>Warden-authored <strong>custom 2e backgrounds</strong> — create, preview, lint, and share them across worlds</li>
+    <li>Random or manual generation of <strong>hireling</strong> sheets</li>
+    <li>A <strong>marketplace</strong> and containers</li>
+    <li>Warden-facing <strong>roll tables</strong> — encounters, travel, weather, NPCs, monsters</li>
+    <li>A gallery of 80 character portraits by <a href="https://jonaspeheim.itch.io/">Jon Aspeheim</a></li>
+    <li>Tooltips for players, and minimal automation — the rules stay in your hands</li>
+  </ul>
+</section>
+
+<section id="screenshots">
+  <h2>Screenshots</h2>
+  <div class="shots">
+    <figure>
+      <a href="docs/images/sheet-items.png"><img src="docs/images/sheet-items.png" alt="Character sheet — Items tab" loading="lazy"></a>
+      <figcaption>Items</figcaption>
+    </figure>
+    <figure>
+      <a href="docs/images/sheet-description.png"><img src="docs/images/sheet-description.png" alt="Character sheet — Description tab" loading="lazy"></a>
+      <figcaption>Description</figcaption>
+    </figure>
+    <figure>
+      <a href="docs/images/sheet-background-notes.png"><img src="docs/images/sheet-background-notes.png" alt="Character sheet — Background &amp; Notes tab" loading="lazy"></a>
+      <figcaption>Background &amp; Notes</figcaption>
+    </figure>
+  </div>
+  <p class="caption">
+    The character sheet. The red banner is the automatic <strong>Critical Damage</strong> condition,
+    shown when STR is damaged.
+  </p>
+
+  <figure class="wide">
+    <a href="docs/images/game-settings.png"><img src="docs/images/game-settings.png" alt="The Warden's game settings" loading="lazy"></a>
+    <figcaption>The Warden's game settings, grouped by section.</figcaption>
+  </figure>
+</section>
+
+<section id="guides">
+  <h2>Guides</h2>
+  <div class="cards">
+    <a class="card" href="https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md">
+      <h3>Creating custom backgrounds</h3>
+      <p>Write your own Cairn 2e background — gear, example names, and two d6 question tables — and lint it before you use it.</p>
+    </a>
+    <a class="card" href="https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md">
+      <h3>Sharing custom backgrounds</h3>
+      <p>Hand a background you wrote to another world or another Warden.</p>
+    </a>
+    <a class="card" href="https://github.com/domfortunato/air-bladder/blob/master/docs/custom-portrait-gallery.md">
+      <h3>Custom portrait gallery</h3>
+      <p>Put your own portrait art into the character generator's gallery.</p>
+    </a>
+    <a class="card" href="https://github.com/domfortunato/air-bladder/blob/master/docs/TRANSLATING.md">
+      <h3>Translating — the spreadsheet way</h3>
+      <p>Translate the interface and the game content with no coding and no git.</p>
+    </a>
+    <a class="card" href="https://github.com/domfortunato/air-bladder/blob/master/docs/translating-self-service.md">
+      <h3>Translating — the git way</h3>
+      <p>Work directly in the repo with pull requests, the way the Spanish translation is done.</p>
+    </a>
+  </div>
+</section>
+
+<section id="status">
+  <h2>Status</h2>
+  <p>
+    Early, active development. <strong>Send feedback and art.</strong> The system is being rebuilt
+    on the original's editable-compendium architecture — gear lives in Item compendia a Warden can
+    edit in one place, and character generation and the marketplace reference those packs by name.
+  </p>
+  <p>
+    <strong>Translators welcome.</strong> Spanish is the one language with a real translation
+    (82% of the interface and all the game content, by <a href="https://github.com/fsmalecho">Malecho</a>).
+    Danish, French, German, Polish and Brazilian Portuguese interface files came from the original
+    Cairn system and sit at 15–30%, unmaintained — untranslated text falls back to English, so they
+    work, they're just mostly English. The tooling takes any language; what's missing is people.
+  </p>
+  <p class="ai-note">
+    <strong>Generative-AI art will never appear in this project — ever.</strong> The code, on the
+    other hand, was written entirely with <a href="https://www.anthropic.com/claude-code">Claude Code</a>,
+    using Yochai Gal's original Cairn repo as a base.
+  </p>
+</section>
+
+<section id="credits">
+  <h2>Credits &amp; licences</h2>
+  <p>Air Bladder mixes several licensing regimes — please keep the attribution intact.</p>
+  <dl class="licences">
+    <dt>Game text — <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a></dt>
+    <dd>The Cairn rules and text (1st and 2nd edition) are by <strong>Yochai Gal</strong>. 2e content in this system inherits that licence; derivatives must share alike and attribute him.</dd>
+
+    <dt>Spanish translation — <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a></dt>
+    <dd>The Castilian Spanish (es-ES) translation is by <a href="https://github.com/fsmalecho"><strong>Malecho</strong></a>, and as a derivative of the game text carries the same licence.</dd>
+
+    <dt>Code — MIT</dt>
+    <dd>The system code descends from <strong>Cairn-FoundryVTT by Yochai Gal &amp; Oskar Świda</strong>, itself descended from the Electric Bastionland system.</dd>
+
+    <dt>"Compatible with Cairn" badge — CC BY-SA 4.0</dt>
+    <dd>Used unmodified per the terms on <a href="https://cairnrpg.com/resources/logos">cairnrpg.com/resources/logos</a>, attributed to Yochai Gal.</dd>
+
+    <dt>Air Bladder logo — © Lydia Comer, all rights reserved</dt>
+    <dd>The wordmark and related artwork are by <a href="https://linktr.ee/lydiadidmyink"><strong>Lydia Comer</strong></a>, licensed to the Air Bladder system for inclusion and unmodified redistribution as part of the system and its forks, and for unmodified use in representing the project; all other uses require permission.</dd>
+
+    <dt>Character art — <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a></dt>
+    <dd>The 80 paired portrait and token images are by <a href="https://jonaspeheim.itch.io/"><strong>Jon Aspeheim</strong></a> (<a href="https://jonaspeheim.itch.io/lemurs-portraits">Lemur's Portraits</a>). The artist states these were created without AI.</dd>
+
+    <dt>Item &amp; container icons — <a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a></dt>
+    <dd>Class icons are from <a href="https://game-icons.net">game-icons.net</a> by <strong>Lorc, Delapouite &amp; Skoll</strong>. Per-icon credits are recorded in the repo.</dd>
+  </dl>
+</section>
+
+</main>
+
+<footer>
+  <img class="badge" src="logo/Cairn-2e-Compatible_white.jpg" alt="Compatible with Cairn 2e" width="200">
+  <p class="fine">
+    A companion system compatible with Cairn — not the official Cairn system.
+    <a href="https://cairnrpg.com">Cairn</a> is by Yochai Gal.
+  </p>
+  <p class="fine">
+    <a href="https://github.com/domfortunato/air-bladder">Source on GitHub</a> ·
+    <a href="https://github.com/domfortunato/air-bladder/issues">Report an issue</a>
+  </p>
+</footer>
+
+<script>
+(function () {
+  var btn = document.getElementById("copy-manifest");
+  var url = document.getElementById("manifest-url");
+  if (!btn || !url) return;
+  btn.addEventListener("click", function () {
+    var text = url.textContent.trim();
+    var done = function () {
+      btn.textContent = "Copied";
+      btn.classList.add("copied");
+      setTimeout(function () {
+        btn.textContent = btn.dataset.label;
+        btn.classList.remove("copied");
+      }, 1600);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, select);
+    } else {
+      select();
+    }
+    function select() {
+      var range = document.createRange();
+      range.selectNodeContents(url);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      btn.textContent = "Press Ctrl+C";
+      setTimeout(function () { btn.textContent = btn.dataset.label; }, 2400);
+    }
+  });
+})();
+</script>
+
+</body>
+</html>

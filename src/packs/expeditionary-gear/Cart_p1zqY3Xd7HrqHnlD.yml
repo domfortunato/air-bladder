@@ -1,6 +1,6 @@
 name: Cart
 type: item
-img: systems/air-bladder/icons/generic-item.png
+img: systems/air-bladder/icons/generic-item.svg
 effects: []
 folder: null
 sort: 0
@@ -32,7 +32,5 @@ system:
     value: 0
     max: 0
   quantity: 1
-  slots: 0
   armor: 0
-  numberOfUses: 0
 _key: '!items!p1zqY3Xd7HrqHnlD'

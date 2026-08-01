@@ -28,7 +28,13 @@ export class Damage {
         if (!token?.actor) return null;
 
         const armor = token.actor.system.armor;
-        const hp = token.actor.system.hp.value;
+        // HP comes from SOURCE, not the derived value. _prepareCharacterData zeroes
+        // system.hp.value whenever the actor is encumbered or panicked, and this
+        // result is written straight back with update() — so reading the derived 0
+        // and persisting it destroyed the stored Hit Protection, even when armor
+        // absorbed the hit entirely (dmg 0 <= hp 0 still writes 0). Armor and STR
+        // are safe to read derived; only HP is overwritten during data prep.
+        const hp = token.actor.toObject().system.hp.value;
         const str = token.actor.system.abilities.STR.value;
 
         let { dmg, newHp, newStr } = this._calculateHpAndStr(damage, armor, hp, str);
@@ -46,8 +52,11 @@ export class Damage {
      * @param {*} data 
      */
     static onClickChatMessageApplyButton(event, html, data) {
-        const btn = $(event.currentTarget);
-        const targets = btn.data("targets");
+        // currentTarget, not target: the handler hangs off the anchor and a real
+        // pointer lands on the icon inside it. dataset reads the same
+        // data-targets attribute jQuery's .data() did, minus .data()'s implicit
+        // type coercion -- the value is a plain `;`-joined token-id string.
+        const targets = event.currentTarget.dataset.targets;
 
         let targetsList = targets.split(';');
 
@@ -148,7 +157,16 @@ export class Damage {
     }
 
     static async _rollScarsTable(damage) {
+        // findCompendiumItem resolves to undefined on a miss (it only warns to the
+        // console), so this dereference used to throw mid-damage-resolution if the
+        // pack were absent, renamed, or the table deleted from the world copy.
+        // Failing loudly but harmlessly is right here: the Warden asked for a scar
+        // and needs to know it did not happen.
         const table = await findCompendiumItem("air-bladder.utils", "Scars");
+        if (!table) {
+            ui.notifications?.warn(game.i18n.localize("CAIRN.Notify.NoScarsTable"));
+            return;
+        }
         const roll = new Roll(damage.toString());
         await table.draw({ roll });
     }

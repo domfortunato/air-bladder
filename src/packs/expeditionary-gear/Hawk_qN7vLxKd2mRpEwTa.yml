@@ -1,0 +1,27 @@
+_id: qN7vLxKd2mRpEwTa
+name: Hawk
+type: item
+img: systems/air-bladder/icons/generic-item.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: 2e
+system:
+  description: 'A trained bird of prey, hooded and jessed. Carried on the fist or a
+    padded shoulder.'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!qN7vLxKd2mRpEwTa'

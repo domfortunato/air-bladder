@@ -1,0 +1,28 @@
+_id: Wk7qED1Gigthm6f7
+name: Falconstone
+type: item
+img: systems/air-bladder/icons/generic-item.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    relicSource: srd-2e
+system:
+  description: Perceive the world through the eyes and ears of a nearby bird of prey. You feel whatever it feels but have no control over it.
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 3
+    max: 3
+  relic: true
+  recharge: 'Kill and eat a common quarry, cooking the meat alongside the stone.'
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!Wk7qED1Gigthm6f7'

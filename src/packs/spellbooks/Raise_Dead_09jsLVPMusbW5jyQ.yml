@@ -8,7 +8,7 @@ flags:
     system: cairn
     coreVersion: 0.7.5
     systemVersion: 1.0.0
-img: systems/air-bladder/icons/spellbook.png
+img: systems/air-bladder/icons/spellbook.svg
 effects: []
 _id: 09jsLVPMusbW5jyQ
 _stats:
@@ -31,7 +31,6 @@ system:
   equipped: true
   bulky: false
   quantity: 1
-  slots: 1
 folder: null
 sort: 0
 _key: '!items!09jsLVPMusbW5jyQ'

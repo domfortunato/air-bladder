@@ -1,6 +1,10 @@
 import { resolveGearItem, buildGearItem } from "./gear.js";
-import { getBackgroundsFor, withGrantSource } from "./character-generator.js";
+import { resultText } from "./compendium.js";
+import { getBackgroundsFor, withGrantSource, randomPortraitPair, FLAG_SCOPE } from "./character-generator.js";
+import { SETTINGS_NS } from "./settings.js";
 import { CairnActor } from "./actor/actor.js";
+import { FATIGUE_NAME } from "./item/item.js";
+import { Cairn } from "./config.js";
 
 /**
  * One-way importer: a Kettlewright (kettlewright.com) character export JSON ->
@@ -30,6 +34,271 @@ const isAbsoluteUrl = (s) => /^https?:\/\//i.test(String(s ?? ""));
 
 /** A single free-text scars blob -> multiple entries (Air Bladder scars is an array). */
 const splitScars = (s) => String(s ?? "").split(/[\n;]+/).map((x) => x.trim()).filter(Boolean);
+
+/* -------------------------------------------------------------------------- */
+/*  Grant provenance: which source produced which imported item                 */
+/* -------------------------------------------------------------------------- */
+
+/** Loose text identity: whitespace collapsed, quotes straightened, case ignored. */
+const norm = (s) => String(s ?? "").replace(/[’‘]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, " ").trim().toLowerCase();
+
+/** Jaccard overlap of the two texts' word sets, 0..1. */
+const similarity = (a, b) => {
+  const words = (s) => new Set(norm(s).split(/[^a-z0-9']+/).filter(Boolean));
+  const wa = words(a);
+  const wb = words(b);
+  if (!wa.size || !wb.size) return 0;
+  let shared = 0;
+  for (const w of wa) if (wb.has(w)) shared++;
+  return shared / (wa.size + wb.size - shared);
+};
+
+const MIN_SIMILARITY = 0.75; // below this, "close" is not close enough to act on
+const MIN_MARGIN = 0.2;      // and it must beat the runner-up by this much
+
+/**
+ * Find the candidate whose text is the one `text` came from, tolerating small
+ * wording drift.
+ *
+ * Exact identity is tried first and is what almost always fires. The fallback
+ * exists because our copy of the game text and Kettlewright's are now maintained
+ * separately, so they drift by a word here and there — Tripp's Ghost Violin is a
+ * "dark-grey violin" in Kettlewright and a "dark-gray" one here, and that single
+ * letter was enough to lose the match, leaving the item untagged and therefore
+ * un-re-rollable.
+ *
+ * Deliberately conservative, because a wrong match re-tags the wrong item and a
+ * later re-roll would then delete it: the best candidate must clear
+ * MIN_SIMILARITY *and* beat the runner-up by MIN_MARGIN. Options within one table
+ * describe entirely different things, so genuine matches score far above their
+ * rivals; anything ambiguous is simply left unmatched, which costs nothing but a
+ * duplicate the player can delete.
+ *
+ * Safe on long prose only. Do NOT reuse this for item names — the fork learned
+ * that fuzzy matching short strings confidently proposes Pail≈Nails, Bowl≈Bow.
+ *
+ * @param {String} text
+ * @param {Array} candidates
+ * @param {(c: any) => String} textOf
+ * @returns {any|null}
+ */
+export const bestTextMatch = (text, candidates, textOf) => {
+  const want = norm(text);
+  // Array.from, because a RollTable's results are a Collection: it has .find but
+  // no .length, so a raw candidates?.length check reads every table as empty.
+  const list = Array.from(candidates ?? []);
+  if (!want || !list.length) return null;
+  const exact = list.find((c) => norm(textOf(c)) === want);
+  if (exact) return exact;
+
+  const scored = list
+    .map((c) => ({ c, score: similarity(want, textOf(c)) }))
+    .sort((a, b) => b.score - a.score);
+  const [best, next] = scored;
+  if (best.score < MIN_SIMILARITY) return null;
+  if (next && best.score - next.score < MIN_MARGIN) return null;
+  return best.c;
+};
+
+/**
+ * Re-tag imported items with the grant source that actually produced them.
+ *
+ * Every imported item starts tagged `imported`, which no re-roll targets — so
+ * re-rolling a bond or a background question ADDED the new option's items while
+ * the originals stayed forever, and the sheet grew a duplicate every time. The
+ * inventory could only ever accumulate.
+ *
+ * We can do better than that, because a Kettlewright answer is the option's own
+ * description, verbatim: once the answer is matched back to its option we know
+ * exactly which items that option grants, and can hand the matching imported
+ * items over to `question:<i>` / `bond:<id>` so a re-roll replaces them properly.
+ *
+ * Matching is by name, first unclaimed item wins — the same best-effort standard
+ * the rest of the importer works to, since Kettlewright's item list carries no
+ * provenance of its own. An item that can't be matched keeps `imported` and is
+ * simply never auto-removed, which is the safe direction to fail in: a stray
+ * duplicate is recoverable by hand, a silently deleted item is not.
+ *
+ * @param {Object[]} items    the built item payloads, mutated in place
+ * @param {Object[]} granted  [{name}] the source is known to grant
+ * @param {String} source     the grantSource tag to apply
+ * @returns {Number} how many items were re-tagged
+ */
+const retagGranted = (items, granted, source) => {
+  let n = 0;
+  for (const g of granted ?? []) {
+    const want = norm(g?.name);
+    if (!want) continue;
+    const hit = items.find(
+      (it) => norm(it.name) === want && it.flags?.[FLAG_SCOPE]?.grantSource === "imported",
+    );
+    if (!hit) continue;
+    hit.flags[FLAG_SCOPE].grantSource = source;
+    n++;
+  }
+  return n;
+};
+
+/**
+ * Find the Bonds-table entry a Kettlewright bond came from, by matching its text.
+ * Returns the entry's mechanical payload — the items it grants — or null.
+ * Read-only: never roll()s or draw()s, so the table's state is untouched.
+ * @param {String} text
+ * @returns {Promise<{items: Object[], gold: Number}|null>}
+ */
+const findBondEntry = async (text) => {
+  if (!norm(text)) return null;
+  const pack = game.packs.get("air-bladder.tables-2e");
+  const table = pack ? (await pack.getDocuments()).find((t) => t.name === "Bonds") : null;
+  const hit = bestTextMatch(text, table?.results ?? [], resultText);
+  if (!hit) return null;
+  return { items: hit.getFlag(FLAG_SCOPE, "items") ?? [], gold: hit.getFlag(FLAG_SCOPE, "gold") ?? 0 };
+};
+
+/* -------------------------------------------------------------------------- */
+/*  Background questions: a notes blob -> structured question/answer pairs      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Kettlewright writes the two background questions and the player's answers into
+ * the free-text `notes` field, as the question line followed by the answer:
+ *
+ *   How was your fraud exposed?
+ *   You were cursed by a hedgewitch for fooling some innocent village folk. …
+ *
+ *   What keepsake could always identify you?
+ *   Surgeon's Soap: A lye and ash block that makes skin temporarily transparent. …
+ *
+ * Once the background has matched, we know exactly what those questions are — they
+ * are `system.tables[].question` on the background Item — so the blob can be split
+ * back into `system.questions`, which is what the sheet renders and re-rolls,
+ * instead of sitting in Notes as undifferentiated prose.
+ *
+ * Matching is whitespace-tolerant and case-insensitive but otherwise exact: a
+ * question either is the background's question or it isn't. Anything not claimed
+ * by a question stays in Notes, so a player's own writing is never eaten.
+ *
+ * @param {String} notes
+ * @param {String[]} questions  the background's prompts, in table order
+ * @returns {{ answers: String[], leftover: String, found: Number }}
+ *          answers is index-aligned with `questions` ("" where not found).
+ */
+export const parseQuestionAnswers = (notes, questions) => {
+  const text = String(notes ?? "");
+  const answers = questions.map(() => "");
+  if (!text.trim() || !questions.length) return { answers, leftover: text, found: 0 };
+
+  // Locate each question in the blob. Escape it, then let any run of whitespace
+  // match any other, so a rewrap or a stray double space doesn't lose the match.
+  const hits = [];
+  questions.forEach((q, i) => {
+    if (!q) return;
+    const pattern = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+    const m = text.match(new RegExp(pattern, "i"));
+    if (m?.index != null) hits.push({ i, start: m.index, end: m.index + m[0].length });
+  });
+  if (!hits.length) return { answers, leftover: text, found: 0 };
+
+  // Answers run from the end of one question to the start of the next, in the
+  // order they APPEAR — which needn't be the background's table order.
+  hits.sort((a, b) => a.start - b.start);
+  hits.forEach((h, n) => {
+    const stop = n + 1 < hits.length ? hits[n + 1].start : text.length;
+    answers[h.i] = text.slice(h.end, stop).trim();
+  });
+
+  // Whatever precedes the first question is the player's own note; keep it.
+  return { answers, leftover: text.slice(0, hits[0].start).trim(), found: hits.length };
+};
+
+/* -------------------------------------------------------------------------- */
+/*  Traits: one English sentence -> eight typed slots + age                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Kettlewright stores the eight 2e traits and the character's age as a single
+ * English sentence, built from the same 2e tables Air Bladder ships — and, as it
+ * happens, in almost exactly the phrasing our own sheet emits (`CAIRN.Bio.*`):
+ *
+ *   "You have a Stout Physique, Birthmarked Skin, and Long Hair. Your Face is
+ *    Pale, your Speech Precise. You have Rancid Clothing. You are Honorable and
+ *    Craven. You are 36 years old."
+ *
+ * So it parses back into `system.traits.*` and `system.age` instead of landing in
+ * Notes as prose, which is what it used to do — the reason an imported character
+ * arrived with empty trait dropdowns and no age.
+ *
+ * Anchored on the capitalised CATEGORY words, not on sentence shape, so a missing
+ * trait, a dropped Oxford comma, or extra whitespace doesn't derail the rest. Every
+ * shipped trait value is a single word, which is what makes the anchors sufficient.
+ * @param {String} text
+ * @returns {{ traits: Object, age: String, pair: String[] }}  pair = the raw
+ *          "You are X and Y" words, which need the tables to tell virtue from vice.
+ */
+export const parseTraitSentence = (text) => {
+  const s = String(text ?? "");
+  const traits = {};
+  const grab = (re, key) => {
+    const m = s.match(re);
+    if (m?.[1]) traits[key] = m[1];
+  };
+
+  // "<value> Physique" / "<value> Skin" / … — the word immediately before the label.
+  grab(/\b([A-Za-z][A-Za-z'-]*)\s+Physique\b/i, "physique");
+  grab(/\b([A-Za-z][A-Za-z'-]*)\s+Skin\b/i, "skin");
+  grab(/\b([A-Za-z][A-Za-z'-]*)\s+Hair\b/i, "hair");
+  grab(/\b([A-Za-z][A-Za-z'-]*)\s+Clothing\b/i, "clothing");
+  // "your Face is <value>" / "your Speech <value>" — here the label comes first.
+  grab(/\bFace\s+is\s+([A-Za-z][A-Za-z'-]*)/i, "face");
+  grab(/\bSpeech\s+(?:is\s+)?([A-Za-z][A-Za-z'-]*)/i, "speech");
+
+  // "You are 36 years old." Digits only, so it can never collide with the
+  // virtue/vice clause below, which requires two words.
+  const age = s.match(/\b(\d{1,3})\s+years?\s+old\b/i)?.[1] ?? "";
+
+  // "You are Honorable and Craven." Both captures are words, so the age clause
+  // cannot match here either. Which is which is decided by the tables, not by
+  // position — see resolveVirtueVice.
+  const m = s.match(/\bYou\s+are\s+([A-Za-z][A-Za-z'-]*)\s+and\s+([A-Za-z][A-Za-z'-]*)/i);
+  const pair = m ? [m[1], m[2]] : [];
+
+  return { traits, age, pair };
+};
+
+/**
+ * Decide which of the two words is the virtue and which the vice by looking them
+ * up in the shipped tables.
+ *
+ * Position is NOT reliable: Kettlewright writes virtue-then-vice ("Honorable and
+ * Craven") while Air Bladder's own sentence writes vice-then-virtue, so trusting
+ * the order would silently swap the two on every single import. The table lookup
+ * is also self-correcting if either app changes its phrasing later.
+ *
+ * Falls back to Kettlewright's observed order when the tables can't decide —
+ * a custom or translated value that appears in neither list.
+ * @param {String[]} pair
+ * @returns {Promise<{virtue?: String, vice?: String}>}
+ */
+export const resolveVirtueVice = async (pair) => {
+  if (pair.length !== 2) return {};
+  const [a, b] = pair;
+  const values = async (key) => {
+    const ref = Cairn?.characterGenerator2e?.biography?.items?.[key];
+    if (!ref) return new Set();
+    const [packName, tableName] = String(ref).split(";");
+    const pack = game.packs.get(packName);
+    if (!pack) return new Set();
+    const table = (await pack.getDocuments()).find((t) => t.name === tableName);
+    return new Set(Array.from(table?.results ?? []).map((r) => resultText(r).trim().toLowerCase()));
+  };
+  const [virtues, vices] = await Promise.all([values("virtue"), values("vice")]);
+  const isV = (w) => virtues.has(w.toLowerCase());
+  const isX = (w) => vices.has(w.toLowerCase());
+
+  if (isV(a) && isX(b)) return { virtue: a, vice: b };
+  if (isX(a) && isV(b)) return { virtue: b, vice: a };
+  return { virtue: a, vice: b }; // Kettlewright order
+};
 
 /**
  * Map one Kettlewright item record to an owned-item payload, tracking how it
@@ -75,6 +344,8 @@ export const kettlewrightToActorData = async (json) => {
   const bgName = json.custom_background || json.background || "";
   let background = bgName;
   let backgroundUuid = "";
+  let bgQuestions = []; // the matched background's question prompts, in table order
+  let bgTables = []; // …and the full tables, so an answer can be traced to its option
   if (bgName) {
     const pool = await getBackgroundsFor("2e");
     const hit = pool.find((b) => b.name.toLowerCase() === bgName.toLowerCase());
@@ -82,13 +353,15 @@ export const kettlewrightToActorData = async (json) => {
       background = hit.name;
       backgroundUuid = hit.uuid;
       report.background = { name: hit.name, matched: true };
+      bgTables = hit.system?.tables ?? [];
+      bgQuestions = bgTables.map((t) => String(t?.question ?? "").trim());
     } else {
       report.background = { name: bgName, matched: false };
     }
   }
 
   // --- Items: flatten every container's contents onto the character ---------
-  const FATIGUE = game.i18n.localize("CAIRN.Fatigue");
+  const FATIGUE = FATIGUE_NAME;
   const items = [];
   for (const kw of json.items ?? []) {
     // "Carrying X" markers are Kettlewright's container-load bookkeeping; with
@@ -120,14 +393,72 @@ export const kettlewrightToActorData = async (json) => {
   const scars = splitScars(json.scars);
   const bondsText = String(json.bonds ?? "").trim();
   const bonds = bondsText ? [{ id: foundry.utils.randomID(), description: bondsText, gold: 0 }] : [];
+  // Same trick as the questions: a Kettlewright bond is a Bonds-table entry
+  // verbatim, so the items it granted can be handed to `bond:<id>` and become
+  // re-rollable instead of accumulating.
+  if (bonds.length) {
+    const entry = await findBondEntry(bondsText);
+    if (entry) {
+      report.regranted = (report.regranted ?? 0) + retagGranted(items, entry.items, `bond:${bonds[0].id}`);
+    }
+  }
   const omens = String(json.omens ?? "");
   let notes = String(json.notes ?? "");
-  const traits = String(json.traits ?? "").trim();
-  if (traits) {
-    // Air Bladder traits is eight typed slots — a single Kettlewright blob has no
-    // structured home, so it lands in Notes under a label.
-    const label = game.i18n.localize("CAIRN.KWImport.TraitsLabel");
-    notes = (notes ? `${notes}\n\n` : "") + `${label} ${traits}`;
+
+  // Background questions: recoverable only because the background matched — an
+  // unmatched background means we don't know what the questions were, so the blob
+  // stays in Notes untouched.
+  let questions = [];
+  if (bgQuestions.length) {
+    const qa = parseQuestionAnswers(notes, bgQuestions);
+    if (qa.found) {
+      // gold stays 0 deliberately. That field exists so a LATER re-roll can reverse
+      // the gold this system granted; the import granted none (the character's gold
+      // came over as a total), and inventing a figure here would make a re-roll
+      // deduct coins the character may never have been given.
+      questions = bgQuestions.map((q, i) => ({ question: q, answer: qa.answers[i], gold: 0 }));
+      notes = qa.leftover;
+      report.questions = qa.found;
+
+      // A Kettlewright answer is the option's own description verbatim, so it can
+      // be traced back to the option — and therefore to the items that option
+      // grants. Hand those imported items to `question:<i>` so a later re-roll
+      // replaces them instead of stacking a second copy beside them.
+      bgTables.forEach((table, i) => {
+        const opt = bestTextMatch(qa.answers[i], table?.options ?? [], (o) => o?.description ?? "");
+        if (!opt) return;
+        report.regranted = (report.regranted ?? 0) + retagGranted(items, opt.items, `question:${i}`);
+      });
+    }
+  }
+  // Kettlewright's traits blob is a parseable sentence, not opaque prose: it maps
+  // back onto the eight typed slots and system.age. Only if the parse yields
+  // nothing at all does it fall back to landing in Notes under a label — better an
+  // unstructured record than a silently dropped one.
+  const traitText = String(json.traits ?? "").trim();
+  let traits = {};
+  let age = "";
+  if (traitText) {
+    const parsed = parseTraitSentence(traitText);
+    traits = { ...parsed.traits, ...(await resolveVirtueVice(parsed.pair)) };
+    age = parsed.age;
+    // The Warden's "min-age" floor applies to an imported character too. Generation
+    // enforces it in rollAge; an import bypasses that entirely, so a Kettlewright
+    // character could walk in younger than the setting allows. An age we could not
+    // parse is left blank rather than invented — unknown is not the same as young.
+    const floor = Number(game.settings.get(SETTINGS_NS, "min-age")) || 0;
+    const parsedAge = parseInt(age, 10);
+    if (Number.isFinite(parsedAge) && parsedAge < floor) {
+      report.ageRaised = { from: parsedAge, to: floor };
+      age = String(floor);
+    }
+    report.traits = Object.keys(traits).length;
+    report.age = age;
+    if (!report.traits && !age) {
+      const label = game.i18n.localize("CAIRN.KWImport.TraitsLabel");
+      notes = (notes ? `${notes}\n\n` : "") + `${label} ${traitText}`;
+      report.traitsUnparsed = true;
+    }
   }
 
   // Armor is a string column in Kettlewright; a numeric value forces Air Bladder's
@@ -154,6 +485,9 @@ export const kettlewrightToActorData = async (json) => {
       contentSource: "2e",
       description: String(json.description ?? ""),
       notes,
+      traits,
+      age,
+      questions,
       bonds,
       scarEnabled: scars.length > 0,
       scars,
@@ -169,9 +503,18 @@ export const kettlewrightToActorData = async (json) => {
     },
     type: "character",
   };
-  // Only a directly-usable absolute URL can travel across apps; otherwise leave
-  // Foundry's default portrait (never a random one — that would misrepresent the import).
+  // Portraits rarely travel: only a directly-usable absolute URL works across apps.
+  // Failing that, draw a random portrait + paired token exactly as generation does,
+  // so an import lands looking like a character rather than a blank silhouette. The
+  // player can swap it from the sheet's portrait gallery either way.
   if (json.custom_image && isAbsoluteUrl(json.image_url)) data.img = json.image_url;
+  else {
+    const pair = await randomPortraitPair();
+    if (pair) {
+      data.img = pair.img;
+      data.prototypeToken.texture = { src: pair.token };
+    }
+  }
 
   return { data, report };
 };
@@ -205,10 +548,13 @@ const pickJsonFileText = () =>
       reader.onerror = () => finish(null);
       reader.readAsText(file);
     });
+    // Cancelling the OS dialog fires `cancel` on the input (Chromium 113+, which
+    // covers every Foundry v14 client). Without it the promise stayed pending
+    // forever and the detached input was never collected -- harmless in practice,
+    // but it meant "cancel" and "still choosing" were indistinguishable, so a
+    // caller could never tell the two apart.
+    input.addEventListener("cancel", () => finish(null));
     input.click();
-    // If the OS picker is cancelled there is no reliable event; the promise simply
-    // stays pending (no actor is created, the hidden input is already detached on
-    // any later resolve). Harmless for a one-shot GM action.
   });
 
 /**
@@ -216,17 +562,21 @@ const pickJsonFileText = () =>
  * fatigue count, whether the background matched or was kept as text, and which
  * containers were flattened away — so the GM can fix up the sheet knowingly.
  * @param {CairnActor} actor @param {Object} report
+ * @returns {Promise<void>}
  */
-const showImportSummary = (actor, report) => {
+const showImportSummary = async (actor, report) => {
   const L = (k) => game.i18n.localize(k);
   const F = (k, d) => game.i18n.format(k, d);
   const parts = [];
 
+  // An unmatched background only reaches here when the GM turned the gate off, so
+  // spell out what they gave up: without the background's question list there is
+  // nothing to split the answers against, and nothing to re-roll them from.
   if (report.background) {
     parts.push(
       report.background.matched
         ? `<p class="kwi-ok"><i class="fas fa-check"></i> ${F("CAIRN.KWImport.BgMatched", { name: esc(report.background.name) })}</p>`
-        : `<p class="kwi-warn"><i class="fas fa-circle-exclamation"></i> ${F("CAIRN.KWImport.BgUnmatched", { name: esc(report.background.name) })}</p>`
+        : `<p class="kwi-warn"><i class="fas fa-circle-exclamation"></i> ${F("CAIRN.KWImport.BgUnmatched", { name: esc(report.background.name) })} ${L("CAIRN.KWImport.BgUnmatchedCost")}</p>`
     );
   }
 
@@ -238,13 +588,102 @@ const showImportSummary = (actor, report) => {
   if (report.containers.length) {
     parts.push(`<p>${L("CAIRN.KWImport.ContainersFlattened")}</p><ul>${report.containers.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>`);
   }
+  // Traits either became structured fields or stayed prose — say which, because the
+  // difference is visible on the sheet (populated dropdowns vs a paragraph in Notes).
+  if (report.questions) {
+    parts.push(`<p class="kwi-ok"><i class="fas fa-check"></i> ${F("CAIRN.KWImport.QuestionsMapped", { count: report.questions })}</p>`);
+  }
+  if (report.traitsUnparsed) {
+    parts.push(`<p class="kwi-warn"><i class="fas fa-circle-exclamation"></i> ${L("CAIRN.KWImport.TraitsUnparsed")}</p>`);
+  } else if (report.traits) {
+    parts.push(`<p class="kwi-ok"><i class="fas fa-check"></i> ${F("CAIRN.KWImport.TraitsMapped", { count: report.traits, age: esc(report.age) || "—" })}</p>`);
+  }
+  // Say so when the age on the sheet is not the age in the export.
+  if (report.ageRaised) {
+    parts.push(`<p class="kwi-warn"><i class="fas fa-circle-exclamation"></i> ${F("CAIRN.KWImport.AgeRaised", report.ageRaised)}</p>`);
+  }
 
-  new foundry.applications.api.DialogV2({
+  const dialog = new foundry.applications.api.DialogV2({
     window: { title: F("CAIRN.KWImport.SummaryTitle", { name: esc(actor.name) }), icon: "fas fa-file-import" },
     position: { width: 460 },
     content: `<div class="kwi-summary">${parts.join("")}</div>`,
     buttons: [{ action: "ok", label: L("CAIRN.Close"), default: true }],
-  }).render(true);
+  });
+  await dialog.render(true);
+
+  // Put the summary in front of the character sheet. It is the only place that says
+  // what didn't import cleanly, so it must not open buried.
+  //
+  // The ordering is the opposite of what it looks like. Creating the actor
+  // auto-renders its sheet, but that render is kicked off asynchronously and lands
+  // AFTER create() resolves — i.e. after this dialog has already drawn — so the
+  // sheet takes the next number from the shared z-index counter and covers us
+  // (measured: summary 101, sheet 102). Raising the dialog inline here is useless:
+  // it only bumps a counter the sheet is about to out-bid.
+  //
+  // Worse, the sheet claims its z AFTER its own render hook fires, so the hook
+  // alone isn't late enough either — hence the extra macrotask.
+  const raise = () => setTimeout(() => dialog.bringToFront?.(), 0);
+  if (actor.sheet?.rendered) raise();
+  else {
+    let fallback = null;
+    const hookId = Hooks.on("renderCairnActorSheet", (app) => {
+      if (app?.actor?.id !== actor.id) return;
+      Hooks.off("renderCairnActorSheet", hookId);
+      clearTimeout(fallback);
+      raise();
+    });
+    // Safety net: a sheet that never renders must not leave the summary buried.
+    fallback = setTimeout(() => {
+      Hooks.off("renderCairnActorSheet", hookId);
+      raise();
+    }, 1000);
+  }
+};
+
+/**
+ * Ask what to do before the file dialog opens, because the answer decides whether
+ * the file is even usable. One option today: whether a background that matches
+ * nothing is refused.
+ *
+ * It defaults ON every time rather than remembering the last answer — it is a
+ * safety gate, and a gate that silently stays open because of something you did
+ * last week is not one. A Warden importing a run of custom-background characters
+ * pays one extra click each.
+ *
+ * @returns {Promise<{requireBackground: Boolean}|null>} null if cancelled
+ */
+const promptImportOptions = async () => {
+  const L = (k) => game.i18n.localize(k);
+  const result = await foundry.applications.api.DialogV2.wait({
+    window: { title: L("CAIRN.KWImport.Button"), icon: "fas fa-file-import" },
+    position: { width: 460 },
+    content: `
+      <div class="kwi-options">
+        <p>${L("CAIRN.KWImport.OptionsIntro")}</p>
+        <label class="kwi-check">
+          <input type="checkbox" name="requireBackground" checked>
+          <span>${L("CAIRN.KWImport.RequireBg")}</span>
+        </label>
+        <p class="kwi-hint">${L("CAIRN.KWImport.RequireBgHint")}</p>
+      </div>`,
+    buttons: [
+      {
+        action: "import",
+        label: L("CAIRN.KWImport.ChooseFile"),
+        icon: "fas fa-file-import",
+        default: true,
+        // The checkbox is read here rather than from a form submit: DialogV2 hands
+        // the button its own element, and this dialog has one field.
+        callback: (_ev, button) => ({
+          requireBackground: !!button.form?.elements?.requireBackground?.checked,
+        }),
+      },
+      { action: "cancel", label: L("CAIRN.Cancel"), callback: () => null },
+    ],
+    rejectClose: false,
+  });
+  return result ?? null;
 };
 
 /**
@@ -257,6 +696,8 @@ export const importKettlewrightCharacter = async () => {
     ui.notifications.warn(game.i18n.localize("CAIRN.KWImport.GmOnly"));
     return null;
   }
+  const options = await promptImportOptions();
+  if (!options) return null;
   const text = await pickJsonFileText();
   if (text == null) return null;
   let json;
@@ -271,7 +712,27 @@ export const importKettlewrightCharacter = async () => {
     return null;
   }
   const { data, report } = await kettlewrightToActorData(json);
+
+  // Refuse rather than half-import, unless the GM turned the gate off. Without a
+  // matching background there is no question list, so the answers stay an
+  // undifferentiated blob in Notes and none of the items a question granted can be
+  // traced to it — the character arrives looking complete while quietly missing the
+  // things that make it re-rollable. A named background nobody has is usually a
+  // Kettlewright custom one: the fix is either to author it here (Custom
+  // Backgrounds) and import again, or to accept the loss by unticking the gate,
+  // which is why the message names the background AND the escape.
+  if (options.requireBackground && !report.background?.matched) {
+    const name = report.background?.name;
+    ui.notifications.error(
+      name
+        ? game.i18n.format("CAIRN.KWImport.BgNoMatch", { name })
+        : game.i18n.localize("CAIRN.KWImport.BgMissing"),
+      { permanent: true },
+    );
+    return null;
+  }
+
   const actor = await CairnActor.create(data);
-  if (actor) showImportSummary(actor, report);
+  if (actor) await showImportSummary(actor, report);
   return actor;
 };

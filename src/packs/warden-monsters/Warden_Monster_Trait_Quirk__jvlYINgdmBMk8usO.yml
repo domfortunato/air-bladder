@@ -5,262 +5,222 @@ description: Cairn 2e monster quirk (Creating Monsters). Roll with Trait (Weakne
 results:
   - _id: FjAGT8n3SncLlfB1
     type: text
-    text: Alters Its Size at Will
+    description: Alters Its Size at Will
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 1
       - 1
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!jvlYINgdmBMk8usO.FjAGT8n3SncLlfB1'
   - _id: kRpHzHGdoZssHQWt
     type: text
-    text: Changes Color at Will
+    description: Changes Color at Will
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 2
       - 2
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!jvlYINgdmBMk8usO.kRpHzHGdoZssHQWt'
   - _id: 68TQlvDgX0s5pDNi
     type: text
-    text: Collects Rare Flowers
+    description: Collects Rare Flowers
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 3
       - 3
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!jvlYINgdmBMk8usO.68TQlvDgX0s5pDNi'
   - _id: 2WjMK1mp1MNZS38l
     type: text
-    text: Collects Trophies
+    description: Collects Trophies
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 4
       - 4
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!jvlYINgdmBMk8usO.2WjMK1mp1MNZS38l'
   - _id: m8RpQNDvhvFczhE4
     type: text
-    text: Does Not Die of Old Age
+    description: Does Not Die of Old Age
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 5
       - 5
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!jvlYINgdmBMk8usO.m8RpQNDvhvFczhE4'
   - _id: asyLyb0um48JObSU
     type: text
-    text: Draws Symbols
+    description: Draws Symbols
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 6
       - 6
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!jvlYINgdmBMk8usO.asyLyb0um48JObSU'
   - _id: 7iyZhlHD8FArvUEk
     type: text
-    text: Fascinated by Fire
+    description: Fascinated by Fire
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 7
       - 7
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!jvlYINgdmBMk8usO.7iyZhlHD8FArvUEk'
   - _id: C5w5rcCQdkV2M3Hi
     type: text
-    text: Hoards Books
+    description: Hoards Books
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 8
       - 8
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!jvlYINgdmBMk8usO.C5w5rcCQdkV2M3Hi'
   - _id: 69eSebQO05A8nahH
     type: text
-    text: Loves a Specific Color
+    description: Loves a Specific Color
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 9
       - 9
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!jvlYINgdmBMk8usO.69eSebQO05A8nahH'
   - _id: IwaMItmYeMYLdHsV
     type: text
-    text: Reborn Each Day
+    description: Reborn Each Day
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 10
       - 10
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!jvlYINgdmBMk8usO.IwaMItmYeMYLdHsV'
   - _id: l5m2nKERRAGxJ0pX
     type: text
-    text: Loves Shiny Objects
+    description: Loves Shiny Objects
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 11
       - 11
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!jvlYINgdmBMk8usO.l5m2nKERRAGxJ0pX'
   - _id: s6OEC1599SIMNFSU
     type: text
-    text: Mimics Voices
+    description: Mimics Voices
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 12
       - 12
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!jvlYINgdmBMk8usO.s6OEC1599SIMNFSU'
   - _id: tk8SfgzKKV7HdxRe
     type: text
-    text: Moves in a Straight Line
+    description: Moves in a Straight Line
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 13
       - 13
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!jvlYINgdmBMk8usO.tk8SfgzKKV7HdxRe'
   - _id: 7GmNwZLiczYNdHdz
     type: text
-    text: Narrates Everything
+    description: Narrates Everything
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 14
       - 14
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!jvlYINgdmBMk8usO.7GmNwZLiczYNdHdz'
   - _id: W2g6baVgCWoFrm7R
     type: text
-    text: Obsessively Cleans
+    description: Obsessively Cleans
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 15
       - 15
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!jvlYINgdmBMk8usO.W2g6baVgCWoFrm7R'
   - _id: DcBQ1pjLopet5EwP
     type: text
-    text: Plants Grow in Its Wake
+    description: Plants Grow in Its Wake
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 16
       - 16
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!jvlYINgdmBMk8usO.DcBQ1pjLopet5EwP'
   - _id: gmuRiyXbShcyFBr7
     type: text
-    text: Sleeps Upside Down
+    description: Sleeps Upside Down
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 17
       - 17
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!jvlYINgdmBMk8usO.gmuRiyXbShcyFBr7'
   - _id: jcNSVSn9mtTzzH5I
     type: text
-    text: Speaks in Rhymes
+    description: Speaks in Rhymes
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 18
       - 18
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!jvlYINgdmBMk8usO.jcNSVSn9mtTzzH5I'
   - _id: AIEqNxCHHLaRZkkX
     type: text
-    text: Sweats Rare Minerals
+    description: Sweats Rare Minerals
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 19
       - 19
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!jvlYINgdmBMk8usO.AIEqNxCHHLaRZkkX'
   - _id: odakZRXuUd2DDaTf
     type: text
-    text: Reproduces Asexually
+    description: Reproduces Asexually
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 20
       - 20
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!jvlYINgdmBMk8usO.odakZRXuUd2DDaTf'
 formula: 1d20

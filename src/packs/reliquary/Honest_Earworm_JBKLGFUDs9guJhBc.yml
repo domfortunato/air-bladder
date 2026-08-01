@@ -1,0 +1,28 @@
+_id: JBKLGFUDs9guJhBc
+name: Honest Earworm
+type: item
+img: systems/air-bladder/icons/generic-item.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    relicSource: srd-2e
+system:
+  description: 'A foul-smelling, pinky-sized worm that feeds on earwax by crawling into the ear canal of a sleeping person. The victim then loses the ability to lie for 1d4 hours.'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 1
+    max: 1
+  relic: true
+  recharge: ''
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!JBKLGFUDs9guJhBc'

@@ -1,0 +1,28 @@
+_id: Tm8goqYYhtONQi9I
+name: Skull Whistle
+type: item
+img: systems/air-bladder/icons/generic-item.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    relicSource: srd-2e
+system:
+  description: Produces a chilling scream that forces any who hear it (including the blower) to make a WIL save or become temporarily incapacitated.
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 3
+    max: 3
+  relic: true
+  recharge: Feed the instrument a clump of human hair pulled from a living skull.
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!Tm8goqYYhtONQi9I'

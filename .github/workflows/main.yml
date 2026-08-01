@@ -11,9 +11,14 @@ on:
   push:
     tags:
       - "[0-9]+.[0-9]+.[0-9]+"
-  # Also fire if a release is published directly on GitHub.
-  release:
-    types: [published]
+  # There is deliberately NO `release: [published]` trigger. It used to be here, from
+  # when 0.1.0 was assembled by hand on GitHub. It did not cause the mirror bug -- it
+  # HID it: a release made in GitHub's UI creates a GitHub-only tag, this trigger built
+  # and attached both assets so everything looked correct, and then the next mirror sync
+  # pruned the tag and silently demoted the release to a draft. Without it, a
+  # GitHub-made release simply has no assets -- broken immediately and visibly, while
+  # you are still looking at it. workflow_dispatch below covers every legitimate rebuild.
+  #
   # Manual fallback: (re)build + attach assets to an existing tag from the Actions
   # tab. Use if a tag push somehow didn't fire, or to rebuild a release's assets.
   workflow_dispatch:
@@ -25,15 +30,14 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # One source of truth for the tag across all three triggers:
+    # One source of truth for the tag across both triggers:
     #   tag push        -> github.ref_name
-    #   release publish -> github.event.release.tag_name
     #   manual dispatch -> inputs.tag
     env:
-      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag || github.ref_name }}
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
-      # Checkout the triggering ref: the tagged commit on a tag push / release
-      # event, or the selected branch on a manual run. No explicit `ref` needed.
+      # Checkout the triggering ref: the tagged commit on a tag push, or the selected
+      # branch on a manual run. No explicit `ref` needed.
       - uses: actions/checkout@v4
 
       # Build the LevelDB compendia from src/packs/ (packs/ is gitignored)
@@ -55,7 +59,10 @@ jobs:
           download: https://github.com/${{github.repository}}/releases/download/${{ env.RELEASE_TAG }}/system.zip
 
       # Create a zip file with all files required by the system to add to the release
-      - run: zip -r ./system.zip README.md README.es.md LICENSE.txt system.json template.json css/ fonts/ icons/ lang/ logo/ lydia-comer/ module/ packs/ templates/ character_portraits/ character_tokens/
+      # template.json was dropped when the sub-type schemas moved to TypeDataModel
+      # (module/data-models.js). zip skips a missing file silently, so this listed a
+      # file that had not existed for releases without anyone noticing.
+      - run: zip -r ./system.zip README.md README.es.md LICENSE.txt system.json css/ fonts/ icons/ lang/ logo/ lydia-comer/ module/ packs/ templates/ character_portraits/ character_tokens/
 
       # Create/update the release with the built files
       - name: Update Release with Files
@@ -63,13 +70,20 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           allowUpdates: true # Set this to false if you want to prevent updating existing releases
-          name: ${{ github.event.release.name }}
-          # A tag-push / manual run carries no release name/body — don't blank them on update.
+          # No `name`/`body` inputs: neither trigger carries them, and the action falls back
+          # to the tag for the name. The omit flags then stop an update from blanking notes
+          # written by hand on the release page.
           omitNameDuringUpdate: true
           omitBodyDuringUpdate: true
           draft: false
+          # `prerelease: false` applies to NEWLY created releases only. Without the omit
+          # flag, allowUpdates would also force an existing release back to false — so
+          # rebuilding an old release's assets via workflow_dispatch would silently undo
+          # a pre-release marking. 0.1.0-0.1.6 are marked pre-release by hand; this keeps
+          # that intact. (ncipollo/release-action: "This will preserve the existing
+          # prerelease state during updates.")
           prerelease: false
+          omitPrereleaseDuringUpdate: true
           token: ${{ secrets.GITHUB_TOKEN }}
           artifacts: "./system.json, ./system.zip"
           tag: ${{ env.RELEASE_TAG }}
-          body: ${{ github.event.release.body }}

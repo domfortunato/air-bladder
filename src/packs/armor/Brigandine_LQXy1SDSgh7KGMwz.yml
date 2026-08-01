@@ -1,7 +1,7 @@
 _id: LQXy1SDSgh7KGMwz
 name: Brigandine
 type: armor
-img: systems/air-bladder/icons/armor.png
+img: systems/air-bladder/icons/armor.svg
 effects: []
 folder: null
 sort: 0
@@ -32,5 +32,4 @@ system:
     max: 0
   armor: 1
   quantity: 1
-  slots: 2
 _key: '!items!LQXy1SDSgh7KGMwz'

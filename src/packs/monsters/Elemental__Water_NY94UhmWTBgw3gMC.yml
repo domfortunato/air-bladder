@@ -3,7 +3,7 @@ name: Elemental, Water
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.png
+img: systems/air-bladder/icons/monster.svg
 items:
   - _id: nNU1YoxQuN2pd6N5
     name: Whirling Water

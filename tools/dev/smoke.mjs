@@ -40,7 +40,7 @@ try {
     systemVersion: game.system.version,
     coreVersion: game.version,
     world: game.world.id,
-    packs: game.packs.map(p => ({ name: p.metadata.name, size: p.index.size })),
+    packs: game.packs.map(p => ({ name: p.metadata.name, id: p.metadata.id, size: p.index.size })),
     actorTypes: game.documentTypes.Actor,
     itemTypes: game.documentTypes.Item,
   }));
@@ -49,10 +49,17 @@ try {
 
   info.system === "air-bladder" ? ok("system loaded") : fail(`wrong system: ${info.system}`);
 
-  const total = info.packs.reduce((n, p) => n + p.size, 0);
-  const empty = info.packs.filter(p => !p.size);
+  // Only SHIPPED packs must be non-empty. game.packs also carries world-level ones,
+  // and `world.custom-backgrounds` (created on demand by character-generator.js for
+  // GM-authored backgrounds) is empty until a GM authors one — so asserting over
+  // every pack failed on a perfectly healthy world, and told you to run build:packs,
+  // which could never have fixed it.
+  const shipped = info.packs.filter(p => p.id.startsWith("air-bladder."));
+  const world = info.packs.filter(p => !p.id.startsWith("air-bladder."));
+  const total = shipped.reduce((n, p) => n + p.size, 0);
+  const empty = shipped.filter(p => !p.size);
   if (empty.length) fail(`empty packs (did you run build:packs?): ${empty.map(p => p.name).join(", ")}`);
-  else ok(`${info.packs.length} packs, ${total} documents`);
+  else ok(`${shipped.length} system packs, ${total} documents${world.length ? ` (+${world.length} world pack(s), not asserted)` : ""}`);
 
   // Render a character sheet: the AppV1 path, and where most breakage shows up.
   const sheet = await page.evaluate(async () => {
@@ -63,9 +70,11 @@ try {
       a.sheet.render(true);
       await new Promise(r => setTimeout(r, 3000));
       const el = a.sheet.element;
-      const node = el?.[0] ?? el;            // AppV1 returns jQuery
+      const node = el instanceof HTMLElement ? el : el?.[0];   // AppV1 returns jQuery
       out.sheetClass = a.sheet.constructor.name;
-      out.inDom = !!document.querySelector(".app.window-app");
+      // Ask the sheet for its own element rather than matching a framework class:
+      // AppV1 windows are `.app.window-app`, ApplicationV2's are `.application`.
+      out.inDom = !!node?.isConnected;
       out.tabs = [...(node?.querySelectorAll?.("nav .item, .tabs .item") ?? [])].map(t => t.textContent.trim());
       await a.delete();
     } catch (e) { out.error = `${e.name}: ${e.message}`; }

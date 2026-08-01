@@ -3,7 +3,7 @@ type: weapon
 flags:
   core:
     sourceId: Item.0avKvBs4YT9gkvxr
-img: systems/air-bladder/icons/weapons.png
+img: systems/air-bladder/icons/weapons.svg
 effects: []
 _id: fZ5pC0Yo00zfz6xO
 _stats:
@@ -31,7 +31,6 @@ system:
     value: 0
     max: 0
   quantity: 1
-  slots: 1
 folder: null
 sort: 0
 _key: '!items!fZ5pC0Yo00zfz6xO'

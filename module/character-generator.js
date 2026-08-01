@@ -1,15 +1,18 @@
 import { CairnActor } from "./actor/actor.js";
-import { compendiumInfoFromString, drawTableText, findCompendiumItem } from "./compendium.js";
+import { compendiumInfoFromString, drawTableText, resultText } from "./compendium.js";
 import { Cairn } from "./config.js";
 import { evaluateFormula } from "./utils.js";
 import { resolveGearItem, SPELL_PACKS, GEAR_ALIASES, spellScrollItem } from "./gear.js";
 import { iconForTransport } from "./icons.js";
 import { SETTINGS_NS } from "./settings.js";
+import { t } from "./i18n-content.js";
 
 // Foundry validates a document flag's scope against real package ids, so flags
 // use the system id "air-bladder" (NOT the internal "cairn" JS/settings namespace,
 // which is fine for game.settings but is rejected by Document#getFlag/setFlag).
-const FLAG_SCOPE = "air-bladder";
+/** Flag scope for grant provenance. Exported so other modules (the Kettlewright
+ *  importer) tag and read the same namespace rather than hardcoding a copy. */
+export const FLAG_SCOPE = "air-bladder";
 
 /*
  * Cairn 2e character generation.
@@ -204,7 +207,7 @@ export const rollNameFromTable = async (config, fallback) => {
   const table = pack ? (await pack.getDocuments()).find((t) => t.name === tableName) : null;
   if (!table) return fallback;
   const { results } = await table.roll();
-  return results[0]?.text?.trim() || fallback;
+  return resultText(results[0]).trim() || fallback;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -274,21 +277,65 @@ const tagBackgroundGear = (items) =>
 /* -------------------------------------------------------------------------- */
 
 /**
- * Draw a Cairn 2e bond from the tables-2e "Bonds" RollTable. Each result's
- * mechanical payload rides in flags.air-bladder: starting gold and a gear reference
- * (resolved here against the pool); the result text is the narrative. Uses
- * roll(), never draw(), so the table's drawn state is never mutated.
+ * Find a bonds table BY NAME, for a custom background that names its own.
+ *
+ * By name rather than by uuid, deliberately, and for the same reason a background's
+ * gear references are by name (see duplicateBackgroundToWorld): a uuid pointing into
+ * one world's pack is dead the moment the background is shared, which is the whole
+ * point of authoring one. A world RollTable is looked at FIRST because that is the
+ * easiest thing for a Warden to make — Tables tab, New Table — then any pack.
+ * @returns {Promise<RollTable|null>}
+ */
+const findBondsTableByName = async (name) => {
+  const wanted = String(name).trim();
+  const world = game.tables?.find((t) => t.name === wanted);
+  if (world) return world;
+  for (const pack of game.packs) {
+    if (pack.metadata.type !== "RollTable") continue;
+    const entry = (await pack.getIndex()).find((e) => e.name === wanted);
+    if (entry) return pack.getDocument(entry._id);
+  }
+  return null;
+};
+
+/** The shipped 2e Bonds table. */
+const shippedBondsTable = async () => {
+  const pack = game.packs.get("air-bladder.tables-2e");
+  return pack ? (await pack.getDocuments()).find((t) => t.name === "Bonds") ?? null : null;
+};
+
+/**
+ * Draw a Cairn 2e bond. With no argument this is the shipped `tables-2e` "Bonds"
+ * table, whose each result carries its mechanical payload in flags.air-bladder
+ * (starting gold and a gear reference, resolved here); the result text is the
+ * narrative. Uses roll(), never draw(), so the table's drawn state is never mutated.
+ *
+ * `tableName` is a custom background's own bonds table. Such a table is NARRATIVE
+ * ONLY by design: Foundry's RollTable UI cannot author custom flags, so a hand-made
+ * row has no gold and no gear — and rather than invent structure by parsing its prose,
+ * the payload simply comes back empty and the text carries the meaning, which is the
+ * same call the system makes everywhere else about mechanical text. The shipped table
+ * keeps its automatic payload because the importer writes those flags.
+ *
+ * A named table that cannot be found falls back to the shipped one, so a typo or a
+ * table left behind when a background was shared degrades to a normal 2e bond rather
+ * than to no bond at all.
+ * @param {String} [tableName]
  * @returns {Promise<{description:String, gold:Number, items:Object[]}|null>}
  */
-export const drawBond = async () => {
-  const pack = game.packs.get("air-bladder.tables-2e");
-  const table = pack ? (await pack.getDocuments()).find((t) => t.name === "Bonds") : null;
+export const drawBond = async (tableName) => {
+  const wanted = String(tableName ?? "").trim();
+  let table = wanted ? await findBondsTableByName(wanted) : null;
+  if (wanted && !table) {
+    console.warn(`Air Bladder | no RollTable named "${wanted}" — falling back to the 2e Bonds table`);
+  }
+  table ??= await shippedBondsTable();
   if (!table) return null;
   const { results } = await table.roll();
   const result = results[0];
   if (!result) return null;
   return {
-    description: result.text ?? "",
+    description: resultText(result),
     gold: result.getFlag(FLAG_SCOPE, "gold") ?? 0,
     // Items are unflagged here; bondRecordFrom tags them with the bond's id.
     items: await resolveRefs(result.getFlag(FLAG_SCOPE, "items") ?? []),
@@ -463,9 +510,13 @@ const CUSTOM_BG_PACK = "world.custom-backgrounds";
 const ensureCustomBackgroundPack = async () => {
   const existing = game.packs.get(CUSTOM_BG_PACK);
   if (existing) return existing;
+  // The label is stored on the pack, so it is fixed in whatever language the
+  // Warden was running when it was first created — Foundry has no i18n for
+  // world-compendium labels. Localizing here at least means a Spanish Warden's
+  // world does not acquire an English compendium out of nowhere.
   return foundry.documents.collections.CompendiumCollection.createCompendium({
     type: "Item",
-    label: "Custom Backgrounds",
+    label: game.i18n.localize("CAIRN.CustomBackgroundsPack"),
     name: "custom-backgrounds",
   });
 };
@@ -567,9 +618,7 @@ export const grantContainers = async (actor, specs) => {
       img: art,
       prototypeToken: { texture: { src: art } },
       system: {
-        // Capacity is read as system.slots.value (calcCurrentMaxSlots) even though
-        // a transport document carries a plain number.
-        slots: { value: spec.slots ?? doc?.system.slots ?? 0 },
+        slots: spec.slots ?? doc?.system.slots ?? 0,
         description: doc?.system.description ?? "",
         transportKind: kind,
         // A mount/vehicle carries its own pool and costs its keeper nothing; the
@@ -582,7 +631,15 @@ export const grantContainers = async (actor, specs) => {
     });
     if (!container) continue;
     await actor.createOwnedContainer(container);
-    await container.update({ ownership: foundry.utils.deepClone(actor.ownership) });
+    // GM-only, for the same reason as the identical write in `marketplace.js`
+    // (`acquireTransport`): Foundry refuses an `ownership` write from anyone below
+    // Assistant, so for a player with ACTOR_CREATE this threw AFTER the container
+    // was created and linked — aborting the loop, so any remaining containers were
+    // never granted and the sheet never opened. A player doesn't need it: Foundry
+    // makes the creating user an owner of what they create.
+    if (game.user.isGM) {
+      await container.update({ ownership: foundry.utils.deepClone(actor.ownership) });
+    }
     made.push(container);
   }
   return made;
@@ -615,7 +672,7 @@ export const grantedContainersOf = (actor) =>
  * @param {CairnActor} actor @param {String|null} source
  * @returns {Boolean} true to proceed
  */
-export const canRegenerateContainers = (actor, source = null) => {
+export const canRegenerateContainers = (actor, source = null, warnKey = "CAIRN.Notify.NoContainerRegen") => {
   if (game.user.isGM) return true; // isGM === role >= ASSISTANT, exactly what Actor delete needs
   const mayCreate = game.settings.get(SETTINGS_NS, "show-containers-tab");
   const existing = grantedContainersOf(actor);
@@ -623,16 +680,23 @@ export const canRegenerateContainers = (actor, source = null) => {
     ? existing.some((c) => c.getFlag(FLAG_SCOPE, "grantSource") === source)
     : existing.length > 0;
   if (!mayCreate && !mustDelete) return true; // no Actor create/delete needed
-  ui.notifications.warn(game.i18n.localize("CAIRN.Notify.NoContainerRegen"));
+  // The refusal is shared; the SENTENCE is not. This guard began as the
+  // regenerate check and its message says "ask them to re-roll it for you" —
+  // correct there, and wrong the moment the background swap started calling it,
+  // because that instructs a player to request an operation that discards their
+  // abilities, HP and traits when all they touched was a background. Callers that
+  // refuse a different operation pass their own key.
+  ui.notifications.warn(game.i18n.localize(warnKey));
   return false;
 };
 
 /**
  * Delete container Actors, then prune the keeper's uuid list to match — restoring
  * any that fail to delete, so a failed delete can never orphan a container (a live
- * Actor missing from the list). The prune stays AHEAD of a successful delete to
- * beat CairnActor#_onDelete's own async prune (see clearGrantedContainers); on
- * failure the uuid goes back. Returns the containers that were actually removed.
+ * Actor missing from the list). The prune stays AHEAD of a successful delete so
+ * CairnActor._onDeleteOperation's own prune finds nothing left to do (see
+ * clearGrantedContainers); on failure the uuid goes back. Returns the containers
+ * that were actually removed.
  * @param {CairnActor} actor @param {CairnActor[]} targets
  * @returns {Promise<CairnActor[]>}
  * @private
@@ -662,10 +726,9 @@ const deleteContainers = async (actor, targets) => {
  * Delete every generation-granted container this actor keeps (a regenerate
  * re-rolls the background's options, so last roll's donkey has to go).
  *
- * The keeper's uuid list is pruned FIRST, deliberately: CairnActor#_onDelete
- * prunes it too, but from a non-awaited async walk of game.actors, so letting it
- * race means it can write back a stale array and drop the container granted
- * moments later. Pruning up front makes that filter a no-op.
+ * The keeper's uuid list is pruned FIRST, deliberately: CairnActor's
+ * _onDeleteOperation prunes it too, and pruning up front makes that pass a
+ * no-op — one writer to the array instead of two.
  * @param {CairnActor} actor
  */
 export const clearGrantedContainers = async (actor) => {
@@ -700,10 +763,19 @@ export const replaceGrantedContainers = async (actor, source, specs) => {
  * @returns {Promise<Object|null>}
  */
 export const generate2eCharacter = async (chosenBg = null) => {
-  const pack = game.packs.get("air-bladder.backgrounds-2e");
-  const backgrounds = pack ? await pack.getDocuments() : [];
+  // Draw from getBackgroundsFor("2e"), NOT from the shipped pack directly. This
+  // read `game.packs.get("air-bladder.backgrounds-2e")` inline, so random
+  // generation ignored both content toggles: a Warden running a homebrew-only
+  // game (shipped off, custom on) still got shipped backgrounds, and their own
+  // were never rolled at all. Only the picker and changeBackground went through
+  // the union, which is why it looked like a settings bug rather than a
+  // generation one. generateBarebonesCharacter had it right all along via
+  // getBarebonesBackgrounds(). Reported as issue #9.
+  const backgrounds = await getBackgroundsFor("2e");
   if (!chosenBg && !backgrounds.length) {
-    ui.notifications?.warn("No 2e backgrounds are installed.");
+    ui.notifications?.warn(game.i18n.localize(customOnly()
+      ? "CAIRN.NoCustomBackgrounds"
+      : "CAIRN.NoBackgrounds2e"));
     return null;
   }
   // A chosen background (from a picker / persisted across regenerate) is used
@@ -727,14 +799,19 @@ export const generate2eCharacter = async (chosenBg = null) => {
   // One bond by default; the Fieldwarden background and Outrider's "Always pay
   // your debts" option each add another. Each bond has a stable id so its granted
   // items can be re-rolled/removed later.
+  // The background-level extra is an OR, not a sum: a custom background may carry the
+  // `secondBond` checkbox AND describe it in prose, and that must still be one extra
+  // bond, not two. Per-question extras stay a sum — each rolled answer that says to
+  // roll again really does add one.
   const extraBonds =
-    (mentionsSecondBond(bg.system.description) ? 1 : 0) +
+    (bg.system.secondBond || mentionsSecondBond(bg.system.description) ? 1 : 0) +
     choices.questions.filter((q) => mentionsSecondBond(q.answer)).length;
   const bonds = [];
   const bondItems = [];
   let bondGold = 0;
   for (let i = 0; i < 1 + extraBonds; i++) {
-    const rec = bondRecordFrom(await drawBond());
+    // A custom background may name its own bonds table; empty means the 2e one.
+    const rec = bondRecordFrom(await drawBond(bg.system.bondsTable));
     if (!rec) continue;
     bonds.push(rec.bond);
     bondItems.push(...rec.items);
@@ -823,7 +900,9 @@ const randomSpellbookItem = async () => {
   const books = await getSpellbooks();
   if (!books.length) return null;
   const b = books[Math.floor(Math.random() * books.length)];
-  return { name: b.name, type: b.type, img: b.img, system: foundry.utils.deepClone(b.system) };
+  // toObject(), not deepClone — deepClone returns a TypeDataModel by reference,
+  // so this would alias the compendium document. See gear.js resolveGearItem.
+  return { name: b.name, type: b.type, img: b.img, system: b.system.toObject() };
 };
 
 /** A random spellbook as a single-use petty scroll. The spell's effect is the
@@ -842,22 +921,35 @@ const randomScrollItem = async () => {
  *   - a nested ROLLTABLE    → roll that table and resolve its result instead
  *   - anything else         → the pool item of that name, or, for the SRD's two
  *                             instruction rows, a random spellbook or scroll
+ *
+ * The first two branches now ask what the referenced document IS, rather than which
+ * pack it came out of. They used to compare `result.documentCollection` against two
+ * hardcoded pack ids — `documentCollection` is deprecated `{since: 13, until: 15}`,
+ * but the pack id was only ever standing in for the question the docstring above
+ * actually asks. Keying on the document closes a gap as a side effect: a Warden's
+ * own Barebones table pointing at a world RollTable, or at a transport they made,
+ * used to fall through to the gear-pool lookup and resolve to nothing.
+ *
+ * The third branch deliberately still resolves BY NAME against the gear pool, and
+ * not by uuid. That is the pool's whole job — one canonical Dagger, whichever pack
+ * a table points at — and it is why 116 of the 124 shipped Barebones rows do not
+ * need their uuid at all.
+ *
  * @param {TableResult} result
  * @returns {Promise<{item?:Object, container?:Object, name:String}|null>}
  */
 const resolveBarebonesResult = async (result) => {
   if (!result) return null;
-  const name = String(result.text ?? "").trim();
-  const collection = result.documentCollection ?? "";
+  const name = resultText(result).trim();
+  const doc = result.type === CONST.TABLE_RESULT_TYPES.DOCUMENT
+    ? await fromUuid(result.documentUuid)
+    : null;
 
-  if (collection === "air-bladder.transports") {
-    const doc = await findCompendiumItem(collection, name);
-    return doc ? { container: { name: doc.name, slots: doc.system.slots ?? 0 }, name } : null;
+  if (doc?.documentName === "Item" && doc.type === "transport") {
+    return { container: { name: doc.name, slots: doc.system.slots ?? 0 }, name };
   }
-  if (collection === BAREBONES_TABLE_PACK) {
-    const nested = await findCompendiumItem(collection, name);
-    if (!nested) return null;
-    const { results } = await nested.roll();
+  if (doc?.documentName === "RollTable") {
+    const { results } = await doc.roll();
     return resolveBarebonesResult(results[0]);
   }
   const lower = name.toLowerCase();
@@ -975,7 +1067,7 @@ export const resolveStartingGear = async (bg, avoid = new Set()) => {
 export const generateBarebonesCharacter = async (chosenBg = null) => {
   const backgrounds = await getBarebonesBackgrounds();
   if (!chosenBg && !backgrounds.length) {
-    ui.notifications?.warn("No Barebones backgrounds are installed.");
+    ui.notifications?.warn(game.i18n.localize("CAIRN.NoBackgroundsBarebones"));
     return null;
   }
   const bg = chosenBg ?? backgrounds[Math.floor(Math.random() * backgrounds.length)];
@@ -1101,10 +1193,17 @@ export const promptContentSource = async () => {
     buttons,
     rejectClose: false,
   });
-  // Dismissing the picker resolves null; default to the first source (2e) so the
-  // Generate button never does nothing. (The ?? was previously on the Promise
-  // itself, i.e. dead — the fallback only worked by luck downstream.)
-  return chosen ?? sources[0].key;
+  // Dismissing the picker resolves null, and that is returned AS null: closing a
+  // chooser with ✕ is an explicit "not now", so nothing should be created.
+  //
+  // This used to default to the first source (2e) under the same "the Generate
+  // button never does nothing" rule that covers the no-sources-enabled case
+  // above. Those two are not the same case. Everything OFF is a configuration
+  // gap the Warden did not mean to create, so falling back is a kindness; a ✕ is
+  // an instruction. Conflating them meant cancelling the dialog silently made a
+  // 2e character (reported as issue #6), which is the more annoying of the two
+  // failures because it leaves a stray actor behind to delete.
+  return chosen ?? null;
 };
 
 /**
@@ -1117,6 +1216,9 @@ export const promptContentSource = async () => {
  */
 export const generateCharacter = async (background = null, source = null) => {
   const chosen = background?.system?.source ?? source ?? (await promptContentSource());
+  // Only reachable when the picker was dismissed — a background or an explicit
+  // source never yields null, so Regenerate cannot land here.
+  if (!chosen) return null;
   return chosen === "barebones"
     ? generateBarebonesCharacter(background)
     : generate2eCharacter(background);
@@ -1134,6 +1236,16 @@ export const generateCharacter = async (background = null, source = null) => {
 
 /** The pack a content source's backgrounds live in. */
 const BG_PACK_FOR = { "2e": "air-bladder.backgrounds-2e", barebones: BAREBONES_BG_PACK };
+
+/**
+ * A homebrew-only game: the Warden has switched the shipped 2e backgrounds OFF
+ * and their own ON. The distinction that matters is "off on purpose" versus
+ * "nothing configured" — only the first forbids falling back to shipped content.
+ * @returns {Boolean}
+ */
+const customOnly = () =>
+  !game.settings.get(SETTINGS_NS, "content-source-2e") &&
+  game.settings.get(SETTINGS_NS, "content-source-custom");
 
 /**
  * Homebrew backgrounds: every `background` Item with source "2e" that lives in a
@@ -1186,11 +1298,19 @@ const get2eBackgrounds = async () => {
     const pack = game.packs.get(BG_PACK_FOR["2e"]);
     if (pack) for (const b of await pack.getDocuments()) byId.set(b.id, b);
   };
-  if (game.settings.get(SETTINGS_NS, "content-source-2e")) await addShipped();
+  const shippedOn = game.settings.get(SETTINGS_NS, "content-source-2e");
+  if (shippedOn) await addShipped();
   if (game.settings.get(SETTINGS_NS, "content-source-custom")) {
     for (const b of await getCustomBackgrounds()) byId.set(b.id, b);
   }
-  if (!byId.size) await addShipped();
+  // Fall back ONLY when no toggle expressed a preference. A homebrew-only game
+  // with nothing authored yet must NOT be quietly handed the shipped pack: the
+  // Warden switched it off on purpose, and substituting it is the same mistake
+  // as defaulting a dismissed dialog to 2e (issue #6) — an explicit instruction
+  // overridden by a convenience. The caller notifies and generates nothing
+  // instead, which is recoverable; silently generating from content you disabled
+  // is not, because nothing tells you it happened.
+  if (!byId.size && !customOnly()) await addShipped();
   return [...byId.values()];
 };
 
@@ -1240,11 +1360,30 @@ export const getBackgroundsByArchetype = async (source) => {
  * @returns {String}
  */
 export const backgroundTagline = (bg) => {
-  const text = String(bg.system?.description ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  // Display-only, so everything here goes through the overlay: the first sentence
+  // is taken from the TRANSLATED description (a first sentence sliced off English
+  // and then looked up would never match a key), and gear names use the same
+  // item.name namespace the inventory does.
+  const text = t("bg.desc", String(bg.system?.description ?? "")).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
   if (text) return (text.match(/^.*?[.!?](\s|$)/)?.[0] ?? text).trim();
-  const gear = (bg.system?.startingGear ?? []).map((g) => g.name);
-  const carried = (bg.system?.containers ?? []).map((c) => `${c.name} (+${c.slots} slots)`);
+  const slots = game.i18n.localize("CAIRN.Slots").toLowerCase();
+  const gear = (bg.system?.startingGear ?? []).map((g) => t("item.name", g.name));
+  const carried = (bg.system?.containers ?? []).map((c) => `${t("item.name", c.name)} (+${c.slots} ${slots})`);
   return [...gear, ...carried].join(", ");
+};
+
+/**
+ * Display label for an archetype. The stored value is the English identity (it
+ * groups and sorts, and a Warden-authored background may carry anything), so it is
+ * translated only on the way to the screen, falling back to the raw string for a
+ * custom archetype that has no key.
+ * @param {String} archetype
+ * @returns {String}
+ */
+const archetypeLabel = (archetype) => {
+  const key = `CAIRN.Archetype.${archetype}`;
+  const hit = game.i18n.localize(key);
+  return hit === key ? archetype : hit;
 };
 
 /** Escape for interpolation into the picker's HTML. */
@@ -1276,11 +1415,13 @@ export const promptBackground = async (source, currentUuid = null) => {
     <span class="bg-pick-name"><i class="fas fa-dice"></i> ${game.i18n.localize("CAIRN.RandomBackground")}</span></label>`;
   const descs = {};
   for (const g of groups) {
-    if (g.archetype) list += `<div class="bg-pick-group">${bgEsc(g.archetype)}</div>`;
+    if (g.archetype) list += `<div class="bg-pick-group">${bgEsc(archetypeLabel(g.archetype))}</div>`;
     for (const bg of g.backgrounds) {
-      descs[bg.uuid] = bg.system.description ?? "";
+      // Display-only, exactly as the sheet renders the same two fields — the radio
+      // VALUE stays the uuid, so what gets chosen is unaffected by language.
+      descs[bg.uuid] = t("bg.desc", bg.system.description ?? "");
       list += `<label class="bg-pick-row"><input type="radio" name="bg" value="${bg.uuid}"${bg.uuid === currentUuid ? " checked" : ""}>
-        <span class="bg-pick-name">${bgEsc(bg.name)}</span>
+        <span class="bg-pick-name">${bgEsc(t("bg.name", bg.name))}</span>
         <span class="bg-pick-tag">${bgEsc(backgroundTagline(bg))}</span></label>`;
     }
   }
@@ -1350,9 +1491,11 @@ export const promptFailedCareer = async (currentName = null) => {
     <span class="bg-pick-name"><i class="fas fa-dice"></i> ${game.i18n.localize("CAIRN.RandomBackground")}</span></label>`;
   for (const bg of sorted) {
     // Show the career's gear so the player can see what the keepsake item might be.
-    const gear = (bg.system?.startingGear ?? []).map((g) => bgEsc(g.name)).join(", ");
+    const gear = (bg.system?.startingGear ?? []).map((g) => bgEsc(t("item.name", g.name))).join(", ");
+    // Display-only: the radio VALUE keeps the English name (it is what gets stored
+    // as the failed career), only the visible label is localized.
     list += `<label class="bg-pick-row"><input type="radio" name="bg" value="${bgEsc(bg.name)}"${bg.name === currentName ? " checked" : ""}>
-      <span class="bg-pick-name">${bgEsc(bg.name)}</span>${gear ? `<span class="bg-pick-tag">${gear}</span>` : ""}</label>`;
+      <span class="bg-pick-name">${bgEsc(t("bg.name", bg.name))}</span>${gear ? `<span class="bg-pick-tag">${gear}</span>` : ""}</label>`;
   }
 
   return new Promise((resolve) => {
@@ -1447,7 +1590,14 @@ export const changeBackground = async (actor, newBg = null) => {
   let bg = newBg;
   if (!bg) {
     const backgrounds = await getBackgroundsFor(source);
-    if (!backgrounds.length) return;
+    // Say why nothing happened. An empty pool is now reachable on purpose (a
+    // homebrew-only game with nothing authored yet), so a bare `return` would
+    // read as a dead button.
+    if (!backgrounds.length) {
+      ui.notifications?.warn(game.i18n.localize(
+        source === "2e" && customOnly() ? "CAIRN.NoCustomBackgrounds" : "CAIRN.NoBackgrounds2e"));
+      return;
+    }
     const pool = backgrounds.filter((b) => b.uuid !== actor.system.backgroundUuid);
     const from = pool.length ? pool : backgrounds;
     bg = from[Math.floor(Math.random() * from.length)];
@@ -1491,6 +1641,12 @@ export const changeBackground = async (actor, newBg = null) => {
 
   // Trade the old questions' coins for the new ones'.
   const oldQGold = (actor.system.questions ?? []).reduce((n, q) => n + (q.gold ?? 0), 0);
+  // No `contentSource` here on purpose: a character does not change edition. Every
+  // caller is source-scoped — the picker only ever offers this character's own
+  // edition, and a cross-edition DROP is refused outright (_onDropBackground) — so a
+  // background arriving here always matches. Code to follow a differing source would
+  // be unreachable, and unreachable code that looks like protection is worse than
+  // none.
   await actor.update({
     "system.background": bg.name,
     "system.backgroundUuid": bg.uuid,
@@ -1581,11 +1737,20 @@ export const createActorWithCharacter = async (characterData) => {
 export const updateActorWithCharacter = async (actor, characterData) => {
   if (!characterData) return actor;
   const data = characterToActorData(characterData);
+  // Items go through createEmbeddedDocuments, never through `actor.update({items})`:
+  // the update route creates the embedded documents server-side without firing a
+  // single createItem hook, so anything listening — a module, a world script —
+  // sees a regenerate as an actor whose inventory changed with no item ever
+  // created. changeBackground above has used the hook-firing route all along.
+  // `render: false` + data-update last mirrors it: one render, inventory present.
+  const items = data.items ?? [];
+  delete data.items;
   await actor.deleteEmbeddedDocuments("Item", [], { deleteAll: true, render: false });
   // Containers are Actors, so re-rolling the inventory has to clear them by hand.
   // Only GENERATION-granted ones (they carry a grantSource flag) are deleted —
   // a bought mule or a hand-made chest survives a regenerate.
   await clearGrantedContainers(actor);
+  if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false });
   await actor.update(data);
   await grantContainers(actor, characterData.containers);
   for (const token of actor.getActiveTokens()) {
@@ -1704,8 +1869,12 @@ export const generateHireling = async () => {
 /** @returns {Object} Foundry create/update data for a hireling. */
 const hirelingToActorData = (h) => ({
   name: h.name || "Hireling",
-  type: "hireling",
+  // `npc`, not `hireling`: the two are one type now and the directory button that
+  // makes these says "Generate NPC". A generated one IS for hire, so the flag is
+  // set and its day rate shows.
+  type: "npc",
   system: {
+    forHire: true,
     profession: h.profession ?? "",
     dayRate: h.rate ?? 0,
     abilities: hirelingAbilityData(h.abilities),
@@ -1745,15 +1914,21 @@ export const createHireling = async () => {
 export const regenerateHireling = async (actor) => {
   const h = await generateHireling();
   await actor.deleteEmbeddedDocuments("Item", [], { deleteAll: true, render: false });
+  // createEmbeddedDocuments, never `items` inside the update: the update route
+  // creates embedded documents without firing createItem hooks. Same order as
+  // rerollHirelingProfession below — create render:false, then one update renders.
+  if (h.items?.length) await actor.createEmbeddedDocuments("Item", h.items, { render: false });
   await actor.update({
     system: {
+      // Set alongside the rate, never separately: `forHire` gates the day-rate row,
+      // so writing a rate without it stores a number the sheet will never render.
+      forHire: true,
       profession: h.profession,
       dayRate: h.rate,
       abilities: hirelingAbilityData(h.abilities),
       hp: { value: h.hp, max: h.hp },
       critical: false,
     },
-    items: h.items,
   });
   return actor;
 };
@@ -1776,6 +1951,8 @@ export const rerollHirelingProfession = async (actor) => {
   if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false });
   await actor.update({
     system: {
+      // See regenerateHireling: the flag travels with the rate it gates.
+      forHire: true,
       profession: h?.name ?? "",
       dayRate: h?.rate ?? 0,
       abilities: hirelingAbilityData(h?.abilities ?? { STR: 10, DEX: 10, WIL: 10 }),

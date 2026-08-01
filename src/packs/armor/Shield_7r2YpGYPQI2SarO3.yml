@@ -3,7 +3,7 @@ type: armor
 flags:
   core:
     sourceId: Item.eYGGXSUUHqf8pUNT
-img: systems/air-bladder/icons/armor.png
+img: systems/air-bladder/icons/armor.svg
 effects: []
 _id: 7r2YpGYPQI2SarO3
 _stats:
@@ -29,7 +29,6 @@ system:
     max: 0
   armor: 1
   quantity: 1
-  slots: 1
 folder: null
 sort: 0
 _key: '!items!7r2YpGYPQI2SarO3'

@@ -3,7 +3,7 @@ name: Dragon, Green
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.png
+img: systems/air-bladder/icons/monster.svg
 items:
   - _id: dj6SXAgAM0IYEGLL
     name: Bite

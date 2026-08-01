@@ -4,55 +4,51 @@ img: icons/svg/d20-grey.svg
 description: 'Cairn Barebones d6 weapons. Rolled from Barebones: Creation - Weapon. Damage comes from the item itself, not from this table — edit the weapon to change it.'
 results:
   - _id: 6ptne5MRSLCrm57I
-    type: pack
-    text: Dagger
-    img: systems/air-bladder/icons/weapons.png
+    type: document
+    name: Dagger
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 1
       - 1
     drawn: false
-    documentCollection: air-bladder.weapons
-    documentId: 67XlPOQE3AUTRyuy
+    documentUuid: Compendium.air-bladder.weapons.Item.67XlPOQE3AUTRyuy
     flags: {}
     _key: '!tables.results!o6AX6fus0QiEuDkK.6ptne5MRSLCrm57I'
   - _id: il6oJzkTYKJufFfG
-    type: pack
-    text: Cudgel
-    img: systems/air-bladder/icons/weapons.png
+    type: document
+    name: Cudgel
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 2
       - 2
     drawn: false
-    documentCollection: air-bladder.weapons
-    documentId: PtHPURu548JUKwuU
+    documentUuid: Compendium.air-bladder.weapons.Item.PtHPURu548JUKwuU
     flags: {}
     _key: '!tables.results!o6AX6fus0QiEuDkK.il6oJzkTYKJufFfG'
   - _id: we9KEDLx0uQRhEmo
-    type: pack
-    text: Sickle
-    img: systems/air-bladder/icons/weapons.png
+    type: document
+    name: Sickle
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 3
       - 3
     drawn: false
-    documentCollection: air-bladder.weapons
-    documentId: caDKrOr1tkXkLVCk
+    documentUuid: Compendium.air-bladder.weapons.Item.caDKrOr1tkXkLVCk
     flags: {}
     _key: '!tables.results!o6AX6fus0QiEuDkK.we9KEDLx0uQRhEmo'
   - _id: 8cmNZKXRGHleG8fA
-    type: pack
-    text: Staff
-    img: systems/air-bladder/icons/weapons.png
+    type: document
+    name: Staff
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 4
       - 4
     drawn: false
-    documentCollection: air-bladder.weapons
-    documentId: fZ5pC0Yo00zfz6xO
+    documentUuid: Compendium.air-bladder.weapons.Item.fZ5pC0Yo00zfz6xO
     flags: {}
     _key: '!tables.results!o6AX6fus0QiEuDkK.8cmNZKXRGHleG8fA'
 formula: 1d4

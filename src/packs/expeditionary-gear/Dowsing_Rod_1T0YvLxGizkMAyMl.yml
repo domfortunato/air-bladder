@@ -1,7 +1,7 @@
 _id: 1T0YvLxGizkMAyMl
 name: Dowsing Rod
 type: item
-img: systems/air-bladder/icons/generic-item.png
+img: systems/air-bladder/icons/generic-item.svg
 effects: []
 folder: null
 sort: 0
@@ -33,7 +33,5 @@ system:
     value: 0
     max: 0
   quantity: 1
-  slots: 1
   armor: null
-  numberOfUses: 0
 _key: '!items!1T0YvLxGizkMAyMl'

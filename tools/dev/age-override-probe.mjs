@@ -4,12 +4,21 @@
  *
  *   1. Settings sections render General → Character Generation → Inventory.
  *   2. The Features toggle reads "Show Features List on character's Description tab".
- *   3. The single min-age setting sits under the General header (no on/off toggle).
+ *   3. The single min-age setting sits under the Character Generation header
+ *      (no on/off toggle).
  *   4. rollAge() ALWAYS floors the roll at min-age — both generation and the sheet
  *      re-roll go through it — and a floor below 12 never binds (the off switch).
+ *
+ * This probe drives `min-age` to 99 and MUST put it back. It once did not: it
+ * threw between the two (`sheet._onRollAge` had gone in the AppV2 port) and its
+ * in-page restore never ran, so the dev world kept a floor of 99 and every
+ * character generated afterwards was aged 99, with the age re-roll appearing dead
+ * because it floored to 99 too. Hence `withSettings`, whose restore runs in Node
+ * and therefore survives a throw inside `page.evaluate`. Do not move the restore
+ * back inside the evaluate.
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, withSettings } from "./lib.mjs";
 
 const browser = await chromium.launch();
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
@@ -21,7 +30,7 @@ const ok = (m) => console.log(`  ok    ${m}`);
 try {
   await joinAsGM(page);
 
-  const r = await page.evaluate(async () => {
+  const r = await withSettings(page, () => page.evaluate(async () => {
     const NS = "air-bladder";
     const out = {};
 
@@ -49,7 +58,22 @@ try {
     const actor = await gen.createActorWithCharacter(await gen.generate2eCharacter(bg));
     out.actorId = actor.id;
     out.genAge = Number(actor.system.age);          // 2. generation obeyed it
-    await actor.sheet._onRollAge(new Event("x"));    // 4. sheet re-roll obeys it
+    // 4. The SHEET's re-roll obeys it too. ApplicationV2 keeps its handlers in
+    //    private static methods reachable only through the `actions` map, so a
+    //    probe drives them the way a user does — by clicking the element that
+    //    carries the data-action. (This used to call `sheet._onRollAge` direct,
+    //    which stopped existing at the AppV2 port and threw.)
+    await actor.sheet.render(true);
+    for (let i = 0; i < 30 && !(actor.sheet.element instanceof HTMLElement); i++) {
+      await new Promise((res) => setTimeout(res, 100));
+    }
+    await new Promise((res) => setTimeout(res, 300));
+    const ageBtn = actor.sheet.element?.querySelector?.('[data-action="rollAge"]');
+    out.ageBtnFound = !!ageBtn;
+    ageBtn?.click();
+    for (let i = 0; i < 30 && Number(actor.system.age) === out.genAge; i++) {
+      await new Promise((res) => setTimeout(res, 100));
+    }
     out.sheetAge = Number(actor.system.age);
 
     await game.settings.set(NS, "min-age", prevMin);
@@ -87,7 +111,7 @@ try {
 
     await app.close();
     return out;
-  });
+  }));
 
   // 1. section order
   const wanted = ["General Settings", "Character Generation", "Inventory & Encumbrance"];
@@ -100,12 +124,14 @@ try {
     ? ok(`Features toggle relabelled ("${r.featuresLabel}")`)
     : fail(`Features label is "${r.featuresLabel}"`);
 
-  // 3. single age setting under General, no on/off toggle
+  // 3. single age setting under Character Generation, no on/off toggle.
+  //    It sat under General until 2026-07-28; it is a parameter of the character
+  //    being generated, and settings grouping is positional, so it moved.
   !r.hasEnabledSetting
     ? ok("no separate min-age on/off toggle exists (the value is the only control)")
     : fail("a min-age-enabled toggle is still registered");
-  r.minAgeGroup === "General Settings"
-    ? ok("the minimum-age setting sits under General Settings")
+  r.minAgeGroup === "Character Generation"
+    ? ok("the minimum-age setting sits under Character Generation")
     : fail(`min-age group placement: ${r.minAgeGroup}`);
   r.minAgeInputType === "number"
     ? ok("the minimum-age value is a number field")
@@ -121,6 +147,13 @@ try {
   r.genAge >= 99
     ? ok(`generation obeyed the override (generated age ${r.genAge})`)
     : fail(`a generated character came out age ${r.genAge}, below the 99 floor`);
+  // Assert the control EXISTS before trusting what it produced. Generation also
+  // obeys the floor, so if the click silently did nothing, sheetAge would still
+  // be >= 99 and the check below would pass green having exercised nothing —
+  // which is exactly how this probe rotted unnoticed.
+  r.ageBtnFound
+    ? ok("the sheet exposes a [data-action=rollAge] control")
+    : fail("no [data-action=rollAge] control on the rendered sheet — the re-roll check below proves nothing");
   r.sheetAge >= 99
     ? ok(`the sheet's age re-roll obeyed the override (re-rolled to ${r.sheetAge})`)
     : fail(`the sheet re-roll produced ${r.sheetAge}, below the 99 floor`);

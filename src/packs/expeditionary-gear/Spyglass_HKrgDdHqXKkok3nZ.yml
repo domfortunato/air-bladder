@@ -3,7 +3,7 @@ type: item
 flags:
   core:
     sourceId: Item.o7iPgcqqACjqk68B
-img: systems/air-bladder/icons/generic-item.png
+img: systems/air-bladder/icons/generic-item.svg
 effects: []
 _id: HKrgDdHqXKkok3nZ
 _stats:
@@ -31,9 +31,7 @@ system:
     value: 0
     max: 0
   quantity: 1
-  slots: 1
   armor: null
-  numberOfUses: 0
 folder: null
 sort: 0
 _key: '!items!HKrgDdHqXKkok3nZ'

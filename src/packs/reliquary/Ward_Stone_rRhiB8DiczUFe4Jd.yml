@@ -1,0 +1,28 @@
+_id: rRhiB8DiczUFe4Jd
+name: Ward Stone
+type: item
+img: systems/air-bladder/icons/generic-item.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    relicSource: srd-2e
+system:
+  description: 'A flat, unassuming river stone notched with faded symbols. Smash to release a silvery powder in a 20ft radius that pacifies anyone who breathes it.'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 1
+    max: 1
+  relic: true
+  recharge: ''
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!rRhiB8DiczUFe4Jd'

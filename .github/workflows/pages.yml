@@ -1,0 +1,65 @@
+# Publishes the project landing page (site/) to GitHub Pages.
+#
+# MIRROR-SAFE BY DESIGN. This repo is a push mirror from Gitea, and the mirror
+# prunes refs that exist only on GitHub — that is what silently turned early
+# releases into drafts. So there is deliberately NO gh-pages branch here: the
+# page source lives in master (which the mirror owns) and Pages is fed by this
+# workflow's artifact upload, leaving nothing for the mirror to prune.
+#
+# ONE-TIME SETUP, on GitHub: Settings -> Pages -> Build and deployment ->
+# Source: "GitHub Actions". Without that, this workflow's deploy step fails.
+name: Pages
+
+on:
+  push:
+    branches: [master]
+    # Only rebuild when something the page actually shows has changed.
+    paths:
+      - "site/**"
+      - "tools/site.mjs"
+      - "docs/images/**"
+      - "lydia-comer/**"
+      - "logo/**"
+      - "fonts/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a running deploy finish rather than cancelling it — a half-deployed site
+# is worse than a slightly stale one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      # No `npm ci` — tools/site.mjs uses only Node builtins, so the site build
+      # needs no dependencies and should not wait for an install.
+      - name: Build the landing page
+        run: npm run build:site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,28 @@
+_id: sth0uoWwEr6Npgrf
+name: Gate Chalk
+type: item
+img: systems/air-bladder/icons/generic-item.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    relicSource: srd-2e
+system:
+  description: Draw a doorway on any flat surface to open a one-way passage to the Roots. Good luck.
+  weightless: true
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 1
+    max: 1
+  relic: true
+  recharge: ''
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!sth0uoWwEr6Npgrf'

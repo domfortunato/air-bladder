@@ -1,0 +1,28 @@
+_id: 3R6Vu643noGMDUd4
+name: Bloodmap
+type: item
+img: systems/air-bladder/icons/generic-item.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    relicSource: srd-2e
+system:
+  description: A blank leather parchment that absorbs any blood spilled on its surface before rolling into a tight scroll. Unroll to see a rough map revealing the current location of any remaining blood. The image disappears after a few minutes.
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 1
+    max: 1
+  relic: true
+  recharge: 'Pour a pint of your own life essence onto the map, blood for blood. You are deprived until you can rest and eat a Ration.'
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!3R6Vu643noGMDUd4'

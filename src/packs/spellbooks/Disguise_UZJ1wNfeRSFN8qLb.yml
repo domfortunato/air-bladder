@@ -3,7 +3,7 @@ type: spellbook
 flags:
   core:
     sourceId: Item.29TUzhJnXS8Nz5ip
-img: systems/air-bladder/icons/spellbook.png
+img: systems/air-bladder/icons/spellbook.svg
 effects: []
 _id: UZJ1wNfeRSFN8qLb
 _stats:
@@ -27,7 +27,6 @@ system:
   equipped: false
   bulky: false
   quantity: 1
-  slots: 1
 folder: null
 sort: 0
 _key: '!items!UZJ1wNfeRSFN8qLb'

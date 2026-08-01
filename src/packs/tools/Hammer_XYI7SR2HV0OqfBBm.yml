@@ -3,7 +3,7 @@ type: item
 flags:
   core:
     sourceId: Item.ggwdokQUMXw7oM7f
-img: systems/air-bladder/icons/tools.png
+img: systems/air-bladder/icons/tools.svg
 effects: []
 _id: XYI7SR2HV0OqfBBm
 _stats:
@@ -30,9 +30,7 @@ system:
     value: 0
     max: 0
   quantity: 1
-  slots: 1
   armor: null
-  numberOfUses: 0
 folder: null
 sort: 0
 _key: '!items!XYI7SR2HV0OqfBBm'

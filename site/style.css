@@ -1,0 +1,269 @@
+/* Air Bladder — project landing page.
+   Self-contained: every asset is served from this site, no external requests.
+   Palette is lifted from the system's own CSS — teal #12a3b4 accent,
+   parchment light mode, Foundry ink dark mode. */
+
+@font-face {
+  font-family: "Alegreya";
+  src: url("fonts/Alegreya-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Alegreya";
+  src: url("fonts/Alegreya-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Alegreya";
+  src: url("fonts/Alegreya-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+
+:root {
+  --bg: #f1ead8;
+  --bg-raised: #e7ded0;
+  --ink: #191813;
+  --ink-soft: #4a4335;
+  --rule: #c9c7b8;
+  --accent: #0f7f8c;
+  --accent-ink: #fff;
+  --shadow: 0 1px 3px rgba(25, 24, 19, .18);
+  --measure: 62ch;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #191813;
+    --bg-raised: #23221b;
+    --ink: #ede7d7;
+    --ink-soft: #b5b3a4;
+    --rule: #3a382e;
+    --accent: #12a3b4;
+    --accent-ink: #0d1416;
+    --shadow: 0 1px 3px rgba(0, 0, 0, .5);
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0 1.25rem 4rem;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Alegreya", Georgia, "Times New Roman", serif;
+  font-size: 19px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+main, header, footer { max-width: 880px; margin: 0 auto; }
+
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:hover { text-decoration-thickness: 2px; }
+
+h2 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: .01em;
+  margin: 0 0 .6rem;
+  padding-bottom: .35rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+section { margin: 3rem 0; }
+p { max-width: var(--measure); }
+
+/* ---- masthead ---- */
+
+.masthead { text-align: center; padding: 3.5rem 0 1rem; }
+
+.wordmark {
+  width: min(520px, 90vw);
+  height: auto;
+}
+
+.tagline {
+  max-width: none;
+  font-size: 1.2rem;
+  color: var(--ink-soft);
+  margin: 1.2rem auto .2rem;
+}
+
+.toplinks {
+  display: flex;
+  gap: .6rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 1.6rem;
+}
+
+.btn {
+  display: inline-block;
+  padding: .45rem 1.1rem;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+.btn:hover { background: var(--accent); color: var(--accent-ink); }
+.btn-primary { background: var(--accent); color: var(--accent-ink); }
+.btn-primary:hover { filter: brightness(1.12); }
+
+/* ---- lede ---- */
+
+.lede { margin-top: 2.5rem; }
+.lede p { font-size: 1.08rem; }
+.whence { color: var(--ink-soft); font-size: .96rem; }
+
+/* ---- install ---- */
+
+.req { color: var(--ink-soft); margin-top: 0; }
+.steps { max-width: var(--measure); padding-left: 1.3rem; }
+.steps li { margin: .35rem 0; }
+
+.manifest {
+  display: flex;
+  align-items: stretch;
+  gap: .5rem;
+  flex-wrap: wrap;
+  margin-top: .8rem;
+}
+
+.manifest code {
+  flex: 1 1 22rem;
+  min-width: 0;
+  padding: .6rem .75rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .82rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.manifest button {
+  flex: 0 0 auto;
+  padding: .6rem 1.15rem;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: .95rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+.manifest button:hover { filter: brightness(1.12); }
+.manifest button.copied { background: #2a6; border-color: #2a6; color: #fff; }
+
+/* ---- features ---- */
+
+.features { max-width: var(--measure); padding-left: 1.2rem; }
+.features li { margin: .4rem 0; }
+
+/* ---- screenshots ---- */
+
+.shots {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0 .5rem;
+}
+
+figure { margin: 0; }
+figure img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  box-shadow: var(--shadow);
+}
+figcaption {
+  margin-top: .4rem;
+  font-size: .9rem;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+.wide { margin-top: 2rem; max-width: 640px; }
+.wide figcaption { text-align: left; }
+.caption { font-size: .95rem; color: var(--ink-soft); }
+
+/* ---- guide cards ---- */
+
+/* minmax is 320px, not 260px, so the four cards settle into a 2x2 at full
+   width instead of 3-and-an-orphan. */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+  margin-top: 1.2rem;
+}
+
+.card {
+  display: block;
+  padding: 1rem 1.1rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  color: inherit;
+  text-decoration: none;
+}
+.card:hover { border-color: var(--accent); }
+.card h3 {
+  margin: 0 0 .35rem;
+  font-size: 1.08rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+.card p { margin: 0; max-width: none; font-size: .95rem; color: var(--ink-soft); }
+
+/* ---- status ---- */
+
+.ai-note {
+  padding: .8rem 1rem;
+  border-left: 3px solid var(--accent);
+  background: var(--bg-raised);
+  font-size: .97rem;
+}
+
+/* ---- licences ---- */
+
+.licences { margin: 1.2rem 0 0; max-width: var(--measure); }
+.licences dt { font-weight: 700; margin-top: 1rem; }
+.licences dd { margin: .2rem 0 0; color: var(--ink-soft); font-size: .96rem; }
+
+/* ---- footer ---- */
+
+footer {
+  margin-top: 4rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--rule);
+  text-align: center;
+}
+
+.badge {
+  width: 200px;
+  height: auto;
+  border-radius: 3px;
+}
+
+.fine {
+  max-width: none;
+  font-size: .9rem;
+  color: var(--ink-soft);
+  margin: .8rem 0 0;
+}
+
+@media (max-width: 520px) {
+  body { font-size: 18px; }
+  .masthead { padding-top: 2rem; }
+}

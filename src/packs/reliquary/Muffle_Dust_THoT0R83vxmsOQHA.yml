@@ -1,0 +1,28 @@
+_id: THoT0R83vxmsOQHA
+name: Muffle Dust
+type: item
+img: systems/air-bladder/icons/generic-item.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    relicSource: srd-2e
+system:
+  description: A pouch of fine dust that muffles all sound in a 40ft radius when scattered.
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 2
+    max: 2
+  relic: true
+  recharge: ''
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!THoT0R83vxmsOQHA'

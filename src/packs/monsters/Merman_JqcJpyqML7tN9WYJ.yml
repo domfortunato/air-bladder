@@ -152,6 +152,6 @@ prototypeToken:
     subject:
       scale: 1
       texture: null
-img: systems/air-bladder/icons/monster.png
+img: systems/air-bladder/icons/monster.svg
 folder: null
 _key: '!actors!JqcJpyqML7tN9WYJ'

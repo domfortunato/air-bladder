@@ -3,7 +3,7 @@ name: Ogre
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.png
+img: systems/air-bladder/icons/monster.svg
 items:
   - _id: jfmM2v4oe2jinU49
     name: Animal Hides

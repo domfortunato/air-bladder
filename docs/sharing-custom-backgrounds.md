@@ -2,11 +2,14 @@
 
 A **custom background** is a Warden-authored Cairn 2e background — a background
 Item carrying its own tagline, example names, starting gear, and two d6
-question tables. You create one from the background sheet (or by duplicating a
-shipped background), and it lives in a **world compendium** named *Custom
-Backgrounds*. Whenever the **Custom** content source is toggled on (Game
-Settings → *Content Source: Custom 2e Backgrounds*), custom backgrounds join the
-shipped ones in the character-generation picker.
+question tables. It lives in a **world compendium** named *Custom Backgrounds*, and
+whenever the custom content source is toggled on (Game Settings → *Offer GM's
+Custom 2e backgrounds*) custom backgrounds join the shipped ones in the
+character-generation picker.
+
+> **Writing one is covered separately** — see
+> [Creating a custom 2e background](creating-custom-backgrounds.md). This page
+> assumes you already have one and want to move it.
 
 Because a custom background is a **self-contained snapshot** — gear you drag into
 it is frozen into the background, and its by-name references point at gear every

@@ -3,7 +3,7 @@ name: Golem, Amber
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.png
+img: systems/air-bladder/icons/monster.svg
 items:
   - _id: h5TmG50mj9U43ufz
     name: Claws

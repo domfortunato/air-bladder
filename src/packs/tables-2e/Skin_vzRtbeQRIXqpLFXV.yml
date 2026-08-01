@@ -5,132 +5,112 @@ description: Cairn 2e Skin trait.
 results:
   - _id: tPr1BmlHoq4tBFED
     type: text
-    text: Birthmarked
+    description: Birthmarked
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 1
       - 1
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!vzRtbeQRIXqpLFXV.tPr1BmlHoq4tBFED'
   - _id: qdKujXR5w7iX8IIZ
     type: text
-    text: Webbed
+    description: Webbed
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 2
       - 2
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!vzRtbeQRIXqpLFXV.qdKujXR5w7iX8IIZ'
   - _id: cncMQFwHTXr9KGWb
     type: text
-    text: Scarred
+    description: Scarred
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 3
       - 3
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!vzRtbeQRIXqpLFXV.cncMQFwHTXr9KGWb'
   - _id: 4KIsrf2FYngJCy7w
     type: text
-    text: Marked
+    description: Marked
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 4
       - 4
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!vzRtbeQRIXqpLFXV.4KIsrf2FYngJCy7w'
   - _id: aUczbCtOEgY5CYA2
     type: text
-    text: Rosy
+    description: Rosy
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 5
       - 5
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!vzRtbeQRIXqpLFXV.aUczbCtOEgY5CYA2'
   - _id: MtG7o3RSfEyCrHHj
     type: text
-    text: Soft
+    description: Soft
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 6
       - 6
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!vzRtbeQRIXqpLFXV.MtG7o3RSfEyCrHHj'
   - _id: vL2tKMedmOKrxrUC
     type: text
-    text: Tanned
+    description: Tanned
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 7
       - 7
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!vzRtbeQRIXqpLFXV.vL2tKMedmOKrxrUC'
   - _id: iGQLaRnyPhLUO6h5
     type: text
-    text: Tattooed
+    description: Tattooed
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 8
       - 8
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!vzRtbeQRIXqpLFXV.iGQLaRnyPhLUO6h5'
   - _id: sJ7MpescAHFryswT
     type: text
-    text: Oily
+    description: Oily
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 9
       - 9
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!vzRtbeQRIXqpLFXV.sJ7MpescAHFryswT'
   - _id: XH6ZC1iaRvmoxbMK
     type: text
-    text: Weathered
+    description: Weathered
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 10
       - 10
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!vzRtbeQRIXqpLFXV.XH6ZC1iaRvmoxbMK'
 formula: 1d10

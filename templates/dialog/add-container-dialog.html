@@ -1,4 +1,7 @@
-<form class="custom-dialog">
+{{!-- A DIV, not a FORM. DialogV2 already renders its content inside its own
+      <form>, and the HTML parser silently drops a nested <form> start tag --
+      taking this element's class with it. --}}
+<div class="custom-dialog">
   <div class="form-group">
     <label>{{localize 'CAIRN.Name'}}:</label>
     <input
@@ -19,4 +22,19 @@
       data-dtype="Number"
     />
   </div>
-</form>
+  {{!-- What the thing IS, picking its art and its one-word class label. The
+        default reads the name, which is the behaviour this dialog always had --
+        but that reading is a list of English keywords, so "Mochila" or
+        "Rucksack" got a chest. Choosing here is the only way to say it in a
+        language the table does not speak, and it also serves English names it
+        was never going to guess ("Bag of Holding"). --}}
+  <div class="form-group">
+    <label>{{localize 'CAIRN.ContainerClass'}}:</label>
+    <select name="itemclass" data-dtype="String">
+      <option value="">{{localize 'CAIRN.ContainerClassAuto'}}</option>
+      {{#each classes}}
+        <option value="{{this.key}}">{{localize this.label}}</option>
+      {{/each}}
+    </select>
+  </div>
+</div>

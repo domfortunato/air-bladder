@@ -23,6 +23,60 @@ Two properties make this safe to hand around:
   it is a *validating gate*: a dropped `{placeholder}`, a broken HTML tag set, or a
   mangled `@UUID[...]` target is rejected before it can reach a player.
 
+## Where the languages actually stand
+
+Measured by this gate (`npm run i18n:check --lang <code>`), against 348 English
+keys. "Translated" means present *and* different from the English:
+
+| Locale | Translated | Content overlay | Note |
+|---|---|---|---|
+| `es` Spanish | 284 (82%) | ✅ the only one | actively maintained |
+| `pl` Polish | 104 (30%) | — | inherited from the original Cairn system |
+| `de` German | 58 (17%) | — | inherited |
+| `da` Danish | 57 (16%) | — | inherited |
+| `pt-BR` Portuguese | 55 (16%) | — | inherited |
+| `fr` French | 53 (15%) | — | inherited; **fails the gate** (see below) |
+
+**Spanish is the translation; the other five are fragments.** They came from the
+1e system and never grew as this fork added ~250 keys, so a German session is
+mostly English. That is not a bug — English fallback is per string and by design —
+but do not describe those languages as supported.
+
+`fr.json` currently fails `i18n:check` outright: `CAIRN.CharacterRegeneratorConfirm`
+drops the `<p>` tags its English carries. The inherited files have never been
+through this gate, so assume the others hold similar defects until checked.
+
+`cn.json` was removed (2026-07-27): it shipped in `lang/` but was never listed in
+`system.json` `languages`, so Foundry never loaded it — 17% of a 1e interface that
+no player could ever have seen.
+
+## Any locale, not just Spanish
+
+Every tool takes `--lang <code>` and defaults to `es`:
+
+```bash
+node tools/i18n/extract-ui.mjs --lang fr     # → ui.tsv with an `fr` column
+node tools/i18n/extract-content.mjs --lang fr
+node tools/i18n/import-i18n.mjs  --lang fr   # → lang/fr.json + lang/content/fr.json
+node tools/i18n/check.mjs        --lang fr
+```
+
+Two details worth knowing:
+
+- **The TSV's translation column is named after the locale**, so a French
+  translator fills a column headed `fr`. In code that cell is always `row.tr` —
+  the file format carries the locale, the tooling does not. `readTSV` still
+  accepts an older `es`-headed TSV, so a spreadsheet filled before this change
+  imports fine.
+- **The glossary is per-locale**: `tools/i18n/glossary-<lang>.tsv`, with the
+  unsuffixed `glossary.tsv` serving Spanish because it predates this. A locale
+  with no glossary simply skips the drift check instead of failing.
+
+The content advice in the translator guides is Spanish-specific for a reason that
+doesn't travel: "adapt the official Spanish edition" works because *Guía del
+jugador* exists. A language with no official Cairn edition gets no such shortcut,
+and starts from a blank glossary.
+
 ## Two ways a translation arrives
 
 Both paths write the same JSON and compose cleanly (extract pre-fills from
@@ -30,7 +84,8 @@ whatever the other path committed), so a project can switch between them mid-way
 
 1. **Git-comfortable contributor (e.g. fsmalecho).** Opens a pull request editing
    `lang/<lang>.json` and/or `lang/content/<lang>.json` directly, or fills the
-   TSVs and PRs those. Review, run the gates below, merge.
+   TSVs and PRs those. Review, run the gates below, then merge it **the way
+   described in "Merging a pull request" — not with GitHub's merge button.**
 2. **Non-git translator (a likely successor).** Works only in spreadsheets. You
    broker the round-trip: generate the TSVs, hand them off, receive them back
    filled, import, and commit. The translator never touches git or Foundry — the
@@ -59,6 +114,87 @@ npm run i18n:check -- --glossary  # advisory: flags a term translated inconsiste
 
 The generated `tools/i18n/tsv/` directory is git-ignored — it is disposable output,
 never committed. Only the JSON (and `glossary.tsv`) are tracked.
+
+**`i18n:extract` overwrites every TSV from the committed JSON.** It is loss-free
+only for translations already run through `i18n:import` — a filled cell that
+hasn't been imported has no other copy, and since the TSVs aren't in git, nothing
+could report or recover what was lost. So `extract` now **refuses** rather than
+warns, in three tiers:
+
+| Situation | Behaviour |
+|---|---|
+| Sheet holds a translation the JSON doesn't have | **Blocks** (exit 1) — nothing written; import first, or `--force` to discard |
+| Sheet's value merely *differs* from the JSON | **Warns**, proceeds — the JSON's copy is safe, and the sheet is usually just stale after a merged PR |
+| Sheet belongs to a different locale | **Blocks**, and tells you to use `--out`, explicitly *not* to import |
+
+The three tiers exist because a guard that cries wolf is worse than none: block on
+everything and people reach for `--force` by reflex, and then the tier that
+matters stops working. Only the first tier describes work that exists nowhere
+else. The third prints different advice on purpose — "run `i18n:import`" would be
+*destructive* there, filing one language's text into another's JSON.
+
+Guard is all-or-nothing per run: `extract-content` collects every pending write
+and clears the guard before any file hits disk, so a refusal never leaves half
+the sheets rebuilt.
+
+In the brokered flow this matters most when a translator returns a filled
+spreadsheet: **import it before you extract again**, and never re-extract to
+"refresh" a sheet someone is still filling.
+
+## Merging a pull request
+
+**Never use GitHub's green "Merge pull request" button.** This is not a style
+preference — the merge would be destroyed silently, and the contributor's work
+with it.
+
+`origin` is a Gitea repo that **push-mirrors** to GitHub. The mirror force-syncs
+refs, so anything that exists only on GitHub is overwritten on the next sync. A
+merge made with GitHub's button is exactly that: a commit on GitHub's `master`
+that Gitea has never seen. It survives until the next sync and then vanishes.
+This is the same mechanism that once pruned release tags and turned releases into
+drafts — see the mirror rule in [`RELEASE.md`](../RELEASE.md).
+
+Merge locally instead, and let the mirror carry it, exactly as with any other
+commit:
+
+```bash
+git fetch github pull/<N>/head:pr-<N>   # the PR's commits as a local branch
+git checkout master
+git merge --no-ff pr-<N> -m "Merge <who> <what> (PR #<N>)"
+
+npm run i18n:check                      # gates BEFORE the push (see above)
+npm run i18n:check -- --glossary        # advisory
+
+git push origin master                  # Gitea. Never push to the `github` remote.
+git branch -d pr-<N>
+```
+
+Then confirm the mirror synced (Gitea → repo → Settings → Mirror → *Synchronize
+Now*, if sync-on-push is off).
+
+**Let the PR close itself. Do not close it by hand.** GitHub watches whether the
+PR's head commit becomes reachable from `master` and flips the PR to **Merged**
+when it does, with no button pressed — but only while the PR is still *open*. A
+PR you close first stays merely *closed* forever, even when the identical commits
+land minutes later.
+
+Two things therefore have to hold, and the two Spanish PRs are the worked example
+of each:
+
+- **Keep their commits.** Merge `--no-ff` on the contributor's actual branch
+  rather than re-typing their changes, so the SHA survives. Both PRs got this
+  right — `refs/pull/2/head` and `refs/pull/3/head` are both ancestors of
+  `master` today.
+- **Push before the PR closes.** **#3** was still open when its merge reached
+  GitHub, and reads as *merged*. **#2** was closed manually at 16:34 UTC and its
+  commit landed around 16:44 — ten minutes too late. It reads as merely *closed*,
+  permanently, despite the work being in `master` the whole time.
+
+Both shipped the translation; only one gave the contributor the merged-PR credit
+on their profile. When someone donates work, get them the badge.
+
+**This rule is not specific to translations.** Any pull request against this
+repo — a code fix, a doc typo — merges the same way, for the same reason.
 
 ## Resuming a stalled translation
 

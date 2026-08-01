@@ -1,7 +1,7 @@
 _id: 623Gskzo6kMkp26V
 name: Astral Step
 type: spellbook
-img: systems/air-bladder/icons/spellbook.png
+img: systems/air-bladder/icons/spellbook.svg
 effects: []
 folder: null
 sort: 0
@@ -26,5 +26,4 @@ system:
   equipped: false
   bulky: false
   quantity: 1
-  slots: 1
 _key: '!items!623Gskzo6kMkp26V'

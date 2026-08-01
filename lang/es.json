@@ -198,7 +198,7 @@
   "CAIRN.ArmorReset": "Restablecer la armadura a partir de las piezas de armadura equipadas",
   "CAIRN.Notify": {
     "MaxSlotsOccupied": "Se han utilizado todos los espacios de inventario.",
-    "ConfirmDelete": "Eliminar",
+    "ConfirmDeleteNamed": "¿Eliminar {name}?",
     "NotEnoughGold": "No hay suficiente oro para {name} ({cost}).",
     "Bought": "{name} comprado por {cost} de oro.",
     "Took": "Se ha tomado {name}.",
@@ -428,7 +428,6 @@
   "CAIRN.Recharge": "Recarga",
   "CAIRN.RechargeHint": "Qué se necesita para recargar esta reliquia. Si la dejas vacía, se convertirá en una reliquia que no se puede recargar; en ese caso, el contador indicará «usos» en lugar de «cargas».",
   "CAIRN.UpdateFeature": "Actualizar mejora",
-  "CAIRN.Weapon": "Arma",
   "CAIRN.Weightless": "Insignificante",
   "CAIRN.ItemAddQuantity": "Añadir",
   "CAIRN.ItemEquip": "Equipar",

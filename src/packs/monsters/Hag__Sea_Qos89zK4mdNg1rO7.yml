@@ -3,7 +3,7 @@ name: Hag, Sea
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.png
+img: systems/air-bladder/icons/monster.svg
 items:
   - _id: trAEb7BNgp8Y7AVX
     name: Knife

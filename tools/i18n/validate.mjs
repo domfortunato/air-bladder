@@ -51,11 +51,11 @@ const eqMultiset = (a, b) => a.length === b.length && a.every((x, i) => x === b[
 export const checkPair = (en, es) => {
   const errs = [];
   const [pe, ps] = [placeholders(en), placeholders(es)];
-  if (!eqMultiset(pe, ps)) errs.push(`placeholders differ: en ${JSON.stringify(pe)} vs es ${JSON.stringify(ps)}`);
+  if (!eqMultiset(pe, ps)) errs.push(`placeholders differ: en ${JSON.stringify(pe)} vs translation ${JSON.stringify(ps)}`);
   const [he, hs] = [htmlTags(en), htmlTags(es)];
-  if (!eqMultiset(he, hs)) errs.push(`HTML tags differ: en ${JSON.stringify(he)} vs es ${JSON.stringify(hs)}`);
+  if (!eqMultiset(he, hs)) errs.push(`HTML tags differ: en ${JSON.stringify(he)} vs translation ${JSON.stringify(hs)}`);
   const [ue, us] = [enricherRefs(en), enricherRefs(es)];
-  if (!eqMultiset(ue, us)) errs.push(`enricher targets differ: en ${JSON.stringify(ue)} vs es ${JSON.stringify(us)}`);
+  if (!eqMultiset(ue, us)) errs.push(`enricher targets differ: en ${JSON.stringify(ue)} vs translation ${JSON.stringify(us)}`);
   return errs;
 };
 

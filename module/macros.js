@@ -25,11 +25,11 @@ export const createCairnMacro = async (data, slot) => {
   }
 
   if (!actor) {
-    return ui.notifications.warn("You can only create macro buttons for owned Items");
+    return ui.notifications.warn(game.i18n.localize("CAIRN.Macro.OwnedItemsOnly"));
   }
 
   if (item.type !== "weapon") {
-    return ui.notifications.warn("Macros only supported for weapons");
+    return ui.notifications.warn(game.i18n.localize("CAIRN.Macro.WeaponsOnly"));
   }
 
   const command = `game.cairn.rollItemMacro("${actor.id}", "${item.id}");`;
@@ -55,11 +55,11 @@ export const createCairnMacro = async (data, slot) => {
 export const rollItemMacro = async (actorId, itemId) => {
   const actor = game.actors.get(actorId);
   if (!actor) {
-    return ui.notifications.warn("This macro's actor no longer exists.");
+    return ui.notifications.warn(game.i18n.localize("CAIRN.Macro.NoActor"));
   }
   const item = actor.items.get(itemId);
   if (!item) {
-    return ui.notifications.warn(`${actor.name} no longer has the item this macro rolls.`);
+    return ui.notifications.warn(game.i18n.format("CAIRN.Macro.NoItem", { name: actor.name }));
   }
 
   let rollSchema = item.system.damageFormula;
@@ -93,7 +93,7 @@ export const rollItemMacro = async (actorId, itemId) => {
   
   const rollMessageTpl = "systems/air-bladder/templates/chat/dmg-roll-card.html";
   const tplData = { label: label, targets: targetIds };
-  const msg = await renderTemplate(rollMessageTpl, tplData);
+  const msg = await foundry.applications.handlebars.renderTemplate(rollMessageTpl, tplData);
   roll.toMessage({    
     speaker: ChatMessage.getSpeaker({ actor: actor }),
     flavor: msg,

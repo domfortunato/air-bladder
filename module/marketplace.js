@@ -1,13 +1,13 @@
-import { findCompendiumItem } from "./compendium.js";
-import { iconForTransport } from "./icons.js";
-import { localizeNameDesc } from "./i18n-content.js";
+import { findTableItems } from "./compendium.js";
+import { iconForTransport, TRANSPORT_KINDS } from "./icons.js";
+import { localizeNameDesc, t } from "./i18n-content.js";
 
 /**
  * The marketplace: a shop dialog a character opens from their Inventory tab.
  *
  * Unlike the fork's inlined price list, the catalog is a REFERENCE pack. The
  * `air-bladder.marketplace` compendium holds one RollTable per category
- * ("Market: Weapons/Armor/Gear"), each a list of type:"pack" results pointing at
+ * ("Market: Weapons/Armor/Gear"), each a list of document results pointing at
  * items in the editable gear pool. A row's price, description, and tags are read
  * off the referenced Item at open time — so editing a pool item's cost in Foundry
  * updates the shop, and dragging an item into a table stocks it. Bundles ("Common
@@ -37,19 +37,28 @@ export const TRANSPORTS_CATEGORY = "Transports & Containers";
 const CATEGORY_ORDER = ["Weapons", "Armor", "Gear", TRANSPORTS_CATEGORY];
 const MARKETPLACE_PACK = "air-bladder.marketplace";
 
-/** A resolved pool document → a fresh owned-item payload (deep clone, so the pack
- *  doc is never mutated); carries the item's cost/description/tags. */
+/** A resolved pool document → a fresh owned-item payload; carries the item's
+ *  cost/description/tags.
+ *
+ *  toObject(), NOT deepClone. The comment here used to claim deepClone meant
+ *  "the pack doc is never mutated", and that was exactly backwards:
+ *  foundry.utils.deepClone returns any non-plain object unchanged, by reference
+ *  (common/utils/helpers.mjs:280-282), and `doc.system` is a TypeDataModel. So a
+ *  buyer setting a quantity wrote it into the compendium entry, for everyone. */
 const ownedPayload = (doc) => ({
   name: doc.name,
   type: doc.type,
   img: doc.img,
-  system: foundry.utils.deepClone(doc.system),
+  system: doc.system.toObject(),
 });
 
 /**
  * Read the marketplace pack into shopper-facing categories. Each category's items
  * are owned-item payloads resolved from that table's pack results, in table order.
- * @returns {Promise<{categories: {name:string, items:object[]}[]}>}
+ *
+ * `name` is the ENGLISH identity (callers filter on it via opts.only/opts.exclude,
+ * and CATEGORY_ORDER sorts by it); `label` is what a heading should render.
+ * @returns {Promise<{categories: {name:string, label:string, items:object[]}[]}>}
  */
 export const getMarketplaceCatalog = async () => {
   const pack = game.packs.get(MARKETPLACE_PACK);
@@ -61,18 +70,43 @@ export const getMarketplaceCatalog = async () => {
     const i = CATEGORY_ORDER.indexOf(stripPrefix(name));
     return i === -1 ? CATEGORY_ORDER.length : i;
   };
+  // The heading's translation key is the table's FULL document name ("Market:
+  // Weapons") — that is what the content extractor emits under table.name, so
+  // stripping first would leave a translator holding a key ("Weapons") the overlay
+  // never produces. Translate, then strip. The strip is generic because a
+  // translated prefix is not "Market:" ("Mercado:", …); a translation carrying no
+  // prefix at all is left whole, and a miss degrades to the English behaviour.
+  const displayName = (fullName) => t("table.name", fullName).replace(/^[^:]+:\s*/, "").trim();
   tables.sort((a, b) => orderOf(a.name) - orderOf(b.name) || a.name.localeCompare(b.name));
 
   const categories = [];
   for (const table of tables) {
     const results = [...table.results].sort((a, b) => (a.range?.[0] ?? 0) - (b.range?.[0] ?? 0));
-    const items = [];
-    for (const result of results) {
-      if (result.type !== CONST.TABLE_RESULT_TYPES.COMPENDIUM) continue;
-      const doc = await findCompendiumItem(result.documentCollection, result.text);
-      if (doc) items.push(ownedPayload(doc));
-    }
-    if (items.length) categories.push({ name: stripPrefix(table.name), items });
+    // findTableItems, not a second copy of the same loop. It used to be inlined
+    // here, and the two copies then had to be fixed twice for the same defect —
+    // which is exactly how the previous fix to this got applied to one of them and
+    // not the other. It also means a row dragged in from the Items SIDEBAR now
+    // stocks the shop, which is the promise this file opens with and was not true.
+    //
+    // ...and that is exactly why the Item filter is here. findTableItems resolves a
+    // row by uuid, so it returns whatever the row points AT — and inviting sidebar
+    // drops invites a JournalEntry (a price list, a shop note), a Macro or a Scene
+    // into a Market table, none of which have `system`. `ownedPayload` would throw
+    // on `doc.system.toObject()` inside getMarketplaceCatalog, which no caller
+    // awaits (actor-sheet.js #onItemShop), so the whole shop silently failed to
+    // open for every player — not just the bad row. An Actor row is the quiet half:
+    // it has `system`, renders a shop row, and throws later at Buy on an unknown
+    // Item subtype. Warn rather than drop in silence: the Warden put it there.
+    const resolved = await findTableItems(results);
+    const items = resolved
+      .filter((doc) => {
+        if (doc.documentName === "Item") return true;
+        console.warn(`Marketplace: ignoring ${doc.documentName} "${doc.name}" in table `
+          + `"${table.name}" — only Items can stock a shop.`);
+        return false;
+      })
+      .map(ownedPayload);
+    if (items.length) categories.push({ name: stripPrefix(table.name), label: displayName(table.name), items });
   }
   return { categories };
 };
@@ -84,26 +118,22 @@ const slotCost = (system) => (system.bulky ? 2 : system.weightless ? 0 : 1);
 const chips = (item) => {
   const s = item.system;
   const out = [];
-  if (s.damageFormula) out.push(`${s.damageFormula} ${game.i18n.localize("CAIRN.Damage")}`);
-  if (s.armor) out.push(`${game.i18n.localize("CAIRN.Armor")} ${s.armor}`);
+  // Format keys, not "<number> <noun>": word order is not universal, and
+  // CAIRN.Uses is the sheet's field LABEL ("Available uses"), which read as
+  // "3 Available uses" when borrowed as a unit noun — wrong in English too.
+  if (s.damageFormula) out.push(game.i18n.format("CAIRN.NDamage", { n: s.damageFormula }));
+  if (s.armor) out.push(game.i18n.format("CAIRN.NArmor", { n: s.armor }));
   if (s.bulky) out.push(game.i18n.localize("CAIRN.Bulky"));
   if (s.weightless) out.push(game.i18n.localize("CAIRN.Weightless"));
-  if (s.uses?.max) out.push(`${s.uses.max} ${game.i18n.localize("CAIRN.Uses")}`);
+  if (s.uses?.max) out.push(game.i18n.format("CAIRN.NUses", { n: s.uses.max }));
   return out;
-};
-
-/** transportKind -> its localized chip label. */
-const KIND_LABEL = {
-  worn: "CAIRN.TransportWorn",
-  mount: "CAIRN.TransportMount",
-  vehicle: "CAIRN.TransportVehicle",
 };
 
 /** Chips for a transport row: its kind, then slow/bulky flavour. */
 const transportChips = (item) => {
   const s = item.system;
   const out = [];
-  if (KIND_LABEL[s.transportKind]) out.push(game.i18n.localize(KIND_LABEL[s.transportKind]));
+  if (TRANSPORT_KINDS[s.transportKind]) out.push(game.i18n.localize(TRANSPORT_KINDS[s.transportKind]));
   if (s.bulky) out.push(game.i18n.localize("CAIRN.Bulky"));
   if (s.slow) out.push(game.i18n.localize("CAIRN.TransportSlow"));
   return out;
@@ -198,16 +228,16 @@ export const acquireTransport = async (actor, doc, pay) => {
   // Give it a real portrait AND a matching map token; fall back to the transport
   // class icon if the document somehow carries no art.
   const art = doc.img ?? iconForTransport(doc.name, doc.system.transportKind);
-  const container = await Actor.create({
+  // getDocumentClass, not the global `Actor` — the global is not
+  // CONFIG.Actor.documentClass, so it reaches the same _preCreate defaults only
+  // by way of `implementation`; naming the configured class says what runs.
+  const container = await getDocumentClass("Actor").create({
     type: "container",
     name: doc.name,
     img: art,
     prototypeToken: { texture: { src: art } },
     system: {
-      // Container capacity is read as system.slots.value (calcCurrentMaxSlots),
-      // so it is written as an object here even though the transport document
-      // carries a plain number.
-      slots: { value: doc.system.slots ?? 0 },
+      slots: doc.system.slots ?? 0,
       description: doc.system.description ?? "",
       transportKind: doc.system.transportKind ?? "",
       load: doc.system.load ?? 0,
@@ -218,7 +248,16 @@ export const acquireTransport = async (actor, doc, pay) => {
   await actor.createOwnedContainer(container);
   // Player-ownable: give the transport the same ownership as the character who
   // bought it, so its owning player can open and manage it (GMs always can).
-  await container.update({ ownership: foundry.utils.deepClone(actor.ownership) });
+  //
+  // GM-only, because Foundry refuses an `ownership` write from anyone below
+  // Assistant ("ownership may only be modified by a GM or Assistant GM user") —
+  // this threw for a player in a world where the Warden had granted ACTOR_CREATE,
+  // AFTER the container was created and linked but BEFORE the gold was deducted,
+  // so they got a free transport and an uncaught error. A player doesn't need it
+  // anyway: Foundry makes the creating user an owner of what they create.
+  if (game.user.isGM) {
+    await container.update({ ownership: foundry.utils.deepClone(actor.ownership) });
+  }
   if (pay) {
     await actor.update({ "system.gold": (actor.system.gold ?? 0) - cost });
     ui.notifications.info(game.i18n.format("CAIRN.Notify.Bought", { name: doc.name, cost }));
@@ -282,7 +321,7 @@ export const openMarketplace = async (actor, opts = {}) => {
       const metaHtml = `<span class="mkt-slots">${slots} ${esc(labelFor(slots))}</span>`;
       return rowHtml({ idx, cost: data.system.cost ?? 0, name: d.name, tagsHtml: tags, metaHtml, descHtml: descHtmlOf(d.system.description) });
     }).join("");
-    return `<div class="mkt-cat"><div class="mkt-cat-name">${esc(cat.name)}</div>${rows}</div>`;
+    return `<div class="mkt-cat"><div class="mkt-cat-name">${esc(cat.label ?? cat.name)}</div>${rows}</div>`;
   }).join("");
 
   const content = `<div class="marketplace">

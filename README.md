@@ -8,6 +8,8 @@
 
 <div align="center">
 
+### [Visit the Air Bladder website →](https://domfortunato.github.io/air-bladder/)
+
 **English** · [Español](README.es.md)
 
 <sub>Translations may lag; the English README is authoritative.</sub>
@@ -22,29 +24,35 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 
 ## Key Features
 
-- Random or manual generation of both Cairn 2e and Cairn Barebones characters — each style can be toggled on or off
-- Barebones sheets support optional homebrew features
-- Warden-authored custom 2e backgrounds — create, preview/lint, and [share them across worlds](docs/sharing-custom-backgrounds.md)
-- Random or manual generation of hireling sheets
-- Tooltips for players
-- Marketplace and containers
-- Warden-facing roll tables
-- A gallery of 80 CC BY 4.0 character portraits by [Jon Aspeheim](https://jonaspeheim.itch.io/)
-- Minimal automation
+- Random or manual generation of characters from Cairn 2e, **Custom Cairn 2e**, and Cairn Barebones backgrounds — The Warden can toggle each source on or off
+- .json character import from the Official Cairn app, [Kettlewright!](https://kettlewright.com/)
+- Optional homebrew features that mix 2e features with Barebones
+- Warden-authored custom 2e backgrounds — [create and lint your own](https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md), then [share them across worlds](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md)
+- Random or manual generation of NPC/Hirelings
+- Character Sheet tooltips for players
+- Pop-out Character Sheets! Yes, we're fully on AppV2 — ready for v16, when Foundry removes the V1 framework
+- Marketplace and containers; horses, carts, wagons, chests, and ITEM PILES!
+- Warden-facing roll tables!
+- A gallery of 80 CC BY 4.0 character portraits with matching icons by [Jon Aspeheim](https://jonaspeheim.itch.io/)
+- Minimal automation; with buttons for rest, restoring abilities, panicked and critical damage
+
+## Features on the Horizon
+- Monster and Encounter Generators (optional)
+- GLOG Magic (optional)
 
 ## Screenshots
 
 <table>
   <tr>
-    <td><img src="docs/images/sheet-items.png" alt="Character sheet — Items tab" width="250"></td>
-    <td><img src="docs/images/sheet-description.png" alt="Character sheet — Description tab" width="250"></td>
-    <td><img src="docs/images/sheet-background-notes.png" alt="Character sheet — Background & Notes tab" width="250"></td>
+    <td><img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/sheet-items.png" alt="Character sheet — Items tab" width="250"></td>
+    <td><img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/sheet-description.png" alt="Character sheet — Description tab" width="250"></td>
+    <td><img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/sheet-background-notes.png" alt="Character sheet — Background & Notes tab" width="250"></td>
   </tr>
 </table>
 
 *The character sheet — Items, Description, and Background & Notes tabs. The red banner is the automatic **Critical Damage** condition, shown when STR is damaged.*
 
-<img src="docs/images/game-settings.png" alt="The Warden's game settings" width="480">
+<img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/game-settings.png" alt="The Warden's game settings" width="480">
 
 *The Warden's game settings, grouped by section.*
 
@@ -52,32 +60,47 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 
 Early, active development. Send feedback and art! The system is being rebuilt on the original's **editable-compendium** architecture — gear lives in Item compendia that a Warden can edit in one place, and character generation and the marketplace reference those packs by name.
 
-**Translators welcome** — see [docs/TRANSLATING.md](docs/TRANSLATING.md) for how the translation workflow works. No coding required.
+## Languages
+
+The interface is translated into **Spanish** (66% of the current strings, by [Malecho](https://github.com/fsmalecho)), and game *content* — backgrounds, items, spells, tables — is translated into Spanish only.
+
+Danish, French, German, Polish and Brazilian Portuguese interface files are inherited from the original Cairn system. They cover **15–30%** of the current interface, predate most of this system's features, and are **not actively maintained** — a game in those languages is mostly English in practice. Anything untranslated falls back to English string by string, so a partial translation is always usable rather than broken.
+
+The tooling is language-agnostic (`--lang <code>` throughout), so a new language needs no code changes — only a translator.
+
+**Translation Help Requested!** — see [docs/TRANSLATING.md](https://github.com/domfortunato/air-bladder/blob/master/docs/TRANSLATING.md) for the no-coding workflow, or [docs/translating-self-service.md](https://github.com/domfortunato/air-bladder/blob/master/docs/translating-self-service.md) if you'd rather work in git.
 
 ## Installation (manual)
 
-**Requires Foundry VTT v13 or newer** (verified on v14).
+**Requires Foundry VTT v14.**
 
 1. In the Foundry **Game Systems** menu, click **Install System**.
 2. Enter the manifest URL: `https://github.com/domfortunato/air-bladder/releases/latest/download/system.json`
 
 For development, clone this repo into `Data/systems/air-bladder` (a directory junction works), run `npm install`, then `npm run build:packs` before launching Foundry. `npm run dev:smoke` drives a headless load as a sanity check.
 
+To try **unreleased** work, clone the `dev` branch instead — that is where everything in progress lives. The `npm run build:packs` step is required either way: the compendium packs are generated from `src/packs/` and are not stored in git, so an unbuilt clone loads with every compendium empty.
+
+## Contributing
+
+Pull requests welcome — open them against **`dev`**, not `master`. See [CONTRIBUTING.md](https://github.com/domfortunato/air-bladder/blob/master/CONTRIBUTING.md) for the details, and [docs/git-flow.md](https://github.com/domfortunato/air-bladder/blob/master/docs/git-flow.md) for how branches and releases work here.
+
 ## AI Disclosure
 
-**Generative-AI art will never appear in this repo — ever.** The code, on the other hand, was written entirely with [Claude Code](https://www.anthropic.com/claude-code), using Yochai Gal's original Cairn repo as a base.
+**Generative-AI art will never appear in this repo — ever.** The code, on the other hand, was written with [Claude Code](https://www.anthropic.com/claude-code), using Yochai Gal's original Cairn repo as a base.
 
 ## Credits & licenses
 
 Air Bladder mixes several licensing regimes — please keep the attribution intact:
 
 - **Game text — CC BY-SA 4.0.** The Cairn rules and text (1st and 2nd edition) are by **Yochai Gal**, licensed [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). 2e content in this system inherits that license; derivatives must share alike and attribute Yochai Gal.
-- **Spanish translation — CC BY-SA 4.0.** The Castilian Spanish (es-ES) translation is by **[Malecho](https://github.com/fsmalecho)**. As a derivative of the CC BY-SA game text, the translation is likewise licensed [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
-- **Code — MIT.** The Foundry system code descends from the original **Cairn-FoundryVTT by Yochai Gal & Oskar Świda** (MIT), itself descended from the Electric Bastionland system. See `LICENSE.txt`.
+- **Spanish translation — CC BY-SA 4.0.** The Castilian Spanish (es-ES) translation is by **[Malecho](https://github.com/fsmalecho)** — `lang/es.json` (interface) and `lang/content/es.json` (game content). As a derivative of the CC BY-SA game text, the translation is likewise licensed [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+- **Code — MIT.** The Foundry system code descends from the original **Cairn-FoundryVTT by Yochai Gal & Oskar Świda** (MIT), itself descended from the Electric Bastionland system. See `LICENSE.txt`. The same MIT grant covers the interface strings in `lang/`: the Danish, French, German, Polish and Brazilian Portuguese files are inherited from Cairn-FoundryVTT and travel under its licence.
 - **"Compatible with Cairn"** — the compatibility badge is used per the terms on [cairnrpg.com/resources/logos](https://cairnrpg.com/resources/logos) (CC BY-SA 4.0, Yochai Gal).
-- **Air Bladder logo — © Lydia Comer, all rights reserved.** The logo and related artwork in `lydia-comer/` are by **[Lydia Comer](https://linktr.ee/lydiadidmyink)**, licensed to the Air Bladder system for inclusion and unmodified redistribution as part of the system and its forks; all other uses require permission. See `lydia-comer/license.txt`.
+- **Air Bladder logo — © Lydia Comer, all rights reserved.** The logo and related artwork in `lydia-comer/` are by **[Lydia Comer](https://linktr.ee/lydiadidmyink)**, licensed to the Air Bladder system for inclusion and unmodified redistribution as part of the system and its forks, and for unmodified use in representing the project; all other uses require permission. See `lydia-comer/license.txt`.
 - **Character art — CC BY 4.0.** The 80 paired portrait/token images in `character_portraits/` and `character_tokens/` are by **[Jon Aspeheim](https://jonaspeheim.itch.io/)** (source: [Lemur's Portraits](https://jonaspeheim.itch.io/lemurs-portraits)), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) (see the `license.txt` in each folder). Plain CC BY: redistribution is fine, attribution is required. The artist states these portraits were created without AI. Keep this credit if the art ships.
 - **Item & container icons — CC BY 3.0.** The class icons in `icons/` (gear, spellbooks, transports, containers, monsters) are from [game-icons.net](https://game-icons.net) by **Lorc, Delapouite & Skoll**, licensed [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). Per-icon author and source-page credits are recorded in `icons/CREDITS.md`.
+- **Alegreya typeface — SIL Open Font License 1.1.** The three webfonts in `fonts/` are **Alegreya** by Juan Pablo del Peral and the Alegreya Project Authors ([Huerta Tipográfica](https://github.com/huertatipografica/Alegreya)), © 2011, licensed [OFL 1.1](https://openfontlicense.org/). Redistributed unmodified; the licence requires its notice travel with every copy, so `fonts/OFL.txt` and `fonts/license.txt` ship with them.
 
 ---
 

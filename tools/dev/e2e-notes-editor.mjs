@@ -1,0 +1,238 @@
+#!/usr/bin/env node
+/**
+ * The Notes editor: directly editable, and it actually saves.
+ *
+ * This exists because the AppV2 port shipped `<prose-mirror toggled>`, and a
+ * TOGGLED editor is opened by a pencil button that Foundry styles
+ * `display: none` until you hover it (foundry2.css:13565 / :13577). Every
+ * assertion you would naturally write still passed: the element was present,
+ * upgraded, not disabled, and carried the right value. It simply could not be
+ * typed into without discovering an invisible button, which is what "the editor
+ * doesn't work" turned out to mean.
+ *
+ * So this probe does the one thing that catches it: it types, the way a player
+ * does, without touching any button — and then asserts the document changed.
+ *
+ *   npm run dev:notes-editor
+ */
+import { chromium } from "playwright";
+import { VIEWPORT, joinAsGM, dismissChrome, watchErrors } from "./lib.mjs";
+
+const browser = await chromium.launch();
+const page = await browser.newPage({ viewport: VIEWPORT });
+const errors = watchErrors(page);
+let failures = 0;
+const ok = (l, d = "") => console.log(`  ok    ${l.padEnd(38)} ${d}`);
+const fail = (l, d = "") => { console.log(`  FAIL  ${l.padEnd(38)} ${d}`); failures++; };
+
+const TYPED = "Probe typed this.";
+
+try {
+  await joinAsGM(page);
+  await dismissChrome(page);
+
+  for (const type of ["character", "hireling", "npc", "container"]) {
+    console.log(`\n${type}`);
+    const field = type === "container" ? "system.biography" : "system.notes";
+
+    const setup = await page.evaluate(async ({ type, field }) => {
+      for (const a of game.actors.filter((a) => a.name.startsWith("ZZ Notes"))) await a.delete();
+      const actor = await Actor.create({ name: `ZZ Notes ${type}`, type });
+      await actor.update({ [field]: "" });
+      await actor.sheet.render(true);
+      for (let i = 0; i < 40 && !actor.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 700));
+      const el = actor.sheet.element;
+      const tab = type === "container" ? "description" : "notes";
+      el.querySelector(`.tabs .item[data-tab="${tab}"]`)?.click();
+      await new Promise((r) => setTimeout(r, 400));
+      const pm = el.querySelector(`prose-mirror[name="${field}"]`);
+      const content = pm?.querySelector(".editor-content");
+
+      // WHERE the placeholder lands, not just whether it is switched on. A
+      // pseudo-element has no getBoundingClientRect, so find whichever element
+      // carries the ::before, then place it from that host's box plus the
+      // pseudo's own offsets. The bug this exists for drew the hint over the
+      // toolbar: the class was set, the text was right, and it was unreadable.
+      const placed = (() => {
+        if (!pm) return null;
+        const hosts = [pm, ...pm.querySelectorAll(".editor-container, .editor-content")];
+        const host = hosts.find((h) => {
+          const c = getComputedStyle(h, "::before").content;
+          return c && c !== "none" && c !== "normal" && c !== '""';
+        });
+        if (!host) return { drawn: false };
+        const s = getComputedStyle(host, "::before");
+        const hb = host.getBoundingClientRect();
+        const box = (n) => { const b = n?.getBoundingClientRect(); return b && { top: b.top, bottom: b.bottom, left: b.left, right: b.right }; };
+        return {
+          drawn: true,
+          host: host === pm ? "prose-mirror" : host.className,
+          text: s.content,
+          at: { top: hb.top + parseFloat(s.top || 0), left: hb.left + parseFloat(s.left || 0) },
+          menu: box(pm.querySelector(".menu-container")),
+          content: box(pm.querySelector(".editor-content")),
+        };
+      })();
+
+      return {
+        id: actor.id,
+        sheetId: el.id,
+        found: !!pm,
+        // An always-active editor is contenteditable with no button to press.
+        editable: content?.getAttribute("contenteditable"),
+        placeholder: pm?.getAttribute("data-placeholder") ?? null,
+        placeholderShown: pm?.classList.contains("cairn-editor-empty") ?? null,
+        placed,
+      };
+    }, { type, field });
+
+    if (!setup.found) { fail("editor present", `no prose-mirror[name="${field}"]`); continue; }
+    ok("editor present", field);
+
+    setup.editable === "true"
+      ? ok("directly editable, no button needed", 'contenteditable="true"')
+      : fail("directly editable, no button needed",
+          `contenteditable=${setup.editable} — a toggled editor hides behind a hover-only pencil`);
+
+    if (setup.placeholder) {
+      setup.placeholderShown
+        ? ok("empty editor shows its placeholder", `"${setup.placeholder}"`)
+        : fail("empty editor shows its placeholder", "the cairn-editor-empty class is absent");
+
+      const p = setup.placed;
+      if (!p?.drawn) {
+        fail("the placeholder is actually drawn", "no ::before with content on the editor");
+      } else if (!p.text.includes(setup.placeholder)) {
+        // Reaching this means the class is on and the box is right and the
+        // prompt still says nothing -- e.g. attr() reading an element that
+        // does not carry the attribute.
+        fail("the placeholder is actually drawn", `::before content is ${p.text}`);
+      } else if (!p.content) {
+        fail("placeholder sits in the editable area", "no .editor-content to compare against");
+      } else if (p.menu && p.at.top < p.menu.bottom) {
+        fail("placeholder clears the toolbar",
+          `drawn at y=${Math.round(p.at.top)} on ${p.host}, but the menu bar runs to y=${Math.round(p.menu.bottom)}`);
+      } else if (p.at.top < p.content.top || p.at.top > p.content.bottom
+              || p.at.left < p.content.left || p.at.left > p.content.right) {
+        fail("placeholder sits in the editable area",
+          `drawn at ${Math.round(p.at.left)},${Math.round(p.at.top)}; content box is `
+          + `${Math.round(p.content.left)},${Math.round(p.content.top)}-`
+          + `${Math.round(p.content.right)},${Math.round(p.content.bottom)}`);
+      } else {
+        ok("placeholder sits in the editable area", `on ${p.host}`);
+      }
+    }
+
+    // Type like a player: click the content and use the keyboard.
+    const sel = `#${setup.sheetId} prose-mirror[name="${field}"] .editor-content`;
+    try {
+      await page.locator(sel).click({ timeout: 8000 });
+      await page.keyboard.type(TYPED);
+      await page.waitForTimeout(300);
+    } catch (e) {
+      fail("can click into the editor", e.message.split("\n")[0]);
+      continue;
+    }
+
+    const after = await page.evaluate(async ({ id, field, sheetId }) => {
+      const actor = game.actors.get(id);
+      const pm = document.querySelector(`#${sheetId} prose-mirror[name="${field}"]`);
+      const placeholderGone = !pm.classList.contains("cairn-editor-empty");
+      // Click-away is what commits, so click the sheet outside the editor.
+      actor.sheet.element.querySelector(".window-content")
+        ?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 1200));
+      const stored = foundry.utils.getProperty(actor, field) ?? "";
+      await actor.delete();
+      return { placeholderGone, stored };
+    }, { id: setup.id, field, sheetId: setup.sheetId });
+
+    if (setup.placeholder) {
+      after.placeholderGone
+        ? ok("placeholder clears once typing starts")
+        : fail("placeholder clears once typing starts", "still marked empty");
+    }
+    after.stored.includes(TYPED)
+      ? ok("click-away saved what was typed", JSON.stringify(after.stored.slice(0, 60)))
+      : fail("click-away saved what was typed", `stored ${JSON.stringify(after.stored.slice(0, 80))}`);
+  }
+
+  /* -------------------------------------------- */
+  /*  Item sheets — closing must not eat the text  */
+  /* -------------------------------------------- */
+
+  // The actor loop above never touched an item sheet, which is how the same class
+  // of data loss shipped there unnoticed. Item templates use `<prose-mirror
+  // toggled>`: a toggled editor commits ONLY through its own save button, typing
+  // fires no `change`, ApplicationV2 has no `submitOnClose`, and the element's own
+  // disconnectedCallback save runs from an already-detached node. So the player
+  // types a description, hits the X, and it is gone — silently.
+  //
+  // Closing is the assertion. Click-away is checked too, but it is the weaker of
+  // the two: the X and Esc are not mousedowns inside the sheet.
+  for (const type of ["item", "weapon", "spellbook"]) {
+    console.log(`\n${type} (item sheet)`);
+    const field = "system.description";
+
+    const setup = await page.evaluate(async ({ type, field }) => {
+      for (const i of game.items.filter((i) => i.name.startsWith("ZZ Notes"))) await i.delete();
+      const item = await CONFIG.Item.documentClass.create({ name: `ZZ Notes ${type}`, type });
+      await item.update({ [field]: "" });
+      await item.sheet.render(true);
+      for (let i = 0; i < 40 && !item.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 700));
+      const el = item.sheet.element;
+      const pm = el.querySelector(`prose-mirror[name="${field}"]`);
+      // Toggled editors open via a pencil button that Foundry keeps display:none
+      // until hover, so a real click is unreliable here — press it directly. The
+      // point of this probe is what happens on CLOSE, not how the toggle looks.
+      pm?.querySelector("button")?.click();
+      await new Promise((r) => setTimeout(r, 500));
+      return {
+        id: item.id,
+        sheetId: el.id,
+        found: !!pm,
+        opened: pm?.querySelector(".editor-content")?.getAttribute("contenteditable") === "true",
+      };
+    }, { type, field });
+
+    if (!setup.found) { fail("editor present", `no prose-mirror[name="${field}"]`); continue; }
+    ok("editor present", field);
+    setup.opened ? ok("editor opens for typing") : fail("editor opens for typing", "not contenteditable after toggle");
+    if (!setup.opened) continue;
+
+    try {
+      await page.locator(`#${setup.sheetId} prose-mirror[name="${field}"] .editor-content`).click({ timeout: 8000 });
+      await page.keyboard.type(TYPED);
+      await page.waitForTimeout(300);
+    } catch (e) {
+      fail("can click into the editor", e.message.split("\n")[0]);
+      continue;
+    }
+
+    const closed = await page.evaluate(async ({ id, field }) => {
+      const item = game.items.get(id);
+      await item.sheet.close();
+      await new Promise((r) => setTimeout(r, 1200));
+      const stored = foundry.utils.getProperty(item, field) ?? "";
+      await item.delete();
+      return { stored };
+    }, { id: setup.id, field });
+
+    closed.stored.includes(TYPED)
+      ? ok("closing the sheet saved the text", JSON.stringify(closed.stored.slice(0, 60)))
+      : fail("closing the sheet saved the text",
+          `stored ${JSON.stringify(closed.stored.slice(0, 80))} — the description was discarded`);
+  }
+} catch (e) {
+  fail("probe threw", `${e.name}: ${e.message}`);
+} finally {
+  console.log(`\nconsole errors: ${errors.length}`);
+  for (const e of errors.slice(0, 10)) console.log(`  ${e}`);
+  if (errors.length) failures++;
+  await browser.close();
+}
+
+console.log(failures ? `\nFAILED (${failures})\n` : "\nnotes editor probe passed\n");
+process.exit(failures ? 1 : 0);

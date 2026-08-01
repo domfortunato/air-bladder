@@ -10,6 +10,10 @@ node_modules/
 # Screenshots and artifacts from tools/dev/smoke.mjs
 /tools/dev/out/
 
+# Generated landing page, built from site/ by `npm run build:site` and deployed
+# to GitHub Pages by .github/workflows/pages.yml. The source is site/.
+/_site/
+
 # Raw game-icons.net source PNGs (staging). The shipped, class-named copies live
 # in icons/; this folder is the untouched originals and is not part of the system.
 /game-icons-dot-net/
@@ -17,3 +21,6 @@ node_modules/
 # Generated translator TSVs, built from src/packs/ by `npm run i18n:extract`.
 # The filled translations land in lang/*.json (UI) and lang/content/*.json.
 /tools/i18n/tsv/
+
+# Staging area for replacement token art (tools/import/tokens-from-png.mjs)
+new-tokens/

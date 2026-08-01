@@ -137,10 +137,25 @@ try {
     // 4. Re-roll ONLY the horse question; the chest must not move.
     const qIdx = (outrider.system.tables ?? []).findIndex((t) =>
       (t.options ?? []).some((o) => (o.containers ?? []).length));
+    // ApplicationV2 keeps its handlers in private static methods reachable only
+    // through the `actions` map, so drive it the way a user does — click the
+    // element carrying the data-action. (This used to call
+    // `sheet._onRerollQuestion` direct, which stopped existing at the AppV2 port
+    // and threw.) Clicking also exercises the data-index wiring, which a direct
+    // call faked.
     const sheet = actor.sheet;
-    await sheet._onRerollQuestion({
-      preventDefault() {}, currentTarget: { dataset: { index: String(qIdx) } },
-    });
+    await sheet.render(true);
+    for (let i = 0; i < 30 && !(sheet.element instanceof HTMLElement); i++) {
+      await new Promise((res) => setTimeout(res, 100));
+    }
+    await new Promise((res) => setTimeout(res, 300));
+    const rerollBtn = sheet.element?.querySelector?.(
+      `[data-action="rerollQuestion"][data-index="${qIdx}"]`);
+    if (!rerollBtn) return { error: `no [data-action=rerollQuestion][data-index=${qIdx}] control on the sheet` };
+    rerollBtn.click();
+    // The handler is async behind a _rerolling guard; wait for it to settle.
+    for (let i = 0; i < 60 && sheet._rerolling; i++) await new Promise((res) => setTimeout(res, 100));
+    await new Promise((res) => setTimeout(res, 400));
     const afterReroll = keptBy(actor);
     made.push(...afterReroll);
     const reroll = {

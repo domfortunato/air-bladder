@@ -3,7 +3,7 @@ name: Spider, Giant Black Widow
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.png
+img: systems/air-bladder/icons/monster.svg
 items:
   - _id: sAyU2yNVwbEBFGYC
     name: Bite*

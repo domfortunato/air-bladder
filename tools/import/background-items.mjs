@@ -43,11 +43,11 @@ const readPack = (p) => {
 
 // The type packs that hold background specials. market-goods is left alone (its
 // items are shop stock, never background-only).
-const SOURCE_PACKS = ["expeditionary-gear", "tools", "trinkets", "extra", "weapons", "armor"];
+const SOURCE_PACKS = ["expeditionary-gear", "tools", "trinkets", "weapons", "armor"];
 const DEST = "background-items";
 
 // mirror module/gear.js
-const GEAR_ALIASES = new Map([["lockpick","Lockpicks"],["hand drill","Hand-Drill"],["torches","Torch"],["rope (25ft)","Rope"],["chain (10ft)","Chain, 10ft"],["chains (10ft)","Chain, 10ft"],["chains","Chain, 10ft"],["chain","Chain, 10ft"],["pole (10ft)","Pole, 10ft"],["pole","Pole, 10ft"],["plate","Plate Mail"],["simple instrument (pipes, lute, etc.)","Instrument"],["simple instruments (pipes, lute, etc.)","Instrument"],["boltcutters","Bolt Cutters"],["tent (fits 2)","Tent"]]);
+const GEAR_ALIASES = new Map([["lockpick","Lockpicks"],["hand drill","Hand-Drill"],["torches","Torch"],["rope (25ft)","Rope"],["chain (10ft)","Chain, 10ft"],["chains (10ft)","Chain, 10ft"],["chains","Chain, 10ft"],["chain","Chain, 10ft"],["pole (10ft)","Pole, 10ft"],["pole","Pole, 10ft"],["plate","Plate Mail"],["simple instrument (pipes, lute, etc.)","Simple Instruments (Pipes, Lute, etc.)"],["boltcutters","Bolt Cutters"],["tent (fits 2)","Tent"]]);
 // decode &amp; LAST so a literal "&amp;#039;" doesn't double-unescape into "'".
 const decode = (s) => String(s).replace(/&#0?39;/g,"'").replace(/&apos;/g,"'").replace(/&amp;/g,"&");
 const spell = (n) => { const s=decode(n).trim(); const m=s.match(/^spellbook\s*\((.+)\)$/i)||s.match(/^scroll\s*\((.+)\)$/i)||s.match(/^(.+?)\s+spellbook$/i); return m?m[1]:null; };
@@ -65,7 +65,20 @@ const addBg = (n, src) => { const k=norm(n); if(!k) return; (bgSources.get(k) ??
 for (const { doc } of readPack("backgrounds-2e")) { for (const g of doc.system?.startingGear ?? []) addBg(g.name, doc.name); for (const t of doc.system?.tables ?? []) for (const o of t.options ?? []) for (const it of o.items ?? []) addBg(it.name, doc.name); }
 for (const { doc } of readPack("backgrounds-barebones")) for (const g of doc.system?.startingGear ?? []) addBg(g.name, doc.name);
 for (const { doc } of readPack("tables-2e")) for (const r of doc.results ?? []) for (const sc of ["air-bladder","cairn"]) for (const it of r.flags?.[sc]?.items ?? []) addBg(it.name ?? it, "bond");
-for (const { doc } of readPack("marketplace")) for (const r of doc.results ?? []) addKeep(r.text);
+// v13 split `TableResult#text` in two and the halves went to DIFFERENT fields: a
+// text row's value is `description`, a document row's is `name`. Reading `r.text`
+// made the marketplace contribute NOTHING to `keep`, which does not error — it
+// quietly widens "special background item" to include gear the shop sells, and
+// this tool MOVES the files it classifies. Hence the floor below.
+for (const { doc } of readPack("marketplace")) {
+  for (const r of doc.results ?? []) addKeep((r.type === "text" ? r.description : r.name) ?? "");
+}
+if (!keep.size) {
+  console.error("the marketplace contributed no item names — the TableResult row schema has "
+    + "moved under this importer, so it is reading nothing rather than finding nothing. "
+    + "Relocating on this basis would move shop gear into the background pack.");
+  process.exit(1);
+}
 try { const h = JSON.parse(fs.readFileSync(path.join(ROOT,"module","hirelings-2e.json"),"utf8")); const walk=(o)=>{ if(Array.isArray(o))o.forEach(walk); else if(o&&typeof o==="object"){ if(typeof o.name==="string"&&(o.uses!==undefined||o.tags!==undefined||o.equipped!==undefined))addKeep(o.name); Object.values(o).forEach(walk);} }; walk(h);} catch {}
 ["Rations","Torch"].forEach(addKeep);
 for (const t of GEAR_ALIASES.values()) addKeep(t);
@@ -78,22 +91,62 @@ const destDir = PP(DEST);
 if (!DRY) fs.mkdirSync(destDir, { recursive: true });
 const destIds = new Set(readPack(DEST).map((e) => e.doc._id));
 
+// Dedupe on NAME, not on _id.
+//
+// Gear resolution is by name: module/gear.js walks CANONICAL_GEAR_PACKS and takes
+// the first index entry whose name matches. So two documents sharing a name ARE
+// duplicates however their ids differ — one of them is unreachable, and it is the
+// one in whichever pack comes later, i.e. always the background-items copy.
+//
+// This used to test `destIds.has(doc._id)`. That worked only while both copies
+// descended from the same document. Four items (Acid, Marbles, Iron Tongs,
+// Sextant) had been re-authored with FRESH ids, so the id test missed, the move
+// branch fired, and the script filed a second copy inside background-items
+// itself — turning 17 cross-pack collisions into 4 worse in-pack ones. Measured
+// 2026-07-29; the by-id check had left all 17 in place for weeks.
+const destByName = new Map(readPack(DEST).map((e) => [String(e.doc.name).toLowerCase(), e]));
+
+// What a player can actually tell apart. Identity and bookkeeping fields (_id,
+// _key, _stats, sort, folder) are excluded on purpose: two copies of Acid differ
+// only in _id, and reporting that as a content change would cry wolf on every
+// run and train the reader to skim past the line that matters.
+const contentOf = (d) => JSON.stringify({
+  name: d.name, type: d.type, img: d.img, system: d.system, flags: d.flags, effects: d.effects,
+});
+
 let moved = 0, deduped = 0;
 const byPack = {};
+const replaced = [];
 for (const pack of SOURCE_PACKS) {
   for (const { file, base, doc } of readPack(pack)) {
     if (!isBackgroundItem(doc.name)) continue;
-    if (destIds.has(doc._id)) {                       // canonical copy already in DEST — drop the re-authored dupe
+    const key = String(doc.name).toLowerCase();
+    const twin = destByName.get(key);
+    if (twin) {
+      // Both exist. Keep the SOURCE copy's content and drop the DEST one, then
+      // fall through to the move. Deliberately conservative: the source copy is
+      // the one that has been WINNING resolution all along (type packs precede
+      // background-items in CANONICAL_GEAR_PACKS), so consolidating cannot change
+      // what a character is handed. It also happened to be the better document in
+      // every observed case -- the DEST copies of Iron Tongs and Sextant had lost
+      // their tools.svg class icon to the generic bag, and the DEST Marbles said
+      // weightless:true where the SRD's Astrologer line marks no (_petty_).
+      if (contentOf(twin.doc) !== contentOf(doc)) replaced.push(doc.name);
       deduped++;
-      if (!DRY) fs.rmSync(file);
-      continue;
+      if (!DRY) fs.rmSync(twin.file);
+      destByName.delete(key);
     }
     (byPack[pack] ??= []).push(doc.name);
     moved++;
-    destIds.add(doc._id);
+    destByName.set(key, { file: path.join(destDir, base), base, doc });
     if (!DRY) fs.renameSync(file, path.join(destDir, base));
   }
 }
 
 console.log(`\n${DRY ? "[dry] would move" : "moved"}: ${moved} item(s) into src/packs/${DEST}/  |  deduped: ${deduped}`);
 for (const [pack, names] of Object.entries(byPack)) console.log(`  from ${pack} (${names.length}): ${names.sort().join(", ")}`);
+// Name a dedupe that actually discarded different content, so a silent content
+// change can never hide inside a routine "deduped: N".
+if (replaced.length) {
+  console.log(`  ${DRY ? "would replace" : "replaced"} ${replaced.length} DIFFERING ${DEST} copy(ies) with the type-pack version: ${replaced.sort().join(", ")}`);
+}

@@ -4,81 +4,75 @@ img: icons/svg/d20-grey.svg
 description: Air Bladder marketplace — Armor. Drag an item in to stock it; prices are read off the item.
 results:
   - _id: 7YaIiT8YntxTxZhh
-    type: pack
-    text: Brigandine
-    img: systems/air-bladder/icons/armor.png
+    type: document
+    name: Brigandine
+    img: systems/air-bladder/icons/armor.svg
     weight: 1
     range:
       - 1
       - 1
     drawn: false
-    documentCollection: air-bladder.armor
-    documentId: LQXy1SDSgh7KGMwz
+    documentUuid: Compendium.air-bladder.armor.Item.LQXy1SDSgh7KGMwz
     flags: {}
     _key: '!tables.results!ycvQgTspyVWg24j4.7YaIiT8YntxTxZhh'
   - _id: Bz3XsH4y2MVOgGqO
-    type: pack
-    text: Chainmail
-    img: systems/air-bladder/icons/armor.png
+    type: document
+    name: Chainmail
+    img: systems/air-bladder/icons/armor.svg
     weight: 1
     range:
       - 2
       - 2
     drawn: false
-    documentCollection: air-bladder.armor
-    documentId: B0naZm8GOX3x222S
+    documentUuid: Compendium.air-bladder.armor.Item.B0naZm8GOX3x222S
     flags: {}
     _key: '!tables.results!ycvQgTspyVWg24j4.Bz3XsH4y2MVOgGqO'
   - _id: 815ZhZI3xwwCSujU
-    type: pack
-    text: Gambeson
-    img: systems/air-bladder/icons/armor.png
+    type: document
+    name: Gambeson
+    img: systems/air-bladder/icons/armor.svg
     weight: 1
     range:
       - 3
       - 3
     drawn: false
-    documentCollection: air-bladder.armor
-    documentId: pC4sMCtdCmuqIRp6
+    documentUuid: Compendium.air-bladder.armor.Item.pC4sMCtdCmuqIRp6
     flags: {}
     _key: '!tables.results!ycvQgTspyVWg24j4.815ZhZI3xwwCSujU'
   - _id: yAdRhOtF734Wer5o
-    type: pack
-    text: Helmet
-    img: systems/air-bladder/icons/armor.png
+    type: document
+    name: Helmet
+    img: systems/air-bladder/icons/armor.svg
     weight: 1
     range:
       - 4
       - 4
     drawn: false
-    documentCollection: air-bladder.armor
-    documentId: XGxHc7C2FIIhbNuE
+    documentUuid: Compendium.air-bladder.armor.Item.XGxHc7C2FIIhbNuE
     flags: {}
     _key: '!tables.results!ycvQgTspyVWg24j4.yAdRhOtF734Wer5o'
   - _id: poCHofWToVojcsVO
-    type: pack
-    text: Plate Mail
-    img: systems/air-bladder/icons/armor.png
+    type: document
+    name: Plate Mail
+    img: systems/air-bladder/icons/armor.svg
     weight: 1
     range:
       - 5
       - 5
     drawn: false
-    documentCollection: air-bladder.armor
-    documentId: ymce9Te4HU42dJS9
+    documentUuid: Compendium.air-bladder.armor.Item.ymce9Te4HU42dJS9
     flags: {}
     _key: '!tables.results!ycvQgTspyVWg24j4.poCHofWToVojcsVO'
   - _id: WH9WDxpx4fUrKZ0Y
-    type: pack
-    text: Shield
-    img: systems/air-bladder/icons/armor.png
+    type: document
+    name: Shield
+    img: systems/air-bladder/icons/armor.svg
     weight: 1
     range:
       - 6
       - 6
     drawn: false
-    documentCollection: air-bladder.armor
-    documentId: 7r2YpGYPQI2SarO3
+    documentUuid: Compendium.air-bladder.armor.Item.7r2YpGYPQI2SarO3
     flags: {}
     _key: '!tables.results!ycvQgTspyVWg24j4.WH9WDxpx4fUrKZ0Y'
 formula: 1d6

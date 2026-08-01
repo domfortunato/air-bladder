@@ -1,0 +1,28 @@
+_id: Y5LwMCc4rQYxx1rM
+name: Gossip Box
+type: item
+img: systems/air-bladder/icons/generic-item.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    relicSource: srd-2e
+system:
+  description: Wind the crank to replay any sound made in the past day in your current location. Each crank goes back one hour.
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 1
+    max: 1
+  relic: true
+  recharge: Successfully spread one falsehood in the presence of the box.
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!Y5LwMCc4rQYxx1rM'

@@ -1,52 +1,81 @@
-<form class="cairn" autocomplete="off">
-    <div class="item-sheet-grid spellbook">
-        <!-- Portrait -->
-        <div class="item-sheet-section-portrait">
-            <img class="portrait" src="{{data.img}}" data-edit="img" title="{{data.name}}" />
-        </div>
-        <!-- Name -->
-        <div class="item-sheet-section-name">
-            <input class="name-input" type="text" name="name" value="{{data.name}}"
-                placeholder="{{ localize 'CAIRN.Name' }}" />
-        </div>
-        <!-- Equipped -->
-        <div class="resource-counter long-counter">
-            <label class="large-resource-label" for="system.equipped">{{ localize 'CAIRN.Equipped' }}</label>
-            <div class="resource-input-wrapper">
-                <input type="checkbox" {{checked data.system.equipped}} name="system.equipped" id="system.equipped"
-                    value="{{data.system.equipped}}" data-dtype="Boolean" {{ disabled (not item.system.isEquipable)
-                    }} />
-            </div>
-        </div>
-
-
-        <!-- Cost -->
-        <div class="resource-counter long-counter">
-            <label class="large-resource-label" for="system.cost.value">{{ localize 'CAIRN.Cost' }}</label>
-            <div class="resource-input-wrapper">
-                <input type="text" name="system.cost.value" id="system.cost.value" value="{{data.system.cost.value}}"
-                    data-dtype="Number" />
-            </div>
-        </div>
-
-        <!-- Quantity -->
-        <div class="resource-counter long-counter">
-            <label class="large-resource-label" for="system.quantity">{{ localize 'CAIRN.Quantity' }}</label>
-            <div class="resource-input-wrapper">
-                <input type="text" name="system.quantity" id="system.quantity" value="{{data.system.quantity}}"
-                    data-dtype="Number" />
-            </div>
-        </div>
-
-        <div class="item-sheet-section-tabs">
-            <nav class="tabs" data-group="primary">
-                <a class="item" data-group="primary" data-tab="description">{{ localize 'CAIRN.Description' }}</a>
-            </nav>
-            <section class="content">
-                <div class="tab" data-group="primary" data-tab="description">
-                    {{ editor enrichedDescription target="system.description" button=true owner=owner editable=editable engine="prosemirror" collaborate=true }}
-                </div>
-            </section>
+{{!-- No <form> here: ApplicationV2 supplies it (DocumentSheetV2 sets tag: "form").
+      A nested one is dropped by the parser, taking this element's class with it. --}}
+<div class="item-sheet-grid spellbook{{#if system.scroll}} has-scroll-uses{{/if}}">
+    <!-- Portrait -->
+    <div class="item-sheet-section-portrait">
+        <img class="portrait" src="{{item.img}}" data-action="editImage" data-edit="img" title="{{item.name}}" />
+    </div>
+    <!-- Name -->
+    <div class="item-sheet-section-name">
+        <input class="name-input" type="text" name="name" value="{{item.name}}"
+            placeholder="{{ localize 'CAIRN.Name' }}" />
+    </div>
+    <!-- Equipped -->
+    <div class="resource-counter long-counter">
+        <label class="large-resource-label" for="{{@root.idp}}-system.equipped">{{ localize 'CAIRN.Equipped' }}</label>
+        <div class="resource-input-wrapper">
+            <input type="checkbox" {{checked system.equipped}} name="system.equipped" id="{{@root.idp}}-system.equipped"
+                value="{{system.equipped}}" data-dtype="Boolean" {{ disabled (not system.isEquipable) }} />
         </div>
     </div>
-</form>
+
+
+    <!-- Scroll. A flag, not a type: a spellscroll IS this spell, written once on
+         paper. Ticking it pins petty + one use and swaps the art (CairnItem
+         _preUpdate), which is why there is no Petty box and no Max uses field
+         here -- the rule is the same for every scroll, so it is not a question. -->
+    <div class="resource-counter long-counter">
+        <label class="large-resource-label" for="{{@root.idp}}-system.scroll" data-tooltip="{{ localize 'CAIRN.ScrollTip' }}">{{ localize 'CAIRN.Scroll' }}</label>
+        <div class="resource-input-wrapper">
+            <input type="checkbox" {{checked system.scroll}} name="system.scroll" id="{{@root.idp}}-system.scroll"
+                value="{{system.scroll}}" data-dtype="Boolean" />
+        </div>
+    </div>
+
+    <!-- Cost -->
+    <div class="resource-counter long-counter">
+        <label class="large-resource-label" for="{{@root.idp}}-system.cost">{{ localize 'CAIRN.Cost' }}</label>
+        <div class="resource-input-wrapper">
+            <input type="text" name="system.cost" id="{{@root.idp}}-system.cost" value="{{system.cost}}"
+                data-dtype="Number" />
+        </div>
+    </div>
+
+    <!-- Quantity -->
+    <div class="resource-counter long-counter">
+        <label class="large-resource-label" for="{{@root.idp}}-system.quantity">{{ localize 'CAIRN.Quantity' }}</label>
+        <div class="resource-input-wrapper">
+            <input type="text" name="system.quantity" id="{{@root.idp}}-system.quantity" value="{{system.quantity}}"
+                data-dtype="Number" />
+        </div>
+    </div>
+
+    {{#if system.scroll}}
+    <!-- Used up? The one editable half of the counter: max is pinned at 1, and the
+         value drops to 0 when the scroll is read. A book never shows this.
+         Placed LAST, so ticking Scroll appends a row instead of shuffling the four
+         counters a book already has. -->
+    <div class="resource-counter long-counter">
+        <label class="large-resource-label" for="{{@root.idp}}-system.uses.value">{{ localize 'CAIRN.Uses' }}</label>
+        <div class="resource-input-wrapper">
+            <input type="text" name="system.uses.value" id="{{@root.idp}}-system.uses.value"
+                value="{{system.uses.value}}" data-dtype="Number" />
+        </div>
+    </div>
+    {{/if}}
+
+    <div class="item-sheet-section-tabs">
+        <nav class="tabs" data-group="primary">
+            {{#each tabs}}
+            <a class="item {{this.cssClass}}" data-action="tab" data-group="{{this.group}}"
+                data-tab="{{this.id}}">{{ localize this.label }}</a>
+            {{/each}}
+        </nav>
+        <section class="content">
+            <div class="tab {{tabs.description.cssClass}}" data-group="primary" data-tab="description">
+                <prose-mirror name="system.description" value="{{system.description}}" toggled collaborate relative
+                    data-document-uuid="{{item.uuid}}">{{{enrichedDescription}}}</prose-mirror>
+            </div>
+        </section>
+    </div>
+</div>

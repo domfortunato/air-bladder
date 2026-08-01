@@ -4,7 +4,7 @@ type: item
 flags:
   core:
     sourceId: Item.Wqhguuy0BOTe4rwf
-img: systems/air-bladder/icons/generic-item.png
+img: systems/air-bladder/icons/generic-item.svg
 effects: []
 system:
   description: ''
@@ -18,8 +18,6 @@ system:
     value: 0
     max: 0
   quantity: 1
-  numberOfUses: 0
-  slots: 1
   armor: null
 ownership:
   default: 0

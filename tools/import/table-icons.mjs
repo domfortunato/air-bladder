@@ -9,15 +9,20 @@
  * `icons/svg/item-bag.svg`, a stock horse photo, a grey d20. This fixes that.
  *
  * The rule is "mirror the target", NOT "assign a class icon", because a
- * `type: pack` result can point at three different kinds of document:
+ * `type: document` result can point at three different kinds of document:
  *   - an Item/Actor  -> its stamped game-icon (weapons.png, armor.png, ...)
  *   - another RollTable (a table-of-tables, e.g. Names -> Male/Female Names)
  *                     -> that table's own d20 art, which is correct as-is
  * Resolving each result against its referenced document's top-level `img` gets
- * all of them right for free. `type: document` results (the legacy gear-tables,
- * which reference WORLD Item ids that don't exist in a fresh install) can't be
- * resolved by id, so they fall back to a name match against the item packs.
- * `type: text` results have no document and are left untouched.
+ * all of them right for free. A row whose `documentUuid` points at a WORLD
+ * document (dragged in from a sidebar, so the id does not exist in a fresh
+ * install) cannot be resolved by id, so it falls back to a name match against the
+ * item packs. `type: text` results have no document and are left untouched.
+ *
+ * Since v13 there is one document row type, not two: `pack` was merged into
+ * `document`, and `documentCollection`/`documentId` became `documentUuid`. Both
+ * old spellings are still accepted below, because a Warden's world can hold a
+ * table written before that and this tool is also pointed at extracted content.
  *
  * Surgical + idempotent, exactly like item-icons.mjs: it parses each table to
  * read result order + targets, then rewrites ONLY the per-result `img:` line
@@ -82,23 +87,26 @@ const decode = (s) => String(s)
   .replace(/&amp;/g, "&");
 const nameHit = (text) => text && byName.get(decode(text).toLowerCase());
 
+/** A result's own label: `name` on a document row, and `text` on a pre-v13 one. */
+const labelOf = (r) => r.name ?? r.text ?? "";
+
+/** The referenced document's id, however the row spells its reference. */
+const targetId = (r) => {
+  if (r.documentUuid) return String(r.documentUuid).split(".").pop();
+  return r.documentId ?? null;                        // pre-v13 rows
+};
+
 /** Target img for one result, or null to leave it alone. */
 const targetFor = (r, warnings) => {
-  if (r.type === "pack") {
-    const hit = byId.get(r.documentId);
-    if (hit) return hit.img;
-    const byN = nameHit(r.text);
-    if (byN) return byN;
-    warnings.push(`unresolved pack ref "${r.text}" (${r.documentCollection}/${r.documentId})`);
-    return null;
-  }
-  if (r.type === "document") {                       // legacy world ref -> name match
-    const byN = nameHit(r.text);
-    if (byN) return byN;
-    warnings.push(`unresolved document ref "${r.text}" (${r.documentCollection}/${r.documentId})`);
-    return null;
-  }
-  return null;                                        // text results: no icon
+  if (r.type !== "document" && r.type !== "pack") return null;   // text rows: no icon
+  const hit = byId.get(targetId(r));
+  if (hit) return hit.img;
+  // A world reference (or a stale id) resolves to nothing here, so fall back to
+  // matching the row's own label against the item packs.
+  const byN = nameHit(labelOf(r));
+  if (byN) return byN;
+  warnings.push(`unresolved document ref "${labelOf(r)}" (${r.documentUuid ?? `${r.documentCollection}/${r.documentId}`})`);
+  return null;
 };
 
 // ---- Rewrite --------------------------------------------------------------

@@ -4,81 +4,75 @@ img: icons/svg/d20-grey.svg
 description: 'Cairn Barebones character creation, step 5. Roll d6: 1-3 pick a damage tier (roll that table too), 4-6 are a single weapon. The weapon is granted equipped.'
 results:
   - _id: B5nr9jgFpRP0wLB4
-    type: pack
-    text: 'Barebones: Weapon Tier - d6'
+    type: document
+    name: 'Barebones: Weapon Tier - d6'
     img: icons/svg/d20-grey.svg
     weight: 1
     range:
       - 1
       - 1
     drawn: false
-    documentCollection: air-bladder.tables-barebones
-    documentId: o6AX6fus0QiEuDkK
+    documentUuid: Compendium.air-bladder.tables-barebones.RollTable.o6AX6fus0QiEuDkK
     flags: {}
     _key: '!tables.results!bvjYLpTzedfn5lAi.B5nr9jgFpRP0wLB4'
   - _id: RwLnXvFxHD2UYAT5
-    type: pack
-    text: 'Barebones: Weapon Tier - d8'
+    type: document
+    name: 'Barebones: Weapon Tier - d8'
     img: icons/svg/d20-grey.svg
     weight: 1
     range:
       - 2
       - 2
     drawn: false
-    documentCollection: air-bladder.tables-barebones
-    documentId: uU2DFZPLjzFm73vS
+    documentUuid: Compendium.air-bladder.tables-barebones.RollTable.uU2DFZPLjzFm73vS
     flags: {}
     _key: '!tables.results!bvjYLpTzedfn5lAi.RwLnXvFxHD2UYAT5'
   - _id: Gv01fNGqgOlO6Ljt
-    type: pack
-    text: 'Barebones: Weapon Tier - d10'
+    type: document
+    name: 'Barebones: Weapon Tier - d10'
     img: icons/svg/d20-grey.svg
     weight: 1
     range:
       - 3
       - 3
     drawn: false
-    documentCollection: air-bladder.tables-barebones
-    documentId: D0u7HEFuAtrDqfHN
+    documentUuid: Compendium.air-bladder.tables-barebones.RollTable.D0u7HEFuAtrDqfHN
     flags: {}
     _key: '!tables.results!bvjYLpTzedfn5lAi.Gv01fNGqgOlO6Ljt'
   - _id: 1Y5bLuNrNSsQeFKO
-    type: pack
-    text: Sling
-    img: systems/air-bladder/icons/weapons.png
+    type: document
+    name: Sling
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 4
       - 4
     drawn: false
-    documentCollection: air-bladder.weapons
-    documentId: OCOPpIkkvUL5fZKQ
+    documentUuid: Compendium.air-bladder.weapons.Item.OCOPpIkkvUL5fZKQ
     flags: {}
     _key: '!tables.results!bvjYLpTzedfn5lAi.1Y5bLuNrNSsQeFKO'
   - _id: EZdwajN6L20aViZk
-    type: pack
-    text: Bow
-    img: systems/air-bladder/icons/weapons.png
+    type: document
+    name: Bow
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 5
       - 5
     drawn: false
-    documentCollection: air-bladder.weapons
-    documentId: iQFZEdDJKyjvGtY8
+    documentUuid: Compendium.air-bladder.weapons.Item.iQFZEdDJKyjvGtY8
     flags: {}
     _key: '!tables.results!bvjYLpTzedfn5lAi.EZdwajN6L20aViZk'
   - _id: IucU3AHCeGP0kWBJ
-    type: pack
-    text: Crossbow
-    img: systems/air-bladder/icons/weapons.png
+    type: document
+    name: Crossbow
+    img: systems/air-bladder/icons/weapons.svg
     weight: 1
     range:
       - 6
       - 6
     drawn: false
-    documentCollection: air-bladder.weapons
-    documentId: mjddKpJ42HUs5GA7
+    documentUuid: Compendium.air-bladder.weapons.Item.mjddKpJ42HUs5GA7
     flags: {}
     _key: '!tables.results!bvjYLpTzedfn5lAi.IucU3AHCeGP0kWBJ'
 formula: 1d6

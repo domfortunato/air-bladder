@@ -3,7 +3,7 @@ name: Giant Electric Eel
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.png
+img: systems/air-bladder/icons/monster.svg
 items:
   - _id: 521njrVTvxdUR3IX
     name: Bite

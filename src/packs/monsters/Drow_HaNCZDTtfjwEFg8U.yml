@@ -3,7 +3,7 @@ name: Drow
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.png
+img: systems/air-bladder/icons/monster.svg
 items:
   - _id: 3bBR43hA4GLKab1s
     name: Shortsword

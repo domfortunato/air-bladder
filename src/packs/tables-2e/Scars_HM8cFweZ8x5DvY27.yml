@@ -5,15 +5,13 @@ description: Cairn 2e scars. Player-picked on the character sheet; descriptive o
 results:
   - _id: eoXnVjRI02aHGN1U
     type: text
-    text: 1 HP - Lasting Scar
+    description: 1 HP - Lasting Scar
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 1
       - 1
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags:
       air-bladder:
         description: |-
@@ -25,15 +23,13 @@ results:
     _key: '!tables.results!HM8cFweZ8x5DvY27.eoXnVjRI02aHGN1U'
   - _id: ysqQO82mzAzS4kqF
     type: text
-    text: 2 HP - Rattling Blow
+    description: 2 HP - Rattling Blow
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 2
       - 2
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags:
       air-bladder:
         description: |-
@@ -45,15 +41,13 @@ results:
     _key: '!tables.results!HM8cFweZ8x5DvY27.ysqQO82mzAzS4kqF'
   - _id: vx1zYTi1yf72mRYO
     type: text
-    text: 3 HP - Walloped
+    description: 3 HP - Walloped
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 3
       - 3
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags:
       air-bladder:
         description: |-
@@ -65,15 +59,13 @@ results:
     _key: '!tables.results!HM8cFweZ8x5DvY27.vx1zYTi1yf72mRYO'
   - _id: bXsThpj5b6898GcI
     type: text
-    text: 4 HP - Broken Limb
+    description: 4 HP - Broken Limb
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 4
       - 4
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags:
       air-bladder:
         description: |-
@@ -85,15 +77,13 @@ results:
     _key: '!tables.results!HM8cFweZ8x5DvY27.bXsThpj5b6898GcI'
   - _id: FdEfQn3XiAw11kOs
     type: text
-    text: 5 HP - Diseased
+    description: 5 HP - Diseased
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 5
       - 5
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags:
       air-bladder:
         description: |-
@@ -105,15 +95,13 @@ results:
     _key: '!tables.results!HM8cFweZ8x5DvY27.FdEfQn3XiAw11kOs'
   - _id: mFqonMigoFalYkxy
     type: text
-    text: 6 HP - Reorienting Head Wound
+    description: 6 HP - Reorienting Head Wound
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 6
       - 6
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags:
       air-bladder:
         description: |-
@@ -125,15 +113,13 @@ results:
     _key: '!tables.results!HM8cFweZ8x5DvY27.mFqonMigoFalYkxy'
   - _id: GgY0kVY6BYlCdx1q
     type: text
-    text: 7 HP - Hamstrung
+    description: 7 HP - Hamstrung
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 7
       - 7
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags:
       air-bladder:
         description: |-
@@ -145,15 +131,13 @@ results:
     _key: '!tables.results!HM8cFweZ8x5DvY27.GgY0kVY6BYlCdx1q'
   - _id: EeD1kBLsrc1X759T
     type: text
-    text: 8 HP - Deafened
+    description: 8 HP - Deafened
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 8
       - 8
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags:
       air-bladder:
         description: |-
@@ -165,15 +149,13 @@ results:
     _key: '!tables.results!HM8cFweZ8x5DvY27.EeD1kBLsrc1X759T'
   - _id: hG2OratG92UW9a5R
     type: text
-    text: 9 HP - Re-brained
+    description: 9 HP - Re-brained
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 9
       - 9
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags:
       air-bladder:
         description: |-
@@ -185,15 +167,13 @@ results:
     _key: '!tables.results!HM8cFweZ8x5DvY27.hG2OratG92UW9a5R'
   - _id: 0FrwckFycp5zUZ4f
     type: text
-    text: 10 HP - Sundered
+    description: 10 HP - Sundered
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 10
       - 10
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags:
       air-bladder:
         description: |-
@@ -205,15 +185,13 @@ results:
     _key: '!tables.results!HM8cFweZ8x5DvY27.0FrwckFycp5zUZ4f'
   - _id: TFqW2UbfyZRJCnCT
     type: text
-    text: 11 HP - Mortal Wound
+    description: 11 HP - Mortal Wound
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 11
       - 11
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags:
       air-bladder:
         description: |-
@@ -225,15 +203,13 @@ results:
     _key: '!tables.results!HM8cFweZ8x5DvY27.TFqW2UbfyZRJCnCT'
   - _id: u9VTKX3XNO8At1zL
     type: text
-    text: 12 HP - Doomed
+    description: 12 HP - Doomed
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 12
       - 12
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags:
       air-bladder:
         description: |-

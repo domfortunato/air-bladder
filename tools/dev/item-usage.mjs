@@ -9,8 +9,7 @@
  *   - Barebones bgs      startingGear[].name
  *   - 2e Bonds table     per-result flag items
  *   - Hirelings          gear names (module/hirelings-2e.json)
- *   - Marketplace tables result.text (the item name)
- *   - SRD creation tables + legacy gear-tables  result.text
+ *   - Marketplace tables the row's own label (the item name)
  *   - default gear       Rations, Torch  (config.js startingItems)
  *   - GEAR_ALIASES       alias targets
  * Spell grants ("Scroll (X)", "X Spellbook") route to the spellbook packs and are
@@ -32,14 +31,18 @@ const readPack = (pack) => {
     .map((f) => YAML.load(fs.readFileSync(path.join(dir, f), "utf8"))).filter(Boolean);
 };
 
-// ---- mirror module/gear.js (kept in sync by hand) -------------------------
-const CANONICAL_GEAR_PACKS = ["expeditionary-gear", "tools", "trinkets", "extra", "weapons", "armor", "market-goods"];
+// ---- mirror module/gear.js (drift is gated by tools/dev/ref-audit.mjs) ----
+// `background-items` was MISSING here, which is why this report cried wolf: every
+// item background-items.mjs had consolidated out of a type pack was invisible to
+// the scan and counted as a dangling grant. 268 of them, all tagged [bg]. Same bug
+// class as the 17 duplicate names — an audit that searches less than the resolver.
+const CANONICAL_GEAR_PACKS = ["expeditionary-gear", "tools", "trinkets", "weapons", "armor", "market-goods", "background-items"];
 const GEAR_ALIASES = new Map([
   ["lockpick", "Lockpicks"], ["hand drill", "Hand-Drill"], ["torches", "Torch"],
   ["rope (25ft)", "Rope"], ["chain (10ft)", "Chain, 10ft"], ["chains (10ft)", "Chain, 10ft"],
   ["chains", "Chain, 10ft"], ["chain", "Chain, 10ft"], ["pole (10ft)", "Pole, 10ft"],
   ["pole", "Pole, 10ft"], ["plate", "Plate Mail"],
-  ["simple instrument (pipes, lute, etc.)", "Instrument"], ["simple instruments (pipes, lute, etc.)", "Instrument"],
+  ["simple instrument (pipes, lute, etc.)", "Simple Instruments (Pipes, Lute, etc.)"],
   ["boltcutters", "Bolt Cutters"], ["tent (fits 2)", "Tent"],
 ]);
 const decode = (s) => String(s).replace(/&amp;/g, "&").replace(/&#0?39;/g, "'").replace(/&apos;/g, "'");
@@ -100,9 +103,22 @@ try {
   walk(hire);
 } catch {}
 
-// Marketplace + SRD + legacy gear-tables: result.text is the item name
-for (const pack of ["marketplace"]) for (const t of readPack(pack)) for (const r of t.results ?? []) add(r.text, "market");
-for (const pack of ["character-creation-tables-srd", "gear-tables"]) for (const t of readPack(pack)) for (const r of t.results ?? []) add(r.text, "srd");
+// Marketplace: the row's own label is the item name. v13 split `TableResult#text`
+// into TWO fields, and which one holds the label depends on the row type — a
+// document row carries it in `name`, a text row in `description`. `r.name ?? r.text`
+// is therefore only half right: it reads a document row correctly and a text row not
+// at all. `text` stays last as a fallback for any content still in the pre-v13 shape.
+const rowLabel = (r) => (r.type === "text" ? r.description : r.name) ?? r.text;
+const marketTables = readPack("marketplace");
+if (!marketTables.length) {
+  // A pack that has been renamed or retired reads as an empty list, not an error,
+  // and an empty list here quietly shrinks the CONSUMER set — which turns every
+  // item it would have claimed into a reported orphan. Say so instead.
+  console.error("  FAIL  src/packs/marketplace/ read to zero tables — this check is "
+    + "matching nothing; every shop item will be reported as an orphan");
+  process.exitCode = 1;
+}
+for (const t of marketTables) for (const r of t.results ?? []) add(rowLabel(r), "market");
 
 // default gear + alias targets
 ["Rations", "Torch"].forEach((n) => add(n, "default"));

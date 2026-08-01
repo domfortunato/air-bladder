@@ -56,6 +56,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+import { packUuid } from "./uuid.mjs";
 
 const require = createRequire(import.meta.url);
 const yaml = require("js-yaml");
@@ -89,7 +90,9 @@ const TRANSPORTS = [
     description: "A riding horse. Bears four slots of gear and covers open ground quickly.",
   },
   {
-    name: "Handcart", transportKind: "vehicle", slots: 4, load: 0, cost: 15,
+    // Bulky, like the Cart it is a smaller cousin of (fixed in 22ca7f3, but only
+    // in the pack YAML — a rerun silently un-fixed it until this line existed).
+    name: "Handcart", transportKind: "vehicle", slots: 4, load: 0, cost: 15, bulky: true,
     img: "icons/environment/settlement/wagon.webp",
     description: "A small cart pulled by hand. Holds four slots — no beast required, but you are the one doing the hauling.",
   },
@@ -210,16 +213,16 @@ const tableYaml = (refs) => {
     const rid = idFor(`air-bladder-market-result:${CATEGORY}:${i}:${ref.text}`);
     return [
       `  - _id: ${rid}`,
-      "    type: pack",
-      `    text: ${y(ref.text)}`,
+      // See marketplace.mjs: `pack` and `text` are both v15 removals.
+      "    type: document",
+      `    name: ${y(ref.text)}`,
       `    img: ${y(ref.img)}`,
       "    weight: 1",
       "    range:",
       `      - ${i + 1}`,
       `      - ${i + 1}`,
       "    drawn: false",
-      `    documentCollection: ${ref.documentCollection}`,
-      `    documentId: ${ref.documentId}`,
+      `    documentUuid: ${packUuid(ref.documentCollection, ref.documentId)}`,
       "    flags: {}",
       `    _key: '!tables.results!${tid}.${rid}'`,
     ].join("\n");

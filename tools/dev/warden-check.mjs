@@ -126,6 +126,24 @@ const splitRefs = (s) => {
 };
 
 /**
+ * A shipped row's value. v13 split `TableResult#text` in two and the halves went to
+ * DIFFERENT fields: a **text** row's value is `description`, a **document** row's is
+ * `name`. Every Warden row is a text row, so reading `.text` here made all 376 of
+ * them compare as `""`.
+ *
+ * That did not pass silently — it failed 15 tables at once. It failed **pointing at
+ * the wrong thing**, reporting `srd "Bleeds" != ours ""` as though the pack content
+ * had been emptied, which is a far more alarming and far less actionable message
+ * than "this check no longer knows how to read a row". Hence `emptyRows` below.
+ * Third reader found with this defect; see the same fix in `trait-parse-check.mjs`
+ * and `item-usage.mjs`.
+ */
+const rowText = (r) => String((r?.type === "text" ? r.description : r?.name) ?? "");
+
+/** Rows that read to nothing. If that is ALL of them, the schema moved again. */
+let emptyRows = 0;
+
+/**
  * INLINE cross-reference rewrites — the ones not in "(See …)" form, where our
  * copy names a compendium table in the middle of a sentence because a website
  * link cannot survive into a VTT. Each is DECLARED rather than tolerated: the
@@ -231,7 +249,8 @@ for (const spec of SPEC) {
     }
     let bad = 0;
     values.forEach((v, i) => {
-      const { text } = splitRefs(results[i].text);
+      const { text } = splitRefs(rowText(results[i]));
+      if (!text.trim()) emptyRows++;
       if (norm(text) !== v) { bad++; if (verbose) console.error(`        [${i}] "${v}" vs "${norm(text)}"`); }
       // the SRD's own range ("3-5") must match the shipped numeric range
       const [lo, hi] = (ranges[i].match(/\d+/g) ?? []).map(Number);
@@ -260,7 +279,8 @@ for (const spec of SPEC) {
 
   let bad = 0;
   rows.forEach((row, i) => {
-    const { text, refs } = splitRefs(results[i].text);
+    const { text, refs } = splitRefs(rowText(results[i]));
+    if (!text.trim()) emptyRows++;
     allRefs.push(...refs.map((r) => ({ table: spec.name, ref: r })));
     const mine = norm(text);
     if (spec.exact) {
@@ -287,6 +307,19 @@ for (const spec of SPEC) {
   checkedRows += rows.length;
   bad ? fail(`${spec.name}: ${bad} mismatch(es) — rerun with --verbose`)
       : ok(`${spec.name} — ${rows.length} rows${spec.exact ? "" : " (composed)"}`);
+}
+
+/* ---- did this check read anything at all? ---------------------------------- */
+
+// Every row reading empty is not 376 emptied tables, it is a check that has lost
+// the field it reads. Say which, or the next schema rename costs the same hour of
+// hunting through pack YAML that this one did.
+if (checkedRows && emptyRows === checkedRows) {
+  fail(`all ${checkedRows} shipped rows read to an empty string — the TableResult row `
+    + "schema has moved under this check, so it is matching nothing rather than "
+    + "finding the packs empty. Fix `rowText`, do not touch the content");
+} else if (emptyRows) {
+  fail(`${emptyRows} of ${checkedRows} shipped rows read to an empty string`);
 }
 
 /* ---- cross-references must name a table that actually exists --------------- */

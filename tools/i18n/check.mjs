@@ -1,18 +1,21 @@
 #!/usr/bin/env node
 /**
- * i18n release gate. Compares lang/es.json against lang/en.json:
- *   - coverage    : keys in en missing from es, or still equal to English
+ * i18n release gate. Compares lang/<lang>.json against lang/en.json:
+ *   - coverage    : keys in en missing from the translation, or still English
  *   - placeholders: {n}/{name}/… parity for translated keys   → ERROR
  *   - HTML tags   : <p>/<strong>/<a>… parity for translated keys → ERROR
- *   - stale       : keys in es but not in en                   → warning
+ *   - stale       : keys in the translation but not in en      → warning
  *   - glossary    : (--glossary) a translated key whose en uses a glossary term
- *                   but whose es lacks the mapped term            → warning (advisory)
+ *                   but whose translation lacks the mapped term   → warning (advisory)
  *
  * Exit non-zero on any validation ERROR, or on a coverage gap with --strict.
  * (Coverage gaps alone are non-fatal by default: Foundry falls back to English
- * per key, so a partial es.json is shippable — the translator's core promise.)
+ * per key, so a partial translation is shippable — the translator's core promise.)
  *
- *   node tools/i18n/check.mjs [--strict] [--glossary]
+ *   node tools/i18n/check.mjs [--strict] [--glossary] [--lang es]
+ *
+ * The glossary is per-locale: tools/i18n/glossary-<lang>.tsv, with the unsuffixed
+ * glossary.tsv serving Spanish. No glossary for a locale simply skips that check.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -21,11 +24,20 @@ import { checkPair, flattenLang } from "./validate.mjs";
 
 const STRICT = process.argv.includes("--strict");
 const GLOSSARY = process.argv.includes("--glossary");
+const langArg = process.argv.indexOf("--lang");
+const LANG = langArg === -1 ? "es" : process.argv[langArg + 1];
 const load = (f) => flattenLang(JSON.parse(fs.readFileSync(path.join(ROOT, f), "utf8")));
 
-/** Parse the curated glossary.tsv (en·es·kind·source·notes) into {en,es} pairs. */
+/**
+ * Parse the curated glossary (en·<lang>·kind·source·notes) into {en,es} pairs.
+ * Per-locale: glossary-<lang>.tsv, with the unsuffixed glossary.tsv serving
+ * Spanish because it predates the tooling being localized. A locale with no
+ * glossary yet returns nothing, which skips the drift check rather than failing.
+ */
 const loadGlossary = () => {
-  const p = path.join(ROOT, "tools", "i18n", "glossary.tsv");
+  const perLang = path.join(ROOT, "tools", "i18n", `glossary-${LANG}.tsv`);
+  const spanish = path.join(ROOT, "tools", "i18n", "glossary.tsv");
+  const p = fs.existsSync(perLang) ? perLang : LANG === "es" ? spanish : perLang;
   if (!fs.existsSync(p)) return [];
   const lines = fs.readFileSync(p, "utf8").replace(/^﻿/, "").split(/\r?\n/).filter((l) => l.trim());
   lines.shift(); // header
@@ -40,7 +52,7 @@ const esStem = (s) => (s.length >= 6 ? s.replace(/[aeos]+$/i, "") : s).toLowerCa
 const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const en = load("lang/en.json");
-const es = load("lang/es.json");
+const es = load(`lang/${LANG}.json`);
 
 const missing = [], untranslated = [], stale = [], errors = [];
 for (const [k, enVal] of Object.entries(en)) {
@@ -70,10 +82,10 @@ const enCount = Object.keys(en).length;
 const translated = enCount - missing.length - untranslated.length;
 const pct = Math.round((translated / enCount) * 100);
 
-console.log(`\nlang/es.json vs lang/en.json`);
+console.log(`\nlang/${LANG}.json vs lang/en.json`);
 console.log(`  translated  : ${translated}/${enCount}  (${pct}%)`);
 console.log(`  missing     : ${missing.length}${missing.length ? `   e.g. ${missing.slice(0, 5).join(", ")}` : ""}`);
-console.log(`  es == en    : ${untranslated.length}`);
+console.log(`  ${LANG} == en    : ${untranslated.length}`);
 console.log(`  stale       : ${stale.length}${stale.length ? `   e.g. ${stale.slice(0, 5).join(", ")}` : ""}`);
 
 if (errors.length) {

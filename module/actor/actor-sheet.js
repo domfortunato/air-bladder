@@ -1,62 +1,547 @@
 import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, mentionsSecondBond, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, getCustomPortraitPaths, refreshCustomPortraits, regenerateHireling, rerollHirelingProfession, rerollHirelingName, rollNameFromTable, rollAge } from "../character-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
-import { evaluateFormula, getInfoFromDropData, stripPar } from "../utils.js";
+import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, sourceLabel } from "../utils.js";
+import { resultText } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
-import { CONTAINER_ART, CONTAINER_ICON, iconForItem } from "../icons.js";
+import { CONTAINER_ART, CONTAINER_CLASSES, TRANSPORT_KINDS } from "../icons.js";
 import { localizeNameDesc, t } from "../i18n-content.js";
+import { FATIGUE_NAME } from "../item/item.js";
+
+const { HandlebarsApplicationMixin } = foundry.applications.api;
+const { ActorSheetV2 } = foundry.applications.sheets;
 
 /**
- * Extend the basic ActorSheet with some very simple modifications
- * @extends {ActorSheet}
+ * The checkbox names on the add/edit-feature dialog, which are also the keys the
+ * feature record stores them under. Create and Edit read the same form template,
+ * so they must read the same list — it used to be declared twice, inline.
  */
-export class CairnActorSheet extends ActorSheet {
+const FEATURE_FLAGS = ["str", "dex", "wil", "hp", "armor", "dmg", "crit", "deprived", "blast"];
+
+/** Tab labels by id. The nav itself is hand-written in each template, because
+ *  every label carries live data (slot counts, container counts, and a Notes tab
+ *  that renames itself once a background is attached). */
+const TAB_LABELS = {
+  items: "CAIRN.Items",
+  containers: "CAIRN.Containers",
+  description: "CAIRN.Description",
+  notes: "CAIRN.Notes",
+};
+
+/** Which tabs each actor type shows, in order. `containers` is dropped unless
+ *  the actor actually has the Containers tab enabled (see _getTabsConfig). */
+const TAB_IDS = {
+  character: ["items", "containers", "description", "notes"],
+  npc: ["items", "containers", "description", "notes"],
+  // Same set as npc: one sheet, one tab set. A hireling used to get only
+  // items+notes, so anything written in its Description was unreachable.
+  hireling: ["items", "containers", "description", "notes"],
+  container: ["items", "description"],
+};
+
+/**
+ * Memoized compendium reads for the sheet's static pick-lists (traits, scars, omens).
+ *
+ * `_prepareContext` runs on EVERY render, and `submitOnChange` is on — so every
+ * field edit, every item add/remove and every damage application re-read a pack and
+ * constructed all 11 tables-2e RollTables from scratch.
+ *
+ * These are shipped tables that do not change during play. The hooks below cover the
+ * one case that isn't true: a Warden unlocking the pack and editing a table.
+ *
+ * The PROMISE is cached, so concurrent renders share a single round-trip, and what
+ * it resolves to is the RAW documents — translation stays per-render, so switching
+ * language still re-localizes for free.
+ */
+const PACK_DOC_CACHE = new Map();
+
+const cachedPackDocuments = (packName) => {
+  if (!PACK_DOC_CACHE.has(packName)) {
+    const pack = game.packs.get(packName);
+    // Drop a rejection rather than caching it forever; the caller sees the same
+    // error it would have seen before, and the next render retries.
+    const p = pack
+      ? pack.getDocuments().catch((err) => { PACK_DOC_CACHE.delete(packName); throw err; })
+      : Promise.resolve([]);
+    PACK_DOC_CACHE.set(packName, p);
+  }
+  return PACK_DOC_CACHE.get(packName);
+};
+
+// TableResult as well as RollTable: adding a row to a table fires ONLY
+// createTableResult — the parent RollTable is not updated — so a Warden who
+// unlocked the pack and added a Scar, an Omen or a trait watched the sheet's
+// pick-lists keep serving the cached table for the rest of the session. Editing
+// or deleting a row is the same story.
+for (const hook of [
+  "createRollTable", "updateRollTable", "deleteRollTable",
+  "createTableResult", "updateTableResult", "deleteTableResult",
+]) {
+  Hooks.on(hook, () => PACK_DOC_CACHE.clear());
+}
+
+/* -------------------------------------------- */
+/*  Row animations (replacing jQuery slideUp/slideDown)                         */
+/* -------------------------------------------- */
+
+/** Collapse `el` to nothing over 200ms, then run `after`. The animation is
+ *  cosmetic; `after` is the real work, so it runs even if animation is
+ *  unavailable or interrupted. */
+const slideUp = (el, after = () => {}) => {
+  el.style.overflow = "hidden";
+  const anim = el.animate(
+    [{ height: `${el.offsetHeight}px`, opacity: 1 }, { height: "0px", opacity: 0 }],
+    { duration: 200, easing: "ease-out" }
+  );
+  anim.finished.then(after, after);
+};
+
+/** Reveal `el` from nothing over 200ms. */
+const slideDown = (el) => {
+  const height = el.scrollHeight;
+  el.style.overflow = "hidden";
+  el.animate(
+    [{ height: "0px", opacity: 0 }, { height: `${height}px`, opacity: 1 }],
+    { duration: 200, easing: "ease-out" }
+  ).finished.then(() => { el.style.overflow = ""; }, () => { el.style.overflow = ""; });
+};
+
+/**
+ * Wrap an action handler so it does nothing on a non-editable sheet.
+ *
+ * AppV1 simply never bound any of these listeners when `options.editable` was
+ * false — `activateListeners` returned early — so an observer's sheet was inert
+ * beyond Foundry's own controls. ApplicationV2 wires `actions` regardless of
+ * editability, so preserving that behaviour means guarding at the handler.
+ */
+const owned = (fn) => function (event, target) {
+  if (!this.isEditable) return undefined;
+  return fn.call(this, event, target);
+};
+
+/**
+ * The actor sheet, on ApplicationV2.
+ *
+ * One class serves all four actor types; the template and the tab set are chosen
+ * per render from `actor.type` (see _configureRenderParts / _getTabsConfig).
+ *
+ * Two AppV1 behaviours are re-declared rather than inherited, because
+ * DocumentSheetV2 defaults them the other way and the sheet silently stops
+ * working without them:
+ *
+ *  - `form.submitOnChange` — the whole UX is "edit a field and it sticks".
+ *    AppV1's ActorSheet set this; DocumentSheetV2 defaults it to false.
+ *  - `window.resizable` — AppV1's ActorSheet set it; ApplicationV2 defaults false.
+ *
+ * ApplicationV2 has no `submitOnClose`, so a field edited and left un-blurred is
+ * no longer saved by closing the window. `submitOnChange` covers every normal
+ * edit; see _processFormData for the one place that mattered.
+ *
+ * @extends {ActorSheetV2}
+ */
+export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   /** @override */
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      classes: ["cairn", "sheet", "actor"],
-      template: "systems/air-bladder/templates/actor/actor-sheet.html",
-      width: 600,
-      height: 750,
-      tabs: [
-        {
-          navSelector: ".tabs",
-          contentSelector: ".content",
-          initial: "items",
-        },
-      ],
-      dragDrop: [{ dragSelector: ".cairn-items-list-row", dropSelector: null }],
+  static DEFAULT_OPTIONS = {
+    classes: ["cairn", "sheet", "actor"],
+    position: { width: 600, height: 750 },
+    window: { resizable: true },
+    form: { submitOnChange: true },
+    actions: {
+      // Header
+      rollActor: owned(CairnActorSheet.#onRollActor),
+      toggleGeneration: owned(CairnActorSheet.#onToggleGeneration),
+      // Portrait + name
+      editPortrait: owned(CairnActorSheet.#onEditPortrait),
+      rollPortrait: owned(CairnActorSheet.#onRollPortrait),
+      rollName: owned(CairnActorSheet.#onRollName),
+      rollProfession: owned(CairnActorSheet.#onRollProfession),
+      // Inventory
+      itemCreate: owned(CairnActorSheet.#onItemCreate),
+      itemShop: owned(CairnActorSheet.#onItemShop),
+      itemEdit: owned(CairnActorSheet.#onItemEdit),
+      itemDelete: owned(CairnActorSheet.#onItemDelete),
+      itemToggleEquipped: owned(CairnActorSheet.#onItemToggleEquipped),
+      itemAddUse: owned(CairnActorSheet.#onItemAddUse),
+      itemRemoveUse: owned(CairnActorSheet.#onItemRemoveUse),
+      itemDescription: owned(CairnActorSheet.#onItemDescription),
+      addFatigue: owned(CairnActorSheet.#onAddFatigue),
+      removeFatigue: owned(CairnActorSheet.#onRemoveFatigue),
+      rollDamage: owned(CairnActorSheet.#onRollDamage),
+      // Containers
+      containerShop: owned(CairnActorSheet.#onContainerShop),
+      containerCreate: owned(CairnActorSheet.#onContainerCreate),
+      // Features
+      featureCreate: owned(CairnActorSheet.#onFeatureCreate),
+      featureEdit: owned(CairnActorSheet.#onFeatureEdit),
+      featureDelete: owned(CairnActorSheet.#onFeatureDelete),
+      featureDescription: owned(CairnActorSheet.#onFeatureDescription),
+      // Header counters + buttons
+      rollAbility: owned(CairnActorSheet.#onRollAbility),
+      toggleCritical: owned(CairnActorSheet.#onToggleCritical),
+      armorReset: owned(CairnActorSheet.#onArmorReset),
+      rest: owned(CairnActorSheet.#onRest),
+      restoreAbilities: owned(CairnActorSheet.#onRestoreAbilities),
+      dieOfFate: owned(CairnActorSheet.#onDieOfFate),
+      // Description tab
+      rollAge: owned(CairnActorSheet.#onRollAge),
+      rollOmen: owned(CairnActorSheet.#onRollOmen),
+      toggleTraits: owned(CairnActorSheet.#onToggleTraits),
+      toggleScars: owned(CairnActorSheet.#onToggleScars),
+      // Background / failed career
+      rollBackground: owned(CairnActorSheet.#onRollBackground),
+      pickBackground: owned(CairnActorSheet.#onPickBackground),
+      rollFailedCareer: owned(CairnActorSheet.#onRollFailedCareer),
+      pickFailedCareer: owned(CairnActorSheet.#onPickFailedCareer),
+      rollFailedCareerItem: owned(CairnActorSheet.#onRollFailedCareerItem),
+      // Notes tab
+      rerollBond: owned(CairnActorSheet.#onRerollBond),
+      addBond: owned(CairnActorSheet.#onAddBond),
+      removeBond: owned(CairnActorSheet.#onRemoveBond),
+      rerollQuestion: owned(CairnActorSheet.#onRerollQuestion),
+    },
+  };
+
+  /**
+   * Replaced per render by _configureRenderParts. Declared because
+   * HandlebarsApplicationMixin validates it at construction.
+   * @override
+   */
+  static PARTS = {};
+
+  /** @override */
+  static TABS = {
+    primary: {
+      tabs: [{ id: "items", label: TAB_LABELS.items }],
+      initial: "items",
+    },
+  };
+
+  /* -------------------------------------------- */
+
+  /**
+   * The hireling sheet's old <form> carried a `hireling` class, which the whole
+   * `.hireling …` block in css/cairn.css hangs off (the stripped name/profession/
+   * day-rate stack, and HP joining the ability column). ApplicationV2 owns the
+   * form element, so the class has to come from the options instead.
+   *
+   * Only this one type is added. Adding every type mechanically would put a bare
+   * `.container` / `.character` on the window, which is exactly the kind of
+   * generic class name a framework stylesheet is liable to claim.
+   * @override
+   */
+  _initializeApplicationOptions(options) {
+    const applied = super._initializeApplicationOptions(options);
+    // Both non-player types share one sheet, so both need the class its layout is
+    // scoped to. PREFIXED deliberately: the old name was `hireling`, which stopped
+    // describing anything once npc used the same template, and a bare `.npc` is
+    // exactly the generic token the note above warns about.
+    if (["npc", "hireling"].includes(options.document?.type)) {
+      applied.classes.push("cairn-npc-sheet");
+    }
+    return applied;
+  }
+
+  /**
+   * One template per actor type, chosen at render. `static PARTS` cannot vary by
+   * document, so this is the hook for it. The shared partials must be declared
+   * so HandlebarsApplicationMixin preloads them.
+   * @override
+   */
+  _configureRenderParts(_options) {
+    // `hireling` renders the NPC sheet: the two types are one thing now (see
+    // ACTOR_DATA_MODELS), so there is one template rather than two that had to be
+    // kept in step by hand.
+    const t = this.actor.type === "hireling" ? "npc" : this.actor.type;
+    return {
+      form: {
+        template: `systems/air-bladder/templates/actor/${t}-sheet.html`,
+        templates: [
+          "systems/air-bladder/templates/parts/items-list.html",
+          "systems/air-bladder/templates/parts/container-list.html",
+          "systems/air-bladder/templates/parts/feature-list.html",
+        ],
+      },
+    };
+  }
+
+  /**
+   * The tab set varies by actor type, and the Containers tab comes and goes with
+   * the actor's containers.
+   * @override
+   */
+  _getTabsConfig(group) {
+    const config = foundry.utils.deepClone(super._getTabsConfig(group));
+    if (!config) return config;
+    const ids = (TAB_IDS[this.actor.type] ?? ["items"])
+      .filter((id) => id !== "containers" || this.actor.system.showContainersTab);
+    config.tabs = ids.map((id) => ({ id, label: TAB_LABELS[id] }));
+    // Losing your last container removes the tab you were standing on.
+    // `_prepareTabs` only defaults the group when it is unset (`??=`), so without
+    // this the group keeps pointing at a tab that is no longer rendered and NO
+    // panel is active — a blank sheet body with no error.
+    if (!ids.includes(this.tabGroups[group])) this.tabGroups[group] = config.initial;
+    return config;
+  }
+
+  /**
+   * Rows are dragged to reorder an inventory or to hand an item to another actor.
+   * ActorSheetV2 hardcodes `.draggable` with no dropSelector, so the whole
+   * application is the drop zone (which is what we want) but the drag selector
+   * has to be replaced. Overriding the getter is preferable to adding a
+   * `draggable` class to every row — that class carries Foundry styling of its own.
+   * @override
+   */
+  get _dragDrop() {
+    return this.#dragDrop ??= new foundry.applications.ux.DragDrop.implementation({
+      dragSelector: ".cairn-items-list-row",
+      permissions: {
+        dragstart: this._canDragStart.bind(this),
+        drop: this._canDragDrop.bind(this),
+      },
+      callbacks: {
+        dragstart: this._onDragStart.bind(this),
+        dragover: this._onDragOver.bind(this),
+        drop: this._onDrop.bind(this),
+      },
     });
   }
 
-  get template() {
-    const path = "systems/air-bladder/templates/actor";
-    return `${path}/${this.actor.type}-sheet.html`;
+  #dragDrop = null;
+
+  /* -------------------------------------------- */
+
+  /**
+   * Roll Character and the Randomization toggle, INLINE in the title bar.
+   *
+   * These were briefly `window.controls`, which is the tidier declaration — but
+   * v14 renders controls into the ⋮ dropdown only (`_renderHeaderControl` builds
+   * `<li>` elements for a ContextMenu), and burying a control the Warden uses
+   * every session behind a menu is a downgrade from what AppV1 showed. Frame
+   * buttons are the supported way back: core's own `_getFrameButtons`
+   * (`api/application.mjs:738`) renders straight into `.window-header`, and
+   * `DocumentSheetV2` already ships two of them (Copy UUID, Import).
+   *
+   * Two consequences, both handled rather than lived with:
+   *
+   *  - Frame buttons are built in `_renderFrame`, which runs ONLY on first
+   *    render. So state cannot be expressed by re-returning a different array
+   *    the way header controls could — #syncGenerationButtons keeps them in
+   *    step on every render instead. That is a far cry from AppV1's surgery
+   *    (which rewrote the header's innerHTML and had to namespace jQuery events
+   *    to stop handlers stacking): these are elements we created once, and only
+   *    their label, icon and hidden state move.
+   *  - There is no `ownership` filter on frame buttons, unlike header controls,
+   *    so the ownership gate is explicit below.
+   *
+   * `show-generate-header` is `requiresReload: true`, so reading it once at
+   * frame time is correct — it cannot change under an open sheet.
+   * @override
+   */
+  _getFrameButtons(options) {
+    const buttons = super._getFrameButtons(options);
+
+    // Pop Out is a shortcut to the ⋮ menu's Detach, which opens the sheet in its
+    // own browser window. `detach` is CORE's action (application.mjs:72, :86) —
+    // this only surfaces it, so there is no behaviour of ours to get wrong.
+    // Every actor type gets it and it is NOT gated by `show-generate-header`:
+    // it is a plain window control with nothing to do with generation, and
+    // hiding it behind that setting would be arbitrary.
+    const popOut = { action: "detach", icon: "fas fa-arrow-up-right-from-square", label: "CAIRN.PopOut" };
+
+    const isChar = this.actor.type === "character";
+    // npc and hireling are one thing, so both get the NPC generation controls.
+    const isHireling = ["hireling", "npc"].includes(this.actor.type);
+    const generates = (isChar || isHireling)
+      && this.actor.isOwner
+      && game.settings.get(SETTINGS_NS, "show-generate-header");
+    if (!generates) return [popOut, ...buttons];
+
+    // Roll Character and the toggle are both ALWAYS created. Roll Character is
+    // hidden in place when Randomization is off rather than omitted, so the
+    // toggle can reveal it without rebuilding the frame — which first render is
+    // the only chance to do.
+    return [
+      // Character → "Roll Character"; hireling → "Roll NPC". Same control, same
+      // action; only the wording differs.
+      { action: "rollActor", icon: "fas fa-dice-d6", label: isHireling ? "CAIRN.RollNpc" : "CAIRN.RegenerateCharacter" },
+      { action: "toggleGeneration", icon: "fas fa-toggle-on", label: "CAIRN.RandomizationOn" },
+      popOut,
+      ...buttons,
+    ];
+  }
+
+  /* -------------------------------------------- */
+
+  /**
+   * Give our two frame buttons visible text.
+   *
+   * `templates/generic/frame-buttons.hbs` renders icon-only buttons and puts the
+   * label in `aria-label`, which is right for Foundry's own (Copy UUID, Import)
+   * and wrong for these: "Randomization: On" is a STATE READOUT, and a readout
+   * you have to hover to read is not a readout. So the labels are added after
+   * core has built the frame — decorating elements core owns, not replacing its
+   * template.
+   * @override
+   */
+  async _renderFrame(options) {
+    const frame = await super._renderFrame(options);
+    for (const action of ["rollActor", "toggleGeneration", "detach"]) {
+      const button = frame.querySelector(`.window-header button[data-action="${action}"]`);
+      if (!button) continue;
+      // The template puts the glyph on the BUTTON as classes and leaves it
+      // empty. Text needs the glyph in a child instead, so move it.
+      const glyph = [...button.classList].filter((c) => c === "fas" || c.startsWith("fa-"));
+      button.classList.remove(...glyph, "icon");
+      button.classList.add("cairn-header-button");
+      const icon = document.createElement("i");
+      icon.className = glyph.join(" ");
+      // A tooltip that repeats text already on screen is noise. `data-tooltip`
+      // is valueless in the template and falls back to aria-label, so drop it.
+      button.removeAttribute("data-tooltip");
+      button.append(icon, document.createTextNode(button.getAttribute("aria-label") ?? ""));
+    }
+
+    // Send the ⋮ menu to the right-hand end, next to ✕.
+    //
+    // It is not a frame button — `_renderFrame` writes it into the header's
+    // static markup between the title and ✕ (application.mjs:848-850), and
+    // `_renderFrameButtons` then inserts everything else `beforebegin` of ✕
+    // (:887). So anything we add necessarily lands to its RIGHT, leaving ⋮
+    // stranded at the front of a row of labelled buttons.
+    //
+    // Its ContextMenu is bound by selector to the application root
+    // (application.mjs:1887), and `#window.controls` holds this element, so
+    // moving the node breaks neither.
+    const header = frame.querySelector(".window-header");
+    const controls = header?.querySelector('button[data-action="toggleControls"]');
+    const close = header?.querySelector('button[data-action="close"]');
+    if (controls && close) close.before(controls);
+
+    this.#syncGenerationButtons(frame);
+    return frame;
+  }
+
+  /* -------------------------------------------- */
+
+  /**
+   * Hide Pop Out once the sheet is already popped out, and bring it back when it
+   * re-docks.
+   *
+   * Detaching does NOT re-render — `render()` short-circuits to `#move`
+   * (application.mjs:537) — so `_onRender` never fires and the button cannot
+   * update itself the way the Randomization toggle does. `_updateFrame` looks
+   * like the answer and is not: `#move` calls it BEFORE the async
+   * window-opening work that sets `window.windowId`, so `_canDetach()` still
+   * reads true at that point and the button stays visible. Measured, not
+   * assumed — that was the first attempt.
+   *
+   * These two are the hooks core fires once the move has actually happened
+   * (application.mjs:1323, :1427).
+   *
+   * Re-docking itself stays in the ⋮ menu, where core puts Attach and keeps it
+   * correct; a frame button is built once and cannot follow.
+   * @override
+   */
+  _onDetach(from, to) {
+    super._onDetach(from, to);
+    this.#syncPopOut();
   }
 
   /** @override */
-  async getData() {
-    const data = await super.getData();
+  _onAttach(from, to) {
+    super._onAttach(from, to);
+    this.#syncPopOut();
+  }
+
+  /**
+   * Show Pop Out exactly when core would offer Detach in the ⋮ menu, using
+   * core's own predicate rather than a second opinion about what "detached"
+   * means.
+   */
+  #syncPopOut() {
+    this.element?.querySelector('.window-header button[data-action="detach"]')
+      ?.classList.toggle("cairn-header-hidden", !this._canDetach());
+  }
+
+  /* -------------------------------------------- */
+
+  /**
+   * Keep the two title-bar buttons in step with generation mode: the toggle's
+   * own label and icon, and whether Roll Character is showing at all — hiding it
+   * while Randomization is off is that toggle's entire purpose.
+   *
+   * Called from both `_renderFrame` (first paint) and `_onRender` (every
+   * subsequent one), because the frame is built once and the content many times.
+   * @param {HTMLElement} [root] The frame, when it is not yet `this.element`.
+   */
+  #syncGenerationButtons(root = this.element) {
+    const roll = root?.querySelector('.window-header button[data-action="rollActor"]');
+    const toggle = root?.querySelector('.window-header button[data-action="toggleGeneration"]');
+    if (!roll && !toggle) return;
+    // Legacy actors predate the field, so absent means enabled.
+    const on = this.actor.system.generationEnabled !== false;
+    roll?.classList.toggle("cairn-header-hidden", !on);
+    if (!toggle) return;
+    const label = game.i18n.localize(on ? "CAIRN.RandomizationOn" : "CAIRN.RandomizationOff");
+    toggle.setAttribute("aria-label", label);
+    toggle.lastChild.textContent = label;
+    toggle.querySelector("i")?.classList.replace(
+      on ? "fa-toggle-off" : "fa-toggle-on",
+      on ? "fa-toggle-on" : "fa-toggle-off"
+    );
+  }
+
+  /* -------------------------------------------- */
+
+  /** @override */
+  async _prepareContext(options) {
+    const context = await super._prepareContext(options);
+    context.actor = this.actor;
+    // Per-window id prefix for label[for]/input[id] pairs. Templates hardcoded the
+    // field path as the DOM id ("system.gold"), so every open sheet of a type used
+    // the SAME ids — and `label[for]` resolves against the first match in tree
+    // order, so with two sheets open a click on the second sheet's label toggled
+    // the FIRST sheet's checkbox, which submitOnChange then saved. DocumentSheetV2
+    // already computes a unique id per window as `rootId`.
+    context.idp = context.rootId;
+
+    // Live model, not `toObject(false)`: a TypeDataModel resolves that against the
+    // SCHEMA, so prepareData's derived values (slotsUsed, slotsMax, encumbered,
+    // armor, coinsPerSlot, containerObjects, goldSlots, showBio…) never reach the
+    // template and each renders blank with no error anywhere. Spreading the live
+    // model yields stored + derived together as one plain object.
+    //
+    // Plain COPIES, deliberately: the content-localization pass below rewrites
+    // item names and descriptions for display, and must never touch the documents.
+    context.system = { ...this.actor.system };
+    let items = this.actor.items.map((i) => ({
+      _id: i.id,
+      name: i.name,
+      type: i.type,
+      img: i.img,
+      sort: i.sort,
+      system: { ...i.system },
+    }));
+
     if (game.settings.get(SETTINGS_NS, "enable-inventory-reorder")) {
       // Manual order: honour each item's stored `sort` (Foundry's native field,
       // written by the drag-to-reorder handler), falling back to name. Fatigue is
       // NOT forced last here — with reorder on, the player controls placement.
-      data.items.sort((a, b) =>
+      items.sort((a, b) =>
         (a.sort ?? 0) - (b.sort ?? 0) ||
         (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)
       );
     } else {
-      data.items = data.items.sort((a, b) =>
-        a.name < b.name ? -1 : a.name > b.name ? 1 : 0
-      );
-      data.items = data.items.sort((a, b) =>
+      items.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+      items.sort((a, b) =>
         a.system.equipped && !b.system.equipped
           ? -1
           : a.system.equipped === b.system.equipped
           ? 0
           : 1
       );
-      data.items.sort((a,b) => a.name == game.i18n.localize("CAIRN.Fatigue") ? 1 : b.name == game.i18n.localize("CAIRN.Fatigue") ? -1 : 0 )
+      items.sort((a, b) => (a.name === FATIGUE_NAME ? 1 : b.name === FATIGUE_NAME ? -1 : 0));
     }
+
     // Display-only content localization: translate inventory item names/descriptions
     // into the active language for rendering only. These are plain data copies (not
     // the stored documents, which stay English), so name-matching elsewhere is
@@ -68,10 +553,20 @@ export class CairnActorSheet extends ActorSheet {
       this.actor.type === "npc"
         ? { nameNs: "monster.itemName", descNs: "monster.itemDesc" }
         : undefined;
-    data.items = data.items.map((i) => localizeNameDesc(i, itemNs));
+    items = items.map((i) => localizeNameDesc(i, itemNs));
+    // Fatigue is STORED in English (see FATIGUE_NAME) so its identity survives a
+    // mixed-language table. Its label is localized here, at display time, from the
+    // UI key every language file already carries — so a Spanish player still reads
+    // "Fatiga" without the stored document ever being translated.
+    const fatigueLabel = game.i18n.localize("CAIRN.Fatigue");
+    context.items = items.map((i) => (i.name === FATIGUE_NAME ? { ...i, name: fatigueLabel } : i));
+
+    const enrich = (html) =>
+      foundry.applications.ux.TextEditor.implementation.enrichHTML(html, { relativeTo: this.actor });
+
     // Compendium monsters have "description" instead of "biography"
     if (this.actor.system.showBio) {
-      data.enrichedBiography = await foundry.applications.ux.TextEditor.enrichHTML(this.actor.system.biography, { async: true });
+      context.enrichedBiography = await enrich(this.actor.system.biography);
     } else {
       // An NPC monster's description translates via the monster.desc namespace —
       // display only, enriched into a derived field, never written back to the doc.
@@ -79,164 +574,178 @@ export class CairnActorSheet extends ActorSheet {
         this.actor.type === "npc"
           ? t("monster.desc", this.actor.system.description)
           : this.actor.system.description;
-      data.enrichedDescription = await foundry.applications.ux.TextEditor.enrichHTML(rawDescription, { async: true });
+      context.enrichedDescription = await enrich(rawDescription);
     }
-    data.enrichedNotes = await foundry.applications.ux.TextEditor.enrichHTML(this.actor.system.notes, { async: true });
+    context.enrichedNotes = await enrich(this.actor.system.notes);
 
-    // Description tab: traits (pick-lists + sentence), Omen, Scars, plus the 2e
-    // background header/description. Character-only — NPCs/containers have none
-    // of this. Bonds/questions (Notes tab) and the stat context (banners/critical)
-    // are added by _computeStatContext and the Notes-tab block.
-    if (this.actor.type === "character") {
-      // Trait pick-lists: each trait's source table (from the 2e biography config,
-      // which already points at air-bladder.tables-2e) supplies a <select> of
-      // options so a player can pick a value (or keep an off-table one).
-      const mapping = CONFIG.Cairn?.characterGenerator2e?.biography?.items ?? {};
-      const byPack = {};
-      for (const ref of Object.values(mapping)) {
-        const [packName] = ref.split(";");
-        if (!(packName in byPack)) byPack[packName] = game.packs.get(packName) ? await game.packs.get(packName).getDocuments() : [];
-      }
-      data.traitRows = Object.entries(mapping).map(([key, ref]) => {
-        const [packName, tableName] = ref.split(";");
-        const table = (byPack[packName] ?? []).find((t) => t.name === tableName);
-        const value = this.actor.system.traits?.[key] ?? "";
-        const texts = table ? table.results.map((r) => r.text).sort() : [];
-        return {
-          key,
-          // The trait-category label IS a tables-2e table name (Physique, Skin…),
-          // so localize it via the same table.name namespace as the compendium list.
-          label: t("table.name", tableName),
-          value,
-          // Display-only: the <option> VALUE stays the English trait text (what
-          // system.traits.<key> stores on save), only the visible label is
-          // localized. So picking a Spanish option never bakes a Spanish string,
-          // and `selected` still matches English↔English. (See i18n-content.js.)
-          options: texts.map((text) => ({ value: text, display: t("table.result", text), selected: text === value })),
-          // An off-table value (legacy free-typed) is preserved as its own option
-          // so switching to a dropdown never silently drops it.
-          customValue: value && !texts.includes(value) ? value : "",
-          customDisplay: value && !texts.includes(value) ? t("table.result", value) : "",
-        };
-      });
+    if (this.actor.type === "character") await this._prepareCharacterContext(context);
 
-      // Live constructed trait sentence + collapsible pick-lists (transient
-      // sheet state; defaults collapsed so the sentence is the clean default view).
-      data.traitSentence = this._buildTraitSentence(this.actor.system.traits, this.actor.system.age);
-      data.traitsCollapsed = this._traitsCollapsed ?? true;
+    // The container's Type pick-list. Blank is offered because a hand-made
+    // container legitimately has no kind — it is a chest on the floor — and
+    // because the field has always defaulted to empty.
+    if (this.actor.type === "container") context.transportKinds = TRANSPORT_KINDS;
 
-      // Scars pick-list from the same tables-2e pack. Neither Omen nor Scar is
-      // generated: a player ticks the field's checkbox to enable it, then rolls
-      // (Omen) or checks scars. Both are descriptive only.
-      const tables2e =
-        byPack["air-bladder.tables-2e"] ??
-        (game.packs.get("air-bladder.tables-2e")
-          ? await game.packs.get("air-bladder.tables-2e").getDocuments()
-          : []);
-      const scarTable = tables2e.find((t) => t.name === "Scars");
-      const selectedScars = this.actor.system.scars ?? [];
-      data.scarOptions = scarTable
-        ? scarTable.results.map((r) => ({
-            name: r.text,
-            description: r.flags?.["air-bladder"]?.description ?? "",
-            selected: selectedScars.includes(r.text),
-          }))
-        : [];
-      data.scarDisplay = selectedScars.length ? selectedScars.join(", ") : null;
-      data.scarsCollapsed = this._scarsCollapsed ?? false;
-
-      // Background description (from the linked Item) + a friendly source label,
-      // shown in the sheet header. "2e" -> "Cairn 2e".
-      const bgUuid = this.actor.system.backgroundUuid;
-      const bg = bgUuid ? await fromUuid(bgUuid) : null;
-      data.backgroundDescription = bg?.system?.description
-        ? await foundry.applications.ux.TextEditor.enrichHTML(t("bg.desc", bg.system.description), { async: true })
-        : "";
-      // Translated background name for the header (generated case). The editable
-      // input for a hand-made character keeps the raw system.background so a Warden
-      // never edits a translated string.
-      data.backgroundName = t("bg.name", this.actor.system.background ?? "");
-      const SOURCE_LABELS = { "2e": "Cairn 2e", "barebones": "Cairn Barebones" };
-      data.contentSourceLabel =
-        SOURCE_LABELS[this.actor.system.contentSource] ?? this.actor.system.contentSource;
-
-      // A generated background (either edition) is a linked document, so its name
-      // is a header rather than a free-text field; a hand-made character keeps the
-      // editable input.
-      data.is2eBackground = this.actor.system.contentSource === "2e";
-      data.isBarebonesBackground = this.actor.system.contentSource === "barebones";
-      data.hasGeneratedBackground = !!this.actor.system.backgroundUuid;
-      // A generated character's Notes tab also carries its bonds and background
-      // questions, so the tab is titled for both; a hand-made one is just notes.
-      data.showBackgroundNotesLabel = data.is2eBackground || data.isBarebonesBackground;
-      // Scars and Age are never generated — a player fills each in by hand after
-      // the fact — so they are NOT edition-specific and show on both. Only
-      // character CREATION differs between 2e and Barebones (see CLAUDE.md).
-      data.showScars = true;
-      data.showAge = true;
-      // Omen is the one exception, and it is a CONTENT question rather than a rule:
-      // Barebones ships no omens table, so a Warden opts in to lending it 2e's, the
-      // same way they can lend it 2e's bonds. Nothing about generation changes —
-      // an omen is never rolled at creation in either edition.
-      data.showOmen =
-        this.actor.system.contentSource !== "barebones" ||
-        game.settings.get(SETTINGS_NS, "show-omens-barebones");
-      // Barebones-only flavour: the career that didn't work out. Grants nothing.
-      // Read the setting live, so a Warden switching it off hides the line on an
-      // already-generated character rather than only affecting the next one.
-      data.failedCareer = this.actor.system.failedCareer ?? "";
-      data.showFailedCareer =
-        this.actor.system.contentSource === "barebones" &&
-        game.settings.get(SETTINGS_NS, "barebones-failed-career");
-      // The single keepsake item the failed career left (grantSource
-      // "failed-career") — shown on its own line under the career, with a re-roll
-      // dice. It also appears in the inventory tagged "Failed Career" + "Petty".
-      data.failedCareerItem =
-        this.actor.items.find((i) => i.getFlag("air-bladder", "grantSource") === "failed-career")?.name ?? "";
-
-      // Random-generation mode (default on): gates the per-field dice rollers
-      // (age, omen). Legacy characters lack the field -> default to enabled.
-      data.generationEnabled = this.actor.system.generationEnabled !== false;
-
-      // Notes tab: bonds (a character can hold several) + the background's
-      // re-rollable questions. Questions are 2e; bonds are 2e by default but a
-      // Warden can lend them to Barebones (show-bonds-barebones), so show the
-      // section whenever the character actually has one.
-      // Translate bond prose for display (bonds are drawn from the Bonds table →
-      // table.result). A composed bond string that doesn't match a source key
-      // falls back to English; the count/entitlement below is unaffected.
-      data.bonds = this._effectiveBonds()
-        .map((b) => ({ ...b, description: t("table.result", b.description) }));
-      data.showBonds = data.is2eBackground || data.bonds.length > 0;
-      // "Add a bond" shows only while below the background's entitlement (base 1,
-      // plus a second for Fieldwarden / Outrider's debt option). A fresh character
-      // starts AT its entitlement, so the link is normally hidden.
-      data.canAddBond = data.bonds.length < (await this._bondEntitlement(bg));
-      // Divider between the bonds/questions area and the free-form notes editor.
-      data.showNotesDivider = data.showBonds;
-      // Questions render from a translated copy (template iterates `questions`, not
-      // system.questions): each prompt is a bg.question, each answer a background
-      // option description (bg.optionDesc). Misses fall back to English.
-      data.questions = (this.actor.system.questions ?? []).map((q) => ({
-        ...q,
-        question: t("bg.question", q.question ?? ""),
-        answer: t("bg.optionDesc", q.answer ?? ""),
-      }));
-
-      // Attribute-loss statuses, ability tooltips, peril/low cues, critical skull.
-      this._computeStatContext(data);
-    }
-
-    // Hirelings reuse the character's STR/DEX/WIL/HP behaviour and tooltips, but
-    // none of the background/traits/bonds machinery above.
-    if (this.actor.type === "hireling") {
-      this._computeStatContext(data);
+    // Non-player actors reuse the character's STR/DEX/WIL/HP behaviour and
+    // tooltips, but none of the background/traits/bonds machinery. npc is here
+    // too now that it shares the sheet — without it the per-field dice and the
+    // ability tooltips were simply absent on an NPC.
+    if (["hireling", "npc"].includes(this.actor.type)) {
+      this._computeStatContext(context);
       // Same random-generation switch as a character: gates the per-field dice
-      // (name, profession, portrait) and the on-sheet Re-roll button.
-      data.generationEnabled = this.actor.system.generationEnabled !== false;
+      // (name, profession, portrait).
+      context.generationEnabled = this.actor.system.generationEnabled !== false;
     }
 
-    return data;
+    // Tooltips that have an NPC wording must resolve through `_wording` like the
+    // dialogs do. npc-sheet.html used to hardcode `CAIRN.DeprivedTipNpc`, which
+    // bypassed the rule entirely and so stayed English in every language no matter
+    // what a translator did — while the Panicked tooltip beside it, which has no
+    // variant, was translated. Resolving here keeps ONE rule and lets the template
+    // stay dumb.
+    context.deprivedTipKey = this._wording("CAIRN.DeprivedTip");
+    context.panickedTipKey = this._wording("CAIRN.PanickedTip");
+    return context;
+  }
+
+  /**
+   * Description tab: traits (pick-lists + sentence), Omen, Scars, plus the 2e
+   * background header/description; and the Notes tab's bonds and questions.
+   * Character-only — NPCs and containers have none of it.
+   * @private
+   */
+  async _prepareCharacterContext(context) {
+    // Trait pick-lists: each trait's source table (from the 2e biography config,
+    // which already points at air-bladder.tables-2e) supplies a <select> of
+    // options so a player can pick a value (or keep an off-table one).
+    const mapping = CONFIG.Cairn?.characterGenerator2e?.biography?.items ?? {};
+    const byPack = {};
+    for (const ref of Object.values(mapping)) {
+      const [packName] = ref.split(";");
+      if (!(packName in byPack)) byPack[packName] = await cachedPackDocuments(packName);
+    }
+    context.traitRows = Object.entries(mapping).map(([key, ref]) => {
+      const [packName, tableName] = ref.split(";");
+      const table = (byPack[packName] ?? []).find((tbl) => tbl.name === tableName);
+      const value = this.actor.system.traits?.[key] ?? "";
+      const texts = table ? table.results.map(resultText).sort() : [];
+      return {
+        key,
+        // The trait-category label IS a tables-2e table name (Physique, Skin…),
+        // so localize it via the same table.name namespace as the compendium list.
+        label: t("table.name", tableName),
+        value,
+        // Display-only: the <option> VALUE stays the English trait text (what
+        // system.traits.<key> stores on save), only the visible label is
+        // localized. So picking a Spanish option never bakes a Spanish string,
+        // and `selected` still matches English↔English. (See i18n-content.js.)
+        options: texts.map((text) => ({ value: text, display: t("table.result", text), selected: text === value })),
+        // An off-table value (legacy free-typed) is preserved as its own option
+        // so switching to a dropdown never silently drops it.
+        customValue: value && !texts.includes(value) ? value : "",
+        customDisplay: value && !texts.includes(value) ? t("table.result", value) : "",
+      };
+    });
+
+    // Live constructed trait sentence + collapsible pick-lists (transient
+    // sheet state; defaults collapsed so the sentence is the clean default view).
+    context.traitSentence = this._buildTraitSentence(this.actor.system.traits, this.actor.system.age);
+    context.traitsCollapsed = this._traitsCollapsed ?? true;
+
+    // Scars pick-list from the same tables-2e pack. Neither Omen nor Scar is
+    // generated: a player ticks the field's checkbox to enable it, then rolls
+    // (Omen) or checks scars. Both are descriptive only.
+    const tables2e = byPack["air-bladder.tables-2e"] ?? (await cachedPackDocuments("air-bladder.tables-2e"));
+    const scarTable = tables2e.find((tbl) => tbl.name === "Scars");
+    const selectedScars = this.actor.system.scars ?? [];
+    context.scarOptions = scarTable
+      ? scarTable.results.map((r) => ({
+          name: resultText(r),
+          description: r.flags?.["air-bladder"]?.description ?? "",
+          selected: selectedScars.includes(resultText(r)),
+        }))
+      : [];
+    context.scarDisplay = selectedScars.length ? selectedScars.join(", ") : null;
+    context.scarsCollapsed = this._scarsCollapsed ?? false;
+
+    // Background description (from the linked Item) + a friendly source label,
+    // shown in the sheet header. "2e" -> "Cairn 2e".
+    const bgUuid = this.actor.system.backgroundUuid;
+    const bg = bgUuid ? await fromUuid(bgUuid) : null;
+    context.backgroundDescription = bg?.system?.description
+      ? await foundry.applications.ux.TextEditor.implementation.enrichHTML(
+          t("bg.desc", bg.system.description), { relativeTo: this.actor })
+      : "";
+    // Translated background name for the header (generated case). The editable
+    // input for a hand-made character keeps the raw system.background so a Warden
+    // never edits a translated string.
+    context.backgroundName = t("bg.name", this.actor.system.background ?? "");
+    context.contentSourceLabel = sourceLabel(this.actor.system.contentSource);
+
+    // A generated background (either edition) is a linked document, so its name
+    // is a header rather than a free-text field; a hand-made character keeps the
+    // editable input.
+    context.is2eBackground = this.actor.system.contentSource === "2e";
+    context.isBarebonesBackground = this.actor.system.contentSource === "barebones";
+    context.hasGeneratedBackground = !!this.actor.system.backgroundUuid;
+    // A generated character's Notes tab also carries its bonds and background
+    // questions, so the tab is titled for both; a hand-made one is just notes.
+    context.showBackgroundNotesLabel = context.is2eBackground || context.isBarebonesBackground;
+    // Scars and Age are never generated — a player fills each in by hand after
+    // the fact — so they are NOT edition-specific and show on both. Only
+    // character CREATION differs between 2e and Barebones (see CLAUDE.md).
+    context.showScars = true;
+    context.showAge = true;
+    // Omen is the one exception, and it is a CONTENT question rather than a rule:
+    // Barebones ships no omens table, so a Warden opts in to lending it 2e's, the
+    // same way they can lend it 2e's bonds. Nothing about generation changes —
+    // an omen is never rolled at creation in either edition.
+    context.showOmen =
+      this.actor.system.contentSource !== "barebones" ||
+      game.settings.get(SETTINGS_NS, "show-omens-barebones");
+    // Barebones-only flavour: the career that didn't work out. Grants nothing.
+    // Read the setting live, so a Warden switching it off hides the line on an
+    // already-generated character rather than only affecting the next one.
+    context.failedCareer = this.actor.system.failedCareer ?? "";
+    context.showFailedCareer =
+      this.actor.system.contentSource === "barebones" &&
+      game.settings.get(SETTINGS_NS, "barebones-failed-career");
+    // The single keepsake item the failed career left (grantSource
+    // "failed-career") — shown on its own line under the career, with a re-roll
+    // dice. It also appears in the inventory tagged "Failed Career" + "Petty".
+    context.failedCareerItem =
+      this.actor.items.find((i) => i.getFlag("air-bladder", "grantSource") === "failed-career")?.name ?? "";
+
+    // Random-generation mode (default on): gates the per-field dice rollers
+    // (age, omen). Legacy characters lack the field -> default to enabled.
+    context.generationEnabled = this.actor.system.generationEnabled !== false;
+
+    // Notes tab: bonds (a character can hold several) + the background's
+    // re-rollable questions. Questions are 2e; bonds are 2e by default but a
+    // Warden can lend them to Barebones (show-bonds-barebones), so show the
+    // section whenever the character actually has one.
+    // Translate bond prose for display (bonds are drawn from the Bonds table →
+    // table.result). A composed bond string that doesn't match a source key
+    // falls back to English; the count/entitlement below is unaffected.
+    context.bonds = this._effectiveBonds()
+      .map((b) => ({ ...b, description: t("table.result", b.description) }));
+    context.showBonds = context.is2eBackground || context.bonds.length > 0;
+    // "Add a bond" shows only while below the background's entitlement (base 1,
+    // plus a second for Fieldwarden / Outrider's debt option). A fresh character
+    // starts AT its entitlement, so the link is normally hidden.
+    context.canAddBond = context.bonds.length < (await this._bondEntitlement(bg));
+    // Divider between the bonds/questions area and the free-form notes editor.
+    context.showNotesDivider = context.showBonds;
+    // Questions render from a translated copy (template iterates `questions`, not
+    // system.questions): each prompt is a bg.question, each answer a background
+    // option description (bg.optionDesc). Misses fall back to English.
+    context.questions = (this.actor.system.questions ?? []).map((q) => ({
+      ...q,
+      question: t("bg.question", q.question ?? ""),
+      answer: t("bg.optionDesc", q.answer ?? ""),
+    }));
+
+    // Attribute-loss statuses, ability tooltips, peril/low cues, critical skull.
+    this._computeStatContext(context);
   }
 
   /**
@@ -246,7 +755,7 @@ export class CairnActorSheet extends ActorSheet {
    * WIL 0 = Delirious are automatic (derived); Critical Damage is a manual skull.
    * @private
    */
-  _computeStatContext(data) {
+  _computeStatContext(context) {
     const ab = this.actor.system.abilities ?? {};
     const val = (k) => Number(ab[k]?.value);
     const max = (k) => Number(ab[k]?.max);
@@ -257,25 +766,32 @@ export class CairnActorSheet extends ActorSheet {
     // flag. Death overrides it.
     const strCritical = this.actor.system.critical === true && !dead;
 
-    data.abilityPeril = { STR: dead || strCritical, DEX: paralyzed, WIL: delirious };
+    context.abilityPeril = { STR: dead || strCritical, DEX: paralyzed, WIL: delirious };
     // "Low" = current below max but not in peril: amber "reduced" cue (peril's red
     // takes precedence). HP uses it too.
-    data.abilityLow = {};
-    for (const k of ["STR", "DEX", "WIL"]) data.abilityLow[k] = val(k) < max(k) && !data.abilityPeril[k];
-    data.hpLow = Number(this.actor.system.hp?.value) < Number(this.actor.system.hp?.max);
+    context.abilityLow = {};
+    for (const k of ["STR", "DEX", "WIL"]) context.abilityLow[k] = val(k) < max(k) && !context.abilityPeril[k];
+    context.hpLow = Number(this.actor.system.hp?.value) < Number(this.actor.system.hp?.max);
     // Skull offered when STR is damaged and still alive, or already marked.
-    data.criticalToggle = { STR: (val("STR") < max("STR") && val("STR") > 0) || strCritical };
-    data.criticalActive = { STR: strCritical };
+    context.criticalToggle = { STR: (val("STR") < max("STR") && val("STR") > 0) || strCritical };
+    context.criticalActive = { STR: strCritical };
 
     const L = (k) => game.i18n.localize(k);
-    data.abilityTips = { STR: L("CAIRN.StrTip"), DEX: L("CAIRN.DexTip"), WIL: L("CAIRN.WilTip") };
+    context.abilityTips = { STR: L("CAIRN.StrTip"), DEX: L("CAIRN.DexTip"), WIL: L("CAIRN.WilTip") };
 
     const banners = [];
     if (dead) {
       banners.push({ key: "dead", icon: "fa-skull", label: L("CAIRN.Dead"), text: L("CAIRN.DeadBanner") });
     } else {
       if (strCritical)
-        banners.push({ key: "critical", icon: "fa-heart-crack", label: `${L("CAIRN.CriticalDamageStatus")} — STR`, text: L("CAIRN.CriticalDamageBanner") });
+        // One format key rather than "<status> — STR": the ability name is
+        // itself localized (STR/FUE), and a translation may not want it last.
+        banners.push({
+          key: "critical",
+          icon: "fa-heart-crack",
+          label: game.i18n.format("CAIRN.CriticalDamageStatusFor", { key: L("STR") }),
+          text: L("CAIRN.CriticalDamageBanner"),
+        });
       if (paralyzed)
         banners.push({ key: "paralyzed", icon: "fa-lock", label: L("CAIRN.Paralyzed"), text: L("CAIRN.ParalyzedBanner") });
       if (delirious)
@@ -285,21 +801,267 @@ export class CairnActorSheet extends ActorSheet {
     // to 0, so surface it as a persistent banner too. Suppressed when dead.
     if (!dead && this.actor.system.encumbered)
       banners.push({ key: "encumbered", icon: "fa-weight-hanging", label: L("CAIRN.Overburdened"), text: L("CAIRN.OverburdenedBanner") });
-    data.statusBanners = banners;
+    context.statusBanners = banners;
+  }
+
+  /* -------------------------------------------- */
+  /*  Rendering                                   */
+  /* -------------------------------------------- */
+
+  /**
+   * Everything that is not a click: `change` handlers for the class-managed
+   * fields, the two double-click affordances, and the editor click-away save.
+   * Clicks are declared as `actions` in DEFAULT_OPTIONS and wired by
+   * ApplicationV2 — the action system covers no other event type.
+   * @override
+   */
+  /**
+   * Listeners that belong to the FRAME, which is built once and survives every
+   * re-render. Binding these in `_onRender` instead would stack a duplicate on
+   * each redraw — and this sheet redraws on every committed keystroke, because
+   * `submitOnChange` is on.
+   * @override
+   */
+  _onFirstRender(context, options) {
+    super._onFirstRender(context, options);
+    bindEditorClickAwaySave(this.element);
+  }
+
+  async _onRender(context, options) {
+    await super._onRender(context, options);
+    const el = this.element;
+
+    // The title-bar generation buttons live on the frame, which is built once —
+    // so their state is re-applied here, on every render of the content.
+    this.#syncGenerationButtons();
+
+    // When drag-to-reorder is enabled, mark the sheet so item rows show a grab
+    // cursor and the reorder hint appears.
+    el.classList.toggle(
+      "cairn-reorder-enabled",
+      game.settings.get(SETTINGS_NS, "enable-inventory-reorder")
+    );
+    // When grant-source tags are on, mark the sheet so the footer hint under the
+    // inventory explains the Background / Bond / Question chips. Character-only:
+    // those chips are set at character generation, so no other actor type has them.
+    el.classList.toggle(
+      "cairn-grant-tags-enabled",
+      game.settings.get(SETTINGS_NS, "show-grant-tags") && this.actor.type === "character"
+    );
+
+    if (!this.isEditable) return;
+
+    const on = (selector, type, handler) =>
+      el.querySelectorAll(selector).forEach((node) => node.addEventListener(type, handler));
+
+    // Double-click to open an item's own sheet, on the same title that
+    // single-clicks to expand its description.
+    on(".cairn-item-title", "dblclick", (ev) => this._openItemSheet(ev.currentTarget));
+
+    // Double-click the Items tab label to set this character's equipment limit,
+    // when the Warden has enabled per-character limits.
+    on("#set-equipment-limit", "dblclick", (ev) => this._onSetEquipmentLimit(ev));
+
+    // Stat inputs (HP + abilities, current & max) are numeric and capped 0-18.
+    on(".stat-input", "change", (ev) => {
+      const input = ev.currentTarget;
+      let n = Math.round(Number(input.value));
+      if (!Number.isFinite(n)) n = 0;
+      n = Math.min(18, Math.max(0, n));
+      if (String(n) !== input.value) input.value = n;
+    });
+
+    // Armor is class-managed (no form name): the field shows the effective Armor
+    // (derived from gear, or an override). Typing a 0-3 value stores an override
+    // that supersedes the gear value; clearing it — or the reset icon — returns
+    // to auto (system.armorOverride = null).
+    on(".armor-input", "change", async (ev) => {
+      const raw = ev.currentTarget.value.trim();
+      if (raw === "") {
+        await this.actor.update({ "system.armorOverride": null });
+        return;
+      }
+      let n = Math.trunc(Number(raw));
+      if (!Number.isFinite(n)) n = 0;
+      n = Math.min(3, Math.max(0, n));
+      await this.actor.update({ "system.armorOverride": n });
+    });
+
+    // Deprived / Panicked are class-managed (no form name): toggling ON asks for
+    // confirmation that reiterates the condition's tooltip; declining reverts.
+    // Toggling OFF (recovering) applies immediately.
+    const condition = (selector, field, titleKey, tipKey, questionKey) =>
+      on(selector, "change", async (ev) => {
+        const desired = ev.currentTarget.checked;
+        if (desired && !(await this._confirmAction(titleKey, tipKey, questionKey))) {
+          this.render(false);
+          return;
+        }
+        await this.actor.update({ [field]: desired });
+      });
+    condition(".deprived-check", "system.deprived", "CAIRN.Deprived", "CAIRN.DeprivedTip", "CAIRN.DeprivedConfirm");
+    condition(".panicked-check", "system.panicked", "CAIRN.Panicked", "CAIRN.PanickedTip", "CAIRN.PanickedConfirm");
+
+    // Enabling Omen reveals the field; disabling it clears the stored omen so the
+    // field resets to the placeholder hint (not a hidden value).
+    on(".omen-enable", "change", async (ev) => {
+      const enabled = ev.currentTarget.checked;
+      const data = { "system.omenEnabled": enabled };
+      if (!enabled) data["system.omen"] = "";
+      await this.actor.update(data);
+    });
+
+    // Enabling Scars reveals the checklist; disabling it clears every picked scar.
+    on(".scar-enable", "change", async (ev) => {
+      const enabled = ev.currentTarget.checked;
+      const data = { "system.scarEnabled": enabled };
+      if (!enabled) data["system.scars"] = [];
+      await this.actor.update(data);
+    });
+
+    // Scars are a checkbox list: persist the set of checked names (including
+    // empty). Managed here rather than via form serialization so unchecking the
+    // last one reliably stores an empty array. render:false keeps scroll/state.
+    on(".scar-check", "change", async () => {
+      const scars = [...el.querySelectorAll(".scar-check:checked")].map((o) => o.value);
+      await this.actor.update({ "system.scars": scars }, { render: false });
+    });
+
+    // Placeholder prompt in an empty editor. ProseMirror has no placeholder of
+    // its own, and an "empty" document is `<p><br></p>`, so :empty never
+    // matches — the state is carried on a data attribute instead and kept in
+    // step as the player types.
+    for (const editor of el.querySelectorAll("prose-mirror[data-placeholder]")) {
+      // The prompt is drawn by `.editor-container::before`, one level down,
+      // because <prose-mirror> starts at the top of the MENU BAR — anchoring it
+      // there puts the hint on the toolbar. `attr()` only reads the element the
+      // pseudo belongs to, so the text is handed down as a custom property,
+      // which inherits and so is in place whenever ProseMirror gets round to
+      // building that container (it is created on activation, not at render).
+      editor.style.setProperty("--ab-placeholder", JSON.stringify(editor.dataset.placeholder));
+      const sync = () => editor.classList.toggle(
+        "cairn-editor-empty",
+        !(editor.querySelector(".editor-content")?.textContent ?? "").trim()
+      );
+      sync();
+      editor.addEventListener("input", sync);
+      editor.addEventListener("change", sync);
+    }
+  }
+
+  /* -------------------------------------------- */
+  /*  Shared helpers                              */
+  /* -------------------------------------------- */
+
+  /** The inventory row a control sits in. */
+  static #row(target) {
+    return target.closest(".cairn-items-list-row");
   }
 
   /**
-   * The actor's bonds as an array, migrating a legacy single system.bond into a
-   * one-element list (id "legacy") so old characters still display and operate.
+   * A yes/no confirmation whose body reiterates the action's tooltip, then asks
+   * the question, so the player re-reads the rule before committing.
+   * @param {String} titleKey  i18n key for the dialog title
+   * @param {String} tipKey    i18n key for the explanatory text (may be HTML)
+   * @param {String} questionKey  i18n key for the yes/no question
+   * @returns {Promise<Boolean>}
+   * @private
+   */
+  async _confirmAction(titleKey, tipKey, questionKey) {
+    const k = (key) => this._wording(key);
+    return foundry.applications.api.DialogV2.confirm({
+      window: { title: game.i18n.localize(titleKey) },
+      content: `<div class="cairn-confirm">${game.i18n.localize(k(tipKey))}<p class="cairn-confirm-q">${game.i18n.localize(k(questionKey))}</p></div>`,
+      rejectClose: false,
+      modal: true,
+    });
+  }
+
+  /**
+   * Prefer the NPC wording of a string when this sheet is a non-player actor.
+   *
+   * Rest, Restore, Deprived and Panicked are shared with the character sheet, and
+   * their prompts were written for a player: "Is your character deprived?", and a
+   * Deprived rule that says "A PC that lacks a crucial need". Asked of a wolf or a
+   * hired blacksmith that reads as a bug.
+   *
+   * Resolved by key EXISTENCE rather than a lookup table, so a string only diverges
+   * where the wording genuinely differs -- `CAIRN.PanickedTip` and `CAIRN.RestTip`
+   * already say "character" and "the party", and duplicating them under a second key
+   * would just be two strings for a translator to keep in step (and would trip
+   * `i18n:check`'s equal-to-English report).
+   *
+   * **`has(npcKey, false)`, not `has(npcKey)`.** The default is `fallback: true`,
+   * which consults `_fallback` — the English strings — as well as the active
+   * language (client/helpers/localization.mjs:390-396). Since every `…Npc` variant
+   * exists in en.json, the test was unconditionally true in EVERY language, and the
+   * NPC sheet served the English variant in place of a base key the translator had
+   * already done. Not a missing translation: a working one, discarded.
+   *
+   * It was a regression, not a pre-existing gap. Before the Hireling→NPC fold the
+   * hireling sheet used the base keys, so those strings rendered in Spanish in
+   * 0.1.7 and in English afterwards. And because only SOME variants exist —
+   * `RestTipNpc` and `PanickedTipNpc` do not — a dialog came out half-translated:
+   * the tip in Spanish, the question beneath it in English.
+   *
+   * With `fallback: false` the rule reads the way the name does: use the NPC wording
+   * when THIS language has it, otherwise the translated base string, and English
+   * only when the language has neither. A translator adding `…Npc` keys turns the
+   * NPC wording on for their language with no code change.
+   * @param {String} key
+   * @returns {String} the same key, or its `…Npc` variant
+   * @private
+   */
+  _wording(key) {
+    if (this.actor.type === "character") return key;
+    const npcKey = `${key}Npc`;
+    return game.i18n.has(npcKey, false) ? npcKey : key;
+  }
+
+  /** Open the own sheet of the item (or owned container) a row represents. */
+  _openItemSheet(target) {
+    const row = CairnActorSheet.#row(target);
+    if (!row) return;
+    if (row.dataset.isContainer) {
+      this.actor.getOwnedContainer(row.dataset.itemId)?.sheet.render(true);
+      return;
+    }
+    const item = this.actor.getOwnedItem(row.dataset.itemId);
+    if (!item || item.name === FATIGUE_NAME) return;
+    item.sheet.render(true);
+  }
+
+  /**
+   * Expand or collapse a row's description panel. `build` returns the panel
+   * element for the closed→open direction; nothing else differs between an item,
+   * a container and a feature.
+   * @private
+   */
+  _toggleRowDescription(row, build) {
+    if (row.classList.contains("expanded")) {
+      const summary = row.querySelector(":scope > .item-description");
+      if (summary) slideUp(summary, () => summary.remove());
+    } else {
+      const panel = build();
+      if (!panel) return;
+      row.append(panel);
+      slideDown(panel);
+    }
+    row.classList.toggle("expanded");
+  }
+
+  /**
+   * The actor's bonds as an array, copied so callers can splice it freely.
+   *
+   * This used to fold a legacy singular `system.bond` into a one-element list.
+   * That shim went with the data-model move: `bond`/`bondGold` were never
+   * declared as schema fields, no world was ever built on the version that wrote
+   * them, and a strict schema drops them anyway.
    * @returns {{id: String, description: String, gold: Number}[]}
    * @private
    */
   _effectiveBonds() {
-    const bonds = foundry.utils.duplicate(this.actor.system.bonds ?? []);
-    if (!bonds.length && this.actor.system.bond) {
-      bonds.push({ id: "legacy", description: this.actor.system.bond, gold: this.actor.system.bondGold ?? 0 });
-    }
-    return bonds;
+    return foundry.utils.duplicate(this.actor.system.bonds ?? []);
   }
 
   /**
@@ -320,93 +1082,142 @@ export class CairnActorSheet extends ActorSheet {
     if (this.actor.system.contentSource === "barebones") {
       return game.settings.get(SETTINGS_NS, "show-bonds-barebones") ? 1 : 0;
     }
-    const bgSecond = bg?.system?.description && mentionsSecondBond(bg.system.description) ? 1 : 0;
+    // The authoring checkbox OR the prose sentence — one extra either way, never two
+    // (generate2eCharacter counts it the same way).
+    const bgSecond =
+      bg?.system?.secondBond || (bg?.system?.description && mentionsSecondBond(bg.system.description)) ? 1 : 0;
     const qSecond = (this.actor.system.questions ?? []).filter((q) => mentionsSecondBond(q.answer ?? "")).length;
     return 1 + bgSecond + qSecond;
   }
 
   /**
-   * Re-roll one bond (by its stable id) from the Bonds table, syncing its granted
-   * items and gold on the inventory, like a question re-roll.
-   * @param {Event} event
-   * @private
+   * A background dropped on a sheet: swap to it, after asking.
+   *
+   * Only a character HAS a background — `NpcData` carries no `background` or
+   * `backgroundUuid` — so any other actor type says so rather than silently doing
+   * nothing or, as before, pocketing the document as gear.
+   *
+   * A background of the OTHER edition is refused the same way. "A character does not
+   * change edition" is the rule the picker already follows (#onPickBackground only ever
+   * offers this character's own source), and the drop was the one way around it.
+   * Refusing is also the only correct answer to what it actually did when measured: a
+   * Barebones character keeps its generated Rations/Torch/weapon/armor — none of which
+   * the 2e background knows to remove — so it ended up carrying BOTH loadouts, with
+   * duplicates.
+   *
+   * Confirmed because it is destructive and a drop is easy to do by accident:
+   * `changeBackground` deletes everything the old background granted (its starting
+   * gear, its rolled answers' items and containers) and re-rolls the new one's. The
+   * prompt names the background, since the likeliest mistake is dropping the wrong one.
+   * Bonds and the portrait survive — that is `changeBackground`'s contract, shared with
+   * the picker.
+   * @param {CairnItem} bg
+   * @returns {Promise<null>} never an item: nothing is added to the inventory
    */
-  async _onRerollBond(event) {
-    event.preventDefault();
-    if (this._rerolling) return;   // guard the double-click delete/create race
-    this._rerolling = true;
-    try {
-      const id = event.currentTarget.dataset.bondId;
-      const bonds = this._effectiveBonds();
-      const idx = bonds.findIndex((b) => b.id === id);
-      if (idx < 0) return;
-      const drawn = await drawBond();
-      if (!drawn) return;
-      const newItems = (drawn.items ?? []).map((it) => withGrantSource(it, `bond:${id}`));
-      await this._replaceGrantedItems(`bond:${id}`, newItems, id === "legacy" ? "bond" : null);
-      const gold = Math.max(0, (this.actor.system.gold ?? 0) - (bonds[idx].gold ?? 0) + drawn.gold);
-      bonds[idx] = { id, description: drawn.description, gold: drawn.gold };
-      await this.actor.update({ "system.bonds": bonds, "system.gold": gold, "system.bond": "" });
-    } finally {
-      this._rerolling = false;
+  async _onDropBackground(bg) {
+    if (!this.isEditable) return null;
+    if (this.actor.type !== "character") {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.BackgroundNotCharacter"));
+      return null;
     }
+    const bgSource = bg.system?.source || "2e";
+    const mySource = this.actor.system.contentSource || "2e";
+    if (bgSource !== mySource) {
+      // Named for what they CARRY, not for where they came from: both are edition
+      // labels, and a translator reading en.json alone could only guess that from
+      // `{background}` / `{character}`, which read like a background and a
+      // character name.
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.BackgroundWrongSource", {
+        backgroundEdition: sourceLabel(bgSource),
+        characterEdition: sourceLabel(mySource),
+      }));
+      return null;
+    }
+    if (!this._mayChangeBackground()) return null;
+    // Through the content overlay, like every other background-name surface: the
+    // sheet header (_prepareContext), the picker and the failed-career list all
+    // show `t("bg.name", …)`, so naming the raw English here would ask a Spanish
+    // Warden about "Aeronaut" the moment after their own sheet called it
+    // "Aeronauta". Latent while lang/content/es.json is empty — and this is the one
+    // call site that would NOT come along when the content phase lands.
+    //
+    // Escaped because the result is interpolated into HTML. `bg.name` is a stored
+    // document field, and a world Item is creatable by any player a Warden has
+    // granted Create Item to — the same player→GM path as the feature-description
+    // XSS, and this dialog renders in the GM's client.
+    const bgName = foundry.utils.escapeHTML(t("bg.name", bg.name));
+    const ok = await foundry.applications.api.DialogV2.confirm({
+      window: { title: game.i18n.localize("CAIRN.ChangeBackgroundTitle") },
+      content:
+        `<div class="cairn-confirm">${game.i18n.localize("CAIRN.ChangeBackgroundTip")}` +
+        `<p class="cairn-confirm-q">${game.i18n.format("CAIRN.ChangeBackgroundQ", { name: bgName })}</p></div>`,
+      rejectClose: false,
+      modal: true,
+    });
+    if (!ok) return null;
+    await changeBackground(this.actor, bg);
+    return null;
   }
 
   /**
-   * Add a bond: draw a new one and append it, granting its items and gold. Only
-   * reachable below the bond entitlement (re-checked here so a stale link can't
-   * push over the cap).
-   * @param {Event} event
-   * @private
+   * May this user swap this character's background at all? Ask BEFORE offering the
+   * swap, not after.
+   *
+   * `changeBackground` already refuses when the answer is no, and warns — but it
+   * refuses at the very top, after the UI has already asked. So a player in a
+   * containers-on world was shown "change this character's background to X? this
+   * deletes its granted gear", answered yes, and got a warning and no change. A
+   * destructive question that cannot be honoured is worse than a plain refusal: it
+   * tells the player the swap is theirs to make, and then takes it back.
+   *
+   * The refusal itself is correct and is not the bug — containers are Actors and
+   * Foundry gates Actor deletion on ASSISTANT, so no player can regenerate them
+   * (see `canRegenerateContainers`). Note how blunt that guard is: with the
+   * Containers tab ON it refuses for EVERY non-GM, whatever the character is
+   * carrying, because a fresh roll might mint one. So this is not rare — it is
+   * every player in such a world, every time.
+   *
+   * Both places the sheet offers the swap call this first: the drop, above, and the
+   * magnifier's picker, which otherwise let a player browse the whole background
+   * list before refusing the one they chose. `#onRollBackground` deliberately does
+   * NOT — it asks nothing, so `changeBackground`'s own guard is the first and only
+   * refusal, and a second copy here would be dead code that reads as protection.
+   * The warning key is passed explicitly. `canRegenerateContainers` was written for
+   * the REGENERATE path and its default sentence ends "ask them to re-roll it for
+   * you" — which, on a background swap, tells a player to request an operation that
+   * would discard their abilities, HP and traits when all they did was try to change
+   * a background. Same refusal, different thing being refused, so a different
+   * sentence.
+   * @returns {Boolean} false, having already warned, if the swap would be refused
    */
-  async _onAddBond(event) {
-    event.preventDefault();
-    const bonds = this._effectiveBonds();
-    if (bonds.length >= (await this._bondEntitlement())) return;
-    const rec = bondRecordFrom(await drawBond());
-    if (!rec) return;
-    bonds.push(rec.bond);
-    if (rec.items.length) {
-      await this.actor.createEmbeddedDocuments("Item", rec.items, { render: false });
-    }
-    const gold = (this.actor.system.gold ?? 0) + rec.bond.gold;
-    await this.actor.update({ "system.bonds": bonds, "system.gold": gold, "system.bond": "" });
+  _mayChangeBackground() {
+    return canRegenerateContainers(this.actor, null, "CAIRN.Notify.NoContainerBackground");
   }
 
   /**
-   * Remove a bond (by id): drop it and delete its granted items, refunding its
-   * gold grant back out (never below zero).
-   * @param {Event} event
-   * @private
+   * The bonds table this character's background names, or "" for the shipped 2e one.
+   * Re-rolling and adding a bond must draw from the SAME table generation used, or a
+   * custom background's bonds silently become 2e bonds the first time a player uses
+   * the d20 beside one.
+   * @returns {Promise<String>}
    */
-  async _onRemoveBond(event) {
-    event.preventDefault();
-    const id = event.currentTarget.dataset.bondId;
-    const bonds = this._effectiveBonds();
-    const idx = bonds.findIndex((b) => b.id === id);
-    if (idx < 0) return;
-    await this._replaceGrantedItems(`bond:${id}`, [], id === "legacy" ? "bond" : null);
-    const gold = Math.max(0, (this.actor.system.gold ?? 0) - (bonds[idx].gold ?? 0));
-    bonds.splice(idx, 1);
-    await this.actor.update({ "system.bonds": bonds, "system.gold": gold, "system.bond": "" });
+  async _bondsTableName() {
+    const uuid = this.actor.system.backgroundUuid;
+    const bg = uuid ? await fromUuid(uuid) : null;
+    return bg?.system?.bondsTable ?? "";
   }
 
   /**
    * Delete the actor's items previously granted by `source` and create the new
    * ones in their place, so re-rolling a bond/question keeps the inventory tab in
-   * sync. `legacyFallback` also matches an older flat source tag. render:false --
-   * the pending actor.update re-renders once.
+   * sync. render:false -- the pending actor.update re-renders once.
    * @param {String} source  e.g. "bond:ab12" or "question:1"
    * @param {Object[]} newItems  resolved + withGrantSource() item data
-   * @param {String|null} [legacyFallback]
    * @private
    */
-  async _replaceGrantedItems(source, newItems, legacyFallback = null) {
+  async _replaceGrantedItems(source, newItems) {
     const oldIds = this.actor.items
-      .filter((i) => {
-        const gs = i.getFlag("air-bladder", "grantSource");
-        return gs === source || (legacyFallback && gs === legacyFallback);
-      })
+      .filter((i) => i.getFlag("air-bladder", "grantSource") === source)
       .map((i) => i.id);
     if (oldIds.length) {
       await this.actor.deleteEmbeddedDocuments("Item", oldIds, { render: false });
@@ -414,98 +1225,6 @@ export class CairnActorSheet extends ActorSheet {
     if (newItems.length) {
       await this.actor.createEmbeddedDocuments("Item", newItems, { render: false });
     }
-  }
-
-  /**
-   * Re-roll a single background question in isolation: re-roll that table's d6
-   * (from the source background via `backgroundUuid`), replace only that
-   * question's answer, and sync the items/gold it grants (options carry gear as
-   * references, resolved through resolveRefs like generation does).
-   * @param {Event} event
-   * @private
-   */
-  async _onRerollQuestion(event) {
-    event.preventDefault();
-    if (this._rerolling) return;   // guard the double-click delete/create race
-    this._rerolling = true;
-    try {
-      const idx = Number(event.currentTarget.dataset.index);
-      // A question's option can grant a container (an Actor); bail before replacing
-      // anything if this user can't manage those (see canRegenerateContainers).
-      if (!canRegenerateContainers(this.actor, `question:${idx}`)) return;
-      const bg = this.actor.system.backgroundUuid
-        ? await fromUuid(this.actor.system.backgroundUuid)
-        : null;
-      const table = bg?.system?.tables?.[idx];
-      const options = table?.options ?? [];
-      if (!options.length) {
-        ui.notifications.warn(game.i18n.localize("CAIRN.RerollQuestionUnavailable"));
-        return;
-      }
-      const roll = await evaluateFormula(`1d${options.length}`);
-      const opt = options[roll.total - 1] ?? options[0];
-
-      const newItems = (await resolveRefs(opt.items)).map((it) => withGrantSource(it, `question:${idx}`));
-      await this._replaceGrantedItems(`question:${idx}`, newItems);
-      // An option may also grant a container (Outrider's horse breeds are one whole
-      // question of them), which is an Actor — swap those the same way.
-      await replaceGrantedContainers(this.actor, `question:${idx}`, opt.containers);
-      const questions = foundry.utils.duplicate(this.actor.system.questions ?? []);
-      const oldGold = questions[idx]?.gold ?? 0;
-      const newGold = opt.bonusGold ?? 0;
-      const gold = Math.max(0, (this.actor.system.gold ?? 0) - oldGold + newGold);
-      questions[idx] = { question: table.question ?? "", answer: opt.description ?? "", gold: newGold };
-      await this.actor.update({ "system.questions": questions, "system.gold": gold });
-    } finally {
-      this._rerolling = false;
-    }
-  }
-
-  /**
-   * Magnifier on the background line: open the picker for this character's own
-   * content source, then swap to what was chosen. The picker never offers the
-   * other edition's backgrounds — a character does not change edition.
-   * @param {Event} event
-   * @private
-   */
-  async _onPickBackground(event) {
-    event.preventDefault();
-    const result = await promptBackground(
-      this.actor.system.contentSource || "2e",
-      this.actor.system.backgroundUuid
-    );
-    if (!result) return;                    // cancelled
-    await changeBackground(this.actor, result.bg);
-  }
-
-  /** Magnifier on the Barebones "Failed career" line: choose a different one.
-   *  Flavour only — stores a name and grants nothing, so unlike the background
-   *  swap above there is no gear to reconcile. */
-  async _onPickFailedCareer(event) {
-    event.preventDefault();
-    const result = await promptFailedCareer(this.actor.system.failedCareer);
-    if (!result) return;                    // cancelled
-    await this.actor.update({ "system.failedCareer": result.name });
-    await this._grantFailedCareerItem(result.name);
-  }
-
-  /** Dice on the "Failed career" line: roll a random one, avoiding the
-   *  character's real background exactly as generation does. A new career brings
-   *  a fresh keepsake item. */
-  async _onRollFailedCareer(event) {
-    event.preventDefault();
-    const name = await rollFailedCareerName(this.actor.system.background);
-    if (name) {
-      await this.actor.update({ "system.failedCareer": name });
-      await this._grantFailedCareerItem(name);
-    }
-  }
-
-  /** Dice on the "Failed career item" line: re-roll WHICH of the current failed
-   *  career's gear items the character kept, without changing the career. */
-  async _onRollFailedCareerItem(event) {
-    event.preventDefault();
-    await this._grantFailedCareerItem(this.actor.system.failedCareer);
   }
 
   /** Replace the character's single failed-career keepsake with a fresh random
@@ -581,651 +1300,144 @@ export class CairnActorSheet extends ActorSheet {
   }
 
   /**
-   * Re-roll the character's age (2d20 + 10 by default) into the age field. The
-   * formula lives in config so it matches what generation uses.
-   * @param {Event} event
+   * Set the actor portrait and its token together. The token is the shipped
+   * prepped art paired with the portrait by filename; for a custom image with no
+   * paired token, the portrait itself is used so the token is never left stale.
    * @private
    */
-  async _onRollAge(event) {
-    event.preventDefault();
-    const formula = CONFIG.Cairn?.characterGenerator2e?.biography?.age ?? "2d20 + 10";
-    // rollAge (not evaluateFormula) so the sheet re-roll obeys the Warden's
-    // minimum-age override, exactly as generation does.
-    const total = await rollAge(formula);
-    await this.actor.update({ "system.age": String(total) });
-  }
-
-  /**
-   * Roll the Omens table and drop the result into the omen field (enabled by its
-   * checkbox). roll(), not draw(): the Omens table is read-only from here — the
-   * drawn text is stored on the actor, nothing is automated.
-   * @param {Event} event
-   * @private
-   */
-  async _onRollOmen(event) {
-    event.preventDefault();
-    if (!this.actor.system.omenEnabled) return;
-    const pack = game.packs.get("air-bladder.tables-2e");
-    const tables = pack ? await pack.getDocuments() : [];
-    const omenTable = tables.find((t) => t.name === "Omens");
-    if (!omenTable) {
-      ui.notifications.warn(game.i18n.localize("CAIRN.OmenTableMissing"));
-      return;
+  async _setPortrait(img) {
+    const tokenSrc = (await pairedTokenFor(img)) ?? img;
+    await this.actor.update({ img, "prototypeToken.texture.src": tokenSrc });
+    for (const token of this.actor.getActiveTokens()) {
+      await token.document.update({ "texture.src": tokenSrc });
     }
-    const { results } = await omenTable.roll();
-    const text = results?.[0]?.text ?? "";
-    await this.actor.update({ "system.omen": text });
   }
 
   /**
-   * A yes/no confirmation whose body reiterates the action's tooltip, then asks
-   * the question, so the player re-reads the rule before committing.
-   * @param {String} titleKey  i18n key for the dialog title
-   * @param {String} tipKey    i18n key for the explanatory text (may be HTML)
-   * @param {String} questionKey  i18n key for the yes/no question
-   * @returns {Promise<Boolean>}
+   * Set a container's art and its token together. Unlike a character portrait
+   * there is no paired token file -- the same image serves both.
    * @private
    */
-  async _confirmAction(titleKey, tipKey, questionKey) {
-    return foundry.applications.api.DialogV2.confirm({
-      window: { title: game.i18n.localize(titleKey) },
-      content: `<div class="cairn-confirm">${game.i18n.localize(tipKey)}<p class="cairn-confirm-q">${game.i18n.localize(questionKey)}</p></div>`,
+  async _setContainerArt(img) {
+    await this.actor.update({ img, "prototypeToken.texture.src": img });
+    for (const token of this.actor.getActiveTokens()) {
+      await token.document.update({ "texture.src": img });
+    }
+  }
+
+  /* -------------------------------------------- */
+  /*  Actions — header                            */
+  /* -------------------------------------------- */
+
+  /**
+   * Roll the whole actor again. BOTH branches ask first.
+   *
+   * The NPC branch used to re-roll on a single click, on the reasoning that "a
+   * hireling's statblock is disposable by design". That was written when only
+   * `hireling` reached it. Folding hireling into npc silently widened it to the
+   * whole bestiary: all 205 shipped monsters are `type: npc`, none of them declares
+   * `generationEnabled` (so it defaults true, data-models.js:208) and
+   * `show-generate-header` defaults true — so the button renders on every monster
+   * for anyone who owns it, and `regenerateHireling` deletes every embedded Item
+   * and overwrites the statblock. One click turned a shipped Gorilla into an
+   * Alchemist (observed 2026-07-30: `Fists*` → six pieces of gear, STR 14→8, HP
+   * 4→2), with no dialog and no undo.
+   *
+   * The confirmation is NOT worded via `_wording()`: that helper picks a `…Npc`
+   * variant whenever `game.i18n.has()` is true, and `has()` consults the English
+   * fallback, so a variant key silently un-translates a string every language
+   * already has. These are new keys with no base-key twin, so they carry no such
+   * risk.
+   * @this {CairnActorSheet}
+   */
+  static async #onRollActor(event) {
+    event.preventDefault();
+    const isNpc = ["hireling", "npc"].includes(this.actor.type);
+    // DialogV2.confirm already makes "No" the default button, so V1's
+    // defaultYes: false has no equivalent to carry over.
+    const confirm = await foundry.applications.api.DialogV2.confirm({
+      window: {
+        title: game.i18n.localize(isNpc ? "CAIRN.NpcRegeneratorTitle" : "CAIRN.CharacterRegeneratorTitle"),
+      },
+      content: `<p>${game.i18n.localize(isNpc ? "CAIRN.NpcRegeneratorConfirm" : "CAIRN.CharacterRegeneratorConfirm")}</p>`,
       rejectClose: false,
-      modal: true,
     });
+    if (!confirm) return;
+    if (isNpc) await regenerateHireling(this.actor);
+    else await regenerateActor(this.actor);
   }
 
-  /** @override */
-  activateListeners(html) {
-    super.activateListeners(html);
-
-    // Everything below here is only needed if the sheet is editable
-    if (!this.options.editable) {
-      return;
-    }
-
-    // Header buttons (Roll Character + the Randomization toggle) are bound here.
-    // Their onclick is a no-op (see _getHeaderButtons), so binding here is the
-    // single source of truth. Namespaced + .off first so re-renders don't stack
-    // handlers; this.element is the whole window, which includes the header.
-    if (this.actor.type === "character" || this.actor.type === "hireling") {
-      const el = this.element;
-      // The Randomization On/Off toggle is shared by both sheet types.
-      el.find(`.toggle-generation-button-${this.actor.id}`)
-        .off("click.cairnHeader")
-        .on("click.cairnHeader", (ev) => this._onToggleGeneration(ev));
-      // Both sheet types carry a header Roll button; only the class + handler
-      // differ. Its initial visibility follows the Randomization toggle.
-      const genEnabled = this.actor.system.generationEnabled !== false;
-      const hireling = this.actor.type === "hireling";
-      el.find(`.regenerate-${hireling ? "hireling" : "character"}-button-${this.actor.id}`)
-        .toggleClass("cairn-header-hidden", !genEnabled)
-        .off("click.cairnHeader")
-        .on("click.cairnHeader", (ev) =>
-          hireling ? this._onRegenerateHireling(ev) : this._onRegenerateCharacter(ev));
-    }
-
-    // When drag-to-reorder is enabled, mark the sheet so item rows show a grab
-    // cursor and the reorder hint appears.
-    if (game.settings.get(SETTINGS_NS, "enable-inventory-reorder")) {
-      html.addClass("cairn-reorder-enabled");
-    }
-
-    // When grant-source tags are on, mark the sheet so the footer hint under the
-    // inventory explains the Background / Bond / Question chips. Character-only:
-    // those chips are set at character generation, so no other actor type has them.
-    if (game.settings.get(SETTINGS_NS, "show-grant-tags") && this.actor.type === "character") {
-      html.addClass("cairn-grant-tags-enabled");
-    }
-
-    // Click the portrait to pick a new one from the shipped gallery (or browse /
-    // paste a URL); the d20 beside it rolls a random one. Both swap the paired
-    // token too, so the token never goes stale. Only the actor types that carry
-    // shipped character art use the gallery -- containers/NPCs keep Foundry's
-    // default image editing (the `data-edit="img"` in their templates).
-    // A container gets the transport/container art gallery instead of the
-    // character portrait gallery -- different art, and no paired token file.
-    html.find(".portrait").click((ev) =>
-      this.actor.type === "container"
-        ? this._onPickContainerArt(ev)
-        : this._onEditPortrait(ev)
-    );
-    if (this.actor.type === "character" || this.actor.type === "hireling") {
-      html.find(".portrait-roll").click((ev) => this._onRollPortrait(ev));
-    }
-
-    // Hireling dice. The whole-statblock re-roll now lives in the title bar
-    // ("Roll NPC"), bound in the header block above like the character's Roll
-    // Character; only the profession- and name-only dice remain on the sheet.
-    html.find(".profession-roll").click((ev) => this._onRerollProfession(ev));
-
-    // Both sheets carry a die beside the name, but they draw from different
-    // sources -- a hireling's name comes from its own spark table, a character's
-    // from the background's example names -- so route by type rather than
-    // letting one selector bind both.
-    html.find(".name-roll").click((ev) =>
-      this.actor.type === "hireling" ? this._onRerollHirelingName(ev) : this._onRollName(ev)
-    );
-
-    // Add inventory item
-    html.find(".item-create").click(this._onItemCreate.bind(this));
-
-    // Open the marketplace (buy/take gear from the reference catalog).
-    // Open the marketplace (buy/take gear). On a container it is scoped to gear
-    // only -- no buying a transport into a transport -- and acquisition is
-    // strict there: a container refuses anything that will not fit.
-    html.find(".item-shop").click((ev) => {
-      ev.preventDefault();
-      if (this.actor.type === "container") {
-        openMarketplace(this.actor, { exclude: TRANSPORTS_CATEGORY });
-      } else {
-        openMarketplace(this.actor);
-      }
-    });
-
-    // Add a container from the catalog (a pack, mount, or vehicle). Same shop,
-    // same buy/take path as the Items-tab market, scoped to Transports &
-    // Containers -- so a bought/taken transport lands right back in this tab.
-    html.find(".container-shop").click((ev) => {
-      ev.preventDefault();
-      openMarketplace(this.actor, { only: TRANSPORTS_CATEGORY, titleKey: "CAIRN.TransportMarketTitle" });
-    });
-
-    // Homebrew escape hatch: create a bespoke container by hand (name + slots).
-    // Demoted below the catalog path -- most containers should come from the shop.
-    html.find(".container-create").click(this._onContainerCreate.bind(this));
-
-    // Add feature
-    html.find(".feature-create").click(this._onFeatureCreate.bind(this));
-
-    // Add fatigue
-    html.find(".add-fatigue").click(this._onAddFatigue.bind(this));
-
-    // Remove fatigue
-    html.find(".remove-fatigue").click(this._onRemoveFatigue.bind(this));
-
-    // Update inventory item
-    html.find(".item-edit").click((ev) => this._onItemEditToggle(ev));
-
-    // Delete inventory item
-    html.find(".item-delete").click((ev) => {
-      const li = $(ev.currentTarget).parents(".cairn-items-list-row");
-      if (li.data("isContainer")) {
-        this.actor.deleteOwnedContainer(li.data("itemId"));
-      } else {
-        this.actor.deleteOwnedItem(li.data("itemId"));
-      }
-      li.slideUp(200, () => this.render(false));
-    });
-
-    // Edit feature
-    html.find(".feature-edit").click((ev) => {
-      const li = $(ev.currentTarget).parents(".cairn-items-list-row");
-      const item = this.actor.getOwnedFeature(li.data("itemId"));
-      if (!item) return;
-      this._onFeatureEdit(item);
-    });
-
-     // Delete feature
-     html.find(".feature-delete").click((ev) => {
-      const li = $(ev.currentTarget).parents(".cairn-items-list-row");
-      this.actor.deleteOwnedFeature(li.data("itemId"));
-      li.slideUp(200, () => this.render(false));
-    });
-
-    html.find(".item-toggle-equipped").click((ev) => {
-      const li = $(ev.currentTarget).parents(".cairn-items-list-row");
-      const item = this.actor.getOwnedItem(li.data("itemId"));
-      item.update({ "system.equipped": !item.system.equipped });
-    });
-
-    // Not exactly quantity, this is about uses
-    html.find(".item-add-quantity").click(async (ev) => {
-      const li = $(ev.currentTarget).parents(".cairn-items-list-row");
-      const item = await this.actor.getOwnedItem(li.data("itemId"));
-      await item.update({
-          "system.uses.value": Math.min(
-            item.system.uses.value + 1,
-            item.system.uses.max
-          ),
-      });      
-    });
-
-    html.find(".item-remove-quantity").click(async (ev) => {
-      const li = $(ev.currentTarget).parents(".cairn-items-list-row");
-      const item = this.actor.getOwnedItem(li.data("itemId"));      
-      let val = Math.max(item.system.uses.value - 1, 0)
-      if (val == 0 && item.system.quantity > 1) {
-        await item.update({
-            "system.quantity": item.system.quantity - 1
-        });  
-        val = item.system.uses.max;
-      }
-      await item.update({
-          "system.uses.value": val,
-      });      
-    });
-
-    html.find(".roll-control").click(this._onRoll.bind(this));
-
-    // Rollable abilities
-    html.find(".resource-roll").click(this._onRollAbility.bind(this));
-
-    // --- Description tab: traits / age / omen / scars ---
-    // Re-roll age (2d20 + 10) into the age field.
-    html.find(".age-roll").click((ev) => this._onRollAge(ev));
-
-    // Roll an omen from the Omens table into the (enabled) omen field.
-    html.find(".omen-roll").click((ev) => this._onRollOmen(ev));
-
-    // Enabling Omen reveals the field; disabling it clears the stored omen so the
-    // field resets to the placeholder hint (not a hidden value).
-    html.find(".omen-enable").change((ev) => {
-      const enabled = ev.currentTarget.checked;
-      const data = { "system.omenEnabled": enabled };
-      if (!enabled) data["system.omen"] = "";
-      this.actor.update(data);
-    });
-
-    // Enabling Scars reveals the checklist; disabling it clears every picked scar.
-    html.find(".scar-enable").change((ev) => {
-      const enabled = ev.currentTarget.checked;
-      const data = { "system.scarEnabled": enabled };
-      if (!enabled) data["system.scars"] = [];
-      this.actor.update(data);
-    });
-
-    // Expand/collapse the scar checklist (+/-). Transient sheet state, so it
-    // survives re-renders (e.g. checking a scar) but is not stored on the actor.
-    html.find(".scar-toggle").click((ev) => {
-      ev.preventDefault();
-      this._scarsCollapsed = !this._scarsCollapsed;
-      this.render(false);
-    });
-
-    // Expand/collapse the trait pick-lists (+/-). Defaults collapsed (getData uses
-    // `?? true`), so read the effective value rather than negating a maybe-undefined flag.
-    html.find(".trait-toggle").click((ev) => {
-      ev.preventDefault();
-      const collapsed = this._traitsCollapsed ?? true;
-      this._traitsCollapsed = !collapsed;
-      this.render(false);
-    });
-
-    // Scars are a checkbox list: persist the set of checked names (including
-    // empty). Managed here rather than via form serialization so unchecking the
-    // last one reliably stores an empty array. render:false keeps scroll/state.
-    html.find(".scar-check").change(() => {
-      const scars = html.find(".scar-check:checked").toArray().map((o) => o.value);
-      this.actor.update({ "system.scars": scars }, { render: false });
-    });
-
-    // --- Notes tab: bonds + questions ---
-    html.find(".bond-reroll").click((ev) => this._onRerollBond(ev));
-    html.find(".bond-add").click((ev) => this._onAddBond(ev));
-    html.find(".bond-remove").click((ev) => this._onRemoveBond(ev));
-    html.find(".question-reroll").click((ev) => this._onRerollQuestion(ev));
-
-    // Background line: the dice swaps to a random background, the magnifier opens
-    // the picker. Both are a PER-FIELD swap — the character keeps its stats, name,
-    // traits, bonds and belongings; only the background and what it granted
-    // change. Regenerating everything is the Regenerate button's job.
-    html.find(".background-roll").click(async (ev) => {
-      ev.preventDefault();
-      await changeBackground(this.actor, null);
-    });
-    html.find(".background-pick").click((ev) => this._onPickBackground(ev));
-
-    // Failed career (Barebones): flavour only, so these touch nothing but the
-    // one string — no gear is granted or removed either way.
-    html.find(".failed-career-roll").click((ev) => this._onRollFailedCareer(ev));
-    html.find(".failed-career-pick").click((ev) => this._onPickFailedCareer(ev));
-    html.find(".failed-career-item-roll").click((ev) => this._onRollFailedCareerItem(ev));
-
-    // ProseMirror only commits via its (easily missed) save button, so a player
-    // can't just switch tabs to escape edit mode. Save any active editor when the
-    // player mouses down outside of it.
-    html.on("mousedown", (ev) => {
-      if (ev.target.closest(".editor")) return;
-      for (const [name, editor] of Object.entries(this.editors ?? {})) {
-        if (editor?.active) this.saveEditor(name);
-      }
-    });
-
-    // Rest restores HP (a DEPRIVED character cannot benefit from a rest). The
-    // confirm reiterates the rule before committing.
-    html.find("#rest-button").click(async () => {
-      if (!this.actor.system.deprived) {
-        if (!(await this._confirmAction("CAIRN.Rest", "CAIRN.RestTip", "CAIRN.RestConfirm"))) return;
-        await this.actor.update({ "system.hp.value": this.actor.system.hp.max });
-      }
-    });
-
-    html.find("#restore-abilities-button").click(async () => {
-      if (!this.actor.system.deprived) {
-        if (!(await this._confirmAction("CAIRN.RestoreAbilities", "CAIRN.RestoreTip", "CAIRN.RestoreConfirm"))) return;
-        // Restoring abilities to full also clears any Critical Damage: the wound
-        // that status represents is healed once the attribute is back.
-        await this.actor.update({
-          "system.abilities.STR.value": this.actor.system.abilities.STR.max,
-          "system.abilities.DEX.value": this.actor.system.abilities.DEX.max,
-          "system.abilities.WIL.value": this.actor.system.abilities.WIL.max,
-          "system.critical": false,
-        });
-      }
-    });
-
-    // Toggle STR Critical Damage (2e). Manual, per house style: the player marks
-    // the failed-save crawling state; STR goes red and the banner appears.
-    // Dead/Paralyzed/Delirious are automatic (ability at 0), not toggled here.
-    html.find(".critical-toggle").click((ev) => {
-      ev.preventDefault();
-      this.actor.update({ "system.critical": this.actor.system.critical !== true });
-    });
-
-    // Stat inputs (HP + abilities, current & max) are numeric and capped 0-18.
-    html.find(".stat-input").change((ev) => {
-      const el = ev.currentTarget;
-      let n = Math.round(Number(el.value));
-      if (!Number.isFinite(n)) n = 0;
-      n = Math.min(18, Math.max(0, n));
-      if (String(n) !== el.value) el.value = n;
-    });
-
-    // Armor is class-managed (no form name): the field shows the effective Armor
-    // (derived from gear, or an override). Typing a 0-3 value stores an override
-    // that supersedes the gear value; clearing it — or the reset icon — returns
-    // to auto (system.armorOverride = null).
-    html.find(".armor-input").change((ev) => {
-      const raw = ev.currentTarget.value.trim();
-      if (raw === "") {
-        this.actor.update({ "system.armorOverride": null });
-        return;
-      }
-      let n = Math.trunc(Number(raw));
-      if (!Number.isFinite(n)) n = 0;
-      n = Math.min(3, Math.max(0, n));
-      this.actor.update({ "system.armorOverride": n });
-    });
-    html.find(".armor-reset").click((ev) => {
-      ev.preventDefault();
-      this.actor.update({ "system.armorOverride": null });
-    });
-
-    // Deprived / Panicked are class-managed (no form name): toggling ON asks for
-    // confirmation that reiterates the condition's tooltip; declining reverts.
-    // Toggling OFF (recovering) applies immediately.
-    html.find(".deprived-check").change(async (ev) => {
-      const desired = ev.currentTarget.checked;
-      if (desired && !(await this._confirmAction("CAIRN.Deprived", "CAIRN.DeprivedTip", "CAIRN.DeprivedConfirm"))) {
-        this.render(false);
-        return;
-      }
-      await this.actor.update({ "system.deprived": desired });
-    });
-
-    html.find(".panicked-check").change(async (ev) => {
-      const desired = ev.currentTarget.checked;
-      if (desired && !(await this._confirmAction("CAIRN.Panicked", "CAIRN.PanickedTip", "CAIRN.PanickedConfirm"))) {
-        this.render(false);
-        return;
-      }
-      await this.actor.update({ "system.panicked": desired });
-    });
-
-    html
-      .find(".cairn-item-title")
-      .click((event) => this._onItemDescriptionToggle(event));
-
-    html
-      .find(".cairn-item-title")
-      .dblclick((event) => this._onItemEditToggle(event));
-
-    html
-      .find(".cairn-feature-title")
-      .click((event) => this._onFeatureDescriptionToggle(event));      
-
-    html.find("#die-of-fate-button").click(async () => {
-      const roll = await evaluateFormula("1d6");
-      roll.toMessage({
-        speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-        flavor: game.i18n.localize("CAIRN.DieOfFate"),
-      });
-    });
-
-    html.find("#set-equipment-limit").dblclick(async (ev) => {
-      if (!game.settings.get(SETTINGS_NS, "character-inventory-limit")) return;
-      ev.preventDefault();
-      let slots;
-      try {
-        slots = await foundry.applications.api.DialogV2.prompt({
-          window: { title: game.i18n.localize("CAIRN.Settings.MaxEquipSlots.label") },
-          position: { width: 150},
-          content: '<input name="slots" type="number" autofocus value="'+this.actor.calcCurrentMaxSlots()+'">',
-          ok: {
-            label: game.i18n.localize("CAIRN.SetLimit"),
-            callback: (event, button, dialog) => {               
-                this.actor.update({"system.slots":button.form.elements.slots.valueAsNumber});
-            }
-          }
-        });
-      } catch {
-        return;
-      }
-       
-    });
-
-  }
-
-  async _onItemEditToggle(ev) {
-    const li = $(ev.currentTarget).parents(".cairn-items-list-row");
-      if (li.data("isContainer")) {
-        const item = this.actor.getOwnedContainer(li.data("itemId"));
-        item.sheet.render(true);
-        return;
-      }
-      const item = this.actor.getOwnedItem(li.data("itemId"));
-      if (item.name == game.i18n.localize("CAIRN.Fatigue")) return;
-      item.sheet.render(true);
+  /**
+   * Flip random-generation mode for this actor. Under AppV1 this had to rewrite
+   * the header's innerHTML by hand; ApplicationV2 rebuilds the control menu from
+   * _getHeaderControls every time it opens, so a re-render is all it takes.
+   * @this {CairnActorSheet}
+   */
+  static async #onToggleGeneration(event) {
+    event.preventDefault();
+    await this.actor.update({ "system.generationEnabled": this.actor.system.generationEnabled === false });
   }
 
   /* -------------------------------------------- */
-  /**
-   * Handle creating a new Owned Item for the actor using initial data defined in the HTML dataset
-   * @param {Event} event   The originating click event
-   * @private
-   */
-  async _onItemCreate(event) {
-    event.preventDefault();
-    const template = "systems/air-bladder/templates/dialog/add-item-dialog.html";
-    const content = await renderTemplate(template);
+  /*  Actions — portrait and name                 */
+  /* -------------------------------------------- */
 
-    new Dialog({
-      title: game.i18n.localize("CAIRN.CreateItem"),
-      content,
-      buttons: {
-        create: {
-          icon: '<i class="fas fa-check"></i>',
-          label: game.i18n.localize("CAIRN.CreateItem"),
-          callback: (html) => {
-            const form = html[0].querySelector("form");
-            if (form.itemname.value.trim() !== "") {
-              this.actor.createOwnedItem({
-                name: form.itemname.value,
-                type: form.itemtype.value,
-                weightless: form.itempetty.checked,
-              });
-            }
-          },
-        },
-      },
-      default: "create",
-    }).render(true);
+  /**
+   * Click the portrait to pick a new one. A container gets the transport/container
+   * art gallery instead of the character portrait gallery -- different art, and no
+   * paired token file. Every other type, NPCs included, gets the character portrait
+   * gallery: an NPC is as much a face at the table as a PC is.
+   * @this {CairnActorSheet}
+   */
+  static async #onEditPortrait(event) {
+    return this.actor.type === "container"
+      ? this._pickContainerArt(event)
+      : this._pickPortrait(event);
   }
 
-  /* -------------------------------------------- */
   /**
-   * Handle creating a new Owned Container for the actor
-   * @param {Event} event   The originating click event
-   * @private
+   * Dice on the portrait: roll a random one from the effective pool, avoiding the
+   * current so it always changes. The pool matches auto-assignment — the GM's
+   * custom portraits when they have any, else the shipped Aspeheim art. Reuses
+   * _setPortrait so the paired token swaps too (custom portraits are their own).
+   * @this {CairnActorSheet}
    */
-  async _onContainerCreate(event) {
+  static async #onRollPortrait(event) {
     event.preventDefault();
-    if (!game.user.hasPermission("ACTOR_CREATE")) {
-      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.NoActorCreate"));
-      return;
+    event.stopPropagation();
+    const custom = getCustomPortraitPaths();
+    let all;
+    if (custom.length) {
+      all = custom;
+    } else {
+      const manifest = await getPortraitManifest();
+      const names = manifest?.names ?? [];
+      if (!names.length) return;
+      const dir = manifest.portraitDir ?? "systems/air-bladder/character_portraits";
+      all = names.map((n) => `${dir}/${n}`);
     }
-    const template = "systems/air-bladder/templates/dialog/add-container-dialog.html";
-    const content = await renderTemplate(template);
-
-    new Dialog({
-      title: game.i18n.localize("CAIRN.CreateContainer"),
-      content,
-      buttons: {
-        create: {
-          icon: '<i class="fas fa-check"></i>',
-          label: game.i18n.localize("CAIRN.CreateContainer"),
-          callback: async (html) => {
-            const form = html[0].querySelector("form");
-            if (form.itemname.value.trim() !== "") {
-              const result = await Actor.create({
-                type: "container",
-                name: form.itemname.value,
-                img: CONTAINER_ICON,
-                "prototypeToken.texture.src": CONTAINER_ICON,
-                "system.slots.value": form.itemslots.value,
-              });
-              await this.actor.createOwnedContainer(result);
-            }
-          },
-        },
-      },
-      default: "create",
-    }).render(true);
-  }
-
-  /* -------------------------------------------- */
-  /**
-   * Handle creating a new feature for the actor
-   * @param {Event} event   The originating click event
-   * @private
-   */
-  async _onFeatureCreate(event) {
-    event.preventDefault();
-    const template = "systems/air-bladder/templates/dialog/add-feature-dialog.html";
-    const content = await renderTemplate(template);
-
-    new Dialog({
-      title: game.i18n.localize("CAIRN.CreateFeature"),
-      content,
-      buttons: {
-        create: {
-          icon: '<i class="fas fa-check"></i>',
-          label: game.i18n.localize("CAIRN.CreateFeature"),
-          callback: async (html) => {
-            const form = html[0].querySelector("form");
-            if (form.itemname.value.trim() !== "") {
-              const data = {
-                "name": form.itemname.value,
-                "description": form.itemdesc.value,
-              };
-              const checks = ['str','dex','wil','hp','armor','dmg','crit','deprived','blast'];
-              checks.forEach((c) => {
-                data[c] = form[c].checked;
-              });
-              await this.actor.createOwnedFeature(data);
-            }
-          },
-        },
-      },
-      default: "create",
-    },{
-      "width": 500,
-    }).render(true);
-  }
-
-  async _onFeatureEdit(item) {
-    const template = "systems/air-bladder/templates/dialog/add-feature-dialog.html";
-    const content = await renderTemplate(template, item);
-    
-    new Dialog({
-      title: game.i18n.localize("CAIRN.EditFeature"),
-      content,
-      buttons: {
-        update: {
-          icon: '<i class="fas fa-check"></i>',
-          label: game.i18n.localize("CAIRN.UpdateFeature"),
-          callback: async (html) => {
-            const form = html[0].querySelector("form");
-            if (form.itemname.value.trim() !== "") {
-              const newItem = item;
-              newItem.name  = form.itemname.value;
-              newItem.description = form.itemdesc.value;
-              const checks = ['str','dex','wil','hp','armor','dmg','crit','deprived','blast'];
-              checks.forEach((c) => {
-                newItem[c] = form[c].checked;
-              });
-              const features = this.actor.system.features.filter((f) => f.id != newItem.id);
-              features.push(newItem);
-              await this.actor.update({"system.features":features});
-            }
-          },
-        },
-      },
-      default: "update",
-    },{
-      "width": 500,
-    }).render(true);
+    const pool = all.filter((src) => src !== this.actor.img);
+    const choices = pool.length ? pool : all;
+    await this._setPortrait(choices[Math.floor(Math.random() * choices.length)]);
   }
 
   /**
-   * Full hireling re-roll: a fresh 2e statblock -- new Profession, day-rate,
-   * abilities, HP and gear. Keeps the name, portrait and free-form notes.
-   * @param {Event} event
-   * @private
-   */
-  async _onRegenerateHireling(event) {
-    event.preventDefault();
-    await regenerateHireling(this.actor);
-  }
-
-  /**
-   * Profession-only die: swap to a different example hireling and adopt its whole
-   * canonical statblock (a 2e hireling's stats ARE its profession). Keeps the
-   * name, portrait, notes and any GM-added gear.
-   * @param {Event} event
-   * @private
-   */
-  async _onRerollProfession(event) {
-    event.preventDefault();
-    await rerollHirelingProfession(this.actor);
-  }
-
-  /**
-   * Name-only die: a fresh name off the Warden's 2e NPC name table, statblock
-   * untouched.
-   * @param {Event} event
-   * @private
-   */
-  async _onRerollHirelingName(event) {
-    event.preventDefault();
-    await rerollHirelingName(this.actor);
-  }
-
-  /**
-   * Dice beside the character's name: roll a new one from the same source
-   * generation used, so a re-roll is indistinguishable from what the generator
-   * would have produced.
+   * Dice beside the name. Both sheets carry one, but they draw from different
+   * sources -- a hireling's name comes from its own spark table, a character's
+   * from the background's example names.
    *
    * 2e names come from the CURRENT background's example-name list (so the name
    * still suits the background after it has been changed); Barebones falls back
    * to its spark table. Active tokens are renamed too, as regeneration does,
    * so a token on the canvas never keeps the discarded name.
-   * @param {Event} event
-   * @private
+   * @this {CairnActorSheet}
    */
-  async _onRollName(event) {
+  static async #onRollName(event) {
     event.preventDefault();
+    if (["hireling", "npc"].includes(this.actor.type)) {
+      await rerollHirelingName(this.actor);
+      return;
+    }
     let name = null;
     if (this.actor.system.contentSource === "2e" && this.actor.system.backgroundUuid) {
       const bg = await fromUuid(this.actor.system.backgroundUuid);
@@ -1243,33 +1455,721 @@ export class CairnActorSheet extends ActorSheet {
   }
 
   /**
-   * Set the actor portrait and its token together. The token is the shipped
-   * prepped art paired with the portrait by filename; for a custom image with no
-   * paired token, the portrait itself is used so the token is never left stale.
-   * @param {String} img
-   * @private
+   * Profession-only die: swap to a different example hireling and adopt its whole
+   * canonical statblock (a 2e hireling's stats ARE its profession). Keeps the
+   * name, portrait, notes and any GM-added gear.
+   * @this {CairnActorSheet}
    */
+  static async #onRollProfession(event) {
+    event.preventDefault();
+    await rerollHirelingProfession(this.actor);
+  }
+
+  /* -------------------------------------------- */
+  /*  Actions — inventory                         */
+  /* -------------------------------------------- */
+
   /**
-   * Set a container's art and its token together. Unlike a character portrait
-   * there is no paired token file -- the same image serves both.
-   * @param {String} img
+   * Handle creating a new Owned Item for the actor.
+   * @this {CairnActorSheet}
+   */
+  static async #onItemCreate(event) {
+    event.preventDefault();
+    const template = "systems/air-bladder/templates/dialog/add-item-dialog.html";
+    const content = await foundry.applications.handlebars.renderTemplate(template);
+
+    await foundry.applications.api.DialogV2.prompt({
+      window: { title: game.i18n.localize("CAIRN.CreateItem") },
+      content,
+      ok: {
+        icon: "fas fa-check",
+        label: game.i18n.localize("CAIRN.CreateItem"),
+        // DialogV2 hands the callback the clicked BUTTON; button.form is the
+        // dialog's own form, which is why the content template must not carry
+        // one of its own.
+        callback: async (dialogEvent, button) => {
+          const form = button.form;
+          if (form.itemname.value.trim() !== "") {
+            await this.actor.createOwnedItem({
+              name: form.itemname.value,
+              type: form.itemtype.value,
+              weightless: form.itempetty.checked,
+            });
+          }
+        },
+      },
+      rejectClose: false,
+    });
+  }
+
+  /**
+   * Open the marketplace (buy/take gear). On a container it is scoped to gear
+   * only -- no buying a transport into a transport -- and acquisition is strict
+   * there: a container refuses anything that will not fit.
+   * @this {CairnActorSheet}
+   */
+  static #onItemShop(event) {
+    event.preventDefault();
+    if (this.actor.type === "container") openMarketplace(this.actor, { exclude: TRANSPORTS_CATEGORY });
+    else openMarketplace(this.actor);
+  }
+
+  /** @this {CairnActorSheet} */
+  static #onItemEdit(event, target) {
+    event.preventDefault();
+    this._openItemSheet(target);
+  }
+
+  /** @this {CairnActorSheet} */
+  static #onItemDelete(event, target) {
+    event.preventDefault();
+    const row = CairnActorSheet.#row(target);
+    if (!row) return;
+    if (row.dataset.isContainer) this.actor.deleteOwnedContainer(row.dataset.itemId);
+    else this.actor.deleteOwnedItem(row.dataset.itemId);
+    slideUp(row, () => this.render(false));
+  }
+
+  /** @this {CairnActorSheet} */
+  static async #onItemToggleEquipped(event, target) {
+    event.preventDefault();
+    const row = CairnActorSheet.#row(target);
+    const item = this.actor.getOwnedItem(row?.dataset.itemId);
+    if (item) await item.update({ "system.equipped": !item.system.equipped });
+  }
+
+  /** Not exactly quantity, this is about uses. @this {CairnActorSheet} */
+  static async #onItemAddUse(event, target) {
+    event.preventDefault();
+    const row = CairnActorSheet.#row(target);
+    const item = this.actor.getOwnedItem(row?.dataset.itemId);
+    if (!item) return;
+    await item.update({
+      "system.uses.value": Math.min(item.system.uses.value + 1, item.system.uses.max),
+    });
+  }
+
+  /** @this {CairnActorSheet} */
+  static async #onItemRemoveUse(event, target) {
+    event.preventDefault();
+    const row = CairnActorSheet.#row(target);
+    const item = this.actor.getOwnedItem(row?.dataset.itemId);
+    if (!item) return;
+    let val = Math.max(item.system.uses.value - 1, 0);
+    if (val === 0 && item.system.quantity > 1) {
+      await item.update({ "system.quantity": item.system.quantity - 1 });
+      val = item.system.uses.max;
+    }
+    await item.update({ "system.uses.value": val });
+  }
+
+  /**
+   * Expand a row to show what it holds: a container's contents, or an item's
+   * description plus its critical-damage line.
+   * @this {CairnActorSheet}
+   */
+  static #onItemDescription(event, target) {
+    event.preventDefault();
+    const row = CairnActorSheet.#row(target);
+    if (!row) return;
+    if (row.dataset.isContainer) {
+      this._toggleRowDescription(row, () => {
+        const container = game.actors.find((a) => a.uuid === row.dataset.itemId);
+        if (!container) return null;
+        // Built with textContent so a container's item names can't inject
+        // HTML/script into the keeper's (or GM's) sheet when the row is expanded.
+        const div = document.createElement("div");
+        div.className = "item-description";
+        div.textContent = container.items.map((it) => it.name).join(", ");
+        return div;
+      });
+      return;
+    }
+    this._toggleRowDescription(row, () => {
+      const item = this.actor.items.get(row.dataset.itemId);
+      if (!item) return null;
+      const crit = cleanDescription(item.system.criticalDamage) !== ""
+        ? `<div><i class="fa-regular fa-skull"></i> <i>${cleanDescription(item.system.criticalDamage)}</i></div>`
+        : "";
+      const div = document.createElement("div");
+      div.className = "item-description";
+      div.innerHTML = `${cleanDescription(item.system.description)}${crit}`;
+      return div;
+    });
+  }
+
+  /** @this {CairnActorSheet} */
+  static async #onAddFatigue(event) {
+    event.preventDefault();
+    if (this.actor.isEncumbered()) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.MaxSlotsOccupied"));
+      return;
+    }
+    await this.actor.createOwnedItem({ name: FATIGUE_NAME, type: "item" });
+  }
+
+  /** @this {CairnActorSheet} */
+  static #onRemoveFatigue(event) {
+    event.preventDefault();
+    const fatigue = this.actor.items.find((i) => i.name === FATIGUE_NAME);
+    if (fatigue) this.actor.deleteOwnedItem(fatigue.id);
+  }
+
+  /**
+   * Roll a weapon's damage, honouring panic (a panicked character rolls d4
+   * regardless of the weapon) and any targeted tokens.
+   * @this {CairnActorSheet}
+   */
+  static async #onRollDamage(event, target) {
+    event.preventDefault();
+    const dataset = target.dataset;
+    if (!dataset.roll) return;
+
+    const usePanic = game.settings.get(SETTINGS_NS, "use-panic");
+    let formula = dataset.roll;
+    let panicLabel = "";
+    if (usePanic && this.actor.system.panicked) {
+      formula = "1d4"; // panicked character
+      panicLabel = "(" + game.i18n.localize("CAIRN.RollingWithPanic") + ")";
+    }
+
+    const roll = await evaluateFormula(formula, this.actor.getRollData());
+    const label = dataset.label
+      ? game.i18n.localize("CAIRN.RollingDmgWith") + ` ${dataset.label} ` + panicLabel
+      : "";
+
+    const targetedTokens = Array.from(game.user.targets).map((tk) => tk.id);
+    const targetIds = targetedTokens.length ? targetedTokens.join(";") : null;
+
+    const flavor = await foundry.applications.handlebars.renderTemplate(
+      "systems/air-bladder/templates/chat/dmg-roll-card.html",
+      { label, targets: targetIds }
+    );
+    roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor });
+  }
+
+  /* -------------------------------------------- */
+  /*  Actions — containers                        */
+  /* -------------------------------------------- */
+
+  /**
+   * Add a container from the catalog (a pack, mount, or vehicle). Same shop, same
+   * buy/take path as the Items-tab market, scoped to Transports & Containers --
+   * so a bought/taken transport lands right back in this tab.
+   * @this {CairnActorSheet}
+   */
+  static #onContainerShop(event) {
+    event.preventDefault();
+    openMarketplace(this.actor, { only: TRANSPORTS_CATEGORY, titleKey: "CAIRN.TransportMarketTitle" });
+  }
+
+  /**
+   * Homebrew escape hatch: create a bespoke container by hand (name + slots).
+   * Demoted below the catalog path -- most containers should come from the shop.
+   * @this {CairnActorSheet}
+   */
+  static async #onContainerCreate(event) {
+    event.preventDefault();
+    if (!game.user.hasPermission("ACTOR_CREATE")) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.NoActorCreate"));
+      return;
+    }
+    const template = "systems/air-bladder/templates/dialog/add-container-dialog.html";
+    // The class list comes from CONTAINER_CLASSES itself, so a class added there
+    // appears here without a second list to keep in step. `mule` and `donkey`
+    // share art but are different words, and both are offered — the label is what
+    // the sheet will show.
+    const classes = Object.entries(CONTAINER_CLASSES).map(([key, v]) => ({ key, label: v.label }));
+    const content = await foundry.applications.handlebars.renderTemplate(template, { classes });
+
+    await foundry.applications.api.DialogV2.prompt({
+      window: { title: game.i18n.localize("CAIRN.CreateContainer") },
+      content,
+      ok: {
+        icon: "fas fa-check",
+        label: game.i18n.localize("CAIRN.CreateContainer"),
+        callback: async (dialogEvent, button) => {
+          const form = button.form;
+          if (form.itemname.value.trim() !== "") {
+            // No `img` here on purpose: CairnActor._preCreate names the art from
+            // the container's own name (a "Barrel" gets barrel art), so hardcoding
+            // the chest icon would defeat it. getDocumentClass, not the global
+            // `Actor` — the global is not CONFIG.Actor.documentClass.
+            //
+            // The result is deliberately not checked, unlike `acquireTransport`,
+            // which does. That asymmetry is not an oversight: acquireTransport NEEDS
+            // the value — it dereferences `container.update()` and then deducts the
+            // price, so an unchecked refusal would throw and still charge the buyer.
+            // Here the value goes straight to createOwnedContainer, whose own first
+            // line returns on a falsy document, and nothing follows it. The realistic
+            // refusal (a player without ACTOR_CREATE) is already caught above, with a
+            // message. What is left is a third-party `preCreateActor` veto, which
+            // resolves undefined and says nothing — and explaining its own veto is
+            // the vetoing module's job, not ours.
+            const result = await getDocumentClass("Actor").create({
+              type: "container",
+              name: form.itemname.value,
+              "system.slots": form.itemslots.value,
+              // Blank means "read the name", which is what this dialog always did.
+              "system.containerClass": form.itemclass?.value ?? "",
+            });
+            await this.actor.createOwnedContainer(result);
+          }
+        },
+      },
+      rejectClose: false,
+    });
+  }
+
+  /* -------------------------------------------- */
+  /*  Actions — features                          */
+  /* -------------------------------------------- */
+
+  /** @this {CairnActorSheet} */
+  static async #onFeatureCreate(event) {
+    event.preventDefault();
+    const template = "systems/air-bladder/templates/dialog/add-feature-dialog.html";
+    const content = await foundry.applications.handlebars.renderTemplate(template);
+
+    await foundry.applications.api.DialogV2.prompt({
+      window: { title: game.i18n.localize("CAIRN.CreateFeature") },
+      position: { width: 500 },
+      content,
+      ok: {
+        icon: "fas fa-check",
+        label: game.i18n.localize("CAIRN.CreateFeature"),
+        callback: async (dialogEvent, button) => {
+          const form = button.form;
+          if (form.itemname.value.trim() !== "") {
+            const data = { name: form.itemname.value, description: form.itemdesc.value };
+            FEATURE_FLAGS.forEach((c) => { data[c] = form[c].checked; });
+            await this.actor.createOwnedFeature(data);
+          }
+        },
+      },
+      rejectClose: false,
+    });
+  }
+
+  /** @this {CairnActorSheet} */
+  static async #onFeatureEdit(event, target) {
+    event.preventDefault();
+    const row = CairnActorSheet.#row(target);
+    const item = this.actor.getOwnedFeature(row?.dataset.itemId);
+    if (!item) return;
+
+    const template = "systems/air-bladder/templates/dialog/add-feature-dialog.html";
+    const content = await foundry.applications.handlebars.renderTemplate(template, item);
+
+    await foundry.applications.api.DialogV2.prompt({
+      window: { title: game.i18n.localize("CAIRN.EditFeature") },
+      position: { width: 500 },
+      content,
+      ok: {
+        icon: "fas fa-check",
+        label: game.i18n.localize("CAIRN.UpdateFeature"),
+        callback: async (dialogEvent, button) => {
+          const form = button.form;
+          if (form.itemname.value.trim() !== "") {
+            // Copy, never mutate `item`. `system.features` is an ArrayField of
+            // ObjectField, and an ObjectField hands back the SOURCE object by
+            // reference — so assigning to `item` edited the actor's stored data
+            // in place, before (and regardless of) the update. A rejected or
+            // refused update then left the sheet showing values the document did
+            // not have, until something re-read it from source.
+            const newItem = { ...item, name: form.itemname.value, description: form.itemdesc.value };
+            FEATURE_FLAGS.forEach((c) => { newItem[c] = form[c].checked; });
+            // Replace in place rather than filter+push, so editing a feature does
+            // not silently move it to the bottom of the list.
+            const features = this.actor.system.features.map((f) => (f.id === newItem.id ? newItem : f));
+            await this.actor.update({ "system.features": features });
+          }
+        },
+      },
+      rejectClose: false,
+    });
+  }
+
+  /** @this {CairnActorSheet} */
+  static #onFeatureDelete(event, target) {
+    event.preventDefault();
+    const row = CairnActorSheet.#row(target);
+    if (!row) return;
+    this.actor.deleteOwnedFeature(row.dataset.itemId);
+    slideUp(row, () => this.render(false));
+  }
+
+  /** @this {CairnActorSheet} */
+  static #onFeatureDescription(event, target) {
+    event.preventDefault();
+    const row = CairnActorSheet.#row(target);
+    if (!row) return;
+    this._toggleRowDescription(row, () => {
+      const feature = this.actor.getOwnedFeature(row.dataset.itemId);
+      if (!feature) return null;
+      const div = document.createElement("div");
+      div.className = "item-description";
+      // cleanDescription, not stripPar: `system.features` is an ObjectField interior,
+      // so the server never sanitizes it and this was a player→GM XSS. See utils.js.
+      div.innerHTML = cleanDescription(feature.description);
+      return div;
+    });
+  }
+
+  /* -------------------------------------------- */
+  /*  Actions — counters and buttons              */
+  /* -------------------------------------------- */
+
+  /**
+   * A d20 save against an ability. On a failed STR save, offer to mark Critical
+   * Damage — but only when STR is damaged and still above 0 (the crawling state;
+   * STR 0 is Dead). A generic STR save at full health isn't Critical Damage.
+   * Matches the sheet skull's gate.
+   * @this {CairnActorSheet}
+   */
+  static async #onRollAbility(event, target) {
+    event.preventDefault();
+    const dataset = target.dataset;
+    if (!dataset.roll) return;
+    const roll = await evaluateFormula(dataset.roll, this.actor.getRollData());
+    const label = dataset.label ? game.i18n.localize("CAIRN.Rolling") + ` ${dataset.label}` : "";
+    const rolled = roll.terms[0].results[0].result;
+    const failed = roll.total === 0;
+    const result = failed ? game.i18n.localize("CAIRN.Fail") : game.i18n.localize("CAIRN.Success");
+    const resultCls = failed ? "failure" : "success";
+    const str = this.actor.system.abilities?.STR;
+    const offerCrit =
+      dataset.ability === "STR" && failed &&
+      Number(str?.value) > 0 && Number(str?.value) < Number(str?.max);
+    const critButton = offerCrit
+      ? `<button type="button" class="mark-critical-damage">${game.i18n.localize("CAIRN.MarkCriticalDamage")}</button>`
+      : "";
+    roll.toMessage({
+      speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+      flavor: label,
+      content: `<div class="dice-roll"><div class="dice-result"><div class="dice-formula">${roll.formula}</div><div class="dice-tooltip" style="display: none;"><section class="tooltip-part"><div class="dice"><header class="part-header flexrow"><span class="part-formula">${roll.formula}</span></header><ol class="dice-rolls"><li class="roll die d20">${rolled}</li></ol></div></section></div><h4 class="dice-total ${resultCls}">${result} (${rolled})</h4></div></div>${critButton}`,
+    });
+  }
+
+  /**
+   * Toggle STR Critical Damage (2e). Manual, per house style: the player marks
+   * the failed-save crawling state; STR goes red and the banner appears.
+   * Dead/Paralyzed/Delirious are automatic (ability at 0), not toggled here.
+   * @this {CairnActorSheet}
+   */
+  static async #onToggleCritical(event) {
+    event.preventDefault();
+    await this.actor.update({ "system.critical": this.actor.system.critical !== true });
+  }
+
+  /** @this {CairnActorSheet} */
+  static async #onArmorReset(event) {
+    event.preventDefault();
+    await this.actor.update({ "system.armorOverride": null });
+  }
+
+  /**
+   * Rest restores HP (a DEPRIVED character cannot benefit from a rest). The
+   * confirm reiterates the rule before committing.
+   * @this {CairnActorSheet}
+   */
+  static async #onRest() {
+    if (this.actor.system.deprived) return;
+    if (!(await this._confirmAction("CAIRN.Rest", "CAIRN.RestTip", "CAIRN.RestConfirm"))) return;
+    await this.actor.update({ "system.hp.value": this.actor.system.hp.max });
+  }
+
+  /** @this {CairnActorSheet} */
+  static async #onRestoreAbilities() {
+    if (this.actor.system.deprived) return;
+    if (!(await this._confirmAction("CAIRN.RestoreAbilities", "CAIRN.RestoreTip", "CAIRN.RestoreConfirm"))) return;
+    // Restoring abilities to full also clears any Critical Damage: the wound
+    // that status represents is healed once the attribute is back.
+    await this.actor.update({
+      "system.abilities.STR.value": this.actor.system.abilities.STR.max,
+      "system.abilities.DEX.value": this.actor.system.abilities.DEX.max,
+      "system.abilities.WIL.value": this.actor.system.abilities.WIL.max,
+      "system.critical": false,
+    });
+  }
+
+  /** @this {CairnActorSheet} */
+  static async #onDieOfFate() {
+    const roll = await evaluateFormula("1d6");
+    roll.toMessage({
+      speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+      flavor: game.i18n.localize("CAIRN.DieOfFate"),
+    });
+  }
+
+  /**
+   * Double-click the Items tab to set this character's own equipment limit.
+   * Bound in _onRender rather than declared as an action: the action system
+   * covers clicks only, and a single click here belongs to the tab.
    * @private
    */
-  async _setContainerArt(img) {
-    await this.actor.update({ img, "prototypeToken.texture.src": img });
-    for (const t of this.actor.getActiveTokens()) {
-      await t.document.update({ "texture.src": img });
+  async _onSetEquipmentLimit(event) {
+    if (!game.settings.get(SETTINGS_NS, "character-inventory-limit")) return;
+    event.preventDefault();
+    await foundry.applications.api.DialogV2.prompt({
+      window: { title: game.i18n.localize("CAIRN.Settings.MaxEquipSlots.label") },
+      position: { width: 150 },
+      content: `<input name="slots" type="number" autofocus value="${this.actor.calcCurrentMaxSlots()}">`,
+      ok: {
+        label: game.i18n.localize("CAIRN.SetLimit"),
+        // DialogV2 awaits a callback's return value, so awaiting here holds the
+        // dialog's promise open until the write lands.
+        callback: async (dialogEvent, button) => {
+          await this.actor.update({ "system.slots": button.form.elements.slots.valueAsNumber });
+        },
+      },
+      rejectClose: false,
+    });
+  }
+
+  /* -------------------------------------------- */
+  /*  Actions — description tab                   */
+  /* -------------------------------------------- */
+
+  /**
+   * Re-roll the character's age (2d20 + 10 by default) into the age field. The
+   * formula lives in config so it matches what generation uses.
+   * @this {CairnActorSheet}
+   */
+  static async #onRollAge(event) {
+    event.preventDefault();
+    const formula = CONFIG.Cairn?.characterGenerator2e?.biography?.age ?? "2d20 + 10";
+    // rollAge (not evaluateFormula) so the sheet re-roll obeys the Warden's
+    // minimum-age override, exactly as generation does.
+    const total = await rollAge(formula);
+    await this.actor.update({ "system.age": String(total) });
+  }
+
+  /**
+   * Roll the Omens table and drop the result into the omen field (enabled by its
+   * checkbox). roll(), not draw(): the Omens table is read-only from here — the
+   * drawn text is stored on the actor, nothing is automated.
+   * @this {CairnActorSheet}
+   */
+  static async #onRollOmen(event) {
+    event.preventDefault();
+    if (!this.actor.system.omenEnabled) return;
+    const tables = await cachedPackDocuments("air-bladder.tables-2e");
+    const omenTable = tables.find((tbl) => tbl.name === "Omens");
+    if (!omenTable) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.OmenTableMissing"));
+      return;
+    }
+    const { results } = await omenTable.roll();
+    await this.actor.update({ "system.omen": resultText(results?.[0]) });
+  }
+
+  /**
+   * Expand/collapse the trait pick-lists (+/-). Transient sheet state, so it
+   * survives re-renders but is not stored on the actor. Defaults collapsed
+   * (_prepareContext uses `?? true`), so read the effective value rather than
+   * negating a maybe-undefined flag.
+   * @this {CairnActorSheet}
+   */
+  static #onToggleTraits(event) {
+    event.preventDefault();
+    this._traitsCollapsed = !(this._traitsCollapsed ?? true);
+    this.render(false);
+  }
+
+  /** @this {CairnActorSheet} */
+  static #onToggleScars(event) {
+    event.preventDefault();
+    this._scarsCollapsed = !this._scarsCollapsed;
+    this.render(false);
+  }
+
+  /* -------------------------------------------- */
+  /*  Actions — background and failed career      */
+  /* -------------------------------------------- */
+
+  /**
+   * Dice on the background line: swap to a random background. A PER-FIELD swap —
+   * the character keeps its stats, name, traits, bonds and belongings; only the
+   * background and what it granted change. Regenerating everything is the Roll
+   * Character control's job.
+   * @this {CairnActorSheet}
+   */
+  static async #onRollBackground(event) {
+    event.preventDefault();
+    await changeBackground(this.actor, null);
+  }
+
+  /**
+   * Magnifier on the background line: open the picker for this character's own
+   * content source, then swap to what was chosen. The picker never offers the
+   * other edition's backgrounds — a character does not change edition.
+   * @this {CairnActorSheet}
+   */
+  static async #onPickBackground(event) {
+    event.preventDefault();
+    if (!this._mayChangeBackground()) return;   // don't offer a list we can't act on
+    const result = await promptBackground(
+      this.actor.system.contentSource || "2e",
+      this.actor.system.backgroundUuid
+    );
+    if (!result) return;                    // cancelled
+    await changeBackground(this.actor, result.bg);
+  }
+
+  /** Dice on the "Failed career" line: roll a random one, avoiding the
+   *  character's real background exactly as generation does. A new career brings
+   *  a fresh keepsake item. @this {CairnActorSheet} */
+  static async #onRollFailedCareer(event) {
+    event.preventDefault();
+    const name = await rollFailedCareerName(this.actor.system.background);
+    if (!name) return;
+    await this.actor.update({ "system.failedCareer": name });
+    await this._grantFailedCareerItem(name);
+  }
+
+  /** Magnifier on the Barebones "Failed career" line: choose a different one.
+   *  Flavour only — stores a name and grants nothing, so unlike the background
+   *  swap there is no gear to reconcile. @this {CairnActorSheet} */
+  static async #onPickFailedCareer(event) {
+    event.preventDefault();
+    const result = await promptFailedCareer(this.actor.system.failedCareer);
+    if (!result) return;                    // cancelled
+    await this.actor.update({ "system.failedCareer": result.name });
+    await this._grantFailedCareerItem(result.name);
+  }
+
+  /** Dice on the "Failed career item" line: re-roll WHICH of the current failed
+   *  career's gear items the character kept, without changing the career.
+   *  @this {CairnActorSheet} */
+  static async #onRollFailedCareerItem(event) {
+    event.preventDefault();
+    await this._grantFailedCareerItem(this.actor.system.failedCareer);
+  }
+
+  /* -------------------------------------------- */
+  /*  Actions — notes tab (bonds and questions)   */
+  /* -------------------------------------------- */
+
+  /**
+   * Re-roll one bond (by its stable id) from the Bonds table, syncing its granted
+   * items and gold on the inventory, like a question re-roll.
+   * @this {CairnActorSheet}
+   */
+  static async #onRerollBond(event, target) {
+    event.preventDefault();
+    if (this._rerolling) return;   // guard the double-click delete/create race
+    this._rerolling = true;
+    try {
+      const id = target.dataset.bondId;
+      const bonds = this._effectiveBonds();
+      const idx = bonds.findIndex((b) => b.id === id);
+      if (idx < 0) return;
+      const drawn = await drawBond(await this._bondsTableName());
+      if (!drawn) return;
+      const newItems = (drawn.items ?? []).map((it) => withGrantSource(it, `bond:${id}`));
+      await this._replaceGrantedItems(`bond:${id}`, newItems);
+      const gold = Math.max(0, (this.actor.system.gold ?? 0) - (bonds[idx].gold ?? 0) + drawn.gold);
+      bonds[idx] = { id, description: drawn.description, gold: drawn.gold };
+      await this.actor.update({ "system.bonds": bonds, "system.gold": gold });
+    } finally {
+      this._rerolling = false;
     }
   }
 
   /**
+   * Add a bond: draw a new one and append it, granting its items and gold. Only
+   * reachable below the bond entitlement (re-checked here so a stale link can't
+   * push over the cap).
+   * @this {CairnActorSheet}
+   */
+  static async #onAddBond(event) {
+    event.preventDefault();
+    const bonds = this._effectiveBonds();
+    if (bonds.length >= (await this._bondEntitlement())) return;
+    const rec = bondRecordFrom(await drawBond(await this._bondsTableName()));
+    if (!rec) return;
+    bonds.push(rec.bond);
+    if (rec.items.length) {
+      await this.actor.createEmbeddedDocuments("Item", rec.items, { render: false });
+    }
+    const gold = (this.actor.system.gold ?? 0) + rec.bond.gold;
+    await this.actor.update({ "system.bonds": bonds, "system.gold": gold });
+  }
+
+  /**
+   * Remove a bond (by id): drop it and delete its granted items, refunding its
+   * gold grant back out (never below zero).
+   * @this {CairnActorSheet}
+   */
+  static async #onRemoveBond(event, target) {
+    event.preventDefault();
+    const id = target.dataset.bondId;
+    const bonds = this._effectiveBonds();
+    const idx = bonds.findIndex((b) => b.id === id);
+    if (idx < 0) return;
+    await this._replaceGrantedItems(`bond:${id}`, []);
+    const gold = Math.max(0, (this.actor.system.gold ?? 0) - (bonds[idx].gold ?? 0));
+    bonds.splice(idx, 1);
+    await this.actor.update({ "system.bonds": bonds, "system.gold": gold });
+  }
+
+  /**
+   * Re-roll a single background question in isolation: re-roll that table's d6
+   * (from the source background via `backgroundUuid`), replace only that
+   * question's answer, and sync the items/gold it grants (options carry gear as
+   * references, resolved through resolveRefs like generation does).
+   * @this {CairnActorSheet}
+   */
+  static async #onRerollQuestion(event, target) {
+    event.preventDefault();
+    if (this._rerolling) return;   // guard the double-click delete/create race
+    this._rerolling = true;
+    try {
+      const idx = Number(target.dataset.index);
+      // A question's option can grant a container (an Actor); bail before replacing
+      // anything if this user can't manage those (see canRegenerateContainers).
+      if (!canRegenerateContainers(this.actor, `question:${idx}`)) return;
+      const bg = this.actor.system.backgroundUuid
+        ? await fromUuid(this.actor.system.backgroundUuid)
+        : null;
+      const table = bg?.system?.tables?.[idx];
+      const options = table?.options ?? [];
+      if (!options.length) {
+        ui.notifications.warn(game.i18n.localize("CAIRN.RerollQuestionUnavailable"));
+        return;
+      }
+      const roll = await evaluateFormula(`1d${options.length}`);
+      const opt = options[roll.total - 1] ?? options[0];
+
+      const newItems = (await resolveRefs(opt.items)).map((it) => withGrantSource(it, `question:${idx}`));
+      await this._replaceGrantedItems(`question:${idx}`, newItems);
+      // An option may also grant a container (Outrider's horse breeds are one whole
+      // question of them), which is an Actor — swap those the same way.
+      await replaceGrantedContainers(this.actor, `question:${idx}`, opt.containers);
+      const questions = foundry.utils.duplicate(this.actor.system.questions ?? []);
+      const oldGold = questions[idx]?.gold ?? 0;
+      const newGold = opt.bonusGold ?? 0;
+      const gold = Math.max(0, (this.actor.system.gold ?? 0) - oldGold + newGold);
+      questions[idx] = { question: table.question ?? "", answer: opt.description ?? "", gold: newGold };
+      await this.actor.update({ "system.questions": questions, "system.gold": gold });
+    } finally {
+      this._rerolling = false;
+    }
+  }
+
+  /* -------------------------------------------- */
+  /*  Portrait pickers                            */
+  /* -------------------------------------------- */
+
+  /**
    * Container art picker: a grayscale gallery of transport/container art
    * (CONTAINER_ART, all Foundry core icons), plus a Browse escape for anyone
-   * with FILES_BROWSE. This is the container counterpart to _onEditPortrait --
+   * with FILES_BROWSE. This is the container counterpart to _pickPortrait --
    * clicking a container's portrait opens THIS, not the character gallery.
    * @private
    */
-  async _onPickContainerArt(event) {
+  async _pickContainerArt(event) {
     event.preventDefault();
     const current = this.actor.img;
 
@@ -1322,41 +2222,6 @@ export class CairnActorSheet extends ActorSheet {
     }
   }
 
-  async _setPortrait(img) {
-    const tokenSrc = (await pairedTokenFor(img)) ?? img;
-    await this.actor.update({ img, "prototypeToken.texture.src": tokenSrc });
-    for (const t of this.actor.getActiveTokens()) {
-      await t.document.update({ "texture.src": tokenSrc });
-    }
-  }
-
-  /**
-   * Dice on the portrait: roll a random one from the effective pool, avoiding the
-   * current so it always changes. The pool matches auto-assignment — the GM's
-   * custom portraits when they have any, else the shipped Aspeheim art. Reuses
-   * _setPortrait so the paired token swaps too (custom portraits are their own).
-   * @param {Event} event
-   * @private
-   */
-  async _onRollPortrait(event) {
-    event.preventDefault();
-    event.stopPropagation();
-    const custom = getCustomPortraitPaths();
-    let all;
-    if (custom.length) {
-      all = custom;
-    } else {
-      const manifest = await getPortraitManifest();
-      const names = manifest?.names ?? [];
-      if (!names.length) return;
-      const dir = manifest.portraitDir ?? "systems/air-bladder/character_portraits";
-      all = names.map((n) => `${dir}/${n}`);
-    }
-    const pool = all.filter((src) => src !== this.actor.img);
-    const choices = pool.length ? pool : all;
-    await this._setPortrait(choices[Math.floor(Math.random() * choices.length)]);
-  }
-
   /**
    * Portrait picker. Two galleries behind a tab toggle — the shipped Jon Aspeheim
    * art and the GM's custom folder — plus a paste-a-URL row and (for FILES_BROWSE
@@ -1364,10 +2229,9 @@ export class CairnActorSheet extends ActorSheet {
    * via _setPortrait. The Aspeheim credit shows only under its own tab; the Custom
    * tab appears when there are custom portraits or the viewer is a GM (who can add
    * them). Shared by the PC and hireling sheets — they route here identically.
-   * @param {Event} event
    * @private
    */
-  async _onEditPortrait(event) {
+  async _pickPortrait(event) {
     event.preventDefault();
     const manifest = await getPortraitManifest();
     const names = manifest?.names ?? [];
@@ -1503,310 +2367,83 @@ export class CairnActorSheet extends ActorSheet {
     }
   }
 
-  /**
-   * Handle creating a fatigue for the actor
-   * @param {Event} event   The originating click event
-   * @private
-   */
-  async _onAddFatigue(event) {
-    event.preventDefault();
-    if (this.actor.isEncumbered()) {
-      ui.notifications.warn(
-        game.i18n.localize("CAIRN.Notify.MaxSlotsOccupied")
-      );
-      return;
-    }
-
-    this.actor.createOwnedItem({
-      name: game.i18n.localize("CAIRN.Fatigue"),
-      type: "item",
-    });
-  }
+  /* -------------------------------------------- */
+  /*  Form submission                             */
+  /* -------------------------------------------- */
 
   /**
-   * Handle removing any fatigue for the actor
-   * @param {Event} event   The originating click event
-   * @private
-   */
-  async _onRemoveFatigue(event) {
-    event.preventDefault();
-
-    // Find a fatigue to delete
-    const fatigues = this.actor.items.filter(
-      (i) => i.name === game.i18n.localize("CAIRN.Fatigue")
-    );
-
-    if (fatigues.length > 0) {
-      const fatigue = fatigues[0];
-      this.actor.deleteOwnedItem(fatigue._id);
-    }
-  }
-
-  /**
-   * Handle clickable rolls.
-   * @param {Event} event   The originating click event
-   * @private
-   */
-  async _onRoll(event) {
-    event.preventDefault();
-    const element = event.currentTarget;
-    const dataset = element.dataset;
-    if (dataset.roll) {
-      const usePanic = game.settings.get(SETTINGS_NS, "use-panic");
-      let panicLabel = "";
-      if (usePanic && this.actor.system.panicked) {
-        dataset.roll = "1d4"; // panicked character
-        panicLabel = "(" + game.i18n.localize("CAIRN.RollingWithPanic") + ")";
-      }
-
-      const roll = await evaluateFormula(
-        dataset.roll,
-        this.actor.getRollData()
-      );
-      const label = dataset.label
-        ? game.i18n.localize("CAIRN.RollingDmgWith") +
-          ` ${dataset.label} ` +
-          panicLabel
-        : "";
-
-      const targetedTokens = Array.from(game.user.targets).map((t) => t.id);
-
-      let targetIds;
-      if (targetedTokens.length == 0) targetIds = null;
-      else if (targetedTokens.length == 1) targetIds = targetedTokens[0];
-      else {
-        targetIds = targetedTokens[0];
-        for (let index = 1; index < targetedTokens.length; index++) {
-          const element = targetedTokens[index];
-          targetIds = targetIds.concat(";", element);
-        }
-      }
-
-      this._buildDamageRollMessage(label, targetIds).then((msg) => {
-        roll.toMessage({
-          speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-          flavor: msg,
-        });
-      });
-    }
-  }
-
-  _buildDamageRollMessage(label, targetIds) {
-    const rollMessageTpl = "systems/air-bladder/templates/chat/dmg-roll-card.html";
-    const tplData = { label: label, targets: targetIds };
-    return renderTemplate(rollMessageTpl, tplData);
-  }
-
-  _onItemDescriptionToggle(event) {
-    event.preventDefault();
-    const boxItem = $(event.currentTarget).parents(".cairn-items-list-row");
-    const isContainer = boxItem.data("isContainer");
-    if (isContainer) {
-      this._prepareContainerDescription(boxItem);
-      return;
-    }
-    this._prepareItemDescription(boxItem);
-  }
-
-  _prepareContainerDescription(boxItem) {
-    if (boxItem.hasClass("expanded")) {
-      const summary = boxItem.children(".item-description");
-      summary.slideUp(200, () => summary.remove());
-    } else {
-      const id = boxItem.data("itemId");
-      const item = game.actors.find((a) => a.uuid == id);
-      if (!item) return;
-      // Build with .text() so a container's item names can't inject HTML/script
-      // into the keeper's (or GM's) sheet when the row is expanded.
-      const names = item.items.map((it) => it.name).join(", ");
-      const div = $('<div class="item-description"></div>').text(names);
-      boxItem.append(div.hide());
-      div.slideDown(200);
-    }
-    boxItem.toggleClass("expanded");
-  }
-
-  _prepareItemDescription(boxItem) {
-    const item = this.actor.items.get(boxItem.data("itemId"));
-    if (boxItem.hasClass("expanded")) {
-      const summary = boxItem.children(".item-description");
-      summary.slideUp(200, () => summary.remove());
-    } else {
-      const desc = stripPar(item.system.description);
-      let crit = "";
-      if (
-        item.system.criticalDamage &&
-        stripPar(item.system.criticalDamage) !== ""
-      )
-        crit =
-          '<div><i class="fa-regular fa-skull"></i> <i>'+
-          stripPar(item.system.criticalDamage) +
-          "</i></div>";
-      const div = $(`<div class="item-description">${desc}${crit}</div>`);
-      boxItem.append(div.hide());
-      div.slideDown(200);
-    }
-    boxItem.toggleClass("expanded");
-  }
-
-  _onFeatureDescriptionToggle(event) {
-    event.preventDefault();
-    const boxItem = $(event.currentTarget).parents(".cairn-items-list-row");
-    const item = this.actor.getOwnedFeature(boxItem.data("itemId"));
-    if (!item) return;
-    if (boxItem.hasClass("expanded")) {
-      const summary = boxItem.children(".item-description");
-      summary.slideUp(200, () => summary.remove());
-    } else {
-      const desc = stripPar(item.description);
-      const div = $(`<div class="item-description">${desc}</div>`);
-      boxItem.append(div.hide());
-      div.slideDown(200);
-    }
-    boxItem.toggleClass("expanded");
-  }
-
-
-  async _onRollAbility(event) {
-    event.preventDefault();
-    const element = event.currentTarget;
-    const dataset = element.dataset;
-    if (dataset.roll) {
-      const roll = await evaluateFormula(
-        dataset.roll,
-        this.actor.getRollData()
-      );
-      const label = dataset.label
-        ? game.i18n.localize("CAIRN.Rolling") + ` ${dataset.label}`
-        : "";
-      const rolled = roll.terms[0].results[0].result;
-      const failed = roll.total === 0;
-      const result = failed
-        ? game.i18n.localize("CAIRN.Fail")
-        : game.i18n.localize("CAIRN.Success");
-      const resultCls = failed ? "failure" : "success";
-      // Offer to mark Critical Damage on a failed STR save, but only when STR is
-      // damaged and still above 0 (the crawling state; STR 0 is Dead). A generic
-      // STR save at full health isn't Critical Damage. Matches the sheet skull gate.
-      const str = this.actor.system.abilities?.STR;
-      const offerCrit =
-        dataset.ability === "STR" && failed &&
-        Number(str?.value) > 0 && Number(str?.value) < Number(str?.max);
-      const critButton = offerCrit
-        ? `<button type="button" class="mark-critical-damage">${game.i18n.localize("CAIRN.MarkCriticalDamage")}</button>`
-        : "";
-      roll.toMessage({
-        speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-        flavor: label,
-        content: `<div class="dice-roll"><div class="dice-result"><div class="dice-formula">${roll.formula}</div><div class="dice-tooltip" style="display: none;"><section class="tooltip-part"><div class="dice"><header class="part-header flexrow"><span class="part-formula">${roll.formula}</span></header><ol class="dice-rolls"><li class="roll die d20">${rolled}</li></ol></div></section></div><h4 class="dice-total ${resultCls}">${result} (${rolled})</h4></div></div>${critButton}`,
-      });
-    }
-  }
-
-  /**
-   * @param {MouseEvent} event
-   * @private
-   */
-  async _onRegenerateCharacter(event) {
-    event.preventDefault();
-
-    const confirm = await Dialog.confirm({
-      title: game.i18n.localize("CAIRN.CharacterRegeneratorTitle"),
-      content: `<p>${game.i18n.localize(
-        "CAIRN.CharacterRegeneratorConfirm"
-      )}</p>`,
-      defaultYes: false,
-    });
-
-    if (confirm) {
-      await regenerateActor(this.actor);
-    }
-  }
-
-  /** @override */
-  _getHeaderButtons() {
-    const base = super._getHeaderButtons();
-    const showGenHeader = game.settings.get(SETTINGS_NS, "show-generate-header");
-    const isChar = this.actor.type === "character";
-    const isHireling = this.actor.type === "hireling";
-    if ((!isChar && !isHireling) || !showGenHeader) return base;
-
-    // Random-generation mode. Roll Character is ALWAYS rendered (so the toggle
-    // can show/hide it by hand without a header rebuild); its initial visibility
-    // is reconciled in activateListeners, NOT via a second class token here --
-    // Foundry matches header buttons with classList.contains(b.class), so `class`
-    // must stay a single token. The toggle sits right next to it. Default ON for
-    // legacy characters lacking the field.
-    const genEnabled = this.actor.system.generationEnabled !== false;
-    // NOTE: onclick is a no-op on purpose. Foundry wires header-button clicks in a
-    // setTimeout(500ms) after the outer frame renders (appv1 _renderOuter), which
-    // is missed for ~1-2s when the first sheet's render is slowed by cold pack
-    // loading -- leaving these buttons dead. We instead bind them reliably in
-    // activateListeners; the no-op keeps the framework handler from also firing
-    // and double-invoking.
-    const noop = () => {};
-    const toggleButton = {
-      class: `toggle-generation-button-${this.actor.id}`,
-      label: game.i18n.localize(genEnabled ? "CAIRN.RandomizationOn" : "CAIRN.RandomizationOff"),
-      icon: genEnabled ? "fas fa-toggle-on" : "fas fa-toggle-off",
-      onclick: noop,
-    };
-    // Both sheet types carry the SAME title-bar Roll button + Randomization
-    // toggle, so the two headers read identically. Only the label and the click
-    // handler differ (character -> "Roll Character" / _onRegenerateCharacter;
-    // hireling -> "Roll NPC" / _onRegenerateHireling); the distinct class token
-    // routes the click in activateListeners.
-    const regenButton = {
-      class: `regenerate-${isHireling ? "hireling" : "character"}-button-${this.actor.id}`,
-      label: game.i18n.localize(isHireling ? "CAIRN.RollNpc" : "CAIRN.RegenerateCharacter"),
-      icon: "fas fa-dice-d6",
-      onclick: noop,
-    };
-    return [regenButton, toggleButton, ...base];
-  }
-
-  /**
-   * Flip random-generation mode for this actor.
+   * Encumbrance and panic zero HP as DERIVED state (in _prepareCharacterData), but
+   * a plain form submit would persist that 0 over the real stored value. Strip
+   * system.hp.value from the submit while either condition holds, so the real
+   * value reappears the moment the character is back under capacity / not panicked.
+   * Real damage still persists — it goes through actor.update in damage.js.
    *
-   * Updates the header in place rather than re-rendering it: Foundry builds the
-   * header once when the outer frame renders, so a rebuild would mean tearing
-   * the whole window down. Roll Character is always present in the DOM and is
-   * shown/hidden with a class.
-   *
-   * @param {Event} event
+   * AppV1's hook was `_getSubmitData`; ApplicationV2's is `_processFormData`,
+   * which returns the already-expanded object.
+   * @override
    */
-  async _onToggleGeneration(event) {
-    event.preventDefault();
-    const now = this.actor.system.generationEnabled === false; // the value we're switching TO
-    await this.actor.update({ "system.generationEnabled": now });
-
-    const el = this.element;
-    if (!el) return;
-    el.find(`.regenerate-character-button-${this.actor.id}, .regenerate-hireling-button-${this.actor.id}`).toggleClass("cairn-header-hidden", !now);
-    el.find(`.toggle-generation-button-${this.actor.id}`).html(
-      `<i class="fas ${now ? "fa-toggle-on" : "fa-toggle-off"}"></i>${game.i18n.localize(now ? "CAIRN.RandomizationOn" : "CAIRN.RandomizationOff")}`
-    );
+  _processFormData(event, form, formData) {
+    const data = super._processFormData(event, form, formData);
+    if (
+      // Every actor whose HP the sheet binds as an editable input AND whose
+      // prepareData zeroes it. actor.js routes character, hireling AND npc
+      // through _prepareCharacterData, so all three zero system.hp.value on
+      // encumbrance or panic — omitting npc here would persist that derived 0
+      // back over the real value on the next submit. See the same trap in
+      // memory: derived state must never round-trip through a form.
+      ["character", "hireling", "npc"].includes(this.actor.type) &&
+      (this.actor.system.encumbered || this.actor.system.panicked)
+    ) {
+      foundry.utils.deleteProperty(data, "system.hp.value");
+    }
+    return data;
   }
+
+  /* -------------------------------------------- */
+  /*  Drag and drop                               */
+  /* -------------------------------------------- */
 
   /**
    * @override
-   *
    * @param {DragEvent} event
-   * @param {Object} itemData
+   * @param {CairnItem} originalItem  the dropped Item, already resolved by ActorSheetV2
    */
-  async _onDropItem(event, itemData) {
-    const { item: originalItem, actor: originalActor } =
-      await getInfoFromDropData(itemData);
-    if (originalItem == undefined || originalItem == null) {
-      return;
+  async _onDropItem(event, originalItem) {
+    if (!originalItem) return null;
+
+    // The Actor the item currently belongs to; null for a world or compendium item.
+    const originalActor = originalItem.actor;
+
+    // A background ARRIVING here is not inventory. Dropping one CHANGES the
+    // character's background — the same operation as the magnifier's picker — so it
+    // is intercepted before any capacity check and before any create. Without this
+    // it fell through to the transfer path below and became an owned item:
+    // `BackgroundData` declares neither `weightless` nor `bulky`, so it cost a slot,
+    // and on an encumbered character the refusal below rejected the drop outright,
+    // so nothing happened at all.
+    //
+    // ARRIVING is the load-bearing word, and the `!== this.actor` term is what says
+    // it. A background already in this inventory — the 0.1.7 artefact upgraded
+    // worlds still carry — is a draggable row like any other, and dragging it to
+    // REORDER it is a sort, not a swap. Without the term the sort never happened:
+    // the drag raised the destructive prompt and, answered yes, renamed the
+    // character's background to the item being dragged and deleted the gear the
+    // real one granted. Note it cannot instead move below the same-actor branch and
+    // rely on position — a background dragged off ANOTHER character's sheet is a
+    // legitimate arrival route that must still be intercepted, and dev:bg-drop-guard
+    // covers it.
+    if (originalItem.type === "background" && originalActor !== this.actor) {
+      return this._onDropBackground(originalItem);
     }
+
     // Same-actor drop: this is a reorder within our own inventory, not a
     // transfer. Honour it only when the GM has enabled drag-to-reorder.
-    if (this.actor == originalActor) {
+    if (this.actor === originalActor) {
       if (game.settings.get(SETTINGS_NS, "enable-inventory-reorder")) {
-        return this._onSortItem(event, originalItem);
+        await this._onSortItem(event, originalItem);
+        return originalItem;
       }
-      return;
+      return null;
     }
 
     // A transfer takes the item off ANOTHER actor's sheet, so it needs write
@@ -1815,7 +2452,7 @@ export class CairnActorSheet extends ActorSheet {
     // from a compendium has no owning actor and is a copy, so it skips this.
     if (originalActor && !originalItem.isOwner) {
       ui.notifications.warn(game.i18n.localize("CAIRN.Notify.DropNoSource"));
-      return;
+      return null;
     }
 
     // Capacity rules differ by target. A CHARACTER may accept an item that puts
@@ -1828,29 +2465,28 @@ export class CairnActorSheet extends ActorSheet {
         ui.notifications.warn(
           game.i18n.format("CAIRN.Notify.ContainerFull", { name: originalItem.name })
         );
-        return;
+        return null;
       }
     } else if (this.actor.isEncumbered()) {
       ui.notifications.warn(game.i18n.localize("CAIRN.Notify.MaxSlotsOccupied"));
-      return;
+      return null;
     }
 
     // Put the item on the target FIRST, and only move quantity off the source
     // once that has actually succeeded. The old order created-then-decremented
-    // unconditionally: a refused create (typically a permissions wall) threw on
-    // `.pop()` AND still decremented the source, so the item vanished.
+    // unconditionally: a refused create (typically a permissions wall) threw AND
+    // still decremented the source, so the item vanished.
     const foundItem = this.actor.items.find(
-      (it) => it.name == originalItem.name && it.type == originalItem.type
+      (it) => it.name === originalItem.name && it.type === originalItem.type
     );
-    if (foundItem != undefined && foundItem != null) {
-      await foundItem.update({
-        "system.quantity": (foundItem.system.quantity ?? 1) + 1,
-      });
+    let created = foundItem ?? null;
+    if (foundItem) {
+      await foundItem.update({ "system.quantity": (foundItem.system.quantity ?? 1) + 1 });
     } else {
-      const created = ((await super._onDropItem(event, itemData)) || []).pop();
+      created = await super._onDropItem(event, originalItem);
       if (!created) {
         ui.notifications.warn(game.i18n.localize("CAIRN.Notify.DropFailed"));
-        return;
+        return null;
       }
       // Items inside a container are stowed, never equipped.
       const patch = { "system.quantity": 1 };
@@ -1870,15 +2506,18 @@ export class CairnActorSheet extends ActorSheet {
         await originalActor.deleteEmbeddedDocuments("Item", [originalItem.id]);
       }
     }
+    return created;
   }
 
   /**
    * Reorder an item within this actor's own inventory by drag-and-drop, gated on
    * the "enable-inventory-reorder" setting. Only real embedded items take part:
    * dropping onto a gold-slot / worn-container row (no embedded item) is a no-op.
+   * ActorSheetV2 ships its own version, but it assumes every sibling row carries a
+   * real embedded item and throws on ours, which include gold-slot rows.
    * @param {DragEvent} event
    * @param {CairnItem} source  the dragged item
-   * @private
+   * @override
    */
   async _onSortItem(event, source) {
     const dropTarget = event.target.closest("[data-item-id]");
@@ -1903,75 +2542,46 @@ export class CairnActorSheet extends ActorSheet {
   }
 
   /**
-   * Encumbrance and panic zero HP as DERIVED state (in _prepareCharacterData), but
-   * a plain form submit would persist that 0 over the real stored value. Strip
-   * system.hp.value from the submit while either condition holds, so the real
-   * value reappears the moment the character is back under capacity / not panicked.
-   * Real damage still persists — it goes through actor.update in damage.js.
    * @override
+   * @param {DragEvent} event
+   * @param {CairnActor} actor  the dropped Actor, already resolved by ActorSheetV2
    */
-  _getSubmitData(updateData) {
-    const data = super._getSubmitData(updateData);
-    if (
-      this.actor.type === "character" &&
-      (this.actor.system.encumbered || this.actor.system.panicked)
-    ) {
-      // The submit object may be flattened ("system.hp.value") or expanded.
-      delete data["system.hp.value"];
-      foundry.utils.deleteProperty(data, "system.hp.value");
+  async _onDropActor(event, actor) {
+    // Only WORLD container actors can be attached. AppV1 expressed this by looking
+    // the uuid up in `game.actors`, which a compendium or unlinked-token actor is
+    // never in; ApplicationV2 hands us the resolved document, so say it directly.
+    if (!actor || actor.type !== "container" || actor.pack || actor.isToken) return null;
+    if (actor.system.keeper !== "") {
+      ui.notifications.warn(game.i18n.localize("CAIRN.ContainerAlreadyOwned"));
+      return null;
     }
-    return data;
+    if (this.actor.uuid === actor.uuid) return null;
+    await this.actor.createOwnedContainer(actor);
+    return actor;
   }
 
   /**
    * @override
    *
-   * @param {DragEvent} event
-   * @param {Object} itemData
+   * ActorSheetV2's version resolves a row to `actor.items.get(itemId)`, which is
+   * wrong for our container rows: those carry an Actor UUID in `data-item-id`, so
+   * the lookup misses and the drag silently carries nothing.
    */
-  async _onDropActor(event, data) {
-    let actor = game.actors.find((a) => a.uuid == data.uuid);
-    // undefined for a compendium actor or an unlinked token — only world
-    // container actors can be attached as owned containers.
-    if (!actor || actor.type !== "container") return;
-    if (actor.system.keeper != "") {
-      ui.notifications.warn(game.i18n.localize("CAIRN.ContainerAlreadyOwned"));
-      return;
-    }
-    if (this.actor.uuid == data.uuid) return;
-    await this.actor.createOwnedContainer(actor);
-  }
-
-
-  /** override */
-  /** @inheritdoc */
   _onDragStart(event) {
     const li = event.currentTarget;
-    if ( "link" in event.target.dataset ) return;
+    if ("link" in event.target.dataset) return;
 
-    // Create drag data
     let dragData;
-
-    // Owned Items
-    if ( li.dataset.itemId ) {
-      if ( li.dataset.isContainer ) {
-         const item = this.actor.getOwnedContainer(li.dataset.itemId);
-         dragData = item.toDragData();
-      } else {
-        const item = this.actor.items.get(li.dataset.itemId);
-        dragData = item.toDragData();
-      }
+    if (li.dataset.itemId) {
+      const item = li.dataset.isContainer
+        ? this.actor.getOwnedContainer(li.dataset.itemId)
+        : this.actor.items.get(li.dataset.itemId);
+      dragData = item?.toDragData();
     }
-
-    // Active Effect
-    if ( li.dataset.effectId ) {
-      const effect = this.actor.effects.get(li.dataset.effectId);
-      dragData = effect.toDragData();
+    if (li.dataset.effectId) {
+      dragData = this.actor.effects.get(li.dataset.effectId)?.toDragData();
     }
-
-    if ( !dragData ) return;
-
-    // Set data transfer
+    if (!dragData) return;
     event.dataTransfer.setData("text/plain", JSON.stringify(dragData));
   }
 }

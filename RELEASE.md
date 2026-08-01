@@ -30,8 +30,43 @@ source, so the mirror carries it to GitHub and protects it.
 
 ## Steps
 
-1. Be on your main branch with a clean tree; `git pull` so it's current.
-2. `npm run release X.Y.Z`
+Work lives on `dev`; `master` is the released state. A release is a merge plus a
+tag — see [docs/git-flow.md](docs/git-flow.md).
+
+**Run the pre-release checks first** — the full list is
+[docs/release-testing.md](docs/release-testing.md). Do it on `dev`, before the merge,
+while a failure is still cheap to fix.
+
+**Bring `README.es.md` up to date with `README.md`.** Both ship inside `system.zip`,
+so whatever the Spanish one says at tag time is what a Spanish reader downloads. It
+drifts one English edit at a time, and nothing checks it — `npm run i18n:check` covers
+`lang/*.json` only.
+
+**`README.md` is the source of truth, and `README.es.md` is a translation of it — not a
+parallel document.** Anything in the Spanish file that is not in the English file does
+not belong there; delete it rather than reconcile it. Anything worth saying goes into
+`README.md` first and is then translated. Diff both against the previous tag, carry every
+change across, and treat version numbers, URLs and the required-Foundry-version line as
+facts that must match exactly. [tools/i18n/glossary.tsv](tools/i18n/glossary.tsv) and the
+system's own terms (Warden → "Guardián", Hireling → "Seguidor") keep it reading like the
+app, which is worth doing but is not a gate.
+
+**No human translator maintains this file** — the README can change every release and
+nobody is being asked to keep pace with that. It is project documentation, so translating
+it is part of the same commit that changed the English. Do not defer to its existing
+wording as though it were someone else's work.
+
+This is the opposite of `lang/es.json` and `lang/content/es.json`, which **are** a human
+translator's, are licensed CC BY-SA as derivatives of the game text, and must not be
+rewritten. Two files with "es" in the name, two different regimes — see
+[docs/i18n-maintainer.md](docs/i18n-maintainer.md).
+
+1. Merge the work into `master` and make sure it is current:
+   ```bash
+   git checkout master && git pull && git merge dev
+   ```
+2. `npm run release X.Y.Z` — it refuses to run anywhere but `master`, and prints
+   the commits it is about to ship. An empty list means step 1 did not happen.
 3. **If `origin` mirrors to GitHub**, make sure the mirror syncs the new tag
    (enable "sync on push" once, or trigger a sync). If `origin` *is* GitHub, skip
    this — the tag is already there.
@@ -41,6 +76,15 @@ source, so the mirror carries it to GitHub and protects it.
    `https://github.com/<owner>/<repo>/releases/latest/download/system.json`
 6. (Optional) add release notes on the GitHub release. Rebuilds preserve them
    (`omitBodyDuringUpdate`).
+7. **Sync `dev`, or the next merge conflicts.** The release commit bumps
+   `system.json` on `master` only, so `dev` is behind by that line every time:
+   ```bash
+   git checkout dev && git merge master && git push origin dev
+   ```
+
+Don't merge and then sit on it. The website redeploys from `master` on the merge
+while users still install the previous tag, so a delay between step 1 and step 2
+publishes documentation for a version nobody can install yet.
 
 ## Rebuilding / recovering a release
 

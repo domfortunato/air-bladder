@@ -1,7 +1,7 @@
 name: Lantern
 type: item
 flags: {}
-img: systems/air-bladder/icons/tools.png
+img: systems/air-bladder/icons/tools.svg
 effects: []
 _id: pMVVPnTrgpggZHYN
 _stats:
@@ -29,9 +29,7 @@ system:
     value: 0
     max: 0
   quantity: 1
-  slots: 1
   armor: 0
-  numberOfUses: 0
 folder: null
 sort: 0
 _key: '!items!pMVVPnTrgpggZHYN'

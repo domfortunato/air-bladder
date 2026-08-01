@@ -3,7 +3,7 @@ name: Dragon, Brass
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.png
+img: systems/air-bladder/icons/monster.svg
 items:
   - _id: 3X3gFUZw3f0QsBS1
     name: Bite

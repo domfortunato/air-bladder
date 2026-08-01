@@ -1,8 +1,17 @@
 name: "CodeQL"
 
 on:
+  # `dev` is where all work lands and `master` only receives merges, so scanning
+  # master alone would only ever see code that had already shipped. Scanning dev
+  # is the whole point: findings arrive while the code is still unreleased.
+  #
+  # Deliberately NOT done with a standing draft PR dev -> master, which was the
+  # other option: GitHub auto-closes a PR once its commits reach the base branch,
+  # so that PR would die at every release and need recreating. A push trigger has
+  # no such lifecycle. GitHub reads this file from the ref being pushed, so a
+  # change here takes effect on the next push to that branch.
   push:
-    branches: [master]
+    branches: [master, dev]
   pull_request:
     branches: [master]
   schedule:

@@ -1,9 +1,131 @@
 import { SETTINGS_NS } from "../settings.js";
+import { iconForItem, SPELLBOOK_ICON, SPELLSCROLL_ICON } from "../icons.js";
+
+/**
+ * The stored name of a Fatigue item. ENGLISH, always — Foundry's language setting
+ * is per-client, so an item created under the translated name was invisible to
+ * every other language: a Spanish player's "Fatiga" did not match the English GM's
+ * remove filter, and the − button silently did nothing for them both ways round.
+ *
+ * Storing it in English also keeps the system's own rule (i18n-content.js): stored
+ * documents stay English and translation happens at display. The sheet localizes
+ * the label it shows, so nobody actually reads this string.
+ */
+export const FATIGUE_NAME = "Fatigue";
+
+/**
+ * The stored name a scroll created from the Create Item dialog gets when the user
+ * types none — ENGLISH, for the same reason as FATIGUE_NAME above, and this is the
+ * one place the type list's own label must NOT be reused. That label is localized,
+ * and localizing it was right for the <option> and wrong for the name: a Spanish
+ * Warden's unnamed scroll was stored as "Pergamino", so the same document read
+ * differently to every other client and matched nothing that looks a spellbook up
+ * by name (gear resolution, the background-swap identity match, the content
+ * overlay's own English keys).
+ *
+ * Pre-filled at all rather than left blank because core's fallback for an empty
+ * name is `defaultName({type})`, and the type here really is "spellbook" — so an
+ * unnamed create would otherwise produce a scroll called "Spellbook".
+ */
+export const SPELLSCROLL_NAME = "Spellscroll";
+
+/**
+ * Every spellscroll is petty and single-use — the Warden's rule, and the one thing
+ * that separates a scroll from the book of the same spell. So it is derived from
+ * the `scroll` flag rather than typed in: the sheet offers no Petty box and no Max
+ * uses field for a spellbook, and these values are written whenever the flag is.
+ *
+ * `uses.value` is deliberately absent: it is set once, on the transition to
+ * `scroll: true` (a fresh scroll has its use), and left alone afterwards so
+ * marking one spent survives the next save. Forcing it here would silently refill
+ * every scroll on every edit.
+ */
+const SCROLL_PINNED = { weightless: true, equipped: false, "uses.max": 1 };
+
+/** What ticking `scroll` off restores: a book is not petty and has no uses. */
+const BOOK_PINNED = { weightless: false, "uses.max": 0, "uses.value": 0 };
+
 /**
  * Extend the basic Item with some very simple modifications.
  * @extends {Item}
  */
 export class CairnItem extends Item {
+  /**
+   * Hold a spellbook to the scroll invariant at write time, whichever path wrote
+   * it: the sheet's Scroll box, generation, a drag-and-drop copy, an importer, or
+   * `Actor#createOwnedItem` (which rebuilds `system.weightless` from a top-level
+   * field, so it would hand back an un-petty scroll on its own).
+   *
+   * Written to the document rather than derived in `prepareData`, so the stored
+   * data is true — a derived-only petty flag would be a lie to anything reading the
+   * document instead of the prepared model, and re-deriving a value that a form
+   * also binds is how the HP clobber bug worked.
+   * @override
+   */
+  async _preCreate(data, options, user) {
+    const allowed = await super._preCreate(data, options, user);
+    if (allowed === false) return false;
+
+    // Class art for anything created WITHOUT its own image. Foundry's Item schema
+    // initialises `img` to `icons/svg/item-bag.svg`, so every item made through the
+    // Create Item dialog kept the generic bag: a hand-made weapon, armor, spellbook
+    // or scroll looked nothing like the shipped ones. `Actor#createOwnedItem` has
+    // always done this for items it mints; the world/dialog path never did.
+    //
+    // It also unblocked the scroll art. `_preUpdate` only re-arts an item whose
+    // image is still ours to change, and a bag was not — so ticking Scroll on a
+    // dialog-created spellbook silently left the bag in place.
+    if (!this.img || this.img === this.constructor.DEFAULT_ICON) {
+      const art = this.type === "spellbook" && this.system.scroll
+        ? SPELLSCROLL_ICON
+        : iconForItem(this.type, this.name);
+      this.updateSource({ img: art });
+    }
+
+    if (this.type !== "spellbook" || !this.system.scroll) return;
+    const pinned = { ...SCROLL_PINNED };
+    // A scroll created straight from the flag arrives UNSPENT — pinning only `max`
+    // left `value` at the schema default of 0, so a new scroll rendered as already
+    // used up. One created with an explicit count keeps it, which is what lets the
+    // spellscroll migration carry a spent scroll across without refilling it.
+    if (foundry.utils.getProperty(data ?? {}, "system.uses.value") === undefined) {
+      pinned["uses.value"] = 1;
+    }
+    this.updateSource({ system: pinned });
+  }
+
+  /**
+   * The same invariant on edit, plus the two transitions. Ticking Scroll makes a
+   * fresh scroll (its one use unspent) and unticking restores a book; while the
+   * flag merely stays on, `uses.value` is left alone so a spent scroll stays spent.
+   *
+   * The art follows the flag only when it is still ours to change — a Warden who
+   * picked their own image keeps it.
+   * @override
+   */
+  async _preUpdate(changed, options, user) {
+    const allowed = await super._preUpdate(changed, options, user);
+    if (allowed === false) return false;
+    if (this.type !== "spellbook") return;
+    if (changed.system?.scroll === undefined) {
+      // No transition: just hold the invariant for a scroll being edited.
+      if (this.system.scroll) foundry.utils.mergeObject(changed, { system: SCROLL_PINNED });
+      return;
+    }
+    const becomingScroll = !!changed.system.scroll;
+    foundry.utils.mergeObject(changed, {
+      system: becomingScroll ? { ...SCROLL_PINNED, "uses.value": 1 } : BOOK_PINNED,
+    });
+    // Re-art only while the image is still ours to change — a Warden who picked their
+    // own keeps it. The default bag counts as ours: items created before the
+    // class-art fill above still carry it, and leaving those on a bag was the whole
+    // reported defect.
+    const was = becomingScroll ? SPELLBOOK_ICON : SPELLSCROLL_ICON;
+    if (this.img === was || this.img === this.constructor.DEFAULT_ICON) {
+      changed.img = becomingScroll ? SPELLSCROLL_ICON : SPELLBOOK_ICON;
+    }
+  }
+
   /**
    * Augment the basic item data with additional dynamic data.
    */
@@ -11,15 +133,18 @@ export class CairnItem extends Item {
     super.prepareData();
     // Items in containers cannot be equippable.
     const actorType = this.actor ? this.actor.type : "";
+    // A spellscroll is read once and consumed, never held ready, so it is the one
+    // spellbook that cannot be equipped.
     this.system.isEquipable =
       ["weapon", "armor", "spellbook"].includes(this.type) &&
+      !this.system.scroll &&
       actorType != "container";
     this.system.hasPlusMinus = (this.system.uses?.max ?? 0) > 0;
     if (this.system.uses) {
       if (this.system.uses.value > this.system.uses.max)
         this.system.uses.value = this.system.uses.max;
     }
-    this.system.isFatigue = this.name == game.i18n.localize("CAIRN.Fatigue");
+    this.system.isFatigue = this.name === FATIGUE_NAME;
 
     // Grant-source chip (Background / Bond / Question) shown beside the item's
     // other tags, so the three sources are distinguishable. Starting gear and
@@ -50,7 +175,7 @@ export class CairnItem extends Item {
       this.system.icon = "";
       switch (this.type) {
         case "spellbook":
-          this.system.icon = "book";
+          this.system.icon = this.system.scroll ? "scroll" : "book";
           break;
         case "weapon":
           this.system.icon = "sword";
@@ -59,7 +184,7 @@ export class CairnItem extends Item {
           this.system.icon = "shield";
           break;
         case "item":
-          if (this.name == game.i18n.localize("CAIRN.Fatigue")) {
+          if (this.name === FATIGUE_NAME) {
             this.system.icon = "weight-hanging";
           }
           break;

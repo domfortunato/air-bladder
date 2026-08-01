@@ -1,7 +1,7 @@
 _id: FUOMee1nxMnYVjh5
 name: Torch
 type: item
-img: systems/air-bladder/icons/generic-item.png
+img: systems/air-bladder/icons/generic-item.svg
 effects: []
 folder: null
 sort: 0
@@ -31,7 +31,5 @@ system:
     value: 0
     max: 0
   quantity: 1
-  slots: 1
   armor: 0
-  numberOfUses: 0
 _key: '!items!FUOMee1nxMnYVjh5'

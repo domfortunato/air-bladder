@@ -1,5 +1,21 @@
 import { SETTINGS_NS } from "../settings.js";
-import { iconForItem } from "../icons.js";
+import { iconForItem, iconForTransport, containerClassLabel, CONTAINER_CLASSES, ICON_DIR } from "../icons.js";
+
+/** Document names go into dialog HTML; a name is user-authored text. */
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+/**
+ * "Delete <name>?" as ONE format key, never `localize("…Delete") + " " + name + "?"`.
+ * Spanish opens the question with "¿", which concatenating a trailing "?" cannot
+ * produce — the sentence has to be the translator's to write, whole.
+ */
+const confirmDelete = (name) =>
+  foundry.applications.api.DialogV2.confirm({
+    content: game.i18n.format("CAIRN.Notify.ConfirmDeleteNamed", { name: esc(name) }),
+    rejectClose: false,
+    modal: true,
+  });
+
 /**
  * Extend the base Actor entity by defining a custom roll data structure which is ideal for the Simple system.
  * @extends {Actor}
@@ -7,24 +23,143 @@ import { iconForItem } from "../icons.js";
 export class CairnActor extends Actor {
   equipContainers = [];
 
-  /** @override */
-  static async create(data, options = {}) {
-    // Hirelings are player-facing helpers, so they get the same friendly, linked,
-    // sighted token defaults a character does.
-    if (data.type === "character" || data.type === "hireling") {
-      foundry.utils.mergeObject(
-        data,
-        {
-          prototypeToken: {
-            disposition: CONST.TOKEN_DISPOSITIONS.FRIENDLY,
-            actorLink: true,
-            vision: true,
-          },
-        },
-        { override: false }
-      );
+  /**
+   * Create-time defaults. They live in `_preCreate`, NOT in a `static create`
+   * override, because a static only runs for callers that name this class:
+   * compendium importAll, an Adventure import, and anything reaching for the
+   * global `Actor` all route through `createDocuments` → `_preCreate` and never
+   * touch a static — so defaults kept there were silently skipped on exactly
+   * the bulk paths that create the most documents at once.
+   *
+   * An explicit value in the creation data always wins: the `=== undefined`
+   * tests below are the `_preCreate` spelling of a `mergeObject(...,
+   * {overwrite: false})`, and core uses the same idiom for its own create-time
+   * default (canvas-document.mjs:125, `("sort" in data)`).
+   * @override
+   */
+  async _preCreate(data, options, user) {
+    const allowed = await super._preCreate(data, options, user);
+    if (allowed === false) return false;
+
+    // Hirelings are player-facing helpers, so they get the same friendly, linked
+    // token defaults a character does. Monsters must NOT — they are `npc` too.
+    //
+    // **`system.forHire` is the discriminator, not the type.** The Hireling->NPC
+    // fold made the two one type, so a `type === "hireling"` test stopped matching
+    // anything the generator produces: `hirelingToActorData` emits `type: "npc"`.
+    // Every generated hireling therefore fell through to Foundry's own schema
+    // defaults — `actorLink` is a BooleanField with no initial (false) and
+    // `disposition` initials to HOSTILE (common/documents/token.mjs:62,73-74) — and
+    // arrived red-ringed and unlinked, so HP edited on the token never reached the
+    // sheet. Widening the test to plain `npc` would be the wrong fix: all 205
+    // shipped monsters are npc documents and must stay hostile and unlinked.
+    // `forHire` says exactly the thing that matters — this NPC is in the party's
+    // employ. `hireling` stays in the test for documents created before the fold,
+    // and for a Warden picking the still-registered alias in Create Actor.
+    const isHireling =
+      data.type === "hireling" || (data.type === "npc" && data.system?.forHire === true);
+    if (data.type === "character" || isHireling) {
+      // No `vision: true` here. It is not a field of PrototypeToken in v14 —
+      // `defineSchema` keeps an explicit `included` set (common/data/data.mjs:614-616)
+      // with no `vision` key — so `cleanData` pruned it silently and it has never done
+      // anything. The v14 path is `sight.enabled`, and turning sight ON for these
+      // tokens is a behaviour change, not this fix; left for a deliberate decision.
+      const changes = {};
+      if (data.prototypeToken?.disposition === undefined) {
+        changes["prototypeToken.disposition"] = CONST.TOKEN_DISPOSITIONS.FRIENDLY;
+      }
+      if (data.prototypeToken?.actorLink === undefined) {
+        changes["prototypeToken.actorLink"] = true;
+      }
+      if (Object.keys(changes).length) this.updateSource(changes);
     }
-    return super.create(data, options);
+
+    // Picking "Hireling" in the Create Actor dialog rolls a portrait, so a
+    // hand-made one arrives looking like somebody instead of Foundry's
+    // mystery-man. Deliberately NOT extended to `npc`: the 205 shipped monsters
+    // are npc documents and each carries its own art, and a hand-made npc is as
+    // often a monster as a person.
+    //
+    // `!data.img` guards it — an explicit image always wins, which is what keeps
+    // pack imports and the generator's own paired art untouched. The import is
+    // dynamic to avoid a cycle: character-generator.js imports this module.
+    if (data.type === "hireling" && !data.img) {
+      try {
+        const { randomPortraitPair } = await import("../character-generator.js");
+        const pair = await randomPortraitPair();
+        if (pair) {
+          const changes = { img: pair.img };
+          if (data.prototypeToken?.texture?.src === undefined) {
+            changes["prototypeToken.texture.src"] = pair.token;
+          }
+          this.updateSource(changes);
+        }
+      } catch (err) {
+        // A missing manifest must not block creating an actor.
+        console.warn("Air Bladder | could not assign a random hireling portrait:", err);
+      }
+    }
+
+    // A container made by hand — the Warden's route to an Item Pile — arrived
+    // wearing Foundry's mystery-man, because nothing stamped its class icon.
+    // (`iconForActor` existed for this and was called from nowhere in `module/`;
+    // only the pack importer used it.) An explicit `img` always wins: the
+    // marketplace passes the transport's own art.
+    if (data.type === "container" && !data.img) {
+      const art = iconForTransport(
+        data.name ?? "",
+        data.system?.transportKind ?? "",
+        data.system?.containerClass ?? "",
+      );
+      const changes = { img: art };
+      if (data.prototypeToken?.texture?.src === undefined) {
+        changes["prototypeToken.texture.src"] = art;
+      }
+      this.updateSource(changes);
+    }
+  }
+
+  /**
+   * Taking an EXISTING npc into the party's employ gets the same token defaults
+   * `_preCreate` gives one generated as a hireling.
+   *
+   * `forHire` is not a create-time property: it is a checkbox on the NPC sheet, and
+   * ticking it on a monster-shaped npc is the natural way to hire someone who is
+   * already in the world. `_preCreate` is never revisited, so nothing re-applied
+   * the defaults — the actor kept Foundry's own (`disposition` HOSTILE,
+   * `actorLink` false, common/documents/token.mjs:62,73-74) and its token arrived
+   * red-ringed and unlinked, so HP edited on the token never reached the sheet.
+   * That is exactly the bug `b3eefa6` fixed for GENERATED hirelings, reachable by
+   * the other route; observed 2026-07-30.
+   *
+   * Only from the Foundry defaults, and only on the false->true edge. A Warden who
+   * has deliberately made a hireling NEUTRAL, or unlinked it on purpose, keeps that
+   * — the same "an explicit value wins" rule `_preCreate` follows, applied to a
+   * value chosen earlier rather than passed in the same breath. Un-ticking is not
+   * the mirror image and does nothing: ceasing to be for hire is not a reason to
+   * turn someone hostile.
+   *
+   * Only the prototype, which is all this can honestly promise. Tokens already on
+   * a scene are their own documents and are left alone.
+   */
+  #applyForHireTokenDefaults(changed) {
+    // flattenObject, so this reads the same whether the caller passed
+    // `{system: {forHire: true}}` (the sheet, via expandObject) or the flat
+    // `{"system.forHire": true}` (any API caller). getProperty would miss the
+    // second: it walks dot paths and cannot see a key that CONTAINS the dots.
+    const flat = foundry.utils.flattenObject(changed);
+    if (flat["system.forHire"] !== true) return;
+    if (this.system.forHire === true) return;                 // already hired
+
+    const D = CONST.TOKEN_DISPOSITIONS;
+    if (this.prototypeToken.disposition === D.HOSTILE
+      && flat["prototypeToken.disposition"] === undefined) {
+      foundry.utils.setProperty(changed, "prototypeToken.disposition", D.FRIENDLY);
+    }
+    if (this.prototypeToken.actorLink === false
+      && flat["prototypeToken.actorLink"] === undefined) {
+      foundry.utils.setProperty(changed, "prototypeToken.actorLink", true);
+    }
   }
 
   /**
@@ -36,13 +171,25 @@ export class CairnActor extends Actor {
     this.system.useItemIcons = game.settings.get(SETTINGS_NS, "use-item-icons");
     this.system.showFeatures = game.settings.get(SETTINGS_NS, "show-features-section");
     this.system.showContainersTab = game.settings.get(SETTINGS_NS, "show-containers-tab");
+    // Both of these are now PERMANENTLY TRUE and no template reads either. They
+    // date from template.json, where `biography`/`description` could be absent or
+    // null; a TypeDataModel HTMLField initialises to "", which is neither. That is
+    // how the NPC sheet ended up rendering two editors on its Description tab (an
+    // always-true `{{#if system.showBio}}` above an always-true
+    // `{{#if system.showDesc}}`) — fixed 2026-07-29 by rendering one, ungated.
+    // Do not build a new conditional on these; they cannot be false.
     this.system.showBio = (this.system.biography !== undefined && this.system.biography !== null);
     this.system.showDesc = (this.system.description !== undefined && this.system.description !== null);
-    
+
+
     // A hireling shares the character's inventory/armor/HP model wholesale --
     // slots, coins-as-slots, encumbrance, derived armor. Only the sheet differs.
-    if (this.type === "character" || this.type === "hireling") this._prepareCharacterData();
-    if (this.type === "npc") this._prepareNpcData();
+    // npc joins this branch: it shares the hireling's sheet now, which reads
+    // `armorOverridden`, `coinTip` and `maybeTooMuchGold` — none of which
+    // `_prepareNpcData` ever set. That function was a near-duplicate of this one
+    // minus the armor override and the coin accounting, so npc gains both rather
+    // than the sheet gaining a second set of conditionals.
+    if (["character", "hireling", "npc"].includes(this.type)) this._prepareCharacterData();
     if (this.type === "container") this._prepareContainerData();
   }
 
@@ -142,6 +289,17 @@ export class CairnActor extends Actor {
   }
 
   _prepareContainerData() {
+    // What this container IS, in one word, on every container sheet. Still derived
+    // by default — it follows the name and the type with nothing to keep in step,
+    // and it is the only thing that tells a player a "Heavy Destrier" is a horse,
+    // since the name does not say so and neither does anything else. `containerClass`
+    // overrides it when someone has said outright what the thing is, which is the
+    // only route available to a Warden whose language the keyword table does not
+    // speak. Art and this label go through the same call, so they cannot disagree.
+    this.system.classLabel = game.i18n.localize(
+      containerClassLabel(this.name, this.system.transportKind, this.system.containerClass)
+    );
+
     this.system.slotsUsed = this.calcSlotsUsed();
     this.system.slotsMax = this.calcCurrentMaxSlots();
     this.system.encumbered =
@@ -210,17 +368,52 @@ export class CairnActor extends Actor {
     }
   }
 
+  /**
+   * Attach a container Actor to this actor. The link is TWO writes — this actor
+   * lists the container's uuid, the container's `keeper` points back — and both
+   * must land or neither, because either half alone is a broken state.
+   *
+   * The old code wrote this actor first and the container second, with no
+   * permission check and no catch. Containers are visible to players by default
+   * (`show-container-actors`, and mounts/vehicles show in the directory), so a
+   * player could drag a Warden's pack mule onto their own sheet: the first update
+   * succeeded (they own their character), the second was refused. That left the
+   * character listing a container whose `keeper` was still empty — unopenable, and
+   * still claimable by anyone else. `_onDropItem` already refuses a transfer up
+   * front for the same reason; this now matches.
+   *
+   * @param {CairnActor} data  the container Actor to attach
+   */
   async createOwnedContainer(data) {
-    if (!this.system.containers) this.system.containers = [];
     if (!data || data.type != "container") return;
-    if (this.system.containers.find((c) => c.uuid == data.uuid) != undefined)
-      return;
+    const containers = this.system.containers ?? [];
+    if (containers.includes(data.uuid)) return;
 
-    const newValue = this.system.containers;
-    newValue.push(data.uuid);
-    await this.update({ "system.containers": newValue });
-    // update container owner - named 'keeper' to avoid conflict.
-    await data.update({ "system.keeper": this.uuid });
+    // Refuse before writing anything. Both documents are written below, so both
+    // need write access — asking canUserModify directly says exactly that, and
+    // answers true for a GM.
+    if (!this.canUserModify(game.user, "update") || !data.canUserModify(game.user, "update")) {
+      ui.notifications.warn(
+        game.i18n.format("CAIRN.Notify.ContainerNoPermission", { name: data.name })
+      );
+      return;
+    }
+
+    // A NEW array, not the live one. Pushing onto this.system.containers mutates
+    // the prepared model in place, so a failed or rolled-back update would leave
+    // the in-memory copy holding a link that was never persisted.
+    await this.update({ "system.containers": [...containers, data.uuid] });
+    try {
+      // update container owner - named 'keeper' to avoid conflict.
+      await data.update({ "system.keeper": this.uuid });
+    } catch (err) {
+      // Undo our half rather than leave the pair inconsistent.
+      await this.update({ "system.containers": containers });
+      ui.notifications.error(
+        game.i18n.format("CAIRN.Notify.ContainerLinkFailed", { name: data.name })
+      );
+      console.error("Air Bladder | container link failed, rolled back", err);
+    }
   }
 
   async createOwnedFeature(data) {
@@ -235,15 +428,7 @@ export class CairnActor extends Actor {
   async deleteOwnedItem(itemId) {
     const item = this.items.get(itemId);
     if (item) {
-      const proceed = await foundry.applications.api.DialogV2.confirm({
-        content:
-          game.i18n.localize("CAIRN.Notify.ConfirmDelete") +
-          " " +
-          item.name +
-          "?",
-        rejectClose: false,
-        modal: true,
-      });
+      const proceed = await confirmDelete(item.name);
       if (!proceed) return;
       await item.delete();
       if (this.type == "container") {
@@ -257,15 +442,7 @@ export class CairnActor extends Actor {
   async deleteOwnedContainer(itemId) {
     const container = this.getOwnedContainer(itemId);
     if (!container) return;
-    const proceed = await foundry.applications.api.DialogV2.confirm({
-      content:
-        game.i18n.localize("CAIRN.Notify.ConfirmDelete") +
-        " " +
-        container.name +
-        "?",
-      rejectClose: false,
-      modal: true,
-    });
+    const proceed = await confirmDelete(container.name);
     if (!proceed) return;
     const containers = this.system.containers.filter((c) => c !== itemId);
     const actor = game.actors.find((a) => a.uuid == itemId);
@@ -277,15 +454,7 @@ export class CairnActor extends Actor {
   async deleteOwnedFeature(itemId) {
     const ft = this.getOwnedFeature(itemId);
     if (!ft) return;
-    const proceed = await foundry.applications.api.DialogV2.confirm({
-      content:
-        game.i18n.localize("CAIRN.Notify.ConfirmDelete") +
-        " " +
-        ft.name +
-        "?",
-      rejectClose: false,
-      modal: true,
-    });
+    const proceed = await confirmDelete(ft.name);
     if (!proceed) return;
     const features = this.system.features.filter((c) => c.id !== itemId);
     await this.update({ "system.features": features });
@@ -322,17 +491,22 @@ export class CairnActor extends Actor {
     return Math.min(armor, 3);
   }
 
+  /**
+   * The actor's slot capacity. `system.slots` is a plain number on EVERY actor
+   * type: 0 means "no override, use the Warden's max-equip-slots setting". An
+   * npc or container states its own capacity there; a character or hireling only
+   * has one if the Warden set a per-character limit (the equipment-limit dialog,
+   * gated by the character-inventory-limit setting).
+   *
+   * It used to be `{value: N}` for npc/container and a bare number for
+   * character/hireling — the reason npcs could hold nothing at all, since
+   * template.json declared a bare number and this read `.value` off it.
+   * @returns {number}
+   */
   calcCurrentMaxSlots() {
-    if (
-      ["npc", "container"].includes(this.type) &&
-      this.system.slots &&
-      this.system.slots.value > 0
-    )
-      return this.system.slots.value;
-    if (game.settings.get(SETTINGS_NS, "character-inventory-limit")) {
-      if (this.system.slots == undefined) this.system.slots = game.settings.get(SETTINGS_NS, "max-equip-slots");
-      return this.system.slots;
-    }
+    const override = this.system.slots ?? 0;
+    if (["npc", "container"].includes(this.type) && override > 0) return override;
+    if (game.settings.get(SETTINGS_NS, "character-inventory-limit") && override > 0) return override;
     return game.settings.get(SETTINGS_NS, "max-equip-slots");
   }
 
@@ -345,10 +519,62 @@ export class CairnActor extends Actor {
     if (this.type !== "container" || this.system.keeper == "") return;
     const keeper = game.actors.find((a) => a.uuid == this.system.keeper);
     if (!keeper) return;
-    if (keeper.sheet._state > 0) {
-      // sheet visible
-      keeper.sheet.render(false);
-    }
+    // ClientDocument#render re-renders only the applications actually open for
+    // this document -- the same swap already made in _onDeleteOperation below. The old
+    // `keeper.sheet._state > 0` probe read a private member AND constructed a
+    // sheet as a side effect, because `.sheet` is a lazily-constructing getter:
+    // asking "is the sheet open?" built one for every keeper that had none.
+    keeper.render(false);
+  }
+
+  /**
+   * Two type-exclusive jobs, in the one `_preUpdate` this class is allowed to have.
+   *
+   * **npc / hireling** — `#applyForHireTokenDefaults`, above: ticking "For hire"
+   * gets the token defaults `_preCreate` gives a generated hireling.
+   *
+   * **container** — re-art it when its type changes, but ONLY if it is still
+   * wearing one of our class icons. Turning a chest into an Item Pile should look
+   * like one, and `img` is a stored copy that no amount of derived data will move.
+   * The same rule the icon migration uses: touch our own `icons/*.svg` and nothing
+   * else, so a Warden who picked their own art (or browsed to a file) keeps it.
+   * Idempotent — re-running on an already-correct path is a no-op.
+   * @override
+   */
+  async _preUpdate(changed, options, user) {
+    const result = await super._preUpdate(changed, options, user);
+    if (result === false) return false;
+
+    // ONE _preUpdate for the whole class. There were briefly two, and the second
+    // silently won — a duplicate method in a class body is not an error, the later
+    // definition simply replaces the earlier, so the first became dead code that
+    // still read like working code. Caught only by instrumenting the loaded
+    // prototype and seeing the wrong function body come back. The two concerns are
+    // type-exclusive, so they dispatch here rather than each owning a hook.
+    if (["npc", "hireling"].includes(this.type)) this.#applyForHireTokenDefaults(changed);
+
+    if (this.type !== "container") return result;
+    const kind = changed.system?.transportKind;
+    if (kind === undefined || kind === this.system.transportKind) return result;
+
+    // Our own class art, plus Foundry's default — a container in an existing
+    // world predates the create-time stamping above and is still on mystery-man,
+    // which nobody chose either.
+    const ours = new Set(Object.values(CONTAINER_CLASSES).map((c) => `${ICON_DIR}/${c.icon}.svg`));
+    ours.add(CONST.DEFAULT_TOKEN);
+    if (!ours.has(this.img)) return result;
+    // The stored class still wins here, exactly as it does at creation. Without
+    // it, changing a transportKind would re-art a container away from the class
+    // its owner picked by hand — the one thing that override exists to prevent.
+    const art = iconForTransport(
+      changed.name ?? this.name,
+      kind,
+      changed.system?.containerClass ?? this.system.containerClass ?? "",
+    );
+    if (art === this.img) return result;
+    changed.img = art;
+    foundry.utils.setProperty(changed, "prototypeToken.texture.src", art);
+    return result;
   }
 
   /** @override */
@@ -358,23 +584,44 @@ export class CairnActor extends Actor {
     this._synchronizeKeeperSheet();
   }
 
-  /** @override */
-  _onDelete(options, userId) {
-    const id = this.uuid;
-    super._onDelete(options, userId);
-    game.actors.forEach(async (ac) => {
+  /**
+   * Prune deleted containers from every keeper's uuid list — ONCE per delete
+   * operation, over the whole batch. This was a per-document `_onDelete` walk,
+   * and that shape loses a race with itself on a bulk delete: Foundry fires the
+   * per-document callbacks without awaiting them (client-backend.mjs:472), so
+   * deleting two containers kept by the same actor interleaved two
+   * read-modify-writes of the same array — each read the pre-delete list, each
+   * filtered out only its own uuid, and whichever update landed last put the
+   * other container's uuid back, dangling. Batch-wise, the list is read once
+   * and every deleted uuid leaves in one write. `_onDeleteOperation` is also
+   * awaited by the workflow (client-backend.mjs:478), so a caller that awaits
+   * a delete sees the prune already done.
+   * @override
+   */
+  static async _onDeleteOperation(documents, operation, user) {
+    await super._onDeleteOperation(documents, operation, user);
+    // Post-operation events fire on EVERY connected client — that is what the
+    // `user` argument is for. Without this guard one container delete fired the
+    // same prune from every browser: clients that do not own the keeper got a
+    // permission-error toast for an action they did not take. Let the acting
+    // client do it once (`isSelf` is core's own idiom — token.mjs:3150).
+    if (!user.isSelf) return;
+    const gone = new Set(documents.filter((d) => d.type === "container").map((d) => d.uuid));
+    if (!gone.size) return;
+    for (const ac of game.actors) {
       // Hirelings and NPCs share the character data model (and so can keep
       // containers); without them here a deleted container leaves a dangling uuid.
-      if ((ac.type == "character" || ac.type == "hireling" || ac.type == "npc") && ac.system.containers?.includes(id)) {
-        await ac.update({
-          "system.containers": ac.system.containers.filter((it) => it !== id),
-        });
-        if (ac.sheet._state > 0) {
-          // sheet visible
-          ac.sheet.render(false);
-        }
-      }
-    });
+      if (!["character", "hireling", "npc"].includes(ac.type)) continue;
+      const list = ac.system.containers ?? [];
+      const pruned = list.filter((u) => !gone.has(u));
+      if (pruned.length === list.length) continue;
+      await ac.update({ "system.containers": pruned });
+      // ClientDocument#render re-renders only the applications actually open for
+      // this document. The old `ac.sheet._state > 0` probe read a private member
+      // AND instantiated a sheet on every actor it touched, because `.sheet` is a
+      // lazily-constructing getter.
+      ac.render(false);
+    }
   }
 
 

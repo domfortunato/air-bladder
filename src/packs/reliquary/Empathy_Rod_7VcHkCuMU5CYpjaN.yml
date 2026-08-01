@@ -1,0 +1,28 @@
+_id: 7VcHkCuMU5CYpjaN
+name: Empathy Rod
+type: item
+img: systems/air-bladder/icons/generic-item.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    relicSource: srd-2e
+system:
+  description: 'When two creatures touch this wooden pole at the same time, their physical and emotional states become fully intertwined until they let go.'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 3
+    max: 3
+  relic: true
+  recharge: Give the rod to a former enemy as a gift. This is a one-way transaction.
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!7VcHkCuMU5CYpjaN'

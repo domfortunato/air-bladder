@@ -68,6 +68,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+import { packUuid } from "./uuid.mjs";
 
 const require = createRequire(import.meta.url);
 const yaml = require("js-yaml");
@@ -86,7 +87,13 @@ const CATEGORY_PACK = { Weapons: "weapons", Armor: "armor" };
 // Pool packs to resolve a catalog name against (dir names), in the same
 // precedence module/gear.js uses. market-goods is NOT here: shop-only goods are
 // referenced by explicit documentCollection, never resolved by search.
-const CANONICAL = ["expeditionary-gear", "tools", "trinkets", "extra", "weapons", "armor"];
+// `background-items` belongs here for the same reason it belongs in
+// barebones.mjs POOL_PACKS: it is in module/gear.js CANONICAL_GEAR_PACKS, so a
+// scan that omits it can conclude an item is absent when it is merely
+// consolidated, and author a near-duplicate. No shop row currently names a
+// background-only item (that is what makes one "background-only"), so this
+// changes nothing today — it keeps the mirror honest for when one does.
+const CANONICAL = ["expeditionary-gear", "tools", "trinkets", "weapons", "armor", "background-items"];
 
 // ---- KEEP IN SYNC with module/gear.js GEAR_ALIASES ----
 const ALIASES = new Map([
@@ -101,8 +108,7 @@ const ALIASES = new Map([
   ["pole (10ft)", "Pole, 10ft"],
   ["pole", "Pole, 10ft"],
   ["plate", "Plate Mail"],
-  ["simple instrument (pipes, lute, etc.)", "Instrument"],
-  ["simple instruments (pipes, lute, etc.)", "Instrument"],
+  ["simple instrument (pipes, lute, etc.)", "Simple Instruments (Pipes, Lute, etc.)"],
   ["boltcutters", "Bolt Cutters"],
   // The shop's tent IS the pool's tent: the barebones item is already
   // bulky with "fits 2" as its description. Without this the shop cannot see
@@ -423,16 +429,17 @@ const tableYaml = (category, refs) => {
     const rid = idFor(`air-bladder-market-result:${category}:${i}:${ref.text}`);
     return [
       `  - _id: ${rid}`,
-      "    type: pack",
-      `    text: ${y(ref.text)}`,
+      // v13 merged `type: pack` into `type: document`, and a document row's label
+      // is `name` — `text` is a shim that goes in v15.
+      "    type: document",
+      `    name: ${y(ref.text)}`,
       "    img: icons/svg/item-bag.svg",
       "    weight: 1",
       "    range:",
       `      - ${i + 1}`,
       `      - ${i + 1}`,
       "    drawn: false",
-      `    documentCollection: ${ref.documentCollection}`,
-      `    documentId: ${ref.documentId}`,
+      `    documentUuid: ${packUuid(ref.documentCollection, ref.documentId)}`,
       "    flags: {}",
       `    _key: '!tables.results!${tid}.${rid}'`,
     ].join("\n");

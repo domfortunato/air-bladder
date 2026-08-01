@@ -19,20 +19,103 @@
  * General style.                                                             * 
  ******************************************************************************/
 
-/* Sheet palette. The sheet always renders on Foundry's light parchment (AppV1
-   windows are force-tagged theme-light), so these are tuned for parchment, not
-   the viewer's theme:
-     --ab-muted         readable muted/secondary text (replaces a scattered
-                        `grey`/#888, which was too low-contrast on parchment),
-     --ab-surface       warm off-white for the white controls (Rest / Restore /
-                        Die of Fate) so they sit IN the parchment instead of
-                        glaring as cold-white patches; their black border still
-                        marks them as controls,
-     --ab-surface-hover the same, one step darker, for their hover. */
-.cairn {
-    --ab-muted: #4a4335;
+/******************************************************************************
+ * PALETTE. Every colour the system chooses for itself is named here, once.
+ *
+ * DECIDED 2026-07-28: the sheets FOLLOW THE VIEWER'S COLOUR SCHEME. They are not
+ * pinned to `theme-light`. See docs/theming.md for the decision and its evidence;
+ * the short version is that ApplicationV1 force-tags every window `themed
+ * theme-light` (client/appv1/api/application-v1.mjs:79-81) and ApplicationV2 does
+ * not, so porting a sheet hands us a dark mode whether we want one or not. The
+ * only two options were to style it or to pin the light classes forever, and
+ * pinning means shipping a sheet that ignores a setting the player chose.
+ *
+ * THE RULE, and it is the whole point of this block: a colour the system picks
+ * goes in a token below. No literal colour anywhere else in this file, except a
+ * pair that carries BOTH its foreground and its background (the status banners,
+ * the black label bars) and is therefore scheme-independent by construction.
+ *
+ * The light values are the ones this sheet has always shipped, unchanged, so the
+ * default appearance is untouched. Only the dark block below is new.
+ ******************************************************************************/
+:root {
+    /* Text, darkest to faintest. */
+    --ab-ink: #191813;              /* primary sheet text */
+    --ab-muted: #4a4335;            /* secondary: hints, labels, disabled states */
+    --ab-faint: #6b6559;            /* tertiary: a counter's "/ max" */
+    --ab-on-bar: #f5f5f5;           /* text sitting ON --ab-bar */
+
+    /* Structure. */
+    --ab-bar: black;                /* the filled label bars and the name field */
+    --ab-line: black;               /* the 2px frame around counters and controls */
+    --ab-rule: #b5b3a4;             /* separator between item-list rows */
+    --ab-rule-strong: #7a7971;      /* border around a panel (scar list, tab strip) */
+    --ab-hairline: rgba(0, 0, 0, 0.15);  /* faintest divider */
+    --ab-edge: rgba(0, 0, 0, 0.2);       /* box outlines in the authoring form */
+    --ab-wash: rgba(0, 0, 0, 0.05);      /* row hover, tag fill */
+    --ab-wash-strong: rgba(0, 0, 0, 0.08);
+    --ab-chip-border: #999;
+    --ab-chip-border-strong: #555;  /* marks a grant-source chip apart */
+
+    /* A warm off-white for the sheet's custom checkboxes, so they sit IN the
+       parchment instead of glaring as cold-white patches. Deliberately NOT
+       darkened for dark mode: a control should stand out from the sheet, and
+       keeping it light keeps its tick legible on both schemes. --ab-tick is
+       COUPLED to it -- darken the surface and the tick must lighten to match, or
+       the checkbox silently stops showing whether it is checked. */
     --ab-surface: #f1ead8;
-    --ab-surface-hover: #e7ded0;
+    --ab-tick: black;
+
+    /* Semantic accents. */
+    --ab-peril: #c62828;            /* an ability in peril, the crit-damage skull */
+    --ab-error: #a11;               /* authoring-form errors */
+    --ab-amber: #c07800;            /* a value below max, an armor override */
+    --ab-warn: #9a6a00;             /* authoring-form warnings, gold totals */
+    --ab-ok: #2a6;
+    --ab-ok-strong: #1a7a3a;
+    --ab-gold: #b8860b;             /* the coins-as-slots row icon */
+    --ab-accent: #12a3b4;           /* teal: Die of Fate, fatigue, selection */
+    --ab-accent-wash: rgba(18, 163, 180, 0.12);   /* fatigue-row tint */
+    --ab-ok-wash: rgba(34, 170, 102, 0.18);       /* snapshot chip fill */
+}
+
+/* Dark scheme.
+   Set on the SURFACES Foundry has actually themed, never on <body> -- custom
+   properties inherit, and an ApplicationV1 window force-tags ITSELF theme-light
+   while still living inside a dark <body>. Tokens set on body would therefore
+   leak into a sheet that is demonstrably still on parchment. The
+   :not(.theme-light) guard is what keeps the half-migrated state honest, and it
+   can be dropped once no AppV1 sheet is left. */
+.theme-dark :is(.cairn, .application, .chat-message):not(.theme-light),
+:is(.cairn, .application, .chat-message).theme-dark {
+    --ab-ink: #efe6d8;
+    --ab-muted: #b9ad99;
+    --ab-faint: #8f8779;
+    /* --ab-on-bar and --ab-bar are unchanged: a black bar with near-white text
+       is legible on either scheme, and it is the sheet's signature. */
+
+    --ab-line: #7a7266;
+    --ab-rule: #4f483e;
+    --ab-rule-strong: #6f6659;
+    --ab-hairline: rgba(255, 255, 255, 0.15);
+    --ab-edge: rgba(255, 255, 255, 0.22);
+    --ab-wash: rgba(255, 255, 255, 0.07);
+    --ab-wash-strong: rgba(255, 255, 255, 0.1);
+    --ab-chip-border: #6e675c;
+    --ab-chip-border-strong: #8f8779;
+
+    --ab-peril: #ff6b6b;
+    --ab-error: #ff7b7b;
+    --ab-amber: #e8a33c;
+    --ab-warn: #d4a63f;
+    --ab-ok: #4fd08a;
+    --ab-ok-strong: #4fd08a;
+    --ab-gold: #d9a93a;
+    --ab-accent: #35c8da;
+    /* Both washes go up: a 12% tint that reads as a wash on parchment is
+       invisible against a near-black backdrop. */
+    --ab-accent-wash: rgba(53, 200, 218, 0.18);
+    --ab-ok-wash: rgba(79, 208, 138, 0.22);
 }
 
 .cairn.sheet.actor,
@@ -41,15 +124,56 @@
     min-width: 480px;
 }
 
-/* Sheet background: intentionally left to Foundry. Cairn sheets are AppV1
-   windows, which Foundry force-tags `themed theme-light` regardless of the
-   player's colour scheme, so .window-content falls back to Foundry's own light
-   parchment (ui/parchment.jpg) -- warm, characterful, and always light, so the
-   sheet's dark text and black bars stay readable. We used to force a flat
-   #f5f5f5 here (which also killed the parchment via background-image: none);
-   that override was removed 2026-07-23. Do NOT re-add a background here. */
+/* Sheet background: intentionally left to Foundry. Do NOT set one here -- we
+   used to force a flat #f5f5f5 (which also killed the parchment via
+   background-image: none); that override was removed 2026-07-23.
 
-.cairn .editor {
+   What Foundry gives a sheet, measured on 14.365 rather than assumed:
+     light   --background: url(ui/parchment.jpg)   -- an IMAGE, not a colour
+     dark    --background: rgba(11, 10, 19, 0.9)   -- over the black body
+
+   The image is why `tools/dev/probe-theme.mjs` samples the backdrop instead of
+   walking ancestors for a background-colour: the walk falls through parchment to
+   <body>'s black and reports every dark-on-parchment label as unreadable, in
+   BOTH schemes. Identical light and dark output is the tell that it happened.
+
+   Note an ApplicationV1 window keeps parchment even when tagged theme-dark --
+   its chrome is legacy CSS and only the variables flip -- so tagging an AppV1
+   sheet does not preview the post-port state. The probe paints on the measured
+   AppV2 backdrop to simulate it. */
+
+/* ApplicationV2 drops three things AppV1's window chrome supplied, and every
+   sheet grid in this file was laid out against them. Restored here rather than
+   re-tuning the grids, because the geometry is deliberate and documented:
+
+   1. `overflow: hidden auto` on .window-content (foundry2.css:6237). AppV2 uses a
+      flat `overflow: hidden`, so a sheet taller than its window is CLIPPED
+      instead of scrolling. That is not a cosmetic difference: the grid stops
+      being able to grow, its rows collapse to their minimums, and the name
+      section's HP/Gold counters end up painted on top of STR and Armor.
+   2. `padding: 8px` (foundry2.css:13146). AppV2 uses --spacer-16, i.e. double,
+      which costs 16px of height on a layout with fixed 140px/112px rows.
+   3. `.window-content > * { flex: 1 }` (foundry2.css:13150), which is what lets
+      the grid take the full height and then exceed it. Without it the grid is
+      `flex: 0 1 auto` and gets shrunk to the window instead. */
+.cairn.sheet .window-content {
+    padding: 8px;
+    overflow: hidden auto;
+}
+
+.cairn.sheet .window-content > * {
+    flex: 1;
+}
+
+/* Give the editor room. Height only -- do NOT set `display` here. Foundry lays
+   <prose-mirror> out as `display: flex; flex-direction: column` and its
+   .editor-content is `position: absolute; inset: 0` inside a `flex: 1`
+   container (foundry2.css:13548, :13581, :13589). Overriding display to block
+   leaves the container with no height, so the editable area computes to 0px:
+   the editor renders, reports contenteditable="true", holds the right value,
+   and simply cannot be clicked into. That is what "the notes editor doesn't
+   work" turned out to be. Gated by `npm run dev:notes-editor`. */
+.cairn prose-mirror {
     height: 100%;
     min-height: 480px;
 }
@@ -66,7 +190,14 @@
        rather than leaving a jarring wider band between them. */
     row-gap: 2px;
     grid-template-columns: 140px 1fr 1fr;
-    grid-template-rows: minmax(140px, auto) 112px 1fr;
+    /* Row 1 is `auto`, NOT `minmax(140px, auto)`. Both grow for a long background
+       description, but `minmax` sets the track's MINIMUM to 140px — so when the
+       sheet is short of height (a tall description plus a tall tab body), grid
+       shrinks the track back toward that minimum and the name section spills its
+       HP/Gold counters over STR and Armor. `auto` takes its minimum from the
+       content, so it can never be squeezed below what it holds. The 140px floor
+       is not lost: the portrait in column 1 is 140px tall and sets it. */
+    grid-template-rows: auto 112px 1fr;
     height: 100%;
 }
 
@@ -89,6 +220,28 @@
     grid-template-columns: 1fr 1fr;
 }
 
+/* The NPC sheet shares .character-sheet-section-name with the character sheet,
+   but has one fewer child: there is no background-description block to occupy
+   row 3. Auto-placement therefore shifts everything up a row — HP lands in the
+   24px background line beside Role (where, being 36px tall, it overflows its own
+   row and crowds the name bar) and Gold is stranded alone in the 1fr slack row,
+   while the min-content row 4 collapses to 0px and goes unused. Measured
+   2026-07-29: HP top 36, Gold top 102, rows "46px 24px 64px 0px".
+
+   Pin both counters to the last row so they sit together at the foot, which is
+   where the character sheet's own auto-placement puts them. Do not "fix" this by
+   deleting the 1fr row — it is what pushes the pair flush with the portrait's
+   bottom edge. Reported as issue #7. */
+.npc-name-section .hp-counter {
+    grid-row: 4;
+    grid-column: 1;
+}
+
+.npc-name-section .deprived-counter {
+    grid-row: 4;
+    grid-column: 2;
+}
+
 /* The three buttons stack flush as one evenly-spaced set. They are a touch
    shorter than a counter row (32px) so the fixed 112px stack has a little slack
    at its foot rather than crowding the tabs below. */
@@ -104,19 +257,18 @@
 }
 
 #die-of-fate-button {
-    /* Distinguished from the two utility buttons not by a box glow but by a teal
-       TEXT glow that lights up its label + d6 icon -- the same idea as a selected
-       tab, in teal (the complement of the tabs' red) so it reads as
-       related-but-distinct and marks the deliberate action. */
-    background: var(--ab-surface);
-    color: black;
-    border: 2px solid black;
+    /* Foundry's default button chrome, like Rest and Restore beside it (the
+       black-bordered cream fill all three carried was dropped 2026-07-28). What
+       still sets this one apart is deliberately NOT a box: a teal TEXT glow that
+       lights up its label + d6 icon -- the same idea as a selected tab, in teal
+       (the complement of the tabs' red) so it reads as related-but-distinct and
+       marks the deliberate action. Keep the glow if the chrome changes again. */
     font-weight: bold;
-    text-shadow: 0 0 8px #12a3b4;
+    text-shadow: 0 0 8px var(--ab-accent);
 }
 
 #die-of-fate-button:hover {
-    text-shadow: 0 0 12px #12a3b4;
+    text-shadow: 0 0 12px var(--ab-accent);
 }
 
 .character-sheet-section-abilities {
@@ -149,7 +301,13 @@
     display: grid;
     gap: 8px;
     grid-template-columns: 140px 1fr 1fr;
-    grid-template-rows: 140px 1fr;
+    /* `auto`, not a hard 140px, for the reason spelled out on the character grid
+       above: a fixed track cannot grow for its content, so the name section spills
+       out of it. This was fine until the Type control joined the container's name
+       section (Item Piles) and pushed it to 148px inside a 140px track — an 8px
+       overflow that `npm run dev:sheet-layout` reports on the `container` type.
+       The 140px floor is not lost; the portrait in column 1 sets it. */
+    grid-template-rows: auto 1fr;
     height: 100%;
 }
 
@@ -167,6 +325,37 @@
 .container-sheet-grid .slots-counter {
     grid-row: 4;
     align-self: end;
+}
+
+/* Type sits in row 3 -- the 1fr slack row -- in the left column, directly under
+   the class line. Putting it in row 4 with Slots and Cost gives the two-column
+   grid an implicit THIRD column and squeezes all three, which clipped "Mount"
+   to "Moun". Its own row also lets the select take a real width, which the
+   longest option ("Item Pile") needs. */
+.container-sheet-grid .container-type-counter {
+    grid-row: 3;
+    grid-column: 1;
+    align-self: start;
+}
+
+.container-sheet-grid .container-type-counter select {
+    background: none;
+    border: none;
+    width: 100%;
+    color: inherit;
+    font-family: inherit;
+}
+
+/* What the container IS ("Horse", "Item Pile"), then who keeps it -- a pile has
+   no keeper, so the second half is simply absent rather than an empty gap. */
+.container-sheet-grid .container-class {
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
+    font-variant: small-caps;
+    font-size: 18px;
+}
+
+.container-sheet-grid .container-owner::before {
+    content: " · ";
 }
 
 /******************************************************************************
@@ -211,7 +400,7 @@
  ******************************************************************************/
 
 .portrait {
-    border: 2px solid black;
+    border: 2px solid var(--ab-line);
     border-radius: 5px;
     height: 140px;
     width: 100%;
@@ -250,11 +439,10 @@
     min-width: 0;
 }
 
-/* The name-roll <a> sits OUTSIDE the black name input, on the LIGHT
-   window-content (rgb245) — so it needs a DARK colour to read there, exactly like
-   the sibling profession-roll (a light colour is invisible on it). This is the
-   character sheet's long-standing grey; the hireling darkens it below to match
-   its profession-roll. */
+/* The name-roll <a> sits OUTSIDE the name input, on the window-content rather
+   than on the bar — so it takes the sheet's secondary ink, exactly like the
+   sibling profession-roll, and flips with the scheme. The hireling darkens it
+   below to full ink to match its profession-roll. */
 .name-line .name-roll {
     flex: 0 0 auto;
     cursor: pointer;
@@ -262,18 +450,18 @@
 }
 
 .name-line .name-roll:hover {
-    color: #191813;
+    color: var(--ab-ink);
 }
 
 /* Hireling: the name-roll takes the SAME dark colour as the profession-roll (both
    dark@0.55 on the light field), so the two rollers read identically. The 0.55
-   opacity comes from the shared .hireling rule below. */
-.hireling .name-line .name-roll {
-    color: #191813;
+   opacity comes from the shared .cairn-npc-sheet rule below. */
+.cairn-npc-sheet .name-line .name-roll {
+    color: var(--ab-ink);
 }
 
-.hireling .name-line .name-roll:hover {
-    color: #191813;
+.cairn-npc-sheet .name-line .name-roll:hover {
+    color: var(--ab-ink);
     opacity: 1;
 }
 
@@ -361,13 +549,58 @@
     display: none;
 }
 
+/* An empty notes editor prompts for what to put in it. ProseMirror has no
+   placeholder of its own and an empty document is `<p><br></p>` (so `:empty`
+   never matches), hence the class the sheet keeps in step as the player types.
+   Drawn OVER the content rather than inside it: anything placed in the editable
+   area becomes part of the document and gets saved.
+
+   Anchored to `.editor-container`, NOT to `<prose-mirror>` -- both are
+   `position: relative`, so hanging it off the wrong one is silent. An active
+   editor is `[.menu-container][.editor-container]` in a column flex
+   (`_wrapEditor`, foundry.mjs:85413-85424), and the menu bar is ~42px tall, so
+   `top: 8px` off prose-mirror lands the hint ON the toolbar. Measured, not
+   guessed: prose-mirror y=522, menu 522-564, editable area starts at 572.
+   The 8px/0 offsets put it exactly over the first paragraph, whose 8px top
+   margin is the only thing between it and the container's edge.
+   Gated by `npm run dev:notes-editor`, which now checks where it lands. */
+.cairn prose-mirror[data-placeholder].cairn-editor-empty .editor-container::before {
+    /* NOT `attr(data-placeholder)` -- that attribute is on <prose-mirror>, and
+       attr() only reads the pseudo's OWN element. The sheet sets the custom
+       property, which inherits down. */
+    content: var(--ab-placeholder, "");
+    position: absolute;
+    top: 8px;
+    left: 0;
+    pointer-events: none;
+    opacity: 0.65;
+    font-style: italic;
+    color: var(--ab-faint);
+}
+
+/* The two generation buttons carry TEXT, unlike Foundry's own frame buttons.
+   This rule is COSMETIC ONLY -- measured, not assumed. Foundry's
+   `.application .window-header button.header-control` sets --button-size:1.5rem,
+   but nothing pins a width, so the button grows to fit its label with or without
+   this block (144px bare, 104px with it). What actually makes the text work is
+   dropping the `icon` class in _renderFrame. So no !important here: it was
+   written in on the assumption that @layer system would lose the cascade, and
+   the probe showed the rule was not needed at all, let alone forced. */
+.cairn.sheet .window-header button.cairn-header-button {
+    flex: none;
+    gap: 4px;
+    padding: 0 6px;
+    font-size: var(--font-size-12);
+    white-space: nowrap;
+}
+
 .name-input {
     grid-column-start: 1;
     grid-column-end: 3;
 
-    background: black !important;
+    background: var(--ab-bar) !important;
     border: none !important;
-    color: #f5f5f5 !important;
+    color: var(--ab-on-bar) !important;
     font-family: "Alegreya", Times, "Times New Roman", Georgia, serif !important;
     font-size: 23px !important;
     font-variant: small-caps;
@@ -393,7 +626,7 @@
  ******************************************************************************/
 
 .resource-counter {
-    border: 2px solid black;
+    border: 2px solid var(--ab-line);
     border-radius: 5px;
     display: flex;
     height: 36px;
@@ -401,8 +634,8 @@
 
 .resource-counter a,
 .resource-counter label {
-    background-color: black;
-    color: #f5f5f5;
+    background-color: var(--ab-bar);
+    color: var(--ab-on-bar);
     font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
     font-size: 17px;
     font-weight: 500;
@@ -432,18 +665,21 @@
 }
 
 /******************************************************************************
- * Sheet checkboxes (Deprived / Panicked conditions + Omen / Scars).          *
+ * Sheet checkboxes (Deprived / Panicked / For Hire + Omen / Scars).          *
  *                                                                            *
- * Native checkboxes render as a stark white box that clashes with both the   *
- * parchment and the warm controls. Restyle them appearance:none so the box    *
- * takes the same flat --ab-surface as the Rest / Restore / Die of Fate        *
- * buttons, with a black border + black tick -- which reads on BOTH the black  *
- * condition bars (border vanishes into the black, cream box still shows) and  *
- * the parchment (border + tick both show). Purely visual; the input still     *
- * toggles and fires its change handler as before.                            *
+ * Native checkboxes render as a stark white box that clashes with the        *
+ * parchment. Restyle them appearance:none so the box takes a flat warm       *
+ * --ab-surface -- these are now its only user, the Rest / Restore / Die of   *
+ * Fate buttons having shared it until 2026-07-28 -- with an --ab-line border *
+ * and an --ab-tick tick. That reads in three places, which is why the        *
+ * surface deliberately stays light in dark mode: on the black condition bars *
+ * (border vanishes into the bar, cream box still shows), on the parchment    *
+ * (border + tick both show), and on a dark sheet (the whole box shows).      *
+ * Purely visual; the input still toggles and fires its change handler.       *
  ******************************************************************************/
 .cairn .deprived-check,
 .cairn .panicked-check,
+.cairn .for-hire-check,
 .cairn .omen-enable,
 .cairn .scar-enable,
 .cairn .scar-check {
@@ -456,7 +692,7 @@
     width: 18px !important;
     height: 18px !important;
     background: var(--ab-surface) !important;
-    border: 2px solid black !important;
+    border: 2px solid var(--ab-line) !important;
     border-radius: 3px;
     cursor: pointer;
     position: relative;
@@ -470,7 +706,28 @@
     margin: auto;
 }
 
-/* Omen / Scars checkboxes precede their label text: a small gap instead. */
+/* Switch OFF the glyph Foundry draws inside the box.
+   `appearance: none` removes the native widget and nothing else, and Foundry
+   draws its checkbox entirely with pseudo-elements: ::before is a Font Awesome
+   square, `\f0c8`, swapped for a check-square `\f14a` when checked
+   (foundry2.css:3887-3891). So the core checkbox kept rendering INSIDE ours --
+   a second, smaller box stacked on the first, which is exactly what it looked
+   like. Ours draws its own tick in ::after below.
+   No !important needed: those rules are in `@layer elements.forms` and this
+   file is in `@layer system`, which is declared later and so wins outright
+   (foundry2.css:5). */
+.cairn .deprived-check::before,
+.cairn .panicked-check::before,
+.cairn .for-hire-check::before,
+.cairn .omen-enable::before,
+.cairn .scar-enable::before,
+.cairn .scar-check::before {
+    content: none;
+}
+
+/* Omen / Scars checkboxes precede their label text: a small gap instead. "For Hire"
+   is NOT here on purpose -- its label is a flex row with its own `gap`, so a margin
+   would double the space. */
 .cairn .omen-enable,
 .cairn .scar-enable,
 .cairn .scar-check {
@@ -479,6 +736,7 @@
 
 .cairn .deprived-check:checked::after,
 .cairn .panicked-check:checked::after,
+.cairn .for-hire-check:checked::after,
 .cairn .omen-enable:checked::after,
 .cairn .scar-enable:checked::after,
 .cairn .scar-check:checked::after {
@@ -488,7 +746,7 @@
     top: 1px;
     width: 5px;
     height: 9px;
-    border: solid black;
+    border: solid var(--ab-tick);
     border-width: 0 2px 2px 0;
     transform: rotate(45deg);
     pointer-events: none;
@@ -598,8 +856,8 @@
 }
 
 .cairn .tabs a {
-    border-bottom: 2px solid black;
-    border-top: 2px solid black;
+    border-bottom: 2px solid var(--ab-line);
+    border-top: 2px solid var(--ab-line);
     flex-grow: 1;
     font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
     font-size: 17px;
@@ -611,12 +869,37 @@
     height: 100%;
 }
 
+/* One heading style for the labelled sections on a Description tab: the
+   Features list header (both sheets) and the NPC's description label. It has to
+   be stated on the heading ELEMENT, not inherited -- core's
+   `body.game .app h1,...,h6` (foundry2.css, the V1 compatibility layer) targets
+   the tag directly, so the `!important` font-family on `.cairn-items-list-header`
+   below never reaches an <h3> inside it. Left to core, Features rendered 28px
+   Signika beside a 17px small-caps Alegreya label.
+   Typography only -- no border. Each caller draws its own rule line: the list
+   header on its wrapper, the NPC label on itself. */
+.cairn-section-label {
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
+    font-variant: small-caps;
+    font-size: 17px;
+    font-weight: bold;
+    color: var(--ab-ink);
+    line-height: 1;
+    margin: 0;
+}
+
 /******************************************************************************
- * Items list.                                                                * 
+ * Items list.                                                                *
  ******************************************************************************/
 
+/* In the 36px list header the heading shares a line with the "Add ..." control,
+   so it takes the row's line-height rather than hugging its own text. */
+.cairn-items-list-header .cairn-section-label {
+    line-height: inherit;
+}
+
 .cairn-items-list-header {
-    border-bottom: 1px solid #b5b3a4;
+    border-bottom: 1px solid var(--ab-rule);
     display: flex;
     font-family: "Alegreya", Times, "Times New Roman", Georgia, serif !important;
     font-weight: bold;
@@ -630,11 +913,11 @@
 }
 
 .cairn-items-list-row {
-    border-bottom: 1px solid #b5b3a4;
+    border-bottom: 1px solid var(--ab-rule);
 }
 
 .cairn-items-list-row:hover {
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: var(--ab-wash);
 }
 
 .cairn-items-list-row:hover .cairn-item-controls {
@@ -655,8 +938,8 @@
 
 .cairn-item-tag {
     align-self: center;
-    background: rgba(0, 0, 0, 0.05);
-    border: 1px solid #999;
+    background: var(--ab-wash);
+    border: 1px solid var(--ab-chip-border);
     border-radius: 3px;
     display: inline-block;
     font-size: 11px;
@@ -687,11 +970,11 @@
 }
 
 .item-toggle-equipped {
-    color: var(--color-text-dark-inactive);
+    color: var(--ab-muted);
 }
 
 .item-toggle-equipped.equipped {
-    color: var(--color-text-dark-primary);
+    color: var(--ab-ink);
 }
 
 .crit-dmg.long-counter label {
@@ -702,14 +985,13 @@
     width: 60%;
 }
 
-.weapon.item-sheet-grid {
-    grid-template-rows: 46px 36px 36px 36px 36px 1fr;
-}
-
-.weapon.item-sheet-grid .item-sheet-section-tabs {
-    grid-row-start: 6;
-    grid-row-end: 6;
-}
+/* The weapon sheet uses the BASE row set (six rows, tabs at seven). It used to
+   declare one row fewer, with the tabs at six, which was right for its eight
+   counters — until the Relic checkbox made nine. The ninth auto-placed into an
+   implicit row below the tabs, putting **Cost** at y=1059 of a 1000px viewport:
+   present in the DOM, off the bottom of the window, and impossible to set. Found
+   2026-07-29 by the counter-visibility check in dev:sheet-layout. Do not
+   re-introduce a shorter override without counting the counters. */
 
 
 .armor.item-sheet-grid,
@@ -732,6 +1014,23 @@
 .background.item-sheet-grid .item-sheet-section-tabs {
     grid-row-start: 4;
     grid-row-end: 4;
+}
+
+/* A scroll shows one counter more than a book (its remaining use), which makes FIVE
+   — an odd number, so the fifth lands alone on a third counter row. Row counts in
+   this file are hand-declared per item type and the tabs section is pinned to a
+   numbered row, so a new counter needs both a new row and the tabs moved down.
+   Without this the extra counter auto-places into an IMPLICIT row beneath the tabs:
+   measured 2026-07-29 with Quantity at y=676 of a 720px grid, off the bottom of the
+   window and hit-tested to the canvas. It was in the DOM, so the region count still
+   looked right. */
+.spellbook.item-sheet-grid.has-scroll-uses {
+    grid-template-rows: 46px 36px 46px 36px 1fr;
+}
+
+.spellbook.item-sheet-grid.has-scroll-uses .item-sheet-section-tabs {
+    grid-row-start: 5;
+    grid-row-end: 5;
 }
 
 .small-resource-label {
@@ -794,20 +1093,10 @@
     margin-right: 5px;
 }
 
-/* Rest / Restore Abilities share the Die of Fate look -- white fill, black
-   border, bold, left-aligned -- MINUS its glow, so the three read as a set while
-   Die of Fate stays the emphasised one. */
-.character-sheet-section-buttons .strict-size-button {
-    background: var(--ab-surface);
-    color: black;
-    border: 2px solid black;
-    font-weight: bold;
-}
-
-.character-sheet-section-buttons .strict-size-button:hover:not(:disabled) {
-    background: var(--ab-surface-hover);
-}
-
+/* Rest / Restore Abilities take Foundry's default button colours, including its
+   hover. They used to share Die of Fate's cream fill + black border; that whole
+   look went 2026-07-28 in favour of the core chrome. Only the sizing/alignment
+   rules above and the disabled state below are ours now. */
 .character-sheet-section-buttons .strict-size-button:disabled {
     opacity: 0.45;
 }
@@ -1062,7 +1351,7 @@
 .gold-slot-row .gold-slot-icon {
     opacity: 0.6;
     margin-right: 2px;
-    color: #b8860b;
+    color: var(--ab-gold);
 }
 
 .gold-slot-row .cairn-item-title {
@@ -1128,7 +1417,7 @@
 .character-omen-scar {
     margin-top: 12px;
     padding-top: 12px;
-    border-top: 1px solid var(--color-border-light-tertiary, #c9c7b8);
+    border-top: 1px solid var(--ab-rule-strong);
 }
 
 /* Disabled-state text for the Omen field (mirrors .scar-display). */
@@ -1233,7 +1522,7 @@ textarea.omen-input {
     max-height: 260px;
     overflow: auto;
     margin-top: 4px;
-    border: 1px solid var(--color-border-light-tertiary, #c9c7b8);
+    border: 1px solid var(--ab-rule-strong);
     border-radius: 4px;
 }
 
@@ -1247,7 +1536,7 @@ textarea.omen-input {
 }
 
 .scar-option + .scar-option {
-    border-top: 1px solid var(--color-border-light-tertiary, #c9c7b8);
+    border-top: 1px solid var(--ab-rule-strong);
 }
 
 .scar-option .scar-check {
@@ -1506,7 +1795,7 @@ textarea.omen-input {
     transform: translateY(-50%);
     width: auto;
     background: none;
-    color: #c62828;
+    color: var(--ab-peril);
     font-size: 11px;
     line-height: 1;
     opacity: 0;
@@ -1525,16 +1814,16 @@ textarea.omen-input {
 /* Below max (but not in peril): the current value shows amber. */
 .hp-counter.low .resource-input-wrapper input[name$=".value"],
 .character-sheet-section-abilities .resource-counter.low .resource-input-wrapper input[name$=".value"] {
-    color: #c07800;
+    color: var(--ab-amber);
 }
 
 .character-sheet-section-abilities .resource-counter.peril {
-    border-color: #c62828;
+    border-color: var(--ab-peril);
 }
 
 /* Peril's red wins over amber (listed after .low). */
 .character-sheet-section-abilities .resource-counter.peril .resource-input-wrapper input[name$=".value"] {
-    color: #c62828;
+    color: var(--ab-peril);
 }
 
 /* Stat inputs (HP + abilities) are numeric; hide the number spinners. */
@@ -1563,7 +1852,7 @@ textarea.omen-input {
 }
 
 .armor-counter.armor-overridden .armor-input {
-    color: #c07800;
+    color: var(--ab-amber);
     font-weight: bold;
 }
 
@@ -1594,13 +1883,13 @@ textarea.omen-input {
 /* Grant-source tag (Background / Bond / Question): a monochrome chip in
    small-caps with a darker border so a source reads distinctly from the
    mechanical tags (Bulky, Armor, Damage) without using colour. */
-/* Grant tags share the mechanical tags' dark text (inherited) and are set apart
-   only by their darker border -- the text was #333 (lighter than the mechanical
-   #191813), which read as washed-out, so it now inherits the same dark ink. */
+/* Grant tags share the mechanical tags' text colour (inherited) and are set apart
+   only by their stronger border -- giving them their own lighter text read as
+   washed-out, so they inherit the same ink as everything else. */
 .cairn-grant-tag {
     font-variant: small-caps;
     letter-spacing: 0.3px;
-    border-color: #555;
+    border-color: var(--ab-chip-border-strong);
 }
 
 /* Grab cursor on reorderable rows only when reorder is enabled. */
@@ -1718,8 +2007,8 @@ textarea.omen-input {
 }
 
 .cairn-portrait-choice.selected {
-    border-color: #12a3b4;
-    box-shadow: 0 0 6px #12a3b4;
+    border-color: var(--ab-accent);
+    box-shadow: 0 0 6px var(--ab-accent);
 }
 
 .cairn-portrait-url {
@@ -1757,7 +2046,7 @@ textarea.omen-input {
 .cairn-portrait-tabs {
     display: flex;
     gap: 4px;
-    border-bottom: 1px solid var(--color-border-light-tertiary, #7a7971);
+    border-bottom: 1px solid var(--ab-rule-strong);
 }
 
 .cairn-portrait-tab {
@@ -1774,7 +2063,7 @@ textarea.omen-input {
 
 .cairn-portrait-tab.active {
     opacity: 1;
-    border-bottom-color: #12a3b4;
+    border-bottom-color: var(--ab-accent);
     font-weight: bold;
 }
 
@@ -1794,22 +2083,61 @@ textarea.omen-input {
 
 
 /******************************************************************************
- * Hireling sheet. A stripped character sheet: name/profession/day-rate stack   *
- * in place of the background block, HP joins the ability column, and there is  *
- * no Description tab.                                                          *
+ * The NPC sheet (serves `npc` and its `hireling` alias). A character sheet     *
+ * with the background block replaced by a name / career / for-hire / day-rate  *
+ * stack; same tab set, same counters.                                          *
  ******************************************************************************/
 
 /* The character sheet lays this section out as a grid (name / background line /
-   counters). A hireling has none of that, so it becomes a simple stack. */
-.hireling .character-sheet-section-name {
+   counters). An NPC has none of that, so it becomes a simple stack. */
+.cairn-npc-sheet .character-sheet-section-name {
     display: flex;
     flex-direction: column;
     gap: 4px;
 }
 
-.hireling .name-line,
-.hireling .profession-line,
-.hireling .day-rate-line {
+/* HP and Gold share the foot row of the header, matching the character sheet. The
+   name section is a flex COLUMN, so this is a nested flex ROW rather than the grid
+   placement the character sheet uses; each counter takes an equal half so the pair
+   lines up with the 213px counters in the blocks below. */
+.cairn-npc-sheet .npc-vitals-line {
+    display: flex;
+    gap: 8px;
+    margin-top: 2px;
+}
+
+.cairn-npc-sheet .npc-vitals-line .resource-counter {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+/* "For Hire" is a plain inline label+checkbox, not a counter: it is a switch that
+   reveals the day rate, and dressing it as a labelled value box would imply it
+   holds one. */
+.cairn-npc-sheet .for-hire-line {
+    display: flex;
+    align-items: center;
+}
+
+.cairn-npc-sheet .for-hire-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
+    font-variant: small-caps;
+    font-size: 15px;
+    color: var(--ab-ink-muted, inherit);
+    cursor: pointer;
+}
+
+.cairn-npc-sheet .for-hire-check {
+    flex: 0 0 auto;
+    margin: 0;
+}
+
+.cairn-npc-sheet .name-line,
+.cairn-npc-sheet .profession-line,
+.cairn-npc-sheet .day-rate-line {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -1818,47 +2146,67 @@ textarea.omen-input {
 
 /* .name-input positions itself with grid-column on the character sheet; under
    the flex stack above it needs to stretch instead. */
-.hireling .name-input,
-.hireling .profession-input {
+.cairn-npc-sheet .name-input,
+.cairn-npc-sheet .profession-input {
     flex: 1 1 auto;
     min-width: 0;
 }
 
 /* Day rate is a short number ("30") with a trailing "gp/day", so the input stays
    narrow rather than stretching like the profession field. */
-.hireling .day-rate-input {
+.cairn-npc-sheet .day-rate-input {
     flex: 0 0 auto;
     width: 56px;
     min-width: 0;
 }
 
-.hireling .day-rate-suffix {
+.cairn-npc-sheet .day-rate-suffix {
     flex: 0 0 auto;
     opacity: 0.7;
     font-size: 12px;
 }
 
-.hireling .name-roll,
-.hireling .profession-roll {
+.cairn-npc-sheet .name-roll,
+.cairn-npc-sheet .profession-roll {
     flex: 0 0 auto;
     cursor: pointer;
     opacity: 0.55;
     font-size: 12px;
 }
 
-.hireling .name-roll:hover,
-.hireling .profession-roll:hover {
+.cairn-npc-sheet .name-roll:hover,
+.cairn-npc-sheet .profession-roll:hover {
     opacity: 1;
 }
 
-/* HP joins STR/DEX/WIL as a fourth box in the abilities column, so that column
-   holds four counters. Let the middle grid row grow to fit them. */
-.hireling .charater-sheet-grid {
-    grid-template-rows: minmax(140px, auto) auto 1fr;
+/* Row 1 sizes to the name stack, which is taller or shorter than a character's
+   header depending on whether "For Hire" is ticked (the day-rate row appears), so
+   it is `auto` rather than the character sheet's fixed track. */
+.cairn-npc-sheet .charater-sheet-grid {
+    grid-template-rows: auto auto 1fr;
 }
 
-.hireling .character-sheet-section-abilities {
-    grid-template-rows: repeat(4, 36px);
+/* Three rows, not four. HP used to be a fourth box in this column and the track
+   count was never brought back down when it moved up to the vitals line, leaving
+   a 36px phantom row under WIL. */
+.cairn-npc-sheet .character-sheet-section-abilities {
+    grid-template-rows: repeat(3, 36px);
+}
+
+/* Description tab: the Features list, then a labelled description editor. The
+   heading exists so the single remaining editor reads as the description rather
+   than as a second, unlabelled notes box (the Notes tab owns free-form notes). */
+.cairn-npc-sheet .npc-description-section {
+    display: flex;
+    flex-direction: column;
+    min-height: 220px;
+}
+
+/* Typography comes from `.cairn-section-label`; this adds only the rule line
+   under it, which the Features header gets from its own wrapper instead. */
+.cairn-npc-sheet .npc-description-label {
+    border-bottom: 1px solid var(--ab-rule);
+    margin: 0 0 4px 0;
 }
 
 
@@ -1950,14 +2298,14 @@ textarea.omen-input {
  * Counter value vs. max, container-tab states, fatigue rows, tab padding.    *
  ******************************************************************************/
 
-/* Current vs. max: the current value (left) is bold black; the max (right) is
-   smaller and grey, and the "/" separator is a point LARGER than the max (13px
-   vs 12px) so it reads a touch stronger as the divider while sharing the max's
-   grey; the pair still trails the bold current value. The bump is safe because
-   the counter is a fixed 36px, so a bigger "/" does not grow the box. Reinforces
-   the left=current convention; the inputs' title tooltips name each explicitly on
-   hover. The grey (#6b6559) sits on the light parchment, so it is darker than a
-   mid-grey would be for legibility while staying clearly below the current value. */
+/* Current vs. max: the current value (left) is bold ink; the max (right) is
+   smaller and --ab-faint, and the "/" separator is a point LARGER than the max
+   (13px vs 12px) so it reads a touch stronger as the divider while sharing the
+   max's colour; the pair still trails the bold current value. The bump is safe
+   because the counter is a fixed 36px, so a bigger "/" does not grow the box.
+   Reinforces the left=current convention; the inputs' title tooltips name each
+   explicitly on hover. --ab-faint is deliberately a step short of a mid-grey on
+   either scheme -- legible, but clearly subordinate to the current value. */
 .hp-counter .resource-input-wrapper input[name$=".value"],
 .character-sheet-section-abilities .resource-input-wrapper input[name$=".value"] {
     font-weight: bold;
@@ -1966,13 +2314,13 @@ textarea.omen-input {
 .hp-counter .resource-input-wrapper input[name$=".max"],
 .character-sheet-section-abilities .resource-input-wrapper input[name$=".max"] {
     font-size: 12px;
-    color: #6b6559;
+    color: var(--ab-faint);
 }
 
 .hp-counter .resource-input-wrapper span,
 .character-sheet-section-abilities .resource-input-wrapper span {
     font-size: 13px;
-    color: #6b6559;
+    color: var(--ab-faint);
 }
 
 /* Containers tab: empty state nudges you to the market, and the homebrew
@@ -2001,16 +2349,16 @@ textarea.omen-input {
 }
 
 .container-custom:hover {
-    color: #12a3b4;
+    color: var(--ab-accent);
 }
 
 /* Fatigue fills inventory slots; give those rows the Die of Fate's teal
-   signature (a tint plus the same #12a3b4 glow) so a player can see at a glance
-   how much of their load is fatigue. */
+   signature (an --ab-accent-wash tint plus the same --ab-accent glow) so a
+   player can see at a glance how much of their load is fatigue. */
 .fatigue-row {
-    background: rgba(18, 163, 180, 0.12);
-    box-shadow: 0 0 8px #12a3b4;
-    text-shadow: 0 0 8px #12a3b4;
+    background: var(--ab-accent-wash);
+    box-shadow: 0 0 8px var(--ab-accent);
+    text-shadow: 0 0 8px var(--ab-accent);
     border-radius: 2px;
 }
 
@@ -2032,7 +2380,7 @@ textarea.omen-input {
 .cairn-compat-footer {
     margin-top: 18px;
     padding-top: 12px;
-    border-top: 1px solid rgba(0, 0, 0, 0.15);
+    border-top: 1px solid var(--ab-hairline);
     text-align: center;
 }
 
@@ -2073,7 +2421,7 @@ textarea.omen-input {
 
 .background-editor h3 {
     margin: 12px 0 4px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+    border-bottom: 1px solid var(--ab-edge);
     font-size: 1.05em;
 }
 
@@ -2119,7 +2467,7 @@ textarea.omen-input {
 
 /* Starting gear rows + table-option chips. */
 .bg-gear-list {
-    border: 1px dashed rgba(0, 0, 0, 0.3);
+    border: 1px dashed var(--ab-edge);
     border-radius: 4px;
     padding: 4px;
 }
@@ -2140,7 +2488,7 @@ textarea.omen-input {
 }
 
 .bg-gear-item.bg-missing .bg-gear-name {
-    color: #a11;
+    color: var(--ab-error);
 }
 
 .bg-gear-tags {
@@ -2151,7 +2499,7 @@ textarea.omen-input {
 }
 
 .bg-snapshot-badge {
-    color: #2a6;
+    color: var(--ab-ok);
 }
 
 .bg-drop-hint {
@@ -2186,12 +2534,12 @@ textarea.omen-input {
 .bg-gear-remove:hover,
 .bg-option-item-remove:hover {
     opacity: 1;
-    color: #a11;
+    color: var(--ab-error);
 }
 
 /* The two d6 tables. */
 .bg-edit-table {
-    border: 1px solid rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--ab-edge);
     border-radius: 4px;
     padding: 6px;
     margin: 6px 0;
@@ -2239,7 +2587,7 @@ textarea.omen-input {
 .bg-option-items {
     flex: 1;
     min-height: 24px;
-    border: 1px dashed rgba(0, 0, 0, 0.25);
+    border: 1px dashed var(--ab-edge);
     border-radius: 4px;
     padding: 2px 4px;
     display: flex;
@@ -2254,13 +2602,13 @@ textarea.omen-input {
     gap: 3px;
     padding: 1px 6px;
     border-radius: 10px;
-    background: rgba(0, 0, 0, 0.08);
+    background: var(--ab-wash-strong);
     font-size: 0.82em;
     white-space: nowrap;
 }
 
 .bg-item-chip.is-snapshot {
-    background: rgba(34, 170, 102, 0.18);
+    background: var(--ab-ok-wash);
 }
 
 /* Background authoring toolbar (Test ×10 / Duplicate) + Test-×10 report dialog. */
@@ -2269,7 +2617,7 @@ textarea.omen-input {
     gap: 12px;
     margin: 2px 0 8px;
     padding-bottom: 6px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+    border-bottom: 1px solid var(--ab-edge);
 }
 
 .bg-edit-toolbar.readonly {
@@ -2291,11 +2639,11 @@ textarea.omen-input {
 
 .bg-preview h4 {
     margin: 10px 0 2px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+    border-bottom: 1px solid var(--ab-hairline);
 }
 
 .bg-preview-ok {
-    color: #1a7a3a;
+    color: var(--ab-ok-strong);
     font-weight: bold;
 }
 
@@ -2310,11 +2658,11 @@ textarea.omen-input {
 }
 
 .bg-preview-error {
-    color: #a11;
+    color: var(--ab-error);
 }
 
 .bg-preview-warn {
-    color: #9a6a00;
+    color: var(--ab-warn);
 }
 
 .bg-preview-gear,
@@ -2342,7 +2690,7 @@ textarea.omen-input {
 }
 
 .bg-preview-gold {
-    color: #9a6a00;
+    color: var(--ab-warn);
     font-weight: bold;
 }
 
@@ -2357,18 +2705,39 @@ textarea.omen-input {
 }
 
 .bg-kind.ok {
-    color: #2a6;
+    color: var(--ab-ok);
 }
 
 .bg-kind.bad {
-    color: #a11;
+    color: var(--ab-error);
 }
 
 .bg-kind.warn {
-    color: #9a6a00;
+    color: var(--ab-warn);
 }
 
 .bg-source-fixed {
     font-weight: bold;
     align-self: center;
+}
+
+/* Kettlewright import: the pre-flight options dialog. Deliberately plain — this
+   is a Foundry dialog, so it wears the core skin; only the checkbox row needs
+   help, since a bare <input> + <span> otherwise sits misaligned. */
+.kwi-options .kwi-check {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin: 10px 0 4px;
+    cursor: pointer;
+}
+.kwi-options .kwi-check input {
+    flex: 0 0 auto;
+    margin: 0;
+}
+.kwi-options .kwi-hint {
+    margin: 0 0 4px 26px;
+    font-size: 12px;
+    font-style: italic;
+    color: var(--ab-muted);
 }

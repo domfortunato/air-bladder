@@ -1,0 +1,28 @@
+_id: fmrvDSYEyBr6ef2n
+name: Lightsucker Candle
+type: item
+img: systems/air-bladder/icons/generic-item.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    relicSource: srd-2e
+system:
+  description: 'Once lit, this black tallow wax sheds darkness rather than light, even in the brightest of days.'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 3
+    max: 3
+  relic: true
+  recharge: ''
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!fmrvDSYEyBr6ef2n'

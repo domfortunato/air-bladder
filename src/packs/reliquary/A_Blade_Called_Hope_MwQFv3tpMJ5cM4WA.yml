@@ -1,0 +1,31 @@
+_id: MwQFv3tpMJ5cM4WA
+name: A Blade Called Hope
+type: weapon
+img: systems/air-bladder/icons/weapons.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    relicSource: srd-2e
+system:
+  description: 'A thin, curved sword that glows with faint light, visible only in total darkness. When bathed in heavy sunlight, its first attack is Enhanced.'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+  relic: true
+  recharge: ''
+  damageFormula: d6
+  criticalDamage: ''
+  blast: false
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!MwQFv3tpMJ5cM4WA'

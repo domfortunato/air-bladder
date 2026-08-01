@@ -2,17 +2,20 @@
 /**
  * Import filled translator TSVs back into the shipped JSON:
  *   tools/i18n/tsv/ui.tsv         → lang/<lang>.json          (UI; flat dotted keys)
- *   tools/i18n/tsv/content-*.tsv  → lang/content/<lang>.json  (overlay: {ns:{normKey(en):es}})
+ *   tools/i18n/tsv/content-*.tsv  → lang/content/<lang>.json  (overlay: {ns:{normKey(en):translation}})
  *
- * A validating gate, not a dumb writer. A row with a non-empty `es` is REJECTED
- * (named, counted) when it drops/adds a {placeholder}, changes the HTML tag
- * multiset, or mangles an @Enricher[target]; a row marked status=done with an
- * empty es is also an error. Clean rows are MERGED onto the existing JSON — never
- * replacing it — so importing a partial TSV only updates the rows it carries and
- * never deletes prior work. Empty-es rows are skipped (English fallback, the
- * translator's core promise). It WARNS (does not block) when es == en (untranslated
- * or an intentional proper noun) or when es drops a trailing space / em-dash that
- * en carries — the "Spellbook — " trap.
+ * A validating gate, not a dumb writer. A row with a non-empty translation is
+ * REJECTED (named, counted) when it drops/adds a {placeholder}, changes the HTML
+ * tag multiset, or mangles an @Enricher[target]; a row marked status=done with an
+ * empty translation is also an error. Clean rows are MERGED onto the existing JSON
+ * — never replacing it — so importing a partial TSV only updates the rows it
+ * carries and never deletes prior work. Untranslated rows are skipped (English
+ * fallback, the translator's core promise). It WARNS (does not block) when the
+ * translation equals the English (untranslated or an intentional proper noun) or
+ * drops a trailing space / em-dash that en carries — the "Spellbook — " trap.
+ *
+ * The TSV's translation column is named after --lang, so the same tooling serves
+ * any locale; readTSV exposes it as `tr` regardless.
  *
  * Exits non-zero if any row was rejected, so it can gate a release.
  *
@@ -49,7 +52,7 @@ const trailingTrap = (en, es) =>
 const errors = [];
 const warnings = [];
 let imported = 0;
-let skipped = 0; // empty es (todo) — legitimately left to English
+let skipped = 0; // empty translation (todo) — legitimately left to English
 let staleIgnored = 0; // status=stale rows — review-only, never re-imported
 
 // Accumulate into in-memory targets; write once at the end (or not, if --dry).
@@ -76,33 +79,33 @@ if (!tsvFiles.length) {
 
 for (const file of tsvFiles.sort()) {
   const isUI = file === "ui.tsv";
-  const rows = readTSV(path.join(TSV_DIR, file));
+  const rows = readTSV(path.join(TSV_DIR, file), LANG);
   for (const row of rows) {
-    const { key, en, es, status } = row;
+    const { key, en, tr, status } = row;
     const where = `${file} · ${isUI ? key : `${key} · "${en.slice(0, 40)}${en.length > 40 ? "…" : ""}"`}`;
 
     // Stale rows (orphaned by a source change) are informational only — never write
     // them back, or a removed/renamed key would return to the shipped JSON.
     if (status === "stale") { staleIgnored++; continue; }
 
-    if (!es) {
-      if (status === "done") errors.push(`${where}: status=done but es is empty`);
+    if (!tr) {
+      if (status === "done") errors.push(`${where}: status=done but ${LANG} is empty`);
       else skipped++;
       continue;
     }
 
-    const errs = checkPair(en, es);
+    const errs = checkPair(en, tr);
     if (errs.length) {
       for (const e of errs) errors.push(`${where}: ${e}`);
       continue; // reject the row — don't stage a broken translation
     }
 
-    if (es === en) warnings.push(`${where}: es == en (untranslated, or intentional proper noun)`);
-    if (trailingTrap(en, es)) warnings.push(`${where}: es drops a trailing space/em-dash that en carries`);
+    if (tr === en) warnings.push(`${where}: ${LANG} == en (untranslated, or intentional proper noun)`);
+    if (trailingTrap(en, tr)) warnings.push(`${where}: ${LANG} drops a trailing space/em-dash that en carries`);
 
-    if (isUI) ui[key] = es;
+    if (isUI) ui[key] = tr;
     else {
-      (content[key] ??= {})[normalizeKey(en)] = es;
+      (content[key] ??= {})[normalizeKey(en)] = tr;
     }
     imported++;
   }
@@ -111,7 +114,7 @@ for (const file of tsvFiles.sort()) {
 // ---- Report ----------------------------------------------------------------
 console.log(`\nimport-i18n → ${LANG}  (from ${path.relative(ROOT, TSV_DIR)}/, ${tsvFiles.length} file(s))`);
 console.log(`  imported : ${imported}`);
-console.log(`  skipped  : ${skipped}   (empty es → English fallback)`);
+console.log(`  skipped  : ${skipped}   (untranslated → English fallback)`);
 if (staleIgnored) console.log(`  stale    : ${staleIgnored}   (review-only, not imported)`);
 console.log(`  warnings : ${warnings.length}`);
 console.log(`  errors   : ${errors.length}`);

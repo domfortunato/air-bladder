@@ -1,0 +1,29 @@
+_id: qijMwyqzfPkkbFm6
+name: Tupshead Crown
+type: armor
+img: systems/air-bladder/icons/armor.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    relicSource: srd-2e
+system:
+  description: 'A beautifully rendered ram''s head helm wrought from tough alpine oak. The horns can be used as weapons (d6+d6).'
+  weightless: false
+  equipped: false
+  bulky: true
+  cost: 0
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+  relic: true
+  recharge: ''
+  armor: 1
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!qijMwyqzfPkkbFm6'

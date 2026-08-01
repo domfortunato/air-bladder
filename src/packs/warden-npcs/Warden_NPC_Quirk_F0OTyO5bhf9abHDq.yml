@@ -5,262 +5,222 @@ description: Cairn 2e NPC quirk (Warden's Guide, NPC Tables).
 results:
   - _id: wFU81361hn04zOOn
     type: text
-    text: Alert
+    description: Alert
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 1
       - 1
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!F0OTyO5bhf9abHDq.wFU81361hn04zOOn'
   - _id: U2g6Jda5Tb4GoYyV
     type: text
-    text: Bald
+    description: Bald
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 2
       - 2
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!F0OTyO5bhf9abHDq.U2g6Jda5Tb4GoYyV'
   - _id: MkXE4izqPaOwH7h2
     type: text
-    text: Bright Eyes
+    description: Bright Eyes
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 3
       - 3
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!F0OTyO5bhf9abHDq.MkXE4izqPaOwH7h2'
   - _id: HptXI4vORCjMhAcG
     type: text
-    text: Broad Face
+    description: Broad Face
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 4
       - 4
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!F0OTyO5bhf9abHDq.HptXI4vORCjMhAcG'
   - _id: sc9LAtoiKaYBEKI8
     type: text
-    text: Crooked Teeth
+    description: Crooked Teeth
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 5
       - 5
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!F0OTyO5bhf9abHDq.sc9LAtoiKaYBEKI8'
   - _id: 0wdMhiOTDkAB4zbR
     type: text
-    text: Gaunt
+    description: Gaunt
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 6
       - 6
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!F0OTyO5bhf9abHDq.0wdMhiOTDkAB4zbR'
   - _id: aleqr5t3EB2ToS8d
     type: text
-    text: Good Posture
+    description: Good Posture
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 7
       - 7
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!F0OTyO5bhf9abHDq.aleqr5t3EB2ToS8d'
   - _id: TFPeROFd08QcqKBo
     type: text
-    text: Grimy
+    description: Grimy
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 8
       - 8
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!F0OTyO5bhf9abHDq.TFPeROFd08QcqKBo'
   - _id: ZbwB1GtpwmqxDOz4
     type: text
-    text: Harsh Voice
+    description: Harsh Voice
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 9
       - 9
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!F0OTyO5bhf9abHDq.ZbwB1GtpwmqxDOz4'
   - _id: 4uKCgzJpAzWD8JyH
     type: text
-    text: Heavy Brow
+    description: Heavy Brow
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 10
       - 10
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!F0OTyO5bhf9abHDq.4uKCgzJpAzWD8JyH'
   - _id: PHRUUjFBBC3vb4SG
     type: text
-    text: Limps
+    description: Limps
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 11
       - 11
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!F0OTyO5bhf9abHDq.PHRUUjFBBC3vb4SG'
   - _id: FJ1SpAABhXKaCiiE
     type: text
-    text: Missing Ear
+    description: Missing Ear
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 12
       - 12
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!F0OTyO5bhf9abHDq.FJ1SpAABhXKaCiiE'
   - _id: lpg4uYynJbPIklWn
     type: text
-    text: Muscular
+    description: Muscular
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 13
       - 13
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!F0OTyO5bhf9abHDq.lpg4uYynJbPIklWn'
   - _id: Tkmv7VkViK9yG1DA
     type: text
-    text: Notable Hair
+    description: Notable Hair
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 14
       - 14
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!F0OTyO5bhf9abHDq.Tkmv7VkViK9yG1DA'
   - _id: jizDhnmzzQOU0qS5
     type: text
-    text: Pleasant Voice
+    description: Pleasant Voice
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 15
       - 15
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!F0OTyO5bhf9abHDq.jizDhnmzzQOU0qS5'
   - _id: d5OiXrCfMaFTYYOT
     type: text
-    text: Squints
+    description: Squints
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 16
       - 16
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!F0OTyO5bhf9abHDq.d5OiXrCfMaFTYYOT'
   - _id: HWCsS1calcSpZwmg
     type: text
-    text: Strong
+    description: Strong
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 17
       - 17
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!F0OTyO5bhf9abHDq.HWCsS1calcSpZwmg'
   - _id: HHvl9euCBiPiNdOx
     type: text
-    text: Thick Eyebrows
+    description: Thick Eyebrows
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 18
       - 18
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!F0OTyO5bhf9abHDq.HHvl9euCBiPiNdOx'
   - _id: fFgkesOFOhcxYdU8
     type: text
-    text: Tired
+    description: Tired
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 19
       - 19
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!F0OTyO5bhf9abHDq.fFgkesOFOhcxYdU8'
   - _id: R1zLxckK6jikoEsv
     type: text
-    text: Young
+    description: Young
     img: icons/svg/d20-black.svg
     weight: 1
     range:
       - 20
       - 20
     drawn: false
-    documentCollection: ''
-    documentId: null
     flags: {}
     _key: '!tables.results!F0OTyO5bhf9abHDq.R1zLxckK6jikoEsv'
 formula: 1d20

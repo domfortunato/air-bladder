@@ -1,0 +1,28 @@
+_id: YCixoPW1AJGaH8bs
+name: Veilsilk Grip
+type: item
+img: systems/air-bladder/icons/generic-item.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    relicSource: srd-2e
+system:
+  description: A hand wearing this glove can phase through solid objects.
+  weightless: true
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 1
+    max: 1
+  relic: true
+  recharge: Snip off one of the fingers.
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!YCixoPW1AJGaH8bs'

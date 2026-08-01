@@ -1,0 +1,94 @@
+{
+    "armor": "0",
+    "background": "Mountebank",
+    "bonds": "One of your ancestors wronged a Moss Witch, who cursed their bloodline. Your visage causes mirrors to shatter. You’ve noticed that the shards can sometimes reveal illusions.",
+    "containers": [
+        {
+            "id": 0,
+            "name": "Main",
+            "slots": 10
+        }
+    ],
+    "custom_background": "",
+    "custom_image": false,
+    "custom_name": "",
+    "deprived": false,
+    "description": "Wits are your sharpest weapon, a facade your strongest shield. But when you do lose, you lose badly.",
+    "dexterity": 13,
+    "dexterity_max": 13,
+    "gold": 0,
+    "hp": 6,
+    "hp_max": 6,
+    "id": 8559,
+    "image_url": "default-portrait.webp",
+    "items": [
+        {
+            "description": "",
+            "id": "3ccb2ab434a545cc872e91c00ddd12d1",
+            "location": 0,
+            "name": "Surgeon's Soap",
+            "tags": [
+                "uses"
+            ],
+            "uses": 4
+        },
+        {
+            "description": "-",
+            "id": "b8dbd3b137fd49ec87071e501ed392ce",
+            "location": 0,
+            "name": "Rations",
+            "tags": [
+                "uses"
+            ],
+            "uses": 3
+        },
+        {
+            "description": "-",
+            "id": "3175005769ce4b89b40bf9a9de5dda3c",
+            "location": 0,
+            "name": "Torch",
+            "tags": [
+                "uses"
+            ],
+            "uses": 3
+        },
+        {
+            "": [],
+            "description": "",
+            "id": "203a10c290a444e0b5048299fb424746",
+            "location": 0,
+            "name": "Trick Playing Cards",
+            "tags": []
+        },
+        {
+            "description": "",
+            "id": "1ba1a816e7734a9ea3734f7b240c50d1",
+            "location": 0,
+            "name": "Fancy Hat",
+            "petty": [],
+            "tags": [
+                "petty"
+            ]
+        },
+        {
+            "d6": [],
+            "description": "",
+            "id": "ad02882b7b9f4f0ba02b855ea93ffca5",
+            "location": 0,
+            "name": "Cane Sword",
+            "tags": [
+                "d6"
+            ]
+        }
+    ],
+    "name": "Solene",
+    "notes": "How was your fraud exposed?\nYou were cursed by a hedgewitch for fooling some innocent village folk. Magic acts unpredictably in your hands (WIL save to avoid disaster). If you are the target of magic, the same applies to its wielder.\n\nWhat keepsake could always identify you?\nSurgeon's Soap: A lye and ash block that makes skin temporarily transparent, revealing the anatomy within. 4 uses.",
+    "omens": "There is a village known far and wide for its impressive 'mother tree', said to shelter the town’s secrets in its boughs. Recently, it has begun bleeding red sap, worrying the elders.",
+    "panicked": false,
+    "scars": "",
+    "strength": 5,
+    "strength_max": 5,
+    "traits": "You have a Stout Physique, Birthmarked Skin, and Long Hair. Your Face is Pale, your Speech Precise. You have Rancid Clothing. You are Honorable and Craven. You are 36 years old.",
+    "willpower": 14,
+    "willpower_max": 14
+}

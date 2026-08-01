@@ -11,17 +11,24 @@
  */
 export const SETTINGS_NS = "air-bladder";
 
-/** Every key registered below, in registration order — used by the migration. */
+/**
+ * Every key registered below, kept in registration order.
+ *
+ * The order is a maintenance convention so this list mirrors registerSettings()
+ * and a missing key is easy to spot -- it is NOT load-bearing. The migration
+ * iterates it as an unordered set (each key is copied independently), and the dev
+ * probes only filter and count it. Registration order IS load-bearing, but that
+ * lives in registerSettings(), not here.
+ */
 export const SETTING_KEYS = [
   // General
   "use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
   "show-features-section", "show-containers-tab", "use-warden-title",
-  "min-age",
   // Character Generation
   "content-source-2e", "content-source-custom", "content-source-barebones",
   "barebones-failed-career",
   "show-omens-barebones", "show-bonds-barebones", "show-generate-header",
-  "custom-portrait-folder", "custom-portrait-list",
+  "custom-portrait-folder", "custom-portrait-list", "min-age",
   // Inventory & Encumbrance
   "max-equip-slots", "character-inventory-limit", "use-gold-threshold",
   "show-gold-not-cost", "show-container-actors", "enable-inventory-reorder",
@@ -37,9 +44,16 @@ export const SETTING_KEYS = [
  * so it cannot clobber a deliberate change. The old documents are left in place —
  * they are inert once unregistered, and keeping them means a mis-migration is
  * recoverable.
+ *
+ * Single-writer, like the two `ready` migrations in cairn.js. `isGM` alone is not
+ * enough: with two GMs connected, both pass it and both run this concurrently, and
+ * each `has()` check reads a store that the other's write has not reached yet. Two
+ * Setting DOCUMENTS then exist for one key — Foundry keeps the first it indexes, so
+ * the second is permanently shadowed and the losing GM's value is silently gone.
  */
 export const migrateSettingsNamespace = async () => {
   if (!game.user?.isGM) return;
+  if (game.users.activeGM && game.users.activeGM !== game.user) return;
   const store = game.settings.storage.get("world");
   const has = (key) => !!store.find((s) => s.key === key);
   const moved = [];
@@ -71,6 +85,25 @@ export const migrateSettingsNamespace = async () => {
  * then Inventory & Encumbrance.
  */
 export const registerSettings = () => {
+  // Not a setting anyone sets: the completion marker for the forHire migration.
+  // `config: false` means it is never rendered, so it cannot disturb the positional
+  // grouping described above no matter where it sits — it is first only so the
+  // three visible blocks stay contiguous and easy to read.
+  //
+  // A marker rather than a state test, because `system.forHire` is a CHECKBOX. The
+  // three sibling migrations get away with selecting on current state because their
+  // "before" value is unreachable once migrated (a remapped container is no longer
+  // one of the legacy art paths; a .svg icon is never .png again). Unticking
+  // "For hire" puts an actor straight back into the selection set, so the migration
+  // re-ticked it on every world load and the Warden could not turn it off at all.
+  // Observed: untick through the sheet, reload, and it is back on.
+  game.settings.register(SETTINGS_NS, "forhire-migrated", {
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false,
+  });
+
   // ---- General -------------------------------------------------------------
   game.settings.register(SETTINGS_NS, "use-panic", {
     name: game.i18n.localize("CAIRN.Settings.UsePanic.label"),
@@ -144,23 +177,6 @@ export const registerSettings = () => {
     type: Boolean,
     default: true,
     requiresReload: true,
-  });
-
-  // A minimum age applied to EVERY generated character, no toggle. Age rolls as
-  // 2d20 + 10 (12..50) and the final age is the greater of that roll and this
-  // floor, so no character comes out younger than the Warden wants. Always in
-  // effect (default 21); to switch it off, set it below 12 -- the lowest a
-  // 2d20 + 10 roll can produce -- so the floor never binds. Applied in
-  // character-generator.js rollAge, the single choke point for generation AND
-  // the sheet's age re-roll, so it needs no reload.
-  game.settings.register(SETTINGS_NS, "min-age", {
-    name: game.i18n.localize("CAIRN.Settings.MinAge.label"),
-    hint: game.i18n.localize("CAIRN.Settings.MinAge.hint"),
-    scope: "world",
-    config: true,
-    type: Number,
-    default: 21,
-    requiresReload: false,
   });
 
   // ---- Character Generation ------------------------------------------------
@@ -265,6 +281,30 @@ export const registerSettings = () => {
     type: String,
     default: "air-bladder-portraits",
     requiresReload: false,
+    // requiresReload: false was a claim nothing made true. Both functions that act
+    // on this setting ran only in the `ready` hook and from the gallery's GM
+    // refresh button, so changing the folder did NOTHING: no reload prompt, the new
+    // folder was never created, and the cached custom-portrait-list still held the
+    // OLD folder's files. Every character generated afterwards silently drew from
+    // the old folder, and if it had been moved the assigned img paths 404'd on both
+    // sheet and token.
+    //
+    // onChange fires on every client, so this is GM-gated: scanning a folder needs
+    // FILES_BROWSE and writing custom-portrait-list is a world-setting write. The
+    // work happens once, on the GM who made the change, and every other client
+    // picks the new list up through the setting.
+    //
+    // Imported dynamically to avoid a static cycle — character-generator.js already
+    // imports SETTINGS_NS from here.
+    onChange: async () => {
+      if (!game.user?.isGM) return;
+      const gen = await import("./character-generator.js");
+      await gen.ensureCustomPortraitFolder();
+      const files = await gen.refreshCustomPortraits();
+      ui.notifications.info(
+        game.i18n.format("CAIRN.Notify.PortraitFolderScanned", { count: files.length })
+      );
+    },
   });
 
   // The scanned file list for the folder above, cached so players (who lack the
@@ -275,6 +315,29 @@ export const registerSettings = () => {
     config: false,
     type: Array,
     default: [],
+    requiresReload: false,
+  });
+
+  // A minimum age applied to EVERY generated character, no toggle. Age rolls as
+  // 2d20 + 10 (12..50) and the final age is the greater of that roll and this
+  // floor, so no character comes out younger than the Warden wants. Always in
+  // effect (default 21); to switch it off, set it below 12 -- the lowest a
+  // 2d20 + 10 roll can produce -- so the floor never binds. Applied in
+  // character-generator.js rollAge, the single choke point for generation AND
+  // the sheet's age re-roll, so it needs no reload.
+  //
+  // Grouped here rather than under General (where it sat until 2026-07-28): it is
+  // a parameter of the character being made, and a Warden looks for it beside the
+  // rest of generation. It also floors the age of an IMPORTED Kettlewright
+  // character (kettlewright-import.js), which is a secondary consumer, not the
+  // setting's purpose. Placement is positional -- see the ordering note above.
+  game.settings.register(SETTINGS_NS, "min-age", {
+    name: game.i18n.localize("CAIRN.Settings.MinAge.label"),
+    hint: game.i18n.localize("CAIRN.Settings.MinAge.hint"),
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 21,
     requiresReload: false,
   });
 

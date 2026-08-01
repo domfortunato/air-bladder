@@ -1,0 +1,28 @@
+_id: 6Ytz5NECEQjgQTgl
+name: 'Footpad''s Friend'
+type: item
+img: systems/air-bladder/icons/generic-item.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    relicSource: srd-2e
+system:
+  description: 'Soft leather shoes that adapt to fit any foot size. Leave behind footprints that scatter and turn in a confusing manner, making tracking nigh-impossible.'
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+  relic: true
+  recharge: ''
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!6Ytz5NECEQjgQTgl'

@@ -3,7 +3,7 @@ name: Flail Snail
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.png
+img: systems/air-bladder/icons/monster.svg
 items:
   - _id: tzMgIfa2IgUnWKrt
     name: Tentacles

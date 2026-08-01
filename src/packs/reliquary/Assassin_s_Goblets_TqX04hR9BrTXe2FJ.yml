@@ -1,0 +1,28 @@
+_id: TqX04hR9BrTXe2FJ
+name: 'Assassin''s Goblets'
+type: item
+img: systems/air-bladder/icons/generic-item.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    relicSource: srd-2e
+system:
+  description: A pair of fragile wine flutes. Any liquid poured into one is swapped with the other.
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+  relic: true
+  recharge: ''
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!TqX04hR9BrTXe2FJ'

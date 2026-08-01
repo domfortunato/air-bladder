@@ -20,7 +20,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
-import { iconForItem, iconForTransport, iconForActor, ICON_DIR } from "../../module/icons.js";
+import { iconForItem, iconForTransport, iconForActor, ICON_DIR, TOOLS_ICON } from "../../module/icons.js";
 
 const YAML = createRequire(import.meta.url)("js-yaml");
 
@@ -28,15 +28,19 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 const DRY = process.argv.includes("--dry");
 
 // Item + Actor packs. Every RollTable pack is excluded.
+// `reliquary` is stamped like any other item pack, which is the point of relics
+// being a FLAG rather than a type: iconForItem sees `weapon`/`armor`/`item` and
+// hands a relic sword the sword and a relic helm the shield, with no relic-specific
+// art to invent. (Obliteration Scroll gets the scroll icon off its name, too.)
 const ITEM_PACKS = ["armor", "weapons", "spellbooks", "more-spellbooks", "tools",
-  "expeditionary-gear", "extra", "market-goods", "trinkets", "transports",
+  "expeditionary-gear", "market-goods", "trinkets", "transports", "reliquary",
   "background-items", "backgrounds-2e", "backgrounds-barebones"];
 const ACTOR_PACKS = ["monsters"];
 
 /** The class icon for a doc, given its pack. Mirrors module/icons.js. */
 const iconForDoc = (pack, doc) => {
   if (ACTOR_PACKS.includes(pack)) return iconForActor(doc.type, doc.name);
-  if (pack === "tools") return `${ICON_DIR}/tools.png`;                 // whole pack is tools
+  if (pack === "tools") return TOOLS_ICON;                              // whole pack is tools
   if (pack === "transports") return iconForTransport(doc.name, doc.system?.transportKind);
   return iconForItem(doc.type, doc.name);                              // null for backgrounds
 };

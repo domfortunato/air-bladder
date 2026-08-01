@@ -53,10 +53,21 @@ try {
     // 1. Grouping, per edition.
     const g2e = await gen.getBackgroundsByArchetype("2e");
     const gbb = await gen.getBackgroundsByArchetype("barebones");
+    // The 2e pool is a UNION of the shipped pack and the Warden's own backgrounds,
+    // so its size is not a constant — it grows by one every time someone uses the
+    // authoring sheet, which is a shipped feature. This asserted `=== 20` and so
+    // went red in any world that had ever authored one, blaming the grouping.
+    // Assert instead that every SHIPPED background survives the grouping, and read
+    // the roster from the pack so it cannot drift when the content changes.
+    const shipped2e = (await game.packs.get("air-bladder.backgrounds-2e")?.getIndex())
+      ?.contents.map((d) => d.name) ?? [];
+    const seen2e = new Set(g2e.flatMap((g) => g.backgrounds).map((b) => b.name));
     const grouping = {
       archetypes: g2e.map((g) => g.archetype),
       grouped2e: g2e.length > 1 && g2e.every((g) => g.archetype),
       count2e: g2e.reduce((n, g) => n + g.backgrounds.length, 0),
+      shipped2e: shipped2e.length,
+      missingShipped: shipped2e.filter((n) => !seen2e.has(n)),
       flatBarebones: gbb.length === 1 && gbb[0].archetype === "",
       countBB: gbb[0]?.backgrounds.length ?? 0,
       bbSorted: gbb[0]?.backgrounds.every((b, i, a) => i === 0 || a[i - 1].name.localeCompare(b.name) <= 0),
@@ -236,7 +247,12 @@ try {
     fail(r.error);
   } else {
     const G = r.grouping;
-    G.grouped2e && G.count2e === 20 ? ok(`2e groups by archetype: ${G.archetypes.join(", ")} (${G.count2e} backgrounds)`) : fail(`2e grouping wrong: ${JSON.stringify(G.archetypes)}`);
+    G.grouped2e && G.shipped2e && !G.missingShipped.length
+      ? ok(`2e groups by archetype: ${G.archetypes.join(", ")} (${G.shipped2e} shipped`
+        + `${G.count2e > G.shipped2e ? ` + ${G.count2e - G.shipped2e} custom` : ""})`)
+      : fail(`2e grouping wrong: groups ${JSON.stringify(G.archetypes)}, `
+        + `${G.shipped2e} shipped background(s), missing from the grouping: `
+        + `${JSON.stringify(G.missingShipped)}`);
     G.flatBarebones && G.countBB === 100 ? ok("Barebones comes back as one flat group of 100") : fail(`Barebones grouping wrong: ${G.countBB} in ${G.flatBarebones ? 1 : "many"} groups`);
     G.sorted2e && G.bbSorted ? ok("every group is name-sorted") : fail("a group is not name-sorted");
 

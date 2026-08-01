@@ -6,11 +6,11 @@
  * one is checked as GEOMETRY or COMPUTED STYLE — never by reading the stylesheet
  * back, which only proves a rule was written, not that it applied or won.
  *
- * Rolls a real character (the header buttons and the Gold counter only exist on
- * a generated one) and deletes it afterwards.
+ * Rolls a real character (the Gold counter only exists on a generated one) and
+ * deletes it afterwards.
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, dismissChrome } from "./lib.mjs";
 
 const browser = await chromium.launch();
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
@@ -52,7 +52,7 @@ try {
     await actor.sheet.render(true);
     await new Promise((res) => setTimeout(res, 1200));
 
-    const root = actor.sheet.element[0];
+    const root = actor.sheet.element;
     const box = (sel) => {
       const el = root.querySelector(sel);
       if (!el) return null;
@@ -63,6 +63,22 @@ try {
       const el = root.querySelector(sel);
       return el ? getComputedStyle(el)[prop] : null;
     };
+
+    // The sheet's custom checkboxes must be ONE box, not two. `appearance: none`
+    // removes the native widget only -- Foundry draws the whole control with
+    // pseudo-elements (::before is a Font Awesome square, swapped for a
+    // check-square when checked), so its glyph renders INSIDE ours unless it is
+    // switched off, giving a smaller checkbox stacked on the larger one. It
+    // renders, it toggles, it logs nothing; it just looks wrong.
+    out.checkboxes = [".deprived-check", ".panicked-check"].map((sel) => {
+      const el = root.querySelector(sel);
+      if (!el) return { sel, missing: true };
+      return {
+        sel,
+        before: getComputedStyle(el, "::before").content,
+        size: Math.round(el.getBoundingClientRect().width),
+      };
+    });
 
     // The Notes tab is titled for its extra content on a generated character.
     out.notesTabLabel = root.querySelector('.tabs .item[data-tab="notes"]')?.textContent?.trim() ?? null;
@@ -88,31 +104,41 @@ try {
 
     out.dexRadius = style(".DEX-counter", "borderTopLeftRadius");
     out.strRadius = style(".STR-counter", "borderBottomLeftRadius");
-    out.restBg = style("#rest-button", "backgroundColor");
-    out.restoreBg = style("#restore-abilities-button", "backgroundColor");
-    out.fateBg = style("#die-of-fate-button", "backgroundColor");
+    // The three header buttons were reverted to Foundry's own chrome on
+    // 2026-07-28 (they had carried a cream fill + 2px black border). "Foundry's
+    // default" is MEASURED, not hardcoded: a bare button appended to the same
+    // container inherits our sizing rules but none of our colour ones, so it is
+    // the reference. Hardcoding a colour would fail the day Foundry repaints its
+    // buttons, which is exactly the kind of stale assertion this file collected.
+    const chrome = (el) => {
+      if (!el) return null;
+      const s = getComputedStyle(el);
+      return `${s.backgroundColor} | ${s.borderTopWidth} ${s.borderTopColor}`;
+    };
+    out.restBg = chrome(root.querySelector("#rest-button"));
+    out.restoreBg = chrome(root.querySelector("#restore-abilities-button"));
+    out.fateBg = chrome(root.querySelector("#die-of-fate-button"));
+    const refHost = root.querySelector(".character-sheet-section-buttons");
+    let ref = null;
+    if (refHost) {
+      ref = document.createElement("button");
+      ref.type = "button";
+      ref.textContent = "probe";
+      refHost.appendChild(ref);
+      out.defaultBtn = chrome(ref);
+      ref.remove();
+    }
     out.fateGlow = style("#die-of-fate-button", "textShadow");
 
-    // Header buttons live on the window frame, not inside the form.
-    const win = root.closest(".app, .application") ?? root;
-    const btn = (cls) => {
-      const el = win.querySelector(`.${cls}-${actor.id}`);
-      return el ? { text: el.textContent.trim(), hidden: getComputedStyle(el).display === "none" } : null;
-    };
-    out.rollCharacter = btn("regenerate-character-button");
-    out.toggle = btn("toggle-generation-button");
-
-    // The toggle must actually flip mode, hide Roll Character, and relabel itself.
-    out.genBefore = actor.system.generationEnabled !== false;
-    await actor.sheet._onToggleGeneration(new Event("click"));
-    out.genAfter = actor.system.generationEnabled !== false;
-    out.rollAfterToggle = btn("regenerate-character-button");
-    out.toggleAfter = btn("toggle-generation-button");
-
-    // Leave the sheet in the ON state — the screenshot should show both header
-    // buttons, and this doubles as a check that the toggle flips back.
-    await actor.sheet._onToggleGeneration(new Event("click"));
-    out.rollRestored = btn("regenerate-character-button");
+    // The header buttons used to be asserted here: Roll Character and the
+    // Randomization toggle, each found by a per-actor class on markup the sheet
+    // painted into the title bar itself. The ApplicationV2 port deleted all of
+    // that -- they are `window.controls` entries now, rendered by core into the
+    // ⋮ menu, and there is no per-actor class to select. The coverage was not
+    // lost, it MOVED: `npm run dev:dialogs` drives the real menu and asserts the
+    // same five things (both entries present, the toggle flips the mode, Roll
+    // Character disappears, the label reads "Randomization: Off", it comes back).
+    // Duplicating it here would mean two probes to update for one behaviour.
 
     // --- Description tab: the background description moved to the HEADER, and
     // the Cairn-compatible badge sits at the foot.
@@ -128,7 +154,7 @@ try {
     // --- Containers tab: empty state + the custom-container escape hatch. The
     // setting was enabled and the client reloaded before this evaluate, so the
     // tab is real here, not a runtime-painted nav item.
-    const cRoot = actor.sheet.element[0];
+    const cRoot = actor.sheet.element;
     out.containerEmpty = !!cRoot.querySelector(".container-empty");
     out.containerShop = !!cRoot.querySelector(".container-empty-shop");
     out.containerCustom = !!cRoot.querySelector(".container-custom");
@@ -147,7 +173,12 @@ try {
     // window title. Title matching is brittle and was the source of a long
     // false-negative hunt.
     const shopLink = cRoot.querySelector(".cairn-items-list-header .container-shop");
-    out.shopLinkBound = Object.keys(globalThis.jQuery?._data?.(shopLink, "events") ?? {});
+    // Was `jQuery._data(el, "events")`, which only ever saw jQuery-bound
+    // handlers. The sheet dispatches through ApplicationV2's `actions` map now,
+    // and native listeners cannot be introspected at all — so report the action
+    // NAME instead. On a failure that is the useful fact anyway: a link with no
+    // data-action reaches no handler, whatever is bound to it.
+    out.shopLinkAction = shopLink?.dataset.action ?? null;
     shopLink?.click();
     // Poll rather than sleep: the first open builds the catalog, which loads the
     // marketplace pack and resolves every row against the gear packs.
@@ -171,7 +202,8 @@ try {
     // editable pool (the background doc itself stores only names).
     const bgDoc = await fromUuid(actor.system.backgroundUuid);
     if (bgDoc) {
-      const ctx = await bgDoc.sheet.getData();
+      // getData() became _prepareContext(options) at the ApplicationV2 port.
+      const ctx = await bgDoc.sheet._prepareContext({});
       out.bgGearRows = (ctx.startingGearRows ?? []).map((r) => `${r.name}: ${r.tags.join("|")}`);
       out.bgGearTagged = (ctx.startingGearRows ?? []).filter((r) => r.tags.length).length;
       out.bgGearTotal = (ctx.startingGearRows ?? []).length;
@@ -183,26 +215,18 @@ try {
     ]);
     await actor.sheet.render(true);
     await new Promise((res) => setTimeout(res, 600));
-    const fatigueEl = actor.sheet.element[0].querySelector(".fatigue-row");
+    const fatigueEl = actor.sheet.element.querySelector(".fatigue-row");
     out.fatigueRow = !!fatigueEl;
     out.fatigueGlow = fatigueEl ? getComputedStyle(fatigueEl).boxShadow : null;
 
-    // --- Dialogs get the sheet's black-and-white chrome. Render (don't await a
-    // button press) so the element can be inspected, then close it.
-    const dlg = new foundry.applications.api.DialogV2({
-      window: { title: "probe" },
-      content: "<p>probe</p>",
-      buttons: [{ action: "ok", label: "OK" }],
-    });
-    await dlg.render(true);
-    await new Promise((res) => setTimeout(res, 400));
-    out.dialogThemed = dlg.element?.classList?.contains("cairn-dialog") ?? false;
-    const dlgBtn = dlg.element?.querySelector(".form-footer button");
-    out.dialogBtnBg = dlgBtn ? getComputedStyle(dlgBtn).backgroundColor : null;
-    out.dialogHeaderBg = dlg.element
-      ? getComputedStyle(dlg.element.querySelector(".window-header")).backgroundColor
-      : null;
-    await dlg.close();
+    // Dialogs used to be checked here for a black title bar and white buttons.
+    // f00e72c (2026-07-23) deliberately reverted every non-sheet surface --
+    // dialogs included -- to Foundry's own theme-aware chrome, and the CSS that
+    // themed them was deleted. These assertions outlived it by five days only
+    // because the probe crashed on a missing import before reaching them. There
+    // is nothing of ours left on a dialog to assert, so they are gone rather
+    // than inverted: a test that we did NOT style something is not worth its
+    // upkeep. If dialogs are ever themed again, re-add checks HERE.
 
     // --- No untranslated keys anywhere on either sheet. A missing lang entry
     // renders the raw "CAIRN.Foo" key as visible text, which is easy to ship
@@ -211,7 +235,7 @@ try {
     const sweep = async (a) => {
       await a.sheet.render(true);
       await new Promise((res) => setTimeout(res, 700));
-      const el = a.sheet.element[0];
+      const el = a.sheet.element;
       for (const tab of ["items", "containers", "description", "notes"]) {
         el.querySelector(`.tabs .item[data-tab="${tab}"]`)?.click();
         await new Promise((res) => setTimeout(res, 250));
@@ -259,7 +283,16 @@ try {
     // Every registered setting must be reachable on this tab -- a key that is
     // registered but never rendered is invisible to a Warden.
     const settings = await import("/systems/air-bladder/module/settings.js");
-    out.declaredKeys = settings.SETTING_KEYS;
+    // Only settings registered with `config: true` appear on this tab. One is
+    // hidden by design (custom-portrait-list, an internal cache written by a GM
+    // scan), so comparing against the raw key list reads a deliberate omission as
+    // a missing setting.
+    out.declaredKeys = settings.SETTING_KEYS.filter(
+      (k) => game.settings.settings.get(`${NS}.${k}`)?.config
+    );
+    out.hiddenKeys = settings.SETTING_KEYS.filter(
+      (k) => game.settings.settings.has(`${NS}.${k}`) && !game.settings.settings.get(`${NS}.${k}`)?.config
+    );
     out.renderedKeys = [...cfgEl.querySelectorAll(`[name^="${NS}."]`)].map((i) => i.name.slice(NS.length + 1));
     await cfg.close();
 
@@ -286,7 +319,7 @@ try {
     await game.settings.set(NS, "show-containers-tab", wasTab);
     await actor.sheet.render(true);
     await new Promise((res) => setTimeout(res, 400));
-    out.tabPresentAfterReload = !!actor.sheet.element[0].querySelector('.tabs .item[data-tab="containers"]');
+    out.tabPresentAfterReload = !!actor.sheet.element.querySelector('.tabs .item[data-tab="containers"]');
 
     await game.settings.set(NS, "show-generate-header", was);
     return out;
@@ -327,34 +360,24 @@ try {
     ? ok(`STR is rounded on every corner (${r.strRadius})`)
     : fail(`STR's lower corners are square (${r.strRadius})`);
 
-  // The three portrait buttons.
-  const white = (c) => /rgb\(\s*255,\s*255,\s*255\s*\)/.test(c ?? "");
-  white(r.restBg) && white(r.restoreBg) && white(r.fateBg)
-    ? ok("Rest / Restore Abilities / Die of Fate all have white backgrounds")
-    : fail(`button backgrounds not white: rest=${r.restBg} restore=${r.restoreBg} fate=${r.fateBg}`);
+  // The three portrait buttons: Foundry's chrome, and ONLY Die of Fate's glow
+  // is ours. Until 2026-07-28 all three took a cream fill and a 2px black
+  // border; the fill/border went, the teal text glow stayed.
+  r.defaultBtn && r.restBg === r.defaultBtn && r.restoreBg === r.defaultBtn && r.fateBg === r.defaultBtn
+    ? ok(`Rest / Restore / Die of Fate use Foundry's own button chrome (${r.defaultBtn})`)
+    : fail(`buttons deviate from Foundry's default (${r.defaultBtn}):\n        rest=${r.restBg}\n        restore=${r.restoreBg}\n        fate=${r.fateBg}`);
   r.fateGlow && r.fateGlow !== "none"
-    ? ok(`Die of Fate carries its glow (${r.fateGlow})`)
+    ? ok(`Die of Fate keeps its teal text glow (${r.fateGlow})`)
     : fail("Die of Fate has no text glow");
 
-  // Header.
-  r.rollCharacter?.text === "Roll Character"
-    ? ok('the header button reads "Roll Character"')
-    : fail(`header button reads "${r.rollCharacter?.text ?? "(absent)"}"`);
-  r.toggle?.text === "Randomization: On"
-    ? ok('the Randomization toggle is present and reads "Randomization: On"')
-    : fail(`toggle reads "${r.toggle?.text ?? "(absent)"}"`);
-  r.genBefore === true && r.genAfter === false
-    ? ok("the toggle flips generation mode off")
-    : fail(`toggle did not flip the mode: ${r.genBefore} -> ${r.genAfter}`);
-  r.rollAfterToggle?.hidden === true
-    ? ok("switching Randomization off hides Roll Character")
-    : fail("Roll Character stayed visible with Randomization off");
-  r.toggleAfter?.text === "Randomization: Off"
-    ? ok("the toggle relabels itself to Randomization: Off")
-    : fail(`toggle label after flip: "${r.toggleAfter?.text}"`);
-  r.rollRestored?.hidden === false
-    ? ok("switching Randomization back on restores Roll Character")
-    : fail("Roll Character did not come back when Randomization was re-enabled");
+  // One box per checkbox: core's own glyph must be off inside our custom ones.
+  const doubled = (r.checkboxes ?? []).filter((c) => c.missing || c.before !== "none");
+  (r.checkboxes ?? []).length && !doubled.length
+    ? ok(`the custom checkboxes draw one box each (${r.checkboxes.map((c) => `${c.size}px`).join(", ")})`)
+    : fail(`a core checkbox glyph is rendering inside ours: ${JSON.stringify(doubled)}`);
+
+  // (The header generation controls are asserted by `npm run dev:dialogs` now —
+  // see the note in the page context.)
 
   // Description: background blurb belongs in the header, not the tab.
   r.descInHeader && !r.descInTab
@@ -376,7 +399,7 @@ try {
     : fail("no custom-container link on the Containers tab");
   r.containerShopOpens
     ? ok(`clicking it actually OPENS the shop ("${r.containerShopTitle}")`)
-    : fail(`the market link opened no shop. handlers=[${r.shopLinkBound?.join(",")}] `
+    : fail(`the market link opened no shop. data-action=${r.shopLinkAction} `
          + `tabActive=${r.tabActive} dialogs=[${r.openDialogTitles?.join(" | ")}]`);
   r.containerShopCategories?.length === 1 && r.containerShopCategories[0] === "Transports & Containers"
     ? ok(`the container shop is scoped to one category (${r.containerShopCategories.join(", ")})`)
@@ -391,14 +414,7 @@ try {
     ? ok(`fatigue rows carry the teal glow (${r.fatigueGlow})`)
     : fail(`fatigue row not styled: present=${r.fatigueRow} shadow=${r.fatigueGlow}`);
 
-  // Dialogs.
-  r.dialogThemed ? ok("dialogs are tagged cairn-dialog") : fail("dialog was not tagged cairn-dialog");
-  /rgb\(\s*0,\s*0,\s*0\s*\)/.test(r.dialogHeaderBg ?? "")
-    ? ok(`dialog title bar is black (${r.dialogHeaderBg})`)
-    : fail(`dialog title bar not themed: ${r.dialogHeaderBg}`);
-  /rgb\(\s*255,\s*255,\s*255\s*\)/.test(r.dialogBtnBg ?? "")
-    ? ok(`dialog buttons match the sheet's white/black look (${r.dialogBtnBg})`)
-    : fail(`dialog button not themed: ${r.dialogBtnBg}`);
+  // (Dialogs are Foundry's own chrome now -- see the note in the page context.)
 
   r.rawKeys?.length === 0
     ? ok("no untranslated CAIRN.* keys render on either the 2e or Barebones sheet")
@@ -418,15 +434,32 @@ try {
   // Every registered key is reachable on the tab.
   const missingFromTab = (r.declaredKeys ?? []).filter((k) => !r.renderedKeys?.includes(k));
   missingFromTab.length === 0
-    ? ok(`every registered setting (${r.declaredKeys.length}) is reachable on the Configure Settings tab`)
+    ? ok(`every configurable setting (${r.declaredKeys.length}) is reachable on the Configure Settings tab`
+        + (r.hiddenKeys?.length ? ` (${r.hiddenKeys.length} hidden by design: ${r.hiddenKeys.join(", ")})` : ""))
     : fail(`registered but not rendered: ${missingFromTab.join(", ")}`);
 
-  // Each setting under the RIGHT heading, not merely under some heading.
+  // Each setting under the RIGHT heading, not merely under some heading. Group
+  // headers are POSITIONAL — Foundry renders them in registration order — so this
+  // is the guard against a new setting silently landing under the wrong one.
+  //
+  // Brought back in step 2026-07-28: three settings had been added since these
+  // lists were written, and the probe could not report it because it crashed on a
+  // missing import before ever reaching here (see lib.mjs / dismissChrome).
+  // `content-source-custom` and `custom-portrait-folder` are correctly inside the
+  // Character Generation block.
+  //
+  // `min-age` moved from the end of General to the end of Character Generation on
+  // 2026-07-28. It is a parameter of the character being generated, and grouping is
+  // positional, so the fix was to move the register() call. The cost once feared —
+  // "reordering SETTING_KEYS breaks the migration" — was not real: that loop is
+  // order-independent, and the stored key string never changed, so no configured
+  // value was disturbed.
   const EXPECTED = {
     "Inventory & Encumbrance": ["max-equip-slots", "character-inventory-limit", "use-gold-threshold",
       "show-gold-not-cost", "show-container-actors", "enable-inventory-reorder"],
-    "Character Generation": ["content-source-2e", "content-source-barebones", "barebones-failed-career",
-      "show-omens-barebones", "show-bonds-barebones", "show-generate-header"],
+    "Character Generation": ["content-source-2e", "content-source-custom", "content-source-barebones",
+      "barebones-failed-career", "show-omens-barebones", "show-bonds-barebones", "show-generate-header",
+      "custom-portrait-folder", "min-age"],
     "General Settings": ["use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
       "show-features-section", "show-containers-tab", "use-warden-title"],
   };

@@ -1,0 +1,28 @@
+_id: r4zjynoAtyxFmwQ8
+name: Ring of the Snake
+type: item
+img: systems/air-bladder/icons/generic-item.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    relicSource: srd-2e
+system:
+  description: 'A wrought-iron serpent ring. Place it on your finger and fall into a sleep so deep that most will think you are dead. If the ring is removed, you will awaken feeling refreshed. Otherwise, the effect will wear off after one month.'
+  weightless: true
+  equipped: false
+  bulky: false
+  cost: 0
+  quantity: 1
+  uses:
+    value: 1
+    max: 1
+  relic: true
+  recharge: 'Bury the ring with a corpse. A month later, exhume the corpse and retrieve it.'
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!r4zjynoAtyxFmwQ8'

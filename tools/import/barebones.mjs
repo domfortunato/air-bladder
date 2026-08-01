@@ -65,6 +65,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+import { packUuid } from "./uuid.mjs";
 
 const require = createRequire(import.meta.url);
 const yaml = require("js-yaml");
@@ -74,7 +75,7 @@ const dry = process.argv.includes("--dry");
 
 const SRC = "https://raw.githubusercontent.com/yochaigal/cairn/main/barebones/rules/barebones-character-creation.md";
 
-const TARGET_PACKS = ["armor", "weapons", "tools", "trinkets", "expeditionary-gear", "extra"];
+const TARGET_PACKS = ["armor", "weapons", "tools", "trinkets", "expeditionary-gear"];
 const BG_PACK = "backgrounds-barebones";
 const TABLE_PACK = "tables-barebones";
 const packDir = (p) => path.join(root, "src", "packs", p);
@@ -93,8 +94,7 @@ const ALIASES = new Map([
   ["pole (10ft)", "Pole, 10ft"],
   ["pole", "Pole, 10ft"],
   ["plate", "Plate Mail"],
-  ["simple instrument (pipes, lute, etc.)", "Instrument"],
-  ["simple instruments (pipes, lute, etc.)", "Instrument"],
+  ["simple instrument (pipes, lute, etc.)", "Simple Instruments (Pipes, Lute, etc.)"],
   ["boltcutters", "Bolt Cutters"],
   // The shop's tent IS the pool's tent: the barebones item is already bulky
   // with "fits 2" as its description. Without this the shop cannot see it and
@@ -174,7 +174,10 @@ const categorize = (item) => {
   if (item.type === "weapon") return "weapons";
   if (item.type === "armor") return "armor";
   const n = item.name.toLowerCase();
-  if (EXTRA.test(n)) return "extra";
+  // The `extra` pack was retired 2026-07-29 (it held one item, Lodestone, now in
+  // trinkets). This class routes there rather than to a pack that no longer
+  // exists -- without it a rerun would recreate src/packs/extra and undo the move.
+  if (EXTRA.test(n)) return "trinkets";
   if (TRINKET.test(n)) return "trinkets";
   if (TOOL.test(n)) return "tools";
   return "expeditionary-gear";
@@ -356,7 +359,16 @@ for (const p of TARGET_PACKS) {
 // more than the resolver searches makes the importer skip authoring an item it
 // can see but generation cannot reach, and the grant silently resolves to
 // nothing. That is precisely how Sedative and Sewing Kit went missing once.
-const POOL_PACKS = ["expeditionary-gear", "tools", "trinkets", "extra", "weapons", "armor", "market-goods"];
+// The hazard runs BOTH ways, and only one direction was written down. Searching
+// more than the resolver does (above) skips authoring an item generation cannot
+// reach. Searching LESS re-authors one that already exists: `background-items`
+// is in module/gear.js CANONICAL_GEAR_PACKS but was missing here, so every item
+// background-items.mjs consolidated became invisible to this scan, was declared
+// missing, and got re-authored into a type pack with a FRESH id — a duplicate
+// name across two packs, which is also an id different enough to defeat the
+// dedupe on the other side. That is where all 17 collisions came from
+// (diagnosed 2026-07-29). Keep this list equal to CANONICAL_GEAR_PACKS.
+const POOL_PACKS = ["expeditionary-gear", "tools", "trinkets", "weapons", "armor", "market-goods", "background-items"];
 
 /** Every item the RESOLVER can reach, by lowercased name -> {pack, id, img, type}. */
 const scanPool = () => {
@@ -474,16 +486,18 @@ for (const bg of backgrounds) {
 const resultYaml = (tid, i, r) => {
   const rid = idFor(`air-bladder-bb-result:${tid}:${i}:${r.text}`);
   const range = r.range ?? [i + 1, i + 1];
+  // `text` names a document row and carries prose on a text row — two different
+  // schema fields since v13, and `text` is neither of them any more.
   const lines = [
     `  - _id: ${rid}`,
-    `    type: ${r.pack ? "pack" : "text"}`,
-    `    text: ${y(r.text)}`,
+    `    type: ${r.pack ? "document" : "text"}`,
+    `    ${r.pack ? "name" : "description"}: ${y(r.text)}`,
     `    img: ${y(r.img ?? "icons/svg/item-bag.svg")}`,
     "    weight: 1",
     "    range:", `      - ${range[0]}`, `      - ${range[1]}`,
     "    drawn: false",
   ];
-  if (r.pack) lines.push(`    documentCollection: ${r.pack}`, `    documentId: ${r.id}`);
+  if (r.pack) lines.push(`    documentUuid: ${packUuid(r.pack, r.id)}`);
   lines.push("    flags: {}", `    _key: '!tables.results!${tid}.${rid}'`);
   return lines.join("\n");
 };
