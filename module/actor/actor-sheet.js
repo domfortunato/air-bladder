@@ -1,4 +1,5 @@
 import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, mentionsSecondBond, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, getCustomPortraitPaths, regenerateHireling, rerollHirelingProfession, rerollHirelingName, rollNameFromTable, rollAge } from "../character-generator.js";
+import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, sourceLabel } from "../utils.js";
 import { resultText } from "../compendium.js";
@@ -1448,6 +1449,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onRollActor(event) {
     event.preventDefault();
+    // A monster-role npc re-rolls as a MONSTER. The tier picker IS the ask-first
+    // dialog here: it is dismissible (null = cancel, touch nothing) and its
+    // wording is monster-specific — so the Gorilla-into-Alchemist path above is
+    // closed without stacking two dialogs in front of one button.
+    if (this.actor.npcRole === "monster") {
+      const tier = await promptMonsterTier({ regenerate: true });
+      if (!tier) return;
+      await regenerateMonster(this.actor, tier);
+      return;
+    }
     const isNpc = ["hireling", "npc"].includes(this.actor.type);
     // DialogV2.confirm already makes "No" the default button, so V1's
     // defaultYes: false has no equivalent to carry over.

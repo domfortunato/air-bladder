@@ -136,6 +136,10 @@ export class Damage {
             content += '<p><strong>' + game.i18n.localize('STR') + '</strong>: <s>' + str + '</s> => ' + newStr + '</p>'
         }
 
+        // Monsters take BOTH branches below on purpose (ratified 2026-08-01):
+        // overflow past HP offers the STR-save button, and damage landing
+        // exactly on 0 HP rolls a Scar. Cairn's rules carve monsters out of
+        // neither, so no npcRole gate belongs here.
         if (newStr < str) {
             if (newStr === 0) {
                 content += '<strong>' + game.i18n.localize('CAIRN.Dead') + '</strong>'

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * The Actor Directory's Generate / Hireling / Import buttons, in BOTH instances.
+ * The Actor Directory's Generate / Hireling / Monster / Import buttons, in BOTH
+ * instances.
  *
  * Foundry renders a second, independent ActorDirectory when the sidebar tab is
  * popped out. The injection hook guarded on a document-wide
@@ -112,14 +113,14 @@ cancel.after === cancel.before
   ? ok(`dismissing the picker created no actor (${cancel.before} before and after)`)
   : fail(`dismissing the picker created ${cancel.after - cancel.before} actor(s)`);
 
-r.docked.length === 3
-  ? ok(`docked directory has its 3 buttons (${r.docked.join(", ")})`)
+r.docked.length === 4
+  ? ok(`docked directory has its 4 buttons (${r.docked.join(", ")})`)
   : fail(`docked directory buttons: ${JSON.stringify(r.docked)}`);
 r.popIsSeparate
   ? ok("the popout is a separate element from the docked directory")
   : fail("popout and docked resolved to the same element — the test below is meaningless");
-r.popped.length === 3
-  ? ok(`popped-out directory has its 3 buttons (${r.popped.join(", ")})`)
+r.popped.length === 4
+  ? ok(`popped-out directory has its 4 buttons (${r.popped.join(", ")})`)
   : fail(`popped-out directory buttons: ${JSON.stringify(r.popped)}`);
 
 console.log(`\nconsole errors: ${errors.length}`);

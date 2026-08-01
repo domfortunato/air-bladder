@@ -5,6 +5,8 @@ import { CairnItem, FATIGUE_NAME, SPELLSCROLL_NAME } from "./item/item.js";
 import { CairnItemSheet } from "./item/item-sheet.js";
 import { createCharacter, createHireling, FLAG_SCOPE } from "./character-generator.js";
 import * as characterGenerator from "./character-generator.js";
+import { createMonster } from "./monster-generator.js";
+import * as monsterGenerator from "./monster-generator.js";
 import { importKettlewrightCharacter } from "./kettlewright-import.js";
 import * as kettlewrightImport from "./kettlewright-import.js";
 import { Cairn } from "./config.js";
@@ -21,6 +23,7 @@ Hooks.once("init", async function () {
     CairnItem,
     config: Cairn,
     characterGenerator: characterGenerator,
+    monsterGenerator: monsterGenerator,
     kettlewrightImport: kettlewrightImport,
     rollItemMacro,
   };
@@ -751,6 +754,7 @@ Hooks.on("renderActorDirectory", (app, html) => {
           <button class="create-hireling-button"><i class="fas fa-user-plus"></i>${game.i18n.localize(
           "CAIRN.CreateHireling"
         )}</button>
+          ${game.user.isGM ? `<button class="create-monster-button"><i class="fas fa-dragon"></i>${game.i18n.localize("CAIRN.CreateMonster")}</button>` : ""}
           ${game.user.isGM ? `<button class="import-kettlewright-button"><i class="fas fa-file-import"></i>${game.i18n.localize("CAIRN.KWImport.Button")}</button>` : ""}
         </div>
         `
@@ -765,6 +769,14 @@ Hooks.on("renderActorDirectory", (app, html) => {
         .querySelector(".create-hireling-button")
         .addEventListener("click", async () => {
           const actor = await createHireling();
+          if (actor) actor.sheet.render(true);
+        });
+      // Warden-only: monsters are the Warden's to mint. The tier picker inside
+      // createMonster is dismissible, and a dismiss creates nothing.
+      section
+        .querySelector(".create-monster-button")
+        ?.addEventListener("click", async () => {
+          const actor = await createMonster();
           if (actor) actor.sheet.render(true);
         });
       // GM-only: import a Kettlewright character export into a new Actor.
