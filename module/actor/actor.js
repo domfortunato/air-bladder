@@ -305,16 +305,19 @@ export class CairnActor extends Actor {
     this.system.hasGoldThreshold = this.system.coinsPerSlot > 0;
 
     if (this.system.encumbered) {
-      // Being encumbered zeroes HP (Cairn 2e) — for the creatures that live by
-      // the player rules: characters and hirelings. NOT for an npc. An NPC can
-      // BE a container now, and a container holding exactly its capacity is its
-      // NORMAL state, not an injury — folding containers into npc had put a
-      // full crate on this line, where it read 0 HP on its own sheet and its
-      // token bar, and _processFormData (which strips the HP input while
-      // encumbered, so the derived 0 never persists) made the phantom
-      // uncorrectable (review #5). The pre-merge _prepareNpcData never zeroed
-      // HP either — the merge added it to NPCs by accident, not decision.
-      if (this.type !== "npc") this.system.hp.value = 0;
+      // Being encumbered zeroes HP (Cairn 2e) — for whoever lives by the
+      // PLAYER rules. Keyed on ROLE, not type, since 2026-08-01: the old
+      // `type !== "npc"` exemption was added for a container at exactly its
+      // capacity — its NORMAL state, not an injury (review #5) — and that
+      // reasoning is right for a crate and wrong for a person. An innkeeper
+      // hauling ten slots is overburdened exactly like a PC; monster, mount,
+      // transport and container keep the exemption. `livesByPlayerRules` is
+      // the ONE statement of the rule — the sheet's _processFormData strip
+      // (which drops the HP input from a submit while the 0 is derived, so it
+      // never persists) reads the same getter, because the two sites
+      // disagreeing IS review #5's bug: an HP edit silently dropped and the
+      // field un-editable.
+      if (this.livesByPlayerRules) this.system.hp.value = 0;
       if (this.system.goldSlots > 0) {
         this.system.maybeTooMuchGold = true;
       }
@@ -601,6 +604,26 @@ export class CairnActor extends Actor {
   }
 
   /**
+   * Does this actor live by the PLAYER rules — specifically, does being over
+   * capacity read as an injury (HP 0) rather than as a full hold? A character
+   * does by type; an npc-typed document does when it is a PERSON — role npc,
+   * which covers a hireling-typed alias too, since `npcRole` answers with the
+   * stored role or "npc". Monster, mount, transport and container are exempt:
+   * a crate at exactly its capacity is in its normal state.
+   *
+   * A GETTER, deliberately, because the rule is stated in two places — the
+   * derived zero in `_prepareCharacterData` and the submit strip in the
+   * sheet's `_processFormData` — and review #5 is what their drifting costs:
+   * when the strip fires without the zero (or the reverse), an HP edit is
+   * silently dropped and the field becomes un-editable. Both sites read THIS,
+   * so they cannot drift.
+   * @returns {boolean}
+   */
+  get livesByPlayerRules() {
+    return this.type === "character" || this.npcRole === "npc";
+  }
+
+  /**
    * May this actor KEEP connections? Keeping is a Character/NPC/Hireling
    * privilege (docs/npc-roles-plan.md): a mule cannot keep a backpack, a wagon
    * cannot keep a chest, so container-chaining abuse stays dead without the old
@@ -831,6 +854,8 @@ export class CairnActor extends Actor {
    * capacity, because `img` is a stored copy that no amount of derived data will
    * move. Touch our own `icons/*.svg` and nothing else, so a Warden who picked
    * their own art keeps it; idempotent, since a correct path is left alone.
+   * The Career defaults ride the same dispatch: a profession the 2e catalogue
+   * knows fills a still-zero day rate.
    *
    * **any type** — stash the former owner so `_onUpdate` can re-render the sheet
    * a broken link just vanished from.
@@ -873,6 +898,32 @@ export class CairnActor extends Actor {
         if (flat["system.slots"] === undefined && !Number(this.system.slots)) {
           const dflt = containerClassSlots(cls);
           if (dflt) foundry.utils.setProperty(changed, "system.slots", dflt);
+        }
+      }
+
+      // Typing a Career the 2e catalogue KNOWS brings its day rate, exactly as
+      // a known Kind brings its capacity above, under the same "a typed value
+      // wins" rule: only while the stored rate is still 0, and never over a
+      // rate the same update names — which is also what keeps regenerateNpc
+      // and rerollNpcProfession out of here, since both set profession and
+      // dayRate in one write. Role npc only (nothing else has a career), and
+      // matched case-insensitively so a Warden typing "bandit" gets the
+      // Bandit's rate. The import is dynamic for the same reason _preCreate's
+      // is: character-generator.js imports this module, so a static import
+      // would be a cycle.
+      const prof = flat["system.profession"];
+      if (prof && prof !== this.system.profession
+        && (flat["system.role"] ?? this.npcRole) === "npc"
+        && !Number(this.system.dayRate)
+        && flat["system.dayRate"] === undefined) {
+        try {
+          const { getNpcCareers2e } = await import("../character-generator.js");
+          const wanted = String(prof).trim().toLowerCase();
+          const entry = (await getNpcCareers2e()).find((h) => h.name.toLowerCase() === wanted);
+          if (entry?.rate) foundry.utils.setProperty(changed, "system.dayRate", entry.rate);
+        } catch (err) {
+          // A missing catalogue must not block the rename that triggered this.
+          console.warn("Air Bladder | could not autofill a day rate:", err);
         }
       }
     }

@@ -59,6 +59,16 @@
                 <a class="profession-roll" data-action="rollProfession" title="{{ localize 'CAIRN.RollProfession' }}"><i class="fas fa-dice-d20"></i></a>
                 {{/if}}
             </div>
+            {{!-- Faction: whose interests this person serves — the one header
+                  fact a PC has no counterpart of. Free text, no dice: factions
+                  are the Warden's own, so there is nothing to roll from. Rides
+                  the Career gate (role npc) because only a person takes
+                  sides. --}}
+            <div class="profession-line faction-line">
+                <span class="background-label">{{ localize 'CAIRN.Faction' }}</span>
+                <input class="profession-input" type="text" name="system.faction"
+                    value="{{system.faction}}" placeholder="{{ localize 'CAIRN.Faction' }}" />
+            </div>
             {{!-- For Hire: the retired `hireling` ROLE, back as the boolean it
                   always was — and back in the markup it had before the roles
                   work, classes included, because css/cairn.css never stopped
@@ -246,13 +256,18 @@
                 </div>
                 {{/each}}
             </div>
+            {{!-- Description FIRST (2026-08-01): a Warden opens an NPC to
+                  remember who they are, and reaches for the inventory second.
+                  The order here must match TAB_IDS.npc in actor-sheet.js,
+                  which is also what makes Description the tab the sheet opens
+                  on. The character sheet deliberately keeps Items first. --}}
             <nav class="tabs" data-group="primary">
+                <a class="item {{tabs.description.cssClass}}" data-action="tab" data-group="primary" data-tab="description">{{ localize 'CAIRN.Description' }}</a>
                 <a class="item {{tabs.items.cssClass}}" data-action="tab" data-group="primary" data-tab="items" id="set-equipment-limit"
                 {{#if system.characterEquipmentLimit}}title="{{localize 'CAIRN.EquipmentLimitTip'}}"{{/if}}>
                     {{#if system.characterEquipmentLimit}}<i class="fas fa-gears" style="opacity:0.5;z-index:5000" ></i>{{/if}}
                     {{ localize 'CAIRN.Items' }} ({{system.slotsUsed}} / {{system.slotsMax}})
                 </a>
-                <a class="item {{tabs.description.cssClass}}" data-action="tab" data-group="primary" data-tab="description">{{ localize 'CAIRN.Description' }}</a>
                 {{#if system.showContainersTab}}
                 {{!-- Counts `containerObjects`, NOT the legacy `containers` array:
                       the list is derived from each connected actor's own
@@ -263,11 +278,16 @@
                 <a class="item {{tabs.notes.cssClass}}" data-action="tab" data-group="primary" data-tab="notes">{{ localize 'CAIRN.Notes' }}</a>
             </nav>
             <section class="content">
-                <div class="tab {{tabs.items.cssClass}}" data-group="primary" data-tab="items">
-                    {{> "systems/air-bladder/templates/parts/items-list.html" withFatigue=1 withShop=1}}
-                </div>
                 <div class="tab {{tabs.description.cssClass}}" data-group="primary" data-tab="description">
                     <div class="description">
+                        {{!-- A PERSON (role npc) gets the character's biography
+                              block — pronouns, age, traits, scars. Gated by
+                              showBiography, so a monster or a crate renders
+                              none of it; Omen stays a player-character thing
+                              (showOmen false inside). --}}
+                        {{#if showBiography}}
+                        {{> "systems/air-bladder/templates/parts/bio-block.html"}}
+                        {{/if}}
                         {{!-- Features are ALWAYS shown here, unlike the character
                               sheet, where they sit behind the "show-features
                               section" world setting. A monster's attacks and
@@ -294,6 +314,9 @@
                                 data-document-uuid="{{actor.uuid}}"></prose-mirror>
                         </div>
                     </div>
+                </div>
+                <div class="tab {{tabs.items.cssClass}}" data-group="primary" data-tab="items">
+                    {{> "systems/air-bladder/templates/parts/items-list.html" withFatigue=1 withShop=1}}
                 </div>
                 {{#if system.showContainersTab}}
                 <div class="tab {{tabs.containers.cssClass}}" data-group="primary" data-tab="containers">

@@ -29,7 +29,26 @@
  *      must really open its dialog, and a feature must round-trip through
  *      system.features and appear on the tab. Both feature dialogs are answered
  *      rather than dismissed -- see the notes inline, each cost a hung run.
- *   8. Revert the pool item and delete the test actor.
+ *   8. NPC-role sheet parity (2026-08-01): a generated NPC arrives with pronouns,
+ *      an age and eight traits; all of them — plus scarEnabled and a picked scar —
+ *      ROUND-TRIP through the real sheet (written via the form, read off the
+ *      document, surviving a re-render). Witness: the same write path drops an
+ *      UNDECLARED sibling key, so the greens are load-bearing on the NpcData
+ *      declarations rather than on Foundry keeping whatever it is handed.
+ *   9. Identity is kept by omission: profession and name re-rolls leave
+ *      pronouns/age/traits alone (seeded with sentinels first, so "unchanged" is
+ *      observable), and regenerateNpc — a whole new person — replaces all three.
+ *  10. The role gate: the biography block is ABSENT on a monster, a mount and a
+ *      container-role npc, present on the person from step 8. Witness in-page:
+ *      `_prepareContext` patched to force showBiography on a monster, and the
+ *      block must appear — proof the absence assertions can fail.
+ *  11. Career → day-rate autofill (CairnActor._preUpdate): a known career name
+ *      fills a still-zero rate (case-insensitively); a non-zero rate is never
+ *      overwritten; an explicit dayRate in the same update wins; an unknown name
+ *      fills nothing. Witness: the base class's _preUpdate shadowed onto the
+ *      instance (the autofill removed, nothing else), and the same known-name
+ *      write must leave 0.
+ *  12. Revert the pool item and delete the test actors.
  * Exits non-zero on any failed assertion or console error.
  */
 
@@ -337,8 +356,195 @@ try {
       await settle(400);
     }
 
+    // 8. A generated NPC is a PERSON: pronouns, age and eight traits arrive
+    //    filled, and every biography field round-trips through the real sheet.
+    const el8 = () => (actor.sheet.element instanceof HTMLElement ? actor.sheet.element : actor.sheet.element?.[0]);
+    const PRONOUN_SET = ["he/him", "she/her", "they/them"];
+    const bioGen = {
+      pronounsValid: PRONOUN_SET.includes(actor.system.pronouns),
+      pronouns: actor.system.pronouns,
+      ageValid: /^\d+$/.test(actor.system.age ?? "") && Number(actor.system.age) >= 12,
+      age: actor.system.age,
+      traitsFilled: Object.values(actor.system.traits ?? {}).filter(Boolean).length,
+    };
+    // Differential: a bare Create Actor npc carries NONE of it — the schema
+    // initial is "" — so the greens above cannot be satisfied by the model alone.
+    const bareNpc = await CONFIG.Actor.documentClass.create({ name: "PROBE bare npc", type: "npc" });
+    bioGen.bare = {
+      pronouns: bareNpc.system.pronouns,
+      age: bareNpc.system.age,
+      traitsFilled: Object.values(bareNpc.system.traits ?? {}).filter(Boolean).length,
+    };
+    await bareNpc.delete();
+
+    // The round trip, through the form the way a user edits it: set the
+    // fields, dispatch ONE change — submitOnChange serialises the whole form.
+    await actor.sheet.render(true);
+    await settle(800);
+    const roundTrip = { hasBlock: !!el8()?.querySelector(".character-traits") };
+    const pIn = el8()?.querySelector('input[name="system.pronouns"]');
+    const aIn = el8()?.querySelector('input[name="system.age"]');
+    if (pIn && aIn) {
+      pIn.value = "ze/zir";
+      aIn.value = "44";
+      aIn.dispatchEvent(new Event("change", { bubbles: true }));
+      await settle(1300);
+    }
+    roundTrip.pronouns = actor.system.pronouns === "ze/zir";
+    roundTrip.age = actor.system.age === "44";
+
+    // Traits hide behind the collapse; the toggle is transient sheet state, so
+    // expanding once holds for the rest of this section.
+    el8()?.querySelector(".trait-toggle")?.click();
+    await settle(900);
+    const sels = [...(el8()?.querySelectorAll('select[name^="system.traits."]') ?? [])];
+    roundTrip.traitSelects = sels.length;
+    const picked = {};
+    for (const s of sels) {
+      const opt = s.options[s.options.length - 1];
+      s.value = opt.value;
+      picked[s.name.split(".").pop()] = opt.value;
+    }
+    sels.at(-1)?.dispatchEvent(new Event("change", { bubbles: true }));
+    await settle(1300);
+    roundTrip.traits = sels.length === 8
+      && Object.entries(picked).every(([k, v]) => actor.system.traits?.[k] === v);
+
+    // Scars: the enable box reveals the checklist, the first check stores one.
+    el8()?.querySelector(".scar-enable")?.click();
+    await settle(1300);
+    roundTrip.scarEnabled = actor.system.scarEnabled === true;
+    const firstScar = el8()?.querySelector(".scar-check");
+    const firstScarName = firstScar?.value ?? null;
+    firstScar?.click();
+    await settle(900);
+    roundTrip.scar = !!firstScarName
+      && (actor.system.scars ?? []).length === 1 && actor.system.scars[0] === firstScarName;
+
+    // ...and everything survives a re-render (a value that only lived in the
+    // DOM would not).
+    await actor.sheet.render(false);
+    await settle(800);
+    roundTrip.survivesRender =
+      el8()?.querySelector('input[name="system.pronouns"]')?.value === "ze/zir"
+      && el8()?.querySelector('input[name="system.age"]')?.value === "44"
+      && !!el8()?.querySelector(".scar-check:checked")
+      && el8()?.querySelector('select[name="system.traits.physique"]')?.value === actor.system.traits.physique;
+
+    // FAIL-WITNESS (schema): the exact failure mode the declarations prevent —
+    // an undeclared key on the same write is dropped silently, the declared one
+    // lands. If the greens above could pass without NpcData declaring the
+    // fields, this control could not tell the two keys apart.
+    await actor.update({ "system.pronouns": "they/them", "system.zzUndeclared": "X" });
+    const schemaWitness = {
+      declaredLanded: actor.toObject().system.pronouns === "they/them",
+      undeclaredDropped: !("zzUndeclared" in actor.toObject().system),
+    };
+
+    // 9. Identity by omission. Sentinels first, so "unchanged" is observable
+    //    (a re-roll that wrote fresh random values would still differ from a
+    //    fresh random baseline — it can never differ from PROBE sentinels).
+    await actor.update({ system: {
+      pronouns: "PROBE/pronouns", age: "999",
+      traits: { physique: "PROBE-physique", skin: "PROBE-skin", hair: "PROBE-hair", face: "PROBE-face",
+        speech: "PROBE-speech", clothing: "PROBE-clothing", virtue: "PROBE-virtue", vice: "PROBE-vice" },
+    } });
+    const idSnapshot = () => JSON.stringify([actor.system.pronouns, actor.system.age, actor.system.traits]);
+    const seeded = idSnapshot();
+    await CG.rerollNpcProfession(actor);
+    const identity = { profKeeps: idSnapshot() === seeded };
+    await CG.rerollNpcName(actor);
+    identity.nameKeeps = idSnapshot() === seeded;
+    await CG.regenerateNpc(actor);
+    identity.regenPronouns = PRONOUN_SET.includes(actor.system.pronouns);
+    identity.regenAge = actor.system.age !== "999" && /^\d+$/.test(actor.system.age ?? "");
+    identity.regenTraits = Object.values(actor.system.traits ?? {})
+      .every((v) => v && !String(v).startsWith("PROBE-"));
+
+    // 10. The role gate: no biography block on anything that is not a person.
+    const gate = {};
+    for (const [label, sys] of [
+      ["monster", { role: "monster" }],
+      ["mount", { role: "mount", containerClass: "horse" }],
+      ["container", { role: "container", containerClass: "sack", hp: { value: 0, max: 0 }, generationEnabled: false }],
+    ]) {
+      const x = await CONFIG.Actor.documentClass.create({ name: `PROBE gate ${label}`, type: "npc", system: sys });
+      await x.sheet.render(true);
+      await settle(700);
+      const xe = x.sheet.element instanceof HTMLElement ? x.sheet.element : x.sheet.element?.[0];
+      gate[label] = {
+        traits: !!xe?.querySelector(".character-traits"),
+        scars: !!xe?.querySelector(".scar-section"),
+        pronouns: !!xe?.querySelector('input[name="system.pronouns"]'),
+      };
+      await x.sheet.close();
+      await x.delete();
+    }
+    // FAIL-WITNESS (in-page): the gate defeated — _prepareContext patched to
+    // force showBiography + the bio context onto a monster — and the block
+    // must come back, or "absent on a monster" was never the gate's doing.
+    const SheetCls = Object.values(CONFIG.Actor.sheetClasses.npc)[0].cls;
+    const sheetProto = SheetCls.prototype;
+    const origPrepCtx = sheetProto._prepareContext;
+    sheetProto._prepareContext = async function (...args) {
+      const ctx = await origPrepCtx.apply(this, args);
+      ctx.showBiography = true;
+      await this._prepareBiographyContext(ctx);
+      ctx.showScars = true;
+      ctx.showAge = true;
+      ctx.showOmen = false;
+      return ctx;
+    };
+    const gateControlActor = await CONFIG.Actor.documentClass.create({
+      name: "PROBE gate control", type: "npc", system: { role: "monster" },
+    });
+    await gateControlActor.sheet.render(true);
+    await settle(700);
+    const gcEl = gateControlActor.sheet.element instanceof HTMLElement
+      ? gateControlActor.sheet.element : gateControlActor.sheet.element?.[0];
+    gate.control = !!gcEl?.querySelector(".character-traits");
+    await gateControlActor.sheet.close();
+    await gateControlActor.delete();
+    sheetProto._prepareContext = origPrepCtx;
+
+    // 11. Career → day-rate autofill.
+    const careers = await CG.getNpcCareers2e();
+    const knownCareer = careers.find((h) => (h.rate ?? 0) > 0);
+    const mkPerson = (name, sys = {}) => CONFIG.Actor.documentClass.create({
+      name, type: "npc", system: { role: "npc", generationEnabled: false, ...sys },
+    });
+    const fill = { career: knownCareer?.name, rate: knownCareer?.rate };
+    if (knownCareer) {
+      const p1 = await mkPerson("PROBE fill zero");
+      await p1.update({ "system.profession": knownCareer.name });
+      fill.filled = p1.system.dayRate === knownCareer.rate;
+      const p2 = await mkPerson("PROBE fill case");
+      await p2.update({ "system.profession": knownCareer.name.toUpperCase() });
+      fill.caseInsensitive = p2.system.dayRate === knownCareer.rate;
+      const p3 = await mkPerson("PROBE fill nonzero", { dayRate: 3 });
+      await p3.update({ "system.profession": knownCareer.name });
+      fill.keptNonzero = p3.system.dayRate === 3;
+      const p4 = await mkPerson("PROBE fill explicit");
+      await p4.update({ "system.profession": knownCareer.name, "system.dayRate": 9 });
+      fill.explicitWins = p4.system.dayRate === 9;
+      // Differential: only a catalogue match fills — a Warden's own word never.
+      const p5 = await mkPerson("PROBE fill unknown");
+      await p5.update({ "system.profession": "Underwater Basket Weaver" });
+      fill.unknownStaysZero = p5.system.dayRate === 0;
+      // FAIL-WITNESS (in-page): the base class's _preUpdate shadowed onto the
+      // instance — the autofill (and only our _preUpdate work) removed — and
+      // the same write must now leave the rate at 0.
+      const p6 = await mkPerson("PROBE fill witness");
+      p6._preUpdate = Object.getPrototypeOf(CONFIG.Actor.documentClass).prototype._preUpdate;
+      await p6.update({ "system.profession": knownCareer.name });
+      fill.witnessStaysZero = p6.system.dayRate === 0;
+      delete p6._preUpdate;
+      for (const x of [p1, p2, p3, p4, p5, p6]) await x.delete();
+    }
+
     await actor.delete();
-    return { catalogue, gen, armorCase, editFlowed, editTarget, survive, rename, sheet, live, words };
+    return { catalogue, gen, armorCase, editFlowed, editTarget, survive, rename, sheet, live, words,
+      bioGen, roundTrip, schemaWitness, identity, gate, fill };
   }));
 
   if (r.error) {
@@ -428,10 +634,68 @@ try {
     else if (/your character|\bPC\b/.test(dt)) fail(`the Deprived dialog still addresses a player character: "${dt.slice(0, 90)}…"`);
     else if (!/this NPC/.test(dt)) fail(`the Deprived dialog does not address the NPC: "${dt.slice(0, 90)}…"`);
     else ok("the Deprived confirmation reads as being about this NPC");
+
+    console.log("\n  a generated NPC is a person");
+    r.bioGen.pronounsValid ? ok(`pronouns arrive filled (${r.bioGen.pronouns})`) : fail(`pronouns are "${r.bioGen.pronouns}" — not one of he/him, she/her, they/them`);
+    r.bioGen.ageValid ? ok(`age arrives filled (${r.bioGen.age})`) : fail(`age is "${r.bioGen.age}" — expected a rolled number`);
+    r.bioGen.traitsFilled === 8 ? ok("all eight traits arrive filled") : fail(`only ${r.bioGen.traitsFilled}/8 traits filled`);
+    r.bioGen.bare.pronouns === "" && r.bioGen.bare.age === "" && r.bioGen.bare.traitsFilled === 0
+      ? ok("   differential: a bare Create Actor npc has none of it (the schema alone cannot green the above)")
+      : fail(`a bare npc arrived with biography values: ${JSON.stringify(r.bioGen.bare)}`);
+
+    console.log("\n  the biography round-trips through the sheet");
+    r.roundTrip.hasBlock ? ok("the bio block renders on a role-npc sheet") : fail("no .character-traits block on the person's Description tab");
+    r.roundTrip.pronouns ? ok("pronouns: form write → document") : fail("pronouns did not round-trip");
+    r.roundTrip.age ? ok("age: form write → document") : fail("age did not round-trip");
+    r.roundTrip.traits ? ok("all eight trait selects: form write → document") : fail(`traits did not round-trip (${r.roundTrip.traitSelects} selects found)`);
+    r.roundTrip.scarEnabled ? ok("scarEnabled: checkbox → document") : fail("scarEnabled did not store");
+    r.roundTrip.scar ? ok("a picked scar: checkbox → document") : fail("the picked scar did not store");
+    r.roundTrip.survivesRender ? ok("every value survives a re-render") : fail("a value vanished on re-render — DOM-only state");
+    r.schemaWitness.declaredLanded && r.schemaWitness.undeclaredDropped
+      ? ok("   witness: an UNDECLARED sibling key on the same write is dropped — the greens hang on the NpcData declarations")
+      : fail(`schema witness failed: ${JSON.stringify(r.schemaWitness)}`);
+
+    console.log("\n  identity is kept by omission");
+    r.identity.profKeeps ? ok("profession re-roll keeps pronouns/age/traits") : fail("profession re-roll disturbed the identity fields");
+    r.identity.nameKeeps ? ok("name re-roll keeps pronouns/age/traits") : fail("name re-roll disturbed the identity fields");
+    r.identity.regenPronouns && r.identity.regenAge && r.identity.regenTraits
+      ? ok("regenerateNpc replaces all three — a whole new person")
+      : fail(`regenerateNpc left a sentinel behind: ${JSON.stringify(r.identity)}`);
+
+    console.log("\n  the biography block is role-gated");
+    for (const role of ["monster", "mount", "container"]) {
+      const g = r.gate[role];
+      !g.traits && !g.scars && !g.pronouns
+        ? ok(`absent on a ${role}`)
+        : fail(`the bio block leaks onto a ${role}: ${JSON.stringify(g)}`);
+    }
+    r.gate.control
+      ? ok("   witness: the gate defeated in-page puts the block on a monster — the absence assertions can fail")
+      : fail("the in-page gate control changed nothing — the absence assertions are not load-bearing");
+
+    console.log("\n  career → day-rate autofill");
+    if (!r.fill.career) fail("no career with a non-zero rate in the catalogue — the autofill legs ran on nothing");
+    else {
+      r.fill.filled ? ok(`a known career fills a zero rate (${r.fill.career} → ${r.fill.rate})`) : fail("a known career did not fill the zero rate");
+      r.fill.caseInsensitive ? ok("the match is case-insensitive") : fail("an upper-cased career name did not fill the rate");
+      r.fill.keptNonzero ? ok("a non-zero rate is never overwritten") : fail("the autofill clobbered a stored rate");
+      r.fill.explicitWins ? ok("an explicit dayRate in the same update wins") : fail("the autofill overrode an explicit dayRate");
+      r.fill.unknownStaysZero ? ok("   differential: an unknown career fills nothing") : fail("an unknown career name filled a rate from nowhere");
+      r.fill.witnessStaysZero
+        ? ok("   witness: with the base-class _preUpdate shadowed in, the rate stays 0 — the fill is our _preUpdate's doing")
+        : fail("the shadow control still filled the rate — the assertion is not reading the autofill");
+    }
   }
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {
+  // Sweep the parity legs' actors FROM NODE, so an aborted run cannot leave a
+  // "PROBE …" actor behind for the next run to mistake for its own state.
+  try {
+    await page.evaluate(async () => {
+      for (const a of game.actors.filter((x) => x.name.startsWith("PROBE "))) await a.delete();
+    });
+  } catch { /* the page may already be closed */ }
   if (errors.length) {
     console.error("\nconsole errors:");
     errors.slice(0, 15).forEach((e) => console.error("  " + e));

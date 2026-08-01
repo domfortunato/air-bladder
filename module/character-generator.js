@@ -1933,6 +1933,14 @@ export const generateNpc = async () => {
     rate: h?.rate ?? 0,
     abilities: h?.abilities ?? { STR: 10, DEX: 10, WIL: 10 },
     hp: h?.hp ?? 6,
+    // A person, not just a statblock (2026-08-01): the biography the PC
+    // generator rolls, through the SAME paths — rollAge honours the Warden's
+    // minimum-age floor, rollTextItems draws the eight tables-2e trait tables —
+    // plus pronouns, a uniform pick with no PC equivalent (a player states
+    // their own; a generated stranger needs an answer on arrival).
+    pronouns: ["he/him", "she/her", "they/them"][Math.floor(Math.random() * 3)],
+    age: String(await rollAge(Cairn.characterGenerator2e.biography.age)),
+    traits: await rollTextItems(Cairn.characterGenerator2e.biography.items),
     items: await buildNpcItems(h),
   };
 };
@@ -1952,6 +1960,11 @@ const npcToActorData = (h) => ({
     dayRate: h.rate ?? 0,
     abilities: npcAbilityData(h.abilities),
     hp: { value: h.hp, max: h.hp },
+    // The rolled biography (generateNpc): identity fields, kept by every
+    // partial re-roll and replaced only by a full regenerate.
+    pronouns: h.pronouns ?? "",
+    age: h.age ?? "",
+    traits: h.traits ?? {},
     gold: 0,
     deprived: false,
     panicked: false,
@@ -1979,8 +1992,9 @@ export const createNpc = async () => {
 
 /**
  * Full re-roll of an existing NPC: a fresh random statblock (new profession,
- * day-rate, abilities, HP and gear). Keeps the name, portrait and free-form notes
- * -- the update omits them.
+ * day-rate, abilities, HP and gear) AND a fresh biography (pronouns, age,
+ * traits) — this is a whole new person. Keeps the name, portrait and free-form
+ * notes -- the update omits them.
  * @param {CairnActor} actor
  * @returns {Promise<CairnActor>}
  */
@@ -2002,6 +2016,12 @@ export const regenerateNpc = async (actor) => {
       dayRate: h.rate,
       abilities: npcAbilityData(h.abilities),
       hp: { value: h.hp, max: h.hp },
+      // The biography re-rolls with everything else: a regenerate is a whole
+      // new person. The PARTIAL re-rolls below keep all three by OMISSION —
+      // profession and name are not identity, so do not add these there.
+      pronouns: h.pronouns,
+      age: h.age,
+      traits: h.traits,
       critical: false,
     },
   });
@@ -2011,8 +2031,9 @@ export const regenerateNpc = async (actor) => {
 /**
  * Profession re-roll: swap to a different example statblock and adopt the whole
  * of it -- Profession, day-rate, abilities, HP and granted gear (a 2e career's
- * stats ARE its profession). Keeps the name, portrait, notes and any GM-added
- * items.
+ * stats ARE its profession). Keeps the name, portrait, notes, any GM-added
+ * items, and the biography (pronouns/age/traits) — identity fields, kept by
+ * OMISSION from the update; a new job is not a new person.
  * @param {CairnActor} actor
  * @returns {Promise<CairnActor>}
  */

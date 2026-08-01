@@ -44,10 +44,17 @@ const TAB_LABELS = {
  *  tab on the very documents the connection graph was built to replace. */
 const TAB_IDS = {
   character: ["items", "description", "containers", "notes"],
-  npc: ["items", "description", "containers", "notes"],
+  // Description FIRST on the non-player sheet (2026-08-01, asked for): a Warden
+  // opens an NPC to remember who they are — statblock, features, biography —
+  // and reaches for the inventory second. The character sheet deliberately
+  // keeps Items first; the reorder is the NPC's alone. The order here must
+  // match the hand-written nav in npc-sheet.html, and `_getTabsConfig` takes
+  // the group's initial from ids[0], so this list is also what the sheet
+  // OPENS on.
+  npc: ["description", "items", "containers", "notes"],
   // Same set as npc: one sheet, one tab set. A hireling used to get only
   // items+notes, so anything written in its Description was unreachable.
-  hireling: ["items", "description", "containers", "notes"],
+  hireling: ["description", "items", "containers", "notes"],
 };
 
 /**
@@ -230,6 +237,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     },
   };
 
+  /**
+   * The tab a FRESH sheet opens on, per actor type. Core seeds `tabGroups`
+   * from static TABS at construction (application.mjs:287-290 — and its own
+   * doc says "subclasses may override this property to define default tabs"),
+   * so by first render the group already holds the static's "items" and
+   * `_prepareTabs`'s `??=` never consults `_getTabsConfig`'s initial. Without
+   * this override the npc sheet — whose list leads with Description since
+   * 2026-08-01 — would open standing on Items regardless. A subclass field
+   * initialises after every parent constructor, so `options.document` is set.
+   */
+  tabGroups = { primary: (TAB_IDS[this.options.document?.type] ?? ["items"])[0] };
+
   /* -------------------------------------------- */
 
   /**
@@ -273,6 +292,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
           "systems/air-bladder/templates/parts/items-list.html",
           "systems/air-bladder/templates/parts/container-list.html",
           "systems/air-bladder/templates/parts/feature-list.html",
+          "systems/air-bladder/templates/parts/bio-block.html",
         ],
       },
     };
@@ -289,6 +309,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const ids = (TAB_IDS[this.actor.type] ?? ["items"])
       .filter((id) => id !== "containers" || this.actor.system.showContainersTab);
     config.tabs = ids.map((id) => ({ id, label: TAB_LABELS[id] }));
+    // The group's initial follows the FIRST id of the type's list, not the
+    // static TABS default ("items") — the npc list leads with Description now,
+    // and an initial the list does not lead with opens the sheet on a tab that
+    // is not first, or (via the reset below) lands a vanished-tab reset on the
+    // wrong one.
+    config.initial = ids[0] ?? config.initial;
     // Losing your last container removes the tab you were standing on.
     // `_prepareTabs` only defaults the group when it is unset (`??=`), so without
     // this the group keeps pointing at a tab that is no longer rendered and NO
@@ -643,6 +669,19 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // Same random-generation switch as a character: gates the per-field dice
       // (name, profession, portrait).
       context.generationEnabled = this.actor.system.generationEnabled !== false;
+      // A PERSON gets the character's biography block — pronouns, age, the
+      // eight traits, scars — on the Description tab (2026-08-01). Role npc
+      // only: a monster, mount, transport or container has no pronouns, and
+      // showBiography false keeps the whole partial out of the render. Omen
+      // stays a player-character thing — it is the youngest PARTY member's
+      // burden, and no npc is one.
+      context.showBiography = this.actor.npcRole === "npc";
+      if (context.showBiography) {
+        await this._prepareBiographyContext(context);
+        context.showScars = true;
+        context.showAge = true;
+        context.showOmen = false;
+      }
     }
 
     // Tooltips that have an NPC wording must resolve through `_wording` like the
@@ -657,12 +696,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
-   * Description tab: traits (pick-lists + sentence), Omen, Scars, plus the 2e
-   * background header/description; and the Notes tab's bonds and questions.
-   * Character-only — NPCs and containers have none of it.
+   * The biography block (templates/parts/bio-block.html): trait pick-lists +
+   * the constructed sentence, and the Scars checklist. Extracted from
+   * _prepareCharacterContext when role-npc PEOPLE got the same block
+   * (2026-08-01) — the character path calls it first and keeps everything
+   * background-shaped for itself; the npc path calls it alone, gated on role
+   * npc (context.showBiography).
    * @private
    */
-  async _prepareCharacterContext(context) {
+  async _prepareBiographyContext(context) {
     // Trait pick-lists: each trait's source table (from the 2e biography config,
     // which already points at air-bladder.tables-2e) supplies a <select> of
     // options so a player can pick a value (or keep an off-table one).
@@ -715,6 +757,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       : [];
     context.scarDisplay = selectedScars.length ? selectedScars.join(", ") : null;
     context.scarsCollapsed = this._scarsCollapsed ?? false;
+  }
+
+  /**
+   * Description tab: the biography block (see _prepareBiographyContext), plus
+   * the 2e background header/description; and the Notes tab's bonds and
+   * questions. Character-only — the npc path shares only the biography part.
+   * @private
+   */
+  async _prepareCharacterContext(context) {
+    await this._prepareBiographyContext(context);
 
     // Background description (from the linked Item) + a friendly source label,
     // shown in the sheet header. "2e" -> "Cairn 2e".
@@ -736,9 +788,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.is2eBackground = this.actor.system.contentSource === "2e";
     context.isBarebonesBackground = this.actor.system.contentSource === "barebones";
     context.hasGeneratedBackground = !!this.actor.system.backgroundUuid;
-    // A generated character's Notes tab also carries its bonds and background
-    // questions, so the tab is titled for both; a hand-made one is just notes.
-    context.showBackgroundNotesLabel = context.is2eBackground || context.isBarebonesBackground;
+    // `showBackgroundNotesLabel` lived here (the Notes tab renamed itself
+    // "Background & Notes" once a background was attached). Retired 2026-08-01:
+    // the tab is "Notes" for everyone — one name, one key, and the label no
+    // longer disagrees with TAB_LABELS.notes on generated characters.
     // Scars and Age are never generated — a player fills each in by hand after
     // the fact — so they are NOT edition-specific and show on both. Only
     // character CREATION differs between 2e and Barebones (see CLAUDE.md).
@@ -2577,16 +2630,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const data = super._processFormData(event, form, formData);
     // Strip system.hp.value from the submit EXACTLY when prepareData derives it
     // to 0, so a derived 0 never persists over the real stored value — and ONLY
-    // then, or the strip becomes its own bug: an npc at capacity (a full crate,
-    // which no longer zeroes — that is a container's normal state, review #5)
-    // would otherwise have every HP edit silently dropped, un-editable for as
-    // long as it stayed full. character and hireling zero on encumbrance or
-    // panic; npc only on panic. Keep this condition in step with
-    // _prepareCharacterData — the two are one rule stated twice.
+    // then, or the strip becomes its own bug: a THING at capacity (a full
+    // crate, which does not zero — that is a container's normal state, review
+    // #5) would otherwise have every HP edit silently dropped, un-editable for
+    // as long as it stayed full. Whoever lives by the player rules zeroes on
+    // encumbrance — that is `livesByPlayerRules`, the SAME getter the derived
+    // zero in _prepareCharacterData reads, so the two sites cannot drift
+    // (drift is exactly review #5's un-editable-HP bug); re-keyed from type to
+    // role 2026-08-01, when role-npc people joined the rule. Panic still
+    // zeroes for every type.
     const derivedZero =
-      (["character", "hireling"].includes(this.actor.type)
-        && (this.actor.system.encumbered || this.actor.system.panicked))
-      || (this.actor.type === "npc" && this.actor.system.panicked);
+      (this.actor.livesByPlayerRules && this.actor.system.encumbered)
+      || this.actor.system.panicked;
     if (derivedZero) {
       foundry.utils.deleteProperty(data, "system.hp.value");
     }

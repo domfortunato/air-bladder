@@ -30,7 +30,14 @@
  *    switching the role to Monster removes the tab under you — the sheet must
  *    land on a rendered tab, not a blank body.
  *
- * 5. **Both directions, either end (Round 2).** A connected actor's tab shows
+ * 5. **Tab ORDER (2026-08-01).** Description leads the npc sheet — nav, panels
+ *    AND the tab a fresh sheet opens on, which takes a `tabGroups` override
+ *    because core seeds the group from static TABS at construction. The
+ *    character sheet still leads with Items; that leg is what stops a
+ *    "reorder both" regression, and it doubles as the order-reader's
+ *    differential witness.
+ *
+ * 6. **Both directions, either end (Round 2).** A connected actor's tab shows
  *    its upward keeper as a line the Warden can break from the child end; an
  *    unconnected connectable shows Connect to… (attach ME); and every manual
  *    edge control is the Warden's ALONE — a player client sees none of them,
@@ -407,6 +414,84 @@ try {
   tabs.asMonster.visiblePanels === 1
     ? ok("the vanishing tab did not blank the body", "tabGroups reset to a rendered tab")
     : bad("the vanishing tab did not blank the body", `${tabs.asMonster.visiblePanels} visible panel(s)`);
+
+  /* ---- tab ORDER (2026-08-01): Description leads the npc sheet ---- */
+  // The reorder is the NPC's ALONE — the character-sheet leg below is what
+  // stops a "reorder both" regression, and it doubles as the differential
+  // witness for the order reader: the same reader on the PC sheet must come
+  // back with Items first, so it demonstrably distinguishes the two orders.
+  console.log("\nDescription leads the npc sheet; the character sheet is untouched");
+  const order = await page.evaluate(async () => {
+    const Cls = CONFIG.Actor.documentClass;
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const read = (sheet) => ({
+      nav: [...sheet.element.querySelectorAll("nav.tabs .item")].map((a) => a.dataset.tab),
+      panels: [...sheet.element.querySelectorAll("section.content > .tab[data-tab]")].map((p) => p.dataset.tab),
+      active: sheet.tabGroups.primary,
+      activeVisible: [...sheet.element.querySelectorAll(".tab[data-tab]")].filter((p) => {
+        const r = p.getBoundingClientRect();
+        return r.width > 0 && r.height > 0;
+      }).map((p) => p.dataset.tab),
+    });
+    const npc = await Cls.create({ name: "ZZ Roles Order NPC", type: "npc", system: { role: "npc" } });
+    await npc.sheet.render(true);
+    await sleep(900);
+    const asNpc = read(npc.sheet);
+    const pc = await Cls.create({ name: "ZZ Roles Order PC", type: "character" });
+    await pc.sheet.render(true);
+    await sleep(900);
+    const asPc = read(pc.sheet);
+    await npc.sheet.close();
+    await pc.sheet.close();
+
+    // FAIL-WITNESS (in-page): the pre-fix shape — the group's initial hardcoded
+    // back to "items" the way the static TABS default had it (core seeds
+    // tabGroups from static TABS at construction, so this is exactly what the
+    // tabGroups override + config.initial exist to beat). A FRESH npc sheet
+    // must then open standing on Items again, or "opens on Description" is not
+    // load-bearing.
+    const proto = Object.values(CONFIG.Actor.sheetClasses.npc)[0].cls.prototype;
+    const origCfg = proto._getTabsConfig;
+    proto._getTabsConfig = function (group) {
+      const config = origCfg.call(this, group);
+      // Both halves of the pre-fix shape: the static initial AND the
+      // constructor seed both said "items" (the fixed method has already run
+      // its reset by now, so the seed must be re-imposed here).
+      if (config) {
+        config.initial = "items";
+        this.tabGroups[group] = "items";
+      }
+      return config;
+    };
+    const npc2 = await Cls.create({ name: "ZZ Roles Order Control", type: "npc", system: { role: "npc" } });
+    await npc2.sheet.render(true);
+    await sleep(900);
+    const control = npc2.sheet.tabGroups.primary;
+    await npc2.sheet.close();
+    proto._getTabsConfig = origCfg;
+
+    await npc.delete(); await pc.delete(); await npc2.delete();
+    return { asNpc, asPc, control };
+  });
+
+  const NPC_ORDER = ["description", "items", "containers", "notes"];
+  const PC_ORDER = ["items", "description", "containers", "notes"];
+  JSON.stringify(order.asNpc.nav) === JSON.stringify(NPC_ORDER)
+    && JSON.stringify(order.asNpc.panels) === JSON.stringify(NPC_ORDER)
+    ? ok("npc nav AND panels run Description → Items → Connections → Notes")
+    : bad("npc nav AND panels run Description → Items → Connections → Notes", JSON.stringify({ nav: order.asNpc.nav, panels: order.asNpc.panels }));
+  order.asNpc.active === "description"
+    && JSON.stringify(order.asNpc.activeVisible) === JSON.stringify(["description"])
+    ? ok("a fresh npc sheet OPENS on Description", "tabGroups override beats the static TABS seed")
+    : bad("a fresh npc sheet OPENS on Description", JSON.stringify({ active: order.asNpc.active, visible: order.asNpc.activeVisible }));
+  JSON.stringify(order.asPc.nav) === JSON.stringify(PC_ORDER)
+    && JSON.stringify(order.asPc.panels) === JSON.stringify(PC_ORDER)
+    && order.asPc.active === "items"
+    ? ok("the character sheet still leads with Items", "the reorder did not spread")
+    : bad("the character sheet still leads with Items", JSON.stringify({ nav: order.asPc.nav, active: order.asPc.active }));
+  order.control === "items"
+    ? ok("   control: initial forced back to \"items\" reopens on Items", "the opens-on-Description assertion can fail")
+    : bad("   control: initial forced back to \"items\" reopens on Items", `active=${order.control} — assertion not load-bearing`);
 
   /* ---- both directions, either end (Round 2), as the Warden ---- */
   console.log("\nthe tab shows both directions, manageable from either end");

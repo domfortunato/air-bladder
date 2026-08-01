@@ -320,9 +320,14 @@ try {
 
   const near = (a, b, tol = 3) => Math.abs(a - b) <= tol;
 
-  r.notesTabLabel === "Background & Notes"
-    ? ok(`the Notes tab is titled for its extra content ("${r.notesTabLabel}")`)
-    : fail(`Notes tab reads "${r.notesTabLabel}", expected "Background & Notes" on a generated character`);
+  // Until 2026-08-01 this asserted "Background & Notes" — the tab renamed itself
+  // once a background was attached, so a generated character and a hand-made one
+  // read differently. That went with `showBackgroundNotesLabel`: the tab is
+  // "Notes" for everyone now, one name and one key, and this leg is what stops
+  // the conditional label creeping back on the generated case that had it.
+  r.notesTabLabel === "Notes"
+    ? ok(`the Notes tab reads one name on a GENERATED character too ("${r.notesTabLabel}")`)
+    : fail(`Notes tab reads "${r.notesTabLabel}", expected "Notes" — the conditional label is back`);
   r.goldLabelRatio && Math.abs(r.goldLabelRatio - r.armorLabelRatio) <= 2
     ? ok(`Gold uses the same label/value split as Armor below it (${r.goldLabelRatio}% / ${r.armorLabelRatio}%)`)
     : fail(`Gold's split (${r.goldLabelRatio}%) does not match Armor's (${r.armorLabelRatio}%)`);

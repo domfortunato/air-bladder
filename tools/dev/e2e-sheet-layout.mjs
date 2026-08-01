@@ -256,6 +256,13 @@ try {
       // to END where the grid ends. Overlap/spill checks cannot see this one —
       // the void is BELOW every region, not inside or across any.
       if (type === "inanimate" && node()) {
+        // Measure standing on the ITEMS tab. The stranded-1fr defect this
+        // guards is a SHORT tab body sitting over a void, and Items is the
+        // short body; since the 2026-08-01 reorder the sheet opens on
+        // Description, whose taller content fills the track either way and
+        // would mask the negative control's dead band.
+        actor.sheet.changeTab("items", "primary");
+        await new Promise((r) => setTimeout(r, 250));
         const root = node();
         const grid = root.querySelector(".charater-sheet-grid");
         const tabs = root.querySelector(".character-sheet-section-tabs");

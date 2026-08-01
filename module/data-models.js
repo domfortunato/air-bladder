@@ -97,6 +97,24 @@ const optInt = () =>
 const strList = () => new fields.ArrayField(new fields.StringField(), { required: true, initial: [] });
 
 /**
+ * The eight 2e descriptive traits (Physique … Vice), one pick-list each on the
+ * sheet's Description tab, drawn from the tables-2e tables. Factored out of
+ * CharacterData when role-npc PEOPLE got the same biography block (2026-08-01),
+ * so the two schemas cannot drift a key apart — the sheet binds
+ * `system.traits.<key>` from ONE list of keys either way.
+ */
+const traits = () => new fields.SchemaField({
+  physique: str(),
+  skin: str(),
+  hair: str(),
+  face: str(),
+  speech: str(),
+  clothing: str(),
+  virtue: str(),
+  vice: str(),
+});
+
+/**
  * A list of records whose interior shape varies by content and is not worth
  * pinning: bonds, questions, features, a background's starting gear and its two
  * d6 tables. ObjectField preserves whatever the generator and the importers put
@@ -186,16 +204,7 @@ class CharacterData extends CairnDataModel {
       background: str(),
       bonds: objList(),
       age: str(),
-      traits: new fields.SchemaField({
-        physique: str(),
-        skin: str(),
-        hair: str(),
-        face: str(),
-        speech: str(),
-        clothing: str(),
-        virtue: str(),
-        vice: str(),
-      }),
+      traits: traits(),
       biography: html(),
       // The Description tab's free prose and the Notes tab's editor. Both are
       // ProseMirror targets on character-sheet.html and were never declared in
@@ -278,6 +287,23 @@ class NpcData extends CairnDataModel {
       // overloading the roles work took apart, and `deriveNpcRole` is the only
       // thing that still reads it that way — on a pre-roles source, once.
       forHire: bool(true),
+      // --- a person is a person (2026-08-01) ---------------------------------
+      // An npc with role `npc` is an innkeeper, a rival captain, a hired guard —
+      // and the PC sheet gives a person pronouns, an age, eight descriptive
+      // traits and scars, while this model gave them none of that, purely
+      // because the sheet grew out of the old hireling sheet. These close the
+      // gap. Only role npc ever SHOWS them (the sheet's showBiography gate);
+      // they live on the shared model because a schema cannot vary by role, and
+      // an unread "" on a crate costs nothing. `faction` is the one field a PC
+      // has no counterpart of: whose interests this person serves. All plain
+      // text, deliberately — an HTMLField would need declaring in system.json's
+      // htmlFields or it ships as an XSS hole (see CLAUDE.md, Testing).
+      faction: str(),
+      pronouns: str(),
+      age: str(),
+      traits: traits(),
+      scarEnabled: bool(),
+      scars: strList(),
       // What this actor IS to the party — the one discriminator (NPC_ROLES
       // above). Replaces `forHire` and `inanimate`, both of which migrateData
       // below still reads so pre-roles documents derive the right value.

@@ -948,6 +948,7 @@ const configureHandleBar = () => {
     "systems/air-bladder/templates/parts/items-list.html",
     "systems/air-bladder/templates/parts/container-list.html",
     "systems/air-bladder/templates/parts/feature-list.html",
+    "systems/air-bladder/templates/parts/bio-block.html",
   ];
 
   foundry.applications.handlebars.loadTemplates(templatePaths);
