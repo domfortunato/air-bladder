@@ -3,7 +3,8 @@ import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, sourceLabel } from "../utils.js";
 import { resultText } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
-import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES, TRANSPORT_KINDS, containerClassSlots, containerClass, containerClassAnimate } from "../icons.js";
+import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES, containerClassSlots, containerClass, containerClassAnimate, containerClassRole } from "../icons.js";
+import { NPC_ROLES } from "../data-models.js";
 import { localizeNameDesc, t } from "../i18n-content.js";
 import { FATIGUE_NAME } from "../item/item.js";
 
@@ -23,25 +24,28 @@ const FEATURE_FLAGS = ["str", "dex", "wil", "hp", "armor", "dmg", "crit", "depri
 const TAB_LABELS = {
   items: "CAIRN.Items",
   // The tab ID stays `containers` -- it is internal, and renaming it would touch
-  // both templates, the `show-containers-tab` setting and the tab filter for no
-  // gain anyone can see. What a person READS is "Connected", because once a
-  // container is just an NPC with a `connectedTo`, the tab is not about
-  // containers: it lists mounts, vehicles, loot piles AND hirelings, who have
-  // never had a link back to whoever hired them.
-  containers: "CAIRN.Connected",
+  // both templates and the tab filter for no gain anyone can see. What a person READS is "Connections": the relationship
+  // graph — one PC to many NPCs, NPC under NPC below that — listing mounts,
+  // vehicles, loot piles AND hirelings, who never had a link back to whoever
+  // hired them until role hireling put them on it.
+  containers: "CAIRN.Connections",
   description: "CAIRN.Description",
   notes: "CAIRN.Notes",
 };
 
 /** Which tabs each actor type shows, in order. `containers` is dropped unless
- *  the actor actually has the Containers tab enabled (see _getTabsConfig). */
+ *  the actor actually has the Connections tab enabled (see _getTabsConfig —
+ *  never on a Monster, never on an unlinked token's actor).
+ *
+ *  Every type gets the same four. The one that did not was `container`, whose
+ *  two-tab row was how a retired type stayed visibly retired — no Connections
+ *  tab on the very documents the connection graph was built to replace. */
 const TAB_IDS = {
-  character: ["items", "containers", "description", "notes"],
-  npc: ["items", "containers", "description", "notes"],
+  character: ["items", "description", "containers", "notes"],
+  npc: ["items", "description", "containers", "notes"],
   // Same set as npc: one sheet, one tab set. A hireling used to get only
   // items+notes, so anything written in its Description was unreachable.
-  hireling: ["items", "containers", "description", "notes"],
-  container: ["items", "description"],
+  hireling: ["items", "description", "containers", "notes"],
 };
 
 /**
@@ -172,8 +176,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       addFatigue: owned(CairnActorSheet.#onAddFatigue),
       removeFatigue: owned(CairnActorSheet.#onRemoveFatigue),
       rollDamage: owned(CairnActorSheet.#onRollDamage),
-      // Containers
-      containerShop: owned(CairnActorSheet.#onContainerShop),
+      // Connections
+      connectionAdd: owned(CairnActorSheet.#onConnectionAdd),
+      connectionAttach: owned(CairnActorSheet.#onConnectionAttach),
+      connectionDetach: owned(CairnActorSheet.#onConnectionDetach),
       containerCreate: owned(CairnActorSheet.#onContainerCreate),
       containerUnlink: owned(CairnActorSheet.#onContainerUnlink),
       // Features
@@ -509,6 +515,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // Connected tab was an affordance for an action the server always refuses
     // (review #5). The template hides it; unlink and edit remain theirs.
     context.canDeleteActors = game.user.isGM;
+    // Manual edge management (Add Connection / Connect to… / unlink) is the
+    // Warden's alone (Round 2, docs/npc-roles-plan.md). Distinct from
+    // canDeleteActors although both are isGM today: one names a Foundry role
+    // gate we merely surface, the other names OUR policy — if either ever
+    // moves, the other must not move with it by accident.
+    context.isWarden = game.user.isGM;
     // Per-window id prefix for label[for]/input[id] pairs. Templates hardcoded the
     // field path as the DOM id ("system.gold"), so every open sheet of a type used
     // the SAME ids — and `label[for]` resolves against the first match in tree
@@ -536,6 +548,21 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // happens to touch the owner. Rebuilding it here costs one pass over
     // game.actors per render and cannot be stale by construction.
     context.system.containerObjects = this.actor.connectedActors();
+    // Role-driven pick-lists for the NPC sheet header. The variety list is the
+    // CONTAINER_CLASSES table filtered to the current role, so a class added
+    // there appears here with nothing else to keep in step; the input itself
+    // stays free text — a Warden's own word is a legal variety.
+    if (["npc", "hireling"].includes(this.actor.type)) {
+      const role = this.actor.npcRole;
+      context.roleChoices = Object.fromEntries(NPC_ROLES.map((r) => [
+        r, game.i18n.localize(`CAIRN.Role${r.charAt(0).toUpperCase()}${r.slice(1)}`),
+      ]));
+      context.showCareer = ["npc", "hireling"].includes(role);
+      context.showVariety = ["mount", "transport", "container"].includes(role);
+      context.varietyOptions = Object.entries(CONTAINER_CLASSES)
+        .filter(([, v]) => v.role === role)
+        .map(([key, v]) => ({ key, label: game.i18n.localize(v.label) }));
+    }
     let items = this.actor.items.map((i) => ({
       _id: i.id,
       name: i.name,
@@ -602,11 +629,6 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.enrichedNotes = await enrich(this.actor.system.notes);
 
     if (this.actor.type === "character") await this._prepareCharacterContext(context);
-
-    // The container's Type pick-list. Blank is offered because a hand-made
-    // container legitimately has no kind — it is a chest on the floor — and
-    // because the field has always defaulted to empty.
-    if (this.actor.type === "container") context.transportKinds = TRANSPORT_KINDS;
 
     // Non-player actors reuse the character's STR/DEX/WIL/HP behaviour and
     // tooltips, but none of the background/traits/bonds machinery. npc is here
@@ -779,18 +801,19 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * @private
    */
   _computeStatContext(context) {
-    // An INANIMATE actor has no stat block, so it has no derived conditions
-    // either -- and this is a correctness guard, not a cosmetic one. Every
-    // condition below is derived from an ability being at or below zero
-    // (`dead = STR <= 0`), which is exactly the state a crate or a loot pile
-    // sits in permanently. Without this the sheet would announce that a barrel
-    // is Dead, Paralyzed and Delirious, all three at once, and the red peril
-    // cues would paint a stat block the template is not even drawing.
+    // A THING (role transport/container) has no stat block, so it has no
+    // derived conditions either -- and this is a correctness guard, not a
+    // cosmetic one. Every condition below is derived from an ability being at
+    // or below zero (`dead = STR <= 0`), which is exactly the state a crate or
+    // a loot pile sits in permanently. Without this the sheet would announce
+    // that a barrel is Dead, Paralyzed and Delirious, all three at once, and
+    // the red peril cues would paint a stat block the template is not even
+    // drawing.
     //
     // Everything is still defined rather than left undefined: the template
     // reads these keys unconditionally in a few places, and a missing lookup in
     // Handlebars is silently empty, which would hide a future mistake here.
-    if (this.actor.system.inanimate) {
+    if (this.actor.isThing) {
       context.abilityPeril = {};
       context.abilityLow = {};
       context.hpLow = false;
@@ -1372,9 +1395,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * image would leave a thing that looks like a barrel and calls itself a chest,
    * which is the exact drift `containerClass` was added to stop.
    *
-   * `cls` is absent when the art came from the FilePicker — a Warden's own image
-   * is not any of our classes, so the stored class is cleared and the label falls
-   * back to inferring from the name.
+   * `cls` is absent when the art came from the FilePicker — and then the stored
+   * variety is left ALONE. It used to be cleared, which made choosing your own
+   * mule painting cost the mule its identity (label, default capacity, the
+   * variety field itself); under roles, art is just art, and only the gallery's
+   * glyphs carry a variety claim (docs/npc-roles-plan.md).
    *
    * Capacity is only filled in when it is still 0 (i.e. "use the world setting",
    * never touched). A Warden who typed 12 into a crate meant 12, and choosing a
@@ -1455,15 +1480,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   /**
    * Click the portrait to pick a new one. A container gets the transport/container
    * art gallery instead of the character portrait gallery -- different art, and no
-   * paired token file. Every other type, NPCs included, gets the character portrait
+   * paired token file. Every other role, NPCs included, gets the character portrait
    * gallery: an NPC is as much a face at the table as a PC is.
    * @this {CairnActorSheet}
    */
   static async #onEditPortrait(event) {
-    // An INANIMATE npc is a container in every sense that matters here, so it
-    // gets the container gallery rather than 80 human portraits. Routing on the
-    // type alone stopped being right the moment a crate became an npc document.
-    const isContainerish = this.actor.type === "container" || this.actor.system.inanimate === true;
+    // A thing-role npc is a container in every sense that matters here, and a
+    // MOUNT wants the horse/mule glyphs, not 80 human portraits — so all three
+    // container-line roles get the container gallery.
+    const isContainerish = this.actor.isThing || this.actor.npcRole === "mount";
     return isContainerish
       ? this._pickContainerArt(event)
       : this._pickPortrait(event);
@@ -1577,14 +1602,19 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
-   * Open the marketplace (buy/take gear). On a container it is scoped to gear
-   * only -- no buying a transport into a transport -- and acquisition is strict
-   * there: a container refuses anything that will not fit.
+   * Open the marketplace (buy/take gear). Anything that cannot KEEP a
+   * connection is scoped to gear only — no buying a cart into a sack.
+   *
+   * Keyed on `canKeepConnected`, which is the same test `acquireTransport`
+   * refuses on, so the shop never offers a row it would then reject. It used to
+   * be `type === "container"`, which under the roles model excluded nothing: an
+   * npc mule IS a container and its sheet carries this link (the same gap
+   * review #5 closed on the marketplace's own side, one caller short).
    * @this {CairnActorSheet}
    */
   static #onItemShop(event) {
     event.preventDefault();
-    if (this.actor.type === "container") openMarketplace(this.actor, { exclude: TRANSPORTS_CATEGORY });
+    if (!this.actor.canKeepConnected) openMarketplace(this.actor, { exclude: TRANSPORTS_CATEGORY });
     else openMarketplace(this.actor);
   }
 
@@ -1622,6 +1652,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static #onContainerUnlink(event, target) {
     event.preventDefault();
+    // Warden-only (Round 2) — unlinkOwnedContainer re-checks; this just
+    // refuses politely if the hidden control got reached anyway.
+    if (!game.user.isGM) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.WardenOnlyConnections"));
+      return;
+    }
     const row = CairnActorSheet.#row(target);
     if (!row?.dataset.isContainer) return;
     // Not slid up: unlinking leaves the actor in the world, and the row simply
@@ -1749,18 +1785,161 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /* -------------------------------------------- */
-  /*  Actions — containers                        */
+  /*  Actions — connections                       */
   /* -------------------------------------------- */
 
   /**
-   * Add a container from the catalog (a pack, mount, or vehicle). Same shop, same
-   * buy/take path as the Items-tab market, scoped to Transports & Containers --
-   * so a bought/taken transport lands right back in this tab.
+   * Connect an EXISTING world actor to this one — the tab's headline gesture
+   * (PC → NPC or NPC → NPC; docs/npc-roles-plan.md). The marketplace link this
+   * replaced still exists on the Items tab; the Connections tab is about
+   * relationships, not shopping.
+   *
+   * The pick-list is pre-filtered to what `connectActor` would accept — role
+   * may be connected, not already connected, no cycle, and the user can write
+   * it — so the dialog never offers a refusal. connectActor still guards; the
+   * filter is a courtesy, not the wall.
    * @this {CairnActorSheet}
    */
-  static #onContainerShop(event) {
+  static async #onConnectionAdd(event) {
     event.preventDefault();
-    openMarketplace(this.actor, { only: TRANSPORTS_CATEGORY, titleKey: "CAIRN.TransportMarketTitle" });
+    // connectActor re-checks; refusing before the dialog just spares a Warden
+    // gesture from players who found the action some way the template gating
+    // does not cover.
+    if (!game.user.isGM) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.WardenOnlyConnections"));
+      return;
+    }
+    if (!this.actor.canKeepConnected) {
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoNesting", { name: this.actor.name }));
+      return;
+    }
+    const candidates = game.actors
+      .filter((a) => a.uuid !== this.actor.uuid
+        && a.canBeConnected
+        // The pair rule: characters are valid targets (Round 2), but only
+        // under another character — an NPC keeper never sees them offered.
+        && !(a.type === "character" && this.actor.type !== "character")
+        && !a.system?.connectedTo
+        && !this.actor.wouldCreateConnectionCycle(a)
+        && a.canUserModify(game.user, "update"))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    if (!candidates.length) {
+      ui.notifications.info(game.i18n.localize("CAIRN.Notify.NoConnectables"));
+      return;
+    }
+    const options = candidates
+      .map((a) => `<option value="${a.uuid}">${foundry.utils.escapeHTML(a.name)}</option>`)
+      .join("");
+    const content = `<div class="form-group">
+        <label>${game.i18n.localize("CAIRN.ConnectionPick")}</label>
+        <select name="connectionTarget">${options}</select>
+      </div>`;
+    await foundry.applications.api.DialogV2.prompt({
+      window: { title: game.i18n.localize("CAIRN.AddConnection") },
+      content,
+      ok: {
+        icon: "fas fa-link",
+        label: game.i18n.localize("CAIRN.AddConnection"),
+        callback: async (dialogEvent, button) => {
+          const uuid = button.form.connectionTarget?.value;
+          const target = game.actors.find((a) => a.uuid === uuid);
+          if (target) await this.actor.connectActor(target);
+        },
+      },
+      rejectClose: false,
+    });
+  }
+
+  /**
+   * The same edge from the CHILD end: pick a keeper for THIS actor (Round 2).
+   * Renders on any connectable, unconnected actor's tab — a sack, a mount, a
+   * player character joining another's roster. The write is identical to Add
+   * Connection's (`keeper.connectActor(child)`); only the sheet it starts
+   * from differs, so every guard is connectActor's.
+   * @this {CairnActorSheet}
+   */
+  static async #onConnectionAttach(event) {
+    event.preventDefault();
+    if (!game.user.isGM) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.WardenOnlyConnections"));
+      return;
+    }
+    const child = this.actor;
+    if (child.system.connectedTo) return;             // one upward link, ever
+    const keepers = game.actors
+      .filter((k) => k.uuid !== child.uuid
+        && k.canKeepConnected
+        // The pair rule, seen from below: a character attaches only under
+        // another character.
+        && !(child.type === "character" && k.type !== "character")
+        // Cycle check runs from the PROSPECTIVE KEEPER's side, exactly as
+        // connectActor will: if the chain above k passes through child, the
+        // link would loop.
+        && !k.wouldCreateConnectionCycle(child))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    if (!keepers.length) {
+      ui.notifications.info(game.i18n.localize("CAIRN.Notify.NoKeepers"));
+      return;
+    }
+    const options = keepers
+      .map((k) => `<option value="${k.uuid}">${foundry.utils.escapeHTML(k.name)}</option>`)
+      .join("");
+    const content = `<div class="form-group">
+        <label>${game.i18n.localize("CAIRN.ConnectionPick")}</label>
+        <select name="keeperTarget">${options}</select>
+      </div>`;
+    await foundry.applications.api.DialogV2.prompt({
+      window: { title: game.i18n.localize("CAIRN.ConnectTo") },
+      content,
+      ok: {
+        icon: "fas fa-link",
+        label: game.i18n.localize("CAIRN.ConnectTo"),
+        callback: async (dialogEvent, button) => {
+          const uuid = button.form.keeperTarget?.value;
+          const keeper = game.actors.find((k) => k.uuid === uuid);
+          if (keeper) await keeper.connectActor(child);
+        },
+      },
+      rejectClose: false,
+    });
+  }
+
+  /**
+   * Break the upward edge from the CHILD end (Round 2). Routes through the
+   * keeper's own unlink — same confirm dialog, same formerlyBelongedTo stamp —
+   * so the two ends cannot drift. The fallback
+   * matters: a DANGLING link (keeper deleted, uuid resolving to nothing) has
+   * no keeper to route through, and single-parent-ever refuses to reconnect
+   * over it, so clearing it here is the only recovery the child has.
+   * @this {CairnActorSheet}
+   */
+  static async #onConnectionDetach(event) {
+    event.preventDefault();
+    if (!game.user.isGM) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.WardenOnlyConnections"));
+      return;
+    }
+    const child = this.actor;
+    const link = child.system.connectedTo || "";
+    if (!link) return;
+    const keeper = game.actors.find((a) => a.uuid === link);
+    if (keeper) {
+      await keeper.unlinkOwnedContainer(child.uuid);
+      return;
+    }
+    const proceed = await foundry.applications.api.DialogV2.confirm({
+      window: { title: game.i18n.localize("CAIRN.UnlinkContainerTitle") },
+      content: `<div class="cairn-confirm"><p class="cairn-confirm-q">${
+        game.i18n.format("CAIRN.UnlinkContainerQ", {
+          name: foundry.utils.escapeHTML(child.name),
+        })}</p></div>`,
+      rejectClose: false,
+      modal: true,
+    });
+    if (!proceed) return;
+    // No formerlyBelongedTo stamp — the keeper's name is exactly the fact the
+    // dangling uuid already failed to preserve.
+    await child.update({ "system.connectedTo": "" });
   }
 
   /**
@@ -1774,9 +1953,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       ui.notifications.warn(game.i18n.localize("CAIRN.Notify.NoActorCreate"));
       return;
     }
-    // No nesting: the Connected tab (and this button) renders on an npc
-    // container's own sheet too — refuse BEFORE the dialog, not after the
-    // Warden has filled it in.
+    // Keeping is a role privilege now: the Connections tab (and this button)
+    // renders on a mount's or a container's own sheet too — refuse BEFORE the
+    // dialog, not after the Warden has filled it in.
     if (!this.actor.canKeepConnected) {
       ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoNesting", { name: this.actor.name }));
       return;
@@ -1817,7 +1996,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
             // (The realistic refusal, a player without ACTOR_CREATE, is caught
             // above with a message.)
             const cls = form.itemclass?.value ?? "";
-            const animate = containerClassAnimate(cls || containerClass(form.itemname.value));
+            const effectiveCls = cls || containerClass(form.itemname.value);
+            const animate = containerClassAnimate(effectiveCls);
+            // The class the Warden picked (blank: the one the name infers)
+            // decides the ROLE off CONTAINER_CLASSES itself: a hand-made Mule
+            // is a mount with the schema's default stat block, a hand-made
+            // Barrel is a container and gets 0/0 explicitly. A name the table
+            // cannot read at all defaults to container — this dialog makes
+            // things, never people.
+            const role = containerClassRole(effectiveCls) || "container";
             await getDocumentClass("Actor").create({
               type: "npc",
               name: form.itemname.value,
@@ -1825,7 +2012,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
                 slots: Number(form.itemslots.value) || 0,
                 // Blank means "read the name", which is what this dialog always did.
                 containerClass: cls,
-                inanimate: !animate,
+                role,
                 // Connected at CREATION — no window in which it exists as a
                 // free-standing loot pile between two awaits, and no second
                 // write for a permission wall to break in half.
@@ -2342,10 +2529,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
           type: "image",
           current: "icons/containers",
           callback: async (path) => {
-            // A Warden's own image is none of our classes, so clear the stored
-            // one and let the label fall back to inferring from the name --
-            // rather than leaving a custom picture labelled "Chest".
-            await this._setContainerArt(path, "");
+            // Only the picture was touched, so only the picture changes: the
+            // stored variety survives a custom image (cls deliberately absent —
+            // see _setContainerArt). A mule wearing the Warden's own painting
+            // is still a mule.
+            await this._setContainerArt(path);
             dialog.close();
           },
         }).render(true);
@@ -2590,11 +2778,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
 
     // Capacity rules differ by target. A CHARACTER may accept an item that puts
-    // them over capacity (they just drop to HP 0 until a slot frees). A CONTAINER
-    // is strict — it refuses anything that won't fit.
+    // them over capacity (they just drop to HP 0 until a slot frees). A THING —
+    // role container or transport — is strict: it refuses anything that won't
+    // fit, because a sack has no rule that punishes it for being overfull. A
+    // MOUNT is not a thing and is deliberately lenient: it is a creature with a
+    // stat block, and it follows the npc rule (over capacity does nothing).
     const s = originalItem.system ?? {};
     const need = s.bulky ? 2 : s.weightless ? 0 : 1;
-    if (this.actor.type === "container") {
+    if (this.actor.isThing) {
       if ((this.actor.system.slotsUsed ?? 0) + need > (this.actor.system.slotsMax ?? 0)) {
         ui.notifications.warn(
           game.i18n.format("CAIRN.Notify.ContainerFull", { name: originalItem.name })
@@ -2622,9 +2813,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         ui.notifications.warn(game.i18n.localize("CAIRN.Notify.DropFailed"));
         return null;
       }
-      // Items inside a container are stowed, never equipped.
+      // Items inside a thing are stowed, never equipped. A mount is excluded on
+      // purpose — barding is equipped armor on a creature that has a stat block.
       const patch = { "system.quantity": 1 };
-      if (this.actor.type === "container") patch["system.equipped"] = false;
+      if (this.actor.isThing) patch["system.equipped"] = false;
       await created.update(patch);
     }
 
@@ -2681,17 +2873,23 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * @param {CairnActor} actor  the dropped Actor, already resolved by ActorSheetV2
    */
   async _onDropActor(event, actor) {
-    // Only WORLD container actors can be attached. AppV1 expressed this by looking
-    // the uuid up in `game.actors`, which a compendium or unlinked-token actor is
+    // Only WORLD actors can be attached. AppV1 expressed this by looking the
+    // uuid up in `game.actors`, which a compendium or unlinked-token actor is
     // never in; ApplicationV2 hands us the resolved document, so say it directly.
-    if (!actor || actor.type !== "container" || actor.pack || actor.isToken) return null;
-    if (actor.system.keeper !== "") {
+    if (!actor || actor.pack || actor.isToken) return null;
+    if (this.actor.uuid === actor.uuid) return null;
+
+    // An npc-line (or, Round 2, character) drop is the drag spelling of Add
+    // Connection: one write, guarded inside connectActor (Warden-only, keeping
+    // role, connectable role, the NPC-never-keeps-a-PC pair rule,
+    // single-parent, cycle, permission). Already-connected stays refused —
+    // re-homing goes through unlink first, exactly as it always has.
+    if (!["npc", "hireling", "character"].includes(actor.type)) return null;
+    if (actor.system.connectedTo) {
       ui.notifications.warn(game.i18n.localize("CAIRN.ContainerAlreadyOwned"));
       return null;
     }
-    if (this.actor.uuid === actor.uuid) return null;
-    await this.actor.createOwnedContainer(actor);
-    return actor;
+    return (await this.actor.connectActor(actor)) ? actor : null;
   }
 
   /**

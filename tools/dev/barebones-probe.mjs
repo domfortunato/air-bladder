@@ -160,7 +160,7 @@ try {
       containerCount: mContainers.length,
       name: mContainers[0]?.name,
       capacity: mContainers[0]?.system.slotsMax,
-      kind: mContainers[0]?.system.transportKind,
+      variety: mContainers[0]?.system.containerClass,
       // ...and NOT as an item, which is what the fork was forced to do.
       notAnItem: !mActor.items.some((i) => /^wagon$/i.test(i.name)),
     };
@@ -298,7 +298,7 @@ try {
     r.regen.rerolled ? ok("regenerate re-rolls the rest of the character") : fail("regenerate produced an identical inventory 5 times");
 
     r.transport.containerCount === 1 && r.transport.notAnItem
-      ? ok(`the Merchant's ${r.transport.name} is a container Actor (+${r.transport.capacity}, ${r.transport.kind}), not an item`)
+      ? ok(`the Merchant's ${r.transport.name} is a container Actor (+${r.transport.capacity}, ${r.transport.variety}), not an item`)
       : fail(`Merchant transport wrong: ${r.transport.containerCount} containers, notAnItem=${r.transport.notAnItem}`);
 
     r.step6.armored === null || r.step6.unarmored === null

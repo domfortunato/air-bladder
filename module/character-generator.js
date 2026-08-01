@@ -553,7 +553,7 @@ export const duplicateBackgroundToWorld = async (bg) => {
 const containerKindFor = (name) => (/\b(wagon|cart|sled|sledge)\b/i.test(name) ? "vehicle" : "mount");
 
 /**
- * Mint the container Actors a background's rolled options granted, keeper-linked
+ * Mint the container Actors a background's rolled options granted, connected
  * to the new character and inheriting its ownership — the same shape the shop
  * produces (marketplace.js acquireTransport), so a granted donkey and a bought
  * one behave identically.
@@ -573,7 +573,7 @@ const containerKindFor = (name) => (/\b(wagon|cart|sled|sledge)\b/i.test(name) ?
 export const grantContainers = async (actor, specs) => {
   if (!actor || !specs?.length) return [];
   // The Mounts & Transports ACTOR pack, not the legacy transport Item pack. The
-  // payload below copies hp / armorOverride / inanimate / containerClass off the
+  // payload below copies hp / armorOverride / role / containerClass off the
   // resolved document, and only the Actor documents HAVE those fields — resolving
   // against the Item pack made every one of those reads a miss, so a granted
   // Rivertooth arrived with the schema's default 6 HP instead of its stated 8
@@ -586,7 +586,7 @@ export const grantContainers = async (actor, specs) => {
   // Actor carries its class outright.
   const resolve = (spec) => {
     const doc = docs.find((d) => d.name.toLowerCase() === String(spec.name).toLowerCase());
-    const kind = doc ? (doc.system.inanimate ? "vehicle" : "mount") : containerKindFor(spec.name);
+    const kind = doc ? (doc.system.role === "mount" ? "mount" : "vehicle") : containerKindFor(spec.name);
     return { doc, kind, art: doc?.img ?? iconForTransport(spec.name, kind) };
   };
 
@@ -621,7 +621,11 @@ export const grantContainers = async (actor, specs) => {
         // have shipped a horse whose art and one-word label were both decided by
         // a keyword table at render time, rather than recorded once at creation.
         containerClass: doc?.system.containerClass || containerClass(spec.name, kind),
-        inanimate: doc?.system.inanimate ?? false,
+        // A resolved pack Actor states its role; a one-off beast maps its
+        // inferred kind (a granted "Mangy Wolfdog" is a mount-shaped creature
+        // and keeps its stat block, exactly as the old animate default did).
+        role: doc?.system.role
+          ?? ({ mount: "mount", vehicle: "transport", worn: "container", pile: "container" }[kind] ?? "mount"),
         cost: doc?.system.cost ?? 0,
         generationEnabled: false,
         ...(doc?.system.hp ? { hp: { value: doc.system.hp.value, max: doc.system.hp.max } } : {}),
@@ -657,15 +661,14 @@ export const grantContainers = async (actor, specs) => {
 };
 
 /**
- * Every container keeper-linked to this actor that GENERATION granted (it carries
+ * Every container connected to this actor that GENERATION granted (it carries
  * a grantSource flag). Bought and hand-made containers have no such flag and are
  * never returned, so a regenerate cannot delete a player's mule.
  * @param {CairnActor} actor @returns {CairnActor[]}
  */
 export const grantedContainersOf = (actor) =>
   (game.actors ?? []).filter(
-    (a) => (a.system?.connectedTo === actor.uuid || a.system?.keeper === actor.uuid)
-      && a.getFlag(FLAG_SCOPE, "grantSource")
+    (a) => a.system?.connectedTo === actor.uuid && a.getFlag(FLAG_SCOPE, "grantSource")
   );
 
 /**
@@ -710,10 +713,10 @@ export const requestGrantedActors = async (payloads, owner) => {
  * character — better to refuse before mutating anything, with a clear notice.
  *
  * A container op is only in play when there is an existing granted container to
- * delete, or when the containers feature is enabled and a fresh roll might grant
- * one. With the feature off, generation grants none (see grantContainers), so a
- * player regenerates freely. Pass `source` to scope the delete check to one grant
- * source (a single question's containers) rather than all of them.
+ * DELETE. Creation is brokered (see below), and there is no "containers feature"
+ * switch any more — `show-containers-tab` was the display toggle this comment
+ * used to call one, and it is gone. Pass `source` to scope the delete check to
+ * one grant source (a single question's containers) rather than all of them.
  * @param {CairnActor} actor @param {String|null} source
  * @returns {Boolean} true to proceed
  */
@@ -744,44 +747,28 @@ export const canRegenerateContainers = (actor, source = null, warnKey = "CAIRN.N
 };
 
 /**
- * Delete container Actors, then prune the keeper's uuid list to match — restoring
- * any that fail to delete, so a failed delete can never orphan a container (a live
- * Actor missing from the list). The prune stays AHEAD of a successful delete so
- * CairnActor._onDeleteOperation's own prune finds nothing left to do (see
- * clearGrantedContainers); on failure the uuid goes back. Returns the containers
- * that were actually removed.
+ * Delete container Actors. Returns the ones that were actually removed, and
+ * re-raises on the first failure so the caller aborts.
+ *
+ * It used to prune the keeper's `system.containers` uuid array in the same
+ * breath — ahead of the delete, so CairnActor._onDeleteOperation's own prune
+ * found nothing to do, and putting uuids back if a delete threw so a failure
+ * could not orphan a live Actor. That array went with the `container` type
+ * (2026-07-31): the link is one field on the CHILD now, so deleting the child
+ * IS the whole operation and there is no second half to keep in step.
  * @param {CairnActor} actor @param {CairnActor[]} targets
  * @returns {Promise<CairnActor[]>}
  * @private
  */
 const deleteContainers = async (actor, targets) => {
-  if (!targets.length) return [];
-  const gone = new Set(targets.map((c) => c.uuid));
-  await actor.update({ "system.containers": (actor.system.containers ?? []).filter((u) => !gone.has(u)) });
   const removed = [];
-  try {
-    for (const c of targets) { await c.delete(); removed.push(c); }
-    return removed;
-  } catch (err) {
-    // A delete failed — those containers still exist. Put their uuids back so the
-    // list matches reality (no orphan), then re-raise so the caller aborts. The
-    // up-front guard should make this unreachable for a player.
-    const stillHere = targets.filter((c) => !removed.includes(c) && game.actors.get(c.id)).map((c) => c.uuid);
-    if (stillHere.length) {
-      const current = actor.system.containers ?? [];
-      await actor.update({ "system.containers": [...new Set([...current, ...stillHere])] });
-    }
-    throw err;
-  }
+  for (const c of targets) { await c.delete(); removed.push(c); }
+  return removed;
 };
 
 /**
  * Delete every generation-granted container this actor keeps (a regenerate
  * re-rolls the background's options, so last roll's donkey has to go).
- *
- * The keeper's uuid list is pruned FIRST, deliberately: CairnActor's
- * _onDeleteOperation prunes it too, and pruning up front makes that pass a
- * no-op — one writer to the array instead of two.
  * @param {CairnActor} actor
  */
 export const clearGrantedContainers = async (actor) => {
@@ -1933,11 +1920,11 @@ export const generateHireling = async () => {
 const hirelingToActorData = (h) => ({
   name: h.name || "Hireling",
   // `npc`, not `hireling`: the two are one type now and the directory button that
-  // makes these says "Generate NPC". A generated one IS for hire, so the flag is
-  // set and its day rate shows.
+  // makes these says "Generate NPC". A generated one IS for hire, so the role
+  // says so and its day rate shows.
   type: "npc",
   system: {
-    forHire: true,
+    role: "hireling",
     profession: h.profession ?? "",
     dayRate: h.rate ?? 0,
     abilities: hirelingAbilityData(h.abilities),
@@ -1983,9 +1970,10 @@ export const regenerateHireling = async (actor) => {
   if (h.items?.length) await actor.createEmbeddedDocuments("Item", h.items, { render: false });
   await actor.update({
     system: {
-      // Set alongside the rate, never separately: `forHire` gates the day-rate row,
-      // so writing a rate without it stores a number the sheet will never render.
-      forHire: true,
+      // Set alongside the rate, never separately: the hireling role gates the
+      // day-rate row, so writing a rate without it stores a number the sheet
+      // will never render.
+      role: "hireling",
       profession: h.profession,
       dayRate: h.rate,
       abilities: hirelingAbilityData(h.abilities),
@@ -2014,8 +2002,8 @@ export const rerollHirelingProfession = async (actor) => {
   if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false });
   await actor.update({
     system: {
-      // See regenerateHireling: the flag travels with the rate it gates.
-      forHire: true,
+      // See regenerateHireling: the role travels with the rate it gates.
+      role: "hireling",
       profession: h?.name ?? "",
       dayRate: h?.rate ?? 0,
       abilities: hirelingAbilityData(h?.abilities ?? { STR: 10, DEX: 10, WIL: 10 }),

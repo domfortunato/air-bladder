@@ -1,6 +1,36 @@
+{{!-- The Connections tab body: the relationship graph, not an inventory view.
+      The marketplace link that used to live here is gone on purpose — shopping
+      stays on the Items tab; this tab is who travels with whom
+      (docs/npc-roles-plan.md).
+
+      Round 2: the tab shows BOTH directions. The upward keeper renders as a
+      line above the kept list, and every manual edge control — Add Connection
+      (keep someone), Connect to… (attach ME to a keeper), unlink from either
+      end — is the Warden's alone (@root.isWarden); players keep the automatic
+      flows. The handlers and connectActor/unlinkOwnedContainer re-check, so
+      hiding here is honesty, not security. The custom-container line at the
+      foot stays player-reachable: it MINTS a new thing (ACTOR_CREATE-gated),
+      it cannot steal an existing one. --}}
+{{#if system.connectedKeeper}}
+<div class="connection-keeper-line">
+    <span class="connection-keeper-label">{{system.connectedKeeper.label}}</span>
+    {{#if @root.isWarden}}
+    <a class="item-control connection-detach" data-action="connectionDetach" title="{{ localize 'CAIRN.UnlinkContainer' }}"><i class="fas fa-link-slash"></i></a>
+    {{/if}}
+</div>
+{{/if}}
 <div class="cairn-items-list-header">
     <div>{{ localize 'CAIRN.Name' }}</div>
-    <a class="item-control container-shop" data-action="containerShop" title="{{ localize 'CAIRN.AddContainerHint' }}"><i class="fas fa-store"></i>&nbsp;{{ localize 'CAIRN.AddContainer' }}</a>
+    {{#if @root.isWarden}}
+    <div class="connection-controls">
+        {{#if system.canKeep}}
+        <a class="item-control connection-add" data-action="connectionAdd" title="{{ localize 'CAIRN.AddConnectionHint' }}"><i class="fas fa-link"></i>&nbsp;{{ localize 'CAIRN.AddConnection' }}</a>
+        {{/if}}
+        {{#if system.canAttach}}
+        <a class="item-control connection-attach" data-action="connectionAttach" title="{{ localize 'CAIRN.ConnectToHint' }}"><i class="fas fa-link"></i>&nbsp;{{ localize 'CAIRN.ConnectTo' }}</a>
+        {{/if}}
+    </div>
+    {{/if}}
 </div>
 {{#each system.containerObjects as |ctr id|}}
 <div class="cairn-items-list-row" data-item-id="{{ctr.uuid}}" data-is-container="true">
@@ -12,16 +42,21 @@
         </div>
 
         {{!-- TWO controls, deliberately. The trash used to be the only one and it
-              did not delete -- it asked "Delete X?" and then unlinked, which under
-              the container rule quietly drops a loot pile in the world. "Destroy
-              this cart" and "leave this cart here" are different intentions and
-              now have different icons. --}}
+              did not delete -- it asked "Delete X?" and then unlinked, which
+              quietly drops the thing on the floor. "Destroy this cart" and
+              "leave this cart here" are different intentions and now have
+              different icons. --}}
         <div class="cairn-item-controls">
             <a class="item-control item-edit" data-action="itemEdit" title="{{ localize 'CAIRN.EditItem' }}"><i class="fas fa-edit"></i></a>
+            {{!-- Unlink was a player control once ("they keep unlink"); Round 2
+                  made every manual edge change Warden-only, so it hides with
+                  the rest. The trash was already GM-only for its own reason:
+                  Actor deletion is role-gated (Assistant+) with no
+                  player-grantable permission, so for a player it promised an
+                  action the server always refuses. --}}
+            {{#if @root.isWarden}}
             <a class="item-control container-unlink" data-action="containerUnlink" title="{{ localize 'CAIRN.UnlinkContainer' }}"><i class="fas fa-link-slash"></i></a>
-            {{!-- GM-only: Actor deletion is role-gated (Assistant+) with no
-                  player-grantable permission, so for a player this icon promised
-                  an action the server always refuses. They keep unlink. --}}
+            {{/if}}
             {{#if @root.canDeleteActors}}
             <a class="item-control item-delete" data-action="itemDelete" title="{{ localize 'CAIRN.DeleteContainer' }}"><i class="fas fa-trash"></i></a>
             {{/if}}
@@ -31,8 +66,9 @@
 {{/each}}
 {{#unless system.containerObjects.length}}
 <div class="container-empty">
-    <p>{{ localize 'CAIRN.ContainersEmpty' }}</p>
-    <a class="container-shop container-empty-shop" data-action="containerShop"><i class="fas fa-store"></i>&nbsp;{{ localize 'CAIRN.VisitMarket' }}</a>
+    <p>{{ localize 'CAIRN.ConnectionsEmpty' }}</p>
 </div>
 {{/unless}}
+{{#if system.canKeep}}
 <a class="container-create container-custom" data-action="containerCreate" title="{{ localize 'CAIRN.CustomContainerHint' }}"><i class="fas fa-plus"></i>&nbsp;{{ localize 'CAIRN.CustomContainer' }}</a>
+{{/if}}

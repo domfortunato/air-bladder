@@ -21,7 +21,7 @@ system:
   slots: 6
   cost: 0
   containerClass: wagon
-  inanimate: true
+  role: transport
   generationEnabled: false
 ownership:
   default: 0

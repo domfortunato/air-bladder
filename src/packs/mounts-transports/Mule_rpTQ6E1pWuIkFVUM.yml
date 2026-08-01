@@ -18,7 +18,7 @@ system:
   slots: 6
   cost: 30
   containerClass: mule
-  inanimate: false
+  role: mount
   generationEnabled: false
 ownership:
   default: 0

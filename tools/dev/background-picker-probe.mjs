@@ -47,7 +47,7 @@ try {
     const made = [];
     const track = (a) => { if (a) made.push(a); return a; };
     const containersOf = (actor) =>
-      game.actors.filter((a) => a.type === "container" && a.system?.keeper === actor.uuid);
+      game.actors.filter((a) => a.system?.connectedTo === actor.uuid);
     const wait = (ms) => new Promise((res) => setTimeout(res, ms));
 
     // 1. Grouping, per edition.
@@ -188,7 +188,10 @@ try {
       // The Bonekeeper's beast is on one of six options, so this is 0 or more —
       // what matters is the Outrider's horse is not still hanging around.
       oldGone: !afterSwapAway.some((c) => c.uuid === withHorse[0]?.uuid),
-      danglingFree: (actor.system.containers ?? []).every((u) => !!game.actors.find((a) => a.uuid === u)),
+      // Every actor the character keeps resolves. There is no stored list to
+      // dangle any more, so this now asserts the other end: nothing still
+      // points here that Foundry has already deleted.
+      danglingFree: containersOf(actor).every((c) => !!game.actors.get(c.id)),
     };
 
     // 6. A random swap never repeats the current background.

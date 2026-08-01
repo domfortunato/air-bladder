@@ -12,8 +12,7 @@ import { CairnCombat } from "./combat.js";
 import { createCairnMacro, rollItemMacro } from "./macros.js";
 import { Damage } from "./damage.js";
 import { registerSettings, SETTINGS_NS, migrateSettingsNamespace } from "./settings.js";
-import { iconForTransport } from "./icons.js";
-import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS } from "./data-models.js";
+import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS, deriveNpcRole } from "./data-models.js";
 import { loadContentOverlay, t, translationOf, contentLocalized } from "./i18n-content.js";
 
 Hooks.once("init", async function () {
@@ -219,6 +218,18 @@ Hooks.on("setup", () => {
  * registered on ready misses anything a player sent while the GM's world was
  * still loading. `game.socket` exists from Game.connect, well before init ends.
  */
+
+/** The only roles a grant payload may claim — the non-keeping ones. A payload
+ *  saying anything else falls back to deriving from its class/legacy fields,
+ *  clamped to `container` if even that derives a keeper. */
+const GRANTABLE_ROLES = ["mount", "transport", "container"];
+const grantableRole = (sys) => {
+  const claimed = String(sys?.role ?? "");
+  if (GRANTABLE_ROLES.includes(claimed)) return claimed;
+  const derived = deriveNpcRole(sys ?? {});
+  return GRANTABLE_ROLES.includes(derived) ? derived : "container";
+};
+
 Hooks.once("init", () => {
   game.socket.on(`system.${game.system.id}`, async (msg, senderId) => {
     if (msg?.action !== "grantActors") return;
@@ -257,7 +268,12 @@ Hooks.once("init", () => {
         slots: Number(p?.system?.slots) || 0,
         description: String(p?.system?.description ?? ""),
         containerClass: String(p?.system?.containerClass ?? ""),
-        inanimate: !!p?.system?.inanimate,
+        // Grants mint beasts and things, never people: a role that can KEEP
+        // would let a crafted message mint a keeper and chain further grants
+        // through it — the same hole the canKeepConnected check above closes
+        // for the TARGET, closed here for what the grant creates. Anything
+        // else on the wire derives from the class, as a pre-roles payload did.
+        role: grantableRole(p?.system),
         cost: Number(p?.system?.cost) || 0,
         generationEnabled: false,
         ...(p?.system?.hp ? { hp: { value: Number(p.system.hp.value) || 0, max: Number(p.system.hp.max) || 0 } } : {}),
@@ -315,36 +331,14 @@ Hooks.once("ready", async () => {
   }
 });
 
-// The Foundry-core art the system used to assign to container/transport actors
-// (the old CONTAINER_ART gallery + the default silhouette). A container still
-// wearing one of these was made before the class-icon change; anything else — a
-// systems/air-bladder/icons/ path or a custom upload — was chosen deliberately.
-const LEGACY_CONTAINER_ART = new Set([
-  "icons/svg/mystery-man.svg",
-  "icons/svg/item-bag.svg",
-  "icons/containers/bags/pack-leather-brown.webp",
-  "icons/containers/bags/pack-simple-leather-tan.webp",
-  "icons/containers/bags/sack-cloth-tan.webp",
-  "icons/containers/bags/satchel-leather-brown.webp",
-  "icons/containers/chest/chest-worn-oak-tan.webp",
-  "icons/containers/chest/chest-oak-steel-brown.webp",
-  "icons/containers/barrels/barrel-chestnut-brown.webp",
-  "icons/containers/boxes/crate-heavy-brown.webp",
-  "icons/environment/creatures/horse-brown.webp",
-  "icons/environment/creatures/horse-tan.webp",
-  "icons/environment/creatures/horse-white.webp",
-  "icons/environment/settlement/wagon.webp",
-  "icons/environment/settlement/wagon-black.webp",
-  "icons/environment/settlement/mine-cart-rocks-red.webp",
-  "icons/environment/settlement/ship.webp",
-]);
+/* The "container art migration" phase lived here (a LEGACY_CONTAINER_ART set of
+   Foundry core paths, remapped to our class icons on every container-TYPED
+   actor). It went with the type on 2026-07-31: it selected on
+   `a.type === "container"`, so with the type retired it could only ever match
+   nothing. An npc that came through the built type migration already carries a
+   systems/air-bladder/icons/ path, which was never in the set anyway. */
 
-// One-time-feeling but idempotent migration: existing transport/container actors
-// keep the image they were CREATED with, so the class-icon change never reached
-// them. Remap ONLY the known-old defaults (above) to the new class icon by
-// name/kind, so a hand-picked or uploaded portrait is left untouched. Once
-// remapped the img is a systems/air-bladder/icons/ path — no longer in the set —
-// so re-runs are no-ops. GM-only, single-writer, like the rename above.
+// GM-only, single-writer, like the rename above.
 Hooks.once("ready", async () => {
   if (!game.user.isGM) return;
   if (game.users.activeGM && game.users.activeGM !== game.user) return;
@@ -355,7 +349,7 @@ Hooks.once("ready", async () => {
   // in a migration became a bare unhandled rejection AND silently skipped every phase
   // after it — custom portraits would simply stop working with no visible cause and
   // nothing in the log tying it to the migration. Failing one phase must not cost the
-  // others; all three are independent.
+  // others; every phase is independent of every other.
   const phase = async (label, fn) => {
     try {
       await fn();
@@ -364,24 +358,11 @@ Hooks.once("ready", async () => {
     }
   };
 
-  await phase("container art migration", async () => {
-    const updates = game.actors
-      .filter((a) => a.type === "container" && LEGACY_CONTAINER_ART.has(a.img))
-      .map((a) => {
-        const art = iconForTransport(a.name, a.system?.transportKind);
-        return { _id: a.id, img: art, "prototypeToken.texture.src": art };
-      });
-    if (updates.length) {
-      await Actor.updateDocuments(updates);        // one batch, so it can't half-finish
-      console.log(`Air Bladder | remapped ${updates.length} container(s) to class icons`);
-    }
-  });
-
   await phase("icon .png -> .svg migration", migrateIconsToSvg);
 
   await phase("spellscroll -> flagged spellbook migration", migrateScrollsToSpellbooks);
 
-  await phase("hireling forHire migration", migrateHirelingsForHire);
+  await phase("npc role migration", migrateNpcRoles);
 
   // Custom character portraits: make sure the GM's folder exists, then refresh the
   // cached image list so players (who cannot scan folders) see the current set.
@@ -540,58 +521,61 @@ const migrateScrollsToSpellbooks = async () => {
 };
 
 /**
- * `forHire` gates the day-rate row on the merged NPC sheet, and it was born
- * `false`. The field arrived with the Hireling->NPC fold and nothing writes it
- * except `hirelingToActorData` on CREATE — so every hireling already living in a
- * 0.1.7 world initialises `false` on upgrade and its stored `system.dayRate`
- * silently stops rendering. The value is not lost (it sits untouched in `_source`),
- * which is exactly what makes it hard to notice: the sheet just quietly drops a row.
+ * The one-time stamp of `role` onto existing world actors, and the deletion of
+ * the two fields it replaces (docs/npc-roles-plan.md). NpcData.migrateData
+ * already derives the right value in memory on every load — this persists it,
+ * so the stored state matches what the sheet shows and `forHire`/`inanimate`
+ * stop existing anywhere.
  *
- * The general rule this is an instance of: **a new field whose default contradicts
- * what every existing document should have needs a migration.** Adding one to the
- * schema is not enough, and a fresh-world validation cannot see the difference.
+ * It absorbs the retired forHire migration's population too: a pre-fold
+ * `type: "hireling"` document stores NONE of the fields migrateData derives
+ * from (`forHire` arrived with the fold), so only the TYPE says what it is —
+ * which migrateData cannot see and this walk can. Same for the dev-build
+ * Roll-NPC case, a rate written with no flag: dayRate > 0 still means hireling.
  *
- * `hireling` documents are the whole population by construction — `npc` had no
- * `dayRate` field before the fold, so an npc cannot have carried one out of 0.1.7.
- * The `dayRate` clause exists for npcs re-rolled on an unreleased `dev` build,
- * where Roll NPC wrote a rate without the flag (fixed at the same time in
- * character-generator.js).
+ * World actors only. An unlinked token's delta stores DIFFERENCES from its
+ * base actor, so flipping the base is enough — no scene-token walk (see the
+ * spellscroll migration above for the shape that DOES need one).
  *
- * World actors only. An unlinked token's delta stores DIFFERENCES from its base
- * actor and `forHire` never existed, so no delta can be carrying one — flipping the
- * base actor is enough for its tokens to follow. That is why this needs none of the
- * scene-token walk the spellscroll migration above does.
- *
- * Runs ONCE, gated on a stored marker — NOT on the state it writes, which is what it
- * used to do under a comment claiming "idempotent by construction: a migrated actor no
- * longer matches `forHire !== true`". That claim was inherited from the three sibling
- * migrations above, where it is true because their "before" value is unreachable once
- * migrated: a remapped container is no longer one of the legacy art paths, a `.svg`
- * icon is never `.png` again, a flagged spellbook stays flagged. `forHire` is a
- * CHECKBOX on the NPC sheet (npc-sheet.html, `submitOnChange`), and `dayRate` is not
- * cleared when it is unticked — so unticking put the actor straight back into the
- * selection set and the next world load ticked it again, silently. For every pre-fold
- * `type: "hireling"` document, which is the entire population this exists for, "For
- * hire" could not be turned off at all. Observed 2026-07-30: untick through the sheet,
- * reload, it is back on.
- *
- * The marker is set even when nothing matched. A fresh world has no hirelings to
- * migrate and must still record that the one-shot has happened, or it is not one-shot.
+ * Runs ONCE, gated on a stored marker, not on the state it writes: role is a
+ * pick-list on the NPC sheet, so any state test would re-stamp whatever the
+ * Warden changed away from — the exact trap the forHire migration fell into
+ * (untick, reload, it is back). The marker is set even when nothing matched: a
+ * fresh world must still record that the one-shot has happened, or it is not
+ * one-shot.
  */
-const migrateHirelingsForHire = async () => {
-  if (game.settings.get(SETTINGS_NS, "forhire-migrated")) return;
+const migrateNpcRoles = async () => {
+  if (game.settings.get(SETTINGS_NS, "roles-migrated")) return;
+  // "Role absent in the database" is NOT observable from here: cleanData fills
+  // the schema initial into `_source` on construction, so a pre-roles document
+  // and one stored as role "npc" read identically. The selection therefore keys
+  // on what IS observable — the alias type, the legacy keys (which cleaning
+  // preserves in _source until a write), and a day rate with nothing gating it
+  // — and never on "role missing", which it tried to first and silently skipped
+  // the pre-fold hirelings, the whole population this exists for.
   const updates = game.actors
-    .filter((a) => ["hireling", "npc"].includes(a.type)
-      && a.system?.forHire !== true
-      && (a.type === "hireling" || Number(a.system?.dayRate) > 0))
-    .map((a) => ({ _id: a.id, "system.forHire": true }));
+    .filter((a) => ["hireling", "npc"].includes(a.type))
+    .map((a) => {
+      const src = a._source.system ?? {};
+      const hasLegacy = ("forHire" in src) || ("inanimate" in src);
+      let role = null;
+      if (hasLegacy) role = a.system.role;           // migrateData's derivation
+      if (a.type === "hireling" && a.system.role === "npc") role = "hireling";
+      else if (!role && a.system.role === "npc" && Number(src.dayRate) > 0) role = "hireling";
+      if (!role && !hasLegacy) return null;          // nothing to write, nothing to delete
+      const u = { _id: a.id, ...(role ? { "system.role": role } : {}) };
+      if ("forHire" in src) u["system.-=forHire"] = null;
+      if ("inanimate" in src) u["system.-=inanimate"] = null;
+      return u;
+    })
+    .filter(Boolean);
   if (updates.length) {
     await Actor.updateDocuments(updates);          // one batch, so it can't half-finish
-    console.log(`Air Bladder | marked ${updates.length} hireling(s) as for hire`);
+    console.log(`Air Bladder | stamped role on ${updates.length} npc(s)`);
   }
   // Only after the writes land: a throw above leaves the marker unset, so a failed
   // migration is retried next load rather than being recorded as done.
-  await game.settings.set(SETTINGS_NS, "forhire-migrated", true);
+  await game.settings.set(SETTINGS_NS, "roles-migrated", true);
 };
 
 // Two hooks used to tag every dialog world-wide with `.cairn-dialog` so
@@ -802,19 +786,28 @@ Hooks.on("renderActorDirectory", (app, html) => {
     // icons; the sheet shows it grayscale to match the black-and-white look, so
     // the directory thumbnail must match — the same actor should not read colour
     // in the list and grey on its sheet.
-    a.classList.toggle('cairn-grayscale-portrait', actor.type == "container");
+    //
+    // ROLE, not type. Both of these tests read `type == "container"` until
+    // 2026-07-31, which under the roles model matched nothing at all: the
+    // conversion had already made every container an npc, so the setting below
+    // silently hid nobody and no thumbnail was ever greyed. The mapping is the
+    // old `transportKind` vocabulary one-for-one — kind mount → role mount,
+    // kind vehicle → role transport, kind worn/blank → role container — with
+    // the pile now a container VARIETY rather than a kind of its own.
+    const containerLine = actor.isThing || actor.npcRole === "mount";
+    a.classList.toggle('cairn-grayscale-portrait', containerLine);
 
     if (!showContainers) {
-      // Plain/worn containers stay hidden (they're reached via a character's
-      // Containers tab), but transport MOUNTS and VEHICLES are standalone
-      // carriers that travel alongside — they show in the directory so they can
-      // be selected, placed as tokens, and owned by players. An ITEM PILE is the
-      // same argument taken further: nothing carries it at all, so the Containers
+      // Plain/worn containers stay hidden (they're reached via a keeper's
+      // Connections tab), but MOUNTS and TRANSPORTS are standalone carriers
+      // that travel alongside — they show in the directory so they can be
+      // selected, placed as tokens, and owned by players. An ITEM PILE is the
+      // same argument taken further: nothing keeps it at all, so a Connections
       // tab is the one place it could never be reached from.
-      const kind = actor.system?.transportKind;
-      const standalone = kind === "mount" || kind === "vehicle" || kind === "pile";
-      const directoryTransport = actor.type == "container" && standalone;
-      a.classList.toggle('hidden', actor.type == "container" && !directoryTransport);
+      const standalone = actor.npcRole === "mount"
+        || actor.npcRole === "transport"
+        || actor.system?.containerClass === "pile";
+      a.classList.toggle('hidden', containerLine && !standalone);
     }
   });
 });

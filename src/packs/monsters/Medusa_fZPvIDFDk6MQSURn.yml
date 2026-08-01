@@ -92,6 +92,7 @@ ownership:
   default: 0
   bDeEK9GSahKwiAGH: 3
 system:
+  role: monster
   hp:
     value: 4
     max: 4

@@ -12,7 +12,7 @@ export class Damage {
         for (const target of targets) {
             const data = await this.applyToTarget(target, damage);
             if (data) this._showDetails(data);   // skip targets whose token is gone
-        };
+        }
     }
 
     /**
@@ -58,7 +58,7 @@ export class Damage {
         // type coercion -- the value is a plain `;`-joined token-id string.
         const targets = event.currentTarget.dataset.targets;
 
-        let targetsList = targets.split(';');
+        const targetsList = targets.split(';');
 
         // Shift Click allow to target the targeted tokens
         if (event.shiftKey) {

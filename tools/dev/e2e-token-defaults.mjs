@@ -6,7 +6,7 @@
  * character's — friendly ring, and `actorLink` so HP edited on the token reaches
  * the sheet. A monster must be the opposite, and the Hireling->NPC fold made both
  * of them `type: "npc"`, so the two cases are one keystroke apart in
- * `CairnActor.create`. The discriminator is `system.forHire`.
+ * `CairnActor.create`. The discriminator is `system.role` (formerly `forHire`).
  *
  * This exists because the fold broke it silently. The old test was
  * `type === "hireling"`, which stopped matching anything the generator produces
@@ -56,7 +56,7 @@ const out = await page.evaluate(async () => {
     res.cases.push({
       label,
       type: a.type,
-      forHire: a.system?.forHire ?? null,
+      role: a.system?.role ?? null,
       disposition: pt.disposition,
       friendly: pt.disposition === D.FRIENDLY,
       hostile: pt.disposition === D.HOSTILE,
@@ -71,7 +71,7 @@ const out = await page.evaluate(async () => {
   await gen.update({ name: "ZZ Tok Generated Hireling" });
   snap(gen, "generated hireling (createHireling)", true);
 
-  // A monster: same type, no forHire. The specificity control.
+  // A monster: same type, default role. The specificity control.
   const mon = await Cls.create({ name: "ZZ Tok Monster", type: "npc" });
   snap(mon, "hand-made npc / monster", false);
 
@@ -79,9 +79,9 @@ const out = await page.evaluate(async () => {
   const legacy = await Cls.create({ name: "ZZ Tok Legacy Hireling", type: "hireling" });
   snap(legacy, "legacy `hireling` type", true);
 
-  // An npc explicitly marked for hire at creation.
-  const forHire = await Cls.create({ name: "ZZ Tok ForHire NPC", type: "npc", system: { forHire: true } });
-  snap(forHire, "npc created with forHire", true);
+  // An npc explicitly given the hireling role at creation.
+  const forHire = await Cls.create({ name: "ZZ Tok ForHire NPC", type: "npc", system: { role: "hireling" } });
+  snap(forHire, "npc created role hireling", true);
 
   // Positive control: if this is not friendly+linked the branch is dead entirely
   // and every "friendly" assertion above would be meaningless.
@@ -135,7 +135,7 @@ const out = await page.evaluate(async () => {
   } else res.placedSkipped = "no scene in this world";
 
   // ---- hired LATER, not at creation ------------------------------------------
-  // forHire is a checkbox on the NPC sheet, so the natural way to take an existing
+  // Role is a pick-list on the NPC sheet, so the natural way to take an existing
   // npc into the party's employ never goes near _preCreate. Nothing re-applied the
   // defaults, so the actor kept Foundry's own -- hostile, unlinked -- and HP typed
   // on its token never reached the sheet. Observed 2026-07-30; this is the same
@@ -145,7 +145,7 @@ const out = await page.evaluate(async () => {
     hostile: late.prototypeToken.disposition === D.HOSTILE,
     actorLink: late.prototypeToken.actorLink,
   };
-  await late.update({ "system.forHire": true });
+  await late.update({ "system.role": "hireling" });
   res.lateAfter = {
     friendly: late.prototypeToken.disposition === D.FRIENDLY,
     actorLink: late.prototypeToken.actorLink,
@@ -158,12 +158,12 @@ const out = await page.evaluate(async () => {
     name: "ZZ Tok Hired Later Neutral", type: "npc",
     prototypeToken: { disposition: D.NEUTRAL },
   });
-  await chosen.update({ "system.forHire": true });
+  await chosen.update({ "system.role": "hireling" });
   res.deliberateKept = chosen.prototypeToken.disposition === D.NEUTRAL;
 
-  // And un-ticking is not the mirror image: ceasing to be for hire is no reason to
-  // turn someone hostile.
-  await late.update({ "system.forHire": false });
+  // And leaving the role is not the mirror image: ceasing to be for hire is no
+  // reason to turn someone hostile.
+  await late.update({ "system.role": "npc" });
   res.unhiredStaysFriendly = late.prototypeToken.disposition === D.FRIENDLY;
 
   for (const a of [gen, mon, legacy, forHire, pc, explicit, viaGlobal, late, chosen]) await a.delete();
@@ -179,7 +179,7 @@ for (const c of out.cases) {
   else if (good) ok(`${c.label} — hostile and unlinked, as a monster must be (${shape})`);
   else if (c.wantFriendly) {
     fail(`${c.label} — should be friendly and linked, got ${shape}`
-      + ` [type ${c.type}, forHire ${c.forHire}]`);
+      + ` [type ${c.type}, role ${c.role}]`);
   } else {
     fail(`${c.label} — should stay hostile and unlinked, got ${shape}. `
       + "The branch is too wide: every shipped monster is affected");
@@ -196,7 +196,7 @@ if (out.control && !out.control.friendly && !out.control.actorLink) {
     + "the assertions above cannot fail and prove nothing");
 }
 
-console.log("\nhired after creation (the checkbox, not the generator)");
+console.log("\nhired after creation (the role pick, not the generator)");
 // The precondition, stated: if a plain npc were already friendly and linked the
 // assertion below would pass without anything re-applying anything.
 if (out.lateBefore?.hostile && out.lateBefore?.actorLink === false) {
@@ -206,15 +206,15 @@ if (out.lateBefore?.hostile && out.lateBefore?.actorLink === false) {
     + "so the assertion below proves nothing");
 }
 if (out.lateAfter?.friendly && out.lateAfter?.actorLink === true) {
-  ok("ticking For hire re-applies friendly + linked");
+  ok("picking the Hireling role re-applies friendly + linked");
 } else {
-  fail(`ticking For hire left the prototype ${JSON.stringify(out.lateAfter)} — its token arrives `
+  fail(`picking Hireling left the prototype ${JSON.stringify(out.lateAfter)} — its token arrives `
     + "red-ringed and unlinked, so HP edited on the token never reaches the sheet");
 }
 if (out.deliberateKept) ok("a deliberately-chosen disposition survives being hired (NEUTRAL kept)");
 else fail("hiring overwrote a disposition the Warden had chosen on purpose");
-if (out.unhiredStaysFriendly) ok("un-ticking For hire does not turn them hostile again");
-else fail("un-ticking For hire made them hostile — that is not the mirror image of hiring");
+if (out.unhiredStaysFriendly) ok("leaving the hireling role does not turn them hostile again");
+else fail("leaving the hireling role made them hostile — that is not the mirror image of hiring");
 
 if (out.placedSkipped) console.log(`  note  placed-token check skipped: ${out.placedSkipped}`);
 else if (out.placed?.disposition === 1 && out.placed?.actorLink === true) {

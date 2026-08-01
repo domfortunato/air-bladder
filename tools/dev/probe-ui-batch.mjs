@@ -48,11 +48,13 @@ try {
     const actor = await gen.createActorWithCharacter(await gen.generate2eCharacter(bg));
     out.made.push(actor.id);
 
-    // 2. A container (transport) actor, checked in the directory.
+    // 2. A container (transport) actor, checked in the directory. Role, not
+    //    type: `container` is retired, and the directory's grayscale/hide rules
+    //    read the ROLE now (cairn.js) — this row is what proves that.
     const wagon = await Actor.create({
-      name: "Probe Wagon", type: "container",
+      name: "Probe Wagon", type: "npc",
       img: "icons/environment/settlement/wagon.webp",
-      system: { transportKind: "vehicle" },
+      system: { role: "transport", containerClass: "wagon" },
     });
     out.made.push(wagon.id);
     const priorShow = game.settings.get(NS, "show-container-actors");

@@ -18,7 +18,7 @@ system:
   slots: 4
   cost: 75
   containerClass: horse
-  inanimate: false
+  role: mount
   generationEnabled: false
 ownership:
   default: 0

@@ -15,10 +15,10 @@
  *   2. Buy a MOUNT (Mule): a connected NPC is created with the document's
  *      capacity, coins deducted, and the buyer's OWN slot usage is unchanged
  *      -- a mount carries its own pool.
- *   3. Buy a WORN container (Backpack): inanimate and hp 0/0 cross the till
+ *   3. Buy a WORN container (Backpack): role container and hp 0/0 cross the till
  *      from its document. 3a: the till's LEGACY Item branch (old worlds'
  *      tables) still INFERS both from a synthesized transport-Item payload.
- *   3b. Buy a VEHICLE (Cart): inanimate and hp 0/0 cross the till from the
+ *   3b. Buy a VEHICLE (Cart): role transport and hp 0/0 cross the till from the
  *      document -- the review-#5 stat-block guarantee.
  *   4. Edit the Mule ACTOR document's capacity in the pack, buy another, and
  *      assert the new NPC reflects the edit -- the reference guarantee.
@@ -108,7 +108,7 @@ try {
       created: !!muleActor,
       capacity: muleActor?.system.slotsMax,
       capacityRight: muleActor?.system.slotsMax === mule.system.slots,
-      kind: muleActor?.system.transportKind,
+      variety: muleActor?.system.containerClass,
       // ONE link now, not two. The old model wrote the container's `keeper` AND
       // the buyer's `containers` array, and every container bug came from only
       // one of them landing. The owner's list is derived from `connectedTo`, so
@@ -122,9 +122,9 @@ try {
 
     // 3. Buy the Backpack (worn, an Actor row like everything else now): a worn
     //    container costs the carrier nothing and shows no inventory row -- it
-    //    lives only on the Connected tab. Its document states inanimate and
-    //    hp 0/0 outright, and both must cross the till. Literals on purpose --
-    //    an animate 6 HP Backpack is exactly what once shipped.
+    //    lives only on the Connections tab. Its document states role container
+    //    and hp 0/0 outright, and both must cross the till. Literals on purpose
+    //    -- an animate 6 HP Backpack is exactly what once shipped.
     const slotsBeforeWorn = buyer.system.slotsUsed;
     await buyThrough(backpack);
     const packActor = game.actors.find((a) => a.type === "npc" && a.name === "Backpack" && a.system.connectedTo === buyer.uuid);
@@ -136,13 +136,13 @@ try {
       got: buyer.system.slotsUsed,
       // No worn-container inventory row is produced any more.
       noRow: !(buyer.system.wornContainerRows ?? []).some((r) => r.name === "Backpack"),
-      inanimate: packActor?.system.inanimate === true,
+      thing: packActor?.system.role === "container",
       hpZero: packActor?.system.hp.value === 0 && packActor?.system.hp.max === 0,
     };
 
     // 3a. The LEGACY Item branch of the till, kept for old worlds' tables. No
     //     shipped row exercises it any more, so a synthesized transport-Item
-    //     payload does: it states neither `inanimate` nor hp, and the till must
+    //     payload does: it states neither `role` nor hp, and the till must
     //     INFER a worn thing at 0/0 rather than mint the phantom animate 6.
     await mkt.acquireTransport(buyer, {
       name: "PROBE Legacy Pack", documentName: "Item", type: "transport", img: null,
@@ -152,12 +152,12 @@ try {
     if (legacyActor) made.push(legacyActor);
     const legacy = {
       created: !!legacyActor,
-      inanimate: legacyActor?.system.inanimate === true,
+      thing: legacyActor?.system.role === "container",
       hpZero: legacyActor?.system.hp.value === 0 && legacyActor?.system.hp.max === 0,
     };
 
     // 3b. Buy a Cart (vehicle, from the ACTOR pack): the stat block crosses the
-    //     till. The Actor document states inanimate:true and hp 0/0 outright;
+    //     till. The Actor document states role transport and hp 0/0 outright;
     //     fed from the Item pack instead, the bought cart came out animate with
     //     the phantom 6 HP -- the shape review #5 caught.
     await buyThrough(cartDoc);
@@ -166,17 +166,16 @@ try {
     const vehicle = {
       created: !!cartActor,
       capacityRight: cartActor?.system.slotsMax === cartDoc.system.slots,
-      inanimate: cartActor?.system.inanimate === true,
+      thing: cartActor?.system.role === "transport",
       hpZero: cartActor?.system.hp.value === 0 && cartActor?.system.hp.max === 0,
       classCarried: cartActor?.system.containerClass === cartDoc.system.containerClass,
     };
 
-    // 3c. NO NESTING, restated for a world without a container type: a thing
-    //     that is KEPT cannot keep (the buyer's mule refuses a second mule,
-    //     whatever it is), an INANIMATE thing cannot keep (the cart refuses),
-    //     and a free-standing animate npc — a porter, a hireling — still can,
-    //     exactly as a character can. The old guard tested type==="container"
-    //     and matched none of these (review #5).
+    // 3c. Keeping is a ROLE privilege now (docs/npc-roles-plan.md): a MOUNT
+    //     cannot keep (the buyer's mule refuses a second mule, whatever it is),
+    //     a TRANSPORT cannot either (the cart refuses), and an npc person — a
+    //     porter, a hireling — can, exactly as a character can. The old guard
+    //     tested kept-ness; the refusals here now come from role alone.
     const muleRow = cat.items.find((i) => i.name === "Mule");
     const nestKept = await mkt.acquireTransport(muleActor, muleRow, false);
     const nestThing = await mkt.acquireTransport(cartActor, muleRow, false);
@@ -235,16 +234,40 @@ try {
       goldIntact: pauper.system.gold === 1,
     };
 
-    // 6. Directory visibility. Bought carriers are npc documents now, so they
-    //    appear in the Actors directory like any other NPC -- which is what the
-    //    user asked for ("as long as I see it in the actors tab"). The old rule
-    //    hid `container` actors unless their transportKind was mount/vehicle;
-    //    there is nothing left for it to hide.
-    const visible = (a) => a.type !== "container";
-    const directory = {
-      mountShown: muleActor ? visible(muleActor) : false,
-      wornShown: packActor ? visible(packActor) : false,
+    // 6. Directory visibility, driven through the REAL rendered sidebar.
+    //
+    //    Bought carriers are npc documents now, so with `show-container-actors`
+    //    ON (the default) they appear like any other NPC -- which is what the
+    //    user asked for ("as long as I see it in the actors tab"). With it OFF,
+    //    the rule still applies and now reads the ROLE: a standalone carrier (a
+    //    MOUNT or TRANSPORT, or a pile) stays listed, a WORN container is hidden
+    //    because its keeper's Connections tab reaches it.
+    //
+    //    Asserted here because both documents already exist here, and because
+    //    the rule was keyed on `type == "container"` until 2026-07-31 -- which,
+    //    after the fold, matched nothing at all, so the setting silently hid
+    //    nobody. `dev:item-pile` covers the other half (a pile stays visible).
+    const dirRow = (id) => document.querySelector(
+      `#actors [data-entry-id="${id}"], #actors [data-document-id="${id}"]`);
+    const wasShow = game.settings.get("air-bladder", "show-container-actors");
+    await game.settings.set("air-bladder", "show-container-actors", true);
+    await (ui.actors ?? ui.sidebar?.tabs?.actors)?.render(true);
+    await new Promise((r) => setTimeout(r, 900));
+    const shownOn = {
+      mount: dirRow(muleActor?.id)?.classList.contains("hidden") === false,
+      worn: dirRow(packActor?.id)?.classList.contains("hidden") === false,
     };
+    await game.settings.set("air-bladder", "show-container-actors", false);
+    await (ui.actors ?? ui.sidebar?.tabs?.actors)?.render(true);
+    await new Promise((r) => setTimeout(r, 900));
+    const shownOff = {
+      mount: dirRow(muleActor?.id)?.classList.contains("hidden") === false,
+      worn: dirRow(packActor?.id)?.classList.contains("hidden") === false,
+      // The thumbnail must be greyed to match the sheet, on the role.
+      mountGrey: dirRow(muleActor?.id)?.classList.contains("cairn-grayscale-portrait") ?? false,
+    };
+    await game.settings.set("air-bladder", "show-container-actors", wasShow);
+    const directory = { shownOn, shownOff };
 
     for (const a of made) { try { await a.delete(); } catch { /* already gone */ } }
     return { setup, mount, worn, legacy, vehicle, nesting, edit, afford, directory };
@@ -284,23 +307,23 @@ try {
     r.worn.created ? ok("buying a worn container minted a connected NPC") : fail("no worn container NPC created");
     r.worn.slotsUnchanged ? ok(`a worn container costs its carrier no slots (${r.worn.before} -> ${r.worn.got})`) : fail(`worn container charged the carrier: ${r.worn.before} -> ${r.worn.got}`);
     r.worn.noRow ? ok("a worn container shows no inventory row (reached via the Containers tab)") : fail("a worn container still shows an inventory row");
-    r.worn.inanimate && r.worn.hpZero
-      ? ok("a bought Backpack is inanimate with hp 0/0 (stated by its document)")
-      : fail(`a bought Backpack came out wrong: inanimate=${r.worn.inanimate}, hpZero=${r.worn.hpZero}`);
+    r.worn.thing && r.worn.hpZero
+      ? ok("a bought Backpack is role container with hp 0/0 (stated by its document)")
+      : fail(`a bought Backpack came out wrong: thing=${r.worn.thing}, hpZero=${r.worn.hpZero}`);
 
-    r.legacy.created && r.legacy.inanimate && r.legacy.hpZero
-      ? ok("the LEGACY Item branch still infers: worn Item row -> inanimate, hp 0/0")
+    r.legacy.created && r.legacy.thing && r.legacy.hpZero
+      ? ok("the LEGACY Item branch still infers: worn Item row -> container, hp 0/0")
       : fail(`legacy Item till-inference broken: ${JSON.stringify(r.legacy)}`);
 
     r.vehicle.created && r.vehicle.capacityRight ? ok("buying a Cart minted a connected NPC with the document's capacity") : fail(`Cart buy wrong: ${JSON.stringify(r.vehicle)}`);
-    r.vehicle.inanimate && r.vehicle.hpZero
-      ? ok("the Cart's stat block crossed the till: inanimate, hp 0/0 (not the phantom 6)")
-      : fail(`the Cart came out animate or with phantom HP: inanimate=${r.vehicle.inanimate}, hpZero=${r.vehicle.hpZero}`);
+    r.vehicle.thing && r.vehicle.hpZero
+      ? ok("the Cart's stat block crossed the till: role transport, hp 0/0 (not the phantom 6)")
+      : fail(`the Cart came out animate or with phantom HP: thing=${r.vehicle.thing}, hpZero=${r.vehicle.hpZero}`);
     r.vehicle.classCarried ? ok("containerClass carried from the document") : fail("containerClass was not carried");
 
-    r.nesting.keptRefused ? ok("NO NESTING: a kept mule refuses to buy a carrier") : fail("a kept mule bought a carrier — chain nesting is open");
-    r.nesting.thingRefused ? ok("NO NESTING: an inanimate cart refuses too") : fail("an inanimate cart bought a carrier");
-    r.nesting.personAllowed ? ok("a free-standing npc person can still keep a mule") : fail("the nesting guard over-blocks: a porter cannot buy a mule");
+    r.nesting.keptRefused ? ok("KEEPING IS ROLE-GATED: a mule refuses to buy a carrier") : fail("a mule bought a carrier — a mount can keep");
+    r.nesting.thingRefused ? ok("KEEPING IS ROLE-GATED: a cart refuses too") : fail("a cart bought a carrier");
+    r.nesting.personAllowed ? ok("an npc person can still keep a mule") : fail("the keeping guard over-blocks: a porter cannot buy a mule");
     r.nesting.controlReproduced
       ? ok("NEGATIVE CONTROL: predicate forced open, the same buy succeeds")
       : fail("negative control MISSED — something other than the guard refused the nested buy");
@@ -309,8 +332,15 @@ try {
 
     r.afford.refused && r.afford.noActor && r.afford.goldIntact ? ok("an unaffordable transport is refused, mints nothing, spends nothing") : fail("affordability check did not hold");
 
-    r.directory.mountShown ? ok("mounts are directory-visible") : fail("mount would be hidden from the directory");
-    r.directory.wornShown ? ok("so are worn containers -- everything bought is an npc now") : fail("a bought container would be hidden");
+    r.directory.shownOn.mount && r.directory.shownOn.worn
+      ? ok("with containers shown, both are listed", "everything bought is an npc now")
+      : fail("with containers shown, both are listed", JSON.stringify(r.directory.shownOn));
+    r.directory.shownOff.mount && !r.directory.shownOff.worn
+      ? ok("with containers hidden, only the standalone one stays", "mount listed, worn pack hidden")
+      : fail("with containers hidden, only the standalone one stays", JSON.stringify(r.directory.shownOff));
+    r.directory.shownOff.mountGrey
+      ? ok("the carrier's thumbnail is greyed", "matches its sheet")
+      : fail("the carrier's thumbnail is greyed", "directory reads colour where the sheet reads grey");
   }
 } catch (e) {
   fail(`${e.name}: ${e.message}`);

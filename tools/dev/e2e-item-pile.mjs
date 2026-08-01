@@ -7,15 +7,17 @@
  * The LABEL is derived from one classifier shared with the art, so a sheet can
  * say what a container actually is. The case that forced it: a "Heavy Destrier"
  * is a horse, and nothing anywhere said so — not the name, not the description,
- * and not `transportKind`, which only ever says "Mount". If the classifier and
- * the art map ever drift apart, a sheet reads "Horse" beside a picture of a cart.
- * So this walks EVERY shipped transport and checks both together.
+ * and not the old `transportKind`, which only ever said "Mount". If the
+ * classifier and the art map ever drift apart, a sheet reads "Horse" beside a
+ * picture of a cart. So this walks EVERY shipped transport and checks both.
  *
  * The PILE is a container nothing carries: a loot heap a Warden drops in a room.
- * It is reachable only from the Actor Directory (a character's Containers tab is
+ * It is reachable only from the Actor Directory (a keeper's Connections tab is
  * the one place it can never appear), and a player needs ownership to use it —
  * which is also the natural "the party has found it" switch, so this asserts the
- * refusal is visible rather than silent.
+ * refusal is visible rather than silent. Since the roles work a pile is a
+ * VARIETY of an npc, not a type and not a kind, and this drives the variety box
+ * the Warden actually types in.
  *
  *   npm run dev:item-pile      (needs Alice — npm run dev:players)
  */
@@ -103,20 +105,29 @@ try {
     const Impl = CONFIG.Actor.documentClass;
     for (const a of game.actors.filter((a) => a.name.startsWith("ZZ Cache"))) await a.delete();
 
-    // Deliberately a name with no give-away word, so only the TYPE can classify
+    // Deliberately a name with no give-away word, so only the ROLE can classify
     // it. "Loot Pile" would pass on the name alone and prove nothing.
-    const pile = await Impl.create({ name: "ZZ Cache Alpha", type: "container" });
+    //
+    // An npc with role container: the `container` TYPE is retired (2026-07-31)
+    // and cannot be created. The pile is a VARIETY now, not a kind — the
+    // control it is set with is the free-text `containerClass` box, not the
+    // retired sheet's `transportKind` pick-list.
+    const mk = (name, extra = {}) => Impl.create({
+      name, type: "npc", system: { role: "container" }, ...extra,
+    });
+    const pile = await mk("ZZ Cache Alpha");
     const before = { img: pile.img.split("/").pop(), label: pile.system.classLabel };
-    await pile.update({ "system.transportKind": "pile", "system.slots": 6 });
+    await pile.update({ "system.containerClass": "pile", "system.slots": 6 });
 
     // Hand-picked art must survive the same change.
-    const custom = await Impl.create({ name: "ZZ Cache Custom", type: "container", img: "icons/svg/coins.svg" });
-    await custom.update({ "system.transportKind": "pile" });
+    const custom = await mk("ZZ Cache Custom", { img: "icons/svg/coins.svg" });
+    await custom.update({ "system.containerClass": "pile" });
 
     await pile.sheet.render(true);
     await new Promise((r) => setTimeout(r, 1200));
     const el = pile.sheet.element;
-    const sel = el.querySelector('select[name="system.transportKind"]');
+    const input = el.querySelector('input[name="system.containerClass"]');
+    const list = input?.list ? [...input.list.options] : [];
     const out = {
       before,
       after: {
@@ -126,12 +137,11 @@ try {
       },
       customKept: custom.img,
       sheet: {
-        classText: el.querySelector(".container-class")?.textContent?.trim() ?? null,
-        selectValue: sel?.value ?? null,
-        options: [...(sel?.options ?? [])].map((o) => o.text).filter(Boolean),
-        // Not clipped: "Item Pile" is the longest option and the reason this
-        // control has its own row rather than a third column beside Slots/Cost.
-        clipped: sel ? sel.scrollWidth > sel.clientWidth + 1 : null,
+        classText: pile.system.classLabel ?? null,
+        selectValue: input?.value ?? null,
+        options: list.map((o) => o.text).filter(Boolean),
+        // Not clipped: the variety box has its own row for exactly this reason.
+        clipped: input ? input.scrollWidth > input.clientWidth + 1 : null,
       },
       pileId: pile.id,
       customId: custom.id,
@@ -153,11 +163,11 @@ try {
     ? ok("hand-picked art is never overwritten", made.customKept)
     : fail("hand-picked art is never overwritten", made.customKept);
   made.sheet.classText === "Item Pile" && made.sheet.selectValue === "pile"
-    ? ok("the sheet shows and stores the type", `"${made.sheet.classText}"`)
-    : fail("the sheet shows and stores the type", JSON.stringify(made.sheet));
+    ? ok("the sheet shows and stores the variety", `"${made.sheet.classText}"`)
+    : fail("the sheet shows and stores the variety", JSON.stringify(made.sheet));
   made.sheet.options.includes("Item Pile") && made.sheet.clipped === false
-    ? ok("the Type control fits its longest option", made.sheet.options.join(" / "))
-    : fail("the Type control fits its longest option", JSON.stringify(made.sheet));
+    ? ok("the Variety control offers it, unclipped", made.sheet.options.join(" / "))
+    : fail("the Variety control offers it, unclipped", JSON.stringify(made.sheet));
 
   /* --- 3. the directory shows it ----------------------------------------- */
   console.log("\nreachability");

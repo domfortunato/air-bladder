@@ -56,7 +56,7 @@ try {
       const owner = await Cls.create({ name: "ZZ Unlink Owner", type: "character" });
       const cart = await Cls.create({
         name: "ZZ Unlink Cart", type: "npc",
-        system: { connectedTo: owner.uuid, slots: 4, inanimate: true },
+        system: { connectedTo: owner.uuid, slots: 4, role: "transport" },
       });
       owner.prepareData();
       return { owner, cart };
@@ -104,10 +104,8 @@ try {
     proto.deleteOwnedContainer = async function old(itemId) {
       const container = this.getOwnedContainer(itemId);
       if (!container) return;
-      const containers = (this.system.containers ?? []).filter((c) => c !== itemId);
       const actor = game.actors.find((x) => x.uuid == itemId);
-      await this.update({ "system.containers": containers });
-      await actor?.update({ "system.keeper": "" });   // ...and never deletes
+      await actor?.update({ "system.connectedTo": "" });   // ...and never deletes
     };
     const c = await mk();
     const ctrlId = c.cart.id;

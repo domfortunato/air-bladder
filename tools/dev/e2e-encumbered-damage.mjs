@@ -120,8 +120,8 @@ const out = await page.evaluate(async () => {
   // ("encumbered zeroes HP") must not reach it. It did (review #5): folding
   // containers into npc put a full mule on the character path, where its sheet
   // and token bar read 0 HP, and the submit strip made the phantom
-  // uncorrectable. Animate on purpose: `inanimate` would hide the HP input the
-  // submit half of this section needs.
+  // uncorrectable. A creature role on purpose: a thing role (transport or
+  // container) would hide the HP input the submit half of this section needs.
   const mule = await CONFIG.Actor.documentClass.create({
     name: `${NAME}-mule`, type: "npc",
     system: { hp: { value: 4, max: 6 }, slots: 2 },

@@ -1,8 +1,14 @@
 # NPC roles — design plan
 
 Settled in conversation 2026-07-31, on top of the `containers-as-npcs` branch. This
-records the decisions and their reasons so the build doesn't re-argue them. One
-point is still open and is marked as such.
+records the decisions and their reasons so the build doesn't re-argue them.
+
+**STATUS: BUILT, same day.** Gated by `npm run dev:roles` (the sheet composition,
+keeping matrix, cycle guard, tab reset, art/variety decoupling) and
+`npm run dev:role-migration` (both migration layers); the migration's one
+non-obvious constraint — "role absent in the database" is not observable from a
+running client, so selection keys on type + legacy keys + day rate — is documented
+in `migrateNpcRoles` (module/cairn.js).
 
 ## The problem
 
@@ -121,3 +127,108 @@ derived from what's already stored:
 After it runs, `forHire` and `inanimate` are gone as stored state. It touches no
 art, no names, no varieties, no slot counts — nothing recurring, nothing that
 rewrites Warden content.
+
+## The legacy `container` type is REMOVED — 2026-07-31, later the same day
+
+The section below decided not to MIGRATE old container-typed documents. It also
+said "the legacy type must stay registered while any world still holds one",
+and that condition turned out to be false the moment it was written: the built
+migration had already converted the dev world, and :30001 was rebuilt from the
+branch. So nothing was being protected — while the type went on being **offered
+in the Create Actor dialog**, because Foundry lists every registered subtype and
+a system cannot mark one uncreatable (`createDialog` filters only on a `types`
+option the sidebar never passes; client/documents/abstract/client-document.mjs
+around line 787). The Warden pressed Create, picked Container, and got a
+document against a retired model: the retired sheet, its `transportKind`
+pick-list of worn/mount/vehicle/pile, and no Connections tab at all — the tab
+map gave that type two tabs.
+
+What went with it, because each existed only to serve it: `ContainerData` (and
+so `keeper`, `transportKind` and `load` as ACTOR fields — `transportKind`
+survives on the `transport` ITEM type, which is a separate retirement),
+`templates/actor/container-sheet.html`, `createOwnedContainer`,
+`_prepareContainerData`, the ready-hook art migration, and the owner-side
+`system.containers` array on CharacterData/NpcData — the other half of the
+two-way link, which `connectedActors` had already promised would go "with
+`keeper` itself".
+
+**Three live behaviours were keyed on the type and so had silently stopped
+firing** once containers became npcs. They are re-keyed on the ROLE, which is
+the same correction review #5 made to the marketplace's nesting guard:
+
+- the Actor Directory's grayscale thumbnail and the `show-container-actors`
+  hide rule (`cairn.js`) — the setting had been hiding nobody;
+- the marketplace's strict-capacity/never-equipped rule (`acquire`), which an
+  npc sack had been exempt from, so it took stock past its capacity;
+- the sheet's own strict-capacity and never-equipped drop rules.
+
+`isThing` is the test in the last two — role container or transport. A MOUNT is
+deliberately excluded: it is a creature with a stat block, so it follows the npc
+rule (over capacity does nothing) and it can equip barding.
+
+A second setting went with the sheet: `show-gold-not-cost`, which swapped a
+container sheet's Cost box for a Gold box. The npc sheet has no Cost box, and
+Round 2 settled that Gold hides on a thing or a mount as a ROLE fact.
+
+## No migration for the legacy `container` type — decided 2026-07-31
+
+Old `container`-typed documents are NOT converted to npc. A full in-place
+migration (`migrateContainerType`: type change via `ForcedReplacement` of
+`system`, `keeper`→`connectedTo`, kind baked into role + variety, probe-gated
+with a marker-set control run) was built, proven green, and **removed the same
+day**: the only worlds running this system are the two on this machine, and the
+one being wiped at upgrade time is cheaper than carrying the code. Do not
+rebuild it without an actual population of external worlds to convert. What the
+exercise established and keeps being true: v14 supports document type changes
+(`system` must be a `ForcedReplacement`), a legacy type must stay registered
+while any world still holds one, and the dev world was converted by the built
+migration before removal — its container docs are npc-typed data now, with no
+code behind that fact. **That last point is what let the type itself be removed
+hours later (see above): "no world holds one" was already true, so keeping it
+registered bought nothing and cost a creatable retired model.**
+
+## Round 2 — sheet honesty and either-end edges (settled 2026-07-31 evening)
+
+Six decisions from using the built sheets, locked in conversation. The role
+table above changes in one column: **Gold now follows the role too.**
+
+- **Gold hides on Mount, Transport and Container sheets.** The stored field
+  stays (a chest still holds coins and coins still take slots — the RULE is
+  untouched); only the counter goes. This reverses the Round-1 reading that the
+  Gold box had to survive on things, which is why the `dev:roles` "Gold
+  survives" leg flips to assert hidden-but-value-preserved. NPC, Hireling and
+  Monster keep the counter.
+- **The header's empty band collapses.** A Monster sheet showed dead space
+  between HP/Gold and STR/Armor. The mechanism was NOT an empty grid track: the
+  NPC header is a flex column stretched to the portrait's 140px row, and any
+  role whose stack is shorter than that left the slack at the BOTTOM — between
+  the vitals and the row below. Fix: the vitals line takes `margin-top: auto`,
+  pinning HP/Gold flush with the portrait's foot exactly the way the character
+  sheet's 1fr slack row already does. (The `.npc-name-section` grid-pinning
+  rules in cairn.css are dead — no template renders that class.)
+- **Edges are managed from either end, by the Warden only.** A thing's (and
+  mount's) Connections tab shows its upward keeper as a row, gains a
+  "Connect to…" picker while unconnected (= attach ME to a keeper: same edge,
+  child end), and the connection can be broken from either end. Manual
+  connect/unlink is **Warden-only** — the gate lives INSIDE `connectActor` and
+  `unlinkOwnedContainer`, one wall for every spelling (dialog, drop, child
+  end), which is safe because every caller is a manual gesture: the automatic
+  flows (marketplace buys, generation grants, the socket mint) write
+  `connectedTo` directly and never pass through these methods.
+- **PC → PC connections exist.** Characters become valid connection targets —
+  `CharacterData` grows `connectedTo` (+ `formerlyBelongedTo` for unlink);
+  without the schema field the connect write would be silently dropped by
+  cleaning. One PC can keep several PCs (the party-roster reading). **An NPC
+  must never keep a PC** — pairwise-refused in `connectActor`, and the picker
+  never offers it.
+- **Ownership follows connection.** Connecting a PC → NPC copies the PC's
+  ownership onto the NPC (the marketplace-buy precedent, `deepClone` of the
+  whole ownership object), executed GM-side — free, since manual connects are
+  Warden-only. PC → PC grants nothing: a character's ownership is never
+  rewritten.
+- **One upward link at a time STANDS.** "One connection to a PC and one to an
+  NPC" was probed as both-at-once and rejected — every keeper-death, ownership
+  and authoritative-tab question forks under two parents. Enforced as
+  single-parent-ever in `connectActor` itself (the dialog filter alone was the
+  only guard before, so a drop could steal a connected actor). The tab shows
+  both directions instead: the upward keeper row and the kept list.

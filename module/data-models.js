@@ -24,7 +24,39 @@
  *    stored-vs-derived collision that cost us the Hit Protection data-loss bug.
  */
 
+import { containerClassRole } from "./icons.js";
+
 const fields = foundry.data.fields;
+
+/**
+ * The one discriminator on the non-player model (see docs/npc-roles-plan.md).
+ * Replaces `forHire` (gated the day rate) and `inanimate` (hid the stat block):
+ * two independent booleans could say "for-hire inanimate chest"; one role field
+ * cannot express nonsense. Order here is the sheet's pick-list order.
+ */
+export const NPC_ROLES = ["npc", "hireling", "monster", "mount", "transport", "container"];
+
+/** Roles that hide the stat block — what `inanimate` used to mean. */
+export const THING_ROLES = ["transport", "container"];
+
+/** Roles that may KEEP connections. Mount/Transport/Container can only BE
+ *  connected; Monster neither. The character type keeps by virtue of its type. */
+export const KEEPER_ROLES = ["npc", "hireling"];
+
+/**
+ * Derive a role for a document minted before `role` existed, from what it
+ * already stores. The mapping is the one settled in docs/npc-roles-plan.md;
+ * "everything else" is deliberately `npc`, which means a pre-roles monster
+ * IMPORTED into a world derives npc (nothing stored distinguishes it) — the
+ * shipped pack sources carry `role: monster` explicitly instead.
+ */
+export const deriveNpcRole = (src = {}) => {
+  if (src.forHire === true) return "hireling";
+  const clsRole = containerClassRole(src.containerClass ?? "");
+  if (src.inanimate === true) return clsRole === "transport" ? "transport" : "container";
+  if (clsRole === "mount") return "mount";
+  return "npc";
+};
 
 /* -------------------------------------------- */
 /*  Field helpers                                */
@@ -166,9 +198,17 @@ class CharacterData extends CairnDataModel {
       armorOverride: optInt(),
       gold: purse(),
       slots: capacity(),
-      // uuids of container Actors, not embedded records.
-      containers: strList(),
       features: objList(),
+      // PC → PC connections (Round 2, docs/npc-roles-plan.md): a character can
+      // BE kept by another character — the party-roster reading. Without this
+      // field the connect write is silently dropped by schema cleaning, which
+      // is exactly the "unknown keys in update data" trap. An NPC never keeps
+      // a PC; that pair is refused in connectActor, not here.
+      connectedTo: str(),
+      // Stamped at unlink time, same contract as NpcData's field: a NAME, not
+      // a uuid, because the keeper being deleted is the common reason the link
+      // broke. No character sheet renders it today; unlink writes it blind.
+      formerlyBelongedTo: str(),
     };
   }
 }
@@ -176,11 +216,12 @@ class CharacterData extends CairnDataModel {
 /**
  * One model for every non-player actor. The `hireling` type was folded into this
  * one: a hireling was only ever an NPC you were paying, so it carried a parallel
- * schema and a parallel sheet for the sake of three fields. `profession`,
- * `dayRate` and the `forHire` flag now live here, the day rate showing only when
- * `forHire` is ticked. `hireling` is NOT migrated away -- it stays registered as an
- * alias of this model (see ACTOR_DATA_MODELS below for why a real retirement would
- * cost every existing hireling its document id).
+ * schema and a parallel sheet for the sake of three fields. `profession` and
+ * `dayRate` now live here, the day rate showing only for `role: hireling`.
+ * `hireling` is NOT migrated away -- it stays registered as an alias of this
+ * model (see ACTOR_DATA_MODELS below for why a real retirement would cost every
+ * existing hireling its document id); an alias-typed document reads as role
+ * hireling regardless of its stored role (CairnActor#npcRole).
  *
  * The union is deliberate rather than minimal: the 205 shipped monsters are `npc`
  * documents and 204 of them carry `system.description`, so the merged sheet keeps
@@ -203,29 +244,31 @@ class NpcData extends CairnDataModel {
       gold: purse(),
       slots: capacity(),
       features: objList(),
-      containers: strList(),
       // --- folded in from the retired `hireling` type ---
       generationEnabled: bool(true),
-      // Relabelled "Career/Role" on the sheet; the stored key stays `profession`
-      // so migrated hirelings keep their value without a rename pass.
+      // Labelled "Career" on the sheet; the stored key stays `profession` so
+      // migrated hirelings keep their value without a rename pass.
       profession: str(),
       dayRate: money(0),
-      // Gates the day-rate row. Default false: most NPCs are not for hire, and a
-      // day rate on a wolf reads as a bug.
-      forHire: bool(false),
+      // What this actor IS to the party — the one discriminator (NPC_ROLES
+      // above). Replaces `forHire` and `inanimate`, both of which migrateData
+      // below still reads so pre-roles documents derive the right value.
+      role: new fields.StringField({ required: true, blank: false, initial: "npc", choices: NPC_ROLES }),
       deprived: bool(),
       panicked: bool(),
       critical: bool(),
       armorOverride: optInt(),
-      /* --- containers-as-NPCs (see docs/containers.md) ------------------------
+      /* --- containers-as-NPCs (see docs/npc-roles-plan.md) --------------------
          There is no separate "container" any more: an NPC that has `slots` and a
          `connectedTo` IS one. The trigger was the Outrider's horses, which carry
          "8 HP, 1 Armor, hooves (d10+d10)" as PROSE in their description because
          ContainerData has nowhere to put any of it -- a warhorse the party rides
          into a fight could not be hit, because of a type choice rather than a
-         rules one. NpcData was already a near-superset (it has `slots` AND
-         `containers`), so folding the two is the same move that folded Hireling
-         into NPC, for the same reason. */
+         rules one. NpcData was already a near-superset (it had `slots`, and the
+         keeper side of the link), so folding the two is the same move that
+         folded Hireling into NPC, for the same reason. The `container` type
+         itself was retired on 2026-07-31 — see the note where ContainerData
+         used to be. */
 
       // uuid of the Actor this one is connected to; blank means connected to
       // nobody, which is exactly what a loot pile is. Named `connectedTo` rather
@@ -234,26 +277,19 @@ class NpcData extends CairnDataModel {
       // a Foundry collision on `owner`.
       connectedTo: str(),
 
-      // Hides the HP/STR/DEX/WIL block. Modelled on SpellbookData's `scroll`
-      // (item.js) -- a schema boolean, not a Foundry flag, that hides the fields
-      // it makes meaningless.
-      //
-      // NOT called "container": container-ness is already fully expressed by
-      // `slots` + `connectedTo`, and it would be the WRONG discriminator anyway,
-      // because a horse is a container that very much wants a stat block. The
-      // real axis is creature-or-thing. A cart, a wagon and a loot pile tick it;
-      // a horse, a mule and a wolf do not. Default false so an NPC stays a
-      // creature unless someone says otherwise -- deriving it from "no stats
-      // filled in" would hide the block on every freshly created monster, which
-      // is precisely when you need somewhere to type its HP.
-      inanimate: bool(),
+      // `inanimate` used to live here (hid the stat block; a schema boolean
+      // modelled on SpellbookData's `scroll`). Its job moved into `role` —
+      // THING_ROLES hide the block — and migrateData still reads it off old
+      // documents. Do not re-add it.
 
-      // What this thing IS ("sack", "cart", "horse"...) when someone has said so
-      // explicitly; BLANK MEANS INFER from the name. Drives art, map token, the
-      // one-word class label and the default slot count from a single field, so
-      // they cannot drift apart. The inference is a list of ENGLISH keywords
-      // (icons.js containerClass), so this is also the only way a Warden working
-      // in another language can say "this is a backpack".
+      // The VARIETY: what this thing is ("sack", "cart", "horse", or anything a
+      // Warden types) when someone has said so explicitly; BLANK MEANS INFER
+      // from the name. A known class drives art, map token, the one-word label
+      // and the default slot count from a single field, so they cannot drift
+      // apart; an unknown one is just a label. The inference is a list of
+      // ENGLISH keywords (icons.js containerClass), so this is also the only
+      // way a Warden working in another language can say "this is a backpack".
+      // Deliberately free text, not an enum — see docs/npc-roles-plan.md.
       containerClass: str(),
 
       // Purchase price. Needed because mounts and vehicles become Actors stocked
@@ -269,42 +305,70 @@ class NpcData extends CairnDataModel {
       formerlyBelongedTo: str(),
     };
   }
-}
 
-class ContainerData extends CairnDataModel {
-  static defineSchema() {
-    return {
-      description: html(),
-      biography: html(),
-      slots: capacity(),
-      // uuid of the owning Actor. Named "keeper" to dodge a Foundry collision.
-      keeper: str(),
-      cost: money(0),
-      transportKind: str(),
-      load: int(0),
-      gold: purse(),
-      // What this container IS ("backpack", "cart", "horse"...), when someone has
-      // said so explicitly. BLANK MEANS INFER, which is why it defaults empty and
-      // needs no migration: every container that predates this field keeps being
-      // classified from its name exactly as before.
-      //
-      // It exists because the inference is a list of ENGLISH keywords
-      // (icons.js containerClass), and it decides two things at once: the art
-      // stamped at creation and the one-word class label on the sheet. A Warden
-      // typing "Mochila" or "Rucksack" got a chest for both -- consistently wrong,
-      // and unfixable from inside a keyword list without asking every translator
-      // for a synonym table.
-      containerClass: str(),
-      // Mirrors NpcData: a legacy container can be unlinked too, and without the
-      // field here the write would be silently dropped by schema cleaning.
-      formerlyBelongedTo: str(),
-    };
+  /**
+   * Documents minted before `role` existed carry `forHire`/`inanimate` instead;
+   * derive on every load, so packs and old worlds read correctly without being
+   * written. The one-time world migration (cairn.js) persists the value and
+   * deletes the two retired keys; until it runs, this shim is the truth.
+   *
+   * **`migrateData` RUNS ON UPDATE DIFFS, not only on whole sources.** Measured
+   * against 14.365: `NpcData.migrateData({containerClass: "pile"})` comes back
+   * `{containerClass: "pile", role: "npc"}`, and that injected key lands in the
+   * write. So a condition of the shape "field X is absent" is not a statement
+   * about the document — in a diff, everything the caller did not touch is
+   * absent.
+   *
+   * That bit, and this is the fix (2026-07-31, found by rewriting
+   * `dev:item-pile` onto the variety control). The guard used to include
+   * `|| source.containerClass`, so ANY update touching the variety and not also
+   * naming the role re-derived one — and `deriveNpcRole` reads `inanimate`,
+   * which a modern document does not have, so it answered "npc". Setting a
+   * crate's variety demoted it to a plain NPC: stat block back, gold counter
+   * back, capacity rules gone. The art picker did it too (`_setContainerArt`
+   * writes `{"system.containerClass": cls}` and nothing else), so choosing a
+   * barrel picture for a barrel silently un-made it. The sheet's own submit was
+   * the one path that was safe, because the role `<select>` rides along in it —
+   * which is exactly why this survived: every manual test went through the sheet.
+   *
+   * The guard now demands a RETIRED key. `forHire`/`inanimate` are written by
+   * nothing any more, so their presence is unambiguous evidence of a whole
+   * pre-roles source rather than a diff. What that gives up is a pre-roles
+   * document that stored a `containerClass` and NEITHER flag, which would have
+   * derived `mount` for a mount class; it takes the schema initial instead. The
+   * shipped packs all state their role outright, and the world migration
+   * selects on type + legacy keys + dayRate, never on this.
+   */
+  static migrateData(source) {
+    if (source && source.role === undefined
+      && (source.forHire !== undefined || source.inanimate !== undefined)) {
+      source.role = deriveNpcRole(source);
+    }
+    return super.migrateData(source);
   }
 }
 
-/* HirelingData is gone — folded into NpcData above, which the `hireling` type now
-   points at as well (see ACTOR_DATA_MODELS). Nothing to migrate: an existing
-   hireling validates against the merged schema unchanged, since it is a superset. */
+/* ContainerData is gone, and with it the `container` TYPE (2026-07-31). It was
+   the pre-roles model — a slots-and-`keeper` document with its own sheet — and
+   it was kept registered after the fold on the stated condition "while any world
+   still holds one". No world does: the built migration converted the dev world's
+   containers to npc before it was removed, and :30001 is a fresh branch install.
+   What kept it alive was therefore nothing, while the create dialog went on
+   OFFERING it — Foundry lists every registered subtype and there is no manifest
+   flag to hide one — so the Warden's own Create Actor button still minted
+   documents against the retired model, complete with the retired sheet's
+   `transportKind` pick-list and no Connections tab.
+
+   `keeper`, `transportKind` and `load` lived ONLY here and went with it; so did
+   the owner-side `containers` uuid array on CharacterData/NpcData, the other
+   half of the same two-way link (see CairnActor#connectedActors, which had
+   promised exactly that: "that half goes away with `keeper` itself").
+   `transportKind` survives on the `transport` ITEM type, which is a separate
+   retirement — see docs/npc-roles-plan.md.
+
+   HirelingData is gone the other way — folded into NpcData above, which the
+   `hireling` type still points at (see ACTOR_DATA_MODELS). That one IS an alias
+   and stays: it validates against the merged schema unchanged. */
 
 /* -------------------------------------------- */
 /*  Items                                        */
@@ -467,16 +531,19 @@ class TransportData extends CairnDataModel {
 export const ACTOR_DATA_MODELS = {
   character: CharacterData,
   npc: NpcData,
-  container: ContainerData,
   // `hireling` is an ALIAS of npc: same schema, same sheet, same behaviour. A
   // hireling was only ever an NPC you were paying.
   //
-  // Deliberately an alias rather than a deletion. Foundry treats a document's
-  // `type` as immutable, so retiring the type would mean recreating every
-  // existing hireling as a new document — new ids, and therefore broken scene
-  // token links and broken container `keeper` uuids — in every world already on
-  // 0.1.7. Pointing the type at this model costs one line, needs no migration,
-  // and leaves nothing orphaned. The only difference that remains is at CREATION
+  // Deliberately an alias rather than a deletion, and the difference from the
+  // `container` retirement above is the whole reason: Foundry treats a
+  // document's `type` as immutable, so retiring this one would mean recreating
+  // every existing hireling as a new document — new ids, and therefore broken
+  // scene token links and broken `connectedTo` uuids. A container had no such
+  // population left to protect; a hireling does, and unlike `container` this
+  // type is not a retired MODEL — it points at the live one and behaves
+  // identically, so nothing is offered that should not be. Pointing the type at
+  // this model costs one line, needs no migration, and leaves nothing
+  // orphaned. The only difference that remains is at CREATION
   // (a hireling rolls a random portrait); once made, the two are the same thing.
   hireling: NpcData,
 };

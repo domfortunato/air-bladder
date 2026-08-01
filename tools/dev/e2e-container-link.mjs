@@ -1,20 +1,24 @@
 /**
  * Container-link permission e2e — review finding 13.
  *
- * Attaching a container is TWO writes: the keeper lists the container's uuid, and
- * the container's `keeper` points back. `createOwnedContainer` did them in order
- * with no permission check and no catch, so a player dropping a Warden-owned
- * container onto their own sheet got the first (they own their character) and a
- * refusal on the second — leaving the character listing a container with an empty
- * `keeper`: unopenable, and still claimable by anyone else.
+ * Attaching a container USED to be two writes: the keeper listed the container's
+ * uuid and the container's `keeper` pointed back. `createOwnedContainer` did them
+ * in order with no permission check and no catch, so a player dropping a
+ * Warden-owned container onto their own sheet got the first (they own their
+ * character) and a refusal on the second — leaving the character listing a
+ * container with an empty `keeper`: unopenable, and still claimable by anyone
+ * else. The link is ONE write on the child now, and the `container` type that
+ * carried the other half is retired (2026-07-31), so the half-applied state is
+ * structurally unreachable. The refusal itself still has to hold, and this still
+ * asserts it — against an npc mule, which is what a Warden's mule is now.
  *
- * MUST run as a real PLAYER. A GM passes every ownership check, so a GM session
- * cannot reproduce this no matter what it drops.
+ * MUST run as a real PLAYER. A GM passes every ownership check AND every Warden
+ * gate, so a GM session cannot reproduce this no matter what it drops.
  *
  * Also asserts the legitimate path still works: with ACTOR_CREATE granted, a
  * player buying a transport gets a fully linked container. That is the case a
  * careless permission guard would break, because `acquireTransport` copies
- * ownership onto the container only AFTER calling createOwnedContainer.
+ * ownership onto the container only AFTER creating it.
  *
  * Usage: npm run dev:container-link   (needs Alice — npm run dev:players)
  */
@@ -45,8 +49,13 @@ const scene = await gmPage.evaluate(async () => {
   const pc = await gen.createActorWithCharacter(await gen.generate2eCharacter());
   await pc.update({ name: "ZZ Alice PC", ownership: { default: 0, [alice.id]: 3 } });
 
-  // A container only the Warden owns — the thing a player must not be able to claim.
-  const mule = await Actor.create({ name: "ZZ Warden Mule", type: "container", system: { slots: 6 } });
+  // A container only the Warden owns — the thing a player must not be able to
+  // claim. An npc with role container, which is what a container IS now; a
+  // `container`-typed document cannot be created at all any more.
+  const mule = await Actor.create({
+    name: "ZZ Warden Mule", type: "npc",
+    system: { slots: 6, role: "container", containerClass: "mule" },
+  });
 
   return { pcId: pc.id, pcUuid: pc.uuid, muleId: mule.id, muleUuid: mule.uuid };
 });
@@ -94,9 +103,11 @@ const claim = await alicePage.evaluate(async ({ pcId, muleUuid }) => {
       threw = String(err?.message ?? err);
     }
     await new Promise((r) => setTimeout(r, 600));
+    pc.prepareData();
     return {
       isOwnerOfMule: (await fromUuid(muleUuid))?.isOwner ?? null,
-      containers: [...(pc.system.containers ?? [])],
+      // The DERIVED list — there is no owner-side array to inspect any more.
+      connected: (pc.system.containerObjects ?? []).map((a) => a.uuid),
       notices,
       threw,
     };
@@ -109,9 +120,9 @@ claim.isOwnerOfMule === false
   ? ok("Alice does not own the mule", "premise holds")
   : fail("Alice does not own the mule", `isOwner=${claim.isOwnerOfMule} — test proves nothing`);
 
-!claim.containers.includes(scene.muleUuid)
-  ? ok("no half-applied link", "character lists nothing")
-  : fail("no half-applied link", "the character now lists a container it cannot open");
+!claim.connected.includes(scene.muleUuid)
+  ? ok("no link was made", "character lists nothing")
+  : fail("no link was made", "the character now lists a container it cannot open");
 
 claim.notices.length
   ? ok("player is told why", `"${claim.notices[claim.notices.length - 1]}"`)
@@ -123,12 +134,12 @@ claim.notices.length
 
 // And the container is untouched, checked from the GM side (authoritative).
 const muleState = await gmPage.evaluate((muleId) => ({
-  keeper: game.actors.get(muleId)?.system.keeper ?? null,
+  connectedTo: game.actors.get(muleId)?.system.connectedTo ?? null,
 }), scene.muleId);
 
-muleState.keeper === ""
-  ? ok("container keeper still empty", "still claimable by its owner")
-  : fail("container keeper still empty", `keeper is "${muleState.keeper}"`);
+muleState.connectedTo === ""
+  ? ok("mule is still unconnected", "still claimable by its owner")
+  : fail("mule is still unconnected", `connectedTo is "${muleState.connectedTo}"`);
 
 /* ---- the legitimate path still works --------- */
 
@@ -153,10 +164,9 @@ const buy = await alicePage.evaluate(async (pcId) => {
   if (!doc) return { error: "no affordable transport in the catalogue" };
   const okBuy = await mkt.acquireTransport(pc, doc, true);
   await new Promise((r) => setTimeout(r, 600));
-  // Read the DERIVED list, not the legacy array. A purchase connects the new
-  // actor with a single `connectedTo` write; the owner's `system.containers` is
-  // no longer written at all, so looking there reports a successful buy as a
-  // failed link.
+  // Read the DERIVED list. A purchase connects the new actor with a single
+  // `connectedTo` write and nothing is written to the owner at all, so the
+  // tab's contents are computed, never stored.
   pc.prepareData();
   const container = (pc.system.containerObjects ?? []).at(-1) ?? null;
   return {
@@ -194,11 +204,15 @@ else {
 
 /* Actor deletion is role-gated (Assistant+) with NO player-grantable
    permission, so a player's trash on the Connected tab promised an action the
-   server always refuses (review #5). Same template, two users: the row Alice
-   just bought must offer her unlink but not trash, and the same row on the
-   Warden's screen must offer both — the GM half is what makes the player
-   absence load-bearing rather than a row that renders no icons at all. */
-console.log("\nthe Connected tab's trash icon");
+   server always refuses (review #5). Round 2 then took UNLINK from players too
+   — breaking an edge by hand is edge management, and the wall lives inside
+   `unlinkOwnedContainer` — so Alice's row now offers NEITHER control.
+
+   Same template, two users, and the GM half is what makes the player's absence
+   load-bearing rather than a row that renders no icons at all for everybody.
+   (This leg asserted `icons.unlink` until 2026-07-31, which was Round 1's rule;
+   it had not been re-run since Round 2 changed it.) */
+console.log("\nthe Connected tab's edge controls");
 const icons = await alicePage.evaluate(async (pcId) => {
   const pc = game.actors.get(pcId);
   await pc.sheet.render(true);
@@ -216,8 +230,9 @@ const gmIcons = await gmPage.evaluate(async (pcId) => {
   await new Promise((r) => setTimeout(r, 1000));
   const row = pc.sheet.element?.querySelector('.cairn-items-list-row[data-is-container="true"]');
   const trash = !!row?.querySelector('[data-action="itemDelete"]');
+  const unlink = !!row?.querySelector('[data-action="containerUnlink"]');
   await pc.sheet.close();
-  return { rowFound: !!row, trash };
+  return { rowFound: !!row, trash, unlink };
 }, scene.pcId);
 
 if (!icons.rowFound || !gmIcons.rowFound) {
@@ -226,24 +241,29 @@ if (!icons.rowFound || !gmIcons.rowFound) {
   !icons.trash
     ? ok("no trash for a player", "the server would refuse it anyway")
     : fail("no trash for a player", "an affordance for an action players cannot take");
-  icons.unlink
-    ? ok("unlink stays theirs", "drop the sack and walk away")
-    : fail("unlink stays theirs", "player lost the one control they can use");
-  gmIcons.trash
-    ? ok("the Warden still gets the trash", "same template, role-gated icon")
-    : fail("the Warden still gets the trash", "the icon vanished for everyone — the player assertion proves nothing");
+  !icons.unlink
+    ? ok("no unlink for a player either", "Round 2: edge management is the Warden's")
+    : fail("no unlink for a player either", "a player can still break an edge by hand");
+  gmIcons.trash && gmIcons.unlink
+    ? ok("the Warden gets both", "same template, role-gated icons")
+    : fail("the Warden gets both",
+      `trash=${gmIcons.trash} unlink=${gmIcons.unlink} — if these vanished for everyone, the player assertions prove nothing`);
 }
 
 /* ---- the Connected tab, derived from `connectedTo` ---- */
 
 /* The list the tab renders is DERIVED from each connected actor's own
-   `connectedTo` (CairnActor#connectedActors), not from the owner's
-   `system.containers` array. That is the point: one place stores the fact, so it
-   cannot disagree with itself, a deleted actor simply stops appearing, and there
-   is no second write to lose. This asserts the new path works with the legacy
-   array left EMPTY -- otherwise the union would be carrying it and the old
-   two-way link would still be doing all the work unnoticed. */
-console.log("\nconnected actors (derived, no legacy array)");
+   `connectedTo` (CairnActor#connectedActors), never from an owner-side array.
+   That is the point: one place stores the fact, so it cannot disagree with
+   itself, a deleted actor simply stops appearing, and there is no second write
+   to lose.
+
+   This used to assert the derived path worked with the legacy `system.containers`
+   array left EMPTY, because while the union existed an empty array was the only
+   way to prove the union was not quietly doing the work. The array is gone with
+   the `container` type, so the assertion becomes the stronger one: the FIELD
+   does not exist. That fails if anyone re-adds it, where "is empty" would not. */
+console.log("\nconnected actors (derived, no owner-side array)");
 const connected = await gmPage.evaluate(async () => {
   const Cls = CONFIG.Actor.documentClass;
   const owner = await Cls.create({ name: "ZZ Connected Owner", type: "character" });
@@ -254,7 +274,9 @@ const connected = await gmPage.evaluate(async () => {
   const stranger = await Cls.create({ name: "ZZ Unconnected", type: "npc" });
   owner.prepareData();
   const listed = (owner.system.containerObjects ?? []).map((a) => a.name);
-  const arrayLen = (owner.system.containers ?? []).length;
+  // The SOURCE, not the prepared object: prepareData is free to hang anything
+  // it likes on `system`, so only `_source` answers "is this in the schema".
+  const legacyField = "containers" in (owner._source.system ?? {});
 
   // Disconnecting must remove it with no second write anywhere.
   await horse.update({ "system.connectedTo": "" });
@@ -272,15 +294,15 @@ const connected = await gmPage.evaluate(async () => {
 
   const ids = [owner.id, stranger.id];
   for (const id of ids) await game.actors.get(id)?.delete().catch(() => {});
-  return { listed, arrayLen, afterUnlink, beforeDelete, afterDelete };
+  return { listed, legacyField, afterUnlink, beforeDelete, afterDelete };
 });
 
 connected.listed.length === 1 && connected.listed[0] === "ZZ Connected Horse"
   ? ok("connectedTo alone puts it on the tab", `[${connected.listed.join(", ")}]`)
   : fail("connectedTo alone puts it on the tab", JSON.stringify(connected.listed));
-connected.arrayLen === 0
-  ? ok("with the legacy array empty", "so the union is not doing the work")
-  : fail("with the legacy array empty", `system.containers has ${connected.arrayLen}`);
+connected.legacyField === false
+  ? ok("no owner-side array exists", "system.containers is not in the schema")
+  : fail("no owner-side array exists", "system.containers is back — the union can carry links again");
 connected.afterUnlink.length === 0
   ? ok("clearing connectedTo removes it", "one write, no bookkeeping")
   : fail("clearing connectedTo removes it", JSON.stringify(connected.afterUnlink));

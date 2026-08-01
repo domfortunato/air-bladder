@@ -165,28 +165,18 @@ if (!hasFeatureDialog) {
 }
 
 /* ----------------------------------------------------------- container ---- */
-// Behind its own GM setting and an ACTOR_CREATE permission check, and it is the
-// one dialog that creates a world Actor rather than an owned document.
+// Behind an ACTOR_CREATE permission check, and it is the one dialog that creates
+// a world Actor rather than an owned document.
 //
-// `show-containers-tab` is registered `requiresReload: true` -- deliberately, it
-// changes which PARTS the sheet has -- so setting it does NOT make the tab appear
-// on an already-open sheet, however long you wait. This used to set it, sleep 1s
-// and click, which only ever worked because a previous run had left the setting
-// ON: the first run on a world where it was off timed out, and every run after
-// that passed. Exactly the stale-precondition trap docs/release-testing.md warns
-// about, and it hid this whole section on a clean world. Reload and re-open.
-const containersWere = await page.evaluate(async () => {
-  const was = game.settings.get("air-bladder", "show-containers-tab");
-  if (!was) await game.settings.set("air-bladder", "show-containers-tab", true);
-  return was;
-});
-if (!containersWere) {
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
-  await dismissChrome(page);
-  await page.evaluate((id) => game.actors.get(id).sheet.render(true), actorId);
-  await page.waitForTimeout(2500);
-}
+// No setup any more: the Connections tab is structural. This used to enable
+// `show-containers-tab` and RELOAD, because that setting was registered
+// `requiresReload: true` — it changed which PARTS the sheet had — so setting it
+// did not make the tab appear on an open sheet however long you waited. An
+// earlier version set it, slept 1s and clicked, which only ever worked because a
+// previous run had left it ON: the first run on a clean world timed out and
+// every run after passed. That was the stale-precondition trap
+// docs/release-testing.md warns about, and the setting it depended on is now
+// gone entirely.
 await page.locator(`nav.tabs a[data-tab="containers"]`).first().click();
 await page.waitForTimeout(600);
 await page.locator(".container-create").first().click();
@@ -216,24 +206,24 @@ const cont = await page.evaluate(async (id) => {
   return {
     // An npc connected at creation now, not a `container` keeper-linked after
     // (review #5: this dialog was the last module path minting the dissolved
-    // type). A backpack is a thing: inanimate, hp 0/0, never the phantom 6.
+    // type). A backpack is a thing: role container, hp 0/0, never the phantom 6.
     type: c.type,
     slots: Number(c.system.slots),
     connected: c.system.connectedTo === game.actors.get(id).uuid,
-    inanimate: c.system.inanimate,
+    role: c.system.role,
     hpMax: c.system.hp.max,
     stored: c.system.containerClass,
     art: c.img.split("/").pop(),
     label: c.system.classLabel,
-    fromNameAlone: containerClass(c.name, c.system.transportKind),
+    fromNameAlone: containerClass(c.name),
   };
 }, actorId);
 cont && cont.type === "npc" && cont.slots === 5 && cont.connected
   ? ok("an npc created and connected", `slots=${cont.slots} connected=${cont.connected}`)
   : fail("an npc created and connected", JSON.stringify(cont));
-cont && cont.inanimate === true && cont.hpMax === 0
-  ? ok("a hand-made backpack is a thing", "inanimate, hp 0/0 — not the phantom 6")
-  : fail("a hand-made backpack is a thing", `inanimate=${cont?.inanimate} hpMax=${cont?.hpMax}`);
+cont && cont.role === "container" && cont.hpMax === 0
+  ? ok("a hand-made backpack is a thing", "role container, hp 0/0 — not the phantom 6")
+  : fail("a hand-made backpack is a thing", `role=${cont?.role} hpMax=${cont?.hpMax}`);
 
 if (!cont) {
   fail("the Kind select drove the container's class", "no container to inspect");
@@ -278,12 +268,11 @@ await page.keyboard.press("Escape");
 await page.waitForTimeout(500);
 
 /* ----------------------------------------------------------- teardown ---- */
-await page.evaluate(async ({ id, was, contWas }) => {
+await page.evaluate(async ({ id, was }) => {
   await game.actors.find((a) => a.name === "ZZ Probe Mochila")?.delete();
   await game.actors.get(id)?.delete();
   if (!was) await game.settings.set("air-bladder", "show-features-section", false);
-  if (!contWas) await game.settings.set("air-bladder", "show-containers-tab", false);
-}, { id: actorId, was: featuresWere, contWas: containersWere });
+}, { id: actorId, was: featuresWere });
 
 const errs = errors.filter((e) => !/Probe/.test(e));
 errs.length === 0 ? ok("zero console errors") : fail("zero console errors", errs.join(" | "));

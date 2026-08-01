@@ -115,11 +115,15 @@ try {
       // rider's usage against the same actor with the container detached, so this
       // measures the container's contribution rather than restating the total.
       slotsUsed: actor.system.slotsUsed,
+      // The link lives on the CHILD, so "the same actor with the container
+      // detached" is measured by clearing the child's `connectedTo` in memory,
+      // not by emptying an owner-side list (which no longer exists).
       slotsWithout: (() => {
-        const kept = actor.system.containers;
-        actor.system.containers = [];
+        if (!horse) return null;
+        const kept = horse.system.connectedTo;
+        horse.system.connectedTo = "";
         const bare = actor.calcSlotsUsed ? actor.calcSlotsUsed() : null;
-        actor.system.containers = kept;
+        horse.system.connectedTo = kept;
         return bare;
       })(),
       // ...and it must not appear as a worn row, which is what charges the carrier.
@@ -127,12 +131,14 @@ try {
       ownershipCopied: JSON.stringify(horse?.ownership) === JSON.stringify(actor.ownership),
     };
 
-    // 3. A container the PLAYER made must survive a regenerate.
+    // 3. A container the PLAYER made must survive a regenerate. An npc with
+    //    role container — the `container` type is retired — connected in its
+    //    CREATE data, which is the shape every automatic flow uses.
     const mine = await CONFIG.Actor.documentClass.create({
-      type: "container", name: "PROBE Player Chest", system: { slots: { value: 3 } },
+      type: "npc", name: "PROBE Player Chest",
+      system: { slots: 3, role: "container", containerClass: "chest", connectedTo: actor.uuid },
     });
     made.push(mine);
-    await actor.createOwnedContainer(mine);
 
     const beforeUuid = horse?.uuid;
     await gen.regenerateActor(actor);
@@ -143,9 +149,11 @@ try {
       grantedNow: after.filter((a) => a.getFlag("air-bladder", "grantSource")).length,
       oldGone: !game.actors.get(beforeUuid?.split(".").pop()),
       mineSurvives: !!game.actors.get(mine.id),
-      mineStillListed: (actor.system.containers ?? []).includes(mine.uuid),
-      // no dangling uuids left behind by the delete
-      noDangling: (actor.system.containers ?? []).every((u) => !!game.actors.find((a) => a.uuid === u)),
+      mineStillListed: actor.connectedActors().some((c) => c.id === mine.id),
+      // Nothing can dangle now — the list IS the set of live actors pointing
+      // here — so the assertion that has teeth is that the chest's own link
+      // still resolves to this character after the granted beast was deleted.
+      noDangling: game.actors.get(mine.id)?.system.connectedTo === actor.uuid,
     };
 
     // 4. Re-roll ONLY the horse question; the chest must not move.
@@ -177,7 +185,7 @@ try {
       grantedNow: afterReroll.filter((a) => a.getFlag("air-bladder", "grantSource")).length,
       name: afterReroll.find((a) => a.getFlag("air-bladder", "grantSource"))?.name,
       mineSurvives: !!game.actors.get(mine.id),
-      noDangling: (actor.system.containers ?? []).every((u) => !!game.actors.find((a) => a.uuid === u)),
+      noDangling: game.actors.get(mine.id)?.system.connectedTo === actor.uuid,
     };
 
     // 4b. A background can also grant a container OUTRIGHT, not from a choice

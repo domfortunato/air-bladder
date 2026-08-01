@@ -69,28 +69,33 @@ export const TRANSPORT_KINDS = {
  * floor is not a manufactured object with a fixed capacity.
  */
 export const CONTAINER_CLASSES = {
-  pile: { icon: "stack", label: "CAIRN.ClassPile", slots: 0 },
-  backpack: { icon: "backpack", label: "CAIRN.ClassBackpack", slots: 4 },
-  sack: { icon: "sack", label: "CAIRN.ClassSack", slots: 2 },
-  handcart: { icon: "handcart", label: "CAIRN.ClassHandcart", slots: 4 },
-  cart: { icon: "cart", label: "CAIRN.ClassCart", slots: 4 },
-  wagon: { icon: "wagon", label: "CAIRN.ClassWagon", slots: 8 },
-  mule: { icon: "donkey", label: "CAIRN.ClassMule", slots: 6, animate: true },
-  donkey: { icon: "donkey", label: "CAIRN.ClassDonkey", slots: 4, animate: true },
-  horse: { icon: "horse", label: "CAIRN.ClassHorse", slots: 4, animate: true },
-  chest: { icon: "chest", label: "CAIRN.ClassChest", slots: 6 },
-  crate: { icon: "crate", label: "CAIRN.ClassCrate", slots: 6 },
-  barrel: { icon: "barrel", label: "CAIRN.ClassBarrel", slots: 4 },
-  box: { icon: "box", label: "CAIRN.ClassBox", slots: 2 },
+  pile: { icon: "stack", label: "CAIRN.ClassPile", slots: 0, role: "container" },
+  backpack: { icon: "backpack", label: "CAIRN.ClassBackpack", slots: 4, role: "container" },
+  sack: { icon: "sack", label: "CAIRN.ClassSack", slots: 2, role: "container" },
+  handcart: { icon: "handcart", label: "CAIRN.ClassHandcart", slots: 4, role: "transport" },
+  cart: { icon: "cart", label: "CAIRN.ClassCart", slots: 4, role: "transport" },
+  wagon: { icon: "wagon", label: "CAIRN.ClassWagon", slots: 8, role: "transport" },
+  mule: { icon: "donkey", label: "CAIRN.ClassMule", slots: 6, role: "mount" },
+  donkey: { icon: "donkey", label: "CAIRN.ClassDonkey", slots: 4, role: "mount" },
+  horse: { icon: "horse", label: "CAIRN.ClassHorse", slots: 4, role: "mount" },
+  chest: { icon: "chest", label: "CAIRN.ClassChest", slots: 6, role: "container" },
+  crate: { icon: "crate", label: "CAIRN.ClassCrate", slots: 6, role: "container" },
+  barrel: { icon: "barrel", label: "CAIRN.ClassBarrel", slots: 4, role: "container" },
+  box: { icon: "box", label: "CAIRN.ClassBox", slots: 2, role: "container" },
 };
 
 /** A class's default capacity, or 0 ("use the world setting") if it has none. */
 export const containerClassSlots = (cls) => CONTAINER_CLASSES[cls]?.slots ?? 0;
 
-/** Is this class a CREATURE? Drives the `inanimate` default when a container is
- *  made by hand: a mule gets a stat block, a barrel gets 0/0. One table for
- *  art, label, capacity AND animacy, so they cannot drift apart. */
-export const containerClassAnimate = (cls) => !!CONTAINER_CLASSES[cls]?.animate;
+/** Which role a variety implies: "mount", "transport" or "container" for a known
+ *  class, "" for a blank or Warden-invented one (see docs/npc-roles-plan.md).
+ *  Lives on the same table as art, label and capacity so they cannot drift. */
+export const containerClassRole = (cls) => CONTAINER_CLASSES[cls]?.role ?? "";
+
+/** Is this class a CREATURE? Derived from role, not stored beside it — a second
+ *  boolean saying "mount" would be a second thing to drift. A mule gets a stat
+ *  block, a barrel gets 0/0. */
+export const containerClassAnimate = (cls) => containerClassRole(cls) === "mount";
 
 /**
  * Classify a container / transport. Keyed on the NAME first (so "Handcart" and
@@ -188,13 +193,18 @@ export const TOOLS_ICON = P("tools");
 export const CONTAINER_ICON = P("chest");
 
 /**
- * Actor art by type. NPCs (the monster pack, and hand-made ones) get the monster
- * glyph; a container without a transport name gets the chest. Characters and
- * hirelings keep their portraits, so this returns null for them.
+ * Actor art by type, for the PACK IMPORTER (tools/import/item-icons.mjs) — the
+ * only caller. NPCs (the monster pack, and hand-made ones) get the monster
+ * glyph; characters and hirelings keep their portraits, so this returns null.
+ *
+ * The `container` branch went with the type (2026-07-31). It is not a loss for
+ * the container packs: a container is an npc now and every shipped one stores a
+ * `containerClass`, so `iconForTransport` is called with the class directly —
+ * by the importer (mounts.mjs) and by CairnActor#_preCreate for hand-made ones.
+ * Routing on a type could only ever have guessed from the name.
  */
-export const iconForActor = (type = "", name = "") => {
+export const iconForActor = (type = "") => {
   if (type === "npc") return P("monster");
-  if (type === "container") return iconForTransport(name);
   return null;
 };
 

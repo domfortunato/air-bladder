@@ -172,7 +172,7 @@ try {
   // This used to assert an NPC sheet had NEITHER button, and it was correct when
   // written -- `hireling` and `npc` were separate types and only the hireling got
   // generation controls. The Hireling->NPC fold (1d2a214) made them one type
-  // discriminated by `system.forHire`, so a plain NPC now carries the same header,
+  // discriminated by `system.role`, so a plain NPC now carries the same header,
   // and f674730 answered the danger that creates -- a one-click no-undo wipe of any
   // of the 205 shipped monsters -- by making Roll NPC CONFIRM rather than by hiding
   // it. `dev:roll-npc` owns that confirmation; this probe owns the header.

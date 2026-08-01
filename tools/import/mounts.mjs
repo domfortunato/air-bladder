@@ -219,7 +219,9 @@ const actorYaml = (t, id, folderId) => {
   const cls = containerClass(t.name, t.kind);
   const img = iconForTransport(t.name, t.kind);
   const { hp, armor } = statsFromProse(t.description);
-  const inanimate = t.kind !== "mount";      // worn shapes and vehicles are things
+  // Role by kind, matching the pack's three folders: worn shapes are
+  // containers, vehicles are transports, only a mount is a creature.
+  const role = t.kind === "mount" ? "mount" : t.kind === "vehicle" ? "transport" : "container";
   const lines = [
     `_id: ${id}`,
     `name: ${y(t.name)}`,
@@ -238,16 +240,18 @@ const actorYaml = (t, id, folderId) => {
     `    transportSource: ${t.from ? "background-2e" : "2e"}`,
     "system:",
     `  description: ${y(t.description)}`,
-    // HP only when the book states one — see the HP RULE in the header.
+    // HP only when the book states one — see the HP RULE in the header. A
+    // thing-role row with none is written 0/0 explicitly, or the schema default
+    // hands a cart six hit points.
     ...(hp ? ["  hp:", `    value: ${hp}`, `    max: ${hp}`]
-      : inanimate ? ["  hp:", "    value: 0", "    max: 0"] : []),
+      : role !== "mount" ? ["  hp:", "    value: 0", "    max: 0"] : []),
     // `armor` is DERIVED every prepare from worn gear, so an authored value never
     // survives; `armorOverride` is the field that actually holds a stated Armor.
     ...(armor ? [`  armorOverride: ${armor}`] : []),
     `  slots: ${t.slots}`,
     `  cost: ${t.cost}`,
     `  containerClass: ${cls}`,
-    `  inanimate: ${inanimate}`,
+    `  role: ${role}`,
     // These are not rollable NPCs -- "Roll NPC" would overwrite a book statblock.
     "  generationEnabled: false",
     "ownership:",

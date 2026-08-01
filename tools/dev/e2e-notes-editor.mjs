@@ -31,9 +31,13 @@ try {
   await joinAsGM(page);
   await dismissChrome(page);
 
-  for (const type of ["character", "hireling", "npc", "container"]) {
+  // `container` was a fourth type here, whose editor was on its Description tab
+  // rather than a Notes tab it never had. The type is retired (2026-07-31) and
+  // the npc that replaced it has the same four tabs as everything else, so the
+  // per-type field/tab split went with it.
+  for (const type of ["character", "hireling", "npc"]) {
     console.log(`\n${type}`);
-    const field = type === "container" ? "system.biography" : "system.notes";
+    const field = "system.notes";
 
     const setup = await page.evaluate(async ({ type, field }) => {
       for (const a of game.actors.filter((a) => a.name.startsWith("ZZ Notes"))) await a.delete();
@@ -43,7 +47,7 @@ try {
       for (let i = 0; i < 40 && !actor.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
       await new Promise((r) => setTimeout(r, 700));
       const el = actor.sheet.element;
-      const tab = type === "container" ? "description" : "notes";
+      const tab = "notes";
       el.querySelector(`.tabs .item[data-tab="${tab}"]`)?.click();
       await new Promise((r) => setTimeout(r, 400));
       const pm = el.querySelector(`prose-mirror[name="${field}"]`);

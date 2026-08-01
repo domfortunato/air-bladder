@@ -66,16 +66,28 @@ deleted. Full model in `docs/git-flow.md`; contributor-facing summary in
 Entry point `module/cairn.js`, registering document classes and sheets on `init`.
 ~7,500 lines of JS across `module/`; everything else is content.
 
-- `CairnActor` (`module/actor/actor.js`) — types `character`, `npc`, `container`,
-  `hireling`
+- `CairnActor` (`module/actor/actor.js`) — types `character`, `npc`, `hireling`.
+  `hireling` is an ALIAS of npc (same model, same sheet), kept because a type is
+  immutable and retiring it would recreate every hireling with a new id.
+  **`container` was a fourth type and is GONE (2026-07-31)** — a container is an
+  npc with `role: container`, and leaving the retired model registered meant the
+  Create Actor dialog went on offering it (Foundry lists every registered
+  subtype; there is no manifest flag to hide one), so a Warden could still mint a
+  document against it, with the retired sheet and no Connections tab
 - `CairnItem` (`module/item/item.js`) — types `item`, `weapon`, `armor`,
   `spellbook`, `object`, `background`, `transport`
 - `module/actor/actor-sheet.js` is the largest file
 - `module/damage.js` holds Cairn's damage flow
 - Data models in `module/data-models.js` (TypeDataModel; `template.json` is gone,
   sub-types are declared in `system.json` `documentTypes`); 22 compendium packs
-- 23 GM settings in `module/settings.js` — **registration ORDER is load-bearing**,
-  because Foundry's group headers are positional
+- 20 GM-visible settings in `module/settings.js` (22 `register` calls; `roles-migrated`
+  and `custom-portrait-list` are internal, `config: false`) — **registration ORDER is
+  load-bearing**, because Foundry's group headers are positional. Two went on
+  2026-07-31, both because the thing they toggled stopped existing:
+  `show-containers-tab` (the Connections tab is structural now, and a display
+  toggle that hides a graph which goes on existing behind it is not a setting
+  worth having) and `show-gold-not-cost` (it swapped the container sheet's Cost
+  box for Gold; that sheet went with the type, and the npc sheet has no Cost box)
 
 ## Deliberate deviations from Foundry practice
 
@@ -110,11 +122,16 @@ against the reason, not against the fact.
     commits an un-blurred edit. The pack cache at the top of `actor-sheet.js` exists
     because `submitOnChange` re-runs `_prepareContext` on every committed keystroke.
   Traps, and what each cost: memory `air-bladder-appv2-migration`.
-- **Containers and transports are Actors, not Items**, linked to their owner by a
-  `uuid` field named `keeper` (named to dodge a Foundry collision). Against
-  Foundry's grain and it needs manual bookkeeping. The reason is capacity:
-  "+8 slots" cannot live on an Item — nothing reads `system.slots` on one. Expect
-  bugs to cluster here.
+- **Containers and transports are Actors, not Items**, linked to their keeper by
+  a single `uuid` field on the CHILD called `connectedTo`. Against Foundry's
+  grain. The reason is capacity: "+8 slots" cannot live on an Item — nothing
+  reads `system.slots` on one. Expect bugs to cluster here.
+  The link used to be TWO writes — a `keeper` uuid on the child (named to dodge a
+  Foundry collision on `owner`) plus a `containers` array on the keeper — and
+  nearly every container bug came from one half landing without the other. Both
+  the array and `keeper` were retired with the `container` type on 2026-07-31;
+  the keeper's list is DERIVED from the children. If you find either name in a
+  comment, it is history.
 - **No automation of mechanical text.** "Restores 1 STR" stays prose. Trust
   players; no macros, no buttons. House style, and it dissolves the hardest
   content cases (a background granting a statted homunculus is text, not a spawned
@@ -178,7 +195,7 @@ What belongs here is what those two files do not say:
 
 ## Testing
 
-**`docs/release-testing.md` is the full list — 67 probes (`check:probes` states
+**`docs/release-testing.md` is the full list — 70 probes (`check:probes` states
 the current count), what each covers, and what to run before tagging vs after
 publishing. Keep it in step with `package.json`; a probe not listed there runs
 only when someone remembers it.**

@@ -61,12 +61,6 @@
           "notes"
         ]
       },
-      "container": {
-        "htmlFields": [
-          "description",
-          "biography"
-        ]
-      },
       "hireling": {
         "htmlFields": [
           "description",
@@ -265,11 +259,17 @@
         "expeditionary-gear",
         "reliquary",
         "market-goods",
-        "background-items",
         "spellbooks",
-        "more-spellbooks",
+        "more-spellbooks"
+      ]
+    },
+    {
+      "name": "Air Bladder - Backgrounds",
+      "sorting": "a",
+      "packs": [
         "backgrounds-2e",
-        "backgrounds-barebones"
+        "backgrounds-barebones",
+        "background-items"
       ]
     },
     {

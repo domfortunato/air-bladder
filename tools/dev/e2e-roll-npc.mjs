@@ -155,13 +155,13 @@ try {
     }
 
     // The upgrade-regression fix rides here too: a re-roll writes a day rate, so it
-    // must set the flag that gates the day-rate row, or it stores an invisible number.
-    const forHire = await page.evaluate((id) => {
+    // must set the ROLE that gates the day-rate row, or it stores an invisible number.
+    const roled = await page.evaluate((id) => {
       const a = game.actors.get(id);
-      return { forHire: a.system.forHire, dayRate: a.system.dayRate };
+      return { role: a.system.role, dayRate: a.system.dayRate };
     }, npcId);
-    if (forHire.forHire === true) ok(`a regenerated npc is marked for hire (day rate ${forHire.dayRate})`);
-    else fail(`regeneration stored dayRate ${forHire.dayRate} with forHire ${forHire.forHire} — the sheet will never show it`);
+    if (roled.role === "hireling") ok(`a regenerated npc is role hireling (day rate ${roled.dayRate})`);
+    else fail(`regeneration stored dayRate ${roled.dayRate} with role ${roled.role} — the sheet will never show it`);
   });
 } finally {
   if (npcId) await page.evaluate(async (id) => { await game.actors.get(id)?.delete(); }, npcId).catch(() => {});

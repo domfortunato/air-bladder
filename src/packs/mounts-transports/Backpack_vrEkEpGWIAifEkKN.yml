@@ -21,7 +21,7 @@ system:
   slots: 4
   cost: 10
   containerClass: backpack
-  inanimate: true
+  role: container
   generationEnabled: false
 ownership:
   default: 0

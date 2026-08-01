@@ -21,7 +21,7 @@ system:
   slots: 4
   cost: 30
   containerClass: cart
-  inanimate: true
+  role: transport
   generationEnabled: false
 ownership:
   default: 0

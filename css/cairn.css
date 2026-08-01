@@ -2099,11 +2099,18 @@ textarea.omen-input {
 /* HP and Gold share the foot row of the header, matching the character sheet. The
    name section is a flex COLUMN, so this is a nested flex ROW rather than the grid
    placement the character sheet uses; each counter takes an equal half so the pair
-   lines up with the 213px counters in the blocks below. */
+   lines up with the 213px counters in the blocks below.
+
+   `margin-top: auto` pins the pair to the column's FOOT. The column is stretched
+   to the portrait's 140px row, and any role whose stack is shorter (a Monster:
+   name, role, vitals) left the slack at the bottom — a dead band between HP/Gold
+   and the STR/Armor row below (Round 2). The auto margin moves that slack ABOVE
+   the vitals, which is exactly what the character sheet's 1fr slack row does to
+   its own HP/Gold pair. On a hireling (the tallest stack) it resolves to ~0. */
 .cairn-npc-sheet .npc-vitals-line {
     display: flex;
     gap: 8px;
-    margin-top: 2px;
+    margin-top: auto;
 }
 
 .cairn-npc-sheet .npc-vitals-line .resource-counter {
@@ -2335,6 +2342,30 @@ textarea.omen-input {
 
 /* Containers tab: empty state nudges you to the market, and the homebrew
    "Custom container" path sits below as a quiet secondary affordance. */
+/* The upward edge (Round 2): "Connected to X" above the kept list, with the
+   Warden's detach icon on the right. A line, not a list row — it is the OTHER
+   direction of the graph, and dressing it as a row would read as one more kept
+   thing. Sheet-agnostic on purpose: the partial serves character and NPC
+   sheets alike. */
+.connection-keeper-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 2px;
+    border-bottom: 1px solid var(--ab-rule);
+    font-style: italic;
+    color: var(--ab-muted);
+}
+
+/* Both header links (Add Connection / Connect to…) sit as one right-hand group
+   so the space-between header keeps Name on the left whichever of them a role
+   is entitled to. An npc/hireling legitimately shows both — it can keep AND be
+   kept. */
+.cairn-items-list-header .connection-controls {
+    display: flex;
+    gap: 12px;
+}
+
 .container-empty {
     text-align: center;
     padding: 20px 12px;

@@ -21,7 +21,7 @@ system:
   slots: 4
   cost: 15
   containerClass: handcart
-  inanimate: true
+  role: transport
   generationEnabled: false
 ownership:
   default: 0

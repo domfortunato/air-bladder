@@ -1,5 +1,6 @@
 import { SETTINGS_NS } from "../settings.js";
-import { iconForItem, iconForTransport, containerClassLabel, CONTAINER_CLASSES, ICON_DIR } from "../icons.js";
+import { iconForItem, iconForTransport, containerClassLabel, containerClassSlots, CONTAINER_CLASSES, ICON_DIR } from "../icons.js";
+import { THING_ROLES, KEEPER_ROLES } from "../data-models.js";
 
 /** Document names go into dialog HTML; a name is user-authored text. */
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -41,10 +42,17 @@ export class CairnActor extends Actor {
     const allowed = await super._preCreate(data, options, user);
     if (allowed === false) return false;
 
+    // A document created as the still-registered `hireling` alias should READ as
+    // one everywhere role is consulted, so stamp the role it obviously means.
+    // Explicit creation data wins, as everywhere in this method.
+    if (data.type === "hireling" && data.system?.role === undefined) {
+      this.updateSource({ "system.role": "hireling" });
+    }
+
     // Hirelings are player-facing helpers, so they get the same friendly, linked
     // token defaults a character does. Monsters must NOT — they are `npc` too.
     //
-    // **`system.forHire` is the discriminator, not the type.** The Hireling->NPC
+    // **`system.role` is the discriminator, not the type.** The Hireling->NPC
     // fold made the two one type, so a `type === "hireling"` test stopped matching
     // anything the generator produces: `hirelingToActorData` emits `type: "npc"`.
     // Every generated hireling therefore fell through to Foundry's own schema
@@ -53,11 +61,11 @@ export class CairnActor extends Actor {
     // arrived red-ringed and unlinked, so HP edited on the token never reached the
     // sheet. Widening the test to plain `npc` would be the wrong fix: all 205
     // shipped monsters are npc documents and must stay hostile and unlinked.
-    // `forHire` says exactly the thing that matters — this NPC is in the party's
-    // employ. `hireling` stays in the test for documents created before the fold,
-    // and for a Warden picking the still-registered alias in Create Actor.
+    // Role hireling says exactly the thing that matters — this NPC is in the
+    // party's employ. `hireling` stays in the test for documents created before
+    // the fold, and for a Warden picking the alias in Create Actor.
     const isHireling =
-      data.type === "hireling" || (data.type === "npc" && data.system?.forHire === true);
+      data.type === "hireling" || (data.type === "npc" && data.system?.role === "hireling");
     if (data.type === "character" || isHireling) {
       // No `vision: true` here. It is not a field of PrototypeToken in v14 —
       // `defineSchema` keeps an explicit `included` set (common/data/data.mjs:614-616)
@@ -105,14 +113,16 @@ export class CairnActor extends Actor {
     // (`iconForActor` existed for this and was called from nowhere in `module/`;
     // only the pack importer used it.) An explicit `img` always wins: the
     // marketplace passes the transport's own art. An npc qualifies only when
-    // its creation data SAYS it is a container (a class, or inanimate) — a
-    // hand-made npc is as often a monster, and monsters keep mystery-man.
-    const isContainerish = data.type === "container"
-      || (data.type === "npc" && (data.system?.containerClass || data.system?.inanimate));
+    // its creation data SAYS it is a container-line thing (a variety, or a
+    // mount/transport/container role) — a hand-made npc is as often a monster,
+    // and monsters keep mystery-man.
+    const artRole = data.system?.role;
+    const isContainerish = data.type === "npc" && (data.system?.containerClass
+      || THING_ROLES.includes(artRole) || artRole === "mount");
     if (isContainerish && !data.img) {
       const art = iconForTransport(
         data.name ?? "",
-        data.system?.transportKind ?? "",
+        "",
         data.system?.containerClass ?? "",
       );
       const changes = { img: art };
@@ -127,33 +137,33 @@ export class CairnActor extends Actor {
    * Taking an EXISTING npc into the party's employ gets the same token defaults
    * `_preCreate` gives one generated as a hireling.
    *
-   * `forHire` is not a create-time property: it is a checkbox on the NPC sheet, and
-   * ticking it on a monster-shaped npc is the natural way to hire someone who is
-   * already in the world. `_preCreate` is never revisited, so nothing re-applied
-   * the defaults — the actor kept Foundry's own (`disposition` HOSTILE,
-   * `actorLink` false, common/documents/token.mjs:62,73-74) and its token arrived
-   * red-ringed and unlinked, so HP edited on the token never reached the sheet.
-   * That is exactly the bug `b3eefa6` fixed for GENERATED hirelings, reachable by
-   * the other route; observed 2026-07-30.
+   * Role is not only a create-time property: picking Hireling on the sheet of a
+   * monster-shaped npc is the natural way to hire someone who is already in the
+   * world. `_preCreate` is never revisited, so nothing re-applied the defaults —
+   * the actor kept Foundry's own (`disposition` HOSTILE, `actorLink` false,
+   * common/documents/token.mjs:62,73-74) and its token arrived red-ringed and
+   * unlinked, so HP edited on the token never reached the sheet. That is exactly
+   * the bug `b3eefa6` fixed for GENERATED hirelings, reachable by the other
+   * route; observed 2026-07-30 (then keyed on `forHire`, now on the role edge).
    *
-   * Only from the Foundry defaults, and only on the false->true edge. A Warden who
-   * has deliberately made a hireling NEUTRAL, or unlinked it on purpose, keeps that
-   * — the same "an explicit value wins" rule `_preCreate` follows, applied to a
-   * value chosen earlier rather than passed in the same breath. Un-ticking is not
-   * the mirror image and does nothing: ceasing to be for hire is not a reason to
-   * turn someone hostile.
+   * Only from the Foundry defaults, and only on the entering-hireling edge. A
+   * Warden who has deliberately made a hireling NEUTRAL, or unlinked it on
+   * purpose, keeps that — the same "an explicit value wins" rule `_preCreate`
+   * follows, applied to a value chosen earlier rather than passed in the same
+   * breath. Leaving the role is not the mirror image and does nothing: ceasing
+   * to be for hire is not a reason to turn someone hostile.
    *
    * Only the prototype, which is all this can honestly promise. Tokens already on
    * a scene are their own documents and are left alone.
    */
-  #applyForHireTokenDefaults(changed) {
+  #applyHirelingTokenDefaults(changed) {
     // flattenObject, so this reads the same whether the caller passed
-    // `{system: {forHire: true}}` (the sheet, via expandObject) or the flat
-    // `{"system.forHire": true}` (any API caller). getProperty would miss the
+    // `{system: {role: "hireling"}}` (the sheet, via expandObject) or the flat
+    // `{"system.role": "hireling"}` (any API caller). getProperty would miss the
     // second: it walks dot paths and cannot see a key that CONTAINS the dots.
     const flat = foundry.utils.flattenObject(changed);
-    if (flat["system.forHire"] !== true) return;
-    if (this.system.forHire === true) return;                 // already hired
+    if (flat["system.role"] !== "hireling") return;
+    if (this.npcRole === "hireling") return;                  // already hired
 
     const D = CONST.TOKEN_DISPOSITIONS;
     if (this.prototypeToken.disposition === D.HOSTILE
@@ -174,7 +184,25 @@ export class CairnActor extends Actor {
 
     this.system.useItemIcons = game.settings.get(SETTINGS_NS, "use-item-icons");
     this.system.showFeatures = game.settings.get(SETTINGS_NS, "show-features-section");
-    this.system.showContainersTab = game.settings.get(SETTINGS_NS, "show-containers-tab");
+    // Who shows the Connections tab. There is no world setting any more: the
+    // graph IS the container model (a container is an NPC that is connected to
+    // something), so a switch that hides it hid the only view of a document's
+    // relationships while the relationships went on existing. Two exclusions
+    // remain, both structural — a Monster never joins the graph (`npcRole` is
+    // null for a character, which is not "monster", so only npc-line actors are
+    // excluded), and an unlinked token's synthetic actor cannot appear in
+    // anyone's list nor keep its own (canBeConnected).
+    this.system.showContainersTab = this.npcRole !== "monster" && !this.isToken;
+    // Role-derived sheet facts, computed once here rather than re-tested in
+    // template conditionals: what `inanimate` and `forHire` used to answer.
+    this.system.isThing = this.isThing;
+    this.system.isHirelingRole = this.npcRole === "hireling";
+    this.system.canKeep = this.canKeepConnected;
+    // Round 2: Gold follows the role too. Mounts and things hide the COUNTER;
+    // the stored value and the coins-take-slots rule are untouched, so a chest
+    // that held 25gp still holds it (and it still weighs) — the sheet just
+    // stops offering a purse on something that has no pockets to manage.
+    this.system.showGold = !this.isThing && this.npcRole !== "mount";
     // Both of these are now PERMANENTLY TRUE and no template reads either. They
     // date from template.json, where `biography`/`description` could be absent or
     // null; a TypeDataModel HTMLField initialises to "", which is neither. That is
@@ -194,7 +222,6 @@ export class CairnActor extends Actor {
     // minus the armor override and the coin accounting, so npc gains both rather
     // than the sheet gaining a second set of conditionals.
     if (["character", "hireling", "npc"].includes(this.type)) this._prepareCharacterData();
-    if (this.type === "container") this._prepareContainerData();
   }
 
   /**
@@ -219,22 +246,23 @@ export class CairnActor extends Actor {
       this.system.slotsUsed >= this.calcCurrentMaxSlots();
     this.system.maybeTooMuchGold = false;
 
-    if (!this.system.containers) {
-      this.system.containers = [];
-    }
     this.system.containerObjects = this.connectedActors();
-    // NOTE this is the live path for character, hireling AND npc (see the type
-    // dispatch above) -- `_prepareNpcData` below is dead code and has been since
-    // the two were merged. An NPC can now BE a container, so it needs the owner /
-    // formerly-owner line the container sheet has always had.
+    // NOTE this is the ONLY prepare path there is now: character, hireling and
+    // npc are the only types (see the dispatch above). An NPC can BE a
+    // container, so it needs the owner / formerly-owner line the retired
+    // container sheet used to carry.
     this._prepareConnectionLabel();
-    // ...and the one-word class label ("Horse", "Crate") the container sheet has
-    // always shown. Derived only when something says this npc IS a container —
-    // a stored class or inanimate — so a monster's sheet derives nothing.
-    if (this.type === "npc" && (this.system.containerClass || this.system.inanimate)) {
-      this.system.classLabel = game.i18n.localize(
-        containerClassLabel(this.name, "", this.system.containerClass)
-      );
+    // ...and the one-word variety label ("Horse", "Crate") the container sheet
+    // has always shown. Derived only when something says this npc IS a
+    // container-line thing — a stored variety, or a mount/transport/container
+    // role — so a monster's sheet derives nothing. A variety the class table
+    // does not know is a Warden's own word and displays verbatim; running it
+    // through the label lookup would silently swap it for a name inference.
+    const cls = this.system.containerClass;
+    if (this.type === "npc" && (cls || this.system.isThing || this.npcRole === "mount")) {
+      this.system.classLabel = cls && !CONTAINER_CLASSES[cls]
+        ? cls
+        : game.i18n.localize(containerClassLabel(this.name, "", cls));
     }
 
     // Coins are heavy (Cairn 2e, p.9). The first N coins stay petty (weightless);
@@ -302,50 +330,12 @@ export class CairnActor extends Actor {
     return Math.max(0, Math.ceil(gold / n) - 1);
   }
 
-  _prepareNpcData() {
-    this.system.armor = this.calcArmor();
-    this.system.slotsUsed = this.calcSlotsUsed();
-    this.system.slotsMax = this.calcCurrentMaxSlots();
-    this.system.encumbered =
-      this.system.slotsUsed >= this.calcCurrentMaxSlots();
-    // NPCs can keep containers too (the Connected tab, gated by the setting).
-    if (!this.system.containers) this.system.containers = [];
-    this.system.containerObjects = this.connectedActors();
-    // An NPC can now BE a container, so it needs the same owner / formerly-owner
-    // line the container sheet has always had.
-    this._prepareConnectionLabel();
-  }
-
-  _prepareContainerData() {
-    // What this container IS, in one word, on every container sheet. Still derived
-    // by default — it follows the name and the type with nothing to keep in step,
-    // and it is the only thing that tells a player a "Heavy Destrier" is a horse,
-    // since the name does not say so and neither does anything else. `containerClass`
-    // overrides it when someone has said outright what the thing is, which is the
-    // only route available to a Warden whose language the keyword table does not
-    // speak. Art and this label go through the same call, so they cannot disagree.
-    this.system.classLabel = game.i18n.localize(
-      containerClassLabel(this.name, this.system.transportKind, this.system.containerClass)
-    );
-
-    this.system.slotsUsed = this.calcSlotsUsed();
-    this.system.slotsMax = this.calcCurrentMaxSlots();
-    this.system.encumbered =
-      this.system.slotsUsed >= this.calcCurrentMaxSlots();
-    this.system.maybeTooMuchGold = false;
-    this._prepareConnectionLabel();
-
-    this.system.coinsPerSlot = this._coinsPerSlot();
-    this.system.coinRowLabel = game.i18n.format("CAIRN.NGold", { n: this.system.coinsPerSlot });
-    this.system.hasGoldThreshold = this.system.coinsPerSlot > 0;
-    this.system.goldSlots = this._calcGoldSlots();
-    if (this.system.encumbered) {
-      if (this.system.goldSlots > 0) {
-        this.system.maybeTooMuchGold = true;
-      }
-    }
-    this.system.showGoldNotCost = game.settings.get(SETTINGS_NS, "show-gold-not-cost");
-  }
+  /* `_prepareNpcData` and `_prepareContainerData` lived here and are gone
+     (2026-07-31). The first had been dead since npc joined the character path
+     and the file said so; the second was the `container` type's prepare, and
+     the type is retired — everything it derived (the class label, the coin
+     accounting, the connection line) `_prepareCharacterData` already does for
+     the npc that replaced it. */
 
   /** @override */
   getRollData() {
@@ -391,60 +381,12 @@ export class CairnActor extends Actor {
     this._synchronizeOwnerSheets();
   }
 
-  /**
-   * Attach a container Actor to this actor. The link is TWO writes — this actor
-   * lists the container's uuid, the container's `keeper` points back — and both
-   * must land or neither, because either half alone is a broken state.
-   *
-   * The old code wrote this actor first and the container second, with no
-   * permission check and no catch. Containers are visible to players by default
-   * (`show-container-actors`, and mounts/vehicles show in the directory), so a
-   * player could drag a Warden's pack mule onto their own sheet: the first update
-   * succeeded (they own their character), the second was refused. That left the
-   * character listing a container whose `keeper` was still empty — unopenable, and
-   * still claimable by anyone else. `_onDropItem` already refuses a transfer up
-   * front for the same reason; this now matches.
-   *
-   * @param {CairnActor} data  the container Actor to attach
-   */
-  async createOwnedContainer(data) {
-    if (!data || data.type != "container") return;
-    // No nesting — checked HERE so every caller (the drop handler, the custom
-    // dialog, anything else) hits the same wall. See canKeepConnected for why
-    // the test is not `type === "container"` any more.
-    if (!this.canKeepConnected) {
-      ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoNesting", { name: this.name }));
-      return;
-    }
-    const containers = this.system.containers ?? [];
-    if (containers.includes(data.uuid)) return;
-
-    // Refuse before writing anything. Both documents are written below, so both
-    // need write access — asking canUserModify directly says exactly that, and
-    // answers true for a GM.
-    if (!this.canUserModify(game.user, "update") || !data.canUserModify(game.user, "update")) {
-      ui.notifications.warn(
-        game.i18n.format("CAIRN.Notify.ContainerNoPermission", { name: data.name })
-      );
-      return;
-    }
-
-    // A NEW array, not the live one. Pushing onto this.system.containers mutates
-    // the prepared model in place, so a failed or rolled-back update would leave
-    // the in-memory copy holding a link that was never persisted.
-    await this.update({ "system.containers": [...containers, data.uuid] });
-    try {
-      // update container owner - named 'keeper' to avoid conflict.
-      await data.update({ "system.keeper": this.uuid });
-    } catch (err) {
-      // Undo our half rather than leave the pair inconsistent.
-      await this.update({ "system.containers": containers });
-      ui.notifications.error(
-        game.i18n.format("CAIRN.Notify.ContainerLinkFailed", { name: data.name })
-      );
-      console.error("Air Bladder | container link failed, rolled back", err);
-    }
-  }
+  /* `createOwnedContainer` lived here and is gone with the `container` type
+     (2026-07-31): it accepted nothing else, so retiring the type made it
+     unreachable. It was the two-write half of the old link — this actor's uuid
+     array plus the child's `keeper` — with a rollback because either half alone
+     was a broken state. `connectActor` replaced it with ONE write and no
+     rollback to get wrong. */
 
   async createOwnedFeature(data) {
     if (!this.system.features) this.system.features = [];
@@ -488,12 +430,6 @@ export class CairnActor extends Actor {
     const proceed = await confirmDelete(container.name);
     if (!proceed) return;
     const actor = game.actors.find((a) => a.uuid == itemId);
-    // Prune the legacy array first. `connectedActors` no longer needs it, but a
-    // world written before this still has entries, and leaving one behind would
-    // re-dangle exactly the way the old two-way link did.
-    if (this.system.containers?.includes(itemId)) {
-      await this.update({ "system.containers": this.system.containers.filter((c) => c !== itemId) });
-    }
     await actor?.delete();
   }
 
@@ -511,6 +447,15 @@ export class CairnActor extends Actor {
    * @param {String} itemId uuid of the connected actor
    */
   async unlinkOwnedContainer(itemId) {
+    // Warden-only, same wall as connectActor and for the same reason: both
+    // callers are manual gestures (the keeper row's unlink icon, the child
+    // end's detach), and breaking an edge by hand is edge MANAGEMENT. This
+    // retires the old "players keep unlink" reading — Round 2 put every
+    // manual edge change in the Warden's hands (docs/npc-roles-plan.md).
+    if (!game.user.isGM) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.WardenOnlyConnections"));
+      return;
+    }
     const container = this.getOwnedContainer(itemId);
     if (!container) return;
     const proceed = await foundry.applications.api.DialogV2.confirm({
@@ -524,12 +469,8 @@ export class CairnActor extends Actor {
     });
     if (!proceed) return;
     const actor = game.actors.find((a) => a.uuid == itemId);
-    if (this.system.containers?.includes(itemId)) {
-      await this.update({ "system.containers": this.system.containers.filter((c) => c !== itemId) });
-    }
     await actor?.update({
       "system.connectedTo": "",
-      "system.keeper": "",
       "system.formerlyBelongedTo": this.name,
     });
   }
@@ -558,11 +499,25 @@ export class CairnActor extends Actor {
    * is individually localized.
    */
   _prepareConnectionLabel() {
-    const link = this.system.connectedTo || this.system.keeper || "";
+    const link = this.system.connectedTo || "";
     this.system.ownedBy = "";
+    // Round 2: the Connections tab shows BOTH directions, so the upward edge
+    // becomes a row the template can render and the Warden can break from
+    // this end. `connectedKeeper` is set whenever a link is STORED — even one
+    // pointing at a deleted actor — because the child end's detach is the only
+    // recovery a dangling link has (single-parent-ever refuses to reconnect
+    // it, and the keeper who could unlink it no longer exists).
+    this.system.connectedKeeper = null;
+    this.system.canAttach = !link && this.canBeConnected;
     if (link) {
       const owner = game.actors.find((a) => a.uuid === link);
       if (owner) this.system.ownedBy = game.i18n.format("CAIRN.OwnerNamed", { name: owner.name });
+      this.system.connectedKeeper = {
+        uuid: link,
+        label: owner
+          ? game.i18n.format("CAIRN.ConnectedToNamed", { name: owner.name })
+          : game.i18n.localize("CAIRN.ConnectedToMissing"),
+      };
     } else if (this.system.formerlyBelongedTo) {
       this.system.ownedBy = game.i18n.format("CAIRN.FormerlyBelongedTo", {
         name: this.system.formerlyBelongedTo,
@@ -587,46 +542,170 @@ export class CairnActor extends Actor {
    * itself, and a deleted actor simply stops appearing. It costs one pass over
    * `game.actors` per prepare, which is nothing next to the bookkeeping it removes.
    *
-   * The legacy `system.containers` array is still unioned in so worlds built
-   * before this keep showing their containers. That half goes away with `keeper`
-   * itself; until then, note the `.filter(Boolean)` — the old `.map()` returned
-   * `undefined` for a dangling uuid and the template rendered it as a blank row.
+   * The legacy `system.containers` array used to be unioned in for worlds built
+   * before this. It went with `keeper` when the `container` type was retired
+   * (2026-07-31), exactly as this note used to promise it would.
    * @returns {CairnActor[]}
    */
   /**
-   * May this actor KEEP connected actors? The no-nesting rule ("a container
-   * cannot itself keep a container"), restated for a world where a container is
-   * an NPC. `type === "container"` alone stopped being the test the moment the
-   * type dissolved (review #5: an npc mule could buy a cart from its own tab).
-   * Three signals, any one disqualifying:
-   *   - the legacy `container` type never could;
-   *   - an INANIMATE thing is a container by definition — a cart cannot keep;
-   *   - a thing that is itself KEPT (`connectedTo`/`keeper` set) cannot keep
-   *     further, which is what actually stops the chain: a character's mule is
-   *     connected, so the mule refuses the cart, whatever the cart is.
-   * A free-standing animate npc (a person, a hireling) passes — they can keep a
-   * mule exactly as a character can.
+   * The actor's effective role. `hireling`-typed documents (the registered
+   * alias) read as role hireling whatever their stored value says; a character
+   * has no role and reads null. Everything role-gated consults THIS, never
+   * `system.role` directly, so the alias cannot drift.
+   * @returns {string|null}
+   */
+  get npcRole() {
+    if (this.type === "hireling") return "hireling";
+    if (this.type === "npc") return this.system?.role || "npc";
+    return null;
+  }
+
+  /** A thing rather than a creature — no stat block. What `inanimate` meant.
+   *  This is also the "its Items tab is CARGO" test: a thing takes items
+   *  stowed, never equipped, and refuses what will not fit. A mount is NOT a
+   *  thing — it is a creature with a stat block that can wear barding. */
+  get isThing() {
+    return THING_ROLES.includes(this.npcRole);
+  }
+
+  /**
+   * May this actor KEEP connections? Keeping is a Character/NPC/Hireling
+   * privilege (docs/npc-roles-plan.md): a mule cannot keep a backpack, a wagon
+   * cannot keep a chest, so container-chaining abuse stays dead without the old
+   * flat rule. That rule — nothing already connected may keep — died with it:
+   * PC → hireling → backpack is the point of the Connections graph, so being
+   * connected no longer disqualifies. What replaces the old rule's cycle
+   * protection is `wouldCreateConnectionCycle`, checked where links are made.
    * @returns {boolean}
    */
   get canKeepConnected() {
-    return this.type !== "container"
-      && !this.system?.inanimate
-      && !this.system?.connectedTo
-      && !this.system?.keeper;
+    if (this.isToken) return false;   // see canBeConnected
+    if (this.type === "character") return true;
+    return KEEPER_ROLES.includes(this.npcRole);
+  }
+
+  /**
+   * May this actor BE connected to a keeper? Monsters never join the graph, and
+   * a character is only ever its root.
+   * @returns {boolean}
+   */
+  get canBeConnected() {
+    // An UNLINKED token's actor is a synthetic per-token copy, and the graph is
+    // world-level: `connectedActors` filters `game.actors`, which no synthetic
+    // actor is in, and every picker lists world actors only. So a link at
+    // either end of one is invisible from the other — connecting TO it writes a
+    // `connectedTo` that resolves to nothing ("Connected to an actor that no
+    // longer exists"), and connecting it to a keeper writes into the token's
+    // delta, where the keeper's list will never look. It cost a real
+    // afternoon: a Backpack was connected to the world "Bat, Vampire" while the
+    // sheet on screen was the unlinked TOKEN's — same name, same art, different
+    // document, permanently empty tab. Link the token if you want it in the
+    // graph; that makes `token.actor` the world Actor and `isToken` false.
+    if (this.isToken) return false;
+    // Round 2: a character can BE kept — by another character only (the
+    // party-roster reading). The pair rule ("an NPC never keeps a PC") is a
+    // property of the EDGE, not of either end, so it lives in connectActor.
+    if (this.type === "character") return true;
+    return this.npcRole !== null && this.npcRole !== "monster";
+  }
+
+  /**
+   * Would connecting `candidate` to THIS actor close a loop? NPC → NPC links
+   * make A→B→A expressible, so every place a link is written walks up from the
+   * prospective keeper: if the chain above this actor (itself included) passes
+   * through the candidate, the link is refused. The visited set caps a chain
+   * that is already broken (two old documents pointing at each other) — without
+   * it, that pre-existing corruption would hang the check instead of failing it.
+   * @param {CairnActor} candidate  the actor about to be connected to this one
+   * @returns {boolean}
+   */
+  wouldCreateConnectionCycle(candidate) {
+    if (!candidate) return false;
+    const seen = new Set();
+    let cur = this;
+    while (cur) {
+      if (cur.uuid === candidate.uuid) return true;
+      if (seen.has(cur.uuid)) return false;
+      seen.add(cur.uuid);
+      const up = cur.system?.connectedTo || "";
+      cur = up ? game.actors.find((a) => a.uuid === up) : null;
+    }
+    return false;
+  }
+
+  /**
+   * Connect an existing actor to this one — the Add Connection gesture, and the
+   * ONE write the graph needs (`connectedTo` on the child; the list on this side
+   * is derived). Guards in refusal order: the caller is the Warden, this actor
+   * may keep, the target may be connected, the pair is legal, the target is
+   * free, no loop, and the caller can write the target. Returns true on
+   * success so dialogs can close quietly on refusal.
+   *
+   * The Warden gate lives HERE, not in the sheet handlers, for the same reason
+   * the no-nesting wall does: every spelling of the gesture (picker dialog,
+   * drag-drop, the child end's Connect to…) funnels through this method, and
+   * every caller IS a manual gesture — the automatic flows players keep
+   * (marketplace buys, the socket mint, the custom-container dialog) write
+   * `connectedTo` in their create data and never come through here.
+   * @param {CairnActor} target
+   * @returns {Promise<boolean>}
+   */
+  async connectActor(target) {
+    if (!target || target === this) return false;
+    if (!game.user.isGM) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.WardenOnlyConnections"));
+      return false;
+    }
+    if (!this.canKeepConnected) {
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoNesting", { name: this.name }));
+      return false;
+    }
+    if (!target.canBeConnected) {
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.CannotConnect", { name: target.name }));
+      return false;
+    }
+    // The pair rule: an NPC never keeps a PC. Neither end alone can answer
+    // this — a character is a legal target and an NPC is a legal keeper; it is
+    // the COMBINATION that is refused.
+    if (target.type === "character" && this.type !== "character") {
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.NpcCannotKeepPc", { name: target.name }));
+      return false;
+    }
+    // ONE upward link at a time (Round 2, settled over "both at once"). The
+    // picker already filtered connected actors out, but a drop never went
+    // through the picker — without this wall it could steal a connected actor
+    // from its keeper in one gesture.
+    if (target.system?.connectedTo) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.ContainerAlreadyOwned"));
+      return false;
+    }
+    if (this.wouldCreateConnectionCycle(target)) {
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.ConnectionCycle", { name: target.name }));
+      return false;
+    }
+    if (!target.canUserModify(game.user, "update")) {
+      ui.notifications.warn(
+        game.i18n.format("CAIRN.Notify.ContainerNoPermission", { name: target.name })
+      );
+      return false;
+    }
+    await target.update({
+      "system.connectedTo": this.uuid,
+      "system.formerlyBelongedTo": "",
+    });
+    // Ownership follows connection: hanging an NPC under a PC hands the PC's
+    // players the keys (the marketplace-buy precedent — same wholesale copy).
+    // PC → PC grants nothing: a character's ownership is never rewritten. The
+    // Warden gate above means this always runs GM-side, so the write cannot
+    // be refused.
+    if (this.type === "character" && target.type !== "character") {
+      await target.update({ ownership: foundry.utils.deepClone(this.ownership) });
+    }
+    return true;
   }
 
   connectedActors() {
-    const mine = game.actors.filter((a) => a.system?.connectedTo === this.uuid);
-    const legacy = (this.system.containers ?? [])
-      .map((uuid) => game.actors.find((a) => a.uuid === uuid))
-      .filter(Boolean);
-    const seen = new Set(mine.map((a) => a.id));
-    for (const a of legacy) {
-      if (seen.has(a.id)) continue;
-      seen.add(a.id);
-      mine.push(a);
-    }
-    return mine;
+    return game.actors.filter((a) => a.system?.connectedTo === this.uuid);
   }
 
   calcSlotsUsed() {
@@ -663,9 +742,9 @@ export class CairnActor extends Actor {
   /**
    * The actor's slot capacity. `system.slots` is a plain number on EVERY actor
    * type: 0 means "no override, use the Warden's max-equip-slots setting". An
-   * npc or container states its own capacity there; a character or hireling only
-   * has one if the Warden set a per-character limit (the equipment-limit dialog,
-   * gated by the character-inventory-limit setting).
+   * an npc states its own capacity there; a character or hireling only has one
+   * if the Warden set a per-character limit (the equipment-limit dialog, gated
+   * by the character-inventory-limit setting).
    *
    * It used to be `{value: N}` for npc/container and a bare number for
    * character/hireling — the reason npcs could hold nothing at all, since
@@ -674,7 +753,7 @@ export class CairnActor extends Actor {
    */
   calcCurrentMaxSlots() {
     const override = this.system.slots ?? 0;
-    if (["npc", "container"].includes(this.type) && override > 0) return override;
+    if (this.type === "npc" && override > 0) return override;
     if (game.settings.get(SETTINGS_NS, "character-inventory-limit") && override > 0) return override;
     return game.settings.get(SETTINGS_NS, "max-equip-slots");
   }
@@ -701,22 +780,25 @@ export class CairnActor extends Actor {
    *   field still points at
    */
   _synchronizeOwnerSheets(also = []) {
-    const refs = new Set([this.system.connectedTo, this.system.keeper, ...also].filter(Boolean));
+    const refs = new Set([this.system.connectedTo, ...also].filter(Boolean));
     for (const uuid of refs) game.actors.find((a) => a.uuid === uuid)?.render(false);
   }
 
   /**
-   * Two type-exclusive jobs, in the one `_preUpdate` this class is allowed to have.
+   * Two jobs, in the one `_preUpdate` this class is allowed to have.
    *
-   * **npc / hireling** — `#applyForHireTokenDefaults`, above: ticking "For hire"
-   * gets the token defaults `_preCreate` gives a generated hireling.
+   * **npc / hireling** — `#applyHirelingTokenDefaults`, above (picking the
+   * Hireling role gets the token defaults `_preCreate` gives a generated one),
+   * and the variety defaults: typing a KNOWN `containerClass` brings its art and
+   * capacity, because `img` is a stored copy that no amount of derived data will
+   * move. Touch our own `icons/*.svg` and nothing else, so a Warden who picked
+   * their own art keeps it; idempotent, since a correct path is left alone.
    *
-   * **container** — re-art it when its type changes, but ONLY if it is still
-   * wearing one of our class icons. Turning a chest into an Item Pile should look
-   * like one, and `img` is a stored copy that no amount of derived data will move.
-   * The same rule the icon migration uses: touch our own `icons/*.svg` and nothing
-   * else, so a Warden who picked their own art (or browsed to a file) keeps it.
-   * Idempotent — re-running on an already-correct path is a no-op.
+   * **any type** — stash the former owner so `_onUpdate` can re-render the sheet
+   * a broken link just vanished from.
+   *
+   * The `container` type had a third job here (re-art on a `transportKind`
+   * change); it went with the type.
    * @override
    */
   async _preUpdate(changed, options, user) {
@@ -729,37 +811,42 @@ export class CairnActor extends Actor {
     // still read like working code. Caught only by instrumenting the loaded
     // prototype and seeing the wrong function body come back. The two concerns are
     // type-exclusive, so they dispatch here rather than each owning a hook.
-    if (["npc", "hireling"].includes(this.type)) this.#applyForHireTokenDefaults(changed);
+    if (["npc", "hireling"].includes(this.type)) {
+      this.#applyHirelingTokenDefaults(changed);
+
+      // Typing a KNOWN variety brings its defaults, exactly as picking its
+      // glyph from the gallery would: art (only while the current image is
+      // ours or Foundry's default — a Warden's own picture is never
+      // overwritten) and capacity (only while still 0, the same "a typed
+      // value wins" rule _setContainerArt follows). An unknown word — a
+      // Warden's own variety — changes nothing but the label.
+      const flat = foundry.utils.flattenObject(changed);
+      const cls = flat["system.containerClass"];
+      if (cls && cls !== this.system.containerClass && CONTAINER_CLASSES[cls]) {
+        if (flat["img"] === undefined) {
+          const ours = new Set(Object.values(CONTAINER_CLASSES).map((c) => `${ICON_DIR}/${c.icon}.svg`));
+          ours.add(CONST.DEFAULT_TOKEN);
+          if (ours.has(this.img)) {
+            const art = iconForTransport(changed.name ?? this.name, "", cls);
+            changed.img = art;
+            foundry.utils.setProperty(changed, "prototypeToken.texture.src", art);
+          }
+        }
+        if (flat["system.slots"] === undefined && !Number(this.system.slots)) {
+          const dflt = containerClassSlots(cls);
+          if (dflt) foundry.utils.setProperty(changed, "system.slots", dflt);
+        }
+      }
+    }
 
     // A changed link must re-render the FORMER owner's sheet too (an unlinked
     // mule has to vanish from the tab it was on), and by _onUpdate the old
     // value is gone — stash it on `options`, which travel with the operation
     // to _onUpdate on every client.
-    if (changed.system && ("connectedTo" in changed.system || "keeper" in changed.system)) {
-      options.airBladderFormerOwners = [this.system.connectedTo, this.system.keeper].filter(Boolean);
+    if (changed.system && "connectedTo" in changed.system) {
+      options.airBladderFormerOwners = [this.system.connectedTo].filter(Boolean);
     }
 
-    if (this.type !== "container") return result;
-    const kind = changed.system?.transportKind;
-    if (kind === undefined || kind === this.system.transportKind) return result;
-
-    // Our own class art, plus Foundry's default — a container in an existing
-    // world predates the create-time stamping above and is still on mystery-man,
-    // which nobody chose either.
-    const ours = new Set(Object.values(CONTAINER_CLASSES).map((c) => `${ICON_DIR}/${c.icon}.svg`));
-    ours.add(CONST.DEFAULT_TOKEN);
-    if (!ours.has(this.img)) return result;
-    // The stored class still wins here, exactly as it does at creation. Without
-    // it, changing a transportKind would re-art a container away from the class
-    // its owner picked by hand — the one thing that override exists to prevent.
-    const art = iconForTransport(
-      changed.name ?? this.name,
-      kind,
-      changed.system?.containerClass ?? this.system.containerClass ?? "",
-    );
-    if (art === this.img) return result;
-    changed.img = art;
-    foundry.utils.setProperty(changed, "prototypeToken.texture.src", art);
     return result;
   }
 
@@ -780,23 +867,24 @@ export class CairnActor extends Actor {
   }
 
   /**
-   * Three delete-time jobs, batch-wise. (1) Every client re-renders the open
+   * Two delete-time jobs, batch-wise. (1) Every client re-renders the open
    * sheets of the deleted actors' OWNERS — the derived Connected list changed
    * with no owner write to say so. (2) On the acting client, a deleted OWNER's
    * still-connected children are unlinked and stamped `formerlyBelongedTo` with
-   * its name — a dead character's mule becomes a labelled loot pile. (3) The
-   * original job: prune deleted legacy containers from every keeper's uuid
-   * list — ONCE per delete operation, over the whole batch. That last one was
-   * a per-document `_onDelete` walk,
+   * its name — a dead character's mule becomes a labelled loot pile.
+   *
+   * There was a third: pruning deleted legacy containers out of every keeper's
+   * uuid array. It is gone with the array (and with the `container` type), but
+   * the reason this method is BATCH-wise is entirely that job's, and it still
+   * governs anything added here. It began as a per-document `_onDelete` walk,
    * and that shape loses a race with itself on a bulk delete: Foundry fires the
    * per-document callbacks without awaiting them (client-backend.mjs:472), so
    * deleting two containers kept by the same actor interleaved two
    * read-modify-writes of the same array — each read the pre-delete list, each
    * filtered out only its own uuid, and whichever update landed last put the
-   * other container's uuid back, dangling. Batch-wise, the list is read once
-   * and every deleted uuid leaves in one write. `_onDeleteOperation` is also
-   * awaited by the workflow (client-backend.mjs:478), so a caller that awaits
-   * a delete sees the prune already done.
+   * other container's uuid back, dangling. `_onDeleteOperation` is also awaited
+   * by the workflow (client-backend.mjs:478), so a caller that awaits a delete
+   * sees this finished.
    * @override
    */
   static async _onDeleteOperation(documents, operation, user) {
@@ -805,7 +893,7 @@ export class CairnActor extends Actor {
     // must leave the Connected tab on all of them, and the derived list changes
     // with no owner update to trigger a render. (The WRITES below stay
     // acting-client-only.)
-    const ownerRefs = new Set(documents.flatMap((d) => [d.system?.connectedTo, d.system?.keeper]).filter(Boolean));
+    const ownerRefs = new Set(documents.map((d) => d.system?.connectedTo).filter(Boolean));
     for (const uuid of ownerRefs) game.actors.find((a) => a.uuid === uuid)?.render(false);
 
     // Post-operation events fire on EVERY connected client — that is what the
@@ -827,31 +915,12 @@ export class CairnActor extends Actor {
     for (const d of documents) {
       for (const child of game.actors) {
         if (deletedIds.has(child.id)) continue;
-        if (child.system?.connectedTo !== d.uuid && child.system?.keeper !== d.uuid) continue;
-        const patch = { "system.formerlyBelongedTo": d.name };
-        // Clear whichever link field this type's schema actually has —
-        // `connectedTo` on npc, `keeper` on legacy containers.
-        if (child.system.connectedTo !== undefined) patch["system.connectedTo"] = "";
-        if (child.system.keeper !== undefined) patch["system.keeper"] = "";
-        await child.update(patch);
+        if (child.system?.connectedTo !== d.uuid) continue;
+        await child.update({
+          "system.formerlyBelongedTo": d.name,
+          "system.connectedTo": "",
+        });
       }
-    }
-
-    const gone = new Set(documents.filter((d) => d.type === "container").map((d) => d.uuid));
-    if (!gone.size) return;
-    for (const ac of game.actors) {
-      // Hirelings and NPCs share the character data model (and so can keep
-      // containers); without them here a deleted container leaves a dangling uuid.
-      if (!["character", "hireling", "npc"].includes(ac.type)) continue;
-      const list = ac.system.containers ?? [];
-      const pruned = list.filter((u) => !gone.has(u));
-      if (pruned.length === list.length) continue;
-      await ac.update({ "system.containers": pruned });
-      // ClientDocument#render re-renders only the applications actually open for
-      // this document. The old `ac.sheet._state > 0` probe read a private member
-      // AND instantiated a sheet on every actor it touched, because `.sheet` is a
-      // lazily-constructing getter.
-      ac.render(false);
     }
   }
 

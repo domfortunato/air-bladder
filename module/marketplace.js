@@ -201,9 +201,12 @@ const acquire = async (actor, data, pay) => {
     ui.notifications.warn(game.i18n.format("CAIRN.Notify.NotEnoughGold", { name: data.name, cost }));
     return false;
   }
-  // A CONTAINER is strict (refuses anything that won't fit, never holds equipped
-  // gear); a CHARACTER may go over capacity (they drop to HP 0 until a slot frees).
-  if (actor.type === "container") {
+  // A THING is strict (refuses anything that won't fit, never holds equipped
+  // gear); a CHARACTER may go over capacity (they drop to HP 0 until a slot
+  // frees). `isThing` and not the retired `container` TYPE — the same correction
+  // review #5 made to the nesting guard below, which this pair was missed in, so
+  // an npc sack took stock past its capacity and equipped it.
+  if (actor.isThing) {
     const need = slotCost(data.system);
     if ((actor.system.slotsUsed ?? 0) + need > (actor.system.slotsMax ?? 0)) {
       ui.notifications.warn(game.i18n.format("CAIRN.Notify.ContainerFull", { name: data.name }));
@@ -218,7 +221,7 @@ const acquire = async (actor, data, pay) => {
   } else {
     ui.notifications.info(game.i18n.format("CAIRN.Notify.Took", { name: data.name }));
   }
-  if (actor.type !== "container" && actor.isEncumbered()) {
+  if (!actor.isThing && actor.isEncumbered()) {
     ui.notifications.warn(game.i18n.format("CAIRN.Notify.Overloaded", { name: data.name }));
   }
   return true;
@@ -226,11 +229,11 @@ const acquire = async (actor, data, pay) => {
 
 /**
  * Buy or take a TRANSPORT. A thing with its own slots has to be an Actor in this
- * system, so this mints a container Actor from the transport document and
- * keeper-links it to the buyer, rather than embedding an item.
+ * system, so this mints an npc from the transport document and connects it to
+ * the buyer, rather than embedding an item.
  *
  * No slot check: a container never counts against the buyer's own slots — it is
- * a keeper-linked Actor reached through the Containers tab, not carried gear — so
+ * a connected Actor reached through the Connections tab, not carried gear — so
  * refusing the purchase at the till on encumbrance grounds would be wrong.
  * @param {CairnActor} actor
  * @param {object} doc   an owned-payload-shaped transport (name/img/system)
@@ -238,8 +241,8 @@ const acquire = async (actor, data, pay) => {
  * @returns {Promise<boolean>}
  */
 export const acquireTransport = async (actor, doc, pay) => {
-  // A transport is a container Actor; players can't create actors by default, so
-  // bail BEFORE charging rather than take the gold and fail on Actor.create.
+  // A transport is an Actor; players can't create actors by default, so bail
+  // BEFORE charging rather than take the gold and fail on Actor.create.
   if (!game.user.hasPermission("ACTOR_CREATE")) {
     ui.notifications.warn(game.i18n.localize("CAIRN.Notify.NoActorCreate"));
     return false;
@@ -260,12 +263,19 @@ export const acquireTransport = async (actor, doc, pay) => {
   // if the document somehow carries no art.
   const art = doc.img ?? iconForTransport(doc.name, doc.system.transportKind, doc.system.containerClass);
   const s = doc.system;
-  // An Actor row states `inanimate` outright. A legacy `transport` Item has no
-  // such field, so infer it from transportKind: worn packs and vehicles are
-  // things, only a mount is a creature. Without this a bought Backpack came out
-  // animate — and, having no hp field either, was handed the schema's default
-  // 6 HP on the way through (the same phantom-6 trap mounts.mjs documents).
-  const inanimate = s.inanimate ?? (s.transportKind ? s.transportKind !== "mount" : false);
+  // An Actor row states its `role` outright (NpcData.migrateData derives one
+  // for a pre-roles document). A legacy `transport` Item has no such field, so
+  // infer from transportKind: worn packs and vehicles are things, only a mount
+  // is a creature. Without this a bought Backpack came out animate — and,
+  // having no hp field either, was handed the schema's default 6 HP on the way
+  // through (the same phantom-6 trap mounts.mjs documents). A kindless legacy
+  // Item keeps its old animate reading, which under roles is a mount.
+  const role = s.role
+    ?? (s.transportKind
+      ? (s.transportKind === "mount" ? "mount"
+        : s.transportKind === "vehicle" ? "transport" : "container")
+      : "mount");
+  const isThing = role === "transport" || role === "container";
   // An npc, not a `container`. What is bought is now the same kind of document as
   // what the compendium ships, so a Horse bought from the shop and a Horse
   // dragged out of Mounts & Transports are the same thing -- which they were not
@@ -287,17 +297,17 @@ export const acquireTransport = async (actor, doc, pay) => {
       slots: s.slots ?? 0,
       description: s.description ?? "",
       containerClass: s.containerClass ?? "",
-      inanimate,
+      role,
       cost,
       // Not rollable: "Roll NPC" would overwrite a book statblock.
       generationEnabled: false,
     },
   };
-  // Carry a stat block across when the source has one. An inanimate thing with
+  // Carry a stat block across when the source has one. A thing-role row with
   // none (a legacy Item row, which has no hp field at all) is written as 0/0
   // explicitly, or the schema default hands a cart six hit points.
   if (s.hp) payload.system.hp = { value: s.hp.value ?? 0, max: s.hp.max ?? 0 };
-  else if (inanimate) payload.system.hp = { value: 0, max: 0 };
+  else if (isThing) payload.system.hp = { value: 0, max: 0 };
   if (s.armorOverride !== undefined && s.armorOverride !== null) {
     payload.system.armorOverride = s.armorOverride;
   }

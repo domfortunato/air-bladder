@@ -12,17 +12,24 @@
  *    do. The mechanism control below RUNS the abandoned route and asserts it
  *    really is hook-silent, so the counting assertions are proven able to read 0.
  *
- * 2. BULK CONTAINER DELETE MUST NOT DANGLE UUIDS. The keeper-prune used to be a
- *    per-document `_onDelete` walk, and Foundry fires those without awaiting
- *    them (client-backend.mjs:472) — so deleting two containers kept by the same
- *    actor interleaved two read-modify-writes of the keeper's list: each read
- *    the pre-delete list, filtered out only its own uuid, and whichever update
- *    landed last put the other's uuid back, dangling. The fix is
- *    `_onDeleteOperation`, batch-wise and awaited (client-backend.mjs:478). The
- *    negative control reconstructs the OLD shape in-page — prototype shim on
- *    `_onDelete`, operation hook swapped to the base class's — and must see the
- *    race reproduce. If it cannot, the fix is not proven load-bearing and the
- *    probe says so rather than passing.
+ * 2. DELETING A KEEPER MUST UNLINK ITS CHILDREN BEFORE THE DELETE RESOLVES.
+ *    `_onDeleteOperation` is awaited by the delete workflow
+ *    (client-backend.mjs:478); a per-document `_onDelete` is NOT
+ *    (client-backend.mjs:472). So the same work in the wrong hook leaves a
+ *    caller that awaits `deleteDocuments` reading a child that still points at
+ *    a corpse. The negative control reconstructs the old shape in-page —
+ *    operation hook swapped to the base class's, the walk moved to a
+ *    `_onDelete` prototype shim — and must see the child still linked at the
+ *    moment the delete resolves. If it cannot, the fix is not proven
+ *    load-bearing and the probe says so rather than passing.
+ *
+ *    This leg used to test the same guarantee about a different write: pruning
+ *    the deleted container's uuid out of the KEEPER's `system.containers`
+ *    array, where the unawaited per-document shape lost a read-modify-write
+ *    race with itself and re-dangled the other container's uuid permanently.
+ *    That array — and the `container` type that was the other half of it — was
+ *    retired on 2026-07-31, so the race is now unreachable by construction and
+ *    the surviving batch write is the child-side unlink.
  *
  * Usage: npm run dev:doc-lifecycle
  */
@@ -48,11 +55,11 @@ const sweepLitter = async () => {
   const swept = await page.evaluate(async () => {
     const names = [];
     const litter = game.actors.filter((x) => x.name?.startsWith("ZZ Lifecycle"));
-    // A rolled background can grant keeper-linked containers with PLAIN names
+    // A rolled background can grant connected containers with PLAIN names
     // (a "Mule"), so sweeping by our prefix alone would strand them. Take a
     // litter actor's kept containers with it, containers first.
     const uuids = new Set(litter.map((a) => a.uuid));
-    for (const c of game.actors.filter((x) => x.type === "container" && uuids.has(x.system?.keeper))) {
+    for (const c of game.actors.filter((x) => uuids.has(x.system?.connectedTo))) {
       names.push(`${c.name} (kept by litter)`);
       await c.delete();
     }
@@ -111,58 +118,66 @@ try {
     return { hooks, items: h.items.size };
   });
 
-  stage("bulk container delete prunes every uuid");
+  stage("deleting a keeper unlinks its children before the delete resolves");
   const bulk = await page.evaluate(async () => {
     const Cls = CONFIG.Actor.documentClass;
     const keeper = await Cls.create({ name: "ZZ Lifecycle Keeper", type: "character" });
-    const c1 = await Cls.create({ name: "ZZ Lifecycle Crate A", type: "container", system: { slots: 4 } });
-    const c2 = await Cls.create({ name: "ZZ Lifecycle Crate B", type: "container", system: { slots: 4 } });
-    await keeper.createOwnedContainer(c1);
-    await keeper.createOwnedContainer(c2);
-    const linked = keeper.system.containers.length;
-    await Cls.deleteDocuments([c1.id, c2.id]);
+    const mk = (n) => Cls.create({
+      name: `ZZ Lifecycle Crate ${n}`, type: "npc",
+      system: { slots: 4, role: "container", connectedTo: keeper.uuid },
+    });
+    const c1 = await mk("A");
+    const c2 = await mk("B");
+    keeper.prepareData();
+    const linked = keeper.connectedActors().length;
+    await Cls.deleteDocuments([keeper.id]);
     // No poll on purpose: _onDeleteOperation is awaited by the delete workflow,
-    // so the prune must already be visible when deleteDocuments resolves.
-    return { linked, remaining: keeper.system.containers.length };
+    // so the unlink must already be visible when deleteDocuments resolves.
+    const state = [c1, c2].map((c) => ({
+      link: game.actors.get(c.id)?.system.connectedTo ?? null,
+      former: game.actors.get(c.id)?.system.formerlyBelongedTo ?? null,
+    }));
+    for (const c of [c1, c2]) await game.actors.get(c.id)?.delete().catch(() => {});
+    return { linked, state };
   });
 
-  stage("negative control: the old per-document prune loses the race");
+  stage("negative control: the same walk in _onDelete is not awaited");
   const control = await page.evaluate(async () => {
     const Cls = CONFIG.Actor.documentClass;
     const fixedOp = Cls._onDeleteOperation;
-    // The OLD shape, reconstructed: prune per document from an unawaited
-    // callback, with the batch-wise fix switched to the base class's no-op.
+    // The WRONG hook, reconstructed: the same child-unlink walk, moved to a
+    // per-document callback the workflow fires without awaiting, with the
+    // batch-wise fix switched to the base class's no-op.
     Cls._onDeleteOperation = Object.getPrototypeOf(Cls)._onDeleteOperation;
     Cls.prototype._onDelete = async function (options, userId) {
       Object.getPrototypeOf(Object.getPrototypeOf(this))._onDelete.call(this, options, userId);
       if (userId !== game.user.id) return;
-      const id = this.uuid;
-      for (const ac of game.actors) {
-        if (["character", "hireling", "npc"].includes(ac.type) && ac.system.containers?.includes(id)) {
-          await ac.update({ "system.containers": ac.system.containers.filter((it) => it !== id) });
-        }
+      for (const child of game.actors) {
+        if (child.system?.connectedTo !== this.uuid) continue;
+        await child.update({
+          "system.formerlyBelongedTo": this.name,
+          "system.connectedTo": "",
+        });
       }
     };
     try {
       const keeper = await Cls.create({ name: "ZZ Lifecycle Keeper 2", type: "character" });
-      const c1 = await Cls.create({ name: "ZZ Lifecycle Crate C", type: "container", system: { slots: 4 } });
-      const c2 = await Cls.create({ name: "ZZ Lifecycle Crate D", type: "container", system: { slots: 4 } });
-      await keeper.createOwnedContainer(c1);
-      await keeper.createOwnedContainer(c2);
-      await Cls.deleteDocuments([c1.id, c2.id]);
-      // The old prunes are NOT awaited by the workflow, so they are still in
-      // flight here. Poll until the list stops moving rather than sleeping a
-      // fixed time — a fixed sleep is an assertion about someone else's timing.
-      let last = JSON.stringify(keeper.system.containers);
-      let stableFor = 0;
-      const t0 = Date.now();
-      while (stableFor < 800 && Date.now() - t0 < 10000) {
-        await new Promise((r) => setTimeout(r, 200));
-        const now = JSON.stringify(keeper.system.containers);
-        stableFor = now === last ? stableFor + 200 : 0;
-        last = now;
-      }
-      return { remaining: keeper.system.containers.length, list: keeper.system.containers };
+      const c1 = await Cls.create({
+        name: "ZZ Lifecycle Crate C", type: "npc",
+        system: { slots: 4, role: "container", connectedTo: keeper.uuid },
+      });
+      await Cls.deleteDocuments([keeper.id]);
+      // Read IMMEDIATELY. The walk above is in flight: it has yielded at its
+      // first `await child.update(...)`, which is a server round-trip and
+      // cannot have resolved in the caller's own continuation. That is the
+      // whole difference between the two hooks, and it is the reason a caller
+      // which awaits a delete can still read a link to a corpse.
+      const atResolve = game.actors.get(c1.id)?.system.connectedTo ?? null;
+      // Then let it finish, so the cleanup below is not racing it.
+      await new Promise((r) => setTimeout(r, 1500));
+      const eventually = game.actors.get(c1.id)?.system.connectedTo ?? null;
+      await game.actors.get(c1.id)?.delete().catch(() => {});
+      return { atResolve, eventually, keeperUuid: keeper.uuid };
     } finally {
       Cls._onDeleteOperation = fixedOp;
       delete Cls.prototype._onDelete;
@@ -180,12 +195,12 @@ try {
     ["hireling regenerate fires one createItem per item",
       hirelingRegen.hooks > 0 && hirelingRegen.hooks === hirelingRegen.items,
       `hooks ${hirelingRegen.hooks}, items ${hirelingRegen.items}`],
-    ["bulk delete of two kept containers prunes both, before the delete resolves",
-      bulk.linked === 2 && bulk.remaining === 0,
-      `linked ${bulk.linked}, remaining ${bulk.remaining}`],
-    ["negative control: the old per-document prune leaves a dangling uuid",
-      control.remaining > 0,
-      `remaining ${control.remaining} (${JSON.stringify(control.list)})`],
+    ["deleting a keeper unlinks and stamps both children, before the delete resolves",
+      bulk.linked === 2 && bulk.state.every((s) => s.link === "" && s.former === "ZZ Lifecycle Keeper"),
+      `linked ${bulk.linked}, after ${JSON.stringify(bulk.state)}`],
+    ["negative control: the same walk in _onDelete is still in flight at resolve",
+      control.atResolve === control.keeperUuid && control.eventually === "",
+      `atResolve ${JSON.stringify(control.atResolve)}, eventually ${JSON.stringify(control.eventually)}`],
   ];
   for (const [label, pass, detail] of checks) {
     if (pass) ok(`${label} — ${detail}`);

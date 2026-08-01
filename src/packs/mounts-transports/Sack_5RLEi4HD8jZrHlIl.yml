@@ -21,7 +21,7 @@ system:
   slots: 2
   cost: 10
   containerClass: sack
-  inanimate: true
+  role: container
   generationEnabled: false
 ownership:
   default: 0

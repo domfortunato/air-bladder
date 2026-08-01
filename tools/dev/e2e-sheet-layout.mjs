@@ -174,14 +174,15 @@ try {
   console.log("\nother actor types");
   const others = await page.evaluate(async () => {
     const out = [];
-    // "inanimate" is a pseudo-type here: an npc with the stat block dropped.
-    // Never rendered by this probe before review #5, which is exactly how the
-    // stranded-1fr defect shipped — the tab body auto-placed into the `auto`
-    // track and sat 97px tall over ~400px of dead space, with zero overlaps,
-    // zero spills and zero console errors.
+    // "inanimate" is a pseudo-type here: an npc with the stat block dropped —
+    // a thing ROLE now, but the layout variant (and its CSS class) kept the
+    // name. Never rendered by this probe before review #5, which is exactly how
+    // the stranded-1fr defect shipped — the tab body auto-placed into the
+    // `auto` track and sat 97px tall over ~400px of dead space, with zero
+    // overlaps, zero spills and zero console errors.
     for (const type of ["hireling", "npc", "container", "inanimate"]) {
       const actor = await Actor.create(type === "inanimate"
-        ? { name: "ZZ Layout inanimate", type: "npc", system: { inanimate: true, slots: 4 } }
+        ? { name: "ZZ Layout inanimate", type: "npc", system: { role: "container", slots: 4 } }
         : { name: `ZZ Layout ${type}`, type });
       await actor.sheet.render(true);
       const node = () => {

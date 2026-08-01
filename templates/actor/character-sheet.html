@@ -159,23 +159,18 @@
                     {{#if system.characterEquipmentLimit}}<i class="fas fa-gears" style="opacity:0.5;z-index:5000" ></i>{{/if}}
                     {{ localize 'CAIRN.Items' }} ({{system.slotsUsed}} / {{system.slotsMax}})
                 </a>
+                <a class="item {{tabs.description.cssClass}}" data-action="tab" data-group="primary" data-tab="description">{{ localize 'CAIRN.Description' }}</a>
                 {{#if system.showContainersTab}}
                 {{!-- Counts `containerObjects`, NOT the legacy `containers` array --
                       see the note on the NPC sheet's copy of this row. --}}
-                <a class="item {{tabs.containers.cssClass}}" data-action="tab" data-group="primary" data-tab="containers">{{ localize 'CAIRN.Connected' }} ({{system.containerObjects.length}}) </a>
+                <a class="item {{tabs.containers.cssClass}}" data-action="tab" data-group="primary" data-tab="containers">{{ localize 'CAIRN.Connections' }} ({{system.containerObjects.length}}) </a>
                 {{/if}}
-                <a class="item {{tabs.description.cssClass}}" data-action="tab" data-group="primary" data-tab="description">{{ localize 'CAIRN.Description' }}</a>
                 <a class="item {{tabs.notes.cssClass}}" data-action="tab" data-group="primary" data-tab="notes">{{#if showBackgroundNotesLabel}}{{ localize 'CAIRN.BackgroundAndNotes' }}{{else}}{{ localize 'CAIRN.Notes' }}{{/if}}</a>
             </nav>
             <section class="content">
                 <div class="tab {{tabs.items.cssClass}}" data-group="primary" data-tab="items">
                     {{> "systems/air-bladder/templates/parts/items-list.html" withFatigue=1 withShop=1}}
                 </div>
-                {{#if system.showContainersTab}}
-                <div class="tab {{tabs.containers.cssClass}}" data-group="primary" data-tab="containers">
-                    {{> "systems/air-bladder/templates/parts/container-list.html"}}
-                </div>
-                {{/if}}
                 <div class="tab {{tabs.description.cssClass}}" data-group="primary" data-tab="description">
                     <div class="description">
                         {{#if traitRows}}
@@ -303,6 +298,11 @@
                         </div>
                     </div>
                 </div>
+                {{#if system.showContainersTab}}
+                <div class="tab {{tabs.containers.cssClass}}" data-group="primary" data-tab="containers">
+                    {{> "systems/air-bladder/templates/parts/container-list.html"}}
+                </div>
+                {{/if}}
                 <div class="tab {{tabs.notes.cssClass}}" data-group="primary" data-tab="notes">
                     {{! Bonds + the background's re-rollable questions sit above the
                         free-form notes editor. Both are 2e content. }}

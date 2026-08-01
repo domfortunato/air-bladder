@@ -95,7 +95,11 @@ const out = await page.evaluate(async () => {
 
   const npc = await Cls.create({ name: "ZZ BGGuard NPC", type: "npc" });
   const hire = await Cls.create({ name: "ZZ BGGuard Hireling", type: "hireling" });
-  const cont = await Cls.create({ name: "ZZ BGGuard Container", type: "container", system: { slots: 6 } });
+  // A container is an npc with role container — the `container` type is retired.
+  const cont = await Cls.create({
+    name: "ZZ BGGuard Container", type: "npc",
+    system: { slots: 6, role: "container", containerClass: "crate" },
+  });
 
   await drop("compendium background -> npc", npc, npc.sheet, packBg.uuid);
   await drop("world background -> npc", npc, npc.sheet, worldBg.uuid);

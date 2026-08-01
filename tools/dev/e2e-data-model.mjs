@@ -239,13 +239,13 @@ const npcFields = await page.evaluate(async () => {
   const Cls = CONFIG.Actor.documentClass;   // not the global Actor -- see docs
   const a = await Cls.create({ name: "ZZ Schema NpcFields", type: "npc" });
   const pick = (s) => ({
-    connectedTo: s.connectedTo, inanimate: s.inanimate,
+    connectedTo: s.connectedTo, role: s.role,
     containerClass: s.containerClass, cost: s.cost,
   });
   const defaults = pick(a.system);
   await a.update({
     "system.connectedTo": "Actor.abcdef1234567890",
-    "system.inanimate": true,
+    "system.role": "transport",
     "system.containerClass": "crate",
     "system.cost": 42,
     // Written ON PURPOSE and expected to vanish. If an undeclared key survived,
@@ -259,8 +259,8 @@ const npcFields = await page.evaluate(async () => {
   await a.delete();
   return { defaults, persisted, closed };
 });
-const wantDefaults = { connectedTo: "", inanimate: false, containerClass: "", cost: 0 };
-const wantStored = { connectedTo: "Actor.abcdef1234567890", inanimate: true, containerClass: "crate", cost: 42 };
+const wantDefaults = { connectedTo: "", role: "npc", containerClass: "", cost: 0 };
+const wantStored = { connectedTo: "Actor.abcdef1234567890", role: "transport", containerClass: "crate", cost: 42 };
 for (const [k, v] of Object.entries(wantDefaults)) {
   if (npcFields.defaults[k] === v) ok(`${k} default`, JSON.stringify(v));
   else fail(`${k} default`, `got ${JSON.stringify(npcFields.defaults[k])}, want ${JSON.stringify(v)}`);

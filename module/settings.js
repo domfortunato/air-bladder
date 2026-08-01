@@ -23,7 +23,7 @@ export const SETTINGS_NS = "air-bladder";
 export const SETTING_KEYS = [
   // General
   "use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
-  "show-features-section", "show-containers-tab", "use-warden-title",
+  "show-features-section", "use-warden-title",
   // Character Generation
   "content-source-2e", "content-source-custom", "content-source-barebones",
   "barebones-failed-career",
@@ -31,7 +31,7 @@ export const SETTING_KEYS = [
   "custom-portrait-folder", "custom-portrait-list", "min-age",
   // Inventory & Encumbrance
   "max-equip-slots", "character-inventory-limit", "use-gold-threshold",
-  "show-gold-not-cost", "show-container-actors", "enable-inventory-reorder",
+  "show-container-actors", "enable-inventory-reorder",
 ];
 
 /**
@@ -85,19 +85,20 @@ export const migrateSettingsNamespace = async () => {
  * then Inventory & Encumbrance.
  */
 export const registerSettings = () => {
-  // Not a setting anyone sets: the completion marker for the forHire migration.
+  // Not a setting anyone sets: the completion marker for the role migration.
   // `config: false` means it is never rendered, so it cannot disturb the positional
   // grouping described above no matter where it sits — it is first only so the
   // three visible blocks stay contiguous and easy to read.
   //
-  // A marker rather than a state test, because `system.forHire` is a CHECKBOX. The
+  // A marker rather than a state test, because `system.role` is a PICK-LIST. The
   // three sibling migrations get away with selecting on current state because their
   // "before" value is unreachable once migrated (a remapped container is no longer
-  // one of the legacy art paths; a .svg icon is never .png again). Unticking
-  // "For hire" puts an actor straight back into the selection set, so the migration
-  // re-ticked it on every world load and the Warden could not turn it off at all.
-  // Observed: untick through the sheet, reload, and it is back on.
-  game.settings.register(SETTINGS_NS, "forhire-migrated", {
+  // one of the legacy art paths; a .svg icon is never .png again). A role the
+  // Warden changes away from would go straight back into any selection set, so a
+  // state test would re-stamp it on every world load — the exact trap the retired
+  // forHire migration fell into with its checkbox (its marker, `forhire-migrated`,
+  // may still sit unread in old world settings; harmless).
+  game.settings.register(SETTINGS_NS, "roles-migrated", {
     scope: "world",
     config: false,
     type: Boolean,
@@ -156,16 +157,14 @@ export const registerSettings = () => {
     requiresReload: true,
   });
 
-  // The Containers tab is off by default: a character with no pack, mount or
-  // vehicle has no use for it, and an empty tab beside Items is just noise.
-  game.settings.register(SETTINGS_NS, "show-containers-tab", {
-    name: game.i18n.localize("CAIRN.Settings.ShowContainersTab.label"),
-    scope: "world",
-    config: true,
-    type: Boolean,
-    default: false,
-    requiresReload: true,
-  });
+  // `show-containers-tab` was registered here and is GONE. It dated from when a
+  // container was a bag of slots a character might not own one of, so an empty
+  // tab beside Items was noise. Under the roles model the tab is the only view
+  // of the connection graph — who travels with whom, who owns what — and the
+  // graph exists whether or not it is displayed, so the switch could only hide
+  // relationships that went on mattering. The tab is now structural: everything
+  // but a Monster and an unlinked token's actor shows it (CairnActor#prepareData).
+  // Do not re-add it as a display toggle.
 
   // Cairn calls the Game Master the "Warden". When enabled, relabel the GM role
   // wherever Foundry localizes it and rename the default account. Applied in
@@ -374,15 +373,13 @@ export const registerSettings = () => {
     requiresReload: true,
   });
 
-  game.settings.register(SETTINGS_NS, "show-gold-not-cost", {
-    name: game.i18n.localize("CAIRN.Settings.ShowGoldNotCost.label"),
-    hint: game.i18n.localize("CAIRN.Settings.ShowGoldNotCost.hint"),
-    scope: "world",
-    config: true,
-    type: Boolean,
-    default: false,
-    requiresReload: true,
-  });
+  /* `show-gold-not-cost` was registered here and is GONE (2026-07-31), for the
+     same reason `show-containers-tab` went: the behaviour it toggled no longer
+     exists. It swapped the Cost box on a CONTAINER SHEET for a Gold box, and
+     the container type — sheet, model and all — is retired. The npc sheet that
+     replaced it has no Cost box to swap: Round 2 settled that Gold simply hides
+     on a thing or a mount (`system.showGold`), which is a role fact, not a
+     world preference. Do not re-add it without a field for it to govern. */
 
   game.settings.register(SETTINGS_NS, "show-container-actors", {
     name: game.i18n.localize("CAIRN.Settings.ShowContainerActors.label"),

@@ -21,7 +21,7 @@ system:
   slots: 6
   cost: 0
   containerClass: horse
-  inanimate: false
+  role: mount
   generationEnabled: false
 ownership:
   default: 0
