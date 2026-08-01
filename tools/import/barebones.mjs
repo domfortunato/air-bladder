@@ -6,7 +6,7 @@
  *   node tools/import/barebones.mjs [--dry]
  *
  * Barebones and 2e are ONE system that differ only in how a character is made
- * (see CLAUDE.md / the one-system-two-generators note), so this authors no
+ * (see CLAUDE.md, "One system, two generators"), so this authors no
  * parallel universe: Barebones gear goes into the SAME editable type packs 2e
  * uses, and a Barebones background is the SAME `background` Item type — it simply
  * leaves the richer 2e fields (archetype, names, choice tables) empty.
@@ -102,9 +102,10 @@ const ALIASES = new Map([
   ["tent (fits 2)", "Tent"],
 ]);
 
-// Rows that are an instruction to roll elsewhere, not an item. See CLAUDE.md —
-// importing these naively authors three nonsense items nobody notices until
-// someone rolls Acolyte.
+// Rows that are an instruction to roll elsewhere, not an item. Importing these
+// naively authors three nonsense items nobody notices until someone rolls
+// Acolyte. Resolved at generation time by `resolveStartingGear` in
+// module/character-generator.js.
 const META = new Set([
   "spellbook", "random spellbook", "scroll of random spellbook", "random additional gear",
 ]);

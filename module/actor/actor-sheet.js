@@ -794,7 +794,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // longer disagrees with TAB_LABELS.notes on generated characters.
     // Scars and Age are never generated — a player fills each in by hand after
     // the fact — so they are NOT edition-specific and show on both. Only
-    // character CREATION differs between 2e and Barebones (see CLAUDE.md).
+    // character CREATION differs between 2e and Barebones (see CLAUDE.md,
+    // "One system, two generators").
     context.showScars = true;
     context.showAge = true;
     // Omen is the one exception, and it is a CONTENT question rather than a rule:

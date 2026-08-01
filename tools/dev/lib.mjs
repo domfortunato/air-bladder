@@ -1,6 +1,7 @@
 /**
  * Helpers for driving a local Foundry instance from Playwright.
- * See the "Local dev loop" section of CLAUDE.md for setup.
+ * Setup, and which probes run before tagging vs after publishing:
+ * `docs/release-testing.md`.
  */
 
 export const FOUNDRY_URL = process.env.FOUNDRY_URL ?? "http://localhost:30000";

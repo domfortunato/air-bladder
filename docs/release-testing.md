@@ -56,7 +56,7 @@ Run from `c:\Users\domin\code\air-bladder`, on the branch you are about to merge
 
 ### With Foundry running on :30000
 
-Start the dev server first (see `CLAUDE.md`). These load the working tree through the
+Start the dev server first — it is local infra, not an npm script. These load the working tree through the
 junction, so no build step is needed — except `npm run build:packs` if `src/packs/`
 changed, which **fails while a world is open**, so stop the server for it.
 

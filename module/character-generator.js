@@ -1073,9 +1073,10 @@ const rollAdditionalGear = async (avoid = new Set()) => {
  * INSTRUCTION rather than an item. Nine Barebones backgrounds grant one — the
  * Acolyte's "Spellbook", the Fence's "Random Additional Gear", the Cultist's
  * "Scroll of Random Spellbook" — and a plain reference lookup silently drops
- * every one of them, leaving those characters an item short with no error. (See
- * CLAUDE.md: "not every table entry is an object", and nobody notices until
- * someone rolls Acolyte.)
+ * every one of them, leaving those characters an item short with no error —
+ * not every table entry is an object, and nobody notices until someone rolls
+ * Acolyte. The importer skips the same rows; see `META` in
+ * tools/import/barebones.mjs.
  *
  * 2e backgrounds carry no such rows, so this is a pass-through for them; it is
  * shared so that generation and a background swap can never disagree.

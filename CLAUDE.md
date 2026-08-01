@@ -95,6 +95,15 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   worth having) and `show-gold-not-cost` (it swapped the container sheet's Cost
   box for Gold; that sheet went with the type, and the npc sheet has no Cost box)
 
+**One system, two generators.** Cairn 2e and Barebones differ ONLY in how a
+character is MADE. Every rule after a character exists — damage, slots, saves,
+scars, the sheets — is identical by design. So `content-source-2e` gates
+generation and nothing else: **a branch on the content source outside character
+generation is a bug**, not a feature, and Barebones content goes into the same
+editable type packs 2e uses rather than a parallel set. Three code sites cite
+this rule (`module/settings.js`, `module/actor/actor-sheet.js`,
+`tools/import/barebones.mjs`); they cited this file for it before it said so.
+
 ## Deliberate deviations from Foundry practice
 
 Listed so a review does not re-litigate them. If you disagree with one, argue
@@ -149,6 +158,27 @@ against the reason, not against the fact.
 - **Pack YAML in `src/packs/` is the source of truth**; `packs/` is generated
   LevelDB, gitignored. Never edit `packs/`. `npm run build:packs` fails while
   Foundry has the world open (LevelDB EPERM) — stop the server first.
+
+## Foundry sources, in order of authority
+
+- **The shipped client, `C:\Users\domin\foundry\app\client\**`, outranks
+  everything.** It is the only source that states deprecation and removal
+  versions: `logCompatibilityWarning` calls carry literal `{since, until}`.
+  The web API pages carry NO version boundaries at all, which is how this file
+  once claimed AppV1 dies in v15 (it is v16, `appv1/api/application-v1.mjs:59-63`).
+  Cite file and line the way you would cite a URL.
+- **Docs**: `foundryvtt.com/api/` and `foundryvtt.com/article/`.
+  `foundryvtt.com/releases/` is the only version-aware doc — use it for when a
+  replacement API landed, not for when the old one dies.
+- **`github.com/foundryvtt/foundryvtt` is the ISSUE TRACKER, not source and not
+  documentation** — Foundry is closed-source and that repo holds no code. Cite an
+  issue to establish "this is a known core bug"; never as evidence of how an API
+  is meant to behave. Its `releases/` folder stops at 11.308 — three majors stale.
+- **`github.com/foundryvtt/foundryvtt-cli`** — `@foundryvtt/foundryvtt-cli` is a
+  real devDependency; `tools/packs.mjs` uses its `compilePack`/`extractPack`.
+
+**Target is v14 and nothing older.** No compatibility shims for v13 and below —
+if you find one, deleting it is in scope, not a separate decision.
 
 ## Rules encoded — these are the game, not bugs
 
