@@ -4,7 +4,7 @@
  * of the world, both from review #2's tail.
  *
  * 1. REGENERATION MUST FIRE createItem HOOKS. `updateActorWithCharacter` and
- *    `regenerateHireling` used to write the new inventory as `items` inside
+ *    `regenerateNpc` used to write the new inventory as `items` inside
  *    `actor.update(...)`, which creates the embedded documents server-side and
  *    fires not one createItem hook — anything listening (a module, a world
  *    script) saw an actor whose inventory changed with no item ever created.
@@ -106,14 +106,14 @@ try {
     return { hooks, created: actor.items.size - before };
   }, charRegen.id);
 
-  stage("hireling regenerate fires createItem hooks");
-  const hirelingRegen = await page.evaluate(async () => {
+  stage("npc regenerate fires createItem hooks");
+  const npcRegen = await page.evaluate(async () => {
     const cg = game.cairn.characterGenerator;
-    const h = await cg.createHireling();
-    await h.update({ name: "ZZ Lifecycle Hireling" });
+    const h = await cg.createNpc();
+    await h.update({ name: "ZZ Lifecycle NPC" });
     let hooks = 0;
     const hid = Hooks.on("createItem", (doc) => { if (doc.parent === h) hooks++; });
-    await cg.regenerateHireling(h);
+    await cg.regenerateNpc(h);
     Hooks.off("createItem", hid);
     return { hooks, items: h.items.size };
   });
@@ -192,9 +192,9 @@ try {
     ["the abandoned update({items}) route really is hook-silent",
       updateRoute.created === 1 && updateRoute.hooks === 0,
       `created ${updateRoute.created}, hooks ${updateRoute.hooks}`],
-    ["hireling regenerate fires one createItem per item",
-      hirelingRegen.hooks > 0 && hirelingRegen.hooks === hirelingRegen.items,
-      `hooks ${hirelingRegen.hooks}, items ${hirelingRegen.items}`],
+    ["npc regenerate fires one createItem per item",
+      npcRegen.hooks > 0 && npcRegen.hooks === npcRegen.items,
+      `hooks ${npcRegen.hooks}, items ${npcRegen.items}`],
     ["deleting a keeper unlinks and stamps both children, before the delete resolves",
       bulk.linked === 2 && bulk.state.every((s) => s.link === "" && s.former === "ZZ Lifecycle Keeper"),
       `linked ${bulk.linked}, after ${JSON.stringify(bulk.state)}`],

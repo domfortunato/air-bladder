@@ -55,7 +55,7 @@ export class CairnActor extends Actor {
     //
     // **`system.role` is the discriminator, not the type.** The Hireling->NPC
     // fold made the two one type, so a `type === "hireling"` test stopped matching
-    // anything the generator produces: `hirelingToActorData` emits `type: "npc"`.
+    // anything the generator produces: `npcToActorData` emits `type: "npc"`.
     // Every generated hireling therefore fell through to Foundry's own schema
     // defaults — `actorLink` is a BooleanField with no initial (false) and
     // `disposition` initials to HOSTILE (common/documents/token.mjs:62,73-74) — and

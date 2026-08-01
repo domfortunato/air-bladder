@@ -2,7 +2,7 @@
 /**
  * Roll NPC must ask first. It is a one-click, no-undo wipe if it does not.
  *
- * The header button routes an `npc` to `regenerateHireling`, which deletes every
+ * The header button routes an `npc` to `regenerateNpc`, which deletes every
  * embedded Item and overwrites profession, abilities and HP. That used to run on a
  * single click, on the reasoning that "a hireling's statblock is disposable by
  * design" — written when only the `hireling` type reached it. Folding hireling into

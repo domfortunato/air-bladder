@@ -25,12 +25,11 @@ Cairn.characterGenerator2e = {
   }
 };
 
-// Hireling generation. The statblocks themselves are shipped runtime data
-// (module/hirelings-2e.json); only the name source is configurable. A 2e
-// character takes its name from its background's name list, which a hireling has
-// no equivalent of — so it draws from the Warden's 2e NPC name table, a hireling
-// being an NPC the party pays.
-Cairn.hirelingGenerator = {
+// NPC generation. The statblocks themselves are shipped runtime data
+// (module/npc-careers-2e.json); only the name source is configurable. A 2e
+// character takes its name from its background's name list, which an NPC has
+// no equivalent of — so it draws from the Warden's 2e NPC name table.
+Cairn.npcGenerator = {
   name: "air-bladder.warden-npcs;Warden: NPC - Name"
 };
 
@@ -51,8 +50,8 @@ Cairn.monsterGenerator = {
 };
 
 // Cairn Barebones creation. Abilities/HP/coins follow the SRD; the name comes
-// from the same Warden NPC name table hirelings use, because 2e dropped 1e's
-// name tables and Barebones ships none of its own.
+// from the same Warden NPC name table the NPC generator uses, because 2e
+// dropped 1e's name tables and Barebones ships none of its own.
 Cairn.barebonesGenerator = {
   name: "air-bladder.warden-npcs;Warden: NPC - Name",
   ability: "3d6",

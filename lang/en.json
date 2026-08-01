@@ -136,9 +136,9 @@
   "CAIRN.Cost": "Cost",
   "CAIRN.CreateContainer": "Create Container",
   "CAIRN.CreateFeature": "Create Feature",
-  "CAIRN.CreateHireling": "Generate NPC",
   "CAIRN.CreateItem": "Create Item",
   "CAIRN.CreateMonster": "Generate Monster",
+  "CAIRN.CreateNpc": "Generate NPC",
   "CAIRN.CriticalDamage": "Critical Dmg.",
   "CAIRN.CriticalDamageBanner": "can only crawl — stabilize with aid, or die within the hour.",
   "CAIRN.CriticalDamageStatusFor": "Critical Damage — {key}",
@@ -214,7 +214,6 @@
   "CAIRN.GrantFailedCareer": "Failed Career",
   "CAIRN.GrantQuestion": "Question",
   "CAIRN.GrantTagsHint": "Items tagged Background, Bond, Question or Failed Career were granted during character generation.",
-  "CAIRN.Hireling": "Hireling",
   "CAIRN.HitProtection": "HP",
   "CAIRN.HitProtectionTip": "Hit Protection represents your character's ability to protect themselves.",
   "CAIRN.ItemAddQuantity": "Add",
@@ -320,6 +319,7 @@
   },
   "CAIRN.Notify.BackgroundNotCharacter": "Only a player character has a background.",
   "CAIRN.Notify.BackgroundWrongSource": "That is a {backgroundEdition} background and this is a {characterEdition} character. A character does not change edition.",
+  "CAIRN.Npc": "NPC",
   "CAIRN.NpcRegeneratorConfirm": "Are you sure you want to roll this NPC again?</p><p>Everything it is carrying will be deleted, and its abilities, HP, career and day rate will be replaced. This cannot be undone.",
   "CAIRN.NpcRegeneratorTitle": "Roll this NPC again?",
   "CAIRN.Omen": "Omen",
@@ -426,7 +426,7 @@
       "label": "Offer GM's Custom 2e backgrounds"
     },
     "CustomPortraitFolder": {
-      "hint": "A folder of your own character portraits (relative to the Foundry data root). When it holds images, new characters and hirelings use them instead of the shipped Jon Aspeheim art, and the portrait picker gains a 'Custom' tab. Leave empty or unfilled to use only the shipped portraits. The default folder is created for you — just drop images in and click Refresh in the picker.",
+      "hint": "A folder of your own character portraits (relative to the Foundry data root). When it holds images, new characters and NPCs use them instead of the shipped Jon Aspeheim art, and the portrait picker gains a 'Custom' tab. Leave empty or unfilled to use only the shipped portraits. The default folder is created for you — just drop images in and click Refresh in the picker.",
       "label": "Custom character portrait folder"
     },
     "EnableInventoryReorder": {

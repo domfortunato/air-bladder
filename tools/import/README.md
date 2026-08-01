@@ -28,7 +28,7 @@ These three are independent of the order above:
 
 ```
 node tools/import/backgrounds-2e.mjs # rewrite the 20 2e backgrounds' TEXT
-node tools/import/hirelings-2e.mjs   # module/hirelings-2e.json
+node tools/import/npc-careers-2e.mjs # module/npc-careers-2e.json
 node tools/import/portraits.mjs      # module/portrait-manifest.json
 node tools/import/game-icons.mjs --src <dir>   # game-icons/ + its manifest
 ```
@@ -47,7 +47,7 @@ curation changes. Point `--src` at the unpacked download.
 | `backgrounds-2e.mjs` | text fields of `backgrounds-2e` | `second-edition/backgrounds/*.md` (20 files) |
 | `marketplace.mjs` | `marketplace`, `market-goods`, `cost` on pool items | `second-edition/players-guide/marketplace.md` + `marketplace-descriptions.csv` |
 | `transports.mjs` | `transports`, the transport shop table | self-contained (2e transport numbers) |
-| `hirelings-2e.mjs` | `module/hirelings-2e.json` | `resources/hirelings.md` |
+| `npc-careers-2e.mjs` | `module/npc-careers-2e.json` | `resources/hirelings.md` |
 | `portraits.mjs` | `module/portrait-manifest.json` | the shipped image folders |
 | `game-icons.mjs` | `game-icons/` (1,239 svg + `CREDITS.md` + `license.txt`), `module/game-icons-manifest.json` | a curated game-icons.net download, via `--src` |
 

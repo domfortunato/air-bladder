@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * The Actor Directory's Generate / Hireling / Monster / Import buttons, in BOTH
+ * The Actor Directory's Generate / NPC / Monster / Import buttons, in BOTH
  * instances.
  *
  * Foundry renders a second, independent ActorDirectory when the sidebar tab is
@@ -8,7 +8,7 @@
  * `getElementById('cairn-character-gen-button')`, which the docked directory had
  * already satisfied — so the popped-out window silently got no buttons at all
  * and a Warden who works from a popout had no entry point to character
- * generation, hirelings or the Kettlewright import.
+ * generation, NPCs or the Kettlewright import.
  *
  * Checked in the popout because that is where it broke; the docked case is
  * asserted alongside it so a fix that scopes the query too tightly (and breaks

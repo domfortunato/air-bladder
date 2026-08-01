@@ -279,19 +279,19 @@ else fail("schema closed", "an undeclared key survived, so persistence proves no
 
 /* -------------------------------------------- */
 
-console.log("\nhireling generation");
+console.log("\nnpc generation");
 const hire = await page.evaluate(async () => {
-  const actor = await game.cairn.characterGenerator.createHireling();
-  if (!actor) return { error: "no hireling" };
+  const actor = await game.cairn.characterGenerator.createNpc();
+  if (!actor) return { error: "no NPC" };
   const src = actor.toObject().system;
   const out = { profession: src.profession, dayRate: src.dayRate, hp: src.hp?.value, str: src.abilities?.STR?.value, items: actor.items.size, armor: actor.system.armor };
   await actor.delete();
   return out;
 });
-if (hire.error) fail("hireling", hire.error);
+if (hire.error) fail("npc", hire.error);
 else {
-  ok("hireling", `${hire.profession} @ ${hire.dayRate}/day, HP ${hire.hp}, STR ${hire.str}, ${hire.items} items, armor ${hire.armor}`);
-  if (!hire.profession || !hire.hp) fail("hireling fields", "profession or hp missing");
+  ok("npc", `${hire.profession} @ ${hire.dayRate}/day, HP ${hire.hp}, STR ${hire.str}, ${hire.items} items, armor ${hire.armor}`);
+  if (!hire.profession || !hire.hp) fail("npc fields", "profession or hp missing");
 }
 
 /* -------------------------------------------- */

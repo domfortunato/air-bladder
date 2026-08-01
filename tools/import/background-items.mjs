@@ -79,7 +79,7 @@ if (!keep.size) {
     + "Relocating on this basis would move shop gear into the background pack.");
   process.exit(1);
 }
-try { const h = JSON.parse(fs.readFileSync(path.join(ROOT,"module","hirelings-2e.json"),"utf8")); const walk=(o)=>{ if(Array.isArray(o))o.forEach(walk); else if(o&&typeof o==="object"){ if(typeof o.name==="string"&&(o.uses!==undefined||o.tags!==undefined||o.equipped!==undefined))addKeep(o.name); Object.values(o).forEach(walk);} }; walk(h);} catch {}
+try { const h = JSON.parse(fs.readFileSync(path.join(ROOT,"module","npc-careers-2e.json"),"utf8")); const walk=(o)=>{ if(Array.isArray(o))o.forEach(walk); else if(o&&typeof o==="object"){ if(typeof o.name==="string"&&(o.uses!==undefined||o.tags!==undefined||o.equipped!==undefined))addKeep(o.name); Object.values(o).forEach(walk);} }; walk(h);} catch {}
 ["Rations","Torch"].forEach(addKeep);
 for (const t of GEAR_ALIASES.values()) addKeep(t);
 

@@ -38,8 +38,11 @@
   Terminología: usa siempre lo que el jugador VE en el sistema, es decir
   lang/es.json, no una conjetura de este archivo:
     Warden   -> "Guardián"  (CAIRN.Warden)
-    Hireling -> "Seguidor"  (CAIRN.Hireling)
     Items    -> "Equipo"    (CAIRN.Items, la pestaña de la hoja)
+  La fila "Hireling -> Seguidor" se retiró el 2026-08-01: CAIRN.Hireling ya no
+  existe en lang/en.json (ser contratable pasó a ser una casilla del PNJ, no una
+  clase de persona), así que apuntaba a una clave muerta. El término sobrevive en
+  tools/i18n/glossary.tsv, que es donde le corresponde estar.
   Los nombres propios, ediciones (Cairn 2e, Barebones), módulos (Item Piles) y
   licencias no se traducen.
 -->
@@ -56,7 +59,7 @@ Air Bladder es un sistema complementario amigable, no el sistema oficial de Cair
 - Importación de personajes en `.json` desde la aplicación oficial de Cairn, ¡[Kettlewright!](https://kettlewright.com/)
 - Funciones caseras (*homebrew*) opcionales que mezclan características de 2e con Barebones
 - Trasfondos de 2e personalizados, creados por el Guardián — [créalos y revísalos](https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md) y después [compártelos entre mundos](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md)
-- Generación aleatoria o manual de PNJ y seguidores
+- Generación aleatoria o manual de PNJ, contratados o no
 - Ayudas contextuales en la hoja de personaje para los jugadores
 - ¡Hojas de personaje desacoplables! Sí, ya estamos completamente en AppV2: listos para la v16, cuando Foundry retire el marco de trabajo V1
 - Mercado y contenedores; caballos, carros, carretas, cofres y ¡PILAS DE OBJETOS con Item Piles!

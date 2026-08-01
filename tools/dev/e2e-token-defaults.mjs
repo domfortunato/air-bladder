@@ -15,7 +15,7 @@
  *
  * This exists because the Hireling->NPC fold broke it silently. The old test was
  * `type === "hireling"`, which stopped matching anything the generator produces
- * (`hirelingToActorData` emits `npc`), so generated hirelings fell through to
+ * (`npcToActorData` emits `npc`), so generated hirelings fell through to
  * Foundry's schema defaults. Nothing threw, nothing logged, and the sheet looked
  * correct — the damage only shows on the canvas, and then only as a red ring and
  * HP that will not stick.
@@ -78,9 +78,9 @@ const out = await page.evaluate(async () => {
   };
 
   // The real path a Warden takes: the Actor Directory's "Generate NPC" button.
-  const gen = await game.cairn.characterGenerator.createHireling();
+  const gen = await game.cairn.characterGenerator.createNpc();
   await gen.update({ name: "ZZ Tok Generated NPC" });
-  snap(gen, "generated npc (createHireling)", "NEUTRAL", true);
+  snap(gen, "generated npc (createNpc)", "NEUTRAL", true);
 
   // A monster: same type, role stated. The specificity control — if this comes
   // out neutral and linked the branch is too wide and every shipped monster is

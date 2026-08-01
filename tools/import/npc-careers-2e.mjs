@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
- * Author the Cairn 2e hirelings catalogue into module/hirelings-2e.json.
+ * Author the Cairn 2e hirelings catalogue into module/npc-careers-2e.json —
+ * the NPC generator's career statblocks.
  *
- *   node tools/import/hirelings-2e.mjs [--dry]
+ *   node tools/import/npc-careers-2e.mjs [--dry]
  *
  * Source: yochaigal/cairn, resources/hirelings.md, CC BY-SA 4.0 by Yochai Gal.
  * Fetched live so this is reproducible and a rerun surfaces upstream changes.
@@ -37,7 +38,7 @@
  * on its pool item, never a spawned Actor -- house style: no statblock
  * automation.
  *
- * Shipped as runtime data alongside portrait-manifest.json; the hireling
+ * Shipped as runtime data alongside portrait-manifest.json; the NPC
  * generator fetches it. No pack, so no build:packs.
  */
 
@@ -47,7 +48,7 @@ import { fileURLToPath } from "node:url";
 
 const SRC = "https://raw.githubusercontent.com/yochaigal/cairn/main/resources/hirelings.md";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const OUT = path.join(root, "module", "hirelings-2e.json");
+const OUT = path.join(root, "module", "npc-careers-2e.json");
 const dry = process.argv.includes("--dry");
 
 // KEEP IN SYNC with module/gear.js GEAR_ALIASES (and gear-2e.mjs / marketplace.mjs):

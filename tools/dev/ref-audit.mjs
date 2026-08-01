@@ -253,6 +253,48 @@ if (!truth?.length) {
   }
 }
 
+/* ---------------------------------------------------------------------------
+ * The Hireling scrub must not quietly un-happen.
+ *
+ * The NPC generator was called "hireling" everywhere until 2026-08-01, when the
+ * hireling ROLE collapsed into npc + forHire and the identifiers were renamed
+ * wholesale (createHireling -> createNpc and friends, module/hirelings-2e.json
+ * -> npc-careers-2e.json). A stale branch, an old patch or a copy-paste from
+ * the fork can bring one back, and it would still parse -- the import would
+ * just resolve to nothing at runtime, or a probe would quietly exercise a
+ * function that no longer exists.
+ *
+ * Two exemptions, both named rather than implied: this file (it spells the
+ * pattern out in order to look for it), and the SRC line of
+ * tools/import/npc-careers-2e.mjs -- upstream's file is resources/hirelings.md
+ * and their name is not ours to rename.
+ * ------------------------------------------------------------------------- */
+const SCRUBBED = /createHireling|regenerateHireling|rerollHireling|hirelingToActorData|generateHireling|getHirelings2e|hirelingGenerator|hirelings-2e/;
+const SELF = "tools/dev/ref-audit.mjs";
+const SRC_EXEMPT = "tools/import/npc-careers-2e.mjs";
+const scrubHits = [];
+const walkForScrub = (dir) => {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) { walkForScrub(p); continue; }
+    const rel = path.relative(root, p).replace(/\\/g, "/");
+    if (rel === SELF) continue;
+    fs.readFileSync(p, "utf8").split("\n").forEach((line, i) => {
+      if (!SCRUBBED.test(line)) return;
+      if (rel === SRC_EXEMPT && line.includes("raw.githubusercontent.com")) return;
+      scrubHits.push(`${rel}:${i + 1}  ${line.trim().slice(0, 90)}`);
+    });
+  }
+};
+for (const r of ["module", "tools"]) walkForScrub(path.join(root, r));
+if (scrubHits.length) {
+  failed = true;
+  console.error(`\nHIRELING SCRUB REGRESSION — ${scrubHits.length} line(s) name a scrubbed identifier:`);
+  for (const h of scrubHits) console.error(`  ${h}`);
+} else {
+  console.log("  ok    no scrubbed hireling identifier is back in module/ or tools/");
+}
+
 if (verbose && !failed) {
   console.log(`\nindexed ${byId.size} documents`);
 }

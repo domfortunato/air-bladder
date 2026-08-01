@@ -1851,41 +1851,41 @@ export const regenerateActor = async (actor) => {
 };
 
 /* ==========================================================================
- * Hirelings
+ * NPC careers
  * A GM-created helper drawn from Cairn 2e's twelve example hirelings
- * (resources/hirelings.md, shipped as module/hirelings-2e.json by
- * tools/import/hirelings-2e.mjs). Each is a canonical statblock: a Profession, a
+ * (resources/hirelings.md, shipped as module/npc-careers-2e.json by
+ * tools/import/npc-careers-2e.mjs). Each is a canonical statblock: a Profession, a
  * daily rate, fixed HP + STR/DEX/WIL, and a specific gear loadout (its weapon and
- * armor included). No bonds/omens/scars/traits/questions -- hirelings are
+ * armor included). No bonds/omens/scars/traits/questions -- generated NPCs are
  * deliberately simple.
  *
  * Its gear is BY-NAME REFERENCES into the editable pool, exactly like a
  * background's starting gear: resolveGearItem clones the current pool document,
- * so editing an item flows into every hireling generated afterwards.
+ * so editing an item flows into every NPC generated afterwards.
  * ======================================================================== */
 
-/** The 2e hirelings catalogue (shipped runtime data), fetched once and cached. */
-let _hirelings2e = null;
-export const getHirelings2e = async () => {
-  if (_hirelings2e === null) {
+/** The 2e careers catalogue (shipped runtime data), fetched once and cached. */
+let _npcCareers2e = null;
+export const getNpcCareers2e = async () => {
+  if (_npcCareers2e === null) {
     try {
-      const resp = await fetch("systems/air-bladder/module/hirelings-2e.json");
-      _hirelings2e = resp.ok ? await resp.json() : [];
+      const resp = await fetch("systems/air-bladder/module/npc-careers-2e.json");
+      _npcCareers2e = resp.ok ? await resp.json() : [];
     } catch {
-      _hirelings2e = [];
+      _npcCareers2e = [];
     }
   }
-  return _hirelings2e;
+  return _npcCareers2e;
 };
 
 /**
- * A random hireling entry, optionally avoiding a profession name so a re-roll
+ * A random career entry, optionally avoiding a profession name so a re-roll
  * always changes.
  * @param {String|null} avoidName
  * @returns {Promise<Object|null>}
  */
-const randomHireling = async (avoidName = null) => {
-  const list = await getHirelings2e();
+const randomCareer = async (avoidName = null) => {
+  const list = await getNpcCareers2e();
   if (!list.length) return null;
   const pool = avoidName ? list.filter((h) => h.name !== avoidName) : list;
   const from = pool.length ? pool : list;
@@ -1893,24 +1893,24 @@ const randomHireling = async (avoidName = null) => {
 };
 
 /**
- * A hireling's name. 2e characters take their name from their background's name
- * list, which a hireling has no equivalent of, so this draws from the Warden's
- * 2e NPC name table -- a hireling IS an NPC. roll(), never draw(), so the
- * Warden's table keeps a clean drawn state.
+ * A generated NPC's name. 2e characters take their name from their background's
+ * name list, which an NPC has no equivalent of, so this draws from the Warden's
+ * 2e NPC name table. roll(), never draw(), so the Warden's table keeps a clean
+ * drawn state.
  * @returns {Promise<String>}
  */
-const rollHirelingName = () =>
-  rollNameFromTable(Cairn.hirelingGenerator.name, game.i18n.localize("CAIRN.Hireling"));
+const rollNpcName = () =>
+  rollNameFromTable(Cairn.npcGenerator.name, game.i18n.localize("CAIRN.Npc"));
 
 /**
- * A hireling's canonical loadout, resolved from the pool: weapons and armor
+ * A generated NPC's canonical loadout, resolved from the pool: weapons and armor
  * equipped (so Armor derives via calcArmor to the book value -- pool items are
  * equipped:false), each tagged grantSource "profession" so a profession re-roll
  * replaces exactly these and leaves GM-added gear alone.
  * @param {Object} entry
  * @returns {Promise<Object[]>}
  */
-const buildHirelingItems = async (entry) => {
+const buildNpcItems = async (entry) => {
   const items = await resolveRefs(entry?.gear ?? []);
   return items.map((item) => {
     if (item.type === "weapon" || item.type === "armor") item.system.equipped = true;
@@ -1918,28 +1918,28 @@ const buildHirelingItems = async (entry) => {
   });
 };
 
-const hirelingAbilityData = (abilities) => ({
+const npcAbilityData = (abilities) => ({
   STR: { value: abilities.STR, max: abilities.STR },
   DEX: { value: abilities.DEX, max: abilities.DEX },
   WIL: { value: abilities.WIL, max: abilities.WIL },
 });
 
-/** Generate a full hireling from a random 2e statblock. @returns {Promise<Object>} */
-export const generateHireling = async () => {
-  const h = await randomHireling();
+/** Generate a full NPC from a random 2e statblock. @returns {Promise<Object>} */
+export const generateNpc = async () => {
+  const h = await randomCareer();
   return {
-    name: await rollHirelingName(),
+    name: await rollNpcName(),
     profession: h?.name ?? "",
     rate: h?.rate ?? 0,
     abilities: h?.abilities ?? { STR: 10, DEX: 10, WIL: 10 },
     hp: h?.hp ?? 6,
-    items: await buildHirelingItems(h),
+    items: await buildNpcItems(h),
   };
 };
 
-/** @returns {Object} Foundry create/update data for a hireling. */
-const hirelingToActorData = (h) => ({
-  name: h.name || "Hireling",
+/** @returns {Object} Foundry create/update data for a generated NPC. */
+const npcToActorData = (h) => ({
+  name: h.name || "NPC",
   // `npc`, not `hireling`: the two are one type now and the directory button that
   // makes these says "Generate NPC". A generated one IS for hire, so `forHire`
   // says so and its day rate shows — that was the `hireling` ROLE until the
@@ -1950,7 +1950,7 @@ const hirelingToActorData = (h) => ({
     forHire: true,
     profession: h.profession ?? "",
     dayRate: h.rate ?? 0,
-    abilities: hirelingAbilityData(h.abilities),
+    abilities: npcAbilityData(h.abilities),
     hp: { value: h.hp, max: h.hp },
     gold: 0,
     deprived: false,
@@ -1962,13 +1962,13 @@ const hirelingToActorData = (h) => ({
 });
 
 /**
- * Create a fully-generated hireling actor with a random portrait + paired token
+ * Create a fully-generated NPC actor with a random portrait + paired token
  * (assigned on creation only, like a player character; re-rolls preserve it by
  * omission).
  * @returns {Promise<CairnActor>}
  */
-export const createHireling = async () => {
-  const data = hirelingToActorData(await generateHireling());
+export const createNpc = async () => {
+  const data = npcToActorData(await generateNpc());
   const pair = await randomPortraitPair();
   if (pair) {
     data.img = pair.img;
@@ -1978,18 +1978,18 @@ export const createHireling = async () => {
 };
 
 /**
- * Full re-roll of an existing hireling: a fresh random statblock (new profession,
+ * Full re-roll of an existing NPC: a fresh random statblock (new profession,
  * day-rate, abilities, HP and gear). Keeps the name, portrait and free-form notes
  * -- the update omits them.
  * @param {CairnActor} actor
  * @returns {Promise<CairnActor>}
  */
-export const regenerateHireling = async (actor) => {
-  const h = await generateHireling();
+export const regenerateNpc = async (actor) => {
+  const h = await generateNpc();
   await actor.deleteEmbeddedDocuments("Item", [], { deleteAll: true, render: false });
   // createEmbeddedDocuments, never `items` inside the update: the update route
   // creates embedded documents without firing createItem hooks. Same order as
-  // rerollHirelingProfession below — create render:false, then one update renders.
+  // rerollNpcProfession below — create render:false, then one update renders.
   if (h.items?.length) await actor.createEmbeddedDocuments("Item", h.items, { render: false });
   await actor.update({
     system: {
@@ -2000,7 +2000,7 @@ export const regenerateHireling = async (actor) => {
       forHire: true,
       profession: h.profession,
       dayRate: h.rate,
-      abilities: hirelingAbilityData(h.abilities),
+      abilities: npcAbilityData(h.abilities),
       hp: { value: h.hp, max: h.hp },
       critical: false,
     },
@@ -2009,16 +2009,16 @@ export const regenerateHireling = async (actor) => {
 };
 
 /**
- * Profession re-roll: swap to a different example hireling and adopt its whole
- * canonical statblock -- Profession, day-rate, abilities, HP and granted gear (a
- * 2e hireling's stats ARE its profession). Keeps the name, portrait, notes and
- * any GM-added items.
+ * Profession re-roll: swap to a different example statblock and adopt the whole
+ * of it -- Profession, day-rate, abilities, HP and granted gear (a 2e career's
+ * stats ARE its profession). Keeps the name, portrait, notes and any GM-added
+ * items.
  * @param {CairnActor} actor
  * @returns {Promise<CairnActor>}
  */
-export const rerollHirelingProfession = async (actor) => {
-  const h = await randomHireling(actor.system.profession);
-  const items = await buildHirelingItems(h);
+export const rerollNpcProfession = async (actor) => {
+  const h = await randomCareer(actor.system.profession);
+  const items = await buildNpcItems(h);
   const stale = actor.items
     .filter((i) => i.getFlag(FLAG_SCOPE, "grantSource") === "profession")
     .map((i) => i.id);
@@ -2026,12 +2026,12 @@ export const rerollHirelingProfession = async (actor) => {
   if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false });
   await actor.update({
     system: {
-      // See regenerateHireling: the pair travels with the rate it gates.
+      // See regenerateNpc: the pair travels with the rate it gates.
       role: "npc",
       forHire: true,
       profession: h?.name ?? "",
       dayRate: h?.rate ?? 0,
-      abilities: hirelingAbilityData(h?.abilities ?? { STR: 10, DEX: 10, WIL: 10 }),
+      abilities: npcAbilityData(h?.abilities ?? { STR: 10, DEX: 10, WIL: 10 }),
       hp: { value: h?.hp ?? 6, max: h?.hp ?? 6 },
       critical: false,
     },
@@ -2040,12 +2040,12 @@ export const rerollHirelingProfession = async (actor) => {
 };
 
 /**
- * Re-roll only a hireling's NAME, leaving its statblock alone.
+ * Re-roll only an NPC's NAME, leaving its statblock alone.
  * @param {CairnActor} actor
  * @returns {Promise<CairnActor>}
  */
-export const rerollHirelingName = async (actor) => {
-  await actor.update({ name: await rollHirelingName() });
+export const rerollNpcName = async (actor) => {
+  await actor.update({ name: await rollNpcName() });
   for (const token of actor.getActiveTokens()) {
     await token.document.update({ name: actor.name });
   }

@@ -204,7 +204,7 @@ export const generateMonster = async (tierChoice) => {
   return { tier, name, hp: t.hp, abilities: rollMonsterAbilities(tier), description, items };
 };
 
-/** @returns {Object} Foundry create data for a monster. Mirrors hirelingToActorData. */
+/** @returns {Object} Foundry create data for a monster. Mirrors npcToActorData. */
 const monsterToActorData = (m) => ({
   name: m.name,
   type: "npc",
@@ -270,7 +270,7 @@ export const createMonster = async () => {
 /**
  * Full re-roll of an existing monster at a chosen tier: new stats, attack,
  * armor and description. Keeps the name, portrait and token art — the update
- * omits them (regenerateHireling's keep-by-omission rule).
+ * omits them (regenerateNpc's keep-by-omission rule).
  * @param {CairnActor} actor
  * @param {"standard"|"hardier"|"serious"|"random"} tierChoice
  * @returns {Promise<CairnActor>}
@@ -280,7 +280,7 @@ export const regenerateMonster = async (actor, tierChoice) => {
   await actor.deleteEmbeddedDocuments("Item", [], { deleteAll: true, render: false });
   // createEmbeddedDocuments, never `items` inside the update: the update route
   // creates embedded documents without firing createItem hooks. Same order as
-  // regenerateHireling — create render:false, then the one update renders.
+  // regenerateNpc — create render:false, then the one update renders.
   if (m.items?.length) await actor.createEmbeddedDocuments("Item", m.items, { render: false });
   await actor.update({
     system: {

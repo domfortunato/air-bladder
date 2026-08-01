@@ -1,21 +1,21 @@
 #!/usr/bin/env node
 /**
- * Hireling acceptance probe: prove that a generated hireling is a faithful copy
+ * NPC acceptance probe: prove that a generated NPC is a faithful copy
  * of one of Cairn 2e's twelve example statblocks, and that its gear is a live
  * COPY of the editable pool -- the same reference guarantee as a character's
  * starting gear, not a second inlined loadout.
  *
- *   node tools/dev/hireling-probe.mjs     (needs Foundry running, world launched)
+ *   node tools/dev/npc-probe.mjs     (needs Foundry running, world launched)
  *
  * Steps, driven headless as GM:
  *   1. Load the shipped catalogue; assert 12 statblocks, all gear by-name refs
  *      (a `tags` key would mean the inline shape crept back in).
- *   2. Create a hireling; assert its profession/day-rate/HP/abilities match its
+ *   2. Create an NPC; assert its profession/day-rate/HP/abilities match its
  *      book statblock exactly, and that every gear reference resolved into an
  *      owned item tagged grantSource "profession".
  *   3. Assert derived Armor equals the statblock's printed Armor -- which only
  *      holds if the armor pieces resolved from the pool AND were equipped.
- *   4. Edit a pool item the hireling carries; re-roll the profession until it
+ *   4. Edit a pool item the NPC carries; re-roll the profession until it
  *      comes back round to that statblock, and assert the edit flows through.
  *   5. Profession re-roll replaces only profession-tagged gear: a GM-added item
  *      survives.
@@ -62,8 +62,8 @@ try {
     };
 
     // 1. The shipped catalogue must be references, not inline records.
-    const list = await CG.getHirelings2e();
-    if (!list.length) return { error: "hirelings catalogue is empty or unreachable" };
+    const list = await CG.getNpcCareers2e();
+    if (!list.length) return { error: "NPC careers catalogue is empty or unreachable" };
     const inlineLeak = list.flatMap((h) => h.gear ?? []).filter((g) => "tags" in g || "description" in g);
     const catalogue = {
       count: list.length,
@@ -71,8 +71,8 @@ try {
       inlineLeak: inlineLeak.length,
     };
 
-    // 2. Create a hireling and match it against its book statblock.
-    const actor = await CG.createHireling();
+    // 2. Create an NPC and match it against its book statblock.
+    const actor = await CG.createNpc();
     const book = list.find((h) => h.name === actor.system.profession);
     if (!book) return { error: `generated profession "${actor.system.profession}" is not in the catalogue` };
 
@@ -104,7 +104,7 @@ try {
     let armorCase = null;
     if (armored) {
       for (let i = 0; i < 200 && actor.system.profession !== armored.name; i++) {
-        await CG.rerollHirelingProfession(actor);
+        await CG.rerollNpcProfession(actor);
       }
       if (actor.system.profession === armored.name) {
         armorCase = {
@@ -127,7 +127,7 @@ try {
       const wasLocked = pack.locked;
       if (wasLocked) await pack.configure({ locked: false });
       const origDesc = poolDoc.system.description ?? "";
-      const marker = "HIRELING-PROBE-MARKER-7";
+      const marker = "NPC-PROBE-MARKER-7";
       await poolDoc.update({ "system.description": marker });
 
       // Re-roll AWAY first -- the actor currently IS this profession, and its gear
@@ -135,9 +135,9 @@ try {
       // compare the stale pre-edit item and always fail. Then cycle back to it
       // (re-roll avoids the current profession, so it wanders); bounded so a miss
       // cannot hang the probe.
-      await CG.rerollHirelingProfession(actor);
+      await CG.rerollNpcProfession(actor);
       for (let i = 0; i < 200 && actor.system.profession !== book.name; i++) {
-        await CG.rerollHirelingProfession(actor);
+        await CG.rerollNpcProfession(actor);
       }
       if (actor.system.profession === book.name) {
         const it = actor.items.find((x) => x.name.toLowerCase() === poolDoc.name.toLowerCase());
@@ -152,7 +152,7 @@ try {
     //    grantSource, so _replace-by-source must not touch it).
     await actor.createEmbeddedDocuments("Item", [{ name: "PROBE GM Item", type: "item" }]);
     const beforeProf = actor.system.profession;
-    await CG.rerollHirelingProfession(actor);
+    await CG.rerollNpcProfession(actor);
     const survive = {
       gmItemKept: !!actor.items.find((i) => i.name === "PROBE GM Item"),
       professionChanged: actor.system.profession !== beforeProf,
@@ -172,7 +172,7 @@ try {
     const nameBefore = actor.name;
     const profBefore = actor.system.profession;
     const hpBefore = actor.system.hp.max;
-    await CG.rerollHirelingName(actor);
+    await CG.rerollNpcName(actor);
     const rename = {
       changed: actor.name !== nameBefore,
       statblockKept: actor.system.profession === profBefore && actor.system.hp.max === hpBefore,
@@ -348,13 +348,13 @@ try {
     r.catalogue.count === 12 ? ok("12 example hirelings shipped") : fail(`expected 12 statblocks, got ${r.catalogue.count}`);
     r.catalogue.inlineLeak === 0 ? ok("all gear is by-name references (no inline tags/descriptions)") : fail(`${r.catalogue.inlineLeak} gear entries still carry inline tags/description`);
 
-    console.log(`  generated hireling: ${r.gen.profession}`);
+    console.log(`  generated NPC: ${r.gen.profession}`);
     r.gen.dayRate ? ok("day rate matches the book statblock") : fail("day rate does not match the statblock");
     r.gen.hp ? ok("HP matches the book statblock") : fail("HP does not match the statblock");
     r.gen.abilities ? ok("STR/DEX/WIL match the book statblock") : fail("abilities do not match the statblock");
     r.gen.resolvedAll ? ok(`all ${r.gen.expected} gear references resolved from the pool`) : fail(`only ${r.gen.resolved}/${r.gen.expected} gear references resolved`);
     r.gen.armorDerived ? ok(`derived Armor ${r.gen.armorGot} matches the printed ${r.gen.armorBook} (pool armor resolved AND equipped)`) : fail(`derived Armor ${r.gen.armorGot} != printed ${r.gen.armorBook}`);
-    r.gen.portrait ? ok("hireling got a shipped portrait") : fail("hireling has no shipped portrait");
+    r.gen.portrait ? ok("NPC got a shipped portrait") : fail("NPC has no shipped portrait");
 
     if (!r.armorCase) fail("could not reach an armoured statblock to test derived Armor");
     else r.armorCase.matches
@@ -362,7 +362,7 @@ try {
       : fail(`${r.armorCase.profession}: derived Armor ${r.armorCase.got} != printed ${r.armorCase.book} (${r.armorCase.equipped} equipped)`);
 
     if (r.editFlowed === null) fail("could not cycle back to the edited profession to test pool edits");
-    else r.editFlowed ? ok(`EDIT FLOWS THROUGH: pool edit to "${r.editTarget}" appears on the re-rolled hireling`) : fail(`pool edit to "${r.editTarget}" did NOT flow through`);
+    else r.editFlowed ? ok(`EDIT FLOWS THROUGH: pool edit to "${r.editTarget}" appears on the re-rolled NPC`) : fail(`pool edit to "${r.editTarget}" did NOT flow through`);
 
     r.survive.professionChanged ? ok("profession re-roll changes the profession") : fail("profession re-roll did not change the profession");
     r.survive.gmItemKept ? ok("GM-added item survives a profession re-roll") : fail("profession re-roll destroyed a GM-added item");
@@ -371,7 +371,7 @@ try {
     r.rename.changed ? ok(`name re-roll changed the name (${r.rename.newName})`) : fail("name re-roll did not change the name");
     r.rename.statblockKept ? ok("name re-roll left the statblock alone") : fail("name re-roll disturbed the statblock");
 
-    r.sheet.inDom ? ok(`${r.sheet.cls} rendered [${r.sheet.tabs.join(" | ")}]`) : fail("hireling sheet did not appear in the DOM");
+    r.sheet.inDom ? ok(`${r.sheet.cls} rendered [${r.sheet.tabs.join(" | ")}]`) : fail("NPC sheet did not appear in the DOM");
     r.sheet.hasProfession && r.sheet.hasDayRate ? ok("sheet shows the Profession and Day Rate fields") : fail("sheet is missing the Profession/Day Rate fields");
     r.sheet.hasDescriptionTab ? ok("has a Description tab (one merged non-player sheet, so monster prose stays reachable)") : fail("no Description tab — monster/NPC description text would be unreachable");
 
@@ -440,5 +440,5 @@ try {
   await browser.close();
 }
 
-console.log(failed ? "\nHIRELING PROBE FAILED\n" : "\nhireling probe passed\n");
+console.log(failed ? "\nNPC PROBE FAILED\n" : "\nnpc probe passed\n");
 process.exit(failed ? 1 : 0);

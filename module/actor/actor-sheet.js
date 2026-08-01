@@ -1,4 +1,4 @@
-import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, mentionsSecondBond, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, getCustomPortraitPaths, regenerateHireling, rerollHirelingProfession, rerollHirelingName, rollNameFromTable, rollAge } from "../character-generator.js";
+import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, mentionsSecondBond, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, getCustomPortraitPaths, regenerateNpc, rerollNpcProfession, rerollNpcName, rollNameFromTable, rollAge } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, sourceLabel } from "../utils.js";
@@ -364,8 +364,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     const isChar = this.actor.type === "character";
     // npc and hireling are one thing, so both get the NPC generation controls.
-    const isHireling = ["hireling", "npc"].includes(this.actor.type);
-    const generates = (isChar || isHireling)
+    const isNpc = ["hireling", "npc"].includes(this.actor.type);
+    const generates = (isChar || isNpc)
       && this.actor.isOwner
       && game.settings.get(SETTINGS_NS, "show-generate-header");
     if (!generates) return [popOut, ...buttons];
@@ -375,9 +375,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // toggle can reveal it without rebuilding the frame — which first render is
     // the only chance to do.
     return [
-      // Character → "Roll Character"; hireling → "Roll NPC". Same control, same
+      // Character → "Roll Character"; NPC → "Roll NPC". Same control, same
       // action; only the wording differs.
-      { action: "rollActor", icon: "fas fa-dice-d6", label: isHireling ? "CAIRN.RollNpc" : "CAIRN.RegenerateCharacter" },
+      { action: "rollActor", icon: "fas fa-dice-d6", label: isNpc ? "CAIRN.RollNpc" : "CAIRN.RegenerateCharacter" },
       { action: "toggleGeneration", icon: "fas fa-toggle-on", label: "CAIRN.RandomizationOn" },
       popOut,
       ...buttons,
@@ -1437,7 +1437,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * whole bestiary: all 205 shipped monsters are `type: npc`, none of them declares
    * `generationEnabled` (so it defaults true, data-models.js:208) and
    * `show-generate-header` defaults true — so the button renders on every monster
-   * for anyone who owns it, and `regenerateHireling` deletes every embedded Item
+   * for anyone who owns it, and `regenerateNpc` deletes every embedded Item
    * and overwrites the statblock. One click turned a shipped Gorilla into an
    * Alchemist (observed 2026-07-30: `Fists*` → six pieces of gear, STR 14→8, HP
    * 4→2), with no dialog and no undo.
@@ -1472,7 +1472,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       rejectClose: false,
     });
     if (!confirm) return;
-    if (isNpc) await regenerateHireling(this.actor);
+    if (isNpc) await regenerateNpc(this.actor);
     else await regenerateActor(this.actor);
   }
 
@@ -1536,7 +1536,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   /**
    * Dice beside the name. Both sheets carry one, but they draw from different
-   * sources -- a hireling's name comes from its own spark table, a character's
+   * sources -- an NPC's name comes from its own spark table, a character's
    * from the background's example names.
    *
    * 2e names come from the CURRENT background's example-name list (so the name
@@ -1548,7 +1548,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   static async #onRollName(event) {
     event.preventDefault();
     if (["hireling", "npc"].includes(this.actor.type)) {
-      await rerollHirelingName(this.actor);
+      await rerollNpcName(this.actor);
       return;
     }
     let name = null;
@@ -1568,14 +1568,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
-   * Profession-only die: swap to a different example hireling and adopt its whole
-   * canonical statblock (a 2e hireling's stats ARE its profession). Keeps the
-   * name, portrait, notes and any GM-added gear.
+   * Profession-only die: swap to a different example statblock and adopt the
+   * whole of it (a 2e career's stats ARE its profession). Keeps the name,
+   * portrait, notes and any GM-added gear.
    * @this {CairnActorSheet}
    */
   static async #onRollProfession(event) {
     event.preventDefault();
-    await rerollHirelingProfession(this.actor);
+    await rerollNpcProfession(this.actor);
   }
 
   /* -------------------------------------------- */

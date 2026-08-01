@@ -3,7 +3,7 @@ import { CairnActor } from "./actor/actor.js";
 import { CairnActorSheet } from "./actor/actor-sheet.js";
 import { CairnItem, FATIGUE_NAME, SPELLSCROLL_NAME } from "./item/item.js";
 import { CairnItemSheet } from "./item/item-sheet.js";
-import { createCharacter, createHireling, FLAG_SCOPE } from "./character-generator.js";
+import { createCharacter, createNpc, FLAG_SCOPE } from "./character-generator.js";
 import * as characterGenerator from "./character-generator.js";
 import { createMonster } from "./monster-generator.js";
 import * as monsterGenerator from "./monster-generator.js";
@@ -790,7 +790,7 @@ Hooks.on("renderActorDirectory", (app, html) => {
     // Foundry renders a second, independent ActorDirectory when the tab is
     // popped out, and a document-wide getElementById sees the docked one's
     // button and skips injection -- so the popped-out window had no Generate,
-    // Hireling or Import buttons at all. The id is duplicated across the two
+    // NPC or Import buttons at all. The id is duplicated across the two
     // windows by design; the class is what the click handlers below bind to.
     if (!html.querySelector("#cairn-character-gen-button")) {
       const section = document.createElement("header");
@@ -805,8 +805,8 @@ Hooks.on("renderActorDirectory", (app, html) => {
           <button class="create-character-generator-button"><i class="fas fa-dice-d6"></i>${game.i18n.localize(
           "CAIRN.CharacterGenerator"
         )}</button>
-          <button class="create-hireling-button"><i class="fas fa-user-plus"></i>${game.i18n.localize(
-          "CAIRN.CreateHireling"
+          <button class="create-npc-button"><i class="fas fa-user-plus"></i>${game.i18n.localize(
+          "CAIRN.CreateNpc"
         )}</button>
           ${game.user.isGM ? `<button class="create-monster-button"><i class="fas fa-dragon"></i>${game.i18n.localize("CAIRN.CreateMonster")}</button>` : ""}
           ${game.user.isGM ? `<button class="import-kettlewright-button"><i class="fas fa-file-import"></i>${game.i18n.localize("CAIRN.KWImport.Button")}</button>` : ""}
@@ -820,9 +820,9 @@ Hooks.on("renderActorDirectory", (app, html) => {
           if (actor) actor.sheet.render(true);
         });
       section
-        .querySelector(".create-hireling-button")
+        .querySelector(".create-npc-button")
         .addEventListener("click", async () => {
-          const actor = await createHireling();
+          const actor = await createNpc();
           if (actor) actor.sheet.render(true);
         });
       // Warden-only: monsters are the Warden's to mint. The tier picker inside
