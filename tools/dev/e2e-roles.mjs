@@ -627,11 +627,11 @@ try {
   pick.isContainerGallery
     ? ok("a thing-role NPC gets the container gallery", "not the 80-portrait one")
     : bad("a thing-role NPC gets the container gallery", "it opened the character portrait picker");
-  // 12 cells for 13 classes: the gallery shows each GLYPH once, and mule/donkey
+  // 14 cells for 15 classes: the gallery shows each GLYPH once, and mule/donkey
   // share Skoll's donkey (game-icons.net has no mule). Removing the dedupe
-  // filter fails BOTH of the first two assertions — 13 cells, donkey.svg twice.
-  pick.cellCount === 12 && pick.classed === 12
-    ? ok("one cell per glyph, each carrying its class key", `${pick.cellCount} cells for 13 classes`)
+  // filter fails BOTH of the first two assertions — 15 cells, donkey.svg twice.
+  pick.cellCount === 14 && pick.classed === 14
+    ? ok("one cell per glyph, each carrying its class key", `${pick.cellCount} cells for 15 classes`)
     : bad("one cell per glyph, each carrying its class key", `${pick.cellCount} cells, ${pick.classed} classed`);
   new Set(pick.srcs).size === pick.srcs.length
     ? ok("no two cells wear the same image", "the doubled donkey is gone")

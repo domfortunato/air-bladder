@@ -75,6 +75,14 @@ export const CONTAINER_CLASSES = {
   handcart: { icon: "handcart", label: "CAIRN.ClassHandcart", slots: 4, role: "transport" },
   cart: { icon: "cart", label: "CAIRN.ClassCart", slots: 4, role: "transport" },
   wagon: { icon: "wagon", label: "CAIRN.ClassWagon", slots: 8, role: "transport" },
+  // A funeral wagon carries a body and what goes in the ground with it, so it is
+  // a wagon with most of its bed already spoken for: 6, the number the Bonekeeper
+  // background's Burial Wagon has shipped with since it was written.
+  funeralwagon: { icon: "funeralwagon", label: "CAIRN.ClassFuneralWagon", slots: 6, role: "transport" },
+  // Open 2e gives no capacity for a boat -- there is no boat in it. 8 is the
+  // wagon's number, chosen because a rowboat and a wagon hold about one load of
+  // gear each; a Warden who disagrees types over it, which is what the field is for.
+  smallcraft: { icon: "smallcraft", label: "CAIRN.ClassSmallcraft", slots: 8, role: "transport" },
   mule: { icon: "donkey", label: "CAIRN.ClassMule", slots: 6, role: "mount" },
   donkey: { icon: "donkey", label: "CAIRN.ClassDonkey", slots: 4, role: "mount" },
   horse: { icon: "horse", label: "CAIRN.ClassHorse", slots: 4, role: "mount" },
@@ -130,7 +138,17 @@ export const containerClass = (name = "", legacyKind = "", stored = "") => {
   if (/\bsacks?\b/.test(n) || n.includes("pouch") || n.includes("satchel")) return "sack";
   if (n.includes("handcart")) return "handcart";              // before "cart"
   if (n.includes("cart")) return "cart";
+  // Purpose before construction, so "Burial Wagon" is not just a wagon. A
+  // "Funeral Cart" is still a cart, because `cart` is tested above it — that is
+  // the right answer, the class is a WAGON with a coffin in it.
+  if (/funeral|hearse|burial/.test(n)) return "funeralwagon";
   if (n.includes("wagon")) return "wagon";
+  // `\brafts?\b` and `\bcraft\b`, not bare substrings: "raft" lives inside "Draft
+  // Horse", which would otherwise sail, and "craft" inside "handicraft". `craft`
+  // is here at all because every other class answers to its own label — a thing
+  // NAMED "Small Craft" that classified as a chest is the first thing a Warden
+  // would try.
+  if (/boat|canoe|skiff|coracle|dinghy|\brafts?\b|\bcraft\b/.test(n)) return "smallcraft";
   if (n.includes("mule")) return "mule";                      // before "donkey"
   if (n.includes("donkey")) return "donkey";
   // Crate, barrel and box used to fall into `chest` for want of their own art.

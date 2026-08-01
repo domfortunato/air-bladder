@@ -48,6 +48,14 @@ const ICONS = {
   // container art picker. The picker dedupes shared GLYPHS (mule/donkey), but
   // these were two files, invisible to it — so the wagon gets its own art.
   "wagon": ["delapouite", "old-wagon"],
+  // A funeral wagon is a wagon by construction and a hearse by purpose, and only
+  // the purpose is drawable — game-icons.net has no hearse, so the COFFIN stands
+  // for the thing it carries. Deliberately not a second wagon glyph: the picker
+  // dedupes shared glyphs, so two wagons would silently cost one of them its cell.
+  "funeralwagon": ["lorc", "coffin"],
+  // Cairn's water transport is a rowboat, a skiff, a coracle -- one or two people
+  // and their gear, never a ship. The canoe is the smallest hull on the site.
+  "smallcraft": ["delapouite", "canoe"],
   "stack": ["delapouite", "stack"],
   // Storage a Warden can pick from the container art list. `box` is deliberately
   // NOT called "cardboard box" -- the glyph is a plain closed box and cardboard

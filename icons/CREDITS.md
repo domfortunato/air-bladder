@@ -32,6 +32,8 @@ credited under CC BY 3.0. The icons used here are by **Lorc**, **Delapouite** an
 | `cart.svg` | carts | Cartwheel | Lorc | <https://game-icons.net/1x1/lorc/cartwheel.html> |
 | `handcart.svg` | handcarts | Wheelbarrow | Delapouite | <https://game-icons.net/1x1/delapouite/wheelbarrow.html> |
 | `wagon.svg` | wagons | Old Wagon | Delapouite | <https://game-icons.net/1x1/delapouite/old-wagon.html> |
+| `funeralwagon.svg` | funeral wagons / hearses | Coffin | Lorc | <https://game-icons.net/1x1/lorc/coffin.html> |
+| `smallcraft.svg` | small craft (boats, skiffs, rafts) | Canoe | Delapouite | <https://game-icons.net/1x1/delapouite/canoe.html> |
 | `stack.svg` | item piles (loot left in a scene) | Stack | Delapouite | <https://game-icons.net/1x1/delapouite/stack.html> |
 | `crate.svg` | crates | Wooden Crate | Delapouite | <https://game-icons.net/1x1/delapouite/wooden-crate.html> |
 | `barrel.svg` | barrels | Barrel | Delapouite | <https://game-icons.net/1x1/delapouite/barrel.html> |

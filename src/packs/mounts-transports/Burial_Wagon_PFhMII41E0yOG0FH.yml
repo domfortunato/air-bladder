@@ -1,11 +1,11 @@
 _id: PFhMII41E0yOG0FH
 name: Burial Wagon
 type: npc
-img: systems/air-bladder/icons/wagon.svg
+img: systems/air-bladder/icons/funeralwagon.svg
 prototypeToken:
   name: Burial Wagon
   texture:
-    src: systems/air-bladder/icons/wagon.svg
+    src: systems/air-bladder/icons/funeralwagon.svg
 items: []
 effects: []
 folder: Y7FAeuwxTR9cyRtC
@@ -20,7 +20,7 @@ system:
     max: 0
   slots: 6
   cost: 0
-  containerClass: wagon
+  containerClass: funeralwagon
   role: transport
   generationEnabled: false
 ownership:

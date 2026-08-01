@@ -49,7 +49,10 @@ const EXPECTED = {
   Cart: ["Cart", "cart.svg"],
   Handcart: ["Handcart", "handcart.svg"],
   Wagon: ["Wagon", "wagon.svg"],
-  "Burial Wagon": ["Wagon", "wagon.svg"],
+  // Its own Kind since the funeralwagon class landed: the name carries "Burial",
+  // which the classifier tests BEFORE "wagon", and the pack document stores the
+  // class outright. A hearse is not a hay wagon with a different label.
+  "Burial Wagon": ["Funeral Wagon", "funeralwagon.svg"],
   Sack: ["Sack", "sack.svg"],
   Backpack: ["Backpack", "backpack.svg"],
 };
@@ -94,6 +97,25 @@ try {
   destrier?.label === "Horse"
     ? ok('a Heavy Destrier reads "Horse"', "the case this was built for")
     : fail('a Heavy Destrier reads "Horse"', `got "${destrier?.label}"`);
+
+  // The other half of the classifier: a name with NO stored class, which is what
+  // a Warden typing one in gets. Each pair here is a rule that can only be broken
+  // silently — the two word-boundary ones especially, since "Draft Horse" holds a
+  // raft and every class but Small Craft used to answer to its own label.
+  const BY_NAME = {
+    "Funeral Wagon": "funeralwagon", "Burial Wagon": "funeralwagon", Hearse: "funeralwagon",
+    Wagon: "wagon", "Funeral Cart": "cart",
+    Rowboat: "smallcraft", Skiff: "smallcraft", "Small Craft": "smallcraft",
+    "Draft Horse": "horse", Handicraft: "chest",
+  };
+  const named = await gmPage.evaluate(async (names) => {
+    const icons = await import("/systems/air-bladder/module/icons.js");
+    return Object.fromEntries(names.map((n) => [n, icons.containerClass(n)]));
+  }, Object.keys(BY_NAME));
+  const misnamed = Object.entries(BY_NAME).filter(([n, want]) => named[n] !== want);
+  !misnamed.length
+    ? ok(`${Object.keys(BY_NAME).length} names classify by word alone`, "purpose before construction; no raft in a Draft Horse")
+    : fail("names classify by word alone", JSON.stringify(misnamed.map(([n, w]) => `${n}: want ${w}, got ${named[n]}`)));
 
   /* --- 2. a Warden makes a pile ------------------------------------------ */
   console.log("\nmaking an Item Pile");
