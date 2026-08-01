@@ -33,15 +33,25 @@ const fields = foundry.data.fields;
  * Replaces `forHire` (gated the day rate) and `inanimate` (hid the stat block):
  * two independent booleans could say "for-hire inanimate chest"; one role field
  * cannot express nonsense. Order here is the sheet's pick-list order.
+ *
+ * **`hireling` was the sixth and is GONE (2026-08-01).** Being for hire is not a
+ * different KIND of person, it is a fact about one — which is why the two roles
+ * shared a sheet, a stat block, a generator and a career table, and differed only
+ * in whether one row rendered. It comes back as `forHire`, a boolean beside the
+ * day rate it gates, and the enum keeps its promise that a role says what
+ * something IS. Every stored "hireling" is converted by `migrateData` below on
+ * read and by the world migration in cairn.js on write; the `hireling` TYPE stays
+ * registered (ids are immutable) but is hidden from Create Actor.
  */
-export const NPC_ROLES = ["npc", "hireling", "monster", "mount", "transport", "container"];
+export const NPC_ROLES = ["npc", "monster", "mount", "transport", "container"];
 
 /** Roles that hide the stat block — what `inanimate` used to mean. */
 export const THING_ROLES = ["transport", "container"];
 
 /** Roles that may KEEP connections. Mount/Transport/Container can only BE
- *  connected; Monster neither. The character type keeps by virtue of its type. */
-export const KEEPER_ROLES = ["npc", "hireling"];
+ *  connected; Monster neither. The character type keeps by virtue of its type.
+ *  One entry since the hireling role collapsed into npc. */
+export const KEEPER_ROLES = ["npc"];
 
 /**
  * Derive a role for a document minted before `role` existed, from what it
@@ -51,7 +61,14 @@ export const KEEPER_ROLES = ["npc", "hireling"];
  * shipped pack sources carry `role: monster` explicitly instead.
  */
 export const deriveNpcRole = (src = {}) => {
-  if (src.forHire === true) return "hireling";
+  // `forHire` is deliberately NOT consulted. It used to come first and return
+  // "hireling", outranking everything below — a real precedence between two
+  // distinct answers. Since the collapse its answer would be "npc", which is
+  // also the fallthrough, so the early return could no longer decide anything;
+  // all it could do was MASK a live `inanimate` signal and quietly turn a
+  // pre-roles cart into a person. (Caught by the migration probe, once its
+  // legacy document was planted realistically enough to carry both keys.)
+  // Being for hire is its own stored field now and needs nothing derived.
   const clsRole = containerClassRole(src.containerClass ?? "");
   if (src.inanimate === true) return clsRole === "transport" ? "transport" : "container";
   if (clsRole === "mount") return "mount";
@@ -250,6 +267,17 @@ class NpcData extends CairnDataModel {
       // migrated hirelings keep their value without a rename pass.
       profession: str(),
       dayRate: money(0),
+      // Is this person available to hire? The retired `hireling` ROLE, demoted to
+      // the boolean it always was — see NPC_ROLES. Initially TRUE, which is the
+      // asked-for default and also what makes the collapse lossless: a world
+      // whose hirelings had `forHire` deleted by the 2026-07-31 role migration
+      // reads the initial and lands back where it started.
+      //
+      // It gates the day-rate row (with role npc), nothing else. It is NOT the
+      // pre-roles `forHire`: that one also decided the ROLE, which is exactly the
+      // overloading the roles work took apart, and `deriveNpcRole` is the only
+      // thing that still reads it that way — on a pre-roles source, once.
+      forHire: bool(true),
       // What this actor IS to the party — the one discriminator (NPC_ROLES
       // above). Replaces `forHire` and `inanimate`, both of which migrateData
       // below still reads so pre-roles documents derive the right value.
@@ -340,6 +368,22 @@ class NpcData extends CairnDataModel {
    * selects on type + legacy keys + dayRate, never on this.
    */
   static migrateData(source) {
+    // The hireling-role collapse (2026-08-01), and it MUST ship in the same
+    // commit as the shrunk NPC_ROLES: `migrateData` runs BEFORE choices
+    // validation (common/data/fields.mjs:234 via common/abstract/data.mjs:77-81),
+    // so this is what stops every stored "hireling" failing the enum on load.
+    //
+    // Guarded on the LITERAL value, never on absence — the docblock above is the
+    // whole reason: this also runs on update diffs, where "absent" says nothing.
+    // A literal `role: "hireling"` is unambiguous whichever it is, and converting
+    // an attempted write is the right answer for one too.
+    if (source && source.role === "hireling") {
+      source.role = "npc";
+      // Only when nothing has said otherwise. The role WAS the statement "for
+      // hire", so this is a rename, not an assumption — but an explicit false
+      // arriving alongside it is a caller who means it.
+      if (source.forHire === undefined) source.forHire = true;
+    }
     if (source && source.role === undefined
       && (source.forHire !== undefined || source.inanimate !== undefined)) {
       source.role = deriveNpcRole(source);

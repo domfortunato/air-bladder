@@ -5,7 +5,7 @@
  * Role replaced the For Hire and Inanimate checkboxes: transport/container hide
  * the stat block (HP, STR/DEX/WIL, Armor, Deprived/Panicked, the Rest / Restore /
  * Die-of-Fate buttons and every derived condition) while KEEPING the name,
- * inventory and tabs; only hireling shows the day rate; monster loses the
+ * inventory and tabs; only a FOR-HIRE npc shows the day rate; monster loses the
  * Connections tab outright. Since Round 2, GOLD follows the role too: mounts and
  * things hide the counter while the stored value survives.
  *
@@ -19,7 +19,7 @@
  *    block it hides — pick Container and the select must survive to pick back.
  *
  * 3. **The keeping matrix, the cycle guard, and (Round 2) the edge rules.**
- *    Keeping is a Character/NPC/Hireling privilege; a CONNECTED hireling can
+ *    Keeping is a Character/NPC privilege; a CONNECTED npc can
  *    still keep, a mount cannot keep at all, an NPC→NPC loop is refused at
  *    connect time. Round 2 adds: PC → PC is legal (a party roster), an NPC
  *    never keeps a PC, ONE upward link ever (connectActor itself refuses a
@@ -120,17 +120,18 @@ try {
       name: "ZZ Roles Probe",
       type: "npc",
       // Zeroed on purpose: this is the state that makes the derived conditions
-      // fire, so a crate at 0/0/0 is the case that matters. Hireling first:
-      // review #5 found the day-rate row outliving the control that reveals it
-      // when the old checkboxes crossed, so this probe starts as a hireling and
-      // turns into a thing — the exact sequence that stranded the row.
-      system: { abilities: { STR: { value: 0, max: 0 }, DEX: { value: 0, max: 0 }, WIL: { value: 0, max: 0 } }, gold: 25, role: "hireling", dayRate: 5 },
+      // fire, so a crate at 0/0/0 is the case that matters. A FOR-HIRE PERSON
+      // first: review #5 found the day-rate row outliving the control that
+      // reveals it when the old checkboxes crossed, so this probe starts as
+      // someone with a rate and turns into a thing — the exact sequence that
+      // stranded the row.
+      system: { abilities: { STR: { value: 0, max: 0 }, DEX: { value: 0, max: 0 }, WIL: { value: 0, max: 0 } }, gold: 25, role: "npc", forHire: true, dayRate: 5 },
     });
     const sheet = a.sheet;
     await sheet.render(true);
     await sleep(900);
 
-    const asHireling = read(sheet);
+    const asPerson = read(sheet);
 
     if (!(await pickRole(sheet, "container"))) return { error: "no .role-select on the sheet" };
     const asThing = read(sheet);
@@ -144,28 +145,28 @@ try {
 
     // And back again — the one-way trap.
     const reachable = !!sheet.element.querySelector(".role-select");
-    await pickRole(sheet, "hireling");
+    await pickRole(sheet, "npc");
     const backAgain = read(sheet);
     const storedOff = a.system.role;
     const goldStoredBack = a.system.gold;
 
     await sheet.close();
     await a.delete();
-    return { asHireling, asThing, asMount, backAgain, storedOn, storedMount, storedOff, goldStoredAsThing, goldStoredBack, reachable };
+    return { asPerson, asThing, asMount, backAgain, storedOn, storedMount, storedOff, goldStoredAsThing, goldStoredBack, reachable };
   }, { READ, PICK_ROLE });
 
   if (out.error) throw new Error(out.error);
-  const { asHireling, asThing, asMount, backAgain } = out;
+  const { asPerson, asThing, asMount, backAgain } = out;
 
   console.log("\na hireling keeps its stat block, career and day rate");
-  asHireling.hp && asHireling.str && asHireling.armor && asHireling.restBtn
+  asPerson.hp && asPerson.str && asPerson.armor && asPerson.restBtn
     ? ok("HP, STR, Armor and Rest all present")
-    : bad("HP, STR, Armor and Rest all present", JSON.stringify(asHireling));
-  asHireling.career && asHireling.dayRate && asHireling.gold
+    : bad("HP, STR, Armor and Rest all present", JSON.stringify(asPerson));
+  asPerson.career && asPerson.dayRate && asPerson.gold
     ? ok("career, day-rate and Gold rows show", "the hidden-state assertions below can fail")
-    : bad("career, day-rate and Gold rows show", JSON.stringify(asHireling));
-  asHireling.banners.length
-    ? ok("zeroed abilities raise banners", `${asHireling.banners.length} banner(s)`)
+    : bad("career, day-rate and Gold rows show", JSON.stringify(asPerson));
+  asPerson.banners.length
+    ? ok("zeroed abilities raise banners", `${asPerson.banners.length} banner(s)`)
     : bad("zeroed abilities raise banners", "none — the control case cannot fail");
 
   console.log("\npicking Container drops the stat block");
@@ -195,9 +196,9 @@ try {
   !asThing.career && !asThing.dayRate
     ? ok("career and day rate go with the role", "no orphaned rate on a crate")
     : bad("career and day rate go with the role", JSON.stringify(asThing));
-  asThing.kind && !asHireling.kind
+  asThing.kind && !asPerson.kind
     ? ok("the Kind field rides the container role", "absent on a hireling, present on a thing")
-    : bad("the Kind field rides the container role", JSON.stringify({ thing: asThing.kind, hireling: asHireling.kind }));
+    : bad("the Kind field rides the container role", JSON.stringify({ thing: asThing.kind, hireling: asPerson.kind }));
 
   console.log("\na mount is a creature with no purse");
   out.storedMount === "mount" && asMount.hp && asMount.str && asMount.armor
@@ -211,10 +212,10 @@ try {
   out.reachable
     ? ok("the role select is still on screen", "outside every block it hides")
     : bad("the role select is still on screen", "TRAPPED — nothing left to pick with");
-  out.storedOff === "hireling" && backAgain.hp && backAgain.str && backAgain.dayRate
+  out.storedOff === "npc" && backAgain.hp && backAgain.str && backAgain.dayRate
     && backAgain.gold && out.goldStoredBack === 25
-    ? ok("picking Hireling back restores stat block + rate + Gold", "25gp intact after the round trip")
-    : bad("picking Hireling back restores stat block + rate + Gold", JSON.stringify({ stored: out.storedOff, goldStored: out.goldStoredBack, ...backAgain }));
+    ? ok("picking NPC back restores stat block + rate + Gold", "25gp intact after the round trip")
+    : bad("picking NPC back restores stat block + rate + Gold", JSON.stringify({ stored: out.storedOff, goldStored: out.goldStoredBack, ...backAgain }));
 
   /* ---- the header gap: the vitals pin to the portrait's foot (Round 2) ---- */
   console.log("\nthe short-stack header leaves no dead band");
@@ -265,7 +266,7 @@ try {
     const Cls = CONFIG.Actor.documentClass;
     const mk = (name, system) => Cls.create({ name, type: "npc", system });
     const pc = await Cls.create({ name: "ZZ Roles PC", type: "character" });
-    const h = await mk("ZZ Roles Hireling", { role: "hireling", connectedTo: pc.uuid });
+    const h = await mk("ZZ Roles Hireling", { role: "npc", connectedTo: pc.uuid });
     const m = await mk("ZZ Roles Mount", { role: "mount", containerClass: "horse" });
     const s = await mk("ZZ Roles Sack", { role: "container", containerClass: "sack" });
     const b1 = await mk("ZZ Roles NPC A", { role: "npc" });
@@ -413,7 +414,7 @@ try {
     const Cls = CONFIG.Actor.documentClass;
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const pc = await Cls.create({ name: "ZZ Roles Dir PC", type: "character" });
-    const h = await Cls.create({ name: "ZZ Roles Dir Hireling", type: "npc", system: { role: "hireling", connectedTo: pc.uuid } });
+    const h = await Cls.create({ name: "ZZ Roles Dir Hireling", type: "npc", system: { role: "npc", connectedTo: pc.uuid } });
     const s = await Cls.create({
       name: "ZZ Roles Dir Sack", type: "npc",
       system: { role: "container", containerClass: "sack", connectedTo: h.uuid, hp: { value: 0, max: 0 }, generationEnabled: false },

@@ -11,7 +11,7 @@
  * the button/form wiring is correct in the DOM.
  */
 import { chromium } from "playwright";
-import { FOUNDRY_URL, VIEWPORT, dismissChrome, joinAsGM, watchErrors } from "./lib.mjs";
+import { FOUNDRY_URL, VIEWPORT, dismissChrome, joinAsGM, watchErrors, withHookOff } from "./lib.mjs";
 
 let failures = 0;
 const ok = (l, d = "") => console.log(`  ok    ${l.padEnd(34)} ${d}`);
@@ -266,6 +266,44 @@ defaultIsNo === "no"
   : fail("confirm defaults to No", `autofocus is on "${defaultIsNo}"`);
 await page.keyboard.press("Escape");
 await page.waitForTimeout(500);
+
+/* ---------------------------------------- Create Actor: no `hireling` ---- */
+// The retired alias TYPE cannot be UNREGISTERED — ids are immutable and every
+// existing hireling would point at an undeclared subtype — but Foundry offers
+// every registered subtype in the create dialog and has no manifest flag for
+// "declared but not offered". So `abHideHirelingType` removes the option, and a
+// Warden can no longer mint a document against a folded-away model. This is the
+// exact mistake the `container` type made visible on 2026-07-31.
+const readActorTypes = () => page.evaluate(async () => {
+  const p = getDocumentClass("Actor").createDialog();
+  await new Promise((r) => setTimeout(r, 500));
+  const form = [...document.querySelectorAll("dialog form")].find((f) => f.querySelector('select[name="type"]'));
+  const out = {
+    values: [...form.querySelectorAll('select[name="type"] option')].map((o) => o.value),
+    selected: form.querySelector('select[name="type"]').value,
+  };
+  // Always press a button: an unanswered modal prompt never settles.
+  form.closest("dialog").querySelector('button[data-action="ok"], button[data-action="cancel"]')?.click();
+  const doc = await p.catch(() => null);
+  await doc?.sheet?.close();
+  await doc?.delete();
+  return out;
+});
+
+const actorTypes = await readActorTypes();
+!actorTypes.values.includes("hireling") && actorTypes.values.includes("npc")
+  ? ok("Create Actor offers no `hireling`", actorTypes.values.join(", "))
+  : fail("Create Actor offers no `hireling`", actorTypes.values.join(", "));
+actorTypes.selected !== "hireling"
+  ? ok("...and the select is left on a real option", actorTypes.selected)
+  : fail("...and the select is left on a real option", "still selecting the removed option");
+
+// Its own negative control, in-page: with the hook off the option must be back,
+// or the two assertions above hold for some other reason entirely.
+const withHireling = await withHookOff(page, "renderDialogV2", "abHideHirelingType", readActorTypes);
+withHireling.values.includes("hireling")
+  ? ok("with the hook off it returns", "so the check above is load-bearing")
+  : fail("with the hook off it returns", `still absent: ${withHireling.values.join(", ")}`);
 
 /* ----------------------------------------------------------- teardown ---- */
 await page.evaluate(async ({ id, was }) => {

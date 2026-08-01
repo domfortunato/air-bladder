@@ -180,7 +180,12 @@ try {
     // the stranded-1fr defect shipped — the tab body auto-placed into the
     // `auto` track and sat 97px tall over ~400px of dead space, with zero
     // overlaps, zero spills and zero console errors.
-    for (const type of ["hireling", "npc", "container", "inanimate"]) {
+    // No "container" TYPE: 1c3f5b2 retired it, and Actor.create has thrown
+    // `"container" is not a valid type` here ever since — red from that commit
+    // to 2026-08-01, because nothing ran this probe in between. Nothing is left
+    // uncovered by dropping it: "inanimate" below IS the thing-role layout, an
+    // npc with the stat block gone, which is what a container is now.
+    for (const type of ["hireling", "npc", "inanimate"]) {
       const actor = await Actor.create(type === "inanimate"
         ? { name: "ZZ Layout inanimate", type: "npc", system: { role: "container", slots: 4 } }
         : { name: `ZZ Layout ${type}`, type });

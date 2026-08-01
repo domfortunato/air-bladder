@@ -523,62 +523,73 @@ const migrateScrollsToSpellbooks = async () => {
   if (count) console.log(`Air Bladder | converted ${count} spellscroll(s) to flagged spellbooks`);
 };
 
+
 /**
- * The one-time stamp of `role` onto existing world actors, and the deletion of
- * the two fields it replaces (docs/npc-roles-plan.md). NpcData.migrateData
- * already derives the right value in memory on every load — this persists it,
- * so the stored state matches what the sheet shows and `forHire`/`inanimate`
- * stop existing anywhere.
+ * Persist `system.role` on every npc-typed world actor, whatever it currently
+ * derives to. ONE migration doing what two used to attempt: it stamps the role
+ * on pre-roles documents (which store `forHire`/`inanimate` and no role at all)
+ * AND converts `role: "hireling"`, retired from NPC_ROLES on 2026-08-01, into
+ * the `npc` that `NpcData.migrateData` already substitutes on every read.
  *
- * It absorbs the retired forHire migration's population too: a pre-fold
- * `type: "hireling"` document stores NONE of the fields migrateData derives
- * from (`forHire` arrived with the fold), so only the TYPE says what it is —
- * which migrateData cannot see and this walk can. Same for the dev-build
- * Roll-NPC case, a rate written with no flag: dayRate > 0 still means hireling.
+ * **It selects on NOTHING, and that is the entire design.** Both states it fixes
+ * are invisible from a running client:
  *
- * World actors only. An unlinked token's delta stores DIFFERENCES from its
- * base actor, so flipping the base is enough — no scene-token walk (see the
- * spellscroll migration above for the shape that DOES need one).
+ *   - `migrateData` rewrites `_source` during construction, so a document stored
+ *     as "hireling" and one stored as "npc" read identically.
+ *   - `cleanData` PRUNES unknown keys out of `_source`
+ *     (`common/data/fields.mjs` `#cleanKeys`), so a legacy `inanimate` sitting in
+ *     the database is not there to be found either.
  *
- * Runs ONCE, gated on a stored marker, not on the state it writes: role is a
- * pick-list on the NPC sheet, so any state test would re-stamp whatever the
- * Warden changed away from — the exact trap the forHire migration fell into
- * (untick, reload, it is back). The marker is set even when nothing matched: a
- * fresh world must still record that the one-shot has happened, or it is not
- * one-shot.
+ * That second one killed its predecessor. `migrateNpcRoles` selected on
+ * `"inanimate" in _source.system` and therefore matched **nothing, ever** — it
+ * ran to completion, logged nothing, and set its marker, while the key it was
+ * looking for sat in the database untouched. Nobody could see it, because the
+ * probe that covered it read `_source` too and read the same pruned object. It
+ * only surfaced once the migration probe started planting state through the raw
+ * socket and reading the raw server record back. A selection is only as good as
+ * the view it selects through; this one has no selection to be wrong.
+ *
+ * Blind is affordable because of what `{diff: false}` does, measured against
+ * 14.365 rather than assumed:
+ *
+ *   - It skips the empty-diff `continue` in `client/data/client-backend.mjs:262`,
+ *     so the key is TRANSMITTED even though the client can see no change. A
+ *     value diverged in memory (updateSource) and then written this way lands on
+ *     the server and survives a reload — which is precisely this migration's
+ *     shape, and it was confirmed that way before this was written.
+ *   - The server still answers with a real diff, so a document that already held
+ *     the same role is echoed back as `{_id}` alone: no write, no `modifiedTime`
+ *     bump. Re-stamping every npc costs nothing on the ones that did not need it.
+ *
+ * Only `role`. `forHire` is deliberately NOT written: its schema initial is
+ * `true`, which is exactly what the shim gives a converted hireling, so storing
+ * it would touch every npc, mount, transport, container and monster in the world
+ * to record a value they already read. The one case that needs it stored — a
+ * Warden unticking the box — writes itself through the sheet. A retired
+ * `inanimate` is likewise left where it lies: with `role` now stored beside it,
+ * `migrateData`'s guard never looks at it again, so it is inert.
+ *
+ * Gated on a marker, not on state — role is a pick-list, so any state test would
+ * re-stamp whatever the Warden changed away from (untick, reload, it is back).
+ * The marker is set even when nothing matched, and only after the writes land:
+ * a throw leaves it unset so a failed migration is retried rather than recorded
+ * as done.
+ *
+ * World actors only, like every sibling phase. An unlinked token's delta stores
+ * DIFFERENCES from its base actor, so flipping the base is enough — no
+ * scene-token walk (see the spellscroll migration above for the shape that DOES
+ * need one). Compendium documents are read through the same shim.
  */
 const migrateNpcRoles = async () => {
-  if (game.settings.get(SETTINGS_NS, "roles-migrated")) return;
-  // "Role absent in the database" is NOT observable from here: cleanData fills
-  // the schema initial into `_source` on construction, so a pre-roles document
-  // and one stored as role "npc" read identically. The selection therefore keys
-  // on what IS observable — the alias type, the legacy keys (which cleaning
-  // preserves in _source until a write), and a day rate with nothing gating it
-  // — and never on "role missing", which it tried to first and silently skipped
-  // the pre-fold hirelings, the whole population this exists for.
+  if (game.settings.get(SETTINGS_NS, "roles-restamped")) return;
   const updates = game.actors
-    .filter((a) => ["hireling", "npc"].includes(a.type))
-    .map((a) => {
-      const src = a._source.system ?? {};
-      const hasLegacy = ("forHire" in src) || ("inanimate" in src);
-      let role = null;
-      if (hasLegacy) role = a.system.role;           // migrateData's derivation
-      if (a.type === "hireling" && a.system.role === "npc") role = "hireling";
-      else if (!role && a.system.role === "npc" && Number(src.dayRate) > 0) role = "hireling";
-      if (!role && !hasLegacy) return null;          // nothing to write, nothing to delete
-      const u = { _id: a.id, ...(role ? { "system.role": role } : {}) };
-      if ("forHire" in src) u["system.-=forHire"] = null;
-      if ("inanimate" in src) u["system.-=inanimate"] = null;
-      return u;
-    })
-    .filter(Boolean);
+    .filter((a) => ["npc", "hireling"].includes(a.type))
+    .map((a) => ({ _id: a.id, "system.role": a.system.role }));
   if (updates.length) {
-    await Actor.updateDocuments(updates);          // one batch, so it can't half-finish
+    await Actor.updateDocuments(updates, { diff: false });   // one batch, so it can't half-finish
     console.log(`Air Bladder | stamped role on ${updates.length} npc(s)`);
   }
-  // Only after the writes land: a throw above leaves the marker unset, so a failed
-  // migration is retried next load rather than being recorded as done.
-  await game.settings.set(SETTINGS_NS, "roles-migrated", true);
+  await game.settings.set(SETTINGS_NS, "roles-restamped", true);
 };
 
 // Two hooks used to tag every dialog world-wide with `.cairn-dialog` so
@@ -661,6 +672,49 @@ Hooks.on("renderDialogV2", function abSpellscrollTypeOption(dialog, element) {
     if (scroll && !nameInput.value) nameInput.value = SPELLSCROLL_NAME;
     else if (!scroll && nameInput.value === SPELLSCROLL_NAME) nameInput.value = "";
   });
+});
+
+/**
+ * Hide the retired `hireling` TYPE from the Create Actor dialog — the exact
+ * inverse of `abSpellscrollTypeOption` above, and for the same reason in reverse.
+ *
+ * The type cannot be UNREGISTERED. Foundry treats `type` as immutable and a
+ * document's id outlives any manifest edit, so dropping it from `system.json`
+ * would leave every existing hireling pointing at a subtype the system no longer
+ * declares. It stays declared, aliased to `NpcData`, and reads as role npc.
+ *
+ * But a registered subtype is ALWAYS offered: core builds the list from
+ * `Object.keys(game.model.Actor)` (client-document.mjs `createDialog`) and there
+ * is no manifest flag for "declared but not offered". So a Warden could go on
+ * minting documents against a type the system has folded away — which is the
+ * mistake the `container` type made visible on 2026-07-31, where the retired
+ * model stayed on the menu and every new one arrived on a dead sheet.
+ *
+ * Removing the OPTION is the whole fix: an existing hireling still opens, still
+ * saves, still reads role npc. Only the way to make a NEW one goes.
+ *
+ * Degrades quietly, like its sibling: if core reworks this dialog the option
+ * comes back, and the worst case is a document that behaves as an npc anyway.
+ * Named, so a probe can switch it off in the live page (lib.mjs `withHookOff`).
+ */
+Hooks.on("renderDialogV2", function abHideHirelingType(dialog, element) {
+  const root = element instanceof HTMLElement ? element : element?.[0];
+  const select = root?.querySelector('select[name="type"]');
+  if (!select) return;
+
+  // Identify the ACTOR create dialog specifically: this hook sees every DialogV2
+  // in the world. Same shape as the spellscroll hook — every option must be a
+  // known Actor type, and the one being removed must be there.
+  const actorTypes = getDocumentClass("Actor").TYPES;
+  const option = select.querySelector('option[value="hireling"]');
+  if (!option || [...select.options].some((o) => !actorTypes.includes(o.value))) return;
+
+  // Re-point the selection BEFORE removing, so the select is never left on a
+  // value that has no option: removing the selected option silently moves the
+  // browser's selection to the first one, which would be `character` and would
+  // make Create Actor default to a PC for anyone whose dialog opened on hireling.
+  if (select.value === "hireling") select.value = "npc";
+  option.remove();
 });
 
 /**

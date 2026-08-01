@@ -1941,11 +1941,13 @@ export const generateHireling = async () => {
 const hirelingToActorData = (h) => ({
   name: h.name || "Hireling",
   // `npc`, not `hireling`: the two are one type now and the directory button that
-  // makes these says "Generate NPC". A generated one IS for hire, so the role
-  // says so and its day rate shows.
+  // makes these says "Generate NPC". A generated one IS for hire, so `forHire`
+  // says so and its day rate shows — that was the `hireling` ROLE until the
+  // collapse (2026-08-01), and it is a boolean beside the rate it gates now.
   type: "npc",
   system: {
-    role: "hireling",
+    role: "npc",
+    forHire: true,
     profession: h.profession ?? "",
     dayRate: h.rate ?? 0,
     abilities: hirelingAbilityData(h.abilities),
@@ -1991,10 +1993,11 @@ export const regenerateHireling = async (actor) => {
   if (h.items?.length) await actor.createEmbeddedDocuments("Item", h.items, { render: false });
   await actor.update({
     system: {
-      // Set alongside the rate, never separately: the hireling role gates the
-      // day-rate row, so writing a rate without it stores a number the sheet
-      // will never render.
-      role: "hireling",
+      // Set alongside the rate, never separately: role npc AND forHire gate the
+      // day-rate row between them, so writing a rate without both stores a
+      // number the sheet will never render.
+      role: "npc",
+      forHire: true,
       profession: h.profession,
       dayRate: h.rate,
       abilities: hirelingAbilityData(h.abilities),
@@ -2023,8 +2026,9 @@ export const rerollHirelingProfession = async (actor) => {
   if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false });
   await actor.update({
     system: {
-      // See regenerateHireling: the role travels with the rate it gates.
-      role: "hireling",
+      // See regenerateHireling: the pair travels with the rate it gates.
+      role: "npc",
+      forHire: true,
       profession: h?.name ?? "",
       dayRate: h?.rate ?? 0,
       abilities: hirelingAbilityData(h?.abilities ?? { STR: 10, DEX: 10, WIL: 10 }),

@@ -85,7 +85,12 @@ const actorRT = await page.evaluate(async () => {
   const probes = {
     character: { "system.pronouns": "they/them", "system.gold": 42, "system.omen": "<p>a red sky</p>", "system.slots": 12 },
     npc: { "system.gold": 7, "system.slots": 5, "system.background": "Ruin-dweller", "system.notes": "<p>n</p>" },
-    container: { "system.slots": 4, "system.cost": 15, "system.gold": 3, "system.biography": "<p>b</p>" },
+    // No `container` entry: the TYPE was retired with 1c3f5b2 and `Actor.create`
+    // returns undefined for it, which is how this probe was left throwing
+    // `Cannot read properties of undefined` from that commit until 2026-08-01 —
+    // red the whole time, because nothing ran it. Its fields did not go
+    // uncovered: they are NpcData's now and the "containers-as-NPCs fields"
+    // section below round-trips every one of them.
     hireling: { "system.profession": "Linkboy", "system.dayRate": 3, "system.gold": 9, "system.notes": "<p>h</p>" },
   };
   const out = [];

@@ -559,7 +559,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       context.roleChoices = Object.fromEntries(NPC_ROLES.map((r) => [
         r, game.i18n.localize(`CAIRN.Role${r.charAt(0).toUpperCase()}${r.slice(1)}`),
       ]));
-      context.showCareer = ["npc", "hireling"].includes(role);
+      // One role now, not two: people have careers, and being for hire is a
+      // checkbox on the same row rather than a different kind of person.
+      context.showCareer = role === "npc";
       context.showKind = ["mount", "transport", "container"].includes(role);
       context.kindOptions = Object.entries(CONTAINER_CLASSES)
         .filter(([, v]) => v.role === role)

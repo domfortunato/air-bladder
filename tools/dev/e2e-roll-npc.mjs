@@ -155,13 +155,15 @@ try {
     }
 
     // The upgrade-regression fix rides here too: a re-roll writes a day rate, so it
-    // must set the ROLE that gates the day-rate row, or it stores an invisible number.
+    // must set BOTH things that gate the day-rate row — role npc and forHire —
+    // or it stores an invisible number. It was one thing (role "hireling") until
+    // the collapse split the fact in two.
     const roled = await page.evaluate((id) => {
       const a = game.actors.get(id);
-      return { role: a.system.role, dayRate: a.system.dayRate };
+      return { role: a.system.role, forHire: a.system.forHire, dayRate: a.system.dayRate };
     }, npcId);
-    if (roled.role === "hireling") ok(`a regenerated npc is role hireling (day rate ${roled.dayRate})`);
-    else fail(`regeneration stored dayRate ${roled.dayRate} with role ${roled.role} — the sheet will never show it`);
+    if (roled.role === "npc" && roled.forHire === true) ok(`a regenerated npc is role npc and for hire (day rate ${roled.dayRate})`);
+    else fail(`regeneration stored dayRate ${roled.dayRate} with ${JSON.stringify(roled)} — the sheet will never show it`);
   });
 } finally {
   if (npcId) await page.evaluate(async (id) => { await game.actors.get(id)?.delete(); }, npcId).catch(() => {});

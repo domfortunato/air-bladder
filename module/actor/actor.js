@@ -43,14 +43,15 @@ export class CairnActor extends Actor {
     if (allowed === false) return false;
 
     // A document created as the still-registered `hireling` alias should READ as
-    // one everywhere role is consulted, so stamp the role it obviously means.
+    // one everywhere role is consulted, so stamp the role it obviously means —
+    // `npc` since the collapse, with `forHire` taking the initial `true`.
     // Explicit creation data wins, as everywhere in this method.
     if (data.type === "hireling" && data.system?.role === undefined) {
-      this.updateSource({ "system.role": "hireling" });
+      this.updateSource({ "system.role": "npc" });
     }
 
-    // Hirelings are player-facing helpers, so they get the same friendly, linked
-    // token defaults a character does. Monsters must NOT — they are `npc` too.
+    // An NPC PERSON is a player-facing figure, so it gets the linked token a
+    // character does. Monsters must NOT — they are `npc` too.
     //
     // **`system.role` is the discriminator, not the type.** The Hireling->NPC
     // fold made the two one type, so a `type === "hireling"` test stopped matching
@@ -59,14 +60,19 @@ export class CairnActor extends Actor {
     // defaults — `actorLink` is a BooleanField with no initial (false) and
     // `disposition` initials to HOSTILE (common/documents/token.mjs:62,73-74) — and
     // arrived red-ringed and unlinked, so HP edited on the token never reached the
-    // sheet. Widening the test to plain `npc` would be the wrong fix: all 205
-    // shipped monsters are npc documents and must stay hostile and unlinked.
-    // Role hireling says exactly the thing that matters — this NPC is in the
-    // party's employ. `hireling` stays in the test for documents created before
-    // the fold, and for a Warden picking the alias in Create Actor.
-    const isHireling =
-      data.type === "hireling" || (data.type === "npc" && data.system?.role === "hireling");
-    if (data.type === "character" || isHireling) {
+    // sheet.
+    //
+    // The test was `role === "hireling"` and is now role `npc` OR ABSENT, which
+    // is the collapse working: being for hire stopped being a role, so the thing
+    // that matters is "this npc is a person". Absent counts because a hand-made
+    // one from Create Actor states nothing and takes the schema initial `npc`.
+    // The old warning against widening to plain `npc` does not apply to it —
+    // that was about the 205 shipped monsters, and every one of them (all 220
+    // npc-typed pack documents, checked) states `role: monster` outright, as does
+    // every programmatic creation in `module/`.
+    const isNpcPerson = data.type === "hireling"
+      || (data.type === "npc" && (data.system?.role === undefined || data.system?.role === "npc"));
+    if (data.type === "character" || isNpcPerson) {
       // No `vision: true` here. It is not a field of PrototypeToken in v14 —
       // `defineSchema` keeps an explicit `included` set (common/data/data.mjs:614-616)
       // with no `vision` key — so `cleanData` pruned it silently and it has never done
@@ -74,7 +80,15 @@ export class CairnActor extends Actor {
       // tokens is a behaviour change, not this fix; left for a deliberate decision.
       const changes = {};
       if (data.prototypeToken?.disposition === undefined) {
-        changes["prototypeToken.disposition"] = CONST.TOKEN_DISPOSITIONS.FRIENDLY;
+        // NEUTRAL for an NPC, FRIENDLY only for a PC (2026-08-01, asked for).
+        // Both used to be FRIENDLY, from when the branch only ever caught a
+        // hireling — someone the party had already hired, so a green ring was a
+        // fair guess. Role npc is now every person in the world who is not a
+        // monster: an innkeeper, a captain, a rival. Neutral is the honest
+        // default, and a Warden who means friendly says so on the token.
+        changes["prototypeToken.disposition"] = data.type === "character"
+          ? CONST.TOKEN_DISPOSITIONS.FRIENDLY
+          : CONST.TOKEN_DISPOSITIONS.NEUTRAL;
       }
       if (data.prototypeToken?.actorLink === undefined) {
         changes["prototypeToken.actorLink"] = true;
@@ -82,16 +96,21 @@ export class CairnActor extends Actor {
       if (Object.keys(changes).length) this.updateSource(changes);
     }
 
-    // Picking "Hireling" in the Create Actor dialog rolls a portrait, so a
-    // hand-made one arrives looking like somebody instead of Foundry's
-    // mystery-man. Deliberately NOT extended to `npc`: the 205 shipped monsters
-    // are npc documents and each carries its own art, and a hand-made npc is as
-    // often a monster as a person.
+    // An NPC PERSON made by hand rolls a portrait, so it arrives looking like
+    // somebody instead of Foundry's mystery-man.
+    //
+    // This used to be the `hireling` type alone, deliberately, on the grounds
+    // that "a hand-made npc is as often a monster as a person". The collapse
+    // takes that argument away from it: the hireling type is hidden from Create
+    // Actor now, so the ONLY hand-made person is an npc, and leaving the test
+    // where it was would have quietly deleted the feature in the same commit
+    // that hid its one entry point. A monster is made by the Generate Monster
+    // button or dragged from the pack, and both carry their own art.
     //
     // `!data.img` guards it — an explicit image always wins, which is what keeps
     // pack imports and the generator's own paired art untouched. The import is
     // dynamic to avoid a cycle: character-generator.js imports this module.
-    if (data.type === "hireling" && !data.img) {
+    if (isNpcPerson && !data.img) {
       try {
         const { randomPortraitPair } = await import("../character-generator.js");
         const pair = await randomPortraitPair();
@@ -104,7 +123,7 @@ export class CairnActor extends Actor {
         }
       } catch (err) {
         // A missing manifest must not block creating an actor.
-        console.warn("Air Bladder | could not assign a random hireling portrait:", err);
+        console.warn("Air Bladder | could not assign a random npc portrait:", err);
       }
     }
 
@@ -134,41 +153,44 @@ export class CairnActor extends Actor {
   }
 
   /**
-   * Taking an EXISTING npc into the party's employ gets the same token defaults
-   * `_preCreate` gives one generated as a hireling.
+   * Turning an EXISTING actor into an npc PERSON gets the same token defaults
+   * `_preCreate` gives one created as one.
    *
-   * Role is not only a create-time property: picking Hireling on the sheet of a
-   * monster-shaped npc is the natural way to hire someone who is already in the
-   * world. `_preCreate` is never revisited, so nothing re-applied the defaults —
-   * the actor kept Foundry's own (`disposition` HOSTILE, `actorLink` false,
-   * common/documents/token.mjs:62,73-74) and its token arrived red-ringed and
-   * unlinked, so HP edited on the token never reached the sheet. That is exactly
-   * the bug `b3eefa6` fixed for GENERATED hirelings, reachable by the other
-   * route; observed 2026-07-30 (then keyed on `forHire`, now on the role edge).
+   * Role is not only a create-time property: picking NPC on the sheet of a
+   * monster-shaped npc is the natural way to promote something already in the
+   * world into somebody the party can deal with. `_preCreate` is never revisited,
+   * so nothing re-applied the defaults — the actor kept Foundry's own
+   * (`disposition` HOSTILE, `actorLink` false, common/documents/token.mjs:62,73-74)
+   * and its token arrived red-ringed and unlinked, so HP edited on the token never
+   * reached the sheet. That is exactly the bug `b3eefa6` fixed for GENERATED
+   * hirelings, reachable by the other route; observed 2026-07-30 (keyed on
+   * `forHire`, then on the hireling role, now on the npc-person edge — three
+   * spellings of one fact, which is the argument the collapse was made on).
    *
-   * Only from the Foundry defaults, and only on the entering-hireling edge. A
-   * Warden who has deliberately made a hireling NEUTRAL, or unlinked it on
+   * Only from the Foundry defaults, and only on the becoming-a-person edge. A
+   * Warden who has deliberately made an NPC hostile-ringed, or unlinked it on
    * purpose, keeps that — the same "an explicit value wins" rule `_preCreate`
    * follows, applied to a value chosen earlier rather than passed in the same
    * breath. Leaving the role is not the mirror image and does nothing: ceasing
-   * to be for hire is not a reason to turn someone hostile.
+   * to be a person is not a reason to turn something hostile.
    *
    * Only the prototype, which is all this can honestly promise. Tokens already on
    * a scene are their own documents and are left alone.
    */
-  #applyHirelingTokenDefaults(changed) {
+  #applyNpcTokenDefaults(changed) {
     // flattenObject, so this reads the same whether the caller passed
-    // `{system: {role: "hireling"}}` (the sheet, via expandObject) or the flat
-    // `{"system.role": "hireling"}` (any API caller). getProperty would miss the
+    // `{system: {role: "npc"}}` (the sheet, via expandObject) or the flat
+    // `{"system.role": "npc"}` (any API caller). getProperty would miss the
     // second: it walks dot paths and cannot see a key that CONTAINS the dots.
     const flat = foundry.utils.flattenObject(changed);
-    if (flat["system.role"] !== "hireling") return;
-    if (this.npcRole === "hireling") return;                  // already hired
+    if (flat["system.role"] !== "npc") return;
+    if (this.npcRole === "npc") return;                       // already a person
 
     const D = CONST.TOKEN_DISPOSITIONS;
     if (this.prototypeToken.disposition === D.HOSTILE
       && flat["prototypeToken.disposition"] === undefined) {
-      foundry.utils.setProperty(changed, "prototypeToken.disposition", D.FRIENDLY);
+      // NEUTRAL, matching _preCreate: an npc person is not automatically an ally.
+      foundry.utils.setProperty(changed, "prototypeToken.disposition", D.NEUTRAL);
     }
     if (this.prototypeToken.actorLink === false
       && flat["prototypeToken.actorLink"] === undefined) {
@@ -196,7 +218,12 @@ export class CairnActor extends Actor {
     // Role-derived sheet facts, computed once here rather than re-tested in
     // template conditionals: what `inanimate` and `forHire` used to answer.
     this.system.isThing = this.isThing;
-    this.system.isHirelingRole = this.npcRole === "hireling";
+    // The day-rate row, and the For Hire box that gates it. Two facts, because
+    // the box must stay visible while unticked or there is no way to tick it
+    // again — the deadlock the retired `inanimate`/`forHire` checkboxes taught,
+    // now that one of them is back as a checkbox.
+    this.system.isNpcPerson = this.npcRole === "npc";
+    this.system.showDayRate = this.npcRole === "npc" && this.system.forHire === true;
     this.system.canKeep = this.canKeepConnected;
     // Round 2: Gold follows the role too. Mounts and things hide the COUNTER;
     // the stored value and the coins-take-slots rule are untouched, so a chest
@@ -548,15 +575,20 @@ export class CairnActor extends Actor {
    * @returns {CairnActor[]}
    */
   /**
-   * The actor's effective role. `hireling`-typed documents (the registered
-   * alias) read as role hireling whatever their stored value says; a character
-   * has no role and reads null. Everything role-gated consults THIS, never
-   * `system.role` directly, so the alias cannot drift.
+   * The actor's effective role. A character has no role and reads null.
+   * Everything role-gated consults THIS, never `system.role` directly.
+   *
+   * The `hireling` TYPE used to be hard-mapped to role "hireling" here, ahead of
+   * whatever the document stored — which meant a hireling-typed document whose
+   * Warden had re-roled it to Mount on the sheet went on behaving as a hireling
+   * everywhere, with the sheet showing the value it stored and the code reading
+   * a different one. That is fixed by the collapse rather than in spite of it:
+   * both types now answer with the STORED role, and the alias falls back to the
+   * same `npc` initial an npc-typed document takes.
    * @returns {string|null}
    */
   get npcRole() {
-    if (this.type === "hireling") return "hireling";
-    if (this.type === "npc") return this.system?.role || "npc";
+    if (["npc", "hireling"].includes(this.type)) return this.system?.role || "npc";
     return null;
   }
 
@@ -793,8 +825,8 @@ export class CairnActor extends Actor {
   /**
    * Two jobs, in the one `_preUpdate` this class is allowed to have.
    *
-   * **npc / hireling** — `#applyHirelingTokenDefaults`, above (picking the
-   * Hireling role gets the token defaults `_preCreate` gives a generated one),
+   * **npc / hireling** — `#applyNpcTokenDefaults`, above (picking the NPC role
+   * gets the token defaults `_preCreate` gives one created that way),
    * and the Kind defaults: typing a KNOWN `containerClass` brings its art and
    * capacity, because `img` is a stored copy that no amount of derived data will
    * move. Touch our own `icons/*.svg` and nothing else, so a Warden who picked
@@ -818,7 +850,7 @@ export class CairnActor extends Actor {
     // prototype and seeing the wrong function body come back. The two concerns are
     // type-exclusive, so they dispatch here rather than each owning a hook.
     if (["npc", "hireling"].includes(this.type)) {
-      this.#applyHirelingTokenDefaults(changed);
+      this.#applyNpcTokenDefaults(changed);
 
       // Typing a KNOWN Kind brings its defaults, exactly as picking its
       // glyph from the gallery would: art (only while the current image is

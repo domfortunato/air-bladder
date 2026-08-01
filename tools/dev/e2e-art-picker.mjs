@@ -81,7 +81,9 @@ try {
     for (const [key, data] of [
       ["pc", { name: "ZZ Art PC", type: "character" }],
       ["npc", { name: "ZZ Art NPC", type: "npc", system: { role: "npc" } }],
-      ["hireling", { name: "ZZ Art Hireling", type: "npc", system: { role: "hireling" } }],
+      // The retired alias TYPE, which existing worlds still hold: it reads role
+      // npc since the collapse, so it must be offered exactly what an npc is.
+      ["legacy", { name: "ZZ Art Legacy Hireling", type: "hireling" }],
       ["monster", { name: "ZZ Art Monster", type: "npc", system: { role: "monster" } }],
     ]) {
       const a = await Cls.create(data);
@@ -120,9 +122,9 @@ try {
   eq(tabs.npc.labels, ["Jon Aspeheim", "Custom", "Game-Icons"])
     ? ok("an NPC is offered all three")
     : fail("an NPC is offered all three", JSON.stringify(tabs.npc.labels));
-  eq(tabs.hireling.labels, ["Jon Aspeheim", "Custom", "Game-Icons"])
-    ? ok("a Hireling is offered all three", "the role, not the type")
-    : fail("a Hireling is offered all three", JSON.stringify(tabs.hireling.labels));
+  eq(tabs.legacy.labels, ["Jon Aspeheim", "Custom", "Game-Icons"])
+    ? ok("a legacy hireling-TYPE doc is offered all three", "the role, not the type")
+    : fail("a legacy hireling-TYPE doc is offered all three", JSON.stringify(tabs.legacy.labels));
   eq(tabs.monster.labels, ["Custom", "Game-Icons"])
     ? ok("a Monster is offered no faces", "Aspeheim withheld")
     : fail("a Monster is offered no faces", JSON.stringify(tabs.monster.labels));

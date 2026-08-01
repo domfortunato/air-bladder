@@ -68,7 +68,13 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
 
 - `CairnActor` (`module/actor/actor.js`) — types `character`, `npc`, `hireling`.
   `hireling` is an ALIAS of npc (same model, same sheet), kept because a type is
-  immutable and retiring it would recreate every hireling with a new id.
+  immutable and retiring it would recreate every hireling with a new id. **It is
+  HIDDEN from the Create Actor dialog since 2026-08-01** (`abHideHirelingType`, the
+  inverse of the spellscroll hook) — a registered subtype is always offered, and
+  the `container` type proved what happens when a retired one stays on the menu.
+  The matching `hireling` ROLE is gone the same day: being for hire is a
+  `forHire` boolean beside the day rate it gates, so `NPC_ROLES` is five entries
+  and `migrateData` converts every stored "hireling" on read.
   **`container` was a fourth type and is GONE (2026-07-31)** — a container is an
   npc with `role: container`, and leaving the retired model registered meant the
   Create Actor dialog went on offering it (Foundry lists every registered
@@ -80,7 +86,7 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
 - `module/damage.js` holds Cairn's damage flow
 - Data models in `module/data-models.js` (TypeDataModel; `template.json` is gone,
   sub-types are declared in `system.json` `documentTypes`); 22 compendium packs
-- 20 GM-visible settings in `module/settings.js` (22 `register` calls; `roles-migrated`
+- 20 GM-visible settings in `module/settings.js` (22 `register` calls; `roles-restamped`
   and `custom-portrait-list` are internal, `config: false`) — **registration ORDER is
   load-bearing**, because Foundry's group headers are positional. Two went on
   2026-07-31, both because the thing they toggled stopped existing:

@@ -98,7 +98,14 @@ export const registerSettings = () => {
   // state test would re-stamp it on every world load — the exact trap the retired
   // forHire migration fell into with its checkbox (its marker, `forhire-migrated`,
   // may still sit unread in old world settings; harmless).
-  game.settings.register(SETTINGS_NS, "roles-migrated", {
+  //
+  // **A NEW key, replacing `roles-migrated` (2026-08-01).** That one is `true` in
+  // every world that has already opened — and those are exactly the worlds
+  // holding a stored `role: "hireling"`, so reusing it would skip the population
+  // the re-stamp exists for. It joins `forhire-migrated` as an unread leftover.
+  // The name says what the migration does now: it re-stamps every npc's role
+  // BLIND, because neither state it fixes can be seen from a client at all.
+  game.settings.register(SETTINGS_NS, "roles-restamped", {
     scope: "world",
     config: false,
     type: Boolean,

@@ -59,6 +59,27 @@
                 <a class="profession-roll" data-action="rollProfession" title="{{ localize 'CAIRN.RollProfession' }}"><i class="fas fa-dice-d20"></i></a>
                 {{/if}}
             </div>
+            {{!-- For Hire: the retired `hireling` ROLE, back as the boolean it
+                  always was — and back in the markup it had before the roles
+                  work, classes included, because css/cairn.css never stopped
+                  styling `.for-hire-line/.for-hire-label/.for-hire-check`. The
+                  three rules sat orphaned for a fortnight; re-using them beats
+                  inventing a fourth class and leaving them dead.
+                  (Renaming them is also how the checkbox arrived on Foundry's
+                  own styling — a second, smaller box drawn INSIDE ours by core's
+                  ::before glyph, which dev:hireling catches by name.)
+
+                  It rides INSIDE showCareer (role npc) because only a person can
+                  be hired, and it sits OUTSIDE everything it hides: unticking it
+                  must never remove the way to tick it again. That is the
+                  deadlock the old inanimate/forHire pair taught, and the reason
+                  the Role select is where it is. --}}
+            <div class="for-hire-line">
+                <label class="for-hire-label" data-tooltip="{{ localize 'CAIRN.ForHireTip' }}">
+                    <input type="checkbox" class="for-hire-check" name="system.forHire" {{checked system.forHire}} />
+                    {{ localize 'CAIRN.ForHire' }}
+                </label>
+            </div>
             {{/if}}
             {{!-- The KIND — what a mount/transport/container IS, in one word,
                   as against the Role, which is what it DOES for you. Free text
@@ -87,9 +108,12 @@
                 <span class="container-owner">{{system.ownedBy}}</span>
             </div>
             {{/if}}
-            {{!-- Only a Hireling has a day rate — that is most of what the role
-                  means. No checkbox gate any more: the rate row rides the role. --}}
-            {{#if system.isHirelingRole}}
+            {{!-- The day rate belongs to someone who is FOR HIRE: role npc with
+                  the box ticked (system.showDayRate). The gate went role-only
+                  when `hireling` was a role of its own; it is both again now,
+                  which is what lets a Warden keep a career on someone who is not
+                  currently taking work. --}}
+            {{#if system.showDayRate}}
             <div class="day-rate-line">
                 <span class="background-label">{{ localize 'CAIRN.DayRate' }}</span>
                 <input class="day-rate-input" type="number" min="0" step="1" name="system.dayRate"
