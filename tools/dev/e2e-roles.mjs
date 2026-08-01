@@ -18,13 +18,13 @@
  * 2. **The role select must not be one-way.** It is deliberately OUTSIDE every
  *    block it hides — pick Container and the select must survive to pick back.
  *
- * 3. **The keeping matrix, the cycle guard, and (Round 2) the edge rules.**
- *    Keeping is a Character/NPC privilege; a CONNECTED npc can
- *    still keep, a mount cannot keep at all, an NPC→NPC loop is refused at
- *    connect time. Round 2 adds: PC → PC is legal (a party roster), an NPC
- *    never keeps a PC, ONE upward link ever (connectActor itself refuses a
- *    connected target — the picker filter alone never covered a drop), and
- *    ownership follows a PC → NPC connect while a PC child's is never touched.
+ * 3. **The FLAT graph and the cap (2026-08-01).** Keeping is a TYPE privilege:
+ *    only a character keeps, so every edge runs PC → non-character and the
+ *    npc→npc nesting Round 2 allowed is refused at connect time. ONE upward
+ *    link ever (connectActor itself refuses a connected target — the picker
+ *    filter alone never covered a drop), at most `maxConnections()` children
+ *    per keeper counting every role, and ownership follows a PC → NPC connect
+ *    while a PC child's is never touched.
  *
  * 4. **The conditional tab resets tabGroups.** Standing on Connections and
  *    switching the role to Monster removes the tab under you — the sheet must
@@ -267,8 +267,8 @@ try {
         `still ${gap.control}px — the margin is not what closes the gap; assertion not load-bearing`);
   }
 
-  /* ---- the keeping matrix, the cycle guard, and the Round-2 edge rules ---- */
-  console.log("\nkeeping is a role privilege, and loops are refused");
+  /* ---- the FLAT graph: only a character keeps, and the edge rules hold ---- */
+  console.log("\nkeeping is a TYPE privilege: only a character keeps");
   const matrix = await page.evaluate(async () => {
     const Cls = CONFIG.Actor.documentClass;
     const mk = (name, system) => Cls.create({ name, type: "npc", system });
@@ -277,20 +277,31 @@ try {
     const m = await mk("ZZ Roles Mount", { role: "mount", containerClass: "horse" });
     const s = await mk("ZZ Roles Sack", { role: "container", containerClass: "sack" });
     const b1 = await mk("ZZ Roles NPC A", { role: "npc" });
+    // An npc→npc chain seeded through CREATION DATA — the shape a pre-flat
+    // world still holds until the commit-6 migration flattens it. Nothing
+    // refuses stored data; the method must refuse to EXTEND it.
     const b2 = await mk("ZZ Roles NPC B", { role: "npc", connectedTo: b1.uuid });
     const monster = await mk("ZZ Roles Monster", { role: "monster" });
 
-    // The new capability: a CONNECTED hireling still keeps (PC → hireling →
-    // sack). The old rule (`!connectedTo`) returns false here, so this line is
-    // the fail-without-the-fix witness for the whole matrix change.
-    const connectedHirelingKeeps = h.canKeepConnected;
-    const sackLinked = await h.connectActor(s);
-    const sackConnectedTo = s.system.connectedTo;
+    // THE FLAT RULE'S FAIL-WITNESS. Until 2026-08-01 this leg asserted the
+    // opposite — a connected hireling keeps her own backpack. Nothing else
+    // stands between h and the sack (h is a person, s is free, no cycle, the
+    // Warden is clicking), so with the type wall deleted this is what goes red.
+    const npcCannotKeep = h.canKeepConnected === false;
+    const npcConnectRefused = !(await h.connectActor(s));
+    const sackUntouched = !s.system.connectedTo;
+    // ...and the SAME call lands for the legal keeper, so the refusal above
+    // was the flat rule and not some other wall.
+    const pcTakesSack = await pc.connectActor(s);
+    const sackWithPc = s.system.connectedTo === pc.uuid;
 
     const mountKeeps = m.canKeepConnected;            // must be false
     const monsterConnectable = monster.canBeConnected; // must be false
-    // b2 hangs off b1; connecting b1 UNDER b2 closes the loop and must refuse.
-    const cycleRefused = !(await b2.connectActor(b1));
+    // b2 hangs off b1; connecting b1 UNDER b2 would close A→B→A. Refused by
+    // the type wall now — the cycle guard behind it survives as belt-and-braces
+    // for any edge kind a future change lets back in, unreachable today
+    // because no legal target stores a connectedTo of its own.
+    const chainExtendRefused = !(await b2.connectActor(b1));
     const b1Untouched = !b1.system.connectedTo;
 
     /* ---- Round 2, as amended 2026-07-31: A PC IS NEVER KEPT ---- */
@@ -316,16 +327,16 @@ try {
     const pcChildOwnershipUntouched = (pcChild.ownership.default ?? 0) === 0;
 
     // Nor does an NPC keep a PC. Same rule, other keeper: `pc` is FREE here
-    // (it keeps h, nothing keeps it), so only "no character is a legal target"
-    // can refuse it.
+    // (it keeps h and s, nothing keeps it), so only "no character is a legal
+    // target" can refuse it.
     const npcKeepsPcRefused = !(await b1.connectActor(pc));
     const pcStillFree = !pc.system.connectedTo;
 
-    // ONE upward link, enforced in the METHOD: s already belongs to h, and pc
+    // ONE upward link, enforced in the METHOD: s belongs to pc now, and pc2
     // calling connectActor directly is exactly the path the picker filter
     // never covered (a drop). Must refuse and must not steal.
-    const stealRefused = !(await pc.connectActor(s));
-    const sackStillWithHireling = s.system.connectedTo === h.uuid;
+    const stealRefused = !(await pc2.connectActor(s));
+    const sackStillWithPc = s.system.connectedTo === pc.uuid;
 
     // Ownership follows a PC → NPC connect (the marketplace-buy precedent).
     const g = await mk("ZZ Roles Granted", { role: "container", containerClass: "sack" });
@@ -333,25 +344,28 @@ try {
     const grantOwnershipCopied = g.ownership.default === 2;
 
     for (const x of [s, g, h, m, b1, b2, monster, pcChild, pc2, pc]) await x.delete();
-    return { connectedHirelingKeeps, sackLinked, sackConnectedTo: sackConnectedTo ? "set" : "",
-      mountKeeps, monsterConnectable, cycleRefused, b1Untouched,
+    return { npcCannotKeep, npcConnectRefused, sackUntouched, pcTakesSack, sackWithPc,
+      mountKeeps, monsterConnectable, chainExtendRefused, b1Untouched,
       pcPcRefused, pcChildUp, rosterHasChild, pcHasNoLinkField, pcChildOwnershipUntouched,
-      npcKeepsPcRefused, pcStillFree, stealRefused, sackStillWithHireling,
+      npcKeepsPcRefused, pcStillFree, stealRefused, sackStillWithPc,
       grantLinked, grantOwnershipCopied };
   });
 
-  matrix.connectedHirelingKeeps && matrix.sackLinked && matrix.sackConnectedTo === "set"
-    ? ok("a CONNECTED hireling keeps her own backpack", "PC → hireling → sack")
-    : bad("a CONNECTED hireling keeps her own backpack", JSON.stringify(matrix));
+  matrix.npcCannotKeep && matrix.npcConnectRefused && matrix.sackUntouched
+    ? ok("an npc cannot keep — the flat rule's fail-witness", "hireling → sack refused, sack untouched")
+    : bad("an npc cannot keep — the flat rule's fail-witness", JSON.stringify(matrix));
+  matrix.pcTakesSack && matrix.sackWithPc
+    ? ok("the same sack connects to the PC instead", "PC → sack lands; the refusal was the rule")
+    : bad("the same sack connects to the PC instead", JSON.stringify(matrix));
   !matrix.mountKeeps
     ? ok("a mount cannot keep connections", "no backpack on the horse")
     : bad("a mount cannot keep connections", "canKeepConnected said yes");
   !matrix.monsterConnectable
     ? ok("a monster never joins the graph", "canBeConnected false")
     : bad("a monster never joins the graph", "canBeConnected said yes");
-  matrix.cycleRefused && matrix.b1Untouched
-    ? ok("an NPC→NPC loop is refused at connect time", "A→B→A never lands")
-    : bad("an NPC→NPC loop is refused at connect time", JSON.stringify(matrix));
+  matrix.chainExtendRefused && matrix.b1Untouched
+    ? ok("a legacy npc→npc chain cannot be extended", "A→B→A never lands")
+    : bad("a legacy npc→npc chain cannot be extended", JSON.stringify(matrix));
 
   console.log("\nRound 2: a PC is never kept, one link, ownership");
   matrix.pcPcRefused && !matrix.pcChildUp && !matrix.rosterHasChild && matrix.pcChildOwnershipUntouched
@@ -363,7 +377,7 @@ try {
   matrix.npcKeepsPcRefused && matrix.pcStillFree
     ? ok("an NPC never keeps a PC", "refused, nothing written")
     : bad("an NPC never keeps a PC", JSON.stringify(matrix));
-  matrix.stealRefused && matrix.sackStillWithHireling
+  matrix.stealRefused && matrix.sackStillWithPc
     ? ok("a connected actor cannot be stolen", "single-parent enforced in connectActor itself")
     : bad("a connected actor cannot be stolen", JSON.stringify(matrix));
   matrix.grantLinked && matrix.grantOwnershipCopied
@@ -373,6 +387,50 @@ try {
   // part of the refusal assertion above — with the connect refused there is no
   // ownership step to reach, and a separate line naming a relationship that can
   // no longer exist would read as though PC→PC still worked.
+
+  /* ---- the cap: ten connections per character, counting every role ---- */
+  console.log("\nthe ceiling: ten connections, the eleventh refused");
+  const cap = await page.evaluate(async () => {
+    const Cls = CONFIG.Actor.documentClass;
+    const { maxConnections } = await import("/systems/air-bladder/module/connections.js");
+    const max = maxConnections();
+    const pc = await Cls.create({ name: "ZZ Roles Cap PC", type: "character" });
+    // Seeded through CREATION DATA, the way every mint flow writes the link —
+    // seeding through connectActor would trip the very wall under test.
+    const sack = (i) => ({
+      name: `ZZ Roles Cap Kid ${i}`, type: "npc",
+      system: { role: "container", containerClass: "sack", connectedTo: pc.uuid, hp: { value: 0, max: 0 }, generationEnabled: false },
+    });
+    const kids = [];
+    for (let i = 0; i < max; i++) kids.push(await Cls.create(sack(i)));
+    // The precondition is ESTABLISHED, not hoped for: exactly `max` children.
+    const seeded = pc.connectedActors().length;
+    const extra = await Cls.create({
+      name: "ZZ Roles Cap Extra", type: "npc",
+      system: { role: "container", containerClass: "sack", hp: { value: 0, max: 0 }, generationEnabled: false },
+    });
+    const eleventhRefused = !(await pc.connectActor(extra));
+    const extraUntouched = !extra.system.connectedTo;
+    // The differential witness: one child fewer, and the SAME call lands — so
+    // the refusal above was the count and nothing else about the pair.
+    await kids[0].delete();
+    const belowCap = pc.connectedActors().length;
+    const landsBelow = await pc.connectActor(extra);
+    const extraConnected = extra.system.connectedTo === pc.uuid;
+    for (const k of kids.slice(1)) await k.delete();
+    await extra.delete();
+    await pc.delete();
+    return { max, seeded, eleventhRefused, extraUntouched, belowCap, landsBelow, extraConnected };
+  });
+  cap.seeded === cap.max
+    ? ok(`creation data seeded exactly ${cap.max} children`, "the precondition is real")
+    : bad(`creation data seeded exactly ${cap.max} children`, `got ${cap.seeded}`);
+  cap.eleventhRefused && cap.extraUntouched
+    ? ok(`connection ${cap.max + 1} is refused at the ceiling`, "nothing written")
+    : bad(`connection ${cap.max + 1} is refused at the ceiling`, JSON.stringify(cap));
+  cap.belowCap === cap.max - 1 && cap.landsBelow && cap.extraConnected
+    ? ok(`   witness: at ${cap.max - 1} the same call lands`, "the refusal was the count")
+    : bad(`   witness: at ${cap.max - 1} the same call lands`, JSON.stringify(cap));
 
   /* ---- the Connections tab: monster exclusion + the vanishing-tab reset ---- */
   console.log("\nthe Connections tab follows the role");
@@ -493,16 +551,18 @@ try {
     ? ok("   control: initial forced back to \"items\" reopens on Items", "the opens-on-Description assertion can fail")
     : bad("   control: initial forced back to \"items\" reopens on Items", `active=${order.control} — assertion not load-bearing`);
 
-  /* ---- both directions, either end (Round 2), as the Warden ---- */
-  console.log("\nthe tab shows both directions, manageable from either end");
+  /* ---- both directions, either end, as the Warden — FLAT since 2026-08-01 ---- */
+  console.log("\nthe tab shows both directions; only the PC's end offers keeping");
   const dirs = await page.evaluate(async () => {
     const Cls = CONFIG.Actor.documentClass;
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const pc = await Cls.create({ name: "ZZ Roles Dir PC", type: "character" });
+    // BOTH children hang off the PC now — the hireling no longer keeps the
+    // sack, because nothing but a character keeps anything.
     const h = await Cls.create({ name: "ZZ Roles Dir Hireling", type: "npc", system: { role: "npc", connectedTo: pc.uuid } });
     const s = await Cls.create({
       name: "ZZ Roles Dir Sack", type: "npc",
-      system: { role: "container", containerClass: "sack", connectedTo: h.uuid, hp: { value: 0, max: 0 }, generationEnabled: false },
+      system: { role: "container", containerClass: "sack", connectedTo: pc.uuid, hp: { value: 0, max: 0 }, generationEnabled: false },
     });
 
     const readTab = async (a) => {
@@ -523,6 +583,8 @@ try {
 
     const sackTab = await readTab(s);
     const hireTab = await readTab(h);
+    const pcTab = await readTab(pc);
+    await pc.sheet.close();
 
     // Break from the CHILD end. Confirm is stubbed: a settled DialogV2
     // outlives its promise in the DOM (e2e-container-unlink's lesson).
@@ -537,7 +599,9 @@ try {
       formerly: s.system.formerlyBelongedTo,
     };
 
-    // Now unconnected: Connect to… must appear; drive the REAL picker.
+    // Now unconnected: Connect to… must appear; drive the REAL picker. Under
+    // the flat graph its keeper list is CHARACTERS with room — the hireling
+    // must not be offered, which is the picker filter's own flat witness.
     await sleep(600);
     const attachShown = !!s.sheet.element.querySelector(".connection-attach");
     s.sheet.element.querySelector(".connection-attach")?.click();
@@ -547,38 +611,42 @@ try {
       sel = document.querySelector('dialog select[name="keeperTarget"]');
     }
     const offered = sel ? [...sel.options].map((o) => o.textContent) : [];
+    const npcOffered = offered.some((t) => t.includes("ZZ Roles Dir Hireling"));
     let reattached = false;
     if (sel) {
-      const opt = [...sel.options].find((o) => o.textContent.includes("ZZ Roles Dir Hireling"));
+      const opt = [...sel.options].find((o) => o.textContent.includes("ZZ Roles Dir PC"));
       if (opt) sel.value = opt.value;
       const dlg = sel.closest("dialog");
       (dlg.querySelector('button[data-action="ok"]') ?? dlg.querySelector("footer button, .form-footer button"))?.click();
       for (let i = 0; i < 40 && document.querySelector('dialog select[name="keeperTarget"]'); i++) await sleep(100);
       await sleep(500);
-      reattached = s.system.connectedTo === h.uuid;
+      reattached = s.system.connectedTo === pc.uuid;
     }
 
     await s.sheet.close();
     await h.sheet.close();
     await s.delete(); await h.delete(); await pc.delete();
-    return { sackTab, hireTab, afterDetach, attachShown, offered: offered.length, reattached };
+    return { sackTab, hireTab, pcTab, afterDetach, attachShown, offered: offered.length, npcOffered, reattached };
   });
 
-  dirs.sackTab.keeperLine && dirs.sackTab.keeperLabel.includes("ZZ Roles Dir Hireling") && dirs.sackTab.detach
+  dirs.sackTab.keeperLine && dirs.sackTab.keeperLabel.includes("ZZ Roles Dir PC") && dirs.sackTab.detach
     ? ok("a connected sack names its keeper, breakable here", `"${dirs.sackTab.keeperLabel.trim()}"`)
     : bad("a connected sack names its keeper, breakable here", JSON.stringify(dirs.sackTab));
   !dirs.sackTab.add && !dirs.sackTab.attach
     ? ok("the sack offers neither keeping nor a second parent", "cannot keep; already connected")
     : bad("the sack offers neither keeping nor a second parent", JSON.stringify(dirs.sackTab));
-  dirs.hireTab.keeperLine && dirs.hireTab.add && !dirs.hireTab.attach && dirs.hireTab.unlinkIcon
-    ? ok("the hireling shows keeper above AND kept below", "both directions on one tab")
-    : bad("the hireling shows keeper above AND kept below", JSON.stringify(dirs.hireTab));
-  dirs.afterDetach.connectedTo === "" && dirs.afterDetach.formerly === "ZZ Roles Dir Hireling"
+  dirs.hireTab.keeperLine && !dirs.hireTab.add && !dirs.hireTab.attach && !dirs.hireTab.unlinkIcon
+    ? ok("the hireling shows her keeper and offers NOTHING", "an npc keeps nobody — the template's flat witness")
+    : bad("the hireling shows her keeper and offers NOTHING", JSON.stringify(dirs.hireTab));
+  !dirs.pcTab.keeperLine && dirs.pcTab.add && dirs.pcTab.unlinkIcon
+    ? ok("the PC's tab is where keeping lives", "Add Connection + per-row unlink, no keeper line")
+    : bad("the PC's tab is where keeping lives", JSON.stringify(dirs.pcTab));
+  dirs.afterDetach.connectedTo === "" && dirs.afterDetach.formerly === "ZZ Roles Dir PC"
     ? ok("detach from the child end unlinks + stamps", `formerly "${dirs.afterDetach.formerly}"`)
     : bad("detach from the child end unlinks + stamps", JSON.stringify(dirs.afterDetach));
-  dirs.attachShown && dirs.offered > 0 && dirs.reattached
-    ? ok("Connect to… reattaches through the real picker", `${dirs.offered} keeper(s) offered`)
-    : bad("Connect to… reattaches through the real picker", JSON.stringify(dirs));
+  dirs.attachShown && dirs.offered > 0 && !dirs.npcOffered && dirs.reattached
+    ? ok("Connect to… offers characters only, reattaches", `${dirs.offered} keeper(s), hireling not among them`)
+    : bad("Connect to… offers characters only, reattaches", JSON.stringify(dirs));
 
   /* ---- an UNLINKED token's actor is not in the graph ---- */
   // Reported from the dev world: a Backpack was connected to the world
@@ -601,28 +669,46 @@ try {
       name: "ZZ Roles Tok NPC", actorId: world.id, actorLink: false, x: 100, y: 100,
     }]);
     const synth = td.actor;
+    // The KEEPER half needs a CHARACTER pair now: canKeepConnected is
+    // character-only under the flat graph, so a world npc reads false with or
+    // without the isToken clause — only a character token can witness it.
+    const worldChar = await Cls.create({
+      name: "ZZ Roles Tok PC", type: "character", prototypeToken: { actorLink: false },
+    });
+    const [tdChar] = await scene.createEmbeddedDocuments("Token", [{
+      name: "ZZ Roles Tok PC", actorId: worldChar.id, actorLink: false, x: 200, y: 100,
+    }]);
+    const synthChar = tdChar.actor;
     const sack = await Cls.create({
       name: "ZZ Roles Tok Sack", type: "npc",
       system: { role: "container", containerClass: "sack", hp: { value: 0, max: 0 }, generationEnabled: false },
     });
 
     const res = {
-      isToken: synth?.isToken === true,
-      worldIsNotToken: world.isToken === false,
-      canKeep: synth?.canKeepConnected,
+      isToken: synth?.isToken === true && synthChar?.isToken === true,
+      worldIsNotToken: world.isToken === false && worldChar.isToken === false,
+      // Graph membership, both directions, each with its world differential:
+      // a world npc may BE connected while its token copy may not, and a world
+      // character may KEEP while its token copy may not.
       canBe: synth?.canBeConnected,
-      // The world actor it was made from must be unaffected.
-      worldCanKeep: world.canKeepConnected,
+      worldCanBe: world.canBeConnected,
+      synthCharKeeps: synthChar?.canKeepConnected,
+      worldCharKeeps: worldChar.canKeepConnected,
       showsTab: synth?.system?.showContainersTab,
       worldShowsTab: world.system?.showContainersTab,
     };
-    // And the write itself is refused, not merely hidden.
-    res.connectRefused = !(await synth.connectActor(sack));
+    // And the write itself is refused, not merely hidden — from the synthetic
+    // CHARACTER, the one actor the type rule would otherwise let keep.
+    res.connectRefused = !(await synthChar.connectActor(sack));
     res.sackUntouched = !sack.system.connectedTo;
+    // Positive control in the same shape: the WORLD character's call lands.
+    res.worldConnectLands = await worldChar.connectActor(sack);
 
     await td.delete();
+    await tdChar.delete();
     await sack.delete();
     await world.delete();
+    await worldChar.delete();
     await sleep(200);
     return res;
   });
@@ -630,16 +716,19 @@ try {
   if (tok.error) bad("token leg", tok.error);
   else {
     tok.isToken && tok.worldIsNotToken
-      ? ok("the probe really built a synthetic token actor", "isToken true, world actor false")
-      : bad("the probe really built a synthetic token actor", JSON.stringify(tok));
-    !tok.canKeep && !tok.canBe && tok.worldCanKeep
-      ? ok("it neither keeps nor connects, world actor unaffected")
-      : bad("it neither keeps nor connects, world actor unaffected", JSON.stringify(tok));
+      ? ok("the probe really built synthetic token actors", "isToken true on both, world actors false")
+      : bad("the probe really built synthetic token actors", JSON.stringify(tok));
+    !tok.canBe && tok.worldCanBe
+      ? ok("the npc token copy cannot BE connected, its world actor can")
+      : bad("the npc token copy cannot BE connected, its world actor can", JSON.stringify(tok));
+    !tok.synthCharKeeps && tok.worldCharKeeps
+      ? ok("the character token copy cannot KEEP, its world actor can")
+      : bad("the character token copy cannot KEEP, its world actor can", JSON.stringify(tok));
     tok.showsTab === false && tok.worldShowsTab === true
       ? ok("no Connections tab on the token copy", "the tab could only ever read 0")
       : bad("no Connections tab on the token copy", JSON.stringify(tok));
-    tok.connectRefused && tok.sackUntouched
-      ? ok("a direct connectActor from it is refused", "no link written into a delta")
+    tok.connectRefused && tok.sackUntouched && tok.worldConnectLands
+      ? ok("a direct connectActor from it is refused", "and the world character's same call lands")
       : bad("a direct connectActor from it is refused", JSON.stringify(tok));
   }
 

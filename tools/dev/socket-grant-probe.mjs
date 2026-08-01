@@ -229,6 +229,78 @@ control.itemTarget
   ? ok("NEGATIVE CONTROL: the old handler accepts the Item uuid", "(attack 2 is well-formed)")
   : fail("negative control MISSED — attack 2 proves nothing", "old handler did not mint");
 
+/* ---- the cap: the BROKER is the wall, not the player-side clamp ---------- */
+
+// grantContainers clamps in Alice's browser too, but that copy cannot bind a
+// crafted client — so this leg emits RAW socket messages past it, at a PC
+// already keeping maxConnections() children. The broker must clamp payloads to
+// the owner's headroom: to nothing at the cap, to exactly the headroom below
+// it. The GM console names what it cut, because a wall that trims silently
+// reads as "generation lost my mule". Runs AFTER the old-handler control above
+// is unregistered — the old handler has no cap and would mint these payloads.
+const capScene = await gmPage.evaluate(async () => {
+  const { maxConnections } = await import("/systems/air-bladder/module/connections.js");
+  const max = maxConnections();
+  const alice = game.users.getName("Alice");
+  const pc = await CONFIG.Actor.documentClass.create({
+    name: "ZZ PROBE SG Capped", type: "character",
+    ownership: { default: 0, [alice.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
+  });
+  const kids = [];
+  for (let i = 0; i < max; i++) {
+    kids.push(await CONFIG.Actor.documentClass.create({
+      name: `ZZ PROBE SG Cap Sack ${i}`, type: "npc",
+      system: { role: "container", containerClass: "sack", connectedTo: pc.uuid, hp: { value: 0, max: 0 }, generationEnabled: false },
+    }));
+  }
+  return { max, pcUuid: pc.uuid, seeded: pc.connectedActors().length, lastKidId: kids[kids.length - 1].id };
+});
+capScene.seeded === capScene.max
+  ? ok(`seeded a PC at the cap (${capScene.seeded}/${capScene.max})`, "the precondition is real")
+  : fail(`cap seeding wrong: ${capScene.seeded}/${capScene.max}`);
+
+const clampLines = [];
+const onGmConsole = (m) => { if (/clamped/i.test(m.text())) clampLines.push(m.text()); };
+gmPage.on("console", onGmConsole);
+
+const emitCapPair = () => alicePage.evaluate(async ({ pcUuid }) => {
+  game.socket.emit(`system.${game.system.id}`, {
+    action: "grantActors", ownerUuid: pcUuid,
+    payloads: [
+      { name: "ZZ PROBE SG CapA", system: { slots: 2 } },
+      { name: "ZZ PROBE SG CapB", system: { slots: 2 } },
+    ],
+  });
+}, { pcUuid: capScene.pcUuid });
+
+await emitCapPair();
+await gmPage.waitForTimeout(3000);
+const atCap = await gmPage.evaluate(() => ({
+  a: !!game.actors.getName("ZZ PROBE SG CapA"),
+  b: !!game.actors.getName("ZZ PROBE SG CapB"),
+}));
+!atCap.a && !atCap.b
+  ? ok("at the cap the broker mints NOTHING", "the wall held against a raw emit")
+  : fail("the broker minted past the cap", JSON.stringify(atCap));
+clampLines.length
+  ? ok("the GM console names the clamp", clampLines[0].slice(0, 90))
+  : fail("the clamp was silent", "nothing on the GM console said what was cut");
+
+// Witness: one child fewer and the SAME emit mints exactly ONE — the slice is
+// the headroom, not an all-or-nothing refusal, and the wall above was the count.
+await gmPage.evaluate(async (id) => { await game.actors.get(id)?.delete(); }, capScene.lastKidId);
+await emitCapPair();
+await gmPage.waitForTimeout(3000);
+const belowCap = await gmPage.evaluate((pcUuid) => ({
+  a: !!game.actors.getName("ZZ PROBE SG CapA"),
+  b: !!game.actors.getName("ZZ PROBE SG CapB"),
+  kept: game.actors.filter((x) => x.system?.connectedTo === pcUuid).length,
+}), capScene.pcUuid);
+gmPage.off("console", onGmConsole);
+belowCap.a && !belowCap.b && belowCap.kept === capScene.max
+  ? ok("   witness: with headroom 1 the same emit mints exactly one", "clamped to the headroom")
+  : fail("   witness failed — the clamp is not the headroom", JSON.stringify(belowCap));
+
 /* ---- cleanup ------------------------------------------------------------- */
 
 await gmPage.evaluate(async (pcUuid) => {

@@ -264,8 +264,42 @@ try {
     await doc.update({ "system.description": origDesc });
     if (wasLocked) await tPack.configure({ locked: true });
 
+    // 6. The connection ceiling in grantContainers itself (2026-08-01). With
+    //    partial headroom the grant CLAMPS — the first specs land, the rest are
+    //    dropped with a warning — and at zero headroom it refuses outright.
+    //    This is the player-facing copy of the broker's wall: it cannot bind a
+    //    crafted client (dev:socket-grant proves the wall), but it is what
+    //    tells an honest player why their mule did not arrive.
+    const { maxConnections } = await import("/systems/air-bladder/module/connections.js");
+    const max = maxConnections();
+    const cappedPc = await CONFIG.Actor.documentClass.create({ name: "PROBE Cap Keeper", type: "character" });
+    made.push(cappedPc);
+    for (let i = 0; i < max - 1; i++) {
+      made.push(await CONFIG.Actor.documentClass.create({
+        name: `PROBE Cap Filler ${i}`, type: "npc",
+        system: { role: "container", containerClass: "sack", connectedTo: cappedPc.uuid, hp: { value: 0, max: 0 }, generationEnabled: false },
+      }));
+    }
+    const clamped = await gen.grantContainers(cappedPc, [
+      { name: "PROBE Clamp A", slots: 2, grantSource: "question:1" },
+      { name: "PROBE Clamp B", slots: 2, grantSource: "question:1" },
+    ]);
+    made.push(...clamped);
+    const capGrant = {
+      headroomWas: 1,
+      clampedCount: clamped.length,
+      survivor: clamped[0]?.name,
+      atMax: cappedPc.connectedActors().length === max,
+    };
+    const refused = await gen.grantContainers(cappedPc, [
+      { name: "PROBE Clamp C", slots: 2, grantSource: "question:1" },
+    ]);
+    made.push(...refused);
+    capGrant.refusedCount = refused.length;
+    capGrant.noC = !game.actors.getName("PROBE Clamp C");
+
     for (const a of made) { try { await a.delete(); } catch { /* already gone */ } }
-    return { setup, grant, regen, reroll, startingContainer, edit, control };
+    return { setup, grant, regen, reroll, startingContainer, edit, control, capGrant };
   });
 
   if (r.error) {
@@ -303,6 +337,13 @@ try {
     r.edit.hpFromDoc ? ok("STAT BLOCK FLOWS: a granted Rivertooth carries its document's 4 HP, not the schema's 6") : fail("the granted beast did not carry the document's hp (phantom default instead)");
     r.edit.fallbackMinted ? ok("a beast with no document is minted from the grant alone") : fail("the no-document fallback did not mint correctly");
     r.control.reproduced ? ok(`NEGATIVE CONTROL: starved of the Actor pack, the grant reverts to the phantom ${r.control.hp} HP`) : fail(`negative control did not reproduce the defect (hp ${r.control.hp})`);
+
+    r.capGrant.clampedCount === 1 && r.capGrant.survivor === "PROBE Clamp A" && r.capGrant.atMax
+      ? ok("a grant past the ceiling is CLAMPED: the first spec lands, the rest are dropped")
+      : fail(`clamp wrong: ${JSON.stringify(r.capGrant)}`);
+    r.capGrant.refusedCount === 0 && r.capGrant.noC
+      ? ok("at zero headroom the grant refuses outright, mints nothing")
+      : fail(`zero-headroom grant leaked: ${JSON.stringify(r.capGrant)}`);
   }
 } catch (e) {
   fail(`${e.name}: ${e.message}`);

@@ -2444,18 +2444,6 @@ textarea.omen-input {
     font-weight: bold;
 }
 
-.container-custom {
-    display: inline-block;
-    margin-top: 10px;
-    padding-top: 8px;
-    font-size: 0.9em;
-    color: var(--ab-muted);
-}
-
-.container-custom:hover {
-    color: var(--ab-accent);
-}
-
 /* Fatigue fills inventory slots; give those rows the Die of Fate's teal
    signature (an --ab-accent-wash tint plus the same --ab-accent glow) so a
    player can see at a glance how much of their load is fatigue. */

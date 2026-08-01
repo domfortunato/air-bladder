@@ -15,6 +15,7 @@ import { createCairnMacro, rollItemMacro } from "./macros.js";
 import { Damage } from "./damage.js";
 import { registerSettings, SETTINGS_NS, migrateSettingsNamespace } from "./settings.js";
 import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS, deriveNpcRole } from "./data-models.js";
+import { connectionHeadroom } from "./connections.js";
 import { loadContentOverlay, t, translationOf, contentLocalized } from "./i18n-content.js";
 
 Hooks.once("init", async function () {
@@ -259,8 +260,19 @@ Hooks.once("init", () => {
       console.warn(`Air Bladder | refused a grant request from ${user.name}: ${owner.name} cannot keep connected actors`);
       return;
     }
-    // A background grants a handful; anything more is not a background.
-    const payloads = Array.isArray(msg.payloads) ? msg.payloads.slice(0, 8) : [];
+    // A background grants a handful; anything more is not a background. And
+    // never past the connection ceiling: this handler runs on the WARDEN'S
+    // client, so it is the wall — the matching clamp in grantContainers runs in
+    // the player's browser, where a crafted message ignores it. Clamped rather
+    // than refused so a request that is partly grantable grants that part; the
+    // console names what was cut, because a wall that trims silently reads as
+    // "generation lost my mule".
+    const room = Math.min(8, connectionHeadroom(owner));
+    const asked = Array.isArray(msg.payloads) ? msg.payloads : [];
+    if (asked.length > room) {
+      console.warn(`Air Bladder | grant request from ${user.name} clamped: ${owner.name} has room for ${room} of ${asked.length} (connection limit)`);
+    }
+    const payloads = asked.slice(0, room);
     const clean = payloads.map((p) => ({
       type: "npc",                                   // forced, never taken from the wire
       name: String(p?.name ?? "").slice(0, 120),

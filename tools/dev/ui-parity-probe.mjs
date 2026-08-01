@@ -150,7 +150,9 @@ try {
     const cRoot = actor.sheet.element;
     out.containerEmpty = !!cRoot.querySelector(".container-empty");
     // The market link is REMOVED from this tab by design (docs/npc-roles-plan.md)
-    // — the tab is relationships, not shopping. Asserted absent below.
+    // — the tab is relationships, not shopping. Asserted absent below. The
+    // "Custom container…" escape hatch followed it out (2026-08-01): asserted
+    // absent too, because a template copy could quietly resurrect either.
     out.containerShop = !!(cRoot.querySelector(".container-empty-shop") || cRoot.querySelector(".container-shop"));
     out.containerCustom = !!cRoot.querySelector(".container-custom");
 
@@ -392,9 +394,9 @@ try {
   r.containerEmpty && !r.containerShop
     ? ok("the empty Connections tab has no market link (relationships, not shopping)")
     : fail(`connections empty state wrong: empty=${r.containerEmpty} shopStillThere=${r.containerShop}`);
-  r.containerCustom
-    ? ok("the custom-container escape hatch is present")
-    : fail("no custom-container link on the Connections tab");
+  !r.containerCustom
+    ? ok("the custom-container escape hatch is gone (removed 2026-08-01)")
+    : fail("a .container-custom link is back on the Connections tab");
   r.connectionDialogOpens && r.connectionOffersSeed
     ? ok("Add Connection opens its picker, offering the seeded npc")
     : fail(`Add Connection opened nothing usable. data-action=${r.addLinkAction} `

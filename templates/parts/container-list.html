@@ -8,9 +8,14 @@
       (keep someone), Connect to… (attach ME to a keeper), unlink from either
       end — is the Warden's alone (@root.isWarden); players keep the automatic
       flows. The handlers and connectActor/unlinkOwnedContainer re-check, so
-      hiding here is honesty, not security. The custom-container line at the
-      foot stays player-reachable: it MINTS a new thing (ACTOR_CREATE-gated),
-      it cannot steal an existing one. --}}
+      hiding here is honesty, not security.
+
+      The "Custom container…" line at the foot is GONE (2026-08-01, long-standing
+      ask). It hand-minted an npc with a name and a slot count, which is what
+      dragging a document out of Mounts & Transports does with a stat block and
+      art already on it — an escape hatch from a catalog that stopped being
+      restrictive. Note `system.canKeep` is CHARACTER-ONLY now (the flat graph),
+      so Add Connection renders on a PC's sheet and nowhere else. --}}
 {{#if system.connectedKeeper}}
 <div class="connection-keeper-line">
     <span class="connection-keeper-label">{{system.connectedKeeper.label}}</span>
@@ -69,6 +74,3 @@
     <p>{{ localize 'CAIRN.ConnectionsEmpty' }}</p>
 </div>
 {{/unless}}
-{{#if system.canKeep}}
-<a class="container-create container-custom" data-action="containerCreate" title="{{ localize 'CAIRN.CustomContainerHint' }}"><i class="fas fa-plus"></i>&nbsp;{{ localize 'CAIRN.CustomContainer' }}</a>
-{{/if}}

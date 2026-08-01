@@ -165,82 +165,13 @@ if (!hasFeatureDialog) {
 }
 
 /* ----------------------------------------------------------- container ---- */
-// Behind an ACTOR_CREATE permission check, and it is the one dialog that creates
-// a world Actor rather than an owned document.
-//
-// No setup any more: the Connections tab is structural. This used to enable
-// `show-containers-tab` and RELOAD, because that setting was registered
-// `requiresReload: true` — it changed which PARTS the sheet had — so setting it
-// did not make the tab appear on an open sheet however long you waited. An
-// earlier version set it, slept 1s and clicked, which only ever worked because a
-// previous run had left it ON: the first run on a clean world timed out and
-// every run after passed. That was the stale-precondition trap
-// docs/release-testing.md warns about, and the setting it depended on is now
-// gone entirely.
-await page.locator(`nav.tabs a[data-tab="containers"]`).first().click();
-await page.waitForTimeout(600);
-await page.locator(".container-create").first().click();
-await page.waitForSelector("dialog.dialog input[name='itemslots']", { timeout: 5000 });
-await page.fill("dialog.dialog input[name='itemname']", "ZZ Probe Mochila");
-await page.fill("dialog.dialog input[name='itemslots']", "5");
-// Named in Spanish ON PURPOSE. A container's art and its one-word class label
-// both come from a list of ENGLISH keywords, so "Mochila" classified as a chest
-// and there was no way to say otherwise -- the affordance was English-only. The
-// Kind select is that way. Setting .value directly for the same reason the item
-// type does above: v14 hides <select> behind a custom element.
-await page.evaluate(() => {
-  const s = document.querySelector("dialog.dialog select[name='itemclass']");
-  s.value = "backpack";
-  s.dispatchEvent(new Event("change", { bubbles: true }));
-});
-await page.locator("dialog.dialog button[data-action='ok']").click();
-await page.waitForTimeout(1500);
-
-const cont = await page.evaluate(async (id) => {
-  const c = game.actors.find((a) => a.name === "ZZ Probe Mochila");
-  if (!c) return null;
-  // The control: what the NAME alone would have produced. If this ever comes back
-  // "backpack" the probe has stopped testing anything -- the picker and the
-  // keyword table would agree and the assertions below would pass either way.
-  const { containerClass } = await import("/systems/air-bladder/module/icons.js");
-  return {
-    // An npc connected at creation now, not a `container` keeper-linked after
-    // (review #5: this dialog was the last module path minting the dissolved
-    // type). A backpack is a thing: role container, hp 0/0, never the phantom 6.
-    type: c.type,
-    slots: Number(c.system.slots),
-    connected: c.system.connectedTo === game.actors.get(id).uuid,
-    role: c.system.role,
-    hpMax: c.system.hp.max,
-    stored: c.system.containerClass,
-    art: c.img.split("/").pop(),
-    label: c.system.classLabel,
-    fromNameAlone: containerClass(c.name),
-  };
-}, actorId);
-cont && cont.type === "npc" && cont.slots === 5 && cont.connected
-  ? ok("an npc created and connected", `slots=${cont.slots} connected=${cont.connected}`)
-  : fail("an npc created and connected", JSON.stringify(cont));
-cont && cont.role === "container" && cont.hpMax === 0
-  ? ok("a hand-made backpack is a thing", "role container, hp 0/0 — not the phantom 6")
-  : fail("a hand-made backpack is a thing", `role=${cont?.role} hpMax=${cont?.hpMax}`);
-
-if (!cont) {
-  fail("the Kind select drove the container's class", "no container to inspect");
-} else if (cont.fromNameAlone !== "chest") {
-  fail("the Kind select drove the container's class",
-    `the name "ZZ Probe Mochila" now classifies as "${cont.fromNameAlone}" on its own, `
-    + "so this section no longer tests the picker");
-} else if (cont.stored !== "backpack") {
-  fail("the Kind select drove the container's class", `stored class is "${cont.stored}"`);
-} else if (cont.art !== "backpack.svg") {
-  fail("the Kind select drove the container's ART", `art is ${cont.art}, wanted backpack.svg`);
-} else if (cont.label !== "Backpack") {
-  fail("the Kind select drove the container's LABEL", `label is "${cont.label}", wanted Backpack`);
-} else {
-  ok("the Kind select drove art AND label", `a Spanish name the keyword table calls a `
-    + `"${cont.fromNameAlone}" is a ${cont.art.replace(".svg", "")} labelled "${cont.label}"`);
-}
+// GONE (2026-08-01): the "Custom container…" dialog was removed with the flat
+// graph — dragging a document out of Mounts & Transports does the same job with
+// a stat block and art already on it. The leg that drove it lived here; its real
+// coverage was the Kind→art→label chain, and that survives in `dev:item-pile`
+// (name-alone classification, explicit-class re-art/relabel, hand-picked art
+// preserved). `dev:ui-parity` asserts the link is ABSENT from the tab.
+// The "ZZ Probe Mochila" sweep at the top stays: old worlds may still hold one.
 
 /* ---------------------------------------------------- header controls ---- */
 // Roll Character and the Randomization toggle are INLINE title-bar buttons

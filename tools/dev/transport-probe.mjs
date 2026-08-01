@@ -171,23 +171,23 @@ try {
       classCarried: cartActor?.system.containerClass === cartDoc.system.containerClass,
     };
 
-    // 3c. Keeping is a ROLE privilege now (docs/npc-roles-plan.md): a MOUNT
-    //     cannot keep (the buyer's mule refuses a second mule, whatever it is),
-    //     a TRANSPORT cannot either (the cart refuses), and an npc person — a
-    //     porter, a hireling — can, exactly as a character can. The old guard
-    //     tested kept-ness; the refusals here now come from role alone.
+    // 3c. Keeping is a TYPE privilege now (the flat graph, 2026-08-01): NOTHING
+    //     npc-typed buys at this till any more. The mule refuses, the cart
+    //     refuses, and the npc PERSON — a porter, who could buy until today —
+    //     refuses too, which makes the porter the flat rule's fail-witness in
+    //     the marketplace: he owns nothing else that would refuse him.
     const muleRow = cat.items.find((i) => i.name === "Mule");
     const nestKept = await mkt.acquireTransport(muleActor, muleRow, false);
     const nestThing = await mkt.acquireTransport(cartActor, muleRow, false);
     const porter = await CONFIG.Actor.documentClass.create({ name: "PROBE Porter", type: "npc" });
     made.push(porter);
-    const porterCan = await mkt.acquireTransport(porter, muleRow, false);
+    const porterRefused = await mkt.acquireTransport(porter, muleRow, false);
     const porterMule = game.actors.find((a) => a.name === "Mule" && a.system.connectedTo === porter.uuid);
     if (porterMule) made.push(porterMule);
     // In-page control: shadow the predicate open on the kept mule (an instance
     // property over the prototype getter; `delete` removes it) — the same buy
     // must then SUCCEED, proving the guard is what refused above rather than
-    // some other wall.
+    // some other wall (the cap wall sits behind it, and the mule keeps 0).
     Object.defineProperty(muleActor, "canKeepConnected", { value: true, configurable: true });
     const nestForced = await mkt.acquireTransport(muleActor, muleRow, false);
     delete muleActor.canKeepConnected;
@@ -196,8 +196,43 @@ try {
     const nesting = {
       keptRefused: nestKept === false,
       thingRefused: nestThing === false,
-      personAllowed: porterCan === true && !!porterMule,
+      personRefused: porterRefused === false && !porterMule,
       controlReproduced: nestForced === true && !!nested,
+    };
+
+    // 3d. The connection CEILING at the till: a buyer already keeping
+    //     `maxConnections()` is refused BEFORE any gold moves. Seeded through
+    //     creation data (connectActor would trip the same wall), witnessed
+    //     below the cap: one child fewer and the SAME purchase lands.
+    const { maxConnections } = await import("/systems/air-bladder/module/connections.js");
+    const max = maxConnections();
+    const capped = await CONFIG.Actor.documentClass.create({
+      name: "PROBE Capped", type: "character", system: { gold: 500 },
+    });
+    made.push(capped);
+    const capKids = [];
+    for (let i = 0; i < max; i++) {
+      capKids.push(await CONFIG.Actor.documentClass.create({
+        name: `PROBE Cap Sack ${i}`, type: "npc",
+        system: { role: "container", containerClass: "sack", connectedTo: capped.uuid, hp: { value: 0, max: 0 }, generationEnabled: false },
+      }));
+    }
+    made.push(...capKids);
+    const goldAtCap = capped.system.gold;
+    const capRefused = await mkt.acquireTransport(capped, muleRow, true);
+    const capMule = game.actors.find((a) => a.name === "Mule" && a.system.connectedTo === capped.uuid);
+    // Read gold NOW — the witness purchase below is a real paid buy and
+    // legitimately spends it.
+    const goldAfterRefusal = capped.system.gold;
+    await capKids[capKids.length - 1].delete();
+    const capBelowLands = await mkt.acquireTransport(capped, muleRow, true);
+    const belowMule = game.actors.find((a) => a.name === "Mule" && a.system.connectedTo === capped.uuid);
+    if (belowMule) made.push(belowMule);
+    const capLeg = {
+      seeded: capKids.length === max,
+      refused: capRefused === false && !capMule,
+      goldIntact: goldAfterRefusal === goldAtCap,
+      belowLands: capBelowLands === true && !!belowMule,
     };
 
     // 4. Edit the Mule ACTOR document (the one the shop row references now);
@@ -270,7 +305,7 @@ try {
     const directory = { shownOn, shownOff };
 
     for (const a of made) { try { await a.delete(); } catch { /* already gone */ } }
-    return { setup, mount, worn, legacy, vehicle, nesting, edit, afford, directory };
+    return { setup, mount, worn, legacy, vehicle, nesting, capLeg, edit, afford, directory };
   });
 
   if (r.error) {
@@ -321,12 +356,21 @@ try {
       : fail(`the Cart came out animate or with phantom HP: thing=${r.vehicle.thing}, hpZero=${r.vehicle.hpZero}`);
     r.vehicle.classCarried ? ok("containerClass carried from the document") : fail("containerClass was not carried");
 
-    r.nesting.keptRefused ? ok("KEEPING IS ROLE-GATED: a mule refuses to buy a carrier") : fail("a mule bought a carrier — a mount can keep");
-    r.nesting.thingRefused ? ok("KEEPING IS ROLE-GATED: a cart refuses too") : fail("a cart bought a carrier");
-    r.nesting.personAllowed ? ok("an npc person can still keep a mule") : fail("the keeping guard over-blocks: a porter cannot buy a mule");
+    r.nesting.keptRefused ? ok("KEEPING IS TYPE-GATED: a mule refuses to buy a carrier") : fail("a mule bought a carrier — a mount can keep");
+    r.nesting.thingRefused ? ok("KEEPING IS TYPE-GATED: a cart refuses too") : fail("a cart bought a carrier");
+    r.nesting.personRefused
+      ? ok("an npc PERSON is refused at the till now", "the flat graph's fail-witness in the marketplace")
+      : fail("a porter bought a mule — the flat rule is not at the till");
     r.nesting.controlReproduced
       ? ok("NEGATIVE CONTROL: predicate forced open, the same buy succeeds")
       : fail("negative control MISSED — something other than the guard refused the nested buy");
+
+    r.capLeg.seeded && r.capLeg.refused && r.capLeg.goldIntact
+      ? ok("a buyer at the connection ceiling is refused, gold intact")
+      : fail(`the cap did not hold at the till: ${JSON.stringify(r.capLeg)}`);
+    r.capLeg.belowLands
+      ? ok("   witness: one child fewer and the same purchase lands")
+      : fail(`below the cap the buy still refused — the refusal was not the count: ${JSON.stringify(r.capLeg)}`);
 
     r.edit.flowed ? ok(`EDIT FLOWS THROUGH: capacity ${r.edit.expected} on the next one bought`) : fail(`document edit did not flow through (got ${r.edit.got}, expected ${r.edit.expected})`);
 

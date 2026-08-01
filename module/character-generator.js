@@ -4,6 +4,7 @@ import { Cairn } from "./config.js";
 import { evaluateFormula } from "./utils.js";
 import { resolveGearItem, SPELL_PACKS, GEAR_ALIASES, spellScrollItem } from "./gear.js";
 import { containerClass, iconForTransport } from "./icons.js";
+import { connectionHeadroom, maxConnections } from "./connections.js";
 import { SETTINGS_NS } from "./settings.js";
 import { t } from "./i18n-content.js";
 
@@ -593,6 +594,29 @@ const containerKindFor = (name) => (/\b(wagon|cart|sled|sledge)\b/i.test(name) ?
  */
 export const grantContainers = async (actor, specs) => {
   if (!actor || !specs?.length) return [];
+  // The connection ceiling, CLAMPED rather than refused outright: a background
+  // granting three beasts to a keeper with room for one still owes the
+  // character that one. What was dropped is SAID — a silent clamp reads as
+  // "the background granted nothing", which is a bug report waiting to be
+  // filed against the wrong code. At zero headroom nothing can land, so that
+  // case gets the plain at-the-ceiling message instead of a count of zero
+  // survivors. On the player path this clamp runs in the player's browser and
+  // cannot bind anyone; the socket broker re-clamps on the Warden's client,
+  // which is the wall. This copy exists so the player is TOLD — the broker
+  // can only console.warn on a client the player is not looking at.
+  const headroom = connectionHeadroom(actor);
+  if (headroom <= 0) {
+    ui.notifications.warn(game.i18n.format("CAIRN.Notify.ConnectionLimit", { name: actor.name, max: maxConnections() }));
+    return [];
+  }
+  if (specs.length > headroom) {
+    ui.notifications.warn(game.i18n.format("CAIRN.Notify.ConnectionLimitPartial", {
+      name: actor.name,
+      max: maxConnections(),
+      count: specs.length - headroom,
+    }));
+    specs = specs.slice(0, headroom);
+  }
   // The Mounts & Transports ACTOR pack, not the legacy transport Item pack. The
   // payload below copies hp / armorOverride / role / containerClass off the
   // resolved document, and only the Actor documents HAVE those fields — resolving

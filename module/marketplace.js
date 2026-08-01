@@ -1,5 +1,6 @@
 import { findTableItems } from "./compendium.js";
 import { iconForTransport, TRANSPORT_KINDS } from "./icons.js";
+import { atConnectionLimit, maxConnections } from "./connections.js";
 import { localizeNameDesc, t } from "./i18n-content.js";
 
 /**
@@ -257,6 +258,14 @@ export const acquireTransport = async (actor, doc, pay) => {
   // link this guard exists for (review #5). canKeepConnected holds the rule.
   if (!actor.canKeepConnected) {
     ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoNesting", { name: actor.name }));
+    return false;
+  }
+  // The connection ceiling, refused at the till like the two walls above it —
+  // BEFORE any gold moves. This flow mints the actor with `connectedTo` already
+  // in its creation data and never calls `connectActor`, so the cap wall there
+  // never sees it.
+  if (atConnectionLimit(actor)) {
+    ui.notifications.warn(game.i18n.format("CAIRN.Notify.ConnectionLimit", { name: actor.name, max: maxConnections() }));
     return false;
   }
   // Give it a real portrait AND a matching map token; fall back to the class icon

@@ -48,10 +48,12 @@ export const NPC_ROLES = ["npc", "monster", "mount", "transport", "container"];
 /** Roles that hide the stat block — what `inanimate` used to mean. */
 export const THING_ROLES = ["transport", "container"];
 
-/** Roles that may KEEP connections. Mount/Transport/Container can only BE
- *  connected; Monster neither. The character type keeps by virtue of its type.
- *  One entry since the hireling role collapsed into npc. */
-export const KEEPER_ROLES = ["npc"];
+/* `KEEPER_ROLES` stood here and is GONE (2026-08-01, the flat graph). It listed
+   the roles allowed to keep connections, and the flat rule leaves none: keeping
+   is decided by TYPE — only a character keeps — so `CairnActor#canKeepConnected`
+   states it in one line and no table is needed. The list had already shrunk to a
+   single entry when the hireling role folded into npc, which is usually a rule
+   asking to be written down as itself. */
 
 /**
  * Derive a role for a document minted before `role` existed, from what it

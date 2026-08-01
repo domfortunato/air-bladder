@@ -1,6 +1,7 @@
 import { SETTINGS_NS } from "../settings.js";
 import { iconForItem, iconForTransport, containerClassLabel, containerClassSlots, CONTAINER_CLASSES, ICON_DIR } from "../icons.js";
-import { THING_ROLES, KEEPER_ROLES } from "../data-models.js";
+import { THING_ROLES } from "../data-models.js";
+import { atConnectionLimit, maxConnections } from "../connections.js";
 
 /** Document names go into dialog HTML; a name is user-authored text. */
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -624,19 +625,28 @@ export class CairnActor extends Actor {
   }
 
   /**
-   * May this actor KEEP connections? Keeping is a Character/NPC/Hireling
-   * privilege (docs/npc-roles-plan.md): a mule cannot keep a backpack, a wagon
-   * cannot keep a chest, so container-chaining abuse stays dead without the old
-   * flat rule. That rule — nothing already connected may keep — died with it:
-   * PC → hireling → backpack is the point of the Connections graph, so being
-   * connected no longer disqualifies. What replaces the old rule's cycle
-   * protection is `wouldCreateConnectionCycle`, checked where links are made.
+   * May this actor KEEP connections? ONLY A CHARACTER (2026-08-01). The graph is
+   * FLAT: every edge runs from a PC to something the PC has, and nothing else
+   * keeps anything.
+   *
+   * Round 2 had allowed npc → npc, so a hireling could carry her own backpack.
+   * The user retired it on the ownership question — "isn't nesting an invitation
+   * to disaster?" — and the answer is yes, for a reason that is about
+   * permissions rather than tidiness: connection now drives ownership, so under
+   * nesting every connect and every break becomes a transitive walk over a
+   * subtree, re-deriving the rights of documents nobody touched. Flat makes each
+   * edge a two-document operation with nothing below it to recurse into.
+   *
+   * The old role table (KEEPER_ROLES) is gone with it: with keeping decided by
+   * TYPE there is no role that can keep, so a list of them had one entry and no
+   * future. `wouldCreateConnectionCycle` survives as belt-and-braces — under a
+   * flat graph a cycle is unreachable (a character is never a target), so it now
+   * guards against a re-introduced edge kind rather than against ordinary use.
    * @returns {boolean}
    */
   get canKeepConnected() {
     if (this.isToken) return false;   // see canBeConnected
-    if (this.type === "character") return true;
-    return KEEPER_ROLES.includes(this.npcRole);
+    return this.type === "character";
   }
 
   /**
@@ -669,12 +679,16 @@ export class CairnActor extends Actor {
   }
 
   /**
-   * Would connecting `candidate` to THIS actor close a loop? NPC → NPC links
-   * make A→B→A expressible, so every place a link is written walks up from the
-   * prospective keeper: if the chain above this actor (itself included) passes
-   * through the candidate, the link is refused. The visited set caps a chain
-   * that is already broken (two old documents pointing at each other) — without
-   * it, that pre-existing corruption would hang the check instead of failing it.
+   * Would connecting `candidate` to THIS actor close a loop? Belt-and-braces
+   * since the flat graph (2026-08-01): a keeper is a character and a character
+   * never stores a `connectedTo`, so the walk below terminates at the first
+   * step and no loop is reachable through `connectActor`. It stays because a
+   * pre-flat world can still hold npc → npc chains until the migration
+   * flattens them, and because the guard is what refuses a re-introduced edge
+   * kind rather than trusting every future caller. The visited set caps a
+   * chain that is already broken (two old documents pointing at each other) —
+   * without it, that pre-existing corruption would hang the check instead of
+   * failing it.
    * @param {CairnActor} candidate  the actor about to be connected to this one
    * @returns {boolean}
    */
@@ -738,6 +752,15 @@ export class CairnActor extends Actor {
     // from its keeper in one gesture.
     if (target.system?.connectedTo) {
       ui.notifications.warn(game.i18n.localize("CAIRN.ContainerAlreadyOwned"));
+      return false;
+    }
+    // The ceiling. Stated here as well as in the pickers because this is the
+    // method a DROP goes through, and a drop never saw a filtered list.
+    if (atConnectionLimit(this)) {
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.ConnectionLimit", {
+        name: this.name,
+        max: maxConnections(),
+      }));
       return false;
     }
     if (this.wouldCreateConnectionCycle(target)) {

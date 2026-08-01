@@ -4,8 +4,9 @@ import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, sourceLabel } from "../utils.js";
 import { resultText } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
-import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES, containerClassSlots, containerClass, containerClassAnimate, containerClassRole } from "../icons.js";
+import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES, containerClassSlots } from "../icons.js";
 import { NPC_ROLES } from "../data-models.js";
+import { atConnectionLimit, maxConnections } from "../connections.js";
 import { localizeNameDesc, t } from "../i18n-content.js";
 import { FATIGUE_NAME } from "../item/item.js";
 import { pickArt } from "../art-picker.js";
@@ -189,7 +190,6 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       connectionAdd: owned(CairnActorSheet.#onConnectionAdd),
       connectionAttach: owned(CairnActorSheet.#onConnectionAttach),
       connectionDetach: owned(CairnActorSheet.#onConnectionDetach),
-      containerCreate: owned(CairnActorSheet.#onContainerCreate),
       containerUnlink: owned(CairnActorSheet.#onContainerUnlink),
       // Features
       featureCreate: owned(CairnActorSheet.#onFeatureCreate),
@@ -1857,8 +1857,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   /* -------------------------------------------- */
 
   /**
-   * Connect an EXISTING world actor to this one — the tab's headline gesture
-   * (PC → NPC or NPC → NPC; docs/npc-roles-plan.md). The marketplace link this
+   * Connect an EXISTING world actor to this one — the tab's headline gesture.
+   * The graph is FLAT (2026-08-01): every edge is PC → non-character, so this
+   * renders on a character's sheet and nowhere else. The marketplace link this
    * replaced still exists on the Items tab; the Connections tab is about
    * relationships, not shopping.
    *
@@ -1879,6 +1880,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
     if (!this.actor.canKeepConnected) {
       ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoNesting", { name: this.actor.name }));
+      return;
+    }
+    // Refuse at the ceiling BEFORE the picker, not after a choice: the dialog's
+    // whole contract is that everything it offers can actually be connected.
+    if (atConnectionLimit(this.actor)) {
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.ConnectionLimit", {
+        name: this.actor.name,
+        max: maxConnections(),
+      }));
       return;
     }
     const candidates = game.actors
@@ -1946,6 +1956,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const keepers = game.actors
       .filter((k) => k.uuid !== child.uuid
         && k.canKeepConnected
+        // A character with no room left is not an eligible keeper. Filtered
+        // rather than refused-on-choice, same contract as Add Connection's.
+        && !atConnectionLimit(k)
         // Cycle check runs from the PROSPECTIVE KEEPER's side, exactly as
         // connectActor will: if the chain above k passes through child, the
         // link would loop.
@@ -2014,92 +2027,6 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // No formerlyBelongedTo stamp — the keeper's name is exactly the fact the
     // dangling uuid already failed to preserve.
     await child.update({ "system.connectedTo": "" });
-  }
-
-  /**
-   * Homebrew escape hatch: create a bespoke container by hand (name + slots).
-   * Demoted below the catalog path -- most containers should come from the shop.
-   * @this {CairnActorSheet}
-   */
-  static async #onContainerCreate(event) {
-    event.preventDefault();
-    if (!game.user.hasPermission("ACTOR_CREATE")) {
-      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.NoActorCreate"));
-      return;
-    }
-    // Keeping is a role privilege now: the Connections tab (and this button)
-    // renders on a mount's or a container's own sheet too — refuse BEFORE the
-    // dialog, not after the Warden has filled it in.
-    if (!this.actor.canKeepConnected) {
-      ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoNesting", { name: this.actor.name }));
-      return;
-    }
-    const template = "systems/air-bladder/templates/dialog/add-container-dialog.html";
-    // The class list comes from CONTAINER_CLASSES itself, so a class added there
-    // appears here without a second list to keep in step. `mule` and `donkey`
-    // share art but are different words, and both are offered — the label is what
-    // the sheet will show.
-    const classes = Object.entries(CONTAINER_CLASSES).map(([key, v]) => ({ key, label: v.label }));
-    const content = await foundry.applications.handlebars.renderTemplate(template, { classes });
-
-    await foundry.applications.api.DialogV2.prompt({
-      window: { title: game.i18n.localize("CAIRN.CreateContainer") },
-      content,
-      ok: {
-        icon: "fas fa-check",
-        label: game.i18n.localize("CAIRN.CreateContainer"),
-        callback: async (dialogEvent, button) => {
-          const form = button.form;
-          if (form.itemname.value.trim() !== "") {
-            // An NPC, not a legacy `container` — this button was the last
-            // module-side path still minting the dissolved type (review #5).
-            // The class the Warden picked (or, blank, the one the name infers)
-            // decides animacy off CONTAINER_CLASSES itself: a hand-made Mule is
-            // a creature with the schema's default stat block, a hand-made
-            // Barrel is a thing and gets 0/0 explicitly — the same phantom-6
-            // rule mounts.mjs and acquireTransport follow.
-            //
-            // No `img` here on purpose: CairnActor._preCreate names the art from
-            // the container's own name (a "Barrel" gets barrel art), so hardcoding
-            // the chest icon would defeat it. getDocumentClass, not the global
-            // `Actor` — the global is not CONFIG.Actor.documentClass.
-            //
-            // The result is deliberately not checked: a third-party
-            // `preCreateActor` veto resolves undefined and says nothing — and
-            // explaining its own veto is the vetoing module's job, not ours.
-            // (The realistic refusal, a player without ACTOR_CREATE, is caught
-            // above with a message.)
-            const cls = form.itemclass?.value ?? "";
-            const effectiveCls = cls || containerClass(form.itemname.value);
-            const animate = containerClassAnimate(effectiveCls);
-            // The class the Warden picked (blank: the one the name infers)
-            // decides the ROLE off CONTAINER_CLASSES itself: a hand-made Mule
-            // is a mount with the schema's default stat block, a hand-made
-            // Barrel is a container and gets 0/0 explicitly. A name the table
-            // cannot read at all defaults to container — this dialog makes
-            // things, never people.
-            const role = containerClassRole(effectiveCls) || "container";
-            await getDocumentClass("Actor").create({
-              type: "npc",
-              name: form.itemname.value,
-              system: {
-                slots: Number(form.itemslots.value) || 0,
-                // Blank means "read the name", which is what this dialog always did.
-                containerClass: cls,
-                role,
-                // Connected at CREATION — no window in which it exists as a
-                // free-standing loot pile between two awaits, and no second
-                // write for a permission wall to break in half.
-                connectedTo: this.actor.uuid,
-                generationEnabled: false,
-                ...(animate ? {} : { hp: { value: 0, max: 0 } }),
-              },
-            });
-          }
-        },
-      },
-      rejectClose: false,
-    });
   }
 
   /* -------------------------------------------- */
