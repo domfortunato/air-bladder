@@ -23,12 +23,15 @@
  *              24 folder tiles, then that category's thumbnails. The grids are
  *              built on demand — rendering all 24 at once is 1,310 <img> in one
  *              dialog, and only one category is ever on screen.
+ *   tlomdev    tlomdev's token drawings (CC BY-SA 4.0), browsed category-first
+ *              exactly like gameicons: the artist's own folders, plus
+ *              Kettlewright's copies under "Kettlewright Portraits".
  *
  * Every gallery that has a licence shows its credit under its own grid, never
  * globally: a credit under the wrong art is worse than none.
  */
 
-import { getPortraitManifest, getCustomPortraitPaths, refreshCustomPortraits, getGameIconManifest } from "./character-generator.js";
+import { getPortraitManifest, getCustomPortraitPaths, refreshCustomPortraits, getGameIconManifest, getTlomdevManifest } from "./character-generator.js";
 
 /** The Foundry FilePicker implementation, across v13/v14 namespacing. */
 const filePicker = () =>
@@ -37,14 +40,18 @@ const filePicker = () =>
   ?? globalThis.FilePicker;
 
 /**
- * A category folder's display name: "greek-roman" -> CAIRN.GameIconCategory.GreekRoman.
- * Localized rather than title-cased in place so a translator can say "Griego y
- * romano" — the folder names come from game-icons.net and are English.
+ * Category display names, localized rather than title-cased in place so a
+ * translator can say "Griego y romano" — the folder names are the source
+ * collections' own English. "greek-roman" -> GreekRoman; tlomdev's
+ * "human npcs for itmod" (spaces, the artist's naming) -> HumanNpcsForItmod.
+ * Two literal templates rather than one parameterized on the namespace: the
+ * i18n source gate records `CAIRN.<static prefix>${` as a dynamic prefix, and
+ * a bare `CAIRN.${ns}...` would register the prefix "CAIRN." — every key in
+ * en.json would then count as used and the unused-key check would go blind.
  */
-const categoryLabel = (key) => {
-  const pascal = key.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join("");
-  return game.i18n.localize(`CAIRN.GameIconCategory.${pascal}`);
-};
+const pascal = (key) => key.split(/[\s-]+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join("");
+const gameIconCategoryLabel = (key) => game.i18n.localize(`CAIRN.GameIconCategory.${pascal(key)}`);
+const tlomdevCategoryLabel = (key) => game.i18n.localize(`CAIRN.TlomdevCategory.${pascal(key)}`);
 
 /** An escaped attribute value — icon names are ours, but paths can come from a Warden. */
 const attr = (s) => String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
@@ -58,13 +65,14 @@ const attr = (s) => String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").rep
  * @param {Boolean}  [opts.shipped]      offer the Jon Aspeheim gallery
  * @param {Boolean}  [opts.custom]       offer the Warden's custom folder
  * @param {Boolean}  [opts.gameIcons]    offer the Game-Icons gallery
+ * @param {Boolean}  [opts.tlomdev]      offer the Tlomdev gallery
  * @param {Object}   [opts.classes]      {label, cells:[{key,src,label,selected}]}
  * @param {String}   [opts.browseStart]  where the Browse escape opens
  * @param {Function} opts.onPick         async (src, {cls}) => void; the dialog closes after
  */
 export async function pickArt({
   current, title, shipped = false, custom = false, gameIcons = false,
-  classes = null, browseStart = "", onPick,
+  tlomdev = false, classes = null, browseStart = "", onPick,
 }) {
   const isGM = game.user.isGM;
   const customPaths = custom ? getCustomPortraitPaths() : [];
@@ -81,6 +89,11 @@ export async function pickArt({
   const iconDir = iconManifest?.iconDir ?? "systems/air-bladder/game-icons";
   const iconCats = iconManifest?.categories ?? [];
   const showIcons = gameIcons && iconCats.length > 0;
+
+  const tlomdevManifest = tlomdev ? await getTlomdevManifest() : null;
+  const tlomdevDir = tlomdevManifest?.artDir ?? "systems/air-bladder/tlomdev";
+  const tlomdevCats = tlomdevManifest?.categories ?? [];
+  const showTlomdev = tlomdev && tlomdevCats.length > 0;
 
   const cellFor = (src, label = null) => {
     const sel = src === current ? " selected" : "";
@@ -124,27 +137,42 @@ export async function pickArt({
     });
   }
 
-  if (showIcons) {
-    // Folder tiles. Each wears the first icon in its category as its face, so the
-    // gallery reads as art rather than as a list of words.
-    const folders = iconCats.map(({ key, names }) => {
-      const label = attr(categoryLabel(key));
-      const face = `${iconDir}/${key}/${names[0]}`;
+  // A category-first pane's body: folder tiles (each wearing the first image in
+  // its category as its face, so the gallery reads as art rather than as a list
+  // of words), a hidden drill-down built on demand, and the gallery's own
+  // credit line, sitting OUTSIDE the drill-down so it shows in both views.
+  const folderPaneBody = (dir, cats, labelFor, creditKey) => {
+    const folders = cats.map(({ key, names }) => {
+      const label = attr(labelFor(key));
+      const face = `${dir}/${key}/${names[0]}`;
       return `<button type="button" class="cairn-icon-folder" data-category="${attr(key)}" title="${label}">
           <img src="${attr(face)}" alt="" />
           <span>${label}</span>
         </button>`;
     }).join("");
+    return `<div class="cairn-icon-folders">${folders}</div>
+      <div class="cairn-icon-category" hidden>
+        <button type="button" class="cairn-icon-back"><i class="fas fa-chevron-left"></i> ${game.i18n.localize("CAIRN.GameIconsBack")}</button>
+        <div class="cairn-portrait-grid"></div>
+      </div>
+      <div class="cairn-portrait-credit">${game.i18n.localize(creditKey)}</div>`;
+  };
+
+  if (showIcons) {
     panes.push({
       id: "gameicons",
       count: iconCats.length,
       label: game.i18n.localize("CAIRN.PortraitTabGameIcons"),
-      body: `<div class="cairn-icon-folders">${folders}</div>
-        <div class="cairn-icon-category" hidden>
-          <button type="button" class="cairn-icon-back"><i class="fas fa-chevron-left"></i> ${game.i18n.localize("CAIRN.GameIconsBack")}</button>
-          <div class="cairn-portrait-grid"></div>
-        </div>
-        <div class="cairn-portrait-credit">${game.i18n.localize("CAIRN.GameIconsCredit")}</div>`,
+      body: folderPaneBody(iconDir, iconCats, gameIconCategoryLabel, "CAIRN.GameIconsCredit"),
+    });
+  }
+
+  if (showTlomdev) {
+    panes.push({
+      id: "tlomdev",
+      count: tlomdevCats.length,
+      label: game.i18n.localize("CAIRN.PortraitTabTlomdev"),
+      body: folderPaneBody(tlomdevDir, tlomdevCats, tlomdevCategoryLabel, "CAIRN.TlomdevCredit"),
     });
   }
 
@@ -163,7 +191,8 @@ export async function pickArt({
   const owns = (id) =>
     (id === "custom" && customPaths.includes(current))
     || (id === "shipped" && current?.startsWith(portraitDir))
-    || (id === "gameicons" && current?.startsWith(iconDir));
+    || (id === "gameicons" && current?.startsWith(iconDir))
+    || (id === "tlomdev" && current?.startsWith(tlomdevDir));
   // ...and failing that, the first pane WITH SOMETHING IN IT — not simply the
   // first pane. The distinction cost an evening (2026-08-01): a Monster is
   // offered Custom + Game-Icons, Custom is listed for any GM even when the
@@ -242,18 +271,24 @@ export async function pickArt({
     });
   });
 
-  // Game-Icons: folder tiles in, back out. The category grid is built here and
-  // not up front — see the file header.
-  const foldersEl = root.querySelector(".cairn-icon-folders");
-  const categoryEl = root.querySelector(".cairn-icon-category");
-  if (foldersEl && categoryEl) {
+  // Category-first galleries: folder tiles in, back out. The grid is built here
+  // and not up front — see the file header. Wiring is scoped to each pane,
+  // because both galleries wear the same class names.
+  for (const g of [
+    { id: "gameicons", dir: iconDir, cats: iconCats, thumbLabel: (n) => n.replace(/\.svg$/, "") },
+    { id: "tlomdev", dir: tlomdevDir, cats: tlomdevCats, thumbLabel: (n) => n.replace(/\.(png|webp)$/, "") },
+  ]) {
+    const pane = root.querySelector(`[data-pane="${g.id}"]`);
+    const foldersEl = pane?.querySelector(".cairn-icon-folders");
+    const categoryEl = pane?.querySelector(".cairn-icon-category");
+    if (!foldersEl || !categoryEl) continue;
     const grid = categoryEl.querySelector(".cairn-portrait-grid");
-    root.querySelectorAll(".cairn-icon-folder").forEach((btn) => {
+    foldersEl.querySelectorAll(".cairn-icon-folder").forEach((btn) => {
       btn.addEventListener("click", () => {
         const key = btn.dataset.category;
-        const cat = iconCats.find((c) => c.key === key);
+        const cat = g.cats.find((c) => c.key === key);
         if (!cat) return;
-        grid.innerHTML = cat.names.map((n) => cellFor(`${iconDir}/${key}/${n}`, n.replace(/\.svg$/, ""))).join("");
+        grid.innerHTML = cat.names.map((n) => cellFor(`${g.dir}/${key}/${n}`, g.thumbLabel(n))).join("");
         grid.querySelectorAll(".cairn-portrait-choice").forEach(wireChoice);
         foldersEl.hidden = true;
         categoryEl.hidden = false;

@@ -11,11 +11,16 @@
  * refactor breaks silently: a wrong tab set still renders, still picks, still
  * saves. The rule:
  *
- *   Player Character   Aspeheim + Custom
- *   NPC / Hireling     Aspeheim + Custom + Game-Icons
- *   Monster            Custom + Game-Icons          (no faces on a monster)
- *   Container / mount  Kinds + Custom + Game-Icons
- *   Item / background  Custom + Game-Icons
+ *   Player Character   Aspeheim + Custom + Tlomdev
+ *   NPC / Hireling     Aspeheim + Custom + Game-Icons + Tlomdev
+ *   Monster            Custom + Game-Icons + Tlomdev   (no faces on a monster)
+ *   Container / mount  Kinds + Custom + Game-Icons + Tlomdev
+ *   Item / background  Custom + Game-Icons             (no Tlomdev — actors only)
+ *
+ * ALSO THE PORTRAIT DIE's folder rule (2026-08-02): it re-rolls within the
+ * folder the current portrait came from — a tlomdev beast rolls another beast,
+ * an Aspeheim face another face (with its paired token), and only an image
+ * from no known gallery folder falls back to the auto-assignment pool.
  *
  * THE START TAB is the trap underneath it. The picker opens on whichever tab
  * holds the current image so re-opening lands where you were — and the old code
@@ -51,6 +56,11 @@ import { VIEWPORT, joinAsGM, dismissChrome, watchErrors } from "./lib.mjs";
 const MANIFEST = JSON.parse(fs.readFileSync(
   path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../module/game-icons-manifest.json"), "utf8"));
 const CATS = MANIFEST.categories.length;
+const TL_MANIFEST = JSON.parse(fs.readFileSync(
+  path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../module/tlomdev-manifest.json"), "utf8"));
+const TL_CATS = TL_MANIFEST.categories.length;
+const TL_KW_COUNT = TL_MANIFEST.categories.find((c) => c.key === "Kettlewright Portraits").names.length;
+const TL_BEAST_FIRST = TL_MANIFEST.categories.find((c) => c.key === "beast").names[0];
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: VIEWPORT });
@@ -132,17 +142,17 @@ try {
     return out;
   });
 
-  eq(tabs.pc.labels, ["Jon Aspeheim", "Custom"])
-    ? ok("a PC is offered Aspeheim + Custom", "no Game-Icons")
-    : fail("a PC is offered Aspeheim + Custom", JSON.stringify(tabs.pc.labels));
-  eq(tabs.npc.labels, ["Jon Aspeheim", "Custom", "Game-Icons"])
-    ? ok("an NPC is offered all three")
-    : fail("an NPC is offered all three", JSON.stringify(tabs.npc.labels));
-  eq(tabs.legacy.labels, ["Jon Aspeheim", "Custom", "Game-Icons"])
-    ? ok("a legacy hireling-TYPE doc is offered all three", "the role, not the type")
-    : fail("a legacy hireling-TYPE doc is offered all three", JSON.stringify(tabs.legacy.labels));
-  eq(tabs.monster.labels, ["Custom", "Game-Icons"])
-    ? ok("a Monster is offered no faces", "Aspeheim withheld")
+  eq(tabs.pc.labels, ["Jon Aspeheim", "Custom", "Tlomdev"])
+    ? ok("a PC is offered Aspeheim + Custom + Tlomdev", "no Game-Icons")
+    : fail("a PC is offered Aspeheim + Custom + Tlomdev", JSON.stringify(tabs.pc.labels));
+  eq(tabs.npc.labels, ["Jon Aspeheim", "Custom", "Game-Icons", "Tlomdev"])
+    ? ok("an NPC is offered all four")
+    : fail("an NPC is offered all four", JSON.stringify(tabs.npc.labels));
+  eq(tabs.legacy.labels, ["Jon Aspeheim", "Custom", "Game-Icons", "Tlomdev"])
+    ? ok("a legacy hireling-TYPE doc is offered all four", "the role, not the type")
+    : fail("a legacy hireling-TYPE doc is offered all four", JSON.stringify(tabs.legacy.labels));
+  eq(tabs.monster.labels, ["Custom", "Game-Icons", "Tlomdev"])
+    ? ok("a Monster is offered no faces", "Aspeheim withheld, Tlomdev not")
     : fail("a Monster is offered no faces", JSON.stringify(tabs.monster.labels));
 
   // The trap: a hidden default would leave every tab inactive and the body
@@ -156,8 +166,8 @@ try {
     ? ok("a Monster opens on a tab with something in it", `active=${tabs.monster.active}, ${tabs.monster.shownCount} tiles`)
     : fail("a Monster opens on a tab with something in it", JSON.stringify(tabs.monster));
 
-  eq(tabs.thing.labels, ["Kinds", "Custom", "Game-Icons"]) && tabs.thing.hasClassCells
-    ? ok("a container keeps its Kind gallery", "and gains the other two")
+  eq(tabs.thing.labels, ["Kinds", "Custom", "Game-Icons", "Tlomdev"]) && tabs.thing.hasClassCells
+    ? ok("a container keeps its Kind gallery", "and gains the other three")
     : fail("a container keeps its Kind gallery", JSON.stringify(tabs.thing));
   tabs.thing.classAfterPick === "barrel" && tabs.thing.artAfterPick === "barrel.svg"
     ? ok("picking a Kind glyph still sets the class", "barrel + barrel.svg")
@@ -176,14 +186,18 @@ try {
     const root = dlg.element;
 
     root.querySelector('.cairn-portrait-tab[data-tab="gameicons"]').click();
-    const folders = [...root.querySelectorAll(".cairn-icon-folder")];
+    // Scoped to the pane: since Tlomdev arrived there are TWO folder galleries
+    // in one dialog wearing the same class names, and a root-wide query counts
+    // both (24 + 16 read as 40 "game-icons categories").
+    const pane = root.querySelector('[data-pane="gameicons"]');
+    const folders = [...pane.querySelectorAll(".cairn-icon-folder")];
     const out = {
       folderCount: folders.length,
       labels: folders.slice(0, 3).map((f) => f.querySelector("span").textContent),
       // A manifest naming a file that is not on disk renders a blank tile and no
       // error; decoded width is the only thing that tells them apart.
       facesLoaded: 0,
-      gridBeforeClick: root.querySelector(".cairn-icon-category").hidden,
+      gridBeforeClick: pane.querySelector(".cairn-icon-category").hidden,
     };
     await Promise.all(folders.map((f) => f.querySelector("img").decode().catch(() => {})));
     out.facesLoaded = folders.filter((f) => f.querySelector("img").naturalWidth > 0).length;
@@ -191,16 +205,16 @@ try {
     // Into a category, and back out again.
     const weapons = folders.find((f) => f.dataset.category === "weapons");
     weapons.click();
-    out.foldersHiddenAfter = root.querySelector(".cairn-icon-folders").hidden;
-    out.categoryShown = !root.querySelector(".cairn-icon-category").hidden;
-    out.thumbs = root.querySelectorAll(".cairn-icon-category .cairn-portrait-choice").length;
-    root.querySelector(".cairn-icon-back").click();
-    out.backToFolders = !root.querySelector(".cairn-icon-folders").hidden
-      && root.querySelector(".cairn-icon-category").hidden;
+    out.foldersHiddenAfter = pane.querySelector(".cairn-icon-folders").hidden;
+    out.categoryShown = !pane.querySelector(".cairn-icon-category").hidden;
+    out.thumbs = pane.querySelectorAll(".cairn-icon-category .cairn-portrait-choice").length;
+    pane.querySelector(".cairn-icon-back").click();
+    out.backToFolders = !pane.querySelector(".cairn-icon-folders").hidden
+      && pane.querySelector(".cairn-icon-category").hidden;
 
     // Pick one for real, through its own click handler.
     weapons.click();
-    root.querySelector(".cairn-icon-category .cairn-portrait-choice").click();
+    pane.querySelector(".cairn-icon-category .cairn-portrait-choice").click();
     await new Promise((r) => setTimeout(r, 400));
     out.img = a.img;
     out.token = a.prototypeToken?.texture?.src;
@@ -225,6 +239,68 @@ try {
   browse.img?.includes("/game-icons/weapons/") && browse.token === browse.img
     ? ok("picking one sets the portrait AND the token", browse.img.split("/").pop())
     : fail("picking one sets the portrait AND the token", JSON.stringify(browse));
+
+  /* --- 2b. the Tlomdev gallery browses the same way ---------------------- */
+
+  const tl = await page.evaluate(async () => {
+    const Cls = CONFIG.Actor.documentClass;
+    const a = await Cls.create({ name: "ZZ Art Tlomdev", type: "npc", system: { role: "npc" } });
+    const sheet = a.sheet;
+    await sheet.render(true);
+    await sheet._pickPortrait(new Event("click"));
+    const dlg = [...foundry.applications.instances.values()]
+      .find((x) => x.constructor.name === "DialogV2" && x.element?.querySelector(".cairn-portrait-gallery"));
+    const root = dlg.element;
+
+    // A missing tab is a RESULT, not a crash: throwing here would abort the
+    // probe and silently skip every section after this one (the roller legs
+    // found that out during the negative control).
+    const tlTab = root.querySelector('.cairn-portrait-tab[data-tab="tlomdev"]');
+    if (!tlTab) {
+      await dlg.close(); await sheet.close(); await a.delete();
+      return { missing: true };
+    }
+    tlTab.click();
+    const pane = root.querySelector('[data-pane="tlomdev"]');
+    const folders = [...pane.querySelectorAll(".cairn-icon-folder")];
+    const out = {
+      folderCount: folders.length,
+      kwTile: folders.some((f) => f.dataset.category === "Kettlewright Portraits"),
+      credit: pane.querySelector(".cairn-portrait-credit")?.textContent.includes("tlomdev") ?? false,
+      facesLoaded: 0,
+    };
+    await Promise.all(folders.map((f) => f.querySelector("img").decode().catch(() => {})));
+    out.facesLoaded = folders.filter((f) => f.querySelector("img").naturalWidth > 0).length;
+
+    // Into the Kettlewright folder — the one whose FILENAMES are load-bearing
+    // (the KW importer maps by them), and the one with spaces in its path.
+    folders.find((f) => f.dataset.category === "Kettlewright Portraits").click();
+    out.kwThumbs = pane.querySelectorAll(".cairn-icon-category .cairn-portrait-choice").length;
+    pane.querySelector(".cairn-icon-category .cairn-portrait-choice").click();
+    await new Promise((r) => setTimeout(r, 400));
+    out.img = a.img;
+    out.token = a.prototypeToken?.texture?.src;
+
+    await sheet.close();
+    await a.delete();
+    return out;
+  });
+
+  !tl.missing && tl.folderCount === TL_CATS && tl.kwTile
+    ? ok(`all ${TL_CATS} tlomdev folders, Kettlewright included`)
+    : fail(`all ${TL_CATS} tlomdev folders, Kettlewright included`, JSON.stringify(tl));
+  tl.facesLoaded === TL_CATS
+    ? ok("every tlomdev folder face resolves", `${TL_CATS}/${TL_CATS} decoded`)
+    : fail("every tlomdev folder face resolves", `${tl.facesLoaded}/${TL_CATS} — the manifest names a missing file`);
+  tl.kwThumbs === TL_KW_COUNT
+    ? ok("the Kettlewright folder holds the full set", `${tl.kwThumbs} thumbnails`)
+    : fail("the Kettlewright folder holds the full set", `${tl.kwThumbs} of ${TL_KW_COUNT}`);
+  tl.img?.includes("/tlomdev/Kettlewright Portraits/") && tl.token === tl.img
+    ? ok("picking a tlomdev drawing sets portrait AND token", tl.img.split("/").pop())
+    : fail("picking a tlomdev drawing sets portrait AND token", JSON.stringify([tl.img, tl.token]));
+  tl.credit
+    ? ok("the pane carries the CC BY-SA credit")
+    : fail("the pane carries the CC BY-SA credit", "no tlomdev credit line in the pane");
 
   /* --- 3. items and backgrounds ----------------------------------------- */
 
@@ -255,11 +331,77 @@ try {
   });
 
   item.overridden && eq(item.labels, ["Custom", "Game-Icons"])
-    ? ok("an item gets Custom + Game-Icons", "core's FilePicker is overridden")
+    ? ok("an item gets Custom + Game-Icons", "no Tlomdev — actor sheets only")
     : fail("an item gets Custom + Game-Icons", JSON.stringify(item));
   item.img?.includes("/game-icons/tools/")
     ? ok("picking sets the item's art", item.img.split("/").pop())
     : fail("picking sets the item's art", JSON.stringify(item.img));
+
+  /* --- 3b. the portrait die re-rolls within the current folder ----------- */
+
+  const roll = await page.evaluate(async ({ beastFirst }) => {
+    const until = async (test, ms = 4000) => {
+      const t0 = Date.now();
+      while (Date.now() - t0 < ms) { if (test()) return true; await new Promise((r) => setTimeout(r, 100)); }
+      return test();
+    };
+    const Cls = CONFIG.Actor.documentClass;
+    const beastDir = "systems/air-bladder/tlomdev/beast";
+    const a = await Cls.create({ name: "ZZ Art Roller", type: "npc", system: { role: "npc" }, img: `${beastDir}/${beastFirst}` });
+    const sheet = a.sheet;
+    await sheet.render(true);
+    const out = { start: a.img };
+    const clickDie = async () => {
+      await until(() => !!sheet.element?.querySelector('[data-action="rollPortrait"]'));
+      sheet.element.querySelector('[data-action="rollPortrait"]').click();
+    };
+
+    // A tlomdev pick: the die must stay inside beast/, and the art is its own token.
+    await clickDie();
+    await until(() => a.img !== `${beastDir}/${beastFirst}`);
+    out.afterBeast = a.img;
+    out.tokenAfterBeast = a.prototypeToken?.texture?.src;
+
+    // An Aspeheim face: stays Aspeheim, and the PAIRED token file swaps with it.
+    const gen = await import("/systems/air-bladder/module/character-generator.js");
+    const m = await gen.getPortraitManifest();
+    const firstShipped = `${m.portraitDir}/${m.names[0]}`;
+    await a.update({ img: firstShipped, "prototypeToken.texture.src": `${m.tokenDir}/${m.names[0]}` });
+    await clickDie();
+    await until(() => a.img !== firstShipped);
+    out.afterAspeheim = a.img;
+    out.tokenAfterAspeheim = a.prototypeToken?.texture?.src;
+    out.portraitDir = m.portraitDir;
+    out.tokenDir = m.tokenDir;
+
+    // No known folder: back to the auto-assignment pool (custom when the world
+    // has any, else Aspeheim) — computed here, not assumed, so the leg does not
+    // depend on whether this world's custom folder happens to be empty.
+    await a.update({ img: "icons/svg/mystery-man.svg" });
+    await clickDie();
+    await until(() => a.img !== "icons/svg/mystery-man.svg");
+    out.afterUnknown = a.img;
+    const custom = gen.getCustomPortraitPaths();
+    out.unknownLandsInPool = custom.length ? custom.includes(a.img) : a.img.startsWith(`${m.portraitDir}/`);
+
+    await sheet.close();
+    await a.delete();
+    return out;
+  }, { beastFirst: TL_BEAST_FIRST });
+
+  roll.afterBeast?.startsWith("systems/air-bladder/tlomdev/beast/") && roll.afterBeast !== roll.start
+    ? ok("the die re-rolls within tlomdev/beast", roll.afterBeast.split("/").pop())
+    : fail("the die re-rolls within tlomdev/beast", JSON.stringify([roll.start, roll.afterBeast]));
+  roll.tokenAfterBeast === roll.afterBeast
+    ? ok("a tlomdev roll is its own token")
+    : fail("a tlomdev roll is its own token", JSON.stringify([roll.afterBeast, roll.tokenAfterBeast]));
+  roll.afterAspeheim?.startsWith(`${roll.portraitDir}/`)
+    && roll.tokenAfterAspeheim === `${roll.tokenDir}/${roll.afterAspeheim.split("/").pop()}`
+    ? ok("an Aspeheim roll stays Aspeheim, token paired", roll.afterAspeheim.split("/").pop())
+    : fail("an Aspeheim roll stays Aspeheim, token paired", JSON.stringify([roll.afterAspeheim, roll.tokenAfterAspeheim]));
+  roll.unknownLandsInPool
+    ? ok("an unknown image falls back to the auto pool", roll.afterUnknown.split("/").pop())
+    : fail("an unknown image falls back to the auto pool", JSON.stringify(roll.afterUnknown));
 
   /* --- 4. negative control ---------------------------------------------- */
 

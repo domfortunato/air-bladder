@@ -1,4 +1,4 @@
-import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, mentionsSecondBond, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, getCustomPortraitPaths, regenerateNpc, rerollNpcProfession, rerollNpcName, rollNameFromTable, rollAge } from "../character-generator.js";
+import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, mentionsSecondBond, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, regenerateNpc, rerollNpcProfession, rerollNpcName, rollNameFromTable, rollAge } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, sourceLabel } from "../utils.js";
@@ -1693,29 +1693,21 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
-   * Dice on the portrait: roll a random one from the effective pool, avoiding the
-   * current so it always changes. The pool matches auto-assignment — the GM's
-   * custom portraits when they have any, else the shipped Aspeheim art. Reuses
-   * _setPortrait so the paired token swaps too (custom portraits are their own).
+   * Dice on the portrait: roll a random one FROM THE FOLDER THE CURRENT
+   * PORTRAIT CAME FROM — Aspeheim rolls Aspeheim, a custom portrait rolls the
+   * Warden's folder, a game-icons or tlomdev pick rolls its own category, so a
+   * beast stays a beast. An image from no known gallery folder falls back to
+   * the auto-assignment pool (custom when non-empty, else Aspeheim), which was
+   * this die's whole behaviour before the rule. Reuses _setPortrait so the
+   * paired token swaps too (non-Aspeheim art is its own token).
    * @this {CairnActorSheet}
    */
   static async #onRollPortrait(event) {
     event.preventDefault();
     event.stopPropagation();
-    const custom = getCustomPortraitPaths();
-    let all;
-    if (custom.length) {
-      all = custom;
-    } else {
-      const manifest = await getPortraitManifest();
-      const names = manifest?.names ?? [];
-      if (!names.length) return;
-      const dir = manifest.portraitDir ?? "systems/air-bladder/character_portraits";
-      all = names.map((n) => `${dir}/${n}`);
-    }
-    const pool = all.filter((src) => src !== this.actor.img);
-    const choices = pool.length ? pool : all;
-    await this._setPortrait(choices[Math.floor(Math.random() * choices.length)]);
+    const src = await randomPortraitInSameFolder(this.actor.img);
+    if (!src) return;
+    await this._setPortrait(src);
   }
 
   /**
@@ -2686,11 +2678,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       current,
       title: game.i18n.localize("CAIRN.ChooseContainerArt"),
       classes: { label: game.i18n.localize("CAIRN.ContainerArtTabKinds"), cells },
-      // No Aspeheim here — a sack has no face. Custom and Game-Icons ride along
-      // so a Warden can dress a thing in their own art without leaving for the
-      // FilePicker; both arrive with no class key, so the stored Kind survives.
+      // No Aspeheim here — a sack has no face. Custom, Game-Icons and Tlomdev
+      // ride along so a Warden can dress a thing in their own art without
+      // leaving for the FilePicker (tlomdev's beasts suit mounts); all three
+      // arrive with no class key, so the stored Kind survives.
       custom: true,
       gameIcons: true,
+      tlomdev: true,
       browseStart: "icons/containers",
       onPick: (src, { cls }) => this._setContainerArt(src, cls),
     });
@@ -2700,12 +2694,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * Portrait picker — the actor counterpart to _pickContainerArt. Which
    * galleries appear is a ROLE question, not a type question:
    *
-   *   Player Character   Aspeheim + Custom
-   *   NPC / Hireling     Aspeheim + Custom + Game-Icons
-   *   Monster            Custom + Game-Icons
+   *   Player Character   Aspeheim + Custom + Tlomdev
+   *   NPC / Hireling     Aspeheim + Custom + Game-Icons + Tlomdev
+   *   Monster            Custom + Game-Icons + Tlomdev
    *
    * Aspeheim's art is human faces, so a Monster is not offered it; nothing else
    * is withheld anywhere, and the URL row and Browse escape are on every sheet.
+   * Tlomdev's tokens are drawn for creatures AND people (its "human npcs" and
+   * Kettlewright folders are faces), so unlike Aspeheim it appears everywhere.
    * Thing roles (mount, transport, container) never reach here — _onEditPortrait
    * routes them to the container gallery instead.
    *
@@ -2721,6 +2717,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       shipped: !isMonster,
       custom: true,
       gameIcons: this.actor.type !== "character",
+      tlomdev: true,
       browseStart: (await getPortraitManifest())?.portraitDir ?? "systems/air-bladder/character_portraits",
       onPick: (src) => this._setPortrait(src),
     });

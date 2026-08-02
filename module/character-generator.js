@@ -71,6 +71,25 @@ export const getGameIconManifest = async () => {
   return _gameIconManifest;
 };
 
+// The Tlomdev gallery: tlomdev's CC BY-SA 4.0 token drawings, browsed by the
+// artist's own category folders, plus Kettlewright's copies under
+// "Kettlewright Portraits" (see tools/import/tlomdev.mjs). Same
+// lazy-fetch-and-cache shape as the two above, for the same reason.
+let _tlomdevManifest = null;
+
+/** @returns {Promise<{artDir:String, categories:{key:String, names:String[]}[]}>} */
+export const getTlomdevManifest = async () => {
+  if (_tlomdevManifest === null) {
+    try {
+      const resp = await fetch("systems/air-bladder/module/tlomdev-manifest.json");
+      _tlomdevManifest = resp.ok ? await resp.json() : { categories: [] };
+    } catch {
+      _tlomdevManifest = { categories: [] };
+    }
+  }
+  return _tlomdevManifest;
+};
+
 // --- Custom portraits (GM-curated, per-world local pool) --------------------
 // A folder of the GM's own portraits, scanned into a world setting so players
 // (who lack FILES_BROWSE) can still see and pick them. When non-empty it REPLACES
@@ -166,6 +185,79 @@ export const pairedTokenFor = async (portraitPath) => {
   const m = await getPortraitManifest();
   const base = String(portraitPath ?? "").split("/").pop();
   return m?.names?.includes(base) ? `${m.tokenDir}/${base}` : null;
+};
+
+/**
+ * The pool `img` belongs to inside a category gallery (game-icons or tlomdev):
+ * every file of the category the image sits in, or null when it is not from
+ * one. Membership is checked against the MANIFEST, not just the path shape, so
+ * a stale path to a renamed file falls through to the caller's fallback.
+ */
+const categoryPoolFor = (img, dir, categories) => {
+  if (!dir || !img.startsWith(`${dir}/`)) return null;
+  const rest = img.slice(dir.length + 1);
+  const slash = rest.indexOf("/");
+  if (slash === -1) return null;
+  const key = rest.slice(0, slash);
+  const cat = categories.find((c) => c.key === key);
+  return cat?.names?.includes(rest.slice(slash + 1))
+    ? cat.names.map((n) => `${dir}/${key}/${n}`)
+    : null;
+};
+
+/**
+ * The portrait die re-rolls WITHIN THE FOLDER the current portrait came from:
+ * an Aspeheim face rolls another Aspeheim face, a custom portrait another from
+ * the Warden's folder, a game-icons or tlomdev pick another from the SAME
+ * CATEGORY — a beast stays a beast rather than turning into a librarian's
+ * portrait. Only when the current image is from no known gallery folder (the
+ * default mystery-man, a pasted URL, a Kind glyph) does it fall back to the
+ * auto-assignment pool (custom when non-empty, else Aspeheim), which was the
+ * die's whole behaviour before this rule.
+ *
+ * Avoids returning the current image while the pool holds anything else, so
+ * the die always visibly does something.
+ * @param {String} current the actor's current img
+ * @returns {Promise<String|null>} a portrait src, or null when every pool is empty
+ */
+export const randomPortraitInSameFolder = async (current) => {
+  const img = String(current ?? "");
+  const m = await getPortraitManifest();
+  const portraitDir = m?.portraitDir ?? "systems/air-bladder/character_portraits";
+  const aspeheim = (m?.names ?? []).map((n) => `${portraitDir}/${n}`);
+  const custom = getCustomPortraitPaths();
+
+  let pool = null;
+  if (aspeheim.includes(img)) pool = aspeheim;
+  if (!pool && custom.includes(img)) pool = custom;
+  if (!pool) {
+    const gi = await getGameIconManifest();
+    pool = categoryPoolFor(img, gi?.iconDir ?? "systems/air-bladder/game-icons", gi?.categories ?? []);
+  }
+  if (!pool) {
+    const tl = await getTlomdevManifest();
+    pool = categoryPoolFor(img, tl?.artDir ?? "systems/air-bladder/tlomdev", tl?.categories ?? []);
+  }
+  if (!pool) pool = custom.length ? custom : aspeheim;
+
+  if (!pool.length) return null;
+  const others = pool.filter((src) => src !== img);
+  const choices = others.length ? others : pool;
+  return choices[Math.floor(Math.random() * choices.length)];
+};
+
+/**
+ * The shipped tlomdev copy of a Kettlewright stock portrait ("portrait17.webp"),
+ * or null when the name is not in the shipped set. The Kettlewright importer
+ * maps stock picks through this — the filenames under
+ * tlomdev/Kettlewright Portraits/ are Kettlewright's own numbering on purpose.
+ * @param {String} name a bare filename as Kettlewright's export stores it
+ * @returns {Promise<String|null>}
+ */
+export const kettlewrightPortraitPath = async (name) => {
+  const tl = await getTlomdevManifest();
+  const cat = tl?.categories?.find((c) => c.key === "Kettlewright Portraits");
+  return cat?.names?.includes(name) ? `${tl.artDir}/${cat.key}/${name}` : null;
 };
 
 /* -------------------------------------------------------------------------- */

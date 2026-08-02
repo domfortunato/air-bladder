@@ -68,7 +68,7 @@ Character portraits and tokens — CC BY 4.0, © Jon Aspeheim
 
 game-icons.net art — CC BY 3.0
     icons/       — the class icons, by Lorc, Delapouite & Skoll
-    game-icons/  — the Game-Icons picker gallery, 1,239 glyphs in 23
+    game-icons/  — the Game-Icons picker gallery, 1,310 glyphs in 24
                    categories by 16 contributors
     https://creativecommons.org/licenses/by/3.0/
     Two paths, one grant: same source, same licence, different jobs. Per-icon
@@ -77,6 +77,18 @@ game-icons.net art — CC BY 3.0
     records only the category, because the artist lives in the download's
     folder structure and the flatten discards it. The upstream notice ships
     verbatim as game-icons/license.txt.
+
+Tlomdev's Tokens — CC BY-SA 4.0, © 2023 tlomdev
+    tlomdev/
+    https://creativecommons.org/licenses/by-sa/4.0/
+    https://tlomdev.itch.io/tlomdevs-tokens
+    368 token drawings in the Tlomdev picker gallery, kept in the artist's own
+    category folders. The "Kettlewright Portraits" subfolder carries the same
+    artist's drawings as shipped by Kettlewright, with Kettlewright's exact
+    filenames — the Kettlewright character importer maps stock portrait picks
+    by that numbering. ShareAlike: adaptations of the art must carry this same
+    licence. Attribution and provenance: tlomdev/CREDITS.md; the notice ships
+    as tlomdev/license.txt.
 
 Alegreya typeface — SIL Open Font License 1.1
     fonts/  — © 2011 The Alegreya Project Authors (Huerta Tipográfica)
