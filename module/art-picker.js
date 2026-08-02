@@ -68,7 +68,13 @@ const attr = (s) => String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").rep
  * @param {Boolean}  [opts.tlomdev]      offer the Tlomdev gallery
  * @param {Object}   [opts.classes]      {label, cells:[{key,src,label,selected}]}
  * @param {String}   [opts.browseStart]  where the Browse escape opens
- * @param {Function} opts.onPick         async (src, {cls}) => void; the dialog closes after
+ * @param {Function} opts.onPick         async (src) => void; the dialog closes after.
+ *                                       ART ONLY (2026-08-02): a pick carries no
+ *                                       class key any more — the Kind gallery's
+ *                                       cells keep `key` solely to mark the
+ *                                       stored Kind's cell selected, and writing
+ *                                       the Kind is the sheet's Type select's
+ *                                       job alone.
  */
 export async function pickArt({
   current, title, shipped = false, custom = false, gameIcons = false,
@@ -106,9 +112,12 @@ export async function pickArt({
   const panes = [];
 
   if (classes) {
-    const cells = classes.cells.map(({ key, src, label, selected }) =>
+    // No data-class on the cells (2026-08-02): the attribute was the pick's
+    // class claim, and a pick claims nothing now. `key` still chose `selected`
+    // above; past that the glyphs are just art.
+    const cells = classes.cells.map(({ src, label, selected }) =>
       `<img class="cairn-portrait-choice${selected ? " selected" : ""}" src="${attr(src)}" `
-      + `data-src="${attr(src)}" data-class="${attr(key)}" title="${attr(label)}" alt="${attr(label)}" />`
+      + `data-src="${attr(src)}" title="${attr(label)}" alt="${attr(label)}" />`
     ).join("");
     panes.push({ id: "classes", count: classes.cells.length, label: classes.label, body: `<div class="cairn-portrait-grid">${cells}</div>` });
   }
@@ -255,12 +264,12 @@ export async function pickArt({
   /* --- wiring ------------------------------------------------------------ */
 
   const root = dialog.element;
-  const commit = async (src, cls) => {
-    await onPick(src, { cls });
+  const commit = async (src) => {
+    await onPick(src);
     dialog.close();
   };
   const wireChoice = (img) =>
-    img.addEventListener("click", () => commit(img.dataset.src, img.dataset.class));
+    img.addEventListener("click", () => commit(img.dataset.src));
   root.querySelectorAll(".cairn-portrait-choice").forEach(wireChoice);
 
   root.querySelectorAll(".cairn-portrait-tab").forEach((btn) => {
@@ -318,7 +327,7 @@ export async function pickArt({
   const urlInput = root.querySelector(".cairn-portrait-url-input");
   const applyUrl = () => {
     const value = urlInput?.value.trim();
-    if (value) commit(value, undefined);
+    if (value) commit(value);
   };
   root.querySelector(".cairn-portrait-url-set")?.addEventListener("click", applyUrl);
   urlInput?.addEventListener("keydown", (ev) => {
@@ -329,9 +338,10 @@ export async function pickArt({
     new (filePicker())({
       type: "image",
       current: browseStart,
-      // No class argument: the picture changed, nothing else did. A mule wearing
-      // the Warden's own painting is still a mule.
-      callback: (path) => commit(path, undefined),
+      // The picture changes, nothing else does — true of EVERY pick since
+      // 2026-08-02, not just Browse. A mule wearing the Warden's own painting
+      // is still a mule.
+      callback: (path) => commit(path),
     }).render(true);
   });
 

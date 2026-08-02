@@ -47,12 +47,13 @@ const EXPECTED = {
   Mule: ["Mule", "donkey.svg"],
   Donkey: ["Donkey", "donkey.svg"],
   Cart: ["Cart", "cart.svg"],
-  Handcart: ["Handcart", "handcart.svg"],
+  Handcart: ["Hand Cart", "handcart.svg"],
   Wagon: ["Wagon", "wagon.svg"],
-  // Its own Kind since the funeralwagon class landed: the name carries "Burial",
-  // which the classifier tests BEFORE "wagon", and the pack document stores the
-  // class outright. A hearse is not a hay wagon with a different label.
-  "Burial Wagon": ["Funeral Wagon", "funeralwagon.svg"],
+  // The funeralwagon class is RETIRED (2026-08-02): a hearse is a wagon a
+  // Warden has named, so Burial Wagon stores `wagon` and labels "Wagon" —
+  // while deliberately KEEPING the coffin art the pack ships, which the
+  // art/Kind decoupling makes legal (see the drifted-filter exemption below).
+  "Burial Wagon": ["Wagon", "wagon.svg"],
   Sack: ["Sack", "sack.svg"],
   Backpack: ["Backpack", "backpack.svg"],
 };
@@ -88,10 +89,18 @@ try {
     ? ok(`all ${classes.length} shipped transports`, "label and art both as expected")
     : fail("shipped transport labels", JSON.stringify(wrong.length ? wrong : classes.map((c) => c.name)));
 
-  const drifted = classes.filter((c) => c.icon !== c.packImg);
+  // Burial Wagon is EXEMPT by design: it stores class `wagon` but ships the
+  // coffin art (funeralwagon.svg) — custom art over a known Kind, the exact
+  // shape the 2026-08-02 decoupling exists to permit. Everything else must
+  // still agree, or the refactor silently re-arted the pack.
+  const drifted = classes.filter((c) => c.icon !== c.packImg && c.name !== "Burial Wagon");
   !drifted.length
-    ? ok("the classifier picks the shipped art", "no document would be re-arted")
+    ? ok("the classifier picks the shipped art", "no document would be re-arted (Burial Wagon exempt by design)")
     : fail("the classifier picks the shipped art", JSON.stringify(drifted));
+  const burial = classes.find((c) => c.name === "Burial Wagon");
+  burial?.packImg === "funeralwagon.svg"
+    ? ok("Burial Wagon keeps its coffin art over class wagon", "the decoupling's shipped witness")
+    : fail("Burial Wagon keeps its coffin art over class wagon", JSON.stringify(burial));
 
   const destrier = classes.find((c) => c.name === "Heavy Destrier");
   destrier?.label === "Horse"
@@ -103,7 +112,9 @@ try {
   // silently — the two word-boundary ones especially, since "Draft Horse" holds a
   // raft and every class but Small Craft used to answer to its own label.
   const BY_NAME = {
-    "Funeral Wagon": "funeralwagon", "Burial Wagon": "funeralwagon", Hearse: "funeralwagon",
+    // funeral/hearse/burial answer WAGON since the class retired — the rule
+    // survives so "Hearse" (no construction word) never falls to the chest.
+    "Funeral Wagon": "wagon", "Burial Wagon": "wagon", Hearse: "wagon",
     Wagon: "wagon", "Funeral Cart": "cart",
     Rowboat: "smallcraft", Skiff: "smallcraft", "Small Craft": "smallcraft",
     "Draft Horse": "horse", Handicraft: "chest",
@@ -149,8 +160,11 @@ try {
     await pile.sheet.render(true);
     await new Promise((r) => setTimeout(r, 1200));
     const el = pile.sheet.element;
-    const input = el.querySelector('input[name="system.containerClass"]');
-    const list = input?.list ? [...input.list.options] : [];
+    // The Type control is a strict SELECT since 2026-08-02: the label a user
+    // sees is the selected option's text, the options are the role's kinds
+    // plus blank and "Other…", and the free-text input sits disabled behind
+    // Other. The old input+datalist reads died with the control.
+    const select = el.querySelector(".kind-select");
     const out = {
       before,
       after: {
@@ -159,16 +173,11 @@ try {
       },
       customKept: custom.img,
       sheet: {
-        // system.classLabel is GONE (review #6 batch 3): the label a user sees
-        // is kindDisplay, and this input's value IS that context field.
-        selectValue: input?.value ?? null,
+        selectValue: select?.selectedOptions?.[0]?.textContent?.trim() ?? null,
         stored: pile.system.containerClass ?? null,
-        // Datalist options carry the LABEL as their value since the 2026-08-02
-        // display/value split (picking one inserts the label; the submit maps it
-        // back to the key). They have no text child any more, so read .value.
-        options: list.map((o) => o.value).filter(Boolean),
-        // Not clipped: the Kind box has its own row for exactly this reason.
-        clipped: input ? input.scrollWidth > input.clientWidth + 1 : null,
+        options: select ? [...select.options].map((o) => o.textContent.trim()).filter(Boolean) : [],
+        // Not clipped: the Type control has its own room for exactly this reason.
+        clipped: select ? select.scrollWidth > select.clientWidth + 1 : null,
       },
       pileId: pile.id,
       customId: custom.id,
@@ -185,19 +194,19 @@ try {
     : fail("switching to Item Pile re-arts it", JSON.stringify(made.after));
   // "and relabels it" used to assert system.classLabel here; that derived
   // property is deleted (review #6 batch 3) and the label contract lives in
-  // the sheet assertion below — the input VALUE is kindDisplay.
+  // the sheet assertion below — the selected option's text.
   made.customKept === "icons/svg/coins.svg"
     ? ok("hand-picked art is never overwritten", made.customKept)
     : fail("hand-picked art is never overwritten", made.customKept);
-  // The display/value split (2026-08-02): the input SHOWS the label, the
-  // document STORES the key. The old assertion wanted the raw key in the input,
-  // which was the defect — "funeralwagon" on the sheet in every language.
+  // The display/value split (2026-08-02): the select SHOWS the label, the
+  // document STORES the key. The original defect was the raw key on the sheet
+  // in every language.
   made.sheet.selectValue === "Item Pile" && made.sheet.stored === "pile"
-    ? ok("the sheet shows the Kind, the doc stores the key", `"${made.sheet.selectValue}" / "${made.sheet.stored}"`)
-    : fail("the sheet shows the Kind, the doc stores the key", JSON.stringify(made.sheet));
-  made.sheet.options.includes("Item Pile") && made.sheet.clipped === false
-    ? ok("the Kind control offers it, unclipped", made.sheet.options.join(" / "))
-    : fail("the Kind control offers it, unclipped", JSON.stringify(made.sheet));
+    ? ok("the sheet shows the Type, the doc stores the key", `"${made.sheet.selectValue}" / "${made.sheet.stored}"`)
+    : fail("the sheet shows the Type, the doc stores the key", JSON.stringify(made.sheet));
+  made.sheet.options.includes("Item Pile") && made.sheet.options.includes("Other…") && made.sheet.clipped === false
+    ? ok("the Type select offers it, plus Other, unclipped", made.sheet.options.join(" / "))
+    : fail("the Type select offers it, plus Other, unclipped", JSON.stringify(made.sheet));
 
   /* --- 3. the directory shows it ----------------------------------------- */
   console.log("\nreachability");

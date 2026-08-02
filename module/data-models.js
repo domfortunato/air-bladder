@@ -345,14 +345,19 @@ class NpcData extends CairnDataModel {
       // THING_ROLES hide the block — and migrateData still reads it off old
       // documents. Do not re-add it.
 
-      // The KIND: what this thing is ("sack", "cart", "horse", or anything a
-      // Warden types) when someone has said so explicitly; BLANK MEANS INFER
-      // from the name. A known class drives art, map token, the one-word label
-      // and the default slot count from a single field, so they cannot drift
-      // apart; an unknown one is just a label. The inference is a list of
-      // ENGLISH keywords (icons.js containerClass), so this is also the only
-      // way a Warden working in another language can say "this is a backpack".
-      // Deliberately free text, not an enum — see docs/npc-roles-plan.md.
+      // The KIND (labelled "Type" on the sheet since 2026-08-02): what this
+      // thing is ("sack", "cart", "horse", or anything a Warden types) when
+      // someone has said so explicitly; BLANK MEANS INFER from the name. A
+      // known class drives the one-word label and the default slot count, and
+      // a kind CHANGE stamps default art only while the current art is stock
+      // (CairnActor._preUpdate) — art picks never write this field back (the
+      // 2026-08-02 decoupling). The FIELD stays a free `str()` with no
+      // `choices` even though the sheet offers a strict role-scoped select:
+      // legacy tolerance is the point — a Warden's own word (behind the
+      // select's "Other…") is a legal Kind and must load forever. The
+      // inference is a list of ENGLISH keywords (icons.js containerClass), so
+      // the select is also the only way a Warden working in another language
+      // can say "this is a backpack". See docs/npc-roles-plan.md.
       containerClass: str(),
 
       // Purchase price. Needed because mounts and vehicles become Actors stocked
@@ -403,6 +408,15 @@ class NpcData extends CairnDataModel {
    * selects on type + legacy keys + dayRate, never on this.
    */
   static migrateData(source) {
+    // The funeralwagon Kind retirement (2026-08-02), FIRST — before anything
+    // derives from containerClass. Same literal-value guard as the hireling
+    // shim below, for the same reason: this runs on update diffs too, where
+    // absence says nothing, but a literal "funeralwagon" is unambiguous
+    // whichever it is, and converting an attempted write is right for one too.
+    // The class's 6-slot default is not lost by this: every stored consumer
+    // (the Burial Wagon pack doc) states slots outright, and the Bonekeeper
+    // grant's spec.slots wins regardless.
+    if (source && source.containerClass === "funeralwagon") source.containerClass = "wagon";
     // The hireling-role collapse (2026-08-01), and it MUST ship in the same
     // commit as the shrunk NPC_ROLES: `migrateData` runs BEFORE choices
     // validation (common/data/fields.mjs:234 via common/abstract/data.mjs:77-81),

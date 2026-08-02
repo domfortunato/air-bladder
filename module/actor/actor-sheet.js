@@ -4,7 +4,7 @@ import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, sourceLabel } from "../utils.js";
 import { resultText } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
-import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES, containerClassSlots } from "../icons.js";
+import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES } from "../icons.js";
 import { NPC_ROLES } from "../data-models.js";
 import { atConnectionLimit, maxConnections, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
 import { localizeNameDesc, sourceOf, t } from "../i18n-content.js";
@@ -669,22 +669,24 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // side without one.
       context.showFaction = ["npc", "monster"].includes(role);
       context.showKind = ["mount", "transport", "container"].includes(role);
+      // The Type select's rows: the CONTAINER_CLASSES table filtered to the
+      // current role, so a class added there appears here with nothing else to
+      // keep in step. STRICT since 2026-08-02 — the free-text input lives
+      // behind the select's "Other…" row, disabled otherwise so submitOnChange
+      // never carries a stale word (a disabled control is excluded from
+      // FormData). A stored word the table does not know (a legacy custom
+      // Kind, or one just typed) selects Other and prefills the input.
+      const cls = this.actor.system.containerClass;
       context.kindOptions = Object.entries(CONTAINER_CLASSES)
         .filter(([, v]) => v.role === role)
-        .map(([key, v]) => ({ key, label: game.i18n.localize(v.label) }));
-      // Display halves of the two free-text display/value splits; the submit
-      // halves live in _processFormData. Career: the stored English career is a
-      // MATCH KEY (randomCareer's repeat-exclusion, _preUpdate's day-rate fill),
-      // so the input shows t() and the submit maps back through sourceOf().
-      // Kind: the stored value is the CONTAINER_CLASSES key ("funeralwagon"),
-      // which the sheet used to display RAW in every language including
-      // English; a known key shows its localized label, a Warden's own word
-      // shows verbatim.
+        .map(([key, v]) => ({ key, label: game.i18n.localize(v.label), selected: key === cls }));
+      context.kindIsCustom = !!cls && !CONTAINER_CLASSES[cls];
+      context.kindCustomValue = context.kindIsCustom ? cls : "";
+      // Display half of the Career display/value split; the submit half lives
+      // in _processFormData. The stored English career is a MATCH KEY
+      // (randomCareer's repeat-exclusion, _preUpdate's day-rate fill), so the
+      // input shows t() and the submit maps back through sourceOf().
       context.professionDisplay = t("npc.career", this.actor.system.profession);
-      const cls = this.actor.system.containerClass;
-      context.kindDisplay = CONTAINER_CLASSES[cls]
-        ? game.i18n.localize(CONTAINER_CLASSES[cls].label)
-        : cls;
       // Static per role, not per document: a person's Notes tab carries the
       // character sheet's wording, everything else says plain Notes.
       context.notesTabLabel = game.i18n.localize(
@@ -1250,6 +1252,34 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       if (String(n) !== input.value) input.value = n;
     });
 
+    // The Type select is class-managed (no form name) ON PURPOSE: its "Other…"
+    // row is a sentinel, and an unnamed control keeps it out of every submit —
+    // nothing that is not a real Kind may ever reach the document. A known key
+    // (or blank) is written here, alone, which is the same single-field write
+    // the old picker made — _preUpdate answers it with default art and slots
+    // only where nothing was hand-set. Other writes NOTHING: it enables and
+    // reveals the free-text input, whose own (named) change is the field's one
+    // submit path, where _processFormData still maps a typed label to its key.
+    // stopPropagation keeps submitOnChange from also firing a same-values
+    // submit off the unnamed select's change.
+    on(".kind-select", "change", async (ev) => {
+      ev.stopPropagation();
+      const v = ev.currentTarget.value;
+      const input = el.querySelector(".kind-input");
+      if (v === "__other__") {
+        if (input) {
+          input.hidden = false;
+          input.disabled = false;
+          input.focus();
+        }
+        return;
+      }
+      if (input) { input.hidden = true; input.disabled = true; }
+      if (v !== (this.actor.system.containerClass || "")) {
+        await this.actor.update({ "system.containerClass": v });
+      }
+    });
+
     // Armor is class-managed (no form name): the field shows the effective Armor
     // (derived from gear, or an override). Typing a 0-3 value stores an override
     // that supersedes the gear value; clearing it — or the reset icon — returns
@@ -1695,37 +1725,21 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   /**
    * Set a container's art and its token together. Unlike a character portrait
    * there is no paired token file -- the same image serves both.
+   *
+   * ART ONLY, since 2026-08-02 (ruled): picking a picture never writes the
+   * Kind or the capacity — "change an image should not change the Role or
+   * Type". This used to be the gallery's double duty (the barrel glyph also
+   * said "this is a barrel"), which meant a Warden could not dress a crate in
+   * barrel art without re-kinding it, and the ONLY way to change the role was
+   * through the picker. The direction that survives is the other one: a KIND
+   * change stamps default art, and only while the current art is stock
+   * (CairnActor._preUpdate) — mix and match is the rule, defaults are the
+   * courtesy.
+   * @param {String} img
    * @private
    */
-  /**
-   * Re-art a container, and record WHAT IT IS while we are at it.
-   *
-   * Picking from the gallery is not really picking a picture — it is saying "this
-   * is a barrel". The class key drives three things through one field: the art,
-   * the one-word label on the sheet, and the default capacity. Setting only the
-   * image would leave a thing that looks like a barrel and calls itself a chest,
-   * which is the exact drift `containerClass` was added to stop.
-   *
-   * `cls` is absent when the art came from the FilePicker — and then the stored
-   * Kind is left ALONE. It used to be cleared, which made choosing your own
-   * mule painting cost the mule its identity (label, default capacity, the
-   * Kind field itself); under roles, art is just art, and only the gallery's
-   * glyphs carry a Kind claim (docs/npc-roles-plan.md).
-   *
-   * Capacity is only filled in when it is still 0 (i.e. "use the world setting",
-   * never touched). A Warden who typed 12 into a crate meant 12, and choosing a
-   * different picture is not a request to lose it.
-   * @param {String} img
-   * @param {String} [cls] a key of CONTAINER_CLASSES
-   */
-  async _setContainerArt(img, cls) {
-    const patch = { img, "prototypeToken.texture.src": img };
-    if (cls !== undefined) patch["system.containerClass"] = cls;
-    if (cls && !Number(this.actor.system.slots)) {
-      const dflt = containerClassSlots(cls);
-      if (dflt) patch["system.slots"] = dflt;
-    }
-    await this.actor.update(patch);
+  async _setContainerArt(img) {
+    await this.actor.update({ img, "prototypeToken.texture.src": img });
     for (const token of this.actor.getActiveTokens()) {
       await token.document.update({ "texture.src": img });
     }
@@ -2815,13 +2829,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       classes: { label: game.i18n.localize("CAIRN.ContainerArtTabKinds"), cells },
       // No Aspeheim here — a sack has no face. Custom, Game-Icons and Tlomdev
       // ride along so a Warden can dress a thing in their own art without
-      // leaving for the FilePicker (tlomdev's beasts suit mounts); all three
-      // arrive with no class key, so the stored Kind survives.
+      // leaving for the FilePicker (tlomdev's beasts suit mounts). Every pick
+      // is art only (2026-08-02) — the stored Kind survives them all.
       custom: true,
       gameIcons: true,
       tlomdev: true,
       browseStart: "icons/containers",
-      onPick: (src, { cls }) => this._setContainerArt(src, cls),
+      onPick: (src) => this._setContainerArt(src),
     });
   }
 

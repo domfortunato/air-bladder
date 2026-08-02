@@ -65,24 +65,33 @@
                 <a class="profession-roll" data-action="rollProfession" title="{{ localize 'CAIRN.RollProfession' }}"><i class="fas fa-dice-d20"></i></a>
                 {{/if}}
                 {{/if}}
-                {{!-- The KIND — what a mount/transport/container IS, in one
-                      word, as against the Role, which is what it DOES for you.
-                      Free text over a role-filtered datalist: a known key
-                      brings its default art and capacity (CairnActor._preUpdate),
-                      a Warden's own word is just the label, verbatim. Stored as
-                      `system.containerClass` — the field name is deliberately
-                      NOT renamed to match, because that is a migration and this
-                      is a label. Shows the LABEL ("Wagon" / "Carromato"),
-                      stores the KEY: _processFormData maps a typed/picked label
-                      back to its key; an unknown word passes through. --}}
+                {{!-- The KIND, labelled "Type" (a label only — the field stays
+                      `system.containerClass`, because renaming it is a
+                      migration and this is a label): what a
+                      mount/transport/container IS, in one word, as against the
+                      Role, which is what it DOES for you. A STRICT role-scoped
+                      select since 2026-08-02 — a known key brings its default
+                      art and capacity (CairnActor._preUpdate; art only while
+                      the current art is stock), and free text lives behind
+                      "Other…": the select is UNNAMED (its handler in _onRender
+                      writes known keys, so the Other sentinel can never reach
+                      the document) and the input is the field's only named
+                      writer, disabled outside Other so no submit carries a
+                      stale word. A legacy custom Kind selects Other and shows
+                      verbatim; _processFormData still maps a typed label back
+                      to its key. --}}
                 {{#if showKind}}
                 <span class="background-label">{{ localize 'CAIRN.Kind' }}</span>
+                <select class="kind-select">
+                    <option value=""{{#unless system.containerClass}} selected{{/unless}}></option>
+                    {{#each kindOptions}}
+                    <option value="{{key}}"{{#if selected}} selected{{/if}}>{{label}}</option>
+                    {{/each}}
+                    <option value="__other__"{{#if kindIsCustom}} selected{{/if}}>{{ localize 'CAIRN.KindOther' }}</option>
+                </select>
                 <input class="profession-input kind-input" type="text" name="system.containerClass"
-                    value="{{kindDisplay}}" list="{{@root.idp}}-kinds"
-                    placeholder="{{ localize 'CAIRN.KindHint' }}" />
-                <datalist id="{{@root.idp}}-kinds">
-                    {{#each kindOptions}}<option value="{{label}}"></option>{{/each}}
-                </datalist>
+                    value="{{kindCustomValue}}" placeholder="{{ localize 'CAIRN.KindHint' }}"
+                    {{#unless kindIsCustom}}hidden disabled{{/unless}} />
                 {{/if}}
             </div>
             {{!-- Faction: whose interests this actor serves — the one header

@@ -565,36 +565,54 @@ try {
       out.careerStored = person.system.profession;
       await person.sheet.close();
 
-      // ---- a CONTAINER npc: Kind shows the label, stores the key -------------
+      // ---- a CONTAINER npc: the Type select shows the label, stores the key.
+      // The control is a strict select since 2026-08-02, with free text behind
+      // its "Other…" row — so the display half is the selected OPTION's text,
+      // and the label→key round-trip runs through the Other input, which is
+      // the field's only free-text writer. Seeded "crate" (funeralwagon is
+      // retired; migrateData would rewrite it under the probe).
       const crate = await CONFIG.Actor.documentClass.create({
         name: "ZZ Overlay Crate", type: "npc",
-        system: { role: "container", containerClass: "funeralwagon" },
+        system: { role: "container", containerClass: "crate" },
       });
       out.ids.push(crate.id);
       await crate.sheet.render(true);
       for (let i = 0; i < 60 && !crate.sheet.element; i++) await settle(100);
       await settle(400);
-      const kindInput = crate.sheet.element?.querySelector('input[name="system.containerClass"]');
-      out.kindShown = kindInput?.value ?? null;
-      out.kindLabelWant = game.i18n.localize("CAIRN.ClassFuneralWagon");
-      if (kindInput) {
-        // Committing the LABEL must store the KEY back…
-        kindInput.value = out.kindLabelWant;
-        kindInput.dispatchEvent(new Event("change", { bubbles: true }));
-        await settle(700);
+      const kindSelect = crate.sheet.element?.querySelector(".kind-select");
+      out.kindShown = kindSelect?.selectedOptions?.[0]?.textContent?.trim() ?? null;
+      out.kindLabelWant = game.i18n.localize("CAIRN.ClassCrate");
+      // Committing a LABEL through the Other input must store the KEY back…
+      out.kindOtherLabel = game.i18n.localize("CAIRN.ClassBarrel");
+      if (kindSelect) {
+        kindSelect.value = "__other__";
+        kindSelect.dispatchEvent(new Event("change", { bubbles: true }));
+        await settle(300);
+        const kindInput = crate.sheet.element?.querySelector(".kind-input");
+        if (kindInput) {
+          kindInput.value = out.kindOtherLabel;
+          kindInput.dispatchEvent(new Event("change", { bubbles: true }));
+          await settle(700);
+        }
       }
       out.kindStoredAfterLabel = crate.system.containerClass;
-      const kindInput2 = crate.sheet.element?.querySelector('input[name="system.containerClass"]');
-      if (kindInput2) {
-        // …and a Warden's own word must pass through verbatim.
-        kindInput2.value = "ZZ Weird Basket";
-        kindInput2.dispatchEvent(new Event("change", { bubbles: true }));
-        await settle(700);
+      // …and a Warden's own word must pass through verbatim, same path.
+      const kindSelect2 = crate.sheet.element?.querySelector(".kind-select");
+      if (kindSelect2) {
+        kindSelect2.value = "__other__";
+        kindSelect2.dispatchEvent(new Event("change", { bubbles: true }));
+        await settle(300);
+        const kindInput2 = crate.sheet.element?.querySelector(".kind-input");
+        if (kindInput2) {
+          kindInput2.value = "ZZ Weird Basket";
+          kindInput2.dispatchEvent(new Event("change", { bubbles: true }));
+          await settle(700);
+        }
       }
       out.kindStoredCustom = crate.system.containerClass;
       await crate.sheet.close();
-      // Restore the key so the connections-row leg below shows a Kinded crate.
-      await crate.update({ "system.containerClass": "funeralwagon" });
+      // Restore a known key so the connections-row leg below shows a Kinded crate.
+      await crate.update({ "system.containerClass": "crate" });
 
       // ---- connections row + omen + failed career on a character ------------
       const pc = await CONFIG.Actor.documentClass.create({
@@ -684,7 +702,11 @@ try {
       i18n._setOverlay({ "table.result": rows });
       const monster = await gen.generateMonster("standard");
       out.monsterName = monster.name;
-      out.monsterDescHasZZ = (monster.description ?? "").includes("ZZ-");
+      // Case-INSENSITIVE since 2026-08-02: the description bullets lowercase
+      // every inserted result in the display language (sentence-style caps,
+      // ruled), so the sentinel arrives as "zz-…". This leg asserts the
+      // translation ARRIVED; the casing rules are dev:monster-gen's to own.
+      out.monsterDescHasZZ = /zz-/i.test(monster.description ?? "");
     } finally {
       i18n._setOverlay(null);
     }
@@ -734,14 +756,14 @@ try {
     ? ok("career stores the English source", `committed "ZZ-CAZADOR" → "${r2.careerStored}"`)
     : fail("career stores the English source", `stored ${JSON.stringify(r2.careerStored)} — the match key is broken`);
 
-  r2.kindShown === r2.kindLabelWant && r2.kindShown !== "funeralwagon"
-    ? ok("kind shows the label", `"${r2.kindShown}"`)
-    : fail("kind shows the label", `shows ${JSON.stringify(r2.kindShown)}, want ${JSON.stringify(r2.kindLabelWant)}`);
-  r2.kindStoredAfterLabel === "funeralwagon"
-    ? ok("kind label round-trips to the key", "")
-    : fail("kind label round-trips to the key", `stored ${JSON.stringify(r2.kindStoredAfterLabel)}`);
+  r2.kindShown === r2.kindLabelWant && r2.kindShown !== "crate"
+    ? ok("the Type select shows the label", `"${r2.kindShown}"`)
+    : fail("the Type select shows the label", `shows ${JSON.stringify(r2.kindShown)}, want ${JSON.stringify(r2.kindLabelWant)}`);
+  r2.kindStoredAfterLabel === "barrel"
+    ? ok("a label typed behind Other round-trips to the key", `"${r2.kindOtherLabel}" → "barrel"`)
+    : fail("a label typed behind Other round-trips to the key", `stored ${JSON.stringify(r2.kindStoredAfterLabel)}`);
   r2.kindStoredCustom === "ZZ Weird Basket"
-    ? ok("a Warden's own Kind passes verbatim", "")
+    ? ok("a Warden's own Kind passes verbatim", "through the Other input")
     : fail("a Warden's own Kind passes verbatim", `stored ${JSON.stringify(r2.kindStoredCustom)}`);
 
   r2.connRow?.includes("ZZ-CAJA")

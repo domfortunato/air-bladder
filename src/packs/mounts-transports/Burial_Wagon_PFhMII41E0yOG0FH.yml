@@ -20,7 +20,7 @@ system:
     max: 0
   slots: 6
   cost: 0
-  containerClass: funeralwagon
+  containerClass: wagon
   role: transport
   generationEnabled: false
 ownership:

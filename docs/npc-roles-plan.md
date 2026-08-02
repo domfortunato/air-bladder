@@ -77,32 +77,47 @@ Description and Notes: Items, Description, Connections, Notes.
   vanishes under the sheet showing it blanks the body — the role change handler
   needs a `tabGroups` reset (same trap the Reliquary tab hit).
 
-## Kind — an editable field, decoupled from art
+## Kind — a strict pick list labelled "Type", decoupled from art
 
-`containerClass` (already a free `str()` in the schema) is surfaced as a visible,
-**editable text input** on Mount/Transport/Container sheets, with the known
-Kinds as datalist suggestions, partitioned by role from the one
+*(Rewritten 2026-08-02: the free-text-with-datalist contract this section
+described shipped, and then hardened into a select on the user's ruling. The
+field name stays `containerClass` — a label is not a migration.)*
+
+`containerClass` (still a free `str()` in the schema — legacy tolerance is
+deliberate) is surfaced as a **strict, role-scoped `<select>`** labelled
+**Type** on Mount/Transport/Container sheets, partitioned by role from the one
 `CONTAINER_CLASSES` table:
 
 - **Mount**: Horse (4 slots), Mule (6), Donkey (4)
-- **Transport**: Handcart (4), Cart (4), Wagon (8)
-- **Container**: Backpack (4), Sack (2), Chest (6), Box (2), Crate (6),
-  Barrel (4), Item Pile (0)
+- **Transport**: Wagon (8), Cart (4), Hand Cart (4), Small Craft (8)
+- **Container**: Item Pile (0), Backpack (4), Sack (2), Chest (6), Crate (6),
+  Barrel (4), Box (2)
 
-Crate and Barrel stay — they ship with their own art and cost nothing to keep.
+plus a blank row (no Kind — infer from the name) and **"Other…"**, which
+reveals a free-text input bound to the field. The select itself is UNNAMED so
+the Other sentinel can never reach the document; the revealed input is the
+field's only free-text writer, and a typed label still maps back to its key on
+submit. A stored word the table does not know selects Other and displays
+verbatim (Warden content, not our i18n).
 
-- A **known** Kind key brings its default art and slot count; an **unknown**
-  one (a Warden types "Saddlebags") brings nothing and takes the world-default
-  slots until a number is typed. Defaults never overwrite a hand-entered
-  capacity — same rule as today.
-- **Custom art becomes just art.** The gallery keeps its double duty (picking
-  the mule glyph still says "this is a mule"), but the FilePicker path stops
-  clearing the stored Kind. A mule with the Warden's own mule painting is
-  still Kind "mule", 6 slots, labelled Mule. Only the picture changes.
+- A **known** Kind key brings its default slot count, and default art only
+  while the current art is stock; an **unknown** one brings nothing and takes
+  the world-default slots until a number is typed. Defaults never overwrite a
+  hand-entered capacity.
+- **Art is just art — every path** (ruled 2026-08-02). Picking any picture,
+  gallery glyph included, writes the image and nothing else; the gallery's
+  old double duty (the mule glyph also said "this is a mule") is gone, and
+  Role/Type changes are the select's alone. The surviving direction: a Kind
+  CHANGE stamps default art while the art is stock. A mule with the Warden's
+  own mule painting is still Kind "mule", 6 slots, labelled Mule.
+- `funeralwagon` is retired (2026-08-02): a hearse is a WAGON a Warden has
+  named. The Burial Wagon pack doc stores `wagon`, keeps its coffin art (legal
+  under the decoupling) and its 6 slots; `migrateData` converts every stored
+  `funeralwagon` on read; the name classifier still catches
+  funeral/hearse/burial and answers `wagon`.
 - Name inference (blank Kind reads the name) survives as fallback but stops
   being load-bearing: role answers every behavioral question; Kind is
-  label + defaults. Custom Kind strings display verbatim (Warden content,
-  not our i18n).
+  label + defaults.
 
 ## Pile-ness is a Kind, not a state
 

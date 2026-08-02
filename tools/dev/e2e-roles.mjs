@@ -92,7 +92,7 @@ const READ = `(sheet) => {
     career:    vis('input[name="system.profession"]'),
     faction:   vis('input[name="system.faction"]'),
     factionDie: vis('a[data-action="rollFaction"]'),
-    kind:      vis('input[name="system.containerClass"]'),
+    kind:      vis('.kind-select'),
     dayRate:   vis('.day-rate-line'),
     itemsTab:  vis('[data-tab="items"]'),
     connectionsTab: vis('a[data-tab="containers"]'),
@@ -948,25 +948,40 @@ try {
     await sleep(800);
 
     // Route: a thing-role npc must get the CONTAINER gallery, not 80 portraits.
+    // POLL for the dialog, never a fixed sleep: pickArt awaits the custom,
+    // Game-Icons and Tlomdev manifests BEFORE the dialog exists, and on a
+    // loaded server those fetches outran the old 900ms — the pop() then found
+    // no dialog at all and every leg below read from nothing (a one-off red
+    // captured 2026-08-02). Polling for ANY art dialog keeps the routing
+    // differential honest: the wrong picker still has no container gallery.
     sheet.element.querySelector(".portrait")?.click();
-    await sleep(900);
-    const dlg = [...document.querySelectorAll("dialog")].pop();
+    let dlg = null;
+    for (let i = 0; i < 60 && !dlg; i++) {
+      await sleep(200);
+      dlg = [...document.querySelectorAll("dialog")].find((d) => d.querySelector(".cairn-portrait-gallery"));
+    }
     const gallery = dlg?.querySelector(".cairn-container-gallery");
     const cells = [...(dlg?.querySelectorAll(".cairn-portrait-choice") ?? [])];
+    // NO class claims on the cells (2026-08-02): data-class was the pick's
+    // Kind claim, and a pick claims nothing now — cells are found by ART.
     const classed = cells.filter((c) => c.dataset.class).length;
     const srcs = cells.map((c) => c.dataset.src);
-    const classes = cells.map((c) => c.dataset.class);
+    const titles = cells.map((c) => c.getAttribute("title"));
     // The two files that spent a year as the same cartwheel glyph.
     const [cartSvg, wagonSvg] = await Promise.all(
       ["cart", "wagon"].map((n) => fetch(`systems/air-bladder/icons/${n}.svg`).then((r) => r.text())));
     const hasBrowse = !!dlg?.querySelector(".cairn-portrait-browse");
-    const barrel = cells.find((c) => c.dataset.class === "barrel");
+    const barrel = cells.find((c) => /barrel\.svg$/.test(c.dataset.src ?? ""));
     barrel?.click();
     await sleep(1200);
     // The dialog must be GONE before anything else opens one -- a settled
     // DialogV2 lingers in the DOM while its close transition runs.
     for (let i = 0; i < 40 && document.querySelector("dialog.dialog"); i++) await sleep(100);
 
+    // ART ONLY (2026-08-02, ruled): the pick sets the image and the token and
+    // touches NOTHING else — no Kind, no capacity. The old assertions here
+    // ("picking barrel sets art AND Kind", "an unset capacity takes the class
+    // default") are the pre-fix behaviour and now live inverted.
     const afterPick = {
       img: a.img,
       token: a.prototypeToken.texture.src,
@@ -974,13 +989,20 @@ try {
       slots: a.system.slots,
     };
 
-    // A capacity someone typed must survive a later art change.
-    await a.update({ "system.slots": 12 });
-    await sheet._setContainerArt("systems/air-bladder/icons/crate.svg", "crate");
-    const afterSecond = { cls: a.system.containerClass, slots: a.system.slots };
+    // The defaults still arrive — through the KIND, which is the one direction
+    // that survives: writing barrel stamps the unset capacity (and would stamp
+    // stock art; it already wears barrel.svg).
+    await a.update({ "system.containerClass": "barrel" });
+    const afterKind = { cls: a.system.containerClass, slots: a.system.slots };
 
-    // The Browse escape (no cls argument) must leave the Kind ALONE now —
-    // custom art is just art, it no longer costs the crate its identity.
+    // A capacity someone typed must survive a later art change — which writes
+    // art alone now (single argument; the class parameter is gone).
+    await a.update({ "system.slots": 12 });
+    await sheet._setContainerArt("systems/air-bladder/icons/crate.svg");
+    const afterSecond = { cls: a.system.containerClass, slots: a.system.slots, img: a.img };
+
+    // The Browse escape must leave the Kind ALONE — custom art is just art,
+    // it no longer costs the barrel its identity.
     await sheet._setContainerArt("icons/svg/chest.svg");
     const afterBrowse = { img: a.img, cls: a.system.containerClass };
 
@@ -998,58 +1020,70 @@ try {
     await u.update({ "system.containerClass": "Saddlebags" });
     await u.sheet.render(true);
     await sleep(900);
-    const uKind = u.sheet.element?.querySelector('input[name="system.containerClass"]')?.value ?? null;
+    // A custom word stands the select on Other… and shows verbatim in the
+    // revealed input — the field's only free-text writer since the control
+    // hardened into a select (2026-08-02).
+    const uKind = u.sheet.element?.querySelector(".kind-input")?.value ?? null;
+    const uSel = u.sheet.element?.querySelector(".kind-select")?.value ?? null;
     await u.sheet.close();
-    const afterCustom = { cls: u.system.containerClass, slots: u.system.slots, shown: uKind };
+    const afterCustom = { cls: u.system.containerClass, slots: u.system.slots, shown: uKind, sel: uSel };
     await t.delete(); await u.delete();
 
     await sheet.close();
     await a.delete();
-    return { isContainerGallery: !!gallery, cellCount: cells.length, classed, srcs, classes,
-      cartWagonDiffer: cartSvg !== wagonSvg, hasBrowse, afterPick, afterSecond, afterBrowse, afterTyped, afterCustom };
+    return { isContainerGallery: !!gallery, cellCount: cells.length, classed, srcs, titles,
+      cartWagonDiffer: cartSvg !== wagonSvg, hasBrowse, afterPick, afterKind, afterSecond, afterBrowse, afterTyped, afterCustom };
   });
 
   pick.isContainerGallery
     ? ok("a thing-role NPC gets the container gallery", "not the 80-portrait one")
     : bad("a thing-role NPC gets the container gallery", "it opened the character portrait picker");
-  // 14 cells for 15 classes: the gallery shows each GLYPH once, and mule/donkey
-  // share Skoll's donkey (game-icons.net has no mule). Removing the dedupe
-  // filter fails BOTH of the first two assertions — 15 cells, donkey.svg twice.
-  pick.cellCount === 14 && pick.classed === 14
-    ? ok("one cell per glyph, each carrying its class key", `${pick.cellCount} cells for 15 classes`)
-    : bad("one cell per glyph, each carrying its class key", `${pick.cellCount} cells, ${pick.classed} classed`);
+  // 13 cells for 14 classes: mule/donkey share Skoll's donkey (game-icons.net
+  // has no mule), and the coffin glyph left the gallery WITH the funeralwagon
+  // class (2026-08-02) — the ASSET still ships for the Burial Wagon pack doc,
+  // and Browse still reaches it. Removing the dedupe filter doubles donkey.svg
+  // and the src-uniqueness leg fails.
+  pick.cellCount === 13 && pick.classed === 0
+    ? ok("one cell per glyph, NONE carrying a class claim", `${pick.cellCount} cells, art only`)
+    : bad("one cell per glyph, NONE carrying a class claim", `${pick.cellCount} cells, ${pick.classed} still classed`);
   new Set(pick.srcs).size === pick.srcs.length
     ? ok("no two cells wear the same image", "the doubled donkey is gone")
     : bad("no two cells wear the same image", JSON.stringify(pick.srcs));
-  pick.classes.includes("mule") && !pick.classes.includes("donkey")
-    ? ok("the shared donkey glyph belongs to the MULE", "donkey stays a name-inferred class")
-    : bad("the shared donkey glyph belongs to the MULE", JSON.stringify(pick.classes));
+  pick.titles.includes("Mule") && !pick.titles.includes("Donkey")
+    ? ok("the shared donkey glyph is titled MULE", "donkey stays a name-inferred class")
+    : bad("the shared donkey glyph is titled MULE", JSON.stringify(pick.titles));
   pick.cartWagonDiffer
     ? ok("cart and wagon wear different glyphs", "wagon.svg is no longer a copy of cart.svg")
     : bad("cart and wagon wear different glyphs", "the two files are byte-identical again");
   pick.hasBrowse
     ? ok("the Browse escape is present", "a Warden can use their own art")
     : bad("the Browse escape is present", "no browse button");
-  pick.afterPick.cls === "barrel" && /barrel\.svg$/.test(pick.afterPick.img)
-    ? ok("picking barrel sets art AND Kind", `${pick.afterPick.cls}`)
-    : bad("picking barrel sets art AND Kind", JSON.stringify(pick.afterPick));
+  // INVERTED 2026-08-02 (ruled: an image change never changes Role or Type):
+  // the pre-fix reading was cls "barrel" + slots 4 stamped by the pick.
+  pick.afterPick.cls === "" && /barrel\.svg$/.test(pick.afterPick.img)
+    ? ok("picking barrel art is ART ONLY", "the Kind field is untouched")
+    : bad("picking barrel art is ART ONLY", JSON.stringify(pick.afterPick));
   pick.afterPick.token === pick.afterPick.img
     ? ok("the map token follows the portrait", "one field, no drift")
     : bad("the map token follows the portrait", JSON.stringify(pick.afterPick));
-  pick.afterPick.slots === 4
-    ? ok("an unset capacity takes the class default", "barrel = 4")
-    : bad("an unset capacity takes the class default", `slots=${pick.afterPick.slots}`);
-  pick.afterSecond.cls === "crate" && pick.afterSecond.slots === 12
-    ? ok("a capacity someone TYPED is not overwritten", "12 survived a re-art to crate")
-    : bad("a capacity someone TYPED is not overwritten", JSON.stringify(pick.afterSecond));
-  pick.afterBrowse.cls === "crate"
+  !Number(pick.afterPick.slots)
+    ? ok("the pick invents no capacity either", `slots=${pick.afterPick.slots}`)
+    : bad("the pick invents no capacity either", `slots=${pick.afterPick.slots}`);
+  pick.afterKind.cls === "barrel" && pick.afterKind.slots === 4
+    ? ok("the defaults arrive through the KIND instead", "barrel → 4 slots")
+    : bad("the defaults arrive through the KIND instead", JSON.stringify(pick.afterKind));
+  pick.afterSecond.cls === "barrel" && pick.afterSecond.slots === 12 && /crate\.svg$/.test(pick.afterSecond.img)
+    ? ok("a re-art changes the picture and NOTHING else", "Kind barrel + typed 12 both survive crate art")
+    : bad("a re-art changes the picture and NOTHING else", JSON.stringify(pick.afterSecond));
+  pick.afterBrowse.cls === "barrel"
     ? ok("custom art keeps the stored Kind", "only the picture changed")
     : bad("custom art keeps the stored Kind", JSON.stringify(pick.afterBrowse));
   pick.afterTyped.cls === "wagon" && pick.afterTyped.slots === 8 && /wagon\.svg$/.test(pick.afterTyped.img)
-    ? ok("typing a known Kind brings its defaults", "wagon → 8 slots + wagon art")
-    : bad("typing a known Kind brings its defaults", JSON.stringify(pick.afterTyped));
-  pick.afterCustom.cls === "Saddlebags" && !Number(pick.afterCustom.slots) && pick.afterCustom.shown === "Saddlebags"
-    ? ok("a Warden's own word is just a label", "verbatim in the Kind box, no defaults invented")
+    ? ok("picking a known Kind brings its defaults", "wagon → 8 slots + wagon art")
+    : bad("picking a known Kind brings its defaults", JSON.stringify(pick.afterTyped));
+  pick.afterCustom.cls === "Saddlebags" && !Number(pick.afterCustom.slots)
+    && pick.afterCustom.shown === "Saddlebags" && pick.afterCustom.sel === "__other__"
+    ? ok("a Warden's own word is just a label", "verbatim behind Other…, no defaults invented")
     : bad("a Warden's own word is just a label", JSON.stringify(pick.afterCustom));
 
   /* ---- negative control: remove the guard, in page ---- */

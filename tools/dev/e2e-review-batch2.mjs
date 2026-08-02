@@ -154,7 +154,10 @@ try {
       });
       await h.sheet.render(true);
       await new Promise((r) => setTimeout(r, 900));
-      const kindShown = h.sheet.element?.querySelector('input[name="system.containerClass"]')?.value ?? null;
+      // The Type control is a strict select since 2026-08-02: a known kind
+      // shows as the selected option's text, not as an input value.
+      const kindShown = h.sheet.element?.querySelector(".kind-select")
+        ?.selectedOptions?.[0]?.textContent?.trim() ?? null;
       await h.sheet.close();
       return {
         ids: [h.id, mule.id], maxEquip, want,
@@ -168,8 +171,8 @@ try {
       ? ok(`capacity override honoured (${hire.slotsMax})`, `not the world max ${hire.maxEquip}`)
       : fail(`hireling slots override ignored — slotsMax ${hire.slotsMax}, wanted ${hire.want}`);
     hire.kindShown === "Sack"
-      ? ok(`Kind shown on the hireling's sheet ("${hire.kindShown}")`)
-      : fail(`hireling sheet Kind box showed ${JSON.stringify(hire.kindShown)}`, "kindDisplay drifted or the box is gone");
+      ? ok(`Type shown on the hireling's sheet ("${hire.kindShown}")`)
+      : fail(`hireling sheet Type select showed ${JSON.stringify(hire.kindShown)}`, "the select drifted or the control is gone");
     // The discriminator is "container art", NOT "not mystery-man": a
     // hireling-typed doc is unconditionally an npc PERSON to _preCreate
     // (actor.js `isNpcPerson`, type short-circuit), so even without the fix

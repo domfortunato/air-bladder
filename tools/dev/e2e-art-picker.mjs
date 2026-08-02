@@ -117,9 +117,11 @@ try {
       out[key] = await openTabs(a);
     }
 
-    // A thing-role actor routes to the container gallery instead — same dialog,
-    // different first tab, and picking a Kind glyph must still set the class.
-    const thing = await Cls.create({ name: "ZZ Art Sack", type: "npc", system: { role: "container" } });
+    // A thing-role actor routes to the container gallery instead — same
+    // dialog, different first tab. Picking a glyph is ART ONLY (2026-08-02,
+    // ruled): no cell carries a class claim any more, and the stored Kind
+    // must survive the pick untouched.
+    const thing = await Cls.create({ name: "ZZ Art Sack", type: "npc", system: { role: "container", containerClass: "sack" } });
     made.push(thing);
     const tSheet = thing.sheet;
     await tSheet.render(true);
@@ -130,8 +132,9 @@ try {
       labels: [...tDlg.element.querySelectorAll(".cairn-portrait-tab")].map((b) => b.textContent.trim()),
       hasClassCells: !!tDlg.element.querySelector('.cairn-portrait-choice[data-class]'),
     };
-    // Pick the barrel cell through the real click handler.
-    const barrel = tDlg.element.querySelector('.cairn-portrait-choice[data-class="barrel"]');
+    // Pick the barrel glyph through the real click handler — found by ART,
+    // the only thing a cell says now.
+    const barrel = tDlg.element.querySelector('.cairn-portrait-choice[data-src$="barrel.svg"]');
     barrel?.click();
     await new Promise((r) => setTimeout(r, 300));
     out.thing.classAfterPick = thing.system.containerClass;
@@ -166,12 +169,14 @@ try {
     ? ok("a Monster opens on a tab with something in it", `active=${tabs.monster.active}, ${tabs.monster.shownCount} tiles`)
     : fail("a Monster opens on a tab with something in it", JSON.stringify(tabs.monster));
 
-  eq(tabs.thing.labels, ["Kinds", "Custom", "Game-Icons", "Tlomdev"]) && tabs.thing.hasClassCells
-    ? ok("a container keeps its Kind gallery", "and gains the other three")
-    : fail("a container keeps its Kind gallery", JSON.stringify(tabs.thing));
-  tabs.thing.classAfterPick === "barrel" && tabs.thing.artAfterPick === "barrel.svg"
-    ? ok("picking a Kind glyph still sets the class", "barrel + barrel.svg")
-    : fail("picking a Kind glyph still sets the class", JSON.stringify(tabs.thing));
+  eq(tabs.thing.labels, ["Types", "Custom", "Game-Icons", "Tlomdev"]) && !tabs.thing.hasClassCells
+    ? ok("a container keeps its Types gallery, cells art-only", "no data-class claims left")
+    : fail("a container keeps its Types gallery, cells art-only", JSON.stringify(tabs.thing));
+  // INVERTED 2026-08-02: the pre-fix reading was classAfterPick "barrel" — the
+  // pick re-kinded the sack. Art changes, the Kind does not.
+  tabs.thing.classAfterPick === "sack" && tabs.thing.artAfterPick === "barrel.svg"
+    ? ok("picking a glyph is art only — the sack stays a sack", "barrel.svg over Kind sack")
+    : fail("picking a glyph is art only — the sack stays a sack", JSON.stringify(tabs.thing));
 
   /* --- 2. the Game-Icons gallery browses in two steps -------------------- */
 
