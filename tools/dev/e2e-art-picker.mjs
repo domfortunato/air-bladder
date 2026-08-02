@@ -24,7 +24,8 @@
  * body empty, nothing to click and no error anywhere. The fallback is now "the
  * first pane that exists", and this asserts a Monster lands on a real one.
  *
- * Also covered: the two-step browse (23 category folders in, thumbnails out,
+ * Also covered: the two-step browse (category folders in — the count comes
+ * from the manifest, not a literal — thumbnails out,
  * back again), that the folder faces actually load (a manifest naming a file
  * that is not there renders a blank tile, not an error), and that picking from
  * Game-Icons commits — on an actor AND on an item, which take different write
@@ -37,8 +38,19 @@
  *
  *   npm run dev:art-picker
  */
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { VIEWPORT, joinAsGM, dismissChrome, watchErrors } from "./lib.mjs";
+
+// The gallery's shape comes from the shipped manifest, not from a literal:
+// this file said "23" long after Birds became the 24th category (7044e91), and
+// a hardcoded count turns every deliberate gallery addition into a probe
+// failure that reads like a regression.
+const MANIFEST = JSON.parse(fs.readFileSync(
+  path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../module/game-icons-manifest.json"), "utf8"));
+const CATS = MANIFEST.categories.length;
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: VIEWPORT });
@@ -71,11 +83,15 @@ try {
       const root = dlg?.element;
       const labels = [...(root?.querySelectorAll(".cairn-portrait-tab") ?? [])].map((b) => b.textContent.trim());
       const active = root?.querySelector(".cairn-portrait-tab.active")?.dataset.tab ?? null;
-      const shownPane = [...(root?.querySelectorAll(".cairn-portrait-pane") ?? [])]
-        .find((p) => !p.hidden)?.dataset.pane ?? null;
+      const shown = [...(root?.querySelectorAll(".cairn-portrait-pane") ?? [])].find((p) => !p.hidden);
+      const shownPane = shown?.dataset.pane ?? null;
+      // What the landing pane actually OFFERS — cells or folder tiles. The
+      // start-tab rule is "never land on an empty pane while one with art
+      // exists", so emptiness is the thing to measure, not the pane's name.
+      const shownCount = shown?.querySelectorAll(".cairn-portrait-choice, .cairn-icon-folder").length ?? 0;
       await dlg?.close();
       await sheet.close();
-      return { labels, active, shownPane };
+      return { labels, active, shownPane, shownCount };
     };
 
     for (const [key, data] of [
@@ -129,10 +145,16 @@ try {
     ? ok("a Monster is offered no faces", "Aspeheim withheld")
     : fail("a Monster is offered no faces", JSON.stringify(tabs.monster.labels));
 
-  // The trap: a hidden default would leave every tab inactive and the body blank.
-  tabs.monster.active === tabs.monster.shownPane && tabs.monster.active === "custom"
-    ? ok("a Monster opens on a tab that exists", `active=${tabs.monster.active}`)
-    : fail("a Monster opens on a tab that exists", JSON.stringify(tabs.monster));
+  // The trap: a hidden default would leave every tab inactive and the body
+  // blank. And since 6466184 the rule is stronger — the first pane WITH
+  // CONTENT, not merely the first pane: a GM's empty Custom tab exists (it
+  // carries the Refresh button), and landing a Monster on "No custom
+  // portraits found" beside an unselected 1,300-glyph gallery looked exactly
+  // like a broken dialog to the Warden it happened to. So the assertion is
+  // emptiness, not a pane name: whatever tab it lands on must have art in it.
+  tabs.monster.active === tabs.monster.shownPane && tabs.monster.shownCount > 0
+    ? ok("a Monster opens on a tab with something in it", `active=${tabs.monster.active}, ${tabs.monster.shownCount} tiles`)
+    : fail("a Monster opens on a tab with something in it", JSON.stringify(tabs.monster));
 
   eq(tabs.thing.labels, ["Kinds", "Custom", "Game-Icons"]) && tabs.thing.hasClassCells
     ? ok("a container keeps its Kind gallery", "and gains the other two")
@@ -188,12 +210,12 @@ try {
     return out;
   });
 
-  browse.folderCount === 23 && browse.gridBeforeClick
-    ? ok("23 category folders, thumbnails hidden", browse.labels.join(" / "))
-    : fail("23 category folders, thumbnails hidden", JSON.stringify(browse));
-  browse.facesLoaded === 23
-    ? ok("every folder face resolves to a real file", "23/23 decoded")
-    : fail("every folder face resolves to a real file", `${browse.facesLoaded}/23 — the manifest names a missing icon`);
+  browse.folderCount === CATS && browse.gridBeforeClick
+    ? ok(`all ${CATS} category folders, thumbnails hidden`, browse.labels.join(" / "))
+    : fail(`all ${CATS} category folders, thumbnails hidden`, JSON.stringify(browse));
+  browse.facesLoaded === CATS
+    ? ok("every folder face resolves to a real file", `${CATS}/${CATS} decoded`)
+    : fail("every folder face resolves to a real file", `${browse.facesLoaded}/${CATS} — the manifest names a missing icon`);
   browse.foldersHiddenAfter && browse.categoryShown && browse.thumbs === 84
     ? ok("opening a category swaps to its thumbnails", `weapons = ${browse.thumbs}`)
     : fail("opening a category swaps to its thumbnails", JSON.stringify(browse));
