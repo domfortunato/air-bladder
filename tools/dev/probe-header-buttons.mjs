@@ -14,7 +14,9 @@
  * owner: `show-generate-header` gates only the Roll button, because a hidden
  * toggle would make Off permanent (it is the flag's only user-reachable
  * writer). A monster's Roll button says "Roll Monster" and wears the Generate
- * Monster button's dragon.
+ * Monster button's dragon. And thing roles — mount, transport, container —
+ * build NEITHER button and render no body dice regardless of the stored flag
+ * (ruled 2026-08-02: there is nothing to randomize about a cart).
  *
  * Measured, not inspected: `textContent` reads back correctly from a button
  * whose label is clipped to nothing, so the geometry is asserted separately —
@@ -140,11 +142,26 @@ try {
     const monster = read(mSheet);
     await mSheet.close();
 
+    /* --- a mount: a THING role builds NEITHER button (ruled 2026-08-02).
+           Seeded generationEnabled: true — the adversarial fixture: an
+           earlier toggle could have stored true before the role gate
+           existed, and the role must win over the stale flag, or the body
+           dice would be permanent (the toggle that turns them off is gone
+           from this sheet). --- */
+    const mount = await CONFIG.Actor.documentClass.create({
+      name: "ZZ Header Mount", type: "npc",
+      system: { role: "mount", containerClass: "horse", generationEnabled: true },
+    });
+    made.push(mount.id);
+    const tSheet = await open(mount);
+    const thing = read(tSheet);
+    await tSheet.close();
+
     for (const id of made) await game.actors.get(id)?.delete().catch(() => {});
-    return { initial, on, afterUnrelated, offAgain, hireling: hire2, npc: npcRead, monster, NS };
+    return { initial, on, afterUnrelated, offAgain, hireling: hire2, npc: npcRead, monster, thing, NS };
   });
 
-  const { initial, on, afterUnrelated, offAgain, hireling, npc, monster } = out;
+  const { initial, on, afterUnrelated, offAgain, hireling, npc, monster, thing } = out;
 
   console.log("\ncharacter — a GENERATED actor opens with Randomization OFF");
   // THE NEW-DEFAULT LEG (2026-08-02). Its negative control is stashing
@@ -221,6 +238,20 @@ try {
   monster.roll?.text === "Roll Monster" && monster.roll?.icon === "fa-dragon" && monster.roll?.hidden === false
     ? ok('a monster reads "Roll Monster"', `${monster.roll.icon}, visible`)
     : fail('a monster reads "Roll Monster"', JSON.stringify(monster.roll));
+  // THE THING LEG (2026-08-02, by ruling): mount, transport and container
+  // have nothing to randomize, so neither button is BUILT — and no body
+  // dice render even though the fixture STORES generationEnabled: true.
+  // Two separate gates, two separate reds: the buttons are
+  // _getFrameButtons' role test, the dice are the context flag's.
+  !thing.roll && !thing.toggle
+    ? ok("a mount builds neither button", "the role gate in _getFrameButtons")
+    : fail("a mount builds neither button", JSON.stringify({ roll: thing.roll, toggle: thing.toggle }));
+  thing.bodyDice === 0
+    ? ok("no body dice despite a stored true flag", "context.generationEnabled is role-gated")
+    : fail("no body dice despite a stored true flag", `${thing.bodyDice} dice rendered`);
+  thing.popOut?.text === "Pop Out"
+    ? ok("Pop Out survives on a thing", "the gate takes only the generation pair")
+    : fail("Pop Out survives on a thing", JSON.stringify(thing.popOut));
 
   // THE HARD-LOCK GUARD: with `show-generate-header` off, the Roll button is
   // not built at all — but the toggle MUST be, because it is the flag's only

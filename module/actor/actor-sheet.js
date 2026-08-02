@@ -419,7 +419,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const isChar = this.actor.type === "character";
     // npc and hireling are one thing, so both get the NPC generation controls.
     const isNpc = ["hireling", "npc"].includes(this.actor.type);
-    if (!(isChar || isNpc) || !this.actor.isOwner) return [popOut, ...buttons];
+    // Thing roles — mount, transport, container — get NEITHER button (ruled
+    // 2026-08-02): there is nothing to randomize about a cart, so a Roll
+    // button and a Randomization readout are noise on its title bar. Only a
+    // PERSON (role npc) or a monster generates. The role can change under an
+    // open sheet and the frame builds once, so #syncGenerationButtons applies
+    // the same test per render to the buttons this frame did build.
+    const rollableRole = !isNpc || ["npc", "monster"].includes(this.actor.npcRole);
+    if (!(isChar || isNpc) || !rollableRole || !this.actor.isOwner) return [popOut, ...buttons];
 
     // The toggle is created UNCONDITIONALLY for an owner of a generating type,
     // and only the Roll button rides `show-generate-header`. It used to gate
@@ -554,8 +561,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const roll = root?.querySelector('.window-header button[data-action="rollActor"]');
     const toggle = root?.querySelector('.window-header button[data-action="toggleGeneration"]');
     if (!roll && !toggle) return;
+    // A person re-typed into a mount under an open sheet must LOSE the
+    // buttons its frame already built — the frame renders once, so the
+    // per-render role test lives here, mirroring _getFrameButtons. (The other
+    // direction — a mount re-typed into a person — gets its buttons on the
+    // next sheet open; a frame cannot grow buttons it never built.)
+    const thing = ["hireling", "npc"].includes(this.actor.type)
+      && !["npc", "monster"].includes(this.actor.npcRole);
+    toggle?.classList.toggle("cairn-header-hidden", thing);
     const on = this.actor.system.generationEnabled !== false;
-    roll?.classList.toggle("cairn-header-hidden", !on);
+    roll?.classList.toggle("cairn-header-hidden", !on || thing);
     // The Roll button's face follows the ROLE: a monster re-rolls through the
     // tier picker and wears the Generate Monster button's dragon, so the
     // button says what the click does. The role can change under an open
@@ -827,8 +842,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (["hireling", "npc"].includes(this.actor.type)) {
       this._computeStatContext(context);
       // Same random-generation switch as a character: gates the per-field dice
-      // (name, profession, portrait).
-      context.generationEnabled = this.actor.system.generationEnabled !== false;
+      // (name, profession, portrait). Role-gated since 2026-08-02: a thing
+      // (mount, transport, container) has no generation surface at all, and
+      // with its frame buttons gone (_getFrameButtons) a stored `true` from
+      // an earlier toggle would otherwise keep live dice with no way left to
+      // turn them off. Render-only — the stored flag is untouched.
+      context.generationEnabled = ["npc", "monster"].includes(this.actor.npcRole)
+        && this.actor.system.generationEnabled !== false;
       // A PERSON gets the character's biography block — pronouns, age, the
       // eight traits, scars — on the Description tab (2026-08-01). Role npc
       // only: a monster, mount, transport or container has no pronouns, and
