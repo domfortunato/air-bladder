@@ -48,7 +48,7 @@ const ARMORED_FEATURES = ["Carapace", "Shell", "Scales"];
 // The game-icons categories a monster portrait may draw from. A constant, not
 // a manifest scan: "tools" and "armor" are categories too, and a monster
 // wearing a spanner for a face is not a fallback anyone asked for.
-const CREATURE_CATEGORIES = ["animals", "creatures", "fish", "heads", "mammals", "reptiles", "skull"];
+const CREATURE_CATEGORIES = ["animals", "birds", "creatures", "fish", "heads", "mammals", "reptiles", "skull"];
 const MONSTER_ICON_FALLBACK = "systems/air-bladder/icons/monster.svg";
 
 /** One weighted pick. @param {Array<[any, Number]>} pairs @returns {any} */

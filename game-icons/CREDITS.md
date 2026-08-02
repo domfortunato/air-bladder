@@ -22,7 +22,7 @@ it.
 
 Icons made by Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev, Delapouite, Faithtoken, GeneralAce135, Irongamer, Lorc, Lord Berandas, Lucas, Sbed, Skoll, Sparker, Various artists, Willdabeast.
 
-1239 icons in 23 categories.
+1310 icons in 24 categories.
 
 ## Animals
 
@@ -204,6 +204,82 @@ Icons made by Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev, Delapouite, F
 | `spiked-shoulder-armor.svg` | Spiked Shoulder Armor | Delapouite | <https://game-icons.net/1x1/delapouite/spiked-shoulder-armor.html> |
 | `steeltoe-boots.svg` | Steeltoe Boots | Lorc | <https://game-icons.net/1x1/lorc/steeltoe-boots.html> |
 | `visored-helm.svg` | Visored Helm | Lorc | <https://game-icons.net/1x1/lorc/visored-helm.html> |
+
+## Birds
+
+| file | icon | author | source |
+| --- | --- | --- | --- |
+| `archaeopteryx-fossil.svg` | Archaeopteryx Fossil | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/archaeopteryx-fossil.html> |
+| `barn-owl.svg` | Barn Owl | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/barn-owl.html> |
+| `big-egg.svg` | Big Egg | Sbed | <https://game-icons.net/1x1/sbed/big-egg.html> |
+| `bird-cage.svg` | Bird Cage | Delapouite | <https://game-icons.net/1x1/delapouite/bird-cage.html> |
+| `bird-claw.svg` | Bird Claw | Lorc | <https://game-icons.net/1x1/lorc/bird-claw.html> |
+| `bird-house.svg` | Bird House | Delapouite | <https://game-icons.net/1x1/delapouite/bird-house.html> |
+| `bird-limb.svg` | Bird Limb | Lorc | <https://game-icons.net/1x1/lorc/bird-limb.html> |
+| `bird-mask.svg` | Bird Mask | Lorc | <https://game-icons.net/1x1/lorc/bird-mask.html> |
+| `bird-scepter.svg` | Bird Scepter | Delapouite | <https://game-icons.net/1x1/delapouite/bird-scepter.html> |
+| `bird-twitter.svg` | Bird Twitter | Lorc | <https://game-icons.net/1x1/lorc/bird-twitter.html> |
+| `canadian-goose.svg` | Canadian Goose | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/canadian-goose.html> |
+| `cassowary-head.svg` | Cassowary Head | Delapouite | <https://game-icons.net/1x1/delapouite/cassowary-head.html> |
+| `chicken-leg.svg` | Chicken Leg | Lorc | <https://game-icons.net/1x1/lorc/chicken-leg.html> |
+| `chicken-oven.svg` | Chicken Oven | Delapouite | <https://game-icons.net/1x1/delapouite/chicken-oven.html> |
+| `chicken.svg` | Chicken | Delapouite | <https://game-icons.net/1x1/delapouite/chicken.html> |
+| `condor-emblem.svg` | Condor Emblem | Lorc | <https://game-icons.net/1x1/lorc/condor-emblem.html> |
+| `crow-dive.svg` | Crow Dive | Lorc | <https://game-icons.net/1x1/lorc/crow-dive.html> |
+| `cuauhtli.svg` | Cuauhtli | Delapouite | <https://game-icons.net/1x1/delapouite/cuauhtli.html> |
+| `distraction.svg` | Distraction | Lorc | <https://game-icons.net/1x1/lorc/distraction.html> |
+| `dodo.svg` | Dodo | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/dodo.html> |
+| `dove.svg` | Dove | Lorc | <https://game-icons.net/1x1/lorc/dove.html> |
+| `duck-palm.svg` | Duck Palm | Delapouite | <https://game-icons.net/1x1/delapouite/duck-palm.html> |
+| `duck.svg` | Duck | Delapouite | <https://game-icons.net/1x1/delapouite/duck.html> |
+| `eagle-emblem.svg` | Eagle Emblem | Lorc | <https://game-icons.net/1x1/lorc/eagle-emblem.html> |
+| `eagle-head.svg` | Eagle Head | Delapouite | <https://game-icons.net/1x1/delapouite/eagle-head.html> |
+| `eating-pelican.svg` | Eating Pelican | Delapouite | <https://game-icons.net/1x1/delapouite/eating-pelican.html> |
+| `egg-clutch.svg` | Egg Clutch | Lorc | <https://game-icons.net/1x1/lorc/egg-clutch.html> |
+| `egyptian-bird.svg` | Egyptian Bird | Delapouite | <https://game-icons.net/1x1/delapouite/egyptian-bird.html> |
+| `falcon-moon.svg` | Falcon Moon | Delapouite | <https://game-icons.net/1x1/delapouite/falcon-moon.html> |
+| `falling-ovoid.svg` | Falling Ovoid | Lorc | <https://game-icons.net/1x1/lorc/falling-ovoid.html> |
+| `feather.svg` | Feather | Lorc | <https://game-icons.net/1x1/lorc/feather.html> |
+| `feathered-wing.svg` | Feathered Wing | Lorc | <https://game-icons.net/1x1/lorc/feathered-wing.html> |
+| `finch.svg` | Finch | Delapouite | <https://game-icons.net/1x1/delapouite/finch.html> |
+| `flamingo.svg` | Flamingo | Delapouite | <https://game-icons.net/1x1/delapouite/flamingo.html> |
+| `flying-trout.svg` | Flying Trout | Cathelineau | <https://game-icons.net/1x1/cathelineau/flying-trout.html> |
+| `freedom-dove.svg` | Freedom Dove | Lorc | <https://game-icons.net/1x1/lorc/freedom-dove.html> |
+| `fried-eggs.svg` | Fried Eggs | Delapouite | <https://game-icons.net/1x1/delapouite/fried-eggs.html> |
+| `goose.svg` | Goose | Delapouite | <https://game-icons.net/1x1/delapouite/goose.html> |
+| `hawk-emblem.svg` | Hawk Emblem | Lorc | <https://game-icons.net/1x1/lorc/hawk-emblem.html> |
+| `heron.svg` | Heron | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/heron.html> |
+| `horus.svg` | Horus | Delapouite | <https://game-icons.net/1x1/delapouite/horus.html> |
+| `hummingbird.svg` | Hummingbird | Delapouite | <https://game-icons.net/1x1/delapouite/hummingbird.html> |
+| `ibis.svg` | Ibis | Delapouite | <https://game-icons.net/1x1/delapouite/ibis.html> |
+| `incubator.svg` | Incubator | Delapouite | <https://game-icons.net/1x1/delapouite/incubator.html> |
+| `kenku-head.svg` | Kenku Head | Delapouite | <https://game-icons.net/1x1/delapouite/kenku-head.html> |
+| `kiwi-bird.svg` | Kiwi Bird | Delapouite | <https://game-icons.net/1x1/delapouite/kiwi-bird.html> |
+| `nest-birds.svg` | Nest Birds | Delapouite | <https://game-icons.net/1x1/delapouite/nest-birds.html> |
+| `nest-eggs.svg` | Nest Eggs | Delapouite | <https://game-icons.net/1x1/delapouite/nest-eggs.html> |
+| `new-born.svg` | New Born | Delapouite | <https://game-icons.net/1x1/delapouite/new-born.html> |
+| `ostrich.svg` | Ostrich | Delapouite | <https://game-icons.net/1x1/delapouite/ostrich.html> |
+| `owl.svg` | Owl | Lorc | <https://game-icons.net/1x1/lorc/owl.html> |
+| `paper-crane.svg` | Paper Crane | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/paper-crane.html> |
+| `parrot-head.svg` | Parrot Head | Lorc | <https://game-icons.net/1x1/lorc/parrot-head.html> |
+| `peace-dove.svg` | Peace Dove | Delapouite | <https://game-icons.net/1x1/delapouite/peace-dove.html> |
+| `penguin.svg` | Penguin | Delapouite | <https://game-icons.net/1x1/delapouite/penguin.html> |
+| `plague-doctor-profile.svg` | Plague Doctor Profile | Delapouite | <https://game-icons.net/1x1/delapouite/plague-doctor-profile.html> |
+| `plastic-duck.svg` | Plastic Duck | Delapouite | <https://game-icons.net/1x1/delapouite/plastic-duck.html> |
+| `raven.svg` | Raven | Lorc | <https://game-icons.net/1x1/lorc/raven.html> |
+| `roast-chicken.svg` | Roast Chicken | Lorc | <https://game-icons.net/1x1/lorc/roast-chicken.html> |
+| `rooster.svg` | Rooster | Delapouite | <https://game-icons.net/1x1/delapouite/rooster.html> |
+| `scarecrow.svg` | Scarecrow | Lorc | <https://game-icons.net/1x1/lorc/scarecrow.html> |
+| `seagull.svg` | Seagull | Delapouite | <https://game-icons.net/1x1/delapouite/seagull.html> |
+| `shoebill-stork.svg` | Shoebill Stork | Delapouite | <https://game-icons.net/1x1/delapouite/shoebill-stork.html> |
+| `sparrow.svg` | Sparrow | Lorc | <https://game-icons.net/1x1/lorc/sparrow.html> |
+| `stork-delivery.svg` | Stork Delivery | Delapouite | <https://game-icons.net/1x1/delapouite/stork-delivery.html> |
+| `swallow.svg` | Swallow | Delapouite | <https://game-icons.net/1x1/delapouite/swallow.html> |
+| `swan.svg` | Swan | Lorc | <https://game-icons.net/1x1/lorc/swan.html> |
+| `toucan.svg` | Toucan | Delapouite | <https://game-icons.net/1x1/delapouite/toucan.html> |
+| `two-feathers.svg` | Two Feathers | Lorc | <https://game-icons.net/1x1/lorc/two-feathers.html> |
+| `vulture.svg` | Vulture | Lorc | <https://game-icons.net/1x1/lorc/vulture.html> |
+| `winged-leg.svg` | Winged Leg | Lorc | <https://game-icons.net/1x1/lorc/winged-leg.html> |
 
 ## Blade
 
