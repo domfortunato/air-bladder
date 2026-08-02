@@ -295,6 +295,45 @@ if (scrubHits.length) {
   console.log("  ok    no scrubbed hireling identifier is back in module/ or tools/");
 }
 
+/* ---- every art path a pack doc names must actually exist ------------------ */
+// Hand-picked icons (2026-08-01) are stored in the pack YAML and deliberately
+// left alone by tools/import/item-icons.mjs, which means nothing else re-derives
+// them — so a typo, a renamed glyph or a deleted file is invisible until a
+// player sees a broken image, and by then it has shipped in the manifest. The
+// classifier's own output cannot rot this way (it is generated); a chosen path
+// can, which is exactly why choosing is worth gating.
+//
+// `systems/air-bladder/...` maps to the repo root. Anything else — a core
+// `icons/svg/...` path, a module's art — is not ours to resolve and is skipped.
+const PREFIX = "systems/air-bladder/";
+const artMissing = [];
+const walkPackArt = (dir) => {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, e.name);
+    if (e.isDirectory()) { walkPackArt(full); continue; }
+    if (!e.name.endsWith(".yml")) continue;
+    const rel = path.relative(root, full).replace(/\\/g, "/");
+    fs.readFileSync(full, "utf8").split(/\r?\n/).forEach((line, i) => {
+      // Top-level and nested art alike: `img:`, and prototype token `src:`.
+      const m = line.match(/^\s*(?:img|src):\s*(\S+)\s*$/);
+      if (!m) return;
+      const p = m[1].replace(/^["']|["']$/g, "");
+      if (!p.startsWith(PREFIX)) return;
+      if (!fs.existsSync(path.join(root, p.slice(PREFIX.length)))) {
+        artMissing.push(`${rel}:${i + 1}  ${p}`);
+      }
+    });
+  }
+};
+walkPackArt(path.join(root, "src", "packs"));
+if (artMissing.length) {
+  failed = true;
+  console.error(`\nMISSING ART — ${artMissing.length} pack path(s) point at a file that is not there:`);
+  for (const a of artMissing.slice(0, 20)) console.error(`  ${a}`);
+} else {
+  console.log("  ok    every art path a pack document names exists on disk");
+}
+
 if (verbose && !failed) {
   console.log(`\nindexed ${byId.size} documents`);
 }

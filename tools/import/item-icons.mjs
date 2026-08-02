@@ -11,7 +11,14 @@
  * indented and untouched), so a re-run on already-stamped packs is a no-op. Run
  * it after any pack re-import, then `npm run build:packs`.
  *
- *   node tools/import/item-icons.mjs [--dry]
+ * IT NEVER OVERWRITES ART CHOSEN BY HAND. Everything this classifier can produce
+ * lives under ICON_DIR, so an `img:` pointing anywhere else — a `game-icons/`
+ * glyph picked in Foundry, a portrait, an upload — is somebody's decision and is
+ * left alone. That is what makes assigning icons in the compendium and running
+ * `npm run extract:packs` a durable workflow rather than a change one re-import
+ * silently reverts. `--force` restores the old blanket restamp.
+ *
+ *   node tools/import/item-icons.mjs [--dry] [--force]
  *
  * RollTable packs are left alone. The two background packs ARE stamped — type
  * "background" maps to the fractured-heart background icon.
@@ -20,12 +27,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
-import { iconForItem, iconForActor, TOOLS_ICON } from "../../module/icons.js";
+import { iconForItem, iconForActor, TOOLS_ICON, ICON_DIR } from "../../module/icons.js";
 
 const YAML = createRequire(import.meta.url)("js-yaml");
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const DRY = process.argv.includes("--dry");
+// Restore the pre-2026-08-01 blanket restamp, overwriting hand-picked art too.
+// For a deliberate reset of the whole set, never for a routine re-import.
+const FORCE = process.argv.includes("--force");
 
 // Item + Actor packs. Every RollTable pack is excluded.
 // `reliquary` is stamped like any other item pack, which is the point of relics
@@ -48,7 +58,7 @@ const iconForDoc = (pack, doc) => {
   return iconForItem(doc.type, doc.name);                              // null for backgrounds
 };
 
-let changed = 0, skipped = 0, missing = 0;
+let changed = 0, skipped = 0, missing = 0, kept = 0;
 const byIcon = {};
 
 for (const pack of [...ITEM_PACKS, ...ACTOR_PACKS]) {
@@ -67,6 +77,27 @@ for (const pack of [...ITEM_PACKS, ...ACTOR_PACKS]) {
     const i = lines.findIndex((l) => /^img:\s/.test(l));
     if (i < 0) { missing++; console.warn(`  no top-level img in ${pack}/${file}`); continue; }
     if (lines[i] === `img: ${want}`) { continue; }                     // already stamped
+
+    // A HAND-PICKED icon is never overwritten. Every path this classifier can
+    // produce goes through `P()` and therefore lives under module/icons.js's
+    // ICON_DIR — so an `img:` pointing anywhere else was chosen by a person,
+    // in Foundry, on purpose, and re-deriving it from a keyword table would
+    // silently throw that choice away. That is not hypothetical: this script
+    // rewrites the img of every doc in fourteen packs from the classifier
+    // alone, so before this guard the ONLY safe place for a bespoke icon was
+    // nowhere. `game-icons/` (1,239 glyphs, CC BY 3.0) is the folder a Warden
+    // actually picks from, and no classifier output can ever collide with it.
+    //
+    // Deliberately keyed on "outside ICON_DIR" rather than on "inside
+    // game-icons/": a portrait, a custom upload and a module's art are all
+    // equally somebody's decision, and none of them is this table's to revise.
+    // `--force` restores the old blanket restamp for a deliberate reset.
+    const current = lines[i].slice(5).trim();
+    if (!FORCE && current && !current.startsWith(ICON_DIR)) {
+      kept++;
+      continue;
+    }
+
     lines[i] = `img: ${want}`;
     if (!DRY) fs.writeFileSync(full, lines.join("\n"), "utf8");
     changed++;
@@ -76,4 +107,8 @@ for (const pack of [...ITEM_PACKS, ...ACTOR_PACKS]) {
 console.log(`\n${DRY ? "[dry] " : ""}icon assignments:`);
 for (const [icon, n] of Object.entries(byIcon).sort((a, b) => b[1] - a[1]))
   console.log(`  ${String(n).padStart(4)}  ${icon}`);
-console.log(`\n${DRY ? "would change" : "changed"}: ${changed}  |  skipped (no icon): ${skipped}  |  missing img line: ${missing}`);
+console.log(`\n${DRY ? "would change" : "changed"}: ${changed}  |  skipped (no icon): ${skipped}`
+  + `  |  kept (hand-picked): ${kept}  |  missing img line: ${missing}`);
+if (kept && !FORCE) {
+  console.log(`  ${kept} document(s) keep art chosen by hand; --force would overwrite them.`);
+}
