@@ -22,8 +22,10 @@ const { ActorSheetV2 } = foundry.applications.sheets;
 const FEATURE_FLAGS = ["str", "dex", "wil", "hp", "armor", "dmg", "crit", "deprived", "blast"];
 
 /** Tab labels by id. The nav itself is hand-written in each template, because
- *  every label carries live data (slot counts, container counts, and a Notes tab
- *  that renames itself once a background is attached). */
+ *  the labels carry live data (slot counts, connection counts) and, on the NPC
+ *  sheet, a per-role static name: "Background & Notes" on a person and on a
+ *  player character, plain "Notes" on a monster, mount, transport or container
+ *  (see `context.notesTabLabel`). */
 const TAB_LABELS = {
   items: "CAIRN.Items",
   // The tab ID stays `containers` -- it is internal, and renaming it would touch
@@ -681,6 +683,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       context.kindDisplay = CONTAINER_CLASSES[cls]
         ? game.i18n.localize(CONTAINER_CLASSES[cls].label)
         : cls;
+      // Static per role, not per document: a person's Notes tab carries the
+      // character sheet's wording, everything else says plain Notes.
+      context.notesTabLabel = game.i18n.localize(
+        role === "npc" ? "CAIRN.BackgroundAndNotes" : "CAIRN.Notes");
     }
     let items = this.actor.items.map((i) => ({
       _id: i.id,
@@ -736,10 +742,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // template (the review that caught it: three awaited enrichHTML passes per
     // committed keystroke, for nothing, while the monster.desc translation they
     // were meant to carry never displayed anywhere). enrichedNotes is BACK since
-    // 2026-08-02 with a consumer this time: the npc sheet's Notes editor is
-    // toggled now (user ask), and a toggled editor needs a display half. The
-    // CHARACTER sheet's notes stay always-active by the recorded decision in
-    // character-sheet.html, and so stay un-enriched there.
+    // 2026-08-02 with a consumer this time: both Notes editors are toggled now
+    // (user ask), and a toggled editor needs a display half. The character
+    // sheet's copy is built in _prepareCharacterContext.
     if (["npc", "hireling"].includes(this.actor.type)) {
       context.enrichedDescription =
         await foundry.applications.ux.TextEditor.implementation.enrichHTML(
@@ -966,6 +971,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // "Background & Notes" once a background was attached). Retired 2026-08-01:
     // the tab is "Notes" for everyone — one name, one key, and the label no
     // longer disagrees with TAB_LABELS.notes on generated characters.
+    // Since 2026-08-02 the label is static PER ROLE instead — a character and a
+    // role-npc person read CAIRN.BackgroundAndNotes, a monster, mount, transport
+    // or container reads CAIRN.Notes (`context.notesTabLabel`). The DYNAMIC,
+    // data-driven rename stays dead: two characters must not disagree on what
+    // their own tabs are called.
     // Scars and Age are never generated — a player fills each in by hand after
     // the fact — so they are NOT edition-specific and show on both. Only
     // character CREATION differs between 2e and Barebones (see CLAUDE.md,
@@ -1033,6 +1043,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       question: t("bg.question", q.question ?? ""),
       answer: t("bg.optionDesc", q.answer ?? ""),
     }));
+    // The Notes editor is TOGGLED (character-sheet.html), so this is its
+    // light-DOM DISPLAY half. Enriched but NOT translated: notes are the
+    // player's own prose and no content namespace files them.
+    context.enrichedNotes =
+      await foundry.applications.ux.TextEditor.implementation.enrichHTML(
+        this.actor.system.notes,
+        { relativeTo: this.actor },
+      );
 
     // Attribute-loss statuses, ability tooltips, peril/low cues, critical skull.
     this._computeStatContext(context);
@@ -3027,7 +3045,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // refused — re-homing goes through unlink first, exactly as it always has.
     if (!["npc", "hireling"].includes(actor.type)) return null;
     if (actor.system.connectedTo) {
-      ui.notifications.warn(game.i18n.localize("CAIRN.ContainerAlreadyOwned"));
+      ui.notifications.warn(game.i18n.localize("CAIRN.AlreadyConnected"));
       return null;
     }
     return (await this.actor.connectActor(actor)) ? actor : null;

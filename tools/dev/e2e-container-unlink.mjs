@@ -210,14 +210,14 @@ try {
   unlink.formerly === "ZZ Unlink Owner"
     ? ok("the previous owner's name is snapshotted", `"${unlink.formerly}"`)
     : bad("the previous owner's name is snapshotted", JSON.stringify(unlink.formerly));
-  /^Formerly belonged to /.test(unlink.label ?? "")
+  /^Formerly connected to /.test(unlink.label ?? "")
     ? ok("the sheet line reads as a former owner", `"${unlink.label}"`)
     : bad("the sheet line reads as a former owner", JSON.stringify(unlink.label));
   // Checked against the LITERAL, not against `unlink.label` -- comparing the two
   // observations to each other passes when both are empty, which is exactly the
   // failure being guarded against (a uuid that no longer resolves yields nothing
   // at both ends and the assertion agrees with itself).
-  orphan.stillExists && /^Formerly belonged to ZZ Unlink Owner$/.test(orphan.label ?? "")
+  orphan.stillExists && /^Formerly connected to ZZ Unlink Owner$/.test(orphan.label ?? "")
     ? ok("and it SURVIVES the owner being deleted", `"${orphan.label}"`)
     : bad("and it SURVIVES the owner being deleted", JSON.stringify(orphan));
 
@@ -238,7 +238,7 @@ try {
     : bad("the mule survives, unlinked", JSON.stringify(ownerDeath));
   // The LITERAL, as everywhere in this file: comparing to the (deleted) owner's
   // name read back would agree with itself when both are empty.
-  ownerDeath.formerly === "ZZ Unlink Owner" && /^Formerly belonged to ZZ Unlink Owner$/.test(ownerDeath.label ?? "")
+  ownerDeath.formerly === "ZZ Unlink Owner" && /^Formerly connected to ZZ Unlink Owner$/.test(ownerDeath.label ?? "")
     ? ok("stamped with the dead owner's name", `"${ownerDeath.label}"`)
     : bad("stamped with the dead owner's name", JSON.stringify(ownerDeath));
   deathControl.reproduced

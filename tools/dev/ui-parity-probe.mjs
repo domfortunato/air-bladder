@@ -73,7 +73,7 @@ try {
       };
     });
 
-    // The Notes tab is titled for its extra content on a generated character.
+    // The Notes tab's name, read off the rendered nav rather than the context.
     out.notesTabLabel = root.querySelector('.tabs .item[data-tab="notes"]')?.textContent?.trim() ?? null;
     // Gold uses the 70/30 long-counter split, matching Armor/Deprived beneath it.
     const goldLabel = root.querySelector(".character-sheet-section-name .deprived-counter label");
@@ -322,14 +322,16 @@ try {
 
   const near = (a, b, tol = 3) => Math.abs(a - b) <= tol;
 
-  // Until 2026-08-01 this asserted "Background & Notes" — the tab renamed itself
-  // once a background was attached, so a generated character and a hand-made one
-  // read differently. That went with `showBackgroundNotesLabel`: the tab is
-  // "Notes" for everyone now, one name and one key, and this leg is what stops
-  // the conditional label creeping back on the generated case that had it.
-  r.notesTabLabel === "Notes"
+  // Second flip, and the two are not the same decision. Until 2026-08-01 the tab
+  // renamed ITSELF once a background was attached, so a generated character and a
+  // hand-made one read differently; that dynamic rename died with
+  // `showBackgroundNotesLabel`. Since 2026-08-02 the name is STATIC PER ROLE —
+  // every character reads "Background & Notes", generated or not, and only the
+  // non-person NPC roles say plain "Notes". This leg asserts the generated case
+  // agrees with the hand-made one, which is what both flips were about.
+  r.notesTabLabel === "Background & Notes"
     ? ok(`the Notes tab reads one name on a GENERATED character too ("${r.notesTabLabel}")`)
-    : fail(`Notes tab reads "${r.notesTabLabel}", expected "Notes" — the conditional label is back`);
+    : fail(`Notes tab reads "${r.notesTabLabel}", expected "Background & Notes" — the label is data-driven again`);
   r.goldLabelRatio && Math.abs(r.goldLabelRatio - r.armorLabelRatio) <= 2
     ? ok(`Gold uses the same label/value split as Armor below it (${r.goldLabelRatio}% / ${r.armorLabelRatio}%)`)
     : fail(`Gold's split (${r.goldLabelRatio}%) does not match Armor's (${r.armorLabelRatio}%)`);

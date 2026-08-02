@@ -147,9 +147,11 @@
                 {{/each}}
             </div>
             {{!-- The nav is hand-written rather than using Foundry's shipped
-                  tab-navigation partial, because every label carries live data:
-                  slot counts, container counts, and a Notes tab that renames
-                  itself once a background is attached.
+                  tab-navigation partial, because the labels carry live data
+                  (slot counts, connection counts) and, on the NPC sheet, a
+                  per-role static name — "Background & Notes" for a person, plain
+                  "Notes" for a monster, mount, transport or container. A player
+                  character always reads "Background & Notes".
                   NOTE the `--` form. A short `{{! }}` comment ends at the FIRST
                   `}}`, so one containing a handlebars expression spills the rest
                   of itself onto the sheet as literal text. --}}
@@ -165,7 +167,7 @@
                       see the note on the NPC sheet's copy of this row. --}}
                 <a class="item {{tabs.containers.cssClass}}" data-action="tab" data-group="primary" data-tab="containers">{{ localize 'CAIRN.Connections' }} ({{system.containerObjects.length}}) </a>
                 {{/if}}
-                <a class="item {{tabs.notes.cssClass}}" data-action="tab" data-group="primary" data-tab="notes">{{ localize 'CAIRN.Notes' }}</a>
+                <a class="item {{tabs.notes.cssClass}}" data-action="tab" data-group="primary" data-tab="notes">{{ localize 'CAIRN.BackgroundAndNotes' }}</a>
             </nav>
             <section class="content">
                 <div class="tab {{tabs.items.cssClass}}" data-group="primary" data-tab="items">
@@ -233,17 +235,19 @@
                     {{/each}}
                     {{/if}}
                     {{#if showNotesDivider}}<hr class="notes-divider" />{{/if}}
-                    {{!-- No `toggled`: a toggled editor is opened by a pencil that Foundry
-                          hides until you hover it, so the field looked dead. Always-active
-                          means click and type. And no `collaborate`: it routes activation
-                          through _createCollaborativeEditorView, which AWAITS a handshake --
-                          long enough for the next render (submitOnChange fires one per
-                          committed edit) to detach the element mid-activation, and
-                          ProseMirrorMenu.render then throws on a null node. Gated by
-                          `npm run dev:notes-editor`; the race shows up in dev:ui-parity. --}}
-                    <prose-mirror name="system.notes" value="{{system.notes}}" relative
-                        data-placeholder="{{ localize 'CAIRN.NotesPlaceholder' }}"
-                        data-document-uuid="{{actor.uuid}}"></prose-mirror>
+                    {{!-- TOGGLED since 2026-08-02, reversing the always-active decision
+                          recorded here: the user reads a permanent toolbar over an empty
+                          box as clutter. `toggled collaborate` is the MEASURED-SAFE
+                          pairing — the race was always-active + collaborate, where
+                          activation awaits a handshake long enough for a submitOnChange
+                          re-render to detach the element mid-activation and
+                          ProseMirrorMenu.render then throws on a null node.
+                          The empty-state hint is a REAL element in the display half, not
+                          `data-placeholder`: that mechanism anchors its ::before to
+                          .editor-container, which a toggled editor only grows on
+                          activation. Gated by `npm run dev:notes-editor`. --}}
+                    <prose-mirror name="system.notes" value="{{system.notes}}" toggled collaborate relative
+                        data-document-uuid="{{actor.uuid}}">{{#if system.notes}}{{{enrichedNotes}}}{{else}}<p class="cairn-editor-placeholder">{{ localize 'CAIRN.NotesPlaceholder' }}</p>{{/if}}</prose-mirror>
                 </div>
             </section>
         </div>

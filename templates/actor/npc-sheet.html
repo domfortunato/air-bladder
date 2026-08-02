@@ -60,7 +60,7 @@
             <div class="profession-line faction-line">
                 <span class="background-label">{{ localize 'CAIRN.Faction' }}</span>
                 <input class="profession-input" type="text" name="system.faction"
-                    value="{{system.faction}}" placeholder="{{ localize 'CAIRN.Faction' }}" />
+                    value="{{system.faction}}" />
                 {{#if generationEnabled}}
                 <a class="profession-roll" data-action="rollFaction" title="{{ localize 'CAIRN.RollFaction' }}"><i class="fas fa-dice-d20"></i></a>
                 {{/if}}
@@ -131,10 +131,12 @@
                 </datalist>
             </div>
             {{/if}}
-            {{!-- "Owner: X" while connected, "Formerly belonged to X" once
-                  unlinked, nothing if it was never connected to anyone. The
-                  container sheet has always had this line; an NPC can now BE a
-                  container, so it needs it too. --}}
+            {{!-- "Connected to: X" while connected — "Hired by: X" when the
+                  person is for hire — "Formerly connected to X" once unlinked,
+                  and nothing if it was never connected to anyone. The container
+                  sheet has always had this line; an NPC can now BE a container,
+                  so it needs it too. The word "Owner" is deliberately absent
+                  everywhere: nobody owns a person. --}}
             {{#if system.ownedBy}}
             <div class="background-input">
                 <span class="container-owner">{{system.ownedBy}}</span>
@@ -297,7 +299,7 @@
                       rows below it the moment either side is used alone. --}}
                 <a class="item {{tabs.containers.cssClass}}" data-action="tab" data-group="primary" data-tab="containers">{{ localize 'CAIRN.Connections' }} ({{system.containerObjects.length}})</a>
                 {{/if}}
-                <a class="item {{tabs.notes.cssClass}}" data-action="tab" data-group="primary" data-tab="notes">{{ localize 'CAIRN.Notes' }}</a>
+                <a class="item {{tabs.notes.cssClass}}" data-action="tab" data-group="primary" data-tab="notes">{{notesTabLabel}}</a>
             </nav>
             <section class="content">
                 <div class="tab {{tabs.description.cssClass}}" data-group="primary" data-tab="description">
@@ -368,8 +370,8 @@
                           .editor-container, which a toggled editor only grows on
                           activation. `collaborate` is safe here ONLY because of
                           `toggled` — the measured race lives on always-active +
-                          collaborate — and the CHARACTER sheet's notes keep their
-                          recorded always-active decision (character-sheet.html). --}}
+                          collaborate. The character sheet's Notes editor took
+                          the same shape later the same day. --}}
                     <prose-mirror name="system.notes" value="{{system.notes}}" toggled collaborate relative
                         data-document-uuid="{{actor.uuid}}">{{#if system.notes}}{{{enrichedNotes}}}{{else}}<p class="cairn-editor-placeholder">{{notesPlaceholder}}</p>{{/if}}</prose-mirror>
                 </div>

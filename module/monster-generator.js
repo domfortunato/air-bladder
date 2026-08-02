@@ -201,17 +201,24 @@ export const generateMonster = async (tierChoice) => {
   // document on the first click of ANY header button (observed 2026-08-01 via a
   // preUpdateActor logger; the probe's decline leg caught it). Canonical markup
   // round-trips to an empty diff.
+  // The 2026-08-02 formatting ruling: a bold label, no trailing period, and a
+  // LOWERCASED payload — a table row is a fragment ("Emaciated trunk"), not a
+  // sentence, and it reads as one mid-bullet. Lowercasing happens INLINE at the
+  // format call and never to the variables: `ARMORED_FEATURES.includes(feature)`
+  // above matches the raw English roll. The appearance bullet keeps its leading
+  // capital because only the INSERTED results are folded.
   const esc = foundry.utils.escapeHTML;
+  const lc = (s) => d(s).toLocaleLowerCase(game.i18n.lang);
   const bullets = [];
   if (physique && feature) {
-    bullets.push(game.i18n.format("CAIRN.MonsterGen.DescAppearance", { physique: esc(d(physique)), feature: esc(d(feature)) }));
+    bullets.push(game.i18n.format("CAIRN.MonsterGen.DescAppearance", { physique: esc(lc(physique)), feature: esc(lc(feature)) }));
   }
-  if (quirk) bullets.push(game.i18n.format("CAIRN.MonsterGen.DescQuirk", { quirk: esc(d(quirk)) }));
-  if (weakness) bullets.push(game.i18n.format("CAIRN.MonsterGen.DescWeakness", { weakness: esc(d(weakness)) }));
+  if (quirk) bullets.push(game.i18n.format("CAIRN.MonsterGen.DescQuirk", { quirk: esc(lc(quirk)) }));
+  if (weakness) bullets.push(game.i18n.format("CAIRN.MonsterGen.DescWeakness", { weakness: esc(lc(weakness)) }));
   if (abilityPower && abilityTarget) {
-    bullets.push(game.i18n.format("CAIRN.MonsterGen.DescAbility", { power: esc(d(abilityPower)), target: esc(d(abilityTarget)) }));
+    bullets.push(game.i18n.format("CAIRN.MonsterGen.DescAbility", { power: esc(lc(abilityPower)), target: esc(lc(abilityTarget)) }));
   }
-  if (criticalDamage) bullets.push(game.i18n.format("CAIRN.MonsterGen.DescCritical", { effect: esc(d(criticalDamage)) }));
+  if (criticalDamage) bullets.push(game.i18n.format("CAIRN.MonsterGen.DescCritical", { effect: esc(lc(criticalDamage)) }));
   const description = bullets.length
     ? `<ul>${bullets.map((b) => `<li><p>${b}</p></li>`).join("")}</ul>`
     : "";

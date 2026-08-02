@@ -91,8 +91,12 @@ texture, not what makes a monster deadly.
   construction; the house cap of 3 holds regardless.
 - **The description** is five bullets from `CAIRN.MonsterGen.Desc*` format
   keys — appearance, quirk, weakness, ability (Power + Target), and
-  "Critical damage: …" — each rolled string HTML-escaped (a Warden can edit
-  the world copies of these tables into anything). The markup is
+  "**Critical Damage:** …" — each rolled string HTML-escaped (a Warden can edit
+  the world copies of these tables into anything). Since 2026-08-02 the four
+  labelled bullets carry a **bold label**, no bullet ends in a period, and the
+  inserted roll is lowercased at the format call (never in the variable —
+  `ARMORED_FEATURES` matches the raw English roll); only the leading "A …" of
+  the appearance bullet keeps a capital. The markup is
   **ProseMirror-canonical** (`<ul><li><p>…</p></li></ul>`, no newlines), NOT
   the pack's `<li>…<br></li>` shape: the sheet's root element is its form, so
   every frame-button click submits it, and a description the editor

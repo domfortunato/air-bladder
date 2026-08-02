@@ -21,9 +21,11 @@
  *   3. picking Standard creates an npc-typed actor, role monster: HP 3=3,
  *      abilities on the 3/6/10/14/18 ladder (DEX never at the extremes), exactly
  *      one starred attack item carrying d6, derived Armor <= 3 with any armor
- *      item drawn from the allowed names, a prose <ul> description with a
- *      "Critical damage:" bullet, a creature portrait mirrored onto a hostile
- *      unlinked token with STR/HP bars, and NO Connections tab;
+ *      item drawn from the allowed names, a prose <ul> description whose bullets
+ *      all carry a BOLD label ("Quirk:", "Weakness:", "Ability:", "Critical
+ *      Damage:") and none of which ends in a period, a creature portrait
+ *      mirrored onto a hostile unlinked token with STR/HP bars, and NO
+ *      Connections tab;
  *   4. generating leaves the 8 Warden tables' drawn state untouched — roll(),
  *      never draw() (delta-checked, so a world with old draws still passes);
  *   5. the API tiers: serious -> HP 10/d10, hardier -> 6/d8, random ∈ {3,6,10};
@@ -96,7 +98,15 @@ const shapeProblems = (s, { hp, die, checkName = false } = {}) => {
     if (!ARMOR_NAMES.includes(i.name)) p.push(`armor item named "${i.name}", not one of ${ARMOR_NAMES.join("/")}`);
   }
   if (!s.description?.includes("<ul>")) p.push("description is not the pack-shaped <ul>");
-  if (!s.description?.includes("Critical damage:")) p.push("description has no Critical damage bullet");
+  if (!s.description?.includes("Critical Damage:")) p.push("description has no Critical Damage bullet");
+  // The 2026-08-02 formatting ruling, asserted on the two halves that can
+  // silently regress: no bullet ends in a period, and every label arrives bold.
+  // Bullets are `<li><p>…</p></li>`, so ".</p>" is the whole of "ends with a
+  // period" and costs one substring test.
+  if (s.description?.includes(".</p>")) p.push("a description bullet ends with a period");
+  for (const label of ["Quirk", "Weakness", "Ability", "Critical Damage"]) {
+    if (!s.description?.includes(`<strong>${label}:</strong>`)) p.push(`the ${label} label is not bold`);
+  }
   if (checkName) {
     if (!s.name?.endsWith("Creature")) p.push(`name "${s.name}" not composed from the appearance rolls`);
   }

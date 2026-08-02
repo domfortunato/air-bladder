@@ -578,8 +578,8 @@
     color: var(--ab-faint);
 }
 
-/* The TOGGLED Notes editor's empty-state hint (npc sheet): a real element in
-   the display half, because the mechanism above has nothing to anchor to —
+/* The TOGGLED Notes editor's empty-state hint (both actor sheets): a real
+   element in the display half, because the mechanism above has nothing to anchor to —
    a toggled editor grows its .editor-container only on activation. Same look
    as the ::before hint; being part of the light-DOM display child, it can
    never reach a save (activation swaps the child out for `value`). */
@@ -1604,8 +1604,18 @@ textarea.omen-input {
     cursor: pointer;
 }
 
+/* A bare <hr> is drawn from core LITERALS, not from the palette: a #b5b3a4 top
+   and a near-white #f0f0e0 bottom border (foundry2.css:12406, @layer
+   compatibility) plus a cream --hr-gradient background in dark mode. The bottom
+   edge is invisible on parchment and the gradient ignores the scheme entirely,
+   so state the rule once in tokens. @layer system outranks compatibility, so no
+   !important is needed here. */
 .notes-divider {
     margin: 10px 0;
+    height: 0;
+    border: none;
+    border-top: 1px solid var(--ab-rule);
+    background: none;
 }
 
 .bond-reroll,

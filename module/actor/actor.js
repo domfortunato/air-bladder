@@ -562,10 +562,11 @@ export class CairnActor extends Actor {
   }
 
   /**
-   * The one line under the name saying who this belongs to — or who it USED to.
+   * The one line under the name saying who this is connected to — or who it
+   * USED to be.
    *
    * Three states, and the third is the one worth having: connected (name the
-   * owner), never connected (say nothing), or unlinked (name whoever had it
+   * keeper), never connected (say nothing), or unlinked (name whoever had it
    * last). That last line is why `formerlyBelongedTo` is a stored string rather
    * than a uuid — see the field's own note.
    *
@@ -588,7 +589,14 @@ export class CairnActor extends Actor {
     this.system.canAttach = !link && this.canBeConnected;
     if (link) {
       const owner = game.actors.find((a) => a.uuid === link);
-      if (owner) this.system.ownedBy = game.i18n.format("CAIRN.OwnerNamed", { name: owner.name });
+      // Gated on the ROLE, not on `forHire` alone: the flag is on every npc's
+      // schema, so a mount or a crate can silently carry forHire=true from a
+      // role change and would otherwise read "Hired by".
+      const hired = this.npcRole === "npc" && this.system.forHire === true;
+      if (owner) {
+        this.system.ownedBy = game.i18n.format(
+          hired ? "CAIRN.HiredBy" : "CAIRN.ConnectedToNamed", { name: owner.name });
+      }
       this.system.connectedKeeper = {
         uuid: link,
         label: owner
@@ -802,7 +810,7 @@ export class CairnActor extends Actor {
     // through the picker — without this wall it could steal a connected actor
     // from its keeper in one gesture.
     if (target.system?.connectedTo) {
-      ui.notifications.warn(game.i18n.localize("CAIRN.ContainerAlreadyOwned"));
+      ui.notifications.warn(game.i18n.localize("CAIRN.AlreadyConnected"));
       return false;
     }
     // The ceiling. Stated here as well as in the pickers because this is the
