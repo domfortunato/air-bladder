@@ -470,6 +470,9 @@ export const kettlewrightToActorData = async (json) => {
   const data = {
     name,
     system: {
+      // An imported character lands with the Randomization switch OFF, stated
+      // rather than inherited from the schema initial — see characterToActorData.
+      generationEnabled: false,
       abilities: {
         STR: { value: num(json.strength, 10), max: num(json.strength_max, num(json.strength, 10)) },
         DEX: { value: num(json.dexterity, 10), max: num(json.dexterity_max, num(json.dexterity, 10)) },

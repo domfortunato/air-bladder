@@ -30,7 +30,13 @@ Cairn.characterGenerator2e = {
 // character takes its name from its background's name list, which an NPC has
 // no equivalent of — so it draws from the Warden's 2e NPC name table.
 Cairn.npcGenerator = {
-  name: "air-bladder.warden-npcs;Warden: NPC - Name"
+  name: "air-bladder.warden-npcs;Warden: NPC - Name",
+  // The Faction die's table, by NAME ONLY — no pack prefix, deliberately: it
+  // resolves world-first (findTableByName), so a Warden's own RollTable named
+  // "Warden: NPC - Faction" always beats the shipped warden-npcs copy and
+  // their faction list survives a system update. roll(), never draw() — the
+  // same invariant the monster tables document below.
+  faction: "Warden: NPC - Faction",
 };
 
 // Monster generation (SRD "Creating Monsters", CC BY-SA 4.0 — the design of

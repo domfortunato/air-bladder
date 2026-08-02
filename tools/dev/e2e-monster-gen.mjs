@@ -258,18 +258,33 @@ try {
       await a.sheet.render(true);
       await new Promise((res) => setTimeout(res, 800));
       const el = a.sheet.element;
+      const roll = el.querySelector('button[data-action="rollActor"]');
+      const hiddenAtBirth = roll?.classList.contains("cairn-header-hidden") ?? null;
+      // A generated monster lands with Randomization OFF (2026-08-02), so the
+      // regenerate legs below flip it the way a Warden does — the real toggle.
+      el.querySelector('button[data-action="toggleGeneration"]')?.click();
+      await new Promise((res) => setTimeout(res, 700));
       return {
         sheetId: a.sheet.id,
         connectionsTab: !!el.querySelector('a[data-tab="containers"]'),
-        rollButton: !!el.querySelector('button[data-action="rollActor"]'),
+        rollButton: !!roll,
+        hiddenAtBirth,
+        rollText: roll?.textContent.trim() ?? null,
+        rollIcon: [...(roll?.querySelector("i")?.classList ?? [])].find((c) => c.startsWith("fa-")) ?? null,
       };
     }, createdId);
     sheet.connectionsTab
       ? fail("a generated monster has a Connections tab")
       : ok("no Connections tab on the generated monster");
+    sheet.hiddenAtBirth === true
+      ? ok("a generated monster lands with Randomization off", "the Roll button starts hidden")
+      : fail(`a generated monster lands with Randomization off (hiddenAtBirth=${sheet.hiddenAtBirth})`);
     sheet.rollButton
       ? ok("the Roll header button renders (the regenerate leg can run)")
       : fail("no rollActor header button — the regenerate leg cannot run");
+    sheet.rollText === "Roll Monster" && sheet.rollIcon === "fa-dragon"
+      ? ok('it says "Roll Monster" and wears the dragon', sheet.rollIcon)
+      : fail(`the monster Roll button face is wrong (text="${sheet.rollText}" icon=${sheet.rollIcon})`);
 
     /* --- roll(), never draw() -------------------------------------------- */
 

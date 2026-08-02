@@ -1,0 +1,237 @@
+_id: fyVJU8ZnWtYil61c
+name: 'Warden: NPC - Faction'
+img: icons/svg/d20-grey.svg
+description: "Cairn 2e Faction Types (Setting Seeds) — the Type column. The NPC/Monster sheet's Faction die rolls this table BY NAME, world first: make a world RollTable named exactly \"Warden: NPC - Faction\" (or edit this one) and the die deals YOUR factions. Roll with Warden: Faction - Agent for a representative."
+results:
+  - _id: fMZhORpsh8srdQz3
+    type: text
+    description: Artisans
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 1
+      - 1
+    drawn: false
+    flags: {}
+    _key: '!tables.results!fyVJU8ZnWtYil61c.fMZhORpsh8srdQz3'
+  - _id: sjnR6L2C4ke5en34
+    type: text
+    description: Commoners
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    flags: {}
+    _key: '!tables.results!fyVJU8ZnWtYil61c.sjnR6L2C4ke5en34'
+  - _id: uuCZGC6zXkxjF6c5
+    type: text
+    description: Criminals
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    flags: {}
+    _key: '!tables.results!fyVJU8ZnWtYil61c.uuCZGC6zXkxjF6c5'
+  - _id: Aoz5pmAEpfd7NFy0
+    type: text
+    description: Cultists
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    flags: {}
+    _key: '!tables.results!fyVJU8ZnWtYil61c.Aoz5pmAEpfd7NFy0'
+  - _id: M9VqgONFRFYFBay4
+    type: text
+    description: Exiles
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    flags: {}
+    _key: '!tables.results!fyVJU8ZnWtYil61c.M9VqgONFRFYFBay4'
+  - _id: XSMxGbIFNhOjVeQC
+    type: text
+    description: Explorers
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    flags: {}
+    _key: '!tables.results!fyVJU8ZnWtYil61c.XSMxGbIFNhOjVeQC'
+  - _id: 03WCoM4GqpNi86Si
+    type: text
+    description: Industrialists
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 7
+      - 7
+    drawn: false
+    flags: {}
+    _key: '!tables.results!fyVJU8ZnWtYil61c.03WCoM4GqpNi86Si'
+  - _id: G7iObGKmxUI6TtNR
+    type: text
+    description: Merchants
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 8
+      - 8
+    drawn: false
+    flags: {}
+    _key: '!tables.results!fyVJU8ZnWtYil61c.G7iObGKmxUI6TtNR'
+  - _id: niZZkFV8mS6ZZ4C3
+    type: text
+    description: Military
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 9
+      - 9
+    drawn: false
+    flags: {}
+    _key: '!tables.results!fyVJU8ZnWtYil61c.niZZkFV8mS6ZZ4C3'
+  - _id: JkLyaCVj7rZVJz7i
+    type: text
+    description: Nobles
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 10
+      - 10
+    drawn: false
+    flags: {}
+    _key: '!tables.results!fyVJU8ZnWtYil61c.JkLyaCVj7rZVJz7i'
+  - _id: z9mBN3EvuQ9CmFS5
+    type: text
+    description: Nomads
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 11
+      - 11
+    drawn: false
+    flags: {}
+    _key: '!tables.results!fyVJU8ZnWtYil61c.z9mBN3EvuQ9CmFS5'
+  - _id: iaoSbh8hzvhzxZyG
+    type: text
+    description: Pilgrims
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 12
+      - 12
+    drawn: false
+    flags: {}
+    _key: '!tables.results!fyVJU8ZnWtYil61c.iaoSbh8hzvhzxZyG'
+  - _id: buuXC53Vyawzk4rU
+    type: text
+    description: Protectors
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 13
+      - 13
+    drawn: false
+    flags: {}
+    _key: '!tables.results!fyVJU8ZnWtYil61c.buuXC53Vyawzk4rU'
+  - _id: tlHT4Zh3hgphCQJf
+    type: text
+    description: Religious
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 14
+      - 14
+    drawn: false
+    flags: {}
+    _key: '!tables.results!fyVJU8ZnWtYil61c.tlHT4Zh3hgphCQJf'
+  - _id: vgpaTKL35ihICKgG
+    type: text
+    description: Revolutionaries
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 15
+      - 15
+    drawn: false
+    flags: {}
+    _key: '!tables.results!fyVJU8ZnWtYil61c.vgpaTKL35ihICKgG'
+  - _id: RH3oYgDAFNPUoU4F
+    type: text
+    description: Rulers
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 16
+      - 16
+    drawn: false
+    flags: {}
+    _key: '!tables.results!fyVJU8ZnWtYil61c.RH3oYgDAFNPUoU4F'
+  - _id: UKmi2WHqkbueTRIv
+    type: text
+    description: Scholars
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 17
+      - 17
+    drawn: false
+    flags: {}
+    _key: '!tables.results!fyVJU8ZnWtYil61c.UKmi2WHqkbueTRIv'
+  - _id: DRsdVmPfultkChGI
+    type: text
+    description: Settlers
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 18
+      - 18
+    drawn: false
+    flags: {}
+    _key: '!tables.results!fyVJU8ZnWtYil61c.DRsdVmPfultkChGI'
+  - _id: PpE2Sj5lsGQwEG72
+    type: text
+    description: Spies
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 19
+      - 19
+    drawn: false
+    flags: {}
+    _key: '!tables.results!fyVJU8ZnWtYil61c.PpE2Sj5lsGQwEG72'
+  - _id: BwUF1DYWxUBmE4a6
+    type: text
+    description: Tribe
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 20
+      - 20
+    drawn: false
+    flags: {}
+    _key: '!tables.results!fyVJU8ZnWtYil61c.BwUF1DYWxUBmE4a6'
+formula: 1d20
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!tables!fyVJU8ZnWtYil61c'

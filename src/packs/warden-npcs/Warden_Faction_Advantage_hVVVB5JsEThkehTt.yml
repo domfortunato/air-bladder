@@ -1,0 +1,237 @@
+_id: hVVVB5JsEThkehTt
+name: 'Warden: Faction - Advantage'
+img: icons/svg/d20-grey.svg
+description: "Cairn 2e Faction Advantages (Setting Seeds) — the Advantage column. Roll as many times as Warden: Faction - Advantage (Count) says, rerolling repeats."
+results:
+  - _id: ltAlulANpfnFpskJ
+    type: text
+    description: Alliances
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 1
+      - 1
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hVVVB5JsEThkehTt.ltAlulANpfnFpskJ'
+  - _id: I5OUeWGzUWPS6ZSo
+    type: text
+    description: Anonymity
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hVVVB5JsEThkehTt.I5OUeWGzUWPS6ZSo'
+  - _id: sDMa1tf0JcIvEwof
+    type: text
+    description: Apparatus
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hVVVB5JsEThkehTt.sDMa1tf0JcIvEwof'
+  - _id: 1jdMdkmQatHpLSPx
+    type: text
+    description: Beliefs
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hVVVB5JsEThkehTt.1jdMdkmQatHpLSPx'
+  - _id: eSyDjDHgAeYuvaBS
+    type: text
+    description: Charisma
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hVVVB5JsEThkehTt.eSyDjDHgAeYuvaBS'
+  - _id: hRHArCWjIGbcKGcB
+    type: text
+    description: Conviction
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hVVVB5JsEThkehTt.hRHArCWjIGbcKGcB'
+  - _id: dtoCCJJEUVfQUJVW
+    type: text
+    description: Fealty
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 7
+      - 7
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hVVVB5JsEThkehTt.dtoCCJJEUVfQUJVW'
+  - _id: FM00xUOCTSPFAI0I
+    type: text
+    description: Force
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 8
+      - 8
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hVVVB5JsEThkehTt.FM00xUOCTSPFAI0I'
+  - _id: yFFrPFSq44wbgd3w
+    type: text
+    description: Information
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 9
+      - 9
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hVVVB5JsEThkehTt.yFFrPFSq44wbgd3w'
+  - _id: 2EYRARmX8uPbiqct
+    type: text
+    description: Lineage
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 10
+      - 10
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hVVVB5JsEThkehTt.2EYRARmX8uPbiqct'
+  - _id: qnnLbhj5IBOgLoB3
+    type: text
+    description: Magic
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 11
+      - 11
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hVVVB5JsEThkehTt.qnnLbhj5IBOgLoB3'
+  - _id: DB6U9PGDacQZ9jgT
+    type: text
+    description: Members
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 12
+      - 12
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hVVVB5JsEThkehTt.DB6U9PGDacQZ9jgT'
+  - _id: MR7gJPjqg5NszcCi
+    type: text
+    description: Popularity
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 13
+      - 13
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hVVVB5JsEThkehTt.MR7gJPjqg5NszcCi'
+  - _id: Ds5YrhpyaeHp672M
+    type: text
+    description: Position
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 14
+      - 14
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hVVVB5JsEThkehTt.Ds5YrhpyaeHp672M'
+  - _id: C2ReatFl4O4PZzPY
+    type: text
+    description: Renown
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 15
+      - 15
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hVVVB5JsEThkehTt.C2ReatFl4O4PZzPY'
+  - _id: sXTGQzXuOFTCQfDJ
+    type: text
+    description: Resources
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 16
+      - 16
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hVVVB5JsEThkehTt.sXTGQzXuOFTCQfDJ'
+  - _id: ZVBuYSg67qoS0WsL
+    type: text
+    description: Ruthlessness
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 17
+      - 17
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hVVVB5JsEThkehTt.ZVBuYSg67qoS0WsL'
+  - _id: zT5RXGOEcVHTh3FD
+    type: text
+    description: Specialization
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 18
+      - 18
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hVVVB5JsEThkehTt.zT5RXGOEcVHTh3FD'
+  - _id: nuDuR2EhFnU4l93R
+    type: text
+    description: Subterfuge
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 19
+      - 19
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hVVVB5JsEThkehTt.nuDuR2EhFnU4l93R'
+  - _id: SyCebtV1BvdqF06R
+    type: text
+    description: Wealth
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 20
+      - 20
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hVVVB5JsEThkehTt.SyCebtV1BvdqF06R'
+formula: 1d20
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!tables!hVVVB5JsEThkehTt'

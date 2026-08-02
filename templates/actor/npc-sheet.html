@@ -44,6 +44,28 @@
                     {{selectOptions roleChoices selected=system.role}}
                 </select>
             </div>
+            {{!-- Faction: whose interests this actor serves — the one header
+                  fact a PC has no counterpart of. Shows for role npc AND
+                  monster (showFaction): a cult's guard and the cult's bound
+                  demon both take sides; only things do not — so it sits on its
+                  own gate directly under Role, no longer riding the Career
+                  gate. The die rolls "Warden: NPC - Faction" BY NAME, world
+                  first (findTableByName): a Warden's own table of that name
+                  always beats the shipped copy, so their campaign's faction
+                  list survives a system update. Both of the decisions this
+                  reverses ("free text, no dice" and "only a person takes
+                  sides") were recorded here and re-decided 2026-08-02, on the
+                  user's ask, when the stock faction tables shipped. --}}
+            {{#if showFaction}}
+            <div class="profession-line faction-line">
+                <span class="background-label">{{ localize 'CAIRN.Faction' }}</span>
+                <input class="profession-input" type="text" name="system.faction"
+                    value="{{system.faction}}" placeholder="{{ localize 'CAIRN.Faction' }}" />
+                {{#if generationEnabled}}
+                <a class="profession-roll" data-action="rollFaction" title="{{ localize 'CAIRN.RollFaction' }}"><i class="fas fa-dice-d20"></i></a>
+                {{/if}}
+            </div>
+            {{/if}}
             {{!-- Stored as `system.profession`; labelled "Career" now that Role
                   is its own field (it used to say "Career/Role", which put the
                   misleading half on the rollable careers table). The key is
@@ -62,16 +84,6 @@
                 {{#if generationEnabled}}
                 <a class="profession-roll" data-action="rollProfession" title="{{ localize 'CAIRN.RollProfession' }}"><i class="fas fa-dice-d20"></i></a>
                 {{/if}}
-            </div>
-            {{!-- Faction: whose interests this person serves — the one header
-                  fact a PC has no counterpart of. Free text, no dice: factions
-                  are the Warden's own, so there is nothing to roll from. Rides
-                  the Career gate (role npc) because only a person takes
-                  sides. --}}
-            <div class="profession-line faction-line">
-                <span class="background-label">{{ localize 'CAIRN.Faction' }}</span>
-                <input class="profession-input" type="text" name="system.faction"
-                    value="{{system.faction}}" placeholder="{{ localize 'CAIRN.Faction' }}" />
             </div>
             {{!-- For Hire: the retired `hireling` ROLE, back as the boolean it
                   always was — and back in the markup it had before the roles
@@ -327,10 +339,10 @@
                                   copy renders while nothing translated can reach a submit
                                   (activation swaps in `value`, prosemirror-editor.mjs:204). This
                                   was the statblock prose of 204 monsters rendering raw `value` in
-                                  every language, with @UUID links as literal text; the notes
-                                  editors stay always-active per the recorded decision in
-                                  character-sheet.html — notes are not translated, so they lose
-                                  only enrichment, and gain click-and-type. --}}
+                                  every language, with @UUID links as literal text. This sheet's
+                                  Notes editor joined the toggled shape on 2026-08-02; the
+                                  CHARACTER sheet's notes keep their recorded always-active
+                                  decision (character-sheet.html). --}}
                             <prose-mirror name="system.description" value="{{system.description}}" toggled collaborate relative
                                 data-document-uuid="{{actor.uuid}}">{{{enrichedDescription}}}</prose-mirror>
                         </div>
@@ -345,9 +357,21 @@
                 </div>
                 {{/if}}
                 <div class="tab {{tabs.notes.cssClass}}" data-group="primary" data-tab="notes">
-                    <prose-mirror name="system.notes" value="{{system.notes}}" relative
-                        data-placeholder="{{ localize 'CAIRN.NotesPlaceholder' }}"
-                        data-document-uuid="{{actor.uuid}}"></prose-mirror>
+                    {{!-- TOGGLED like the Description editor above, since 2026-08-02
+                          (user ask: the always-active toolbar over an empty box read
+                          as clutter on a monster sheet). Same two-input shape — the
+                          `value` attribute is the submitted source, the light-DOM
+                          child is display-only, here enriched but NOT translated
+                          (notes are the Warden's own prose, no content namespace).
+                          The empty-state hint is a real element IN the display half,
+                          not data-placeholder: that mechanism anchors ::before to
+                          .editor-container, which a toggled editor only grows on
+                          activation. `collaborate` is safe here ONLY because of
+                          `toggled` — the measured race lives on always-active +
+                          collaborate — and the CHARACTER sheet's notes keep their
+                          recorded always-active decision (character-sheet.html). --}}
+                    <prose-mirror name="system.notes" value="{{system.notes}}" toggled collaborate relative
+                        data-document-uuid="{{actor.uuid}}">{{#if system.notes}}{{{enrichedNotes}}}{{else}}<p class="cairn-editor-placeholder">{{notesPlaceholder}}</p>{{/if}}</prose-mirror>
                 </div>
             </section>
         </div>

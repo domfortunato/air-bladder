@@ -1,0 +1,237 @@
+_id: BkaM84jurCKt17x1
+name: 'Warden: Faction - Trait (Trait 1)'
+img: icons/svg/d20-grey.svg
+description: "Cairn 2e Faction Traits (Setting Seeds) — the Trait 1 column. Roll once here and once on Warden: Faction - Trait (Trait 2) for a faction's two traits."
+results:
+  - _id: e8N9NFpjFzf0mTeI
+    type: text
+    description: Cautious
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 1
+      - 1
+    drawn: false
+    flags: {}
+    _key: '!tables.results!BkaM84jurCKt17x1.e8N9NFpjFzf0mTeI'
+  - _id: 1sLR2uUleKZoK2Ys
+    type: text
+    description: Connected
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    flags: {}
+    _key: '!tables.results!BkaM84jurCKt17x1.1sLR2uUleKZoK2Ys'
+  - _id: IHLNdJsKHevIR7sG
+    type: text
+    description: Decadent
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    flags: {}
+    _key: '!tables.results!BkaM84jurCKt17x1.IHLNdJsKHevIR7sG'
+  - _id: 0aNVFIXy9H5x7Rml
+    type: text
+    description: Disciplined
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    flags: {}
+    _key: '!tables.results!BkaM84jurCKt17x1.0aNVFIXy9H5x7Rml'
+  - _id: lldiLMpgkYB4Tp6f
+    type: text
+    description: Discreet
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    flags: {}
+    _key: '!tables.results!BkaM84jurCKt17x1.lldiLMpgkYB4Tp6f'
+  - _id: vyl9JztDc6qj4rvU
+    type: text
+    description: Dogmatic
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    flags: {}
+    _key: '!tables.results!BkaM84jurCKt17x1.vyl9JztDc6qj4rvU'
+  - _id: 43c9uePYSRzUM7Dz
+    type: text
+    description: Enigmatic
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 7
+      - 7
+    drawn: false
+    flags: {}
+    _key: '!tables.results!BkaM84jurCKt17x1.43c9uePYSRzUM7Dz'
+  - _id: alwOPbEIn60nmpjD
+    type: text
+    description: Fierce
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 8
+      - 8
+    drawn: false
+    flags: {}
+    _key: '!tables.results!BkaM84jurCKt17x1.alwOPbEIn60nmpjD'
+  - _id: 57ILfGkopqYlSAPY
+    type: text
+    description: Incorruptible
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 9
+      - 9
+    drawn: false
+    flags: {}
+    _key: '!tables.results!BkaM84jurCKt17x1.57ILfGkopqYlSAPY'
+  - _id: vVi1CkqYqHw2it4m
+    type: text
+    description: Intellectual
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 10
+      - 10
+    drawn: false
+    flags: {}
+    _key: '!tables.results!BkaM84jurCKt17x1.vVi1CkqYqHw2it4m'
+  - _id: HbOCXFytbbVymBZC
+    type: text
+    description: Judicious
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 11
+      - 11
+    drawn: false
+    flags: {}
+    _key: '!tables.results!BkaM84jurCKt17x1.HbOCXFytbbVymBZC'
+  - _id: muQXcQAK3ioUcMLF
+    type: text
+    description: Keen
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 12
+      - 12
+    drawn: false
+    flags: {}
+    _key: '!tables.results!BkaM84jurCKt17x1.muQXcQAK3ioUcMLF'
+  - _id: 15o1qkT5xRZv3BiX
+    type: text
+    description: Loyal
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 13
+      - 13
+    drawn: false
+    flags: {}
+    _key: '!tables.results!BkaM84jurCKt17x1.15o1qkT5xRZv3BiX'
+  - _id: lTFH8SZqHKkKX4xX
+    type: text
+    description: Meticulous
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 14
+      - 14
+    drawn: false
+    flags: {}
+    _key: '!tables.results!BkaM84jurCKt17x1.lTFH8SZqHKkKX4xX'
+  - _id: Gq30PXAlFEEQvvNo
+    type: text
+    description: Popular
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 15
+      - 15
+    drawn: false
+    flags: {}
+    _key: '!tables.results!BkaM84jurCKt17x1.Gq30PXAlFEEQvvNo'
+  - _id: iicdBy8Wac4mFwc0
+    type: text
+    description: Pragmatic
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 16
+      - 16
+    drawn: false
+    flags: {}
+    _key: '!tables.results!BkaM84jurCKt17x1.iicdBy8Wac4mFwc0'
+  - _id: XvHQxGSIMsbSGOU7
+    type: text
+    description: Resourceful
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 17
+      - 17
+    drawn: false
+    flags: {}
+    _key: '!tables.results!BkaM84jurCKt17x1.XvHQxGSIMsbSGOU7'
+  - _id: b3qPhTD5UvqOhEXo
+    type: text
+    description: Secretive
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 18
+      - 18
+    drawn: false
+    flags: {}
+    _key: '!tables.results!BkaM84jurCKt17x1.b3qPhTD5UvqOhEXo'
+  - _id: b5tTO9IWfOIsWaFS
+    type: text
+    description: Shrewd
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 19
+      - 19
+    drawn: false
+    flags: {}
+    _key: '!tables.results!BkaM84jurCKt17x1.b5tTO9IWfOIsWaFS'
+  - _id: YMRD8nAbzyWPjgPq
+    type: text
+    description: Tenacious
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 20
+      - 20
+    drawn: false
+    flags: {}
+    _key: '!tables.results!BkaM84jurCKt17x1.YMRD8nAbzyWPjgPq'
+formula: 1d20
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!tables!BkaM84jurCKt17x1'

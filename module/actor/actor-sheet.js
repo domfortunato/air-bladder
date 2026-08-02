@@ -1,4 +1,4 @@
-import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, mentionsSecondBond, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, regenerateNpc, rerollNpcProfession, rerollNpcName, rollNameFromTable, rollAge } from "../character-generator.js";
+import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, mentionsSecondBond, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, regenerateNpc, rerollNpcProfession, rerollNpcName, rerollNpcFaction, rollNameFromTable, rollAge } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, sourceLabel } from "../utils.js";
@@ -197,6 +197,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       rollPortrait: owned(CairnActorSheet.#onRollPortrait),
       rollName: owned(CairnActorSheet.#onRollName),
       rollProfession: owned(CairnActorSheet.#onRollProfession),
+      rollFaction: owned(CairnActorSheet.#onRollFaction),
       // Inventory
       itemCreate: owned(CairnActorSheet.#onItemCreate),
       itemShop: owned(CairnActorSheet.#onItemShop),
@@ -414,19 +415,27 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const isChar = this.actor.type === "character";
     // npc and hireling are one thing, so both get the NPC generation controls.
     const isNpc = ["hireling", "npc"].includes(this.actor.type);
-    const generates = (isChar || isNpc)
-      && this.actor.isOwner
-      && game.settings.get(SETTINGS_NS, "show-generate-header");
-    if (!generates) return [popOut, ...buttons];
+    if (!(isChar || isNpc) || !this.actor.isOwner) return [popOut, ...buttons];
 
-    // Roll Character and the toggle are both ALWAYS created. Roll Character is
-    // hidden in place when Randomization is off rather than omitted, so the
-    // toggle can reveal it without rebuilding the frame — which first render is
-    // the only chance to do.
+    // The toggle is created UNCONDITIONALLY for an owner of a generating type,
+    // and only the Roll button rides `show-generate-header`. It used to gate
+    // both — harmless while generationEnabled defaulted true, but the toggle
+    // is the ONLY user-reachable writer of that flag, and with the default now
+    // OFF, hiding it would make Off permanent for the whole world: a hard lock
+    // behind a display setting. Roll is also hidden in place (never omitted)
+    // while Randomization is off, so the toggle can reveal it without
+    // rebuilding the frame — which first render is the only chance to do.
+    const showRoll = game.settings.get(SETTINGS_NS, "show-generate-header");
     return [
-      // Character → "Roll Character"; NPC → "Roll NPC". Same control, same
-      // action; only the wording differs.
-      { action: "rollActor", icon: "fas fa-dice-d6", label: isNpc ? "CAIRN.RollNpc" : "CAIRN.RegenerateCharacter" },
+      // Character → "Roll Character"; NPC → "Roll NPC"; Monster → "Roll
+      // Monster" with the Generate Monster button's dragon. The face also
+      // follows role changes per render — #syncGenerationButtons.
+      ...(showRoll ? [{
+        action: "rollActor",
+        icon: this.actor.npcRole === "monster" ? "fas fa-dragon" : "fas fa-dice-d6",
+        label: this.actor.npcRole === "monster" ? "CAIRN.RollMonster"
+          : isNpc ? "CAIRN.RollNpc" : "CAIRN.RegenerateCharacter",
+      }] : []),
       { action: "toggleGeneration", icon: "fas fa-toggle-on", label: "CAIRN.RandomizationOn" },
       popOut,
       ...buttons,
@@ -541,9 +550,23 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const roll = root?.querySelector('.window-header button[data-action="rollActor"]');
     const toggle = root?.querySelector('.window-header button[data-action="toggleGeneration"]');
     if (!roll && !toggle) return;
-    // Legacy actors predate the field, so absent means enabled.
     const on = this.actor.system.generationEnabled !== false;
     roll?.classList.toggle("cairn-header-hidden", !on);
+    // The Roll button's face follows the ROLE: a monster re-rolls through the
+    // tier picker and wears the Generate Monster button's dragon, so the
+    // button says what the click does. The role can change under an open
+    // sheet and the frame cannot rebuild, so the swap lives here with the
+    // rest of the per-render state.
+    if (roll) {
+      const monster = this.actor.npcRole === "monster";
+      const rollLabel = game.i18n.localize(
+        monster ? "CAIRN.RollMonster"
+          : ["hireling", "npc"].includes(this.actor.type) ? "CAIRN.RollNpc" : "CAIRN.RegenerateCharacter");
+      roll.setAttribute("aria-label", rollLabel);
+      roll.lastChild.textContent = rollLabel;
+      const icon = roll.querySelector("i");
+      if (icon) icon.className = monster ? "fas fa-dragon" : "fas fa-dice-d6";
+    }
     if (!toggle) return;
     const label = game.i18n.localize(on ? "CAIRN.RandomizationOn" : "CAIRN.RandomizationOff");
     toggle.setAttribute("aria-label", label);
@@ -636,6 +659,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // One role now, not two: people have careers, and being for hire is a
       // checkbox on the same row rather than a different kind of person.
       context.showCareer = role === "npc";
+      // Faction shows for anyone who can take sides — a person OR a monster;
+      // things have no politics. It used to ride the Career gate, which is why
+      // Monsters never saw it: Career is a person's job, and a monster has a
+      // side without one.
+      context.showFaction = ["npc", "monster"].includes(role);
       context.showKind = ["mount", "transport", "container"].includes(role);
       context.kindOptions = Object.entries(CONTAINER_CLASSES)
         .filter(([, v]) => v.role === role)
@@ -707,15 +735,32 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // untranslated enrichedDescription for characters — all four consumed by NO
     // template (the review that caught it: three awaited enrichHTML passes per
     // committed keystroke, for nothing, while the monster.desc translation they
-    // were meant to carry never displayed anywhere). The notes editors stay
-    // always-active by the recorded decision in character-sheet.html, which is
-    // why notes are NOT enriched: an always-active editor has no display half.
+    // were meant to carry never displayed anywhere). enrichedNotes is BACK since
+    // 2026-08-02 with a consumer this time: the npc sheet's Notes editor is
+    // toggled now (user ask), and a toggled editor needs a display half. The
+    // CHARACTER sheet's notes stay always-active by the recorded decision in
+    // character-sheet.html, and so stay un-enriched there.
     if (["npc", "hireling"].includes(this.actor.type)) {
       context.enrichedDescription =
         await foundry.applications.ux.TextEditor.implementation.enrichHTML(
           t("monster.desc", this.actor.system.description),
           { relativeTo: this.actor },
         );
+      // Enriched but NOT translated: notes are the Warden's own prose, and no
+      // content namespace files them.
+      context.enrichedNotes =
+        await foundry.applications.ux.TextEditor.implementation.enrichHTML(
+          this.actor.system.notes,
+          { relativeTo: this.actor },
+        );
+      // The Notes empty-state hint lives in the display half now — the
+      // data-placeholder mechanism anchors ::before to .editor-container,
+      // which a toggled editor only grows on activation. Monster wording on
+      // a monster via a DISTINCT key, not a _wording() variant: that helper
+      // keys on type (a monster is type npc) and its has() lookup carries the
+      // documented un-translation hazard (#onRollActor's precedent).
+      context.notesPlaceholder = game.i18n.localize(
+        this.actor.npcRole === "monster" ? "CAIRN.NotesPlaceholderMonster" : "CAIRN.NotesPlaceholder");
     }
 
     if (this.actor.type === "character") await this._prepareCharacterContext(context);
@@ -784,16 +829,28 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
-   * Window title with the actor's DISPLAY name — the counterpart of the item
-   * sheet's override, added because the fix commit created the asymmetry: a
-   * compendium Mule read "NPC: Mule" over an item reading "Objeto: Soga". Every
-   * actor doc's name is extracted under monster.name (mounts and containers
-   * included); a character's name is player-authored and has no namespace, and
-   * t() returning it unchanged is what routes that case to super.
+   * Window title: "<Role>: <display name>" for anything role-bearing, core's
+   * "<type label>: <name>" for a character.
+   *
+   * The ROLE is the prefix (2026-08-02, user ask): "Non-Player Character:
+   * Albino Tusks…" said the least informative thing twice and truncated the
+   * name for it — "Monster: Albino Tusks Creature" / "Mount: Bucephalus" is
+   * what the sheet body already says in the Role select. The name half keeps
+   * the display-name translation (every actor doc's name is extracted under
+   * monster.name; a character's is player-authored, has no namespace, and t()
+   * returns it unchanged — which is fine, since a character never reaches the
+   * role branch). es note: the CAIRN.Role* value keys are untranslated in es,
+   * so a Spanish title shows the English role word — consistent with its Role
+   * dropdown today; translator-handoff item.
    * @override
    */
   get title() {
     const name = t("monster.name", this.actor.name);
+    const role = this.actor.npcRole;
+    if (role) {
+      const key = `CAIRN.Role${role.charAt(0).toUpperCase()}${role.slice(1)}`;
+      return `${game.i18n.localize(key)}: ${name || this.actor.name}`;
+    }
     if (!name || name === this.actor.name) return super.title;
     const prefix = CONFIG.Actor.typeLabels[this.actor.type] ?? "";
     return `${game.i18n.localize(prefix)}: ${name}`;
@@ -1618,13 +1675,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * The NPC branch used to re-roll on a single click, on the reasoning that "a
    * hireling's statblock is disposable by design". That was written when only
    * `hireling` reached it. Folding hireling into npc silently widened it to the
-   * whole bestiary: all 205 shipped monsters are `type: npc`, none of them declares
-   * `generationEnabled` (so it defaults true, data-models.js:208) and
-   * `show-generate-header` defaults true — so the button renders on every monster
-   * for anyone who owns it, and `regenerateNpc` deletes every embedded Item
-   * and overwrites the statblock. One click turned a shipped Gorilla into an
-   * Alchemist (observed 2026-07-30: `Fists*` → six pieces of gear, STR 14→8, HP
-   * 4→2), with no dialog and no undo.
+   * whole bestiary: all 205 shipped monsters are `type: npc`, at the time none
+   * declared `generationEnabled` (it defaulted TRUE then; since e6b362a every
+   * shipped monster pins `false`, and since 2026-08-02 the schema initial is
+   * false too) and `show-generate-header` defaults true — so the button
+   * rendered on every monster for anyone who owned it, and `regenerateNpc`
+   * deletes every embedded Item and overwrites the statblock. One click turned
+   * a shipped Gorilla into an Alchemist (observed 2026-07-30: `Fists*` → six
+   * pieces of gear, STR 14→8, HP 4→2), with no dialog and no undo.
    *
    * The confirmation is NOT worded via `_wording()`: that helper picks a `…Npc`
    * variant whenever `game.i18n.has()` is true, and `has()` consults the English
@@ -1752,6 +1810,17 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   static async #onRollProfession(event) {
     event.preventDefault();
     await rerollNpcProfession(this.actor);
+  }
+
+  /**
+   * Faction-only die: fill system.faction from the world-first
+   * "Warden: NPC - Faction" table. Touches nothing else — a side is not a
+   * statblock.
+   * @this {CairnActorSheet}
+   */
+  static async #onRollFaction(event) {
+    event.preventDefault();
+    await rerollNpcFaction(this.actor);
   }
 
   /* -------------------------------------------- */

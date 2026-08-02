@@ -7,8 +7,11 @@
  * single click, on the reasoning that "a hireling's statblock is disposable by
  * design" — written when only the `hireling` type reached it. Folding hireling into
  * npc widened it to the whole bestiary: all 205 shipped monsters are `type: npc`,
- * none declares `generationEnabled` (defaults true) and `show-generate-header`
- * defaults true, so the button renders on every monster for anyone who owns it.
+ * at the time none declared `generationEnabled` (it defaulted TRUE then — the
+ * shipped monsters pin false since e6b362a, and the schema default flipped to
+ * false on 2026-08-02, which is why the seed below states `true`) and
+ * `show-generate-header` defaults true, so the button rendered on every monster
+ * for anyone who owned it.
  * Observed 2026-07-30: one click turned a shipped Gorilla into an Alchemist.
  *
  * Three assertions, and the third is what makes the first two mean anything:
@@ -73,6 +76,9 @@ try {
           abilities: { STR: { value: seed.str, max: seed.str } },
           hp: { value: seed.hp, max: seed.hp },
           profession: seed.profession,
+          // The default is Off now; this probe is about what the button DOES,
+          // so it seeds the visibility the click needs.
+          generationEnabled: true,
         },
         items: [{ name: seed.item, type: "weapon" }],
       });

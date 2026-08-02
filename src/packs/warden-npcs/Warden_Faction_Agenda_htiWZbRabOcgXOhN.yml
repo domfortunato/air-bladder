@@ -1,0 +1,237 @@
+_id: htiWZbRabOcgXOhN
+name: 'Warden: Faction - Agenda'
+img: icons/svg/d20-grey.svg
+description: "Cairn 2e Faction Agendas (Setting Seeds) — the Agenda column. Pair with Warden: Faction - Obstacle for what stands in the way."
+results:
+  - _id: 9XuH1EhMG8nn9jAa
+    type: text
+    description: Ascend to a Higher Plane
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 1
+      - 1
+    drawn: false
+    flags: {}
+    _key: '!tables.results!htiWZbRabOcgXOhN.9XuH1EhMG8nn9jAa'
+  - _id: 9PCIHkp6OjH7FmjR
+    type: text
+    description: Collect Artifacts
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    flags: {}
+    _key: '!tables.results!htiWZbRabOcgXOhN.9PCIHkp6OjH7FmjR'
+  - _id: AmCUCqE9zRTwYaaZ
+    type: text
+    description: Cultivate a Rare Resource
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    flags: {}
+    _key: '!tables.results!htiWZbRabOcgXOhN.AmCUCqE9zRTwYaaZ'
+  - _id: qYukyA7rFgpEKYk7
+    type: text
+    description: Defend Something
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    flags: {}
+    _key: '!tables.results!htiWZbRabOcgXOhN.qYukyA7rFgpEKYk7'
+  - _id: yoCUNVBpnvG8qryX
+    type: text
+    description: Destroy Something
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    flags: {}
+    _key: '!tables.results!htiWZbRabOcgXOhN.yoCUNVBpnvG8qryX'
+  - _id: ibZTyCPSuiXbAt3t
+    type: text
+    description: Dominate Others
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    flags: {}
+    _key: '!tables.results!htiWZbRabOcgXOhN.ibZTyCPSuiXbAt3t'
+  - _id: 8U6IqMvbpT9lScza
+    type: text
+    description: Enrich Themselves
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 7
+      - 7
+    drawn: false
+    flags: {}
+    _key: '!tables.results!htiWZbRabOcgXOhN.8U6IqMvbpT9lScza'
+  - _id: hHiHo0YsmzDLcx8G
+    type: text
+    description: Establish a Colony
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 8
+      - 8
+    drawn: false
+    flags: {}
+    _key: '!tables.results!htiWZbRabOcgXOhN.hHiHo0YsmzDLcx8G'
+  - _id: 5DQaoco9AnnrTVyp
+    type: text
+    description: Establish a New Order
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 9
+      - 9
+    drawn: false
+    flags: {}
+    _key: '!tables.results!htiWZbRabOcgXOhN.5DQaoco9AnnrTVyp'
+  - _id: xkk4jX0D2cgmgzKX
+    type: text
+    description: Explore Uncharted Lands
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 10
+      - 10
+    drawn: false
+    flags: {}
+    _key: '!tables.results!htiWZbRabOcgXOhN.xkk4jX0D2cgmgzKX'
+  - _id: K2tUFP8fSMaiRZ7n
+    type: text
+    description: Forge an Alliance
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 11
+      - 11
+    drawn: false
+    flags: {}
+    _key: '!tables.results!htiWZbRabOcgXOhN.K2tUFP8fSMaiRZ7n'
+  - _id: 5GCbqTz75LdIXYg4
+    type: text
+    description: Infiltrate Another Faction
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 12
+      - 12
+    drawn: false
+    flags: {}
+    _key: '!tables.results!htiWZbRabOcgXOhN.5GCbqTz75LdIXYg4'
+  - _id: EDewa3I9U13NtNOt
+    type: text
+    description: Preserve the Status Quo
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 13
+      - 13
+    drawn: false
+    flags: {}
+    _key: '!tables.results!htiWZbRabOcgXOhN.EDewa3I9U13NtNOt'
+  - _id: gk6EsnAo14mBW4QE
+    type: text
+    description: Protect a Secret
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 14
+      - 14
+    drawn: false
+    flags: {}
+    _key: '!tables.results!htiWZbRabOcgXOhN.gk6EsnAo14mBW4QE'
+  - _id: M6mdZTiAeFo1zZuZ
+    type: text
+    description: Purge the Land
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 15
+      - 15
+    drawn: false
+    flags: {}
+    _key: '!tables.results!htiWZbRabOcgXOhN.M6mdZTiAeFo1zZuZ'
+  - _id: a6AdjFqpkf38DQ0R
+    type: text
+    description: Reveal a Secret
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 16
+      - 16
+    drawn: false
+    flags: {}
+    _key: '!tables.results!htiWZbRabOcgXOhN.a6AdjFqpkf38DQ0R'
+  - _id: QTTi0J06z7mpeOPk
+    type: text
+    description: Revenge
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 17
+      - 17
+    drawn: false
+    flags: {}
+    _key: '!tables.results!htiWZbRabOcgXOhN.QTTi0J06z7mpeOPk'
+  - _id: ZzES4PnJu4WyaeSI
+    type: text
+    description: Revive a Former Power
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 18
+      - 18
+    drawn: false
+    flags: {}
+    _key: '!tables.results!htiWZbRabOcgXOhN.ZzES4PnJu4WyaeSI'
+  - _id: BTL2kSvMw32iN3SM
+    type: text
+    description: Seek New Leadership
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 19
+      - 19
+    drawn: false
+    flags: {}
+    _key: '!tables.results!htiWZbRabOcgXOhN.BTL2kSvMw32iN3SM'
+  - _id: L8fs5VA7f4Oy6g0h
+    type: text
+    description: Spread a Belief
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 20
+      - 20
+    drawn: false
+    flags: {}
+    _key: '!tables.results!htiWZbRabOcgXOhN.L8fs5VA7f4Oy6g0h'
+formula: 1d20
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!tables!htiWZbRabOcgXOhN'

@@ -225,6 +225,9 @@ const monsterToActorData = (m) => ({
   type: "npc",
   system: {
     role: "monster",
+    // Off-by-default, stated rather than inherited: a generated monster's
+    // switch reads Off, same as the 205 shipped ones pin it.
+    generationEnabled: false,
     hp: { value: m.hp, max: m.hp },
     abilities: abilityData(m.abilities),
     description: m.description,

@@ -88,6 +88,9 @@ try {
     const actor = await gen.createActorWithCharacter(await gen.generate2eCharacter(outrider));
     if (!actor) return { error: "generation returned no actor" };
     made.push(actor);
+    // Generated actors land with Randomization OFF (2026-08-02); the
+    // rerollQuestion die this probe clicks is what the flag hides.
+    await actor.update({ "system.generationEnabled": true });
 
     const kept = keptBy(actor);
     const horse = kept[0];
@@ -164,6 +167,10 @@ try {
     };
 
     // 4. Re-roll ONLY the horse question; the chest must not move.
+    // regenerateActor above re-stamped generationEnabled: false (generation
+    // always leaves the switch Off since 2026-08-02), so switch it back on —
+    // the rerollQuestion die below is what the flag hides.
+    await actor.update({ "system.generationEnabled": true });
     const qIdx = (outrider.system.tables ?? []).findIndex((t) =>
       (t.options ?? []).some((o) => (o.containers ?? []).length));
     // ApplicationV2 keeps its handlers in private static methods reachable only

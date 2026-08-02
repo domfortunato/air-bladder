@@ -7,6 +7,7 @@ import { createCharacter, createNpc, FLAG_SCOPE } from "./character-generator.js
 import * as characterGenerator from "./character-generator.js";
 import { createMonster } from "./monster-generator.js";
 import * as monsterGenerator from "./monster-generator.js";
+import { generateFaction } from "./faction-generator.js";
 import { importKettlewrightCharacter } from "./kettlewright-import.js";
 import * as kettlewrightImport from "./kettlewright-import.js";
 import { Cairn } from "./config.js";
@@ -972,6 +973,7 @@ Hooks.on("renderActorDirectory", (app, html) => {
           "CAIRN.CreateNpc"
         )}</button>
           ${game.user.isGM ? `<button class="create-monster-button"><i class="fas fa-dragon"></i>${game.i18n.localize("CAIRN.CreateMonster")}</button>` : ""}
+          ${game.user.isGM ? `<button class="create-faction-button"><i class="fas fa-flag"></i>${game.i18n.localize("CAIRN.CreateFaction")}</button>` : ""}
           ${game.user.isGM ? `<button class="import-kettlewright-button"><i class="fas fa-file-import"></i>${game.i18n.localize("CAIRN.KWImport.Button")}</button>` : ""}
         </div>
         `
@@ -995,6 +997,15 @@ Hooks.on("renderActorDirectory", (app, html) => {
         ?.addEventListener("click", async () => {
           const actor = await createMonster();
           if (actor) actor.sheet.render(true);
+        });
+      // Warden-only: one click, one faction dossier (a JournalEntry — a
+      // faction is campaign machinery, not an Actor). No confirm: creating a
+      // journal is non-destructive, and nothing is ever overwritten.
+      section
+        .querySelector(".create-faction-button")
+        ?.addEventListener("click", async () => {
+          const entry = await generateFaction();
+          if (entry) entry.sheet.render(true);
         });
       // GM-only: import a Kettlewright character export into a new Actor.
       section

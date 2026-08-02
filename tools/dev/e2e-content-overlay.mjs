@@ -548,6 +548,8 @@ try {
       const pm = pRoot?.querySelector('.npc-description-section prose-mirror[name="system.description"]');
       out.pmFound = !!pm;
       out.pmToggled = pm?.hasAttribute("toggled") ?? false;
+      // The description content reads 2px larger than core's 14 (2026-08-02).
+      out.pmFontSize = pm ? parseFloat(getComputedStyle(pm).fontSize) : null;
       out.pmDisplay = pm?.querySelector(".editor-content")?.textContent.trim() ?? null;
       out.pmValue = pm?.value ?? null; // inactive → the submitted _value
 
@@ -707,12 +709,18 @@ try {
     ? ok("bg source is the derived label", `"${r2.bgSourceWant}"`)
     : fail("bg source is the derived label", `header reads ${JSON.stringify(r2.bgSource)}`);
 
-  r2.personTitle?.includes("ZZ-PERSONA")
-    ? ok("npc window title translated", `"${r2.personTitle}"`)
-    : fail("npc window title translated", `title is ${JSON.stringify(r2.personTitle)}`);
+  // ROLE-prefixed since 2026-08-02: "NPC: <display name>", not core's
+  // "Non-Player Character: <name>" — the prefix says what the Role select
+  // says, and the translated name still rides in it.
+  r2.personTitle?.includes("ZZ-PERSONA") && r2.personTitle?.startsWith("NPC:")
+    ? ok("npc window title: role prefix + translated name", `"${r2.personTitle}"`)
+    : fail("npc window title: role prefix + translated name", `title is ${JSON.stringify(r2.personTitle)}`);
   r2.pmFound && r2.pmToggled
     ? ok("npc description editor is toggled", "the two-input split exists")
     : fail("npc description editor is toggled", `found=${r2.pmFound} toggled=${r2.pmToggled}`);
+  r2.pmFontSize >= 16
+    ? ok("description content reads at 16px", `${r2.pmFontSize}px`)
+    : fail("description content reads at 16px", `${r2.pmFontSize}px — the bump rule is not landing`);
   r2.pmDisplay?.includes("ZZ-DESCRIPCION-PNJ")
     ? ok("npc description DISPLAY translated", `"${r2.pmDisplay}"`)
     : fail("npc description DISPLAY translated", `shows ${JSON.stringify(r2.pmDisplay)}`);

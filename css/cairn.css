@@ -578,6 +578,17 @@
     color: var(--ab-faint);
 }
 
+/* The TOGGLED Notes editor's empty-state hint (npc sheet): a real element in
+   the display half, because the mechanism above has nothing to anchor to —
+   a toggled editor grows its .editor-container only on activation. Same look
+   as the ::before hint; being part of the light-DOM display child, it can
+   never reach a save (activation swaps the child out for `value`). */
+.cairn prose-mirror .cairn-editor-placeholder {
+    opacity: 0.65;
+    font-style: italic;
+    color: var(--ab-faint);
+}
+
 /* The two generation buttons carry TEXT, unlike Foundry's own frame buttons.
    This rule is COSMETIC ONLY -- measured, not assumed. Foundry's
    `.application .window-header button.header-control` sets --button-size:1.5rem,
@@ -2279,6 +2290,15 @@ textarea.omen-input {
 .cairn-npc-sheet .npc-description-label {
     border-bottom: 1px solid var(--ab-rule);
     margin: 0 0 4px 0;
+}
+
+/* The description CONTENT reads two points larger than core's 14px default
+   (2026-08-02, user: the generated monster prose was hard to read). On the
+   prose-mirror element so it inherits into both halves — the enriched display
+   child and the activated .editor-content. font-size ONLY: setting `display`
+   here breaks activation (see the warning at the `.cairn prose-mirror` rule). */
+.cairn-npc-sheet .npc-description-section prose-mirror {
+    font-size: 16px;
 }
 
 

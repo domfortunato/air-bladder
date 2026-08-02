@@ -8,6 +8,14 @@
  * that never reaches the frame is invisible to any probe that only reads the
  * sheet body.
  *
+ * Since 2026-08-02 Randomization defaults OFF everywhere (user ask): a fresh
+ * or generated actor opens quiet — Roll hidden, no sheet-body dice — and the
+ * toggle is the way in. The toggle is therefore built UNCONDITIONALLY for an
+ * owner: `show-generate-header` gates only the Roll button, because a hidden
+ * toggle would make Off permanent (it is the flag's only user-reachable
+ * writer). A monster's Roll button says "Roll Monster" and wears the Generate
+ * Monster button's dragon.
+ *
  * Measured, not inspected: `textContent` reads back correctly from a button
  * whose label is clipped to nothing, so the geometry is asserted separately —
  * nothing overflows its own box, and nothing escapes the title bar.
@@ -60,6 +68,9 @@ try {
         roll: one("rollActor"),
         toggle: one("toggleGeneration"),
         popOut: one("detach"),
+        // The sheet-BODY dice the flag gates (name + portrait exist on both
+        // sheet types) — the default-Off leg asserts a quiet body.
+        bodyDice: sheet.element?.querySelectorAll("a.name-roll, a.portrait-roll").length ?? 0,
         canDetach: sheet._canDetach(),
         // Left-to-right order of every button in the title bar. The ⋮ menu is
         // written into the header's static markup BEFORE the slot frame buttons
@@ -80,25 +91,29 @@ try {
       return actor.sheet;
     };
 
-    /* --- a generated character --- */
+    /* --- a generated character: lands with Randomization OFF (the flipped
+           default, stated explicitly by the generator) --- */
     const pc = await gen.createActorWithCharacter(await gen.generate2eCharacter());
     made.push(pc.id);
     const sheet = await open(pc);
     const initial = read(sheet);
 
-    // Flip Randomization off through the real button, then read the frame again.
+    // Turn Randomization ON through the real button — the flag's only
+    // user-reachable writer — then read the frame again.
     sheet.element.querySelector('button[data-action="toggleGeneration"]')?.click();
     await new Promise((r) => setTimeout(r, 900));
-    const off = read(sheet);
-    sheet.element.querySelector('button[data-action="toggleGeneration"]')?.click();
-    await new Promise((r) => setTimeout(r, 900));
-    const backOn = read(sheet);
+    const on = read(sheet);
 
     // A re-render that is NOT a generation change must leave them intact — this
     // is what catches the frame/content split going wrong.
     await pc.update({ "system.gold": (pc.system.gold ?? 0) + 1 });
     await new Promise((r) => setTimeout(r, 700));
     const afterUnrelated = read(sheet);
+
+    // ...and off again, which is the round trip.
+    sheet.element.querySelector('button[data-action="toggleGeneration"]')?.click();
+    await new Promise((r) => setTimeout(r, 900));
+    const offAgain = read(sheet);
     await sheet.close();
 
     /* --- a hireling: same control, different wording --- */
@@ -108,67 +123,83 @@ try {
     const hire2 = read(hSheet);
     await hSheet.close();
 
-    /* --- an NPC: no generation controls at all --- */
+    /* --- an NPC: same header as the hireling since the type fold --- */
     const npc = await Actor.create({ name: "ZZ Header NPC", type: "npc" });
     made.push(npc.id);
     const nSheet = await open(npc);
     const npcRead = read(nSheet);
     await nSheet.close();
 
+    /* --- a monster: Roll Monster, wearing the directory button's dragon.
+           Seeded ON so the button is VISIBLE while its face is read. --- */
+    const mon = await CONFIG.Actor.documentClass.create({
+      name: "ZZ Header Monster", type: "npc", system: { role: "monster", generationEnabled: true },
+    });
+    made.push(mon.id);
+    const mSheet = await open(mon);
+    const monster = read(mSheet);
+    await mSheet.close();
+
     for (const id of made) await game.actors.get(id)?.delete().catch(() => {});
-    return { initial, off, backOn, afterUnrelated, hireling: hire2, npc: npcRead, NS };
+    return { initial, on, afterUnrelated, offAgain, hireling: hire2, npc: npcRead, monster, NS };
   });
 
-  const { initial, off, backOn, afterUnrelated, hireling, npc } = out;
+  const { initial, on, afterUnrelated, offAgain, hireling, npc, monster } = out;
 
-  console.log("\ncharacter — both buttons inline in the title bar");
-  initial.roll && initial.toggle
-    ? ok("both buttons are in .window-header", `"${initial.roll.text}" | "${initial.toggle.text}"`)
-    : fail("both buttons are in .window-header", `roll=${JSON.stringify(initial.roll)} toggle=${JSON.stringify(initial.toggle)}`);
-  initial.roll?.text === "Roll Character"
-    ? ok("Roll Character carries visible text")
-    : fail("Roll Character carries visible text", `text="${initial.roll?.text}"`);
-  initial.toggle?.text === "Randomization: On"
+  console.log("\ncharacter — a GENERATED actor opens with Randomization OFF");
+  // THE NEW-DEFAULT LEG (2026-08-02). Its negative control is stashing
+  // module/data-models.js + the generator payloads: the default reads On
+  // again and all three of these go red.
+  initial.toggle?.text === "Randomization: Off" && initial.toggle?.icon === "fa-toggle-off"
+    ? ok("the toggle opens reading Off", `"${initial.toggle.text}"`)
+    : fail("the toggle opens reading Off", `text="${initial.toggle?.text}" icon=${initial.toggle?.icon}`);
+  initial.roll?.hidden === true
+    ? ok("Roll Character opens hidden", "present in the frame, display:none")
+    : fail("Roll Character opens hidden", `hidden=${initial.roll?.hidden}`);
+  initial.bodyDice === 0
+    ? ok("no sheet-body dice on a quiet sheet")
+    : fail("no sheet-body dice on a quiet sheet", `${initial.bodyDice} dice rendered`);
+
+  console.log("\nthe toggle is the way in — and updates the FRAME, which renders once");
+  on.roll && on.toggle
+    ? ok("both buttons are in .window-header", `"${on.roll.text}" | "${on.toggle.text}"`)
+    : fail("both buttons are in .window-header", `roll=${JSON.stringify(on.roll)} toggle=${JSON.stringify(on.toggle)}`);
+  on.roll?.text === "Roll Character" && on.roll?.hidden === false
+    ? ok("Roll Character appears, with visible text")
+    : fail("Roll Character appears, with visible text", `text="${on.roll?.text}" hidden=${on.roll?.hidden}`);
+  on.toggle?.text === "Randomization: On" && on.toggle?.icon === "fa-toggle-on"
     ? ok("the toggle reads its state, not a tooltip")
-    : fail("the toggle reads its state", `text="${initial.toggle?.text}"`);
+    : fail("the toggle reads its state", `text="${on.toggle?.text}"`);
+  on.bodyDice > 0
+    ? ok("the sheet-body dice arrive with it", `${on.bodyDice} dice`)
+    : fail("the sheet-body dice arrive with it", "none rendered");
 
   // Text assertions pass on a clipped label, so read the geometry too. Both
   // buttons must show their whole label AND stay inside the title bar — this is
   // the pair that would catch someone pinning a width, or the labels growing
-  // past a 600px header.
-  !initial.roll?.clipped && !initial.toggle?.clipped
-    ? ok("neither label is clipped", `${initial.roll?.width}px / ${initial.toggle?.width}px (icon button: ${initial.refWidth}px)`)
+  // past a 600px header. Read in the ON state, where Roll is visible.
+  !on.roll?.clipped && !on.toggle?.clipped
+    ? ok("neither label is clipped", `${on.roll?.width}px / ${on.toggle?.width}px (icon button: ${on.refWidth}px)`)
     : fail("neither label is clipped",
-        `roll clipped=${initial.roll?.clipped} toggle clipped=${initial.toggle?.clipped}`);
-  !initial.roll?.overflowsHeader && !initial.toggle?.overflowsHeader
+        `roll clipped=${on.roll?.clipped} toggle clipped=${on.toggle?.clipped}`);
+  !on.roll?.overflowsHeader && !on.toggle?.overflowsHeader
     ? ok("both stay inside the title bar")
     : fail("both stay inside the title bar",
-        `roll=${initial.roll?.overflowsHeader} toggle=${initial.toggle?.overflowsHeader}`);
-  initial.roll?.hidden === false && initial.toggle?.hidden === false
-    ? ok("both are visible with Randomization on")
-    : fail("both are visible with Randomization on", JSON.stringify({ roll: initial.roll?.hidden, toggle: initial.toggle?.hidden }));
-
-  console.log("\ntoggling Randomization updates the FRAME, which renders once");
-  off.roll?.hidden === true
-    ? ok("Randomization off hides Roll Character")
-    : fail("Randomization off hides Roll Character", `hidden=${off.roll?.hidden}`);
-  off.toggle?.text === "Randomization: Off"
-    ? ok("the toggle relabels itself", `"${off.toggle.text}"`)
-    : fail("the toggle relabels itself", `text="${off.toggle?.text}"`);
-  off.toggle?.icon === "fa-toggle-off"
-    ? ok("and swaps its icon", off.toggle.icon)
-    : fail("and swaps its icon", `icon=${off.toggle?.icon}`);
-  backOn.roll?.hidden === false && backOn.toggle?.text === "Randomization: On"
-    ? ok("switching back on restores both")
-    : fail("switching back on restores both", JSON.stringify(backOn));
+        `roll=${on.roll?.overflowsHeader} toggle=${on.toggle?.overflowsHeader}`);
   afterUnrelated.roll?.text === "Roll Character" && afterUnrelated.toggle?.text === "Randomization: On"
     ? ok("an unrelated re-render leaves them intact", "gold changed; header unchanged")
     : fail("an unrelated re-render leaves them intact", JSON.stringify(afterUnrelated));
+  offAgain.roll?.hidden === true && offAgain.toggle?.text === "Randomization: Off"
+    ? ok("switching back off hides Roll again", "the round trip holds")
+    : fail("switching back off hides Roll again", JSON.stringify(offAgain));
 
   console.log("\nper actor type");
   hireling.roll?.text === "Roll NPC"
     ? ok('a hireling reads "Roll NPC"', hireling.roll.text)
     : fail('a hireling reads "Roll NPC"', `text="${hireling.roll?.text}"`);
+  hireling.toggle?.text === "Randomization: Off" && hireling.roll?.hidden === true
+    ? ok("a bare hireling opens Off too", "the schema initial, not the generator")
+    : fail("a bare hireling opens Off too", JSON.stringify({ toggle: hireling.toggle?.text, hidden: hireling.roll?.hidden }));
   // This used to assert an NPC sheet had NEITHER button, and it was correct when
   // written -- `hireling` and `npc` were separate types and only the hireling got
   // generation controls. The Hireling->NPC fold (1d2a214) made them one type
@@ -184,6 +215,43 @@ try {
     ? ok("an NPC sheet gets the same header as a hireling", `"${npc.roll.text}" | "${npc.toggle.text}"`)
     : fail("an NPC sheet gets the same header as a hireling",
       JSON.stringify({ roll: npc.roll, toggle: npc.toggle }));
+  // A monster's Roll button says what its click does — the tier picker — and
+  // wears the SAME dragon as the directory's Generate Monster button. Seeded
+  // On, so this also proves the flag is per-actor, not global.
+  monster.roll?.text === "Roll Monster" && monster.roll?.icon === "fa-dragon" && monster.roll?.hidden === false
+    ? ok('a monster reads "Roll Monster"', `${monster.roll.icon}, visible`)
+    : fail('a monster reads "Roll Monster"', JSON.stringify(monster.roll));
+
+  // THE HARD-LOCK GUARD: with `show-generate-header` off, the Roll button is
+  // not built at all — but the toggle MUST be, because it is the flag's only
+  // user-reachable writer and the default is Off now. Before 2026-08-02 the
+  // setting removed both, which would have made Off permanent for the world.
+  // Setting flipped and RESTORED inside one evaluate's finally, so an aborted
+  // leg cannot leave the world's header controls off.
+  console.log("\nshow-generate-header off: the toggle survives");
+  const lockOut = await page.evaluate(async () => {
+    const Cls = CONFIG.Actor.documentClass;
+    let a = null;
+    try {
+      await game.settings.set("air-bladder", "show-generate-header", false);
+      a = await Cls.create({ name: "ZZ Header Lock", type: "character" });
+      await a.sheet.render(true);
+      for (let i = 0; i < 40 && !a.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 500));
+      const header = a.sheet.element?.querySelector(".window-header");
+      return {
+        rollExists: !!header?.querySelector('button[data-action="rollActor"]'),
+        toggleExists: !!header?.querySelector('button[data-action="toggleGeneration"]'),
+      };
+    } finally {
+      await game.settings.set("air-bladder", "show-generate-header", true);
+      await a?.sheet?.close();
+      await a?.delete();
+    }
+  });
+  !lockOut.rollExists && lockOut.toggleExists
+    ? ok("Roll is not built; the toggle still is", "the only way back On cannot be hidden")
+    : fail("Roll is not built; the toggle still is", JSON.stringify(lockOut));
 
   console.log("\nPop Out");
   initial.popOut?.text === "Pop Out"
@@ -203,9 +271,9 @@ try {
   npc.popOut?.text === "Pop Out"
     ? ok("an NPC sheet still gets it", "not gated by show-generate-header")
     : fail("an NPC sheet still gets it", `popOut=${JSON.stringify(npc.popOut)}`);
-  off.popOut?.hidden === false
+  offAgain.popOut?.hidden === false
     ? ok("Randomization off leaves it alone", "only Roll Character hides")
-    : fail("Randomization off leaves it alone", `hidden=${off.popOut?.hidden}`);
+    : fail("Randomization off leaves it alone", `hidden=${offAgain.popOut?.hidden}`);
 
   console.log("\ntitle-bar order");
   // ⋮ and ✕ are the chrome; everything labelled belongs to the left of them.

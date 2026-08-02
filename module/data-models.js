@@ -200,7 +200,13 @@ class CharacterData extends CairnDataModel {
     return {
       ...vitals(),
       contentSource: str("2e"),
-      generationEnabled: bool(true),
+      // OFF by default since 2026-08-02 (user ask): a sheet opens quiet, with
+      // no per-field dice, and the header toggle is the way in. A schema
+      // initial is retroactive — any actor that never stored the flag reads
+      // it — which is the intent here, and every shipped pack actor already
+      // pins its own value. The generators run regardless (the flag gates
+      // only what the SHEET renders) and their creations land Off.
+      generationEnabled: bool(),
       failedCareer: str(),
       backgroundUuid: str(),
       background: str(),
@@ -273,7 +279,8 @@ class NpcData extends CairnDataModel {
       slots: capacity(),
       features: objList(),
       // --- folded in from the retired `hireling` type ---
-      generationEnabled: bool(true),
+      // OFF by default since 2026-08-02, same reasoning as CharacterData's.
+      generationEnabled: bool(),
       // Labelled "Career" on the sheet; the stored key stays `profession` so
       // migrated hirelings keep their value without a rename pass.
       profession: str(),

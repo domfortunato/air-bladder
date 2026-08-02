@@ -35,7 +35,13 @@ try {
   // rather than a Notes tab it never had. The type is retired (2026-07-31) and
   // the npc that replaced it has the same four tabs as everything else, so the
   // per-type field/tab split went with it.
-  for (const type of ["character", "hireling", "npc"]) {
+  //
+  // CHARACTER ONLY since 2026-08-02: the npc sheet's Notes editor is TOGGLED
+  // now (user ask — the always-active toolbar over an empty box read as
+  // clutter on a monster sheet), so hireling/npc moved to their own section
+  // below, modeled on the item-sheet legs. The character keeps the recorded
+  // always-active decision, and this loop is its gate.
+  for (const type of ["character"]) {
     console.log(`\n${type}`);
     const field = "system.notes";
 
@@ -160,6 +166,109 @@ try {
     after.stored.includes(TYPED)
       ? ok("click-away saved what was typed", JSON.stringify(after.stored.slice(0, 60)))
       : fail("click-away saved what was typed", `stored ${JSON.stringify(after.stored.slice(0, 80))}`);
+  }
+
+  /* -------------------------------------------- */
+  /*  npc sheet — the Notes editor is TOGGLED now  */
+  /* -------------------------------------------- */
+
+  // Same shape as the Description editor above it (2026-08-02, user ask): a
+  // display half in the light DOM and the real editor behind core's pencil.
+  // The empty-state hint is a REAL ELEMENT in the display half
+  // (.cairn-editor-placeholder) because the ::before mechanism the character
+  // sheet uses anchors to .editor-container, which a toggled editor only
+  // grows on activation. Wording follows the ROLE: "this monster" on a
+  // monster, "this character" otherwise — a distinct key, not a _wording()
+  // variant. Commit is CLICK-AWAY (bindEditorClickAwaySave covers active
+  // toggled editors), then a re-open proves the display half serves the
+  // prose instead of the hint.
+  for (const { label, type, system, expectHint } of [
+    { label: "hireling (npc sheet, person)", type: "hireling", system: {}, expectHint: "Put notes about this character here." },
+    { label: "npc, role monster", type: "npc", system: { role: "monster" }, expectHint: "Put notes about this monster here." },
+  ]) {
+    console.log(`\n${label}`);
+    const field = "system.notes";
+
+    const setup = await page.evaluate(async ({ type, system, field }) => {
+      for (const a of game.actors.filter((a) => a.name.startsWith("ZZ Notes"))) await a.delete();
+      const actor = await CONFIG.Actor.documentClass.create({ name: `ZZ Notes ${type}`, type, system });
+      await actor.update({ [field]: "" });
+      await actor.sheet.render(true);
+      for (let i = 0; i < 40 && !actor.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 700));
+      const el = actor.sheet.element;
+      el.querySelector('.tabs .item[data-tab="notes"]')?.click();
+      await new Promise((r) => setTimeout(r, 400));
+      const pm = el.querySelector(`prose-mirror[name="${field}"]`);
+      const hint = pm?.querySelector(".cairn-editor-placeholder");
+      const out = {
+        id: actor.id,
+        sheetId: el.id,
+        found: !!pm,
+        toggled: pm?.hasAttribute("toggled") ?? false,
+        hintText: hint?.textContent?.trim() ?? null,
+        hintVisible: hint ? hint.getBoundingClientRect().height > 0 : false,
+      };
+      // Open it the way the item legs below do — the pencil is hover-hidden,
+      // so a real click is unreliable; what matters here is typing and saving.
+      pm?.querySelector("button")?.click();
+      await new Promise((r) => setTimeout(r, 500));
+      out.opened = pm?.querySelector(".editor-content")?.getAttribute("contenteditable") === "true";
+      return out;
+    }, { type, system, field });
+
+    if (!setup.found) { fail("editor present", `no prose-mirror[name="${field}"]`); continue; }
+    ok("editor present", field);
+    setup.toggled
+      ? ok("the editor is toggled", "display half + pencil, like the Description")
+      : fail("the editor is toggled", "no `toggled` attribute — still always-active");
+    setup.hintText === expectHint && setup.hintVisible
+      ? ok("the display half carries the empty-state hint", JSON.stringify(setup.hintText))
+      : fail("the display half carries the empty-state hint",
+          `text=${JSON.stringify(setup.hintText)} visible=${setup.hintVisible} (wanted ${JSON.stringify(expectHint)})`);
+    setup.opened ? ok("the pencil opens it for typing") : fail("the pencil opens it for typing", "not contenteditable after toggle");
+    if (!setup.opened) continue;
+
+    try {
+      await page.locator(`#${setup.sheetId} prose-mirror[name="${field}"] .editor-content`).click({ timeout: 8000 });
+      await page.keyboard.type(TYPED);
+      await page.waitForTimeout(300);
+    } catch (e) {
+      fail("can click into the editor", e.message.split("\n")[0]);
+      continue;
+    }
+
+    const after = await page.evaluate(async ({ id, field, typed }) => {
+      const actor = game.actors.get(id);
+      // Click-away commits (the same mechanism as the character leg).
+      actor.sheet.element.querySelector(".window-content")
+        ?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 1200));
+      const stored = foundry.utils.getProperty(actor, field) ?? "";
+      // Re-open fresh: the display half must now serve the prose, not the hint.
+      await actor.sheet.close();
+      await actor.sheet.render(true);
+      for (let i = 0; i < 40 && !actor.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 700));
+      actor.sheet.element.querySelector('.tabs .item[data-tab="notes"]')?.click();
+      await new Promise((r) => setTimeout(r, 400));
+      const pm = actor.sheet.element.querySelector(`prose-mirror[name="${field}"]`);
+      const res = {
+        stored,
+        hintGone: !pm?.querySelector(".cairn-editor-placeholder"),
+        displayShows: pm?.textContent?.includes(typed) ?? false,
+      };
+      await actor.sheet.close();
+      await actor.delete();
+      return res;
+    }, { id: setup.id, field, typed: TYPED });
+
+    after.stored.includes(TYPED)
+      ? ok("click-away saved what was typed", JSON.stringify(after.stored.slice(0, 60)))
+      : fail("click-away saved what was typed", `stored ${JSON.stringify(after.stored.slice(0, 80))}`);
+    after.hintGone && after.displayShows
+      ? ok("re-opened: the display half serves the prose", "hint gone")
+      : fail("re-opened: the display half serves the prose", JSON.stringify({ hintGone: after.hintGone, displayShows: after.displayShows }));
   }
 
   /* -------------------------------------------- */

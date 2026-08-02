@@ -69,6 +69,7 @@
     "dev:feature-xss": "node tools/dev/e2e-feature-xss.mjs",
     "dev:roll-npc": "node tools/dev/e2e-roll-npc.mjs",
     "dev:monster-gen": "node tools/dev/e2e-monster-gen.mjs",
+    "dev:faction-gen": "node tools/dev/e2e-faction-gen.mjs",
     "dev:role-migration": "node tools/dev/e2e-role-migration.mjs",
     "dev:bg-drop-guard": "node tools/dev/e2e-background-drop-guard.mjs",
     "dev:bg-drop-order": "node tools/dev/e2e-bg-drop-ordering.mjs",

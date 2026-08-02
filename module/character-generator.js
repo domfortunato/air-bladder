@@ -1,5 +1,5 @@
 import { CairnActor } from "./actor/actor.js";
-import { compendiumInfoFromString, drawTableText, resultText } from "./compendium.js";
+import { compendiumInfoFromString, drawTableText, resultText, findTableByName } from "./compendium.js";
 import { Cairn } from "./config.js";
 import { evaluateFormula } from "./utils.js";
 import { resolveGearItem, SPELL_PACKS, GEAR_ALIASES, spellScrollItem } from "./gear.js";
@@ -390,28 +390,6 @@ const tagBackgroundGear = (items) =>
 /*  Bonds                                                                       */
 /* -------------------------------------------------------------------------- */
 
-/**
- * Find a bonds table BY NAME, for a custom background that names its own.
- *
- * By name rather than by uuid, deliberately, and for the same reason a background's
- * gear references are by name (see duplicateBackgroundToWorld): a uuid pointing into
- * one world's pack is dead the moment the background is shared, which is the whole
- * point of authoring one. A world RollTable is looked at FIRST because that is the
- * easiest thing for a Warden to make — Tables tab, New Table — then any pack.
- * @returns {Promise<RollTable|null>}
- */
-const findBondsTableByName = async (name) => {
-  const wanted = String(name).trim();
-  const world = game.tables?.find((t) => t.name === wanted);
-  if (world) return world;
-  for (const pack of game.packs) {
-    if (pack.metadata.type !== "RollTable") continue;
-    const entry = (await pack.getIndex()).find((e) => e.name === wanted);
-    if (entry) return pack.getDocument(entry._id);
-  }
-  return null;
-};
-
 /** The shipped 2e Bonds table. */
 const shippedBondsTable = async () => {
   const pack = game.packs.get("air-bladder.tables-2e");
@@ -439,7 +417,8 @@ const shippedBondsTable = async () => {
  */
 export const drawBond = async (tableName) => {
   const wanted = String(tableName ?? "").trim();
-  let table = wanted ? await findBondsTableByName(wanted) : null;
+  // World-first, by name — the rationale lives on findTableByName.
+  let table = wanted ? await findTableByName(wanted) : null;
   if (wanted && !table) {
     console.warn(`Air Bladder | no RollTable named "${wanted}" — falling back to the 2e Bonds table`);
   }
@@ -1863,6 +1842,11 @@ export const changeBackground = async (actor, newBg = null) => {
 const characterToActorData = (characterData) => ({
   name: characterData.name,
   system: {
+    // Generated actors land with the Randomization switch OFF, explicitly —
+    // the schema initial says the same since 2026-08-02, but the generator's
+    // intent should survive any future default change (the container and
+    // marketplace writers already model this).
+    generationEnabled: false,
     abilities: {
       STR: { value: characterData.abilities.STR, max: characterData.abilities.STR },
       DEX: { value: characterData.abilities.DEX, max: characterData.abilities.DEX },
@@ -2081,6 +2065,8 @@ const npcToActorData = (h) => ({
   type: "npc",
   system: {
     role: "npc",
+    // Off-by-default, stated rather than inherited — see characterToActorData.
+    generationEnabled: false,
     forHire: true,
     profession: h.profession ?? "",
     dayRate: h.rate ?? 0,
@@ -2196,5 +2182,31 @@ export const rerollNpcName = async (actor) => {
   for (const token of actor.getActiveTokens()) {
     await token.document.update({ name: actor.name });
   }
+  return actor;
+};
+
+/**
+ * Re-roll only an NPC's or Monster's FACTION, leaving everything else alone.
+ * The table resolves BY NAME, world first (findTableByName): a Warden's own
+ * "Warden: NPC - Faction" beats the shipped warden-npcs copy, so their
+ * campaign's faction list survives a system update. roll(), never draw() —
+ * the Warden's-tables invariant (module/config.js).
+ *
+ * The rolled text is baked through t("table.result") — the ratified
+ * monster-generation exception: a rolled faction is WORLD content authored
+ * in the session's language (identity in an English world, one-way once
+ * baked). Safe here because, unlike career, faction is not a match key:
+ * nothing re-reads it. A missing or empty table changes nothing — degrade,
+ * never blank.
+ * @param {CairnActor} actor
+ * @returns {Promise<CairnActor>}
+ */
+export const rerollNpcFaction = async (actor) => {
+  const tableName = CONFIG.Cairn?.npcGenerator?.faction;
+  const table = tableName ? await findTableByName(tableName) : null;
+  if (!table) return actor;
+  const { results } = await table.roll();
+  const raw = resultText(results[0]).trim();
+  if (raw) await actor.update({ "system.faction": t("table.result", raw) });
   return actor;
 };

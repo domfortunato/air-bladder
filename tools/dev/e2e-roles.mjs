@@ -90,6 +90,8 @@ const READ = `(sheet) => {
     gold:      vis('input[name="system.gold"]'),
     roleSelect: vis('.role-select'),
     career:    vis('input[name="system.profession"]'),
+    faction:   vis('input[name="system.faction"]'),
+    factionDie: vis('a[data-action="rollFaction"]'),
     kind:      vis('input[name="system.containerClass"]'),
     dayRate:   vis('.day-rate-line'),
     itemsTab:  vis('[data-tab="items"]'),
@@ -133,7 +135,10 @@ try {
       // reveals it when the old checkboxes crossed, so this probe starts as
       // someone with a rate and turns into a thing — the exact sequence that
       // stranded the row.
-      system: { abilities: { STR: { value: 0, max: 0 }, DEX: { value: 0, max: 0 }, WIL: { value: 0, max: 0 } }, gold: 25, role: "npc", forHire: true, dayRate: 5 },
+      // generationEnabled seeded TRUE: the schema default flipped to false
+      // (2026-08-02) and the faction-die visibility below is exactly what the
+      // flag gates — explicit creation data wins over the initial.
+      system: { abilities: { STR: { value: 0, max: 0 }, DEX: { value: 0, max: 0 }, WIL: { value: 0, max: 0 } }, gold: 25, role: "npc", forHire: true, dayRate: 5, generationEnabled: true },
     });
     const sheet = a.sheet;
     await sheet.render(true);
@@ -151,6 +156,13 @@ try {
     const asMount = read(sheet);
     const storedMount = a.system.role;
 
+    // A monster takes sides: Faction stays, Career does not (2026-08-02 —
+    // Faction stopped riding the Career gate, which is why Monsters never
+    // saw it).
+    await pickRole(sheet, "monster");
+    const asMonster = read(sheet);
+    const storedMonster = a.system.role;
+
     // And back again — the one-way trap.
     const reachable = !!sheet.element.querySelector(".role-select");
     await pickRole(sheet, "npc");
@@ -160,11 +172,11 @@ try {
 
     await sheet.close();
     await a.delete();
-    return { asPerson, asThing, asMount, backAgain, storedOn, storedMount, storedOff, goldStoredAsThing, goldStoredBack, reachable };
+    return { asPerson, asThing, asMount, asMonster, backAgain, storedOn, storedMount, storedMonster, storedOff, goldStoredAsThing, goldStoredBack, reachable };
   }, { READ, PICK_ROLE });
 
   if (out.error) throw new Error(out.error);
-  const { asPerson, asThing, asMount, backAgain } = out;
+  const { asPerson, asThing, asMount, asMonster, backAgain } = out;
 
   console.log("\na hireling keeps its stat block, career and day rate");
   asPerson.hp && asPerson.str && asPerson.armor && asPerson.restBtn
@@ -173,6 +185,9 @@ try {
   asPerson.career && asPerson.dayRate && asPerson.gold
     ? ok("career, day-rate and Gold rows show", "the hidden-state assertions below can fail")
     : bad("career, day-rate and Gold rows show", JSON.stringify(asPerson));
+  asPerson.faction && asPerson.factionDie
+    ? ok("Faction row + die on a person", "below Role, its own gate")
+    : bad("Faction row + die on a person", JSON.stringify({ faction: asPerson.faction, die: asPerson.factionDie }));
   asPerson.banners.length
     ? ok("zeroed abilities raise banners", `${asPerson.banners.length} banner(s)`)
     : bad("zeroed abilities raise banners", "none — the control case cannot fail");
@@ -201,9 +216,9 @@ try {
   asThing.itemsTab && asThing.visiblePanels === 1
     ? ok("inventory intact, exactly one panel visible", `${asThing.visiblePanels}`)
     : bad("inventory intact, exactly one panel visible", JSON.stringify(asThing));
-  !asThing.career && !asThing.dayRate
-    ? ok("career and day rate go with the role", "no orphaned rate on a crate")
-    : bad("career and day rate go with the role", JSON.stringify(asThing));
+  !asThing.career && !asThing.dayRate && !asThing.faction
+    ? ok("career, day rate and Faction go with the role", "a crate takes no sides")
+    : bad("career, day rate and Faction go with the role", JSON.stringify(asThing));
   asThing.kind && !asPerson.kind
     ? ok("the Kind field rides the container role", "absent on a hireling, present on a thing")
     : bad("the Kind field rides the container role", JSON.stringify({ thing: asThing.kind, hireling: asPerson.kind }));
@@ -215,14 +230,22 @@ try {
   !asMount.gold && asMount.kind
     ? ok("Gold hides, Kind shows", "no purse on the horse")
     : bad("Gold hides, Kind shows", JSON.stringify(asMount));
+  !asMount.faction
+    ? ok("no Faction row on a mount", "npc + monster only")
+    : bad("no Faction row on a mount", "a horse joined a faction");
+
+  console.log("\na monster has a side, not a career");
+  out.storedMonster === "monster" && asMonster.faction && asMonster.factionDie && !asMonster.career
+    ? ok("Faction row + die on a monster, Career absent", "showFaction is its own gate")
+    : bad("Faction row + die on a monster, Career absent", JSON.stringify({ stored: out.storedMonster, faction: asMonster.faction, die: asMonster.factionDie, career: asMonster.career }));
 
   console.log("\nand it is not a one-way trip");
   out.reachable
     ? ok("the role select is still on screen", "outside every block it hides")
     : bad("the role select is still on screen", "TRAPPED — nothing left to pick with");
   out.storedOff === "npc" && backAgain.hp && backAgain.str && backAgain.dayRate
-    && backAgain.gold && out.goldStoredBack === 25
-    ? ok("picking NPC back restores stat block + rate + Gold", "25gp intact after the round trip")
+    && backAgain.gold && backAgain.faction && out.goldStoredBack === 25
+    ? ok("picking NPC back restores stat block + rate + Gold", "25gp intact, Faction back too")
     : bad("picking NPC back restores stat block + rate + Gold", JSON.stringify({ stored: out.storedOff, goldStored: out.goldStoredBack, ...backAgain }));
 
   /* ---- the header gap: the vitals pin to the portrait's foot (Round 2) ---- */
@@ -230,8 +253,8 @@ try {
   const gap = await page.evaluate(async () => {
     const Cls = CONFIG.Actor.documentClass;
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-    // Monster: the SHORTEST stack (name, role, vitals) and the sheet the band
-    // was reported on.
+    // Monster: the SHORTEST stack (name, role, faction, vitals — Faction
+    // joined it 2026-08-02) and the sheet the band was reported on.
     const a = await Cls.create({ name: "ZZ Roles Gap", type: "npc", system: { role: "monster" } });
     const sheet = a.sheet;
     await sheet.render(true);
@@ -244,12 +267,15 @@ try {
     const gapNow = () => Math.round(abil.getBoundingClientRect().top - vit.getBoundingClientRect().bottom);
     const fixed = gapNow();
     const flush = Math.round(port.getBoundingClientRect().bottom - vit.getBoundingClientRect().bottom);
-    // NEGATIVE CONTROL: restore the pre-fix margin inline. The flex column
-    // stacks back to the top and the band must return, or the assertion
-    // above cannot fail.
-    vit.style.marginTop = "2px";
+    // NEGATIVE CONTROL: inject a band under the vitals and the measurement
+    // must read it. This REPLACED the original control (restore the pre-fix
+    // margin-top) on 2026-08-02: since Faction joined the header, even the
+    // shortest stack outgrows the portrait column, `margin-top: auto` has no
+    // slack left to distribute, and the old control could no longer move
+    // anything — a control that cannot fire is fake coverage.
+    vit.style.marginBottom = "24px";
     const control = gapNow();
-    vit.style.marginTop = "";
+    vit.style.marginBottom = "";
     await sheet.close();
     await a.delete();
     return { fixed, control, flush };
@@ -259,14 +285,84 @@ try {
     gap.fixed <= 8
       ? ok("HP/Gold sit directly above STR/Armor", `${gap.fixed}px between the rows`)
       : bad("HP/Gold sit directly above STR/Armor", `${gap.fixed}px of dead band`);
-    Math.abs(gap.flush) <= 8
-      ? ok("the vitals line is flush with the portrait's foot", `${gap.flush}px`)
-      : bad("the vitals line is flush with the portrait's foot", `${gap.flush}px off`);
+    // ONE-SIDED since 2026-08-02: the guarded defect is the vitals floating
+    // ABOVE the portrait's foot (the dead band). The stack may now run BELOW
+    // the foot — the Faction row made even the monster's header taller than
+    // the portrait, which is the header growing, not the band returning.
+    gap.flush <= 8
+      ? ok("the vitals reach the portrait's foot", `${gap.flush}px`)
+      : bad("the vitals reach the portrait's foot", `${gap.flush}px of band above the foot`);
     gap.control > gap.fixed + 12
-      ? ok("   control: the old margin brings the band back", `${gap.control}px`)
-      : bad("   control: the old margin brings the band back",
-        `still ${gap.control}px — the margin is not what closes the gap; assertion not load-bearing`);
+      ? ok("   control: an injected band is detected", `${gap.control}px`)
+      : bad("   control: an injected band is detected",
+        `still ${gap.control}px — the gap measurement cannot see a band; assertion not load-bearing`);
   }
+
+  /* ---- the Faction die: the Warden's world table first, stock second ----- */
+  console.log("\nthe Faction die rolls the Warden's own table first");
+  // Sweep any leftover world copy FIRST — a prior aborted run's table would
+  // shadow the shipped one and corrupt the differential below.
+  await page.evaluate(async () => {
+    for (const t of game.tables.filter((x) => x.name === "Warden: NPC - Faction")) await t.delete();
+  });
+  const die = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const until = async (test, ms = 5000) => {
+      const t0 = Date.now();
+      while (Date.now() - t0 < ms) { if (test()) return true; await sleep(100); }
+      return test();
+    };
+    const Cls = CONFIG.Actor.documentClass;
+    // The world copy a Warden would make: Tables tab, New Table, SAME NAME.
+    // 1d1 so the roll is deterministic; the shipped pack table sits underneath,
+    // which is exactly what makes the sentinel landing a world-FIRST proof.
+    const wt = await CONFIG.RollTable.documentClass.create({
+      name: "Warden: NPC - Faction",
+      formula: "1d1",
+      results: [{ type: "text", description: "ZZ-FACTION-SENTINEL", range: [1, 1], weight: 1 }],
+    });
+    // generationEnabled seeded true — the default is OFF now, and the die is
+    // exactly what the flag hides.
+    const a = await Cls.create({ name: "ZZ Roles Faction", type: "npc", system: { role: "npc", generationEnabled: true } });
+    const sheet = a.sheet;
+    await sheet.render(true);
+    await until(() => !!sheet.element?.querySelector('a[data-action="rollFaction"] i'));
+    const out = { dieFound: !!sheet.element?.querySelector('a[data-action="rollFaction"] i') };
+    sheet.element?.querySelector('a[data-action="rollFaction"] i')?.click();
+    await until(() => !!a.system.faction);
+    out.worldRoll = a.system.faction;
+
+    // The DIFFERENTIAL: delete the world copy — the same click must now
+    // answer from the shipped stock, or the sentinel above was luck.
+    await wt.delete();
+    await a.update({ "system.faction": "" });
+    await sleep(800); // let submitOnChange's re-render rebuild the anchor
+    await until(() => !!sheet.element?.querySelector('a[data-action="rollFaction"] i'));
+    sheet.element?.querySelector('a[data-action="rollFaction"] i')?.click();
+    await until(() => !!a.system.faction);
+    out.stockRoll = a.system.faction;
+
+    await sheet.close();
+    await a.delete();
+    return out;
+  });
+  // The pinned SRD Type column — membership, not "non-empty": a wrong pool
+  // that returns SOMETHING must still fail.
+  const STOCK_FACTIONS = ["Artisans", "Commoners", "Criminals", "Cultists", "Exiles", "Explorers",
+    "Industrialists", "Merchants", "Military", "Nobles", "Nomads", "Pilgrims", "Protectors", "Religious",
+    "Revolutionaries", "Rulers", "Scholars", "Settlers", "Spies", "Tribe"];
+  die.dieFound && die.worldRoll === "ZZ-FACTION-SENTINEL"
+    ? ok("a world table of the same name wins", "the sentinel landed in the field")
+    : bad("a world table of the same name wins", JSON.stringify(die));
+  STOCK_FACTIONS.includes(die.stockRoll)
+    ? ok("world copy deleted → the shipped stock answers", die.stockRoll)
+    : bad("world copy deleted → the shipped stock answers", JSON.stringify(die.stockRoll));
+  // Node-side sweep even on success — an aborted evaluate above must not
+  // leave a sentinel table shadowing the Warden's real rolls.
+  await page.evaluate(async () => {
+    for (const t of game.tables.filter((x) => x.name === "Warden: NPC - Faction")) await t.delete();
+    for (const x of game.actors.filter((x) => x.name === "ZZ Roles Faction")) await x.delete();
+  });
 
   /* ---- the FLAT graph: only a character keeps, and the edge rules hold ---- */
   console.log("\nkeeping is a TYPE privilege: only a character keeps");

@@ -38,7 +38,9 @@ const { actorId, featuresWere } = await page.evaluate(async () => {
   }
   const was = game.settings.get("air-bladder", "show-features-section");
   if (!was) await game.settings.set("air-bladder", "show-features-section", true);
-  const a = await Actor.create({ name: "ZZ DialogV2 Probe", type: "character" });
+  // generationEnabled seeded: the default is Off since 2026-08-02 and the
+  // rollActor leg below clicks the header button that flag reveals.
+  const a = await Actor.create({ name: "ZZ DialogV2 Probe", type: "character", system: { generationEnabled: true } });
   a.sheet.render(true);
   return { actorId: a.id, featuresWere: was };
 });

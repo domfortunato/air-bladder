@@ -347,7 +347,9 @@ try {
     };
     const Cls = CONFIG.Actor.documentClass;
     const beastDir = "systems/air-bladder/tlomdev/beast";
-    const a = await Cls.create({ name: "ZZ Art Roller", type: "npc", system: { role: "npc" }, img: `${beastDir}/${beastFirst}` });
+    // generationEnabled seeded TRUE: the default flipped to Off (2026-08-02)
+    // and the portrait die this section clicks is exactly what the flag gates.
+    const a = await Cls.create({ name: "ZZ Art Roller", type: "npc", system: { role: "npc", generationEnabled: true }, img: `${beastDir}/${beastFirst}` });
     const sheet = a.sheet;
     await sheet.render(true);
     const out = { start: a.img };
