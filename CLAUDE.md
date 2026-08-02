@@ -86,14 +86,19 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
 - `module/damage.js` holds Cairn's damage flow
 - Data models in `module/data-models.js` (TypeDataModel; `template.json` is gone,
   sub-types are declared in `system.json` `documentTypes`); 22 compendium packs
-- 20 GM-visible settings in `module/settings.js` (23 `register` calls; `roles-restamped`,
+- 19 GM-visible settings in `module/settings.js` (22 `register` calls; `roles-restamped`,
   `connections-migrated` and `custom-portrait-list` are internal, `config: false`) —
   **registration ORDER is load-bearing**, because Foundry's group headers are positional. Two went on
   2026-07-31, both because the thing they toggled stopped existing:
   `show-containers-tab` (the Connections tab is structural now, and a display
   toggle that hides a graph which goes on existing behind it is not a setting
   worth having) and `show-gold-not-cost` (it swapped the container sheet's Cost
-  box for Gold; that sheet went with the type, and the npc sheet has no Cost box)
+  box for Gold; that sheet went with the type, and the npc sheet has no Cost box).
+  A third went on 2026-08-02 by ruling rather than by obsolescence:
+  `show-container-actors` hid plain/worn containers from the Actor Directory, and
+  the ruling is that they are ALWAYS listed — a behavior that must never be off is
+  not a setting, so the directory hide rule went with it (the grayscale-thumbnail
+  rule beside it survives; it never depended on the setting)
 
 **One system, two generators.** Cairn 2e and Barebones differ ONLY in how a
 character is MADE. Every rule after a character exists — damage, slots, saves,

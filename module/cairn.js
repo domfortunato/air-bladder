@@ -1100,7 +1100,6 @@ Hooks.on("renderActorDirectory", (app, html) => {
       .querySelector(".create-character-generator-button")
       .addEventListener("click", () => requestPcGeneration());
   }
-  const showContainers = game.settings.get(SETTINGS_NS, "show-container-actors");
   const actors = html.querySelectorAll('.actor');
   actors.forEach((a) => {
     const aid = a.dataset.entryId;
@@ -1111,28 +1110,15 @@ Hooks.on("renderActorDirectory", (app, html) => {
     // the directory thumbnail must match — the same actor should not read colour
     // in the list and grey on its sheet.
     //
-    // ROLE, not type. Both of these tests read `type == "container"` until
-    // 2026-07-31, which under the roles model matched nothing at all: the
-    // conversion had already made every container an npc, so the setting below
-    // silently hid nobody and no thumbnail was ever greyed. The mapping is the
-    // old `transportKind` vocabulary one-for-one — transportKind mount → role
-    // mount, vehicle → role transport, worn/blank → role container — with the
-    // pile now a container KIND rather than a category of its own.
+    // ROLE, not type. This test read `type == "container"` until 2026-07-31,
+    // which under the roles model matched nothing at all: the conversion had
+    // already made every container an npc, so no thumbnail was ever greyed.
+    // The mapping is the old `transportKind` vocabulary one-for-one.
+    //
+    // The `show-container-actors` hide rule that lived beside this is GONE
+    // (2026-08-02, by ruling): every container actor is always listed.
     const containerLine = actor.isThing || actor.npcRole === "mount";
     a.classList.toggle('cairn-grayscale-portrait', containerLine);
-
-    if (!showContainers) {
-      // Plain/worn containers stay hidden (they're reached via a keeper's
-      // Connections tab), but MOUNTS and TRANSPORTS are standalone carriers
-      // that travel alongside — they show in the directory so they can be
-      // selected, placed as tokens, and owned by players. An ITEM PILE is the
-      // same argument taken further: nothing keeps it at all, so a Connections
-      // tab is the one place it could never be reached from.
-      const standalone = actor.npcRole === "mount"
-        || actor.npcRole === "transport"
-        || actor.system?.containerClass === "pile";
-      a.classList.toggle('hidden', containerLine && !standalone);
-    }
   });
 });
 

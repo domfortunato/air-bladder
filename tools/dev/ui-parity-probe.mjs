@@ -456,14 +456,15 @@ try {
   // order-independent, and the stored key string never changed, so no configured
   // value was disturbed.
   const EXPECTED = {
-    // `show-gold-not-cost` sat between use-gold-threshold and
-    // show-container-actors until 2026-07-31. It swapped a CONTAINER SHEET's
-    // Cost box for a Gold box, and that sheet went with the `container` type —
-    // the npc that replaced it has no Cost box at all, so the toggle governed
-    // nothing. Removed rather than left registered, exactly as
-    // `show-containers-tab` was; asserted absent below.
+    // `show-gold-not-cost` sat between use-gold-threshold and the late
+    // `show-container-actors` until 2026-07-31 (it swapped a CONTAINER SHEET's
+    // Cost box for a Gold box, and that sheet went with the `container` type).
+    // `show-container-actors` followed it out on 2026-08-02, by ruling: the
+    // directory always lists container actors, so a toggle for hiding them
+    // governed nothing a Warden should switch. Both removed rather than left
+    // registered, exactly as `show-containers-tab` was.
     "Inventory & Encumbrance": ["max-equip-slots", "character-inventory-limit", "use-gold-threshold",
-      "show-container-actors", "enable-inventory-reorder"],
+      "enable-inventory-reorder"],
     "Character Generation": ["content-source-2e", "content-source-custom", "content-source-barebones",
       "barebones-failed-career", "show-omens-barebones", "show-bonds-barebones", "show-generate-header",
       "custom-portrait-folder", "min-age"],

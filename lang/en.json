@@ -468,10 +468,6 @@
       "hint": "A floor on every generated character's age, applied to all character sheets. Generation and the sheet's age re-roll never produce an age below this. Default 21; set it below 12 (the lowest a 2d20 + 10 roll can give) to switch the floor off.",
       "label": "Minimum character age (floor for the 2d20 + 10 roll)"
     },
-    "ShowContainerActors": {
-      "hint": "Show containers on the actor list.",
-      "label": "Show container actors in the sidebar list"
-    },
     "ShowFeatures": {
       "hint": "Show additional 'feature' list in the character description tab.",
       "label": "Show Features List on character's Description tab"

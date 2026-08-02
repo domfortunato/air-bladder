@@ -31,7 +31,7 @@ export const SETTING_KEYS = [
   "custom-portrait-folder", "custom-portrait-list", "min-age",
   // Inventory & Encumbrance
   "max-equip-slots", "character-inventory-limit", "use-gold-threshold",
-  "show-container-actors", "enable-inventory-reorder",
+  "enable-inventory-reorder",
 ];
 
 /**
@@ -404,15 +404,12 @@ export const registerSettings = () => {
      on a thing or a mount (`system.showGold`), which is a role fact, not a
      world preference. Do not re-add it without a field for it to govern. */
 
-  game.settings.register(SETTINGS_NS, "show-container-actors", {
-    name: game.i18n.localize("CAIRN.Settings.ShowContainerActors.label"),
-    hint: game.i18n.localize("CAIRN.Settings.ShowContainerActors.hint"),
-    scope: "world",
-    config: true,
-    type: Boolean,
-    default: true,
-    requiresReload: true,
-  });
+  /* `show-container-actors` was registered here and is GONE (2026-08-02, by
+     ruling: "this feature should always be on and should never be disabled").
+     It hid plain/worn containers from the Actor Directory while keeping
+     mounts, transports and piles listed; the hide rule in renderActorDirectory
+     went with it, so every container actor is simply always listed. The
+     grayscale-thumbnail rule survives — it never depended on this setting. */
 
   // Drag-to-reorder inventory items. On by default; turning it off keeps the
   // item list's automatic order (equipped first, then alphabetical, Fatigue last).

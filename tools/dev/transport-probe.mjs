@@ -271,38 +271,23 @@ try {
 
     // 6. Directory visibility, driven through the REAL rendered sidebar.
     //
-    //    Bought carriers are npc documents now, so with `show-container-actors`
-    //    ON (the default) they appear like any other NPC -- which is what the
-    //    user asked for ("as long as I see it in the actors tab"). With it OFF,
-    //    the rule still applies and now reads the ROLE: a standalone carrier (a
-    //    MOUNT or TRANSPORT, or a pile) stays listed, a WORN container is hidden
-    //    because its keeper's Connections tab reaches it.
-    //
-    //    Asserted here because both documents already exist here, and because
-    //    the rule was keyed on `type == "container"` until 2026-07-31 -- which,
-    //    after the fold, matched nothing at all, so the setting silently hid
-    //    nobody. `dev:item-pile` covers the other half (a pile stays visible).
+    //    INVERTED 2026-08-02: `show-container-actors` is REMOVED by ruling
+    //    ("this feature should always be on and should never be disabled"), so
+    //    the claim is now unconditional — a bought mount AND a bought worn
+    //    pack are BOTH always listed, with no setting to write and no hidden
+    //    class to earn. Red witness: pre-removal code hides the worn pack
+    //    when the setting is off. The grayscale rule survives independently.
     const dirRow = (id) => document.querySelector(
       `#actors [data-entry-id="${id}"], #actors [data-document-id="${id}"]`);
-    const wasShow = game.settings.get("air-bladder", "show-container-actors");
-    await game.settings.set("air-bladder", "show-container-actors", true);
     await (ui.actors ?? ui.sidebar?.tabs?.actors)?.render(true);
     await new Promise((r) => setTimeout(r, 900));
-    const shownOn = {
-      mount: dirRow(muleActor?.id)?.classList.contains("hidden") === false,
-      worn: dirRow(packActor?.id)?.classList.contains("hidden") === false,
-    };
-    await game.settings.set("air-bladder", "show-container-actors", false);
-    await (ui.actors ?? ui.sidebar?.tabs?.actors)?.render(true);
-    await new Promise((r) => setTimeout(r, 900));
-    const shownOff = {
+    const directory = {
       mount: dirRow(muleActor?.id)?.classList.contains("hidden") === false,
       worn: dirRow(packActor?.id)?.classList.contains("hidden") === false,
       // The thumbnail must be greyed to match the sheet, on the role.
       mountGrey: dirRow(muleActor?.id)?.classList.contains("cairn-grayscale-portrait") ?? false,
+      settingGone: game.settings.settings.get("air-bladder.show-container-actors") === undefined,
     };
-    await game.settings.set("air-bladder", "show-container-actors", wasShow);
-    const directory = { shownOn, shownOff };
 
     for (const a of made) { try { await a.delete(); } catch { /* already gone */ } }
     return { setup, mount, worn, legacy, vehicle, nesting, capLeg, edit, afford, directory };
@@ -376,13 +361,13 @@ try {
 
     r.afford.refused && r.afford.noActor && r.afford.goldIntact ? ok("an unaffordable transport is refused, mints nothing, spends nothing") : fail("affordability check did not hold");
 
-    r.directory.shownOn.mount && r.directory.shownOn.worn
-      ? ok("with containers shown, both are listed", "everything bought is an npc now")
-      : fail("with containers shown, both are listed", JSON.stringify(r.directory.shownOn));
-    r.directory.shownOff.mount && !r.directory.shownOff.worn
-      ? ok("with containers hidden, only the standalone one stays", "mount listed, worn pack hidden")
-      : fail("with containers hidden, only the standalone one stays", JSON.stringify(r.directory.shownOff));
-    r.directory.shownOff.mountGrey
+    r.directory.mount && r.directory.worn
+      ? ok("mount AND worn pack are both always listed", "no hide setting exists any more")
+      : fail("mount AND worn pack are both always listed", JSON.stringify(r.directory));
+    r.directory.settingGone
+      ? ok("show-container-actors is unregistered", "removed by ruling, 2026-08-02")
+      : fail("show-container-actors is still registered", "the setting was supposed to be removed");
+    r.directory.mountGrey
       ? ok("the carrier's thumbnail is greyed", "matches its sheet")
       : fail("the carrier's thumbnail is greyed", "directory reads colour where the sheet reads grey");
   }

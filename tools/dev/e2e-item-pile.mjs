@@ -210,22 +210,20 @@ try {
 
   /* --- 3. the directory shows it ----------------------------------------- */
   console.log("\nreachability");
+  // This leg used to force `show-container-actors` false and assert a pile
+  // survived the hide rule. Both the setting and the hide rule are GONE
+  // (2026-08-02, by ruling: containers are always listed), so the claim is
+  // simply "a pile is listed" — no settings writes.
   const visible = await gmPage.evaluate(async (id) => {
-    const wasShow = game.settings.get("air-bladder", "show-container-actors");
-    await game.settings.set("air-bladder", "show-container-actors", false);
     ui.actors.render(true);
     await new Promise((r) => setTimeout(r, 900));
     const row = document.querySelector(`#actors [data-entry-id="${id}"], #actors [data-document-id="${id}"]`);
-    const res = { found: !!row, hidden: row ? row.classList.contains("hidden") : null };
-    await game.settings.set("air-bladder", "show-container-actors", wasShow);
-    return res;
+    return { found: !!row, hidden: row ? row.classList.contains("hidden") : null };
   }, made.pileId);
 
-  // Worn containers are hidden from the directory because a character's
-  // Containers tab reaches them. Nothing reaches a pile that way.
   visible.found && visible.hidden === false
-    ? ok("a pile is listed even with containers hidden", "like mounts and vehicles")
-    : fail("a pile is listed even with containers hidden", JSON.stringify(visible));
+    ? ok("a pile is listed in the directory", "like every container actor now")
+    : fail("a pile is listed in the directory", JSON.stringify(visible));
 
   /* --- 4. a player, which is the whole point of a pile -------------------- */
   console.log("\nas a player");
