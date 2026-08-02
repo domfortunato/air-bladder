@@ -169,6 +169,18 @@ const buy = await alicePage.evaluate(async (pcId) => {
   // tab's contents are computed, never stored.
   pc.prepareData();
   const container = (pc.system.containerObjects ?? []).at(-1) ?? null;
+  // A PLAYER's purchase cannot write ownership (server wall), so it rides the
+  // sync flag: the live GM client answers with the CONNECTED shape. Poll for
+  // the settled state — default OBSERVER, Alice OWNER, flag gone — not the
+  // first observable.
+  const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+  let shapeSettled = false;
+  for (let i = 0; i < 40 && container && !shapeSettled; i++) {
+    await new Promise((r) => setTimeout(r, 250));
+    shapeSettled = container.ownership.default === L.OBSERVER
+      && container.ownership[game.user.id] === L.OWNER
+      && container.getFlag("air-bladder", "ownershipSyncPending") === undefined;
+  }
   return {
     okBuy,
     name: doc.name,
@@ -176,9 +188,11 @@ const buy = await alicePage.evaluate(async (pcId) => {
     keeper: container?.system.connectedTo ?? null,
     pcUuid: pc.uuid,
     containerId: container?.id ?? null,
-    // Foundry makes the creating user an owner, which is why the GM-only
-    // ownership copy is not needed for a player's own purchase.
+    // Foundry makes the creating user an owner, which is what carries her
+    // through the window before the GM's shape lands.
     ownsIt: container?.isOwner ?? null,
+    shapeSettled,
+    shape: container ? { ...container.ownership } : null,
     goldAfter: pc.system.gold,
     cost: doc.system.cost ?? 0,
   };
@@ -195,34 +209,61 @@ else {
   buy.ownsIt
     ? ok("buyer owns the transport", "creating user is an owner")
     : fail("buyer owns the transport", "the player cannot open what they bought");
+  buy.shapeSettled
+    ? ok("post-buy ownership is the CONNECTED shape", "default OBSERVER + buyer OWNER, via the GM relay")
+    : fail("post-buy ownership is the CONNECTED shape", JSON.stringify(buy.shape));
   buy.goldAfter === 500 - buy.cost
     ? ok("gold was actually deducted", `500 -> ${buy.goldAfter} (cost ${buy.cost})`)
     : fail("gold was actually deducted", `gold is ${buy.goldAfter}, expected ${500 - buy.cost}`);
 }
 
-/* ---- the trash icon is the Warden's, not the player's ---- */
+/* ---- the trash stays the Warden's; unlink is the owner's again ---- */
 
 /* Actor deletion is role-gated (Assistant+) with NO player-grantable
    permission, so a player's trash on the Connected tab promised an action the
-   server always refuses (review #5). Round 2 then took UNLINK from players too
-   — breaking an edge by hand is edge management, and the wall lives inside
-   `unlinkOwnedContainer` — so Alice's row now offers NEITHER control.
+   server always refuses (review #5) — that half stands. UNLINK inverted on
+   2026-08-01 with the one player-usable verb: Alice owns both ends of her
+   purchased row (the connected shape made her OWNER of the mule), so her row
+   offers unlink again — Round 2's Warden-only reading lasted exactly one day
+   past the ownership automation that made it unnecessary.
 
-   Same template, two users, and the GM half is what makes the player's absence
-   load-bearing rather than a row that renders no icons at all for everybody.
-   (This leg asserted `icons.unlink` until 2026-07-31, which was Round 1's rule;
-   it had not been re-run since Round 2 changed it.) */
+   Same template, two users: the GM's trash is what keeps Alice's missing
+   trash load-bearing rather than a row that renders no icons for everybody. */
 console.log("\nthe Connected tab's edge controls");
 const icons = await alicePage.evaluate(async (pcId) => {
   const pc = game.actors.get(pcId);
+  // CLOSE first, then render, then POLL — do not sleep a fixed interval on an
+  // already-open sheet. Alice's sheet was opened earlier in this probe, BEFORE
+  // the relay made her an owner of the mule, so its DOM holds a row with no
+  // unlink; `render(true)` is asynchronous, and under load (this probe runs
+  // after others in the sweep) a flat 1s wait read that stale row and reported
+  // a missing control that the next, unloaded run rendered fine. That is the
+  // race docs/release-testing.md refuses to let anyone re-run away.
+  await pc.sheet.close();
+  await new Promise((r) => setTimeout(r, 300));
   await pc.sheet.render(true);
-  await new Promise((r) => setTimeout(r, 1000));
-  const row = pc.sheet.element?.querySelector('.cairn-items-list-row[data-is-container="true"]');
+  let row = null;
+  for (let i = 0; i < 40 && !row; i++) {
+    await new Promise((r) => setTimeout(r, 250));
+    row = pc.sheet.rendered
+      ? pc.sheet.element?.querySelector('.cairn-items-list-row[data-is-container="true"]')
+      : null;
+  }
+  // The INPUTS to canUnlink, not just its rendered effect: "her row offers no
+  // break" names a symptom and no cause, and this assertion has two ends that
+  // can independently be wrong (her ownership of the PC, and of the row's
+  // actor) plus a relay that may not have settled.
+  const kids = pc.connectedActors();
+  const why = {
+    pcIsOwner: pc.isOwner,
+    kids: kids.map((c) => ({ name: c.name, isOwner: c.isOwner, own: { ...c.ownership } })),
+  };
   return row ? {
     rowFound: true,
     unlink: !!row.querySelector('[data-action="containerUnlink"]'),
     trash: !!row.querySelector('[data-action="itemDelete"]'),
-  } : { rowFound: false };
+    why,
+  } : { rowFound: false, why };
 }, scene.pcId);
 const gmIcons = await gmPage.evaluate(async (pcId) => {
   const pc = game.actors.get(pcId);
@@ -241,14 +282,26 @@ if (!icons.rowFound || !gmIcons.rowFound) {
   !icons.trash
     ? ok("no trash for a player", "the server would refuse it anyway")
     : fail("no trash for a player", "an affordance for an action players cannot take");
-  !icons.unlink
-    ? ok("no unlink for a player either", "Round 2: edge management is the Warden's")
-    : fail("no unlink for a player either", "a player can still break an edge by hand");
+  icons.unlink
+    ? ok("unlink renders for the owner of both ends", "one verb, player-usable (2026-08-01)")
+    : fail("unlink renders for the owner of both ends",
+      `her own purchased row offers no break — ${JSON.stringify(icons.why)}`);
   gmIcons.trash && gmIcons.unlink
-    ? ok("the Warden gets both", "same template, role-gated icons")
+    ? ok("the Warden gets both", "and the GM trash keeps the player's missing one load-bearing")
     : fail("the Warden gets both",
       `trash=${gmIcons.trash} unlink=${gmIcons.unlink} — if these vanished for everyone, the player assertions prove nothing`);
 }
+
+// Give ACTOR_CREATE back the moment the last leg needing it is done, not in
+// the tail cleanup: a run that dies between here and the end used to leave
+// PLAYER in core.permissions.ACTOR_CREATE, which made dev:socket-grant refuse
+// to run at all ("this world grants players ACTOR_CREATE") — found as litter
+// on 2026-08-01. The remaining legs run as the GM and need no grant.
+await gmPage.evaluate(async () => {
+  const perms = foundry.utils.deepClone(game.settings.get("core", "permissions"));
+  perms.ACTOR_CREATE = (perms.ACTOR_CREATE ?? []).filter((r) => r !== CONST.USER_ROLES.PLAYER);
+  await game.settings.set("core", "permissions", perms);
+});
 
 /* ---- the Connected tab, derived from `connectedTo` ---- */
 
@@ -313,6 +366,8 @@ connected.beforeDelete === 1 && connected.afterDelete === 0
 /* ---- cleanup -------------------------------- */
 
 await gmPage.evaluate(async ({ pcId, muleId, containerId }) => {
+  // Belt over the mid-run restore above — filtering an already-clean list is
+  // a no-op, and a future leg added between the two cannot re-leak the grant.
   const perms = foundry.utils.deepClone(game.settings.get("core", "permissions"));
   perms.ACTOR_CREATE = (perms.ACTOR_CREATE ?? []).filter((r) => r !== CONST.USER_ROLES.PLAYER);
   await game.settings.set("core", "permissions", perms);

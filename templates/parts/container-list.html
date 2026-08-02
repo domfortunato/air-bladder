@@ -1,48 +1,53 @@
 {{!-- The Connections tab body: the relationship graph, not an inventory view.
       The marketplace link that used to live here is gone on purpose — shopping
-      stays on the Items tab; this tab is who travels with whom
-      (docs/npc-roles-plan.md).
+      stays on the Items tab; this tab is who travels with whom.
 
-      Round 2: the tab shows BOTH directions. The upward keeper renders as a
-      line above the kept list, and every manual edge control — Add Connection
-      (keep someone), Connect to… (attach ME to a keeper), unlink from either
-      end — is the Warden's alone (@root.isWarden); players keep the automatic
-      flows. The handlers and connectActor/unlinkOwnedContainer re-check, so
-      hiding here is honesty, not security.
+      The tab shows BOTH directions: the upward keeper renders as a line above
+      the kept list. ONE verb, player-usable (2026-08-01): Connect and unlink
+      are the Warden's always, or a player's who owns BOTH ends — so the
+      sheet-level controls gate on @root.canManageConnections (this sheet's
+      actor is mine), each row's unlink on its own row.canUnlink (both ends),
+      and the keeper line's break on @root.canDetach (both ends, or just the
+      child when the keeper uuid resolves to nothing — the dangling-link
+      recovery). The handlers and connectActor/unlinkOwnedContainer re-check
+      everything, so hiding here is honesty, not security. The trash stays
+      GM-only for its own reason: Actor deletion is role-gated (Assistant+)
+      with no player-grantable permission, so for a player it would promise an
+      action the server always refuses.
 
       The "Custom container…" line at the foot is GONE (2026-08-01, long-standing
       ask). It hand-minted an npc with a name and a slot count, which is what
       dragging a document out of Mounts & Transports does with a stat block and
       art already on it — an escape hatch from a catalog that stopped being
       restrictive. Note `system.canKeep` is CHARACTER-ONLY now (the flat graph),
-      so Add Connection renders on a PC's sheet and nowhere else. --}}
+      so Connect renders on a PC's sheet and nowhere else. --}}
 {{#if system.connectedKeeper}}
 <div class="connection-keeper-line">
     <span class="connection-keeper-label">{{system.connectedKeeper.label}}</span>
-    {{#if @root.isWarden}}
+    {{#if @root.canDetach}}
     <a class="item-control connection-detach" data-action="connectionDetach" title="{{ localize 'CAIRN.UnlinkContainer' }}"><i class="fas fa-link-slash"></i></a>
     {{/if}}
 </div>
 {{/if}}
 <div class="cairn-items-list-header">
     <div>{{ localize 'CAIRN.Name' }}</div>
-    {{#if @root.isWarden}}
+    {{#if @root.canManageConnections}}
     <div class="connection-controls">
         {{#if system.canKeep}}
-        <a class="item-control connection-add" data-action="connectionAdd" title="{{ localize 'CAIRN.AddConnectionHint' }}"><i class="fas fa-link"></i>&nbsp;{{ localize 'CAIRN.AddConnection' }}</a>
+        <a class="item-control connection-add" data-action="connectionAdd" title="{{ localize 'CAIRN.ConnectHint' }}"><i class="fas fa-link"></i>&nbsp;{{ localize 'CAIRN.Connect' }}</a>
         {{/if}}
         {{#if system.canAttach}}
-        <a class="item-control connection-attach" data-action="connectionAttach" title="{{ localize 'CAIRN.ConnectToHint' }}"><i class="fas fa-link"></i>&nbsp;{{ localize 'CAIRN.ConnectTo' }}</a>
+        <a class="item-control connection-attach" data-action="connectionAttach" title="{{ localize 'CAIRN.ConnectHint' }}"><i class="fas fa-link"></i>&nbsp;{{ localize 'CAIRN.Connect' }}</a>
         {{/if}}
     </div>
     {{/if}}
 </div>
-{{#each system.containerObjects as |ctr id|}}
-<div class="cairn-items-list-row" data-item-id="{{ctr.uuid}}" data-is-container="true">
+{{#each @root.connectionRows as |row|}}
+<div class="cairn-items-list-row" data-item-id="{{row.uuid}}" data-is-container="true">
     <div class="cairn-items-list-row-header">
         <div class="cairn-item-name-and-tags">
             <a class="cairn-item-title" data-action="itemDescription">
-                {{ctr.name}} ({{ctr.system.slotsUsed}}/{{ctr.system.slots}})
+                {{row.name}} ({{row.slotsUsed}}/{{row.slots}})
             </a>
         </div>
 
@@ -53,13 +58,7 @@
               different icons. --}}
         <div class="cairn-item-controls">
             <a class="item-control item-edit" data-action="itemEdit" title="{{ localize 'CAIRN.EditItem' }}"><i class="fas fa-edit"></i></a>
-            {{!-- Unlink was a player control once ("they keep unlink"); Round 2
-                  made every manual edge change Warden-only, so it hides with
-                  the rest. The trash was already GM-only for its own reason:
-                  Actor deletion is role-gated (Assistant+) with no
-                  player-grantable permission, so for a player it promised an
-                  action the server always refuses. --}}
-            {{#if @root.isWarden}}
+            {{#if row.canUnlink}}
             <a class="item-control container-unlink" data-action="containerUnlink" title="{{ localize 'CAIRN.UnlinkContainer' }}"><i class="fas fa-link-slash"></i></a>
             {{/if}}
             {{#if @root.canDeleteActors}}
@@ -69,7 +68,7 @@
     </div>
 </div>
 {{/each}}
-{{#unless system.containerObjects.length}}
+{{#unless @root.connectionRows.length}}
 <div class="container-empty">
     <p>{{ localize 'CAIRN.ConnectionsEmpty' }}</p>
 </div>

@@ -1,7 +1,10 @@
 import { SETTINGS_NS } from "../settings.js";
 import { iconForItem, iconForTransport, containerClassLabel, containerClassSlots, CONTAINER_CLASSES, ICON_DIR } from "../icons.js";
 import { THING_ROLES } from "../data-models.js";
-import { atConnectionLimit, maxConnections } from "../connections.js";
+import {
+  atConnectionLimit, maxConnections,
+  connectedOwnershipShape, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG,
+} from "../connections.js";
 
 /** Document names go into dialog HTML; a name is user-authored text. */
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -126,6 +129,40 @@ export class CairnActor extends Actor {
         // A missing manifest must not block creating an actor.
         console.warn("Air Bladder | could not assign a random npc portrait:", err);
       }
+    }
+
+    // An unconnected non-monster npc defaults to LIMITED (2026-08-01): a
+    // stranger's silhouette until it is connected or the Warden says
+    // otherwise. `ownership === undefined` is the whole guard — an explicit
+    // ownership in the creation data always wins, which is what keeps pack
+    // imports (every pack doc states {default: 0}) and the probes' seeded
+    // shapes untouched. Monsters keep Foundry's NONE: their ownership is
+    // never this automation's to touch, in either direction. The server
+    // permits creation-time `default` changes from any creator (it is UPDATES
+    // it walls off), so this works for a player with ACTOR_CREATE too.
+    //
+    // WRITTEN BY REPLACING `_source.ownership`, not through `updateSource`, and
+    // that is load-bearing rather than sloppy. `DocumentOwnershipField` declares
+    // `initial: {default: NONE}` as ONE object held on the field instance
+    // (common/data/fields.mjs:3791) and `getInitialValue` hands it back BY
+    // REFERENCE with no clone (fields.mjs:265). So for every document created
+    // without explicit ownership, `_source.ownership` IS that shared object —
+    // and any write THROUGH it mutates the schema's own initial. Measured, all
+    // three of the obvious spellings poison it: the dotted path
+    // `"ownership.default"`, a whole `{ownership: {...}}` object, and even
+    // `ForcedReplacement`. The symptom is brutal and silent — after the first
+    // npc took LIMITED, every actor created for the rest of the session started
+    // from `{default: 1}`, monsters included, whether or not this method ran at
+    // all. Spreading into a new object replaces the REFERENCE instead, which is
+    // the only one of the four that leaves the initial at `{default: 0}`.
+    // The server still adds the creating user's OWNER entry after this.
+    if (["npc", "hireling"].includes(data.type)
+      && data.system?.role !== "monster"
+      && data.ownership === undefined) {
+      this._source.ownership = {
+        ...this._source.ownership,
+        default: CONST.DOCUMENT_OWNERSHIP_LEVELS.LIMITED,
+      };
     }
 
     // A container made by hand — the Warden's route to an Item Pile — arrived
@@ -478,17 +515,20 @@ export class CairnActor extends Actor {
    * @param {String} itemId uuid of the connected actor
    */
   async unlinkOwnedContainer(itemId) {
-    // Warden-only, same wall as connectActor and for the same reason: both
-    // callers are manual gestures (the keeper row's unlink icon, the child
-    // end's detach), and breaking an edge by hand is edge MANAGEMENT. This
-    // retires the old "players keep unlink" reading — Round 2 put every
-    // manual edge change in the Warden's hands (docs/npc-roles-plan.md).
-    if (!game.user.isGM) {
-      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.WardenOnlyConnections"));
-      return;
-    }
     const container = this.getOwnedContainer(itemId);
     if (!container) return;
+    const actor = game.actors.find((a) => a.uuid == itemId);
+    if (!actor) return;
+    // The SAME wall as connectActor, breaking instead of making: the Warden
+    // always may, a player may when they own both ends. Round 2's Warden-only
+    // reading retired with it (2026-08-01) — connection drives ownership now,
+    // and a player dropping her own sack risks nobody else's documents. What
+    // she risks is HER OWN standing: the broken shape strips the
+    // connection-granted OWNER, so she cannot reconnect it alone. By design.
+    if (!game.user.isGM && !(this.isOwner && actor.isOwner)) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.ConnectionOwnBothEnds"));
+      return;
+    }
     const proceed = await foundry.applications.api.DialogV2.confirm({
       window: { title: game.i18n.localize("CAIRN.UnlinkContainerTitle") },
       content: `<div class="cairn-confirm"><p class="cairn-confirm-q">${
@@ -499,11 +539,25 @@ export class CairnActor extends Actor {
       modal: true,
     });
     if (!proceed) return;
-    const actor = game.actors.find((a) => a.uuid == itemId);
-    await actor?.update({
+    // The BROKEN shape rides the same update as the break (GM-side), or the
+    // sync flag does (player-side) — mirror of connectActor's tail. Monsters
+    // are excluded from the automation everywhere; one can only be here via
+    // pre-automation data, and its ownership is not ours to touch.
+    const changes = {
       "system.connectedTo": "",
       "system.formerlyBelongedTo": this.name,
-    });
+    };
+    if (actor.npcRole !== "monster") {
+      if (game.user.isGM) {
+        changes.ownership = foundry.data.operators.ForcedReplacement.create(brokenOwnershipShape(actor));
+      } else {
+        changes[`flags.air-bladder.${OWNERSHIP_SYNC_FLAG}`] = true;
+      }
+    }
+    await actor.update(changes);
+    if (!game.user.isGM && actor.npcRole !== "monster") {
+      game.socket.emit(`system.${game.system.id}`, { action: "ownershipSync", childUuid: actor.uuid });
+    }
   }
 
   async deleteOwnedFeature(itemId) {
@@ -725,8 +779,13 @@ export class CairnActor extends Actor {
    */
   async connectActor(target) {
     if (!target || target === this) return false;
-    if (!game.user.isGM) {
-      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.WardenOnlyConnections"));
+    // ONE wall, every spelling (2026-08-01): the Warden always may; a player
+    // may when they own BOTH ends. This replaced the Warden-only gate the day
+    // connection started driving ownership — with the graph flat and the
+    // shapes automated, a player wiring her own mule to her own PC risks
+    // nobody else's documents.
+    if (!game.user.isGM && !(this.isOwner && target.isOwner)) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.ConnectionOwnBothEnds"));
       return false;
     }
     if (!this.canKeepConnected) {
@@ -773,17 +832,26 @@ export class CairnActor extends Actor {
       );
       return false;
     }
-    await target.update({
+    // Ownership follows connection — the CONNECTED shape ({default: OBSERVER,
+    // keeper's players: OWNER}), not the old wholesale copy of the keeper's
+    // ownership, and folded into the SAME update as the link so no window
+    // exists in which the edge is made and the rights are not. Only a GM
+    // client may write it (the server refuses ownership changes from anyone
+    // below Assistant); a player — who passed the both-ends wall above — sets
+    // the sync flag in the same write instead and asks the active GM's client
+    // to apply the shape, recomputed from document state (connections.js).
+    const changes = {
       "system.connectedTo": this.uuid,
       "system.formerlyBelongedTo": "",
-    });
-    // Ownership follows connection: hanging an NPC under a PC hands the PC's
-    // players the keys (the marketplace-buy precedent — same wholesale copy).
-    // The `target.type !== "character"` half of this test went with PC→PC —
-    // a target can no longer BE a character. The Warden gate above means this
-    // always runs GM-side, so the write cannot be refused.
-    if (this.type === "character") {
-      await target.update({ ownership: foundry.utils.deepClone(this.ownership) });
+    };
+    if (game.user.isGM) {
+      changes.ownership = foundry.data.operators.ForcedReplacement.create(connectedOwnershipShape(this));
+    } else {
+      changes[`flags.air-bladder.${OWNERSHIP_SYNC_FLAG}`] = true;
+    }
+    await target.update(changes);
+    if (!game.user.isGM) {
+      game.socket.emit(`system.${game.system.id}`, { action: "ownershipSync", childUuid: target.uuid });
     }
     return true;
   }
@@ -1028,10 +1096,18 @@ export class CairnActor extends Actor {
       for (const child of game.actors) {
         if (deletedIds.has(child.id)) continue;
         if (child.system?.connectedTo !== d.uuid) continue;
-        await child.update({
+        // A broken edge takes the BROKEN ownership shape with it (2026-08-01),
+        // in the same update as the break. Actor deletion is Assistant+, so
+        // the acting client here always holds isGM and may write ownership
+        // directly — no relay needed. Monsters excluded, as everywhere.
+        const changes = {
           "system.formerlyBelongedTo": d.name,
           "system.connectedTo": "",
-        });
+        };
+        if (child.npcRole !== "monster") {
+          changes.ownership = foundry.data.operators.ForcedReplacement.create(brokenOwnershipShape(child));
+        }
+        await child.update(changes);
       }
     }
   }

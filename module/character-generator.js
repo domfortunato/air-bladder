@@ -4,7 +4,7 @@ import { Cairn } from "./config.js";
 import { evaluateFormula } from "./utils.js";
 import { resolveGearItem, SPELL_PACKS, GEAR_ALIASES, spellScrollItem } from "./gear.js";
 import { containerClass, iconForTransport } from "./icons.js";
-import { connectionHeadroom, maxConnections } from "./connections.js";
+import { connectionHeadroom, maxConnections, connectedOwnershipShape } from "./connections.js";
 import { SETTINGS_NS } from "./settings.js";
 import { t } from "./i18n-content.js";
 
@@ -691,14 +691,19 @@ export const grantContainers = async (actor, specs) => {
   for (const payload of payloads) {
     const container = await CairnActor.create(payload);
     if (!container) continue;
-    // GM-only, for the same reason as the identical write in `marketplace.js`
-    // (`acquireTransport`): Foundry refuses an `ownership` write from anyone below
-    // Assistant, so for a player with ACTOR_CREATE this threw AFTER the container
-    // was created and linked — aborting the loop, so any remaining containers were
-    // never granted and the sheet never opened. A player doesn't need it: Foundry
-    // makes the creating user an owner of what they create.
+    // The CONNECTED ownership shape, not the old wholesale copy — same change
+    // as the till's (marketplace.js). GM-only for the same reason as ever:
+    // Foundry refuses an `ownership` write from anyone below Assistant, and
+    // for a player with ACTOR_CREATE that threw AFTER the container was
+    // created and linked, aborting the loop. A player with ACTOR_CREATE
+    // already owns what they create; the shape's OBSERVER default arrives
+    // when a GM client next syncs, and the common player path never gets
+    // here at all (it goes through the broker above, which writes the shape
+    // on the Warden's client).
     if (game.user.isGM) {
-      await container.update({ ownership: foundry.utils.deepClone(actor.ownership) });
+      await container.update({
+        ownership: foundry.data.operators.ForcedReplacement.create(connectedOwnershipShape(actor)),
+      });
     }
     made.push(container);
   }

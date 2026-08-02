@@ -118,6 +118,7 @@ const granted = await alicePage.evaluate(async ({ pcUuid }) => {
     await new Promise((r) => setTimeout(r, 250));
   }
   if (!horse) return { minted: false, returned: out.length };
+  const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
   return {
     minted: true,
     returned: out.length,
@@ -128,6 +129,14 @@ const granted = await alicePage.evaluate(async ({ pcUuid }) => {
     hp: `${horse.system.hp.value}/${horse.system.hp.max}`,
     hpRight: horse.system.hp.value === 4 && horse.system.hp.max === 4,
     ownedByAlice: horse.testUserPermission(game.user, "OWNER"),
+    // The CONNECTED shape exactly (2026-08-01), not a wholesale copy of the
+    // PC's ownership: default OBSERVER, Alice's explicit OWNER, and nothing
+    // else non-GM riding along.
+    shapeExact: horse.ownership.default === L.OBSERVER
+      && horse.ownership[game.user.id] === L.OWNER
+      && Object.keys(horse.ownership).every((id) =>
+        id === "default" || id === game.user.id || game.users.get(id)?.isGM),
+    shape: { ...horse.ownership },
     flagged: horse.getFlag("air-bladder", "grantSource") === "question:9",
     capacity: horse.system.slotsMax,
   };
@@ -140,7 +149,10 @@ if (granted.minted) {
   granted.returned === 0 ? ok("player-side call returned [] (fire-and-forget)") : fail(`player call returned ${granted.returned} actors`);
   granted.connected ? ok("connected to the requesting character") : fail("connectedTo is wrong");
   granted.hpRight ? ok(`stat block survived the rebuild (hp ${granted.hp})`) : fail(`hp ${granted.hp}, expected 4/4`);
-  granted.ownedByAlice ? ok("ownership copied — Alice owns her horse") : fail("Alice does not own the minted actor");
+  granted.ownedByAlice ? ok("Alice owns her horse") : fail("Alice does not own the minted actor");
+  granted.shapeExact
+    ? ok("the broker wrote the CONNECTED shape exactly", "default OBSERVER + Alice OWNER, nothing else")
+    : fail("the broker's ownership is not the connected shape", JSON.stringify(granted.shape));
   granted.flagged ? ok("grantSource flag carried (regenerate can find it)") : fail("grantSource flag missing");
 }
 

@@ -86,9 +86,9 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
 - `module/damage.js` holds Cairn's damage flow
 - Data models in `module/data-models.js` (TypeDataModel; `template.json` is gone,
   sub-types are declared in `system.json` `documentTypes`); 22 compendium packs
-- 20 GM-visible settings in `module/settings.js` (22 `register` calls; `roles-restamped`
-  and `custom-portrait-list` are internal, `config: false`) — **registration ORDER is
-  load-bearing**, because Foundry's group headers are positional. Two went on
+- 20 GM-visible settings in `module/settings.js` (23 `register` calls; `roles-restamped`,
+  `connections-migrated` and `custom-portrait-list` are internal, `config: false`) —
+  **registration ORDER is load-bearing**, because Foundry's group headers are positional. Two went on
   2026-07-31, both because the thing they toggled stopped existing:
   `show-containers-tab` (the Connections tab is structural now, and a display
   toggle that hides a graph which goes on existing behind it is not a setting
@@ -147,6 +147,12 @@ against the reason, not against the fact.
   the array and `keeper` were retired with the `container` type on 2026-07-31;
   the keeper's list is DERIVED from the children. If you find either name in a
   comment, it is history.
+  **Since 2026-08-01 the graph is FLAT (only a character keeps, ten at most) and
+  connection DRIVES OWNERSHIP** (`module/connections.js`): connected = the
+  keeper's players own it, broken = default LIMITED — transitions only, never a
+  re-enforcement sweep, monsters never touched. A player's connect/break cannot
+  write ownership (server wall), so it sets `ownershipSyncPending` and the
+  active GM's client answers; the flag, not the message, is the authorization.
 - **No automation of mechanical text.** "Restores 1 STR" stays prose. Trust
   players; no macros, no buttons. House style, and it dissolves the hardest
   content cases (a background granting a statted homunculus is text, not a spawned
@@ -231,7 +237,7 @@ What belongs here is what those two files do not say:
 
 ## Testing
 
-**`docs/release-testing.md` is the full list — 72 probes (`check:probes` states
+**`docs/release-testing.md` is the full list — 74 probes (`check:probes` states
 the current count), what each covers, and what to run before tagging vs after
 publishing. Keep it in step with `package.json`; a probe not listed there runs
 only when someone remembers it.**

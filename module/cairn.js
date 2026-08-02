@@ -15,7 +15,7 @@ import { createCairnMacro, rollItemMacro } from "./macros.js";
 import { Damage } from "./damage.js";
 import { registerSettings, SETTINGS_NS, migrateSettingsNamespace } from "./settings.js";
 import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS, deriveNpcRole } from "./data-models.js";
-import { connectionHeadroom } from "./connections.js";
+import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { loadContentOverlay, t, translationOf, contentLocalized } from "./i18n-content.js";
 
 Hooks.once("init", async function () {
@@ -236,6 +236,20 @@ const grantableRole = (sys) => {
 
 Hooks.once("init", () => {
   game.socket.on(`system.${game.system.id}`, async (msg, senderId) => {
+    // A player's connect/break asks the active GM's client to apply the
+    // ownership shape their own client is forbidden to write. NOTHING in the
+    // message is trusted — not even senderId is needed: the sync flag on the
+    // document is the authorization (only the child's owners can have set
+    // it), and syncPendingOwnership recomputes the shape from the document's
+    // own connectedTo. A flagless uuid is a no-op; an embedded or compendium
+    // uuid is refused the same way grantActors refuses one.
+    if (msg?.action === "ownershipSync") {
+      if (game.users.activeGM !== game.user) return;
+      const child = await fromUuid(msg.childUuid);
+      if (!(child instanceof getDocumentClass("Actor")) || child.pack || child.parent) return;
+      await syncPendingOwnership(child);
+      return;
+    }
     if (msg?.action !== "grantActors") return;
     // Exactly ONE client acts, or every logged-in GM mints its own copy.
     if (game.users.activeGM !== game.user) return;
@@ -300,8 +314,13 @@ Hooks.once("init", () => {
     if (!clean.length) return;
 
     const made = await getDocumentClass("Actor").createDocuments(clean);
+    // The CONNECTED ownership shape, not the old wholesale copy of the
+    // owner's ownership: {default: OBSERVER, the keeper's players: OWNER}.
+    // This client is the active GM's, so the write cannot be refused.
     for (const a of made) {
-      await a.update({ ownership: foundry.utils.deepClone(owner.ownership) });
+      await a.update({
+        ownership: foundry.data.operators.ForcedReplacement.create(connectedOwnershipShape(owner)),
+      });
     }
   });
 });
@@ -378,6 +397,19 @@ Hooks.once("ready", async () => {
   await phase("spellscroll -> flagged spellbook migration", migrateScrollsToSpellbooks);
 
   await phase("npc role migration", migrateNpcRoles);
+
+  await phase("connections flatten + ownership migration", flattenConnections);
+
+  // Stray sync flags: a player can connect or break while NO GM client is
+  // open, and the flag then waits for one. Every GM load processes whatever
+  // accumulated — NOT marker-gated, because it is not a migration; it is the
+  // relay's catch-up half, and it must run every time. Idempotent and cheap:
+  // a flagless world is one pass over game.actors reading a flag.
+  await phase("pending ownership sync sweep", async () => {
+    for (const a of game.actors) {
+      if (a.getFlag(FLAG_SCOPE, OWNERSHIP_SYNC_FLAG) !== undefined) await syncPendingOwnership(a);
+    }
+  });
 
   // Custom character portraits: make sure the GM's folder exists, then refresh the
   // cached image list so players (who cannot scan folders) see the current set.
@@ -602,6 +634,89 @@ const migrateNpcRoles = async () => {
     console.log(`Air Bladder | stamped role on ${updates.length} npc(s)`);
   }
   await game.settings.set(SETTINGS_NS, "roles-restamped", true);
+};
+
+/**
+ * Flatten the connection graph and normalize connection-driven ownership —
+ * Phase B of the 2026-08-01 redesign, running after the role re-stamp above.
+ *
+ * The FLAT rule ("every `connectedTo` points at a character") shipped with
+ * the code the day before this migration; the data a world accumulated under
+ * Round 2 can still say PC → hireling → sack. For each npc/hireling-typed
+ * world actor with a link, walk UP from its immediate keeper with a seen-set:
+ *
+ *   - immediate keeper is a character           → already flat, keep it;
+ *   - the chain ROOTS in a character            → re-point at that root — the
+ *     sack a hireling carried belongs to the hireling's PC, which is what the
+ *     table always meant by it;
+ *   - npc root / dangling uuid / cycle          → clear the link and stamp
+ *     `formerlyBelongedTo` with the immediate keeper's name when it still
+ *     resolves — the same labelled-loot-pile shape every other break leaves.
+ *
+ * Ownership rides the same batch, because the shape needs the FINAL keeper
+ * and only the flatten knows it (the reason this is ONE phase, ONE marker):
+ * a connected non-monster takes the connected shape from its final keeper; an
+ * unconnected non-monster whose STORED default is NONE is raised to LIMITED —
+ * and never lowered from anything else, because a default the Warden raised
+ * is a grant, and fighting the Warden's grants is exactly what the
+ * transitions-only rule forbids. Monsters are untouched throughout.
+ *
+ * The CAP is deliberately NOT enforced here: a PC may come out of the flatten
+ * keeping more than maxConnections(). The cap gates NEW connections only —
+ * a migration never destroys data.
+ *
+ * World actors only, one batched update, marker set only after success, like
+ * every sibling phase. Unlinked-token deltas inherit from their base actor;
+ * no scene-token walk (see migrateNpcRoles' docblock for why not).
+ */
+const flattenConnections = async () => {
+  if (game.settings.get(SETTINGS_NS, "connections-migrated")) return;
+  const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+  const ops = foundry.data.operators;
+  const updates = [];
+  for (const a of game.actors) {
+    if (!["npc", "hireling"].includes(a.type)) continue;
+    const u = { _id: a.id };
+    let keeper = null;
+    const link = a.system.connectedTo || "";
+    if (link) {
+      const immediate = game.actors.find((x) => x.uuid === link);
+      // Walk up until a character, a chain end, or a repeat. The seen-set is
+      // what keeps a pre-existing A→B→A corruption from hanging the phase.
+      let cur = immediate;
+      const seen = new Set();
+      while (cur && cur.type !== "character") {
+        if (seen.has(cur.uuid)) { cur = null; break; }   // cycle → treat as rootless
+        seen.add(cur.uuid);
+        const up = cur.system?.connectedTo || "";
+        cur = up ? game.actors.find((x) => x.uuid === up) : null;
+      }
+      if (immediate?.type === "character") {
+        keeper = immediate;
+      } else if (cur?.type === "character") {
+        keeper = cur;
+        u["system.connectedTo"] = cur.uuid;
+      } else {
+        u["system.connectedTo"] = "";
+        // The stored formerlyBelongedTo survives when the immediate keeper is
+        // gone — a dangling uuid preserves nothing worth overwriting it with.
+        if (immediate) u["system.formerlyBelongedTo"] = immediate.name;
+      }
+    }
+    if (a.system.role !== "monster") {
+      if (keeper) {
+        u.ownership = ops.ForcedReplacement.create(connectedOwnershipShape(keeper));
+      } else if ((a._source.ownership?.default ?? 0) === L.NONE) {
+        u["ownership.default"] = L.LIMITED;
+      }
+    }
+    if (Object.keys(u).length > 1) updates.push(u);
+  }
+  if (updates.length) {
+    await Actor.updateDocuments(updates);                 // one batch, so it can't half-finish
+    console.log(`Air Bladder | flattened/ownership-normalized ${updates.length} connected actor(s)`);
+  }
+  await game.settings.set(SETTINGS_NS, "connections-migrated", true);
 };
 
 // Two hooks used to tag every dialog world-wide with `.cairn-dialog` so

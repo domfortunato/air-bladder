@@ -1,6 +1,6 @@
 import { findTableItems } from "./compendium.js";
 import { iconForTransport, TRANSPORT_KINDS } from "./icons.js";
-import { atConnectionLimit, maxConnections } from "./connections.js";
+import { atConnectionLimit, maxConnections, connectedOwnershipShape, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { localizeNameDesc, t } from "./i18n-content.js";
 
 /**
@@ -322,17 +322,25 @@ export const acquireTransport = async (actor, doc, pay) => {
   }
   const container = await getDocumentClass("Actor").create(payload);
   if (!container) return false;
-  // Player-ownable: give the transport the same ownership as the character who
-  // bought it, so its owning player can open and manage it (GMs always can).
+  // Player-ownable: the CONNECTED ownership shape ({default: OBSERVER, the
+  // buyer's players: OWNER}), not the old wholesale copy of the buyer's
+  // ownership — a bought mule and a connected one must wear the same rights.
   //
-  // GM-only, because Foundry refuses an `ownership` write from anyone below
-  // Assistant ("ownership may only be modified by a GM or Assistant GM user") —
-  // this threw for a player in a world where the Warden had granted ACTOR_CREATE,
-  // AFTER the container was created and linked but BEFORE the gold was deducted,
-  // so they got a free transport and an uncaught error. A player doesn't need it
-  // anyway: Foundry makes the creating user an owner of what they create.
+  // GM-side only, because Foundry refuses an `ownership` write from anyone
+  // below Assistant ("ownership may only be modified by a GM or Assistant GM
+  // user") — this threw for a player in a world where the Warden had granted
+  // ACTOR_CREATE, AFTER the container was created and linked but BEFORE the
+  // gold was deducted, so they got a free transport and an uncaught error. A
+  // player buyer instead sets the sync flag and asks the active GM's client
+  // to apply the shape (they already own what they create; the flag ride
+  // fills in the OBSERVER default their client cannot write).
   if (game.user.isGM) {
-    await container.update({ ownership: foundry.utils.deepClone(actor.ownership) });
+    await container.update({
+      ownership: foundry.data.operators.ForcedReplacement.create(connectedOwnershipShape(actor)),
+    });
+  } else {
+    await container.update({ [`flags.air-bladder.${OWNERSHIP_SYNC_FLAG}`]: true });
+    game.socket.emit(`system.${game.system.id}`, { action: "ownershipSync", childUuid: container.uuid });
   }
   if (pay) {
     await actor.update({ "system.gold": (actor.system.gold ?? 0) - cost });

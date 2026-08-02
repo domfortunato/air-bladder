@@ -6,7 +6,7 @@ import { resultText } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES, containerClassSlots } from "../icons.js";
 import { NPC_ROLES } from "../data-models.js";
-import { atConnectionLimit, maxConnections } from "../connections.js";
+import { atConnectionLimit, maxConnections, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
 import { localizeNameDesc, t } from "../i18n-content.js";
 import { FATIGUE_NAME } from "../item/item.js";
 import { pickArt } from "../art-picker.js";
@@ -543,12 +543,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // Connected tab was an affordance for an action the server always refuses
     // (review #5). The template hides it; unlink and edit remain theirs.
     context.canDeleteActors = game.user.isGM;
-    // Manual edge management (Add Connection / Connect to… / unlink) is the
-    // Warden's alone (Round 2, docs/npc-roles-plan.md). Distinct from
-    // canDeleteActors although both are isGM today: one names a Foundry role
-    // gate we merely surface, the other names OUR policy — if either ever
-    // moves, the other must not move with it by accident.
-    context.isWarden = game.user.isGM;
+    // Manual edge management (Connect / unlink) opened to players on
+    // 2026-08-01: the Warden always, else the owner of both ends. THIS half
+    // of the pair gates the sheet-level controls, so it asks about the sheet
+    // actor only; the per-row/per-target half lives on each row below and in
+    // the pickers' filters. Distinct from canDeleteActors, which surfaces a
+    // Foundry ROLE gate (Actor deletion is Assistant+, no player-grantable
+    // permission) and stays isGM — the reason the two were never one flag.
+    context.canManageConnections = game.user.isGM || this.actor.isOwner;
     // Per-window id prefix for label[for]/input[id] pairs. Templates hardcoded the
     // field path as the DOM id ("system.gold"), so every open sheet of a type used
     // the SAME ids — and `label[for]` resolves against the first match in tree
@@ -576,6 +578,26 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // happens to touch the owner. Rebuilding it here costs one pass over
     // game.actors per render and cannot be stale by construction.
     context.system.containerObjects = this.actor.connectedActors();
+    // The Connections rows, decorated with what THIS user may do to each —
+    // unlink needs both ends (the sheet actor and the row's), so it is a
+    // per-row fact no single context flag can carry. The template iterates
+    // these; containerObjects above stays because other derived surfaces
+    // (slot math, worn rows) still read it.
+    context.connectionRows = context.system.containerObjects.map((c) => ({
+      uuid: c.uuid,
+      name: c.name,
+      slotsUsed: c.system.slotsUsed,
+      slots: c.system.slots,
+      canUnlink: game.user.isGM || (this.actor.isOwner && c.isOwner),
+    }));
+    // ...and the keeper line's break link, same rule from the child's end. A
+    // DANGLING keeper (uuid resolving to nothing) has no other end left to
+    // own, so the child's owner suffices — that detach is the only recovery
+    // the child has.
+    const keeperLink = this.actor.system.connectedTo || "";
+    const keeperDoc = keeperLink ? game.actors.find((a) => a.uuid === keeperLink) : null;
+    context.canDetach = game.user.isGM
+      || (this.actor.isOwner && (keeperDoc ? keeperDoc.isOwner : true));
     // Role-driven pick-lists for the NPC sheet header. The Kind list is the
     // CONTAINER_CLASSES table filtered to the current role, so a class added
     // there appears here with nothing else to keep in step; the input itself
@@ -1720,14 +1742,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static #onContainerUnlink(event, target) {
     event.preventDefault();
-    // Warden-only (Round 2) — unlinkOwnedContainer re-checks; this just
-    // refuses politely if the hidden control got reached anyway.
-    if (!game.user.isGM) {
-      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.WardenOnlyConnections"));
-      return;
-    }
     const row = CairnActorSheet.#row(target);
     if (!row?.dataset.isContainer) return;
+    // Both ends, per row — unlinkOwnedContainer re-checks; this just refuses
+    // politely if a hidden control got reached anyway.
+    const child = game.actors.find((a) => a.uuid === row.dataset.itemId);
+    if (!game.user.isGM && !(this.actor.isOwner && child?.isOwner)) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.ConnectionOwnBothEnds"));
+      return;
+    }
     // Not slid up: unlinking leaves the actor in the world, and the row simply
     // stops matching on the next render. Animating it away would suggest the
     // thing itself had gone.
@@ -1871,11 +1894,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onConnectionAdd(event) {
     event.preventDefault();
-    // connectActor re-checks; refusing before the dialog just spares a Warden
-    // gesture from players who found the action some way the template gating
-    // does not cover.
-    if (!game.user.isGM) {
-      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.WardenOnlyConnections"));
+    // connectActor re-checks; refusing before the dialog just spares a
+    // gesture from users who found the action some way the template gating
+    // does not cover. This is the keeper-side HALF of the both-ends wall —
+    // the candidate filter's canUserModify below is the per-target half, so
+    // a player is only ever offered children the whole wall would accept.
+    if (!game.user.isGM && !this.actor.isOwner) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.ConnectionOwnBothEnds"));
       return;
     }
     if (!this.actor.canKeepConnected) {
@@ -1913,11 +1938,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         <select name="connectionTarget">${options}</select>
       </div>`;
     await foundry.applications.api.DialogV2.prompt({
-      window: { title: game.i18n.localize("CAIRN.AddConnection") },
+      // ONE verb (2026-08-01): both ends' dialogs read CAIRN.Connect. The
+      // handlers stay separate — this one picks a child for a keeper, the
+      // attach one picks a keeper for a child — but the word is the word.
+      window: { title: game.i18n.localize("CAIRN.Connect") },
       content,
       ok: {
         icon: "fas fa-link",
-        label: game.i18n.localize("CAIRN.AddConnection"),
+        label: game.i18n.localize("CAIRN.Connect"),
         callback: async (dialogEvent, button) => {
           const uuid = button.form.connectionTarget?.value;
           const target = game.actors.find((a) => a.uuid === uuid);
@@ -1938,11 +1966,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onConnectionAttach(event) {
     event.preventDefault();
-    if (!game.user.isGM) {
-      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.WardenOnlyConnections"));
+    const child = this.actor;
+    // The child-side half of the both-ends wall; the keeper filter below adds
+    // the other half, so a player is only offered keepers they own.
+    if (!game.user.isGM && !child.isOwner) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.ConnectionOwnBothEnds"));
       return;
     }
-    const child = this.actor;
     if (child.system.connectedTo) return;             // one upward link, ever
     // Refuse from the child's own end. This replaces the Round 2 pair-rule
     // clause in the filter below (which offered a character none but other
@@ -1956,6 +1986,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const keepers = game.actors
       .filter((k) => k.uuid !== child.uuid
         && k.canKeepConnected
+        // The per-keeper half of the both-ends wall: a player is offered only
+        // keepers they own; the Warden is offered all of them.
+        && (game.user.isGM || k.isOwner)
         // A character with no room left is not an eligible keeper. Filtered
         // rather than refused-on-choice, same contract as Add Connection's.
         && !atConnectionLimit(k)
@@ -1976,11 +2009,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         <select name="keeperTarget">${options}</select>
       </div>`;
     await foundry.applications.api.DialogV2.prompt({
-      window: { title: game.i18n.localize("CAIRN.ConnectTo") },
+      // The same ONE verb as Add Connection's dialog — see the note there.
+      window: { title: game.i18n.localize("CAIRN.Connect") },
       content,
       ok: {
         icon: "fas fa-link",
-        label: game.i18n.localize("CAIRN.ConnectTo"),
+        label: game.i18n.localize("CAIRN.Connect"),
         callback: async (dialogEvent, button) => {
           const uuid = button.form.keeperTarget?.value;
           const keeper = game.actors.find((k) => k.uuid === uuid);
@@ -2002,16 +2036,26 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onConnectionDetach(event) {
     event.preventDefault();
-    if (!game.user.isGM) {
-      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.WardenOnlyConnections"));
-      return;
-    }
     const child = this.actor;
     const link = child.system.connectedTo || "";
     if (!link) return;
     const keeper = game.actors.find((a) => a.uuid === link);
     if (keeper) {
+      // The both-ends wall lives in unlinkOwnedContainer; this pre-check just
+      // says no before the confirm rather than after it.
+      if (!game.user.isGM && !(child.isOwner && keeper.isOwner)) {
+        ui.notifications.warn(game.i18n.localize("CAIRN.Notify.ConnectionOwnBothEnds"));
+        return;
+      }
       await keeper.unlinkOwnedContainer(child.uuid);
+      return;
+    }
+    // A DANGLING keeper: the uuid resolves to nothing, so there IS no other
+    // end to own — the child's owner suffices. This detach is the only
+    // recovery a dangling link has (single-parent-ever refuses to reconnect
+    // over it), which is why it must not demand an owner who no longer exists.
+    if (!game.user.isGM && !child.isOwner) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.ConnectionOwnBothEnds"));
       return;
     }
     const proceed = await foundry.applications.api.DialogV2.confirm({
@@ -2025,8 +2069,21 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     });
     if (!proceed) return;
     // No formerlyBelongedTo stamp — the keeper's name is exactly the fact the
-    // dangling uuid already failed to preserve.
-    await child.update({ "system.connectedTo": "" });
+    // dangling uuid already failed to preserve. The broken ownership shape
+    // rides along exactly as in unlinkOwnedContainer: GM writes it, a player
+    // sets the sync flag and asks the active GM's client (monsters excluded).
+    const changes = { "system.connectedTo": "" };
+    if (child.npcRole !== "monster") {
+      if (game.user.isGM) {
+        changes.ownership = foundry.data.operators.ForcedReplacement.create(brokenOwnershipShape(child));
+      } else {
+        changes[`flags.air-bladder.${OWNERSHIP_SYNC_FLAG}`] = true;
+      }
+    }
+    await child.update(changes);
+    if (!game.user.isGM && child.npcRole !== "monster") {
+      game.socket.emit(`system.${game.system.id}`, { action: "ownershipSync", childUuid: child.uuid });
+    }
   }
 
   /* -------------------------------------------- */
@@ -2734,12 +2791,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (!actor || actor.pack || actor.isToken) return null;
     if (this.actor.uuid === actor.uuid) return null;
 
-    // An npc-line (or, Round 2, character) drop is the drag spelling of Add
-    // Connection: one write, guarded inside connectActor (Warden-only, keeping
-    // role, connectable role, the NPC-never-keeps-a-PC pair rule,
-    // single-parent, cycle, permission). Already-connected stays refused —
-    // re-homing goes through unlink first, exactly as it always has.
-    if (!["npc", "hireling", "character"].includes(actor.type)) return null;
+    // An npc-line drop is the drag spelling of Connect: one write, guarded
+    // inside connectActor (both-ends ownership, keeping type, connectable
+    // role, single-parent, the cap, cycle, permission). "character" left this
+    // list with the flat graph — a PC can never be a child, connectActor
+    // refuses one anyway, and accepting the drop only to bounce it would
+    // toast a refusal at a gesture better ignored. Already-connected stays
+    // refused — re-homing goes through unlink first, exactly as it always has.
+    if (!["npc", "hireling"].includes(actor.type)) return null;
     if (actor.system.connectedTo) {
       ui.notifications.warn(game.i18n.localize("CAIRN.ContainerAlreadyOwned"));
       return null;

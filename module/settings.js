@@ -112,6 +112,19 @@ export const registerSettings = () => {
     default: false,
   });
 
+  // Completion marker for the connections flatten + ownership migration
+  // (2026-08-01, the flat graph). Same reasoning as its sibling above: gated
+  // on a marker, not on state, because both things it writes are re-editable
+  // — a Warden can re-raise an ownership default or re-break a link, and a
+  // state test would put the migration's answer back on the next load.
+  // `config: false`, so it cannot disturb the positional grouping below.
+  game.settings.register(SETTINGS_NS, "connections-migrated", {
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false,
+  });
+
   // ---- General -------------------------------------------------------------
   game.settings.register(SETTINGS_NS, "use-panic", {
     name: game.i18n.localize("CAIRN.Settings.UsePanic.label"),

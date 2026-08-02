@@ -1,7 +1,5 @@
 {
   "CAIRN.AddBond": "Add a bond",
-  "CAIRN.AddConnection": "Add Connection",
-  "CAIRN.AddConnectionHint": "Connect an existing actor — an NPC, mount, transport, or container.",
   "CAIRN.AddFatigue": "Add fatigue",
   "CAIRN.AddFeature": "Add Feature",
   "CAIRN.AddItem": "Add Item",
@@ -119,8 +117,8 @@
   "CAIRN.Close": "Close",
   "CAIRN.CompatibleAlt": "Compatible with Cairn 2e",
   "CAIRN.CompatibleCredit": "Cairn by <a href=\"https://cairnrpg.com\" target=\"_blank\" rel=\"noopener\">Yochai Gal</a> · <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\" target=\"_blank\" rel=\"noopener\">CC BY-SA 4.0</a>",
-  "CAIRN.ConnectTo": "Connect to…",
-  "CAIRN.ConnectToHint": "Attach this actor to a keeper — the other end of the same connection. Warden only.",
+  "CAIRN.Connect": "Connect",
+  "CAIRN.ConnectHint": "Connect an existing actor — an NPC, mount, transport, or container. The Warden always can; a player needs to own both ends.",
   "CAIRN.ConnectedToMissing": "Connected to an actor that no longer exists",
   "CAIRN.ConnectedToNamed": "Connected to {name}",
   "CAIRN.ConnectionPick": "Choose an actor to connect:",
@@ -294,6 +292,7 @@
     "ConnectionCycle": "Connecting {name} here would make a loop.",
     "ConnectionLimit": "{name} already keeps {max} connections — unlink something first.",
     "ConnectionLimitPartial": "{name} can keep only {max} connections, so {count} of these were not created.",
+    "ConnectionOwnBothEnds": "Connecting or unlinking needs the Warden — or ownership of both actors.",
     "ContainerFull": "{name} won't fit — the container is full.",
     "ContainerNoPermission": "You can't attach {name} — you don't have permission to change it. Ask the Warden.",
     "DropFailed": "Couldn't move that item — you may not have permission to change the receiving sheet.",
@@ -312,8 +311,7 @@
     "NotEnoughGold": "Not enough gold for {name} ({cost}).",
     "Overloaded": "{name} added — you are now over capacity (HP 0 until you free a slot).",
     "PortraitFolderScanned": "Custom portrait folder scanned — {count} image(s) found.",
-    "Took": "Took {name}.",
-    "WardenOnlyConnections": "Only the Warden connects or unlinks actors by hand."
+    "Took": "Took {name}."
   },
   "CAIRN.Notify.BackgroundNotCharacter": "Only a player character has a background.",
   "CAIRN.Notify.BackgroundWrongSource": "That is a {backgroundEdition} background and this is a {characterEdition} character. A character does not change edition.",

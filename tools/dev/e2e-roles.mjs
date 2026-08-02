@@ -37,14 +37,15 @@
  *    "reorder both" regression, and it doubles as the order-reader's
  *    differential witness.
  *
- * 6. **Both directions, either end (Round 2).** A connected actor's tab shows
- *    its upward keeper as a line the Warden can break from the child end; an
- *    unconnected connectable shows Connect to… (attach ME); and every manual
- *    edge control is the Warden's ALONE — a player client sees none of them,
- *    and the document methods refuse a player even when called directly, which
- *    the sheet gating can never guarantee. The player leg is the
- *    fail-without-the-fix witness for the isGM walls: Alice OWNS every actor
- *    involved, so without the gate her direct connectActor/unlink calls land.
+ * 6. **Both directions, either end — ONE verb, player-usable (2026-08-01).**
+ *    A connected actor's tab shows its upward keeper as a line breakable from
+ *    the child end; an unconnected connectable shows Connect (attach ME).
+ *    Connect/break is the Warden's always, or the OWNER OF BOTH ENDS' — so
+ *    the player leg INVERTED: Alice's direct calls on her own pair now land
+ *    end-to-end (link written, sync flag relayed, the GM client answering
+ *    with the exact ownership shape), and the fail-witness became the
+ *    one-end-foreign differential — a sack she does not own refuses her,
+ *    which only the both-ends term can be refusing.
  *
  * Drives the real select so `submitOnChange` commits it the way a user does.
  *
@@ -338,17 +339,39 @@ try {
     const stealRefused = !(await pc2.connectActor(s));
     const sackStillWithPc = s.system.connectedTo === pc.uuid;
 
-    // Ownership follows a PC → NPC connect (the marketplace-buy precedent).
+    // Ownership follows a PC → NPC connect — the CONNECTED SHAPE since
+    // 2026-08-01, not a wholesale copy. The shape assertion needs a keeper
+    // whose ownership mixes what MUST propagate (a player's OWNER entry) with
+    // what must NOT (a sub-OWNER entry — the Warden letting someone watch a
+    // sheet was not granting them the mule). Both users are non-GM; the probe
+    // establishes them (Alice may exist from dev:players).
+    let alice = game.users.getName("Alice");
+    if (!alice) alice = await User.create({ name: "Alice", role: CONST.USER_ROLES.PLAYER });
+    let bob = game.users.getName("Bob");
+    if (!bob) bob = await User.create({ name: "Bob", role: CONST.USER_ROLES.PLAYER });
+    const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+    const pc3 = await Cls.create({
+      name: "ZZ Roles Shape Keeper", type: "character",
+      ownership: { default: 0, [alice.id]: L.OWNER, [bob.id]: L.OBSERVER },
+    });
     const g = await mk("ZZ Roles Granted", { role: "container", containerClass: "sack" });
-    const grantLinked = await pc2.connectActor(g);
-    const grantOwnershipCopied = g.ownership.default === 2;
+    const grantLinked = await pc3.connectActor(g);
+    const gOwn = foundry.utils.deepClone(g.ownership);
+    const grantShape = {
+      defaultObserver: gOwn.default === L.OBSERVER,
+      aliceOwner: gOwn[alice.id] === L.OWNER,
+      bobAbsent: gOwn[bob.id] === undefined,
+      // No stray non-GM entries beyond Alice's.
+      noStrays: Object.entries(gOwn).every(([id, lvl]) =>
+        id === "default" || game.users.get(id)?.isGM || (id === alice.id && lvl === L.OWNER)),
+    };
 
-    for (const x of [s, g, h, m, b1, b2, monster, pcChild, pc2, pc]) await x.delete();
+    for (const x of [s, g, h, m, b1, b2, monster, pcChild, pc2, pc3, pc]) await x.delete();
     return { npcCannotKeep, npcConnectRefused, sackUntouched, pcTakesSack, sackWithPc,
       mountKeeps, monsterConnectable, chainExtendRefused, b1Untouched,
       pcPcRefused, pcChildUp, rosterHasChild, pcHasNoLinkField, pcChildOwnershipUntouched,
       npcKeepsPcRefused, pcStillFree, stealRefused, sackStillWithPc,
-      grantLinked, grantOwnershipCopied };
+      grantLinked, grantShape };
   });
 
   matrix.npcCannotKeep && matrix.npcConnectRefused && matrix.sackUntouched
@@ -380,9 +403,10 @@ try {
   matrix.stealRefused && matrix.sackStillWithPc
     ? ok("a connected actor cannot be stolen", "single-parent enforced in connectActor itself")
     : bad("a connected actor cannot be stolen", JSON.stringify(matrix));
-  matrix.grantLinked && matrix.grantOwnershipCopied
-    ? ok("PC → NPC connect copies the PC's ownership", "the marketplace precedent")
-    : bad("PC → NPC connect copies the PC's ownership", JSON.stringify(matrix));
+  matrix.grantLinked && matrix.grantShape.defaultObserver && matrix.grantShape.aliceOwner
+    && matrix.grantShape.bobAbsent && matrix.grantShape.noStrays
+    ? ok("PC → NPC connect writes the CONNECTED shape", "default OBSERVER, owner propagated, watcher not")
+    : bad("PC → NPC connect writes the CONNECTED shape", JSON.stringify(matrix.grantShape));
   // "PC → PC leaves the child's ownership alone" was asserted here. It is now
   // part of the refusal assertion above — with the connect refused there is no
   // ownership step to reach, and a separate line naming a relationship that can
@@ -888,13 +912,16 @@ try {
     bad("reproduced — the banners come back",
       "the control changed nothing, so the banner assertion above is not load-bearing");
 
-  /* ---- the player leg: every Warden wall, from the other side ---- */
-  // Alice OWNS every actor involved, so canUserModify passes everywhere and
-  // the isGM gates are the ONLY thing refusing — remove them and both direct
-  // calls below land, which is what makes this the fail-without-the-fix
-  // witness. A Warden client can never show that (permission memo: a GM can
-  // never reproduce a permission bug).
-  console.log("\na player sees no edge controls, and the walls hold anyway");
+  /* ---- the player leg: ONE verb, player-usable (INVERTED 2026-08-01) ---- */
+  // Until today this leg proved the Warden-only walls held against an owner.
+  // Those walls are GONE by design: connect/break is usable by the owner of
+  // BOTH ends, so the old fail-witness (her direct call refused) is now the
+  // positive case. The NEW differential fail-witness is the one-end-foreign
+  // sack: Alice owns her PC but not the foreign sack, so only the both-ends
+  // term refuses it — delete the wall and that connect lands. The GM page
+  // stays open in this probe, so the socket relay has a live GM client to
+  // answer with the ownership shape.
+  console.log("\na player who owns both ends connects, breaks, and pays for it");
   const seed = await page.evaluate(async () => {
     const Cls = CONFIG.Actor.documentClass;
     let alice = game.users.getName("Alice");
@@ -910,7 +937,12 @@ try {
       name: "ZZ Roles Alice Free", type: "npc", ownership: own,
       system: { role: "container", containerClass: "sack", hp: { value: 0, max: 0 }, generationEnabled: false },
     });
-    return { pcUuid: pc.uuid, sackUuid: sack.uuid, freeUuid: free.uuid };
+    // Owned by NOBODY Alice can speak for — the one-end-foreign differential.
+    const foreign = await Cls.create({
+      name: "ZZ Roles Alice Foreign", type: "npc", ownership: { default: 0 },
+      system: { role: "container", containerClass: "sack", hp: { value: 0, max: 0 }, generationEnabled: false },
+    });
+    return { aliceId: alice.id, pcUuid: pc.uuid, sackUuid: sack.uuid, freeUuid: free.uuid, foreignUuid: foreign.uuid };
   });
   if (seed.error) bad("player leg setup", seed.error);
   else {
@@ -919,11 +951,13 @@ try {
     await joinAs(alicePage, "Alice");
     await dismissChrome(alicePage);
 
-    const player = await alicePage.evaluate(async ({ pcUuid, sackUuid, freeUuid }) => {
+    const player = await alicePage.evaluate(async ({ aliceId, pcUuid, sackUuid, freeUuid, foreignUuid }) => {
       const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
       const pc = await fromUuid(pcUuid);
       const sack = await fromUuid(sackUuid);
       const free = await fromUuid(freeUuid);
+      const foreign = await fromUuid(foreignUuid);
       await pc.sheet.render(true);
       await sleep(900);
       pc.sheet.changeTab?.("containers", "primary");
@@ -946,37 +980,65 @@ try {
         detach: !!sEl.querySelector(".connection-detach"),
         attach: !!sEl.querySelector(".connection-attach"),
       };
-      // Enforcement, not affordance: the direct calls a hidden link cannot
-      // stop. Confirm stubbed so an UNFIXED unlink fails fast instead of
-      // hanging the harness on a dialog nobody answers.
+
+      // Her CONNECT, both ends owned: must land, and the GM client must
+      // answer with the exact connected shape and clear the sync flag. Poll
+      // for the SETTLED state, not the first observable — the relay is two
+      // writes on two clients.
       const DialogV2 = foundry.applications.api.DialogV2;
       const origConfirm = DialogV2.confirm;
       DialogV2.confirm = async () => true;
       const connectReturned = await pc.connectActor(free);
       const connectLanded = free.system.connectedTo === pc.uuid;
+      let shapeSettled = false;
+      for (let i = 0; i < 40 && !shapeSettled; i++) {
+        await sleep(250);
+        shapeSettled = free.ownership.default === L.OBSERVER
+          && free.ownership[aliceId] === L.OWNER
+          && free.getFlag("air-bladder", "ownershipSyncPending") === undefined;
+      }
+      const freeShape = { ...free.ownership };
+
+      // The one-end-foreign differential: refused, nothing written.
+      const foreignReturned = await pc.connectActor(foreign);
+      const foreignUntouched = !foreign.system.connectedTo
+        && (foreign.ownership.default ?? 0) === 0;
+
+      // Her BREAK: lands, and the broken shape costs her OWNER — by design.
       await pc.unlinkOwnedContainer(sack.uuid);
-      const stillConnected = sack.system.connectedTo === pc.uuid;
+      const breakLanded = sack.system.connectedTo === "";
+      let broke = false;
+      for (let i = 0; i < 40 && !broke; i++) {
+        await sleep(250);
+        broke = sack.ownership.default === L.LIMITED
+          && sack.ownership[aliceId] === undefined;
+      }
+      const lostWrite = sack.isOwner === false && !sack.canUserModify(game.user, "update");
       DialogV2.confirm = origConfirm;
       await pc.sheet.close();
       await sack.sheet.close();
-      return { pcTab, sackTab, connectReturned, connectLanded, stillConnected };
+      return { pcTab, sackTab, connectReturned, connectLanded, shapeSettled, freeShape,
+        foreignReturned, foreignUntouched, breakLanded, broke, lostWrite };
     }, seed);
 
     player.pcTab.tab && player.pcTab.rowForSack && player.pcTab.editIcon
       ? ok("Alice still SEES her connections", "tab, row and edit intact")
       : bad("Alice still SEES her connections", JSON.stringify(player.pcTab));
-    !player.pcTab.add && !player.pcTab.unlinkIcon
-      ? ok("no Add Connection, no unlink on her PC", "edge controls are the Warden's")
-      : bad("no Add Connection, no unlink on her PC", JSON.stringify(player.pcTab));
-    player.sackTab.keeperLine && !player.sackTab.detach && !player.sackTab.attach
-      ? ok("the sack shows its keeper, offers no controls", "read-only from below too")
-      : bad("the sack shows its keeper, offers no controls", JSON.stringify(player.sackTab));
-    !player.connectReturned && !player.connectLanded
-      ? ok("a direct connectActor call is refused", "she owns both ends; only the Warden wall said no")
-      : bad("a direct connectActor call is refused", JSON.stringify(player));
-    player.stillConnected
-      ? ok("a direct unlink call is refused", "the sack stays connected")
-      : bad("a direct unlink call is refused", "the player unlinked it — the wall is not there");
+    player.pcTab.add && player.pcTab.unlinkIcon
+      ? ok("Connect and unlink render for the owner now", "the edge controls are hers on her own PC")
+      : bad("Connect and unlink render for the owner now", JSON.stringify(player.pcTab));
+    player.sackTab.keeperLine && player.sackTab.detach && !player.sackTab.attach
+      ? ok("the sack shows its keeper, breakable by its owner", "detach offered; no second parent")
+      : bad("the sack shows its keeper, breakable by its owner", JSON.stringify(player.sackTab));
+    player.connectReturned && player.connectLanded && player.shapeSettled
+      ? ok("her connect lands and the GM answers with the shape", "default OBSERVER, Alice OWNER, flag cleared")
+      : bad("her connect lands and the GM answers with the shape", JSON.stringify({ r: player.connectReturned, l: player.connectLanded, s: player.shapeSettled, shape: player.freeShape }));
+    !player.foreignReturned && player.foreignUntouched
+      ? ok("one end foreign → refused, nothing written", "the both-ends wall's differential fail-witness")
+      : bad("one end foreign → refused, nothing written", JSON.stringify(player));
+    player.breakLanded && player.broke && player.lostWrite
+      ? ok("her break lands, and costs her OWNER", "default LIMITED, entry stripped — by design")
+      : bad("her break lands, and costs her OWNER", JSON.stringify({ b: player.breakLanded, broke: player.broke, lost: player.lostWrite }));
 
     console.log(`\n  player console errors: ${aliceErrors.length}`);
     for (const e of aliceErrors.slice(0, 8)) console.log(`  ${e}`);

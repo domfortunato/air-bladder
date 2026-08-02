@@ -242,3 +242,53 @@ table above changes in one column: **Gold now follows the role too.**
   single-parent-ever in `connectActor` itself (the dialog filter alone was the
   only guard before, so a drop could steal a connected actor). The tab shows
   both directions instead: the upward keeper row and the kept list.
+
+## Round 3 — the flat graph, the cap, and the player verb (settled 2026-08-01)
+
+This round SUPERSEDES two Round-2 rules above; they are left in place as the
+record of what was tried, and this section is what the code does.
+
+- ~~**NPC → NPC below that.**~~ **The graph is FLAT: only a character keeps.**
+  Every `connectedTo` points at a PC; the hireling-keeps-her-own-backpack
+  chain died on the user's own question ("isn't nesting an invitation to
+  disaster?"). The reason is ownership, not tidiness: with connection driving
+  ownership (below), every connect/break under nesting becomes a transitive
+  walk over a subtree, re-deriving the rights of documents nobody touched.
+  `KEEPER_ROLES` is gone — keeping is decided by TYPE, in one line of
+  `canKeepConnected`. The cycle guard survives as belt-and-braces over
+  pre-flat data; `flattenConnections` (marker `connections-migrated`)
+  re-points PC-rooted chains, unlinks-and-stamps npc-rooted, dangling and
+  cyclic ones, and never destroys data.
+- **A cap of ten connections per character, counting EVERY role** (a horse, a
+  cart and two sacks are four of the ten). `MAX_CONNECTIONS` in
+  `module/connections.js`, read only through `maxConnections()` — a future GM
+  setting is anticipated, not built. The cap gates NEW connections only: the
+  three mint flows (marketplace, generation grants, the socket broker — the
+  broker being the WALL, since the player-side clamp cannot bind a crafted
+  client) each enforce it, and the migration deliberately does not.
+- ~~**Edges are the Warden's alone.**~~ **ONE verb, player-usable: the Warden
+  always, else the OWNER OF BOTH ENDS.** Both dialogs read one label
+  ("Connect"); the wall lives inside `connectActor`/`unlinkOwnedContainer`
+  as before, now testing `isGM || (keeper.isOwner && child.isOwner)`; a
+  dangling keeper's detach needs only the child's owner — there is no other
+  end left to own.
+- **Ownership FOLLOWS connection, as shapes, transitions-only, monsters
+  excluded.** Connected → `{default: OBSERVER, keeper's players: OWNER}`;
+  broken/unconnected → `{default: LIMITED}`, connection-granted OWNER
+  stripped, sub-OWNER grants kept. Applied with
+  `foundry.data.operators.ForcedReplacement` (the `"==key"` spelling is
+  deprecated legacy syntax on 14.365) so stale entries actually go — this
+  replaces Round 2's wholesale `deepClone` copy at all four write sites. No
+  re-enforcement sweep ever runs: a Warden's manual grant after the fact is
+  theirs. A PLAYER's client cannot write the shapes (server wall), so their
+  connect/break folds `flags.air-bladder.ownershipSyncPending` into the same
+  write and emits `ownershipSync`; the active GM's client recomputes from
+  document state (the flag is the authorization), and a GM-load sweep
+  catches flags set while no GM was online. Known, accepted, release-notes-
+  worthy: a player who breaks a connection loses OWNER and cannot reconnect
+  alone. `_preCreate` gives unconnected non-monster npcs a LIMITED default
+  (creation-time defaults are the one ownership write a player may make).
+
+Gated by `npm run dev:connections` (the verb, the relay, the walls, the
+_preCreate default) and `npm run dev:connections-migration` (every branch of
+the flatten, with the monster-exclusion and never-downgrade witnesses).

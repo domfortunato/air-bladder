@@ -315,7 +315,14 @@ try {
     const out = {
       present: !!root?.querySelector(".day-rate-line"),
       value: root?.querySelector(".day-rate-input")?.value,
-      box: root?.querySelector(".for-hire-input")?.checked,
+      // `.for-hire-check`, which is what the template has always rendered.
+      // This read said `.for-hire-input` — a class that has never existed in
+      // any template — and both were written in the SAME commit (936215d), so
+      // the box has been silently `undefined` and this assertion red since the
+      // day it was added. The fourth pre-existing red probe found on this
+      // branch; they are only ever found by grepping the SELECTOR, never by a
+      // gate announcing itself.
+      box: root?.querySelector(".for-hire-check")?.checked,
     };
     await a.sheet.close();
     return out;

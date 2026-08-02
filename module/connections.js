@@ -54,3 +54,112 @@ export const connectionHeadroom = (keeper) => Math.max(0, maxConnections() - con
  * @returns {boolean} true when one more connection would exceed the ceiling
  */
 export const atConnectionLimit = (keeper) => connectionHeadroom(keeper) <= 0;
+
+/* -------------------------------------------------------------------------- */
+/*  Ownership follows connection (2026-08-01)                                  */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * Connection drives OWNERSHIP now. Connected -> the keeper's players own the
+ * child and the table may look at it; broken or unconnected -> a stranger's
+ * silhouette. TRANSITIONS ONLY: these shapes are applied when an edge is made
+ * or broken (and once by the migration), never by a re-enforcement sweep — a
+ * Warden's manual grant after the fact is theirs to make and ours to leave
+ * alone. Monsters are excluded EVERYWHERE: role monster never joins the graph
+ * and its ownership is never touched by any of this.
+ *
+ * Both shapes are applied with foundry.data.operators.ForcedReplacement — the
+ * v14 spelling; the "==ownership" key prefix is deprecated legacy syntax that
+ * logs a compatibility warning (common/utils/helpers.mjs:463-466) — because a
+ * plain object update MERGES by key and the whole point is that stale entries
+ * actually go.
+ *
+ * Only a GM client may apply them: the server refuses any non-GM update that
+ * touches `default` or another user's entry (sanitizeDocumentOwnershipField).
+ * A player's connect/break instead folds `flags.air-bladder.
+ * ownershipSyncPending: true` into their own write and emits `ownershipSync`
+ * on the system socket; the active GM's client recomputes the shape FROM
+ * DOCUMENT STATE. The flag is the authorization — only the child's owners can
+ * set it — so nothing in the message is trusted.
+ */
+
+/** The flag a player's connect/break sets to request the GM-side ownership
+ *  write. Scope is the SYSTEM ID (Foundry validates flag scopes against real
+ *  package ids), key exported so probes and the sweep read one spelling. */
+export const OWNERSHIP_SYNC_FLAG = "ownershipSyncPending";
+
+/**
+ * The shape a CONNECTED child wears: the world may look (OBSERVER), the
+ * keeper's players own it. Explicit non-GM OWNER entries on the keeper are
+ * copied; GM users are skipped as noise (isGM short-circuits to OWNER on
+ * everything anyway); sub-OWNER entries on the keeper do NOT propagate — a
+ * Warden letting Bob watch Alice's sheet was not granting Bob her mule. A
+ * keeper whose own `default` is raised contributes nothing extra by design:
+ * only explicit entries name the players whose character this is.
+ * @param {CairnActor} keeper  a character
+ * @returns {Object<string, number>}
+ */
+export const connectedOwnershipShape = (keeper) => {
+  const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+  const shape = { default: L.OBSERVER };
+  for (const [id, level] of Object.entries(keeper?.ownership ?? {})) {
+    if (id === "default") continue;
+    const user = game.users.get(id);
+    if (!user || user.isGM) continue;
+    if (level >= L.OWNER) shape[id] = L.OWNER;
+  }
+  return shape;
+};
+
+/**
+ * The shape a BROKEN (or never-connected) child wears: a loot pile is a
+ * stranger until someone finds it, so `default` drops to LIMITED and the
+ * connection-granted OWNER entries are stripped. Sub-OWNER explicit entries
+ * survive — those are the Warden's own grants, not this automation's, and
+ * stripping them would be exactly the fight the transitions-only rule
+ * forbids. The consequence is deliberate and release-notes-worthy: a player
+ * who breaks a connection loses OWNER on the child and cannot reconnect it
+ * alone.
+ * @param {CairnActor} child
+ * @returns {Object<string, number>}
+ */
+export const brokenOwnershipShape = (child) => {
+  const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+  const shape = { default: L.LIMITED };
+  for (const [id, level] of Object.entries(child?.ownership ?? {})) {
+    if (id === "default") continue;
+    const user = game.users.get(id);
+    if (!user || user.isGM) continue;
+    if (level >= L.OWNER) continue;
+    shape[id] = level;
+  }
+  return shape;
+};
+
+/**
+ * Apply the ownership a child's CURRENT document state calls for, iff it
+ * carries the sync flag. GM CLIENT ONLY (the server refuses everyone else).
+ *
+ * Trusts nothing but the document: the flag is the authorization (settable
+ * only by the child's owners), `connectedTo` decides which shape, and the
+ * flag is cleared in the same update — with ForcedDeletion, core's own
+ * unsetFlag spelling (common/abstract/document.mjs:997-1003), so no residue
+ * key survives to make a later reader wonder. Wrong type or a monster just
+ * loses the flag: their ownership is not this automation's to touch.
+ * @param {CairnActor} child  a WORLD actor (callers verify)
+ */
+export const syncPendingOwnership = async (child) => {
+  if (child.getFlag("air-bladder", OWNERSHIP_SYNC_FLAG) === undefined) return;
+  const ops = foundry.data.operators;
+  const changes = {
+    [`flags.air-bladder.${OWNERSHIP_SYNC_FLAG}`]: new ops.ForcedDeletion(),
+  };
+  if (["npc", "hireling"].includes(child.type) && child.npcRole !== "monster") {
+    const link = child.system?.connectedTo || "";
+    const keeper = link ? game.actors.find((a) => a.uuid === link) : null;
+    changes.ownership = ops.ForcedReplacement.create(
+      keeper?.type === "character" ? connectedOwnershipShape(keeper) : brokenOwnershipShape(child)
+    );
+  }
+  await child.update(changes);
+};

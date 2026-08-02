@@ -81,6 +81,8 @@
     "dev:art-picker": "node tools/dev/e2e-art-picker.mjs",
     "dev:roles": "node tools/dev/e2e-roles.mjs",
     "dev:container-unlink": "node tools/dev/e2e-container-unlink.mjs",
+    "dev:connections": "node tools/dev/e2e-connections.mjs",
+    "dev:connections-migration": "node tools/dev/e2e-connections-migration.mjs",
     "dev:socket-grant": "node tools/dev/socket-grant-probe.mjs",
     "dev:listeners": "node tools/dev/e2e-listeners.mjs"
   },

@@ -128,7 +128,14 @@ try {
       })(),
       // ...and it must not appear as a worn row, which is what charges the carrier.
       wornRows: (actor.system.wornContainerRows ?? []).length,
-      ownershipCopied: JSON.stringify(horse?.ownership) === JSON.stringify(actor.ownership),
+      // The CONNECTED shape (2026-08-01), not a wholesale copy: default
+      // OBSERVER, plus OWNER for exactly the character's own players (this
+      // GM-generated character has none, so no non-GM entries at all).
+      ownershipShape: horse?.ownership.default === CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER
+        && Object.entries(horse?.ownership ?? {}).every(([id, lvl]) =>
+          id === "default" || game.users.get(id)?.isGM
+          || ((actor.ownership[id] ?? 0) >= CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER
+            && lvl === CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER)),
     };
 
     // 3. A container the PLAYER made must survive a regenerate. An npc with
@@ -315,7 +322,7 @@ try {
     r.grant.kind === "horse" ? ok("classified as a horse") : fail(`class is ${r.grant.kind}, expected horse`);
     r.grant.keeperLinked && r.grant.listed ? ok("connected, and derived onto the owner's tab") : fail("connectedTo missing, or the owner's list did not derive it");
     r.grant.flagged ? ok("flagged with the question that granted it") : fail("missing the grantSource flag");
-    r.grant.ownershipCopied ? ok("inherits the character's ownership (player-ownable)") : fail("ownership was not copied");
+    r.grant.ownershipShape ? ok("wears the connected shape (default OBSERVER + the character's players)") : fail("granted beast's ownership is not the connected shape");
     r.grant.wornRows === 0 && r.grant.slotsUsed === r.grant.slotsWithout
       ? ok(`a mount costs its rider no slots (${r.grant.slotsUsed} with it, ${r.grant.slotsWithout} without; 0 worn rows)`)
       : fail(`the mount charged the rider: ${r.grant.slotsWithout} -> ${r.grant.slotsUsed}, ${r.grant.wornRows} worn rows`);
