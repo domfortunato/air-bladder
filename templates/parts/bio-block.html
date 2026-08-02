@@ -92,10 +92,12 @@
                                     <div class="scar-list">
                                         {{#each scarOptions}}
                                         <label class="scar-option">
+                                            {{! `value` is the STORED English (the change handler
+                                                persists it verbatim); `display` is what you read. }}
                                             <input type="checkbox" class="scar-check" value="{{this.name}}"
                                                 {{#if this.selected}}checked{{/if}} />
                                             <span class="scar-text">
-                                                <span class="scar-name">{{this.name}}</span>
+                                                <span class="scar-name">{{this.display}}</span>
                                                 <span class="scar-desc">{{this.description}}</span>
                                             </span>
                                         </label>

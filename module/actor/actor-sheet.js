@@ -665,14 +665,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // into the active language for rendering only. These are plain data copies (not
     // the stored documents, which stay English), so name-matching elsewhere is
     // unaffected. A no-op in an English world (overlay null); a miss shows English.
-    // An NPC monster stores its attacks/features as embedded items; the extractor
-    // files those under monster.itemName/monster.itemDesc, not the gear item.*
-    // namespaces. Characters/hirelings/containers hold gear → item.* (the default).
-    const itemNs =
-      this.actor.type === "npc"
-        ? { nameNs: "monster.itemName", descNs: "monster.itemDesc" }
-        : undefined;
-    items = items.map((i) => localizeNameDesc(i, itemNs));
+    items = items.map((i) => localizeNameDesc(i, this._itemNamespaces()));
     // Fatigue is STORED in English (see FATIGUE_NAME) so its identity survives a
     // mixed-language table. Its label is localized here, at display time, from the
     // UI key every language file already carries — so a Spanish player still reads
@@ -735,6 +728,34 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
+   * Content-overlay namespaces for THIS actor's EMBEDDED ITEMS.
+   *
+   * One definition because two places need it and they MUST agree: the render path
+   * localizes the inventory rows, and #onItemDescription rebuilds the expanded panel
+   * from the stored document. They did not agree — the panel never asked the overlay
+   * at all — so every item description read English in every language while the name
+   * above it read Spanish. That is what a translator reported (2026-08-02), and no
+   * amount of translating could have fixed it.
+   *
+   * Keyed on ROLE, not on type. A monster stores its attacks and features as items,
+   * which the extractor files under monster.itemName/monster.itemDesc; everything
+   * else — a character, a hireling, a person, and a CONTAINER — holds gear from the
+   * item packs, which is item.*. Type was the right key only while `container` was
+   * its own type: since it became `npc` + role, `type === "npc"` swept a container's
+   * gear into the monster namespaces, where it could only ever miss.
+   *
+   * The actor's OWN name/description stay type-keyed (monster.name / monster.desc),
+   * because that is what the extractor emits for every actor doc including mounts
+   * and containers. The split is deliberate: item rule by role, actor rule by type.
+   * @private
+   */
+  _itemNamespaces() {
+    return this.actor.npcRole === "monster"
+      ? { nameNs: "monster.itemName", descNs: "monster.itemDesc" }
+      : { nameNs: "item.name", descNs: "item.desc" };
+  }
+
+  /**
    * The biography block (templates/parts/bio-block.html): trait pick-lists +
    * the constructed sentence, and the Scars checklist. Extracted from
    * _prepareCharacterContext when role-npc PEOPLE got the same block
@@ -787,14 +808,27 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const tables2e = byPack["air-bladder.tables-2e"] ?? (await cachedPackDocuments("air-bladder.tables-2e"));
     const scarTable = tables2e.find((tbl) => tbl.name === "Scars");
     const selectedScars = this.actor.system.scars ?? [];
+    // Same display/value split as the trait options above, and for the same reason:
+    // `.scar-check` persists its `value` verbatim into system.scars, and `selected`
+    // matches English↔English, so `name` must stay the English source. Only `display`
+    // and `description` are localized. Both were plain English before — the scar
+    // NAMES were already in the overlay and simply never looked up.
     context.scarOptions = scarTable
-      ? scarTable.results.map((r) => ({
-          name: resultText(r),
-          description: r.flags?.["air-bladder"]?.description ?? "",
-          selected: selectedScars.includes(resultText(r)),
-        }))
+      ? scarTable.results.map((r) => {
+          const name = resultText(r);
+          return {
+            name,
+            display: t("table.result", name),
+            // Our own per-row annotation, not the row's text — hence its own
+            // namespace (see tools/i18n/extract-content.mjs).
+            description: t("table.resultDesc", r.flags?.["air-bladder"]?.description ?? ""),
+            selected: selectedScars.includes(name),
+          };
+        })
       : [];
-    context.scarDisplay = selectedScars.length ? selectedScars.join(", ") : null;
+    context.scarDisplay = selectedScars.length
+      ? selectedScars.map((s) => t("table.result", s)).join(", ")
+      : null;
     context.scarsCollapsed = this._scarsCollapsed ?? false;
   }
 
@@ -1824,7 +1858,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         // HTML/script into the keeper's (or GM's) sheet when the row is expanded.
         const div = document.createElement("div");
         div.className = "item-description";
-        div.textContent = container.items.map((it) => it.name).join(", ");
+        // What a container holds is gear, whatever the KEEPER is — so item.name,
+        // not this keeper's namespaces.
+        div.textContent = container.items.map((it) => t("item.name", it.name)).join(", ");
         return div;
       });
       return;
@@ -1837,7 +1873,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         : "";
       const div = document.createElement("div");
       div.className = "item-description";
-      div.innerHTML = `${cleanDescription(item.system.description)}${crit}`;
+      // Localized like the row above it (_itemNamespaces), and sanitized AFTER —
+      // the overlay is a shipped file, but it reaches innerHTML, so it goes
+      // through the same cleaner the stored string does rather than around it.
+      // criticalDamage is not translated because it is not EXTRACTED: no shipped
+      // item carries any, so there is nothing for a translator to have filled.
+      const desc = t(this._itemNamespaces().descNs, item.system.description);
+      div.innerHTML = `${cleanDescription(desc)}${crit}`;
       return div;
     });
   }

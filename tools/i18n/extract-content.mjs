@@ -72,6 +72,14 @@ function* stringsFromDoc(doc) {
       // translated string is stored under a key nothing ever queries.
       const en = (r.type === "text" ? r.description : r.name) ?? "";
       if (en) yield { ns: "table.result", en, context: `${name} · ${range}`.trim() };
+      // Our OWN per-row annotation, under our own flag scope. Today only the Scars
+      // table carries one (12 rows), and the character sheet prints it beside every
+      // scar — player-facing prose that reached no spreadsheet at all, so it read
+      // English however complete the overlay was. Its own namespace rather than
+      // table.result because the taxonomy mirrors the FIELD, not the document: this
+      // is not the row's rolled text and must not key against it.
+      const rowDesc = r.flags?.["air-bladder"]?.description ?? "";
+      if (rowDesc) yield { ns: "table.resultDesc", en: rowDesc, context: `${name} · ${range} · detail`.trim() };
     }
     return;
   }

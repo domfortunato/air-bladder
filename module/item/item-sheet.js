@@ -176,6 +176,28 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   /* -------------------------------------------- */
 
   /**
+   * Window title with the item's DISPLAY name. The `name` field on the sheet stays
+   * the English source — it is a bare <input> with no display/value split, and it is
+   * the key every gear lookup, background grant and table match resolves on — but the
+   * frame is pure display, and it was the one place still reading "Rope" while the
+   * compendium list, the inventory row and the description all read Spanish.
+   *
+   * Falls straight through to core whenever nothing translates, so an English world
+   * is byte-identical; the format below is only reached when the overlay hits, and
+   * mirrors DocumentSheetV2#title (shipped client, api/document-sheet.mjs:99-103).
+   * @override
+   */
+  get title() {
+    const name = t(this.item.type === "background" ? "bg.name" : "item.name", this.item.name);
+    if (!name || name === this.item.name) return super.title;
+    const cls = this.item.constructor;
+    const prefix = cls.hasTypeData && this.item.type !== "base"
+      ? CONFIG.Item.typeLabels[this.item.type]
+      : cls.metadata.label;
+    return `${game.i18n.localize(prefix)}: ${name}`;
+  }
+
+  /**
    * The background authoring form is a tall, multi-section editor; give it room.
    * Done here rather than in the constructor because `position` is derived from
    * the options during initialization.
@@ -240,14 +262,26 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     // window as `rootId`, so this is now an alias rather than a hand-rolled one.
     context.idp = context.rootId;
 
-    // Content localization for READ-ONLY (locked pack) entries only. An editable
-    // sheet — an owned item, or an unlocked pack a Warden is editing — keeps the
-    // canonical English so a save never writes a translated string back onto the
-    // document. The name is left to the compendium list; here we localize the
-    // description (a display-only derived field, never the stored value).
-    const localize = !this.isEditable;
+    // Content localization, on EVERY sheet including an editable one.
+    //
+    // This used to be gated on `!this.isEditable`, to stop a save writing the
+    // translated string back onto the document. The gate was unnecessary and it
+    // cost the whole feature: a player owns their own items, so an editable sheet
+    // is the ONLY sheet most players ever open, and it was English in every
+    // language. A toggled <prose-mirror> already separates the two halves for us
+    // (shipped client, applications/elements/prosemirror-editor.mjs):
+    //   :40-45  the `value` attribute becomes `_value` — the editable, submitted
+    //           source; the light-DOM child becomes `#enriched` — display only.
+    //   :165    while inactive it renders `#enriched`, i.e. this string.
+    //   :204    on activation it OVERWRITES the content with `_value`, and :217
+    //           seeds the editor from it.
+    // So the template keeps `value="{{system.description}}"` (English, always) and
+    // the Spanish exists only as inactive display: clicking the pencil replaces it
+    // with the English source before a single keystroke can land, and a submit
+    // carries `_value`. Same rule as the trait <select> on the actor sheet — the
+    // stored value is English, the visible label is not.
     const descNs = this.item.type === "background" ? "bg.desc" : "item.desc";
-    const descSrc = localize ? t(descNs, this.item.system.description) : this.item.system.description;
+    const descSrc = t(descNs, this.item.system.description);
     const enrich = foundry.applications.ux.TextEditor.implementation.enrichHTML;
     context.enrichedDescription = await enrich(descSrc, { relativeTo: this.item });
     context.enrichedCriticalDamage = await enrich(this.item.system.criticalDamage, { relativeTo: this.item });
@@ -270,7 +304,8 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     if (this.item.type === "background") {
       context.isGM = game.user.isGM;
       if (this.isEditable) await this._prepareBackgroundEditor(context);
-      else await this._prepareBackgroundReadOnly(context, localize);
+      // Only reachable when the sheet is NOT editable, so the flag was always true.
+      else await this._prepareBackgroundReadOnly(context, true);
     }
     return context;
   }

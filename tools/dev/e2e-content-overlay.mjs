@@ -322,6 +322,170 @@ try {
 
 /* -------------------------------------------- */
 
+// Three surfaces a Spanish translator reported as untranslated on 2026-08-02, with
+// every cell filled and correctly keyed. All three read the STORED document instead
+// of the overlay, so no amount of translating could ever have shown:
+//   - the inventory row's expanded DESCRIPTION panel (the name above it translated,
+//     which is what made the report look like an orphaned-key problem),
+//   - the Scars checklist (names were in the overlay and never looked up; the
+//     per-scar detail was never even EXTRACTED — new ns table.resultDesc),
+//   - the item sheet, which localized only when NOT editable, i.e. never for the
+//     player who owns the item.
+// Each assertion is paired with the invariant that made the bug worth having: the
+// stored value stays English. A translation that reaches the document is a worse
+// failure than a translation that never renders.
+console.log("\nsheet surfaces: inventory panel, scars, item sheet");
+
+let invActorId = null;
+try {
+  const inv = await page.evaluate(async () => {
+    const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+    // Same normalization the overlay FILE is written with (i18n-content.js keys by
+    // the collapsed form), spelled out here rather than imported: a probe that
+    // borrows the implementation's key function agrees with it by construction.
+    const norm = (s) => String(s).replace(/\s+/g, " ").trim();
+
+    const EN_NAME = "ZZ Probe Rope";
+    const EN_DESC = "Twenty-five ZZ feet of probe rope, for climbing.";
+    const ES_NAME = "ZZ-CUERDA-SONDA";
+    const ES_DESC = "ZZ-DESCRIPCION-TRADUCIDA";
+    const ES_SCAR = "ZZ-CICATRIZ";
+    const ES_SCAR_DESC = "ZZ-DETALLE-DE-CICATRIZ";
+
+    const actor = await CONFIG.Actor.documentClass.create({
+      name: "ZZ Overlay Sheet Probe", type: "character",
+      system: { contentSource: "2e", scarEnabled: true },
+    });
+    const out = { actorId: actor.id, EN_NAME, EN_DESC, ES_NAME, ES_DESC, ES_SCAR, ES_SCAR_DESC };
+    let sheetOpen = null;
+    try {
+      const [item] = await actor.createEmbeddedDocuments("Item", [
+        { name: EN_NAME, type: "item", system: { description: EN_DESC } },
+      ]);
+
+      // Key the scar rows off the REAL shipped table — the strings a translator
+      // actually fills — with sentinel values. If the Scars table ever loses its
+      // per-row flag, scarDescEn goes empty and the assertions below say so rather
+      // than passing on a lookup of "".
+      const scarTable = (await game.packs.get("air-bladder.tables-2e").getDocuments())
+        .find((tbl) => tbl.name === "Scars");
+      const r0 = scarTable?.results.contents?.[0] ?? scarTable?.results?.[0];
+      const scarEn = (r0?.type === "text" ? r0?.description : r0?.name) ?? "";
+      const scarDescEn = r0?.flags?.["air-bladder"]?.description ?? "";
+      out.scarEn = scarEn;
+      out.scarDescEn = scarDescEn;
+
+      i18n._setOverlay({
+        "item.name": { [norm(EN_NAME)]: ES_NAME },
+        "item.desc": { [norm(EN_DESC)]: ES_DESC },
+        "table.result": { [norm(scarEn)]: ES_SCAR },
+        "table.resultDesc": { [norm(scarDescEn)]: ES_SCAR_DESC },
+      });
+
+      const settle = (ms) => new Promise((r) => setTimeout(r, ms));
+      await actor.sheet.render(true);
+      for (let i = 0; i < 60 && !actor.sheet.element; i++) await settle(100);
+      sheetOpen = actor.sheet;
+      await settle(400);
+      const root = actor.sheet.element;
+
+      // ---- inventory row: name (worked) and the expanded panel (did not) ----
+      const row = root?.querySelector(`.cairn-items-list-row[data-item-id="${item.id}"]`);
+      out.rowName = row?.querySelector(".cairn-item-title")?.textContent.trim() ?? null;
+      row?.querySelector('[data-action="itemDescription"]')?.click();
+      await settle(300);
+      out.panelText = row?.querySelector(".item-description")?.textContent.trim() ?? null;
+
+      // ---- scars: two visible strings localized, the stored value English ----
+      const opt = [...(root?.querySelectorAll(".scar-option") ?? [])]
+        .find((l) => l.querySelector(".scar-check")?.value === scarEn);
+      out.scarName = opt?.querySelector(".scar-name")?.textContent.trim() ?? null;
+      out.scarDesc = opt?.querySelector(".scar-desc")?.textContent.trim() ?? null;
+      out.scarValue = opt?.querySelector(".scar-check")?.value ?? null;
+      out.scarOptionFound = !!opt;
+
+      // ---- item sheet: Spanish to read, English to edit ----------------------
+      // isEditable is TRUE here (a GM-owned world item) — the case that used to
+      // fall back to English, and the only case a player ever sees.
+      out.isEditable = item.sheet.isEditable;
+      await item.sheet.render(true);
+      for (let i = 0; i < 60 && !item.sheet.element; i++) await settle(100);
+      await settle(400);
+      const pm = item.sheet.element?.querySelector('prose-mirror[name="system.description"]');
+      out.pmFound = !!pm;
+      out.pmDisplay = pm?.querySelector(".editor-content")?.textContent.trim() ?? null;
+      // The submitted half. Inactive, so `value` reads `_value` — the `value=`
+      // attribute the template set from the STORED string (prosemirror-editor.mjs:192).
+      out.pmValue = pm?.value ?? null;
+      out.sheetTitle = item.sheet.title;
+      await item.sheet.close();
+      await settle(400);
+      // Read the source AFTER closing: disconnectedCallback saves an ACTIVE editor,
+      // so this is where a leaked translation would land if the split ever broke.
+      out.storedDesc = item._source.system.description;
+      out.storedName = item._source.name;
+    } finally {
+      i18n._setOverlay(null);
+      await sheetOpen?.close().catch(() => {});
+    }
+    return out;
+  });
+
+  invActorId = inv.actorId;
+
+  inv.rowName === inv.ES_NAME
+    ? ok("row name translated", `"${inv.rowName}"`)
+    : fail("row name translated", `row reads "${inv.rowName}"`);
+  inv.panelText === inv.ES_DESC
+    ? ok("expanded panel translated", `"${inv.panelText}"`)
+    : fail("expanded panel translated", `panel reads ${JSON.stringify(inv.panelText)}, want "${inv.ES_DESC}"`);
+
+  inv.scarEn && inv.scarDescEn
+    ? ok("scar row has both strings", `"${inv.scarEn}"`)
+    : fail("scar row has both strings", `text=${JSON.stringify(inv.scarEn)} detail=${JSON.stringify(inv.scarDescEn)} — assertions below are vacuous`);
+  inv.scarOptionFound
+    ? ok("scar option rendered", "")
+    : fail("scar option rendered", "no .scar-option whose value is the English scar text");
+  inv.scarName === inv.ES_SCAR
+    ? ok("scar name translated", `"${inv.scarName}"`)
+    : fail("scar name translated", `reads ${JSON.stringify(inv.scarName)}`);
+  inv.scarDesc === inv.ES_SCAR_DESC
+    ? ok("scar detail translated", `"${inv.scarDesc}"`)
+    : fail("scar detail translated", `reads ${JSON.stringify(inv.scarDesc)}`);
+  inv.scarValue === inv.scarEn
+    ? ok("scar checkbox value English", "system.scars stays language-independent")
+    : fail("scar checkbox value English", `value is ${JSON.stringify(inv.scarValue)}`);
+
+  inv.isEditable
+    ? ok("item sheet is editable", "the case that used to stay English")
+    : fail("item sheet is editable", "probe is testing the read-only path, not the reported one");
+  inv.pmFound
+    ? ok("editor found", "")
+    : fail("editor found", "no prose-mirror[name=system.description]");
+  inv.pmDisplay === inv.ES_DESC
+    ? ok("editor DISPLAY translated", `"${inv.pmDisplay}"`)
+    : fail("editor DISPLAY translated", `shows ${JSON.stringify(inv.pmDisplay)}`);
+  inv.pmValue === inv.EN_DESC
+    ? ok("editor VALUE English", "what activation loads and a submit sends")
+    : fail("editor VALUE English", `value is ${JSON.stringify(inv.pmValue)} — the Spanish can reach the document`);
+  inv.sheetTitle?.includes(inv.ES_NAME)
+    ? ok("window title translated", `"${inv.sheetTitle}"`)
+    : fail("window title translated", `title is ${JSON.stringify(inv.sheetTitle)}`);
+  inv.storedDesc === inv.EN_DESC && inv.storedName === inv.EN_NAME
+    ? ok("STORED item untouched", "name and description still English after close")
+    : fail("STORED item untouched", `name=${JSON.stringify(inv.storedName)} desc=${JSON.stringify(inv.storedDesc)}`);
+} catch (e) {
+  fail("sheet surfaces", `${e.name}: ${e.message}`);
+} finally {
+  // From NODE, for the reason stated above.
+  if (invActorId) {
+    await page.evaluate(async (id) => { await game.actors.get(id)?.delete(); }, invActorId)
+      .catch(() => {});
+  }
+}
+
+/* -------------------------------------------- */
+
 console.log(`\nconsole errors: ${errors.length}`);
 for (const e of errors.slice(0, 10)) console.log(`  ${e}`);
 if (errors.length) failures++;
