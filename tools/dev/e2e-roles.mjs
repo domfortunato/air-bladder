@@ -791,7 +791,6 @@ try {
       token: a.prototypeToken.texture.src,
       cls: a.system.containerClass,
       slots: a.system.slots,
-      label: a.system.classLabel,
     };
 
     // A capacity someone typed must survive a later art change.
@@ -811,10 +810,16 @@ try {
     const t = await Cls.create({ name: "ZZ Roles Typed Kind", type: "npc", system: { role: "transport" } });
     await t.update({ "system.containerClass": "wagon" });
     const afterTyped = { cls: t.system.containerClass, slots: t.system.slots, img: t.img };
-    // ...but an unknown word is just a label: nothing else moves.
+    // ...but an unknown word is just a label: nothing else moves. The verbatim
+    // display contract lives in the sheet's kindDisplay (system.classLabel is
+    // deleted, review #6 batch 3), so read the rendered Kind input itself.
     const u = await Cls.create({ name: "ZZ Roles Custom Kind", type: "npc", system: { role: "container" } });
     await u.update({ "system.containerClass": "Saddlebags" });
-    const afterCustom = { cls: u.system.containerClass, slots: u.system.slots, label: u.system.classLabel };
+    await u.sheet.render(true);
+    await sleep(900);
+    const uKind = u.sheet.element?.querySelector('input[name="system.containerClass"]')?.value ?? null;
+    await u.sheet.close();
+    const afterCustom = { cls: u.system.containerClass, slots: u.system.slots, shown: uKind };
     await t.delete(); await u.delete();
 
     await sheet.close();
@@ -862,8 +867,8 @@ try {
   pick.afterTyped.cls === "wagon" && pick.afterTyped.slots === 8 && /wagon\.svg$/.test(pick.afterTyped.img)
     ? ok("typing a known Kind brings its defaults", "wagon → 8 slots + wagon art")
     : bad("typing a known Kind brings its defaults", JSON.stringify(pick.afterTyped));
-  pick.afterCustom.cls === "Saddlebags" && !Number(pick.afterCustom.slots) && pick.afterCustom.label === "Saddlebags"
-    ? ok("a Warden's own word is just a label", "verbatim, no defaults invented")
+  pick.afterCustom.cls === "Saddlebags" && !Number(pick.afterCustom.slots) && pick.afterCustom.shown === "Saddlebags"
+    ? ok("a Warden's own word is just a label", "verbatim in the Kind box, no defaults invented")
     : bad("a Warden's own word is just a label", JSON.stringify(pick.afterCustom));
 
   /* ---- negative control: remove the guard, in page ---- */

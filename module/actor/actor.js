@@ -1,5 +1,5 @@
 import { SETTINGS_NS } from "../settings.js";
-import { iconForItem, iconForTransport, containerClassLabel, containerClassSlots, CONTAINER_CLASSES, ICON_DIR } from "../icons.js";
+import { iconForItem, iconForTransport, containerClassSlots, CONTAINER_CLASSES, ICON_DIR } from "../icons.js";
 import { THING_ROLES } from "../data-models.js";
 import {
   atConnectionLimit, maxConnections,
@@ -26,8 +26,6 @@ const confirmDelete = (name) =>
  * @extends {Actor}
  */
 export class CairnActor extends Actor {
-  equipContainers = [];
-
   /**
    * Create-time defaults. They live in `_preCreate`, NOT in a `static create`
    * override, because a static only runs for callers that name this class:
@@ -317,18 +315,10 @@ export class CairnActor extends Actor {
     // container, so it needs the owner / formerly-owner line the retired
     // container sheet used to carry.
     this._prepareConnectionLabel();
-    // ...and the one-word Kind label ("Horse", "Crate") the container sheet
-    // has always shown. Derived only when something says this npc IS a
-    // container-line thing — a stored Kind, or a mount/transport/container
-    // role — so a monster's sheet derives nothing. A Kind the class table
-    // does not know is a Warden's own word and displays verbatim; running it
-    // through the label lookup would silently swap it for a name inference.
-    const cls = this.system.containerClass;
-    if (["npc", "hireling"].includes(this.type) && (cls || this.system.isThing || this.npcRole === "mount")) {
-      this.system.classLabel = cls && !CONTAINER_CLASSES[cls]
-        ? cls
-        : game.i18n.localize(containerClassLabel(this.name, "", cls));
-    }
+    // The one-word Kind label ("Horse", "Crate") is NOT derived here any more
+    // (review #6): the sheet computes kindDisplay from CONTAINER_CLASSES
+    // directly (actor-sheet.js _prepareContext), and the old system.classLabel
+    // had no reader left outside dev probes.
 
     // Coins are heavy (Cairn 2e, p.9). The first N coins stay petty (weightless);
     // every further N fills a slot -- N is the GM's "coins per slot" setting

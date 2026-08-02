@@ -1604,14 +1604,6 @@ textarea.omen-input {
     white-space: nowrap;
 }
 
-/* Placeholder for the empty notes editor. */
-.editor-content[data-edit="system.notes"]:empty::before {
-    content: "Write your character notes here.";
-    color: var(--ab-muted);
-    font-style: italic;
-    pointer-events: none;
-}
-
 /******************************************************************************
  * Header polish, status banners, critical damage, armor override.
  ******************************************************************************/

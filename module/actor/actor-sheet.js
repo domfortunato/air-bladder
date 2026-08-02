@@ -2214,7 +2214,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   static async #onFeatureCreate(event) {
     event.preventDefault();
     const template = "systems/air-bladder/templates/dialog/add-feature-dialog.html";
-    const content = await foundry.applications.handlebars.renderTemplate(template);
+    // DialogV2 runs STRING content through cleanHTML, whose allow-list gives
+    // <textarea> no `placeholder` (constants.mjs:1885), so the description
+    // box's localized placeholder was silently stripped (review #6). An
+    // attribute-less <div> ELEMENT is core's documented trusted-content route
+    // (dialog.mjs:136-155) and skips the cleaning — the template is our own
+    // file, not user input.
+    const content = document.createElement("div");
+    content.innerHTML = await foundry.applications.handlebars.renderTemplate(template);
 
     await foundry.applications.api.DialogV2.prompt({
       window: { title: game.i18n.localize("CAIRN.CreateFeature") },
@@ -2244,7 +2251,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (!item) return;
 
     const template = "systems/air-bladder/templates/dialog/add-feature-dialog.html";
-    const content = await foundry.applications.handlebars.renderTemplate(template, item);
+    // Same cleanHTML dodge as #onFeatureCreate: an element, not a string.
+    const content = document.createElement("div");
+    content.innerHTML = await foundry.applications.handlebars.renderTemplate(template, item);
 
     await foundry.applications.api.DialogV2.prompt({
       window: { title: game.i18n.localize("CAIRN.EditFeature") },

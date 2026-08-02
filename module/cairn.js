@@ -868,6 +868,36 @@ Hooks.on("renderSettingsConfig", (app, element) => {
     header.textContent = game.i18n.localize(titleKey);
     group.parentNode.insertBefore(header, group);
   }
+
+  // Core's settings search (CategoryBrowser._onSearchFilter,
+  // category-browser.mjs:215-248) toggles `hidden` on .form-group elements and
+  // nothing else, so a query would leave these <h3>s hovering over whatever
+  // rows survived from OTHER groups (review #6). React to core's toggles
+  // instead of trying to hook its private filter: a header stays visible
+  // exactly while some .form-group between it and the next header still is.
+  // Hiding via the `hidden` property rides the same core rule the rows use
+  // ([hidden] { display: none !important }, foundry2.css:5698).
+  const headers = [...root.querySelectorAll(".cairn-settings-header")];
+  if (headers.length) {
+    const syncHeaders = () => {
+      for (const header of headers) {
+        let anyVisible = false;
+        for (let el = header.nextElementSibling; el && !el.classList.contains("cairn-settings-header"); el = el.nextElementSibling) {
+          if (el.classList.contains("form-group") && !el.hidden) { anyVisible = true; break; }
+        }
+        header.hidden = !anyVisible;
+      }
+    };
+    // The observer dies with the rendered DOM; setting `hidden` on the <h3>s
+    // re-fires it once, recomputes the same answer and settles.
+    const observer = new MutationObserver((mutations) => {
+      if (mutations.some((m) => m.target.classList?.contains("form-group"))) syncHeaders();
+    });
+    for (const parent of new Set(headers.map((h) => h.parentNode))) {
+      observer.observe(parent, { subtree: true, attributeFilter: ["hidden"] });
+    }
+  }
+
   root.querySelectorAll(`[name^="${SETTINGS_NS}."]`).forEach((input) => {
     input.closest(".form-group")?.classList.add("cairn-setting-compact");
   });
@@ -890,11 +920,17 @@ Hooks.on("renderSettingsConfig", (app, element) => {
     syncBarebonesSubs();
   }
 
-  // Bold the source name within the two Character Generation labels (Foundry
+  // Bold the source name within the three Character Generation labels (Foundry
   // renders setting names as plain text, so we do it here with text nodes).
-  const boldPhrase = (key, phrase) => {
+  // The phrase is LOCALIZED, not an English literal (review #6): the label this
+  // searches is the translated setting name, so an English phrase only ever
+  // matched where a translator happened to keep the product name verbatim. A
+  // language whose label drops the phrase still degrades to no bold — the
+  // i < 0 guard below — never to a wrong one.
+  const boldPhrase = (key, phraseKey) => {
     const label = root.querySelector(`[name="${SETTINGS_NS}.${key}"]`)?.closest(".form-group")?.querySelector("label");
     if (!label) return;
+    const phrase = game.i18n.localize(phraseKey);
     const text = label.textContent;
     const i = text.indexOf(phrase);
     if (i < 0) return;
@@ -906,9 +942,9 @@ Hooks.on("renderSettingsConfig", (app, element) => {
       document.createTextNode(text.slice(i + phrase.length)),
     );
   };
-  boldPhrase("content-source-2e", "Cairn 2e");
-  boldPhrase("content-source-custom", "Custom 2e");
-  boldPhrase("content-source-barebones", "Cairn Barebones");
+  boldPhrase("content-source-2e", "CAIRN.ContentSource2e");
+  boldPhrase("content-source-custom", "CAIRN.ContentSourceCustom");
+  boldPhrase("content-source-barebones", "CAIRN.ContentSourceBarebones");
 });
 
 Hooks.on("renderActorDirectory", (app, html) => {

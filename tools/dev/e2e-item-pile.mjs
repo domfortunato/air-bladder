@@ -139,7 +139,7 @@ try {
       name, type: "npc", system: { role: "container" }, ...extra,
     });
     const pile = await mk("ZZ Cache Alpha");
-    const before = { img: pile.img.split("/").pop(), label: pile.system.classLabel };
+    const before = { img: pile.img.split("/").pop() };
     await pile.update({ "system.containerClass": "pile", "system.slots": 6 });
 
     // Hand-picked art must survive the same change.
@@ -156,11 +156,11 @@ try {
       after: {
         img: pile.img.split("/").pop(),
         token: pile.prototypeToken.texture.src.split("/").pop(),
-        label: pile.system.classLabel,
       },
       customKept: custom.img,
       sheet: {
-        classText: pile.system.classLabel ?? null,
+        // system.classLabel is GONE (review #6 batch 3): the label a user sees
+        // is kindDisplay, and this input's value IS that context field.
         selectValue: input?.value ?? null,
         stored: pile.system.containerClass ?? null,
         // Datalist options carry the LABEL as their value since the 2026-08-02
@@ -178,21 +178,21 @@ try {
   });
 
   made.before.img === "chest.svg"
-    ? ok("a hand-made container gets class art", `${made.before.img}, labelled "${made.before.label}"`)
+    ? ok("a hand-made container gets class art", made.before.img)
     : fail("a hand-made container gets class art", `img=${made.before.img} (mystery-man means the create hook was skipped)`);
   made.after.img === "stack.svg" && made.after.token === "stack.svg"
     ? ok("switching to Item Pile re-arts it", "sheet AND prototype token")
     : fail("switching to Item Pile re-arts it", JSON.stringify(made.after));
-  made.after.label === "Item Pile"
-    ? ok("and relabels it", made.after.label)
-    : fail("and relabels it", made.after.label);
+  // "and relabels it" used to assert system.classLabel here; that derived
+  // property is deleted (review #6 batch 3) and the label contract lives in
+  // the sheet assertion below — the input VALUE is kindDisplay.
   made.customKept === "icons/svg/coins.svg"
     ? ok("hand-picked art is never overwritten", made.customKept)
     : fail("hand-picked art is never overwritten", made.customKept);
   // The display/value split (2026-08-02): the input SHOWS the label, the
   // document STORES the key. The old assertion wanted the raw key in the input,
   // which was the defect — "funeralwagon" on the sheet in every language.
-  made.sheet.classText === "Item Pile" && made.sheet.selectValue === "Item Pile" && made.sheet.stored === "pile"
+  made.sheet.selectValue === "Item Pile" && made.sheet.stored === "pile"
     ? ok("the sheet shows the Kind, the doc stores the key", `"${made.sheet.selectValue}" / "${made.sheet.stored}"`)
     : fail("the sheet shows the Kind, the doc stores the key", JSON.stringify(made.sheet));
   made.sheet.options.includes("Item Pile") && made.sheet.clipped === false

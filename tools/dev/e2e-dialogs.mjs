@@ -111,6 +111,18 @@ const hasFeatureDialog = await page
 if (!hasFeatureDialog) {
   fail("feature dialog opened", "no .feature-create on this sheet/tab");
 } else {
+  // The description TEXTAREA keeps its localized placeholder. DialogV2 runs
+  // STRING content through cleanHTML, whose allow-list gives <textarea> no
+  // `placeholder` (constants.mjs:1885) — the attribute silently vanished until
+  // the content became a <div> ELEMENT (review #6 batch 3). The name INPUT
+  // beside it proves nothing: `input` is allowed the attribute, so it survived
+  // the string path all along.
+  const descPlaceholder = await page.evaluate(() =>
+    document.querySelector("dialog.dialog textarea[name='itemdesc']")?.getAttribute("placeholder") ?? null);
+  descPlaceholder
+    ? ok("textarea placeholder survives DialogV2", `"${descPlaceholder}"`)
+    : fail("textarea placeholder survives DialogV2", "cleanHTML stripped it — content went in as a string");
+
   await page.fill("dialog.dialog input[name='itemname']", "Probe Feature");
   await page.fill("dialog.dialog textarea[name='itemdesc']", "probe description");
   await page.check("dialog.dialog input[name='str']");

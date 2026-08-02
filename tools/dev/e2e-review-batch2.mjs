@@ -140,18 +140,26 @@ try {
     const hire = await page.evaluate(async () => {
       const maxEquip = Number(game.settings.get("air-bladder", "max-equip-slots"));
       const want = maxEquip + 3;
+      // role container: the Kind parity contract lives in the SHEET now
+      // (kindDisplay; system.classLabel is deleted, review #6 batch 3), and
+      // the sheet only shows the Kind box for a thing-role. The old derived
+      // label for a person-role with a stored Kind was never rendered anywhere.
       const h = await CONFIG.Actor.documentClass.create({
         name: "ZZ PROBE B2 Hire", type: "hireling",
-        system: { slots: want, containerClass: "sack" },
+        system: { role: "container", slots: want, containerClass: "sack" },
       });
       const mule = await CONFIG.Actor.documentClass.create({
         name: "ZZ PROBE B2 Mule", type: "hireling",
         system: { role: "mount" },
       });
+      await h.sheet.render(true);
+      await new Promise((r) => setTimeout(r, 900));
+      const kindShown = h.sheet.element?.querySelector('input[name="system.containerClass"]')?.value ?? null;
+      await h.sheet.close();
       return {
         ids: [h.id, mule.id], maxEquip, want,
         slotsMax: h.system.slotsMax,
-        classLabel: h.system.classLabel ?? null,
+        kindShown,
         img: mule.img,
       };
     });
@@ -159,9 +167,9 @@ try {
     hire.slotsMax === hire.want
       ? ok(`capacity override honoured (${hire.slotsMax})`, `not the world max ${hire.maxEquip}`)
       : fail(`hireling slots override ignored — slotsMax ${hire.slotsMax}, wanted ${hire.want}`);
-    hire.classLabel
-      ? ok(`Kind label derived ("${hire.classLabel}")`)
-      : fail("no classLabel on a hireling with a Kind");
+    hire.kindShown === "Sack"
+      ? ok(`Kind shown on the hireling's sheet ("${hire.kindShown}")`)
+      : fail(`hireling sheet Kind box showed ${JSON.stringify(hire.kindShown)}`, "kindDisplay drifted or the box is gone");
     // The discriminator is "container art", NOT "not mystery-man": a
     // hireling-typed doc is unconditionally an npc PERSON to _preCreate
     // (actor.js `isNpcPerson`, type short-circuit), so even without the fix

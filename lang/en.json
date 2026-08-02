@@ -128,6 +128,7 @@
   "CAIRN.ContainerArtTabKinds": "Kinds",
   "CAIRN.ContentSource2e": "Cairn 2e",
   "CAIRN.ContentSourceBarebones": "Cairn Barebones",
+  "CAIRN.ContentSourceCustom": "Custom 2e",
   "CAIRN.ContentSourcePrompt": "Which edition should this character be generated from?",
   "CAIRN.ContentSourceTitle": "Choose a content source",
   "CAIRN.Cost": "Cost",
