@@ -3,7 +3,7 @@ name: Drider
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.svg
+img: systems/air-bladder/game-icons/heads/woman-elf-face.svg
 items:
   - _id: thu5Qj1REjhRTjAh
     name: Bite*
@@ -123,7 +123,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: icons/svg/mystery-man.svg
+    src: systems/air-bladder/game-icons/heads/woman-elf-face.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

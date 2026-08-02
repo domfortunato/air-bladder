@@ -3,7 +3,7 @@ name: Black Pudding
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.svg
+img: systems/air-bladder/game-icons/creatures/transparent-slime.svg
 items:
   - _id: sCHTCxRufpKa3gJY
     name: Devouring Touch
@@ -120,7 +120,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: icons/svg/mystery-man.svg
+    src: systems/air-bladder/game-icons/creatures/transparent-slime.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1
