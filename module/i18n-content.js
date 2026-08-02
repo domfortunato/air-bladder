@@ -83,6 +83,33 @@ export const translationOf = (ns, en) => {
 };
 
 /**
+ * The INVERSE of t(): map a displayed translation back to its English source.
+ * Returns the input unchanged on any miss — including when it already IS the
+ * English source, or free text the overlay has never seen.
+ *
+ * Exists for the display/value split on free-text INPUTS (career, Kind): the
+ * field SHOWS t(ns, stored) but must STORE canonical English, so the submit
+ * path routes what the user left in the box through here. A linear scan per
+ * submit over one namespace (~20 careers, ~400 items) — not worth an index
+ * that would have to be rebuilt on every overlay load.
+ *
+ * Deliberately normalized-compare on BOTH sides, same rule as t()'s keying:
+ * a translator's trailing space must not fork "Herrero" into a career the
+ * catalogue does not know.
+ */
+export const sourceOf = (ns, display) => {
+  if (OVERLAY === null || display == null) return display;
+  const table = OVERLAY[ns];
+  if (!table) return display;
+  const wanted = normalizeKey(display);
+  if (wanted === "") return display;
+  for (const [en, tr] of Object.entries(table)) {
+    if (normalizeKey(tr) === wanted) return en;
+  }
+  return display;
+};
+
+/**
  * Return a shallow copy of an item-like object ({ name, system: { description } })
  * with its display name/description translated under the given namespaces. The
  * original is NEVER mutated — callers hand this to a template, never back to a

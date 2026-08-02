@@ -2,6 +2,8 @@ import { CairnActor } from "./actor/actor.js";
 import { Cairn } from "./config.js";
 import { compendiumInfoFromString, findCompendiumItem, resultText } from "./compendium.js";
 import { getGameIconManifest } from "./character-generator.js";
+// Aliased: the tier config is locally `t` throughout generateMonster.
+import { t as tr } from "./i18n-content.js";
 
 /* -------------------------------------------------------------------------- */
 /*  Monster generation — SRD "Creating Monsters" (Warden's Guide, CC BY-SA)    */
@@ -139,11 +141,22 @@ export const generateMonster = async (tierChoice) => {
   const abilityPower = await rollTableText(cfg.abilityPower);
   const abilityTarget = await rollTableText(cfg.abilityTarget);
 
+  // The rolled strings are table.result rows and go through the overlay for
+  // everything DISPLAYED-and-stored: this path already bakes the localized
+  // CAIRN.MonsterGen.* frames onto the document (generated monsters are WORLD
+  // content authored in the session's language — unlike pack content, which
+  // stays English for the display-only overlay), and half-baking gave a
+  // Spanish Warden "Criatura Emaciated Trunk". The RAW rolls stay in scope
+  // because two things match on the English source: ARMORED_FEATURES below,
+  // and the drawn-state bookkeeping in the tables themselves. In an English
+  // world every d() is the identity.
+  const d = (s) => tr("table.result", s);
+
   // The SRD's step 5 ("Thunder Snail") is creative interpretation and cannot be
   // automated; the appearance rolls at least land every monster in the
   // directory distinguishable. The Warden renames when inspiration strikes.
   const name = (physique || feature)
-    ? game.i18n.format("CAIRN.MonsterGen.Name", { physique, feature }).replace(/\s+/g, " ").trim()
+    ? game.i18n.format("CAIRN.MonsterGen.Name", { physique: d(physique), feature: d(feature) }).replace(/\s+/g, " ").trim()
     : game.i18n.localize("CAIRN.RoleMonster");
 
   const items = [];
@@ -155,7 +168,7 @@ export const generateMonster = async (tierChoice) => {
   // damage bullet is always written.
   items.push({
     name: attackType
-      ? game.i18n.format("CAIRN.MonsterGen.AttackName", { type: attackType })
+      ? game.i18n.format("CAIRN.MonsterGen.AttackName", { type: d(attackType) })
       : game.i18n.localize("CAIRN.RoleMonster"),
     type: "item",
     system: { damageFormula: t.die, equipped: true, quantity: 1, slots: 0, armor: 0 },
@@ -166,8 +179,10 @@ export const generateMonster = async (tierChoice) => {
   // null). Named after the rolled Feature when the feature is the armor.
   if (Math.random() < t.armorChance) {
     items.push({
+      // The MEMBERSHIP test is on the raw English roll; only the display copy
+      // that becomes the item's name is translated.
       name: ARMORED_FEATURES.includes(feature)
-        ? feature
+        ? d(feature)
         : game.i18n.localize("CAIRN.MonsterGen.ArmorName"),
       type: "item",
       system: { armor: pickWeighted(t.armorWeights), equipped: true, quantity: 1, slots: 0 },
@@ -189,14 +204,14 @@ export const generateMonster = async (tierChoice) => {
   const esc = foundry.utils.escapeHTML;
   const bullets = [];
   if (physique && feature) {
-    bullets.push(game.i18n.format("CAIRN.MonsterGen.DescAppearance", { physique: esc(physique), feature: esc(feature) }));
+    bullets.push(game.i18n.format("CAIRN.MonsterGen.DescAppearance", { physique: esc(d(physique)), feature: esc(d(feature)) }));
   }
-  if (quirk) bullets.push(game.i18n.format("CAIRN.MonsterGen.DescQuirk", { quirk: esc(quirk) }));
-  if (weakness) bullets.push(game.i18n.format("CAIRN.MonsterGen.DescWeakness", { weakness: esc(weakness) }));
+  if (quirk) bullets.push(game.i18n.format("CAIRN.MonsterGen.DescQuirk", { quirk: esc(d(quirk)) }));
+  if (weakness) bullets.push(game.i18n.format("CAIRN.MonsterGen.DescWeakness", { weakness: esc(d(weakness)) }));
   if (abilityPower && abilityTarget) {
-    bullets.push(game.i18n.format("CAIRN.MonsterGen.DescAbility", { power: esc(abilityPower), target: esc(abilityTarget) }));
+    bullets.push(game.i18n.format("CAIRN.MonsterGen.DescAbility", { power: esc(d(abilityPower)), target: esc(d(abilityTarget)) }));
   }
-  if (criticalDamage) bullets.push(game.i18n.format("CAIRN.MonsterGen.DescCritical", { effect: esc(criticalDamage) }));
+  if (criticalDamage) bullets.push(game.i18n.format("CAIRN.MonsterGen.DescCritical", { effect: esc(d(criticalDamage)) }));
   const description = bullets.length
     ? `<ul>${bullets.map((b) => `<li><p>${b}</p></li>`).join("")}</ul>`
     : "";

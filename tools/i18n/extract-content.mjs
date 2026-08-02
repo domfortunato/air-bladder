@@ -126,6 +126,35 @@ const pending = []; // [{ file, rows }] — written only after guardOverwrite cl
 // loop to find overlay translations that no longer match any source (stale).
 const currentKeys = new Set();
 
+// NPC careers live in module/npc-careers-2e.json, NOT in a pack — so listPacks
+// never saw them and their ~20 names reached no spreadsheet in any language,
+// while landing verbatim in the player-facing system.profession field. The
+// same silent-absence class as the r.text failure documented above: a corpus
+// hole indistinguishable from "there were none". Only `name` is emitted: the
+// stat fields are numbers, and the gear lists resolve to pack items already
+// covered by item.name. The display surface is the npc sheet's Career input
+// (t("npc.career", …) with a sourceOf() reverse map on submit — the stored
+// career is a MATCH KEY for the day-rate autofill and reroll exclusion, so it
+// must stay English).
+{
+  const careersPath = path.join(ROOT, "module", "npc-careers-2e.json");
+  const careers = JSON.parse(fs.readFileSync(careersPath, "utf8"));
+  const map = new Map();
+  for (const c of careers) {
+    if (!c?.name) continue;
+    const k = `npc.career\0${normalizeKey(c.name)}`;
+    currentKeys.add(k);
+    if (!map.has(k)) {
+      const trPrior = priorTr("npc.career", c.name);
+      map.set(k, { key: "npc.career", context: "npc career", en: c.name, tr: trPrior, notes: "", status: trPrior && trPrior !== c.name ? "done" : "todo" });
+    }
+  }
+  const rows = [...map.values()].sort((a, b) => a.en.localeCompare(b.en));
+  pending.push({ file: path.join(OUT, "content-npc-careers.tsv"), rows });
+  perPack.push({ pack: "npc-careers", rows: rows.length });
+  totalRows += rows.length;
+}
+
 for (const pack of listPacks()) {
   const map = new Map(); // (ns \0 normalizedEn) → row ; first occurrence keeps its context
   for (const { doc } of readPack(pack)) {

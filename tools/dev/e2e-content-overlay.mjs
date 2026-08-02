@@ -486,6 +486,310 @@ try {
 
 /* -------------------------------------------- */
 
+// Round 2 of "surfaces that never asked" — the 2026-08-02 review's localization
+// batch. Same discipline as the section above: every read surface gets a
+// sentinel through _setOverlay, and every display/value split is asserted from
+// BOTH ends — the visible copy shows the sentinel, the stored copy stays the
+// English source. All documents are throwaway, created and deleted from Node.
+console.log("\nreview batch: bg details, npc sheet, shop rows+toasts, monster-gen bake");
+
+const cleanupIds = [];
+try {
+  const r2 = await page.evaluate(async () => {
+    const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+    const { sourceLabel } = await import("/systems/air-bladder/module/utils.js");
+    const norm = (s) => String(s).replace(/\s+/g, " ").trim();
+    const settle = (ms) => new Promise((res) => setTimeout(res, ms));
+    const out = { ids: [] };
+
+    try {
+      // ---- the locked background sheet's Details tab -----------------------
+      const bg = (await game.packs.get("air-bladder.backgrounds-2e").getDocuments())[0];
+      const q0 = bg.system.tables?.[0]?.question ?? "";
+      const o0 = bg.system.tables?.[0]?.options?.[0]?.description ?? "";
+      out.bgHasStrings = !!(q0 && o0);
+
+      i18n._setOverlay({
+        "bg.question": { [norm(q0)]: "ZZ-PREGUNTA" },
+        "bg.optionDesc": { [norm(o0)]: "ZZ-OPCION" },
+      });
+      await bg.sheet.render(true);
+      for (let i = 0; i < 60 && !bg.sheet.element; i++) await settle(100);
+      await settle(400);
+      const bgRoot = bg.sheet.element;
+      out.bgEditable = bg.sheet.isEditable; // must be FALSE — the branch under test
+      out.bgQuestion = [...(bgRoot?.querySelectorAll(".background-table h3") ?? [])]
+        .map((h) => h.textContent.trim()).find((s) => s.includes("ZZ-")) ?? null;
+      out.bgOption = [...(bgRoot?.querySelectorAll(".background-table li") ?? [])]
+        .map((li) => li.textContent.trim()).find((s) => s.includes("ZZ-")) ?? null;
+      out.bgSource = bgRoot?.querySelector(".background-source")?.textContent ?? "";
+      out.bgSourceWant = sourceLabel(bg.system.source || "2e");
+      await bg.sheet.close();
+
+      // ---- a PERSON npc: title, description display+value, career round-trip -
+      const EN_DESC = "<p>A probe person of no fixed abode.</p>";
+      const person = await CONFIG.Actor.documentClass.create({
+        name: "ZZ Overlay Person", type: "npc",
+        system: { role: "npc", profession: "Blacksmith", description: EN_DESC },
+      });
+      out.ids.push(person.id);
+
+      i18n._setOverlay({
+        "monster.name": { "ZZ Overlay Person": "ZZ-PERSONA" },
+        "monster.desc": { [norm(EN_DESC)]: "<p>ZZ-DESCRIPCION-PNJ</p>" },
+        "npc.career": { Blacksmith: "ZZ-HERRERO", "Animal Handler": "ZZ-CAZADOR" },
+      });
+
+      await person.sheet.render(true);
+      for (let i = 0; i < 60 && !person.sheet.element; i++) await settle(100);
+      await settle(500);
+      const pRoot = person.sheet.element;
+      out.personTitle = person.sheet.title;
+      const pm = pRoot?.querySelector('.npc-description-section prose-mirror[name="system.description"]');
+      out.pmFound = !!pm;
+      out.pmToggled = pm?.hasAttribute("toggled") ?? false;
+      out.pmDisplay = pm?.querySelector(".editor-content")?.textContent.trim() ?? null;
+      out.pmValue = pm?.value ?? null; // inactive → the submitted _value
+
+      const careerInput = pRoot?.querySelector('input[name="system.profession"]');
+      out.careerShown = careerInput?.value ?? null;
+      // The submit half: leave a DIFFERENT translated label in the box, commit,
+      // and the document must store that career's ENGLISH source.
+      if (careerInput) {
+        careerInput.value = "ZZ-CAZADOR";
+        careerInput.dispatchEvent(new Event("change", { bubbles: true }));
+        await settle(700);
+      }
+      out.careerStored = person.system.profession;
+      await person.sheet.close();
+
+      // ---- a CONTAINER npc: Kind shows the label, stores the key -------------
+      const crate = await CONFIG.Actor.documentClass.create({
+        name: "ZZ Overlay Crate", type: "npc",
+        system: { role: "container", containerClass: "funeralwagon" },
+      });
+      out.ids.push(crate.id);
+      await crate.sheet.render(true);
+      for (let i = 0; i < 60 && !crate.sheet.element; i++) await settle(100);
+      await settle(400);
+      const kindInput = crate.sheet.element?.querySelector('input[name="system.containerClass"]');
+      out.kindShown = kindInput?.value ?? null;
+      out.kindLabelWant = game.i18n.localize("CAIRN.ClassFuneralWagon");
+      if (kindInput) {
+        // Committing the LABEL must store the KEY back…
+        kindInput.value = out.kindLabelWant;
+        kindInput.dispatchEvent(new Event("change", { bubbles: true }));
+        await settle(700);
+      }
+      out.kindStoredAfterLabel = crate.system.containerClass;
+      const kindInput2 = crate.sheet.element?.querySelector('input[name="system.containerClass"]');
+      if (kindInput2) {
+        // …and a Warden's own word must pass through verbatim.
+        kindInput2.value = "ZZ Weird Basket";
+        kindInput2.dispatchEvent(new Event("change", { bubbles: true }));
+        await settle(700);
+      }
+      out.kindStoredCustom = crate.system.containerClass;
+      await crate.sheet.close();
+      // Restore the key so the connections-row leg below shows a Kinded crate.
+      await crate.update({ "system.containerClass": "funeralwagon" });
+
+      // ---- connections row + omen + failed career on a character ------------
+      const pc = await CONFIG.Actor.documentClass.create({
+        name: "ZZ Overlay Keeper", type: "character",
+        system: {
+          contentSource: "2e", omenEnabled: false, omen: "Probe omen of the ZZ moon.",
+          failedCareer: "Gravedigger",
+        },
+      });
+      out.ids.push(pc.id);
+      await pc.createEmbeddedDocuments("Item", [
+        { name: "ZZ Muddy Shovel", type: "item", flags: { "air-bladder": { grantSource: "failed-career" } } },
+      ]);
+      await crate.update({ "system.connectedTo": pc.uuid });
+
+      i18n._setOverlay({
+        "monster.name": { "ZZ Overlay Crate": "ZZ-CAJA" },
+        "table.result": { "Probe omen of the ZZ moon.": "ZZ-PRESAGIO" },
+        "bg.name": { Gravedigger: "ZZ-ENTERRADOR" },
+        "item.name": { "ZZ Muddy Shovel": "ZZ-PALA" },
+      });
+
+      await pc.sheet.render(true);
+      for (let i = 0; i < 60 && !pc.sheet.element; i++) await settle(100);
+      await settle(500);
+      const pcRoot = pc.sheet.element;
+      out.connRow = [...(pcRoot?.querySelectorAll('[data-is-container="true"] .cairn-item-title') ?? [])]
+        .map((a) => a.textContent.trim()).find((s) => s.includes("ZZ-")) ?? null;
+      out.omenShown = pcRoot?.querySelector(".omen-display")?.textContent.trim() ?? null;
+      out.omenStored = pc.system.omen;
+      const ctx = await pc.sheet._prepareContext({});
+      out.failedCareerCtx = ctx.failedCareer;
+      out.failedCareerItemCtx = ctx.failedCareerItem;
+      await pc.sheet.close();
+
+      // ---- marketplace: gear row, TRANSPORT row, and the purchase toast ------
+      const market = await import("/systems/air-bladder/module/marketplace.js");
+      const catalog = await market.getMarketplaceCatalog();
+      const carrierCat = catalog.categories.find((c) => c.items.some((d) => d.documentName === "Actor"));
+      const carrierEn = carrierCat?.items.find((d) => d.documentName === "Actor")?.name ?? null;
+      out.carrierEn = carrierEn;
+      const gearCat = catalog.categories.find((c) => c.items.some((d) => d.name === "Rope"));
+      out.gearFound = !!gearCat;
+
+      i18n._setOverlay({
+        "item.name": { Rope: "ZZ-CUERDA" },
+        "monster.name": carrierEn ? { [carrierEn]: "ZZ-MULA" } : {},
+      });
+
+      const toasts = [];
+      const origInfo = ui.notifications.info.bind(ui.notifications);
+      ui.notifications.info = (msg, ...rest) => { toasts.push(String(msg)); return origInfo(msg, ...rest); };
+      try {
+        await market.openMarketplace(pc);
+        for (let i = 0; i < 40 && !document.querySelector(".marketplace"); i++) await settle(150);
+        await settle(500);
+        const shop = document.querySelector(".marketplace");
+        const names = [...(shop?.querySelectorAll(".mkt-name") ?? [])].map((e) => e.textContent.trim());
+        out.shopGearRow = names.includes("ZZ-CUERDA");
+        out.shopCarrierRow = carrierEn ? names.includes("ZZ-MULA") : null;
+        const row = [...(shop?.querySelectorAll(".mkt-row") ?? [])]
+          .find((rw) => rw.querySelector(".mkt-name")?.textContent.trim() === "ZZ-CUERDA");
+        row?.querySelector(".mkt-take")?.click();
+        await settle(800);
+        out.toast = toasts.find((m) => m.includes("ZZ-CUERDA")) ?? toasts.at(-1) ?? null;
+        out.storedBought = pc.items.find((i2) => i2.name === "Rope")?.name ?? null;
+        shop?.closest(".application")?.querySelector('[data-action="close"]')?.click();
+        await settle(300);
+      } finally {
+        ui.notifications.info = origInfo;
+      }
+
+      // ---- monster generation bakes the DISPLAY language --------------------
+      // Overlay every row of the two appearance tables, so whatever the dice do,
+      // a translated fragment must reach the name and the description.
+      const gen = await import("/systems/air-bladder/module/monster-generator.js");
+      const wm = await game.packs.get("air-bladder.warden-monsters").getDocuments();
+      const rows = {};
+      for (const tbl of wm) {
+        if (!/Physique|Feature/.test(tbl.name)) continue;
+        for (const r of tbl.results) {
+          const en = r.type === "text" ? r.description : r.name;
+          if (en) rows[norm(en)] = `ZZ-${en}`;
+        }
+      }
+      out.appearanceRows = Object.keys(rows).length;
+      i18n._setOverlay({ "table.result": rows });
+      const monster = await gen.generateMonster("standard");
+      out.monsterName = monster.name;
+      out.monsterDescHasZZ = (monster.description ?? "").includes("ZZ-");
+    } finally {
+      i18n._setOverlay(null);
+    }
+    return out;
+  });
+
+  cleanupIds.push(...(r2.ids ?? []));
+
+  r2.bgHasStrings
+    ? ok("bg fixture has strings", "")
+    : fail("bg fixture has strings", "first background carries no question/option — legs below vacuous");
+  r2.bgEditable === false
+    ? ok("bg sheet is read-only", "the locked-pack branch under test")
+    : fail("bg sheet is read-only", "sheet was editable — probe tested the WRONG branch");
+  r2.bgQuestion === "ZZ-PREGUNTA"
+    ? ok("bg question translated", `"${r2.bgQuestion}"`)
+    : fail("bg question translated", `reads ${JSON.stringify(r2.bgQuestion)}`);
+  r2.bgOption === "ZZ-OPCION"
+    ? ok("bg option translated", `"${r2.bgOption}"`)
+    : fail("bg option translated", `reads ${JSON.stringify(r2.bgOption)}`);
+  r2.bgSource.includes(r2.bgSourceWant)
+    ? ok("bg source is the derived label", `"${r2.bgSourceWant}"`)
+    : fail("bg source is the derived label", `header reads ${JSON.stringify(r2.bgSource)}`);
+
+  r2.personTitle?.includes("ZZ-PERSONA")
+    ? ok("npc window title translated", `"${r2.personTitle}"`)
+    : fail("npc window title translated", `title is ${JSON.stringify(r2.personTitle)}`);
+  r2.pmFound && r2.pmToggled
+    ? ok("npc description editor is toggled", "the two-input split exists")
+    : fail("npc description editor is toggled", `found=${r2.pmFound} toggled=${r2.pmToggled}`);
+  r2.pmDisplay?.includes("ZZ-DESCRIPCION-PNJ")
+    ? ok("npc description DISPLAY translated", `"${r2.pmDisplay}"`)
+    : fail("npc description DISPLAY translated", `shows ${JSON.stringify(r2.pmDisplay)}`);
+  r2.pmValue?.includes("no fixed abode")
+    ? ok("npc description VALUE English", "what activation loads and a submit sends")
+    : fail("npc description VALUE English", `value is ${JSON.stringify(r2.pmValue)}`);
+  r2.careerShown === "ZZ-HERRERO"
+    ? ok("career input shows the label", `"${r2.careerShown}"`)
+    : fail("career input shows the label", `shows ${JSON.stringify(r2.careerShown)}`);
+  r2.careerStored === "Animal Handler"
+    ? ok("career stores the English source", `committed "ZZ-CAZADOR" → "${r2.careerStored}"`)
+    : fail("career stores the English source", `stored ${JSON.stringify(r2.careerStored)} — the match key is broken`);
+
+  r2.kindShown === r2.kindLabelWant && r2.kindShown !== "funeralwagon"
+    ? ok("kind shows the label", `"${r2.kindShown}"`)
+    : fail("kind shows the label", `shows ${JSON.stringify(r2.kindShown)}, want ${JSON.stringify(r2.kindLabelWant)}`);
+  r2.kindStoredAfterLabel === "funeralwagon"
+    ? ok("kind label round-trips to the key", "")
+    : fail("kind label round-trips to the key", `stored ${JSON.stringify(r2.kindStoredAfterLabel)}`);
+  r2.kindStoredCustom === "ZZ Weird Basket"
+    ? ok("a Warden's own Kind passes verbatim", "")
+    : fail("a Warden's own Kind passes verbatim", `stored ${JSON.stringify(r2.kindStoredCustom)}`);
+
+  r2.connRow?.includes("ZZ-CAJA")
+    ? ok("connections row translated", `"${r2.connRow}"`)
+    : fail("connections row translated", `row reads ${JSON.stringify(r2.connRow)}`);
+  r2.omenShown === "ZZ-PRESAGIO"
+    ? ok("omen display translated", `"${r2.omenShown}"`)
+    : fail("omen display translated", `reads ${JSON.stringify(r2.omenShown)}`);
+  r2.omenStored === "Probe omen of the ZZ moon."
+    ? ok("omen STORED stays English", "")
+    : fail("omen STORED stays English", `stored ${JSON.stringify(r2.omenStored)}`);
+  r2.failedCareerCtx === "ZZ-ENTERRADOR" && r2.failedCareerItemCtx === "ZZ-PALA"
+    ? ok("failed career + keepsake translated", `"${r2.failedCareerCtx}", "${r2.failedCareerItemCtx}"`)
+    : fail("failed career + keepsake translated", `${JSON.stringify(r2.failedCareerCtx)} / ${JSON.stringify(r2.failedCareerItemCtx)}`);
+
+  r2.gearFound
+    ? ok("shop stocks Rope", "")
+    : fail("shop stocks Rope", "no Rope in the catalog — the two shop legs below are vacuous");
+  r2.shopGearRow
+    ? ok("shop gear row translated", '"ZZ-CUERDA"')
+    : fail("shop gear row translated", "no row named ZZ-CUERDA");
+  r2.carrierEn === null
+    ? fail("shop carrier row translated", "no Actor row in the catalog — transport leg vacuous")
+    : r2.shopCarrierRow
+      ? ok("shop TRANSPORT row translated", `"${r2.carrierEn}" → "ZZ-MULA"`)
+      : fail("shop TRANSPORT row translated", `no row named ZZ-MULA for "${r2.carrierEn}"`);
+  r2.toast?.includes("ZZ-CUERDA")
+    ? ok("purchase toast translated", `"${r2.toast}"`)
+    : fail("purchase toast translated", `toast was ${JSON.stringify(r2.toast)}`);
+  r2.storedBought === "Rope"
+    ? ok("bought item STORED English", "the payload never translated")
+    : fail("bought item STORED English", `stored ${JSON.stringify(r2.storedBought)}`);
+
+  r2.appearanceRows > 0
+    ? ok("appearance tables overlaid", `${r2.appearanceRows} rows`)
+    : fail("appearance tables overlaid", "0 rows — monster-gen leg vacuous");
+  r2.monsterName?.includes("ZZ-")
+    ? ok("generated monster name in display language", `"${r2.monsterName}"`)
+    : fail("generated monster name in display language", `name is ${JSON.stringify(r2.monsterName)}`);
+  r2.monsterDescHasZZ
+    ? ok("generated description in display language", "")
+    : fail("generated description in display language", "no translated fragment reached the bullets");
+} catch (e) {
+  fail("review batch", `${e.name}: ${e.message}`);
+} finally {
+  // From NODE, unconditionally — a throw above must not leave probe actors for
+  // the next run's preconditions to silently feed on.
+  if (cleanupIds.length) {
+    await page.evaluate(async (ids) => {
+      for (const id of ids) { try { await game.actors.get(id)?.delete(); } catch { /* gone */ } }
+    }, cleanupIds).catch(() => {});
+  }
+}
+
+/* -------------------------------------------- */
+
 console.log(`\nconsole errors: ${errors.length}`);
 for (const e of errors.slice(0, 10)) console.log(`  ${e}`);
 if (errors.length) failures++;

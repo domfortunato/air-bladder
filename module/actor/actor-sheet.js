@@ -7,7 +7,7 @@ import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES, containerClassSlots } from "../icons.js";
 import { NPC_ROLES } from "../data-models.js";
 import { atConnectionLimit, maxConnections, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
-import { localizeNameDesc, t } from "../i18n-content.js";
+import { localizeNameDesc, sourceOf, t } from "../i18n-content.js";
 import { FATIGUE_NAME } from "../item/item.js";
 import { pickArt } from "../art-picker.js";
 
@@ -602,7 +602,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // (slot math, worn rows) still read it.
     context.connectionRows = context.system.containerObjects.map((c) => ({
       uuid: c.uuid,
-      name: c.name,
+      // Display-only: a connected Sack/Mule is an Actor doc, which the extractor
+      // files under monster.name — the same row's expanded CONTENTS were already
+      // localized (#onItemDescription), so the row read English over Spanish.
+      name: t("monster.name", c.name),
       slotsUsed: c.system.slotsUsed,
       slots: c.system.slots,
       canUnlink: game.user.isGM || (this.actor.isOwner && c.isOwner),
@@ -631,6 +634,19 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       context.kindOptions = Object.entries(CONTAINER_CLASSES)
         .filter(([, v]) => v.role === role)
         .map(([key, v]) => ({ key, label: game.i18n.localize(v.label) }));
+      // Display halves of the two free-text display/value splits; the submit
+      // halves live in _processFormData. Career: the stored English career is a
+      // MATCH KEY (randomCareer's repeat-exclusion, _preUpdate's day-rate fill),
+      // so the input shows t() and the submit maps back through sourceOf().
+      // Kind: the stored value is the CONTAINER_CLASSES key ("funeralwagon"),
+      // which the sheet used to display RAW in every language including
+      // English; a known key shows its localized label, a Warden's own word
+      // shows verbatim.
+      context.professionDisplay = t("npc.career", this.actor.system.profession);
+      const cls = this.actor.system.containerClass;
+      context.kindDisplay = CONTAINER_CLASSES[cls]
+        ? game.i18n.localize(CONTAINER_CLASSES[cls].label)
+        : cls;
     }
     let items = this.actor.items.map((i) => ({
       _id: i.id,
@@ -673,22 +689,28 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const fatigueLabel = game.i18n.localize("CAIRN.Fatigue");
     context.items = items.map((i) => (i.name === FATIGUE_NAME ? { ...i, name: fatigueLabel } : i));
 
-    const enrich = (html) =>
-      foundry.applications.ux.TextEditor.implementation.enrichHTML(html, { relativeTo: this.actor });
-
-    // Compendium monsters have "description" instead of "biography"
-    if (this.actor.system.showBio) {
-      context.enrichedBiography = await enrich(this.actor.system.biography);
-    } else {
-      // An NPC monster's description translates via the monster.desc namespace —
-      // display only, enriched into a derived field, never written back to the doc.
-      const rawDescription =
-        this.actor.type === "npc"
-          ? t("monster.desc", this.actor.system.description)
-          : this.actor.system.description;
-      context.enrichedDescription = await enrich(rawDescription);
+    // The npc sheet's description editor is TOGGLED (npc-sheet.html), so this is
+    // its light-DOM DISPLAY half: translated via monster.desc — the namespace the
+    // extractor files EVERY actor doc's description under, mounts and containers
+    // included, hence type-keyed for both npc and the hireling alias — and
+    // enriched, so @UUID links render as links. The editor's `value` attribute
+    // stays the raw stored English; activation swaps this copy out for it
+    // (prosemirror-editor.mjs:204), so nothing translated can reach a submit.
+    //
+    // This block once also computed enrichedBiography and enrichedNotes — and an
+    // untranslated enrichedDescription for characters — all four consumed by NO
+    // template (the review that caught it: three awaited enrichHTML passes per
+    // committed keystroke, for nothing, while the monster.desc translation they
+    // were meant to carry never displayed anywhere). The notes editors stay
+    // always-active by the recorded decision in character-sheet.html, which is
+    // why notes are NOT enriched: an always-active editor has no display half.
+    if (["npc", "hireling"].includes(this.actor.type)) {
+      context.enrichedDescription =
+        await foundry.applications.ux.TextEditor.implementation.enrichHTML(
+          t("monster.desc", this.actor.system.description),
+          { relativeTo: this.actor },
+        );
     }
-    context.enrichedNotes = await enrich(this.actor.system.notes);
 
     if (this.actor.type === "character") await this._prepareCharacterContext(context);
 
@@ -753,6 +775,22 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     return this.actor.npcRole === "monster"
       ? { nameNs: "monster.itemName", descNs: "monster.itemDesc" }
       : { nameNs: "item.name", descNs: "item.desc" };
+  }
+
+  /**
+   * Window title with the actor's DISPLAY name — the counterpart of the item
+   * sheet's override, added because the fix commit created the asymmetry: a
+   * compendium Mule read "NPC: Mule" over an item reading "Objeto: Soga". Every
+   * actor doc's name is extracted under monster.name (mounts and containers
+   * included); a character's name is player-authored and has no namespace, and
+   * t() returning it unchanged is what routes that case to super.
+   * @override
+   */
+  get title() {
+    const name = t("monster.name", this.actor.name);
+    if (!name || name === this.actor.name) return super.title;
+    const prefix = CONFIG.Actor.typeLabels[this.actor.type] ?? "";
+    return `${game.i18n.localize(prefix)}: ${name}`;
   }
 
   /**
@@ -878,18 +916,31 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.showOmen =
       this.actor.system.contentSource !== "barebones" ||
       game.settings.get(SETTINGS_NS, "show-omens-barebones");
+    // The omen's READ surface (the display span when the field is disabled, and
+    // eventually whatever renders it elsewhere). Omens are table.result rows and
+    // 19 of the 20 shipped ones are translated; the traits, scars and bonds
+    // around this field all consult the overlay and this one did not. The
+    // TEXTAREA stays the stored English on purpose — it is the edit surface of a
+    // free-text field with no display/value split, the same deliberate rule as
+    // the item sheet's name input.
+    context.omenDisplay = t("table.result", this.actor.system.omen);
     // Barebones-only flavour: the career that didn't work out. Grants nothing.
     // Read the setting live, so a Warden switching it off hides the line on an
     // already-generated character rather than only affecting the next one.
-    context.failedCareer = this.actor.system.failedCareer ?? "";
+    // Localized like the pickers that set them (promptFailedCareer shows
+    // t("bg.name")/t("item.name") labels): the stored value stays the English
+    // match key; only these display copies translate.
+    context.failedCareer = t("bg.name", this.actor.system.failedCareer ?? "");
     context.showFailedCareer =
       this.actor.system.contentSource === "barebones" &&
       game.settings.get(SETTINGS_NS, "barebones-failed-career");
     // The single keepsake item the failed career left (grantSource
     // "failed-career") — shown on its own line under the career, with a re-roll
     // dice. It also appears in the inventory tagged "Failed Career" + "Petty".
-    context.failedCareerItem =
-      this.actor.items.find((i) => i.getFlag("air-bladder", "grantSource") === "failed-career")?.name ?? "";
+    context.failedCareerItem = t(
+      "item.name",
+      this.actor.items.find((i) => i.getFlag("air-bladder", "grantSource") === "failed-career")?.name ?? "",
+    );
 
     // Random-generation mode (default on): gates the per-field dice rollers
     // (age, omen). Legacy characters lack the field -> default to enabled.
@@ -1913,15 +1964,19 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     const usePanic = game.settings.get(SETTINGS_NS, "use-panic");
     let formula = dataset.roll;
-    let panicLabel = "";
+    let panicked = false;
     if (usePanic && this.actor.system.panicked) {
       formula = "1d4"; // panicked character
-      panicLabel = "(" + game.i18n.localize("CAIRN.RollingWithPanic") + ")";
+      panicked = true;
     }
 
     const roll = await evaluateFormula(formula, this.actor.getRollData());
+    // Two whole-sentence keys, not fragments glued with `+`: word order is not
+    // universal, and the translator could not move the weapon name or the
+    // parenthetical. Same rule as _buildTraitSentence and _prepareConnectionLabel.
     const label = dataset.label
-      ? game.i18n.localize("CAIRN.RollingDmgWith") + ` ${dataset.label} ` + panicLabel
+      ? game.i18n.format(panicked ? "CAIRN.RollingDmgWithWeaponPanic" : "CAIRN.RollingDmgWithWeapon",
+        { weapon: dataset.label })
       : "";
 
     const targetedTokens = Array.from(game.user.targets).map((tk) => tk.id);
@@ -2256,7 +2311,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const dataset = target.dataset;
     if (!dataset.roll) return;
     const roll = await evaluateFormula(dataset.roll, this.actor.getRollData());
-    const label = dataset.label ? game.i18n.localize("CAIRN.Rolling") + ` ${dataset.label}` : "";
+    // A whole-sentence key, not localize()+concat — the translator owns the word order.
+    const label = dataset.label ? game.i18n.format("CAIRN.RollingWhat", { what: dataset.label }) : "";
     const rolled = roll.terms[0].results[0].result;
     const failed = roll.total === 0;
     const result = failed ? game.i18n.localize("CAIRN.Fail") : game.i18n.localize("CAIRN.Success");
@@ -2688,6 +2744,32 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       || this.actor.system.panicked;
     if (derivedZero) {
       foundry.utils.deleteProperty(data, "system.hp.value");
+    }
+
+    // The submit half of the two display/value splits on free-text inputs
+    // (2026-08-02). Career and Kind SHOW a localized label (professionDisplay /
+    // kindDisplay in _prepareContext) but must STORE canonical English — career
+    // because randomCareer's repeat-exclusion and _preUpdate's day-rate autofill
+    // both match the stored string against npc-careers-2e.json, Kind because the
+    // stored value is the CONTAINER_CLASSES key that brings art and capacity.
+    // Both maps are identity in an English world (overlay null / label == key
+    // already handled), so the submit is byte-identical there.
+    const prof = foundry.utils.getProperty(data, "system.profession");
+    if (prof !== undefined) {
+      foundry.utils.setProperty(data, "system.profession", sourceOf("npc.career", prof));
+    }
+    const kind = foundry.utils.getProperty(data, "system.containerClass");
+    if (kind !== undefined && kind !== "" && !CONTAINER_CLASSES[kind]) {
+      // Not already a key: accept the label in ANY language — a Warden may type
+      // the English label in a Spanish world — falling through to the verbatim
+      // text, which is the "a Warden's own word is a legal Kind" rule.
+      const typed = String(kind).trim().toLowerCase();
+      for (const [key, cfg] of Object.entries(CONTAINER_CLASSES)) {
+        if (typed === game.i18n.localize(cfg.label).toLowerCase()) {
+          foundry.utils.setProperty(data, "system.containerClass", key);
+          break;
+        }
+      }
     }
     return data;
   }

@@ -53,8 +53,12 @@
             {{#if showCareer}}
             <div class="profession-line">
                 <span class="background-label">{{ localize 'CAIRN.Career' }}</span>
+                {{!-- Shows the localized career, stores the English one: the stored
+                      value is a MATCH KEY (day-rate autofill, reroll exclusion), so
+                      _processFormData maps whatever is in the box back through
+                      sourceOf("npc.career"). Identity in an English world. --}}
                 <input class="profession-input" type="text" name="system.profession"
-                    value="{{system.profession}}" placeholder="{{ localize 'CAIRN.Career' }}" />
+                    value="{{professionDisplay}}" placeholder="{{ localize 'CAIRN.Career' }}" />
                 {{#if generationEnabled}}
                 <a class="profession-roll" data-action="rollProfession" title="{{ localize 'CAIRN.RollProfession' }}"><i class="fas fa-dice-d20"></i></a>
                 {{/if}}
@@ -101,11 +105,17 @@
             {{#if showKind}}
             <div class="profession-line kind-line">
                 <span class="background-label">{{ localize 'CAIRN.Kind' }}</span>
+                {{!-- Shows the LABEL ("Funeral Wagon" / "Carromato fúnebre"), stores the
+                      KEY ("funeralwagon"): the input used to render the raw storage key
+                      in every language including English. The datalist options insert
+                      the label, and _processFormData maps a typed/picked label back to
+                      its key; an unknown word passes through verbatim — a Warden's own
+                      word is a legal Kind. --}}
                 <input class="profession-input kind-input" type="text" name="system.containerClass"
-                    value="{{system.containerClass}}" list="{{@root.idp}}-kinds"
+                    value="{{kindDisplay}}" list="{{@root.idp}}-kinds"
                     placeholder="{{ localize 'CAIRN.KindHint' }}" />
                 <datalist id="{{@root.idp}}-kinds">
-                    {{#each kindOptions}}<option value="{{key}}">{{label}}</option>{{/each}}
+                    {{#each kindOptions}}<option value="{{label}}"></option>{{/each}}
                 </datalist>
             </div>
             {{/if}}
@@ -310,8 +320,19 @@
                               anything typed into it before is still on the doc. --}}
                         <div class="npc-description-section">
                             <h3 class="cairn-section-label npc-description-label">{{ localize 'CAIRN.Description' }}</h3>
-                            <prose-mirror name="system.description" value="{{system.description}}" relative
-                                data-document-uuid="{{actor.uuid}}"></prose-mirror>
+                            {{!-- TOGGLED, unlike the notes editors, and joining the seven item
+                                  templates' shape on their reasoning: a toggled editor carries TWO
+                                  inputs — the `value` attribute is the submitted English source,
+                                  the light-DOM child is display-only — so the enriched, TRANSLATED
+                                  copy renders while nothing translated can reach a submit
+                                  (activation swaps in `value`, prosemirror-editor.mjs:204). This
+                                  was the statblock prose of 204 monsters rendering raw `value` in
+                                  every language, with @UUID links as literal text; the notes
+                                  editors stay always-active per the recorded decision in
+                                  character-sheet.html — notes are not translated, so they lose
+                                  only enrichment, and gain click-and-type. --}}
+                            <prose-mirror name="system.description" value="{{system.description}}" toggled collaborate relative
+                                data-document-uuid="{{actor.uuid}}">{{{enrichedDescription}}}</prose-mirror>
                         </div>
                     </div>
                 </div>

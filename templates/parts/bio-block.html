@@ -70,7 +70,9 @@
                                 <a class="omen-roll" data-action="rollOmen" title="{{ localize 'CAIRN.RollOmen' }}"><i class="fas fa-dice-d20"></i></a>
                                 {{/if}}
                                 {{else}}
-                                <span class="omen-display">{{#if system.omen}}{{system.omen}}{{else}}{{ localize 'CAIRN.OmenPlaceholder' }}{{/if}}</span>
+                                {{! omenDisplay = t("table.result", system.omen) — the read surface
+                                    localizes; the textarea above stays the stored English source. }}
+                                <span class="omen-display">{{#if system.omen}}{{omenDisplay}}{{else}}{{ localize 'CAIRN.OmenPlaceholder' }}{{/if}}</span>
                                 {{/if}}
                             </div>
                             {{/if}}

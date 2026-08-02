@@ -328,6 +328,19 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         return { name: localize ? t("item.name", g.name) : g.name, tags };
       })
     );
+    // The Details tab's questions and options, localized — the template used to
+    // iterate system.tables raw, which left the ONE sheet showing all 40
+    // bg.question and 240 bg.optionDesc strings (every one of them translated)
+    // displaying none of them, one tab from a Description that translated.
+    // Display copies only; the editor branch keeps its raw inputs.
+    context.backgroundTables = (this.item.system.tables ?? []).map((tbl) => ({
+      question: t("bg.question", tbl.question ?? ""),
+      options: (tbl.options ?? []).map((o) => ({ description: t("bg.optionDesc", o.description ?? "") })),
+    }));
+    // Same derived label the editor branch shows — the read-only header printed
+    // the raw stored enum ("2e"), which sourceLabel exists to prevent drifting
+    // copies of. Third copy retired.
+    context.sourceLabel = sourceLabel(this.item.system.source || "2e");
   }
 
   /**
@@ -527,7 +540,7 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     event.preventDefault();
     const report = await previewBackground(this.item, 10);
     new foundry.applications.api.DialogV2({
-      window: { title: game.i18n.format("CAIRN.BgAuthor.TestTitle", { name: this.item.name }), icon: "fas fa-flask" },
+      window: { title: game.i18n.format("CAIRN.BgAuthor.TestTitle", { name: t("bg.name", this.item.name) }), icon: "fas fa-flask" },
       position: { width: 560 },
       content: renderPreviewReport(report),
       buttons: [{ action: "close", label: game.i18n.localize("CAIRN.Close"), default: true }],
@@ -569,7 +582,7 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     event.preventDefault();
     const copy = await duplicateBackgroundToWorld(this.item);
     if (!copy) return;
-    ui.notifications.info(game.i18n.format("CAIRN.BgAuthor.Duplicated", { name: copy.name }));
+    ui.notifications.info(game.i18n.format("CAIRN.BgAuthor.Duplicated", { name: t("bg.name", copy.name) }));
     copy.sheet.render(true);
   }
 

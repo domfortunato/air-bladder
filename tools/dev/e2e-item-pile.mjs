@@ -162,7 +162,11 @@ try {
       sheet: {
         classText: pile.system.classLabel ?? null,
         selectValue: input?.value ?? null,
-        options: list.map((o) => o.text).filter(Boolean),
+        stored: pile.system.containerClass ?? null,
+        // Datalist options carry the LABEL as their value since the 2026-08-02
+        // display/value split (picking one inserts the label; the submit maps it
+        // back to the key). They have no text child any more, so read .value.
+        options: list.map((o) => o.value).filter(Boolean),
         // Not clipped: the Kind box has its own row for exactly this reason.
         clipped: input ? input.scrollWidth > input.clientWidth + 1 : null,
       },
@@ -185,9 +189,12 @@ try {
   made.customKept === "icons/svg/coins.svg"
     ? ok("hand-picked art is never overwritten", made.customKept)
     : fail("hand-picked art is never overwritten", made.customKept);
-  made.sheet.classText === "Item Pile" && made.sheet.selectValue === "pile"
-    ? ok("the sheet shows and stores the Kind", `"${made.sheet.classText}"`)
-    : fail("the sheet shows and stores the Kind", JSON.stringify(made.sheet));
+  // The display/value split (2026-08-02): the input SHOWS the label, the
+  // document STORES the key. The old assertion wanted the raw key in the input,
+  // which was the defect — "funeralwagon" on the sheet in every language.
+  made.sheet.classText === "Item Pile" && made.sheet.selectValue === "Item Pile" && made.sheet.stored === "pile"
+    ? ok("the sheet shows the Kind, the doc stores the key", `"${made.sheet.selectValue}" / "${made.sheet.stored}"`)
+    : fail("the sheet shows the Kind, the doc stores the key", JSON.stringify(made.sheet));
   made.sheet.options.includes("Item Pile") && made.sheet.clipped === false
     ? ok("the Kind control offers it, unclipped", made.sheet.options.join(" / "))
     : fail("the Kind control offers it, unclipped", JSON.stringify(made.sheet));

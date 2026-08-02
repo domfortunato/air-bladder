@@ -198,8 +198,13 @@ const rowHtml = ({ idx, cost, name, tagsHtml, metaHtml, descHtml }) =>
  */
 const acquire = async (actor, data, pay) => {
   const cost = data.system.cost ?? 0;
+  // Every message below names the item through t(): the row the player clicked
+  // showed the localized name, and the toast answering the click read the
+  // English payload — "Has comprado Rope". The PAYLOAD stays English (it is
+  // what gets created); only the messages translate.
+  const shown = t("item.name", data.name);
   if (pay && (actor.system.gold ?? 0) < cost) {
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.NotEnoughGold", { name: data.name, cost }));
+    ui.notifications.warn(game.i18n.format("CAIRN.Notify.NotEnoughGold", { name: shown, cost }));
     return false;
   }
   // A THING is strict (refuses anything that won't fit, never holds equipped
@@ -210,7 +215,7 @@ const acquire = async (actor, data, pay) => {
   if (actor.isThing) {
     const need = slotCost(data.system);
     if ((actor.system.slotsUsed ?? 0) + need > (actor.system.slotsMax ?? 0)) {
-      ui.notifications.warn(game.i18n.format("CAIRN.Notify.ContainerFull", { name: data.name }));
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.ContainerFull", { name: shown }));
       return false;
     }
     data.system.equipped = false;
@@ -218,12 +223,12 @@ const acquire = async (actor, data, pay) => {
   await actor.createEmbeddedDocuments("Item", [data]);
   if (pay) {
     await actor.update({ "system.gold": (actor.system.gold ?? 0) - cost });
-    ui.notifications.info(game.i18n.format("CAIRN.Notify.Bought", { name: data.name, cost }));
+    ui.notifications.info(game.i18n.format("CAIRN.Notify.Bought", { name: shown, cost }));
   } else {
-    ui.notifications.info(game.i18n.format("CAIRN.Notify.Took", { name: data.name }));
+    ui.notifications.info(game.i18n.format("CAIRN.Notify.Took", { name: shown }));
   }
   if (!actor.isThing && actor.isEncumbered()) {
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.Overloaded", { name: data.name }));
+    ui.notifications.warn(game.i18n.format("CAIRN.Notify.Overloaded", { name: shown }));
   }
   return true;
 };
@@ -249,8 +254,11 @@ export const acquireTransport = async (actor, doc, pay) => {
     return false;
   }
   const cost = doc.system.cost ?? 0;
+  // A transport is an Actor doc → monster.name, not item.name (see the row
+  // build). Messages only; the payload keeps the English name.
+  const shown = t("monster.name", doc.name);
   if (pay && (actor.system.gold ?? 0) < cost) {
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.NotEnoughGold", { name: doc.name, cost }));
+    ui.notifications.warn(game.i18n.format("CAIRN.Notify.NotEnoughGold", { name: shown, cost }));
     return false;
   }
   // A container cannot itself keep a container — no nesting. Not a type test
@@ -344,9 +352,9 @@ export const acquireTransport = async (actor, doc, pay) => {
   }
   if (pay) {
     await actor.update({ "system.gold": (actor.system.gold ?? 0) - cost });
-    ui.notifications.info(game.i18n.format("CAIRN.Notify.Bought", { name: doc.name, cost }));
+    ui.notifications.info(game.i18n.format("CAIRN.Notify.Bought", { name: shown, cost }));
   } else {
-    ui.notifications.info(game.i18n.format("CAIRN.Notify.Took", { name: doc.name }));
+    ui.notifications.info(game.i18n.format("CAIRN.Notify.Took", { name: shown }));
   }
   return true;
 };
@@ -391,7 +399,13 @@ export const openMarketplace = async (actor, opts = {}) => {
       // Display-only translation: the row SHOWS the localized name/description, but
       // `built` keeps the English payload so Buy/Take creates the canonical item
       // (which then displays translated via the inventory surface).
-      const d = localizeNameDesc(data);
+      // Namespace by ROW KIND: a carrier row is an Actor doc from Mounts &
+      // Transports, which the extractor files under monster.* — the default
+      // item.* lookup could only ever miss for those, so every transport row
+      // read English while the gear beside it read Spanish.
+      const d = localizeNameDesc(data, isCarrier(data)
+        ? { nameNs: "monster.name", descNs: "monster.desc" }
+        : undefined);
       if (isCarrier(data)) {
         const idx = built.push(data) - 1;
         const cap = data.system.slots ?? 0;

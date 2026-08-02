@@ -36,11 +36,15 @@
       {{#if item.system.blast}}
       <div class="cairn-item-tag">{{ localize 'CAIRN.Blast' }}</div>
       {{/if}}
+      {{!-- Format keys, not "<number> <noun>" — the same rule (and the same two
+            keys) as the marketplace chips and the item-sheet chips, which carry
+            the comment explaining it: word order is not universal, and CAIRN.Armor
+            / CAIRN.Damage are field LABELS, wrong when borrowed as unit nouns. --}}
       {{#if item.system.armor}}
-      <span class="cairn-item-tag">{{ localize 'CAIRN.Armor' }} {{item.system.armor}}</span>
+      <span class="cairn-item-tag">{{ localize 'CAIRN.NArmor' n=item.system.armor }}</span>
       {{/if}}
       {{#if item.system.damageFormula}}
-      <div class="cairn-item-tag">{{item.system.damageFormula}} {{ localize 'CAIRN.Damage' }}</div>
+      <div class="cairn-item-tag">{{ localize 'CAIRN.NDamage' n=item.system.damageFormula }}</div>
       {{/if}}
       {{#if item.system.bulky}}
       <div class="cairn-item-tag">{{ localize 'CAIRN.Bulky' }}</div>
@@ -52,7 +56,7 @@
       <div class="cairn-item-tag">{{ localize 'CAIRN.Weightless' }}</div>
       {{/unless}}{{/if}}
       {{#if (gt item.system.quantity 1)}}
-      <div class="cairn-item-tag">{{ localize 'CAIRN.Quantity' }} {{item.system.quantity}} </div>
+      <div class="cairn-item-tag">{{ localize 'CAIRN.NQuantity' n=item.system.quantity }}</div>
       {{/if}}
 
 
@@ -115,7 +119,7 @@
     <div class="cairn-item-name-and-tags">
       <i class="fas fa-coins gold-slot-icon"></i>
       <span class="cairn-item-title">{{ system.coinRowLabel }}</span>
-      <span class="cairn-item-tag">1 {{ localize 'CAIRN.MarketplaceSlot' }}</span>
+      <span class="cairn-item-tag">{{ localize 'CAIRN.NSlot' n=1 }}</span>
     </div>
   </div>
 </div>
