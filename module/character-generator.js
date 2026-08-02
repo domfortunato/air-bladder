@@ -830,6 +830,34 @@ export const requestGrantedActors = async (payloads, owner) => {
 };
 
 /**
+ * Ask the Warden's client to generate a character for the CURRENT user.
+ *
+ * The directory shows Generate PC to players who hold no ACTOR_CREATE at all —
+ * making a character is the one creation the game owes every player, and
+ * granting the world-wide right for it would open all the others. Same shape
+ * as requestGrantedActors above: emit, and exactly one GM client answers,
+ * running this same generator with the requester stamped OWNER into the
+ * create data. Fire-and-forget — the pcGenerated answer (cairn.js) opens the
+ * sheet on this client when the document lands. The payload carries nothing:
+ * WHO asked is the server-authenticated senderId on the receiving side.
+ */
+export const requestPcGeneration = async () => {
+  if (!game.users.activeGM) {
+    ui.notifications.warn(game.i18n.localize("CAIRN.Notify.NoWardenForPcGen"));
+    return;
+  }
+  // The SOURCE question is the player's, exactly as it is on the direct path —
+  // ask it HERE, on the clicking client, and send the answer. Asked on the
+  // answering side instead, generateCharacter's picker pops on the Warden's
+  // screen out of nowhere and the player's request hangs on someone else's
+  // modal (which is precisely how the first cut of this relay behaved).
+  const source = await promptContentSource();
+  if (!source) return; // ✕ is an instruction, here as everywhere
+  ui.notifications.info(game.i18n.localize("CAIRN.Notify.PcGenRequested"));
+  game.socket.emit(`system.${game.system.id}`, { action: "generatePC", source });
+};
+
+/**
  * May the current user run a (re)generation that could create or delete this
  * actor's container Actors? Deleting an Actor requires an Assistant GM+ (Foundry
  * gates it by ROLE, with no player-grantable permission — unlike ACTOR_CREATE), so
@@ -1893,7 +1921,7 @@ const characterToActorData = (characterData) => ({
  * @param {Object} characterData
  * @returns {Promise<CairnActor|null>}
  */
-export const createActorWithCharacter = async (characterData, { folder = null } = {}) => {
+export const createActorWithCharacter = async (characterData, { folder = null, ownership = null } = {}) => {
   if (!characterData) return null;
   const data = characterToActorData(characterData);
   // A random portrait + its paired token, assigned ONLY here on creation.
@@ -1908,6 +1936,12 @@ export const createActorWithCharacter = async (characterData, { folder = null } 
   // The createDialog switchboard threads the folder "+"'s destination through
   // here (2026-08-02); the directory button passes nothing and lands at root.
   if (folder) data.folder = folder;
+  // The generatePC relay mints on the Warden's client FOR a player, so the
+  // requester's OWNER must be in the CREATE data, not patched on after:
+  // grantContainers below derives each granted mule's connected-ownership
+  // shape from the keeper's ownership, and a late patch would hand the player
+  // a character whose own mount they cannot open.
+  if (ownership) data.ownership = ownership;
   const actor = await CairnActor.create(data);
   await grantContainers(actor, characterData.containers);
   return actor;
@@ -1944,8 +1978,8 @@ export const updateActorWithCharacter = async (actor, characterData) => {
 };
 
 /** @returns {Promise<CairnActor|null>} */
-export const createCharacter = async ({ folder = null } = {}) =>
-  createActorWithCharacter(await generateCharacter(), { folder });
+export const createCharacter = async ({ folder = null, ownership = null, source = null } = {}) =>
+  createActorWithCharacter(await generateCharacter(null, source), { folder, ownership });
 
 /**
  * Regenerate an existing character: re-roll stats/gear/bond/traits but PERSIST the

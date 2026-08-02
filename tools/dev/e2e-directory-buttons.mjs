@@ -18,11 +18,22 @@
  * got no buttons at all.
  *
  * The permission matrix: a Warden sees 8 buttons, an ACTOR_CREATE player 5
- * (no Monster, no Faction, no Import), a player without ACTOR_CREATE none —
- * and core's Create Actor is gone for all three. The count assertions were
- * stale-red before this rewrite (they said 4 while a Warden had had 5 since
- * the faction button) because this probe was not in that batch's run list;
- * the matrix is the fix for the class of miss, not just the number.
+ * (no Monster, no Faction, no Import), a player without ACTOR_CREATE exactly
+ * ONE — Generate PC, whose click is a socket relay (the generatePC action):
+ * the active Warden's client runs the generator and stamps the requester
+ * OWNER, because a player's own client cannot create an Actor at all. Core's
+ * Create Actor is gone for all three. The count assertions were stale-red
+ * before this rewrite (they said 4 while a Warden had had 5 since the faction
+ * button) because this probe was not in that batch's run list; the matrix is
+ * the fix for the class of miss, not just the number.
+ *
+ * The relay legs need a quiet world: two GM CLIENTS logged in as the same
+ * Warden both pass the activeGM check and both answer a generatePC, so a
+ * live user session alongside this probe's GM page can double-mint — the
+ * exactly-one leg is the tripwire, and its red under a live session is the
+ * standing live-GM confound, not a regression. A crashed run can also strand
+ * the relay-minted PC (random name, no ZZ prefix): the finally deletes it,
+ * but nothing can sweep it after a kill -9.
  *
  * Usage: npm run dev:directory-buttons
  */
@@ -230,7 +241,11 @@ try {
     await ui.sidebar.changeTab?.("actors", "primary");
     await new Promise((res) => setTimeout(res, 600));
 
-    const before = game.actors.size;
+    // Count CHARACTERS, not all actors: the leak this guards against creates a
+    // character, while a live Warden session minting NPCs alongside the probe
+    // (2026-08-02: "Mount", 6:56 PM, mid-run) trips a whole-directory count.
+    const pcCount = () => game.actors.filter((a) => a.type === "character").length;
+    const before = pcCount();
 
     // Assert on what generateCharacter RESOLVES, not on an actor count after a
     // fixed sleep. Generating a 2e character rolls tables, resolves gear from
@@ -253,10 +268,10 @@ try {
     await new Promise((res) => setTimeout(res, 1000));
     const dlg2 = [...document.querySelectorAll(".application.dialog, dialog.application")].pop();
     dlg2?.querySelector('[data-action="close"]')?.click();
-    let after = game.actors.size;
+    let after = pcCount();
     for (let i = 0; i < 100 && after === before; i++) {
       await new Promise((res) => setTimeout(res, 100));
-      after = game.actors.size;
+      after = pcCount();
     }
 
     await game.settings.set(NS, "content-source-2e", prior.twoE);
@@ -283,6 +298,7 @@ try {
   const alicePage = await (await browser.newContext({ viewport: VIEWPORT })).newPage();
   const aliceErrors = watchErrors(alicePage);
   const priorPerms = await page.evaluate(() => game.settings.get("core", "permissions"));
+  let relayMintedUuid = null;
   try {
     // GRANT first, as dev:monster-gen's Alice leg does and for its reason: the
     // dev world's PLAYER role does not hold ACTOR_CREATE, so without the grant
@@ -338,14 +354,114 @@ try {
     await alicePage.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 60000 });
     await dismissChrome(alicePage);
     const bare = await readAlice();
-    !bare.canCreate && bare.buttons.length === 0 && !bare.coreCreate
-      ? ok("without ACTOR_CREATE she sees no creation surface at all")
-      : fail("without ACTOR_CREATE she sees no creation surface at all", JSON.stringify(bare));
+    // INVERTED 2026-08-02 (was: "no creation surface at all"): the generatePC
+    // relay gives a bare player exactly one button. Red witness: pre-relay
+    // code renders zero buttons here.
+    !bare.canCreate && bare.buttons.length === 1 && bare.buttons[0] === "Generate PC" && !bare.coreCreate
+      ? ok("without ACTOR_CREATE she sees exactly one button", "Generate PC — the relay's face")
+      : fail("without ACTOR_CREATE she sees exactly one button (Generate PC)", JSON.stringify(bare));
+
+    /* --- 6. the generatePC relay, as bare Alice ------------------------- */
+    console.log("\nthe generatePC relay, as bare Alice");
+
+    // The guard first: no Warden online → a warning, no emit, no actor.
+    // activeGM is a prototype getter, so an instance property shadows it on
+    // Alice's client alone and a delete restores it — no reload, no effect on
+    // the GM page that answers the REAL request below.
+    const guarded = await alicePage.evaluate(async () => {
+      Object.defineProperty(game.users, "activeGM", { get: () => null, configurable: true });
+      // Characters only, like the cancel block: a live Warden minting NPCs
+      // beside the probe must not red an absence check about PC generation.
+      const pcCount = () => game.actors.filter((a) => a.type === "character").length;
+      const before = pcCount();
+      document.querySelector("#actors .create-character-generator-button")?.click();
+      await new Promise((r) => setTimeout(r, 2000));
+      const warned = [...document.querySelectorAll(".notification")]
+        .some((n) => n.textContent.includes("No Warden is logged in"));
+      delete game.users.activeGM;
+      return { warned, before, after: pcCount(), restored: !!game.users.activeGM };
+    });
+    guarded.warned && guarded.after === guarded.before
+      ? ok("with no Warden online the click warns and mints nothing", `characters ${guarded.before} before and after`)
+      : fail("with no Warden online the click warns and mints nothing", JSON.stringify(guarded));
+    guarded.restored
+      ? ok("the activeGM stub is off again", "the mint leg below is real")
+      : fail("the activeGM stub did not restore — the mint leg below is vacuous");
+
+    // The relay itself: her click, the probe's GM page answering, Alice OWNER
+    // of a character she could never create, sheet open on HER screen.
+    const mint = await alicePage.evaluate(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const mine = () => game.actors
+        .filter((a) => a.type === "character" && a.ownership?.[game.user.id] === CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER)
+        .map((a) => a.id);
+      const beforeIds = new Set(mine());
+      document.querySelector("#actors .create-character-generator-button")?.click();
+      // The SOURCE question is asked on the CLICKING client (the player's own
+      // picker, same as the direct path — asked on the answering side it
+      // would hang the request on the Warden's screen). The dev world has
+      // both sources enabled, so the picker appears here; answer 2e. A world
+      // with one source shows none and the wait below simply drains.
+      let srcBtn = null;
+      const tPick = Date.now();
+      while (Date.now() - tPick < 4000 && !srcBtn) {
+        srcBtn = document.querySelector('dialog button[data-action="2e"]');
+        if (!srcBtn) await sleep(150);
+      }
+      srcBtn?.click();
+      const t0 = Date.now();
+      let fresh = [];
+      while (Date.now() - t0 < 30000) {
+        fresh = mine().filter((id) => !beforeIds.has(id));
+        if (fresh.length) break;
+        await sleep(300);
+      }
+      if (!fresh.length) return { minted: false };
+      const actor = game.actors.get(fresh[0]);
+      // The pcGenerated answer renders the sheet — poll for the window.
+      let sheetOpen = false;
+      const t1 = Date.now();
+      while (Date.now() - t1 < 8000 && !sheetOpen) {
+        sheetOpen = [...foundry.applications.instances.values()]
+          .some((x) => x.document === actor && x.rendered);
+        await sleep(200);
+      }
+      // Settle before counting: a double-mint's second copy trails the first.
+      await sleep(1500);
+      const finalFresh = mine().filter((id) => !beforeIds.has(id));
+      return {
+        minted: true,
+        count: finalFresh.length,
+        uuid: actor.uuid,
+        name: actor.name,
+        type: actor.type,
+        level: actor.ownership?.[game.user.id],
+        sheetOpen,
+      };
+    });
+    relayMintedUuid = mint.uuid ?? null;
+    mint.minted && mint.type === "character" && mint.level === 3
+      ? ok("her click minted a character through the Warden's client", `${mint.name} — Alice OWNER`)
+      : fail("her click minted a character through the Warden's client", JSON.stringify(mint));
+    mint.sheetOpen
+      ? ok("and the sheet opened on HER client", "the pcGenerated answer landed")
+      : fail("and the sheet opened on HER client", JSON.stringify(mint));
+    mint.count === 1
+      ? ok("exactly one character arrived", "no double-mint")
+      : fail(`expected exactly one new character, got ${mint.count ?? 0}`, "a second GM client answered too — the live-GM confound, or the in-flight guard broke");
   } finally {
     // Restore the permission from NODE via the GM page, unconditionally.
     await page.evaluate(async (perms) => {
       await game.settings.set("core", "permissions", perms);
     }, priorPerms);
+    // The relay-minted PC has a rolled name, not a ZZ prefix — delete it (and
+    // any container its background granted) by the uuid the mint leg kept.
+    if (relayMintedUuid) {
+      await page.evaluate(async (uuid) => {
+        for (const a of game.actors.filter((x) => x.system?.connectedTo === uuid)) await a.delete();
+        await (await fromUuid(uuid))?.delete();
+      }, relayMintedUuid).catch(() => {});
+    }
     console.log(`\n  player console errors: ${aliceErrors.length}`);
     for (const e of aliceErrors.slice(0, 8)) console.log(`  ${e}`);
     if (aliceErrors.length) failed = true;

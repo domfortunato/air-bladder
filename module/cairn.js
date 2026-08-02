@@ -3,7 +3,7 @@ import { CairnActor } from "./actor/actor.js";
 import { CairnActorSheet } from "./actor/actor-sheet.js";
 import { CairnItem, FATIGUE_NAME, SPELLSCROLL_NAME } from "./item/item.js";
 import { CairnItemSheet } from "./item/item-sheet.js";
-import { createCharacter, createNpc, FLAG_SCOPE } from "./character-generator.js";
+import { createCharacter, createNpc, requestPcGeneration, enabledContentSources, FLAG_SCOPE } from "./character-generator.js";
 import * as characterGenerator from "./character-generator.js";
 import { createMonster } from "./monster-generator.js";
 import * as monsterGenerator from "./monster-generator.js";
@@ -235,6 +235,11 @@ const grantableRole = (sys) => {
   return GRANTABLE_ROLES.includes(derived) ? derived : "container";
 };
 
+/** Requesters with a generatePC currently running on this client. One request
+ *  per player at a time: generation takes seconds, and without this a doubled
+ *  click (or a hostile loop) has the Warden's client minting a PC per emit. */
+const pcGenerationInFlight = new Set();
+
 Hooks.once("init", () => {
   game.socket.on(`system.${game.system.id}`, async (msg, senderId) => {
     // A player's connect/break asks the active GM's client to apply the
@@ -249,6 +254,67 @@ Hooks.once("init", () => {
       const child = await fromUuid(msg.childUuid);
       if (!(child instanceof getDocumentClass("Actor")) || child.pack || child.parent) return;
       await syncPendingOwnership(child);
+      return;
+    }
+    // A permission-less player's Generate PC. The payload carries NOTHING and
+    // nothing in it is read: who gets the character is senderId, the one fact
+    // a client cannot forge. The requester is stamped OWNER in the CREATE
+    // data (createActorWithCharacter threads it through), so a background's
+    // granted mule derives its ownership from a keeper that already names
+    // them. GM senders are refused — they hold the direct button, and a
+    // request claiming to be one could only be console-crafted.
+    if (msg?.action === "generatePC") {
+      if (game.users.activeGM !== game.user) return;
+      const user = game.users.get(senderId);
+      if (!user || user.isGM) return;
+      if (pcGenerationInFlight.has(senderId)) return;
+      pcGenerationInFlight.add(senderId);
+      try {
+        // The wire names a content source (the player answered the picker on
+        // their own client — a prompt HERE would hang their request on this
+        // screen's modal), but the wire is not trusted: anything not currently
+        // enabled clamps to the only enabled source, or to 2e under the same
+        // everything-off kindness promptContentSource applies. A source is
+        // always passed, so generateCharacter never prompts on this client.
+        const enabled = enabledContentSources().map((s) => s.key);
+        const source = enabled.includes(msg.source) ? msg.source : (enabled[0] ?? "2e");
+        const actor = await createCharacter({
+          source,
+          ownership: { [senderId]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
+        });
+        // A null actor is a real outcome (the Warden dismissed the
+        // content-source picker); answer anyway, or the player's "rolling
+        // your character…" toast is the last they ever hear of it.
+        if (actor) {
+          ui.notifications.info(game.i18n.format("CAIRN.Notify.PcGeneratedFor", {
+            name: actor.name, player: user.name,
+          }));
+        }
+        game.socket.emit(`system.${game.system.id}`, {
+          action: "pcGenerated", userId: senderId, uuid: actor?.uuid ?? null,
+        });
+      } finally {
+        pcGenerationInFlight.delete(senderId);
+      }
+      return;
+    }
+    // The answer to a generatePC, addressed by userId. Only a GM client ever
+    // sends one — an emit from anyone else is a player trying to pop windows
+    // on another player's screen, and is dropped on the sender check.
+    if (msg?.action === "pcGenerated") {
+      if (msg.userId !== game.user.id) return;
+      if (!game.users.get(senderId)?.isGM) return;
+      if (!msg.uuid) {
+        ui.notifications.warn(game.i18n.localize("CAIRN.Notify.PcGenCancelled"));
+        return;
+      }
+      // The custom emit can outrun the document broadcast that carries the
+      // actor itself — poll briefly rather than racing it.
+      for (let i = 0; i < 20; i++) {
+        const actor = await fromUuid(msg.uuid);
+        if (actor) { actor.sheet?.render(true); return; }
+        await new Promise((r) => setTimeout(r, 150));
+      }
       return;
     }
     if (msg?.action !== "grantActors") return;
@@ -1007,6 +1073,32 @@ Hooks.on("renderActorDirectory", (app, html) => {
           if (actor) actor.sheet.render(true);
         });
     }
+  } else if (!html.querySelector("#cairn-character-gen-button")) {
+    // A player with no ACTOR_CREATE at all still gets Generate PC — the one
+    // creation the game owes every player. Their client cannot create an
+    // Actor (a server wall, not a UI gate), so the click asks the active
+    // Warden's client to run the same generator and stamp them OWNER — the
+    // generatePC relay above, the grantActors shape. Same section id as the
+    // full row: it is the injected-already test, and the two variants are
+    // mutually exclusive per user.
+    const section = document.createElement("header");
+    section.classList.add("character-generator");
+    section.classList.add("directory-header");
+    const dirHeader = html.querySelector(".directory-header");
+    dirHeader.parentNode.insertBefore(section, dirHeader);
+    section.insertAdjacentHTML(
+      "afterbegin",
+      `
+      <div class="header-actions action-buttons flexrow" id="cairn-character-gen-button">
+        <button class="create-character-generator-button"><i class="fas fa-dice-d6"></i>${game.i18n.localize(
+        "CAIRN.CharacterGenerator"
+      )}</button>
+      </div>
+      `
+    );
+    section
+      .querySelector(".create-character-generator-button")
+      .addEventListener("click", () => requestPcGeneration());
   }
   const showContainers = game.settings.get(SETTINGS_NS, "show-container-actors");
   const actors = html.querySelectorAll('.actor');
