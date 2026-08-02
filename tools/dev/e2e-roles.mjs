@@ -239,6 +239,14 @@ try {
     ? ok("Faction row + die on a monster, Career absent", "showFaction is its own gate")
     : bad("Faction row + die on a monster, Career absent", JSON.stringify({ stored: out.storedMonster, faction: asMonster.faction, die: asMonster.factionDie, career: asMonster.career }));
 
+  console.log("\nno Connections tab on any npc-sheet role (2026-08-02)");
+  !asPerson.connectionsTab && !asThing.connectionsTab && !asMount.connectionsTab && !asMonster.connectionsTab
+    ? ok("person, thing, mount and monster all lack the tab", "one keeper is a header line, not a list")
+    : bad("person, thing, mount and monster all lack the tab", JSON.stringify({
+      person: asPerson.connectionsTab, thing: asThing.connectionsTab,
+      mount: asMount.connectionsTab, monster: asMonster.connectionsTab,
+    }));
+
   console.log("\nand it is not a one-way trip");
   out.reachable
     ? ok("the role select is still on screen", "outside every block it hides")
@@ -552,46 +560,54 @@ try {
     ? ok(`   witness: at ${cap.max - 1} the same call lands`, "the refusal was the count")
     : bad(`   witness: at ${cap.max - 1} the same call lands`, JSON.stringify(cap));
 
-  /* ---- the Connections tab: monster exclusion + the vanishing-tab reset ---- */
-  console.log("\nthe Connections tab follows the role");
-  const tabs = await page.evaluate(async ({ READ }) => {
-    const read = eval(READ);
+  /* ---- the PC's tab counts what it keeps (bug 1, 2026-08-02) ---- */
+  // The reported bug read "the NPC's count never updates" — structurally true
+  // forever, since the parenthesised number counts CHILDREN and a child end
+  // has none; the child end is a header line now. What was left of the bug is
+  // that NO probe had ever read the number on the sheet that has one, so this
+  // is the PC count's first direct witness: it must tick up on connect and
+  // back down when the child goes, on the OPEN sheet.
+  // (The old vanishing-tab reset leg died with the scenario: the npc tab set
+  // is static now, so no role change can strand tabGroups on a dead tab.)
+  console.log("\nthe PC's Connections tab counts what it keeps");
+  const tabs = await page.evaluate(async () => {
     const Cls = CONFIG.Actor.documentClass;
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-    // No precondition to establish any more: the tab is structural. This used
-    // to set `show-containers-tab`, which master-gated the whole feature and is
-    // now removed — a display toggle could hide the only view of a graph that
-    // went on existing behind it.
-    const a = await Cls.create({ name: "ZZ Roles Tab", type: "npc", system: { role: "npc" } });
-    const sheet = a.sheet;
-    await sheet.render(true);
-    await sleep(900);
-    const asNpc = read(sheet);
-
-    // Stand ON the Connections tab, then switch the role to Monster — the tab
-    // vanishes under us and tabGroups must reset to a rendered tab.
-    sheet.changeTab("containers", "primary");
+    const until = async (test, ms = 6000) => {
+      const t0 = Date.now();
+      while (Date.now() - t0 < ms) { if (test()) return true; await sleep(150); }
+      return test();
+    };
+    const pc = await Cls.create({ name: "ZZ Roles Count PC", type: "character" });
+    await pc.sheet.render(true);
+    await until(() => pc.sheet.element instanceof HTMLElement);
     await sleep(400);
-    const sel = sheet.element.querySelector(".role-select");
-    sel.value = "monster";
-    sel.dispatchEvent(new Event("change", { bubbles: true }));
-    await sleep(1400);
-    const asMonster = read(sheet);
+    const navCount = () => pc.sheet.element
+      ?.querySelector('.tabs .item[data-tab="containers"]')?.textContent?.trim() ?? "";
+    const fresh = navCount();
+    const mule = await Cls.create({
+      name: "ZZ Roles Count Mule", type: "npc",
+      system: { role: "mount", containerClass: "mule", connectedTo: pc.uuid },
+    });
+    await until(() => /\(1\)/.test(navCount()));
+    const connected = navCount();
+    await mule.delete();
+    await until(() => /\(0\)/.test(navCount()));
+    const after = navCount();
+    await pc.sheet.close();
+    await pc.delete();
+    return { fresh, connected, after };
+  });
 
-    await sheet.close();
-    await a.delete();
-    return { asNpc, asMonster };
-  }, { READ });
-
-  tabs.asNpc.connectionsTab
-    ? ok("an NPC shows the Connections tab", "no setting needed — structural")
-    : bad("an NPC shows the Connections tab", JSON.stringify(tabs.asNpc));
-  !tabs.asMonster.connectionsTab
-    ? ok("a Monster hides it", "no connections on a wolf")
-    : bad("a Monster hides it", "tab still on screen");
-  tabs.asMonster.visiblePanels === 1
-    ? ok("the vanishing tab did not blank the body", "tabGroups reset to a rendered tab")
-    : bad("the vanishing tab did not blank the body", `${tabs.asMonster.visiblePanels} visible panel(s)`);
+  /\(0\)$/.test(tabs.fresh)
+    ? ok("a fresh PC reads Connections (0)", `"${tabs.fresh}"`)
+    : bad("a fresh PC reads Connections (0)", JSON.stringify(tabs.fresh));
+  /\(1\)$/.test(tabs.connected)
+    ? ok("connecting a mount ticks the OPEN sheet to (1)", `"${tabs.connected}"`)
+    : bad("connecting a mount ticks the OPEN sheet to (1)", JSON.stringify(tabs.connected));
+  /\(0\)$/.test(tabs.after)
+    ? ok("deleting the mount returns it to (0)", `"${tabs.after}"`)
+    : bad("deleting the mount returns it to (0)", JSON.stringify(tabs.after));
 
   /* ---- tab ORDER (2026-08-01): Description leads the npc sheet ---- */
   // The reorder is the NPC's ALONE — the character-sheet leg below is what
@@ -652,12 +668,14 @@ try {
     return { asNpc, asPc, control };
   });
 
-  const NPC_ORDER = ["description", "items", "containers", "notes"];
+  // THREE tabs on the npc sheet since 2026-08-02 — the child end's Connections
+  // tab became the header's connection line. The character keeps all four.
+  const NPC_ORDER = ["description", "items", "notes"];
   const PC_ORDER = ["items", "description", "containers", "notes"];
   JSON.stringify(order.asNpc.nav) === JSON.stringify(NPC_ORDER)
     && JSON.stringify(order.asNpc.panels) === JSON.stringify(NPC_ORDER)
-    ? ok("npc nav AND panels run Description → Items → Connections → Notes")
-    : bad("npc nav AND panels run Description → Items → Connections → Notes", JSON.stringify({ nav: order.asNpc.nav, panels: order.asNpc.panels }));
+    ? ok("npc nav AND panels run Description → Items → Notes")
+    : bad("npc nav AND panels run Description → Items → Notes", JSON.stringify({ nav: order.asNpc.nav, panels: order.asNpc.panels }));
   order.asNpc.active === "description"
     && JSON.stringify(order.asNpc.activeVisible) === JSON.stringify(["description"])
     ? ok("a fresh npc sheet OPENS on Description", "tabGroups override beats the static TABS seed")
@@ -671,11 +689,22 @@ try {
     ? ok("   control: initial forced back to \"items\" reopens on Items", "the opens-on-Description assertion can fail")
     : bad("   control: initial forced back to \"items\" reopens on Items", `active=${order.control} — assertion not load-bearing`);
 
-  /* ---- both directions, either end, as the Warden — FLAT since 2026-08-01 ---- */
-  console.log("\nthe tab shows both directions; only the PC's end offers keeping");
+  /* ---- the header connection line, either end — FLAT since 2026-08-01 ---- */
+  // The child end's facts moved from the Connections tab to the header line
+  // (2026-08-02): "Hired by:" for a person actually for hire, "Connected to:"
+  // for everyone else with a keeper, "Formerly connected to" once unlinked,
+  // and the Connect control while unconnected. Same registered actions, same
+  // gates — only the template home moved, so the selectors below read the
+  // header, not a tab.
+  console.log("\nthe header line names the keeper; only the PC's tab offers keeping");
   const dirs = await page.evaluate(async () => {
     const Cls = CONFIG.Actor.documentClass;
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const until = async (test, ms = 6000) => {
+      const t0 = Date.now();
+      while (Date.now() - t0 < ms) { if (test()) return true; await sleep(150); }
+      return test();
+    };
     const pc = await Cls.create({ name: "ZZ Roles Dir PC", type: "character" });
     // BOTH children hang off the PC now — the hireling no longer keeps the
     // sack, because nothing but a character keeps anything.
@@ -685,29 +714,59 @@ try {
       system: { role: "container", containerClass: "sack", connectedTo: pc.uuid, hp: { value: 0, max: 0 }, generationEnabled: false },
     });
 
-    const readTab = async (a) => {
+    const readHeader = async (a) => {
       await a.sheet.render(true);
       await sleep(900);
-      a.sheet.changeTab?.("containers", "primary");
-      await sleep(300);
       const el = a.sheet.element;
       return {
-        keeperLine: !!el.querySelector(".connection-keeper-line"),
-        keeperLabel: el.querySelector(".connection-keeper-label")?.textContent ?? "",
+        label: el.querySelector(".connection-line .connection-label")?.textContent?.trim() ?? "",
         detach: !!el.querySelector(".connection-detach"),
-        add: !!el.querySelector(".connection-add"),
         attach: !!el.querySelector(".connection-attach"),
-        unlinkIcon: !!el.querySelector(".container-unlink"),
+        add: !!el.querySelector(".connection-add"),
+        forHire: !!el.querySelector(".connection-line .for-hire-check"),
+        tab: !!el.querySelector('.tabs .item[data-tab="containers"]'),
       };
     };
 
-    const sackTab = await readTab(s);
-    const hireTab = await readTab(h);
-    const pcTab = await readTab(pc);
+    const sackHead = await readHeader(s);
+    // The hireling is created WITHOUT forHire, so the schema initial (true)
+    // applies — a person for hire, whose line must read "Hired by:".
+    const hireHead = await readHeader(h);
+    // The ROLE GATE's witness: forHire's initial is true on every npc-line
+    // schema, so a MOUNT that stores it explicitly must still read
+    // "Connected to:" — "Hired by" is a person's label, gated on role, not
+    // on the flag alone.
+    const m = await Cls.create({
+      name: "ZZ Roles Dir Mount", type: "npc",
+      system: { role: "mount", containerClass: "horse", forHire: true, connectedTo: pc.uuid },
+    });
+    const mountHead = await readHeader(m);
+    await m.sheet.close();
+    await m.delete();
+    // The label follows the checkbox: untick For Hire and the SAME document's
+    // line must flip from Hired by to Connected to on re-render.
+    await h.update({ "system.forHire": false });
+    await until(() => /^Connected to/.test(
+      h.sheet.element?.querySelector(".connection-line .connection-label")?.textContent?.trim() ?? ""));
+    const hireOff = h.sheet.element?.querySelector(".connection-line .connection-label")?.textContent?.trim() ?? "";
+
+    // The PC's end: the tab, its Add control, per-row unlink — and no
+    // connection line, which is the npc header's alone.
+    await pc.sheet.render(true);
+    await sleep(900);
+    pc.sheet.changeTab?.("containers", "primary");
+    await sleep(300);
+    const pEl = pc.sheet.element;
+    const pcTab = {
+      line: !!pEl.querySelector(".connection-line"),
+      add: !!pEl.querySelector(".connection-add"),
+      unlinkIcon: !!pEl.querySelector(".container-unlink"),
+    };
     await pc.sheet.close();
 
-    // Break from the CHILD end. Confirm is stubbed: a settled DialogV2
-    // outlives its promise in the DOM (e2e-container-unlink's lesson).
+    // Break from the CHILD end — the header's detach. Confirm is stubbed: a
+    // settled DialogV2 outlives its promise in the DOM (e2e-container-unlink's
+    // lesson).
     const DialogV2 = foundry.applications.api.DialogV2;
     const origConfirm = DialogV2.confirm;
     DialogV2.confirm = async () => true;
@@ -718,10 +777,15 @@ try {
       connectedTo: s.system.connectedTo,
       formerly: s.system.formerlyBelongedTo,
     };
+    // ...and the line itself now reads the stamp, on the re-rendered sheet.
+    const sackLabel = () => s.sheet.element
+      ?.querySelector(".connection-line .connection-label")?.textContent?.trim() ?? "";
+    await until(() => /^Formerly connected to /.test(sackLabel()));
+    afterDetach.shownLabel = sackLabel();
 
-    // Now unconnected: Connect to… must appear; drive the REAL picker. Under
-    // the flat graph its keeper list is CHARACTERS with room — the hireling
-    // must not be offered, which is the picker filter's own flat witness.
+    // Now unconnected: the header's Connect must appear; drive the REAL
+    // picker. Under the flat graph its keeper list is CHARACTERS with room —
+    // the hireling must not be offered, the picker filter's own flat witness.
     await sleep(600);
     const attachShown = !!s.sheet.element.querySelector(".connection-attach");
     s.sheet.element.querySelector(".connection-attach")?.click();
@@ -746,27 +810,37 @@ try {
     await s.sheet.close();
     await h.sheet.close();
     await s.delete(); await h.delete(); await pc.delete();
-    return { sackTab, hireTab, pcTab, afterDetach, attachShown, offered: offered.length, npcOffered, reattached };
+    return { sackHead, hireHead, mountHead, hireOff, pcTab, afterDetach, attachShown, offered: offered.length, npcOffered, reattached };
   });
 
-  dirs.sackTab.keeperLine && dirs.sackTab.keeperLabel.includes("ZZ Roles Dir PC") && dirs.sackTab.detach
-    ? ok("a connected sack names its keeper, breakable here", `"${dirs.sackTab.keeperLabel.trim()}"`)
-    : bad("a connected sack names its keeper, breakable here", JSON.stringify(dirs.sackTab));
-  !dirs.sackTab.add && !dirs.sackTab.attach
-    ? ok("the sack offers neither keeping nor a second parent", "cannot keep; already connected")
-    : bad("the sack offers neither keeping nor a second parent", JSON.stringify(dirs.sackTab));
-  dirs.hireTab.keeperLine && !dirs.hireTab.add && !dirs.hireTab.attach && !dirs.hireTab.unlinkIcon
-    ? ok("the hireling shows her keeper and offers NOTHING", "an npc keeps nobody — the template's flat witness")
-    : bad("the hireling shows her keeper and offers NOTHING", JSON.stringify(dirs.hireTab));
-  !dirs.pcTab.keeperLine && dirs.pcTab.add && dirs.pcTab.unlinkIcon
-    ? ok("the PC's tab is where keeping lives", "Add Connection + per-row unlink, no keeper line")
+  dirs.sackHead.label === "Connected to: ZZ Roles Dir PC" && dirs.sackHead.detach
+    ? ok("a connected sack names its keeper on the header line", `"${dirs.sackHead.label}"`)
+    : bad("a connected sack names its keeper on the header line", JSON.stringify(dirs.sackHead));
+  !dirs.sackHead.add && !dirs.sackHead.attach && !dirs.sackHead.tab && !dirs.sackHead.forHire
+    ? ok("the sack offers no keeping, no second parent, no tab, no For Hire", "a thing is kept, full stop")
+    : bad("the sack offers no keeping, no second parent, no tab, no For Hire", JSON.stringify(dirs.sackHead));
+  dirs.hireHead.label === "Hired by: ZZ Roles Dir PC" && dirs.hireHead.forHire
+    ? ok("a for-hire person reads Hired by, checkbox on the line", `"${dirs.hireHead.label}"`)
+    : bad("a for-hire person reads Hired by, checkbox on the line", JSON.stringify(dirs.hireHead));
+  dirs.hireOff === "Connected to: ZZ Roles Dir PC"
+    ? ok("unticking For Hire flips the label to Connected to", `"${dirs.hireOff}"`)
+    : bad("unticking For Hire flips the label to Connected to", JSON.stringify(dirs.hireOff));
+  dirs.mountHead.label === "Connected to: ZZ Roles Dir PC" && !dirs.mountHead.forHire
+    ? ok("a mount storing forHire=true still reads Connected to", "the role gate is load-bearing")
+    : bad("a mount storing forHire=true still reads Connected to", JSON.stringify(dirs.mountHead));
+  !dirs.hireHead.add && !dirs.hireHead.tab
+    ? ok("the hireling offers no keeping and no tab", "an npc keeps nobody — the flat witness")
+    : bad("the hireling offers no keeping and no tab", JSON.stringify(dirs.hireHead));
+  !dirs.pcTab.line && dirs.pcTab.add && dirs.pcTab.unlinkIcon
+    ? ok("the PC's tab is where keeping lives", "Add + per-row unlink; no connection line in a PC header")
     : bad("the PC's tab is where keeping lives", JSON.stringify(dirs.pcTab));
   dirs.afterDetach.connectedTo === "" && dirs.afterDetach.formerly === "ZZ Roles Dir PC"
-    ? ok("detach from the child end unlinks + stamps", `formerly "${dirs.afterDetach.formerly}"`)
-    : bad("detach from the child end unlinks + stamps", JSON.stringify(dirs.afterDetach));
+    && dirs.afterDetach.shownLabel === "Formerly connected to ZZ Roles Dir PC"
+    ? ok("detach from the header unlinks, stamps, and the line says so", `"${dirs.afterDetach.shownLabel}"`)
+    : bad("detach from the header unlinks, stamps, and the line says so", JSON.stringify(dirs.afterDetach));
   dirs.attachShown && dirs.offered > 0 && !dirs.npcOffered && dirs.reattached
-    ? ok("Connect to… offers characters only, reattaches", `${dirs.offered} keeper(s), hireling not among them`)
-    : bad("Connect to… offers characters only, reattaches", JSON.stringify(dirs));
+    ? ok("the header's Connect offers characters only, reattaches", `${dirs.offered} keeper(s), hireling not among them`)
+    : bad("the header's Connect offers characters only, reattaches", JSON.stringify(dirs));
 
   /* ---- an UNLINKED token's actor is not in the graph ---- */
   // Reported from the dev world: a Backpack was connected to the world
@@ -814,9 +888,20 @@ try {
       worldCanBe: world.canBeConnected,
       synthCharKeeps: synthChar?.canKeepConnected,
       worldCharKeeps: worldChar.canKeepConnected,
-      showsTab: synth?.system?.showContainersTab,
-      worldShowsTab: world.system?.showContainersTab,
     };
+    // The graph-exclusion witness on the SHEET is the header's Connect
+    // control now (2026-08-02) — the npc Connections tab is gone for
+    // everyone, so "no tab on the token copy" stopped distinguishing
+    // anything. Same fact, same differential: the world npc's header offers
+    // Connect, its synthetic token copy's must not.
+    await synth.sheet.render(true);
+    await sleep(700);
+    res.synthAttach = !!synth.sheet.element?.querySelector(".connection-attach");
+    await synth.sheet.close();
+    await world.sheet.render(true);
+    await sleep(700);
+    res.worldAttach = !!world.sheet.element?.querySelector(".connection-attach");
+    await world.sheet.close();
     // And the write itself is refused, not merely hidden — from the synthetic
     // CHARACTER, the one actor the type rule would otherwise let keep.
     res.connectRefused = !(await synthChar.connectActor(sack));
@@ -844,9 +929,9 @@ try {
     !tok.synthCharKeeps && tok.worldCharKeeps
       ? ok("the character token copy cannot KEEP, its world actor can")
       : bad("the character token copy cannot KEEP, its world actor can", JSON.stringify(tok));
-    tok.showsTab === false && tok.worldShowsTab === true
-      ? ok("no Connections tab on the token copy", "the tab could only ever read 0")
-      : bad("no Connections tab on the token copy", JSON.stringify(tok));
+    !tok.synthAttach && tok.worldAttach
+      ? ok("no Connect control on the token copy's header", "its world actor offers one")
+      : bad("no Connect control on the token copy's header", JSON.stringify(tok));
     tok.connectRefused && tok.sackUntouched && tok.worldConnectLands
       ? ok("a direct connectActor from it is refused", "and the world character's same call lands")
       : bad("a direct connectActor from it is refused", JSON.stringify(tok));
@@ -1043,7 +1128,17 @@ try {
       name: "ZZ Roles Alice Foreign", type: "npc", ownership: { default: 0 },
       system: { role: "container", containerClass: "sack", hp: { value: 0, max: 0 }, generationEnabled: false },
     });
-    return { aliceId: alice.id, pcUuid: pc.uuid, sackUuid: sack.uuid, freeUuid: free.uuid, foreignUuid: foreign.uuid };
+    // ...and the same differential ON THE CONTROL (2026-08-02): a sack Alice
+    // owns whose KEEPER she does not — the header line must render its label
+    // for her while withholding the break control (canDetach needs both
+    // ends). Created pre-connected, so the ownership automation (transitions
+    // only) never rewrites the hand-set shape.
+    const gmpc = await Cls.create({ name: "ZZ Roles Alice Half PC", type: "character", ownership: { default: 0 } });
+    const half = await Cls.create({
+      name: "ZZ Roles Alice Half", type: "npc", ownership: own,
+      system: { role: "container", containerClass: "sack", connectedTo: gmpc.uuid, hp: { value: 0, max: 0 }, generationEnabled: false },
+    });
+    return { aliceId: alice.id, pcUuid: pc.uuid, sackUuid: sack.uuid, freeUuid: free.uuid, foreignUuid: foreign.uuid, halfUuid: half.uuid };
   });
   if (seed.error) bad("player leg setup", seed.error);
   else {
@@ -1052,7 +1147,7 @@ try {
     await joinAs(alicePage, "Alice");
     await dismissChrome(alicePage);
 
-    const player = await alicePage.evaluate(async ({ aliceId, pcUuid, sackUuid, freeUuid, foreignUuid }) => {
+    const player = await alicePage.evaluate(async ({ aliceId, pcUuid, sackUuid, freeUuid, foreignUuid, halfUuid }) => {
       const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
       const pc = await fromUuid(pcUuid);
@@ -1073,14 +1168,25 @@ try {
       };
       await sack.sheet.render(true);
       await sleep(900);
-      sack.sheet.changeTab?.("containers", "primary");
-      await sleep(300);
       const sEl = sack.sheet.element;
-      const sackTab = {
-        keeperLine: !!sEl.querySelector(".connection-keeper-line"),
+      // The child end is the HEADER line now — no tab, no changeTab.
+      const sackHead = {
+        label: sEl.querySelector(".connection-line .connection-label")?.textContent?.trim() ?? "",
         detach: !!sEl.querySelector(".connection-detach"),
         attach: !!sEl.querySelector(".connection-attach"),
       };
+      // One end foreign, on the CONTROL: Alice owns this sack but not its
+      // keeper, so the line renders its label for her while the break
+      // control is withheld (canDetach needs both ends).
+      const half = await fromUuid(halfUuid);
+      await half.sheet.render(true);
+      await sleep(900);
+      const hEl = half.sheet.element;
+      const halfHead = {
+        label: hEl.querySelector(".connection-line .connection-label")?.textContent?.trim() ?? "",
+        detach: !!hEl.querySelector(".connection-detach"),
+      };
+      await half.sheet.close();
 
       // Her CONNECT, both ends owned: must land, and the GM client must
       // answer with the exact connected shape and clear the sync flag. Poll
@@ -1118,7 +1224,7 @@ try {
       DialogV2.confirm = origConfirm;
       await pc.sheet.close();
       await sack.sheet.close();
-      return { pcTab, sackTab, connectReturned, connectLanded, shapeSettled, freeShape,
+      return { pcTab, sackHead, halfHead, connectReturned, connectLanded, shapeSettled, freeShape,
         foreignReturned, foreignUntouched, breakLanded, broke, lostWrite };
     }, seed);
 
@@ -1128,9 +1234,12 @@ try {
     player.pcTab.add && player.pcTab.unlinkIcon
       ? ok("Connect and unlink render for the owner now", "the edge controls are hers on her own PC")
       : bad("Connect and unlink render for the owner now", JSON.stringify(player.pcTab));
-    player.sackTab.keeperLine && player.sackTab.detach && !player.sackTab.attach
-      ? ok("the sack shows its keeper, breakable by its owner", "detach offered; no second parent")
-      : bad("the sack shows its keeper, breakable by its owner", JSON.stringify(player.sackTab));
+    player.sackHead.label.startsWith("Connected to:") && player.sackHead.detach && !player.sackHead.attach
+      ? ok("the sack's header names its keeper, breakable by its owner", `"${player.sackHead.label}"`)
+      : bad("the sack's header names its keeper, breakable by its owner", JSON.stringify(player.sackHead));
+    player.halfHead.label.startsWith("Connected to:") && !player.halfHead.detach
+      ? ok("keeper not hers → the break control is withheld", "the both-ends wall, on the control itself")
+      : bad("keeper not hers → the break control is withheld", JSON.stringify(player.halfHead));
     player.connectReturned && player.connectLanded && player.shapeSettled
       ? ok("her connect lands and the GM answers with the shape", "default OBSERVER, Alice OWNER, flag cleared")
       : bad("her connect lands and the GM answers with the shape", JSON.stringify({ r: player.connectReturned, l: player.connectLanded, s: player.shapeSettled, shape: player.freeShape }));

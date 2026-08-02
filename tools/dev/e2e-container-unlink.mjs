@@ -62,6 +62,24 @@ try {
       return { owner, cart };
     };
 
+    // The "Formerly connected to…" label lives on the RENDERED header line now
+    // (2026-08-02): the derived `system.ownedBy` string died with the child-end
+    // Connections tab, and the sheet builds the line per render — so the
+    // witness is the DOM, which is also what a Warden actually reads.
+    const headerLabel = async (actor) => {
+      if (!actor) return null;
+      const sheet = actor.sheet;
+      await sheet.render(true);
+      const t0 = Date.now();
+      while (Date.now() - t0 < 6000 && !(sheet.element instanceof HTMLElement)) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      await new Promise((r) => setTimeout(r, 300));
+      const label = sheet.element?.querySelector(".connection-line .connection-label")?.textContent?.trim() ?? null;
+      await sheet.close();
+      return label;
+    };
+
     /* ---- unlink: survives, disconnected, remembers whose it was ---- */
     const a = await mk();
     const listedBefore = a.owner.system.containerObjects.length;
@@ -76,7 +94,7 @@ try {
       listedAfter: a.owner.system.containerObjects.length,
       connectedTo: survivor?.system.connectedTo,
       formerly: survivor?.system.formerlyBelongedTo,
-      label: survivor?.system.ownedBy,
+      label: await headerLabel(survivor),
       // The whole point: its cargo is untouched.
       keptName: survivor?.name,
     };
@@ -87,7 +105,7 @@ try {
     afterOwnerGone?.prepareData();
     const orphan = {
       stillExists: !!afterOwnerGone,
-      label: afterOwnerGone?.system.ownedBy,
+      label: await headerLabel(afterOwnerGone),
     };
     await afterOwnerGone?.delete();
 
@@ -131,7 +149,7 @@ try {
       stillExists: !!heir,
       connectedTo: heir?.system.connectedTo,
       formerly: heir?.system.formerlyBelongedTo,
-      label: heir?.system.ownedBy,
+      label: await headerLabel(heir),
     };
     await heir?.delete();
 

@@ -38,11 +38,52 @@
                   the sheet: stat block, career, kind, day rate and the
                   Connections tab all follow it. It is NEVER hidden by anything
                   it hides — the old checkboxes' deadlock lesson, kept. --}}
+            {{!-- Role SHARES this line with the person's Career or a thing's
+                  Kind (2026-08-02, approved mockup: Name / Role+Career /
+                  Faction) — the three stacked lines ate header real estate
+                  saying one fact each. The Role select itself is never hidden
+                  by anything it hides: the old checkboxes' deadlock lesson,
+                  kept. --}}
             <div class="profession-line role-line">
                 <span class="background-label">{{ localize 'CAIRN.Role' }}</span>
                 <select class="role-select" name="system.role">
                     {{selectOptions roleChoices selected=system.role}}
                 </select>
+                {{!-- Stored as `system.profession`; labelled "Career" now that
+                      Role is its own field. The key is deliberately NOT renamed
+                      — every existing hireling would need rewriting for a label
+                      change. People have careers; monsters, mounts and things
+                      do not. Shows the localized career, stores the English
+                      one: the stored value is a MATCH KEY (day-rate autofill,
+                      reroll exclusion), so _processFormData maps whatever is in
+                      the box back through sourceOf("npc.career"). --}}
+                {{#if showCareer}}
+                <span class="background-label">{{ localize 'CAIRN.Career' }}</span>
+                <input class="profession-input" type="text" name="system.profession"
+                    value="{{professionDisplay}}" placeholder="{{ localize 'CAIRN.Career' }}" />
+                {{#if generationEnabled}}
+                <a class="profession-roll" data-action="rollProfession" title="{{ localize 'CAIRN.RollProfession' }}"><i class="fas fa-dice-d20"></i></a>
+                {{/if}}
+                {{/if}}
+                {{!-- The KIND — what a mount/transport/container IS, in one
+                      word, as against the Role, which is what it DOES for you.
+                      Free text over a role-filtered datalist: a known key
+                      brings its default art and capacity (CairnActor._preUpdate),
+                      a Warden's own word is just the label, verbatim. Stored as
+                      `system.containerClass` — the field name is deliberately
+                      NOT renamed to match, because that is a migration and this
+                      is a label. Shows the LABEL ("Wagon" / "Carromato"),
+                      stores the KEY: _processFormData maps a typed/picked label
+                      back to its key; an unknown word passes through. --}}
+                {{#if showKind}}
+                <span class="background-label">{{ localize 'CAIRN.Kind' }}</span>
+                <input class="profession-input kind-input" type="text" name="system.containerClass"
+                    value="{{kindDisplay}}" list="{{@root.idp}}-kinds"
+                    placeholder="{{ localize 'CAIRN.KindHint' }}" />
+                <datalist id="{{@root.idp}}-kinds">
+                    {{#each kindOptions}}<option value="{{label}}"></option>{{/each}}
+                </datalist>
+                {{/if}}
             </div>
             {{!-- Faction: whose interests this actor serves — the one header
                   fact a PC has no counterpart of. Shows for role npc AND
@@ -66,80 +107,44 @@
                 {{/if}}
             </div>
             {{/if}}
-            {{!-- Stored as `system.profession`; labelled "Career" now that Role
-                  is its own field (it used to say "Career/Role", which put the
-                  misleading half on the rollable careers table). The key is
-                  deliberately NOT renamed — every existing hireling would need
-                  rewriting for a label change. People have careers; monsters,
-                  mounts and things do not. --}}
-            {{#if showCareer}}
-            <div class="profession-line">
-                <span class="background-label">{{ localize 'CAIRN.Career' }}</span>
-                {{!-- Shows the localized career, stores the English one: the stored
-                      value is a MATCH KEY (day-rate autofill, reroll exclusion), so
-                      _processFormData maps whatever is in the box back through
-                      sourceOf("npc.career"). Identity in an English world. --}}
-                <input class="profession-input" type="text" name="system.profession"
-                    value="{{professionDisplay}}" placeholder="{{ localize 'CAIRN.Career' }}" />
-                {{#if generationEnabled}}
-                <a class="profession-roll" data-action="rollProfession" title="{{ localize 'CAIRN.RollProfession' }}"><i class="fas fa-dice-d20"></i></a>
-                {{/if}}
-            </div>
-            {{!-- For Hire: the retired `hireling` ROLE, back as the boolean it
-                  always was — and back in the markup it had before the roles
-                  work, classes included, because css/cairn.css never stopped
-                  styling `.for-hire-line/.for-hire-label/.for-hire-check`. The
-                  three rules sat orphaned for a fortnight; re-using them beats
-                  inventing a fourth class and leaving them dead.
-                  (Renaming them is also how the checkbox arrived on Foundry's
-                  own styling — a second, smaller box drawn INSIDE ours by core's
-                  ::before glyph, which dev:npc catches by name.)
+            {{!-- The connection line (2026-08-02): the child end's ONE upward
+                  edge as a field — "Hired by: X" for a person actually for
+                  hire, "Connected to: X" otherwise, "Formerly connected to X"
+                  once unlinked, a Connect control while unconnected. This
+                  REPLACED the child end's Connections tab: one keeper, ever,
+                  is a line, not a list. The word "Owner" is deliberately
+                  absent everywhere: nobody owns a person.
 
-                  It rides INSIDE showCareer (role npc) because only a person can
-                  be hired, and it sits OUTSIDE everything it hides: unticking it
-                  must never remove the way to tick it again. That is the
-                  deadlock the old inanimate/forHire pair taught, and the reason
-                  the Role select is where it is. --}}
-            <div class="for-hire-line">
+                  For Hire leads the line for a person — the retired `hireling`
+                  ROLE, back as the boolean it always was, keeping its classes
+                  because css/cairn.css styles `.for-hire-label/.for-hire-check`
+                  (and renaming them is how the checkbox once arrived on core's
+                  own ::before glyph — a second box drawn inside ours). It sits
+                  OUTSIDE everything it hides: unticking it must never remove
+                  the way to tick it again, the old checkboxes' deadlock
+                  lesson. Its gate is the PERSON, not showCareer, which it used
+                  to ride inside.
+
+                  The controls are the registered connectionAttach /
+                  connectionDetach actions — the same handlers, gates and
+                  dialogs the tab used; only their home moved. --}}
+            {{#if showConnectionLine}}
+            <div class="profession-line connection-line">
+                {{#if system.isNpcPerson}}
                 <label class="for-hire-label" data-tooltip="{{ localize 'CAIRN.ForHireTip' }}">
                     <input type="checkbox" class="for-hire-check" name="system.forHire" {{checked system.forHire}} />
                     {{ localize 'CAIRN.ForHire' }}
                 </label>
-            </div>
-            {{/if}}
-            {{!-- The KIND — what a mount/transport/container IS, in one word,
-                  as against the Role, which is what it DOES for you. Free text
-                  over a role-filtered datalist: a known key brings its default
-                  art and capacity (CairnActor._preUpdate), a Warden's own word
-                  is just the label, verbatim. Stored as `system.containerClass`
-                  — the field name is deliberately NOT renamed to match, because
-                  that is a migration and this is a label. --}}
-            {{#if showKind}}
-            <div class="profession-line kind-line">
-                <span class="background-label">{{ localize 'CAIRN.Kind' }}</span>
-                {{!-- Shows the LABEL ("Funeral Wagon" / "Carromato fúnebre"), stores the
-                      KEY ("funeralwagon"): the input used to render the raw storage key
-                      in every language including English. The datalist options insert
-                      the label, and _processFormData maps a typed/picked label back to
-                      its key; an unknown word passes through verbatim — a Warden's own
-                      word is a legal Kind. --}}
-                <input class="profession-input kind-input" type="text" name="system.containerClass"
-                    value="{{kindDisplay}}" list="{{@root.idp}}-kinds"
-                    placeholder="{{ localize 'CAIRN.KindHint' }}" />
-                <datalist id="{{@root.idp}}-kinds">
-                    {{#each kindOptions}}<option value="{{label}}"></option>{{/each}}
-                </datalist>
-            </div>
-            {{/if}}
-            {{!-- "Connected to: X" while connected — "Hired by: X" when the
-                  person is for hire — "Formerly connected to X" once unlinked,
-                  and nothing if it was never connected to anyone. The container
-                  sheet has always had this line; an NPC can now BE a container,
-                  so it needs it too. The word "Owner" is deliberately absent
-                  everywhere: nobody owns a person. --}}
-            {{#if system.ownedBy}}
-            <div class="background-input">
-                <span class="container-owner">{{system.ownedBy}}</span>
+                {{/if}}
+                {{#if connectionLine.label}}
+                <span class="connection-label">{{connectionLine.label}}</span>
+                {{/if}}
+                {{#if connectionLine.detach}}
+                <a class="connection-detach" data-action="connectionDetach" title="{{ localize 'CAIRN.UnlinkContainer' }}"><i class="fas fa-link-slash"></i></a>
+                {{/if}}
+                {{#if connectionLine.attach}}
+                <a class="connection-attach" data-action="connectionAttach" title="{{ localize 'CAIRN.ConnectHint' }}"><i class="fas fa-link"></i>&nbsp;{{ localize 'CAIRN.Connect' }}</a>
+                {{/if}}
             </div>
             {{/if}}
             {{!-- The day rate belongs to someone who is FOR HIRE: role npc with
@@ -292,13 +297,10 @@
                     {{#if system.characterEquipmentLimit}}<i class="fas fa-gears" style="opacity:0.5;z-index:5000" ></i>{{/if}}
                     {{ localize 'CAIRN.Items' }} ({{system.slotsUsed}} / {{system.slotsMax}})
                 </a>
-                {{#if system.showContainersTab}}
-                {{!-- Counts `containerObjects`, NOT the legacy `containers` array:
-                      the list is derived from each connected actor's own
-                      `connectedTo`, so counting the array would disagree with the
-                      rows below it the moment either side is used alone. --}}
-                <a class="item {{tabs.containers.cssClass}}" data-action="tab" data-group="primary" data-tab="containers">{{ localize 'CAIRN.Connections' }} ({{system.containerObjects.length}})</a>
-                {{/if}}
+                {{!-- No Connections tab here (2026-08-02): a child role has at
+                      most ONE keeper, and that fact is the header's connection
+                      line now. The CHARACTER sheet keeps the tab — a PC keeps
+                      up to ten connections, which is a list worth one. --}}
                 <a class="item {{tabs.notes.cssClass}}" data-action="tab" data-group="primary" data-tab="notes">{{notesTabLabel}}</a>
             </nav>
             <section class="content">
@@ -353,11 +355,6 @@
                 <div class="tab {{tabs.items.cssClass}}" data-group="primary" data-tab="items">
                     {{> "systems/air-bladder/templates/parts/items-list.html" withFatigue=1 withShop=1}}
                 </div>
-                {{#if system.showContainersTab}}
-                <div class="tab {{tabs.containers.cssClass}}" data-group="primary" data-tab="containers">
-                    {{> "systems/air-bladder/templates/parts/container-list.html"}}
-                </div>
-                {{/if}}
                 <div class="tab {{tabs.notes.cssClass}}" data-group="primary" data-tab="notes">
                     {{!-- TOGGLED like the Description editor above, since 2026-08-02
                           (user ask: the always-active toolbar over an empty box read

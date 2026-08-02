@@ -40,11 +40,13 @@ const TAB_LABELS = {
 
 /** Which tabs each actor type shows, in order. `containers` is dropped unless
  *  the actor actually has the Connections tab enabled (see _getTabsConfig —
- *  never on a Monster, never on an unlinked token's actor).
+ *  for the character list that means: not on an unlinked token's actor).
  *
- *  Every type gets the same four. The one that did not was `container`, whose
- *  two-tab row was how a retired type stayed visibly retired — no Connections
- *  tab on the very documents the connection graph was built to replace. */
+ *  The CHARACTER alone carries `containers` (2026-08-02): a PC keeps up to ten
+ *  connections, which is a list worth a tab. Any child role has at most ONE
+ *  keeper, so the npc sheet expresses that single fact as a header line
+ *  (`connectionLine` below) and a tab whose count could only ever read (0) or
+ *  (1) went with it. */
 const TAB_IDS = {
   character: ["items", "description", "containers", "notes"],
   // Description FIRST on the non-player sheet (2026-08-01, asked for): a Warden
@@ -54,10 +56,10 @@ const TAB_IDS = {
   // match the hand-written nav in npc-sheet.html, and `_getTabsConfig` takes
   // the group's initial from ids[0], so this list is also what the sheet
   // OPENS on.
-  npc: ["description", "items", "containers", "notes"],
+  npc: ["description", "items", "notes"],
   // Same set as npc: one sheet, one tab set. A hireling used to get only
   // items+notes, so anything written in its Description was unreachable.
-  hireling: ["description", "items", "containers", "notes"],
+  hireling: ["description", "items", "notes"],
 };
 
 /**
@@ -687,6 +689,52 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // character sheet's wording, everything else says plain Notes.
       context.notesTabLabel = game.i18n.localize(
         role === "npc" ? "CAIRN.BackgroundAndNotes" : "CAIRN.Notes");
+      // The connection line under the header (2026-08-02): the child end's ONE
+      // upward edge, expressed as a field rather than a tab — any child role
+      // has at most one keeper, so the Connections tab this sheet used to carry
+      // could only ever count (0) or (1). Built HERE, at render time, because
+      // the label names the KEEPER and nothing re-prepares this document when
+      // the keeper is renamed — the prepareDerivedData copy it replaces went
+      // stale until something else touched this actor.
+      //
+      // Label sense is ruled (2026-08-02): "Hired by" only for a PERSON who is
+      // actually for hire — the role gate is load-bearing, since forHire's
+      // schema initial is true and a mount can silently store it — "Connected
+      // to" for everyone else with a keeper, the stamped "Formerly connected
+      // to" once unlinked, and nothing if it was never connected. The controls
+      // reuse the registered connectionAttach/connectionDetach actions and
+      // their gates verbatim; only their template home moved.
+      const hired = role === "npc" && this.actor.system.forHire === true;
+      if (keeperDoc) {
+        context.connectionLine = {
+          label: game.i18n.format(hired ? "CAIRN.HiredBy" : "CAIRN.ConnectedToNamed",
+            { name: keeperDoc.name }),
+          detach: context.canDetach,
+        };
+      } else if (keeperLink) {
+        // A DANGLING link (keeper deleted, uuid resolving to nothing): the
+        // child-end detach is the only recovery it has — single-parent-ever
+        // refuses to reconnect over it — so the line must surface the break
+        // control rather than render nothing.
+        context.connectionLine = {
+          label: game.i18n.localize("CAIRN.ConnectedToMissing"),
+          detach: context.canDetach,
+        };
+      } else if (this.actor.system.formerlyBelongedTo) {
+        context.connectionLine = {
+          label: game.i18n.format("CAIRN.FormerlyBelongedTo",
+            { name: this.actor.system.formerlyBelongedTo }),
+          attach: this.actor.canBeConnected && context.canManageConnections,
+        };
+      } else if (this.actor.canBeConnected) {
+        context.connectionLine = { attach: context.canManageConnections };
+      }
+      // The line renders whenever it has something to say — and ALWAYS for a
+      // person, whose For Hire checkbox lives on it and must stay visible while
+      // unticked (the deadlock lesson: never hidden by anything it hides).
+      context.showConnectionLine = context.system.isNpcPerson
+        || !!(context.connectionLine
+          && (context.connectionLine.label || context.connectionLine.attach));
     }
     let items = this.actor.items.map((i) => ({
       _id: i.id,

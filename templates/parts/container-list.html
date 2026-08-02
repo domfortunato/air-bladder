@@ -2,18 +2,19 @@
       The marketplace link that used to live here is gone on purpose — shopping
       stays on the Items tab; this tab is who travels with whom.
 
-      The tab shows BOTH directions: the upward keeper renders as a line above
-      the kept list. ONE verb, player-usable (2026-08-01): Connect and unlink
-      are the Warden's always, or a player's who owns BOTH ends — so the
-      sheet-level controls gate on @root.canManageConnections (this sheet's
-      actor is mine), each row's unlink on its own row.canUnlink (both ends),
-      and the keeper line's break on @root.canDetach (both ends, or just the
-      child when the keeper uuid resolves to nothing — the dangling-link
-      recovery). The handlers and connectActor/unlinkOwnedContainer re-check
-      everything, so hiding here is honesty, not security. The trash stays
-      GM-only for its own reason: Actor deletion is role-gated (Assistant+)
-      with no player-grantable permission, so for a player it would promise an
-      action the server always refuses.
+      KEEPER-SIDE ONLY since 2026-08-02, which under the flat graph means the
+      CHARACTER sheet only — a PC is never kept, so the upward keeper line and
+      the child-end Connect control this partial used to carry could never
+      render for its one remaining consumer and went to the npc sheet's header
+      (the `connectionLine` block) instead. ONE verb, player-usable
+      (2026-08-01): Connect and unlink are the Warden's always, or a player's
+      who owns BOTH ends — the sheet-level control gates on
+      @root.canManageConnections (this sheet's actor is mine), each row's
+      unlink on its own row.canUnlink (both ends). The handlers and
+      connectActor/unlinkOwnedContainer re-check everything, so hiding here is
+      honesty, not security. The trash stays GM-only for its own reason: Actor
+      deletion is role-gated (Assistant+) with no player-grantable permission,
+      so for a player it would promise an action the server always refuses.
 
       The "Custom container…" line at the foot is GONE (2026-08-01, long-standing
       ask). It hand-minted an npc with a name and a slot count, which is what
@@ -21,23 +22,12 @@
       art already on it — an escape hatch from a catalog that stopped being
       restrictive. Note `system.canKeep` is CHARACTER-ONLY now (the flat graph),
       so Connect renders on a PC's sheet and nowhere else. --}}
-{{#if system.connectedKeeper}}
-<div class="connection-keeper-line">
-    <span class="connection-keeper-label">{{system.connectedKeeper.label}}</span>
-    {{#if @root.canDetach}}
-    <a class="item-control connection-detach" data-action="connectionDetach" title="{{ localize 'CAIRN.UnlinkContainer' }}"><i class="fas fa-link-slash"></i></a>
-    {{/if}}
-</div>
-{{/if}}
 <div class="cairn-items-list-header">
     <div>{{ localize 'CAIRN.Name' }}</div>
     {{#if @root.canManageConnections}}
     <div class="connection-controls">
         {{#if system.canKeep}}
         <a class="item-control connection-add" data-action="connectionAdd" title="{{ localize 'CAIRN.ConnectHint' }}"><i class="fas fa-link"></i>&nbsp;{{ localize 'CAIRN.Connect' }}</a>
-        {{/if}}
-        {{#if system.canAttach}}
-        <a class="item-control connection-attach" data-action="connectionAttach" title="{{ localize 'CAIRN.ConnectHint' }}"><i class="fas fa-link"></i>&nbsp;{{ localize 'CAIRN.Connect' }}</a>
         {{/if}}
     </div>
     {{/if}}

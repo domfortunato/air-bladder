@@ -242,14 +242,13 @@ export class CairnActor extends Actor {
 
     this.system.useItemIcons = game.settings.get(SETTINGS_NS, "use-item-icons");
     this.system.showFeatures = game.settings.get(SETTINGS_NS, "show-features-section");
-    // Who shows the Connections tab. There is no world setting any more: the
-    // graph IS the container model (a container is an NPC that is connected to
-    // something), so a switch that hides it hid the only view of a document's
-    // relationships while the relationships went on existing. Two exclusions
-    // remain, both structural — a Monster never joins the graph (`npcRole` is
-    // null for a character, which is not "monster", so only npc-line actors are
-    // excluded), and an unlinked token's synthetic actor cannot appear in
-    // anyone's list nor keep its own (canBeConnected).
+    // Who shows the Connections tab. CHARACTERS ONLY consume this now
+    // (2026-08-02): the child end's single upward edge became a header line on
+    // the npc sheet, and a tab whose count could only ever read (0) or (1) went
+    // with it — so the character template and TAB_IDS' filter are the readers
+    // left. The npcRole clause is vestigial for them (a character's npcRole is
+    // null); the isToken clause is the live one — an unlinked token's synthetic
+    // actor cannot appear in anyone's list nor keep its own (canBeConnected).
     this.system.showContainersTab = this.npcRole !== "monster" && !this.isToken;
     // Role-derived sheet facts, computed once here rather than re-tested in
     // template conditionals: what `inanimate` and `forHire` used to answer.
@@ -310,11 +309,11 @@ export class CairnActor extends Actor {
     this.system.maybeTooMuchGold = false;
 
     this.system.containerObjects = this.connectedActors();
-    // NOTE this is the ONLY prepare path there is now: character, hireling and
-    // npc are the only types (see the dispatch above). An NPC can BE a
-    // container, so it needs the owner / formerly-owner line the retired
-    // container sheet used to carry.
-    this._prepareConnectionLabel();
+    // The connection-line label ("Hired by…" / "Connected to…" / "Formerly
+    // connected to…") is NOT derived here any more (2026-08-02): it names the
+    // KEEPER, and nothing re-prepares this document when the keeper is renamed,
+    // so the derived copy went stale until something else touched this actor.
+    // The sheet builds it per render (actor-sheet.js `connectionLine`).
     // The one-word Kind label ("Horse", "Crate") is NOT derived here any more
     // (review #6): the sheet computes kindDisplay from CONTAINER_CLASSES
     // directly (actor-sheet.js _prepareContext), and the old system.classLabel
@@ -559,55 +558,6 @@ export class CairnActor extends Actor {
     if (!proceed) return;
     const features = this.system.features.filter((c) => c.id !== itemId);
     await this.update({ "system.features": features });
-  }
-
-  /**
-   * The one line under the name saying who this is connected to — or who it
-   * USED to be.
-   *
-   * Three states, and the third is the one worth having: connected (name the
-   * keeper), never connected (say nothing), or unlinked (name whoever had it
-   * last). That last line is why `formerlyBelongedTo` is a stored string rather
-   * than a uuid — see the field's own note.
-   *
-   * Built with `format`, not concatenation. The previous version was
-   * `localize("CAIRN.Owner") + ": " + actor.name`, which hands a translator a
-   * fixed word order and a hardcoded colon; a language wanting "de X" or the name
-   * first cannot express it, and no gate can see the problem because every piece
-   * is individually localized.
-   */
-  _prepareConnectionLabel() {
-    const link = this.system.connectedTo || "";
-    this.system.ownedBy = "";
-    // Round 2: the Connections tab shows BOTH directions, so the upward edge
-    // becomes a row the template can render and the Warden can break from
-    // this end. `connectedKeeper` is set whenever a link is STORED — even one
-    // pointing at a deleted actor — because the child end's detach is the only
-    // recovery a dangling link has (single-parent-ever refuses to reconnect
-    // it, and the keeper who could unlink it no longer exists).
-    this.system.connectedKeeper = null;
-    this.system.canAttach = !link && this.canBeConnected;
-    if (link) {
-      const owner = game.actors.find((a) => a.uuid === link);
-      // Gated on the ROLE, not on `forHire` alone: the flag is on every npc's
-      // schema, so a mount or a crate can silently carry forHire=true from a
-      // role change and would otherwise read "Hired by".
-      const hired = this.npcRole === "npc" && this.system.forHire === true;
-      if (owner) {
-        this.system.ownedBy = game.i18n.format(
-          hired ? "CAIRN.HiredBy" : "CAIRN.ConnectedToNamed", { name: owner.name });
-      }
-      this.system.connectedKeeper = {
-        uuid: link,
-        label: owner
-          ? game.i18n.format("CAIRN.ConnectedToNamed", { name: owner.name })
-          : game.i18n.localize("CAIRN.ConnectedToMissing"),
-      };
-    } else if (this.system.formerlyBelongedTo) {
-      this.system.ownedBy = game.i18n.format("CAIRN.FormerlyBelongedTo", {
-        name: this.system.formerlyBelongedTo,
-      });
-    }
   }
 
   /**

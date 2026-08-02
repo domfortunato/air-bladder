@@ -144,9 +144,10 @@ try {
     out.badge = badge ? { natural: badge.naturalWidth, src: badge.getAttribute("src") } : null;
     out.badgeCredit = root.querySelector(".cairn-compat-caption")?.textContent?.trim() ?? null;
 
-    // --- Connections tab: empty state + the custom-container escape hatch. The
-    // setting was enabled and the client reloaded before this evaluate, so the
-    // tab is real here, not a runtime-painted nav item.
+    // --- Connections tab: empty state + the custom-container escape hatch.
+    // The tab is structural on a character — and the CHARACTER's alone since
+    // 2026-08-02, when the child end became the npc header's connection line —
+    // so this generated character is the right (and only) sheet to read it on.
     const cRoot = actor.sheet.element;
     out.containerEmpty = !!cRoot.querySelector(".container-empty");
     // The market link is REMOVED from this tab by design (docs/npc-roles-plan.md)

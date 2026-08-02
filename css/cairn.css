@@ -2194,12 +2194,33 @@ textarea.omen-input {
     min-width: 0;
 }
 
-/* "For Hire" is a plain inline label+checkbox, not a counter: it is a switch that
-   reveals the day rate, and dressing it as a labelled value box would imply it
-   holds one. */
-.cairn-npc-sheet .for-hire-line {
-    display: flex;
-    align-items: center;
+/* The connection line (2026-08-02): a person's For Hire switch, then the
+   "Hired by / Connected to / Formerly connected to" label with its break or
+   Connect control. The label takes the slack so the control hugs the line's
+   end; italic + muted, the voice the tab's keeper line spoke in before it
+   moved here. "For Hire" stays a plain inline label+checkbox, not a counter:
+   it is a switch that reveals the day rate, and dressing it as a labelled
+   value box would imply it holds one. */
+.cairn-npc-sheet .connection-line .connection-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-style: italic;
+    color: var(--ab-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cairn-npc-sheet .connection-line .connection-detach,
+.cairn-npc-sheet .connection-line .connection-attach {
+    flex: 0 0 auto;
+    cursor: pointer;
+    opacity: 0.7;
+}
+
+.cairn-npc-sheet .connection-line .connection-detach:hover,
+.cairn-npc-sheet .connection-line .connection-attach:hover {
+    opacity: 1;
 }
 
 .cairn-npc-sheet .for-hire-label {
@@ -2425,27 +2446,11 @@ textarea.omen-input {
     color: var(--ab-faint);
 }
 
-/* Containers tab: empty state nudges you to the market, and the homebrew
-   "Custom container" path sits below as a quiet secondary affordance. */
-/* The upward edge (Round 2): "Connected to X" above the kept list, with the
-   Warden's detach icon on the right. A line, not a list row — it is the OTHER
-   direction of the graph, and dressing it as a row would read as one more kept
-   thing. Sheet-agnostic on purpose: the partial serves character and NPC
-   sheets alike. */
-.connection-keeper-line {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 4px 2px;
-    border-bottom: 1px solid var(--ab-rule);
-    font-style: italic;
-    color: var(--ab-muted);
-}
-
-/* Both header links (Add Connection / Connect to…) sit as one right-hand group
-   so the space-between header keeps Name on the left whichever of them a role
-   is entitled to. An npc/hireling legitimately shows both — it can keep AND be
-   kept. */
+/* The Connect link sits as a right-hand group so the space-between header
+   keeps Name on the left. Only the keeper's Add remains here (2026-08-02):
+   the child end's keeper line and Connect control moved to the npc sheet's
+   header connection line, so the partial — and this block — is the character
+   sheet's alone. */
 .cairn-items-list-header .connection-controls {
     display: flex;
     gap: 12px;
