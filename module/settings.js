@@ -309,14 +309,17 @@ export const registerSettings = () => {
     // sheet and token.
     //
     // onChange fires on every client, so this is GM-gated: scanning a folder needs
-    // FILES_BROWSE and writing custom-portrait-list is a world-setting write. The
-    // work happens once, on the GM who made the change, and every other client
-    // picks the new list up through the setting.
+    // FILES_BROWSE and writing custom-portrait-list is a world-setting write.
+    // Single-writer via activeGM, not bare isGM — the top of this file explains
+    // why isGM alone is not enough (two GMs both scan and race Setting.create;
+    // the loser's write is permanently shadowed). Every other client picks the
+    // new list up through the setting.
     //
     // Imported dynamically to avoid a static cycle — character-generator.js already
     // imports SETTINGS_NS from here.
     onChange: async () => {
       if (!game.user?.isGM) return;
+      if (game.users.activeGM && game.users.activeGM !== game.user) return;
       const gen = await import("./character-generator.js");
       await gen.ensureCustomPortraitFolder();
       const files = await gen.refreshCustomPortraits();

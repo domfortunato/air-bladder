@@ -4,7 +4,7 @@ import { Cairn } from "./config.js";
 import { evaluateFormula } from "./utils.js";
 import { resolveGearItem, SPELL_PACKS, GEAR_ALIASES, spellScrollItem } from "./gear.js";
 import { containerClass, iconForTransport } from "./icons.js";
-import { connectionHeadroom, maxConnections, connectedOwnershipShape } from "./connections.js";
+import { connectionHeadroom, maxConnections, connectedOwnershipShape, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { SETTINGS_NS } from "./settings.js";
 import { t } from "./i18n-content.js";
 
@@ -696,14 +696,18 @@ export const grantContainers = async (actor, specs) => {
     // Foundry refuses an `ownership` write from anyone below Assistant, and
     // for a player with ACTOR_CREATE that threw AFTER the container was
     // created and linked, aborting the loop. A player with ACTOR_CREATE
-    // already owns what they create; the shape's OBSERVER default arrives
-    // when a GM client next syncs, and the common player path never gets
-    // here at all (it goes through the broker above, which writes the shape
-    // on the Warden's client).
+    // already owns what they create; the sync flag asks the active GM's
+    // client to fill in the OBSERVER default their client cannot write —
+    // same tail as the till's. (The common player path never gets here at
+    // all: it goes through the broker above, which writes the shape on the
+    // Warden's client.)
     if (game.user.isGM) {
       await container.update({
         ownership: foundry.data.operators.ForcedReplacement.create(connectedOwnershipShape(actor)),
       });
+    } else {
+      await container.update({ [`flags.air-bladder.${OWNERSHIP_SYNC_FLAG}`]: true });
+      game.socket.emit(`system.${game.system.id}`, { action: "ownershipSync", childUuid: container.uuid });
     }
     made.push(container);
   }

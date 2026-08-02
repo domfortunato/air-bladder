@@ -85,7 +85,8 @@
     "dev:connections": "node tools/dev/e2e-connections.mjs",
     "dev:connections-migration": "node tools/dev/e2e-connections-migration.mjs",
     "dev:socket-grant": "node tools/dev/socket-grant-probe.mjs",
-    "dev:listeners": "node tools/dev/e2e-listeners.mjs"
+    "dev:listeners": "node tools/dev/e2e-listeners.mjs",
+    "dev:review-batch2": "node tools/dev/e2e-review-batch2.mjs"
   },
   "browserslist": [
     "last 3 versions"

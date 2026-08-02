@@ -132,6 +132,12 @@ const slideDown = (el) => {
  * false — `activateListeners` returned early — so an observer's sheet was inert
  * beyond Foundry's own controls. ApplicationV2 wires `actions` regardless of
  * editability, so preserving that behaviour means guarding at the handler.
+ *
+ * For MUTATING actions only. The read set — rolls to chat, description
+ * expanders, the collapse toggles — is deliberately unwrapped (review #6):
+ * none of them writes the document, and wrapping them meant a Warden opening
+ * a monster from a locked compendium could not roll its attack, with a
+ * PackLocked toast diagnosing a write-permission problem no write had.
  */
 const owned = (fn) => function (event, target) {
   if (!this.isEditable) {
@@ -199,10 +205,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       itemToggleEquipped: owned(CairnActorSheet.#onItemToggleEquipped),
       itemAddUse: owned(CairnActorSheet.#onItemAddUse),
       itemRemoveUse: owned(CairnActorSheet.#onItemRemoveUse),
-      itemDescription: owned(CairnActorSheet.#onItemDescription),
+      itemDescription: CairnActorSheet.#onItemDescription,
       addFatigue: owned(CairnActorSheet.#onAddFatigue),
       removeFatigue: owned(CairnActorSheet.#onRemoveFatigue),
-      rollDamage: owned(CairnActorSheet.#onRollDamage),
+      rollDamage: CairnActorSheet.#onRollDamage,
       // Connections
       connectionAdd: owned(CairnActorSheet.#onConnectionAdd),
       connectionAttach: owned(CairnActorSheet.#onConnectionAttach),
@@ -212,19 +218,19 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       featureCreate: owned(CairnActorSheet.#onFeatureCreate),
       featureEdit: owned(CairnActorSheet.#onFeatureEdit),
       featureDelete: owned(CairnActorSheet.#onFeatureDelete),
-      featureDescription: owned(CairnActorSheet.#onFeatureDescription),
+      featureDescription: CairnActorSheet.#onFeatureDescription,
       // Header counters + buttons
-      rollAbility: owned(CairnActorSheet.#onRollAbility),
+      rollAbility: CairnActorSheet.#onRollAbility,
       toggleCritical: owned(CairnActorSheet.#onToggleCritical),
       armorReset: owned(CairnActorSheet.#onArmorReset),
       rest: owned(CairnActorSheet.#onRest),
       restoreAbilities: owned(CairnActorSheet.#onRestoreAbilities),
-      dieOfFate: owned(CairnActorSheet.#onDieOfFate),
+      dieOfFate: CairnActorSheet.#onDieOfFate,
       // Description tab
       rollAge: owned(CairnActorSheet.#onRollAge),
       rollOmen: owned(CairnActorSheet.#onRollOmen),
-      toggleTraits: owned(CairnActorSheet.#onToggleTraits),
-      toggleScars: owned(CairnActorSheet.#onToggleScars),
+      toggleTraits: CairnActorSheet.#onToggleTraits,
+      toggleScars: CairnActorSheet.#onToggleScars,
       // Background / failed career
       rollBackground: owned(CairnActorSheet.#onRollBackground),
       pickBackground: owned(CairnActorSheet.#onPickBackground),
@@ -2738,10 +2744,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // zero in _prepareCharacterData reads, so the two sites cannot drift
     // (drift is exactly review #5's un-editable-HP bug); re-keyed from type to
     // role 2026-08-01, when role-npc people joined the rule. Panic still
-    // zeroes for every type.
+    // zeroes for every type — but only while the use-panic SETTING is on
+    // (usePanic, derived from it in _prepareCharacterData), matching the
+    // derived zero exactly. A bare `panicked` here was review #6's drift:
+    // turn the setting off with someone panicked and prepareData stops
+    // deriving the 0, but the strip kept dropping every HP edit — silently
+    // un-editable, with the checkbox that clears panic no longer rendered.
     const derivedZero =
       (this.actor.livesByPlayerRules && this.actor.system.encumbered)
-      || this.actor.system.panicked;
+      || (this.actor.system.usePanic && this.actor.system.panicked);
     if (derivedZero) {
       foundry.utils.deleteProperty(data, "system.hp.value");
     }

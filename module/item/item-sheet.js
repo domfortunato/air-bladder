@@ -639,6 +639,12 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       return;
     }
     if (data?.type !== "Item") return super._onDrop(event);
+    // Core fires this hook before handling any sheet drop and honours a false
+    // veto (item-sheet.mjs:129-130). Every delegated path above gets it from
+    // super._onDrop; this branch takes the drop itself, so it owes the same
+    // call — a module vetoing drops heard about every item type but
+    // backgrounds (review #6). Exactly once per drop on every path.
+    if (Hooks.call("dropItemSheetData", this.item, this, data) === false) return;
     const dropped = await Item.implementation.fromDropData(data);
     if (!dropped) return;
     if (dropped.type === "background") {

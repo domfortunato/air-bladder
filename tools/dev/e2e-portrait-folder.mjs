@@ -13,7 +13,14 @@
  *   2. a file dropped in it is picked up on the next change,
  *   3. clearing the setting clears the cache.
  *
- * Usage: npm run dev:portrait-folder
+ * Every read POLLS for its transition rather than sleeping at it (2026-08-02).
+ * The onChange's work — browse, maybe createDirectory, rescan, then the list
+ * write's own server round-trip — measures 850-1700ms per cycle on this
+ * machine, and the fixed 800/1200ms sleeps this probe used sat exactly on
+ * that edge: one slow evening and every read saw the PREVIOUS transition,
+ * two different failure patterns from one unchanged code path. The traced
+ * timeline (writes at t=1126/3388/5374 vs reads at t=2254/3672/5657) is in
+ * the review #6 batch-2 commit.
  */
 
 import { chromium } from "playwright";
@@ -41,6 +48,19 @@ const res = await page.evaluate(async () => {
   const DIR = "zz-portrait-probe";
   const out = {};
 
+  // Poll the cached list until `test` accepts it (or ~10s passes), then hand
+  // back whatever is there — the assertion still runs on the returned value,
+  // so a transition that never lands still fails, it just fails on the truth
+  // instead of on a photograph of the previous state.
+  const settled = async (test) => {
+    const deadline = Date.now() + 10000;
+    for (;;) {
+      const list = game.settings.get(NS, "custom-portrait-list");
+      if (test(list) || Date.now() > deadline) return list;
+      await new Promise((r) => setTimeout(r, 200));
+    }
+  };
+
   // A stale cache standing in for "the old folder's files".
   await game.settings.set(NS, "custom-portrait-list", ["stale/one.png", "stale/two.png"]);
   out.staleBefore = game.settings.get(NS, "custom-portrait-list").length;
@@ -50,10 +70,8 @@ const res = await page.evaluate(async () => {
   //    pre-creating would make the assertion below a tautology.
   out.existedFirst = await FP.browse("data", DIR).then(() => true).catch(() => false);
   await game.settings.set(NS, "custom-portrait-folder", DIR);
-  await new Promise((r) => setTimeout(r, 1200));
-
+  out.afterSwitch = await settled((l) => !l.some((f) => f.startsWith("stale/")));
   out.folderExists = await FP.browse("data", DIR).then(() => true).catch(() => false);
-  out.afterSwitch = game.settings.get(NS, "custom-portrait-list");
 
   // 2. Put an image in it, then re-trigger by setting the value again.
   //    (A 1x1 transparent PNG — enough for the extension filter.)
@@ -63,16 +81,15 @@ const res = await page.evaluate(async () => {
   try { await FP.upload("data", DIR, file, {}, { notify: false }); } catch (e) { out.uploadError = String(e); }
 
   await game.settings.set(NS, "custom-portrait-folder", "");
-  await new Promise((r) => setTimeout(r, 800));
-  out.afterClear = game.settings.get(NS, "custom-portrait-list");
+  out.afterClear = await settled((l) => l.length === 0);
 
   await game.settings.set(NS, "custom-portrait-folder", DIR);
-  await new Promise((r) => setTimeout(r, 1200));
-  out.afterRescan = game.settings.get(NS, "custom-portrait-list");
+  out.afterRescan = await settled((l) => l.some((f) => f.includes("probe-portrait.png")));
 
-  // Restore.
+  // Restore — and WAIT for the restore's own rescan to land, or its late write
+  // clobbers whatever the next probe seeds into the list.
   await game.settings.set(NS, "custom-portrait-folder", prior);
-  await new Promise((r) => setTimeout(r, 1200));
+  await settled((l) => !l.some((f) => f.startsWith(`${DIR}/`)));
   return out;
 });
 

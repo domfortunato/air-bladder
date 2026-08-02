@@ -174,7 +174,7 @@ export class CairnActor extends Actor {
     // mount/transport/container role) — a hand-made npc is as often a monster,
     // and monsters keep mystery-man.
     const artRole = data.system?.role;
-    const isContainerish = data.type === "npc" && (data.system?.containerClass
+    const isContainerish = ["npc", "hireling"].includes(data.type) && (data.system?.containerClass
       || THING_ROLES.includes(artRole) || artRole === "mount");
     if (isContainerish && !data.img) {
       const art = iconForTransport(
@@ -324,7 +324,7 @@ export class CairnActor extends Actor {
     // does not know is a Warden's own word and displays verbatim; running it
     // through the label lookup would silently swap it for a name inference.
     const cls = this.system.containerClass;
-    if (this.type === "npc" && (cls || this.system.isThing || this.npcRole === "mount")) {
+    if (["npc", "hireling"].includes(this.type) && (cls || this.system.isThing || this.npcRole === "mount")) {
       this.system.classLabel = cls && !CONTAINER_CLASSES[cls]
         ? cls
         : game.i18n.localize(containerClassLabel(this.name, "", cls));
@@ -457,11 +457,13 @@ export class CairnActor extends Actor {
      rollback to get wrong. */
 
   async createOwnedFeature(data) {
-    if (!this.system.features) this.system.features = [];
-    const newValue = this.system.features;
-    data.id = foundry.utils.randomID();
-    newValue.push(data);
-    await this.update({ "system.features": newValue });
+    // Build the new array without touching prepared state or the caller's
+    // object (review #6): pushing into this.system.features put the feature
+    // on the PREPARED data before the write, so a rejected update still
+    // showed a phantom feature until the next prepare. deleteOwnedFeature's
+    // shape — derive, then update.
+    const feature = { ...data, id: foundry.utils.randomID() };
+    await this.update({ "system.features": [...(this.system.features ?? []), feature] });
   }
 
   /** No longer an override as deleteOwnedItem is deprecated on type Actor */
@@ -894,9 +896,10 @@ export class CairnActor extends Actor {
   /**
    * The actor's slot capacity. `system.slots` is a plain number on EVERY actor
    * type: 0 means "no override, use the Warden's max-equip-slots setting". An
-   * an npc states its own capacity there; a character or hireling only has one
-   * if the Warden set a per-character limit (the equipment-limit dialog, gated
-   * by the character-inventory-limit setting).
+   * npc — including the frozen hireling alias, same model — states its own
+   * capacity there; a character only has one if the Warden set a per-character
+   * limit (the equipment-limit dialog, gated by the character-inventory-limit
+   * setting).
    *
    * It used to be `{value: N}` for npc/container and a bare number for
    * character/hireling — the reason npcs could hold nothing at all, since
@@ -905,7 +908,7 @@ export class CairnActor extends Actor {
    */
   calcCurrentMaxSlots() {
     const override = this.system.slots ?? 0;
-    if (this.type === "npc" && override > 0) return override;
+    if (["npc", "hireling"].includes(this.type) && override > 0) return override;
     if (game.settings.get(SETTINGS_NS, "character-inventory-limit") && override > 0) return override;
     return game.settings.get(SETTINGS_NS, "max-equip-slots");
   }
@@ -1092,6 +1095,7 @@ export class CairnActor extends Actor {
     // here. A child that is itself in the delete batch is skipped — it is on
     // its way out, and updating it mid-delete is a write to a corpse.
     const deletedIds = new Set(documents.map((d) => d.id));
+    const updates = [];
     for (const d of documents) {
       for (const child of game.actors) {
         if (deletedIds.has(child.id)) continue;
@@ -1101,15 +1105,22 @@ export class CairnActor extends Actor {
         // the acting client here always holds isGM and may write ownership
         // directly — no relay needed. Monsters excluded, as everywhere.
         const changes = {
+          _id: child.id,
           "system.formerlyBelongedTo": d.name,
           "system.connectedTo": "",
         };
         if (child.npcRole !== "monster") {
           changes.ownership = foundry.data.operators.ForcedReplacement.create(brokenOwnershipShape(child));
         }
-        await child.update(changes);
+        updates.push(changes);
       }
     }
+    // ONE batched write, not one awaited update() per orphan (review #6): a
+    // keeper with several children cost a server round-trip each, serially,
+    // all inside a hook the workflow awaits — the delete stalled behind them.
+    // `this` is CairnActor here (static method), which matters: the global
+    // `Actor` is not CONFIG.Actor.documentClass.
+    if (updates.length) await this.updateDocuments(updates);
   }
 
 
