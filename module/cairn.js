@@ -802,48 +802,16 @@ Hooks.on("renderDialogV2", function abSpellscrollTypeOption(dialog, element) {
   });
 });
 
-/**
- * Hide the retired `hireling` TYPE from the Create Actor dialog — the exact
- * inverse of `abSpellscrollTypeOption` above, and for the same reason in reverse.
- *
- * The type cannot be UNREGISTERED. Foundry treats `type` as immutable and a
- * document's id outlives any manifest edit, so dropping it from `system.json`
- * would leave every existing hireling pointing at a subtype the system no longer
- * declares. It stays declared, aliased to `NpcData`, and reads as role npc.
- *
- * But a registered subtype is ALWAYS offered: core builds the list from
- * `Object.keys(game.model.Actor)` (client-document.mjs `createDialog`) and there
- * is no manifest flag for "declared but not offered". So a Warden could go on
- * minting documents against a type the system has folded away — which is the
- * mistake the `container` type made visible on 2026-07-31, where the retired
- * model stayed on the menu and every new one arrived on a dead sheet.
- *
- * Removing the OPTION is the whole fix: an existing hireling still opens, still
- * saves, still reads role npc. Only the way to make a NEW one goes.
- *
- * Degrades quietly, like its sibling: if core reworks this dialog the option
- * comes back, and the worst case is a document that behaves as an npc anyway.
- * Named, so a probe can switch it off in the live page (lib.mjs `withHookOff`).
- */
-Hooks.on("renderDialogV2", function abHideHirelingType(dialog, element) {
-  const root = element instanceof HTMLElement ? element : element?.[0];
-  const select = root?.querySelector('select[name="type"]');
-  if (!select) return;
-
-  // Identify the ACTOR create dialog specifically: this hook sees every DialogV2
-  // in the world. Same shape as the spellscroll hook — every option must be a
-  // known Actor type, and the one being removed must be there.
-  const actorTypes = getDocumentClass("Actor").TYPES;
-  const option = select.querySelector('option[value="hireling"]');
-  if (!option || [...select.options].some((o) => !actorTypes.includes(o.value))) return;
-
-  // Re-point the selection BEFORE removing, so the select is never left on a
-  // value that has no option: removing the selected option silently moves the
-  // browser's selection to the first one, which would be `character` and would
-  // make Create Actor default to a PC for anyone whose dialog opened on hireling.
-  if (select.value === "hireling") select.value = "npc";
-  option.remove();
-});
+/* `abHideHirelingType` stood here and is GONE (2026-08-02). It removed the
+   retired `hireling` TYPE from core's Create Actor dialog by surgery on the
+   rendered DOM — necessary while core's type-picker rendered at all, because a
+   registered subtype is always offered and there is no manifest flag to hide
+   one. `CairnActor.createDialog` (actor.js) replaces that dialog with the role
+   SWITCHBOARD now, so core's picker never renders on the world path and there
+   is no option to remove; the one fallback that still shows it (a compendium
+   target) is restricted to real types, which excludes hireling structurally.
+   The type itself stays registered and aliased to NpcData — ids are immutable
+   — exactly as before. */
 
 /**
  * Group and compact the system's rows in the GM's Configure Settings tab.
@@ -949,6 +917,13 @@ Hooks.on("renderSettingsConfig", (app, element) => {
 });
 
 Hooks.on("renderActorDirectory", (app, html) => {
+  // Core's own Create Actor button goes (2026-08-02, ruled: "unnecessary and
+  // an invitation for trouble") — every creation path below carries a complete
+  // workflow instead of core's bare type-picker. The folder "+" STAYS: it
+  // routes through CairnActor.createDialog, which is the role switchboard now.
+  // Removal runs per-render on THIS directory root, so the docked and
+  // popped-out instances are both covered.
+  html.querySelector(".directory-header .create-entry")?.remove();
   if (game.user.can("ACTOR_CREATE")) {
     // Scope the "already injected?" test to THIS directory, not the document.
     // Foundry renders a second, independent ActorDirectory when the tab is
@@ -972,6 +947,9 @@ Hooks.on("renderActorDirectory", (app, html) => {
           <button class="create-npc-button"><i class="fas fa-user-plus"></i>${game.i18n.localize(
           "CAIRN.CreateNpc"
         )}</button>
+          <button class="create-container-button"><i class="fas fa-box-open"></i>${game.i18n.localize("CAIRN.CreateContainer")}</button>
+          <button class="create-mount-button"><i class="fas fa-horse"></i>${game.i18n.localize("CAIRN.CreateMount")}</button>
+          <button class="create-transport-button"><i class="fas fa-cart-flatbed"></i>${game.i18n.localize("CAIRN.CreateTransport")}</button>
           ${game.user.isGM ? `<button class="create-monster-button"><i class="fas fa-dragon"></i>${game.i18n.localize("CAIRN.CreateMonster")}</button>` : ""}
           ${game.user.isGM ? `<button class="create-faction-button"><i class="fas fa-flag"></i>${game.i18n.localize("CAIRN.CreateFaction")}</button>` : ""}
           ${game.user.isGM ? `<button class="import-kettlewright-button"><i class="fas fa-file-import"></i>${game.i18n.localize("CAIRN.KWImport.Button")}</button>` : ""}
@@ -990,6 +968,20 @@ Hooks.on("renderActorDirectory", (app, html) => {
           const actor = await createNpc();
           if (actor) actor.sheet.render(true);
         });
+      // The three thing roles share one name+Type workflow
+      // (CairnActor.createThing): pre-filtered kinds plus Other, minting an
+      // unconnected npc of that role. ACTOR_CREATE-gated like Create NPC —
+      // players who may create actors may create the things they own.
+      for (const [cls, role] of [
+        ["create-container-button", "container"],
+        ["create-mount-button", "mount"],
+        ["create-transport-button", "transport"],
+      ]) {
+        section.querySelector(`.${cls}`)?.addEventListener("click", async () => {
+          const actor = await CairnActor.createThing(role);
+          if (actor) actor.sheet.render(true);
+        });
+      }
       // Warden-only: monsters are the Warden's to mint. The tier picker inside
       // createMonster is dismissible, and a dismiss creates nothing.
       section

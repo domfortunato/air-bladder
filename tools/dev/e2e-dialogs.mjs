@@ -11,7 +11,7 @@
  * the button/form wiring is correct in the DOM.
  */
 import { chromium } from "playwright";
-import { FOUNDRY_URL, VIEWPORT, dismissChrome, joinAsGM, watchErrors, withHookOff } from "./lib.mjs";
+import { FOUNDRY_URL, VIEWPORT, dismissChrome, joinAsGM, watchErrors } from "./lib.mjs";
 
 let failures = 0;
 const ok = (l, d = "") => console.log(`  ok    ${l.padEnd(34)} ${d}`);
@@ -212,43 +212,62 @@ defaultIsNo === "no"
 await page.keyboard.press("Escape");
 await page.waitForTimeout(500);
 
-/* ---------------------------------------- Create Actor: no `hireling` ---- */
-// The retired alias TYPE cannot be UNREGISTERED — ids are immutable and every
-// existing hireling would point at an undeclared subtype — but Foundry offers
-// every registered subtype in the create dialog and has no manifest flag for
-// "declared but not offered". So `abHideHirelingType` removes the option, and a
-// Warden can no longer mint a document against a folded-away model. This is the
-// exact mistake the `container` type made visible on 2026-07-31.
-const readActorTypes = () => page.evaluate(async () => {
+/* ---------------------------- Create Actor: the role SWITCHBOARD ---- */
+// Core's type-picker never renders on the world path (2026-08-02):
+// CairnActor.createDialog is a switchboard of ROLES — a complete workflow per
+// choice — so the retired `hireling` alias TYPE is unmintable from any UI
+// path BY CONSTRUCTION, the list being roles and never types. The
+// abHideHirelingType hook (DOM surgery on core's rendered dialog) is deleted
+// with the dialog it operated on, so its withHookOff control is replaced by
+// STRUCTURAL assertions: the hook is no longer registered, the switchboard
+// lists exactly the six choices for a Warden, and no `select[name="type"]`
+// renders on the world create path.
+const switchboard = await page.evaluate(async () => {
   const p = getDocumentClass("Actor").createDialog();
-  await new Promise((r) => setTimeout(r, 500));
-  const form = [...document.querySelectorAll("dialog form")].find((f) => f.querySelector('select[name="type"]'));
+  let sel = null;
+  for (let i = 0; i < 30 && !sel; i++) {
+    await new Promise((r) => setTimeout(r, 200));
+    sel = document.querySelector('dialog select[name="choice"]');
+  }
   const out = {
-    values: [...form.querySelectorAll('select[name="type"] option')].map((o) => o.value),
-    selected: form.querySelector('select[name="type"]').value,
+    opened: !!sel,
+    values: sel ? [...sel.options].map((o) => o.value) : [],
+    selected: sel?.value ?? null,
+    coreTypeSelect: !!document.querySelector('dialog select[name="type"]'),
+    hookGone: !(Hooks.events.renderDialogV2 ?? []).some((h) => h.fn?.name === "abHideHirelingType"),
   };
-  // Always press a button: an unanswered modal prompt never settles.
-  form.closest("dialog").querySelector('button[data-action="ok"], button[data-action="cancel"]')?.click();
-  const doc = await p.catch(() => null);
-  await doc?.sheet?.close();
-  await doc?.delete();
+  // Dismiss WITHOUT creating — and dismiss WHATEVER opened: under the
+  // negative control core's own dialog renders instead of the switchboard,
+  // and an unanswered modal never settles this evaluate (the first control
+  // run hung on exactly that until the harness killed it). The race is the
+  // second belt: even an undismissable dialog cannot hang the probe.
+  (sel?.closest("dialog") ?? [...document.querySelectorAll("dialog")].pop())
+    ?.querySelector('[data-action="close"], button[data-action="cancel"]')?.click();
+  const doc = await Promise.race([
+    p.catch(() => null),
+    new Promise((r) => setTimeout(() => r("UNSETTLED"), 5000)),
+  ]);
+  out.resolvedNull = doc === null;
+  if (doc && doc !== "UNSETTLED") {
+    await doc.sheet?.close();
+    await doc.delete();
+  }
   return out;
 });
 
-const actorTypes = await readActorTypes();
-!actorTypes.values.includes("hireling") && actorTypes.values.includes("npc")
-  ? ok("Create Actor offers no `hireling`", actorTypes.values.join(", "))
-  : fail("Create Actor offers no `hireling`", actorTypes.values.join(", "));
-actorTypes.selected !== "hireling"
-  ? ok("...and the select is left on a real option", actorTypes.selected)
-  : fail("...and the select is left on a real option", "still selecting the removed option");
-
-// Its own negative control, in-page: with the hook off the option must be back,
-// or the two assertions above hold for some other reason entirely.
-const withHireling = await withHookOff(page, "renderDialogV2", "abHideHirelingType", readActorTypes);
-withHireling.values.includes("hireling")
-  ? ok("with the hook off it returns", "so the check above is load-bearing")
-  : fail("with the hook off it returns", `still absent: ${withHireling.values.join(", ")}`);
+switchboard.opened
+  && JSON.stringify(switchboard.values) === JSON.stringify(["character", "npc", "monster", "mount", "transport", "container"])
+  ? ok("the switchboard offers the Warden six role choices", switchboard.values.join(", "))
+  : fail("the switchboard offers the Warden six role choices", JSON.stringify(switchboard));
+!switchboard.values.includes("hireling") && !switchboard.coreTypeSelect
+  ? ok("no hireling, no core type-picker", "roles, never types — unmintable by construction")
+  : fail("no hireling, no core type-picker", JSON.stringify(switchboard));
+switchboard.selected === "character" && switchboard.resolvedNull
+  ? ok("defaults to Player Character; dismissing creates nothing")
+  : fail("defaults to Player Character; dismissing creates nothing", JSON.stringify(switchboard));
+switchboard.hookGone
+  ? ok("abHideHirelingType is no longer registered", "the surgery died with the dialog it operated on")
+  : fail("abHideHirelingType is no longer registered", "still on renderDialogV2");
 
 /* ----------------------------------------------------------- teardown ---- */
 await page.evaluate(async ({ id, was }) => {

@@ -27,6 +27,167 @@ const confirmDelete = (name) =>
  */
 export class CairnActor extends Actor {
   /**
+   * The Create Actor SWITCHBOARD (2026-08-02, ruled: "if Create Actor stays
+   * anywhere it needs to have the complete workflow"). Core's dialog offers
+   * document TYPES, and a type is the wrong question here — the real choices
+   * are ROLES, and each has a workflow of its own. So every core path that
+   * lands on createDialog (the folder "+", a macro, a module) gets one list of
+   * six: Player Character routes to the 2e/Barebones generator, NPC to the
+   * person generator, Monster (Warden-only, as its directory button is) to the
+   * tier picker — the picker doubles as the confirm — and Mount / Transport /
+   * Container to the shared name+Type dialog below. Overriding createDialog is
+   * the sanctioned shape: core itself overrides it four times
+   * (region-behavior.mjs:119 is the canonical one); the base signature is
+   * client-document.mjs:763.
+   *
+   * The `hireling` alias TYPE is unmintable from here BY CONSTRUCTION — the
+   * switchboard lists roles, never types — which is what let the
+   * abHideHirelingType hook (surgery on core's rendered dialog) be deleted the
+   * same day. The one path still shown core's own picker is a COMPENDIUM
+   * target (createOptions.pack/parent): the generators mint world actors, so
+   * that path falls through to super restricted to real types — hireling
+   * excluded structurally there too.
+   *
+   * The folder id rides in `data.folder` (that is how core's folder "+" sends
+   * it) and is threaded into every mint.
+   * @override
+   */
+  static async createDialog(data = {}, createOptions = {}, options = {}, renderOptions = {}) {
+    if (createOptions?.pack || createOptions?.parent) {
+      return super.createDialog(data, createOptions,
+        { ...options, types: ["character", "npc"] }, renderOptions);
+    }
+    const folder = data.folder ?? null;
+    const choices = [
+      ["character", game.i18n.localize(CONFIG.Actor.typeLabels?.character ?? "TYPES.Actor.character")],
+      ["npc", game.i18n.localize("CAIRN.RoleNpc")],
+      ...(game.user.isGM ? [["monster", game.i18n.localize("CAIRN.RoleMonster")]] : []),
+      ["mount", game.i18n.localize("CAIRN.RoleMount")],
+      ["transport", game.i18n.localize("CAIRN.RoleTransport")],
+      ["container", game.i18n.localize("CAIRN.RoleContainer")],
+    ];
+    // ELEMENT content, not a string: DialogV2 runs string content through
+    // cleanHTML, whose per-tag allow-list has eaten attributes before — an
+    // element is core's documented trusted-content route.
+    const content = document.createElement("div");
+    const label = document.createElement("label");
+    label.textContent = game.i18n.localize("CAIRN.CreateActorPick");
+    const select = document.createElement("select");
+    select.name = "choice";
+    for (const [value, text] of choices) {
+      const o = document.createElement("option");
+      o.value = value;
+      o.textContent = text;
+      select.append(o);
+    }
+    content.append(label, select);
+    const picked = await foundry.applications.api.DialogV2.prompt({
+      // Our own key, not core's DOCUMENT.Create format: the i18n:source gate
+      // holds every literal key to en.json, and a system key also gives the
+      // translator the whole title to write.
+      window: { title: game.i18n.localize("CAIRN.CreateActorTitle") },
+      content,
+      ok: { callback: (event, button) => button.form.elements.choice.value },
+      rejectClose: false,
+    });
+    if (!picked) return null;
+    // Dynamic imports, like _preCreate's portrait pair below: the generators
+    // import this module, so a static import is a cycle.
+    let actor = null;
+    if (picked === "character") {
+      const { createCharacter } = await import("../character-generator.js");
+      actor = await createCharacter({ folder });
+    } else if (picked === "npc") {
+      const { createNpc } = await import("../character-generator.js");
+      actor = await createNpc({ folder });
+    } else if (picked === "monster") {
+      const { createMonster } = await import("../monster-generator.js");
+      actor = await createMonster({ folder });
+    } else {
+      actor = await this.createThing(picked, { folder });
+    }
+    actor?.sheet?.render(true);
+    return actor ?? null;
+  }
+
+  /**
+   * The shared Mount / Transport / Container workflow: one name+Type dialog,
+   * pre-filtered to the role's kinds plus "Other…", minting an UNCONNECTED npc
+   * of that role. Serves the three directory buttons and the switchboard
+   * above. Same sentinel discipline as the sheet's Type select: the select is
+   * read HERE and only a real key (or the Other input's word) is ever written.
+   * A blank name takes the role's label rather than silently doing nothing —
+   * the old custom-container dialog's skip-on-blank guard is the recorded
+   * counter-lesson. Art arrives via _preCreate's stamping; capacity is the
+   * kind's default, 0 (world setting) for a blank or custom kind.
+   * @param {"mount"|"transport"|"container"} role
+   * @param {{folder?: string|null}} [opts]
+   * @returns {Promise<CairnActor|null>}
+   */
+  static async createThing(role, { folder = null } = {}) {
+    const roleKey = `CAIRN.Role${role.charAt(0).toUpperCase()}${role.slice(1)}`;
+    const content = document.createElement("div");
+    const nameInput = document.createElement("input");
+    nameInput.type = "text";
+    nameInput.name = "thingName";
+    nameInput.placeholder = game.i18n.localize("CAIRN.Name");
+    const kindSelect = document.createElement("select");
+    kindSelect.name = "kindChoice";
+    const blank = document.createElement("option");
+    blank.value = "";
+    kindSelect.append(blank);
+    for (const [key, cfg] of Object.entries(CONTAINER_CLASSES)) {
+      if (cfg.role !== role) continue;
+      const o = document.createElement("option");
+      o.value = key;
+      o.textContent = game.i18n.localize(cfg.label);
+      kindSelect.append(o);
+    }
+    const other = document.createElement("option");
+    other.value = "__other__";
+    other.textContent = game.i18n.localize("CAIRN.KindOther");
+    kindSelect.append(other);
+    const otherInput = document.createElement("input");
+    otherInput.type = "text";
+    otherInput.name = "kindOther";
+    otherInput.placeholder = game.i18n.localize("CAIRN.KindHint");
+    otherInput.hidden = true;
+    // Wired on the element BEFORE adoption — listeners survive it.
+    kindSelect.addEventListener("change", () => {
+      otherInput.hidden = kindSelect.value !== "__other__";
+      if (!otherInput.hidden) otherInput.focus();
+    });
+    const typeLabel = document.createElement("label");
+    typeLabel.textContent = game.i18n.localize("CAIRN.Kind");
+    content.append(nameInput, typeLabel, kindSelect, otherInput);
+    const result = await foundry.applications.api.DialogV2.prompt({
+      window: { title: game.i18n.localize(`CAIRN.Create${role.charAt(0).toUpperCase()}${role.slice(1)}`) },
+      content,
+      ok: {
+        callback: (event, button) => ({
+          name: button.form.elements.thingName.value.trim(),
+          containerClass: button.form.elements.kindChoice.value === "__other__"
+            ? button.form.elements.kindOther.value.trim()
+            : button.form.elements.kindChoice.value,
+        }),
+      },
+      rejectClose: false,
+    });
+    if (!result) return null;
+    const data = {
+      name: result.name || game.i18n.localize(roleKey),
+      type: "npc",
+      system: {
+        role,
+        containerClass: result.containerClass,
+        slots: containerClassSlots(result.containerClass) || 0,
+      },
+    };
+    if (folder) data.folder = folder;
+    return (await this.create(data)) ?? null;
+  }
+
+  /**
    * Create-time defaults. They live in `_preCreate`, NOT in a `static create`
    * override, because a static only runs for callers that name this class:
    * compendium importAll, an Adventure import, and anything reaching for the

@@ -280,13 +280,15 @@ const randomMonsterIcon = async () => {
  * no paired token art the way Aspeheim portraits do.
  * @returns {Promise<CairnActor|null>}
  */
-export const createMonster = async () => {
+export const createMonster = async ({ folder = null } = {}) => {
   const choice = await promptMonsterTier();
   if (!choice) return null;
   const data = monsterToActorData(await generateMonster(choice));
   const img = await randomMonsterIcon();
   data.img = img;
   data.prototypeToken.texture = { src: img };
+  // Folder threaded from the createDialog switchboard (2026-08-02).
+  if (folder) data.folder = folder;
   // Document.create can return undefined when creation is refused; the caller
   // tests truthiness before rendering a sheet.
   return (await CairnActor.create(data)) ?? null;

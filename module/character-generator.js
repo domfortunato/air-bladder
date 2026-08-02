@@ -1893,7 +1893,7 @@ const characterToActorData = (characterData) => ({
  * @param {Object} characterData
  * @returns {Promise<CairnActor|null>}
  */
-export const createActorWithCharacter = async (characterData) => {
+export const createActorWithCharacter = async (characterData, { folder = null } = {}) => {
   if (!characterData) return null;
   const data = characterToActorData(characterData);
   // A random portrait + its paired token, assigned ONLY here on creation.
@@ -1905,6 +1905,9 @@ export const createActorWithCharacter = async (characterData) => {
     data.img = pair.img;
     data.prototypeToken.texture = { src: pair.token };
   }
+  // The createDialog switchboard threads the folder "+"'s destination through
+  // here (2026-08-02); the directory button passes nothing and lands at root.
+  if (folder) data.folder = folder;
   const actor = await CairnActor.create(data);
   await grantContainers(actor, characterData.containers);
   return actor;
@@ -1941,7 +1944,8 @@ export const updateActorWithCharacter = async (actor, characterData) => {
 };
 
 /** @returns {Promise<CairnActor|null>} */
-export const createCharacter = async () => createActorWithCharacter(await generateCharacter());
+export const createCharacter = async ({ folder = null } = {}) =>
+  createActorWithCharacter(await generateCharacter(), { folder });
 
 /**
  * Regenerate an existing character: re-roll stats/gear/bond/traits but PERSIST the
@@ -2092,13 +2096,15 @@ const npcToActorData = (h) => ({
  * omission).
  * @returns {Promise<CairnActor>}
  */
-export const createNpc = async () => {
+export const createNpc = async ({ folder = null } = {}) => {
   const data = npcToActorData(await generateNpc());
   const pair = await randomPortraitPair();
   if (pair) {
     data.img = pair.img;
     data.prototypeToken = { ...(data.prototypeToken ?? {}), texture: { src: pair.token } };
   }
+  // Folder threaded from the createDialog switchboard (2026-08-02).
+  if (folder) data.folder = folder;
   return CairnActor.create(data);
 };
 
