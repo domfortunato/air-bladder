@@ -947,10 +947,10 @@ Hooks.on("renderActorDirectory", (app, html) => {
           <button class="create-npc-button"><i class="fas fa-user-plus"></i>${game.i18n.localize(
           "CAIRN.CreateNpc"
         )}</button>
-          <button class="create-container-button"><i class="fas fa-box-open"></i>${game.i18n.localize("CAIRN.CreateContainer")}</button>
+          ${game.user.isGM ? `<button class="create-monster-button"><i class="fas fa-dragon"></i>${game.i18n.localize("CAIRN.CreateMonster")}</button>` : ""}
           <button class="create-mount-button"><i class="fas fa-horse"></i>${game.i18n.localize("CAIRN.CreateMount")}</button>
           <button class="create-transport-button"><i class="fas fa-cart-flatbed"></i>${game.i18n.localize("CAIRN.CreateTransport")}</button>
-          ${game.user.isGM ? `<button class="create-monster-button"><i class="fas fa-dragon"></i>${game.i18n.localize("CAIRN.CreateMonster")}</button>` : ""}
+          <button class="create-container-button"><i class="fas fa-box-open"></i>${game.i18n.localize("CAIRN.CreateContainer")}</button>
           ${game.user.isGM ? `<button class="create-faction-button"><i class="fas fa-flag"></i>${game.i18n.localize("CAIRN.CreateFaction")}</button>` : ""}
           ${game.user.isGM ? `<button class="import-kettlewright-button"><i class="fas fa-file-import"></i>${game.i18n.localize("CAIRN.KWImport.Button")}</button>` : ""}
         </div>
