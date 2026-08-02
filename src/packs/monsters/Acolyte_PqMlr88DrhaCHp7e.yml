@@ -3,7 +3,7 @@ name: Acolyte
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.svg
+img: systems/air-bladder/game-icons/body/ages.svg
 items:
   - _id: wDcM0emNlQndgfSj
     name: Gambeson
@@ -132,6 +132,7 @@ ownership:
   default: 0
   bDeEK9GSahKwiAGH: 3
 system:
+  generationEnabled: false
   role: monster
   hp:
     value: 4

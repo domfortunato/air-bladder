@@ -3,7 +3,7 @@ name: Ape, White
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.svg
+img: systems/air-bladder/game-icons/animals/gorilla.svg
 items:
   - _id: JnUuU9W1xjq9Pme6
     name: Claws
@@ -89,6 +89,7 @@ ownership:
   default: 0
   bDeEK9GSahKwiAGH: 3
 system:
+  generationEnabled: false
   role: monster
   hp:
     value: 5
