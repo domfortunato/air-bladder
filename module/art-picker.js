@@ -97,12 +97,13 @@ export async function pickArt({
       `<img class="cairn-portrait-choice${selected ? " selected" : ""}" src="${attr(src)}" `
       + `data-src="${attr(src)}" data-class="${attr(key)}" title="${attr(label)}" alt="${attr(label)}" />`
     ).join("");
-    panes.push({ id: "classes", label: classes.label, body: `<div class="cairn-portrait-grid">${cells}</div>` });
+    panes.push({ id: "classes", count: classes.cells.length, label: classes.label, body: `<div class="cairn-portrait-grid">${cells}</div>` });
   }
 
   if (showShipped) {
     panes.push({
       id: "shipped",
+      count: shippedNames.length,
       label: game.i18n.localize("CAIRN.PortraitTabShipped"),
       body: `<div class="cairn-portrait-grid">${shippedNames.map((n) => cellFor(`${portraitDir}/${n}`)).join("")}</div>
         <div class="cairn-portrait-credit">${game.i18n.localize("CAIRN.PortraitCredit")}</div>`,
@@ -115,6 +116,7 @@ export async function pickArt({
       : "";
     panes.push({
       id: "custom",
+      count: customPaths.length,
       label: game.i18n.localize("CAIRN.PortraitTabCustom"),
       body: `<div class="cairn-portrait-grid">${customPaths.map((p) => cellFor(p)).join("")}</div>
         <div class="cairn-portrait-empty"${customPaths.length ? " hidden" : ""}>${game.i18n.localize("CAIRN.CustomPortraitsEmpty")}</div>
@@ -135,6 +137,7 @@ export async function pickArt({
     }).join("");
     panes.push({
       id: "gameicons",
+      count: iconCats.length,
       label: game.i18n.localize("CAIRN.PortraitTabGameIcons"),
       body: `<div class="cairn-icon-folders">${folders}</div>
         <div class="cairn-icon-category" hidden>
@@ -148,7 +151,7 @@ export async function pickArt({
   if (!panes.length) {
     // Nothing to show but the escapes. Still worth opening — the URL row and
     // Browse are how a player with no galleries sets art at all.
-    panes.push({ id: "none", label: "", body: "" });
+    panes.push({ id: "none", count: 0, label: "", body: "" });
   }
 
   /* --- chrome ------------------------------------------------------------ */
@@ -161,7 +164,17 @@ export async function pickArt({
     (id === "custom" && customPaths.includes(current))
     || (id === "shipped" && current?.startsWith(portraitDir))
     || (id === "gameicons" && current?.startsWith(iconDir));
-  const startTab = panes.find((p) => owns(p.id))?.id ?? panes[0].id;
+  // ...and failing that, the first pane WITH SOMETHING IN IT — not simply the
+  // first pane. The distinction cost an evening (2026-08-01): a Monster is
+  // offered Custom + Game-Icons, Custom is listed for any GM even when the
+  // folder is empty (it carries the Refresh button), so the picker opened on a
+  // pane reading "No custom portraits found" with the 1,239-glyph gallery
+  // sitting unselected beside it. It looked for all the world like the picker
+  // had failed to load, and the Warden it happened to could not tell that from
+  // a broken dialog. A tab that says "nothing here" is never the right landing
+  // place while a tab with art exists.
+  const startTab = panes.find((p) => owns(p.id))?.id
+    ?? (panes.find((p) => p.count > 0) ?? panes[0]).id;
 
   const tabsBar = panes.length > 1
     ? `<div class="cairn-portrait-tabs">${panes.map((p) =>
@@ -193,6 +206,22 @@ export async function pickArt({
     buttons: [{ action: "close", label: game.i18n.localize("CAIRN.Close"), default: true }],
   });
   await dialog.render(true);
+  // CLAIM THE FRONT, explicitly. `render(true)` assigns a z-index at the moment
+  // it renders, and that is not the same as being on top when it FINISHES: this
+  // dialog awaits two manifests before rendering, and anything that raises a
+  // window in the meantime — including the sheet whose portrait was just
+  // clicked, which ApplicationV2 brings forward on pointerdown — ends up above
+  // it. The result is a picker that opened correctly and is invisible, sitting
+  // underneath the sheet that opened it, at the same position every time.
+  //
+  // Measured in a real session (2026-08-01): sheet z-112, picker z-113, a second
+  // sheet z-114 ON TOP of the picker, second picker z-115. That is the whole of
+  // the "clicking the portrait does nothing, but it works on the second click"
+  // report — the first click's dialog was never gone, only buried, and clicking
+  // again just stacked another one on top of it. For two documents whose sheets
+  // happened to sit exactly where the dialog spawns, no click ever appeared to
+  // work at all.
+  dialog.bringToFront();
 
   /* --- wiring ------------------------------------------------------------ */
 

@@ -134,7 +134,24 @@ const slideDown = (el) => {
  * editability, so preserving that behaviour means guarding at the handler.
  */
 const owned = (fn) => function (event, target) {
-  if (!this.isEditable) return undefined;
+  if (!this.isEditable) {
+    // SAY WHY. This used to `return undefined` in silence, which is the worst
+    // possible failure for a control that looks clickable: the portrait, every
+    // tab-side button and every row icon simply stopped existing, with no
+    // notification, no console line and nothing to search for. A Warden with a
+    // locked compendium and a Warden without permission got the identical
+    // nothing, and so did a bug — an evening went into telling those apart by
+    // hand (2026-08-01).
+    //
+    // `isEditable` has exactly two ways to be false (document-sheet.mjs:123-129):
+    // the pack is locked, or this user fails `editPermission` on the document.
+    // Name whichever it is, because the fix is different for each.
+    const pack = this.document?.pack ? game.packs.get(this.document.pack) : null;
+    ui.notifications.warn(pack?.locked
+      ? game.i18n.format("CAIRN.Notify.PackLocked", { pack: pack.title ?? pack.collection })
+      : game.i18n.format("CAIRN.Notify.NotEditable", { name: this.document?.name ?? "" }));
+    return undefined;
+  }
   return fn.call(this, event, target);
 };
 

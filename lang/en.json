@@ -308,8 +308,10 @@
     "NoMarketplace": "The marketplace catalogue is unavailable.",
     "NoNesting": "{name} can't keep connections — only characters can.",
     "NoScarsTable": "The Scars table is missing from the compendium — roll the scar by hand.",
+    "NotEditable": "You do not have permission to edit {name}.",
     "NotEnoughGold": "Not enough gold for {name} ({cost}).",
     "Overloaded": "{name} added — you are now over capacity (HP 0 until you free a slot).",
+    "PackLocked": "{pack} is locked — unlock the compendium to edit this document.",
     "PortraitFolderScanned": "Custom portrait folder scanned — {count} image(s) found.",
     "Took": "Took {name}."
   },
