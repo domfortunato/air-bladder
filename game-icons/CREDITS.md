@@ -22,7 +22,7 @@ it.
 
 Icons made by Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev, Delapouite, Faithtoken, GeneralAce135, Irongamer, Lorc, Lord Berandas, Lucas, Sbed, Skoll, Sparker, Various artists, Willdabeast.
 
-1310 icons in 24 categories.
+1366 icons in 24 categories.
 
 ## Animals
 
@@ -32,31 +32,47 @@ Icons made by Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev, Delapouite, F
 | `ammonite.svg` | Ammonite | Lorc | <https://game-icons.net/1x1/lorc/ammonite.html> |
 | `angler-fish.svg` | Angler Fish | Lorc | <https://game-icons.net/1x1/lorc/angler-fish.html> |
 | `angular-spider.svg` | Angular Spider | Lorc | <https://game-icons.net/1x1/lorc/angular-spider.html> |
+| `animal-hide.svg` | Animal Hide | Delapouite | <https://game-icons.net/1x1/delapouite/animal-hide.html> |
 | `animal-skull.svg` | Animal Skull | Lorc | <https://game-icons.net/1x1/lorc/animal-skull.html> |
+| `armadillo-tail.svg` | Armadillo Tail | Lorc | <https://game-icons.net/1x1/lorc/armadillo-tail.html> |
 | `axolotl.svg` | Axolotl | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/axolotl.html> |
+| `bat-delapouite.svg` | Bat | Delapouite | <https://game-icons.net/1x1/delapouite/bat.html> |
+| `bat-skoll.svg` | Bat | Skoll | <https://game-icons.net/1x1/skoll/bat.html> |
 | `bat-wing.svg` | Bat Wing | Lorc | <https://game-icons.net/1x1/lorc/bat-wing.html> |
-| `bat.svg` | Bat | Delapouite | <https://game-icons.net/1x1/delapouite/bat.html> |
 | `bear-face.svg` | Bear Face | Sparker | <https://game-icons.net/1x1/sparker/bear-face.html> |
 | `bear-head.svg` | Bear Head | Delapouite | <https://game-icons.net/1x1/delapouite/bear-head.html> |
 | `bee.svg` | Bee | Lorc | <https://game-icons.net/1x1/lorc/bee.html> |
+| `big-egg.svg` | Big Egg | Sbed | <https://game-icons.net/1x1/sbed/big-egg.html> |
 | `bird-twitter.svg` | Bird Twitter | Lorc | <https://game-icons.net/1x1/lorc/bird-twitter.html> |
 | `boar-tusks.svg` | Boar Tusks | Lorc | <https://game-icons.net/1x1/lorc/boar-tusks.html> |
 | `bull-horns.svg` | Bull Horns | Lorc | <https://game-icons.net/1x1/lorc/bull-horns.html> |
 | `bull.svg` | Bull | Lorc | <https://game-icons.net/1x1/lorc/bull.html> |
+| `bunny-slippers.svg` | Bunny Slippers | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/bunny-slippers.html> |
+| `butterfly-warning.svg` | Butterfly Warning | Lorc | <https://game-icons.net/1x1/lorc/butterfly-warning.html> |
 | `butterfly.svg` | Butterfly | Lorc | <https://game-icons.net/1x1/lorc/butterfly.html> |
 | `camel-head.svg` | Camel Head | Delapouite | <https://game-icons.net/1x1/delapouite/camel-head.html> |
 | `cassowary-head.svg` | Cassowary Head | Delapouite | <https://game-icons.net/1x1/delapouite/cassowary-head.html> |
 | `cat.svg` | Cat | Lorc | <https://game-icons.net/1x1/lorc/cat.html> |
 | `centipede.svg` | Centipede | Lorc | <https://game-icons.net/1x1/lorc/centipede.html> |
 | `charging-bull.svg` | Charging Bull | Delapouite | <https://game-icons.net/1x1/delapouite/charging-bull.html> |
+| `chess-knight.svg` | Chess Knight | Skoll | <https://game-icons.net/1x1/skoll/chess-knight.html> |
+| `chicken-leg.svg` | Chicken Leg | Lorc | <https://game-icons.net/1x1/lorc/chicken-leg.html> |
 | `chicken.svg` | Chicken | Delapouite | <https://game-icons.net/1x1/delapouite/chicken.html> |
+| `claw.svg` | Claw | Sbed | <https://game-icons.net/1x1/sbed/claw.html> |
+| `clownfish.svg` | Clownfish | Delapouite | <https://game-icons.net/1x1/delapouite/clownfish.html> |
+| `cobweb.svg` | Cobweb | Lorc | <https://game-icons.net/1x1/lorc/cobweb.html> |
 | `cow.svg` | Cow | Delapouite | <https://game-icons.net/1x1/delapouite/cow.html> |
 | `crab-claw.svg` | Crab Claw | Lorc | <https://game-icons.net/1x1/lorc/crab-claw.html> |
 | `crab.svg` | Crab | Lorc | <https://game-icons.net/1x1/lorc/crab.html> |
+| `cricket.svg` | Cricket | Delapouite | <https://game-icons.net/1x1/delapouite/cricket.html> |
 | `croc-jaws.svg` | Croc Jaws | Lorc | <https://game-icons.net/1x1/lorc/croc-jaws.html> |
+| `crossed-claws.svg` | Crossed Claws | Lorc | <https://game-icons.net/1x1/lorc/crossed-claws.html> |
 | `crow-dive.svg` | Crow Dive | Lorc | <https://game-icons.net/1x1/lorc/crow-dive.html> |
+| `deer-track.svg` | Deer Track | Delapouite | <https://game-icons.net/1x1/delapouite/deer-track.html> |
 | `desert-skull.svg` | Desert Skull | Lorc | <https://game-icons.net/1x1/lorc/desert-skull.html> |
 | `dinosaur-rex.svg` | Dinosaur Rex | Lorc | <https://game-icons.net/1x1/lorc/dinosaur-rex.html> |
+| `dog-bowl.svg` | Dog Bowl | Delapouite | <https://game-icons.net/1x1/delapouite/dog-bowl.html> |
+| `dog-house.svg` | Dog House | Delapouite | <https://game-icons.net/1x1/delapouite/dog-house.html> |
 | `dolphin.svg` | Dolphin | Delapouite | <https://game-icons.net/1x1/delapouite/dolphin.html> |
 | `donkey.svg` | Donkey | Skoll | <https://game-icons.net/1x1/skoll/donkey.html> |
 | `dragonfly.svg` | Dragonfly | Lorc | <https://game-icons.net/1x1/lorc/dragonfly.html> |
@@ -68,9 +84,15 @@ Icons made by Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev, Delapouite, F
 | `elephant-head.svg` | Elephant Head | Delapouite | <https://game-icons.net/1x1/delapouite/elephant-head.html> |
 | `elephant.svg` | Elephant | Delapouite | <https://game-icons.net/1x1/delapouite/elephant.html> |
 | `evil-bat.svg` | Evil Bat | Lorc | <https://game-icons.net/1x1/lorc/evil-bat.html> |
+| `falcon-moon.svg` | Falcon Moon | Delapouite | <https://game-icons.net/1x1/delapouite/falcon-moon.html> |
 | `feline.svg` | Feline | Delapouite | <https://game-icons.net/1x1/delapouite/feline.html> |
 | `finch.svg` | Finch | Delapouite | <https://game-icons.net/1x1/delapouite/finch.html> |
+| `fish-corpse.svg` | Fish Corpse | Lorc | <https://game-icons.net/1x1/lorc/fish-corpse.html> |
+| `fishbone.svg` | Fishbone | Lorc | <https://game-icons.net/1x1/lorc/fishbone.html> |
+| `flamingo.svg` | Flamingo | Delapouite | <https://game-icons.net/1x1/delapouite/flamingo.html> |
+| `flat-paw-print.svg` | Flat Paw Print | Lorc | <https://game-icons.net/1x1/lorc/flat-paw-print.html> |
 | `flying-trout.svg` | Flying Trout | Cathelineau | <https://game-icons.net/1x1/cathelineau/flying-trout.html> |
+| `food-chain.svg` | Food Chain | Lorc | <https://game-icons.net/1x1/lorc/food-chain.html> |
 | `fox-head.svg` | Fox Head | Lorc | <https://game-icons.net/1x1/lorc/fox-head.html> |
 | `fox-tail.svg` | Fox Tail | Delapouite | <https://game-icons.net/1x1/delapouite/fox-tail.html> |
 | `frog.svg` | Frog | Lorc | <https://game-icons.net/1x1/lorc/frog.html> |
@@ -79,6 +101,7 @@ Icons made by Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev, Delapouite, F
 | `goat.svg` | Goat | Skoll | <https://game-icons.net/1x1/skoll/goat.html> |
 | `gold-scarab.svg` | Gold Scarab | Lorc | <https://game-icons.net/1x1/lorc/gold-scarab.html> |
 | `gorilla.svg` | Gorilla | Delapouite | <https://game-icons.net/1x1/delapouite/gorilla.html> |
+| `grasping-claws.svg` | Grasping Claws | Lorc | <https://game-icons.net/1x1/lorc/grasping-claws.html> |
 | `griffin-symbol.svg` | Griffin Symbol | Delapouite | <https://game-icons.net/1x1/delapouite/griffin-symbol.html> |
 | `hanging-spider.svg` | Hanging Spider | Lorc | <https://game-icons.net/1x1/lorc/hanging-spider.html> |
 | `hollow-cat.svg` | Hollow Cat | Lorc | <https://game-icons.net/1x1/lorc/hollow-cat.html> |
@@ -86,8 +109,10 @@ Icons made by Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev, Delapouite, F
 | `hoof.svg` | Hoof | Lorc | <https://game-icons.net/1x1/lorc/hoof.html> |
 | `horse-head-delapouite.svg` | Horse Head | Delapouite | <https://game-icons.net/1x1/delapouite/horse-head.html> |
 | `horse-head-lorc.svg` | Horse Head | Lorc | <https://game-icons.net/1x1/lorc/horse-head.html> |
+| `horseshoe.svg` | Horseshoe | Delapouite | <https://game-icons.net/1x1/delapouite/horseshoe.html> |
 | `hound.svg` | Hound | Lorc | <https://game-icons.net/1x1/lorc/hound.html> |
 | `insect-jaws.svg` | Insect Jaws | Lorc | <https://game-icons.net/1x1/lorc/insect-jaws.html> |
+| `ivory-tusks.svg` | Ivory Tusks | Delapouite | <https://game-icons.net/1x1/delapouite/ivory-tusks.html> |
 | `jellyfish.svg` | Jellyfish | Lorc | <https://game-icons.net/1x1/lorc/jellyfish.html> |
 | `kangaroo.svg` | Kangaroo | Delapouite | <https://game-icons.net/1x1/delapouite/kangaroo.html> |
 | `koala.svg` | Koala | Delapouite | <https://game-icons.net/1x1/delapouite/koala.html> |
@@ -105,6 +130,7 @@ Icons made by Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev, Delapouite, F
 | `mite.svg` | Mite | Lorc | <https://game-icons.net/1x1/lorc/mite.html> |
 | `monkey.svg` | Monkey | Lorc | <https://game-icons.net/1x1/lorc/monkey.html> |
 | `moon-bats.svg` | Moon Bats | Delapouite | <https://game-icons.net/1x1/delapouite/moon-bats.html> |
+| `mounted-knight.svg` | Mounted Knight | Skoll | <https://game-icons.net/1x1/skoll/mounted-knight.html> |
 | `mouse.svg` | Mouse | Lorc | <https://game-icons.net/1x1/lorc/mouse.html> |
 | `octopus.svg` | Octopus | Lorc | <https://game-icons.net/1x1/lorc/octopus.html> |
 | `ouroboros.svg` | Ouroboros | Lorc | <https://game-icons.net/1x1/lorc/ouroboros.html> |
@@ -113,44 +139,71 @@ Icons made by Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev, Delapouite, F
 | `pangolin.svg` | Pangolin | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/pangolin.html> |
 | `parmecia.svg` | Parmecia | Lorc | <https://game-icons.net/1x1/lorc/parmecia.html> |
 | `parrot-head.svg` | Parrot Head | Lorc | <https://game-icons.net/1x1/lorc/parrot-head.html> |
+| `paw-front.svg` | Paw Front | Lorc | <https://game-icons.net/1x1/lorc/paw-front.html> |
+| `paw-heart.svg` | Paw Heart | Lorc | <https://game-icons.net/1x1/lorc/paw-heart.html> |
+| `paw-print.svg` | Paw Print | Lorc | <https://game-icons.net/1x1/lorc/paw-print.html> |
+| `paw.svg` | Paw | Lorc | <https://game-icons.net/1x1/lorc/paw.html> |
 | `pegasus.svg` | Pegasus | Skoll | <https://game-icons.net/1x1/skoll/pegasus.html> |
 | `penguin.svg` | Penguin | Delapouite | <https://game-icons.net/1x1/delapouite/penguin.html> |
 | `pig.svg` | Pig | Skoll | <https://game-icons.net/1x1/skoll/pig.html> |
 | `pinata.svg` | Pinata | Delapouite | <https://game-icons.net/1x1/delapouite/pinata.html> |
+| `plants-and-animals.svg` | Plants And Animals | DarkZaitzev | <https://game-icons.net/1x1/darkzaitzev/plants-and-animals.html> |
+| `poison.svg` | Poison | Sbed | <https://game-icons.net/1x1/sbed/poison.html> |
 | `polar-bear.svg` | Polar Bear | Cathelineau | <https://game-icons.net/1x1/cathelineau/polar-bear.html> |
 | `praying-mantis.svg` | Praying Mantis | Delapouite | <https://game-icons.net/1x1/delapouite/praying-mantis.html> |
 | `rabbit.svg` | Rabbit | Delapouite | <https://game-icons.net/1x1/delapouite/rabbit.html> |
 | `rat.svg` | Rat | Delapouite | <https://game-icons.net/1x1/delapouite/rat.html> |
 | `raven.svg` | Raven | Lorc | <https://game-icons.net/1x1/lorc/raven.html> |
 | `rhinoceros-horn.svg` | Rhinoceros Horn | Delapouite | <https://game-icons.net/1x1/delapouite/rhinoceros-horn.html> |
+| `roast-chicken.svg` | Roast Chicken | Lorc | <https://game-icons.net/1x1/lorc/roast-chicken.html> |
 | `rooster.svg` | Rooster | Delapouite | <https://game-icons.net/1x1/delapouite/rooster.html> |
 | `sad-crab.svg` | Sad Crab | Lorc | <https://game-icons.net/1x1/lorc/sad-crab.html> |
+| `saddle.svg` | Saddle | Delapouite | <https://game-icons.net/1x1/delapouite/saddle.html> |
 | `salamander.svg` | Salamander | Lorc | <https://game-icons.net/1x1/lorc/salamander.html> |
 | `scarab-beetle.svg` | Scarab Beetle | Lorc | <https://game-icons.net/1x1/lorc/scarab-beetle.html> |
+| `schrodingers-cat-alive.svg` | Schrodingers Cat Alive | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/schrodingers-cat-alive.html> |
+| `schrodingers-cat-dead.svg` | Schrodingers Cat Dead | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/schrodingers-cat-dead.html> |
 | `scorpion-tail.svg` | Scorpion Tail | Lorc | <https://game-icons.net/1x1/lorc/scorpion-tail.html> |
 | `scorpion.svg` | Scorpion | Lorc | <https://game-icons.net/1x1/lorc/scorpion.html> |
 | `sea-serpent.svg` | Sea Serpent | Lorc | <https://game-icons.net/1x1/lorc/sea-serpent.html> |
 | `sea-star.svg` | Sea Star | Delapouite | <https://game-icons.net/1x1/delapouite/sea-star.html> |
 | `sea-urchin.svg` | Sea Urchin | Delapouite | <https://game-icons.net/1x1/delapouite/sea-urchin.html> |
 | `seahorse.svg` | Seahorse | Delapouite | <https://game-icons.net/1x1/delapouite/seahorse.html> |
+| `seated-mouse.svg` | Seated Mouse | Lorc | <https://game-icons.net/1x1/lorc/seated-mouse.html> |
+| `shark-bite.svg` | Shark Bite | Delapouite | <https://game-icons.net/1x1/delapouite/shark-bite.html> |
+| `shark-fin.svg` | Shark Fin | Delapouite | <https://game-icons.net/1x1/delapouite/shark-fin.html> |
 | `shark-jaws.svg` | Shark Jaws | Lorc | <https://game-icons.net/1x1/lorc/shark-jaws.html> |
+| `sheep.svg` | Sheep | Delapouite | <https://game-icons.net/1x1/delapouite/sheep.html> |
 | `snail-eyes.svg` | Snail Eyes | Delapouite | <https://game-icons.net/1x1/delapouite/snail-eyes.html> |
 | `snail.svg` | Snail | Lorc | <https://game-icons.net/1x1/lorc/snail.html> |
 | `snake-bite.svg` | Snake Bite | Lorc | <https://game-icons.net/1x1/lorc/snake-bite.html> |
 | `snake-totem.svg` | Snake Totem | Lorc | <https://game-icons.net/1x1/lorc/snake-totem.html> |
 | `snake.svg` | Snake | Lorc | <https://game-icons.net/1x1/lorc/snake.html> |
+| `sonic-screech.svg` | Sonic Screech | Lorc | <https://game-icons.net/1x1/lorc/sonic-screech.html> |
+| `sperm-whale.svg` | Sperm Whale | Delapouite | <https://game-icons.net/1x1/delapouite/sperm-whale.html> |
 | `spider-alt.svg` | Spider Alt | Carl Olsen | <https://game-icons.net/1x1/carl-olsen/spider-alt.html> |
 | `spider-face.svg` | Spider Face | Carl Olsen | <https://game-icons.net/1x1/carl-olsen/spider-face.html> |
+| `spider-web.svg` | Spider Web | Lorc | <https://game-icons.net/1x1/lorc/spider-web.html> |
+| `spiked-snail.svg` | Spiked Snail | Lorc | <https://game-icons.net/1x1/lorc/spiked-snail.html> |
 | `squid-head.svg` | Squid Head | Lorc | <https://game-icons.net/1x1/lorc/squid-head.html> |
 | `squid.svg` | Squid | Lorc | <https://game-icons.net/1x1/lorc/squid.html> |
+| `stable.svg` | Stable | Delapouite | <https://game-icons.net/1x1/delapouite/stable.html> |
 | `stag-head.svg` | Stag Head | Lorc | <https://game-icons.net/1x1/lorc/stag-head.html> |
+| `stomp.svg` | Stomp | Lorc | <https://game-icons.net/1x1/lorc/stomp.html> |
 | `swan.svg` | Swan | Lorc | <https://game-icons.net/1x1/lorc/swan.html> |
 | `tick.svg` | Tick | Lorc | <https://game-icons.net/1x1/lorc/tick.html> |
 | `tiger-head.svg` | Tiger Head | Delapouite | <https://game-icons.net/1x1/delapouite/tiger-head.html> |
+| `tiger.svg` | Tiger | Delapouite | <https://game-icons.net/1x1/delapouite/tiger.html> |
+| `top-paw.svg` | Top Paw | Lorc | <https://game-icons.net/1x1/lorc/top-paw.html> |
 | `tortoise.svg` | Tortoise | Delapouite | <https://game-icons.net/1x1/delapouite/tortoise.html> |
 | `toucan.svg` | Toucan | Delapouite | <https://game-icons.net/1x1/delapouite/toucan.html> |
 | `trilobite.svg` | Trilobite | Lorc | <https://game-icons.net/1x1/lorc/trilobite.html> |
+| `trojan-horse.svg` | Trojan Horse | Delapouite | <https://game-icons.net/1x1/delapouite/trojan-horse.html> |
+| `turd.svg` | Turd | Lorc | <https://game-icons.net/1x1/lorc/turd.html> |
+| `turtle-shell.svg` | Turtle Shell | Lorc | <https://game-icons.net/1x1/lorc/turtle-shell.html> |
 | `turtle.svg` | Turtle | Lorc | <https://game-icons.net/1x1/lorc/turtle.html> |
+| `udder.svg` | Udder | Delapouite | <https://game-icons.net/1x1/delapouite/udder.html> |
+| `virus.svg` | Virus | Lorc | <https://game-icons.net/1x1/lorc/virus.html> |
 | `vulture.svg` | Vulture | Lorc | <https://game-icons.net/1x1/lorc/vulture.html> |
 | `wasp-sting.svg` | Wasp Sting | Lorc | <https://game-icons.net/1x1/lorc/wasp-sting.html> |
 | `web-spit.svg` | Web Spit | Lorc | <https://game-icons.net/1x1/lorc/web-spit.html> |
@@ -158,6 +211,9 @@ Icons made by Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev, Delapouite, F
 | `whale-tail.svg` | Whale Tail | Delapouite | <https://game-icons.net/1x1/delapouite/whale-tail.html> |
 | `wolf-head.svg` | Wolf Head | Lorc | <https://game-icons.net/1x1/lorc/wolf-head.html> |
 | `wolf-howl.svg` | Wolf Howl | Lorc | <https://game-icons.net/1x1/lorc/wolf-howl.html> |
+| `wolverine-claws.svg` | Wolverine Claws | Lorc | <https://game-icons.net/1x1/lorc/wolverine-claws.html> |
+| `wool.svg` | Wool | Delapouite | <https://game-icons.net/1x1/delapouite/wool.html> |
+| `worm-mouth.svg` | Worm Mouth | Lorc | <https://game-icons.net/1x1/lorc/worm-mouth.html> |
 | `worms.svg` | Worms | Delapouite | <https://game-icons.net/1x1/delapouite/worms.html> |
 | `yarn.svg` | Yarn | Delapouite | <https://game-icons.net/1x1/delapouite/yarn.html> |
 
