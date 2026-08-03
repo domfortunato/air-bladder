@@ -19,7 +19,8 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { ROOT } from "./lib.mjs";
+import { ROOT, listPacks, readPack, normalizeKey } from "./lib.mjs";
+import { stringsFromDoc } from "./content-strings.mjs";
 import { checkPair, flattenLang } from "./validate.mjs";
 
 const STRICT = process.argv.includes("--strict");
@@ -76,6 +77,76 @@ if (GLOSSARY) {
       }
     }
   }
+}
+
+/* ---- the CONTENT overlay ---------------------------------------------------
+ * Everything above compares two interface files key-for-key, which the content
+ * overlay cannot be checked against: it is keyed on the ENGLISH SOURCE STRING,
+ * so a translation dies not by losing its key but by keeping one nothing asks
+ * for any more. `i18n:extract` has always computed that (content-stale.tsv) and
+ * has never been a gate — the file is gitignored, and the one tool that wrote it
+ * spent two days unable to run at all. Thirty finished Spanish strings shipped
+ * dead in that window. So the same computation runs here, where it is read.
+ *
+ * Three classes, and the split is the point, because only two are defects:
+ *
+ *   - **quoted**   — the key is a spreadsheet's CSV quoting of a real source
+ *     string (wrapped, inner quotes doubled). Always a tooling defect, always
+ *     mechanically recoverable.        ERROR
+ *   - **moved**    — the same English exists in the source under a DIFFERENT
+ *     namespace. A rename or a type move that was never carried through to the
+ *     overlay; the value is reusable verbatim.   ERROR
+ *   - **dropped**  — the English exists nowhere. Editing English prose orphans
+ *     its translation, and CLAUDE.md records that as the expected cost of the
+ *     source-string scheme, not as a bug.        warning
+ */
+const contentPath = path.join(ROOT, "lang", "content", `${LANG}.json`);
+const contentOrphans = { quoted: [], moved: [], dropped: [] };
+if (fs.existsSync(contentPath)) {
+  const overlay = JSON.parse(fs.readFileSync(contentPath, "utf8"));
+  const byNs = new Set();      // "ns\0normEn"
+  const byText = new Map();    // normEn → Set(ns)
+  const add = (ns, enStr) => {
+    const k = normalizeKey(enStr);
+    byNs.add(`${ns}\0${k}`);
+    if (!byText.has(k)) byText.set(k, new Set());
+    byText.get(k).add(ns);
+  };
+  for (const pack of listPacks()) {
+    for (const { doc } of readPack(pack)) for (const s of stringsFromDoc(doc)) add(s.ns, s.en);
+  }
+  // Careers live in a module JSON, not a pack — same exception extract makes.
+  for (const c of JSON.parse(fs.readFileSync(path.join(ROOT, "module", "npc-careers-2e.json"), "utf8"))) {
+    if (c?.name) add("npc.career", c.name);
+  }
+  const unquoted = (s) => (/^".*"$/s.test(s) && s.includes('""')
+    ? s.slice(1, -1).replace(/""/g, '"') : null);
+  for (const [ns, entries] of Object.entries(overlay)) {
+    if (!entries || typeof entries !== "object") continue;
+    for (const normEn of Object.keys(entries)) {
+      if (byNs.has(`${ns}\0${normEn}`)) continue;
+      const u = unquoted(normEn);
+      if (u && byNs.has(`${ns}\0${normalizeKey(u)}`)) {
+        contentOrphans.quoted.push(`${ns}: ${normEn.slice(0, 70)}…`);
+      } else if (byText.has(normEn)) {
+        contentOrphans.moved.push(`${ns} → ${[...byText.get(normEn)].join("/")}: ${normEn.slice(0, 60)}`);
+      } else {
+        contentOrphans.dropped.push(`${ns}: ${normEn.slice(0, 70)}`);
+      }
+    }
+  }
+  const bad = contentOrphans.quoted.length + contentOrphans.moved.length;
+  for (const e of [...contentOrphans.quoted, ...contentOrphans.moved]) errors.push(`content overlay — ${e}`);
+  console.log(`\nlang/content/${LANG}.json vs src/packs/`);
+  console.log(`  entries     : ${Object.values(overlay).reduce((n, e) => n + Object.keys(e ?? {}).length, 0)}`);
+  console.log(`  CSV-quoted  : ${contentOrphans.quoted.length}   (spreadsheet mangling — re-run i18n:import)`);
+  console.log(`  moved ns    : ${contentOrphans.moved.length}   (re-key, do not retranslate)`);
+  console.log(`  source gone : ${contentOrphans.dropped.length}   (English edited or removed — advisory)`);
+  if (contentOrphans.dropped.length) {
+    for (const w of contentOrphans.dropped.slice(0, 10)) console.log(`     ! ${w}`);
+    if (contentOrphans.dropped.length > 10) console.log(`     … and ${contentOrphans.dropped.length - 10} more`);
+  }
+  if (!bad) console.log("  ok - every translation is keyed to a string the runtime still asks for");
 }
 
 const enCount = Object.keys(en).length;
