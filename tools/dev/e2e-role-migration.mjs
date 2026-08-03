@@ -112,6 +112,18 @@ try {
     const afterArtPick = crate.system.role;
     await crate.delete();
 
+    // EXACTLY the write the npc sheet's "For hire" checkbox makes: one boolean,
+    // no role beside it. `forHire` was a RETIRED key when the guard was written
+    // and a live one a day later, so this diff used to derive — and a mount came
+    // back a person (review #7, observed live before the fix).
+    const mount = await Cls.create({
+      name: "ZZ Shim Live Mount", type: "npc",
+      system: { role: "mount", containerClass: "horse" },
+    });
+    await mount.update({ "system.forHire": false });
+    const afterForHire = mount.system.role;
+    await mount.delete();
+
     // forHire must no longer STEER the role: with a vehicle Kind and inanimate
     // beside it, the cart has to win. It used to return early and mask them.
     const hire = build({ forHire: true });
@@ -130,8 +142,10 @@ try {
       plain: derive({}),
       plainForHire: build({}).forHire,
       diffKeys: Object.keys(onDiff),
+      hireDiffKeys: Object.keys(CONFIG.Actor.dataModels.npc.migrateData({ forHire: false })),
       roleDiff: onRoleDiff,
       afterArtPick,
+      afterForHire,
     };
   });
   // The collapse, first: this is the one holding the shrunk enum up.
@@ -150,8 +164,17 @@ try {
       + "hireling would come out of the collapse unavailable");
 
   shim.forHire === "npc" && shim.forHireKept === true
-    ? ok("the pre-roles forHire:true derives npc, keeping the flag")
-    : fail(`forHire:true derived ${JSON.stringify({ role: shim.forHire, forHire: shim.forHireKept })}`);
+    ? ok("a source carrying only forHire reads npc (the initial), keeping the flag")
+    : fail(`forHire:true came back ${JSON.stringify({ role: shim.forHire, forHire: shim.forHireKept })}`);
+  // `forHire` is a LIVE field again since the hireling collapse, so it is not
+  // evidence of a legacy source and must not arm the derivation. The two legs
+  // are the same claim from both ends: the diff, and what a Warden feels.
+  !shim.hireDiffKeys.includes("role")
+    ? ok("migrateData over a forHire diff injects no role", `kept ${shim.hireDiffKeys.join(", ")}`)
+    : fail("migrateData over a forHire diff injects no role", `it added: ${shim.hireDiffKeys.join(", ")}`);
+  shim.afterForHire === "mount"
+    ? ok("...so unticking For hire on a live mount leaves it a mount")
+    : fail(`unticking For hire demoted the mount to ${JSON.stringify(shim.afterForHire)}`);
   shim.forHireCart === "transport"
     ? ok("...and it no longer STEERS the role — inanimate+cart still wins")
     : fail(`forHire masked a live inanimate signal: a cart derived ${JSON.stringify(shim.forHireCart)}`);

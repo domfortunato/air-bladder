@@ -399,9 +399,13 @@ class NpcData extends CairnDataModel {
    * the one path that was safe, because the role `<select>` rides along in it —
    * which is exactly why this survived: every manual test went through the sheet.
    *
-   * The guard now demands a RETIRED key. `forHire`/`inanimate` are written by
-   * nothing any more, so their presence is unambiguous evidence of a whole
-   * pre-roles source rather than a diff. What that gives up is a pre-roles
+   * The guard now demands a RETIRED key — `inanimate`, and only it. `forHire`
+   * was named here too until 2026-08-02, on the same "written by nothing any
+   * more" reasoning, which stopped being true the day the hireling role
+   * collapsed and gave it back to the sheet. See the guard itself for what
+   * that cost. `inanimate` is written by nothing modern, so its presence is
+   * unambiguous evidence of a whole pre-roles source rather than a diff. What
+   * that gives up is a pre-roles
    * document that stored a `containerClass` and NEITHER flag, which would have
    * derived `mount` for a mount class; it takes the schema initial instead. The
    * shipped packs all state their role outright, and the world migration
@@ -433,8 +437,21 @@ class NpcData extends CairnDataModel {
       // arriving alongside it is a caller who means it.
       if (source.forHire === undefined) source.forHire = true;
     }
-    if (source && source.role === undefined
-      && (source.forHire !== undefined || source.inanimate !== undefined)) {
+    // Armed on `inanimate` ALONE. It used to accept `forHire` beside it, and
+    // that was correct for exactly one day: `forHire` came BACK as a live,
+    // sheet-written field on 2026-08-01 when the hireling role collapsed, and
+    // this guard was never re-aimed. So `mount.update({"system.forHire": false})`
+    // — a diff with no `role` in it — fired the derivation, `deriveNpcRole` saw
+    // no `inanimate`, and the mount came back a PERSON: stat block returned,
+    // gold counter returned, capacity rules gone. Observed live (review #7);
+    // in-repo writers escaped only by accident, because a full sheet submit
+    // carries the role `<select>` along with it.
+    //
+    // Dropping the arm loses nothing. Every whole pre-roles source stores BOTH
+    // booleans (both were `required` on the old models), and a source carrying
+    // only `forHire` derived "npc" — which is the schema initial it takes
+    // anyway when nothing derives.
+    if (source && source.role === undefined && source.inanimate !== undefined) {
       source.role = deriveNpcRole(source);
     }
     return super.migrateData(source);
