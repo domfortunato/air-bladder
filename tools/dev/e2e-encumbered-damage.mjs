@@ -37,6 +37,15 @@
  *      conversion that reaches for the wrong one goes red here, not in a user's
  *      game. The shift-click branch (toggle targeting) is not covered: it needs
  *      interactive canvas state and reads the same data-targets string.
+ *
+ *   3b-3c. The card is pinned to the scene it was ROLLED on, not the one being
+ *      looked at. `canvas.scene` is the viewer's, so a party that moved on left
+ *      every id missing and the button applying nothing — with no message, since
+ *      a miss posts no damage card and no card looks exactly like "armor
+ *      absorbed it". 3b views a second scene, forces the log to re-render (the
+ *      rebind is where the failure was permanent) and clicks. 3c mixes a live id
+ *      with a dead one and asserts the survivor is damaged AND the miss is
+ *      reported.
  */
 import { chromium } from "playwright";
 import { VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
@@ -295,13 +304,18 @@ const out = await page.evaluate(async () => {
   // flavor. A dieless formula, so the total the handler reads out of
   // .dice-total is a known 2 rather than a parsed random d6.
   const { evaluateFormula } = await import("/systems/air-bladder/module/utils.js");
-  const postCard = async () => {
+  const postCard = async (targets = [t1.id, t2.id], speakerToken = null) => {
     const roll = await evaluateFormula("2", {});
     const flavor = await foundry.applications.handlebars.renderTemplate(
       "systems/air-bladder/templates/chat/dmg-roll-card.html",
-      { label: "probe damage", targets: [t1.id, t2.id].join(";") },
+      { label: "probe damage", targets: targets.join(";") },
     );
-    const msg = await roll.toMessage({ speaker: ChatMessage.getSpeaker(), flavor });
+    // A token speaker records `scene: token.parent.id` (chat-message.mjs:271),
+    // which is what pins the card to the scene the roll happened on.
+    const speaker = speakerToken
+      ? ChatMessage.getSpeaker({ token: speakerToken })
+      : ChatMessage.getSpeaker();
+    const msg = await roll.toMessage({ speaker, flavor });
     await until(() => document.querySelector(`[data-message-id="${msg.id}"] .apply-dmg i`));
     return msg;
   };
@@ -325,10 +339,52 @@ const out = await page.evaluate(async () => {
   await new Promise((r) => setTimeout(r, 2000));
   results.deadButtonInert = hp() === results.hpAfterClick;
 
+  /* 3b. A card outlives the scene it was rolled on -------------------------- */
+  // data-targets holds token ids belonging to the ROLL's scene. The handler read
+  // `canvas.scene` — the VIEWER's — so the moment the party moved on, every id
+  // missed and the button applied nothing, permanently and with no message: a
+  // miss posts no card, and no card is indistinguishable from "armor absorbed
+  // it". The sibling STR-save button was fixed for this; this one was not.
+  const sceneB = await Scene.create({ name: `${NAME}-scene-b`, width: 1000, height: 1000 });
+  const msg3 = await postCard([t1.id, t2.id], t1);
+  await sceneB.view();
+  await until(() => canvas.scene?.id === sceneB.id);
+  results.viewingOtherScene = canvas.scene?.id === sceneB.id;
+  // Re-render the log so the button is bound AGAIN under the new scene. Without
+  // this the leg would only prove the closure captured the right scene once; the
+  // recorded failure is that the re-render rebinds against the wrong one.
+  await ui.chat.render({ force: true });
+  await until(() => document.querySelector(`[data-message-id="${msg3.id}"] .apply-dmg i`));
+  results.crossSceneButton = !!document.querySelector(`[data-message-id="${msg3.id}"] .apply-dmg i`);
+  const hpBeforeCross = hp();
+  document.querySelector(`[data-message-id="${msg3.id}"] .apply-dmg i`)?.click();
+  results.crossSceneLanded = await until(() => hp() === "0,0");
+  results.hpAfterCross = `${hpBeforeCross} -> ${hp()}`;
+
+  await scene3.view();
+  await until(() => canvas.scene?.id === scene3.id);
+
+  /* 3c. A target that is GONE must say so ----------------------------------- */
+  // A killed foe leaves its id on every card it appeared on. Applying to a mixed
+  // batch must still damage the survivors AND tell the Warden the rest missed.
+  const v3 = await mkVictim(3);
+  const [t3] = await scene3.createEmbeddedDocuments("Token", [await v3.getTokenDocument({ x: 400, y: 400 })]);
+  const warns = [];
+  const origWarn = ui.notifications.warn;
+  ui.notifications.warn = function (m, ...rest) { warns.push(String(m)); return origWarn.call(this, m, ...rest); };
+  const msg4 = await postCard([t3.id, "zzzzzzzzzzzzzzzz"], t3);
+  document.querySelector(`[data-message-id="${msg4.id}"] .apply-dmg i`)?.click();
+  results.mixedSurvivorHit = await until(() => v3.toObject().system.hp.value === 2);
+  results.mixedWarned = await until(() => warns.length > 0);
+  results.missWarning = warns[0] ?? "(none)";
+  ui.notifications.warn = origWarn;
+
   for (const m of game.messages.filter((m) => !msgsBefore.has(m.id))) await m.delete();
   await t1.delete();
   await t2.delete();
+  await t3.delete();
   if (prev3 && prev3.id !== scene3.id) await prev3.view();
+  await sceneB.delete();
 
   for (const a of game.actors.filter((a) => a.name.startsWith(NAME))) await a.delete();
   const s = game.scenes.getName(`${NAME}-scene`);
@@ -406,6 +462,20 @@ check("icon click applies", out.applyLanded && out.hpAfterClick === "2,2",
   `hp=${out.hpAfterClick} (expected 2,2 — the rolled 2 applied to BOTH ids split from data-targets, via a click on the icon inside the anchor)`);
 check("dead button inert", out.deadButtonInert,
   "an unwired button's click changed nothing — the assertion above can fail");
+
+console.log("\na card outlives the scene it was rolled on");
+check("viewing another scene", out.viewingOtherScene,
+  "the party moved on; the card's token ids belong to the scene it was rolled on");
+check("button still bound", out.crossSceneButton,
+  "the log re-rendered under the new scene and the anchor is still there");
+check("cross-scene apply lands", out.crossSceneLanded,
+  `hp ${out.hpAfterCross} (expected 2,2 -> 0,0; reading the VIEWER's scene made every id miss)`);
+
+console.log("\na target whose token is gone");
+check("survivor still damaged", out.mixedSurvivorHit,
+  "a mixed batch damages the ids that resolve");
+check("the miss is reported", out.mixedWarned && !/^CAIRN\./.test(out.missWarning),
+  `warn: ${out.missWarning}`);
 
 if (errors.length) { bad++; console.log("Console errors:\n" + errors.join("\n")); }
 console.log(bad === 0 ? "\nencumbered-damage e2e passed" : `\nencumbered-damage e2e FAILED — ${bad}`);

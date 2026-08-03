@@ -7,11 +7,23 @@ export class Damage {
      * @description Apply damage to several tokens
      * @param {String[]} targets Array of Id of the targeted tokens
      * @param {Number} damage Positive number
+     * @param {Scene} [scene] Scene the card was spoken in; defaults to the viewer's
      */
-    static async applyToTargets(targets, damage) {
+    static async applyToTargets(targets, damage, scene = canvas?.scene) {
+        let missed = 0;
         for (const target of targets) {
-            const data = await this.applyToTarget(target, damage);
+            const data = await this.applyToTarget(target, damage, scene);
             if (data) this._showDetails(data);   // skip targets whose token is gone
+            else missed++;
+        }
+        // A miss used to be swallowed here. The button reports success by posting a
+        // damage card per target, so nothing at all is indistinguishable from
+        // "armor absorbed it" -- the Warden clicks, sees no card, and cannot tell
+        // whether the click failed or the hit did.
+        if (missed) {
+            ui.notifications.warn(
+                game.i18n.format("CAIRN.Notify.DamageTargetsGone", { count: missed })
+            );
         }
     }
 
@@ -19,10 +31,11 @@ export class Damage {
      * @description Apply damage to one token
      * @param {*} target Id of one token
      * @param {*} damage Amount of damaage
+     * @param {Scene} [scene] Scene the card was spoken in; defaults to the viewer's
      * @returns actor + old and new values
      */
-    static async applyToTarget(target, damage) {
-        const token = canvas.scene?.tokens?.get(target);
+    static async applyToTarget(target, damage, scene = canvas?.scene) {
+        const token = scene?.tokens?.get(target);
         // The chat card holds token ids from the roll-time scene; the token may
         // have been deleted (a killed foe) or the GM switched scenes since.
         if (!token?.actor) return null;
@@ -47,11 +60,16 @@ export class Damage {
 
     /**
      * @description Apply damage to a target token based on the token's id
-     * @param {*} event 
-     * @param {*} html 
-     * @param {*} data 
+     * @param {*} event
+     * @param {*} html
+     * @param {*} data
+     * @param {Scene} [scene] Scene the card was spoken in -- NOT the viewer's.
+     *   The ids in data-targets belong to the scene the roll happened on, so
+     *   reading `canvas.scene` here meant the button silently applied nothing
+     *   the moment the party moved on. The sibling STR-save button was fixed for
+     *   exactly this (cairn.js, `speaker.scene`); this one never was.
      */
-    static onClickChatMessageApplyButton(event, html, data) {
+    static onClickChatMessageApplyButton(event, html, data, scene = canvas?.scene) {
         // currentTarget, not target: the handler hangs off the anchor and a real
         // pointer lands on the icon inside it. dataset reads the same
         // data-targets attribute jQuery's .data() did, minus .data()'s implicit
@@ -64,7 +82,12 @@ export class Damage {
         if (event.shiftKey) {
             for (let index = 0; index < targetsList.length; index++) {
                 const target = targetsList[index];
-                const token = canvas.scene?.tokens?.get(target)?.object;
+                // `.object` is a placeable, so this can only ever resolve while the
+                // card's scene IS the viewed one -- which is the correct behaviour
+                // for targeting. Resolving through `scene` rather than `canvas.scene`
+                // stops a token id that happens to exist on the viewed scene (a
+                // duplicated scene) from being targeted instead.
+                const token = scene?.tokens?.get(target)?.object;
                 if (!token) continue;
                 const releaseOthers = (index == 0 ? (!token.isTargeted ? true : false) : false);
                 const targeted = !token.isTargeted;
@@ -75,7 +98,7 @@ export class Damage {
         else {
             if (targets !== undefined) {
                 const dmg = parseInt(html.querySelector(".dice-total").textContent);
-                this.applyToTargets(targetsList, dmg);
+                this.applyToTargets(targetsList, dmg, scene);
             }
         }
     }

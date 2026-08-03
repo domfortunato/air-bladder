@@ -1217,8 +1217,12 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
 
   if (game.user.isGM) {
     const btn = html.querySelector(".apply-dmg");
+    // Same `scene` the STR-save block above resolved, and for the same reason:
+    // data-targets holds token ids from the scene the roll was made on. Reading
+    // the viewer's scene inside the handler meant every id missed after a scene
+    // change and the button applied nothing, silently.
     if (btn)
-      btn.onclick = (ev) => Damage.onClickChatMessageApplyButton(ev, html, data);
+      btn.onclick = (ev) => Damage.onClickChatMessageApplyButton(ev, html, data, scene);
   } else {
     html.querySelectorAll(".apply-dmg").forEach((btn) => {
       btn.style.display = "none";

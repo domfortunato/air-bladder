@@ -316,6 +316,7 @@
     "ConnectionOwnBothEnds": "Connecting or unlinking needs the Warden — or ownership of both actors.",
     "ContainerFull": "{name} won't fit — the container is full.",
     "ContainerNoPermission": "You can't attach {name} — you don't have permission to change it. Ask the Warden.",
+    "DamageTargetsGone": "{count} of this card's targets are no longer on that scene — they took no damage.",
     "DropFailed": "Couldn't move that item — you may not have permission to change the receiving sheet.",
     "DropNoSource": "You can't take that item — you don't have permission to change the sheet it came from.",
     "GrantFailedFor": "{player}'s background grant failed — see the console. Their character kept everything else.",
