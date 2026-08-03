@@ -3,7 +3,7 @@ name: Djinn
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.svg
+img: systems/air-bladder/game-icons/creatures/ifrit.svg
 items:
   - _id: IVJG4T9SUR2Tg95v
     name: Fists of Fury
@@ -91,6 +91,8 @@ ownership:
   default: 0
   bDeEK9GSahKwiAGH: 3
 system:
+  generationEnabled: false
+  role: monster
   hp:
     value: 10
     max: 10
@@ -157,7 +159,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: icons/svg/mystery-man.svg
+    src: systems/air-bladder/game-icons/creatures/ifrit.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

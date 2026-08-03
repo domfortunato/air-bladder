@@ -66,16 +66,48 @@ deleted. Full model in `docs/git-flow.md`; contributor-facing summary in
 Entry point `module/cairn.js`, registering document classes and sheets on `init`.
 ~7,500 lines of JS across `module/`; everything else is content.
 
-- `CairnActor` (`module/actor/actor.js`) — types `character`, `npc`, `container`,
-  `hireling`
+- `CairnActor` (`module/actor/actor.js`) — types `character`, `npc`, `hireling`.
+  `hireling` is an ALIAS of npc (same model, same sheet), kept because a type is
+  immutable and retiring it would recreate every hireling with a new id. **It is
+  HIDDEN from the Create Actor dialog since 2026-08-01** (`abHideHirelingType`, the
+  inverse of the spellscroll hook) — a registered subtype is always offered, and
+  the `container` type proved what happens when a retired one stays on the menu.
+  The matching `hireling` ROLE is gone the same day: being for hire is a
+  `forHire` boolean beside the day rate it gates, so `NPC_ROLES` is five entries
+  and `migrateData` converts every stored "hireling" on read.
+  **`container` was a fourth type and is GONE (2026-07-31)** — a container is an
+  npc with `role: container`, and leaving the retired model registered meant the
+  Create Actor dialog went on offering it (Foundry lists every registered
+  subtype; there is no manifest flag to hide one), so a Warden could still mint a
+  document against it, with the retired sheet and no Connections tab
 - `CairnItem` (`module/item/item.js`) — types `item`, `weapon`, `armor`,
   `spellbook`, `object`, `background`, `transport`
 - `module/actor/actor-sheet.js` is the largest file
 - `module/damage.js` holds Cairn's damage flow
 - Data models in `module/data-models.js` (TypeDataModel; `template.json` is gone,
   sub-types are declared in `system.json` `documentTypes`); 22 compendium packs
-- 23 GM settings in `module/settings.js` — **registration ORDER is load-bearing**,
-  because Foundry's group headers are positional
+- 19 GM-visible settings in `module/settings.js` (22 `register` calls; `roles-restamped`,
+  `connections-migrated` and `custom-portrait-list` are internal, `config: false`) —
+  **registration ORDER is load-bearing**, because Foundry's group headers are positional. Two went on
+  2026-07-31, both because the thing they toggled stopped existing:
+  `show-containers-tab` (the Connections tab is structural now, and a display
+  toggle that hides a graph which goes on existing behind it is not a setting
+  worth having) and `show-gold-not-cost` (it swapped the container sheet's Cost
+  box for Gold; that sheet went with the type, and the npc sheet has no Cost box).
+  A third went on 2026-08-02 by ruling rather than by obsolescence:
+  `show-container-actors` hid plain/worn containers from the Actor Directory, and
+  the ruling is that they are ALWAYS listed — a behavior that must never be off is
+  not a setting, so the directory hide rule went with it (the grayscale-thumbnail
+  rule beside it survives; it never depended on the setting)
+
+**One system, two generators.** Cairn 2e and Barebones differ ONLY in how a
+character is MADE. Every rule after a character exists — damage, slots, saves,
+scars, the sheets — is identical by design. So `content-source-2e` gates
+generation and nothing else: **a branch on the content source outside character
+generation is a bug**, not a feature, and Barebones content goes into the same
+editable type packs 2e uses rather than a parallel set. Three code sites cite
+this rule (`module/settings.js`, `module/actor/actor-sheet.js`,
+`tools/import/barebones.mjs`); they cited this file for it before it said so.
 
 ## Deliberate deviations from Foundry practice
 
@@ -110,11 +142,22 @@ against the reason, not against the fact.
     commits an un-blurred edit. The pack cache at the top of `actor-sheet.js` exists
     because `submitOnChange` re-runs `_prepareContext` on every committed keystroke.
   Traps, and what each cost: memory `air-bladder-appv2-migration`.
-- **Containers and transports are Actors, not Items**, linked to their owner by a
-  `uuid` field named `keeper` (named to dodge a Foundry collision). Against
-  Foundry's grain and it needs manual bookkeeping. The reason is capacity:
-  "+8 slots" cannot live on an Item — nothing reads `system.slots` on one. Expect
-  bugs to cluster here.
+- **Containers and transports are Actors, not Items**, linked to their keeper by
+  a single `uuid` field on the CHILD called `connectedTo`. Against Foundry's
+  grain. The reason is capacity: "+8 slots" cannot live on an Item — nothing
+  reads `system.slots` on one. Expect bugs to cluster here.
+  The link used to be TWO writes — a `keeper` uuid on the child (named to dodge a
+  Foundry collision on `owner`) plus a `containers` array on the keeper — and
+  nearly every container bug came from one half landing without the other. Both
+  the array and `keeper` were retired with the `container` type on 2026-07-31;
+  the keeper's list is DERIVED from the children. If you find either name in a
+  comment, it is history.
+  **Since 2026-08-01 the graph is FLAT (only a character keeps, ten at most) and
+  connection DRIVES OWNERSHIP** (`module/connections.js`): connected = the
+  keeper's players own it, broken = default LIMITED — transitions only, never a
+  re-enforcement sweep, monsters never touched. A player's connect/break cannot
+  write ownership (server wall), so it sets `ownershipSyncPending` and the
+  active GM's client answers; the flag, not the message, is the authorization.
 - **No automation of mechanical text.** "Restores 1 STR" stays prose. Trust
   players; no macros, no buttons. House style, and it dissolves the hardest
   content cases (a background granting a statted homunculus is text, not a spawned
@@ -126,6 +169,27 @@ against the reason, not against the fact.
 - **Pack YAML in `src/packs/` is the source of truth**; `packs/` is generated
   LevelDB, gitignored. Never edit `packs/`. `npm run build:packs` fails while
   Foundry has the world open (LevelDB EPERM) — stop the server first.
+
+## Foundry sources, in order of authority
+
+- **The shipped client, `C:\Users\domin\foundry\app\client\**`, outranks
+  everything.** It is the only source that states deprecation and removal
+  versions: `logCompatibilityWarning` calls carry literal `{since, until}`.
+  The web API pages carry NO version boundaries at all, which is how this file
+  once claimed AppV1 dies in v15 (it is v16, `appv1/api/application-v1.mjs:59-63`).
+  Cite file and line the way you would cite a URL.
+- **Docs**: `foundryvtt.com/api/` and `foundryvtt.com/article/`.
+  `foundryvtt.com/releases/` is the only version-aware doc — use it for when a
+  replacement API landed, not for when the old one dies.
+- **`github.com/foundryvtt/foundryvtt` is the ISSUE TRACKER, not source and not
+  documentation** — Foundry is closed-source and that repo holds no code. Cite an
+  issue to establish "this is a known core bug"; never as evidence of how an API
+  is meant to behave. Its `releases/` folder stops at 11.308 — three majors stale.
+- **`github.com/foundryvtt/foundryvtt-cli`** — `@foundryvtt/foundryvtt-cli` is a
+  real devDependency; `tools/packs.mjs` uses its `compilePack`/`extractPack`.
+
+**Target is v14 and nothing older.** No compatibility shims for v13 and below —
+if you find one, deleting it is in scope, not a separate decision.
 
 ## Rules encoded — these are the game, not bugs
 
@@ -178,7 +242,7 @@ What belongs here is what those two files do not say:
 
 ## Testing
 
-**`docs/release-testing.md` is the full list — 67 probes (`check:probes` states
+**`docs/release-testing.md` is the full list — 78 probes (`check:probes` states
 the current count), what each covers, and what to run before tagging vs after
 publishing. Keep it in step with `package.json`; a probe not listed there runs
 only when someone remembers it.**

@@ -1,6 +1,7 @@
 /**
  * Helpers for driving a local Foundry instance from Playwright.
- * See the "Local dev loop" section of CLAUDE.md for setup.
+ * Setup, and which probes run before tagging vs after publishing:
+ * `docs/release-testing.md`.
  */
 
 export const FOUNDRY_URL = process.env.FOUNDRY_URL ?? "http://localhost:30000";
@@ -191,16 +192,33 @@ export function watchErrors(page) {
 export async function joinAsGM(page) {
   await page.goto(`${FOUNDRY_URL}/join`, { waitUntil: "networkidle", timeout: 60000 });
 
+  // Wait for the CONTROL, not the network — the join form is rendered
+  // client-side and is routinely still absent at networkidle. This wait used to
+  // be missing here (it has always been in `joinAs` below), and the two silent
+  // `return`s underneath turned that into a 90-second hang with a useless
+  // message: no user got selected, the submit posted an empty form, and the
+  // probe sat on `game.ready` until the timeout. It survived because the FIRST
+  // join of a run is slow enough to have rendered by itself; the failure only
+  // appears when a probe closes a GM context and re-joins mid-run, which
+  // `dev:connections` is the first probe to do.
+  await page.waitForSelector('select[name="userid"] option[value]:not([value=""])', {
+    state: "attached", timeout: 30000,
+  });
+
   // Foundry v14 hides <select> behind custom elements, so Playwright's
   // selectOption() sees it as invisible. Drive the underlying element directly.
-  await page.evaluate(() => {
+  const picked = await page.evaluate(() => {
     const s = document.querySelector('select[name="userid"]');
-    if (!s) return;
+    if (!s) return null;
     const opt = [...s.options].find(o => o.value);
-    if (!opt) return;
+    if (!opt) return null;
     s.value = opt.value;
     s.dispatchEvent(new Event("change", { bubbles: true }));
+    return opt.textContent.trim();
   });
+  // Fail LOUDLY and immediately. Returning quietly here is what bought the
+  // 90-second timeout above; a thrown error names the real problem.
+  if (!picked) throw new Error("joinAsGM: the join form never offered a user");
   await page.locator('button[type="submit"][name="join"], form#join-game button[type="submit"]')
     .first().click({ timeout: 15000 });
 

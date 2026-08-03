@@ -43,6 +43,32 @@ export const findCompendiumItem = async (compendiumName, itemName) => {
 };
 
 /**
+ * Find a RollTable by exact name — WORLD FIRST, then every RollTable pack.
+ *
+ * By name rather than by uuid, deliberately: a uuid pointing into one world's
+ * pack is dead the moment the content is shared. The world collection is
+ * looked at FIRST because that is the easiest thing for a Warden to make —
+ * Tables tab, New Table — so a Warden's own copy always wins and their edits
+ * survive a system update, which would overwrite any edit made inside a
+ * shipped pack. (Generalized from character-generator.js's module-private
+ * findBondsTableByName, which this replaces; the bonds path and the Faction
+ * die both resolve through here.)
+ * @param {String} name
+ * @returns {Promise<RollTable|null>}
+ */
+export const findTableByName = async (name) => {
+  const wanted = String(name).trim();
+  const world = game.tables?.find((t) => t.name === wanted);
+  if (world) return world;
+  for (const pack of game.packs) {
+    if (pack.metadata.type !== "RollTable") continue;
+    const entry = (await pack.getIndex()).find((e) => e.name === wanted);
+    if (entry) return pack.getDocument(entry._id);
+  }
+  return null;
+};
+
+/**
  * @param {String} compendiumName
  * @param {String} tableName
  * @param {Object} options

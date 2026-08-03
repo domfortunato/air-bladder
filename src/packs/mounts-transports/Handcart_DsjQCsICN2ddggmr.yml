@@ -1,0 +1,31 @@
+_id: DsjQCsICN2ddggmr
+name: Handcart
+type: npc
+img: systems/air-bladder/icons/handcart.svg
+prototypeToken:
+  name: Handcart
+  texture:
+    src: systems/air-bladder/icons/handcart.svg
+items: []
+effects: []
+folder: Y7FAeuwxTR9cyRtC
+sort: 0
+flags:
+  air-bladder:
+    transportSource: 2e
+system:
+  description: 'A small cart pulled by hand. Holds four slots — no beast required, but you are the one doing the hauling.'
+  hp:
+    value: 0
+    max: 0
+  slots: 4
+  cost: 15
+  containerClass: handcart
+  role: transport
+  generationEnabled: false
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!actors!DsjQCsICN2ddggmr'

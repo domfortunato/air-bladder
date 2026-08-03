@@ -8,7 +8,7 @@
  *   - 2e backgrounds     startingGear[].name  +  tables[].options[].items[].name
  *   - Barebones bgs      startingGear[].name
  *   - 2e Bonds table     per-result flag items
- *   - Hirelings          gear names (module/hirelings-2e.json)
+ *   - Hirelings          gear names (module/npc-careers-2e.json)
  *   - Marketplace tables the row's own label (the item name)
  *   - default gear       Rations, Torch  (config.js startingItems)
  *   - GEAR_ALIASES       alias targets
@@ -92,7 +92,7 @@ for (const t of readPack("tables-2e"))
 
 // Hirelings
 try {
-  const hire = JSON.parse(fs.readFileSync(path.join(ROOT, "module", "hirelings-2e.json"), "utf8"));
+  const hire = JSON.parse(fs.readFileSync(path.join(ROOT, "module", "npc-careers-2e.json"), "utf8"));
   const walk = (o) => {
     if (Array.isArray(o)) o.forEach(walk);
     else if (o && typeof o === "object") {

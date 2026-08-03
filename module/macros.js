@@ -65,17 +65,18 @@ export const rollItemMacro = async (actorId, itemId) => {
   let rollSchema = item.system.damageFormula;
   // determine panic
   const usePanic = game.settings.get(SETTINGS_NS, "use-panic");
-  let panicLabel = "";
+  let panicked = false;
   if (usePanic && actor.system.panicked) {
     rollSchema = "1d4"; // panicked character
-    panicLabel = "(" + game.i18n.localize("CAIRN.RollingWithPanic") + ")";
+    panicked = true;
   }
-  // determine roll result   
+  // determine roll result
   const roll = await evaluateFormula(rollSchema, actor.getRollData());
+  // Whole-sentence keys, same as the sheet's damage roll — this was the third
+  // copy of the localize()+concat shape and the one nobody remembered.
   const label = item.name
-    ? game.i18n.localize("CAIRN.RollingDmgWith") +
-    ` ${item.name} ` +
-    panicLabel
+    ? game.i18n.format(panicked ? "CAIRN.RollingDmgWithWeaponPanic" : "CAIRN.RollingDmgWithWeapon",
+      { weapon: item.name })
     : "";
 
   const targetedTokens = Array.from(game.user.targets).map((t) => t.id);

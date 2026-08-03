@@ -46,6 +46,9 @@ try {
       const c = await gen.generateBarebonesCharacter(bg);
       const actor = await gen.createActorWithCharacter(c);
       out.made.push(actor.id);
+      // Generated actors land with Randomization OFF (2026-08-02); the
+      // rollFailedCareer die below is what the flag hides.
+      await actor.update({ "system.generationEnabled": true });
 
       out.generatedCareer = actor.system.failedCareer;
       out.background = actor.system.background;

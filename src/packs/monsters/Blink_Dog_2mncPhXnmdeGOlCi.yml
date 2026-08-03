@@ -3,7 +3,7 @@ name: Blink Dog
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.svg
+img: systems/air-bladder/game-icons/animals/labrador-head.svg
 items:
   - _id: t7ppnbHTCDlbhYkW
     name: Bite*
@@ -54,6 +54,8 @@ ownership:
   default: 0
   bDeEK9GSahKwiAGH: 3
 system:
+  generationEnabled: false
+  role: monster
   hp:
     value: 3
     max: 3
@@ -112,7 +114,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: icons/svg/mystery-man.svg
+    src: systems/air-bladder/game-icons/animals/labrador-head.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

@@ -90,7 +90,9 @@ await page.waitForSelector(`${SHEET} select[name^="system.traits."]`, { timeout:
   .catch(() => fail("traits section expands", "no select after clicking .trait-toggle"));
 
 // v14 hides <select> behind a custom element, so Playwright's selectOption sees
-// an invisible node. Set .value and dispatch change, as CLAUDE.md records.
+// an invisible node and times out. Set .value and dispatch a bubbling change
+// instead — the same workaround as `joinAs` in lib.mjs and the two in
+// e2e-dialogs.mjs.
 const traitPicked = await page.evaluate((sel) => {
   const s = document.querySelector(`${sel} select[name^="system.traits."]`);
   if (!s) return null;

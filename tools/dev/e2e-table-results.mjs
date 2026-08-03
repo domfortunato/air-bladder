@@ -103,7 +103,7 @@ const out = await page.evaluate(async () => {
     await step("a bond draw (drawBond)", async () => { res.bond = !!(await cg.drawBond()); });
 
     await step("a name roll (rollNameFromTable)", async () => {
-      res.rolledName = await cg.rollNameFromTable(CONFIG.Cairn?.hirelingGenerator?.name, "ZZ-fallback");
+      res.rolledName = await cg.rollNameFromTable(CONFIG.Cairn?.npcGenerator?.name, "ZZ-fallback");
     });
 
     // Barebones is where resolveBarebonesResult lives — the nested-RollTable and

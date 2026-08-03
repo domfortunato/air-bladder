@@ -39,6 +39,7 @@
   "esmodules": [
     "module/cairn.js"
   ],
+  "socket": true,
   "styles": [
     {
       "src": "css/cairn.css"
@@ -47,39 +48,68 @@
   "documentTypes": {
     "Actor": {
       "character": {
-        "htmlFields": ["biography", "description", "notes"]
+        "htmlFields": [
+          "biography",
+          "description",
+          "notes"
+        ]
       },
       "npc": {
-        "htmlFields": ["description", "biography", "notes"]
-      },
-      "container": {
-        "htmlFields": ["description", "biography"]
+        "htmlFields": [
+          "description",
+          "biography",
+          "notes"
+        ]
       },
       "hireling": {
-        "htmlFields": ["description", "biography", "notes"]
+        "htmlFields": [
+          "description",
+          "biography",
+          "notes"
+        ]
       }
     },
     "Item": {
       "item": {
-        "htmlFields": ["description", "criticalDamage", "recharge"]
+        "htmlFields": [
+          "description",
+          "criticalDamage",
+          "recharge"
+        ]
       },
       "weapon": {
-        "htmlFields": ["description", "criticalDamage", "recharge"]
+        "htmlFields": [
+          "description",
+          "criticalDamage",
+          "recharge"
+        ]
       },
       "armor": {
-        "htmlFields": ["description", "recharge"]
+        "htmlFields": [
+          "description",
+          "recharge"
+        ]
       },
       "spellbook": {
-        "htmlFields": ["description"]
+        "htmlFields": [
+          "description"
+        ]
       },
       "object": {
-        "htmlFields": ["description", "recharge"]
+        "htmlFields": [
+          "description",
+          "recharge"
+        ]
       },
       "background": {
-        "htmlFields": ["description"]
+        "htmlFields": [
+          "description"
+        ]
       },
       "transport": {
-        "htmlFields": ["description"]
+        "htmlFields": [
+          "description"
+        ]
       }
     }
   },
@@ -133,12 +163,6 @@
       "system": "air-bladder"
     },
     {
-      "name": "transports",
-      "label": "Transports & Containers",
-      "type": "Item",
-      "system": "air-bladder"
-    },
-    {
       "name": "marketplace",
       "label": "Marketplace",
       "type": "RollTable",
@@ -153,6 +177,12 @@
     {
       "name": "monsters",
       "label": "Monsters",
+      "type": "Actor",
+      "system": "air-bladder"
+    },
+    {
+      "name": "mounts-transports",
+      "label": "Mounts & Transports",
       "type": "Actor",
       "system": "air-bladder"
     },
@@ -229,19 +259,25 @@
         "expeditionary-gear",
         "reliquary",
         "market-goods",
-        "background-items",
-        "transports",
         "spellbooks",
-        "more-spellbooks",
+        "more-spellbooks"
+      ]
+    },
+    {
+      "name": "Air Bladder - Backgrounds",
+      "sorting": "a",
+      "packs": [
         "backgrounds-2e",
-        "backgrounds-barebones"
+        "backgrounds-barebones",
+        "background-items"
       ]
     },
     {
       "name": "Air Bladder - Actors",
       "sorting": "a",
       "packs": [
-        "monsters"
+        "monsters",
+        "mounts-transports"
       ]
     },
     {

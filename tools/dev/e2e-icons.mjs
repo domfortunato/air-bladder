@@ -16,6 +16,14 @@
  *      reloads, and watches it get rewritten. Without this the first three pass
  *      trivially on any already-migrated world, so a broken migration would sail
  *      through — and every check here would be measuring nothing.
+ *   5. the GALLERY — all 1,366 game-icons/ glyphs — declares an intrinsic size
+ *      too. Read off DISK rather than fetched: 1,366 browser round trips to
+ *      assert a regex is not worth the wall clock, and the property is a fact
+ *      about the file. A three-glyph sample is then rasterised in the browser
+ *      to prove the disk reading corresponds to something real. `icons/` had
+ *      this gate from the day `stack.svg` shipped soft; the gallery importer
+ *      never inherited the stamp and 42 pack documents use its glyphs as TOKEN
+ *      art (review #7 finding 6).
  *
  * Usage: npm run dev:icons
  */
@@ -35,6 +43,14 @@ const SHIPPED = fs
   .readdirSync(path.join(ROOT, "icons"))
   .filter((f) => f.endsWith(".svg"))
   .map((f) => `systems/air-bladder/icons/${f}`);
+
+/** Every glyph in the picker gallery, as absolute paths. */
+const galleryDir = path.join(ROOT, "game-icons");
+const gallery = fs.readdirSync(galleryDir, { withFileTypes: true })
+  .filter((d) => d.isDirectory())
+  .flatMap((d) => fs.readdirSync(path.join(galleryDir, d.name))
+    .filter((f) => f.endsWith(".svg"))
+    .map((f) => `${d.name}/${f}`));
 
 let failed = false;
 const ok = (m) => console.log(`  ok    ${m}`);
@@ -134,6 +150,33 @@ const small = r.checked.filter((c) => c.renders && c.natural < 512);
 small.length === 0
   ? ok(`every icon rasterises at full size (${r.checked[0]?.natural}px)`)
   : fail(`rasterised below 512px: ${small.map((n) => `${n.src} (${n.natural}px)`).join(", ")}`);
+
+/* --- 3b. the picker gallery, off disk -------------------------------------- */
+
+const galleryUnsized = gallery.filter((rel) =>
+  !/<svg[^>]*\swidth="\d+"/.test(fs.readFileSync(path.join(galleryDir, rel), "utf8")));
+galleryUnsized.length === 0
+  ? ok(`all ${gallery.length} gallery glyphs declare an intrinsic width/height`)
+  : fail(`${galleryUnsized.length} of ${gallery.length} gallery glyphs have no width/height `
+       + `(they rasterise at the 300x150 fallback; 42 pack documents use these as TOKEN art), `
+       + `e.g. ${galleryUnsized.slice(0, 5).join(", ")}`);
+
+// The disk reading is a regex over a file; this is the browser agreeing with it.
+// Three, spread across categories, because the property is uniform by
+// construction — the importer stamps every file the same way — and 1,366 round
+// trips to re-confirm that costs minutes.
+const sample = [gallery[0], gallery[Math.floor(gallery.length / 2)], gallery.at(-1)];
+const sampled = await page.evaluate(async (rels) => Promise.all(rels.map((rel) =>
+  new Promise((done) => {
+    const img = new Image();
+    img.onload = () => done({ rel, natural: img.naturalWidth });
+    img.onerror = () => done({ rel, natural: 0 });
+    img.src = `/systems/air-bladder/game-icons/${rel}`;
+  }))), sample);
+const softSample = sampled.filter((s) => s.natural < 512);
+softSample.length === 0
+  ? ok(`gallery sample rasterises at full size (${sampled.map((s) => s.natural).join(", ")}px)`)
+  : fail(`gallery sample rasterised small: ${softSample.map((s) => `${s.rel} (${s.natural}px)`).join(", ")}`);
 
 /* --- 4. the migration itself, on a document planted with the OLD path ------- */
 

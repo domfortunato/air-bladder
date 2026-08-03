@@ -119,7 +119,6 @@ const walk = (dir, ext) =>
 const SHEET_TYPE = {
   "actor/character-sheet.html": "character",
   "actor/npc-sheet.html": ["npc", "hireling"],
-  "actor/container-sheet.html": "container",
   "item/item-sheet.html": "item",
   "item/weapon-sheet.html": "weapon",
   "item/armor-sheet.html": "armor",

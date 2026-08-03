@@ -3,7 +3,7 @@ name: Crocodile, Large
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.svg
+img: systems/air-bladder/game-icons/animals/croc-jaws.svg
 items:
   - _id: xySIMEkR5qtQjGkw
     name: Bite
@@ -91,6 +91,8 @@ ownership:
   default: 0
   bDeEK9GSahKwiAGH: 3
 system:
+  generationEnabled: false
+  role: monster
   hp:
     value: 6
     max: 6
@@ -150,7 +152,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: icons/svg/mystery-man.svg
+    src: systems/air-bladder/game-icons/animals/croc-jaws.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

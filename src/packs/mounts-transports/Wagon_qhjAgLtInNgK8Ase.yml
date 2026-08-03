@@ -1,0 +1,31 @@
+_id: qhjAgLtInNgK8Ase
+name: Wagon
+type: npc
+img: systems/air-bladder/icons/wagon.svg
+prototypeToken:
+  name: Wagon
+  texture:
+    src: systems/air-bladder/icons/wagon.svg
+items: []
+effects: []
+folder: Y7FAeuwxTR9cyRtC
+sort: 0
+flags:
+  air-bladder:
+    transportSource: 2e
+system:
+  description: 'A large four-wheeled wagon. Hauls eight slots of gear, but needs a beast to draw it and travels slow.'
+  hp:
+    value: 0
+    max: 0
+  slots: 8
+  cost: 200
+  containerClass: wagon
+  role: transport
+  generationEnabled: false
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!actors!qhjAgLtInNgK8Ase'

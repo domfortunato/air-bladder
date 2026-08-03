@@ -1,9 +1,10 @@
 import { CairnActor } from "./actor/actor.js";
-import { compendiumInfoFromString, drawTableText, resultText } from "./compendium.js";
+import { compendiumInfoFromString, drawTableText, resultText, findTableByName } from "./compendium.js";
 import { Cairn } from "./config.js";
-import { evaluateFormula } from "./utils.js";
+import { evaluateFormula, formatCount } from "./utils.js";
 import { resolveGearItem, SPELL_PACKS, GEAR_ALIASES, spellScrollItem } from "./gear.js";
-import { iconForTransport } from "./icons.js";
+import { containerClass, iconForTransport } from "./icons.js";
+import { connectionHeadroom, maxConnections, connectedOwnershipShape, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { SETTINGS_NS } from "./settings.js";
 import { t } from "./i18n-content.js";
 
@@ -49,6 +50,46 @@ export const getPortraitManifest = async () => {
   return _portraitManifest;
 };
 
+// The Game-Icons gallery: 1,366 game-icons.net glyphs in 24 categories, browsed
+// category-first in the portrait picker (see tools/import/game-icons.mjs). Same
+// lazy-fetch-and-cache shape as the portraits above, and for the same reason —
+// a player picking art cannot enumerate a server folder. Kept here rather than
+// in icons.js because that file is deliberately Foundry-free so the Node
+// importers can import it; a fetch would end that.
+let _gameIconManifest = null;
+
+/** @returns {Promise<{iconDir:String, categories:{key:String, names:String[]}[]}>} */
+export const getGameIconManifest = async () => {
+  if (_gameIconManifest === null) {
+    try {
+      const resp = await fetch("systems/air-bladder/module/game-icons-manifest.json");
+      _gameIconManifest = resp.ok ? await resp.json() : { categories: [] };
+    } catch {
+      _gameIconManifest = { categories: [] };
+    }
+  }
+  return _gameIconManifest;
+};
+
+// The Tlomdev gallery: tlomdev's CC BY-SA 4.0 token drawings, browsed by the
+// artist's own category folders, plus Kettlewright's copies under
+// "Kettlewright Portraits" (see tools/import/tlomdev.mjs). Same
+// lazy-fetch-and-cache shape as the two above, for the same reason.
+let _tlomdevManifest = null;
+
+/** @returns {Promise<{artDir:String, categories:{key:String, names:String[]}[]}>} */
+export const getTlomdevManifest = async () => {
+  if (_tlomdevManifest === null) {
+    try {
+      const resp = await fetch("systems/air-bladder/module/tlomdev-manifest.json");
+      _tlomdevManifest = resp.ok ? await resp.json() : { categories: [] };
+    } catch {
+      _tlomdevManifest = { categories: [] };
+    }
+  }
+  return _tlomdevManifest;
+};
+
 // --- Custom portraits (GM-curated, per-world local pool) --------------------
 // A folder of the GM's own portraits, scanned into a world setting so players
 // (who lack FILES_BROWSE) can still see and pick them. When non-empty it REPLACES
@@ -57,11 +98,14 @@ export const getPortraitManifest = async () => {
 
 const IMAGE_RE = /\.(?:webp|png|jpe?g|gif|svg|avif|bmp)$/i;
 
-/** The Foundry FilePicker implementation, across v13/v14 namespacing. */
-const filePicker = () =>
-  foundry.applications.apps?.FilePicker?.implementation
-  ?? foundry.applications.apps?.FilePicker
-  ?? globalThis.FilePicker;
+/**
+ * The FilePicker implementation. Named in full, not resolved through a
+ * v13/v14 chain: the target is v14 and nothing older, and the global
+ * `FilePicker` such a chain ends on is a deprecation shim (client.mjs:213,
+ * 230). The same three-way lookup stood in art-picker.js and went with this
+ * one.
+ */
+const filePicker = () => foundry.applications.apps.FilePicker.implementation;
 
 /** The configured custom-portrait folder (data-root-relative), or "" if blank. */
 const customPortraitFolder = () =>
@@ -144,6 +188,79 @@ export const pairedTokenFor = async (portraitPath) => {
   const m = await getPortraitManifest();
   const base = String(portraitPath ?? "").split("/").pop();
   return m?.names?.includes(base) ? `${m.tokenDir}/${base}` : null;
+};
+
+/**
+ * The pool `img` belongs to inside a category gallery (game-icons or tlomdev):
+ * every file of the category the image sits in, or null when it is not from
+ * one. Membership is checked against the MANIFEST, not just the path shape, so
+ * a stale path to a renamed file falls through to the caller's fallback.
+ */
+const categoryPoolFor = (img, dir, categories) => {
+  if (!dir || !img.startsWith(`${dir}/`)) return null;
+  const rest = img.slice(dir.length + 1);
+  const slash = rest.indexOf("/");
+  if (slash === -1) return null;
+  const key = rest.slice(0, slash);
+  const cat = categories.find((c) => c.key === key);
+  return cat?.names?.includes(rest.slice(slash + 1))
+    ? cat.names.map((n) => `${dir}/${key}/${n}`)
+    : null;
+};
+
+/**
+ * The portrait die re-rolls WITHIN THE FOLDER the current portrait came from:
+ * an Aspeheim face rolls another Aspeheim face, a custom portrait another from
+ * the Warden's folder, a game-icons or tlomdev pick another from the SAME
+ * CATEGORY — a beast stays a beast rather than turning into a librarian's
+ * portrait. Only when the current image is from no known gallery folder (the
+ * default mystery-man, a pasted URL, a Kind glyph) does it fall back to the
+ * auto-assignment pool (custom when non-empty, else Aspeheim), which was the
+ * die's whole behaviour before this rule.
+ *
+ * Avoids returning the current image while the pool holds anything else, so
+ * the die always visibly does something.
+ * @param {String} current the actor's current img
+ * @returns {Promise<String|null>} a portrait src, or null when every pool is empty
+ */
+export const randomPortraitInSameFolder = async (current) => {
+  const img = String(current ?? "");
+  const m = await getPortraitManifest();
+  const portraitDir = m?.portraitDir ?? "systems/air-bladder/character_portraits";
+  const aspeheim = (m?.names ?? []).map((n) => `${portraitDir}/${n}`);
+  const custom = getCustomPortraitPaths();
+
+  let pool = null;
+  if (aspeheim.includes(img)) pool = aspeheim;
+  if (!pool && custom.includes(img)) pool = custom;
+  if (!pool) {
+    const gi = await getGameIconManifest();
+    pool = categoryPoolFor(img, gi?.iconDir ?? "systems/air-bladder/game-icons", gi?.categories ?? []);
+  }
+  if (!pool) {
+    const tl = await getTlomdevManifest();
+    pool = categoryPoolFor(img, tl?.artDir ?? "systems/air-bladder/tlomdev", tl?.categories ?? []);
+  }
+  if (!pool) pool = custom.length ? custom : aspeheim;
+
+  if (!pool.length) return null;
+  const others = pool.filter((src) => src !== img);
+  const choices = others.length ? others : pool;
+  return choices[Math.floor(Math.random() * choices.length)];
+};
+
+/**
+ * The shipped tlomdev copy of a Kettlewright stock portrait ("portrait17.webp"),
+ * or null when the name is not in the shipped set. The Kettlewright importer
+ * maps stock picks through this — the filenames under
+ * tlomdev/Kettlewright Portraits/ are Kettlewright's own numbering on purpose.
+ * @param {String} name a bare filename as Kettlewright's export stores it
+ * @returns {Promise<String|null>}
+ */
+export const kettlewrightPortraitPath = async (name) => {
+  const tl = await getTlomdevManifest();
+  const cat = tl?.categories?.find((c) => c.key === "Kettlewright Portraits");
+  return cat?.names?.includes(name) ? `${tl.artDir}/${cat.key}/${name}` : null;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -276,28 +393,6 @@ const tagBackgroundGear = (items) =>
 /*  Bonds                                                                       */
 /* -------------------------------------------------------------------------- */
 
-/**
- * Find a bonds table BY NAME, for a custom background that names its own.
- *
- * By name rather than by uuid, deliberately, and for the same reason a background's
- * gear references are by name (see duplicateBackgroundToWorld): a uuid pointing into
- * one world's pack is dead the moment the background is shared, which is the whole
- * point of authoring one. A world RollTable is looked at FIRST because that is the
- * easiest thing for a Warden to make — Tables tab, New Table — then any pack.
- * @returns {Promise<RollTable|null>}
- */
-const findBondsTableByName = async (name) => {
-  const wanted = String(name).trim();
-  const world = game.tables?.find((t) => t.name === wanted);
-  if (world) return world;
-  for (const pack of game.packs) {
-    if (pack.metadata.type !== "RollTable") continue;
-    const entry = (await pack.getIndex()).find((e) => e.name === wanted);
-    if (entry) return pack.getDocument(entry._id);
-  }
-  return null;
-};
-
 /** The shipped 2e Bonds table. */
 const shippedBondsTable = async () => {
   const pack = game.packs.get("air-bladder.tables-2e");
@@ -325,7 +420,8 @@ const shippedBondsTable = async () => {
  */
 export const drawBond = async (tableName) => {
   const wanted = String(tableName ?? "").trim();
-  let table = wanted ? await findBondsTableByName(wanted) : null;
+  // World-first, by name — the rationale lives on findTableByName.
+  let table = wanted ? await findTableByName(wanted) : null;
   if (wanted && !table) {
     console.warn(`Air Bladder | no RollTable named "${wanted}" — falling back to the 2e Bonds table`);
   }
@@ -361,6 +457,28 @@ export const bondRecordFrom = (drawn) => {
 /** Does this text instruct rolling another bond? (Fieldwarden bg, Outrider option.) */
 export const mentionsSecondBond = (text) =>
   /roll a second time on the bonds table/i.test(String(text ?? ""));
+
+/**
+ * How many bonds a 2e character with this background and these question
+ * answers may hold. THE rule, in one place: generation rolls this many, the
+ * sheet's "Add a bond" stops at it, and changeBackground clamps down to it.
+ * It lived as two hand-kept twins (here and the sheet) that agreed only by
+ * luck until 2026-08-02.
+ *
+ * The background-level extra is an OR, not a sum: a custom background may
+ * carry the `secondBond` checkbox AND describe it in prose, and that must
+ * still be one extra bond, not two. Per-question extras stay a sum — each
+ * rolled answer that says to roll again really does add one.
+ * @param {CairnItem|null} bg the background item (null: base entitlement)
+ * @param {{answer: String}[]} [questions] the stored/rolled question answers
+ * @returns {Number}
+ */
+export const bondEntitlement = (bg, questions = []) => {
+  const bgSecond =
+    bg?.system?.secondBond || mentionsSecondBond(bg?.system?.description) ? 1 : 0;
+  const qSecond = (questions ?? []).filter((q) => mentionsSecondBond(q.answer ?? "")).length;
+  return 1 + bgSecond + qSecond;
+};
 
 /* -------------------------------------------------------------------------- */
 /*  Background choice tables                                                    */
@@ -553,16 +671,16 @@ export const duplicateBackgroundToWorld = async (bg) => {
 const containerKindFor = (name) => (/\b(wagon|cart|sled|sledge)\b/i.test(name) ? "vehicle" : "mount");
 
 /**
- * Mint the container Actors a background's rolled options granted, keeper-linked
+ * Mint the container Actors a background's rolled options granted, connected
  * to the new character and inheriting its ownership — the same shape the shop
  * produces (marketplace.js acquireTransport), so a granted donkey and a bought
  * one behave identically.
  *
- * The spec's name is resolved against the editable `transports` pack first, so a
- * Warden who retunes "Donkey" there changes every donkey granted afterwards; the
- * grant's own `slots` still wins, because that number is the background's (a
- * Rivertooth is +6 where a Blacklegged Dandy is +4). A name with no pack document
- * — the one-off beasts — is minted from the spec alone.
+ * The spec's name is resolved against the editable Mounts & Transports Actor
+ * pack first, so a Warden who retunes "Donkey" there changes every donkey granted
+ * afterwards; the grant's own `slots` still wins, because that number is the
+ * background's (a Rivertooth is +6 where a Blacklegged Dandy is +4). A name with
+ * no pack document — the one-off beasts — is minted from the spec alone.
  *
  * Each container is flagged with the question that granted it, so a re-roll or a
  * regenerate can delete exactly those and leave bought/manual containers alone.
@@ -572,73 +690,120 @@ const containerKindFor = (name) => (/\b(wagon|cart|sled|sledge)\b/i.test(name) ?
  */
 export const grantContainers = async (actor, specs) => {
   if (!actor || !specs?.length) return [];
-  const pack = game.packs.get("air-bladder.transports");
+  // The connection ceiling, CLAMPED rather than refused outright: a background
+  // granting three beasts to a keeper with room for one still owes the
+  // character that one. What was dropped is SAID — a silent clamp reads as
+  // "the background granted nothing", which is a bug report waiting to be
+  // filed against the wrong code. At zero headroom nothing can land, so that
+  // case gets the plain at-the-ceiling message instead of a count of zero
+  // survivors. On the player path this clamp runs in the player's browser and
+  // cannot bind anyone; the socket broker re-clamps on the Warden's client,
+  // which is the wall. This copy exists so the player is TOLD — the broker
+  // can only console.warn on a client the player is not looking at.
+  const headroom = connectionHeadroom(actor);
+  if (headroom <= 0) {
+    ui.notifications.warn(game.i18n.format("CAIRN.Notify.ConnectionLimit", { name: actor.name, max: maxConnections() }));
+    return [];
+  }
+  if (specs.length > headroom) {
+    ui.notifications.warn(game.i18n.format("CAIRN.Notify.ConnectionLimitPartial", {
+      name: actor.name,
+      max: maxConnections(),
+      count: specs.length - headroom,
+    }));
+    specs = specs.slice(0, headroom);
+  }
+  // The Mounts & Transports ACTOR pack, not the legacy transport Item pack. The
+  // payload below copies hp / armorOverride / role / containerClass off the
+  // resolved document, and only the Actor documents HAVE those fields — resolving
+  // against the Item pack made every one of those reads a miss, so a granted
+  // Rivertooth arrived with the schema's default 6 HP instead of its stated 8
+  // (review #5, critical: the pack was stocked by nothing).
+  const pack = game.packs.get("air-bladder.mounts-transports");
   const docs = pack ? await pack.getDocuments() : [];
-  // Resolve a spec against the editable transports pack (art/description/kind), with
-  // sensible fallbacks for one-off beasts the pack doesn't carry.
+  // Resolve a spec against that editable pack (art/stats/description), with
+  // sensible fallbacks for one-off beasts the pack doesn't carry. `kind` only
+  // matters on the no-document path (icon + class inference by name); a resolved
+  // Actor carries its class outright.
   const resolve = (spec) => {
     const doc = docs.find((d) => d.name.toLowerCase() === String(spec.name).toLowerCase());
-    const kind = doc?.system.transportKind ?? containerKindFor(spec.name);
+    const kind = doc ? (doc.system.role === "mount" ? "mount" : "vehicle") : containerKindFor(spec.name);
     return { doc, kind, art: doc?.img ?? iconForTransport(spec.name, kind) };
   };
 
-  // Containers tab OFF: record each rolled container as a WEIGHTLESS inventory item
-  // instead of a container Actor. It's owner-editable, so a player can (re)roll it
-  // with no Actor create/delete, and it keeps the flavor — named, iconed and
-  // described like the container it stands for, and tagged "Container" (via the
-  // containerItem flag; see item.js). grantSource stays background/question:X so the
-  // re-roll/replacement machinery deletes and replaces it like the other granted gear.
-  if (!game.settings.get(SETTINGS_NS, "show-containers-tab")) {
-    const items = specs.map((spec) => {
-      const { doc, art } = resolve(spec);
-      return {
-        type: "item",
-        name: spec.name,
-        img: art,
-        system: { weightless: true, description: doc?.system.description ?? "" },
-        flags: { [FLAG_SCOPE]: { grantSource: spec.grantSource ?? "background", containerItem: true } },
-      };
-    });
-    await actor.createEmbeddedDocuments("Item", items, { render: false });
-    return [];
-  }
-
-  // Containers tab ON: mint real container Actors. Creating an Actor needs
-  // ACTOR_CREATE (a player can't), so skip with a notice rather than throw midway.
-  if (!game.user.hasPermission("ACTOR_CREATE")) {
-    ui.notifications.warn(game.i18n.localize("CAIRN.Notify.NoActorCreate"));
-    return [];
-  }
-  const made = [];
-  for (const spec of specs) {
+  /* A granted beast or vehicle is ALWAYS an Actor now.
+   *
+   * There used to be a fork here: with the Containers tab off, each rolled
+   * container was recorded as a weightless inventory ITEM instead. That was
+   * tolerable while a container was a bag of slots. It is not tolerable now --
+   * an Outrider's horse is a creature with 6 HP, and collapsing it into an
+   * inventory line because a DISPLAY setting is off is a lie about what the
+   * character has. The user's words: "an outrider's horse should never appear in
+   * their inventory."
+   *
+   * Deleting the fork exposed what it was really doing, which was not display at
+   * all: it was the reason a PLAYER could generate an Outrider. Minting an Actor
+   * needs ACTOR_CREATE, which players do not have, so the item branch was a
+   * permissions workaround wearing a display setting's name. Hence the broker
+   * below. */
+  const payloads = specs.map((spec) => {
     const { doc, kind, art } = resolve(spec);
-    const container = await CairnActor.create({
-      type: "container",
+    return {
+      type: "npc",
       name: spec.name,
       img: art,
       prototypeToken: { texture: { src: art } },
       system: {
+        connectedTo: actor.uuid,
         slots: spec.slots ?? doc?.system.slots ?? 0,
         description: doc?.system.description ?? "",
-        transportKind: kind,
-        // A mount/vehicle carries its own pool and costs its keeper nothing; the
-        // spec's `load` describes what it costs the beast PULLING it, which this
-        // system does not model (containers do not nest) — it stays in the prose.
-        load: 0,
+        // The Actor document records its class; a one-off beast with no document
+        // infers it from the name the way the sheet does. Leaving it blank would
+        // have shipped a horse whose art and one-word label were both decided by
+        // a keyword table at render time, rather than recorded once at creation.
+        containerClass: doc?.system.containerClass || containerClass(spec.name, kind),
+        // A resolved pack Actor states its role; a one-off beast maps its
+        // inferred kind (a granted "Mangy Wolfdog" is a mount-shaped creature
+        // and keeps its stat block, exactly as the old animate default did).
+        role: doc?.system.role
+          ?? ({ mount: "mount", vehicle: "transport", worn: "container", pile: "container" }[kind] ?? "mount"),
         cost: doc?.system.cost ?? 0,
+        generationEnabled: false,
+        ...(doc?.system.hp ? { hp: { value: doc.system.hp.value, max: doc.system.hp.max } } : {}),
+        ...(doc?.system.armorOverride != null ? { armorOverride: doc.system.armorOverride } : {}),
       },
       flags: { [FLAG_SCOPE]: { grantSource: spec.grantSource ?? "background" } },
-    });
+    };
+  });
+
+  // A player cannot create an Actor, so ask the Warden's client to do it. Returns
+  // [] on the player's side -- the documents appear when the GM's client answers.
+  if (!game.user.hasPermission("ACTOR_CREATE")) {
+    await requestGrantedActors(payloads, actor);
+    return [];
+  }
+
+  const made = [];
+  for (const payload of payloads) {
+    const container = await CairnActor.create(payload);
     if (!container) continue;
-    await actor.createOwnedContainer(container);
-    // GM-only, for the same reason as the identical write in `marketplace.js`
-    // (`acquireTransport`): Foundry refuses an `ownership` write from anyone below
-    // Assistant, so for a player with ACTOR_CREATE this threw AFTER the container
-    // was created and linked — aborting the loop, so any remaining containers were
-    // never granted and the sheet never opened. A player doesn't need it: Foundry
-    // makes the creating user an owner of what they create.
+    // The CONNECTED ownership shape, not the old wholesale copy — same change
+    // as the till's (marketplace.js). GM-only for the same reason as ever:
+    // Foundry refuses an `ownership` write from anyone below Assistant, and
+    // for a player with ACTOR_CREATE that threw AFTER the container was
+    // created and linked, aborting the loop. A player with ACTOR_CREATE
+    // already owns what they create; the sync flag asks the active GM's
+    // client to fill in the OBSERVER default their client cannot write —
+    // same tail as the till's. (The common player path never gets here at
+    // all: it goes through the broker above, which writes the shape on the
+    // Warden's client.)
     if (game.user.isGM) {
-      await container.update({ ownership: foundry.utils.deepClone(actor.ownership) });
+      await container.update({
+        ownership: foundry.data.operators.ForcedReplacement.create(connectedOwnershipShape(actor)),
+      });
+    } else {
+      await container.update({ [`flags.air-bladder.${OWNERSHIP_SYNC_FLAG}`]: true });
+      game.socket.emit(`system.${game.system.id}`, { action: "ownershipSync", childUuid: container.uuid });
     }
     made.push(container);
   }
@@ -646,15 +811,76 @@ export const grantContainers = async (actor, specs) => {
 };
 
 /**
- * Every container keeper-linked to this actor that GENERATION granted (it carries
+ * Every container connected to this actor that GENERATION granted (it carries
  * a grantSource flag). Bought and hand-made containers have no such flag and are
  * never returned, so a regenerate cannot delete a player's mule.
  * @param {CairnActor} actor @returns {CairnActor[]}
  */
 export const grantedContainersOf = (actor) =>
   (game.actors ?? []).filter(
-    (a) => a.type === "container" && a.system?.keeper === actor.uuid && a.getFlag(FLAG_SCOPE, "grantSource")
+    (a) => a.system?.connectedTo === actor.uuid && a.getFlag(FLAG_SCOPE, "grantSource")
   );
+
+/**
+ * Ask the Warden's client to create the Actors a player's generation granted.
+ *
+ * `Actor.create` needs ACTOR_CREATE, which players do not have, and granting it
+ * world-wide to fix one background would let players create any actor at all.
+ * This is Foundry's standard shape for a player-initiated GM action: emit on the
+ * system socket, let exactly ONE client — `game.users.activeGM`, so two logged-in
+ * GMs cannot both act and mint doubles — do the write.
+ *
+ * Fire-and-forget by design. Generation must not block on another client
+ * answering, and the documents simply appear when it does. The one thing worth
+ * saying out loud is the case where nobody can act.
+ * @param {object[]} payloads
+ * @param {CairnActor} owner
+ */
+export const requestGrantedActors = async (payloads, owner) => {
+  if (!payloads.length) return;
+  if (!game.users.activeGM) {
+    ui.notifications.warn(game.i18n.localize("CAIRN.Notify.NoGmForGrant"));
+    return;
+  }
+  // No `userId` in the payload, deliberately. The broker identifies the sender
+  // by the server-authenticated id Foundry passes as the handler's second
+  // argument — a self-declared id in the message is exactly what an attacker
+  // would forge, and the first version of this socket was ownable because the
+  // receiving side trusted it (review #5).
+  game.socket.emit(`system.${game.system.id}`, {
+    action: "grantActors",
+    payloads,
+    ownerUuid: owner.uuid,
+  });
+};
+
+/**
+ * Ask the Warden's client to generate a character for the CURRENT user.
+ *
+ * The directory shows Generate PC to players who hold no ACTOR_CREATE at all —
+ * making a character is the one creation the game owes every player, and
+ * granting the world-wide right for it would open all the others. Same shape
+ * as requestGrantedActors above: emit, and exactly one GM client answers,
+ * running this same generator with the requester stamped OWNER into the
+ * create data. Fire-and-forget — the pcGenerated answer (cairn.js) opens the
+ * sheet on this client when the document lands. The payload carries nothing:
+ * WHO asked is the server-authenticated senderId on the receiving side.
+ */
+export const requestPcGeneration = async () => {
+  if (!game.users.activeGM) {
+    ui.notifications.warn(game.i18n.localize("CAIRN.Notify.NoWardenForPcGen"));
+    return;
+  }
+  // The SOURCE question is the player's, exactly as it is on the direct path —
+  // ask it HERE, on the clicking client, and send the answer. Asked on the
+  // answering side instead, generateCharacter's picker pops on the Warden's
+  // screen out of nowhere and the player's request hangs on someone else's
+  // modal (which is precisely how the first cut of this relay behaved).
+  const source = await promptContentSource();
+  if (!source) return; // ✕ is an instruction, here as everywhere
+  ui.notifications.info(game.i18n.localize("CAIRN.Notify.PcGenRequested"));
+  game.socket.emit(`system.${game.system.id}`, { action: "generatePC", source });
+};
 
 /**
  * May the current user run a (re)generation that could create or delete this
@@ -665,21 +891,29 @@ export const grantedContainersOf = (actor) =>
  * character — better to refuse before mutating anything, with a clear notice.
  *
  * A container op is only in play when there is an existing granted container to
- * delete, or when the containers feature is enabled and a fresh roll might grant
- * one. With the feature off, generation grants none (see grantContainers), so a
- * player regenerates freely. Pass `source` to scope the delete check to one grant
- * source (a single question's containers) rather than all of them.
+ * DELETE. Creation is brokered (see below), and there is no "containers feature"
+ * switch any more — `show-containers-tab` was the display toggle this comment
+ * used to call one, and it is gone. Pass `source` to scope the delete check to
+ * one grant source (a single question's containers) rather than all of them.
  * @param {CairnActor} actor @param {String|null} source
  * @returns {Boolean} true to proceed
  */
 export const canRegenerateContainers = (actor, source = null, warnKey = "CAIRN.Notify.NoContainerRegen") => {
   if (game.user.isGM) return true; // isGM === role >= ASSISTANT, exactly what Actor delete needs
-  const mayCreate = game.settings.get(SETTINGS_NS, "show-containers-tab");
+  // CREATION is no longer a reason to refuse: a player's grants are brokered to
+  // the Warden's client over the system socket (requestGrantedActors). Only a
+  // DELETE still needs Assistant+, because there is no broker for it and there
+  // should not be -- a socket that deletes actors on request is a very different
+  // thing from one that creates the ones a background just rolled.
+  //
+  // This used to read `show-containers-tab` as `mayCreate`, which is how a
+  // DISPLAY setting came to decide a permission: with the tab on, every non-GM
+  // was refused whether or not anything needed deleting. That coupling is gone.
   const existing = grantedContainersOf(actor);
   const mustDelete = source
     ? existing.some((c) => c.getFlag(FLAG_SCOPE, "grantSource") === source)
     : existing.length > 0;
-  if (!mayCreate && !mustDelete) return true; // no Actor create/delete needed
+  if (!mustDelete) return true;
   // The refusal is shared; the SENTENCE is not. This guard began as the
   // regenerate check and its message says "ask them to re-roll it for you" —
   // correct there, and wrong the moment the background swap started calling it,
@@ -691,44 +925,28 @@ export const canRegenerateContainers = (actor, source = null, warnKey = "CAIRN.N
 };
 
 /**
- * Delete container Actors, then prune the keeper's uuid list to match — restoring
- * any that fail to delete, so a failed delete can never orphan a container (a live
- * Actor missing from the list). The prune stays AHEAD of a successful delete so
- * CairnActor._onDeleteOperation's own prune finds nothing left to do (see
- * clearGrantedContainers); on failure the uuid goes back. Returns the containers
- * that were actually removed.
+ * Delete container Actors. Returns the ones that were actually removed, and
+ * re-raises on the first failure so the caller aborts.
+ *
+ * It used to prune the keeper's `system.containers` uuid array in the same
+ * breath — ahead of the delete, so CairnActor._onDeleteOperation's own prune
+ * found nothing to do, and putting uuids back if a delete threw so a failure
+ * could not orphan a live Actor. That array went with the `container` type
+ * (2026-07-31): the link is one field on the CHILD now, so deleting the child
+ * IS the whole operation and there is no second half to keep in step.
  * @param {CairnActor} actor @param {CairnActor[]} targets
  * @returns {Promise<CairnActor[]>}
  * @private
  */
 const deleteContainers = async (actor, targets) => {
-  if (!targets.length) return [];
-  const gone = new Set(targets.map((c) => c.uuid));
-  await actor.update({ "system.containers": (actor.system.containers ?? []).filter((u) => !gone.has(u)) });
   const removed = [];
-  try {
-    for (const c of targets) { await c.delete(); removed.push(c); }
-    return removed;
-  } catch (err) {
-    // A delete failed — those containers still exist. Put their uuids back so the
-    // list matches reality (no orphan), then re-raise so the caller aborts. The
-    // up-front guard should make this unreachable for a player.
-    const stillHere = targets.filter((c) => !removed.includes(c) && game.actors.get(c.id)).map((c) => c.uuid);
-    if (stillHere.length) {
-      const current = actor.system.containers ?? [];
-      await actor.update({ "system.containers": [...new Set([...current, ...stillHere])] });
-    }
-    throw err;
-  }
+  for (const c of targets) { await c.delete(); removed.push(c); }
+  return removed;
 };
 
 /**
  * Delete every generation-granted container this actor keeps (a regenerate
  * re-rolls the background's options, so last roll's donkey has to go).
- *
- * The keeper's uuid list is pruned FIRST, deliberately: CairnActor's
- * _onDeleteOperation prunes it too, and pruning up front makes that pass a
- * no-op — one writer to the array instead of two.
  * @param {CairnActor} actor
  */
 export const clearGrantedContainers = async (actor) => {
@@ -797,19 +1015,14 @@ export const generate2eCharacter = async (chosenBg = null) => {
   const choices = await applyChoiceTables(bg);
 
   // One bond by default; the Fieldwarden background and Outrider's "Always pay
-  // your debts" option each add another. Each bond has a stable id so its granted
-  // items can be re-rolled/removed later.
-  // The background-level extra is an OR, not a sum: a custom background may carry the
-  // `secondBond` checkbox AND describe it in prose, and that must still be one extra
-  // bond, not two. Per-question extras stay a sum — each rolled answer that says to
-  // roll again really does add one.
-  const extraBonds =
-    (bg.system.secondBond || mentionsSecondBond(bg.system.description) ? 1 : 0) +
-    choices.questions.filter((q) => mentionsSecondBond(q.answer)).length;
+  // your debts" option each add another — bondEntitlement is THE rule, shared
+  // with the sheet's "Add a bond" cap and changeBackground's clamp. Each bond
+  // has a stable id so its granted items can be re-rolled/removed later.
+  const bondCount = bondEntitlement(bg, choices.questions);
   const bonds = [];
   const bondItems = [];
   let bondGold = 0;
-  for (let i = 0; i < 1 + extraBonds; i++) {
+  for (let i = 0; i < bondCount; i++) {
     // A custom background may name its own bonds table; empty means the 2e one.
     const rec = bondRecordFrom(await drawBond(bg.system.bondsTable));
     if (!rec) continue;
@@ -917,7 +1130,10 @@ const randomScrollItem = async () => {
 /**
  * Turn one rolled table result into something a character can be given.
  * Three shapes, decided by what the result points at:
- *   - a TRANSPORT document  → a container spec (minted as an Actor later)
+ *   - a carrier document    → a container spec (minted as a connected NPC later);
+ *                             either a Mounts & Transports npc Actor or a legacy
+ *                             `transport` Item — old worlds' tables still point
+ *                             at the Item pack
  *   - a nested ROLLTABLE    → roll that table and resolve its result instead
  *   - anything else         → the pool item of that name, or, for the SRD's two
  *                             instruction rows, a random spellbook or scroll
@@ -946,6 +1162,13 @@ const resolveBarebonesResult = async (result) => {
     : null;
 
   if (doc?.documentName === "Item" && doc.type === "transport") {
+    return { container: { name: doc.name, slots: doc.system.slots ?? 0 }, name };
+  }
+  // A row can point at a Mounts & Transports NPC now (the shipped Barebones
+  // Cart/Wagon rows do, and a Warden's own table can too). Same shape out: a
+  // container SPEC, not the document — grantContainers re-resolves by name, so
+  // the grant still picks up the Warden's edits to the pack document.
+  if (doc?.documentName === "Actor" && doc.type === "npc") {
     return { container: { name: doc.name, slots: doc.system.slots ?? 0 }, name };
   }
   if (doc?.documentName === "RollTable") {
@@ -1002,9 +1225,10 @@ const rollAdditionalGear = async (avoid = new Set()) => {
  * INSTRUCTION rather than an item. Nine Barebones backgrounds grant one — the
  * Acolyte's "Spellbook", the Fence's "Random Additional Gear", the Cultist's
  * "Scroll of Random Spellbook" — and a plain reference lookup silently drops
- * every one of them, leaving those characters an item short with no error. (See
- * CLAUDE.md: "not every table entry is an object", and nobody notices until
- * someone rolls Acolyte.)
+ * every one of them, leaving those characters an item short with no error —
+ * not every table entry is an object, and nobody notices until someone rolls
+ * Acolyte. The importer skips the same rows; see `META` in
+ * tools/import/barebones.mjs.
  *
  * 2e backgrounds carry no such rows, so this is a pass-through for them; it is
  * shared so that generation and a background swap can never disagree.
@@ -1366,10 +1590,20 @@ export const backgroundTagline = (bg) => {
   // item.name namespace the inventory does.
   const text = t("bg.desc", String(bg.system?.description ?? "")).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
   if (text) return (text.match(/^.*?[.!?](\s|$)/)?.[0] ?? text).trim();
-  const slots = game.i18n.localize("CAIRN.Slots").toLowerCase();
+  // This used to lowercase the "Slots" LABEL and concatenate "+N " onto it:
+  // `toLowerCase()` is locale-unaware (German capitalises nouns and Turkish
+  // dotless-i is the classic casualty), and "+2 slots" is English word order
+  // nobody could reorder. `CAIRN.NSlot` is the counted noun, already lowercase
+  // and already the translator's, and formatCount picks its plural form —
+  // "+1 slots" was the other half of the same bug.
   const gear = (bg.system?.startingGear ?? []).map((g) => t("item.name", g.name));
-  const carried = (bg.system?.containers ?? []).map((c) => `${t("item.name", c.name)} (+${c.slots} ${slots})`);
-  return [...gear, ...carried].join(", ");
+  const carried = (bg.system?.containers ?? []).map((c) => game.i18n.format(
+    "CAIRN.BgTagline.Carried",
+    { name: t("item.name", c.name), slots: formatCount("CAIRN.NSlot", c.slots) }
+  ));
+  // Narrow conjunction: "A, B, C" in English, the locale's own form elsewhere.
+  const list = new Intl.ListFormat(game.i18n.lang ?? "en", { style: "narrow", type: "conjunction" });
+  return list.format([...gear, ...carried]);
 };
 
 /**
@@ -1579,7 +1813,12 @@ export const buildFailedCareerItem = async (careerName) =>
  * Regenerate's job, and conflating the two is why the fork needed four functions.
  *
  * Bonds are deliberately NOT re-rolled: a new background's second-bond
- * entitlement surfaces the sheet's "Add a bond" link instead of silently rolling.
+ * entitlement surfaces the sheet's "Add a bond" link instead of silently
+ * rolling. But entitlement DOES clamp down (ruled 2026-08-02): landing on a
+ * background whose entitlement is below the stored bond count removes the
+ * excess from the END — the first bond always survives — with the ✕ button's
+ * semantics (granted items deleted, gold refunded). Before the clamp, a
+ * detour through Fieldwarden left a second bond stored forever.
  * A null `newBg` picks a random one, never the current.
  * @param {CairnActor} actor
  * @param {CairnItem|null} [newBg]
@@ -1639,6 +1878,25 @@ export const changeBackground = async (actor, newBg = null) => {
     ...choices.containers,
   ]);
 
+  // Clamp bonds to the NEW background's entitlement (ruled 2026-08-02). The
+  // upward case stays manual ("Add a bond"), but excess is removed from the
+  // END — the first bond always survives — with #onRemoveBond's semantics:
+  // the bond's granted items go, its gold grant is refunded. Uses the shared
+  // bondEntitlement (never the sheet's Barebones display policy: a lent bond
+  // is not deleted because a display setting is off).
+  const bonds = foundry.utils.duplicate(actor.system.bonds ?? []);
+  const allowed = bondEntitlement(bg, choices.questions);
+  let clampGold = 0;
+  const clampItemIds = [];
+  while (bonds.length > allowed) {
+    const dropped = bonds.pop();
+    clampGold += dropped.gold ?? 0;
+    for (const i of actor.items) {
+      if (String(i.getFlag(FLAG_SCOPE, "grantSource") ?? "") === `bond:${dropped.id}`) clampItemIds.push(i.id);
+    }
+  }
+  if (clampItemIds.length) await actor.deleteEmbeddedDocuments("Item", clampItemIds, { render: false });
+
   // Trade the old questions' coins for the new ones'.
   const oldQGold = (actor.system.questions ?? []).reduce((n, q) => n + (q.gold ?? 0), 0);
   // No `contentSource` here on purpose: a character does not change edition. Every
@@ -1647,12 +1905,16 @@ export const changeBackground = async (actor, newBg = null) => {
   // background arriving here always matches. Code to follow a differing source would
   // be unreachable, and unreachable code that looks like protection is worse than
   // none.
-  await actor.update({
+  const update = {
     "system.background": bg.name,
     "system.backgroundUuid": bg.uuid,
     "system.questions": choices.questions,
-    "system.gold": Math.max(0, (actor.system.gold ?? 0) - oldQGold + choices.gold),
-  });
+    "system.gold": Math.max(0, (actor.system.gold ?? 0) - oldQGold + choices.gold - clampGold),
+  };
+  // Write bonds only when the clamp bit — preservation stays the default, and
+  // an untouched array is not re-written wholesale for nothing.
+  if (bonds.length !== (actor.system.bonds ?? []).length) update["system.bonds"] = bonds;
+  await actor.update(update);
 };
 
 /* -------------------------------------------------------------------------- */
@@ -1666,6 +1928,11 @@ export const changeBackground = async (actor, newBg = null) => {
 const characterToActorData = (characterData) => ({
   name: characterData.name,
   system: {
+    // Generated actors land with the Randomization switch OFF, explicitly —
+    // the schema initial says the same since 2026-08-02, but the generator's
+    // intent should survive any future default change (the container and
+    // marketplace writers already model this).
+    generationEnabled: false,
     abilities: {
       STR: { value: characterData.abilities.STR, max: characterData.abilities.STR },
       DEX: { value: characterData.abilities.DEX, max: characterData.abilities.DEX },
@@ -1703,7 +1970,9 @@ const characterToActorData = (characterData) => ({
     name: characterData.name,
     disposition: CONST.TOKEN_DISPOSITIONS.FRIENDLY,
     actorLink: true,
-    vision: true,
+    // No `vision` key: it is not in PrototypeToken's schema and was pruned
+    // silently, so every PC generated before 2026-08-02 arrived blind. Sight is
+    // stamped in CairnActor#_preCreate, which every creation route reaches.
   },
   type: "character",
 });
@@ -1712,7 +1981,7 @@ const characterToActorData = (characterData) => ({
  * @param {Object} characterData
  * @returns {Promise<CairnActor|null>}
  */
-export const createActorWithCharacter = async (characterData) => {
+export const createActorWithCharacter = async (characterData, { folder = null, ownership = null } = {}) => {
   if (!characterData) return null;
   const data = characterToActorData(characterData);
   // A random portrait + its paired token, assigned ONLY here on creation.
@@ -1724,6 +1993,15 @@ export const createActorWithCharacter = async (characterData) => {
     data.img = pair.img;
     data.prototypeToken.texture = { src: pair.token };
   }
+  // The createDialog switchboard threads the folder "+"'s destination through
+  // here (2026-08-02); the directory button passes nothing and lands at root.
+  if (folder) data.folder = folder;
+  // The generatePC relay mints on the Warden's client FOR a player, so the
+  // requester's OWNER must be in the CREATE data, not patched on after:
+  // grantContainers below derives each granted mule's connected-ownership
+  // shape from the keeper's ownership, and a late patch would hand the player
+  // a character whose own mount they cannot open.
+  if (ownership) data.ownership = ownership;
   const actor = await CairnActor.create(data);
   await grantContainers(actor, characterData.containers);
   return actor;
@@ -1760,7 +2038,8 @@ export const updateActorWithCharacter = async (actor, characterData) => {
 };
 
 /** @returns {Promise<CairnActor|null>} */
-export const createCharacter = async () => createActorWithCharacter(await generateCharacter());
+export const createCharacter = async ({ folder = null, ownership = null, source = null } = {}) =>
+  createActorWithCharacter(await generateCharacter(null, source), { folder, ownership });
 
 /**
  * Regenerate an existing character: re-roll stats/gear/bond/traits but PERSIST the
@@ -1780,41 +2059,41 @@ export const regenerateActor = async (actor) => {
 };
 
 /* ==========================================================================
- * Hirelings
+ * NPC careers
  * A GM-created helper drawn from Cairn 2e's twelve example hirelings
- * (resources/hirelings.md, shipped as module/hirelings-2e.json by
- * tools/import/hirelings-2e.mjs). Each is a canonical statblock: a Profession, a
+ * (resources/hirelings.md, shipped as module/npc-careers-2e.json by
+ * tools/import/npc-careers-2e.mjs). Each is a canonical statblock: a Profession, a
  * daily rate, fixed HP + STR/DEX/WIL, and a specific gear loadout (its weapon and
- * armor included). No bonds/omens/scars/traits/questions -- hirelings are
+ * armor included). No bonds/omens/scars/traits/questions -- generated NPCs are
  * deliberately simple.
  *
  * Its gear is BY-NAME REFERENCES into the editable pool, exactly like a
  * background's starting gear: resolveGearItem clones the current pool document,
- * so editing an item flows into every hireling generated afterwards.
+ * so editing an item flows into every NPC generated afterwards.
  * ======================================================================== */
 
-/** The 2e hirelings catalogue (shipped runtime data), fetched once and cached. */
-let _hirelings2e = null;
-export const getHirelings2e = async () => {
-  if (_hirelings2e === null) {
+/** The 2e careers catalogue (shipped runtime data), fetched once and cached. */
+let _npcCareers2e = null;
+export const getNpcCareers2e = async () => {
+  if (_npcCareers2e === null) {
     try {
-      const resp = await fetch("systems/air-bladder/module/hirelings-2e.json");
-      _hirelings2e = resp.ok ? await resp.json() : [];
+      const resp = await fetch("systems/air-bladder/module/npc-careers-2e.json");
+      _npcCareers2e = resp.ok ? await resp.json() : [];
     } catch {
-      _hirelings2e = [];
+      _npcCareers2e = [];
     }
   }
-  return _hirelings2e;
+  return _npcCareers2e;
 };
 
 /**
- * A random hireling entry, optionally avoiding a profession name so a re-roll
+ * A random career entry, optionally avoiding a profession name so a re-roll
  * always changes.
  * @param {String|null} avoidName
  * @returns {Promise<Object|null>}
  */
-const randomHireling = async (avoidName = null) => {
-  const list = await getHirelings2e();
+const randomCareer = async (avoidName = null) => {
+  const list = await getNpcCareers2e();
   if (!list.length) return null;
   const pool = avoidName ? list.filter((h) => h.name !== avoidName) : list;
   const from = pool.length ? pool : list;
@@ -1822,24 +2101,24 @@ const randomHireling = async (avoidName = null) => {
 };
 
 /**
- * A hireling's name. 2e characters take their name from their background's name
- * list, which a hireling has no equivalent of, so this draws from the Warden's
- * 2e NPC name table -- a hireling IS an NPC. roll(), never draw(), so the
- * Warden's table keeps a clean drawn state.
+ * A generated NPC's name. 2e characters take their name from their background's
+ * name list, which an NPC has no equivalent of, so this draws from the Warden's
+ * 2e NPC name table. roll(), never draw(), so the Warden's table keeps a clean
+ * drawn state.
  * @returns {Promise<String>}
  */
-const rollHirelingName = () =>
-  rollNameFromTable(Cairn.hirelingGenerator.name, game.i18n.localize("CAIRN.Hireling"));
+const rollNpcName = () =>
+  rollNameFromTable(Cairn.npcGenerator.name, game.i18n.localize("CAIRN.Npc"));
 
 /**
- * A hireling's canonical loadout, resolved from the pool: weapons and armor
+ * A generated NPC's canonical loadout, resolved from the pool: weapons and armor
  * equipped (so Armor derives via calcArmor to the book value -- pool items are
  * equipped:false), each tagged grantSource "profession" so a profession re-roll
  * replaces exactly these and leaves GM-added gear alone.
  * @param {Object} entry
  * @returns {Promise<Object[]>}
  */
-const buildHirelingItems = async (entry) => {
+const buildNpcItems = async (entry) => {
   const items = await resolveRefs(entry?.gear ?? []);
   return items.map((item) => {
     if (item.type === "weapon" || item.type === "armor") item.system.equipped = true;
@@ -1847,38 +2126,55 @@ const buildHirelingItems = async (entry) => {
   });
 };
 
-const hirelingAbilityData = (abilities) => ({
+const npcAbilityData = (abilities) => ({
   STR: { value: abilities.STR, max: abilities.STR },
   DEX: { value: abilities.DEX, max: abilities.DEX },
   WIL: { value: abilities.WIL, max: abilities.WIL },
 });
 
-/** Generate a full hireling from a random 2e statblock. @returns {Promise<Object>} */
-export const generateHireling = async () => {
-  const h = await randomHireling();
+/** Generate a full NPC from a random 2e statblock. @returns {Promise<Object>} */
+export const generateNpc = async () => {
+  const h = await randomCareer();
   return {
-    name: await rollHirelingName(),
+    name: await rollNpcName(),
     profession: h?.name ?? "",
     rate: h?.rate ?? 0,
     abilities: h?.abilities ?? { STR: 10, DEX: 10, WIL: 10 },
     hp: h?.hp ?? 6,
-    items: await buildHirelingItems(h),
+    // A person, not just a statblock (2026-08-01): the biography the PC
+    // generator rolls, through the SAME paths — rollAge honours the Warden's
+    // minimum-age floor, rollTextItems draws the eight tables-2e trait tables —
+    // plus pronouns, a uniform pick with no PC equivalent (a player states
+    // their own; a generated stranger needs an answer on arrival).
+    pronouns: ["he/him", "she/her", "they/them"][Math.floor(Math.random() * 3)],
+    age: String(await rollAge(Cairn.characterGenerator2e.biography.age)),
+    traits: await rollTextItems(Cairn.characterGenerator2e.biography.items),
+    items: await buildNpcItems(h),
   };
 };
 
-/** @returns {Object} Foundry create/update data for a hireling. */
-const hirelingToActorData = (h) => ({
-  name: h.name || "Hireling",
+/** @returns {Object} Foundry create/update data for a generated NPC. */
+const npcToActorData = (h) => ({
+  name: h.name || "NPC",
   // `npc`, not `hireling`: the two are one type now and the directory button that
-  // makes these says "Generate NPC". A generated one IS for hire, so the flag is
-  // set and its day rate shows.
+  // makes these says "Generate NPC". A generated one IS for hire, so `forHire`
+  // says so and its day rate shows — that was the `hireling` ROLE until the
+  // collapse (2026-08-01), and it is a boolean beside the rate it gates now.
   type: "npc",
   system: {
+    role: "npc",
+    // Off-by-default, stated rather than inherited — see characterToActorData.
+    generationEnabled: false,
     forHire: true,
     profession: h.profession ?? "",
     dayRate: h.rate ?? 0,
-    abilities: hirelingAbilityData(h.abilities),
+    abilities: npcAbilityData(h.abilities),
     hp: { value: h.hp, max: h.hp },
+    // The rolled biography (generateNpc): identity fields, kept by every
+    // partial re-roll and replaced only by a full regenerate.
+    pronouns: h.pronouns ?? "",
+    age: h.age ?? "",
+    traits: h.traits ?? {},
     gold: 0,
     deprived: false,
     panicked: false,
@@ -1889,44 +2185,55 @@ const hirelingToActorData = (h) => ({
 });
 
 /**
- * Create a fully-generated hireling actor with a random portrait + paired token
+ * Create a fully-generated NPC actor with a random portrait + paired token
  * (assigned on creation only, like a player character; re-rolls preserve it by
  * omission).
  * @returns {Promise<CairnActor>}
  */
-export const createHireling = async () => {
-  const data = hirelingToActorData(await generateHireling());
+export const createNpc = async ({ folder = null } = {}) => {
+  const data = npcToActorData(await generateNpc());
   const pair = await randomPortraitPair();
   if (pair) {
     data.img = pair.img;
     data.prototypeToken = { ...(data.prototypeToken ?? {}), texture: { src: pair.token } };
   }
+  // Folder threaded from the createDialog switchboard (2026-08-02).
+  if (folder) data.folder = folder;
   return CairnActor.create(data);
 };
 
 /**
- * Full re-roll of an existing hireling: a fresh random statblock (new profession,
- * day-rate, abilities, HP and gear). Keeps the name, portrait and free-form notes
- * -- the update omits them.
+ * Full re-roll of an existing NPC: a fresh random statblock (new profession,
+ * day-rate, abilities, HP and gear) AND a fresh biography (pronouns, age,
+ * traits) — this is a whole new person. Keeps the name, portrait and free-form
+ * notes -- the update omits them.
  * @param {CairnActor} actor
  * @returns {Promise<CairnActor>}
  */
-export const regenerateHireling = async (actor) => {
-  const h = await generateHireling();
+export const regenerateNpc = async (actor) => {
+  const h = await generateNpc();
   await actor.deleteEmbeddedDocuments("Item", [], { deleteAll: true, render: false });
   // createEmbeddedDocuments, never `items` inside the update: the update route
   // creates embedded documents without firing createItem hooks. Same order as
-  // rerollHirelingProfession below — create render:false, then one update renders.
+  // rerollNpcProfession below — create render:false, then one update renders.
   if (h.items?.length) await actor.createEmbeddedDocuments("Item", h.items, { render: false });
   await actor.update({
     system: {
-      // Set alongside the rate, never separately: `forHire` gates the day-rate row,
-      // so writing a rate without it stores a number the sheet will never render.
+      // Set alongside the rate, never separately: role npc AND forHire gate the
+      // day-rate row between them, so writing a rate without both stores a
+      // number the sheet will never render.
+      role: "npc",
       forHire: true,
       profession: h.profession,
       dayRate: h.rate,
-      abilities: hirelingAbilityData(h.abilities),
+      abilities: npcAbilityData(h.abilities),
       hp: { value: h.hp, max: h.hp },
+      // The biography re-rolls with everything else: a regenerate is a whole
+      // new person. The PARTIAL re-rolls below keep all three by OMISSION —
+      // profession and name are not identity, so do not add these there.
+      pronouns: h.pronouns,
+      age: h.age,
+      traits: h.traits,
       critical: false,
     },
   });
@@ -1934,16 +2241,17 @@ export const regenerateHireling = async (actor) => {
 };
 
 /**
- * Profession re-roll: swap to a different example hireling and adopt its whole
- * canonical statblock -- Profession, day-rate, abilities, HP and granted gear (a
- * 2e hireling's stats ARE its profession). Keeps the name, portrait, notes and
- * any GM-added items.
+ * Profession re-roll: swap to a different example statblock and adopt the whole
+ * of it -- Profession, day-rate, abilities, HP and granted gear (a 2e career's
+ * stats ARE its profession). Keeps the name, portrait, notes, any GM-added
+ * items, and the biography (pronouns/age/traits) — identity fields, kept by
+ * OMISSION from the update; a new job is not a new person.
  * @param {CairnActor} actor
  * @returns {Promise<CairnActor>}
  */
-export const rerollHirelingProfession = async (actor) => {
-  const h = await randomHireling(actor.system.profession);
-  const items = await buildHirelingItems(h);
+export const rerollNpcProfession = async (actor) => {
+  const h = await randomCareer(actor.system.profession);
+  const items = await buildNpcItems(h);
   const stale = actor.items
     .filter((i) => i.getFlag(FLAG_SCOPE, "grantSource") === "profession")
     .map((i) => i.id);
@@ -1951,11 +2259,12 @@ export const rerollHirelingProfession = async (actor) => {
   if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false });
   await actor.update({
     system: {
-      // See regenerateHireling: the flag travels with the rate it gates.
+      // See regenerateNpc: the pair travels with the rate it gates.
+      role: "npc",
       forHire: true,
       profession: h?.name ?? "",
       dayRate: h?.rate ?? 0,
-      abilities: hirelingAbilityData(h?.abilities ?? { STR: 10, DEX: 10, WIL: 10 }),
+      abilities: npcAbilityData(h?.abilities ?? { STR: 10, DEX: 10, WIL: 10 }),
       hp: { value: h?.hp ?? 6, max: h?.hp ?? 6 },
       critical: false,
     },
@@ -1964,14 +2273,40 @@ export const rerollHirelingProfession = async (actor) => {
 };
 
 /**
- * Re-roll only a hireling's NAME, leaving its statblock alone.
+ * Re-roll only an NPC's NAME, leaving its statblock alone.
  * @param {CairnActor} actor
  * @returns {Promise<CairnActor>}
  */
-export const rerollHirelingName = async (actor) => {
-  await actor.update({ name: await rollHirelingName() });
+export const rerollNpcName = async (actor) => {
+  await actor.update({ name: await rollNpcName() });
   for (const token of actor.getActiveTokens()) {
     await token.document.update({ name: actor.name });
   }
+  return actor;
+};
+
+/**
+ * Re-roll only an NPC's or Monster's FACTION, leaving everything else alone.
+ * The table resolves BY NAME, world first (findTableByName): a Warden's own
+ * "Warden: NPC - Faction" beats the shipped warden-npcs copy, so their
+ * campaign's faction list survives a system update. roll(), never draw() —
+ * the Warden's-tables invariant (module/config.js).
+ *
+ * The rolled text is baked through t("table.result") — the ratified
+ * monster-generation exception: a rolled faction is WORLD content authored
+ * in the session's language (identity in an English world, one-way once
+ * baked). Safe here because, unlike career, faction is not a match key:
+ * nothing re-reads it. A missing or empty table changes nothing — degrade,
+ * never blank.
+ * @param {CairnActor} actor
+ * @returns {Promise<CairnActor>}
+ */
+export const rerollNpcFaction = async (actor) => {
+  const tableName = CONFIG.Cairn?.npcGenerator?.faction;
+  const table = tableName ? await findTableByName(tableName) : null;
+  if (!table) return actor;
+  const { results } = await table.roll();
+  const raw = resultText(results[0]).trim();
+  if (raw) await actor.update({ "system.faction": t("table.result", raw) });
   return actor;
 };

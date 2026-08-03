@@ -6,7 +6,7 @@
  *   node tools/import/barebones.mjs [--dry]
  *
  * Barebones and 2e are ONE system that differ only in how a character is made
- * (see CLAUDE.md / the one-system-two-generators note), so this authors no
+ * (see CLAUDE.md, "One system, two generators"), so this authors no
  * parallel universe: Barebones gear goes into the SAME editable type packs 2e
  * uses, and a Barebones background is the SAME `background` Item type — it simply
  * leaves the richer 2e fields (archetype, names, choice tables) empty.
@@ -49,13 +49,13 @@
  * is wiped before each run; the two new pack dirs are ours entirely and are
  * rewritten whole. Every id is name-hashed, so a rerun is byte-identical.
  *
- * Run order: THIS -> marketplace.mjs -> transports.mjs.
+ * Run order: THIS -> marketplace.mjs -> mounts.mjs.
  * This must precede marketplace.mjs: the shop authors a near-duplicate of any
  * item it cannot find in the pool, so the Barebones gear has to be there first
  * or the shop stocks its own "Sewing kit" beside the real "Sewing Kit". It reads
- * the transports pack (for the Cart/Wagon rows), which is checked in, so running
- * before transports.mjs is fine except on a from-nothing rebuild -- in which case
- * rerun this afterwards.
+ * the mounts-transports Actor pack (for the Cart/Wagon rows), which is checked
+ * in, so running before mounts.mjs is fine except on a from-nothing rebuild --
+ * in which case rerun this afterwards.
  *
  * Game text: CC BY-SA 4.0, Yochai Gal (attribution required; see README).
  */
@@ -102,15 +102,17 @@ const ALIASES = new Map([
   ["tent (fits 2)", "Tent"],
 ]);
 
-// Rows that are an instruction to roll elsewhere, not an item. See CLAUDE.md —
-// importing these naively authors three nonsense items nobody notices until
-// someone rolls Acolyte.
+// Rows that are an instruction to roll elsewhere, not an item. Importing these
+// naively authors three nonsense items nobody notices until someone rolls
+// Acolyte. Resolved at generation time by `resolveStartingGear` in
+// module/character-generator.js.
 const META = new Set([
   "spellbook", "random spellbook", "scroll of random spellbook", "random additional gear",
 ]);
 
-// A thing with its own slots is a container Actor, never an embedded item, so
-// these route to the transports pack instead of being authored as gear.
+// A thing with its own slots is a connected NPC, never an embedded item, so
+// these route to the mounts-transports Actor pack instead of being authored as
+// gear.
 const TRANSPORTS = new Map([["cart", "Cart"], ["wagon", "Wagon"]]);
 
 /* ------------------------------------------------------------------ helpers */
@@ -579,18 +581,22 @@ tables.push({
     if (META.has(key)) return { text: g.name, img: "icons/svg/book.svg", range };
     if (TRANSPORTS.has(key)) {
       const nm = TRANSPORTS.get(key);
-      // Prefer the TRANSPORT document over the like-named gear item: rolling a
-      // cart here should give you a thing with slots, not a 1-slot object.
-      const dir = packDir("transports");
+      // Prefer the NPC ACTOR document over the like-named gear item: rolling a
+      // cart here should give you a thing with slots, not a 1-slot object. The
+      // Actor pack (mounts.mjs) is where a vehicle's real fields live now; the
+      // legacy transport Item is kept only as mounts.mjs's source material.
+      // Reading the PREVIOUS run's output is the same pattern the transports
+      // lookup here always used — ids are name-hashed, so they are stable.
+      const dir = packDir("mounts-transports");
       const f = fs.existsSync(dir) ? fs.readdirSync(dir).find((f) => f.startsWith(`${nm}_`)) : null;
       if (!f) {
-        // transports.mjs has not run yet (a from-nothing rebuild). Leave a text
+        // mounts.mjs has not run yet (a from-nothing rebuild). Leave a text
         // row rather than a broken reference; a rerun in order fixes it.
-        console.warn(`WARNING: no transport document for "${nm}" — run transports.mjs, then rerun this`);
+        console.warn(`WARNING: no mount/vehicle document for "${nm}" — run mounts.mjs, then rerun this`);
         return { text: nm, range };
       }
       const t = load(fs.readFileSync(path.join(dir, f), "utf8"));
-      return { text: nm, img: t?.img, pack: "air-bladder.transports", id: t?._id, range };
+      return { text: nm, img: t?.img, pack: "air-bladder.mounts-transports", id: t?._id, range };
     }
     return poolResult(g.name, range);
   }),

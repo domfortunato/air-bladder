@@ -4,7 +4,7 @@
 non-goals below are deferred, not forgotten.
 
 A GM can point Air Bladder at a folder of their own character portraits. When that
-folder holds images, new characters and hirelings draw from it and the portrait
+folder holds images, new characters and NPCs draw from it and the portrait
 picker gains a **Custom** tab; when it is empty, everything falls back to the
 shipped Jon Aspeheim art. This is a **per-GM / per-world local pool** — it does not
 travel inside shared content (see Non-goals).
@@ -41,8 +41,8 @@ travel inside shared content (see Non-goals).
   (anyone). Both folder ops are non-fatal — a host that forbids them just leaves the
   pool empty and the shipped art is used.
 - **Auto-assign** (`randomPortraitPair()`): custom-first, else the shipped pair.
-  Feeds both PC and hireling creation (they share the code path).
-- **Picker** (`_onEditPortrait`, shared by PC + hireling sheets): a
+  Feeds both PC and NPC creation (they share the code path).
+- **Picker** (`_onEditPortrait`, shared by PC + NPC sheets): a
   `[ Jon Aspeheim ] [ Custom ]` tab toggle. The Custom tab shows when there are
   custom portraits **or** the viewer is a GM (so a GM sees it even when empty, with
   an empty-state hint and a **Refresh** button). The CC BY 4.0 Aspeheim credit

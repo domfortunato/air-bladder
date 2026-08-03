@@ -50,7 +50,7 @@ try {
         for (const r of table.results ?? []) add(r.getFlag?.("air-bladder", "items"));
       }
     }
-    const hire = await fetch("/systems/air-bladder/module/hirelings-2e.json").then((r) => r.json());
+    const hire = await fetch("/systems/air-bladder/module/npc-careers-2e.json").then((r) => r.json());
     for (const h of hire.hirelings ?? hire) add(h.gear);
 
     // Preload each pack's names ONCE (calling resolveGearItem per-name would

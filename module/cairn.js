@@ -3,8 +3,11 @@ import { CairnActor } from "./actor/actor.js";
 import { CairnActorSheet } from "./actor/actor-sheet.js";
 import { CairnItem, FATIGUE_NAME, SPELLSCROLL_NAME } from "./item/item.js";
 import { CairnItemSheet } from "./item/item-sheet.js";
-import { createCharacter, createHireling, FLAG_SCOPE } from "./character-generator.js";
+import { createCharacter, createNpc, requestPcGeneration, enabledContentSources, FLAG_SCOPE } from "./character-generator.js";
 import * as characterGenerator from "./character-generator.js";
+import { createMonster } from "./monster-generator.js";
+import * as monsterGenerator from "./monster-generator.js";
+import { generateFaction } from "./faction-generator.js";
 import { importKettlewrightCharacter } from "./kettlewright-import.js";
 import * as kettlewrightImport from "./kettlewright-import.js";
 import { Cairn } from "./config.js";
@@ -12,8 +15,8 @@ import { CairnCombat } from "./combat.js";
 import { createCairnMacro, rollItemMacro } from "./macros.js";
 import { Damage } from "./damage.js";
 import { registerSettings, SETTINGS_NS, migrateSettingsNamespace } from "./settings.js";
-import { iconForTransport } from "./icons.js";
-import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS } from "./data-models.js";
+import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS, deriveNpcRole } from "./data-models.js";
+import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { loadContentOverlay, t, translationOf, contentLocalized } from "./i18n-content.js";
 
 Hooks.once("init", async function () {
@@ -22,6 +25,7 @@ Hooks.once("init", async function () {
     CairnItem,
     config: Cairn,
     characterGenerator: characterGenerator,
+    monsterGenerator: monsterGenerator,
     kettlewrightImport: kettlewrightImport,
     rollItemMacro,
   };
@@ -185,6 +189,255 @@ Hooks.on("setup", () => {
 // lets a language switch re-apply the new label, and lets the original name come
 // back if the setting is turned off. Idempotent: it writes only when the stored
 // name and the wanted name actually differ.
+/**
+ * GM-side broker for the Actors a PLAYER's character generation grants.
+ *
+ * `Actor.create` needs ACTOR_CREATE, which players do not have, and granting it
+ * world-wide to make one background work would let players create any actor at
+ * all. So the player emits and exactly one GM client writes. This only works at
+ * all because `system.json` declares `"socket": true` — the server binds no
+ * handler for `system.<id>` without it and silently discards every emit, which
+ * is exactly how this shipped doing nothing (review #5, critical).
+ *
+ * THIS IS A PRIVILEGE BOUNDARY AND IS TREATED AS ONE. Anything arriving here was
+ * composed by a client we do not control: a player can emit whatever they like on
+ * this socket, including a payload that is not a container at all. So the payload
+ * is not trusted, it is REBUILT — only known fields are copied, the type is
+ * forced, and the connection must point at an actor the SENDER can already
+ * modify. Two identity rules make that check real (both learned from review #5,
+ * which found the first version reading the requester out of the attacker's own
+ * payload — a "guard" any player could satisfy with a GM's public user id,
+ * because testUserPermission short-circuits to OWNER for any GM):
+ *
+ *   - WHO asked is `senderId`, the handler's second argument. Foundry's server
+ *     re-emits a custom-socket event as (payload, this.user.id) with the id
+ *     taken from the authenticated session — it is the one thing about the
+ *     message a client cannot forge. Nothing inside `msg` names the sender.
+ *   - WHAT it attaches to must be a WORLD Actor. `fromUuid` resolves more than
+ *     those: an embedded Item resolves and delegates getUserLevel to its parent
+ *     (so "OWNER" passes), and a compendium doc resolves too. Either would put
+ *     a nonsense uuid in `connectedTo` on a document the Warden's client signed.
+ *
+ * Registered at init, not ready: the client buffers inbound socket events from
+ * connect and REPLAYS them one line before the ready hook fires, so a listener
+ * registered on ready misses anything a player sent while the GM's world was
+ * still loading. `game.socket` exists from Game.connect, well before init ends.
+ */
+
+/** The only roles a grant payload may claim — the non-keeping ones. A payload
+ *  saying anything else falls back to deriving from its class/legacy fields,
+ *  clamped to `container` if even that derives a keeper. */
+const GRANTABLE_ROLES = ["mount", "transport", "container"];
+const grantableRole = (sys) => {
+  const claimed = String(sys?.role ?? "");
+  if (GRANTABLE_ROLES.includes(claimed)) return claimed;
+  const derived = deriveNpcRole(sys ?? {});
+  return GRANTABLE_ROLES.includes(derived) ? derived : "container";
+};
+
+/** Requesters with a generatePC currently running on this client. One request
+ *  per player at a time: generation takes seconds, and without this a doubled
+ *  click (or a hostile loop) has the Warden's client minting a PC per emit. */
+const pcGenerationInFlight = new Set();
+
+Hooks.once("init", () => {
+  game.socket.on(`system.${game.system.id}`, async (msg, senderId) => {
+    // A player's connect/break asks the active GM's client to apply the
+    // ownership shape their own client is forbidden to write. NOTHING in the
+    // message is trusted: the sync flag on the document is the authorization
+    // (only the child's owners can have set it), and syncPendingOwnership
+    // recomputes the shape from the document's own connectedTo. A flagless
+    // uuid is a no-op; an embedded or compendium uuid is refused the same way
+    // grantActors refuses one.
+    //
+    // `senderId` is passed as well now — not as the authorization, which is
+    // still the flag, but so the BOTH-ENDS rule can be re-checked where a
+    // crafted client cannot skip it. It is the one field the server
+    // authenticates. See syncPendingOwnership for what it refuses and why a
+    // refusal must clear the flag.
+    if (msg?.action === "ownershipSync") {
+      if (game.users.activeGM !== game.user) return;
+      const child = await fromUuid(msg.childUuid);
+      if (!(child instanceof getDocumentClass("Actor")) || child.pack || child.parent) return;
+      await syncPendingOwnership(child, { requester: game.users.get(senderId) ?? null });
+      return;
+    }
+    // A permission-less player's Generate PC. The payload carries NOTHING and
+    // nothing in it is read: who gets the character is senderId, the one fact
+    // a client cannot forge. The requester is stamped OWNER in the CREATE
+    // data (createActorWithCharacter threads it through), so a background's
+    // granted mule derives its ownership from a keeper that already names
+    // them. GM senders are refused — they hold the direct button, and a
+    // request claiming to be one could only be console-crafted.
+    if (msg?.action === "generatePC") {
+      if (game.users.activeGM !== game.user) return;
+      const user = game.users.get(senderId);
+      if (!user || user.isGM) return;
+      if (pcGenerationInFlight.has(senderId)) return;
+      pcGenerationInFlight.add(senderId);
+      try {
+        // Everything below is inside a try that CATCHES, not merely a finally.
+        // It was a bare try/finally, so a throw anywhere in generation — a pack
+        // that would not open, a background whose grant failed — released the
+        // in-flight lock and then propagated out of an async socket handler,
+        // where nothing awaits it. No emit was ever sent, so the player sat on
+        // "rolling your character…" for the rest of the session with no way to
+        // ask again: the lock was clear, but they had no reason to press
+        // anything. The comment below already called that outcome unacceptable
+        // for the null case; a throw is the same outcome by a worse route.
+        // The wire names a content source (the player answered the picker on
+        // their own client — a prompt HERE would hang their request on this
+        // screen's modal), but the wire is not trusted: anything not currently
+        // enabled clamps to the only enabled source, or to 2e under the same
+        // everything-off kindness promptContentSource applies. A source is
+        // always passed, so generateCharacter never prompts on this client.
+        const enabled = enabledContentSources().map((s) => s.key);
+        const source = enabled.includes(msg.source) ? msg.source : (enabled[0] ?? "2e");
+        const actor = await createCharacter({
+          source,
+          ownership: { [senderId]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
+        });
+        // A null actor is a real outcome (the Warden dismissed the
+        // content-source picker); answer anyway, or the player's "rolling
+        // your character…" toast is the last they ever hear of it.
+        if (actor) {
+          ui.notifications.info(game.i18n.format("CAIRN.Notify.PcGeneratedFor", {
+            name: actor.name, player: user.name,
+          }));
+        }
+        game.socket.emit(`system.${game.system.id}`, {
+          action: "pcGenerated", userId: senderId, uuid: actor?.uuid ?? null,
+        });
+      } catch (err) {
+        console.error(`Air Bladder | generatePC failed for ${user.name}:`, err);
+        ui.notifications.error(game.i18n.format("CAIRN.Notify.PcGenFailedFor", { player: user.name }));
+        // `failed` distinguishes this from the Warden dismissing the picker:
+        // the player is told to ask again, not told it was cancelled.
+        game.socket.emit(`system.${game.system.id}`, {
+          action: "pcGenerated", userId: senderId, uuid: null, failed: true,
+        });
+      } finally {
+        pcGenerationInFlight.delete(senderId);
+      }
+      return;
+    }
+    // The answer to a generatePC, addressed by userId. Only a GM client ever
+    // sends one — an emit from anyone else is a player trying to pop windows
+    // on another player's screen, and is dropped on the sender check.
+    if (msg?.action === "pcGenerated") {
+      if (msg.userId !== game.user.id) return;
+      if (!game.users.get(senderId)?.isGM) return;
+      if (!msg.uuid) {
+        ui.notifications.warn(game.i18n.localize(msg.failed
+          ? "CAIRN.Notify.PcGenFailed"
+          : "CAIRN.Notify.PcGenCancelled"));
+        return;
+      }
+      // The custom emit can outrun the document broadcast that carries the
+      // actor itself — poll briefly rather than racing it.
+      for (let i = 0; i < 20; i++) {
+        const actor = await fromUuid(msg.uuid);
+        if (actor) { actor.sheet?.render(true); return; }
+        await new Promise((r) => setTimeout(r, 150));
+      }
+      return;
+    }
+    if (msg?.action !== "grantActors") return;
+    // Exactly ONE client acts, or every logged-in GM mints its own copy.
+    if (game.users.activeGM !== game.user) return;
+
+    const owner = await fromUuid(msg.ownerUuid);
+    const user = game.users.get(senderId);
+    if (!owner || !user) return;
+    // A world Actor, not whatever else the uuid resolved to.
+    if (!(owner instanceof getDocumentClass("Actor")) || owner.pack || owner.parent) {
+      console.warn(`Air Bladder | refused a grant request from ${user.name}: ${msg.ownerUuid} is not a world Actor`);
+      return;
+    }
+    // The SENDER must already own the character they are attaching to.
+    if (!owner.testUserPermission(user, "OWNER")) {
+      console.warn(`Air Bladder | refused a grant request from ${user.name}: not an owner of ${owner.name}`);
+      return;
+    }
+    // ...and the target must be able to KEEP. Alice owns the mule her horse
+    // grant minted (ownership is copied), so without this she could aim a
+    // second request at the mule and chain-nest through the Warden's client.
+    if (!owner.canKeepConnected) {
+      console.warn(`Air Bladder | refused a grant request from ${user.name}: ${owner.name} cannot keep connected actors`);
+      return;
+    }
+    // A background grants a handful; anything more is not a background. And
+    // never past the connection ceiling: this handler runs on the WARDEN'S
+    // client, so it is the wall — the matching clamp in grantContainers runs in
+    // the player's browser, where a crafted message ignores it. Clamped rather
+    // than refused so a request that is partly grantable grants that part; the
+    // console names what was cut, because a wall that trims silently reads as
+    // "generation lost my mule".
+    const room = Math.min(8, connectionHeadroom(owner));
+    const asked = Array.isArray(msg.payloads) ? msg.payloads : [];
+    if (asked.length > room) {
+      console.warn(`Air Bladder | grant request from ${user.name} clamped: ${owner.name} has room for ${room} of ${asked.length} (connection limit)`);
+    }
+    const payloads = asked.slice(0, room);
+    // `img` comes off the wire into a FilePathField, which refuses an unknown
+    // extension by THROWING — and createDocuments below is one batched call, so
+    // a single malformed path rejected every grant in the request, not the one
+    // payload carrying it. A path we cannot recognise is dropped instead, and
+    // the document takes Foundry's own default art. Extension only: whether the
+    // file EXISTS is the server's business, and a broken-but-plausible path
+    // renders as a missing image rather than losing the actor.
+    const imageOf = (v) => {
+      const s = String(v ?? "");
+      const ext = s.split("?")[0].split(".").pop()?.toLowerCase() ?? "";
+      return ext in CONST.IMAGE_FILE_EXTENSIONS ? s : "";
+    };
+    const clean = payloads.map((p) => ({
+      type: "npc",                                   // forced, never taken from the wire
+      name: String(p?.name ?? "").slice(0, 120),
+      img: imageOf(p?.img),
+      prototypeToken: { texture: { src: imageOf(p?.img) } },
+      system: {
+        connectedTo: owner.uuid,                     // forced to the verified owner
+        slots: Number(p?.system?.slots) || 0,
+        description: String(p?.system?.description ?? ""),
+        containerClass: String(p?.system?.containerClass ?? ""),
+        // Grants mint beasts and things, never people: a role that can KEEP
+        // would let a crafted message mint a keeper and chain further grants
+        // through it — the same hole the canKeepConnected check above closes
+        // for the TARGET, closed here for what the grant creates. Anything
+        // else on the wire derives from the class, as a pre-roles payload did.
+        role: grantableRole(p?.system),
+        cost: Number(p?.system?.cost) || 0,
+        generationEnabled: false,
+        ...(p?.system?.hp ? { hp: { value: Number(p.system.hp.value) || 0, max: Number(p.system.hp.max) || 0 } } : {}),
+        ...(p?.system?.armorOverride != null ? { armorOverride: Number(p.system.armorOverride) || 0 } : {}),
+      },
+      // Only the one flag generation uses to find its own grants later.
+      flags: { [FLAG_SCOPE]: { grantSource: String(p?.flags?.[FLAG_SCOPE]?.grantSource ?? "background") } },
+    })).filter((p) => p.name);
+    if (!clean.length) return;
+
+    // Caught, not left to reject an async socket handler nobody awaits. A throw
+    // here loses the player's whole background grant with no console line and
+    // no notification on either screen — the same silence generatePC used to
+    // have, one handler down.
+    try {
+      const made = await getDocumentClass("Actor").createDocuments(clean);
+      // The CONNECTED ownership shape, not the old wholesale copy of the
+      // owner's ownership: {default: OBSERVER, the keeper's players: OWNER}.
+      // This client is the active GM's, so the write cannot be refused.
+      for (const a of made) {
+        await a.update({
+          ownership: foundry.data.operators.ForcedReplacement.create(connectedOwnershipShape(owner)),
+        });
+      }
+    } catch (err) {
+      console.error(`Air Bladder | grant request from ${user.name} for ${owner.name} failed:`, err);
+      ui.notifications.error(game.i18n.format("CAIRN.Notify.GrantFailedFor", { player: user.name }));
+    }
+  });
+});
+
 Hooks.once("ready", async () => {
   if (!game.user.isGM) return;
   if (game.users.activeGM && game.users.activeGM !== game.user) return;
@@ -225,36 +478,14 @@ Hooks.once("ready", async () => {
   }
 });
 
-// The Foundry-core art the system used to assign to container/transport actors
-// (the old CONTAINER_ART gallery + the default silhouette). A container still
-// wearing one of these was made before the class-icon change; anything else — a
-// systems/air-bladder/icons/ path or a custom upload — was chosen deliberately.
-const LEGACY_CONTAINER_ART = new Set([
-  "icons/svg/mystery-man.svg",
-  "icons/svg/item-bag.svg",
-  "icons/containers/bags/pack-leather-brown.webp",
-  "icons/containers/bags/pack-simple-leather-tan.webp",
-  "icons/containers/bags/sack-cloth-tan.webp",
-  "icons/containers/bags/satchel-leather-brown.webp",
-  "icons/containers/chest/chest-worn-oak-tan.webp",
-  "icons/containers/chest/chest-oak-steel-brown.webp",
-  "icons/containers/barrels/barrel-chestnut-brown.webp",
-  "icons/containers/boxes/crate-heavy-brown.webp",
-  "icons/environment/creatures/horse-brown.webp",
-  "icons/environment/creatures/horse-tan.webp",
-  "icons/environment/creatures/horse-white.webp",
-  "icons/environment/settlement/wagon.webp",
-  "icons/environment/settlement/wagon-black.webp",
-  "icons/environment/settlement/mine-cart-rocks-red.webp",
-  "icons/environment/settlement/ship.webp",
-]);
+/* The "container art migration" phase lived here (a LEGACY_CONTAINER_ART set of
+   Foundry core paths, remapped to our class icons on every container-TYPED
+   actor). It went with the type on 2026-07-31: it selected on
+   `a.type === "container"`, so with the type retired it could only ever match
+   nothing. An npc that came through the built type migration already carries a
+   systems/air-bladder/icons/ path, which was never in the set anyway. */
 
-// One-time-feeling but idempotent migration: existing transport/container actors
-// keep the image they were CREATED with, so the class-icon change never reached
-// them. Remap ONLY the known-old defaults (above) to the new class icon by
-// name/kind, so a hand-picked or uploaded portrait is left untouched. Once
-// remapped the img is a systems/air-bladder/icons/ path — no longer in the set —
-// so re-runs are no-ops. GM-only, single-writer, like the rename above.
+// GM-only, single-writer, like the rename above.
 Hooks.once("ready", async () => {
   if (!game.user.isGM) return;
   if (game.users.activeGM && game.users.activeGM !== game.user) return;
@@ -265,7 +496,7 @@ Hooks.once("ready", async () => {
   // in a migration became a bare unhandled rejection AND silently skipped every phase
   // after it — custom portraits would simply stop working with no visible cause and
   // nothing in the log tying it to the migration. Failing one phase must not cost the
-  // others; all three are independent.
+  // others; every phase is independent of every other.
   const phase = async (label, fn) => {
     try {
       await fn();
@@ -274,24 +505,24 @@ Hooks.once("ready", async () => {
     }
   };
 
-  await phase("container art migration", async () => {
-    const updates = game.actors
-      .filter((a) => a.type === "container" && LEGACY_CONTAINER_ART.has(a.img))
-      .map((a) => {
-        const art = iconForTransport(a.name, a.system?.transportKind);
-        return { _id: a.id, img: art, "prototypeToken.texture.src": art };
-      });
-    if (updates.length) {
-      await Actor.updateDocuments(updates);        // one batch, so it can't half-finish
-      console.log(`Air Bladder | remapped ${updates.length} container(s) to class icons`);
-    }
-  });
-
   await phase("icon .png -> .svg migration", migrateIconsToSvg);
 
   await phase("spellscroll -> flagged spellbook migration", migrateScrollsToSpellbooks);
 
-  await phase("hireling forHire migration", migrateHirelingsForHire);
+  await phase("npc role migration", migrateNpcRoles);
+
+  await phase("connections flatten + ownership migration", flattenConnections);
+
+  // Stray sync flags: a player can connect or break while NO GM client is
+  // open, and the flag then waits for one. Every GM load processes whatever
+  // accumulated — NOT marker-gated, because it is not a migration; it is the
+  // relay's catch-up half, and it must run every time. Idempotent and cheap:
+  // a flagless world is one pass over game.actors reading a flag.
+  await phase("pending ownership sync sweep", async () => {
+    for (const a of game.actors) {
+      if (a.getFlag(FLAG_SCOPE, OWNERSHIP_SYNC_FLAG) !== undefined) await syncPendingOwnership(a);
+    }
+  });
 
   // Custom character portraits: make sure the GM's folder exists, then refresh the
   // cached image list so players (who cannot scan folders) see the current set.
@@ -449,59 +680,156 @@ const migrateScrollsToSpellbooks = async () => {
   if (count) console.log(`Air Bladder | converted ${count} spellscroll(s) to flagged spellbooks`);
 };
 
+
 /**
- * `forHire` gates the day-rate row on the merged NPC sheet, and it was born
- * `false`. The field arrived with the Hireling->NPC fold and nothing writes it
- * except `hirelingToActorData` on CREATE — so every hireling already living in a
- * 0.1.7 world initialises `false` on upgrade and its stored `system.dayRate`
- * silently stops rendering. The value is not lost (it sits untouched in `_source`),
- * which is exactly what makes it hard to notice: the sheet just quietly drops a row.
+ * Persist `system.role` on every npc-typed world actor, whatever it currently
+ * derives to. ONE migration doing what two used to attempt: it stamps the role
+ * on pre-roles documents (which store `forHire`/`inanimate` and no role at all)
+ * AND converts `role: "hireling"`, retired from NPC_ROLES on 2026-08-01, into
+ * the `npc` that `NpcData.migrateData` already substitutes on every read.
  *
- * The general rule this is an instance of: **a new field whose default contradicts
- * what every existing document should have needs a migration.** Adding one to the
- * schema is not enough, and a fresh-world validation cannot see the difference.
+ * **It selects on NOTHING, and that is the entire design.** Both states it fixes
+ * are invisible from a running client:
  *
- * `hireling` documents are the whole population by construction — `npc` had no
- * `dayRate` field before the fold, so an npc cannot have carried one out of 0.1.7.
- * The `dayRate` clause exists for npcs re-rolled on an unreleased `dev` build,
- * where Roll NPC wrote a rate without the flag (fixed at the same time in
- * character-generator.js).
+ *   - `migrateData` rewrites `_source` during construction, so a document stored
+ *     as "hireling" and one stored as "npc" read identically.
+ *   - `cleanData` PRUNES unknown keys out of `_source`
+ *     (`common/data/fields.mjs` `#cleanKeys`), so a legacy `inanimate` sitting in
+ *     the database is not there to be found either.
  *
- * World actors only. An unlinked token's delta stores DIFFERENCES from its base
- * actor and `forHire` never existed, so no delta can be carrying one — flipping the
- * base actor is enough for its tokens to follow. That is why this needs none of the
- * scene-token walk the spellscroll migration above does.
+ * That second one killed its predecessor. `migrateNpcRoles` selected on
+ * `"inanimate" in _source.system` and therefore matched **nothing, ever** — it
+ * ran to completion, logged nothing, and set its marker, while the key it was
+ * looking for sat in the database untouched. Nobody could see it, because the
+ * probe that covered it read `_source` too and read the same pruned object. It
+ * only surfaced once the migration probe started planting state through the raw
+ * socket and reading the raw server record back. A selection is only as good as
+ * the view it selects through; this one has no selection to be wrong.
  *
- * Runs ONCE, gated on a stored marker — NOT on the state it writes, which is what it
- * used to do under a comment claiming "idempotent by construction: a migrated actor no
- * longer matches `forHire !== true`". That claim was inherited from the three sibling
- * migrations above, where it is true because their "before" value is unreachable once
- * migrated: a remapped container is no longer one of the legacy art paths, a `.svg`
- * icon is never `.png` again, a flagged spellbook stays flagged. `forHire` is a
- * CHECKBOX on the NPC sheet (npc-sheet.html, `submitOnChange`), and `dayRate` is not
- * cleared when it is unticked — so unticking put the actor straight back into the
- * selection set and the next world load ticked it again, silently. For every pre-fold
- * `type: "hireling"` document, which is the entire population this exists for, "For
- * hire" could not be turned off at all. Observed 2026-07-30: untick through the sheet,
- * reload, it is back on.
+ * Blind is affordable because of what `{diff: false}` does, measured against
+ * 14.365 rather than assumed:
  *
- * The marker is set even when nothing matched. A fresh world has no hirelings to
- * migrate and must still record that the one-shot has happened, or it is not one-shot.
+ *   - It skips the empty-diff `continue` in `client/data/client-backend.mjs:262`,
+ *     so the key is TRANSMITTED even though the client can see no change. A
+ *     value diverged in memory (updateSource) and then written this way lands on
+ *     the server and survives a reload — which is precisely this migration's
+ *     shape, and it was confirmed that way before this was written.
+ *   - The server still answers with a real diff, so a document that already held
+ *     the same role is echoed back as `{_id}` alone: no write, no `modifiedTime`
+ *     bump. Re-stamping every npc costs nothing on the ones that did not need it.
+ *
+ * Only `role`. `forHire` is deliberately NOT written: its schema initial is
+ * `true`, which is exactly what the shim gives a converted hireling, so storing
+ * it would touch every npc, mount, transport, container and monster in the world
+ * to record a value they already read. The one case that needs it stored — a
+ * Warden unticking the box — writes itself through the sheet. A retired
+ * `inanimate` is likewise left where it lies: with `role` now stored beside it,
+ * `migrateData`'s guard never looks at it again, so it is inert.
+ *
+ * Gated on a marker, not on state — role is a pick-list, so any state test would
+ * re-stamp whatever the Warden changed away from (untick, reload, it is back).
+ * The marker is set even when nothing matched, and only after the writes land:
+ * a throw leaves it unset so a failed migration is retried rather than recorded
+ * as done.
+ *
+ * World actors only, like every sibling phase. An unlinked token's delta stores
+ * DIFFERENCES from its base actor, so flipping the base is enough — no
+ * scene-token walk (see the spellscroll migration above for the shape that DOES
+ * need one). Compendium documents are read through the same shim.
  */
-const migrateHirelingsForHire = async () => {
-  if (game.settings.get(SETTINGS_NS, "forhire-migrated")) return;
+const migrateNpcRoles = async () => {
+  if (game.settings.get(SETTINGS_NS, "roles-restamped")) return;
   const updates = game.actors
-    .filter((a) => ["hireling", "npc"].includes(a.type)
-      && a.system?.forHire !== true
-      && (a.type === "hireling" || Number(a.system?.dayRate) > 0))
-    .map((a) => ({ _id: a.id, "system.forHire": true }));
+    .filter((a) => ["npc", "hireling"].includes(a.type))
+    .map((a) => ({ _id: a.id, "system.role": a.system.role }));
   if (updates.length) {
-    await Actor.updateDocuments(updates);          // one batch, so it can't half-finish
-    console.log(`Air Bladder | marked ${updates.length} hireling(s) as for hire`);
+    await Actor.updateDocuments(updates, { diff: false });   // one batch, so it can't half-finish
+    console.log(`Air Bladder | stamped role on ${updates.length} npc(s)`);
   }
-  // Only after the writes land: a throw above leaves the marker unset, so a failed
-  // migration is retried next load rather than being recorded as done.
-  await game.settings.set(SETTINGS_NS, "forhire-migrated", true);
+  await game.settings.set(SETTINGS_NS, "roles-restamped", true);
+};
+
+/**
+ * Flatten the connection graph and normalize connection-driven ownership —
+ * Phase B of the 2026-08-01 redesign, running after the role re-stamp above.
+ *
+ * The FLAT rule ("every `connectedTo` points at a character") shipped with
+ * the code the day before this migration; the data a world accumulated under
+ * Round 2 can still say PC → hireling → sack. For each npc/hireling-typed
+ * world actor with a link, walk UP from its immediate keeper with a seen-set:
+ *
+ *   - immediate keeper is a character           → already flat, keep it;
+ *   - the chain ROOTS in a character            → re-point at that root — the
+ *     sack a hireling carried belongs to the hireling's PC, which is what the
+ *     table always meant by it;
+ *   - npc root / dangling uuid / cycle          → clear the link and stamp
+ *     `formerlyBelongedTo` with the immediate keeper's name when it still
+ *     resolves — the same labelled-loot-pile shape every other break leaves.
+ *
+ * Ownership rides the same batch, because the shape needs the FINAL keeper
+ * and only the flatten knows it (the reason this is ONE phase, ONE marker):
+ * a connected non-monster takes the connected shape from its final keeper; an
+ * unconnected non-monster whose STORED default is NONE is raised to LIMITED —
+ * and never lowered from anything else, because a default the Warden raised
+ * is a grant, and fighting the Warden's grants is exactly what the
+ * transitions-only rule forbids. Monsters are untouched throughout.
+ *
+ * The CAP is deliberately NOT enforced here: a PC may come out of the flatten
+ * keeping more than maxConnections(). The cap gates NEW connections only —
+ * a migration never destroys data.
+ *
+ * World actors only, one batched update, marker set only after success, like
+ * every sibling phase. Unlinked-token deltas inherit from their base actor;
+ * no scene-token walk (see migrateNpcRoles' docblock for why not).
+ */
+const flattenConnections = async () => {
+  if (game.settings.get(SETTINGS_NS, "connections-migrated")) return;
+  const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+  const ops = foundry.data.operators;
+  const updates = [];
+  for (const a of game.actors) {
+    if (!["npc", "hireling"].includes(a.type)) continue;
+    const u = { _id: a.id };
+    let keeper = null;
+    const link = a.system.connectedTo || "";
+    if (link) {
+      const immediate = game.actors.find((x) => x.uuid === link);
+      // Walk up until a character, a chain end, or a repeat. The seen-set is
+      // what keeps a pre-existing A→B→A corruption from hanging the phase.
+      let cur = immediate;
+      const seen = new Set();
+      while (cur && cur.type !== "character") {
+        if (seen.has(cur.uuid)) { cur = null; break; }   // cycle → treat as rootless
+        seen.add(cur.uuid);
+        const up = cur.system?.connectedTo || "";
+        cur = up ? game.actors.find((x) => x.uuid === up) : null;
+      }
+      if (immediate?.type === "character") {
+        keeper = immediate;
+      } else if (cur?.type === "character") {
+        keeper = cur;
+        u["system.connectedTo"] = cur.uuid;
+      } else {
+        u["system.connectedTo"] = "";
+        // The stored formerlyBelongedTo survives when the immediate keeper is
+        // gone — a dangling uuid preserves nothing worth overwriting it with.
+        if (immediate) u["system.formerlyBelongedTo"] = immediate.name;
+      }
+    }
+    if (a.system.role !== "monster") {
+      if (keeper) {
+        u.ownership = ops.ForcedReplacement.create(connectedOwnershipShape(keeper));
+      } else if ((a._source.ownership?.default ?? 0) === L.NONE) {
+        u["ownership.default"] = L.LIMITED;
+      }
+    }
+    if (Object.keys(u).length > 1) updates.push(u);
+  }
+  if (updates.length) {
+    await Actor.updateDocuments(updates);                 // one batch, so it can't half-finish
+    console.log(`Air Bladder | flattened/ownership-normalized ${updates.length} connected actor(s)`);
+  }
+  await game.settings.set(SETTINGS_NS, "connections-migrated", true);
 };
 
 // Two hooks used to tag every dialog world-wide with `.cairn-dialog` so
@@ -586,6 +914,17 @@ Hooks.on("renderDialogV2", function abSpellscrollTypeOption(dialog, element) {
   });
 });
 
+/* `abHideHirelingType` stood here and is GONE (2026-08-02). It removed the
+   retired `hireling` TYPE from core's Create Actor dialog by surgery on the
+   rendered DOM — necessary while core's type-picker rendered at all, because a
+   registered subtype is always offered and there is no manifest flag to hide
+   one. `CairnActor.createDialog` (actor.js) replaces that dialog with the role
+   SWITCHBOARD now, so core's picker never renders on the world path and there
+   is no option to remove; the one fallback that still shows it (a compendium
+   target) is restricted to real types, which excludes hireling structurally.
+   The type itself stays registered and aliased to NpcData — ids are immutable
+   — exactly as before. */
+
 /**
  * Group and compact the system's rows in the GM's Configure Settings tab.
  *
@@ -610,6 +949,36 @@ Hooks.on("renderSettingsConfig", (app, element) => {
     header.textContent = game.i18n.localize(titleKey);
     group.parentNode.insertBefore(header, group);
   }
+
+  // Core's settings search (CategoryBrowser._onSearchFilter,
+  // category-browser.mjs:215-248) toggles `hidden` on .form-group elements and
+  // nothing else, so a query would leave these <h3>s hovering over whatever
+  // rows survived from OTHER groups (review #6). React to core's toggles
+  // instead of trying to hook its private filter: a header stays visible
+  // exactly while some .form-group between it and the next header still is.
+  // Hiding via the `hidden` property rides the same core rule the rows use
+  // ([hidden] { display: none !important }, foundry2.css:5698).
+  const headers = [...root.querySelectorAll(".cairn-settings-header")];
+  if (headers.length) {
+    const syncHeaders = () => {
+      for (const header of headers) {
+        let anyVisible = false;
+        for (let el = header.nextElementSibling; el && !el.classList.contains("cairn-settings-header"); el = el.nextElementSibling) {
+          if (el.classList.contains("form-group") && !el.hidden) { anyVisible = true; break; }
+        }
+        header.hidden = !anyVisible;
+      }
+    };
+    // The observer dies with the rendered DOM; setting `hidden` on the <h3>s
+    // re-fires it once, recomputes the same answer and settles.
+    const observer = new MutationObserver((mutations) => {
+      if (mutations.some((m) => m.target.classList?.contains("form-group"))) syncHeaders();
+    });
+    for (const parent of new Set(headers.map((h) => h.parentNode))) {
+      observer.observe(parent, { subtree: true, attributeFilter: ["hidden"] });
+    }
+  }
+
   root.querySelectorAll(`[name^="${SETTINGS_NS}."]`).forEach((input) => {
     input.closest(".form-group")?.classList.add("cairn-setting-compact");
   });
@@ -632,11 +1001,17 @@ Hooks.on("renderSettingsConfig", (app, element) => {
     syncBarebonesSubs();
   }
 
-  // Bold the source name within the two Character Generation labels (Foundry
+  // Bold the source name within the three Character Generation labels (Foundry
   // renders setting names as plain text, so we do it here with text nodes).
-  const boldPhrase = (key, phrase) => {
+  // The phrase is LOCALIZED, not an English literal (review #6): the label this
+  // searches is the translated setting name, so an English phrase only ever
+  // matched where a translator happened to keep the product name verbatim. A
+  // language whose label drops the phrase still degrades to no bold — the
+  // i < 0 guard below — never to a wrong one.
+  const boldPhrase = (key, phraseKey) => {
     const label = root.querySelector(`[name="${SETTINGS_NS}.${key}"]`)?.closest(".form-group")?.querySelector("label");
     if (!label) return;
+    const phrase = game.i18n.localize(phraseKey);
     const text = label.textContent;
     const i = text.indexOf(phrase);
     if (i < 0) return;
@@ -648,18 +1023,25 @@ Hooks.on("renderSettingsConfig", (app, element) => {
       document.createTextNode(text.slice(i + phrase.length)),
     );
   };
-  boldPhrase("content-source-2e", "Cairn 2e");
-  boldPhrase("content-source-custom", "Custom 2e");
-  boldPhrase("content-source-barebones", "Cairn Barebones");
+  boldPhrase("content-source-2e", "CAIRN.ContentSource2e");
+  boldPhrase("content-source-custom", "CAIRN.ContentSourceCustom");
+  boldPhrase("content-source-barebones", "CAIRN.ContentSourceBarebones");
 });
 
 Hooks.on("renderActorDirectory", (app, html) => {
+  // Core's own Create Actor button goes (2026-08-02, ruled: "unnecessary and
+  // an invitation for trouble") — every creation path below carries a complete
+  // workflow instead of core's bare type-picker. The folder "+" STAYS: it
+  // routes through CairnActor.createDialog, which is the role switchboard now.
+  // Removal runs per-render on THIS directory root, so the docked and
+  // popped-out instances are both covered.
+  html.querySelector(".directory-header .create-entry")?.remove();
   if (game.user.can("ACTOR_CREATE")) {
     // Scope the "already injected?" test to THIS directory, not the document.
     // Foundry renders a second, independent ActorDirectory when the tab is
     // popped out, and a document-wide getElementById sees the docked one's
     // button and skips injection -- so the popped-out window had no Generate,
-    // Hireling or Import buttons at all. The id is duplicated across the two
+    // NPC or Import buttons at all. The id is duplicated across the two
     // windows by design; the class is what the click handlers below bind to.
     if (!html.querySelector("#cairn-character-gen-button")) {
       const section = document.createElement("header");
@@ -674,9 +1056,14 @@ Hooks.on("renderActorDirectory", (app, html) => {
           <button class="create-character-generator-button"><i class="fas fa-dice-d6"></i>${game.i18n.localize(
           "CAIRN.CharacterGenerator"
         )}</button>
-          <button class="create-hireling-button"><i class="fas fa-user-plus"></i>${game.i18n.localize(
-          "CAIRN.CreateHireling"
+          <button class="create-npc-button"><i class="fas fa-user-plus"></i>${game.i18n.localize(
+          "CAIRN.CreateNpc"
         )}</button>
+          ${game.user.isGM ? `<button class="create-monster-button"><i class="fas fa-dragon"></i>${game.i18n.localize("CAIRN.CreateMonster")}</button>` : ""}
+          <button class="create-mount-button"><i class="fas fa-horse"></i>${game.i18n.localize("CAIRN.CreateMount")}</button>
+          <button class="create-transport-button"><i class="fas fa-cart-flatbed"></i>${game.i18n.localize("CAIRN.CreateTransport")}</button>
+          <button class="create-container-button"><i class="fas fa-box-open"></i>${game.i18n.localize("CAIRN.CreateContainer")}</button>
+          ${game.user.isGM ? `<button class="create-faction-button"><i class="fas fa-flag"></i>${game.i18n.localize("CAIRN.CreateFaction")}</button>` : ""}
           ${game.user.isGM ? `<button class="import-kettlewright-button"><i class="fas fa-file-import"></i>${game.i18n.localize("CAIRN.KWImport.Button")}</button>` : ""}
         </div>
         `
@@ -688,10 +1075,41 @@ Hooks.on("renderActorDirectory", (app, html) => {
           if (actor) actor.sheet.render(true);
         });
       section
-        .querySelector(".create-hireling-button")
+        .querySelector(".create-npc-button")
         .addEventListener("click", async () => {
-          const actor = await createHireling();
+          const actor = await createNpc();
           if (actor) actor.sheet.render(true);
+        });
+      // The three thing roles share one name+Type workflow
+      // (CairnActor.createThing): pre-filtered kinds plus Other, minting an
+      // unconnected npc of that role. ACTOR_CREATE-gated like Create NPC —
+      // players who may create actors may create the things they own.
+      for (const [cls, role] of [
+        ["create-container-button", "container"],
+        ["create-mount-button", "mount"],
+        ["create-transport-button", "transport"],
+      ]) {
+        section.querySelector(`.${cls}`)?.addEventListener("click", async () => {
+          const actor = await CairnActor.createThing(role);
+          if (actor) actor.sheet.render(true);
+        });
+      }
+      // Warden-only: monsters are the Warden's to mint. The tier picker inside
+      // createMonster is dismissible, and a dismiss creates nothing.
+      section
+        .querySelector(".create-monster-button")
+        ?.addEventListener("click", async () => {
+          const actor = await createMonster();
+          if (actor) actor.sheet.render(true);
+        });
+      // Warden-only: one click, one faction dossier (a JournalEntry — a
+      // faction is campaign machinery, not an Actor). No confirm: creating a
+      // journal is non-destructive, and nothing is ever overwritten.
+      section
+        .querySelector(".create-faction-button")
+        ?.addEventListener("click", async () => {
+          const entry = await generateFaction();
+          if (entry) entry.sheet.render(true);
         });
       // GM-only: import a Kettlewright character export into a new Actor.
       section
@@ -701,8 +1119,33 @@ Hooks.on("renderActorDirectory", (app, html) => {
           if (actor) actor.sheet.render(true);
         });
     }
+  } else if (!html.querySelector("#cairn-character-gen-button")) {
+    // A player with no ACTOR_CREATE at all still gets Generate PC — the one
+    // creation the game owes every player. Their client cannot create an
+    // Actor (a server wall, not a UI gate), so the click asks the active
+    // Warden's client to run the same generator and stamp them OWNER — the
+    // generatePC relay above, the grantActors shape. Same section id as the
+    // full row: it is the injected-already test, and the two variants are
+    // mutually exclusive per user.
+    const section = document.createElement("header");
+    section.classList.add("character-generator");
+    section.classList.add("directory-header");
+    const dirHeader = html.querySelector(".directory-header");
+    dirHeader.parentNode.insertBefore(section, dirHeader);
+    section.insertAdjacentHTML(
+      "afterbegin",
+      `
+      <div class="header-actions action-buttons flexrow" id="cairn-character-gen-button">
+        <button class="create-character-generator-button"><i class="fas fa-dice-d6"></i>${game.i18n.localize(
+        "CAIRN.CharacterGenerator"
+      )}</button>
+      </div>
+      `
+    );
+    section
+      .querySelector(".create-character-generator-button")
+      .addEventListener("click", () => requestPcGeneration());
   }
-  const showContainers = game.settings.get(SETTINGS_NS, "show-container-actors");
   const actors = html.querySelectorAll('.actor');
   actors.forEach((a) => {
     const aid = a.dataset.entryId;
@@ -712,20 +1155,16 @@ Hooks.on("renderActorDirectory", (app, html) => {
     // icons; the sheet shows it grayscale to match the black-and-white look, so
     // the directory thumbnail must match — the same actor should not read colour
     // in the list and grey on its sheet.
-    a.classList.toggle('cairn-grayscale-portrait', actor.type == "container");
-
-    if (!showContainers) {
-      // Plain/worn containers stay hidden (they're reached via a character's
-      // Containers tab), but transport MOUNTS and VEHICLES are standalone
-      // carriers that travel alongside — they show in the directory so they can
-      // be selected, placed as tokens, and owned by players. An ITEM PILE is the
-      // same argument taken further: nothing carries it at all, so the Containers
-      // tab is the one place it could never be reached from.
-      const kind = actor.system?.transportKind;
-      const standalone = kind === "mount" || kind === "vehicle" || kind === "pile";
-      const directoryTransport = actor.type == "container" && standalone;
-      a.classList.toggle('hidden', actor.type == "container" && !directoryTransport);
-    }
+    //
+    // ROLE, not type. This test read `type == "container"` until 2026-07-31,
+    // which under the roles model matched nothing at all: the conversion had
+    // already made every container an npc, so no thumbnail was ever greyed.
+    // The mapping is the old `transportKind` vocabulary one-for-one.
+    //
+    // The `show-container-actors` hide rule that lived beside this is GONE
+    // (2026-08-02, by ruling): every container actor is always listed.
+    const containerLine = actor.isThing || actor.npcRole === "mount";
+    a.classList.toggle('cairn-grayscale-portrait', containerLine);
   });
 });
 
@@ -784,8 +1223,12 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
 
   if (game.user.isGM) {
     const btn = html.querySelector(".apply-dmg");
+    // Same `scene` the STR-save block above resolved, and for the same reason:
+    // data-targets holds token ids from the scene the roll was made on. Reading
+    // the viewer's scene inside the handler meant every id missed after a scene
+    // change and the button applied nothing, silently.
     if (btn)
-      btn.onclick = (ev) => Damage.onClickChatMessageApplyButton(ev, html, data);
+      btn.onclick = (ev) => Damage.onClickChatMessageApplyButton(ev, html, data, scene);
   } else {
     html.querySelectorAll(".apply-dmg").forEach((btn) => {
       btn.style.display = "none";
@@ -799,6 +1242,7 @@ const configureHandleBar = () => {
     "systems/air-bladder/templates/parts/items-list.html",
     "systems/air-bladder/templates/parts/container-list.html",
     "systems/air-bladder/templates/parts/feature-list.html",
+    "systems/air-bladder/templates/parts/bio-block.html",
   ];
 
   foundry.applications.handlebars.loadTemplates(templatePaths);

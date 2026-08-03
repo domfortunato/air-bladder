@@ -1,0 +1,12 @@
+Tlomdev's Tokens © 2023 by tlomdev
+Licensed under Creative Commons Attribution-ShareAlike 4.0 International
+(CC BY-SA 4.0): https://creativecommons.org/licenses/by-sa/4.0/
+
+Artist: https://tlomdev.itch.io/
+Source: https://tlomdev.itch.io/tlomdevs-tokens
+
+The "Kettlewright Portraits" subfolder holds the same artist's drawings as shipped
+by Kettlewright (https://github.com/yochaigal/kettlewright), with
+Kettlewright's exact filenames — its character importer maps stock portrait
+picks by that numbering. The artist's page statement above governs the
+licence for every file in this folder.

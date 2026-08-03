@@ -158,5 +158,43 @@ if (!zipLine) {
   }
 }
 
+/* --- 5. the gallery's stated size, everywhere it is stated ----------------- */
+
+// This file compares NAMES and never numbers, which is how "1,310 glyphs" and
+// "1,239 glyphs" survived a collection that has held 1,366 for a while (review
+// #7 finding 16). Both README files state it as part of a CC BY attribution, so
+// it is not decoration; the four working-note copies drift for the ordinary
+// reason a number restated in six places drifts.
+//
+// Anchored deliberately: a reword that breaks one of these patterns fails the
+// gate and someone updates it, which is the outcome to want. A regex that
+// quietly matched nothing would put the count straight back to unchecked.
+const galleryRoot = join(ROOT, "game-icons");
+const onDisk = readdirSync(galleryRoot, { withFileTypes: true })
+  .filter((d) => d.isDirectory())
+  .reduce((n, d) => n + readdirSync(join(galleryRoot, d.name)).filter((f) => f.endsWith(".svg")).length, 0);
+
+const COUNT_SITES = [
+  ["README.md", /picker gallery — ([\d,]+) glyphs/],
+  ["README.es.md", /del selector de imágenes — ([\d,]+) íconos/],
+  ["module/art-picker.js", /gameicons\s+([\d,]+) game-icons\.net glyphs/],
+  ["module/art-picker.js", /at once is ([\d,]+) <img>/],
+  ["module/art-picker.js", /the ([\d,]+)-glyph gallery/],
+  ["module/character-generator.js", /([\d,]+) game-icons\.net glyphs in 24 categories/],
+  ["tools/import/item-icons.mjs", /`game-icons\/` \(([\d,]+) glyphs/],
+  ["tools/import/README.md", /`game-icons\/` \(([\d,]+) svg/],
+];
+
+const wrongCounts = [];
+for (const [file, pattern] of COUNT_SITES) {
+  const m = read(file).match(pattern);
+  if (!m) wrongCounts.push(`${file}: the count sentence this gate anchors on is gone (${pattern})`);
+  // es-ES writes it without the separator, so compare digits, not spelling.
+  else if (Number(m[1].replace(/[.,]/g, "")) !== onDisk) wrongCounts.push(`${file}: says ${m[1]}, disk holds ${onDisk}`);
+}
+wrongCounts.length === 0
+  ? ok(`every stated gallery size matches disk (${onDisk} glyphs, ${COUNT_SITES.length} sites)`)
+  : fail(`stale gallery counts:\n        ${wrongCounts.join("\n        ")}`);
+
 console.log(`\n${failed ? "LICENCE CHECK FAILED" : "Licence check passed."}`);
 process.exit(failed ? 1 : 0);

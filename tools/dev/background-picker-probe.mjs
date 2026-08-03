@@ -19,9 +19,12 @@
  *      up in the picker without re-authoring anything).
  *   3. The dialog renders, is pre-checked on the character's current background,
  *      and offers Random.
- *   4. THE SWAP KEEPS THE CHARACTER: abilities, HP, name, traits, age, bonds,
+ *   4. THE SWAP KEEPS THE CHARACTER: abilities, HP, name, traits, age,
  *      portrait and a bought item all survive; the old background's gear is gone,
  *      the new one's is present and equipped, questions and coins move with it.
+ *      Bonds are kept WITHIN the new background's entitlement and clamped above
+ *      it (ruled 2026-08-02): Fieldwarden's second bond is removed on the swap
+ *      to Kettlewright — first bond kept, its items deleted, its gold refunded.
  *   5. Containers move too: swapping onto the Kettlewright grants its donkey, and
  *      swapping away deletes it.
  *   6. A random swap never lands on the background you already had.
@@ -47,7 +50,7 @@ try {
     const made = [];
     const track = (a) => { if (a) made.push(a); return a; };
     const containersOf = (actor) =>
-      game.actors.filter((a) => a.type === "container" && a.system?.keeper === actor.uuid);
+      game.actors.filter((a) => a.system?.connectedTo === actor.uuid);
     const wait = (ms) => new Promise((res) => setTimeout(res, ms));
 
     // 1. Grouping, per edition.
@@ -114,7 +117,10 @@ try {
     const cancelled = await pick;
     dialogInfo.cancelResolvesFalse = cancelled === false;
 
-    // 4. The surgical swap.
+    // 4. The surgical swap. The character starts as a FIELDWARDEN on purpose:
+    //    its "Roll a second time on the Bonds table" prose entitles TWO bonds
+    //    (the book rule), and Kettlewright entitles one — so this swap is also
+    //    the bond clamp's witness (ruled 2026-08-02).
     const before = {
       name: actor.name,
       abilities: JSON.stringify(actor.system.abilities),
@@ -122,6 +128,11 @@ try {
       traits: JSON.stringify(actor.system.traits),
       age: actor.system.age,
       bonds: (actor.system.bonds ?? []).length,
+      bondIds: (actor.system.bonds ?? []).map((b) => b.id),
+      secondBondGold: (actor.system.bonds ?? [])[1]?.gold ?? 0,
+      secondBondItemIds: actor.items
+        .filter((i) => i.getFlag("air-bladder", "grantSource") === `bond:${(actor.system.bonds ?? [])[1]?.id}`)
+        .map((i) => i.id),
       img: actor.img,
       gold: actor.system.gold,
       qGold: (actor.system.questions ?? []).reduce((n, q) => n + (q.gold ?? 0), 0),
@@ -151,8 +162,16 @@ try {
       keptHp: actor.system.hp.max === before.hp,
       keptTraits: JSON.stringify(actor.system.traits) === before.traits,
       keptAge: actor.system.age === before.age,
-      keptBonds: (actor.system.bonds ?? []).length === before.bonds,
       keptPortrait: actor.img === before.img,
+      // THE CLAMP (2026-08-02). Fieldwarden entitled two bonds; Kettlewright
+      // entitles one, so the swap removes the SECOND and keeps the FIRST —
+      // the ✕ button's semantics applied automatically. Before the clamp
+      // this leg asserted the raw count was preserved, which locked the
+      // stale-second-bond bug in as the expectation.
+      fieldwardenTwoBonds: before.bonds === 2,
+      bondsClamped: (actor.system.bonds ?? []).length === 1,
+      firstBondSurvives: (actor.system.bonds ?? [])[0]?.id === before.bondIds[0],
+      droppedBondItemsGone: before.secondBondItemIds.every((id) => !actor.items.get(id)),
       keptBought: !!actor.items.get(bought.id),
       // swapped
       // Checked against the WHOLE inventory, not the tagged subset: mundane
@@ -167,9 +186,11 @@ try {
       newGearEquipped: nowBgGear.filter((i) => i.type === "weapon" || i.type === "armor")
         .every((i) => i.system.equipped),
       questions: (actor.system.questions ?? []).length,
-      // coins traded the old questions' gold for the new ones'
+      // coins traded the old questions' gold for the new ones', and the
+      // clamped bond's grant refunded out with it
       goldTraded: actor.system.gold ===
-        Math.max(0, before.gold - before.qGold + (actor.system.questions ?? []).reduce((n, q) => n + (q.gold ?? 0), 0)),
+        Math.max(0, before.gold - before.qGold - before.secondBondGold
+          + (actor.system.questions ?? []).reduce((n, q) => n + (q.gold ?? 0), 0)),
     };
 
     // 5. Containers follow the background. Kettlewright's donkey is on a choice
@@ -188,7 +209,10 @@ try {
       // The Bonekeeper's beast is on one of six options, so this is 0 or more —
       // what matters is the Outrider's horse is not still hanging around.
       oldGone: !afterSwapAway.some((c) => c.uuid === withHorse[0]?.uuid),
-      danglingFree: (actor.system.containers ?? []).every((u) => !!game.actors.find((a) => a.uuid === u)),
+      // Every actor the character keeps resolves. There is no stored list to
+      // dangle any more, so this now asserts the other end: nothing still
+      // points here that Foundry has already deleted.
+      danglingFree: containersOf(actor).every((c) => !!game.actors.get(c.id)),
     };
 
     // 6. A random swap never repeats the current background.
@@ -239,8 +263,61 @@ try {
       ?.querySelector('button[data-action="cancel"]')?.click();
     await pick2;
 
+    // 8. THE DOUBLE-CLICK on "Add a bond". The handler reads system.bonds,
+    //    AWAITS a table draw, then writes the array it read — so two clicks in
+    //    one tick both see the old array and the second write overwrites the
+    //    first. One bond vanishes from the array while BOTH sets of granted
+    //    items were created, and the survivors carry `bond:<id>` for an id
+    //    nothing references any more: unreachable by the ✕, and permanent.
+    //    Driven through the real control, because the guard lives on the sheet.
+    const raceActor = track(await gen.createActorWithCharacter(
+      await gen.generate2eCharacter(bgs2e.find((b) => b.name === "Fieldwarden"))));
+    for (const c of containersOf(raceActor)) made.push(c);
+    // Down to one bond, so the entitlement (Fieldwarden: two) allows exactly
+    // one more — that ceiling is what makes a doubled add visible. And
+    // generation back ON: creation stamps it OFF, and the Add-a-bond control
+    // is built only inside `{{#if generationEnabled}}` (the recorded trap —
+    // a regenerate re-stamps Off, so a probe must re-enable it every time).
+    const keptBond = (raceActor.system.bonds ?? []).slice(0, 1);
+    await raceActor.update({
+      "system.bonds": keptBond,
+      "system.generationEnabled": true,
+    });
+    // Trimming the array by hand strands the dropped bond's granted items —
+    // the very state this leg then asserts the absence of. Clear it in the
+    // PRECONDITION so the assertion is "zero", not "no more than before": a
+    // baseline that already contains the defect can only ever measure a delta,
+    // and a delta hides the case where the handler orphans exactly as many as
+    // it cleans up.
+    const stranded = raceActor.items.filter((i) => {
+      const src = String(i.getFlag("air-bladder", "grantSource") ?? "");
+      return src.startsWith("bond:") && src !== `bond:${keptBond[0]?.id}`;
+    }).map((i) => i.id);
+    if (stranded.length) await raceActor.deleteEmbeddedDocuments("Item", stranded);
+    const sheet = raceActor.sheet;
+    await sheet.render(true);
+    await wait(900);
+    const root3 = sheet.element instanceof HTMLElement ? sheet.element : sheet.element?.[0];
+    root3?.querySelector('[data-tab="notes"]')?.click();
+    await wait(300);
+    const addBtn = root3?.querySelector('[data-action="addBond"]');
+    const bondRace = { control: !!addBtn, before: (raceActor.system.bonds ?? []).length };
+    if (addBtn) {
+      addBtn.click();
+      addBtn.click();   // same tick — no await between them
+      await wait(2500);
+      const bonds = raceActor.system.bonds ?? [];
+      bondRace.after = bonds.length;
+      const live = new Set(bonds.map((b) => `bond:${b.id}`));
+      bondRace.orphanedGrants = raceActor.items
+        .filter((i) => String(i.getFlag("air-bladder", "grantSource") ?? "").startsWith("bond:"))
+        .filter((i) => !live.has(i.getFlag("air-bladder", "grantSource")))
+        .map((i) => i.name);
+    }
+    await sheet.close();
+
     for (const a of made) { try { await a.delete(); } catch { /* already gone */ } }
-    return { grouping, tagline, dialogInfo, swap, containers, randomRepeated: repeated, bbSwap, bbDialog };
+    return { grouping, tagline, dialogInfo, swap, containers, randomRepeated: repeated, bbSwap, bbDialog, bondRace };
   });
 
   if (r.error) {
@@ -268,14 +345,26 @@ try {
 
     const S = r.swap;
     S.uuidLinked ? ok(`swapped to ${S.background}, linked by uuid`) : fail("swap did not relink the background uuid");
-    S.keptName && S.keptAbilities && S.keptHp && S.keptTraits && S.keptAge && S.keptBonds && S.keptPortrait
-      ? ok("KEEPS THE CHARACTER: name, abilities, HP, traits, age, bonds and portrait all survive")
+    S.keptName && S.keptAbilities && S.keptHp && S.keptTraits && S.keptAge && S.keptPortrait
+      ? ok("KEEPS THE CHARACTER: name, abilities, HP, traits, age and portrait all survive")
       : fail(`swap clobbered the character: ${JSON.stringify(S)}`);
+    // The bond clamp (2026-08-02). Its negative control is stashing
+    // module/character-generator.js + module/actor/actor-sheet.js: the swap
+    // keeps both bonds again and these go red with the stale count.
+    S.fieldwardenTwoBonds
+      ? ok("Fieldwarden generates two bonds (the book rule)")
+      : fail("Fieldwarden did not generate two bonds — the entitlement rule moved?");
+    S.bondsClamped && S.firstBondSurvives
+      ? ok("the swap CLAMPS bonds to the new entitlement: the first survives, the second is removed")
+      : fail(`bond clamp wrong: clamped=${S.bondsClamped}, firstSurvives=${S.firstBondSurvives}`);
+    S.droppedBondItemsGone
+      ? ok("the dropped bond's granted items went with it")
+      : fail("the dropped bond's granted items are still in the inventory");
     S.keptBought ? ok("an item the player bought is untouched") : fail("the swap deleted a bought item");
     S.oldGearGone && S.newGearPresent ? ok("the old background's gear is gone and the new one's is present") : fail(`gear swap wrong (oldGone=${S.oldGearGone}, newPresent=${S.newGearPresent})`);
     S.duplicates.length === 0 ? ok("no item was duplicated by the swap (untagged Rations/Torch included)") : fail(`the swap duplicated: ${S.duplicates.join(", ")}`);
     S.newGearEquipped ? ok("new weapons/armor arrive equipped") : fail("new weapon/armor was not equipped");
-    S.questions === 2 && S.goldTraded ? ok(`questions re-rolled (${S.questions}) and coins traded for the new ones`) : fail(`questions=${S.questions}, goldTraded=${S.goldTraded}`);
+    S.questions === 2 && S.goldTraded ? ok(`questions re-rolled (${S.questions}) and coins traded, dropped bond's grant refunded`) : fail(`questions=${S.questions}, goldTraded=${S.goldTraded}`);
 
     r.containers.gotHorse ? ok(`swapping onto the Outrider granted its ${r.containers.horse}`) : fail("no container arrived with the Outrider");
     r.containers.oldGone && r.containers.danglingFree ? ok("swapping away deletes it and leaves no dangling uuid") : fail("the old container survived the swap or left a dangling uuid");
@@ -297,6 +386,23 @@ try {
     B.rendered && B.singleColumn && B.noPanel && B.noHeadings
       ? ok(`Barebones picker renders single-column, no panel, no headings (${B.rows} rows)`)
       : fail(`Barebones picker layout wrong: ${JSON.stringify(B)}`);
+
+    const R = r.bondRace ?? {};
+    R.control && R.before === 1
+      ? ok("Add-a-bond control present with one bond and room for one more")
+      : fail(`the double-click leg is vacuous: ${JSON.stringify(R)}`);
+    // The COUNT is the ceiling, not the race: pre-fix BOTH handlers ran and
+    // both wrote a 2-entry array, so this reads 2 either way. It is here to
+    // catch a guard that swallows the click entirely (1) or an entitlement
+    // that stopped being enforced (3+).
+    R.after === 2
+      ? ok("the entitlement ceiling holds: two bonds, not one and not three")
+      : fail(`two clicks left ${R.after} bond(s) — want 2`);
+    // THIS is the race. The losing handler's draw created its items and then
+    // had its array overwritten, so the tag points at an id nothing holds.
+    (R.orphanedGrants ?? []).length === 0
+      ? ok("and no granted item is left tagged to a bond that no longer exists")
+      : fail(`orphaned bond grants, unreachable by the ✕: ${JSON.stringify(R.orphanedGrants)}`);
   }
 } catch (e) {
   fail(`${e.name}: ${e.message}`);

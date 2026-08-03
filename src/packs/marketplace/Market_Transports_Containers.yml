@@ -1,7 +1,7 @@
 _id: AR4vIXPz5du9xJSJ
 name: 'Market: Transports & Containers'
 img: icons/svg/d20-grey.svg
-description: 'Air Bladder marketplace — Transports & Containers. Drag a transport in to stock it; capacity and price are read off the document. Buying one creates a container Actor owned by the buyer.'
+description: 'Air Bladder marketplace — Transports & Containers. Drag a mount or container in to stock it; capacity and price are read off the document. Buying one creates an NPC connected to the buyer.'
 results:
   - _id: szrSAiu6UHCkElGF
     type: document
@@ -12,7 +12,7 @@ results:
       - 1
       - 1
     drawn: false
-    documentUuid: Compendium.air-bladder.transports.Item.z2ktgE5i5T8eKiaT
+    documentUuid: Compendium.air-bladder.mounts-transports.Actor.vrEkEpGWIAifEkKN
     flags: {}
     _key: '!tables.results!AR4vIXPz5du9xJSJ.szrSAiu6UHCkElGF'
   - _id: UvA8XiiuAN3doLGn
@@ -24,7 +24,7 @@ results:
       - 2
       - 2
     drawn: false
-    documentUuid: Compendium.air-bladder.transports.Item.EdHP3c1VebhHVqa9
+    documentUuid: Compendium.air-bladder.mounts-transports.Actor.5RLEi4HD8jZrHlIl
     flags: {}
     _key: '!tables.results!AR4vIXPz5du9xJSJ.UvA8XiiuAN3doLGn'
   - _id: AFiAzReKwQeDe1Ti
@@ -36,7 +36,7 @@ results:
       - 3
       - 3
     drawn: false
-    documentUuid: Compendium.air-bladder.transports.Item.mehfBhWC1FV0rT9b
+    documentUuid: Compendium.air-bladder.mounts-transports.Actor.rpTQ6E1pWuIkFVUM
     flags: {}
     _key: '!tables.results!AR4vIXPz5du9xJSJ.AFiAzReKwQeDe1Ti'
   - _id: 5QlHSCqf7ZEDmQdr
@@ -48,7 +48,7 @@ results:
       - 4
       - 4
     drawn: false
-    documentUuid: Compendium.air-bladder.transports.Item.5tGnlGd0MQ6d4uw0
+    documentUuid: Compendium.air-bladder.mounts-transports.Actor.RcLWCdCYHtLrGB9y
     flags: {}
     _key: '!tables.results!AR4vIXPz5du9xJSJ.5QlHSCqf7ZEDmQdr'
   - _id: ahZCObQJ7UDjXVA3
@@ -60,7 +60,7 @@ results:
       - 5
       - 5
     drawn: false
-    documentUuid: Compendium.air-bladder.transports.Item.FyYz3T0pY5QyzHy7
+    documentUuid: Compendium.air-bladder.mounts-transports.Actor.DsjQCsICN2ddggmr
     flags: {}
     _key: '!tables.results!AR4vIXPz5du9xJSJ.ahZCObQJ7UDjXVA3'
   - _id: y9QbY3gVRr6Gbigm
@@ -72,7 +72,7 @@ results:
       - 6
       - 6
     drawn: false
-    documentUuid: Compendium.air-bladder.transports.Item.oT8z0sR4GtrjDYJK
+    documentUuid: Compendium.air-bladder.mounts-transports.Actor.5bFY3lIsE38qoSs5
     flags: {}
     _key: '!tables.results!AR4vIXPz5du9xJSJ.y9QbY3gVRr6Gbigm'
   - _id: r9adaZCT2y12Gikw
@@ -84,7 +84,7 @@ results:
       - 7
       - 7
     drawn: false
-    documentUuid: Compendium.air-bladder.transports.Item.DkxLT9dFGX7ULaAP
+    documentUuid: Compendium.air-bladder.mounts-transports.Actor.qhjAgLtInNgK8Ase
     flags: {}
     _key: '!tables.results!AR4vIXPz5du9xJSJ.r9adaZCT2y12Gikw'
 formula: 1d7

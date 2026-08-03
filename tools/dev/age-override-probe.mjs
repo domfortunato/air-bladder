@@ -57,6 +57,9 @@ try {
     const bg = (await pack.getDocuments())[0];
     const actor = await gen.createActorWithCharacter(await gen.generate2eCharacter(bg));
     out.actorId = actor.id;
+    // Generated actors land with Randomization OFF (2026-08-02); the rollAge
+    // die below is what the flag hides, so switch it on first.
+    await actor.update({ "system.generationEnabled": true });
     out.genAge = Number(actor.system.age);          // 2. generation obeyed it
     // 4. The SHEET's re-roll obeys it too. ApplicationV2 keeps its handlers in
     //    private static methods reachable only through the `actions` map, so a

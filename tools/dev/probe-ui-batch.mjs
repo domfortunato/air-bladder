@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Actor-directory presentation:
- *   1. The "Generate character" button uses the d6 icon.
+ *   1. The "Generate PC" button uses the d6 icon.
  *   2. Container/transport actor thumbnails are grayscale; characters are not.
  *
  * This probe used to cover two more things. Both were removed on purpose, and
@@ -34,7 +34,6 @@ try {
   await joinAsGM(page);
 
   const r = await page.evaluate(async () => {
-    const NS = "air-bladder";
     const gen = await import("/systems/air-bladder/module/character-generator.js");
     const out = { made: [] };
 
@@ -48,16 +47,15 @@ try {
     const actor = await gen.createActorWithCharacter(await gen.generate2eCharacter(bg));
     out.made.push(actor.id);
 
-    // 2. A container (transport) actor, checked in the directory.
+    // 2. A container (transport) actor, checked in the directory. Role, not
+    //    type: `container` is retired, and the directory's grayscale/hide rules
+    //    read the ROLE now (cairn.js) — this row is what proves that.
     const wagon = await Actor.create({
-      name: "Probe Wagon", type: "container",
+      name: "Probe Wagon", type: "npc",
       img: "icons/environment/settlement/wagon.webp",
-      system: { transportKind: "vehicle" },
+      system: { role: "transport", containerClass: "wagon" },
     });
     out.made.push(wagon.id);
-    const priorShow = game.settings.get(NS, "show-container-actors");
-    await game.settings.set(NS, "show-container-actors", true);
-    out.priorShow = priorShow;
     const dir = ui.actors ?? ui.sidebar?.tabs?.actors;
     await dir?.render(true);
     await new Promise((res) => setTimeout(res, 900));
@@ -93,12 +91,12 @@ try {
     ? ok(`a character thumbnail is left in colour (${r.charImgFilter})`)
     : fail(`a character thumbnail was greyed too: ${r.charImgFilter}`);
 
-  // Restore the setting this probe changed, so a later run against the same
-  // world starts from the same place (the stale-precondition trap).
-  await page.evaluate(async ({ ids, priorShow }) => {
+  // Delete the fixtures, so a later run against the same world starts from
+  // the same place (the stale-precondition trap). No settings to restore:
+  // `show-container-actors` is GONE (2026-08-02) — containers are always listed.
+  await page.evaluate(async (ids) => {
     for (const id of ids) { try { await game.actors.get(id)?.delete(); } catch { /* gone */ } }
-    await game.settings.set("air-bladder", "show-container-actors", priorShow);
-  }, { ids: r.made, priorShow: r.priorShow });
+  }, r.made);
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {

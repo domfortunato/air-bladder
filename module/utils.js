@@ -55,6 +55,52 @@ export const sourceLabel = (source) => {
 };
 
 /**
+ * Format a counted noun, choosing the locale's plural form.
+ *
+ * Foundry's Localization has no plural support at all, so "{n} uses" shipped
+ * rendering "1 uses" on every single-use item — a scroll, a torch, most of the
+ * shop. The neighbouring `CAIRN.NSlot` avoids it only by never being formatted
+ * with anything but 1.
+ *
+ * `Intl.PluralRules` names the form ("one", "other", and for Polish "few" and
+ * "many"). **The BASE key is the "other" form** — deliberately, so that every
+ * key already in use keeps working and no translation is orphaned by this:
+ * `lang/es.json` has carried `CAIRN.NUses` for a while, and renaming it to
+ * `CAIRN.NUses.other` would have turned a finished Spanish string back into
+ * English to fix an English bug. A language adds `<key>_one` (and `_few` /
+ * `_many`) as it needs them, and does nothing at all to keep what it has.
+ *
+ * **UNDERSCORE, not a dot, and that is forced.** Foundry expands every dotted
+ * key in a language file into nested objects, so `"CAIRN.NUses"` (a string) and
+ * `"CAIRN.NUses.one"` in the same file collide — the loader throws "Cannot
+ * create property 'one' on string" and abandons the WHOLE file, which is a
+ * world with no interface strings at all. Measured, not reasoned about: the
+ * first cut of this used dots and en.json stopped loading.
+ *
+ * @param {String} key   base key, e.g. "CAIRN.NUses" — the plural form
+ * @param {Number} n
+ * @param {Object} [data] extra format values
+ * @return {String}
+ */
+export const formatCount = (key, n, data = {}) => {
+  const lang = game.i18n?.lang ?? "en";
+  const form = new Intl.PluralRules(lang).select(Number(n));
+  if (form === "other") return game.i18n.format(key, { n, ...data });
+  const specific = `${key}_${form}`;
+  // `has(k, false)` — no English fallback — is what makes the order work: ask
+  // the ACTIVE language for its form, then the active language's base key, and
+  // only then let English answer. Asking with the fallback on would report a
+  // form English has and Spanish does not as present, and render an English
+  // string inside an otherwise Spanish sentence. A missing form should read as
+  // the wrong plural, never as the wrong language.
+  const inLang = (k) => game.i18n.has(k, false);
+  const chosen = inLang(specific) ? specific
+    : inLang(key) ? key
+      : game.i18n.has(specific) ? specific : key;
+  return game.i18n.format(chosen, { n, ...data });
+};
+
+/**
  * @param {String} str
  * @param {Object} data
  * @return {String}
@@ -188,6 +234,10 @@ export const cleanDescription = (text) => {
  * application is CLOSING (`application.mjs:2159-2161`), which is what makes this
  * safe to call from `_preClose`.
  *
+ * Individual saves can be VETOED by the dirty guard in `bindEditorClickAwaySave`:
+ * a pristine editor's `save()` is cancelled at its own `save` event and commits
+ * nothing. See the guard for why that is load-bearing and not an optimisation.
+ *
  * The `.active` filter is NOT belt-and-braces. `save()` on a TOGGLED editor
  * unconditionally calls `this.#editor.destroy()` (prosemirror-editor.mjs:325), and
  * a toggled editor that was never opened has no `#editor` — so saving it throws a
@@ -225,6 +275,53 @@ export const saveSheetEditors = (root) => {
  * @param {HTMLElement} root  The application frame.
  */
 export const bindEditorClickAwaySave = (root) => {
+  // THE DIRTY GUARD: an editor nobody has edited must not save at all.
+  //
+  // `save()` opens with a CANCELABLE bubbling "save" event
+  // (prosemirror-editor.mjs:310-312) before it diffs anything, so cancelling it
+  // here is core's own designed veto point — and it covers BOTH spurious savers
+  // at once: the click-away below, and core's disconnectedCallback save on
+  // close (prosemirror-editor.mjs:130-138), which no wrapper around
+  // saveSheetEditors could reach.
+  //
+  // Why a pristine editor must not save: `save()` fires `change` whenever
+  // ProseMirror's canonical serialization differs from the STORED string
+  // (prosemirror-editor.mjs:314-317) — not whenever the user edited something.
+  // On a submitOnChange sheet that `change` is a real document WRITE plus a
+  // re-render, triggered by a mousedown. The re-render replaces the element
+  // under the pointer between mousedown and mouseup, and a real browser then
+  // dispatches NO click at all (headless Chromium re-targets it, which is why
+  // no headless run ever reproduced this) — so whatever control was pressed
+  // silently does nothing. Measured 2026-08-01 in the live dev world: merely
+  // clicking or closing unedited monster sheets rewrote 23 compendium
+  // documents in one evening, and the portrait click that "did nothing" on
+  // Acolyte / Blood Elk / Crypt Thing was each one's canonicalising write
+  // eating its own click. Text containing "&" keeps a residue even after that
+  // write: Foundry's StringSerializer emits it RAW (string-node.mjs:115-123
+  // escapes only < and >) while storage holds `&amp;`, so every fresh editor
+  // re-submits once — the server sanitizes before diffing, so that submit
+  // no-ops in the database (measured, dev:phantom-save's convergence leg),
+  // but it is still a network write per sheet-open that this guard deletes.
+  // Gate: `npm run dev:phantom-save`.
+  //
+  // The guard never blocks a save that could carry anything:
+  //   - a TOGGLED editor is exempt — `save()` is also what deactivates one
+  //     (prosemirror-editor.mjs:321-331), and item sheets carry two;
+  //   - a DIRTY editor saves. `isDirty` is "any ProseMirror transaction"
+  //     (dirty-plugin.mjs:17-19): typing, pasting, even a bare click into the
+  //     text, which is a selection transaction — coarse, but coarse in the
+  //     losing-nothing direction;
+  //   - source-code mode saves unconditionally: edits in the raw-HTML textarea
+  //     never pass through a transaction, so dirtiness cannot vouch for them
+  //     (`_getValue` reads `:scope > .source-editor` the same way,
+  //     prosemirror-editor.mjs:188-190).
+  root.addEventListener("save", (ev) => {
+    const pm = ev.target;
+    if (pm?.tagName !== "PROSE-MIRROR" || pm.hasAttribute("toggled")) return;
+    if (pm.querySelector(":scope > .source-editor")) return;
+    if (!pm.isDirty()) ev.preventDefault();
+  });
+
   root.addEventListener("mousedown", (ev) => {
     if (ev.target.closest("prose-mirror")) return;
     saveSheetEditors(root);

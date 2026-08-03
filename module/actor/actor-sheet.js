@@ -1,11 +1,15 @@
-import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, mentionsSecondBond, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, getCustomPortraitPaths, refreshCustomPortraits, regenerateHireling, rerollHirelingProfession, rerollHirelingName, rollNameFromTable, rollAge } from "../character-generator.js";
+import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, regenerateNpc, rerollNpcProfession, rerollNpcName, rerollNpcFaction, rollNameFromTable, rollAge } from "../character-generator.js";
+import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, sourceLabel } from "../utils.js";
 import { resultText } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
-import { CONTAINER_ART, CONTAINER_CLASSES, TRANSPORT_KINDS } from "../icons.js";
-import { localizeNameDesc, t } from "../i18n-content.js";
+import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES } from "../icons.js";
+import { NPC_ROLES } from "../data-models.js";
+import { atConnectionLimit, maxConnections, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
+import { localizeNameDesc, sourceOf, t } from "../i18n-content.js";
 import { FATIGUE_NAME } from "../item/item.js";
+import { pickArt } from "../art-picker.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
@@ -18,24 +22,44 @@ const { ActorSheetV2 } = foundry.applications.sheets;
 const FEATURE_FLAGS = ["str", "dex", "wil", "hp", "armor", "dmg", "crit", "deprived", "blast"];
 
 /** Tab labels by id. The nav itself is hand-written in each template, because
- *  every label carries live data (slot counts, container counts, and a Notes tab
- *  that renames itself once a background is attached). */
+ *  the labels carry live data (slot counts, connection counts) and, on the NPC
+ *  sheet, a per-role static name: "Background & Notes" on a person and on a
+ *  player character, plain "Notes" on a monster, mount, transport or container
+ *  (see `context.notesTabLabel`). */
 const TAB_LABELS = {
   items: "CAIRN.Items",
-  containers: "CAIRN.Containers",
+  // The tab ID stays `containers` -- it is internal, and renaming it would touch
+  // both templates and the tab filter for no gain anyone can see. What a person READS is "Connections": the relationship
+  // graph — one PC to many NPCs, NPC under NPC below that — listing mounts,
+  // vehicles, loot piles AND hirelings, who never had a link back to whoever
+  // hired them until role hireling put them on it.
+  containers: "CAIRN.Connections",
   description: "CAIRN.Description",
   notes: "CAIRN.Notes",
 };
 
 /** Which tabs each actor type shows, in order. `containers` is dropped unless
- *  the actor actually has the Containers tab enabled (see _getTabsConfig). */
+ *  the actor actually has the Connections tab enabled (see _getTabsConfig —
+ *  for the character list that means: not on an unlinked token's actor).
+ *
+ *  The CHARACTER alone carries `containers` (2026-08-02): a PC keeps up to ten
+ *  connections, which is a list worth a tab. Any child role has at most ONE
+ *  keeper, so the npc sheet expresses that single fact as a header line
+ *  (`connectionLine` below) and a tab whose count could only ever read (0) or
+ *  (1) went with it. */
 const TAB_IDS = {
-  character: ["items", "containers", "description", "notes"],
-  npc: ["items", "containers", "description", "notes"],
+  character: ["items", "description", "containers", "notes"],
+  // Description FIRST on the non-player sheet (2026-08-01, asked for): a Warden
+  // opens an NPC to remember who they are — statblock, features, biography —
+  // and reaches for the inventory second. The character sheet deliberately
+  // keeps Items first; the reorder is the NPC's alone. The order here must
+  // match the hand-written nav in npc-sheet.html, and `_getTabsConfig` takes
+  // the group's initial from ids[0], so this list is also what the sheet
+  // OPENS on.
+  npc: ["description", "items", "notes"],
   // Same set as npc: one sheet, one tab set. A hireling used to get only
   // items+notes, so anything written in its Description was unreachable.
-  hireling: ["items", "containers", "description", "notes"],
-  container: ["items", "description"],
+  hireling: ["description", "items", "notes"],
 };
 
 /**
@@ -112,9 +136,32 @@ const slideDown = (el) => {
  * false — `activateListeners` returned early — so an observer's sheet was inert
  * beyond Foundry's own controls. ApplicationV2 wires `actions` regardless of
  * editability, so preserving that behaviour means guarding at the handler.
+ *
+ * For MUTATING actions only. The read set — rolls to chat, description
+ * expanders, the collapse toggles — is deliberately unwrapped (review #6):
+ * none of them writes the document, and wrapping them meant a Warden opening
+ * a monster from a locked compendium could not roll its attack, with a
+ * PackLocked toast diagnosing a write-permission problem no write had.
  */
 const owned = (fn) => function (event, target) {
-  if (!this.isEditable) return undefined;
+  if (!this.isEditable) {
+    // SAY WHY. This used to `return undefined` in silence, which is the worst
+    // possible failure for a control that looks clickable: the portrait, every
+    // tab-side button and every row icon simply stopped existing, with no
+    // notification, no console line and nothing to search for. A Warden with a
+    // locked compendium and a Warden without permission got the identical
+    // nothing, and so did a bug — an evening went into telling those apart by
+    // hand (2026-08-01).
+    //
+    // `isEditable` has exactly two ways to be false (document-sheet.mjs:123-129):
+    // the pack is locked, or this user fails `editPermission` on the document.
+    // Name whichever it is, because the fix is different for each.
+    const pack = this.document?.pack ? game.packs.get(this.document.pack) : null;
+    ui.notifications.warn(pack?.locked
+      ? game.i18n.format("CAIRN.Notify.PackLocked", { pack: pack.title ?? pack.collection })
+      : game.i18n.format("CAIRN.Notify.NotEditable", { name: this.document?.name ?? "" }));
+    return undefined;
+  }
   return fn.call(this, event, target);
 };
 
@@ -154,6 +201,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       rollPortrait: owned(CairnActorSheet.#onRollPortrait),
       rollName: owned(CairnActorSheet.#onRollName),
       rollProfession: owned(CairnActorSheet.#onRollProfession),
+      rollFaction: owned(CairnActorSheet.#onRollFaction),
       // Inventory
       itemCreate: owned(CairnActorSheet.#onItemCreate),
       itemShop: owned(CairnActorSheet.#onItemShop),
@@ -162,30 +210,32 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       itemToggleEquipped: owned(CairnActorSheet.#onItemToggleEquipped),
       itemAddUse: owned(CairnActorSheet.#onItemAddUse),
       itemRemoveUse: owned(CairnActorSheet.#onItemRemoveUse),
-      itemDescription: owned(CairnActorSheet.#onItemDescription),
+      itemDescription: CairnActorSheet.#onItemDescription,
       addFatigue: owned(CairnActorSheet.#onAddFatigue),
       removeFatigue: owned(CairnActorSheet.#onRemoveFatigue),
-      rollDamage: owned(CairnActorSheet.#onRollDamage),
-      // Containers
-      containerShop: owned(CairnActorSheet.#onContainerShop),
-      containerCreate: owned(CairnActorSheet.#onContainerCreate),
+      rollDamage: CairnActorSheet.#onRollDamage,
+      // Connections
+      connectionAdd: owned(CairnActorSheet.#onConnectionAdd),
+      connectionAttach: owned(CairnActorSheet.#onConnectionAttach),
+      connectionDetach: owned(CairnActorSheet.#onConnectionDetach),
+      containerUnlink: owned(CairnActorSheet.#onContainerUnlink),
       // Features
       featureCreate: owned(CairnActorSheet.#onFeatureCreate),
       featureEdit: owned(CairnActorSheet.#onFeatureEdit),
       featureDelete: owned(CairnActorSheet.#onFeatureDelete),
-      featureDescription: owned(CairnActorSheet.#onFeatureDescription),
+      featureDescription: CairnActorSheet.#onFeatureDescription,
       // Header counters + buttons
-      rollAbility: owned(CairnActorSheet.#onRollAbility),
+      rollAbility: CairnActorSheet.#onRollAbility,
       toggleCritical: owned(CairnActorSheet.#onToggleCritical),
       armorReset: owned(CairnActorSheet.#onArmorReset),
       rest: owned(CairnActorSheet.#onRest),
       restoreAbilities: owned(CairnActorSheet.#onRestoreAbilities),
-      dieOfFate: owned(CairnActorSheet.#onDieOfFate),
+      dieOfFate: CairnActorSheet.#onDieOfFate,
       // Description tab
       rollAge: owned(CairnActorSheet.#onRollAge),
       rollOmen: owned(CairnActorSheet.#onRollOmen),
-      toggleTraits: owned(CairnActorSheet.#onToggleTraits),
-      toggleScars: owned(CairnActorSheet.#onToggleScars),
+      toggleTraits: CairnActorSheet.#onToggleTraits,
+      toggleScars: CairnActorSheet.#onToggleScars,
       // Background / failed career
       rollBackground: owned(CairnActorSheet.#onRollBackground),
       pickBackground: owned(CairnActorSheet.#onPickBackground),
@@ -214,6 +264,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       initial: "items",
     },
   };
+
+  /**
+   * The tab a FRESH sheet opens on, per actor type. Core seeds `tabGroups`
+   * from static TABS at construction (application.mjs:287-290 — and its own
+   * doc says "subclasses may override this property to define default tabs"),
+   * so by first render the group already holds the static's "items" and
+   * `_prepareTabs`'s `??=` never consults `_getTabsConfig`'s initial. Without
+   * this override the npc sheet — whose list leads with Description since
+   * 2026-08-01 — would open standing on Items regardless. A subclass field
+   * initialises after every parent constructor, so `options.document` is set.
+   */
+  tabGroups = { primary: (TAB_IDS[this.options.document?.type] ?? ["items"])[0] };
 
   /* -------------------------------------------- */
 
@@ -258,6 +320,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
           "systems/air-bladder/templates/parts/items-list.html",
           "systems/air-bladder/templates/parts/container-list.html",
           "systems/air-bladder/templates/parts/feature-list.html",
+          "systems/air-bladder/templates/parts/bio-block.html",
         ],
       },
     };
@@ -274,6 +337,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const ids = (TAB_IDS[this.actor.type] ?? ["items"])
       .filter((id) => id !== "containers" || this.actor.system.showContainersTab);
     config.tabs = ids.map((id) => ({ id, label: TAB_LABELS[id] }));
+    // The group's initial follows the FIRST id of the type's list, not the
+    // static TABS default ("items") — the npc list leads with Description now,
+    // and an initial the list does not lead with opens the sheet on a tab that
+    // is not first, or (via the reset below) lands a vanished-tab reset on the
+    // wrong one.
+    config.initial = ids[0] ?? config.initial;
     // Losing your last container removes the tab you were standing on.
     // `_prepareTabs` only defaults the group when it is unset (`??=`), so without
     // this the group keeps pointing at a tab that is no longer rendered and NO
@@ -349,20 +418,35 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     const isChar = this.actor.type === "character";
     // npc and hireling are one thing, so both get the NPC generation controls.
-    const isHireling = ["hireling", "npc"].includes(this.actor.type);
-    const generates = (isChar || isHireling)
-      && this.actor.isOwner
-      && game.settings.get(SETTINGS_NS, "show-generate-header");
-    if (!generates) return [popOut, ...buttons];
+    const isNpc = ["hireling", "npc"].includes(this.actor.type);
+    // Thing roles — mount, transport, container — get NEITHER button (ruled
+    // 2026-08-02): there is nothing to randomize about a cart, so a Roll
+    // button and a Randomization readout are noise on its title bar. Only a
+    // PERSON (role npc) or a monster generates. The role can change under an
+    // open sheet and the frame builds once, so #syncGenerationButtons applies
+    // the same test per render to the buttons this frame did build.
+    const rollableRole = !isNpc || ["npc", "monster"].includes(this.actor.npcRole);
+    if (!(isChar || isNpc) || !rollableRole || !this.actor.isOwner) return [popOut, ...buttons];
 
-    // Roll Character and the toggle are both ALWAYS created. Roll Character is
-    // hidden in place when Randomization is off rather than omitted, so the
-    // toggle can reveal it without rebuilding the frame — which first render is
-    // the only chance to do.
+    // The toggle is created UNCONDITIONALLY for an owner of a generating type,
+    // and only the Roll button rides `show-generate-header`. It used to gate
+    // both — harmless while generationEnabled defaulted true, but the toggle
+    // is the ONLY user-reachable writer of that flag, and with the default now
+    // OFF, hiding it would make Off permanent for the whole world: a hard lock
+    // behind a display setting. Roll is also hidden in place (never omitted)
+    // while Randomization is off, so the toggle can reveal it without
+    // rebuilding the frame — which first render is the only chance to do.
+    const showRoll = game.settings.get(SETTINGS_NS, "show-generate-header");
     return [
-      // Character → "Roll Character"; hireling → "Roll NPC". Same control, same
-      // action; only the wording differs.
-      { action: "rollActor", icon: "fas fa-dice-d6", label: isHireling ? "CAIRN.RollNpc" : "CAIRN.RegenerateCharacter" },
+      // Character → "Roll Character"; NPC → "Roll NPC"; Monster → "Roll
+      // Monster" with the Generate Monster button's dragon. The face also
+      // follows role changes per render — #syncGenerationButtons.
+      ...(showRoll ? [{
+        action: "rollActor",
+        icon: this.actor.npcRole === "monster" ? "fas fa-dragon" : "fas fa-dice-d6",
+        label: this.actor.npcRole === "monster" ? "CAIRN.RollMonster"
+          : isNpc ? "CAIRN.RollNpc" : "CAIRN.RegenerateCharacter",
+      }] : []),
       { action: "toggleGeneration", icon: "fas fa-toggle-on", label: "CAIRN.RandomizationOn" },
       popOut,
       ...buttons,
@@ -477,9 +561,31 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const roll = root?.querySelector('.window-header button[data-action="rollActor"]');
     const toggle = root?.querySelector('.window-header button[data-action="toggleGeneration"]');
     if (!roll && !toggle) return;
-    // Legacy actors predate the field, so absent means enabled.
+    // A person re-typed into a mount under an open sheet must LOSE the
+    // buttons its frame already built — the frame renders once, so the
+    // per-render role test lives here, mirroring _getFrameButtons. (The other
+    // direction — a mount re-typed into a person — gets its buttons on the
+    // next sheet open; a frame cannot grow buttons it never built.)
+    const thing = ["hireling", "npc"].includes(this.actor.type)
+      && !["npc", "monster"].includes(this.actor.npcRole);
+    toggle?.classList.toggle("cairn-header-hidden", thing);
     const on = this.actor.system.generationEnabled !== false;
-    roll?.classList.toggle("cairn-header-hidden", !on);
+    roll?.classList.toggle("cairn-header-hidden", !on || thing);
+    // The Roll button's face follows the ROLE: a monster re-rolls through the
+    // tier picker and wears the Generate Monster button's dragon, so the
+    // button says what the click does. The role can change under an open
+    // sheet and the frame cannot rebuild, so the swap lives here with the
+    // rest of the per-render state.
+    if (roll) {
+      const monster = this.actor.npcRole === "monster";
+      const rollLabel = game.i18n.localize(
+        monster ? "CAIRN.RollMonster"
+          : ["hireling", "npc"].includes(this.actor.type) ? "CAIRN.RollNpc" : "CAIRN.RegenerateCharacter");
+      roll.setAttribute("aria-label", rollLabel);
+      roll.lastChild.textContent = rollLabel;
+      const icon = roll.querySelector("i");
+      if (icon) icon.className = monster ? "fas fa-dragon" : "fas fa-dice-d6";
+    }
     if (!toggle) return;
     const label = game.i18n.localize(on ? "CAIRN.RandomizationOn" : "CAIRN.RandomizationOff");
     toggle.setAttribute("aria-label", label);
@@ -496,6 +602,20 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
     context.actor = this.actor;
+    // Whether this user can DELETE a connected actor. Foundry gates Actor
+    // deletion by ROLE (Assistant+, and isGM is exactly role >= ASSISTANT) with
+    // no player-grantable permission — so a player's trash icon on the
+    // Connected tab was an affordance for an action the server always refuses
+    // (review #5). The template hides it; unlink and edit remain theirs.
+    context.canDeleteActors = game.user.isGM;
+    // Manual edge management (Connect / unlink) opened to players on
+    // 2026-08-01: the Warden always, else the owner of both ends. THIS half
+    // of the pair gates the sheet-level controls, so it asks about the sheet
+    // actor only; the per-row/per-target half lives on each row below and in
+    // the pickers' filters. Distinct from canDeleteActors, which surfaces a
+    // Foundry ROLE gate (Actor deletion is Assistant+, no player-grantable
+    // permission) and stays isGM — the reason the two were never one flag.
+    context.canManageConnections = game.user.isGM || this.actor.isOwner;
     // Per-window id prefix for label[for]/input[id] pairs. Templates hardcoded the
     // field path as the DOM id ("system.gold"), so every open sheet of a type used
     // the SAME ids — and `label[for]` resolves against the first match in tree
@@ -513,6 +633,126 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // Plain COPIES, deliberately: the content-localization pass below rewrites
     // item names and descriptions for display, and must never touch the documents.
     context.system = { ...this.actor.system };
+    // Recomputed at RENDER time, not taken from prepareDerivedData.
+    //
+    // The Connected list is derived from other actors' `connectedTo`, and nothing
+    // re-prepares THIS actor when a different one is created, connected or
+    // deleted — Foundry only re-prepares the document that changed. So the
+    // prepared copy goes stale the moment a background grants a mount or a
+    // purchase lands, and the tab shows the previous state until something else
+    // happens to touch the owner. Rebuilding it here costs one pass over
+    // game.actors per render and cannot be stale by construction.
+    context.system.containerObjects = this.actor.connectedActors();
+    // The Connections rows, decorated with what THIS user may do to each —
+    // unlink needs both ends (the sheet actor and the row's), so it is a
+    // per-row fact no single context flag can carry. The template iterates
+    // these; containerObjects above stays because other derived surfaces
+    // (slot math, worn rows) still read it.
+    context.connectionRows = context.system.containerObjects.map((c) => ({
+      uuid: c.uuid,
+      // Display-only: a connected Sack/Mule is an Actor doc, which the extractor
+      // files under monster.name — the same row's expanded CONTENTS were already
+      // localized (#onItemDescription), so the row read English over Spanish.
+      name: t("monster.name", c.name),
+      slotsUsed: c.system.slotsUsed,
+      slots: c.system.slots,
+      canUnlink: game.user.isGM || (this.actor.isOwner && c.isOwner),
+    }));
+    // ...and the keeper line's break link, same rule from the child's end. A
+    // DANGLING keeper (uuid resolving to nothing) has no other end left to
+    // own, so the child's owner suffices — that detach is the only recovery
+    // the child has.
+    const keeperLink = this.actor.system.connectedTo || "";
+    const keeperDoc = keeperLink ? game.actors.find((a) => a.uuid === keeperLink) : null;
+    context.canDetach = game.user.isGM
+      || (this.actor.isOwner && (keeperDoc ? keeperDoc.isOwner : true));
+    // Role-driven pick-lists for the NPC sheet header. The Kind list is the
+    // CONTAINER_CLASSES table filtered to the current role, so a class added
+    // there appears here with nothing else to keep in step; the input itself
+    // stays free text — a Warden's own word is a legal Kind.
+    if (["npc", "hireling"].includes(this.actor.type)) {
+      const role = this.actor.npcRole;
+      context.roleChoices = Object.fromEntries(NPC_ROLES.map((r) => [
+        r, game.i18n.localize(`CAIRN.Role${r.charAt(0).toUpperCase()}${r.slice(1)}`),
+      ]));
+      // One role now, not two: people have careers, and being for hire is a
+      // checkbox on the same row rather than a different kind of person.
+      context.showCareer = role === "npc";
+      // Faction shows for anyone who can take sides — a person OR a monster;
+      // things have no politics. It used to ride the Career gate, which is why
+      // Monsters never saw it: Career is a person's job, and a monster has a
+      // side without one.
+      context.showFaction = ["npc", "monster"].includes(role);
+      context.showKind = ["mount", "transport", "container"].includes(role);
+      // The Type select's rows: the CONTAINER_CLASSES table filtered to the
+      // current role, so a class added there appears here with nothing else to
+      // keep in step. STRICT since 2026-08-02 — the free-text input lives
+      // behind the select's "Other…" row, disabled otherwise so submitOnChange
+      // never carries a stale word (a disabled control is excluded from
+      // FormData). A stored word the table does not know (a legacy custom
+      // Kind, or one just typed) selects Other and prefills the input.
+      const cls = this.actor.system.containerClass;
+      context.kindOptions = Object.entries(CONTAINER_CLASSES)
+        .filter(([, v]) => v.role === role)
+        .map(([key, v]) => ({ key, label: game.i18n.localize(v.label), selected: key === cls }));
+      context.kindIsCustom = !!cls && !CONTAINER_CLASSES[cls];
+      context.kindCustomValue = context.kindIsCustom ? cls : "";
+      // Display half of the Career display/value split; the submit half lives
+      // in _processFormData. The stored English career is a MATCH KEY
+      // (randomCareer's repeat-exclusion, _preUpdate's day-rate fill), so the
+      // input shows t() and the submit maps back through sourceOf().
+      context.professionDisplay = t("npc.career", this.actor.system.profession);
+      // Static per role, not per document: a person's Notes tab carries the
+      // character sheet's wording, everything else says plain Notes.
+      context.notesTabLabel = game.i18n.localize(
+        role === "npc" ? "CAIRN.BackgroundAndNotes" : "CAIRN.Notes");
+      // The connection line under the header (2026-08-02): the child end's ONE
+      // upward edge, expressed as a field rather than a tab — any child role
+      // has at most one keeper, so the Connections tab this sheet used to carry
+      // could only ever count (0) or (1). Built HERE, at render time, because
+      // the label names the KEEPER and nothing re-prepares this document when
+      // the keeper is renamed — the prepareDerivedData copy it replaces went
+      // stale until something else touched this actor.
+      //
+      // Label sense is ruled (2026-08-02): "Hired by" only for a PERSON who is
+      // actually for hire — the role gate is load-bearing, since forHire's
+      // schema initial is true and a mount can silently store it — "Connected
+      // to" for everyone else with a keeper, the stamped "Formerly connected
+      // to" once unlinked, and nothing if it was never connected. The controls
+      // reuse the registered connectionAttach/connectionDetach actions and
+      // their gates verbatim; only their template home moved.
+      const hired = role === "npc" && this.actor.system.forHire === true;
+      if (keeperDoc) {
+        context.connectionLine = {
+          label: game.i18n.format(hired ? "CAIRN.HiredBy" : "CAIRN.ConnectedToNamed",
+            { name: keeperDoc.name }),
+          detach: context.canDetach,
+        };
+      } else if (keeperLink) {
+        // A DANGLING link (keeper deleted, uuid resolving to nothing): the
+        // child-end detach is the only recovery it has — single-parent-ever
+        // refuses to reconnect over it — so the line must surface the break
+        // control rather than render nothing.
+        context.connectionLine = {
+          label: game.i18n.localize("CAIRN.ConnectedToMissing"),
+          detach: context.canDetach,
+        };
+      } else if (this.actor.system.formerlyBelongedTo) {
+        context.connectionLine = {
+          label: game.i18n.format("CAIRN.FormerlyBelongedTo",
+            { name: this.actor.system.formerlyBelongedTo }),
+          attach: this.actor.canBeConnected && context.canManageConnections,
+        };
+      } else if (this.actor.canBeConnected) {
+        context.connectionLine = { attach: context.canManageConnections };
+      }
+      // The line renders whenever it has something to say — and ALWAYS for a
+      // person, whose For Hire checkbox lives on it and must stay visible while
+      // unticked (the deadlock lesson: never hidden by anything it hides).
+      context.showConnectionLine = context.system.isNpcPerson
+        || !!(context.connectionLine
+          && (context.connectionLine.label || context.connectionLine.attach));
+    }
     let items = this.actor.items.map((i) => ({
       _id: i.id,
       name: i.name,
@@ -546,14 +786,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // into the active language for rendering only. These are plain data copies (not
     // the stored documents, which stay English), so name-matching elsewhere is
     // unaffected. A no-op in an English world (overlay null); a miss shows English.
-    // An NPC monster stores its attacks/features as embedded items; the extractor
-    // files those under monster.itemName/monster.itemDesc, not the gear item.*
-    // namespaces. Characters/hirelings/containers hold gear → item.* (the default).
-    const itemNs =
-      this.actor.type === "npc"
-        ? { nameNs: "monster.itemName", descNs: "monster.itemDesc" }
-        : undefined;
-    items = items.map((i) => localizeNameDesc(i, itemNs));
+    items = items.map((i) => localizeNameDesc(i, this._itemNamespaces()));
     // Fatigue is STORED in English (see FATIGUE_NAME) so its identity survives a
     // mixed-language table. Its label is localized here, at display time, from the
     // UI key every language file already carries — so a Spanish player still reads
@@ -561,29 +794,46 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const fatigueLabel = game.i18n.localize("CAIRN.Fatigue");
     context.items = items.map((i) => (i.name === FATIGUE_NAME ? { ...i, name: fatigueLabel } : i));
 
-    const enrich = (html) =>
-      foundry.applications.ux.TextEditor.implementation.enrichHTML(html, { relativeTo: this.actor });
-
-    // Compendium monsters have "description" instead of "biography"
-    if (this.actor.system.showBio) {
-      context.enrichedBiography = await enrich(this.actor.system.biography);
-    } else {
-      // An NPC monster's description translates via the monster.desc namespace —
-      // display only, enriched into a derived field, never written back to the doc.
-      const rawDescription =
-        this.actor.type === "npc"
-          ? t("monster.desc", this.actor.system.description)
-          : this.actor.system.description;
-      context.enrichedDescription = await enrich(rawDescription);
+    // The npc sheet's description editor is TOGGLED (npc-sheet.html), so this is
+    // its light-DOM DISPLAY half: translated via monster.desc — the namespace the
+    // extractor files EVERY actor doc's description under, mounts and containers
+    // included, hence type-keyed for both npc and the hireling alias — and
+    // enriched, so @UUID links render as links. The editor's `value` attribute
+    // stays the raw stored English; activation swaps this copy out for it
+    // (prosemirror-editor.mjs:204), so nothing translated can reach a submit.
+    //
+    // This block once also computed enrichedBiography and enrichedNotes — and an
+    // untranslated enrichedDescription for characters — all four consumed by NO
+    // template (the review that caught it: three awaited enrichHTML passes per
+    // committed keystroke, for nothing, while the monster.desc translation they
+    // were meant to carry never displayed anywhere). enrichedNotes is BACK since
+    // 2026-08-02 with a consumer this time: both Notes editors are toggled now
+    // (user ask), and a toggled editor needs a display half. The character
+    // sheet's copy is built in _prepareCharacterContext.
+    if (["npc", "hireling"].includes(this.actor.type)) {
+      context.enrichedDescription =
+        await foundry.applications.ux.TextEditor.implementation.enrichHTML(
+          t("monster.desc", this.actor.system.description),
+          { relativeTo: this.actor },
+        );
+      // Enriched but NOT translated: notes are the Warden's own prose, and no
+      // content namespace files them.
+      context.enrichedNotes =
+        await foundry.applications.ux.TextEditor.implementation.enrichHTML(
+          this.actor.system.notes,
+          { relativeTo: this.actor },
+        );
+      // The Notes empty-state hint lives in the display half now — the
+      // data-placeholder mechanism anchors ::before to .editor-container,
+      // which a toggled editor only grows on activation. Monster wording on
+      // a monster via a DISTINCT key, not a _wording() variant: that helper
+      // keys on type (a monster is type npc) and its has() lookup carries the
+      // documented un-translation hazard (#onRollActor's precedent).
+      context.notesPlaceholder = game.i18n.localize(
+        this.actor.npcRole === "monster" ? "CAIRN.NotesPlaceholderMonster" : "CAIRN.NotesPlaceholder");
     }
-    context.enrichedNotes = await enrich(this.actor.system.notes);
 
     if (this.actor.type === "character") await this._prepareCharacterContext(context);
-
-    // The container's Type pick-list. Blank is offered because a hand-made
-    // container legitimately has no kind — it is a chest on the floor — and
-    // because the field has always defaulted to empty.
-    if (this.actor.type === "container") context.transportKinds = TRANSPORT_KINDS;
 
     // Non-player actors reuse the character's STR/DEX/WIL/HP behaviour and
     // tooltips, but none of the background/traits/bonds machinery. npc is here
@@ -592,8 +842,26 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (["hireling", "npc"].includes(this.actor.type)) {
       this._computeStatContext(context);
       // Same random-generation switch as a character: gates the per-field dice
-      // (name, profession, portrait).
-      context.generationEnabled = this.actor.system.generationEnabled !== false;
+      // (name, profession, portrait). Role-gated since 2026-08-02: a thing
+      // (mount, transport, container) has no generation surface at all, and
+      // with its frame buttons gone (_getFrameButtons) a stored `true` from
+      // an earlier toggle would otherwise keep live dice with no way left to
+      // turn them off. Render-only — the stored flag is untouched.
+      context.generationEnabled = ["npc", "monster"].includes(this.actor.npcRole)
+        && this.actor.system.generationEnabled !== false;
+      // A PERSON gets the character's biography block — pronouns, age, the
+      // eight traits, scars — on the Description tab (2026-08-01). Role npc
+      // only: a monster, mount, transport or container has no pronouns, and
+      // showBiography false keeps the whole partial out of the render. Omen
+      // stays a player-character thing — it is the youngest PARTY member's
+      // burden, and no npc is one.
+      context.showBiography = this.actor.npcRole === "npc";
+      if (context.showBiography) {
+        await this._prepareBiographyContext(context);
+        context.showScars = true;
+        context.showAge = true;
+        context.showOmen = false;
+      }
     }
 
     // Tooltips that have an NPC wording must resolve through `_wording` like the
@@ -608,12 +876,71 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
-   * Description tab: traits (pick-lists + sentence), Omen, Scars, plus the 2e
-   * background header/description; and the Notes tab's bonds and questions.
-   * Character-only — NPCs and containers have none of it.
+   * Content-overlay namespaces for THIS actor's EMBEDDED ITEMS.
+   *
+   * One definition because two places need it and they MUST agree: the render path
+   * localizes the inventory rows, and #onItemDescription rebuilds the expanded panel
+   * from the stored document. They did not agree — the panel never asked the overlay
+   * at all — so every item description read English in every language while the name
+   * above it read Spanish. That is what a translator reported (2026-08-02), and no
+   * amount of translating could have fixed it.
+   *
+   * Keyed on ROLE, not on type. A monster stores its attacks and features as items,
+   * which the extractor files under monster.itemName/monster.itemDesc; everything
+   * else — a character, a hireling, a person, and a CONTAINER — holds gear from the
+   * item packs, which is item.*. Type was the right key only while `container` was
+   * its own type: since it became `npc` + role, `type === "npc"` swept a container's
+   * gear into the monster namespaces, where it could only ever miss.
+   *
+   * The actor's OWN name/description stay type-keyed (monster.name / monster.desc),
+   * because that is what the extractor emits for every actor doc including mounts
+   * and containers. The split is deliberate: item rule by role, actor rule by type.
    * @private
    */
-  async _prepareCharacterContext(context) {
+  _itemNamespaces() {
+    return this.actor.npcRole === "monster"
+      ? { nameNs: "monster.itemName", descNs: "monster.itemDesc" }
+      : { nameNs: "item.name", descNs: "item.desc" };
+  }
+
+  /**
+   * Window title: "<Role>: <display name>" for anything role-bearing, core's
+   * "<type label>: <name>" for a character.
+   *
+   * The ROLE is the prefix (2026-08-02, user ask): "Non-Player Character:
+   * Albino Tusks…" said the least informative thing twice and truncated the
+   * name for it — "Monster: Albino Tusks Creature" / "Mount: Bucephalus" is
+   * what the sheet body already says in the Role select. The name half keeps
+   * the display-name translation (every actor doc's name is extracted under
+   * monster.name; a character's is player-authored, has no namespace, and t()
+   * returns it unchanged — which is fine, since a character never reaches the
+   * role branch). es note: the CAIRN.Role* value keys are untranslated in es,
+   * so a Spanish title shows the English role word — consistent with its Role
+   * dropdown today; translator-handoff item.
+   * @override
+   */
+  get title() {
+    const name = t("monster.name", this.actor.name);
+    const role = this.actor.npcRole;
+    if (role) {
+      const key = `CAIRN.Role${role.charAt(0).toUpperCase()}${role.slice(1)}`;
+      return `${game.i18n.localize(key)}: ${name || this.actor.name}`;
+    }
+    if (!name || name === this.actor.name) return super.title;
+    const prefix = CONFIG.Actor.typeLabels[this.actor.type] ?? "";
+    return `${game.i18n.localize(prefix)}: ${name}`;
+  }
+
+  /**
+   * The biography block (templates/parts/bio-block.html): trait pick-lists +
+   * the constructed sentence, and the Scars checklist. Extracted from
+   * _prepareCharacterContext when role-npc PEOPLE got the same block
+   * (2026-08-01) — the character path calls it first and keeps everything
+   * background-shaped for itself; the npc path calls it alone, gated on role
+   * npc (context.showBiography).
+   * @private
+   */
+  async _prepareBiographyContext(context) {
     // Trait pick-lists: each trait's source table (from the 2e biography config,
     // which already points at air-bladder.tables-2e) supplies a <select> of
     // options so a player can pick a value (or keep an off-table one).
@@ -657,15 +984,38 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const tables2e = byPack["air-bladder.tables-2e"] ?? (await cachedPackDocuments("air-bladder.tables-2e"));
     const scarTable = tables2e.find((tbl) => tbl.name === "Scars");
     const selectedScars = this.actor.system.scars ?? [];
+    // Same display/value split as the trait options above, and for the same reason:
+    // `.scar-check` persists its `value` verbatim into system.scars, and `selected`
+    // matches English↔English, so `name` must stay the English source. Only `display`
+    // and `description` are localized. Both were plain English before — the scar
+    // NAMES were already in the overlay and simply never looked up.
     context.scarOptions = scarTable
-      ? scarTable.results.map((r) => ({
-          name: resultText(r),
-          description: r.flags?.["air-bladder"]?.description ?? "",
-          selected: selectedScars.includes(resultText(r)),
-        }))
+      ? scarTable.results.map((r) => {
+          const name = resultText(r);
+          return {
+            name,
+            display: t("table.result", name),
+            // Our own per-row annotation, not the row's text — hence its own
+            // namespace (see tools/i18n/extract-content.mjs).
+            description: t("table.resultDesc", r.flags?.["air-bladder"]?.description ?? ""),
+            selected: selectedScars.includes(name),
+          };
+        })
       : [];
-    context.scarDisplay = selectedScars.length ? selectedScars.join(", ") : null;
+    context.scarDisplay = selectedScars.length
+      ? selectedScars.map((s) => t("table.result", s)).join(", ")
+      : null;
     context.scarsCollapsed = this._scarsCollapsed ?? false;
+  }
+
+  /**
+   * Description tab: the biography block (see _prepareBiographyContext), plus
+   * the 2e background header/description; and the Notes tab's bonds and
+   * questions. Character-only — the npc path shares only the biography part.
+   * @private
+   */
+  async _prepareCharacterContext(context) {
+    await this._prepareBiographyContext(context);
 
     // Background description (from the linked Item) + a friendly source label,
     // shown in the sheet header. "2e" -> "Cairn 2e".
@@ -687,12 +1037,19 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.is2eBackground = this.actor.system.contentSource === "2e";
     context.isBarebonesBackground = this.actor.system.contentSource === "barebones";
     context.hasGeneratedBackground = !!this.actor.system.backgroundUuid;
-    // A generated character's Notes tab also carries its bonds and background
-    // questions, so the tab is titled for both; a hand-made one is just notes.
-    context.showBackgroundNotesLabel = context.is2eBackground || context.isBarebonesBackground;
+    // `showBackgroundNotesLabel` lived here (the Notes tab renamed itself
+    // "Background & Notes" once a background was attached). Retired 2026-08-01:
+    // the tab is "Notes" for everyone — one name, one key, and the label no
+    // longer disagrees with TAB_LABELS.notes on generated characters.
+    // Since 2026-08-02 the label is static PER ROLE instead — a character and a
+    // role-npc person read CAIRN.BackgroundAndNotes, a monster, mount, transport
+    // or container reads CAIRN.Notes (`context.notesTabLabel`). The DYNAMIC,
+    // data-driven rename stays dead: two characters must not disagree on what
+    // their own tabs are called.
     // Scars and Age are never generated — a player fills each in by hand after
     // the fact — so they are NOT edition-specific and show on both. Only
-    // character CREATION differs between 2e and Barebones (see CLAUDE.md).
+    // character CREATION differs between 2e and Barebones (see CLAUDE.md,
+    // "One system, two generators").
     context.showScars = true;
     context.showAge = true;
     // Omen is the one exception, and it is a CONTENT question rather than a rule:
@@ -702,18 +1059,31 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.showOmen =
       this.actor.system.contentSource !== "barebones" ||
       game.settings.get(SETTINGS_NS, "show-omens-barebones");
+    // The omen's READ surface (the display span when the field is disabled, and
+    // eventually whatever renders it elsewhere). Omens are table.result rows and
+    // 19 of the 20 shipped ones are translated; the traits, scars and bonds
+    // around this field all consult the overlay and this one did not. The
+    // TEXTAREA stays the stored English on purpose — it is the edit surface of a
+    // free-text field with no display/value split, the same deliberate rule as
+    // the item sheet's name input.
+    context.omenDisplay = t("table.result", this.actor.system.omen);
     // Barebones-only flavour: the career that didn't work out. Grants nothing.
     // Read the setting live, so a Warden switching it off hides the line on an
     // already-generated character rather than only affecting the next one.
-    context.failedCareer = this.actor.system.failedCareer ?? "";
+    // Localized like the pickers that set them (promptFailedCareer shows
+    // t("bg.name")/t("item.name") labels): the stored value stays the English
+    // match key; only these display copies translate.
+    context.failedCareer = t("bg.name", this.actor.system.failedCareer ?? "");
     context.showFailedCareer =
       this.actor.system.contentSource === "barebones" &&
       game.settings.get(SETTINGS_NS, "barebones-failed-career");
     // The single keepsake item the failed career left (grantSource
     // "failed-career") — shown on its own line under the career, with a re-roll
     // dice. It also appears in the inventory tagged "Failed Career" + "Petty".
-    context.failedCareerItem =
-      this.actor.items.find((i) => i.getFlag("air-bladder", "grantSource") === "failed-career")?.name ?? "";
+    context.failedCareerItem = t(
+      "item.name",
+      this.actor.items.find((i) => i.getFlag("air-bladder", "grantSource") === "failed-career")?.name ?? "",
+    );
 
     // Random-generation mode (default on): gates the per-field dice rollers
     // (age, omen). Legacy characters lack the field -> default to enabled.
@@ -743,6 +1113,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       question: t("bg.question", q.question ?? ""),
       answer: t("bg.optionDesc", q.answer ?? ""),
     }));
+    // The Notes editor is TOGGLED (character-sheet.html), so this is its
+    // light-DOM DISPLAY half. Enriched but NOT translated: notes are the
+    // player's own prose and no content namespace files them.
+    context.enrichedNotes =
+      await foundry.applications.ux.TextEditor.implementation.enrichHTML(
+        this.actor.system.notes,
+        { relativeTo: this.actor },
+      );
 
     // Attribute-loss statuses, ability tooltips, peril/low cues, critical skull.
     this._computeStatContext(context);
@@ -756,6 +1134,29 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * @private
    */
   _computeStatContext(context) {
+    // A THING (role transport/container) has no stat block, so it has no
+    // derived conditions either -- and this is a correctness guard, not a
+    // cosmetic one. Every condition below is derived from an ability being at
+    // or below zero (`dead = STR <= 0`), which is exactly the state a crate or
+    // a loot pile sits in permanently. Without this the sheet would announce
+    // that a barrel is Dead, Paralyzed and Delirious, all three at once, and
+    // the red peril cues would paint a stat block the template is not even
+    // drawing.
+    //
+    // Everything is still defined rather than left undefined: the template
+    // reads these keys unconditionally in a few places, and a missing lookup in
+    // Handlebars is silently empty, which would hide a future mistake here.
+    if (this.actor.isThing) {
+      context.abilityPeril = {};
+      context.abilityLow = {};
+      context.hpLow = false;
+      context.criticalToggle = {};
+      context.criticalActive = {};
+      context.abilityTips = {};
+      context.statusBanners = [];
+      return;
+    }
+
     const ab = this.actor.system.abilities ?? {};
     const val = (k) => Number(ab[k]?.value);
     const max = (k) => Number(ab[k]?.max);
@@ -869,6 +1270,34 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       if (!Number.isFinite(n)) n = 0;
       n = Math.min(18, Math.max(0, n));
       if (String(n) !== input.value) input.value = n;
+    });
+
+    // The Type select is class-managed (no form name) ON PURPOSE: its "Other…"
+    // row is a sentinel, and an unnamed control keeps it out of every submit —
+    // nothing that is not a real Kind may ever reach the document. A known key
+    // (or blank) is written here, alone, which is the same single-field write
+    // the old picker made — _preUpdate answers it with default art and slots
+    // only where nothing was hand-set. Other writes NOTHING: it enables and
+    // reveals the free-text input, whose own (named) change is the field's one
+    // submit path, where _processFormData still maps a typed label to its key.
+    // stopPropagation keeps submitOnChange from also firing a same-values
+    // submit off the unnamed select's change.
+    on(".kind-select", "change", async (ev) => {
+      ev.stopPropagation();
+      const v = ev.currentTarget.value;
+      const input = el.querySelector(".kind-input");
+      if (v === "__other__") {
+        if (input) {
+          input.hidden = false;
+          input.disabled = false;
+          input.focus();
+        }
+        return;
+      }
+      if (input) { input.hidden = true; input.disabled = true; }
+      if (v !== (this.actor.system.containerClass || "")) {
+        await this.actor.update({ "system.containerClass": v });
+      }
     });
 
     // Armor is class-managed (no form name): the field shows the effective Armor
@@ -1078,16 +1507,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       bg = this.actor.system.backgroundUuid ? await fromUuid(this.actor.system.backgroundUuid) : null;
     }
     // Barebones gets exactly one bond, and only when the Warden lends it 2e's
-    // Bonds table — it has no second-bond options of its own.
+    // Bonds table — it has no second-bond options of its own. Display policy,
+    // so it stays HERE: the generator's clamp must never delete a lent bond
+    // because this setting happens to be off.
     if (this.actor.system.contentSource === "barebones") {
       return game.settings.get(SETTINGS_NS, "show-bonds-barebones") ? 1 : 0;
     }
-    // The authoring checkbox OR the prose sentence — one extra either way, never two
-    // (generate2eCharacter counts it the same way).
-    const bgSecond =
-      bg?.system?.secondBond || (bg?.system?.description && mentionsSecondBond(bg.system.description)) ? 1 : 0;
-    const qSecond = (this.actor.system.questions ?? []).filter((q) => mentionsSecondBond(q.answer ?? "")).length;
-    return 1 + bgSecond + qSecond;
+    // The shared rule — one implementation for generation, the Add-a-bond cap
+    // and changeBackground's clamp, after its two hand-kept twins drifted
+    // apart in wording and agreed only by luck (dedup'd 2026-08-02).
+    return bondEntitlement(bg, this.actor.system.questions);
   }
 
   /**
@@ -1316,6 +1745,17 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   /**
    * Set a container's art and its token together. Unlike a character portrait
    * there is no paired token file -- the same image serves both.
+   *
+   * ART ONLY, since 2026-08-02 (ruled): picking a picture never writes the
+   * Kind or the capacity — "change an image should not change the Role or
+   * Type". This used to be the gallery's double duty (the barrel glyph also
+   * said "this is a barrel"), which meant a Warden could not dress a crate in
+   * barrel art without re-kinding it, and the ONLY way to change the role was
+   * through the picker. The direction that survives is the other one: a KIND
+   * change stamps default art, and only while the current art is stock
+   * (CairnActor._preUpdate) — mix and match is the rule, defaults are the
+   * courtesy.
+   * @param {String} img
    * @private
    */
   async _setContainerArt(img) {
@@ -1335,13 +1775,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * The NPC branch used to re-roll on a single click, on the reasoning that "a
    * hireling's statblock is disposable by design". That was written when only
    * `hireling` reached it. Folding hireling into npc silently widened it to the
-   * whole bestiary: all 205 shipped monsters are `type: npc`, none of them declares
-   * `generationEnabled` (so it defaults true, data-models.js:208) and
-   * `show-generate-header` defaults true — so the button renders on every monster
-   * for anyone who owns it, and `regenerateHireling` deletes every embedded Item
-   * and overwrites the statblock. One click turned a shipped Gorilla into an
-   * Alchemist (observed 2026-07-30: `Fists*` → six pieces of gear, STR 14→8, HP
-   * 4→2), with no dialog and no undo.
+   * whole bestiary: all 205 shipped monsters are `type: npc`, at the time none
+   * declared `generationEnabled` (it defaulted TRUE then; since e6b362a every
+   * shipped monster pins `false`, and since 2026-08-02 the schema initial is
+   * false too) and `show-generate-header` defaults true — so the button
+   * rendered on every monster for anyone who owned it, and `regenerateNpc`
+   * deletes every embedded Item and overwrites the statblock. One click turned
+   * a shipped Gorilla into an Alchemist (observed 2026-07-30: `Fists*` → six
+   * pieces of gear, STR 14→8, HP 4→2), with no dialog and no undo.
    *
    * The confirmation is NOT worded via `_wording()`: that helper picks a `…Npc`
    * variant whenever `game.i18n.has()` is true, and `has()` consults the English
@@ -1352,6 +1793,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onRollActor(event) {
     event.preventDefault();
+    // A monster-role npc re-rolls as a MONSTER. The tier picker IS the ask-first
+    // dialog here: it is dismissible (null = cancel, touch nothing) and its
+    // wording is monster-specific — so the Gorilla-into-Alchemist path above is
+    // closed without stacking two dialogs in front of one button.
+    if (this.actor.npcRole === "monster") {
+      const tier = await promptMonsterTier({ regenerate: true });
+      if (!tier) return;
+      await regenerateMonster(this.actor, tier);
+      return;
+    }
     const isNpc = ["hireling", "npc"].includes(this.actor.type);
     // DialogV2.confirm already makes "No" the default button, so V1's
     // defaultYes: false has no equivalent to carry over.
@@ -1363,7 +1814,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       rejectClose: false,
     });
     if (!confirm) return;
-    if (isNpc) await regenerateHireling(this.actor);
+    if (isNpc) await regenerateNpc(this.actor);
     else await regenerateActor(this.actor);
   }
 
@@ -1385,45 +1836,41 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   /**
    * Click the portrait to pick a new one. A container gets the transport/container
    * art gallery instead of the character portrait gallery -- different art, and no
-   * paired token file. Every other type, NPCs included, gets the character portrait
+   * paired token file. Every other role, NPCs included, gets the character portrait
    * gallery: an NPC is as much a face at the table as a PC is.
    * @this {CairnActorSheet}
    */
   static async #onEditPortrait(event) {
-    return this.actor.type === "container"
+    // A thing-role npc is a container in every sense that matters here, and a
+    // MOUNT wants the horse/mule glyphs, not 80 human portraits — so all three
+    // container-line roles get the container gallery.
+    const isContainerish = this.actor.isThing || this.actor.npcRole === "mount";
+    return isContainerish
       ? this._pickContainerArt(event)
       : this._pickPortrait(event);
   }
 
   /**
-   * Dice on the portrait: roll a random one from the effective pool, avoiding the
-   * current so it always changes. The pool matches auto-assignment — the GM's
-   * custom portraits when they have any, else the shipped Aspeheim art. Reuses
-   * _setPortrait so the paired token swaps too (custom portraits are their own).
+   * Dice on the portrait: roll a random one FROM THE FOLDER THE CURRENT
+   * PORTRAIT CAME FROM — Aspeheim rolls Aspeheim, a custom portrait rolls the
+   * Warden's folder, a game-icons or tlomdev pick rolls its own category, so a
+   * beast stays a beast. An image from no known gallery folder falls back to
+   * the auto-assignment pool (custom when non-empty, else Aspeheim), which was
+   * this die's whole behaviour before the rule. Reuses _setPortrait so the
+   * paired token swaps too (non-Aspeheim art is its own token).
    * @this {CairnActorSheet}
    */
   static async #onRollPortrait(event) {
     event.preventDefault();
     event.stopPropagation();
-    const custom = getCustomPortraitPaths();
-    let all;
-    if (custom.length) {
-      all = custom;
-    } else {
-      const manifest = await getPortraitManifest();
-      const names = manifest?.names ?? [];
-      if (!names.length) return;
-      const dir = manifest.portraitDir ?? "systems/air-bladder/character_portraits";
-      all = names.map((n) => `${dir}/${n}`);
-    }
-    const pool = all.filter((src) => src !== this.actor.img);
-    const choices = pool.length ? pool : all;
-    await this._setPortrait(choices[Math.floor(Math.random() * choices.length)]);
+    const src = await randomPortraitInSameFolder(this.actor.img);
+    if (!src) return;
+    await this._setPortrait(src);
   }
 
   /**
    * Dice beside the name. Both sheets carry one, but they draw from different
-   * sources -- a hireling's name comes from its own spark table, a character's
+   * sources -- an NPC's name comes from its own spark table, a character's
    * from the background's example names.
    *
    * 2e names come from the CURRENT background's example-name list (so the name
@@ -1435,7 +1882,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   static async #onRollName(event) {
     event.preventDefault();
     if (["hireling", "npc"].includes(this.actor.type)) {
-      await rerollHirelingName(this.actor);
+      await rerollNpcName(this.actor);
       return;
     }
     let name = null;
@@ -1455,14 +1902,25 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
-   * Profession-only die: swap to a different example hireling and adopt its whole
-   * canonical statblock (a 2e hireling's stats ARE its profession). Keeps the
-   * name, portrait, notes and any GM-added gear.
+   * Profession-only die: swap to a different example statblock and adopt the
+   * whole of it (a 2e career's stats ARE its profession). Keeps the name,
+   * portrait, notes and any GM-added gear.
    * @this {CairnActorSheet}
    */
   static async #onRollProfession(event) {
     event.preventDefault();
-    await rerollHirelingProfession(this.actor);
+    await rerollNpcProfession(this.actor);
+  }
+
+  /**
+   * Faction-only die: fill system.faction from the world-first
+   * "Warden: NPC - Faction" table. Touches nothing else — a side is not a
+   * statblock.
+   * @this {CairnActorSheet}
+   */
+  static async #onRollFaction(event) {
+    event.preventDefault();
+    await rerollNpcFaction(this.actor);
   }
 
   /* -------------------------------------------- */
@@ -1503,14 +1961,19 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
-   * Open the marketplace (buy/take gear). On a container it is scoped to gear
-   * only -- no buying a transport into a transport -- and acquisition is strict
-   * there: a container refuses anything that will not fit.
+   * Open the marketplace (buy/take gear). Anything that cannot KEEP a
+   * connection is scoped to gear only — no buying a cart into a sack.
+   *
+   * Keyed on `canKeepConnected`, which is the same test `acquireTransport`
+   * refuses on, so the shop never offers a row it would then reject. It used to
+   * be `type === "container"`, which under the roles model excluded nothing: an
+   * npc mule IS a container and its sheet carries this link (the same gap
+   * review #5 closed on the marketplace's own side, one caller short).
    * @this {CairnActorSheet}
    */
   static #onItemShop(event) {
     event.preventDefault();
-    if (this.actor.type === "container") openMarketplace(this.actor, { exclude: TRANSPORTS_CATEGORY });
+    if (!this.actor.canKeepConnected) openMarketplace(this.actor, { exclude: TRANSPORTS_CATEGORY });
     else openMarketplace(this.actor);
   }
 
@@ -1525,9 +1988,43 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     event.preventDefault();
     const row = CairnActorSheet.#row(target);
     if (!row) return;
+    // No optimistic slide, on EITHER branch. Both helpers await a confirm dialog
+    // before deleting anything, so sliding here animated the row away while the
+    // question was still on screen — answer "no" and the item was still there
+    // with its row gone, until something re-rendered the sheet and put it back.
+    // The connected-actor branch stopped doing this in review #5 (an Actor delete
+    // can also be refused by the server: Assistant+, ungrantable); the item and
+    // feature branches were never brought in line, though the decline half of the
+    // reasoning covers all three. On success the delete re-renders this sheet
+    // — descendant deletes render the parent (client-document.mjs:691-694) — and
+    // the row goes with it.
     if (row.dataset.isContainer) this.actor.deleteOwnedContainer(row.dataset.itemId);
     else this.actor.deleteOwnedItem(row.dataset.itemId);
-    slideUp(row, () => this.render(false));
+  }
+
+  /**
+   * Unlink a connected actor: it survives, connected to nobody, which under the
+   * container rule IS a loot pile. Sits beside the trash rather than replacing
+   * it, because "destroy this cart" and "drop this cart here" are different
+   * intentions and the tab used to offer only one icon for both — one that
+   * asked "Delete X?" and then unlinked.
+   * @this {CairnActorSheet}
+   */
+  static #onContainerUnlink(event, target) {
+    event.preventDefault();
+    const row = CairnActorSheet.#row(target);
+    if (!row?.dataset.isContainer) return;
+    // Both ends, per row — unlinkOwnedContainer re-checks; this just refuses
+    // politely if a hidden control got reached anyway.
+    const child = game.actors.find((a) => a.uuid === row.dataset.itemId);
+    if (!game.user.isGM && !(this.actor.isOwner && child?.isOwner)) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.ConnectionOwnBothEnds"));
+      return;
+    }
+    // Not slid up: unlinking leaves the actor in the world, and the row simply
+    // stops matching on the next render. Animating it away would suggest the
+    // thing itself had gone.
+    this.actor.unlinkOwnedContainer(row.dataset.itemId).then(() => this.render(false));
   }
 
   /** @this {CairnActorSheet} */
@@ -1580,7 +2077,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         // HTML/script into the keeper's (or GM's) sheet when the row is expanded.
         const div = document.createElement("div");
         div.className = "item-description";
-        div.textContent = container.items.map((it) => it.name).join(", ");
+        // What a container holds is gear, whatever the KEEPER is — so item.name,
+        // not this keeper's namespaces.
+        div.textContent = container.items.map((it) => t("item.name", it.name)).join(", ");
         return div;
       });
       return;
@@ -1593,7 +2092,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         : "";
       const div = document.createElement("div");
       div.className = "item-description";
-      div.innerHTML = `${cleanDescription(item.system.description)}${crit}`;
+      // Localized like the row above it (_itemNamespaces), and sanitized AFTER —
+      // the overlay is a shipped file, but it reaches innerHTML, so it goes
+      // through the same cleaner the stored string does rather than around it.
+      // criticalDamage is not translated because it is not EXTRACTED: no shipped
+      // item carries any, so there is nothing for a translator to have filled.
+      const desc = t(this._itemNamespaces().descNs, item.system.description);
+      div.innerHTML = `${cleanDescription(desc)}${crit}`;
       return div;
     });
   }
@@ -1627,15 +2132,19 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     const usePanic = game.settings.get(SETTINGS_NS, "use-panic");
     let formula = dataset.roll;
-    let panicLabel = "";
+    let panicked = false;
     if (usePanic && this.actor.system.panicked) {
       formula = "1d4"; // panicked character
-      panicLabel = "(" + game.i18n.localize("CAIRN.RollingWithPanic") + ")";
+      panicked = true;
     }
 
     const roll = await evaluateFormula(formula, this.actor.getRollData());
+    // Two whole-sentence keys, not fragments glued with `+`: word order is not
+    // universal, and the translator could not move the weapon name or the
+    // parenthetical. Same rule as _buildTraitSentence and _prepareConnectionLabel.
     const label = dataset.label
-      ? game.i18n.localize("CAIRN.RollingDmgWith") + ` ${dataset.label} ` + panicLabel
+      ? game.i18n.format(panicked ? "CAIRN.RollingDmgWithWeaponPanic" : "CAIRN.RollingDmgWithWeapon",
+        { weapon: dataset.label })
       : "";
 
     const targetedTokens = Array.from(game.user.targets).map((tk) => tk.id);
@@ -1649,76 +2158,214 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /* -------------------------------------------- */
-  /*  Actions — containers                        */
+  /*  Actions — connections                       */
   /* -------------------------------------------- */
 
   /**
-   * Add a container from the catalog (a pack, mount, or vehicle). Same shop, same
-   * buy/take path as the Items-tab market, scoped to Transports & Containers --
-   * so a bought/taken transport lands right back in this tab.
+   * Connect an EXISTING world actor to this one — the tab's headline gesture.
+   * The graph is FLAT (2026-08-01): every edge is PC → non-character, so this
+   * renders on a character's sheet and nowhere else. The marketplace link this
+   * replaced still exists on the Items tab; the Connections tab is about
+   * relationships, not shopping.
+   *
+   * The pick-list is pre-filtered to what `connectActor` would accept — role
+   * may be connected, not already connected, no cycle, and the user can write
+   * it — so the dialog never offers a refusal. connectActor still guards; the
+   * filter is a courtesy, not the wall.
    * @this {CairnActorSheet}
    */
-  static #onContainerShop(event) {
+  static async #onConnectionAdd(event) {
     event.preventDefault();
-    openMarketplace(this.actor, { only: TRANSPORTS_CATEGORY, titleKey: "CAIRN.TransportMarketTitle" });
-  }
-
-  /**
-   * Homebrew escape hatch: create a bespoke container by hand (name + slots).
-   * Demoted below the catalog path -- most containers should come from the shop.
-   * @this {CairnActorSheet}
-   */
-  static async #onContainerCreate(event) {
-    event.preventDefault();
-    if (!game.user.hasPermission("ACTOR_CREATE")) {
-      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.NoActorCreate"));
+    // connectActor re-checks; refusing before the dialog just spares a
+    // gesture from users who found the action some way the template gating
+    // does not cover. This is the keeper-side HALF of the both-ends wall —
+    // the candidate filter's canUserModify below is the per-target half, so
+    // a player is only ever offered children the whole wall would accept.
+    if (!game.user.isGM && !this.actor.isOwner) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.ConnectionOwnBothEnds"));
       return;
     }
-    const template = "systems/air-bladder/templates/dialog/add-container-dialog.html";
-    // The class list comes from CONTAINER_CLASSES itself, so a class added there
-    // appears here without a second list to keep in step. `mule` and `donkey`
-    // share art but are different words, and both are offered — the label is what
-    // the sheet will show.
-    const classes = Object.entries(CONTAINER_CLASSES).map(([key, v]) => ({ key, label: v.label }));
-    const content = await foundry.applications.handlebars.renderTemplate(template, { classes });
-
+    if (!this.actor.canKeepConnected) {
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoNesting", { name: this.actor.name }));
+      return;
+    }
+    // Refuse at the ceiling BEFORE the picker, not after a choice: the dialog's
+    // whole contract is that everything it offers can actually be connected.
+    if (atConnectionLimit(this.actor)) {
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.ConnectionLimit", {
+        name: this.actor.name,
+        max: maxConnections(),
+      }));
+      return;
+    }
+    const candidates = game.actors
+      .filter((a) => a.uuid !== this.actor.uuid
+        // `canBeConnected` is false for every character now (a PC is never
+        // kept), so the Round 2 pair-rule clause that used to sit here — offer
+        // characters only to another character — has nothing left to exclude.
+        && a.canBeConnected
+        && !a.system?.connectedTo
+        && !this.actor.wouldCreateConnectionCycle(a)
+        && a.canUserModify(game.user, "update"))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    if (!candidates.length) {
+      ui.notifications.info(game.i18n.localize("CAIRN.Notify.NoConnectables"));
+      return;
+    }
+    const options = candidates
+      .map((a) => `<option value="${a.uuid}">${foundry.utils.escapeHTML(a.name)}</option>`)
+      .join("");
+    const content = `<div class="form-group">
+        <label>${game.i18n.localize("CAIRN.ConnectionPick")}</label>
+        <select name="connectionTarget">${options}</select>
+      </div>`;
     await foundry.applications.api.DialogV2.prompt({
-      window: { title: game.i18n.localize("CAIRN.CreateContainer") },
+      // ONE verb (2026-08-01): both ends' dialogs read CAIRN.Connect. The
+      // handlers stay separate — this one picks a child for a keeper, the
+      // attach one picks a keeper for a child — but the word is the word.
+      window: { title: game.i18n.localize("CAIRN.Connect") },
       content,
       ok: {
-        icon: "fas fa-check",
-        label: game.i18n.localize("CAIRN.CreateContainer"),
+        icon: "fas fa-link",
+        label: game.i18n.localize("CAIRN.Connect"),
         callback: async (dialogEvent, button) => {
-          const form = button.form;
-          if (form.itemname.value.trim() !== "") {
-            // No `img` here on purpose: CairnActor._preCreate names the art from
-            // the container's own name (a "Barrel" gets barrel art), so hardcoding
-            // the chest icon would defeat it. getDocumentClass, not the global
-            // `Actor` — the global is not CONFIG.Actor.documentClass.
-            //
-            // The result is deliberately not checked, unlike `acquireTransport`,
-            // which does. That asymmetry is not an oversight: acquireTransport NEEDS
-            // the value — it dereferences `container.update()` and then deducts the
-            // price, so an unchecked refusal would throw and still charge the buyer.
-            // Here the value goes straight to createOwnedContainer, whose own first
-            // line returns on a falsy document, and nothing follows it. The realistic
-            // refusal (a player without ACTOR_CREATE) is already caught above, with a
-            // message. What is left is a third-party `preCreateActor` veto, which
-            // resolves undefined and says nothing — and explaining its own veto is
-            // the vetoing module's job, not ours.
-            const result = await getDocumentClass("Actor").create({
-              type: "container",
-              name: form.itemname.value,
-              "system.slots": form.itemslots.value,
-              // Blank means "read the name", which is what this dialog always did.
-              "system.containerClass": form.itemclass?.value ?? "",
-            });
-            await this.actor.createOwnedContainer(result);
-          }
+          const uuid = button.form.connectionTarget?.value;
+          const target = game.actors.find((a) => a.uuid === uuid);
+          if (target) await this.actor.connectActor(target);
         },
       },
       rejectClose: false,
     });
+  }
+
+  /**
+   * The same edge from the CHILD end: pick a keeper for THIS actor (Round 2).
+   * Renders on any connectable, unconnected actor's tab — a sack, a mount, a
+   * player character joining another's roster. The write is identical to Add
+   * Connection's (`keeper.connectActor(child)`); only the sheet it starts
+   * from differs, so every guard is connectActor's.
+   * @this {CairnActorSheet}
+   */
+  static async #onConnectionAttach(event) {
+    event.preventDefault();
+    const child = this.actor;
+    // The child-side half of the both-ends wall; the keeper filter below adds
+    // the other half, so a player is only offered keepers they own.
+    if (!game.user.isGM && !child.isOwner) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.ConnectionOwnBothEnds"));
+      return;
+    }
+    if (child.system.connectedTo) return;             // one upward link, ever
+    // Refuse from the child's own end. This replaces the Round 2 pair-rule
+    // clause in the filter below (which offered a character none but other
+    // characters): a PC is never kept, so there is no keeper to narrow to —
+    // and unlike a filter that quietly returns an empty list, this says why.
+    // It covers the monster and unlinked-token cases in the same breath.
+    if (!child.canBeConnected) {
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.CannotConnect", { name: child.name }));
+      return;
+    }
+    const keepers = game.actors
+      .filter((k) => k.uuid !== child.uuid
+        && k.canKeepConnected
+        // The per-keeper half of the both-ends wall: a player is offered only
+        // keepers they own; the Warden is offered all of them.
+        && (game.user.isGM || k.isOwner)
+        // A character with no room left is not an eligible keeper. Filtered
+        // rather than refused-on-choice, same contract as Add Connection's.
+        && !atConnectionLimit(k)
+        // Cycle check runs from the PROSPECTIVE KEEPER's side, exactly as
+        // connectActor will: if the chain above k passes through child, the
+        // link would loop.
+        && !k.wouldCreateConnectionCycle(child))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    if (!keepers.length) {
+      ui.notifications.info(game.i18n.localize("CAIRN.Notify.NoKeepers"));
+      return;
+    }
+    const options = keepers
+      .map((k) => `<option value="${k.uuid}">${foundry.utils.escapeHTML(k.name)}</option>`)
+      .join("");
+    const content = `<div class="form-group">
+        <label>${game.i18n.localize("CAIRN.ConnectionPick")}</label>
+        <select name="keeperTarget">${options}</select>
+      </div>`;
+    await foundry.applications.api.DialogV2.prompt({
+      // The same ONE verb as Add Connection's dialog — see the note there.
+      window: { title: game.i18n.localize("CAIRN.Connect") },
+      content,
+      ok: {
+        icon: "fas fa-link",
+        label: game.i18n.localize("CAIRN.Connect"),
+        callback: async (dialogEvent, button) => {
+          const uuid = button.form.keeperTarget?.value;
+          const keeper = game.actors.find((k) => k.uuid === uuid);
+          if (keeper) await keeper.connectActor(child);
+        },
+      },
+      rejectClose: false,
+    });
+  }
+
+  /**
+   * Break the upward edge from the CHILD end (Round 2). Routes through the
+   * keeper's own unlink — same confirm dialog, same formerlyBelongedTo stamp —
+   * so the two ends cannot drift. The fallback
+   * matters: a DANGLING link (keeper deleted, uuid resolving to nothing) has
+   * no keeper to route through, and single-parent-ever refuses to reconnect
+   * over it, so clearing it here is the only recovery the child has.
+   * @this {CairnActorSheet}
+   */
+  static async #onConnectionDetach(event) {
+    event.preventDefault();
+    const child = this.actor;
+    const link = child.system.connectedTo || "";
+    if (!link) return;
+    const keeper = game.actors.find((a) => a.uuid === link);
+    if (keeper) {
+      // The both-ends wall lives in unlinkOwnedContainer; this pre-check just
+      // says no before the confirm rather than after it.
+      if (!game.user.isGM && !(child.isOwner && keeper.isOwner)) {
+        ui.notifications.warn(game.i18n.localize("CAIRN.Notify.ConnectionOwnBothEnds"));
+        return;
+      }
+      await keeper.unlinkOwnedContainer(child.uuid);
+      return;
+    }
+    // A DANGLING keeper: the uuid resolves to nothing, so there IS no other
+    // end to own — the child's owner suffices. This detach is the only
+    // recovery a dangling link has (single-parent-ever refuses to reconnect
+    // over it), which is why it must not demand an owner who no longer exists.
+    if (!game.user.isGM && !child.isOwner) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.ConnectionOwnBothEnds"));
+      return;
+    }
+    const proceed = await foundry.applications.api.DialogV2.confirm({
+      window: { title: game.i18n.localize("CAIRN.UnlinkContainerTitle") },
+      content: `<div class="cairn-confirm"><p class="cairn-confirm-q">${
+        game.i18n.format("CAIRN.UnlinkContainerQ", {
+          name: foundry.utils.escapeHTML(child.name),
+        })}</p></div>`,
+      rejectClose: false,
+      modal: true,
+    });
+    if (!proceed) return;
+    // No formerlyBelongedTo stamp — the keeper's name is exactly the fact the
+    // dangling uuid already failed to preserve. The broken ownership shape
+    // rides along exactly as in unlinkOwnedContainer: GM writes it, a player
+    // sets the sync flag and asks the active GM's client (monsters excluded).
+    const changes = { "system.connectedTo": "" };
+    if (child.npcRole !== "monster") {
+      if (game.user.isGM) {
+        changes.ownership = foundry.data.operators.ForcedReplacement.create(brokenOwnershipShape(child));
+      } else {
+        changes[`flags.air-bladder.${OWNERSHIP_SYNC_FLAG}`] = true;
+      }
+    }
+    await child.update(changes);
+    if (!game.user.isGM && child.npcRole !== "monster") {
+      game.socket.emit(`system.${game.system.id}`, { action: "ownershipSync", childUuid: child.uuid });
+    }
   }
 
   /* -------------------------------------------- */
@@ -1729,7 +2376,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   static async #onFeatureCreate(event) {
     event.preventDefault();
     const template = "systems/air-bladder/templates/dialog/add-feature-dialog.html";
-    const content = await foundry.applications.handlebars.renderTemplate(template);
+    // DialogV2 runs STRING content through cleanHTML, whose allow-list gives
+    // <textarea> no `placeholder` (constants.mjs:1885), so the description
+    // box's localized placeholder was silently stripped (review #6). An
+    // attribute-less <div> ELEMENT is core's documented trusted-content route
+    // (dialog.mjs:136-155) and skips the cleaning — the template is our own
+    // file, not user input.
+    const content = document.createElement("div");
+    content.innerHTML = await foundry.applications.handlebars.renderTemplate(template);
 
     await foundry.applications.api.DialogV2.prompt({
       window: { title: game.i18n.localize("CAIRN.CreateFeature") },
@@ -1759,7 +2413,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (!item) return;
 
     const template = "systems/air-bladder/templates/dialog/add-feature-dialog.html";
-    const content = await foundry.applications.handlebars.renderTemplate(template, item);
+    // Same cleanHTML dodge as #onFeatureCreate: an element, not a string.
+    const content = document.createElement("div");
+    content.innerHTML = await foundry.applications.handlebars.renderTemplate(template, item);
 
     await foundry.applications.api.DialogV2.prompt({
       window: { title: game.i18n.localize("CAIRN.EditFeature") },
@@ -1795,8 +2451,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     event.preventDefault();
     const row = CairnActorSheet.#row(target);
     if (!row) return;
+    // Not slid up — see #onItemDelete. deleteOwnedFeature confirms first, and
+    // its update re-renders the sheet when it goes through.
     this.actor.deleteOwnedFeature(row.dataset.itemId);
-    slideUp(row, () => this.render(false));
   }
 
   /** @this {CairnActorSheet} */
@@ -1832,7 +2489,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const dataset = target.dataset;
     if (!dataset.roll) return;
     const roll = await evaluateFormula(dataset.roll, this.actor.getRollData());
-    const label = dataset.label ? game.i18n.localize("CAIRN.Rolling") + ` ${dataset.label}` : "";
+    // A whole-sentence key, not localize()+concat — the translator owns the word order.
+    const label = dataset.label ? game.i18n.format("CAIRN.RollingWhat", { what: dataset.label }) : "";
     const rolled = roll.terms[0].results[0].result;
     const failed = roll.total === 0;
     const result = failed ? game.i18n.localize("CAIRN.Fail") : game.i18n.localize("CAIRN.Success");
@@ -2085,16 +2743,29 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onAddBond(event) {
     event.preventDefault();
-    const bonds = this._effectiveBonds();
-    if (bonds.length >= (await this._bondEntitlement())) return;
-    const rec = bondRecordFrom(await drawBond(await this._bondsTableName()));
-    if (!rec) return;
-    bonds.push(rec.bond);
-    if (rec.items.length) {
-      await this.actor.createEmbeddedDocuments("Item", rec.items, { render: false });
+    // The same guard the two re-roll handlers carry, and for a worse race.
+    // This reads `bonds`, AWAITS a table draw, then writes the array it read:
+    // two clicks in quick succession both see one bond, both pass the
+    // entitlement check, and the second write overwrites the first. One bond
+    // is lost from `system.bonds` while BOTH sets of granted items were
+    // created — and the survivors carry `bond:<id>` for an id no longer in the
+    // array, so `#onRemoveBond` can never reach them and no code ever will.
+    if (this._rerolling) return;
+    this._rerolling = true;
+    try {
+      const bonds = this._effectiveBonds();
+      if (bonds.length >= (await this._bondEntitlement())) return;
+      const rec = bondRecordFrom(await drawBond(await this._bondsTableName()));
+      if (!rec) return;
+      bonds.push(rec.bond);
+      if (rec.items.length) {
+        await this.actor.createEmbeddedDocuments("Item", rec.items, { render: false });
+      }
+      const gold = (this.actor.system.gold ?? 0) + rec.bond.gold;
+      await this.actor.update({ "system.bonds": bonds, "system.gold": gold });
+    } finally {
+      this._rerolling = false;
     }
-    const gold = (this.actor.system.gold ?? 0) + rec.bond.gold;
-    await this.actor.update({ "system.bonds": bonds, "system.gold": gold });
   }
 
   /**
@@ -2104,14 +2775,25 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onRemoveBond(event, target) {
     event.preventDefault();
-    const id = target.dataset.bondId;
-    const bonds = this._effectiveBonds();
-    const idx = bonds.findIndex((b) => b.id === id);
-    if (idx < 0) return;
-    await this._replaceGrantedItems(`bond:${id}`, []);
-    const gold = Math.max(0, (this.actor.system.gold ?? 0) - (bonds[idx].gold ?? 0));
-    bonds.splice(idx, 1);
-    await this.actor.update({ "system.bonds": bonds, "system.gold": gold });
+    // Guarded for the mirror of the race above: two removals in flight each
+    // splice the array THEY read, so the second write resurrects the bond the
+    // first removed — with its granted items already deleted and its gold
+    // already refunded. Same flag, because these four handlers are all
+    // read-modify-write over `system.bonds` and only one may be in flight.
+    if (this._rerolling) return;
+    this._rerolling = true;
+    try {
+      const id = target.dataset.bondId;
+      const bonds = this._effectiveBonds();
+      const idx = bonds.findIndex((b) => b.id === id);
+      if (idx < 0) return;
+      await this._replaceGrantedItems(`bond:${id}`, []);
+      const gold = Math.max(0, (this.actor.system.gold ?? 0) - (bonds[idx].gold ?? 0));
+      bonds.splice(idx, 1);
+      await this.actor.update({ "system.bonds": bonds, "system.gold": gold });
+    } finally {
+      this._rerolling = false;
+    }
   }
 
   /**
@@ -2173,198 +2855,67 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     event.preventDefault();
     const current = this.actor.img;
 
-    const cells = CONTAINER_ART.map((src) => {
-      const sel = src === current ? " selected" : "";
-      const label = src.split("/").pop().replace(/\.\w+$/, "").replace(/[-_]/g, " ");
-      return `<img class="cairn-portrait-choice${sel}" src="${src}" data-src="${src}" title="${label}" />`;
-    }).join("");
+    // Labelled by CLASS, not by filename. The old version derived a caption from
+    // the image path ("donkey" for both the mule and the donkey, "stack" for the
+    // item pile), which is the file's name rather than the thing's.
+    // A stored class without a cell of its own (donkey — the gallery shows each
+    // glyph once) highlights the cell wearing its art instead of nothing.
+    const stored = this.actor.system.containerClass;
+    const offered = new Set(CONTAINER_ART_CHOICES.map((c) => c.key));
+    const cells = CONTAINER_ART_CHOICES.map(({ key, src, label }) => ({
+      key,
+      src,
+      label: game.i18n.localize(label),
+      selected: key === stored || (!offered.has(stored) && src === current),
+    }));
 
-    const canBrowse = game.user.can("FILES_BROWSE");
-    const browseBtn = canBrowse
-      ? `<button type="button" class="cairn-portrait-browse"><i class="fas fa-folder-open"></i> ${game.i18n.localize("CAIRN.BrowsePortrait")}</button>`
-      : "";
-
-    const content = `<div class="cairn-portrait-gallery cairn-container-gallery">
-        <div class="cairn-portrait-grid">${cells}</div>
-        ${browseBtn}
-      </div>`;
-
-    const dialog = new foundry.applications.api.DialogV2({
-      window: { title: game.i18n.localize("CAIRN.ChooseContainerArt"), icon: "fas fa-image" },
-      position: { width: 520 },
-      content,
-      buttons: [{ action: "close", label: game.i18n.localize("CAIRN.Close"), default: true }],
+    await pickArt({
+      current,
+      title: game.i18n.localize("CAIRN.ChooseContainerArt"),
+      classes: { label: game.i18n.localize("CAIRN.ContainerArtTabKinds"), cells },
+      // No Aspeheim here — a sack has no face. Custom, Game-Icons and Tlomdev
+      // ride along so a Warden can dress a thing in their own art without
+      // leaving for the FilePicker (tlomdev's beasts suit mounts). Every pick
+      // is art only (2026-08-02) — the stored Kind survives them all.
+      custom: true,
+      gameIcons: true,
+      tlomdev: true,
+      browseStart: "icons/containers",
+      onPick: (src) => this._setContainerArt(src),
     });
-    await dialog.render(true);
-
-    const root = dialog.element;
-    root.querySelectorAll(".cairn-portrait-choice").forEach((img) => {
-      img.addEventListener("click", async () => {
-        await this._setContainerArt(img.dataset.src);
-        dialog.close();
-      });
-    });
-    const browse = root.querySelector(".cairn-portrait-browse");
-    if (browse) {
-      browse.addEventListener("click", () => {
-        const FP = foundry.applications.apps?.FilePicker?.implementation
-          ?? foundry.applications.apps?.FilePicker
-          ?? FilePicker;
-        new FP({
-          type: "image",
-          current: "icons/containers",
-          callback: async (path) => {
-            await this._setContainerArt(path);
-            dialog.close();
-          },
-        }).render(true);
-      });
-    }
   }
 
   /**
-   * Portrait picker. Two galleries behind a tab toggle — the shipped Jon Aspeheim
-   * art and the GM's custom folder — plus a paste-a-URL row and (for FILES_BROWSE
-   * users) a FilePicker escape. Picking any image swaps the portrait AND its token
-   * via _setPortrait. The Aspeheim credit shows only under its own tab; the Custom
-   * tab appears when there are custom portraits or the viewer is a GM (who can add
-   * them). Shared by the PC and hireling sheets — they route here identically.
+   * Portrait picker — the actor counterpart to _pickContainerArt. Which
+   * galleries appear is a ROLE question, not a type question:
+   *
+   *   Player Character   Aspeheim + Custom + Tlomdev
+   *   NPC / Hireling     Aspeheim + Custom + Game-Icons + Tlomdev
+   *   Monster            Custom + Game-Icons + Tlomdev
+   *
+   * Aspeheim's art is human faces, so a Monster is not offered it; nothing else
+   * is withheld anywhere, and the URL row and Browse escape are on every sheet.
+   * Tlomdev's tokens are drawn for creatures AND people (its "human npcs" and
+   * Kettlewright folders are faces), so unlike Aspeheim it appears everywhere.
+   * Thing roles (mount, transport, container) never reach here — _onEditPortrait
+   * routes them to the container gallery instead.
+   *
+   * Picking swaps the portrait AND its token via _setPortrait.
    * @private
    */
   async _pickPortrait(event) {
     event.preventDefault();
-    const manifest = await getPortraitManifest();
-    const names = manifest?.names ?? [];
-    const portraitDir = manifest?.portraitDir ?? "systems/air-bladder/character_portraits";
-    const current = this.actor.img;
-    const custom = getCustomPortraitPaths();
-    const isGM = game.user.isGM;
-    const showCustom = custom.length > 0 || isGM;
-
-    const cellFor = (src) => {
-      const sel = src === current ? " selected" : "";
-      const title = String(src).split("/").pop();
-      return `<img class="cairn-portrait-choice${sel}" src="${src}" data-src="${src}" title="${title}" />`;
-    };
-    const shippedCells = names.map((n) => cellFor(`${portraitDir}/${n}`)).join("");
-    const customCells = custom.map(cellFor).join("");
-
-    // Start on the tab holding the current portrait, so re-opening lands where you
-    // are; default to shipped otherwise.
-    const startTab = custom.includes(current) && custom.length ? "custom" : "shipped";
-    const tab = (id, label) =>
-      `<button type="button" class="cairn-portrait-tab${id === startTab ? " active" : ""}" data-tab="${id}">${label}</button>`;
-    const tabsBar = showCustom
-      ? `<div class="cairn-portrait-tabs">
-          ${tab("shipped", game.i18n.localize("CAIRN.PortraitTabShipped"))}
-          ${tab("custom", game.i18n.localize("CAIRN.PortraitTabCustom"))}
-        </div>`
-      : "";
-
-    const refreshBtn = isGM
-      ? `<button type="button" class="cairn-portrait-refresh"><i class="fas fa-rotate"></i> ${game.i18n.localize("CAIRN.RefreshCustomPortraits")}</button>`
-      : "";
-    const emptyHint = `<div class="cairn-portrait-empty"${custom.length ? " hidden" : ""}>${game.i18n.localize("CAIRN.CustomPortraitsEmpty")}</div>`;
-    const customPane = showCustom
-      ? `<div class="cairn-portrait-pane" data-pane="custom"${startTab === "custom" ? "" : " hidden"}>
-          <div class="cairn-portrait-grid">${customCells}</div>
-          ${emptyHint}
-          ${refreshBtn}
-        </div>`
-      : "";
-
-    const canBrowse = game.user.can("FILES_BROWSE");
-    const browseBtn = canBrowse
-      ? `<button type="button" class="cairn-portrait-browse"><i class="fas fa-folder-open"></i> ${game.i18n.localize("CAIRN.BrowsePortrait")}</button>`
-      : "";
-
-    // Paste-an-image-URL row: lets any owner set a custom portrait without the
-    // FILES_BROWSE permission the Browse button needs (so it works for players).
-    const urlRow = `<div class="cairn-portrait-url">
-        <input type="text" class="cairn-portrait-url-input" placeholder="${game.i18n.localize("CAIRN.PortraitUrlPlaceholder")}" />
-        <button type="button" class="cairn-portrait-url-set">${game.i18n.localize("CAIRN.PortraitUrlSet")}</button>
-      </div>`;
-
-    const content = `<div class="cairn-portrait-gallery">
-        ${tabsBar}
-        <div class="cairn-portrait-pane" data-pane="shipped"${startTab === "shipped" ? "" : " hidden"}>
-          <div class="cairn-portrait-grid">${shippedCells}</div>
-          <div class="cairn-portrait-credit">${game.i18n.localize("CAIRN.PortraitCredit")}</div>
-        </div>
-        ${customPane}
-        ${urlRow}
-        ${browseBtn}
-      </div>`;
-
-    const dialog = new foundry.applications.api.DialogV2({
-      window: { title: game.i18n.localize("CAIRN.ChoosePortrait"), icon: "fas fa-image" },
-      position: { width: 520 },
-      content,
-      buttons: [{ action: "close", label: game.i18n.localize("CAIRN.Close"), default: true }],
+    const isMonster = this.actor.npcRole === "monster";
+    await pickArt({
+      current: this.actor.img,
+      title: game.i18n.localize("CAIRN.ChoosePortrait"),
+      shipped: !isMonster,
+      custom: true,
+      gameIcons: this.actor.type !== "character",
+      tlomdev: true,
+      browseStart: (await getPortraitManifest())?.portraitDir ?? "systems/air-bladder/character_portraits",
+      onPick: (src) => this._setPortrait(src),
     });
-    await dialog.render(true);
-
-    const root = dialog.element;
-    const wireChoice = (img) =>
-      img.addEventListener("click", async () => {
-        await this._setPortrait(img.dataset.src);
-        dialog.close();
-      });
-    root.querySelectorAll(".cairn-portrait-choice").forEach(wireChoice);
-
-    // Tab toggle: show the clicked pane, hide the other, move the active marker.
-    root.querySelectorAll(".cairn-portrait-tab").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.dataset.tab;
-        root.querySelectorAll(".cairn-portrait-tab").forEach((b) => b.classList.toggle("active", b === btn));
-        root.querySelectorAll(".cairn-portrait-pane").forEach((p) => { p.hidden = p.dataset.pane !== id; });
-      });
-    });
-
-    // Refresh: re-scan the custom folder (GM), then rebuild the custom grid in place.
-    const refresh = root.querySelector(".cairn-portrait-refresh");
-    if (refresh) {
-      refresh.addEventListener("click", async () => {
-        refresh.disabled = true;
-        const list = await refreshCustomPortraits();
-        const grid = root.querySelector('[data-pane="custom"] .cairn-portrait-grid');
-        const hint = root.querySelector('[data-pane="custom"] .cairn-portrait-empty');
-        if (grid) {
-          grid.innerHTML = list.map(cellFor).join("");
-          grid.querySelectorAll(".cairn-portrait-choice").forEach(wireChoice);
-        }
-        if (hint) hint.hidden = list.length > 0;
-        refresh.disabled = false;
-      });
-    }
-
-    const urlInput = root.querySelector(".cairn-portrait-url-input");
-    const applyUrl = async () => {
-      const value = urlInput?.value.trim();
-      if (!value) return;
-      await this._setPortrait(value);
-      dialog.close();
-    };
-    root.querySelector(".cairn-portrait-url-set")?.addEventListener("click", applyUrl);
-    urlInput?.addEventListener("keydown", (ev) => {
-      if (ev.key === "Enter") { ev.preventDefault(); applyUrl(); }
-    });
-    const browse = root.querySelector(".cairn-portrait-browse");
-    if (browse) {
-      browse.addEventListener("click", () => {
-        const FP = foundry.applications.apps?.FilePicker?.implementation
-          ?? foundry.applications.apps?.FilePicker
-          ?? FilePicker;
-        new FP({
-          type: "image",
-          current: portraitDir,
-          callback: async (path) => {
-            await this._setPortrait(path);
-            dialog.close();
-          },
-        }).render(true);
-      });
-    }
   }
 
   /* -------------------------------------------- */
@@ -2384,17 +2935,53 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   _processFormData(event, form, formData) {
     const data = super._processFormData(event, form, formData);
-    if (
-      // Every actor whose HP the sheet binds as an editable input AND whose
-      // prepareData zeroes it. actor.js routes character, hireling AND npc
-      // through _prepareCharacterData, so all three zero system.hp.value on
-      // encumbrance or panic — omitting npc here would persist that derived 0
-      // back over the real value on the next submit. See the same trap in
-      // memory: derived state must never round-trip through a form.
-      ["character", "hireling", "npc"].includes(this.actor.type) &&
-      (this.actor.system.encumbered || this.actor.system.panicked)
-    ) {
+    // Strip system.hp.value from the submit EXACTLY when prepareData derives it
+    // to 0, so a derived 0 never persists over the real stored value — and ONLY
+    // then, or the strip becomes its own bug: a THING at capacity (a full
+    // crate, which does not zero — that is a container's normal state, review
+    // #5) would otherwise have every HP edit silently dropped, un-editable for
+    // as long as it stayed full. Whoever lives by the player rules zeroes on
+    // encumbrance — that is `livesByPlayerRules`, the SAME getter the derived
+    // zero in _prepareCharacterData reads, so the two sites cannot drift
+    // (drift is exactly review #5's un-editable-HP bug); re-keyed from type to
+    // role 2026-08-01, when role-npc people joined the rule. Panic still
+    // zeroes for every type — but only while the use-panic SETTING is on
+    // (usePanic, derived from it in _prepareCharacterData), matching the
+    // derived zero exactly. A bare `panicked` here was review #6's drift:
+    // turn the setting off with someone panicked and prepareData stops
+    // deriving the 0, but the strip kept dropping every HP edit — silently
+    // un-editable, with the checkbox that clears panic no longer rendered.
+    const derivedZero =
+      (this.actor.livesByPlayerRules && this.actor.system.encumbered)
+      || (this.actor.system.usePanic && this.actor.system.panicked);
+    if (derivedZero) {
       foundry.utils.deleteProperty(data, "system.hp.value");
+    }
+
+    // The submit half of the two display/value splits on free-text inputs
+    // (2026-08-02). Career and Kind SHOW a localized label (professionDisplay /
+    // kindDisplay in _prepareContext) but must STORE canonical English — career
+    // because randomCareer's repeat-exclusion and _preUpdate's day-rate autofill
+    // both match the stored string against npc-careers-2e.json, Kind because the
+    // stored value is the CONTAINER_CLASSES key that brings art and capacity.
+    // Both maps are identity in an English world (overlay null / label == key
+    // already handled), so the submit is byte-identical there.
+    const prof = foundry.utils.getProperty(data, "system.profession");
+    if (prof !== undefined) {
+      foundry.utils.setProperty(data, "system.profession", sourceOf("npc.career", prof));
+    }
+    const kind = foundry.utils.getProperty(data, "system.containerClass");
+    if (kind !== undefined && kind !== "" && !CONTAINER_CLASSES[kind]) {
+      // Not already a key: accept the label in ANY language — a Warden may type
+      // the English label in a Spanish world — falling through to the verbatim
+      // text, which is the "a Warden's own word is a legal Kind" rule.
+      const typed = String(kind).trim().toLowerCase();
+      for (const [key, cfg] of Object.entries(CONTAINER_CLASSES)) {
+        if (typed === game.i18n.localize(cfg.label).toLowerCase()) {
+          foundry.utils.setProperty(data, "system.containerClass", key);
+          break;
+        }
+      }
     }
     return data;
   }
@@ -2456,11 +3043,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
 
     // Capacity rules differ by target. A CHARACTER may accept an item that puts
-    // them over capacity (they just drop to HP 0 until a slot frees). A CONTAINER
-    // is strict — it refuses anything that won't fit.
+    // them over capacity (they just drop to HP 0 until a slot frees). A THING —
+    // role container or transport — is strict: it refuses anything that won't
+    // fit, because a sack has no rule that punishes it for being overfull. A
+    // MOUNT is not a thing and is deliberately lenient: it is a creature with a
+    // stat block, and it follows the npc rule (over capacity does nothing).
     const s = originalItem.system ?? {};
     const need = s.bulky ? 2 : s.weightless ? 0 : 1;
-    if (this.actor.type === "container") {
+    if (this.actor.isThing) {
       if ((this.actor.system.slotsUsed ?? 0) + need > (this.actor.system.slotsMax ?? 0)) {
         ui.notifications.warn(
           game.i18n.format("CAIRN.Notify.ContainerFull", { name: originalItem.name })
@@ -2488,9 +3078,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         ui.notifications.warn(game.i18n.localize("CAIRN.Notify.DropFailed"));
         return null;
       }
-      // Items inside a container are stowed, never equipped.
+      // Items inside a thing are stowed, never equipped. A mount is excluded on
+      // purpose — barding is equipped armor on a creature that has a stat block.
       const patch = { "system.quantity": 1 };
-      if (this.actor.type === "container") patch["system.equipped"] = false;
+      if (this.actor.isThing) patch["system.equipped"] = false;
       await created.update(patch);
     }
 
@@ -2547,17 +3138,25 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * @param {CairnActor} actor  the dropped Actor, already resolved by ActorSheetV2
    */
   async _onDropActor(event, actor) {
-    // Only WORLD container actors can be attached. AppV1 expressed this by looking
-    // the uuid up in `game.actors`, which a compendium or unlinked-token actor is
+    // Only WORLD actors can be attached. AppV1 expressed this by looking the
+    // uuid up in `game.actors`, which a compendium or unlinked-token actor is
     // never in; ApplicationV2 hands us the resolved document, so say it directly.
-    if (!actor || actor.type !== "container" || actor.pack || actor.isToken) return null;
-    if (actor.system.keeper !== "") {
-      ui.notifications.warn(game.i18n.localize("CAIRN.ContainerAlreadyOwned"));
+    if (!actor || actor.pack || actor.isToken) return null;
+    if (this.actor.uuid === actor.uuid) return null;
+
+    // An npc-line drop is the drag spelling of Connect: one write, guarded
+    // inside connectActor (both-ends ownership, keeping type, connectable
+    // role, single-parent, the cap, cycle, permission). "character" left this
+    // list with the flat graph — a PC can never be a child, connectActor
+    // refuses one anyway, and accepting the drop only to bounce it would
+    // toast a refusal at a gesture better ignored. Already-connected stays
+    // refused — re-homing goes through unlink first, exactly as it always has.
+    if (!["npc", "hireling"].includes(actor.type)) return null;
+    if (actor.system.connectedTo) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.AlreadyConnected"));
       return null;
     }
-    if (this.actor.uuid === actor.uuid) return null;
-    await this.actor.createOwnedContainer(actor);
-    return actor;
+    return (await this.actor.connectActor(actor)) ? actor : null;
   }
 
   /**

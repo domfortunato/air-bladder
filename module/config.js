@@ -25,18 +25,39 @@ Cairn.characterGenerator2e = {
   }
 };
 
-// Hireling generation. The statblocks themselves are shipped runtime data
-// (module/hirelings-2e.json); only the name source is configurable. A 2e
-// character takes its name from its background's name list, which a hireling has
-// no equivalent of — so it draws from the Warden's 2e NPC name table, a hireling
-// being an NPC the party pays.
-Cairn.hirelingGenerator = {
-  name: "air-bladder.warden-npcs;Warden: NPC - Name"
+// NPC generation. The statblocks themselves are shipped runtime data
+// (module/npc-careers-2e.json); only the name source is configurable. A 2e
+// character takes its name from its background's name list, which an NPC has
+// no equivalent of — so it draws from the Warden's 2e NPC name table.
+Cairn.npcGenerator = {
+  name: "air-bladder.warden-npcs;Warden: NPC - Name",
+  // The Faction die's table, by NAME ONLY — no pack prefix, deliberately: it
+  // resolves world-first (findTableByName), so a Warden's own RollTable named
+  // "Warden: NPC - Faction" always beats the shipped warden-npcs copy and
+  // their faction list survives a system update. roll(), never draw() — the
+  // same invariant the monster tables document below.
+  faction: "Warden: NPC - Faction",
+};
+
+// Monster generation (SRD "Creating Monsters", CC BY-SA 4.0 — the design of
+// record is docs/monster-generation.md). The eight tables ship in the
+// warden-monsters pack and they are the WARDEN'S tables: the generator rolls
+// them with table.roll(), never draw(), so their drawn state stays clean —
+// the same invariant rollNameFromTable documents for the NPC name table.
+Cairn.monsterGenerator = {
+  physique: "air-bladder.warden-monsters;Warden: Monster - Appearance (Physique)",
+  feature: "air-bladder.warden-monsters;Warden: Monster - Appearance (Feature)",
+  quirk: "air-bladder.warden-monsters;Warden: Monster - Trait (Quirk)",
+  weakness: "air-bladder.warden-monsters;Warden: Monster - Trait (Weakness)",
+  attackType: "air-bladder.warden-monsters;Warden: Monster - Attack (Type)",
+  criticalDamage: "air-bladder.warden-monsters;Warden: Monster - Attack (Critical Damage)",
+  abilityPower: "air-bladder.warden-monsters;Warden: Monster - Ability (Power)",
+  abilityTarget: "air-bladder.warden-monsters;Warden: Monster - Ability (Target)",
 };
 
 // Cairn Barebones creation. Abilities/HP/coins follow the SRD; the name comes
-// from the same Warden NPC name table hirelings use, because 2e dropped 1e's
-// name tables and Barebones ships none of its own.
+// from the same Warden NPC name table the NPC generator uses, because 2e
+// dropped 1e's name tables and Barebones ships none of its own.
 Cairn.barebonesGenerator = {
   name: "air-bladder.warden-npcs;Warden: NPC - Name",
   ability: "3d6",

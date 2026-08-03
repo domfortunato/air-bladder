@@ -25,19 +25,23 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 ## Key Features
 
 - Random or manual generation of characters from Cairn 2e, **Custom Cairn 2e**, and Cairn Barebones backgrounds — The Warden can toggle each source on or off
+- [Monster Generator](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-monsters.md)
+- [Faction Generator](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-factions.md)
 - .json character import from the Official Cairn app, [Kettlewright!](https://kettlewright.com/)
 - Optional homebrew features that mix 2e features with Barebones
 - Warden-authored custom 2e backgrounds — [create and lint your own](https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md), then [share them across worlds](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md)
-- Random or manual generation of NPC/Hirelings
+- Random or manual generation of NPCs, hired or not
+- Connections between PCs and NPCs which transfer ownership to Players
 - Character Sheet tooltips for players
 - Pop-out Character Sheets! Yes, we're fully on AppV2 — ready for v16, when Foundry removes the V1 framework
 - Marketplace and containers; horses, carts, wagons, chests, and ITEM PILES!
 - Warden-facing roll tables!
 - A gallery of 80 CC BY 4.0 character portraits with matching icons by [Jon Aspeheim](https://jonaspeheim.itch.io/)
+- A gallery of 368 CC BY-SA 4.0 black-and-white creature & NPC tokens by [tlomdev](https://tlomdev.itch.io/), including the Kettlewright portrait set — an imported Kettlewright character keeps its face
 - Minimal automation; with buttons for rest, restoring abilities, panicked and critical damage
 
 ## Features on the Horizon
-- Monster and Encounter Generators (optional)
+- Encounter Generator
 - GLOG Magic (optional)
 
 ## Screenshots
@@ -62,7 +66,7 @@ Early, active development. Send feedback and art! The system is being rebuilt on
 
 ## Languages
 
-The interface is translated into **Spanish** (66% of the current strings, by [Malecho](https://github.com/fsmalecho)), and game *content* — backgrounds, items, spells, tables — is translated into Spanish only.
+The interface is translated into **Spanish** (72% of the current strings, by [Malecho](https://github.com/fsmalecho)), and game *content* — backgrounds, items, spells, tables — is translated into Spanish only.
 
 Danish, French, German, Polish and Brazilian Portuguese interface files are inherited from the original Cairn system. They cover **15–30%** of the current interface, predate most of this system's features, and are **not actively maintained** — a game in those languages is mostly English in practice. Anything untranslated falls back to English string by string, so a partial translation is always usable rather than broken.
 
@@ -99,7 +103,8 @@ Air Bladder mixes several licensing regimes — please keep the attribution inta
 - **"Compatible with Cairn"** — the compatibility badge is used per the terms on [cairnrpg.com/resources/logos](https://cairnrpg.com/resources/logos) (CC BY-SA 4.0, Yochai Gal).
 - **Air Bladder logo — © Lydia Comer, all rights reserved.** The logo and related artwork in `lydia-comer/` are by **[Lydia Comer](https://linktr.ee/lydiadidmyink)**, licensed to the Air Bladder system for inclusion and unmodified redistribution as part of the system and its forks, and for unmodified use in representing the project; all other uses require permission. See `lydia-comer/license.txt`.
 - **Character art — CC BY 4.0.** The 80 paired portrait/token images in `character_portraits/` and `character_tokens/` are by **[Jon Aspeheim](https://jonaspeheim.itch.io/)** (source: [Lemur's Portraits](https://jonaspeheim.itch.io/lemurs-portraits)), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) (see the `license.txt` in each folder). Plain CC BY: redistribution is fine, attribution is required. The artist states these portraits were created without AI. Keep this credit if the art ships.
-- **Item & container icons — CC BY 3.0.** The class icons in `icons/` (gear, spellbooks, transports, containers, monsters) are from [game-icons.net](https://game-icons.net) by **Lorc, Delapouite & Skoll**, licensed [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). Per-icon author and source-page credits are recorded in `icons/CREDITS.md`.
+- **game-icons.net art — CC BY 3.0.** Two folders, one grant, both from [game-icons.net](https://game-icons.net) and licensed [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). `icons/` holds the class icons (gear, spellbooks, transports, containers, monsters) by **Lorc, Delapouite & Skoll**; `game-icons/` holds the **Game-Icons** picker gallery — 1,366 glyphs in 24 categories by **Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev, Delapouite, Faithtoken, GeneralAce135, Irongamer, Lorc, Lord Berandas, Lucas, Sbed, Skoll, Sparker, Willdabeast** and one icon credited to various artists. Per-icon author and source-page credits are recorded in `icons/CREDITS.md` and `game-icons/CREDITS.md`; those files are the attribution, since the shipped path records only the category. The upstream notice ships verbatim as `game-icons/license.txt`.
+- **Tlomdev's Tokens — CC BY-SA 4.0.** The 368 black-and-white token drawings in `tlomdev/` are by **[tlomdev](https://tlomdev.itch.io/)** (source: [Tlomdev's Tokens](https://tlomdev.itch.io/tlomdevs-tokens)), licensed [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). They appear in the portrait picker's **Tlomdev** gallery under the artist's own category folders. The `Kettlewright Portraits` subfolder carries the same artist's drawings as shipped by [Kettlewright](https://github.com/yochaigal/kettlewright), with Kettlewright's exact filenames, so an imported Kettlewright character keeps the portrait its player chose. ShareAlike: adaptations of the art must carry the same licence. Attribution and provenance are recorded in `tlomdev/CREDITS.md`; the notice ships as `tlomdev/license.txt`.
 - **Alegreya typeface — SIL Open Font License 1.1.** The three webfonts in `fonts/` are **Alegreya** by Juan Pablo del Peral and the Alegreya Project Authors ([Huerta Tipográfica](https://github.com/huertatipografica/Alegreya)), © 2011, licensed [OFL 1.1](https://openfontlicense.org/). Redistributed unmodified; the licence requires its notice travel with every copy, so `fonts/OFL.txt` and `fonts/license.txt` ship with them.
 
 ---

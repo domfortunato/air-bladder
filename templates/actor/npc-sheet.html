@@ -6,7 +6,11 @@
       left every monster's text unreachable.
 
       No <form> here: ApplicationV2 supplies it. --}}
-    <div class="charater-sheet-grid">
+    {{!-- `inanimate-grid` is a LAYOUT class (the no-stat-block grid) and keeps
+          its name though the field it was named for is gone: css/cairn.css and
+          the sheet-layout probe both hang off it, and the layout it describes
+          is unchanged. It now follows the role — THING_ROLES have no stats. --}}
+    <div class="charater-sheet-grid{{#if system.isThing}} inanimate-grid{{/if}}">
         <!-- Portrait: click for the same gallery a player character gets (shipped
              art + the GM's custom portraits + paste-a-URL + Browse), the die rolls
              a random one. `editPortrait` is what opens it; without that attribute
@@ -27,29 +31,137 @@
                 <a class="name-roll" data-action="rollName" title="{{ localize 'CAIRN.RollName' }}"><i class="fas fa-dice-d20"></i></a>
                 {{/if}}
             </div>
-            {{!-- Stored as `system.profession`; labelled "Career/Role" because it
-                  covers both a hireling's trade and a plain NPC's part in the
-                  world. The key is deliberately NOT renamed — every existing
-                  hireling would need rewriting for a label change. --}}
-            <div class="profession-line">
-                <span class="background-label">{{ localize 'CAIRN.CareerRole' }}</span>
+            {{!-- What this actor IS to the party — the one discriminator that
+                  replaced the For Hire and Inanimate checkboxes (two booleans
+                  could say "for-hire inanimate chest"; a pick-list cannot).
+                  Form-bound, so picking commits and the re-render recomposes
+                  the sheet: stat block, career, kind, day rate and the
+                  Connections tab all follow it. It is NEVER hidden by anything
+                  it hides — the old checkboxes' deadlock lesson, kept. --}}
+            {{!-- Role SHARES this line with the person's Career or a thing's
+                  Kind (2026-08-02, approved mockup: Name / Role+Career /
+                  Faction) — the three stacked lines ate header real estate
+                  saying one fact each. The Role select itself is never hidden
+                  by anything it hides: the old checkboxes' deadlock lesson,
+                  kept. --}}
+            <div class="profession-line role-line">
+                <span class="background-label">{{ localize 'CAIRN.Role' }}</span>
+                <select class="role-select" name="system.role">
+                    {{selectOptions roleChoices selected=system.role}}
+                </select>
+                {{!-- Stored as `system.profession`; labelled "Career" now that
+                      Role is its own field. The key is deliberately NOT renamed
+                      — every existing hireling would need rewriting for a label
+                      change. People have careers; monsters, mounts and things
+                      do not. Shows the localized career, stores the English
+                      one: the stored value is a MATCH KEY (day-rate autofill,
+                      reroll exclusion), so _processFormData maps whatever is in
+                      the box back through sourceOf("npc.career"). --}}
+                {{#if showCareer}}
+                <span class="background-label">{{ localize 'CAIRN.Career' }}</span>
                 <input class="profession-input" type="text" name="system.profession"
-                    value="{{system.profession}}" placeholder="{{ localize 'CAIRN.CareerRole' }}" />
+                    value="{{professionDisplay}}" placeholder="{{ localize 'CAIRN.Career' }}" />
                 {{#if generationEnabled}}
                 <a class="profession-roll" data-action="rollProfession" title="{{ localize 'CAIRN.RollProfession' }}"><i class="fas fa-dice-d20"></i></a>
                 {{/if}}
+                {{/if}}
+                {{!-- The KIND, labelled "Type" (a label only — the field stays
+                      `system.containerClass`, because renaming it is a
+                      migration and this is a label): what a
+                      mount/transport/container IS, in one word, as against the
+                      Role, which is what it DOES for you. A STRICT role-scoped
+                      select since 2026-08-02 — a known key brings its default
+                      art and capacity (CairnActor._preUpdate; art only while
+                      the current art is stock), and free text lives behind
+                      "Other…": the select is UNNAMED (its handler in _onRender
+                      writes known keys, so the Other sentinel can never reach
+                      the document) and the input is the field's only named
+                      writer, disabled outside Other so no submit carries a
+                      stale word. A legacy custom Kind selects Other and shows
+                      verbatim; _processFormData still maps a typed label back
+                      to its key. --}}
+                {{#if showKind}}
+                <span class="background-label">{{ localize 'CAIRN.Kind' }}</span>
+                <select class="kind-select">
+                    <option value=""{{#unless system.containerClass}} selected{{/unless}}></option>
+                    {{#each kindOptions}}
+                    <option value="{{key}}"{{#if selected}} selected{{/if}}>{{label}}</option>
+                    {{/each}}
+                    <option value="__other__"{{#if kindIsCustom}} selected{{/if}}>{{ localize 'CAIRN.KindOther' }}</option>
+                </select>
+                <input class="profession-input kind-input" type="text" name="system.containerClass"
+                    value="{{kindCustomValue}}" placeholder="{{ localize 'CAIRN.KindHint' }}"
+                    {{#unless kindIsCustom}}hidden disabled{{/unless}} />
+                {{/if}}
             </div>
-            {{!-- Most NPCs are not for hire, and a day rate on a wolf reads as a
-                  bug — so the rate is behind a flag that is off by default. The
-                  checkbox is form-bound (`name=`), so ticking it submits and the
-                  re-render reveals the row. --}}
-            <div class="for-hire-line">
+            {{!-- Faction: whose interests this actor serves — the one header
+                  fact a PC has no counterpart of. Shows for role npc AND
+                  monster (showFaction): a cult's guard and the cult's bound
+                  demon both take sides; only things do not — so it sits on its
+                  own gate directly under Role, no longer riding the Career
+                  gate. The die rolls "Warden: NPC - Faction" BY NAME, world
+                  first (findTableByName): a Warden's own table of that name
+                  always beats the shipped copy, so their campaign's faction
+                  list survives a system update. Both of the decisions this
+                  reverses ("free text, no dice" and "only a person takes
+                  sides") were recorded here and re-decided 2026-08-02, on the
+                  user's ask, when the stock faction tables shipped. --}}
+            {{#if showFaction}}
+            <div class="profession-line faction-line">
+                <span class="background-label">{{ localize 'CAIRN.Faction' }}</span>
+                <input class="profession-input" type="text" name="system.faction"
+                    value="{{system.faction}}" />
+                {{#if generationEnabled}}
+                <a class="profession-roll" data-action="rollFaction" title="{{ localize 'CAIRN.RollFaction' }}"><i class="fas fa-dice-d20"></i></a>
+                {{/if}}
+            </div>
+            {{/if}}
+            {{!-- The connection line (2026-08-02): the child end's ONE upward
+                  edge as a field — "Hired by: X" for a person actually for
+                  hire, "Connected to: X" otherwise, "Formerly connected to X"
+                  once unlinked, a Connect control while unconnected. This
+                  REPLACED the child end's Connections tab: one keeper, ever,
+                  is a line, not a list. The word "Owner" is deliberately
+                  absent everywhere: nobody owns a person.
+
+                  For Hire leads the line for a person — the retired `hireling`
+                  ROLE, back as the boolean it always was, keeping its classes
+                  because css/cairn.css styles `.for-hire-label/.for-hire-check`
+                  (and renaming them is how the checkbox once arrived on core's
+                  own ::before glyph — a second box drawn inside ours). It sits
+                  OUTSIDE everything it hides: unticking it must never remove
+                  the way to tick it again, the old checkboxes' deadlock
+                  lesson. Its gate is the PERSON, not showCareer, which it used
+                  to ride inside.
+
+                  The controls are the registered connectionAttach /
+                  connectionDetach actions — the same handlers, gates and
+                  dialogs the tab used; only their home moved. --}}
+            {{#if showConnectionLine}}
+            <div class="profession-line connection-line">
+                {{#if system.isNpcPerson}}
                 <label class="for-hire-label" data-tooltip="{{ localize 'CAIRN.ForHireTip' }}">
                     <input type="checkbox" class="for-hire-check" name="system.forHire" {{checked system.forHire}} />
                     {{ localize 'CAIRN.ForHire' }}
                 </label>
+                {{/if}}
+                {{#if connectionLine.label}}
+                <span class="connection-label">{{connectionLine.label}}</span>
+                {{/if}}
+                {{#if connectionLine.detach}}
+                <a class="connection-detach" data-action="connectionDetach" title="{{ localize 'CAIRN.UnlinkContainer' }}"><i class="fas fa-link-slash"></i></a>
+                {{/if}}
+                {{#if connectionLine.attach}}
+                <a class="connection-attach" data-action="connectionAttach" title="{{ localize 'CAIRN.ConnectHint' }}"><i class="fas fa-link"></i>&nbsp;{{ localize 'CAIRN.Connect' }}</a>
+                {{/if}}
             </div>
-            {{#if system.forHire}}
+            {{/if}}
+            {{!-- The day rate belongs to someone who is FOR HIRE: role npc with
+                  the box ticked (system.showDayRate). The gate went role-only
+                  when `hireling` was a role of its own; it is both again now,
+                  which is what lets a Warden keep a career on someone who is not
+                  currently taking work. --}}
+            {{#if system.showDayRate}}
             <div class="day-rate-line">
                 <span class="background-label">{{ localize 'CAIRN.DayRate' }}</span>
                 <input class="day-rate-input" type="number" min="0" step="1" name="system.dayRate"
@@ -60,7 +172,14 @@
             {{!-- HP and Gold share the foot row, as they do on the character sheet.
                   HP used to top the STR/DEX/WIL column, where it read as a fourth
                   ability score and left the two counter columns uneven — four
-                  facing three, so the row beside WIL was simply empty. --}}
+                  facing three, so the row beside WIL was simply empty.
+
+                  Round 2: Gold follows the role too. A thing (transport /
+                  container) shows NEITHER counter, so the whole line goes with
+                  it; a mount keeps HP but has no purse to manage. The stored
+                  gold value and the coins-take-slots rule are untouched — this
+                  hides a counter, it does not empty a chest. --}}
+            {{#unless system.isThing}}
             <div class="npc-vitals-line">
                 <div class="resource-counter middle-counter hp-counter {{#if hpLow}}low{{/if}}">
                     <label data-tooltip="{{ localize 'CAIRN.HitProtectionTip' }}">{{ localize 'CAIRN.HitProtection' }}</label>
@@ -72,6 +191,7 @@
                                value="{{system.hp.max}}" data-dtype="Number" title="{{ localize 'CAIRN.Maximum' }}" />
                     </div>
                 </div>
+                {{#if system.showGold}}
                 {{!-- `long-counter`, matching the character sheet's Gold box, NOT
                       `middle-counter`. The counters are 213px in both columns, so a
                       50% label put this bar's right edge at 485 while Armor's --
@@ -85,14 +205,21 @@
                                value="{{system.gold}}" data-dtype="Number" />
                     </div>
                 </div>
+                {{/if}}
             </div>
+            {{/unless}}
         </div>
+        {{!-- Rest, Restore Abilities and the Die of Fate are all creature actions:
+              a cart does not rest and a barrel has no abilities to restore. --}}
+        {{#unless system.isThing}}
         <!-- Buttons -->
         <div class="character-sheet-section-buttons">
             <button id="rest-button" type="button" data-action="rest" class="strict-size-button" data-tooltip="{{ localize 'CAIRN.RestTip' }}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-campground"></i> {{ localize 'CAIRN.Rest' }}</button>
             <button id="restore-abilities-button" type="button" data-action="restoreAbilities" class="strict-size-button" data-tooltip="{{ localize 'CAIRN.RestoreTip' }}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-heart-pulse"></i> {{ localize 'CAIRN.RestoreAbilities' }}</button>
             <button id="die-of-fate-button" type="button" data-action="dieOfFate" class="strict-size-button" data-tooltip="{{ localize 'CAIRN.DieOfFateTip' }}"><i class="fas fa-dice-d6"></i> {{ localize 'CAIRN.DieOfFate' }}</button>
         </div>
+        {{/unless}}
+        {{#unless system.isThing}}
         <!-- Abilities (identical behaviour + tooltips to a player character) -->
         <div class="character-sheet-section-abilities">
             {{!-- STR/DEX/WIL only. HP lives in the name block above, which leaves
@@ -115,6 +242,11 @@
             </div>
             {{/each}}
         </div>
+        {{/unless}}
+        {{!-- Armor, Deprived and Panicked are creature state too. Armor especially:
+              it is DERIVED from worn gear, and an inanimate container's "worn"
+              inventory is just cargo, so an armoured crate is a category error. --}}
+        {{#unless system.isThing}}
         <!-- Armor + Deprived + Panicked -->
         <div class="character-sheet-section-others">
             <div class="resource-counter long-counter armor-counter {{#if system.armorOverridden}}armor-overridden{{/if}}">
@@ -149,6 +281,7 @@
             </div>
             {{/if}}
         </div>
+        {{/unless}}
         <div class="character-sheet-section-tabs">
             <!-- Attribute-loss status banners: 0-height when healthy, otherwise one
                  bar per active condition (Dead / STR Critical / Paralyzed /
@@ -161,29 +294,35 @@
                 </div>
                 {{/each}}
             </div>
+            {{!-- Description FIRST (2026-08-01): a Warden opens an NPC to
+                  remember who they are, and reaches for the inventory second.
+                  The order here must match TAB_IDS.npc in actor-sheet.js,
+                  which is also what makes Description the tab the sheet opens
+                  on. The character sheet deliberately keeps Items first. --}}
             <nav class="tabs" data-group="primary">
+                <a class="item {{tabs.description.cssClass}}" data-action="tab" data-group="primary" data-tab="description">{{ localize 'CAIRN.Description' }}</a>
                 <a class="item {{tabs.items.cssClass}}" data-action="tab" data-group="primary" data-tab="items" id="set-equipment-limit"
                 {{#if system.characterEquipmentLimit}}title="{{localize 'CAIRN.EquipmentLimitTip'}}"{{/if}}>
                     {{#if system.characterEquipmentLimit}}<i class="fas fa-gears" style="opacity:0.5;z-index:5000" ></i>{{/if}}
                     {{ localize 'CAIRN.Items' }} ({{system.slotsUsed}} / {{system.slotsMax}})
                 </a>
-                {{#if system.showContainersTab}}
-                <a class="item {{tabs.containers.cssClass}}" data-action="tab" data-group="primary" data-tab="containers">{{ localize 'CAIRN.Containers' }} ({{system.containers.length}})</a>
-                {{/if}}
-                <a class="item {{tabs.description.cssClass}}" data-action="tab" data-group="primary" data-tab="description">{{ localize 'CAIRN.Description' }}</a>
-                <a class="item {{tabs.notes.cssClass}}" data-action="tab" data-group="primary" data-tab="notes">{{ localize 'CAIRN.Notes' }}</a>
+                {{!-- No Connections tab here (2026-08-02): a child role has at
+                      most ONE keeper, and that fact is the header's connection
+                      line now. The CHARACTER sheet keeps the tab — a PC keeps
+                      up to ten connections, which is a list worth one. --}}
+                <a class="item {{tabs.notes.cssClass}}" data-action="tab" data-group="primary" data-tab="notes">{{notesTabLabel}}</a>
             </nav>
             <section class="content">
-                <div class="tab {{tabs.items.cssClass}}" data-group="primary" data-tab="items">
-                    {{> "systems/air-bladder/templates/parts/items-list.html" withFatigue=1 withShop=1}}
-                </div>
-                {{#if system.showContainersTab}}
-                <div class="tab {{tabs.containers.cssClass}}" data-group="primary" data-tab="containers">
-                    {{> "systems/air-bladder/templates/parts/container-list.html"}}
-                </div>
-                {{/if}}
                 <div class="tab {{tabs.description.cssClass}}" data-group="primary" data-tab="description">
                     <div class="description">
+                        {{!-- A PERSON (role npc) gets the character's biography
+                              block — pronouns, age, traits, scars. Gated by
+                              showBiography, so a monster or a crate renders
+                              none of it; Omen stays a player-character thing
+                              (showOmen false inside). --}}
+                        {{#if showBiography}}
+                        {{> "systems/air-bladder/templates/parts/bio-block.html"}}
+                        {{/if}}
                         {{!-- Features are ALWAYS shown here, unlike the character
                               sheet, where they sit behind the "show-features
                               section" world setting. A monster's attacks and
@@ -206,15 +345,41 @@
                               anything typed into it before is still on the doc. --}}
                         <div class="npc-description-section">
                             <h3 class="cairn-section-label npc-description-label">{{ localize 'CAIRN.Description' }}</h3>
-                            <prose-mirror name="system.description" value="{{system.description}}" relative
-                                data-document-uuid="{{actor.uuid}}"></prose-mirror>
+                            {{!-- TOGGLED, unlike the notes editors, and joining the seven item
+                                  templates' shape on their reasoning: a toggled editor carries TWO
+                                  inputs — the `value` attribute is the submitted English source,
+                                  the light-DOM child is display-only — so the enriched, TRANSLATED
+                                  copy renders while nothing translated can reach a submit
+                                  (activation swaps in `value`, prosemirror-editor.mjs:204). This
+                                  was the statblock prose of 204 monsters rendering raw `value` in
+                                  every language, with @UUID links as literal text. This sheet's
+                                  Notes editor joined the toggled shape on 2026-08-02; the
+                                  CHARACTER sheet's notes keep their recorded always-active
+                                  decision (character-sheet.html). --}}
+                            <prose-mirror name="system.description" value="{{system.description}}" toggled collaborate relative
+                                data-document-uuid="{{actor.uuid}}">{{{enrichedDescription}}}</prose-mirror>
                         </div>
                     </div>
                 </div>
+                <div class="tab {{tabs.items.cssClass}}" data-group="primary" data-tab="items">
+                    {{> "systems/air-bladder/templates/parts/items-list.html" withFatigue=1 withShop=1}}
+                </div>
                 <div class="tab {{tabs.notes.cssClass}}" data-group="primary" data-tab="notes">
-                    <prose-mirror name="system.notes" value="{{system.notes}}" relative
-                        data-placeholder="{{ localize 'CAIRN.NotesPlaceholder' }}"
-                        data-document-uuid="{{actor.uuid}}"></prose-mirror>
+                    {{!-- TOGGLED like the Description editor above, since 2026-08-02
+                          (user ask: the always-active toolbar over an empty box read
+                          as clutter on a monster sheet). Same two-input shape — the
+                          `value` attribute is the submitted source, the light-DOM
+                          child is display-only, here enriched but NOT translated
+                          (notes are the Warden's own prose, no content namespace).
+                          The empty-state hint is a real element IN the display half,
+                          not data-placeholder: that mechanism anchors ::before to
+                          .editor-container, which a toggled editor only grows on
+                          activation. `collaborate` is safe here ONLY because of
+                          `toggled` — the measured race lives on always-active +
+                          collaborate. The character sheet's Notes editor took
+                          the same shape later the same day. --}}
+                    <prose-mirror name="system.notes" value="{{system.notes}}" toggled collaborate relative
+                        data-document-uuid="{{actor.uuid}}">{{#if system.notes}}{{{enrichedNotes}}}{{else}}<p class="cairn-editor-placeholder">{{notesPlaceholder}}</p>{{/if}}</prose-mirror>
                 </div>
             </section>
         </div>

@@ -1,0 +1,31 @@
+_id: vrEkEpGWIAifEkKN
+name: Backpack
+type: npc
+img: systems/air-bladder/icons/backpack.svg
+prototypeToken:
+  name: Backpack
+  texture:
+    src: systems/air-bladder/icons/backpack.svg
+items: []
+effects: []
+folder: GrfAVGCTK0OAzEaH
+sort: 0
+flags:
+  air-bladder:
+    transportSource: 2e
+system:
+  description: A sturdy pack worn on the back. Holds four slots of gear or Fatigue. Every adventurer starts with one — this is a spare.
+  hp:
+    value: 0
+    max: 0
+  slots: 4
+  cost: 10
+  containerClass: backpack
+  role: container
+  generationEnabled: false
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!actors!vrEkEpGWIAifEkKN'

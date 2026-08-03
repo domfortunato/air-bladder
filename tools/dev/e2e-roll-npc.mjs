@@ -2,13 +2,16 @@
 /**
  * Roll NPC must ask first. It is a one-click, no-undo wipe if it does not.
  *
- * The header button routes an `npc` to `regenerateHireling`, which deletes every
+ * The header button routes an `npc` to `regenerateNpc`, which deletes every
  * embedded Item and overwrites profession, abilities and HP. That used to run on a
  * single click, on the reasoning that "a hireling's statblock is disposable by
  * design" — written when only the `hireling` type reached it. Folding hireling into
  * npc widened it to the whole bestiary: all 205 shipped monsters are `type: npc`,
- * none declares `generationEnabled` (defaults true) and `show-generate-header`
- * defaults true, so the button renders on every monster for anyone who owns it.
+ * at the time none declared `generationEnabled` (it defaulted TRUE then — the
+ * shipped monsters pin false since e6b362a, and the schema default flipped to
+ * false on 2026-08-02, which is why the seed below states `true`) and
+ * `show-generate-header` defaults true, so the button rendered on every monster
+ * for anyone who owned it.
  * Observed 2026-07-30: one click turned a shipped Gorilla into an Alchemist.
  *
  * Three assertions, and the third is what makes the first two mean anything:
@@ -73,6 +76,9 @@ try {
           abilities: { STR: { value: seed.str, max: seed.str } },
           hp: { value: seed.hp, max: seed.hp },
           profession: seed.profession,
+          // The default is Off now; this probe is about what the button DOES,
+          // so it seeds the visibility the click needs.
+          generationEnabled: true,
         },
         items: [{ name: seed.item, type: "weapon" }],
       });
@@ -155,13 +161,15 @@ try {
     }
 
     // The upgrade-regression fix rides here too: a re-roll writes a day rate, so it
-    // must set the flag that gates the day-rate row, or it stores an invisible number.
-    const forHire = await page.evaluate((id) => {
+    // must set BOTH things that gate the day-rate row — role npc and forHire —
+    // or it stores an invisible number. It was one thing (role "hireling") until
+    // the collapse split the fact in two.
+    const roled = await page.evaluate((id) => {
       const a = game.actors.get(id);
-      return { forHire: a.system.forHire, dayRate: a.system.dayRate };
+      return { role: a.system.role, forHire: a.system.forHire, dayRate: a.system.dayRate };
     }, npcId);
-    if (forHire.forHire === true) ok(`a regenerated npc is marked for hire (day rate ${forHire.dayRate})`);
-    else fail(`regeneration stored dayRate ${forHire.dayRate} with forHire ${forHire.forHire} — the sheet will never show it`);
+    if (roled.role === "npc" && roled.forHire === true) ok(`a regenerated npc is role npc and for hire (day rate ${roled.dayRate})`);
+    else fail(`regeneration stored dayRate ${roled.dayRate} with ${JSON.stringify(roled)} — the sheet will never show it`);
   });
 } finally {
   if (npcId) await page.evaluate(async (id) => { await game.actors.get(id)?.delete(); }, npcId).catch(() => {});

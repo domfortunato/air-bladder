@@ -174,8 +174,21 @@ try {
   console.log("\nother actor types");
   const others = await page.evaluate(async () => {
     const out = [];
-    for (const type of ["hireling", "npc", "container"]) {
-      const actor = await Actor.create({ name: `ZZ Layout ${type}`, type });
+    // "inanimate" is a pseudo-type here: an npc with the stat block dropped —
+    // a thing ROLE now, but the layout variant (and its CSS class) kept the
+    // name. Never rendered by this probe before review #5, which is exactly how
+    // the stranded-1fr defect shipped — the tab body auto-placed into the
+    // `auto` track and sat 97px tall over ~400px of dead space, with zero
+    // overlaps, zero spills and zero console errors.
+    // No "container" TYPE: 1c3f5b2 retired it, and Actor.create has thrown
+    // `"container" is not a valid type` here ever since — red from that commit
+    // to 2026-08-01, because nothing ran this probe in between. Nothing is left
+    // uncovered by dropping it: "inanimate" below IS the thing-role layout, an
+    // npc with the stat block gone, which is what a container is now.
+    for (const type of ["hireling", "npc", "inanimate"]) {
+      const actor = await Actor.create(type === "inanimate"
+        ? { name: "ZZ Layout inanimate", type: "npc", system: { role: "container", slots: 4 } }
+        : { name: `ZZ Layout ${type}`, type });
       await actor.sheet.render(true);
       const node = () => {
         const e = actor.sheet.element;
@@ -239,6 +252,35 @@ try {
           description: face(".npc-description-label"),
         };
       }
+      // The inanimate sheet must not strand the grid's 1fr: the tab section has
+      // to END where the grid ends. Overlap/spill checks cannot see this one —
+      // the void is BELOW every region, not inside or across any.
+      if (type === "inanimate" && node()) {
+        // Measure standing on the ITEMS tab. The stranded-1fr defect this
+        // guards is a SHORT tab body sitting over a void, and Items is the
+        // short body; since the 2026-08-01 reorder the sheet opens on
+        // Description, whose taller content fills the track either way and
+        // would mask the negative control's dead band.
+        actor.sheet.changeTab("items", "primary");
+        await new Promise((r) => setTimeout(r, 250));
+        const root = node();
+        const grid = root.querySelector(".charater-sheet-grid");
+        const tabs = root.querySelector(".character-sheet-section-tabs");
+        if (grid && tabs) {
+          const g = grid.getBoundingClientRect();
+          const t = tabs.getBoundingClientRect();
+          entry.inanimateFill = { tabH: Math.round(t.height), dead: Math.round(g.bottom - t.bottom) };
+          // In-page control: strip the modifier class and the dead band must
+          // come back — proof the two-track override is what closes it.
+          grid.classList.remove("inanimate-grid");
+          const g2 = grid.getBoundingClientRect();
+          const t2 = tabs.getBoundingClientRect();
+          entry.inanimateFill.controlDead = Math.round(g2.bottom - t2.bottom);
+          grid.classList.add("inanimate-grid");
+        } else {
+          entry.inanimateFill = null;
+        }
+      }
       out.push(entry);
       await actor.sheet.close();
       await actor.delete();
@@ -275,6 +317,18 @@ try {
       if (!hd.features || !hd.description) fail(r.type, "description tab: Features/Description headings not both found");
       else if (hd.features !== hd.description) fail(r.type, `description tab: Features renders "${hd.features}", Description renders "${hd.description}" — both must be the same heading`);
       else ok(r.type, `description tab: Features and Description headings match (${hd.features})`);
+    }
+
+    const f = r.inanimateFill;
+    if (r.type === "inanimate") {
+      if (!f) fail(r.type, "grid/tab section not found on the inanimate sheet");
+      else if (f.dead > 4) fail(r.type, `tab body ends ${f.dead}px above the grid — the 1fr row is stranded (tab body ${f.tabH}px)`);
+      else ok(r.type, `tab body fills the sheet (${f.tabH}px tall, ${f.dead}px below)`);
+      if (f) {
+        f.controlDead > 100
+          ? ok(r.type, `negative control: without .inanimate-grid the 1fr strands (${f.controlDead}px dead)`)
+          : fail(r.type, `negative control MISSED: stripping the class left only ${f.controlDead}px dead — the override is not what closes the gap`);
+      }
     }
   }
 

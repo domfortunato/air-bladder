@@ -3,7 +3,7 @@ name: Crypt Thing
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.svg
+img: systems/air-bladder/game-icons/skull/haunting.svg
 items:
   - _id: Q58WxqvOgkh6tTaj
     name: Ethereal Claws
@@ -91,6 +91,8 @@ ownership:
   default: 0
   bDeEK9GSahKwiAGH: 3
 system:
+  generationEnabled: false
+  role: monster
   hp:
     value: 12
     max: 12
@@ -157,7 +159,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: icons/svg/mystery-man.svg
+    src: systems/air-bladder/game-icons/skull/haunting.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

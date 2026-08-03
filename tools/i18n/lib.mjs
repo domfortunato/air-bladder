@@ -106,18 +106,80 @@ export const writeTSV = (file, rows, lang = "es") => {
 };
 
 /**
+ * Undo a SPREADSHEET's own cell quoting, which is not ours and which nothing
+ * here used to reverse.
+ *
+ * `writeTSV` escapes tabs, newlines and backslashes so a row is always one
+ * physical line, and `decCell` reverses exactly those. But a translator opens
+ * the file in Excel or LibreOffice and saves it back, and both follow the CSV
+ * convention for a cell containing a straight `"`: wrap the whole cell in
+ * quotes and DOUBLE every inner one. So
+ *
+ *     How have you "improved" yourself?
+ *
+ * comes back as `"How have you ""improved"" yourself?"`, and since the overlay
+ * is keyed on the English source string, that key matches nothing the runtime
+ * will ever ask for. The import's own validator compares mangled-en against tr,
+ * so both sides agree and nothing is rejected. Four of Malecho's finished
+ * Spanish strings shipped dead this way, and it recurred on every import.
+ *
+ * Guarded, not unconditional: only a cell that is wrapped AND shows one of the
+ * three things a spreadsheet quotes FOR — a doubled inner quote, an embedded
+ * tab, an embedded newline — is unwrapped. A source string that merely happens
+ * to open and close with a quote is left exactly as our own writer put it.
+ */
+const unquoteCell = (s) => (/^".*"$/s.test(s) && /""|\t|\n/.test(s)
+  ? s.slice(1, -1).replace(/""/g, '"')
+  : s);
+
+/**
+ * Split a whole file into rows of cells, respecting quoted regions.
+ *
+ * `split(/\r?\n/)` then `split("\t")` is what this used to be, and it is only
+ * correct for files nothing has opened. A spreadsheet that quotes a cell puts
+ * the delimiter and the line break INSIDE the quotes — a translator pressing
+ * Alt+Enter is enough — and both splits then cut a row in half, silently, into
+ * two malformed ones. A quote opens a field only in first position, which is
+ * what keeps our own unquoted cells (full of straight quotes mid-prose) intact.
+ */
+const parseRows = (text) => {
+  const rows = [];
+  let row = []; let cell = ""; let quoted = false; let atStart = true;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quoted) {
+      if (c !== '"') { cell += c; continue; }
+      if (text[i + 1] === '"') { cell += '""'; i++; continue; }  // doubled: keep for unquoteCell
+      quoted = false; cell += c; continue;
+    }
+    if (c === '"' && atStart) { quoted = true; cell += c; atStart = false; continue; }
+    atStart = false;
+    if (c === "\t") { row.push(cell); cell = ""; atStart = true; continue; }
+    if (c === "\n" || c === "\r") {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      row.push(cell); rows.push(row); row = []; cell = ""; atStart = true; continue;
+    }
+    cell += c;
+  }
+  if (cell.length || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter((r) => r.some((x) => x.length));
+};
+
+/**
  * Read a TSV written by writeTSV back into row objects, exposing the
  * translation as `tr` whatever the column happens to be called.
  */
 export const readTSV = (file, lang = "es") => {
   const text = fs.readFileSync(file, "utf8").replace(/^﻿/, "");
-  const lines = text.split(/\r?\n/).filter((l) => l.length > 0);
-  const header = lines.shift().split("\t");
+  const rows = parseRows(text);
+  const header = rows.shift();
   const tr = trColumn(header, lang);
-  return lines.map((line) => {
-    const cells = line.split("\t");
+  return rows.map((cells) => {
     const r = {};
-    header.forEach((h, i) => { r[h] = decCell(cells[i] ?? ""); });
+    // Spreadsheet quoting comes off FIRST: the file holds a CSV-quoted copy of
+    // our own escaped text, so unwinding in the other order would leave the
+    // wrapper on and un-escape nothing that matters.
+    header.forEach((h, i) => { r[h] = decCell(unquoteCell(cells[i] ?? "")); });
     r.tr = r[tr] ?? "";
     return r;
   });

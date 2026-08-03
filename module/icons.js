@@ -54,30 +54,79 @@ export const TRANSPORT_KINDS = {
  * reason: a Mule labelled "Donkey" would be wrong, where a Mule DRAWN as a donkey
  * is just the art we have.
  */
+/**
+ * Every kind of container a Warden can pick, as art + label + a default capacity.
+ *
+ * `slots` is the third thing this table carries, and it is what lets the plain
+ * storage containers stop being DOCUMENTS. A sack, a chest, a crate and a barrel
+ * have no authored content — no HP, no armor, no rules text, nothing but a shape
+ * and a capacity — so shipping one pack document each would be shipping a row of
+ * this table with extra steps. Anything with content (the Outrider's six breeds,
+ * a named wagon) stays a document; anything that is only a shape lives here.
+ *
+ * `slots: 0` means "use the world's max-equip-slots setting" (see
+ * `capacity()` / `calcCurrentMaxSlots`), which is right for a pile: loot on the
+ * floor is not a manufactured object with a fixed capacity.
+ */
 export const CONTAINER_CLASSES = {
-  pile: { icon: "stack", label: "CAIRN.ClassPile" },
-  backpack: { icon: "backpack", label: "CAIRN.ClassBackpack" },
-  sack: { icon: "sack", label: "CAIRN.ClassSack" },
-  handcart: { icon: "handcart", label: "CAIRN.ClassHandcart" },
-  cart: { icon: "cart", label: "CAIRN.ClassCart" },
-  wagon: { icon: "wagon", label: "CAIRN.ClassWagon" },
-  mule: { icon: "donkey", label: "CAIRN.ClassMule" },
-  donkey: { icon: "donkey", label: "CAIRN.ClassDonkey" },
-  horse: { icon: "horse", label: "CAIRN.ClassHorse" },
-  chest: { icon: "chest", label: "CAIRN.ClassChest" },
+  pile: { icon: "stack", label: "CAIRN.ClassPile", slots: 0, role: "container" },
+  backpack: { icon: "backpack", label: "CAIRN.ClassBackpack", slots: 4, role: "container" },
+  sack: { icon: "sack", label: "CAIRN.ClassSack", slots: 2, role: "container" },
+  handcart: { icon: "handcart", label: "CAIRN.ClassHandcart", slots: 4, role: "transport" },
+  cart: { icon: "cart", label: "CAIRN.ClassCart", slots: 4, role: "transport" },
+  wagon: { icon: "wagon", label: "CAIRN.ClassWagon", slots: 8, role: "transport" },
+  // `funeralwagon` was a row here until 2026-08-02 — a wagon with most of its
+  // bed spoken for (6 slots). It died with the strict Type pick list: a hearse
+  // is a WAGON a Warden has named, not a kind of its own, and the one shipped
+  // consumer (the Bonekeeper's Burial Wagon) stores `wagon` now while keeping
+  // the coffin ART — legal since art decoupled from Kind the same day.
+  // migrateData converts every stored "funeralwagon" on read; the classifier
+  // below still catches funeral/hearse/burial and answers "wagon" so the art
+  // fallback never sends a Hearse to the chest. Do not re-add the row.
+  // Open 2e gives no capacity for a boat -- there is no boat in it. 8 is the
+  // wagon's number, chosen because a rowboat and a wagon hold about one load of
+  // gear each; a Warden who disagrees types over it, which is what the field is for.
+  smallcraft: { icon: "smallcraft", label: "CAIRN.ClassSmallcraft", slots: 8, role: "transport" },
+  mule: { icon: "donkey", label: "CAIRN.ClassMule", slots: 6, role: "mount" },
+  donkey: { icon: "donkey", label: "CAIRN.ClassDonkey", slots: 4, role: "mount" },
+  horse: { icon: "horse", label: "CAIRN.ClassHorse", slots: 4, role: "mount" },
+  chest: { icon: "chest", label: "CAIRN.ClassChest", slots: 6, role: "container" },
+  crate: { icon: "crate", label: "CAIRN.ClassCrate", slots: 6, role: "container" },
+  barrel: { icon: "barrel", label: "CAIRN.ClassBarrel", slots: 4, role: "container" },
+  box: { icon: "box", label: "CAIRN.ClassBox", slots: 2, role: "container" },
 };
+
+/** A class's default capacity, or 0 ("use the world setting") if it has none. */
+export const containerClassSlots = (cls) => CONTAINER_CLASSES[cls]?.slots ?? 0;
+
+/** Which role a Kind implies: "mount", "transport" or "container" for a known
+ *  class, "" for a blank or Warden-invented one (see docs/npc-roles-plan.md).
+ *  Lives on the same table as art, label and capacity so they cannot drift. */
+export const containerClassRole = (cls) => CONTAINER_CLASSES[cls]?.role ?? "";
+
+/** Is this class a CREATURE? Derived from role, not stored beside it — a second
+ *  boolean saying "mount" would be a second thing to drift. A mule gets a stat
+ *  block, a barrel gets 0/0. */
+export const containerClassAnimate = (cls) => containerClassRole(cls) === "mount";
 
 /**
  * Classify a container / transport. Keyed on the NAME first (so "Handcart" and
  * "Cart" differ), then falling back on transportKind for exotic names — the
  * named mounts (Heavy Destrier, Piebald Cob, …) carry no give-away word, but
- * they are all kind "mount", so they classify as a horse. That fallback is why
- * a Destrier's sheet can say "Horse" without anyone writing it down.
+ * they are all transportKind "mount", so they classify as a horse. That
+ * fallback is why a Destrier's sheet can say "Horse" without anyone writing it
+ * down.
+ *
+ * The middle parameter is named `legacyKind`, not `kind`, on purpose: "Kind" is
+ * now the sheet's word for the RETURN value — the container class — and this is
+ * the retired `transportKind` vocabulary it falls back on. One word for both
+ * would put the deprecated term and its replacement in the same signature.
  * @param {String} name
- * @param {String} [kind]  transportKind: "worn" | "mount" | "vehicle" | "pile"
- * @returns {String}  a key of CONTAINER_CLASSES
+ * @param {String} [legacyKind]  transportKind: "worn" | "mount" | "vehicle" | "pile"
+ * @param {String} [stored]  an already-decided container class; wins outright
+ * @returns {String}  a key of CONTAINER_CLASSES — the thing's Kind
  */
-export const containerClass = (name = "", kind = "", stored = "") => {
+export const containerClass = (name = "", legacyKind = "", stored = "") => {
   // An explicit class wins outright. The keyword table below is English, so it is
   // the only thing a Warden working in another language can say "this is a
   // backpack" with — and because both the art and the sheet's class label come
@@ -88,31 +137,45 @@ export const containerClass = (name = "", kind = "", stored = "") => {
   // the thing they are ("Cart", "Mule") so the name is the better signal, but a
   // pile is named for what is IN it — "Bandit Loot", "Spoils of the Barrow" —
   // and would otherwise fall through to the chest.
-  if (kind === "pile") return "pile";
+  if (legacyKind === "pile") return "pile";
   if (n.includes("backpack")) return "backpack";
   if (/\bsacks?\b/.test(n) || n.includes("pouch") || n.includes("satchel")) return "sack";
   if (n.includes("handcart")) return "handcart";              // before "cart"
   if (n.includes("cart")) return "cart";
+  // "Hearse" carries no give-away construction word, so without this rule it
+  // would fall through to the chest. It answered "funeralwagon" while that was
+  // a class of its own (retired 2026-08-02); a hearse is a wagon.
+  if (/funeral|hearse|burial/.test(n)) return "wagon";
   if (n.includes("wagon")) return "wagon";
+  // `\brafts?\b` and `\bcraft\b`, not bare substrings: "raft" lives inside "Draft
+  // Horse", which would otherwise sail, and "craft" inside "handicraft". `craft`
+  // is here at all because every other class answers to its own label — a thing
+  // NAMED "Small Craft" that classified as a chest is the first thing a Warden
+  // would try.
+  if (/boat|canoe|skiff|coracle|dinghy|\brafts?\b|\bcraft\b/.test(n)) return "smallcraft";
   if (n.includes("mule")) return "mule";                      // before "donkey"
   if (n.includes("donkey")) return "donkey";
-  if (n.includes("chest") || n.includes("crate") || n.includes("coffer") ||
-      n.includes("barrel") || n.includes("box")) return "chest";
+  // Crate, barrel and box used to fall into `chest` for want of their own art.
+  // Order matters: "chest" before "box" so a "Boxwood Chest" is still a chest.
+  if (n.includes("crate")) return "crate";
+  if (n.includes("barrel") || n.includes("cask") || n.includes("keg")) return "barrel";
+  if (n.includes("chest") || n.includes("coffer")) return "chest";
+  if (n.includes("box") || n.includes("case")) return "box";
   if (n.includes("horse")) return "horse";
   if (n.includes("pile") || n.includes("hoard") || n.includes("stash")) return "pile";
-  if (kind === "worn") return "sack";
-  if (kind === "vehicle") return "wagon";
-  if (kind === "mount") return "horse";
+  if (legacyKind === "worn") return "sack";
+  if (legacyKind === "vehicle") return "wagon";
+  if (legacyKind === "mount") return "horse";
   return "chest";                                             // a bare container
 };
 
 /** Container / transport art, from its class. */
-export const iconForTransport = (name = "", kind = "", stored = "") =>
-  P(CONTAINER_CLASSES[containerClass(name, kind, stored)].icon);
+export const iconForTransport = (name = "", legacyKind = "", stored = "") =>
+  P(CONTAINER_CLASSES[containerClass(name, legacyKind, stored)].icon);
 
-/** The i18n key naming what a container is: "Horse", "Wagon", "Item Pile", … */
-export const containerClassLabel = (name = "", kind = "", stored = "") =>
-  CONTAINER_CLASSES[containerClass(name, kind, stored)].label;
+/** The i18n key naming a thing's Kind: "Horse", "Wagon", "Item Pile", … */
+export const containerClassLabel = (name = "", legacyKind = "", stored = "") =>
+  CONTAINER_CLASSES[containerClass(name, legacyKind, stored)].label;
 
 /**
  * Gear art by item type, with a few name-based specialisations for the generic
@@ -159,19 +222,47 @@ export const TOOLS_ICON = P("tools");
 export const CONTAINER_ICON = P("chest");
 
 /**
- * Actor art by type. NPCs (the monster pack, and hand-made ones) get the monster
- * glyph; a container without a transport name gets the chest. Characters and
- * hirelings keep their portraits, so this returns null for them.
+ * Actor art by type, for the PACK IMPORTER (tools/import/item-icons.mjs) — the
+ * only caller. NPCs (the monster pack, and hand-made ones) get the monster
+ * glyph; characters and hirelings keep their portraits, so this returns null.
+ *
+ * The `container` branch went with the type (2026-07-31). It is not a loss for
+ * the container packs: a container is an npc now and every shipped one stores a
+ * `containerClass`, so `iconForTransport` is called with the class directly —
+ * by the importer (mounts.mjs) and by CairnActor#_preCreate for hand-made ones.
+ * Routing on a type could only ever have guessed from the name.
  */
-export const iconForActor = (type = "", name = "") => {
+export const iconForActor = (type = "") => {
   if (type === "npc") return P("monster");
-  if (type === "container") return iconForTransport(name);
   return null;
 };
 
-/** The class-icon gallery offered when a player re-arts a container / transport. */
-export const CONTAINER_ART = [
-  P("chest"), P("backpack"), P("sack"), P("stack"),
-  P("horse"), P("donkey"),
-  P("cart"), P("handcart"), P("wagon"),
-];
+/**
+ * The gallery offered when someone re-arts a container.
+ *
+ * DERIVED from CONTAINER_CLASSES rather than hand-listed. It used to be its own
+ * array of nine paths, which meant adding a class and adding it to the picker
+ * were two edits — and the previous list had already drifted, offering no way to
+ * choose a mule (distinct capacity from a donkey) and omitting the pile entirely.
+ * One table, one source.
+ *
+ * Each entry carries the CLASS KEY, not just the image, because picking art is
+ * really picking what the thing IS: the same key drives the art, the one-word
+ * label on the sheet and the default capacity, so choosing "barrel" must not be
+ * able to leave a thing that looks like a barrel and calls itself a chest.
+ *
+ * Each GLYPH appears once: when classes share art, the first one in the table
+ * owns the cell. That is the mule/donkey pair — game-icons.net has no mule (a
+ * probe of every author 404s), so both wear Skoll's donkey, and offering the
+ * picture twice just looks broken. Mule wins by table order because it is the
+ * beast in the open 2e marketplace text. `donkey` stays a full class — a thing
+ * NAMED Donkey still classifies, labels and defaults to 4 slots — it is only
+ * not a click target, which costs a Warden working in another language the
+ * ability to say "this is a Donkey" by art alone. Accepted 2026-07-31.
+ */
+export const CONTAINER_ART_CHOICES = Object.entries(CONTAINER_CLASSES)
+  .filter(([, v], i, arr) => arr.findIndex(([, w]) => w.icon === v.icon) === i)
+  .map(([key, { icon, label, slots }]) => ({ key, src: P(icon), label, slots }));
+
+/** Just the image paths, for anything that only needs to know what art exists. */
+export const CONTAINER_ART = CONTAINER_ART_CHOICES.map((c) => c.src);

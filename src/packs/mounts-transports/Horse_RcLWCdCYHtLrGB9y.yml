@@ -1,0 +1,28 @@
+_id: RcLWCdCYHtLrGB9y
+name: Horse
+type: npc
+img: systems/air-bladder/icons/horse.svg
+prototypeToken:
+  name: Horse
+  texture:
+    src: systems/air-bladder/icons/horse.svg
+items: []
+effects: []
+folder: CCMtMzMwK7XAuWfq
+sort: 0
+flags:
+  air-bladder:
+    transportSource: 2e
+system:
+  description: A riding horse. Bears four slots of gear and covers open ground quickly.
+  slots: 4
+  cost: 75
+  containerClass: horse
+  role: mount
+  generationEnabled: false
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!actors!RcLWCdCYHtLrGB9y'
