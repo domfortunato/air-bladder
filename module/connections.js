@@ -146,11 +146,40 @@ export const brokenOwnershipShape = (child) => {
  * unsetFlag spelling (common/abstract/document.mjs:997-1003), so no residue
  * key survives to make a later reader wonder. Wrong type or a monster just
  * loses the flag: their ownership is not this automation's to touch.
+ *
+ * `requester` re-checks the BOTH-ENDS rule on this side of the wire. The
+ * client refuses a connect unless you own both actors, but that rule lives
+ * entirely in the client and `system.*` has no server wall — so a crafted
+ * client can point its own npc's `connectedTo` at a stranger's PC, raise the
+ * flag, and have the Warden's client sign the ownership shape for it. The
+ * result is a nuisance rather than an escalation (it burns one of the victim's
+ * connection slots and hands them an actor they did not ask for), but the
+ * sender id is authenticated by the server and was simply unused.
+ *
+ * On a refusal the flag is CLEARED, and that is the load-bearing half: the
+ * ready-time catch-up sweep re-runs every flagged actor with no requester at
+ * all, so leaving the flag set would mean the check could be walked around by
+ * waiting for the next GM reload. It does NOT undo the `connectedTo` write —
+ * the graph is client-writable by design, and unpicking someone's link is a
+ * bigger decision than declining to sign for it.
+ *
  * @param {CairnActor} child  a WORLD actor (callers verify)
+ * @param {{requester?: User|null}} [opts]  set for a socket-relayed request only
  */
-export const syncPendingOwnership = async (child) => {
+export const syncPendingOwnership = async (child, { requester = null } = {}) => {
   if (child.getFlag("air-bladder", OWNERSHIP_SYNC_FLAG) === undefined) return;
   const ops = foundry.data.operators;
+  if (requester) {
+    const owns = (doc) => !!doc?.testUserPermission(requester, "OWNER");
+    const link = child.system?.connectedTo || "";
+    const other = link ? game.actors.find((a) => a.uuid === link) : null;
+    if (!owns(child) || (other && !owns(other))) {
+      console.warn(`Air Bladder | refusing an ownership sync for ${child.name}: `
+        + `${requester.name} does not own both ends`);
+      await child.update({ [`flags.air-bladder.${OWNERSHIP_SYNC_FLAG}`]: new ops.ForcedDeletion() });
+      return;
+    }
+  }
   const changes = {
     [`flags.air-bladder.${OWNERSHIP_SYNC_FLAG}`]: new ops.ForcedDeletion(),
   };

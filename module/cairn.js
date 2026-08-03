@@ -244,16 +244,22 @@ Hooks.once("init", () => {
   game.socket.on(`system.${game.system.id}`, async (msg, senderId) => {
     // A player's connect/break asks the active GM's client to apply the
     // ownership shape their own client is forbidden to write. NOTHING in the
-    // message is trusted — not even senderId is needed: the sync flag on the
-    // document is the authorization (only the child's owners can have set
-    // it), and syncPendingOwnership recomputes the shape from the document's
-    // own connectedTo. A flagless uuid is a no-op; an embedded or compendium
-    // uuid is refused the same way grantActors refuses one.
+    // message is trusted: the sync flag on the document is the authorization
+    // (only the child's owners can have set it), and syncPendingOwnership
+    // recomputes the shape from the document's own connectedTo. A flagless
+    // uuid is a no-op; an embedded or compendium uuid is refused the same way
+    // grantActors refuses one.
+    //
+    // `senderId` is passed as well now — not as the authorization, which is
+    // still the flag, but so the BOTH-ENDS rule can be re-checked where a
+    // crafted client cannot skip it. It is the one field the server
+    // authenticates. See syncPendingOwnership for what it refuses and why a
+    // refusal must clear the flag.
     if (msg?.action === "ownershipSync") {
       if (game.users.activeGM !== game.user) return;
       const child = await fromUuid(msg.childUuid);
       if (!(child instanceof getDocumentClass("Actor")) || child.pack || child.parent) return;
-      await syncPendingOwnership(child);
+      await syncPendingOwnership(child, { requester: game.users.get(senderId) ?? null });
       return;
     }
     // A permission-less player's Generate PC. The payload carries NOTHING and

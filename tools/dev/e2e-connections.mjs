@@ -85,12 +85,20 @@ const scene = await gmPage.evaluate(async () => {
   }
   const capExtra = await Cls.create({ name: "ZZ Conn Cap Extra", type: "npc", ownership: own, system: sackSys });
 
+  // The crafted-connect pair: an npc Alice DOES own, and a PC she does not.
+  // `connectActor` would refuse this on her client (both ends), so the leg
+  // writes system.connectedTo raw -- which is exactly what a crafted client
+  // does, and what `system.*` having no server wall permits.
+  const crafted = await Cls.create({ name: "ZZ Conn Crafted", type: "npc", ownership: own, system: sackSys });
+  const strangerPc = await Cls.create({ name: "ZZ Conn Stranger PC", type: "character", ownership: { default: 0 } });
+
   const packActor = game.packs.get("air-bladder.mounts-transports")?.index.contents[0];
   return {
     aliceId: alice.id,
     pcUuid: pc.uuid, freeUuid: free.uuid, sackUuid: sack.uuid, foreignUuid: foreign.uuid,
     sweepUuid: sweep.uuid, flaglessUuid: flagless.uuid, flaglessTime: flagless._stats.modifiedTime,
     baitUuid: bait.uuid, capPcUuid: capPc.uuid, capExtraUuid: capExtra.uuid,
+    craftedUuid: crafted.uuid, strangerPcUuid: strangerPc.uuid,
     compendiumUuid: packActor?.uuid ?? null,
     max: maxConnections(),
   };
@@ -271,6 +279,65 @@ hostile.flaglessDefault === 0 && hostile.flaglessUntouched
 hostile.pcDefault === 0 && hostile.pcAliceOwner === 3
   ? ok("embedded/compendium uuids are refused as targets", "the bait's parent is untouched")
   : fail("embedded/compendium uuids are refused as targets", JSON.stringify(hostile));
+
+/* ---- 6b. a CRAFTED connect to a stranger's PC ------------------------------ */
+
+// The both-ends rule lives entirely in the client, and `system.*` has no server
+// wall -- so Alice can point her own npc at a PC she does not own, raise the
+// sync flag she IS allowed to set, and ask the Warden's client to sign the
+// ownership shape for it. The flag alone cannot tell that apart from a
+// legitimate connect; `senderId` can, and was simply unused (review #7 #15).
+//
+// Driven by CALLING syncPendingOwnership with a requester rather than by
+// emitting, and that is deliberate: an emit is answered by whichever client
+// holds activeGM, and in a world a human has open that can be a stale tab
+// running pre-change code -- measured, on a stash differential, identically on
+// HEAD. The relay's wiring is covered end-to-end by the legitimate legs above;
+// what is new here is one argument, so it is asserted where the answer cannot
+// come from somebody else's browser.
+console.log("\na crafted connect to a stranger's PC is refused");
+const crafted = await gmPage.evaluate(async ({ craftedUuid, strangerPcUuid, pcUuid, aliceId }) => {
+  const conn = await import("/systems/air-bladder/module/connections.js");
+  const c = await fromUuid(craftedUuid);
+  const alice = game.users.get(aliceId);
+  const arm = (link) => c.update({
+    "system.connectedTo": link,
+    "flags.air-bladder.ownershipSyncPending": true,
+    ownership: foundry.data.operators.ForcedReplacement.create({
+      default: 0, [aliceId]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER,
+    }),
+  });
+
+  // 1. A stranger's PC as keeper: Alice owns the child and not the other end.
+  await arm(strangerPcUuid);
+  await conn.syncPendingOwnership(c, { requester: alice });
+  const refused = {
+    dflt: c.ownership.default,
+    flag: c.getFlag("air-bladder", "ownershipSyncPending"),
+    stillLinked: c.system.connectedTo,
+  };
+
+  // 2. THE CONTROL, same document and same requester, pointed at HER OWN PC:
+  //    it must be signed. Without this "nothing happened" would pass on a
+  //    check that refuses everything, which is the easiest way to be wrong here.
+  await arm(pcUuid);
+  await conn.syncPendingOwnership(c, { requester: alice });
+  const signed = {
+    dflt: c.ownership.default,
+    aliceLevel: c.ownership[aliceId] ?? null,
+    flag: c.getFlag("air-bladder", "ownershipSyncPending"),
+  };
+  return { refused, signed };
+}, scene);
+crafted.refused?.dflt === 0
+  ? ok("the Warden refuses to sign it", "ownership default untouched")
+  : fail("the Warden refuses to sign it", JSON.stringify(crafted.refused));
+crafted.refused?.flag === undefined
+  ? ok("   and the flag is cleared, so the ready sweep cannot re-apply it later")
+  : fail("   the flag is still set — bypassable by waiting for a GM reload", JSON.stringify(crafted.refused));
+crafted.signed?.dflt === 2 && crafted.signed?.aliceLevel === 3 && crafted.signed?.flag === undefined
+  ? ok("   control: the same requester on HER OWN PC is signed", JSON.stringify(crafted.signed))
+  : fail("   control: the same requester on her own PC", JSON.stringify(crafted.signed));
 
 /* ---- 4. the GM-ready sweep -------------------------------------------------- */
 

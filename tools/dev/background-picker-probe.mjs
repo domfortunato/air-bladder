@@ -263,8 +263,61 @@ try {
       ?.querySelector('button[data-action="cancel"]')?.click();
     await pick2;
 
+    // 8. THE DOUBLE-CLICK on "Add a bond". The handler reads system.bonds,
+    //    AWAITS a table draw, then writes the array it read — so two clicks in
+    //    one tick both see the old array and the second write overwrites the
+    //    first. One bond vanishes from the array while BOTH sets of granted
+    //    items were created, and the survivors carry `bond:<id>` for an id
+    //    nothing references any more: unreachable by the ✕, and permanent.
+    //    Driven through the real control, because the guard lives on the sheet.
+    const raceActor = track(await gen.createActorWithCharacter(
+      await gen.generate2eCharacter(bgs2e.find((b) => b.name === "Fieldwarden"))));
+    for (const c of containersOf(raceActor)) made.push(c);
+    // Down to one bond, so the entitlement (Fieldwarden: two) allows exactly
+    // one more — that ceiling is what makes a doubled add visible. And
+    // generation back ON: creation stamps it OFF, and the Add-a-bond control
+    // is built only inside `{{#if generationEnabled}}` (the recorded trap —
+    // a regenerate re-stamps Off, so a probe must re-enable it every time).
+    const keptBond = (raceActor.system.bonds ?? []).slice(0, 1);
+    await raceActor.update({
+      "system.bonds": keptBond,
+      "system.generationEnabled": true,
+    });
+    // Trimming the array by hand strands the dropped bond's granted items —
+    // the very state this leg then asserts the absence of. Clear it in the
+    // PRECONDITION so the assertion is "zero", not "no more than before": a
+    // baseline that already contains the defect can only ever measure a delta,
+    // and a delta hides the case where the handler orphans exactly as many as
+    // it cleans up.
+    const stranded = raceActor.items.filter((i) => {
+      const src = String(i.getFlag("air-bladder", "grantSource") ?? "");
+      return src.startsWith("bond:") && src !== `bond:${keptBond[0]?.id}`;
+    }).map((i) => i.id);
+    if (stranded.length) await raceActor.deleteEmbeddedDocuments("Item", stranded);
+    const sheet = raceActor.sheet;
+    await sheet.render(true);
+    await wait(900);
+    const root3 = sheet.element instanceof HTMLElement ? sheet.element : sheet.element?.[0];
+    root3?.querySelector('[data-tab="notes"]')?.click();
+    await wait(300);
+    const addBtn = root3?.querySelector('[data-action="addBond"]');
+    const bondRace = { control: !!addBtn, before: (raceActor.system.bonds ?? []).length };
+    if (addBtn) {
+      addBtn.click();
+      addBtn.click();   // same tick — no await between them
+      await wait(2500);
+      const bonds = raceActor.system.bonds ?? [];
+      bondRace.after = bonds.length;
+      const live = new Set(bonds.map((b) => `bond:${b.id}`));
+      bondRace.orphanedGrants = raceActor.items
+        .filter((i) => String(i.getFlag("air-bladder", "grantSource") ?? "").startsWith("bond:"))
+        .filter((i) => !live.has(i.getFlag("air-bladder", "grantSource")))
+        .map((i) => i.name);
+    }
+    await sheet.close();
+
     for (const a of made) { try { await a.delete(); } catch { /* already gone */ } }
-    return { grouping, tagline, dialogInfo, swap, containers, randomRepeated: repeated, bbSwap, bbDialog };
+    return { grouping, tagline, dialogInfo, swap, containers, randomRepeated: repeated, bbSwap, bbDialog, bondRace };
   });
 
   if (r.error) {
@@ -333,6 +386,23 @@ try {
     B.rendered && B.singleColumn && B.noPanel && B.noHeadings
       ? ok(`Barebones picker renders single-column, no panel, no headings (${B.rows} rows)`)
       : fail(`Barebones picker layout wrong: ${JSON.stringify(B)}`);
+
+    const R = r.bondRace ?? {};
+    R.control && R.before === 1
+      ? ok("Add-a-bond control present with one bond and room for one more")
+      : fail(`the double-click leg is vacuous: ${JSON.stringify(R)}`);
+    // The COUNT is the ceiling, not the race: pre-fix BOTH handlers ran and
+    // both wrote a 2-entry array, so this reads 2 either way. It is here to
+    // catch a guard that swallows the click entirely (1) or an entitlement
+    // that stopped being enforced (3+).
+    R.after === 2
+      ? ok("the entitlement ceiling holds: two bonds, not one and not three")
+      : fail(`two clicks left ${R.after} bond(s) — want 2`);
+    // THIS is the race. The losing handler's draw created its items and then
+    // had its array overwritten, so the tag points at an id nothing holds.
+    (R.orphanedGrants ?? []).length === 0
+      ? ok("and no granted item is left tagged to a bond that no longer exists")
+      : fail(`orphaned bond grants, unreachable by the ✕: ${JSON.stringify(R.orphanedGrants)}`);
   }
 } catch (e) {
   fail(`${e.name}: ${e.message}`);

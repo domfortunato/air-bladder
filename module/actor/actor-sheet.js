@@ -2743,16 +2743,29 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onAddBond(event) {
     event.preventDefault();
-    const bonds = this._effectiveBonds();
-    if (bonds.length >= (await this._bondEntitlement())) return;
-    const rec = bondRecordFrom(await drawBond(await this._bondsTableName()));
-    if (!rec) return;
-    bonds.push(rec.bond);
-    if (rec.items.length) {
-      await this.actor.createEmbeddedDocuments("Item", rec.items, { render: false });
+    // The same guard the two re-roll handlers carry, and for a worse race.
+    // This reads `bonds`, AWAITS a table draw, then writes the array it read:
+    // two clicks in quick succession both see one bond, both pass the
+    // entitlement check, and the second write overwrites the first. One bond
+    // is lost from `system.bonds` while BOTH sets of granted items were
+    // created — and the survivors carry `bond:<id>` for an id no longer in the
+    // array, so `#onRemoveBond` can never reach them and no code ever will.
+    if (this._rerolling) return;
+    this._rerolling = true;
+    try {
+      const bonds = this._effectiveBonds();
+      if (bonds.length >= (await this._bondEntitlement())) return;
+      const rec = bondRecordFrom(await drawBond(await this._bondsTableName()));
+      if (!rec) return;
+      bonds.push(rec.bond);
+      if (rec.items.length) {
+        await this.actor.createEmbeddedDocuments("Item", rec.items, { render: false });
+      }
+      const gold = (this.actor.system.gold ?? 0) + rec.bond.gold;
+      await this.actor.update({ "system.bonds": bonds, "system.gold": gold });
+    } finally {
+      this._rerolling = false;
     }
-    const gold = (this.actor.system.gold ?? 0) + rec.bond.gold;
-    await this.actor.update({ "system.bonds": bonds, "system.gold": gold });
   }
 
   /**
@@ -2762,14 +2775,25 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onRemoveBond(event, target) {
     event.preventDefault();
-    const id = target.dataset.bondId;
-    const bonds = this._effectiveBonds();
-    const idx = bonds.findIndex((b) => b.id === id);
-    if (idx < 0) return;
-    await this._replaceGrantedItems(`bond:${id}`, []);
-    const gold = Math.max(0, (this.actor.system.gold ?? 0) - (bonds[idx].gold ?? 0));
-    bonds.splice(idx, 1);
-    await this.actor.update({ "system.bonds": bonds, "system.gold": gold });
+    // Guarded for the mirror of the race above: two removals in flight each
+    // splice the array THEY read, so the second write resurrects the bond the
+    // first removed — with its granted items already deleted and its gold
+    // already refunded. Same flag, because these four handlers are all
+    // read-modify-write over `system.bonds` and only one may be in flight.
+    if (this._rerolling) return;
+    this._rerolling = true;
+    try {
+      const id = target.dataset.bondId;
+      const bonds = this._effectiveBonds();
+      const idx = bonds.findIndex((b) => b.id === id);
+      if (idx < 0) return;
+      await this._replaceGrantedItems(`bond:${id}`, []);
+      const gold = Math.max(0, (this.actor.system.gold ?? 0) - (bonds[idx].gold ?? 0));
+      bonds.splice(idx, 1);
+      await this.actor.update({ "system.bonds": bonds, "system.gold": gold });
+    } finally {
+      this._rerolling = false;
+    }
   }
 
   /**
