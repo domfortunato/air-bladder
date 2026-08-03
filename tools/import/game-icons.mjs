@@ -3,6 +3,7 @@
  * Import the curated game-icons.net collection into game-icons/.
  *
  *   node tools/import/game-icons.mjs --src <dir> [--dry]
+ *   node tools/import/game-icons.mjs --restamp [--dry]   (shipped tree, no download)
  *
  * Unlike its sibling `icons.mjs`, this one is NOT reproducible from the network:
  * its input is a hand-curated download, so which icons ship is a decision, not a
@@ -46,19 +47,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { withIntrinsicSize } from "./svg-size.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const OUT_DIR = path.join(root, "game-icons");
 const MANIFEST = path.join(root, "module", "game-icons-manifest.json");
 const dry = process.argv.includes("--dry");
-
-const srcFlag = process.argv.indexOf("--src");
-const SRC = srcFlag !== -1 ? process.argv[srcFlag + 1] : null;
-if (!SRC || !fs.existsSync(SRC)) {
-  console.error("usage: node tools/import/game-icons.mjs --src <unpacked game-icons download> [--dry]");
-  console.error("  the source tree must look like <src>/<category>/icons/<fg>/<bg>/1x1/<artist>/<icon>.svg");
-  process.exit(1);
-}
 
 /** Every .svg under dir, as absolute paths. */
 const walk = (dir, out = []) => {
@@ -69,6 +63,39 @@ const walk = (dir, out = []) => {
   }
   return out;
 };
+
+/**
+ * `--restamp`: stamp the intrinsic size into the SHIPPED tree, no download
+ * needed.
+ *
+ * This one is not reproducible from the network — its input is a hand-curated
+ * download that lives on one machine — so the ordinary way to correct the
+ * shipped files would be to find that download again. That is a bad dependency
+ * for a fix every glyph needs, and the operation is a pure function of the file
+ * anyway: idempotent, and a no-op on anything already carrying a width. Runs
+ * before the --src check on purpose.
+ */
+if (process.argv.includes("--restamp")) {
+  const files = walk(OUT_DIR);
+  let stamped = 0;
+  for (const f of files) {
+    const before = fs.readFileSync(f, "utf8");
+    const after = withIntrinsicSize(before);
+    if (after === before) continue;
+    if (!dry) fs.writeFileSync(f, after);
+    stamped++;
+  }
+  console.log(`${dry ? "(dry run) " : ""}stamped ${stamped} of ${files.length} svg in ${path.relative(root, OUT_DIR)}/`);
+  process.exit(0);
+}
+
+const srcFlag = process.argv.indexOf("--src");
+const SRC = srcFlag !== -1 ? process.argv[srcFlag + 1] : null;
+if (!SRC || !fs.existsSync(SRC)) {
+  console.error("usage: node tools/import/game-icons.mjs --src <unpacked game-icons download> [--dry]");
+  console.error("  the source tree must look like <src>/<category>/icons/<fg>/<bg>/1x1/<artist>/<icon>.svg");
+  process.exit(1);
+}
 
 /**
  * Author display names. The download's own license.txt lists contributors in
@@ -245,7 +272,14 @@ if (dry) {
 fs.rmSync(OUT_DIR, { recursive: true, force: true });
 for (const [cat, rows] of plan) {
   fs.mkdirSync(path.join(OUT_DIR, cat), { recursive: true });
-  for (const r of rows) fs.copyFileSync(r.srcPath, path.join(OUT_DIR, cat, r.file));
+  // Not copyFileSync: the download has no intrinsic size on any glyph, and 42
+  // pack documents use these as TOKEN art. See ./svg-size.mjs.
+  for (const r of rows) {
+    fs.writeFileSync(
+      path.join(OUT_DIR, cat, r.file),
+      withIntrinsicSize(fs.readFileSync(r.srcPath, "utf8"))
+    );
+  }
 }
 fs.writeFileSync(path.join(OUT_DIR, "CREDITS.md"), credits.join("\n"));
 if (notice) fs.writeFileSync(path.join(OUT_DIR, "license.txt"), notice);
