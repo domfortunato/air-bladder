@@ -74,7 +74,19 @@ const readState = (id) => page.evaluate((id) => {
   };
 }, id);
 
-/** Hold a real 200ms press on the sheet portrait — the timing a human supplies. */
+/**
+ * Hold a real 200ms press on the sheet portrait — the timing a human supplies.
+ *
+ * Then POLL for the picker; do NOT sleep a fixed interval. This waited 700ms,
+ * and the FIRST picker open of a session fetches three manifests cold
+ * (portraits, game-icons, tlomdev): measured at **677ms**, a 23ms margin. So it
+ * passed on a warm run and failed on a cold one, and the failure reads as
+ * "pressing the portrait does not open the art picker" — a product bug that
+ * isn't there. Same shape as the icon-migration race `dev:icons` records.
+ *
+ * Bounded and swallowed, so a picker that genuinely never opens still fails the
+ * ASSERTION rather than hanging here or passing silently.
+ */
 const slowClickPortrait = async (sheetId) => {
   const img = page.locator(`#${sheetId} img.portrait`);
   const box = await img.boundingBox();
@@ -83,7 +95,8 @@ const slowClickPortrait = async (sheetId) => {
   await page.mouse.down();
   await page.waitForTimeout(200);
   await page.mouse.up();
-  await page.waitForTimeout(700);
+  await page.waitForSelector(".cairn-portrait-gallery", { timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(400);   // let a click-away save commit behind it
 };
 
 /** Activate the TOGGLED description editor the way dev:notes-editor does (the
