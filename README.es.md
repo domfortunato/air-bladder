@@ -56,7 +56,7 @@ Air Bladder es un sistema complementario amigable, no el sistema oficial de Cair
 ## Características principales
 
 - Generación aleatoria o manual de personajes a partir de trasfondos de Cairn 2e, **Cairn 2e personalizado** y Cairn Barebones — el Guardián puede activar o desactivar cada fuente
-- [Generador de monstruos](https://github.com/domfortunato/air-bladder/blob/master/docs/monster-generation.md)
+- [Generador de monstruos](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-monsters.md)
 - [Generador de facciones](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-factions.md)
 - Importación de personajes en `.json` desde la aplicación oficial de Cairn, ¡[Kettlewright!](https://kettlewright.com/)
 - Funciones caseras (*homebrew*) opcionales que mezclan características de 2e con Barebones
