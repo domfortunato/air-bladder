@@ -5,6 +5,7 @@ import {
   atConnectionLimit, maxConnections,
   connectedOwnershipShape, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG,
 } from "../connections.js";
+import { t } from "../i18n-content.js";
 
 /** Document names go into dialog HTML; a name is user-authored text. */
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -168,7 +169,12 @@ export class CairnActor extends Actor {
           // `doc:<uuid>` is a SENTINEL (the sheet Type-select discipline): it
           // can never reach a document field — the branch below clones instead.
           o.value = `doc:${d.uuid}`;
-          o.textContent = d.name;
+          // Through the overlay, like every kind label three lines up. Without
+          // it a Spanish Warden read six English horse names sitting under a
+          // translated group heading between translated kinds — and these six
+          // ARE translated, under `monster.name` since the mounts moved from
+          // Items to Actors. Display only: the option's value is the sentinel.
+          o.textContent = t("monster.name", d.name);
           group.append(o);
         }
         kindSelect.append(group);
@@ -211,7 +217,12 @@ export class CairnActor extends Actor {
           if (sel.value.startsWith("doc:")) {
             const doc = namedDocs.find((d) => `doc:${d.uuid}` === sel.value);
             if (doc && (!name.value || name.dataset.prefilled === "1")) {
-              name.value = doc.name;
+              // The name the Warden just READ, not the English behind it —
+              // picking "Destrero pesado" and being handed "Heavy Destrier" is
+              // a bug report waiting to happen. This bakes the display language
+              // into world content, the same recorded exception monster
+              // generation takes, and the field stays editable.
+              name.value = t("monster.name", doc.name);
               name.dataset.prefilled = "1";
             }
           } else if (name.dataset.prefilled === "1") {
@@ -242,7 +253,19 @@ export class CairnActor extends Actor {
       if (!src) return null;
       const data = src.toObject();
       delete data._id;
-      data.name = result.name || src.name;
+      // Every pack document states `ownership: {default: 0}`, and _preCreate's
+      // LIMITED default is guarded on `ownership === undefined` precisely so a
+      // pack IMPORT keeps what the pack says. A clone made from this dialog is
+      // not an import: two mounts minted from the same select a minute apart
+      // landed at different visibility — NONE for a Heavy Destrier, LIMITED for
+      // a plain Horse — which nothing in the UI explains and no Warden asked
+      // for. Dropping the key hands the branch back to the same default the
+      // kind path takes. (OBSERVED: kind path -> 1, clone -> 0.)
+      delete data.ownership;
+      // What core's fromCompendium stamps (world-collection.mjs:115) and this
+      // hand-rolled clone never did: where the statblock came from.
+      foundry.utils.setProperty(data, "_stats.compendiumSource", src.uuid);
+      data.name = result.name || t("monster.name", src.name);
       data.folder = folder ?? null;
       return (await this.create(data)) ?? null;
     }

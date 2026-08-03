@@ -178,6 +178,9 @@ try {
     const src = srcDoc ? {
       hpMax: srcDoc.system.hp?.max, armor: srcDoc.system.armor,
       slots: srcDoc.system.slots, cls: srcDoc.system.containerClass, img: srcDoc.img,
+      // Every pack doc states {default: 0}. The clone must NOT inherit it —
+      // see the ownership assertion below.
+      ownership: srcDoc.ownership?.default,
     } : null;
 
     document.querySelector("#actors .create-mount-button")?.click();
@@ -234,6 +237,8 @@ try {
       out.img = a.img;
       out.connectedTo = a.system.connectedTo ?? null;
       out.isWorldActor = !a.pack;
+      out.ownership = a.ownership?.default;
+      out.compendiumSource = a._stats?.compendiumSource ?? null;
       await a.sheet?.close();
       await a.delete();
     }
@@ -265,6 +270,20 @@ try {
   template.hpMax === 8 && template.slots === 2
     ? ok("Heavy Destrier lands at 8 HP / 2 slots", "the ruled numbers")
     : fail("Heavy Destrier lands at 8 HP / 2 slots", `hp=${template.hpMax} slots=${template.slots}`);
+  // ...but NOT its ownership. _preCreate's LIMITED default is guarded on
+  // `ownership === undefined` so a pack IMPORT keeps what the pack says, and
+  // the clone was carrying {default: 0} straight through it — two mounts from
+  // the same dialog a minute apart, one visible to players and one not. The
+  // pack reading beside it is what makes this a statement about the clone
+  // rather than about the pack (review #7 finding 10).
+  // 0/1 are NONE/LIMITED; CONST lives in the page, not in node.
+  template.src?.ownership === 0 && template.ownership === 1
+    ? ok("the clone does NOT inherit the pack's ownership", "pack 0 (NONE) -> world 1 (LIMITED), as the kind path mints")
+    : fail("the clone does NOT inherit the pack's ownership",
+      `pack=${template.src?.ownership} clone=${template.ownership} (want pack 0 NONE, clone 1 LIMITED)`);
+  template.compendiumSource?.includes("mounts-transports")
+    ? ok("the clone records where it came from", template.compendiumSource)
+    : fail("the clone records where it came from", String(template.compendiumSource));
 
   /* --- 3. the folder "+" opens the switchboard, and the folder LANDS ------ */
   console.log("\nthe folder \"+\" survives, routes to the switchboard, and the mint lands in it");

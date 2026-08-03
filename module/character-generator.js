@@ -1,7 +1,7 @@
 import { CairnActor } from "./actor/actor.js";
 import { compendiumInfoFromString, drawTableText, resultText, findTableByName } from "./compendium.js";
 import { Cairn } from "./config.js";
-import { evaluateFormula } from "./utils.js";
+import { evaluateFormula, formatCount } from "./utils.js";
 import { resolveGearItem, SPELL_PACKS, GEAR_ALIASES, spellScrollItem } from "./gear.js";
 import { containerClass, iconForTransport } from "./icons.js";
 import { connectionHeadroom, maxConnections, connectedOwnershipShape, OWNERSHIP_SYNC_FLAG } from "./connections.js";
@@ -98,11 +98,14 @@ export const getTlomdevManifest = async () => {
 
 const IMAGE_RE = /\.(?:webp|png|jpe?g|gif|svg|avif|bmp)$/i;
 
-/** The Foundry FilePicker implementation, across v13/v14 namespacing. */
-const filePicker = () =>
-  foundry.applications.apps?.FilePicker?.implementation
-  ?? foundry.applications.apps?.FilePicker
-  ?? globalThis.FilePicker;
+/**
+ * The FilePicker implementation. Named in full, not resolved through a
+ * v13/v14 chain: the target is v14 and nothing older, and the global
+ * `FilePicker` such a chain ends on is a deprecation shim (client.mjs:213,
+ * 230). The same three-way lookup stood in art-picker.js and went with this
+ * one.
+ */
+const filePicker = () => foundry.applications.apps.FilePicker.implementation;
 
 /** The configured custom-portrait folder (data-root-relative), or "" if blank. */
 const customPortraitFolder = () =>
@@ -1587,10 +1590,20 @@ export const backgroundTagline = (bg) => {
   // item.name namespace the inventory does.
   const text = t("bg.desc", String(bg.system?.description ?? "")).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
   if (text) return (text.match(/^.*?[.!?](\s|$)/)?.[0] ?? text).trim();
-  const slots = game.i18n.localize("CAIRN.Slots").toLowerCase();
+  // This used to lowercase the "Slots" LABEL and concatenate "+N " onto it:
+  // `toLowerCase()` is locale-unaware (German capitalises nouns and Turkish
+  // dotless-i is the classic casualty), and "+2 slots" is English word order
+  // nobody could reorder. `CAIRN.NSlot` is the counted noun, already lowercase
+  // and already the translator's, and formatCount picks its plural form —
+  // "+1 slots" was the other half of the same bug.
   const gear = (bg.system?.startingGear ?? []).map((g) => t("item.name", g.name));
-  const carried = (bg.system?.containers ?? []).map((c) => `${t("item.name", c.name)} (+${c.slots} ${slots})`);
-  return [...gear, ...carried].join(", ");
+  const carried = (bg.system?.containers ?? []).map((c) => game.i18n.format(
+    "CAIRN.BgTagline.Carried",
+    { name: t("item.name", c.name), slots: formatCount("CAIRN.NSlot", c.slots) }
+  ));
+  // Narrow conjunction: "A, B, C" in English, the locale's own form elsewhere.
+  const list = new Intl.ListFormat(game.i18n.lang ?? "en", { style: "narrow", type: "conjunction" });
+  return list.format([...gear, ...carried]);
 };
 
 /**

@@ -2,6 +2,7 @@ import { findTableItems } from "./compendium.js";
 import { iconForTransport, TRANSPORT_KINDS } from "./icons.js";
 import { atConnectionLimit, maxConnections, connectedOwnershipShape, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { localizeNameDesc, t } from "./i18n-content.js";
+import { formatCount } from "./utils.js";
 
 /**
  * The marketplace: a shop dialog a character opens from their Inventory tab.
@@ -155,7 +156,8 @@ const chips = (item) => {
   if (s.armor) out.push(game.i18n.format("CAIRN.NArmor", { n: s.armor }));
   if (s.bulky) out.push(game.i18n.localize("CAIRN.Bulky"));
   if (s.weightless) out.push(game.i18n.localize("CAIRN.Weightless"));
-  if (s.uses?.max) out.push(game.i18n.format("CAIRN.NUses", { n: s.uses.max }));
+  // formatCount, not format: a single-use item read "1 uses" on every chip.
+  if (s.uses?.max) out.push(formatCount("CAIRN.NUses", s.uses.max));
   return out;
 };
 

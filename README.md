@@ -66,7 +66,7 @@ Early, active development. Send feedback and art! The system is being rebuilt on
 
 ## Languages
 
-The interface is translated into **Spanish** (74% of the current strings, by [Malecho](https://github.com/fsmalecho)), and game *content* — backgrounds, items, spells, tables — is translated into Spanish only.
+The interface is translated into **Spanish** (72% of the current strings, by [Malecho](https://github.com/fsmalecho)), and game *content* — backgrounds, items, spells, tables — is translated into Spanish only.
 
 Danish, French, German, Polish and Brazilian Portuguese interface files are inherited from the original Cairn system. They cover **15–30%** of the current interface, predate most of this system's features, and are **not actively maintained** — a game in those languages is mostly English in practice. Anything untranslated falls back to English string by string, so a partial translation is always usable rather than broken.
 

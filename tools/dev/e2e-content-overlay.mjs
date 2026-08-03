@@ -820,6 +820,67 @@ try {
 
 /* -------------------------------------------- */
 
+console.log("\nthe Create Mount clone group");
+
+// The six named horses sat in raw English inside a TRANSLATED group heading,
+// between TRANSLATED kind labels — the one list on that select that never asked
+// the overlay (review #7 finding 8). They moved to `monster.name` when mounts
+// stopped being Items, so the strings exist; nothing looked them up.
+const mountLeg = await page.evaluate(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const until = async (test, ms = 8000) => {
+    const t0 = Date.now();
+    while (Date.now() - t0 < ms) { if (test()) return true; await sleep(150); }
+    return test();
+  };
+  const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+  const ES = "ZZ Destrero Traducido";
+  i18n._setOverlay({ "monster.name": { "Heavy Destrier": ES } });
+
+  // Not awaited: createThing resolves only when the dialog is answered.
+  const pending = CONFIG.Actor.documentClass.createThing("mount");
+  let form = null;
+  await until(() => {
+    form = [...document.querySelectorAll("dialog form")].find((f) => f.elements?.thingName);
+    return !!form;
+  });
+  const out = { ES, opened: !!form };
+  if (form) {
+    const select = form.elements.kindChoice;
+    const opts = [...select.querySelectorAll("optgroup option")];
+    out.optionTexts = opts.map((o) => o.textContent);
+    out.translatedShown = opts.some((o) => o.textContent === ES);
+    out.englishShown = opts.some((o) => o.textContent === "Heavy Destrier");
+    // The VALUE is the sentinel and must not move with the language — it is
+    // what the clone branch resolves the document from.
+    const opt = opts.find((o) => o.textContent === ES);
+    out.sentinelStable = String(opt?.value ?? "").startsWith("doc:");
+    // The prefill follows what the Warden read, not the English behind it.
+    if (opt) {
+      select.value = opt.value;
+      select.dispatchEvent(new Event("change"));
+      out.namePrefilled = form.elements.thingName.value;
+    }
+    form.closest("dialog")?.querySelector('[data-action="close"]')?.click();
+    await until(() => ![...document.querySelectorAll("dialog form")].some((f) => f.elements?.thingName));
+  }
+  await pending.catch(() => {});
+  i18n._setOverlay(null);
+  return out;
+});
+
+mountLeg.opened && mountLeg.translatedShown && !mountLeg.englishShown
+  ? ok("named mounts render through the overlay", `“${mountLeg.ES}”`)
+  : fail("named mounts render through the overlay", JSON.stringify(mountLeg));
+mountLeg.sentinelStable
+  ? ok("the option VALUE stays the doc: sentinel", "display only; the clone still resolves")
+  : fail("the option VALUE stays the doc: sentinel", JSON.stringify(mountLeg.optionTexts));
+mountLeg.namePrefilled === mountLeg.ES
+  ? ok("the name prefills with what was READ", mountLeg.namePrefilled)
+  : fail("the name prefills with what was READ", `"${mountLeg.namePrefilled}"`);
+
+/* -------------------------------------------- */
+
 console.log(`\nconsole errors: ${errors.length}`);
 for (const e of errors.slice(0, 10)) console.log(`  ${e}`);
 if (errors.length) failures++;

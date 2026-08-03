@@ -257,13 +257,31 @@ const { used, prefixes, suffixes } = collectKeys();
 const isVariantOfUsed = (k) =>
   [...suffixes.keys()].some((s) => k.endsWith(s) && used.has(k.slice(0, -s.length)));
 
+/**
+ * `formatCount("CAIRN.NUses", n)` licenses the plural-form variants of that key
+ * as well as the key itself. The form comes from `Intl.PluralRules` at runtime,
+ * so no literal `.one` appears anywhere and the plain scan calls it dead —
+ * which would push someone to delete the string that fixes "1 uses".
+ *
+ * The categories are the CLDR set, and this is deliberately keyed on the base
+ * key being referenced: a bare `CAIRN.Whatever.one` with no formatCount call
+ * behind it is still dead weight and still reported.
+ */
+const PLURAL_FORMS = ["zero", "one", "two", "few", "many"];
+const isPluralFormOfUsed = (k) => {
+  const us = k.lastIndexOf("_");
+  if (us === -1 || !PLURAL_FORMS.includes(k.slice(us + 1))) return false;
+  return used.has(k.slice(0, us));
+};
+
 const missing = [...used.keys()].filter((k) => !enSet.has(k));
 const unused = en.filter(
   (k) =>
     !used.has(k) &&
     !CORE_RESOLVED.some((re) => re.test(k)) &&
     ![...prefixes.keys()].some((p) => k.startsWith(p)) &&
-    !isVariantOfUsed(k));
+    !isVariantOfUsed(k) &&
+    !isPluralFormOfUsed(k));
 const hardcoded = [...scanTemplates(), ...scanJs()];
 
 const list = (label, rows, fmt) => {

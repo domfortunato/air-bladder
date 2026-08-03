@@ -2,7 +2,7 @@ import { resolveGearItem } from "../gear.js";
 import { previewBackground, duplicateBackgroundToWorld } from "../character-generator.js";
 import { t } from "../i18n-content.js";
 import { TRANSPORT_KINDS } from "../icons.js";
-import { bindEditorClickAwaySave, sourceLabel } from "../utils.js";
+import { bindEditorClickAwaySave, formatCount, sourceLabel } from "../utils.js";
 import { pickArt } from "../art-picker.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -99,7 +99,8 @@ const gearTags = (s = {}, usesOverride) => {
   if (s.bulky) tags.push(game.i18n.localize("CAIRN.Bulky"));
   if (s.weightless) tags.push(game.i18n.localize("CAIRN.Weightless"));
   const uses = usesOverride ?? s.uses?.max ?? 0;
-  if (uses) tags.push(game.i18n.format("CAIRN.NUses", { n: uses }));
+  // formatCount, not format: a single-use scroll read "1 uses".
+  if (uses) tags.push(formatCount("CAIRN.NUses", uses));
   return tags;
 };
 

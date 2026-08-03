@@ -149,6 +149,40 @@ if (fs.existsSync(contentPath)) {
   if (!bad) console.log("  ok - every translation is keyed to a string the runtime still asks for");
 }
 
+/* --- every language file must survive Foundry's own loader ---------------- */
+
+// Foundry expands dotted keys into nested objects when it loads a language file
+// (`expandObject`), so `"CAIRN.NUses"` holding a STRING and `"CAIRN.NUses.one"`
+// in the same file collide: the loader throws "Cannot create property 'one' on
+// string" and abandons the WHOLE file. A world then starts with no interface
+// strings at all — every label a raw key — from one added line.
+//
+// Nothing here modelled the loader before, because nothing needed to: this is
+// only reachable once a key gains a child, which plural forms are the first
+// thing to want. Found by a probe's console-error watch, which is a long way
+// round for a defect an offline read can see.
+const collisionsIn = (file) => {
+  const raw = JSON.parse(fs.readFileSync(path.join(ROOT, file), "utf8"));
+  const strings = new Set();
+  const parents = new Map();          // prefix -> the key that needs it to be an object
+  const visit = (obj, base = "") => {
+    for (const [k, v] of Object.entries(obj)) {
+      const full = `${base}${k}`;
+      if (v && typeof v === "object") { visit(v, `${full}.`); continue; }
+      strings.add(full);
+      const parts = full.split(".");
+      for (let i = 1; i < parts.length; i++) parents.set(parts.slice(0, i).join("."), full);
+    }
+  };
+  visit(raw);
+  return [...parents].filter(([p]) => strings.has(p))
+    .map(([p, child]) => `${file}: "${p}" is a string AND the parent of "${child}" — the loader drops the whole file`);
+};
+
+for (const f of fs.readdirSync(path.join(ROOT, "lang")).filter((f) => f.endsWith(".json"))) {
+  for (const e of collisionsIn(`lang/${f}`)) errors.push(e);
+}
+
 const enCount = Object.keys(en).length;
 const translated = enCount - missing.length - untranslated.length;
 const pct = Math.round((translated / enCount) * 100);

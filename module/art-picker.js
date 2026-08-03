@@ -33,12 +33,6 @@
 
 import { getPortraitManifest, getCustomPortraitPaths, refreshCustomPortraits, getGameIconManifest, getTlomdevManifest } from "./character-generator.js";
 
-/** The Foundry FilePicker implementation, across v13/v14 namespacing. */
-const filePicker = () =>
-  foundry.applications.apps?.FilePicker?.implementation
-  ?? foundry.applications.apps?.FilePicker
-  ?? globalThis.FilePicker;
-
 /**
  * Category display names, localized rather than title-cased in place so a
  * translator can say "Griego y romano" — the folder names are the source
@@ -335,7 +329,12 @@ export async function pickArt({
   });
 
   root.querySelector(".cairn-portrait-browse")?.addEventListener("click", () => {
-    new (filePicker())({
+    // `foundry.applications.apps.FilePicker.implementation`, named in full:
+    // the target is v14 and nothing older, and the global `FilePicker` this
+    // used to fall back to is a deprecation shim (client.mjs:213, 230). The
+    // three-way v13/v14 chain that stood here was written three days AFTER the
+    // v14-only ruling, so it never protected anything that existed.
+    new foundry.applications.apps.FilePicker.implementation({
       type: "image",
       current: browseStart,
       // The picture changes, nothing else does — true of EVERY pick since

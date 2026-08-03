@@ -88,13 +88,34 @@ export const generateFaction = async () => {
     ? game.i18n.format("CAIRN.FactionName", { trait: trait1, type })
     : game.i18n.localize("CAIRN.Faction");
 
-  const line = (labelKey, value) =>
-    `<p><strong>${game.i18n.localize(labelKey)}:</strong> ${value || "&mdash;"}</p>`;
+  // One key per WHOLE LINE, colon and bold included, the same shape as the
+  // sibling MonsterGen.Desc* keys. Assembling `${label}:` in code hands the
+  // translator a noun and keeps the punctuation — French wants a narrow
+  // no-break space before a colon, English does not, and neither can be
+  // written from the other end.
+  //
+  // Lists go through Intl.ListFormat rather than a hardcoded ", ". Narrow
+  // conjunction leaves the English rendering byte-identical ("A, B, C") while
+  // giving every other locale its own form — es "A, B y C", ja "A、B、C". Not
+  // `type: "unit"`, which is the measurement joiner and drops the separator
+  // altogether in narrow English ("A B C"), as the faction probe found. Worth
+  // the care because this
+  // dossier is BAKED into a journal at generation time: whatever it writes is
+  // permanent, and a Warden is not going to re-punctuate six lines by hand.
+  //
+  // NOT the CAIRN.Bio.List* keys the sheet's biography uses, deliberately.
+  // Those build a sentence in running prose ("a Bony Physique, Black Hair and
+  // Pale Skin"), where the conjunction is the translator's to place. This is a
+  // bare enumeration after a label — separator only — and that is data the
+  // platform already has for every locale, including the ones nobody has
+  // translated yet.
+  const list = new Intl.ListFormat(game.i18n.lang ?? "en", { style: "narrow", type: "conjunction" });
+  const line = (key, value) => `<p>${game.i18n.format(key, { value: value || "&mdash;" })}</p>`;
   const content = [
     line("CAIRN.FactionDossier.Type", type),
     line("CAIRN.FactionDossier.Agent", agent),
-    line("CAIRN.FactionDossier.Traits", [trait1, trait2].filter(Boolean).join(", ")),
-    line("CAIRN.FactionDossier.Advantages", advantages.join(", ")),
+    line("CAIRN.FactionDossier.Traits", list.format([trait1, trait2].filter(Boolean))),
+    line("CAIRN.FactionDossier.Advantages", list.format(advantages)),
     line("CAIRN.FactionDossier.Agenda", agenda),
     line("CAIRN.FactionDossier.Obstacle", obstacle),
   ].join("\n");
