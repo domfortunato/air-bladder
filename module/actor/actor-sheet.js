@@ -1988,17 +1988,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     event.preventDefault();
     const row = CairnActorSheet.#row(target);
     if (!row) return;
-    if (row.dataset.isContainer) {
-      // No optimistic slide for a connected ACTOR: the confirm can be declined
-      // and the server can refuse (Actor delete is Assistant+, ungrantable), and
-      // sliding first showed the player a delete that never happened before the
-      // re-render put the row back (review #5). On success, the delete's own
-      // _onDeleteOperation re-renders this sheet and the row goes with it.
-      this.actor.deleteOwnedContainer(row.dataset.itemId);
-    } else {
-      this.actor.deleteOwnedItem(row.dataset.itemId);
-      slideUp(row, () => this.render(false));
-    }
+    // No optimistic slide, on EITHER branch. Both helpers await a confirm dialog
+    // before deleting anything, so sliding here animated the row away while the
+    // question was still on screen — answer "no" and the item was still there
+    // with its row gone, until something re-rendered the sheet and put it back.
+    // The connected-actor branch stopped doing this in review #5 (an Actor delete
+    // can also be refused by the server: Assistant+, ungrantable); the item and
+    // feature branches were never brought in line, though the decline half of the
+    // reasoning covers all three. On success the delete re-renders this sheet
+    // — descendant deletes render the parent (client-document.mjs:691-694) — and
+    // the row goes with it.
+    if (row.dataset.isContainer) this.actor.deleteOwnedContainer(row.dataset.itemId);
+    else this.actor.deleteOwnedItem(row.dataset.itemId);
   }
 
   /**
@@ -2450,8 +2451,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     event.preventDefault();
     const row = CairnActorSheet.#row(target);
     if (!row) return;
+    // Not slid up — see #onItemDelete. deleteOwnedFeature confirms first, and
+    // its update re-renders the sheet when it goes through.
     this.actor.deleteOwnedFeature(row.dataset.itemId);
-    slideUp(row, () => this.render(false));
   }
 
   /** @this {CairnActorSheet} */

@@ -23,6 +23,7 @@
     "i18n:source": "node tools/i18n/source-check.mjs",
     "release": "node tools/release.mjs",
     "dev:enc-damage": "node tools/dev/e2e-encumbered-damage.mjs",
+    "dev:delete-confirm": "node tools/dev/e2e-delete-confirm.mjs",
     "dev:data-model": "node tools/dev/e2e-data-model.mjs",
     "dev:content-overlay": "node tools/dev/e2e-content-overlay.mjs",
     "dev:sheet-ids": "node tools/dev/e2e-sheet-ids.mjs",
