@@ -455,6 +455,28 @@ export const bondRecordFrom = (drawn) => {
 export const mentionsSecondBond = (text) =>
   /roll a second time on the bonds table/i.test(String(text ?? ""));
 
+/**
+ * How many bonds a 2e character with this background and these question
+ * answers may hold. THE rule, in one place: generation rolls this many, the
+ * sheet's "Add a bond" stops at it, and changeBackground clamps down to it.
+ * It lived as two hand-kept twins (here and the sheet) that agreed only by
+ * luck until 2026-08-02.
+ *
+ * The background-level extra is an OR, not a sum: a custom background may
+ * carry the `secondBond` checkbox AND describe it in prose, and that must
+ * still be one extra bond, not two. Per-question extras stay a sum — each
+ * rolled answer that says to roll again really does add one.
+ * @param {CairnItem|null} bg the background item (null: base entitlement)
+ * @param {{answer: String}[]} [questions] the stored/rolled question answers
+ * @returns {Number}
+ */
+export const bondEntitlement = (bg, questions = []) => {
+  const bgSecond =
+    bg?.system?.secondBond || mentionsSecondBond(bg?.system?.description) ? 1 : 0;
+  const qSecond = (questions ?? []).filter((q) => mentionsSecondBond(q.answer ?? "")).length;
+  return 1 + bgSecond + qSecond;
+};
+
 /* -------------------------------------------------------------------------- */
 /*  Background choice tables                                                    */
 /* -------------------------------------------------------------------------- */
@@ -990,19 +1012,14 @@ export const generate2eCharacter = async (chosenBg = null) => {
   const choices = await applyChoiceTables(bg);
 
   // One bond by default; the Fieldwarden background and Outrider's "Always pay
-  // your debts" option each add another. Each bond has a stable id so its granted
-  // items can be re-rolled/removed later.
-  // The background-level extra is an OR, not a sum: a custom background may carry the
-  // `secondBond` checkbox AND describe it in prose, and that must still be one extra
-  // bond, not two. Per-question extras stay a sum — each rolled answer that says to
-  // roll again really does add one.
-  const extraBonds =
-    (bg.system.secondBond || mentionsSecondBond(bg.system.description) ? 1 : 0) +
-    choices.questions.filter((q) => mentionsSecondBond(q.answer)).length;
+  // your debts" option each add another — bondEntitlement is THE rule, shared
+  // with the sheet's "Add a bond" cap and changeBackground's clamp. Each bond
+  // has a stable id so its granted items can be re-rolled/removed later.
+  const bondCount = bondEntitlement(bg, choices.questions);
   const bonds = [];
   const bondItems = [];
   let bondGold = 0;
-  for (let i = 0; i < 1 + extraBonds; i++) {
+  for (let i = 0; i < bondCount; i++) {
     // A custom background may name its own bonds table; empty means the 2e one.
     const rec = bondRecordFrom(await drawBond(bg.system.bondsTable));
     if (!rec) continue;
@@ -1783,7 +1800,12 @@ export const buildFailedCareerItem = async (careerName) =>
  * Regenerate's job, and conflating the two is why the fork needed four functions.
  *
  * Bonds are deliberately NOT re-rolled: a new background's second-bond
- * entitlement surfaces the sheet's "Add a bond" link instead of silently rolling.
+ * entitlement surfaces the sheet's "Add a bond" link instead of silently
+ * rolling. But entitlement DOES clamp down (ruled 2026-08-02): landing on a
+ * background whose entitlement is below the stored bond count removes the
+ * excess from the END — the first bond always survives — with the ✕ button's
+ * semantics (granted items deleted, gold refunded). Before the clamp, a
+ * detour through Fieldwarden left a second bond stored forever.
  * A null `newBg` picks a random one, never the current.
  * @param {CairnActor} actor
  * @param {CairnItem|null} [newBg]
@@ -1843,6 +1865,25 @@ export const changeBackground = async (actor, newBg = null) => {
     ...choices.containers,
   ]);
 
+  // Clamp bonds to the NEW background's entitlement (ruled 2026-08-02). The
+  // upward case stays manual ("Add a bond"), but excess is removed from the
+  // END — the first bond always survives — with #onRemoveBond's semantics:
+  // the bond's granted items go, its gold grant is refunded. Uses the shared
+  // bondEntitlement (never the sheet's Barebones display policy: a lent bond
+  // is not deleted because a display setting is off).
+  const bonds = foundry.utils.duplicate(actor.system.bonds ?? []);
+  const allowed = bondEntitlement(bg, choices.questions);
+  let clampGold = 0;
+  const clampItemIds = [];
+  while (bonds.length > allowed) {
+    const dropped = bonds.pop();
+    clampGold += dropped.gold ?? 0;
+    for (const i of actor.items) {
+      if (String(i.getFlag(FLAG_SCOPE, "grantSource") ?? "") === `bond:${dropped.id}`) clampItemIds.push(i.id);
+    }
+  }
+  if (clampItemIds.length) await actor.deleteEmbeddedDocuments("Item", clampItemIds, { render: false });
+
   // Trade the old questions' coins for the new ones'.
   const oldQGold = (actor.system.questions ?? []).reduce((n, q) => n + (q.gold ?? 0), 0);
   // No `contentSource` here on purpose: a character does not change edition. Every
@@ -1851,12 +1892,16 @@ export const changeBackground = async (actor, newBg = null) => {
   // background arriving here always matches. Code to follow a differing source would
   // be unreachable, and unreachable code that looks like protection is worse than
   // none.
-  await actor.update({
+  const update = {
     "system.background": bg.name,
     "system.backgroundUuid": bg.uuid,
     "system.questions": choices.questions,
-    "system.gold": Math.max(0, (actor.system.gold ?? 0) - oldQGold + choices.gold),
-  });
+    "system.gold": Math.max(0, (actor.system.gold ?? 0) - oldQGold + choices.gold - clampGold),
+  };
+  // Write bonds only when the clamp bit — preservation stays the default, and
+  // an untouched array is not re-written wholesale for nothing.
+  if (bonds.length !== (actor.system.bonds ?? []).length) update["system.bonds"] = bonds;
+  await actor.update(update);
 };
 
 /* -------------------------------------------------------------------------- */

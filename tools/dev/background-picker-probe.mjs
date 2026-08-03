@@ -19,9 +19,12 @@
  *      up in the picker without re-authoring anything).
  *   3. The dialog renders, is pre-checked on the character's current background,
  *      and offers Random.
- *   4. THE SWAP KEEPS THE CHARACTER: abilities, HP, name, traits, age, bonds,
+ *   4. THE SWAP KEEPS THE CHARACTER: abilities, HP, name, traits, age,
  *      portrait and a bought item all survive; the old background's gear is gone,
  *      the new one's is present and equipped, questions and coins move with it.
+ *      Bonds are kept WITHIN the new background's entitlement and clamped above
+ *      it (ruled 2026-08-02): Fieldwarden's second bond is removed on the swap
+ *      to Kettlewright — first bond kept, its items deleted, its gold refunded.
  *   5. Containers move too: swapping onto the Kettlewright grants its donkey, and
  *      swapping away deletes it.
  *   6. A random swap never lands on the background you already had.
@@ -114,7 +117,10 @@ try {
     const cancelled = await pick;
     dialogInfo.cancelResolvesFalse = cancelled === false;
 
-    // 4. The surgical swap.
+    // 4. The surgical swap. The character starts as a FIELDWARDEN on purpose:
+    //    its "Roll a second time on the Bonds table" prose entitles TWO bonds
+    //    (the book rule), and Kettlewright entitles one — so this swap is also
+    //    the bond clamp's witness (ruled 2026-08-02).
     const before = {
       name: actor.name,
       abilities: JSON.stringify(actor.system.abilities),
@@ -122,6 +128,11 @@ try {
       traits: JSON.stringify(actor.system.traits),
       age: actor.system.age,
       bonds: (actor.system.bonds ?? []).length,
+      bondIds: (actor.system.bonds ?? []).map((b) => b.id),
+      secondBondGold: (actor.system.bonds ?? [])[1]?.gold ?? 0,
+      secondBondItemIds: actor.items
+        .filter((i) => i.getFlag("air-bladder", "grantSource") === `bond:${(actor.system.bonds ?? [])[1]?.id}`)
+        .map((i) => i.id),
       img: actor.img,
       gold: actor.system.gold,
       qGold: (actor.system.questions ?? []).reduce((n, q) => n + (q.gold ?? 0), 0),
@@ -151,8 +162,16 @@ try {
       keptHp: actor.system.hp.max === before.hp,
       keptTraits: JSON.stringify(actor.system.traits) === before.traits,
       keptAge: actor.system.age === before.age,
-      keptBonds: (actor.system.bonds ?? []).length === before.bonds,
       keptPortrait: actor.img === before.img,
+      // THE CLAMP (2026-08-02). Fieldwarden entitled two bonds; Kettlewright
+      // entitles one, so the swap removes the SECOND and keeps the FIRST —
+      // the ✕ button's semantics applied automatically. Before the clamp
+      // this leg asserted the raw count was preserved, which locked the
+      // stale-second-bond bug in as the expectation.
+      fieldwardenTwoBonds: before.bonds === 2,
+      bondsClamped: (actor.system.bonds ?? []).length === 1,
+      firstBondSurvives: (actor.system.bonds ?? [])[0]?.id === before.bondIds[0],
+      droppedBondItemsGone: before.secondBondItemIds.every((id) => !actor.items.get(id)),
       keptBought: !!actor.items.get(bought.id),
       // swapped
       // Checked against the WHOLE inventory, not the tagged subset: mundane
@@ -167,9 +186,11 @@ try {
       newGearEquipped: nowBgGear.filter((i) => i.type === "weapon" || i.type === "armor")
         .every((i) => i.system.equipped),
       questions: (actor.system.questions ?? []).length,
-      // coins traded the old questions' gold for the new ones'
+      // coins traded the old questions' gold for the new ones', and the
+      // clamped bond's grant refunded out with it
       goldTraded: actor.system.gold ===
-        Math.max(0, before.gold - before.qGold + (actor.system.questions ?? []).reduce((n, q) => n + (q.gold ?? 0), 0)),
+        Math.max(0, before.gold - before.qGold - before.secondBondGold
+          + (actor.system.questions ?? []).reduce((n, q) => n + (q.gold ?? 0), 0)),
     };
 
     // 5. Containers follow the background. Kettlewright's donkey is on a choice
@@ -271,14 +292,26 @@ try {
 
     const S = r.swap;
     S.uuidLinked ? ok(`swapped to ${S.background}, linked by uuid`) : fail("swap did not relink the background uuid");
-    S.keptName && S.keptAbilities && S.keptHp && S.keptTraits && S.keptAge && S.keptBonds && S.keptPortrait
-      ? ok("KEEPS THE CHARACTER: name, abilities, HP, traits, age, bonds and portrait all survive")
+    S.keptName && S.keptAbilities && S.keptHp && S.keptTraits && S.keptAge && S.keptPortrait
+      ? ok("KEEPS THE CHARACTER: name, abilities, HP, traits, age and portrait all survive")
       : fail(`swap clobbered the character: ${JSON.stringify(S)}`);
+    // The bond clamp (2026-08-02). Its negative control is stashing
+    // module/character-generator.js + module/actor/actor-sheet.js: the swap
+    // keeps both bonds again and these go red with the stale count.
+    S.fieldwardenTwoBonds
+      ? ok("Fieldwarden generates two bonds (the book rule)")
+      : fail("Fieldwarden did not generate two bonds — the entitlement rule moved?");
+    S.bondsClamped && S.firstBondSurvives
+      ? ok("the swap CLAMPS bonds to the new entitlement: the first survives, the second is removed")
+      : fail(`bond clamp wrong: clamped=${S.bondsClamped}, firstSurvives=${S.firstBondSurvives}`);
+    S.droppedBondItemsGone
+      ? ok("the dropped bond's granted items went with it")
+      : fail("the dropped bond's granted items are still in the inventory");
     S.keptBought ? ok("an item the player bought is untouched") : fail("the swap deleted a bought item");
     S.oldGearGone && S.newGearPresent ? ok("the old background's gear is gone and the new one's is present") : fail(`gear swap wrong (oldGone=${S.oldGearGone}, newPresent=${S.newGearPresent})`);
     S.duplicates.length === 0 ? ok("no item was duplicated by the swap (untagged Rations/Torch included)") : fail(`the swap duplicated: ${S.duplicates.join(", ")}`);
     S.newGearEquipped ? ok("new weapons/armor arrive equipped") : fail("new weapon/armor was not equipped");
-    S.questions === 2 && S.goldTraded ? ok(`questions re-rolled (${S.questions}) and coins traded for the new ones`) : fail(`questions=${S.questions}, goldTraded=${S.goldTraded}`);
+    S.questions === 2 && S.goldTraded ? ok(`questions re-rolled (${S.questions}) and coins traded, dropped bond's grant refunded`) : fail(`questions=${S.questions}, goldTraded=${S.goldTraded}`);
 
     r.containers.gotHorse ? ok(`swapping onto the Outrider granted its ${r.containers.horse}`) : fail("no container arrived with the Outrider");
     r.containers.oldGone && r.containers.danglingFree ? ok("swapping away deletes it and leaves no dangling uuid") : fail("the old container survived the swap or left a dangling uuid");

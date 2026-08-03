@@ -1,4 +1,4 @@
-import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, mentionsSecondBond, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, regenerateNpc, rerollNpcProfession, rerollNpcName, rerollNpcFaction, rollNameFromTable, rollAge } from "../character-generator.js";
+import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, regenerateNpc, rerollNpcProfession, rerollNpcName, rerollNpcFaction, rollNameFromTable, rollAge } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, sourceLabel } from "../utils.js";
@@ -1507,16 +1507,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       bg = this.actor.system.backgroundUuid ? await fromUuid(this.actor.system.backgroundUuid) : null;
     }
     // Barebones gets exactly one bond, and only when the Warden lends it 2e's
-    // Bonds table — it has no second-bond options of its own.
+    // Bonds table — it has no second-bond options of its own. Display policy,
+    // so it stays HERE: the generator's clamp must never delete a lent bond
+    // because this setting happens to be off.
     if (this.actor.system.contentSource === "barebones") {
       return game.settings.get(SETTINGS_NS, "show-bonds-barebones") ? 1 : 0;
     }
-    // The authoring checkbox OR the prose sentence — one extra either way, never two
-    // (generate2eCharacter counts it the same way).
-    const bgSecond =
-      bg?.system?.secondBond || (bg?.system?.description && mentionsSecondBond(bg.system.description)) ? 1 : 0;
-    const qSecond = (this.actor.system.questions ?? []).filter((q) => mentionsSecondBond(q.answer ?? "")).length;
-    return 1 + bgSecond + qSecond;
+    // The shared rule — one implementation for generation, the Add-a-bond cap
+    // and changeBackground's clamp, after its two hand-kept twins drifted
+    // apart in wording and agreed only by luck (dedup'd 2026-08-02).
+    return bondEntitlement(bg, this.actor.system.questions);
   }
 
   /**
