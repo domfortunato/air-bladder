@@ -7,17 +7,23 @@
  *   node tools/dev/transport-probe.mjs    (needs Foundry running, world launched)
  *
  * Steps, driven headless as GM:
- *   1. The `transports` pack holds the 7 documents; the shop's "Transports &
- *      Containers" table references them and reads capacity/cost off the doc.
- *   2. Buy a MOUNT (Mule): a container Actor is created with the document's
- *      capacity, keeper-linked to the buyer, coins deducted, and the buyer's
- *      OWN slot usage is unchanged -- a mount carries its own pool.
- *   3. Buy a WORN container (Backpack): the buyer's slot usage rises by `load`,
- *      and the sheet shows a worn-container row explaining the cost.
- *   4. Edit the Mule document's capacity in the pack, buy another, and assert the
- *      new container reflects the edit -- the reference guarantee.
+ *   1. ONE pack: the shop's "Transports & Containers" table references the
+ *      Mounts & Transports ACTOR pack for every row — 15 npc documents in 3
+ *      folders (Containers / Mounts / Transports), the worn shapes included —
+ *      and the legacy `transports` Item pack is asserted GONE. Capacity/cost
+ *      are read off the referenced document.
+ *   2. Buy a MOUNT (Mule): a connected NPC is created with the document's
+ *      capacity, coins deducted, and the buyer's OWN slot usage is unchanged
+ *      -- a mount carries its own pool.
+ *   3. Buy a WORN container (Backpack): role container and hp 0/0 cross the till
+ *      from its document. 3a: the till's LEGACY Item branch (old worlds'
+ *      tables) still INFERS both from a synthesized transport-Item payload.
+ *   3b. Buy a VEHICLE (Cart): role transport and hp 0/0 cross the till from the
+ *      document -- the review-#5 stat-block guarantee.
+ *   4. Edit the Mule ACTOR document's capacity in the pack, buy another, and
+ *      assert the new NPC reflects the edit -- the reference guarantee.
  *   5. Buying refuses when the buyer cannot afford it.
- *   6. Mounts/vehicles are directory-visible; worn containers stay hidden.
+ *   6. Everything bought is an npc now, so all of it is directory-visible.
  *   7. Revert the document and delete every actor the probe made.
  * Exits non-zero on any failed assertion or console error.
  */
@@ -39,28 +45,40 @@ try {
     const mkt = await import("/systems/air-bladder/module/marketplace.js");
     const made = [];                      // actors to clean up
 
-    // 1. The pack + the shop table that references it.
-    const pack = game.packs.get("air-bladder.transports");
-    if (!pack) return { error: "air-bladder.transports pack is not registered" };
-    const docs = await pack.getDocuments();
+    // 1. ONE pack now: mounts-transports, npc Actors only. The legacy
+    //    `transports` Item pack is dissolved — its worn shapes (Backpack,
+    //    Sack) are Actor documents in a Containers folder, and every shop row
+    //    references the Actor pack. Its continued absence is asserted: a
+    //    resurrected Item pack would mean the dissolution regressed.
+    const aPack = game.packs.get("air-bladder.mounts-transports");
+    if (!aPack) return { error: "air-bladder.mounts-transports pack is not registered" };
+    const aDocs = await aPack.getDocuments();
     const catalog = await mkt.getMarketplaceCatalog();
     const cat = (catalog.categories ?? []).find((c) => c.name === "Transports & Containers");
     if (!cat) return { error: "no 'Transports & Containers' category in the marketplace" };
 
-    const mule = docs.find((d) => d.name === "Mule");
-    const backpack = docs.find((d) => d.name === "Backpack");
-    if (!mule || !backpack) return { error: "Mule/Backpack missing from the transports pack" };
+    const mule = aDocs.find((d) => d.name === "Mule");
+    const cartDoc = aDocs.find((d) => d.name === "Cart");
+    const backpack = aDocs.find((d) => d.name === "Backpack");
+    if (!mule || !cartDoc || !backpack) return { error: "Mule/Cart/Backpack missing from the mounts-transports pack" };
 
     const shopMule = cat.items.find((i) => i.name === "Mule");
     const setup = {
-      packCount: docs.length,
+      legacyPackGone: !game.packs.get("air-bladder.transports"),
+      actorCount: aDocs.filter((d) => d.documentName === "Actor" && d.type === "npc").length,
       // The pack holds two kinds: what the shop stocks, and the beasts a 2e
-      // background rolls up (Outrider's horses, the Bonekeeper's burial wagon).
-      // Both are editable documents; only the first kind is for sale.
-      stockedCount: docs.filter((d) => d.getFlag("air-bladder", "transportSource") === "2e").length,
-      beastCount: docs.filter((d) => d.getFlag("air-bladder", "transportSource") === "background-2e").length,
-      allTransportType: docs.every((d) => d.type === "transport"),
+      // background rolls up. Both are editable documents; only the first kind
+      // is for sale.
+      stockedCount: aDocs.filter((d) => d.getFlag("air-bladder", "transportSource") === "2e").length,
+      beastCount: aDocs.filter((d) => d.getFlag("air-bladder", "transportSource") === "background-2e").length,
+      folderCount: aPack.folders.size,
+      wornInContainers: ["Backpack", "Sack"].every((n) =>
+        aDocs.find((d) => d.name === n)?.folder?.name === "Containers"),
       shopCount: cat.items.length,
+      // THE review-#5 assertion: every shop row resolves to an Actor document.
+      // `documentName` is what routes the buy.
+      shopRowIsActor: shopMule?.documentName === "Actor",
+      wornRowIsActor: cat.items.find((i) => i.name === "Backpack")?.documentName === "Actor",
       // The shop row must READ the document, not carry its own copy.
       shopReadsDoc: shopMule?.system.slots === mule.system.slots && shopMule?.system.cost === mule.system.cost,
       muleSlots: mule.system.slots,
@@ -82,25 +100,34 @@ try {
       mkt.acquireTransport(buyer, cat.items.find((i) => i.name === doc.name), true);
     await buyThrough(mule);
 
-    const muleActor = game.actors.find((a) => a.type === "container" && a.name === "Mule" && a.system.keeper === buyer.uuid);
+    // Buying now mints an NPC connected by `connectedTo` -- the same document kind
+    // the Mounts & Transports pack ships, rather than a slots-only container.
+    const muleActor = game.actors.find((a) => a.type === "npc" && a.name === "Mule" && a.system.connectedTo === buyer.uuid);
     if (muleActor) made.push(muleActor);
     const mount = {
       created: !!muleActor,
       capacity: muleActor?.system.slotsMax,
       capacityRight: muleActor?.system.slotsMax === mule.system.slots,
-      kind: muleActor?.system.transportKind,
-      keeperLinked: muleActor?.system.keeper === buyer.uuid,
-      listedOnBuyer: (buyer.system.containers ?? []).includes(muleActor?.uuid),
+      kind: muleActor?.system.containerClass,
+      // ONE link now, not two. The old model wrote the container's `keeper` AND
+      // the buyer's `containers` array, and every container bug came from only
+      // one of them landing. The owner's list is derived from `connectedTo`, so
+      // "linked" and "listed" are the same fact read twice.
+      keeperLinked: muleActor?.system.connectedTo === buyer.uuid,
+      listedOnBuyer: (buyer.system.containerObjects ?? []).some((c) => c.id === muleActor?.id),
       paid: buyer.system.gold === goldBefore - mule.system.cost,
       // A mount carries its own pool: the buyer's own load must not change.
       buyerSlotsUnchanged: buyer.system.slotsUsed === slotsBefore,
     };
 
-    // 3. Buy the Backpack (worn): a worn container costs the carrier nothing and
-    //    shows no inventory row -- it lives only on the Containers tab.
+    // 3. Buy the Backpack (worn, an Actor row like everything else now): a worn
+    //    container costs the carrier nothing and shows no inventory row -- it
+    //    lives only on the Connections tab. Its document states role container
+    //    and hp 0/0 outright, and both must cross the till. Literals on purpose
+    //    -- an animate 6 HP Backpack is exactly what once shipped.
     const slotsBeforeWorn = buyer.system.slotsUsed;
     await buyThrough(backpack);
-    const packActor = game.actors.find((a) => a.type === "container" && a.name === "Backpack" && a.system.keeper === buyer.uuid);
+    const packActor = game.actors.find((a) => a.type === "npc" && a.name === "Backpack" && a.system.connectedTo === buyer.uuid);
     if (packActor) made.push(packActor);
     const worn = {
       created: !!packActor,
@@ -109,17 +136,115 @@ try {
       got: buyer.system.slotsUsed,
       // No worn-container inventory row is produced any more.
       noRow: !(buyer.system.wornContainerRows ?? []).some((r) => r.name === "Backpack"),
+      thing: packActor?.system.role === "container",
+      hpZero: packActor?.system.hp.value === 0 && packActor?.system.hp.max === 0,
     };
 
-    // 4. Edit the Mule document; a newly bought one must reflect it.
-    const wasLocked = pack.locked;
-    if (wasLocked) await pack.configure({ locked: false });
+    // 3a. The LEGACY Item branch of the till, kept for old worlds' tables. No
+    //     shipped row exercises it any more, so a synthesized transport-Item
+    //     payload does: it states neither `role` nor hp, and the till must
+    //     INFER a worn thing at 0/0 rather than mint the phantom animate 6.
+    await mkt.acquireTransport(buyer, {
+      name: "PROBE Legacy Pack", documentName: "Item", type: "transport", img: null,
+      system: { slots: 4, cost: 0, transportKind: "worn", description: "" },
+    }, false);
+    const legacyActor = game.actors.find((a) => a.type === "npc" && a.name === "PROBE Legacy Pack" && a.system.connectedTo === buyer.uuid);
+    if (legacyActor) made.push(legacyActor);
+    const legacy = {
+      created: !!legacyActor,
+      thing: legacyActor?.system.role === "container",
+      hpZero: legacyActor?.system.hp.value === 0 && legacyActor?.system.hp.max === 0,
+    };
+
+    // 3b. Buy a Cart (vehicle, from the ACTOR pack): the stat block crosses the
+    //     till. The Actor document states role transport and hp 0/0 outright;
+    //     fed from the Item pack instead, the bought cart came out animate with
+    //     the phantom 6 HP -- the shape review #5 caught.
+    await buyThrough(cartDoc);
+    const cartActor = game.actors.find((a) => a.type === "npc" && a.name === "Cart" && a.system.connectedTo === buyer.uuid);
+    if (cartActor) made.push(cartActor);
+    const vehicle = {
+      created: !!cartActor,
+      capacityRight: cartActor?.system.slotsMax === cartDoc.system.slots,
+      thing: cartActor?.system.role === "transport",
+      hpZero: cartActor?.system.hp.value === 0 && cartActor?.system.hp.max === 0,
+      classCarried: cartActor?.system.containerClass === cartDoc.system.containerClass,
+    };
+
+    // 3c. Keeping is a TYPE privilege now (the flat graph, 2026-08-01): NOTHING
+    //     npc-typed buys at this till any more. The mule refuses, the cart
+    //     refuses, and the npc PERSON — a porter, who could buy until today —
+    //     refuses too, which makes the porter the flat rule's fail-witness in
+    //     the marketplace: he owns nothing else that would refuse him.
+    const muleRow = cat.items.find((i) => i.name === "Mule");
+    const nestKept = await mkt.acquireTransport(muleActor, muleRow, false);
+    const nestThing = await mkt.acquireTransport(cartActor, muleRow, false);
+    const porter = await CONFIG.Actor.documentClass.create({ name: "PROBE Porter", type: "npc" });
+    made.push(porter);
+    const porterRefused = await mkt.acquireTransport(porter, muleRow, false);
+    const porterMule = game.actors.find((a) => a.name === "Mule" && a.system.connectedTo === porter.uuid);
+    if (porterMule) made.push(porterMule);
+    // In-page control: shadow the predicate open on the kept mule (an instance
+    // property over the prototype getter; `delete` removes it) — the same buy
+    // must then SUCCEED, proving the guard is what refused above rather than
+    // some other wall (the cap wall sits behind it, and the mule keeps 0).
+    Object.defineProperty(muleActor, "canKeepConnected", { value: true, configurable: true });
+    const nestForced = await mkt.acquireTransport(muleActor, muleRow, false);
+    delete muleActor.canKeepConnected;
+    const nested = game.actors.find((a) => a.name === "Mule" && a.system.connectedTo === muleActor.uuid);
+    if (nested) made.push(nested);
+    const nesting = {
+      keptRefused: nestKept === false,
+      thingRefused: nestThing === false,
+      personRefused: porterRefused === false && !porterMule,
+      controlReproduced: nestForced === true && !!nested,
+    };
+
+    // 3d. The connection CEILING at the till: a buyer already keeping
+    //     `maxConnections()` is refused BEFORE any gold moves. Seeded through
+    //     creation data (connectActor would trip the same wall), witnessed
+    //     below the cap: one child fewer and the SAME purchase lands.
+    const { maxConnections } = await import("/systems/air-bladder/module/connections.js");
+    const max = maxConnections();
+    const capped = await CONFIG.Actor.documentClass.create({
+      name: "PROBE Capped", type: "character", system: { gold: 500 },
+    });
+    made.push(capped);
+    const capKids = [];
+    for (let i = 0; i < max; i++) {
+      capKids.push(await CONFIG.Actor.documentClass.create({
+        name: `PROBE Cap Sack ${i}`, type: "npc",
+        system: { role: "container", containerClass: "sack", connectedTo: capped.uuid, hp: { value: 0, max: 0 }, generationEnabled: false },
+      }));
+    }
+    made.push(...capKids);
+    const goldAtCap = capped.system.gold;
+    const capRefused = await mkt.acquireTransport(capped, muleRow, true);
+    const capMule = game.actors.find((a) => a.name === "Mule" && a.system.connectedTo === capped.uuid);
+    // Read gold NOW — the witness purchase below is a real paid buy and
+    // legitimately spends it.
+    const goldAfterRefusal = capped.system.gold;
+    await capKids[capKids.length - 1].delete();
+    const capBelowLands = await mkt.acquireTransport(capped, muleRow, true);
+    const belowMule = game.actors.find((a) => a.name === "Mule" && a.system.connectedTo === capped.uuid);
+    if (belowMule) made.push(belowMule);
+    const capLeg = {
+      seeded: capKids.length === max,
+      refused: capRefused === false && !capMule,
+      goldIntact: goldAfterRefusal === goldAtCap,
+      belowLands: capBelowLands === true && !!belowMule,
+    };
+
+    // 4. Edit the Mule ACTOR document (the one the shop row references now);
+    //    a newly bought one must reflect it -- the reference guarantee.
+    const wasLocked = aPack.locked;
+    if (wasLocked) await aPack.configure({ locked: false });
     const origSlots = mule.system.slots;
     await mule.update({ "system.slots": origSlots + 5 });
     const catalog2 = await mkt.getMarketplaceCatalog();
     const cat2 = catalog2.categories.find((c) => c.name === "Transports & Containers");
     await mkt.acquireTransport(buyer, cat2.items.find((i) => i.name === "Mule"), true);
-    const mules = game.actors.filter((a) => a.type === "container" && a.name === "Mule" && a.system.keeper === buyer.uuid);
+    const mules = game.actors.filter((a) => a.type === "npc" && a.name === "Mule" && a.system.connectedTo === buyer.uuid);
     const newMule = mules[mules.length - 1];
     if (newMule && !made.includes(newMule)) made.push(newMule);
     const edit = {
@@ -128,7 +253,7 @@ try {
       expected: origSlots + 5,
     };
     await mule.update({ "system.slots": origSlots });
-    if (wasLocked) await pack.configure({ locked: true });
+    if (wasLocked) await aPack.configure({ locked: true });
 
     // 5. Affordability: a pauper cannot buy a Wagon.
     const pauper = await CONFIG.Actor.documentClass.create({
@@ -140,55 +265,111 @@ try {
     const refused = await mkt.acquireTransport(pauper, cat3.items.find((i) => i.name === "Wagon"), true);
     const afford = {
       refused: refused === false,
-      noActor: !game.actors.find((a) => a.type === "container" && a.system.keeper === pauper.uuid),
+      noActor: !game.actors.find((a) => a.system.connectedTo === pauper.uuid),
       goldIntact: pauper.system.gold === 1,
     };
 
-    // 6. Directory visibility rule (the predicate cairn.js applies).
-    const visible = (a) => {
-      const kind = a.system?.transportKind;
-      return !(a.type === "container" && !(kind === "mount" || kind === "vehicle"));
-    };
+    // 6. Directory visibility, driven through the REAL rendered sidebar.
+    //
+    //    INVERTED 2026-08-02: `show-container-actors` is REMOVED by ruling
+    //    ("this feature should always be on and should never be disabled"), so
+    //    the claim is now unconditional — a bought mount AND a bought worn
+    //    pack are BOTH always listed, with no setting to write and no hidden
+    //    class to earn. Red witness: pre-removal code hides the worn pack
+    //    when the setting is off. The grayscale rule survives independently.
+    const dirRow = (id) => document.querySelector(
+      `#actors [data-entry-id="${id}"], #actors [data-document-id="${id}"]`);
+    await (ui.actors ?? ui.sidebar?.tabs?.actors)?.render(true);
+    await new Promise((r) => setTimeout(r, 900));
     const directory = {
-      mountShown: muleActor ? visible(muleActor) : false,
-      wornHidden: packActor ? !visible(packActor) : false,
+      mount: dirRow(muleActor?.id)?.classList.contains("hidden") === false,
+      worn: dirRow(packActor?.id)?.classList.contains("hidden") === false,
+      // The thumbnail must be greyed to match the sheet, on the role.
+      mountGrey: dirRow(muleActor?.id)?.classList.contains("cairn-grayscale-portrait") ?? false,
+      settingGone: game.settings.settings.get("air-bladder.show-container-actors") === undefined,
     };
 
     for (const a of made) { try { await a.delete(); } catch { /* already gone */ } }
-    return { setup, mount, worn, edit, afford, directory };
+    return { setup, mount, worn, legacy, vehicle, nesting, capLeg, edit, afford, directory };
   });
 
   if (r.error) {
     fail(r.error);
   } else {
-    console.log(`  pack: ${r.setup.packCount} transports; shop lists ${r.setup.shopCount}`);
+    console.log(`  pack: ${r.setup.actorCount} npc Actors; shop lists ${r.setup.shopCount}`);
+    r.setup.legacyPackGone
+      ? ok("the legacy transports Item pack is GONE", "dissolved into the Actor pack")
+      : fail("the legacy transports Item pack is registered again", "the dissolution regressed");
+    r.setup.actorCount === 15
+      ? ok("15 npc Actors in mounts-transports", "13 mounts/vehicles + Backpack + Sack")
+      : fail(`expected 15 Actors in mounts-transports, got ${r.setup.actorCount}`);
+    r.setup.folderCount === 3 && r.setup.wornInContainers
+      ? ok("3 folders, worn shapes in Containers")
+      : fail(`folders=${r.setup.folderCount}, wornInContainers=${r.setup.wornInContainers}`);
     r.setup.stockedCount === 7 && r.setup.shopCount === 7
-      ? ok("7 transport documents shipped, and the shop stocks all 7")
-      : fail(`expected 7 stocked transports in pack and shop, got ${r.setup.stockedCount}/${r.setup.shopCount}`);
+      ? ok("7 stocked, and the shop lists all 7")
+      : fail(`expected 7 stocked / 7 shop rows, got ${r.setup.stockedCount}/${r.setup.shopCount}`);
     // Covered in depth by tools/dev/bg-container-probe.mjs; asserted here so a
     // beast can never leak into the shop unnoticed.
-    r.setup.beastCount === 8 && r.setup.packCount === 15
+    r.setup.beastCount === 8
       ? ok("8 background-granted beasts share the pack but not the shop")
-      : fail(`expected 8 beasts / 15 docs, got ${r.setup.beastCount}/${r.setup.packCount}`);
-    r.setup.allTransportType ? ok("all are the `transport` Item type") : fail("some pack docs are not type transport");
+      : fail(`expected 8 beasts, got ${r.setup.beastCount}`);
+    r.setup.shopRowIsActor ? ok("a mount's shop row resolves to the ACTOR document") : fail("the Mule shop row does not resolve to an Actor");
+    r.setup.wornRowIsActor ? ok("a worn shape's row resolves to the ACTOR document too") : fail("the Backpack row does not resolve to the Actor pack");
     r.setup.shopReadsDoc ? ok(`shop reads the document (Mule +${r.setup.muleSlots}, ${r.setup.muleCost}gp)`) : fail("shop row does not match the document");
 
-    r.mount.created ? ok("buying a mount minted a container Actor") : fail("no container Actor was created");
+    r.mount.created ? ok("buying a mount minted a connected NPC") : fail("no connected NPC was created");
     r.mount.capacityRight ? ok(`mount capacity ${r.mount.capacity} matches the document`) : fail(`mount capacity ${r.mount.capacity} != document`);
-    r.mount.keeperLinked && r.mount.listedOnBuyer ? ok("keeper-linked both ways (container.keeper + buyer.containers)") : fail("keeper link is one-sided or missing");
+    r.mount.keeperLinked && r.mount.listedOnBuyer ? ok("connected, and derived onto the buyer's tab") : fail("connectedTo is missing, or the buyer's list did not derive it");
     r.mount.paid ? ok("coins deducted") : fail("coins were not deducted correctly");
     r.mount.buyerSlotsUnchanged ? ok("a MOUNT costs the buyer no slots (carries its own pool)") : fail("buying a mount changed the buyer's slot usage");
 
-    r.worn.created ? ok("buying a worn container minted a container Actor") : fail("no worn container Actor created");
+    r.worn.created ? ok("buying a worn container minted a connected NPC") : fail("no worn container NPC created");
     r.worn.slotsUnchanged ? ok(`a worn container costs its carrier no slots (${r.worn.before} -> ${r.worn.got})`) : fail(`worn container charged the carrier: ${r.worn.before} -> ${r.worn.got}`);
     r.worn.noRow ? ok("a worn container shows no inventory row (reached via the Containers tab)") : fail("a worn container still shows an inventory row");
+    r.worn.thing && r.worn.hpZero
+      ? ok("a bought Backpack is role container with hp 0/0 (stated by its document)")
+      : fail(`a bought Backpack came out wrong: thing=${r.worn.thing}, hpZero=${r.worn.hpZero}`);
+
+    r.legacy.created && r.legacy.thing && r.legacy.hpZero
+      ? ok("the LEGACY Item branch still infers: worn Item row -> container, hp 0/0")
+      : fail(`legacy Item till-inference broken: ${JSON.stringify(r.legacy)}`);
+
+    r.vehicle.created && r.vehicle.capacityRight ? ok("buying a Cart minted a connected NPC with the document's capacity") : fail(`Cart buy wrong: ${JSON.stringify(r.vehicle)}`);
+    r.vehicle.thing && r.vehicle.hpZero
+      ? ok("the Cart's stat block crossed the till: role transport, hp 0/0 (not the phantom 6)")
+      : fail(`the Cart came out animate or with phantom HP: thing=${r.vehicle.thing}, hpZero=${r.vehicle.hpZero}`);
+    r.vehicle.classCarried ? ok("containerClass carried from the document") : fail("containerClass was not carried");
+
+    r.nesting.keptRefused ? ok("KEEPING IS TYPE-GATED: a mule refuses to buy a carrier") : fail("a mule bought a carrier — a mount can keep");
+    r.nesting.thingRefused ? ok("KEEPING IS TYPE-GATED: a cart refuses too") : fail("a cart bought a carrier");
+    r.nesting.personRefused
+      ? ok("an npc PERSON is refused at the till now", "the flat graph's fail-witness in the marketplace")
+      : fail("a porter bought a mule — the flat rule is not at the till");
+    r.nesting.controlReproduced
+      ? ok("NEGATIVE CONTROL: predicate forced open, the same buy succeeds")
+      : fail("negative control MISSED — something other than the guard refused the nested buy");
+
+    r.capLeg.seeded && r.capLeg.refused && r.capLeg.goldIntact
+      ? ok("a buyer at the connection ceiling is refused, gold intact")
+      : fail(`the cap did not hold at the till: ${JSON.stringify(r.capLeg)}`);
+    r.capLeg.belowLands
+      ? ok("   witness: one child fewer and the same purchase lands")
+      : fail(`below the cap the buy still refused — the refusal was not the count: ${JSON.stringify(r.capLeg)}`);
 
     r.edit.flowed ? ok(`EDIT FLOWS THROUGH: capacity ${r.edit.expected} on the next one bought`) : fail(`document edit did not flow through (got ${r.edit.got}, expected ${r.edit.expected})`);
 
     r.afford.refused && r.afford.noActor && r.afford.goldIntact ? ok("an unaffordable transport is refused, mints nothing, spends nothing") : fail("affordability check did not hold");
 
-    r.directory.mountShown ? ok("mounts/vehicles are directory-visible") : fail("mount would be hidden from the directory");
-    r.directory.wornHidden ? ok("worn containers stay hidden (reached via the Containers tab)") : fail("worn container would show in the directory");
+    r.directory.mount && r.directory.worn
+      ? ok("mount AND worn pack are both always listed", "no hide setting exists any more")
+      : fail("mount AND worn pack are both always listed", JSON.stringify(r.directory));
+    r.directory.settingGone
+      ? ok("show-container-actors is unregistered", "removed by ruling, 2026-08-02")
+      : fail("show-container-actors is still registered", "the setting was supposed to be removed");
+    r.directory.mountGrey
+      ? ok("the carrier's thumbnail is greyed", "matches its sheet")
+      : fail("the carrier's thumbnail is greyed", "directory reads colour where the sheet reads grey");
   }
 } catch (e) {
   fail(`${e.name}: ${e.message}`);

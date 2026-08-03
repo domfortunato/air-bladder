@@ -45,6 +45,10 @@ const S = {
   limit: "ZZ-doble clic para cambiar el límite",
   wizard: "ZZ-mago",
   uses: "ZZ-{n} usos",
+  // The SINGULAR form, which only Intl.PluralRules can reach. Distinct from
+  // the plural sentinel on purpose: "1 uses" passed every check there was.
+  usesOne: "ZZ-{n} uso",
+  slotOne: "ZZ-{n} espacio",
   edition: "ZZ-Cairn 2ª ed.",
 };
 
@@ -67,6 +71,8 @@ try {
         "CAIRN.Archetype.Wizard": S.wizard,
         "CAIRN.ContentSource2e": S.edition,
         "CAIRN.NUses": S.uses,
+        "CAIRN.NUses_one": S.usesOne,
+        "CAIRN.NSlot_one": S.slotOne,
         "CAIRN.Notify": { ConfirmDeleteNamed: S.del },
       },
       { inplace: false }
@@ -183,6 +189,16 @@ try {
             .filter((t) => t.startsWith("ZZ-") && t.length < 40)
         : [];
       shop?.closest(".application")?.querySelector('[data-action="close"]')?.click();
+
+      // ---- and the singular, which no chip in the shop happens to exercise ---
+      // "{n} uses" rendered "1 uses" on 55 shipped items. The count is chosen by
+      // Intl.PluralRules at runtime, so the SINGULAR key is reachable only
+      // through formatCount -- read it here, under the same sentinel swap, so a
+      // regression cannot hide behind whatever the catalogue happens to stock.
+      const utils = await import("/systems/air-bladder/module/utils.js");
+      r.usesOne = utils.formatCount("CAIRN.NUses", 1);
+      r.usesMany = utils.formatCount("CAIRN.NUses", 3);
+      r.slotOne = utils.formatCount("CAIRN.NSlot", 1);
     } finally {
       game.i18n.translations = original;
       await game.settings.set(NS, "character-inventory-limit", limitWas);
@@ -224,6 +240,9 @@ try {
   usesChip
     ? ok(`shop uses-chips read as a unit, not as a field label (${JSON.stringify(usesChip)})`)
     : fail(`no shop chip matched the CAIRN.NUses sentinel; saw ${JSON.stringify(out.chips)}`);
+  is(out.usesOne, "ZZ-1 uso", "a single-use item takes the SINGULAR form (55 shipped items read \"1 uses\")");
+  is(out.usesMany, "ZZ-3 usos", "and more than one still takes the plural");
+  is(out.slotOne, "ZZ-1 espacio", "the same for slots, whose plural key the gold rows share");
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {

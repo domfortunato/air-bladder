@@ -38,8 +38,11 @@
   Terminología: usa siempre lo que el jugador VE en el sistema, es decir
   lang/es.json, no una conjetura de este archivo:
     Warden   -> "Guardián"  (CAIRN.Warden)
-    Hireling -> "Seguidor"  (CAIRN.Hireling)
     Items    -> "Equipo"    (CAIRN.Items, la pestaña de la hoja)
+  La fila "Hireling -> Seguidor" se retiró el 2026-08-01: CAIRN.Hireling ya no
+  existe en lang/en.json (ser contratable pasó a ser una casilla del PNJ, no una
+  clase de persona), así que apuntaba a una clave muerta. El término sobrevive en
+  tools/i18n/glossary.tsv, que es donde le corresponde estar.
   Los nombres propios, ediciones (Cairn 2e, Barebones), módulos (Item Piles) y
   licencias no se traducen.
 -->
@@ -53,19 +56,23 @@ Air Bladder es un sistema complementario amigable, no el sistema oficial de Cair
 ## Características principales
 
 - Generación aleatoria o manual de personajes a partir de trasfondos de Cairn 2e, **Cairn 2e personalizado** y Cairn Barebones — el Guardián puede activar o desactivar cada fuente
+- [Generador de monstruos](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-monsters.md)
+- [Generador de facciones](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-factions.md)
 - Importación de personajes en `.json` desde la aplicación oficial de Cairn, ¡[Kettlewright!](https://kettlewright.com/)
 - Funciones caseras (*homebrew*) opcionales que mezclan características de 2e con Barebones
 - Trasfondos de 2e personalizados, creados por el Guardián — [créalos y revísalos](https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md) y después [compártelos entre mundos](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md)
-- Generación aleatoria o manual de PNJ y seguidores
+- Generación aleatoria o manual de PNJ, contratados o no
+- Conexiones entre PJ y PNJ que transfieren la propiedad a los jugadores
 - Ayudas contextuales en la hoja de personaje para los jugadores
 - ¡Hojas de personaje desacoplables! Sí, ya estamos completamente en AppV2: listos para la v16, cuando Foundry retire el marco de trabajo V1
-- Mercado y contenedores; caballos, carros, carretas, cofres y ¡PILAS DE OBJETOS con Item Piles!
+- Mercado y contenedores; caballos, carros, carretas, cofres y ¡PILAS DE OBJETOS!
 - ¡Tablas de tiradas orientadas al Guardián!
 - Una galería de 80 retratos de personaje con sus iconos a juego, con licencia CC BY 4.0, de [Jon Aspeheim](https://jonaspeheim.itch.io/)
+- Una galería de 368 tokens de criaturas y PNJ en blanco y negro, con licencia CC BY-SA 4.0, de [tlomdev](https://tlomdev.itch.io/), que incluye el juego de retratos de Kettlewright: un personaje importado de Kettlewright conserva su rostro
 - Automatización mínima; con botones para descansar, restaurar características, pánico y daño crítico
 
 ## Funciones en el horizonte
-- Generadores de monstruos y encuentros (opcional)
+- Generador de encuentros
 - Magia GLOG (opcional)
 
 ## Capturas de pantalla
@@ -90,7 +97,7 @@ Desarrollo temprano y activo. ¡Envía comentarios y arte! El sistema se está r
 
 ## Idiomas
 
-La interfaz está traducida al **español** (el 66 % de las cadenas actuales, por [Malecho](https://github.com/fsmalecho)), y el *contenido* del juego —trasfondos, objetos, hechizos, tablas— está traducido únicamente al español.
+La interfaz está traducida al **español** (el 72 % de las cadenas actuales, por [Malecho](https://github.com/fsmalecho)), y el *contenido* del juego —trasfondos, objetos, hechizos, tablas— está traducido únicamente al español.
 
 Los archivos de interfaz en alemán, danés, francés, polaco y portugués de Brasil se heredaron del sistema original de Cairn. Cubren entre el **15 % y el 30 %** de la interfaz actual, son anteriores a la mayoría de las funciones de este sistema y **no reciben mantenimiento**: en la práctica, una partida en esos idiomas está mayormente en inglés. Todo lo que no esté traducido recae en el inglés cadena por cadena, así que una traducción parcial siempre se puede usar en lugar de quedar rota.
 
@@ -127,7 +134,8 @@ Air Bladder combina varios regímenes de licencia; por favor, conserva la atribu
 - **«Compatible con Cairn»** — la insignia de compatibilidad se usa según los términos de [cairnrpg.com/resources/logos](https://cairnrpg.com/resources/logos) (CC BY-SA 4.0, Yochai Gal).
 - **Logo de Air Bladder — © Lydia Comer, todos los derechos reservados.** El logo y el material gráfico relacionado en `lydia-comer/` son de **[Lydia Comer](https://linktr.ee/lydiadidmyink)**, con licencia para el sistema Air Bladder para su inclusión y redistribución sin modificaciones como parte del sistema y sus bifurcaciones (*forks*), y para su uso sin modificaciones en la representación del proyecto; cualquier otro uso requiere permiso. Consulta `lydia-comer/license.txt`.
 - **Arte de personajes — CC BY 4.0.** Las 80 imágenes emparejadas de retrato/token en `character_portraits/` y `character_tokens/` son de **[Jon Aspeheim](https://jonaspeheim.itch.io/)** (fuente: [Lemur's Portraits](https://jonaspeheim.itch.io/lemurs-portraits)), con licencia [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) (consulta el `license.txt` en cada carpeta). CC BY simple: la redistribución está permitida y la atribución es obligatoria. El artista indica que estos retratos se crearon sin IA. Conserva este crédito si el arte se distribuye.
-- **Íconos de objetos y contenedores — CC BY 3.0.** Los íconos de clase en `icons/` (equipo, grimorios, transportes, contenedores, monstruos) provienen de [game-icons.net](https://game-icons.net) por **Lorc, Delapouite y Skoll**, con licencia [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). Los créditos de autor y de la página de origen de cada ícono están en `icons/CREDITS.md`.
+- **Arte de game-icons.net — CC BY 3.0.** Dos carpetas, una misma licencia, ambas de [game-icons.net](https://game-icons.net) bajo [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). `icons/` contiene los íconos de clase (equipo, grimorios, transportes, contenedores, monstruos) por **Lorc, Delapouite y Skoll**; `game-icons/` contiene la galería **Game-Icons** del selector de imágenes — 1366 íconos en 24 categorías por **Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev, Delapouite, Faithtoken, GeneralAce135, Irongamer, Lorc, Lord Berandas, Lucas, Sbed, Skoll, Sparker, Willdabeast** y un ícono acreditado a varios artistas. Los créditos de autor y de la página de origen de cada ícono están en `icons/CREDITS.md` y `game-icons/CREDITS.md`; esos archivos **son** la atribución, ya que la ruta publicada solo registra la categoría. El aviso original se distribuye literalmente como `game-icons/license.txt`.
+- **Tlomdev's Tokens — CC BY-SA 4.0.** Los 368 dibujos de token en blanco y negro de `tlomdev/` son de **[tlomdev](https://tlomdev.itch.io/)** (fuente: [Tlomdev's Tokens](https://tlomdev.itch.io/tlomdevs-tokens)), con licencia [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Aparecen en la galería **Tlomdev** del selector de retratos, bajo las carpetas de categoría del propio artista. La subcarpeta `Kettlewright Portraits` contiene los dibujos del mismo artista tal como los distribuye [Kettlewright](https://github.com/yochaigal/kettlewright), con los nombres de archivo exactos de Kettlewright, de modo que un personaje importado de Kettlewright conserva el retrato que eligió su jugador. ShareAlike: las adaptaciones del arte deben llevar la misma licencia. La atribución y la procedencia están registradas en `tlomdev/CREDITS.md`; el aviso se distribuye como `tlomdev/license.txt`.
 - **Tipografía Alegreya — SIL Open Font License 1.1.** Las tres fuentes web de `fonts/` son **Alegreya**, de Juan Pablo del Peral y los autores del Proyecto Alegreya ([Huerta Tipográfica](https://github.com/huertatipografica/Alegreya)), © 2011, con licencia [OFL 1.1](https://openfontlicense.org/). Se redistribuyen sin modificaciones; la licencia exige que su aviso acompañe a cada copia, por lo que `fonts/OFL.txt` y `fonts/license.txt` se distribuyen junto a ellas.
 
 ---

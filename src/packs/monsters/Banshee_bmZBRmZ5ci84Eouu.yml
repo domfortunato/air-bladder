@@ -3,7 +3,7 @@ name: Banshee
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.svg
+img: systems/air-bladder/game-icons/creatures/ghost.svg
 items:
   - _id: KnOS4omhvrK0lv0u
     name: Ghostly Touch*
@@ -54,6 +54,8 @@ ownership:
   default: 0
   bDeEK9GSahKwiAGH: 3
 system:
+  generationEnabled: false
+  role: monster
   hp:
     value: 7
     max: 7

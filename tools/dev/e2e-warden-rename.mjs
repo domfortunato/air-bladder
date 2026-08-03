@@ -38,10 +38,41 @@ const errors = watchErrors(page);
 await joinAsGM(page);
 await dismissChrome(page);
 
+/**
+ * Reload, and do not return until the rename hook has actually had its chance.
+ *
+ * `cairn.js:190` bails out when another GM is the active one -- deliberately, so a
+ * two-GM world cannot half-apply a rename. Right after a reload the PREVIOUS session
+ * is often still registered active, so the hook runs, sees a stranger, and silently
+ * does nothing. Waiting on `game.ready` cannot help: ready fires AFTER the hook, so
+ * by the time it is true the decision has already been made and lost.
+ *
+ * So read `activeGM` with no wait at all -- that is what the hook itself saw -- and
+ * if it saw a stranger, let the stale session drop and reload AGAIN. The hook is
+ * registered with `Hooks.once`, so a fresh page is the only way to give it another go.
+ *
+ * Found 2026-07-30: the off-direction won this race and the on-direction lost it, so
+ * the probe reported "expected Warden, got Gamemaster" -- indistinguishable, from the
+ * outside, from the feature being broken.
+ */
 const reload = async () => {
-  await page.reload({ waitUntil: "networkidle", timeout: 60000 });
-  await page.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
-  await page.waitForTimeout(600);
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    await page.reload({ waitUntil: "networkidle", timeout: 60000 });
+    await page.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
+    const sawUs = await page.evaluate(
+      () => globalThis.game?.users?.activeGM?.id === globalThis.game.user.id,
+    );
+    if (sawUs) {
+      await page.waitForTimeout(600);
+      return;
+    }
+    console.log(`  ..    reload ${attempt}: another GM was still active; retrying`);
+    await page.waitForFunction(
+      () => globalThis.game?.users?.activeGM?.id === globalThis.game.user.id,
+      null, { timeout: 20000 },
+    ).catch(() => { /* fall through and reload anyway */ });
+  }
+  throw new Error("activeGM never settled on this session across 4 reloads");
 };
 const setSetting = (v) =>
   page.evaluate(({ v, NS }) => game.settings.set(NS, "use-warden-title", v), { v, NS });

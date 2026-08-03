@@ -22,6 +22,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { withIntrinsicSize } from "./svg-size.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const outDir = path.join(root, "icons");
@@ -44,32 +45,33 @@ const ICONS = {
   "horse": ["delapouite", "horse-head"],
   "cart": ["lorc", "cartwheel"],
   "handcart": ["delapouite", "wheelbarrow"],
-  // Deliberately the same glyph as `cart` — see the note at the foot of CREDITS.md.
-  "wagon": ["lorc", "cartwheel"],
+  // Used to be the cartwheel again, which put two identical wheels in the
+  // container art picker. The picker dedupes shared GLYPHS (mule/donkey), but
+  // these were two files, invisible to it — so the wagon gets its own art.
+  "wagon": ["delapouite", "old-wagon"],
+  // A funeral wagon is a wagon by construction and a hearse by purpose, and only
+  // the purpose is drawable — game-icons.net has no hearse, so the COFFIN stands
+  // for the thing it carries. Deliberately not a second wagon glyph: the picker
+  // dedupes shared glyphs, so two wagons would silently cost one of them its cell.
+  "funeralwagon": ["lorc", "coffin"],
+  // Cairn's water transport is a rowboat, a skiff, a coracle -- one or two people
+  // and their gear, never a ship. The canoe is the smallest hull on the site.
+  "smallcraft": ["delapouite", "canoe"],
   "stack": ["delapouite", "stack"],
+  // Storage a Warden can pick from the container art list. `box` is deliberately
+  // NOT called "cardboard box" -- the glyph is a plain closed box and cardboard
+  // has no place in Cairn.
+  "crate": ["delapouite", "wooden-crate"],
+  "barrel": ["delapouite", "barrel"],
+  "box": ["delapouite", "cardboard-box-closed"],
 };
 
 // White glyph on a black field, which is what the PNGs were and what the sheet
 // CSS expects; the system never recolours them.
 const url = (author, slug) => `https://game-icons.net/icons/ffffff/000000/1x1/${author}/${slug}.svg`;
 
-/**
- * game-icons.net ships `<svg viewBox="0 0 512 512">` with NO width/height, so the
- * file has no intrinsic size. An SVG without one is rasterised at the browser's
- * fallback (300x150), which Foundry then squares off — a token drew at 150x150
- * where the PNG it replaced was 512x512, i.e. visibly soft the moment anyone
- * zoomed in. Caught on the canvas during the 0.1.6 upgrade test; nothing that
- * only fetches or decodes the file can see it.
- *
- * Stamp the viewBox's own dimensions in. ~30 bytes, and rasterisation becomes
- * deterministic at the size the art was drawn for.
- */
-const withIntrinsicSize = (svg) => {
-  if (/<svg[^>]*\swidth=/.test(svg)) return svg;
-  const box = svg.match(/viewBox="0 0 (\d+) (\d+)"/);
-  if (!box) throw new Error("no viewBox to derive an intrinsic size from");
-  return svg.replace(/<svg /, `<svg width="${box[1]}" height="${box[2]}" `);
-};
+// The intrinsic-size stamp moved to ./svg-size.mjs so game-icons.mjs writes the
+// same file this one does. See that module for why it exists.
 
 let bytes = 0;
 let changed = 0;

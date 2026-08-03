@@ -13,7 +13,8 @@
  *   bash:        FOUNDRY_URL=http://localhost:30001 npm run dev:actors
  *   PowerShell:  $env:FOUNDRY_URL="http://localhost:30001"; npm run dev:actors
  *
- * Needs Foundry running with a world launched (see the dev loop in CLAUDE.md).
+ * Needs Foundry running on :30000 with a world launched; see
+ * `docs/release-testing.md` for which probes expect what.
  * `delete` never runs without `--yes`; without it you get a preview.
  */
 import { chromium } from "playwright";

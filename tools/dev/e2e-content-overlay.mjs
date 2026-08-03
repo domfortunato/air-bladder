@@ -322,6 +322,565 @@ try {
 
 /* -------------------------------------------- */
 
+// Three surfaces a Spanish translator reported as untranslated on 2026-08-02, with
+// every cell filled and correctly keyed. All three read the STORED document instead
+// of the overlay, so no amount of translating could ever have shown:
+//   - the inventory row's expanded DESCRIPTION panel (the name above it translated,
+//     which is what made the report look like an orphaned-key problem),
+//   - the Scars checklist (names were in the overlay and never looked up; the
+//     per-scar detail was never even EXTRACTED — new ns table.resultDesc),
+//   - the item sheet, which localized only when NOT editable, i.e. never for the
+//     player who owns the item.
+// Each assertion is paired with the invariant that made the bug worth having: the
+// stored value stays English. A translation that reaches the document is a worse
+// failure than a translation that never renders.
+console.log("\nsheet surfaces: inventory panel, scars, item sheet");
+
+let invActorId = null;
+try {
+  const inv = await page.evaluate(async () => {
+    const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+    // Same normalization the overlay FILE is written with (i18n-content.js keys by
+    // the collapsed form), spelled out here rather than imported: a probe that
+    // borrows the implementation's key function agrees with it by construction.
+    const norm = (s) => String(s).replace(/\s+/g, " ").trim();
+
+    const EN_NAME = "ZZ Probe Rope";
+    const EN_DESC = "Twenty-five ZZ feet of probe rope, for climbing.";
+    const ES_NAME = "ZZ-CUERDA-SONDA";
+    const ES_DESC = "ZZ-DESCRIPCION-TRADUCIDA";
+    const ES_SCAR = "ZZ-CICATRIZ";
+    const ES_SCAR_DESC = "ZZ-DETALLE-DE-CICATRIZ";
+
+    const actor = await CONFIG.Actor.documentClass.create({
+      name: "ZZ Overlay Sheet Probe", type: "character",
+      system: { contentSource: "2e", scarEnabled: true },
+    });
+    const out = { actorId: actor.id, EN_NAME, EN_DESC, ES_NAME, ES_DESC, ES_SCAR, ES_SCAR_DESC };
+    let sheetOpen = null;
+    try {
+      const [item] = await actor.createEmbeddedDocuments("Item", [
+        { name: EN_NAME, type: "item", system: { description: EN_DESC } },
+      ]);
+
+      // Key the scar rows off the REAL shipped table — the strings a translator
+      // actually fills — with sentinel values. If the Scars table ever loses its
+      // per-row flag, scarDescEn goes empty and the assertions below say so rather
+      // than passing on a lookup of "".
+      const scarTable = (await game.packs.get("air-bladder.tables-2e").getDocuments())
+        .find((tbl) => tbl.name === "Scars");
+      const r0 = scarTable?.results.contents?.[0] ?? scarTable?.results?.[0];
+      const scarEn = (r0?.type === "text" ? r0?.description : r0?.name) ?? "";
+      const scarDescEn = r0?.flags?.["air-bladder"]?.description ?? "";
+      out.scarEn = scarEn;
+      out.scarDescEn = scarDescEn;
+
+      i18n._setOverlay({
+        "item.name": { [norm(EN_NAME)]: ES_NAME },
+        "item.desc": { [norm(EN_DESC)]: ES_DESC },
+        "table.result": { [norm(scarEn)]: ES_SCAR },
+        "table.resultDesc": { [norm(scarDescEn)]: ES_SCAR_DESC },
+      });
+
+      const settle = (ms) => new Promise((r) => setTimeout(r, ms));
+      await actor.sheet.render(true);
+      for (let i = 0; i < 60 && !actor.sheet.element; i++) await settle(100);
+      sheetOpen = actor.sheet;
+      await settle(400);
+      const root = actor.sheet.element;
+
+      // ---- inventory row: name (worked) and the expanded panel (did not) ----
+      const row = root?.querySelector(`.cairn-items-list-row[data-item-id="${item.id}"]`);
+      out.rowName = row?.querySelector(".cairn-item-title")?.textContent.trim() ?? null;
+      row?.querySelector('[data-action="itemDescription"]')?.click();
+      await settle(300);
+      out.panelText = row?.querySelector(".item-description")?.textContent.trim() ?? null;
+
+      // ---- scars: two visible strings localized, the stored value English ----
+      const opt = [...(root?.querySelectorAll(".scar-option") ?? [])]
+        .find((l) => l.querySelector(".scar-check")?.value === scarEn);
+      out.scarName = opt?.querySelector(".scar-name")?.textContent.trim() ?? null;
+      out.scarDesc = opt?.querySelector(".scar-desc")?.textContent.trim() ?? null;
+      out.scarValue = opt?.querySelector(".scar-check")?.value ?? null;
+      out.scarOptionFound = !!opt;
+
+      // ---- item sheet: Spanish to read, English to edit ----------------------
+      // isEditable is TRUE here (a GM-owned world item) — the case that used to
+      // fall back to English, and the only case a player ever sees.
+      out.isEditable = item.sheet.isEditable;
+      await item.sheet.render(true);
+      for (let i = 0; i < 60 && !item.sheet.element; i++) await settle(100);
+      await settle(400);
+      const pm = item.sheet.element?.querySelector('prose-mirror[name="system.description"]');
+      out.pmFound = !!pm;
+      out.pmDisplay = pm?.querySelector(".editor-content")?.textContent.trim() ?? null;
+      // The submitted half. Inactive, so `value` reads `_value` — the `value=`
+      // attribute the template set from the STORED string (prosemirror-editor.mjs:192).
+      out.pmValue = pm?.value ?? null;
+      out.sheetTitle = item.sheet.title;
+      await item.sheet.close();
+      await settle(400);
+      // Read the source AFTER closing: disconnectedCallback saves an ACTIVE editor,
+      // so this is where a leaked translation would land if the split ever broke.
+      out.storedDesc = item._source.system.description;
+      out.storedName = item._source.name;
+    } finally {
+      i18n._setOverlay(null);
+      await sheetOpen?.close().catch(() => {});
+    }
+    return out;
+  });
+
+  invActorId = inv.actorId;
+
+  inv.rowName === inv.ES_NAME
+    ? ok("row name translated", `"${inv.rowName}"`)
+    : fail("row name translated", `row reads "${inv.rowName}"`);
+  inv.panelText === inv.ES_DESC
+    ? ok("expanded panel translated", `"${inv.panelText}"`)
+    : fail("expanded panel translated", `panel reads ${JSON.stringify(inv.panelText)}, want "${inv.ES_DESC}"`);
+
+  inv.scarEn && inv.scarDescEn
+    ? ok("scar row has both strings", `"${inv.scarEn}"`)
+    : fail("scar row has both strings", `text=${JSON.stringify(inv.scarEn)} detail=${JSON.stringify(inv.scarDescEn)} — assertions below are vacuous`);
+  inv.scarOptionFound
+    ? ok("scar option rendered", "")
+    : fail("scar option rendered", "no .scar-option whose value is the English scar text");
+  inv.scarName === inv.ES_SCAR
+    ? ok("scar name translated", `"${inv.scarName}"`)
+    : fail("scar name translated", `reads ${JSON.stringify(inv.scarName)}`);
+  inv.scarDesc === inv.ES_SCAR_DESC
+    ? ok("scar detail translated", `"${inv.scarDesc}"`)
+    : fail("scar detail translated", `reads ${JSON.stringify(inv.scarDesc)}`);
+  inv.scarValue === inv.scarEn
+    ? ok("scar checkbox value English", "system.scars stays language-independent")
+    : fail("scar checkbox value English", `value is ${JSON.stringify(inv.scarValue)}`);
+
+  inv.isEditable
+    ? ok("item sheet is editable", "the case that used to stay English")
+    : fail("item sheet is editable", "probe is testing the read-only path, not the reported one");
+  inv.pmFound
+    ? ok("editor found", "")
+    : fail("editor found", "no prose-mirror[name=system.description]");
+  inv.pmDisplay === inv.ES_DESC
+    ? ok("editor DISPLAY translated", `"${inv.pmDisplay}"`)
+    : fail("editor DISPLAY translated", `shows ${JSON.stringify(inv.pmDisplay)}`);
+  inv.pmValue === inv.EN_DESC
+    ? ok("editor VALUE English", "what activation loads and a submit sends")
+    : fail("editor VALUE English", `value is ${JSON.stringify(inv.pmValue)} — the Spanish can reach the document`);
+  inv.sheetTitle?.includes(inv.ES_NAME)
+    ? ok("window title translated", `"${inv.sheetTitle}"`)
+    : fail("window title translated", `title is ${JSON.stringify(inv.sheetTitle)}`);
+  inv.storedDesc === inv.EN_DESC && inv.storedName === inv.EN_NAME
+    ? ok("STORED item untouched", "name and description still English after close")
+    : fail("STORED item untouched", `name=${JSON.stringify(inv.storedName)} desc=${JSON.stringify(inv.storedDesc)}`);
+} catch (e) {
+  fail("sheet surfaces", `${e.name}: ${e.message}`);
+} finally {
+  // From NODE, for the reason stated above.
+  if (invActorId) {
+    await page.evaluate(async (id) => { await game.actors.get(id)?.delete(); }, invActorId)
+      .catch(() => {});
+  }
+}
+
+/* -------------------------------------------- */
+
+// Round 2 of "surfaces that never asked" — the 2026-08-02 review's localization
+// batch. Same discipline as the section above: every read surface gets a
+// sentinel through _setOverlay, and every display/value split is asserted from
+// BOTH ends — the visible copy shows the sentinel, the stored copy stays the
+// English source. All documents are throwaway, created and deleted from Node.
+console.log("\nreview batch: bg details, npc sheet, shop rows+toasts, monster-gen bake");
+
+const cleanupIds = [];
+try {
+  const r2 = await page.evaluate(async () => {
+    const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+    const { sourceLabel } = await import("/systems/air-bladder/module/utils.js");
+    const norm = (s) => String(s).replace(/\s+/g, " ").trim();
+    const settle = (ms) => new Promise((res) => setTimeout(res, ms));
+    const out = { ids: [] };
+
+    try {
+      // ---- the locked background sheet's Details tab -----------------------
+      const bg = (await game.packs.get("air-bladder.backgrounds-2e").getDocuments())[0];
+      const q0 = bg.system.tables?.[0]?.question ?? "";
+      const o0 = bg.system.tables?.[0]?.options?.[0]?.description ?? "";
+      out.bgHasStrings = !!(q0 && o0);
+
+      i18n._setOverlay({
+        "bg.question": { [norm(q0)]: "ZZ-PREGUNTA" },
+        "bg.optionDesc": { [norm(o0)]: "ZZ-OPCION" },
+      });
+      await bg.sheet.render(true);
+      for (let i = 0; i < 60 && !bg.sheet.element; i++) await settle(100);
+      await settle(400);
+      const bgRoot = bg.sheet.element;
+      out.bgEditable = bg.sheet.isEditable; // must be FALSE — the branch under test
+      out.bgQuestion = [...(bgRoot?.querySelectorAll(".background-table h3") ?? [])]
+        .map((h) => h.textContent.trim()).find((s) => s.includes("ZZ-")) ?? null;
+      out.bgOption = [...(bgRoot?.querySelectorAll(".background-table li") ?? [])]
+        .map((li) => li.textContent.trim()).find((s) => s.includes("ZZ-")) ?? null;
+      out.bgSource = bgRoot?.querySelector(".background-source")?.textContent ?? "";
+      out.bgSourceWant = sourceLabel(bg.system.source || "2e");
+      await bg.sheet.close();
+
+      // ---- a PERSON npc: title, description display+value, career round-trip -
+      const EN_DESC = "<p>A probe person of no fixed abode.</p>";
+      const person = await CONFIG.Actor.documentClass.create({
+        name: "ZZ Overlay Person", type: "npc",
+        system: { role: "npc", profession: "Blacksmith", description: EN_DESC },
+      });
+      out.ids.push(person.id);
+
+      i18n._setOverlay({
+        "monster.name": { "ZZ Overlay Person": "ZZ-PERSONA" },
+        "monster.desc": { [norm(EN_DESC)]: "<p>ZZ-DESCRIPCION-PNJ</p>" },
+        "npc.career": { Blacksmith: "ZZ-HERRERO", "Animal Handler": "ZZ-CAZADOR" },
+      });
+
+      await person.sheet.render(true);
+      for (let i = 0; i < 60 && !person.sheet.element; i++) await settle(100);
+      await settle(500);
+      const pRoot = person.sheet.element;
+      out.personTitle = person.sheet.title;
+      const pm = pRoot?.querySelector('.npc-description-section prose-mirror[name="system.description"]');
+      out.pmFound = !!pm;
+      out.pmToggled = pm?.hasAttribute("toggled") ?? false;
+      // The description content reads 2px larger than core's 14 (2026-08-02).
+      out.pmFontSize = pm ? parseFloat(getComputedStyle(pm).fontSize) : null;
+      out.pmDisplay = pm?.querySelector(".editor-content")?.textContent.trim() ?? null;
+      out.pmValue = pm?.value ?? null; // inactive → the submitted _value
+
+      const careerInput = pRoot?.querySelector('input[name="system.profession"]');
+      out.careerShown = careerInput?.value ?? null;
+      // The submit half: leave a DIFFERENT translated label in the box, commit,
+      // and the document must store that career's ENGLISH source.
+      if (careerInput) {
+        careerInput.value = "ZZ-CAZADOR";
+        careerInput.dispatchEvent(new Event("change", { bubbles: true }));
+        await settle(700);
+      }
+      out.careerStored = person.system.profession;
+      await person.sheet.close();
+
+      // ---- a CONTAINER npc: the Type select shows the label, stores the key.
+      // The control is a strict select since 2026-08-02, with free text behind
+      // its "Other…" row — so the display half is the selected OPTION's text,
+      // and the label→key round-trip runs through the Other input, which is
+      // the field's only free-text writer. Seeded "crate" (funeralwagon is
+      // retired; migrateData would rewrite it under the probe).
+      const crate = await CONFIG.Actor.documentClass.create({
+        name: "ZZ Overlay Crate", type: "npc",
+        system: { role: "container", containerClass: "crate" },
+      });
+      out.ids.push(crate.id);
+      await crate.sheet.render(true);
+      for (let i = 0; i < 60 && !crate.sheet.element; i++) await settle(100);
+      await settle(400);
+      const kindSelect = crate.sheet.element?.querySelector(".kind-select");
+      out.kindShown = kindSelect?.selectedOptions?.[0]?.textContent?.trim() ?? null;
+      out.kindLabelWant = game.i18n.localize("CAIRN.ClassCrate");
+      // Committing a LABEL through the Other input must store the KEY back…
+      out.kindOtherLabel = game.i18n.localize("CAIRN.ClassBarrel");
+      if (kindSelect) {
+        kindSelect.value = "__other__";
+        kindSelect.dispatchEvent(new Event("change", { bubbles: true }));
+        await settle(300);
+        const kindInput = crate.sheet.element?.querySelector(".kind-input");
+        if (kindInput) {
+          kindInput.value = out.kindOtherLabel;
+          kindInput.dispatchEvent(new Event("change", { bubbles: true }));
+          await settle(700);
+        }
+      }
+      out.kindStoredAfterLabel = crate.system.containerClass;
+      // …and a Warden's own word must pass through verbatim, same path.
+      const kindSelect2 = crate.sheet.element?.querySelector(".kind-select");
+      if (kindSelect2) {
+        kindSelect2.value = "__other__";
+        kindSelect2.dispatchEvent(new Event("change", { bubbles: true }));
+        await settle(300);
+        const kindInput2 = crate.sheet.element?.querySelector(".kind-input");
+        if (kindInput2) {
+          kindInput2.value = "ZZ Weird Basket";
+          kindInput2.dispatchEvent(new Event("change", { bubbles: true }));
+          await settle(700);
+        }
+      }
+      out.kindStoredCustom = crate.system.containerClass;
+      await crate.sheet.close();
+      // Restore a known key so the connections-row leg below shows a Kinded crate.
+      await crate.update({ "system.containerClass": "crate" });
+
+      // ---- connections row + omen + failed career on a character ------------
+      const pc = await CONFIG.Actor.documentClass.create({
+        name: "ZZ Overlay Keeper", type: "character",
+        system: {
+          contentSource: "2e", omenEnabled: false, omen: "Probe omen of the ZZ moon.",
+          failedCareer: "Gravedigger",
+        },
+      });
+      out.ids.push(pc.id);
+      await pc.createEmbeddedDocuments("Item", [
+        { name: "ZZ Muddy Shovel", type: "item", flags: { "air-bladder": { grantSource: "failed-career" } } },
+      ]);
+      await crate.update({ "system.connectedTo": pc.uuid });
+
+      i18n._setOverlay({
+        "monster.name": { "ZZ Overlay Crate": "ZZ-CAJA" },
+        "table.result": { "Probe omen of the ZZ moon.": "ZZ-PRESAGIO" },
+        "bg.name": { Gravedigger: "ZZ-ENTERRADOR" },
+        "item.name": { "ZZ Muddy Shovel": "ZZ-PALA" },
+      });
+
+      await pc.sheet.render(true);
+      for (let i = 0; i < 60 && !pc.sheet.element; i++) await settle(100);
+      await settle(500);
+      const pcRoot = pc.sheet.element;
+      out.connRow = [...(pcRoot?.querySelectorAll('[data-is-container="true"] .cairn-item-title') ?? [])]
+        .map((a) => a.textContent.trim()).find((s) => s.includes("ZZ-")) ?? null;
+      out.omenShown = pcRoot?.querySelector(".omen-display")?.textContent.trim() ?? null;
+      out.omenStored = pc.system.omen;
+      const ctx = await pc.sheet._prepareContext({});
+      out.failedCareerCtx = ctx.failedCareer;
+      out.failedCareerItemCtx = ctx.failedCareerItem;
+      await pc.sheet.close();
+
+      // ---- marketplace: gear row, TRANSPORT row, and the purchase toast ------
+      const market = await import("/systems/air-bladder/module/marketplace.js");
+      const catalog = await market.getMarketplaceCatalog();
+      const carrierCat = catalog.categories.find((c) => c.items.some((d) => d.documentName === "Actor"));
+      const carrierEn = carrierCat?.items.find((d) => d.documentName === "Actor")?.name ?? null;
+      out.carrierEn = carrierEn;
+      const gearCat = catalog.categories.find((c) => c.items.some((d) => d.name === "Rope"));
+      out.gearFound = !!gearCat;
+
+      i18n._setOverlay({
+        "item.name": { Rope: "ZZ-CUERDA" },
+        "monster.name": carrierEn ? { [carrierEn]: "ZZ-MULA" } : {},
+      });
+
+      const toasts = [];
+      const origInfo = ui.notifications.info.bind(ui.notifications);
+      ui.notifications.info = (msg, ...rest) => { toasts.push(String(msg)); return origInfo(msg, ...rest); };
+      try {
+        await market.openMarketplace(pc);
+        for (let i = 0; i < 40 && !document.querySelector(".marketplace"); i++) await settle(150);
+        await settle(500);
+        const shop = document.querySelector(".marketplace");
+        const names = [...(shop?.querySelectorAll(".mkt-name") ?? [])].map((e) => e.textContent.trim());
+        out.shopGearRow = names.includes("ZZ-CUERDA");
+        out.shopCarrierRow = carrierEn ? names.includes("ZZ-MULA") : null;
+        const row = [...(shop?.querySelectorAll(".mkt-row") ?? [])]
+          .find((rw) => rw.querySelector(".mkt-name")?.textContent.trim() === "ZZ-CUERDA");
+        row?.querySelector(".mkt-take")?.click();
+        await settle(800);
+        out.toast = toasts.find((m) => m.includes("ZZ-CUERDA")) ?? toasts.at(-1) ?? null;
+        out.storedBought = pc.items.find((i2) => i2.name === "Rope")?.name ?? null;
+        shop?.closest(".application")?.querySelector('[data-action="close"]')?.click();
+        await settle(300);
+      } finally {
+        ui.notifications.info = origInfo;
+      }
+
+      // ---- monster generation bakes the DISPLAY language --------------------
+      // Overlay every row of the two appearance tables, so whatever the dice do,
+      // a translated fragment must reach the name and the description.
+      const gen = await import("/systems/air-bladder/module/monster-generator.js");
+      const wm = await game.packs.get("air-bladder.warden-monsters").getDocuments();
+      const rows = {};
+      for (const tbl of wm) {
+        if (!/Physique|Feature/.test(tbl.name)) continue;
+        for (const r of tbl.results) {
+          const en = r.type === "text" ? r.description : r.name;
+          if (en) rows[norm(en)] = `ZZ-${en}`;
+        }
+      }
+      out.appearanceRows = Object.keys(rows).length;
+      i18n._setOverlay({ "table.result": rows });
+      const monster = await gen.generateMonster("standard");
+      out.monsterName = monster.name;
+      // Case-INSENSITIVE since 2026-08-02: the description bullets lowercase
+      // every inserted result in the display language (sentence-style caps,
+      // ruled), so the sentinel arrives as "zz-…". This leg asserts the
+      // translation ARRIVED; the casing rules are dev:monster-gen's to own.
+      out.monsterDescHasZZ = /zz-/i.test(monster.description ?? "");
+    } finally {
+      i18n._setOverlay(null);
+    }
+    return out;
+  });
+
+  cleanupIds.push(...(r2.ids ?? []));
+
+  r2.bgHasStrings
+    ? ok("bg fixture has strings", "")
+    : fail("bg fixture has strings", "first background carries no question/option — legs below vacuous");
+  r2.bgEditable === false
+    ? ok("bg sheet is read-only", "the locked-pack branch under test")
+    : fail("bg sheet is read-only", "sheet was editable — probe tested the WRONG branch");
+  r2.bgQuestion === "ZZ-PREGUNTA"
+    ? ok("bg question translated", `"${r2.bgQuestion}"`)
+    : fail("bg question translated", `reads ${JSON.stringify(r2.bgQuestion)}`);
+  r2.bgOption === "ZZ-OPCION"
+    ? ok("bg option translated", `"${r2.bgOption}"`)
+    : fail("bg option translated", `reads ${JSON.stringify(r2.bgOption)}`);
+  r2.bgSource.includes(r2.bgSourceWant)
+    ? ok("bg source is the derived label", `"${r2.bgSourceWant}"`)
+    : fail("bg source is the derived label", `header reads ${JSON.stringify(r2.bgSource)}`);
+
+  // ROLE-prefixed since 2026-08-02: "NPC: <display name>", not core's
+  // "Non-Player Character: <name>" — the prefix says what the Role select
+  // says, and the translated name still rides in it.
+  r2.personTitle?.includes("ZZ-PERSONA") && r2.personTitle?.startsWith("NPC:")
+    ? ok("npc window title: role prefix + translated name", `"${r2.personTitle}"`)
+    : fail("npc window title: role prefix + translated name", `title is ${JSON.stringify(r2.personTitle)}`);
+  r2.pmFound && r2.pmToggled
+    ? ok("npc description editor is toggled", "the two-input split exists")
+    : fail("npc description editor is toggled", `found=${r2.pmFound} toggled=${r2.pmToggled}`);
+  r2.pmFontSize >= 16
+    ? ok("description content reads at 16px", `${r2.pmFontSize}px`)
+    : fail("description content reads at 16px", `${r2.pmFontSize}px — the bump rule is not landing`);
+  r2.pmDisplay?.includes("ZZ-DESCRIPCION-PNJ")
+    ? ok("npc description DISPLAY translated", `"${r2.pmDisplay}"`)
+    : fail("npc description DISPLAY translated", `shows ${JSON.stringify(r2.pmDisplay)}`);
+  r2.pmValue?.includes("no fixed abode")
+    ? ok("npc description VALUE English", "what activation loads and a submit sends")
+    : fail("npc description VALUE English", `value is ${JSON.stringify(r2.pmValue)}`);
+  r2.careerShown === "ZZ-HERRERO"
+    ? ok("career input shows the label", `"${r2.careerShown}"`)
+    : fail("career input shows the label", `shows ${JSON.stringify(r2.careerShown)}`);
+  r2.careerStored === "Animal Handler"
+    ? ok("career stores the English source", `committed "ZZ-CAZADOR" → "${r2.careerStored}"`)
+    : fail("career stores the English source", `stored ${JSON.stringify(r2.careerStored)} — the match key is broken`);
+
+  r2.kindShown === r2.kindLabelWant && r2.kindShown !== "crate"
+    ? ok("the Type select shows the label", `"${r2.kindShown}"`)
+    : fail("the Type select shows the label", `shows ${JSON.stringify(r2.kindShown)}, want ${JSON.stringify(r2.kindLabelWant)}`);
+  r2.kindStoredAfterLabel === "barrel"
+    ? ok("a label typed behind Other round-trips to the key", `"${r2.kindOtherLabel}" → "barrel"`)
+    : fail("a label typed behind Other round-trips to the key", `stored ${JSON.stringify(r2.kindStoredAfterLabel)}`);
+  r2.kindStoredCustom === "ZZ Weird Basket"
+    ? ok("a Warden's own Kind passes verbatim", "through the Other input")
+    : fail("a Warden's own Kind passes verbatim", `stored ${JSON.stringify(r2.kindStoredCustom)}`);
+
+  r2.connRow?.includes("ZZ-CAJA")
+    ? ok("connections row translated", `"${r2.connRow}"`)
+    : fail("connections row translated", `row reads ${JSON.stringify(r2.connRow)}`);
+  r2.omenShown === "ZZ-PRESAGIO"
+    ? ok("omen display translated", `"${r2.omenShown}"`)
+    : fail("omen display translated", `reads ${JSON.stringify(r2.omenShown)}`);
+  r2.omenStored === "Probe omen of the ZZ moon."
+    ? ok("omen STORED stays English", "")
+    : fail("omen STORED stays English", `stored ${JSON.stringify(r2.omenStored)}`);
+  r2.failedCareerCtx === "ZZ-ENTERRADOR" && r2.failedCareerItemCtx === "ZZ-PALA"
+    ? ok("failed career + keepsake translated", `"${r2.failedCareerCtx}", "${r2.failedCareerItemCtx}"`)
+    : fail("failed career + keepsake translated", `${JSON.stringify(r2.failedCareerCtx)} / ${JSON.stringify(r2.failedCareerItemCtx)}`);
+
+  r2.gearFound
+    ? ok("shop stocks Rope", "")
+    : fail("shop stocks Rope", "no Rope in the catalog — the two shop legs below are vacuous");
+  r2.shopGearRow
+    ? ok("shop gear row translated", '"ZZ-CUERDA"')
+    : fail("shop gear row translated", "no row named ZZ-CUERDA");
+  r2.carrierEn === null
+    ? fail("shop carrier row translated", "no Actor row in the catalog — transport leg vacuous")
+    : r2.shopCarrierRow
+      ? ok("shop TRANSPORT row translated", `"${r2.carrierEn}" → "ZZ-MULA"`)
+      : fail("shop TRANSPORT row translated", `no row named ZZ-MULA for "${r2.carrierEn}"`);
+  r2.toast?.includes("ZZ-CUERDA")
+    ? ok("purchase toast translated", `"${r2.toast}"`)
+    : fail("purchase toast translated", `toast was ${JSON.stringify(r2.toast)}`);
+  r2.storedBought === "Rope"
+    ? ok("bought item STORED English", "the payload never translated")
+    : fail("bought item STORED English", `stored ${JSON.stringify(r2.storedBought)}`);
+
+  r2.appearanceRows > 0
+    ? ok("appearance tables overlaid", `${r2.appearanceRows} rows`)
+    : fail("appearance tables overlaid", "0 rows — monster-gen leg vacuous");
+  r2.monsterName?.includes("ZZ-")
+    ? ok("generated monster name in display language", `"${r2.monsterName}"`)
+    : fail("generated monster name in display language", `name is ${JSON.stringify(r2.monsterName)}`);
+  r2.monsterDescHasZZ
+    ? ok("generated description in display language", "")
+    : fail("generated description in display language", "no translated fragment reached the bullets");
+} catch (e) {
+  fail("review batch", `${e.name}: ${e.message}`);
+} finally {
+  // From NODE, unconditionally — a throw above must not leave probe actors for
+  // the next run's preconditions to silently feed on.
+  if (cleanupIds.length) {
+    await page.evaluate(async (ids) => {
+      for (const id of ids) { try { await game.actors.get(id)?.delete(); } catch { /* gone */ } }
+    }, cleanupIds).catch(() => {});
+  }
+}
+
+/* -------------------------------------------- */
+
+console.log("\nthe Create Mount clone group");
+
+// The six named horses sat in raw English inside a TRANSLATED group heading,
+// between TRANSLATED kind labels — the one list on that select that never asked
+// the overlay (review #7 finding 8). They moved to `monster.name` when mounts
+// stopped being Items, so the strings exist; nothing looked them up.
+const mountLeg = await page.evaluate(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const until = async (test, ms = 8000) => {
+    const t0 = Date.now();
+    while (Date.now() - t0 < ms) { if (test()) return true; await sleep(150); }
+    return test();
+  };
+  const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+  const ES = "ZZ Destrero Traducido";
+  i18n._setOverlay({ "monster.name": { "Heavy Destrier": ES } });
+
+  // Not awaited: createThing resolves only when the dialog is answered.
+  const pending = CONFIG.Actor.documentClass.createThing("mount");
+  let form = null;
+  await until(() => {
+    form = [...document.querySelectorAll("dialog form")].find((f) => f.elements?.thingName);
+    return !!form;
+  });
+  const out = { ES, opened: !!form };
+  if (form) {
+    const select = form.elements.kindChoice;
+    const opts = [...select.querySelectorAll("optgroup option")];
+    out.optionTexts = opts.map((o) => o.textContent);
+    out.translatedShown = opts.some((o) => o.textContent === ES);
+    out.englishShown = opts.some((o) => o.textContent === "Heavy Destrier");
+    // The VALUE is the sentinel and must not move with the language — it is
+    // what the clone branch resolves the document from.
+    const opt = opts.find((o) => o.textContent === ES);
+    out.sentinelStable = String(opt?.value ?? "").startsWith("doc:");
+    // The prefill follows what the Warden read, not the English behind it.
+    if (opt) {
+      select.value = opt.value;
+      select.dispatchEvent(new Event("change"));
+      out.namePrefilled = form.elements.thingName.value;
+    }
+    form.closest("dialog")?.querySelector('[data-action="close"]')?.click();
+    await until(() => ![...document.querySelectorAll("dialog form")].some((f) => f.elements?.thingName));
+  }
+  await pending.catch(() => {});
+  i18n._setOverlay(null);
+  return out;
+});
+
+mountLeg.opened && mountLeg.translatedShown && !mountLeg.englishShown
+  ? ok("named mounts render through the overlay", `“${mountLeg.ES}”`)
+  : fail("named mounts render through the overlay", JSON.stringify(mountLeg));
+mountLeg.sentinelStable
+  ? ok("the option VALUE stays the doc: sentinel", "display only; the clone still resolves")
+  : fail("the option VALUE stays the doc: sentinel", JSON.stringify(mountLeg.optionTexts));
+mountLeg.namePrefilled === mountLeg.ES
+  ? ok("the name prefills with what was READ", mountLeg.namePrefilled)
+  : fail("the name prefills with what was READ", `"${mountLeg.namePrefilled}"`);
+
+/* -------------------------------------------- */
+
 console.log(`\nconsole errors: ${errors.length}`);
 for (const e of errors.slice(0, 10)) console.log(`  ${e}`);
 if (errors.length) failures++;

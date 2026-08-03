@@ -22,20 +22,13 @@ const ok = (m) => console.log(`  ok    ${m}`);
 try {
   await joinAsGM(page);
 
-  // show-containers-tab is registered requiresReload:true, so the Containers tab
-  // genuinely does not exist until the client reloads. Flipping it at runtime and
-  // re-rendering paints the nav item but leaves the tab uninitialised, which made
-  // every check that clicked into it a coin flip. Set it, RELOAD, then test.
-  const hadTab = await page.evaluate(async () => {
-    const was = game.settings.get("air-bladder", "show-containers-tab");
-    if (!was) await game.settings.set("air-bladder", "show-containers-tab", true);
-    return was;
-  });
-  if (!hadTab) {
-    await page.reload({ waitUntil: "networkidle", timeout: 60000 });
-    await page.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
-    await dismissChrome(page);
-  }
+  // The Connections tab needs no setup any more: `show-containers-tab` is gone
+  // and the tab is structural (everything but a Monster and an unlinked token's
+  // actor shows it). This block used to set the setting and RELOAD, because it
+  // was registered requiresReload:true and flipping it at runtime painted the
+  // nav item over an uninitialised tab — a coin flip for every check that
+  // clicked into it. With no setting there is nothing to flip and no reload to
+  // sequence.
 
   const r = await page.evaluate(async (hadTab) => {
     const NS = "air-bladder";
@@ -80,7 +73,7 @@ try {
       };
     });
 
-    // The Notes tab is titled for its extra content on a generated character.
+    // The Notes tab's name, read off the rendered nav rather than the context.
     out.notesTabLabel = root.querySelector('.tabs .item[data-tab="notes"]')?.textContent?.trim() ?? null;
     // Gold uses the 70/30 long-counter split, matching Armor/Deprived beneath it.
     const goldLabel = root.querySelector(".character-sheet-section-name .deprived-counter label");
@@ -151,52 +144,54 @@ try {
     out.badge = badge ? { natural: badge.naturalWidth, src: badge.getAttribute("src") } : null;
     out.badgeCredit = root.querySelector(".cairn-compat-caption")?.textContent?.trim() ?? null;
 
-    // --- Containers tab: empty state + the custom-container escape hatch. The
-    // setting was enabled and the client reloaded before this evaluate, so the
-    // tab is real here, not a runtime-painted nav item.
+    // --- Connections tab: empty state + the custom-container escape hatch.
+    // The tab is structural on a character — and the CHARACTER's alone since
+    // 2026-08-02, when the child end became the npc header's connection line —
+    // so this generated character is the right (and only) sheet to read it on.
     const cRoot = actor.sheet.element;
     out.containerEmpty = !!cRoot.querySelector(".container-empty");
-    out.containerShop = !!cRoot.querySelector(".container-empty-shop");
+    // The market link is REMOVED from this tab by design (docs/npc-roles-plan.md)
+    // — the tab is relationships, not shopping. Asserted absent below. The
+    // "Custom container…" escape hatch followed it out (2026-08-01): asserted
+    // absent too, because a template copy could quietly resurrect either.
+    out.containerShop = !!(cRoot.querySelector(".container-empty-shop") || cRoot.querySelector(".container-shop"));
     out.containerCustom = !!cRoot.querySelector(".container-custom");
 
     // Presence is NOT enough -- a copied template can render a link that has no
-    // handler behind it. CLICK it and assert the shop actually opened, scoped to
-    // Transports & Containers.
+    // handler behind it. CLICK Add Connection and assert its dialog opens,
+    // offering the connectable npc seeded here for exactly that purpose.
     //
-    // Open the tab as a player would, then click its market link.
+    // Open the tab as a player would, then click the control.
     cRoot.querySelector('.tabs .item[data-tab="containers"]')?.click();
     await new Promise((res) => setTimeout(res, 400));
     out.tabActive = cRoot.querySelector('.tab[data-tab="containers"]')?.classList.contains("active") ?? null;
 
-    // Find the shop the way the system this descends from does in its own
-    // probes: by the marketplace's own root class, NOT by matching a dialog
-    // window title. Title matching is brittle and was the source of a long
-    // false-negative hunt.
-    const shopLink = cRoot.querySelector(".cairn-items-list-header .container-shop");
-    // Was `jQuery._data(el, "events")`, which only ever saw jQuery-bound
-    // handlers. The sheet dispatches through ApplicationV2's `actions` map now,
-    // and native listeners cannot be introspected at all — so report the action
-    // NAME instead. On a failure that is the useful fact anyway: a link with no
-    // data-action reaches no handler, whatever is bound to it.
-    out.shopLinkAction = shopLink?.dataset.action ?? null;
-    shopLink?.click();
-    // Poll rather than sleep: the first open builds the catalog, which loads the
-    // marketplace pack and resolves every row against the gear packs.
-    let mkt = null;
-    for (let i = 0; i < 60 && !mkt; i++) {
+    const connectable = await CONFIG.Actor.documentClass.create({
+      name: "ZZ Parity Connectable", type: "npc", system: { role: "npc" },
+    });
+    const addLink = cRoot.querySelector(".connection-add");
+    // Report the action NAME: a link with no data-action reaches no handler,
+    // whatever is bound to it (ApplicationV2 dispatches through `actions`).
+    out.addLinkAction = addLink?.dataset.action ?? null;
+    addLink?.click();
+    let dlg = null;
+    for (let i = 0; i < 40 && !dlg; i++) {
       await new Promise((res) => setTimeout(res, 250));
-      mkt = document.querySelector(".marketplace");
+      dlg = document.querySelector("dialog select[name=connectionTarget]");
     }
-    out.containerShopOpens = !!mkt;
-    out.containerShopTitle = mkt?.closest(".application")?.querySelector(".window-title")?.textContent?.trim() ?? null;
-    out.containerShopCategories = mkt
-      ? [...mkt.querySelectorAll(".mkt-cat-name")].map((e) => e.textContent.trim())
-      : [];
+    out.connectionDialogOpens = !!dlg;
+    out.connectionOffersSeed = dlg
+      ? [...dlg.options].some((o) => o.textContent === "ZZ Parity Connectable")
+      : false;
     // On failure, say what WAS on screen — "opens nothing" is not a diagnosis.
     out.openDialogTitles = [...document.querySelectorAll(".application")]
       .map((d) => d.querySelector(".window-title")?.textContent?.trim() ?? "(untitled)");
-    mkt?.closest(".application")?.querySelector('button[data-action="close"]')?.click();
+    dlg?.closest("dialog")?.querySelector('button[data-action="cancel"], button[data-action="close"]')?.click();
     await new Promise((res) => setTimeout(res, 400));
+    // A settled DialogV2 outlives its promise in the DOM — wait it out before
+    // anything else opens one.
+    for (let i = 0; i < 40 && document.querySelector("dialog.dialog"); i++) await new Promise((res) => setTimeout(res, 100));
+    await connectable.delete();
 
     // A background sheet lists its starting gear WITH tags resolved from the
     // editable pool (the background doc itself stores only names).
@@ -303,20 +298,21 @@ try {
     out.assistantLabel = game.i18n.localize("USER.RoleAssistant");
     out.gmNames = game.users.filter((u) => u.role === CONST.USER_ROLES.GAMEMASTER).map((u) => u.name);
 
-    // The Containers tab gate. show-containers-tab is requiresReload:true, so
-    // flipping it here and re-rendering does NOT produce a usable tab -- it
-    // paints the nav item over an uninitialised tab, which is exactly what made
-    // the market-link check a coin flip. So assert the two things that ARE true
-    // without a reload: the derived flag follows the setting, and the tab the
-    // client actually loaded with is present.
-    const wasTab = game.settings.get(NS, "show-containers-tab");
-    await game.settings.set(NS, "show-containers-tab", false);
+    // The Connections tab is STRUCTURAL now — no setting gates it. What is
+    // still worth asserting is that the derived flag says so for an ordinary
+    // character, and that the tab is really on the loaded sheet. The setting
+    // this block used to flip (`show-containers-tab`) no longer exists; a
+    // `game.settings.get` for it would THROW, which is the honest way for this
+    // probe to notice if it ever comes back.
+    out.settingIsGone = !game.settings.settings.has(`${NS}.show-containers-tab`);
+    // Same shape, same reason: `show-gold-not-cost` swapped the retired
+    // container sheet's Cost box for Gold, and both the box and the sheet are
+    // gone. Asserted here rather than only by the grouping list above, because
+    // a re-registration in the WRONG group would fail two assertions instead of
+    // one and neither would name the real problem.
+    out.goldNotCostGone = !game.settings.settings.has(`${NS}.show-gold-not-cost`);
     actor.prepareData();
-    out.derivedOffWhenSettingOff = actor.system.showContainersTab === false;
-    await game.settings.set(NS, "show-containers-tab", true);
-    actor.prepareData();
-    out.derivedOnWhenSettingOn = actor.system.showContainersTab === true;
-    await game.settings.set(NS, "show-containers-tab", wasTab);
+    out.derivedOnByDefault = actor.system.showContainersTab === true;
     await actor.sheet.render(true);
     await new Promise((res) => setTimeout(res, 400));
     out.tabPresentAfterReload = !!actor.sheet.element.querySelector('.tabs .item[data-tab="containers"]');
@@ -327,9 +323,16 @@ try {
 
   const near = (a, b, tol = 3) => Math.abs(a - b) <= tol;
 
+  // Second flip, and the two are not the same decision. Until 2026-08-01 the tab
+  // renamed ITSELF once a background was attached, so a generated character and a
+  // hand-made one read differently; that dynamic rename died with
+  // `showBackgroundNotesLabel`. Since 2026-08-02 the name is STATIC PER ROLE —
+  // every character reads "Background & Notes", generated or not, and only the
+  // non-person NPC roles say plain "Notes". This leg asserts the generated case
+  // agrees with the hand-made one, which is what both flips were about.
   r.notesTabLabel === "Background & Notes"
-    ? ok(`the Notes tab is titled for its extra content ("${r.notesTabLabel}")`)
-    : fail(`Notes tab reads "${r.notesTabLabel}", expected "Background & Notes" on a generated character`);
+    ? ok(`the Notes tab reads one name on a GENERATED character too ("${r.notesTabLabel}")`)
+    : fail(`Notes tab reads "${r.notesTabLabel}", expected "Background & Notes" — the label is data-driven again`);
   r.goldLabelRatio && Math.abs(r.goldLabelRatio - r.armorLabelRatio) <= 2
     ? ok(`Gold uses the same label/value split as Armor below it (${r.goldLabelRatio}% / ${r.armorLabelRatio}%)`)
     : fail(`Gold's split (${r.goldLabelRatio}%) does not match Armor's (${r.armorLabelRatio}%)`);
@@ -390,20 +393,18 @@ try {
     ? ok("the badge carries its CC BY-SA attribution to Yochai Gal")
     : fail(`badge credit line wrong: "${r.badgeCredit}"`);
 
-  // Containers tab.
-  r.containerEmpty && r.containerShop
-    ? ok("the empty Containers tab offers the market")
-    : fail(`containers empty state missing: empty=${r.containerEmpty} shop=${r.containerShop}`);
-  r.containerCustom
-    ? ok("the custom-container escape hatch is present")
-    : fail("no custom-container link on the Containers tab");
-  r.containerShopOpens
-    ? ok(`clicking it actually OPENS the shop ("${r.containerShopTitle}")`)
-    : fail(`the market link opened no shop. data-action=${r.shopLinkAction} `
+  // Connections tab.
+  r.containerEmpty && !r.containerShop
+    ? ok("the empty Connections tab has no market link (relationships, not shopping)")
+    : fail(`connections empty state wrong: empty=${r.containerEmpty} shopStillThere=${r.containerShop}`);
+  !r.containerCustom
+    ? ok("the custom-container escape hatch is gone (removed 2026-08-01)")
+    : fail("a .container-custom link is back on the Connections tab");
+  r.connectionDialogOpens && r.connectionOffersSeed
+    ? ok("Add Connection opens its picker, offering the seeded npc")
+    : fail(`Add Connection opened nothing usable. data-action=${r.addLinkAction} `
+         + `opens=${r.connectionDialogOpens} offersSeed=${r.connectionOffersSeed} `
          + `tabActive=${r.tabActive} dialogs=[${r.openDialogTitles?.join(" | ")}]`);
-  r.containerShopCategories?.length === 1 && r.containerShopCategories[0] === "Transports & Containers"
-    ? ok(`the container shop is scoped to one category (${r.containerShopCategories.join(", ")})`)
-    : fail(`container shop categories were [${r.containerShopCategories?.join(", ")}], expected only Transports & Containers`);
 
   r.bgGearTotal > 0 && r.bgGearTagged === r.bgGearTotal
     ? ok(`the background sheet resolves gear tags from the pool (${r.bgGearRows?.join("; ")})`)
@@ -455,13 +456,20 @@ try {
   // order-independent, and the stored key string never changed, so no configured
   // value was disturbed.
   const EXPECTED = {
+    // `show-gold-not-cost` sat between use-gold-threshold and the late
+    // `show-container-actors` until 2026-07-31 (it swapped a CONTAINER SHEET's
+    // Cost box for a Gold box, and that sheet went with the `container` type).
+    // `show-container-actors` followed it out on 2026-08-02, by ruling: the
+    // directory always lists container actors, so a toggle for hiding them
+    // governed nothing a Warden should switch. Both removed rather than left
+    // registered, exactly as `show-containers-tab` was.
     "Inventory & Encumbrance": ["max-equip-slots", "character-inventory-limit", "use-gold-threshold",
-      "show-gold-not-cost", "show-container-actors", "enable-inventory-reorder"],
+      "enable-inventory-reorder"],
     "Character Generation": ["content-source-2e", "content-source-custom", "content-source-barebones",
       "barebones-failed-career", "show-omens-barebones", "show-bonds-barebones", "show-generate-header",
       "custom-portrait-folder", "min-age"],
     "General Settings": ["use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
-      "show-features-section", "show-containers-tab", "use-warden-title"],
+      "show-features-section", "use-warden-title"],
   };
   for (const [group, keys] of Object.entries(EXPECTED)) {
     const got = r.grouped?.[group] ?? [];
@@ -481,13 +489,19 @@ try {
     ? ok(`no GM account is still named "Gamemaster" (${r.gmNames?.join(", ")})`)
     : fail(`a default GM account survived the rename: ${r.gmNames?.join(", ")}`);
 
-  // Containers tab gate.
-  r.derivedOffWhenSettingOff && r.derivedOnWhenSettingOn
-    ? ok("system.showContainersTab follows the show-containers-tab setting")
-    : fail(`derived flag does not follow the setting: off->${r.derivedOffWhenSettingOff} on->${r.derivedOnWhenSettingOn}`);
+  // The Connections tab is structural — no setting gates it any more.
+  r.settingIsGone
+    ? ok("show-containers-tab is no longer registered")
+    : fail("show-containers-tab is registered again — the tab is structural, not a display toggle");
+  r.goldNotCostGone
+    ? ok("show-gold-not-cost is no longer registered")
+    : fail("show-gold-not-cost is registered again — it has no Cost box left to govern");
+  r.derivedOnByDefault
+    ? ok("system.showContainersTab is true for an ordinary character, unconfigured")
+    : fail("the derived flag is false with nothing to turn it on");
   r.tabPresentAfterReload
-    ? ok("the Containers tab renders when the client loaded with the setting on")
-    : fail("the Containers tab is absent even though the setting was on at load");
+    ? ok("the Connections tab renders with no setting to enable")
+    : fail("the Connections tab is absent");
 
   await page.screenshot({ path: "tools/dev/out/ui-parity.png" });
   console.log("\n  screenshot: tools/dev/out/ui-parity.png");

@@ -1,0 +1,31 @@
+_id: 5bFY3lIsE38qoSs5
+name: Cart
+type: npc
+img: systems/air-bladder/icons/cart.svg
+prototypeToken:
+  name: Cart
+  texture:
+    src: systems/air-bladder/icons/cart.svg
+items: []
+effects: []
+folder: Y7FAeuwxTR9cyRtC
+sort: 0
+flags:
+  air-bladder:
+    transportSource: 2e
+system:
+  description: 'A two-wheeled cart, pulled by hand or beast. Holds four slots; bulky and awkward over rough country.'
+  hp:
+    value: 0
+    max: 0
+  slots: 4
+  cost: 30
+  containerClass: cart
+  role: transport
+  generationEnabled: false
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!actors!5bFY3lIsE38qoSs5'

@@ -578,6 +578,17 @@
     color: var(--ab-faint);
 }
 
+/* The TOGGLED Notes editor's empty-state hint (both actor sheets): a real
+   element in the display half, because the mechanism above has nothing to anchor to —
+   a toggled editor grows its .editor-container only on activation. Same look
+   as the ::before hint; being part of the light-DOM display child, it can
+   never reach a save (activation swaps the child out for `value`). */
+.cairn prose-mirror .cairn-editor-placeholder {
+    opacity: 0.65;
+    font-style: italic;
+    color: var(--ab-faint);
+}
+
 /* The two generation buttons carry TEXT, unlike Foundry's own frame buttons.
    This rule is COSMETIC ONLY -- measured, not assumed. Foundry's
    `.application .window-header button.header-control` sets --button-size:1.5rem,
@@ -1593,8 +1604,18 @@ textarea.omen-input {
     cursor: pointer;
 }
 
+/* A bare <hr> is drawn from core LITERALS, not from the palette: a #b5b3a4 top
+   and a near-white #f0f0e0 bottom border (foundry2.css:12406, @layer
+   compatibility) plus a cream --hr-gradient background in dark mode. The bottom
+   edge is invisible on parchment and the gradient ignores the scheme entirely,
+   so state the rule once in tokens. @layer system outranks compatibility, so no
+   !important is needed here. */
 .notes-divider {
     margin: 10px 0;
+    height: 0;
+    border: none;
+    border-top: 1px solid var(--ab-rule);
+    background: none;
 }
 
 .bond-reroll,
@@ -1602,14 +1623,6 @@ textarea.omen-input {
     margin-left: 6px;
     cursor: pointer;
     white-space: nowrap;
-}
-
-/* Placeholder for the empty notes editor. */
-.editor-content[data-edit="system.notes"]:empty::before {
-    content: "Write your character notes here.";
-    color: var(--ab-muted);
-    font-style: italic;
-    pointer-events: none;
 }
 
 /******************************************************************************
@@ -2081,6 +2094,69 @@ textarea.omen-input {
     padding: 16px 8px;
 }
 
+/* The Game-Icons gallery browses in two steps: 23 category folders, then that
+   category's thumbnails. Both live in one pane and swap by `hidden`, so the
+   dialog never resizes between them — the grid below reuses .cairn-portrait-grid
+   so a thumbnail is the same object everywhere in the picker. */
+.cairn-icon-folders {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+    gap: 6px;
+    max-height: 420px;
+    overflow-y: auto;
+    padding: 4px;
+}
+
+.cairn-icon-folder {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: auto;
+    padding: 6px 8px;
+    background: none;
+    border: 1px solid var(--ab-rule);
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: left;
+    line-height: 1.2;
+}
+
+.cairn-icon-folder:hover {
+    border-color: var(--ab-accent);
+}
+
+/* The face is the category's first icon. These are white-on-black glyphs, so
+   they need no background of their own and must not be object-fit: cover — a
+   crop would cut the glyph rather than a photograph's edges. */
+.cairn-icon-folder img {
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    border-radius: 3px;
+}
+
+.cairn-icon-folder span {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 12px;
+}
+
+.cairn-icon-back {
+    width: auto;
+    align-self: flex-start;
+    background: none;
+    border: none;
+    padding: 2px 4px;
+    margin-bottom: 4px;
+    cursor: pointer;
+    opacity: 0.8;
+}
+
+.cairn-icon-back:hover {
+    opacity: 1;
+}
+
 
 /******************************************************************************
  * The NPC sheet (serves `npc` and its `hireling` alias). A character sheet     *
@@ -2099,11 +2175,18 @@ textarea.omen-input {
 /* HP and Gold share the foot row of the header, matching the character sheet. The
    name section is a flex COLUMN, so this is a nested flex ROW rather than the grid
    placement the character sheet uses; each counter takes an equal half so the pair
-   lines up with the 213px counters in the blocks below. */
+   lines up with the 213px counters in the blocks below.
+
+   `margin-top: auto` pins the pair to the column's FOOT. The column is stretched
+   to the portrait's 140px row, and any role whose stack is shorter (a Monster:
+   name, role, vitals) left the slack at the bottom — a dead band between HP/Gold
+   and the STR/Armor row below (Round 2). The auto margin moves that slack ABOVE
+   the vitals, which is exactly what the character sheet's 1fr slack row does to
+   its own HP/Gold pair. On a hireling (the tallest stack) it resolves to ~0. */
 .cairn-npc-sheet .npc-vitals-line {
     display: flex;
     gap: 8px;
-    margin-top: 2px;
+    margin-top: auto;
 }
 
 .cairn-npc-sheet .npc-vitals-line .resource-counter {
@@ -2111,12 +2194,33 @@ textarea.omen-input {
     min-width: 0;
 }
 
-/* "For Hire" is a plain inline label+checkbox, not a counter: it is a switch that
-   reveals the day rate, and dressing it as a labelled value box would imply it
-   holds one. */
-.cairn-npc-sheet .for-hire-line {
-    display: flex;
-    align-items: center;
+/* The connection line (2026-08-02): a person's For Hire switch, then the
+   "Hired by / Connected to / Formerly connected to" label with its break or
+   Connect control. The label takes the slack so the control hugs the line's
+   end; italic + muted, the voice the tab's keeper line spoke in before it
+   moved here. "For Hire" stays a plain inline label+checkbox, not a counter:
+   it is a switch that reveals the day rate, and dressing it as a labelled
+   value box would imply it holds one. */
+.cairn-npc-sheet .connection-line .connection-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-style: italic;
+    color: var(--ab-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cairn-npc-sheet .connection-line .connection-detach,
+.cairn-npc-sheet .connection-line .connection-attach {
+    flex: 0 0 auto;
+    cursor: pointer;
+    opacity: 0.7;
+}
+
+.cairn-npc-sheet .connection-line .connection-detach:hover,
+.cairn-npc-sheet .connection-line .connection-attach:hover {
+    opacity: 1;
 }
 
 .cairn-npc-sheet .for-hire-label {
@@ -2186,6 +2290,16 @@ textarea.omen-input {
     grid-template-rows: auto auto 1fr;
 }
 
+/* Inanimate drops the buttons/abilities/others sections entirely, so with three
+   tracks the tab section AUTO-PLACES into row 2 — the `auto` track — and sizes
+   to its content minimum while the 1fr third row sits EMPTY below it: a ~97px
+   tab body over ~400px of dead space, no error anywhere (review #5). Two tracks
+   put the tabs in the 1fr. The template stamps the class; nothing here reads
+   document state. */
+.cairn-npc-sheet .charater-sheet-grid.inanimate-grid {
+    grid-template-rows: auto 1fr;
+}
+
 /* Three rows, not four. HP used to be a fourth box in this column and the track
    count was never brought back down when it moved up to the vitals line, leaving
    a 36px phantom row under WIL. */
@@ -2207,6 +2321,15 @@ textarea.omen-input {
 .cairn-npc-sheet .npc-description-label {
     border-bottom: 1px solid var(--ab-rule);
     margin: 0 0 4px 0;
+}
+
+/* The description CONTENT reads two points larger than core's 14px default
+   (2026-08-02, user: the generated monster prose was hard to read). On the
+   prose-mirror element so it inherits into both halves — the enriched display
+   child and the activated .editor-content. font-size ONLY: setting `display`
+   here breaks activation (see the warning at the `.cairn prose-mirror` rule). */
+.cairn-npc-sheet .npc-description-section prose-mirror {
+    font-size: 16px;
 }
 
 
@@ -2323,8 +2446,16 @@ textarea.omen-input {
     color: var(--ab-faint);
 }
 
-/* Containers tab: empty state nudges you to the market, and the homebrew
-   "Custom container" path sits below as a quiet secondary affordance. */
+/* The Connect link sits as a right-hand group so the space-between header
+   keeps Name on the left. Only the keeper's Add remains here (2026-08-02):
+   the child end's keeper line and Connect control moved to the npc sheet's
+   header connection line, so the partial — and this block — is the character
+   sheet's alone. */
+.cairn-items-list-header .connection-controls {
+    display: flex;
+    gap: 12px;
+}
+
 .container-empty {
     text-align: center;
     padding: 20px 12px;
@@ -2338,18 +2469,6 @@ textarea.omen-input {
 
 .container-empty-shop {
     font-weight: bold;
-}
-
-.container-custom {
-    display: inline-block;
-    margin-top: 10px;
-    padding-top: 8px;
-    font-size: 0.9em;
-    color: var(--ab-muted);
-}
-
-.container-custom:hover {
-    color: var(--ab-accent);
 }
 
 /* Fatigue fills inventory slots; give those rows the Die of Fate's teal

@@ -128,7 +128,9 @@
                     </div>
                     {{/if}}
                     <p class="background-source">
-                        <strong>{{ localize 'CAIRN.BackgroundSource' }}:</strong> {{system.source}}
+                        {{! sourceLabel, not the raw stored enum "2e" — same derived label
+                            the editor branch shows, from the same helper. }}
+                        <strong>{{ localize 'CAIRN.BackgroundSource' }}:</strong> {{sourceLabel}}
                     </p>
 
                     {{#if system.names.length}}
@@ -147,7 +149,11 @@
                     </ul>
                     {{/if}}
 
-                    {{#each system.tables}}
+                    {{!-- backgroundTables, not system.tables: localized display copies
+                          (bg.question / bg.optionDesc) built in _prepareBackgroundReadOnly.
+                          The editor branch above keeps raw inputs — those are values a
+                          save writes back. --}}
+                    {{#each backgroundTables}}
                     <div class="background-table">
                         <h3>{{this.question}}</h3>
                         <ol>

@@ -68,6 +68,9 @@ const out = await page.evaluate(async () => {
   // longer necessary: the retry loop below already disambiguates, and going
   // through the DOM additionally proves the control is wired to something.
   const sheet = a.sheet;
+  // An imported character lands with Randomization OFF (2026-08-02), and the
+  // question-reroll die is what the flag hides — switch it on first.
+  await a.update({ "system.generationEnabled": true });
   await sheet.render(true);
   await new Promise((r) => setTimeout(r, 800));
   const findBtn = () => sheet.element?.querySelector?.('.question-reroll[data-index="1"]')

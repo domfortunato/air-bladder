@@ -237,10 +237,10 @@ try {
 
     // The NPC sheet was never covered here, and it is not just the character sheet
     // in another skin: it owns the career/for-hire stack and a labelled Description
-    // heading of its own. A GENERATED hireling is used because it arrives with gear,
+    // heading of its own. A GENERATED NPC is used because it arrives with gear,
     // a profession and a day rate; description and a feature are added by hand,
     // since nothing generates either and both are drawn on this tab.
-    const npc = await game.cairn.characterGenerator.createHireling();
+    const npc = await game.cairn.characterGenerator.createNpc();
     await npc.update({
       "system.description": "<p>Theme probe prose, so the Description tab is not blank.</p>",
       "system.features": [{ id: "themeprobe1", name: "Theme Probe Feature", str: true, description: "<p>x</p>" }],

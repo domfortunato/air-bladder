@@ -7,15 +7,17 @@
  * The LABEL is derived from one classifier shared with the art, so a sheet can
  * say what a container actually is. The case that forced it: a "Heavy Destrier"
  * is a horse, and nothing anywhere said so — not the name, not the description,
- * and not `transportKind`, which only ever says "Mount". If the classifier and
- * the art map ever drift apart, a sheet reads "Horse" beside a picture of a cart.
- * So this walks EVERY shipped transport and checks both together.
+ * and not the old `transportKind`, which only ever said "Mount". If the
+ * classifier and the art map ever drift apart, a sheet reads "Horse" beside a
+ * picture of a cart. So this walks EVERY shipped transport and checks both.
  *
  * The PILE is a container nothing carries: a loot heap a Warden drops in a room.
- * It is reachable only from the Actor Directory (a character's Containers tab is
+ * It is reachable only from the Actor Directory (a keeper's Connections tab is
  * the one place it can never appear), and a player needs ownership to use it —
  * which is also the natural "the party has found it" switch, so this asserts the
- * refusal is visible rather than silent.
+ * refusal is visible rather than silent. Since the roles work a pile is a
+ * container KIND, not a document type and not a `transportKind` of its own, and
+ * this drives the Kind box the Warden actually types in.
  *
  *   npm run dev:item-pile      (needs Alice — npm run dev:players)
  */
@@ -45,8 +47,12 @@ const EXPECTED = {
   Mule: ["Mule", "donkey.svg"],
   Donkey: ["Donkey", "donkey.svg"],
   Cart: ["Cart", "cart.svg"],
-  Handcart: ["Handcart", "handcart.svg"],
+  Handcart: ["Hand Cart", "handcart.svg"],
   Wagon: ["Wagon", "wagon.svg"],
+  // The funeralwagon class is RETIRED (2026-08-02): a hearse is a wagon a
+  // Warden has named, so Burial Wagon stores `wagon` and labels "Wagon" —
+  // while deliberately KEEPING the coffin art the pack ships, which the
+  // art/Kind decoupling makes legal (see the drifted-filter exemption below).
   "Burial Wagon": ["Wagon", "wagon.svg"],
   Sack: ["Sack", "sack.svg"],
   Backpack: ["Backpack", "backpack.svg"],
@@ -57,14 +63,18 @@ try {
   await dismissChrome(gmPage);
 
   /* --- 1. every shipped transport labels and draws consistently ----------- */
+  // The mounts-transports ACTOR pack — the legacy transports Item pack is
+  // dissolved. Every document stores its containerClass, so the label and the
+  // icon both come off the stored class; what this asserts is that the stored
+  // class, the shipped art and the label all still agree per document.
   console.log("\nclass labels");
   const classes = await gmPage.evaluate(async () => {
     const icons = await import("/systems/air-bladder/module/icons.js");
-    const docs = await game.packs.get("air-bladder.transports").getDocuments();
+    const docs = await game.packs.get("air-bladder.mounts-transports").getDocuments();
     return docs.map((d) => ({
       name: d.name,
-      label: game.i18n.localize(icons.containerClassLabel(d.name, d.system.transportKind)),
-      icon: icons.iconForTransport(d.name, d.system.transportKind).split("/").pop(),
+      label: game.i18n.localize(icons.containerClassLabel(d.name, "", d.system.containerClass)),
+      icon: icons.iconForTransport(d.name, "", d.system.containerClass).split("/").pop(),
       // The art the classifier picks must still be the art the pack ships, or
       // the refactor silently re-arted 15 documents.
       packImg: d.img.split("/").pop(),
@@ -79,15 +89,44 @@ try {
     ? ok(`all ${classes.length} shipped transports`, "label and art both as expected")
     : fail("shipped transport labels", JSON.stringify(wrong.length ? wrong : classes.map((c) => c.name)));
 
-  const drifted = classes.filter((c) => c.icon !== c.packImg);
+  // Burial Wagon is EXEMPT by design: it stores class `wagon` but ships the
+  // coffin art (funeralwagon.svg) — custom art over a known Kind, the exact
+  // shape the 2026-08-02 decoupling exists to permit. Everything else must
+  // still agree, or the refactor silently re-arted the pack.
+  const drifted = classes.filter((c) => c.icon !== c.packImg && c.name !== "Burial Wagon");
   !drifted.length
-    ? ok("the classifier picks the shipped art", "no document would be re-arted")
+    ? ok("the classifier picks the shipped art", "no document would be re-arted (Burial Wagon exempt by design)")
     : fail("the classifier picks the shipped art", JSON.stringify(drifted));
+  const burial = classes.find((c) => c.name === "Burial Wagon");
+  burial?.packImg === "funeralwagon.svg"
+    ? ok("Burial Wagon keeps its coffin art over class wagon", "the decoupling's shipped witness")
+    : fail("Burial Wagon keeps its coffin art over class wagon", JSON.stringify(burial));
 
   const destrier = classes.find((c) => c.name === "Heavy Destrier");
   destrier?.label === "Horse"
     ? ok('a Heavy Destrier reads "Horse"', "the case this was built for")
     : fail('a Heavy Destrier reads "Horse"', `got "${destrier?.label}"`);
+
+  // The other half of the classifier: a name with NO stored class, which is what
+  // a Warden typing one in gets. Each pair here is a rule that can only be broken
+  // silently — the two word-boundary ones especially, since "Draft Horse" holds a
+  // raft and every class but Small Craft used to answer to its own label.
+  const BY_NAME = {
+    // funeral/hearse/burial answer WAGON since the class retired — the rule
+    // survives so "Hearse" (no construction word) never falls to the chest.
+    "Funeral Wagon": "wagon", "Burial Wagon": "wagon", Hearse: "wagon",
+    Wagon: "wagon", "Funeral Cart": "cart",
+    Rowboat: "smallcraft", Skiff: "smallcraft", "Small Craft": "smallcraft",
+    "Draft Horse": "horse", Handicraft: "chest",
+  };
+  const named = await gmPage.evaluate(async (names) => {
+    const icons = await import("/systems/air-bladder/module/icons.js");
+    return Object.fromEntries(names.map((n) => [n, icons.containerClass(n)]));
+  }, Object.keys(BY_NAME));
+  const misnamed = Object.entries(BY_NAME).filter(([n, want]) => named[n] !== want);
+  !misnamed.length
+    ? ok(`${Object.keys(BY_NAME).length} names classify by word alone`, "purpose before construction; no raft in a Draft Horse")
+    : fail("names classify by word alone", JSON.stringify(misnamed.map(([n, w]) => `${n}: want ${w}, got ${named[n]}`)));
 
   /* --- 2. a Warden makes a pile ------------------------------------------ */
   console.log("\nmaking an Item Pile");
@@ -99,35 +138,46 @@ try {
     const Impl = CONFIG.Actor.documentClass;
     for (const a of game.actors.filter((a) => a.name.startsWith("ZZ Cache"))) await a.delete();
 
-    // Deliberately a name with no give-away word, so only the TYPE can classify
+    // Deliberately a name with no give-away word, so only the ROLE can classify
     // it. "Loot Pile" would pass on the name alone and prove nothing.
-    const pile = await Impl.create({ name: "ZZ Cache Alpha", type: "container" });
-    const before = { img: pile.img.split("/").pop(), label: pile.system.classLabel };
-    await pile.update({ "system.transportKind": "pile", "system.slots": 6 });
+    //
+    // An npc with role container: the `container` TYPE is retired (2026-07-31)
+    // and cannot be created. The pile is a container KIND now, not a
+    // `transportKind` — the
+    // control it is set with is the free-text `containerClass` box, not the
+    // retired sheet's `transportKind` pick-list.
+    const mk = (name, extra = {}) => Impl.create({
+      name, type: "npc", system: { role: "container" }, ...extra,
+    });
+    const pile = await mk("ZZ Cache Alpha");
+    const before = { img: pile.img.split("/").pop() };
+    await pile.update({ "system.containerClass": "pile", "system.slots": 6 });
 
     // Hand-picked art must survive the same change.
-    const custom = await Impl.create({ name: "ZZ Cache Custom", type: "container", img: "icons/svg/coins.svg" });
-    await custom.update({ "system.transportKind": "pile" });
+    const custom = await mk("ZZ Cache Custom", { img: "icons/svg/coins.svg" });
+    await custom.update({ "system.containerClass": "pile" });
 
     await pile.sheet.render(true);
     await new Promise((r) => setTimeout(r, 1200));
     const el = pile.sheet.element;
-    const sel = el.querySelector('select[name="system.transportKind"]');
+    // The Type control is a strict SELECT since 2026-08-02: the label a user
+    // sees is the selected option's text, the options are the role's kinds
+    // plus blank and "Other…", and the free-text input sits disabled behind
+    // Other. The old input+datalist reads died with the control.
+    const select = el.querySelector(".kind-select");
     const out = {
       before,
       after: {
         img: pile.img.split("/").pop(),
         token: pile.prototypeToken.texture.src.split("/").pop(),
-        label: pile.system.classLabel,
       },
       customKept: custom.img,
       sheet: {
-        classText: el.querySelector(".container-class")?.textContent?.trim() ?? null,
-        selectValue: sel?.value ?? null,
-        options: [...(sel?.options ?? [])].map((o) => o.text).filter(Boolean),
-        // Not clipped: "Item Pile" is the longest option and the reason this
-        // control has its own row rather than a third column beside Slots/Cost.
-        clipped: sel ? sel.scrollWidth > sel.clientWidth + 1 : null,
+        selectValue: select?.selectedOptions?.[0]?.textContent?.trim() ?? null,
+        stored: pile.system.containerClass ?? null,
+        options: select ? [...select.options].map((o) => o.textContent.trim()).filter(Boolean) : [],
+        // Not clipped: the Type control has its own room for exactly this reason.
+        clipped: select ? select.scrollWidth > select.clientWidth + 1 : null,
       },
       pileId: pile.id,
       customId: custom.id,
@@ -137,42 +187,43 @@ try {
   });
 
   made.before.img === "chest.svg"
-    ? ok("a hand-made container gets class art", `${made.before.img}, labelled "${made.before.label}"`)
+    ? ok("a hand-made container gets class art", made.before.img)
     : fail("a hand-made container gets class art", `img=${made.before.img} (mystery-man means the create hook was skipped)`);
   made.after.img === "stack.svg" && made.after.token === "stack.svg"
     ? ok("switching to Item Pile re-arts it", "sheet AND prototype token")
     : fail("switching to Item Pile re-arts it", JSON.stringify(made.after));
-  made.after.label === "Item Pile"
-    ? ok("and relabels it", made.after.label)
-    : fail("and relabels it", made.after.label);
+  // "and relabels it" used to assert system.classLabel here; that derived
+  // property is deleted (review #6 batch 3) and the label contract lives in
+  // the sheet assertion below — the selected option's text.
   made.customKept === "icons/svg/coins.svg"
     ? ok("hand-picked art is never overwritten", made.customKept)
     : fail("hand-picked art is never overwritten", made.customKept);
-  made.sheet.classText === "Item Pile" && made.sheet.selectValue === "pile"
-    ? ok("the sheet shows and stores the type", `"${made.sheet.classText}"`)
-    : fail("the sheet shows and stores the type", JSON.stringify(made.sheet));
-  made.sheet.options.includes("Item Pile") && made.sheet.clipped === false
-    ? ok("the Type control fits its longest option", made.sheet.options.join(" / "))
-    : fail("the Type control fits its longest option", JSON.stringify(made.sheet));
+  // The display/value split (2026-08-02): the select SHOWS the label, the
+  // document STORES the key. The original defect was the raw key on the sheet
+  // in every language.
+  made.sheet.selectValue === "Item Pile" && made.sheet.stored === "pile"
+    ? ok("the sheet shows the Type, the doc stores the key", `"${made.sheet.selectValue}" / "${made.sheet.stored}"`)
+    : fail("the sheet shows the Type, the doc stores the key", JSON.stringify(made.sheet));
+  made.sheet.options.includes("Item Pile") && made.sheet.options.includes("Other…") && made.sheet.clipped === false
+    ? ok("the Type select offers it, plus Other, unclipped", made.sheet.options.join(" / "))
+    : fail("the Type select offers it, plus Other, unclipped", JSON.stringify(made.sheet));
 
   /* --- 3. the directory shows it ----------------------------------------- */
   console.log("\nreachability");
+  // This leg used to force `show-container-actors` false and assert a pile
+  // survived the hide rule. Both the setting and the hide rule are GONE
+  // (2026-08-02, by ruling: containers are always listed), so the claim is
+  // simply "a pile is listed" — no settings writes.
   const visible = await gmPage.evaluate(async (id) => {
-    const wasShow = game.settings.get("air-bladder", "show-container-actors");
-    await game.settings.set("air-bladder", "show-container-actors", false);
     ui.actors.render(true);
     await new Promise((r) => setTimeout(r, 900));
     const row = document.querySelector(`#actors [data-entry-id="${id}"], #actors [data-document-id="${id}"]`);
-    const res = { found: !!row, hidden: row ? row.classList.contains("hidden") : null };
-    await game.settings.set("air-bladder", "show-container-actors", wasShow);
-    return res;
+    return { found: !!row, hidden: row ? row.classList.contains("hidden") : null };
   }, made.pileId);
 
-  // Worn containers are hidden from the directory because a character's
-  // Containers tab reaches them. Nothing reaches a pile that way.
   visible.found && visible.hidden === false
-    ? ok("a pile is listed even with containers hidden", "like mounts and vehicles")
-    : fail("a pile is listed even with containers hidden", JSON.stringify(visible));
+    ? ok("a pile is listed in the directory", "like every container actor now")
+    : fail("a pile is listed in the directory", JSON.stringify(visible));
 
   /* --- 4. a player, which is the whole point of a pile -------------------- */
   console.log("\nas a player");

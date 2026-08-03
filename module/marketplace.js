@@ -1,6 +1,8 @@
 import { findTableItems } from "./compendium.js";
 import { iconForTransport, TRANSPORT_KINDS } from "./icons.js";
+import { atConnectionLimit, maxConnections, connectedOwnershipShape, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { localizeNameDesc, t } from "./i18n-content.js";
+import { formatCount } from "./utils.js";
 
 /**
  * The marketplace: a shop dialog a character opens from their Inventory tab.
@@ -45,9 +47,21 @@ const MARKETPLACE_PACK = "air-bladder.marketplace";
  *  foundry.utils.deepClone returns any non-plain object unchanged, by reference
  *  (common/utils/helpers.mjs:280-282), and `doc.system` is a TypeDataModel. So a
  *  buyer setting a quantity wrote it into the compendium entry, for everyone. */
+/**
+ * A shop row's data. `doc` is an Item OR an npc Actor (a mount or a vehicle),
+ * and `documentName` is carried through because the two are bought by different
+ * routes -- an Item becomes an embedded item, an Actor is minted and connected.
+ * Without it the buy handler would have to guess from `type`, which is exactly
+ * the sort of inference that breaks when someone adds a new subtype.
+ *
+ * `toObject()`, not the DataModel: `deepClone(doc.system)` hands back the
+ * compendium document's own object BY REFERENCE, and the shop then writes the
+ * buyer's quantity into the pack.
+ */
 const ownedPayload = (doc) => ({
   name: doc.name,
   type: doc.type,
+  documentName: doc.documentName,
   img: doc.img,
   system: doc.system.toObject(),
 });
@@ -97,12 +111,19 @@ export const getMarketplaceCatalog = async () => {
     // open for every player — not just the bad row. An Actor row is the quiet half:
     // it has `system`, renders a shop row, and throws later at Buy on an unknown
     // Item subtype. Warn rather than drop in silence: the Warden put it there.
+    // ...which is why this is an ALLOW-LIST of two document types rather than a
+    // blanket Item check. Mounts and vehicles are Actors now (they carry stat
+    // blocks, which no Item can), so the shop has to stock them — but widening
+    // this to "anything with a `system`" would let the JournalEntry back in by a
+    // different door. `npc` specifically: a Scene and a Macro are still refused,
+    // and an Actor of any other type is not something you buy.
+    const SELLABLE = { Item: () => true, Actor: (d) => d.type === "npc" };
     const resolved = await findTableItems(results);
     const items = resolved
       .filter((doc) => {
-        if (doc.documentName === "Item") return true;
+        if (SELLABLE[doc.documentName]?.(doc)) return true;
         console.warn(`Marketplace: ignoring ${doc.documentName} "${doc.name}" in table `
-          + `"${table.name}" — only Items can stock a shop.`);
+          + `"${table.name}" — a shop can stock Items and npc Actors.`);
         return false;
       })
       .map(ownedPayload);
@@ -113,6 +134,16 @@ export const getMarketplaceCatalog = async () => {
 
 /** Slots an item occupies: bulky = 2, weightless/petty = 0, otherwise 1. */
 const slotCost = (system) => (system.bulky ? 2 : system.weightless ? 0 : 1);
+
+/**
+ * Does this row buy a thing that CARRIES, rather than a thing you carry?
+ *
+ * Two shapes qualify, and both are checked because the pack is mid-move: the
+ * legacy `transport` Item, and an npc Actor from Mounts & Transports. Checking
+ * only `type` would treat an Actor row as ordinary gear -- rendering it with a
+ * one-slot footprint instead of its capacity, and buying it as an embedded item.
+ */
+const isCarrier = (data) => data.documentName === "Actor" || data.type === "transport";
 
 /** A compact mechanics label for a shop row (damage / armor / bulky / petty / uses). */
 const chips = (item) => {
@@ -125,7 +156,8 @@ const chips = (item) => {
   if (s.armor) out.push(game.i18n.format("CAIRN.NArmor", { n: s.armor }));
   if (s.bulky) out.push(game.i18n.localize("CAIRN.Bulky"));
   if (s.weightless) out.push(game.i18n.localize("CAIRN.Weightless"));
-  if (s.uses?.max) out.push(game.i18n.format("CAIRN.NUses", { n: s.uses.max }));
+  // formatCount, not format: a single-use item read "1 uses" on every chip.
+  if (s.uses?.max) out.push(formatCount("CAIRN.NUses", s.uses.max));
   return out;
 };
 
@@ -168,16 +200,24 @@ const rowHtml = ({ idx, cost, name, tagsHtml, metaHtml, descHtml }) =>
  */
 const acquire = async (actor, data, pay) => {
   const cost = data.system.cost ?? 0;
+  // Every message below names the item through t(): the row the player clicked
+  // showed the localized name, and the toast answering the click read the
+  // English payload — "Has comprado Rope". The PAYLOAD stays English (it is
+  // what gets created); only the messages translate.
+  const shown = t("item.name", data.name);
   if (pay && (actor.system.gold ?? 0) < cost) {
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.NotEnoughGold", { name: data.name, cost }));
+    ui.notifications.warn(game.i18n.format("CAIRN.Notify.NotEnoughGold", { name: shown, cost }));
     return false;
   }
-  // A CONTAINER is strict (refuses anything that won't fit, never holds equipped
-  // gear); a CHARACTER may go over capacity (they drop to HP 0 until a slot frees).
-  if (actor.type === "container") {
+  // A THING is strict (refuses anything that won't fit, never holds equipped
+  // gear); a CHARACTER may go over capacity (they drop to HP 0 until a slot
+  // frees). `isThing` and not the retired `container` TYPE — the same correction
+  // review #5 made to the nesting guard below, which this pair was missed in, so
+  // an npc sack took stock past its capacity and equipped it.
+  if (actor.isThing) {
     const need = slotCost(data.system);
     if ((actor.system.slotsUsed ?? 0) + need > (actor.system.slotsMax ?? 0)) {
-      ui.notifications.warn(game.i18n.format("CAIRN.Notify.ContainerFull", { name: data.name }));
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.ContainerFull", { name: shown }));
       return false;
     }
     data.system.equipped = false;
@@ -185,23 +225,23 @@ const acquire = async (actor, data, pay) => {
   await actor.createEmbeddedDocuments("Item", [data]);
   if (pay) {
     await actor.update({ "system.gold": (actor.system.gold ?? 0) - cost });
-    ui.notifications.info(game.i18n.format("CAIRN.Notify.Bought", { name: data.name, cost }));
+    ui.notifications.info(game.i18n.format("CAIRN.Notify.Bought", { name: shown, cost }));
   } else {
-    ui.notifications.info(game.i18n.format("CAIRN.Notify.Took", { name: data.name }));
+    ui.notifications.info(game.i18n.format("CAIRN.Notify.Took", { name: shown }));
   }
-  if (actor.type !== "container" && actor.isEncumbered()) {
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.Overloaded", { name: data.name }));
+  if (!actor.isThing && actor.isEncumbered()) {
+    ui.notifications.warn(game.i18n.format("CAIRN.Notify.Overloaded", { name: shown }));
   }
   return true;
 };
 
 /**
  * Buy or take a TRANSPORT. A thing with its own slots has to be an Actor in this
- * system, so this mints a container Actor from the transport document and
- * keeper-links it to the buyer, rather than embedding an item.
+ * system, so this mints an npc from the transport document and connects it to
+ * the buyer, rather than embedding an item.
  *
  * No slot check: a container never counts against the buyer's own slots — it is
- * a keeper-linked Actor reached through the Containers tab, not carried gear — so
+ * a connected Actor reached through the Connections tab, not carried gear — so
  * refusing the purchase at the till on encumbrance grounds would be wrong.
  * @param {CairnActor} actor
  * @param {object} doc   an owned-payload-shaped transport (name/img/system)
@@ -209,60 +249,114 @@ const acquire = async (actor, data, pay) => {
  * @returns {Promise<boolean>}
  */
 export const acquireTransport = async (actor, doc, pay) => {
-  // A transport is a container Actor; players can't create actors by default, so
-  // bail BEFORE charging rather than take the gold and fail on Actor.create.
+  // A transport is an Actor; players can't create actors by default, so bail
+  // BEFORE charging rather than take the gold and fail on Actor.create.
   if (!game.user.hasPermission("ACTOR_CREATE")) {
     ui.notifications.warn(game.i18n.localize("CAIRN.Notify.NoActorCreate"));
     return false;
   }
   const cost = doc.system.cost ?? 0;
+  // A transport is an Actor doc → monster.name, not item.name (see the row
+  // build). Messages only; the payload keeps the English name.
+  const shown = t("monster.name", doc.name);
   if (pay && (actor.system.gold ?? 0) < cost) {
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.NotEnoughGold", { name: doc.name, cost }));
+    ui.notifications.warn(game.i18n.format("CAIRN.Notify.NotEnoughGold", { name: shown, cost }));
     return false;
   }
-  // A container cannot itself keep a container — no nesting.
-  if (actor.type === "container") {
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.ContainerFull", { name: doc.name }));
+  // A container cannot itself keep a container — no nesting. Not a type test
+  // any more: an npc mule IS a container, and its own sheet carries the shop
+  // link this guard exists for (review #5). canKeepConnected holds the rule.
+  if (!actor.canKeepConnected) {
+    ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoNesting", { name: actor.name }));
     return false;
   }
-  // Give it a real portrait AND a matching map token; fall back to the transport
-  // class icon if the document somehow carries no art.
-  const art = doc.img ?? iconForTransport(doc.name, doc.system.transportKind);
+  // The connection ceiling, refused at the till like the two walls above it —
+  // BEFORE any gold moves. This flow mints the actor with `connectedTo` already
+  // in its creation data and never calls `connectActor`, so the cap wall there
+  // never sees it.
+  if (atConnectionLimit(actor)) {
+    ui.notifications.warn(game.i18n.format("CAIRN.Notify.ConnectionLimit", { name: actor.name, max: maxConnections() }));
+    return false;
+  }
+  // Give it a real portrait AND a matching map token; fall back to the class icon
+  // if the document somehow carries no art.
+  const art = doc.img ?? iconForTransport(doc.name, doc.system.transportKind, doc.system.containerClass);
+  const s = doc.system;
+  // An Actor row states its `role` outright (NpcData.migrateData derives one
+  // for a pre-roles document). A legacy `transport` Item has no such field, so
+  // infer from transportKind: worn packs and vehicles are things, only a mount
+  // is a creature. Without this a bought Backpack came out animate — and,
+  // having no hp field either, was handed the schema's default 6 HP on the way
+  // through (the same phantom-6 trap mounts.mjs documents). A kindless legacy
+  // Item keeps its old animate reading, which under roles is a mount.
+  const role = s.role
+    ?? (s.transportKind
+      ? (s.transportKind === "mount" ? "mount"
+        : s.transportKind === "vehicle" ? "transport" : "container")
+      : "mount");
+  const isThing = role === "transport" || role === "container";
+  // An npc, not a `container`. What is bought is now the same kind of document as
+  // what the compendium ships, so a Horse bought from the shop and a Horse
+  // dragged out of Mounts & Transports are the same thing -- which they were not
+  // before, when buying flattened a stat block into a slots-only container.
+  //
   // getDocumentClass, not the global `Actor` — the global is not
   // CONFIG.Actor.documentClass, so it reaches the same _preCreate defaults only
   // by way of `implementation`; naming the configured class says what runs.
-  const container = await getDocumentClass("Actor").create({
-    type: "container",
+  const payload = {
+    type: "npc",
     name: doc.name,
     img: art,
     prototypeToken: { texture: { src: art } },
     system: {
-      slots: doc.system.slots ?? 0,
-      description: doc.system.description ?? "",
-      transportKind: doc.system.transportKind ?? "",
-      load: doc.system.load ?? 0,
+      // Connected at CREATION, so there is no window in which it exists
+      // unattached -- which, under the container rule, would be a loot pile
+      // flickering into the world between two awaits.
+      connectedTo: actor.uuid,
+      slots: s.slots ?? 0,
+      description: s.description ?? "",
+      containerClass: s.containerClass ?? "",
+      role,
       cost,
+      // Not rollable: "Roll NPC" would overwrite a book statblock.
+      generationEnabled: false,
     },
-  });
+  };
+  // Carry a stat block across when the source has one. A thing-role row with
+  // none (a legacy Item row, which has no hp field at all) is written as 0/0
+  // explicitly, or the schema default hands a cart six hit points.
+  if (s.hp) payload.system.hp = { value: s.hp.value ?? 0, max: s.hp.max ?? 0 };
+  else if (isThing) payload.system.hp = { value: 0, max: 0 };
+  if (s.armorOverride !== undefined && s.armorOverride !== null) {
+    payload.system.armorOverride = s.armorOverride;
+  }
+  const container = await getDocumentClass("Actor").create(payload);
   if (!container) return false;
-  await actor.createOwnedContainer(container);
-  // Player-ownable: give the transport the same ownership as the character who
-  // bought it, so its owning player can open and manage it (GMs always can).
+  // Player-ownable: the CONNECTED ownership shape ({default: OBSERVER, the
+  // buyer's players: OWNER}), not the old wholesale copy of the buyer's
+  // ownership — a bought mule and a connected one must wear the same rights.
   //
-  // GM-only, because Foundry refuses an `ownership` write from anyone below
-  // Assistant ("ownership may only be modified by a GM or Assistant GM user") —
-  // this threw for a player in a world where the Warden had granted ACTOR_CREATE,
-  // AFTER the container was created and linked but BEFORE the gold was deducted,
-  // so they got a free transport and an uncaught error. A player doesn't need it
-  // anyway: Foundry makes the creating user an owner of what they create.
+  // GM-side only, because Foundry refuses an `ownership` write from anyone
+  // below Assistant ("ownership may only be modified by a GM or Assistant GM
+  // user") — this threw for a player in a world where the Warden had granted
+  // ACTOR_CREATE, AFTER the container was created and linked but BEFORE the
+  // gold was deducted, so they got a free transport and an uncaught error. A
+  // player buyer instead sets the sync flag and asks the active GM's client
+  // to apply the shape (they already own what they create; the flag ride
+  // fills in the OBSERVER default their client cannot write).
   if (game.user.isGM) {
-    await container.update({ ownership: foundry.utils.deepClone(actor.ownership) });
+    await container.update({
+      ownership: foundry.data.operators.ForcedReplacement.create(connectedOwnershipShape(actor)),
+    });
+  } else {
+    await container.update({ [`flags.air-bladder.${OWNERSHIP_SYNC_FLAG}`]: true });
+    game.socket.emit(`system.${game.system.id}`, { action: "ownershipSync", childUuid: container.uuid });
   }
   if (pay) {
     await actor.update({ "system.gold": (actor.system.gold ?? 0) - cost });
-    ui.notifications.info(game.i18n.format("CAIRN.Notify.Bought", { name: doc.name, cost }));
+    ui.notifications.info(game.i18n.format("CAIRN.Notify.Bought", { name: shown, cost }));
   } else {
-    ui.notifications.info(game.i18n.format("CAIRN.Notify.Took", { name: doc.name }));
+    ui.notifications.info(game.i18n.format("CAIRN.Notify.Took", { name: shown }));
   }
   return true;
 };
@@ -307,8 +401,14 @@ export const openMarketplace = async (actor, opts = {}) => {
       // Display-only translation: the row SHOWS the localized name/description, but
       // `built` keeps the English payload so Buy/Take creates the canonical item
       // (which then displays translated via the inventory surface).
-      const d = localizeNameDesc(data);
-      if (data.type === "transport") {
+      // Namespace by ROW KIND: a carrier row is an Actor doc from Mounts &
+      // Transports, which the extractor files under monster.* — the default
+      // item.* lookup could only ever miss for those, so every transport row
+      // read English while the gear beside it read Spanish.
+      const d = localizeNameDesc(data, isCarrier(data)
+        ? { nameNs: "monster.name", descNs: "monster.desc" }
+        : undefined);
+      if (isCarrier(data)) {
         const idx = built.push(data) - 1;
         const cap = data.system.slots ?? 0;
         const tags = transportChips(data).map((c) => `<span class="mkt-chip">${esc(c)}</span>`).join("");
@@ -382,7 +482,7 @@ export const openMarketplace = async (actor, opts = {}) => {
         btn.disabled = true;
         const pay = btn.classList.contains("mkt-buy");
         // A transport mints a container Actor; everything else is an embedded item.
-        if (data.type === "transport") await acquireTransport(actor, data, pay);
+        if (isCarrier(data)) await acquireTransport(actor, data, pay);
         else await acquire(actor, foundry.utils.deepClone(data), pay);
         refresh();
         return;

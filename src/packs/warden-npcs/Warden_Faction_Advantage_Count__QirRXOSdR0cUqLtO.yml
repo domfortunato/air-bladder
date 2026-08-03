@@ -1,0 +1,237 @@
+_id: QirRXOSdR0cUqLtO
+name: 'Warden: Faction - Advantage (Count)'
+img: icons/svg/d20-grey.svg
+description: "Cairn 2e Faction Advantages (Setting Seeds) — the \"# of Advantages\" column. The SRD procedure: roll here for HOW MANY advantages the faction has, then roll that many times on Warden: Faction - Advantage, rerolling repeats."
+results:
+  - _id: VGITA2TpIvGxcK7r
+    type: text
+    description: 1
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 1
+      - 1
+    drawn: false
+    flags: {}
+    _key: '!tables.results!QirRXOSdR0cUqLtO.VGITA2TpIvGxcK7r'
+  - _id: CS3geVTB88Z68Pxv
+    type: text
+    description: 1
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    flags: {}
+    _key: '!tables.results!QirRXOSdR0cUqLtO.CS3geVTB88Z68Pxv'
+  - _id: KprJsR8b40jz8u0M
+    type: text
+    description: 1
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    flags: {}
+    _key: '!tables.results!QirRXOSdR0cUqLtO.KprJsR8b40jz8u0M'
+  - _id: XR1VMAv9iFWTpAPl
+    type: text
+    description: 1
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    flags: {}
+    _key: '!tables.results!QirRXOSdR0cUqLtO.XR1VMAv9iFWTpAPl'
+  - _id: Wi2BOvXe6VLsVjYG
+    type: text
+    description: 1
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    flags: {}
+    _key: '!tables.results!QirRXOSdR0cUqLtO.Wi2BOvXe6VLsVjYG'
+  - _id: mitAEChBQz344Acz
+    type: text
+    description: 1
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    flags: {}
+    _key: '!tables.results!QirRXOSdR0cUqLtO.mitAEChBQz344Acz'
+  - _id: HBxDAAkejgqVdWke
+    type: text
+    description: 1
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 7
+      - 7
+    drawn: false
+    flags: {}
+    _key: '!tables.results!QirRXOSdR0cUqLtO.HBxDAAkejgqVdWke'
+  - _id: 9Y95WQfS4TV9n6u4
+    type: text
+    description: 2
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 8
+      - 8
+    drawn: false
+    flags: {}
+    _key: '!tables.results!QirRXOSdR0cUqLtO.9Y95WQfS4TV9n6u4'
+  - _id: L7KpyfaoIFVPuHGK
+    type: text
+    description: 2
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 9
+      - 9
+    drawn: false
+    flags: {}
+    _key: '!tables.results!QirRXOSdR0cUqLtO.L7KpyfaoIFVPuHGK'
+  - _id: ixWXVwPUqhu5o6Jl
+    type: text
+    description: 2
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 10
+      - 10
+    drawn: false
+    flags: {}
+    _key: '!tables.results!QirRXOSdR0cUqLtO.ixWXVwPUqhu5o6Jl'
+  - _id: zXEWbgaqQDaH9AIO
+    type: text
+    description: 2
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 11
+      - 11
+    drawn: false
+    flags: {}
+    _key: '!tables.results!QirRXOSdR0cUqLtO.zXEWbgaqQDaH9AIO'
+  - _id: OJJw5gUpHoGWEejZ
+    type: text
+    description: 2
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 12
+      - 12
+    drawn: false
+    flags: {}
+    _key: '!tables.results!QirRXOSdR0cUqLtO.OJJw5gUpHoGWEejZ'
+  - _id: 1Oo7HQnt0lh9WHGa
+    type: text
+    description: 3
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 13
+      - 13
+    drawn: false
+    flags: {}
+    _key: '!tables.results!QirRXOSdR0cUqLtO.1Oo7HQnt0lh9WHGa'
+  - _id: z2aoOZOrFBxLNZfQ
+    type: text
+    description: 3
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 14
+      - 14
+    drawn: false
+    flags: {}
+    _key: '!tables.results!QirRXOSdR0cUqLtO.z2aoOZOrFBxLNZfQ'
+  - _id: k0h9A5dajFEgr4fd
+    type: text
+    description: 3
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 15
+      - 15
+    drawn: false
+    flags: {}
+    _key: '!tables.results!QirRXOSdR0cUqLtO.k0h9A5dajFEgr4fd'
+  - _id: sNCzXZH9coHS7WGW
+    type: text
+    description: 3
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 16
+      - 16
+    drawn: false
+    flags: {}
+    _key: '!tables.results!QirRXOSdR0cUqLtO.sNCzXZH9coHS7WGW'
+  - _id: yifeMW0KMCIS9gGU
+    type: text
+    description: 3
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 17
+      - 17
+    drawn: false
+    flags: {}
+    _key: '!tables.results!QirRXOSdR0cUqLtO.yifeMW0KMCIS9gGU'
+  - _id: MQcvBbzGxYCUo9Sy
+    type: text
+    description: 4
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 18
+      - 18
+    drawn: false
+    flags: {}
+    _key: '!tables.results!QirRXOSdR0cUqLtO.MQcvBbzGxYCUo9Sy'
+  - _id: TnsZgEIZC6bCXoy2
+    type: text
+    description: 4
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 19
+      - 19
+    drawn: false
+    flags: {}
+    _key: '!tables.results!QirRXOSdR0cUqLtO.TnsZgEIZC6bCXoy2'
+  - _id: dDqomxHZaq5u1BjB
+    type: text
+    description: 4
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 20
+      - 20
+    drawn: false
+    flags: {}
+    _key: '!tables.results!QirRXOSdR0cUqLtO.dDqomxHZaq5u1BjB'
+formula: 1d20
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!tables!QirRXOSdR0cUqLtO'

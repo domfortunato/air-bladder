@@ -85,7 +85,12 @@ const actorRT = await page.evaluate(async () => {
   const probes = {
     character: { "system.pronouns": "they/them", "system.gold": 42, "system.omen": "<p>a red sky</p>", "system.slots": 12 },
     npc: { "system.gold": 7, "system.slots": 5, "system.background": "Ruin-dweller", "system.notes": "<p>n</p>" },
-    container: { "system.slots": 4, "system.cost": 15, "system.gold": 3, "system.biography": "<p>b</p>" },
+    // No `container` entry: the TYPE was retired with 1c3f5b2 and `Actor.create`
+    // returns undefined for it, which is how this probe was left throwing
+    // `Cannot read properties of undefined` from that commit until 2026-08-01 —
+    // red the whole time, because nothing ran it. Its fields did not go
+    // uncovered: they are NpcData's now and the "containers-as-NPCs fields"
+    // section below round-trips every one of them.
     hireling: { "system.profession": "Linkboy", "system.dayRate": 3, "system.gold": 9, "system.notes": "<p>h</p>" },
   };
   const out = [];
@@ -189,22 +194,28 @@ console.log("\ncontainers and marketplace");
 const containers = await page.evaluate(async () => {
   const actor = await Actor.create({ name: "__rt_mkt", type: "character" });
   await actor.update({ "system.gold": 500 });
-  const transports = await game.packs.get("air-bladder.transports").getDocuments();
+  // The mounts-transports ACTOR pack — the legacy transports Item pack is
+  // dissolved, so what the shop resolves and what this feeds acquireTransport
+  // are npc documents either way.
+  const transports = await game.packs.get("air-bladder.mounts-transports").getDocuments();
   const mule = transports.find((t) => t.system.slots > 0) ?? transports[0];
   // The real marketplace path, not a reimplementation of it — acquireTransport is
-  // where a transport Item becomes a container Actor, i.e. where the slots shape
-  // used to be converted.
+  // where a transport document becomes a connected NPC, i.e. where the slots
+  // shape used to be converted. (It minted a `container` keeper-linked through
+  // the owner's array before containers-as-NPCs; this section asserted that
+  // old shape long after the code stopped producing it.)
   const mkt = await import("/systems/air-bladder/module/marketplace.js");
   const bought = await mkt.acquireTransport(actor, mule, true);
-  const container = game.actors.find((a) => a.type === "container" && a.system.keeper === actor.uuid);
-  if (!container) return { error: "no container minted" };
+  const container = game.actors.find((a) => a.type === "npc" && a.system.connectedTo === actor.uuid);
+  if (!container) return { error: "no connected npc minted" };
   const csrc = container.toObject().system;
   const out = {
     transportSlots: mule.system.slots,
     containerSlots: csrc.slots,
     containerSlotsIsNumber: typeof csrc.slots === "number",
     containerCapacity: container.calcCurrentMaxSlots(),
-    linked: (actor.toObject().system.containers ?? []).includes(container.uuid),
+    // ONE link, derived: the owner's list comes from each child's connectedTo.
+    linked: actor.connectedActors().some((c) => c.id === container.id),
     bought: bought === undefined ? "n/a" : bought,
   };
   await container.delete();
@@ -216,24 +227,71 @@ else fail("container slots", "not a plain number");
 if (containers.containerCapacity === containers.transportSlots)
   ok("capacity carried", `${containers.containerCapacity} from the transport`);
 else fail("capacity carried", `transport ${containers.transportSlots} -> container ${containers.containerCapacity}`);
-if (containers.linked) ok("keeper link", "container registered on the owner");
-else fail("keeper link", "container not registered");
+if (containers.linked) ok("connected link", "derived onto the owner's list");
+else fail("connected link", "the owner's derived list did not pick it up");
 
 /* -------------------------------------------- */
 
-console.log("\nhireling generation");
+/* The containers-as-NPCs fields. A container is becoming "an NPC with `slots` and
+   a `connectedTo`", so these four live on NpcData. Declaring a field and
+   PERSISTING one look identical until you read it back off the collection --
+   a mis-declared field is silently dropped by schema cleaning with no error
+   anywhere -- so every assertion here writes a value and re-reads it. The closed
+   -schema check at the end is the control: without it "the value came back" would
+   also be true of an object that simply kept whatever it was handed. */
+console.log("\ncontainers-as-NPCs fields (NpcData)");
+const npcFields = await page.evaluate(async () => {
+  const Cls = CONFIG.Actor.documentClass;   // not the global Actor -- see docs
+  const a = await Cls.create({ name: "ZZ Schema NpcFields", type: "npc" });
+  const pick = (s) => ({
+    connectedTo: s.connectedTo, role: s.role,
+    containerClass: s.containerClass, cost: s.cost,
+  });
+  const defaults = pick(a.system);
+  await a.update({
+    "system.connectedTo": "Actor.abcdef1234567890",
+    "system.role": "transport",
+    "system.containerClass": "crate",
+    "system.cost": 42,
+    // Written ON PURPOSE and expected to vanish. If an undeclared key survived,
+    // "the value came back" would be true of anything and every assertion above
+    // would pass whether or not the field is really in the schema.
+    "system.zzNotAField": "should vanish",
+  });
+  const fresh = game.actors.get(a.id).system;
+  const persisted = pick(fresh);
+  const closed = !("zzNotAField" in fresh) && "connectedTo" in fresh;
+  await a.delete();
+  return { defaults, persisted, closed };
+});
+const wantDefaults = { connectedTo: "", role: "npc", containerClass: "", cost: 0 };
+const wantStored = { connectedTo: "Actor.abcdef1234567890", role: "transport", containerClass: "crate", cost: 42 };
+for (const [k, v] of Object.entries(wantDefaults)) {
+  if (npcFields.defaults[k] === v) ok(`${k} default`, JSON.stringify(v));
+  else fail(`${k} default`, `got ${JSON.stringify(npcFields.defaults[k])}, want ${JSON.stringify(v)}`);
+}
+for (const [k, v] of Object.entries(wantStored)) {
+  if (npcFields.persisted[k] === v) ok(`${k} persists`, JSON.stringify(v));
+  else fail(`${k} persists`, `got ${JSON.stringify(npcFields.persisted[k])}, want ${JSON.stringify(v)}`);
+}
+if (npcFields.closed) ok("schema closed", "declared fields present, stowaways dropped");
+else fail("schema closed", "an undeclared key survived, so persistence proves nothing");
+
+/* -------------------------------------------- */
+
+console.log("\nnpc generation");
 const hire = await page.evaluate(async () => {
-  const actor = await game.cairn.characterGenerator.createHireling();
-  if (!actor) return { error: "no hireling" };
+  const actor = await game.cairn.characterGenerator.createNpc();
+  if (!actor) return { error: "no NPC" };
   const src = actor.toObject().system;
   const out = { profession: src.profession, dayRate: src.dayRate, hp: src.hp?.value, str: src.abilities?.STR?.value, items: actor.items.size, armor: actor.system.armor };
   await actor.delete();
   return out;
 });
-if (hire.error) fail("hireling", hire.error);
+if (hire.error) fail("npc", hire.error);
 else {
-  ok("hireling", `${hire.profession} @ ${hire.dayRate}/day, HP ${hire.hp}, STR ${hire.str}, ${hire.items} items, armor ${hire.armor}`);
-  if (!hire.profession || !hire.hp) fail("hireling fields", "profession or hp missing");
+  ok("npc", `${hire.profession} @ ${hire.dayRate}/day, HP ${hire.hp}, STR ${hire.str}, ${hire.items} items, armor ${hire.armor}`);
+  if (!hire.profession || !hire.hp) fail("npc fields", "profession or hp missing");
 }
 
 /* -------------------------------------------- */

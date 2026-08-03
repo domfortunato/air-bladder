@@ -28,9 +28,16 @@ These three are independent of the order above:
 
 ```
 node tools/import/backgrounds-2e.mjs # rewrite the 20 2e backgrounds' TEXT
-node tools/import/hirelings-2e.mjs   # module/hirelings-2e.json
+node tools/import/npc-careers-2e.mjs # module/npc-careers-2e.json
 node tools/import/portraits.mjs      # module/portrait-manifest.json
+node tools/import/game-icons.mjs --src <dir>   # game-icons/ + its manifest
 ```
+
+`game-icons.mjs` is the one importer that is **not reproducible from this repo**:
+its input is a hand-curated download from game-icons.net, so which icons ship is
+a decision rather than a query. `game-icons/` and `game-icons/CREDITS.md` are
+therefore the artifacts of record — committed, and rebuilt only when the
+curation changes. Point `--src` at the unpacked download.
 
 ## What each one owns
 
@@ -40,8 +47,9 @@ node tools/import/portraits.mjs      # module/portrait-manifest.json
 | `backgrounds-2e.mjs` | text fields of `backgrounds-2e` | `second-edition/backgrounds/*.md` (20 files) |
 | `marketplace.mjs` | `marketplace`, `market-goods`, `cost` on pool items | `second-edition/players-guide/marketplace.md` + `marketplace-descriptions.csv` |
 | `transports.mjs` | `transports`, the transport shop table | self-contained (2e transport numbers) |
-| `hirelings-2e.mjs` | `module/hirelings-2e.json` | `resources/hirelings.md` |
+| `npc-careers-2e.mjs` | `module/npc-careers-2e.json` | `resources/hirelings.md` |
 | `portraits.mjs` | `module/portrait-manifest.json` | the shipped image folders |
+| `game-icons.mjs` | `game-icons/` (1,366 svg + `CREDITS.md` + `license.txt`), `module/game-icons-manifest.json` | a curated game-icons.net download, via `--src` — or `--restamp`, which needs none |
 
 `marketplace-descriptions.csv` and `background-archetypes.csv` are **ours**, not
 upstream's: the SRD price list is names and numbers with no flavour text, and

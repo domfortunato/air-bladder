@@ -6,10 +6,13 @@
  *   1. THE PLAYER ONE. `_onDropBackground` shows its destructive confirmation
  *      ("change this character's background to X? this deletes its granted gear")
  *      before `changeBackground` reaches `canRegenerateContainers`. That guard
- *      refuses for EVERY non-GM whenever `show-containers-tab` is on, whatever the
- *      character is actually carrying — containers are Actors and Foundry gates
- *      Actor deletion on ASSISTANT. So a player was asked a destructive question the
- *      code could never honour, said yes, and got a warning and no change.
+ *      refuses a non-GM whose character HOLDS granted containers — containers are
+ *      Actors and Foundry gates Actor deletion on ASSISTANT. So a player was asked
+ *      a destructive question the code could never honour, said yes, and got a
+ *      warning and no change. (It once refused on a display SETTING instead of on
+ *      what the character carried; that coupling, and the setting, are both gone —
+ *      so this leg now checks the setup actually granted a container, rather than
+ *      arranging a world flag and assuming.)
  *
  *   2. THE REORDER ONE. The background intercept sits at the very top of
  *      `_onDropItem`, above the same-actor branch. A background sitting in the
@@ -58,7 +61,6 @@ const restore = async () => {
   if (!saved) return;
   await gm.evaluate(async (s) => {
     for (const a of game.actors.filter((a) => a.name?.startsWith("ZZ BGOrder"))) await a.delete();
-    await game.settings.set("air-bladder", "show-containers-tab", s.containers);
     await game.settings.set("air-bladder", "enable-inventory-reorder", s.reorder);
   }, saved).catch((e) => fail(`could not restore world state: ${e.message}`));
 };
@@ -78,7 +80,6 @@ try {
     const out = {
       aliceId: alice.id,
       saved: {
-        containers: game.settings.get(NS, "show-containers-tab"),
         reorder: game.settings.get(NS, "enable-inventory-reorder"),
       },
       // The sentence a refused background swap must show, and the one it must NOT.
@@ -100,11 +101,6 @@ try {
     out.bgA = bgA.name;
     out.bgB = bgB.name;
     out.bgBUuid = bgB.uuid;
-
-    // Containers OFF for the setup swap, so establishing a starting background does
-    // not mint container ACTORS this probe would then have to hunt down by name.
-    // The guard does not care: with the tab on it refuses on `mayCreate` alone.
-    await game.settings.set(NS, "show-containers-tab", false);
 
     const pc = await CONFIG.Actor.documentClass.create({
       name: "ZZ BGOrder Player PC",
@@ -132,8 +128,29 @@ try {
     out.startBackground = pc.system.background;
     out.startItems = pc.items.size;
 
-    // The world state the player defect needs.
-    await game.settings.set(NS, "show-containers-tab", true);
+    // ESTABLISH the precondition rather than hope for it. The refusal this leg
+    // tests fires only when the character HOLDS a granted container to delete
+    // (`canRegenerateContainers`); it no longer keys on any setting — a display
+    // toggle deciding a permission was the original defect, and that toggle is
+    // gone entirely. Whether the setup swap granted one is a d6 roll on
+    // whichever background the pack index happened to hand back first, so this
+    // leg had quietly become "nothing granted, nothing refused, background
+    // changes" and was failing on CONTENT rather than on the code under test.
+    // (Confirmed by baselining it against HEAD: it failed the same way there.)
+    // So mint one, flagged the way generation flags them.
+    const countGranted = () => game.actors.filter(
+      (a) => (a.system?.connectedTo === pc.uuid || a.system?.keeper === pc.uuid)
+        && a.getFlag("air-bladder", "grantSource")).length;
+    out.grantedByBackground = countGranted();
+    if (!out.grantedByBackground) {
+      await CONFIG.Actor.documentClass.create({
+        name: "ZZ BGOrder Granted Mule",
+        type: "npc",
+        system: { role: "mount", containerClass: "mule", connectedTo: pc.uuid, generationEnabled: false },
+        flags: { "air-bladder": { grantSource: "probe" } },
+      });
+    }
+    out.grantedContainers = countGranted();
     return out;
   });
 
@@ -203,7 +220,15 @@ try {
     return res;
   }, { actorId: setup.actorId, bgBUuid: setup.bgBUuid, control });
 
-  console.log("\n1. a player dropping a background in a containers-on world");
+  // Say the precondition OUT LOUD, and where it came from: a background that
+  // granted one by its own d6, or the mule the setup had to mint because it
+  // did not. Either way the leg only means something with a non-zero count.
+  console.log(`\n1. a player dropping a background — holds ${setup.grantedContainers} granted container(s)`
+    + ` (${setup.grantedByBackground} from the background, ${setup.grantedContainers - setup.grantedByBackground} seeded)`);
+  if (!setup.grantedContainers) {
+    fail("the character holds NO granted containers, so canRegenerateContainers has "
+      + "nothing to refuse — this leg cannot fail and is not evidence");
+  }
   const p = await playerDrop(false);
   if (p.error) fail(`player leg: ${p.error}`);
   else {
@@ -245,14 +270,36 @@ try {
     const pc = await CONFIG.Actor.documentClass.create({
       name, type: "character", system: { background: "ZZ Starting Background" },
     });
-    // Pocketed FIRST so it sorts lowest; the drop then aims at the last row, which
-    // is a move that must change its sort — otherwise "the reorder happened" is
-    // satisfied by a reorder that had nothing to do.
-    const [pocketed, , gearB] = await pc.createEmbeddedDocuments("Item", [
+    // The drop aims at the LAST row, a move that must change the dragged item's
+    // sort — otherwise "the reorder happened" is satisfied by a reorder that had
+    // nothing to do.
+    //
+    // Looked up BY NAME, never by position. `createEmbeddedDocuments` does NOT
+    // promise to return documents in request order — measured on 14.365, a
+    // two-item create came back reversed — so the old
+    // `const [pocketed, , gearB] = …` destructuring silently bound the FIRST
+    // GEAR item as the "pocketed background" whenever the order came back
+    // shuffled. The control then dragged an ordinary item, no background
+    // intercept fired, and the leg reported "the drop never reached the
+    // handler": a probe failure that looked like a harness fault and said
+    // nothing about the code. Assert the type too, so a rename or a subtype
+    // change cannot re-create it quietly.
+    const made = await pc.createEmbeddedDocuments("Item", [
       { name: "ZZ BGOrder Pocketed", type: "background" },
       { name: "ZZ BGOrder Gear A", type: "item" },
       { name: "ZZ BGOrder Gear B", type: "item" },
     ]);
+    const pocketed = made.find((i) => i.name === "ZZ BGOrder Pocketed");
+    const gearB = made.find((i) => i.name === "ZZ BGOrder Gear B");
+    if (!pocketed || !gearB) {
+      await pc.delete();
+      return { error: `the probe's own items were not created (got ${made.map((i) => i.name).join(", ")})` };
+    }
+    if (pocketed.type !== "background") {
+      await pc.delete();
+      return { error: `the pocketed item is type "${pocketed.type}", not background — `
+        + "the background intercept would never fire and this leg would test nothing" };
+    }
     await pc.sheet.render(true);
     await new Promise((r) => setTimeout(r, 800));
 

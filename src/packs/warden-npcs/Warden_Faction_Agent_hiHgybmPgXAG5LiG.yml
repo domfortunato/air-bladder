@@ -1,0 +1,237 @@
+_id: hiHgybmPgXAG5LiG
+name: 'Warden: Faction - Agent'
+img: icons/svg/d20-grey.svg
+description: "Cairn 2e Faction Types (Setting Seeds) — the Agent column: who represents the faction in play. Rolls beside Warden: NPC - Faction, which carries the Type column."
+results:
+  - _id: yYzZzNHcrWVZeLdB
+    type: text
+    description: Academic
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 1
+      - 1
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hiHgybmPgXAG5LiG.yYzZzNHcrWVZeLdB'
+  - _id: KDQGcyvRnjDCqAlb
+    type: text
+    description: Assassin
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hiHgybmPgXAG5LiG.KDQGcyvRnjDCqAlb'
+  - _id: oNu9YTc5fBW8ZXvK
+    type: text
+    description: Blacksmith
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hiHgybmPgXAG5LiG.oNu9YTc5fBW8ZXvK'
+  - _id: YBBFUdtf9v1Jep9w
+    type: text
+    description: Farmer
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hiHgybmPgXAG5LiG.YBBFUdtf9v1Jep9w'
+  - _id: UHq4YwfZJTKHWI7f
+    type: text
+    description: General
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hiHgybmPgXAG5LiG.UHq4YwfZJTKHWI7f'
+  - _id: Q2LYeePcBWsfgHQu
+    type: text
+    description: Gravedigger
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hiHgybmPgXAG5LiG.Q2LYeePcBWsfgHQu'
+  - _id: icSF9rTOXy7X0wLy
+    type: text
+    description: Guard
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 7
+      - 7
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hiHgybmPgXAG5LiG.icSF9rTOXy7X0wLy'
+  - _id: Q1SmGe9uBJINz877
+    type: text
+    description: Healer
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 8
+      - 8
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hiHgybmPgXAG5LiG.Q1SmGe9uBJINz877'
+  - _id: iYEXphq8MhoqB7sd
+    type: text
+    description: Jailer
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 9
+      - 9
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hiHgybmPgXAG5LiG.iYEXphq8MhoqB7sd'
+  - _id: ZtiY1IG7VUKrM0kT
+    type: text
+    description: Laborer
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 10
+      - 10
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hiHgybmPgXAG5LiG.ZtiY1IG7VUKrM0kT'
+  - _id: DFRx8ADymCKo9a0d
+    type: text
+    description: Lord
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 11
+      - 11
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hiHgybmPgXAG5LiG.DFRx8ADymCKo9a0d'
+  - _id: nRCYGuJFGmr0RBNI
+    type: text
+    description: Merchant
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 12
+      - 12
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hiHgybmPgXAG5LiG.nRCYGuJFGmr0RBNI'
+  - _id: 3gBg3PptoZYzU4Hw
+    type: text
+    description: Monk
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 13
+      - 13
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hiHgybmPgXAG5LiG.3gBg3PptoZYzU4Hw'
+  - _id: dVthRFuJ7zjP3Oc5
+    type: text
+    description: Mystic
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 14
+      - 14
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hiHgybmPgXAG5LiG.dVthRFuJ7zjP3Oc5'
+  - _id: TN88xD2BgQl5REC0
+    type: text
+    description: Outlander
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 15
+      - 15
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hiHgybmPgXAG5LiG.TN88xD2BgQl5REC0'
+  - _id: caHRQ2LWKXI7C5Gl
+    type: text
+    description: Peddler
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 16
+      - 16
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hiHgybmPgXAG5LiG.caHRQ2LWKXI7C5Gl'
+  - _id: mm8AcdJlqBE4mo2Q
+    type: text
+    description: Politician
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 17
+      - 17
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hiHgybmPgXAG5LiG.mm8AcdJlqBE4mo2Q'
+  - _id: tb6GgQBDYjYEInTO
+    type: text
+    description: Spy
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 18
+      - 18
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hiHgybmPgXAG5LiG.tb6GgQBDYjYEInTO'
+  - _id: bYARIOX7AJHjY1Cg
+    type: text
+    description: Thief
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 19
+      - 19
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hiHgybmPgXAG5LiG.bYARIOX7AJHjY1Cg'
+  - _id: hymaSh5HspSb4pJs
+    type: text
+    description: Thug
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 20
+      - 20
+    drawn: false
+    flags: {}
+    _key: '!tables.results!hiHgybmPgXAG5LiG.hymaSh5HspSb4pJs'
+formula: 1d20
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!tables!hiHgybmPgXAG5LiG'

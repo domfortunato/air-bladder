@@ -1,0 +1,28 @@
+_id: YPOEKdtzFyz82J7J
+name: Donkey
+type: npc
+img: systems/air-bladder/icons/donkey.svg
+prototypeToken:
+  name: Donkey
+  texture:
+    src: systems/air-bladder/icons/donkey.svg
+items: []
+effects: []
+folder: CCMtMzMwK7XAuWfq
+sort: 0
+flags:
+  air-bladder:
+    transportSource: background-2e
+system:
+  description: Granted by the Bonekeeper and Kettlewright backgrounds. Carries 4 slots.
+  slots: 4
+  cost: 0
+  containerClass: donkey
+  role: mount
+  generationEnabled: false
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!actors!YPOEKdtzFyz82J7J'

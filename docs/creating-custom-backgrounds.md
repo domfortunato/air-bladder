@@ -19,8 +19,8 @@ Writing one from a blank sheet means filling twelve question-table options befor
 you can see anything work. Copying a real background gives you a complete, correct
 example to edit down.
 
-1. Open the **Compendium** sidebar tab → **Air Bladder - Items** → **Backgrounds (2e)**
-   → click any background (say *Fieldwarden*).
+1. Open the **Compendium** sidebar tab → **Air Bladder - Backgrounds** →
+   **Backgrounds (2e)** → click any background (say *Fieldwarden*).
 2. Switch to the **Details** tab and click **Duplicate into Custom Backgrounds**.
 
 The button is on **Details**, not Description, and a shipped background opens on
@@ -164,8 +164,8 @@ error, so check them in this order if yours does not show up:
 
 1. that setting is off
 2. its **Source** is not *Cairn 2e*
-3. it is not in a **world** compendium (a background sitting loose in the Items
-   sidebar is not a content source)
+3. it is not in a **world or module** compendium (a background sitting loose in the
+   Items sidebar is not a content source)
 
 ---
 
@@ -174,6 +174,13 @@ error, so check them in this order if yours does not show up:
 Custom backgrounds live in a world compendium called **Custom Backgrounds**, created
 the first time you duplicate into it. Being a world compendium, it is editable and
 belongs to that world only — which is why sharing needs its own steps.
+
+**It does not sit in the *Air Bladder - Backgrounds* folder**, and that is not a
+mistake to fix. That folder groups the three packs the *system* ships — Backgrounds
+(2e), Backgrounds (Barebones) and Background Items — and Foundry only lets a system
+file its own packs there. Your Custom Backgrounds compendium belongs to the world,
+so it appears outside the folder, on its own. You can drag it into any folder you
+make yourself; nothing in Air Bladder reads the folder, only the compendium.
 
 Backgrounds delivered inside a **module** are read-only. To change one, open it and
 use **Duplicate into Custom Backgrounds**, which copies it into your own editable

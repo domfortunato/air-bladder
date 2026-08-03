@@ -2,7 +2,8 @@ import { resolveGearItem } from "../gear.js";
 import { previewBackground, duplicateBackgroundToWorld } from "../character-generator.js";
 import { t } from "../i18n-content.js";
 import { TRANSPORT_KINDS } from "../icons.js";
-import { bindEditorClickAwaySave, sourceLabel } from "../utils.js";
+import { bindEditorClickAwaySave, formatCount, sourceLabel } from "../utils.js";
+import { pickArt } from "../art-picker.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -98,7 +99,8 @@ const gearTags = (s = {}, usesOverride) => {
   if (s.bulky) tags.push(game.i18n.localize("CAIRN.Bulky"));
   if (s.weightless) tags.push(game.i18n.localize("CAIRN.Weightless"));
   const uses = usesOverride ?? s.uses?.max ?? 0;
-  if (uses) tags.push(game.i18n.format("CAIRN.NUses", { n: uses }));
+  // formatCount, not format: a single-use scroll read "1 uses".
+  if (uses) tags.push(formatCount("CAIRN.NUses", uses));
   return tags;
 };
 
@@ -141,6 +143,12 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     window: { resizable: true },
     form: { submitOnChange: true },
     actions: {
+      // OVERRIDES core's `editImage`, which opens a bare FilePicker. Every item
+      // template's portrait carries data-action="editImage", so declaring it
+      // here routes all seven of them — gear, weapons, armor, spellbooks,
+      // objects, transports and backgrounds — through the system's art picker
+      // instead, which is where the Game-Icons gallery lives.
+      editImage: CairnItemSheet.#onEditImage,
       duplicateBackground: CairnItemSheet.#onDuplicateBackground,
       testBackground: CairnItemSheet.#onTestBackground,
       addName: CairnItemSheet.#onAddName,
@@ -167,6 +175,28 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   };
 
   /* -------------------------------------------- */
+
+  /**
+   * Window title with the item's DISPLAY name. The `name` field on the sheet stays
+   * the English source — it is a bare <input> with no display/value split, and it is
+   * the key every gear lookup, background grant and table match resolves on — but the
+   * frame is pure display, and it was the one place still reading "Rope" while the
+   * compendium list, the inventory row and the description all read Spanish.
+   *
+   * Falls straight through to core whenever nothing translates, so an English world
+   * is byte-identical; the format below is only reached when the overlay hits, and
+   * mirrors DocumentSheetV2#title (shipped client, api/document-sheet.mjs:99-103).
+   * @override
+   */
+  get title() {
+    const name = t(this.item.type === "background" ? "bg.name" : "item.name", this.item.name);
+    if (!name || name === this.item.name) return super.title;
+    const cls = this.item.constructor;
+    const prefix = cls.hasTypeData && this.item.type !== "base"
+      ? CONFIG.Item.typeLabels[this.item.type]
+      : cls.metadata.label;
+    return `${game.i18n.localize(prefix)}: ${name}`;
+  }
 
   /**
    * The background authoring form is a tall, multi-section editor; give it room.
@@ -233,14 +263,26 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     // window as `rootId`, so this is now an alias rather than a hand-rolled one.
     context.idp = context.rootId;
 
-    // Content localization for READ-ONLY (locked pack) entries only. An editable
-    // sheet — an owned item, or an unlocked pack a Warden is editing — keeps the
-    // canonical English so a save never writes a translated string back onto the
-    // document. The name is left to the compendium list; here we localize the
-    // description (a display-only derived field, never the stored value).
-    const localize = !this.isEditable;
+    // Content localization, on EVERY sheet including an editable one.
+    //
+    // This used to be gated on `!this.isEditable`, to stop a save writing the
+    // translated string back onto the document. The gate was unnecessary and it
+    // cost the whole feature: a player owns their own items, so an editable sheet
+    // is the ONLY sheet most players ever open, and it was English in every
+    // language. A toggled <prose-mirror> already separates the two halves for us
+    // (shipped client, applications/elements/prosemirror-editor.mjs):
+    //   :40-45  the `value` attribute becomes `_value` — the editable, submitted
+    //           source; the light-DOM child becomes `#enriched` — display only.
+    //   :165    while inactive it renders `#enriched`, i.e. this string.
+    //   :204    on activation it OVERWRITES the content with `_value`, and :217
+    //           seeds the editor from it.
+    // So the template keeps `value="{{system.description}}"` (English, always) and
+    // the Spanish exists only as inactive display: clicking the pencil replaces it
+    // with the English source before a single keystroke can land, and a submit
+    // carries `_value`. Same rule as the trait <select> on the actor sheet — the
+    // stored value is English, the visible label is not.
     const descNs = this.item.type === "background" ? "bg.desc" : "item.desc";
-    const descSrc = localize ? t(descNs, this.item.system.description) : this.item.system.description;
+    const descSrc = t(descNs, this.item.system.description);
     const enrich = foundry.applications.ux.TextEditor.implementation.enrichHTML;
     context.enrichedDescription = await enrich(descSrc, { relativeTo: this.item });
     context.enrichedCriticalDamage = await enrich(this.item.system.criticalDamage, { relativeTo: this.item });
@@ -263,7 +305,8 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     if (this.item.type === "background") {
       context.isGM = game.user.isGM;
       if (this.isEditable) await this._prepareBackgroundEditor(context);
-      else await this._prepareBackgroundReadOnly(context, localize);
+      // Only reachable when the sheet is NOT editable, so the flag was always true.
+      else await this._prepareBackgroundReadOnly(context, true);
     }
     return context;
   }
@@ -286,6 +329,19 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         return { name: localize ? t("item.name", g.name) : g.name, tags };
       })
     );
+    // The Details tab's questions and options, localized — the template used to
+    // iterate system.tables raw, which left the ONE sheet showing all 40
+    // bg.question and 240 bg.optionDesc strings (every one of them translated)
+    // displaying none of them, one tab from a Description that translated.
+    // Display copies only; the editor branch keeps its raw inputs.
+    context.backgroundTables = (this.item.system.tables ?? []).map((tbl) => ({
+      question: t("bg.question", tbl.question ?? ""),
+      options: (tbl.options ?? []).map((o) => ({ description: t("bg.optionDesc", o.description ?? "") })),
+    }));
+    // Same derived label the editor branch shows — the read-only header printed
+    // the raw stored enum ("2e"), which sourceLabel exists to prevent drifting
+    // copies of. Third copy retired.
+    context.sourceLabel = sourceLabel(this.item.system.source || "2e");
   }
 
   /**
@@ -485,11 +541,36 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     event.preventDefault();
     const report = await previewBackground(this.item, 10);
     new foundry.applications.api.DialogV2({
-      window: { title: game.i18n.format("CAIRN.BgAuthor.TestTitle", { name: this.item.name }), icon: "fas fa-flask" },
+      window: { title: game.i18n.format("CAIRN.BgAuthor.TestTitle", { name: t("bg.name", this.item.name) }), icon: "fas fa-flask" },
       position: { width: 560 },
       content: renderPreviewReport(report),
       buttons: [{ action: "close", label: game.i18n.localize("CAIRN.Close"), default: true }],
     }).render(true);
+  }
+
+  /**
+   * The item art picker, in place of core's bare FilePicker.
+   *
+   * Two galleries: the Warden's custom folder and Game-Icons. No Aspeheim —
+   * those are character portraits, and a longsword has no face. The URL row and
+   * the Browse escape are still there, so nothing a Warden could do before is
+   * taken away; core's FilePicker was only ever the Browse half of this.
+   *
+   * Items carry no token, so this writes `img` alone — the actor pickers pair a
+   * token with it, and copying that here would put a texture on a document that
+   * has nowhere to keep one.
+   * @this {CairnItemSheet}
+   */
+  static async #onEditImage(event) {
+    event.preventDefault();
+    await pickArt({
+      current: this.item.img,
+      title: game.i18n.localize("CAIRN.ChooseItemArt"),
+      custom: true,
+      gameIcons: true,
+      browseStart: this.item.img,
+      onPick: (src) => this.item.update({ img: src }),
+    });
   }
 
   /**
@@ -502,7 +583,7 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     event.preventDefault();
     const copy = await duplicateBackgroundToWorld(this.item);
     if (!copy) return;
-    ui.notifications.info(game.i18n.format("CAIRN.BgAuthor.Duplicated", { name: copy.name }));
+    ui.notifications.info(game.i18n.format("CAIRN.BgAuthor.Duplicated", { name: t("bg.name", copy.name) }));
     copy.sheet.render(true);
   }
 
@@ -559,6 +640,12 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       return;
     }
     if (data?.type !== "Item") return super._onDrop(event);
+    // Core fires this hook before handling any sheet drop and honours a false
+    // veto (item-sheet.mjs:129-130). Every delegated path above gets it from
+    // super._onDrop; this branch takes the drop itself, so it owes the same
+    // call — a module vetoing drops heard about every item type but
+    // backgrounds (review #6). Exactly once per drop on every path.
+    if (Hooks.call("dropItemSheetData", this.item, this, data) === false) return;
     const dropped = await Item.implementation.fromDropData(data);
     if (!dropped) return;
     if (dropped.type === "background") {

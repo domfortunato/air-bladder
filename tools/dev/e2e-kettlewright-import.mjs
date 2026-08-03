@@ -10,7 +10,10 @@ fs.writeFileSync(tmp, JSON.stringify({
   strength: 12, strength_max: 12, dexterity: 10, dexterity_max: 10, willpower: 7, willpower_max: 9,
   hp: 4, hp_max: 4, gold: 30, deprived: false, panicked: false, armor: "1",
   description: "An e2e peddler.", traits: "Stern", notes: "hi", bonds: "A debt.", scars: "Nicked;Burned", omens: "Ravens.",
-  custom_image: false, image_url: "",
+  // A STOCK portrait pick: Kettlewright stores the bare filename, and the
+  // import must map it to our shipped copy (tlomdev/Kettlewright Portraits/,
+  // Kettlewright's exact numbering) on portrait AND token.
+  custom_image: false, image_url: "portrait17.webp",
   items: [
     { id: "a", name: "Rations", tags: ["uses"], uses: 3, location: 0, description: "-" },
     { id: "b", name: "Widget QZ", tags: ["1 Armor"], location: 0, description: "odd" },
@@ -60,8 +63,36 @@ const out = await page.evaluate(() => {
     bgUuidSet: !!a?.system?.backgroundUuid,
     armor: a?.system?.armorOverride,
     scars: a?.system?.scars ?? [],
+    img: a?.img ?? null,
+    token: a?.prototypeToken?.texture?.src ?? null,
     summaryShown: !!dlg,
     summaryText: dlg?.textContent?.replace(/\s+/g, " ").trim().slice(0, 300) ?? "",
+  };
+});
+
+// The rest of the portrait decision table, straight through the exported
+// converter: the placeholder and an unknown number keep the random-pair
+// fallback (asserted as "NOT the Kettlewright folder" — whether the random
+// pool is Aspeheim or the world's custom folder is not this probe's business),
+// and a custom absolute URL is used verbatim.
+const KW_DIR = "systems/air-bladder/tlomdev/Kettlewright Portraits";
+const mapping = await page.evaluate(async () => {
+  const { kettlewrightToActorData } = await import("/systems/air-bladder/module/kettlewright-import.js");
+  const base = {
+    name: "ZZ KW Map", background: "Kettlewright",
+    strength: 10, strength_max: 10, dexterity: 10, dexterity_max: 10, willpower: 10, willpower_max: 10,
+    hp: 3, hp_max: 3, gold: 0, deprived: false, panicked: false, armor: "0",
+    description: "", traits: "", notes: "", bonds: "", scars: "", omens: "",
+    items: [], containers: [],
+  };
+  const imgOf = async (patch) => {
+    const { data } = await kettlewrightToActorData({ ...base, ...patch });
+    return { img: data.img ?? null, token: data.prototypeToken?.texture?.src ?? null };
+  };
+  return {
+    placeholder: await imgOf({ custom_image: false, image_url: "default-portrait.webp" }),
+    unknown: await imgOf({ custom_image: false, image_url: "portrait999.webp" }),
+    custom: await imgOf({ custom_image: true, image_url: "https://example.com/me.png" }),
   };
 });
 
@@ -74,10 +105,18 @@ await browser.close();
 fs.rmSync(tmp, { force: true });
 
 console.log(JSON.stringify(out, null, 2));
+console.log(JSON.stringify(mapping, null, 2));
+const stockMapped = out.img === `${KW_DIR}/portrait17.webp` && out.token === out.img;
+const fallbacksKept = !mapping.placeholder.img?.startsWith(KW_DIR) && !!mapping.placeholder.img
+  && !mapping.unknown.img?.startsWith(KW_DIR) && !!mapping.unknown.img
+  && mapping.custom.img === "https://example.com/me.png";
 const ok = hasButton && optionsDialogFound && out.actorCreated && out.itemCount === 3 && out.bgUuidSet && out.armor === 1
-  && JSON.stringify(out.scars) === JSON.stringify(["Nicked", "Burned"]) && out.summaryShown && errors.length === 0;
+  && JSON.stringify(out.scars) === JSON.stringify(["Nicked", "Burned"]) && out.summaryShown
+  && stockMapped && fallbacksKept && errors.length === 0;
 if (!hasButton) console.log("FAIL: import button not injected");
 if (!optionsDialogFound) console.log("FAIL: no [data-action=import] options dialog appeared");
+if (!stockMapped) console.log(`FAIL: stock portrait17.webp not mapped to the shipped tlomdev copy (img=${out.img}, token=${out.token})`);
+if (!fallbacksKept) console.log("FAIL: placeholder/unknown/custom portrait fallbacks changed behaviour");
 if (errors.length) console.log("Console errors:\n" + errors.join("\n"));
 console.log(ok ? "e2e passed" : "e2e FAILED");
 process.exit(ok ? 0 : 1);

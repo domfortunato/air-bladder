@@ -43,7 +43,10 @@ try {
     const made = [];
     const track = (a) => { if (a) made.push(a); return a; };
     const containersOf = (actor) =>
-      game.actors.filter((a) => a.type === "container" && a.system?.keeper === actor.uuid);
+      game.actors.filter((a) =>
+        // Granted beasts are npc documents connected by `connectedTo` now, not
+        // `container` actors keeper-linked through the owner's array.
+        (a.system?.connectedTo === actor.uuid || a.system?.keeper === actor.uuid));
     const named = (actor, re) => actor.items.filter((i) => re.test(i.name));
 
     // 1. Packs + every reference resolves.
@@ -157,7 +160,7 @@ try {
       containerCount: mContainers.length,
       name: mContainers[0]?.name,
       capacity: mContainers[0]?.system.slotsMax,
-      kind: mContainers[0]?.system.transportKind,
+      kind: mContainers[0]?.system.containerClass,
       // ...and NOT as an item, which is what the fork was forced to do.
       notAnItem: !mActor.items.some((i) => /^wagon$/i.test(i.name)),
     };

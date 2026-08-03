@@ -17,6 +17,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ROOT, listPacks, readPack, writeTSV, normalizeKey, guardOverwrite } from "./lib.mjs";
+import { stringsFromDoc } from "./content-strings.mjs";
 
 const outArg = process.argv.indexOf("--out");
 const OUT = outArg === -1 ? path.join(ROOT, "tools", "i18n", "tsv") : process.argv[outArg + 1];
@@ -32,83 +33,41 @@ const overlayPath = path.join(ROOT, "lang", "content", `${LANG}.json`);
 const OVERLAY = fs.existsSync(overlayPath) ? JSON.parse(fs.readFileSync(overlayPath, "utf8")) : {};
 const priorTr = (ns, en) => OVERLAY[ns]?.[normalizeKey(en)] ?? "";
 
-const ACTOR_TYPES = new Set(["character", "npc", "container", "hireling"]);
-
-/**
- * Yield { ns, en, context } for every translatable string in one document.
- * The taxonomy IS the contract with the overlay engine — keep the two in step.
- * A pure generator: no side effects, so the caller owns dedup/collection.
- */
-function* stringsFromDoc(doc) {
-  const name = doc.name ?? "(unnamed)";
-
-  // RollTable — has a top-level results[] array.
-  if (Array.isArray(doc.results)) {
-    if (doc.name) yield { ns: "table.name", en: doc.name, context: "table" };
-    // A RollTable's `description` is authoring / GM-procedure metadata (marketplace
-    // stocking notes, "roll each dungeon cycle", one-line trait-table labels) shown
-    // only on Foundry's EDITABLE RollTable config sheet — there is no read-only
-    // surface to translate it on without risking a save writing the Spanish back
-    // over the English source, and no player ever sees it. Deliberately NOT
-    // extracted. Table RESULTS (what players/Wardens read when rolling) ARE, below.
-    for (const r of doc.results) {
-      const range = Array.isArray(r.range) ? r.range.join("-") : "";
-      // v13 split `TableResult#text` in two and the halves went to DIFFERENT
-      // fields: a text row's value is `description`, a document row's is `name`.
-      // This read `r.text`, so after the migration it extracted NOTHING for any
-      // table — silently, because a row with no string is indistinguishable here
-      // from a row that had none to begin with. Every rolled trait, bond, event,
-      // weather and shop line was therefore missing from the translator's
-      // spreadsheets. Same rule as `resultText` in module/compendium.js, which is
-      // what the runtime overlay looks these up by; the two MUST agree or a
-      // translated string is stored under a key nothing ever queries.
-      const en = (r.type === "text" ? r.description : r.name) ?? "";
-      if (en) yield { ns: "table.result", en, context: `${name} · ${range}`.trim() };
-    }
-    return;
-  }
-
-  // background Item — name/description plus the two d6 choice tables' prose.
-  if (doc.type === "background") {
-    if (doc.name) yield { ns: "bg.name", en: doc.name, context: "background" };
-    if (doc.system?.description) yield { ns: "bg.desc", en: doc.system.description, context: `${name} · description` };
-    const tables = doc.system?.tables ?? [];
-    for (let ti = 0; ti < tables.length; ti++) {
-      const t = tables[ti];
-      if (t.question) yield { ns: "bg.question", en: t.question, context: `${name} · question ${ti + 1}` };
-      const options = t.options ?? [];
-      for (let oi = 0; oi < options.length; oi++) {
-        if (options[oi].description) {
-          yield { ns: "bg.optionDesc", en: options[oi].description, context: `${name} · Q${ti + 1} opt ${oi + 1}` };
-        }
-      }
-    }
-    // system.names[] are in-world proper names — deliberately NOT translated.
-    return;
-  }
-
-  // Actor (monsters / npc) — name, description, and embedded item name/desc.
-  if (ACTOR_TYPES.has(doc.type) || doc.system?.abilities) {
-    if (doc.name) yield { ns: "monster.name", en: doc.name, context: "monster" };
-    if (doc.system?.description) yield { ns: "monster.desc", en: doc.system.description, context: `${name} · description` };
-    for (const it of doc.items ?? []) {
-      if (it.name) yield { ns: "monster.itemName", en: it.name, context: `${name} · ${it.name}` };
-      if (it.system?.description) yield { ns: "monster.itemDesc", en: it.system.description, context: `${name} · ${it.name} desc` };
-    }
-    return;
-  }
-
-  // Item (gear, weapons, armor, spellbooks, transports, market-goods, background-items).
-  if (doc.name) yield { ns: "item.name", en: doc.name, context: doc.type ?? "item" };
-  if (doc.system?.description) yield { ns: "item.desc", en: doc.system.description, context: `${name} · description` };
-}
-
 let totalRows = 0;
 const perPack = [];
 const pending = []; // [{ file, rows }] — written only after guardOverwrite clears them
 // Every current source string's composite key, across ALL packs — used after the
 // loop to find overlay translations that no longer match any source (stale).
 const currentKeys = new Set();
+
+// NPC careers live in module/npc-careers-2e.json, NOT in a pack — so listPacks
+// never saw them and their ~20 names reached no spreadsheet in any language,
+// while landing verbatim in the player-facing system.profession field. The
+// same silent-absence class as the r.text failure documented above: a corpus
+// hole indistinguishable from "there were none". Only `name` is emitted: the
+// stat fields are numbers, and the gear lists resolve to pack items already
+// covered by item.name. The display surface is the npc sheet's Career input
+// (t("npc.career", …) with a sourceOf() reverse map on submit — the stored
+// career is a MATCH KEY for the day-rate autofill and reroll exclusion, so it
+// must stay English).
+{
+  const careersPath = path.join(ROOT, "module", "npc-careers-2e.json");
+  const careers = JSON.parse(fs.readFileSync(careersPath, "utf8"));
+  const map = new Map();
+  for (const c of careers) {
+    if (!c?.name) continue;
+    const k = `npc.career\0${normalizeKey(c.name)}`;
+    currentKeys.add(k);
+    if (!map.has(k)) {
+      const trPrior = priorTr("npc.career", c.name);
+      map.set(k, { key: "npc.career", context: "npc career", en: c.name, tr: trPrior, notes: "", status: trPrior && trPrior !== c.name ? "done" : "todo" });
+    }
+  }
+  const rows = [...map.values()].sort((a, b) => a.en.localeCompare(b.en));
+  pending.push({ file: path.join(OUT, "content-npc-careers.tsv"), rows });
+  perPack.push({ pack: "npc-careers", rows: rows.length });
+  totalRows += rows.length;
+}
 
 for (const pack of listPacks()) {
   const map = new Map(); // (ns \0 normalizedEn) → row ; first occurrence keeps its context

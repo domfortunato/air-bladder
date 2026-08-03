@@ -3,7 +3,7 @@ name: Ankheg
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.svg
+img: systems/air-bladder/game-icons/creatures/alien-bug.svg
 items:
   - _id: BTSKJEksIY9nzYlp
     name: Bite
@@ -124,6 +124,8 @@ ownership:
   default: 0
   bDeEK9GSahKwiAGH: 3
 system:
+  generationEnabled: false
+  role: monster
   hp:
     value: 7
     max: 7

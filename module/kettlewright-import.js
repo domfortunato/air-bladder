@@ -1,6 +1,6 @@
 import { resolveGearItem, buildGearItem } from "./gear.js";
 import { resultText } from "./compendium.js";
-import { getBackgroundsFor, withGrantSource, randomPortraitPair, FLAG_SCOPE } from "./character-generator.js";
+import { getBackgroundsFor, withGrantSource, randomPortraitPair, kettlewrightPortraitPath, FLAG_SCOPE } from "./character-generator.js";
 import { SETTINGS_NS } from "./settings.js";
 import { CairnActor } from "./actor/actor.js";
 import { FATIGUE_NAME } from "./item/item.js";
@@ -470,6 +470,9 @@ export const kettlewrightToActorData = async (json) => {
   const data = {
     name,
     system: {
+      // An imported character lands with the Randomization switch OFF, stated
+      // rather than inherited from the schema initial — see characterToActorData.
+      generationEnabled: false,
       abilities: {
         STR: { value: num(json.strength, 10), max: num(json.strength_max, num(json.strength, 10)) },
         DEX: { value: num(json.dexterity, 10), max: num(json.dexterity_max, num(json.dexterity, 10)) },
@@ -499,16 +502,30 @@ export const kettlewrightToActorData = async (json) => {
       name,
       disposition: CONST.TOKEN_DISPOSITIONS.FRIENDLY,
       actorLink: true,
-      vision: true,
+      // No `vision` key — not in PrototypeToken's schema, pruned silently.
+      // Sight is stamped in CairnActor#_preCreate.
     },
     type: "character",
   };
-  // Portraits rarely travel: only a directly-usable absolute URL works across apps.
-  // Failing that, draw a random portrait + paired token exactly as generation does,
-  // so an import lands looking like a character rather than a blank silhouette. The
-  // player can swap it from the sheet's portrait gallery either way.
+  // Portraits: a custom absolute URL is used directly. A STOCK pick stores the
+  // bare filename of art we ship ourselves — Kettlewright's portraits are
+  // tlomdev's drawings, carried under tlomdev/Kettlewright Portraits/ with
+  // Kettlewright's exact numbering for this mapping — so the imported character
+  // keeps the face its player chose, on portrait AND token (the art is drawn as
+  // a circular token; a random Aspeheim token under a tlomdev face would clash).
+  // default-portrait.webp is Kettlewright's "no pick" placeholder and an unknown
+  // name means a Kettlewright newer than the shipped set: both fall back to a
+  // random portrait + paired token exactly as generation does, so an import
+  // lands looking like a character rather than a blank silhouette. The player
+  // can swap it from the sheet's portrait gallery either way.
+  const stock = !json.custom_image && /^portrait\d+\.webp$/.test(String(json.image_url ?? ""))
+    ? await kettlewrightPortraitPath(json.image_url)
+    : null;
   if (json.custom_image && isAbsoluteUrl(json.image_url)) data.img = json.image_url;
-  else {
+  else if (stock) {
+    data.img = stock;
+    data.prototypeToken.texture = { src: stock };
+  } else {
     const pair = await randomPortraitPair();
     if (pair) {
       data.img = pair.img;

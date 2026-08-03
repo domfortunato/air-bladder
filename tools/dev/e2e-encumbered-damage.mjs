@@ -19,6 +19,14 @@
  * actor.system.hp.value here would report 0 in both the fixed and broken cases and
  * pass for the wrong reason.
  *
+ *   2b-2d. Encumbrance follows the ROLE (2026-08-01, `livesByPlayerRules`): a
+ *      loaded MOUNT keeps its HP and its input submits; a role-npc PERSON at
+ *      capacity reads 0 with the stored value intact and the submit stripped —
+ *      exactly a PC; a full CONTAINER neither reads 0 nor loses HP edits, which
+ *      is the assertion that the re-key did not simply widen review #5's bug.
+ *      Each leg carries an instance shadow of the getter as its fail-witness,
+ *      in both directions, proving BOTH sites read the one getter.
+ *
  *   3. The chat Apply-damage button — the one path into
  *      Damage.onClickChatMessageApplyButton, which nothing exercised before it
  *      was converted off the repo's last jQuery call. A card carrying two
@@ -29,6 +37,15 @@
  *      conversion that reaches for the wrong one goes red here, not in a user's
  *      game. The shift-click branch (toggle targeting) is not covered: it needs
  *      interactive canvas state and reads the same data-targets string.
+ *
+ *   3b-3c. The card is pinned to the scene it was ROLLED on, not the one being
+ *      looked at. `canvas.scene` is the viewer's, so a party that moved on left
+ *      every id missing and the button applying nothing — with no message, since
+ *      a miss posts no damage card and no card looks exactly like "armor
+ *      absorbed it". 3b views a second scene, forces the log to re-render (the
+ *      rebind is where the failure was permanent) and clicks. 3c mixes a live id
+ *      with a dead one and asserts the survivor is damaged AND the miss is
+ *      reported.
  */
 import { chromium } from "playwright";
 import { VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
@@ -114,6 +131,148 @@ const out = await page.evaluate(async () => {
   await new Promise((r) => setTimeout(r, 500));
   results.hirelingSourceAfter = hire.toObject().system.hp.value;
 
+  /* 2b. Encumbrance follows the ROLE (2026-08-01) --------------------------- */
+  // The exemption used to be the TYPE — `type !== "npc"` — added for a
+  // container at exactly its capacity, which is its NORMAL state, not an
+  // injury (review #5). That reasoning is right for a crate and wrong for a
+  // person, so the rule is keyed on `livesByPlayerRules` now (character type,
+  // or role npc): a full innkeeper zeroes like a PC; monster, mount, transport
+  // and container keep the exemption. Both sites — the derived zero in
+  // _prepareCharacterData and the submit strip in _processFormData — read that
+  // ONE getter, and the shadow controls below prove it of each site.
+  //
+  // A MOUNT carries the exemption leg — a creature role on purpose: a thing
+  // role (transport or container) would hide the HP input the submit half of
+  // this section needs; the thing case is 2d below.
+  const mule = await CONFIG.Actor.documentClass.create({
+    name: `${NAME}-mule`, type: "npc",
+    system: { role: "mount", containerClass: "horse", hp: { value: 4, max: 6 }, slots: 2 },
+  });
+  await mule.createEmbeddedDocuments("Item", [{ name: "Anvil", type: "item", system: { bulky: true } }]);
+  results.npcEncumbered = mule.system.encumbered === true;
+  results.npcDerivedHp = mule.system.hp.value;             // must stay 4
+  results.npcSourceHp = mule.toObject().system.hp.value;
+
+  // ...and its HP input still submits: the strip guard must not fire on an npc
+  // that is merely full, or a full mule's HP is un-editable for as long as it
+  // stays full.
+  const mSheet = mule.sheet;
+  await mSheet.render(true);
+  await new Promise((r) => setTimeout(r, 900));
+  const mForm = mSheet.element instanceof HTMLElement ? mSheet.element : mSheet.element[0];
+  const mFD = new foundry.applications.ux.FormDataExtended(mForm);
+  const mSubmitted = mSheet._processFormData(null, mForm, mFD);
+  results.npcSubmitKeepsHp =
+    "system.hp.value" in mSubmitted || mSubmitted?.system?.hp?.value !== undefined;
+  await mSheet.close();
+
+  // NEGATIVE CONTROL, on the prototype: re-apply the old unconditional zeroing
+  // after prepare and the same full mule must read 0 again — proof the role
+  // gate is what the assertion above measures, not a mule that was never
+  // really encumbered.
+  const proto = CONFIG.Actor.documentClass.prototype;
+  const origPrep = proto._prepareCharacterData;
+  proto._prepareCharacterData = function (...args) {
+    origPrep.apply(this, args);
+    if (this.system.encumbered) this.system.hp.value = 0;  // the pre-fix line
+  };
+  mule.prepareData();
+  results.npcControlZeroed = mule.system.hp.value === 0;
+  proto._prepareCharacterData = origPrep;
+  // reset() first: the control wrote its 0 into the DERIVED model, and the fixed
+  // prepare never touches a mount's hp — so without rebuilding from source the
+  // 0 lingers and the restore reads the control's own residue, not the fix.
+  mule.reset();
+  mule.prepareData();
+  results.npcRestored = mule.system.hp.value === 4;
+
+  /* 2c. A role-npc PERSON at capacity zeroes exactly like a PC -------------- */
+  const person = await CONFIG.Actor.documentClass.create({
+    name: `${NAME}-person`, type: "npc",
+    system: { role: "npc", generationEnabled: false, hp: { value: 4, max: 6 }, slots: 2 },
+  });
+  await person.createEmbeddedDocuments("Item", [{ name: "Anvil", type: "item", system: { bulky: true } }]);
+  results.personEncumbered = person.system.encumbered === true;
+  results.personDerivedHp = person.system.hp.value;            // must read 0
+  results.personSourceHp = person.toObject().system.hp.value;  // stored 4 intact
+
+  // ...and the strip guard fires for a person, so the derived 0 never
+  // persists: the extracted submit must carry no hp, and a REAL submit (a
+  // rename) must leave the stored 4 alone.
+  const pSheet = person.sheet;
+  await pSheet.render(true);
+  await new Promise((r) => setTimeout(r, 900));
+  let pForm = pSheet.element instanceof HTMLElement ? pSheet.element : pSheet.element[0];
+  const pSubmitted = pSheet._processFormData(null, pForm, new foundry.applications.ux.FormDataExtended(pForm));
+  results.personSubmitStripsHp = pSubmitted?.system?.hp?.value === undefined
+    && !("system.hp.value" in pSubmitted);
+  const pName = pForm.querySelector('input[name="name"]');
+  pName.value = `${NAME}-person-renamed`;
+  pName.dispatchEvent(new Event("change", { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 900));
+  results.personRenamed = person.name === `${NAME}-person-renamed`;
+  results.personSourceAfter = person.toObject().system.hp.value;
+
+  // FAIL-WITNESS, both sites off one shadow: `livesByPlayerRules` forced false
+  // on the instance (the pre-fix answer for any npc) and the person must stop
+  // zeroing — proof the getter is what the derived zero reads — and the strip
+  // must stop firing, proof the guard reads the SAME getter. That shared read
+  // is the whole point of the re-key: the two sites cannot drift.
+  Object.defineProperty(person, "livesByPlayerRules", { value: false, configurable: true });
+  person.reset();
+  person.prepareData();
+  results.personControlKeptHp = person.system.hp.value === 4;
+  pForm = pSheet.element instanceof HTMLElement ? pSheet.element : pSheet.element[0];
+  const pSubmitted2 = pSheet._processFormData(null, pForm, new foundry.applications.ux.FormDataExtended(pForm));
+  results.personControlSubmitKeepsHp = pSubmitted2?.system?.hp?.value !== undefined;
+  delete person.livesByPlayerRules;
+  person.reset();
+  person.prepareData();
+  results.personRestoredZero = person.system.hp.value === 0;
+  await pSheet.close();
+
+  /* 2d. A container-role npc at capacity: no zero, HP still editable -------- */
+  // The assertion that proves the re-key did not simply WIDEN the old bug: a
+  // full crate must neither read 0 nor have its HP edits stripped.
+  const crate = await CONFIG.Actor.documentClass.create({
+    name: `${NAME}-crate`, type: "npc",
+    system: { role: "container", containerClass: "crate", generationEnabled: false, hp: { value: 4, max: 6 }, slots: 2 },
+  });
+  await crate.createEmbeddedDocuments("Item", [{ name: "Anvil", type: "item", system: { bulky: true } }]);
+  results.crateEncumbered = crate.system.encumbered === true;
+  results.crateDerivedHp = crate.system.hp.value;              // must stay 4
+
+  // A thing's sheet hides the HP input, so a real form can never carry one —
+  // the guard is interrogated with a synthetic payload instead (core's
+  // _processFormData is expandObject(formData.object), document-sheet.mjs:508).
+  // If derivedZero misfired on a full crate this value would be stripped, and
+  // the field would be un-editable exactly the way review #5 recorded.
+  const cSheet = crate.sheet;
+  await cSheet.render(true);
+  await new Promise((r) => setTimeout(r, 900));
+  const cForm = cSheet.element instanceof HTMLElement ? cSheet.element : cSheet.element[0];
+  results.crateNoHpInput = !cForm.querySelector('input[name="system.hp.value"]');
+  const cSubmitted = cSheet._processFormData(null, cForm, { object: { "system.hp.value": 5 } });
+  results.crateSubmitKeepsHp = cSubmitted?.system?.hp?.value === 5;
+  // ...and the document write path takes an HP edit while full.
+  await crate.update({ "system.hp.value": 5 });
+  results.crateHpEditable = crate.toObject().system.hp.value === 5;
+
+  // FAIL-WITNESS, the shadow the other way: a crate forced onto the player
+  // rules must zero AND have the synthetic hp stripped — the two greens above
+  // can fail, and through the same getter both sites read.
+  Object.defineProperty(crate, "livesByPlayerRules", { value: true, configurable: true });
+  crate.reset();
+  crate.prepareData();
+  results.crateControlZeroed = crate.system.hp.value === 0;
+  const cSubmitted2 = cSheet._processFormData(null, cForm, { object: { "system.hp.value": 7 } });
+  results.crateControlStripped = cSubmitted2?.system?.hp?.value === undefined;
+  delete crate.livesByPlayerRules;
+  crate.reset();
+  crate.prepareData();
+  results.crateRestored = crate.system.hp.value === 5;   // DERIVED, not source
+  await cSheet.close();
+
   /* 3. The chat Apply-damage button ---------------------------------------- */
   // Chat litter from this section (the card itself plus the per-target detail
   // messages _showDetails posts) is swept by id-diff at the end.
@@ -145,13 +304,18 @@ const out = await page.evaluate(async () => {
   // flavor. A dieless formula, so the total the handler reads out of
   // .dice-total is a known 2 rather than a parsed random d6.
   const { evaluateFormula } = await import("/systems/air-bladder/module/utils.js");
-  const postCard = async () => {
+  const postCard = async (targets = [t1.id, t2.id], speakerToken = null) => {
     const roll = await evaluateFormula("2", {});
     const flavor = await foundry.applications.handlebars.renderTemplate(
       "systems/air-bladder/templates/chat/dmg-roll-card.html",
-      { label: "probe damage", targets: [t1.id, t2.id].join(";") },
+      { label: "probe damage", targets: targets.join(";") },
     );
-    const msg = await roll.toMessage({ speaker: ChatMessage.getSpeaker(), flavor });
+    // A token speaker records `scene: token.parent.id` (chat-message.mjs:271),
+    // which is what pins the card to the scene the roll happened on.
+    const speaker = speakerToken
+      ? ChatMessage.getSpeaker({ token: speakerToken })
+      : ChatMessage.getSpeaker();
+    const msg = await roll.toMessage({ speaker, flavor });
     await until(() => document.querySelector(`[data-message-id="${msg.id}"] .apply-dmg i`));
     return msg;
   };
@@ -175,10 +339,52 @@ const out = await page.evaluate(async () => {
   await new Promise((r) => setTimeout(r, 2000));
   results.deadButtonInert = hp() === results.hpAfterClick;
 
+  /* 3b. A card outlives the scene it was rolled on -------------------------- */
+  // data-targets holds token ids belonging to the ROLL's scene. The handler read
+  // `canvas.scene` — the VIEWER's — so the moment the party moved on, every id
+  // missed and the button applied nothing, permanently and with no message: a
+  // miss posts no card, and no card is indistinguishable from "armor absorbed
+  // it". The sibling STR-save button was fixed for this; this one was not.
+  const sceneB = await Scene.create({ name: `${NAME}-scene-b`, width: 1000, height: 1000 });
+  const msg3 = await postCard([t1.id, t2.id], t1);
+  await sceneB.view();
+  await until(() => canvas.scene?.id === sceneB.id);
+  results.viewingOtherScene = canvas.scene?.id === sceneB.id;
+  // Re-render the log so the button is bound AGAIN under the new scene. Without
+  // this the leg would only prove the closure captured the right scene once; the
+  // recorded failure is that the re-render rebinds against the wrong one.
+  await ui.chat.render({ force: true });
+  await until(() => document.querySelector(`[data-message-id="${msg3.id}"] .apply-dmg i`));
+  results.crossSceneButton = !!document.querySelector(`[data-message-id="${msg3.id}"] .apply-dmg i`);
+  const hpBeforeCross = hp();
+  document.querySelector(`[data-message-id="${msg3.id}"] .apply-dmg i`)?.click();
+  results.crossSceneLanded = await until(() => hp() === "0,0");
+  results.hpAfterCross = `${hpBeforeCross} -> ${hp()}`;
+
+  await scene3.view();
+  await until(() => canvas.scene?.id === scene3.id);
+
+  /* 3c. A target that is GONE must say so ----------------------------------- */
+  // A killed foe leaves its id on every card it appeared on. Applying to a mixed
+  // batch must still damage the survivors AND tell the Warden the rest missed.
+  const v3 = await mkVictim(3);
+  const [t3] = await scene3.createEmbeddedDocuments("Token", [await v3.getTokenDocument({ x: 400, y: 400 })]);
+  const warns = [];
+  const origWarn = ui.notifications.warn;
+  ui.notifications.warn = function (m, ...rest) { warns.push(String(m)); return origWarn.call(this, m, ...rest); };
+  const msg4 = await postCard([t3.id, "zzzzzzzzzzzzzzzz"], t3);
+  document.querySelector(`[data-message-id="${msg4.id}"] .apply-dmg i`)?.click();
+  results.mixedSurvivorHit = await until(() => v3.toObject().system.hp.value === 2);
+  results.mixedWarned = await until(() => warns.length > 0);
+  results.missWarning = warns[0] ?? "(none)";
+  ui.notifications.warn = origWarn;
+
   for (const m of game.messages.filter((m) => !msgsBefore.has(m.id))) await m.delete();
   await t1.delete();
   await t2.delete();
+  await t3.delete();
   if (prev3 && prev3.id !== scene3.id) await prev3.view();
+  await sceneB.delete();
 
   for (const a of game.actors.filter((a) => a.name.startsWith(NAME))) await a.delete();
   const s = game.scenes.getName(`${NAME}-scene`);
@@ -212,6 +418,42 @@ check("a real submit ran", out.hirelingRenamed, "editing the name field committe
 check("stored HP survives", out.hirelingSourceAfter === 4,
   `source=${out.hirelingSourceAfter} (expected 4: a submit must not persist the derived 0)`);
 
+console.log("\na mount at capacity (a loaded mule is not a dying creature)");
+check("mount encumbered", out.npcEncumbered, "a bulky item fills its 2 slots exactly");
+check("mount HP NOT zeroed", out.npcDerivedHp === 4,
+  `derived=${out.npcDerivedHp}, source=${out.npcSourceHp} (a full mule keeps its HP; the player rule stops at role npc)`);
+check("mount HP input submits", out.npcSubmitKeepsHp,
+  "the strip guard does not fire on a merely-full mount — its HP stays editable");
+check("negative control", out.npcControlZeroed && out.npcRestored,
+  `old zeroing on the prototype reproduces the 0 (${out.npcControlZeroed}) and restores (${out.npcRestored})`);
+
+console.log("\na role-npc PERSON at capacity lives by the player rules");
+check("person encumbered", out.personEncumbered, "a bulky item fills its 2 slots exactly");
+check("person reads HP 0", out.personDerivedHp === 0 && out.personSourceHp === 4,
+  `derived=${out.personDerivedHp}, source=${out.personSourceHp} (an overloaded innkeeper zeroes like a PC; the stored value survives)`);
+check("guard strips person HP", out.personSubmitStripsHp,
+  "system.hp.value removed from the person's submit — the derived 0 cannot persist");
+check("a real submit ran", out.personRenamed, "editing the name field committed");
+check("stored HP survives it", out.personSourceAfter === 4,
+  `source=${out.personSourceAfter} (expected 4 after a real submit)`);
+check("witness: both sites, one shadow",
+  out.personControlKeptHp && out.personControlSubmitKeepsHp && out.personRestoredZero,
+  `livesByPlayerRules shadowed false: no zero (${out.personControlKeptHp}), no strip (${out.personControlSubmitKeepsHp}); restored (${out.personRestoredZero}) — both sites read the ONE getter`);
+
+console.log("\na container-role npc at capacity (the re-key must not widen the old bug)");
+check("crate encumbered", out.crateEncumbered, "a bulky item fills its 2 slots exactly");
+check("crate HP NOT zeroed", out.crateDerivedHp === 4,
+  `derived=${out.crateDerivedHp} (a full crate is in its normal state)`);
+check("no HP input on a thing", out.crateNoHpInput,
+  "the thing sheet hides the stat block, so the guard is interrogated synthetically");
+check("guard passes crate HP", out.crateSubmitKeepsHp,
+  "a synthetic system.hp.value survives _processFormData on a full crate");
+check("crate HP editable", out.crateHpEditable,
+  "an update while full lands (review #5's un-editable trap stays closed)");
+check("witness: shadow the other way",
+  out.crateControlZeroed && out.crateControlStripped && out.crateRestored,
+  `livesByPlayerRules shadowed true: zeroed (${out.crateControlZeroed}), stripped (${out.crateControlStripped}); restored (${out.crateRestored})`);
+
 console.log("\nthe chat Apply-damage button");
 check("card + button render", out.applyButtonRendered, "damage card in the log with .apply-dmg");
 check("HP intact pre-click", out.hpBeforeClick === "4,4",
@@ -220,6 +462,20 @@ check("icon click applies", out.applyLanded && out.hpAfterClick === "2,2",
   `hp=${out.hpAfterClick} (expected 2,2 — the rolled 2 applied to BOTH ids split from data-targets, via a click on the icon inside the anchor)`);
 check("dead button inert", out.deadButtonInert,
   "an unwired button's click changed nothing — the assertion above can fail");
+
+console.log("\na card outlives the scene it was rolled on");
+check("viewing another scene", out.viewingOtherScene,
+  "the party moved on; the card's token ids belong to the scene it was rolled on");
+check("button still bound", out.crossSceneButton,
+  "the log re-rendered under the new scene and the anchor is still there");
+check("cross-scene apply lands", out.crossSceneLanded,
+  `hp ${out.hpAfterCross} (expected 2,2 -> 0,0; reading the VIEWER's scene made every id miss)`);
+
+console.log("\na target whose token is gone");
+check("survivor still damaged", out.mixedSurvivorHit,
+  "a mixed batch damages the ids that resolve");
+check("the miss is reported", out.mixedWarned && !/^CAIRN\./.test(out.missWarning),
+  `warn: ${out.missWarning}`);
 
 if (errors.length) { bad++; console.log("Console errors:\n" + errors.join("\n")); }
 console.log(bad === 0 ? "\nencumbered-damage e2e passed" : `\nencumbered-damage e2e FAILED — ${bad}`);

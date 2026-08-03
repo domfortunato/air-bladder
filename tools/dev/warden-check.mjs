@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Check the 26 Warden tables against the Cairn SRD.
+ * Check the 34 Warden tables against the Cairn SRD.
  *
  *   node tools/dev/warden-check.mjs [--verbose]
  *
@@ -15,7 +15,7 @@
  *
  * TWO KINDS OF TABLE.
  *
- * VERBATIM (14 tables, 320 rows) -- warden-npcs and warden-monsters. Each result
+ * VERBATIM (22 tables, 480 rows) -- warden-npcs and warden-monsters. Each result
  * is one SRD cell, unchanged. Compared exactly.
  *
  * COMPOSED (11 tables, 56 rows) -- warden-encounters and warden-travel. The SRD
@@ -55,6 +55,7 @@ const FILES = {
   core: "second-edition/players-guide/core-rules.md",
   npc: "second-edition/wardens-guide/npc-tables.md",
   monsters: "second-edition/wardens-guide/creating-monsters.md",
+  seeds: "second-edition/wardens-guide/setting-seeds.md",
 };
 
 /* ------------------------------------------------------------------- markdown */
@@ -180,6 +181,20 @@ const SPEC = [
   { name: "Warden: NPC - Goal", src: "npc", heading: "## Goals", rows: "numbered", cols: [1], exact: true },
   { name: "Warden: NPC - Virtue", src: "npc", heading: "## Traits", table: 0, rows: "numbered", cols: [1], exact: true },
   { name: "Warden: NPC - Vice", src: "npc", heading: "## Traits", table: 1, rows: "numbered", cols: [1], exact: true },
+
+  // -- warden-npcs: the faction suite (Setting Seeds), one cell per result ----
+  // Four two-payload-column SRD tables ship as eight, exactly the monster
+  // convention. "Warden: NPC - Faction" IS the Types table's Type column — it
+  // ships once, as the sheet die's target, rather than twice under two names
+  // in one editable pack (two copies would drift under a Warden's edits).
+  { name: "Warden: NPC - Faction", src: "seeds", heading: "#### Faction Types", rows: "numbered", cols: [1], exact: true },
+  { name: "Warden: Faction - Agent", src: "seeds", heading: "#### Faction Types", rows: "numbered", cols: [2], exact: true },
+  { name: "Warden: Faction - Trait (Trait 1)", src: "seeds", heading: "#### Faction Traits", rows: "numbered", cols: [1], exact: true },
+  { name: "Warden: Faction - Trait (Trait 2)", src: "seeds", heading: "#### Faction Traits", rows: "numbered", cols: [2], exact: true },
+  { name: "Warden: Faction - Advantage (Count)", src: "seeds", heading: "#### Faction Advantages", rows: "numbered", cols: [1], exact: true },
+  { name: "Warden: Faction - Advantage", src: "seeds", heading: "#### Faction Advantages", rows: "numbered", cols: [2], exact: true },
+  { name: "Warden: Faction - Agenda", src: "seeds", heading: "#### Faction Agendas", rows: "numbered", cols: [1], exact: true },
+  { name: "Warden: Faction - Obstacle", src: "seeds", heading: "#### Faction Agendas", rows: "numbered", cols: [2], exact: true },
 
   // -- warden-monsters: four two-column tables -> eight -----------------------
   { name: "Warden: Monster - Appearance (Physique)", src: "monsters", heading: "## Monster Appearance", rows: "numbered", cols: [1], exact: true },

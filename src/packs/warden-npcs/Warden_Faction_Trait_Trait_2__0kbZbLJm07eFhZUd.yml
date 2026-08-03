@@ -1,0 +1,237 @@
+_id: 0kbZbLJm07eFhZUd
+name: 'Warden: Faction - Trait (Trait 2)'
+img: icons/svg/d20-grey.svg
+description: "Cairn 2e Faction Traits (Setting Seeds) — the Trait 2 column. Roll once here and once on Warden: Faction - Trait (Trait 1) for a faction's two traits."
+results:
+  - _id: 0NJsfmfpeeWAlzi8
+    type: text
+    description: Adaptable
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 1
+      - 1
+    drawn: false
+    flags: {}
+    _key: '!tables.results!0kbZbLJm07eFhZUd.0NJsfmfpeeWAlzi8'
+  - _id: MqBZAv69ZXcVLQlc
+    type: text
+    description: Bankrupt
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    flags: {}
+    _key: '!tables.results!0kbZbLJm07eFhZUd.MqBZAv69ZXcVLQlc'
+  - _id: wdI1PhkyevO8CSPq
+    type: text
+    description: Brutal
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    flags: {}
+    _key: '!tables.results!0kbZbLJm07eFhZUd.wdI1PhkyevO8CSPq'
+  - _id: xxlhM8x8u5wSqPFU
+    type: text
+    description: Collaborative
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    flags: {}
+    _key: '!tables.results!0kbZbLJm07eFhZUd.xxlhM8x8u5wSqPFU'
+  - _id: vNV4bqT9d0RWSntr
+    type: text
+    description: Corrupt
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    flags: {}
+    _key: '!tables.results!0kbZbLJm07eFhZUd.vNV4bqT9d0RWSntr'
+  - _id: 4KYMDClmfxUlrvCg
+    type: text
+    description: Craven
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    flags: {}
+    _key: '!tables.results!0kbZbLJm07eFhZUd.4KYMDClmfxUlrvCg'
+  - _id: UidnN7XwgduUVnDh
+    type: text
+    description: Cruel
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 7
+      - 7
+    drawn: false
+    flags: {}
+    _key: '!tables.results!0kbZbLJm07eFhZUd.UidnN7XwgduUVnDh'
+  - _id: 3BLEsAJhVmGT0i6r
+    type: text
+    description: Cunning
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 8
+      - 8
+    drawn: false
+    flags: {}
+    _key: '!tables.results!0kbZbLJm07eFhZUd.3BLEsAJhVmGT0i6r'
+  - _id: 2rTbNh4ZlbZ9BNE1
+    type: text
+    description: Cynical
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 9
+      - 9
+    drawn: false
+    flags: {}
+    _key: '!tables.results!0kbZbLJm07eFhZUd.2rTbNh4ZlbZ9BNE1'
+  - _id: Lx1FEnEROHxDvQBn
+    type: text
+    description: Deceptive
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 10
+      - 10
+    drawn: false
+    flags: {}
+    _key: '!tables.results!0kbZbLJm07eFhZUd.Lx1FEnEROHxDvQBn'
+  - _id: KaXEMsqdg4EOa0pA
+    type: text
+    description: Generous
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 11
+      - 11
+    drawn: false
+    flags: {}
+    _key: '!tables.results!0kbZbLJm07eFhZUd.KaXEMsqdg4EOa0pA'
+  - _id: 4ubFRfabWJB7S7EW
+    type: text
+    description: Incompetent
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 12
+      - 12
+    drawn: false
+    flags: {}
+    _key: '!tables.results!0kbZbLJm07eFhZUd.4ubFRfabWJB7S7EW'
+  - _id: 1EiS6QK79ewrpPoI
+    type: text
+    description: Manipulative
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 13
+      - 13
+    drawn: false
+    flags: {}
+    _key: '!tables.results!0kbZbLJm07eFhZUd.1EiS6QK79ewrpPoI'
+  - _id: 0IAKifB1TTDh4nyw
+    type: text
+    description: Mercurial
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 14
+      - 14
+    drawn: false
+    flags: {}
+    _key: '!tables.results!0kbZbLJm07eFhZUd.0IAKifB1TTDh4nyw'
+  - _id: 1xFiEus69n2HG73N
+    type: text
+    description: Repressed
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 15
+      - 15
+    drawn: false
+    flags: {}
+    _key: '!tables.results!0kbZbLJm07eFhZUd.1xFiEus69n2HG73N'
+  - _id: qoc2yEJ9QC1B17n5
+    type: text
+    description: Ruthless
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 16
+      - 16
+    drawn: false
+    flags: {}
+    _key: '!tables.results!0kbZbLJm07eFhZUd.qoc2yEJ9QC1B17n5'
+  - _id: 4a2vc5Ugz0XQf7PH
+    type: text
+    description: Selfish
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 17
+      - 17
+    drawn: false
+    flags: {}
+    _key: '!tables.results!0kbZbLJm07eFhZUd.4a2vc5Ugz0XQf7PH'
+  - _id: pzds333GYScmkRcm
+    type: text
+    description: Stealthy
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 18
+      - 18
+    drawn: false
+    flags: {}
+    _key: '!tables.results!0kbZbLJm07eFhZUd.pzds333GYScmkRcm'
+  - _id: vOx0ACMNDPucDNbq
+    type: text
+    description: Threatened
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 19
+      - 19
+    drawn: false
+    flags: {}
+    _key: '!tables.results!0kbZbLJm07eFhZUd.vOx0ACMNDPucDNbq'
+  - _id: OZN0glD3s7G7h7zV
+    type: text
+    description: Xenophobic
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 20
+      - 20
+    drawn: false
+    flags: {}
+    _key: '!tables.results!0kbZbLJm07eFhZUd.OZN0glD3s7G7h7zV'
+formula: 1d20
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!tables!0kbZbLJm07eFhZUd'

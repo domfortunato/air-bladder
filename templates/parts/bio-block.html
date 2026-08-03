@@ -1,0 +1,114 @@
+{{!-- The biography block: pronouns + age, the eight-trait sentence and
+      pick-lists, then Omen (showOmen) and Scars (showScars). MOVED verbatim
+      from character-sheet.html (2026-08-01) when role-npc PEOPLE got the same
+      block — the character sheet includes it ungated, the npc sheet behind
+      `{{#if showBiography}}` (role npc only). Context comes from
+      `_prepareBiographyContext` plus the flags each caller sets. --}}
+                        {{#if traitRows}}
+                        <div class="character-traits">
+                            <!-- Pronouns + Age at the top, then the constructed sentence. -->
+                            <div class="bio-top">
+                                <div class="trait-row pronouns-row">
+                                    <label class="trait-label">{{ localize 'CAIRN.Pronouns' }}</label>
+                                    <input class="trait-input" type="text" name="system.pronouns"
+                                        value="{{system.pronouns}}" maxlength="20" />
+                                </div>
+                                {{#if showAge}}
+                                <div class="trait-row age-row">
+                                    <label class="trait-label">{{ localize 'CAIRN.Age' }}</label>
+                                    <input class="trait-input" type="text" name="system.age" value="{{system.age}}" />
+                                    {{#if generationEnabled}}
+                                    <a class="age-roll" data-action="rollAge" title="{{ localize 'CAIRN.RollAge' }}"><i class="fas fa-dice-d20"></i></a>
+                                    {{/if}}
+                                </div>
+                                {{/if}}
+                            </div>
+                            {{#if traitSentence}}
+                            <p class="trait-sentence">{{traitSentence}}</p>
+                            {{/if}}
+                            <!-- Collapsible pick-lists: the sentence is the default view;
+                                 expand to change any individual trait. -->
+                            <div class="trait-picklist-section">
+                                <div class="trait-picklist-header">
+                                    <label class="trait-picklist-label">{{ localize 'CAIRN.Traits' }}</label>
+                                    <a class="trait-toggle" data-action="toggleTraits" title="{{ localize 'CAIRN.ToggleTraits' }}"><i
+                                            class="fas {{#if traitsCollapsed}}fa-plus-square{{else}}fa-minus-square{{/if}}"></i></a>
+                                </div>
+                                {{#unless traitsCollapsed}}
+                                <div class="trait-grid">
+                                    {{#each traitRows}}
+                                    <div class="trait-row">
+                                        <label class="trait-label">{{this.label}}</label>
+                                        <select class="trait-input" name="system.traits.{{this.key}}">
+                                            <option value="" {{#unless this.value}}selected{{/unless}}></option>
+                                            {{#if this.customValue}}
+                                            <option value="{{this.customValue}}" selected>{{this.customDisplay}}</option>
+                                            {{/if}}
+                                            {{#each this.options}}
+                                            <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.display}}</option>
+                                            {{/each}}
+                                        </select>
+                                    </div>
+                                    {{/each}}
+                                </div>
+                                {{/unless}}
+                            </div>
+                        </div>
+                        {{/if}}
+                        {{#if showScars}}
+                        <div class="character-omen-scar">
+                            {{#if showOmen}}
+                            <div class="omen-row {{#if system.omenEnabled}}omen-enabled{{/if}}">
+                                <label class="omen-label">
+                                    <input type="checkbox" class="omen-enable" {{checked system.omenEnabled}} />
+                                    {{ localize 'CAIRN.Omen' }}
+                                </label>
+                                {{#if system.omenEnabled}}
+                                <textarea class="omen-input" name="system.omen" rows="4"
+                                    placeholder="{{ localize 'CAIRN.OmenPlaceholder' }}">{{system.omen}}</textarea>
+                                {{#if generationEnabled}}
+                                <a class="omen-roll" data-action="rollOmen" title="{{ localize 'CAIRN.RollOmen' }}"><i class="fas fa-dice-d20"></i></a>
+                                {{/if}}
+                                {{else}}
+                                {{! omenDisplay = t("table.result", system.omen) — the read surface
+                                    localizes; the textarea above stays the stored English source. }}
+                                <span class="omen-display">{{#if system.omen}}{{omenDisplay}}{{else}}{{ localize 'CAIRN.OmenPlaceholder' }}{{/if}}</span>
+                                {{/if}}
+                            </div>
+                            {{/if}}
+                            <div class="scar-section">
+                                <div class="scar-header">
+                                    <label class="scar-label">
+                                        <input type="checkbox" class="scar-enable" {{checked system.scarEnabled}} />
+                                        {{ localize 'CAIRN.ScarsSection' }}
+                                    </label>
+                                    {{#if system.scarEnabled}}
+                                    <a class="scar-toggle" data-action="toggleScars" title="{{ localize 'CAIRN.ToggleScars' }}"><i
+                                            class="fas {{#if scarsCollapsed}}fa-plus-square{{else}}fa-minus-square{{/if}}"></i></a>
+                                    {{else}}
+                                    <span class="scar-display">{{ localize 'CAIRN.ScarsHint' }}</span>
+                                    {{/if}}
+                                </div>
+                                {{#if system.scarEnabled}}
+                                    {{#unless scarsCollapsed}}
+                                    <div class="scar-list">
+                                        {{#each scarOptions}}
+                                        <label class="scar-option">
+                                            {{! `value` is the STORED English (the change handler
+                                                persists it verbatim); `display` is what you read. }}
+                                            <input type="checkbox" class="scar-check" value="{{this.name}}"
+                                                {{#if this.selected}}checked{{/if}} />
+                                            <span class="scar-text">
+                                                <span class="scar-name">{{this.display}}</span>
+                                                <span class="scar-desc">{{this.description}}</span>
+                                            </span>
+                                        </label>
+                                        {{/each}}
+                                    </div>
+                                    {{else}}
+                                    <span class="scar-display">{{#if scarDisplay}}{{scarDisplay}}{{else}}{{ localize 'CAIRN.NoneYet' }}{{/if}}</span>
+                                    {{/unless}}
+                                {{/if}}
+                            </div>
+                        </div>
+                        {{/if}}

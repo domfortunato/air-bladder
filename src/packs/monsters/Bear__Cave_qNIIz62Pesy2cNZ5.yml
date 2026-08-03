@@ -3,7 +3,7 @@ name: Bear, Cave
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.svg
+img: systems/air-bladder/game-icons/animals/bear-head.svg
 items:
   - _id: MJPLMfN7pwWN9H55
     name: Claws*
@@ -54,6 +54,8 @@ ownership:
   default: 0
   bDeEK9GSahKwiAGH: 3
 system:
+  generationEnabled: false
+  role: monster
   hp:
     value: 8
     max: 8
@@ -118,7 +120,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: icons/svg/mystery-man.svg
+    src: systems/air-bladder/game-icons/animals/bear-head.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

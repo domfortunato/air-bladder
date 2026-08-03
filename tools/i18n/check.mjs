@@ -19,7 +19,8 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { ROOT } from "./lib.mjs";
+import { ROOT, listPacks, readPack, normalizeKey } from "./lib.mjs";
+import { stringsFromDoc } from "./content-strings.mjs";
 import { checkPair, flattenLang } from "./validate.mjs";
 
 const STRICT = process.argv.includes("--strict");
@@ -76,6 +77,110 @@ if (GLOSSARY) {
       }
     }
   }
+}
+
+/* ---- the CONTENT overlay ---------------------------------------------------
+ * Everything above compares two interface files key-for-key, which the content
+ * overlay cannot be checked against: it is keyed on the ENGLISH SOURCE STRING,
+ * so a translation dies not by losing its key but by keeping one nothing asks
+ * for any more. `i18n:extract` has always computed that (content-stale.tsv) and
+ * has never been a gate — the file is gitignored, and the one tool that wrote it
+ * spent two days unable to run at all. Thirty finished Spanish strings shipped
+ * dead in that window. So the same computation runs here, where it is read.
+ *
+ * Three classes, and the split is the point, because only two are defects:
+ *
+ *   - **quoted**   — the key is a spreadsheet's CSV quoting of a real source
+ *     string (wrapped, inner quotes doubled). Always a tooling defect, always
+ *     mechanically recoverable.        ERROR
+ *   - **moved**    — the same English exists in the source under a DIFFERENT
+ *     namespace. A rename or a type move that was never carried through to the
+ *     overlay; the value is reusable verbatim.   ERROR
+ *   - **dropped**  — the English exists nowhere. Editing English prose orphans
+ *     its translation, and CLAUDE.md records that as the expected cost of the
+ *     source-string scheme, not as a bug.        warning
+ */
+const contentPath = path.join(ROOT, "lang", "content", `${LANG}.json`);
+const contentOrphans = { quoted: [], moved: [], dropped: [] };
+if (fs.existsSync(contentPath)) {
+  const overlay = JSON.parse(fs.readFileSync(contentPath, "utf8"));
+  const byNs = new Set();      // "ns\0normEn"
+  const byText = new Map();    // normEn → Set(ns)
+  const add = (ns, enStr) => {
+    const k = normalizeKey(enStr);
+    byNs.add(`${ns}\0${k}`);
+    if (!byText.has(k)) byText.set(k, new Set());
+    byText.get(k).add(ns);
+  };
+  for (const pack of listPacks()) {
+    for (const { doc } of readPack(pack)) for (const s of stringsFromDoc(doc)) add(s.ns, s.en);
+  }
+  // Careers live in a module JSON, not a pack — same exception extract makes.
+  for (const c of JSON.parse(fs.readFileSync(path.join(ROOT, "module", "npc-careers-2e.json"), "utf8"))) {
+    if (c?.name) add("npc.career", c.name);
+  }
+  const unquoted = (s) => (/^".*"$/s.test(s) && s.includes('""')
+    ? s.slice(1, -1).replace(/""/g, '"') : null);
+  for (const [ns, entries] of Object.entries(overlay)) {
+    if (!entries || typeof entries !== "object") continue;
+    for (const normEn of Object.keys(entries)) {
+      if (byNs.has(`${ns}\0${normEn}`)) continue;
+      const u = unquoted(normEn);
+      if (u && byNs.has(`${ns}\0${normalizeKey(u)}`)) {
+        contentOrphans.quoted.push(`${ns}: ${normEn.slice(0, 70)}…`);
+      } else if (byText.has(normEn)) {
+        contentOrphans.moved.push(`${ns} → ${[...byText.get(normEn)].join("/")}: ${normEn.slice(0, 60)}`);
+      } else {
+        contentOrphans.dropped.push(`${ns}: ${normEn.slice(0, 70)}`);
+      }
+    }
+  }
+  const bad = contentOrphans.quoted.length + contentOrphans.moved.length;
+  for (const e of [...contentOrphans.quoted, ...contentOrphans.moved]) errors.push(`content overlay — ${e}`);
+  console.log(`\nlang/content/${LANG}.json vs src/packs/`);
+  console.log(`  entries     : ${Object.values(overlay).reduce((n, e) => n + Object.keys(e ?? {}).length, 0)}`);
+  console.log(`  CSV-quoted  : ${contentOrphans.quoted.length}   (spreadsheet mangling — re-run i18n:import)`);
+  console.log(`  moved ns    : ${contentOrphans.moved.length}   (re-key, do not retranslate)`);
+  console.log(`  source gone : ${contentOrphans.dropped.length}   (English edited or removed — advisory)`);
+  if (contentOrphans.dropped.length) {
+    for (const w of contentOrphans.dropped.slice(0, 10)) console.log(`     ! ${w}`);
+    if (contentOrphans.dropped.length > 10) console.log(`     … and ${contentOrphans.dropped.length - 10} more`);
+  }
+  if (!bad) console.log("  ok - every translation is keyed to a string the runtime still asks for");
+}
+
+/* --- every language file must survive Foundry's own loader ---------------- */
+
+// Foundry expands dotted keys into nested objects when it loads a language file
+// (`expandObject`), so `"CAIRN.NUses"` holding a STRING and `"CAIRN.NUses.one"`
+// in the same file collide: the loader throws "Cannot create property 'one' on
+// string" and abandons the WHOLE file. A world then starts with no interface
+// strings at all — every label a raw key — from one added line.
+//
+// Nothing here modelled the loader before, because nothing needed to: this is
+// only reachable once a key gains a child, which plural forms are the first
+// thing to want. Found by a probe's console-error watch, which is a long way
+// round for a defect an offline read can see.
+const collisionsIn = (file) => {
+  const raw = JSON.parse(fs.readFileSync(path.join(ROOT, file), "utf8"));
+  const strings = new Set();
+  const parents = new Map();          // prefix -> the key that needs it to be an object
+  const visit = (obj, base = "") => {
+    for (const [k, v] of Object.entries(obj)) {
+      const full = `${base}${k}`;
+      if (v && typeof v === "object") { visit(v, `${full}.`); continue; }
+      strings.add(full);
+      const parts = full.split(".");
+      for (let i = 1; i < parts.length; i++) parents.set(parts.slice(0, i).join("."), full);
+    }
+  };
+  visit(raw);
+  return [...parents].filter(([p]) => strings.has(p))
+    .map(([p, child]) => `${file}: "${p}" is a string AND the parent of "${child}" — the loader drops the whole file`);
+};
+
+for (const f of fs.readdirSync(path.join(ROOT, "lang")).filter((f) => f.endsWith(".json"))) {
+  for (const e of collisionsIn(`lang/${f}`)) errors.push(e);
 }
 
 const enCount = Object.keys(en).length;
