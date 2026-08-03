@@ -270,6 +270,15 @@ Hooks.once("init", () => {
       if (pcGenerationInFlight.has(senderId)) return;
       pcGenerationInFlight.add(senderId);
       try {
+        // Everything below is inside a try that CATCHES, not merely a finally.
+        // It was a bare try/finally, so a throw anywhere in generation — a pack
+        // that would not open, a background whose grant failed — released the
+        // in-flight lock and then propagated out of an async socket handler,
+        // where nothing awaits it. No emit was ever sent, so the player sat on
+        // "rolling your character…" for the rest of the session with no way to
+        // ask again: the lock was clear, but they had no reason to press
+        // anything. The comment below already called that outcome unacceptable
+        // for the null case; a throw is the same outcome by a worse route.
         // The wire names a content source (the player answered the picker on
         // their own client — a prompt HERE would hang their request on this
         // screen's modal), but the wire is not trusted: anything not currently
@@ -293,6 +302,14 @@ Hooks.once("init", () => {
         game.socket.emit(`system.${game.system.id}`, {
           action: "pcGenerated", userId: senderId, uuid: actor?.uuid ?? null,
         });
+      } catch (err) {
+        console.error(`Air Bladder | generatePC failed for ${user.name}:`, err);
+        ui.notifications.error(game.i18n.format("CAIRN.Notify.PcGenFailedFor", { player: user.name }));
+        // `failed` distinguishes this from the Warden dismissing the picker:
+        // the player is told to ask again, not told it was cancelled.
+        game.socket.emit(`system.${game.system.id}`, {
+          action: "pcGenerated", userId: senderId, uuid: null, failed: true,
+        });
       } finally {
         pcGenerationInFlight.delete(senderId);
       }
@@ -305,7 +322,9 @@ Hooks.once("init", () => {
       if (msg.userId !== game.user.id) return;
       if (!game.users.get(senderId)?.isGM) return;
       if (!msg.uuid) {
-        ui.notifications.warn(game.i18n.localize("CAIRN.Notify.PcGenCancelled"));
+        ui.notifications.warn(game.i18n.localize(msg.failed
+          ? "CAIRN.Notify.PcGenFailed"
+          : "CAIRN.Notify.PcGenCancelled"));
         return;
       }
       // The custom emit can outrun the document broadcast that carries the
@@ -354,11 +373,23 @@ Hooks.once("init", () => {
       console.warn(`Air Bladder | grant request from ${user.name} clamped: ${owner.name} has room for ${room} of ${asked.length} (connection limit)`);
     }
     const payloads = asked.slice(0, room);
+    // `img` comes off the wire into a FilePathField, which refuses an unknown
+    // extension by THROWING — and createDocuments below is one batched call, so
+    // a single malformed path rejected every grant in the request, not the one
+    // payload carrying it. A path we cannot recognise is dropped instead, and
+    // the document takes Foundry's own default art. Extension only: whether the
+    // file EXISTS is the server's business, and a broken-but-plausible path
+    // renders as a missing image rather than losing the actor.
+    const imageOf = (v) => {
+      const s = String(v ?? "");
+      const ext = s.split("?")[0].split(".").pop()?.toLowerCase() ?? "";
+      return ext in CONST.IMAGE_FILE_EXTENSIONS ? s : "";
+    };
     const clean = payloads.map((p) => ({
       type: "npc",                                   // forced, never taken from the wire
       name: String(p?.name ?? "").slice(0, 120),
-      img: String(p?.img ?? ""),
-      prototypeToken: { texture: { src: String(p?.img ?? "") } },
+      img: imageOf(p?.img),
+      prototypeToken: { texture: { src: imageOf(p?.img) } },
       system: {
         connectedTo: owner.uuid,                     // forced to the verified owner
         slots: Number(p?.system?.slots) || 0,
@@ -380,14 +411,23 @@ Hooks.once("init", () => {
     })).filter((p) => p.name);
     if (!clean.length) return;
 
-    const made = await getDocumentClass("Actor").createDocuments(clean);
-    // The CONNECTED ownership shape, not the old wholesale copy of the
-    // owner's ownership: {default: OBSERVER, the keeper's players: OWNER}.
-    // This client is the active GM's, so the write cannot be refused.
-    for (const a of made) {
-      await a.update({
-        ownership: foundry.data.operators.ForcedReplacement.create(connectedOwnershipShape(owner)),
-      });
+    // Caught, not left to reject an async socket handler nobody awaits. A throw
+    // here loses the player's whole background grant with no console line and
+    // no notification on either screen — the same silence generatePC used to
+    // have, one handler down.
+    try {
+      const made = await getDocumentClass("Actor").createDocuments(clean);
+      // The CONNECTED ownership shape, not the old wholesale copy of the
+      // owner's ownership: {default: OBSERVER, the keeper's players: OWNER}.
+      // This client is the active GM's, so the write cannot be refused.
+      for (const a of made) {
+        await a.update({
+          ownership: foundry.data.operators.ForcedReplacement.create(connectedOwnershipShape(owner)),
+        });
+      }
+    } catch (err) {
+      console.error(`Air Bladder | grant request from ${user.name} for ${owner.name} failed:`, err);
+      ui.notifications.error(game.i18n.format("CAIRN.Notify.GrantFailedFor", { player: user.name }));
     }
   });
 });

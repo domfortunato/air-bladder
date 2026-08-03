@@ -156,6 +156,48 @@ if (granted.minted) {
   granted.flagged ? ok("grantSource flag carried (regenerate can find it)") : fail("grantSource flag missing");
 }
 
+/* ---- one bad payload must not lose the batch ------------------------------ */
+// `img` reaches the create data straight off the wire and lands in a
+// FilePathField, which refuses an unrecognised extension by THROWING. The
+// broker mints with ONE batched createDocuments, so that throw rejected the
+// whole request — a background granting a mule and a cart lost both because one
+// of them carried a path Foundry would not take. And the handler had no catch,
+// so it rejected an async socket callback nobody awaits: no console line, no
+// notification, the grant simply never happened.
+const mixed = await alicePage.evaluate(async ({ pcUuid }) => {
+  game.socket.emit(`system.${game.system.id}`, {
+    action: "grantActors",
+    ownerUuid: pcUuid,
+    payloads: [
+      { name: "ZZ PROBE SG BadImg", img: "not/an/image", system: { slots: 2 } },
+      { name: "ZZ PROBE SG GoodImg", img: "icons/svg/mystery-man.svg", system: { slots: 3 } },
+    ],
+  });
+  // Poll for BOTH. The two documents arrive on this client as separate
+  // broadcasts, so waiting on one and then reading the other is a race: the
+  // first version of this leg did exactly that and reported the bad payload
+  // "not minted at all" on the run where its broadcast lost.
+  const deadline = Date.now() + 8000;
+  let good = null; let bad = null;
+  while (Date.now() < deadline) {
+    good = game.actors.find((a) => a.name === "ZZ PROBE SG GoodImg");
+    bad = game.actors.find((a) => a.name === "ZZ PROBE SG BadImg");
+    if (good && bad) break;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  return { good: !!good, badImg: bad ? bad.img : null, badMinted: !!bad };
+}, { pcUuid: scene.pcUuid });
+
+mixed.good
+  ? ok("a payload with an unusable img does not take the rest of the batch with it")
+  : fail("one bad img lost the whole grant", "the batched create rejected and nothing was minted");
+// Dropped, not stored — and "dropped" reads back as Foundry's own default art,
+// because an empty `img` takes the schema initial rather than staying blank.
+// The claim is therefore about what is NOT there.
+mixed.badMinted && mixed.badImg !== "not/an/image"
+  ? ok("...and the bad path itself is dropped, not stored", `fell back to ${mixed.badImg}`)
+  : fail(`the unusable img was ${mixed.badMinted ? `stored as ${JSON.stringify(mixed.badImg)}` : "not minted at all"}`);
+
 /* ---- attack 1: forged userId --------------------------------------------- */
 /* ---- attack 2: embedded-Item uuid as the connection target --------------- */
 
@@ -307,11 +349,16 @@ const belowCap = await gmPage.evaluate((pcUuid) => ({
   a: !!game.actors.getName("ZZ PROBE SG CapA"),
   b: !!game.actors.getName("ZZ PROBE SG CapB"),
   kept: game.actors.filter((x) => x.system?.connectedTo === pcUuid).length,
+  // Names, not just a count: a wrong number here says nothing about WHICH
+  // actor is connected that should not be, and the count alone sent one
+  // reading of this leg round in circles.
+  keptNames: game.actors.filter((x) => x.system?.connectedTo === pcUuid).map((x) => `${x.name}#${x.id}`),
 }), capScene.pcUuid);
 gmPage.off("console", onGmConsole);
 belowCap.a && !belowCap.b && belowCap.kept === capScene.max
   ? ok("   witness: with headroom 1 the same emit mints exactly one", "clamped to the headroom")
-  : fail("   witness failed — the clamp is not the headroom", JSON.stringify(belowCap));
+  : fail("   witness failed — the clamp is not the headroom",
+    `${JSON.stringify(belowCap)} | clamp lines: ${JSON.stringify(clampLines)}`);
 
 /* ---- cleanup ------------------------------------------------------------- */
 
