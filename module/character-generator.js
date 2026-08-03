@@ -1957,7 +1957,9 @@ const characterToActorData = (characterData) => ({
     name: characterData.name,
     disposition: CONST.TOKEN_DISPOSITIONS.FRIENDLY,
     actorLink: true,
-    vision: true,
+    // No `vision` key: it is not in PrototypeToken's schema and was pruned
+    // silently, so every PC generated before 2026-08-02 arrived blind. Sight is
+    // stamped in CairnActor#_preCreate, which every creation route reaches.
   },
   type: "character",
 });

@@ -502,7 +502,8 @@ export const kettlewrightToActorData = async (json) => {
       name,
       disposition: CONST.TOKEN_DISPOSITIONS.FRIENDLY,
       actorLink: true,
-      vision: true,
+      // No `vision` key — not in PrototypeToken's schema, pruned silently.
+      // Sight is stamped in CairnActor#_preCreate.
     },
     type: "character",
   };

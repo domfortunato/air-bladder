@@ -308,12 +308,31 @@ export class CairnActor extends Actor {
     const isNpcPerson = data.type === "hireling"
       || (data.type === "npc" && (data.system?.role === undefined || data.system?.role === "npc"));
     if (data.type === "character" || isNpcPerson) {
-      // No `vision: true` here. It is not a field of PrototypeToken in v14 —
-      // `defineSchema` keeps an explicit `included` set (common/data/data.mjs:614-616)
-      // with no `vision` key — so `cleanData` pruned it silently and it has never done
-      // anything. The v14 path is `sight.enabled`, and turning sight ON for these
-      // tokens is a behaviour change, not this fix; left for a deliberate decision.
       const changes = {};
+      // The decision this note used to defer, taken 2026-08-02: sight ON for
+      // every person, PC and NPC alike.
+      //
+      // `vision: true` is what the generator and the Kettlewright import both
+      // wrote, and it has never once done anything: it is not a field of
+      // PrototypeToken in v14 — `defineSchema` keeps an explicit `included` set
+      // (common/data/data.mjs:614-616) with no `vision` key — so `cleanData`
+      // pruned it out of `_source` silently. The v14 path is `sight.enabled`,
+      // whose own initial is `Number(data?.sight?.range) > 0`
+      // (common/documents/token.mjs:91) against a `range` that initials to 0. So
+      // every PC this system has ever generated arrived BLIND, and a player
+      // controlling one on a scene with Token Vision on saw an empty screen.
+      //
+      // `range` is deliberately left at 0. In Foundry that is not "sees
+      // nothing" — it is "no innate darkvision", i.e. sees whatever is lit,
+      // which is the honest default for a setting with no darkvision rules.
+      //
+      // Here rather than in the two data builders because this is the one site
+      // every creation route reaches (see the docblock), and because the rule is
+      // about what a person IS, which is the same question the two lines above
+      // answer.
+      if (data.prototypeToken?.sight?.enabled === undefined) {
+        changes["prototypeToken.sight.enabled"] = true;
+      }
       if (data.prototypeToken?.disposition === undefined) {
         // NEUTRAL for an NPC, FRIENDLY only for a PC (2026-08-01, asked for).
         // Both used to be FRIENDLY, from when the branch only ever caught a
@@ -464,6 +483,15 @@ export class CairnActor extends Actor {
     if (this.prototypeToken.actorLink === false
       && flat["prototypeToken.actorLink"] === undefined) {
       foundry.utils.setProperty(changed, "prototypeToken.actorLink", true);
+    }
+    // Sight, on the same edge and for the same reason (2026-08-02): a person is
+    // someone a player may end up controlling, and a token with `sight.enabled`
+    // false reveals nothing. `false` is the Foundry default here rather than a
+    // Warden's statement, so promoting from it is the promotion working — a
+    // deliberate `false` arriving in the SAME update still wins, as above.
+    if (this.prototypeToken.sight.enabled === false
+      && flat["prototypeToken.sight.enabled"] === undefined) {
+      foundry.utils.setProperty(changed, "prototypeToken.sight.enabled", true);
     }
   }
 

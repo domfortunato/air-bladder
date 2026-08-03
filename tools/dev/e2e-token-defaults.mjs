@@ -62,7 +62,7 @@ const out = await page.evaluate(async () => {
   const D = CONST.TOKEN_DISPOSITIONS;
   // `want` is the disposition NAME, so a failure line reads as the rule rather
   // than as two integers.
-  const snap = (a, label, want, wantLink) => {
+  const snap = (a, label, want, wantLink, wantSight) => {
     const pt = a.prototypeToken;
     res.cases.push({
       label,
@@ -73,6 +73,14 @@ const out = await page.evaluate(async () => {
       want,
       actorLink: pt.actorLink,
       wantLink,
+      // A person can SEE (2026-08-02). `sight.enabled` initials to
+      // `Number(sight.range) > 0` against a range that initials to 0
+      // (common/documents/token.mjs:91-92), so a token nobody stamps is blind —
+      // which every generated PC was, because the generator asked for it with
+      // `vision: true`, a key PrototypeToken's schema does not have and
+      // `cleanData` pruned in silence.
+      sight: pt.sight.enabled,
+      wantSight,
     });
     return a;
   };
@@ -80,35 +88,35 @@ const out = await page.evaluate(async () => {
   // The real path a Warden takes: the Actor Directory's "Generate NPC" button.
   const gen = await game.cairn.characterGenerator.createNpc();
   await gen.update({ name: "ZZ Tok Generated NPC" });
-  snap(gen, "generated npc (createNpc)", "NEUTRAL", true);
+  snap(gen, "generated npc (createNpc)", "NEUTRAL", true, true);
 
   // A monster: same type, role stated. The specificity control — if this comes
   // out neutral and linked the branch is too wide and every shipped monster is
   // affected.
   const mon = await Cls.create({ name: "ZZ Tok Monster", type: "npc", system: { role: "monster" } });
-  snap(mon, "npc role monster", "HOSTILE", false);
+  snap(mon, "npc role monster", "HOSTILE", false, false);
 
   // A hand-made npc that states NOTHING: the Create Actor dialog's shape. Role
   // takes the schema initial `npc`, so this is a person.
   const bare = await Cls.create({ name: "ZZ Tok Bare NPC", type: "npc" });
-  snap(bare, "hand-made npc, no role stated", "NEUTRAL", true);
+  snap(bare, "hand-made npc, no role stated", "NEUTRAL", true, true);
 
   // The legacy alias, as pre-fold worlds still hold.
   const legacy = await Cls.create({ name: "ZZ Tok Legacy Hireling", type: "hireling" });
-  snap(legacy, "legacy `hireling` type", "NEUTRAL", true);
+  snap(legacy, "legacy `hireling` type", "NEUTRAL", true, true);
 
   // An npc created with the RETIRED role value, which is what a stale macro, an
   // old export or a third-party module would still send. migrateData converts it
   // on the way in, so it must arrive as a person — role npc, for hire — rather
   // than failing the shrunk enum.
   const retired = await Cls.create({ name: "ZZ Tok Retired Role", type: "npc", system: { role: "hireling" } });
-  snap(retired, "npc created with the retired role hireling", "NEUTRAL", true);
+  snap(retired, "npc created with the retired role hireling", "NEUTRAL", true, true);
   res.retiredConverted = { role: retired.system.role, forHire: retired.system.forHire };
 
   // Positive control: if this is not friendly+linked the branch is dead entirely
   // and every assertion above would be meaningless.
   const pc = await Cls.create({ name: "ZZ Tok Character", type: "character" });
-  snap(pc, "character (positive control)", "FRIENDLY", true);
+  snap(pc, "character (positive control)", "FRIENDLY", true, true);
 
   // An explicit disposition must still win -- `_preCreate` only fills fields the
   // creation data leaves unstated, so a caller (or a pack import) that states
@@ -119,13 +127,24 @@ const out = await page.evaluate(async () => {
   });
   res.explicitKept = explicit.prototypeToken.disposition === D.HOSTILE;
 
+  // ...and the same for sight, which needs its own case because `false` is the
+  // value the schema would have produced anyway: stating it must be
+  // indistinguishable from stating nothing ONLY if the stamp is broken, so this
+  // is asserted against a person, where the stamp would otherwise fire.
+  const blind = await Cls.create({
+    name: "ZZ Tok Deliberately Blind", type: "npc",
+    prototypeToken: { sight: { enabled: false } },
+  });
+  res.blindKept = blind.prototypeToken.sight.enabled === false;
+  await blind.delete();
+
   // The bulk-import shape: the GLOBAL `Actor`, which is NOT this system's class.
   // importAll and an Adventure import route the same way -- createDocuments ->
   // implementation -> _preCreate -- and never call a `static create` override,
   // which is where these defaults used to live and why they were skipped on
   // exactly the paths that create the most documents at once.
   const viaGlobal = await Actor.create({ name: "ZZ Tok Global Hireling", type: "hireling" });
-  snap(viaGlobal, "hireling via the global Actor (the importAll shape)", "NEUTRAL", true);
+  snap(viaGlobal, "hireling via the global Actor (the importAll shape)", "NEUTRAL", true, true);
 
   // Negative control: reassign `_preCreate` to the base class's and prove the
   // defaults DISAPPEAR. If this still comes out neutral and linked, something
@@ -140,6 +159,7 @@ const out = await page.evaluate(async () => {
     res.control = {
       disposition: off.prototypeToken.disposition,
       actorLink: off.prototypeToken.actorLink,
+      sight: off.prototypeToken.sight.enabled,
     };
   } finally {
     proto._preCreate = origPreCreate;
@@ -152,7 +172,7 @@ const out = await page.evaluate(async () => {
     const [td] = await scene.createEmbeddedDocuments("Token", [
       { ...gen.prototypeToken.toObject(), actorId: gen.id, x: 140, y: 140 },
     ]);
-    res.placed = td ? { disposition: td.disposition, actorLink: td.actorLink } : null;
+    res.placed = td ? { disposition: td.disposition, actorLink: td.actorLink, sight: td.sight.enabled } : null;
     if (td) await scene.deleteEmbeddedDocuments("Token", [td.id]);
   } else res.placedSkipped = "no scene in this world";
 
@@ -166,11 +186,13 @@ const out = await page.evaluate(async () => {
   res.lateBefore = {
     hostile: late.prototypeToken.disposition === D.HOSTILE,
     actorLink: late.prototypeToken.actorLink,
+    sight: late.prototypeToken.sight.enabled,
   };
   await late.update({ "system.role": "npc" });
   res.lateAfter = {
     neutral: late.prototypeToken.disposition === D.NEUTRAL,
     actorLink: late.prototypeToken.actorLink,
+    sight: late.prototypeToken.sight.enabled,
   };
 
   // ...but only from Foundry's HOSTILE default. A Warden who deliberately made
@@ -196,12 +218,16 @@ const out = await page.evaluate(async () => {
 
 console.log("\ntoken defaults by kind");
 for (const c of out.cases) {
-  const good = c.got === c.want && c.actorLink === c.wantLink;
-  const shape = `${c.got}, actorLink ${c.actorLink}`;
+  const good = c.got === c.want && c.actorLink === c.wantLink && c.sight === c.wantSight;
+  const shape = `${c.got}, actorLink ${c.actorLink}, sight ${c.sight}`;
   if (good) ok(`${c.label} — ${shape}`);
   else if (c.want === "HOSTILE") {
-    fail(`${c.label} — should stay hostile and unlinked, got ${shape}. `
+    fail(`${c.label} — should stay hostile, unlinked and blind, got ${shape}. `
       + "The branch is too wide: every shipped monster is affected");
+  } else if (c.sight !== c.wantSight) {
+    fail(`${c.label} — should have sight ${c.wantSight}, got ${c.sight}. A person who `
+      + "cannot see reveals no fog, so a player controlling this token sees an empty screen"
+      + ` [type ${c.type}, role ${c.role}]`);
   } else {
     fail(`${c.label} — should be ${c.want} and linked ${c.wantLink}, got ${shape}`
       + ` [type ${c.type}, role ${c.role}]`);
@@ -218,7 +244,10 @@ if (out.retiredConverted?.role === "npc" && out.retiredConverted?.forHire === tr
 if (out.explicitKept) ok("an explicitly-stated disposition still wins (_preCreate fills only unstated fields)");
 else fail("an explicitly-stated disposition was overwritten — pack imports would lose theirs");
 
-if (out.control && out.control.disposition === -1 && !out.control.actorLink) {
+if (out.blindKept) ok("...and a deliberately blind person stays blind — sight is filled, never forced");
+else fail("a stated sight.enabled:false was overwritten to true — a Warden cannot blind anyone");
+
+if (out.control && out.control.disposition === -1 && !out.control.actorLink && out.control.sight === false) {
   ok("with _preCreate swapped to the base class's, the defaults vanish — the override is load-bearing");
 } else {
   fail(`negative control: defaults survived a disabled _preCreate (${JSON.stringify(out.control)}) — `
@@ -228,13 +257,13 @@ if (out.control && out.control.disposition === -1 && !out.control.actorLink) {
 console.log("\npromoted after creation (the role pick, not the generator)");
 // The precondition, stated: if a monster were already neutral and linked the
 // assertion below would pass without anything re-applying anything.
-if (out.lateBefore?.hostile && out.lateBefore?.actorLink === false) {
+if (out.lateBefore?.hostile && out.lateBefore?.actorLink === false && out.lateBefore?.sight === false) {
   ok("a monster starts hostile and unlinked, as Foundry makes it");
 } else {
   fail(`a monster started ${JSON.stringify(out.lateBefore)} — it is already neutral, `
     + "so the assertion below proves nothing");
 }
-if (out.lateAfter?.neutral && out.lateAfter?.actorLink === true) {
+if (out.lateAfter?.neutral && out.lateAfter?.actorLink === true && out.lateAfter?.sight === true) {
   ok("picking the NPC role re-applies neutral + linked");
 } else {
   fail(`picking NPC left the prototype ${JSON.stringify(out.lateAfter)} — its token arrives `
@@ -246,8 +275,8 @@ if (out.demotedStaysNeutral) ok("leaving the npc role does not turn them hostile
 else fail("leaving the npc role made them hostile — that is not the mirror image");
 
 if (out.placedSkipped) console.log(`  note  placed-token check skipped: ${out.placedSkipped}`);
-else if (out.placed?.disposition === 0 && out.placed?.actorLink === true) {
-  ok("a token placed from a generated npc really is neutral and linked");
+else if (out.placed?.disposition === 0 && out.placed?.actorLink === true && out.placed?.sight === true) {
+  ok("a token placed from a generated npc really is neutral, linked and sighted");
 } else {
   fail(`a placed token came out ${JSON.stringify(out.placed)} — the prototype is right `
     + "but the placed token is not, which is the half a user actually sees");
