@@ -113,7 +113,9 @@ export class CairnActor extends Actor {
   /**
    * The shared Mount / Transport / Container workflow: one name+Type dialog,
    * pre-filtered to the role's kinds plus "Other…", minting an UNCONNECTED npc
-   * of that role. Serves the three directory buttons and the switchboard
+   * of that role. For mounts the select also carries a named clone group —
+   * the pack's named horses, cloned document-for-document (ruled 2026-08-02).
+   * Serves the three directory buttons and the switchboard
    * above. Same sentinel discipline as the sheet's Type select: the select is
    * read HERE and only a real key (or the Other input's word) is ever written.
    * A blank name takes the role's label rather than silently doing nothing —
@@ -143,6 +145,35 @@ export class CairnActor extends Actor {
       o.textContent = game.i18n.localize(cfg.label);
       kindSelect.append(o);
     }
+    // Named mounts (ruled 2026-08-02): the Outrider's six horses are pack
+    // DOCUMENTS with their own statblocks (a Heavy Destrier has 8 HP; a Type
+    // would duplicate stats to drift), so they render as an indented clone
+    // group after the kinds. Picking one clones the document — name,
+    // statblock, art. The list is derived, not hardcoded: any doc in the
+    // pack with this role whose name is not already a kind's KEY (locale-
+    // independent, unlike the localized label) auto-appears here.
+    let namedDocs = [];
+    if (role === "mount") {
+      const kindKeys = new Set(Object.entries(CONTAINER_CLASSES)
+        .filter(([, c]) => c.role === role).map(([k]) => k));
+      const docs = await game.packs.get("air-bladder.mounts-transports")?.getDocuments() ?? [];
+      namedDocs = docs
+        .filter((d) => d.system?.role === role && !kindKeys.has(d.name.toLowerCase()))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      if (namedDocs.length) {
+        const group = document.createElement("optgroup");
+        group.label = game.i18n.localize("CAIRN.KindNamedMounts");
+        for (const d of namedDocs) {
+          const o = document.createElement("option");
+          // `doc:<uuid>` is a SENTINEL (the sheet Type-select discipline): it
+          // can never reach a document field — the branch below clones instead.
+          o.value = `doc:${d.uuid}`;
+          o.textContent = d.name;
+          group.append(o);
+        }
+        kindSelect.append(group);
+      }
+    }
     const other = document.createElement("option");
     other.value = "__other__";
     other.textContent = game.i18n.localize("CAIRN.KindOther");
@@ -152,17 +183,43 @@ export class CairnActor extends Actor {
     otherInput.name = "kindOther";
     otherInput.placeholder = game.i18n.localize("CAIRN.KindHint");
     otherInput.hidden = true;
-    // Wired on the element BEFORE adoption — listeners survive it.
-    kindSelect.addEventListener("change", () => {
-      otherInput.hidden = kindSelect.value !== "__other__";
-      if (!otherInput.hidden) otherInput.focus();
-    });
+    // NO listener on these nodes: DialogV2 takes the div's innerHTML — a
+    // STRING (dialog.mjs:190) — so the rendered dialog holds NEW nodes and
+    // anything wired here is dead. This code used to claim "listeners
+    // survive adoption" and wire the Other… reveal on kindSelect; that
+    // listener never ran in the real UI (the probes set values directly, so
+    // nothing caught it). The client's own doc says to use the `render`
+    // option for listeners (dialog.mjs:152-155) — see the prompt below.
     const typeLabel = document.createElement("label");
     typeLabel.textContent = game.i18n.localize("CAIRN.Kind");
     content.append(nameInput, typeLabel, kindSelect, otherInput);
     const result = await foundry.applications.api.DialogV2.prompt({
       window: { title: game.i18n.localize(`CAIRN.Create${role.charAt(0).toUpperCase()}${role.slice(1)}`) },
       content,
+      // Listeners go on the RENDERED nodes — the content above reaches the
+      // dialog as innerHTML, never as these elements.
+      render: (event, dialog) => {
+        const sel = dialog.element.querySelector('select[name="kindChoice"]');
+        const name = dialog.element.querySelector('input[name="thingName"]');
+        const otherEl = dialog.element.querySelector('input[name="kindOther"]');
+        sel?.addEventListener("change", () => {
+          otherEl.hidden = sel.value !== "__other__";
+          if (!otherEl.hidden) otherEl.focus();
+          // Picking a named mount prefills the (still editable) name with
+          // the document's; leaving the group clears only a prefill the
+          // user never touched — a typed name is theirs.
+          if (sel.value.startsWith("doc:")) {
+            const doc = namedDocs.find((d) => `doc:${d.uuid}` === sel.value);
+            if (doc && (!name.value || name.dataset.prefilled === "1")) {
+              name.value = doc.name;
+              name.dataset.prefilled = "1";
+            }
+          } else if (name.dataset.prefilled === "1") {
+            name.value = "";
+            delete name.dataset.prefilled;
+          }
+        });
+      },
       ok: {
         callback: (event, button) => ({
           name: button.form.elements.thingName.value.trim(),
@@ -174,6 +231,21 @@ export class CairnActor extends Actor {
       rejectClose: false,
     });
     if (!result) return null;
+    // A named mount: clone the pack document — statblock, art and all —
+    // instead of minting blank against a kind. `toObject()`, never a
+    // deepClone of the DataModel (that returns the model BY REFERENCE and
+    // mutates the compendium copy — recorded trap). The `doc:` sentinel
+    // rides in `containerClass` only until this branch; it never reaches a
+    // document field.
+    if (result.containerClass.startsWith("doc:")) {
+      const src = await fromUuid(result.containerClass.slice(4));
+      if (!src) return null;
+      const data = src.toObject();
+      delete data._id;
+      data.name = result.name || src.name;
+      data.folder = folder ?? null;
+      return (await this.create(data)) ?? null;
+    }
     const data = {
       name: result.name || game.i18n.localize(roleKey),
       type: "npc",

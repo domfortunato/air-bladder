@@ -158,6 +158,114 @@ try {
       : fail(`${w.btn ?? m.name} minted wrong`, JSON.stringify(m));
   }
 
+  /* --- 2b. a NAMED mount clones its pack document (ruled 2026-08-02) ------ */
+  // The Outrider's six horses are pack docs with their own statblocks, so
+  // Create Mount's Type select carries an indented clone group. Pre-fix red
+  // witness: the select has no optgroup at all. The plain Horse kind is
+  // asserted to SURVIVE beside it — the group must add, never replace.
+  console.log("\na named mount clones its pack document");
+  const template = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+    const until = async (test, ms = 8000) => {
+      const t0 = Date.now();
+      while (Date.now() - t0 < ms) { if (test()) return true; await sleep(150); }
+      return test();
+    };
+    // The source of truth the clone is judged against.
+    const pack = game.packs.get("air-bladder.mounts-transports");
+    const idx = await pack.getDocuments();
+    const srcDoc = idx.find((d) => d.name === "Heavy Destrier");
+    const src = srcDoc ? {
+      hpMax: srcDoc.system.hp?.max, armor: srcDoc.system.armor,
+      slots: srcDoc.system.slots, cls: srcDoc.system.containerClass, img: srcDoc.img,
+    } : null;
+
+    document.querySelector("#actors .create-mount-button")?.click();
+    let form = null;
+    await until(() => {
+      form = [...document.querySelectorAll("dialog form")].find((f) => f.elements?.thingName);
+      return !!form;
+    });
+    if (!form) return { error: "no dialog" };
+    const select = form.elements.kindChoice;
+    const group = select.querySelector("optgroup");
+    const opt = [...select.querySelectorAll("optgroup option")]
+      .find((o) => o.textContent === "Heavy Destrier");
+    const out = {
+      src,
+      hasGroup: !!group,
+      groupLabel: group?.label ?? null,
+      namedCount: select.querySelectorAll("optgroup option").length,
+      plainHorseSurvives: [...select.options].some((o) => o.value === "horse"),
+      sentinel: opt?.value ?? null,
+    };
+    if (!opt) {
+      // A prompt() dialog has NO cancel button — the header ✕ is the only
+      // dismiss. Close it and WAIT it out, or the next leg's form lookup
+      // finds this stale mount dialog first and feeds it the folder leg's
+      // input (learned from this leg's own negative control: the collateral
+      // was a role-mount mint with a blank class).
+      form.closest("dialog")?.querySelector('[data-action="close"]')?.click();
+      await until(() => ![...document.querySelectorAll("dialog form")].some((f) => f.elements?.thingName));
+      return { ...out, error: "no Heavy Destrier option" };
+    }
+    // The Other… reveal, through the REAL change event. This was dead in the
+    // shipped UI until 2026-08-02 — DialogV2 renders the content div's
+    // innerHTML, so the listener wired on the original node never ran, and
+    // every probe set values directly so nothing caught it. This dispatch is
+    // what catches it now.
+    select.value = "__other__";
+    select.dispatchEvent(new Event("change"));
+    out.otherRevealed = form.elements.kindOther.hidden === false;
+    select.value = opt.value;
+    select.dispatchEvent(new Event("change"));
+    out.otherRehidden = form.elements.kindOther.hidden === true;
+    out.namePrefilled = form.elements.thingName.value;
+    form.closest("dialog").querySelector('button[data-action="ok"]')?.click();
+    await until(() => !!game.actors.getName("Heavy Destrier"));
+    const a = game.actors.getName("Heavy Destrier");
+    out.minted = !!a;
+    if (a) {
+      out.role = a.system.role;
+      out.cls = a.system.containerClass;
+      out.slots = a.system.slots;
+      out.hpMax = a.system.hp?.max;
+      out.armor = a.system.armor;
+      out.img = a.img;
+      out.connectedTo = a.system.connectedTo ?? null;
+      out.isWorldActor = !a.pack;
+      await a.sheet?.close();
+      await a.delete();
+    }
+    await until(() => ![...document.querySelectorAll("dialog form")].some((f) => f.elements?.thingName));
+    return out;
+  });
+
+  template.hasGroup && template.plainHorseSurvives && template.namedCount >= 6
+    ? ok(`the Type select carries the clone group (“${template.groupLabel}”, ${template.namedCount} entries)`, "plain Horse survives beside it")
+    : fail("the Type select carries the clone group", JSON.stringify(template));
+  String(template.sentinel ?? "").startsWith("doc:")
+    ? ok("template entries use the doc: sentinel", template.sentinel)
+    : fail("template entries use the doc: sentinel", String(template.sentinel));
+  template.otherRevealed && template.otherRehidden
+    ? ok("Other… reveals its input through the real change event", "dead until 2026-08-02: DialogV2 renders innerHTML, listeners go via render")
+    : fail("Other… reveals its input", JSON.stringify({ revealed: template.otherRevealed, rehidden: template.otherRehidden }));
+  template.namePrefilled === "Heavy Destrier"
+    ? ok("picking one prefills the (editable) name")
+    : fail("picking one prefills the name", `"${template.namePrefilled}"`);
+  !template.error && template.minted && template.role === "mount" && template.connectedTo === "" && template.isWorldActor
+    ? ok("the pick mints a world actor: role mount, unconnected")
+    : fail("the pick mints a world actor", JSON.stringify(template));
+  // The statblock crosses whole — judged against the pack doc, with the
+  // plan's stated numbers pinned so a pack edit can't silently weaken this.
+  template.src && template.hpMax === template.src.hpMax && template.armor === template.src.armor
+    && template.slots === template.src.slots && template.cls === template.src.cls && template.img === template.src.img
+    ? ok("the clone carries the document's statblock and art", `hp ${template.hpMax}, armor ${template.armor}, ${template.slots} slots, ${template.cls}`)
+    : fail("the clone carries the document's statblock and art", JSON.stringify({ got: template, want: template.src }));
+  template.hpMax === 8 && template.slots === 2
+    ? ok("Heavy Destrier lands at 8 HP / 2 slots", "the ruled numbers")
+    : fail("Heavy Destrier lands at 8 HP / 2 slots", `hp=${template.hpMax} slots=${template.slots}`);
+
   /* --- 3. the folder "+" opens the switchboard, and the folder LANDS ------ */
   console.log("\nthe folder \"+\" survives, routes to the switchboard, and the mint lands in it");
   const folderLeg = await page.evaluate(async () => {
