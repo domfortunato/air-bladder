@@ -111,7 +111,22 @@ if (!failed) ok(`both files name the same ${LICENCES.length} regimes`);
 // "by-sa/4.0/" out of a Creative Commons URL; requiring the first segment to be a
 // real top-level entry excludes both without a growing list of exceptions, and it
 // keeps working as the repo changes.
+// The zip line is parsed HERE, not just in check 4, because what ships also
+// anchors this check: the zip names packs/, which is generated and absent
+// until a build, and anchoring path detection on disk alone let every packs/
+// reference in LICENSE.txt fall out of this list SILENTLY on the CI runner —
+// this check said "all 29 referenced paths exist" while check 4 failed on the
+// zip shipping an unnamed directory (0.1.10's first tag, 2026-08-04). A
+// shipped directory is a real path candidate whether or not it exists yet;
+// LICENSE.txt naming one that is missing now fails loudly below instead.
+const workflow = readFileSync(join(ROOT, ".github/workflows/main.yml"), "utf8");
+const zipLine = workflow.split("\n").find((l) => l.includes("zip -r ./system.zip"));
+const shippedDirs = zipLine
+  ? zipLine.replace(/^.*zip -r \.\/system\.zip/, "").trim().split(/\s+/).filter((p) => p.endsWith("/"))
+  : [];
+
 const topLevel = new Set(readdirSync(ROOT));
+for (const dir of shippedDirs) topLevel.add(dir.replace(/\/$/, ""));
 const paths = new Set();
 for (const m of licence.matchAll(/([A-Za-z_][\w-]*)\/([\w./-]*)/g)) {
   if (!topLevel.has(m[1])) continue;
@@ -137,24 +152,18 @@ if (!missing) ok(`all ${paths.size} referenced paths exist (${[...paths].sort().
 //
 // The manifest is the source of what ships, not a hand-kept list here: a second
 // list would drift from the workflow exactly as LICENSE.txt drifted from README.
-const workflow = readFileSync(join(ROOT, ".github/workflows/main.yml"), "utf8");
-const zipLine = workflow.split("\n").find((l) => l.includes("zip -r ./system.zip"));
+// zipLine and shippedDirs are parsed above check 3, which they also anchor.
 if (!zipLine) {
   fail("could not find the release zip command in .github/workflows/main.yml — "
     + "this check cannot tell what ships");
 } else {
-  const shipped = zipLine
-    .replace(/^.*zip -r \.\/system\.zip/, "")
-    .trim()
-    .split(/\s+/)
-    .filter((p) => p.endsWith("/"));            // directories; loose files are prose
   const named = [...paths].map((p) => p.split("/")[0]);
-  const unnamed = shipped.filter((dir) => !named.includes(dir.replace(/\/$/, "")));
+  const unnamed = shippedDirs.filter((dir) => !named.includes(dir.replace(/\/$/, "")));
   if (unnamed.length) {
     fail(`the release zip ships ${unnamed.join(", ")}, which LICENSE.txt names in no clause — `
       + 'and its MIT clause says "these and only these", so an unnamed path is excluded, not implied');
   } else {
-    ok(`every shipped directory is named by a clause (${shipped.length} checked)`);
+    ok(`every shipped directory is named by a clause (${shippedDirs.length} checked)`);
   }
 }
 
