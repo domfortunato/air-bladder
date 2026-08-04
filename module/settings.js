@@ -126,6 +126,20 @@ export const registerSettings = () => {
     default: false,
   });
 
+  // The 2e backgrounds a Warden has switched off, as an array of UUIDs — the
+  // eye toggle on the picker's rows (2026-08-04; canon and custom rows alike,
+  // Barebones is all-or-nothing via its source checkbox). World state, NOT a
+  // flag on the documents: the shipped packs are replaced wholesale on every
+  // system update, so anything written into them is one release from gone.
+  // `config: false` — the picker is the whole UI, so it cannot disturb the
+  // positional grouping below.
+  game.settings.register(SETTINGS_NS, "disabled-backgrounds", {
+    scope: "world",
+    config: false,
+    type: Array,
+    default: [],
+  });
+
   // ---- General -------------------------------------------------------------
   game.settings.register(SETTINGS_NS, "use-panic", {
     name: game.i18n.localize("CAIRN.Settings.UsePanic.label"),

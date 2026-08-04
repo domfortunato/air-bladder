@@ -1579,6 +1579,42 @@ const getAllCustomBackgrounds = async () => {
 };
 
 /**
+ * The 2e backgrounds the Warden has switched off — the picker rows' eye
+ * toggle (2026-08-04), canon and custom alike. Stored as UUIDs in a world
+ * setting, never on the documents: a shipped pack is replaced wholesale on
+ * every system update.
+ * @returns {Set<String>}
+ */
+export const disabledBackgrounds = () =>
+  new Set(game.settings.get(SETTINGS_NS, "disabled-backgrounds") ?? []);
+
+/**
+ * Flip one background's disabled state, refusing the disable that would leave
+ * generation with NOTHING to roll — the same "can never do nothing" invariant
+ * the pool holds, enforced at the only place the state changes. (The pool can
+ * still go empty by flipping a content-source toggle afterwards — disabling
+ * every custom while canon is on, then switching canon off — and that case
+ * keeps its existing answer: generation notifies and does nothing.)
+ * @param {String} uuid
+ * @returns {Promise<Set<String>|null>}  the new set, or null if refused
+ */
+export const toggleBackgroundDisabled = async (uuid) => {
+  const off = disabledBackgrounds();
+  if (off.has(uuid)) {
+    off.delete(uuid);
+  } else {
+    const left = (await get2eBackgrounds()).filter((b) => b.uuid !== uuid);
+    if (!left.length) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.LastBackground"));
+      return null;
+    }
+    off.add(uuid);
+  }
+  await game.settings.set(SETTINGS_NS, "disabled-backgrounds", [...off]);
+  return off;
+};
+
+/**
  * A homebrew-only game: the Warden has switched the shipped 2e backgrounds OFF
  * and their own ON. The distinction that matters is "off on purpose" versus
  * "nothing configured" — only the first forbids falling back to shipped content.
@@ -1633,7 +1669,7 @@ const getCustomBackgrounds = async () => {
  * the source level.
  * @returns {Promise<CairnItem[]>}
  */
-const get2eBackgrounds = async () => {
+const get2eBackgrounds = async ({ includeDisabled = false } = {}) => {
   const byId = new Map();
   const addShipped = async () => {
     const pack = game.packs.get(BG_PACK_FOR["2e"]);
@@ -1652,7 +1688,13 @@ const get2eBackgrounds = async () => {
   // instead, which is recoverable; silently generating from content you disabled
   // is not, because nothing tells you it happened.
   if (!byId.size && !customOnly()) await addShipped();
-  return [...byId.values()];
+  // The per-background eye toggle filters LAST, so a disabled background stays
+  // disabled through every branch above, the fallback included. includeDisabled
+  // is the Warden's picker view — the rows render greyed so they can be turned
+  // back on; every other caller (random rolls, swaps, imports) gets the
+  // filtered pool.
+  const off = includeDisabled ? null : disabledBackgrounds();
+  return [...byId.values()].filter((b) => !off || !off.has(b.uuid));
 };
 
 /** Every background for a content source. @returns {Promise<CairnItem[]>} */
@@ -1672,7 +1714,12 @@ const ARCHETYPE_ORDER = ["Fighter", "Wizard", "Thief"];
  * @returns {Promise<{archetype:String, backgrounds:CairnItem[]}[]>}
  */
 export const getBackgroundsByArchetype = async (source) => {
-  const backgrounds = await getBackgroundsFor(source);
+  // The Warden's 2e view keeps disabled backgrounds VISIBLE — the picker greys
+  // them and offers the re-enable toggle; hiding them would make a disable
+  // permanent-by-accident. Players get the filtered pool.
+  const backgrounds = source === "2e"
+    ? await get2eBackgrounds({ includeDisabled: game.user.isGM })
+    : await getBackgroundsFor(source);
   const byName = (x, y) => x.name.localeCompare(y.name);
 
   // CUSTOM backgrounds get their own picker section instead of being
@@ -1782,6 +1829,13 @@ export const promptBackground = async (source, currentUuid = null) => {
   if (!all.length) return false;
   const hasProse = all.some((b) => b.system.description);
 
+  // The eye toggle is a 2e concept and a Warden's control: canon and custom
+  // rows alike carry it, Barebones is all-or-nothing via its source checkbox
+  // (both ruled 2026-08-04). Players never reach this branch with a disabled
+  // row — their pool is already filtered.
+  const showEyes = source === "2e" && game.user.isGM;
+  const off = source === "2e" ? disabledBackgrounds() : new Set();
+
   let list = `<label class="bg-pick-row"><input type="radio" name="bg" value="${BG_RANDOM}"${currentUuid ? "" : " checked"}>
     <span class="bg-pick-name"><i class="fas fa-dice"></i> ${game.i18n.localize("CAIRN.RandomBackground")}</span></label>`;
   const descs = {};
@@ -1791,9 +1845,18 @@ export const promptBackground = async (source, currentUuid = null) => {
       // Display-only, exactly as the sheet renders the same two fields — the radio
       // VALUE stays the uuid, so what gets chosen is unaffected by language.
       descs[bg.uuid] = t("bg.desc", bg.system.description ?? "");
-      list += `<label class="bg-pick-row"><input type="radio" name="bg" value="${bg.uuid}"${bg.uuid === currentUuid ? " checked" : ""}>
+      // A disabled row cannot be checked — including the pre-check on the
+      // character's current background; "nothing checked reads as Random".
+      const isOff = off.has(bg.uuid);
+      const eye = showEyes
+        ? `<button type="button" class="bg-pick-eye" data-uuid="${bg.uuid}"
+             title="${game.i18n.localize(isOff ? "CAIRN.BgPickEnable" : "CAIRN.BgPickDisable")}">
+             <i class="fas ${isOff ? "fa-eye-slash" : "fa-eye"}"></i></button>`
+        : "";
+      list += `<label class="bg-pick-row${isOff ? " bg-pick-off" : ""}">
+        <input type="radio" name="bg" value="${bg.uuid}"${bg.uuid === currentUuid && !isOff ? " checked" : ""}${isOff ? " disabled" : ""}>
         <span class="bg-pick-name">${bgEsc(t("bg.name", bg.name))}</span>
-        <span class="bg-pick-tag">${bgEsc(backgroundTagline(bg))}</span></label>`;
+        <span class="bg-pick-tag">${bgEsc(backgroundTagline(bg))}</span>${eye}</label>`;
     }
   }
   const content = hasProse
@@ -1824,6 +1887,32 @@ export const promptBackground = async (source, currentUuid = null) => {
     const origClose = dialog.close.bind(dialog);
     dialog.close = (...a) => { finish(false); return origClose(...a); };
     dialog.render(true).then(() => {
+      // DialogV2 serializes content to innerHTML, so listeners go on the LIVE
+      // nodes here, after render — never on the built string's nodes.
+      // The eye toggles (Warden only). The row is a <label>, so the click must
+      // not fall through and check the radio it sits beside.
+      dialog.element.querySelectorAll(".bg-pick-eye").forEach((btn) => {
+        btn.addEventListener("click", async (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          const uuid = btn.dataset.uuid;
+          const now = await toggleBackgroundDisabled(uuid);
+          if (now === null) return; // refused: it was the last enabled background
+          const isOff = now.has(uuid);
+          const row = btn.closest(".bg-pick-row");
+          row.classList.toggle("bg-pick-off", isOff);
+          const radio = row.querySelector('input[name="bg"]');
+          radio.disabled = isOff;
+          if (isOff && radio.checked) {
+            // The selection cannot rest on a background players can't have.
+            radio.checked = false;
+            const rand = dialog.element.querySelector(`input[name="bg"][value="${BG_RANDOM}"]`);
+            if (rand) { rand.checked = true; rand.dispatchEvent(new Event("change")); }
+          }
+          btn.title = game.i18n.localize(isOff ? "CAIRN.BgPickEnable" : "CAIRN.BgPickDisable");
+          btn.querySelector("i").className = `fas ${isOff ? "fa-eye-slash" : "fa-eye"}`;
+        });
+      });
       if (!hasProse) return;
       const panel = dialog.element.querySelector(".bg-pick-desc");
       const update = (v) => {

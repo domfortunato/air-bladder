@@ -117,6 +117,78 @@ try {
     const cancelled = await pick;
     dialogInfo.cancelResolvesFalse = cancelled === false;
 
+    // 3b. THE EYE TOGGLE (2026-08-04): every 2e row carries a Warden-only
+    //     disable control — canon and custom alike; Barebones has none (its
+    //     source checkbox is all-or-nothing). State is the world setting, the
+    //     POOL filters it (random rolls included), and the Warden still sees
+    //     disabled rows greyed so a disable can be undone. Preconditions are
+    //     established here and restored in the teardown below — a leftover
+    //     disabled uuid would silently shrink every later pool count.
+    const NS = "air-bladder";
+    const offWas = game.settings.get(NS, "disabled-backgrounds") ?? [];
+    const customWas = game.settings.get(NS, "content-source-custom");
+    const disable = {};
+    try {
+      await game.settings.set(NS, "disabled-backgrounds", []);
+      await game.settings.set(NS, "content-source-custom", true);
+
+      // The shipped custom pack renders as its own picker section, last.
+      const gC = await gen.getBackgroundsByArchetype("2e");
+      const customGroup = gC.find((g) => g.archetype === "Custom");
+      disable.customSection = !!customGroup && customGroup.backgrounds.length >= 7
+        && gC[gC.length - 1] === customGroup;
+
+      const allC = gC.flatMap((g) => g.backgrounds);
+      const victim = allC.find((b) => b.name === "Prowler");        // canon
+      const customVictim = customGroup?.backgrounds.find((b) => b.name === "Cleric");
+
+      // API round trip on a CANON background: the pool excludes it, the
+      // Warden's grouped view keeps it, the setting records it.
+      await gen.toggleBackgroundDisabled(victim.uuid);
+      disable.poolExcludes = !(await gen.getBackgroundsFor("2e")).some((b) => b.uuid === victim.uuid);
+      disable.gmStillSees = (await gen.getBackgroundsByArchetype("2e"))
+        .flatMap((g) => g.backgrounds).some((b) => b.uuid === victim.uuid);
+      disable.settingHolds = game.settings.get(NS, "disabled-backgrounds").includes(victim.uuid);
+
+      // A shipped CUSTOM background disables through the same path.
+      await gen.toggleBackgroundDisabled(customVictim.uuid);
+      disable.customExcluded = !(await gen.getBackgroundsFor("2e")).some((b) => b.uuid === customVictim.uuid);
+      await gen.toggleBackgroundDisabled(customVictim.uuid);
+
+      // The rendered dialog: an eye on every background row (Random has none),
+      // the disabled row greyed with a dead radio, and the eye click
+      // re-enabling it LIVE — row, radio and setting together.
+      const pickD = gen.promptBackground("2e", null);
+      await wait(400);
+      const rootD = document.querySelector(".bg-picker");
+      const rowsD = rootD?.querySelectorAll('input[name="bg"]').length ?? 0;
+      disable.eyeMatchesRows = (rootD?.querySelectorAll(".bg-pick-eye").length ?? 0) === rowsD - 1;
+      const rowD = [...(rootD?.querySelectorAll(".bg-pick-row") ?? [])]
+        .find((r) => r.querySelector(`input[value="${victim.uuid}"]`));
+      disable.rowGreyed = !!rowD?.classList.contains("bg-pick-off");
+      disable.radioDead = !!rowD?.querySelector("input")?.disabled;
+      rowD?.querySelector(".bg-pick-eye")?.click();
+      await wait(400);
+      disable.reEnabledLive = !!rowD && !rowD.classList.contains("bg-pick-off")
+        && !rowD.querySelector("input").disabled
+        && !game.settings.get(NS, "disabled-backgrounds").includes(victim.uuid);
+      document.querySelector(".bg-picker")?.closest(".application")
+        ?.querySelector('button[data-action="cancel"]')?.click();
+      await pickD;
+
+      // The floor: with every background but one already off, disabling the
+      // last is REFUSED and the setting is untouched by the attempt.
+      const pool = await gen.getBackgroundsFor("2e");
+      const last = pool[0];
+      await game.settings.set(NS, "disabled-backgrounds", pool.slice(1).map((b) => b.uuid));
+      const refused = await gen.toggleBackgroundDisabled(last.uuid);
+      disable.lastRefused = refused === null
+        && !game.settings.get(NS, "disabled-backgrounds").includes(last.uuid);
+    } finally {
+      await game.settings.set(NS, "disabled-backgrounds", offWas);
+      await game.settings.set(NS, "content-source-custom", customWas);
+    }
+
     // 4. The surgical swap. The character starts as a FIELDWARDEN on purpose:
     //    its "Roll a second time on the Bonds table" prose entitles TWO bonds
     //    (the book rule), and Kettlewright entitles one — so this swap is also
@@ -258,6 +330,8 @@ try {
       rows: root2?.querySelectorAll('input[name="bg"]').length ?? 0,
       noPanel: !root2?.querySelector(".bg-pick-desc"),
       noHeadings: (root2?.querySelectorAll(".bg-pick-group").length ?? 0) === 0,
+      // Barebones is all-or-nothing (2026-08-04): no per-row eye here, ever.
+      noEyes: (root2?.querySelectorAll(".bg-pick-eye").length ?? 0) === 0,
     };
     document.querySelector(".bg-picker")?.closest(".application")
       ?.querySelector('button[data-action="cancel"]')?.click();
@@ -317,7 +391,7 @@ try {
     await sheet.close();
 
     for (const a of made) { try { await a.delete(); } catch { /* already gone */ } }
-    return { grouping, tagline, dialogInfo, swap, containers, randomRepeated: repeated, bbSwap, bbDialog, bondRace };
+    return { grouping, tagline, dialogInfo, disable, swap, containers, randomRepeated: repeated, bbSwap, bbDialog, bondRace };
   });
 
   if (r.error) {
@@ -342,6 +416,29 @@ try {
     D.checkedIsCurrent ? ok("opens pre-checked on the character's current background") : fail("did not pre-check the current background");
     D.panelFilled ? ok("the description panel previews the checked background") : fail("description panel is empty");
     D.cancelResolvesFalse ? ok("Cancel resolves false (no hang, no swap)") : fail("Cancel did not resolve false");
+
+    const E = r.disable;
+    E.customSection
+      ? ok("the shipped custom pack renders as its own 'Custom' section, last")
+      : fail("no Custom picker section (or not last / fewer than 7 backgrounds)");
+    E.poolExcludes && E.settingHolds
+      ? ok("disabling a canon background: pool excludes it, setting records it")
+      : fail(`disable wrong: poolExcludes=${E.poolExcludes}, settingHolds=${E.settingHolds}`);
+    E.gmStillSees
+      ? ok("the Warden's grouped view still shows it (for re-enabling)")
+      : fail("a disabled background vanished from the Warden's view — disable would be permanent");
+    E.customExcluded
+      ? ok("a shipped custom background disables through the same path")
+      : fail("custom background did not disable");
+    E.eyeMatchesRows && E.rowGreyed && E.radioDead
+      ? ok("picker rows: every 2e background has an eye; the disabled row is greyed with a dead radio")
+      : fail(`eye rendering wrong: eyes=${E.eyeMatchesRows}, greyed=${E.rowGreyed}, radioDead=${E.radioDead}`);
+    E.reEnabledLive
+      ? ok("clicking the eye re-enables LIVE: row, radio and setting together")
+      : fail("the eye click did not re-enable the background");
+    E.lastRefused
+      ? ok("the last enabled background cannot be disabled (toast, setting untouched)")
+      : fail("the floor failed: the last background was disabled or the setting changed");
 
     const S = r.swap;
     S.uuidLinked ? ok(`swapped to ${S.background}, linked by uuid`) : fail("swap did not relink the background uuid");
@@ -383,6 +480,7 @@ try {
       : fail(`an instruction row was dropped: ${r.bbSwap.taggedCount} items for ${r.bbSwap.refCount} references`);
 
     const B = r.bbDialog;
+    B.noEyes ? ok("Barebones rows carry no eye toggle (all-or-nothing by ruling)") : fail("a Barebones row has an eye toggle");
     B.rendered && B.singleColumn && B.noPanel && B.noHeadings
       ? ok(`Barebones picker renders single-column, no panel, no headings (${B.rows} rows)`)
       : fail(`Barebones picker layout wrong: ${JSON.stringify(B)}`);
