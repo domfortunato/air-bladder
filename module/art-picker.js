@@ -25,7 +25,7 @@
  *              dialog, and only one category is ever on screen.
  *   tlomdev    tlomdev's token drawings (CC BY-SA 4.0), browsed category-first
  *              exactly like gameicons: the artist's own folders, plus
- *              Kettlewright's copies under "Kettlewright Portraits".
+ *              Kettlewright's copies under "kettlewright-portraits".
  *   lydia      Lydia Comer's monster art, drawn for Air Bladder (© Lydia Comer,
  *              all rights reserved — NOT Creative Commons). A flat grid like
  *              `shipped` rather than a folder tree: 17 creatures is one screen.
@@ -44,7 +44,7 @@ import { getPortraitManifest, getCustomPortraitPaths, refreshCustomPortraits, ge
  * Category display names, localized rather than title-cased in place so a
  * translator can say "Griego y romano" — the folder names are the source
  * collections' own English. "greek-roman" -> GreekRoman; tlomdev's
- * "human npcs for itmod" (spaces, the artist's naming) -> HumanNpcsForItmod.
+ * "human-npcs-for-itmod" (spaces, the artist's naming) -> HumanNpcsForItmod.
  * Two literal templates rather than one parameterized on the namespace: the
  * i18n source gate records `CAIRN.<static prefix>${` as a dynamic prefix, and
  * a bare `CAIRN.${ns}...` would register the prefix "CAIRN." — every key in

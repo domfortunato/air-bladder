@@ -76,6 +76,18 @@ const REENCODED = [
   ["systems/air-bladder/art/lydia-comer/tokens/Dragon.png", "systems/air-bladder/art/lydia-comer/tokens/Dragon.webp"],
   ["systems/air-bladder/art/tlomdev/beast/beast1.png", "systems/air-bladder/art/tlomdev/beast/beast1.webp"],
 ];
+// The two tlomdev folders that lost their SPACES (2026-08-04). Each is a
+// specific ART_MOVES rule that must win BEFORE the generic tlomdev rule —
+// the loop takes the first match, so ordering is the thing under test:
+// under the generic rule alone the first path lands on a spaced art/ folder
+// that no longer exists. One leg per folder, each also exercising a chain —
+// the KW leg crosses the old prefix, the npc leg adds the re-encode.
+const RENAMED = [
+  ["systems/air-bladder/tlomdev/Kettlewright Portraits/portrait17.webp",
+    "systems/air-bladder/art/tlomdev/kettlewright-portraits/portrait17.webp"],
+  ["systems/air-bladder/art/tlomdev/human npcs for itmod/npc1.png",
+    "systems/air-bladder/art/tlomdev/human-npcs-for-itmod/npc1.webp"],
+];
 // Must survive UNCHANGED. icons/ is stamped class art and stayed put; the URL is
 // a Warden's own image and was never ours to rewrite.
 const UNTOUCHED = [
@@ -98,7 +110,7 @@ try {
 
   /* --- plant one old path on every surface ------------------------------- */
 
-  planted = await page.evaluate(async ({ MOVES, UNTOUCHED, REENCODED }) => {
+  planted = await page.evaluate(async ({ MOVES, UNTOUCHED, REENCODED, RENAMED }) => {
     const old = MOVES.map(([from]) => from);
     const ActorCls = CONFIG.Actor.documentClass;
     const ItemCls = CONFIG.Item.documentClass;
@@ -111,6 +123,10 @@ try {
     const reencs = [];
     for (const [i, [from]] of REENCODED.entries()) {
       reencs.push(await ItemCls.create({ name: `zz-art-path-reenc-${i}`, type: "item", img: from }));
+    }
+    const renamed = [];
+    for (const [i, [from]] of RENAMED.entries()) {
+      renamed.push(await ItemCls.create({ name: `zz-art-path-renamed-${i}`, type: "item", img: from }));
     }
 
     const actor = await ActorCls.create({
@@ -174,6 +190,7 @@ try {
     return {
       itemId: item.id,
       reencIds: reencs.map((d) => d.id),
+      renamedIds: renamed.map((d) => d.id),
       actorId: actor.id,
       ownedId: owned?.id ?? null,
       sceneId: scene.id,
@@ -189,6 +206,7 @@ try {
       seen: {
         item: item.img,
         reencs: reencs.map((d) => d.img),
+        renamed: renamed.map((d) => d.img),
         actor: actor.img,
         proto: actor.prototypeToken?.texture?.src,
         owned: owned?.img,
@@ -201,7 +219,7 @@ try {
         controls: controls.map((id) => game.items.get(id)?.img),
       },
     };
-  }, { MOVES, UNTOUCHED, REENCODED });
+  }, { MOVES, UNTOUCHED, REENCODED, RENAMED });
 
   const wanted = {
     item: MOVES[3][0], actor: MOVES[0][0], proto: MOVES[1][0],
@@ -211,9 +229,10 @@ try {
   // Seven KINDS of surface, more documents than that — the re-encode kind is
   // planted once per gallery. Counting documents rather than kinds keeps the
   // number honest the next time a gallery is added.
-  const docs = Object.keys(wanted).length + REENCODED.length;
+  const docs = Object.keys(wanted).length + REENCODED.length + RENAMED.length;
   const badPlant = Object.entries(wanted).filter(([k, v]) => planted.seen[k] !== v)
-    .concat(REENCODED.filter(([from], i) => planted.seen.reencs[i] !== from).map(([from]) => [`reenc:${from}`, from]));
+    .concat(REENCODED.filter(([from], i) => planted.seen.reencs[i] !== from).map(([from]) => [`reenc:${from}`, from]))
+    .concat(RENAMED.filter(([from], i) => planted.seen.renamed[i] !== from).map(([from]) => [`renamed:${from}`, from]));
   badPlant.length === 0 && UNTOUCHED.every((s, i) => planted.seen.controls[i] === s)
     ? ok("planted an old path on every surface", `${docs} documents + 2 controls`)
     : fail("planted an old path on every surface", JSON.stringify({ badPlant, controls: planted.seen.controls }));
@@ -235,6 +254,7 @@ try {
     return {
       item: game.items.get(p.itemId)?.img ?? null,
       reencs: p.reencIds.map((id) => game.items.get(id)?.img ?? null),
+      renamed: p.renamedIds.map((id) => game.items.get(id)?.img ?? null),
       actor: a?.img ?? null,
       proto: a?.prototypeToken?.texture?.src ?? null,
       owned: a?.items.get(p.ownedId)?.img ?? null,
@@ -263,12 +283,16 @@ try {
   // passes on a re-run and gets called a flake.
   const STALE_PREFIX = /systems\/air-bladder\/(character_|tlomdev\/|game-icons\/|lydia-comer\/)/;
   const STALE_FORMAT = /systems\/air-bladder\/art\/(lydia-comer\/.*\.(jpe?g|png)|tlomdev\/.*\.png)$/i;
+  // The art/-era SPACED folder paths carry no old prefix and (for the KW half)
+  // no stale extension either — a third stale shape, or the poll stops early.
+  const STALE_SPACED = /systems\/air-bladder\/art\/tlomdev\/(human npcs for itmod|Kettlewright Portraits)\//;
   // packLocked is part of "done": the migration re-locks the world pack in a
   // finally AFTER its last document write, as a settings round-trip. A poll
   // that stops when the PATHS are right reads the lock inside that window and
   // reports the re-lock missing — this probe's own trap, third appearance.
   const done = (s) => s.packLocked === true && Object.values(s).flat()
-    .every((v) => v === null || v === true || (!STALE_PREFIX.test(String(v)) && !STALE_FORMAT.test(String(v))));
+    .every((v) => v === null || v === true
+      || (!STALE_PREFIX.test(String(v)) && !STALE_FORMAT.test(String(v)) && !STALE_SPACED.test(String(v))));
   for (; waited < 30000 && !done(after); waited += 250) {
     await page.waitForTimeout(250);
     after = await read();
@@ -290,6 +314,15 @@ try {
     after[key] === want
       ? ok(`migrated: ${label}`, want.replace("systems/air-bladder/art/", ""))
       : fail(`migrated: ${label}`, `got "${after[key]}", wanted "${want}"`);
+  }
+  // One per renamed folder — the ORDERING leg: the specific rule must beat the
+  // generic one (first match wins), and each chains at least one more rewrite.
+  for (const [i, [, want]] of RENAMED.entries()) {
+    const folder = want.replace("systems/air-bladder/art/tlomdev/", "").split("/")[0];
+    const label = `renamed: ${folder}, spaces gone, rule order held`;
+    after.renamed[i] === want
+      ? ok(`migrated: ${label}`, want.replace("systems/air-bladder/art/", ""))
+      : fail(`migrated: ${label}`, `got "${after.renamed[i]}", wanted "${want}"`);
   }
   // One per re-encoded gallery, named by the gallery so a miss says which rule
   // is absent rather than "the re-encode leg".
@@ -328,6 +361,7 @@ try {
         const drop = async (fn) => { try { await fn(); } catch { /* keep going */ } };
         await drop(() => game.items.get(p.itemId)?.delete());
         for (const id of p.reencIds) await drop(() => game.items.get(id)?.delete());
+        for (const id of p.renamedIds) await drop(() => game.items.get(id)?.delete());
         // The world pack: unlock first or the delete is refused.
         await drop(async () => {
           const pk = game.packs.get(p.packId);

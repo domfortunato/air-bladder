@@ -73,7 +73,7 @@ export const getGameIconManifest = async () => {
 
 // The Tlomdev gallery: tlomdev's CC BY-SA 4.0 token drawings, browsed by the
 // artist's own category folders, plus Kettlewright's copies under
-// "Kettlewright Portraits" (see tools/import/tlomdev.mjs). Same
+// "kettlewright-portraits" (see tools/import/tlomdev.mjs). Same
 // lazy-fetch-and-cache shape as the two above, for the same reason.
 let _tlomdevManifest = null;
 
@@ -309,13 +309,13 @@ export const randomPortraitInSameFolder = async (current) => {
  * The shipped tlomdev copy of a Kettlewright stock portrait ("portrait17.webp"),
  * or null when the name is not in the shipped set. The Kettlewright importer
  * maps stock picks through this — the filenames under
- * tlomdev/Kettlewright Portraits/ are Kettlewright's own numbering on purpose.
+ * tlomdev/kettlewright-portraits/ are Kettlewright's own numbering on purpose.
  * @param {String} name a bare filename as Kettlewright's export stores it
  * @returns {Promise<String|null>}
  */
 export const kettlewrightPortraitPath = async (name) => {
   const tl = await getTlomdevManifest();
-  const cat = tl?.categories?.find((c) => c.key === "Kettlewright Portraits");
+  const cat = tl?.categories?.find((c) => c.key === "kettlewright-portraits");
   return cat?.names?.includes(name) ? `${tl.artDir}/${cat.key}/${name}` : null;
 };
 

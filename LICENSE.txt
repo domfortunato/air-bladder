@@ -59,9 +59,10 @@ Air Bladder logo and monster art — © Lydia Comer. ALL RIGHTS RESERVED.
     Two jobs, one grant. The logo files sit at the top of the folder; below
     them, art/lydia-comer/portraits/ and art/lydia-comer/tokens/ hold 17
     creatures drawn for this system, offered in the portrait picker and paired
-    portrait-to-token by filename stem. They ship re-encoded to WebP q95; that
-    this project otherwise leaves the artwork untouched is its own practice,
-    not a term of the grant — the grant bounds USE, not modification.
+    portrait-to-token by filename stem. They ship re-encoded to WebP q95, the
+    tokens/ half sized for the canvas (400×400); beyond that the artwork is
+    left as drawn — this project's own practice, not a term of the grant,
+    which bounds USE, not modification.
     Contents: art/lydia-comer/CREDITS.md.
     Full terms: art/lydia-comer/license.txt.
 
@@ -93,7 +94,7 @@ Tlomdev's Tokens — CC BY-SA 4.0, © 2023 tlomdev
     category folders. MODIFIED: the 298 category drawings are re-encoded from
     PNG to WebP (quality 95) and changed in no other way — the indication
     CC BY-SA 4.0 §3(a)(1)(B) requires, stated in full in the Modifications
-    section of art/tlomdev/CREDITS.md. The "Kettlewright Portraits" subfolder
+    section of art/tlomdev/CREDITS.md. The kettlewright-portraits/ subfolder
     is NOT re-encoded: it carries the same artist's drawings as shipped by
     Kettlewright, with Kettlewright's exact filenames — the Kettlewright
     character importer maps stock portrait picks by that numbering.

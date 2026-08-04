@@ -623,6 +623,18 @@ const migrateIconsToSvg = async () => {
 const ART_MOVES = [
   ["systems/air-bladder/character_portraits/", "systems/air-bladder/art/jon-aspeheim/portraits/"],
   ["systems/air-bladder/character_tokens/", "systems/air-bladder/art/jon-aspeheim/tokens/"],
+  // The two tlomdev folders that lost their SPACES (2026-08-04, user ruling —
+  // Foundry's media guidance forbids them, and a spaced path was invisible to
+  // licence-check's reference regex). These four sit ABOVE the generic
+  // tlomdev rules because the loop takes the FIRST match and stops: a
+  // pre-art/ path through the generic rule would land on the spaced art/
+  // folder that no longer exists, and a second pass never comes. Two entries
+  // per folder — the pre-art/ prefix and the art/-era spaced prefix — because
+  // a world can hold either, depending on when it last opened.
+  ["systems/air-bladder/tlomdev/human npcs for itmod/", "systems/air-bladder/art/tlomdev/human-npcs-for-itmod/"],
+  ["systems/air-bladder/tlomdev/Kettlewright Portraits/", "systems/air-bladder/art/tlomdev/kettlewright-portraits/"],
+  ["systems/air-bladder/art/tlomdev/human npcs for itmod/", "systems/air-bladder/art/tlomdev/human-npcs-for-itmod/"],
+  ["systems/air-bladder/art/tlomdev/Kettlewright Portraits/", "systems/air-bladder/art/tlomdev/kettlewright-portraits/"],
   ["systems/air-bladder/tlomdev/", "systems/air-bladder/art/tlomdev/"],
   ["systems/air-bladder/game-icons/", "systems/air-bladder/art/game-icons/"],
   // Lydia's never reached a RELEASE — it landed and moved within the same day —
@@ -654,7 +666,7 @@ const ART_REENCODED = [
   // be INDICATED, which is what the Modifications section of that gallery's
   // CREDITS.md is for.
   //
-  // `Kettlewright Portraits/` is untouched and needs no rule: those arrived as
+  // `kettlewright-portraits/` is untouched and needs no rule: those arrived as
   // WebP from Kettlewright and the extension pattern cannot match them. That is
   // luck rather than design, so the importer skips the folder BY NAME.
   { prefix: "systems/air-bladder/art/tlomdev/", from: /\.png$/i, to: ".webp" },

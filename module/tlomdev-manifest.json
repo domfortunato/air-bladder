@@ -122,7 +122,7 @@
       ]
     },
     {
-      "key": "human npcs for itmod",
+      "key": "human-npcs-for-itmod",
       "names": [
         "npc1.webp",
         "npc2.webp",
@@ -376,7 +376,7 @@
       ]
     },
     {
-      "key": "Kettlewright Portraits",
+      "key": "kettlewright-portraits",
       "names": [
         "default-portrait.webp",
         "portrait1.webp",

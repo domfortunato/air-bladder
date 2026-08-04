@@ -80,7 +80,7 @@ const CATS = MANIFEST.categories.length;
 const TL_MANIFEST = JSON.parse(fs.readFileSync(
   path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../module/tlomdev-manifest.json"), "utf8"));
 const TL_CATS = TL_MANIFEST.categories.length;
-const TL_KW_COUNT = TL_MANIFEST.categories.find((c) => c.key === "Kettlewright Portraits").names.length;
+const TL_KW_COUNT = TL_MANIFEST.categories.find((c) => c.key === "kettlewright-portraits").names.length;
 const TL_BEAST_FIRST = TL_MANIFEST.categories.find((c) => c.key === "beast").names[0];
 const LY_MANIFEST = JSON.parse(fs.readFileSync(
   path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../module/lydia-manifest.json"), "utf8"));
@@ -313,7 +313,7 @@ try {
     const folders = [...pane.querySelectorAll(".cairn-icon-folder")];
     const out = {
       folderCount: folders.length,
-      kwTile: folders.some((f) => f.dataset.category === "Kettlewright Portraits"),
+      kwTile: folders.some((f) => f.dataset.category === "kettlewright-portraits"),
       credit: pane.querySelector(".cairn-portrait-credit")?.textContent.includes("tlomdev") ?? false,
       facesLoaded: 0,
     };
@@ -322,7 +322,7 @@ try {
 
     // Into the Kettlewright folder — the one whose FILENAMES are load-bearing
     // (the KW importer maps by them), and the one with spaces in its path.
-    folders.find((f) => f.dataset.category === "Kettlewright Portraits").click();
+    folders.find((f) => f.dataset.category === "kettlewright-portraits").click();
     out.kwThumbs = pane.querySelectorAll(".cairn-icon-category .cairn-portrait-choice").length;
     pane.querySelector(".cairn-icon-category .cairn-portrait-choice").click();
     await new Promise((r) => setTimeout(r, 400));
@@ -343,7 +343,7 @@ try {
   tl.kwThumbs === TL_KW_COUNT
     ? ok("the Kettlewright folder holds the full set", `${tl.kwThumbs} thumbnails`)
     : fail("the Kettlewright folder holds the full set", `${tl.kwThumbs} of ${TL_KW_COUNT}`);
-  tl.img?.includes("/tlomdev/Kettlewright Portraits/") && tl.token === tl.img
+  tl.img?.includes("/tlomdev/kettlewright-portraits/") && tl.token === tl.img
     ? ok("picking a tlomdev drawing sets portrait AND token", tl.img.split("/").pop())
     : fail("picking a tlomdev drawing sets portrait AND token", JSON.stringify([tl.img, tl.token]));
   tl.credit

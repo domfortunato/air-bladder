@@ -11,7 +11,7 @@ fs.writeFileSync(tmp, JSON.stringify({
   hp: 4, hp_max: 4, gold: 30, deprived: false, panicked: false, armor: "1",
   description: "An e2e peddler.", traits: "Stern", notes: "hi", bonds: "A debt.", scars: "Nicked;Burned", omens: "Ravens.",
   // A STOCK portrait pick: Kettlewright stores the bare filename, and the
-  // import must map it to our shipped copy (tlomdev/Kettlewright Portraits/,
+  // import must map it to our shipped copy (tlomdev/kettlewright-portraits/,
   // Kettlewright's exact numbering) on portrait AND token.
   custom_image: false, image_url: "portrait17.webp",
   items: [
@@ -75,7 +75,7 @@ const out = await page.evaluate(() => {
 // fallback (asserted as "NOT the Kettlewright folder" — whether the random
 // pool is Aspeheim or the world's custom folder is not this probe's business),
 // and a custom absolute URL is used verbatim.
-const KW_DIR = "systems/air-bladder/art/tlomdev/Kettlewright Portraits";
+const KW_DIR = "systems/air-bladder/art/tlomdev/kettlewright-portraits";
 const mapping = await page.evaluate(async () => {
   const { kettlewrightToActorData } = await import("/systems/air-bladder/module/kettlewright-import.js");
   const base = {

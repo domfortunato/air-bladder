@@ -509,7 +509,7 @@ export const kettlewrightToActorData = async (json) => {
   };
   // Portraits: a custom absolute URL is used directly. A STOCK pick stores the
   // bare filename of art we ship ourselves — Kettlewright's portraits are
-  // tlomdev's drawings, carried under tlomdev/Kettlewright Portraits/ with
+  // tlomdev's drawings, carried under tlomdev/kettlewright-portraits/ with
   // Kettlewright's exact numbering for this mapping — so the imported character
   // keeps the face its player chose, on portrait AND token (the art is drawn as
   // a circular token; a random Aspeheim token under a tlomdev face would clash).

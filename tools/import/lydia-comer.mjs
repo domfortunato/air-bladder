@@ -70,12 +70,12 @@
  * depend on finding the original download again.)
  *
  * IT NEVER TOUCHES lydia-comer/ ITSELF, only the two subfolders. The parent
- * holds the LOGO (Airbladder*.webp, Airbladder07.jpg) and her licence grant,
- * and `tools/site.mjs` copies three of those webps into the website by name.
- * tlomdev.mjs rmSyncs its whole output folder; doing that here would delete the
- * logo, the licence and the site's header image. Airbladder* is excluded from
- * ingest by name for the same reason — Airbladder07.jpg is a wordmark, not a
- * creature, and it is a .jpg sitting in the ingest folder.
+ * holds the LOGO — Airbladder01/02/06.webp, exactly the three the README and
+ * `tools/site.mjs` use by name; the unused variants (03, 04, and the 07.jpg
+ * wordmark) were removed 2026-08-04 by user ruling — and her licence grant.
+ * tlomdev.mjs rmSyncs its whole output folder; doing that here would delete
+ * the logo, the licence and the site's header image. Airbladder* is excluded
+ * from ingest by name for the same reason — a wordmark is not a creature.
  *
  * The manifest exists for the same reason portrait-manifest.json does: a client
  * cannot enumerate a server folder without FILES_BROWSE, and players pick art.
@@ -138,6 +138,16 @@ const SHIPPED_EXT = /\.webp$/i;
  * `effort: 6` is sharp's default; raised because this runs 34 times, once.
  */
 const WEBP = { quality: 95, effort: 6 };
+/**
+ * The TOKEN half is sized for the canvas (user ruling 2026-08-04): 400×400,
+ * the media guide's stated standard. A map token draws at ~100px on a 100px
+ * grid; shipping it at the portrait's 1000×1000 uploaded a 25× texture per
+ * token for nothing — the token halves alone were ~3.6 MB of the download.
+ * PORTRAITS STAY FULL SIZE: they are sheet art, and 1000×1000 is correct
+ * there. The grant permits this — it bounds USE, not modification.
+ */
+const TOKEN_SIZE = 400;
+const encodeToken = (img) => img.resize(TOKEN_SIZE, TOKEN_SIZE, { fit: "cover" }).webp(WEBP);
 const webpName = (file) => `${file.replace(/\.[^.]+$/, "")}.webp`;
 
 /* -------------------------------------------------------------------------- */
@@ -174,11 +184,11 @@ if (SRC) {
     fs.mkdirSync(TOKENS, { recursive: true });
     for (const stem of stems) {
       const moves = [
-        [path.join(SRC, squares.get(stem)), path.join(PORTRAITS, webpName(squares.get(stem)))],
-        [path.join(SRC, circles.get(stem)), path.join(TOKENS, webpName(circles.get(stem)))],
+        [path.join(SRC, squares.get(stem)), path.join(PORTRAITS, webpName(squares.get(stem))), false],
+        [path.join(SRC, circles.get(stem)), path.join(TOKENS, webpName(circles.get(stem))), true],
       ];
-      for (const [from, to] of moves) {
-        await sharp(from).webp(WEBP).toFile(to);
+      for (const [from, to, isToken] of moves) {
+        await (isToken ? encodeToken(sharp(from)) : sharp(from).webp(WEBP)).toFile(to);
         // `consume` means the source IS the gallery folder — the artist drops
         // the batch in beside the logo. The original has to go either way, or
         // the tree ships every drawing twice, once loose and once encoded.
@@ -233,6 +243,34 @@ if (process.argv.includes("--to-webp")) {
     + `(${(100 - after / before * 100).toFixed(0)}% smaller)`);
 }
 
+/**
+ * `--resize-tokens`: bring the SHIPPED token halves to TOKEN_SIZE in place —
+ * the 2026-08-04 pass that took them from the portrait's 1000×1000 down to
+ * canvas size. Same shipped-tree argument as `--to-webp` above. Skips a file
+ * already at or below TOKEN_SIZE rather than re-encoding it: a q95 re-encode
+ * of a q95 file is pure generation loss, so a re-run must be a no-op.
+ */
+if (process.argv.includes("--resize-tokens")) {
+  let done = 0, skipped = 0, before = 0, after = 0;
+  for (const [, file] of filesByStem(TOKENS, SHIPPED_EXT)) {
+    const p = path.join(TOKENS, file);
+    // Through a BUFFER, not the path: sharp holds the input file open on
+    // Windows, so encoding from the path and writing back to it EPERMs.
+    const src = fs.readFileSync(p);
+    const meta = await sharp(src).metadata();
+    if (meta.width <= TOKEN_SIZE && meta.height <= TOKEN_SIZE) { skipped++; continue; }
+    before += src.length;
+    const buf = await encodeToken(sharp(src)).toBuffer();
+    fs.writeFileSync(p, buf);
+    after += buf.length;
+    done++;
+  }
+  console.log(done
+    ? `resized ${done} token(s) to ${TOKEN_SIZE}px WebP q${WEBP.quality}: `
+      + `${(before / 1048576).toFixed(1)} MB -> ${(after / 1048576).toFixed(2)} MB; ${skipped} already at size`
+    : `nothing to resize — all ${skipped} token(s) already at ${TOKEN_SIZE}px or below`);
+}
+
 const shippedPortraits = filesByStem(PORTRAITS, SHIPPED_EXT);
 const shippedTokens = filesByStem(TOKENS, SHIPPED_EXT);
 if (!shippedPortraits.size) die(`no portraits under ${path.relative(root, PORTRAITS)} — run with --src first`);
@@ -265,11 +303,11 @@ const credits = [
   "outside the Air Bladder project requires the artist's permission. Full terms:",
   "`license.txt` beside this file.",
   "",
-  "**These files are re-encoded to WebP q95 and changed in no other way.** They",
-  "are not cropped, rescaled, recoloured or redrawn. That is this project's own",
-  "practice rather than a term of the grant — the licence sets no bar on altering",
-  "the artwork, and leaving someone's drawings as they were drawn does not need",
-  "one.",
+  "**These files are re-encoded to WebP q95, and the `tokens/` half is sized",
+  `for the canvas (${TOKEN_SIZE}×${TOKEN_SIZE} — a map token draws at ~100px).** The portraits`,
+  "keep the artist's full 1000×1000: they are sheet art. Beyond that, nothing",
+  "is cropped, recoloured or redrawn — this project's own practice rather than",
+  "a term of the grant, which sets no bar on altering the artwork.",
   "",
   "## Shape",
   "",
@@ -285,7 +323,7 @@ const credits = [
   "Offered in the portrait picker's **Lydia Comer** tab on NPC, Hireling and",
   "Monster sheets. Not offered on Player Characters — these are creatures.",
   "",
-  "The logo files (`Airbladder*.webp`, `Airbladder07.jpg`) sit in the parent",
+  "The logo files (`Airbladder01/02/06.webp`) sit in the parent",
   "folder and are the same artist under the same grant, but they are not gallery",
   "art and the importer ignores them by name.",
   "",

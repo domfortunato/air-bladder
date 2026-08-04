@@ -22,10 +22,10 @@
  * SHIPPED SHAPE (what the picker browses):
  *
  *   tlomdev/<category>/<name>.png              category names kept VERBATIM
- *   tlomdev/Kettlewright Portraits/<name>.webp
+ *   tlomdev/kettlewright-portraits/<name>.webp
  *
  * Category folder names are the artist's own, kept verbatim (including the
- * spaces in "human npcs for itmod") — display labels are localized via
+ * spaces in "human-npcs-for-itmod") — display labels are localized via
  * CAIRN.TlomdevCategory.* instead of renaming folders. The Kettlewright files
  * keep KETTLEWRIGHT'S exact names because the Kettlewright importer maps a
  * stock portrait pick by that numbering (portrait17.webp) — rename one and the
@@ -52,7 +52,7 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const OUT_DIR = path.join(root, "art", "tlomdev");
 const MANIFEST = path.join(root, "module", "tlomdev-manifest.json");
-const KW_CATEGORY = "Kettlewright Portraits";
+const KW_CATEGORY = "kettlewright-portraits";
 const dry = process.argv.includes("--dry");
 
 const argAfter = (flag) => {
@@ -75,7 +75,7 @@ const isJunkName = (name) => name === ".DS_Store" || name.startsWith("._") || na
  * making a conversion every file needs depend on finding the itch download again
  * is a bad trade for something that is a pure function of bytes already in git.
  *
- * ONLY the artist's own category folders. `Kettlewright Portraits/` is ALREADY
+ * ONLY the artist's own category folders. `kettlewright-portraits/` is ALREADY
  * WebP — it is Kettlewright's copies of the same drawings, shipped that way, and
  * its filenames are load-bearing (the KW character importer maps a stock
  * portrait pick by `portrait17.webp`). Converting is a no-op there and renaming
@@ -160,9 +160,18 @@ if (!itchCats.length) {
 }
 
 /** [{key, srcDir, names}] — itch categories in order, Kettlewright last. */
-const plan = itchCats.map((key) => {
-  const dir = path.join(fromShipped ? OUT_DIR : SRC, key);
-  return { key, srcDir: dir, names: artIn(dir) };
+// Folder names the artist ships that this system renames on ingest —
+// Foundry's media guidance forbids spaces in asset folders, and a spaced path
+// is also invisible to licence-check's reference regex (it reads up to the
+// first space). DISPLAY labels are untouched: pascal() folds spaces and
+// hyphens to the same lang key, so the picker still shows the artist's own
+// wording. Applied here, at ingest, so a future --src re-import cannot
+// resurrect the spaced folders. (2026-08-04, user ruling.)
+const FOLDER_RENAMES = { "human npcs for itmod": "human-npcs-for-itmod" };
+
+const plan = itchCats.map((srcName) => {
+  const dir = path.join(fromShipped ? OUT_DIR : SRC, srcName);
+  return { key: fromShipped ? srcName : (FOLDER_RENAMES[srcName] ?? srcName), srcDir: dir, names: artIn(dir) };
 });
 const kwDir = fromShipped ? path.join(OUT_DIR, KW_CATEGORY) : KW;
 plan.push({ key: KW_CATEGORY, srcDir: kwDir, names: artIn(kwDir) });
@@ -206,8 +215,13 @@ const credits = [
   "> 4.0 International",
   "",
   "They are black-and-white circular token drawings, offered in the portrait",
-  "picker's **Tlomdev** gallery under the artist's own category folders, names",
-  "kept verbatim.",
+  "picker's **Tlomdev** gallery under the artist's own category folders. Names",
+  "are kept verbatim with two exceptions: the folders the artist shipped as",
+  "\"human npcs for itmod\" and \"Kettlewright Portraits\" are",
+  "`human-npcs-for-itmod/` and `kettlewright-portraits/` here, because Foundry's",
+  "media guidance forbids spaces in asset folder names. The picker still",
+  "displays the artist's own wording; only the on-disk folder is renamed, and",
+  "the FILE names inside are untouched.",
   "",
   "## Modifications",
   "",
