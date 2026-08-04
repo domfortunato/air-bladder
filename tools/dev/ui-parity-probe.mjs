@@ -467,7 +467,7 @@ try {
       "enable-inventory-reorder"],
     "Character Generation": ["content-source-2e", "content-source-custom", "content-source-barebones",
       "barebones-failed-career", "show-omens-barebones", "show-bonds-barebones", "show-generate-header",
-      "custom-portrait-folder", "min-age"],
+      "show-generation-rolls", "custom-portrait-folder", "min-age"],
     "General Settings": ["use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
       "show-features-section", "use-warden-title"],
   };

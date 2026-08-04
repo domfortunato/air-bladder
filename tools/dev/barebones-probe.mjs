@@ -222,12 +222,16 @@ try {
       count: (bonded.bonds ?? []).length,
       hasGold: (bonded.bonds ?? []).every((b) => typeof b.gold === "number"),
       allTagged: bondItems.every((i) => i.flags["air-bladder"].grantSource === `bond:${bondId}`),
-      // The bond REPLACES the Additional Gear roll: with bonds on you hold the
-      // bond's items instead of that one extra, so totals line up once the armor
-      // branch and the bond's own grant count are accounted for.
+      // The bond REPLACES the Additional Gear roll: strip each side down to the
+      // background's base kit and the two must match. The plain side sheds ONE
+      // extra when armor was granted — but TWO when armor came up "None", because
+      // None buys a second Additional Gear roll (asserted by the step-6 leg
+      // above). The old `- 1 - plainArmor` form ignored that branch, so the
+      // assertion failed on dice — whenever the plain draw rolled None — while
+      // reading as "bonds did not replace step 6" (2026-08-04, pre-tag suite).
       replaced:
         (bondedSame.items.length - bondedItems - bondedArmor) ===
-        (plain.items.length - 1 - plainArmor),
+        (plain.items.length - (plainArmor ? 1 : 2) - plainArmor),
       plainTotal: plain.items.length,
       bondedTotal: bondedSame.items.length,
     };

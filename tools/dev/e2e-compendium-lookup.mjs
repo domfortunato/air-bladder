@@ -157,9 +157,14 @@ try {
     // assertion fails forever, looking exactly like a code bug.
     const sweep = async () => {
       const t = await scars();
-      // `r.name`, not `r.text`: a text row keeps its prose in `description` since v13
-      // and `text` is a shim removed in v15. This row is created with a `name`.
-      const junk = t.results.filter((r) => r.name === MARK).map((r) => r.id);
+      // A text-type row keeps its prose in `description` (v13+; `text` is a shim
+      // removed in v15, and `resultText` reads description for type "text"), so
+      // BOTH the create below and this sweep use `description`. This sweep once
+      // matched `name` while the create wrote `text:` — every run therefore
+      // leaked its row into the live pack and the NEXT run failed on
+      // `hadBefore` (13 scar options against 12 shipped rows, 2026-08-04). The
+      // `name` check stays to catch that era's leftovers either way.
+      const junk = t.results.filter((r) => r.name === MARK || r.description === MARK).map((r) => r.id);
       if (junk.length) await t.deleteEmbeddedDocuments("TableResult", junk);
     };
 
@@ -176,7 +181,7 @@ try {
       const names = async () => ((await sheet._prepareContext({})).scarOptions ?? []).map((o) => o.name);
       const before = await names();
 
-      await (await scars()).createEmbeddedDocuments("TableResult", [{ text: MARK, range: [99, 99] }]);
+      await (await scars()).createEmbeddedDocuments("TableResult", [{ description: MARK, range: [99, 99] }]);
       await wait(600);
       const after = await names();
 
