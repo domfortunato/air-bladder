@@ -629,11 +629,44 @@ const ART_MOVES = [
   ["systems/air-bladder/lydia-comer/", "systems/air-bladder/art/lydia-comer/"],
 ];
 
-/** The new path for an image under a moved gallery, or null to leave it alone. */
+/**
+ * Galleries whose files were RE-ENCODED, not moved.
+ *
+ * Lydia Comer's creatures shipped as `.jpg` squares and `.png` circles until
+ * 2026-08-04, when the artist extended her grant to allow format conversion and
+ * they became WebP. That halves the download, and it breaks every world made
+ * before it: an image path is COPIED onto a document at creation and never
+ * re-read from the system, so a hand-picked portrait keeps pointing at a file
+ * that no longer exists — and a 404 image in Foundry is a blank, not an error.
+ *
+ * A prefix rule cannot express this. `ART_MOVES` rewrites the front of the
+ * string; here the front is already right and the EXTENSION is wrong.
+ */
+const ART_REENCODED = [
+  { prefix: "systems/air-bladder/art/lydia-comer/", from: /\.(jpe?g|png)$/i, to: ".webp" },
+];
+
+/**
+ * The new path for an image under a moved or re-encoded gallery, or null to
+ * leave it alone.
+ *
+ * The two rules CHAIN, and they have to: a world last opened before the `art/`
+ * restructure holds `systems/air-bladder/lydia-comer/portraits/Dragon.jpg`,
+ * which needs both the move and the re-encode to arrive anywhere real. Applying
+ * only one leaves a path that is wrong in a different way, and the migration
+ * runs once — there is no second pass to catch it.
+ */
 const movedArt = (src) => {
   const s = String(src ?? "");
-  for (const [from, to] of ART_MOVES) if (s.startsWith(from)) return to + s.slice(from.length);
-  return null;
+  let out = null;
+  for (const [from, to] of ART_MOVES) {
+    if (s.startsWith(from)) { out = to + s.slice(from.length); break; }
+  }
+  const now = out ?? s;
+  for (const { prefix, from, to } of ART_REENCODED) {
+    if (now.startsWith(prefix) && from.test(now)) return now.replace(from, to);
+  }
+  return out;
 };
 
 const migrateArtPaths = async () => {

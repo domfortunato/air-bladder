@@ -4,6 +4,7 @@
  * picker on NPC and Monster sheets.
  *
  *   node tools/import/lydia-comer.mjs [--src <dir>] [--dry]
+ *   node tools/import/lydia-comer.mjs --to-webp      (re-encode the shipped tree)
  *
  * UNLIKE its siblings `game-icons.mjs` and `tlomdev.mjs`, this gallery is a
  * PAIRED one: every creature ships twice, as a square portrait and as the
@@ -18,19 +19,43 @@
  *   <src>/<Name>.jpg     the square drawing            -> portraits/
  *   <src>/<Name>.png     the circle-cropped token      -> tokens/
  *
- * Pairing is BY STEM, not by filename — the two halves carry different
- * extensions because they arrived in different formats and her grant forbids
- * modifying the artwork, so nothing here re-encodes. Every stem must have both
- * halves; a lone file is a hard error, never a skip, because a missing token
- * ships a portrait whose token silently falls back to the black-cornered
- * circle and a missing portrait ships nothing at all.
+ * Pairing is BY STEM, not by filename — the halves arrive in different formats,
+ * and the SOURCE is still read that way. Every stem must have both halves; a
+ * lone file is a hard error, never a skip, because a missing token ships a
+ * portrait whose token silently falls back to the black-cornered circle, and a
+ * missing portrait ships nothing at all.
+ *
+ * WEBP, AND WHY THAT IS A LICENCE DECISION BEFORE IT IS A TECHNICAL ONE.
+ * Everything ships re-encoded to WebP q95 since 2026-08-04. Until that date this
+ * file said "her grant forbids modifying the artwork, so nothing here
+ * re-encodes", and that was correct: the original grant said the artwork may not
+ * be modified. **The artist extended it** (see the grant history in
+ * `art/lydia-comer/license.txt`) specifically to permit format conversion for
+ * distribution. Do not re-encode further, crop, rescale or recolour — the
+ * extension is about FORMAT and nothing else.
+ *
+ * q95 rather than the usual q80-85: at q95 the average pixel moves less than
+ * 1/255 (PSNR 46-50 dB) and the gallery still loses 54% of its weight, 15.8 MB
+ * down to ~7 MB. It is someone's original artwork, and the ~1.3 MB that q90
+ * would have saved is not worth spending on it.
+ *
+ * Lossless was measured and rejected: it is the WRONG tool for the square half.
+ * Those arrive as JPEG, so a lossless re-encode faithfully preserves their
+ * existing compression artifacts and the file gets BIGGER — 592K to 672K on the
+ * largest. Lossless only pays on the PNG circles.
  *
  * SHIPPED SHAPE (what the picker browses):
  *
- *   lydia-comer/portraits/<Name>.jpg
- *   lydia-comer/tokens/<Name>.png
+ *   lydia-comer/portraits/<Name>.webp
+ *   lydia-comer/tokens/<Name>.webp
  *   lydia-comer/CREDITS.md            the gallery's contents + attribution
  *   module/lydia-manifest.json        pairs, for the picker
+ *
+ * Both halves are now the same extension, so the manifest's `pairs` could in
+ * principle be a bare name list the way portrait-manifest.json is. It stays a
+ * pair list: the runtime lookup already reads it, changing the shape buys
+ * nothing, and a gallery whose two halves live in different folders is exactly
+ * where a "they must match" assumption goes unnoticed until it does not.
  *
  * With NO --src it re-validates the shipped tree and regenerates the manifest
  * and CREDITS.md from it — the tree is its own source of truth, so a rerun is
@@ -53,6 +78,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import sharp from "sharp";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const GALLERY = path.join(root, "art", "lydia-comer");
@@ -94,8 +120,19 @@ const filesByStem = (dir, re) => {
   return out;
 };
 
+/** What the artist delivers. */
 const PORTRAIT_EXT = /\.jpe?g$/i;
 const TOKEN_EXT = /\.png$/i;
+/** What ships, both halves alike, since the grant was extended to allow it. */
+const SHIPPED_EXT = /\.webp$/i;
+
+/**
+ * q95, and the reason is at the top of this file: it is someone's original
+ * artwork, so the setting errs toward the art rather than toward the byte count.
+ * `effort: 6` is sharp's default; raised because this runs 34 times, once.
+ */
+const WEBP = { quality: 95, effort: 6 };
+const webpName = (file) => `${file.replace(/\.[^.]+$/, "")}.webp`;
 
 /* -------------------------------------------------------------------------- */
 /*  Ingest                                                                     */
@@ -131,12 +168,15 @@ if (SRC) {
     fs.mkdirSync(TOKENS, { recursive: true });
     for (const stem of stems) {
       const moves = [
-        [path.join(SRC, squares.get(stem)), path.join(PORTRAITS, squares.get(stem))],
-        [path.join(SRC, circles.get(stem)), path.join(TOKENS, circles.get(stem))],
+        [path.join(SRC, squares.get(stem)), path.join(PORTRAITS, webpName(squares.get(stem)))],
+        [path.join(SRC, circles.get(stem)), path.join(TOKENS, webpName(circles.get(stem)))],
       ];
       for (const [from, to] of moves) {
-        if (consume) fs.renameSync(from, to);
-        else fs.copyFileSync(from, to);
+        await sharp(from).webp(WEBP).toFile(to);
+        // `consume` means the source IS the gallery folder — the artist drops
+        // the batch in beside the logo. The original has to go either way, or
+        // the tree ships every drawing twice, once loose and once encoded.
+        if (consume) fs.rmSync(from);
       }
     }
   }
@@ -151,8 +191,44 @@ if (dry) {
   process.exit(0);
 }
 
-const shippedPortraits = filesByStem(PORTRAITS, PORTRAIT_EXT);
-const shippedTokens = filesByStem(TOKENS, TOKEN_EXT);
+/**
+ * `--to-webp`: re-encode the SHIPPED tree in place, no delivery needed.
+ *
+ * The same argument `game-icons.mjs --restamp` makes. The gallery in the repo is
+ * the only copy of these files that this machine is guaranteed to have — the
+ * artist's originals came in a one-off delivery — so making a conversion every
+ * file needs depend on finding that delivery again is a bad trade for something
+ * that is a pure function of the bytes already committed.
+ *
+ * Runs before the shipped-tree validation below, which now expects .webp on both
+ * halves and would otherwise refuse to look at a tree that has not been through
+ * here yet.
+ */
+if (process.argv.includes("--to-webp")) {
+  let done = 0, before = 0, after = 0;
+  for (const [dir, ext] of [[PORTRAITS, PORTRAIT_EXT], [TOKENS, TOKEN_EXT]]) {
+    for (const [, file] of filesByStem(dir, ext)) {
+      const from = path.join(dir, file);
+      const to = path.join(dir, webpName(file));
+      before += fs.statSync(from).size;
+      const buf = await sharp(from).webp(WEBP).toBuffer();
+      fs.writeFileSync(to, buf);
+      after += buf.length;
+      // Only after the replacement is on disk. A crash between the two leaves a
+      // duplicated pair, which the validation below reports; the reverse leaves
+      // artwork that exists nowhere.
+      fs.rmSync(from);
+      done++;
+    }
+  }
+  if (!done) console.log("nothing to convert — the shipped tree is already .webp");
+  else console.log(`re-encoded ${done} file(s) to WebP q${WEBP.quality}: `
+    + `${(before / 1048576).toFixed(1)} MB -> ${(after / 1048576).toFixed(1)} MB `
+    + `(${(100 - after / before * 100).toFixed(0)}% smaller)`);
+}
+
+const shippedPortraits = filesByStem(PORTRAITS, SHIPPED_EXT);
+const shippedTokens = filesByStem(TOKENS, SHIPPED_EXT);
 if (!shippedPortraits.size) die(`no portraits under ${path.relative(root, PORTRAITS)} — run with --src first`);
 
 const broken = [
@@ -179,13 +255,14 @@ const credits = [
   "and licensed to it directly. It is **not** Creative Commons and not part of any",
   "of the system's other licence regimes: **© Lydia Comer, all rights reserved**,",
   "granted to Air Bladder for inclusion and *unmodified* redistribution as part of",
-  "the system and its forks. The artwork may not be modified and may not be used",
-  "separately from Air Bladder. Full terms and grant history: `license.txt` beside",
-  "this file.",
+  "the system and its forks. The artwork may not be altered in content and may not",
+  "be used separately from Air Bladder. Full terms and grant history:",
+  "`license.txt` beside this file.",
   "",
-  "**Nothing in this repository re-encodes, rescales or crops these files.** They",
-  "ship as the artist delivered them, which is what the grant requires — and the",
-  "reason the two halves carry different extensions.",
+  "**These files are re-encoded to WebP and changed in no other way.** They are",
+  "not cropped, rescaled, recoloured or redrawn. The artist extended the grant on",
+  "2026-08-04 to permit format conversion for distribution; every other term",
+  "stands.",
   "",
   "## Shape",
   "",

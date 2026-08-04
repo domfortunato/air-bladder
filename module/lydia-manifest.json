@@ -4,72 +4,72 @@
   "tokenDir": "systems/air-bladder/art/lydia-comer/tokens",
   "pairs": [
     {
-      "portrait": "Bad-Bunny.jpg",
-      "token": "Bad-Bunny.png"
+      "portrait": "Bad-Bunny.webp",
+      "token": "Bad-Bunny.webp"
     },
     {
-      "portrait": "Bandit-Leader.jpg",
-      "token": "Bandit-Leader.png"
+      "portrait": "Bandit-Leader.webp",
+      "token": "Bandit-Leader.webp"
     },
     {
-      "portrait": "Black-Pudding.jpg",
-      "token": "Black-Pudding.png"
+      "portrait": "Black-Pudding.webp",
+      "token": "Black-Pudding.webp"
     },
     {
-      "portrait": "Dire-Bear.jpg",
-      "token": "Dire-Bear.png"
+      "portrait": "Dire-Bear.webp",
+      "token": "Dire-Bear.webp"
     },
     {
-      "portrait": "Dire-Fish.jpg",
-      "token": "Dire-Fish.png"
+      "portrait": "Dire-Fish.webp",
+      "token": "Dire-Fish.webp"
     },
     {
-      "portrait": "Dire-Marsupial.jpg",
-      "token": "Dire-Marsupial.png"
+      "portrait": "Dire-Marsupial.webp",
+      "token": "Dire-Marsupial.webp"
     },
     {
-      "portrait": "Dire-Wolf.jpg",
-      "token": "Dire-Wolf.png"
+      "portrait": "Dire-Wolf.webp",
+      "token": "Dire-Wolf.webp"
     },
     {
-      "portrait": "Dragon.jpg",
-      "token": "Dragon.png"
+      "portrait": "Dragon.webp",
+      "token": "Dragon.webp"
     },
     {
-      "portrait": "Dragon-Turtle.jpg",
-      "token": "Dragon-Turtle.png"
+      "portrait": "Dragon-Turtle.webp",
+      "token": "Dragon-Turtle.webp"
     },
     {
-      "portrait": "Estrie-Human.jpg",
-      "token": "Estrie-Human.png"
+      "portrait": "Estrie-Human.webp",
+      "token": "Estrie-Human.webp"
     },
     {
-      "portrait": "Fire-Elemental.jpg",
-      "token": "Fire-Elemental.png"
+      "portrait": "Fire-Elemental.webp",
+      "token": "Fire-Elemental.webp"
     },
     {
-      "portrait": "Gnome-with-Cock.jpg",
-      "token": "Gnome-with-Cock.png"
+      "portrait": "Gnome-with-Cock.webp",
+      "token": "Gnome-with-Cock.webp"
     },
     {
-      "portrait": "Shrieking-Gnoll.jpg",
-      "token": "Shrieking-Gnoll.png"
+      "portrait": "Shrieking-Gnoll.webp",
+      "token": "Shrieking-Gnoll.webp"
     },
     {
-      "portrait": "Stork-Rider.jpg",
-      "token": "Stork-Rider.png"
+      "portrait": "Stork-Rider.webp",
+      "token": "Stork-Rider.webp"
     },
     {
-      "portrait": "Tentacles.jpg",
-      "token": "Tentacles.png"
+      "portrait": "Tentacles.webp",
+      "token": "Tentacles.webp"
     },
     {
-      "portrait": "Undead-Mouse.jpg",
-      "token": "Undead-Mouse.png"
+      "portrait": "Undead-Mouse.webp",
+      "token": "Undead-Mouse.webp"
     },
     {
-      "portrait": "Were-Rat.jpg",
-      "token": "Were-Rat.png"
+      "portrait": "Were-Rat.webp",
+      "token": "Were-Rat.webp"
     }
   ]
 }

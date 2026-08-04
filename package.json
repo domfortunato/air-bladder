@@ -108,6 +108,7 @@
     "eslint-plugin-import": "^2.26.0",
     "js-yaml": "^5.2.1",
     "playwright": "^1.49.0",
+    "sharp": "^0.35.3",
     "standard": "^16.0.3"
   }
 }

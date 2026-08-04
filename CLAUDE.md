@@ -270,11 +270,18 @@ What belongs here is what those two files do not say:
 - **The Air Bladder logo is NOT Creative Commons.** All rights reserved, Lydia Comer,
   by bespoke grant. Do not treat it as CC, and do not reach for it as the manifest's
   cover image — that is the reason `media` is deliberately absent from `system.json`.
-  **Since 2026-08-04 the same grant also covers 17 MONSTERS** under
+  **Since 2026-08-04 the same grant also covers her MONSTERS** under
   `art/lydia-comer/portraits|tokens/`, offered in the picker on NPC and Monster
-  sheets. Nothing in this repo re-encodes, rescales or crops them — the grant says
-  unmodified, and that is why the two halves of a pair carry different extensions
-  (`.jpg` square, `.png` circle) instead of being normalised.
+  sheets — a growing set, so do not state a count here.
+  **The grant was extended the same day to permit FORMAT CONVERSION**, and they
+  ship as WebP q95: 15.7 MB down to 7.5 MB, which was 41% of the whole release
+  zip. That is the ONLY change permitted — not cropped, rescaled, recoloured or
+  redrawn — and it is why `tools/import/lydia-comer.mjs` re-encodes on ingest
+  while everything else about the artwork is left alone. Grant history lives in
+  `art/lydia-comer/license.txt`; read it before touching her files.
+  The halves used to be told apart by extension (`.jpg` square, `.png` circle);
+  both are `.webp` now and only the FOLDER separates them, so an extension
+  migration (`ART_REENCODED` in `cairn.js`) carries existing worlds across.
 - **All four picker galleries live under `art/`** (moved 2026-08-04):
   `art/jon-aspeheim/portraits|tokens/` (was the split `character_portraits/` +
   `character_tokens/`), `art/lydia-comer/`, `art/tlomdev/`, `art/game-icons/`.

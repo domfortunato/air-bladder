@@ -23,12 +23,17 @@
  * leg happily; it cannot also satisfy the presence leg one row up.
  *
  * PAIRED GALLERIES ARE THE OTHER RULE. Two of the five ship a portrait and a
- * separate token per image — Aspeheim's, whose halves share one filename across
- * two folders, and Lydia's, whose halves carry DIFFERENT EXTENSIONS (.jpg
- * square, .png circle) because her grant forbids re-encoding the artwork. The
- * other three are their own tokens. So "token === portrait" is correct three
- * times and wrong twice, and it is precisely what the paired lookup produces
- * when it fails (`?? img`) — with no error, on a sheet that looks fine.
+ * separate token per image — Aspeheim's and Lydia's — while the other three are
+ * their own tokens. So "token === portrait" is correct three times and wrong
+ * twice, and it is precisely what the paired lookup produces when it fails
+ * (`?? img`) — with no error, on a sheet that looks fine.
+ *
+ * Lydia's halves used to be told apart by EXTENSION (.jpg square, .png circle,
+ * because the grant then forbade re-encoding). Since 2026-08-04 both are .webp
+ * and the only thing separating them is the FOLDER. That makes this section
+ * more worth keeping rather than less: two files with the same name in two
+ * directories is exactly the shape a basename-only lookup gets right by luck
+ * and wrong on the first collision.
  *
  * ALSO THE PORTRAIT DIE's folder rule (2026-08-02): it re-rolls within the
  * folder the current portrait came from — a tlomdev beast rolls another beast,
@@ -348,12 +353,11 @@ try {
   /* --- 2c. the Lydia Comer gallery: flat, and PAIRED -------------------- */
 
   // Everything here that is worth asserting comes from this gallery being the
-  // only one shaped BOTH ways at once: a flat grid like Aspeheim's, whose two
-  // halves carry DIFFERENT EXTENSIONS because her grant forbids re-encoding.
-  // So "the token is the portrait" — right for tlomdev, right for game-icons,
-  // right for a custom upload — is WRONG here, and is exactly what a
-  // pairedTokenFor that failed to learn the second manifest would produce
-  // (`?? img`, silently, with no error anywhere).
+  // only one shaped BOTH ways at once: a flat grid, and PAIRED. So "the token is
+  // the portrait" — right for tlomdev, right for game-icons, right for a custom
+  // upload — is WRONG here, and is exactly what a pairedTokenFor that failed to
+  // learn the second manifest would produce (`?? img`, silently, with no error
+  // anywhere).
   const ly = await page.evaluate(async () => {
     const Cls = CONFIG.Actor.documentClass;
     const a = await Cls.create({ name: "ZZ Art Lydia", type: "npc", system: { role: "monster" } });
@@ -419,8 +423,9 @@ try {
   ly.firstLabel === LY_FIRST.portrait.replace(/\.[^.]+$/, "").replace(/-/g, " ")
     ? ok("captions are titles, not filenames", ly.firstLabel)
     : fail("captions are titles, not filenames", JSON.stringify([ly.firstLabel, LY_FIRST.portrait]));
-  // The whole point of the section. Portrait is the .jpg square; token is the
-  // .png circle — a DIFFERENT FILE, which `?? img` can never produce.
+  // The whole point of the section. Portrait is the square, token is the circle
+  // — same filename since both went WebP, so a DIFFERENT FOLDER is the entire
+  // difference, and `?? img` can never produce it.
   ly.img === `${LY_MANIFEST.portraitDir}/${LY_FIRST.portrait}`
     && ly.token === `${LY_MANIFEST.tokenDir}/${LY_FIRST.token}`
     && ly.token !== ly.img

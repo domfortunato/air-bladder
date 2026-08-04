@@ -21,6 +21,8 @@
  *   5. an unlinked Scene token's texture.src     (embedded, holds its own texture)
  *   6. a RollTable result's img                  (a SNAPSHOT, not a live read —
  *      the surface the .png migration never needed and this one does)
+ *   7. an img already under art/ in the OLD FORMAT (the re-encode rule, which
+ *      the prefix table structurally cannot reach)
  *
  * NEGATIVE CONTROL, in-page and in both directions. `icons/` deliberately did
  * NOT move, and an external URL must never be touched: both are planted too and
@@ -45,7 +47,21 @@ const MOVES = [
   ["systems/air-bladder/character_tokens/dwarf_01.webp", "systems/air-bladder/art/jon-aspeheim/tokens/dwarf_01.webp"],
   ["systems/air-bladder/tlomdev/beast/beast1.png", "systems/air-bladder/art/tlomdev/beast/beast1.png"],
   ["systems/air-bladder/game-icons/weapons/axe-swing.svg", "systems/air-bladder/art/game-icons/weapons/axe-swing.svg"],
-  ["systems/air-bladder/lydia-comer/portraits/Dragon.jpg", "systems/air-bladder/art/lydia-comer/portraits/Dragon.jpg"],
+  // TWO migrations on ONE path, and this is the only leg that exercises the
+  // chain. A world last opened before the art/ restructure holds Lydia's
+  // gallery at the old PREFIX *and* in the old FORMAT — she shipped .jpg
+  // squares and .png circles until the grant was extended on 2026-08-04. Both
+  // rules have to fire, in order, or the result is a path that is wrong in a
+  // different way; and the migration runs once, so there is no second pass.
+  // This leg is what caught the chain being real: it was written expecting the
+  // prefix move alone and went red the moment the re-encode rule landed.
+  ["systems/air-bladder/lydia-comer/portraits/Dragon.jpg", "systems/air-bladder/art/lydia-comer/portraits/Dragon.webp"],
+];
+// Already under art/, wrong format only — a world made AFTER the restructure but
+// BEFORE the WebP conversion. The prefix rule cannot see this one at all, so it
+// is the leg that fails if ART_REENCODED is deleted while ART_MOVES survives.
+const REENCODED = [
+  ["systems/air-bladder/art/lydia-comer/tokens/Dragon.png", "systems/air-bladder/art/lydia-comer/tokens/Dragon.webp"],
 ];
 // Must survive UNCHANGED. icons/ is stamped class art and stayed put; the URL is
 // a Warden's own image and was never ours to rewrite.
@@ -69,12 +85,17 @@ try {
 
   /* --- plant one old path on every surface ------------------------------- */
 
-  planted = await page.evaluate(async ({ MOVES, UNTOUCHED }) => {
+  planted = await page.evaluate(async ({ MOVES, UNTOUCHED, REENCODED }) => {
     const old = MOVES.map(([from]) => from);
     const ActorCls = CONFIG.Actor.documentClass;
     const ItemCls = CONFIG.Item.documentClass;
 
     const item = await ItemCls.create({ name: "zz-art-path-item", type: "item", img: old[3] });
+
+    // Seventh surface, and the only one the PREFIX table cannot reach: already
+    // under art/, wrong FORMAT. A world made between the restructure and the
+    // WebP conversion looks exactly like this.
+    const reenc = await ItemCls.create({ name: "zz-art-path-reenc", type: "item", img: REENCODED[0][0] });
 
     const actor = await ActorCls.create({
       name: "zz-art-path-actor",
@@ -112,6 +133,7 @@ try {
 
     return {
       itemId: item.id,
+      reencId: reenc.id,
       actorId: actor.id,
       ownedId: owned?.id ?? null,
       sceneId: scene.id,
@@ -123,6 +145,7 @@ try {
       // and a planted value that never stuck would make every later leg vacuous.
       seen: {
         item: item.img,
+        reenc: reenc.img,
         actor: actor.img,
         proto: actor.prototypeToken?.texture?.src,
         owned: owned?.img,
@@ -131,16 +154,17 @@ try {
         controls: controls.map((id) => game.items.get(id)?.img),
       },
     };
-  }, { MOVES, UNTOUCHED });
+  }, { MOVES, UNTOUCHED, REENCODED });
 
   const wanted = {
     item: MOVES[3][0], actor: MOVES[0][0], proto: MOVES[1][0],
     owned: MOVES[2][0], token: MOVES[4][0], result: MOVES[0][0],
+    reenc: REENCODED[0][0],
   };
   const badPlant = Object.entries(wanted).filter(([k, v]) => planted.seen[k] !== v);
   badPlant.length === 0 && UNTOUCHED.every((s, i) => planted.seen.controls[i] === s)
-    ? ok("planted an old path on all six surfaces", "+ 2 controls")
-    : fail("planted an old path on all six surfaces", JSON.stringify({ badPlant, controls: planted.seen.controls }));
+    ? ok("planted an old path on all seven surfaces", "+ 2 controls")
+    : fail("planted an old path on all seven surfaces", JSON.stringify({ badPlant, controls: planted.seen.controls }));
 
   /* --- reload, and let the ready migration run --------------------------- */
 
@@ -158,6 +182,7 @@ try {
     const table = game.tables.get(p.tableId);
     return {
       item: game.items.get(p.itemId)?.img ?? null,
+      reenc: game.items.get(p.reencId)?.img ?? null,
       actor: a?.img ?? null,
       proto: a?.prototypeToken?.texture?.src ?? null,
       owned: a?.items.get(p.ownedId)?.img ?? null,
@@ -168,7 +193,15 @@ try {
   }, planted);
 
   let after = await read();
-  const done = (s) => Object.values(s).flat().every((v) => v === null || !/systems\/air-bladder\/(character_|tlomdev\/|game-icons\/|lydia-comer\/)/.test(v));
+  // "Still stale" is TWO questions now. A path under an old prefix is the
+  // original one; a `.jpg`/`.png` under art/lydia-comer/ is the re-encode
+  // surface, which carries no old prefix at all and so looked finished to the
+  // prefix test the instant it was planted -- a poll that returns before the
+  // work it waits for has started.
+  const STALE_PREFIX = /systems\/air-bladder\/(character_|tlomdev\/|game-icons\/|lydia-comer\/)/;
+  const STALE_FORMAT = /systems\/air-bladder\/art\/lydia-comer\/.*\.(jpe?g|png)$/i;
+  const done = (s) => Object.values(s).flat()
+    .every((v) => v === null || (!STALE_PREFIX.test(v) && !STALE_FORMAT.test(v)));
   for (; waited < 30000 && !done(after); waited += 250) {
     await page.waitForTimeout(250);
     after = await read();
@@ -183,6 +216,7 @@ try {
     ["an owned Item on that Actor", "owned", MOVES[2][1]],
     ["an unlinked Scene token", "token", MOVES[4][1]],
     ["a RollTable result's img snapshot", "result", MOVES[0][1]],
+    ["re-encoded: art/ already right, format was not", "reenc", REENCODED[0][1]],
   ]) {
     after[key] === want
       ? ok(`migrated: ${label}`, want.replace("systems/air-bladder/art/", ""))
@@ -208,6 +242,7 @@ try {
       await page.evaluate(async (p) => {
         const drop = async (fn) => { try { await fn(); } catch { /* keep going */ } };
         await drop(() => game.items.get(p.itemId)?.delete());
+        await drop(() => game.items.get(p.reencId)?.delete());
         await drop(() => game.actors.get(p.actorId)?.delete());
         await drop(() => game.scenes.get(p.sceneId)?.delete());
         await drop(() => game.tables.get(p.tableId)?.delete());

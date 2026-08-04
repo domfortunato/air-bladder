@@ -8,8 +8,10 @@ and for unmodified use in representing and promoting the project — the project
 website, package listings, and release announcements. All other uses require
 permission.
 
-The artwork may not be modified, and may not be used separately from Air
-Bladder.
+The artwork may not be used separately from Air Bladder, and may not be altered
+in content — not cropped, rescaled, recoloured, filtered or redrawn. Conversion
+between image FILE FORMATS is permitted where it is needed to distribute the
+system, provided the image itself is otherwise unchanged.
 
 This grant covers all files in this folder (the Airbladder*.webp logo variants)
 and any further contributions by Lydia Comer to the Air Bladder system.
@@ -20,3 +22,8 @@ Grant history:
   2026-07-27  Extended by the artist to cover unmodified promotional use of the
               wordmark for the project (added when the project website went up
               at https://domfortunato.github.io/air-bladder/).
+  2026-08-04  Extended by the artist to permit conversion between image file
+              formats for distribution. The system is installed as a single
+              download, and re-encoding the artwork to WebP roughly halves it.
+              No other change is permitted or made: the images are not cropped,
+              rescaled, recoloured or otherwise altered.

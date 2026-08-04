@@ -97,10 +97,11 @@ export const getTlomdevManifest = async () => {
 // Shaped unlike either of them: it is a PAIRED gallery, a flat list of
 // {portrait, token} the way Aspeheim's is, not category folders. Each creature
 // is a square drawing plus the circle-cropped token made from it, matched by
-// stem — so the two halves carry DIFFERENT EXTENSIONS (.jpg and .png), because
-// her grant forbids modifying the artwork and nothing here re-encodes. That is
-// why `pairs` holds both filenames rather than one shared name the way
-// portrait-manifest.json does.
+// stem. `pairs` holds BOTH filenames rather than one shared name the way
+// portrait-manifest.json does — a habit from when the halves carried different
+// extensions (.jpg square, .png circle), kept now that both are .webp because
+// the two halves live in different folders and nothing should quietly depend on
+// their names agreeing.
 let _lydiaManifest = null;
 
 /** @returns {Promise<{portraitDir:String, tokenDir:String, pairs:{portrait:String, token:String}[]}>} */
@@ -213,13 +214,13 @@ export const randomPortraitPair = async () => {
  * game-icons glyph, a tlomdev drawing — each of which is its own token).
  * Callers decide the fallback.
  *
- * TWO galleries answer here, and they pair differently. Aspeheim's halves share
- * one filename across two folders, so a basename lookup settles it. Lydia's
- * carry different extensions (.jpg square, .png circle) because her grant
- * forbids modifying the artwork, so the manifest names both halves and the
- * lookup is by the PORTRAIT filename. Matching on the directory as well as the
- * name is deliberate: an Aspeheim and a Lydia file could in principle share a
- * stem, and the answer must not depend on which gallery is consulted first.
+ * TWO galleries answer here. Aspeheim's halves share one filename across two
+ * folders, so a basename lookup settles it. Lydia's manifest names both halves
+ * and the lookup is by the PORTRAIT filename — which was load-bearing while the
+ * halves were .jpg and .png, and is merely honest now that both are .webp.
+ * Matching on the DIRECTORY as well as the name is the part that still matters:
+ * an Aspeheim and a Lydia file could in principle share a stem, and the answer
+ * must not depend on which gallery is consulted first.
  * @param {String} portraitPath
  * @returns {Promise<String|null>}
  */

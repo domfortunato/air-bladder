@@ -282,13 +282,22 @@ if (statedArtists === undefined) {
 // the canvas silently keeps whatever it had -- which looks like a Foundry bug
 // and is a build error. Checked here rather than only in the importer because
 // the importer runs once and this runs on every gate.
-const lydiaPortraits = readdirSync(join(ROOT, "art", "lydia-comer", "portraits")).filter((f) => /\.jpe?g$/i.test(f));
-const lydiaTokens = new Set(readdirSync(join(ROOT, "art", "lydia-comer", "tokens")).filter((f) => /\.png$/i.test(f)));
+// Any image extension, deliberately. This read the delivered formats
+// (`.jpe?g` here, `.png` there) until 2026-08-04, when the artist extended her
+// grant to allow format conversion and both halves became WebP — at which point
+// a gate whose whole job is "the gallery is fully paired" reported **0 of 17**
+// and blamed six count sites for it. Pairing is a fact about STEMS; the
+// container format is not this gate's business and should not be able to break
+// it again the next time the shipped format changes.
+const IMAGE = /\.(jpe?g|png|webp|gif|avif)$/i;
+const lydiaPortraits = readdirSync(join(ROOT, "art", "lydia-comer", "portraits")).filter((f) => IMAGE.test(f));
+const lydiaTokens = new Set(readdirSync(join(ROOT, "art", "lydia-comer", "tokens")).filter((f) => IMAGE.test(f)));
 const lydiaManifest = JSON.parse(read("module/lydia-manifest.json"));
 const stem = (f) => f.replace(/\.[^.]+$/, "");
+const lydiaTokenStems = new Set([...lydiaTokens].map(stem));
 
 const lydiaProblems = [];
-for (const p of lydiaPortraits) if (!lydiaTokens.has(`${stem(p)}.png`)) lydiaProblems.push(`portraits/${p} has no paired token`);
+for (const p of lydiaPortraits) if (!lydiaTokenStems.has(stem(p))) lydiaProblems.push(`portraits/${p} has no paired token`);
 for (const t of lydiaTokens) if (!lydiaPortraits.some((p) => stem(p) === stem(t))) lydiaProblems.push(`tokens/${t} has no paired portrait`);
 if (lydiaManifest.pairs?.length !== lydiaPortraits.length) {
   lydiaProblems.push(`module/lydia-manifest.json lists ${lydiaManifest.pairs?.length} pairs, disk holds ${lydiaPortraits.length}`);
