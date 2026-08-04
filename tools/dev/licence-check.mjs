@@ -161,7 +161,7 @@ if (!zipLine) {
 /* --- 5. the gallery's stated size, everywhere it is stated ----------------- */
 
 // This file compares NAMES and never numbers, which is how "1,310 glyphs" and
-// "1,239 glyphs" survived a collection that has held 1,366 for a while (review
+// "1,239 glyphs" survived a collection that had grown past both (review
 // #7 finding 16). Both README files state it as part of a CC BY attribution, so
 // it is not decoration; the four working-note copies drift for the ordinary
 // reason a number restated in six places drifts.
@@ -170,9 +170,10 @@ if (!zipLine) {
 // gate and someone updates it, which is the outcome to want. A regex that
 // quietly matched nothing would put the count straight back to unchecked.
 const galleryRoot = join(ROOT, "game-icons");
-const onDisk = readdirSync(galleryRoot, { withFileTypes: true })
-  .filter((d) => d.isDirectory())
+const galleryDirs = readdirSync(galleryRoot, { withFileTypes: true }).filter((d) => d.isDirectory());
+const onDisk = galleryDirs
   .reduce((n, d) => n + readdirSync(join(galleryRoot, d.name)).filter((f) => f.endsWith(".svg")).length, 0);
+const catsOnDisk = galleryDirs.length;
 
 const COUNT_SITES = [
   ["README.md", /picker gallery — ([\d,]+) glyphs/],
@@ -180,9 +181,32 @@ const COUNT_SITES = [
   ["module/art-picker.js", /gameicons\s+([\d,]+) game-icons\.net glyphs/],
   ["module/art-picker.js", /at once is ([\d,]+) <img>/],
   ["module/art-picker.js", /the ([\d,]+)-glyph gallery/],
-  ["module/character-generator.js", /([\d,]+) game-icons\.net glyphs in 24 categories/],
+  ["module/character-generator.js", /([\d,]+) game-icons\.net glyphs in \d+ categories/],
   ["tools/import/item-icons.mjs", /`game-icons\/` \(([\d,]+) glyphs/],
   ["tools/import/README.md", /`game-icons\/` \(([\d,]+) svg/],
+  // LICENSE.txt was the one site stating this number that NOTHING checked, and
+  // it was three collections stale (1,366 glyphs, 24 categories, 16
+  // contributors) while this gate reported green over eight other sites. The
+  // gate was written to compare the two files that matter and then given count
+  // lists that happened not to include one of them. Its number is part of a CC
+  // BY attribution exactly as README's is, so it is the LAST place drift should
+  // have been tolerable. Wrapped across two lines in the file — hence \s+.
+  ["LICENSE.txt", /picker gallery, ([\d,]+) glyphs/],
+];
+
+// The CATEGORY count drifts for exactly the reason the glyph count does, and was
+// unchecked while the glyph count was gated -- so adding the 25th category left
+// four sites still saying 24, none of which any gate could see. The category
+// count used to be pinned inside the character-generator pattern above, which
+// made this gate fail for the RIGHT collection whenever a category was added:
+// it read as a stale glyph count when nothing about the glyphs had changed.
+const CATEGORY_SITES = [
+  ["README.md", /picker gallery — [\d,]+ glyphs in (\d+) categories/],
+  ["README.es.md", /del selector de imágenes — [\d,]+ íconos en (\d+) categorías/],
+  ["module/art-picker.js", /\*\s+(\d+) folder tiles, then that category's thumbnails/],
+  ["module/art-picker.js", /rendering all (\d+) at once/],
+  ["module/character-generator.js", /game-icons\.net glyphs in (\d+) categories/],
+  ["LICENSE.txt", /picker gallery, [\d,]+ glyphs in (\d+)\s+categories/],
 ];
 
 const wrongCounts = [];
@@ -195,6 +219,55 @@ for (const [file, pattern] of COUNT_SITES) {
 wrongCounts.length === 0
   ? ok(`every stated gallery size matches disk (${onDisk} glyphs, ${COUNT_SITES.length} sites)`)
   : fail(`stale gallery counts:\n        ${wrongCounts.join("\n        ")}`);
+
+const wrongCats = [];
+for (const [file, pattern] of CATEGORY_SITES) {
+  const m = read(file).match(pattern);
+  if (!m) wrongCats.push(`${file}: the category sentence this gate anchors on is gone (${pattern})`);
+  else if (Number(m[1]) !== catsOnDisk) wrongCats.push(`${file}: says ${m[1]}, disk holds ${catsOnDisk}`);
+}
+wrongCats.length === 0
+  ? ok(`every stated category count matches disk (${catsOnDisk} categories, ${CATEGORY_SITES.length} sites)`)
+  : fail(`stale gallery category counts:\n        ${wrongCats.join("\n        ")}`);
+
+// The ARTIST list is the CC BY attribution itself -- "include a mention 'Icons
+// made by {author}'" is the upstream licence's own wording -- and both READMEs
+// restate it. game-icons/CREDITS.md is generated from the download, so it is
+// right by construction; the READMEs are hand-kept and were not checked by
+// anything. Adding a category brings new artists with it (shields brought Andy
+// Meneely and SeregaCthtuf, bottles brought Guard13007 and Starseeker), so the
+// lists drift on exactly the occasion nobody is thinking about them, and an
+// unnamed artist is a licence breach rather than a typo. "Various artists" is
+// excluded: both READMEs render it as prose ("and one icon credited to various
+// artists") rather than as a name in the list.
+const creditedArtists = (/^Icons made by (.+)\.$/m.exec(read("game-icons/CREDITS.md"))?.[1] ?? "")
+  .split(", ").map((s) => s.trim()).filter((s) => s && s !== "Various artists");
+
+const unnamedArtists = [];
+if (!creditedArtists.length) {
+  unnamedArtists.push("game-icons/CREDITS.md: no 'Icons made by …' line to check against");
+} else {
+  for (const file of ["README.md", "README.es.md"]) {
+    const text = read(file);
+    const missing = creditedArtists.filter((a) => !text.includes(a));
+    if (missing.length) unnamedArtists.push(`${file}: does not name ${missing.join(", ")}`);
+  }
+}
+unnamedArtists.length === 0
+  ? ok(`both READMEs name every credited artist (${creditedArtists.length})`)
+  : fail(`gallery artists missing from a CC BY attribution:\n        ${unnamedArtists.join("\n        ")}`);
+
+// LICENSE.txt states the contributor count in prose. It is the same drift as
+// the two above and computed right here, so it is checked here rather than
+// carrying a one-entry site list of its own.
+const statedArtists = /picker gallery[\s\S]{0,120}?by (\d+) named contributors/.exec(licence)?.[1];
+if (statedArtists === undefined) {
+  fail("LICENSE.txt: the contributor sentence this gate anchors on is gone");
+} else if (Number(statedArtists) !== creditedArtists.length) {
+  fail(`LICENSE.txt says ${statedArtists} named contributors, CREDITS.md credits ${creditedArtists.length}`);
+} else {
+  ok(`LICENSE.txt's contributor count matches CREDITS.md (${creditedArtists.length})`);
+}
 
 console.log(`\n${failed ? "LICENCE CHECK FAILED" : "Licence check passed."}`);
 process.exit(failed ? 1 : 0);

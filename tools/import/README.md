@@ -49,7 +49,7 @@ curation changes. Point `--src` at the unpacked download.
 | `transports.mjs` | `transports`, the transport shop table | self-contained (2e transport numbers) |
 | `npc-careers-2e.mjs` | `module/npc-careers-2e.json` | `resources/hirelings.md` |
 | `portraits.mjs` | `module/portrait-manifest.json` | the shipped image folders |
-| `game-icons.mjs` | `game-icons/` (1,366 svg + `CREDITS.md` + `license.txt`), `module/game-icons-manifest.json` | a curated game-icons.net download, via `--src` — or `--restamp`, which needs none |
+| `game-icons.mjs` | `game-icons/` (1,539 svg + `CREDITS.md` + `license.txt`), `module/game-icons-manifest.json` | a curated game-icons.net download, via `--src` — or `--restamp`, which needs none |
 
 `marketplace-descriptions.csv` and `background-archetypes.csv` are **ours**, not
 upstream's: the SRD price list is names and numbers with no flavour text, and

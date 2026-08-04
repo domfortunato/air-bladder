@@ -20,9 +20,9 @@ the artist lives in the source download's folder structure, which the flatten
 discards (see `tools/import/game-icons.mjs`). Nothing else in the repo carries
 it.
 
-Icons made by Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev, Delapouite, Faithtoken, GeneralAce135, Irongamer, Lorc, Lord Berandas, Lucas, Sbed, Skoll, Sparker, Various artists, Willdabeast.
+Icons made by Andy Meneely, Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev, Delapouite, Faithtoken, GeneralAce135, Guard13007, Irongamer, Lorc, Lord Berandas, Lucas, Sbed, SeregaCthtuf, Skoll, Sparker, Starseeker, Various artists, Willdabeast.
 
-1366 icons in 24 categories.
+1539 icons in 27 categories.
 
 ## Animals
 
@@ -557,6 +557,65 @@ Icons made by Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev, Delapouite, F
 | `wax-tablet.svg` | Wax Tablet | Delapouite | <https://game-icons.net/1x1/delapouite/wax-tablet.html> |
 | `white-book.svg` | White Book | Willdabeast | <https://game-icons.net/1x1/willdabeast/white-book.html> |
 
+## Bottles
+
+| file | icon | author | source |
+| --- | --- | --- | --- |
+| `amphora.svg` | Amphora | Delapouite | <https://game-icons.net/1x1/delapouite/amphora.html> |
+| `aquarium.svg` | Aquarium | Delapouite | <https://game-icons.net/1x1/delapouite/aquarium.html> |
+| `baby-bottle.svg` | Baby Bottle | Delapouite | <https://game-icons.net/1x1/delapouite/baby-bottle.html> |
+| `beer-bottle.svg` | Beer Bottle | Delapouite | <https://game-icons.net/1x1/delapouite/beer-bottle.html> |
+| `boba.svg` | Boba | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/boba.html> |
+| `booze.svg` | Booze | Delapouite | <https://game-icons.net/1x1/delapouite/booze.html> |
+| `bottle-cap.svg` | Bottle Cap | Delapouite | <https://game-icons.net/1x1/delapouite/bottle-cap.html> |
+| `bottle-vapors.svg` | Bottle Vapors | Lorc | <https://game-icons.net/1x1/lorc/bottle-vapors.html> |
+| `bottled-bolt.svg` | Bottled Bolt | Lorc | <https://game-icons.net/1x1/lorc/bottled-bolt.html> |
+| `bottled-shadow.svg` | Bottled Shadow | Delapouite | <https://game-icons.net/1x1/delapouite/bottled-shadow.html> |
+| `brandy-bottle.svg` | Brandy Bottle | Lorc | <https://game-icons.net/1x1/lorc/brandy-bottle.html> |
+| `broken-bottle.svg` | Broken Bottle | Lorc | <https://game-icons.net/1x1/lorc/broken-bottle.html> |
+| `bubbling-flask.svg` | Bubbling Flask | Lorc | <https://game-icons.net/1x1/lorc/bubbling-flask.html> |
+| `champagne-cork.svg` | Champagne Cork | Delapouite | <https://game-icons.net/1x1/delapouite/champagne-cork.html> |
+| `cloth-jar.svg` | Cloth Jar | Delapouite | <https://game-icons.net/1x1/delapouite/cloth-jar.html> |
+| `coffee-pot.svg` | Coffee Pot | Delapouite | <https://game-icons.net/1x1/delapouite/coffee-pot.html> |
+| `covered-jar.svg` | Covered Jar | Delapouite | <https://game-icons.net/1x1/delapouite/covered-jar.html> |
+| `delicate-perfume.svg` | Delicate Perfume | Delapouite | <https://game-icons.net/1x1/delapouite/delicate-perfume.html> |
+| `drink-me.svg` | Drink Me | Lorc | <https://game-icons.net/1x1/lorc/drink-me.html> |
+| `fire-bottle.svg` | Fire Bottle | Lorc | <https://game-icons.net/1x1/lorc/fire-bottle.html> |
+| `fizzing-flask.svg` | Fizzing Flask | Lorc | <https://game-icons.net/1x1/lorc/fizzing-flask.html> |
+| `funnel.svg` | Funnel | Delapouite | <https://game-icons.net/1x1/delapouite/funnel.html> |
+| `heart-bottle.svg` | Heart Bottle | Lorc | <https://game-icons.net/1x1/lorc/heart-bottle.html> |
+| `holy-water.svg` | Holy Water | Delapouite | <https://game-icons.net/1x1/delapouite/holy-water.html> |
+| `honey-jar.svg` | Honey Jar | Delapouite | <https://game-icons.net/1x1/delapouite/honey-jar.html> |
+| `jerrycan.svg` | Jerrycan | Delapouite | <https://game-icons.net/1x1/delapouite/jerrycan.html> |
+| `jug.svg` | Jug | Delapouite | <https://game-icons.net/1x1/delapouite/jug.html> |
+| `ketchup.svg` | Ketchup | Delapouite | <https://game-icons.net/1x1/delapouite/ketchup.html> |
+| `liquid-soap.svg` | Liquid Soap | Delapouite | <https://game-icons.net/1x1/delapouite/liquid-soap.html> |
+| `magic-lamp.svg` | Magic Lamp | Lorc | <https://game-icons.net/1x1/lorc/magic-lamp.html> |
+| `magic-potion.svg` | Magic Potion | Delapouite | <https://game-icons.net/1x1/delapouite/magic-potion.html> |
+| `mason-jar.svg` | Mason Jar | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/mason-jar.html> |
+| `molotov.svg` | Molotov | Lorc | <https://game-icons.net/1x1/lorc/molotov.html> |
+| `nectar.svg` | Nectar | Delapouite | <https://game-icons.net/1x1/delapouite/nectar.html> |
+| `oil-can.svg` | Oil Can | Delapouite | <https://game-icons.net/1x1/delapouite/oil-can.html> |
+| `perfume-bottle.svg` | Perfume Bottle | Lorc | <https://game-icons.net/1x1/lorc/perfume-bottle.html> |
+| `poison-bottle.svg` | Poison Bottle | Lorc | <https://game-icons.net/1x1/lorc/poison-bottle.html> |
+| `potion-ball.svg` | Potion Ball | Lorc | <https://game-icons.net/1x1/lorc/potion-ball.html> |
+| `potion-of-madness.svg` | Potion Of Madness | Starseeker | <https://game-icons.net/1x1/starseeker/potion-of-madness.html> |
+| `round-bottom-flask.svg` | Round Bottom Flask | Lorc | <https://game-icons.net/1x1/lorc/round-bottom-flask.html> |
+| `round-potion.svg` | Round Potion | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/round-potion.html> |
+| `sake-bottle.svg` | Sake Bottle | SeregaCthtuf | <https://game-icons.net/1x1/seregacthtuf/sake-bottle.html> |
+| `skull-in-jar.svg` | Skull In Jar | Lorc | <https://game-icons.net/1x1/lorc/skull-in-jar.html> |
+| `snow-bottle.svg` | Snow Bottle | Lorc | <https://game-icons.net/1x1/lorc/snow-bottle.html> |
+| `soda-bottle.svg` | Soda Bottle | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/soda-bottle.html> |
+| `soda-can.svg` | Soda Can | Guard13007 | <https://game-icons.net/1x1/guard13007/soda-can.html> |
+| `spiral-bottle.svg` | Spiral Bottle | Lorc | <https://game-icons.net/1x1/lorc/spiral-bottle.html> |
+| `square-bottle.svg` | Square Bottle | Lorc | <https://game-icons.net/1x1/lorc/square-bottle.html> |
+| `standing-potion.svg` | Standing Potion | Lorc | <https://game-icons.net/1x1/lorc/standing-potion.html> |
+| `water-bottle.svg` | Water Bottle | Delapouite | <https://game-icons.net/1x1/delapouite/water-bottle.html> |
+| `water-flask.svg` | Water Flask | Delapouite | <https://game-icons.net/1x1/delapouite/water-flask.html> |
+| `water-gallon.svg` | Water Gallon | Delapouite | <https://game-icons.net/1x1/delapouite/water-gallon.html> |
+| `waterskin.svg` | Waterskin | Delapouite | <https://game-icons.net/1x1/delapouite/waterskin.html> |
+| `wine-bottle.svg` | Wine Bottle | Delapouite | <https://game-icons.net/1x1/delapouite/wine-bottle.html> |
+
 ## Celtic
 
 | file | icon | author | source |
@@ -940,6 +999,66 @@ Icons made by Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev, Delapouite, F
 | `unicorn.svg` | Unicorn | Delapouite | <https://game-icons.net/1x1/delapouite/unicorn.html> |
 | `viking-helmet.svg` | Viking Helmet | Delapouite | <https://game-icons.net/1x1/delapouite/viking-helmet.html> |
 
+## Insects
+
+| file | icon | author | source |
+| --- | --- | --- | --- |
+| `amber-mosquito.svg` | Amber Mosquito | Delapouite | <https://game-icons.net/1x1/delapouite/amber-mosquito.html> |
+| `angular-spider.svg` | Angular Spider | Lorc | <https://game-icons.net/1x1/lorc/angular-spider.html> |
+| `ant.svg` | Ant | Delapouite | <https://game-icons.net/1x1/delapouite/ant.html> |
+| `ants.svg` | Ants | Delapouite | <https://game-icons.net/1x1/delapouite/ants.html> |
+| `apple-maggot.svg` | Apple Maggot | Lorc | <https://game-icons.net/1x1/lorc/apple-maggot.html> |
+| `bee.svg` | Bee | Lorc | <https://game-icons.net/1x1/lorc/bee.html> |
+| `beehive.svg` | Beehive | Delapouite | <https://game-icons.net/1x1/delapouite/beehive.html> |
+| `beetle-shell.svg` | Beetle Shell | Lorc | <https://game-icons.net/1x1/lorc/beetle-shell.html> |
+| `bug-net.svg` | Bug Net | Delapouite | <https://game-icons.net/1x1/delapouite/bug-net.html> |
+| `butterfly-flower.svg` | Butterfly Flower | Delapouite | <https://game-icons.net/1x1/delapouite/butterfly-flower.html> |
+| `butterfly-warning.svg` | Butterfly Warning | Lorc | <https://game-icons.net/1x1/lorc/butterfly-warning.html> |
+| `butterfly.svg` | Butterfly | Lorc | <https://game-icons.net/1x1/lorc/butterfly.html> |
+| `caterpillar.svg` | Caterpillar | Delapouite | <https://game-icons.net/1x1/delapouite/caterpillar.html> |
+| `centipede.svg` | Centipede | Lorc | <https://game-icons.net/1x1/lorc/centipede.html> |
+| `cigale.svg` | Cigale | Delapouite | <https://game-icons.net/1x1/delapouite/cigale.html> |
+| `claw.svg` | Claw | Sbed | <https://game-icons.net/1x1/sbed/claw.html> |
+| `claws.svg` | Claws | Delapouite | <https://game-icons.net/1x1/delapouite/claws.html> |
+| `cobweb.svg` | Cobweb | Lorc | <https://game-icons.net/1x1/lorc/cobweb.html> |
+| `crab.svg` | Crab | Lorc | <https://game-icons.net/1x1/lorc/crab.html> |
+| `cricket.svg` | Cricket | Delapouite | <https://game-icons.net/1x1/delapouite/cricket.html> |
+| `crossed-claws.svg` | Crossed Claws | Lorc | <https://game-icons.net/1x1/lorc/crossed-claws.html> |
+| `dragonfly.svg` | Dragonfly | Lorc | <https://game-icons.net/1x1/lorc/dragonfly.html> |
+| `dripping-honey.svg` | Dripping Honey | Lorc | <https://game-icons.net/1x1/lorc/dripping-honey.html> |
+| `earwig.svg` | Earwig | Lorc | <https://game-icons.net/1x1/lorc/earwig.html> |
+| `fly.svg` | Fly | Delapouite | <https://game-icons.net/1x1/delapouite/fly.html> |
+| `flying-beetle.svg` | Flying Beetle | Delapouite | <https://game-icons.net/1x1/delapouite/flying-beetle.html> |
+| `gold-scarab.svg` | Gold Scarab | Lorc | <https://game-icons.net/1x1/lorc/gold-scarab.html> |
+| `hanging-spider.svg` | Hanging Spider | Lorc | <https://game-icons.net/1x1/lorc/hanging-spider.html> |
+| `honeycomb.svg` | Honeycomb | Lorc | <https://game-icons.net/1x1/lorc/honeycomb.html> |
+| `insect-jaws.svg` | Insect Jaws | Lorc | <https://game-icons.net/1x1/lorc/insect-jaws.html> |
+| `ladybug.svg` | Ladybug | Delapouite | <https://game-icons.net/1x1/delapouite/ladybug.html> |
+| `long-antennae-bug.svg` | Long Antennae Bug | Lorc | <https://game-icons.net/1x1/lorc/long-antennae-bug.html> |
+| `long-legged-spider.svg` | Long Legged Spider | Skoll | <https://game-icons.net/1x1/skoll/long-legged-spider.html> |
+| `maggot.svg` | Maggot | Lorc | <https://game-icons.net/1x1/lorc/maggot.html> |
+| `masked-spider.svg` | Masked Spider | Lorc | <https://game-icons.net/1x1/lorc/masked-spider.html> |
+| `mite-alt.svg` | Mite Alt | Carl Olsen | <https://game-icons.net/1x1/carl-olsen/mite-alt.html> |
+| `mite.svg` | Mite | Lorc | <https://game-icons.net/1x1/lorc/mite.html> |
+| `opening-shell.svg` | Opening Shell | Lorc | <https://game-icons.net/1x1/lorc/opening-shell.html> |
+| `praying-mantis.svg` | Praying Mantis | Delapouite | <https://game-icons.net/1x1/delapouite/praying-mantis.html> |
+| `sad-crab.svg` | Sad Crab | Lorc | <https://game-icons.net/1x1/lorc/sad-crab.html> |
+| `scarab-beetle.svg` | Scarab Beetle | Lorc | <https://game-icons.net/1x1/lorc/scarab-beetle.html> |
+| `scorpion-tail.svg` | Scorpion Tail | Lorc | <https://game-icons.net/1x1/lorc/scorpion-tail.html> |
+| `scorpion.svg` | Scorpion | Lorc | <https://game-icons.net/1x1/lorc/scorpion.html> |
+| `shrimp.svg` | Shrimp | Delapouite | <https://game-icons.net/1x1/delapouite/shrimp.html> |
+| `spider-alt.svg` | Spider Alt | Carl Olsen | <https://game-icons.net/1x1/carl-olsen/spider-alt.html> |
+| `spider-eye.svg` | Spider Eye | Delapouite | <https://game-icons.net/1x1/delapouite/spider-eye.html> |
+| `spider-face.svg` | Spider Face | Carl Olsen | <https://game-icons.net/1x1/carl-olsen/spider-face.html> |
+| `spider-web.svg` | Spider Web | Lorc | <https://game-icons.net/1x1/lorc/spider-web.html> |
+| `spotted-bug.svg` | Spotted Bug | Skoll | <https://game-icons.net/1x1/skoll/spotted-bug.html> |
+| `tick.svg` | Tick | Lorc | <https://game-icons.net/1x1/lorc/tick.html> |
+| `tree-beehive.svg` | Tree Beehive | Delapouite | <https://game-icons.net/1x1/delapouite/tree-beehive.html> |
+| `trilobite.svg` | Trilobite | Lorc | <https://game-icons.net/1x1/lorc/trilobite.html> |
+| `turd.svg` | Turd | Lorc | <https://game-icons.net/1x1/lorc/turd.html> |
+| `wasp-sting.svg` | Wasp Sting | Lorc | <https://game-icons.net/1x1/lorc/wasp-sting.html> |
+| `web-spit.svg` | Web Spit | Lorc | <https://game-icons.net/1x1/lorc/web-spit.html> |
+
 ## Mammals
 
 | file | icon | author | source |
@@ -1139,6 +1258,75 @@ Icons made by Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev, Delapouite, F
 | `turtle.svg` | Turtle | Lorc | <https://game-icons.net/1x1/lorc/turtle.html> |
 | `velociraptor.svg` | Velociraptor | Delapouite | <https://game-icons.net/1x1/delapouite/velociraptor.html> |
 | `wyvern.svg` | Wyvern | Lorc | <https://game-icons.net/1x1/lorc/wyvern.html> |
+
+## Shields
+
+| file | icon | author | source |
+| --- | --- | --- | --- |
+| `acid-shield.svg` | Acid Shield | SeregaCthtuf | <https://game-icons.net/1x1/seregacthtuf/acid-shield.html> |
+| `air-force.svg` | Air Force | Skoll | <https://game-icons.net/1x1/skoll/air-force.html> |
+| `american-shield.svg` | American Shield | Delapouite | <https://game-icons.net/1x1/delapouite/american-shield.html> |
+| `armor-downgrade.svg` | Armor Downgrade | Delapouite | <https://game-icons.net/1x1/delapouite/armor-downgrade.html> |
+| `armor-upgrade.svg` | Armor Upgrade | Delapouite | <https://game-icons.net/1x1/delapouite/armor-upgrade.html> |
+| `arrows-shield.svg` | Arrows Shield | Lorc | <https://game-icons.net/1x1/lorc/arrows-shield.html> |
+| `attached-shield.svg` | Attached Shield | Delapouite | <https://game-icons.net/1x1/delapouite/attached-shield.html> |
+| `battle-gear.svg` | Battle Gear | Lorc | <https://game-icons.net/1x1/lorc/battle-gear.html> |
+| `bell-shield.svg` | Bell Shield | Lorc | <https://game-icons.net/1x1/lorc/bell-shield.html> |
+| `black-hand-shield.svg` | Black Hand Shield | Lorc | <https://game-icons.net/1x1/lorc/black-hand-shield.html> |
+| `bolt-shield.svg` | Bolt Shield | Lorc | <https://game-icons.net/1x1/lorc/bolt-shield.html> |
+| `bordered-shield.svg` | Bordered Shield | Lorc | <https://game-icons.net/1x1/lorc/bordered-shield.html> |
+| `broken-shield.svg` | Broken Shield | Lorc | <https://game-icons.net/1x1/lorc/broken-shield.html> |
+| `bubble-field.svg` | Bubble Field | Lorc | <https://game-icons.net/1x1/lorc/bubble-field.html> |
+| `checked-shield.svg` | Checked Shield | Lorc | <https://game-icons.net/1x1/lorc/checked-shield.html> |
+| `cracked-shield.svg` | Cracked Shield | Lorc | <https://game-icons.net/1x1/lorc/cracked-shield.html> |
+| `crenulated-shield.svg` | Crenulated Shield | Lorc | <https://game-icons.net/1x1/lorc/crenulated-shield.html> |
+| `cross-shield.svg` | Cross Shield | Delapouite | <https://game-icons.net/1x1/delapouite/cross-shield.html> |
+| `dice-shield.svg` | Dice Shield | Delapouite | <https://game-icons.net/1x1/delapouite/dice-shield.html> |
+| `dragon-shield.svg` | Dragon Shield | Delapouite | <https://game-icons.net/1x1/delapouite/dragon-shield.html> |
+| `edged-shield.svg` | Edged Shield | Lorc | <https://game-icons.net/1x1/lorc/edged-shield.html> |
+| `energy-shield.svg` | Energy Shield | Lorc | <https://game-icons.net/1x1/lorc/energy-shield.html> |
+| `eye-shield.svg` | Eye Shield | Lorc | <https://game-icons.net/1x1/lorc/eye-shield.html> |
+| `fire-shield.svg` | Fire Shield | Lorc | <https://game-icons.net/1x1/lorc/fire-shield.html> |
+| `griffin-shield.svg` | Griffin Shield | Delapouite | <https://game-icons.net/1x1/delapouite/griffin-shield.html> |
+| `healing-shield.svg` | Healing Shield | Delapouite | <https://game-icons.net/1x1/delapouite/healing-shield.html> |
+| `heart-shield.svg` | Heart Shield | Delapouite | <https://game-icons.net/1x1/delapouite/heart-shield.html> |
+| `ice-shield.svg` | Ice Shield | Lorc | <https://game-icons.net/1x1/lorc/ice-shield.html> |
+| `layered-armor.svg` | Layered Armor | Lorc | <https://game-icons.net/1x1/lorc/layered-armor.html> |
+| `lightning-shield.svg` | Lightning Shield | Lorc | <https://game-icons.net/1x1/lorc/lightning-shield.html> |
+| `magic-shield.svg` | Magic Shield | Lorc | <https://game-icons.net/1x1/lorc/magic-shield.html> |
+| `police-badge.svg` | Police Badge | Andy Meneely | <https://game-icons.net/1x1/andymeneely/police-badge.html> |
+| `ribbon-shield.svg` | Ribbon Shield | Delapouite | <https://game-icons.net/1x1/delapouite/ribbon-shield.html> |
+| `riot-shield.svg` | Riot Shield | Lorc | <https://game-icons.net/1x1/lorc/riot-shield.html> |
+| `roman-shield.svg` | Roman Shield | Delapouite | <https://game-icons.net/1x1/delapouite/roman-shield.html> |
+| `rosa-shield.svg` | Rosa Shield | Lorc | <https://game-icons.net/1x1/lorc/rosa-shield.html> |
+| `round-shield.svg` | Round Shield | Willdabeast | <https://game-icons.net/1x1/willdabeast/round-shield.html> |
+| `shield-bash.svg` | Shield Bash | Delapouite | <https://game-icons.net/1x1/delapouite/shield-bash.html> |
+| `shield-bounces.svg` | Shield Bounces | Lorc | <https://game-icons.net/1x1/lorc/shield-bounces.html> |
+| `shield-disabled.svg` | Shield Disabled | Skoll | <https://game-icons.net/1x1/skoll/shield-disabled.html> |
+| `shield-echoes.svg` | Shield Echoes | Lorc | <https://game-icons.net/1x1/lorc/shield-echoes.html> |
+| `shield-impact.svg` | Shield Impact | Delapouite | <https://game-icons.net/1x1/delapouite/shield-impact.html> |
+| `shield-opposition.svg` | Shield Opposition | Delapouite | <https://game-icons.net/1x1/delapouite/shield-opposition.html> |
+| `shield-reflect.svg` | Shield Reflect | Lorc | <https://game-icons.net/1x1/lorc/shield-reflect.html> |
+| `shield.svg` | Shield | Sbed | <https://game-icons.net/1x1/sbed/shield.html> |
+| `shieldcomb.svg` | Shieldcomb | Lorc | <https://game-icons.net/1x1/lorc/shieldcomb.html> |
+| `skull-shield.svg` | Skull Shield | Lorc | <https://game-icons.net/1x1/lorc/skull-shield.html> |
+| `slashed-shield.svg` | Slashed Shield | Lorc | <https://game-icons.net/1x1/lorc/slashed-shield.html> |
+| `spartan.svg` | Spartan | Lorc | <https://game-icons.net/1x1/lorc/spartan.html> |
+| `spiked-shield.svg` | Spiked Shield | Delapouite | <https://game-icons.net/1x1/delapouite/spiked-shield.html> |
+| `spiky-field.svg` | Spiky Field | Lorc | <https://game-icons.net/1x1/lorc/spiky-field.html> |
+| `surrounded-shield.svg` | Surrounded Shield | Lorc | <https://game-icons.net/1x1/lorc/surrounded-shield.html> |
+| `swordman.svg` | Swordman | Cathelineau | <https://game-icons.net/1x1/cathelineau/swordman.html> |
+| `swords-emblem.svg` | Swords Emblem | Lorc | <https://game-icons.net/1x1/lorc/swords-emblem.html> |
+| `swordwoman.svg` | Swordwoman | Cathelineau | <https://game-icons.net/1x1/cathelineau/swordwoman.html> |
+| `templar-shield.svg` | Templar Shield | Delapouite | <https://game-icons.net/1x1/delapouite/templar-shield.html> |
+| `temporary-shield.svg` | Temporary Shield | Delapouite | <https://game-icons.net/1x1/delapouite/temporary-shield.html> |
+| `tribal-gear.svg` | Tribal Gear | Delapouite | <https://game-icons.net/1x1/delapouite/tribal-gear.html> |
+| `tribal-shield.svg` | Tribal Shield | Delapouite | <https://game-icons.net/1x1/delapouite/tribal-shield.html> |
+| `trident-shield.svg` | Trident Shield | Delapouite | <https://game-icons.net/1x1/delapouite/trident-shield.html> |
+| `vibrating-shield.svg` | Vibrating Shield | Delapouite | <https://game-icons.net/1x1/delapouite/vibrating-shield.html> |
+| `viking-shield.svg` | Viking Shield | Delapouite | <https://game-icons.net/1x1/delapouite/viking-shield.html> |
+| `winged-shield.svg` | Winged Shield | Lorc | <https://game-icons.net/1x1/lorc/winged-shield.html> |
+| `zebra-shield.svg` | Zebra Shield | Lorc | <https://game-icons.net/1x1/lorc/zebra-shield.html> |
 
 ## Skull
 

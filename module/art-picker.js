@@ -19,9 +19,9 @@
  *              a Monster is not offered them.
  *   custom     the Warden's own folder, from the world setting. Shown whenever
  *              it has images, or to any GM (who can put some there).
- *   gameicons  1,366 game-icons.net glyphs (CC BY 3.0), browsed CATEGORY FIRST:
- *              24 folder tiles, then that category's thumbnails. The grids are
- *              built on demand — rendering all 24 at once is 1,366 <img> in one
+ *   gameicons  1,539 game-icons.net glyphs (CC BY 3.0), browsed CATEGORY FIRST:
+ *              27 folder tiles, then that category's thumbnails. The grids are
+ *              built on demand — rendering all 27 at once is 1,539 <img> in one
  *              dialog, and only one category is ever on screen.
  *   tlomdev    tlomdev's token drawings (CC BY-SA 4.0), browsed category-first
  *              exactly like gameicons: the artist's own folders, plus
@@ -200,7 +200,7 @@ export async function pickArt({
   // first pane. The distinction cost an evening (2026-08-01): a Monster is
   // offered Custom + Game-Icons, Custom is listed for any GM even when the
   // folder is empty (it carries the Refresh button), so the picker opened on a
-  // pane reading "No custom portraits found" with the 1,366-glyph gallery
+  // pane reading "No custom portraits found" with the 1,539-glyph gallery
   // sitting unselected beside it. It looked for all the world like the picker
   // had failed to load, and the Warden it happened to could not tell that from
   // a broken dialog. A tab that says "nothing here" is never the right landing
