@@ -3,7 +3,7 @@ name: Sphinx
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.svg
+img: systems/air-bladder/art/game-icons/creatures/egyptian-sphinx.svg
 items:
   - _id: hacHxCCLb8Y5SQGA
     name: Claws
@@ -278,7 +278,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: icons/svg/mystery-man.svg
+    src: systems/air-bladder/art/game-icons/creatures/egyptian-sphinx.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

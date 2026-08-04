@@ -3,7 +3,7 @@ name: Killer Bee
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.svg
+img: systems/air-bladder/art/game-icons/animals/bee.svg
 items:
   - _id: N2xaUq08o99Y9F1O
     name: Sting*
@@ -122,7 +122,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: icons/svg/mystery-man.svg
+    src: systems/air-bladder/art/game-icons/animals/bee.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

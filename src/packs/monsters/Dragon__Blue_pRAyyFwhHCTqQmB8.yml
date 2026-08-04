@@ -3,7 +3,7 @@ name: Dragon, Blue
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.svg
+img: systems/air-bladder/art/game-icons/creatures/dragon-head-lorc.svg
 items:
   - _id: UGzJX1PzmzLVm7K1
     name: Bite
@@ -187,7 +187,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: icons/svg/mystery-man.svg
+    src: systems/air-bladder/art/game-icons/creatures/dragon-head-lorc.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

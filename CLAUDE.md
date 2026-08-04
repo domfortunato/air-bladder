@@ -190,10 +190,16 @@ against the reason, not against the fact.
     `_stats.compendiumSource`, the `turnMarker`/`hexagonalShape` token fields).
     So the guard legitimately fires after a world open. Folding that in with
     `extract:packs` is a ~950-file diff; it is a real decision, not noise.
-  - **`extract` with `clean: true` renames files**, leaving the old names behind
-    as UNTRACKED duplicates. `git checkout -- src/packs` then restores the
-    tracked half and the next build dies on `already packed and would be
-    overwritten`. `git clean -fd src/packs` is the other half of that undo.
+  - **`extract` RENAMES files to `<Name>_<id>.yml`.** Committed files whose name
+    lacks the id suffix (`marketplace/Market_Armor.yml`) are deleted and rewritten
+    under the new name, so an extract you want to undo needs BOTH halves, in this
+    order: `git checkout -- src/packs` to bring the originals back, THEN
+    `git clean -fd src/packs` to drop the new ones. Doing it the other way round
+    removes the replacement while the original is still gone — 62 table files
+    vanished that way on 2026-08-04, which showed up as `check:refs` reporting
+    **0 of 198 compendium references**. That gate's own message is what caught
+    it: "if content did not shrink, it has stopped looking." Content HAD shrunk.
+    Always finish with `git status src/packs` showing nothing.
 - **`npm run backup` snapshots `packs/` AND both worlds** to
   `foundry/backups/<stamp>/`, pruned to 24 (`tools/dev/backup.mjs`, `--list`).
   It skips files it cannot read rather than aborting — Foundry holds an

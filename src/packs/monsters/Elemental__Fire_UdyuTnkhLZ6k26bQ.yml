@@ -3,7 +3,7 @@ name: Elemental, Fire
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.svg
+img: systems/air-bladder/art/game-icons/creatures/spark-spirit.svg
 items:
   - _id: P03690mgHHnlatAR
     name: Whirling Fire
@@ -120,7 +120,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: icons/svg/mystery-man.svg
+    src: systems/air-bladder/art/game-icons/creatures/spark-spirit.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

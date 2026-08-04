@@ -3,7 +3,7 @@ name: Mantid
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.svg
+img: systems/air-bladder/art/game-icons/insects/praying-mantis.svg
 items:
   - _id: QRuCPNSNr6TUdcOD
     name: Chiteneous Hide
@@ -158,7 +158,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: icons/svg/mystery-man.svg
+    src: systems/air-bladder/art/game-icons/insects/praying-mantis.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1
