@@ -77,7 +77,7 @@ The tooling is language-agnostic (`--lang <code>` throughout), so a new language
 
 ## Installation (manual)
 
-**Requires Foundry VTT v14.**
+**Requires Foundry VTT v14.365 or higher.**
 
 1. In the Foundry **Game Systems** menu, click **Install System**.
 2. Enter the manifest URL: `https://github.com/domfortunato/air-bladder/releases/latest/download/system.json`

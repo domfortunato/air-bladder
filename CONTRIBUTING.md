@@ -31,7 +31,7 @@ rather than an unfinished one.
 Then point Foundry at the folder: a directory junction (Windows) or symlink into
 `Data/systems/air-bladder`. `npm run dev:smoke` drives a headless load as a sanity check.
 
-Requires Node 24.x and Foundry v14.
+Requires Node 24.x and Foundry v14.365 or higher.
 
 ## Translations
 

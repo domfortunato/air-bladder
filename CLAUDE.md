@@ -20,10 +20,14 @@ manifest. Descends architecturally from a private fork of
 ## Version reality
 
 - **Deploy target is Foundry 14.365.** `system.json` declares
-  `compatibility: {minimum: "14", verified: "14"}`. Raised from 13 on 2026-07-29:
-  the AppV2 sheets use `_getFrameButtons`, `_canDetach` and `_onDetach`/`_onAttach`,
-  all confirmed against the shipped 14.365 client and none of them verifiable on
-  v13 from this machine. A minimum nobody has ever tested is a claim, not a fact.
+  `compatibility: {minimum: "14.365", verified: "14.365"}`. Raised from 13 on
+  2026-07-29 and pinned to the build on 2026-08-04 (user ruling — docs and
+  manifest say "v14.365 or higher" everywhere): the AppV2 sheets use
+  `_getFrameButtons`, `_canDetach` and `_onDetach`/`_onAttach`, all confirmed
+  against the shipped 14.365 client and none of them verifiable on anything
+  older from this machine. A minimum nobody has ever tested is a claim, not a
+  fact. The same statement lives in `README.md`, `README.es.md`,
+  `CONTRIBUTING.md` and `site/index.html` — change one, change all five.
 - Latest release **0.1.9** (2026-08-03). `system.json`'s `version` is rewritten by
   CI from the git tag; don't trust the checked-in value.
 - Node 24.x. `npm run release X.Y.Z` is the whole release — see `RELEASE.md`.

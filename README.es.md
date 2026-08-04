@@ -108,7 +108,7 @@ Las herramientas son independientes del idioma (`--lang <código>` en todas), as
 
 ## Instalación (manual)
 
-**Requiere Foundry VTT v14.**
+**Requiere Foundry VTT v14.365 o superior.**
 
 1. En el menú **Sistemas de juego** de Foundry, haz clic en **Instalar sistema**.
 2. Introduce la URL del manifiesto: `https://github.com/domfortunato/air-bladder/releases/latest/download/system.json`
