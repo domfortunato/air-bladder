@@ -3,7 +3,7 @@ type: weapon
 flags:
   core:
     sourceId: Item.0avKvBs4YT9gkvxr
-img: systems/air-bladder/icons/weapons.svg
+img: systems/air-bladder/art/game-icons/weapons/wizard-staff.svg
 effects: []
 _id: fZ5pC0Yo00zfz6xO
 _stats:

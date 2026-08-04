@@ -3,7 +3,7 @@ type: weapon
 flags:
   core:
     sourceId: Item.tPCULxQqJNCCJjOY
-img: systems/air-bladder/icons/weapons.svg
+img: systems/air-bladder/art/game-icons/blade/ancient-sword.svg
 effects: []
 _id: 1k4xfzZwGS583eRa
 _stats:

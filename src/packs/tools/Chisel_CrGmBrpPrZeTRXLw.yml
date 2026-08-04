@@ -3,7 +3,7 @@ type: item
 flags:
   core:
     sourceId: Item.Qka9zF6yQIFqguM4
-img: systems/air-bladder/icons/tools.svg
+img: systems/air-bladder/art/game-icons/tools/chisel.svg
 effects: []
 _id: CrGmBrpPrZeTRXLw
 _stats:

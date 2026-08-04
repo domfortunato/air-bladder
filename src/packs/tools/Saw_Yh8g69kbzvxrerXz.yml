@@ -3,7 +3,7 @@ type: item
 flags:
   core:
     sourceId: Item.N1whV5KNTU8uXeMV
-img: systems/air-bladder/icons/tools.svg
+img: systems/air-bladder/art/game-icons/tools/crosscut-saw.svg
 effects: []
 _id: Yh8g69kbzvxrerXz
 _stats:

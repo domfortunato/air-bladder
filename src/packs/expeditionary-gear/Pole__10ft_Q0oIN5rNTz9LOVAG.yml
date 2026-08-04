@@ -3,7 +3,7 @@ type: item
 flags:
   core:
     sourceId: Item.kdhZfQoTj5IfPbPW
-img: systems/air-bladder/icons/generic-item.svg
+img: systems/air-bladder/art/game-icons/weapons/bo.svg
 effects: []
 _id: Q0oIN5rNTz9LOVAG
 _stats:

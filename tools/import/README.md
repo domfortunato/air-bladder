@@ -50,6 +50,17 @@ curation changes. Point `--src` at the unpacked download.
 | `npc-careers-2e.mjs` | `module/npc-careers-2e.json` | `resources/hirelings.md` |
 | `portraits.mjs` | `module/portrait-manifest.json` | the shipped image folders |
 | `game-icons.mjs` | `art/game-icons/` (1,643 svg + `CREDITS.md` + `license.txt`), `module/game-icons-manifest.json` | a curated game-icons.net download, via `--src` — or `--restamp`, which needs none |
+| `monster-art.mjs` | the `img` and prototype-token art of `monsters` | the names themselves, matched against the gallery |
+| `item-art.mjs` | the `img` of `armor`, `expeditionary-gear`, `market-goods`, `reliquary`, `tools`, `trinkets`, `weapons` | the names themselves, matched against the gallery |
+
+**The two art proposers are not importers in the same sense** — nothing upstream
+tells you which glyph a Dagger should wear. They read the pack names, propose,
+and write only with `--apply`; both skip anything already carrying gallery art,
+because that was chosen by hand and a machine should not overrule it. Both keep
+an explicit table of judgements, and `item-art.mjs --search-only` shows what the
+algorithm would say without one. **After either, run `table-icons.mjs`**: a
+RollTable result stores its `img` as a snapshot rather than reading the document
+it references, so re-arting an item leaves every table that lists it stale.
 
 `marketplace-descriptions.csv` and `background-archetypes.csv` are **ours**, not
 upstream's: the SRD price list is names and numbers with no flavour text, and

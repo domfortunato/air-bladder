@@ -3,7 +3,7 @@ type: item
 flags:
   core:
     sourceId: Item.EKwYUuCN7aMyiXhB
-img: systems/air-bladder/icons/tools.svg
+img: systems/air-bladder/art/game-icons/tools/bellows.svg
 effects: []
 _id: s2aIIMOPJCsl0DHN
 _stats:

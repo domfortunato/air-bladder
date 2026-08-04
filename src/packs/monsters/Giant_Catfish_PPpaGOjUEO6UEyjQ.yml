@@ -3,7 +3,7 @@ name: Giant Catfish
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/art/game-icons/fish/angler-fish.svg
+img: systems/air-bladder/art/game-icons/fish/salmon.svg
 items:
   - _id: 2KpNNwobLZyBZNa4
     name: Bite
@@ -118,7 +118,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: systems/air-bladder/art/game-icons/fish/angler-fish.svg
+    src: systems/air-bladder/art/game-icons/fish/salmon.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

@@ -3,7 +3,7 @@ type: weapon
 flags:
   core:
     sourceId: Item.8FRmdUHeJx4PVAf2
-img: systems/air-bladder/icons/weapons.svg
+img: systems/air-bladder/art/game-icons/weapons/sling.svg
 effects: []
 _id: OCOPpIkkvUL5fZKQ
 _stats:

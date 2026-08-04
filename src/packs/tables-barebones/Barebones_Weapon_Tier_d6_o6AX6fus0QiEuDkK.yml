@@ -6,7 +6,7 @@ results:
   - _id: 6ptne5MRSLCrm57I
     type: document
     name: Dagger
-    img: systems/air-bladder/icons/weapons.svg
+    img: systems/air-bladder/art/game-icons/blade/plain-dagger.svg
     weight: 1
     range:
       - 1
@@ -18,7 +18,7 @@ results:
   - _id: il6oJzkTYKJufFfG
     type: document
     name: Cudgel
-    img: systems/air-bladder/icons/weapons.svg
+    img: systems/air-bladder/art/game-icons/weapons/wood-club.svg
     weight: 1
     range:
       - 2
@@ -30,7 +30,7 @@ results:
   - _id: we9KEDLx0uQRhEmo
     type: document
     name: Sickle
-    img: systems/air-bladder/icons/weapons.svg
+    img: systems/air-bladder/art/game-icons/tools/sickle.svg
     weight: 1
     range:
       - 3
@@ -42,7 +42,7 @@ results:
   - _id: 8cmNZKXRGHleG8fA
     type: document
     name: Staff
-    img: systems/air-bladder/icons/weapons.svg
+    img: systems/air-bladder/art/game-icons/weapons/wizard-staff.svg
     weight: 1
     range:
       - 4

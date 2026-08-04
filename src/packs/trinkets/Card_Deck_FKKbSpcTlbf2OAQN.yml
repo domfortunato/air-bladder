@@ -4,7 +4,7 @@ type: item
 flags:
   core:
     sourceId: Item.M2BxqAt0x6pfsSDy
-img: systems/air-bladder/icons/generic-item.svg
+img: systems/air-bladder/art/game-icons/shields/dice-shield.svg
 effects: []
 system:
   cost: 5

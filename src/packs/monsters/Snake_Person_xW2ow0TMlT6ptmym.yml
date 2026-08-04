@@ -3,7 +3,7 @@ name: Snake Person
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/art/game-icons/body/person.svg
+img: systems/air-bladder/art/game-icons/reptiles/snake-totem.svg
 items:
   - _id: GsHFmAos8fCFsZvr
     name: Scaled Skin
@@ -155,7 +155,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: systems/air-bladder/art/game-icons/body/person.svg
+    src: systems/air-bladder/art/game-icons/reptiles/snake-totem.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

@@ -6,7 +6,7 @@ results:
   - _id: OMxXAZboCCipGTcC
     type: document
     name: Air Bladder
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/bottles/bubbling-flask.svg
     weight: 1
     range:
       - 1
@@ -18,7 +18,7 @@ results:
   - _id: 8Vaeujgv55gpqeM1
     type: document
     name: Animal Feed
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/tools/pitchfork.svg
     weight: 1
     range:
       - 2
@@ -30,7 +30,7 @@ results:
   - _id: TUUcwDKMnCHHLs2G
     type: document
     name: Antitoxin
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/bottles/round-potion.svg
     weight: 1
     range:
       - 3
@@ -42,7 +42,7 @@ results:
   - _id: 8ojSFRRFf8w2MoCc
     type: document
     name: Bandages
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/body/knee-bandage.svg
     weight: 1
     range:
       - 4
@@ -54,7 +54,7 @@ results:
   - _id: s193c9EpVx2SyL0U
     type: document
     name: 'Bathing Goods (Soap, Perfume, etc.)'
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/bottles/liquid-soap.svg
     weight: 1
     range:
       - 5
@@ -66,7 +66,7 @@ results:
   - _id: H8VFNqLpHCPVAIyh
     type: document
     name: Book
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/book/black-book.svg
     weight: 1
     range:
       - 6
@@ -90,7 +90,7 @@ results:
   - _id: ZQZ1Rrf85wyGhCaF
     type: document
     name: Card Deck
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/shields/dice-shield.svg
     weight: 1
     range:
       - 8
@@ -102,7 +102,7 @@ results:
   - _id: KBazbZNbugv3atht
     type: document
     name: 'Chain, 10ft'
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/metal/crossed-chains.svg
     weight: 1
     range:
       - 9
@@ -138,7 +138,7 @@ results:
   - _id: h1ItIhOWnYta4OIz
     type: document
     name: Chisel
-    img: systems/air-bladder/icons/tools.svg
+    img: systems/air-bladder/art/game-icons/tools/chisel.svg
     weight: 1
     range:
       - 12
@@ -150,7 +150,7 @@ results:
   - _id: KijDVEVEPLVZZIJv
     type: document
     name: 'Common Agents (Glue, Grease, etc.)'
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/bottles/oil-can.svg
     weight: 1
     range:
       - 13
@@ -162,7 +162,7 @@ results:
   - _id: hpMQEjtbrQ2zIliM
     type: document
     name: 'Common Tools (Hammer, Shovel, etc.)'
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/tools/toolbox.svg
     weight: 1
     range:
       - 14
@@ -174,7 +174,7 @@ results:
   - _id: s57YlUYwJ5RzEoMR
     type: document
     name: Compass
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/tools/sextant.svg
     weight: 1
     range:
       - 15
@@ -186,7 +186,7 @@ results:
   - _id: bpULYgAMUA4VS5Ik
     type: document
     name: 'Complex Instruments (Bagpipes, Fiddle, etc.)'
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/celtic/bagpipes.svg
     weight: 1
     range:
       - 16
@@ -210,7 +210,7 @@ results:
   - _id: 3NMqOw8ibyrp3nli
     type: document
     name: 'Cooking Gear (Pots, Utensils, etc.)'
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/fire/camp-cooking-pot.svg
     weight: 1
     range:
       - 18
@@ -222,7 +222,7 @@ results:
   - _id: EVaYaVEv06voDgJM
     type: document
     name: 'Costume Gear (Face Paint, Disguise)'
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/body/duality.svg
     weight: 1
     range:
       - 19
@@ -246,7 +246,7 @@ results:
   - _id: eCSh68XkkxKGAv3V
     type: document
     name: 'Expeditionary Gear (Climbing Spikes, Pulley, etc.)'
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/tools/grapple.svg
     weight: 1
     range:
       - 21
@@ -258,7 +258,7 @@ results:
   - _id: djWwJ6VUVjXSkGPi
     type: document
     name: Fire Oil
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/fire/molotov.svg
     weight: 1
     range:
       - 22
@@ -270,7 +270,7 @@ results:
   - _id: fjdTRfFkRBC1x7gm
     type: document
     name: Fishing Rod
-    img: systems/air-bladder/icons/tools.svg
+    img: systems/air-bladder/art/game-icons/tools/fishhook-fork.svg
     weight: 1
     range:
       - 23
@@ -282,7 +282,7 @@ results:
   - _id: 8i453pHKVQByMFhS
     type: document
     name: 'Games (Cards, Dice, etc.)'
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/shields/dice-shield.svg
     weight: 1
     range:
       - 24
@@ -294,7 +294,7 @@ results:
   - _id: 7R5RTngpsI0zyhy9
     type: document
     name: Gloves
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/clothing/gloves.svg
     weight: 1
     range:
       - 25
@@ -306,7 +306,7 @@ results:
   - _id: 5S4KJBBvshAQsGfc
     type: document
     name: Grappling Hook
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/tools/grapple.svg
     weight: 1
     range:
       - 26
@@ -318,7 +318,7 @@ results:
   - _id: weB2AzioCMxxFXEB
     type: document
     name: Lantern
-    img: systems/air-bladder/icons/tools.svg
+    img: systems/air-bladder/art/game-icons/fire/lantern-flame.svg
     weight: 1
     range:
       - 27
@@ -342,7 +342,7 @@ results:
   - _id: mSXoxKpuCL06TvLB
     type: document
     name: Net
-    img: systems/air-bladder/icons/tools.svg
+    img: systems/air-bladder/art/game-icons/insects/bug-net.svg
     weight: 1
     range:
       - 29
@@ -354,7 +354,7 @@ results:
   - _id: DmIQ4KGMINXhtLBI
     type: document
     name: Oil Can
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/bottles/oil-can.svg
     weight: 1
     range:
       - 30
@@ -366,7 +366,7 @@ results:
   - _id: b0eNJTa28a1FEyGC
     type: document
     name: 'Outdoor Comfort (Blanket, Hammock, etc.)'
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/body/sleeping-bag.svg
     weight: 1
     range:
       - 31
@@ -378,7 +378,7 @@ results:
   - _id: jKCZvu9JXRoTLbVR
     type: document
     name: Parchment
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/book/scroll-unfurled.svg
     weight: 1
     range:
       - 32
@@ -390,7 +390,7 @@ results:
   - _id: 95lrllKOMGTskYBa
     type: document
     name: 'Pole, 10ft'
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/weapons/bo.svg
     weight: 1
     range:
       - 33
@@ -402,7 +402,7 @@ results:
   - _id: v8QhRd27AzMf6ZZ5
     type: document
     name: Rations
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/tools/knife-fork.svg
     weight: 1
     range:
       - 34
@@ -414,7 +414,7 @@ results:
   - _id: IqXEaRXELgdsLVA1
     type: document
     name: 'Repellent (Wolfsbane, Mugwort, etc.)'
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/celtic/fluffy-trefoil.svg
     weight: 1
     range:
       - 35
@@ -426,7 +426,7 @@ results:
   - _id: cjnaQ0YLbmXZE0od
     type: document
     name: Rope
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/tools/rope-coil.svg
     weight: 1
     range:
       - 36
@@ -438,7 +438,7 @@ results:
   - _id: d9qG5M48G9qepNBO
     type: document
     name: Sedative
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/bottles/standing-potion.svg
     weight: 1
     range:
       - 37
@@ -450,7 +450,7 @@ results:
   - _id: FRBUXE05otuqvTbk
     type: document
     name: Sewing Kit
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/clothing/sewing-needle.svg
     weight: 1
     range:
       - 38
@@ -462,7 +462,7 @@ results:
   - _id: 6VoDvvCtDGfAKwvH
     type: document
     name: 'Simple Instruments (Pipes, Lute, etc.)'
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/celtic/harp.svg
     weight: 1
     range:
       - 39
@@ -486,7 +486,7 @@ results:
   - _id: IJnTHIZrRk30abvC
     type: document
     name: 'Specialized Tools (Ink, etc.)'
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/book/quill-ink.svg
     weight: 1
     range:
       - 41
@@ -498,7 +498,7 @@ results:
   - _id: LlLkEWXYpUkEiS39
     type: document
     name: Spiked Boots
-    img: systems/air-bladder/icons/weapons.svg
+    img: systems/air-bladder/art/game-icons/armor/steeltoe-boots.svg
     weight: 1
     range:
       - 42
@@ -510,7 +510,7 @@ results:
   - _id: 20UUGGTNkxBZfiJE
     type: document
     name: Spyglass
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/tools/spyglass.svg
     weight: 1
     range:
       - 43
@@ -522,7 +522,7 @@ results:
   - _id: YXTqnkvPhWd80vgH
     type: document
     name: Tent
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/body/sleeping-bag.svg
     weight: 1
     range:
       - 44
@@ -534,7 +534,7 @@ results:
   - _id: 4KvN0ftCuAW8RkP8
     type: document
     name: 'Thieving Tools (Lockpick, Metal File, etc.)'
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/tools/lockpicks.svg
     weight: 1
     range:
       - 45
@@ -546,7 +546,7 @@ results:
   - _id: ADI7tSbJF617yJWg
     type: document
     name: Torch
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/fire/torch.svg
     weight: 1
     range:
       - 46
@@ -558,7 +558,7 @@ results:
   - _id: L9E2612xEgUXsemZ
     type: document
     name: Trap
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/spike/wolf-trap.svg
     weight: 1
     range:
       - 47
@@ -570,7 +570,7 @@ results:
   - _id: oCttcxjhZZAwcT4g
     type: document
     name: Whistle
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/mouth/shouting.svg
     weight: 1
     range:
       - 48
@@ -582,7 +582,7 @@ results:
   - _id: EYwlP2fHTPtXvcmP
     type: document
     name: 'Wilderness Clothes (Poncho, Cloak, etc.)'
-    img: systems/air-bladder/icons/generic-item.svg
+    img: systems/air-bladder/art/game-icons/clothing/poncho.svg
     weight: 1
     range:
       - 49

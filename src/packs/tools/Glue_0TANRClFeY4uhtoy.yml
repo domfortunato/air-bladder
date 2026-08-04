@@ -3,7 +3,7 @@ type: item
 flags:
   core:
     sourceId: Item.EdgoLJELJgJIwHB9
-img: systems/air-bladder/icons/tools.svg
+img: systems/air-bladder/art/game-icons/bottles/oil-can.svg
 effects: []
 _id: 0TANRClFeY4uhtoy
 system:

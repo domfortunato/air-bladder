@@ -3,7 +3,7 @@ type: weapon
 flags:
   core:
     sourceId: Item.ZtxtYyErOFOUIxpS
-img: systems/air-bladder/icons/weapons.svg
+img: systems/air-bladder/art/game-icons/weapons/high-shot.svg
 effects: []
 _id: iQFZEdDJKyjvGtY8
 _stats:

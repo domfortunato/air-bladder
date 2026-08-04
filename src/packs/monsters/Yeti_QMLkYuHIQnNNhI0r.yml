@@ -3,7 +3,7 @@ name: Yeti
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/art/game-icons/creatures/troll.svg
+img: systems/air-bladder/art/game-icons/creatures/sasquatch.svg
 items:
   - _id: Q7WZumxOVmlRoShN
     name: Claws
@@ -151,7 +151,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: systems/air-bladder/art/game-icons/creatures/troll.svg
+    src: systems/air-bladder/art/game-icons/creatures/sasquatch.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

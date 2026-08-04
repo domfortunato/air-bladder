@@ -17,7 +17,7 @@ results:
   - _id: TCtSCOXooo1QMPeR
     type: document
     name: Shield
-    img: systems/air-bladder/icons/armor.svg
+    img: systems/air-bladder/art/game-icons/shields/round-shield.svg
     weight: 1
     range:
       - 2
@@ -29,7 +29,7 @@ results:
   - _id: BnjeqKy4EVqTh0Gb
     type: document
     name: Helmet
-    img: systems/air-bladder/icons/armor.svg
+    img: systems/air-bladder/art/game-icons/armor/crested-helmet.svg
     weight: 1
     range:
       - 3
@@ -41,7 +41,7 @@ results:
   - _id: BXHDUAscrQcHtSVq
     type: document
     name: Gambeson
-    img: systems/air-bladder/icons/armor.svg
+    img: systems/air-bladder/art/game-icons/armor/layered-armor.svg
     weight: 1
     range:
       - 4
@@ -53,7 +53,7 @@ results:
   - _id: 0uU5HGaXVlt169Ub
     type: document
     name: Chainmail
-    img: systems/air-bladder/icons/armor.svg
+    img: systems/air-bladder/art/game-icons/armor/chain-mail.svg
     weight: 1
     range:
       - 5
@@ -65,7 +65,7 @@ results:
   - _id: Gi8M1P4eBWIympjA
     type: document
     name: Plate Mail
-    img: systems/air-bladder/icons/armor.svg
+    img: systems/air-bladder/art/game-icons/armor/breastplate.svg
     weight: 1
     range:
       - 6

@@ -3,7 +3,7 @@ name: Ghoul
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/art/game-icons/creatures/shambling-zombie.svg
+img: systems/air-bladder/art/game-icons/mouth/gluttony.svg
 items:
   - _id: n24wAKf8CtXBp3oY
     name: Claws*
@@ -121,7 +121,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: systems/air-bladder/art/game-icons/creatures/shambling-zombie.svg
+    src: systems/air-bladder/art/game-icons/mouth/gluttony.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

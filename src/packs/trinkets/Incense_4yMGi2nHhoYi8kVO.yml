@@ -4,7 +4,7 @@ type: item
 flags:
   core:
     sourceId: Item.Wqhguuy0BOTe4rwf
-img: systems/air-bladder/icons/generic-item.svg
+img: systems/air-bladder/art/game-icons/fire/candle-light.svg
 effects: []
 system:
   description: ''

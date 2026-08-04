@@ -3,7 +3,7 @@ type: armor
 flags:
   core:
     sourceId: Item.WzodO3q615BFIi2X
-img: systems/air-bladder/icons/armor.svg
+img: systems/air-bladder/art/game-icons/armor/layered-armor.svg
 effects: []
 _id: pC4sMCtdCmuqIRp6
 _stats:

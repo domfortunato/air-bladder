@@ -42,7 +42,7 @@ results:
   - _id: 1Y5bLuNrNSsQeFKO
     type: document
     name: Sling
-    img: systems/air-bladder/icons/weapons.svg
+    img: systems/air-bladder/art/game-icons/weapons/sling.svg
     weight: 1
     range:
       - 4
@@ -54,7 +54,7 @@ results:
   - _id: EZdwajN6L20aViZk
     type: document
     name: Bow
-    img: systems/air-bladder/icons/weapons.svg
+    img: systems/air-bladder/art/game-icons/weapons/high-shot.svg
     weight: 1
     range:
       - 5
@@ -66,7 +66,7 @@ results:
   - _id: IucU3AHCeGP0kWBJ
     type: document
     name: Crossbow
-    img: systems/air-bladder/icons/weapons.svg
+    img: systems/air-bladder/art/game-icons/weapons/crossbow.svg
     weight: 1
     range:
       - 6

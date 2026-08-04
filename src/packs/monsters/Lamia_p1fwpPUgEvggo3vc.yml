@@ -3,7 +3,7 @@ name: Lamia
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/art/game-icons/animals/snake.svg
+img: systems/air-bladder/art/game-icons/body/deadly-strike.svg
 items:
   - _id: tjYvvKatpnISARjl
     name: Touch*
@@ -124,7 +124,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: systems/air-bladder/art/game-icons/animals/snake.svg
+    src: systems/air-bladder/art/game-icons/body/deadly-strike.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

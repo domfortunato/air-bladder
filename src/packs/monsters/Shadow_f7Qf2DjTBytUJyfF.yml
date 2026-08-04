@@ -3,7 +3,7 @@ name: Shadow
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/art/game-icons/body/shadow-follower.svg
+img: systems/air-bladder/art/game-icons/body/suspicious.svg
 items:
   - _id: jHvLtmkYtp5eyYzh
     name: Touch*
@@ -116,7 +116,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: systems/air-bladder/art/game-icons/body/shadow-follower.svg
+    src: systems/air-bladder/art/game-icons/body/suspicious.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

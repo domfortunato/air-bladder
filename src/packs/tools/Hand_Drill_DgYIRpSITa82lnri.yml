@@ -3,7 +3,7 @@ type: item
 flags:
   core:
     sourceId: Item.VtvBAMoJRN0wv7Ht
-img: systems/air-bladder/icons/tools.svg
+img: systems/air-bladder/art/game-icons/tools/drill.svg
 effects: []
 _id: DgYIRpSITa82lnri
 _stats:

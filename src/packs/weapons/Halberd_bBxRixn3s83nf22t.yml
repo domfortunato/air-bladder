@@ -3,7 +3,7 @@ type: weapon
 flags:
   core:
     sourceId: Item.rnT2kjn2hMAiopWO
-img: systems/air-bladder/icons/weapons.svg
+img: systems/air-bladder/art/game-icons/blade/glaive.svg
 effects: []
 _id: bBxRixn3s83nf22t
 _stats:

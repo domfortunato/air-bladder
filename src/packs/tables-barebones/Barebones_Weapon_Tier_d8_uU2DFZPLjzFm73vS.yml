@@ -6,7 +6,7 @@ results:
   - _id: mZPbve6CGiCSCoMm
     type: document
     name: Spear
-    img: systems/air-bladder/icons/weapons.svg
+    img: systems/air-bladder/art/game-icons/weapons/barbed-spear.svg
     weight: 1
     range:
       - 1
@@ -18,7 +18,7 @@ results:
   - _id: B0r2Ux4acN6VPg0W
     type: document
     name: Sword
-    img: systems/air-bladder/icons/weapons.svg
+    img: systems/air-bladder/art/game-icons/blade/ancient-sword.svg
     weight: 1
     range:
       - 2
@@ -30,7 +30,7 @@ results:
   - _id: fXsprs2gZi0XORZ4
     type: document
     name: Mace
-    img: systems/air-bladder/icons/weapons.svg
+    img: systems/air-bladder/art/game-icons/weapons/flanged-mace.svg
     weight: 1
     range:
       - 3
@@ -42,7 +42,7 @@ results:
   - _id: YtMcjaBGLN4Y0CIs
     type: document
     name: Axe
-    img: systems/air-bladder/icons/weapons.svg
+    img: systems/air-bladder/art/game-icons/tools/wood-axe.svg
     weight: 1
     range:
       - 4
@@ -54,7 +54,7 @@ results:
   - _id: 0xPLl6Duoe3hKrhE
     type: document
     name: Flail
-    img: systems/air-bladder/icons/weapons.svg
+    img: systems/air-bladder/art/game-icons/weapons/flail.svg
     weight: 1
     range:
       - 5

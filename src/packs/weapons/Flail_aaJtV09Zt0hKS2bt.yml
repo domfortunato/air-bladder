@@ -3,7 +3,7 @@ type: weapon
 flags:
   core:
     sourceId: Item.MFaiAO9BRc0sure1
-img: systems/air-bladder/icons/weapons.svg
+img: systems/air-bladder/art/game-icons/weapons/flail.svg
 effects: []
 _id: aaJtV09Zt0hKS2bt
 _stats:

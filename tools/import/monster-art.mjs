@@ -58,20 +58,32 @@ const REJECTED = new Map([
  * Where the algorithm cannot get there from the name alone: a word the gallery
  * spells differently, or a creature whose literal match is an object. Kept small
  * and explicit — every entry is a judgement someone can argue with.
+ *
+ * TEN OF THESE ARE THE WARDEN'S, not the matcher's (2026-08-04). They reviewed
+ * the first pass in the picker and chose differently — behold over eyestalk for
+ * the Eye of Terror, a meeple for the Halfling, sasquatch for the Yeti — and
+ * those picks were folded back out of `packs/` into `src/packs`.
+ *
+ * Overwriting the entries here was the necessary second half. A hand-picked
+ * monster is skipped and LEARNED from, so the picks were safe from an ordinary
+ * run; but `--all` reconsiders everything, and OVERRIDES is consulted BEFORE
+ * LEARNED, so a stale entry here would have silently reverted a human decision
+ * on the next full pass. **A table that outranks what the user chose has to be
+ * updated when they choose against it.**
  */
 const OVERRIDES = new Map(Object.entries({
   "dog": "animals/hound",                    // the ruling above; `hound` is the working-dog glyph
   "blink dog": "animals/hound",
   "cobblehounds": "animals/hound",
   "deep ones": "creatures/fish-monster",
-  "eye of terror": "eye/eyestalk",
+  "eye of terror": "eye/behold",
   "gelatinous cube": "creatures/transparent-slime",
   "flail snail": "animals/spiked-snail",
-  "giant catfish": "fish/angler-fish",
+  "giant catfish": "fish/salmon",
   "giant electric eel": "fish/eel",
-  "giant pike": "fish/double-fish",
+  "giant pike": "fish/salmon",
   "giant piranha": "fish/piranha",
-  "giant rockfish": "fish/fish-scales",
+  "giant rockfish": "fish/salmon",
   "giant sturgeon": "fish/double-fish",
   "giant swordfish": "fish/double-fish",
   "frost elf": "heads/woman-elf-face",
@@ -104,8 +116,8 @@ const OVERRIDES = new Map(Object.entries({
   "pteranodon": "reptiles/pterodactylus",
   "pixie": "creatures/fairy-lorc",
   "treant": "creatures/evil-tree",
-  "shadow": "body/shadow-follower",
-  "ghoul": "creatures/shambling-zombie",
+  "shadow": "body/suspicious",
+  "ghoul": "mouth/gluttony",
   "ghast": "creatures/shambling-zombie",
   "hag, black": "creatures/witch-flight",
   "hag, sea": "creatures/witch-flight",
@@ -124,7 +136,7 @@ const OVERRIDES = new Map(Object.entries({
   "nightmare": "animals/horse-head-lorc",
   "roc, giant": "birds/condor-emblem",
   "phoenix": "birds/eagle-head",
-  "halfling": "heads/dwarf-face",
+  "halfling": "body/meeple",
   "drow": "heads/woman-elf-face",
   "red cap": "heads/dwarf-face",
   "remorhaz": "animals/worm-mouth",
@@ -141,17 +153,18 @@ const OVERRIDES = new Map(Object.entries({
   "giant, storm": "creatures/giant",
   "ettin": "creatures/giant",
   "titan": "body/giant",
-  "yeti": "creatures/troll",
+  "yeti": "creatures/sasquatch",
   "satyr": "animals/goat",
   "catoplebas": "animals/goat",
   "chimera": "creatures/horned-reptile",
   "cockatrice": "creatures/horned-reptile",
   "couatl": "animals/sea-serpent",
-  "lamia": "animals/snake",
+  "lamia": "body/deadly-strike",
   "manticore": "creatures/horned-skull",
   "rakshasa": "creatures/devil-mask",
   "tarrasque": "creatures/horned-reptile",
   "pseudo-dragon": "creatures/dragon-head-lorc",
+  "snake person": "reptiles/snake-totem",
 }));
 
 /* -------------------------------------------------------------------------- */
