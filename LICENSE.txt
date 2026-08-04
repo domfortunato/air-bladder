@@ -52,17 +52,17 @@ Spanish translation — CC BY-SA 4.0, © Malecho (https://github.com/fsmalecho)
 Air Bladder logo and monster art — © Lydia Comer. ALL RIGHTS RESERVED.
     art/lydia-comer/  — https://linktr.ee/lydiadidmyink
     NOT a Creative Commons licence, and not covered by MIT. Licensed to the Air
-    Bladder system for inclusion and unmodified redistribution as part of the
-    system and its forks, and for unmodified use in representing the project.
-    The artwork may not be modified and may not be used separately from Air
-    Bladder. All other uses require the artist's permission.
+    Bladder system for inclusion and redistribution as part of the system and
+    its forks, and for use representing and promoting the project — the project
+    website, package listings, and release announcements. Any use outside the
+    Air Bladder project requires the artist's permission.
     Two jobs, one grant. The logo files sit at the top of the folder; below
     them, art/lydia-comer/portraits/ and art/lydia-comer/tokens/ hold 17
     creatures drawn for this system, offered in the portrait picker and paired
-    portrait-to-token by filename stem. Nothing in this repository re-encodes
-    or rescales them — they ship as delivered, which is what "unmodified"
-    requires. Contents: art/lydia-comer/CREDITS.md.
-    Full terms and grant history: art/lydia-comer/license.txt.
+    portrait-to-token by filename stem. They ship re-encoded to WebP q95 and
+    changed in no other way — not cropped, rescaled, recoloured or redrawn.
+    Contents: art/lydia-comer/CREDITS.md.
+    Full terms: art/lydia-comer/license.txt.
 
 Character portraits and tokens — CC BY 4.0, © Jon Aspeheim
     art/jon-aspeheim/portraits/  art/jon-aspeheim/tokens/

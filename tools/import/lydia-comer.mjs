@@ -25,14 +25,20 @@
  * portrait whose token silently falls back to the black-cornered circle, and a
  * missing portrait ships nothing at all.
  *
- * WEBP, AND WHY THAT IS A LICENCE DECISION BEFORE IT IS A TECHNICAL ONE.
+ * WEBP, AND WHY THAT WAS A LICENCE DECISION BEFORE IT WAS A TECHNICAL ONE.
  * Everything ships re-encoded to WebP q95 since 2026-08-04. Until that date this
  * file said "her grant forbids modifying the artwork, so nothing here
- * re-encodes", and that was correct: the original grant said the artwork may not
- * be modified. **The artist extended it** (see the grant history in
- * `art/lydia-comer/license.txt`) specifically to permit format conversion for
- * distribution. Do not re-encode further, crop, rescale or recolour — the
- * extension is about FORMAT and nothing else.
+ * re-encodes", and that was correct at the time: the grant then in force said
+ * the artwork may not be modified, and re-encoding under it would have been a
+ * licence breach dressed up as an optimisation. The artist has since rewritten
+ * the grant (`art/lydia-comer/license.txt`) and the current text sets no bar on
+ * altering the artwork at all — it bounds USE instead, to Air Bladder and to
+ * representing the project.
+ *
+ * So the reason nothing here crops, rescales or recolours is now HOUSE PRACTICE,
+ * not a licence term. Keep it anyway. It is someone's original artwork, the
+ * artist is reachable, and "the licence would let us" is a poor answer to give
+ * her. What it is NOT any longer is a rule this file may cite as external.
  *
  * q95 rather than the usual q80-85: at q95 the average pixel moves less than
  * 1/255 (PSNR 46-50 dB) and the gallery still loses 54% of its weight, 15.8 MB
@@ -254,15 +260,16 @@ const credits = [
   `Every drawing here is by **[${ARTIST}](${ARTIST_URL})**, drawn for Air Bladder`,
   "and licensed to it directly. It is **not** Creative Commons and not part of any",
   "of the system's other licence regimes: **© Lydia Comer, all rights reserved**,",
-  "granted to Air Bladder for inclusion and *unmodified* redistribution as part of",
-  "the system and its forks. The artwork may not be altered in content and may not",
-  "be used separately from Air Bladder. Full terms and grant history:",
+  "granted to Air Bladder for inclusion and redistribution as part of the system",
+  "and its forks, and for use representing and promoting the project. Any use",
+  "outside the Air Bladder project requires the artist's permission. Full terms:",
   "`license.txt` beside this file.",
   "",
-  "**These files are re-encoded to WebP and changed in no other way.** They are",
-  "not cropped, rescaled, recoloured or redrawn. The artist extended the grant on",
-  "2026-08-04 to permit format conversion for distribution; every other term",
-  "stands.",
+  "**These files are re-encoded to WebP q95 and changed in no other way.** They",
+  "are not cropped, rescaled, recoloured or redrawn. That is this project's own",
+  "practice rather than a term of the grant — the licence sets no bar on altering",
+  "the artwork, and leaving someone's drawings as they were drawn does not need",
+  "one.",
   "",
   "## Shape",
   "",

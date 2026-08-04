@@ -3,14 +3,16 @@
 Every drawing here is by **[Lydia Comer](https://linktr.ee/lydiadidmyink)**, drawn for Air Bladder
 and licensed to it directly. It is **not** Creative Commons and not part of any
 of the system's other licence regimes: **© Lydia Comer, all rights reserved**,
-granted to Air Bladder for inclusion and *unmodified* redistribution as part of
-the system and its forks. The artwork may not be modified and may not be used
-separately from Air Bladder. Full terms and grant history: `license.txt` beside
-this file.
+granted to Air Bladder for inclusion and redistribution as part of the system
+and its forks, and for use representing and promoting the project. Any use
+outside the Air Bladder project requires the artist's permission. Full terms:
+`license.txt` beside this file.
 
-**Nothing in this repository re-encodes, rescales or crops these files.** They
-ship as the artist delivered them, which is what the grant requires — and the
-reason the two halves carry different extensions.
+**These files are re-encoded to WebP q95 and changed in no other way.** They
+are not cropped, rescaled, recoloured or redrawn. That is this project's own
+practice rather than a term of the grant — the licence sets no bar on altering
+the artwork, and leaving someone's drawings as they were drawn does not need
+one.
 
 ## Shape
 

@@ -644,6 +644,15 @@ const ART_MOVES = [
  */
 const ART_REENCODED = [
   { prefix: "systems/air-bladder/art/lydia-comer/", from: /\.(jpe?g|png)$/i, to: ".webp" },
+  // tlomdev's 298 category drawings, the same day. CC BY-SA 4.0 permits the
+  // conversion outright — no grant to negotiate — but it obliges the change to
+  // be INDICATED, which is what the Modifications section of that gallery's
+  // CREDITS.md is for.
+  //
+  // `Kettlewright Portraits/` is untouched and needs no rule: those arrived as
+  // WebP from Kettlewright and the extension pattern cannot match them. That is
+  // luck rather than design, so the importer skips the folder BY NAME.
+  { prefix: "systems/air-bladder/art/tlomdev/", from: /\.png$/i, to: ".webp" },
 ];
 
 /**

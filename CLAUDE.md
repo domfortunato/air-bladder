@@ -273,12 +273,19 @@ What belongs here is what those two files do not say:
   **Since 2026-08-04 the same grant also covers her MONSTERS** under
   `art/lydia-comer/portraits|tokens/`, offered in the picker on NPC and Monster
   sheets — a growing set, so do not state a count here.
-  **The grant was extended the same day to permit FORMAT CONVERSION**, and they
-  ship as WebP q95: 15.7 MB down to 7.5 MB, which was 41% of the whole release
-  zip. That is the ONLY change permitted — not cropped, rescaled, recoloured or
-  redrawn — and it is why `tools/import/lydia-comer.mjs` re-encodes on ingest
-  while everything else about the artwork is left alone. Grant history lives in
-  `art/lydia-comer/license.txt`; read it before touching her files.
+  They ship as WebP q95: 15.7 MB down to 7.5 MB, which was 41% of the whole
+  release zip. **The grant went through two versions in one day (2026-08-04)
+  and the second is the one in force.** The first extended the original
+  "may not be modified" wording just far enough to permit format conversion;
+  the artist then replaced the whole notice with a shorter one that drops the
+  modification bar entirely and bounds USE instead — to Air Bladder, its forks,
+  and representing and promoting the project. So `tools/import/lydia-comer.mjs`
+  leaving everything but the format alone is now HOUSE PRACTICE, not a licence
+  term. Keep doing it; just do not cite the licence as the reason.
+  **The licence text is the artist's to write, not this project's** — she is
+  reachable and she rewrites it herself, so amend `art/lydia-comer/license.txt`
+  BEFORE any code that depends on what it says, and never edit it to match code
+  that already shipped.
   The halves used to be told apart by extension (`.jpg` square, `.png` circle);
   both are `.webp` now and only the FOLDER separates them, so an extension
   migration (`ART_REENCODED` in `cairn.js`) carries existing worlds across.

@@ -22,7 +22,8 @@
  *   6. a RollTable result's img                  (a SNAPSHOT, not a live read —
  *      the surface the .png migration never needed and this one does)
  *   7. an img already under art/ in the OLD FORMAT (the re-encode rule, which
- *      the prefix table structurally cannot reach)
+ *      the prefix table structurally cannot reach) — ONE PER RE-ENCODED
+ *      GALLERY, since they are separate rules and one entry proves only itself
  *
  * NEGATIVE CONTROL, in-page and in both directions. `icons/` deliberately did
  * NOT move, and an external URL must never be touched: both are planted too and
@@ -45,10 +46,15 @@ import { VIEWPORT, joinAsGM, watchErrors, dismissChrome } from "./lib.mjs";
 const MOVES = [
   ["systems/air-bladder/character_portraits/dwarf_01.webp", "systems/air-bladder/art/jon-aspeheim/portraits/dwarf_01.webp"],
   ["systems/air-bladder/character_tokens/dwarf_01.webp", "systems/air-bladder/art/jon-aspeheim/tokens/dwarf_01.webp"],
-  ["systems/air-bladder/tlomdev/beast/beast1.png", "systems/air-bladder/art/tlomdev/beast/beast1.png"],
+  // Chains too, since 2026-08-04 — tlomdev's categories became WebP the same
+  // day Lydia's did. This line said `.png` on both sides for one commit, which
+  // is the whole argument for writing the expectation out by hand: the entry
+  // was correct when it described a move, and a change three files away turned
+  // it into a claim that the migration must NOT finish its job.
+  ["systems/air-bladder/tlomdev/beast/beast1.png", "systems/air-bladder/art/tlomdev/beast/beast1.webp"],
   ["systems/air-bladder/game-icons/weapons/axe-swing.svg", "systems/air-bladder/art/game-icons/weapons/axe-swing.svg"],
-  // TWO migrations on ONE path, and this is the only leg that exercises the
-  // chain. A world last opened before the art/ restructure holds Lydia's
+  // TWO migrations on ONE path, and the only leg that chains across DIFFERENT
+  // extensions. A world last opened before the art/ restructure holds Lydia's
   // gallery at the old PREFIX *and* in the old FORMAT — she shipped .jpg
   // squares and .png circles until the grant was extended on 2026-08-04. Both
   // rules have to fire, in order, or the result is a path that is wrong in a
@@ -58,10 +64,17 @@ const MOVES = [
   ["systems/air-bladder/lydia-comer/portraits/Dragon.jpg", "systems/air-bladder/art/lydia-comer/portraits/Dragon.webp"],
 ];
 // Already under art/, wrong format only — a world made AFTER the restructure but
-// BEFORE the WebP conversion. The prefix rule cannot see this one at all, so it
-// is the leg that fails if ART_REENCODED is deleted while ART_MOVES survives.
+// BEFORE the WebP conversion. The prefix rule cannot see these at all, so this
+// is the group that fails if ART_REENCODED is deleted while ART_MOVES survives.
+//
+// One entry per re-encoded gallery, because they are separate rules with
+// separate `from` patterns and a single entry only ever proves its own. That is
+// not hypothetical here: the window between the art/ restructure and the WebP
+// conversion is the state of every world that has been tracking `dev`, and the
+// two galleries converted in different commits.
 const REENCODED = [
   ["systems/air-bladder/art/lydia-comer/tokens/Dragon.png", "systems/air-bladder/art/lydia-comer/tokens/Dragon.webp"],
+  ["systems/air-bladder/art/tlomdev/beast/beast1.png", "systems/air-bladder/art/tlomdev/beast/beast1.webp"],
 ];
 // Must survive UNCHANGED. icons/ is stamped class art and stayed put; the URL is
 // a Warden's own image and was never ours to rewrite.
@@ -92,10 +105,13 @@ try {
 
     const item = await ItemCls.create({ name: "zz-art-path-item", type: "item", img: old[3] });
 
-    // Seventh surface, and the only one the PREFIX table cannot reach: already
-    // under art/, wrong FORMAT. A world made between the restructure and the
-    // WebP conversion looks exactly like this.
-    const reenc = await ItemCls.create({ name: "zz-art-path-reenc", type: "item", img: REENCODED[0][0] });
+    // The surfaces the PREFIX table cannot reach: already under art/, wrong
+    // FORMAT. A world made between the restructure and the WebP conversion
+    // looks exactly like this. One document per re-encoded gallery.
+    const reencs = [];
+    for (const [i, [from]] of REENCODED.entries()) {
+      reencs.push(await ItemCls.create({ name: `zz-art-path-reenc-${i}`, type: "item", img: from }));
+    }
 
     const actor = await ActorCls.create({
       name: "zz-art-path-actor",
@@ -133,7 +149,7 @@ try {
 
     return {
       itemId: item.id,
-      reencId: reenc.id,
+      reencIds: reencs.map((d) => d.id),
       actorId: actor.id,
       ownedId: owned?.id ?? null,
       sceneId: scene.id,
@@ -145,7 +161,7 @@ try {
       // and a planted value that never stuck would make every later leg vacuous.
       seen: {
         item: item.img,
-        reenc: reenc.img,
+        reencs: reencs.map((d) => d.img),
         actor: actor.img,
         proto: actor.prototypeToken?.texture?.src,
         owned: owned?.img,
@@ -159,12 +175,16 @@ try {
   const wanted = {
     item: MOVES[3][0], actor: MOVES[0][0], proto: MOVES[1][0],
     owned: MOVES[2][0], token: MOVES[4][0], result: MOVES[0][0],
-    reenc: REENCODED[0][0],
   };
-  const badPlant = Object.entries(wanted).filter(([k, v]) => planted.seen[k] !== v);
+  // Seven KINDS of surface, more documents than that — the re-encode kind is
+  // planted once per gallery. Counting documents rather than kinds keeps the
+  // number honest the next time a gallery is added.
+  const docs = Object.keys(wanted).length + REENCODED.length;
+  const badPlant = Object.entries(wanted).filter(([k, v]) => planted.seen[k] !== v)
+    .concat(REENCODED.filter(([from], i) => planted.seen.reencs[i] !== from).map(([from]) => [`reenc:${from}`, from]));
   badPlant.length === 0 && UNTOUCHED.every((s, i) => planted.seen.controls[i] === s)
-    ? ok("planted an old path on all seven surfaces", "+ 2 controls")
-    : fail("planted an old path on all seven surfaces", JSON.stringify({ badPlant, controls: planted.seen.controls }));
+    ? ok("planted an old path on every surface", `${docs} documents + 2 controls`)
+    : fail("planted an old path on every surface", JSON.stringify({ badPlant, controls: planted.seen.controls }));
 
   /* --- reload, and let the ready migration run --------------------------- */
 
@@ -182,7 +202,7 @@ try {
     const table = game.tables.get(p.tableId);
     return {
       item: game.items.get(p.itemId)?.img ?? null,
-      reenc: game.items.get(p.reencId)?.img ?? null,
+      reencs: p.reencIds.map((id) => game.items.get(id)?.img ?? null),
       actor: a?.img ?? null,
       proto: a?.prototypeToken?.texture?.src ?? null,
       owned: a?.items.get(p.ownedId)?.img ?? null,
@@ -194,12 +214,17 @@ try {
 
   let after = await read();
   // "Still stale" is TWO questions now. A path under an old prefix is the
-  // original one; a `.jpg`/`.png` under art/lydia-comer/ is the re-encode
-  // surface, which carries no old prefix at all and so looked finished to the
-  // prefix test the instant it was planted -- a poll that returns before the
-  // work it waits for has started.
+  // original one; a `.jpg`/`.png` under art/lydia-comer/ — or a `.png` under
+  // art/tlomdev/ — is a re-encode surface, which carries no old prefix at all
+  // and so looked finished to the prefix test the instant it was planted -- a
+  // poll that returns before the work it waits for has started.
+  //
+  // STALE_FORMAT has to name every re-encoded gallery for that reason. Leaving
+  // tlomdev out would not fail anything; it would make the poll stop early and
+  // the assertions below race the migration, which is the failure mode that
+  // passes on a re-run and gets called a flake.
   const STALE_PREFIX = /systems\/air-bladder\/(character_|tlomdev\/|game-icons\/|lydia-comer\/)/;
-  const STALE_FORMAT = /systems\/air-bladder\/art\/lydia-comer\/.*\.(jpe?g|png)$/i;
+  const STALE_FORMAT = /systems\/air-bladder\/art\/(lydia-comer\/.*\.(jpe?g|png)|tlomdev\/.*\.png)$/i;
   const done = (s) => Object.values(s).flat()
     .every((v) => v === null || (!STALE_PREFIX.test(v) && !STALE_FORMAT.test(v)));
   for (; waited < 30000 && !done(after); waited += 250) {
@@ -216,11 +241,19 @@ try {
     ["an owned Item on that Actor", "owned", MOVES[2][1]],
     ["an unlinked Scene token", "token", MOVES[4][1]],
     ["a RollTable result's img snapshot", "result", MOVES[0][1]],
-    ["re-encoded: art/ already right, format was not", "reenc", REENCODED[0][1]],
   ]) {
     after[key] === want
       ? ok(`migrated: ${label}`, want.replace("systems/air-bladder/art/", ""))
       : fail(`migrated: ${label}`, `got "${after[key]}", wanted "${want}"`);
+  }
+  // One per re-encoded gallery, named by the gallery so a miss says which rule
+  // is absent rather than "the re-encode leg".
+  for (const [i, [from, want]] of REENCODED.entries()) {
+    const gallery = from.replace("systems/air-bladder/art/", "").split("/")[0];
+    const label = `re-encoded: ${gallery}, art/ already right, format was not`;
+    after.reencs[i] === want
+      ? ok(`migrated: ${label}`, want.replace("systems/air-bladder/art/", ""))
+      : fail(`migrated: ${label}`, `got "${after.reencs[i]}", wanted "${want}"`);
   }
   console.log(`        (migration settled after ${waited}ms)`);
 
@@ -242,7 +275,7 @@ try {
       await page.evaluate(async (p) => {
         const drop = async (fn) => { try { await fn(); } catch { /* keep going */ } };
         await drop(() => game.items.get(p.itemId)?.delete());
-        await drop(() => game.items.get(p.reencId)?.delete());
+        for (const id of p.reencIds) await drop(() => game.items.get(id)?.delete());
         await drop(() => game.actors.get(p.actorId)?.delete());
         await drop(() => game.scenes.get(p.sceneId)?.delete());
         await drop(() => game.tables.get(p.tableId)?.delete());

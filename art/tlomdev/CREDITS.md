@@ -14,6 +14,20 @@ They are black-and-white circular token drawings, offered in the portrait
 picker's **Tlomdev** gallery under the artist's own category folders, names
 kept verbatim.
 
+## Modifications
+
+**These files have been re-encoded from PNG to WebP (quality 95) and changed
+in no other way** — not cropped, rescaled, recoloured or redrawn. The system
+is installed as a single download and the conversion roughly halves the
+gallery's weight.
+
+CC BY-SA 4.0 §3(a)(1)(B) requires that a modification be indicated, so this
+notice is a term of the licence rather than a courtesy. The share-alike
+condition is unaffected: the art remains CC BY-SA 4.0.
+
+The `Kettlewright Portraits` folder is **not** re-encoded — Kettlewright ships those
+as WebP already, and their filenames are load-bearing (see below).
+
 ## The `Kettlewright Portraits` folder
 
 The same artist's drawings as shipped by
