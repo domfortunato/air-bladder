@@ -46,15 +46,25 @@ jobs:
           node-version: "24"
       - run: npm ci
 
-      # The offline gates, BEFORE anything is built or published (review
-      # 2026-08-04: a tag push used to publish whatever was in the tree — no
-      # workflow ran a single check, including check:fields, which guards the
-      # htmlFields sanitization declarations CLAUDE.md classes as a security
-      # control). These are the offline half of docs/release-testing.md; they
-      # need no Foundry and finish in seconds. check:warden is deliberately
-      # absent — it fetches the live SRD from another repo, and a release
-      # should not be hostage to someone else's outage; it stays a pre-tag
-      # step on the developer's machine.
+      # Build FIRST, gate second: the gates assert on the tree as it will ship,
+      # and one of them needs the shipped shape to exist — check:licence anchors
+      # its LICENSE.txt path detection on real top-level directories, so with
+      # packs/ absent every packs/ reference silently fell out of its list and
+      # the zip-coverage check reported the zip shipping an unnamed directory.
+      # That failed the first 0.1.10 tag (2026-08-04): the gates ran at steps
+      # 5–12 while build:packs sat at step 13, an order no local run ever has,
+      # because a working tree always carries built packs.
+      - run: npm run build:packs
+
+      # The offline gates, BEFORE anything is published (review 2026-08-04: a
+      # tag push used to publish whatever was in the tree — no workflow ran a
+      # single check, including check:fields, which guards the htmlFields
+      # sanitization declarations CLAUDE.md classes as a security control).
+      # These are the offline half of docs/release-testing.md; they need no
+      # Foundry and finish in seconds. check:warden is deliberately absent —
+      # it fetches the live SRD from another repo, and a release should not be
+      # hostage to someone else's outage; it stays a pre-tag step on the
+      # developer's machine.
       - run: npm run check:manifest
       - run: npm run check:fields
       - run: npm run check:refs
@@ -63,8 +73,6 @@ jobs:
       - run: npm run check:probes
       - run: npm run i18n:check
       - run: npm run i18n:source
-
-      - run: npm run build:packs
 
       # Substitute the Manifest and Download URLs in the system.json
       - name: Substitute Manifest and Download Links For Versioned Ones
