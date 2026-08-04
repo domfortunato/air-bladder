@@ -35,7 +35,7 @@ node tools/import/game-icons.mjs --src <dir>   # game-icons/ + its manifest
 
 `game-icons.mjs` is the one importer that is **not reproducible from this repo**:
 its input is a hand-curated download from game-icons.net, so which icons ship is
-a decision rather than a query. `game-icons/` and `game-icons/CREDITS.md` are
+a decision rather than a query. `art/game-icons/` and `art/game-icons/CREDITS.md` are
 therefore the artifacts of record — committed, and rebuilt only when the
 curation changes. Point `--src` at the unpacked download.
 
@@ -49,7 +49,7 @@ curation changes. Point `--src` at the unpacked download.
 | `transports.mjs` | `transports`, the transport shop table | self-contained (2e transport numbers) |
 | `npc-careers-2e.mjs` | `module/npc-careers-2e.json` | `resources/hirelings.md` |
 | `portraits.mjs` | `module/portrait-manifest.json` | the shipped image folders |
-| `game-icons.mjs` | `game-icons/` (1,539 svg + `CREDITS.md` + `license.txt`), `module/game-icons-manifest.json` | a curated game-icons.net download, via `--src` — or `--restamp`, which needs none |
+| `game-icons.mjs` | `art/game-icons/` (1,643 svg + `CREDITS.md` + `license.txt`), `module/game-icons-manifest.json` | a curated game-icons.net download, via `--src` — or `--restamp`, which needs none |
 
 `marketplace-descriptions.csv` and `background-archetypes.csv` are **ours**, not
 upstream's: the SRD price list is names and numbers with no flavour text, and

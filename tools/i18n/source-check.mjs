@@ -9,7 +9,7 @@
  * `title="Double click to change limit"` shipped, the only hint the
  * double-click-to-set-equipment-limit feature exists.
  *
- * Three classes, all checkable offline:
+ * Four classes, all checkable offline:
  *
  *   missing    a key referenced by module/ or templates/ that en.json lacks.
  *              Foundry renders the raw key, so the user sees "CAIRN.Whatever".
@@ -17,8 +17,10 @@
  *              translator is nonetheless asked to translate.
  *   hardcoded  user-visible English in module/ or templates/ that never passes
  *              through game.i18n. Untranslatable by construction.
+ *   unlabelled a gallery category in a MANIFEST with no label key — the one the
+ *              first two are structurally blind to. See CATEGORY_LABELS below.
  *
- * All three are errors. A warning that is permanently non-zero is a gate nobody
+ * All four are errors. A warning that is permanently non-zero is a gate nobody
  * reads, which is the failure mode this file exists to correct.
  *
  *   node tools/i18n/source-check.mjs [--verbose]
@@ -274,6 +276,44 @@ const isPluralFormOfUsed = (k) => {
   return used.has(k.slice(0, us));
 };
 
+/**
+ * Category labels built from a MANIFEST, which the three classes above are all
+ * blind to.
+ *
+ * `art-picker.js` renders a gallery's category strip by localizing
+ * `CAIRN.GameIconCategory.${pascal(key)}` for every key in the manifest. The key
+ * is interpolated, so `missing` cannot see it — the scan records the dynamic
+ * PREFIX and stops there — and `unused` cannot see it either, since that same
+ * prefix licenses every key under it. Both report green while a tile renders the
+ * literal string "CAIRN.GameIconCategory.Fire".
+ *
+ * Nothing caught that, and adding a category is exactly when it happens: it is
+ * the one site in the whole operation that is not gated, arriving on the day
+ * attention is on glyph counts and artist attribution. So the manifest is the
+ * authority here — it is generated from disk by the importer, which makes it the
+ * closest thing to "what the picker will actually try to draw".
+ *
+ * Keyed on the manifest rather than on a hand-kept list of categories, for the
+ * same reason: a list maintained beside the thing it describes drifts from it.
+ */
+const CATEGORY_LABELS = [
+  { manifest: "module/game-icons-manifest.json", prefix: "CAIRN.GameIconCategory." },
+  { manifest: "module/tlomdev-manifest.json", prefix: "CAIRN.TlomdevCategory." },
+];
+
+// Must match art-picker.js's `pascal`: "greek-roman" -> "GreekRoman".
+const pascal = (key) =>
+  key.split(/[\s-]+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join("");
+
+const unlabelled = CATEGORY_LABELS.flatMap(({ manifest, prefix }) => {
+  const file = path.join(ROOT, manifest);
+  if (!fs.existsSync(file)) return [{ key: `(missing) ${manifest}`, label: "" }];
+  const { categories = [] } = JSON.parse(fs.readFileSync(file, "utf8"));
+  return categories
+    .map((c) => ({ key: `${manifest}  ${c.key}`, label: `${prefix}${pascal(c.key)}` }))
+    .filter((r) => !enSet.has(r.label));
+});
+
 const missing = [...used.keys()].filter((k) => !enSet.has(k));
 const unused = en.filter(
   (k) =>
@@ -299,7 +339,8 @@ console.log("");
 list("keys used but missing from en.json", missing, (k) => `${k}   @ ${used.get(k)}`);
 list("keys in en.json nothing references", unused, (k) => k);
 list("hardcoded user-visible strings", hardcoded, (h) => `${h.site}   ${h.what}`);
+list("manifest categories with no label key", unlabelled, (r) => `${r.key}   needs ${r.label}`);
 
-const bad = missing.length + unused.length + hardcoded.length;
+const bad = missing.length + unused.length + hardcoded.length + unlabelled.length;
 console.log(bad ? `\n${bad} problem(s).\n` : "");
 process.exit(bad ? 1 : 0);

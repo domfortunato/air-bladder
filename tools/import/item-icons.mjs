@@ -12,7 +12,7 @@
  * it after any pack re-import, then `npm run build:packs`.
  *
  * IT NEVER OVERWRITES ART CHOSEN BY HAND. Everything this classifier can produce
- * lives under ICON_DIR, so an `img:` pointing anywhere else — a `game-icons/`
+ * lives under ICON_DIR, so an `img:` pointing anywhere else — an `art/game-icons/`
  * glyph picked in Foundry, a portrait, an upload — is somebody's decision and is
  * left alone. That is what makes assigning icons in the compendium and running
  * `npm run extract:packs` a durable workflow rather than a change one re-import
@@ -85,11 +85,11 @@ for (const pack of [...ITEM_PACKS, ...ACTOR_PACKS]) {
     // silently throw that choice away. That is not hypothetical: this script
     // rewrites the img of every doc in fourteen packs from the classifier
     // alone, so before this guard the ONLY safe place for a bespoke icon was
-    // nowhere. `game-icons/` (1,539 glyphs, CC BY 3.0) is the folder a Warden
+    // nowhere. `art/game-icons/` (1,643 glyphs, CC BY 3.0) is the folder a Warden
     // actually picks from, and no classifier output can ever collide with it.
     //
     // Deliberately keyed on "outside ICON_DIR" rather than on "inside
-    // game-icons/": a portrait, a custom upload and a module's art are all
+    // art/game-icons/": a portrait, a custom upload and a module's art are all
     // equally somebody's decision, and none of them is this table's to revise.
     // `--force` restores the old blanket restamp for a deliberate reset.
     const current = lines[i].slice(5).trim();

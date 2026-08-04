@@ -182,8 +182,8 @@ const COUNT_SITES = [
   ["module/art-picker.js", /at once is ([\d,]+) <img>/],
   ["module/art-picker.js", /the ([\d,]+)-glyph gallery/],
   ["module/character-generator.js", /([\d,]+) game-icons\.net glyphs in \d+ categories/],
-  ["tools/import/item-icons.mjs", /`game-icons\/` \(([\d,]+) glyphs/],
-  ["tools/import/README.md", /`game-icons\/` \(([\d,]+) svg/],
+  ["tools/import/item-icons.mjs", /`art\/game-icons\/` \(([\d,]+) glyphs/],
+  ["tools/import/README.md", /`art\/game-icons\/` \(([\d,]+) svg/],
   // LICENSE.txt was the one site stating this number that NOTHING checked, and
   // it was three collections stale (1,366 glyphs, 24 categories, 16
   // contributors) while this gate reported green over eight other sites. The
@@ -232,7 +232,7 @@ wrongCats.length === 0
 
 // The ARTIST list is the CC BY attribution itself -- "include a mention 'Icons
 // made by {author}'" is the upstream licence's own wording -- and both READMEs
-// restate it. game-icons/CREDITS.md is generated from the download, so it is
+// restate it. art/game-icons/CREDITS.md is generated from the download, so it is
 // right by construction; the READMEs are hand-kept and were not checked by
 // anything. Adding a category brings new artists with it (shields brought Andy
 // Meneely and SeregaCthtuf, bottles brought Guard13007 and Starseeker), so the

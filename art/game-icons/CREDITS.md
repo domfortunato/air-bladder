@@ -22,7 +22,7 @@ it.
 
 Icons made by Andy Meneely, Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev, Delapouite, Faithtoken, GeneralAce135, Guard13007, Irongamer, Lorc, Lord Berandas, Lucas, Sbed, SeregaCthtuf, Skoll, Sparker, Starseeker, Various artists, Willdabeast.
 
-1539 icons in 27 categories.
+1643 icons in 28 categories.
 
 ## Animals
 
@@ -845,6 +845,115 @@ Icons made by Andy Meneely, Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev,
 | `tired-eye.svg` | Tired Eye | Delapouite | <https://game-icons.net/1x1/delapouite/tired-eye.html> |
 | `warlock-eye.svg` | Warlock Eye | Delapouite | <https://game-icons.net/1x1/delapouite/warlock-eye.html> |
 | `worried-eyes.svg` | Worried Eyes | Lorc | <https://game-icons.net/1x1/lorc/worried-eyes.html> |
+
+## Fire
+
+| file | icon | author | source |
+| --- | --- | --- | --- |
+| `alien-fire.svg` | Alien Fire | Lorc | <https://game-icons.net/1x1/lorc/alien-fire.html> |
+| `arson.svg` | Arson | Lorc | <https://game-icons.net/1x1/lorc/arson.html> |
+| `bellows.svg` | Bellows | Delapouite | <https://game-icons.net/1x1/delapouite/bellows.html> |
+| `blast.svg` | Blast | Sbed | <https://game-icons.net/1x1/sbed/blast.html> |
+| `blaster.svg` | Blaster | Sbed | <https://game-icons.net/1x1/sbed/blaster.html> |
+| `brasero.svg` | Brasero | Delapouite | <https://game-icons.net/1x1/delapouite/brasero.html> |
+| `burn.svg` | Burn | Sbed | <https://game-icons.net/1x1/sbed/burn.html> |
+| `burning-book.svg` | Burning Book | Lorc | <https://game-icons.net/1x1/lorc/burning-book.html> |
+| `burning-dot.svg` | Burning Dot | Lorc | <https://game-icons.net/1x1/lorc/burning-dot.html> |
+| `burning-embers.svg` | Burning Embers | Lorc | <https://game-icons.net/1x1/lorc/burning-embers.html> |
+| `burning-eye.svg` | Burning Eye | Lorc | <https://game-icons.net/1x1/lorc/burning-eye.html> |
+| `burning-forest.svg` | Burning Forest | Delapouite | <https://game-icons.net/1x1/delapouite/burning-forest.html> |
+| `burning-meteor.svg` | Burning Meteor | Lorc | <https://game-icons.net/1x1/lorc/burning-meteor.html> |
+| `burning-passion.svg` | Burning Passion | Lorc | <https://game-icons.net/1x1/lorc/burning-passion.html> |
+| `burning-skull.svg` | Burning Skull | Skoll | <https://game-icons.net/1x1/skoll/burning-skull.html> |
+| `burning-tree.svg` | Burning Tree | Lorc | <https://game-icons.net/1x1/lorc/burning-tree.html> |
+| `caldera.svg` | Caldera | Lorc | <https://game-icons.net/1x1/lorc/caldera.html> |
+| `camp-cooking-pot.svg` | Camp Cooking Pot | Delapouite | <https://game-icons.net/1x1/delapouite/camp-cooking-pot.html> |
+| `campfire.svg` | Campfire | Lorc | <https://game-icons.net/1x1/lorc/campfire.html> |
+| `candle-flame.svg` | Candle Flame | Lorc | <https://game-icons.net/1x1/lorc/candle-flame.html> |
+| `candle-holder.svg` | Candle Holder | Lorc | <https://game-icons.net/1x1/lorc/candle-holder.html> |
+| `candle-light.svg` | Candle Light | Lorc | <https://game-icons.net/1x1/lorc/candle-light.html> |
+| `candlebright.svg` | Candlebright | Lorc | <https://game-icons.net/1x1/lorc/candlebright.html> |
+| `candles.svg` | Candles | Delapouite | <https://game-icons.net/1x1/delapouite/candles.html> |
+| `celebration-fire.svg` | Celebration Fire | Lorc | <https://game-icons.net/1x1/lorc/celebration-fire.html> |
+| `dice-fire.svg` | Dice Fire | Delapouite | <https://game-icons.net/1x1/delapouite/dice-fire.html> |
+| `dragon-breath.svg` | Dragon Breath | Lorc | <https://game-icons.net/1x1/lorc/dragon-breath.html> |
+| `ember-shot.svg` | Ember Shot | Lorc | <https://game-icons.net/1x1/lorc/ember-shot.html> |
+| `eruption.svg` | Eruption | Lorc | <https://game-icons.net/1x1/lorc/eruption.html> |
+| `fire-ace.svg` | Fire Ace | Lorc | <https://game-icons.net/1x1/lorc/fire-ace.html> |
+| `fire-axe.svg` | Fire Axe | Lorc | <https://game-icons.net/1x1/lorc/fire-axe.html> |
+| `fire-bomb.svg` | Fire Bomb | Lorc | <https://game-icons.net/1x1/lorc/fire-bomb.html> |
+| `fire-bottle.svg` | Fire Bottle | Lorc | <https://game-icons.net/1x1/lorc/fire-bottle.html> |
+| `fire-bowl.svg` | Fire Bowl | Lorc | <https://game-icons.net/1x1/lorc/fire-bowl.html> |
+| `fire-breath.svg` | Fire Breath | Lorc | <https://game-icons.net/1x1/lorc/fire-breath.html> |
+| `fire-dash.svg` | Fire Dash | Lorc | <https://game-icons.net/1x1/lorc/fire-dash.html> |
+| `fire-extinguisher.svg` | Fire Extinguisher | Delapouite | <https://game-icons.net/1x1/delapouite/fire-extinguisher.html> |
+| `fire-flower.svg` | Fire Flower | Delapouite | <https://game-icons.net/1x1/delapouite/fire-flower.html> |
+| `fire-gem.svg` | Fire Gem | Delapouite | <https://game-icons.net/1x1/delapouite/fire-gem.html> |
+| `fire-iris.svg` | Fire Iris | Delapouite | <https://game-icons.net/1x1/delapouite/fire-iris.html> |
+| `fire-punch.svg` | Fire Punch | Lorc | <https://game-icons.net/1x1/lorc/fire-punch.html> |
+| `fire-ray.svg` | Fire Ray | Lorc | <https://game-icons.net/1x1/lorc/fire-ray.html> |
+| `fire-ring.svg` | Fire Ring | Lorc | <https://game-icons.net/1x1/lorc/fire-ring.html> |
+| `fire-shield.svg` | Fire Shield | Lorc | <https://game-icons.net/1x1/lorc/fire-shield.html> |
+| `fire-shrine.svg` | Fire Shrine | Delapouite | <https://game-icons.net/1x1/delapouite/fire-shrine.html> |
+| `fire-silhouette.svg` | Fire Silhouette | Lorc | <https://game-icons.net/1x1/lorc/fire-silhouette.html> |
+| `fire-spell-cast.svg` | Fire Spell Cast | Delapouite | <https://game-icons.net/1x1/delapouite/fire-spell-cast.html> |
+| `fire-tail.svg` | Fire Tail | Lorc | <https://game-icons.net/1x1/lorc/fire-tail.html> |
+| `fire-wave.svg` | Fire Wave | Lorc | <https://game-icons.net/1x1/lorc/fire-wave.html> |
+| `fire-zone.svg` | Fire Zone | Lorc | <https://game-icons.net/1x1/lorc/fire-zone.html> |
+| `fire.svg` | Fire | Sbed | <https://game-icons.net/1x1/sbed/fire.html> |
+| `fireball.svg` | Fireball | Lorc | <https://game-icons.net/1x1/lorc/fireball.html> |
+| `fireflake.svg` | Fireflake | Sbed | <https://game-icons.net/1x1/sbed/fireflake.html> |
+| `fireplace.svg` | Fireplace | Delapouite | <https://game-icons.net/1x1/delapouite/fireplace.html> |
+| `firewall.svg` | Firewall | Delapouite | <https://game-icons.net/1x1/delapouite/firewall.html> |
+| `firework-rocket.svg` | Firework Rocket | Lorc | <https://game-icons.net/1x1/lorc/firework-rocket.html> |
+| `fish-smoking.svg` | Fish Smoking | Delapouite | <https://game-icons.net/1x1/delapouite/fish-smoking.html> |
+| `flame-claws.svg` | Flame Claws | Lorc | <https://game-icons.net/1x1/lorc/flame-claws.html> |
+| `flame-spin.svg` | Flame Spin | Lorc | <https://game-icons.net/1x1/lorc/flame-spin.html> |
+| `flame-tunnel.svg` | Flame Tunnel | Lorc | <https://game-icons.net/1x1/lorc/flame-tunnel.html> |
+| `flame.svg` | Flame | Carl Olsen | <https://game-icons.net/1x1/carl-olsen/flame.html> |
+| `flamed-leaf.svg` | Flamed Leaf | Lorc | <https://game-icons.net/1x1/lorc/flamed-leaf.html> |
+| `flamer.svg` | Flamer | Sbed | <https://game-icons.net/1x1/sbed/flamer.html> |
+| `flamethrower-soldier.svg` | Flamethrower Soldier | Delapouite | <https://game-icons.net/1x1/delapouite/flamethrower-soldier.html> |
+| `flamethrower.svg` | Flamethrower | Delapouite | <https://game-icons.net/1x1/delapouite/flamethrower.html> |
+| `flaming-arrow.svg` | Flaming Arrow | Lorc | <https://game-icons.net/1x1/lorc/flaming-arrow.html> |
+| `flaming-claw.svg` | Flaming Claw | Lorc | <https://game-icons.net/1x1/lorc/flaming-claw.html> |
+| `flaming-sheet.svg` | Flaming Sheet | Lorc | <https://game-icons.net/1x1/lorc/flaming-sheet.html> |
+| `flaming-trident.svg` | Flaming Trident | Lorc | <https://game-icons.net/1x1/lorc/flaming-trident.html> |
+| `flint-spark.svg` | Flint Spark | Delapouite | <https://game-icons.net/1x1/delapouite/flint-spark.html> |
+| `fluffy-flame.svg` | Fluffy Flame | Lorc | <https://game-icons.net/1x1/lorc/fluffy-flame.html> |
+| `frostfire.svg` | Frostfire | Lorc | <https://game-icons.net/1x1/lorc/frostfire.html> |
+| `furnace.svg` | Furnace | Delapouite | <https://game-icons.net/1x1/delapouite/furnace.html> |
+| `gas-stove.svg` | Gas Stove | Delapouite | <https://game-icons.net/1x1/delapouite/gas-stove.html> |
+| `heartburn.svg` | Heartburn | Lorc | <https://game-icons.net/1x1/lorc/heartburn.html> |
+| `heat-haze.svg` | Heat Haze | Lorc | <https://game-icons.net/1x1/lorc/heat-haze.html> |
+| `hot-spices.svg` | Hot Spices | Lorc | <https://game-icons.net/1x1/lorc/hot-spices.html> |
+| `hot-surface.svg` | Hot Surface | Sbed | <https://game-icons.net/1x1/sbed/hot-surface.html> |
+| `ifrit.svg` | Ifrit | Lorc | <https://game-icons.net/1x1/lorc/ifrit.html> |
+| `kindle.svg` | Kindle | Lorc | <https://game-icons.net/1x1/lorc/kindle.html> |
+| `lantern-flame.svg` | Lantern Flame | Lorc | <https://game-icons.net/1x1/lorc/lantern-flame.html> |
+| `lava.svg` | Lava | Sbed | <https://game-icons.net/1x1/sbed/lava.html> |
+| `lighter.svg` | Lighter | Delapouite | <https://game-icons.net/1x1/delapouite/lighter.html> |
+| `lightning-flame.svg` | Lightning Flame | Delapouite | <https://game-icons.net/1x1/delapouite/lightning-flame.html> |
+| `lit-candelabra.svg` | Lit Candelabra | Lorc | <https://game-icons.net/1x1/lorc/lit-candelabra.html> |
+| `lucifer-cannon.svg` | Lucifer Cannon | Sbed | <https://game-icons.net/1x1/sbed/lucifer-cannon.html> |
+| `marshmallows.svg` | Marshmallows | Delapouite | <https://game-icons.net/1x1/delapouite/marshmallows.html> |
+| `match-head.svg` | Match Head | Lorc | <https://game-icons.net/1x1/lorc/match-head.html> |
+| `match-tip.svg` | Match Tip | Lorc | <https://game-icons.net/1x1/lorc/match-tip.html> |
+| `matchbox.svg` | Matchbox | Delapouite | <https://game-icons.net/1x1/delapouite/matchbox.html> |
+| `molotov.svg` | Molotov | Lorc | <https://game-icons.net/1x1/lorc/molotov.html> |
+| `plasma-bolt.svg` | Plasma Bolt | Lorc | <https://game-icons.net/1x1/lorc/plasma-bolt.html> |
+| `primitive-torch.svg` | Primitive Torch | Delapouite | <https://game-icons.net/1x1/delapouite/primitive-torch.html> |
+| `pyre.svg` | Pyre | Delapouite | <https://game-icons.net/1x1/delapouite/pyre.html> |
+| `pyromaniac.svg` | Pyromaniac | Lorc | <https://game-icons.net/1x1/lorc/pyromaniac.html> |
+| `salamander.svg` | Salamander | Lorc | <https://game-icons.net/1x1/lorc/salamander.html> |
+| `small-fire.svg` | Small Fire | Lorc | <https://game-icons.net/1x1/lorc/small-fire.html> |
+| `spark-spirit.svg` | Spark Spirit | Lorc | <https://game-icons.net/1x1/lorc/spark-spirit.html> |
+| `three-burning-balls.svg` | Three Burning Balls | Lorc | <https://game-icons.net/1x1/lorc/three-burning-balls.html> |
+| `thrown-charcoal.svg` | Thrown Charcoal | Lorc | <https://game-icons.net/1x1/lorc/thrown-charcoal.html> |
+| `torch.svg` | Torch | Delapouite | <https://game-icons.net/1x1/delapouite/torch.html> |
+| `unfriendly-fire.svg` | Unfriendly Fire | Lorc | <https://game-icons.net/1x1/lorc/unfriendly-fire.html> |
+| `volcano.svg` | Volcano | Lorc | <https://game-icons.net/1x1/lorc/volcano.html> |
+| `wildfires.svg` | Wildfires | Lorc | <https://game-icons.net/1x1/lorc/wildfires.html> |
 
 ## Fish
 

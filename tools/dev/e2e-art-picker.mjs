@@ -224,6 +224,15 @@ try {
     const out = {
       folderCount: folders.length,
       labels: folders.slice(0, 3).map((f) => f.querySelector("span").textContent),
+      // A category label is built by INTERPOLATION
+      // (`CAIRN.GameIconCategory.${pascal(key)}`), so a missing key renders the
+      // key itself as the tile's caption -- no error, no blank, just a tile
+      // reading "CAIRN.GameIconCategory.Fire". `i18n:source` gates the key's
+      // existence offline; this catches the other half, which that gate cannot:
+      // its `pascal` is a COPY of the picker's, and two copies can diverge.
+      rawKeyLabels: folders
+        .map((f) => f.querySelector("span").textContent.trim())
+        .filter((t) => t.startsWith("CAIRN.")),
       // A manifest naming a file that is not on disk renders a blank tile and no
       // error; decoded width is the only thing that tells them apart.
       facesLoaded: 0,
@@ -257,6 +266,10 @@ try {
   browse.folderCount === CATS && browse.gridBeforeClick
     ? ok(`all ${CATS} category folders, thumbnails hidden`, browse.labels.join(" / "))
     : fail(`all ${CATS} category folders, thumbnails hidden`, JSON.stringify(browse));
+
+  browse.rawKeyLabels.length === 0
+    ? ok("every category tile shows a label, not a raw key", `${CATS} localized`)
+    : fail("every category tile shows a label, not a raw key", browse.rawKeyLabels.join(", "));
   browse.facesLoaded === CATS
     ? ok("every folder face resolves to a real file", `${CATS}/${CATS} decoded`)
     : fail("every folder face resolves to a real file", `${browse.facesLoaded}/${CATS} — the manifest names a missing icon`);

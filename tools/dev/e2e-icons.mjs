@@ -16,8 +16,8 @@
  *      reloads, and watches it get rewritten. Without this the first three pass
  *      trivially on any already-migrated world, so a broken migration would sail
  *      through — and every check here would be measuring nothing.
- *   5. the GALLERY — all 1,539 game-icons/ glyphs — declares an intrinsic size
- *      too. Read off DISK rather than fetched: 1,539 browser round trips to
+ *   5. the GALLERY — all 1,643 game-icons/ glyphs — declares an intrinsic size
+ *      too. Read off DISK rather than fetched: 1,643 browser round trips to
  *      assert a regex is not worth the wall clock, and the property is a fact
  *      about the file. A three-glyph sample is then rasterised in the browser
  *      to prove the disk reading corresponds to something real. `icons/` had
@@ -163,7 +163,7 @@ galleryUnsized.length === 0
 
 // The disk reading is a regex over a file; this is the browser agreeing with it.
 // Three, spread across categories, because the property is uniform by
-// construction — the importer stamps every file the same way — and 1,539 round
+// construction — the importer stamps every file the same way — and 1,643 round
 // trips to re-confirm that costs minutes.
 const sample = [gallery[0], gallery[Math.floor(gallery.length / 2)], gallery.at(-1)];
 const sampled = await page.evaluate(async (rels) => Promise.all(rels.map((rel) =>
