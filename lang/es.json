@@ -238,21 +238,21 @@
     "Bought": "{name} comprado por {cost} de oro.",
     "ConfirmDeleteNamed": "¿Eliminar {name}?",
     "ContainerFull": "{name} no cabe — el contenedor está lleno.",
+    "ContainerLinkFailed": "No he podido adjuntar el archivo {name}; no se modificó nada.",
+    "ContainerNoPermission": "No puedes adjuntar {name} — no tienes permiso para cambiarlo. Pregúntale al director.",
     "DropFailed": "No se ha podido mover ese objeto; es posible que no tengas permiso para modificar la hoja destinataria.",
     "DropNoSource": "No puedes seleccionar ese objeto: no tienes permiso para modificar la hoja de la que procede.",
     "LeftOverloaded": "Te has ido del mercado sobrecargado — la PG se reduce a 0 hasta que liberes un espacio.",
     "MaxSlotsOccupied": "Se han utilizado todos los espacios de inventario.",
     "NoActorCreate": "Solo el Guardián puede crear contenedores y medios de transporte.",
+    "NoContainerBackground": "Al modificar el trasfondo de este personaje, se podría añadir o eliminar un contenedor (una montura, una carreta o una mochila), algo que solo el Guardián puede hacer; pídele que lo cambie por ti.",
     "NoContainerRegen": "Al regenerar este personaje, podría añadirse o eliminarse un contenedor (una montura, un carro o una mochila), algo que solo el Guardián puede hacer; pídele que vuelva a generarlo por ti.",
     "NoMarketplace": "El inventario del mercado no está disponible.",
+    "NoScarsTable": "La tabla de cicatrices no aparece en el compendio; tira el dado para determinar la cicatriz manualmente.",
     "NotEnoughGold": "No hay suficiente oro para {name} ({cost}).",
     "Overloaded": "{name} añadido — ahora mismo has superado la capacidad máxima (PG 0 hasta que liberes un espacio).",
-    "Took": "Se ha tomado {name}.",
     "PortraitFolderScanned": "Carpeta de retratos personalizados escaneada — {count} imagen(es) encontrada(s).",
-    "ContainerNoPermission": "No puedes adjuntar {name} — no tienes permiso para cambiarlo. Pregúntale al director.",
-    "ContainerLinkFailed": "No he podido adjuntar el archivo {name}; no se modificó nada.",
-    "NoContainerBackground": "Al modificar el trasfondo de este personaje, se podría añadir o eliminar un contenedor (una montura, una carreta o una mochila), algo que solo el Guardián puede hacer; pídele que lo cambie por ti.",
-    "NoScarsTable": "La tabla de cicatrices no aparece en el compendio; tira el dado para determinar la cicatriz manualmente."
+    "Took": "Se ha tomado {name}."
   },
   "CAIRN.Notify.BackgroundNotCharacter": "Solo personajes jugadores tienen trasfondo",
   "CAIRN.Notify.BackgroundWrongSource": "Eso es un trasfondo de {backgroundEdition} y este es un personaje de {characterEdition}. Un personaje no cambia de edición.",
@@ -349,6 +349,14 @@
       "hint": "Ofrece los 100 trasfondos «Barebones» de Cairn al crear un personaje. Los personajes «Barebones» siguen las mismas reglas que los de la 2.ª edición; solo difieren en su creación.",
       "label": "Ofrecer hojas de personaje Cairn Barebones"
     },
+    "ContentSourceCustom": {
+      "hint": "Include GM-authored 2e backgrounds from your world's compendiums when generating a character. They appear alongside the shipped Cairn 2e backgrounds; turn off 'Offer Cairn 2e character sheets' to generate from your custom ones only.",
+      "label": "Ofrecer trasfondos personalizados de 2e"
+    },
+    "CustomPortraitFolder": {
+      "hint": "Una carpeta con tus propios retratos de personajes (en relación con la raíz de datos de Foundry). Cuando contenga imágenes, los nuevos personajes y mercenarios las utilizarán en lugar de las ilustraciones de Jon Aspeheim incluidas de serie, y el selector de retratos mostrará una pestaña «Personalizado». Déjala vacía o sin rellenar para utilizar únicamente los retratos incluidos de serie. La carpeta predeterminada se crea automáticamente; solo tienes que arrastrar las imágenes a ella y hacer clic en «Actualizar» en el selector.",
+      "label": "Carpeta de retratos de personajes personalizados"
+    },
     "EnableInventoryReorder": {
       "hint": "Cuando está activada, el jugador puede arrastrar una fila del inventario para cambiarla de posición; se mantiene el orden manual..",
       "label": "Permitir a los jugadores arrastrar los objetos del inventario para reordenarlos"
@@ -398,14 +406,6 @@
     },
     "UseWardenTitle": {
       "label": "Llamar al GM \"Guardián\""
-    },
-    "CustomPortraitFolder": {
-      "label": "Carpeta de retratos de personajes personalizados",
-      "hint": "Una carpeta con tus propios retratos de personajes (en relación con la raíz de datos de Foundry). Cuando contenga imágenes, los nuevos personajes y mercenarios las utilizarán en lugar de las ilustraciones de Jon Aspeheim incluidas de serie, y el selector de retratos mostrará una pestaña «Personalizado». Déjala vacía o sin rellenar para utilizar únicamente los retratos incluidos de serie. La carpeta predeterminada se crea automáticamente; solo tienes que arrastrar las imágenes a ella y hacer clic en «Actualizar» en el selector."
-    },
-    "ContentSourceCustom": {
-      "label": "Ofrecer trasfondos personalizados de 2e",
-      "hint": "Include GM-authored 2e backgrounds from your world's compendiums when generating a character. They appear alongside the shipped Cairn 2e backgrounds; turn off 'Offer Cairn 2e character sheets' to generate from your custom ones only."
     }
   },
   "CAIRN.Slots": "Espacios",
