@@ -464,7 +464,7 @@ try {
       return test();
     };
     const Cls = CONFIG.Actor.documentClass;
-    const beastDir = "systems/air-bladder/tlomdev/beast";
+    const beastDir = "systems/air-bladder/art/tlomdev/beast";
     // generationEnabled seeded TRUE: the default flipped to Off (2026-08-02)
     // and the portrait die this section clicks is exactly what the flag gates.
     const a = await Cls.create({ name: "ZZ Art Roller", type: "npc", system: { role: "npc", generationEnabled: true }, img: `${beastDir}/${beastFirst}` });
@@ -526,7 +526,7 @@ try {
     return out;
   }, { beastFirst: TL_BEAST_FIRST });
 
-  roll.afterBeast?.startsWith("systems/air-bladder/tlomdev/beast/") && roll.afterBeast !== roll.start
+  roll.afterBeast?.startsWith("systems/air-bladder/art/tlomdev/beast/") && roll.afterBeast !== roll.start
     ? ok("the die re-rolls within tlomdev/beast", roll.afterBeast.split("/").pop())
     : fail("the die re-rolls within tlomdev/beast", JSON.stringify([roll.start, roll.afterBeast]));
   roll.tokenAfterBeast === roll.afterBeast

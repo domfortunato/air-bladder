@@ -57,7 +57,7 @@ const LADDER = [3, 6, 10, 14, 18];
 const DEX_LADDER = [6, 10, 14];
 const ARMOR_NAMES = ["Tough Hide", "Carapace", "Shell", "Scales"];
 const CREATURE_CATEGORIES = ["animals", "creatures", "fish", "heads", "mammals", "reptiles", "skull"];
-const ICON_PREFIX = "systems/air-bladder/game-icons/";
+const ICON_PREFIX = "systems/air-bladder/art/game-icons/";
 const ICON_FALLBACK = "systems/air-bladder/icons/monster.svg";
 
 let failed = false;

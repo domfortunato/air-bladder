@@ -3,7 +3,7 @@ name: Dragon Turtle
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/game-icons/creatures/dragon-head-lorc.svg
+img: systems/air-bladder/art/game-icons/creatures/dragon-head-lorc.svg
 items:
   - _id: FbD58u4mXKhnXD8P
     name: Bite
@@ -196,7 +196,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: systems/air-bladder/game-icons/creatures/dragon-head-lorc.svg
+    src: systems/air-bladder/art/game-icons/creatures/dragon-head-lorc.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

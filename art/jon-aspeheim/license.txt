@@ -1,4 +1,5 @@
-All images contained in this folder are licensed under the Creative Commons 4.0 Attribution License (CC BY 4.0).
+All images contained in this folder and its portraits/ and tokens/ subfolders are
+licensed under the Creative Commons 4.0 Attribution License (CC BY 4.0).
 
 Artist: Jon Aspeheim — https://jonaspeheim.itch.io/
 Source: https://jonaspeheim.itch.io/lemurs-portraits

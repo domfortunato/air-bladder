@@ -3,7 +3,7 @@ name: Buccaneer
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/game-icons/heads/pirate-captain.svg
+img: systems/air-bladder/art/game-icons/heads/pirate-captain.svg
 items:
   - _id: Zkrtrnhkh8xDvVet
     name: Scimitar
@@ -121,7 +121,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: systems/air-bladder/game-icons/heads/pirate-captain.svg
+    src: systems/air-bladder/art/game-icons/heads/pirate-captain.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

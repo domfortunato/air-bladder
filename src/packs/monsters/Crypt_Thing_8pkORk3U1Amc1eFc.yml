@@ -3,7 +3,7 @@ name: Crypt Thing
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/game-icons/skull/haunting.svg
+img: systems/air-bladder/art/game-icons/skull/haunting.svg
 items:
   - _id: Q58WxqvOgkh6tTaj
     name: Ethereal Claws
@@ -159,7 +159,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: systems/air-bladder/game-icons/skull/haunting.svg
+    src: systems/air-bladder/art/game-icons/skull/haunting.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

@@ -3,7 +3,7 @@ name: Camel
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/game-icons/animals/camel-head.svg
+img: systems/air-bladder/art/game-icons/animals/camel-head.svg
 items:
   - _id: xFXemVEkR46MuiVA
     name: Bite
@@ -115,7 +115,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: systems/air-bladder/game-icons/animals/camel-head.svg
+    src: systems/air-bladder/art/game-icons/animals/camel-head.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

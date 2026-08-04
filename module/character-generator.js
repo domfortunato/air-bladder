@@ -271,7 +271,7 @@ const categoryPoolFor = (img, dir, categories) => {
 export const randomPortraitInSameFolder = async (current) => {
   const img = String(current ?? "");
   const m = await getPortraitManifest();
-  const portraitDir = m?.portraitDir ?? "systems/air-bladder/character_portraits";
+  const portraitDir = m?.portraitDir ?? "systems/air-bladder/art/jon-aspeheim/portraits";
   const aspeheim = (m?.names ?? []).map((n) => `${portraitDir}/${n}`);
   const custom = getCustomPortraitPaths();
 
@@ -290,11 +290,11 @@ export const randomPortraitInSameFolder = async (current) => {
   }
   if (!pool) {
     const gi = await getGameIconManifest();
-    pool = categoryPoolFor(img, gi?.iconDir ?? "systems/air-bladder/game-icons", gi?.categories ?? []);
+    pool = categoryPoolFor(img, gi?.iconDir ?? "systems/air-bladder/art/game-icons", gi?.categories ?? []);
   }
   if (!pool) {
     const tl = await getTlomdevManifest();
-    pool = categoryPoolFor(img, tl?.artDir ?? "systems/air-bladder/tlomdev", tl?.categories ?? []);
+    pool = categoryPoolFor(img, tl?.artDir ?? "systems/air-bladder/art/tlomdev", tl?.categories ?? []);
   }
   if (!pool) pool = custom.length ? custom : aspeheim;
 

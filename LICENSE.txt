@@ -50,42 +50,42 @@ Spanish translation — CC BY-SA 4.0, © Malecho (https://github.com/fsmalecho)
     Ship it unmodified; see logo/README.md.
 
 Air Bladder logo and monster art — © Lydia Comer. ALL RIGHTS RESERVED.
-    lydia-comer/  — https://linktr.ee/lydiadidmyink
+    art/lydia-comer/  — https://linktr.ee/lydiadidmyink
     NOT a Creative Commons licence, and not covered by MIT. Licensed to the Air
     Bladder system for inclusion and unmodified redistribution as part of the
     system and its forks, and for unmodified use in representing the project.
     The artwork may not be modified and may not be used separately from Air
     Bladder. All other uses require the artist's permission.
     Two jobs, one grant. The logo files sit at the top of the folder; below
-    them, lydia-comer/portraits/ and lydia-comer/tokens/ hold 17 creatures
-    drawn for this system, offered in the portrait picker and paired
+    them, art/lydia-comer/portraits/ and art/lydia-comer/tokens/ hold 17
+    creatures drawn for this system, offered in the portrait picker and paired
     portrait-to-token by filename stem. Nothing in this repository re-encodes
     or rescales them — they ship as delivered, which is what "unmodified"
-    requires. Contents: lydia-comer/CREDITS.md.
-    Full terms and grant history: lydia-comer/license.txt.
+    requires. Contents: art/lydia-comer/CREDITS.md.
+    Full terms and grant history: art/lydia-comer/license.txt.
 
 Character portraits and tokens — CC BY 4.0, © Jon Aspeheim
-    character_portraits/  character_tokens/
+    art/jon-aspeheim/portraits/  art/jon-aspeheim/tokens/
     https://creativecommons.org/licenses/by/4.0/
     https://jonaspeheim.itch.io/lemurs-portraits
     Redistribution is fine; attribution is required. Keep the credit if the art
     ships. The artist states these were created without AI.
-    See the license.txt in each folder.
+    See art/jon-aspeheim/license.txt.
 
 game-icons.net art — CC BY 3.0
     icons/       — the class icons, by Lorc, Delapouite & Skoll
-    game-icons/  — the Game-Icons picker gallery, 1,539 glyphs in 27
+    art/game-icons/  — the Game-Icons picker gallery, 1,539 glyphs in 27
                    categories by 19 named contributors
     https://creativecommons.org/licenses/by/3.0/
     Two paths, one grant: same source, same licence, different jobs. Per-icon
     author and source-page attribution: icons/CREDITS.md and
-    game-icons/CREDITS.md. Those files ARE the attribution — the shipped path
+    art/game-icons/CREDITS.md. Those files ARE the attribution — the shipped path
     records only the category, because the artist lives in the download's
     folder structure and the flatten discards it. The upstream notice ships
-    verbatim as game-icons/license.txt.
+    verbatim as art/game-icons/license.txt.
 
 Tlomdev's Tokens — CC BY-SA 4.0, © 2023 tlomdev
-    tlomdev/
+    art/tlomdev/
     https://creativecommons.org/licenses/by-sa/4.0/
     https://tlomdev.itch.io/tlomdevs-tokens
     368 token drawings in the Tlomdev picker gallery, kept in the artist's own
@@ -93,8 +93,8 @@ Tlomdev's Tokens — CC BY-SA 4.0, © 2023 tlomdev
     artist's drawings as shipped by Kettlewright, with Kettlewright's exact
     filenames — the Kettlewright character importer maps stock portrait picks
     by that numbering. ShareAlike: adaptations of the art must carry this same
-    licence. Attribution and provenance: tlomdev/CREDITS.md; the notice ships
-    as tlomdev/license.txt.
+    licence. Attribution and provenance: art/tlomdev/CREDITS.md; the notice
+    ships as art/tlomdev/license.txt.
 
 Alegreya typeface — SIL Open Font License 1.1
     fonts/  — © 2011 The Alegreya Project Authors (Huerta Tipográfica)

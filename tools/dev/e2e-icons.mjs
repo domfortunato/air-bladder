@@ -45,7 +45,7 @@ const SHIPPED = fs
   .map((f) => `systems/air-bladder/icons/${f}`);
 
 /** Every glyph in the picker gallery, as absolute paths. */
-const galleryDir = path.join(ROOT, "game-icons");
+const galleryDir = path.join(ROOT, "art", "game-icons");
 const gallery = fs.readdirSync(galleryDir, { withFileTypes: true })
   .filter((d) => d.isDirectory())
   .flatMap((d) => fs.readdirSync(path.join(galleryDir, d.name))
@@ -171,7 +171,7 @@ const sampled = await page.evaluate(async (rels) => Promise.all(rels.map((rel) =
     const img = new Image();
     img.onload = () => done({ rel, natural: img.naturalWidth });
     img.onerror = () => done({ rel, natural: 0 });
-    img.src = `/systems/air-bladder/game-icons/${rel}`;
+    img.src = `/systems/air-bladder/art/game-icons/${rel}`;
   }))), sample);
 const softSample = sampled.filter((s) => s.natural < 512);
 softSample.length === 0

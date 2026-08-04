@@ -2931,7 +2931,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       gameIcons: this.actor.type !== "character",
       tlomdev: true,
       lydia: this.actor.type !== "character",
-      browseStart: (await getPortraitManifest())?.portraitDir ?? "systems/air-bladder/character_portraits",
+      browseStart: (await getPortraitManifest())?.portraitDir ?? "systems/air-bladder/art/jon-aspeheim/portraits",
       onPick: (src) => this._setPortrait(src),
     });
   }

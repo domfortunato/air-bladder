@@ -3,7 +3,7 @@ name: Boggart
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/game-icons/heads/goblin-head.svg
+img: systems/air-bladder/art/game-icons/heads/goblin-head.svg
 items: []
 effects: []
 _stats:
@@ -87,7 +87,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: systems/air-bladder/game-icons/heads/goblin-head.svg
+    src: systems/air-bladder/art/game-icons/heads/goblin-head.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

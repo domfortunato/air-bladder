@@ -74,7 +74,7 @@ system:
     <li>  Incorporeal monsters that look like living shadows.</li>
     <li>  Unharmed by mundane attacks.</li>
     <li>  Critical Damage: The shadow drains d4 STR from the victim, any
-    creature killed this wat becomes a shadow.</li>
+    creature killed this way becomes a shadow.</li>
     </ul>
   armor: null
 prototypeToken:

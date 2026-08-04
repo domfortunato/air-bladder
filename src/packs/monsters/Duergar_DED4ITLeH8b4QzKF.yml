@@ -3,7 +3,7 @@ name: Duergar
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/game-icons/heads/cowled.svg
+img: systems/air-bladder/art/game-icons/heads/cowled.svg
 items:
   - _id: fhlkLhVKKXcUHdIp
     name: War Hammer
@@ -165,7 +165,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: systems/air-bladder/game-icons/heads/cowled.svg
+    src: systems/air-bladder/art/game-icons/heads/cowled.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

@@ -3,7 +3,7 @@ name: Dog, War
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/game-icons/animals/labrador-head.svg
+img: systems/air-bladder/art/game-icons/animals/labrador-head.svg
 items:
   - _id: rNgmDzY2afQZrM08
     name: Bite
@@ -153,7 +153,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: systems/air-bladder/game-icons/animals/labrador-head.svg
+    src: systems/air-bladder/art/game-icons/animals/labrador-head.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

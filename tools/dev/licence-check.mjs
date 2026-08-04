@@ -169,7 +169,7 @@ if (!zipLine) {
 // Anchored deliberately: a reword that breaks one of these patterns fails the
 // gate and someone updates it, which is the outcome to want. A regex that
 // quietly matched nothing would put the count straight back to unchecked.
-const galleryRoot = join(ROOT, "game-icons");
+const galleryRoot = join(ROOT, "art", "game-icons");
 const galleryDirs = readdirSync(galleryRoot, { withFileTypes: true }).filter((d) => d.isDirectory());
 const onDisk = galleryDirs
   .reduce((n, d) => n + readdirSync(join(galleryRoot, d.name)).filter((f) => f.endsWith(".svg")).length, 0);
@@ -240,12 +240,12 @@ wrongCats.length === 0
 // unnamed artist is a licence breach rather than a typo. "Various artists" is
 // excluded: both READMEs render it as prose ("and one icon credited to various
 // artists") rather than as a name in the list.
-const creditedArtists = (/^Icons made by (.+)\.$/m.exec(read("game-icons/CREDITS.md"))?.[1] ?? "")
+const creditedArtists = (/^Icons made by (.+)\.$/m.exec(read("art/game-icons/CREDITS.md"))?.[1] ?? "")
   .split(", ").map((s) => s.trim()).filter((s) => s && s !== "Various artists");
 
 const unnamedArtists = [];
 if (!creditedArtists.length) {
-  unnamedArtists.push("game-icons/CREDITS.md: no 'Icons made by …' line to check against");
+  unnamedArtists.push("art/game-icons/CREDITS.md: no 'Icons made by …' line to check against");
 } else {
   for (const file of ["README.md", "README.es.md"]) {
     const text = read(file);
@@ -282,8 +282,8 @@ if (statedArtists === undefined) {
 // the canvas silently keeps whatever it had -- which looks like a Foundry bug
 // and is a build error. Checked here rather than only in the importer because
 // the importer runs once and this runs on every gate.
-const lydiaPortraits = readdirSync(join(ROOT, "lydia-comer", "portraits")).filter((f) => /\.jpe?g$/i.test(f));
-const lydiaTokens = new Set(readdirSync(join(ROOT, "lydia-comer", "tokens")).filter((f) => /\.png$/i.test(f)));
+const lydiaPortraits = readdirSync(join(ROOT, "art", "lydia-comer", "portraits")).filter((f) => /\.jpe?g$/i.test(f));
+const lydiaTokens = new Set(readdirSync(join(ROOT, "art", "lydia-comer", "tokens")).filter((f) => /\.png$/i.test(f)));
 const lydiaManifest = JSON.parse(read("module/lydia-manifest.json"));
 const stem = (f) => f.replace(/\.[^.]+$/, "");
 
@@ -301,10 +301,10 @@ for (const { portrait, token } of lydiaManifest.pairs ?? []) {
 // sites" from a literal, and went stale the moment two more were added -- this
 // gate reporting a stale number about staleness.
 const LYDIA_COUNT_SITES = [
-  ["LICENSE.txt", /hold (\d+) creatures/],
+  ["LICENSE.txt", /hold (\d+)\s+creatures/],
   ["README.md", /(\d+) creatures drawn for this system/],
   ["README.es.md", /(\d+) criaturas dibujadas para este sistema/],
-  ["lydia-comer/CREDITS.md", /^(\d+) creatures, \d+ files\./m],
+  ["art/lydia-comer/CREDITS.md", /^(\d+) creatures, \d+ files\./m],
   // Both READMEs state it a second time, up in the feature list. Two statements
   // of one number in one file is the ordinary way a count goes stale.
   ["README.md", /A gallery of (\d+) monsters drawn for Air Bladder/],

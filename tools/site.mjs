@@ -28,7 +28,7 @@ const outRoot = path.join(root, "_site");
 /** Asset folders the page references, copied verbatim into the built site. */
 const ASSETS = [
   // The wordmark: light/dark variants plus the no-preference fallback.
-  { from: "lydia-comer", filter: (f) => /^Airbladder(01|02|06)\.webp$/.test(f) },
+  { from: "art/lydia-comer", filter: (f) => /^Airbladder(01|02|06)\.webp$/.test(f) },
   // The "Compatible with Cairn 2e" badge in the footer. Shipped unmodified.
   { from: "logo", filter: (f) => f === "Cairn-2e-Compatible_white.jpg" },
   // Screenshots.

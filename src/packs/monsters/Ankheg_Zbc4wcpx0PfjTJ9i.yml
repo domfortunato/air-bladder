@@ -3,7 +3,7 @@ name: Ankheg
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/game-icons/creatures/alien-bug.svg
+img: systems/air-bladder/art/game-icons/creatures/alien-bug.svg
 items:
   - _id: BTSKJEksIY9nzYlp
     name: Bite

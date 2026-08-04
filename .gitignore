@@ -24,3 +24,7 @@ node_modules/
 
 # Staging area for replacement token art (tools/import/tokens-from-png.mjs)
 new-tokens/
+
+# Sync marker for the build:packs guard (local state, never shared).
+.pack-sync.json
+.pack-guard-tmp/

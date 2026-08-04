@@ -3,7 +3,7 @@ name: Bandit
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/game-icons/heads/cultist.svg
+img: systems/air-bladder/art/game-icons/heads/cultist.svg
 items:
   - _id: tC4o6O9fFavkSyoe
     name: Dagger
