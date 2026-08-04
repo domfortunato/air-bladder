@@ -303,7 +303,8 @@
                 <a class="item {{tabs.description.cssClass}}" data-action="tab" data-group="primary" data-tab="description">{{ localize 'CAIRN.Description' }}</a>
                 <a class="item {{tabs.items.cssClass}}" data-action="tab" data-group="primary" data-tab="items" id="set-equipment-limit"
                 {{#if system.characterEquipmentLimit}}title="{{localize 'CAIRN.EquipmentLimitTip'}}"{{/if}}>
-                    {{#if system.characterEquipmentLimit}}<i class="fas fa-gears" style="opacity:0.5;z-index:5000" ></i>{{/if}}
+                    {{!-- `inert`, like core's tab template — see character-sheet.html for why. --}}
+                    {{#if system.characterEquipmentLimit}}<i class="fas fa-gears" inert style="opacity:0.5;z-index:5000" ></i>{{/if}}
                     {{ localize 'CAIRN.Items' }} ({{system.slotsUsed}} / {{system.slotsMax}})
                 </a>
                 {{!-- No Connections tab here (2026-08-02): a child role has at

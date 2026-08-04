@@ -45,6 +45,25 @@ jobs:
         with:
           node-version: "24"
       - run: npm ci
+
+      # The offline gates, BEFORE anything is built or published (review
+      # 2026-08-04: a tag push used to publish whatever was in the tree — no
+      # workflow ran a single check, including check:fields, which guards the
+      # htmlFields sanitization declarations CLAUDE.md classes as a security
+      # control). These are the offline half of docs/release-testing.md; they
+      # need no Foundry and finish in seconds. check:warden is deliberately
+      # absent — it fetches the live SRD from another repo, and a release
+      # should not be hostage to someone else's outage; it stays a pre-tag
+      # step on the developer's machine.
+      - run: npm run check:manifest
+      - run: npm run check:fields
+      - run: npm run check:refs
+      - run: npm run check:traits
+      - run: npm run check:licence
+      - run: npm run check:probes
+      - run: npm run i18n:check
+      - run: npm run i18n:source
+
       - run: npm run build:packs
 
       # Substitute the Manifest and Download URLs in the system.json

@@ -131,14 +131,19 @@ export class CairnItem extends Item {
    */
   prepareData() {
     super.prepareData();
-    // Items in containers cannot be equippable.
-    const actorType = this.actor ? this.actor.type : "";
+    // Items inside a THING are cargo, never equipped (the drop handler
+    // un-equips on the way in; this is what keeps them that way). The test was
+    // `actor.type != "container"` until 2026-08-04 — that TYPE was retired
+    // 2026-07-31, so the clause compared against a value no actor can hold and
+    // was always true: a Warden could re-tick Equipped on armor sitting in a
+    // crate and calcArmor counted it. `isThing` is the live rule (role
+    // container/transport), the same test every other site migrated to.
     // A spellscroll is read once and consumed, never held ready, so it is the one
     // spellbook that cannot be equipped.
     this.system.isEquipable =
       ["weapon", "armor", "spellbook"].includes(this.type) &&
       !this.system.scroll &&
-      actorType != "container";
+      !this.actor?.isThing;
     this.system.hasPlusMinus = (this.system.uses?.max ?? 0) > 0;
     if (this.system.uses) {
       if (this.system.uses.value > this.system.uses.max)

@@ -132,6 +132,30 @@ try {
       texture: { src: old[4] },
     }]);
 
+    // The token's ActorDELTA — a second copy of the art the scene-token loop
+    // cannot reach (review 2026-08-04). Writing through the synthetic actor
+    // routes to the delta: its sheet portrait and a delta-only item both held
+    // stale paths while the canvas texture migrated, and both rendered blank.
+    await token.actor.update({ img: old[0] });
+    const [deltaItem] = await token.actor.createEmbeddedDocuments("Item", [
+      { name: "zz-art-path-delta-item", type: "item", img: old[2] },
+    ]);
+
+    // A WORLD compendium pack, LOCKED — a Warden's curated compendium is the
+    // copy-at-creation case with no second chance, and the lock must be
+    // restored after the write. Swept first in case a prior aborted run left one.
+    for (const p of game.packs.filter((p) => p.metadata.label === "zz-art-path-pack")) {
+      await p.deleteCompendium().catch(() => {});
+    }
+    const pack = await foundry.documents.collections.CompendiumCollection.createCompendium({
+      label: "zz-art-path-pack", type: "Actor",
+    });
+    const packActor = await ActorCls.create(
+      { name: "zz-art-path-pack-actor", type: "npc", system: { role: "monster" }, img: old[0] },
+      { pack: pack.collection },
+    );
+    await pack.configure({ locked: true });
+
     // Neither `type` nor a text field is set, deliberately. `CONST.TABLE_RESULT_TYPES`
     // is one of the five shims that go in v15 (see dev:table-results), and v13
     // split `TableResult#text` into two differently-named halves — this probe
@@ -154,6 +178,9 @@ try {
       ownedId: owned?.id ?? null,
       sceneId: scene.id,
       tokenId: token.id,
+      deltaItemId: deltaItem?.id ?? null,
+      packId: pack.collection,
+      packActorId: packActor?.id ?? null,
       tableId: table.id,
       resultId: result.id,
       controlIds: controls,
@@ -166,6 +193,10 @@ try {
         proto: actor.prototypeToken?.texture?.src,
         owned: owned?.img,
         token: token.texture?.src,
+        deltaImg: token.actor?.img,
+        deltaItem: deltaItem?.img,
+        packActor: packActor?.img,
+        packLocked: pack.locked,
         result: result.img,
         controls: controls.map((id) => game.items.get(id)?.img),
       },
@@ -175,6 +206,7 @@ try {
   const wanted = {
     item: MOVES[3][0], actor: MOVES[0][0], proto: MOVES[1][0],
     owned: MOVES[2][0], token: MOVES[4][0], result: MOVES[0][0],
+    deltaImg: MOVES[0][0], deltaItem: MOVES[2][0], packActor: MOVES[0][0],
   };
   // Seven KINDS of surface, more documents than that — the re-encode kind is
   // planted once per gallery. Counting documents rather than kinds keeps the
@@ -207,6 +239,12 @@ try {
       proto: a?.prototypeToken?.texture?.src ?? null,
       owned: a?.items.get(p.ownedId)?.img ?? null,
       token: scene?.tokens.get(p.tokenId)?.texture?.src ?? null,
+      deltaImg: scene?.tokens.get(p.tokenId)?.actor?.img ?? null,
+      deltaItem: scene?.tokens.get(p.tokenId)?.actor?.items.get(p.deltaItemId)?.img ?? null,
+      // Read the pack's INDEX img, not a cached document — the index is what
+      // the compendium browser renders, so it is the user-visible surface.
+      packActor: game.packs.get(p.packId)?.index.get(p.packActorId)?.img ?? null,
+      packLocked: game.packs.get(p.packId)?.locked ?? null,
       result: table?.results.get(p.resultId)?.img ?? null,
       controls: p.controlIds.map((id) => game.items.get(id)?.img ?? null),
     };
@@ -225,8 +263,12 @@ try {
   // passes on a re-run and gets called a flake.
   const STALE_PREFIX = /systems\/air-bladder\/(character_|tlomdev\/|game-icons\/|lydia-comer\/)/;
   const STALE_FORMAT = /systems\/air-bladder\/art\/(lydia-comer\/.*\.(jpe?g|png)|tlomdev\/.*\.png)$/i;
-  const done = (s) => Object.values(s).flat()
-    .every((v) => v === null || (!STALE_PREFIX.test(v) && !STALE_FORMAT.test(v)));
+  // packLocked is part of "done": the migration re-locks the world pack in a
+  // finally AFTER its last document write, as a settings round-trip. A poll
+  // that stops when the PATHS are right reads the lock inside that window and
+  // reports the re-lock missing — this probe's own trap, third appearance.
+  const done = (s) => s.packLocked === true && Object.values(s).flat()
+    .every((v) => v === null || v === true || (!STALE_PREFIX.test(String(v)) && !STALE_FORMAT.test(String(v))));
   for (; waited < 30000 && !done(after); waited += 250) {
     await page.waitForTimeout(250);
     after = await read();
@@ -240,6 +282,9 @@ try {
     ["that Actor's prototype token", "proto", MOVES[1][1]],
     ["an owned Item on that Actor", "owned", MOVES[2][1]],
     ["an unlinked Scene token", "token", MOVES[4][1]],
+    ["that token's DELTA sheet portrait", "deltaImg", MOVES[0][1]],
+    ["a delta-only Item on that token", "deltaItem", MOVES[2][1]],
+    ["an Actor in a LOCKED world compendium", "packActor", MOVES[0][1]],
     ["a RollTable result's img snapshot", "result", MOVES[0][1]],
   ]) {
     after[key] === want
@@ -256,6 +301,13 @@ try {
       : fail(`migrated: ${label}`, `got "${after.reencs[i]}", wanted "${want}"`);
   }
   console.log(`        (migration settled after ${waited}ms)`);
+
+  // The migration unlocks a locked pack to write and must put the lock back —
+  // a Warden locked that compendium on purpose, and a migration that leaves it
+  // open has traded blank art for silent editability.
+  after.packLocked === true
+    ? ok("the world pack's LOCK was restored", "locked again after the write")
+    : fail("the world pack's LOCK was restored", `locked=${after.packLocked}`);
 
   const movedControls = UNTOUCHED.filter((s, i) => after.controls[i] !== s);
   movedControls.length === 0
@@ -276,6 +328,13 @@ try {
         const drop = async (fn) => { try { await fn(); } catch { /* keep going */ } };
         await drop(() => game.items.get(p.itemId)?.delete());
         for (const id of p.reencIds) await drop(() => game.items.get(id)?.delete());
+        // The world pack: unlock first or the delete is refused.
+        await drop(async () => {
+          const pk = game.packs.get(p.packId);
+          if (!pk) return;
+          if (pk.locked) await pk.configure({ locked: false });
+          await pk.deleteCompendium();
+        });
         await drop(() => game.actors.get(p.actorId)?.delete());
         await drop(() => game.scenes.get(p.sceneId)?.delete());
         await drop(() => game.tables.get(p.tableId)?.delete());

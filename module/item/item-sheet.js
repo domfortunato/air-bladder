@@ -1,6 +1,6 @@
 import { resolveGearItem } from "../gear.js";
 import { previewBackground, duplicateBackgroundToWorld } from "../character-generator.js";
-import { sourceOf, t } from "../i18n-content.js";
+import { t } from "../i18n-content.js";
 import { TRANSPORT_KINDS } from "../icons.js";
 import { bindEditorClickAwaySave, formatCount, sourceLabel } from "../utils.js";
 import { pickArt } from "../art-picker.js";
@@ -177,18 +177,6 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   /* -------------------------------------------- */
 
   /**
-   * Window title with the item's DISPLAY name. The `name` field on the sheet stays
-   * the English source — it is a bare <input> with no display/value split, and it is
-   * the key every gear lookup, background grant and table match resolves on — but the
-   * frame is pure display, and it was the one place still reading "Rope" while the
-   * compendium list, the inventory row and the description all read Spanish.
-   *
-   * Falls straight through to core whenever nothing translates, so an English world
-   * is byte-identical; the format below is only reached when the overlay hits, and
-   * mirrors DocumentSheetV2#title (shipped client, api/document-sheet.mjs:99-103).
-   * @override
-   */
-  /**
    * The overlay namespace this item's NAME is keyed under. A background is
    * extracted as `bg.*`, everything else as `item.*`.
    *
@@ -203,6 +191,15 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     return this.item.type === "background" ? "bg.name" : "item.name";
   }
 
+  /**
+   * Window title with the item's DISPLAY name — the frame is pure display, and
+   * it was the one place still reading "Rope" while the compendium list, the
+   * inventory row and the description all read Spanish. Falls straight through
+   * to core whenever nothing translates, so an English world is byte-identical;
+   * the format below mirrors DocumentSheetV2#title (shipped client,
+   * api/document-sheet.mjs:99-103).
+   * @override
+   */
   get title() {
     const name = t(this.#nameNs, this.item.name);
     if (!name || name === this.item.name) return super.title;
@@ -214,23 +211,31 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   }
 
   /**
-   * The submit half of the name's display/value split (2026-08-04).
+   * The submit half of the name's display/value split (2026-08-04, corrected the
+   * same day by review).
    *
    * The input SHOWS `t(nameNs, name)` and must STORE canonical English. Without
    * this, `submitOnChange` writes the Spanish label onto the document the first
    * time any field on the sheet is touched — which is a WORSE failure than the
-   * one being fixed: a name that never rendered in Spanish is cosmetic, a name
-   * silently rewritten to Spanish breaks `resolveGearItem`, every background
-   * grant and every table match, and `check:refs` would start failing on a
-   * world nobody can regenerate.
+   * one being fixed: a name silently rewritten breaks `resolveGearItem`, every
+   * background grant and every table match, and `check:refs` would start
+   * failing on a world nobody can regenerate.
    *
-   * `sourceOf` is a reverse lookup over the namespace, so:
-   *   - untouched field  → the display maps back to its English source, and the
-   *     update is a no-op rather than a rename;
-   *   - genuinely renamed → misses the reverse lookup, stored verbatim. That is
-   *     the wanted outcome: a Warden who renames an item means it.
-   * Identity in an English world (no overlay → `sourceOf` returns its input),
-   * so the submit there is byte-identical to before.
+   * AN ANCHOR, NOT A REVERSE LOOKUP. The first version routed the value through
+   * `sourceOf(ns, …)`, and the review killed it with the shipped data: the
+   * overlay is many-to-one (`Lute` and `Lure` are both "Señuelo"; `Stylus`
+   * shows "Punzón", which is also `Awl`'s translation), so a reverse SEARCH
+   * answers "does this string appear as some translation?" when the question
+   * is "was this field edited?". Under it, ticking Bulky on a Lute renamed the
+   * document to Lure, invisibly — the re-render translated the wrong English
+   * to the same Spanish. And a Warden TYPING "Escudo" for their own homebrew
+   * was handed `Shield`.
+   *
+   * The anchor asks the right question directly: if the submitted value equals
+   * what this sheet DISPLAYS for the stored name, the field was not edited —
+   * keep the stored name. Anything else is a deliberate rename and stores
+   * VERBATIM, in whatever language the Warden typed it; a rename is theirs.
+   * Identity in an English world (no overlay → display equals stored).
    *
    * AppV1's hook was `_getSubmitData`; ApplicationV2's is `_processFormData`,
    * which returns the already-expanded object.
@@ -238,7 +243,9 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
    */
   _processFormData(event, form, formData) {
     const data = super._processFormData(event, form, formData);
-    if (data.name !== undefined) data.name = sourceOf(this.#nameNs, data.name);
+    if (data.name !== undefined && data.name === t(this.#nameNs, this.item.name)) {
+      data.name = this.item.name;
+    }
     return data;
   }
 

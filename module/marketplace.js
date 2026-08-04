@@ -267,7 +267,10 @@ export const acquireTransport = async (actor, doc, pay) => {
   // any more: an npc mule IS a container, and its own sheet carries the shop
   // link this guard exists for (review #5). canKeepConnected holds the rule.
   if (!actor.canKeepConnected) {
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoNesting", { name: actor.name }));
+    // t() the name: both these guards fire only when the buyer is a THING (a
+    // Mule, a Backpack) whose name IS in monster.name — same rule as the row
+    // labels above, and the toast must agree with the sheet title it answers.
+    ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoNesting", { name: t("monster.name", actor.name) }));
     return false;
   }
   // The connection ceiling, refused at the till like the two walls above it —
@@ -275,7 +278,7 @@ export const acquireTransport = async (actor, doc, pay) => {
   // in its creation data and never calls `connectActor`, so the cap wall there
   // never sees it.
   if (atConnectionLimit(actor)) {
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.ConnectionLimit", { name: actor.name, max: maxConnections() }));
+    ui.notifications.warn(game.i18n.format("CAIRN.Notify.ConnectionLimit", { name: t("monster.name", actor.name), max: maxConnections() }));
     return false;
   }
   // Give it a real portrait AND a matching map token; fall back to the class icon

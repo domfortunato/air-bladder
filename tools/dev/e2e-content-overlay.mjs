@@ -890,8 +890,17 @@ console.log("\nround 5: the NAME INPUT, and the PC exclusion");
 // (sourceOf), so the reason had expired without the entry being revisited.
 //
 // Every leg here asserts BOTH ends, because the failure this fix can introduce
-// is worse than the one it removes: a Spanish name written onto the document
-// breaks resolveGearItem, background grants and check:refs' 394-name assertion.
+// is worse than the one it removes: a name silently rewritten breaks
+// resolveGearItem, background grants and check:refs' 394-name assertion.
+//
+// THE OVERLAY HERE IS DELIBERATELY MANY-TO-ONE, because the shipped one is
+// (review 2026-08-04: Lute and Lure are both "Señuelo"; Stylus shows "Punzón",
+// which is also Awl's translation — seven collisions in the real es.json). A
+// DECOY entry sharing each sentinel translation sits FIRST in its namespace,
+// which is exactly the entry a reverse SEARCH returns. The submit must be
+// ANCHORED on "does the value equal what the sheet displays for the stored
+// name" — under the reverse-search code these legs go red with the item
+// renamed to the decoy, which is the bug as shipped for one commit.
 //
 // The PC legs are the CONTROL, and they are the ruling: a character's name is
 // player-authored and is never localized. They share the probe's sentinel with
@@ -909,18 +918,29 @@ const nameLeg = await page.evaluate(async () => {
   // t() anyway, so the leg would pass with the gate deleted.
   const ES_ITEM = "ZZ-DAGA";
   const ES_MONSTER = "ZZ-BESTIA";
+  // A monster whose STORED name is a baked display-language string (the Create
+  // Mount clone writes these on purpose — actor.js's recorded exception). It
+  // has no overlay entry of its own, but ANOTHER English name translates to
+  // it — the shape under which the reverse search un-baked "Destrero pesado"
+  // to "Heavy Destrier" on the first HP edit.
+  const BAKED = "ZZ-BESTIA-HORNEADA";
 
   const item = await CONFIG.Item.documentClass.create({ name: EN_ITEM, type: "weapon" });
   const monster = await CONFIG.Actor.documentClass.create({
     name: EN_MONSTER, type: "npc", system: { role: "monster" },
   });
+  const baked = await CONFIG.Actor.documentClass.create({
+    name: BAKED, type: "npc", system: { role: "mount" },
+  });
   const pc = await CONFIG.Actor.documentClass.create({ name: EN_MONSTER, type: "character" });
   out.ids.items.push(item.id);
-  out.ids.actors.push(monster.id, pc.id);
+  out.ids.actors.push(monster.id, baked.id, pc.id);
 
   i18n._setOverlay({
-    "item.name": { [EN_ITEM]: ES_ITEM },
-    "monster.name": { [EN_MONSTER]: ES_MONSTER },
+    // Decoys FIRST: Object.entries iterates insertion order, so a reverse
+    // search hits the decoy before the real entry every time.
+    "item.name": { "ZZ Decoy Item": ES_ITEM, [EN_ITEM]: ES_ITEM, "ZZ Other Thing": "ZZ-OTRA" },
+    "monster.name": { "ZZ Decoy Beast": ES_MONSTER, [EN_MONSTER]: ES_MONSTER, "ZZ Beast EN": BAKED },
   });
 
   const open = async (doc) => {
@@ -940,11 +960,22 @@ const nameLeg = await page.evaluate(async () => {
   const bulky = iRoot?.querySelector('input[name="system.bulky"]');
   if (bulky) { bulky.checked = true; bulky.dispatchEvent(new Event("change", { bubbles: true })); await sleep(700); }
   out.itemStoredAfterUnrelatedEdit = item.name;
-  // A genuine rename must survive verbatim: it misses the reverse lookup.
+  // TYPING a string that happens to be some OTHER entry's translation must
+  // store VERBATIM — a rename is the Warden's, in whatever language they typed
+  // it. The reverse-search code silently swapped "ZZ-OTRA" for "ZZ Other
+  // Thing" here, which is the "typed Escudo, got Shield" case.
   const nameInput = item.sheet.element?.querySelector('input[name="name"]');
   if (nameInput) {
-    nameInput.value = "ZZ Warden Renamed This";
+    nameInput.value = "ZZ-OTRA";
     nameInput.dispatchEvent(new Event("change", { bubbles: true }));
+    await sleep(700);
+  }
+  out.itemStoredAfterTypedTranslation = item.name;
+  // A plain rename must survive verbatim too.
+  const nameInput2 = item.sheet.element?.querySelector('input[name="name"]');
+  if (nameInput2) {
+    nameInput2.value = "ZZ Warden Renamed This";
+    nameInput2.dispatchEvent(new Event("change", { bubbles: true }));
     await sleep(700);
   }
   out.itemStoredAfterRename = item.name;
@@ -959,6 +990,14 @@ const nameLeg = await page.evaluate(async () => {
   out.monsterStoredAfterUnrelatedEdit = monster.name;
   await monster.sheet.close();
 
+  // ---- a BAKED display-language name must not be un-baked ------------------
+  const bRoot = await open(baked);
+  out.bakedShown = bRoot?.querySelector('input[name="name"]')?.value ?? null;
+  const bStr = bRoot?.querySelector('input[name="system.abilities.STR.value"]');
+  if (bStr) { bStr.value = "9"; bStr.dispatchEvent(new Event("change", { bubbles: true })); await sleep(700); }
+  out.bakedStoredAfterUnrelatedEdit = baked.name;
+  await baked.sheet.close();
+
   // ---- the PC control: same live overlay, same English name ----------------
   const pRoot = await open(pc);
   out.pcShown = pRoot?.querySelector('input[name="name"]')?.value ?? null;
@@ -969,7 +1008,7 @@ const nameLeg = await page.evaluate(async () => {
   await pc.sheet.close();
 
   i18n._setOverlay(null);
-  Object.assign(out, { EN_ITEM, EN_MONSTER, ES_ITEM, ES_MONSTER });
+  Object.assign(out, { EN_ITEM, EN_MONSTER, ES_ITEM, ES_MONSTER, BAKED });
   return out;
 });
 
@@ -981,8 +1020,11 @@ try {
     ? ok("…and its window title agrees", nameLeg.itemTitle)
     : fail("…and its window title agrees", `got "${nameLeg.itemTitle}"`);
   nameLeg.itemStoredAfterUnrelatedEdit === nameLeg.EN_ITEM
-    ? ok("an unrelated edit stores ENGLISH", nameLeg.itemStoredAfterUnrelatedEdit)
-    : fail("an unrelated edit stores ENGLISH", `got "${nameLeg.itemStoredAfterUnrelatedEdit}"`);
+    ? ok("unrelated edit keeps ENGLISH despite decoy", nameLeg.itemStoredAfterUnrelatedEdit)
+    : fail("unrelated edit keeps ENGLISH despite decoy", `got "${nameLeg.itemStoredAfterUnrelatedEdit}"`);
+  nameLeg.itemStoredAfterTypedTranslation === "ZZ-OTRA"
+    ? ok("typing another entry's translation stores VERBATIM", nameLeg.itemStoredAfterTypedTranslation)
+    : fail("typing another entry's translation stores VERBATIM", `got "${nameLeg.itemStoredAfterTypedTranslation}"`);
   nameLeg.itemStoredAfterRename === "ZZ Warden Renamed This"
     ? ok("a real rename still lands verbatim", nameLeg.itemStoredAfterRename)
     : fail("a real rename still lands verbatim", `got "${nameLeg.itemStoredAfterRename}"`);
@@ -991,8 +1033,14 @@ try {
     ? ok("the monster name field localizes", nameLeg.monsterShown)
     : fail("the monster name field localizes", `got "${nameLeg.monsterShown}"`);
   nameLeg.monsterStoredAfterUnrelatedEdit === nameLeg.EN_MONSTER
-    ? ok("…and stores ENGLISH on submit", nameLeg.monsterStoredAfterUnrelatedEdit)
-    : fail("…and stores ENGLISH on submit", `got "${nameLeg.monsterStoredAfterUnrelatedEdit}"`);
+    ? ok("…and keeps ENGLISH despite decoy", nameLeg.monsterStoredAfterUnrelatedEdit)
+    : fail("…and keeps ENGLISH despite decoy", `got "${nameLeg.monsterStoredAfterUnrelatedEdit}"`);
+  nameLeg.bakedShown === nameLeg.BAKED
+    ? ok("a baked display-language name displays as itself", nameLeg.bakedShown)
+    : fail("a baked display-language name displays as itself", `got "${nameLeg.bakedShown}"`);
+  nameLeg.bakedStoredAfterUnrelatedEdit === nameLeg.BAKED
+    ? ok("…and is NOT un-baked to English on submit", nameLeg.bakedStoredAfterUnrelatedEdit)
+    : fail("…and is NOT un-baked to English on submit", `got "${nameLeg.bakedStoredAfterUnrelatedEdit}"`);
 
   nameLeg.pcShown === nameLeg.EN_MONSTER
     ? ok("CONTROL: a PC name is NOT localized", `${nameLeg.pcShown} (overlay had ${nameLeg.ES_MONSTER})`)

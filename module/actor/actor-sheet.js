@@ -1087,9 +1087,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // eventually whatever renders it elsewhere). Omens are table.result rows and
     // 19 of the 20 shipped ones are translated; the traits, scars and bonds
     // around this field all consult the overlay and this one did not. The
-    // TEXTAREA stays the stored English on purpose — it is the edit surface of a
-    // free-text field with no display/value split, the same deliberate rule as
-    // the item sheet's name input.
+    // TEXTAREA stays the stored English deliberately, on its own grounds: it is
+    // a free-text edit surface with no display/value split BUILT for it. (This
+    // used to cite the item sheet's name input as precedent; that input gained
+    // its split on 2026-08-04, so the precedent expired — if Omen ever gets
+    // one, use the ANCHOR shape from _processFormData, not a reverse lookup.)
     context.omenDisplay = t("table.result", this.actor.system.omen);
     // Barebones-only flavour: the career that didn't work out. Grants nothing.
     // Read the setting live, so a Warden switching it off hides the line on an
@@ -3008,24 +3010,47 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // stored value is the CONTAINER_CLASSES key that brings art and capacity.
     // Both maps are identity in an English world (overlay null / label == key
     // already handled), so the submit is byte-identical there.
+    // ANCHOR FIRST, reverse lookup only on a miss (2026-08-04 review). Career
+    // differs from the name fields on purpose: typing a KNOWN career's Spanish
+    // label should still land the English key, or the day-rate autofill never
+    // fires — so sourceOf stays. But it must not run on an UNTOUCHED field:
+    // the overlay is many-to-one in general, and the moment a translator ships
+    // an npc.career table with two careers sharing a label, an unrelated edit
+    // on the second career's sheet would store the first one's English and
+    // fill the wrong day rate. Anchor closes that case; sourceOf keeps the
+    // typed-label feature for genuine edits.
     const prof = foundry.utils.getProperty(data, "system.profession");
     if (prof !== undefined) {
-      foundry.utils.setProperty(data, "system.profession", sourceOf("npc.career", prof));
+      const anchored = prof === t("npc.career", this.actor.system.profession)
+        ? this.actor.system.profession
+        : sourceOf("npc.career", prof);
+      foundry.utils.setProperty(data, "system.profession", anchored);
     }
 
-    // The name's submit half (2026-08-04), and the third split on this sheet.
-    // The field shows t("monster.name", …) for a non-character, so the Spanish
-    // label has to map back or submitOnChange stores it — and an actor name is
-    // a match key too: the mount-clone branch, generation's name prefill and
-    // the marketplace's transport rows all resolve against the English.
+    // The name's submit half (2026-08-04, corrected the same day by review),
+    // and the third split on this sheet. The field shows t("monster.name", …)
+    // for a non-character, so an untouched submit has to round back to the
+    // stored English or submitOnChange stores the Spanish — and an actor name
+    // is a match key too: the mount-clone branch, generation's name prefill
+    // and the marketplace's transport rows all resolve against it.
     //
-    // Gated on type for the same reason the display half is: a character's name
-    // is theirs, was never localized on the way out, and must not be rewritten
-    // on the way in. Without the gate a PC called "Horse" in a Spanish world
-    // submits as "Horse" — harmless — but a PC called "Caballo" would submit as
-    // "Horse", which silently renames someone's character.
-    if (this.actor.type !== "character" && data.name !== undefined) {
-      data.name = sourceOf("monster.name", data.name);
+    // AN ANCHOR, NOT sourceOf. The first version reverse-SEARCHED the
+    // namespace, and the review showed why that is the wrong question: the
+    // overlay is many-to-one, so a search answers "is this string some
+    // translation?" when the question is "was this field edited?". Under it a
+    // Warden typing "Caballo" for their own mule was handed `Horse`, and — the
+    // half the item sheet cannot exhibit — the Create Mount clone BAKES the
+    // display language into the actor name on purpose (actor.js, the recorded
+    // exception), which the reverse search then un-baked to English on the
+    // first HP edit. The anchor keeps a baked "Destrero pesado" exactly
+    // because it is the stored name: display equals stored, submit matches,
+    // nothing moves.
+    //
+    // Still gated on type: a character's name is the player's own, never
+    // localized out, never rewritten in.
+    if (this.actor.type !== "character" && data.name !== undefined
+        && data.name === t("monster.name", this.actor.name)) {
+      data.name = this.actor.name;
     }
     const kind = foundry.utils.getProperty(data, "system.containerClass");
     if (kind !== undefined && kind !== "" && !CONTAINER_CLASSES[kind]) {

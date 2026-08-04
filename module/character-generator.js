@@ -847,29 +847,35 @@ export const grantContainers = async (actor, specs) => {
     return [];
   }
 
-  const made = [];
-  for (const payload of payloads) {
-    const container = await CairnActor.create(payload);
-    if (!container) continue;
-    // The CONNECTED ownership shape, not the old wholesale copy — same change
-    // as the till's (marketplace.js). GM-only for the same reason as ever:
-    // Foundry refuses an `ownership` write from anyone below Assistant, and
-    // for a player with ACTOR_CREATE that threw AFTER the container was
-    // created and linked, aborting the loop. A player with ACTOR_CREATE
-    // already owns what they create; the sync flag asks the active GM's
-    // client to fill in the OBSERVER default their client cannot write —
-    // same tail as the till's. (The common player path never gets here at
-    // all: it goes through the broker above, which writes the shape on the
-    // Warden's client.)
-    if (game.user.isGM) {
-      await container.update({
-        ownership: foundry.data.operators.ForcedReplacement.create(connectedOwnershipShape(actor)),
-      });
-    } else {
-      await container.update({ [`flags.air-bladder.${OWNERSHIP_SYNC_FLAG}`]: true });
-      game.socket.emit(`system.${game.system.id}`, { action: "ownershipSync", childUuid: container.uuid });
+  // ONE batched create, then ONE batched follow-up (review 2026-08-04, the
+  // same rule the orphan sweep in actor.js already paid for): a per-payload
+  // create+update loop that dies midway leaves the first mule connected and
+  // owned while the cart never comes into being — a partially-granted
+  // background with nothing naming the missing half.
+  const made = (await CairnActor.createDocuments(payloads)).filter(Boolean);
+  if (!made.length) return made;
+  // The CONNECTED ownership shape, not the old wholesale copy — same change
+  // as the till's (marketplace.js). GM-only for the same reason as ever:
+  // Foundry refuses an `ownership` write from anyone below Assistant, and
+  // for a player with ACTOR_CREATE that threw AFTER the container was
+  // created and linked, aborting the loop. A player with ACTOR_CREATE
+  // already owns what they create; the sync flag asks the active GM's
+  // client to fill in the OBSERVER default their client cannot write —
+  // same tail as the till's. (The common player path never gets here at
+  // all: it goes through the broker above, which writes the shape on the
+  // Warden's client.)
+  if (game.user.isGM) {
+    await CairnActor.updateDocuments(made.map((c) => ({
+      _id: c.id,
+      ownership: foundry.data.operators.ForcedReplacement.create(connectedOwnershipShape(actor)),
+    })));
+  } else {
+    await CairnActor.updateDocuments(made.map((c) => ({
+      _id: c.id, [`flags.air-bladder.${OWNERSHIP_SYNC_FLAG}`]: true,
+    })));
+    for (const c of made) {
+      game.socket.emit(`system.${game.system.id}`, { action: "ownershipSync", childUuid: c.uuid });
     }
-    made.push(container);
   }
   return made;
 };

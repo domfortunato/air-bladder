@@ -110,7 +110,8 @@ Hooks.on("renderCompendium", (app, html) => {
     meta?.type === "RollTable" ? "table.name" :
     (meta?.name ?? "").startsWith("backgrounds") ? "bg.name" :
     "item.name";
-  const root = html instanceof HTMLElement ? html : (html?.[0] ?? html);
+  // v14 render hooks pass the raw HTMLElement — no jQuery ever arrives here.
+  const root = html;
   root?.querySelectorAll?.(".entry-name").forEach((el) => {
     if (el.children.length) return; // don't clobber an icon/child, only plain-text names
     const en = el.textContent.trim();
@@ -431,11 +432,15 @@ Hooks.once("init", () => {
       // The CONNECTED ownership shape, not the old wholesale copy of the
       // owner's ownership: {default: OBSERVER, the keeper's players: OWNER}.
       // This client is the active GM's, so the write cannot be refused.
-      for (const a of made) {
-        await a.update({
-          ownership: foundry.data.operators.ForcedReplacement.create(connectedOwnershipShape(owner)),
-        });
-      }
+      // ONE batched write (review 2026-08-04, same rule as the orphan sweep in
+      // actor.js): a per-document loop that throws midway leaves grant 1
+      // connected and grants 2-3 on the LIMITED default — a player staring at
+      // silhouettes of half their background's animals with nothing naming
+      // which. A batch lands or fails as one.
+      await getDocumentClass("Actor").updateDocuments(made.map((a) => ({
+        _id: a.id,
+        ownership: foundry.data.operators.ForcedReplacement.create(connectedOwnershipShape(owner)),
+      })));
     } catch (err) {
       console.error(`Air Bladder | grant request from ${user.name} for ${owner.name} failed:`, err);
       ui.notifications.error(game.i18n.format("CAIRN.Notify.GrantFailedFor", { player: user.name }));
@@ -699,12 +704,34 @@ const migrateArtPaths = async () => {
   }
   if (actorUpdates.length) { await Actor.updateDocuments(actorUpdates); count += actorUpdates.length; }
 
-  // Unlinked tokens hold their own texture rather than the actor's.
+  // Unlinked tokens hold their own texture rather than the actor's — and their
+  // own ActorDELTA, which is a second, separate copy of the art (review
+  // 2026-08-04). The scene-token loop below fixes what the CANVAS draws;
+  // without the delta pass the token's SHEET portrait — and any item created
+  // directly on the token, which lives only in the delta — kept the old path,
+  // rendering blank with no error. The base-actor sweep above cannot reach
+  // these: a synthetic actor's update routes to the delta, not the world actor.
+  //
+  // Reading through `token.actor` is deliberately self-limiting: a delta that
+  // does NOT override a field shows the base actor's value, which the loops
+  // above already migrated — movedArt() returns null on it and nothing is
+  // written, so no needless override is minted. Only a genuinely stale
+  // delta-held path matches. Same pattern as migrateIconsToSvg's token pass.
   for (const scene of game.scenes) {
     const tokens = scene.tokens
       .filter((t) => movedArt(t.texture?.src))
       .map((t) => ({ _id: t.id, "texture.src": movedArt(t.texture.src) }));
     if (tokens.length) { await scene.updateEmbeddedDocuments("Token", tokens); count += tokens.length; }
+
+    for (const token of scene.tokens) {
+      if (token.actorLink || !token.actor) continue;
+      const img = movedArt(token.actor.img);
+      if (img) { await token.actor.update({ img }); count++; }
+      const owned = token.actor.items
+        .filter((i) => movedArt(i.img))
+        .map((i) => ({ _id: i.id, img: movedArt(i.img) }));
+      if (owned.length) { await token.actor.updateEmbeddedDocuments("Item", owned); count += owned.length; }
+    }
   }
 
   for (const table of game.tables) {
@@ -712,6 +739,44 @@ const migrateArtPaths = async () => {
       .filter((r) => movedArt(r.img))
       .map((r) => ({ _id: r.id, img: movedArt(r.img) }));
     if (results.length) { await table.updateEmbeddedDocuments("TableResult", results); count += results.length; }
+  }
+
+  // Macros snapshot an item's img on drag-to-hotbar (module/macros.js), the
+  // same copy-at-creation rule as everything above.
+  const macroUpdates = game.macros.filter((m) => movedArt(m.img)).map((m) => ({ _id: m.id, img: movedArt(m.img) }));
+  if (macroUpdates.length) { await Macro.updateDocuments(macroUpdates); count += macroUpdates.length; }
+
+  // WORLD compendium packs — a Warden's own curated compendia. Documents there
+  // are exactly the copy-at-creation case, and unlike world documents nothing
+  // ever re-migrates them; skipping them turns a curated monster pack into
+  // blank art with no recovery, since the old files are gone from disk and a
+  // second run has nothing left to match. System packs need no pass — they are
+  // rebuilt from src/packs, whose paths were rewritten at the move.
+  // A locked pack is unlocked for the write and restored, whatever happens.
+  for (const pack of game.packs) {
+    if (pack.metadata.packageType !== "world") continue;
+    if (!["Actor", "Item", "RollTable", "Macro"].includes(pack.documentName)) continue;
+    const docs = await pack.getDocuments();
+    const stale = docs.some((d) =>
+      movedArt(d.img) || movedArt(d.prototypeToken?.texture?.src)
+      || d.items?.some((i) => movedArt(i.img)) || d.results?.some((r) => movedArt(r.img)));
+    if (!stale) continue;
+    const wasLocked = pack.locked;
+    if (wasLocked) await pack.configure({ locked: false });
+    try {
+      for (const d of docs) {
+        const u = {};
+        if (movedArt(d.img)) u.img = movedArt(d.img);
+        if (movedArt(d.prototypeToken?.texture?.src)) u["prototypeToken.texture.src"] = movedArt(d.prototypeToken.texture.src);
+        if (Object.keys(u).length) { await d.update(u); count++; }
+        const owned = (d.items ?? []).filter((i) => movedArt(i.img)).map((i) => ({ _id: i.id, img: movedArt(i.img) }));
+        if (owned.length) { await d.updateEmbeddedDocuments("Item", owned); count += owned.length; }
+        const results = (d.results ?? []).filter((r) => movedArt(r.img)).map((r) => ({ _id: r.id, img: movedArt(r.img) }));
+        if (results.length) { await d.updateEmbeddedDocuments("TableResult", results); count += results.length; }
+      }
+    } finally {
+      if (wasLocked) await pack.configure({ locked: true });
+    }
   }
 
   if (count) console.log(`Air Bladder | repointed ${count} document(s) at the art/ gallery folders`);
@@ -1008,7 +1073,8 @@ const flattenConnections = async () => {
  * re-running (tools/dev/lib.mjs `withHookOff`). Renaming it breaks that probe.
  */
 Hooks.on("renderDialogV2", function abSpellscrollTypeOption(dialog, element) {
-  const root = element instanceof HTMLElement ? element : element?.[0];
+  // Raw HTMLElement in v14 — the jQuery unwrap this once carried could never fire.
+  const root = element;
   const select = root?.querySelector('select[name="type"]');
   const form = select?.form;
   if (!select || !form || select.querySelector("option[data-ab-scroll]")) return;
@@ -1070,7 +1136,7 @@ Hooks.on("renderDialogV2", function abSpellscrollTypeOption(dialog, element) {
  * compact line (full-width plain label, control pinned right, hint hidden).
  */
 Hooks.on("renderSettingsConfig", (app, element) => {
-  const root = element instanceof HTMLElement ? element : element?.[0];
+  const root = element; // raw HTMLElement in v14, same as every render hook
   if (!root) return;
   const groups = [
     ["use-panic", "CAIRN.Settings.GroupGeneral"],

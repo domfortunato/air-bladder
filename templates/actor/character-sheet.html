@@ -158,7 +158,11 @@
             <nav class="tabs" data-group="primary">
                 <a class="item {{tabs.items.cssClass}}" data-action="tab" data-group="primary" data-tab="items" id="set-equipment-limit"
                     {{#if system.characterEquipmentLimit}}title="{{localize 'CAIRN.EquipmentLimitTip'}}"{{/if}}>
-                    {{#if system.characterEquipmentLimit}}<i class="fas fa-gears" style="opacity:0.5;z-index:5000" ></i>{{/if}}
+                    {{!-- `inert`, like core's tab template (templates/generic/tab-navigation.hbs):
+                          _onClickTab reads event.target.dataset.tab, so a click landing ON the
+                          icon found no tab id and silently did nothing — a dead spot exactly
+                          where the tooltip invites the click. --}}
+                    {{#if system.characterEquipmentLimit}}<i class="fas fa-gears" inert style="opacity:0.5;z-index:5000" ></i>{{/if}}
                     {{ localize 'CAIRN.Items' }} ({{system.slotsUsed}} / {{system.slotsMax}})
                 </a>
                 <a class="item {{tabs.description.cssClass}}" data-action="tab" data-group="primary" data-tab="description">{{ localize 'CAIRN.Description' }}</a>
