@@ -28,6 +28,7 @@ These three are independent of the order above:
 
 ```
 node tools/import/backgrounds-2e.mjs # rewrite the 20 2e backgrounds' TEXT
+node tools/import/class-backgrounds.mjs # the shipped CUSTOM pack (7 class backgrounds)
 node tools/import/npc-careers-2e.mjs # module/npc-careers-2e.json
 node tools/import/portraits.mjs      # module/portrait-manifest.json
 node tools/import/game-icons.mjs --src <dir>   # game-icons/ + its manifest
@@ -44,6 +45,7 @@ curation changes. Point `--src` at the unpacked download.
 | script | writes | source |
 | --- | --- | --- |
 | `barebones.mjs` | `backgrounds-barebones`, `tables-barebones`, + missing gear | `barebones/rules/barebones-character-creation.md` |
+| `class-backgrounds.mjs` | `backgrounds-custom`, its one-off items in `background-items`, the Shield spellbook | INLINE — "Backgrounds for Cairn" (Gordon McCormick, CC BY-SA 4.0 text), a PDF with no machine-readable upstream; the script is the artifact of record |
 | `backgrounds-2e.mjs` | text fields of `backgrounds-2e` | `second-edition/backgrounds/*.md` (20 files) |
 | `marketplace.mjs` | `marketplace`, `market-goods`, `cost` on pool items | `second-edition/players-guide/marketplace.md` + `marketplace-descriptions.csv` |
 | `transports.mjs` | `transports`, the transport shop table | self-contained (2e transport numbers) |

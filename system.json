@@ -133,6 +133,12 @@
       "system": "air-bladder"
     },
     {
+      "name": "backgrounds-custom",
+      "label": "Backgrounds (Custom)",
+      "type": "Item",
+      "system": "air-bladder"
+    },
+    {
       "name": "tables-2e",
       "label": "Tables (2e)",
       "type": "RollTable",
@@ -269,6 +275,7 @@
       "packs": [
         "backgrounds-2e",
         "backgrounds-barebones",
+        "backgrounds-custom",
         "background-items"
       ]
     },

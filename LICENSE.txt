@@ -39,6 +39,16 @@ Game text — CC BY-SA 4.0, © Yochai Gal
     text must carry the same licence. The MIT grant below does not reach it and
     cannot be used to relicense it, including by a fork of this repository.
 
+"Backgrounds for Cairn" — CC BY-SA 4.0 (text), © Gordon McCormick
+    https://creativecommons.org/licenses/by-sa/4.0/
+    The seven class backgrounds (Fighter, Cleric, Magic-User, Thief, Dwarf,
+    Elf, Halfling) in the Backgrounds (Custom) compendium, their one-off gear
+    in the Background Items compendium, and the Shield spellbook — transcribed
+    from "Backgrounds for Cairn" by Gordon McCormick, itself based on Cairn by
+    Yochai Gal and BECMI D&D by Frank Mentzer. Text only: THE BOOKLET'S ART
+    (Perplexing Ruins, Jeff Koch) IS NOT COVERED by its text licence and none
+    of it ships here. ShareAlike is not waived.
+
 Spanish translation — CC BY-SA 4.0, © Malecho (https://github.com/fsmalecho)
     https://creativecommons.org/licenses/by-sa/4.0/
     lang/es.json (interface) and lang/content/es.json (game content) — the

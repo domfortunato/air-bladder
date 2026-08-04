@@ -1,0 +1,26 @@
+_id: CB7cguaXrsqIz9Eg
+name: Bag of Marbles
+type: item
+img: systems/air-bladder/icons/generic-item.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: class-backgrounds
+system:
+  cost: 0
+  description: Including one which soothes the mind if played with.
+  weightless: true
+  equipped: false
+  bulky: false
+  uses:
+    value: 0
+    max: 0
+  quantity: 1
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!CB7cguaXrsqIz9Eg'

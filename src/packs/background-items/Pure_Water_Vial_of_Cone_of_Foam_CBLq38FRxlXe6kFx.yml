@@ -1,0 +1,26 @@
+_id: CBLq38FRxlXe6kFx
+name: Pure Water Vial of Cone of Foam
+type: item
+img: systems/air-bladder/icons/generic-item.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: class-backgrounds
+system:
+  cost: 0
+  description: Channels the Deep Sea into a cone of churning foam.
+  weightless: false
+  equipped: false
+  bulky: false
+  uses:
+    value: 0
+    max: 0
+  quantity: 1
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!CBLq38FRxlXe6kFx'

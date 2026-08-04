@@ -1557,6 +1557,28 @@ export const generateCharacter = async (background = null, source = null) => {
 const BG_PACK_FOR = { "2e": "air-bladder.backgrounds-2e", barebones: BAREBONES_BG_PACK };
 
 /**
+ * The SHIPPED custom pack (2026-08-04 ruling): "custom" means not published in
+ * the Cairn 2e Player's Guide — whoever wrote it. This pack ships third-party
+ * CC BY-SA sets (currently "Backgrounds for Cairn", Gordon McCormick) and is
+ * admitted by the same CUSTOM toggle as the Warden's own authored backgrounds.
+ */
+const CUSTOM_BG_PACK = "air-bladder.backgrounds-custom";
+
+/**
+ * Everything the CUSTOM toggle admits: the shipped custom pack plus the
+ * world/module scan. One function so the pool and the picker's Custom section
+ * can never disagree about membership.
+ * @returns {Promise<CairnItem[]>}
+ */
+const getAllCustomBackgrounds = async () => {
+  const out = [];
+  const shipped = game.packs.get(CUSTOM_BG_PACK);
+  if (shipped) out.push(...(await shipped.getDocuments()));
+  out.push(...(await getCustomBackgrounds()));
+  return out;
+};
+
+/**
  * A homebrew-only game: the Warden has switched the shipped 2e backgrounds OFF
  * and their own ON. The distinction that matters is "off on purpose" versus
  * "nothing configured" — only the first forbids falling back to shipped content.
@@ -1620,7 +1642,7 @@ const get2eBackgrounds = async () => {
   const shippedOn = game.settings.get(SETTINGS_NS, "content-source-2e");
   if (shippedOn) await addShipped();
   if (game.settings.get(SETTINGS_NS, "content-source-custom")) {
-    for (const b of await getCustomBackgrounds()) byId.set(b.id, b);
+    for (const b of await getAllCustomBackgrounds()) byId.set(b.id, b);
   }
   // Fall back ONLY when no toggle expressed a preference. A homebrew-only game
   // with nothing authored yet must NOT be quietly handed the shipped pack: the
@@ -1651,23 +1673,43 @@ const ARCHETYPE_ORDER = ["Fighter", "Wizard", "Thief"];
  */
 export const getBackgroundsByArchetype = async (source) => {
   const backgrounds = await getBackgroundsFor(source);
-  if (!backgrounds.some((b) => b.system.archetype)) {
-    return [{ archetype: "", backgrounds: [...backgrounds].sort((x, y) => x.name.localeCompare(y.name)) }];
+  const byName = (x, y) => x.name.localeCompare(y.name);
+
+  // CUSTOM backgrounds get their own picker section instead of being
+  // interleaved into the archetype groups (user ruling 2026-08-04): a Warden
+  // reading the list tells the Player's Guide twenty from everything else at
+  // a glance. Membership is by PROVENANCE — the shipped custom pack plus the
+  // world/module scan — never by a field on the document, so a duplicate a
+  // Warden edited stays custom and a canon background can never drift in.
+  let customIds = new Set();
+  if (source === "2e" && game.settings.get(SETTINGS_NS, "content-source-custom")) {
+    customIds = new Set((await getAllCustomBackgrounds()).map((b) => b.id));
   }
-  const groups = new Map();
-  for (const bg of backgrounds) {
-    const a = bg.system.archetype || "Other";
-    if (!groups.has(a)) groups.set(a, []);
-    groups.get(a).push(bg);
+  const custom = backgrounds.filter((b) => customIds.has(b.id)).sort(byName);
+  const canon = backgrounds.filter((b) => !customIds.has(b.id));
+
+  let out;
+  if (!canon.some((b) => b.system.archetype)) {
+    // No archetypes at all (every Barebones background): one unnamed group the
+    // picker renders as a plain alphabetical list.
+    out = canon.length ? [{ archetype: "", backgrounds: [...canon].sort(byName) }] : [];
+  } else {
+    const groups = new Map();
+    for (const bg of canon) {
+      const a = bg.system.archetype || "Other";
+      if (!groups.has(a)) groups.set(a, []);
+      groups.get(a).push(bg);
+    }
+    const order = [
+      ...ARCHETYPE_ORDER.filter((a) => groups.has(a)),
+      ...[...groups.keys()].filter((a) => !ARCHETYPE_ORDER.includes(a)).sort(),
+    ];
+    out = order.map((a) => ({ archetype: a, backgrounds: groups.get(a).sort(byName) }));
   }
-  const order = [
-    ...ARCHETYPE_ORDER.filter((a) => groups.has(a)),
-    ...[...groups.keys()].filter((a) => !ARCHETYPE_ORDER.includes(a)).sort(),
-  ];
-  return order.map((a) => ({
-    archetype: a,
-    backgrounds: groups.get(a).sort((x, y) => x.name.localeCompare(y.name)),
-  }));
+  // "Custom" resolves through archetypeLabel -> CAIRN.Archetype.Custom, the
+  // "Custom 2e Backgrounds" heading. Last on purpose: canon first, then yours.
+  if (custom.length) out.push({ archetype: "Custom", backgrounds: custom });
+  return out;
 };
 
 /**

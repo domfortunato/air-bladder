@@ -1,0 +1,29 @@
+_id: CB0jllsRzZP2D0bE
+name: Feather Light Sword
+type: weapon
+img: systems/air-bladder/icons/weapons.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: class-backgrounds
+system:
+  cost: 0
+  description: Feather light.
+  weightless: false
+  equipped: false
+  bulky: false
+  uses:
+    value: 0
+    max: 0
+  quantity: 1
+  damageFormula: d8
+  criticalDamage: ''
+  blast: false
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!CB0jllsRzZP2D0bE'

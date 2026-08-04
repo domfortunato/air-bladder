@@ -1,0 +1,26 @@
+_id: CBR133hFokuLZf5s
+name: Cutpurse Blade
+type: item
+img: systems/air-bladder/icons/generic-item.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: class-backgrounds
+system:
+  cost: 0
+  description: Can be easily hidden.
+  weightless: true
+  equipped: false
+  bulky: false
+  uses:
+    value: 0
+    max: 0
+  quantity: 1
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!CBR133hFokuLZf5s'

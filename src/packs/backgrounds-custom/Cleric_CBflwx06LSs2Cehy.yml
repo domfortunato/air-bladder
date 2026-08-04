@@ -1,0 +1,83 @@
+_id: CBflwx06LSs2Cehy
+name: Cleric
+type: background
+img: systems/air-bladder/icons/background.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    backgroundSource: class-backgrounds
+system:
+  source: 2e
+  archetype: Wizard
+  description: <p>You have dedicated yourself to a great and worthy cause. Divine powers help you in your quests.</p>
+  names:
+    - Aleena
+    - Petra
+    - Gorm
+    - Thaddeus
+    - Claude
+    - Silvermoon
+    - Henrik
+    - Radija
+    - Beldinas
+    - Crysania
+  startingGear:
+    - name: Rations
+      uses: 3
+    - name: Lantern
+    - name: Oil Can
+      uses: 6
+    - name: Brigandine
+    - name: Mace
+    - name: Holy Symbol
+  containers: []
+  tables:
+    - question: What is the source of your power?
+      options:
+        - description: The Celestial Realms and the Darkness Above. Take an Astrolabe of Control Weather.
+          items:
+            - name: Astrolabe of Control Weather
+        - description: The Wood Spirits. Take a Hazel Rod of Control Plants.
+          items:
+            - name: Hazel Rod of Control Plants
+        - description: The Deep Sea. Take a Pure Water Vial of Cone of Foam.
+          items:
+            - name: Pure Water Vial of Cone of Foam
+        - description: The Old Powers of the Earth. Take an Ancient Dark Stone of Summon Idol.
+          items:
+            - name: Ancient Dark Stone of Summon Idol
+        - description: A Wise Philosophy. Take a Talisman of Pacify.
+          items:
+            - name: Talisman of Pacify
+        - description: Your Long Dead Ancestors. Take a Candle of Ward.
+          items:
+            - name: Candle of Ward
+    - question: What is your alignment?
+      options:
+        - description: Lawful Good. Take an Iron Rod of Justice.
+          items:
+            - name: Iron Rod of Justice
+        - description: Lawful Neutral. Take a Scroll of Laws (petty).
+          items:
+            - name: Scroll of Laws
+        - description: Neutral Good. Take an Hourglass.
+          items:
+            - name: Hourglass
+        - description: True Neutral. Take a Beige Cloak.
+          items:
+            - name: Beige Cloak
+        - description: Chaotic Good. Take a Tin of Paint.
+          items:
+            - name: Tin of Paint
+        - description: Chaotic Neutral. Take a Sedative (petty, 1 use).
+          items:
+            - name: Sedative
+              uses: 1
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!CBflwx06LSs2Cehy'

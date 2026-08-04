@@ -1,0 +1,84 @@
+_id: CB9NXMZqLV3V8Dv7
+name: Magic-User
+type: background
+img: systems/air-bladder/icons/background.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    backgroundSource: class-backgrounds
+system:
+  source: 2e
+  archetype: Wizard
+  description: <p>You study the powers of magic and the secret ways of the world. Spellbooks are your obsession.</p>
+  names:
+    - Bargle
+    - Dalamar
+    - Fistandandiddlyitus
+    - Eriadna
+    - Teriak
+    - Skarda
+    - Teldon
+    - Presto
+    - Sadira
+    - Kareena
+  startingGear:
+    - name: Rations
+      uses: 3
+    - name: Torch
+      uses: 3
+    - name: Dagger
+    - name: Spellbook (Detect Magic)
+    - name: Parchment
+      uses: 3
+    - name: Chalk
+  containers: []
+  tables:
+    - question: What is your area of magical study?
+      options:
+        - description: Abjuration. Take a Bag of Powdered Iron and Silver (petty).
+          items:
+            - name: Bag of Powdered Iron and Silver
+        - description: Divination. Take a Crystal Prism (petty).
+          items:
+            - name: Crystal Prism
+        - description: Evocation. Take a Glass Rod (petty) and a Piece of Fur (petty).
+          items:
+            - name: Glass Rod
+            - name: Piece of Fur
+        - description: Illusion. Take an Eyelash encased in gum arabic (petty).
+          items:
+            - name: Eyelash encased in gum arabic
+        - description: Necromancy. Take a Bag of Rat Skulls.
+          items:
+            - name: Bag of Rat Skulls
+        - description: All Magic. Take a Crystal Staff.
+          items:
+            - name: Crystal Staff
+    - question: What title do you hold?
+      options:
+        - description: Medium. Take the Raise Spirit Spellbook.
+          items:
+            - name: Spellbook (Raise Spirit)
+        - description: Seer. Take the Arcane Eye Spellbook.
+          items:
+            - name: Spellbook (Arcane Eye)
+        - description: Conjurer. Take the Flare Spellbook.
+          items:
+            - name: Spellbook (Flare)
+        - description: Theurgist. Take the Shield Spellbook.
+          items:
+            - name: Spellbook (Shield)
+        - description: Magician. Take the Charm Spellbook.
+          items:
+            - name: Spellbook (Charm)
+        - description: Enchanter. Take the Sleep Spellbook.
+          items:
+            - name: Spellbook (Sleep)
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!CB9NXMZqLV3V8Dv7'

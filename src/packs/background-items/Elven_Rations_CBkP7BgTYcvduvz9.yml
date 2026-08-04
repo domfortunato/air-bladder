@@ -1,0 +1,26 @@
+_id: CBkP7BgTYcvduvz9
+name: Elven Rations
+type: item
+img: systems/air-bladder/icons/generic-item.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: class-backgrounds
+system:
+  cost: 0
+  description: ''
+  weightless: false
+  equipped: false
+  bulky: false
+  uses:
+    value: 6
+    max: 6
+  quantity: 1
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!CBkP7BgTYcvduvz9'

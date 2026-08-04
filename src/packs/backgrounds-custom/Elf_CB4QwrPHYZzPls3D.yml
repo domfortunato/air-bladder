@@ -1,0 +1,58 @@
+_id: CB4QwrPHYZzPls3D
+name: Elf
+type: background
+img: systems/air-bladder/icons/background.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    backgroundSource: class-backgrounds
+system:
+  source: 2e
+  archetype: Wizard
+  description: <p>Long have you lived in the safety of the elven woods, but now you have ventured into the lands beyond. You see the beauty in all of nature, and are a champion of life itself.</p>
+  names:
+    - Erewan
+    - Alleria
+    - Eridan
+    - Elora
+    - Glorfangdon
+    - Tanis
+    - Doriath
+    - Larian
+    - Osian
+    - Mallawar
+  startingGear:
+    - name: Elven Rations
+      uses: 6
+    - name: Torch
+      uses: 3
+    - name: Gambeson
+    - name: Beautiful Headband
+    - name: Bow
+    - name: Feather Light Sword
+  containers: []
+  tables:
+    - question: What changed you in a previous age of the world?
+      options:
+        - description: You fought against beasts of flame and shadow. You can sense a demonic presence regardless of its form.
+        - description: You were trapped at the top of a wizard's tower. You have no fear of heights and can easily sleep anywhere.
+        - description: You were tricked into helping forge an evil relic. You can sense cursed objects by placing your hand near them.
+        - description: You lived for centuries with a family of werebears. You can speak the language of bears and know their ancient customs.
+        - description: You became a student of the celestial wonders. By spending three nights observing and talking to the stars you can reveal a new Omen.
+        - description: You were betrayed by the ancestor of one of the other characters. You have a mystical bond to the betrayers descendants and can sense when they are in danger.
+    - question: What do you see with your elf eyes?
+      options:
+        - description: You can see clearly in starlight as if it were day.
+        - description: You can see footprints or animal tracks and know who made them and when.
+        - description: You can see the deception in a swindler's eyes.
+        - description: You can see through the rain, even in a thunderstorm.
+        - description: If you look at an object for long enough, you can see in your mind's eye who last held it.
+        - description: You can see the natural life span of creatures younger than you.
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!CB4QwrPHYZzPls3D'

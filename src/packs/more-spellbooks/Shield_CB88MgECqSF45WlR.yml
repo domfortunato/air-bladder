@@ -1,0 +1,18 @@
+_id: CB88MgECqSF45WlR
+name: Shield
+type: spellbook
+img: systems/air-bladder/icons/spellbook.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: class-backgrounds
+system:
+  description: A phalanx of invisible force encircles the caster, turning aside blows and arrows until they next rest.
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!CB88MgECqSF45WlR'

@@ -6,6 +6,7 @@
   "CAIRN.Age": "Age",
   "CAIRN.AlreadyConnected": "Already connected to someone.",
   "CAIRN.ApplyDamage": "Apply damage",
+  "CAIRN.Archetype.Custom": "Custom 2e Backgrounds",
   "CAIRN.Archetype.Fighter": "Fighter",
   "CAIRN.Archetype.Other": "Other",
   "CAIRN.Archetype.Thief": "Thief",
@@ -461,8 +462,8 @@
       "label": "Offer Cairn Barebones character sheets"
     },
     "ContentSourceCustom": {
-      "hint": "Include GM-authored 2e backgrounds from your world's compendiums when generating a character. They appear alongside the shipped Cairn 2e backgrounds; turn off 'Offer Cairn 2e character sheets' to generate from your custom ones only.",
-      "label": "Offer GM's Custom 2e backgrounds"
+      "hint": "Include custom 2e backgrounds — backgrounds not published in the Cairn 2e Player's Guide: the shipped Backgrounds (Custom) compendium plus any GM-authored ones from your world's compendiums. They appear in their own picker section; turn off 'Offer Cairn 2e character sheets' to generate only from custom ones.",
+      "label": "Offer Custom 2e backgrounds"
     },
     "CustomPortraitFolder": {
       "hint": "A folder of your own character portraits (relative to the Foundry data root). When it holds images, new characters and NPCs use them instead of the shipped Jon Aspeheim art, and the portrait picker gains a 'Custom' tab. Leave empty or unfilled to use only the shipped portraits. The default folder is created for you — just drop images in and click Refresh in the picker.",

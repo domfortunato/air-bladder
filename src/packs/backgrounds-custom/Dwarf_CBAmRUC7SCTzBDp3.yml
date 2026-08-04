@@ -1,0 +1,82 @@
+_id: CBAmRUC7SCTzBDp3
+name: Dwarf
+type: background
+img: systems/air-bladder/icons/background.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    backgroundSource: class-backgrounds
+system:
+  source: 2e
+  archetype: Fighter
+  description: <p>You hail from underneath the mountains, and have traveled to the surface realm far from your clan. You know the rocks as true friends, have a keen eye for battle, and know the songs of old.</p>
+  names:
+    - Thorvald
+    - Flint
+    - Denwarf
+    - Grumski
+    - Brigga
+    - Fumblik
+    - Thanegeld
+    - Durin
+    - Kilta
+    - Norrbag
+  startingGear:
+    - name: Rations
+      uses: 3
+    - name: Torch
+      uses: 3
+    - name: Brigandine
+    - name: Pewter Tankard
+    - name: Beard Comb
+    - name: Wooden Harp
+  containers: []
+  tables:
+    - question: What is special about your Axe (d8)?
+      options:
+        - description: It glows a pale blue in the presence of Goblins.
+          items:
+            - name: Axe
+        - description: It is a Giant Slayer (Enhanced damage against all types of Giants).
+          items:
+            - name: Axe
+        - description: It was forged with silver-ice (always stays at room temperature regardless of surroundings).
+          items:
+            - name: Axe
+        - description: It was bonded to you at birth (you never lose its grip).
+          items:
+            - name: Axe
+        - description: It contains an ancient spirit who whispers advice to you. They have your best interests at heart.
+          items:
+            - name: Axe
+        - description: It's not an axe, it's a Warhammer (d10, bulky) of the outcast clan.
+          items:
+            - name: Warhammer
+    - question: What heirloom did you bring from your clan?
+      options:
+        - description: A Tapping Hammer (petty).
+          items:
+            - name: Tapping Hammer
+        - description: An expensive Gem (petty).
+          items:
+            - name: Single Gem
+        - description: A Pressed Flower (petty) from a hill dwarf.
+          items:
+            - name: Pressed Flower
+        - description: War Bagpipes.
+          items:
+            - name: War Bagpipes
+        - description: A Silver Dagger (d6 damage).
+          items:
+            - name: Silver Dagger
+        - description: A collection of colorful Beard Ties.
+          items:
+            - name: Beard Ties
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!CBAmRUC7SCTzBDp3'

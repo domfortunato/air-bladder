@@ -1,0 +1,82 @@
+_id: CBVKt2EdTaA8XzCe
+name: Thief
+type: background
+img: systems/air-bladder/icons/background.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    backgroundSource: class-backgrounds
+system:
+  source: 2e
+  archetype: Thief
+  description: <p>All property is theft, and you know how to redistribute worldly goods to the most deserving. You are often the most deserving.</p>
+  names:
+    - Greegan
+    - Tasslehoff
+    - Robin
+    - The Scarlet Rose
+    - Jack
+    - Yamara
+    - Snails
+    - Sheila
+    - Anton
+    - Emilio
+  startingGear:
+    - name: Rations
+      uses: 3
+    - name: Torch
+      uses: 3
+    - name: Dagger
+    - name: Rope
+    - name: Sack
+    - name: Thieves Tools
+  containers: []
+  tables:
+    - question: What skills have you trained in?
+      options:
+        - description: Moving Silently. Take a pair of Quiet Boots.
+          items:
+            - name: Quiet Boots
+        - description: Finding and Removing Traps. Take a pair of serpent skin Anti-poison Gloves.
+          items:
+            - name: Anti-poison Gloves
+        - description: Climbing Walls. Take a Bag of Climbing Chalk.
+          items:
+            - name: Bag of Climbing Chalk
+        - description: Hiding in Shadows. Take a Cloak of Shadows.
+          items:
+            - name: Cloak of Shadows
+        - description: Hearing Noises. Take an Ear Horn.
+          items:
+            - name: Ear Horn
+        - description: Reading Languages. Take a battered Dictionary of Ancient Tongues.
+          items:
+            - name: Dictionary of Ancient Tongues
+    - question: What sort of thief are you?
+      options:
+        - description: Apprentice. Take a Grappling Hook.
+          items:
+            - name: Grappling Hook
+        - description: Footpad. Take a Disguise Kit (facepaints and costume).
+          items:
+            - name: Disguise Kit
+        - description: Robber. Take a Cudgel (d6).
+          items:
+            - name: Cudgel
+        - description: Burglar. Take a Crowbar.
+          items:
+            - name: Crowbar
+        - description: Cutpurse. Take a Cutpurse Blade (petty). This can be easily hidden.
+          items:
+            - name: Cutpurse Blade
+        - description: Sharper. Take a Trick Deck of Cards (petty).
+          items:
+            - name: Trick Deck of Cards
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!CBVKt2EdTaA8XzCe'

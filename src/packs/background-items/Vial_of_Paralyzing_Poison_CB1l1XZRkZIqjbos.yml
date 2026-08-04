@@ -1,0 +1,26 @@
+_id: CB1l1XZRkZIqjbos
+name: Vial of Paralyzing Poison
+type: item
+img: systems/air-bladder/icons/generic-item.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: class-backgrounds
+system:
+  cost: 0
+  description: ''
+  weightless: false
+  equipped: false
+  bulky: false
+  uses:
+    value: 1
+    max: 1
+  quantity: 1
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!CB1l1XZRkZIqjbos'

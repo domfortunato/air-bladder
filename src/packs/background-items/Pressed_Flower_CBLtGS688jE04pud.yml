@@ -1,0 +1,26 @@
+_id: CBLtGS688jE04pud
+name: Pressed Flower
+type: item
+img: systems/air-bladder/icons/generic-item.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: class-backgrounds
+system:
+  cost: 0
+  description: From a hill dwarf.
+  weightless: true
+  equipped: false
+  bulky: false
+  uses:
+    value: 0
+    max: 0
+  quantity: 1
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!CBLtGS688jE04pud'

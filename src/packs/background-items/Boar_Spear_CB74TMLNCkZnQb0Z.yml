@@ -1,0 +1,29 @@
+_id: CB74TMLNCkZnQb0Z
+name: Boar Spear
+type: weapon
+img: systems/air-bladder/icons/weapons.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: class-backgrounds
+system:
+  cost: 0
+  description: ''
+  weightless: false
+  equipped: false
+  bulky: true
+  uses:
+    value: 0
+    max: 0
+  quantity: 1
+  damageFormula: d10
+  criticalDamage: ''
+  blast: false
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!CB74TMLNCkZnQb0Z'
