@@ -24,7 +24,7 @@ manifest. Descends architecturally from a private fork of
   the AppV2 sheets use `_getFrameButtons`, `_canDetach` and `_onDetach`/`_onAttach`,
   all confirmed against the shipped 14.365 client and none of them verifiable on
   v13 from this machine. A minimum nobody has ever tested is a claim, not a fact.
-- Latest release **0.1.7** (2026-07-28). `system.json`'s `version` is rewritten by
+- Latest release **0.1.9** (2026-08-03). `system.json`'s `version` is rewritten by
   CI from the git tag; don't trust the checked-in value.
 - Node 24.x. `npm run release X.Y.Z` is the whole release — see `RELEASE.md`.
 
@@ -86,7 +86,7 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
 - `module/damage.js` holds Cairn's damage flow
 - Data models in `module/data-models.js` (TypeDataModel; `template.json` is gone,
   sub-types are declared in `system.json` `documentTypes`); 22 compendium packs
-- 19 GM-visible settings in `module/settings.js` (22 `register` calls; `roles-restamped`,
+- 20 GM-visible settings in `module/settings.js` (23 `register` calls; `roles-restamped`,
   `connections-migrated` and `custom-portrait-list` are internal, `config: false`) —
   **registration ORDER is load-bearing**, because Foundry's group headers are positional. Two went on
   2026-07-31, both because the thing they toggled stopped existing:
@@ -303,7 +303,7 @@ What belongs here is what those two files do not say:
 
 ## Testing
 
-**`docs/release-testing.md` is the full list — 80 probes (`check:probes` states
+**`docs/release-testing.md` is the full list — 81 probes (`check:probes` states
 the current count), what each covers, and what to run before tagging vs after
 publishing. Keep it in step with `package.json`; a probe not listed there runs
 only when someone remembers it.**
