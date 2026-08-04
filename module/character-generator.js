@@ -2111,7 +2111,10 @@ const postGenerationRolls = async (actor, characterData, roller = null) => {
     const content = await foundry.applications.handlebars.renderTemplate(
       "systems/air-bladder/templates/chat/generation-rolls-card.html",
       {
-        name: actor.name,
+        // Formatted here rather than with {{localize}}'s hash arguments so the
+        // key is a plain static reference the i18n gates can see, and so the
+        // character's name is escaped by Handlebars on the way out.
+        line: game.i18n.format("CAIRN.GenerationRolls", { name: actor.name }),
         hp: rolls.hp.total,
         str: rolls.STR.total,
         dex: rolls.DEX.total,

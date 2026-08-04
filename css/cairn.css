@@ -1156,14 +1156,17 @@
 }
 .chat-message .cairn-generation-rolls .gen-rolls-title {
     font-weight: 700;
+    margin-bottom: 8px;
 }
-.chat-message .cairn-generation-rolls .gen-rolls-name {
-    font-weight: 700;
-    margin-bottom: 4px;
-}
+/* No rules between the rows: the five values read as one block, and separators
+   made a five-line card look like a table it is not.
+   The rows also tighten their leading. Foundry's inherited line-height is 1.25,
+   which at 18px puts each value in a 22.5px box -- five of those stacked read as
+   deliberate spacing even with zero margin between them (measured: the row gap
+   really is 0). 1.1 keeps the descenders in "Gold" clear. */
 .chat-message .cairn-generation-rolls .gen-roll-row {
-    border-top: 1px solid var(--ab-hairline);
-    padding: 3px 0;
+    padding: 0;
+    line-height: 1.1;
 }
 .chat-message .cairn-generation-rolls .gen-roll-label {
     font-weight: 500;
