@@ -833,6 +833,24 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         this.actor.npcRole === "monster" ? "CAIRN.NotesPlaceholderMonster" : "CAIRN.NotesPlaceholder");
     }
 
+    // The NAME INPUT's display half, and the ONE place the PC exclusion is
+    // enforced (2026-08-04, ruled by the user alongside the item-sheet fix).
+    //
+    // A non-character actor's name is pack content: every actor doc is
+    // extracted under `monster.name`, the window title above this field has
+    // localized through it since round 2, and leaving the field raw gave the
+    // same "one sheet, two answers" tell Malecho reported on items.
+    //
+    // A CHARACTER'S NAME IS NEVER LOCALIZED. It is player-authored, it belongs
+    // to no namespace, and a PC who happens to share a name with a shipped
+    // creature ("Horse") must not have their own character renamed on screen by
+    // the overlay. `t()` returning the input unchanged made that safe by
+    // accident; the type gate makes it safe on purpose, which is what a ruling
+    // deserves over a coincidence.
+    context.nameDisplay = this.actor.type === "character"
+      ? this.actor.name
+      : t("monster.name", this.actor.name);
+
     if (this.actor.type === "character") await this._prepareCharacterContext(context);
 
     // Non-player actors reuse the character's STR/DEX/WIL/HP behaviour and
@@ -912,14 +930,20 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * name for it — "Monster: Albino Tusks Creature" / "Mount: Bucephalus" is
    * what the sheet body already says in the Role select. The name half keeps
    * the display-name translation (every actor doc's name is extracted under
-   * monster.name; a character's is player-authored, has no namespace, and t()
-   * returns it unchanged — which is fine, since a character never reaches the
-   * role branch). es note: the CAIRN.Role* value keys are untranslated in es,
+   * monster.name; a CHARACTER is excluded outright — see the guard below, and
+   * the name input in _prepareContext that follows the same rule).
+   * es note: the CAIRN.Role* value keys are untranslated in es,
    * so a Spanish title shows the English role word — consistent with its Role
    * dropdown today; translator-handoff item.
    * @override
    */
   get title() {
+    // A character's name never goes through the overlay — ruled 2026-08-04, and
+    // now stated rather than relied on. The old comment argued this was safe
+    // because a PC never reaches the role branch; that is true of the FORMAT
+    // and not of the LOOKUP, and a PC named "Horse" would have had a Spanish
+    // window title over an English name field.
+    if (this.actor.type === "character") return super.title;
     const name = t("monster.name", this.actor.name);
     const role = this.actor.npcRole;
     if (role) {
@@ -2987,6 +3011,21 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const prof = foundry.utils.getProperty(data, "system.profession");
     if (prof !== undefined) {
       foundry.utils.setProperty(data, "system.profession", sourceOf("npc.career", prof));
+    }
+
+    // The name's submit half (2026-08-04), and the third split on this sheet.
+    // The field shows t("monster.name", …) for a non-character, so the Spanish
+    // label has to map back or submitOnChange stores it — and an actor name is
+    // a match key too: the mount-clone branch, generation's name prefill and
+    // the marketplace's transport rows all resolve against the English.
+    //
+    // Gated on type for the same reason the display half is: a character's name
+    // is theirs, was never localized on the way out, and must not be rewritten
+    // on the way in. Without the gate a PC called "Horse" in a Spanish world
+    // submits as "Horse" — harmless — but a PC called "Caballo" would submit as
+    // "Horse", which silently renames someone's character.
+    if (this.actor.type !== "character" && data.name !== undefined) {
+      data.name = sourceOf("monster.name", data.name);
     }
     const kind = foundry.utils.getProperty(data, "system.containerClass");
     if (kind !== undefined && kind !== "" && !CONTAINER_CLASSES[kind]) {

@@ -1,6 +1,6 @@
 import { resolveGearItem } from "../gear.js";
 import { previewBackground, duplicateBackgroundToWorld } from "../character-generator.js";
-import { t } from "../i18n-content.js";
+import { sourceOf, t } from "../i18n-content.js";
 import { TRANSPORT_KINDS } from "../icons.js";
 import { bindEditorClickAwaySave, formatCount, sourceLabel } from "../utils.js";
 import { pickArt } from "../art-picker.js";
@@ -188,14 +188,58 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
    * mirrors DocumentSheetV2#title (shipped client, api/document-sheet.mjs:99-103).
    * @override
    */
+  /**
+   * The overlay namespace this item's NAME is keyed under. A background is
+   * extracted as `bg.*`, everything else as `item.*`.
+   *
+   * One accessor because three places need the same answer and they must never
+   * disagree: the window title, the name input's display half, and the submit
+   * that maps that display back to English. A title localized under one
+   * namespace and a submit reversed under another would silently store a
+   * Spanish name — the failure this whole split exists to prevent.
+   * @private
+   */
+  get #nameNs() {
+    return this.item.type === "background" ? "bg.name" : "item.name";
+  }
+
   get title() {
-    const name = t(this.item.type === "background" ? "bg.name" : "item.name", this.item.name);
+    const name = t(this.#nameNs, this.item.name);
     if (!name || name === this.item.name) return super.title;
     const cls = this.item.constructor;
     const prefix = cls.hasTypeData && this.item.type !== "base"
       ? CONFIG.Item.typeLabels[this.item.type]
       : cls.metadata.label;
     return `${game.i18n.localize(prefix)}: ${name}`;
+  }
+
+  /**
+   * The submit half of the name's display/value split (2026-08-04).
+   *
+   * The input SHOWS `t(nameNs, name)` and must STORE canonical English. Without
+   * this, `submitOnChange` writes the Spanish label onto the document the first
+   * time any field on the sheet is touched — which is a WORSE failure than the
+   * one being fixed: a name that never rendered in Spanish is cosmetic, a name
+   * silently rewritten to Spanish breaks `resolveGearItem`, every background
+   * grant and every table match, and `check:refs` would start failing on a
+   * world nobody can regenerate.
+   *
+   * `sourceOf` is a reverse lookup over the namespace, so:
+   *   - untouched field  → the display maps back to its English source, and the
+   *     update is a no-op rather than a rename;
+   *   - genuinely renamed → misses the reverse lookup, stored verbatim. That is
+   *     the wanted outcome: a Warden who renames an item means it.
+   * Identity in an English world (no overlay → `sourceOf` returns its input),
+   * so the submit there is byte-identical to before.
+   *
+   * AppV1's hook was `_getSubmitData`; ApplicationV2's is `_processFormData`,
+   * which returns the already-expanded object.
+   * @override
+   */
+  _processFormData(event, form, formData) {
+    const data = super._processFormData(event, form, formData);
+    if (data.name !== undefined) data.name = sourceOf(this.#nameNs, data.name);
+    return data;
   }
 
   /**
@@ -281,6 +325,20 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     // with the English source before a single keystroke can land, and a submit
     // carries `_value`. Same rule as the trait <select> on the actor sheet — the
     // stored value is English, the visible label is not.
+    // The NAME INPUT's display half (2026-08-04, reported by fsmalecho: "item
+    // titles are still not changing"). The window title above it already ran
+    // through t() while the field below it rendered the raw stored English, so
+    // one sheet gave two answers — "Arma: Daga" over a box reading "DAGGER".
+    //
+    // Round 1 recorded that this field deliberately did NOT localize, "no
+    // display/value split". That reason expired when round 2 BUILT the split:
+    // sourceOf() is t()'s inverse and npc.career has used it since. So the
+    // input shows the translation and _processFormData maps it back.
+    //
+    // The stored value must stay English and that is not a preference: it is
+    // the key every gear lookup, background grant and table match resolves on,
+    // and check:refs asserts 394 gear names each resolve to exactly one pack.
+    context.nameDisplay = t(this.#nameNs, this.item.name);
     const descNs = this.item.type === "background" ? "bg.desc" : "item.desc";
     const descSrc = t(descNs, this.item.system.description);
     const enrich = foundry.applications.ux.TextEditor.implementation.enrichHTML;

@@ -881,6 +881,138 @@ mountLeg.namePrefilled === mountLeg.ES
 
 /* -------------------------------------------- */
 
+console.log("\nround 5: the NAME INPUT, and the PC exclusion");
+
+// Malecho, 2026-08-04: "item titles are still not changing". The window title
+// localized and the name field under it did not — one sheet, two answers, the
+// same tell as round 1. Round 1 had recorded that the name input deliberately
+// stayed English for want of a display/value split; round 2 built that split
+// (sourceOf), so the reason had expired without the entry being revisited.
+//
+// Every leg here asserts BOTH ends, because the failure this fix can introduce
+// is worse than the one it removes: a Spanish name written onto the document
+// breaks resolveGearItem, background grants and check:refs' 394-name assertion.
+//
+// The PC legs are the CONTROL, and they are the ruling: a character's name is
+// player-authored and is never localized. They share the probe's sentinel with
+// the monster legs — the same overlay is live for both — so "the PC was left
+// alone" cannot pass merely because no overlay was installed.
+const nameLeg = await page.evaluate(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+  const out = { ids: { items: [], actors: [] } };
+
+  const EN_ITEM = "ZZ Overlay Dagger";
+  const EN_MONSTER = "ZZ Overlay Beast";
+  // A PC named EXACTLY what the overlay translates. Nothing else proves the
+  // exclusion: a PC whose name is absent from the namespace is left alone by
+  // t() anyway, so the leg would pass with the gate deleted.
+  const ES_ITEM = "ZZ-DAGA";
+  const ES_MONSTER = "ZZ-BESTIA";
+
+  const item = await CONFIG.Item.documentClass.create({ name: EN_ITEM, type: "weapon" });
+  const monster = await CONFIG.Actor.documentClass.create({
+    name: EN_MONSTER, type: "npc", system: { role: "monster" },
+  });
+  const pc = await CONFIG.Actor.documentClass.create({ name: EN_MONSTER, type: "character" });
+  out.ids.items.push(item.id);
+  out.ids.actors.push(monster.id, pc.id);
+
+  i18n._setOverlay({
+    "item.name": { [EN_ITEM]: ES_ITEM },
+    "monster.name": { [EN_MONSTER]: ES_MONSTER },
+  });
+
+  const open = async (doc) => {
+    await doc.sheet.render(true);
+    for (let i = 0; i < 60 && !doc.sheet.element; i++) await sleep(100);
+    await sleep(400);
+    return doc.sheet.element;
+  };
+
+  // ---- the item sheet: display, then the round trip ------------------------
+  const iRoot = await open(item);
+  out.itemShown = iRoot?.querySelector('input[name="name"]')?.value ?? null;
+  out.itemTitle = item.sheet.title;
+  // Commit an UNRELATED field. The name was never touched, so a correct submit
+  // maps the displayed Spanish back to English and the document does not move.
+  // This is the exact path submitOnChange takes on every keystroke elsewhere.
+  const bulky = iRoot?.querySelector('input[name="system.bulky"]');
+  if (bulky) { bulky.checked = true; bulky.dispatchEvent(new Event("change", { bubbles: true })); await sleep(700); }
+  out.itemStoredAfterUnrelatedEdit = item.name;
+  // A genuine rename must survive verbatim: it misses the reverse lookup.
+  const nameInput = item.sheet.element?.querySelector('input[name="name"]');
+  if (nameInput) {
+    nameInput.value = "ZZ Warden Renamed This";
+    nameInput.dispatchEvent(new Event("change", { bubbles: true }));
+    await sleep(700);
+  }
+  out.itemStoredAfterRename = item.name;
+  await item.sheet.close();
+
+  // ---- a monster: same split, monster.name ---------------------------------
+  const mRoot = await open(monster);
+  out.monsterShown = mRoot?.querySelector('input[name="name"]')?.value ?? null;
+  out.monsterTitle = monster.sheet.title;
+  const str = mRoot?.querySelector('input[name="system.abilities.STR.value"]');
+  if (str) { str.value = "9"; str.dispatchEvent(new Event("change", { bubbles: true })); await sleep(700); }
+  out.monsterStoredAfterUnrelatedEdit = monster.name;
+  await monster.sheet.close();
+
+  // ---- the PC control: same live overlay, same English name ----------------
+  const pRoot = await open(pc);
+  out.pcShown = pRoot?.querySelector('input[name="name"]')?.value ?? null;
+  out.pcTitle = pc.sheet.title;
+  const pcStr = pRoot?.querySelector('input[name="system.abilities.STR.value"]');
+  if (pcStr) { pcStr.value = "9"; pcStr.dispatchEvent(new Event("change", { bubbles: true })); await sleep(700); }
+  out.pcStoredAfterUnrelatedEdit = pc.name;
+  await pc.sheet.close();
+
+  i18n._setOverlay(null);
+  Object.assign(out, { EN_ITEM, EN_MONSTER, ES_ITEM, ES_MONSTER });
+  return out;
+});
+
+try {
+  nameLeg.itemShown === nameLeg.ES_ITEM
+    ? ok("the item name field localizes", nameLeg.itemShown)
+    : fail("the item name field localizes", `got "${nameLeg.itemShown}"`);
+  nameLeg.itemTitle?.includes(nameLeg.ES_ITEM)
+    ? ok("…and its window title agrees", nameLeg.itemTitle)
+    : fail("…and its window title agrees", `got "${nameLeg.itemTitle}"`);
+  nameLeg.itemStoredAfterUnrelatedEdit === nameLeg.EN_ITEM
+    ? ok("an unrelated edit stores ENGLISH", nameLeg.itemStoredAfterUnrelatedEdit)
+    : fail("an unrelated edit stores ENGLISH", `got "${nameLeg.itemStoredAfterUnrelatedEdit}"`);
+  nameLeg.itemStoredAfterRename === "ZZ Warden Renamed This"
+    ? ok("a real rename still lands verbatim", nameLeg.itemStoredAfterRename)
+    : fail("a real rename still lands verbatim", `got "${nameLeg.itemStoredAfterRename}"`);
+
+  nameLeg.monsterShown === nameLeg.ES_MONSTER
+    ? ok("the monster name field localizes", nameLeg.monsterShown)
+    : fail("the monster name field localizes", `got "${nameLeg.monsterShown}"`);
+  nameLeg.monsterStoredAfterUnrelatedEdit === nameLeg.EN_MONSTER
+    ? ok("…and stores ENGLISH on submit", nameLeg.monsterStoredAfterUnrelatedEdit)
+    : fail("…and stores ENGLISH on submit", `got "${nameLeg.monsterStoredAfterUnrelatedEdit}"`);
+
+  nameLeg.pcShown === nameLeg.EN_MONSTER
+    ? ok("CONTROL: a PC name is NOT localized", `${nameLeg.pcShown} (overlay had ${nameLeg.ES_MONSTER})`)
+    : fail("CONTROL: a PC name is NOT localized", `got "${nameLeg.pcShown}"`);
+  !nameLeg.pcTitle?.includes(nameLeg.ES_MONSTER)
+    ? ok("CONTROL: nor is its window title", nameLeg.pcTitle)
+    : fail("CONTROL: nor is its window title", `got "${nameLeg.pcTitle}"`);
+  nameLeg.pcStoredAfterUnrelatedEdit === nameLeg.EN_MONSTER
+    ? ok("CONTROL: the PC name survives a submit", nameLeg.pcStoredAfterUnrelatedEdit)
+    : fail("CONTROL: the PC name survives a submit", `got "${nameLeg.pcStoredAfterUnrelatedEdit}"`);
+} finally {
+  // From NODE, off the returned ids, so a failed assertion still tidies.
+  await page.evaluate(async (ids) => {
+    for (const id of ids.items) await game.items.get(id)?.delete().catch(() => {});
+    for (const id of ids.actors) await game.actors.get(id)?.delete().catch(() => {});
+  }, nameLeg.ids);
+}
+
+/* -------------------------------------------- */
+
 console.log(`\nconsole errors: ${errors.length}`);
 for (const e of errors.slice(0, 10)) console.log(`  ${e}`);
 if (errors.length) failures++;

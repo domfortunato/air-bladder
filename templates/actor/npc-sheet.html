@@ -25,7 +25,7 @@
         <!-- Name, career/role, optional day rate, then HP + Gold -->
         <div class="character-sheet-section-name">
             <div class="name-line">
-                <input class="name-input" type="text" name="name" value="{{actor.name}}"
+                <input class="name-input" type="text" name="name" value="{{nameDisplay}}"
                     placeholder="{{ localize 'CAIRN.Name' }}" />
                 {{#if generationEnabled}}
                 <a class="name-roll" data-action="rollName" title="{{ localize 'CAIRN.RollName' }}"><i class="fas fa-dice-d20"></i></a>
