@@ -216,6 +216,7 @@
   "CAIRN.GameIconCategory.Wings": "Wings",
   "CAIRN.GameIconsBack": "All categories",
   "CAIRN.GameIconsCredit": "Icons by <a href=\"https://game-icons.net\" target=\"_blank\" rel=\"noopener\">game-icons.net</a> contributors · <a href=\"https://creativecommons.org/licenses/by/3.0/\" target=\"_blank\" rel=\"noopener\">CC BY 3.0</a> · per-icon authors in game-icons/CREDITS.md",
+  "CAIRN.GenerationRolls": "rolled a new character!",
   "CAIRN.Gold": "Gold",
   "CAIRN.GoldTip": "Gold is heavy: the first {n} are petty (weightless); every further {n} fills an inventory slot.",
   "CAIRN.GoldTipWeightless": "Gold is weightless in this game — it never fills inventory slots.",
@@ -483,6 +484,10 @@
     "ShowGenerateHeader": {
       "hint": "Show 'Regenerate' button at character sheet header",
       "label": "Show a Roll Character button on the character sheet header"
+    },
+    "ShowGenerationRolls": {
+      "hint": "Post HP, STR, DEX, WIL and Gold as one chat message whenever a player or the Warden generates or regenerates a character. Dice So Nice animates them when installed; otherwise the core dice sound plays. Name, background and portrait re-rolls are never posted.",
+      "label": "Show character generation dice rolls in chat"
     },
     "ShowGrantTags": {
       "hint": "Show a Background / Bond / Question chip on items that character generation granted.",

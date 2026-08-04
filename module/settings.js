@@ -28,6 +28,7 @@ export const SETTING_KEYS = [
   "content-source-2e", "content-source-custom", "content-source-barebones",
   "barebones-failed-career",
   "show-omens-barebones", "show-bonds-barebones", "show-generate-header",
+  "show-generation-rolls",
   "custom-portrait-folder", "custom-portrait-list", "min-age",
   // Inventory & Encumbrance
   "max-equip-slots", "character-inventory-limit", "use-gold-threshold",
@@ -284,6 +285,22 @@ export const registerSettings = () => {
     type: Boolean,
     default: true,
     requiresReload: true,
+  });
+
+  // Post the five generation rolls -- HP, STR, DEX, WIL, Gold -- as one chat
+  // message carrying the real Roll objects, so Dice So Nice animates them and
+  // core supplies the dice sound without it. Read live at the posting site
+  // (postGenerationRolls), hence no reload. World-scoped because the generatePC
+  // relay runs generation on the Warden's client for a player who lacks
+  // ACTOR_CREATE: the posting client must read the same value the roller would.
+  game.settings.register(SETTINGS_NS, "show-generation-rolls", {
+    name: game.i18n.localize("CAIRN.Settings.ShowGenerationRolls.label"),
+    hint: game.i18n.localize("CAIRN.Settings.ShowGenerationRolls.hint"),
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+    requiresReload: false,
   });
 
   // A GM-curated folder of custom character portraits (per-world local pool). When

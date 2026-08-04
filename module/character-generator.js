@@ -267,18 +267,26 @@ export const kettlewrightPortraitPath = async (name) => {
 /*  Shared dice/table rolls                                                    */
 /* -------------------------------------------------------------------------- */
 
-/** @param {String} formula @returns {Promise<{STR:Number,DEX:Number,WIL:Number}>} */
+/*
+ * These three return the evaluated Roll, NOT its total, so the generation chat
+ * card (postGenerationRolls) can hand the real Roll objects to ChatMessage and
+ * let Dice So Nice animate them. Callers read `.total` themselves. rollAge is
+ * deliberately NOT part of this: age is excluded from the card, and it applies
+ * the min-age floor, so its return value is not the roll's total anyway.
+ */
+
+/** @param {String} formula @returns {Promise<{STR:Roll,DEX:Roll,WIL:Roll}>} */
 export const rollAbilities = async (formula) => ({
-  STR: (await evaluateFormula(formula)).total,
-  DEX: (await evaluateFormula(formula)).total,
-  WIL: (await evaluateFormula(formula)).total,
+  STR: await evaluateFormula(formula),
+  DEX: await evaluateFormula(formula),
+  WIL: await evaluateFormula(formula),
 });
 
-/** @param {String} formula @returns {Promise<Number>} */
-export const rollHitProtection = async (formula) => (await evaluateFormula(formula)).total;
+/** @param {String} formula @returns {Promise<Roll>} */
+export const rollHitProtection = async (formula) => evaluateFormula(formula);
 
-/** @param {String} formula @returns {Promise<Number>} */
-export const rollGold = async (formula) => (await evaluateFormula(formula)).total;
+/** @param {String} formula @returns {Promise<Roll>} */
+export const rollGold = async (formula) => evaluateFormula(formula);
 
 /**
  * Roll an age from the formula (2d20 + 10 by default), then floor it at the
@@ -1031,11 +1039,26 @@ export const generate2eCharacter = async (chosenBg = null) => {
     bondGold += rec.bond.gold;
   }
 
+  const hpRoll = await rollHitProtection("1d6");
+  const goldRoll = await rollGold(Cairn.characterGenerator2e.gold);
+  const abilityRolls = await rollAbilities("3d6");
+
   return {
     name,
-    hp: await rollHitProtection("1d6"),
-    gold: (await rollGold(Cairn.characterGenerator2e.gold)) + bondGold + choices.gold,
-    abilities: await rollAbilities("3d6"),
+    hp: hpRoll.total,
+    gold: goldRoll.total + bondGold + choices.gold,
+    abilities: {
+      STR: abilityRolls.STR.total,
+      DEX: abilityRolls.DEX.total,
+      WIL: abilityRolls.WIL.total,
+    },
+    // The five Rolls the generation chat card shows, carried out whole so
+    // postGenerationRolls can hand them to ChatMessage for Dice So Nice.
+    // characterToActorData never reads this key, so it stops here and never
+    // reaches the document. `gold` is the BARE roll -- the gold FIELD above adds
+    // bond and background-choice gold on top, and the card must show what the
+    // dice on screen actually read, not the bonus-inflated total.
+    rolls: { hp: hpRoll, STR: abilityRolls.STR, DEX: abilityRolls.DEX, WIL: abilityRolls.WIL, gold: goldRoll },
     background: bg.name,
     backgroundUuid: bg.uuid,
     contentSource: "2e",
@@ -1354,11 +1377,21 @@ export const generateBarebonesCharacter = async (chosenBg = null) => {
     if (fcItem) failedCareerItems.push(fcItem);
   }
 
+  const hpRoll = await rollHitProtection(Cairn.barebonesGenerator.hitProtection);
+  const goldRoll = await rollGold(Cairn.barebonesGenerator.gold);
+  const abilityRolls = await rollAbilities(Cairn.barebonesGenerator.ability);
+
   return {
     name: await rollNameFromTable(Cairn.barebonesGenerator.name, bg.name),
-    hp: await rollHitProtection(Cairn.barebonesGenerator.hitProtection),
-    gold: (await rollGold(Cairn.barebonesGenerator.gold)) + bondGold,
-    abilities: await rollAbilities(Cairn.barebonesGenerator.ability),
+    hp: hpRoll.total,
+    gold: goldRoll.total + bondGold,
+    abilities: {
+      STR: abilityRolls.STR.total,
+      DEX: abilityRolls.DEX.total,
+      WIL: abilityRolls.WIL.total,
+    },
+    // See generate2eCharacter: the five Rolls for the chat card, gold BARE.
+    rolls: { hp: hpRoll, STR: abilityRolls.STR, DEX: abilityRolls.DEX, WIL: abilityRolls.WIL, gold: goldRoll },
     background: bg.name,
     backgroundUuid: bg.uuid,
     contentSource: "barebones",
@@ -2037,9 +2070,88 @@ export const updateActorWithCharacter = async (actor, characterData) => {
   return actor;
 };
 
-/** @returns {Promise<CairnActor|null>} */
-export const createCharacter = async ({ folder = null, ownership = null, source = null } = {}) =>
-  createActorWithCharacter(await generateCharacter(null, source), { folder, ownership });
+/**
+ * Post the five generation rolls -- HP, STR, DEX, WIL, Gold -- as ONE chat message.
+ *
+ * The Rolls ride in `rolls:`, which is what earns the dice: Dice So Nice animates
+ * every roll on a created ChatMessage with no integration code on our side, and
+ * core's _preCreate supplies CONFIG.sounds.dice when rolls are present and no
+ * sound is given. So this needs no `game.dice3d` call, and a world without DSN
+ * still gets a card and a dice sound.
+ *
+ * That also settles the relay: a player without ACTOR_CREATE has their character
+ * generated on the Warden's client (the generatePC socket branch in cairn.js), and
+ * a chat message BROADCASTS -- so the player sees their own dice. A bare
+ * dice3d.showForRoll() would have animated on the Warden's screen alone, which a
+ * Warden testing solo cannot tell apart from working.
+ *
+ * Called ONLY from createCharacter and regenerateActor, never from
+ * createActorWithCharacter/updateActorWithCharacter: about fourteen dev probes
+ * build characters through those directly, and they must stay chat-silent. Name,
+ * background and portrait re-rolls never reach here at all -- none of them is a
+ * Roll (two are Math.random picks, one is a table roll() with displayChat false).
+ *
+ * The speaker reads "<Character> (<Roller>)" -- the character who was rolled, and
+ * the person who rolled them. `roller` is passed explicitly rather than taken from
+ * `game.user` because of the same relay: on that path this code runs on the
+ * Warden's client, so `game.user` is the Warden and the card would credit them for
+ * a character the player made. The relay hands us the requesting user instead.
+ *
+ * @param {CairnActor|null} actor
+ * @param {Object|null} characterData  a generator's return, carrying `.rolls`
+ * @param {User|null} [roller]  who rolled; defaults to whoever is running this
+ */
+const postGenerationRolls = async (actor, characterData, roller = null) => {
+  const rolls = characterData?.rolls;
+  if (!actor || !rolls) return;
+  if (!game.settings.get(SETTINGS_NS, "show-generation-rolls")) return;
+  // A chat failure must never cost the actor: it is already created and saved by
+  // the time we get here, so this is reported and swallowed, never rethrown.
+  try {
+    const content = await foundry.applications.handlebars.renderTemplate(
+      "systems/air-bladder/templates/chat/generation-rolls-card.html",
+      {
+        name: actor.name,
+        hp: rolls.hp.total,
+        str: rolls.STR.total,
+        dex: rolls.DEX.total,
+        wil: rolls.WIL.total,
+        // The BARE gold roll, not actor.system.gold -- bond and background-choice
+        // gold are added on top of it, and the card must agree with the dice.
+        gold: rolls.gold.total,
+      }
+    );
+    // The card's header names the PLAYER, not the character: it reads as one
+    // sentence down the card -- "Warden" / "rolled a new character!" / "Ada".
+    // getSpeaker would otherwise put the actor's name there, which duplicates the
+    // name line and loses the only place the roller is identified. Only these
+    // generation cards read this way; every other card keeps the plain speaker.
+    const speaker = ChatMessage.getSpeaker({ actor });
+    const who = (roller ?? game.user)?.name;
+    if (who) speaker.alias = who;
+    await ChatMessage.create({
+      speaker,
+      rolls: [rolls.hp, rolls.STR, rolls.DEX, rolls.WIL, rolls.gold],
+      content,
+    });
+  } catch (err) {
+    console.error("Air Bladder | could not post the generation rolls to chat:", err);
+  }
+};
+
+/**
+ * @param {Object} [options]
+ * @param {User|null} [options.roller]  who asked for this character. Only the
+ *   generatePC relay passes it: there, this runs on the Warden's client for a
+ *   player, and the chat card must credit the player, not whoever executed it.
+ * @returns {Promise<CairnActor|null>}
+ */
+export const createCharacter = async ({ folder = null, ownership = null, source = null, roller = null } = {}) => {
+  const characterData = await generateCharacter(null, source);
+  const actor = await createActorWithCharacter(characterData, { folder, ownership });
+  await postGenerationRolls(actor, characterData, roller);
+  return actor;
+};
 
 /**
  * Regenerate an existing character: re-roll stats/gear/bond/traits but PERSIST the
@@ -2055,7 +2167,10 @@ export const regenerateActor = async (actor) => {
   if (!bg && actor.system.contentSource === "barebones") {
     bg = await getBarebonesBackgroundByName(actor.system.background);
   }
-  return updateActorWithCharacter(actor, await generateCharacter(bg, actor.system.contentSource));
+  const characterData = await generateCharacter(bg, actor.system.contentSource);
+  const updated = await updateActorWithCharacter(actor, characterData);
+  await postGenerationRolls(updated, characterData);
+  return updated;
 };
 
 /* ==========================================================================

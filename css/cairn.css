@@ -1146,6 +1146,32 @@
     margin-left: auto;
 }
 
+/* The character-generation card: HP / STR / DEX / WIL / Gold, one "LABEL: value"
+   per row, set larger than core's 14px chat body so the numbers read at a glance
+   from across the table -- this card is the result of a roll, not running text.
+   Colours come from the tokens, so it follows the viewer's scheme like every
+   other surface. */
+.chat-message .cairn-generation-rolls {
+    font-size: 18px;
+}
+.chat-message .cairn-generation-rolls .gen-rolls-title {
+    font-weight: 700;
+}
+.chat-message .cairn-generation-rolls .gen-rolls-name {
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+.chat-message .cairn-generation-rolls .gen-roll-row {
+    border-top: 1px solid var(--ab-hairline);
+    padding: 3px 0;
+}
+.chat-message .cairn-generation-rolls .gen-roll-label {
+    font-weight: 500;
+}
+.chat-message .cairn-generation-rolls .gen-roll-value {
+    font-weight: 700;
+}
+
 /* Speaker name on chat cards: much larger + bold so the roller reads at a glance.
    (Foundry's default .message-sender is 14px / weight 400.) */
 .chat-message .message-sender {

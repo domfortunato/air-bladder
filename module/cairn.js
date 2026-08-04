@@ -296,6 +296,11 @@ Hooks.once("init", () => {
         const actor = await createCharacter({
           source,
           ownership: { [senderId]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
+          // The generation chat card is headed by the ROLLER's name, and the
+          // roller is the PLAYER who asked -- this branch runs on the Warden's
+          // client, so leaving it to default would head every character a player
+          // rolled with the Warden's name instead.
+          roller: user,
         });
         // A null actor is a real outcome (the Warden dismissed the
         // content-source picker); answer anyway, or the player's "rolling
