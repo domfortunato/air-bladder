@@ -3,7 +3,7 @@ name: Shadow
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.svg
+img: systems/air-bladder/art/game-icons/body/shadow-follower.svg
 items:
   - _id: jHvLtmkYtp5eyYzh
     name: Touch*
@@ -74,7 +74,7 @@ system:
     <li>  Incorporeal monsters that look like living shadows.</li>
     <li>  Unharmed by mundane attacks.</li>
     <li>  Critical Damage: The shadow drains d4 STR from the victim, any
-    creature killed this wat becomes a shadow.</li>
+    creature killed this way becomes a shadow.</li>
     </ul>
   armor: null
 prototypeToken:
@@ -116,7 +116,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: icons/svg/mystery-man.svg
+    src: systems/air-bladder/art/game-icons/body/shadow-follower.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

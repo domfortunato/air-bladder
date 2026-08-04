@@ -3,7 +3,7 @@ name: Skeleton
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.svg
+img: systems/air-bladder/art/game-icons/body/skeleton.svg
 items:
   - _id: KZh0NQJPpqHBtq46
     name: Gambeson
@@ -153,7 +153,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: icons/svg/mystery-man.svg
+    src: systems/air-bladder/art/game-icons/body/skeleton.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

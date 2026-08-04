@@ -3,7 +3,7 @@ name: Brigand
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/game-icons/eye/angry-eyes.svg
+img: systems/air-bladder/art/game-icons/eye/angry-eyes.svg
 items:
   - _id: ziGcqOofmwP1aCpb
     name: Gambeson
@@ -195,7 +195,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: systems/air-bladder/game-icons/eye/angry-eyes.svg
+    src: systems/air-bladder/art/game-icons/eye/angry-eyes.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

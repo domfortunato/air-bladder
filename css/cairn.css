@@ -1146,6 +1146,35 @@
     margin-left: auto;
 }
 
+/* The character-generation card: HP / STR / DEX / WIL / Gold, one "LABEL: value"
+   per row, set larger than core's 14px chat body so the numbers read at a glance
+   from across the table -- this card is the result of a roll, not running text.
+   Colours come from the tokens, so it follows the viewer's scheme like every
+   other surface. */
+.chat-message .cairn-generation-rolls {
+    font-size: 18px;
+}
+.chat-message .cairn-generation-rolls .gen-rolls-title {
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+/* No rules between the rows: the five values read as one block, and separators
+   made a five-line card look like a table it is not.
+   The rows also tighten their leading. Foundry's inherited line-height is 1.25,
+   which at 18px puts each value in a 22.5px box -- five of those stacked read as
+   deliberate spacing even with zero margin between them (measured: the row gap
+   really is 0). 1.1 keeps the descenders in "Gold" clear. */
+.chat-message .cairn-generation-rolls .gen-roll-row {
+    padding: 0;
+    line-height: 1.1;
+}
+.chat-message .cairn-generation-rolls .gen-roll-label {
+    font-weight: 500;
+}
+.chat-message .cairn-generation-rolls .gen-roll-value {
+    font-weight: 700;
+}
+
 /* Speaker name on chat cards: much larger + bold so the roller reads at a glance.
    (Foundry's default .message-sender is 14px / weight 400.) */
 .chat-message .message-sender {

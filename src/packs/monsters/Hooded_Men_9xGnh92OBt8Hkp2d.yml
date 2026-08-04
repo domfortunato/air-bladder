@@ -3,7 +3,7 @@ name: Hooded Men
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.svg
+img: systems/air-bladder/art/game-icons/body/hooded-assassin.svg
 items:
   - _id: zT19z4NuCKpPE9xF
     name: Leystaff*
@@ -271,7 +271,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: icons/svg/mystery-man.svg
+    src: systems/air-bladder/art/game-icons/body/hooded-assassin.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

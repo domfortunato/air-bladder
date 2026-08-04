@@ -3,7 +3,7 @@ name: Purple Worm
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.svg
+img: systems/air-bladder/art/game-icons/creatures/purple-tentacle.svg
 items:
   - _id: wHJ5JWax8XPuoL8x
     name: Bite*
@@ -158,7 +158,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: icons/svg/mystery-man.svg
+    src: systems/air-bladder/art/game-icons/creatures/purple-tentacle.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

@@ -27,8 +27,8 @@ import { chromium } from "playwright";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const SRC = path.join(ROOT, "new-tokens");
-const DEST = path.join(ROOT, "character_tokens");
-const PORTRAITS = path.join(ROOT, "character_portraits");
+const DEST = path.join(ROOT, "art", "jon-aspeheim", "tokens");
+const PORTRAITS = path.join(ROOT, "art", "jon-aspeheim", "portraits");
 
 const arg = (name, fallback) => {
   const i = process.argv.indexOf(`--${name}`);

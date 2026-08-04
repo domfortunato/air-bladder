@@ -296,6 +296,11 @@ Hooks.once("init", () => {
         const actor = await createCharacter({
           source,
           ownership: { [senderId]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
+          // The generation chat card is headed by the ROLLER's name, and the
+          // roller is the PLAYER who asked -- this branch runs on the Warden's
+          // client, so leaving it to default would head every character a player
+          // rolled with the Warden's name instead.
+          roller: user,
         });
         // A null actor is a real outcome (the Warden dismissed the
         // content-source picker); answer anyway, or the player's "rolling
@@ -507,6 +512,8 @@ Hooks.once("ready", async () => {
 
   await phase("icon .png -> .svg migration", migrateIconsToSvg);
 
+  await phase("gallery art -> art/ path migration", migrateArtPaths);
+
   await phase("spellscroll -> flagged spellbook migration", migrateScrollsToSpellbooks);
 
   await phase("npc role migration", migrateNpcRoles);
@@ -579,6 +586,93 @@ const migrateIconsToSvg = async () => {
   }
 
   if (count) console.log(`Air Bladder | moved ${count} document(s) from .png to .svg class icons`);
+};
+
+/**
+ * The four picker galleries moved under `art/` (2026-08-04): Aspeheim's split
+ * `character_portraits/` + `character_tokens/` became `art/jon-aspeheim/
+ * portraits|tokens/`, and tlomdev's and game-icons' folders each gained the
+ * `art/` prefix. `icons/` did NOT move — it is stamped class art, not a
+ * browsable gallery, and it is deliberately absent from the table below.
+ *
+ * SAME PROBLEM AS THE .png -> .svg MIGRATION ABOVE, and it is the reason a
+ * cosmetic-looking folder move is not cosmetic: an image path is COPIED onto a
+ * document when it is created, never read live off the system. So every actor
+ * in every existing world still points at where its portrait used to be, and
+ * without this a 0.1.9 world upgrades to a broken image on every sheet, every
+ * canvas token and every re-arted monster — including art the Warden picked by
+ * hand, which is exactly the art they would mind losing.
+ *
+ * Prefix rewrite rather than a lookup, so it carries hand-picked images too:
+ * anything under a moved folder moves with it, and nothing else is touched. A
+ * pasted URL, a custom upload and anything under icons/ all fail the prefix and
+ * are left alone. Idempotent by construction — a rewritten path begins
+ * `systems/air-bladder/art/…` and matches no `from` — which matters because
+ * this runs on every GM load, not behind a version marker.
+ *
+ * Covers ROLLTABLE RESULTS as well, which the .svg migration above does not
+ * need to: a result stores its own `img` as a SNAPSHOT rather than reading the
+ * referenced document, so a Warden's own gear or monster table keeps pointing
+ * at the old path after every actor in the world has been fixed.
+ */
+const ART_MOVES = [
+  ["systems/air-bladder/character_portraits/", "systems/air-bladder/art/jon-aspeheim/portraits/"],
+  ["systems/air-bladder/character_tokens/", "systems/air-bladder/art/jon-aspeheim/tokens/"],
+  ["systems/air-bladder/tlomdev/", "systems/air-bladder/art/tlomdev/"],
+  ["systems/air-bladder/game-icons/", "systems/air-bladder/art/game-icons/"],
+  // Lydia's never reached a RELEASE — it landed and moved within the same day —
+  // and it was left out of this table on that reasoning. dev:smoke then found a
+  // token in the dev world still pointing at it. `dev` mirrors to GitHub in
+  // seconds precisely so people can clone it and test unreleased code, so "it
+  // never shipped" is only ever true of tagged releases, and a migration that
+  // reasons about releases misses every world that tracked the branch. One line.
+  ["systems/air-bladder/lydia-comer/", "systems/air-bladder/art/lydia-comer/"],
+];
+
+/** The new path for an image under a moved gallery, or null to leave it alone. */
+const movedArt = (src) => {
+  const s = String(src ?? "");
+  for (const [from, to] of ART_MOVES) if (s.startsWith(from)) return to + s.slice(from.length);
+  return null;
+};
+
+const migrateArtPaths = async () => {
+  let count = 0;
+
+  const itemUpdates = game.items.filter((i) => movedArt(i.img)).map((i) => ({ _id: i.id, img: movedArt(i.img) }));
+  if (itemUpdates.length) { await Item.updateDocuments(itemUpdates); count += itemUpdates.length; }
+
+  const actorUpdates = [];
+  for (const a of game.actors) {
+    const img = movedArt(a.img);
+    const tok = movedArt(a.prototypeToken?.texture?.src);
+    if (img || tok) {
+      const u = { _id: a.id };
+      if (img) u.img = img;
+      if (tok) u["prototypeToken.texture.src"] = tok;
+      actorUpdates.push(u);
+    }
+    const owned = a.items.filter((i) => movedArt(i.img)).map((i) => ({ _id: i.id, img: movedArt(i.img) }));
+    if (owned.length) { await a.updateEmbeddedDocuments("Item", owned); count += owned.length; }
+  }
+  if (actorUpdates.length) { await Actor.updateDocuments(actorUpdates); count += actorUpdates.length; }
+
+  // Unlinked tokens hold their own texture rather than the actor's.
+  for (const scene of game.scenes) {
+    const tokens = scene.tokens
+      .filter((t) => movedArt(t.texture?.src))
+      .map((t) => ({ _id: t.id, "texture.src": movedArt(t.texture.src) }));
+    if (tokens.length) { await scene.updateEmbeddedDocuments("Token", tokens); count += tokens.length; }
+  }
+
+  for (const table of game.tables) {
+    const results = table.results
+      .filter((r) => movedArt(r.img))
+      .map((r) => ({ _id: r.id, img: movedArt(r.img) }));
+    if (results.length) { await table.updateEmbeddedDocuments("TableResult", results); count += results.length; }
+  }
+
+  if (count) console.log(`Air Bladder | repointed ${count} document(s) at the art/ gallery folders`);
 };
 
 /**

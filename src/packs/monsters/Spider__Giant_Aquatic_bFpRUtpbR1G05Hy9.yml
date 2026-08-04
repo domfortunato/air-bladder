@@ -3,7 +3,7 @@ name: Spider, Giant Aquatic
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.svg
+img: systems/air-bladder/art/game-icons/animals/spider-face.svg
 items:
   - _id: MFUCCQ9OuR8UstWH
     name: bite*
@@ -117,7 +117,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: icons/svg/mystery-man.svg
+    src: systems/air-bladder/art/game-icons/animals/spider-face.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

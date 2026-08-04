@@ -3,7 +3,7 @@ name: Devil Swine
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/game-icons/animals/pig.svg
+img: systems/air-bladder/art/game-icons/animals/pig.svg
 items:
   - _id: F1eKsYttqjLeYfdh
     name: Gore*
@@ -122,7 +122,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: systems/air-bladder/game-icons/animals/pig.svg
+    src: systems/air-bladder/art/game-icons/animals/pig.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

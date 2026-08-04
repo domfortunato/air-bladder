@@ -3,7 +3,7 @@ name: Bear, Black
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/game-icons/animals/bear-head.svg
+img: systems/air-bladder/art/game-icons/animals/bear-head.svg
 items:
   - _id: MPcSS5PEEPJT1GGM
     name: Claws
@@ -115,7 +115,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: systems/air-bladder/game-icons/animals/bear-head.svg
+    src: systems/air-bladder/art/game-icons/animals/bear-head.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

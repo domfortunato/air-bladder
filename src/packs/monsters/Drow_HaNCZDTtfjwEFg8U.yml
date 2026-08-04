@@ -3,7 +3,7 @@ name: Drow
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.svg
+img: systems/air-bladder/art/game-icons/heads/woman-elf-face.svg
 items:
   - _id: 3bBR43hA4GLKab1s
     name: Shortsword
@@ -235,7 +235,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: icons/svg/mystery-man.svg
+    src: systems/air-bladder/art/game-icons/heads/woman-elf-face.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

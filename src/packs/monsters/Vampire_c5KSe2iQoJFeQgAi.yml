@@ -120,7 +120,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: icons/svg/mystery-man.svg
+    src: systems/air-bladder/art/game-icons/creatures/vampire-dracula.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1
@@ -157,6 +157,6 @@ prototypeToken:
     subject:
       scale: 1
       texture: null
-img: systems/air-bladder/icons/monster.svg
+img: systems/air-bladder/art/game-icons/creatures/vampire-dracula.svg
 folder: null
 _key: '!actors!c5KSe2iQoJFeQgAi'

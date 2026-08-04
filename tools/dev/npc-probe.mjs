@@ -113,7 +113,7 @@ try {
       armorDerived: (actor.system.armor ?? 0) === (book.armor ?? 0),
       armorGot: actor.system.armor ?? 0,
       armorBook: book.armor ?? 0,
-      portrait: !!actor.img && actor.img.includes("character_portraits"),
+      portrait: !!actor.img && actor.img.includes("/jon-aspeheim/portraits"),
     };
 
     // 3b. The armor check above is vacuous when the rolled statblock prints 0

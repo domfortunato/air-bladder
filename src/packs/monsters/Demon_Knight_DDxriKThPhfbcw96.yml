@@ -3,7 +3,7 @@ name: Demon Knight
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.svg
+img: systems/air-bladder/art/game-icons/armor/black-knight-helm.svg
 items:
   - _id: VKYG6O6x3HYNIj8b
     name: Long Sword
@@ -198,7 +198,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: icons/svg/mystery-man.svg
+    src: systems/air-bladder/art/game-icons/armor/black-knight-helm.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

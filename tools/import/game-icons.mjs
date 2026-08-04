@@ -3,6 +3,7 @@
  * Import the curated game-icons.net collection into game-icons/.
  *
  *   node tools/import/game-icons.mjs --src <dir> [--dry]
+ *   node tools/import/game-icons.mjs --add <dir> [--dry]  (one category, keep the rest)
  *   node tools/import/game-icons.mjs --restamp [--dry]   (shipped tree, no download)
  *
  * Unlike its sibling `icons.mjs`, this one is NOT reproducible from the network:
@@ -42,6 +43,37 @@
  *
  * The manifest exists for the same reason portrait-manifest.json does: a client
  * cannot enumerate a server folder without FILES_BROWSE, and players pick art.
+ *
+ * `--add`: ADDING ONE CATEGORY WITHOUT THE OTHER DOWNLOADS
+ *
+ * `--src` is a whole-collection rebuild — it wipes game-icons/ and writes back
+ * only what the source tree holds. That is correct when you still have every
+ * category's download, and useless when you do not: by 2026-08-03 exactly three
+ * of the twenty-four survived on disk, so re-running it to add one category
+ * would have silently dropped twenty-one.
+ *
+ * `--add <dir>` takes the same per-category download shape and MERGES it, by
+ * reconstructing the existing categories from what is committed:
+ *
+ *   the SVG files       -> game-icons/<category>/*.svg  (already size-stamped;
+ *                          withIntrinsicSize is idempotent, so they survive
+ *                          a rewrite untouched)
+ *   the artist + slug   -> game-icons/CREDITS.md, which is the ONLY record of
+ *                          either (the flatten discards the artist, and this
+ *                          file says so). Recovered from each row's source URL,
+ *                          https://game-icons.net/1x1/<artist>/<slug>.html.
+ *
+ * That reconstruction is exactly why CREDITS.md has to stay one row per shipped
+ * file: it is not just the attribution any more, it is the input that lets the
+ * collection be extended at all. `--add` asserts the two agree before writing,
+ * because a credits file that has drifted from the tree would silently
+ * mis-attribute every icon it rebuilt.
+ *
+ * The source shape is per-category, so <dir> is the PARENT of the category
+ * folder — the same thing --src wants. Categories already present are refused
+ * rather than merged: re-importing one means resolving collisions against a
+ * flattened tree whose artist suffixes are already baked in, and getting that
+ * subtly wrong is a licensing error. Delete the folder and use --src for that.
  */
 
 import fs from "node:fs";
@@ -50,7 +82,7 @@ import { fileURLToPath } from "node:url";
 import { withIntrinsicSize } from "./svg-size.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const OUT_DIR = path.join(root, "game-icons");
+const OUT_DIR = path.join(root, "art", "game-icons");
 const MANIFEST = path.join(root, "module", "game-icons-manifest.json");
 const dry = process.argv.includes("--dry");
 
@@ -90,9 +122,12 @@ if (process.argv.includes("--restamp")) {
 }
 
 const srcFlag = process.argv.indexOf("--src");
-const SRC = srcFlag !== -1 ? process.argv[srcFlag + 1] : null;
+const addFlag = process.argv.indexOf("--add");
+const ADD = addFlag !== -1;
+const SRC = ADD ? process.argv[addFlag + 1] : (srcFlag !== -1 ? process.argv[srcFlag + 1] : null);
 if (!SRC || !fs.existsSync(SRC)) {
   console.error("usage: node tools/import/game-icons.mjs --src <unpacked game-icons download> [--dry]");
+  console.error("       node tools/import/game-icons.mjs --add <unpacked download> [--dry]   (merge new categories)");
   console.error("  the source tree must look like <src>/<category>/icons/<fg>/<bg>/1x1/<artist>/<icon>.svg");
   process.exit(1);
 }
@@ -105,6 +140,14 @@ if (!SRC || !fs.existsSync(SRC)) {
  * DO have unusual capitalisation are all listed.
  */
 const AUTHORS = {
+  // Two the title-caser gets wrong, both confirmed 2026-08-04 when `shields`
+  // arrived: the download's own license.txt names "Andy Meneely" (the slug has
+  // no separator to split on), and game-icons.net credits `seregacthtuf` as
+  // "SeregaCthtuf" -- an interior capital no slug can carry. That artist is not
+  // in the upstream notice at all, which is a static file and lags the site, so
+  // the icon's own page is the authority for a name CC BY requires be right.
+  "andymeneely": "Andy Meneely",
+  "seregacthtuf": "SeregaCthtuf",
   "carl-olsen": "Carl Olsen",
   "caro-asercion": "Caro Asercion",
   "cathelineau": "Cathelineau",
@@ -200,6 +243,92 @@ for (const [cat, entries] of found) {
   plan.set(cat, rows);
 }
 
+// ---------------------------------------------------------------------------
+// --add: fold the SHIPPED collection back into the plan, so the whole-tree
+// write below reproduces it instead of deleting it.
+// ---------------------------------------------------------------------------
+
+if (ADD) {
+  const creditsPath = path.join(OUT_DIR, "CREDITS.md");
+  if (!fs.existsSync(creditsPath)) {
+    console.error(`--add needs the existing ${path.relative(root, creditsPath)} to recover artists from`);
+    process.exit(1);
+  }
+  // Reverse the display-name map for the one row whose source URL carries no
+  // artist slug (`various-artists` has no per-artist page, so sourceUrl() emits
+  // the bare site).
+  const slugOf = Object.fromEntries(Object.entries(AUTHORS).map(([slug, name]) => [name, slug]));
+
+  // | `file.svg` | Title | Author Name | <https://game-icons.net/1x1/artist/slug.html> |
+  const ROW = /^\|\s*`([^`]+)`\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*<([^>]+)>\s*\|$/;
+  let current = null;
+  const recovered = new Map();
+  for (const line of fs.readFileSync(creditsPath, "utf8").split(/\r?\n/)) {
+    const head = /^##\s+(.+?)\s*$/.exec(line);
+    // Section headings are title-cased category names; "Attribution" is prose.
+    if (head) { current = head[1].toLowerCase().replace(/\s+/g, "-"); continue; }
+    const m = ROW.exec(line);
+    if (!m || !current) continue;
+    const [, file, , author, url] = m;
+    const fromUrl = /game-icons\.net\/1x1\/([^/]+)\/([^/.]+)\.html/.exec(url);
+    const artist = fromUrl ? fromUrl[1] : (slugOf[author] ?? author.toLowerCase().replace(/\s+/g, "-"));
+    const slug = fromUrl ? fromUrl[2] : path.basename(file, ".svg");
+    if (!recovered.has(current)) recovered.set(current, []);
+    // `content`, not `srcPath`: a recovered icon's source IS the shipped tree,
+    // and the write phase removes that tree before it copies. Reading the bytes
+    // now is what makes the rebuild survive its own rm -- pointing srcPath into
+    // OUT_DIR deletes every shipped icon and then fails on the first read.
+    recovered.get(current).push({ file, slug, artist, srcPath: path.join(OUT_DIR, current, file), content: null });
+  }
+
+  // The credits file is the input here, not just documentation — so prove it
+  // still describes the tree before trusting it. A row without a file would
+  // crash the copy; a file without a row would be dropped AND lose its
+  // attribution, which is the licensing failure this whole script exists to
+  // avoid. Neither is worth a partial write.
+  const problems = [];
+  for (const [cat, rows] of recovered) {
+    for (const r of rows) if (!fs.existsSync(r.srcPath)) problems.push(`credited but missing: ${cat}/${r.file}`);
+  }
+  for (const cat of fs.readdirSync(OUT_DIR, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name)) {
+    const known = new Set((recovered.get(cat) ?? []).map((r) => r.file));
+    for (const f of fs.readdirSync(path.join(OUT_DIR, cat)).filter((f) => f.endsWith(".svg"))) {
+      if (!known.has(f)) problems.push(`on disk but uncredited: ${cat}/${f}`);
+    }
+  }
+  if (problems.length) {
+    console.error(`CREDITS.md has drifted from game-icons/ -- refusing to rebuild from it:`);
+    for (const p of problems.slice(0, 20)) console.error(`  ${p}`);
+    if (problems.length > 20) console.error(`  ...and ${problems.length - 20} more`);
+    process.exit(1);
+  }
+
+  // Every shipped byte into memory, BEFORE the write phase removes the tree.
+  for (const rows of recovered.values()) {
+    for (const r of rows) r.content = fs.readFileSync(r.srcPath, "utf8");
+  }
+
+  const added = [...plan.keys()];
+  for (const cat of added) {
+    if (recovered.has(cat)) {
+      console.error(`category "${cat}" already ships (${recovered.get(cat).length} icons).`);
+      console.error(`  --add will not merge into an existing category: the shipped names already carry`);
+      console.error(`  artist suffixes from the last collision pass, and re-resolving against them is`);
+      console.error(`  how an icon gets mis-credited. Delete game-icons/${cat}/ and use --src instead.`);
+      process.exit(1);
+    }
+  }
+  for (const [cat, rows] of recovered) plan.set(cat, rows);
+  // Re-sort: the new category was planned first, and both the manifest and the
+  // credits tables are written in Map order. Alphabetical keeps the picker's
+  // category strip stable and keeps an --add diff to the rows it really added.
+  const sorted = new Map([...plan.entries()].sort(([a], [b]) => a.localeCompare(b)));
+  plan.clear();
+  for (const [k, v] of sorted) plan.set(k, v);
+  console.log(`--add: recovered ${[...recovered.values()].reduce((n, r) => n + r.length, 0)} shipped icons`
+    + ` in ${recovered.size} categories, adding ${added.join(", ")}`);
+}
+
 const total = [...plan.values()].reduce((n, rows) => n + rows.length, 0);
 const artists = new Set([...plan.values()].flat().map((r) => r.artist));
 
@@ -215,7 +344,7 @@ if (collisions.length) {
 
 const manifest = {
   _comment: "Generated by tools/import/game-icons.mjs. Art: CC BY 3.0, game-icons.net — see game-icons/CREDITS.md.",
-  iconDir: "systems/air-bladder/game-icons",
+  iconDir: "systems/air-bladder/art/game-icons",
   categories: [...plan.entries()].map(([key, rows]) => ({ key, names: rows.map((r) => r.file) })),
 };
 
@@ -260,8 +389,17 @@ for (const [cat, rows] of plan) {
 // The upstream notice, verbatim from the download — same treatment as
 // fonts/OFL.txt and character_portraits/license.txt, both of which ship because
 // their licence requires the notice travel with the art.
+// In --add the shipped notice is already the one of record and covers the whole
+// collection; a per-category download carries the same text, but rewriting it
+// from one category's copy would put a licence file's provenance at the mercy of
+// whichever folder happened to be added last. Read it into memory NOW rather
+// than skipping the write -- the whole directory is removed below, so "leave it
+// alone" and "delete it" are the same thing here, and this file is the notice
+// CC BY 3.0 requires travel with the art.
+const shipped = path.join(OUT_DIR, "license.txt");
 const upstream = path.join(SRC, categories[0], "icons", "license.txt");
-const notice = fs.existsSync(upstream) ? fs.readFileSync(upstream, "utf8") : null;
+const noticeSrc = ADD && fs.existsSync(shipped) ? shipped : upstream;
+const notice = fs.existsSync(noticeSrc) ? fs.readFileSync(noticeSrc, "utf8") : null;
 if (!notice) console.warn("WARN  no upstream license.txt found in the source tree");
 
 if (dry) {
@@ -275,9 +413,11 @@ for (const [cat, rows] of plan) {
   // Not copyFileSync: the download has no intrinsic size on any glyph, and 42
   // pack documents use these as TOKEN art. See ./svg-size.mjs.
   for (const r of rows) {
+    // `content` is set only by --add, whose sources live in the tree this write
+    // has already removed. Everything else still reads from the download.
     fs.writeFileSync(
       path.join(OUT_DIR, cat, r.file),
-      withIntrinsicSize(fs.readFileSync(r.srcPath, "utf8"))
+      withIntrinsicSize(r.content ?? fs.readFileSync(r.srcPath, "utf8"))
     );
   }
 }

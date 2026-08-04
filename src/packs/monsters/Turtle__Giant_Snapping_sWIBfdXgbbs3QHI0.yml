@@ -3,7 +3,7 @@ name: Turtle, Giant Snapping
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/icons/monster.svg
+img: systems/air-bladder/art/game-icons/animals/turtle.svg
 items:
   - _id: EgYivt2q6wfyuyKp
     name: Hard Shell
@@ -160,7 +160,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: icons/svg/mystery-man.svg
+    src: systems/air-bladder/art/game-icons/animals/turtle.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

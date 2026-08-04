@@ -1793,29 +1793,41 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onRollActor(event) {
     event.preventDefault();
-    // A monster-role npc re-rolls as a MONSTER. The tier picker IS the ask-first
-    // dialog here: it is dismissible (null = cancel, touch nothing) and its
-    // wording is monster-specific — so the Gorilla-into-Alchemist path above is
-    // closed without stacking two dialogs in front of one button.
-    if (this.actor.npcRole === "monster") {
-      const tier = await promptMonsterTier({ regenerate: true });
-      if (!tier) return;
-      await regenerateMonster(this.actor, tier);
-      return;
+    // The same guard the bond/trait re-roll handlers carry. Every branch below
+    // AWAITS a dialog and then wipes and rebuilds the actor, so two clicks in
+    // quick succession both get past the confirmation and both regenerate --
+    // the second one throwing away a character the first just made. Harmless to
+    // miss while generation was silent; with the chat card it also posts two
+    // sets of dice for one gesture, which is how it would be noticed.
+    if (this._rerolling) return;
+    this._rerolling = true;
+    try {
+      // A monster-role npc re-rolls as a MONSTER. The tier picker IS the ask-first
+      // dialog here: it is dismissible (null = cancel, touch nothing) and its
+      // wording is monster-specific — so the Gorilla-into-Alchemist path above is
+      // closed without stacking two dialogs in front of one button.
+      if (this.actor.npcRole === "monster") {
+        const tier = await promptMonsterTier({ regenerate: true });
+        if (!tier) return;
+        await regenerateMonster(this.actor, tier);
+        return;
+      }
+      const isNpc = ["hireling", "npc"].includes(this.actor.type);
+      // DialogV2.confirm already makes "No" the default button, so V1's
+      // defaultYes: false has no equivalent to carry over.
+      const confirm = await foundry.applications.api.DialogV2.confirm({
+        window: {
+          title: game.i18n.localize(isNpc ? "CAIRN.NpcRegeneratorTitle" : "CAIRN.CharacterRegeneratorTitle"),
+        },
+        content: `<p>${game.i18n.localize(isNpc ? "CAIRN.NpcRegeneratorConfirm" : "CAIRN.CharacterRegeneratorConfirm")}</p>`,
+        rejectClose: false,
+      });
+      if (!confirm) return;
+      if (isNpc) await regenerateNpc(this.actor);
+      else await regenerateActor(this.actor);
+    } finally {
+      this._rerolling = false;
     }
-    const isNpc = ["hireling", "npc"].includes(this.actor.type);
-    // DialogV2.confirm already makes "No" the default button, so V1's
-    // defaultYes: false has no equivalent to carry over.
-    const confirm = await foundry.applications.api.DialogV2.confirm({
-      window: {
-        title: game.i18n.localize(isNpc ? "CAIRN.NpcRegeneratorTitle" : "CAIRN.CharacterRegeneratorTitle"),
-      },
-      content: `<p>${game.i18n.localize(isNpc ? "CAIRN.NpcRegeneratorConfirm" : "CAIRN.CharacterRegeneratorConfirm")}</p>`,
-      rejectClose: false,
-    });
-    if (!confirm) return;
-    if (isNpc) await regenerateNpc(this.actor);
-    else await regenerateActor(this.actor);
   }
 
   /**
@@ -2890,15 +2902,20 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * galleries appear is a ROLE question, not a type question:
    *
    *   Player Character   Aspeheim + Custom + Tlomdev
-   *   NPC / Hireling     Aspeheim + Custom + Game-Icons + Tlomdev
-   *   Monster            Custom + Game-Icons + Tlomdev
+   *   NPC / Hireling     Aspeheim + Custom + Game-Icons + Tlomdev + Lydia
+   *   Monster            Custom + Game-Icons + Tlomdev + Lydia
    *
-   * Aspeheim's art is human faces, so a Monster is not offered it; nothing else
-   * is withheld anywhere, and the URL row and Browse escape are on every sheet.
-   * Tlomdev's tokens are drawn for creatures AND people (its "human npcs" and
-   * Kettlewright folders are faces), so unlike Aspeheim it appears everywhere.
-   * Thing roles (mount, transport, container) never reach here — _onEditPortrait
-   * routes them to the container gallery instead.
+   * Aspeheim's art is human faces, so a Monster is not offered it. Lydia's is
+   * the mirror image — seventeen creatures drawn for this system, so a PLAYER
+   * CHARACTER is not offered it; the two exclusions are the same rule read from
+   * opposite ends, and between them every sheet keeps a gallery of faces and a
+   * gallery of beasts. Nothing else is withheld anywhere, and the URL row and
+   * Browse escape are on every sheet. Tlomdev's tokens are drawn for creatures
+   * AND people (its "human npcs" and Kettlewright folders are faces), so unlike
+   * either of those it appears everywhere. Thing roles (mount, transport,
+   * container) never reach here — _onEditPortrait routes them to the container
+   * gallery, which is not offered Lydia's art either: a mount wants a horse
+   * glyph, and her beasts are monsters rather than livestock.
    *
    * Picking swaps the portrait AND its token via _setPortrait.
    * @private
@@ -2913,7 +2930,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       custom: true,
       gameIcons: this.actor.type !== "character",
       tlomdev: true,
-      browseStart: (await getPortraitManifest())?.portraitDir ?? "systems/air-bladder/character_portraits",
+      lydia: this.actor.type !== "character",
+      browseStart: (await getPortraitManifest())?.portraitDir ?? "systems/air-bladder/art/jon-aspeheim/portraits",
       onPick: (src) => this._setPortrait(src),
     });
   }

@@ -24,7 +24,7 @@ manifest. Descends architecturally from a private fork of
   the AppV2 sheets use `_getFrameButtons`, `_canDetach` and `_onDetach`/`_onAttach`,
   all confirmed against the shipped 14.365 client and none of them verifiable on
   v13 from this machine. A minimum nobody has ever tested is a claim, not a fact.
-- Latest release **0.1.7** (2026-07-28). `system.json`'s `version` is rewritten by
+- Latest release **0.1.9** (2026-08-03). `system.json`'s `version` is rewritten by
   CI from the git tag; don't trust the checked-in value.
 - Node 24.x. `npm run release X.Y.Z` is the whole release — see `RELEASE.md`.
 
@@ -86,7 +86,7 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
 - `module/damage.js` holds Cairn's damage flow
 - Data models in `module/data-models.js` (TypeDataModel; `template.json` is gone,
   sub-types are declared in `system.json` `documentTypes`); 22 compendium packs
-- 19 GM-visible settings in `module/settings.js` (22 `register` calls; `roles-restamped`,
+- 20 GM-visible settings in `module/settings.js` (23 `register` calls; `roles-restamped`,
   `connections-migrated` and `custom-portrait-list` are internal, `config: false`) —
   **registration ORDER is load-bearing**, because Foundry's group headers are positional. Two went on
   2026-07-31, both because the thing they toggled stopped existing:
@@ -169,6 +169,50 @@ against the reason, not against the fact.
 - **Pack YAML in `src/packs/` is the source of truth**; `packs/` is generated
   LevelDB, gitignored. Never edit `packs/`. `npm run build:packs` fails while
   Foundry has the world open (LevelDB EPERM) — stop the server first.
+  **EXTRACT BEFORE YOU BUILD, ALWAYS.** "Generated output" is true only until a
+  Warden edits a compendium inside Foundry; from that moment `packs/` holds the
+  ONLY copy of that work, and `build` rmSyncs each pack and recompiles it from
+  YAML. On **2026-08-04 that destroyed roughly five hours** of monster art
+  assignment plus a description fix, with no recovery: `packs/` is gitignored,
+  LevelDB keeps no history, Foundry writes no automatic backups, and the newest
+  Volume Shadow Copy was two days stale. `tools/packs.mjs` now REFUSES a build
+  when `packs/` has changed since the last build or extract.
+  - **The guard compares against a SYNC MARKER** (`.pack-sync.json`, gitignored),
+    not against `src/packs`. Two earlier designs were wrong and both looked
+    right: **mtime** fires on every clean tree, because LevelDB rewrites
+    `CURRENT`/`MANIFEST`/`.log` merely because Foundry opened the world — and a
+    guard that always fires just teaches you to reach for `--force`.
+    **Comparing `packs/` to `src/packs` directly** has no DIRECTION: editing YAML
+    then building is the normal workflow and differs exactly as much as a
+    compendium edit does, so it would block ordinary content work.
+  - **Opening a world mutates pack CONTENT**, not just its housekeeping files —
+    v12-era documents migrate to the v14 schema on load (`flags.core.sourceId` →
+    `_stats.compendiumSource`, the `turnMarker`/`hexagonalShape` token fields).
+    So the guard legitimately fires after a world open. Folding that in with
+    `extract:packs` is a ~950-file diff; it is a real decision, not noise.
+  - **`extract` RENAMES files to `<Name>_<id>.yml`.** Committed files whose name
+    lacks the id suffix (`marketplace/Market_Armor.yml`) are deleted and rewritten
+    under the new name, so an extract you want to undo needs BOTH halves, in this
+    order: `git checkout -- src/packs` to bring the originals back, THEN
+    `git clean -fd src/packs` to drop the new ones. Doing it the other way round
+    removes the replacement while the original is still gone — 62 table files
+    vanished that way on 2026-08-04, which showed up as `check:refs` reporting
+    **0 of 198 compendium references**. That gate's own message is what caught
+    it: "if content did not shrink, it has stopped looking." Content HAD shrunk.
+    Always finish with `git status src/packs` showing nothing.
+- **`npm run backup` snapshots `packs/` AND both worlds** to
+  `foundry/backups/<stamp>/`, pruned to 24 (`tools/dev/backup.mjs`, `--list`).
+  It skips files it cannot read rather than aborting — Foundry holds an
+  exclusive handle on each pack's zero-byte `LOCK`, and `fs.cpSync` over the
+  tree dies with EPIPE on the first one, which would mean backups only worked
+  while the server was stopped. Run it before anything that writes packs or
+  world documents.
+- **A negative control must never be a real write.** Proving the `art/` path
+  migration's control was load-bearing by giving it an over-broad prefix rule
+  ran that migration against the dev world and mis-pathed **149 real documents**
+  the same day. Defeat a fix IN-PAGE against planted documents, the way
+  `dev:relic-tab` and `dev:art-picker` do — never by editing the source of
+  something that mutates a world on load.
 
 ## Foundry sources, in order of authority
 
@@ -226,6 +270,23 @@ What belongs here is what those two files do not say:
 - **The Air Bladder logo is NOT Creative Commons.** All rights reserved, Lydia Comer,
   by bespoke grant. Do not treat it as CC, and do not reach for it as the manifest's
   cover image — that is the reason `media` is deliberately absent from `system.json`.
+  **Since 2026-08-04 the same grant also covers 17 MONSTERS** under
+  `art/lydia-comer/portraits|tokens/`, offered in the picker on NPC and Monster
+  sheets. Nothing in this repo re-encodes, rescales or crops them — the grant says
+  unmodified, and that is why the two halves of a pair carry different extensions
+  (`.jpg` square, `.png` circle) instead of being normalised.
+- **All four picker galleries live under `art/`** (moved 2026-08-04):
+  `art/jon-aspeheim/portraits|tokens/` (was the split `character_portraits/` +
+  `character_tokens/`), `art/lydia-comer/`, `art/tlomdev/`, `art/game-icons/`.
+  **`icons/` did NOT move** — it is class art stamped onto documents, not a
+  gallery anyone browses. **Moving art is never cosmetic**: an image path is
+  COPIED onto a document at creation and never re-read from the system, so every
+  existing world points at the old location. `migrateArtPaths` in `cairn.js`
+  rewrites by PREFIX, which is what carries hand-picked art across too. It was
+  written without the `lydia-comer/` prefix on the reasoning that the gallery had
+  never shipped in a release — `dev:smoke` then found a dev-world token still on
+  it. **`dev` mirrors to GitHub in seconds so people can test unreleased code, so
+  "it never shipped" is only ever true of tags.**
 - **`icons/CREDITS.md` must stay in step with the `ICONS` table in
   `tools/import/icons.mjs`** — add a row to one, add a row to the other. Hand-adding
   an SVG instead of running the importer is how `stack.svg` shipped with no intrinsic
@@ -242,7 +303,7 @@ What belongs here is what those two files do not say:
 
 ## Testing
 
-**`docs/release-testing.md` is the full list — 78 probes (`check:probes` states
+**`docs/release-testing.md` is the full list — 81 probes (`check:probes` states
 the current count), what each covers, and what to run before tagging vs after
 publishing. Keep it in step with `package.json`; a probe not listed there runs
 only when someone remembers it.**

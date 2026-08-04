@@ -19,19 +19,26 @@
  *              a Monster is not offered them.
  *   custom     the Warden's own folder, from the world setting. Shown whenever
  *              it has images, or to any GM (who can put some there).
- *   gameicons  1,366 game-icons.net glyphs (CC BY 3.0), browsed CATEGORY FIRST:
- *              24 folder tiles, then that category's thumbnails. The grids are
- *              built on demand — rendering all 24 at once is 1,366 <img> in one
+ *   gameicons  1,539 game-icons.net glyphs (CC BY 3.0), browsed CATEGORY FIRST:
+ *              27 folder tiles, then that category's thumbnails. The grids are
+ *              built on demand — rendering all 27 at once is 1,539 <img> in one
  *              dialog, and only one category is ever on screen.
  *   tlomdev    tlomdev's token drawings (CC BY-SA 4.0), browsed category-first
  *              exactly like gameicons: the artist's own folders, plus
  *              Kettlewright's copies under "Kettlewright Portraits".
+ *   lydia      Lydia Comer's monster art, drawn for Air Bladder (© Lydia Comer,
+ *              all rights reserved — NOT Creative Commons). A flat grid like
+ *              `shipped` rather than a folder tree: 17 creatures is one screen.
+ *              PAIRED like `shipped` too — picking sets the matching token.
  *
  * Every gallery that has a licence shows its credit under its own grid, never
- * globally: a credit under the wrong art is worse than none.
+ * globally: a credit under the wrong art is worse than none. Lydia's makes that
+ * load-bearing rather than tidy — hers is the one grant here that is not a
+ * public licence, and a viewer who reads the CC BY-SA line under tlomdev's grid
+ * must not be able to read it as covering her drawings too.
  */
 
-import { getPortraitManifest, getCustomPortraitPaths, refreshCustomPortraits, getGameIconManifest, getTlomdevManifest } from "./character-generator.js";
+import { getPortraitManifest, getCustomPortraitPaths, refreshCustomPortraits, getGameIconManifest, getTlomdevManifest, getLydiaManifest } from "./character-generator.js";
 
 /**
  * Category display names, localized rather than title-cased in place so a
@@ -60,6 +67,7 @@ const attr = (s) => String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").rep
  * @param {Boolean}  [opts.custom]       offer the Warden's custom folder
  * @param {Boolean}  [opts.gameIcons]    offer the Game-Icons gallery
  * @param {Boolean}  [opts.tlomdev]      offer the Tlomdev gallery
+ * @param {Boolean}  [opts.lydia]        offer the Lydia Comer gallery
  * @param {Object}   [opts.classes]      {label, cells:[{key,src,label,selected}]}
  * @param {String}   [opts.browseStart]  where the Browse escape opens
  * @param {Function} opts.onPick         async (src) => void; the dialog closes after.
@@ -72,7 +80,7 @@ const attr = (s) => String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").rep
  */
 export async function pickArt({
   current, title, shipped = false, custom = false, gameIcons = false,
-  tlomdev = false, classes = null, browseStart = "", onPick,
+  tlomdev = false, lydia = false, classes = null, browseStart = "", onPick,
 }) {
   const isGM = game.user.isGM;
   const customPaths = custom ? getCustomPortraitPaths() : [];
@@ -81,19 +89,24 @@ export async function pickArt({
   const showCustom = custom && (customPaths.length > 0 || isGM);
 
   const manifest = shipped ? await getPortraitManifest() : null;
-  const portraitDir = manifest?.portraitDir ?? "systems/air-bladder/character_portraits";
+  const portraitDir = manifest?.portraitDir ?? "systems/air-bladder/art/jon-aspeheim/portraits";
   const shippedNames = manifest?.names ?? [];
   const showShipped = shipped && shippedNames.length > 0;
 
   const iconManifest = gameIcons ? await getGameIconManifest() : null;
-  const iconDir = iconManifest?.iconDir ?? "systems/air-bladder/game-icons";
+  const iconDir = iconManifest?.iconDir ?? "systems/air-bladder/art/game-icons";
   const iconCats = iconManifest?.categories ?? [];
   const showIcons = gameIcons && iconCats.length > 0;
 
   const tlomdevManifest = tlomdev ? await getTlomdevManifest() : null;
-  const tlomdevDir = tlomdevManifest?.artDir ?? "systems/air-bladder/tlomdev";
+  const tlomdevDir = tlomdevManifest?.artDir ?? "systems/air-bladder/art/tlomdev";
   const tlomdevCats = tlomdevManifest?.categories ?? [];
   const showTlomdev = tlomdev && tlomdevCats.length > 0;
+
+  const lydiaManifest = lydia ? await getLydiaManifest() : null;
+  const lydiaDir = lydiaManifest?.portraitDir ?? "systems/air-bladder/art/lydia-comer/portraits";
+  const lydiaPairs = lydiaManifest?.pairs ?? [];
+  const showLydia = lydia && lydiaPairs.length > 0;
 
   const cellFor = (src, label = null) => {
     const sel = src === current ? " selected" : "";
@@ -179,6 +192,23 @@ export async function pickArt({
     });
   }
 
+  if (showLydia) {
+    // A flat grid, not a folder tree: 17 drawings fit one pane, and the
+    // category-first shape exists to keep 1,539 <img> out of a single dialog.
+    // Filenames here are the artist's own titles ("Dire-Wolf"), so they read as
+    // captions once de-hyphenated — unlike a game-icons slug, which is a
+    // machine name and gets shown verbatim.
+    panes.push({
+      id: "lydia",
+      count: lydiaPairs.length,
+      label: game.i18n.localize("CAIRN.PortraitTabLydia"),
+      body: `<div class="cairn-portrait-grid">${lydiaPairs.map(({ portrait }) =>
+        cellFor(`${lydiaDir}/${portrait}`, portrait.replace(/\.[^.]+$/, "").replace(/-/g, " "))
+      ).join("")}</div>
+        <div class="cairn-portrait-credit">${game.i18n.localize("CAIRN.LydiaCredit")}</div>`,
+    });
+  }
+
   if (!panes.length) {
     // Nothing to show but the escapes. Still worth opening — the URL row and
     // Browse are how a player with no galleries sets art at all.
@@ -195,12 +225,13 @@ export async function pickArt({
     (id === "custom" && customPaths.includes(current))
     || (id === "shipped" && current?.startsWith(portraitDir))
     || (id === "gameicons" && current?.startsWith(iconDir))
-    || (id === "tlomdev" && current?.startsWith(tlomdevDir));
+    || (id === "tlomdev" && current?.startsWith(tlomdevDir))
+    || (id === "lydia" && current?.startsWith(lydiaDir));
   // ...and failing that, the first pane WITH SOMETHING IN IT — not simply the
   // first pane. The distinction cost an evening (2026-08-01): a Monster is
   // offered Custom + Game-Icons, Custom is listed for any GM even when the
   // folder is empty (it carries the Refresh button), so the picker opened on a
-  // pane reading "No custom portraits found" with the 1,366-glyph gallery
+  // pane reading "No custom portraits found" with the 1,539-glyph gallery
   // sitting unselected beside it. It looked for all the world like the picker
   // had failed to load, and the Warden it happened to could not tell that from
   // a broken dialog. A tab that says "nothing here" is never the right landing
