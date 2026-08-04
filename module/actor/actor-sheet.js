@@ -2902,15 +2902,20 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * galleries appear is a ROLE question, not a type question:
    *
    *   Player Character   Aspeheim + Custom + Tlomdev
-   *   NPC / Hireling     Aspeheim + Custom + Game-Icons + Tlomdev
-   *   Monster            Custom + Game-Icons + Tlomdev
+   *   NPC / Hireling     Aspeheim + Custom + Game-Icons + Tlomdev + Lydia
+   *   Monster            Custom + Game-Icons + Tlomdev + Lydia
    *
-   * Aspeheim's art is human faces, so a Monster is not offered it; nothing else
-   * is withheld anywhere, and the URL row and Browse escape are on every sheet.
-   * Tlomdev's tokens are drawn for creatures AND people (its "human npcs" and
-   * Kettlewright folders are faces), so unlike Aspeheim it appears everywhere.
-   * Thing roles (mount, transport, container) never reach here — _onEditPortrait
-   * routes them to the container gallery instead.
+   * Aspeheim's art is human faces, so a Monster is not offered it. Lydia's is
+   * the mirror image — seventeen creatures drawn for this system, so a PLAYER
+   * CHARACTER is not offered it; the two exclusions are the same rule read from
+   * opposite ends, and between them every sheet keeps a gallery of faces and a
+   * gallery of beasts. Nothing else is withheld anywhere, and the URL row and
+   * Browse escape are on every sheet. Tlomdev's tokens are drawn for creatures
+   * AND people (its "human npcs" and Kettlewright folders are faces), so unlike
+   * either of those it appears everywhere. Thing roles (mount, transport,
+   * container) never reach here — _onEditPortrait routes them to the container
+   * gallery, which is not offered Lydia's art either: a mount wants a horse
+   * glyph, and her beasts are monsters rather than livestock.
    *
    * Picking swaps the portrait AND its token via _setPortrait.
    * @private
@@ -2925,6 +2930,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       custom: true,
       gameIcons: this.actor.type !== "character",
       tlomdev: true,
+      lydia: this.actor.type !== "character",
       browseStart: (await getPortraitManifest())?.portraitDir ?? "systems/air-bladder/character_portraits",
       onPick: (src) => this._setPortrait(src),
     });

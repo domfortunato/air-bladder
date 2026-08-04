@@ -90,6 +90,36 @@ export const getTlomdevManifest = async () => {
   return _tlomdevManifest;
 };
 
+// The Lydia Comer gallery: her monster art (© Lydia Comer, all rights reserved,
+// by direct grant — NOT Creative Commons; see lydia-comer/license.txt). Same
+// lazy-fetch-and-cache shape as the three above, for the same reason.
+//
+// Shaped unlike either of them: it is a PAIRED gallery, a flat list of
+// {portrait, token} the way Aspeheim's is, not category folders. Each creature
+// is a square drawing plus the circle-cropped token made from it, matched by
+// stem — so the two halves carry DIFFERENT EXTENSIONS (.jpg and .png), because
+// her grant forbids modifying the artwork and nothing here re-encodes. That is
+// why `pairs` holds both filenames rather than one shared name the way
+// portrait-manifest.json does.
+let _lydiaManifest = null;
+
+/** @returns {Promise<{portraitDir:String, tokenDir:String, pairs:{portrait:String, token:String}[]}>} */
+export const getLydiaManifest = async () => {
+  if (_lydiaManifest === null) {
+    try {
+      const resp = await fetch("systems/air-bladder/module/lydia-manifest.json");
+      _lydiaManifest = resp.ok ? await resp.json() : { pairs: [] };
+    } catch {
+      _lydiaManifest = { pairs: [] };
+    }
+  }
+  return _lydiaManifest;
+};
+
+/** Full portrait paths for the Lydia gallery, in manifest order. */
+const lydiaPortraits = (m) =>
+  (m?.pairs ?? []).map((p) => `${m.portraitDir}/${p.portrait}`);
+
 // --- Custom portraits (GM-curated, per-world local pool) --------------------
 // A folder of the GM's own portraits, scanned into a world setting so players
 // (who lack FILES_BROWSE) can still see and pick them. When non-empty it REPLACES
@@ -178,16 +208,31 @@ export const randomPortraitPair = async () => {
 };
 
 /**
- * The prepped token image paired with a portrait path by basename, or null when
- * the portrait isn't one of the shipped ones (e.g. a custom upload the player
- * browsed to). Callers decide the fallback.
+ * The prepped token image paired with a portrait path, or null when the
+ * portrait isn't from one of the two PAIRED galleries (e.g. a custom upload, a
+ * game-icons glyph, a tlomdev drawing — each of which is its own token).
+ * Callers decide the fallback.
+ *
+ * TWO galleries answer here, and they pair differently. Aspeheim's halves share
+ * one filename across two folders, so a basename lookup settles it. Lydia's
+ * carry different extensions (.jpg square, .png circle) because her grant
+ * forbids modifying the artwork, so the manifest names both halves and the
+ * lookup is by the PORTRAIT filename. Matching on the directory as well as the
+ * name is deliberate: an Aspeheim and a Lydia file could in principle share a
+ * stem, and the answer must not depend on which gallery is consulted first.
  * @param {String} portraitPath
  * @returns {Promise<String|null>}
  */
 export const pairedTokenFor = async (portraitPath) => {
+  const src = String(portraitPath ?? "");
+  const base = src.split("/").pop();
+
   const m = await getPortraitManifest();
-  const base = String(portraitPath ?? "").split("/").pop();
-  return m?.names?.includes(base) ? `${m.tokenDir}/${base}` : null;
+  if (m?.names?.includes(base) && src === `${m.portraitDir}/${base}`) return `${m.tokenDir}/${base}`;
+
+  const l = await getLydiaManifest();
+  const pair = (l?.pairs ?? []).find((p) => src === `${l.portraitDir}/${p.portrait}`);
+  return pair ? `${l.tokenDir}/${pair.token}` : null;
 };
 
 /**
@@ -233,6 +278,16 @@ export const randomPortraitInSameFolder = async (current) => {
   let pool = null;
   if (aspeheim.includes(img)) pool = aspeheim;
   if (!pool && custom.includes(img)) pool = custom;
+  if (!pool) {
+    // Lydia's gallery is flat, so the whole of it is the folder — a dragon can
+    // roll into a were-rat, which is the same promise the category galleries
+    // make one folder down. It is never the FALLBACK pool at the bottom of this
+    // function, though: these are creatures, and the die on an actor wearing no
+    // known art must not turn a hireling into a black pudding.
+    const l = await getLydiaManifest();
+    const lydia = lydiaPortraits(l);
+    if (lydia.includes(img)) pool = lydia;
+  }
   if (!pool) {
     const gi = await getGameIconManifest();
     pool = categoryPoolFor(img, gi?.iconDir ?? "systems/air-bladder/game-icons", gi?.categories ?? []);

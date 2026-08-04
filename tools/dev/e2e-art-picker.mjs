@@ -12,15 +12,31 @@
  * saves. The rule:
  *
  *   Player Character   Aspeheim + Custom + Tlomdev
- *   NPC / Hireling     Aspeheim + Custom + Game-Icons + Tlomdev
- *   Monster            Custom + Game-Icons + Tlomdev   (no faces on a monster)
+ *   NPC / Hireling     Aspeheim + Custom + Game-Icons + Tlomdev + Lydia
+ *   Monster            Custom + Game-Icons + Tlomdev + Lydia  (no faces here)
  *   Container / mount  Kinds + Custom + Game-Icons + Tlomdev
  *   Item / background  Custom + Game-Icons             (no Tlomdev — actors only)
  *
+ * The two withholdings are each other's control and are asserted in the same
+ * run: Aspeheim is human faces so a Monster is not offered it, Lydia's is
+ * creatures so a PC is not. A pane that failed to render satisfies an absence
+ * leg happily; it cannot also satisfy the presence leg one row up.
+ *
+ * PAIRED GALLERIES ARE THE OTHER RULE. Two of the five ship a portrait and a
+ * separate token per image — Aspeheim's, whose halves share one filename across
+ * two folders, and Lydia's, whose halves carry DIFFERENT EXTENSIONS (.jpg
+ * square, .png circle) because her grant forbids re-encoding the artwork. The
+ * other three are their own tokens. So "token === portrait" is correct three
+ * times and wrong twice, and it is precisely what the paired lookup produces
+ * when it fails (`?? img`) — with no error, on a sheet that looks fine.
+ *
  * ALSO THE PORTRAIT DIE's folder rule (2026-08-02): it re-rolls within the
  * folder the current portrait came from — a tlomdev beast rolls another beast,
- * an Aspeheim face another face (with its paired token), and only an image
- * from no known gallery folder falls back to the auto-assignment pool.
+ * an Aspeheim face another face (with its paired token), a Lydia creature
+ * another creature (with its paired token), and only an image from no known
+ * gallery folder falls back to the auto-assignment pool. Lydia's is never that
+ * fallback: the die on an unrecognised image must not make a hireling a
+ * black pudding.
  *
  * THE START TAB is the trap underneath it. The picker opens on whichever tab
  * holds the current image so re-opening lands where you were — and the old code
@@ -61,6 +77,10 @@ const TL_MANIFEST = JSON.parse(fs.readFileSync(
 const TL_CATS = TL_MANIFEST.categories.length;
 const TL_KW_COUNT = TL_MANIFEST.categories.find((c) => c.key === "Kettlewright Portraits").names.length;
 const TL_BEAST_FIRST = TL_MANIFEST.categories.find((c) => c.key === "beast").names[0];
+const LY_MANIFEST = JSON.parse(fs.readFileSync(
+  path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../module/lydia-manifest.json"), "utf8"));
+const LY_COUNT = LY_MANIFEST.pairs.length;
+const LY_FIRST = LY_MANIFEST.pairs[0];
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: VIEWPORT });
@@ -145,17 +165,22 @@ try {
     return out;
   });
 
+  // The two exclusions are each other's control, and they are asserted in the
+  // same run on purpose: Aspeheim is withheld from a Monster because it is
+  // faces, Lydia is withheld from a PC because it is beasts. A pane that failed
+  // to render at all would satisfy either "is not offered" leg on its own — it
+  // cannot satisfy both an absence and a presence.
   eq(tabs.pc.labels, ["Jon Aspeheim", "Custom", "Tlomdev"])
-    ? ok("a PC is offered Aspeheim + Custom + Tlomdev", "no Game-Icons")
+    ? ok("a PC is offered Aspeheim + Custom + Tlomdev", "no Game-Icons, no Lydia")
     : fail("a PC is offered Aspeheim + Custom + Tlomdev", JSON.stringify(tabs.pc.labels));
-  eq(tabs.npc.labels, ["Jon Aspeheim", "Custom", "Game-Icons", "Tlomdev"])
-    ? ok("an NPC is offered all four")
-    : fail("an NPC is offered all four", JSON.stringify(tabs.npc.labels));
-  eq(tabs.legacy.labels, ["Jon Aspeheim", "Custom", "Game-Icons", "Tlomdev"])
-    ? ok("a legacy hireling-TYPE doc is offered all four", "the role, not the type")
-    : fail("a legacy hireling-TYPE doc is offered all four", JSON.stringify(tabs.legacy.labels));
-  eq(tabs.monster.labels, ["Custom", "Game-Icons", "Tlomdev"])
-    ? ok("a Monster is offered no faces", "Aspeheim withheld, Tlomdev not")
+  eq(tabs.npc.labels, ["Jon Aspeheim", "Custom", "Game-Icons", "Tlomdev", "Lydia Comer"])
+    ? ok("an NPC is offered all five")
+    : fail("an NPC is offered all five", JSON.stringify(tabs.npc.labels));
+  eq(tabs.legacy.labels, ["Jon Aspeheim", "Custom", "Game-Icons", "Tlomdev", "Lydia Comer"])
+    ? ok("a legacy hireling-TYPE doc is offered all five", "the role, not the type")
+    : fail("a legacy hireling-TYPE doc is offered all five", JSON.stringify(tabs.legacy.labels));
+  eq(tabs.monster.labels, ["Custom", "Game-Icons", "Tlomdev", "Lydia Comer"])
+    ? ok("a Monster is offered no faces", "Aspeheim withheld, Tlomdev and Lydia not")
     : fail("a Monster is offered no faces", JSON.stringify(tabs.monster.labels));
 
   // The trap: a hidden default would leave every tab inactive and the body
@@ -307,6 +332,94 @@ try {
     ? ok("the pane carries the CC BY-SA credit")
     : fail("the pane carries the CC BY-SA credit", "no tlomdev credit line in the pane");
 
+  /* --- 2c. the Lydia Comer gallery: flat, and PAIRED -------------------- */
+
+  // Everything here that is worth asserting comes from this gallery being the
+  // only one shaped BOTH ways at once: a flat grid like Aspeheim's, whose two
+  // halves carry DIFFERENT EXTENSIONS because her grant forbids re-encoding.
+  // So "the token is the portrait" — right for tlomdev, right for game-icons,
+  // right for a custom upload — is WRONG here, and is exactly what a
+  // pairedTokenFor that failed to learn the second manifest would produce
+  // (`?? img`, silently, with no error anywhere).
+  const ly = await page.evaluate(async () => {
+    const Cls = CONFIG.Actor.documentClass;
+    const a = await Cls.create({ name: "ZZ Art Lydia", type: "npc", system: { role: "monster" } });
+    const sheet = a.sheet;
+    await sheet.render(true);
+    await sheet._pickPortrait(new Event("click"));
+    const dlg = [...foundry.applications.instances.values()]
+      .find((x) => x.constructor.name === "DialogV2" && x.element?.querySelector(".cairn-portrait-gallery"));
+    const root = dlg.element;
+
+    // Same rule as the tlomdev section: a missing tab is a returned result, not
+    // a throw, or every section after this one is skipped in silence.
+    const tab = root.querySelector('.cairn-portrait-tab[data-tab="lydia"]');
+    if (!tab) {
+      await dlg.close(); await sheet.close(); await a.delete();
+      return { missing: true };
+    }
+    tab.click();
+    const pane = root.querySelector('[data-pane="lydia"]');
+    const cells = [...pane.querySelectorAll(".cairn-portrait-choice")];
+    const out = {
+      cellCount: cells.length,
+      // Flat, not category-first: no folder tiles and no drill-down at all.
+      folderTiles: pane.querySelectorAll(".cairn-icon-folder").length,
+      // Her grant is the one that is NOT a public licence, so the credit under
+      // this grid must not read as Creative Commons. Measured as the ABSENCE OF
+      // A LICENCE DEED LINK, not as the absence of the words: the line says
+      // "not Creative Commons" in as many words, and a text search for
+      // "Creative Commons" reds on the very phrase that makes the point.
+      // Every other gallery's credit links to creativecommons.org; hers links
+      // to the artist, at the same address her licence file names.
+      credit: pane.querySelector(".cairn-portrait-credit")?.textContent ?? "",
+      creditCcLink: !!pane.querySelector('.cairn-portrait-credit a[href*="creativecommons.org"]'),
+      creditArtistLink: pane.querySelector('.cairn-portrait-credit a')?.getAttribute("href") ?? "",
+      // Captions are the artist's own titles, de-hyphenated — not raw filenames.
+      firstLabel: cells[0]?.getAttribute("title") ?? "",
+      facesLoaded: 0,
+    };
+    await Promise.all(cells.map((c) => c.decode().catch(() => {})));
+    out.facesLoaded = cells.filter((c) => c.naturalWidth > 0).length;
+
+    // POLLED, not slept. The rest of this file waits a flat 400ms after a click
+    // that fires an async actor.update(); that is a race with a comfortable
+    // margin rather than a wait, and a busy machine closes the margin. Wait for
+    // the write instead — the picked path is known before the click.
+    const want = cells[0].dataset.src;
+    cells[0].click();
+    for (let i = 0; i < 60 && a.img !== want; i++) await new Promise((r) => setTimeout(r, 100));
+    out.img = a.img;
+    out.token = a.prototypeToken?.texture?.src;
+
+    await sheet.close();
+    await a.delete();
+    return out;
+  });
+
+  !ly.missing && ly.cellCount === LY_COUNT && ly.folderTiles === 0
+    ? ok(`the Lydia pane is a flat grid of ${LY_COUNT}`, "no folder tiles")
+    : fail(`the Lydia pane is a flat grid of ${LY_COUNT}`, JSON.stringify(ly));
+  ly.facesLoaded === LY_COUNT
+    ? ok("every Lydia portrait resolves", `${LY_COUNT}/${LY_COUNT} decoded`)
+    : fail("every Lydia portrait resolves", `${ly.facesLoaded}/${LY_COUNT} — the manifest names a missing file`);
+  ly.firstLabel === LY_FIRST.portrait.replace(/\.[^.]+$/, "").replace(/-/g, " ")
+    ? ok("captions are titles, not filenames", ly.firstLabel)
+    : fail("captions are titles, not filenames", JSON.stringify([ly.firstLabel, LY_FIRST.portrait]));
+  // The whole point of the section. Portrait is the .jpg square; token is the
+  // .png circle — a DIFFERENT FILE, which `?? img` can never produce.
+  ly.img === `${LY_MANIFEST.portraitDir}/${LY_FIRST.portrait}`
+    && ly.token === `${LY_MANIFEST.tokenDir}/${LY_FIRST.token}`
+    && ly.token !== ly.img
+    ? ok("picking sets the square AND its paired circle", `${LY_FIRST.portrait} -> ${LY_FIRST.token}`)
+    : fail("picking sets the square AND its paired circle", JSON.stringify([ly.img, ly.token]));
+  /all rights reserved/i.test(ly.credit) && !/\bCC BY\b/i.test(ly.credit) && !ly.creditCcLink
+    ? ok("the credit says all rights reserved, no CC deed link")
+    : fail("the credit says all rights reserved, no CC deed link", JSON.stringify([ly.credit, ly.creditCcLink]));
+  ly.creditArtistLink === "https://linktr.ee/lydiadidmyink"
+    ? ok("the credit links where her licence links", ly.creditArtistLink)
+    : fail("the credit links where her licence links", JSON.stringify(ly.creditArtistLink));
+
   /* --- 3. items and backgrounds ----------------------------------------- */
 
   const item = await page.evaluate(async () => {
@@ -381,9 +494,26 @@ try {
     out.portraitDir = m.portraitDir;
     out.tokenDir = m.tokenDir;
 
+    // A Lydia creature: the gallery is FLAT, so the whole of it is the folder,
+    // and the paired token must swap to the matching .png — the second paired
+    // gallery, and the only one where "roll stays in the folder" and "token is
+    // a different file from the portrait" have to hold at once.
+    const ly = await gen.getLydiaManifest();
+    const firstLydia = `${ly.portraitDir}/${ly.pairs[0].portrait}`;
+    await a.update({ img: firstLydia, "prototypeToken.texture.src": `${ly.tokenDir}/${ly.pairs[0].token}` });
+    await clickDie();
+    await until(() => a.img !== firstLydia);
+    out.afterLydia = a.img;
+    out.tokenAfterLydia = a.prototypeToken?.texture?.src;
+    out.lydiaPortraitDir = ly.portraitDir;
+    out.lydiaTokenDir = ly.tokenDir;
+    out.lydiaPairs = ly.pairs;
+
     // No known folder: back to the auto-assignment pool (custom when the world
     // has any, else Aspeheim) — computed here, not assumed, so the leg does not
-    // depend on whether this world's custom folder happens to be empty.
+    // depend on whether this world's custom folder happens to be empty. Lydia's
+    // gallery is deliberately NOT a fallback: it is monsters, and the die on an
+    // unrecognised image must not turn a hireling into a black pudding.
     await a.update({ img: "icons/svg/mystery-man.svg" });
     await clickDie();
     await until(() => a.img !== "icons/svg/mystery-man.svg");
@@ -406,7 +536,11 @@ try {
     && roll.tokenAfterAspeheim === `${roll.tokenDir}/${roll.afterAspeheim.split("/").pop()}`
     ? ok("an Aspeheim roll stays Aspeheim, token paired", roll.afterAspeheim.split("/").pop())
     : fail("an Aspeheim roll stays Aspeheim, token paired", JSON.stringify([roll.afterAspeheim, roll.tokenAfterAspeheim]));
-  roll.unknownLandsInPool
+  const rolledPair = roll.lydiaPairs?.find((p) => roll.afterLydia === `${roll.lydiaPortraitDir}/${p.portrait}`);
+  rolledPair && roll.tokenAfterLydia === `${roll.lydiaTokenDir}/${rolledPair.token}`
+    ? ok("a Lydia roll stays Lydia, token paired", `${rolledPair.portrait} -> ${rolledPair.token}`)
+    : fail("a Lydia roll stays Lydia, token paired", JSON.stringify([roll.afterLydia, roll.tokenAfterLydia]));
+  roll.unknownLandsInPool && !roll.afterUnknown?.includes("/lydia-comer/")
     ? ok("an unknown image falls back to the auto pool", roll.afterUnknown.split("/").pop())
     : fail("an unknown image falls back to the auto pool", JSON.stringify(roll.afterUnknown));
 

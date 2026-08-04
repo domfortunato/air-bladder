@@ -269,5 +269,55 @@ if (statedArtists === undefined) {
   ok(`LICENSE.txt's contributor count matches CREDITS.md (${creditedArtists.length})`);
 }
 
+/* --- 6. the Lydia Comer gallery is PAIRED, and stated at its true size ------ */
+
+// This one is not a public licence: an all-rights-reserved grant to this system
+// alone. So the thing to hold is narrower than attribution -- it is that the
+// shipped tree still matches what the manifest and the notices claim, because
+// every consumer of this gallery (the picker, the portrait die, the paired-token
+// lookup) trusts the manifest and none of them can see the disk.
+//
+// The PAIRING is the load-bearing half. A portrait with no token is not a
+// missing file, it is an actor whose sheet shows the square and whose token on
+// the canvas silently keeps whatever it had -- which looks like a Foundry bug
+// and is a build error. Checked here rather than only in the importer because
+// the importer runs once and this runs on every gate.
+const lydiaPortraits = readdirSync(join(ROOT, "lydia-comer", "portraits")).filter((f) => /\.jpe?g$/i.test(f));
+const lydiaTokens = new Set(readdirSync(join(ROOT, "lydia-comer", "tokens")).filter((f) => /\.png$/i.test(f)));
+const lydiaManifest = JSON.parse(read("module/lydia-manifest.json"));
+const stem = (f) => f.replace(/\.[^.]+$/, "");
+
+const lydiaProblems = [];
+for (const p of lydiaPortraits) if (!lydiaTokens.has(`${stem(p)}.png`)) lydiaProblems.push(`portraits/${p} has no paired token`);
+for (const t of lydiaTokens) if (!lydiaPortraits.some((p) => stem(p) === stem(t))) lydiaProblems.push(`tokens/${t} has no paired portrait`);
+if (lydiaManifest.pairs?.length !== lydiaPortraits.length) {
+  lydiaProblems.push(`module/lydia-manifest.json lists ${lydiaManifest.pairs?.length} pairs, disk holds ${lydiaPortraits.length}`);
+}
+for (const { portrait, token } of lydiaManifest.pairs ?? []) {
+  if (!lydiaPortraits.includes(portrait)) lydiaProblems.push(`manifest names portraits/${portrait}, which is not on disk`);
+  if (!lydiaTokens.has(token)) lydiaProblems.push(`manifest names tokens/${token}, which is not on disk`);
+}
+// Named rather than inlined so the pass message can COUNT them. It said "4
+// sites" from a literal, and went stale the moment two more were added -- this
+// gate reporting a stale number about staleness.
+const LYDIA_COUNT_SITES = [
+  ["LICENSE.txt", /hold (\d+) creatures/],
+  ["README.md", /(\d+) creatures drawn for this system/],
+  ["README.es.md", /(\d+) criaturas dibujadas para este sistema/],
+  ["lydia-comer/CREDITS.md", /^(\d+) creatures, \d+ files\./m],
+  // Both READMEs state it a second time, up in the feature list. Two statements
+  // of one number in one file is the ordinary way a count goes stale.
+  ["README.md", /A gallery of (\d+) monsters drawn for Air Bladder/],
+  ["README.es.md", /Una galería de (\d+) monstruos dibujados para Air Bladder/],
+];
+for (const [file, pattern] of LYDIA_COUNT_SITES) {
+  const m = read(file).match(pattern);
+  if (!m) lydiaProblems.push(`${file}: the count sentence this gate anchors on is gone (${pattern})`);
+  else if (Number(m[1]) !== lydiaPortraits.length) lydiaProblems.push(`${file}: says ${m[1]}, disk holds ${lydiaPortraits.length}`);
+}
+lydiaProblems.length === 0
+  ? ok(`the Lydia Comer gallery is fully paired and stated at its true size (${lydiaPortraits.length} creatures, ${LYDIA_COUNT_SITES.length} sites)`)
+  : fail(`Lydia Comer gallery:\n        ${lydiaProblems.join("\n        ")}`);
+
 console.log(`\n${failed ? "LICENCE CHECK FAILED" : "Licence check passed."}`);
 process.exit(failed ? 1 : 0);
