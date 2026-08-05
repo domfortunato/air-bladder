@@ -246,6 +246,13 @@ if you find one, deleting it is in scope, not a separate decision.
 - Armor is hard-capped at 3.
 - Slot inventory: bulky = 2, weightless = 0, times quantity.
 - **Being encumbered sets HP to 0 outright. So does panic.** Intentional.
+  **A pack filled to EXACTLY its limit is encumbered** — `actor.js` computes
+  `slotsUsed >= slotsMax`, not `>`. **RULED 2026-08-05 and CLOSED: this is not
+  changing, do not raise it again.** A character CAN be generated overloaded,
+  because a background granting extra gear is exactly the kind of thing that
+  fills a pack, and the player then decides what to hand off or abandon. It
+  reads like a generation bug and is reported as one (issue #5); the answer is
+  that the choice is the game, not a defect to design away.
 - **Coins consume slots** (2e p.9): `ceil(gold/N) - 1` where N is the
   "coins per slot" setting. ONE rule for every actor type.
 - **Dice notation overloads `+`.** `2d8` = add (2..16). `d8 + d8` = keep highest
