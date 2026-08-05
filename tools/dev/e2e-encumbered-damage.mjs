@@ -46,6 +46,19 @@
  *      rebind is where the failure was permanent) and clicks. 3c mixes a live id
  *      with a dead one and asserts the survivor is damaged AND the miss is
  *      reported.
+ *
+ *   4. Fatigue is never refused (2026-08-05 ruling). A full pack does not stop a
+ *      spell being cast, so Fatigue lands and the character goes over capacity;
+ *      they clear it by dropping something, which is their choice to make. The
+ *      character is built to EXACTLY the limit, never over it, or "used exceeds
+ *      max" would already be true before the click. It refused in TWO places —
+ *      the button's guard and createOwnedItem's behind it — so this clicks the
+ *      real button: removing either guard alone leaves the button refusing while
+ *      every unit-level assertion passes. The same section pins the BOUNDARY the
+ *      ruling draws, which is the part most likely to erode — an unflagged
+ *      create on the same full character must still be refused (overflow is owed
+ *      to Fatigue and to what generation grants, not to ordinary acquisition),
+ *      and a direct grant of three more items must land whole.
  */
 import { chromium } from "playwright";
 import { VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
@@ -379,6 +392,85 @@ const out = await page.evaluate(async () => {
   results.missWarning = warns[0] ?? "(none)";
   ui.notifications.warn = origWarn;
 
+  /* 4. Fatigue is never refused at a full pack ------------------------------ */
+  // Fatigue is a cost the rules impose, not a purchase: a full pack does not stop
+  // a spell being cast, so it lands and the character goes over. The CLICK is
+  // what is measured, because this used to refuse TWICE — the button's own guard
+  // and createOwnedItem's behind it — and removing either alone leaves the button
+  // refusing while every unit-level assertion goes green.
+  const fat = await CONFIG.Actor.documentClass.create({
+    name: `${NAME}-fatigue`, type: "character",
+    system: { hp: { value: 4, max: 6 }, abilities: { STR: { value: 10, max: 10 } } },
+  });
+  // EXACTLY at the limit — ten one-slot items, so no free slot and nothing yet
+  // over the line. makeEncumbered's eight bulky items would start at 16/10, and
+  // "used exceeds max" would then be true BEFORE the click and prove nothing.
+  await fat.createEmbeddedDocuments("Item", Array.from({ length: 10 }, (_, i) => ({
+    name: `Rock ${i}`, type: "item",
+  })));
+  const fatCount = () => fat.items.filter((i) => i.name === "Fatigue").length;
+  results.fatEncumberedBefore = fat.system.encumbered === true;
+  results.fatSlotsBefore = `${fat.system.slotsUsed}/${fat.system.slotsMax}`;
+
+  const fSheet = fat.sheet;
+  await fSheet.render(true);
+  await new Promise((r) => setTimeout(r, 900));
+  const fForm = () => (fSheet.element instanceof HTMLElement ? fSheet.element : fSheet.element[0]);
+  const addBtn = () => fForm().querySelector('[data-action="addFatigue"]');
+  results.fatButtonPresent = !!addBtn();
+
+  addBtn()?.click();
+  results.fatFirstLanded = await until(() => fatCount() === 1);
+  // Twice, because one click also passes on a path that allows a single Fatigue
+  // and then blocks — which is the shape the old guard actually had.
+  addBtn()?.click();
+  results.fatSecondLanded = await until(() => fatCount() === 2);
+  results.fatSlotsAfter = `${fat.system.slotsUsed}/${fat.system.slotsMax}`;
+  results.fatOverCeiling = fat.system.slotsUsed > fat.system.slotsMax;
+  results.fatStillEncumbered = fat.system.encumbered === true;
+
+  // NEGATIVE CONTROL, in-page: reinstate the old refusal on the INSTANCE and the
+  // same click must add nothing. The sheet's own guard is gone, so the method the
+  // handler calls is what is left to defeat. Never by editing source — a control
+  // that rewrites the thing under test is not a control.
+  const origCreate = fat.createOwnedItem.bind(fat);
+  fat.createOwnedItem = async function (itemData) {
+    if (this.isEncumbered() && !itemData.weightless) return;   // the pre-fix line
+    return origCreate(itemData);
+  };
+  const beforeControl = fatCount();
+  addBtn()?.click();
+  await new Promise((r) => setTimeout(r, 1500));
+  results.fatControlBlocked = fatCount() === beforeControl;
+  delete fat.createOwnedItem;
+  addBtn()?.click();
+  results.fatRestoredWorks = await until(() => fatCount() === beforeControl + 1);
+
+  // THE BOUNDARY. Overflow is owed to Fatigue and to what generation grants —
+  // not to ordinary acquisition. An unflagged create on the same full character
+  // must still be turned away, or "never refused" has quietly widened into
+  // "never refused for anything".
+  const beforeRock = fat.items.size;
+  await fat.createOwnedItem({ name: "Probe Boulder", type: "item" });
+  await new Promise((r) => setTimeout(r, 600));
+  results.ordinaryStillRefused = fat.items.size === beforeRock
+    && !fat.items.find((i) => i.name === "Probe Boulder");
+
+  // Part 1 of the rule: what generation and a background grant OWE a character
+  // arrives whole even when it overflows. Those paths write with
+  // createEmbeddedDocuments and never reach the guard, so what this pins is that
+  // the actor model itself neither clamps nor drops — which is exactly what a
+  // future capacity check in _preCreate would break, silently.
+  const beforeGrant = fat.items.size;
+  await fat.createEmbeddedDocuments("Item", [
+    { name: "Granted A", type: "item" },
+    { name: "Granted B", type: "item" },
+    { name: "Granted C", type: "item", system: { bulky: true } },
+  ]);
+  results.grantAllLanded = fat.items.size === beforeGrant + 3;
+  results.grantSlots = `${fat.system.slotsUsed}/${fat.system.slotsMax}`;
+  await fSheet.close();
+
   for (const m of game.messages.filter((m) => !msgsBefore.has(m.id))) await m.delete();
   await t1.delete();
   await t2.delete();
@@ -476,6 +568,26 @@ check("survivor still damaged", out.mixedSurvivorHit,
   "a mixed batch damages the ids that resolve");
 check("the miss is reported", out.mixedWarned && !/^CAIRN\./.test(out.missWarning),
   `warn: ${out.missWarning}`);
+
+console.log("\nFatigue is never refused at a full pack");
+check("at the limit first", out.fatEncumberedBefore,
+  `slots ${out.fatSlotsBefore} — no free slot, and nothing over the line yet`);
+check("+ button present", out.fatButtonPresent,
+  'the element carrying data-action="addFatigue" (AppV2 actions are private statics — a probe must click)');
+check("first click lands", out.fatFirstLanded,
+  "a click on the real button added Fatigue to a pack with no free slot");
+check("second click lands", out.fatSecondLanded,
+  "twice — not a path that allows one and then blocks, which is what the old guard did");
+check("past the ceiling", out.fatOverCeiling,
+  `slots ${out.fatSlotsAfter} (used must EXCEED max: Fatigue is owed, and capacity does not cap it)`);
+check("still encumbered", out.fatStillEncumbered,
+  "over capacity stays over capacity — the player drops something to clear it");
+check("negative control", out.fatControlBlocked && out.fatRestoredWorks,
+  `old refusal shadowed onto the instance blocks the same click (${out.fatControlBlocked}); restored and lands again (${out.fatRestoredWorks})`);
+check("ordinary adds refused", out.ordinaryStillRefused,
+  "an unflagged createOwnedItem on the same full character is still turned away — overflow is owed to Fatigue, not to shopping");
+check("grants land whole", out.grantAllLanded,
+  `slots ${out.grantSlots} — what generation and a background grant owe is never clamped`);
 
 if (errors.length) { bad++; console.log("Console errors:\n" + errors.join("\n")); }
 console.log(bad === 0 ? "\nencumbered-damage e2e passed" : `\nencumbered-damage e2e FAILED — ${bad}`);

@@ -2141,14 +2141,32 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     });
   }
 
-  /** @this {CairnActorSheet} */
+  /**
+   * Fatigue is NEVER refused, at any load. It is a cost the rules impose, not a
+   * purchase — a full pack does not stop a spell being cast — so the character
+   * takes it and goes over capacity, and the player decides what to shed to get
+   * a free slot back.
+   *
+   * This used to refuse TWICE, here and again inside `createOwnedItem`, which is
+   * why `ignoreCapacity` is passed as well as this guard being gone: removing
+   * either one alone leaves the button refusing and looks like a landed fix.
+   *
+   * @this {CairnActorSheet}
+   */
   static async #onAddFatigue(event) {
     event.preventDefault();
+    await this.actor.createOwnedItem(
+      { name: FATIGUE_NAME, type: "item" },
+      { ignoreCapacity: true }
+    );
+    // A notice, never a refusal, and only when this click is what tipped them
+    // over. The stored name is English by design, so localize it for display the
+    // way the inventory rows do.
     if (this.actor.isEncumbered()) {
-      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.MaxSlotsOccupied"));
-      return;
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.Overloaded", {
+        name: game.i18n.localize("CAIRN.Fatigue"),
+      }));
     }
-    await this.actor.createOwnedItem({ name: FATIGUE_NAME, type: "item" });
   }
 
   /** @this {CairnActorSheet} */
@@ -3124,12 +3142,22 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       return null;
     }
 
-    // Capacity rules differ by target. A CHARACTER may accept an item that puts
-    // them over capacity (they just drop to HP 0 until a slot frees). A THING —
-    // role container or transport — is strict: it refuses anything that won't
-    // fit, because a sack has no rule that punishes it for being overfull. A
-    // MOUNT is not a thing and is deliberately lenient: it is a creature with a
-    // stat block, and it follows the npc rule (over capacity does nothing).
+    // Capacity rules differ by target. A CHARACTER with no free slot refuses:
+    // a drop is ORDINARY ACQUISITION, and the rule only owes a character
+    // overflow in two cases, neither of them this one — what generation and a
+    // background grant hand them (those write with `createEmbeddedDocuments` and
+    // never reach here), and Fatigue, which passes `ignoreCapacity` because a
+    // full pack does not stop a spell being cast. A THING — role container or
+    // transport — is strict for a different reason: it refuses anything that
+    // won't fit, because a sack has no rule that punishes it for being overfull.
+    // A MOUNT is not a thing and is deliberately lenient: it is a creature with
+    // a stat block, and it follows the npc rule (over capacity does nothing).
+    //
+    // This comment used to say a character MAY go over here, directly above the
+    // line that refuses. It was describing an intention nobody had implemented,
+    // and a correct-sounding comment on contradicting code reads as verification
+    // — it is why the disagreement survived two reviews. The rule was settled on
+    // 2026-08-05 in the code's favour; see CLAUDE.md.
     const s = originalItem.system ?? {};
     const need = s.bulky ? 2 : s.weightless ? 0 : 1;
     if (this.actor.isThing) {

@@ -702,8 +702,19 @@ export class CairnActor extends Actor {
     return this.system.features.find(a => a.id == itemId);
   }
 
-  async createOwnedItem(itemData) {
-    if (this.isEncumbered() && !itemData.weightless) {
+  /**
+   * `ignoreCapacity` is for things the rules OWE a character rather than things
+   * they choose to pick up. Fatigue is the case it exists for: casting occupies
+   * a slot whether or not one is free, so refusing it at a full pack does not
+   * protect the player — it cancels a cost, and makes casting cheapest exactly
+   * when the character is most loaded. Generation and background grants need no
+   * flag; they write with `createEmbeddedDocuments` and never come through here.
+   *
+   * Ordinary acquisition still refuses. The Create Item dialog is the caller
+   * that keeps the guard.
+   */
+  async createOwnedItem(itemData, { ignoreCapacity = false } = {}) {
+    if (!ignoreCapacity && this.isEncumbered() && !itemData.weightless) {
       await ui.notifications.warn(
         game.i18n.localize("CAIRN.Notify.MaxSlotsOccupied")
       );

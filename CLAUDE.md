@@ -246,27 +246,37 @@ if you find one, deleting it is in scope, not a separate decision.
 - Armor is hard-capped at 3.
 - Slot inventory: bulky = 2, weightless = 0, times quantity.
 - **Being encumbered sets HP to 0 outright. So does panic.** Intentional.
-  **A pack filled to EXACTLY its limit is encumbered** — `actor.js` computes
-  `slotsUsed >= slotsMax`, not `>` — and **there is no ceiling above that: a
-  character may carry MORE than the limit and is simply encumbered until they
-  are back down to limit-minus-one.** **RULED 2026-08-05 and CLOSED: none of
-  this is changing, do not raise it again.** A character CAN be generated
-  overloaded, because a background granting extra gear is exactly the kind of
-  thing that fills a pack, and the player then decides what to hand to someone
-  else or abandon. It reads like a generation bug and is reported as one
-  (issue #5); the answer is that the choice is the game, not a defect to
-  design away.
-  **The code does NOT yet implement the no-ceiling half, and the disagreement
-  is currently 3–1.** `createOwnedItem` (`actor.js`), the sheet's Add Fatigue
-  button and `_onDropItem`'s character branch (`actor-sheet.js`) all REFUSE
-  outright once `isEncumbered()` is true, so nothing can push a character past
-  the limit — while the marketplace calls `createEmbeddedDocuments` directly
-  and merely warns, which is the ruled behaviour. `_onDropItem`'s own comment
-  ("A CHARACTER may accept an item that puts them over capacity") states the
-  rule its next line breaks. Fatigue is the sharpest case: casting fills a
-  slot whether or not one is free, so refusing it at capacity drops a cost the
-  rules impose. Unresolved — the ruling is recorded, the reconciliation is not
-  scheduled.
+  **Encumbered means NO FREE SLOT** — `actor.js` computes `slotsUsed >=
+  slotsMax`, so a pack filled to exactly its limit counts, and it clears only by
+  dropping or giving something away. **RULED 2026-08-05 and CLOSED: the
+  threshold is not changing, do not raise it again.**
+  **A character may go OVER the limit, but only where the rules owe it to them**
+  — two cases, and the boundary is the whole point:
+  - **What generation and a background grant hand them.** Random gear plus
+    background gear can add up to more than ten items and the character is owed
+    all of it, so they are given everything and land encumbered. The player then
+    decides what to keep, hand to someone else, or abandon. This reads like a
+    generation bug and is reported as one (issue #5); the answer is that the
+    choice is the game. No code enforces this — those paths write with
+    `createEmbeddedDocuments` and never reach the guard.
+  - **Fatigue, always.** Casting fills a slot whether or not one is free, so
+    refusing it does not protect the player, it cancels a cost — and makes
+    casting cheapest exactly when the character is most loaded. `createOwnedItem`
+    takes `{ ignoreCapacity: true }` for this and nothing else so far.
+
+  **Ordinary acquisition still refuses**, and that is deliberate, not a gap: a
+  drop onto a full character (`_onDropItem`) and the manual Create Item dialog
+  both turn it away. Overflow is owed, never merely allowed.
+  Two things this cost, worth not repeating. Add Fatigue refused in **two**
+  places — its own guard and `createOwnedItem`'s behind it — so removing either
+  alone changed nothing a user could see while looking like a landed fix; that is
+  why `dev:enc-damage` clicks the real button rather than calling either layer.
+  And `_onDropItem` carried a comment stating the opposite of the line beneath it
+  for months. **A correct-sounding comment on contradicting code reads as
+  verification**, which is how the disagreement survived two reviews.
+  **Still inconsistent, undecided:** the marketplace (`marketplace.js`) creates
+  and merely warns, so buying walks a character past the limit — ordinary
+  acquisition that this rule does not license.
 - **Coins consume slots** (2e p.9): `ceil(gold/N) - 1` where N is the
   "coins per slot" setting. ONE rule for every actor type.
 - **Dice notation overloads `+`.** `2d8` = add (2..16). `d8 + d8` = keep highest
