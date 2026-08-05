@@ -210,10 +210,10 @@ const acquire = async (actor, data, pay) => {
     return false;
   }
   // A THING is strict (refuses anything that won't fit, never holds equipped
-  // gear); a CHARACTER may go over capacity (they drop to HP 0 until a slot
-  // frees). `isThing` and not the retired `container` TYPE — the same correction
-  // review #5 made to the nesting guard below, which this pair was missed in, so
-  // an npc sack took stock past its capacity and equipped it.
+  // gear); a CHARACTER is refused once they have NO FREE SLOT. `isThing` and not
+  // the retired `container` TYPE — the same correction review #5 made to the
+  // nesting guard below, which this pair was missed in, so an npc sack took
+  // stock past its capacity and equipped it.
   if (actor.isThing) {
     const need = slotCost(data.system);
     if ((actor.system.slotsUsed ?? 0) + need > (actor.system.slotsMax ?? 0)) {
@@ -221,6 +221,18 @@ const acquire = async (actor, data, pay) => {
       return false;
     }
     data.system.equipped = false;
+  } else if (actor.isEncumbered() && !data.system?.weightless) {
+    // Shopping is ORDINARY ACQUISITION, so a full pack refuses it — the same
+    // rule and the same words as `createOwnedItem` and a drop onto a full
+    // character, because one rule the player meets three ways should not read
+    // as three rules. Overflow is OWED in two cases only (what generation and a
+    // background grant hand them, and Fatigue); it is never merely allowed, and
+    // this path used to allow it — it created the item and warned afterwards.
+    //
+    // PETTY is exempt on purpose: it costs no slot, so "your slots are full" is
+    // not a reason to refuse it. Same carve-out `createOwnedItem` makes.
+    ui.notifications.warn(game.i18n.localize("CAIRN.Notify.MaxSlotsOccupied"));
+    return false;
   }
   await actor.createEmbeddedDocuments("Item", [data]);
   if (pay) {
@@ -464,10 +476,25 @@ export const openMarketplace = async (actor, opts = {}) => {
     const gold = actor.system.gold ?? 0;
     root.querySelector(".mkt-coins").textContent = gold;
     root.querySelector(".mkt-slotval").textContent = `${actor.system.slotsUsed}/${actor.system.slotsMax}`;
+    // A full pack greys the rows it cannot take, rather than leaving a live
+    // button that answers with a refusal — the shop should not offer what it is
+    // about to turn down. `acquire` still refuses on its own: this is the
+    // affordance, not the enforcement, and a stale dialog must not become a way
+    // through.
+    const full = !actor.isThing && actor.isEncumbered();
     root.querySelectorAll(".mkt-row").forEach((row) => {
       const cost = Number(row.dataset.cost);
-      row.querySelector(".mkt-buy").disabled = gold < cost;
-      row.querySelector(".mkt-take").disabled = false;
+      const buy = row.querySelector(".mkt-buy");
+      const take = row.querySelector(".mkt-take");
+      const data = built[Number(buy.dataset.idx)];
+      // Two kinds stay available at a full pack: a TRANSPORT is a connected
+      // Actor and never counts against the buyer's slots (buying a mule is how
+      // you FIX being full, so refusing it at the till would be perverse), and
+      // a PETTY item costs no slot at all.
+      const needsRoom = data && !isCarrier(data) && !data.system?.weightless;
+      const noRoom = full && !!needsRoom;
+      buy.disabled = noRoom || gold < cost;
+      take.disabled = noRoom;
     });
   };
 

@@ -265,8 +265,17 @@ if you find one, deleting it is in scope, not a separate decision.
     takes `{ ignoreCapacity: true }` for this and nothing else so far.
 
   **Ordinary acquisition still refuses**, and that is deliberate, not a gap: a
-  drop onto a full character (`_onDropItem`) and the manual Create Item dialog
-  both turn it away. Overflow is owed, never merely allowed.
+  drop onto a full character (`_onDropItem`), the manual Create Item dialog, and
+  **the marketplace** all turn it away. Overflow is owed, never merely allowed.
+  The shop was the last holdout — it created the item and warned afterwards,
+  which made buying the one way a player could walk past their own limit — and
+  was closed the same day (2026-08-05, user ruling). It greys the rows it will
+  refuse AND refuses in `acquire`: **the greying is the affordance, the refusal
+  is the enforcement**, because a dialog left open while the pack filled must
+  not be a way through. Two carve-outs, both because they cost the buyer no
+  slot: **petty** items, and **transports** — a transport is a connected Actor,
+  and buying a mule is how you FIX being full, so refusing it at the till would
+  be perverse.
   Two things this cost, worth not repeating. Add Fatigue refused in **two**
   places — its own guard and `createOwnedItem`'s behind it — so removing either
   alone changed nothing a user could see while looking like a landed fix; that is
@@ -274,9 +283,6 @@ if you find one, deleting it is in scope, not a separate decision.
   And `_onDropItem` carried a comment stating the opposite of the line beneath it
   for months. **A correct-sounding comment on contradicting code reads as
   verification**, which is how the disagreement survived two reviews.
-  **Still inconsistent, undecided:** the marketplace (`marketplace.js`) creates
-  and merely warns, so buying walks a character past the limit — ordinary
-  acquisition that this rule does not license.
 - **Coins consume slots** (2e p.9): `ceil(gold/N) - 1` where N is the
   "coins per slot" setting. ONE rule for every actor type.
 - **Dice notation overloads `+`.** `2d8` = add (2..16). `d8 + d8` = keep highest
