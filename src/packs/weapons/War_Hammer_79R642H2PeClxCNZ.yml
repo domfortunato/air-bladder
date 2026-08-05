@@ -1,26 +1,26 @@
 name: War Hammer
 type: weapon
 flags:
-  core:
-    sourceId: Item.73HHfIqTvudoydxh
+  core: {}
 img: systems/air-bladder/art/game-icons/weapons/warhammer.svg
 effects: []
 _id: 79R642H2PeClxCNZ
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.73HHfIqTvudoydxh
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3
 system:
   cost: 20
-  description: 'A great two-handed hammer that turns armor into a liability.'
+  description: A great two-handed hammer that turns armor into a liability.
   weightless: false
   equipped: true
   bulky: true

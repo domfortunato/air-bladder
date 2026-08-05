@@ -9,7 +9,10 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: 'Write someone''s name onto its glass, and the name will disappear. The lantern reveals a path to their current location, visible only to the holder (day or night).'
+  description: >-
+    Write someone's name onto its glass, and the name will disappear. The
+    lantern reveals a path to their current location, visible only to the holder
+    (day or night).
   weightless: false
   equipped: false
   bulky: false
@@ -19,7 +22,9 @@ system:
     value: 1
     max: 1
   relic: true
-  recharge: 'Kill the last person found with the help of the lantern, trapping their spirit inside. The lantern must be nearby when they are killed.'
+  recharge: >-
+    Kill the last person found with the help of the lantern, trapping their
+    spirit inside. The lantern must be nearby when they are killed.
 ownership:
   default: 0
 _stats:

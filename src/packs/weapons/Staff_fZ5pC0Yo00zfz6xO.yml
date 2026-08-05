@@ -1,26 +1,26 @@
 name: Staff
 type: weapon
 flags:
-  core:
-    sourceId: Item.0avKvBs4YT9gkvxr
+  core: {}
 img: systems/air-bladder/art/game-icons/weapons/wizard-staff.svg
 effects: []
 _id: fZ5pC0Yo00zfz6xO
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.0avKvBs4YT9gkvxr
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3
 system:
   cost: 5
-  description: 'A stout walking-staff that doubles as a cudgel at need.'
+  description: A stout walking-staff that doubles as a cudgel at need.
   weightless: false
   equipped: true
   bulky: false

@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'On Critical Damage, it drains the target''s blood, granting the weapon''s next attack the blast quality.'
+  description: >-
+    On Critical Damage, it drains the target's blood, granting the weapon's next
+    attack the blast quality.
   weightless: false
   equipped: false
   bulky: false

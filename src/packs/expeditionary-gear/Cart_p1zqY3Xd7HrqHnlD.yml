@@ -5,18 +5,18 @@ effects: []
 folder: null
 sort: 0
 flags:
-  core:
-    sourceId: Item.vNHShpXPgUnAE1f1
+  core: {}
 _id: p1zqY3Xd7HrqHnlD
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.vNHShpXPgUnAE1f1
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   XdVZurdf0C9IKG6I: 3

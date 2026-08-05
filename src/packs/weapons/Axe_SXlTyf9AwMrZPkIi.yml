@@ -1,26 +1,26 @@
 name: Axe
 type: weapon
 flags:
-  core:
-    sourceId: Item.nhGvfx1T1eutaGUl
+  core: {}
 img: systems/air-bladder/art/game-icons/tools/wood-axe.svg
 effects: []
 _id: SXlTyf9AwMrZPkIi
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.nhGvfx1T1eutaGUl
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3
 system:
   cost: 10
-  description: 'A broad chopping axe, as at home splitting wood as splitting shields.'
+  description: A broad chopping axe, as at home splitting wood as splitting shields.
   weightless: false
   equipped: true
   bulky: false

@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Reveals the constellations above, no matter the weather.'
+  description: Reveals the constellations above, no matter the weather.
   weightless: false
   equipped: false
   bulky: false

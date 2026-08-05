@@ -1,5 +1,5 @@
 _id: AndXkU84XOeqvgY6
-name: 'Dryad''s Tear'
+name: Dryad's Tear
 type: item
 img: systems/air-bladder/art/game-icons/eye/tear-tracks.svg
 effects: []
@@ -9,7 +9,9 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: Shatter this crystal to merge with a tree you can touch. You can perceive the goings-on within whatever forest that tree belongs to.
+  description: >-
+    Shatter this crystal to merge with a tree you can touch. You can perceive
+    the goings-on within whatever forest that tree belongs to.
   weightless: false
   equipped: false
   bulky: false

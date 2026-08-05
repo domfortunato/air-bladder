@@ -9,7 +9,10 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'You found a Tiny Crystal Prism (petty) buried in the dirt. When held up to the light, it shows visions of an unknown location deep within the Wood. Sometimes, you feel a presence looking back at you.'
+  description: >-
+    You found a Tiny Crystal Prism (petty) buried in the dirt. When held up to
+    the light, it shows visions of an unknown location deep within the Wood.
+    Sometimes, you feel a presence looking back at you.
   weightless: true
   equipped: false
   bulky: false

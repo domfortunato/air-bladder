@@ -1,20 +1,20 @@
 name: Telekinesis
 type: spellbook
 flags:
-  core:
-    sourceId: Item.cg3gFfX5gJXOhjvE
+  core: {}
 img: systems/air-bladder/icons/spellbook.svg
 effects: []
 _id: Bdf81HVV4Nb4Q5Mz
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.cg3gFfX5gJXOhjvE
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3

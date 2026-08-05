@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: A weighted net for snaring beasts. Effective against canines — and werewolves too.
+  description: >-
+    A weighted net for snaring beasts. Effective against canines — and
+    werewolves too.
   weightless: false
   equipped: false
   bulky: false

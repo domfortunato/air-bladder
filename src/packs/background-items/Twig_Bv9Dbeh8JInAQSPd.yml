@@ -9,7 +9,10 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A white crow appeared to you in a dream, holding a twig in its mouth. You awoke the next morning with The Twig (petty) in your hand. You believe it brings you luck. It smells faintly of sulfur.'
+  description: >-
+    A white crow appeared to you in a dream, holding a twig in its mouth. You
+    awoke the next morning with The Twig (petty) in your hand. You believe it
+    brings you luck. It smells faintly of sulfur.
   weightless: true
   equipped: false
   bulky: false

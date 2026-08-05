@@ -1,26 +1,28 @@
 name: Shield
 type: armor
 flags:
-  core:
-    sourceId: Item.eYGGXSUUHqf8pUNT
+  core: {}
 img: systems/air-bladder/art/game-icons/shields/round-shield.svg
 effects: []
 _id: 7r2YpGYPQI2SarO3
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.eYGGXSUUHqf8pUNT
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3
 system:
   cost: 10
-  description: 'A broad wooden shield banded with iron. Ready to catch what your armor can''t.'
+  description: >-
+    A broad wooden shield banded with iron. Ready to catch what your armor
+    can't.
   weightless: false
   equipped: true
   bulky: false

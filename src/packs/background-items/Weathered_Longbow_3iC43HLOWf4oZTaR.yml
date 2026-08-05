@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A hunter''s longbow, its limbs worn smooth by years of use. It remembers the draw better than you do.'
+  description: >-
+    A hunter's longbow, its limbs worn smooth by years of use. It remembers the
+    draw better than you do.
   weightless: false
   equipped: false
   bulky: true

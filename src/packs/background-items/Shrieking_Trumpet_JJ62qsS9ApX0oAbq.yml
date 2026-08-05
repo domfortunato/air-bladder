@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'When exposed to light, it screams so loudly that all nearby attacks (including your own) are impaired.'
+  description: >-
+    When exposed to light, it screams so loudly that all nearby attacks
+    (including your own) are impaired.
   weightless: false
   equipped: false
   bulky: false

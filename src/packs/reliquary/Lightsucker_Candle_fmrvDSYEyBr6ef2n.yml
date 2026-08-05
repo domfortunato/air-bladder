@@ -9,7 +9,9 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: 'Once lit, this black tallow wax sheds darkness rather than light, even in the brightest of days.'
+  description: >-
+    Once lit, this black tallow wax sheds darkness rather than light, even in
+    the brightest of days.
   weightless: false
   equipped: false
   bulky: false

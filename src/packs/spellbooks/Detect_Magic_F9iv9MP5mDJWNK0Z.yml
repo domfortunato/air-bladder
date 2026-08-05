@@ -1,20 +1,20 @@
 name: Detect Magic
 type: spellbook
 flags:
-  core:
-    sourceId: Item.RG7HUsA0OrkZDLxM
+  core: {}
 img: systems/air-bladder/icons/spellbook.svg
 effects: []
 _id: F9iv9MP5mDJWNK0Z
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.RG7HUsA0OrkZDLxM
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3

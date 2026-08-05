@@ -17,7 +17,7 @@ system:
   startingGear:
     - name: Candle
       uses: 3
-    - name: 'Parchment & Ink'
+    - name: Parchment & Ink
       uses: 3
     - name: Scroll of Random Spellbook
   containers: []

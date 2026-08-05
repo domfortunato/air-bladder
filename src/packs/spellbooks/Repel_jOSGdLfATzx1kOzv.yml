@@ -1,20 +1,20 @@
 name: Repel
 type: spellbook
 flags:
-  core:
-    sourceId: Item.ofSxQnUXbSa32r1h
+  core: {}
 img: systems/air-bladder/icons/spellbook.svg
 effects: []
 _id: jOSGdLfATzx1kOzv
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.ofSxQnUXbSa32r1h
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3

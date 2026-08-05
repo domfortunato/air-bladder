@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Given time and adequate materials, you can repair armor.'
+  description: Given time and adequate materials, you can repair armor.
   weightless: false
   equipped: false
   bulky: true

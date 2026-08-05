@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: A monocle that lets you see through walls or other obstructions. Shatters after the last use.
+  description: >-
+    A monocle that lets you see through walls or other obstructions. Shatters
+    after the last use.
   weightless: false
   equipped: false
   bulky: false

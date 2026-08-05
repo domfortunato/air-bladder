@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Broad, buoyant footwear for crossing marsh and shallows without sinking.'
+  description: Broad, buoyant footwear for crossing marsh and shallows without sinking.
   weightless: false
   equipped: false
   bulky: false

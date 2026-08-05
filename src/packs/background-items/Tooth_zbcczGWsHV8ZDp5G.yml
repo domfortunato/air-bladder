@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'The Tooth of a Silver Marsh Crawler, carried as a warning to others of its kind. Hums softly when something is stalking you.'
+  description: >-
+    The Tooth of a Silver Marsh Crawler, carried as a warning to others of its
+    kind. Hums softly when something is stalking you.
   weightless: true
   equipped: false
   bulky: false

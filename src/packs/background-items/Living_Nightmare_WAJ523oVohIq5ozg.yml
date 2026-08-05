@@ -9,7 +9,10 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Manifests whenever you are in danger. It has your same Attributes and HP and attacks with claws (d8+d8). It disappears on Critical Damage (take 1d4 WIL damage), re-appearing again on the next full moon.'
+  description: >-
+    Manifests whenever you are in danger. It has your same Attributes and HP and
+    attacks with claws (d8+d8). It disappears on Critical Damage (take 1d4 WIL
+    damage), re-appearing again on the next full moon.
   weightless: false
   equipped: false
   bulky: false

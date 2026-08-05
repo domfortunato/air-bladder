@@ -9,7 +9,9 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: 'A balloon-shaped plant that captures a spoken message and delivers it to a location within a day''s walk.'
+  description: >-
+    A balloon-shaped plant that captures a spoken message and delivers it to a
+    location within a day's walk.
   weightless: false
   equipped: false
   bulky: false

@@ -5,7 +5,7 @@ img: systems/air-bladder/art/game-icons/fire/lantern-flame.svg
 effects: []
 _id: pMVVPnTrgpggZHYN
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
@@ -13,12 +13,13 @@ _stats:
   lastModifiedBy: null
   compendiumSource: null
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3
 system:
   cost: 10
-  description: 'A shuttered oil lantern casting steady light, hands free to work or fight.'
+  description: A shuttered oil lantern casting steady light, hands free to work or fight.
   weightless: false
   equipped: false
   bulky: false

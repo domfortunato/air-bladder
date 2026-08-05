@@ -9,7 +9,10 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Large-leaf binding over vellum. Nominally a children''s storybook, the margins detail information about traveling, eating, and sleeping in the cloud forests.'
+  description: >-
+    Large-leaf binding over vellum. Nominally a children's storybook, the
+    margins detail information about traveling, eating, and sleeping in the
+    cloud forests.
   weightless: false
   equipped: false
   bulky: false

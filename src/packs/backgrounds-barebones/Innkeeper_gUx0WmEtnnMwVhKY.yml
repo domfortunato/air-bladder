@@ -18,7 +18,7 @@ system:
     - name: Alcohol
     - name: Bandages
       uses: 3
-    - name: 'Parchment & Ink'
+    - name: Parchment & Ink
       uses: 3
   containers: []
   tables: []

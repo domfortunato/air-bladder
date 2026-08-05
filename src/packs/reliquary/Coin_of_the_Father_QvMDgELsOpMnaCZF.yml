@@ -9,7 +9,9 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: 'Flip this worthless-looking hunk of flat metal in the air, and it will transform into d100 gold coins. The illusory coins disappear after one hour.'
+  description: >-
+    Flip this worthless-looking hunk of flat metal in the air, and it will
+    transform into d100 gold coins. The illusory coins disappear after one hour.
   weightless: true
   equipped: false
   bulky: false

@@ -1,0 +1,121 @@
+_id: o6AX6fus0QiEuDkK
+name: 'Barebones: Weapon Tier - d6'
+img: icons/svg/d20-grey.svg
+description: >-
+  Cairn Barebones d6 weapons. Rolled from Barebones: Creation - Weapon. Damage
+  comes from the item itself, not from this table — edit the weapon to change
+  it.
+results:
+  - _id: 6ptne5MRSLCrm57I
+    type: document
+    name: Dagger
+    img: systems/air-bladder/art/game-icons/blade/plain-dagger.svg
+    weight: 1
+    range:
+      - 1
+      - 1
+    drawn: false
+    documentUuid: Compendium.air-bladder.weapons.Item.67XlPOQE3AUTRyuy
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
+    _key: '!tables.results!o6AX6fus0QiEuDkK.6ptne5MRSLCrm57I'
+  - _id: il6oJzkTYKJufFfG
+    type: document
+    name: Cudgel
+    img: systems/air-bladder/art/game-icons/weapons/wood-club.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    documentUuid: Compendium.air-bladder.weapons.Item.PtHPURu548JUKwuU
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
+    _key: '!tables.results!o6AX6fus0QiEuDkK.il6oJzkTYKJufFfG'
+  - _id: we9KEDLx0uQRhEmo
+    type: document
+    name: Sickle
+    img: systems/air-bladder/art/game-icons/tools/sickle.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    documentUuid: Compendium.air-bladder.weapons.Item.caDKrOr1tkXkLVCk
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
+    _key: '!tables.results!o6AX6fus0QiEuDkK.we9KEDLx0uQRhEmo'
+  - _id: 8cmNZKXRGHleG8fA
+    type: document
+    name: Staff
+    img: systems/air-bladder/art/game-icons/weapons/wizard-staff.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    documentUuid: Compendium.air-bladder.weapons.Item.fZ5pC0Yo00zfz6xO
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
+    _key: '!tables.results!o6AX6fus0QiEuDkK.8cmNZKXRGHleG8fA'
+formula: 1d4
+replacement: true
+displayRoll: true
+flags:
+  air-bladder:
+    tableSource: barebones
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+  systemVersion: 0.1.9
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!tables!o6AX6fus0QiEuDkK'

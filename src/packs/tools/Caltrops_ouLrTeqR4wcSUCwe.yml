@@ -1,26 +1,28 @@
 name: Caltrops
 type: item
 flags:
-  core:
-    sourceId: Item.LhiYhft7QCJu2uDj
+  core: {}
 img: systems/air-bladder/icons/tools.svg
 effects: []
 _id: ouLrTeqR4wcSUCwe
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.LhiYhft7QCJu2uDj
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3
 system:
   cost: 10
-  description: 'A scatter of iron spikes that always land point-up. Cruel to anything on foot.'
+  description: >-
+    A scatter of iron spikes that always land point-up. Cruel to anything on
+    foot.
   weightless: false
   equipped: false
   bulky: false

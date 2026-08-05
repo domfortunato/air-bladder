@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A pointed leather-worker''s spike. Sharp enough to serve as a weapon at need.'
+  description: A pointed leather-worker's spike. Sharp enough to serve as a weapon at need.
   weightless: false
   equipped: false
   bulky: false

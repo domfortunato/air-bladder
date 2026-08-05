@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: Draws out dangerous elements from the body and acts as a powerful magnetic force.
+  description: >-
+    Draws out dangerous elements from the body and acts as a powerful magnetic
+    force.
   weightless: false
   equipped: false
   bulky: false

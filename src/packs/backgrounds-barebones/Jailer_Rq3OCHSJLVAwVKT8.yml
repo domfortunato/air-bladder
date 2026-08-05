@@ -15,7 +15,7 @@ system:
   description: ''
   names: []
   startingGear:
-    - name: 'Chain, 10ft'
+    - name: Chain, 10ft
     - name: Manacles
     - name: Whistle
   containers: []

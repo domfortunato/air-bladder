@@ -1,20 +1,20 @@
 name: Sense
 type: spellbook
 flags:
-  core:
-    sourceId: Item.7670SM8KmGR6MPxn
+  core: {}
 img: systems/air-bladder/icons/spellbook.svg
 effects: []
 _id: ccD8DUMv4i2ol8Le
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.7670SM8KmGR6MPxn
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3

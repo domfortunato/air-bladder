@@ -1,26 +1,28 @@
 name: Cudgel
 type: weapon
 flags:
-  core:
-    sourceId: Item.kQPvNmBh7BYIwtze
+  core: {}
 img: systems/air-bladder/art/game-icons/weapons/wood-club.svg
 effects: []
 _id: PtHPURu548JUKwuU
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.kQPvNmBh7BYIwtze
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3
 system:
   cost: 5
-  description: 'A blunt length of hardwood. Cheap, quiet, and rarely lethal — unless you mean it.'
+  description: >-
+    A blunt length of hardwood. Cheap, quiet, and rarely lethal — unless you
+    mean it.
   weightless: false
   equipped: true
   bulky: false

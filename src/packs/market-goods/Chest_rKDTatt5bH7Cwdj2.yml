@@ -9,7 +9,7 @@ flags:
   air-bladder:
     marketSource: 2e
 system:
-  description: 'A sturdy wooden chest with a lock, for keeping valuables from idle hands.'
+  description: A sturdy wooden chest with a lock, for keeping valuables from idle hands.
   weightless: false
   equipped: false
   bulky: false

@@ -1,26 +1,26 @@
 name: Halberd
 type: weapon
 flags:
-  core:
-    sourceId: Item.rnT2kjn2hMAiopWO
+  core: {}
 img: systems/air-bladder/art/game-icons/blade/glaive.svg
 effects: []
 _id: bBxRixn3s83nf22t
 _stats:
-  coreVersion: '12.327'
-  systemId: null
-  systemVersion: null
-  createdTime: null
-  modifiedTime: null
-  lastModifiedBy: null
-  compendiumSource: null
+  coreVersion: '14.365'
+  systemId: air-bladder
+  systemVersion: 0.1.9
+  createdTime: 1785879709667
+  modifiedTime: 1785879710515
+  lastModifiedBy: ipqqDDQxZaMLtwLc
+  compendiumSource: Item.rnT2kjn2hMAiopWO
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3
 system:
   cost: 20
-  description: 'A long polearm crowned with axe, spike, and hook. Reach and menace both.'
+  description: A long polearm crowned with axe, spike, and hook. Reach and menace both.
   weightless: false
   equipped: true
   bulky: true

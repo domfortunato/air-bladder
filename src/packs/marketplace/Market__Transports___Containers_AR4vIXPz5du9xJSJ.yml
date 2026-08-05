@@ -1,0 +1,188 @@
+_id: AR4vIXPz5du9xJSJ
+name: 'Market: Transports & Containers'
+img: icons/svg/d20-grey.svg
+description: >-
+  Air Bladder marketplace — Transports &amp; Containers. Drag a mount or
+  container in to stock it; capacity and price are read off the document. Buying
+  one creates an NPC connected to the buyer.
+results:
+  - _id: szrSAiu6UHCkElGF
+    type: document
+    name: Backpack
+    img: systems/air-bladder/icons/backpack.svg
+    weight: 1
+    range:
+      - 1
+      - 1
+    drawn: false
+    documentUuid: Compendium.air-bladder.mounts-transports.Actor.vrEkEpGWIAifEkKN
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
+    _key: '!tables.results!AR4vIXPz5du9xJSJ.szrSAiu6UHCkElGF'
+  - _id: UvA8XiiuAN3doLGn
+    type: document
+    name: Sack
+    img: systems/air-bladder/icons/sack.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    documentUuid: Compendium.air-bladder.mounts-transports.Actor.5RLEi4HD8jZrHlIl
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
+    _key: '!tables.results!AR4vIXPz5du9xJSJ.UvA8XiiuAN3doLGn'
+  - _id: AFiAzReKwQeDe1Ti
+    type: document
+    name: Mule
+    img: systems/air-bladder/icons/donkey.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    documentUuid: Compendium.air-bladder.mounts-transports.Actor.rpTQ6E1pWuIkFVUM
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
+    _key: '!tables.results!AR4vIXPz5du9xJSJ.AFiAzReKwQeDe1Ti'
+  - _id: 5QlHSCqf7ZEDmQdr
+    type: document
+    name: Horse
+    img: systems/air-bladder/icons/horse.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    documentUuid: Compendium.air-bladder.mounts-transports.Actor.RcLWCdCYHtLrGB9y
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
+    _key: '!tables.results!AR4vIXPz5du9xJSJ.5QlHSCqf7ZEDmQdr'
+  - _id: ahZCObQJ7UDjXVA3
+    type: document
+    name: Handcart
+    img: systems/air-bladder/icons/handcart.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    documentUuid: Compendium.air-bladder.mounts-transports.Actor.DsjQCsICN2ddggmr
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
+    _key: '!tables.results!AR4vIXPz5du9xJSJ.ahZCObQJ7UDjXVA3'
+  - _id: y9QbY3gVRr6Gbigm
+    type: document
+    name: Cart
+    img: systems/air-bladder/icons/cart.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    documentUuid: Compendium.air-bladder.mounts-transports.Actor.5bFY3lIsE38qoSs5
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
+    _key: '!tables.results!AR4vIXPz5du9xJSJ.y9QbY3gVRr6Gbigm'
+  - _id: r9adaZCT2y12Gikw
+    type: document
+    name: Wagon
+    img: systems/air-bladder/icons/wagon.svg
+    weight: 1
+    range:
+      - 7
+      - 7
+    drawn: false
+    documentUuid: Compendium.air-bladder.mounts-transports.Actor.qhjAgLtInNgK8Ase
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
+    _key: '!tables.results!AR4vIXPz5du9xJSJ.r9adaZCT2y12Gikw'
+formula: 1d7
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+  systemVersion: 0.1.9
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!tables!AR4vIXPz5du9xJSJ'

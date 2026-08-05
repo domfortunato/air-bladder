@@ -2,8 +2,7 @@ _id: 4yMGi2nHhoYi8kVO
 name: Incense
 type: item
 flags:
-  core:
-    sourceId: Item.Wqhguuy0BOTe4rwf
+  core: {}
 img: systems/air-bladder/art/game-icons/fire/candle-light.svg
 effects: []
 system:
@@ -27,10 +26,11 @@ sort: 0
 _stats:
   systemId: cairn
   systemVersion: 0.10.26
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   createdTime: null
   modifiedTime: 1665822390003
   lastModifiedBy: Vw4BPOEKqYJ80wk3
   compendiumSource: Item.Wqhguuy0BOTe4rwf
   duplicateSource: null
+  exportSource: null
 _key: '!items!4yMGi2nHhoYi8kVO'

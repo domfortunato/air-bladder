@@ -9,7 +9,9 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: 'Hold the weapon aloft and shout an order or declaration. Any who fail a WIL save must obey, against their better judgment.'
+  description: >-
+    Hold the weapon aloft and shout an order or declaration. Any who fail a WIL
+    save must obey, against their better judgment.
   weightless: false
   equipped: false
   bulky: false

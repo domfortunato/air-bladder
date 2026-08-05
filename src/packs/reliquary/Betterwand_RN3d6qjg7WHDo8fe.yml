@@ -9,7 +9,9 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: Vibrates with increased intensity when pointed at the best of a series of objects.
+  description: >-
+    Vibrates with increased intensity when pointed at the best of a series of
+    objects.
   weightless: false
   equipped: false
   bulky: false

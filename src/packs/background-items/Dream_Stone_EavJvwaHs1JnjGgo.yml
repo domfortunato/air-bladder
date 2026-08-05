@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: A smooth blue stone that helps recall dreams more clearly. Overuse can cause dream-addiction.
+  description: >-
+    A smooth blue stone that helps recall dreams more clearly. Overuse can cause
+    dream-addiction.
   weightless: false
   equipped: false
   bulky: false

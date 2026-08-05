@@ -16,7 +16,7 @@ system:
   names: []
   startingGear:
     - name: Glue
-    - name: 'Parchment & Ink'
+    - name: Parchment & Ink
       uses: 3
     - name: Sewing Kit
   containers: []

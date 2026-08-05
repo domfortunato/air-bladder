@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A sturdy cooking pot. Doubles as a helm, a bucket, or a blunt instrument.'
+  description: A sturdy cooking pot. Doubles as a helm, a bucket, or a blunt instrument.
   weightless: false
   equipped: false
   bulky: false

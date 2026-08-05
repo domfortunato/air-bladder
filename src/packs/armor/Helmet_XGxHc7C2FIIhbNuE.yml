@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A plain steel helm. Cheap insurance for the most important target.'
+  description: A plain steel helm. Cheap insurance for the most important target.
   weightless: false
   equipped: false
   bulky: false

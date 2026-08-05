@@ -13,6 +13,17 @@ results:
       - 1
     drawn: false
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!XJ4gL6bvlT9QVhGC.G5NQxm0Sm97PvBKP'
   - _id: H9vZPjzj2zbJWj67
     type: text
@@ -24,6 +35,17 @@ results:
       - 2
     drawn: false
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!XJ4gL6bvlT9QVhGC.H9vZPjzj2zbJWj67'
   - _id: H05DyovscfLxkdmi
     type: text
@@ -35,6 +57,17 @@ results:
       - 3
     drawn: false
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!XJ4gL6bvlT9QVhGC.H05DyovscfLxkdmi'
   - _id: ZMmUCkGKLTAC2zs0
     type: text
@@ -46,6 +79,17 @@ results:
       - 4
     drawn: false
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!XJ4gL6bvlT9QVhGC.ZMmUCkGKLTAC2zs0'
   - _id: xmpKH4eVrQZyckjB
     type: text
@@ -57,6 +101,17 @@ results:
       - 5
     drawn: false
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!XJ4gL6bvlT9QVhGC.xmpKH4eVrQZyckjB'
   - _id: tTbaiDdnhjI8poKv
     type: text
@@ -68,6 +123,17 @@ results:
       - 6
     drawn: false
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!XJ4gL6bvlT9QVhGC.tTbaiDdnhjI8poKv'
   - _id: 7F1zCvSVXvdO1uK5
     type: text
@@ -79,6 +145,17 @@ results:
       - 7
     drawn: false
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!XJ4gL6bvlT9QVhGC.7F1zCvSVXvdO1uK5'
   - _id: rnB7vVPzEj6RDAym
     type: text
@@ -90,6 +167,17 @@ results:
       - 8
     drawn: false
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!XJ4gL6bvlT9QVhGC.rnB7vVPzEj6RDAym'
   - _id: JwRvQCLtWp95Bt59
     type: text
@@ -101,6 +189,17 @@ results:
       - 9
     drawn: false
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!XJ4gL6bvlT9QVhGC.JwRvQCLtWp95Bt59'
   - _id: wrjAvnElS5zG6kwU
     type: text
@@ -112,6 +211,17 @@ results:
       - 10
     drawn: false
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!XJ4gL6bvlT9QVhGC.wrjAvnElS5zG6kwU'
 formula: 1d10
 replacement: true
@@ -124,4 +234,11 @@ ownership:
 _stats:
   systemId: air-bladder
   coreVersion: '14.365'
+  systemVersion: 0.1.9
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
 _key: '!tables!XJ4gL6bvlT9QVhGC'

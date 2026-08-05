@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Stimulant. Go first in combat, and automatically pass any WIL saves for one hour. Addictive: Save STR or become deprived after 24 hours without it.'
+  description: >-
+    Stimulant. Go first in combat, and automatically pass any WIL saves for one
+    hour. Addictive: Save STR or become deprived after 24 hours without it.
   weightless: false
   equipped: false
   bulky: false

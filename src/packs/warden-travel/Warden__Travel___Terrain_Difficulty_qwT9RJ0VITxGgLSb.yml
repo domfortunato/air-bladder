@@ -1,0 +1,98 @@
+_id: qwT9RJ0VITxGgLSb
+name: 'Warden: Travel - Terrain Difficulty'
+img: icons/svg/d20-grey.svg
+description: Cairn 2e Terrain Difficulty (reference). Choose by the terrain crossed.
+results:
+  - _id: Go5zCdwA9ALCnVc0
+    type: text
+    description: >-
+      <strong>Easy</strong> — Plains, plateaus, valleys. Penalty: none.
+      <em>(Safe areas for rest, fellow travelers, good visibility.)</em>
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 1
+      - 1
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!qwT9RJ0VITxGgLSb.Go5zCdwA9ALCnVc0'
+  - _id: O4oURlYacwx9F00z
+    type: text
+    description: >-
+      <strong>Tough</strong> — Forests, deserts, hills. Penalty: +1 Watch.
+      <em>(Wild animals, flooding, broken equipment, falling rocks, unsafe
+      shelters, hunter’s traps.)</em>
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!qwT9RJ0VITxGgLSb.O4oURlYacwx9F00z'
+  - _id: EKMvNGu3mOSqcz6i
+    type: text
+    description: >-
+      <strong>Perilous</strong> — Mountains, jungles, swamp. Penalty: +2
+      Watches. <em>(Quicksand, sucking mud, choking vines, unclean water,
+      poisonous plants and animals, poor navigation.)</em>
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!qwT9RJ0VITxGgLSb.EKMvNGu3mOSqcz6i'
+formula: 1d3
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+  systemVersion: 0.1.9
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!tables!qwT9RJ0VITxGgLSb'

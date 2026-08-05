@@ -9,7 +9,9 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: 15ft of highly flexible leather. Swirl in the air to generate a powerful subsonic effect that drives away wildlife. Also works underwater.
+  description: >-
+    15ft of highly flexible leather. Swirl in the air to generate a powerful
+    subsonic effect that drives away wildlife. Also works underwater.
   weightless: false
   equipped: false
   bulky: false

@@ -16,7 +16,7 @@ system:
   names: []
   startingGear:
     - name: Chalk
-    - name: 'Parchment & Ink'
+    - name: Parchment & Ink
     - name: Pipe
   containers: []
   tables: []

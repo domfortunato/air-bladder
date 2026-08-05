@@ -1,5 +1,5 @@
 _id: 5fw7rCk4bNYaWTUZ
-name: 'Parliament''s Promise'
+name: Parliament's Promise
 type: armor
 img: systems/air-bladder/art/game-icons/book/scroll-quill.svg
 effects: []
@@ -9,7 +9,11 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: 'A helmet in the form of an owl''s head. Its wearer can twist their head around like an owl and can see in darkness with perfect clarity. While wearing the helm, the wearer loses the ability to speak, uttering only the simplest of cooing noises.'
+  description: >-
+    A helmet in the form of an owl's head. Its wearer can twist their head
+    around like an owl and can see in darkness with perfect clarity. While
+    wearing the helm, the wearer loses the ability to speak, uttering only the
+    simplest of cooing noises.
   weightless: false
   equipped: false
   bulky: false

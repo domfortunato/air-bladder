@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A clever pet, small enough to hide in your pack, but strong enough to scare off smaller predators. Requires one Ration a day, and it must be meat.'
+  description: >-
+    A clever pet, small enough to hide in your pack, but strong enough to scare
+    off smaller predators. Requires one Ration a day, and it must be meat.
   weightless: false
   equipped: false
   bulky: true

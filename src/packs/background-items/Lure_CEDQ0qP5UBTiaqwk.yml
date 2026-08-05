@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A crafted bait for drawing in fish, fowl, or beast.'
+  description: A crafted bait for drawing in fish, fowl, or beast.
   weightless: false
   equipped: false
   bulky: false

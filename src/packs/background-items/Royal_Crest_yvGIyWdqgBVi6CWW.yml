@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Born into royalty, you chose a different life. The Royal Crest grants you access but also alerts your family of your whereabouts.'
+  description: >-
+    Born into royalty, you chose a different life. The Royal Crest grants you
+    access but also alerts your family of your whereabouts.
   weightless: true
   equipped: false
   bulky: false

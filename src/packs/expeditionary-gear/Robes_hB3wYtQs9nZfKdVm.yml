@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Long scholarly robes, deep-sleeved and ink-stained at the cuff.'
+  description: Long scholarly robes, deep-sleeved and ink-stained at the cuff.
   weightless: false
   equipped: false
   bulky: false

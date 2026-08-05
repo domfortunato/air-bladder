@@ -9,7 +9,7 @@ flags:
   air-bladder:
     marketSource: 2e
 system:
-  description: 'A bound volume of someone''s knowledge, faith, or folly.'
+  description: A bound volume of someone's knowledge, faith, or folly.
   weightless: false
   equipped: false
   bulky: false

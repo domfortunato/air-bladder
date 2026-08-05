@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Heavy iron forearm-guards, scarred from turning blows meant for the throat.'
+  description: Heavy iron forearm-guards, scarred from turning blows meant for the throat.
   weightless: false
   equipped: false
   bulky: true

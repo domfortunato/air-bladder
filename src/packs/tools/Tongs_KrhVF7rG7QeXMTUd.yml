@@ -1,20 +1,20 @@
 name: Tongs
 type: item
 flags:
-  core:
-    sourceId: Item.GiTydAMGAAHWoElh
+  core: {}
 img: systems/air-bladder/art/game-icons/tools/pincers.svg
 effects: []
 _id: KrhVF7rG7QeXMTUd
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.GiTydAMGAAHWoElh
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3

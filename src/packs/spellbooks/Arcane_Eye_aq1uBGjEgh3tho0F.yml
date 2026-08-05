@@ -1,20 +1,20 @@
 name: Arcane Eye
 type: spellbook
 flags:
-  core:
-    sourceId: Item.UCs1Xce7QwP2WkSQ
+  core: {}
 img: systems/air-bladder/icons/spellbook.svg
 effects: []
 _id: aq1uBGjEgh3tho0F
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.UCs1Xce7QwP2WkSQ
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3

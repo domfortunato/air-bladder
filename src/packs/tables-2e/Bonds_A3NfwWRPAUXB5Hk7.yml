@@ -5,7 +5,10 @@ description: Cairn 2e starting bonds. Grants narrative, gold, and an item.
 results:
   - _id: S5KHEO2Pn4uBgJ90
     type: text
-    description: 'You inherited a Single Gem (500gp, cold and brittle) from a long-dead relative. It arrived with a warning: squander your newfound riches, and a debt long thought forgotten would be called.'
+    description: >-
+      You inherited a Single Gem (500gp, cold and brittle) from a long-dead
+      relative. It arrived with a warning: squander your newfound riches, and a
+      debt long thought forgotten would be called.
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -17,10 +20,23 @@ results:
         gold: 0
         items:
           - name: Single Gem
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!A3NfwWRPAUXB5Hk7.S5KHEO2Pn4uBgJ90'
   - _id: iOXkv0EocKie0unW
     type: text
-    description: A distant cousin left you a small inheritance. Take 20gp, and a strange Compass that always points towards something deep in the Wood.
+    description: >-
+      A distant cousin left you a small inheritance. Take 20gp, and a strange
+      Compass that always points towards something deep in the Wood.
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -32,10 +48,23 @@ results:
         gold: 20
         items:
           - name: Ornate Compass
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!A3NfwWRPAUXB5Hk7.iOXkv0EocKie0unW'
   - _id: NbNJOxFv98KfkDU4
     type: text
-    description: You carry a Portrait in a locket (petty) of a past love who disappeared into the Wood long ago. Somehow, you know that they are still alive.
+    description: >-
+      You carry a Portrait in a locket (petty) of a past love who disappeared
+      into the Wood long ago. Somehow, you know that they are still alive.
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -47,10 +76,24 @@ results:
         gold: 0
         items:
           - name: Locket
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!A3NfwWRPAUXB5Hk7.NbNJOxFv98KfkDU4'
   - _id: vD0ts75abeBLhOoD
     type: text
-    description: You found a Tiny Crystal Prism (petty) buried in the dirt. When held up to the light, it shows visions of an unknown location deep within the Wood. Sometimes, you feel a presence looking back at you.
+    description: >-
+      You found a Tiny Crystal Prism (petty) buried in the dirt. When held up to
+      the light, it shows visions of an unknown location deep within the Wood.
+      Sometimes, you feel a presence looking back at you.
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -62,10 +105,24 @@ results:
         gold: 0
         items:
           - name: Tiny Crystal Prism
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!A3NfwWRPAUXB5Hk7.vD0ts75abeBLhOoD'
   - _id: Omr88xs0DL7f1YFm
     type: text
-    description: You once freed a Naiad from a choked stream. In return, it gave you some Silver Moss (petty). Swallow it near water and the creature will come, once, to repay its debt.
+    description: >-
+      You once freed a Naiad from a choked stream. In return, it gave you some
+      Silver Moss (petty). Swallow it near water and the creature will come,
+      once, to repay its debt.
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -77,10 +134,24 @@ results:
         gold: 0
         items:
           - name: Silver Moss
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!A3NfwWRPAUXB5Hk7.Omr88xs0DL7f1YFm'
   - _id: g5gBq60R3JAfMBFZ
     type: text
-    description: You inherited an old Journal, bound in bark. Each evening, its pages are filled with the events of the day, crassly from the journal’s perspective. The writing is crude, but accurate.
+    description: >-
+      You inherited an old Journal, bound in bark. Each evening, its pages are
+      filled with the events of the day, crassly from the journal’s perspective.
+      The writing is crude, but accurate.
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -92,10 +163,24 @@ results:
         gold: 0
         items:
           - name: Journal
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!A3NfwWRPAUXB5Hk7.g5gBq60R3JAfMBFZ'
   - _id: PDy1QLLNbyaGJDZI
     type: text
-    description: You protect a long-dormant family secret. Take one half of an Ancient Key (petty). They say that if joined with its twin, it opens a Gate through any door.
+    description: >-
+      You protect a long-dormant family secret. Take one half of an Ancient Key
+      (petty). They say that if joined with its twin, it opens a Gate through
+      any door.
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -107,10 +192,24 @@ results:
         gold: 0
         items:
           - name: Ancient Key Half
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!A3NfwWRPAUXB5Hk7.PDy1QLLNbyaGJDZI'
   - _id: wi4A7szCxSD7kEtt
     type: text
-    description: You received a Letter (petty) detailing incontrovertible proof that your true parentage is that of Fae nobility. The note also indicates a date and location where you are to meet them, deep in the the Wood.
+    description: >-
+      You received a Letter (petty) detailing incontrovertible proof that your
+      true parentage is that of Fae nobility. The note also indicates a date and
+      location where you are to meet them, deep in the the Wood.
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -122,10 +221,24 @@ results:
         gold: 0
         items:
           - name: Letter
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!A3NfwWRPAUXB5Hk7.wi4A7szCxSD7kEtt'
   - _id: p0cPJpBrBZEXWuM5
     type: text
-    description: You owe a great debt to a member of the nobility, and carry their Signet Ring (petty), which serves as proof of their protection as well as your obligation.
+    description: >-
+      You owe a great debt to a member of the nobility, and carry their Signet
+      Ring (petty), which serves as proof of their protection as well as your
+      obligation.
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -137,10 +250,24 @@ results:
         gold: 0
         items:
           - name: Signet Ring
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!A3NfwWRPAUXB5Hk7.p0cPJpBrBZEXWuM5'
   - _id: Nt0FEEoc4aIgCIAy
     type: text
-    description: You consumed a Mischievous Spirit that wreaks havoc on your insides, demanding to be taken home, deep in the Wood. It occupies one slot but absorbs one Fatigue each day. It wants you alive (for now).
+    description: >-
+      You consumed a Mischievous Spirit that wreaks havoc on your insides,
+      demanding to be taken home, deep in the Wood. It occupies one slot but
+      absorbs one Fatigue each day. It wants you alive (for now).
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -152,10 +279,24 @@ results:
         gold: 0
         items:
           - name: Mischievous Spirit
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!A3NfwWRPAUXB5Hk7.Nt0FEEoc4aIgCIAy'
   - _id: Fbzet54bT1xHrU4J
     type: text
-    description: A roaming storyteller once spun you tales of great treasure hidden deep in the Wood. You thought it naught but fancy, till they gave you A Rolled-Up Map (petty) marked with an X.
+    description: >-
+      A roaming storyteller once spun you tales of great treasure hidden deep in
+      the Wood. You thought it naught but fancy, till they gave you A Rolled-Up
+      Map (petty) marked with an X.
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -167,10 +308,24 @@ results:
         gold: 0
         items:
           - name: Rolled-Up Map
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!A3NfwWRPAUXB5Hk7.Fbzet54bT1xHrU4J'
   - _id: wENhJBxGBk5piPsg
     type: text
-    description: During your travels, you met a dying hunter who asked you to deliver a message to their loved ones. Take a Letter (petty), sealed with tree sap. It is addressed only to the Lord Of Winter.
+    description: >-
+      During your travels, you met a dying hunter who asked you to deliver a
+      message to their loved ones. Take a Letter (petty), sealed with tree sap.
+      It is addressed only to the Lord Of Winter.
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -182,10 +337,24 @@ results:
         gold: 0
         items:
           - name: Letter
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!A3NfwWRPAUXB5Hk7.wENhJBxGBk5piPsg'
   - _id: M7oEJn51l7BFvSv6
     type: text
-    description: You found a wounded beast in the forest, but chose to ignore it. You see it everywhere now, but only when you’re alone. It looks sad, but not angry. You cannot become panicked when acting alone.
+    description: >-
+      You found a wounded beast in the forest, but chose to ignore it. You see
+      it everywhere now, but only when you’re alone. It looks sad, but not
+      angry. You cannot become panicked when acting alone.
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -196,10 +365,24 @@ results:
       air-bladder:
         gold: 0
         items: []
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!A3NfwWRPAUXB5Hk7.M7oEJn51l7BFvSv6'
   - _id: 6SqllOnkBzSF4SBX
     type: text
-    description: You promised a childhood friend that you’d bring them back a rare gift, something unique in all the world. Take a Bracelet (petty) woven from twine and wildflowers.
+    description: >-
+      You promised a childhood friend that you’d bring them back a rare gift,
+      something unique in all the world. Take a Bracelet (petty) woven from
+      twine and wildflowers.
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -211,10 +394,24 @@ results:
         gold: 0
         items:
           - name: Bracelet
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!A3NfwWRPAUXB5Hk7.6SqllOnkBzSF4SBX'
   - _id: EuHpk9JaO0bytp22
     type: text
-    description: You crossed a creature of the Wood, and it cursed you with a Stone Heart. With each passing month, the stone grows heavier by one slot. Until your debt is lifted, you cannot truly die.
+    description: >-
+      You crossed a creature of the Wood, and it cursed you with a Stone Heart.
+      With each passing month, the stone grows heavier by one slot. Until your
+      debt is lifted, you cannot truly die.
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -226,10 +423,23 @@ results:
         gold: 0
         items:
           - name: Stone Heart
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!A3NfwWRPAUXB5Hk7.EuHpk9JaO0bytp22'
   - _id: bDzvWR1xEr6gyX8c
     type: text
-    description: You carved a Whistle (petty) from an Oak Lord’s branch. Your act did not go unnoticed. You cannot seem to rid yourself of the whistle either.
+    description: >-
+      You carved a Whistle (petty) from an Oak Lord’s branch. Your act did not
+      go unnoticed. You cannot seem to rid yourself of the whistle either.
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -241,10 +451,24 @@ results:
         gold: 0
         items:
           - name: Whistle
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!A3NfwWRPAUXB5Hk7.bDzvWR1xEr6gyX8c'
   - _id: A7TiHkKR7BTh7WRE
     type: text
-    description: The Dawn Brigade did your family a service, giving you a dried Blood-Red Flower (petty) as proof. When the flower turns white, it means the favor is owed.
+    description: >-
+      The Dawn Brigade did your family a service, giving you a dried Blood-Red
+      Flower (petty) as proof. When the flower turns white, it means the favor
+      is owed.
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -256,10 +480,24 @@ results:
         gold: 0
         items:
           - name: Blood-Red Flower
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!A3NfwWRPAUXB5Hk7.A7TiHkKR7BTh7WRE'
   - _id: z2Exon5YShNNuGH9
     type: text
-    description: An entertainer once visited your home, filling it with story and song. He left one day without a word, leaving behind only A Miniature Lute. Something rattles inside.
+    description: >-
+      An entertainer once visited your home, filling it with story and song. He
+      left one day without a word, leaving behind only A Miniature Lute.
+      Something rattles inside.
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -271,10 +509,24 @@ results:
         gold: 0
         items:
           - name: Miniature Lute
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!A3NfwWRPAUXB5Hk7.z2Exon5YShNNuGH9'
   - _id: cUMdGEcO9Gufr8CJ
     type: text
-    description: A white crow appeared to you in a dream, holding a twig in its mouth. You awoke the next morning with The Twig (petty) in your hand. You believe it brings you luck. It smells faintly of sulfur.
+    description: >-
+      A white crow appeared to you in a dream, holding a twig in its mouth. You
+      awoke the next morning with The Twig (petty) in your hand. You believe it
+      brings you luck. It smells faintly of sulfur.
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -286,10 +538,24 @@ results:
         gold: 0
         items:
           - name: Twig
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!A3NfwWRPAUXB5Hk7.cUMdGEcO9Gufr8CJ'
   - _id: DrfZlQHOWsw1EyYz
     type: text
-    description: One of your ancestors wronged a Moss Witch, who cursed their bloodline. Your visage causes mirrors to shatter. You’ve noticed that the shards can sometimes reveal illusions.
+    description: >-
+      One of your ancestors wronged a Moss Witch, who cursed their bloodline.
+      Your visage causes mirrors to shatter. You’ve noticed that the shards can
+      sometimes reveal illusions.
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -300,6 +566,17 @@ results:
       air-bladder:
         gold: 0
         items: []
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
     _key: '!tables.results!A3NfwWRPAUXB5Hk7.DrfZlQHOWsw1EyYz'
 formula: 1d20
 replacement: true
@@ -312,4 +589,11 @@ ownership:
 _stats:
   systemId: air-bladder
   coreVersion: '14.365'
+  systemVersion: 0.1.9
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
 _key: '!tables!A3NfwWRPAUXB5Hk7'

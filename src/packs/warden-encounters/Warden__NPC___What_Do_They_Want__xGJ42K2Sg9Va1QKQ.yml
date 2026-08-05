@@ -1,0 +1,268 @@
+_id: xGJ42K2Sg9Va1QKQ
+name: 'Warden: NPC - What Do They Want?'
+img: icons/svg/d20-grey.svg
+description: >-
+  What an NPC wants, rolled after an unfavorable Reaction. Third-party (Modular
+  Rules &amp; Procedures hack), not Cairn 2e core.
+results:
+  - _id: XL4eY7jp9MwgnPVD
+    type: text
+    description: >-
+      <strong>Food</strong> — You can distract them with rations, point them
+      towards corpses, cast a food illusion.
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 1
+      - 1
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!xGJ42K2Sg9Va1QKQ.XL4eY7jp9MwgnPVD'
+  - _id: 7BsJLEXdCIJjL00p
+    type: text
+    description: >-
+      <strong>Aid</strong> — They could be hurt and need medical aid of some
+      sort.
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!xGJ42K2Sg9Va1QKQ.7BsJLEXdCIJjL00p'
+  - _id: a2zUjYx5wZRAp7jU
+    type: text
+    description: >-
+      <strong>Gold</strong> — They want money. Extortion, toll, tax, tribute, or
+      greed.
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!xGJ42K2Sg9Va1QKQ.a2zUjYx5wZRAp7jU'
+  - _id: VKVH6UJHGwjFREe4
+    type: text
+    description: >-
+      <strong>Valuables</strong> — Rare or unique items. Excellent pairings can
+      result in their friendship or gaining them as allies.
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!xGJ42K2Sg9Va1QKQ.VKVH6UJHGwjFREe4'
+  - _id: EY9htx7AmgSs8PGU
+    type: text
+    description: >-
+      <strong>Territory</strong> — This is their turf. They will defend it, ask
+      you to leave, or ask you to prove why you should be able to pass through.
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!xGJ42K2Sg9Va1QKQ.EY9htx7AmgSs8PGU'
+  - _id: BFqfzzb29Qni88Ak
+    type: text
+    description: >-
+      <strong>Info</strong> — They want to know about a nearby NPC, faction,
+      landmark, or location.
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!xGJ42K2Sg9Va1QKQ.BFqfzzb29Qni88Ak'
+  - _id: 7lOAGuXKfui8Z445
+    type: text
+    description: >-
+      <strong>Help</strong> — They need something from nearby, probably
+      somewhere dangerous. Kill something, clear out an area, retrieve
+      something.
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 7
+      - 7
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!xGJ42K2Sg9Va1QKQ.7lOAGuXKfui8Z445'
+  - _id: vfRR2fGsbP3jqMrT
+    type: text
+    description: >-
+      <strong>Trade</strong> — They have random equipment (from each category on
+      the equipment tables) and want to trade or sell. 1-in-6 chance they have
+      something rare or valuable. Good business means possible friendship.
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 8
+      - 8
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!xGJ42K2Sg9Va1QKQ.vfRR2fGsbP3jqMrT'
+  - _id: IvCvhnHVzOVUd63k
+    type: text
+    description: >-
+      <strong>Mission</strong> — They’re in service to another nearby NPC or
+      faction and are helping to achieve a goal for them.
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 9
+      - 9
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!xGJ42K2Sg9Va1QKQ.IvCvhnHVzOVUd63k'
+  - _id: YBX0hyjucnHEJZ6g
+    type: text
+    description: >-
+      <strong>Directions</strong> — They are lost and need directions somewhere,
+      or help being escorted there safely.
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 10
+      - 10
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!xGJ42K2Sg9Va1QKQ.YBX0hyjucnHEJZ6g'
+formula: 1d10
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+  systemVersion: 0.1.9
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!tables!xGJ42K2Sg9Va1QKQ'

@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A hand-puppet with an unsettlingly lifelike face. Sometimes it seems to answer before you''ve decided what to say.'
+  description: >-
+    A hand-puppet with an unsettlingly lifelike face. Sometimes it seems to
+    answer before you've decided what to say.
   weightless: false
   equipped: false
   bulky: false

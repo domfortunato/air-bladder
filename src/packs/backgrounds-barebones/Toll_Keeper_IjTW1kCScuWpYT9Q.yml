@@ -16,7 +16,7 @@ system:
   names: []
   startingGear:
     - name: Bell
-    - name: 'Lock & Key'
+    - name: Lock & Key
     - name: Waterproof Bag
   containers: []
   tables: []

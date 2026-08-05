@@ -1,20 +1,20 @@
 name: Wolfsbane
 type: item
 flags:
-  core:
-    sourceId: Item.grR24pkSKMs3cnSW
+  core: {}
 img: systems/air-bladder/art/game-icons/celtic/fluffy-trefoil.svg
 effects: []
 _id: OqxO6G3VnaADTlc0
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.grR24pkSKMs3cnSW
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3

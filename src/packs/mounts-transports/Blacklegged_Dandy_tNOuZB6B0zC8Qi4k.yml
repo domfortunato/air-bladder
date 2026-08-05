@@ -14,7 +14,9 @@ flags:
   air-bladder:
     transportSource: background-2e
 system:
-  description: From the Outrider background. Hardy and adaptable. Tough or Perilous terrain are one step easier. 6 HP. +4 slots.
+  description: >-
+    From the Outrider background. Hardy and adaptable. Tough or Perilous terrain
+    are one step easier. 6 HP. +4 slots.
   hp:
     value: 6
     max: 6

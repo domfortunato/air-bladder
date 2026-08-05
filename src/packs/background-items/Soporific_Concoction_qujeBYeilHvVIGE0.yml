@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A brewed draught that lulls the drinker into deep, dreamless sleep. Three doses.'
+  description: >-
+    A brewed draught that lulls the drinker into deep, dreamless sleep. Three
+    doses.
   weightless: false
   equipped: false
   bulky: false

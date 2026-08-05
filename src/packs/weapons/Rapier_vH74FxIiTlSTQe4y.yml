@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A slender, light-weight dueling blade — as much a part of the performance as the flourish that draws it.'
+  description: >-
+    A slender, light-weight dueling blade — as much a part of the performance as
+    the flourish that draws it.
   weightless: false
   equipped: false
   bulky: false

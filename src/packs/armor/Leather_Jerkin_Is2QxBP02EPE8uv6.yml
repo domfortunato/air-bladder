@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A supple leather vest cut for a hunter''s freedom of movement. Turns a glancing blow.'
+  description: >-
+    A supple leather vest cut for a hunter's freedom of movement. Turns a
+    glancing blow.
   weightless: false
   equipped: false
   bulky: false

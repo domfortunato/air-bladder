@@ -1,0 +1,1346 @@
+_id: Tek4rSeaDtMsUBzg
+name: 'Warden: NPC - Name'
+img: icons/svg/d20-grey.svg
+description: >-
+  Cairn 2e NPC names (Warden's Guide, NPC Tables). The book's three d20 lists
+  merged into one d60 — roll once for a name.
+results:
+  - _id: qiThPg1dMINLB6Ed
+    type: text
+    description: Alaric
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 1
+      - 1
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.qiThPg1dMINLB6Ed'
+  - _id: rpMgx2xOLmUwaehl
+    type: text
+    description: Carver
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.rpMgx2xOLmUwaehl'
+  - _id: dri7de0md8qpPp8n
+    type: text
+    description: Cleaver
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.dri7de0md8qpPp8n'
+  - _id: JLgHV4hB3TdKZpPM
+    type: text
+    description: Darnel
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.JLgHV4hB3TdKZpPM'
+  - _id: e92UTmBRzklQznAO
+    type: text
+    description: Eoin
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.e92UTmBRzklQznAO'
+  - _id: Pzi0Fh8bGFxwvVbN
+    type: text
+    description: Evander
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.Pzi0Fh8bGFxwvVbN'
+  - _id: IjmkWEKVK7OSj6vf
+    type: text
+    description: Glyph
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 7
+      - 7
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.IjmkWEKVK7OSj6vf'
+  - _id: waRoN1slXDthrEl9
+    type: text
+    description: Hemlock
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 8
+      - 8
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.waRoN1slXDthrEl9'
+  - _id: Mr0L7uUDQ3o0PziY
+    type: text
+    description: Herald
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 9
+      - 9
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.Mr0L7uUDQ3o0PziY'
+  - _id: EhtbQTrruC8KFyzy
+    type: text
+    description: Lisbeth
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 10
+      - 10
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.EhtbQTrruC8KFyzy'
+  - _id: MSXHDE2xX2rsGqsI
+    type: text
+    description: Lucian
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 11
+      - 11
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.MSXHDE2xX2rsGqsI'
+  - _id: IiRL7rvDQ2w4tp4b
+    type: text
+    description: Luna
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 12
+      - 12
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.IiRL7rvDQ2w4tp4b'
+  - _id: DeAASbdYnm63WjsF
+    type: text
+    description: Lysander
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 13
+      - 13
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.DeAASbdYnm63WjsF'
+  - _id: D5kfum7lGFFAoyxj
+    type: text
+    description: Marius
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 14
+      - 14
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.D5kfum7lGFFAoyxj'
+  - _id: 8O8LQUmcBXc97iHH
+    type: text
+    description: Mend
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 15
+      - 15
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.8O8LQUmcBXc97iHH'
+  - _id: ntwfof7vl9qNVdjb
+    type: text
+    description: Milo
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 16
+      - 16
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.ntwfof7vl9qNVdjb'
+  - _id: RMHHGfnxqqsEPPe4
+    type: text
+    description: Neria
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 17
+      - 17
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.RMHHGfnxqqsEPPe4'
+  - _id: cRE5p92BmFznZNTe
+    type: text
+    description: Pan
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 18
+      - 18
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.cRE5p92BmFznZNTe'
+  - _id: eTggGNOFovjDB88S
+    type: text
+    description: Quill
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 19
+      - 19
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.eTggGNOFovjDB88S'
+  - _id: CYVfbndPCBFOLnqV
+    type: text
+    description: Seraphine
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 20
+      - 20
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.CYVfbndPCBFOLnqV'
+  - _id: jAxXHyThr7fTAnS8
+    type: text
+    description: Ainsley
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 21
+      - 21
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.jAxXHyThr7fTAnS8'
+  - _id: FKtJf3A0uifmOGEq
+    type: text
+    description: Azura
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 22
+      - 22
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.FKtJf3A0uifmOGEq'
+  - _id: 0CtOghnyG5OPbPJ5
+    type: text
+    description: Brave
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 23
+      - 23
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.0CtOghnyG5OPbPJ5'
+  - _id: BIIt0NuDe0SfKqm0
+    type: text
+    description: Callan
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 24
+      - 24
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.BIIt0NuDe0SfKqm0'
+  - _id: IucOOQVuhragdnJb
+    type: text
+    description: Cedric
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 25
+      - 25
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.IucOOQVuhragdnJb'
+  - _id: xPmWJHoGYw77yyQY
+    type: text
+    description: Crow
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 26
+      - 26
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.xPmWJHoGYw77yyQY'
+  - _id: mRTAOuZ330bI6ife
+    type: text
+    description: Finch
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 27
+      - 27
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.mRTAOuZ330bI6ife'
+  - _id: oeC7AFM6vTfnPsMD
+    type: text
+    description: Gunnar
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 28
+      - 28
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.oeC7AFM6vTfnPsMD'
+  - _id: C2GCgpRR7HmdtYzx
+    type: text
+    description: Harper
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 29
+      - 29
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.C2GCgpRR7HmdtYzx'
+  - _id: IxQKpANxACpiuwz2
+    type: text
+    description: Liora
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 30
+      - 30
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.IxQKpANxACpiuwz2'
+  - _id: VJZvvLCm7yiUan1h
+    type: text
+    description: Lira
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 31
+      - 31
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.VJZvvLCm7yiUan1h'
+  - _id: KIQp0yyMFmFPhzHz
+    type: text
+    description: Lorelai
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 32
+      - 32
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.KIQp0yyMFmFPhzHz'
+  - _id: le7WxBHlI0BX8yka
+    type: text
+    description: Lysandra
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 33
+      - 33
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.le7WxBHlI0BX8yka'
+  - _id: GEnlTeVXthICVGG8
+    type: text
+    description: Marcellus
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 34
+      - 34
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.GEnlTeVXthICVGG8'
+  - _id: pETmxZqUTcDi8yyp
+    type: text
+    description: Shade
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 35
+      - 35
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.pETmxZqUTcDi8yyp'
+  - _id: pBFcrMqH43jIPnED
+    type: text
+    description: Shroud
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 36
+      - 36
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.pBFcrMqH43jIPnED'
+  - _id: H3YIzYNNfz31orfD
+    type: text
+    description: Spade
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 37
+      - 37
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.H3YIzYNNfz31orfD'
+  - _id: bljJJCoZAzGViAjs
+    type: text
+    description: Spike
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 38
+      - 38
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.bljJJCoZAzGViAjs'
+  - _id: XIu7MHgHBEG7VtdZ
+    type: text
+    description: Tanner
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 39
+      - 39
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.XIu7MHgHBEG7VtdZ'
+  - _id: MSu4Z7pkIXHeChAQ
+    type: text
+    description: Thyme
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 40
+      - 40
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.MSu4Z7pkIXHeChAQ'
+  - _id: OGGnoPq0hewjYu25
+    type: text
+    description: Alder
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 41
+      - 41
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.OGGnoPq0hewjYu25'
+  - _id: 0XU611naMm4qOexQ
+    type: text
+    description: Alistair
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 42
+      - 42
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.0XU611naMm4qOexQ'
+  - _id: vdx8BDFrKPErSFXG
+    type: text
+    description: Caius
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 43
+      - 43
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.vdx8BDFrKPErSFXG'
+  - _id: t1EvoFre1fhCtMVx
+    type: text
+    description: Dain
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 44
+      - 44
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.t1EvoFre1fhCtMVx'
+  - _id: tJZEJjYBNA4ksoaZ
+    type: text
+    description: Dax
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 45
+      - 45
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.tJZEJjYBNA4ksoaZ'
+  - _id: mDPrsrNxBOtPZBVU
+    type: text
+    description: Dorian
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 46
+      - 46
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.mDPrsrNxBOtPZBVU'
+  - _id: CQgnavWVTDDR9mmm
+    type: text
+    description: Godric
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 47
+      - 47
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.CQgnavWVTDDR9mmm'
+  - _id: NvrDal7qnxCfapps
+    type: text
+    description: Harkin
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 48
+      - 48
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.NvrDal7qnxCfapps'
+  - _id: RLAY581jrDFdLNGO
+    type: text
+    description: Hildred
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 49
+      - 49
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.RLAY581jrDFdLNGO'
+  - _id: eyX0gyTYdIhGJ3iv
+    type: text
+    description: Kael
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 50
+      - 50
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.eyX0gyTYdIhGJ3iv'
+  - _id: 6vaVxOVWbHR9cWff
+    type: text
+    description: Kavi
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 51
+      - 51
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.6vaVxOVWbHR9cWff'
+  - _id: iVlIN0BzPcJxbXmH
+    type: text
+    description: Mariner
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 52
+      - 52
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.iVlIN0BzPcJxbXmH'
+  - _id: b4nxZl3iMBLKbKA0
+    type: text
+    description: Nazira
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 53
+      - 53
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.b4nxZl3iMBLKbKA0'
+  - _id: W48euM1LahKvOYvr
+    type: text
+    description: Onyx
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 54
+      - 54
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.W48euM1LahKvOYvr'
+  - _id: ly9Rpr13XAEKdIbZ
+    type: text
+    description: Rolan
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 55
+      - 55
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.ly9Rpr13XAEKdIbZ'
+  - _id: lcODtXUtkx1nbm5z
+    type: text
+    description: Rush
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 56
+      - 56
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.lcODtXUtkx1nbm5z'
+  - _id: EGxl1PvTg8KJybax
+    type: text
+    description: Sky
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 57
+      - 57
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.EGxl1PvTg8KJybax'
+  - _id: zWYiob5t9fmu1zSU
+    type: text
+    description: Storm
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 58
+      - 58
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.zWYiob5t9fmu1zSU'
+  - _id: ituKcaikgIEk1GTa
+    type: text
+    description: Taros
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 59
+      - 59
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.ituKcaikgIEk1GTa'
+  - _id: NcyXoVsS8EIAvCPc
+    type: text
+    description: Thaddeus
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 60
+      - 60
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Tek4rSeaDtMsUBzg.NcyXoVsS8EIAvCPc'
+formula: 1d60
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+  systemVersion: 0.1.9
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!tables!Tek4rSeaDtMsUBzg'

@@ -1,20 +1,20 @@
 name: Shovel
 type: item
 flags:
-  core:
-    sourceId: Item.K1pYEPY1AYdpJBrR
+  core: {}
 img: systems/air-bladder/art/game-icons/tools/spade.svg
 effects: []
 _id: 1abF5sAonAEA5TEJ
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.K1pYEPY1AYdpJBrR
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3

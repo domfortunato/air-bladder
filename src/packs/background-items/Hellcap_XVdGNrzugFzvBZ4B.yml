@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Exposure to its aroma causes intense nausea and vomiting. Either way, it clears the room. Bottled.'
+  description: >-
+    Exposure to its aroma causes intense nausea and vomiting. Either way, it
+    clears the room. Bottled.
   weightless: false
   equipped: false
   bulky: false

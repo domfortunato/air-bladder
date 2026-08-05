@@ -6,23 +6,25 @@ effects: []
 folder: null
 sort: 0
 flags:
-  core:
-    sourceId: Item.AjnPp8cG4Cg5HAR1
+  core: {}
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.AjnPp8cG4Cg5HAR1
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3
 system:
   cost: 60
-  description: 'A full harness of shaped steel plates. The best protection coin can buy, and the heaviest.'
+  description: >-
+    A full harness of shaped steel plates. The best protection coin can buy, and
+    the heaviest.
   weightless: false
   equipped: true
   bulky: true

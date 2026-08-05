@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A silvered blade kept for the things ordinary steel can''t touch.'
+  description: A silvered blade kept for the things ordinary steel can't touch.
   weightless: false
   equipped: false
   bulky: false

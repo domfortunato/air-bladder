@@ -9,7 +9,9 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: Draw a doorway on any flat surface to open a one-way passage to the Roots. Good luck.
+  description: >-
+    Draw a doorway on any flat surface to open a one-way passage to the Roots.
+    Good luck.
   weightless: true
   equipped: false
   bulky: false

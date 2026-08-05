@@ -14,7 +14,9 @@ flags:
   air-bladder:
     transportSource: background-2e
 system:
-  description: From the Outrider background. Wild but very fast (even in Tough terrain). Rides light. 4 HP. +2 slots.
+  description: >-
+    From the Outrider background. Wild but very fast (even in Tough terrain).
+    Rides light. 4 HP. +2 slots.
   hp:
     value: 4
     max: 4

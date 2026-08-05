@@ -15,7 +15,7 @@ system:
   description: ''
   names: []
   startingGear:
-    - name: 'Parchment & Ink'
+    - name: Parchment & Ink
       uses: 3
     - name: Sealable Bottle
     - name: Whistle

@@ -1,26 +1,26 @@
 name: Crossbow
 type: weapon
 flags:
-  core:
-    sourceId: Item.bd3e6pAGmRZ2T4H7
+  core: {}
 img: systems/air-bladder/art/game-icons/weapons/crossbow.svg
 effects: []
 _id: mjddKpJ42HUs5GA7
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.bd3e6pAGmRZ2T4H7
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3
 system:
   cost: 30
-  description: 'A mechanical bow that fires heavy bolts. Slow to reload, but it hits hard.'
+  description: A mechanical bow that fires heavy bolts. Slow to reload, but it hits hard.
   weightless: false
   equipped: true
   bulky: true

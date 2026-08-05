@@ -1,5 +1,5 @@
 _id: BxOeafkcMVEO8z2M
-name: 'Plague Doctor''s Mask'
+name: Plague Doctor's Mask
 type: item
 img: systems/air-bladder/icons/generic-item.svg
 effects: []
@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: After its owner succumbed to the disease that wiped out everyone you once knew. They should have kept it on.
+  description: >-
+    After its owner succumbed to the disease that wiped out everyone you once
+    knew. They should have kept it on.
   weightless: false
   equipped: false
   bulky: false

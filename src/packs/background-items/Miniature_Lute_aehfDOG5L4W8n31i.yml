@@ -9,7 +9,10 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'An entertainer once visited your home, filling it with story and song. He left one day without a word, leaving behind only A Miniature Lute. Something rattles inside.'
+  description: >-
+    An entertainer once visited your home, filling it with story and song. He
+    left one day without a word, leaving behind only A Miniature Lute. Something
+    rattles inside.
   weightless: false
   equipped: false
   bulky: false

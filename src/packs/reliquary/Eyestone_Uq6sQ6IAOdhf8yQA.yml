@@ -9,7 +9,9 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: Choose an object created by living creatures. You can sense the nearest example.
+  description: >-
+    Choose an object created by living creatures. You can sense the nearest
+    example.
   weightless: false
   equipped: false
   bulky: false

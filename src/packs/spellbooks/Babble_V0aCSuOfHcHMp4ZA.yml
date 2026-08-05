@@ -1,20 +1,20 @@
 name: Babble
 type: spellbook
 flags:
-  core:
-    sourceId: Item.exfk0BZ3nYUpuf3Z
+  core: {}
 img: systems/air-bladder/icons/spellbook.svg
 effects: []
 _id: V0aCSuOfHcHMp4ZA
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.exfk0BZ3nYUpuf3Z
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3

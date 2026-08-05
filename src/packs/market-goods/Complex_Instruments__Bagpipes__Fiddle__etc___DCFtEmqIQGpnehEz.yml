@@ -1,0 +1,28 @@
+_id: DCFtEmqIQGpnehEz
+name: Complex Instruments (Bagpipes, Fiddle, etc.)
+type: item
+img: systems/air-bladder/art/game-icons/celtic/bagpipes.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    marketSource: 2e
+system:
+  description: >-
+    An intricate instrument that rewards a skilled hand — bagpipes, a fiddle,
+    and such. (Rename this to the specific item you are carrying.)
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 50
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!DCFtEmqIQGpnehEz'

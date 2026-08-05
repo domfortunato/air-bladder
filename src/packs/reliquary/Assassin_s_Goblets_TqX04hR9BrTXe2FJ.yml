@@ -1,5 +1,5 @@
 _id: TqX04hR9BrTXe2FJ
-name: 'Assassin''s Goblets'
+name: Assassin's Goblets
 type: item
 img: systems/air-bladder/art/game-icons/bottles/round-potion.svg
 effects: []
@@ -9,7 +9,9 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: A pair of fragile wine flutes. Any liquid poured into one is swapped with the other.
+  description: >-
+    A pair of fragile wine flutes. Any liquid poured into one is swapped with
+    the other.
   weightless: false
   equipped: false
   bulky: false

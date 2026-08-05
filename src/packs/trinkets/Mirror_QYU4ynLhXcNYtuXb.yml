@@ -2,25 +2,27 @@ _id: QYU4ynLhXcNYtuXb
 name: Mirror
 type: item
 flags:
-  core:
-    sourceId: Item.oK9ZuTbCzGs21g39
+  core: {}
 img: systems/air-bladder/icons/generic-item.svg
 effects: []
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.oK9ZuTbCzGs21g39
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3
 system:
   cost: 5
-  description: 'A polished hand-mirror for signaling, peering round corners, or plain vanity.'
+  description: >-
+    A polished hand-mirror for signaling, peering round corners, or plain
+    vanity.
   weightless: false
   equipped: false
   bulky: false

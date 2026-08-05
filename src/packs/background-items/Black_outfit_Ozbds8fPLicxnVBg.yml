@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Dark, close-fitting clothes made for moving unseen after dark.'
+  description: Dark, close-fitting clothes made for moving unseen after dark.
   weightless: true
   equipped: false
   bulky: false

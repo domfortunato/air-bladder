@@ -9,7 +9,11 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: 'Rare moon-shaped stones dredged from underwater caves and jungle dolines. Swallow whole to relieve all fatigue and deprivation as if you had a good night''s sleep and a good meal. The stone will eventually pass through your system. It isn''t fun.'
+  description: >-
+    Rare moon-shaped stones dredged from underwater caves and jungle dolines.
+    Swallow whole to relieve all fatigue and deprivation as if you had a good
+    night's sleep and a good meal. The stone will eventually pass through your
+    system. It isn't fun.
   weightless: false
   equipped: false
   bulky: false

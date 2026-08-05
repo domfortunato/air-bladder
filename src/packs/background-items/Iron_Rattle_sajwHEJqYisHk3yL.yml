@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: A noisemaker for distracting or scaring your quarry. Sounds convincingly like a snake.
+  description: >-
+    A noisemaker for distracting or scaring your quarry. Sounds convincingly
+    like a snake.
   weightless: false
   equipped: false
   bulky: false

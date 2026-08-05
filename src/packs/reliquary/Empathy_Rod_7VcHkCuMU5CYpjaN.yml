@@ -9,7 +9,9 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: 'When two creatures touch this wooden pole at the same time, their physical and emotional states become fully intertwined until they let go.'
+  description: >-
+    When two creatures touch this wooden pole at the same time, their physical
+    and emotional states become fully intertwined until they let go.
   weightless: false
   equipped: false
   bulky: false

@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A well-thumbed book of detailed drawings: faces, routes, and places you mean to remember.'
+  description: >-
+    A well-thumbed book of detailed drawings: faces, routes, and places you mean
+    to remember.
   weightless: false
   equipped: false
   bulky: false

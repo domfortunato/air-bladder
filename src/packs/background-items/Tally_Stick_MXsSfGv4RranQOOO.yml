@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Once a vow is marked onto its face, the stick hardens (d8) until it is complete. The stick will snap in half if the vow is ever broken.'
+  description: >-
+    Once a vow is marked onto its face, the stick hardens (d8) until it is
+    complete. The stick will snap in half if the vow is ever broken.
   weightless: false
   equipped: false
   bulky: false

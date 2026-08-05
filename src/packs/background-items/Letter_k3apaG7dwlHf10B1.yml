@@ -9,7 +9,10 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'You received a Letter (petty) detailing incontrovertible proof that your true parentage is that of Fae nobility. The note also indicates a date and location where you are to meet them, deep in the the Wood.'
+  description: >-
+    You received a Letter (petty) detailing incontrovertible proof that your
+    true parentage is that of Fae nobility. The note also indicates a date and
+    location where you are to meet them, deep in the the Wood.
   weightless: true
   equipped: false
   bulky: false

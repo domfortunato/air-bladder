@@ -16,7 +16,7 @@ system:
   names: []
   startingGear:
     - name: Blanket
-    - name: 'Pole, 10ft'
+    - name: Pole, 10ft
     - name: Poncho
   containers: []
   tables: []

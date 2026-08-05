@@ -9,7 +9,12 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: 'A full-length, double-sided glass mirror. Step into the mirror to be transported to another mirror you know. You come out of the other side as an enormous swarm of buzzing moths, striking those around you with paralysis (WIL save to avoid) as they gaze upon you in horror. You can revert to your normal form at will. The mirror only operates in one direction.'
+  description: >-
+    A full-length, double-sided glass mirror. Step into the mirror to be
+    transported to another mirror you know. You come out of the other side as an
+    enormous swarm of buzzing moths, striking those around you with paralysis
+    (WIL save to avoid) as they gaze upon you in horror. You can revert to your
+    normal form at will. The mirror only operates in one direction.
   weightless: false
   equipped: false
   bulky: true

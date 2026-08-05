@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: A small insignia marking your office or allegiance. It opens some doors and closes others.
+  description: >-
+    A small insignia marking your office or allegiance. It opens some doors and
+    closes others.
   weightless: true
   equipped: false
   bulky: false

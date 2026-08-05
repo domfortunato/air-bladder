@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Casts a soft, bioluminescent light. Feeds on one ration every two days.'
+  description: Casts a soft, bioluminescent light. Feeds on one ration every two days.
   weightless: false
   equipped: false
   bulky: false

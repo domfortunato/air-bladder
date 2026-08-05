@@ -1,0 +1,174 @@
+_id: 8tDBjEgzOrxphqUg
+name: 'Warden: Weather - Difficulty'
+img: icons/svg/d20-grey.svg
+description: >-
+  Cairn 2e Weather Difficulty (reference). Look up the effect of the weather
+  rolled on a seasonal <em>Warden: Weather</em> table.
+results:
+  - _id: Tdr8GIXSGQm9CNIQ
+    type: text
+    description: >-
+      <strong>Nice</strong> — Favorable conditions for travel. <em>(Clear skies,
+      sunny.)</em>
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 1
+      - 1
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!8tDBjEgzOrxphqUg.Tdr8GIXSGQm9CNIQ'
+  - _id: H7hF1gLHr54CorPj
+    type: text
+    description: >-
+      <strong>Fair</strong> — Favorable conditions for travel. <em>(Overcast,
+      breezy.)</em>
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!8tDBjEgzOrxphqUg.H7hF1gLHr54CorPj'
+  - _id: cov6227bB7jqClgI
+    type: text
+    description: >-
+      <strong>Unpleasant</strong> — Add a <strong>Fatigue</strong> <em>or</em>
+      add one watch to the journey. <em>(Gusting winds, rain showers, sweltering
+      heat, chill air.)</em>
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!8tDBjEgzOrxphqUg.cov6227bB7jqClgI'
+  - _id: gvQrCp5i4chbj1E7
+    type: text
+    description: >-
+      <strong>Inclement</strong> — Add a <strong>Fatigue</strong> <em>or</em>
+      add +1 watch. Increase <em>Warden: Travel - Terrain Difficulty</em> by a
+      step. <em>(Thunderstorms, lightning, rain, muddy ground.)</em>
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!8tDBjEgzOrxphqUg.gvQrCp5i4chbj1E7'
+  - _id: JzkFe9vNDHW66Pqn
+    type: text
+    description: >-
+      <strong>Extreme</strong> — Add a <strong>Fatigue</strong> <em>and</em> add
+      +1 watch. Increase <em>Warden: Travel - Terrain Difficulty</em> by a step.
+      <em>(Blizzards, freezing winds, flooding, mud slides.)</em>
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!8tDBjEgzOrxphqUg.JzkFe9vNDHW66Pqn'
+  - _id: r7E3Gbt1lD1rZgIh
+    type: text
+    description: >-
+      <strong>Catastrophic</strong> — Most parties cannot travel under these
+      conditions. <em>(Tornados, tidal waves, hurricane, volcanic
+      eruption.)</em>
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!8tDBjEgzOrxphqUg.r7E3Gbt1lD1rZgIh'
+formula: 1d6
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+  systemVersion: 0.1.9
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!tables!8tDBjEgzOrxphqUg'

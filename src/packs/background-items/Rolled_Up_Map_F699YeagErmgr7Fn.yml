@@ -9,7 +9,10 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A roaming storyteller once spun you tales of great treasure hidden deep in the Wood. You thought it naught but fancy, till they gave you A Rolled-Up Map (petty) marked with an X.'
+  description: >-
+    A roaming storyteller once spun you tales of great treasure hidden deep in
+    the Wood. You thought it naught but fancy, till they gave you A Rolled-Up
+    Map (petty) marked with an X.
   weightless: true
   equipped: false
   bulky: false

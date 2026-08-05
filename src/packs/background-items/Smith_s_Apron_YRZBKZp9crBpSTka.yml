@@ -1,5 +1,5 @@
 _id: YRZBKZp9crBpSTka
-name: 'Smith''s Apron'
+name: Smith's Apron
 type: item
 img: systems/air-bladder/icons/generic-item.svg
 effects: []
@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: A scorched leather apron from a forge long gone cold. It still smells of coal-smoke and iron.
+  description: >-
+    A scorched leather apron from a forge long gone cold. It still smells of
+    coal-smoke and iron.
   weightless: true
   equipped: false
   bulky: false

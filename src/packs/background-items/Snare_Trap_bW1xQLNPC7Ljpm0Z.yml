@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: A concealed spring-snare for catching game — or an unwary pursuer — on the trail.
+  description: >-
+    A concealed spring-snare for catching game — or an unwary pursuer — on the
+    trail.
   weightless: false
   equipped: false
   bulky: false

@@ -1,26 +1,28 @@
 name: Sling
 type: weapon
 flags:
-  core:
-    sourceId: Item.8FRmdUHeJx4PVAf2
+  core: {}
 img: systems/air-bladder/art/game-icons/weapons/sling.svg
 effects: []
 _id: OCOPpIkkvUL5fZKQ
 _stats:
-  coreVersion: '12.327'
-  systemId: null
-  systemVersion: null
-  createdTime: null
-  modifiedTime: null
-  lastModifiedBy: null
-  compendiumSource: null
+  coreVersion: '14.365'
+  systemId: air-bladder
+  systemVersion: 0.1.9
+  createdTime: 1785873469711
+  modifiedTime: 1785873470549
+  lastModifiedBy: ipqqDDQxZaMLtwLc
+  compendiumSource: Item.8FRmdUHeJx4PVAf2
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3
 system:
   cost: 5
-  description: 'A leather sling that hurls stones with surprising force. Ammunition lies free underfoot.'
+  description: >-
+    A leather sling that hurls stones with surprising force. Ammunition lies
+    free underfoot.
   weightless: false
   equipped: true
   bulky: false

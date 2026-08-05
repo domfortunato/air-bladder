@@ -9,7 +9,9 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: Wind the crank to replay any sound made in the past day in your current location. Each crank goes back one hour.
+  description: >-
+    Wind the crank to replay any sound made in the past day in your current
+    location. Each crank goes back one hour.
   weightless: false
   equipped: false
   bulky: false

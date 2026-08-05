@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'When crushed, it creates a heatless light for ten minutes.'
+  description: When crushed, it creates a heatless light for ten minutes.
   weightless: false
   equipped: false
   bulky: false

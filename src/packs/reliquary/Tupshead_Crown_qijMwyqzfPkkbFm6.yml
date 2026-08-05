@@ -9,7 +9,9 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: 'A beautifully rendered ram''s head helm wrought from tough alpine oak. The horns can be used as weapons (d6+d6).'
+  description: >-
+    A beautifully rendered ram's head helm wrought from tough alpine oak. The
+    horns can be used as weapons (d6+d6).
   weightless: false
   equipped: false
   bulky: true

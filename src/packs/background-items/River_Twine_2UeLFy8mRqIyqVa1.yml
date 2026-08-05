@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Each dip into the river guarantees a catch, though it might not be pleasant.'
+  description: Each dip into the river guarantees a catch, though it might not be pleasant.
   weightless: false
   equipped: false
   bulky: false

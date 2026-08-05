@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A dark-grey violin that plays a haunting tune, mirrored by an invisible, distant twin.'
+  description: >-
+    A dark-grey violin that plays a haunting tune, mirrored by an invisible,
+    distant twin.
   weightless: false
   equipped: false
   bulky: false

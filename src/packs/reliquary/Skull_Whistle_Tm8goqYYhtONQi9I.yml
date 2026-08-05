@@ -9,7 +9,9 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: Produces a chilling scream that forces any who hear it (including the blower) to make a WIL save or become temporarily incapacitated.
+  description: >-
+    Produces a chilling scream that forces any who hear it (including the
+    blower) to make a WIL save or become temporarily incapacitated.
   weightless: false
   equipped: false
   bulky: false

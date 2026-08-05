@@ -1,24 +1,25 @@
 name: Air Bladder
 type: item
 flags: {}
-img: systems/air-bladder/art/game-icons/bottles/bubbling-flask.svg
+img: systems/air-bladder/art/lydia-comer/Airbladder01.webp
 effects: []
 _id: jQmTzjFJbXoJXvFY
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
-  createdTime: null
-  modifiedTime: null
-  lastModifiedBy: null
+  createdTime: 1785862147249
+  modifiedTime: 1785862194654
+  lastModifiedBy: ipqqDDQxZaMLtwLc
   compendiumSource: null
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3
 system:
   cost: 5
-  description: 'An inflatable animal bladder that keeps a swimmer — or their pack — afloat.'
+  description: An inflatable animal bladder that keeps a swimmer — or their pack — afloat.
   weightless: false
   equipped: false
   bulky: false

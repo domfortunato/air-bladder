@@ -9,7 +9,9 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: A rough pebble imbued with the essence of a mountain spirit. Crush to call forth an earthquake or similar natural disaster. Do not expect to be spared.
+  description: >-
+    A rough pebble imbued with the essence of a mountain spirit. Crush to call
+    forth an earthquake or similar natural disaster. Do not expect to be spared.
   weightless: false
   equipped: false
   bulky: false

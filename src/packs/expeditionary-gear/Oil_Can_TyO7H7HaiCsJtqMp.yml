@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A spouted can of lamp oil, for feeding a flame or fouling a floor.'
+  description: A spouted can of lamp oil, for feeding a flame or fouling a floor.
   weightless: false
   equipped: false
   bulky: false

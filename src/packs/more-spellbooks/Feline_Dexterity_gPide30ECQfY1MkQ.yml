@@ -7,7 +7,7 @@ folder: null
 sort: 0
 flags: {}
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
@@ -15,6 +15,7 @@ _stats:
   lastModifiedBy: null
   compendiumSource: null
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   wBjuzO9m8tt5ZLAf: 3

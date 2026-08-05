@@ -9,7 +9,9 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: Sprinkle over a corpse to resurrect the deceased. They return with full health but no memory of their past life.
+  description: >-
+    Sprinkle over a corpse to resurrect the deceased. They return with full
+    health but no memory of their past life.
   weightless: false
   equipped: false
   bulky: false

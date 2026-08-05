@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Ingesting it cures any poison (1 use, unless retrieved).'
+  description: Ingesting it cures any poison (1 use, unless retrieved).
   weightless: false
   equipped: false
   bulky: false

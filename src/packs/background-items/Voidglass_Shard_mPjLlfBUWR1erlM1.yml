@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Peer through it to see invisible marks, creatures, and other magical effects. Lose the use of your eye for an hour afterwards (you are deprived).'
+  description: >-
+    Peer through it to see invisible marks, creatures, and other magical
+    effects. Lose the use of your eye for an hour afterwards (you are deprived).
   weightless: false
   equipped: false
   bulky: false

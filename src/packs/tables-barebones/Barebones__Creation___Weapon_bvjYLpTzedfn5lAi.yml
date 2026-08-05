@@ -1,0 +1,167 @@
+_id: bvjYLpTzedfn5lAi
+name: 'Barebones: Creation - Weapon'
+img: icons/svg/d20-grey.svg
+description: >-
+  Cairn Barebones character creation, step 5. Roll d6: 1-3 pick a damage tier
+  (roll that table too), 4-6 are a single weapon. The weapon is granted
+  equipped.
+results:
+  - _id: B5nr9jgFpRP0wLB4
+    type: document
+    name: 'Barebones: Weapon Tier - d6'
+    img: icons/svg/d20-grey.svg
+    weight: 1
+    range:
+      - 1
+      - 1
+    drawn: false
+    documentUuid: Compendium.air-bladder.tables-barebones.RollTable.o6AX6fus0QiEuDkK
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
+    _key: '!tables.results!bvjYLpTzedfn5lAi.B5nr9jgFpRP0wLB4'
+  - _id: RwLnXvFxHD2UYAT5
+    type: document
+    name: 'Barebones: Weapon Tier - d8'
+    img: icons/svg/d20-grey.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    documentUuid: Compendium.air-bladder.tables-barebones.RollTable.uU2DFZPLjzFm73vS
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
+    _key: '!tables.results!bvjYLpTzedfn5lAi.RwLnXvFxHD2UYAT5'
+  - _id: Gv01fNGqgOlO6Ljt
+    type: document
+    name: 'Barebones: Weapon Tier - d10'
+    img: icons/svg/d20-grey.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    documentUuid: Compendium.air-bladder.tables-barebones.RollTable.D0u7HEFuAtrDqfHN
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
+    _key: '!tables.results!bvjYLpTzedfn5lAi.Gv01fNGqgOlO6Ljt'
+  - _id: 1Y5bLuNrNSsQeFKO
+    type: document
+    name: Sling
+    img: systems/air-bladder/art/game-icons/weapons/sling.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    documentUuid: Compendium.air-bladder.weapons.Item.OCOPpIkkvUL5fZKQ
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
+    _key: '!tables.results!bvjYLpTzedfn5lAi.1Y5bLuNrNSsQeFKO'
+  - _id: EZdwajN6L20aViZk
+    type: document
+    name: Bow
+    img: systems/air-bladder/art/game-icons/weapons/high-shot.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    documentUuid: Compendium.air-bladder.weapons.Item.iQFZEdDJKyjvGtY8
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
+    _key: '!tables.results!bvjYLpTzedfn5lAi.EZdwajN6L20aViZk'
+  - _id: IucU3AHCeGP0kWBJ
+    type: document
+    name: Crossbow
+    img: systems/air-bladder/art/game-icons/weapons/crossbow.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    documentUuid: Compendium.air-bladder.weapons.Item.mjddKpJ42HUs5GA7
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
+    _key: '!tables.results!bvjYLpTzedfn5lAi.IucU3AHCeGP0kWBJ'
+formula: 1d6
+replacement: true
+displayRoll: true
+flags:
+  air-bladder:
+    tableSource: barebones
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+  systemVersion: 0.1.9
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!tables!bvjYLpTzedfn5lAi'

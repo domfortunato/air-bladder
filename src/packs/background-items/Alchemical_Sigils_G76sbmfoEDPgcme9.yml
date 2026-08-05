@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Your chest is lined with alchemical sigils, _toughening the skin_ (1 Armor).'
+  description: Your chest is lined with alchemical sigils, _toughening the skin_ (1 Armor).
   weightless: true
   equipped: false
   bulky: false

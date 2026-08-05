@@ -1,0 +1,28 @@
+_id: bE0AoTPRvY3aK010
+name: Bathing Goods (Soap, Perfume, etc.)
+type: item
+img: systems/air-bladder/art/game-icons/bottles/liquid-soap.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    marketSource: 2e
+system:
+  description: >-
+    Soap, perfume, and sundries for getting clean and smelling of more than the
+    road. (Rename this to the specific item you are carrying.)
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 5
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!bE0AoTPRvY3aK010'

@@ -1,20 +1,20 @@
 name: Hear Whispers
 type: spellbook
 flags:
-  core:
-    sourceId: Item.i62Oxxc1VN1iIguX
+  core: {}
 img: systems/air-bladder/icons/spellbook.svg
 effects: []
 _id: pAkByBBnCsh8r8Nf
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.i62Oxxc1VN1iIguX
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3

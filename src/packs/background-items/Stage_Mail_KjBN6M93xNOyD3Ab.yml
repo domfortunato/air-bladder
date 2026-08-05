@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Well-worn costume armor, more convincing than it has any right to be — and, once, more protective than anyone expected.'
+  description: >-
+    Well-worn costume armor, more convincing than it has any right to be — and,
+    once, more protective than anyone expected.
   weightless: false
   equipped: false
   bulky: false

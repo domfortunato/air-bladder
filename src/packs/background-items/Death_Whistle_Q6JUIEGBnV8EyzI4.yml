@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Its scream frightens away all who hear it (save WIL or flee). Recharge: Capture the final breath of a dying warrior.'
+  description: >-
+    Its scream frightens away all who hear it (save WIL or flee). Recharge:
+    Capture the final breath of a dying warrior.
   weightless: false
   equipped: false
   bulky: false

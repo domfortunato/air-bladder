@@ -1,20 +1,20 @@
 name: Hammer
 type: item
 flags:
-  core:
-    sourceId: Item.ggwdokQUMXw7oM7f
+  core: {}
 img: systems/air-bladder/art/game-icons/tools/claw-hammer.svg
 effects: []
 _id: XYI7SR2HV0OqfBBm
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.ggwdokQUMXw7oM7f
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3

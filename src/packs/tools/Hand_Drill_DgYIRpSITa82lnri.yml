@@ -1,20 +1,20 @@
 name: Hand-Drill
 type: item
 flags:
-  core:
-    sourceId: Item.VtvBAMoJRN0wv7Ht
+  core: {}
 img: systems/air-bladder/art/game-icons/tools/drill.svg
 effects: []
 _id: DgYIRpSITa82lnri
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.VtvBAMoJRN0wv7Ht
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3

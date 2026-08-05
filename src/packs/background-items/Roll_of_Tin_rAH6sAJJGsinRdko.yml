@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A rolled sheet of workable tin, raw material for a smith or a scavenger.'
+  description: A rolled sheet of workable tin, raw material for a smith or a scavenger.
   weightless: false
   equipped: false
   bulky: false

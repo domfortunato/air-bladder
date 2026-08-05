@@ -9,7 +9,9 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: 'A flat, unassuming river stone notched with faded symbols. Smash to release a silvery powder in a 20ft radius that pacifies anyone who breathes it.'
+  description: >-
+    A flat, unassuming river stone notched with faded symbols. Smash to release
+    a silvery powder in a 20ft radius that pacifies anyone who breathes it.
   weightless: false
   equipped: false
   bulky: false

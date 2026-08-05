@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A sharpened wooden stake. Simple, cheap, and pointed at one grim purpose.'
+  description: A sharpened wooden stake. Simple, cheap, and pointed at one grim purpose.
   weightless: false
   equipped: false
   bulky: false

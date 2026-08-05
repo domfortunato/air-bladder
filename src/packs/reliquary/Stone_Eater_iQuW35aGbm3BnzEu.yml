@@ -1,7 +1,7 @@
 _id: iQuW35aGbm3BnzEu
 name: Stone Eater
 type: item
-img: systems/air-bladder/art/game-icons/stone/stone-crafting.svg
+img: systems/air-bladder/art/game-icons/insects/centipede.svg
 effects: []
 folder: null
 sort: 0
@@ -9,7 +9,10 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: 'A rodent-sized centipede that consumes and digests stone, capable of cutting a small tunnel in under an hour. It can be used more than once, but only if you can catch it (DEX 18).'
+  description: >-
+    A rodent-sized centipede that consumes and digests stone, capable of cutting
+    a small tunnel in under an hour. It can be used more than once, but only if
+    you can catch it (DEX 18).
   weightless: false
   equipped: false
   bulky: false
@@ -25,4 +28,11 @@ ownership:
 _stats:
   systemId: air-bladder
   coreVersion: '14.365'
+  systemVersion: 0.1.9
+  createdTime: 1785862071154
+  modifiedTime: 1785862071154
+  lastModifiedBy: ipqqDDQxZaMLtwLc
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
 _key: '!items!iQuW35aGbm3BnzEu'

@@ -1,20 +1,20 @@
 name: Miniaturize
 type: spellbook
 flags:
-  core:
-    sourceId: Item.OKshe5GlJt5OmFdC
+  core: {}
 img: systems/air-bladder/icons/spellbook.svg
 effects: []
 _id: 1wvGSt8oOFMhbIAB
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.OKshe5GlJt5OmFdC
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3

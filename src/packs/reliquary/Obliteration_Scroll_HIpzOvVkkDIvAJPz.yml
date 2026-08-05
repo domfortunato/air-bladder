@@ -9,7 +9,12 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: 'A single-page document filled with gibberish. Sign anywhere on the page to remove any knowledge of your existence from this plane of reality. No one will know or remember you, and any references to your name or lineage will vanish. The scroll disappears in a puff of smoke that smells faintly of sulfur.'
+  description: >-
+    A single-page document filled with gibberish. Sign anywhere on the page to
+    remove any knowledge of your existence from this plane of reality. No one
+    will know or remember you, and any references to your name or lineage will
+    vanish. The scroll disappears in a puff of smoke that smells faintly of
+    sulfur.
   weightless: true
   equipped: false
   bulky: false

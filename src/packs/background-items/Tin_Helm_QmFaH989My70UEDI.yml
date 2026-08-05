@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A dented tin helm from your smelting days. Ugly, light, and a good deal better than a bare head.'
+  description: >-
+    A dented tin helm from your smelting days. Ugly, light, and a good deal
+    better than a bare head.
   weightless: false
   equipped: false
   bulky: false

@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Hardened leather armor — light, quiet, and enough to turn a glancing blow.'
+  description: Hardened leather armor — light, quiet, and enough to turn a glancing blow.
   weightless: false
   equipped: false
   bulky: false

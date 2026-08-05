@@ -1,7 +1,7 @@
 _id: tChFktXZryPgfVvY
-name: 'Lover''s Covenant'
+name: Lover's Covenant
 type: item
-img: systems/air-bladder/art/game-icons/body/heart-organ.svg
+img: systems/air-bladder/art/game-icons/bottles/round-potion.svg
 effects: []
 folder: null
 sort: 0
@@ -9,7 +9,10 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: 'A bottle of red-tinted ink, a broken heart emblazoned on the front. Write up a contract of any length. Any who sign are bound to obey by penalty of death.'
+  description: >-
+    A bottle of red-tinted ink, a broken heart emblazoned on the front. Write up
+    a contract of any length. Any who sign are bound to obey by penalty of
+    death.
   weightless: false
   equipped: false
   bulky: false
@@ -25,4 +28,11 @@ ownership:
 _stats:
   systemId: air-bladder
   coreVersion: '14.365'
+  systemVersion: 0.1.9
+  createdTime: 1785861893623
+  modifiedTime: 1785861893623
+  lastModifiedBy: ipqqDDQxZaMLtwLc
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
 _key: '!items!tChFktXZryPgfVvY'

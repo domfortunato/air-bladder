@@ -2,25 +2,25 @@ _id: Jn0XBxMGWhGwEcBL
 name: Whistle
 type: item
 flags:
-  core:
-    sourceId: Item.l3BoHWmpMhU6Nzq3
+  core: {}
 img: systems/air-bladder/art/game-icons/mouth/shouting.svg
 effects: []
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.l3BoHWmpMhU6Nzq3
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3
 system:
   cost: 15
-  description: 'A shrill whistle for signaling across distance or calling a trained beast.'
+  description: A shrill whistle for signaling across distance or calling a trained beast.
   weightless: false
   equipped: false
   bulky: false

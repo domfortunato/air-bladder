@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A set of theatrical garb for playing a part, convincingly or otherwise.'
+  description: A set of theatrical garb for playing a part, convincingly or otherwise.
   weightless: false
   equipped: false
   bulky: false

@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: A blank parchment. Whomever unfurls it sees their actions of the day slowly revealed in a tight scrawl.
+  description: >-
+    A blank parchment. Whomever unfurls it sees their actions of the day slowly
+    revealed in a tight scrawl.
   weightless: true
   equipped: false
   bulky: false

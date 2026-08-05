@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A small, wickedly sharp knife made for delicate work. You''ve used it for worse than paring.'
+  description: >-
+    A small, wickedly sharp knife made for delicate work. You've used it for
+    worse than paring.
   weightless: false
   equipped: false
   bulky: false

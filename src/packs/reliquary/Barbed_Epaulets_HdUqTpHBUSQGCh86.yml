@@ -9,7 +9,9 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: Spiked shoulder pads that poison anyone that touches them (STR save or lose consciousness).
+  description: >-
+    Spiked shoulder pads that poison anyone that touches them (STR save or lose
+    consciousness).
   weightless: false
   equipped: false
   bulky: false

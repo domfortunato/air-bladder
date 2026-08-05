@@ -9,7 +9,10 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'You promised a childhood friend that you’d bring them back a rare gift, something unique in all the world. Take a Bracelet (petty) woven from twine and wildflowers.'
+  description: >-
+    You promised a childhood friend that you’d bring them back a rare gift,
+    something unique in all the world. Take a Bracelet (petty) woven from twine
+    and wildflowers.
   weightless: true
   equipped: false
   bulky: false

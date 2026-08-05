@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A noisy instrument that reveals nearby trails, even when deeply hidden.'
+  description: A noisy instrument that reveals nearby trails, even when deeply hidden.
   weightless: false
   equipped: false
   bulky: false

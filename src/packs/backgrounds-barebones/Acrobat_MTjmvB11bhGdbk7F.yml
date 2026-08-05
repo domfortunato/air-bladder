@@ -15,7 +15,7 @@ system:
   description: ''
   names: []
   startingGear:
-    - name: 'Pole, 10ft'
+    - name: Pole, 10ft
     - name: Rope
     - name: Smokebomb
   containers: []

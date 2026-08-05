@@ -1,7 +1,7 @@
 _id: hQPonv4WpwXt3GDS
 name: Cards
 type: item
-img: systems/air-bladder/art/game-icons/shields/dice-shield.svg
+img: systems/air-bladder/art/game-icons/body/character.svg
 effects: []
 folder: null
 sort: 0
@@ -23,4 +23,11 @@ ownership:
 _stats:
   systemId: air-bladder
   coreVersion: '14.365'
+  systemVersion: 0.1.9
+  createdTime: 1785861606058
+  modifiedTime: 1785861606058
+  lastModifiedBy: ipqqDDQxZaMLtwLc
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
 _key: '!items!hQPonv4WpwXt3GDS'

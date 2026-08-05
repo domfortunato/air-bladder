@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A thin, needle-pointed blade made for slipping between ribs and armor gaps.'
+  description: A thin, needle-pointed blade made for slipping between ribs and armor gaps.
   weightless: false
   equipped: false
   bulky: false

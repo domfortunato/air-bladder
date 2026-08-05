@@ -9,7 +9,10 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: 'A foul-smelling, pinky-sized worm that feeds on earwax by crawling into the ear canal of a sleeping person. The victim then loses the ability to lie for 1d4 hours.'
+  description: >-
+    A foul-smelling, pinky-sized worm that feeds on earwax by crawling into the
+    ear canal of a sleeping person. The victim then loses the ability to lie for
+    1d4 hours.
   weightless: false
   equipped: false
   bulky: false

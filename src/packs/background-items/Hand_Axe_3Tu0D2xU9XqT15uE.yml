@@ -5,7 +5,7 @@ img: systems/air-bladder/icons/weapons.svg
 effects: []
 _id: 3Tu0D2xU9XqT15uE
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
@@ -13,6 +13,7 @@ _stats:
   lastModifiedBy: null
   compendiumSource: null
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3

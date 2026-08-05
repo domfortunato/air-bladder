@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A heavy bar of counterfeit gold — convincing enough at a glance, and almost as good as the real thing to the right buyer.'
+  description: >-
+    A heavy bar of counterfeit gold — convincing enough at a glance, and almost
+    as good as the real thing to the right buyer.
   weightless: false
   equipped: false
   bulky: false

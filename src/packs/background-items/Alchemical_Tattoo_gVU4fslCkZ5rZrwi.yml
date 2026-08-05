@@ -9,7 +9,10 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A dog, cat, or bird that can leave your body on demand. It follows your commands to the best of its abilities and can pass its injuries (as STR loss) back onto you. Petty.'
+  description: >-
+    A dog, cat, or bird that can leave your body on demand. It follows your
+    commands to the best of its abilities and can pass its injuries (as STR
+    loss) back onto you. Petty.
   weightless: true
   equipped: false
   bulky: false

@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Harmless, worth 60gp'
+  description: Harmless, worth 60gp
   weightless: false
   equipped: false
   bulky: false

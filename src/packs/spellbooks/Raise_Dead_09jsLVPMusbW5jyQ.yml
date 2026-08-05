@@ -1,25 +1,25 @@
 name: Raise Dead
 type: spellbook
 flags:
-  core:
-    sourceId: Item.9DuFZgeUj3IMwet0
-  exportSource:
-    world: cairn
-    system: cairn
-    coreVersion: 0.7.5
-    systemVersion: 1.0.0
+  core: {}
 img: systems/air-bladder/icons/spellbook.svg
 effects: []
 _id: 09jsLVPMusbW5jyQ
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.9DuFZgeUj3IMwet0
   duplicateSource: null
+  exportSource:
+    worldId: cairn
+    uuid: null
+    coreVersion: 0.7.5
+    systemId: cairn
+    systemVersion: 1.0.0
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3

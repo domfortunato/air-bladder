@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A weatherproof blanket, it can also douse a fire without being damaged.'
+  description: A weatherproof blanket, it can also douse a fire without being damaged.
   weightless: false
   equipped: false
   bulky: false

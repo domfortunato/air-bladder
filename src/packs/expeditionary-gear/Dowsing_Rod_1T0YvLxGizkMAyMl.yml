@@ -6,23 +6,25 @@ effects: []
 folder: null
 sort: 0
 flags:
-  core:
-    sourceId: Item.uL64sAXMYQ4AZWWD
+  core: {}
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.uL64sAXMYQ4AZWWD
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3
 system:
   cost: 15
-  description: 'A forked rod said to twitch toward water — or whatever you most wish to find.'
+  description: >-
+    A forked rod said to twitch toward water — or whatever you most wish to
+    find.
   weightless: false
   equipped: false
   bulky: false

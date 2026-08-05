@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A wax bar. If boiled in water, the steam acts as a soporific agent.'
+  description: A wax bar. If boiled in water, the steam acts as a soporific agent.
   weightless: false
   equipped: false
   bulky: false

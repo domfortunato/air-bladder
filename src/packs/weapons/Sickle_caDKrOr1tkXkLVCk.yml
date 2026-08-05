@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: barebones
 system:
-  description: 'A curved reaping-blade. It cuts grain and throats with equal ease.'
+  description: A curved reaping-blade. It cuts grain and throats with equal ease.
   weightless: false
   equipped: false
   bulky: false

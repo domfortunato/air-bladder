@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Cracks heads (d8) as easily as it does ice and muck. Travel is also a bit slower, but easier.'
+  description: >-
+    Cracks heads (d8) as easily as it does ice and muck. Travel is also a bit
+    slower, but easier.
   weightless: false
   equipped: false
   bulky: false

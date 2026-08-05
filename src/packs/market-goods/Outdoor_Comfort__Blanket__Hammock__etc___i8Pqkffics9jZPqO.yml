@@ -1,0 +1,28 @@
+_id: i8Pqkffics9jZPqO
+name: Outdoor Comfort (Blanket, Hammock, etc.)
+type: item
+img: systems/air-bladder/art/game-icons/body/sleeping-bag.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    marketSource: 2e
+system:
+  description: >-
+    The small luxuries of a night outdoors — a blanket, a hammock, and such.
+    (Rename this to the specific item you are carrying.)
+  weightless: false
+  equipped: false
+  bulky: false
+  cost: 10
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!i8Pqkffics9jZPqO'

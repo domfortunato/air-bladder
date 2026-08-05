@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A long braided whip for driving beasts or keeping foes at arm''s length.'
+  description: A long braided whip for driving beasts or keeping foes at arm's length.
   weightless: false
   equipped: false
   bulky: false

@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A battered leather jerkin that''s carried you through worse than it should have. You don''t take it off.'
+  description: >-
+    A battered leather jerkin that's carried you through worse than it should
+    have. You don't take it off.
   weightless: false
   equipped: false
   bulky: false

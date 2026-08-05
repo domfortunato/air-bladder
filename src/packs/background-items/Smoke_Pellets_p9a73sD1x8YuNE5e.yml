@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: Brittle beads that burst into a choking cloud of smoke. Three chances to vanish.
+  description: >-
+    Brittle beads that burst into a choking cloud of smoke. Three chances to
+    vanish.
   weightless: false
   equipped: false
   bulky: false

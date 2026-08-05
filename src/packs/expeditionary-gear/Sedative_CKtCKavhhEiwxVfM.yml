@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: barebones
 system:
-  description: 'A calming draught that dulls pain and slows a racing heart — or drops a target outright.'
+  description: >-
+    A calming draught that dulls pain and slows a racing heart — or drops a
+    target outright.
   weightless: false
   equipped: false
   bulky: false

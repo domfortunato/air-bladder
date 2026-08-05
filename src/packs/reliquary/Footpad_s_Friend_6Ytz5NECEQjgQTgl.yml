@@ -1,5 +1,5 @@
 _id: 6Ytz5NECEQjgQTgl
-name: 'Footpad''s Friend'
+name: Footpad's Friend
 type: item
 img: systems/air-bladder/art/game-icons/tools/lockpicks.svg
 effects: []
@@ -9,7 +9,10 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: 'Soft leather shoes that adapt to fit any foot size. Leave behind footprints that scatter and turn in a confusing manner, making tracking nigh-impossible.'
+  description: >-
+    Soft leather shoes that adapt to fit any foot size. Leave behind footprints
+    that scatter and turn in a confusing manner, making tracking
+    nigh-impossible.
   weightless: false
   equipped: false
   bulky: false

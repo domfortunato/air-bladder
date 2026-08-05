@@ -13,7 +13,7 @@ items:
     img: icons/svg/mystery-man.svg
     effects: []
     _stats:
-      coreVersion: '12.327'
+      coreVersion: '14.365'
       systemId: null
       systemVersion: null
       createdTime: null
@@ -21,6 +21,7 @@ items:
       lastModifiedBy: null
       compendiumSource: null
       duplicateSource: null
+      exportSource: null
     system:
       description: ''
       weightless: false
@@ -45,19 +46,19 @@ items:
     type: item
     sort: 1400001
     flags:
-      core:
-        sourceId: Item.e2bqe6cDAE8DZPPm
+      core: {}
     img: icons/svg/mystery-man.svg
     effects: []
     _stats:
-      coreVersion: '12.327'
+      coreVersion: '14.365'
       systemId: null
       systemVersion: null
       createdTime: null
       modifiedTime: null
       lastModifiedBy: null
-      compendiumSource: null
+      compendiumSource: Item.e2bqe6cDAE8DZPPm
       duplicateSource: null
+      exportSource: null
     system:
       description: <p>A creature you can see treats you as a friend.</p>
       weightless: false
@@ -82,19 +83,19 @@ items:
     type: item
     sort: 4000001
     flags:
-      core:
-        sourceId: Item.HyP8l1cpWoyognXB
+      core: {}
     img: icons/svg/mystery-man.svg
     effects: []
     _stats:
-      coreVersion: '12.327'
+      coreVersion: '14.365'
       systemId: null
       systemVersion: null
       createdTime: null
       modifiedTime: null
       lastModifiedBy: null
-      compendiumSource: null
+      compendiumSource: Item.HyP8l1cpWoyognXB
       duplicateSource: null
+      exportSource: null
     system:
       description: >-
         <p>A creature enters a trance and will truthfully answer one yes or no
@@ -121,19 +122,19 @@ items:
     type: item
     sort: 6400001
     flags:
-      core:
-        sourceId: Item.P189valRdUqrtmzB
+      core: {}
     img: icons/svg/mystery-man.svg
     effects: []
     _stats:
-      coreVersion: '12.327'
+      coreVersion: '14.365'
       systemId: null
       systemVersion: null
       createdTime: null
       modifiedTime: null
       lastModifiedBy: null
-      compendiumSource: null
+      compendiumSource: Item.P189valRdUqrtmzB
       duplicateSource: null
+      exportSource: null
     system:
       description: >-
         <p>An object of any size is pulled directly towards you or pushed
@@ -160,19 +161,19 @@ items:
     type: item
     sort: 1100001
     flags:
-      core:
-        sourceId: Item.Ps330tEit9SCUKhV
+      core: {}
     img: icons/svg/mystery-man.svg
     effects: []
     _stats:
-      coreVersion: '12.327'
+      coreVersion: '14.365'
       systemId: null
       systemVersion: null
       createdTime: null
       modifiedTime: null
       lastModifiedBy: null
-      compendiumSource: null
+      compendiumSource: Item.Ps330tEit9SCUKhV
       duplicateSource: null
+      exportSource: null
     system:
       description: <p>You and your possessions transform into a mundane animal.</p>
       weightless: false
@@ -194,7 +195,7 @@ items:
     _key: '!actors.items!9xGnh92OBt8Hkp2d.EHN1VODChI0LCfUx'
 effects: []
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
@@ -202,6 +203,7 @@ _stats:
   lastModifiedBy: null
   compendiumSource: null
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   bDeEK9GSahKwiAGH: 3
@@ -277,10 +279,7 @@ prototypeToken:
     scaleY: 1
     anchorX: 0.5
     anchorY: 0.5
-    offsetX: 0
-    offsetY: 0
     fit: contain
-    rotation: 0
     alphaThreshold: 0.75
   sight:
     angle: 360
@@ -294,9 +293,8 @@ prototypeToken:
     contrast: 0
   appendNumber: false
   prependAdjective: false
-  hexagonalShape: 0
   alpha: 1
-  detectionModes: []
+  detectionModes: {}
   occludable:
     radius: 0
   ring:
@@ -308,5 +306,12 @@ prototypeToken:
     subject:
       scale: 1
       texture: null
+  depth: 1
+  turnMarker:
+    mode: 1
+    animation: null
+    src: null
+    disposition: false
+  movementAction: null
 folder: null
 _key: '!actors!9xGnh92OBt8Hkp2d'

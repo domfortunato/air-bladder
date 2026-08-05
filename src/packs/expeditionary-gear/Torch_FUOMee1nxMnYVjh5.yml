@@ -7,7 +7,7 @@ folder: null
 sort: 0
 flags: {}
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
@@ -15,12 +15,15 @@ _stats:
   lastModifiedBy: null
   compendiumSource: null
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3
 system:
   cost: 5
-  description: 'A pitch-soaked brand that burns bright for an hour — light, and fire when you need it.'
+  description: >-
+    A pitch-soaked brand that burns bright for an hour — light, and fire when
+    you need it.
   weightless: false
   equipped: false
   bulky: false

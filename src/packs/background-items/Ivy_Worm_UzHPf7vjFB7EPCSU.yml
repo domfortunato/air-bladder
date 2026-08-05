@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A green worm often mistaken for a weed. Swallowed whole, it absorbs any toxins or rot in the body before exiting through the usual way.'
+  description: >-
+    A green worm often mistaken for a weed. Swallowed whole, it absorbs any
+    toxins or rot in the body before exiting through the usual way.
   weightless: false
   equipped: false
   bulky: false

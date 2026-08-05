@@ -8,7 +8,7 @@ sort: 0
 flags: {}
 system:
   cost: 10
-  description: 'Preserved trail food — dry, dense, and enough to keep you going for days.'
+  description: Preserved trail food — dry, dense, and enough to keep you going for days.
   weightless: false
   equipped: false
   bulky: false
@@ -24,12 +24,13 @@ ownership:
   default: 0
   tw8WBuj1heybSIqW: 3
 _stats:
-  systemId: cairn
-  systemVersion: 0.10.28
-  coreVersion: '12.327'
-  createdTime: null
-  modifiedTime: 1666221463811
-  lastModifiedBy: XjPpHewhii3UoI5l
+  systemId: air-bladder
+  systemVersion: 0.1.9
+  coreVersion: '14.365'
+  createdTime: 1785873591137
+  modifiedTime: 1785878798533
+  lastModifiedBy: ipqqDDQxZaMLtwLc
   compendiumSource: null
   duplicateSource: null
+  exportSource: null
 _key: '!items!fqhnNctO4vbBmjr1'

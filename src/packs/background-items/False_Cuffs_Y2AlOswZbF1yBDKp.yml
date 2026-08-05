@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Comfortable, realistic-looking cuffs. Only you know the trick to get out of them.'
+  description: >-
+    Comfortable, realistic-looking cuffs. Only you know the trick to get out of
+    them.
   weightless: false
   equipped: false
   bulky: false

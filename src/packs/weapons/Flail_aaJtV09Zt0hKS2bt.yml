@@ -1,26 +1,26 @@
 name: Flail
 type: weapon
 flags:
-  core:
-    sourceId: Item.MFaiAO9BRc0sure1
+  core: {}
 img: systems/air-bladder/art/game-icons/weapons/flail.svg
 effects: []
 _id: aaJtV09Zt0hKS2bt
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.MFaiAO9BRc0sure1
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3
 system:
   cost: 10
-  description: 'A spiked head on a chain that swings round shields and past a raised guard.'
+  description: A spiked head on a chain that swings round shields and past a raised guard.
   weightless: false
   equipped: true
   bulky: false

@@ -1,8 +1,7 @@
 name: Metal File
 type: item
 flags:
-  core:
-    sourceId: Item.mbBGEaMC7PnGiudO
+  core: {}
 img: systems/air-bladder/art/game-icons/tools/hand-saw.svg
 effects: []
 _id: 0mcwIELTpyllo20y
@@ -27,10 +26,11 @@ sort: 0
 _stats:
   systemId: cairn
   systemVersion: 0.10.26
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   createdTime: null
   modifiedTime: 1665822356979
   lastModifiedBy: Vw4BPOEKqYJ80wk3
   compendiumSource: Item.mbBGEaMC7PnGiudO
   duplicateSource: null
+  exportSource: null
 _key: '!items!0mcwIELTpyllo20y'

@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Thick gloves guarding the hands against heat, acid, and sharp edges.'
+  description: Thick gloves guarding the hands against heat, acid, and sharp edges.
   weightless: true
   equipped: false
   bulky: false

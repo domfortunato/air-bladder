@@ -16,7 +16,7 @@ system:
   names: []
   startingGear:
     - name: Bell
-    - name: 'Parchment & Ink'
+    - name: Parchment & Ink
     - name: Scroll of Random Spellbook
   containers: []
   tables: []

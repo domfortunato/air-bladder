@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: A finger-sized wooden stick that doubles in size each time it is fully submerged in water. It does not shrink down again.
+  description: >-
+    A finger-sized wooden stick that doubles in size each time it is fully
+    submerged in water. It does not shrink down again.
   weightless: false
   equipped: false
   bulky: false

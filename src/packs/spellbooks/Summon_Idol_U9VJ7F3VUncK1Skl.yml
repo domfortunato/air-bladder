@@ -1,20 +1,20 @@
 name: Summon Idol
 type: spellbook
 flags:
-  core:
-    sourceId: Item.nYxbFr1KR1UFupFk
+  core: {}
 img: systems/air-bladder/icons/spellbook.svg
 effects: []
 _id: U9VJ7F3VUncK1Skl
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.nYxbFr1KR1UFupFk
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3

@@ -1,20 +1,20 @@
 name: Hypnotize
 type: spellbook
 flags:
-  core:
-    sourceId: Item.HyP8l1cpWoyognXB
+  core: {}
 img: systems/air-bladder/icons/spellbook.svg
 effects: []
 _id: 1Cfjn1LJi24GGpf7
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.HyP8l1cpWoyognXB
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3

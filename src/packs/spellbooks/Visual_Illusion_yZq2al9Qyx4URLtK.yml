@@ -1,20 +1,20 @@
 name: Visual Illusion
 type: spellbook
 flags:
-  core:
-    sourceId: Item.B3KMexFMi77jSzX9
+  core: {}
 img: systems/air-bladder/icons/spellbook.svg
 effects: []
 _id: yZq2al9Qyx4URLtK
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.B3KMexFMi77jSzX9
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3

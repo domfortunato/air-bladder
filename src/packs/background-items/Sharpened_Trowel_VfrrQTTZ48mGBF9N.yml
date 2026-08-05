@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A gardener''s trowel honed to an edge — a tool and a hidden blade both.'
+  description: A gardener's trowel honed to an edge — a tool and a hidden blade both.
   weightless: false
   equipped: false
   bulky: false

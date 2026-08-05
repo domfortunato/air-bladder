@@ -1,20 +1,20 @@
 name: Sack
 type: item
 flags:
-  core:
-    sourceId: Item.zhBPJtm7ppVmBvgz
+  core: {}
 img: systems/air-bladder/icons/sack.svg
 effects: []
 _id: fElAGNYed7PDBrZ3
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.zhBPJtm7ppVmBvgz
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3

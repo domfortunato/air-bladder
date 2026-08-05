@@ -2,13 +2,12 @@ _id: FKKbSpcTlbf2OAQN
 name: Card Deck
 type: item
 flags:
-  core:
-    sourceId: Item.M2BxqAt0x6pfsSDy
-img: systems/air-bladder/art/game-icons/shields/dice-shield.svg
+  core: {}
+img: systems/air-bladder/art/game-icons/body/character.svg
 effects: []
 system:
   cost: 5
-  description: 'A deck of playing cards for passing time and parting fools from their coin.'
+  description: A deck of playing cards for passing time and parting fools from their coin.
   weightless: true
   equipped: false
   bulky: false
@@ -28,10 +27,11 @@ sort: 0
 _stats:
   systemId: cairn
   systemVersion: 0.10.26
-  coreVersion: '12.327'
-  createdTime: null
-  modifiedTime: 1665822374847
-  lastModifiedBy: Vw4BPOEKqYJ80wk3
+  coreVersion: '14.365'
+  createdTime: 1785861587500
+  modifiedTime: 1785861587500
+  lastModifiedBy: ipqqDDQxZaMLtwLc
   compendiumSource: Item.M2BxqAt0x6pfsSDy
   duplicateSource: null
+  exportSource: null
 _key: '!items!FKKbSpcTlbf2OAQN'

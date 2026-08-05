@@ -1,20 +1,20 @@
 name: Illuminate
 type: spellbook
 flags:
-  core:
-    sourceId: Item.LrxDp60ybcoHrQZo
+  core: {}
 img: systems/air-bladder/icons/spellbook.svg
 effects: []
 _id: 61nT0mH9UVBwyRLn
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.LrxDp60ybcoHrQZo
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3

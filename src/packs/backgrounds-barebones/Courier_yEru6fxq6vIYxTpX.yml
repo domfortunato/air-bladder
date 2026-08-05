@@ -17,7 +17,7 @@ system:
   startingGear:
     - name: Bell
     - name: Compass
-    - name: 'Parchment & Ink'
+    - name: Parchment & Ink
       uses: 3
   containers: []
   tables: []

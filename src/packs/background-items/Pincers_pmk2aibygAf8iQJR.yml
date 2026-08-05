@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Heavy iron pincers for gripping, pulling, or prying — teeth, nails, or bars.'
+  description: Heavy iron pincers for gripping, pulling, or prying — teeth, nails, or bars.
   weightless: false
   equipped: false
   bulky: false

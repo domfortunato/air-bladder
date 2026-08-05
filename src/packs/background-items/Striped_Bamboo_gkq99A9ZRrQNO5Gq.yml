@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Collapsible, it only requires one slot (but still requires both hands).'
+  description: Collapsible, it only requires one slot (but still requires both hands).
   weightless: false
   equipped: false
   bulky: false

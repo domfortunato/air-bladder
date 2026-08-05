@@ -9,7 +9,11 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A miniature clay replica of yourself that follows your every command. It hates being enthralled to you and complains bitterly whenever possible. Any damage done to the homunculus is also done to you. 3 HP, 4 STR, 13 DEX, 5 WIL'
+  description: >-
+    A miniature clay replica of yourself that follows your every command. It
+    hates being enthralled to you and complains bitterly whenever possible. Any
+    damage done to the homunculus is also done to you. 3 HP, 4 STR, 13 DEX, 5
+    WIL
   weightless: false
   equipped: false
   bulky: false

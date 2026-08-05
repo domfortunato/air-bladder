@@ -1,26 +1,26 @@
 name: Spear
 type: weapon
 flags:
-  core:
-    sourceId: Item.DL5EO7NizphtYrWL
+  core: {}
 img: systems/air-bladder/art/game-icons/weapons/barbed-spear.svg
 effects: []
 _id: 2Z807kXPnYap0hUU
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.DL5EO7NizphtYrWL
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3
 system:
   cost: 10
-  description: 'A simple hafted point. Cheap, deadly, and best kept between you and trouble.'
+  description: A simple hafted point. Cheap, deadly, and best kept between you and trouble.
   weightless: false
   equipped: true
   bulky: false

@@ -10,19 +10,19 @@ items:
     type: item
     sort: 500000
     flags:
-      core:
-        sourceId: Item.WzodO3q615BFIi2X
+      core: {}
     img: icons/svg/mystery-man.svg
     effects: []
     _stats:
-      coreVersion: '12.327'
+      coreVersion: '14.365'
       systemId: null
       systemVersion: null
       createdTime: null
       modifiedTime: null
       lastModifiedBy: null
-      compendiumSource: null
+      compendiumSource: Item.WzodO3q615BFIi2X
       duplicateSource: null
+      exportSource: null
     system:
       description: ''
       weightless: false
@@ -50,7 +50,7 @@ items:
     img: icons/svg/mystery-man.svg
     effects: []
     _stats:
-      coreVersion: '12.327'
+      coreVersion: '14.365'
       systemId: null
       systemVersion: null
       createdTime: null
@@ -58,6 +58,7 @@ items:
       lastModifiedBy: null
       compendiumSource: null
       duplicateSource: null
+      exportSource: null
     system:
       description: ''
       weightless: false
@@ -85,7 +86,7 @@ items:
     img: icons/svg/mystery-man.svg
     effects: []
     _stats:
-      coreVersion: '12.327'
+      coreVersion: '14.365'
       systemId: null
       systemVersion: null
       createdTime: null
@@ -93,6 +94,7 @@ items:
       lastModifiedBy: null
       compendiumSource: null
       duplicateSource: null
+      exportSource: null
     system:
       description: >-
         <p>Charming Song: Anyone who hears the song of a harpy must save WIL or
@@ -117,7 +119,7 @@ items:
     _key: '!actors.items!gZNwDJm20aKLCt2S.tvfdnBPPDBOVnrge'
 effects: []
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
@@ -125,6 +127,7 @@ _stats:
   lastModifiedBy: null
   compendiumSource: null
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   bDeEK9GSahKwiAGH: 3
@@ -201,10 +204,7 @@ prototypeToken:
     scaleY: 1
     anchorX: 0.5
     anchorY: 0.5
-    offsetX: 0
-    offsetY: 0
     fit: contain
-    rotation: 0
     alphaThreshold: 0.75
   sight:
     angle: 360
@@ -218,9 +218,8 @@ prototypeToken:
     contrast: 0
   appendNumber: false
   prependAdjective: false
-  hexagonalShape: 0
   alpha: 1
-  detectionModes: []
+  detectionModes: {}
   occludable:
     radius: 0
   ring:
@@ -232,5 +231,12 @@ prototypeToken:
     subject:
       scale: 1
       texture: null
+  depth: 1
+  turnMarker:
+    mode: 1
+    animation: null
+    src: null
+    disposition: false
+  movementAction: null
 folder: null
 _key: '!actors!gZNwDJm20aKLCt2S'

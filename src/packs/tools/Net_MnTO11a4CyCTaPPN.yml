@@ -1,14 +1,13 @@
 name: Net
 type: item
 flags:
-  core:
-    sourceId: Item.M4gugVCltP2mhgER
+  core: {}
 img: systems/air-bladder/art/game-icons/insects/bug-net.svg
 effects: []
 _id: MnTO11a4CyCTaPPN
 system:
   cost: 10
-  description: 'A weighted net for snaring fish, fowl, or a foe who won''t hold still.'
+  description: A weighted net for snaring fish, fowl, or a foe who won't hold still.
   weightless: true
   equipped: false
   bulky: false
@@ -28,10 +27,11 @@ sort: 0
 _stats:
   systemId: cairn
   systemVersion: 0.10.26
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   createdTime: null
   modifiedTime: 1665822366370
   lastModifiedBy: Vw4BPOEKqYJ80wk3
   compendiumSource: Item.M4gugVCltP2mhgER
   duplicateSource: null
+  exportSource: null
 _key: '!items!MnTO11a4CyCTaPPN'

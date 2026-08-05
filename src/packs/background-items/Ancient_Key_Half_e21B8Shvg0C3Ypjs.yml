@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'You protect a long-dormant family secret. Take one half of an Ancient Key. They say that if joined with its twin, it opens a Gate through any door.'
+  description: >-
+    You protect a long-dormant family secret. Take one half of an Ancient Key.
+    They say that if joined with its twin, it opens a Gate through any door.
   weightless: true
   equipped: false
   bulky: false

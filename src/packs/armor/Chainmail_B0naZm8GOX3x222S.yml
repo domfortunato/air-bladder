@@ -6,23 +6,23 @@ effects: []
 folder: null
 sort: 0
 flags:
-  core:
-    sourceId: Item.XUSozi5cljs4LWmf
+  core: {}
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.XUSozi5cljs4LWmf
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3
 system:
   cost: 40
-  description: 'A shirt of interlocking rings. Heavy, but it turns worse than claws.'
+  description: A shirt of interlocking rings. Heavy, but it turns worse than claws.
   weightless: false
   equipped: true
   bulky: true

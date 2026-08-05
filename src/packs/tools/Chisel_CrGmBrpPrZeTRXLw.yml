@@ -1,26 +1,26 @@
 name: Chisel
 type: item
 flags:
-  core:
-    sourceId: Item.Qka9zF6yQIFqguM4
+  core: {}
 img: systems/air-bladder/art/game-icons/tools/chisel.svg
 effects: []
 _id: CrGmBrpPrZeTRXLw
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.Qka9zF6yQIFqguM4
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3
 system:
   cost: 5
-  description: 'A steel chisel for shaping stone and wood — or working a stubborn seam.'
+  description: A steel chisel for shaping stone and wood — or working a stubborn seam.
   weightless: false
   equipped: false
   bulky: false

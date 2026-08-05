@@ -9,7 +9,9 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: 'Chew, then spit. The gum will harden and stretch, making a perfect, unbreakable seal.'
+  description: >-
+    Chew, then spit. The gum will harden and stretch, making a perfect,
+    unbreakable seal.
   weightless: true
   equipped: false
   bulky: false

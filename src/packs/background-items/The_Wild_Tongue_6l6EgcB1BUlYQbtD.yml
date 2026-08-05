@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A bundle of leather-bound scrolls. A seminal work, cataloging the hidden languages of beasts and how to understand them.'
+  description: >-
+    A bundle of leather-bound scrolls. A seminal work, cataloging the hidden
+    languages of beasts and how to understand them.
   weightless: false
   equipped: false
   bulky: false

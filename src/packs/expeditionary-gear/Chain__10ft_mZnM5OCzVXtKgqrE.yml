@@ -1,26 +1,26 @@
 name: Chain, 10ft
 type: item
 flags:
-  core:
-    sourceId: Item.3uWyC9Xo1E51Wde8
+  core: {}
 img: systems/air-bladder/art/game-icons/metal/crossed-chains.svg
 effects: []
 _id: mZnM5OCzVXtKgqrE
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.3uWyC9Xo1E51Wde8
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3
 system:
   cost: 10
-  description: 'Ten feet of heavy iron chain, for binding, hauling, or barring a door.'
+  description: Ten feet of heavy iron chain, for binding, hauling, or barring a door.
   weightless: false
   equipped: false
   bulky: false

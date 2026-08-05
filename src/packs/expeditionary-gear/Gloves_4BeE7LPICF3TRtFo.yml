@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A plain pair of gloves against cold, thorns, and rough work.'
+  description: A plain pair of gloves against cold, thorns, and rough work.
   weightless: true
   equipped: false
   bulky: false

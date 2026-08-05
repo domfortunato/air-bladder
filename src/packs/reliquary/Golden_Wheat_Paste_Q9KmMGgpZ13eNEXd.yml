@@ -9,7 +9,7 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: 'When mixed with water, this substance chemically bonds any two objects.'
+  description: When mixed with water, this substance chemically bonds any two objects.
   weightless: false
   equipped: false
   bulky: false

@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Sturdy shears for parting a fence — or a chain, or a purse-string — from its owner.'
+  description: >-
+    Sturdy shears for parting a fence — or a chain, or a purse-string — from its
+    owner.
   weightless: false
   equipped: false
   bulky: false

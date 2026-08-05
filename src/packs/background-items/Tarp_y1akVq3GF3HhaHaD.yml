@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A large waterproof sheet for shelter, cover, or hauling a load.'
+  description: A large waterproof sheet for shelter, cover, or hauling a load.
   weightless: false
   equipped: false
   bulky: false

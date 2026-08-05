@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: Provides a dim light so long as the wisp is able to feed on nearby pain and fear.
+  description: >-
+    Provides a dim light so long as the wisp is able to feed on nearby pain and
+    fear.
   weightless: false
   equipped: false
   bulky: false

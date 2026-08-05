@@ -1,26 +1,28 @@
 name: Pole, 10ft
 type: item
 flags:
-  core:
-    sourceId: Item.kdhZfQoTj5IfPbPW
+  core: {}
 img: systems/air-bladder/art/game-icons/weapons/bo.svg
 effects: []
 _id: Q0oIN5rNTz9LOVAG
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.kdhZfQoTj5IfPbPW
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3
 system:
   cost: 5
-  description: 'A ten-foot wooden pole for probing traps, vaulting gaps, and testing footing.'
+  description: >-
+    A ten-foot wooden pole for probing traps, vaulting gaps, and testing
+    footing.
   weightless: false
   equipped: false
   bulky: false

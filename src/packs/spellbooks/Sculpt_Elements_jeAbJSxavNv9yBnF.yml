@@ -1,20 +1,20 @@
 name: Sculpt Elements
 type: spellbook
 flags:
-  core:
-    sourceId: Item.gc1Fc4CjxUYhrHRd
+  core: {}
 img: systems/air-bladder/icons/spellbook.svg
 effects: []
 _id: jeAbJSxavNv9yBnF
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.gc1Fc4CjxUYhrHRd
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3

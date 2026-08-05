@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Freezes any body of water, no matter the size. Don''t eat it.'
+  description: Freezes any body of water, no matter the size. Don't eat it.
   weightless: false
   equipped: false
   bulky: false

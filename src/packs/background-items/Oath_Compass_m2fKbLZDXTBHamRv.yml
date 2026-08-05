@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Points not towards North, but instead to the nearest member of the Guard. It also lets you know when they''re getting close.'
+  description: >-
+    Points not towards North, but instead to the nearest member of the Guard. It
+    also lets you know when they're getting close.
   weightless: false
   equipped: false
   bulky: false

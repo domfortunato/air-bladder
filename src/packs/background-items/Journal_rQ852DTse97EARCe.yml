@@ -9,7 +9,10 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'You inherited an old Journal, bound in bark. Each evening, its pages are filled with the events of the day, crassly from the journal’s perspective. The writing is crude, but accurate.'
+  description: >-
+    You inherited an old Journal, bound in bark. Each evening, its pages are
+    filled with the events of the day, crassly from the journal’s perspective.
+    The writing is crude, but accurate.
   weightless: false
   equipped: false
   bulky: false

@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'Purifies any liquid, converting it to pure water. Drinking it cures 1d6 STR.'
+  description: Purifies any liquid, converting it to pure water. Drinking it cures 1d6 STR.
   weightless: false
   equipped: false
   bulky: false

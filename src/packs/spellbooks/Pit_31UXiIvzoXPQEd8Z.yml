@@ -1,20 +1,20 @@
 name: Pit
 type: spellbook
 flags:
-  core:
-    sourceId: Item.iVbEokqw7IBMh8tl
+  core: {}
 img: systems/air-bladder/icons/spellbook.svg
 effects: []
 _id: 31UXiIvzoXPQEd8Z
 _stats:
-  coreVersion: '12.327'
+  coreVersion: '14.365'
   systemId: null
   systemVersion: null
   createdTime: null
   modifiedTime: null
   lastModifiedBy: null
-  compendiumSource: null
+  compendiumSource: Item.iVbEokqw7IBMh8tl
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3

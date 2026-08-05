@@ -1,26 +1,26 @@
 name: Dagger
 type: weapon
 flags:
-  core:
-    sourceId: Item.oBy7XRCKN2goXJUL
+  core: {}
 img: systems/air-bladder/art/game-icons/blade/plain-dagger.svg
 effects: []
 _id: 67XlPOQE3AUTRyuy
 _stats:
-  coreVersion: '12.327'
-  systemId: null
-  systemVersion: null
-  createdTime: null
-  modifiedTime: null
-  lastModifiedBy: null
-  compendiumSource: null
+  coreVersion: '14.365'
+  systemId: air-bladder
+  systemVersion: 0.1.9
+  createdTime: 1785873363955
+  modifiedTime: 1785878622698
+  lastModifiedBy: ipqqDDQxZaMLtwLc
+  compendiumSource: Item.oBy7XRCKN2goXJUL
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3
 system:
   cost: 5
-  description: 'A short, versatile blade — easy to carry, easy to conceal.'
+  description: A short, versatile blade — easy to carry, easy to conceal.
   weightless: false
   equipped: true
   bulky: false

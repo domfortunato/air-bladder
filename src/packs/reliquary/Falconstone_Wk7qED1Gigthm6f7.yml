@@ -9,7 +9,9 @@ flags:
   air-bladder:
     relicSource: srd-2e
 system:
-  description: Perceive the world through the eyes and ears of a nearby bird of prey. You feel whatever it feels but have no control over it.
+  description: >-
+    Perceive the world through the eyes and ears of a nearby bird of prey. You
+    feel whatever it feels but have no control over it.
   weightless: false
   equipped: false
   bulky: false
@@ -19,7 +21,7 @@ system:
     value: 3
     max: 3
   relic: true
-  recharge: 'Kill and eat a common quarry, cooking the meat alongside the stone.'
+  recharge: Kill and eat a common quarry, cooking the meat alongside the stone.
 ownership:
   default: 0
 _stats:

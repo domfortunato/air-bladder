@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A fine-toothed surgeon''s saw for cutting through bone. Grim, but effective.'
+  description: A fine-toothed surgeon's saw for cutting through bone. Grim, but effective.
   weightless: false
   equipped: false
   bulky: false

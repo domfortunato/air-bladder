@@ -1,0 +1,166 @@
+_id: JnNMVqO6qAlaXtGF
+name: 'Barebones: Creation - Armor'
+img: icons/svg/d20-grey.svg
+description: >-
+  Cairn Barebones character creation, step 5. Roll d6 for starting armor; a
+  result of None grants an extra roll on Barebones: Creation - Additional Gear
+  instead. Drag an armor item in to restock a row.
+results:
+  - _id: 7qBPRzfjgBtlXMCj
+    type: text
+    description: None
+    img: icons/svg/cancel.svg
+    weight: 1
+    range:
+      - 1
+      - 1
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!JnNMVqO6qAlaXtGF.7qBPRzfjgBtlXMCj'
+  - _id: TCtSCOXooo1QMPeR
+    type: document
+    name: Shield
+    img: systems/air-bladder/art/game-icons/shields/round-shield.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    documentUuid: Compendium.air-bladder.armor.Item.7r2YpGYPQI2SarO3
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
+    _key: '!tables.results!JnNMVqO6qAlaXtGF.TCtSCOXooo1QMPeR'
+  - _id: BnjeqKy4EVqTh0Gb
+    type: document
+    name: Helmet
+    img: systems/air-bladder/art/game-icons/armor/crested-helmet.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    documentUuid: Compendium.air-bladder.armor.Item.XGxHc7C2FIIhbNuE
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
+    _key: '!tables.results!JnNMVqO6qAlaXtGF.BnjeqKy4EVqTh0Gb'
+  - _id: BXHDUAscrQcHtSVq
+    type: document
+    name: Gambeson
+    img: systems/air-bladder/art/game-icons/armor/layered-armor.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    documentUuid: Compendium.air-bladder.armor.Item.pC4sMCtdCmuqIRp6
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
+    _key: '!tables.results!JnNMVqO6qAlaXtGF.BXHDUAscrQcHtSVq'
+  - _id: 0uU5HGaXVlt169Ub
+    type: document
+    name: Chainmail
+    img: systems/air-bladder/art/game-icons/armor/chain-mail.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    documentUuid: Compendium.air-bladder.armor.Item.B0naZm8GOX3x222S
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
+    _key: '!tables.results!JnNMVqO6qAlaXtGF.0uU5HGaXVlt169Ub'
+  - _id: Gi8M1P4eBWIympjA
+    type: document
+    name: Plate Mail
+    img: systems/air-bladder/art/game-icons/armor/breastplate.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    documentUuid: Compendium.air-bladder.armor.Item.ymce9Te4HU42dJS9
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
+    _key: '!tables.results!JnNMVqO6qAlaXtGF.Gi8M1P4eBWIympjA'
+formula: 1d6
+replacement: true
+displayRoll: true
+flags:
+  air-bladder:
+    tableSource: barebones
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+  systemVersion: 0.1.9
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!tables!JnNMVqO6qAlaXtGF'

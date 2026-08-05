@@ -7,23 +7,25 @@ folder: null
 sort: 0
 flags:
   core:
-    sourceId: Item.laothZZRBETtgj8P
     sheetClass: ''
 _stats:
-  coreVersion: '12.327'
-  systemId: null
-  systemVersion: null
-  createdTime: null
-  modifiedTime: null
-  lastModifiedBy: null
-  compendiumSource: null
+  coreVersion: '14.365'
+  systemId: air-bladder
+  systemVersion: 0.1.9
+  createdTime: 1785873326138
+  modifiedTime: 1785878587862
+  lastModifiedBy: ipqqDDQxZaMLtwLc
+  compendiumSource: Item.laothZZRBETtgj8P
   duplicateSource: null
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3
 system:
   cost: 20
-  description: 'A stiff coat lined with riveted metal plates. Heavier protection than plain leather.'
+  description: >-
+    A stiff coat lined with riveted metal plates. Heavier protection than plain
+    leather.
   weightless: false
   equipped: true
   bulky: true

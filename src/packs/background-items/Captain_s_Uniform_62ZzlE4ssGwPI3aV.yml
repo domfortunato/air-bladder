@@ -1,5 +1,5 @@
 _id: 62ZzlE4ssGwPI3aV
-name: 'Captain''s Uniform'
+name: Captain's Uniform
 type: item
 img: systems/air-bladder/icons/generic-item.svg
 effects: []
@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A dashing officer''s uniform you have no right to wear. It opens doors that rank alone never could.'
+  description: >-
+    A dashing officer's uniform you have no right to wear. It opens doors that
+    rank alone never could.
   weightless: true
   equipped: false
   bulky: false

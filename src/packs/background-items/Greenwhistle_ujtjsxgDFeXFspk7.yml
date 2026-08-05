@@ -9,7 +9,9 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: 'A small flute that calms plants, making passage through areas heavy with plant life a bit easier.'
+  description: >-
+    A small flute that calms plants, making passage through areas heavy with
+    plant life a bit easier.
   weightless: false
   equipped: false
   bulky: false
