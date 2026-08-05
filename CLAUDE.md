@@ -247,12 +247,26 @@ if you find one, deleting it is in scope, not a separate decision.
 - Slot inventory: bulky = 2, weightless = 0, times quantity.
 - **Being encumbered sets HP to 0 outright. So does panic.** Intentional.
   **A pack filled to EXACTLY its limit is encumbered** — `actor.js` computes
-  `slotsUsed >= slotsMax`, not `>`. **RULED 2026-08-05 and CLOSED: this is not
-  changing, do not raise it again.** A character CAN be generated overloaded,
-  because a background granting extra gear is exactly the kind of thing that
-  fills a pack, and the player then decides what to hand off or abandon. It
-  reads like a generation bug and is reported as one (issue #5); the answer is
-  that the choice is the game, not a defect to design away.
+  `slotsUsed >= slotsMax`, not `>` — and **there is no ceiling above that: a
+  character may carry MORE than the limit and is simply encumbered until they
+  are back down to limit-minus-one.** **RULED 2026-08-05 and CLOSED: none of
+  this is changing, do not raise it again.** A character CAN be generated
+  overloaded, because a background granting extra gear is exactly the kind of
+  thing that fills a pack, and the player then decides what to hand to someone
+  else or abandon. It reads like a generation bug and is reported as one
+  (issue #5); the answer is that the choice is the game, not a defect to
+  design away.
+  **The code does NOT yet implement the no-ceiling half, and the disagreement
+  is currently 3–1.** `createOwnedItem` (`actor.js`), the sheet's Add Fatigue
+  button and `_onDropItem`'s character branch (`actor-sheet.js`) all REFUSE
+  outright once `isEncumbered()` is true, so nothing can push a character past
+  the limit — while the marketplace calls `createEmbeddedDocuments` directly
+  and merely warns, which is the ruled behaviour. `_onDropItem`'s own comment
+  ("A CHARACTER may accept an item that puts them over capacity") states the
+  rule its next line breaks. Fatigue is the sharpest case: casting fills a
+  slot whether or not one is free, so refusing it at capacity drops a cost the
+  rules impose. Unresolved — the ruling is recorded, the reconciliation is not
+  scheduled.
 - **Coins consume slots** (2e p.9): `ceil(gold/N) - 1` where N is the
   "coins per slot" setting. ONE rule for every actor type.
 - **Dice notation overloads `+`.** `2d8` = add (2..16). `d8 + d8` = keep highest
