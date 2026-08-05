@@ -52,6 +52,15 @@ try {
     const containersOf = (actor) =>
       game.actors.filter((a) => a.system?.connectedTo === actor.uuid);
     const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+    // POLL, never sleep: pack.getDocuments() is a server round trip on every
+    // call, so the picker's open time tracks the server, not the code — a
+    // fixed 400ms here was a race that a slow world turned into a probe that
+    // never cancels its own dialog and hangs on the await (2026-08-04).
+    const waitFor = async (test, ms = 20000) => {
+      const t0 = Date.now();
+      while (Date.now() - t0 < ms) { if (test()) return true; await wait(100); }
+      return false;
+    };
 
     // 1. Grouping, per edition.
     const g2e = await gen.getBackgroundsByArchetype("2e");
@@ -99,7 +108,7 @@ try {
 
     // 3. The dialog renders, pre-checked, with a Random row.
     const pick = gen.promptBackground("2e", actor.system.backgroundUuid);
-    await wait(400);
+    await waitFor(() => document.querySelector(".bg-picker"));
     const root = document.querySelector(".bg-picker");
     const dialogInfo = {
       rendered: !!root,
@@ -159,7 +168,7 @@ try {
       // the disabled row greyed with a dead radio, and the eye click
       // re-enabling it LIVE — row, radio and setting together.
       const pickD = gen.promptBackground("2e", null);
-      await wait(400);
+      await waitFor(() => document.querySelector(".bg-picker"));
       const rootD = document.querySelector(".bg-picker");
       const rowsD = rootD?.querySelectorAll('input[name="bg"]').length ?? 0;
       disable.eyeMatchesRows = (rootD?.querySelectorAll(".bg-pick-eye").length ?? 0) === rowsD - 1;
@@ -168,7 +177,9 @@ try {
       disable.rowGreyed = !!rowD?.classList.contains("bg-pick-off");
       disable.radioDead = !!rowD?.querySelector("input")?.disabled;
       rowD?.querySelector(".bg-pick-eye")?.click();
-      await wait(400);
+      // The click handler awaits a world-setting round trip before it touches
+      // the row — poll for the flip, don't time it.
+      await waitFor(() => rowD && !rowD.classList.contains("bg-pick-off"), 10000);
       disable.reEnabledLive = !!rowD && !rowD.classList.contains("bg-pick-off")
         && !rowD.querySelector("input").disabled
         && !game.settings.get(NS, "disabled-backgrounds").includes(victim.uuid);
@@ -322,7 +333,7 @@ try {
 
     // Barebones renders the single-column variant.
     const pick2 = gen.promptBackground("barebones", bbActor.system.backgroundUuid);
-    await wait(400);
+    await waitFor(() => document.querySelector(".bg-picker"));
     const root2 = document.querySelector(".bg-picker");
     const bbDialog = {
       rendered: !!root2,
@@ -379,7 +390,12 @@ try {
     if (addBtn) {
       addBtn.click();
       addBtn.click();   // same tick — no await between them
-      await wait(2500);
+      // POLL for the second bond, don't time it: each add draws on the Bonds
+      // table, and a pack draw is a server round trip whose cost tracks the
+      // world, not the code. A fixed 2500ms read the count mid-flight on a
+      // cold post-build server and reported 1 of 2 (2026-08-04) — the orphan
+      // assertion (the leg's real witness) was green the whole time.
+      await waitFor(() => (raceActor.system.bonds ?? []).length >= 2, 15000);
       const bonds = raceActor.system.bonds ?? [];
       bondRace.after = bonds.length;
       const live = new Set(bonds.map((b) => `bond:${b.id}`));

@@ -1562,7 +1562,7 @@ const BG_PACK_FOR = { "2e": "air-bladder.backgrounds-2e", barebones: BAREBONES_B
  * CC BY-SA sets (currently "Backgrounds for Cairn", Gordon McCormick) and is
  * admitted by the same CUSTOM toggle as the Warden's own authored backgrounds.
  */
-const CUSTOM_BG_PACK = "air-bladder.backgrounds-custom";
+const SHIPPED_CUSTOM_BG_PACK = "air-bladder.backgrounds-custom";
 
 /**
  * Everything the CUSTOM toggle admits: the shipped custom pack plus the
@@ -1572,7 +1572,7 @@ const CUSTOM_BG_PACK = "air-bladder.backgrounds-custom";
  */
 const getAllCustomBackgrounds = async () => {
   const out = [];
-  const shipped = game.packs.get(CUSTOM_BG_PACK);
+  const shipped = game.packs.get(SHIPPED_CUSTOM_BG_PACK);
   if (shipped) out.push(...(await shipped.getDocuments()));
   out.push(...(await getCustomBackgrounds()));
   return out;
@@ -1669,8 +1669,17 @@ const getCustomBackgrounds = async () => {
  * the source level.
  * @returns {Promise<CairnItem[]>}
  */
-const get2eBackgrounds = async ({ includeDisabled = false } = {}) => {
+/**
+ * One fetch, both answers: the 2e pool AND which ids the CUSTOM toggle
+ * admitted. `pack.getDocuments()` is a server round trip on EVERY call
+ * (~1.7s warm for the 20-doc pack, measured 2026-08-04), so the picker must
+ * not build the pool twice just to learn which entries are custom — that
+ * doubled cost is what pushed the picker's open past the probe's wait and
+ * looked like a hang.
+ */
+const build2ePool = async ({ includeDisabled = false } = {}) => {
   const byId = new Map();
+  const customIds = new Set();
   const addShipped = async () => {
     const pack = game.packs.get(BG_PACK_FOR["2e"]);
     if (pack) for (const b of await pack.getDocuments()) byId.set(b.id, b);
@@ -1678,7 +1687,10 @@ const get2eBackgrounds = async ({ includeDisabled = false } = {}) => {
   const shippedOn = game.settings.get(SETTINGS_NS, "content-source-2e");
   if (shippedOn) await addShipped();
   if (game.settings.get(SETTINGS_NS, "content-source-custom")) {
-    for (const b of await getAllCustomBackgrounds()) byId.set(b.id, b);
+    for (const b of await getAllCustomBackgrounds()) {
+      byId.set(b.id, b);
+      customIds.add(b.id);
+    }
   }
   // Fall back ONLY when no toggle expressed a preference. A homebrew-only game
   // with nothing authored yet must NOT be quietly handed the shipped pack: the
@@ -1694,8 +1706,10 @@ const get2eBackgrounds = async ({ includeDisabled = false } = {}) => {
   // back on; every other caller (random rolls, swaps, imports) gets the
   // filtered pool.
   const off = includeDisabled ? null : disabledBackgrounds();
-  return [...byId.values()].filter((b) => !off || !off.has(b.uuid));
+  return { docs: [...byId.values()].filter((b) => !off || !off.has(b.uuid)), customIds };
 };
+
+const get2eBackgrounds = async (opts) => (await build2ePool(opts)).docs;
 
 /** Every background for a content source. @returns {Promise<CairnItem[]>} */
 export const getBackgroundsFor = async (source) => {
@@ -1716,22 +1730,23 @@ const ARCHETYPE_ORDER = ["Fighter", "Wizard", "Thief"];
 export const getBackgroundsByArchetype = async (source) => {
   // The Warden's 2e view keeps disabled backgrounds VISIBLE — the picker greys
   // them and offers the re-enable toggle; hiding them would make a disable
-  // permanent-by-accident. Players get the filtered pool.
-  const backgrounds = source === "2e"
-    ? await get2eBackgrounds({ includeDisabled: game.user.isGM })
-    : await getBackgroundsFor(source);
-  const byName = (x, y) => x.name.localeCompare(y.name);
-
+  // permanent-by-accident. Players get the filtered pool. ONE pool build
+  // supplies both the documents and the custom membership — see build2ePool.
+  //
   // CUSTOM backgrounds get their own picker section instead of being
   // interleaved into the archetype groups (user ruling 2026-08-04): a Warden
   // reading the list tells the Player's Guide twenty from everything else at
   // a glance. Membership is by PROVENANCE — the shipped custom pack plus the
   // world/module scan — never by a field on the document, so a duplicate a
   // Warden edited stays custom and a canon background can never drift in.
-  let customIds = new Set();
-  if (source === "2e" && game.settings.get(SETTINGS_NS, "content-source-custom")) {
-    customIds = new Set((await getAllCustomBackgrounds()).map((b) => b.id));
+  let backgrounds, customIds;
+  if (source === "2e") {
+    ({ docs: backgrounds, customIds } = await build2ePool({ includeDisabled: game.user.isGM }));
+  } else {
+    backgrounds = await getBackgroundsFor(source);
+    customIds = new Set();
   }
+  const byName = (x, y) => x.name.localeCompare(y.name);
   const custom = backgrounds.filter((b) => customIds.has(b.id)).sort(byName);
   const canon = backgrounds.filter((b) => !customIds.has(b.id));
 
