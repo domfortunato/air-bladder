@@ -161,7 +161,17 @@ for (const { name } of packs) {
       await compilePack(src, out, { yaml: true, recursive: true });
       console.log(`  built    ${name.padEnd(30)} ${String(countYaml(src)).padStart(3)} docs`);
     } else {
-      if (!fs.existsSync(out)) throw new Error(`no pack at packs/${name}`);
+      // A pack DECLARED but never BUILT has nothing to extract and nothing to
+      // lose — skip it rather than fail. Failing here was a circular trap: the
+      // failed run exited before re-stamping the sync marker, so the next
+      // build refused on stale "drift" that extract had already folded in, and
+      // re-running extract failed the same way forever. Hit on 2026-08-04, the
+      // first time a new pack (backgrounds-custom) was declared since the
+      // guard was written.
+      if (!fs.existsSync(out)) {
+        console.log(`  skipped  ${name.padEnd(30)} (declared but not built yet — nothing to extract)`);
+        continue;
+      }
       await extractPack(out, src, { yaml: true, clean: true });
       console.log(`  extracted ${name.padEnd(29)} ${String(countYaml(src)).padStart(3)} docs`);
     }
