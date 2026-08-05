@@ -218,6 +218,24 @@ export const registerSettings = () => {
   // the Generate button asks; exactly one means it just uses that one. These
   // gate GENERATION ONLY -- every rule after a character exists is identical
   // across editions, by design (see CLAUDE.md, "one system, two generators").
+  //
+  // THE FLOOR (user ruling 2026-08-04, "option 2"): unchecking the LAST
+  // enabled source switches Cairn 2e back on, with a toast. Generation
+  // already falls back to the shipped 2e pack when every source is off, so
+  // an all-off settings window was LYING — the honest fix is the checkbox
+  // following the behavior, not a veto (Foundry has no hook that can block a
+  // settings save). The write-back is idempotent and convergent, so the
+  // activeGM two-tab quirk (both tabs elect themselves) is harmless here —
+  // both write the same true. Re-entrancy: the write-back flips a source ON,
+  // so the guard below cannot fire again from it.
+  const SOURCE_KEYS = ["content-source-2e", "content-source-custom", "content-source-barebones"];
+  const enforceSourceFloor = async () => {
+    if (SOURCE_KEYS.some((k) => game.settings.get(SETTINGS_NS, k))) return;
+    if (game.users.activeGM !== game.user) return;
+    await game.settings.set(SETTINGS_NS, "content-source-2e", true);
+    ui.notifications.warn(game.i18n.localize("CAIRN.Notify.LastSource"));
+  };
+
   game.settings.register(SETTINGS_NS, "content-source-2e", {
     name: game.i18n.localize("CAIRN.Settings.ContentSource2e.label"),
     hint: game.i18n.localize("CAIRN.Settings.ContentSource2e.hint"),
@@ -226,6 +244,7 @@ export const registerSettings = () => {
     type: Boolean,
     default: true,
     requiresReload: false,
+    onChange: enforceSourceFloor,
   });
 
   // GM-authored 2e backgrounds living in a world compendium. They are 2e-format
@@ -240,6 +259,7 @@ export const registerSettings = () => {
     type: Boolean,
     default: false,
     requiresReload: false,
+    onChange: enforceSourceFloor,
   });
 
   game.settings.register(SETTINGS_NS, "content-source-barebones", {
@@ -250,6 +270,7 @@ export const registerSettings = () => {
     type: Boolean,
     default: true,
     requiresReload: false,
+    onChange: enforceSourceFloor,
   });
 
   // A second background name as pure flavor -- the career that didn't work out.

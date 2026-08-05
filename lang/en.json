@@ -361,6 +361,7 @@
   "CAIRN.Notify.BackgroundNotCharacter": "Only a player character has a background.",
   "CAIRN.Notify.BackgroundWrongSource": "That is a {backgroundEdition} background and this is a {characterEdition} character. A character does not change edition.",
   "CAIRN.Notify.LastBackground": "At least one background must stay enabled.",
+  "CAIRN.Notify.LastSource": "At least one background source must stay enabled — Cairn 2e has been switched back on.",
   "CAIRN.Npc": "NPC",
   "CAIRN.NpcRegeneratorConfirm": "Are you sure you want to roll this NPC again?</p><p>Everything it is carrying will be deleted, and its abilities, HP, career and day rate will be replaced. This cannot be undone.",
   "CAIRN.NpcRegeneratorTitle": "Roll this NPC again?",

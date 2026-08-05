@@ -55,6 +55,11 @@ try {
     let pack = null;
 
     try {
+      // Pin Barebones ON while the 2e/custom combinations run: set() writes 2e
+      // before custom, and with Barebones off that ordering passes through
+      // all-three-off — which now FIRES THE FLOOR and flips 2e back on in the
+      // middle of a leg. The floor gets its own deliberate leg below.
+      await game.settings.set(NS, "content-source-barebones", true);
       // A real custom background, in a world pack, the way the feature intends.
       // Cloned from a shipped one so it is structurally valid without this probe
       // having to know the background schema.
@@ -93,10 +98,34 @@ try {
       await set(false, true);  out.customOnlyEmpty = await sample();
 
       out.custom = CUSTOM;
+
+      // THE FLOOR (option 2, ruled 2026-08-04): switching the LAST enabled
+      // source off flips Cairn 2e back on with a toast, because generation
+      // already refuses to be left with nothing and the settings window must
+      // not claim otherwise. The write-back runs in the setting's onChange —
+      // POLL for it, the round trip owes this probe no particular timing.
+      await game.settings.set(NS, "content-source-barebones", false);
+      await set(false, false);
+      const t0 = Date.now();
+      let reEnabled = false;
+      while (Date.now() - t0 < 10000) {
+        if (game.settings.get(NS, "content-source-2e")) { reEnabled = true; break; }
+        await new Promise((res) => setTimeout(res, 100));
+      }
+      out.floor = {
+        reEnabled,
+        // the floor turns exactly ONE source back on — the other two stay off
+        othersStayOff: !game.settings.get(NS, "content-source-custom")
+          && !game.settings.get(NS, "content-source-barebones"),
+      };
     } finally {
       try { await pack?.deleteCompendium(); } catch { /* already gone */ }
-      await set(prior.two, prior.cust);
+      // Floor-safe restore ORDER: barebones and custom first, 2e last — a
+      // transient all-off here would fire the floor and overwrite the very
+      // state being restored.
       await game.settings.set(NS, "content-source-barebones", prior.bare);
+      await game.settings.set(NS, "content-source-custom", prior.cust);
+      await game.settings.set(NS, "content-source-2e", prior.two);
     }
     return out;
   });
@@ -155,6 +184,9 @@ try {
       ? ok("custom-only with none authored: no character generated (the caller warns instead)")
       : fail(`custom-only with none authored still generated a character ("${r.customOnlyEmpty.bg}")`);
   }
+  r.floor?.reEnabled && r.floor?.othersStayOff
+    ? ok("THE FLOOR: switching the last source off flips Cairn 2e back on, and only 2e")
+    : fail(`floor wrong: reEnabled=${r.floor?.reEnabled}, othersStayOff=${r.floor?.othersStayOff}`);
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {
