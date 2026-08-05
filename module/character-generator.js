@@ -1874,9 +1874,17 @@ export const promptBackground = async (source, currentUuid = null) => {
         <span class="bg-pick-tag">${bgEsc(backgroundTagline(bg))}</span>${eye}</label>`;
     }
   }
+  // The authoring pointer (user ruling 2026-08-05, "option 1"): the picker is
+  // the moment someone is looking at what backgrounds exist, so the how-to
+  // link lives here — 2e only, because custom backgrounds are a 2e concept.
+  const GUIDE_URL = "https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md";
+  const foot = source === "2e"
+    ? `<div class="bg-pick-foot">${game.i18n.localize("CAIRN.BgPickFootQuestion")}
+        <a href="${GUIDE_URL}" target="_blank" rel="noopener">${game.i18n.localize("CAIRN.BgPickFootLink")}</a></div>`
+    : "";
   const content = hasProse
-    ? `<div class="bg-picker"><div class="bg-pick-list">${list}</div><div class="bg-pick-desc"></div></div>`
-    : `<div class="bg-picker single"><div class="bg-pick-list">${list}</div></div>`;
+    ? `<div class="bg-picker"><div class="bg-pick-list">${list}</div><div class="bg-pick-desc"></div>${foot}</div>`
+    : `<div class="bg-picker single"><div class="bg-pick-list">${list}</div>${foot}</div>`;
 
   return new Promise((resolve) => {
     let done = false;

@@ -69,6 +69,8 @@
   "CAIRN.BgAuthor.Unnamed": "(unnamed)",
   "CAIRN.BgPickDisable": "Disable this background — players won't see it and it can't be rolled",
   "CAIRN.BgPickEnable": "Enable this background",
+  "CAIRN.BgPickFootLink": "Creating custom backgrounds",
+  "CAIRN.BgPickFootQuestion": "Want backgrounds of your own?",
   "CAIRN.BgTagline.Carried": "{name} (+{slots})",
   "CAIRN.Bio.Age": "You are {value} years old.",
   "CAIRN.Bio.Clothing": "You have {value} Clothing.",

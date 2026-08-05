@@ -119,6 +119,10 @@ try {
       groupHeadings: root?.querySelectorAll(".bg-pick-group").length ?? 0,
       // the description panel previews the checked background
       panelFilled: (root?.querySelector(".bg-pick-desc")?.innerHTML ?? "").length > 20,
+      // the authoring pointer (2026-08-05): a real link to the how-to guide,
+      // surviving DialogV2's content sanitization
+      footLinksGuide: (root?.querySelector(".bg-pick-foot a")?.getAttribute("href") ?? "")
+        .endsWith("creating-custom-backgrounds.md"),
     };
     // Cancel it: the dialog must resolve false, not hang.
     document.querySelector(".bg-picker")?.closest(".application")
@@ -343,6 +347,8 @@ try {
       noHeadings: (root2?.querySelectorAll(".bg-pick-group").length ?? 0) === 0,
       // Barebones is all-or-nothing (2026-08-04): no per-row eye here, ever.
       noEyes: (root2?.querySelectorAll(".bg-pick-eye").length ?? 0) === 0,
+      // ... and no authoring pointer either — custom backgrounds are 2e-only.
+      noFoot: !root2?.querySelector(".bg-pick-foot"),
     };
     document.querySelector(".bg-picker")?.closest(".application")
       ?.querySelector('button[data-action="cancel"]')?.click();
@@ -432,6 +438,9 @@ try {
     D.checkedIsCurrent ? ok("opens pre-checked on the character's current background") : fail("did not pre-check the current background");
     D.panelFilled ? ok("the description panel previews the checked background") : fail("description panel is empty");
     D.cancelResolvesFalse ? ok("Cancel resolves false (no hang, no swap)") : fail("Cancel did not resolve false");
+    D.footLinksGuide
+      ? ok("the footer links the custom-backgrounds guide")
+      : fail("no footer link to creating-custom-backgrounds.md (stripped by the dialog, or absent)");
 
     const E = r.disable;
     E.customSection
@@ -497,6 +506,7 @@ try {
 
     const B = r.bbDialog;
     B.noEyes ? ok("Barebones rows carry no eye toggle (all-or-nothing by ruling)") : fail("a Barebones row has an eye toggle");
+    B.noFoot ? ok("Barebones picker has no authoring footer (2e-only)") : fail("the Barebones picker grew the 2e authoring footer");
     B.rendered && B.singleColumn && B.noPanel && B.noHeadings
       ? ok(`Barebones picker renders single-column, no panel, no headings (${B.rows} rows)`)
       : fail(`Barebones picker layout wrong: ${JSON.stringify(B)}`);
