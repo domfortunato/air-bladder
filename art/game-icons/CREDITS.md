@@ -22,7 +22,7 @@ it.
 
 Icons made by Andy Meneely, Aussiesim, Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev, Delapouite, Faithtoken, GeneralAce135, Guard13007, Irongamer, Lorc, Lord Berandas, Lucas, Quoting, Rihlsul, Sbed, SeregaCthtuf, Skoll, Sparker, Starseeker, Various artists, Willdabeast.
 
-2133 icons in 35 categories.
+2174 icons in 36 categories.
 
 ## Animals
 
@@ -1136,6 +1136,52 @@ Icons made by Andy Meneely, Aussiesim, Carl Olsen, Caro Asercion, Cathelineau, D
 | `shark-jaws.svg` | Shark Jaws | Lorc | <https://game-icons.net/1x1/lorc/shark-jaws.html> |
 | `tadpole.svg` | Tadpole | Delapouite | <https://game-icons.net/1x1/delapouite/tadpole.html> |
 | `triton-head.svg` | Triton Head | Lorc | <https://game-icons.net/1x1/lorc/triton-head.html> |
+
+## Flag
+
+| file | icon | author | source |
+| --- | --- | --- | --- |
+| `barracks-tent.svg` | Barracks Tent | Delapouite | <https://game-icons.net/1x1/delapouite/barracks-tent.html> |
+| `barracks.svg` | Barracks | Delapouite | <https://game-icons.net/1x1/delapouite/barracks.html> |
+| `black-flag.svg` | Black Flag | Lorc | <https://game-icons.net/1x1/lorc/black-flag.html> |
+| `brazil-flag.svg` | Brazil Flag | Delapouite | <https://game-icons.net/1x1/delapouite/brazil-flag.html> |
+| `broken-ribbon.svg` | Broken Ribbon | Lorc | <https://game-icons.net/1x1/lorc/broken-ribbon.html> |
+| `checkered-flag.svg` | Checkered Flag | Delapouite | <https://game-icons.net/1x1/delapouite/checkered-flag.html> |
+| `conqueror.svg` | Conqueror | Delapouite | <https://game-icons.net/1x1/delapouite/conqueror.html> |
+| `corner-flag.svg` | Corner Flag | Delapouite | <https://game-icons.net/1x1/delapouite/corner-flag.html> |
+| `crow-nest.svg` | Crow Nest | Delapouite | <https://game-icons.net/1x1/delapouite/crow-nest.html> |
+| `ermine.svg` | Ermine | Delapouite | <https://game-icons.net/1x1/delapouite/ermine.html> |
+| `european-flag.svg` | European Flag | Delapouite | <https://game-icons.net/1x1/delapouite/european-flag.html> |
+| `flag-objective.svg` | Flag Objective | Delapouite | <https://game-icons.net/1x1/delapouite/flag-objective.html> |
+| `fleur-de-lys.svg` | Fleur De Lys | Delapouite | <https://game-icons.net/1x1/delapouite/fleur-de-lys.html> |
+| `flying-flag.svg` | Flying Flag | Lorc | <https://game-icons.net/1x1/lorc/flying-flag.html> |
+| `golf-flag.svg` | Golf Flag | Delapouite | <https://game-icons.net/1x1/delapouite/golf-flag.html> |
+| `hammer-sickle.svg` | Hammer Sickle | Delapouite | <https://game-icons.net/1x1/delapouite/hammer-sickle.html> |
+| `hill-conquest.svg` | Hill Conquest | Delapouite | <https://game-icons.net/1x1/delapouite/hill-conquest.html> |
+| `klingon.svg` | Klingon | Delapouite | <https://game-icons.net/1x1/delapouite/klingon.html> |
+| `knight-banner.svg` | Knight Banner | Delapouite | <https://game-icons.net/1x1/delapouite/knight-banner.html> |
+| `level-end-flag.svg` | Level End Flag | Delapouite | <https://game-icons.net/1x1/delapouite/level-end-flag.html> |
+| `medieval-pavilion.svg` | Medieval Pavilion | Delapouite | <https://game-icons.net/1x1/delapouite/medieval-pavilion.html> |
+| `mid-summit.svg` | Mid Summit | Delapouite | <https://game-icons.net/1x1/delapouite/mid-summit.html> |
+| `occupy.svg` | Occupy | Cathelineau | <https://game-icons.net/1x1/cathelineau/occupy.html> |
+| `party-flags.svg` | Party Flags | Delapouite | <https://game-icons.net/1x1/delapouite/party-flags.html> |
+| `pirate-flag.svg` | Pirate Flag | Delapouite | <https://game-icons.net/1x1/delapouite/pirate-flag.html> |
+| `planet-conquest.svg` | Planet Conquest | Delapouite | <https://game-icons.net/1x1/delapouite/planet-conquest.html> |
+| `rally-the-troops.svg` | Rally The Troops | Lorc | <https://game-icons.net/1x1/lorc/rally-the-troops.html> |
+| `sand-castle.svg` | Sand Castle | Delapouite | <https://game-icons.net/1x1/delapouite/sand-castle.html> |
+| `skull-crossed-bones.svg` | Skull Crossed Bones | Lorc | <https://game-icons.net/1x1/lorc/skull-crossed-bones.html> |
+| `south-africa-flag.svg` | South Africa Flag | Delapouite | <https://game-icons.net/1x1/delapouite/south-africa-flag.html> |
+| `spinning-ribbons.svg` | Spinning Ribbons | Lorc | <https://game-icons.net/1x1/lorc/spinning-ribbons.html> |
+| `stairs-goal.svg` | Stairs Goal | Delapouite | <https://game-icons.net/1x1/delapouite/stairs-goal.html> |
+| `star-flag.svg` | Star Flag | Delapouite | <https://game-icons.net/1x1/delapouite/star-flag.html> |
+| `tattered-banner.svg` | Tattered Banner | Lorc | <https://game-icons.net/1x1/lorc/tattered-banner.html> |
+| `tower-flag.svg` | Tower Flag | Delapouite | <https://game-icons.net/1x1/delapouite/tower-flag.html> |
+| `truce.svg` | Truce | Delapouite | <https://game-icons.net/1x1/delapouite/truce.html> |
+| `trumpet-flag.svg` | Trumpet Flag | Delapouite | <https://game-icons.net/1x1/delapouite/trumpet-flag.html> |
+| `tusks-flag.svg` | Tusks Flag | Delapouite | <https://game-icons.net/1x1/delapouite/tusks-flag.html> |
+| `union-jack.svg` | Union Jack | Delapouite | <https://game-icons.net/1x1/delapouite/union-jack.html> |
+| `usa-flag.svg` | Usa Flag | Delapouite | <https://game-icons.net/1x1/delapouite/usa-flag.html> |
+| `vertical-banner.svg` | Vertical Banner | Delapouite | <https://game-icons.net/1x1/delapouite/vertical-banner.html> |
 
 ## Food
 

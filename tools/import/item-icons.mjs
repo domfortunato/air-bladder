@@ -85,7 +85,7 @@ for (const pack of [...ITEM_PACKS, ...ACTOR_PACKS]) {
     // silently throw that choice away. That is not hypothetical: this script
     // rewrites the img of every doc in fourteen packs from the classifier
     // alone, so before this guard the ONLY safe place for a bespoke icon was
-    // nowhere. `art/game-icons/` (2,133 glyphs, CC BY 3.0) is the folder a Warden
+    // nowhere. `art/game-icons/` (2,174 glyphs, CC BY 3.0) is the folder a Warden
     // actually picks from, and no classifier output can ever collide with it.
     //
     // Deliberately keyed on "outside ICON_DIR" rather than on "inside
