@@ -1,6 +1,6 @@
 {{!-- No <form> here: ApplicationV2 supplies it (DocumentSheetV2 sets tag: "form").
       A nested one is dropped by the parser, taking this element's class with it. --}}
-<div class="item-sheet-grid spellbook{{#if system.scroll}} has-scroll-uses{{/if}}">
+<div class="item-sheet-grid spellbook">
     <!-- Portrait -->
     <div class="item-sheet-section-portrait">
         <img class="portrait" src="{{item.img}}" data-action="editImage" data-edit="img" title="{{nameDisplay}}" />
@@ -29,6 +29,17 @@
         <div class="resource-input-wrapper">
             <input type="checkbox" {{checked system.scroll}} name="system.scroll" id="{{@root.idp}}-system.scroll"
                 value="{{system.scroll}}" data-dtype="Boolean" />
+        </div>
+    </div>
+
+    <!-- GLOG. A flag, exactly like Scroll above and composing with it: a GLOG
+         scroll is this spell's GLOG wording, written once on paper. Marks the
+         WORDING only -- ticking it changes no values and swaps no art. -->
+    <div class="resource-counter long-counter">
+        <label class="large-resource-label" for="{{@root.idp}}-system.glog" data-tooltip="{{ localize 'CAIRN.GlogTip' }}">{{ localize 'CAIRN.Glog' }}</label>
+        <div class="resource-input-wrapper">
+            <input type="checkbox" {{checked system.glog}} name="system.glog" id="{{@root.idp}}-system.glog"
+                value="{{system.glog}}" data-dtype="Boolean" />
         </div>
     </div>
 

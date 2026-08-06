@@ -604,10 +604,23 @@ class ArmorData extends CairnDataModel {
  *
  * `uses.value` stays free so a player can mark a scroll spent; only `max` is
  * pinned.
+ *
+ * `glog` marks the GLOG-format wording of a spell (the official GLOG Magic
+ * hack re-words the canon 100 to scale on [dice]/[sum]). A FLAG, not a type,
+ * by the same argument as `scroll` — a GLOG spell carries no data a spellbook
+ * does not, and it must COMPOSE with `scroll` because GLOG scrolls are real
+ * ("they work exactly the same as spells recorded in your Grimoire") — and
+ * not a second description field, because the GLOG text is usually different
+ * from canon but occasionally byte-identical (Sniff, Hear Whispers), so
+ * neither wording can be derived from the other: two documents, one flag
+ * each. No per-spell GLOG properties exist to store — the hack states range
+ * and duration once, page-wide ("[sum]×10 minutes", "40 feet"), and the
+ * [dice]/[sum] variables live inside the effect sentence, which stays prose
+ * (no automation of mechanical text).
  */
 class SpellbookData extends CairnDataModel {
   static defineSchema() {
-    return { ...universal(), ...consumable(), scroll: bool() };
+    return { ...universal(), ...consumable(), scroll: bool(), glog: bool() };
   }
 }
 

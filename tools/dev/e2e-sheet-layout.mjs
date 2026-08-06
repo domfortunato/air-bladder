@@ -350,6 +350,13 @@ try {
       // sets and only the scroll's can clip.
       ["spellbook (book)", { name: "ZZ Layout Book", type: "spellbook" }],
       ["spellbook (scroll)", { name: "ZZ Layout Scroll", type: "spellbook", system: { scroll: true } }],
+      // The GLOG flag added a FIFTH counter to every spellbook (and a glog
+      // scroll shows six). Five and six both need three counter rows, which is
+      // why the old `.has-scroll-uses` conditional class is gone — one 5-row
+      // template covers all four states, and the visibility check below is the
+      // gate that catches a counter landing in an implicit row under the tabs.
+      ["spellbook (glog)", { name: "ZZ Layout Glog", type: "spellbook", system: { glog: true } }],
+      ["spellbook (glog scroll)", { name: "ZZ Layout GlogScroll", type: "spellbook", system: { glog: true, scroll: true } }],
       // Every remaining type, because the grid's row count is declared PER TYPE and
       // the visibility check below is what catches one counter too many. Covering
       // four of seven types is how the weapon sheet's Cost sat off-screen unnoticed.

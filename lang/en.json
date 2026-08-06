@@ -280,6 +280,8 @@
   "CAIRN.GeneratePcConfirm": "This will roll up a brand-new character. Continue?",
   "CAIRN.GeneratePcConfirmTitle": "Generate a new character?",
   "CAIRN.GenerationRolls": "rolled a new character, {name}!",
+  "CAIRN.Glog": "GLOG",
+  "CAIRN.GlogTip": "This is the spell's GLOG Magic wording — its effect scales with the [dice] invested and the [sum] rolled. Marking it changes nothing else; it records which version of the spell this is.",
   "CAIRN.Gold": "Gold",
   "CAIRN.GoldTip": "Gold is heavy: the first {n} are petty (weightless); every further {n} fills an inventory slot.",
   "CAIRN.GoldTipWeightless": "Gold is weightless in this game — it never fills inventory slots.",
