@@ -100,7 +100,8 @@ const inlineUnresolvable = [];
  * Raise this deliberately when content adds references. A gate that cannot notice
  * it has stopped looking is worse than no gate, because it is believed.
  */
-const EXPECTED_REFS = 198;
+// 198 → 298 on 2026-08-05: "Spells — Canon (1d100)" added 100 document rows.
+const EXPECTED_REFS = 298;
 
 for (const pack of packDirs) {
   for (const d of docsIn(pack)) {

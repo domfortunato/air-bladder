@@ -8,6 +8,7 @@ import * as characterGenerator from "./character-generator.js";
 import { createMonster } from "./monster-generator.js";
 import * as monsterGenerator from "./monster-generator.js";
 import { generateFaction } from "./faction-generator.js";
+import { reseedSpellTable } from "./spell-tables.js";
 import { importKettlewrightCharacter } from "./kettlewright-import.js";
 import * as kettlewrightImport from "./kettlewright-import.js";
 import { Cairn } from "./config.js";
@@ -1948,6 +1949,28 @@ const showDamageApplied = (message, html, scene) => {
   });
   row.append(line);
 };
+
+Hooks.on("renderRollTableDirectory", (app, html) => {
+  // Warden-only: reseed a world spell table from a compendium's index,
+  // update-in-place (module/spell-tables.js). Same injection rules as the
+  // Actor directory's row above: scope the injected-already test to THIS
+  // directory root — the popped-out window is a second, independent render.
+  if (!game.user.isGM) return;
+  if (html.querySelector(".cairn-reseed-spell-table")) return;
+  const dirHeader = html.querySelector(".directory-header");
+  if (!dirHeader) return;
+  const section = document.createElement("header");
+  section.classList.add("character-generator", "directory-header");
+  dirHeader.parentNode.insertBefore(section, dirHeader);
+  section.insertAdjacentHTML(
+    "afterbegin",
+    `<div class="header-actions action-buttons flexrow">
+      <button class="cairn-reseed-spell-table"><i class="fas fa-arrows-rotate"></i>${game.i18n.localize("CAIRN.ReseedSpellTable")}</button>
+    </div>`
+  );
+  section.querySelector(".cairn-reseed-spell-table")
+    .addEventListener("click", () => reseedSpellTable());
+});
 
 Hooks.on("renderChatMessageHTML", (message, html, data) => {
   // Display-only content overlay for RollTable draw cards (see above).
