@@ -25,26 +25,33 @@ Two properties make this safe to hand around:
 
 ## Where the languages actually stand
 
-Measured by this gate (`npm run i18n:check --lang <code>`), against 348 English
-keys. "Translated" means present *and* different from the English:
+Measured by this gate (`npm run i18n:check --lang <code>`), against 542 English
+keys (re-measured 2026-08-06, after fsmalecho's PR #13). "Translated" means
+present *and* different from the English. The inherited percentages fell since
+the last measurement without those files losing a line — the English grew from
+348 keys and the denominator moved:
 
 | Locale | Translated | Content overlay | Note |
 |---|---|---|---|
-| `es` Spanish | 284 (82%) | ✅ the only one | actively maintained |
-| `pl` Polish | 104 (30%) | — | inherited from the original Cairn system |
-| `de` German | 58 (17%) | — | inherited |
-| `da` Danish | 57 (16%) | — | inherited |
-| `pt-BR` Portuguese | 55 (16%) | — | inherited |
-| `fr` French | 53 (15%) | — | inherited; **fails the gate** (see below) |
+| `es` Spanish | 523 (96%) | ✅ the only one | actively maintained |
+| `pl` Polish | 88 (16%) | — | inherited from the original Cairn system |
+| `de` German | 52 (10%) | — | inherited |
+| `da` Danish | 51 (9%) | — | inherited |
+| `pt-BR` Portuguese | 51 (9%) | — | inherited |
+| `fr` French | 48 (9%) | — | inherited |
 
 **Spanish is the translation; the other five are fragments.** They came from the
 1e system and never grew as this fork added ~250 keys, so a German session is
 mostly English. That is not a bug — English fallback is per string and by design —
 but do not describe those languages as supported.
 
-`fr.json` currently fails `i18n:check` outright: `CAIRN.CharacterRegeneratorConfirm`
-drops the `<p>` tags its English carries. The inherited files have never been
-through this gate, so assume the others hold similar defects until checked.
+**All five inherited files now fail `i18n:check` outright, identically**:
+`CAIRN.CharacterRegeneratorConfirm` drops the `<p>` tags its English carries.
+When this file first said so, only `fr` failed — the English key gained its
+tags later, which switched the same latent defect on in the other four. One
+mechanical tag-wrap per file would clear it; nobody maintains those locales,
+so it waits for whoever next touches them. (The default `npm run i18n:check`
+checks `es` only, so this does not gate a release.)
 
 `cn.json` was removed (2026-07-27): it shipped in `lang/` but was never listed in
 `system.json` `languages`, so Foundry never loaded it — 17% of a 1e interface that
@@ -149,23 +156,27 @@ with it.
 
 `origin` is a Gitea repo that **push-mirrors** to GitHub. The mirror force-syncs
 refs, so anything that exists only on GitHub is overwritten on the next sync. A
-merge made with GitHub's button is exactly that: a commit on GitHub's `master`
-that Gitea has never seen. It survives until the next sync and then vanishes.
+merge made with GitHub's button is exactly that: a commit on GitHub's copy of
+the base branch that Gitea has never seen. It survives until the next sync and
+then vanishes.
 This is the same mechanism that once pruned release tags and turned releases into
 drafts — see the mirror rule in [`RELEASE.md`](../RELEASE.md).
 
 Merge locally instead, and let the mirror carry it, exactly as with any other
-commit:
+commit. **The target is `dev`** — all work merges to `dev` under the branch
+model (`docs/git-flow.md`, 2026-07-28); this recipe said `master` for over a
+week after that stopped being true, because it was written the day before the
+model landed and never revisited:
 
 ```bash
 git fetch github pull/<N>/head:pr-<N>   # the PR's commits as a local branch
-git checkout master
+git checkout dev
 git merge --no-ff pr-<N> -m "Merge <who> <what> (PR #<N>)"
 
 npm run i18n:check                      # gates BEFORE the push (see above)
 npm run i18n:check -- --glossary        # advisory
 
-git push origin master                  # Gitea. Never push to the `github` remote.
+git push origin dev                     # Gitea. Never push to the `github` remote.
 git branch -d pr-<N>
 ```
 
@@ -173,13 +184,20 @@ Then confirm the mirror synced (Gitea → repo → Settings → Mirror → *Sync
 Now*, if sync-on-push is off).
 
 **Let the PR close itself. Do not close it by hand.** GitHub watches whether the
-PR's head commit becomes reachable from `master` and flips the PR to **Merged**
-when it does, with no button pressed — but only while the PR is still *open*. A
-PR you close first stays merely *closed* forever, even when the identical commits
-land minutes later.
+PR's head commit becomes reachable from **the PR's base branch** and flips the PR
+to **Merged** when it does, with no button pressed — but only while the PR is
+still *open*. A PR you close first stays merely *closed* forever, even when the
+identical commits land minutes later.
 
-Two things therefore have to hold, and the two Spanish PRs are the worked example
-of each:
+Because the base branch is what GitHub watches, **a PR based on `master` must be
+retargeted to `dev` BEFORE you push**, or it sits open until the next release.
+Maintainer-only and browser-only (no `gh` on this machine): PR page → the pencil
+beside the title → the base chip becomes a dropdown → pick `dev` → **Change
+base**. It moves nothing; the contributor does not rebase or re-push. PR #12
+needed exactly this; PR #13 arrived based on `dev` and flipped on the push.
+
+Two things therefore have to hold, and the first two Spanish PRs — merged to
+`master` before the branch model existed — are the worked example of each:
 
 - **Keep their commits.** Merge `--no-ff` on the contributor's actual branch
   rather than re-typing their changes, so the SHA survives. Both PRs got this
@@ -195,6 +213,27 @@ on their profile. When someone donates work, get them the badge.
 
 **This rule is not specific to translations.** Any pull request against this
 repo — a code fix, a doc typo — merges the same way, for the same reason.
+
+### Auditing a translation PR — three steps, each has caught something
+
+PR #13 (2026-08-06) is the worked example; every step found a real defect:
+
+1. **Diff by KEY against `dev` before merging** — adds / removes / changes per
+   namespace, both files. A whole-file upload (the GitHub web UI's
+   Delete + "Add files via upload" dance) can silently revert anything `dev`
+   changed since the contributor's copy; the key-diff proves it didn't. Check
+   every removed key against `en.json`: absent there means cleanup of an
+   orphan, present means a revert — put it back.
+2. **`i18n:check` after merging, before pushing.** On #13 it caught a
+   translated PLACEHOLDER (`{name}` → `{nombre}`), which `format()` would
+   print literally. Fixing machinery is a correction, not a re-voicing — the
+   translator's wording stays theirs.
+3. **Re-run `i18n:extract` and read the stale-count DELTA.** A NEW orphan
+   after the merge is contributor work keyed to a string that can never
+   match. #13's was a straight apostrophe (`You've`) where the pack source
+   has the typographic one (`You’ve`) — the overlay normalizes whitespace
+   only, so the entry would never display. Re-key it to the byte-exact
+   source string; never ask for a retranslation.
 
 ## Resuming a stalled translation
 
