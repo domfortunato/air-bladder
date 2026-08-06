@@ -68,7 +68,19 @@ Hooks.once("init", async function () {
   configureHandleBar();
 });
 
-Hooks.once("ready", async () => {
+// The settings-namespace migration as a PROMISE the other ready callbacks can
+// await. Hooks.callAll never awaits an async callback (hooks.mjs, the
+// synchronous try/catch), so registration order is NOT execution order past
+// the first `await`: the migration used to suspend at its first settings.set
+// while the GM-rename callback below read `use-warden-title` synchronously —
+// on the one load where the migration runs, always the default, never the
+// migrated value. A Warden upgrading from the "cairn" namespace who had
+// turned the title OFF got renamed to Warden for that session (review #9).
+// The consumers now await this before reading; the `setup`-time role-label
+// read cannot (setup precedes ready), so that single surface still lags one
+// load on the migration load and self-corrects — recorded, not fixed.
+let settingsNamespaceReady = Promise.resolve();
+Hooks.once("ready", () => {
   Hooks.on("hotbarDrop", (bar, data, slot) => {
     // Let Foundry place an existing Macro normally; only Items (and other
     // documents) get a Cairn hotbar wrapper. Without this, dragging a Macro made
@@ -84,12 +96,16 @@ Hooks.once("ready", async () => {
   // Caught here, not left to escape: Hooks.#call wraps a hook callback in a
   // SYNCHRONOUS try/catch, so a rejection out of an async one is not caught at
   // all — it surfaces as a bare unhandled rejection naming neither the system
-  // nor the migration. (Same reasoning as the `phase` helper below.)
-  try {
-    await migrateSettingsNamespace();
-  } catch (err) {
-    console.error("Air Bladder | settings namespace migration failed (continuing):", err);
-  }
+  // nor the migration. (Same reasoning as the `phase` helper below.) The
+  // assignment is synchronous — this callback runs first in the same callAll
+  // pass, so every later ready callback sees the real promise.
+  settingsNamespaceReady = (async () => {
+    try {
+      await migrateSettingsNamespace();
+    } catch (err) {
+      console.error("Air Bladder | settings namespace migration failed (continuing):", err);
+    }
+  })();
 });
 
 // Load the content-localization overlay (compendium names/descriptions) for the
@@ -100,8 +116,9 @@ Hooks.once("i18nInit", loadContentOverlay);
 
 // Compendium browser: translate the visible entry names into the active language.
 // Display-only — the pack index and documents stay English; each render rebuilds
-// names from the index, so re-translating every render is idempotent. Names are
-// only match keys internally (drag uses data-entry-id, not text), so this is safe.
+// names from the index, so re-translating every render is idempotent. Drag is
+// safe (it uses data-entry-id, not text); SEARCH is not, which is why the
+// matcher wrap below exists — see its comment.
 Hooks.on("renderCompendium", (app, html) => {
   if (!contentLocalized()) return;
   const meta = app.collection?.metadata;
@@ -118,6 +135,39 @@ Hooks.on("renderCompendium", (app, html) => {
     const es = t(ns, en);
     if (es !== en) el.textContent = es;
   });
+
+  // Search must match what the eye reads. Core's _matchSearchEntries tests the
+  // query against `collection.index` names — never the DOM — so with the rows
+  // above rewritten to Spanish, typing the Spanish emptied the list and the
+  // only working query was the English string no longer on screen (review #9;
+  // the comment above used to claim names were "only match keys internally",
+  // which was true of drag and false of search). Wrap the matcher PER
+  // INSTANCE: core's English pass runs first and untouched, then entries
+  // whose TRANSLATED name matches are added, with their folder marked matched
+  // and auto-expanded the way core's own name pass does. Additive only — a
+  // query can never lose an English match by this, so an English-typing
+  // Spanish user keeps both routes.
+  if (!app._abSearchWrapped && typeof app._matchSearchEntries === "function") {
+    app._abSearchWrapped = true;
+    const coreMatch = app._matchSearchEntries.bind(app);
+    app._matchSearchEntries = (query, entryIds, folderIds, autoExpandIds, options = {}) => {
+      coreMatch(query, entryIds, folderIds, autoExpandIds, options);
+      if (!contentLocalized() || !query) return;
+      const clean = foundry.applications.ux.SearchFilter.cleanQuery;
+      const entries = app.collection.index ?? app.collection.contents;
+      for (const e of entries) {
+        if (entryIds.has(e._id)) continue;
+        const display = translationOf(ns, e.name ?? "");
+        if (display === undefined || !query.test(clean(display))) continue;
+        entryIds.add(e._id);
+        const fid = e.folder?._id ?? e.folder;
+        if (fid) {
+          folderIds.add(fid);
+          autoExpandIds.add(fid);
+        }
+      }
+    };
+  }
 });
 
 // Table draws to chat: localize the drawn result text into the active language.
@@ -499,6 +549,8 @@ Hooks.once("init", () => {
 Hooks.once("ready", async () => {
   if (!game.user.isGM) return;
   if (game.users.activeGM && game.users.activeGM !== game.user) return;
+  // The migrated value, not the default — see settingsNamespaceReady's comment.
+  await settingsNamespaceReady;
 
   const on = game.settings.get(SETTINGS_NS, "use-warden-title");
   const warden = game.i18n.localize("CAIRN.Warden");
@@ -547,6 +599,9 @@ Hooks.once("ready", async () => {
 Hooks.once("ready", async () => {
   if (!game.user.isGM) return;
   if (game.users.activeGM && game.users.activeGM !== game.user) return;
+  // The custom-portrait phase reads `custom-portrait-folder`; nothing but this
+  // await guarantees it reads the MIGRATED value on the migration load.
+  await settingsNamespaceReady;
 
   // Each phase is isolated, because Foundry cannot catch a failure here for us:
   // Hooks.#call wraps a hook callback in a SYNCHRONOUS try/catch, so a rejected
@@ -580,7 +635,18 @@ Hooks.once("ready", async () => {
   // a flagless world is one pass over game.actors reading a flag.
   await phase("pending ownership sync sweep", async () => {
     for (const a of game.actors) {
-      if (a.getFlag(FLAG_SCOPE, OWNERSHIP_SYNC_FLAG) !== undefined) await syncPendingOwnership(a);
+      if (a.getFlag(FLAG_SCOPE, OWNERSHIP_SYNC_FLAG) === undefined) continue;
+      // The both-ends re-check must survive the OFFLINE route too. This used
+      // to pass no requester at all, which skipped the check entirely — so a
+      // crafted client could dodge it by simply not emitting and waiting for
+      // the next GM load, the exact walk-around the old connections.js
+      // comment claimed this sweep closed (review #9). `_stats.lastModifiedBy`
+      // is server-stamped (a client cannot write it as another user), and for
+      // a flag waiting on this sweep the last writer IS the requesting player.
+      // A GM's own later edit can still launder the id — accepted, the harm
+      // is nuisance-grade either way (see syncPendingOwnership's docblock).
+      const requester = game.users.get(a._stats?.lastModifiedBy ?? "") ?? null;
+      await syncPendingOwnership(a, { requester });
     }
   });
 

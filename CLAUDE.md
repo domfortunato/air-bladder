@@ -90,8 +90,9 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
 - `module/damage.js` holds Cairn's damage flow
 - Data models in `module/data-models.js` (TypeDataModel; `template.json` is gone,
   sub-types are declared in `system.json` `documentTypes`); 23 compendium packs
-- 20 GM-visible settings in `module/settings.js` (23 `register` calls; `roles-restamped`,
-  `connections-migrated` and `custom-portrait-list` are internal, `config: false`) —
+- 20 GM-visible settings in `module/settings.js` (24 `register` calls; `roles-restamped`,
+  `connections-migrated`, `custom-portrait-list` and `disabled-backgrounds` are internal,
+  `config: false`) —
   **registration ORDER is load-bearing**, because Foundry's group headers are positional. Two went on
   2026-07-31, both because the thing they toggled stopped existing:
   `show-containers-tab` (the Connections tab is structural now, and a display

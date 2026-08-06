@@ -51,6 +51,18 @@ try {
       (k) => game.settings.settings.has(`${mod.SETTINGS_NS}.${k}`) &&
         !game.settings.settings.get(`${mod.SETTINGS_NS}.${k}`)?.config
     );
+    // The REVERSE walk (review #9): every registered air-bladder key must be
+    // in SETTING_KEYS or be one of the named migration markers. The forward
+    // walk alone let `disabled-backgrounds` — Warden configuration, which
+    // must ride the namespace migration — register unlisted and stay
+    // invisible to this probe, because a config:false key is absent from
+    // both sides of the visible-count compare. Markers are exempt on
+    // purpose: losing one only re-runs an idempotent migration.
+    const MARKERS = ["roles-restamped", "connections-migrated"];
+    out.unlisted = [...game.settings.settings.keys()]
+      .filter((k) => k.startsWith(`${mod.SETTINGS_NS}.`))
+      .map((k) => k.slice(mod.SETTINGS_NS.length + 1))
+      .filter((k) => !mod.SETTING_KEYS.includes(k) && !MARKERS.includes(k));
     out.systemId = game.system.id;
     out.knownPackage = !!(game.system.id === "air-bladder");
 
@@ -81,6 +93,9 @@ try {
     : fail(`${mine} config-visible vs ${r.declaredVisible} expected${r.missing.length ? `; missing: ${r.missing.join(", ")}` : ""}`);
   stale === 0 ? ok(`nothing left under the unmappable "cairn" namespace`)
               : fail(`${stale} setting(s) still under "cairn" — they render as Unmapped`);
+  !r.unlisted.length
+    ? ok("every registered key is in SETTING_KEYS (markers exempt) — the migration carries it")
+    : fail(`registered but NOT in SETTING_KEYS (namespace migration would drop them): ${r.unlisted.join(", ")}`);
 
   console.log(`  values now: ${JSON.stringify(r.sample)}`);
   console.log(`  stored (old cairn.*): ${r.storedOld.length} | stored (air-bladder.*): ${r.storedNew.length}`);

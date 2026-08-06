@@ -283,6 +283,99 @@ control.itemTarget
   ? ok("NEGATIVE CONTROL: the old handler accepts the Item uuid", "(attack 2 is well-formed)")
   : fail("negative control MISSED — attack 2 proves nothing", "old handler did not mint");
 
+/* ---- the OFFLINE route: the ready sweep re-checks both ends -------------- */
+// Review #9 finding 10. The live relay re-checks the both-ends rule via the
+// server-authenticated senderId — so a crafted client could dodge it by NOT
+// emitting: plant `connectedTo` + the sync flag on an actor it owns, close the
+// tab, and wait for the next GM load, whose catch-up sweep used to pass no
+// requester and sign unconditionally. The sweep now passes `_stats
+// .lastModifiedBy` (server-stamped; for a flag waiting on the sweep the last
+// writer IS the requesting player) and must REFUSE: flag cleared, no OWNER
+// granted. The control replays the same planted state through the old call
+// shape (no requester) and the grant MUST land — proving the plant is
+// well-formed and the requester threading is the thing refusing.
+
+const sweepScene = await gmPage.evaluate(async () => {
+  let bob = game.users.getName("Bob");
+  if (!bob) bob = await User.create({ name: "Bob", role: CONST.USER_ROLES.PLAYER });
+  const alice = game.users.getName("Alice");
+  const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+  const victim = await CONFIG.Actor.documentClass.create({
+    name: "ZZ PROBE SG Victim", type: "character",
+    ownership: { default: 0, [bob.id]: L.OWNER },
+  });
+  const sack = await CONFIG.Actor.documentClass.create({
+    name: "ZZ PROBE SG Sneaky Sack", type: "npc",
+    system: { role: "container", containerClass: "sack", generationEnabled: false },
+    ownership: { default: 0, [alice.id]: L.OWNER },
+  });
+  return { victimUuid: victim.uuid, sackUuid: sack.uuid, sackId: sack.id, bobId: bob.id, aliceId: alice.id };
+});
+
+await alicePage.evaluate(async ({ sackUuid, victimUuid }) => {
+  const { OWNERSHIP_SYNC_FLAG } = await import("/systems/air-bladder/module/connections.js");
+  const sack = await fromUuid(sackUuid);
+  // The attack verbatim: point the own container at a stranger's PC, raise the
+  // flag, emit NOTHING.
+  await sack.update({
+    "system.connectedTo": victimUuid,
+    [`flags.air-bladder.${OWNERSHIP_SYNC_FLAG}`]: true,
+  });
+}, { sackUuid: sweepScene.sackUuid, victimUuid: sweepScene.victimUuid });
+
+const planted = await gmPage.evaluate((id) =>
+  game.actors.get(id)?.getFlag("air-bladder", "ownershipSyncPending") === true, sweepScene.sackId);
+planted
+  ? ok("Alice planted flag + connectedTo without emitting", "the offline route is live")
+  : fail("the plant did not land", "sweep leg is vacuous");
+
+// A real GM load is what runs the sweep — reload rather than calling it, so the
+// leg exercises the ready path that shipped broken.
+await gmPage.reload({ waitUntil: "networkidle" });
+await gmPage.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
+await dismissChrome(gmPage);
+const swept = await gmPage.evaluate(async ({ sackId, bobId, aliceId }) => {
+  const deadline = Date.now() + 40000;
+  let sack = game.actors.get(sackId);
+  while (Date.now() < deadline) {
+    sack = game.actors.get(sackId);
+    if (sack && sack.getFlag("air-bladder", "ownershipSyncPending") === undefined) break;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  return {
+    flagCleared: sack?.getFlag("air-bladder", "ownershipSyncPending") === undefined,
+    bobLevel: sack?.ownership?.[bobId] ?? null,
+    aliceKept: sack?.ownership?.[aliceId] ?? null,
+    defaultLevel: sack?.ownership?.default ?? null,
+  };
+}, { sackId: sweepScene.sackId, bobId: sweepScene.bobId, aliceId: sweepScene.aliceId });
+
+swept.flagCleared
+  ? ok("the sweep processed the flag", "cleared — a refused request cannot lurk")
+  : fail("the sweep never cleared the flag", "either the sweep did not run or the refusal leaves residue");
+swept.bobLevel === null && swept.aliceKept === 3 && swept.defaultLevel === 0
+  ? ok("…and REFUSED the grant", "Bob got nothing; the sack's ownership is untouched")
+  : fail("the sweep signed for the offline plant", JSON.stringify(swept));
+
+// Control: the same plant through the OLD call shape (no requester).
+await alicePage.evaluate(async ({ sackUuid, victimUuid }) => {
+  const { OWNERSHIP_SYNC_FLAG } = await import("/systems/air-bladder/module/connections.js");
+  const sack = await fromUuid(sackUuid);
+  await sack.update({
+    "system.connectedTo": victimUuid,
+    [`flags.air-bladder.${OWNERSHIP_SYNC_FLAG}`]: true,
+  });
+}, { sackUuid: sweepScene.sackUuid, victimUuid: sweepScene.victimUuid });
+const sweepControl = await gmPage.evaluate(async ({ sackId, bobId }) => {
+  const { syncPendingOwnership } = await import("/systems/air-bladder/module/connections.js");
+  const sack = game.actors.get(sackId);
+  await syncPendingOwnership(sack, {}); // the pre-fix sweep: no requester, no check
+  return { bobLevel: sack.ownership?.[bobId] ?? null };
+}, { sackId: sweepScene.sackId, bobId: sweepScene.bobId });
+sweepControl.bobLevel === 3
+  ? ok("NEGATIVE CONTROL: no requester signs the same plant", "(the refusal above is the requester threading)")
+  : fail("negative control MISSED — the plant proves nothing", JSON.stringify(sweepControl));
+
 /* ---- the cap: the BROKER is the wall, not the player-side clamp ---------- */
 
 // grantContainers clamps in Alice's browser too, but that copy cannot bind a

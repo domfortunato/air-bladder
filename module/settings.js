@@ -29,7 +29,13 @@ export const SETTING_KEYS = [
   "barebones-failed-career",
   "show-omens-barebones", "show-bonds-barebones", "show-generate-header",
   "show-generation-rolls",
+  // disabled-backgrounds is Warden CONFIGURATION (which 2e backgrounds are
+  // switched off), not a migration marker — it must ride the namespace
+  // migration like custom-portrait-list does. It was registered without being
+  // listed here (review #9); the two completion markers stay unlisted on
+  // purpose, because losing one only re-runs an idempotent migration.
   "custom-portrait-folder", "custom-portrait-list", "min-age",
+  "disabled-backgrounds",
   // Inventory & Encumbrance
   "max-equip-slots", "character-inventory-limit", "use-gold-threshold",
   "enable-inventory-reorder",

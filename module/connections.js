@@ -156,15 +156,21 @@ export const brokenOwnershipShape = (child) => {
  * connection slots and hands them an actor they did not ask for), but the
  * sender id is authenticated by the server and was simply unused.
  *
- * On a refusal the flag is CLEARED, and that is the load-bearing half: the
- * ready-time catch-up sweep re-runs every flagged actor with no requester at
- * all, so leaving the flag set would mean the check could be walked around by
- * waiting for the next GM reload. It does NOT undo the `connectedTo` write —
- * the graph is client-writable by design, and unpicking someone's link is a
- * bigger decision than declining to sign for it.
+ * On a refusal the flag is CLEARED so a refused request cannot lurk for a
+ * later pass. The ready-time catch-up sweep passes `_stats.lastModifiedBy` as
+ * the requester — server-stamped, so a client cannot sign as someone else —
+ * which holds the OFFLINE route (set the flag, never emit, wait for the next
+ * GM load) to the same both-ends check as the live relay. Until review #9 the
+ * sweep passed NO requester and this comment claimed the opposite of the code
+ * beneath it: the check was decorative for exactly that route. A GM edit that
+ * postdates the player's flag can still launder the id — accepted; the harm
+ * stays nuisance-grade (above) and the common shape is closed. The refusal
+ * does NOT undo the `connectedTo` write — the graph is client-writable by
+ * design, and unpicking someone's link is a bigger decision than declining to
+ * sign for it.
  *
  * @param {CairnActor} child  a WORLD actor (callers verify)
- * @param {{requester?: User|null}} [opts]  set for a socket-relayed request only
+ * @param {{requester?: User|null}} [opts]  set by the socket relay AND the catch-up sweep
  */
 export const syncPendingOwnership = async (child, { requester = null } = {}) => {
   if (child.getFlag("air-bladder", OWNERSHIP_SYNC_FLAG) === undefined) return;
