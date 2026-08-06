@@ -37,6 +37,7 @@
     "dev:icons": "node tools/dev/e2e-icons.mjs",
     "dev:spellscroll": "node tools/dev/e2e-spellscroll.mjs",
     "dev:spell-pool": "node tools/dev/e2e-spell-pool.mjs",
+    "dev:glog-magic": "node tools/dev/e2e-glog-magic.mjs",
     "dev:icon-canvas": "node tools/dev/e2e-icon-migration-canvas.mjs",
     "dev:dialogs": "node tools/dev/e2e-dialogs.mjs",
     "dev:sheet-basics": "node tools/dev/e2e-sheet-basics.mjs",

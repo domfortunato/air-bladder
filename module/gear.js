@@ -18,6 +18,7 @@
  */
 
 import { iconForItem, SPELLSCROLL_ICON } from "./icons.js";
+import { glogEnabled, GLOG_SPELL_PACKS, GLOG_NAME_ALIASES } from "./glog.js";
 
 // Packs searched to resolve a gear name, in precedence order — an earlier pack
 // wins a name collision. Spellbook packs are separate (spell grants route there).
@@ -194,14 +195,21 @@ export const buildGearItem = (g) => {
  */
 export const resolveGearItem = async (name, { quantity = 1, uses } = {}) => {
   const spell = spellNameFromGrant(name);
-  const targetName = spell ?? GEAR_ALIASES.get(String(name).trim().toLowerCase()) ?? name;
+  let targetName = spell ?? GEAR_ALIASES.get(String(name).trim().toLowerCase()) ?? name;
   // Under GLOG only GLOG and custom spells are used (ruling 2026-08-05):
   // spell grants resolve against the GLOG wordings and the custom set, with
   // canon EXCLUDED — a "Spellbook (Charm)" grant must come back scaling on
   // [dice]/[sum], not as the canon sentence. Non-spell gear is untouched.
-  const { glogEnabled, GLOG_SPELL_PACKS } = await import("./glog.js");
+  // Two canon spells exist in the GLOG list under NEW names (Marble Craze,
+  // Missile Shield — see GLOG_NAME_ALIASES); the alias applies ONLY while GLOG
+  // is in force, so canon-mode resolution never sees it. glog.js is imported
+  // STATICALLY: a per-call `await import()` cost ~600ms every call in the live
+  // page — once per resolved gear NAME — and glog.js → settings.js is a leaf
+  // chain, no cycle.
+  const useGlog = !!spell && glogEnabled();
+  if (useGlog) targetName = GLOG_NAME_ALIASES.get(targetName.toLowerCase()) ?? targetName;
   const packs = spell
-    ? (glogEnabled() ? GLOG_SPELL_PACKS : SPELL_PACKS)
+    ? (useGlog ? GLOG_SPELL_PACKS : SPELL_PACKS)
     : CANONICAL_GEAR_PACKS;
   const lower = String(targetName).toLowerCase();
 
