@@ -23,8 +23,8 @@ npm install
 npm run build:packs
 ```
 
-**Do not skip `npm run build:packs`.** `system.json` declares 22 compendium packs and
-none of them are stored in git — they are generated from the YAML in `src/packs/`. Without
+**Do not skip `npm run build:packs`.** Every compendium pack `system.json` declares is
+absent from git — they are generated from the YAML in `src/packs/`. Without
 that step the system loads with every compendium empty, which looks like a broken build
 rather than an unfinished one.
 

@@ -144,8 +144,8 @@ npm install
 npm run build:packs
 ```
 
-**The build step is not optional.** `system.json` declares 22 compendium packs, and none
-of them are in git — `packs/` is generated LevelDB, built from the YAML in `src/packs/`.
+**The build step is not optional.** Every compendium pack `system.json` declares is
+absent from git — `packs/` is generated LevelDB, built from the YAML in `src/packs/`.
 An unbuilt clone loads with every compendium empty, which looks broken rather than
 unfinished.
 

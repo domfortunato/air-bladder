@@ -198,6 +198,29 @@ for (const file of walk(at("src", "packs"), ".yml")) {
   }
 }
 
+// Shipped provenance must be real or absent. `_stats.compendiumSource` records
+// which COMPENDIUM document this one was copied from; the server does not manage
+// it, and fromDropData stamps it only when EMPTY (client-document.mjs:989-991) —
+// so a junk truthy value shipped in a pack suppresses true provenance on every
+// future import of that document, forever. toCompendium()'s clearSource option
+// exists for exactly this case, but compilePack builds straight from YAML and
+// never runs it, so the YAML itself must be clean. 297 world uuids (Item.<id>,
+// RollTable.<id>) rode in from the b2eda4a baseline's flags.core.sourceId move
+// before this check existed. Valid values: null, or a Compendium.* uuid.
+// Text-level scan, not a YAML walk: the field recurs at every embedding depth
+// (actors' items, table results), and the line shape is the invariant.
+for (const file of walk(at("src", "packs"), ".yml")) {
+  const text = readFile(file);
+  for (const m of text.matchAll(/^[ \t]*compendiumSource: (\S+)$/gm)) {
+    if (m[1] !== "null" && !m[1].startsWith("Compendium.")) {
+      problems.push(
+        `${path.relative(ROOT, file).replace(/\\/g, "/")} ships compendiumSource ${m[1]} ` +
+        `— a non-compendium uuid blocks true provenance from ever being stamped`
+      );
+    }
+  }
+}
+
 /* -------------------------------------------- */
 /*  3. Server-side sanitization declarations      */
 /* -------------------------------------------- */

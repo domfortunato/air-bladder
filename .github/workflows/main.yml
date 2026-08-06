@@ -27,6 +27,16 @@ on:
         description: "Existing release tag to (re)build and attach system.json + system.zip to (e.g. 0.1.0)"
         required: true
 
+# Declared rather than inherited (review #9): the release step needs
+# `contents: write`, and without this block it only gets it from the
+# repository-level default — a setting held outside the repo. If that default
+# is ever tightened to read-only (GitHub's default for new repos), a tag push
+# would build, pass every gate, and 403 at publish; and per RELEASE.md the tag
+# must not be re-cut on GitHub, so recovery would be a manual dispatch nothing
+# points at. The other two workflows already declare theirs.
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
