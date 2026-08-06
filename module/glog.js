@@ -15,6 +15,7 @@
  * is only the setting's reach into CONTENT.
  */
 import { SETTINGS_NS } from "./settings.js";
+import { formatCount } from "./utils.js";
 
 export const GLOG_PACK = "air-bladder.spellbooks-glog";
 
@@ -34,6 +35,27 @@ export const glogEnabled = () => {
 };
 
 /**
+ * The GLOG page's 100 is NOT name-for-name the canon 100 — four entries
+ * diverge, in two different ways (verified against the live page 2026-08-05):
+ *
+ *   RENAMED, same spell — these two alias, so a canon book still swaps to its
+ *   GLOG wording as the ruling requires ("the GLOG version, not the canon
+ *   version"). Lowercased canon name → lowercased GLOG name, the GEAR_ALIASES
+ *   pattern:
+ *     Marble Craze   → Marble Madness  (same marbles-refill spell)
+ *     Missile Shield → Shield          (same touch-protection spell)
+ *
+ *   DIFFERENT SPELL, deliberately NOT aliased — canon "Snail Knight" and
+ *   "Primal Surge" have no GLOG version at all (the page has "Snuff" and
+ *   "Primeval Surge" in their slots, unrelated effects), so they convert in
+ *   FORM only and keep their own words, per the no-counterpart rule.
+ */
+export const GLOG_NAME_ALIASES = new Map([
+  ["marble craze", "marble madness"],
+  ["missile shield", "shield"],
+]);
+
+/**
  * name (lowercased) → the GLOG wording's description, for the whole GLOG pack
  * in ONE full load. The sweep resolves every spell in the world against this,
  * so per-name getDocument round trips would multiply by the world's inventory;
@@ -47,6 +69,11 @@ export const glogTextByName = async () => {
   if (!pack) return map;
   for (const doc of await pack.getDocuments()) {
     if (doc.type === "spellbook") map.set(doc.name.toLowerCase(), doc.system.description ?? "");
+  }
+  // The renamed pair resolve under their canon names too, so the sweep swaps
+  // their text instead of treating a rename as a missing counterpart.
+  for (const [from, to] of GLOG_NAME_ALIASES) {
+    if (map.has(to) && !map.has(from)) map.set(from, map.get(to));
   }
   return map;
 };
@@ -146,6 +173,6 @@ export const runGlogConversion = async () => {
   }
 
   if (converted) {
-    ui.notifications.info(game.i18n.format("CAIRN.Notify.GlogConverted", { count: converted }));
+    ui.notifications.info(formatCount("CAIRN.Notify.GlogConverted", converted, { count: converted }));
   }
 };

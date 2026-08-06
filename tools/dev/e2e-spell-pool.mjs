@@ -51,6 +51,19 @@ try {
     // Barebones instruction-row resolver, which is the real consumer.
     const CG = game.cairn.characterGenerator;
 
+    // Warm the document cache with ONE bulk load per pool pack, OUTSIDE the
+    // counter installed below. A cache-missing draw pays a single-document
+    // server query, and those cost ~1s EACH against a long-lived server (the
+    // pack-cost note's ~1.7s figure is per CALL, not per document) — so the
+    // 200-draw leg's runtime scaled with a latency this probe does not
+    // control, and on 2026-08-05 it timed out at 120s after passing at Stage 1
+    // against a freshly restarted server. The claims are about the DRAW's work
+    // — zero full loads, canon-only picks — not about the cache state, and the
+    // negative control still proves the counter can fire.
+    for (const key of [CANON, "air-bladder.more-spellbooks"]) {
+      await game.packs.get(key)?.getDocuments();
+    }
+
     // Count FULL pack loads while drawing. Two reads are deliberately NOT
     // counted: getIndex() (the cheap, live, intended read), and the id-filtered
     // form — CompendiumCollection#getDocument's cache-miss path is

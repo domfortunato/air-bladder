@@ -6,6 +6,7 @@ import { resolveGearItem, GEAR_ALIASES, spellScrollItem } from "./gear.js";
 import { containerClass, iconForTransport } from "./icons.js";
 import { connectionHeadroom, maxConnections, connectedOwnershipShape, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { SETTINGS_NS } from "./settings.js";
+import { glogEnabled, GLOG_SPELL_PACKS } from "./glog.js";
 import { t } from "./i18n-content.js";
 
 // Foundry validates a document flag's scope against real package ids, so flags
@@ -1216,10 +1217,11 @@ const SPELL_POOL_PACK = "air-bladder.spellbooks";
  */
 export const randomSpellbookDoc = async (packIds = null) => {
   // Under GLOG the pool is the GLOG wordings plus the custom set, canon
-  // excluded (ruling 2026-08-05). Resolved per draw, not at module load, so
-  // flipping the setting needs no reload.
+  // excluded (ruling 2026-08-05). The setting is read per DRAW, so flipping it
+  // needs no reload. Statically imported: a per-call `await import()` here
+  // cost ~600ms EVERY call in the live page (it is why dev:spell-pool timed
+  // out on 2026-08-05), and glog.js → settings.js is a leaf chain, no cycle.
   if (!packIds) {
-    const { glogEnabled, GLOG_SPELL_PACKS } = await import("./glog.js");
     packIds = glogEnabled() ? GLOG_SPELL_PACKS : [SPELL_POOL_PACK];
   }
   const candidates = [];
@@ -1242,6 +1244,11 @@ export const randomSpellbookDoc = async (packIds = null) => {
 export const randomSpellbookItem = async () => {
   const b = await randomSpellbookDoc();
   if (!b) return null;
+  // Under GLOG every granted spell is a SCROLL, and this path is reachable then:
+  // the Barebones "Spellbook" / "Random Spellbook" instruction rows call it, and
+  // GLOG is a rules setting, not a content source — it does not turn Barebones
+  // off. Same rule as resolveGearItem's book grants (rulings 2 and 7, 2026-08-05).
+  if (glogEnabled()) return spellScrollItem(b);
   // toObject(), not deepClone — deepClone returns a TypeDataModel by reference,
   // so this would alias the compendium document. See gear.js resolveGearItem.
   return { name: b.name, type: b.type, img: b.img, system: b.system.toObject() };
