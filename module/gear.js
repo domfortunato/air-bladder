@@ -195,7 +195,14 @@ export const buildGearItem = (g) => {
 export const resolveGearItem = async (name, { quantity = 1, uses } = {}) => {
   const spell = spellNameFromGrant(name);
   const targetName = spell ?? GEAR_ALIASES.get(String(name).trim().toLowerCase()) ?? name;
-  const packs = spell ? SPELL_PACKS : CANONICAL_GEAR_PACKS;
+  // Under GLOG only GLOG and custom spells are used (ruling 2026-08-05):
+  // spell grants resolve against the GLOG wordings and the custom set, with
+  // canon EXCLUDED — a "Spellbook (Charm)" grant must come back scaling on
+  // [dice]/[sum], not as the canon sentence. Non-spell gear is untouched.
+  const { glogEnabled, GLOG_SPELL_PACKS } = await import("./glog.js");
+  const packs = spell
+    ? (glogEnabled() ? GLOG_SPELL_PACKS : SPELL_PACKS)
+    : CANONICAL_GEAR_PACKS;
   const lower = String(targetName).toLowerCase();
 
   let found = null;
@@ -215,7 +222,10 @@ export const resolveGearItem = async (name, { quantity = 1, uses } = {}) => {
   // A "Scroll (X)" grant is the spell as a single-use petty scroll, not the
   // slot-taking book. Without this a background handing out a scroll silently
   // grants a full spellbook (and the sheet even labels it "Spellbook — X").
-  if (found.type === "spellbook" && isScrollGrant(name)) {
+  // Under GLOG, EVERY spell grant is a scroll — "Spellbook (X)" included: found
+  // magic is a scroll you copy into your grimoire, and permanent books are
+  // treasure, never handed out (rulings 2 and 7, 2026-08-05).
+  if (found.type === "spellbook" && (isScrollGrant(name) || glogEnabled())) {
     return spellScrollItem(found, { quantity, uses });
   }
 

@@ -388,6 +388,8 @@
     "Bought": "Bought {name} for {cost} gold.",
     "ChangeLogOff": "The change log is off.",
     "ChangeLogOn": "The change log is on.",
+    "GlogConverted": "GLOG Magic: {count} spellbooks converted to GLOG spellscrolls.",
+    "GlogConverted_one": "GLOG Magic: {count} spellbook converted to GLOG spellscrolls.",
     "CannotConnect": "{name} can't be connected — monsters never join a party's connections.",
     "CombatDragBucket": "Changing sides is a re-roll of the DEX save, not a drag — reorder a combatant only within its own group.",
     "ConfirmDeleteNamed": "Delete {name}?",
@@ -615,6 +617,10 @@
     "CustomPortraitFolder": {
       "hint": "A folder of your own character portraits (relative to the Foundry data root). When it holds images, new characters and NPCs use them instead of the shipped Jon Aspeheim art, and the portrait picker gains a 'Custom' tab. Leave empty or unfilled to use only the shipped portraits. The default folder is created for you — just drop images in and click Refresh in the picker.",
       "label": "Custom character portrait folder"
+    },
+    "EnableGlogMagic": {
+      "hint": "The official Cairn GLOG Magic hack. Turning this ON converts the whole world: every canon spellbook anywhere becomes a single-use spellscroll carrying the GLOG wording of its spell, and generation hands out only GLOG and custom spells. Turning it off does NOT convert anything back.",
+      "label": "Use GLOG Magic (converts all spellbooks!)"
     },
     "EnableInventoryReorder": {
       "hint": "When on, a player may drag an inventory row to reposition it; the manual order is kept.",

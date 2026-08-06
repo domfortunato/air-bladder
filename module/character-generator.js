@@ -1214,7 +1214,14 @@ const SPELL_POOL_PACK = "air-bladder.spellbooks";
  * Dagger dropped into Spellbooks must not come out of "a random spellbook".
  * @returns {Promise<CairnItem|null>}
  */
-export const randomSpellbookDoc = async (packIds = [SPELL_POOL_PACK]) => {
+export const randomSpellbookDoc = async (packIds = null) => {
+  // Under GLOG the pool is the GLOG wordings plus the custom set, canon
+  // excluded (ruling 2026-08-05). Resolved per draw, not at module load, so
+  // flipping the setting needs no reload.
+  if (!packIds) {
+    const { glogEnabled, GLOG_SPELL_PACKS } = await import("./glog.js");
+    packIds = glogEnabled() ? GLOG_SPELL_PACKS : [SPELL_POOL_PACK];
+  }
   const candidates = [];
   for (const key of packIds) {
     const pack = game.packs.get(key);
