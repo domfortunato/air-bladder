@@ -1,0 +1,28 @@
+_id: GSskpBLq4zC4Cl6n
+name: Anchor
+type: spellbook
+img: systems/air-bladder/icons/spellbook.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: glog-spells
+system:
+  cost: 0
+  description: <p>A strong wire sprouts from your arms, affixing itself to [dice] points within 50ft on each side.</p>
+  weightless: false
+  equipped: false
+  bulky: false
+  quantity: 1
+  scroll: false
+  glog: true
+  uses:
+    value: 0
+    max: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!GSskpBLq4zC4Cl6n'

@@ -1,0 +1,28 @@
+_id: GSpk23dfo2hPhuJJ
+name: Shuffle
+type: spellbook
+img: systems/air-bladder/icons/spellbook.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: glog-spells
+system:
+  cost: 0
+  description: <p>[sum] creatures instantly switch places. Determine where they end up randomly.</p>
+  weightless: false
+  equipped: false
+  bulky: false
+  quantity: 1
+  scroll: false
+  glog: true
+  uses:
+    value: 0
+    max: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!GSpk23dfo2hPhuJJ'

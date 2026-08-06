@@ -1,0 +1,28 @@
+_id: GSkAuv50xE0z0LhL
+name: Fog Cloud
+type: spellbook
+img: systems/air-bladder/icons/spellbook.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: glog-spells
+system:
+  cost: 0
+  description: <p>Dense fog spreads out from you</p>
+  weightless: false
+  equipped: false
+  bulky: false
+  quantity: 1
+  scroll: false
+  glog: true
+  uses:
+    value: 0
+    max: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!GSkAuv50xE0z0LhL'

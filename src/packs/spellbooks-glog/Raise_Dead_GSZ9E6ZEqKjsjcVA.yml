@@ -1,0 +1,28 @@
+_id: GSZ9E6ZEqKjsjcVA
+name: Raise Dead
+type: spellbook
+img: systems/air-bladder/icons/spellbook.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: glog-spells
+system:
+  cost: 0
+  description: <p>[sum] skeletons rise from the ground to serve you. They are incredibly stupid and can only obey simple orders.</p>
+  weightless: false
+  equipped: false
+  bulky: false
+  quantity: 1
+  scroll: false
+  glog: true
+  uses:
+    value: 0
+    max: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!GSZ9E6ZEqKjsjcVA'

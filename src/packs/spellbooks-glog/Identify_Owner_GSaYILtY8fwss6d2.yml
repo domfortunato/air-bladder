@@ -1,0 +1,28 @@
+_id: GSaYILtY8fwss6d2
+name: Identify Owner
+type: spellbook
+img: systems/air-bladder/icons/spellbook.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: glog-spells
+system:
+  cost: 0
+  description: <p>[dice] letters appear over the object you touch, spelling out the name of the object's owners, if there are any.</p>
+  weightless: false
+  equipped: false
+  bulky: false
+  quantity: 1
+  scroll: false
+  glog: true
+  uses:
+    value: 0
+    max: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!GSaYILtY8fwss6d2'

@@ -55,6 +55,15 @@ Game text — CC BY-SA 4.0, © Yochai Gal
     (Perplexing Ruins, Jeff Koch) IS NOT COVERED by its text licence and none
     of it ships here. ShareAlike is not waived.
 
+GLOG Magic — CC BY-SA 4.0
+    https://creativecommons.org/licenses/by-sa/4.0/
+    The 100 spells in the Spellbooks (GLOG) compendium, transcribed verbatim
+    from the official Cairn GLOG Magic hack's spell list
+    (https://cairnrpg.com/hacks/glog-spells/, with the rules at
+    https://cairnrpg.com/hacks/glog-magic/), whose pages state the CC BY-SA
+    4.0 licence. [dice] and [sum] are the hack's casting variables and are
+    part of the text. ShareAlike is not waived.
+
 Spanish translation — CC BY-SA 4.0, © Malecho (https://github.com/fsmalecho)
     https://creativecommons.org/licenses/by-sa/4.0/
     lang/es.json (interface) and lang/content/es.json (game content) — the
