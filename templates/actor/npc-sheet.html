@@ -116,6 +116,17 @@
                 {{/if}}
             </div>
             {{/if}}
+            {{!-- Magic Dice (rulings 2026-08-05): the KEEPER's free slots,
+                  derived through connectedTo at render and never stored — a
+                  dash while unbound. Read-only on purpose: the number IS the
+                  keeper's inventory state, and the one way to change it is to
+                  carry less. --}}
+            {{#if isGrimoire}}
+            <div class="profession-line magic-dice-line">
+                <span class="background-label">{{ localize 'CAIRN.MagicDice' }}</span>
+                <span class="magic-dice-value" data-tooltip="{{ localize 'CAIRN.MagicDiceTip' }}">{{#if magicKeeper}}{{magicDice}}{{else}}&mdash;{{/if}}</span>
+            </div>
+            {{/if}}
             {{!-- The connection line (2026-08-02): the child end's ONE upward
                   edge as a field — "Hired by: X" for a person actually for
                   hire, "Connected to: X" otherwise, "Formerly connected to X"

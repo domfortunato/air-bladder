@@ -30,6 +30,17 @@ export const FATIGUE_NAME = "Fatigue";
 export const SPELLSCROLL_NAME = "Spellscroll";
 
 /**
+ * The stored name of the ITEM that lets a character bind a grimoire-role NPC
+ * (rulings 2026-08-05): carrying one is what makes the book's connection
+ * legal, and the last copy LEAVING the character auto-breaks it. English
+ * always, the FATIGUE_NAME rule and for the same reason — per-client language
+ * would break identity. Bulky (2 slots — carrying your book costs two Magic
+ * Dice) is the item's authored state, not enforced here: the name alone is
+ * what the gate and the auto-break key on.
+ */
+export const GRIMOIRE_NAME = "Grimoire";
+
+/**
  * Every spellscroll is petty and single-use — the Warden's rule, and the one thing
  * that separates a scroll from the book of the same spell. So it is derived from
  * the `scroll` flag rather than typed in: the sheet offers no Petty box and no Max
@@ -124,6 +135,49 @@ export class CairnItem extends Item {
     if (this.img === was || this.img === this.constructor.DEFAULT_ICON) {
       changed.img = becomingScroll ? SPELLSCROLL_ICON : SPELLBOOK_ICON;
     }
+  }
+
+  /**
+   * The Grimoire item leaving its carrier auto-breaks any bound book (ruling
+   * 2026-08-05, chosen knowingly — automation firing on an inventory change).
+   * Runs on the ACTING user's client only, so one client writes; the method
+   * itself re-checks whether another copy remains, so deleting one of two is
+   * a no-op. `_onDelete` is UNAWAITED by core (the recorded trap), so the
+   * break is fire-and-forget here and probes must POLL for it — same as every
+   * other lifecycle write. A synthetic token actor passes through harmlessly:
+   * its uuid can never appear in `connectedTo`, so the break finds nothing.
+   * @override
+   */
+  _onDelete(options, userId) {
+    super._onDelete(options, userId);
+    if (this.name === GRIMOIRE_NAME && this.parent?.type === "character" && userId === game.user.id) {
+      this.parent.breakGrimoireConnections();
+    }
+    // Any inventory change moves the keeper's free slots, which is a connected
+    // grimoire's Magic Dice line — every client refreshes its own windows.
+    this.parent?._synchronizeGrimoireSheets?.();
+  }
+
+  /** @override */
+  _onCreate(data, options, userId) {
+    super._onCreate(data, options, userId);
+    this.parent?._synchronizeGrimoireSheets?.();
+  }
+
+  /**
+   * Quantity written to zero is the item leaving too — a transfer or a hand
+   * edit both land here; the same one-client, re-checked, unawaited shape as
+   * `_onDelete` above.
+   * @override
+   */
+  _onUpdate(changed, options, userId) {
+    super._onUpdate(changed, options, userId);
+    const qty = foundry.utils.getProperty(changed, "system.quantity");
+    if (this.name === GRIMOIRE_NAME && this.parent?.type === "character"
+        && userId === game.user.id && qty !== undefined && qty <= 0) {
+      this.parent.breakGrimoireConnections();
+    }
+    this.parent?._synchronizeGrimoireSheets?.();
   }
 
   /**

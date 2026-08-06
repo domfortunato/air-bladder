@@ -43,10 +43,16 @@ const fields = foundry.data.fields;
  * read and by the world migration in cairn.js on write; the `hireling` TYPE stays
  * registered (ids are immutable) but is hidden from Create Actor.
  */
-export const NPC_ROLES = ["npc", "monster", "mount", "transport", "container"];
+export const NPC_ROLES = ["npc", "monster", "mount", "transport", "container", "grimoire"];
 
-/** Roles that hide the stat block — what `inanimate` used to mean. */
-export const THING_ROLES = ["transport", "container"];
+/** Roles that hide the stat block — what `inanimate` used to mean.
+ *  `grimoire` (2026-08-05) is a THING on purpose: a spellbook-binding is a
+ *  role, not a type (the container-type lesson — roles retire, types are
+ *  offered in Create Actor forever), it zeroes nobody's HP, and the strict
+ *  thing-capacity refusal is exactly ruling 6's Warden-set page count. Its
+ *  extra rules — the gating carried item, one book per keeper, the cast
+ *  surface — live in actor.js/item.js and the sheet, not here. */
+export const THING_ROLES = ["transport", "container", "grimoire"];
 
 /* `KEEPER_ROLES` stood here and is GONE (2026-08-01, the flat graph). It listed
    the roles allowed to keep connections, and the flat rule leaves none: keeping

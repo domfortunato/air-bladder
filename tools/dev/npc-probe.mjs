@@ -187,13 +187,21 @@ try {
       })(),
     };
 
-    // 6. Name re-roll: name changes, statblock untouched.
+    // 6. Name re-roll: name changes, statblock untouched. Up to five rolls:
+    // drawing the SAME name again is legal behavior of a random table, so a
+    // single-draw comparison carries a built-in 1/N false failure — and it
+    // fired once on 2026-08-05. Five same-name draws in a row is (1/N)^5,
+    // which is a real defect, not luck.
     const nameBefore = actor.name;
     const profBefore = actor.system.profession;
     const hpBefore = actor.system.hp.max;
-    await CG.rerollNpcName(actor);
+    let renamed = false;
+    for (let tries = 0; tries < 5 && !renamed; tries++) {
+      await CG.rerollNpcName(actor);
+      renamed = actor.name !== nameBefore;
+    }
     const rename = {
-      changed: actor.name !== nameBefore,
+      changed: renamed,
       statblockKept: actor.system.profession === profBefore && actor.system.hp.max === hpBefore,
       newName: actor.name,
     };
@@ -264,10 +272,16 @@ try {
     const settle = (ms = 400) => new Promise((res) => setTimeout(res, ms));
     const live = {};
 
-    // Portrait -> the same gallery a character gets.
+    // Portrait -> the same gallery a character gets. POLL, never a fixed
+    // sleep: the gallery's open awaits manifest + custom-portrait reads, so it
+    // opens at the server's pace, and a 600ms settle here failed exactly once
+    // on 2026-08-05 against a long-lived server — the race rule, again.
     node?.querySelector(".portrait")?.click();
-    await settle(600);
-    live.galleryOpened = !!document.querySelector(".cairn-portrait-gallery");
+    live.galleryOpened = false;
+    for (let w = 0; w < 8000 && !live.galleryOpened; w += 250) {
+      live.galleryOpened = !!document.querySelector(".cairn-portrait-gallery");
+      if (!live.galleryOpened) await settle(250);
+    }
     // Spread first: close() deletes from the live instances map as we walk it.
     for (const app of [...foundry.applications.instances.values()]) {
       if (app.element?.querySelector?.(".cairn-portrait-gallery")) await app.close();

@@ -1,6 +1,7 @@
 import { SETTINGS_NS } from "../settings.js";
 import { iconForItem, iconForTransport, containerClassSlots, CONTAINER_CLASSES, ICON_DIR } from "../icons.js";
 import { THING_ROLES } from "../data-models.js";
+import { GRIMOIRE_NAME } from "../item/item.js";
 import {
   atConnectionLimit, maxConnections,
   connectedOwnershipShape, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG,
@@ -846,6 +847,41 @@ export class CairnActor extends Actor {
     }
   }
 
+  /**
+   * Break any bound grimoire because the Grimoire ITEM has left this character
+   * (ruling 2026-08-05: the item leaving auto-breaks — deletion, transfer, or
+   * quantity written to zero; the item.js lifecycle hooks call this). No
+   * confirm dialog: the gesture already happened, this is its consequence.
+   * Re-checks the item so deleting one copy of two is a no-op, and mirrors
+   * unlinkOwnedContainer's write tail exactly — the BROKEN shape on a GM
+   * client, the sync flag + socket for a player, whose deletion of their own
+   * item risks nobody else's documents (they own a connected book by the
+   * connected shape). A grimoire is never role monster, so no exclusion
+   * branch is needed.
+   */
+  async breakGrimoireConnections() {
+    if (this.type !== "character") return;
+    if (this.hasGrimoireItem) return;
+    for (const book of this.connectedActors().filter((a) => a.npcRole === "grimoire")) {
+      const changes = {
+        "system.connectedTo": "",
+        "system.formerlyBelongedTo": this.name,
+      };
+      if (game.user.isGM) {
+        changes.ownership = foundry.data.operators.ForcedReplacement.create(brokenOwnershipShape(book));
+      } else {
+        changes[`flags.air-bladder.${OWNERSHIP_SYNC_FLAG}`] = true;
+      }
+      await book.update(changes);
+      if (!game.user.isGM) {
+        game.socket.emit(`system.${game.system.id}`, { action: "ownershipSync", childUuid: book.uuid });
+      }
+      ui.notifications.info(game.i18n.format("CAIRN.Notify.GrimoireUnbound", {
+        book: book.name, keeper: this.name,
+      }));
+    }
+  }
+
   async deleteOwnedFeature(itemId) {
     const ft = this.getOwnedFeature(itemId);
     if (!ft) return;
@@ -946,6 +982,18 @@ export class CairnActor extends Actor {
   get canKeepConnected() {
     if (this.isToken) return false;   // see canBeConnected
     return this.type === "character";
+  }
+
+  /**
+   * Does this character carry the Grimoire ITEM — the thing that makes a
+   * grimoire-role NPC bindable to them (rulings 2026-08-05)? Keyed on the
+   * stored English name (the FATIGUE_NAME rule) and on a positive quantity,
+   * because a copy written to zero has left the character in every way that
+   * matters to the gate and to the auto-break.
+   * @returns {boolean}
+   */
+  get hasGrimoireItem() {
+    return this.items.some((i) => i.name === GRIMOIRE_NAME && (i.system?.quantity ?? 1) > 0);
   }
 
   /**
@@ -1071,6 +1119,22 @@ export class CairnActor extends Actor {
       ui.notifications.warn(game.i18n.format("CAIRN.Notify.ConnectionCycle", { name: target.name }));
       return false;
     }
+    // The grimoire walls (rulings 2026-08-05). ONE book per keeper is
+    // structural — it binds the Warden exactly like the ceiling above, because
+    // "exactly one grimoire connected" is a rule of the game, not a permission.
+    // The carried-ITEM requirement is fiction — a book must be carried to be
+    // bound — so the Warden may place one by fiat, the same asymmetry as the
+    // both-ends wall at the top.
+    if (target.npcRole === "grimoire") {
+      if (this.connectedActors().some((a) => a.npcRole === "grimoire")) {
+        ui.notifications.warn(game.i18n.format("CAIRN.Notify.GrimoireOnlyOne", { name: this.name }));
+        return false;
+      }
+      if (!game.user.isGM && !this.hasGrimoireItem) {
+        ui.notifications.warn(game.i18n.format("CAIRN.Notify.GrimoireNeedsItem", { name: this.name }));
+        return false;
+      }
+    }
     if (!target.canUserModify(game.user, "update")) {
       ui.notifications.warn(
         game.i18n.format("CAIRN.Notify.ContainerNoPermission", { name: target.name })
@@ -1180,6 +1244,22 @@ export class CairnActor extends Actor {
   _synchronizeOwnerSheets(also = []) {
     const refs = new Set([this.system.connectedTo, ...also].filter(Boolean));
     for (const uuid of refs) game.actors.find((a) => a.uuid === uuid)?.render(false);
+  }
+
+  /**
+   * The same wire run BACKWARDS (rulings 2026-08-05): a grimoire's Magic Dice
+   * line is the KEEPER's free slots, derived at render — so when THIS
+   * character's inventory moves, any open sheet of a connected grimoire is
+   * stale. Re-render them; `render(false)` on a closed sheet is a no-op, so
+   * the common case costs nothing. Called from item.js's lifecycle hooks —
+   * every client renders its own windows, so this is NOT gated on the acting
+   * user the way the auto-break write is.
+   */
+  _synchronizeGrimoireSheets() {
+    if (this.type !== "character") return;
+    for (const child of this.connectedActors()) {
+      if (child.npcRole === "grimoire") child.render(false);
+    }
   }
 
   /**

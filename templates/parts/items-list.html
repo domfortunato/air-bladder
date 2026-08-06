@@ -104,6 +104,15 @@
       {{/if}}
       {{/unless}}
 
+      {{!-- The grimoire's Cast control (rulings 2026-08-05): on the BOOK's
+            sheet only, spellbook rows only — the book is the magic surface,
+            and a scroll between its pages is castable exactly like a page. --}}
+      {{#if @root.isGrimoire}}
+      {{#if (eq item.type "spellbook")}}
+      <a class="item-control grimoire-cast" data-action="grimoireCast" title="{{ localize 'CAIRN.GrimoireCast' }}"><i class="fas fa-hand-sparkles"></i></a>
+      {{/if}}
+      {{/if}}
+
       {{#if (not item.system.isFatigue) }}
       <a class="item-control item-edit" data-action="itemEdit" title="{{ localize 'CAIRN.EditItem' }}"><i class="fas fa-edit"></i></a>
       {{/if}}

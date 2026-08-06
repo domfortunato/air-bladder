@@ -9,6 +9,7 @@ import { NPC_ROLES } from "../data-models.js";
 import { atConnectionLimit, maxConnections, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
 import { localizeNameDesc, sourceOf, t } from "../i18n-content.js";
 import { FATIGUE_NAME } from "../item/item.js";
+import { magicDiceFor, castFromGrimoire } from "../grimoire.js";
 import { pickArt } from "../art-picker.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -214,6 +215,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       addFatigue: owned(CairnActorSheet.#onAddFatigue),
       removeFatigue: owned(CairnActorSheet.#onRemoveFatigue),
       rollDamage: CairnActorSheet.#onRollDamage,
+      grimoireCast: owned(CairnActorSheet.#onGrimoireCast),
       // Connections
       connectionAdd: owned(CairnActorSheet.#onConnectionAdd),
       connectionAttach: owned(CairnActorSheet.#onConnectionAttach),
@@ -684,6 +686,17 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // side without one.
       context.showFaction = ["npc", "monster"].includes(role);
       context.showKind = ["mount", "transport", "container"].includes(role);
+      // The grimoire's magic surface (rulings 2026-08-05): Magic Dice = the
+      // KEEPER's free slots read through `connectedTo` at render, never
+      // stored — item.js re-renders open grimoire sheets when the keeper's
+      // inventory moves, so this line tracks live. Unbound book: no keeper,
+      // no dice, and the template shows a dash.
+      context.isGrimoire = role === "grimoire";
+      if (context.isGrimoire) {
+        const md = magicDiceFor(this.actor);
+        context.magicDice = md?.dice ?? null;
+        context.magicKeeper = md?.keeper?.name ?? null;
+      }
       // The Type select's rows: the CONTAINER_CLASSES table filtered to the
       // current role, so a class added there appears here with nothing else to
       // keep in step. STRICT since 2026-08-02 — the free-text input lives
@@ -2153,6 +2166,20 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    *
    * @this {CairnActorSheet}
    */
+  /**
+   * Cast a spell FROM this grimoire (rulings 2026-08-05): the whole flow —
+   * dice picker capped at min(4, the keeper's free slots), a real Roll spoken
+   * by the KEEPER, the report card with its Add-N-Fatigue button — lives in
+   * module/grimoire.js; this is only the row control's wiring.
+   */
+  static async #onGrimoireCast(event) {
+    event.preventDefault();
+    const itemId = event.target.closest("[data-item-id]")?.dataset.itemId;
+    const item = this.actor.items.get(itemId);
+    if (!item) return;
+    await castFromGrimoire(this.actor, item);
+  }
+
   static async #onAddFatigue(event) {
     event.preventDefault();
     await this.actor.createOwnedItem(
@@ -3130,6 +3157,25 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         await this._onSortItem(event, originalItem);
         return originalItem;
       }
+      return null;
+    }
+
+    // A grimoire's pages are BOUND (ruling 2026-08-05): spells only ever
+    // accumulate, and extraction — scribing a scroll, book-to-book copying —
+    // is a downtime action the Warden performs by hand, never a drag. Stated
+    // on the RECEIVING sheet because that is where a transfer is decided; the
+    // same-actor reorder above never reaches here.
+    if (originalActor && originalActor !== this.actor && originalActor.npcRole === "grimoire") {
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.GrimoirePagesBound", { name: originalActor.name }));
+      return null;
+    }
+
+    // A grimoire holds SPELLS (ruling 2026-08-05): spellbook-type items only —
+    // its capacity prices pages, not cargo. A scroll dropped in STAYS a scroll
+    // by omission (nothing below touches the flag): making it a permanent page
+    // is the table paying the copying cost and unticking Scroll by hand.
+    if (this.actor.npcRole === "grimoire" && originalItem.type !== "spellbook") {
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.GrimoireSpellsOnly", { name: originalItem.name }));
       return null;
     }
 

@@ -9,6 +9,7 @@ import { createMonster } from "./monster-generator.js";
 import * as monsterGenerator from "./monster-generator.js";
 import { generateFaction } from "./faction-generator.js";
 import { reseedSpellTable } from "./spell-tables.js";
+import { bindGrimoireCard } from "./grimoire.js";
 import { importKettlewrightCharacter } from "./kettlewright-import.js";
 import * as kettlewrightImport from "./kettlewright-import.js";
 import { Cairn } from "./config.js";
@@ -1275,6 +1276,7 @@ Hooks.on("renderActorDirectory", (app, html) => {
           "CAIRN.CreateNpc"
         )}</button>
           ${game.user.isGM ? `<button class="create-monster-button"><i class="fas fa-dragon"></i>${game.i18n.localize("CAIRN.CreateMonster")}</button>` : ""}
+          ${game.user.isGM ? `<button class="create-grimoire-button"><i class="fas fa-book-skull"></i>${game.i18n.localize("CAIRN.CreateGrimoire")}</button>` : ""}
           <button class="create-mount-button"><i class="fas fa-horse"></i>${game.i18n.localize("CAIRN.CreateMount")}</button>
           <button class="create-transport-button"><i class="fas fa-cart-flatbed"></i>${game.i18n.localize("CAIRN.CreateTransport")}</button>
           <button class="create-container-button"><i class="fas fa-box-open"></i>${game.i18n.localize("CAIRN.CreateContainer")}</button>
@@ -1315,6 +1317,16 @@ Hooks.on("renderActorDirectory", (app, html) => {
         .querySelector(".create-monster-button")
         ?.addEventListener("click", async () => {
           const actor = await createMonster();
+          if (actor) actor.sheet.render(true);
+        });
+      // Warden-only: a grimoire is FOUND-ONLY treasure (ruling 2026-08-05) —
+      // never sold, never granted at generation — so the Warden's button is
+      // the one way a book enters the world. Dismissible; ✕ creates nothing.
+      section
+        .querySelector(".create-grimoire-button")
+        ?.addEventListener("click", async () => {
+          const { createGrimoire } = await import("./grimoire.js");
+          const actor = await createGrimoire();
           if (actor) actor.sheet.render(true);
         });
       // Warden-only: one click, one faction dossier (a JournalEntry — a
@@ -1408,6 +1420,10 @@ Hooks.on("renderRollTableDirectory", (app, html) => {
 Hooks.on("renderChatMessageHTML", (message, html, data) => {
   // Display-only content overlay for RollTable draw cards (see above).
   localizeTableResults(html);
+
+  // The grimoire cast card's Add-N-Fatigue button (module/grimoire.js) —
+  // owner-or-Warden only, the Apply-damage precedent.
+  bindGrimoireCard(html);
 
   // Roll Str Save.
   //

@@ -211,6 +211,18 @@
       "system": "air-bladder"
     },
     {
+      "name": "tables-glog",
+      "label": "Tables (GLOG)",
+      "type": "RollTable",
+      "system": "air-bladder"
+    },
+    {
+      "name": "journals-glog",
+      "label": "Journals (GLOG)",
+      "type": "JournalEntry",
+      "system": "air-bladder"
+    },
+    {
       "name": "tools",
       "label": "Tools",
       "type": "Item",
@@ -301,7 +313,15 @@
         "marketplace",
         "tables-2e",
         "tables-barebones",
+        "tables-glog",
         "utils"
+      ]
+    },
+    {
+      "name": "Air Bladder - Journals",
+      "sorting": "a",
+      "packs": [
+        "journals-glog"
       ]
     },
     {

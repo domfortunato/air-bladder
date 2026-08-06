@@ -1,7 +1,11 @@
 _id: sAHcMoXAZeJpfCiC
 name: Spells — Canon (1d100)
 img: icons/svg/d20-grey.svg
-description: 'The canon spell list as a rollable table — one row per spellbook in the Spellbooks compendium, alphabetical. To roll on an edited pack, import this table into the world and use the Reseed Spell Table button in the Tables directory.'
+description: >-
+  The canon spell list as a rollable table — one row per spellbook in the
+  Spellbooks compendium, alphabetical. To roll on an edited pack, import this
+  table into the world and use the Reseed Spell Table button in the Tables
+  directory.
 results:
   - _id: zsS0WSIaRm9kEL6r
     type: document
@@ -14,6 +18,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.V7nq6yvWcO6FOgAd
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.zsS0WSIaRm9kEL6r'
   - _id: cF0rseZGguczGray
     type: document
@@ -26,6 +41,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.kbC12lXFurP7VT2d
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.cF0rseZGguczGray'
   - _id: 0eKvfDvLpVtVAH8b
     type: document
@@ -38,6 +64,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.9TDw4uG8F3a4NY9y
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.0eKvfDvLpVtVAH8b'
   - _id: 8Yidt4CfCY4z3jnu
     type: document
@@ -50,6 +87,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.ZaqFlB0jRfbT3kYR
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.8Yidt4CfCY4z3jnu'
   - _id: AjQoINdRmt8xhWss
     type: document
@@ -62,6 +110,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.aq1uBGjEgh3tho0F
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.AjQoINdRmt8xhWss'
   - _id: SjLl2Vp6elY1OoL4
     type: document
@@ -74,6 +133,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.kyzTKKvhLndDZ9V6
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.SjLl2Vp6elY1OoL4'
   - _id: NEGhDeezPb20Pfua
     type: document
@@ -86,6 +156,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.R446KCEYPYbG9mRp
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.NEGhDeezPb20Pfua'
   - _id: pncvYWt2Te0GLKlO
     type: document
@@ -98,6 +179,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.Z0pe0JiBqa02GmBH
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.pncvYWt2Te0GLKlO'
   - _id: 2rqrftRhS7gos0nA
     type: document
@@ -110,6 +202,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.V0aCSuOfHcHMp4ZA
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.2rqrftRhS7gos0nA'
   - _id: nbOWmfDsUc0XOS5f
     type: document
@@ -122,6 +225,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.IFXMal2VK1g4IM19
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.nbOWmfDsUc0XOS5f'
   - _id: ic9u4YCEahqf99i7
     type: document
@@ -134,6 +248,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.HJkQbuyuNjqx9MNr
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.ic9u4YCEahqf99i7'
   - _id: HLZ3FfLQtjEwH4R7
     type: document
@@ -146,6 +271,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.t5YNPmDiZmQT1edO
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.HLZ3FfLQtjEwH4R7'
   - _id: EqcKkTFN4lMIA1Ix
     type: document
@@ -158,6 +294,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.elC1Sn9iHxqZOOSd
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.EqcKkTFN4lMIA1Ix'
   - _id: GsMiTgteVHDThRJz
     type: document
@@ -170,6 +317,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.tmzWwpcekKJlS8Vl
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.GsMiTgteVHDThRJz'
   - _id: A202ckebNXamt4fR
     type: document
@@ -182,6 +340,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.BLJZ8o9DC6nHfgfT
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.A202ckebNXamt4fR'
   - _id: UH3KoZw1qNFYdeQz
     type: document
@@ -194,6 +363,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.eOt9geKENQ1sloE4
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.UH3KoZw1qNFYdeQz'
   - _id: ZPIfrH8MydQrgad9
     type: document
@@ -206,6 +386,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.xTufDwZ1y1Jd9Rdn
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.ZPIfrH8MydQrgad9'
   - _id: XA4Sag1JPBOqkLaJ
     type: document
@@ -218,6 +409,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.FKjXTGCafLVZUy9y
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.XA4Sag1JPBOqkLaJ'
   - _id: XVuznnbO7haSgg0K
     type: document
@@ -230,6 +432,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.0JZLrpj1UtJEYde7
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.XVuznnbO7haSgg0K'
   - _id: 6b4WhhAWQvyaoVtK
     type: document
@@ -242,6 +455,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.GrWKSVbd2DWVjHSt
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.6b4WhhAWQvyaoVtK'
   - _id: AhHHL9fR6LnUW2Xi
     type: document
@@ -254,6 +478,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.Y4XrmyC2NVaH8DpR
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.AhHHL9fR6LnUW2Xi'
   - _id: kG7mGH0Fja4kgPBv
     type: document
@@ -266,6 +501,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.F9iv9MP5mDJWNK0Z
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.kG7mGH0Fja4kgPBv'
   - _id: dGxAopHbsaW27hlE
     type: document
@@ -278,6 +524,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.E8vwECW4aGhtuNHq
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.dGxAopHbsaW27hlE'
   - _id: 6RSIZ7Bmigim5k40
     type: document
@@ -290,6 +547,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.UZJ1wNfeRSFN8qLb
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.6RSIZ7Bmigim5k40'
   - _id: GAxypdtWZITCopMC
     type: document
@@ -302,6 +570,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.b4bRVJ6YVNj8vKjh
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.GAxypdtWZITCopMC'
   - _id: F9lAqyz3ASCm5730
     type: document
@@ -314,6 +593,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.5VeRpY0XrMAJ2EoN
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.F9lAqyz3ASCm5730'
   - _id: pP3s5lBpYWCay6Tr
     type: document
@@ -326,6 +616,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.djWVofRP0OhX8xMj
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.pP3s5lBpYWCay6Tr'
   - _id: Nlg3FuzhS7hJiPgf
     type: document
@@ -338,6 +639,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.lvhwx2BnlsnqTE3p
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.Nlg3FuzhS7hJiPgf'
   - _id: QllBmDaHGS437d91
     type: document
@@ -350,6 +662,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.tBXMosNbRhUSdsxF
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.QllBmDaHGS437d91'
   - _id: NAdB4DYR9ztoBAjT
     type: document
@@ -362,6 +685,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.OlEahwYWIpsG00Ui
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.NAdB4DYR9ztoBAjT'
   - _id: 74X9f6vg0omVHg8u
     type: document
@@ -374,6 +708,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.Jlc0h36L5Umgk4Db
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.74X9f6vg0omVHg8u'
   - _id: IXIWVUwj93GSNfM7
     type: document
@@ -386,6 +731,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.hz3Gz79fSq3xAGcI
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.IXIWVUwj93GSNfM7'
   - _id: TC6we6WI1pDQVSIb
     type: document
@@ -398,6 +754,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.U38BUnoTWdyThLt3
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.TC6we6WI1pDQVSIb'
   - _id: F7SvsztNYExZ5K7d
     type: document
@@ -410,6 +777,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.e1ZXHq9dtGaBJo3Z
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.F7SvsztNYExZ5K7d'
   - _id: C9KHjq1FlpJEV4DO
     type: document
@@ -422,6 +800,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.Pw8Tr18hcB9nMXzE
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.C9KHjq1FlpJEV4DO'
   - _id: BnnsqbVuHAddrkTo
     type: document
@@ -434,6 +823,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.ptGYJChCJabl22Ci
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.BnnsqbVuHAddrkTo'
   - _id: 6y2MdXsB2IwYbEPV
     type: document
@@ -446,6 +846,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.Dfci2ps3Azz5Q3IC
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.6y2MdXsB2IwYbEPV'
   - _id: eZOllFnrUSMdmhmT
     type: document
@@ -458,6 +869,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.pAkByBBnCsh8r8Nf
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.eZOllFnrUSMdmhmT'
   - _id: KxAY6OjZEGqMWFpq
     type: document
@@ -470,6 +892,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.JlyPMjwHHP2bBnIZ
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.KxAY6OjZEGqMWFpq'
   - _id: 4L5IJ3FbxaZS84eC
     type: document
@@ -482,6 +915,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.1Cfjn1LJi24GGpf7
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.4L5IJ3FbxaZS84eC'
   - _id: GSOo4NzJ1eRMDvgB
     type: document
@@ -494,6 +938,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.lt6ClKWJ823Dd2sE
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.GSOo4NzJ1eRMDvgB'
   - _id: z03R5W4mtQw90v0D
     type: document
@@ -506,6 +961,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.wyG7HPLRFCce0dP5
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.z03R5W4mtQw90v0D'
   - _id: q8ZVL3YHKBvJbTzh
     type: document
@@ -518,6 +984,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.61nT0mH9UVBwyRLn
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.q8ZVL3YHKBvJbTzh'
   - _id: XJUOEnQq2lDjJiOT
     type: document
@@ -530,6 +1007,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.GFKmeP8rq1odLhZd
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.XJUOEnQq2lDjJiOT'
   - _id: UwF9viXi9UAuUUIb
     type: document
@@ -542,6 +1030,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.qAmjT0wr8XodtZqy
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.UwF9viXi9UAuUUIb'
   - _id: kvJyvUONq8UMDK07
     type: document
@@ -554,6 +1053,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.vLmwDvMXtD7DltJn
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.kvJyvUONq8UMDK07'
   - _id: 1SDW7j4W9VaodAR8
     type: document
@@ -566,6 +1076,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.JxONwkBV7TsoAWxG
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.1SDW7j4W9VaodAR8'
   - _id: GZmF5QEMm7Z8HC6i
     type: document
@@ -578,6 +1099,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.X0FcBAY7FNupTuoi
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.GZmF5QEMm7Z8HC6i'
   - _id: or73Ho3YWSs3ddiP
     type: document
@@ -590,6 +1122,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.i8UVjbIUw4Xpv5pJ
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.or73Ho3YWSs3ddiP'
   - _id: H6xZaHVpakueFFAA
     type: document
@@ -602,6 +1145,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.pK84d7vqmbVYn6J1
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.H6xZaHVpakueFFAA'
   - _id: 5jGNJ1jzHZVGA69n
     type: document
@@ -614,6 +1168,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.1WWbLQTaNzDqHo8l
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.5jGNJ1jzHZVGA69n'
   - _id: hALntzRddvL3XyY9
     type: document
@@ -626,6 +1191,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.1wvGSt8oOFMhbIAB
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.hALntzRddvL3XyY9'
   - _id: 5rwSAMhWAV9hLR2i
     type: document
@@ -638,6 +1214,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.1zI92pZy7k73OBeE
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.5rwSAMhWAV9hLR2i'
   - _id: gCljCwXcjBZqTtsY
     type: document
@@ -650,6 +1237,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.Pe0ISvyqrGojnV1i
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.gCljCwXcjBZqTtsY'
   - _id: 6Y5DeXHKszCiXrFr
     type: document
@@ -662,6 +1260,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.ywmESB3HFLBRXPnS
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.6Y5DeXHKszCiXrFr'
   - _id: nVYjT01nmG5KoKAp
     type: document
@@ -674,6 +1283,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.KjS2sqRqbEVfYQLV
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.nVYjT01nmG5KoKAp'
   - _id: 11bitRmkmvJToLLb
     type: document
@@ -686,6 +1306,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.Mp1ypGW60EfdjgOq
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.11bitRmkmvJToLLb'
   - _id: YpJo8se6NLq3RjP6
     type: document
@@ -698,6 +1329,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.LPhrpvl0Tf40AxJd
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.YpJo8se6NLq3RjP6'
   - _id: X2r9fWR1RSaAAtqL
     type: document
@@ -710,6 +1352,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.94DBOIZcNjKvhNpt
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.X2r9fWR1RSaAAtqL'
   - _id: BmCAd6siqbRMwGBG
     type: document
@@ -722,6 +1375,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.iAhFYSIr97d2aX76
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.BmCAd6siqbRMwGBG'
   - _id: WI4upuINuJNlzzvF
     type: document
@@ -734,6 +1398,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.ZLG9pgRNBEPE8dID
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.WI4upuINuJNlzzvF'
   - _id: MaJUSgm0dOiymrTT
     type: document
@@ -746,6 +1421,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.31UXiIvzoXPQEd8Z
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.MaJUSgm0dOiymrTT'
   - _id: VjtSrRzggBF2j9TI
     type: document
@@ -758,6 +1444,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.i93owALoJpKfBGGz
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.VjtSrRzggBF2j9TI'
   - _id: HUFpxF7zTSAzcTB2
     type: document
@@ -770,6 +1467,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.fi7RYeSGtRiEgphx
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.HUFpxF7zTSAzcTB2'
   - _id: Att3DAUYKMUnbnRp
     type: document
@@ -782,6 +1490,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.09jsLVPMusbW5jyQ
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.Att3DAUYKMUnbnRp'
   - _id: UOZuPCbQMOCUIKfe
     type: document
@@ -794,6 +1513,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.KzexNICZj0qB2rgn
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.UOZuPCbQMOCUIKfe'
   - _id: 2fzHrsD40PBwu0f3
     type: document
@@ -806,6 +1536,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.in1K4LWnHlbNKx52
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.2fzHrsD40PBwu0f3'
   - _id: EbpMdK2Mk6YLbUHK
     type: document
@@ -818,6 +1559,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.jOSGdLfATzx1kOzv
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.EbpMdK2Mk6YLbUHK'
   - _id: hnR52MFls08F62OV
     type: document
@@ -830,6 +1582,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.62IaPJOUrU8WmQCk
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.hnR52MFls08F62OV'
   - _id: hvwunA05M2I7Bq4t
     type: document
@@ -842,6 +1605,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.jeAbJSxavNv9yBnF
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.hvwunA05M2I7Bq4t'
   - _id: AqVKL9RSWBV5O9RZ
     type: document
@@ -854,6 +1628,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.ccD8DUMv4i2ol8Le
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.AqVKL9RSWBV5O9RZ'
   - _id: 4hJl8yNobEXnptNK
     type: document
@@ -866,6 +1651,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.jKEfBujX9M7xZoYB
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.4hJl8yNobEXnptNK'
   - _id: rXJvpqcgEnFOlsBM
     type: document
@@ -878,6 +1674,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.3kBu8oyEXBfIO8M6
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.rXJvpqcgEnFOlsBM'
   - _id: ME3qgNFoAEPbB70D
     type: document
@@ -890,6 +1697,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.I1wx54HNx6XOnqKC
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.ME3qgNFoAEPbB70D'
   - _id: ahM7VCXAVIPwSSJM
     type: document
@@ -902,6 +1720,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.hvBI6GuWQ2bnotbB
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.ahM7VCXAVIPwSSJM'
   - _id: A8jfgHoCIuelHfH6
     type: document
@@ -914,6 +1743,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.vicTBVVB6I8raKBh
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.A8jfgHoCIuelHfH6'
   - _id: r76UzIxzOOztieuY
     type: document
@@ -926,6 +1766,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.ur8YvYAYEATflEHz
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.r76UzIxzOOztieuY'
   - _id: 3pkJCaX4cpVD31NB
     type: document
@@ -938,6 +1789,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.gP59r5WqjMMHwnkM
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.3pkJCaX4cpVD31NB'
   - _id: PQazGky69DZOkXpa
     type: document
@@ -950,6 +1812,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.82UQke4nQSpKKHrP
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.PQazGky69DZOkXpa'
   - _id: vHnjCYgjrAPykhvC
     type: document
@@ -962,6 +1835,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.MkemeW1w6QfgnLw0
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.vHnjCYgjrAPykhvC'
   - _id: rYKBEVQCd4k5uDy5
     type: document
@@ -974,6 +1858,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.xYkfHEFDy7Ogbu2N
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.rYKBEVQCd4k5uDy5'
   - _id: 5UfVAAkKzY9hW9iC
     type: document
@@ -986,6 +1881,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.OUXKUFwis3x8odER
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.5UfVAAkKzY9hW9iC'
   - _id: m2PoHNFrEdRXZTV6
     type: document
@@ -998,6 +1904,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.s46R7D1xp65K3hWE
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.m2PoHNFrEdRXZTV6'
   - _id: ijcuq3DXS1YRBW8h
     type: document
@@ -1010,6 +1927,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.U9VJ7F3VUncK1Skl
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.ijcuq3DXS1YRBW8h'
   - _id: 6LQIZiJAhXwOqDaJ
     type: document
@@ -1022,6 +1950,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.bgZbst28ACRpQfCD
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.6LQIZiJAhXwOqDaJ'
   - _id: BYA9AqFuAtFq4Wv9
     type: document
@@ -1034,6 +1973,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.LfTX6DFvBDlUKDyC
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.BYA9AqFuAtFq4Wv9'
   - _id: pTTj0w8eVj01ctxX
     type: document
@@ -1046,6 +1996,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.Bdf81HVV4Nb4Q5Mz
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.pTTj0w8eVj01ctxX'
   - _id: CAiNAZoCGwNykT67
     type: document
@@ -1058,6 +2019,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.VX1BanTk5M0WRcmS
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.CAiNAZoCGwNykT67'
   - _id: 6ThOtSMJpY1MQngH
     type: document
@@ -1070,6 +2042,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.zFO1IKgeg2YSc1Fr
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.6ThOtSMJpY1MQngH'
   - _id: F1cHBYYeZxcnKWuE
     type: document
@@ -1082,6 +2065,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.sMZHxnvRFdOvypYx
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.F1cHBYYeZxcnKWuE'
   - _id: tIWRaGB0Z0H0h8z1
     type: document
@@ -1094,6 +2088,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.dD9E0zSNoPHPc79x
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.tIWRaGB0Z0H0h8z1'
   - _id: goXn2uFUoDqJQbXH
     type: document
@@ -1106,6 +2111,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.t1bgoHpWOMRbUxm4
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.goXn2uFUoDqJQbXH'
   - _id: ltbfSU1Sbpe63WKR
     type: document
@@ -1118,6 +2134,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.iEv7zrb8NxcTM1Mz
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.ltbfSU1Sbpe63WKR'
   - _id: D0mFKnkGiTsJxXpH
     type: document
@@ -1130,6 +2157,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.PhywO6PxlcRfmtKj
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.D0mFKnkGiTsJxXpH'
   - _id: vBALGKCVHyGNM1Xf
     type: document
@@ -1142,6 +2180,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.yZq2al9Qyx4URLtK
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.vBALGKCVHyGNM1Xf'
   - _id: xIcTtvINDp5ZJ6HA
     type: document
@@ -1154,6 +2203,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.wItkYZat9mzqFVSe
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.xIcTtvINDp5ZJ6HA'
   - _id: bAmDKI8ZDWJr0URy
     type: document
@@ -1166,6 +2226,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.JBALeFiiUJQEqPch
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.bAmDKI8ZDWJr0URy'
   - _id: oubH81OvcFglF0Uw
     type: document
@@ -1178,6 +2249,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.HkHOGMKuD2KRJ86v
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.oubH81OvcFglF0Uw'
   - _id: pC1dhzLG5nOwOyCm
     type: document
@@ -1190,6 +2272,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.ls5tYKOlhYiJMPPQ
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.pC1dhzLG5nOwOyCm'
   - _id: JBLfVuV8LWXXTQOi
     type: document
@@ -1202,6 +2295,17 @@ results:
     drawn: false
     documentUuid: Compendium.air-bladder.spellbooks.Item.CgDUS3G0KSS2hpuv
     flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    description: ''
     _key: '!tables.results!sAHcMoXAZeJpfCiC.JBLfVuV8LWXXTQOi'
 formula: 1d100
 replacement: true
@@ -1214,4 +2318,11 @@ ownership:
 _stats:
   systemId: air-bladder
   coreVersion: '14.365'
+  systemVersion: 0.1.10
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
 _key: '!tables!sAHcMoXAZeJpfCiC'

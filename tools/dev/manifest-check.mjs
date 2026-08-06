@@ -106,7 +106,9 @@ for (const pack of manifest.packs ?? []) {
   if (existsSync(yaml)) packsChecked++;
   else fail(`pack "${pack.name}" is declared but src/packs/${pack.name}/ does not exist`);
 }
-const EXPECTED_PACKS = 24;
+// 24 → 26 on 2026-08-05: tables-glog (Mishaps) + journals-glog (the player
+// handout, the system's first JournalEntry pack).
+const EXPECTED_PACKS = 26;
 if (packsChecked < EXPECTED_PACKS) {
   fail(`only ${packsChecked} pack source dirs found, expected at least ${EXPECTED_PACKS} — `
     + "this check is matching nothing rather than passing");
