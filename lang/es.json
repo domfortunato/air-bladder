@@ -319,7 +319,7 @@
     "Bought": "{name} comprado por {cost} mo.",
     "CannotConnect": "{name} no se puede conectar: los monstruos nunca se unen a las conexiones de un grupo.",
     "ConfirmDeleteNamed": "¿Eliminar {name}?",
-    "ConnectionCycle": "Si aquí conectas a {nombre} se crearía un bucle.",
+    "ConnectionCycle": "Si aquí conectas a {name} se crearía un bucle.",
     "ConnectionLimit": "{name} ya tiene {max} conexiones; cierra alguna antes.",
     "ConnectionLimitPartial": "{name} solo puede mantener {max} conexiones, por lo que no se han creado {count} de ellas.",
     "ConnectionOwnBothEnds": "Para conectar o desconectar a dos actores es necesario el Guardián, o bien tener la propiedad de ambos.",
