@@ -20,9 +20,9 @@ the artist lives in the source download's folder structure, which the flatten
 discards (see `tools/import/game-icons.mjs`). Nothing else in the repo carries
 it.
 
-Icons made by Andy Meneely, Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev, Delapouite, Faithtoken, GeneralAce135, Guard13007, Irongamer, Lorc, Lord Berandas, Lucas, Sbed, SeregaCthtuf, Skoll, Sparker, Starseeker, Various artists, Willdabeast.
+Icons made by Andy Meneely, Aussiesim, Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev, Delapouite, Faithtoken, GeneralAce135, Guard13007, Irongamer, Lorc, Lord Berandas, Lucas, Quoting, Rihlsul, Sbed, SeregaCthtuf, Skoll, Sparker, Starseeker, Various artists, Willdabeast.
 
-1643 icons in 28 categories.
+2074 icons in 34 categories.
 
 ## Animals
 
@@ -261,6 +261,46 @@ Icons made by Andy Meneely, Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev,
 | `steeltoe-boots.svg` | Steeltoe Boots | Lorc | <https://game-icons.net/1x1/lorc/steeltoe-boots.html> |
 | `visored-helm.svg` | Visored Helm | Lorc | <https://game-icons.net/1x1/lorc/visored-helm.html> |
 
+## Bags
+
+| file | icon | author | source |
+| --- | --- | --- | --- |
+| `backpack.svg` | Backpack | Delapouite | <https://game-icons.net/1x1/delapouite/backpack.html> |
+| `basket.svg` | Basket | Delapouite | <https://game-icons.net/1x1/delapouite/basket.html> |
+| `beach-bag.svg` | Beach Bag | Delapouite | <https://game-icons.net/1x1/delapouite/beach-bag.html> |
+| `bindle.svg` | Bindle | Delapouite | <https://game-icons.net/1x1/delapouite/bindle.html> |
+| `briefcase.svg` | Briefcase | Delapouite | <https://game-icons.net/1x1/delapouite/briefcase.html> |
+| `cash.svg` | Cash | Lorc | <https://game-icons.net/1x1/lorc/cash.html> |
+| `chips-bag.svg` | Chips Bag | Delapouite | <https://game-icons.net/1x1/delapouite/chips-bag.html> |
+| `concrete-bag.svg` | Concrete Bag | Delapouite | <https://game-icons.net/1x1/delapouite/concrete-bag.html> |
+| `disc-golf-bag.svg` | Disc Golf Bag | Delapouite | <https://game-icons.net/1x1/delapouite/disc-golf-bag.html> |
+| `duffel-bag.svg` | Duffel Bag | Delapouite | <https://game-icons.net/1x1/delapouite/duffel-bag.html> |
+| `expense.svg` | Expense | Delapouite | <https://game-icons.net/1x1/delapouite/expense.html> |
+| `fertilizer-bag.svg` | Fertilizer Bag | Delapouite | <https://game-icons.net/1x1/delapouite/fertilizer-bag.html> |
+| `flour.svg` | Flour | Delapouite | <https://game-icons.net/1x1/delapouite/flour.html> |
+| `grain.svg` | Grain | Delapouite | <https://game-icons.net/1x1/delapouite/grain.html> |
+| `gym-bag.svg` | Gym Bag | Delapouite | <https://game-icons.net/1x1/delapouite/gym-bag.html> |
+| `hand-bag.svg` | Hand Bag | Delapouite | <https://game-icons.net/1x1/delapouite/hand-bag.html> |
+| `knapsack.svg` | Knapsack | Lorc | <https://game-icons.net/1x1/lorc/knapsack.html> |
+| `light-backpack.svg` | Light Backpack | Delapouite | <https://game-icons.net/1x1/delapouite/light-backpack.html> |
+| `paper-bag-crumpled.svg` | Paper Bag Crumpled | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/paper-bag-crumpled.html> |
+| `paper-bag-folded.svg` | Paper Bag Folded | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/paper-bag-folded.html> |
+| `paper-bag-open.svg` | Paper Bag Open | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/paper-bag-open.html> |
+| `pouch-with-beads.svg` | Pouch With Beads | SeregaCthtuf | <https://game-icons.net/1x1/seregacthtuf/pouch-with-beads.html> |
+| `powder-bag.svg` | Powder Bag | Delapouite | <https://game-icons.net/1x1/delapouite/powder-bag.html> |
+| `profit.svg` | Profit | Lorc | <https://game-icons.net/1x1/lorc/profit.html> |
+| `robber-hand.svg` | Robber Hand | DarkZaitzev | <https://game-icons.net/1x1/darkzaitzev/robber-hand.html> |
+| `robber.svg` | Robber | Delapouite | <https://game-icons.net/1x1/delapouite/robber.html> |
+| `rolling-suitcase.svg` | Rolling Suitcase | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/rolling-suitcase.html> |
+| `school-bag.svg` | School Bag | Delapouite | <https://game-icons.net/1x1/delapouite/school-bag.html> |
+| `shiny-purse.svg` | Shiny Purse | Lorc | <https://game-icons.net/1x1/lorc/shiny-purse.html> |
+| `shopping-bag.svg` | Shopping Bag | Delapouite | <https://game-icons.net/1x1/delapouite/shopping-bag.html> |
+| `shoulder-bag.svg` | Shoulder Bag | Delapouite | <https://game-icons.net/1x1/delapouite/shoulder-bag.html> |
+| `snatch.svg` | Snatch | Lorc | <https://game-icons.net/1x1/lorc/snatch.html> |
+| `stork-delivery.svg` | Stork Delivery | Delapouite | <https://game-icons.net/1x1/delapouite/stork-delivery.html> |
+| `suitcase.svg` | Suitcase | Delapouite | <https://game-icons.net/1x1/delapouite/suitcase.html> |
+| `swap-bag.svg` | Swap Bag | Lorc | <https://game-icons.net/1x1/lorc/swap-bag.html> |
+
 ## Birds
 
 | file | icon | author | source |
@@ -394,6 +434,127 @@ Icons made by Andy Meneely, Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev,
 | `swords-emblem.svg` | Swords Emblem | Lorc | <https://game-icons.net/1x1/lorc/swords-emblem.html> |
 | `thrown-knife.svg` | Thrown Knife | Lorc | <https://game-icons.net/1x1/lorc/thrown-knife.html> |
 | `two-handed-sword.svg` | Two Handed Sword | Delapouite | <https://game-icons.net/1x1/delapouite/two-handed-sword.html> |
+
+## Boards
+
+| file | icon | author | source |
+| --- | --- | --- | --- |
+| `3d-meeple.svg` | 3d Meeple | Delapouite | <https://game-icons.net/1x1/delapouite/3d-meeple.html> |
+| `abbot-meeple.svg` | Abbot Meeple | Delapouite | <https://game-icons.net/1x1/delapouite/abbot-meeple.html> |
+| `ace.svg` | Ace | Lorc | <https://game-icons.net/1x1/lorc/ace.html> |
+| `ages.svg` | Ages | Delapouite | <https://game-icons.net/1x1/delapouite/ages.html> |
+| `backgammon.svg` | Backgammon | Delapouite | <https://game-icons.net/1x1/delapouite/backgammon.html> |
+| `buy-card.svg` | Buy Card | Delapouite | <https://game-icons.net/1x1/delapouite/buy-card.html> |
+| `card-10-clubs.svg` | Card 10 Clubs | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-10-clubs.html> |
+| `card-10-diamonds.svg` | Card 10 Diamonds | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-10-diamonds.html> |
+| `card-10-hearts.svg` | Card 10 Hearts | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-10-hearts.html> |
+| `card-10-spades.svg` | Card 10 Spades | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-10-spades.html> |
+| `card-2-clubs.svg` | Card 2 Clubs | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-2-clubs.html> |
+| `card-2-diamonds.svg` | Card 2 Diamonds | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-2-diamonds.html> |
+| `card-2-hearts.svg` | Card 2 Hearts | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-2-hearts.html> |
+| `card-2-spades.svg` | Card 2 Spades | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-2-spades.html> |
+| `card-3-clubs.svg` | Card 3 Clubs | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-3-clubs.html> |
+| `card-3-diamonds.svg` | Card 3 Diamonds | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-3-diamonds.html> |
+| `card-3-hearts.svg` | Card 3 Hearts | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-3-hearts.html> |
+| `card-3-spades.svg` | Card 3 Spades | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-3-spades.html> |
+| `card-4-clubs.svg` | Card 4 Clubs | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-4-clubs.html> |
+| `card-4-diamonds.svg` | Card 4 Diamonds | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-4-diamonds.html> |
+| `card-4-hearts.svg` | Card 4 Hearts | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-4-hearts.html> |
+| `card-4-spades.svg` | Card 4 Spades | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-4-spades.html> |
+| `card-5-clubs.svg` | Card 5 Clubs | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-5-clubs.html> |
+| `card-5-diamonds.svg` | Card 5 Diamonds | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-5-diamonds.html> |
+| `card-5-hearts.svg` | Card 5 Hearts | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-5-hearts.html> |
+| `card-5-spades.svg` | Card 5 Spades | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-5-spades.html> |
+| `card-6-clubs.svg` | Card 6 Clubs | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-6-clubs.html> |
+| `card-6-diamonds.svg` | Card 6 Diamonds | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-6-diamonds.html> |
+| `card-6-hearts.svg` | Card 6 Hearts | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-6-hearts.html> |
+| `card-6-spades.svg` | Card 6 Spades | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-6-spades.html> |
+| `card-7-clubs.svg` | Card 7 Clubs | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-7-clubs.html> |
+| `card-7-diamonds.svg` | Card 7 Diamonds | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-7-diamonds.html> |
+| `card-7-hearts.svg` | Card 7 Hearts | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-7-hearts.html> |
+| `card-7-spades.svg` | Card 7 Spades | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-7-spades.html> |
+| `card-8-clubs.svg` | Card 8 Clubs | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-8-clubs.html> |
+| `card-8-diamonds.svg` | Card 8 Diamonds | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-8-diamonds.html> |
+| `card-8-hearts.svg` | Card 8 Hearts | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-8-hearts.html> |
+| `card-8-spades.svg` | Card 8 Spades | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-8-spades.html> |
+| `card-9-clubs.svg` | Card 9 Clubs | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-9-clubs.html> |
+| `card-9-diamonds.svg` | Card 9 Diamonds | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-9-diamonds.html> |
+| `card-9-hearts.svg` | Card 9 Hearts | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-9-hearts.html> |
+| `card-9-spades.svg` | Card 9 Spades | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-9-spades.html> |
+| `card-ace-clubs.svg` | Card Ace Clubs | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-ace-clubs.html> |
+| `card-ace-diamonds.svg` | Card Ace Diamonds | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-ace-diamonds.html> |
+| `card-ace-hearts.svg` | Card Ace Hearts | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-ace-hearts.html> |
+| `card-ace-spades.svg` | Card Ace Spades | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-ace-spades.html> |
+| `card-burn.svg` | Card Burn | Delapouite | <https://game-icons.net/1x1/delapouite/card-burn.html> |
+| `card-discard.svg` | Card Discard | Faithtoken | <https://game-icons.net/1x1/faithtoken/card-discard.html> |
+| `card-draw.svg` | Card Draw | Faithtoken | <https://game-icons.net/1x1/faithtoken/card-draw.html> |
+| `card-exchange.svg` | Card Exchange | Delapouite | <https://game-icons.net/1x1/delapouite/card-exchange.html> |
+| `card-jack-clubs.svg` | Card Jack Clubs | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-jack-clubs.html> |
+| `card-jack-diamonds.svg` | Card Jack Diamonds | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-jack-diamonds.html> |
+| `card-jack-hearts.svg` | Card Jack Hearts | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-jack-hearts.html> |
+| `card-jack-spades.svg` | Card Jack Spades | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-jack-spades.html> |
+| `card-joker.svg` | Card Joker | Delapouite | <https://game-icons.net/1x1/delapouite/card-joker.html> |
+| `card-king-clubs.svg` | Card King Clubs | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-king-clubs.html> |
+| `card-king-diamonds.svg` | Card King Diamonds | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-king-diamonds.html> |
+| `card-king-hearts.svg` | Card King Hearts | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-king-hearts.html> |
+| `card-king-spades.svg` | Card King Spades | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-king-spades.html> |
+| `card-pick.svg` | Card Pick | Faithtoken | <https://game-icons.net/1x1/faithtoken/card-pick.html> |
+| `card-pickup.svg` | Card Pickup | Quoting | <https://game-icons.net/1x1/quoting/card-pickup.html> |
+| `card-play.svg` | Card Play | Quoting | <https://game-icons.net/1x1/quoting/card-play.html> |
+| `card-queen-clubs.svg` | Card Queen Clubs | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-queen-clubs.html> |
+| `card-queen-diamonds.svg` | Card Queen Diamonds | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-queen-diamonds.html> |
+| `card-queen-hearts.svg` | Card Queen Hearts | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-queen-hearts.html> |
+| `card-queen-spades.svg` | Card Queen Spades | Aussiesim | <https://game-icons.net/1x1/aussiesim/card-queen-spades.html> |
+| `card-random.svg` | Card Random | Faithtoken | <https://game-icons.net/1x1/faithtoken/card-random.html> |
+| `chess-bishop.svg` | Chess Bishop | Skoll | <https://game-icons.net/1x1/skoll/chess-bishop.html> |
+| `chess-king.svg` | Chess King | Skoll | <https://game-icons.net/1x1/skoll/chess-king.html> |
+| `chess-knight.svg` | Chess Knight | Skoll | <https://game-icons.net/1x1/skoll/chess-knight.html> |
+| `chess-pawn.svg` | Chess Pawn | Skoll | <https://game-icons.net/1x1/skoll/chess-pawn.html> |
+| `chess-queen.svg` | Chess Queen | Skoll | <https://game-icons.net/1x1/skoll/chess-queen.html> |
+| `chess-rook.svg` | Chess Rook | Skoll | <https://game-icons.net/1x1/skoll/chess-rook.html> |
+| `clubs.svg` | Clubs | Skoll | <https://game-icons.net/1x1/skoll/clubs.html> |
+| `coins.svg` | Coins | Delapouite | <https://game-icons.net/1x1/delapouite/coins.html> |
+| `conway-life-glider.svg` | Conway Life Glider | Delapouite | <https://game-icons.net/1x1/delapouite/conway-life-glider.html> |
+| `diamonds.svg` | Diamonds | Skoll | <https://game-icons.net/1x1/skoll/diamonds.html> |
+| `dice-six-faces-three.svg` | Dice Six Faces Three | Delapouite | <https://game-icons.net/1x1/delapouite/dice-six-faces-three.html> |
+| `domino-tiles.svg` | Domino Tiles | Delapouite | <https://game-icons.net/1x1/delapouite/domino-tiles.html> |
+| `empty-chessboard.svg` | Empty Chessboard | Delapouite | <https://game-icons.net/1x1/delapouite/empty-chessboard.html> |
+| `hearts.svg` | Hearts | Skoll | <https://game-icons.net/1x1/skoll/hearts.html> |
+| `hexes.svg` | Hexes | Skoll | <https://game-icons.net/1x1/skoll/hexes.html> |
+| `honeycomb.svg` | Honeycomb | Lorc | <https://game-icons.net/1x1/lorc/honeycomb.html> |
+| `hourglass.svg` | Hourglass | Lorc | <https://game-icons.net/1x1/lorc/hourglass.html> |
+| `meeple-army.svg` | Meeple Army | Delapouite | <https://game-icons.net/1x1/delapouite/meeple-army.html> |
+| `meeple-circle.svg` | Meeple Circle | Delapouite | <https://game-icons.net/1x1/delapouite/meeple-circle.html> |
+| `meeple-group.svg` | Meeple Group | Delapouite | <https://game-icons.net/1x1/delapouite/meeple-group.html> |
+| `meeple-king.svg` | Meeple King | Delapouite | <https://game-icons.net/1x1/delapouite/meeple-king.html> |
+| `meeple.svg` | Meeple | Delapouite | <https://game-icons.net/1x1/delapouite/meeple.html> |
+| `opposite-hearts.svg` | Opposite Hearts | Delapouite | <https://game-icons.net/1x1/delapouite/opposite-hearts.html> |
+| `pawn.svg` | Pawn | Lorc | <https://game-icons.net/1x1/lorc/pawn.html> |
+| `pay-money.svg` | Pay Money | Delapouite | <https://game-icons.net/1x1/delapouite/pay-money.html> |
+| `perspective-dice-six-faces-four.svg` | Perspective Dice Six Faces Four | Delapouite | <https://game-icons.net/1x1/delapouite/perspective-dice-six-faces-four.html> |
+| `player-base.svg` | Player Base | Delapouite | <https://game-icons.net/1x1/delapouite/player-base.html> |
+| `player-next.svg` | Player Next | Delapouite | <https://game-icons.net/1x1/delapouite/player-next.html> |
+| `player-previous.svg` | Player Previous | Delapouite | <https://game-icons.net/1x1/delapouite/player-previous.html> |
+| `player-time.svg` | Player Time | Delapouite | <https://game-icons.net/1x1/delapouite/player-time.html> |
+| `poker-hand.svg` | Poker Hand | Lorc | <https://game-icons.net/1x1/lorc/poker-hand.html> |
+| `receive-money.svg` | Receive Money | Delapouite | <https://game-icons.net/1x1/delapouite/receive-money.html> |
+| `rolling-dice-cup.svg` | Rolling Dice Cup | Delapouite | <https://game-icons.net/1x1/delapouite/rolling-dice-cup.html> |
+| `rolling-dices.svg` | Rolling Dices | Delapouite | <https://game-icons.net/1x1/delapouite/rolling-dices.html> |
+| `round-table.svg` | Round Table | Delapouite | <https://game-icons.net/1x1/delapouite/round-table.html> |
+| `rule-book.svg` | Rule Book | Delapouite | <https://game-icons.net/1x1/delapouite/rule-book.html> |
+| `sands-of-time.svg` | Sands Of Time | Lorc | <https://game-icons.net/1x1/lorc/sands-of-time.html> |
+| `sell-card.svg` | Sell Card | Delapouite | <https://game-icons.net/1x1/delapouite/sell-card.html> |
+| `spades.svg` | Spades | Skoll | <https://game-icons.net/1x1/skoll/spades.html> |
+| `stack.svg` | Stack | Delapouite | <https://game-icons.net/1x1/delapouite/stack.html> |
+| `stopwatch.svg` | Stopwatch | Lorc | <https://game-icons.net/1x1/lorc/stopwatch.html> |
+| `suits.svg` | Suits | Lorc | <https://game-icons.net/1x1/lorc/suits.html> |
+| `tabletop-players.svg` | Tabletop Players | Delapouite | <https://game-icons.net/1x1/delapouite/tabletop-players.html> |
+| `team-downgrade.svg` | Team Downgrade | Delapouite | <https://game-icons.net/1x1/delapouite/team-downgrade.html> |
+| `team-upgrade.svg` | Team Upgrade | Delapouite | <https://game-icons.net/1x1/delapouite/team-upgrade.html> |
+| `tic-tac-toe.svg` | Tic Tac Toe | Delapouite | <https://game-icons.net/1x1/delapouite/tic-tac-toe.html> |
+| `token.svg` | Token | Delapouite | <https://game-icons.net/1x1/delapouite/token.html> |
+| `two-coins.svg` | Two Coins | Delapouite | <https://game-icons.net/1x1/delapouite/two-coins.html> |
+| `up-card.svg` | Up Card | Delapouite | <https://game-icons.net/1x1/delapouite/up-card.html> |
 
 ## Body
 
@@ -976,6 +1137,144 @@ Icons made by Andy Meneely, Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev,
 | `tadpole.svg` | Tadpole | Delapouite | <https://game-icons.net/1x1/delapouite/tadpole.html> |
 | `triton-head.svg` | Triton Head | Lorc | <https://game-icons.net/1x1/lorc/triton-head.html> |
 
+## Food
+
+| file | icon | author | source |
+| --- | --- | --- | --- |
+| `almond.svg` | Almond | Delapouite | <https://game-icons.net/1x1/delapouite/almond.html> |
+| `artichoke.svg` | Artichoke | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/artichoke.html> |
+| `asparagus.svg` | Asparagus | Delapouite | <https://game-icons.net/1x1/delapouite/asparagus.html> |
+| `aubergine.svg` | Aubergine | Lorc | <https://game-icons.net/1x1/lorc/aubergine.html> |
+| `avocado.svg` | Avocado | Delapouite | <https://game-icons.net/1x1/delapouite/avocado.html> |
+| `banana.svg` | Banana | Delapouite | <https://game-icons.net/1x1/delapouite/banana.html> |
+| `beer-bottle.svg` | Beer Bottle | Delapouite | <https://game-icons.net/1x1/delapouite/beer-bottle.html> |
+| `beer-stein.svg` | Beer Stein | Lorc | <https://game-icons.net/1x1/lorc/beer-stein.html> |
+| `beet.svg` | Beet | Delapouite | <https://game-icons.net/1x1/delapouite/beet.html> |
+| `bell-pepper.svg` | Bell Pepper | Delapouite | <https://game-icons.net/1x1/delapouite/bell-pepper.html> |
+| `berries-bowl.svg` | Berries Bowl | Delapouite | <https://game-icons.net/1x1/delapouite/berries-bowl.html> |
+| `boba.svg` | Boba | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/boba.html> |
+| `bok-choy.svg` | Bok Choy | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/bok-choy.html> |
+| `bowl-of-rice.svg` | Bowl Of Rice | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/bowl-of-rice.html> |
+| `brandy-bottle.svg` | Brandy Bottle | Lorc | <https://game-icons.net/1x1/lorc/brandy-bottle.html> |
+| `bread-slice.svg` | Bread Slice | Delapouite | <https://game-icons.net/1x1/delapouite/bread-slice.html> |
+| `bread.svg` | Bread | Delapouite | <https://game-icons.net/1x1/delapouite/bread.html> |
+| `burn.svg` | Burn | Sbed | <https://game-icons.net/1x1/sbed/burn.html> |
+| `butter-toast.svg` | Butter Toast | Delapouite | <https://game-icons.net/1x1/delapouite/butter-toast.html> |
+| `butter.svg` | Butter | Delapouite | <https://game-icons.net/1x1/delapouite/butter.html> |
+| `cabbage.svg` | Cabbage | Delapouite | <https://game-icons.net/1x1/delapouite/cabbage.html> |
+| `cake-slice.svg` | Cake Slice | Lorc | <https://game-icons.net/1x1/lorc/cake-slice.html> |
+| `candy-canes.svg` | Candy Canes | Delapouite | <https://game-icons.net/1x1/delapouite/candy-canes.html> |
+| `canned-fish.svg` | Canned Fish | Delapouite | <https://game-icons.net/1x1/delapouite/canned-fish.html> |
+| `carrot.svg` | Carrot | Delapouite | <https://game-icons.net/1x1/delapouite/carrot.html> |
+| `charcuterie.svg` | Charcuterie | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/charcuterie.html> |
+| `cheese-wedge.svg` | Cheese Wedge | Lorc | <https://game-icons.net/1x1/lorc/cheese-wedge.html> |
+| `cherry.svg` | Cherry | Delapouite | <https://game-icons.net/1x1/delapouite/cherry.html> |
+| `chili-pepper.svg` | Chili Pepper | Delapouite | <https://game-icons.net/1x1/delapouite/chili-pepper.html> |
+| `chips-bag.svg` | Chips Bag | Delapouite | <https://game-icons.net/1x1/delapouite/chips-bag.html> |
+| `chocolate-bar.svg` | Chocolate Bar | Rihlsul | <https://game-icons.net/1x1/rihlsul/chocolate-bar.html> |
+| `coffee-beans.svg` | Coffee Beans | Delapouite | <https://game-icons.net/1x1/delapouite/coffee-beans.html> |
+| `coffee-cup.svg` | Coffee Cup | Delapouite | <https://game-icons.net/1x1/delapouite/coffee-cup.html> |
+| `coffee-mug.svg` | Coffee Mug | Lorc | <https://game-icons.net/1x1/lorc/coffee-mug.html> |
+| `cookie.svg` | Cookie | Delapouite | <https://game-icons.net/1x1/delapouite/cookie.html> |
+| `cool-spices.svg` | Cool Spices | Lorc | <https://game-icons.net/1x1/lorc/cool-spices.html> |
+| `corn.svg` | Corn | Delapouite | <https://game-icons.net/1x1/delapouite/corn.html> |
+| `cornucopia.svg` | Cornucopia | Delapouite | <https://game-icons.net/1x1/delapouite/cornucopia.html> |
+| `croissant.svg` | Croissant | Delapouite | <https://game-icons.net/1x1/delapouite/croissant.html> |
+| `cupcake.svg` | Cupcake | Delapouite | <https://game-icons.net/1x1/delapouite/cupcake.html> |
+| `dango.svg` | Dango | Delapouite | <https://game-icons.net/1x1/delapouite/dango.html> |
+| `dog-bowl.svg` | Dog Bowl | Delapouite | <https://game-icons.net/1x1/delapouite/dog-bowl.html> |
+| `doner-kebab.svg` | Doner Kebab | Delapouite | <https://game-icons.net/1x1/delapouite/doner-kebab.html> |
+| `donut.svg` | Donut | Delapouite | <https://game-icons.net/1x1/delapouite/donut.html> |
+| `dripping-honey.svg` | Dripping Honey | Lorc | <https://game-icons.net/1x1/lorc/dripping-honey.html> |
+| `dumpling-bao.svg` | Dumpling Bao | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/dumpling-bao.html> |
+| `dumpling.svg` | Dumpling | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/dumpling.html> |
+| `easter-egg.svg` | Easter Egg | Delapouite | <https://game-icons.net/1x1/delapouite/easter-egg.html> |
+| `eating.svg` | Eating | Delapouite | <https://game-icons.net/1x1/delapouite/eating.html> |
+| `egg-pod.svg` | Egg Pod | Sbed | <https://game-icons.net/1x1/sbed/egg-pod.html> |
+| `elderberry.svg` | Elderberry | Lorc | <https://game-icons.net/1x1/lorc/elderberry.html> |
+| `fast-noodles.svg` | Fast Noodles | Delapouite | <https://game-icons.net/1x1/delapouite/fast-noodles.html> |
+| `flour.svg` | Flour | Delapouite | <https://game-icons.net/1x1/delapouite/flour.html> |
+| `food-chain.svg` | Food Chain | Lorc | <https://game-icons.net/1x1/lorc/food-chain.html> |
+| `food-truck.svg` | Food Truck | Delapouite | <https://game-icons.net/1x1/delapouite/food-truck.html> |
+| `french-fries.svg` | French Fries | Delapouite | <https://game-icons.net/1x1/delapouite/french-fries.html> |
+| `fried-eggs.svg` | Fried Eggs | Delapouite | <https://game-icons.net/1x1/delapouite/fried-eggs.html> |
+| `full-pizza.svg` | Full Pizza | Delapouite | <https://game-icons.net/1x1/delapouite/full-pizza.html> |
+| `garlic.svg` | Garlic | Delapouite | <https://game-icons.net/1x1/delapouite/garlic.html> |
+| `gingerbread-man.svg` | Gingerbread Man | Delapouite | <https://game-icons.net/1x1/delapouite/gingerbread-man.html> |
+| `gluttony.svg` | Gluttony | Lorc | <https://game-icons.net/1x1/lorc/gluttony.html> |
+| `grain.svg` | Grain | Delapouite | <https://game-icons.net/1x1/delapouite/grain.html> |
+| `grapes.svg` | Grapes | Lorc | <https://game-icons.net/1x1/lorc/grapes.html> |
+| `hamburger.svg` | Hamburger | Delapouite | <https://game-icons.net/1x1/delapouite/hamburger.html> |
+| `herbs-bundle.svg` | Herbs Bundle | Delapouite | <https://game-icons.net/1x1/delapouite/herbs-bundle.html> |
+| `honey-jar.svg` | Honey Jar | Delapouite | <https://game-icons.net/1x1/delapouite/honey-jar.html> |
+| `honeycomb.svg` | Honeycomb | Lorc | <https://game-icons.net/1x1/lorc/honeycomb.html> |
+| `honeypot.svg` | Honeypot | Lorc | <https://game-icons.net/1x1/lorc/honeypot.html> |
+| `hot-dog.svg` | Hot Dog | Delapouite | <https://game-icons.net/1x1/delapouite/hot-dog.html> |
+| `hot-meal.svg` | Hot Meal | Delapouite | <https://game-icons.net/1x1/delapouite/hot-meal.html> |
+| `hot-spices.svg` | Hot Spices | Lorc | <https://game-icons.net/1x1/lorc/hot-spices.html> |
+| `ice-cream-cone.svg` | Ice Cream Cone | Delapouite | <https://game-icons.net/1x1/delapouite/ice-cream-cone.html> |
+| `ice-cube.svg` | Ice Cube | Lorc | <https://game-icons.net/1x1/lorc/ice-cube.html> |
+| `ice-pop.svg` | Ice Pop | Delapouite | <https://game-icons.net/1x1/delapouite/ice-pop.html> |
+| `jelly-beans.svg` | Jelly Beans | Delapouite | <https://game-icons.net/1x1/delapouite/jelly-beans.html> |
+| `jelly.svg` | Jelly | Delapouite | <https://game-icons.net/1x1/delapouite/jelly.html> |
+| `ketchup.svg` | Ketchup | Delapouite | <https://game-icons.net/1x1/delapouite/ketchup.html> |
+| `kiwi-fruit.svg` | Kiwi Fruit | Delapouite | <https://game-icons.net/1x1/delapouite/kiwi-fruit.html> |
+| `marshmallows.svg` | Marshmallows | Delapouite | <https://game-icons.net/1x1/delapouite/marshmallows.html> |
+| `martini.svg` | Martini | Lorc | <https://game-icons.net/1x1/lorc/martini.html> |
+| `meal.svg` | Meal | Delapouite | <https://game-icons.net/1x1/delapouite/meal.html> |
+| `meat-cleaver.svg` | Meat Cleaver | Lorc | <https://game-icons.net/1x1/lorc/meat-cleaver.html> |
+| `meat-hook.svg` | Meat Hook | Lorc | <https://game-icons.net/1x1/lorc/meat-hook.html> |
+| `milk-carton.svg` | Milk Carton | Rihlsul | <https://game-icons.net/1x1/rihlsul/milk-carton.html> |
+| `mushroom-gills.svg` | Mushroom Gills | Lorc | <https://game-icons.net/1x1/lorc/mushroom-gills.html> |
+| `mushroom.svg` | Mushroom | Lorc | <https://game-icons.net/1x1/lorc/mushroom.html> |
+| `mushrooms.svg` | Mushrooms | Delapouite | <https://game-icons.net/1x1/delapouite/mushrooms.html> |
+| `mussel.svg` | Mussel | Delapouite | <https://game-icons.net/1x1/delapouite/mussel.html> |
+| `nachos.svg` | Nachos | Delapouite | <https://game-icons.net/1x1/delapouite/nachos.html> |
+| `noodles.svg` | Noodles | Delapouite | <https://game-icons.net/1x1/delapouite/noodles.html> |
+| `oat.svg` | Oat | Lorc | <https://game-icons.net/1x1/lorc/oat.html> |
+| `oden.svg` | Oden | Delapouite | <https://game-icons.net/1x1/delapouite/oden.html> |
+| `olive.svg` | Olive | Delapouite | <https://game-icons.net/1x1/delapouite/olive.html> |
+| `onigori.svg` | Onigori | Delapouite | <https://game-icons.net/1x1/delapouite/onigori.html> |
+| `opened-food-can.svg` | Opened Food Can | Delapouite | <https://game-icons.net/1x1/delapouite/opened-food-can.html> |
+| `overdose.svg` | Overdose | Lorc | <https://game-icons.net/1x1/lorc/overdose.html> |
+| `peanut.svg` | Peanut | Rihlsul | <https://game-icons.net/1x1/rihlsul/peanut.html> |
+| `pear.svg` | Pear | Delapouite | <https://game-icons.net/1x1/delapouite/pear.html> |
+| `pickle.svg` | Pickle | Delapouite | <https://game-icons.net/1x1/delapouite/pickle.html> |
+| `pie-slice.svg` | Pie Slice | Lorc | <https://game-icons.net/1x1/lorc/pie-slice.html> |
+| `pill.svg` | Pill | Lorc | <https://game-icons.net/1x1/lorc/pill.html> |
+| `pimiento.svg` | Pimiento | Delapouite | <https://game-icons.net/1x1/delapouite/pimiento.html> |
+| `pizza-cutter.svg` | Pizza Cutter | Lorc | <https://game-icons.net/1x1/lorc/pizza-cutter.html> |
+| `pizza-slice.svg` | Pizza Slice | Delapouite | <https://game-icons.net/1x1/delapouite/pizza-slice.html> |
+| `popcorn.svg` | Popcorn | Delapouite | <https://game-icons.net/1x1/delapouite/popcorn.html> |
+| `potato.svg` | Potato | Delapouite | <https://game-icons.net/1x1/delapouite/potato.html> |
+| `powder.svg` | Powder | Lorc | <https://game-icons.net/1x1/lorc/powder.html> |
+| `pretzel.svg` | Pretzel | Delapouite | <https://game-icons.net/1x1/delapouite/pretzel.html> |
+| `pumpkin-lantern.svg` | Pumpkin Lantern | Lorc | <https://game-icons.net/1x1/lorc/pumpkin-lantern.html> |
+| `raw-egg.svg` | Raw Egg | Delapouite | <https://game-icons.net/1x1/delapouite/raw-egg.html> |
+| `salt-shaker.svg` | Salt Shaker | Lorc | <https://game-icons.net/1x1/lorc/salt-shaker.html> |
+| `sandwich.svg` | Sandwich | Delapouite | <https://game-icons.net/1x1/delapouite/sandwich.html> |
+| `sesame.svg` | Sesame | Delapouite | <https://game-icons.net/1x1/delapouite/sesame.html> |
+| `shiny-apple.svg` | Shiny Apple | Lorc | <https://game-icons.net/1x1/lorc/shiny-apple.html> |
+| `sliced-bread.svg` | Sliced Bread | Lorc | <https://game-icons.net/1x1/lorc/sliced-bread.html> |
+| `sliced-mushroom.svg` | Sliced Mushroom | Delapouite | <https://game-icons.net/1x1/delapouite/sliced-mushroom.html> |
+| `soda-bottle.svg` | Soda Bottle | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/soda-bottle.html> |
+| `soda-can.svg` | Soda Can | Guard13007 | <https://game-icons.net/1x1/guard13007/soda-can.html> |
+| `spiral-lollipop.svg` | Spiral Lollipop | Delapouite | <https://game-icons.net/1x1/delapouite/spiral-lollipop.html> |
+| `stairs-cake.svg` | Stairs Cake | Delapouite | <https://game-icons.net/1x1/delapouite/stairs-cake.html> |
+| `stomach.svg` | Stomach | Delapouite | <https://game-icons.net/1x1/delapouite/stomach.html> |
+| `sushis.svg` | Sushis | Delapouite | <https://game-icons.net/1x1/delapouite/sushis.html> |
+| `tacos.svg` | Tacos | Delapouite | <https://game-icons.net/1x1/delapouite/tacos.html> |
+| `tangerine.svg` | Tangerine | Delapouite | <https://game-icons.net/1x1/delapouite/tangerine.html> |
+| `teapot.svg` | Teapot | Lorc | <https://game-icons.net/1x1/lorc/teapot.html> |
+| `toaster.svg` | Toaster | Delapouite | <https://game-icons.net/1x1/delapouite/toaster.html> |
+| `tomato.svg` | Tomato | Delapouite | <https://game-icons.net/1x1/delapouite/tomato.html> |
+| `udder.svg` | Udder | Delapouite | <https://game-icons.net/1x1/delapouite/udder.html> |
+| `vending-machine.svg` | Vending Machine | Delapouite | <https://game-icons.net/1x1/delapouite/vending-machine.html> |
+| `wheat.svg` | Wheat | Lorc | <https://game-icons.net/1x1/lorc/wheat.html> |
+| `wine-bottle.svg` | Wine Bottle | Delapouite | <https://game-icons.net/1x1/delapouite/wine-bottle.html> |
+| `wine-glass.svg` | Wine Glass | Lorc | <https://game-icons.net/1x1/lorc/wine-glass.html> |
+| `wrapped-sweet.svg` | Wrapped Sweet | Lorc | <https://game-icons.net/1x1/lorc/wrapped-sweet.html> |
+
 ## Greek Roman
 
 | file | icon | author | source |
@@ -1242,6 +1541,58 @@ Icons made by Andy Meneely, Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev,
 | `wolf-head.svg` | Wolf Head | Lorc | <https://game-icons.net/1x1/lorc/wolf-head.html> |
 | `wolf-howl.svg` | Wolf Howl | Lorc | <https://game-icons.net/1x1/lorc/wolf-howl.html> |
 
+## Masks
+
+| file | icon | author | source |
+| --- | --- | --- | --- |
+| `android-mask.svg` | Android Mask | Lorc | <https://game-icons.net/1x1/lorc/android-mask.html> |
+| `architect-mask.svg` | Architect Mask | Lorc | <https://game-icons.net/1x1/lorc/architect-mask.html> |
+| `balaclava.svg` | Balaclava | Skoll | <https://game-icons.net/1x1/skoll/balaclava.html> |
+| `bat-mask.svg` | Bat Mask | Delapouite | <https://game-icons.net/1x1/delapouite/bat-mask.html> |
+| `bird-mask.svg` | Bird Mask | Lorc | <https://game-icons.net/1x1/lorc/bird-mask.html> |
+| `cadillac-helm.svg` | Cadillac Helm | Delapouite | <https://game-icons.net/1x1/delapouite/cadillac-helm.html> |
+| `calavera.svg` | Calavera | Delapouite | <https://game-icons.net/1x1/delapouite/calavera.html> |
+| `carnival-mask.svg` | Carnival Mask | Delapouite | <https://game-icons.net/1x1/delapouite/carnival-mask.html> |
+| `ceremonial-mask.svg` | Ceremonial Mask | Delapouite | <https://game-icons.net/1x1/delapouite/ceremonial-mask.html> |
+| `cracked-mask.svg` | Cracked Mask | Lorc | <https://game-icons.net/1x1/lorc/cracked-mask.html> |
+| `cultist.svg` | Cultist | Skoll | <https://game-icons.net/1x1/skoll/cultist.html> |
+| `curly-mask.svg` | Curly Mask | Lorc | <https://game-icons.net/1x1/lorc/curly-mask.html> |
+| `cyborg-face.svg` | Cyborg Face | Delapouite | <https://game-icons.net/1x1/delapouite/cyborg-face.html> |
+| `devil-mask.svg` | Devil Mask | Delapouite | <https://game-icons.net/1x1/delapouite/devil-mask.html> |
+| `doctor-face.svg` | Doctor Face | Lorc | <https://game-icons.net/1x1/lorc/doctor-face.html> |
+| `domino-mask.svg` | Domino Mask | Lorc | <https://game-icons.net/1x1/lorc/domino-mask.html> |
+| `double-face-mask.svg` | Double Face Mask | Lorc | <https://game-icons.net/1x1/lorc/double-face-mask.html> |
+| `drama-masks.svg` | Drama Masks | Lorc | <https://game-icons.net/1x1/lorc/drama-masks.html> |
+| `duality-mask.svg` | Duality Mask | Lorc | <https://game-icons.net/1x1/lorc/duality-mask.html> |
+| `executioner-hood.svg` | Executioner Hood | Delapouite | <https://game-icons.net/1x1/delapouite/executioner-hood.html> |
+| `gas-mask-lorc.svg` | Gas Mask | Lorc | <https://game-icons.net/1x1/lorc/gas-mask.html> |
+| `gas-mask-skoll.svg` | Gas Mask | Skoll | <https://game-icons.net/1x1/skoll/gas-mask.html> |
+| `invisible-face.svg` | Invisible Face | Delapouite | <https://game-icons.net/1x1/delapouite/invisible-face.html> |
+| `iron-mask.svg` | Iron Mask | Lorc | <https://game-icons.net/1x1/lorc/iron-mask.html> |
+| `jason-mask.svg` | Jason Mask | Delapouite | <https://game-icons.net/1x1/delapouite/jason-mask.html> |
+| `king-ju-mask.svg` | King Ju Mask | Delapouite | <https://game-icons.net/1x1/delapouite/king-ju-mask.html> |
+| `lightning-mask.svg` | Lightning Mask | Lorc | <https://game-icons.net/1x1/lorc/lightning-mask.html> |
+| `luchador.svg` | Luchador | Delapouite | <https://game-icons.net/1x1/delapouite/luchador.html> |
+| `mecha-mask.svg` | Mecha Mask | Delapouite | <https://game-icons.net/1x1/delapouite/mecha-mask.html> |
+| `mighty-boosh.svg` | Mighty Boosh | Delapouite | <https://game-icons.net/1x1/delapouite/mighty-boosh.html> |
+| `ninja-head.svg` | Ninja Head | DarkZaitzev | <https://game-icons.net/1x1/darkzaitzev/ninja-head.html> |
+| `ninja-mask.svg` | Ninja Mask | Lorc | <https://game-icons.net/1x1/lorc/ninja-mask.html> |
+| `pharoah.svg` | Pharoah | Delapouite | <https://game-icons.net/1x1/delapouite/pharoah.html> |
+| `plague-doctor-profile.svg` | Plague Doctor Profile | Delapouite | <https://game-icons.net/1x1/delapouite/plague-doctor-profile.html> |
+| `prank-glasses.svg` | Prank Glasses | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/prank-glasses.html> |
+| `protection-glasses.svg` | Protection Glasses | Delapouite | <https://game-icons.net/1x1/delapouite/protection-glasses.html> |
+| `robber-mask.svg` | Robber Mask | Delapouite | <https://game-icons.net/1x1/delapouite/robber-mask.html> |
+| `scuba-mask.svg` | Scuba Mask | Delapouite | <https://game-icons.net/1x1/delapouite/scuba-mask.html> |
+| `skull-mask.svg` | Skull Mask | Lorc | <https://game-icons.net/1x1/lorc/skull-mask.html> |
+| `soul-vessel.svg` | Soul Vessel | Delapouite | <https://game-icons.net/1x1/delapouite/soul-vessel.html> |
+| `spider-mask.svg` | Spider Mask | Delapouite | <https://game-icons.net/1x1/delapouite/spider-mask.html> |
+| `steampunk-goggles.svg` | Steampunk Goggles | Delapouite | <https://game-icons.net/1x1/delapouite/steampunk-goggles.html> |
+| `tear-tracks.svg` | Tear Tracks | Lorc | <https://game-icons.net/1x1/lorc/tear-tracks.html> |
+| `totem-mask.svg` | Totem Mask | Lorc | <https://game-icons.net/1x1/lorc/totem-mask.html> |
+| `trap-mask.svg` | Trap Mask | Lorc | <https://game-icons.net/1x1/lorc/trap-mask.html> |
+| `tribal-mask.svg` | Tribal Mask | Lorc | <https://game-icons.net/1x1/lorc/tribal-mask.html> |
+| `vr-headset.svg` | Vr Headset | Delapouite | <https://game-icons.net/1x1/delapouite/vr-headset.html> |
+
 ## Metal
 
 | file | icon | author | source |
@@ -1505,6 +1856,116 @@ Icons made by Andy Meneely, Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev,
 | `thunder-skull.svg` | Thunder Skull | Lorc | <https://game-icons.net/1x1/lorc/thunder-skull.html> |
 | `triple-skulls.svg` | Triple Skulls | Lorc | <https://game-icons.net/1x1/lorc/triple-skulls.html> |
 | `william-tell-skull.svg` | William Tell Skull | Lorc | <https://game-icons.net/1x1/lorc/william-tell-skull.html> |
+
+## Smoke
+
+| file | icon | author | source |
+| --- | --- | --- | --- |
+| `aerosol.svg` | Aerosol | Lorc | <https://game-icons.net/1x1/lorc/aerosol.html> |
+| `barbecue.svg` | Barbecue | Delapouite | <https://game-icons.net/1x1/delapouite/barbecue.html> |
+| `bellows.svg` | Bellows | Delapouite | <https://game-icons.net/1x1/delapouite/bellows.html> |
+| `bottle-vapors.svg` | Bottle Vapors | Lorc | <https://game-icons.net/1x1/lorc/bottle-vapors.html> |
+| `bubbling-bowl.svg` | Bubbling Bowl | Lorc | <https://game-icons.net/1x1/lorc/bubbling-bowl.html> |
+| `chimney.svg` | Chimney | Delapouite | <https://game-icons.net/1x1/delapouite/chimney.html> |
+| `cigar.svg` | Cigar | Delapouite | <https://game-icons.net/1x1/delapouite/cigar.html> |
+| `cigarette.svg` | Cigarette | Delapouite | <https://game-icons.net/1x1/delapouite/cigarette.html> |
+| `cloudy-fork.svg` | Cloudy Fork | Lorc | <https://game-icons.net/1x1/lorc/cloudy-fork.html> |
+| `dreadnought.svg` | Dreadnought | Cathelineau | <https://game-icons.net/1x1/cathelineau/dreadnought.html> |
+| `fireball.svg` | Fireball | Lorc | <https://game-icons.net/1x1/lorc/fireball.html> |
+| `fizzing-flask.svg` | Fizzing Flask | Lorc | <https://game-icons.net/1x1/lorc/fizzing-flask.html> |
+| `fluffy-swirl.svg` | Fluffy Swirl | Lorc | <https://game-icons.net/1x1/lorc/fluffy-swirl.html> |
+| `fragrance.svg` | Fragrance | Lorc | <https://game-icons.net/1x1/lorc/fragrance.html> |
+| `gas-mask.svg` | Gas Mask | Lorc | <https://game-icons.net/1x1/lorc/gas-mask.html> |
+| `heat-haze.svg` | Heat Haze | Lorc | <https://game-icons.net/1x1/lorc/heat-haze.html> |
+| `incense.svg` | Incense | Lorc | <https://game-icons.net/1x1/lorc/incense.html> |
+| `iron-hulled-warship.svg` | Iron Hulled Warship | Cathelineau | <https://game-icons.net/1x1/cathelineau/iron-hulled-warship.html> |
+| `match-head.svg` | Match Head | Lorc | <https://game-icons.net/1x1/lorc/match-head.html> |
+| `mushroom-cloud.svg` | Mushroom Cloud | Lorc | <https://game-icons.net/1x1/lorc/mushroom-cloud.html> |
+| `nuclear-plant.svg` | Nuclear Plant | Delapouite | <https://game-icons.net/1x1/delapouite/nuclear-plant.html> |
+| `poison-cloud.svg` | Poison Cloud | Sbed | <https://game-icons.net/1x1/sbed/poison-cloud.html> |
+| `poison-gas.svg` | Poison Gas | Lorc | <https://game-icons.net/1x1/lorc/poison-gas.html> |
+| `smoke-bomb.svg` | Smoke Bomb | DarkZaitzev | <https://game-icons.net/1x1/darkzaitzev/smoke-bomb.html> |
+| `smoking-finger.svg` | Smoking Finger | Lorc | <https://game-icons.net/1x1/lorc/smoking-finger.html> |
+| `smoking-orb.svg` | Smoking Orb | Lorc | <https://game-icons.net/1x1/lorc/smoking-orb.html> |
+| `smoking-pipe.svg` | Smoking Pipe | Delapouite | <https://game-icons.net/1x1/delapouite/smoking-pipe.html> |
+| `smoking-volcano.svg` | Smoking Volcano | Delapouite | <https://game-icons.net/1x1/delapouite/smoking-volcano.html> |
+| `space-shuttle.svg` | Space Shuttle | Delapouite | <https://game-icons.net/1x1/delapouite/space-shuttle.html> |
+| `spiral-arrow.svg` | Spiral Arrow | Lorc | <https://game-icons.net/1x1/lorc/spiral-arrow.html> |
+| `steam-blast.svg` | Steam Blast | Delapouite | <https://game-icons.net/1x1/delapouite/steam-blast.html> |
+| `steam-locomotive.svg` | Steam Locomotive | Delapouite | <https://game-icons.net/1x1/delapouite/steam-locomotive.html> |
+| `steam.svg` | Steam | Delapouite | <https://game-icons.net/1x1/delapouite/steam.html> |
+
+## Sounds
+
+| file | icon | author | source |
+| --- | --- | --- | --- |
+| `acoustic-megaphone.svg` | Acoustic Megaphone | Delapouite | <https://game-icons.net/1x1/delapouite/acoustic-megaphone.html> |
+| `alarm-clock.svg` | Alarm Clock | Delapouite | <https://game-icons.net/1x1/delapouite/alarm-clock.html> |
+| `amplitude.svg` | Amplitude | Lord Berandas | <https://game-icons.net/1x1/lord-berandas/amplitude.html> |
+| `anthem.svg` | Anthem | Lorc | <https://game-icons.net/1x1/lorc/anthem.html> |
+| `audio-cassette.svg` | Audio Cassette | Delapouite | <https://game-icons.net/1x1/delapouite/audio-cassette.html> |
+| `boombox.svg` | Boombox | Delapouite | <https://game-icons.net/1x1/delapouite/boombox.html> |
+| `bugle-call.svg` | Bugle Call | Lorc | <https://game-icons.net/1x1/lorc/bugle-call.html> |
+| `carillon.svg` | Carillon | Lorc | <https://game-icons.net/1x1/lorc/carillon.html> |
+| `carnyx.svg` | Carnyx | Cathelineau | <https://game-icons.net/1x1/cathelineau/carnyx.html> |
+| `compact-disc.svg` | Compact Disc | Delapouite | <https://game-icons.net/1x1/delapouite/compact-disc.html> |
+| `conversation.svg` | Conversation | Lorc | <https://game-icons.net/1x1/lorc/conversation.html> |
+| `double-quaver.svg` | Double Quaver | Lorc | <https://game-icons.net/1x1/lorc/double-quaver.html> |
+| `earbuds.svg` | Earbuds | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/earbuds.html> |
+| `echo-ripples.svg` | Echo Ripples | Lorc | <https://game-icons.net/1x1/lorc/echo-ripples.html> |
+| `elf-ear.svg` | Elf Ear | Delapouite | <https://game-icons.net/1x1/delapouite/elf-ear.html> |
+| `f-clef.svg` | F Clef | Delapouite | <https://game-icons.net/1x1/delapouite/f-clef.html> |
+| `film-spool.svg` | Film Spool | Delapouite | <https://game-icons.net/1x1/delapouite/film-spool.html> |
+| `g-clef.svg` | G Clef | Delapouite | <https://game-icons.net/1x1/delapouite/g-clef.html> |
+| `gong.svg` | Gong | Delapouite | <https://game-icons.net/1x1/delapouite/gong.html> |
+| `headphones.svg` | Headphones | Delapouite | <https://game-icons.net/1x1/delapouite/headphones.html> |
+| `hearing-disabled.svg` | Hearing Disabled | Skoll | <https://game-icons.net/1x1/skoll/hearing-disabled.html> |
+| `heart-beats.svg` | Heart Beats | Delapouite | <https://game-icons.net/1x1/delapouite/heart-beats.html> |
+| `human-ear.svg` | Human Ear | Delapouite | <https://game-icons.net/1x1/delapouite/human-ear.html> |
+| `hunting-horn.svg` | Hunting Horn | Lorc | <https://game-icons.net/1x1/lorc/hunting-horn.html> |
+| `jack-plug.svg` | Jack Plug | Delapouite | <https://game-icons.net/1x1/delapouite/jack-plug.html> |
+| `love-howl.svg` | Love Howl | Lorc | <https://game-icons.net/1x1/lorc/love-howl.html> |
+| `love-song.svg` | Love Song | Lorc | <https://game-icons.net/1x1/lorc/love-song.html> |
+| `megaphone.svg` | Megaphone | Delapouite | <https://game-icons.net/1x1/delapouite/megaphone.html> |
+| `metronome.svg` | Metronome | Delapouite | <https://game-icons.net/1x1/delapouite/metronome.html> |
+| `microphone.svg` | Microphone | Delapouite | <https://game-icons.net/1x1/delapouite/microphone.html> |
+| `movement-sensor.svg` | Movement Sensor | Lorc | <https://game-icons.net/1x1/lorc/movement-sensor.html> |
+| `music-spell.svg` | Music Spell | Lorc | <https://game-icons.net/1x1/lorc/music-spell.html> |
+| `musical-notes.svg` | Musical Notes | Delapouite | <https://game-icons.net/1x1/delapouite/musical-notes.html> |
+| `musical-score.svg` | Musical Score | Delapouite | <https://game-icons.net/1x1/delapouite/musical-score.html> |
+| `mute.svg` | Mute | Delapouite | <https://game-icons.net/1x1/delapouite/mute.html> |
+| `old-microphone.svg` | Old Microphone | Delapouite | <https://game-icons.net/1x1/delapouite/old-microphone.html> |
+| `phone.svg` | Phone | Delapouite | <https://game-icons.net/1x1/delapouite/phone.html> |
+| `pick-of-destiny.svg` | Pick Of Destiny | Delapouite | <https://game-icons.net/1x1/delapouite/pick-of-destiny.html> |
+| `pocket-radio.svg` | Pocket Radio | Delapouite | <https://game-icons.net/1x1/delapouite/pocket-radio.html> |
+| `radio-tower.svg` | Radio Tower | Delapouite | <https://game-icons.net/1x1/delapouite/radio-tower.html> |
+| `resonance.svg` | Resonance | Lorc | <https://game-icons.net/1x1/lorc/resonance.html> |
+| `ringing-alarm.svg` | Ringing Alarm | Delapouite | <https://game-icons.net/1x1/delapouite/ringing-alarm.html> |
+| `ringing-bell.svg` | Ringing Bell | Lorc | <https://game-icons.net/1x1/lorc/ringing-bell.html> |
+| `rss.svg` | Rss | Lorc | <https://game-icons.net/1x1/lorc/rss.html> |
+| `screaming.svg` | Screaming | Lorc | <https://game-icons.net/1x1/lorc/screaming.html> |
+| `shouting.svg` | Shouting | Lorc | <https://game-icons.net/1x1/lorc/shouting.html> |
+| `silence.svg` | Silence | Lorc | <https://game-icons.net/1x1/lorc/silence.html> |
+| `silenced.svg` | Silenced | Delapouite | <https://game-icons.net/1x1/delapouite/silenced.html> |
+| `sing.svg` | Sing | Lorc | <https://game-icons.net/1x1/lorc/sing.html> |
+| `sonic-boom.svg` | Sonic Boom | Lorc | <https://game-icons.net/1x1/lorc/sonic-boom.html> |
+| `sonic-screech.svg` | Sonic Screech | Lorc | <https://game-icons.net/1x1/lorc/sonic-screech.html> |
+| `sonic-shout.svg` | Sonic Shout | Lorc | <https://game-icons.net/1x1/lorc/sonic-shout.html> |
+| `sound-off.svg` | Sound Off | Delapouite | <https://game-icons.net/1x1/delapouite/sound-off.html> |
+| `sound-on.svg` | Sound On | Delapouite | <https://game-icons.net/1x1/delapouite/sound-on.html> |
+| `sound-waves.svg` | Sound Waves | Skoll | <https://game-icons.net/1x1/skoll/sound-waves.html> |
+| `speaker-off.svg` | Speaker Off | Delapouite | <https://game-icons.net/1x1/delapouite/speaker-off.html> |
+| `speaker.svg` | Speaker | Delapouite | <https://game-icons.net/1x1/delapouite/speaker.html> |
+| `talk.svg` | Talk | Skoll | <https://game-icons.net/1x1/skoll/talk.html> |
+| `trumpet-flag.svg` | Trumpet Flag | Delapouite | <https://game-icons.net/1x1/delapouite/trumpet-flag.html> |
+| `tune-pitch.svg` | Tune Pitch | Lorc | <https://game-icons.net/1x1/lorc/tune-pitch.html> |
+| `ultrasound.svg` | Ultrasound | Lorc | <https://game-icons.net/1x1/lorc/ultrasound.html> |
+| `vibrating-ball.svg` | Vibrating Ball | Lorc | <https://game-icons.net/1x1/lorc/vibrating-ball.html> |
+| `vuvuzelas.svg` | Vuvuzelas | Delapouite | <https://game-icons.net/1x1/delapouite/vuvuzelas.html> |
+| `walkie-talkie.svg` | Walkie Talkie | Delapouite | <https://game-icons.net/1x1/delapouite/walkie-talkie.html> |
+| `whistle.svg` | Whistle | Delapouite | <https://game-icons.net/1x1/delapouite/whistle.html> |
+| `windchimes.svg` | Windchimes | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/windchimes.html> |
+| `zigzag-tune.svg` | Zigzag Tune | Lorc | <https://game-icons.net/1x1/lorc/zigzag-tune.html> |
 
 ## Spike
 
