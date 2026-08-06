@@ -1,0 +1,1217 @@
+_id: sAHcMoXAZeJpfCiC
+name: Spells — Canon (1d100)
+img: icons/svg/d20-grey.svg
+description: 'The canon spell list as a rollable table — one row per spellbook in the Spellbooks compendium, alphabetical. To roll on an edited pack, import this table into the world and use the Reseed Spell Table button in the Tables directory.'
+results:
+  - _id: zsS0WSIaRm9kEL6r
+    type: document
+    name: Adhere
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 1
+      - 1
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.V7nq6yvWcO6FOgAd
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.zsS0WSIaRm9kEL6r'
+  - _id: cF0rseZGguczGray
+    type: document
+    name: Anchor
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.kbC12lXFurP7VT2d
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.cF0rseZGguczGray'
+  - _id: 0eKvfDvLpVtVAH8b
+    type: document
+    name: Animate Object
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.9TDw4uG8F3a4NY9y
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.0eKvfDvLpVtVAH8b'
+  - _id: 8Yidt4CfCY4z3jnu
+    type: document
+    name: Anthropomorphize
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.ZaqFlB0jRfbT3kYR
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.8Yidt4CfCY4z3jnu'
+  - _id: AjQoINdRmt8xhWss
+    type: document
+    name: Arcane Eye
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.aq1uBGjEgh3tho0F
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.AjQoINdRmt8xhWss'
+  - _id: SjLl2Vp6elY1OoL4
+    type: document
+    name: Astral Prison
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.kyzTKKvhLndDZ9V6
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.SjLl2Vp6elY1OoL4'
+  - _id: NEGhDeezPb20Pfua
+    type: document
+    name: Attract
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 7
+      - 7
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.R446KCEYPYbG9mRp
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.NEGhDeezPb20Pfua'
+  - _id: pncvYWt2Te0GLKlO
+    type: document
+    name: Auditory Illusion
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 8
+      - 8
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.Z0pe0JiBqa02GmBH
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.pncvYWt2Te0GLKlO'
+  - _id: 2rqrftRhS7gos0nA
+    type: document
+    name: Babble
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 9
+      - 9
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.V0aCSuOfHcHMp4ZA
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.2rqrftRhS7gos0nA'
+  - _id: nbOWmfDsUc0XOS5f
+    type: document
+    name: Bait Flower
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 10
+      - 10
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.IFXMal2VK1g4IM19
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.nbOWmfDsUc0XOS5f'
+  - _id: ic9u4YCEahqf99i7
+    type: document
+    name: Beast Form
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 11
+      - 11
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.HJkQbuyuNjqx9MNr
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.ic9u4YCEahqf99i7'
+  - _id: HLZ3FfLQtjEwH4R7
+    type: document
+    name: Befuddle
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 12
+      - 12
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.t5YNPmDiZmQT1edO
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.HLZ3FfLQtjEwH4R7'
+  - _id: EqcKkTFN4lMIA1Ix
+    type: document
+    name: Body Swap
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 13
+      - 13
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.elC1Sn9iHxqZOOSd
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.EqcKkTFN4lMIA1Ix'
+  - _id: GsMiTgteVHDThRJz
+    type: document
+    name: Charm
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 14
+      - 14
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.tmzWwpcekKJlS8Vl
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.GsMiTgteVHDThRJz'
+  - _id: A202ckebNXamt4fR
+    type: document
+    name: Command
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 15
+      - 15
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.BLJZ8o9DC6nHfgfT
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.A202ckebNXamt4fR'
+  - _id: UH3KoZw1qNFYdeQz
+    type: document
+    name: Comprehend
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 16
+      - 16
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.eOt9geKENQ1sloE4
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.UH3KoZw1qNFYdeQz'
+  - _id: ZPIfrH8MydQrgad9
+    type: document
+    name: Cone of Foam
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 17
+      - 17
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.xTufDwZ1y1Jd9Rdn
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.ZPIfrH8MydQrgad9'
+  - _id: XA4Sag1JPBOqkLaJ
+    type: document
+    name: Control Plants
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 18
+      - 18
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.FKjXTGCafLVZUy9y
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.XA4Sag1JPBOqkLaJ'
+  - _id: XVuznnbO7haSgg0K
+    type: document
+    name: Control Weather
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 19
+      - 19
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.0JZLrpj1UtJEYde7
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.XVuznnbO7haSgg0K'
+  - _id: 6b4WhhAWQvyaoVtK
+    type: document
+    name: Cure Wounds
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 20
+      - 20
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.GrWKSVbd2DWVjHSt
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.6b4WhhAWQvyaoVtK'
+  - _id: AhHHL9fR6LnUW2Xi
+    type: document
+    name: Deafen
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 21
+      - 21
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.Y4XrmyC2NVaH8DpR
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.AhHHL9fR6LnUW2Xi'
+  - _id: kG7mGH0Fja4kgPBv
+    type: document
+    name: Detect Magic
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 22
+      - 22
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.F9iv9MP5mDJWNK0Z
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.kG7mGH0Fja4kgPBv'
+  - _id: dGxAopHbsaW27hlE
+    type: document
+    name: Disassemble
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 23
+      - 23
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.E8vwECW4aGhtuNHq
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.dGxAopHbsaW27hlE'
+  - _id: 6RSIZ7Bmigim5k40
+    type: document
+    name: Disguise
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 24
+      - 24
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.UZJ1wNfeRSFN8qLb
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.6RSIZ7Bmigim5k40'
+  - _id: GAxypdtWZITCopMC
+    type: document
+    name: Displace
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 25
+      - 25
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.b4bRVJ6YVNj8vKjh
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.GAxypdtWZITCopMC'
+  - _id: F9lAqyz3ASCm5730
+    type: document
+    name: Earthquake
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 26
+      - 26
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.5VeRpY0XrMAJ2EoN
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.F9lAqyz3ASCm5730'
+  - _id: pP3s5lBpYWCay6Tr
+    type: document
+    name: Elasticity
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 27
+      - 27
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.djWVofRP0OhX8xMj
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.pP3s5lBpYWCay6Tr'
+  - _id: Nlg3FuzhS7hJiPgf
+    type: document
+    name: Elemental Wall
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 28
+      - 28
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.lvhwx2BnlsnqTE3p
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.Nlg3FuzhS7hJiPgf'
+  - _id: QllBmDaHGS437d91
+    type: document
+    name: Filch
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 29
+      - 29
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.tBXMosNbRhUSdsxF
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.QllBmDaHGS437d91'
+  - _id: NAdB4DYR9ztoBAjT
+    type: document
+    name: Flare
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 30
+      - 30
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.OlEahwYWIpsG00Ui
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.NAdB4DYR9ztoBAjT'
+  - _id: 74X9f6vg0omVHg8u
+    type: document
+    name: Fog Cloud
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 31
+      - 31
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.Jlc0h36L5Umgk4Db
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.74X9f6vg0omVHg8u'
+  - _id: IXIWVUwj93GSNfM7
+    type: document
+    name: Frenzy
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 32
+      - 32
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.hz3Gz79fSq3xAGcI
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.IXIWVUwj93GSNfM7'
+  - _id: TC6we6WI1pDQVSIb
+    type: document
+    name: Gate
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 33
+      - 33
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.U38BUnoTWdyThLt3
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.TC6we6WI1pDQVSIb'
+  - _id: F7SvsztNYExZ5K7d
+    type: document
+    name: Gravity Shift
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 34
+      - 34
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.e1ZXHq9dtGaBJo3Z
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.F7SvsztNYExZ5K7d'
+  - _id: C9KHjq1FlpJEV4DO
+    type: document
+    name: Greed
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 35
+      - 35
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.Pw8Tr18hcB9nMXzE
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.C9KHjq1FlpJEV4DO'
+  - _id: BnnsqbVuHAddrkTo
+    type: document
+    name: Haste
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 36
+      - 36
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.ptGYJChCJabl22Ci
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.BnnsqbVuHAddrkTo'
+  - _id: 6y2MdXsB2IwYbEPV
+    type: document
+    name: Hatred
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 37
+      - 37
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.Dfci2ps3Azz5Q3IC
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.6y2MdXsB2IwYbEPV'
+  - _id: eZOllFnrUSMdmhmT
+    type: document
+    name: Hear Whispers
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 38
+      - 38
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.pAkByBBnCsh8r8Nf
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.eZOllFnrUSMdmhmT'
+  - _id: KxAY6OjZEGqMWFpq
+    type: document
+    name: Hover
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 39
+      - 39
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.JlyPMjwHHP2bBnIZ
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.KxAY6OjZEGqMWFpq'
+  - _id: 4L5IJ3FbxaZS84eC
+    type: document
+    name: Hypnotize
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 40
+      - 40
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.1Cfjn1LJi24GGpf7
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.4L5IJ3FbxaZS84eC'
+  - _id: GSOo4NzJ1eRMDvgB
+    type: document
+    name: Icy Touch
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 41
+      - 41
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.lt6ClKWJ823Dd2sE
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.GSOo4NzJ1eRMDvgB'
+  - _id: z03R5W4mtQw90v0D
+    type: document
+    name: Identify Owner
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 42
+      - 42
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.wyG7HPLRFCce0dP5
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.z03R5W4mtQw90v0D'
+  - _id: q8ZVL3YHKBvJbTzh
+    type: document
+    name: Illuminate
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 43
+      - 43
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.61nT0mH9UVBwyRLn
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.q8ZVL3YHKBvJbTzh'
+  - _id: XJUOEnQq2lDjJiOT
+    type: document
+    name: Invisible Tether
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 44
+      - 44
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.GFKmeP8rq1odLhZd
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.XJUOEnQq2lDjJiOT'
+  - _id: UwF9viXi9UAuUUIb
+    type: document
+    name: Knock
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 45
+      - 45
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.qAmjT0wr8XodtZqy
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.UwF9viXi9UAuUUIb'
+  - _id: kvJyvUONq8UMDK07
+    type: document
+    name: Leap
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 46
+      - 46
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.vLmwDvMXtD7DltJn
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.kvJyvUONq8UMDK07'
+  - _id: 1SDW7j4W9VaodAR8
+    type: document
+    name: Liquid Air
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 47
+      - 47
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.JxONwkBV7TsoAWxG
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.1SDW7j4W9VaodAR8'
+  - _id: GZmF5QEMm7Z8HC6i
+    type: document
+    name: Magic Dampener
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 48
+      - 48
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.X0FcBAY7FNupTuoi
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.GZmF5QEMm7Z8HC6i'
+  - _id: or73Ho3YWSs3ddiP
+    type: document
+    name: Manse
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 49
+      - 49
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.i8UVjbIUw4Xpv5pJ
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.or73Ho3YWSs3ddiP'
+  - _id: H6xZaHVpakueFFAA
+    type: document
+    name: Marble Craze
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 50
+      - 50
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.pK84d7vqmbVYn6J1
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.H6xZaHVpakueFFAA'
+  - _id: 5jGNJ1jzHZVGA69n
+    type: document
+    name: Masquerade
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 51
+      - 51
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.1WWbLQTaNzDqHo8l
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.5jGNJ1jzHZVGA69n'
+  - _id: hALntzRddvL3XyY9
+    type: document
+    name: Miniaturize
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 52
+      - 52
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.1wvGSt8oOFMhbIAB
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.hALntzRddvL3XyY9'
+  - _id: 5rwSAMhWAV9hLR2i
+    type: document
+    name: Mirror Image
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 53
+      - 53
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.1zI92pZy7k73OBeE
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.5rwSAMhWAV9hLR2i'
+  - _id: gCljCwXcjBZqTtsY
+    type: document
+    name: Mirrorwalk
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 54
+      - 54
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.Pe0ISvyqrGojnV1i
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.gCljCwXcjBZqTtsY'
+  - _id: 6Y5DeXHKszCiXrFr
+    type: document
+    name: Missile Shield
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 55
+      - 55
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.ywmESB3HFLBRXPnS
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.6Y5DeXHKszCiXrFr'
+  - _id: nVYjT01nmG5KoKAp
+    type: document
+    name: Multiarm
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 56
+      - 56
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.KjS2sqRqbEVfYQLV
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.nVYjT01nmG5KoKAp'
+  - _id: 11bitRmkmvJToLLb
+    type: document
+    name: Night Sphere
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 57
+      - 57
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.Mp1ypGW60EfdjgOq
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.11bitRmkmvJToLLb'
+  - _id: YpJo8se6NLq3RjP6
+    type: document
+    name: Objectify
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 58
+      - 58
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.LPhrpvl0Tf40AxJd
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.YpJo8se6NLq3RjP6'
+  - _id: X2r9fWR1RSaAAtqL
+    type: document
+    name: Ooze Form
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 59
+      - 59
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.94DBOIZcNjKvhNpt
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.X2r9fWR1RSaAAtqL'
+  - _id: BmCAd6siqbRMwGBG
+    type: document
+    name: Pacify
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 60
+      - 60
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.iAhFYSIr97d2aX76
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.BmCAd6siqbRMwGBG'
+  - _id: WI4upuINuJNlzzvF
+    type: document
+    name: Phobia
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 61
+      - 61
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.ZLG9pgRNBEPE8dID
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.WI4upuINuJNlzzvF'
+  - _id: MaJUSgm0dOiymrTT
+    type: document
+    name: Pit
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 62
+      - 62
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.31UXiIvzoXPQEd8Z
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.MaJUSgm0dOiymrTT'
+  - _id: VjtSrRzggBF2j9TI
+    type: document
+    name: Primal Surge
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 63
+      - 63
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.i93owALoJpKfBGGz
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.VjtSrRzggBF2j9TI'
+  - _id: HUFpxF7zTSAzcTB2
+    type: document
+    name: Push/Pull
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 64
+      - 64
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.fi7RYeSGtRiEgphx
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.HUFpxF7zTSAzcTB2'
+  - _id: Att3DAUYKMUnbnRp
+    type: document
+    name: Raise Dead
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 65
+      - 65
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.09jsLVPMusbW5jyQ
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.Att3DAUYKMUnbnRp'
+  - _id: UOZuPCbQMOCUIKfe
+    type: document
+    name: Raise Spirit
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 66
+      - 66
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.KzexNICZj0qB2rgn
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.UOZuPCbQMOCUIKfe'
+  - _id: 2fzHrsD40PBwu0f3
+    type: document
+    name: Read Mind
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 67
+      - 67
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.in1K4LWnHlbNKx52
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.2fzHrsD40PBwu0f3'
+  - _id: EbpMdK2Mk6YLbUHK
+    type: document
+    name: Repel
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 68
+      - 68
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.jOSGdLfATzx1kOzv
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.EbpMdK2Mk6YLbUHK'
+  - _id: hnR52MFls08F62OV
+    type: document
+    name: Scry
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 69
+      - 69
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.62IaPJOUrU8WmQCk
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.hnR52MFls08F62OV'
+  - _id: hvwunA05M2I7Bq4t
+    type: document
+    name: Sculpt Elements
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 70
+      - 70
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.jeAbJSxavNv9yBnF
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.hvwunA05M2I7Bq4t'
+  - _id: AqVKL9RSWBV5O9RZ
+    type: document
+    name: Sense
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 71
+      - 71
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.ccD8DUMv4i2ol8Le
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.AqVKL9RSWBV5O9RZ'
+  - _id: 4hJl8yNobEXnptNK
+    type: document
+    name: Shroud
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 72
+      - 72
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.jKEfBujX9M7xZoYB
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.4hJl8yNobEXnptNK'
+  - _id: rXJvpqcgEnFOlsBM
+    type: document
+    name: Shuffle
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 73
+      - 73
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.3kBu8oyEXBfIO8M6
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.rXJvpqcgEnFOlsBM'
+  - _id: ME3qgNFoAEPbB70D
+    type: document
+    name: Sleep
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 74
+      - 74
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.I1wx54HNx6XOnqKC
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.ME3qgNFoAEPbB70D'
+  - _id: ahM7VCXAVIPwSSJM
+    type: document
+    name: Slick
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 75
+      - 75
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.hvBI6GuWQ2bnotbB
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.ahM7VCXAVIPwSSJM'
+  - _id: A8jfgHoCIuelHfH6
+    type: document
+    name: Smoke Form
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 76
+      - 76
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.vicTBVVB6I8raKBh
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.A8jfgHoCIuelHfH6'
+  - _id: r76UzIxzOOztieuY
+    type: document
+    name: Snail Knight
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 77
+      - 77
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.ur8YvYAYEATflEHz
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.r76UzIxzOOztieuY'
+  - _id: 3pkJCaX4cpVD31NB
+    type: document
+    name: Sniff
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 78
+      - 78
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.gP59r5WqjMMHwnkM
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.3pkJCaX4cpVD31NB'
+  - _id: PQazGky69DZOkXpa
+    type: document
+    name: Sort
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 79
+      - 79
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.82UQke4nQSpKKHrP
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.PQazGky69DZOkXpa'
+  - _id: vHnjCYgjrAPykhvC
+    type: document
+    name: Spectacle
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 80
+      - 80
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.MkemeW1w6QfgnLw0
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.vHnjCYgjrAPykhvC'
+  - _id: rYKBEVQCd4k5uDy5
+    type: document
+    name: Spellsaw
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 81
+      - 81
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.xYkfHEFDy7Ogbu2N
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.rYKBEVQCd4k5uDy5'
+  - _id: 5UfVAAkKzY9hW9iC
+    type: document
+    name: Spider Climb
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 82
+      - 82
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.OUXKUFwis3x8odER
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.5UfVAAkKzY9hW9iC'
+  - _id: m2PoHNFrEdRXZTV6
+    type: document
+    name: Summon Cube
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 83
+      - 83
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.s46R7D1xp65K3hWE
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.m2PoHNFrEdRXZTV6'
+  - _id: ijcuq3DXS1YRBW8h
+    type: document
+    name: Summon Idol
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 84
+      - 84
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.U9VJ7F3VUncK1Skl
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.ijcuq3DXS1YRBW8h'
+  - _id: 6LQIZiJAhXwOqDaJ
+    type: document
+    name: Swarm
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 85
+      - 85
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.bgZbst28ACRpQfCD
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.6LQIZiJAhXwOqDaJ'
+  - _id: BYA9AqFuAtFq4Wv9
+    type: document
+    name: Target Lure
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 86
+      - 86
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.LfTX6DFvBDlUKDyC
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.BYA9AqFuAtFq4Wv9'
+  - _id: pTTj0w8eVj01ctxX
+    type: document
+    name: Telekinesis
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 87
+      - 87
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.Bdf81HVV4Nb4Q5Mz
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.pTTj0w8eVj01ctxX'
+  - _id: CAiNAZoCGwNykT67
+    type: document
+    name: Telepathy
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 88
+      - 88
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.VX1BanTk5M0WRcmS
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.CAiNAZoCGwNykT67'
+  - _id: 6ThOtSMJpY1MQngH
+    type: document
+    name: Teleport
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 89
+      - 89
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.zFO1IKgeg2YSc1Fr
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.6ThOtSMJpY1MQngH'
+  - _id: F1cHBYYeZxcnKWuE
+    type: document
+    name: Thicket
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 90
+      - 90
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.sMZHxnvRFdOvypYx
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.F1cHBYYeZxcnKWuE'
+  - _id: tIWRaGB0Z0H0h8z1
+    type: document
+    name: Time Control
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 91
+      - 91
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.dD9E0zSNoPHPc79x
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.tIWRaGB0Z0H0h8z1'
+  - _id: goXn2uFUoDqJQbXH
+    type: document
+    name: True Sight
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 92
+      - 92
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.t1bgoHpWOMRbUxm4
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.goXn2uFUoDqJQbXH'
+  - _id: ltbfSU1Sbpe63WKR
+    type: document
+    name: Upwell
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 93
+      - 93
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.iEv7zrb8NxcTM1Mz
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.ltbfSU1Sbpe63WKR'
+  - _id: D0mFKnkGiTsJxXpH
+    type: document
+    name: Vision
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 94
+      - 94
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.PhywO6PxlcRfmtKj
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.D0mFKnkGiTsJxXpH'
+  - _id: vBALGKCVHyGNM1Xf
+    type: document
+    name: Visual Illusion
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 95
+      - 95
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.yZq2al9Qyx4URLtK
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.vBALGKCVHyGNM1Xf'
+  - _id: xIcTtvINDp5ZJ6HA
+    type: document
+    name: Ward
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 96
+      - 96
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.wItkYZat9mzqFVSe
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.xIcTtvINDp5ZJ6HA'
+  - _id: bAmDKI8ZDWJr0URy
+    type: document
+    name: Web
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 97
+      - 97
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.JBALeFiiUJQEqPch
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.bAmDKI8ZDWJr0URy'
+  - _id: oubH81OvcFglF0Uw
+    type: document
+    name: Widget
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 98
+      - 98
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.HkHOGMKuD2KRJ86v
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.oubH81OvcFglF0Uw'
+  - _id: pC1dhzLG5nOwOyCm
+    type: document
+    name: Wizard Mark
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 99
+      - 99
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.ls5tYKOlhYiJMPPQ
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.pC1dhzLG5nOwOyCm'
+  - _id: JBLfVuV8LWXXTQOi
+    type: document
+    name: X-Ray Vision
+    img: systems/air-bladder/icons/spellbook.svg
+    weight: 1
+    range:
+      - 100
+      - 100
+    drawn: false
+    documentUuid: Compendium.air-bladder.spellbooks.Item.CgDUS3G0KSS2hpuv
+    flags: {}
+    _key: '!tables.results!sAHcMoXAZeJpfCiC.JBLfVuV8LWXXTQOi'
+formula: 1d100
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!tables!sAHcMoXAZeJpfCiC'
