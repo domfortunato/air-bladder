@@ -205,6 +205,12 @@
       "system": "air-bladder"
     },
     {
+      "name": "spellbooks-glog",
+      "label": "Spellbooks (GLOG)",
+      "type": "Item",
+      "system": "air-bladder"
+    },
+    {
       "name": "tools",
       "label": "Tools",
       "type": "Item",
@@ -266,7 +272,8 @@
         "reliquary",
         "market-goods",
         "spellbooks",
-        "more-spellbooks"
+        "more-spellbooks",
+        "spellbooks-glog"
       ]
     },
     {
