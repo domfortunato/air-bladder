@@ -9,7 +9,7 @@
   "CAIRN.BoldMeanEquipped": "(pogrubienie - używany)",
   "CAIRN.Bulky": "Nieporęczny",
   "CAIRN.CharacterGenerator": "Losuj postać",
-  "CAIRN.CharacterRegeneratorConfirm": "Czy na pewno chcesz usunąć i stworzyć ponownie tę postać?",
+  "CAIRN.CharacterRegeneratorConfirm": "Czy na pewno chcesz usunąć i stworzyć ponownie tę postać?</p><p>Pamiętaj, że wylosowana przeszłość zostanie zachowana, chyba że klikniesz lupę obok opcji „Przeszłość” pod imieniem postaci.</p><p>Przypisany portret oraz pole notatek (na dole zakładki „Notatki”) zostaną zachowane. Możesz zmienić je ręcznie.",
   "CAIRN.CharacterRegeneratorTitle": "Usunąć postać i stworzyć ponownie?",
   "CAIRN.ContainerAlreadyOwned": "Ten pojemnik jest już czyjąś własnością.",
   "CAIRN.Cost": "Koszt",

@@ -45,13 +45,17 @@ the last measurement without those files losing a line — the English grew from
 mostly English. That is not a bug — English fallback is per string and by design —
 but do not describe those languages as supported.
 
-**All five inherited files now fail `i18n:check` outright, identically**:
-`CAIRN.CharacterRegeneratorConfirm` drops the `<p>` tags its English carries.
-When this file first said so, only `fr` failed — the English key gained its
-tags later, which switched the same latent defect on in the other four. One
-mechanical tag-wrap per file would clear it; nobody maintains those locales,
-so it waits for whoever next touches them. (The default `npm run i18n:check`
-checks `es` only, so this does not gate a release.)
+**All six locales pass `i18n:check` as of 2026-08-06.** The five inherited
+files had failed identically — `CAIRN.CharacterRegeneratorConfirm` dropped the
+`<p>` tags its English carries. When this file first noted that, only `fr`
+failed; the English key gained its tags later, switching the same latent
+defect on in the other four. The fix was not a bare tag-wrap: the English is
+THREE paragraphs (the confirm plus two persistence notes) and the inherited
+files carried only the first sentence, so the two missing paragraphs were
+translated into each language using that file's own established vocabulary
+(Przeszłość / Hintergrund / Baggrund / Antecedente / Historique), keeping the
+inherited first sentence untouched. (The default `npm run i18n:check` checks
+`es` only, so none of this ever gated a release.)
 
 `cn.json` was removed (2026-07-27): it shipped in `lang/` but was never listed in
 `system.json` `languages`, so Foundry never loaded it — 17% of a 1e interface that

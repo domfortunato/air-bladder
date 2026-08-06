@@ -8,7 +8,7 @@
   "CAIRN.BoldMeanEquipped": "(Fett bedeutet ausgerüstet)",
   "CAIRN.Bulky": "Sperrig",
   "CAIRN.CharacterGenerator": "Charakter erschaffen",
-  "CAIRN.CharacterRegeneratorConfirm": "Bist du sicher, dass du diesen Charakter löschen und einen Neuen generieren möchtest?",
+  "CAIRN.CharacterRegeneratorConfirm": "Bist du sicher, dass du diesen Charakter löschen und einen Neuen generieren möchtest?</p><p>Beachte, dass der vergebene Hintergrund erhalten bleibt, sofern du nicht auf die Lupe neben „Hintergrund“ unter dem Namen deines Charakters klickst.</p><p>Das vergebene Porträt und das Notizfeld (unten im Reiter „Notizen“) bleiben erhalten. Du kannst sie manuell ändern.",
   "CAIRN.CharacterRegeneratorTitle": "Charakter löschen und neu generieren?",
   "CAIRN.ContainerAlreadyOwned": "Container already owned by someone.",
   "CAIRN.Cost": "Cost",

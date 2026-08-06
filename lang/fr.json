@@ -8,7 +8,7 @@
   "CAIRN.BoldMeanEquipped": "(équipé en gras)",
   "CAIRN.Bulky": "Encombrant",
   "CAIRN.CharacterGenerator": "Créer un personnage",
-  "CAIRN.CharacterRegeneratorConfirm": "Êtes-vous sûr de vouloir supprimer et régénérer ce personnage ?",
+  "CAIRN.CharacterRegeneratorConfirm": "Êtes-vous sûr de vouloir supprimer et régénérer ce personnage ?</p><p>Notez que l'historique attribué sera conservé, à moins que vous ne cliquiez sur la loupe située à côté de l'option « Historique », sous le nom de votre personnage.</p><p>Le portrait et le champ de notes attribués (en bas de l'onglet « Notes ») seront conservés. Vous pouvez les modifier manuellement.",
   "CAIRN.CharacterRegeneratorTitle": "Supprimer ce personnage et régénérer ?",
   "CAIRN.ContainerAlreadyOwned": "Container already owned by someone.",
   "CAIRN.Cost": "Cost",

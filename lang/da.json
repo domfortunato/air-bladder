@@ -8,7 +8,7 @@
   "CAIRN.BoldMeanEquipped": "(fed skrift betyder båret)",
   "CAIRN.Bulky": "Klodset",
   "CAIRN.CharacterGenerator": "Skab karakter",
-  "CAIRN.CharacterRegeneratorConfirm": "Er du sikker på, at du vil slette og genskabe dette tegn?",
+  "CAIRN.CharacterRegeneratorConfirm": "Er du sikker på, at du vil slette og genskabe dette tegn?</p><p>Bemærk, at den tildelte baggrund bevares, medmindre du klikker på luppen ved siden af »Baggrund« under din karakters navn.</p><p>Det tildelte portræt og notefeltet (nederst under fanen »Noter«) bevares. Du kan ændre dem manuelt.",
   "CAIRN.CharacterRegeneratorTitle": "Vil du slette denne karakter og genskabe?",
   "CAIRN.ContainerAlreadyOwned": "Container already owned by someone.",
   "CAIRN.Cost": "Cost",

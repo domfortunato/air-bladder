@@ -11,7 +11,7 @@
   "CAIRN.BoldMeanEquipped": "(negrito significa equipado)",
   "CAIRN.Bulky": "Volumoso",
   "CAIRN.CharacterGenerator": "Criar personagem",
-  "CAIRN.CharacterRegeneratorConfirm": "Tem certeza de que deseja excluir e re-gerar este personagem?",
+  "CAIRN.CharacterRegeneratorConfirm": "Tem certeza de que deseja excluir e re-gerar este personagem?</p><p>Observe que o antecedente atribuído será mantido, a menos que você clique na lupa ao lado da opção “Antecedente”, abaixo do nome do seu personagem.</p><p>O retrato e o campo de notas atribuídos (na parte inferior da aba “Notas”) serão mantidos. Você pode alterá-los manualmente.",
   "CAIRN.CharacterRegeneratorTitle": "Excluir este personagem e re-gerar?",
   "CAIRN.ContainerAlreadyOwned": "Container already owned by someone.",
   "CAIRN.Cost": "Cost",
