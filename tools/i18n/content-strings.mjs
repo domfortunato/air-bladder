@@ -49,12 +49,17 @@ export function* stringsFromDoc(doc) {
   // RollTable — has a top-level results[] array.
   if (Array.isArray(doc.results)) {
     if (doc.name) yield* emit({ ns: "table.name", en: doc.name, context: "table" });
-    // A RollTable's `description` is authoring / GM-procedure metadata (marketplace
-    // stocking notes, "roll each dungeon cycle", one-line trait-table labels) shown
-    // only on Foundry's EDITABLE RollTable config sheet — there is no read-only
-    // surface to translate it on without risking a save writing the Spanish back
-    // over the English source, and no player ever sees it. Deliberately NOT
-    // extracted. Table RESULTS (what players/Wardens read when rolling) ARE, below.
+    // A RollTable's `description` was deliberately NOT extracted until
+    // 2026-08-06, reasoned "shown only on Foundry's EDITABLE config sheet, so
+    // translating it risks a save writing Spanish back". That reason EXPIRED
+    // in v14: the DRAW CARD renders the description above every roll
+    // (templates/dice/table-result.hbs), and that card consults `table.desc`
+    // display-only (module/cairn.js). The sheet's read-only view mode is NOT
+    // a surface for it — core drops a root part's loose text nodes
+    // (handlebars-application.mjs:213), so a plain-text description never
+    // renders there at all. Edit mode is never translated, so the old worry
+    // cannot arise.
+    if (doc.description) yield* emit({ ns: "table.desc", en: doc.description, context: `${name} · description` });
     for (const r of doc.results) {
       const range = Array.isArray(r.range) ? r.range.join("-") : "";
       // v13 split `TableResult#text` in two and the halves went to DIFFERENT

@@ -141,29 +141,77 @@ Hooks.on("renderCompendium", (app, html) => {
 // English — the same graceful degradation as the rest of the overlay. The
 // .table-results markup is unique to RollTable draw cards, so non-draw messages
 // (damage, saves) are never touched. See i18n-content.js.
+const swapResultNode = (node, html) => {
+  // Read the whole cell (text-type results land in .description, sometimes .name),
+  // look it up as a table.result, and write the translation back if there is one.
+  const en = (html ? node.innerHTML : node.textContent).trim();
+  if (!en) return;
+  // translationOf (not t) returns overlay-or-undefined, never the English source,
+  // so the value written below is provably from our trusted overlay JSON — DOM text
+  // can't round-trip back out as markup (js/xss-through-dom).
+  const es = translationOf("table.result", en);
+  if (es === undefined || es === en) return;
+  if (html) node.innerHTML = es; else node.textContent = es;
+};
+
+// One rendered result's details. The SAME partial (result-details.hbs:
+// strong.name for a named row, .description for a text row) serves the chat
+// card's <li>s and the RollTable sheet's td.details, so the two hooks share this.
+const localizeResultCells = (cells) => {
+  for (const cell of cells) {
+    const nameEl = cell.querySelector("strong.name, .name");
+    if (nameEl && !nameEl.querySelector("a")) swapResultNode(nameEl, false); // skip @UUID document links
+    const descEl = cell.querySelector(".description");
+    if (descEl) swapResultNode(descEl, true);
+  }
+};
+
 const localizeTableResults = (root) => {
   if (!contentLocalized()) return;
   const cells = root?.querySelectorAll?.(".table-results li");
   if (!cells?.length) return;
-  const swap = (node, html) => {
-    // Read the whole cell (text-type results land in .description, sometimes .name),
-    // look it up as a table.result, and write the translation back if there is one.
-    const en = (html ? node.innerHTML : node.textContent).trim();
-    if (!en) return;
-    // translationOf (not t) returns overlay-or-undefined, never the English source,
-    // so the value written below is provably from our trusted overlay JSON — DOM text
-    // can't round-trip back out as markup (js/xss-through-dom).
-    const es = translationOf("table.result", en);
-    if (es === undefined || es === en) return;
-    if (html) node.innerHTML = es; else node.textContent = es;
-  };
-  for (const li of cells) {
-    const nameEl = li.querySelector("strong.name, .name");
-    if (nameEl && !nameEl.querySelector("a")) swap(nameEl, false); // skip @UUID document links
-    const descEl = li.querySelector(".description");
-    if (descEl) swap(descEl, true);
+  // The table's own description heads the draw card (14.365 table-result.hbs
+  // renders it above the roll) — `table.desc`, emitted by the extractor since
+  // 2026-08-06. Guarded by the cells check above, so non-draw messages that
+  // happen to carry the class are never touched.
+  const tableDesc = root.querySelector(".table-description");
+  if (tableDesc) {
+    const es = translationOf("table.desc", tableDesc.innerHTML.trim());
+    if (es !== undefined) tableDesc.innerHTML = es;
   }
+  localizeResultCells(cells);
 };
+
+// The RollTable sheet's VIEW mode (14.365: the sticky default for any table
+// with rows, and the ONLY mode a locked pack table can render). It is not a
+// form — nothing in it submits to the document — so display-only translation
+// is safe for world and pack tables alike. EDIT mode is deliberately left
+// alone even though its details cells reuse the same partial: the editor
+// edits the stored English source, the same read/edit split every overlay
+// surface keeps, and a row's text is edited through TableResultConfig, whose
+// input must show the stored string.
+Hooks.on("renderRollTableSheet", (app) => {
+  if (!contentLocalized() || app.mode !== "view") return;
+  const root = app.element;
+  if (!root) return;
+  localizeResultCells(root.querySelectorAll("table[data-results] td.details"));
+  // The name, twice: the sheet-body <h1> and the window title. Display only —
+  // a world table the Warden renamed simply misses and stays as written.
+  const esName = translationOf("table.name", app.document.name ?? "");
+  if (esName !== undefined) {
+    const h1 = root.querySelector(".sheet-header h1");
+    if (h1) h1.textContent = esName;
+    const title = root.querySelector(".window-title");
+    if (title) title.textContent = esName;
+  }
+  // The table DESCRIPTION is deliberately not handled here, because on 14.365
+  // it never renders in view mode at all: view.hbs emits it as an UNWRAPPED
+  // {{{descriptionHTML}}}, and a root part keeps only ELEMENT children
+  // (handlebars-application.mjs:213, replaceChildren(...htmlElement.children)),
+  // so a plain-text description — every shipped one — is dropped by core
+  // before it reaches the DOM. Its real surface is the DRAW CARD, translated
+  // above. Code here that "translated" it would be coverage theatre.
+});
 
 // Cairn calls the Game Master the "Warden". When the setting is on, override
 // the localized GM role labels before any UI that reads them renders (Players

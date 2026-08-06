@@ -46,19 +46,27 @@ const res = await page.evaluate(async () => {
 
   const EN = "Probe result — canonical English";
   const ES = "Probe result — OVERLAY APPLIED";
+  const DESC_EN = "Probe table description — canonical English";
+  const DESC_ES = "Probe table description — OVERLAY APPLIED";
+  const NAME_ES = "ZZ-TABLA-TRADUCIDA";
   const created = [];
   try {
     // A world table, not a pack one: exact control of the string, no locked pack,
     // and 1d1 over a single result means the draw is deterministic.
     const table = await RollTable.create({
       name: "Content Overlay Probe",
+      description: DESC_EN,
       formula: "1d1",
       replacement: true,
       results: [{ type: CONST.TABLE_RESULT_TYPES.TEXT, description: EN, range: [1, 1] }],
     });
     created.push(table);
 
-    i18n._setOverlay({ "table.result": { [EN]: ES } });
+    i18n._setOverlay({
+      "table.result": { [EN]: ES },
+      "table.desc": { [DESC_EN]: DESC_ES },
+      "table.name": { "Content Overlay Probe": NAME_ES },
+    });
     if (!i18n.contentLocalized()) return { error: "overlay did not install" };
 
     const { results } = await table.draw();
@@ -75,18 +83,61 @@ const res = await page.evaluate(async () => {
     // _source is the stored document, untouched by any derived/render-time work.
     const storedContent = msg._source.content ?? "";
 
+    // ---- the table SHEET: VIEW mode translates, EDIT mode shows the source ----
+    // 14.365's RollTableSheet renders a read-only "view" mode (the sticky
+    // default for any table with rows, and the only mode a locked pack table
+    // can reach). It is not a form, so display-only translation is safe there;
+    // edit mode must keep the stored English, same read/edit split as every
+    // other overlay surface.
+    table.sheet.mode = "view";
+    await table.sheet.render(true);
+    for (let i = 0; i < 40 && !table.sheet.element?.querySelector("td.details"); i++) {
+      await new Promise((r) => setTimeout(r, 150));
+    }
+    const sroot = table.sheet.element;
+    const view = {
+      rows: [...(sroot?.querySelectorAll("td.details") ?? [])].map((e) => e.textContent).join(" "),
+      h1: sroot?.querySelector(".sheet-header h1")?.textContent.trim() ?? null,
+      title: sroot?.querySelector(".window-title")?.textContent.trim() ?? null,
+      text: sroot?.textContent ?? "",
+    };
+    // The stored document must be untouched by a translated render.
+    const storedTable = {
+      name: table._source.name,
+      desc: table._source.description ?? "",
+      row: table.results.contents[0]._source.description,
+    };
+    // The mode setter is STICKY session-wide (#DEFAULT_MODE), so it is put back
+    // to "view" in the finally — a probe must not leave every later sheet
+    // opening in edit mode.
+    table.sheet.mode = "edit";
+    await table.sheet.render(true);
+    for (let i = 0; i < 40 && !table.sheet.element?.querySelector('input[name="results.0.weight"]'); i++) {
+      await new Promise((r) => setTimeout(r, 150));
+    }
+    const edit = {
+      rows: [...(table.sheet.element?.querySelectorAll("td.details") ?? [])].map((e) => e.textContent).join(" "),
+    };
+    await table.sheet.close();
+
     return {
-      EN, ES,
+      EN, ES, DESC_EN, DESC_ES, NAME_ES,
       renderedHasES: renderedText.includes(ES),
       renderedHasEN: renderedText.includes(EN),
+      renderedDescES: renderedText.includes(DESC_ES),
+      renderedDescEN: renderedText.includes(DESC_EN),
       storedHasES: storedContent.includes(ES),
       storedHasEN: storedContent.includes(EN),
+      view, edit, storedTable,
       foundNode: !!node,
       msgId: msg.id,
     };
   } finally {
+    for (const d of created) {
+      try { if (d.sheet?.mode === "edit") d.sheet.mode = "view"; } catch {}
+      await d.delete().catch(() => {});
+    }
     i18n._setOverlay(null);
-    for (const d of created) await d.delete().catch(() => {});
   }
 });
 
@@ -108,6 +159,33 @@ if (res.error) {
 
   if (!res.storedHasES) ok("STORED not translated", "no overlay text persisted");
   else fail("STORED not translated", "TRANSLATION WAS BAKED INTO THE DOCUMENT");
+
+  // The card's table-description header (table.desc, 2026-08-06).
+  if (res.renderedDescES && !res.renderedDescEN) ok("card table-description translated", `"${res.DESC_ES}"`);
+  else fail("card table-description translated", `ES ${res.renderedDescES}, EN still ${res.renderedDescEN}`);
+
+  // The RollTable sheet, view mode — rows, name (body + window title), description.
+  const v = res.view ?? {};
+  if (v.rows?.includes(res.ES) && !v.rows.includes(res.EN)) ok("sheet VIEW rows translated", `"${res.ES}"`);
+  else fail("sheet VIEW rows translated", `details read ${JSON.stringify(v.rows)}`);
+  if (v.h1 === res.NAME_ES) ok("sheet VIEW name translated", `"${v.h1}"`);
+  else fail("sheet VIEW name translated", `h1 reads ${JSON.stringify(v.h1)}`);
+  if (v.title === res.NAME_ES) ok("…and the window title agrees", `"${v.title}"`);
+  else fail("…and the window title agrees", `title reads ${JSON.stringify(v.title)}`);
+  // No sheet-description leg on purpose: 14.365 drops a root part's loose text
+  // nodes (handlebars-application.mjs:213), so a plain-text table description
+  // never renders in view mode — the DRAW CARD above is that string's surface.
+
+  // The stored table after a translated render — the invariant half.
+  const st = res.storedTable ?? {};
+  if (st.name === "Content Overlay Probe" && st.desc === res.DESC_EN && st.row === res.EN)
+    ok("stored table untouched by VIEW render", "");
+  else fail("stored table untouched by VIEW render", JSON.stringify(st));
+
+  // Edit mode is the author's view of the SOURCE — never translated.
+  const e = res.edit ?? {};
+  if (e.rows?.includes(res.EN) && !e.rows.includes(res.ES)) ok("sheet EDIT mode shows the English source", "");
+  else fail("sheet EDIT mode shows the English source", `details read ${JSON.stringify(e.rows)}`);
 }
 
 /* -------------------------------------------- */
