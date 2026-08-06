@@ -399,7 +399,14 @@
  * Portrait and name section.                                                 * 
  ******************************************************************************/
 
-.portrait {
+/* Scoped under .cairn (review #9): these four class names are live CORE
+   vocabulary — .description styles every RollTable draw card and the Scene
+   sidebar's placeable entries, .portrait and .features are equally generic —
+   and Foundry's layer order (`system` after `applications`, foundry2.css:5)
+   means an unscoped system rule beats core's own regardless of specificity.
+   Unscoped, these stacked every placeables-sidebar row vertically and
+   restyled every table-draw card in the world. */
+.cairn .portrait {
     border: 2px solid var(--ab-line);
     border-radius: 5px;
     height: 140px;
@@ -1116,12 +1123,13 @@
     border-color: var(--color-level-error-border);
 }
 
-.description {
+/* .cairn scope: see the note at .cairn .portrait. */
+.cairn .description {
     display: flex;
     flex-direction: column;
 }
 
-.features {
+.cairn .features {
     max-height: 150px;
     overflow: auto;
     margin-bottom: 16px;
@@ -2551,9 +2559,10 @@ textarea.omen-input {
     border-radius: 2px;
 }
 
-/* Breathing room between the tab headers and the tab content. */
-.description,
-.tab[data-tab="notes"] {
+/* Breathing room between the tab headers and the tab content.
+   .cairn scope: see the note at .cairn .portrait. */
+.cairn .description,
+.cairn .tab[data-tab="notes"] {
     padding-top: 12px;
 }
 

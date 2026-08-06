@@ -1178,6 +1178,244 @@ try {
 
 /* -------------------------------------------- */
 
+// Search must match what the eye reads (review #9 finding 4): the render hook
+// rewrites .entry-name to the translation, but core's _matchSearchEntries tests
+// the query against collection.index names — never the DOM — so typing the
+// Spanish emptied the list while the English string was no longer on screen.
+// The control removes the per-instance wrap (delete falls back to the prototype,
+// i.e. core's matcher) and requires the Spanish query to STOP matching — the
+// in-page equivalent of running with the fix removed, every run.
+console.log("\ncompendium search under a translated index");
+
+const searchLeg = await page.evaluate(async () => {
+  const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const pack = game.packs.get("air-bladder.weapons");
+  await pack.getIndex();
+  const dagger = pack.index.find((e) => e.name === "Dagger");
+  const other = pack.index.find((e) => e.name !== "Dagger");
+  const out = { indexed: !!dagger && !!other };
+  if (!out.indexed) return out;
+  const app = pack.apps[0];
+  try {
+    i18n._setOverlay({ "item.name": { Dagger: "ZZ-DAGA" } });
+    await app.render(true);
+    for (let i = 0; i < 60 && !app.element?.querySelector(`[data-entry-id="${dagger._id}"]`); i++) await sleep(100);
+    const row = () => app.element?.querySelector(`[data-entry-id="${dagger._id}"]`);
+    const otherRow = () => app.element?.querySelector(`[data-entry-id="${other._id}"]`);
+    out.rowText = row()?.querySelector(".entry-name")?.textContent.trim() ?? null;
+
+    const search = async (q) => {
+      const input = app.element?.querySelector("search input, input[type=search]");
+      if (!input) return "no search input";
+      input.value = q;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      await sleep(600); // SearchFilter debounces; a settle beats polling a moving target
+      return { dagger: row()?.style.display, other: otherRow()?.style.display };
+    };
+
+    out.spanish = await search("ZZ-DAGA");
+    out.english = await search("Dagger");
+    // Control: core's matcher alone. The wrap is an instance own-property, so
+    // deleting it exposes the prototype method; restored right after.
+    const wrapped = app._matchSearchEntries;
+    try {
+      delete app._matchSearchEntries;
+      out.control = await search("ZZ-DAGA");
+    } finally {
+      app._matchSearchEntries = wrapped;
+    }
+    await search("");
+  } finally {
+    i18n._setOverlay(null);
+    await app.close().catch(() => {});
+  }
+  return out;
+});
+
+if (!searchLeg.indexed) fail("weapons pack indexed", "no Dagger + second weapon — search legs vacuous");
+else {
+  searchLeg.rowText === "ZZ-DAGA"
+    ? ok("compendium row translated", `"${searchLeg.rowText}"`)
+    : fail("compendium row translated", `row reads ${JSON.stringify(searchLeg.rowText)}`);
+  searchLeg.spanish?.dagger === "flex" && searchLeg.spanish?.other === "none"
+    ? ok("the Spanish query finds the row", "and actually filters the rest")
+    : fail("the Spanish query finds the row", JSON.stringify(searchLeg.spanish));
+  searchLeg.english?.dagger === "flex"
+    ? ok("the English query still matches", "additive — no route lost")
+    : fail("the English query still matches", JSON.stringify(searchLeg.english));
+  searchLeg.control?.dagger === "none"
+    ? ok("control: core's matcher alone loses the row", "the wrap is what makes Spanish findable")
+    : fail("control: core's matcher alone loses the row", `${JSON.stringify(searchLeg.control)} — the leg is not measuring the wrap`);
+}
+
+/* -------------------------------------------- */
+
+// The connect picker labels AND sorts by the DISPLAYED name (review #9
+// findings 5+7). The two containers' English and Spanish orders REVERSE
+// (Alpha→ZZ-ZULU, Beta→ZZ-ANTES), so a picker sorting on stored English then
+// translating renders them shuffled — the exact shipped bug — and this leg
+// reads their relative order in the rendered <select>.
+console.log("\nconnect picker: translated, display-sorted");
+
+const pickerLeg = await page.evaluate(async () => {
+  const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const Impl = CONFIG.Actor.documentClass;
+  const out = { ids: [] };
+  try {
+    const keeper = await Impl.create({ name: "ZZ Picker Keeper", type: "character" });
+    const alpha = await Impl.create({ name: "ZZ Alpha Crate", type: "npc", system: { role: "container" } });
+    const beta = await Impl.create({ name: "ZZ Beta Sack", type: "npc", system: { role: "container" } });
+    out.ids.push(keeper.id, alpha.id, beta.id);
+    i18n._setOverlay({ "monster.name": {
+      "ZZ Alpha Crate": "ZZ-ZULU",
+      "ZZ Beta Sack": "ZZ-ANTES",
+    } });
+    await keeper.sheet.render(true);
+    for (let i = 0; i < 60 && !keeper.sheet.element; i++) await sleep(100);
+    await sleep(400);
+    keeper.sheet.element?.querySelector('[data-action="connectionAdd"]')?.click();
+    let dlg = null, select = null;
+    for (let i = 0; i < 60 && !select; i++) {
+      await sleep(100);
+      dlg = [...foundry.applications.instances.values()]
+        .find((a) => a.element?.querySelector?.('select[name="connectionTarget"]'));
+      select = dlg?.element?.querySelector('select[name="connectionTarget"]');
+    }
+    out.opened = !!select;
+    out.options = select
+      ? [...select.options].map((o) => ({ text: o.textContent.trim(), value: o.value }))
+      : [];
+    await dlg?.close().catch(() => {});
+    await keeper.sheet.close().catch(() => {});
+    out.alphaUuid = alpha.uuid;
+    out.betaUuid = beta.uuid;
+  } finally {
+    i18n._setOverlay(null);
+    for (const id of out.ids) await game.actors.get(id)?.delete().catch(() => {});
+  }
+  return out;
+});
+
+if (!pickerLeg.opened) fail("connect picker opened", "no connectionTarget select — legs vacuous");
+else {
+  const zulu = pickerLeg.options.findIndex((o) => o.text === "ZZ-ZULU");
+  const antes = pickerLeg.options.findIndex((o) => o.text === "ZZ-ANTES");
+  zulu >= 0 && antes >= 0
+    ? ok("picker options translated", `"ZZ-ANTES", "ZZ-ZULU"`)
+    : fail("picker options translated", JSON.stringify(pickerLeg.options.map((o) => o.text)));
+  antes >= 0 && zulu >= 0 && antes < zulu
+    ? ok("ordered by the DISPLAYED name", "ZZ-ANTES before ZZ-ZULU (stored order is the reverse)")
+    : fail("ordered by the DISPLAYED name", `indexes antes=${antes} zulu=${zulu}`);
+  pickerLeg.options.find((o) => o.text === "ZZ-ZULU")?.value === pickerLeg.alphaUuid
+    ? ok("option VALUE stays the uuid", "choice unaffected by language")
+    : fail("option VALUE stays the uuid", JSON.stringify(pickerLeg.options));
+}
+
+/* -------------------------------------------- */
+
+// A destructive confirm must not name a document the user cannot see (review
+// #9 finding 6): the inventory row renders the translation, so the "Delete X?"
+// ask must show the same X. Dismissing must also leave the item alone —
+// rejectClose:false resolves null on close, and null must read as "no".
+console.log("\ndelete confirm names the translation");
+
+const confirmLeg = await page.evaluate(async () => {
+  const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const Impl = CONFIG.Actor.documentClass;
+  const out = {};
+  let holder = null;
+  try {
+    holder = await Impl.create({ name: "ZZ Confirm Holder", type: "character" });
+    const [cord] = await holder.createEmbeddedDocuments("Item", [
+      { name: "ZZ Probe Cord", type: "item" },
+    ]);
+    i18n._setOverlay({ "item.name": { "ZZ Probe Cord": "ZZ-CORDEL" } });
+    const p = holder.deleteOwnedItem(cord.id);
+    p.catch(() => {});
+    let dlg = null;
+    for (let i = 0; i < 60 && !dlg; i++) {
+      await sleep(100);
+      dlg = [...foundry.applications.instances.values()]
+        .find((a) => a.constructor.name === "DialogV2" && a.element?.querySelector(".dialog-content"));
+    }
+    out.text = dlg?.element?.querySelector(".dialog-content")?.textContent?.replace(/\s+/g, " ").trim() ?? null;
+    await dlg?.close().catch(() => {});
+    await p.catch(() => {});
+    await sleep(300);
+    out.survived = !!holder.items.get(cord.id);
+  } finally {
+    i18n._setOverlay(null);
+    await holder?.delete().catch(() => {});
+  }
+  return out;
+});
+
+if (!confirmLeg.text) fail("delete confirm rendered", "no DialogV2 — legs vacuous");
+else {
+  confirmLeg.text.includes("ZZ-CORDEL")
+    ? ok("confirm shows the translated name", `"${confirmLeg.text.slice(0, 50)}"`)
+    : fail("confirm shows the translated name", `text was "${confirmLeg.text}"`);
+  !confirmLeg.text.includes("ZZ Probe Cord")
+    ? ok("…and not the stored English", "")
+    : fail("…and not the stored English", `"${confirmLeg.text}"`);
+  confirmLeg.survived
+    ? ok("dismissing the confirm deletes nothing", "null reads as no")
+    : fail("dismissing the confirm deletes nothing", "the item is gone");
+}
+
+/* -------------------------------------------- */
+
+// The four generic class names stay scoped under .cairn (review #9 finding 14).
+// Foundry's layer order (`system` after `applications`, foundry2.css:5) makes
+// an unscoped system rule beat core's own regardless of specificity — bare
+// `.description` stacked every placeables-sidebar row vertically and restyled
+// every table-draw card. Each pair asserts BOTH ends: outside .cairn the rule
+// must not land (the fix), inside it must (the control — if the rule itself
+// were deleted, the inside half goes red instead of the outside half passing
+// vacuously).
+console.log("\nsystem CSS stays scoped to .cairn");
+
+const cssLeg = await page.evaluate(() => {
+  const nodes = [];
+  const mk = (cls, parent) => {
+    const d = document.createElement("div");
+    d.className = cls;
+    (parent ?? document.body).appendChild(d);
+    nodes.push(d);
+    return d;
+  };
+  const wrap = mk("cairn");
+  const read = (cls) => {
+    const o = getComputedStyle(mk(cls));
+    const i = getComputedStyle(mk(cls, wrap));
+    return {
+      outside: { display: o.display, dir: o.flexDirection, height: o.height, maxHeight: o.maxHeight },
+      inside: { display: i.display, dir: i.flexDirection, height: i.height, maxHeight: i.maxHeight },
+    };
+  };
+  const out = { description: read("description"), portrait: read("portrait"), features: read("features") };
+  for (const n of nodes) n.remove();
+  return out;
+});
+
+cssLeg.description.outside.display !== "flex"
+  ? ok("bare .description is core's", cssLeg.description.outside.display)
+  : fail("bare .description is core's", "still flex outside .cairn — the scope is off");
+cssLeg.description.inside.display === "flex" && cssLeg.description.inside.dir === "column"
+  ? ok("control: .cairn .description is still flex-column", "the rule exists; the leg measures the scope")
+  : fail("control: .cairn .description is still flex-column", JSON.stringify(cssLeg.description.inside));
+cssLeg.portrait.outside.height !== "140px" && cssLeg.portrait.inside.height === "140px"
+  ? ok(".portrait scoped", "140px only inside .cairn")
+  : fail(".portrait scoped", JSON.stringify(cssLeg.portrait));
+cssLeg.features.outside.maxHeight !== "150px" && cssLeg.features.inside.maxHeight === "150px"
+  ? ok(".features scoped", "150px cap only inside .cairn")
+  : fail(".features scoped", JSON.stringify(cssLeg.features));
+
+/* -------------------------------------------- */
+
 console.log(`\nconsole errors: ${errors.length}`);
 for (const e of errors.slice(0, 10)) console.log(`  ${e}`);
 if (errors.length) failures++;
