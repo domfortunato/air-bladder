@@ -173,6 +173,55 @@ for (const id of tabIds) {
     : fail(`tab "${id}" shows only itself`, `visible: [${state.visible.join(", ")}] of ${state.total}`);
 }
 
+console.log("\nActiveEffect drops are refused (review #9 finding 16)");
+
+// The system renders no effects UI and no data model consumes them, so core's
+// default acceptance created an INVISIBLE stat modifier — applied through the
+// preparation pass, absent from every sheet, removable only via token HUD or
+// console. The control deletes the override so core's handler answers, and the
+// effect MUST appear — proving the "nothing created" half above is measuring
+// the override rather than a drop that never worked.
+const aeLeg = await page.evaluate(async (id) => {
+  const a = game.actors.get(id);
+  const sheet = a.sheet;
+  const proto = sheet.constructor.prototype;
+  const eff = new CONFIG.ActiveEffect.documentClass({ name: "ZZ Temp Effect" });
+  const warns = [];
+  const orig = ui.notifications.warn.bind(ui.notifications);
+  ui.notifications.warn = (m, ...rest) => { warns.push(String(m)); return orig(m, ...rest); };
+  const out = { key: "CAIRN.Notify.EffectsUnsupported" };
+  try {
+    out.result = await sheet._onDropActiveEffect(new DragEvent("drop"), eff);
+    out.warn = warns.at(-1) ?? null;
+    out.effectsAfterRefusal = a.effects.size;
+    out.want = game.i18n.localize(out.key);
+    const saved = Object.getOwnPropertyDescriptor(proto, "_onDropActiveEffect");
+    try {
+      delete proto._onDropActiveEffect;
+      await sheet._onDropActiveEffect(new DragEvent("drop"), eff);
+      out.effectsUnderCore = a.effects.size;
+    } finally {
+      if (saved) Object.defineProperty(proto, "_onDropActiveEffect", saved);
+      for (const e of [...a.effects]) await e.delete();
+    }
+  } finally {
+    ui.notifications.warn = orig;
+  }
+  return out;
+}, actorId);
+
+aeLeg.result === null && aeLeg.effectsAfterRefusal === 0
+  ? ok("AE drop refused, nothing created", "returns null")
+  : fail("AE drop refused, nothing created", JSON.stringify(aeLeg));
+// warn !== the raw key: localize falls back to the key when it is missing from
+// en.json, and key === key would pass that exact regression.
+aeLeg.warn && aeLeg.warn === aeLeg.want && aeLeg.warn !== aeLeg.key
+  ? ok("the refusal is told to the user", `"${aeLeg.warn}"`)
+  : fail("the refusal is told to the user", `warn=${JSON.stringify(aeLeg.warn)} want=${JSON.stringify(aeLeg.want)}`);
+aeLeg.effectsUnderCore === 1
+  ? ok("control: core alone creates the invisible effect", "the override is what refuses")
+  : fail("control: core alone creates the invisible effect", `effects=${aeLeg.effectsUnderCore} — the leg is not measuring the override`);
+
 /* ----------------------------------------------------------- teardown ---- */
 await page.evaluate(async (id) => { await game.actors.get(id)?.delete(); }, actorId);
 

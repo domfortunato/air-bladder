@@ -279,6 +279,55 @@ else fail("schema closed", "an undeclared key survived, so persistence proves no
 
 /* -------------------------------------------- */
 
+/* Stored npc armor is a BASE the gear sum cannot go below (review #9: the
+   Vampire shipped with pack `armor: 1`, no armor item, and the unconditional
+   derived write made it fight at Armor 0). The control plants the OLD behavior
+   (derived only) on the prototype and confirms this leg measures exactly the
+   thing the fix changed — without it, "armor came out 1" would also be true of
+   a world where prepare never ran at all. */
+console.log("\nnpc stored armor is a base (review #9 finding 1)");
+const npcArmor = await page.evaluate(async () => {
+  const Cls = CONFIG.Actor.documentClass;
+  const a = await Cls.create({ name: "ZZ Armor Base", type: "npc", system: { armor: 1 } });
+  const out = {};
+  out.baseAlone = a.system.armor;               // derived 0, stored base 1 -> 1
+  out.storedSource = a.toObject().system.armor; // prepare must never write the source
+  await a.createEmbeddedDocuments("Item", [
+    { name: "ZZ Plate", type: "armor", system: { armor: 2, equipped: true } },
+  ]);
+  out.withGear = a.system.armor;                // max(1, 2) = 2 — a rating, not a stack
+  await a.update({ "system.armorOverride": 0 });
+  out.overrideZero = a.system.armor;            // an explicit 0 override beats the base
+  await a.update({ "system.armorOverride": null });
+  await a.deleteEmbeddedDocuments("Item", a.items.map((i) => i.id));
+  const orig = Cls.prototype._prepareCharacterData;
+  try {
+    Cls.prototype._prepareCharacterData = function () {
+      orig.call(this);
+      const o = this.system.armorOverride;
+      if (o === null || o === undefined || o === "") {
+        this.system.armor = Math.min(3, this.calcArmor()); // the pre-fix write
+      }
+    };
+    a.reset();
+    out.controlOldBehavior = a.system.armor;    // 0 under the old code, 1 under the fix
+  } finally {
+    Cls.prototype._prepareCharacterData = orig;
+    a.reset();
+  }
+  await a.delete();
+  return out;
+});
+for (const [k, want] of [
+  ["baseAlone", 1], ["storedSource", 1], ["withGear", 2],
+  ["overrideZero", 0], ["controlOldBehavior", 0],
+]) {
+  if (npcArmor[k] === want) ok(k, String(npcArmor[k]));
+  else fail(k, `got ${JSON.stringify(npcArmor[k])}, want ${want}`);
+}
+
+/* -------------------------------------------- */
+
 console.log("\nnpc generation");
 const hire = await page.evaluate(async () => {
   const actor = await game.cairn.characterGenerator.createNpc();

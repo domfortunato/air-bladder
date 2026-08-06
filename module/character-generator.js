@@ -1746,7 +1746,11 @@ export const getBackgroundsByArchetype = async (source) => {
     backgrounds = await getBackgroundsFor(source);
     customIds = new Set();
   }
-  const byName = (x, y) => x.name.localeCompare(y.name);
+  // Sort on the DISPLAYED name (review #9): the picker renders t("bg.name", …),
+  // so sorting on the stored English shuffled the list in any other language.
+  // The radio VALUES still carry the English name — only the ordering key moved.
+  const byName = (x, y) =>
+    t("bg.name", x.name).localeCompare(t("bg.name", y.name), game.i18n.lang);
   const custom = backgrounds.filter((b) => customIds.has(b.id)).sort(byName);
   const canon = backgrounds.filter((b) => !customIds.has(b.id));
 
@@ -1968,7 +1972,9 @@ export const promptBackground = async (source, currentUuid = null) => {
 export const promptFailedCareer = async (currentName = null) => {
   const backgrounds = await getBarebonesBackgrounds();
   if (!backgrounds.length) return false;
-  const sorted = [...backgrounds].sort((a, b) => a.name.localeCompare(b.name));
+  // Same display-name sort as promptBackground's groups (review #9).
+  const sorted = [...backgrounds].sort((a, b) =>
+    t("bg.name", a.name).localeCompare(t("bg.name", b.name), game.i18n.lang));
 
   let list = `<label class="bg-pick-row"><input type="radio" name="bg" value="${BG_RANDOM}"${currentName ? "" : " checked"}>
     <span class="bg-pick-name"><i class="fas fa-dice"></i> ${game.i18n.localize("CAIRN.RandomBackground")}</span></label>`;

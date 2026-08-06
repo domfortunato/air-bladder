@@ -110,6 +110,17 @@ export const sourceOf = (ns, display) => {
 };
 
 /**
+ * The DISPLAY name for an actor under the settled naming ruling (2026-08-04):
+ * a character's name is player-authored and NEVER localized — the round-5
+ * control caught an ungated lookup renaming a PC that happened to share a
+ * creature's name — while every other actor type reads through monster.name,
+ * the namespace the extractor files all non-character actor names under.
+ * One helper so no call site re-decides the gate.
+ */
+export const actorDisplayName = (a) =>
+  a?.type === "character" ? (a?.name ?? "") : t("monster.name", a?.name ?? "");
+
+/**
  * Return a shallow copy of an item-like object ({ name, system: { description } })
  * with its display name/description translated under the given namespaces. The
  * original is NEVER mutated — callers hand this to a template, never back to a

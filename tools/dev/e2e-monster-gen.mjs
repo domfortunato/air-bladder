@@ -59,6 +59,7 @@ const ARMOR_NAMES = ["Tough Hide", "Carapace", "Shell", "Scales"];
 const CREATURE_CATEGORIES = ["animals", "creatures", "fish", "heads", "mammals", "reptiles", "skull"];
 const ICON_PREFIX = "systems/air-bladder/art/game-icons/";
 const ICON_FALLBACK = "systems/air-bladder/icons/monster.svg";
+const CORE_BAG = "icons/svg/item-bag.svg";
 
 let failed = false;
 const ok = (m) => console.log(`  ok    ${m}`);
@@ -96,6 +97,13 @@ const shapeProblems = (s, { hp, die, checkName = false } = {}) => {
   for (const i of (s.items ?? []).filter((i) => (i.armor ?? 0) > 0)) {
     if (i.armor < 1 || i.armor > 3) p.push(`armor item "${i.name}" carries ${i.armor}`);
     if (!ARMOR_NAMES.includes(i.name)) p.push(`armor item named "${i.name}", not one of ${ARMOR_NAMES.join("/")}`);
+  }
+  // Items riding inside the Actor's creation payload never reach _preCreate
+  // (client-backend.mjs:103 preCreates top-level docs only), so their art comes
+  // from CairnItem.getDefaultArtwork — review #9 finding 2 shipped generated
+  // monsters whose gear wore core's grey item-bag.
+  for (const i of s.items ?? []) {
+    if (!i.img || i.img === CORE_BAG) p.push(`item "${i.name}" wears ${i.img || "no icon"} — getDefaultArtwork did not stamp it`);
   }
   if (!s.description?.includes("<ul>")) p.push("description is not the pack-shaped <ul>");
   if (!s.description?.includes("Critical Damage:")) p.push("description has no Critical Damage bullet");
@@ -148,7 +156,7 @@ const readMonster = (page, id) => page.evaluate((actorId) => {
       textureSrc: a.prototypeToken?.texture?.src,
     },
     items: a.items.map((i) => ({
-      id: i.id, name: i.name, type: i.type,
+      id: i.id, name: i.name, type: i.type, img: i.img,
       damageFormula: i.system?.damageFormula ?? "",
       armor: i.system?.armor ?? 0,
       equipped: !!i.system?.equipped,
@@ -327,6 +335,42 @@ try {
     tiers.random.every((r) => [3, 6, 10].includes(r.hp))
       ? ok("random resolves to a real tier every time")
       : fail(`random produced ${JSON.stringify(tiers.random)}`);
+
+    /* --- payload item art, and its control --------------------------------- */
+
+    // The control removes the getDefaultArtwork static and mints the same
+    // payload again: core's default must come back. Without that, "no bag
+    // icon above" would also be green in a world where the payload happened
+    // to carry explicit art for some other reason.
+    const artCtl = await page.evaluate(async () => {
+      const ItemCls = CONFIG.Item.documentClass;
+      const ActorCls = CONFIG.Actor.documentClass;
+      const mint = async () => {
+        const a = await ActorCls.create({
+          name: "ZZ Monster Gen ArtCtl", type: "npc",
+          items: [{ name: "Fangs*", type: "item" }],
+        });
+        const img = a.items.contents[0]?.img;
+        await a.delete();
+        return img;
+      };
+      const withFix = await mint();
+      const saved = Object.getOwnPropertyDescriptor(ItemCls, "getDefaultArtwork");
+      let withoutFix;
+      try {
+        delete ItemCls.getDefaultArtwork;
+        withoutFix = await mint();
+      } finally {
+        if (saved) Object.defineProperty(ItemCls, "getDefaultArtwork", saved);
+      }
+      return { withFix, withoutFix };
+    });
+    artCtl.withFix && artCtl.withFix !== CORE_BAG
+      ? ok(`a payload item gets system art (${artCtl.withFix.split("/").pop()})`)
+      : fail(`a payload item wears ${artCtl.withFix || "no icon"} — getDefaultArtwork is not covering the payload route`);
+    artCtl.withoutFix === CORE_BAG
+      ? ok("control: with getDefaultArtwork removed the core bag returns")
+      : fail(`control: expected ${CORE_BAG} with the static removed, got ${artCtl.withoutFix} — the leg is not measuring the fix`);
 
     /* --- regenerate: the picker IS the confirmation ----------------------- */
 

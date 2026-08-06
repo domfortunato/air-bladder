@@ -5,7 +5,8 @@ import {
   atConnectionLimit, maxConnections,
   connectedOwnershipShape, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG,
 } from "../connections.js";
-import { t } from "../i18n-content.js";
+import { actorDisplayName, t } from "../i18n-content.js";
+import { FATIGUE_NAME } from "../item/item.js";
 
 /** Document names go into dialog HTML; a name is user-authored text. */
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -580,12 +581,23 @@ export class CairnActor extends Actor {
     // override still obeys the 0..3 cap. Both feed system.armor, which damage.js
     // reads.
     const derivedArmor = this.calcArmor();
+    // An AUTHORED armor value is the creature's intrinsic protection, not a
+    // leftover to clobber. The derived write used to overwrite the stored
+    // field with the equipped-gear sum unconditionally, which shipped the
+    // Vampire (pack `armor: 1`, no armor item) fighting at Armor 0 — every
+    // hit one point harder than its statblock, silently (review #9). Stored
+    // now acts as a BASE the gear sum cannot go below — max, not sum,
+    // because Cairn armor is a rating, not a stack — and the override still
+    // beats both. Characters never store armor (vitals() has no such field),
+    // so this is a no-op for them; and because it happens at prepare time,
+    // every existing world copy of an affected npc heals with no migration.
+    const storedBase = Math.max(0, Math.trunc(Number(this.system.armor)) || 0);
     const override = this.system.armorOverride;
     const hasOverride = override !== null && override !== undefined && override !== "";
     this.system.armorOverridden = hasOverride;
     this.system.armor = hasOverride
       ? Math.min(3, Math.max(0, Math.trunc(Number(override)) || 0))
-      : derivedArmor;
+      : Math.min(3, Math.max(derivedArmor, storedBase));
     this.system.slotsUsed = this.calcSlotsUsed();
     this.system.slotsMax = this.calcCurrentMaxSlots();
     this.system.encumbered =
@@ -754,7 +766,14 @@ export class CairnActor extends Actor {
   async deleteOwnedItem(itemId) {
     const item = this.items.get(itemId);
     if (item) {
-      const proceed = await confirmDelete(item.name);
+      // Ask about the name on the row (review #9): the inventory renders the
+      // translation (role-keyed namespace, Fatigue via its UI label), and a
+      // destructive confirm must not name a document the user cannot see.
+      const ns = this.npcRole === "monster" ? "monster.itemName" : "item.name";
+      const shown = item.name === FATIGUE_NAME
+        ? game.i18n.localize("CAIRN.Fatigue")
+        : t(ns, item.name);
+      const proceed = await confirmDelete(shown);
       if (!proceed) return;
       await item.delete();
       // Same as createOwnedItem: the owner's row shows slotsUsed — ungated,
@@ -781,7 +800,7 @@ export class CairnActor extends Actor {
   async deleteOwnedContainer(itemId) {
     const container = this.getOwnedContainer(itemId);
     if (!container) return;
-    const proceed = await confirmDelete(container.name);
+    const proceed = await confirmDelete(actorDisplayName(container));
     if (!proceed) return;
     const actor = game.actors.find((a) => a.uuid == itemId);
     await actor?.delete();
@@ -819,7 +838,7 @@ export class CairnActor extends Actor {
       window: { title: game.i18n.localize("CAIRN.UnlinkContainerTitle") },
       content: `<div class="cairn-confirm"><p class="cairn-confirm-q">${
         game.i18n.format("CAIRN.UnlinkContainerQ", {
-          name: foundry.utils.escapeHTML(container.name),
+          name: foundry.utils.escapeHTML(actorDisplayName(container)),
         })}</p></div>`,
       rejectClose: false,
       modal: true,
@@ -1034,11 +1053,14 @@ export class CairnActor extends Actor {
       return false;
     }
     if (!this.canKeepConnected) {
-      ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoNesting", { name: this.name }));
+      // Display names in every refusal (review #9): the toast must agree with
+      // the sheet titles around it. actorDisplayName gates by type, so a PC's
+      // player-authored name passes through untouched.
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoNesting", { name: actorDisplayName(this) }));
       return false;
     }
     if (!target.canBeConnected) {
-      ui.notifications.warn(game.i18n.format("CAIRN.Notify.CannotConnect", { name: target.name }));
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.CannotConnect", { name: actorDisplayName(target) }));
       return false;
     }
     // The pair rule that used to sit here — "an NPC never keeps a PC" — is
@@ -1062,18 +1084,18 @@ export class CairnActor extends Actor {
     // method a DROP goes through, and a drop never saw a filtered list.
     if (atConnectionLimit(this)) {
       ui.notifications.warn(game.i18n.format("CAIRN.Notify.ConnectionLimit", {
-        name: this.name,
+        name: actorDisplayName(this),
         max: maxConnections(),
       }));
       return false;
     }
     if (this.wouldCreateConnectionCycle(target)) {
-      ui.notifications.warn(game.i18n.format("CAIRN.Notify.ConnectionCycle", { name: target.name }));
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.ConnectionCycle", { name: actorDisplayName(target) }));
       return false;
     }
     if (!target.canUserModify(game.user, "update")) {
       ui.notifications.warn(
-        game.i18n.format("CAIRN.Notify.ContainerNoPermission", { name: target.name })
+        game.i18n.format("CAIRN.Notify.ContainerNoPermission", { name: actorDisplayName(target) })
       );
       return false;
     }

@@ -51,6 +51,26 @@ const BOOK_PINNED = { weightless: false, "uses.max": 0, "uses.value": 0 };
  */
 export class CairnItem extends Item {
   /**
+   * The schema-level art seam: `img`'s field initial consults this
+   * (common/documents/item.mjs:50-52) for EVERY route that creates an item
+   * without art — including items riding inside an Actor's creation payload,
+   * which never reach `_preCreate` (the client preCreates only the
+   * operation's top-level documents, client-backend.mjs:103). That gap
+   * shipped generated monsters whose attack and armor items wore core's grey
+   * item-bag while Regenerate — whose re-roll path goes through
+   * createEmbeddedDocuments — stamped the system glyph on the same items
+   * (review #9). The _preCreate stamp below remains for what it adds on its
+   * routes (the DEFAULT_ICON re-stamp for dialog-created items).
+   */
+  static getDefaultArtwork(itemData) {
+    const type = itemData?.type ?? "item";
+    const img = type === "spellbook" && itemData?.system?.scroll
+      ? SPELLSCROLL_ICON
+      : iconForItem(type, itemData?.name ?? "");
+    return { img };
+  }
+
+  /**
    * Hold a spellbook to the scroll invariant at write time, whichever path wrote
    * it: the sheet's Scroll box, generation, a drag-and-drop copy, an importer, or
    * `Actor#createOwnedItem` (which rebuilds `system.weightless` from a top-level

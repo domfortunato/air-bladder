@@ -283,6 +283,52 @@ try {
     await alicePage.close();
   }
 
+  /* --- 5. a stack is only a stack when the scroll flag agrees -------------- */
+  // gear.js stores a scroll under the bare spell name, so a spellbook and a
+  // spellscroll can share name AND type — and the name+type merge folded a
+  // dropped book into a scroll stack (review #9 finding 3). The same-flag
+  // second drop is the witness: it proves the merge machinery FIRES under
+  // this probe's exact conditions, so the only thing keeping the book out of
+  // the scroll stack is the flag test. With the fix removed the first drop
+  // merges (one doc, scroll qty 2) and the "two documents" assert goes red.
+  console.log("\nscroll identity in drop-merge");
+  const scrollMerge = await gmPage.evaluate(async () => {
+    const ActorImpl = CONFIG.Actor.documentClass;
+    const ItemImpl = CONFIG.Item.documentClass;
+    for (const a of game.actors.filter((a) => a.name.startsWith("ZZ Cache Holder"))) await a.delete();
+    const holder = await ActorImpl.create({ name: "ZZ Cache Holder", type: "character" });
+    await holder.createEmbeddedDocuments("Item", [
+      { name: "ZZ Sigil", type: "spellbook", system: { scroll: true, quantity: 1 } },
+    ]);
+    const book = await ItemImpl.create({ name: "ZZ Sigil", type: "spellbook" });
+    await holder.sheet.render(true);
+    await new Promise((r) => setTimeout(r, 900));
+    const dropBook = async () => {
+      const dt = new DataTransfer();
+      dt.setData("text/plain", JSON.stringify({ type: "Item", uuid: book.uuid }));
+      await holder.sheet._onDrop(new DragEvent("drop", { dataTransfer: dt }));
+      await new Promise((r) => setTimeout(r, 500));
+    };
+    const snap = () => holder.items
+      .filter((i) => i.name === "ZZ Sigil")
+      .map((i) => ({ scroll: !!i.system.scroll, qty: i.system.quantity ?? 1 }))
+      .sort((a, b) => Number(a.scroll) - Number(b.scroll));
+    await dropBook();
+    const afterBook = snap();
+    await dropBook();
+    const afterSecond = snap();
+    await holder.sheet.close();
+    await holder.delete();
+    await book.delete();
+    return { afterBook, afterSecond };
+  });
+  JSON.stringify(scrollMerge.afterBook) === JSON.stringify([{ scroll: false, qty: 1 }, { scroll: true, qty: 1 }])
+    ? ok("a book dropped on a scroll-holder stays a separate doc", "scroll qty unchanged")
+    : fail("a book dropped on a scroll-holder stays a separate doc", JSON.stringify(scrollMerge.afterBook));
+  JSON.stringify(scrollMerge.afterSecond) === JSON.stringify([{ scroll: false, qty: 2 }, { scroll: true, qty: 1 }])
+    ? ok("the same-flag drop still merges", "the witness: merge machinery fires here")
+    : fail("the same-flag drop still merges", JSON.stringify(scrollMerge.afterSecond));
+
   await gmPage.evaluate(async ({ a, b, itemId }) => {
     await game.actors.get(a)?.delete();
     await game.actors.get(b)?.delete();

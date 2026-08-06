@@ -7,7 +7,7 @@ import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES } from "../icons.js";
 import { NPC_ROLES } from "../data-models.js";
 import { atConnectionLimit, maxConnections, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
-import { localizeNameDesc, sourceOf, t } from "../i18n-content.js";
+import { actorDisplayName, localizeNameDesc, sourceOf, t } from "../i18n-content.js";
 import { FATIGUE_NAME } from "../item/item.js";
 import { pickArt } from "../art-picker.js";
 
@@ -762,16 +762,23 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       system: { ...i.system },
     }));
 
+    // Alphabetical must be alphabetical in the language the eye reads (review
+    // #9): sorting on stored English and translating afterwards rendered the
+    // list shuffled for any other language. The comparator sorts on the same
+    // display copy the render below produces (Fatigue's UI label included);
+    // the stored names stay English and every identity test still uses them.
+    const { nameNs: sortNameNs } = this._itemNamespaces();
+    const displayNameOf = (i) =>
+      i.name === FATIGUE_NAME ? game.i18n.localize("CAIRN.Fatigue") : t(sortNameNs, i.name);
+    const byDisplayName = (a, b) =>
+      displayNameOf(a).localeCompare(displayNameOf(b), game.i18n.lang);
     if (game.settings.get(SETTINGS_NS, "enable-inventory-reorder")) {
       // Manual order: honour each item's stored `sort` (Foundry's native field,
       // written by the drag-to-reorder handler), falling back to name. Fatigue is
       // NOT forced last here — with reorder on, the player controls placement.
-      items.sort((a, b) =>
-        (a.sort ?? 0) - (b.sort ?? 0) ||
-        (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)
-      );
+      items.sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || byDisplayName(a, b));
     } else {
-      items.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+      items.sort(byDisplayName);
       items.sort((a, b) =>
         a.system.equipped && !b.system.equipped
           ? -1
@@ -2013,8 +2020,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static #onItemShop(event) {
     event.preventDefault();
-    if (!this.actor.canKeepConnected) openMarketplace(this.actor, { exclude: TRANSPORTS_CATEGORY });
-    else openMarketplace(this.actor);
+    // .catch, because a rejection out of an un-awaited openMarketplace was
+    // dropped whole — the button appeared to do nothing, the failure mode
+    // the shop's own header comment records having shipped once (review #9).
+    const opts = this.actor.canKeepConnected ? undefined : { exclude: TRANSPORTS_CATEGORY };
+    openMarketplace(this.actor, opts).catch((err) => {
+      console.error("Air Bladder | marketplace failed to open:", err);
+      ui.notifications.error(game.i18n.localize("CAIRN.Notify.DropFailed"));
+    });
   }
 
   /** @this {CairnActorSheet} */
@@ -2244,14 +2257,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       return;
     }
     if (!this.actor.canKeepConnected) {
-      ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoNesting", { name: this.actor.name }));
+      // Display name, not stored: the toast must agree with the sheet title it
+      // answers (the marketplace's rule for the same two keys — review #9).
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoNesting", { name: actorDisplayName(this.actor) }));
       return;
     }
     // Refuse at the ceiling BEFORE the picker, not after a choice: the dialog's
     // whole contract is that everything it offers can actually be connected.
     if (atConnectionLimit(this.actor)) {
       ui.notifications.warn(game.i18n.format("CAIRN.Notify.ConnectionLimit", {
-        name: this.actor.name,
+        name: actorDisplayName(this.actor),
         max: maxConnections(),
       }));
       return;
@@ -2265,13 +2280,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         && !a.system?.connectedTo
         && !this.actor.wouldCreateConnectionCycle(a)
         && a.canUserModify(game.user, "update"))
-      .sort((a, b) => a.name.localeCompare(b.name));
+      // Sort AND label by the DISPLAYED name (review #9): sorting on stored
+      // English then translating rendered the picker shuffled in any other
+      // language — the sort key must be the string the eye reads.
+      .sort((a, b) => actorDisplayName(a).localeCompare(actorDisplayName(b), game.i18n.lang));
     if (!candidates.length) {
       ui.notifications.info(game.i18n.localize("CAIRN.Notify.NoConnectables"));
       return;
     }
     const options = candidates
-      .map((a) => `<option value="${a.uuid}">${foundry.utils.escapeHTML(a.name)}</option>`)
+      .map((a) => `<option value="${a.uuid}">${foundry.utils.escapeHTML(actorDisplayName(a))}</option>`)
       .join("");
     const content = `<div class="form-group">
         <label>${game.i18n.localize("CAIRN.ConnectionPick")}</label>
@@ -2320,7 +2338,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // and unlike a filter that quietly returns an empty list, this says why.
     // It covers the monster and unlinked-token cases in the same breath.
     if (!child.canBeConnected) {
-      ui.notifications.warn(game.i18n.format("CAIRN.Notify.CannotConnect", { name: child.name }));
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.CannotConnect", { name: actorDisplayName(child) }));
       return;
     }
     const keepers = game.actors
@@ -2336,13 +2354,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         // connectActor will: if the chain above k passes through child, the
         // link would loop.
         && !k.wouldCreateConnectionCycle(child))
-      .sort((a, b) => a.name.localeCompare(b.name));
+      // Same display-name sort + label as Add Connection's picker. Keepers are
+      // mostly CHARACTERS, whose names never localize — actorDisplayName is
+      // the gate, so a PC sharing a creature's name cannot be renamed here.
+      .sort((a, b) => actorDisplayName(a).localeCompare(actorDisplayName(b), game.i18n.lang));
     if (!keepers.length) {
       ui.notifications.info(game.i18n.localize("CAIRN.Notify.NoKeepers"));
       return;
     }
     const options = keepers
-      .map((k) => `<option value="${k.uuid}">${foundry.utils.escapeHTML(k.name)}</option>`)
+      .map((k) => `<option value="${k.uuid}">${foundry.utils.escapeHTML(actorDisplayName(k))}</option>`)
       .join("");
     const content = `<div class="form-group">
         <label>${game.i18n.localize("CAIRN.ConnectionPick")}</label>
@@ -3192,6 +3213,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // still decremented the source, so the item vanished.
     const foundItem = this.actor.items.find(
       (it) => it.name === originalItem.name && it.type === originalItem.type
+        // A stack is only a stack when the flag-shaped discriminators agree:
+        // a spellbook and a spellscroll share name AND type (gear.js stores a
+        // scroll under the bare spell name), so the name+type test merged a
+        // dropped book into a scroll stack — the book was never created, and
+        // a cross-actor drop deleted the source scroll while bumping the
+        // target's book (review #9). Any future flag-style splitter joins
+        // this test rather than growing a new merge.
+        && !!it.system?.scroll === !!originalItem.system?.scroll
     );
     let created = foundItem ?? null;
     if (foundItem) {
@@ -3301,10 +3330,24 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         : this.actor.items.get(li.dataset.itemId);
       dragData = item?.toDragData();
     }
-    if (li.dataset.effectId) {
-      dragData = this.actor.effects.get(li.dataset.effectId)?.toDragData();
-    }
+    // (The effectId branch that sat here was dead: no template renders an
+    // effects list, so no row could carry the dataset — see _onDropActiveEffect.)
     if (!dragData) return;
     event.dataTransfer.setData("text/plain", JSON.stringify(dragData));
+  }
+
+  /**
+   * Refuse ActiveEffect drops (review #9). The system renders no effects UI on
+   * any sheet and no data model consumes them — core's default accepted the
+   * drop anyway, so a dropped effect silently modified system.* through the
+   * normal preparation pass while being invisible on the sheet and
+   * unremovable from it (only the token HUD or the console could reach it).
+   * An invisible stat modifier is a trap, not a feature; if effects ever get
+   * a surface, this override goes with it.
+   * @override
+   */
+  async _onDropActiveEffect() {
+    ui.notifications.warn(game.i18n.localize("CAIRN.Notify.EffectsUnsupported"));
+    return null;
   }
 }
