@@ -11,7 +11,9 @@ flags:
 system:
   source: 2e
   archetype: Fighter
-  description: <p>You have studied combat and know the ways of war. Many look to you for protection, and you do not flinch from a fight.</p>
+  description: >-
+    <p>You have studied combat and know the ways of war. Many look to you for
+    protection, and you do not flinch from a fight.</p>
   names:
     - Thincol
     - Caramon
@@ -36,23 +38,36 @@ system:
   tables:
     - question: Which war did you fight in?
       options:
-        - description: You defended your homeland against an invading army. Take a Fancy Medal (petty).
+        - description: >-
+            You defended your homeland against an invading army. Take a Fancy
+            Medal (petty).
           items:
             - name: Fancy Medal
-        - description: You were sent to a distant land to fight against an unknown enemy. Take a Stolen Trinket (petty).
+        - description: >-
+            You were sent to a distant land to fight against an unknown enemy.
+            Take a Stolen Trinket (petty).
           items:
             - name: Stolen Trinket
-        - description: You fought in a battle between wizards who delved into a frozen city. Take a Fur Cloak of a Winterwolf.
+        - description: >-
+            You fought in a battle between wizards who delved into a frozen
+            city. Take a Fur Cloak of a Winterwolf.
           items:
             - name: Fur Cloak of a Winterwolf
-        - description: You fought alongside Elven warriors against the sadistic serpent-people. Take an Elven Rope (can be retrieved from being anchored with a small tug).
+        - description: >-
+            You fought alongside Elven warriors against the sadistic
+            serpent-people. Take an Elven Rope (can be retrieved from being
+            anchored with a small tug).
           items:
             - name: Elven Rope
-        - description: You fought alongside noble serpent-people against the cruel invading Elves. Take a Vial of Paralyzing Poison (1 use).
+        - description: >-
+            You fought alongside noble serpent-people against the cruel invading
+            Elves. Take a Vial of Paralyzing Poison (1 use).
           items:
             - name: Vial of Paralyzing Poison
               uses: 1
-        - description: You fought in the Edition Wars under General Thaco. Take a Hacked Shield (+1 Armor, can be sundered to avoid damage from an attack).
+        - description: >-
+            You fought in the Edition Wars under General Thaco. Take a Hacked
+            Shield (+1 Armor, can be sundered to avoid damage from an attack).
           items:
             - name: Hacked Shield
     - question: What title do you hold?
@@ -60,7 +75,9 @@ system:
         - description: 'Veteran: You fight exceptionally well in a group of your comrades.'
         - description: 'Warrior: You fight exceptionally well on your own.'
         - description: 'Swordsman: You never lose your grip on your sword.'
-        - description: 'Hero: Bards make songs of your exploits. They say you are as strong as four of your enemies.'
+        - description: >-
+            Hero: Bards make songs of your exploits. They say you are as strong
+            as four of your enemies.
         - description: 'Swashbuckler: You are trained in disarming your opponents.'
         - description: 'Myrmidon: Your loyalty is unquestionable.'
 ownership:
