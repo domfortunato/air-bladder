@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>[dice] letters appear over the object you touch, spelling out the name of the object's owners, if there are any.</p>
+  description: >-
+    <p>[dice] letters appear over the object you touch, spelling out the name of
+    the object's owners, if there are any.</p>
   weightless: false
   equipped: false
   bulky: false

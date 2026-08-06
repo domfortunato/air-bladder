@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>[dice] objects obeys your commands as best it can. It can walk 15ft per round.</p>
+  description: >-
+    <p>[dice] objects obeys your commands as best it can. It can walk 15ft per
+    round.</p>
   weightless: false
   equipped: false
   bulky: false

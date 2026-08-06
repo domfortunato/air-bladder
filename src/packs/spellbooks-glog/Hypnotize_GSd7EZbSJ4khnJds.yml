@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>A creature enters a trance and will truthfully answer [dice] yes or no questions you ask it.</p>
+  description: >-
+    <p>A creature enters a trance and will truthfully answer [dice] yes or no
+    questions you ask it.</p>
   weightless: false
   equipped: false
   bulky: false

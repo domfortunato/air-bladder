@@ -10,7 +10,10 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>Your finger can shoot a stream of ulfire-colored paint. This paint is only visible to you, and can be seen at any distance, even through solid objects.</p>
+  description: >-
+    <p>Your finger can shoot a stream of ulfire-colored paint. This paint is
+    only visible to you, and can be seen at any distance, even through solid
+    objects.</p>
   weightless: false
   equipped: false
   bulky: false

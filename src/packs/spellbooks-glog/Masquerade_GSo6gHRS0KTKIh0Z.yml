@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>[dice] characters' appearances and voices become identical to a touched character.</p>
+  description: >-
+    <p>[dice] characters' appearances and voices become identical to a touched
+    character.</p>
   weightless: false
   equipped: false
   bulky: false

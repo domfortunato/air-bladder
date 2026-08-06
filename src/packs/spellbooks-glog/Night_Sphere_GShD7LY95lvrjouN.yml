@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>An [sum]×40ft wide sphere of darkness displaying the night sky appears.</p>
+  description: >-
+    <p>An [sum]×40ft wide sphere of darkness displaying the night sky
+    appears.</p>
   weightless: false
   equipped: false
   bulky: false

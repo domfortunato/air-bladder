@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>A touched animal either gains human intelligence or human appearance for [sum] days.</p>
+  description: >-
+    <p>A touched animal either gains human intelligence or human appearance for
+    [sum] days.</p>
   weightless: false
   equipped: false
   bulky: false

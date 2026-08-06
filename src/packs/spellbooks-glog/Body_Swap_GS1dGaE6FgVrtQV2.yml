@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>You switch bodies with a creature you touch. If one body dies, the other dies as well.</p>
+  description: >-
+    <p>You switch bodies with a creature you touch. If one body dies, the other
+    dies as well.</p>
   weightless: false
   equipped: false
   bulky: false

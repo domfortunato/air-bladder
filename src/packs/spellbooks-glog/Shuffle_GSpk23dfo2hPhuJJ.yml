@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>[sum] creatures instantly switch places. Determine where they end up randomly.</p>
+  description: >-
+    <p>[sum] creatures instantly switch places. Determine where they end up
+    randomly.</p>
   weightless: false
   equipped: false
   bulky: false

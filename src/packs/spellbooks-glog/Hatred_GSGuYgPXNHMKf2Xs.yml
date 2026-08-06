@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>[dice] creatures develop a deep hatred of another creature or group of creatures and wish to destroy it.</p>
+  description: >-
+    <p>[dice] creatures develop a deep hatred of another creature or group of
+    creatures and wish to destroy it.</p>
   weightless: false
   equipped: false
   bulky: false

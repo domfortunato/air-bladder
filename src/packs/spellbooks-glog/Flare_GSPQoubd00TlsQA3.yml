@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>A bright ball of energy fires a trail of light into the sky, revealing your location to friend or foe for [dice] minutes.</p>
+  description: >-
+    <p>A bright ball of energy fires a trail of light into the sky, revealing
+    your location to friend or foe for [dice] minutes.</p>
   weightless: false
   equipped: false
   bulky: false

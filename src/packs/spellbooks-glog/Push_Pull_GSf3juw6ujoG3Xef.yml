@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>[dice] objects of any size are pulled directly towards you or pushed directly away from you with the strength of [sum] men.</p>
+  description: >-
+    <p>[dice] objects of any size are pulled directly towards you or pushed
+    directly away from you with the strength of [sum] men.</p>
   weightless: false
   equipped: false
   bulky: false

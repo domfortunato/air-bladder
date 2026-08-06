@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>A straight wall of ice or fire [dice]×40ft long and 10ft high rises from the ground.</p>
+  description: >-
+    <p>A straight wall of ice or fire [dice]×40ft long and 10ft high rises from
+    the ground.</p>
   weightless: false
   equipped: false
   bulky: false

@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>Any of your body parts may be detached and reattached at will, without causing pain or damage. You can still control them.</p>
+  description: >-
+    <p>Any of your body parts may be detached and reattached at will, without
+    causing pain or damage. You can still control them.</p>
   weightless: false
   equipped: false
   bulky: false

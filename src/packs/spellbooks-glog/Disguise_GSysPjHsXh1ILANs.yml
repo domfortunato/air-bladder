@@ -10,7 +10,10 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>You may alter the appearance of [sum] characters at will as long as they remain humanoid. Attempts to duplicate other characters will seem uncanny</p>
+  description: >-
+    <p>You may alter the appearance of [sum] characters at will as long as they
+    remain humanoid. Attempts to duplicate other characters will seem
+    uncanny</p>
   weightless: false
   equipped: false
   bulky: false

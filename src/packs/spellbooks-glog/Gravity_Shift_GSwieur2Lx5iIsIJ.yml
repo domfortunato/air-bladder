@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>You can change the direction of gravity (for yourself only) up to [dice] per round.</p>
+  description: >-
+    <p>You can change the direction of gravity (for yourself only) up to [dice]
+    per round.</p>
   weightless: false
   equipped: false
   bulky: false

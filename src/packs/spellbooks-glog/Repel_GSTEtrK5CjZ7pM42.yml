@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>[sum]+1 objects are strongly magnetically repelled from each other if they come within 10 feet.</p>
+  description: >-
+    <p>[sum]+1 objects are strongly magnetically repelled from each other if
+    they come within 10 feet.</p>
   weightless: false
   equipped: false
   bulky: false

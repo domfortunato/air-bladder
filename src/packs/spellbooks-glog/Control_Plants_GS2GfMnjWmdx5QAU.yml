@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>[sum] nearby plants and trees obey you and gain the ability to move at a slow pace.</p>
+  description: >-
+    <p>[sum] nearby plants and trees obey you and gain the ability to move at a
+    slow pace.</p>
   weightless: false
   equipped: false
   bulky: false

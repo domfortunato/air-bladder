@@ -10,7 +10,10 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>A clearly unreal but impressive illusion of your choice appears for [dice] minutes, under your control. It may be up to the size of a palace and has full motion and sound</p>
+  description: >-
+    <p>A clearly unreal but impressive illusion of your choice appears for
+    [dice] minutes, under your control. It may be up to the size of a palace and
+    has full motion and sound</p>
   weightless: false
   equipped: false
   bulky: false

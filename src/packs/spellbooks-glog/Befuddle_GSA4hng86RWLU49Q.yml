@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>[sum] creatures of your choice are unable to form new short-term memories for the duration of the spell.</p>
+  description: >-
+    <p>[sum] creatures of your choice are unable to form new short-term memories
+    for the duration of the spell.</p>
   weightless: false
   equipped: false
   bulky: false

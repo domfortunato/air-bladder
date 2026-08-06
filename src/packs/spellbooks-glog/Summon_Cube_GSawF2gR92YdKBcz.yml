@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>[sum] times per round] you may summon or banish a 3-foot-wide cube of earth. New cubes must be affixed to the earth or to other cubes.</p>
+  description: >-
+    <p>[sum] times per round] you may summon or banish a 3-foot-wide cube of
+    earth. New cubes must be affixed to the earth or to other cubes.</p>
   weightless: false
   equipped: false
   bulky: false

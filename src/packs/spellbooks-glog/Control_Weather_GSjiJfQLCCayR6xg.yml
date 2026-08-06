@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>You may alter the type of weather for [sum] minutes, but you do not otherwise control it.</p>
+  description: >-
+    <p>You may alter the type of weather for [sum] minutes, but you do not
+    otherwise control it.</p>
   weightless: false
   equipped: false
   bulky: false

@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>The source of [sum] mundane lights you can see are instantly snuffed out.</p>
+  description: >-
+    <p>The source of [sum] mundane lights you can see are instantly snuffed
+    out.</p>
   weightless: false
   equipped: false
   bulky: false

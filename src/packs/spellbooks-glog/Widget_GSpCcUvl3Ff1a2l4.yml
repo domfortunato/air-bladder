@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>A primitive version of a drawn tool or item appears before you and disappears after a [dice] minutes.</p>
+  description: >-
+    <p>A primitive version of a drawn tool or item appears before you and
+    disappears after a [dice] minutes.</p>
   weightless: false
   equipped: false
   bulky: false

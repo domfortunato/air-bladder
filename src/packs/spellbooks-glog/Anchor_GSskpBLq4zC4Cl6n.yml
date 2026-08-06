@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>A strong wire sprouts from your arms, affixing itself to [dice] points within 50ft on each side.</p>
+  description: >-
+    <p>A strong wire sprouts from your arms, affixing itself to [dice] points
+    within 50ft on each side.</p>
   weightless: false
   equipped: false
   bulky: false

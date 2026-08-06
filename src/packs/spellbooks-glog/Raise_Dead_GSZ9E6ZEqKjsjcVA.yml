@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>[sum] skeletons rise from the ground to serve you. They are incredibly stupid and can only obey simple orders.</p>
+  description: >-
+    <p>[sum] skeletons rise from the ground to serve you. They are incredibly
+    stupid and can only obey simple orders.</p>
   weightless: false
   equipped: false
   bulky: false

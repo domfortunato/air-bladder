@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>[sum] creatures develop an overwhelming urge to possess a visible item of your choice.</p>
+  description: >-
+    <p>[sum] creatures develop an overwhelming urge to possess a visible item of
+    your choice.</p>
   weightless: false
   equipped: false
   bulky: false

@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>A whirling blade flies from your chest, clearing any plant material in its way. It is otherwise harmless.</p>
+  description: >-
+    <p>A whirling blade flies from your chest, clearing any plant material in
+    its way. It is otherwise harmless.</p>
   weightless: false
   equipped: false
   bulky: false

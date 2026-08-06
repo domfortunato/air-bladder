@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>A mirror becomes a gateway to another mirror that you looked into today.</p>
+  description: >-
+    <p>A mirror becomes a gateway to another mirror that you looked into
+    today.</p>
   weightless: false
   equipped: false
   bulky: false

@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>You become a swarm of crows, rats, or piranhas. You only take damage from area effects</p>
+  description: >-
+    <p>You become a swarm of crows, rats, or piranhas. You only take damage from
+    area effects</p>
   weightless: false
   equipped: false
   bulky: false

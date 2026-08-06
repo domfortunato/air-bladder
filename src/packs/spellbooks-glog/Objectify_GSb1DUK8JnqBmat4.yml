@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>You become any inanimate object between the size of a grand piano and an apple.</p>
+  description: >-
+    <p>You become any inanimate object between the size of a grand piano and an
+    apple.</p>
   weightless: false
   equipped: false
   bulky: false

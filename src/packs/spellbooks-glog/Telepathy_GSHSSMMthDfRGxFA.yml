@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>[sum]+1 creatures can hear each other's thoughts, no matter how far apart they move</p>
+  description: >-
+    <p>[sum]+1 creatures can hear each other's thoughts, no matter how far apart
+    they move</p>
   weightless: false
   equipped: false
   bulky: false

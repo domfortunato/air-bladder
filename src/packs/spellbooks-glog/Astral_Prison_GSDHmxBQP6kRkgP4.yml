@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>[dice] objects are frozen in time and space within an invulnerable crystal shell.</p>
+  description: >-
+    <p>[dice] objects are frozen in time and space within an invulnerable
+    crystal shell.</p>
   weightless: false
   equipped: false
   bulky: false

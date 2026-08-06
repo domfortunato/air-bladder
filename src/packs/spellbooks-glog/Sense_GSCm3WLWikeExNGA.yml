@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>Choose one kind of object (key, gold, arrow, jug, etc). You can sense the nearest [dice] examples.</p>
+  description: >-
+    <p>Choose one kind of object (key, gold, arrow, jug, etc). You can sense the
+    nearest [dice] examples.</p>
   weightless: false
   equipped: false
   bulky: false

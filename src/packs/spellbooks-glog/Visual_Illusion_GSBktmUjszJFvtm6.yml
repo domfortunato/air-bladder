@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>A silent, immobile, illusion of your choice appears, up to the size of a bedroom.</p>
+  description: >-
+    <p>A silent, immobile, illusion of your choice appears, up to the size of a
+    bedroom.</p>
   weightless: false
   equipped: false
   bulky: false

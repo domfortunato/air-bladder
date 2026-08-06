@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>A silver circle 40ft across appears on the ground. Choose one thing that cannot cross it</p>
+  description: >-
+    <p>A silver circle 40ft across appears on the ground. Choose one thing that
+    cannot cross it</p>
   weightless: false
   equipped: false
   bulky: false

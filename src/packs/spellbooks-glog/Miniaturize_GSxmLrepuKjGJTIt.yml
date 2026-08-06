@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>You and [dice] other touched creatures are reduced to the size of a mouse.</p>
+  description: >-
+    <p>You and [dice] other touched creatures are reduced to the size of a
+    mouse.</p>
   weightless: false
   equipped: false
   bulky: false

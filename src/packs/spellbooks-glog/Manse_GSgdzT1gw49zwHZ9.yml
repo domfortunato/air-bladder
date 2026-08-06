@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>A sturdy, furnished cottage appears for [dice]×12 hours. You can permit and forbid entry to it at will.</p>
+  description: >-
+    <p>A sturdy, furnished cottage appears for [dice]×12 hours. You can permit
+    and forbid entry to it at will.</p>
   weightless: false
   equipped: false
   bulky: false

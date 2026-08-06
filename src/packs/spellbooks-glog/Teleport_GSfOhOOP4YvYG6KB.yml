@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>An object disappears and reappears on the ground in a visible, clear area up to [sum]×40ft away.</p>
+  description: >-
+    <p>An object disappears and reappears on the ground in a visible, clear area
+    up to [sum]×40ft away.</p>
   weightless: false
   equipped: false
   bulky: false

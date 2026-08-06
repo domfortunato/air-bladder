@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>An object grows to the size of an elephant. If it is an animal, it is enraged.</p>
+  description: >-
+    <p>An object grows to the size of an elephant. If it is an animal, it is
+    enraged.</p>
   weightless: false
   equipped: false
   bulky: false

@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>Two objects within [dice]x10ft of each other cannot be moved more than [dice]x10ft apart.</p>
+  description: >-
+    <p>Two objects within [dice]x10ft of each other cannot be moved more than
+    [dice]x10ft apart.</p>
   weightless: false
   equipped: false
   bulky: false

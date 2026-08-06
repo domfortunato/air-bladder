@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>You can see through a magical floating eyeball that flies around at your command.</p>
+  description: >-
+    <p>You can see through a magical floating eyeball that flies around at your
+    command.</p>
   weightless: false
   equipped: false
   bulky: false

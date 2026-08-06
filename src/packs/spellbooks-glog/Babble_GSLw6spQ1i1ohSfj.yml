@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>[dice] creatures must loudly and clearly repeat everything you think. It is otherwise mute.</p>
+  description: >-
+    <p>[dice] creatures must loudly and clearly repeat everything you think. It
+    is otherwise mute.</p>
   weightless: false
   equipped: false
   bulky: false

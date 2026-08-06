@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>A plant sprouts from the ground that emanates the smell of decaying flesh.</p>
+  description: >-
+    <p>A plant sprouts from the ground that emanates the smell of decaying
+    flesh.</p>
   weightless: false
   equipped: false
   bulky: false

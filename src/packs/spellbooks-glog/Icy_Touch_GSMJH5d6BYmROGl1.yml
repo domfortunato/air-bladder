@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>A thick ice layer spreads across a touched surface, up to [dice]×10ft in radius.</p>
+  description: >-
+    <p>A thick ice layer spreads across a touched surface, up to [dice]×10ft in
+    radius.</p>
   weightless: false
   equipped: false
   bulky: false

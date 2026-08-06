@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>A thicket of trees and dense brush up to [sum]×40ft wide suddenly sprouts up.</p>
+  description: >-
+    <p>A thicket of trees and dense brush up to [sum]×40ft wide suddenly sprouts
+    up.</p>
   weightless: false
   equipped: false
   bulky: false

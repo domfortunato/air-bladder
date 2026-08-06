@@ -10,7 +10,9 @@ flags:
     gearSource: glog-spells
 system:
   cost: 0
-  description: <p>You hear nearby magical auras singing. Volume and harmony signify the aura's power and refinement.</p>
+  description: >-
+    <p>You hear nearby magical auras singing. Volume and harmony signify the
+    aura's power and refinement.</p>
   weightless: false
   equipped: false
   bulky: false
