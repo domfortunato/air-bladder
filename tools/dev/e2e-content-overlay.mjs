@@ -646,6 +646,36 @@ try {
       const ctx = await pc.sheet._prepareContext({});
       out.failedCareerCtx = ctx.failedCareer;
       out.failedCareerItemCtx = ctx.failedCareerItem;
+
+      // ---- the omen TEXTAREA — the state a real character is in --------------
+      // Rolling an omen requires the checkbox ON and unticking CLEARS the omen,
+      // so the enabled textarea is the ONLY surface a character holding an omen
+      // ever shows. The span leg above kept this gate green for two rounds while
+      // every real player saw English — it asserts a state no UI path reaches.
+      await pc.update({ "system.omenEnabled": true });
+      let ta = null;
+      for (let i = 0; i < 40 && !ta; i++) {
+        await settle(150);
+        ta = pc.sheet.element?.querySelector(".omen-input");
+      }
+      out.omenTextareaShown = ta?.value ?? null;
+      // Untouched submit: a change event serializes the form at its DISPLAYED
+      // values, textarea included; the anchor must land the stored English back.
+      // Its positive witness that the dispatch actually submits is the edit leg
+      // below — same event, same machinery, polled until the write lands.
+      if (ta) {
+        ta.dispatchEvent(new Event("change", { bubbles: true }));
+        await settle(800);
+      }
+      out.omenStoredAfterSubmit = pc.system.omen;
+      // A player's own words pass verbatim — the anchor must not touch a real edit.
+      const ta2 = pc.sheet.element?.querySelector(".omen-input");
+      if (ta2) {
+        ta2.value = "ZZ presagio del jugador.";
+        ta2.dispatchEvent(new Event("change", { bubbles: true }));
+        for (let i = 0; i < 40 && pc.system.omen !== "ZZ presagio del jugador."; i++) await settle(150);
+      }
+      out.omenStoredAfterEdit = pc.system.omen;
       await pc.sheet.close();
 
       // ---- marketplace: gear row, TRANSPORT row, and the purchase toast ------
@@ -775,6 +805,15 @@ try {
   r2.omenStored === "Probe omen of the ZZ moon."
     ? ok("omen STORED stays English", "")
     : fail("omen STORED stays English", `stored ${JSON.stringify(r2.omenStored)}`);
+  r2.omenTextareaShown === "ZZ-PRESAGIO"
+    ? ok("omen TEXTAREA shows the translation", `"${r2.omenTextareaShown}"`)
+    : fail("omen TEXTAREA shows the translation", `value ${JSON.stringify(r2.omenTextareaShown)}`);
+  r2.omenStoredAfterSubmit === "Probe omen of the ZZ moon."
+    ? ok("omen untouched submit round-trips to English", "")
+    : fail("omen untouched submit round-trips to English", `stored ${JSON.stringify(r2.omenStoredAfterSubmit)}`);
+  r2.omenStoredAfterEdit === "ZZ presagio del jugador."
+    ? ok("omen player edit stores verbatim", "")
+    : fail("omen player edit stores verbatim", `stored ${JSON.stringify(r2.omenStoredAfterEdit)}`);
   r2.failedCareerCtx === "ZZ-ENTERRADOR" && r2.failedCareerItemCtx === "ZZ-PALA"
     ? ok("failed career + keepsake translated", `"${r2.failedCareerCtx}", "${r2.failedCareerItemCtx}"`)
     : fail("failed career + keepsake translated", `${JSON.stringify(r2.failedCareerCtx)} / ${JSON.stringify(r2.failedCareerItemCtx)}`);

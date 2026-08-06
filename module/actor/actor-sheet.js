@@ -1083,15 +1083,17 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.showOmen =
       this.actor.system.contentSource !== "barebones" ||
       game.settings.get(SETTINGS_NS, "show-omens-barebones");
-    // The omen's READ surface (the display span when the field is disabled, and
-    // eventually whatever renders it elsewhere). Omens are table.result rows and
-    // 19 of the 20 shipped ones are translated; the traits, scars and bonds
-    // around this field all consult the overlay and this one did not. The
-    // TEXTAREA stays the stored English deliberately, on its own grounds: it is
-    // a free-text edit surface with no display/value split BUILT for it. (This
-    // used to cite the item sheet's name input as precedent; that input gained
-    // its split on 2026-08-04, so the precedent expired — if Omen ever gets
-    // one, use the ANCHOR shape from _processFormData, not a reverse lookup.)
+    // The omen shows t("table.result", …) on BOTH surfaces — the read span and
+    // the TEXTAREA — with the submit anchored back to the stored English in
+    // _processFormData (2026-08-06, Malecho's second omen report). The textarea
+    // stayed raw English for two rounds and both grounds expired: "no
+    // display/value split built for it" ended when the name inputs gained the
+    // anchor (2026-08-04), and the READ span the first fix leaned on was
+    // UNREACHABLE with an omen present — rolling one requires the checkbox ON
+    // (the textarea state), and unticking it CLEARS the omen, so no character
+    // holding an omen could ever reach the branch that translated. A display
+    // fix must land on the state a real user is in, not just one the template
+    // can render.
     context.omenDisplay = t("table.result", this.actor.system.omen);
     // Barebones-only flavour: the career that didn't work out. Grants nothing.
     // Read the setting live, so a Warden switching it off hides the line on an
@@ -3069,6 +3071,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (this.actor.type !== "character" && data.name !== undefined
         && data.name === t("monster.name", this.actor.name)) {
       data.name = this.actor.name;
+    }
+
+    // The omen's submit half (2026-08-06, the fourth split). The textarea shows
+    // t("table.result", …) — see _prepareContext — so an untouched submit must
+    // round back to the stored English key, or the first submitOnChange after a
+    // roll persists the Spanish (ANY field's change serializes the whole form,
+    // textarea included). ANCHOR ONLY, no sourceOf fallback: unlike career
+    // there is no typed-label feature to keep — a player writing their own
+    // omen keeps it verbatim, in whatever language they wrote it.
+    const omen = foundry.utils.getProperty(data, "system.omen");
+    if (omen !== undefined && omen === t("table.result", this.actor.system.omen)) {
+      foundry.utils.setProperty(data, "system.omen", this.actor.system.omen);
     }
     const kind = foundry.utils.getProperty(data, "system.containerClass");
     if (kind !== undefined && kind !== "" && !CONTAINER_CLASSES[kind]) {

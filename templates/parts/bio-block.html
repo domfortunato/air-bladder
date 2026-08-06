@@ -64,14 +64,16 @@
                                     {{ localize 'CAIRN.Omen' }}
                                 </label>
                                 {{#if system.omenEnabled}}
+                                {{! omenDisplay = t("table.result", system.omen), on BOTH branches.
+                                    The textarea's submit maps back to the stored English via the
+                                    omen anchor in _processFormData — the stored value never leaves
+                                    the source string. }}
                                 <textarea class="omen-input" name="system.omen" rows="4"
-                                    placeholder="{{ localize 'CAIRN.OmenPlaceholder' }}">{{system.omen}}</textarea>
+                                    placeholder="{{ localize 'CAIRN.OmenPlaceholder' }}">{{omenDisplay}}</textarea>
                                 {{#if generationEnabled}}
                                 <a class="omen-roll" data-action="rollOmen" title="{{ localize 'CAIRN.RollOmen' }}"><i class="fas fa-dice-d20"></i></a>
                                 {{/if}}
                                 {{else}}
-                                {{! omenDisplay = t("table.result", system.omen) — the read surface
-                                    localizes; the textarea above stays the stored English source. }}
                                 <span class="omen-display">{{#if system.omen}}{{omenDisplay}}{{else}}{{ localize 'CAIRN.OmenPlaceholder' }}{{/if}}</span>
                                 {{/if}}
                             </div>
