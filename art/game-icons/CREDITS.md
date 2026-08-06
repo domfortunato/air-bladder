@@ -22,7 +22,7 @@ it.
 
 Icons made by Andy Meneely, Aussiesim, Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev, Delapouite, Faithtoken, GeneralAce135, Guard13007, Irongamer, Lorc, Lord Berandas, Lucas, Quoting, Rihlsul, Sbed, SeregaCthtuf, Skoll, Sparker, Starseeker, Various artists, Willdabeast.
 
-2174 icons in 36 categories.
+2219 icons in 37 categories.
 
 ## Animals
 
@@ -1320,6 +1320,56 @@ Icons made by Andy Meneely, Aussiesim, Carl Olsen, Caro Asercion, Cathelineau, D
 | `wine-bottle.svg` | Wine Bottle | Delapouite | <https://game-icons.net/1x1/delapouite/wine-bottle.html> |
 | `wine-glass.svg` | Wine Glass | Lorc | <https://game-icons.net/1x1/lorc/wine-glass.html> |
 | `wrapped-sweet.svg` | Wrapped Sweet | Lorc | <https://game-icons.net/1x1/lorc/wrapped-sweet.html> |
+
+## Glass
+
+| file | icon | author | source |
+| --- | --- | --- | --- |
+| `3d-glasses.svg` | 3d Glasses | Delapouite | <https://game-icons.net/1x1/delapouite/3d-glasses.html> |
+| `beer-stein.svg` | Beer Stein | Lorc | <https://game-icons.net/1x1/lorc/beer-stein.html> |
+| `booze.svg` | Booze | Delapouite | <https://game-icons.net/1x1/delapouite/booze.html> |
+| `brandy-bottle.svg` | Brandy Bottle | Lorc | <https://game-icons.net/1x1/lorc/brandy-bottle.html> |
+| `broken-bottle.svg` | Broken Bottle | Lorc | <https://game-icons.net/1x1/lorc/broken-bottle.html> |
+| `cloth-jar.svg` | Cloth Jar | Delapouite | <https://game-icons.net/1x1/delapouite/cloth-jar.html> |
+| `corked-tube.svg` | Corked Tube | Lorc | <https://game-icons.net/1x1/lorc/corked-tube.html> |
+| `cracked-glass.svg` | Cracked Glass | Lorc | <https://game-icons.net/1x1/lorc/cracked-glass.html> |
+| `crystal-ball.svg` | Crystal Ball | Lorc | <https://game-icons.net/1x1/lorc/crystal-ball.html> |
+| `dragon-balls.svg` | Dragon Balls | Lorc | <https://game-icons.net/1x1/lorc/dragon-balls.html> |
+| `empty-hourglass.svg` | Empty Hourglass | Lorc | <https://game-icons.net/1x1/lorc/empty-hourglass.html> |
+| `glass-ball.svg` | Glass Ball | Delapouite | <https://game-icons.net/1x1/delapouite/glass-ball.html> |
+| `glass-celebration.svg` | Glass Celebration | Delapouite | <https://game-icons.net/1x1/delapouite/glass-celebration.html> |
+| `glass-heart.svg` | Glass Heart | Lorc | <https://game-icons.net/1x1/lorc/glass-heart.html> |
+| `glass-shot.svg` | Glass Shot | Lorc | <https://game-icons.net/1x1/lorc/glass-shot.html> |
+| `health-potion.svg` | Health Potion | Delapouite | <https://game-icons.net/1x1/delapouite/health-potion.html> |
+| `hourglass.svg` | Hourglass | Lorc | <https://game-icons.net/1x1/lorc/hourglass.html> |
+| `ice-cubes.svg` | Ice Cubes | Delapouite | <https://game-icons.net/1x1/delapouite/ice-cubes.html> |
+| `lightning-dome.svg` | Lightning Dome | Delapouite | <https://game-icons.net/1x1/delapouite/lightning-dome.html> |
+| `magnifying-glass.svg` | Magnifying Glass | Lorc | <https://game-icons.net/1x1/lorc/magnifying-glass.html> |
+| `martini.svg` | Martini | Lorc | <https://game-icons.net/1x1/lorc/martini.html> |
+| `mason-jar.svg` | Mason Jar | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/mason-jar.html> |
+| `mirror-mirror.svg` | Mirror Mirror | Lorc | <https://game-icons.net/1x1/lorc/mirror-mirror.html> |
+| `potion-ball.svg` | Potion Ball | Lorc | <https://game-icons.net/1x1/lorc/potion-ball.html> |
+| `prank-glasses.svg` | Prank Glasses | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/prank-glasses.html> |
+| `prism.svg` | Prism | Delapouite | <https://game-icons.net/1x1/delapouite/prism.html> |
+| `protection-glasses.svg` | Protection Glasses | Delapouite | <https://game-icons.net/1x1/delapouite/protection-glasses.html> |
+| `shatter.svg` | Shatter | Lorc | <https://game-icons.net/1x1/lorc/shatter.html> |
+| `shattered-glass.svg` | Shattered Glass | Lorc | <https://game-icons.net/1x1/lorc/shattered-glass.html> |
+| `shattered-heart.svg` | Shattered Heart | Delapouite | <https://game-icons.net/1x1/delapouite/shattered-heart.html> |
+| `skull-in-jar.svg` | Skull In Jar | Lorc | <https://game-icons.net/1x1/lorc/skull-in-jar.html> |
+| `snow-bottle.svg` | Snow Bottle | Lorc | <https://game-icons.net/1x1/lorc/snow-bottle.html> |
+| `spectacle-lenses.svg` | Spectacle Lenses | Lorc | <https://game-icons.net/1x1/lorc/spectacle-lenses.html> |
+| `spectacles.svg` | Spectacles | Lorc | <https://game-icons.net/1x1/lorc/spectacles.html> |
+| `square-bottle.svg` | Square Bottle | Lorc | <https://game-icons.net/1x1/lorc/square-bottle.html> |
+| `steampunk-goggles.svg` | Steampunk Goggles | Delapouite | <https://game-icons.net/1x1/delapouite/steampunk-goggles.html> |
+| `striking-diamonds.svg` | Striking Diamonds | Lorc | <https://game-icons.net/1x1/lorc/striking-diamonds.html> |
+| `sunglasses.svg` | Sunglasses | Delapouite | <https://game-icons.net/1x1/delapouite/sunglasses.html> |
+| `test-tube-held.svg` | Test Tube Held | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/test-tube-held.html> |
+| `test-tube-rack.svg` | Test Tube Rack | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/test-tube-rack.html> |
+| `test-tubes.svg` | Test Tubes | Lorc | <https://game-icons.net/1x1/lorc/test-tubes.html> |
+| `ultrasound.svg` | Ultrasound | Lorc | <https://game-icons.net/1x1/lorc/ultrasound.html> |
+| `window.svg` | Window | Delapouite | <https://game-icons.net/1x1/delapouite/window.html> |
+| `wine-bottle.svg` | Wine Bottle | Delapouite | <https://game-icons.net/1x1/delapouite/wine-bottle.html> |
+| `wine-glass.svg` | Wine Glass | Lorc | <https://game-icons.net/1x1/lorc/wine-glass.html> |
 
 ## Greek Roman
 
