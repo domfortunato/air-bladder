@@ -2,7 +2,7 @@ import { CairnActor } from "./actor/actor.js";
 import { compendiumInfoFromString, drawTableText, resultText, findTableByName } from "./compendium.js";
 import { Cairn } from "./config.js";
 import { evaluateFormula, formatCount } from "./utils.js";
-import { resolveGearItem, SPELL_PACKS, GEAR_ALIASES, spellScrollItem } from "./gear.js";
+import { resolveGearItem, GEAR_ALIASES, spellScrollItem } from "./gear.js";
 import { containerClass, iconForTransport } from "./icons.js";
 import { connectionHeadroom, maxConnections, connectedOwnershipShape, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { SETTINGS_NS } from "./settings.js";
@@ -1188,27 +1188,53 @@ const barebonesTable = async (name) => {
   return (await pack.getDocuments()).find((t) => t.name === name) ?? null;
 };
 
-/** Every spellbook across both packs, cached. @returns {Promise<CairnItem[]>} */
-let _spellbooks = null;
-const getSpellbooks = async () => {
-  if (_spellbooks === null) {
-    _spellbooks = [];
-    for (const key of SPELL_PACKS) {
-      const pack = game.packs.get(key);
-      if (pack) _spellbooks.push(...(await pack.getDocuments()));
+/**
+ * The pack a RANDOM spell is drawn from — canon only, by ruling (2026-08-05):
+ * "random assignment of spells and spell scrolls during character generation
+ * with Cairn 2e Canon Backgrounds [uses] only the spells listed in the
+ * Spellbooks compendium." Deliberately NOT `SPELL_PACKS`: that list answers a
+ * different question — which packs a by-NAME grant like "Spellbook (Shield)"
+ * resolves against — and a shared constant would let widening one silently
+ * widen the other.
+ */
+const SPELL_POOL_PACK = "air-bladder.spellbooks";
+
+/**
+ * One random spellbook DOCUMENT out of `packIds`, index-first.
+ *
+ * No cache, on purpose. The old shape memoized `getDocuments()` across both
+ * spell packs and never invalidated, so a spell a Warden added to an unlocked
+ * pack was undrawable until the browser reloaded — silently. There is nothing
+ * to invalidate here: core maintains `pack.index` live on every client
+ * (client-document.mjs _onCreate/_onUpdate/_onDelete all reindex), so reading
+ * the index each draw is both current and effectively free, and only the one
+ * winning document pays a server fetch.
+ *
+ * The type filter is load-bearing: an unlocked pack accepts ANY item, and a
+ * Dagger dropped into Spellbooks must not come out of "a random spellbook".
+ * @returns {Promise<CairnItem|null>}
+ */
+export const randomSpellbookDoc = async (packIds = [SPELL_POOL_PACK]) => {
+  const candidates = [];
+  for (const key of packIds) {
+    const pack = game.packs.get(key);
+    if (!pack) continue;
+    for (const e of await pack.getIndex()) {
+      if (e.type === "spellbook") candidates.push({ pack, id: e._id });
     }
   }
-  return _spellbooks;
+  if (!candidates.length) return null;
+  const pick = candidates[Math.floor(Math.random() * candidates.length)];
+  return pick.pack.getDocument(pick.id);
 };
 
 /** A random spellbook as an owned item, named for the spell it holds. The
  *  inventory list adds the "Spellbook — " prefix at display time
  *  (templates/parts/items-list.html), so the stored name stays the bare spell
  *  name — baking the prefix in here too would double it. */
-const randomSpellbookItem = async () => {
-  const books = await getSpellbooks();
-  if (!books.length) return null;
-  const b = books[Math.floor(Math.random() * books.length)];
+export const randomSpellbookItem = async () => {
+  const b = await randomSpellbookDoc();
+  if (!b) return null;
   // toObject(), not deepClone — deepClone returns a TypeDataModel by reference,
   // so this would alias the compendium document. See gear.js resolveGearItem.
   return { name: b.name, type: b.type, img: b.img, system: b.system.toObject() };
@@ -1216,10 +1242,9 @@ const randomSpellbookItem = async () => {
 
 /** A random spellbook as a single-use petty scroll. The spell's effect is the
  *  description; casting consumes it. */
-const randomScrollItem = async () => {
-  const books = await getSpellbooks();
-  if (!books.length) return null;
-  const b = books[Math.floor(Math.random() * books.length)];
+export const randomScrollItem = async () => {
+  const b = await randomSpellbookDoc();
+  if (!b) return null;
   return spellScrollItem(b);   // shared scroll shape — see gear.js
 };
 
