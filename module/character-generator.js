@@ -50,7 +50,7 @@ export const getPortraitManifest = async () => {
   return _portraitManifest;
 };
 
-// The Game-Icons gallery: 2,074 game-icons.net glyphs in 34 categories, browsed
+// The Game-Icons gallery: 2,133 game-icons.net glyphs in 35 categories, browsed
 // category-first in the portrait picker (see tools/import/game-icons.mjs). Same
 // lazy-fetch-and-cache shape as the portraits above, and for the same reason —
 // a player picking art cannot enumerate a server folder. Kept here rather than

@@ -86,7 +86,7 @@ Character portraits and tokens — CC BY 4.0, © Jon Aspeheim
 
 game-icons.net art — CC BY 3.0
     icons/       — the class icons, by Lorc, Delapouite & Skoll
-    art/game-icons/  — the Game-Icons picker gallery, 2,074 glyphs in 34
+    art/game-icons/  — the Game-Icons picker gallery, 2,133 glyphs in 35
                    categories by 22 named contributors
     https://creativecommons.org/licenses/by/3.0/
     Two paths, one grant: same source, same licence, different jobs. Per-icon

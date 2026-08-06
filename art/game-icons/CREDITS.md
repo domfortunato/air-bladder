@@ -22,7 +22,7 @@ it.
 
 Icons made by Andy Meneely, Aussiesim, Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev, Delapouite, Faithtoken, GeneralAce135, Guard13007, Irongamer, Lorc, Lord Berandas, Lucas, Quoting, Rihlsul, Sbed, SeregaCthtuf, Skoll, Sparker, Starseeker, Various artists, Willdabeast.
 
-2074 icons in 34 categories.
+2133 icons in 35 categories.
 
 ## Animals
 
@@ -1466,6 +1466,70 @@ Icons made by Andy Meneely, Aussiesim, Carl Olsen, Caro Asercion, Cathelineau, D
 | `turd.svg` | Turd | Lorc | <https://game-icons.net/1x1/lorc/turd.html> |
 | `wasp-sting.svg` | Wasp Sting | Lorc | <https://game-icons.net/1x1/lorc/wasp-sting.html> |
 | `web-spit.svg` | Web Spit | Lorc | <https://game-icons.net/1x1/lorc/web-spit.html> |
+
+## Lock
+
+| file | icon | author | source |
+| --- | --- | --- | --- |
+| `airtight-hatch.svg` | Airtight Hatch | Delapouite | <https://game-icons.net/1x1/delapouite/airtight-hatch.html> |
+| `artificial-hive.svg` | Artificial Hive | Lorc | <https://game-icons.net/1x1/lorc/artificial-hive.html> |
+| `belt-buckles.svg` | Belt Buckles | Lorc | <https://game-icons.net/1x1/lorc/belt-buckles.html> |
+| `boarding-pass.svg` | Boarding Pass | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/boarding-pass.html> |
+| `bolt-cutter.svg` | Bolt Cutter | Delapouite | <https://game-icons.net/1x1/delapouite/bolt-cutter.html> |
+| `boss-key.svg` | Boss Key | Delapouite | <https://game-icons.net/1x1/delapouite/boss-key.html> |
+| `breaking-chain.svg` | Breaking Chain | Skoll | <https://game-icons.net/1x1/skoll/breaking-chain.html> |
+| `cage.svg` | Cage | Delapouite | <https://game-icons.net/1x1/delapouite/cage.html> |
+| `car-key.svg` | Car Key | Delapouite | <https://game-icons.net/1x1/delapouite/car-key.html> |
+| `chest.svg` | Chest | Delapouite | <https://game-icons.net/1x1/delapouite/chest.html> |
+| `closed-doors.svg` | Closed Doors | Delapouite | <https://game-icons.net/1x1/delapouite/closed-doors.html> |
+| `cog-lock.svg` | Cog Lock | Lorc | <https://game-icons.net/1x1/lorc/cog-lock.html> |
+| `combination-lock.svg` | Combination Lock | Skoll | <https://game-icons.net/1x1/skoll/combination-lock.html> |
+| `crossed-chains.svg` | Crossed Chains | Lorc | <https://game-icons.net/1x1/lorc/crossed-chains.html> |
+| `dial-padlock.svg` | Dial Padlock | Delapouite | <https://game-icons.net/1x1/delapouite/dial-padlock.html> |
+| `door-handle.svg` | Door Handle | Delapouite | <https://game-icons.net/1x1/delapouite/door-handle.html> |
+| `door-ring-handle.svg` | Door Ring Handle | Delapouite | <https://game-icons.net/1x1/delapouite/door-ring-handle.html> |
+| `guarded-tower.svg` | Guarded Tower | Lorc | <https://game-icons.net/1x1/lorc/guarded-tower.html> |
+| `handcuffed.svg` | Handcuffed | Delapouite | <https://game-icons.net/1x1/delapouite/handcuffed.html> |
+| `handcuffs.svg` | Handcuffs | Lorc | <https://game-icons.net/1x1/lorc/handcuffs.html> |
+| `heart-key.svg` | Heart Key | Delapouite | <https://game-icons.net/1x1/delapouite/heart-key.html> |
+| `house-keys.svg` | House Keys | Delapouite | <https://game-icons.net/1x1/delapouite/house-keys.html> |
+| `key-card.svg` | Key Card | Delapouite | <https://game-icons.net/1x1/delapouite/key-card.html> |
+| `key-lock.svg` | Key Lock | Delapouite | <https://game-icons.net/1x1/delapouite/key-lock.html> |
+| `key-lorc.svg` | Key | Lorc | <https://game-icons.net/1x1/lorc/key.html> |
+| `key-sbed.svg` | Key | Sbed | <https://game-icons.net/1x1/sbed/key.html> |
+| `keyring.svg` | Keyring | Delapouite | <https://game-icons.net/1x1/delapouite/keyring.html> |
+| `lock-picking.svg` | Lock Picking | Delapouite | <https://game-icons.net/1x1/delapouite/lock-picking.html> |
+| `lock-spy.svg` | Lock Spy | Delapouite | <https://game-icons.net/1x1/delapouite/lock-spy.html> |
+| `locked-box.svg` | Locked Box | Delapouite | <https://game-icons.net/1x1/delapouite/locked-box.html> |
+| `locked-chest.svg` | Locked Chest | Lorc | <https://game-icons.net/1x1/lorc/locked-chest.html> |
+| `locked-door.svg` | Locked Door | Delapouite | <https://game-icons.net/1x1/delapouite/locked-door.html> |
+| `locked-fortress.svg` | Locked Fortress | Lorc | <https://game-icons.net/1x1/lorc/locked-fortress.html> |
+| `locked-heart.svg` | Locked Heart | Delapouite | <https://game-icons.net/1x1/delapouite/locked-heart.html> |
+| `lockers.svg` | Lockers | Delapouite | <https://game-icons.net/1x1/delapouite/lockers.html> |
+| `lockpicks.svg` | Lockpicks | Delapouite | <https://game-icons.net/1x1/delapouite/lockpicks.html> |
+| `manacles.svg` | Manacles | Lorc | <https://game-icons.net/1x1/lorc/manacles.html> |
+| `millenium-key.svg` | Millenium Key | Delapouite | <https://game-icons.net/1x1/delapouite/millenium-key.html> |
+| `mimic-chest.svg` | Mimic Chest | Delapouite | <https://game-icons.net/1x1/delapouite/mimic-chest.html> |
+| `open-chest.svg` | Open Chest | Skoll | <https://game-icons.net/1x1/skoll/open-chest.html> |
+| `open-treasure-chest.svg` | Open Treasure Chest | Skoll | <https://game-icons.net/1x1/skoll/open-treasure-chest.html> |
+| `padlock-open.svg` | Padlock Open | Delapouite | <https://game-icons.net/1x1/delapouite/padlock-open.html> |
+| `padlock.svg` | Padlock | Lorc | <https://game-icons.net/1x1/lorc/padlock.html> |
+| `pendant-key.svg` | Pendant Key | Delapouite | <https://game-icons.net/1x1/delapouite/pendant-key.html> |
+| `plain-padlock.svg` | Plain Padlock | Delapouite | <https://game-icons.net/1x1/delapouite/plain-padlock.html> |
+| `secret-book.svg` | Secret Book | Delapouite | <https://game-icons.net/1x1/delapouite/secret-book.html> |
+| `silence.svg` | Silence | Lorc | <https://game-icons.net/1x1/lorc/silence.html> |
+| `skeleton-key.svg` | Skeleton Key | Lorc | <https://game-icons.net/1x1/lorc/skeleton-key.html> |
+| `spiked-fence.svg` | Spiked Fence | Lorc | <https://game-icons.net/1x1/lorc/spiked-fence.html> |
+| `star-key.svg` | Star Key | Delapouite | <https://game-icons.net/1x1/delapouite/star-key.html> |
+| `steel-door.svg` | Steel Door | Skoll | <https://game-icons.net/1x1/skoll/steel-door.html> |
+| `strongbox.svg` | Strongbox | Delapouite | <https://game-icons.net/1x1/delapouite/strongbox.html> |
+| `subway-pass.svg` | Subway Pass | Caro Asercion | <https://game-icons.net/1x1/caro-asercion/subway-pass.html> |
+| `three-keys.svg` | Three Keys | Lorc | <https://game-icons.net/1x1/lorc/three-keys.html> |
+| `tree-door.svg` | Tree Door | Delapouite | <https://game-icons.net/1x1/delapouite/tree-door.html> |
+| `triple-lock.svg` | Triple Lock | Lorc | <https://game-icons.net/1x1/lorc/triple-lock.html> |
+| `unlocking.svg` | Unlocking | Lorc | <https://game-icons.net/1x1/lorc/unlocking.html> |
+| `wax-seal.svg` | Wax Seal | Lorc | <https://game-icons.net/1x1/lorc/wax-seal.html> |
+| `zipper.svg` | Zipper | Delapouite | <https://game-icons.net/1x1/delapouite/zipper.html> |
 
 ## Mammals
 
