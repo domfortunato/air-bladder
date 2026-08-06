@@ -226,6 +226,8 @@
   "CAIRN.GameIconsBack": "All categories",
   "CAIRN.GameIconsCredit": "Icons by <a href=\"https://game-icons.net\" target=\"_blank\" rel=\"noopener\">game-icons.net</a> contributors · <a href=\"https://creativecommons.org/licenses/by/3.0/\" target=\"_blank\" rel=\"noopener\">CC BY 3.0</a> · per-icon authors in art/game-icons/CREDITS.md",
   "CAIRN.GenerationRolls": "rolled a new character, {name}!",
+  "CAIRN.Glog": "GLOG",
+  "CAIRN.GlogTip": "This is the spell's GLOG Magic wording — its effect scales with the [dice] invested and the [sum] rolled. Marking it changes nothing else; it records which version of the spell this is.",
   "CAIRN.Gold": "Gold",
   "CAIRN.GoldTip": "Gold is heavy: the first {n} are petty (weightless); every further {n} fills an inventory slot.",
   "CAIRN.GoldTipWeightless": "Gold is weightless in this game — it never fills inventory slots.",
