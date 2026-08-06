@@ -395,9 +395,13 @@ export const openMarketplace = async (actor, opts = {}) => {
     return;
   }
 
-  const labelFor = (n) => n === 1
-    ? game.i18n.localize("CAIRN.MarketplaceSlot")
-    : game.i18n.localize("CAIRN.MarketplaceSlots");
+  // Counted nouns go through formatCount (review #9): the hand-rolled
+  // one-or-many here was English's binary plural with the number concatenated
+  // in front — unexpressable word order for a translator, and wrong for any
+  // locale with more than two forms (Polish needs few/many). CAIRN.NSlot is
+  // the same noun the background tagline already formats this way, so the two
+  // surfaces cannot disagree; the retired MarketplaceSlot/MarketplaceSlots
+  // keys left en.json and es.json with this change.
   const descHtmlOf = (text) => {
     // Descriptions may be ProseMirror HTML; pull out plain text (tags stripped,
     // entities decoded) via DOMParser — which runs no scripts and loads no
@@ -427,13 +431,13 @@ export const openMarketplace = async (actor, opts = {}) => {
         const idx = built.push(data) - 1;
         const cap = data.system.slots ?? 0;
         const tags = transportChips(data).map((c) => `<span class="mkt-chip">${esc(c)}</span>`).join("");
-        const metaHtml = `<span class="mkt-slots mkt-capacity" title="${game.i18n.localize("CAIRN.TransportCapacity")}">+${cap} ${esc(labelFor(cap))}</span>`;
+        const metaHtml = `<span class="mkt-slots mkt-capacity" title="${game.i18n.localize("CAIRN.TransportCapacity")}">+${esc(formatCount("CAIRN.NSlot", cap))}</span>`;
         return rowHtml({ idx, cost: data.system.cost ?? 0, name: d.name, tagsHtml: tags, metaHtml, descHtml: descHtmlOf(d.system.description) });
       }
       const idx = built.push(data) - 1;
       const slots = slotCost(data.system);
       const tags = chips(data).map((c) => `<span class="mkt-chip">${esc(c)}</span>`).join("");
-      const metaHtml = `<span class="mkt-slots">${slots} ${esc(labelFor(slots))}</span>`;
+      const metaHtml = `<span class="mkt-slots">${esc(formatCount("CAIRN.NSlot", slots))}</span>`;
       return rowHtml({ idx, cost: data.system.cost ?? 0, name: d.name, tagsHtml: tags, metaHtml, descHtml: descHtmlOf(d.system.description) });
     }).join("");
     return `<div class="mkt-cat"><div class="mkt-cat-name">${esc(cat.label ?? cat.name)}</div>${rows}</div>`;
@@ -511,10 +515,21 @@ export const openMarketplace = async (actor, opts = {}) => {
         if (!data) return;
         btn.disabled = true;
         const pay = btn.classList.contains("mkt-buy");
-        // A transport mints a container Actor; everything else is an embedded item.
-        if (isCarrier(data)) await acquireTransport(actor, data, pay);
-        else await acquire(actor, foundry.utils.deepClone(data), pay);
-        refresh();
+        // try/finally, because refresh() is the ONLY thing that re-enables the
+        // row: a rejected acquire (a permissions wall mid-write is recorded
+        // above) used to leave this Buy/Take dead for the life of the dialog
+        // with nothing but a console error (review #9). The error is surfaced
+        // and the rows re-derive either way.
+        try {
+          // A transport mints a container Actor; everything else is an embedded item.
+          if (isCarrier(data)) await acquireTransport(actor, data, pay);
+          else await acquire(actor, foundry.utils.deepClone(data), pay);
+        } catch (err) {
+          console.error("Air Bladder | marketplace acquire failed:", err);
+          ui.notifications.error(game.i18n.localize("CAIRN.Notify.DropFailed"));
+        } finally {
+          refresh();
+        }
         return;
       }
       const main = ev.target.closest(".mkt-row-main");

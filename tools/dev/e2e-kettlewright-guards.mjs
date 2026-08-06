@@ -47,6 +47,32 @@ await page.evaluate(async () => {
 await page.evaluate(() => ui.sidebar.changeTab?.("actors", "primary") ?? ui.sidebar.activateTab?.("actors"));
 await page.waitForTimeout(600);
 
+/* 0. Cancel is a refusal (review #9 finding 13) ------------------------------
+ * DialogV2 resolves a button as `(await callback(...)) ?? button.action`
+ * (dialog.mjs:273), so a Cancel with no callback fell through to the string
+ * "cancel" — truthy at the call site — and the Cancel BUTTON proceeded to the
+ * file picker with the safety gate silently off. The observable is the picker:
+ * this runs BEFORE the answering filechooser listener below is registered, so
+ * a wrongly-opened picker is detected, not fed. Fail-witness (run 2026-08-06):
+ * with `callback: () => false` removed, chooserOpened=true and this leg is the
+ * only red in the run. */
+let chooserOpened = false;
+const detectChooser = () => { chooserOpened = true; };
+page.on("filechooser", detectChooser);
+await page.evaluate(() => document.querySelector(".import-kettlewright-button")?.click());
+await page.waitForSelector(".kwi-options", { timeout: 15000 });
+await page.evaluate(() => {
+  const btn = [...document.querySelectorAll(".dialog-v2 button, .application.dialog button, dialog.application button")]
+    .find((b) => b.dataset.action === "cancel");
+  btn?.click();
+});
+await page.waitForTimeout(2500);
+const cancelState = await page.evaluate(() => ({
+  dialogGone: !document.querySelector(".kwi-options"),
+  actors: game.actors.filter((a) => ["Solene", "Guardrail"].includes(a.name)).length,
+}));
+page.off("filechooser", detectChooser);
+
 let file = bogus;
 page.on("filechooser", (fc) => fc.setFiles(file).catch((e) => console.log("setFiles failed:", e.message)));
 
@@ -118,7 +144,12 @@ const check = (label, ok, detail) => {
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${label.padEnd(16)} ${detail}`);
 };
 
-console.log("unmatched background, gate ON");
+console.log("Cancel on the options dialog");
+check("dialog closed", cancelState.dialogGone, "the options dialog is gone");
+check("no file picker", !chooserOpened, `chooserOpened=${chooserOpened}`);
+check("nothing created", cancelState.actors === 0, `actors=${cancelState.actors}`);
+
+console.log("\nunmatched background, gate ON");
 check("no actor", !madeBogus && refusal.actors === 0, `created=${refusal.actors}`);
 check("error shown", /cheesemonger/i.test(refusal.error), JSON.stringify(refusal.error.slice(0, 90)));
 // The refusal is only actionable if it says how to get past it.

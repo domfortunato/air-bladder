@@ -696,11 +696,18 @@ const promptImportOptions = async () => {
           requireBackground: !!button.form?.elements?.requireBackground?.checked,
         }),
       },
-      { action: "cancel", label: L("CAIRN.Cancel"), callback: () => null },
+      // `false`, never `null`: DialogV2 resolves a button as
+      // `(await callback(...)) ?? button.action` (dialog.mjs:273), so a
+      // callback returning null falls through to the string "cancel" — truthy
+      // at the call site, which made the Cancel BUTTON proceed to the file
+      // picker with `requireBackground` undefined, the safety gate silently
+      // off (review #9). Only the header ✕ resolved null and really
+      // cancelled. `false` survives the ?? and reads as the refusal it is.
+      { action: "cancel", label: L("CAIRN.Cancel"), callback: () => false },
     ],
     rejectClose: false,
   });
-  return result ?? null;
+  return result || null;
 };
 
 /**

@@ -290,8 +290,18 @@ export async function pickArt({
 
   const root = dialog.element;
   const commit = async (src) => {
-    await onPick(src);
-    dialog.close();
+    // A rejected onPick (a player's token.document.update refused, say) used
+    // to leave the picker open forever with no feedback (review #9): surface
+    // the error, and close either way — the pick was made; keeping a dead
+    // dialog on screen answers nothing.
+    try {
+      await onPick(src);
+    } catch (err) {
+      console.error("Air Bladder | art pick failed:", err);
+      ui.notifications.error(game.i18n.localize("CAIRN.Notify.DropFailed"));
+    } finally {
+      dialog.close();
+    }
   };
   const wireChoice = (img) =>
     img.addEventListener("click", () => commit(img.dataset.src));
