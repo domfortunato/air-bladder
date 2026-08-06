@@ -1,7 +1,7 @@
 _id: XGxHc7C2FIIhbNuE
 name: Helmet
 type: armor
-img: systems/air-bladder/art/game-icons/armor/crested-helmet.svg
+img: systems/air-bladder/art/game-icons/armor/black-knight-helm.svg
 effects: []
 folder: null
 sort: 0
@@ -24,4 +24,11 @@ ownership:
 _stats:
   systemId: air-bladder
   coreVersion: '14.365'
+  systemVersion: 0.1.10
+  createdTime: 1786052028829
+  modifiedTime: 1786052028829
+  lastModifiedBy: ipqqDDQxZaMLtwLc
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
 _key: '!items!XGxHc7C2FIIhbNuE'

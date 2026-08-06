@@ -2,16 +2,16 @@ name: Pulley
 type: item
 flags:
   core: {}
-img: systems/air-bladder/art/game-icons/tools/hook.svg
+img: systems/air-bladder/art/game-icons/tools/rope-coil.svg
 effects: []
 _id: jc8xZQDRg1Lctro9
 _stats:
   coreVersion: '14.365'
   systemId: null
   systemVersion: null
-  createdTime: null
-  modifiedTime: null
-  lastModifiedBy: null
+  createdTime: 1786054438611
+  modifiedTime: 1786054438611
+  lastModifiedBy: ipqqDDQxZaMLtwLc
   compendiumSource: null
   duplicateSource: null
   exportSource: null

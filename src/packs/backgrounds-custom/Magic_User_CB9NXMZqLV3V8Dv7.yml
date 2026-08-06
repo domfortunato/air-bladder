@@ -11,7 +11,9 @@ flags:
 system:
   source: 2e
   archetype: Wizard
-  description: <p>You study the powers of magic and the secret ways of the world. Spellbooks are your obsession.</p>
+  description: >-
+    <p>You study the powers of magic and the secret ways of the world.
+    Spellbooks are your obsession.</p>
   names:
     - Bargle
     - Dalamar

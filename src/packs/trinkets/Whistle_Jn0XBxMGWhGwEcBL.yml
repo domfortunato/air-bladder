@@ -3,15 +3,15 @@ name: Whistle
 type: item
 flags:
   core: {}
-img: systems/air-bladder/art/game-icons/mouth/shouting.svg
+img: systems/air-bladder/art/game-icons/sounds/whistle.svg
 effects: []
 _stats:
   coreVersion: '14.365'
   systemId: null
   systemVersion: null
-  createdTime: null
-  modifiedTime: null
-  lastModifiedBy: null
+  createdTime: 1786053952287
+  modifiedTime: 1786053952287
+  lastModifiedBy: ipqqDDQxZaMLtwLc
   compendiumSource: null
   duplicateSource: null
   exportSource: null

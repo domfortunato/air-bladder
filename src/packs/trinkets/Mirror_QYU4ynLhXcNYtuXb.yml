@@ -3,15 +3,15 @@ name: Mirror
 type: item
 flags:
   core: {}
-img: systems/air-bladder/icons/generic-item.svg
+img: systems/air-bladder/art/game-icons/glass/mirror-mirror.svg
 effects: []
 _stats:
   coreVersion: '14.365'
   systemId: null
   systemVersion: null
-  createdTime: null
-  modifiedTime: null
-  lastModifiedBy: null
+  createdTime: 1786054257667
+  modifiedTime: 1786054257667
+  lastModifiedBy: ipqqDDQxZaMLtwLc
   compendiumSource: null
   duplicateSource: null
   exportSource: null

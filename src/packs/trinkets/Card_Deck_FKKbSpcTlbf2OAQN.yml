@@ -3,7 +3,7 @@ name: Card Deck
 type: item
 flags:
   core: {}
-img: systems/air-bladder/art/game-icons/body/character.svg
+img: systems/air-bladder/art/game-icons/boards/ace.svg
 effects: []
 system:
   cost: 5
@@ -29,7 +29,7 @@ _stats:
   systemVersion: 0.10.26
   coreVersion: '14.365'
   createdTime: 1785861587500
-  modifiedTime: 1785861587500
+  modifiedTime: 1786054092169
   lastModifiedBy: ipqqDDQxZaMLtwLc
   compendiumSource: null
   duplicateSource: null

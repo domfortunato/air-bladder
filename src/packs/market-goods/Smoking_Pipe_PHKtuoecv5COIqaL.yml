@@ -1,7 +1,7 @@
 _id: PHKtuoecv5COIqaL
 name: Smoking Pipe
 type: item
-img: systems/air-bladder/icons/generic-item.svg
+img: systems/air-bladder/art/game-icons/smoke/smoking-pipe.svg
 effects: []
 folder: null
 sort: 0
@@ -25,4 +25,11 @@ ownership:
 _stats:
   systemId: air-bladder
   coreVersion: '14.365'
+  systemVersion: 0.1.10
+  createdTime: 1786053892406
+  modifiedTime: 1786053892406
+  lastModifiedBy: ipqqDDQxZaMLtwLc
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
 _key: '!items!PHKtuoecv5COIqaL'

@@ -2,16 +2,16 @@ name: Sword
 type: weapon
 flags:
   core: {}
-img: systems/air-bladder/art/game-icons/blade/ancient-sword.svg
+img: systems/air-bladder/art/game-icons/blade/pointy-sword.svg
 effects: []
 _id: 1k4xfzZwGS583eRa
 _stats:
   coreVersion: '14.365'
   systemId: null
   systemVersion: null
-  createdTime: null
-  modifiedTime: null
-  lastModifiedBy: null
+  createdTime: 1786054352510
+  modifiedTime: 1786054352510
+  lastModifiedBy: ipqqDDQxZaMLtwLc
   compendiumSource: null
   duplicateSource: null
   exportSource: null

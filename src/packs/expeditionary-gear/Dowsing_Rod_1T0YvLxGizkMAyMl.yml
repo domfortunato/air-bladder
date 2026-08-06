@@ -1,7 +1,7 @@
 _id: 1T0YvLxGizkMAyMl
 name: Dowsing Rod
 type: item
-img: systems/air-bladder/icons/generic-item.svg
+img: systems/air-bladder/art/game-icons/tools/lead-pipe.svg
 effects: []
 folder: null
 sort: 0
@@ -11,9 +11,9 @@ _stats:
   coreVersion: '14.365'
   systemId: null
   systemVersion: null
-  createdTime: null
-  modifiedTime: null
-  lastModifiedBy: null
+  createdTime: 1786053420423
+  modifiedTime: 1786053420423
+  lastModifiedBy: ipqqDDQxZaMLtwLc
   compendiumSource: null
   duplicateSource: null
   exportSource: null

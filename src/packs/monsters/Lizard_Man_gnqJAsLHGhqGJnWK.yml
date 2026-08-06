@@ -3,7 +3,7 @@ name: Lizard Man
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/art/game-icons/mouth/lizard-tongue.svg
+img: systems/air-bladder/art/game-icons/reptiles/croc-jaws.svg
 items:
   - _id: yPdeXpyddxGQTCTn
     name: Bone Armor
@@ -84,9 +84,9 @@ _stats:
   coreVersion: '14.365'
   systemId: null
   systemVersion: null
-  createdTime: null
-  modifiedTime: null
-  lastModifiedBy: null
+  createdTime: 1786051576783
+  modifiedTime: 1786051576783
+  lastModifiedBy: ipqqDDQxZaMLtwLc
   compendiumSource: null
   duplicateSource: null
   exportSource: null
@@ -161,7 +161,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: systems/air-bladder/art/game-icons/mouth/lizard-tongue.svg
+    src: systems/air-bladder/art/game-icons/reptiles/croc-jaws.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

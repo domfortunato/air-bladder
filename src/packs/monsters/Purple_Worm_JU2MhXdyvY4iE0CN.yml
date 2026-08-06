@@ -3,7 +3,7 @@ name: Purple Worm
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/art/game-icons/creatures/purple-tentacle.svg
+img: systems/air-bladder/art/game-icons/animals/leeching-worm.svg
 items:
   - _id: wHJ5JWax8XPuoL8x
     name: Bite*
@@ -82,9 +82,9 @@ _stats:
   coreVersion: '14.365'
   systemId: null
   systemVersion: null
-  createdTime: null
-  modifiedTime: null
-  lastModifiedBy: null
+  createdTime: 1786051934956
+  modifiedTime: 1786051934956
+  lastModifiedBy: ipqqDDQxZaMLtwLc
   compendiumSource: null
   duplicateSource: null
   exportSource: null
@@ -161,7 +161,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: systems/air-bladder/art/game-icons/creatures/purple-tentacle.svg
+    src: systems/air-bladder/art/game-icons/animals/leeching-worm.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

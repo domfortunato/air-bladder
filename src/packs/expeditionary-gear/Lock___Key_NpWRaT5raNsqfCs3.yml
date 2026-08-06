@@ -1,7 +1,7 @@
 _id: NpWRaT5raNsqfCs3
 name: Lock & Key
 type: item
-img: systems/air-bladder/icons/generic-item.svg
+img: systems/air-bladder/art/game-icons/metal/lead-pipe.svg
 effects: []
 folder: null
 sort: 0
@@ -23,4 +23,11 @@ ownership:
 _stats:
   systemId: air-bladder
   coreVersion: '14.365'
+  systemVersion: 0.1.10
+  createdTime: 1786053551044
+  modifiedTime: 1786053551044
+  lastModifiedBy: ipqqDDQxZaMLtwLc
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
 _key: '!items!NpWRaT5raNsqfCs3'

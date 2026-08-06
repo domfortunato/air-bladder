@@ -3,7 +3,7 @@ name: Lizard, Giant Flame
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/art/game-icons/mouth/lizard-tongue.svg
+img: systems/air-bladder/art/game-icons/fire/dragon-breath.svg
 items:
   - _id: hNT9OhQhGCAZJDWX
     name: Bite
@@ -119,9 +119,9 @@ _stats:
   coreVersion: '14.365'
   systemId: null
   systemVersion: null
-  createdTime: null
-  modifiedTime: null
-  lastModifiedBy: null
+  createdTime: 1786051636864
+  modifiedTime: 1786051636864
+  lastModifiedBy: ipqqDDQxZaMLtwLc
   compendiumSource: null
   duplicateSource: null
   exportSource: null
@@ -196,7 +196,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: systems/air-bladder/art/game-icons/mouth/lizard-tongue.svg
+    src: systems/air-bladder/art/game-icons/fire/dragon-breath.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

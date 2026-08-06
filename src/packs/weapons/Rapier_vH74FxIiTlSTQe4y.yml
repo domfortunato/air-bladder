@@ -1,7 +1,7 @@
 _id: vH74FxIiTlSTQe4y
 name: Rapier
 type: weapon
-img: systems/air-bladder/art/game-icons/blade/pointy-sword.svg
+img: systems/air-bladder/art/game-icons/blade/sword-hilt.svg
 effects: []
 folder: null
 sort: 0
@@ -28,4 +28,11 @@ ownership:
 _stats:
   systemId: air-bladder
   coreVersion: '14.365'
+  systemVersion: 0.1.10
+  createdTime: 1786054320334
+  modifiedTime: 1786054320334
+  lastModifiedBy: ipqqDDQxZaMLtwLc
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
 _key: '!items!vH74FxIiTlSTQe4y'

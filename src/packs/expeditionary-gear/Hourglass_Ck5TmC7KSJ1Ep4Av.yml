@@ -1,7 +1,7 @@
 _id: Ck5TmC7KSJ1Ep4Av
 name: Hourglass
 type: item
-img: systems/air-bladder/icons/generic-item.svg
+img: systems/air-bladder/art/game-icons/boards/hourglass.svg
 effects: []
 folder: null
 sort: 0
@@ -23,4 +23,11 @@ ownership:
 _stats:
   systemId: air-bladder
   coreVersion: '14.365'
+  systemVersion: 0.1.10
+  createdTime: 1786053497603
+  modifiedTime: 1786053497603
+  lastModifiedBy: ipqqDDQxZaMLtwLc
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
 _key: '!items!Ck5TmC7KSJ1Ep4Av'

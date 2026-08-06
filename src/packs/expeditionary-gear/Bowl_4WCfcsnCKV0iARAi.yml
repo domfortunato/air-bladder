@@ -1,7 +1,7 @@
 _id: 4WCfcsnCKV0iARAi
 name: Bowl
 type: item
-img: systems/air-bladder/icons/generic-item.svg
+img: systems/air-bladder/art/game-icons/food/bowl-of-rice.svg
 effects: []
 folder: null
 sort: 0
@@ -23,4 +23,11 @@ ownership:
 _stats:
   systemId: air-bladder
   coreVersion: '14.365'
+  systemVersion: 0.1.10
+  createdTime: 1786053372101
+  modifiedTime: 1786053372101
+  lastModifiedBy: ipqqDDQxZaMLtwLc
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
 _key: '!items!4WCfcsnCKV0iARAi'

@@ -1,7 +1,7 @@
 _id: IZOJA0z9RyAtaAsL
 name: Smoking Herbs
 type: item
-img: systems/air-bladder/icons/generic-item.svg
+img: systems/air-bladder/art/game-icons/food/elderberry.svg
 effects: []
 folder: null
 sort: 0
@@ -23,4 +23,11 @@ ownership:
 _stats:
   systemId: air-bladder
   coreVersion: '14.365'
+  systemVersion: 0.1.10
+  createdTime: 1786053754495
+  modifiedTime: 1786053754495
+  lastModifiedBy: ipqqDDQxZaMLtwLc
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
 _key: '!items!IZOJA0z9RyAtaAsL'

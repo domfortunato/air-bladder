@@ -3,7 +3,7 @@ name: Lizard, Giant Subterranean
 type: npc
 sort: 100001
 flags: {}
-img: systems/air-bladder/art/game-icons/mouth/lizard-tongue.svg
+img: systems/air-bladder/art/game-icons/reptiles/croc-jaws.svg
 items:
   - _id: X9VxAHIpUN4fOL1p
     name: Tough Hide
@@ -83,9 +83,9 @@ _stats:
   coreVersion: '14.365'
   systemId: null
   systemVersion: null
-  createdTime: null
-  modifiedTime: null
-  lastModifiedBy: null
+  createdTime: 1786051731340
+  modifiedTime: 1786051731340
+  lastModifiedBy: ipqqDDQxZaMLtwLc
   compendiumSource: null
   duplicateSource: null
   exportSource: null
@@ -159,7 +159,7 @@ prototypeToken:
       min: 0
       max: 1
   texture:
-    src: systems/air-bladder/art/game-icons/mouth/lizard-tongue.svg
+    src: systems/air-bladder/art/game-icons/reptiles/croc-jaws.svg
     tint: '#ffffff'
     scaleX: 1
     scaleY: 1

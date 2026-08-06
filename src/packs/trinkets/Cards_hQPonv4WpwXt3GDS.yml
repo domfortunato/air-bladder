@@ -1,7 +1,7 @@
 _id: hQPonv4WpwXt3GDS
 name: Cards
 type: item
-img: systems/air-bladder/art/game-icons/body/character.svg
+img: systems/air-bladder/art/game-icons/boards/card-draw.svg
 effects: []
 folder: null
 sort: 0
@@ -25,7 +25,7 @@ _stats:
   coreVersion: '14.365'
   systemVersion: 0.1.9
   createdTime: 1785861606058
-  modifiedTime: 1785861606058
+  modifiedTime: 1786054141175
   lastModifiedBy: ipqqDDQxZaMLtwLc
   compendiumSource: null
   duplicateSource: null
