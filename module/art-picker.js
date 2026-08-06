@@ -19,9 +19,9 @@
  *              a Monster is not offered them.
  *   custom     the Warden's own folder, from the world setting. Shown whenever
  *              it has images, or to any GM (who can put some there).
- *   gameicons  2,219 game-icons.net glyphs (CC BY 3.0), browsed CATEGORY FIRST:
- *              37 folder tiles, then that category's thumbnails. The grids are
- *              built on demand — rendering all 37 at once is 2,219 <img> in one
+ *   gameicons  2,275 game-icons.net glyphs (CC BY 3.0), browsed CATEGORY FIRST:
+ *              38 folder tiles, then that category's thumbnails. The grids are
+ *              built on demand — rendering all 38 at once is 2,275 <img> in one
  *              dialog, and only one category is ever on screen.
  *   tlomdev    tlomdev's token drawings (CC BY-SA 4.0), browsed category-first
  *              exactly like gameicons: the artist's own folders, plus
@@ -194,7 +194,7 @@ export async function pickArt({
 
   if (showLydia) {
     // A flat grid, not a folder tree: 17 drawings fit one pane, and the
-    // category-first shape exists to keep 2,219 <img> out of a single dialog.
+    // category-first shape exists to keep 2,275 <img> out of a single dialog.
     // Filenames here are the artist's own titles ("Dire-Wolf"), so they read as
     // captions once de-hyphenated — unlike a game-icons slug, which is a
     // machine name and gets shown verbatim.
@@ -231,7 +231,7 @@ export async function pickArt({
   // first pane. The distinction cost an evening (2026-08-01): a Monster is
   // offered Custom + Game-Icons, Custom is listed for any GM even when the
   // folder is empty (it carries the Refresh button), so the picker opened on a
-  // pane reading "No custom portraits found" with the 2,219-glyph gallery
+  // pane reading "No custom portraits found" with the 2,275-glyph gallery
   // sitting unselected beside it. It looked for all the world like the picker
   // had failed to load, and the Warden it happened to could not tell that from
   // a broken dialog. A tab that says "nothing here" is never the right landing

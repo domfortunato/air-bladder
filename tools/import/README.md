@@ -51,7 +51,7 @@ curation changes. Point `--src` at the unpacked download.
 | `transports.mjs` | `transports`, the transport shop table | self-contained (2e transport numbers) |
 | `npc-careers-2e.mjs` | `module/npc-careers-2e.json` | `resources/hirelings.md` |
 | `portraits.mjs` | `module/portrait-manifest.json` | the shipped image folders |
-| `game-icons.mjs` | `art/game-icons/` (2,219 svg + `CREDITS.md` + `license.txt`), `module/game-icons-manifest.json` | a curated game-icons.net download, via `--src` — or `--restamp`, which needs none |
+| `game-icons.mjs` | `art/game-icons/` (2,275 svg + `CREDITS.md` + `license.txt`), `module/game-icons-manifest.json` | a curated game-icons.net download, via `--src` — or `--restamp`, which needs none |
 | `monster-art.mjs` | the `img` and prototype-token art of `monsters` | the names themselves, matched against the gallery |
 | `item-art.mjs` | the `img` of `armor`, `expeditionary-gear`, `market-goods`, `reliquary`, `tools`, `trinkets`, `weapons` | the names themselves, matched against the gallery |
 

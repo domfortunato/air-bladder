@@ -22,7 +22,7 @@ it.
 
 Icons made by Andy Meneely, Aussiesim, Carl Olsen, Caro Asercion, Cathelineau, DarkZaitzev, Delapouite, Faithtoken, GeneralAce135, Guard13007, Irongamer, Lorc, Lord Berandas, Lucas, Quoting, Rihlsul, Sbed, SeregaCthtuf, Skoll, Sparker, Starseeker, Various artists, Willdabeast.
 
-2219 icons in 37 categories.
+2275 icons in 38 categories.
 
 ## Animals
 
@@ -1824,6 +1824,67 @@ Icons made by Andy Meneely, Aussiesim, Carl Olsen, Caro Asercion, Cathelineau, D
 | `swallow.svg` | Swallow | Lorc | <https://game-icons.net/1x1/lorc/swallow.html> |
 | `swallower.svg` | Swallower | Delapouite | <https://game-icons.net/1x1/delapouite/swallower.html> |
 | `toad-teeth.svg` | Toad Teeth | Lorc | <https://game-icons.net/1x1/lorc/toad-teeth.html> |
+
+## Pirate
+
+| file | icon | author | source |
+| --- | --- | --- | --- |
+| `anchor.svg` | Anchor | Lorc | <https://game-icons.net/1x1/lorc/anchor.html> |
+| `bandana.svg` | Bandana | Delapouite | <https://game-icons.net/1x1/delapouite/bandana.html> |
+| `barrel.svg` | Barrel | Delapouite | <https://game-icons.net/1x1/delapouite/barrel.html> |
+| `black-flag.svg` | Black Flag | Lorc | <https://game-icons.net/1x1/lorc/black-flag.html> |
+| `blade-bite.svg` | Blade Bite | Lorc | <https://game-icons.net/1x1/lorc/blade-bite.html> |
+| `blunderbuss.svg` | Blunderbuss | Lorc | <https://game-icons.net/1x1/lorc/blunderbuss.html> |
+| `brandy-bottle.svg` | Brandy Bottle | Lorc | <https://game-icons.net/1x1/lorc/brandy-bottle.html> |
+| `brass-eye.svg` | Brass Eye | Lorc | <https://game-icons.net/1x1/lorc/brass-eye.html> |
+| `cannon-ball.svg` | Cannon Ball | Lorc | <https://game-icons.net/1x1/lorc/cannon-ball.html> |
+| `cannon-shot.svg` | Cannon Shot | Lorc | <https://game-icons.net/1x1/lorc/cannon-shot.html> |
+| `cannon.svg` | Cannon | Lorc | <https://game-icons.net/1x1/lorc/cannon.html> |
+| `compass.svg` | Compass | Lorc | <https://game-icons.net/1x1/lorc/compass.html> |
+| `crossed-bones.svg` | Crossed Bones | Lorc | <https://game-icons.net/1x1/lorc/crossed-bones.html> |
+| `crossed-sabres.svg` | Crossed Sabres | Lorc | <https://game-icons.net/1x1/lorc/crossed-sabres.html> |
+| `crow-nest.svg` | Crow Nest | Delapouite | <https://game-icons.net/1x1/delapouite/crow-nest.html> |
+| `curled-tentacle.svg` | Curled Tentacle | Lorc | <https://game-icons.net/1x1/lorc/curled-tentacle.html> |
+| `dig-hole.svg` | Dig Hole | Delapouite | <https://game-icons.net/1x1/delapouite/dig-hole.html> |
+| `dolphin.svg` | Dolphin | Delapouite | <https://game-icons.net/1x1/delapouite/dolphin.html> |
+| `eyepatch.svg` | Eyepatch | Delapouite | <https://game-icons.net/1x1/delapouite/eyepatch.html> |
+| `figurehead.svg` | Figurehead | Delapouite | <https://game-icons.net/1x1/delapouite/figurehead.html> |
+| `fishing-net.svg` | Fishing Net | Lorc | <https://game-icons.net/1x1/lorc/fishing-net.html> |
+| `galleon.svg` | Galleon | Lorc | <https://game-icons.net/1x1/lorc/galleon.html> |
+| `grapple.svg` | Grapple | Lorc | <https://game-icons.net/1x1/lorc/grapple.html> |
+| `harpoon-chain.svg` | Harpoon Chain | Lorc | <https://game-icons.net/1x1/lorc/harpoon-chain.html> |
+| `island.svg` | Island | Delapouite | <https://game-icons.net/1x1/delapouite/island.html> |
+| `knot.svg` | Knot | Delapouite | <https://game-icons.net/1x1/delapouite/knot.html> |
+| `locked-chest.svg` | Locked Chest | Lorc | <https://game-icons.net/1x1/lorc/locked-chest.html> |
+| `monkey.svg` | Monkey | Lorc | <https://game-icons.net/1x1/lorc/monkey.html> |
+| `one-eyed.svg` | One Eyed | Lorc | <https://game-icons.net/1x1/lorc/one-eyed.html> |
+| `open-treasure-chest.svg` | Open Treasure Chest | Skoll | <https://game-icons.net/1x1/skoll/open-treasure-chest.html> |
+| `oyster-pearl.svg` | Oyster Pearl | Delapouite | <https://game-icons.net/1x1/delapouite/oyster-pearl.html> |
+| `palm-tree.svg` | Palm Tree | Delapouite | <https://game-icons.net/1x1/delapouite/palm-tree.html> |
+| `parrot-head.svg` | Parrot Head | Lorc | <https://game-icons.net/1x1/lorc/parrot-head.html> |
+| `piranha.svg` | Piranha | Delapouite | <https://game-icons.net/1x1/delapouite/piranha.html> |
+| `pirate-cannon.svg` | Pirate Cannon | Delapouite | <https://game-icons.net/1x1/delapouite/pirate-cannon.html> |
+| `pirate-captain.svg` | Pirate Captain | Delapouite | <https://game-icons.net/1x1/delapouite/pirate-captain.html> |
+| `pirate-coat.svg` | Pirate Coat | Delapouite | <https://game-icons.net/1x1/delapouite/pirate-coat.html> |
+| `pirate-flag.svg` | Pirate Flag | Delapouite | <https://game-icons.net/1x1/delapouite/pirate-flag.html> |
+| `pirate-grave.svg` | Pirate Grave | Lorc | <https://game-icons.net/1x1/lorc/pirate-grave.html> |
+| `pirate-hat.svg` | Pirate Hat | Delapouite | <https://game-icons.net/1x1/delapouite/pirate-hat.html> |
+| `pirate-hook.svg` | Pirate Hook | Delapouite | <https://game-icons.net/1x1/delapouite/pirate-hook.html> |
+| `pirate-skull.svg` | Pirate Skull | Lorc | <https://game-icons.net/1x1/lorc/pirate-skull.html> |
+| `rope-coil.svg` | Rope Coil | Delapouite | <https://game-icons.net/1x1/delapouite/rope-coil.html> |
+| `saber-slash.svg` | Saber Slash | Lorc | <https://game-icons.net/1x1/lorc/saber-slash.html> |
+| `sail.svg` | Sail | Delapouite | <https://game-icons.net/1x1/delapouite/sail.html> |
+| `sextant.svg` | Sextant | Delapouite | <https://game-icons.net/1x1/delapouite/sextant.html> |
+| `shark-fin.svg` | Shark Fin | Delapouite | <https://game-icons.net/1x1/delapouite/shark-fin.html> |
+| `ship-wheel.svg` | Ship Wheel | Delapouite | <https://game-icons.net/1x1/delapouite/ship-wheel.html> |
+| `ship-wreck.svg` | Ship Wreck | Delapouite | <https://game-icons.net/1x1/delapouite/ship-wreck.html> |
+| `skull-crossed-bones.svg` | Skull Crossed Bones | Lorc | <https://game-icons.net/1x1/lorc/skull-crossed-bones.html> |
+| `sparky-bomb.svg` | Sparky Bomb | Lorc | <https://game-icons.net/1x1/lorc/sparky-bomb.html> |
+| `spyglass.svg` | Spyglass | Lorc | <https://game-icons.net/1x1/lorc/spyglass.html> |
+| `tied-scroll.svg` | Tied Scroll | Lorc | <https://game-icons.net/1x1/lorc/tied-scroll.html> |
+| `treasure-map.svg` | Treasure Map | Lorc | <https://game-icons.net/1x1/lorc/treasure-map.html> |
+| `unlit-bomb.svg` | Unlit Bomb | Lorc | <https://game-icons.net/1x1/lorc/unlit-bomb.html> |
+| `wooden-pegleg.svg` | Wooden Pegleg | Delapouite | <https://game-icons.net/1x1/delapouite/wooden-pegleg.html> |
 
 ## Reptiles
 
