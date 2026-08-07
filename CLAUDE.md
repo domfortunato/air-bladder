@@ -28,7 +28,7 @@ manifest. Descends architecturally from a private fork of
   older from this machine. A minimum nobody has ever tested is a claim, not a
   fact. The same statement lives in `README.md`, `README.es.md`,
   `CONTRIBUTING.md` and `site/index.html` — change one, change all five.
-- Latest release **0.1.9** (2026-08-03). `system.json`'s `version` is rewritten by
+- Latest release **0.1.11** (2026-08-06). `system.json`'s `version` is rewritten by
   CI from the git tag; don't trust the checked-in value.
 - Node 24.x. `npm run release X.Y.Z` is the whole release — see `RELEASE.md`.
 

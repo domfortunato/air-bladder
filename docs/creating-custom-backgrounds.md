@@ -155,9 +155,18 @@ A finished background is still invisible until you switch the source on:
 
 **Game Settings → Configure Settings → Air Bladder → "Offer custom Cairn 2e backgrounds"**
 
-With it on, your custom backgrounds join the shipped ones in the picker. If you want
-players to roll from **only** your own set, also turn off *Offer canon Cairn 2e
-backgrounds*.
+With it on, your custom backgrounds join the picker's **Custom** section.
+
+That section is not only yours. The same setting also admits the seven class
+backgrounds Air Bladder ships in **Backgrounds (Custom)** — Fighter, Cleric,
+Magic-User, Thief, Dwarf, Elf, Halfling, from Gordon McCormick's *Backgrounds for
+Cairn*. "Custom" here means *not published in the Cairn 2e Player's Guide*, whoever
+wrote it, so third-party sets and your own arrive through the same switch.
+
+So turning off *Offer canon Cairn 2e backgrounds* does **not** leave players rolling
+only what you wrote — the shipped class backgrounds are still in the pool. For a pool
+that is genuinely yours alone, switch those seven off individually with the **eye
+toggle** on each picker row, which is per-background and remembered by the world.
 
 Three things make a finished background invisible, and none of them produce an
 error, so check them in this order if yours does not show up:
@@ -171,16 +180,33 @@ error, so check them in this order if yours does not show up:
 
 ## Where it lives
 
-Custom backgrounds live in a world compendium called **Custom Backgrounds**, created
-the first time you duplicate into it. Being a world compendium, it is editable and
-belongs to that world only — which is why sharing needs its own steps.
+Custom backgrounds you write live in a world compendium called **Custom Backgrounds**,
+created the first time you duplicate into it. Being a world compendium, it is editable
+and belongs to that world only — which is why sharing needs its own steps.
 
-**It does not sit in the *Air Bladder - Backgrounds* folder**, and that is not a
-mistake to fix. That folder groups the three packs the *system* ships — Backgrounds
-(2e), Backgrounds (Barebones) and Background Items — and Foundry only lets a system
-file its own packs there. Your Custom Backgrounds compendium belongs to the world,
-so it appears outside the folder, on its own. You can drag it into any folder you
-make yourself; nothing in Air Bladder reads the folder, only the compendium.
+### Two packs with nearly the same name, and only one is yours
+
+This trips people up, so it is worth being exact:
+
+| | **Backgrounds (Custom)** | **Custom Backgrounds** |
+| --- | --- | --- |
+| Comes from | the system, shipped in every install | your world, created on first duplicate |
+| Where it appears | inside the *Air Bladder - Backgrounds* folder | outside that folder, on its own |
+| Editable | no — replaced on every system update | yes |
+| Holds | seven third-party class backgrounds | what you write |
+
+**Never author into *Backgrounds (Custom)*.** It is a system pack, and a system pack is
+overwritten wholesale when Air Bladder updates — work put there is gone at the next
+release, with no warning and no recovery. If you want to change one of the seven, open
+it and use **Duplicate into Custom Backgrounds**, which copies it somewhere that
+survives.
+
+**Your own pack sits outside the *Air Bladder - Backgrounds* folder**, and that is not
+a mistake to fix. That folder groups the four packs the *system* ships — Backgrounds
+(2e), Backgrounds (Barebones), Backgrounds (Custom) and Background Items — and Foundry
+only lets a system file its own packs there. Your Custom Backgrounds compendium belongs
+to the world, so it appears on its own. You can drag it into any folder you make
+yourself; nothing in Air Bladder reads the folder, only the compendium.
 
 Backgrounds delivered inside a **module** are read-only. To change one, open it and
 use **Duplicate into Custom Backgrounds**, which copies it into your own editable

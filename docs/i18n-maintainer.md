@@ -25,20 +25,29 @@ Two properties make this safe to hand around:
 
 ## Where the languages actually stand
 
-Measured by this gate (`npm run i18n:check --lang <code>`), against 542 English
-keys (re-measured 2026-08-06, after fsmalecho's PR #13). "Translated" means
-present *and* different from the English. The inherited percentages fell since
-the last measurement without those files losing a line — the English grew from
-348 keys and the denominator moved:
+Measured by this gate (`npm run i18n:check --lang <code>`), against 593 English
+keys (re-measured 2026-08-07, on `dev`). "Translated" means present *and*
+different from the English. Every percentage here falls whenever the English
+grows, without a single translation being lost — the denominator moves, and it
+has moved twice (348 → 542 → 593). **Re-measure before quoting a number to a
+contributor**: this table read 542 keys and `es` at 96% while the real figures
+were 593 and 88%, which is the difference between "nearly done" and "sixty
+strings outstanding".
 
 | Locale | Translated | Content overlay | Note |
 |---|---|---|---|
-| `es` Spanish | 523 (96%) | ✅ the only one | actively maintained |
-| `pl` Polish | 88 (16%) | — | inherited from the original Cairn system |
-| `de` German | 52 (10%) | — | inherited |
+| `es` Spanish | 521 (88%) | ✅ the only one | actively maintained |
+| `pl` Polish | 88 (15%) | — | inherited from the original Cairn system |
+| `de` German | 52 (9%) | — | inherited |
 | `da` Danish | 51 (9%) | — | inherited |
 | `pt-BR` Portuguese | 51 (9%) | — | inherited |
-| `fr` French | 48 (9%) | — | inherited |
+| `fr` French | 48 (8%) | — | inherited |
+
+The outstanding Spanish work is itemised in
+[translation-handoff.md](translation-handoff.md), which separates keys that are
+merely untranslated from the ones whose **English changed underneath a finished
+translation** — the second kind reports as translated and is invisible to every
+gate.
 
 **Spanish is the translation; the other five are fragments.** They came from the
 1e system and never grew as this fork added ~250 keys, so a German session is

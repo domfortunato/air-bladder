@@ -3,9 +3,15 @@
 A **custom background** is a Warden-authored Cairn 2e background — a background
 Item carrying its own tagline, example names, starting gear, and two d6
 question tables. It lives in a **world compendium** named *Custom Backgrounds*, and
-whenever the custom content source is toggled on (Game Settings → *Offer GM's
-Custom 2e backgrounds*) custom backgrounds join the shipped ones in the
-character-generation picker.
+whenever the custom content source is toggled on (Game Settings → *Offer custom
+Cairn 2e backgrounds*) it joins the **Custom** section of the character-generation
+picker.
+
+> **Not to be confused with *Backgrounds (Custom)***, the pack Air Bladder ships
+> inside the *Air Bladder - Backgrounds* folder. That one holds seven third-party
+> class backgrounds, is replaced on every system update, and is not where your own
+> work goes. See
+> [Where it lives](creating-custom-backgrounds.md#where-it-lives).
 
 > **Writing one is covered separately** — see
 > [Creating a custom 2e background](creating-custom-backgrounds.md). This page

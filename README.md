@@ -29,7 +29,7 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 - [Faction Generator](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-factions.md)
 - .json character import from the Official Cairn app, [Kettlewright!](https://kettlewright.com/)
 - Optional homebrew features that mix 2e features with Barebones
-- Warden-authored custom 2e backgrounds — [create and lint your own](https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md), then [share them across worlds](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md)
+- Custom 2e backgrounds — seven class backgrounds ship in the **Backgrounds (Custom)** compendium, and you can [create and lint your own](https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md) alongside them, then [share them across worlds](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md)
 - Random or manual generation of NPCs, hired or not
 - Connections between PCs and NPCs which transfer ownership to Players
 - Character Sheet tooltips for players
