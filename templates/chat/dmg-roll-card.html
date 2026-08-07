@@ -6,7 +6,16 @@
           is whatever the roller saw -- exactly what the flavor sentence has
           always frozen. Translating it per viewer would need a reverse lookup,
           and the content overlay is MANY-TO-ONE. --}}
-    <div class="dmg-label" data-weapon="{{weapon}}">{{label}}</div>
+    {{!-- data-pool says where this card's damage LANDS: absent (or "hp") is
+          Cairn's combat rule, which is every card rolled before hazards existed.
+          It rides on the CARD and not in the dialog that made it, because the
+          Warden may spend the card minutes later or on a second creature, and a
+          poison must still be poison. Emitted only when set, so an ordinary
+          weapon roll's markup is unchanged.
+          data-hazard marks a card with no attacker: the attack-line rewrite
+          stands off it (there is nobody to name and no weapon, so it would read
+          "Dom attacks Lisbeth with !") and the Warden's own sentence stands. --}}
+    <div class="dmg-label" data-weapon="{{weapon}}"{{#if pool}} data-pool="{{pool}}"{{/if}}{{#if hazard}} data-hazard="1"{{/if}}>{{label}}</div>
 
     {{#if (isNotNull targets)}}
     <div class="icon-action">

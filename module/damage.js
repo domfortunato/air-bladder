@@ -27,6 +27,28 @@ export const DAMAGE_APPLIED_FLAG = "damageApplied";
  */
 export const DAMAGE_SOURCE_FLAG = "damageSource";
 
+/**
+ * Where a damage card's damage LANDS.
+ *
+ * "hp" is the whole of Cairn's combat rule — armour, then Hit Protection, then
+ * overflow into STR — and it is what every card that carries no pool at all
+ * means, which is every card rolled before this existed.
+ *
+ * The other three are a Warden's hazard aimed straight at an ability: poison at
+ * STR, a snapped tendon at DEX, a horror at WIL. They bypass armour by
+ * construction, because armour stops blows and not fear; a hazard that SHOULD be
+ * reduced by armour is an "hp" hazard.
+ *
+ * A WHITELIST, not a free string, and that is the point of naming it here: the
+ * pool arrives off a stored chat card and is spliced into an update path
+ * (`system.abilities.<POOL>.value`), so an unrecognised value must fall back to
+ * "hp" rather than write a field nothing declares.
+ */
+export const DAMAGE_POOLS = ["hp", "STR", "DEX", "WIL"];
+
+/** The status bar an ability reaching 0 announces. STR's is death. */
+const POOL_ZERO_STATUS = { STR: "dead", DEX: "paralyzed", WIL: "delirious" };
+
 export class Damage {
 
     /**
@@ -43,11 +65,11 @@ export class Damage {
      *   that the Warden used the control and what it did; targets whose token is
      *   gone are absent, exactly as they are absent from the detail cards.
      */
-    static async applyToTargets(targets, damage, scene = canvas?.scene, source = null) {
+    static async applyToTargets(targets, damage, scene = canvas?.scene, source = null, pool = "hp") {
         let missed = 0;
         const applied = [];
         for (const target of targets) {
-            const data = await this.applyToTarget(target, damage, scene);
+            const data = await this.applyToTarget(target, damage, scene, pool);
             if (data) {
                 // AWAITED, which it was not before. _showDetails now posts a
                 // second card (the death bar) that must land AFTER the damage
@@ -77,11 +99,32 @@ export class Damage {
      * @param {Scene} [scene] Scene the card was spoken in; defaults to the viewer's
      * @returns actor + old and new values
      */
-    static async applyToTarget(target, damage, scene = canvas?.scene) {
+    static async applyToTarget(target, damage, scene = canvas?.scene, pool = "hp") {
         const token = scene?.tokens?.get(target);
         // The chat card holds token ids from the roll-time scene; the token may
         // have been deleted (a killed foe) or the GM switched scenes since.
         if (!token?.actor) return null;
+
+        // Anything unrecognised is Cairn's ordinary rule. The value comes off a
+        // stored card and is spliced into a field path below — see DAMAGE_POOLS.
+        if (!DAMAGE_POOLS.includes(pool)) pool = "hp";
+
+        // A HAZARD aimed at an ability: no armour, no Hit Protection, no
+        // overflow. It is subtracted straight off the ability and floored at 0.
+        //
+        // abNoStatusCard for the same reason the HP path passes it: this write is
+        // what paralyses (or kills) the target, so CairnActor's hook would post
+        // the bar the instant it resolves — before _showDetails posts the damage
+        // card that explains it. _showDetails posts it, in order.
+        if (pool !== "hp") {
+            const abl = Number(token.actor.system.abilities?.[pool]?.value ?? 0);
+            let newAbl = abl - damage;
+            if (newAbl < 0) newAbl = 0;
+            await token.actor.update(
+                { [`system.abilities.${pool}.value`]: newAbl },
+                { abNoStatusCard: true });
+            return { token, pool, dmg: damage, damage, abl, newAbl };
+        }
 
         const armor = token.actor.system.armor;
         // HP comes from SOURCE, not the derived value. _prepareCharacterData zeroes
@@ -105,7 +148,7 @@ export class Damage {
             { 'system.hp.value': newHp, 'system.abilities.STR.value': newStr },
             { abNoStatusCard: true });
 
-        return { token, dmg, damage, armor, hp, str, newHp, newStr };
+        return { token, pool: "hp", dmg, damage, armor, hp, str, newHp, newStr };
     }
 
     /**
@@ -202,13 +245,25 @@ export class Damage {
             //
             // Nothing is localized or formatted here. Ids and the raw name travel;
             // the sentence is built per viewer at render — see DAMAGE_SOURCE_FLAG.
+            const label = html.querySelector(".dmg-label");
             const source = {
                 token: message?.speaker?.token ?? null,
                 actor: message?.speaker?.actor ?? null,
                 alias: message?.speaker?.alias ?? "",
-                weapon: html.querySelector(".dmg-label")?.dataset.weapon ?? "",
+                weapon: label?.dataset.weapon ?? "",
+                // A hazard has no attacker to name, so what the line names
+                // instead is the Warden's own words for it — which are the
+                // card's label, still intact because the attack-line rewrite
+                // stands off a hazard card. Empty for every ordinary roll.
+                hazard: label?.dataset.hazard === "1"
+                    ? (label.textContent ?? "").trim() : "",
             };
-            const applied = await this.applyToTargets(targetsList, dmg, scene, source);
+            // WHERE it lands rides on the card too, beside the weapon, and not
+            // in the dialog that made it: the Warden may spend this card minutes
+            // later, or on a second creature, and a poison must still be poison.
+            // `||` and not `??` — an empty attribute is not a pool.
+            const applied = await this.applyToTargets(
+                targetsList, dmg, scene, source, label?.dataset.pool || "hp");
             // Only a GM reaches this line (the guard at the top), so the write
             // needs no socket relay. Token ids, not names: the summary is
             // rendered per VIEWER so it localizes and so a concealed token is
@@ -256,8 +311,13 @@ export class Damage {
      */
     static async _showDetails(data) {
 
-        const { token, dmg, damage, armor, hp, str, newHp, newStr, source } = data
+        const { token, dmg, damage, armor, hp, str, newHp, newStr, source, pool } = data
 
+        // A HAZARD aimed at an ability. Its own branch rather than a widened HP
+        // path, because almost nothing on that card applies: there is no armour
+        // bracket (armour was never consulted), no Hit Protection line (HP did
+        // not move), and no Scar (a Scar is what taking a hit to 0 HP costs).
+        if (pool && pool !== "hp") return this._showAbilityDetails(data);
 
 
         if (str == 0) {
@@ -362,6 +422,54 @@ export class Damage {
         // posted here rather than from CairnActor's update hook -- see
         // postStatusCard's docblock.
         if (died) await postStatusCard(token?.actor, "dead");
+    }
+
+    /**
+     * The detail card for a hazard aimed at an ability.
+     *
+     * Its own method rather than a widened `_showDetails`, because almost
+     * nothing on the combat card applies here: no armour bracket (armour was
+     * never consulted), no Hit Protection line (HP did not move), no Scar (a
+     * Scar is what taking a hit to exactly 0 HP costs). What DOES carry over is
+     * carried over rather than restated — the same `CAIRN.StatChange` key the
+     * HP and STR lines use, the same STR-save button, the same source flag, and
+     * the same status bars.
+     *
+     * @param data  from applyToTarget's ability branch
+     * @private
+     */
+    static async _showAbilityDetails(data) {
+
+        const { token, dmg, abl, newAbl, source, pool } = data
+
+        let content = '<p><strong>' + game.i18n.localize('CAIRN.Damage') + '</strong>: ' + dmg + '</p>'
+        content += '<p><strong>' + game.i18n.localize(pool) + '</strong>: '
+            + game.i18n.format('CAIRN.StatChange', { from: abl, to: newAbl }) + '</p>'
+
+        // STR loss owes a save, and it is not a second rule: combat's branch is
+        // `newStr < str`, which direct STR damage lands in unchanged. Withheld
+        // from a corpse for the reason it is there — the save decides whether the
+        // character takes Critical Damage, and there is nothing left to decide.
+        const zeroed = newAbl === 0 && abl > 0;
+        const died = pool === "STR" && zeroed;
+        if (pool === "STR" && newAbl < abl && !died) {
+            content += '<p><strong>' + game.i18n.localize('CAIRN.StrSave') + '</strong></p>'
+            content += '<button type="button" class="roll-str-save">' + game.i18n.localize('CAIRN.RollStrSave') + '</button>'
+        }
+
+        const messageData = {
+            user: game.user._id,
+            speaker: ChatMessage.getSpeaker({ token: token }),
+            content: content,
+        }
+        if (source) messageData.flags = { [FLAG_SCOPE]: { [DAMAGE_SOURCE_FLAG]: source } }
+        await ChatMessage.create(messageData, {})
+
+        // AFTER the damage card, which is the whole reason applyToTarget passed
+        // abNoStatusCard on the write: DEX 0 is paralyzed, WIL 0 is delirious,
+        // STR 0 is death, and a bar posted from the update hook would land above
+        // the card that explains it.
+        if (zeroed) await postStatusCard(token?.actor, POOL_ZERO_STATUS[pool]);
     }
 
     /**

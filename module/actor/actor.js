@@ -51,6 +51,19 @@ const STATUS_CARDS = {
     cls: "status-dead", icon: "fa-skull", text: "CAIRN.DeadBanner",
     label: () => game.i18n.localize("CAIRN.Dead"),
   },
+  // DEX 0 and WIL 0, which a Warden's hazard can now reach directly. Copied
+  // value for value from the sheet's own banners (actor-sheet.js, the
+  // statusBanners block), so the player sees the identical bar in chat and on
+  // the sheet — and, like critical and dead, these need NO new string and NO new
+  // colour. A poison that paralyses somebody said nothing in the log until this.
+  paralyzed: {
+    cls: "status-paralyzed", icon: "fa-lock", text: "CAIRN.ParalyzedBanner",
+    label: () => game.i18n.localize("CAIRN.Paralyzed"),
+  },
+  delirious: {
+    cls: "status-delirious", icon: "fa-brain", text: "CAIRN.DeliriousBanner",
+    label: () => game.i18n.localize("CAIRN.Delirious"),
+  },
 };
 
 /**
@@ -1384,6 +1397,15 @@ export class CairnActor extends Actor {
       options.abWasAlive = Number(this.system.abilities?.STR?.value) > 0;
     }
     if ("system.critical" in statusFlat) options.abWasCritical = this.system.critical === true;
+    // DEX and WIL take the same shape as death and for exactly the same reason:
+    // paralyzed and delirious are DERIVED from the value being 0, so "was it
+    // above zero?" cannot be read back afterwards either. One stash object
+    // rather than two more flat keys.
+    for (const k of ["DEX", "WIL"]) {
+      if (`system.abilities.${k}.value` in statusFlat) {
+        (options.abWasAble ??= {})[k] = Number(this.system.abilities?.[k]?.value) > 0;
+      }
+    }
 
     return result;
   }
@@ -1433,6 +1455,20 @@ export class CairnActor extends Actor {
     // Alive -> dead only. Nothing asked for a resurrection card, and STR
     // climbing back off 0 is ordinary healing.
     if (options.abWasAlive === true && dead) postStatusCard(this, "dead");
+
+    // DEX 0 is paralyzed, WIL 0 is delirious. ONSET ONLY, and that asymmetry
+    // with "stabilized" is deliberate: critical is a flag a Warden sets and
+    // clears on purpose, where these two come back on every rest, so a "no
+    // longer paralyzed" card would be noise on a routine event.
+    //
+    // Suppressed while dead, matching the sheet — it renders the death banner
+    // INSTEAD of these, not beside them, so a hazard that kills and paralyses in
+    // one write must not announce both.
+    if (dead) return;
+    for (const [k, kind] of [["DEX", "paralyzed"], ["WIL", "delirious"]]) {
+      if (options.abWasAble?.[k] !== true) continue;
+      if (Number(this.system.abilities?.[k]?.value) <= 0) postStatusCard(this, kind);
+    }
   }
 
   /** @override */

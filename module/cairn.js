@@ -14,6 +14,7 @@ import { Cairn } from "./config.js";
 import { CairnCombat } from "./combat.js";
 import { createCairnMacro, rollItemMacro } from "./macros.js";
 import { Damage, DAMAGE_APPLIED_FLAG, DAMAGE_SOURCE_FLAG } from "./damage.js";
+import { registerWardenDamageControl } from "./warden-damage.js";
 import { registerSettings, SETTINGS_NS, migrateSettingsNamespace } from "./settings.js";
 import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS, deriveNpcRole } from "./data-models.js";
 import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNERSHIP_SYNC_FLAG } from "./connections.js";
@@ -67,6 +68,10 @@ Hooks.once("init", async function () {
 
   registerSettings();
   configureHandleBar();
+  // The Warden's damage tool. Registered from `init` rather than at import time
+  // so it sits with the rest of the system's registrations, and because the
+  // scene-controls palette is not built until well after this.
+  registerWardenDamageControl();
 });
 
 // The settings-namespace migration as a PROMISE the other ready callbacks can
@@ -1623,6 +1628,11 @@ const nameDamageTargets = (message, html, scene) => {
     // not the Apply-damage wrapper.
     ?? html.querySelector(".flavor-dice-roll > div:not(.icon-action)");
   if (!label) return;
+  // A HAZARD card has no attacker and no weapon, so this sentence would read
+  // "Dom attacks Lisbeth with !". The Warden's own words stand instead — which
+  // is the point of letting them write them — and the targets still reach the
+  // card through the applied-damage summary once it is spent.
+  if (label.dataset.hazard === "1") return;
 
   const raw = html.querySelector(".apply-dmg")?.dataset.targets ?? "";
   const ids = raw.split(";").map((s) => s.trim()).filter(Boolean);
@@ -1715,17 +1725,26 @@ const nameDamageSource = (message, html, scene) => {
   const body = html.querySelector(".message-content");
   if (!body || body.querySelector(".dmg-source")) return;   // already injected
 
-  const attacker = attackerDisplayName(src, scene);
-  // Nobody to name — the token is gone and the card carried no alias. The card
-  // stands as it is rather than announcing that SOMETHING hit them, the same
-  // choice the attack line and the applied summary make.
-  if (!attacker) return;
+  let sentence;
+  if (src.hazard) {
+    // A Warden's hazard: no attacker and no weapon, so what the line names is
+    // the Warden's own words for it. Checked BEFORE the attacker, because a trap
+    // has none and the guard below would drop the line entirely.
+    sentence = game.i18n.format("CAIRN.DamageFromHazard", { source: src.hazard });
+  } else {
+    const attacker = attackerDisplayName(src, scene);
+    // Nobody to name — the token is gone and the card carried no alias. The card
+    // stands as it is rather than announcing that SOMETHING hit them, the same
+    // choice the attack line and the applied summary make.
+    if (!attacker) return;
+    sentence = game.i18n.format(
+      src.weapon ? "CAIRN.DamageFromWeapon" : "CAIRN.DamageFrom",
+      { attacker, weapon: src.weapon ?? "" });
+  }
 
   const line = document.createElement("div");
   line.className = "dmg-source";
-  line.textContent = game.i18n.format(
-    src.weapon ? "CAIRN.DamageFromWeapon" : "CAIRN.DamageFrom",
-    { attacker, weapon: src.weapon ?? "" });
+  line.textContent = sentence;
   body.prepend(line);
 };
 
