@@ -40,6 +40,7 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 - A gallery of 368 CC BY-SA 4.0 black-and-white creature & NPC tokens by [tlomdev](https://tlomdev.itch.io/), including the Kettlewright portrait set — an imported Kettlewright character keeps its face
 - A gallery of 17 monsters drawn for Air Bladder by [Lydia Comer](https://linktr.ee/lydiadidmyink), each a portrait paired with its own token
 - Minimal automation; with buttons for rest, restoring abilities, panicked and critical damage
+- Impaired and Enhanced damage rolls — pick one when you roll, and the card says which it was
 
 ## Features on the Horizon
 - Encounter Generator
