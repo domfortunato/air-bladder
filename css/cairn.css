@@ -1144,6 +1144,15 @@
  * own chat content relies on are kept below.                                  *
  ******************************************************************************/
 
+/* Chat body text one step up from core's 14px (user ask, 2026-08-06). Chat is
+   read from across the table, not leaned into, and 14px is core's density
+   choice rather than ours. Scoped to .message-content so it moves the CARD
+   TEXT only: the sender name and the generation-rolls card set their own sizes
+   below and are deliberately not dragged along by this. */
+.chat-message .message-content {
+    font-size: 15px;
+}
+
 .chat-message .flavor-dice-roll {
     display: flex;
     flex-direction: row;
@@ -1152,6 +1161,37 @@
 
 .chat-message .icon-action {
     margin-left: auto;
+}
+
+/* Apply Damage. The single most consequential control in the log and it was
+   drawn at body size, which also made fa-user-minus hard to tell from
+   fa-user-plus at a glance -- the Warden is aiming at it repeatedly during a
+   fight, so it gets a real target rather than an icon-sized one. Only a GM ever
+   sees it (renderChatMessageHTML removes it for everyone else). */
+.chat-message .apply-dmg {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    min-height: 28px;
+    font-size: 20px;
+    line-height: 1;
+}
+
+.chat-message .apply-dmg:hover {
+    text-shadow: 0 0 8px var(--ab-accent);
+}
+
+/* "Got a scar" on a damage card. A scar is a rules event with lasting
+   consequences and it read as one more bold label in a stack of them. Centred
+   and glowed, borrowing #die-of-fate-button's treatment (user ask) -- the same
+   idea, that a deliberate/consequential moment lights up rather than boxes. */
+.chat-message .cairn-scar-banner {
+    font-weight: 700;
+    font-size: 17px;
+    text-align: center;
+    margin: 8px 0 4px;
+    text-shadow: 0 0 8px var(--ab-accent);
 }
 
 /* The character-generation card: HP / STR / DEX / WIL / Gold, one "LABEL: value"

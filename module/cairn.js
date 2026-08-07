@@ -1572,8 +1572,16 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
     if (btn)
       btn.onclick = (ev) => Damage.onClickChatMessageApplyButton(ev, html, data, scene);
   } else {
+    // REMOVED, not hidden. The card's HTML is stored on the message and sent to
+    // everyone, so this is the only place a player's copy can be trimmed — and
+    // `display: none` leaves a live, clickable control one devtools toggle away.
+    // The handler is only ever bound above, so a revealed button would do
+    // nothing; removing it means there is nothing to reveal. The wrapper goes
+    // too, or an empty `margin-left: auto` flex child stays in the row.
     html.querySelectorAll(".apply-dmg").forEach((btn) => {
-      btn.style.display = "none";
+      const wrapper = btn.closest(".icon-action");
+      btn.remove();
+      if (wrapper && !wrapper.children.length) wrapper.remove();
     });
   }
 });

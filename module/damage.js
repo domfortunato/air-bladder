@@ -70,6 +70,15 @@ export class Damage {
      *   exactly this (cairn.js, `speaker.scene`); this one never was.
      */
     static onClickChatMessageApplyButton(event, html, data, scene = canvas?.scene) {
+        // Warden only, and stated HERE as well as in the render hook that removes
+        // the control from a player's copy of the card. Removing the button is the
+        // affordance; this is the refusal, and it is the half that survives someone
+        // reaching the function by another route. Applying damage decides what
+        // happened to somebody else's character -- it is the Warden's call.
+        if (!game.user.isGM) {
+            ui.notifications.warn(game.i18n.localize("CAIRN.Notify.ApplyDamageWardenOnly"));
+            return;
+        }
         // currentTarget, not target: the handler hangs off the anchor and a real
         // pointer lands on the icon inside it. dataset reads the same
         // data-targets attribute jQuery's .data() did, minus .data()'s implicit
@@ -171,8 +180,14 @@ export class Damage {
                 content += '<button type="button" class="roll-str-save">' + game.i18n.localize('CAIRN.RollStrSave') + '</button>'
             }
         } else if (newHp === 0 && hp !== 0) {
-            content += '<p><strong>' + game.i18n.localize('CAIRN.Scars') + '</strong></p>'
-            this._rollScarsTable(dmg);
+            content += '<p class="cairn-scar-banner">' + game.i18n.localize('CAIRN.Scars') + '</p>'
+            // The TOKEN goes with it, or the scar card is posted in someone else's
+            // name -- see _rollScarsTable. Not awaited (this method is sync and the
+            // damage card below should land first), so catch here: an unhandled
+            // rejection mid-damage-resolution is silent.
+            this._rollScarsTable(dmg, token).catch((err) => {
+                console.error("Air Bladder | the Scars draw failed:", err);
+            });
         }
 
         ChatMessage.create({
@@ -183,7 +198,28 @@ export class Damage {
 
     }
 
-    static async _rollScarsTable(damage) {
+    /**
+     * Roll the Scars table for the actor that was just scarred, and post the card
+     * IN THAT ACTOR'S NAME.
+     *
+     * The name matters more than it sounds. `RollTable#draw` forwards only
+     * `messageOptions` to `toMessage` and never `messageData`
+     * (roll-table.mjs:139), so the card fell through to `toMessage`'s defaults:
+     * `speaker: ChatMessage.getSpeaker()` with no argument, which resolves to the
+     * VIEWER'S OWN assigned character (roll-table.mjs:57). So a scar taken by a
+     * monster was posted under the attacking player's name, above core's
+     * "Draws a result from the Scars table" flavor — reading as though the
+     * attacker had drawn a scar for herself. She had done neither: she took no
+     * damage and never touched the table.
+     *
+     * The fix is to do the two halves separately. `draw({displayChat: false})`
+     * still rolls and still marks results drawn; `toMessage` then takes the
+     * speaker and the flavor. There is no option on `draw` that would do this.
+     *
+     * @param {number} damage  the damage that landed, which IS the table's roll
+     * @param {TokenDocument|null} [token]  who was scarred
+     */
+    static async _rollScarsTable(damage, token = null) {
         // findCompendiumItem resolves to undefined on a miss (it only warns to the
         // console), so this dereference used to throw mid-damage-resolution if the
         // pack were absent, renamed, or the table deleted from the world copy.
@@ -194,8 +230,13 @@ export class Damage {
             ui.notifications?.warn(game.i18n.localize("CAIRN.Notify.NoScarsTable"));
             return;
         }
-        const roll = new Roll(damage.toString());
-        await table.draw({ roll });
+        const drawn = await table.draw({ roll: new Roll(damage.toString()), displayChat: false });
+        if (!drawn?.results?.length) return;
+        // Speaker only when there is a token to name; with none, leaving it unset
+        // keeps core's default rather than inventing an empty header.
+        const messageData = { flavor: game.i18n.localize("CAIRN.ScarFlavor") };
+        if (token) messageData.speaker = ChatMessage.getSpeaker({ token });
+        await table.toMessage(drawn.results, { roll: drawn.roll, messageData });
     }
 
     static async _rollStrSave(token, html) {

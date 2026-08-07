@@ -61,7 +61,7 @@
  *      and a direct grant of three more items must land whole.
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, joinAs, watchErrors, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
 watchdog(240000, "encumbered-damage probe");
@@ -483,6 +483,148 @@ const out = await page.evaluate(async () => {
   if (s) await s.delete();
   return results;
 });
+
+/* ---------------------------------------------------------------------------
+ * The Scar card is posted in the SCARRED actor's name.
+ *
+ * RollTable#draw forwards only messageOptions to toMessage, never messageData
+ * (roll-table.mjs:139), so the card fell through to toMessage's default speaker:
+ * ChatMessage.getSpeaker() with no argument, which resolves to the VIEWER'S own
+ * assigned character (roll-table.mjs:57). A monster scarred by a player's hit
+ * therefore posted its scar under the PLAYER's name, over core's "Draws a result
+ * from the Scars table" — reading as though the attacker had drawn a scar for
+ * herself, when she had taken no damage and never touched the table.
+ *
+ * Gathered HERE, before the browser closes; asserted with the rest below.
+ * ------------------------------------------------------------------------- */
+const scar = await page.evaluate(async () => {
+  const ActorImpl = CONFIG.Actor.documentClass;
+  const r = {};
+  const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+  const { Damage } = await import("/systems/air-bladder/module/damage.js");
+
+  // Give the VIEWER a character, so the pre-fix speaker has something wrong to
+  // be: with none assigned the default speaker is already blank and the leg
+  // could pass without the fix.
+  const mine = await ActorImpl.create({ name: "ZZ Scar Attacker", type: "character" });
+  const prevChar = game.user.character;
+  await game.user.update({ character: mine.id });
+
+  // Exactly-to-zero is the Scar trigger: hp 3, armor 0, damage 3.
+  const victim = await ActorImpl.create({
+    name: "ZZ Scar Victim", type: "npc",
+    system: { role: "monster", hp: { value: 3, max: 3 }, armor: 0 },
+  });
+  const scene = await Scene.create({ name: "ZZ Scar Scene", width: 1000, height: 1000 });
+  const [tok] = await scene.createEmbeddedDocuments("Token", [await victim.getTokenDocument({ x: 100, y: 100 })]);
+
+  const isTableCard = (m) => !!m.flags?.core?.RollTable;
+  const before = new Set(game.messages.filter(isTableCard).map((m) => m.id));
+  await Damage.applyToTargets([tok.id], 3, scene);
+  // The damage flow deliberately does not await the draw, so poll for it.
+  let card = null;
+  for (let i = 0; i < 40 && !card; i++) {
+    card = game.messages.filter(isTableCard).find((m) => !before.has(m.id)) ?? null;
+    if (!card) await sleep(150);
+  }
+  r.posted = !!card;
+  r.speakerToken = card?.speaker?.token ?? null;
+  r.speakerActor = card?.speaker?.actor ?? null;
+  r.flavor = card?.flavor ?? null;
+  r.victimToken = tok.id;
+  r.victimActor = victim.id;
+  r.attackerActor = mine.id;
+  r.coreDrawFlavor = game.i18n.format("TABLE.DrawFlavor", { number: 1, name: "Scars" });
+
+  // The scar BANNER on the damage card itself.
+  const dmgCard = game.messages.contents.slice().reverse()
+    .find((m) => String(m.content ?? "").includes("cairn-scar-banner"));
+  r.bannerPosted = !!dmgCard;
+  if (dmgCard) {
+    await sleep(300);
+    const el = document.querySelector(`[data-message-id="${dmgCard.id}"] .cairn-scar-banner`);
+    r.bannerRendered = !!el;
+    if (el) {
+      const cs = getComputedStyle(el);
+      r.bannerCentered = cs.textAlign === "center";
+      r.bannerBold = Number(cs.fontWeight) >= 700;
+      r.bannerGlow = !!cs.textShadow && cs.textShadow !== "none";
+    }
+  }
+
+  // CONTROL, in-page: the pre-fix call — bare draw() with its own chat card, the
+  // exact line this fix replaced. Its speaker must NOT be the victim; if it were,
+  // the assertion above would not be measuring anything we changed.
+  const { findCompendiumItem } = await import("/systems/air-bladder/module/compendium.js");
+  const table = await findCompendiumItem("air-bladder.utils", "Scars");
+  const beforeCtl = new Set(game.messages.filter(isTableCard).map((m) => m.id));
+  await table.draw({ roll: new Roll("3") });
+  let ctl = null;
+  for (let i = 0; i < 40 && !ctl; i++) {
+    ctl = game.messages.filter(isTableCard).find((m) => !beforeCtl.has(m.id)) ?? null;
+    if (!ctl) await sleep(150);
+  }
+  r.controlSpeakerToken = ctl?.speaker?.token ?? null;
+
+  // Chat body text: bigger than core's 14px. An inequality, not "15px" — the ask
+  // was "up a point", and pinning the literal reds on any later tweak while
+  // proving no more than this does.
+  const anyContent = document.querySelector(".chat-message .message-content");
+  r.contentPx = anyContent ? parseFloat(getComputedStyle(anyContent).fontSize) : null;
+
+  for (const id of [card?.id, ctl?.id, dmgCard?.id].filter(Boolean)) {
+    await game.messages.get(id)?.delete();
+  }
+  await game.user.update({ character: prevChar?.id ?? null });
+  await scene.delete();
+  await victim.delete();
+  await mine.delete();
+  return r;
+});
+
+/* Apply damage is the WARDEN's. A GM can never see this by looking, so join. */
+const warden = { ran: false };
+try {
+  const alicePage = await browser.newPage({ viewport: VIEWPORT });
+  await joinAs(alicePage, "Alice");
+  const posted = await page.evaluate(async () => {
+    const { evaluateFormula } = await import("/systems/air-bladder/module/utils.js");
+    const roll = await evaluateFormula("2", {});
+    const flavor = await foundry.applications.handlebars.renderTemplate(
+      "systems/air-bladder/templates/chat/dmg-roll-card.html",
+      { label: "ZZ warden-only probe", targets: "nonexistent" },
+    );
+    return { id: (await roll.toMessage({ speaker: ChatMessage.getSpeaker(), flavor })).id };
+  });
+  Object.assign(warden, await alicePage.evaluate(async ({ id }) => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    let row = null;
+    for (let i = 0; i < 40 && !row; i++) {
+      row = document.querySelector(`[data-message-id="${id}"]`);
+      if (!row) await sleep(150);
+    }
+    await sleep(500);
+    return {
+      ran: true,
+      rowPresent: !!row,
+      isGM: game.user.isGM,
+      // The STORED card carries the anchor (one card is sent to everyone), so
+      // the render hook is the only place a player's copy can be trimmed — and
+      // this is what proves there was something to trim. It lives in FLAVOR, not
+      // content: both real producers ship dmg-roll-card.html as the roll's
+      // flavor (see postCard above), and reading `content` here reported "no
+      // anchor" and quietly turned the leg below into a tautology.
+      contentHasAnchor: ["flavor", "content"]
+        .some((f) => String(game.messages.get(id)?.[f] ?? "").includes("apply-dmg")),
+      anchorInDom: !!row?.querySelector(".apply-dmg"),
+    };
+  }, posted));
+  await page.evaluate(async ({ id }) => { await game.messages.get(id)?.delete(); }, posted);
+  await alicePage.close();
+} catch (e) {
+  warden.error = `${e.name}: ${e.message}`;
+}
+
 await browser.close();
 
 let bad = 0;
@@ -588,6 +730,38 @@ check("ordinary adds refused", out.ordinaryStillRefused,
   "an unflagged createOwnedItem on the same full character is still turned away — overflow is owed to Fatigue, not to shopping");
 check("grants land whole", out.grantAllLanded,
   `slots ${out.grantSlots} — what generation and a background grant owe is never clamped`);
+
+console.log("\nthe Scar card names who was scarred");
+check("a Scar card was posted", scar.posted, "damage landing exactly on 0 HP draws the table");
+check("it names the SCARRED token", scar.speakerToken === scar.victimToken,
+  `speaker.token=${scar.speakerToken} (expected the victim ${scar.victimToken}) - the bug the Warden reported`);
+// Positive, not "!== the attacker". The negative form does NOT discriminate:
+// witnessed 2026-08-06 with the fix reverted, core's getSpeaker() resolved to
+// some other controlled token, so "not the attacker" was TRUE while the card was
+// still misattributed. A leg that stays green with the bug present is worse than
+// no leg. Naming the victim's actor is the claim that actually holds.
+check("it names the victim's actor", scar.speakerActor === scar.victimActor,
+  `speaker.actor=${scar.speakerActor} (expected the victim ${scar.victimActor}; the viewer's own character is ${scar.attackerActor})`);
+check("flavor is ours, not core's", !!scar.flavor && scar.flavor !== scar.coreDrawFlavor,
+  `flavor "${scar.flavor}" (core would say "${scar.coreDrawFlavor}", which claims somebody drew it)`);
+check("control: bare draw() still misattributes", scar.controlSpeakerToken !== scar.victimToken,
+  `bare draw() speaker.token=${scar.controlSpeakerToken} - if this equalled the victim the leg above would prove nothing`);
+
+console.log("\nthe Scar banner and chat legibility");
+check("the banner renders", scar.bannerRendered, ".cairn-scar-banner on the damage card");
+check("centred, bold and glowed", scar.bannerCentered && scar.bannerBold && scar.bannerGlow,
+  `align=${scar.bannerCentered} bold=${scar.bannerBold} glow=${scar.bannerGlow}`);
+check("chat body above core's 14px", scar.contentPx > 14,
+  `.message-content computes to ${scar.contentPx}px`);
+
+console.log("\nApply damage is Warden-only");
+check("the player leg ran", warden.ran && !warden.isGM,
+  warden.error ?? `joined as a player, isGM=${warden.isGM} (needs Alice - npm run dev:players)`);
+check("Alice sees the card", !!warden.rowPresent, "the damage card reached her log");
+check("the stored card still carries it", !!warden.contentHasAnchor,
+  "one HTML goes to everyone, so the render hook is the only place to trim it - and this proves there was something to trim");
+check("her copy has no Apply control", warden.ran && !warden.anchorInDom,
+  "removed, not display:none - nothing left to un-hide in devtools");
 
 if (errors.length) { bad++; console.log("Console errors:\n" + errors.join("\n")); }
 console.log(bad === 0 ? "\nencumbered-damage e2e passed" : `\nencumbered-damage e2e FAILED — ${bad}`);

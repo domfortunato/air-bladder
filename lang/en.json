@@ -329,6 +329,7 @@
   "CAIRN.NotesPlaceholder": "Put notes about this character here.",
   "CAIRN.NotesPlaceholderMonster": "Put notes about this monster here.",
   "CAIRN.Notify": {
+    "ApplyDamageWardenOnly": "Only the Warden can apply damage.",
     "Bought": "Bought {name} for {cost} gold.",
     "CannotConnect": "{name} can't be connected — monsters never join a party's connections.",
     "ConfirmDeleteNamed": "Delete {name}?",
@@ -446,6 +447,7 @@
   "CAIRN.RollingDmgWithWeaponPanic": "Rolling damage with {weapon} (Panic)",
   "CAIRN.RollingWhat": "Rolling {what}",
   "CAIRN.Save": "{key} save",
+  "CAIRN.ScarFlavor": "Takes a scar",
   "CAIRN.Scars": "Got a scar",
   "CAIRN.ScarsHint": "If damage reduced your HP to exactly 0, check the Scars box and choose the value equal to the damage you received.",
   "CAIRN.ScarsSection": "Scars",
