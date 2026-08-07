@@ -25,10 +25,10 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { ROOT, listPacks, readPack, normalizeKey, domSourceKey } from "./lib.mjs";
-import { stringsFromDoc } from "./content-strings.mjs";
+import { ROOT } from "./lib.mjs";
 import { checkPair, flattenLang } from "./validate.mjs";
 import { loadBaseline, classifyDrift } from "./baseline.mjs";
+import { classifyOverlay } from "./orphans.mjs";
 
 const STRICT = process.argv.includes("--strict");
 const GLOSSARY = process.argv.includes("--glossary");
@@ -138,70 +138,33 @@ if (GLOSSARY) {
  * reads as "English was edited, nothing to do" when it actually meant "this
  * translation has never once been displayed".
  */
+// The classification itself lives in orphans.mjs — `i18n:handoff` builds the
+// translator's document from exactly these classes, and two copies of the rule
+// for "why did this key stop being asked for" would drift apart into two
+// different answers to the same question.
 const entityWarn = [];
-const contentPath = path.join(ROOT, "lang", "content", `${LANG}.json`);
-const contentOrphans = { quoted: [], moved: [], entity: [], entityDup: [], dropped: [] };
-if (fs.existsSync(contentPath)) {
-  const overlay = JSON.parse(fs.readFileSync(contentPath, "utf8"));
-  const byNs = new Set();      // "ns\0normEn"
-  const byText = new Map();    // normEn → Set(ns)
-  const add = (ns, enStr) => {
-    const k = normalizeKey(enStr);
-    byNs.add(`${ns}\0${k}`);
-    if (!byText.has(k)) byText.set(k, new Set());
-    byText.get(k).add(ns);
-  };
-  for (const pack of listPacks()) {
-    for (const { doc } of readPack(pack)) for (const s of stringsFromDoc(doc)) add(s.ns, s.en);
-  }
-  // Careers live in a module JSON, not a pack — same exception extract makes.
-  for (const c of JSON.parse(fs.readFileSync(path.join(ROOT, "module", "npc-careers-2e.json"), "utf8"))) {
-    if (c?.name) add("npc.career", c.name);
-  }
-  const unquoted = (s) => (/^".*"$/s.test(s) && s.includes('""')
-    ? s.slice(1, -1).replace(/""/g, '"') : null);
-  for (const [ns, entries] of Object.entries(overlay)) {
-    if (!entries || typeof entries !== "object") continue;
-    for (const normEn of Object.keys(entries)) {
-      if (byNs.has(`${ns}\0${normEn}`)) continue;
-      const u = unquoted(normEn);
-      const decoded = normalizeKey(domSourceKey(normEn));
-      if (u && byNs.has(`${ns}\0${normalizeKey(u)}`)) {
-        contentOrphans.quoted.push(`${ns}: ${normEn.slice(0, 70)}…`);
-      } else if (decoded !== normEn && byNs.has(`${ns}\0${decoded}`)) {
-        // Name the entities rather than the whole string: the two forms differ by
-        // a few bytes in a paragraph, and a diff nobody can see is a diff nobody acts on.
-        const ents = [...new Set(normEn.match(/&[a-zA-Z][a-zA-Z0-9]*;|&#[xX]?[0-9a-fA-F]+;/g) ?? [])];
-        // Two very different situations wear the same shape, and conflating them
-        // would mean the count never clears. If the overlay ALREADY holds the
-        // decoded key, the re-key has happened and this row is spent residue —
-        // harmless, deletable, and no translation is being lost. Only when the
-        // decoded key is absent is a finished translation actually going
-        // undisplayed, and that is the number worth shouting about.
-        const line = `${ns}: ${ents.join(" ")} → decode; ${normEn.slice(0, 60)}`;
-        if (entries[decoded] !== undefined) contentOrphans.entityDup.push(line);
-        else contentOrphans.entity.push(line);
-      } else if (byText.has(normEn)) {
-        contentOrphans.moved.push(`${ns} → ${[...byText.get(normEn)].join("/")}: ${normEn.slice(0, 60)}`);
-      } else {
-        contentOrphans.dropped.push(`${ns}: ${normEn.slice(0, 70)}`);
-      }
-    }
-  }
+const content = classifyOverlay(LANG);
+if (content) {
+  const { entries: overlayEntries, orphans: contentOrphans } = content;
   const bad = contentOrphans.quoted.length + contentOrphans.moved.length;
-  for (const e of [...contentOrphans.quoted, ...contentOrphans.moved]) errors.push(`content overlay — ${e}`);
+  for (const o of contentOrphans.quoted) errors.push(`content overlay — ${o.ns}: ${o.key.slice(0, 70)}…`);
+  for (const o of contentOrphans.moved) {
+    errors.push(`content overlay — ${o.ns} → ${o.movedTo.join("/")}: ${o.key.slice(0, 60)}`);
+  }
   // `entity` is loud but not fatal by default, for the same reason value drift
   // is not: clearing it means writing lang/content/<lang>.json, which belongs to
   // the translator. A gate that can only go green by editing somebody else's
   // file is a gate that gets forced. --strict makes it fatal for a release.
-  for (const e of contentOrphans.entity) entityWarn.push(e);
+  for (const o of contentOrphans.entity) {
+    entityWarn.push(`${o.ns}: ${o.ents.join(" ")} → decode; ${o.key.slice(0, 60)}`);
+  }
   console.log(`\nlang/content/${LANG}.json vs src/packs/`);
-  console.log(`  entries     : ${Object.values(overlay).reduce((n, e) => n + Object.keys(e ?? {}).length, 0)}`);
+  console.log(`  entries     : ${overlayEntries}`);
   console.log(`  CSV-quoted  : ${contentOrphans.quoted.length}   (spreadsheet mangling — re-run i18n:import)`);
   console.log(`  moved ns    : ${contentOrphans.moved.length}   (re-key, do not retranslate)`);
   console.log(`  HTML entity : ${contentOrphans.entity.length}   (keyed on &mdash;/&rsquo; the DOM never asks for — these have NEVER been displayed)`);
   if (contentOrphans.entity.length) {
-    for (const w of contentOrphans.entity.slice(0, 10)) console.log(`     ! ${w}`);
+    for (const w of entityWarn.slice(0, 10)) console.log(`     ! ${w}`);
     if (contentOrphans.entity.length > 10) console.log(`     … and ${contentOrphans.entity.length - 10} more`);
     console.log(`     fix: npm run i18n:extract && npm run i18n:import -- --lang ${LANG}`);
     console.log(`          (re-keys them mechanically, keeping every translated value — it WRITES lang/content/${LANG}.json)`);
@@ -211,7 +174,7 @@ if (fs.existsSync(contentPath)) {
   }
   console.log(`  source gone : ${contentOrphans.dropped.length}   (English edited or removed — advisory)`);
   if (contentOrphans.dropped.length) {
-    for (const w of contentOrphans.dropped.slice(0, 10)) console.log(`     ! ${w}`);
+    for (const o of contentOrphans.dropped.slice(0, 10)) console.log(`     ! ${o.ns}: ${o.key.slice(0, 70)}`);
     if (contentOrphans.dropped.length > 10) console.log(`     … and ${contentOrphans.dropped.length - 10} more`);
   }
   if (!bad) console.log("  ok - every translation is keyed to a string the runtime still asks for");

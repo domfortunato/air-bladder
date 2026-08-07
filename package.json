@@ -23,6 +23,7 @@
     "i18n:import": "node tools/i18n/import-i18n.mjs",
     "i18n:check": "node tools/i18n/check.mjs",
     "i18n:baseline": "node tools/i18n/baseline.mjs",
+    "i18n:handoff": "node tools/i18n/handoff.mjs",
     "i18n:source": "node tools/i18n/source-check.mjs",
     "release": "node tools/release.mjs",
     "dev:enc-damage": "node tools/dev/e2e-encumbered-damage.mjs",

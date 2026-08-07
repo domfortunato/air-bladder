@@ -1,0 +1,16 @@
+{
+  "_readme": [
+    "Hand-written notes injected into docs/translation-handoff.md by i18n:handoff.",
+    "The document is generated, so anything typed into it directly is destroyed on the",
+    "next run — this file is where a note about a specific string survives.",
+    "",
+    "Keys: an exact i18n key attaches the note under that row (Part 1 or Part 3);",
+    "'section:<Name>' attaches it after that section's table in Part 3.",
+    "Delete a note once its string is translated; a note nobody needs is a note",
+    "nobody reads."
+  ],
+
+  "CAIRN.DamageFromWeapon": "The possessive is inside the string on purpose (\"from Lisbeth's crossbow\"). English builds that with 's, which Spanish does not have, so you get the whole sentence and can put \"de\" wherever it belongs. Same reasoning as CAIRN.AttacksTarget.",
+
+  "section:DamageQuality": "This is a complete group — there is no `.Normal` key. It was renamed to `.Standard` along with the English copy, so do not look for the old name."
+}

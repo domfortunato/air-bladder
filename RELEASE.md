@@ -37,6 +37,16 @@ tag — see [docs/git-flow.md](docs/git-flow.md).
 [docs/release-testing.md](docs/release-testing.md). Do it on `dev`, before the merge,
 while a failure is still cheap to fix.
 
+**Regenerate the translator's handoff — `npm run i18n:handoff`.** It rewrites
+[docs/translation-handoff.md](docs/translation-handoff.md) from the repository, and its
+first two parts are the ones no other tool can produce: **strings he already translated
+whose English we have since changed.** Neither half of that is a missing key, so neither
+falls back to English and neither looks outstanding — an interface string keeps its key
+and quietly says the wrong thing, and a content string keeps a key the runtime has
+stopped asking for and simply never renders. Commit the regenerated file and send it with
+the release. Doing it after the tag is worse than useless: it then describes a release he
+was never given the list for.
+
 **Bring `README.es.md` up to date with `README.md`.** Both ship inside `system.zip`,
 so whatever the Spanish one says at tag time is what a Spanish reader downloads. It
 drifts one English edit at a time, and nothing checks it — `npm run i18n:check` covers

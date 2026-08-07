@@ -49,6 +49,24 @@ merely untranslated from the ones whose **English changed underneath a finished
 translation** — the second kind reports as translated and is invisible to every
 gate.
 
+**That file is GENERATED — `npm run i18n:handoff [-- --lang <code>]`.** Do not edit
+it by hand and do not assemble the list from a diff; regenerate it before every
+tag (it is on the pre-tag list in [release-testing.md](release-testing.md)) and
+commit the result. Hand-building it was how the first edition got made, and a
+hand-built list can only ever describe the cycle whoever wrote it was looking at:
+the drift it reports comes from `tools/i18n/baseline/<lang>.json`, which
+accumulates across cycles, so a string changed two releases ago and never sent is
+still on the list. A diff cannot see that.
+
+It reports drift on **both** sides, because they fail differently and only one of
+them is about keys. `lang/<lang>.json` is keyed by KEY, so an edited English value
+leaves the translation present and wrong. `lang/content/<lang>.json` is keyed by
+the ENGLISH SOURCE STRING, so an edited pack description leaves the translation
+unreachable — and it then shows up as an orphan, which reads like prose we
+deleted. Where a live string closely resembles an orphan, the generator pairs them
+and says so, with the similarity score, so the answer is an edit rather than a
+retranslation.
+
 **Spanish is the translation; the other five are fragments.** They came from the
 1e system and never grew as this fork added ~250 keys, so a German session is
 mostly English. That is not a bug — English fallback is per string and by design —
