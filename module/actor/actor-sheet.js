@@ -2170,6 +2170,17 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onAddFatigue(event) {
     event.preventDefault();
+    // The header is hidden on a thing (system.showFatigue), and this refuses on
+    // one. That split is the house rule the marketplace already follows: the
+    // hiding is the AFFORDANCE, this is the ENFORCEMENT. A sheet left open while
+    // an actor's role changed to container still has a live button, and the
+    // action is reachable by uuid regardless of what was rendered.
+    if (this.actor.isThing) {
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoFatigueOnThing", {
+        name: this.actor.name,
+      }));
+      return;
+    }
     await this.actor.createOwnedItem(
       { name: FATIGUE_NAME, type: "item" },
       { ignoreCapacity: true }
@@ -3193,6 +3204,19 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // and a correct-sounding comment on contradicting code reads as verification
     // — it is why the disagreement survived two reviews. The rule was settled on
     // 2026-08-05 in the code's favour; see CLAUDE.md.
+    // Fatigue never lands on a thing, by any route. Hiding the +/- header is an
+    // affordance fix only: a Fatigue item can be DRAGGED off a character and
+    // dropped on a sack, which is the same nonsense arriving by a door nobody
+    // shut. Tested by NAME because that is Fatigue's identity everywhere else
+    // here — it is stored in English (FATIGUE_NAME) precisely so it survives a
+    // language change, and `system.isFatigue` is derived from the same test.
+    if (this.actor.isThing && originalItem.name === FATIGUE_NAME) {
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoFatigueOnThing", {
+        name: this.actor.name,
+      }));
+      return null;
+    }
+
     const s = originalItem.system ?? {};
     const need = s.bulky ? 2 : s.weightless ? 0 : 1;
     if (this.actor.isThing) {

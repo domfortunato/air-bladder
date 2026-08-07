@@ -550,6 +550,16 @@ export class CairnActor extends Actor {
     // that held 25gp still holds it (and it still weighs) — the sheet just
     // stops offering a purse on something that has no pockets to manage.
     this.system.showGold = !this.isThing && this.npcRole !== "mount";
+    // The Items tab's Fatigue +/- header. A THING cannot be tired: a sack, cart
+    // or crate has no STR to burn and no save to fail, so the control was pure
+    // nonsense on one — and on a GLOG grimoire it is worse than nonsense,
+    // because casting genuinely costs Fatigue and the header looks like the way
+    // to pay it, while the cost belongs on the CONNECTED CHARACTER (grimoire is
+    // already in THING_ROLES, so writing the test as `isThing` covers that
+    // branch without knowing about it — an explicit container/transport list
+    // would not). MONSTERS AND MOUNTS KEEP IT: they are creatures with stat
+    // blocks, and taking Fatigue off them is a separate ruling nobody has made.
+    this.system.showFatigue = !this.isThing;
     // Both of these are now PERMANENTLY TRUE and no template reads either. They
     // date from template.json, where `biography`/`description` could be absent or
     // null; a TypeDataModel HTMLField initialises to "", which is neither. That is

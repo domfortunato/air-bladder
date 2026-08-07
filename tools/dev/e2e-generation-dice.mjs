@@ -231,6 +231,75 @@ try {
   r.legs.fieldRerolls.length === 0
     ? ok("name / portrait / background re-rolls posted nothing to chat")
     : fail(`field re-rolls posted ${r.legs.fieldRerolls.length} message(s) [${r.legs.fieldRerolls.map((m) => m.id).join(", ")}]`);
+
+  // ---- Leg 6: the dice land BEFORE the sheet opens -------------------------
+  // ChatMessage.create resolves when the document saves; Dice So Nice keeps
+  // animating for seconds after that. So opening the new character's sheet on
+  // that resolution put the sheet over the dice — the roll was spoiled by its
+  // own result. Ordering is the whole assertion: the last
+  // `diceSoNiceRollComplete` must precede the sheet's render.
+  //
+  // The control is what makes this leg mean anything, and it is IN-PAGE: stub
+  // DSN's own waitFor3DAnimationByMessageID to resolve immediately. That is
+  // precisely the pre-fix world — dice still animate, nobody waits for them —
+  // without editing a line of system source. If the order does NOT invert under
+  // it, the ordering check above is measuring nothing.
+  const order = await page.evaluate(async () => {
+    if (typeof game.dice3d?.waitFor3DAnimationByMessageID !== "function") return { skipped: true };
+    const gen = await import("/systems/air-bladder/module/character-generator.js");
+    const track = (globalThis.__genDiceProbe ??= { actors: [], messages: [] });
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    // This leg runs OUTSIDE withSettings, so state its own preconditions rather
+    // than inheriting whatever the previous block restored to: no card means no
+    // dice, and the ordering would be unobservable in a way that reads as green.
+    const NS = "air-bladder";
+    const wasShowing = game.settings.get(NS, "show-generation-rolls");
+    if (!wasShowing) await game.settings.set(NS, "show-generation-rolls", true);
+
+    const run = async () => {
+      const marks = [];
+      const onDice = () => marks.push({ what: "dice", t: performance.now() });
+      const onSheet = () => marks.push({ what: "sheet", t: performance.now() });
+      Hooks.on("diceSoNiceRollComplete", onDice);
+      Hooks.on("renderCairnActorSheet", onSheet);
+      const before = new Set(game.messages.map((m) => m.id));
+      // `source` is REQUIRED: without it generateCharacter prompts for the
+      // content source and this evaluate waits on a modal nobody will answer.
+      const actor = await gen.createCharacter({ source: "2e" });
+      if (actor) { track.actors.push(actor.id); actor.sheet?.render(true); }
+      await sleep(1500);
+      Hooks.off("diceSoNiceRollComplete", onDice);
+      Hooks.off("renderCairnActorSheet", onSheet);
+      for (const m of game.messages) if (!before.has(m.id)) track.messages.push(m.id);
+      await actor?.sheet?.close();
+      const dice = marks.filter((m) => m.what === "dice").pop();
+      const sheet = marks.filter((m) => m.what === "sheet").shift();
+      return { sawDice: !!dice, sawSheet: !!sheet, diceFirst: !!(dice && sheet && dice.t <= sheet.t) };
+    };
+
+    const fixed = await run();
+
+    const real = game.dice3d.waitFor3DAnimationByMessageID.bind(game.dice3d);
+    game.dice3d.waitFor3DAnimationByMessageID = async () => true;   // defeat the wait
+    let control;
+    try { control = await run(); } finally { game.dice3d.waitFor3DAnimationByMessageID = real; }
+    if (!wasShowing) await game.settings.set(NS, "show-generation-rolls", false);
+    return { fixed, control };
+  });
+
+  if (order.skipped) {
+    fail("dice-before-sheet NOT CHECKED: Dice So Nice is not active in this world, so the ordering this leg exists for cannot be observed");
+  } else if (!order.fixed.sawDice || !order.fixed.sawSheet) {
+    fail(`dice-before-sheet: never observed both events (dice=${order.fixed.sawDice} sheet=${order.fixed.sawSheet}) — the leg proves nothing`);
+  } else {
+    order.fixed.diceFirst
+      ? ok("the dice finish animating before the generated sheet opens")
+      : fail("the sheet opened while the dice were still in the air");
+    order.control.diceFirst === false
+      ? ok("control: stubbing DSN's wait puts the sheet back in front of the dice")
+      : fail("control: the order did NOT invert with the wait defeated — the leg above is not measuring the wait");
+  }
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {

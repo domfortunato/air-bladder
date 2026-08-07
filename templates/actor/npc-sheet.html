@@ -363,7 +363,11 @@
                     </div>
                 </div>
                 <div class="tab {{tabs.items.cssClass}}" data-group="primary" data-tab="items">
-                    {{> "systems/air-bladder/templates/parts/items-list.html" withFatigue=1 withShop=1}}
+                    {{!-- withFatigue is DERIVED, not 1: this one sheet serves all five
+                          npc roles, so a hardcoded flag put the Fatigue +/- header on
+                          sacks, carts and crates (and grimoires, on glog). See
+                          system.showFatigue in actor.js prepareData. --}}
+                    {{> "systems/air-bladder/templates/parts/items-list.html" withFatigue=system.showFatigue withShop=1}}
                 </div>
                 <div class="tab {{tabs.notes.cssClass}}" data-group="primary" data-tab="notes">
                     {{!-- TOGGLED like the Description editor above, since 2026-08-02

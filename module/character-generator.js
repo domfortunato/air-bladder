@@ -2322,8 +2322,13 @@ export const updateActorWithCharacter = async (actor, characterData) => {
  * @param {CairnActor|null} actor
  * @param {Object|null} characterData  a generator's return, carrying `.rolls`
  * @param {User|null} [roller]  who rolled; defaults to whoever is running this
+ * @param {Object} [options]
+ * @param {boolean} [options.waitForDice=true]  hold until Dice So Nice has
+ *   finished animating, so the caller's sheet opens AFTER the dice land.
+ * @returns {Promise<ChatMessage|null>}  the posted card, for a caller that wants
+ *   to wait on it itself.
  */
-const postGenerationRolls = async (actor, characterData, roller = null) => {
+const postGenerationRolls = async (actor, characterData, roller = null, { waitForDice = true } = {}) => {
   const rolls = characterData?.rolls;
   if (!actor || !rolls) return;
   if (!game.settings.get(SETTINGS_NS, "show-generation-rolls")) return;
@@ -2354,14 +2359,78 @@ const postGenerationRolls = async (actor, characterData, roller = null) => {
     const speaker = ChatMessage.getSpeaker({ actor });
     const who = (roller ?? game.user)?.name;
     if (who) speaker.alias = who;
-    await ChatMessage.create({
+    const message = await ChatMessage.create({
       speaker,
       rolls: [rolls.hp, rolls.STR, rolls.DEX, rolls.WIL, rolls.gold],
       content,
     });
+    if (waitForDice) await awaitDiceAnimation(message?.id);
+    return message ?? null;
   } catch (err) {
     console.error("Air Bladder | could not post the generation rolls to chat:", err);
+    return null;
   }
+};
+
+/**
+ * Hold until Dice So Nice has finished throwing a message's dice.
+ *
+ * The point is ORDERING, not decoration: `ChatMessage.create` resolves as soon as
+ * the document is saved, but DSN animates for seconds afterwards, so a caller
+ * that opened the new character's sheet on that resolution put the sheet on
+ * screen while the dice were still in the air — the sheet spoiled its own roll.
+ * Waiting here rather than at each render site fixes all three of them at once
+ * (the Create Actor dialog, the directory button, and the player relay).
+ *
+ * Safe with no DSN and safe with DSN configured away: `game.dice3d` is undefined
+ * unless the module is active, and DSN's own API resolves immediately when its
+ * visibility is "none", when `immediatelyDisplayChatMessages` is set, or when the
+ * message is not animating (main.js, waitFor3DAnimationByMessageID). So the delay
+ * happens exactly when there is an animation to wait for and never otherwise —
+ * which is why this needs no setting of its own.
+ *
+ * The timeout is the part that earns its keep. DSN resolves on its
+ * `diceSoNiceRollComplete` hook, and a hook that never fires (a failed throw, a
+ * module error) would otherwise hang character generation forever with no error
+ * anywhere. A cap turns the worst case back into today's behaviour.
+ *
+ * @param {string|null|undefined} messageId
+ * @param {Object} [options]
+ * @param {number} [options.timeoutMs=20000]
+ * @returns {Promise<boolean>}  true if the animation actually completed
+ */
+export const awaitDiceAnimation = async (messageId, { timeoutMs = 20000 } = {}) => {
+  if (!messageId || typeof game.dice3d?.waitFor3DAnimationByMessageID !== "function") return false;
+  let timer = null;
+  try {
+    return await Promise.race([
+      Promise.resolve(game.dice3d.waitFor3DAnimationByMessageID(messageId)).then(() => true),
+      new Promise((resolve) => { timer = setTimeout(() => resolve(false), timeoutMs); }),
+    ]);
+  } catch (err) {
+    // Never let a dice module's failure cost somebody their character: by the
+    // time we are here the actor exists and is saved.
+    console.warn("Air Bladder | waiting on the dice animation failed:", err);
+    return false;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+};
+
+/**
+ * The generation card for an actor, newest first — how a client that did NOT
+ * post it (the player, on the relay path) finds the animation to wait for.
+ * @param {CairnActor|null} actor
+ * @returns {ChatMessage|null}
+ */
+export const findGenerationRollMessage = (actor) => {
+  if (!actor) return null;
+  const messages = game.messages?.contents ?? [];
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.rolls?.length && m.speaker?.actor === actor.id) return m;
+  }
+  return null;
 };
 
 /**

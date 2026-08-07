@@ -329,6 +329,97 @@ try {
     ? ok("the same-flag drop still merges", "the witness: merge machinery fires here")
     : fail("the same-flag drop still merges", JSON.stringify(scrollMerge.afterSecond));
 
+  // ---- Fatigue belongs to a character, never to a thing --------------------
+  // A crate cannot be tired. The +/- header shipped on every container and
+  // transport because ONE npc sheet serves all five roles and passed
+  // `withFatigue=1` flat, so a Warden could put Fatigue on a sack. Three things
+  // are checked, and the middle one is the reason this leg is long: hiding the
+  // header naively ALSO deletes the coin rows, because they rode on the same
+  // flag.
+  const fatigue = await gmPage.evaluate(async () => {
+    const ActorImpl = CONFIG.Actor.documentClass;
+    const ItemImpl = CONFIG.Item.documentClass;
+    const out = {};
+    // Gold, so goldSlots > 0 and the coin rows have something to render. Coins
+    // take slots for every actor type, a chest included.
+    const thing = await ActorImpl.create({
+      name: "ZZ Fatigue Crate", type: "npc",
+      system: { role: "container", slots: 6, gold: 250 },
+    });
+    const pc = await ActorImpl.create({ name: "ZZ Fatigue PC", type: "character" });
+    const show = async (a) => {
+      await a.sheet.render(true);
+      await new Promise((r) => setTimeout(r, 900));
+      return a.sheet.element;
+    };
+    const fatigueCount = (a) => a.items.filter((i) => i.name === "Fatigue").length;
+
+    const thingEl = await show(thing);
+    out.thingHasButton = !!thingEl.querySelector('[data-action="addFatigue"]');
+    out.thingGoldSlots = thing.system.goldSlots ?? 0;
+    out.thingCoinRows = thingEl.querySelectorAll(".gold-slot-row").length;
+
+    // ENFORCEMENT, and the control is IN-PAGE: plant the very button the old
+    // template rendered and click it. That is not a contrivance — it is exactly
+    // the state of a sheet left open while the actor's role changed to
+    // container, which is the case the hidden header cannot cover.
+    const notices = [];
+    const orig = ui.notifications.warn.bind(ui.notifications);
+    ui.notifications.warn = (m, ...a) => { notices.push(m); return orig(m, ...a); };
+    const planted = document.createElement("a");
+    planted.dataset.action = "addFatigue";
+    thingEl.querySelector(".cairn-items-list-header")?.appendChild(planted);
+    planted.click();
+    await new Promise((r) => setTimeout(r, 700));
+    out.thingFatigueAfterClick = fatigueCount(thing);
+
+    // The drop route, which hiding a button does nothing about.
+    const loose = await ItemImpl.create({ name: "Fatigue", type: "item" });
+    const dt = new DataTransfer();
+    dt.setData("text/plain", JSON.stringify({ type: "Item", uuid: loose.uuid }));
+    try { await thing.sheet._onDrop(new DragEvent("drop", { dataTransfer: dt })); }
+    catch (e) { notices.push(`threw: ${e.message}`); }
+    await new Promise((r) => setTimeout(r, 700));
+    out.thingFatigueAfterDrop = fatigueCount(thing);
+    ui.notifications.warn = orig;
+    out.notices = notices.slice();
+    await thing.sheet.close();
+
+    // THE OTHER END. Every assertion above is an absence, and an absence passes
+    // just as well when the selector is wrong or the click never dispatched. So
+    // drive the identical path on a CHARACTER and require the opposite.
+    const pcEl = await show(pc);
+    out.pcHasButton = !!pcEl.querySelector('[data-action="addFatigue"]');
+    pcEl.querySelector('[data-action="addFatigue"]')?.click();
+    await new Promise((r) => setTimeout(r, 700));
+    out.pcFatigueAfterClick = fatigueCount(pc);
+    await pc.sheet.close();
+
+    await loose.delete();
+    await thing.delete();
+    await pc.delete();
+    return out;
+  });
+
+  !fatigue.thingHasButton
+    ? ok("a container offers no Fatigue control", "the +/- header is gone")
+    : fail("a container offers no Fatigue control", "the header still renders");
+  fatigue.pcHasButton
+    ? ok("...but a character still does", "control: the selector and sheet are real")
+    : fail("...but a character still does", "the header vanished from characters too");
+  fatigue.thingGoldSlots > 0 && fatigue.thingCoinRows === fatigue.thingGoldSlots
+    ? ok("the container's coin rows survived", `${fatigue.thingCoinRows} row(s) for ${fatigue.thingGoldSlots} slot(s)`)
+    : fail("the container's coin rows survived", `rows=${fatigue.thingCoinRows} slots=${fatigue.thingGoldSlots} — the flag split lost them`);
+  fatigue.thingFatigueAfterClick === 0
+    ? ok("a planted Fatigue button is refused", "hiding is the affordance, this is the enforcement")
+    : fail("a planted Fatigue button is refused", `${fatigue.thingFatigueAfterClick} Fatigue on the crate`);
+  fatigue.thingFatigueAfterDrop === 0
+    ? ok("Fatigue cannot be DROPPED on a thing", "the route hiding a button leaves open")
+    : fail("Fatigue cannot be DROPPED on a thing", `${fatigue.thingFatigueAfterDrop} Fatigue on the crate`);
+  fatigue.pcFatigueAfterClick === 1
+    ? ok("...and a character still gains Fatigue", "control: the click path works")
+    : fail("...and a character still gains Fatigue", `${fatigue.pcFatigueAfterClick} on the PC — the click never landed, so the refusals above prove nothing`);
+
   await gmPage.evaluate(async ({ a, b, itemId }) => {
     await game.actors.get(a)?.delete();
     await game.actors.get(b)?.delete();

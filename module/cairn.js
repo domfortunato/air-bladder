@@ -3,7 +3,7 @@ import { CairnActor } from "./actor/actor.js";
 import { CairnActorSheet } from "./actor/actor-sheet.js";
 import { CairnItem, FATIGUE_NAME, SPELLSCROLL_NAME } from "./item/item.js";
 import { CairnItemSheet } from "./item/item-sheet.js";
-import { createCharacter, createNpc, requestPcGeneration, enabledContentSources, FLAG_SCOPE } from "./character-generator.js";
+import { createCharacter, createNpc, requestPcGeneration, enabledContentSources, FLAG_SCOPE, awaitDiceAnimation, findGenerationRollMessage } from "./character-generator.js";
 import * as characterGenerator from "./character-generator.js";
 import { createMonster } from "./monster-generator.js";
 import * as monsterGenerator from "./monster-generator.js";
@@ -441,7 +441,21 @@ Hooks.once("init", () => {
       // actor itself — poll briefly rather than racing it.
       for (let i = 0; i < 20; i++) {
         const actor = await fromUuid(msg.uuid);
-        if (actor) { actor.sheet?.render(true); return; }
+        if (actor) {
+          // Let the dice land before the sheet covers them — the same rule the
+          // local paths get from postGenerationRolls, except that here the card
+          // was posted by the WARDEN's client and this one only received the
+          // broadcast, so there is no message id to hand over: find it by actor.
+          // Poll briefly, because the custom emit can outrun the chat broadcast
+          // exactly as it can outrun the actor's (that is why this loop exists).
+          for (let j = 0; j < 10; j++) {
+            const rollMessage = findGenerationRollMessage(actor);
+            if (rollMessage) { await awaitDiceAnimation(rollMessage.id); break; }
+            await new Promise((r) => setTimeout(r, 150));
+          }
+          actor.sheet?.render(true);
+          return;
+        }
         await new Promise((r) => setTimeout(r, 150));
       }
       return;

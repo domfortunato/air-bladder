@@ -112,7 +112,14 @@
   </div>
 </div>
 {{/each}}
-{{#if withFatigue}}
+{{!-- The coin rows are NOT gated on withFatigue, and that is load-bearing rather
+      than tidiness. They rode on that flag until 2026-08-06 purely because both
+      callers passed it, so the first attempt to hide the Fatigue header on a
+      container would have silently deleted them too — leaving a chest whose
+      slotsUsed counts its coins with nothing on the tab saying why. Coins take
+      slots for EVERY actor type (2e p.9), things included, so this needs no gate
+      at all: goldSlots is 0 when there are none, and {{#times 0}} renders
+      nothing. --}}
 {{#times system.goldSlots}}
 <div class="cairn-items-list-row gold-slot-row">
   <div class="cairn-items-list-row-header">
@@ -124,6 +131,5 @@
   </div>
 </div>
 {{/times}}
-{{/if}}
 <div class="cairn-reorder-hint"><i class="fas fa-up-down"></i> {{ localize 'CAIRN.ReorderHint' }}</div>
 <div class="cairn-grant-hint"><i class="fas fa-tag"></i> {{ localize 'CAIRN.GrantTagsHint' }}</div>
