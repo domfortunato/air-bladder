@@ -643,11 +643,27 @@ try {
     }
     if (!icon) return { iconClass: null, iconGlyph: null, iconPx: null };
     const before = getComputedStyle(icon, "::before").content;
+    const anchor = icon.closest(".apply-dmg");
+    // The control reads in the FAILURE colour (user ask). Asserted as the two
+    // computed colours being EQUAL, never against a literal rgb(206,7,7): the
+    // ask is "the same as failures", so a literal would go red on core retuning
+    // its own token — a change that is not a regression — and would stay green
+    // if the failure rule moved off the token while this one did not.
+    // The comparison element is planted, read and removed: a computed style is
+    // being READ, nothing is written and no document is touched.
+    const swatch = document.createElement("div");
+    swatch.className = "dice-roll";
+    swatch.innerHTML = '<h4 class="dice-total failure">0</h4>';
+    document.querySelector(`[data-message-id="${id}"]`)?.appendChild(swatch);
+    const failColor = getComputedStyle(swatch.querySelector(".dice-total")).color;
+    swatch.remove();
     return {
       iconClass: icon.className,
       // "none" or '""' means the class matched no glyph in the font.
       iconGlyph: before && before !== "none" && before !== '""' ? before : null,
-      iconPx: parseFloat(getComputedStyle(icon.closest(".apply-dmg")).fontSize),
+      iconPx: parseFloat(getComputedStyle(anchor).fontSize),
+      applyColor: getComputedStyle(anchor).color,
+      failColor,
     };
   }, posted));
   Object.assign(warden, await alicePage.evaluate(async ({ id }) => {
@@ -782,15 +798,22 @@ const applied = await page.evaluate(async () => {
  * one is NOT, and the Warden's copy carries both.
  * ------------------------------------------------------------------------- */
 const attack = { ran: false };
+// If this is ever parsed as HTML the browser fetches nothing, fails, and sets the
+// flag — so the leg has a positive witness rather than only the absence of a tag.
+const XSS_NAME = 'ZZ <img src=x onerror="window.__abXSS=1"> Foe';
 try {
   const alicePage = await browser.newPage({ viewport: VIEWPORT });
   await joinAs(alicePage, "Alice");
 
-  const fixture = await page.evaluate(async () => {
+  const fixture = await page.evaluate(async ({ xssName }) => {
     const ActorImpl = CONFIG.Actor.documentClass;
     const attacker = await ActorImpl.create({ name: "ZZ Attacker PC", type: "character" });
     const seen = await ActorImpl.create({ name: "ZZ Seen Foe", type: "npc", system: { role: "monster" } });
     const unseen = await ActorImpl.create({ name: "ZZ Unseen Foe", type: "npc", system: { role: "monster" } });
+    // A Warden-authored name that is also markup. The attack line now builds DOM
+    // nodes so it can bold the target, which is exactly the change that could
+    // reopen the player->GM injection this repo has paid for twice.
+    const evil = await ActorImpl.create({ name: xssName, type: "npc", system: { role: "monster" } });
     // OBSERVER on the SCENE so a player's client holds its tokens at all. Token
     // ownership is unaffected — TokenDocument#isOwner delegates to the actor
     // (documents/token.mjs:271-275) — so the hidden-token gate is still being
@@ -808,6 +831,7 @@ try {
     const aTok = await mk(attacker, 100, false);
     const sTok = await mk(seen, 300, false);
     const uTok = await mk(unseen, 500, true);
+    const eTok = await mk(evil, 700, false);
 
     const { evaluateFormula } = await import("/systems/air-bladder/module/utils.js");
     const post = async (ids) => {
@@ -825,10 +849,11 @@ try {
     return {
       bothId: await post([sTok.id, uTok.id]),
       hiddenOnlyId: await post([uTok.id]),
+      injectedId: await post([eTok.id]),
       sceneId: scene.id, attackerId: attacker.id, seenId: seen.id, unseenId: unseen.id,
-      aTokId: aTok.id,
+      evilId: evil.id, aTokId: aTok.id,
     };
-  });
+  }, { xssName: XSS_NAME });
 
   // What the WARDEN sees on the same two cards. Read here rather than assumed:
   // "Alice is missing the hidden name" only means something if the name was
@@ -842,22 +867,46 @@ try {
     }
     await sleep(300);
     const el = row?.querySelector(".flavor-dice-roll .dmg-label");
-    return { present: !!row, text: (el?.textContent ?? "").trim(), isGM: game.user.isGM };
+    const strong = el?.querySelector("strong.dmg-target");
+    return {
+      present: !!row, text: (el?.textContent ?? "").trim(), isGM: game.user.isGM,
+      // The bolded target: its OWN text, not the sentence's, so a <strong>
+      // wrapped round the whole line would not pass this.
+      strongText: strong ? strong.textContent : null,
+      strongWeight: strong ? getComputedStyle(strong).fontWeight : null,
+      // Markup is being introduced where there was none. These two are the
+      // standing proof it was introduced safely: no element an authored name
+      // asked for, and the label still holds exactly one <strong> — ours.
+      injectedTags: el
+        ? [...el.querySelectorAll("*")].map((n) => n.tagName.toLowerCase()) : null,
+      // The payload's own report. `textContent` cannot fire it and neither can
+      // a text node, so a truthy value here means something parsed HTML.
+      xssFired: window.__abXSS === 1,
+    };
   }, id);
 
   const gmBoth = await readLabel(page, fixture.bothId);
   const alBoth = await readLabel(alicePage, fixture.bothId);
   const alHiddenOnly = await readLabel(alicePage, fixture.hiddenOnlyId);
+  // Read on ALICE's page: a player's copy is the one that matters, and it is the
+  // trimmed one, so the injection leg cannot pass on markup only a GM ever saw.
+  const alInjected = await readLabel(alicePage, fixture.injectedId);
   Object.assign(attack, {
     ran: true, gmIsGM: gmBoth.isGM, aliceIsGM: alBoth.isGM,
     aliceSawCard: alBoth.present,
     gmText: gmBoth.text, aliceText: alBoth.text, aliceHiddenOnlyText: alHiddenOnly.text,
+    gmStrong: gmBoth.strongText, gmStrongWeight: gmBoth.strongWeight,
+    aliceStrong: alBoth.strongText,
+    injectedText: alInjected.text, injectedTags: alInjected.injectedTags,
+    injectedStrong: alInjected.strongText, xssFired: alInjected.xssFired,
   });
 
   await page.evaluate(async (f) => {
-    for (const id of [f.bothId, f.hiddenOnlyId]) await game.messages.get(id)?.delete();
+    for (const id of [f.bothId, f.hiddenOnlyId, f.injectedId]) await game.messages.get(id)?.delete();
     await game.scenes.get(f.sceneId)?.delete();
-    for (const id of [f.attackerId, f.seenId, f.unseenId]) await game.actors.get(id)?.delete();
+    for (const id of [f.attackerId, f.seenId, f.unseenId, f.evilId]) {
+      await game.actors.get(id)?.delete();
+    }
   }, fixture);
   await alicePage.close();
 } catch (e) {
@@ -1019,6 +1068,9 @@ check("the Warden's control draws a glyph", !!warden.iconGlyph,
   `${warden.iconClass} renders ${warden.iconGlyph ?? "NOTHING"} - a Font Awesome class absent from the shipped font fails silently as an empty box`);
 check("and at a clickable size", warden.iconPx > 14,
   `.apply-dmg computes to ${warden.iconPx}px`);
+check("and in the failure colour",
+  !!warden.applyColor && warden.applyColor === warden.failColor,
+  `.apply-dmg is ${warden.applyColor}, .dice-total.failure is ${warden.failColor} - the two are compared to EACH OTHER, so a core retune of the token is not a failure and a rule that drifted off it is`);
 
 console.log("\nApply marks the card, and applies once");
 check("the control was there", applied.buttonFound, "the card rendered with .apply-dmg");
@@ -1064,6 +1116,26 @@ check("and NOT the hidden one", attack.ran && !attack.aliceText?.includes("ZZ Un
 check("nothing nameable falls back to the weapon",
   attack.aliceHiddenOnlyText === "ZZ weapon sentence",
   `"${attack.aliceHiddenOnlyText}" - with only a hidden target, she gets the original sentence, not a half-written one`);
+
+// The target's name is BOLD. Asserted on the <strong>'s OWN text, so a <strong>
+// wrapped round the whole sentence would not satisfy it, and on the computed
+// weight, because markup with no rule behind it looks identical to nothing.
+check("the target is bolded",
+  attack.gmStrong === "ZZ Seen Foe and ZZ Unseen Foe" && Number(attack.gmStrongWeight) >= 700,
+  `<strong>"${attack.gmStrong}"</strong> at weight ${attack.gmStrongWeight}`);
+check("and only the target",
+  attack.aliceStrong === "ZZ Seen Foe",
+  `"${attack.aliceStrong}" - Alice's copy bolds the one name she is told, so the bolding runs through the same visibility gate as the sentence`);
+// A Warden-authored name that is markup must arrive as TEXT. Both ends: nothing
+// the name asked for got built, and the name is still readable in the sentence.
+check("an authored name is never parsed as HTML",
+  attack.injectedTags?.length === 1 && attack.injectedTags[0] === "strong"
+  && attack.xssFired === false,
+  `elements in the label: ${JSON.stringify(attack.injectedTags)} (only ours), payload fired=${attack.xssFired}`);
+check("and it still reads literally",
+  (attack.injectedStrong ?? "").includes("<img src=x")
+  && (attack.injectedText ?? "").includes("<img src=x"),
+  `"${attack.injectedStrong}" - escaping it away would hide the attack from the Warden who has to notice it`);
 
 if (errors.length) { bad++; console.log("Console errors:\n" + errors.join("\n")); }
 console.log(bad === 0 ? "\nencumbered-damage e2e passed" : `\nencumbered-damage e2e FAILED — ${bad}`);

@@ -1594,12 +1594,38 @@ const nameDamageTargets = (message, html, scene) => {
   // Two keys, not one with an empty {weapon}: a damage roll made from a control
   // with no label has no weapon at all, and a dangling "with " is not something a
   // translator can repair.
-  // textContent, never innerHTML: token and item names are authored free text.
+  // NEVER innerHTML. Token and item names are authored free text and this card
+  // renders into every player's log, so interpolating one into markup is the
+  // player->GM injection this repo has already paid for twice (see
+  // cleanDescription in module/utils.js).
+  //
+  // The target's name is BOLD (user ask, 2026-08-07) and bolding needs markup,
+  // so the sentence is formatted against a SENTINEL, split on it, and rebuilt as
+  // text nodes around one <strong>. Every authored name stays a text node —
+  // nothing authored is ever parsed as HTML, so the security property
+  // `textContent` was providing is preserved exactly rather than traded away.
+  //
+  // Two things fall out for free: `replaceChildren` replaces child NODES and not
+  // attributes, so `data-weapon` survives; and a translator who drops {target}
+  // gets `after === ""` and the bolded name appended, rather than losing it.
+  //
+  // NUL is the sentinel: it cannot occur in a translated string and needs no
+  // escaping, since `game.i18n.format` is a plain replace and passes it through.
+  // Kept as an ESCAPE and never a literal — a real NUL in source is invisible in
+  // an editor and makes git treat the whole file as binary, which is what
+  // happened the first time this line was written.
+  const MARK = "\u0000";
   const weapon = label.dataset.weapon ?? "";
-  label.textContent = game.i18n.format(
+  const sentence = game.i18n.format(
     weapon ? "CAIRN.AttacksTargetWeapon" : "CAIRN.AttacksTarget",
-    { attacker, weapon, target: game.i18n.getListFormatter().format(names) },
+    { attacker, weapon, target: MARK },
   );
+  const [before, after = ""] = sentence.split(MARK);
+  const strong = document.createElement("strong");
+  strong.className = "dmg-target";
+  strong.textContent = game.i18n.getListFormatter().format(names);
+  label.replaceChildren(
+    document.createTextNode(before), strong, document.createTextNode(after));
 };
 
 /**

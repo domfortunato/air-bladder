@@ -270,14 +270,14 @@ try {
           const target = document.createElement("a");
           target.dataset.roll = "1d4";
           target.dataset.label = "Probe Attack";
-          // NOT awaited here: #onRollDamage now asks impaired / normal / enhanced
-          // before it rolls, so awaiting the call before answering the dialog
-          // deadlocks the probe. Kick it off, answer "Normal", then await.
+          // NOT awaited here: #onRollDamage now asks impaired / standard /
+          // enhanced before it rolls, so awaiting the call before answering the
+          // dialog deadlocks the probe. Kick it off, answer "Standard", await.
           const rolling = sheet.options.actions.rollDamage.call(
             sheet, { preventDefault() {}, button: 0 }, target);
           let qBtn = null;
           for (let i = 0; i < 40 && !qBtn; i++) {
-            qBtn = document.querySelector("dialog.dialog button[data-action='normal']");
+            qBtn = document.querySelector("dialog.dialog button[data-action='standard']");
             if (!qBtn) await settle(150);
           }
           out.qualityAsked = !!qBtn;
@@ -311,8 +311,8 @@ try {
         ? ok("precondition: the pack sheet is not editable")
         : fail("monsters pack sheet came up editable — lock did not take");
       locked.qualityAsked
-        ? ok("the damage roll asked impaired/normal/enhanced", "(a locked pack does not skip it)")
-        : fail("no impaired/normal/enhanced dialog on a locked-pack damage roll");
+        ? ok("the damage roll asked impaired/standard/enhanced", "(a locked pack does not skip it)")
+        : fail("no impaired/standard/enhanced dialog on a locked-pack damage roll");
       locked.rolled && locked.rollWarns === 0
         ? ok("rollDamage rolls from a locked pack", "(no PackLocked toast)")
         : fail(`rollDamage on a locked pack: rolled=${locked.rolled}, warns=${locked.rollWarns}`,

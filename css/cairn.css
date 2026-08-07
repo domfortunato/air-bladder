@@ -1180,7 +1180,14 @@
    (renderChatMessageHTML removes it for everyone else).
    The glyph is fa-burst, an impact starburst, replacing fa-user-minus: at 20px
    the meeple read as a roster control rather than as a hit landing, and Cairn
-   damage is as often a fall or a spell as a weapon. Glyph-agnostic rule. */
+   damage is as often a fall or a spell as a weapon. Glyph-agnostic rule.
+
+   It reads in the FAILURE colour (user ask, 2026-08-07) so the three
+   consequential-damage surfaces in the log agree: the word "Fail" on a save
+   card, this control, and the Mark Critical Damage button below all use the same
+   token. --color-level-error is Foundry's own and is constant across light and
+   dark, so it reads on either theme -- do NOT "simplify" it to #ce0707, which
+   would only be right for whichever theme it was checked against. */
 .chat-message .apply-dmg {
     display: inline-flex;
     align-items: center;
@@ -1189,10 +1196,13 @@
     min-height: 28px;
     font-size: 20px;
     line-height: 1;
+    color: var(--color-level-error, #ce0707);
 }
 
+/* Red glow, not the accent's: an accent-coloured halo around a red glyph reads
+   as two unrelated things. Same pairing .mark-critical-damage already uses. */
 .chat-message .apply-dmg:hover {
-    text-shadow: 0 0 8px var(--ab-accent);
+    text-shadow: 0 0 8px var(--color-level-error, #ce0707);
 }
 
 /* Spent: the card records that the Warden used it, and the control must stop
@@ -1203,6 +1213,17 @@
 .chat-message .apply-dmg.spent {
     opacity: 0.4;
     pointer-events: none;
+}
+
+/* The creature being attacked, inside the attack sentence (user ask,
+   2026-08-07): "Lisbeth attacks Feathered Carapace Creature with Crossbow!" runs
+   as one flat line, so the thing being hit is no easier to find than the
+   preposition. BOLD ONLY -- it inherits the card's colour, so there is nothing
+   to tune per theme, and the applied-damage summary below is deliberately left
+   plain. Not redundant with core's <strong>: this states the weight rather than
+   trusting whatever the chat log's reset leaves it at. */
+.chat-message .dmg-target {
+    font-weight: 700;
 }
 
 /* The applied-damage summary, on the card that was clicked. flex-basis forces
@@ -1297,6 +1318,41 @@
 
 .mark-critical-damage:hover {
     text-shadow: 0 0 12px var(--color-level-error, #ce0707);
+}
+
+/* THE DAMAGE-QUALITY DIALOG -- askDamageQuality in module/utils.js, which passes
+   both class names below.
+
+   Stacked, not in a row. Core sets .standard-form .form-footer to
+   `flex-direction: row` at foundry2.css:5478, in @layer blocks.base; the layer
+   order declared at foundry2.css:5 puts `system` (8) after `blocks` (4), so this
+   file outranks it with NO !important. Vertical because each label carries its
+   die -- "Enhanced (1d12)" already wrapped to two lines in a row -- and three
+   choices are read down rather than across. */
+.cairn-damage-quality .form-footer {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+/* WHICH button does Enter press? DialogV2's `default: true` emits ONLY
+   `autofocus` (dialog.mjs:242) -- no class, no attribute of its own -- and core
+   ships no `button[autofocus]` rule, so the answer was invisible and the three
+   read as equal choices. Accent border + bold, the treatment
+   #die-of-fate-button and .mark-critical-damage already use to mark the notable
+   control in a group. */
+.cairn-damage-quality .cairn-quality-default {
+    font-weight: 700;
+    border-color: var(--ab-accent);
+}
+
+/* ...and the return glyph, stating outright what the border only hints at. A
+   SYMBOL, so there is nothing here for a translator to carry; the same fact
+   reaches a screen reader through the button's aria-label, which DialogV2 fills
+   from `tooltip`. */
+.cairn-damage-quality .cairn-quality-default::after {
+    content: "\23CE";
+    margin-left: auto;
+    opacity: 0.7;
 }
 
 .grey-comment {

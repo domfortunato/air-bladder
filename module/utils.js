@@ -29,7 +29,7 @@ export const evaluateFormula = async (formula, data) => {
 /* -------------------------------------------- */
 
 /**
- * Cairn has no advantage or disadvantage. A damage roll is NORMAL (the weapon's
+ * Cairn has no advantage or disadvantage. A damage roll is STANDARD (the weapon's
  * own die), IMPAIRED (1d4 whatever the weapon is) or ENHANCED (1d12 whatever the
  * weapon is). 2e p.10.
  *
@@ -48,28 +48,30 @@ export const ENHANCED_FORMULA = "1d12";
  * substitution that existed before this lived inside panic's branch, gated on the
  * `use-panic` SETTING — so building impaired by extending it would have made a
  * core Cairn rule vanish for any table that turns panic off. Nothing in this
- * function reads a setting or an actor: the caller hands in whatever a normal
- * roll would be for this character RIGHT NOW (which is panic's 1d4 when panicked,
- * because panic already decided that), and impaired/enhanced override it or
- * "normal" keeps it.
+ * function reads a setting or an actor: the caller hands in whatever a STANDARD
+ * roll would be for this character RIGHT NOW, and impaired/enhanced override it
+ * or "standard" keeps it.
  *
- * The collision therefore needs no ruling to build: a panicked character whose
- * player picks Enhanced gets 1d12, because both panic and enhanced are the
- * Warden's call and the later one wins. Whether panic should instead be
- * re-expressed AS impaired is an optional tidy-up and not a prerequisite.
+ * There is no collision to rule on. Panic IMPOSES impaired and never opens the
+ * dialog (user ruling 2026-08-07), so a panicked character reaches this as
+ * quality "impaired" and gets 1d4 from the same branch every other impaired roll
+ * uses — panic substitutes no formula of its own any more. The earlier reading,
+ * where panic and an Enhanced choice collided and "the later one wins", is
+ * SUPERSEDED; do not restore it.
  *
- * @param {"impaired"|"normal"|"enhanced"} quality
- * @param {String} normalFormula  what this roll would be without the choice
+ * @param {"impaired"|"standard"|"enhanced"} quality
+ * @param {String} standardFormula  what this roll would be without the choice
  * @return {String}
  */
-export const damageFormulaFor = (quality, normalFormula) =>
+export const damageFormulaFor = (quality, standardFormula) =>
   quality === "impaired" ? IMPAIRED_FORMULA
     : quality === "enhanced" ? ENHANCED_FORMULA
-      : normalFormula;
+      : standardFormula;
 
 /**
- * The badge a card shows for a non-normal roll, or "" for a normal one, so the
- * table can see which it was. Its own line on the card rather than folded into
+ * The badge a card shows for an impaired or enhanced roll, and "" for a standard
+ * one — a card that says nothing is saying the roll was ordinary, which is most
+ * of them. Its own line on the card rather than folded into
  * the flavor sentence: there are already two whole-sentence damage keys (weapon,
  * weapon-panicked) and the attack line makes two more — multiplying those by
  * three qualities is how a translator ends up with a dozen sentences to keep in
@@ -93,15 +95,45 @@ export const damageQualityLabel = (quality, { panicked = false } = {}) => {
   return "";
 };
 
+/** The dice Font Awesome actually ships a glyph for. */
+const DIE_ICONS = new Set([4, 6, 8, 10, 12, 20]);
+
 /**
- * Ask whether this damage roll is impaired, normal or enhanced.
+ * The Font Awesome class for a formula's die, or "" if it names none.
+ *
+ * NO `\b` before the `d`. There is no word boundary between the digits and the
+ * `d` in "2d6", so `\bd(\d+)` matches NOTHING on the commonest multi-die
+ * formula — every such weapon would quietly lose its icon while d6 weapons kept
+ * theirs, which reads as a font problem rather than a regex one.
+ *
+ * A formula naming no standard die gets NO icon rather than a generic
+ * pair-of-dice glyph (user ruling): `_renderButtons` does `if (icon)`
+ * (dialog.mjs:243), so "" simply omits the `<i>`, and nothing on the button can
+ * then state a die the roll will not use.
+ *
+ * @param {String} formula
+ * @return {String}  a class list, or "" for no icon at all
+ */
+const dieIcon = (formula) => {
+  const n = Number(/d(\d+)/i.exec(String(formula ?? ""))?.[1]);
+  return DIE_ICONS.has(n) ? `fa-solid fa-dice-d${n}` : "";
+};
+
+/**
+ * Ask whether this damage roll is impaired, standard or enhanced.
  *
  * ONE helper, called by both producers — the sheet's damage control and
  * `macros.js`, which builds the same card independently. The panic substitution
  * was written twice and drifted; this is not repeating that.
  *
  * The middle button shows the WEAPON's own die, so a d6 weapon offers d4 / d6 /
- * d12 and the player sees what they are choosing rather than three words.
+ * d12 and the player sees what they are choosing rather than three words. Each
+ * button also carries that die's Font Awesome glyph — see `dieIcon`.
+ *
+ * "Standard", not "Normal" (user ruling 2026-08-07). The i18n KEY was renamed
+ * with the copy and so was the action string, so there is one word for the
+ * concept everywhere; a key reading `.Normal` under a button reading "Standard"
+ * is the kind of drift a translator has no way to resolve.
  *
  * DialogV2 notes, all three of which this repo has paid for:
  *   - Buttons carry `action` and NO callback. `DialogV2` resolves a button to
@@ -113,23 +145,42 @@ export const damageQualityLabel = (quality, { panicked = false } = {}) => {
  *     innerHTML, so listeners on constructed nodes are dead on arrival. The three
  *     choices ARE the dialog's buttons.
  *   - `rejectClose: false`, so dismissing resolves rather than throwing.
+ *   - `icon`, `class` and `tooltip` are all supported per button
+ *     (dialog.mjs:227-246), so the decoration below needs no custom markup and
+ *     stays clear of `content` entirely.
  *
- * @param {String} normalFormula  the weapon's die, shown on the middle button
- * @return {Promise<"impaired"|"normal"|"enhanced"|null>} null = dismissed, and
+ * @param {String} standardFormula  the weapon's die, shown on the middle button
+ * @return {Promise<"impaired"|"standard"|"enhanced"|null>} null = dismissed, and
  *   a dismissal must roll NOTHING — a ✕ is an instruction, not a default.
  */
-export const askDamageQuality = async (normalFormula) => {
+export const askDamageQuality = async (standardFormula) => {
   const opt = (action, key, formula) => ({
     action,
     label: game.i18n.format(key, { formula }),
+    icon: dieIcon(formula),
   });
   const chosen = await foundry.applications.api.DialogV2.wait({
+    // Scopes the stacking and default-cue rules. `classes` CONCATENATES with
+    // ApplicationV2's own (application.mjs:477) rather than replacing them, so
+    // `dialog.dialog` still matches — worth knowing before adding one, since a
+    // replacing merge would have broken every selector that names it.
+    classes: ["cairn-damage-quality"],
     window: { title: game.i18n.localize("CAIRN.DamageQuality.Title") },
     content: `<p>${game.i18n.localize("CAIRN.DamageQuality.Prompt")}</p>`,
     buttons: [
       opt("impaired", "CAIRN.DamageQuality.Impaired", IMPAIRED_FORMULA),
-      // default: Enter rolls the ordinary roll, which is most of them.
-      { ...opt("normal", "CAIRN.DamageQuality.Normal", normalFormula), default: true },
+      {
+        ...opt("standard", "CAIRN.DamageQuality.Standard", standardFormula),
+        // Enter rolls the ordinary roll, which is most of them. But `default:
+        // true` emits ONLY `autofocus` (dialog.mjs:242) — no class, no attribute
+        // of its own — and core ships no `button[autofocus]` rule, so which
+        // button Enter presses is invisible unless we say so. The class is that
+        // cue for a sighted reader; `tooltip` is the same fact for a screen
+        // reader, since it lands in `aria-label` (dialog.mjs:239-241).
+        default: true,
+        class: "cairn-quality-default",
+        tooltip: "CAIRN.DamageQuality.DefaultTip",
+      },
       opt("enhanced", "CAIRN.DamageQuality.Enhanced", ENHANCED_FORMULA),
     ],
     rejectClose: false,

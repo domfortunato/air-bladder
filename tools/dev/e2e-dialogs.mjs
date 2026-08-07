@@ -275,7 +275,7 @@ switchboard.hookGone
   : fail("abHideHirelingType is no longer registered", "still on renderDialogV2");
 
 /* ------------------------------------------- impaired / enhanced damage ---
- * Cairn has no advantage or disadvantage: a damage roll is normal (the weapon's
+ * Cairn has no advantage or disadvantage: a damage roll is STANDARD (the weapon's
  * die), impaired (1d4 whatever the weapon) or enhanced (1d12 whatever the
  * weapon). The choice is asked on the damage click.
  *
@@ -309,7 +309,7 @@ const installQualityHelpers = async () => page.evaluate(async () => {
       }
       return false;
     },
-    /** Wait for a button in the impaired/normal/enhanced dialog, or null. */
+    /** Wait for a button in the impaired/standard/enhanced dialog, or null. */
     async btn(action) {
       for (let i = 0; i < 40; i++) {
         const b = document.querySelector(`dialog.dialog button[data-action='${action}']`);
@@ -338,14 +338,41 @@ const quality = await page.evaluate(async ({ id }) => {
   // 1. The three buttons render, and the middle one shows the WEAPON's die.
   await gone();
   const asked = askDamageQuality("1d6");
-  const normalBtn = await btn("normal");
-  out.dialogOpened = !!normalBtn;
+  const standardBtn = await btn("standard");
+  out.dialogOpened = !!standardBtn;
   const btns = [...document.querySelectorAll("dialog.dialog button[data-action]")]
-    .filter((b) => ["impaired", "normal", "enhanced"].includes(b.dataset.action));
+    .filter((b) => ["impaired", "standard", "enhanced"].includes(b.dataset.action));
   out.actions = btns.map((b) => b.dataset.action);
   out.labels = btns.map((b) => b.textContent.trim());
-  normalBtn?.click();
-  out.normalResult = await race(asked);
+  // Each button carries its OWN die's glyph. Read the <i>'s class list rather
+  // than the rendered glyph: unlike the chat control's fa-burst, the point here
+  // is that d4/d6/d12 are three DIFFERENT icons, and every fa-dice-dN renders
+  // something, so an all-d20 bug would pass a "draws a glyph" check.
+  out.icons = btns.map((b) => b.querySelector("i")?.className ?? null);
+  // The default cue. All three read together: the class is the styling hook,
+  // `autofocus` is the fact it claims, and the weight is what a player sees. A
+  // class present with no rule behind it would pass on the first alone.
+  out.defaultClass = standardBtn?.classList.contains("cairn-quality-default");
+  out.defaultAutofocus = standardBtn?.hasAttribute("autofocus");
+  out.defaultWeight = standardBtn ? getComputedStyle(standardBtn).fontWeight : null;
+  out.footerDirection = getComputedStyle(
+    document.querySelector("dialog.dialog .form-footer") ?? document.body).flexDirection;
+  standardBtn?.click();
+  out.standardResult = await race(asked);
+
+  // 1b. THE FALLBACK, BOTH ENDS. A formula naming no standard die gets no icon
+  //     at all rather than a generic one. Asserting only "standard has none"
+  //     would pass on a dieIcon that never returns anything, so the other two
+  //     buttons — whose formulas are constants — must still carry theirs in the
+  //     SAME dialog.
+  await gone();
+  const oddAsked = askDamageQuality("3");
+  const oddStandard = await btn("standard");
+  out.oddIcons = ["impaired", "standard", "enhanced"].map((a) =>
+    document.querySelector(`dialog.dialog button[data-action='${a}']`)
+      ?.querySelector("i")?.className ?? null);
+  oddStandard?.click();
+  await race(oddAsked);
 
   // 2. DISMISSING resolves null and must roll nothing. This is the leg that
   //    catches DialogV2's null-callback trap: a button callback returning null
@@ -353,14 +380,14 @@ const quality = await page.evaluate(async ({ id }) => {
   //    signalled "cancel" that way would be indistinguishable from a choice.
   out.priorGone = await gone();
   const dismissed = askDamageQuality("1d6");
-  await btn("normal");
+  await btn("standard");
   document.querySelector("dialog.dialog")
     ?.querySelector('[data-action="close"], button[data-action="cancel"]')?.click();
   out.dismissed = await race(dismissed);
   await gone();
 
   // 3. Each choice maps to the right formula. Pure function, no dialog.
-  out.formulas = ["impaired", "normal", "enhanced"].map((q) => damageFormulaFor(q, "1d6"));
+  out.formulas = ["impaired", "standard", "enhanced"].map((q) => damageFormulaFor(q, "1d6"));
 
   if (panicWas) await game.settings.set("air-bladder", "use-panic", true);
   return out;
@@ -384,7 +411,7 @@ const rollWith = async (choice) => page.evaluate(async ({ id, choice }) => {
   target.dataset.label = "Probe Blade";
   const rolling = actor.sheet.options.actions.rollDamage.call(
     actor.sheet, { preventDefault() {}, button: 0 }, target);
-  const asked = !!(await btn("normal"));
+  const asked = !!(await btn("standard"));
   if (choice === "dismiss") {
     document.querySelector("dialog.dialog")
       ?.querySelector('[data-action="close"], button[data-action="cancel"]')?.click();
@@ -409,7 +436,7 @@ const rollWith = async (choice) => page.evaluate(async ({ id, choice }) => {
 }, { id: actorId, choice });
 
 const enhancedRoll = await rollWith("enhanced");
-const normalRoll = await rollWith("normal");
+const standardRoll = await rollWith("standard");
 const dismissedRoll = await rollWith("dismiss");
 
 /* PANIC IMPOSES IMPAIRED and offers no choice (user ruling 2026-08-07). With
@@ -435,7 +462,7 @@ const panicRoll = await page.evaluate(async ({ id }) => {
   // dialog that was slow.
   await settle(1200);
   const dialogOpened = !!document.querySelector("dialog.dialog");
-  if (dialogOpened) document.querySelector("dialog.dialog button[data-action='normal']")?.click();
+  if (dialogOpened) document.querySelector("dialog.dialog button[data-action='standard']")?.click();
   await race(rolling);
   for (let i = 0; i < 30 && game.messages.size <= before; i++) await settle(150);
   await settle(400);
@@ -464,16 +491,40 @@ quality.panicOff
   : fail("precondition: use-panic is OFF", "these legs prove nothing with panic on");
 quality.dialogOpened
   ? ok("the dialog opens")
-  : fail("the dialog opens", "no dialog.dialog button[data-action=normal] appeared");
-JSON.stringify(quality.actions) === JSON.stringify(["impaired", "normal", "enhanced"])
+  : fail("the dialog opens", "no dialog.dialog button[data-action=standard] appeared");
+JSON.stringify(quality.actions) === JSON.stringify(["impaired", "standard", "enhanced"])
   ? ok("three choices, in order", quality.actions.join(" / "))
   : fail("three choices, in order", JSON.stringify(quality.actions));
 /1d4/.test(quality.labels?.[0] ?? "") && /1d6/.test(quality.labels?.[1] ?? "") && /1d12/.test(quality.labels?.[2] ?? "")
   ? ok("the middle button shows the WEAPON's die", quality.labels.join(" | "))
   : fail("the middle button shows the WEAPON's die", JSON.stringify(quality.labels));
-quality.normalResult === "normal"
+// The ICON per button, read as a class list rather than as a rendered glyph:
+// every fa-dice-dN renders something, so "it draws a glyph" would pass on a
+// helper that returned d20 for all three. The claim is that they DIFFER.
+JSON.stringify(quality.icons)
+  === JSON.stringify(["fa-solid fa-dice-d4", "fa-solid fa-dice-d6", "fa-solid fa-dice-d12"])
+  ? ok("each button carries its own die", quality.icons.join(" | "))
+  : fail("each button carries its own die", JSON.stringify(quality.icons));
+// The fallback, BOTH ENDS in one dialog: a formula naming no standard die gets
+// no icon, while the two constants still have theirs. Either end alone passes on
+// a dieIcon that always returns "" (or always returns something).
+quality.oddIcons?.[1] === null
+  && /fa-dice-d4$/.test(quality.oddIcons?.[0] ?? "")
+  && /fa-dice-d12$/.test(quality.oddIcons?.[2] ?? "")
+  ? ok("a formula with no die gets NO icon", JSON.stringify(quality.oddIcons))
+  : fail("a formula with no die gets NO icon", JSON.stringify(quality.oddIcons));
+// Three readings of one claim: the hook, the fact it asserts, and what a player
+// actually sees. A class with no rule behind it passes the first alone.
+quality.defaultClass && quality.defaultAutofocus && Number(quality.defaultWeight) >= 700
+  ? ok("the default choice says it is one", `class + autofocus, weight ${quality.defaultWeight}`)
+  : fail("the default choice says it is one",
+    `class=${quality.defaultClass} autofocus=${quality.defaultAutofocus} weight=${quality.defaultWeight}`);
+quality.footerDirection === "column"
+  ? ok("the three choices stack", "core's row rule is @layer blocks.base; system outranks it")
+  : fail("the three choices stack", String(quality.footerDirection));
+quality.standardResult === "standard"
   ? ok("a click resolves to its action")
-  : fail("a click resolves to its action", String(quality.normalResult));
+  : fail("a click resolves to its action", String(quality.standardResult));
 quality.dismissed === null
   ? ok("dismissing resolves null", "not the action string — DialogV2's null-callback trap")
   : fail("dismissing resolves null", String(quality.dismissed));
@@ -486,15 +537,15 @@ enhancedRoll.asked && enhancedRoll.posted && enhancedRoll.formula === "1d12"
   : fail("enhanced rolls 1d12 and says so", JSON.stringify(enhancedRoll));
 // CONTROL: the same weapon rolled NORMAL keeps its own die and carries no badge,
 // so "the formula changed" is the choice and not the plumbing.
-normalRoll.posted && normalRoll.formula === "1d6" && !/Enhanced|Impaired/.test(normalRoll.flavor)
-  ? ok("control: normal keeps the weapon's die, no badge", normalRoll.formula)
-  : fail("control: normal keeps the weapon's die, no badge", JSON.stringify(normalRoll));
+standardRoll.posted && standardRoll.formula === "1d6" && !/Enhanced|Impaired/.test(standardRoll.flavor)
+  ? ok("control: standard keeps the weapon's die, no badge", standardRoll.formula)
+  : fail("control: standard keeps the weapon's die, no badge", JSON.stringify(standardRoll));
 // priorGone on every leg: without it a stale dialog makes "nothing was rolled"
 // pass for the wrong reason.
-[enhancedRoll, normalRoll, dismissedRoll].every((r) => r.priorGone)
+[enhancedRoll, standardRoll, dismissedRoll].every((r) => r.priorGone)
   ? ok("each roll starts with no dialog open", "a stale dialog eats the next leg's clicks")
   : fail("each roll starts with no dialog open",
-    JSON.stringify([enhancedRoll.priorGone, normalRoll.priorGone, dismissedRoll.priorGone]));
+    JSON.stringify([enhancedRoll.priorGone, standardRoll.priorGone, dismissedRoll.priorGone]));
 dismissedRoll.asked && !dismissedRoll.posted
   ? ok("dismissing the damage roll posts nothing", "a ✕ is an instruction, not a default")
   : fail("dismissing the damage roll posts nothing", JSON.stringify(dismissedRoll));
@@ -503,7 +554,7 @@ dismissedRoll.asked && !dismissedRoll.posted
 // (the ruling) and 1d4 (the rule). Asserting only the die would pass on a build
 // that still asked and then ignored the answer.
 panicRoll.priorGone && !panicRoll.dialogOpened
-  ? ok("panic asks nothing", "a panicked character cannot roll normal or enhanced")
+  ? ok("panic asks nothing", "a panicked character cannot roll standard or enhanced")
   : fail("panic asks nothing", JSON.stringify(panicRoll));
 panicRoll.posted && panicRoll.formula === "1d4"
   && panicRoll.total >= 1 && panicRoll.total <= 4
