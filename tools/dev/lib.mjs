@@ -177,14 +177,44 @@ export async function withHookOff(page, hook, fnName, fn) {
  */
 export function watchErrors(page) {
   const errors = [];
-  const ignore = [/requires a screen resolution/i, /hardware acceleration/i];
+  const ignore = [
+    /requires a screen resolution/i,
+    /hardware acceleration/i,
+    // A race INSIDE CORE's notification UI, not ours. `#postNotification`
+    // re-queries the card it just inserted AFTER awaiting a 100ms spacer
+    // animation and dereferences the result unguarded
+    // (`element.hidden = false`, scripts/foundry.mjs:130673-130674), so a
+    // notification whose element is gone by then throws. Two warnings posted
+    // close together is enough; nothing a system does can prevent it.
+    //
+    // Matched on the FRAME as well as the message, deliberately. "Cannot set
+    // properties of null (setting 'hidden')" occurs in half a dozen places in
+    // this system too — `CairnActor.createDialog`'s render callback has an
+    // unguarded `otherEl.hidden` of exactly this shape — and a message-only
+    // ignore would swallow ours along with core's.
+    /Cannot set properties of null \(setting 'hidden'\)[\s\S]*#postNotification/,
+  ];
+  const keep = (t) => !ignore.some((re) => re.test(t));
   page.on("console", m => {
     if (m.type() !== "error") return;
     const t = m.text();
-    if (ignore.some(re => re.test(t))) return;
+    if (!keep(t)) return;
     errors.push(t);
   });
-  page.on("pageerror", e => errors.push(`pageerror: ${e.message}`));
+  // The STACK too, first frame onwards. A pageerror reported as its message
+  // alone ("Cannot set properties of null (setting 'hidden')") names neither the
+  // file nor the caller, and the same message occurs in half a dozen places
+  // across core and this system — which turns a one-line diagnosis into a hunt,
+  // and tempts a re-run instead. Trimmed so a long core stack cannot bury the
+  // rest of the report.
+  page.on("pageerror", (e) => {
+    const frames = String(e.stack ?? "").split("\n").slice(1, 5).map((s) => s.trim()).join(" <- ");
+    const t = `pageerror: ${e.message}${frames ? `\n    at ${frames}` : ""}`;
+    // The ignore list applies HERE TOO. It used to filter console errors only,
+    // so a pageerror was unconditionally fatal — which is why the ignore above
+    // can be written against the stack at all.
+    if (keep(t)) errors.push(t);
+  });
   return errors;
 }
 

@@ -1,5 +1,5 @@
 import { findCompendiumItem } from './compendium.js'
-import { evaluateFormula } from './utils.js'
+import { evaluateFormula, askDamageTargets } from './utils.js'
 
 // The system's flag namespace, imported rather than re-declared: a second
 // "air-bladder" literal is a second thing that can drift, and a flag written
@@ -106,12 +106,24 @@ export class Damage {
         // pointer lands on the icon inside it. dataset reads the same
         // data-targets attribute jQuery's .data() did, minus .data()'s implicit
         // type coercion -- the value is a plain `;`-joined token-id string.
+        //
+        // GUARDED, and it has to be: an UNTARGETED card carries no data-targets
+        // at all (offerUntargetedApply builds the anchor without one, because its
+        // absence is the signal), so the bare `targets.split(';')` this used to do
+        // threw the moment such a card was clicked. The filter also drops the
+        // empty string a stray separator would otherwise leave behind.
         const targets = event.currentTarget.dataset.targets;
-
-        const targetsList = targets.split(';');
+        let targetsList = String(targets ?? "").split(';').map((s) => s.trim()).filter(Boolean);
 
         // Shift Click allow to target the targeted tokens
         if (event.shiftKey) {
+            // Nothing to target. Saying so beats a silent no-op -- the Warden
+            // shift-clicked and would otherwise have no way to tell the gesture
+            // from a broken one.
+            if (!targetsList.length) {
+                ui.notifications.warn(game.i18n.localize("CAIRN.Notify.NoTargetsToSelect"));
+                return;
+            }
             for (let index = 0; index < targetsList.length; index++) {
                 const target = targetsList[index];
                 // `.object` is a placeable, so this can only ever resolve while the
@@ -138,16 +150,23 @@ export class Damage {
                 ui.notifications.warn(game.i18n.localize("CAIRN.Notify.DamageAlreadyApplied"));
                 return;
             }
-            if (targets !== undefined) {
-                const dmg = parseInt(html.querySelector(".dice-total").textContent);
-                const applied = await this.applyToTargets(targetsList, dmg, scene);
-                // Only a GM reaches this line (the guard at the top), so the write
-                // needs no socket relay. Token ids, not names: the summary is
-                // rendered per VIEWER so it localizes and so a concealed token is
-                // never named -- see nameDamageTargets in cairn.js.
-                if (message && applied.length) {
-                    await message.setFlag(FLAG_SCOPE, DAMAGE_APPLIED_FLAG, { applied });
-                }
+
+            // An UNTARGETED roll: ask who takes it. AFTER the once-only check
+            // above and not before -- a card that has already been spent must not
+            // open a picker, or the Warden chooses targets and is then refused.
+            if (!targetsList.length) {
+                targetsList = await askDamageTargets(scene);
+                if (!targetsList.length) return; // dismissed, cancelled, or nothing ticked
+            }
+
+            const dmg = parseInt(html.querySelector(".dice-total").textContent);
+            const applied = await this.applyToTargets(targetsList, dmg, scene);
+            // Only a GM reaches this line (the guard at the top), so the write
+            // needs no socket relay. Token ids, not names: the summary is
+            // rendered per VIEWER so it localizes and so a concealed token is
+            // never named -- see nameDamageTargets in cairn.js.
+            if (message && applied.length) {
+                await message.setFlag(FLAG_SCOPE, DAMAGE_APPLIED_FLAG, { applied });
             }
         }
     }
@@ -198,14 +217,47 @@ export class Damage {
             return;
         }
 
-        let content = '<p><strong>' + game.i18n.localize('CAIRN.Damage') + '</strong>: ' + dmg + ' (' + damage + '-' + armor + ')</p>'
+        // "Damage: 6 (6-0)" named neither number, and the Warden had to ask what
+        // the 0 was. It is the victim's armor. Both numbers are now labelled --
+        // the leading one is the RAW roll, which is not obvious on the common card
+        // where it equals the result.
+        //
+        // ONE key holding every placeholder, not a localize() for the word "armor"
+        // glued on with `+`. A translator handed fragments cannot reorder them,
+        // which is the rule the two "Rolling damage with..." keys and the attack
+        // line already follow. The minus is U+2212 and spaced, inside the string
+        // where a translator can change it -- "6-0" read as a range.
+        //
+        // ARMOR 0 DROPS THE BRACKET ENTIRELY (user ruling 2026-08-07). The
+        // Warden was told an absent bracket cannot distinguish "no armour" from
+        // "the system did not check" and chose it anyway; this is a ruling, not an
+        // oversight. It is self-consistent: armor === 0 implies dmg === damage, so
+        // nothing is ever lost with the bracket -- and a hit fully absorbed by
+        // armour always KEEPS its bracket, which is what stops "Damage: 0" from
+        // reading like a broken card.
+        const breakdown = armor > 0
+            ? game.i18n.format('CAIRN.DamageBreakdown', { dmg, damage, armor })
+            : String(dmg)
+        let content = '<p><strong>' + game.i18n.localize('CAIRN.Damage') + '</strong>: ' + breakdown + '</p>'
+        // The HP and STR lines were the same untranslatable concatenation, so they
+        // move in the same breath -- one handoff to the translator rather than
+        // two. ONE key SHARED by both: they are the same sentence, and a second
+        // copy is a second thing to drift.
+        //
+        // THE VISIBLE CARD MUST NOT CHANGE HERE. Same "=>", same strike-through;
+        // the arrow is kept verbatim rather than smartened to an arrow glyph,
+        // because this half was sold as a translatability fix with no visual
+        // consequence. It now lives in a key, so it can be changed later on
+        // purpose rather than as a side effect.
         if (newHp !== hp) {
-            content += '<p><strong>' + game.i18n.localize('CAIRN.HitProtection') + '</strong>: <s>' + hp + '</s> => ' + newHp + '</p>'
+            content += '<p><strong>' + game.i18n.localize('CAIRN.HitProtection') + '</strong>: '
+                + game.i18n.format('CAIRN.StatChange', { from: hp, to: newHp }) + '</p>'
         } else {
             content += '<p><strong>' + game.i18n.localize('CAIRN.HitProtection') + '</strong>: ' + hp + '</p>'
         }
         if (newStr !== str) {
-            content += '<p><strong>' + game.i18n.localize('STR') + '</strong>: <s>' + str + '</s> => ' + newStr + '</p>'
+            content += '<p><strong>' + game.i18n.localize('STR') + '</strong>: '
+                + game.i18n.format('CAIRN.StatChange', { from: str, to: newStr }) + '</p>'
         }
 
         // Monsters take BOTH branches below on purpose (ratified 2026-08-01):

@@ -1345,14 +1345,56 @@
     border-color: var(--ab-accent);
 }
 
+/* NO OFFSET — everything centred (user ask, 2026-08-07). The three buttons stack
+   in a column, so a ⏎ pinned to the trailing edge by `margin-left: auto` left the
+   default button's contents visibly out of line with the two above and below it,
+   which is the "offset" the Warden was seeing. Stated on every button rather than
+   only on the default's, because core's own rule is what governs the other two
+   and relying on its default is what let this drift in the first place. */
+.cairn-damage-quality .form-footer > button {
+    justify-content: center;
+}
+
 /* ...and the return glyph, stating outright what the border only hints at. A
    SYMBOL, so there is nothing here for a translator to carry; the same fact
    reaches a screen reader through the button's aria-label, which DialogV2 fills
-   from `tooltip`. */
+   from `tooltip`. It now sits directly after the label as part of the centred
+   group — do NOT restore the auto margin. */
 .cairn-damage-quality .cairn-quality-default::after {
     content: "\23CE";
-    margin-left: auto;
+    margin-left: 0.4em;
     opacity: 0.7;
+}
+
+/* The "who takes this?" picker, offered when a damage roll was made with nothing
+   targeted. A checkbox list rather than a form-group grid: these are not fields,
+   they are a roster, and core's .standard-form rules assume the former. */
+.cairn-damage-targets .ab-target-group {
+    font-weight: 700;
+    margin: 8px 0 2px;
+    opacity: 0.75;
+}
+
+.cairn-damage-targets .ab-target-group:first-of-type {
+    margin-top: 4px;
+}
+
+/* A whole ROW is the hit target, not the 13px box. The Warden is ticking several
+   of these mid-fight; a label that only responds on the checkbox itself is the
+   same misjudgement the Apply control was drawn with before it was enlarged. */
+.cairn-damage-targets .ab-target-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 4px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.cairn-damage-targets .ab-target-row:hover {
+    /* The palette's own row-hover token, so this flips with the scheme rather
+       than being a light-mode grey that vanishes on dark. */
+    background: var(--ab-wash);
 }
 
 .grey-comment {

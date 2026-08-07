@@ -18,6 +18,7 @@ import { registerSettings, SETTINGS_NS, migrateSettingsNamespace } from "./setti
 import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS, deriveNpcRole } from "./data-models.js";
 import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName } from "./i18n-content.js";
+import { nameableTokens } from "./utils.js";
 
 Hooks.once("init", async function () {
   game.cairn = {
@@ -1534,33 +1535,59 @@ Hooks.on("renderActorDirectory", (app, html) => {
  * and a player stops seeing the names, which that leg asserts.
  */
 /**
- * The subset of token ids this VIEWER may be told about, as display names.
+ * Give an UNTARGETED damage card the Apply control it never had.
  *
- * One function, because both the attack line and the applied-damage summary must
- * conceal the same tokens and a second copy of this test is a second thing to get
- * wrong. Order is preserved so a caller can zip names back against its own data.
+ * A roll made with nothing targeted shipped no anchor at all
+ * (`dmg-roll-card.html`'s `{{#if (isNotNull targets)}}`), so the Warden had no way
+ * to spend it from the log — and the card recorded nothing when the damage was
+ * applied by hand. Everything downstream is id-driven, so the only thing missing
+ * was the control and an answer to "who?"; `askDamageTargets` supplies the second.
+ *
+ * BUILT HERE AND NOT IN THE TEMPLATE, which is the whole point. The card's markup
+ * is rendered once and STORED as the message's flavor, so a template change
+ * reaches new rolls only and every untargeted card already in the log stays bare
+ * forever. Injecting at render is what `nameDamageTargets` and `showDamageApplied`
+ * already do, and it buys the same things: both producers are covered without
+ * touching either, and tonight's log becomes spendable the moment this loads.
+ *
+ * NO `data-targets`. Its ABSENCE is the signal the handler reads to open the
+ * picker, and an empty attribute would be a datum claiming to hold ids.
+ *
+ * ORDERING, and it is load-bearing twice over: this must run BEFORE
+ * `showDamageApplied`, or the once-only greying looks for an anchor that does not
+ * exist yet and an already-spent legacy card renders with a live control. And
+ * before the player-trim, like its two siblings — the trim is what makes this
+ * Warden-only, exactly as it is for a targeted card.
  */
-const nameableTokens = (ids, scene) => {
-  const out = [];
-  for (const id of ids) {
-    const tok = scene?.tokens?.get(id);
-    if (!tok) continue; // killed since, or the scene is gone
-    // Core's own test for whether a user may be shown a token at all:
-    // Combatant#visible is `this.isOwner || !this.hidden`
-    // (documents/combatant.mjs:82-84). A token the Warden has hidden must not be
-    // named in a card every player reads; a GM owns everything, so the Warden
-    // still gets the whole sentence.
-    if (tok.hidden && !tok.isOwner) continue;
-    // And the second concealment channel, which is not the same one: a SECRET
-    // disposition hides a token from anyone below OBSERVER on it
-    // (TokenDocument#isSecret, documents/token.mjs:341-343). Evaluated on the
-    // VIEWER's client, so the Warden's copy is unaffected. Not folded into the
-    // test above — `hidden` is "the Warden took it off the board", SECRET is
-    // "this one is not for the players", and a Warden may use either.
-    if (tok.isSecret) continue;
-    out.push({ id, name: tokenDisplayName(tok) });
-  }
-  return out;
+const offerUntargetedApply = (html) => {
+  const row = html.querySelector(".flavor-dice-roll");
+  if (!row) return;                              // not a damage card
+  if (row.querySelector(".apply-dmg")) return;   // targeted: it has one already
+  // The roll's total is what gets applied. A damage card always has one; guarding
+  // on it means no other card that happens to grow this wrapper gains a control
+  // that would read `null` as its damage.
+  if (!html.querySelector(".dice-total")) return;
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "icon-action";
+  const anchor = document.createElement("a");
+  anchor.className = "btn apply-dmg";
+  // A DIFFERENT tooltip from the targeted card's, deliberately. The rule this
+  // leaves is meant to be readable from the card — the splat asks only when it
+  // has to — and the tooltip is where that is said.
+  anchor.dataset.tooltip = game.i18n.localize("CAIRN.ApplyDamageChoose");
+  const icon = document.createElement("i");
+  icon.className = "fas fa-burst";
+  anchor.append(icon);
+  wrapper.append(anchor);
+
+  // Same position as the template's: after the label, before the quality line.
+  // `.icon-action` is `margin-left: auto`, so it floats right from anywhere ahead
+  // of the `flex-basis: 100%` rows — placed to match the template rather than to
+  // rely on that.
+  const label = row.querySelector(".dmg-label") ?? row.firstElementChild;
+  if (label) label.after(wrapper);
+  else row.append(wrapper);
 };
 
 const nameDamageTargets = (message, html, scene) => {
@@ -1696,7 +1723,10 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   const scene = speaker.scene ? game.scenes?.get(speaker.scene) : canvas?.scene;
   const token = scene?.tokens?.get(speaker.token);
 
-  // Both before the player-trim at the bottom of this hook — see the docblocks.
+  // All three before the player-trim at the bottom of this hook — see the
+  // docblocks. And `offerUntargetedApply` before `showDamageApplied`, which greys
+  // an anchor this may have just built.
+  offerUntargetedApply(html);
   nameDamageTargets(message, html, scene);
   showDamageApplied(message, html, scene);
 

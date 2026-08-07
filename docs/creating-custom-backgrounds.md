@@ -153,11 +153,11 @@ option grants 300 gold and the rest grant 10.
 
 A finished background is still invisible until you switch the source on:
 
-**Game Settings → Configure Settings → Air Bladder → "Offer GM's Custom 2e backgrounds"**
+**Game Settings → Configure Settings → Air Bladder → "Offer custom Cairn 2e backgrounds"**
 
 With it on, your custom backgrounds join the shipped ones in the picker. If you want
-players to roll from **only** your own set, also turn off *Offer Cairn 2e character
-sheets*.
+players to roll from **only** your own set, also turn off *Offer canon Cairn 2e
+backgrounds*.
 
 Three things make a finished background invisible, and none of them produce an
 error, so check them in this order if yours does not show up:

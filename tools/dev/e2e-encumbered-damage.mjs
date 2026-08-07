@@ -913,6 +913,286 @@ try {
   attack.error = `${e.name}: ${e.message}`;
 }
 
+/* ---------------------------------------------------------------------------
+ * A damage roll made with NOTHING TARGETED gets an Apply control anyway, and the
+ * Warden is asked who takes it.
+ *
+ * The card used to carry no control at all — `dmg-roll-card.html`'s
+ * `{{#if (isNotNull targets)}}` — so the roll could not be spent from the log.
+ * The anchor is built at RENDER and not in the template, which is what makes an
+ * untargeted card ALREADY IN THE LOG spendable; the leg that matters most below
+ * is therefore the pair "stored flavor has none / the DOM has one", because that
+ * pair is the only thing that can tell the two designs apart.
+ * ------------------------------------------------------------------------- */
+const untargeted = await page.evaluate(async () => {
+  const ActorImpl = CONFIG.Actor.documentClass;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const r = {};
+
+  const foe = await ActorImpl.create({
+    name: "ZZ Untargeted Foe", type: "npc",
+    system: { role: "monster", hp: { value: 9, max: 9 }, armor: 0 },
+  });
+  const pc = await ActorImpl.create({
+    name: "ZZ Untargeted PC", type: "character",
+    system: { hp: { value: 9, max: 9 }, armor: 0 },
+  });
+  const scene = await Scene.create({ name: "ZZ Untargeted Scene", width: 1000, height: 1000 });
+  const [foeTok] = await scene.createEmbeddedDocuments("Token", [await foe.getTokenDocument({ x: 100, y: 100 })]);
+  const [pcTok] = await scene.createEmbeddedDocuments("Token", [await pc.getTokenDocument({ x: 300, y: 100 })]);
+
+  const { evaluateFormula, askDamageTargets } = await import("/systems/air-bladder/module/utils.js");
+  const { Damage } = await import("/systems/air-bladder/module/damage.js");
+
+  // EXACTLY what both real producers ship when game.user.targets is empty.
+  const roll = await evaluateFormula("3", {});
+  const flavor = await foundry.applications.handlebars.renderTemplate(
+    "systems/air-bladder/templates/chat/dmg-roll-card.html",
+    { label: "ZZ untargeted probe", weapon: "ZZ Probe Sling", targets: null },
+  );
+  const msg = await roll.toMessage({ speaker: ChatMessage.getSpeaker({ token: foeTok }), flavor });
+
+  // THE CONTROL, and it is intrinsic rather than planted: this is the stored
+  // card, which is byte-for-byte what a card rolled before this change looks
+  // like. No anchor here and an anchor in the DOM below is the whole claim —
+  // remove the render-time injection and the second half goes false, while a
+  // template-only fix would make BOTH true and be unable to reach the log's
+  // existing cards. Nothing is written and no source is stubbed.
+  r.storedHasAnchor = ["flavor", "content"]
+    .some((f) => String(msg[f] ?? "").includes("apply-dmg"));
+
+  const rowOf = async (id) => {
+    let el = null;
+    for (let i = 0; i < 40 && !el?.querySelector(".apply-dmg"); i++) {
+      el = document.querySelector(`[data-message-id="${id}"]`);
+      if (!el?.querySelector(".apply-dmg")) await sleep(150);
+    }
+    return el;
+  };
+  const row = await rowOf(msg.id);
+  const anchor = row?.querySelector(".apply-dmg");
+  r.anchorInDom = !!anchor;
+  // No data-targets AT ALL. Its absence is what the handler reads to decide to
+  // ask; an empty attribute would be a datum claiming to hold ids.
+  r.anchorHasTargets = anchor?.hasAttribute("data-targets") ?? null;
+  r.anchorTooltip = anchor?.dataset.tooltip ?? null;
+  r.anchorGlyph = anchor
+    ? (() => { const c = getComputedStyle(anchor.querySelector("i"), "::before").content;
+      return c && c !== "none" && c !== '""' ? c : null; })()
+    : null;
+  // The attack line must NOT appear: there is no target to name, so the card
+  // keeps the weapon sentence it was rolled with.
+  r.labelText = (row?.querySelector(".dmg-label")?.textContent ?? "").trim();
+
+  // A card in the LEGACY shape — the wrapper with a plain child div, before
+  // .dmg-label existed. This is what is actually sitting in the user's log.
+  const legacy = await ChatMessage.create({
+    speaker: ChatMessage.getSpeaker({ token: foeTok }),
+    flavor: '<div class="flavor-dice-roll"><div>ZZ legacy untargeted</div></div>',
+    content: '<div class="dice-roll"><h4 class="dice-total">3</h4></div>',
+  });
+  const legacyRow = await rowOf(legacy.id);
+  r.legacyGainsAnchor = !!legacyRow?.querySelector(".apply-dmg");
+
+  /* The picker itself: what it lists, how it groups it, and what starts ticked. */
+  // The scene has to be VIEWED for the canvas selection to exist at all — and
+  // the previously-viewed one is captured so it can be restored BEFORE this one
+  // is deleted, which is the idiom the legs above already follow. Deleting the
+  // ACTIVE scene tears the canvas down at an arbitrary moment; it surfaced once
+  // as `pageerror: Cannot set properties of null (setting 'hidden')` and passed
+  // on the next run, which is a RACE, not a flake.
+  const prevScene = canvas?.scene;
+  await scene.view();
+  for (let i = 0; i < 40 && canvas?.scene?.id !== scene.id; i++) await sleep(150);
+  for (let i = 0; i < 40 && !canvas?.tokens?.get(foeTok.id); i++) await sleep(150);
+  canvas.tokens.get(foeTok.id)?.control({ releaseOthers: true });
+  r.controlled = canvas.tokens.controlled.map((t) => t.id);
+
+  const dialogEl = async () => {
+    for (let i = 0; i < 60; i++) {
+      const el = document.querySelector(".application.dialog.cairn-damage-targets");
+      if (el?.querySelector('input[name="abDamageTarget"]')) return el;
+      await sleep(100);
+    }
+    return null;
+  };
+  const dialogGone = async () => {
+    for (let i = 0; i < 60; i++) {
+      if (!document.querySelector(".application.dialog.cairn-damage-targets")) return true;
+      await sleep(100);
+    }
+    return false;
+  };
+
+  // Un-awaited on purpose: the promise settles only when the dialog is answered,
+  // so the driving has to happen while it is open. A watchdog guards the case
+  // where it never opens at all — an un-raced await there would hang the probe.
+  let pickPromise = askDamageTargets(scene);
+  const dlg = await dialogEl();
+  r.dialogOpened = !!dlg;
+  r.groupHeads = Array.from(dlg?.querySelectorAll(".ab-target-group") ?? []).map((p) => p.textContent);
+  r.rows = Array.from(dlg?.querySelectorAll(".ab-target-row") ?? []).map((l) => ({
+    id: l.querySelector("input")?.value,
+    name: l.querySelector("span")?.textContent,
+    checked: !!l.querySelector("input")?.checked,
+  }));
+  // The PC is listed — falling damage and friendly fire are real — and it is
+  // listed SECOND, under its own heading.
+  r.foeBeforePc = r.rows.findIndex((x) => x.id === foeTok.id) < r.rows.findIndex((x) => x.id === pcTok.id);
+  r.pretickedIds = r.rows.filter((x) => x.checked).map((x) => x.id);
+
+  // Cancel applies nothing. The button resolves to its ACTION STRING, never an
+  // array, which is what the caller's Array.isArray test turns into "apply
+  // nothing" — so this leg is reading the real discriminator.
+  dlg?.querySelector('button[data-action="cancel"]')?.click();
+  r.cancelResult = await Promise.race([
+    pickPromise, new Promise((res) => setTimeout(() => res("TIMEOUT"), 8000)),
+  ]);
+  r.cancelGaveNothing = Array.isArray(r.cancelResult) ? r.cancelResult.length === 0 : r.cancelResult === "cancel";
+  await dialogGone();
+
+  /* End to end, through the REAL anchor on the REAL card. */
+  const hpFoe = () => foeTok.actor.toObject().system.hp.value;
+  const hpPc = () => pcTok.actor.toObject().system.hp.value;
+  r.hpBefore = `${hpFoe()},${hpPc()}`;
+
+  // Optional. With the injection defeated there IS no anchor, and a bare
+  // `anchor.click()` threw inside page.evaluate — which kills the whole run and
+  // reports a HARNESS error rather than red legs, taking the breakdown section
+  // below with it. A probe must fail as a failed assertion, or the regression it
+  // exists to catch reads as load or a flake.
+  anchor?.click();
+  const dlg2 = await dialogEl();
+  r.clickOpenedPicker = !!dlg2;
+  // Tick the PC as well — two ticked, and BOTH take the FULL roll, which is what
+  // a targeted card with two ids already does.
+  const pcBox = dlg2?.querySelector(`input[value="${pcTok.id}"]`);
+  if (pcBox && !pcBox.checked) pcBox.click();
+  r.tickedAtApply = Array.from(dlg2?.querySelectorAll('input[name="abDamageTarget"]:checked') ?? [])
+    .map((b) => b.value);
+  dlg2?.querySelector('button[data-action="apply"]')?.click();
+  for (let i = 0; i < 60 && hpPc() === 9; i++) await sleep(150);
+  await sleep(400);
+  r.hpAfter = `${hpFoe()},${hpPc()}`;
+
+  for (let i = 0; i < 40 && !msg.getFlag("air-bladder", "damageApplied"); i++) await sleep(150);
+  r.flagged = !!msg.getFlag("air-bladder", "damageApplied");
+  await sleep(400);
+  const after = document.querySelector(`[data-message-id="${msg.id}"] .apply-dmg`);
+  r.spent = !!after?.classList.contains("spent");
+  // The summary is rendered from the flag, so an untargeted card now records what
+  // it did — a log entry these rolls did not produce at all before.
+  r.summary = (document.querySelector(`[data-message-id="${msg.id}"] .dmg-applied`)?.textContent ?? "").trim();
+
+  // A spent card must not even ASK. The Warden choosing targets and then being
+  // refused would be worse than the refusal alone.
+  //
+  // NOT a bare await. If the card is not spent — which is exactly the state a
+  // defeated fix leaves it in — this call opens a picker and waits for an answer
+  // nobody gives, and the probe hangs instead of reporting a red leg. So: start
+  // it, watch for the dialog, close whatever opened, then race the promise.
+  // .catch, because this call is not awaited here: an un-awaited rejection is an
+  // UNCAUGHT error that kills the run, and the guard this exercises is precisely
+  // the one whose absence makes it reject. Turning it into data is what lets the
+  // leg below go red instead of the harness going bang.
+  r.spentThrew = false;
+  const spentClick = Damage.onClickChatMessageApplyButton(
+    { currentTarget: { dataset: {} }, shiftKey: false }, document.querySelector(`[data-message-id="${msg.id}"]`),
+    {}, scene, msg,
+  ).catch((e) => { r.spentThrew = `${e.name}: ${e.message}`; });
+  r.spentAskedAgain = !!(await dialogEl());
+  document.querySelector(".application.dialog.cairn-damage-targets")
+    ?.querySelector('button[data-action="cancel"]')?.click();
+  await Promise.race([spentClick, new Promise((res) => setTimeout(res, 8000))]);
+  await dialogGone();
+  r.hpAfterSpentClick = `${hpFoe()},${hpPc()}`;
+
+  // The guard on `targets.split(';')`. Before it, an anchor with no data-targets
+  // threw here — which is exactly the anchor this change adds.
+  r.shiftThrew = false;
+  try {
+    await Damage.onClickChatMessageApplyButton(
+      { currentTarget: { dataset: {} }, shiftKey: true }, row, {}, scene, null);
+  } catch (e) { r.shiftThrew = `${e.name}: ${e.message}`; }
+
+  for (const m of game.messages.contents.slice().reverse().slice(0, 16)) {
+    if (m.speaker?.token === foeTok.id || m.speaker?.token === pcTok.id) await m.delete();
+  }
+  // Look away FIRST, then delete — see prevScene above.
+  if (prevScene && prevScene.id !== scene.id) await prevScene.view();
+  for (let i = 0; i < 40 && canvas?.scene?.id === scene.id; i++) await sleep(150);
+  await scene.delete();
+  await foe.delete();
+  await pc.delete();
+  return r;
+});
+
+/* ---------------------------------------------------------------------------
+ * The detail card names the armor, and the bracket disappears when there is none.
+ *
+ * "Damage: 6 (6-0)" named neither number. Both ends, because either leg alone
+ * passes on a build that always shows the bracket or never does — plus the
+ * absorbed-hit case, which is the one the drop rule exists to protect.
+ * ------------------------------------------------------------------------- */
+const breakdown = await page.evaluate(async () => {
+  const ActorImpl = CONFIG.Actor.documentClass;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const { Damage } = await import("/systems/air-bladder/module/damage.js");
+  const r = {};
+  const scene = await Scene.create({ name: "ZZ Breakdown Scene", width: 1000, height: 1000 });
+  const made = [];
+
+  const hit = async (name, armor, hp, damage) => {
+    const foe = await ActorImpl.create({
+      name, type: "npc", system: { role: "monster", hp: { value: hp, max: hp }, armor },
+    });
+    made.push(foe);
+    const [tok] = await scene.createEmbeddedDocuments("Token", [await foe.getTokenDocument({ x: 100, y: 100 })]);
+    await Damage.applyToTargets([tok.id], damage, scene);
+    for (let i = 0; i < 40; i++) {
+      const m = game.messages.contents.slice().reverse().find((x) => x.speaker?.token === tok.id);
+      if (m) return String(m.content ?? "");
+      await sleep(150);
+    }
+    return "";
+  };
+
+  // Armour 2 against a 6: both numbers named, and the result is the roll minus it.
+  r.armored = await hit("ZZ Armored Foe", 2, 20, 6);
+  // Armour 0: NO bracket at all (user ruling). Self-consistent — armor 0 implies
+  // dmg === damage, so the bracket carries nothing.
+  r.bare = await hit("ZZ Bare Foe", 0, 20, 6);
+  // Armour 3 against a 3: nothing lands, and the bracket is KEPT. This is the
+  // case the drop rule protects — "Damage: 0" alone reads like a broken card.
+  // THREE, not the 5 this fixture first asked for: armor is hard-capped at 3, so
+  // a 5 arrives at the card as a 3 and the leg fails on its own expectation. Left
+  // written down because it looks like the card lost a number.
+  r.absorbed = await hit("ZZ Plated Foe", 3, 20, 3);
+  // HP and STR must render exactly as they did. The keying was sold as a
+  // translatability fix with no visual consequence, and nothing else watches for
+  // that promise being broken.
+  r.overflow = await hit("ZZ Overflow Foe", 0, 2, 6);
+  // Compared against the PRE-FIX CONCATENATION rather than against a literal, and
+  // that is the point: a chat message's content is parsed and re-serialized, so
+  // the bare ">" in "=>" comes back as "&gt;" — a literal expectation fails while
+  // the card is identical, and a hand-escaped one would be asserting my guess
+  // about the sanitizer. Posting the old construction through the same path makes
+  // the two comparable byte-for-byte with nothing assumed.
+  const control = await ChatMessage.create({
+    content: '<p><strong>' + game.i18n.localize('CAIRN.HitProtection') + '</strong>: <s>2</s> => 0</p>'
+      + '<p><strong>' + game.i18n.localize('STR') + '</strong>: <s>10</s> => 6</p>',
+  });
+  r.controlContent = String(control.content ?? "");
+  await control.delete();
+
+  for (const m of game.messages.contents.slice().reverse().slice(0, 20)) {
+    if (scene.tokens.get(m.speaker?.token ?? "")) await m.delete();
+  }
+  await scene.delete();
+  for (const a of made) await a.delete();
+  return r;
+});
+
 await browser.close();
 
 let bad = 0;
@@ -1136,6 +1416,83 @@ check("and it still reads literally",
   (attack.injectedStrong ?? "").includes("<img src=x")
   && (attack.injectedText ?? "").includes("<img src=x"),
   `"${attack.injectedStrong}" - escaping it away would hide the attack from the Warden who has to notice it`);
+
+console.log("\nan UNTARGETED roll gets a splat, and the Warden picks who takes it");
+// The pair. Either half alone proves nothing: the first is what a pre-change card
+// looks like, the second is what the render hook adds to it.
+check("the stored card has NO anchor", untargeted.storedHasAnchor === false,
+  "the template gate still hides it at creation — so anything in the DOM came from the render hook, which is what reaches cards already in the log");
+check("the render hook adds one", untargeted.anchorInDom,
+  ".apply-dmg present on an untargeted card");
+check("with no data-targets", untargeted.anchorHasTargets === false,
+  `hasAttribute=${untargeted.anchorHasTargets} — its ABSENCE is what the handler reads to ask; an empty attribute would be a datum claiming to hold ids`);
+check("its own tooltip", untargeted.anchorTooltip === "Apply damage — choose who takes it",
+  `"${untargeted.anchorTooltip}" — a different tooltip from the targeted card's, because the rule is meant to be readable from the card`);
+check("and it draws a glyph", !!untargeted.anchorGlyph,
+  `renders ${untargeted.anchorGlyph ?? "NOTHING"}`);
+check("the weapon sentence stands", untargeted.labelText === "ZZ untargeted probe",
+  `"${untargeted.labelText}" — no target to name, so the attack line must not half-write one`);
+check("a LEGACY-shaped card gains one too", untargeted.legacyGainsAnchor,
+  "the wrapper with a plain child div, before .dmg-label existed — what is actually sitting in the log");
+
+check("the picker opens", untargeted.dialogOpened, "clicking asks rather than reading the canvas silently");
+check("two groups, monsters first",
+  JSON.stringify(untargeted.groupHeads) === JSON.stringify(["Monsters & NPCs", "Player characters"]),
+  JSON.stringify(untargeted.groupHeads));
+check("the PC is listed", untargeted.rows?.some((x) => x.name === "ZZ Untargeted PC"),
+  `${JSON.stringify(untargeted.rows?.map((x) => x.name))} — falling damage and friendly fire are real, so PCs are never filtered out`);
+check("and listed second", untargeted.foeBeforePc,
+  "ticked in place: nothing re-sorts under the Warden, but the common case is at the top");
+// The pre-tick is the whole reason it can always confirm without being a
+// nuisance. Asserted on the SELECTED token specifically, not "something is
+// ticked" — a build that ticked everything would satisfy the weaker claim.
+check("the canvas selection is pre-ticked",
+  JSON.stringify(untargeted.pretickedIds) === JSON.stringify(untargeted.controlled),
+  `ticked ${JSON.stringify(untargeted.pretickedIds)} vs selected ${JSON.stringify(untargeted.controlled)} — and `
+  + "`checked` had to be set as an ATTRIBUTE: the element is serialized to HTML, so the IDL property would not survive");
+check("Cancel applies nothing", untargeted.cancelGaveNothing,
+  `resolved to ${JSON.stringify(untargeted.cancelResult)} — a ✕ is an instruction, not a default`);
+check("clicking the real anchor asks", untargeted.clickOpenedPicker,
+  "driven through the button rather than the helper, so neither layer alone can look like a landed fix");
+check("both ticked take the FULL roll",
+  untargeted.hpBefore === "9,9" && untargeted.hpAfter === "6,6",
+  `hp ${untargeted.hpBefore} -> ${untargeted.hpAfter} (expected 6,6 — 3 each, not 3 split), ticked ${JSON.stringify(untargeted.tickedAtApply)}`);
+check("the card records it", untargeted.flagged && untargeted.spent
+  && /ZZ Untargeted Foe/.test(untargeted.summary),
+  `flagged=${untargeted.flagged} spent=${untargeted.spent} "${untargeted.summary}" — a log entry these rolls did not produce at all`);
+// States its own precondition. "A spent card does not ask" is unverifiable on a
+// card that never got spent, and without the `flagged` term this leg would go
+// GREEN in exactly that case — the shape where a probe passes because nothing
+// happened.
+check("a spent card does not even ask",
+  untargeted.flagged && !untargeted.spentAskedAgain && untargeted.hpAfterSpentClick === untargeted.hpAfter,
+  `spent=${untargeted.flagged} dialog=${untargeted.spentAskedAgain} hp ${untargeted.hpAfterSpentClick} — choosing targets and THEN being refused is worse than the refusal alone`);
+// BOTH paths through the guard, because they are separate reads of the same
+// missing attribute and each one alone throws. The bare `targets.split(';')`
+// threw on exactly the anchor this change adds — an untargeted card is the only
+// way to reach the handler with no data-targets at all.
+check("neither path throws on a missing data-targets",
+  untargeted.shiftThrew === false && untargeted.spentThrew === false,
+  `shift: ${untargeted.shiftThrew} / apply: ${untargeted.spentThrew}`);
+
+console.log("\nthe detail card names the armor");
+check("armour is named", /Damage<\/strong>: 4 \(6 damage − 2 armor\)/.test(breakdown.armored),
+  `"${(breakdown.armored.match(/Damage<\/strong>:[^<]*/) ?? [""])[0]}" — the Warden had to ask what the 0 in "(6-0)" was`);
+// Both ends. Either leg alone passes on a build that always shows the bracket, or
+// never does.
+check("no armour drops the bracket", /Damage<\/strong>: 6</.test(breakdown.bare)
+  && !/\(/.test((breakdown.bare.match(/Damage<\/strong>:[^<]*/) ?? [""])[0]),
+  `"${(breakdown.bare.match(/Damage<\/strong>:[^<]*/) ?? [""])[0]}" — ruled, not an oversight: armor 0 implies dmg === damage, so the bracket carries nothing`);
+check("an absorbed hit KEEPS it", /Damage<\/strong>: 0 \(3 damage − 3 armor\)/.test(breakdown.absorbed),
+  `"${(breakdown.absorbed.match(/Damage<\/strong>:[^<]*/) ?? [""])[0]}" — this is why the drop rule is armor-based and not result-based; a bare "Damage: 0" reads like a broken card`);
+check("a spaced U+2212, not a hyphen", /−/.test(breakdown.armored) && !/6 damage - 2/.test(breakdown.armored),
+  '"6-0" read as a range; the minus lives inside the key so a translator can change it');
+// The promise this half was sold on, asserted against the OLD construction posted
+// through the same path — not against a literal, which would be asserting a guess
+// about how chat content is re-serialized.
+check("HP and STR are unchanged on screen",
+  !!breakdown.controlContent && breakdown.overflow.includes(breakdown.controlContent),
+  `card has "${breakdown.overflow.replace(/<[^>]*>/g, "|")}"; the pre-fix concatenation renders "${breakdown.controlContent}" — same "=>", same strike-through: the keying was sold as a translatability fix with NO visual consequence`);
 
 if (errors.length) { bad++; console.log("Console errors:\n" + errors.join("\n")); }
 console.log(bad === 0 ? "\nencumbered-damage e2e passed" : `\nencumbered-damage e2e FAILED — ${bad}`);

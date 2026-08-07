@@ -335,10 +335,16 @@ const quality = await page.evaluate(async ({ id }) => {
 
   const { askDamageQuality, damageFormulaFor } = await import("/systems/air-bladder/module/utils.js");
 
-  // 1. The three buttons render, and the middle one shows the WEAPON's die.
+  // 1. The three buttons render, and the FIRST one shows the WEAPON's die.
+  //    Standard leads as of 2026-08-07 (user ruling) — the default is where the
+  //    eye starts and where autofocus already sat. This leg's NAME and its three
+  //    indices moved together with the order; getting only the actions array
+  //    right would leave it passing while asserting the wrong button.
   await gone();
-  const asked = askDamageQuality("1d6");
+  const asked = askDamageQuality("1d6", "ZZ Probe Crossbow");
   const standardBtn = await btn("standard");
+  // The dialog names the item the roll came from.
+  out.titleWeapon = document.querySelector("dialog.dialog .window-title")?.textContent.trim() ?? null;
   out.dialogOpened = !!standardBtn;
   const btns = [...document.querySelectorAll("dialog.dialog button[data-action]")]
     .filter((b) => ["impaired", "standard", "enhanced"].includes(b.dataset.action));
@@ -357,6 +363,14 @@ const quality = await page.evaluate(async ({ id }) => {
   out.defaultWeight = standardBtn ? getComputedStyle(standardBtn).fontWeight : null;
   out.footerDirection = getComputedStyle(
     document.querySelector("dialog.dialog .form-footer") ?? document.body).flexDirection;
+  // NO OFFSET (user ask). Two declarations, because the ⏎ and the label/icon are
+  // pushed apart by different rules: the button centres its contents, and the
+  // pseudo-element no longer claims the leading space with `margin-left: auto`.
+  // Asserted as declarations rather than geometry AND THE PROBE SAYS SO — a
+  // pseudo-element has no rect, so whether it LOOKS centred is the user's eye.
+  out.defaultJustify = standardBtn ? getComputedStyle(standardBtn).justifyContent : null;
+  out.defaultAfterMargin = standardBtn
+    ? getComputedStyle(standardBtn, "::after").marginLeft : null;
   standardBtn?.click();
   out.standardResult = await race(asked);
 
@@ -368,9 +382,12 @@ const quality = await page.evaluate(async ({ id }) => {
   await gone();
   const oddAsked = askDamageQuality("3");
   const oddStandard = await btn("standard");
-  out.oddIcons = ["impaired", "standard", "enhanced"].map((a) =>
+  out.oddIcons = ["standard", "impaired", "enhanced"].map((a) =>
     document.querySelector(`dialog.dialog button[data-action='${a}']`)
       ?.querySelector("i")?.className ?? null);
+  // BOTH ENDS of the title too: no weapon name falls back to the plain title.
+  // Asserting only the named form would pass on a build that always appends.
+  out.titlePlain = document.querySelector("dialog.dialog .window-title")?.textContent.trim() ?? null;
   oddStandard?.click();
   await race(oddAsked);
 
@@ -492,24 +509,36 @@ quality.panicOff
 quality.dialogOpened
   ? ok("the dialog opens")
   : fail("the dialog opens", "no dialog.dialog button[data-action=standard] appeared");
-JSON.stringify(quality.actions) === JSON.stringify(["impaired", "standard", "enhanced"])
+// STANDARD LEADS (user ruling 2026-08-07). Beyond the ask, this closes a latent
+// trap: `isDefault` falls back to `(i === 0) && !buttons.some(b => b.default)`
+// (dialog.mjs:228), so with Impaired at index 0, dropping `default: true` would
+// silently have made IMPAIRED the button Enter presses.
+JSON.stringify(quality.actions) === JSON.stringify(["standard", "impaired", "enhanced"])
   ? ok("three choices, in order", quality.actions.join(" / "))
   : fail("three choices, in order", JSON.stringify(quality.actions));
-/1d4/.test(quality.labels?.[0] ?? "") && /1d6/.test(quality.labels?.[1] ?? "") && /1d12/.test(quality.labels?.[2] ?? "")
-  ? ok("the middle button shows the WEAPON's die", quality.labels.join(" | "))
-  : fail("the middle button shows the WEAPON's die", JSON.stringify(quality.labels));
+/1d6/.test(quality.labels?.[0] ?? "") && /1d4/.test(quality.labels?.[1] ?? "") && /1d12/.test(quality.labels?.[2] ?? "")
+  ? ok("the FIRST button shows the WEAPON's die", quality.labels.join(" | "))
+  : fail("the FIRST button shows the WEAPON's die", JSON.stringify(quality.labels));
+// The title names the item the roll came from, BOTH ENDS: a roll with no item
+// falls back to the plain title. Asserting only the named form passes on a build
+// that always appends, and a dangling "— " is not repairable by a translator —
+// which is why there are two keys rather than one with an empty placeholder.
+quality.titleWeapon === "Damage roll — ZZ Probe Crossbow" && quality.titlePlain === "Damage roll"
+  ? ok("the title names the item", `"${quality.titleWeapon}" / "${quality.titlePlain}"`)
+  : fail("the title names the item", `"${quality.titleWeapon}" / "${quality.titlePlain}"`);
 // The ICON per button, read as a class list rather than as a rendered glyph:
 // every fa-dice-dN renders something, so "it draws a glyph" would pass on a
 // helper that returned d20 for all three. The claim is that they DIFFER.
 JSON.stringify(quality.icons)
-  === JSON.stringify(["fa-solid fa-dice-d4", "fa-solid fa-dice-d6", "fa-solid fa-dice-d12"])
+  === JSON.stringify(["fa-solid fa-dice-d6", "fa-solid fa-dice-d4", "fa-solid fa-dice-d12"])
   ? ok("each button carries its own die", quality.icons.join(" | "))
   : fail("each button carries its own die", JSON.stringify(quality.icons));
 // The fallback, BOTH ENDS in one dialog: a formula naming no standard die gets
 // no icon, while the two constants still have theirs. Either end alone passes on
-// a dieIcon that always returns "" (or always returns something).
-quality.oddIcons?.[1] === null
-  && /fa-dice-d4$/.test(quality.oddIcons?.[0] ?? "")
+// a dieIcon that always returns "" (or always returns something). The NULL is at
+// index 0 now — oddIcons is read in the new button order.
+quality.oddIcons?.[0] === null
+  && /fa-dice-d4$/.test(quality.oddIcons?.[1] ?? "")
   && /fa-dice-d12$/.test(quality.oddIcons?.[2] ?? "")
   ? ok("a formula with no die gets NO icon", JSON.stringify(quality.oddIcons))
   : fail("a formula with no die gets NO icon", JSON.stringify(quality.oddIcons));
@@ -522,6 +551,21 @@ quality.defaultClass && quality.defaultAutofocus && Number(quality.defaultWeight
 quality.footerDirection === "column"
   ? ok("the three choices stack", "core's row rule is @layer blocks.base; system outranks it")
   : fail("the three choices stack", String(quality.footerDirection));
+// NO OFFSET (user ask). Read as the two declarations, not as geometry, AND THAT
+// IS A STATED LIMIT: a pseudo-element has no rect, so whether the result LOOKS
+// centred is the user's eye. What is checkable is that neither rule is pushing
+// anything to an edge any more.
+// The margin is read as a NUMBER under 20px rather than as `!== "auto"`, and the
+// difference matters: getComputedStyle may resolve an auto margin to its USED
+// value, in which case a string comparison against "auto" never matches and the
+// leg is green with the offset live. A used auto in this footer is tens of px
+// wide; 0.4em is ~6. Either way the browser reports it, this discriminates.
+const afterPx = parseFloat(quality.defaultAfterMargin ?? "");
+quality.defaultJustify === "center" && Number.isFinite(afterPx) && afterPx < 20
+  ? ok("nothing is pushed to an edge",
+    `justify-content: ${quality.defaultJustify}, ::after margin-left: ${quality.defaultAfterMargin}`)
+  : fail("nothing is pushed to an edge",
+    `justify-content: ${quality.defaultJustify}, ::after margin-left: ${quality.defaultAfterMargin}`);
 quality.standardResult === "standard"
   ? ok("a click resolves to its action")
   : fail("a click resolves to its action", String(quality.standardResult));

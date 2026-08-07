@@ -1,4 +1,5 @@
 import { SETTINGS_NS } from "./settings.js";
+import { tokenDisplayName } from "./i18n-content.js";
 /**
  * @param {String} formula
  * @param {Object} [data]
@@ -126,7 +127,7 @@ const dieIcon = (formula) => {
  * `macros.js`, which builds the same card independently. The panic substitution
  * was written twice and drifted; this is not repeating that.
  *
- * The middle button shows the WEAPON's own die, so a d6 weapon offers d4 / d6 /
+ * The FIRST button shows the WEAPON's own die, so a d6 weapon offers d6 / d4 /
  * d12 and the player sees what they are choosing rather than three words. Each
  * button also carries that die's Font Awesome glyph — see `dieIcon`.
  *
@@ -149,11 +150,23 @@ const dieIcon = (formula) => {
  *     (dialog.mjs:227-246), so the decoration below needs no custom markup and
  *     stays clear of `content` entirely.
  *
- * @param {String} standardFormula  the weapon's die, shown on the middle button
+ * ORDER: STANDARD, impaired, enhanced (user ruling 2026-08-07), superseding the
+ * first cut's "impaired → standard → enhanced is the scale the rule is described
+ * in". The default leads, which is where the eye starts and where autofocus
+ * already sat. It also closes a latent trap: `isDefault` falls back to
+ * `(i === 0) && !buttons.some(b => b.default)` (dialog.mjs:228), so with Impaired
+ * at index 0, dropping `default: true` would silently have made IMPAIRED the
+ * button Enter presses.
+ *
+ * @param {String} standardFormula  the weapon's die, shown on the first button
+ * @param {String} [weaponName]  the item the roll came from, named in the title.
+ *   Verbatim and never re-localized, for the reason the card's weapon datum is:
+ *   `item.name` is already the display name, and translating it per viewer would
+ *   need a reverse lookup into a MANY-TO-ONE overlay.
  * @return {Promise<"impaired"|"standard"|"enhanced"|null>} null = dismissed, and
  *   a dismissal must roll NOTHING — a ✕ is an instruction, not a default.
  */
-export const askDamageQuality = async (standardFormula) => {
+export const askDamageQuality = async (standardFormula, weaponName = "") => {
   const opt = (action, key, formula) => ({
     action,
     label: game.i18n.format(key, { formula }),
@@ -165,10 +178,16 @@ export const askDamageQuality = async (standardFormula) => {
     // `dialog.dialog` still matches — worth knowing before adding one, since a
     // replacing merge would have broken every selector that names it.
     classes: ["cairn-damage-quality"],
-    window: { title: game.i18n.localize("CAIRN.DamageQuality.Title") },
+    // TWO keys, not one with an empty placeholder. A roll made from a control
+    // with no label has no weapon at all, and a dangling "— " is not something a
+    // translator can repair — the same rule the two attack-line keys follow.
+    window: {
+      title: weaponName
+        ? game.i18n.format("CAIRN.DamageQuality.TitleWeapon", { weapon: weaponName })
+        : game.i18n.localize("CAIRN.DamageQuality.Title"),
+    },
     content: `<p>${game.i18n.localize("CAIRN.DamageQuality.Prompt")}</p>`,
     buttons: [
-      opt("impaired", "CAIRN.DamageQuality.Impaired", IMPAIRED_FORMULA),
       {
         ...opt("standard", "CAIRN.DamageQuality.Standard", standardFormula),
         // Enter rolls the ordinary roll, which is most of them. But `default:
@@ -181,11 +200,178 @@ export const askDamageQuality = async (standardFormula) => {
         class: "cairn-quality-default",
         tooltip: "CAIRN.DamageQuality.DefaultTip",
       },
+      opt("impaired", "CAIRN.DamageQuality.Impaired", IMPAIRED_FORMULA),
       opt("enhanced", "CAIRN.DamageQuality.Enhanced", ENHANCED_FORMULA),
     ],
     rejectClose: false,
   });
   return chosen ?? null;
+};
+
+/* -------------------------------------------- */
+/*  Who takes the damage                        */
+/* -------------------------------------------- */
+
+/**
+ * The subset of token ids this VIEWER may be told about, as display names.
+ *
+ * One function, because the attack line, the applied-damage summary and the
+ * target picker must conceal the same tokens and a second copy of this test is a
+ * second thing to get wrong. Order is preserved so a caller can zip names back
+ * against its own data.
+ *
+ * Lives here rather than in `cairn.js` (where it was written) because
+ * `askDamageTargets` below needs it and `damage.js` calls that — importing back
+ * into `cairn.js` would be a cycle, and copying it would be the second copy this
+ * docblock exists to prevent.
+ *
+ * @param {String[]} ids
+ * @param {Scene} [scene]
+ * @return {{id: String, name: String}[]}
+ */
+export const nameableTokens = (ids, scene) => {
+  const out = [];
+  for (const id of ids) {
+    const tok = scene?.tokens?.get(id);
+    if (!tok) continue; // killed since, or the scene is gone
+    // Core's own test for whether a user may be shown a token at all:
+    // Combatant#visible is `this.isOwner || !this.hidden`
+    // (documents/combatant.mjs:82-84). A token the Warden has hidden must not be
+    // named in a card every player reads; a GM owns everything, so the Warden
+    // still gets the whole sentence.
+    if (tok.hidden && !tok.isOwner) continue;
+    // And the second concealment channel, which is not the same one: a SECRET
+    // disposition hides a token from anyone below OBSERVER on it
+    // (TokenDocument#isSecret, documents/token.mjs:341-343). Evaluated on the
+    // VIEWER's client, so the Warden's copy is unaffected. Not folded into the
+    // test above — `hidden` is "the Warden took it off the board", SECRET is
+    // "this one is not for the players", and a Warden may use either.
+    if (tok.isSecret) continue;
+    out.push({ id, name: tokenDisplayName(tok) });
+  }
+  return out;
+};
+
+/**
+ * Ask the Warden who takes an UNTARGETED damage roll.
+ *
+ * A roll made with nothing targeted used to carry no Apply control at all, so the
+ * number sat in the log and had to be applied by hand on the creature's sheet —
+ * and nothing recorded that it ever landed. The machinery was always there
+ * (`applyToTarget` wants a token id and a scene, and has no notion of "was this
+ * targeted"); only the answer to "who?" was missing.
+ *
+ * It ALWAYS confirms, even with a selection on the canvas. Applying damage
+ * decides what happened to somebody else's character, and a control that reads
+ * the canvas silently would make the most consequential click in the log depend
+ * on state the Warden cannot see from the log. The selection is honoured as the
+ * PRE-TICK instead, so the common case is still one extra click.
+ *
+ * Two groups, monsters first — that is the common case — and PCs listed rather
+ * than filtered out, because falling damage and friendly fire are real and a
+ * filter would have to guess. Nothing re-sorts under the Warden: a pre-ticked
+ * token stays where it is in the list.
+ *
+ * Concealment is `nameableTokens`, not a second test. A GM is above every gate in
+ * it, so in practice the Warden is offered the whole scene — but routing through
+ * the one function means this can never become the surface that names a token the
+ * viewer may not be told about.
+ *
+ * @param {Scene} [scene]  the scene the CARD was spoken in, never the viewer's
+ * @return {Promise<String[]>}  token ids; EMPTY on dismissal, on Cancel, and on
+ *   an empty tick list — all three mean "apply nothing", per the same rule
+ *   `askDamageQuality` follows: a ✕ is an instruction, not a default.
+ */
+export const askDamageTargets = async (scene) => {
+  const listed = nameableTokens((scene?.tokens?.contents ?? []).map((tk) => tk.id), scene);
+  if (!listed.length) {
+    // A legacy card whose scene was deleted, or one whose creatures are all gone.
+    // Saying so beats opening a picker with nothing in it and an Apply button.
+    ui.notifications.warn(game.i18n.localize("CAIRN.Notify.NoTokensToDamage"));
+    return [];
+  }
+
+  // Only when the viewed scene IS the card's. A selection made somewhere else is
+  // not an answer to "who on THIS scene takes it", and pre-ticking from it would
+  // silently propose the wrong creatures.
+  const preticked = new Set();
+  if (canvas?.scene?.id === scene?.id) {
+    for (const t of canvas.tokens?.controlled ?? []) preticked.add(t.id);
+    for (const t of game.user?.targets ?? []) preticked.add(t.id);
+  }
+
+  const foes = [];
+  const pcs = [];
+  for (const entry of listed) {
+    const isPC = scene.tokens.get(entry.id)?.actor?.type === "character";
+    (isPC ? pcs : foes).push(entry);
+  }
+
+  // An HTMLDivElement rather than a string, and that is the security property
+  // here: DialogV2 cleans a string `content` but takes an element's innerHTML
+  // VERBATIM (`options.content = options.content.innerHTML`, dialog.mjs:187-190).
+  // Token names are Warden-authored free text, so every one goes in as
+  // `textContent` on a node and is escaped by the serializer — nothing authored
+  // is ever parsed as markup. The div must be plain: core throws on any
+  // attribute (:189).
+  const content = document.createElement("div");
+  const prompt = document.createElement("p");
+  // Multi-select gives each ticked creature the FULL roll, which is what a
+  // targeted card already does — but nothing on a checkbox list says so.
+  prompt.textContent = game.i18n.localize("CAIRN.DamageTargets.Prompt");
+  content.append(prompt);
+
+  const group = (key, entries) => {
+    if (!entries.length) return; // no empty heading over an empty list
+    const head = document.createElement("p");
+    head.className = "ab-target-group";
+    head.textContent = game.i18n.localize(key);
+    content.append(head);
+    for (const entry of entries) {
+      const row = document.createElement("label");
+      row.className = "ab-target-row";
+      const box = document.createElement("input");
+      // setAttribute, NOT the properties. The element is serialized to HTML and
+      // re-parsed, and `box.checked = true` / `box.value = id` set IDL properties
+      // that do NOT reflect into the markup — the dialog would open with every
+      // box blank and every value empty, silently. `type` and `name` do reflect;
+      // they are written the same way so the next reader is not left deciding
+      // which of four lines is safe.
+      box.setAttribute("type", "checkbox");
+      box.setAttribute("name", "abDamageTarget");
+      box.setAttribute("value", entry.id);
+      if (preticked.has(entry.id)) box.setAttribute("checked", "checked");
+      const name = document.createElement("span");
+      name.textContent = entry.name;
+      row.append(box, name);
+      content.append(row);
+    }
+  };
+  group("CAIRN.DamageTargets.Foes", foes);
+  group("CAIRN.DamageTargets.Party", pcs);
+
+  const picked = await foundry.applications.api.DialogV2.wait({
+    classes: ["cairn-damage-targets"],
+    window: { title: game.i18n.localize("CAIRN.DamageTargets.Title") },
+    content,
+    buttons: [
+      {
+        action: "apply",
+        label: "CAIRN.ApplyDamage",
+        icon: "fa-solid fa-burst",
+        default: true,
+        callback: (event, button) => Array.from(
+          button.form.querySelectorAll('input[name="abDamageTarget"]:checked'),
+        ).map((box) => box.value),
+      },
+      { action: "cancel", label: "CAIRN.Cancel", icon: "fa-solid fa-xmark" },
+    ],
+    rejectClose: false,
+  });
+  // Cancel resolves to its action STRING and a dismissal to null; only the Apply
+  // callback returns an array. Testing the shape rather than the action name
+  // means neither can be mistaken for a pick.
+  return Array.isArray(picked) ? picked : [];
 };
 
 /**

@@ -73,7 +73,8 @@ export const rollItemMacro = async (actorId, itemId) => {
   let quality;
   if (panicked) quality = "impaired";
   else {
-    quality = await askDamageQuality(item.system.damageFormula);
+    // Same title as the sheet's control gets — the macro has the item itself.
+    quality = await askDamageQuality(item.system.damageFormula, item.name ?? "");
     if (quality === null) return; // dismissed: roll nothing
   }
   const rollSchema = damageFormulaFor(quality, item.system.damageFormula);

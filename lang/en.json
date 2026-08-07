@@ -6,6 +6,7 @@
   "CAIRN.Age": "Age",
   "CAIRN.AlreadyConnected": "Already connected to someone.",
   "CAIRN.ApplyDamage": "Apply damage",
+  "CAIRN.ApplyDamageChoose": "Apply damage — choose who takes it",
   "CAIRN.Archetype.Custom": "Custom 2e Backgrounds",
   "CAIRN.Archetype.Fighter": "Fighter",
   "CAIRN.Archetype.Other": "Other",
@@ -62,7 +63,7 @@
   "CAIRN.BgAuthor.SecondBond": "Grants two bonds",
   "CAIRN.BgAuthor.SecondBondHint": "Characters from this background roll on the bonds table twice instead of once. A rolled answer that says to roll again still adds its own bond on top.",
   "CAIRN.BgAuthor.SnapshotHint": "A frozen copy travels with this background; later edits to the source item do not propagate.",
-  "CAIRN.BgAuthor.SourceHint": "Give this an archetype so it groups in the character-creation picker, and enable \"Offer GM's Custom 2e backgrounds\" in Settings so it appears there.",
+  "CAIRN.BgAuthor.SourceHint": "Give this an archetype so it groups in the character-creation picker, and enable \"Offer custom Cairn 2e backgrounds\" in Settings so it appears there.",
   "CAIRN.BgAuthor.Tables": "Question Tables (2 × d6)",
   "CAIRN.BgAuthor.TablesHint": "Two d6 tables, six options each. One option per table is rolled at generation, granting its prose, gold, and items.",
   "CAIRN.BgAuthor.Test": "Test ×10",
@@ -160,6 +161,7 @@
   "CAIRN.Damage": "Damage",
   "CAIRN.DamageApplied": "Damage applied: {list}",
   "CAIRN.DamageAppliedEntry": "{dmg} to {target}",
+  "CAIRN.DamageBreakdown": "{dmg} ({damage} damage − {armor} armor)",
   "CAIRN.DamageQuality.BadgeEnhanced": "Enhanced",
   "CAIRN.DamageQuality.BadgeImpaired": "Impaired",
   "CAIRN.DamageQuality.BadgePanic": "Impaired (Panic)",
@@ -169,6 +171,11 @@
   "CAIRN.DamageQuality.Prompt": "Is this roll impaired, standard or enhanced?",
   "CAIRN.DamageQuality.Standard": "Standard ({formula})",
   "CAIRN.DamageQuality.Title": "Damage roll",
+  "CAIRN.DamageQuality.TitleWeapon": "Damage roll — {weapon}",
+  "CAIRN.DamageTargets.Foes": "Monsters & NPCs",
+  "CAIRN.DamageTargets.Party": "Player characters",
+  "CAIRN.DamageTargets.Prompt": "Who takes this damage? Everyone ticked takes the full roll.",
+  "CAIRN.DamageTargets.Title": "Apply damage to…",
   "CAIRN.DayRate": "Day Rate",
   "CAIRN.DayRateHint": "Daily wage in gold, from the Cairn 2e hirelings table",
   "CAIRN.DayRateSuffix": "gp/day",
@@ -370,6 +377,8 @@
     "NoMarketplace": "The marketplace catalogue is unavailable.",
     "NoNesting": "{name} can't keep connections — only characters can.",
     "NoScarsTable": "The Scars table is missing from the compendium — roll the scar by hand.",
+    "NoTargetsToSelect": "This roll had no targets, so there is nothing to select.",
+    "NoTokensToDamage": "There are no creatures on that card's scene to apply this damage to.",
     "NoWardenForPcGen": "No Warden is logged in, so your character cannot be generated. Ask them to open the world, then try again.",
     "NotEditable": "You do not have permission to edit {name}.",
     "NotEnoughGold": "Not enough gold for {name} ({cost}).",
@@ -487,15 +496,15 @@
     },
     "ContentSource2e": {
       "hint": "Offer the 20 Cairn 2e backgrounds when generating a character. With more than one source enabled, Generate asks which to use.",
-      "label": "Offer Cairn 2e character sheets"
+      "label": "Offer canon Cairn 2e backgrounds"
     },
     "ContentSourceBarebones": {
       "hint": "Offer the 100 Cairn Barebones backgrounds when generating a character. Barebones characters follow the same rules as 2e ones — only creation differs.",
       "label": "Offer Cairn Barebones character sheets"
     },
     "ContentSourceCustom": {
-      "hint": "Include custom 2e backgrounds — backgrounds not published in the Cairn 2e Player's Guide: the shipped Backgrounds (Custom) compendium plus any GM-authored ones from your world's compendiums. They appear in their own picker section; turn off 'Offer Cairn 2e character sheets' to generate only from custom ones.",
-      "label": "Offer Custom 2e backgrounds"
+      "hint": "Include custom 2e backgrounds — backgrounds not published in the Cairn 2e Player's Guide: the shipped Backgrounds (Custom) compendium plus any GM-authored ones from your world's compendiums. They appear in their own picker section; turn off 'Offer canon Cairn 2e backgrounds' to generate only from custom ones.",
+      "label": "Offer custom Cairn 2e backgrounds"
     },
     "CustomPortraitFolder": {
       "hint": "A folder of your own character portraits (relative to the Foundry data root). When it holds images, new characters and NPCs use them instead of the shipped Jon Aspeheim art, and the portrait picker gains a 'Custom' tab. Leave empty or unfilled to use only the shipped portraits. The default folder is created for you — just drop images in and click Refresh in the picker.",
@@ -557,6 +566,7 @@
   "CAIRN.SpellbookPrefix": "Spellbook — ",
   "CAIRN.Spellscroll": "Spellscroll",
   "CAIRN.SpellscrollPrefix": "Spellscroll — ",
+  "CAIRN.StatChange": "<s>{from}</s> => {to}",
   "CAIRN.StrSave": "Must pass a STR save",
   "CAIRN.StrTip": "Used for saves requiring physical power, like lifting gates, bending bars, resisting poison, etc.",
   "CAIRN.Success": "Success",

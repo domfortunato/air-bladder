@@ -2233,7 +2233,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     let quality;
     if (panicked) quality = "impaired";
     else {
-      quality = await askDamageQuality(dataset.roll);
+      // The item's name goes to the dialog's title. `dataset.label` is stamped by
+      // items-list.html as data-label="{{item.name}}", so it is already the
+      // display name — a control with none falls back to the plain title.
+      quality = await askDamageQuality(dataset.roll, dataset.label ?? "");
       if (quality === null) return; // dismissed: roll nothing
     }
     const formula = damageFormulaFor(quality, dataset.roll);
