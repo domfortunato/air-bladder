@@ -25,6 +25,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ROOT, readTSV, normalizeKey } from "./lib.mjs";
 import { checkPair, flattenLang } from "./validate.mjs";
+import { loadBaseline, saveBaseline, baselinePath } from "./baseline.mjs";
 
 const argVal = (flag, def) => {
   const i = process.argv.indexOf(flag);
@@ -65,6 +66,7 @@ let staleIgnored = 0; // status=stale rows — review-only, never re-imported
 // translated UI at runtime while i18n:check still reports full coverage.
 const ui = flattenLang(loadJSON(UI_JSON));
 const content = loadJSON(CONTENT_JSON);
+const nextBaseline = loadBaseline(LANG);
 
 // content-stale.tsv is a review-only orphan list (see extract-content.mjs), never
 // an import source — re-importing it would re-bloat the JSON with dead keys.
@@ -103,8 +105,21 @@ for (const file of tsvFiles.sort()) {
     if (tr === en) warnings.push(`${where}: ${LANG} == en (untranslated, or intentional proper noun)`);
     if (trailingTrap(en, tr)) warnings.push(`${where}: ${LANG} drops a trailing space/em-dash that en carries`);
 
-    if (isUI) ui[key] = tr;
-    else {
+    if (isUI) {
+      ui[key] = tr;
+      // Record WHICH English this translation answers to. Importing is the only
+      // event that re-verifies a key: the translator was handed the row with its
+      // current English in column 3 — and, when it had drifted, the superseded
+      // English in `notes` — and sent back what they sent back. Whether they
+      // rewrote it or judged it still correct, they saw this English.
+      //
+      // Taken from the ROW's `en`, not from lang/en.json, on purpose. Those two
+      // differ exactly when English moved while the TSV was out with the
+      // translator, and in that case the row was NOT verified against the
+      // current value — recording the live one would erase a real drift the
+      // moment it appeared.
+      nextBaseline[key] = en;
+    } else {
       (content[key] ??= {})[normalizeKey(en)] = tr;
     }
     imported++;
@@ -135,7 +150,9 @@ if (DRY) {
   fs.mkdirSync(path.dirname(CONTENT_JSON), { recursive: true });
   fs.writeFileSync(UI_JSON, JSON.stringify(ui, null, 2) + "\n");
   fs.writeFileSync(CONTENT_JSON, JSON.stringify(sortDeep(content), null, 2) + "\n");
+  saveBaseline(LANG, nextBaseline);
   console.log(`\n  wrote ${path.relative(ROOT, UI_JSON)} + ${path.relative(ROOT, CONTENT_JSON)}`);
+  console.log(`        ${path.relative(ROOT, baselinePath(LANG))}  (${Object.keys(nextBaseline).length} keys verified against their source English)`);
 } else {
   console.log(`\n  nothing to write (no valid translations found).`);
 }

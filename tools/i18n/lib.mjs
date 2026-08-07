@@ -54,6 +54,46 @@ export const slugify = (name) =>
  */
 export const normalizeKey = (s) => String(s).replace(/\s+/g, " ").trim();
 
+/**
+ * The source string as the RUNTIME will ask for it.
+ *
+ * The overlay is keyed on the English source, and the runtime's key is
+ * `node.innerHTML` (module/cairn.js:203). That matters because the browser has
+ * already PARSED the source by then: `&mdash;` in the YAML is a `—` character in
+ * the DOM, and serializing back out re-escapes only `&`, `<`, `>` and a
+ * non-breaking space. So an extractor that keys on the YAML bytes emits
+ * `&mdash;` for a string the runtime asks for with `—`, and the translation is
+ * dead on arrival — present, finished, and never once looked up.
+ *
+ * That is not hypothetical: 22 finished Spanish strings ship in exactly that
+ * state (review #10), all of them `&mdash;` and `&rsquo;`. The review found them
+ * filed by `i18n:check` as advisory "source gone", which is the class for prose
+ * somebody edited — indistinguishable from work lost to a keying bug unless
+ * something tries the decode.
+ *
+ * `amp`, `lt`, `gt` and `nbsp` are deliberately NOT decoded: those are the four
+ * the serializer puts BACK, so decoding them would break keys that work today.
+ * Everything else resolves to its character, which is what innerHTML yields.
+ */
+const DOM_DECODED = {
+  mdash: "—", ndash: "–", rsquo: "’", lsquo: "‘",
+  ldquo: "“", rdquo: "”", hellip: "…", quot: '"',
+  apos: "'", times: "×", middot: "·", bull: "•",
+  deg: "°", frac12: "½", eacute: "é", egrave: "è",
+};
+// The same four, by code point: a numeric reference for `&` or `<` must survive
+// the decode too, or `&#38;` would resolve to a character the serializer would
+// immediately turn back into `&amp;` — the exact round-trip mismatch this exists
+// to remove, reintroduced through the other syntax.
+const DOM_PRESERVED = new Set([0x26, 0x3c, 0x3e, 0xa0]);
+const numeric = (code) => (DOM_PRESERVED.has(code) ? null : String.fromCodePoint(code));
+
+export const domSourceKey = (s) =>
+  String(s)
+    .replace(/&([a-zA-Z][a-zA-Z0-9]*);/g, (m, name) => DOM_DECODED[name] ?? m)
+    .replace(/&#(\d+);/g, (m, d) => numeric(Number(d)) ?? m)
+    .replace(/&#[xX]([0-9a-fA-F]+);/g, (m, h) => numeric(parseInt(h, 16)) ?? m);
+
 // ---- TSV round-trip --------------------------------------------------------
 // TSV over CSV: content is comma-heavy prose and Spanish Excel defaults its list
 // separator to ";". BOM so Excel renders accents instead of mojibake. One physical

@@ -14,6 +14,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ROOT, writeTSV, guardOverwrite } from "./lib.mjs";
 import { flattenLang } from "./validate.mjs";
+import { loadBaseline } from "./baseline.mjs";
 
 const langArg = process.argv.indexOf("--lang");
 const LANG = langArg === -1 ? "es" : process.argv[langArg + 1];
@@ -30,12 +31,26 @@ const load = (f) => {
 
 const en = load("lang/en.json");
 const target = load(`lang/${LANG}.json`);
+const baseline = loadBaseline(LANG);
 
 const rows = Object.entries(en).map(([key, enVal]) => {
   const trVal = target[key];
   // "done" only when a translation exists AND differs from English; tr==en means untranslated.
-  const status = trVal == null ? "todo" : trVal === enVal ? "todo" : "done";
-  return { key, context: "ui", en: enVal, tr: trVal ?? "", notes: "", status };
+  let status = trVal == null ? "todo" : trVal === enVal ? "todo" : "done";
+  let notes = "";
+  // ...except that "done" used to be the END of the reasoning, and it was wrong
+  // in the one case that matters. A translation made against English that has
+  // since been rewritten is not done, it is WRONG — same key, same
+  // placeholders, same tag structure, so every other check here waves it
+  // through, and this column then told the translator there was nothing to do.
+  // Five Spanish strings sat in that state (review #10). The baseline carries
+  // the English each row was verified against; when it no longer matches, the
+  // row goes back on the list and says what it was translated from.
+  if (status === "done" && key in baseline && baseline[key] !== enVal) {
+    status = "drifted";
+    notes = `EN CHANGED — was: ${baseline[key]}`;
+  }
+  return { key, context: "ui", en: enVal, tr: trVal ?? "", notes, status };
 });
 
 // Stale rows: keys in the translation the current en.json no longer has (the key was
@@ -51,4 +66,9 @@ const out = path.join(OUT, "ui.tsv");
 guardOverwrite([{ file: out, rows }], LANG, FORCE);
 writeTSV(out, rows, LANG);
 const done = rows.filter((r) => r.status === "done").length;
-console.log(`UI → ${LANG}: ${rows.length} keys → ${path.relative(ROOT, out)}  (${done} pre-filled from lang/${LANG}.json, ${rows.length - done - stale.length} todo, ${stale.length} stale)`);
+const drifted = rows.filter((r) => r.status === "drifted").length;
+console.log(`UI → ${LANG}: ${rows.length} keys → ${path.relative(ROOT, out)}  (${done} pre-filled from lang/${LANG}.json, ${rows.length - done - drifted - stale.length} todo, ${drifted} drifted, ${stale.length} stale)`);
+if (drifted) {
+  console.log(`  ! ${drifted} row(s) marked drifted — translated, but the English has changed underneath since. Do these first.`);
+  for (const r of rows.filter((r) => r.status === "drifted")) console.log(`     ${r.key}`);
+}

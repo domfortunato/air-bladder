@@ -181,6 +181,14 @@ Two notes on specific strings:
 
 ## Part 3 — content overlay: 24 finished translations that ship dead
 
+> **UPDATE 2026-08-07 — you do not have to do this by hand any more.** The
+> extractor now keys on what the runtime actually asks for, and the pre-fill
+> looks up the old entity form on a miss, so a normal
+> `npm run i18n:extract && npm run i18n:import -- --lang es` re-keys all 24 and
+> keeps every Spanish value byte-identical. Verified by simulation before it
+> shipped: 24 re-keyed, 0 left dead, nothing lost. The list below is kept so you
+> can see what was affected — treat it as a record, not a task.
+
 **No retranslation needed. This is a re-keying job, and the Spanish text does not change.**
 
 `lang/content/es.json` is keyed on the English source string. For these entries the key
@@ -228,11 +236,26 @@ The fix is to decode the entity in the **key** and leave the value byte-identica
 
 ---
 
-## What is being fixed on our side, so you do not have to
+## What was fixed on our side, so you do not have to
 
-- A check that compares English **values**, not just key presence, so a drift like Part 1
-  is caught before it reaches you rather than after.
-- The TSV export will mark a drifted row `stale` instead of `done`.
-- The entity mismatch in Part 3 becomes an error rather than an advisory note, and the
-  extractor will normalize entities so it cannot recur.
+All three landed 2026-08-07. They are why this edition of the list should be the
+last one that includes a Part 1 or a Part 3 discovered after the fact.
+
+- **English values are compared now, not just key presence.**
+  `tools/i18n/baseline/es.json` records the English each of your translations was
+  made against, so when we rewrite an English string under a finished Spanish one,
+  `npm run i18n:check` says so by name. Seeded from `lang/en.json` at 0.1.11 and
+  advanced automatically every time you import. The honest limit: it cannot see
+  drift from before 0.1.11, so it establishes a floor rather than a full history.
+- **The TSV marks a drifted row `drifted`, not `done`** — with the superseded
+  English in the `notes` column, so the row tells you what it used to say. The
+  summary line counts them and lists their keys. That column previously said
+  `done` for exactly the rows in Part 1, which is how five wrong strings looked
+  like finished work.
+- **Entity keys are their own class, and the extractor no longer creates them.**
+  Keys are now built the way the runtime asks for them (`node.innerHTML`, where
+  the browser has already turned `&mdash;` into `—`), and the pre-fill falls back
+  to the old entity form so nothing is lost in the changeover. `i18n:check`
+  reports them separately from "English was edited", which is the bucket that hid
+  them.
 

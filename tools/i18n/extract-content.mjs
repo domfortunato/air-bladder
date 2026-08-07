@@ -16,7 +16,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { ROOT, listPacks, readPack, writeTSV, normalizeKey, guardOverwrite } from "./lib.mjs";
+import { ROOT, listPacks, readPack, writeTSV, normalizeKey, domSourceKey, guardOverwrite } from "./lib.mjs";
 import { stringsFromDoc } from "./content-strings.mjs";
 
 const outArg = process.argv.indexOf("--out");
@@ -31,7 +31,26 @@ const FORCE = process.argv.includes("--force");
 // than handing the translator blank cells — mirrors extract-ui.mjs's prefill.
 const overlayPath = path.join(ROOT, "lang", "content", `${LANG}.json`);
 const OVERLAY = fs.existsSync(overlayPath) ? JSON.parse(fs.readFileSync(overlayPath, "utf8")) : {};
-const priorTr = (ns, en) => OVERLAY[ns]?.[normalizeKey(en)] ?? "";
+
+// A second index of the same overlay, keyed by the ENTITY-DECODED form of each
+// stored key. Without it the entity re-keying loses work rather than fixing it:
+// `stringsFromDoc` now emits the decoded English (what the runtime asks for),
+// which no longer matches an overlay key stored as `&mdash;`, so 24 finished
+// Spanish strings would come back as blank cells and their old entries would be
+// reported stale. Looked up only on a miss, so a normal key never pays for it
+// and an exact match always wins.
+const DECODED_INDEX = {};
+for (const [ns, entries] of Object.entries(OVERLAY)) {
+  if (!entries || typeof entries !== "object") continue;
+  for (const [k, v] of Object.entries(entries)) {
+    const d = normalizeKey(domSourceKey(k));
+    if (d !== k) (DECODED_INDEX[ns] ??= {})[d] = v;
+  }
+}
+const priorTr = (ns, en) => {
+  const k = normalizeKey(en);
+  return OVERLAY[ns]?.[k] ?? DECODED_INDEX[ns]?.[k] ?? "";
+};
 
 let totalRows = 0;
 const perPack = [];

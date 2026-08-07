@@ -5,10 +5,16 @@
  *   - placeholders: {n}/{name}/… parity for translated keys   → ERROR
  *   - HTML tags   : <p>/<strong>/<a>… parity for translated keys → ERROR
  *   - stale       : keys in the translation but not in en      → warning
+ *   - drifted     : translated, but the ENGLISH VALUE has changed since it was
+ *                   translated (tools/i18n/baseline/<lang>.json) — the only
+ *                   check here that looks at prose rather than structure, and
+ *                   the only one that can see a translation that is WRONG
+ *                   rather than missing              → warning, ERROR w/ --strict
  *   - glossary    : (--glossary) a translated key whose en uses a glossary term
  *                   but whose translation lacks the mapped term   → warning (advisory)
  *
- * Exit non-zero on any validation ERROR, or on a coverage gap with --strict.
+ * Exit non-zero on any validation ERROR, or on a coverage gap or value drift
+ * with --strict.
  * (Coverage gaps alone are non-fatal by default: Foundry falls back to English
  * per key, so a partial translation is shippable — the translator's core promise.)
  *
@@ -19,9 +25,10 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { ROOT, listPacks, readPack, normalizeKey } from "./lib.mjs";
+import { ROOT, listPacks, readPack, normalizeKey, domSourceKey } from "./lib.mjs";
 import { stringsFromDoc } from "./content-strings.mjs";
 import { checkPair, flattenLang } from "./validate.mjs";
+import { loadBaseline, classifyDrift } from "./baseline.mjs";
 
 const STRICT = process.argv.includes("--strict");
 const GLOSSARY = process.argv.includes("--glossary");
@@ -63,6 +70,27 @@ for (const [k, enVal] of Object.entries(en)) {
 }
 for (const k of Object.keys(es)) if (!(k in en)) stale.push(k);
 
+/* ---- VALUE drift ----------------------------------------------------------
+ * Everything above is structural: is the key there, do the placeholders and
+ * tags match. None of it moves when an English VALUE is rewritten under a
+ * translation that already exists — the key stays, the placeholders stay, and
+ * the translation is now WRONG rather than missing. That is invisible here by
+ * construction, and `extract-ui` used to mark exactly those rows `done`.
+ *
+ * Advisory by default, fatal under --strict, deliberately matching how coverage
+ * behaves in this file: the drift is real, but clearing it needs a translator,
+ * and a gate that only a third party can turn green is a gate people learn to
+ * force. What it must do is be impossible to MISS, which is the part that was
+ * actually broken.
+ *
+ * `unverified` is reported separately rather than folded into either side. A
+ * translated key with no baseline entry is not known-good; it is unexamined,
+ * and presenting an unexamined key as clean is the shape of the original bug.
+ */
+const baseline = loadBaseline(LANG);
+const { drifted, unverified } = classifyDrift(en, es, baseline);
+const noBaseline = Object.keys(baseline).length === 0;
+
 // --glossary: advisory drift check over translated keys only.
 const glossaryWarn = [];
 if (GLOSSARY) {
@@ -96,12 +124,23 @@ if (GLOSSARY) {
  *   - **moved**    — the same English exists in the source under a DIFFERENT
  *     namespace. A rename or a type move that was never carried through to the
  *     overlay; the value is reusable verbatim.   ERROR
+ *   - **entity**   — the key differs from a live source string only by HTML
+ *     ENTITIES. The runtime looks up `node.innerHTML`, where the browser has
+ *     already decoded `&mdash;` to `—`, so a key carrying the entity form is one
+ *     nothing can ever ask for. Mechanically recoverable, and the replacement is
+ *     printed.                                   ERROR
  *   - **dropped**  — the English exists nowhere. Editing English prose orphans
  *     its translation, and CLAUDE.md records that as the expected cost of the
  *     source-string scheme, not as a bug.        warning
+ *
+ * `entity` was split out of `dropped` in review #10, and the split is the whole
+ * value: 22 finished Spanish strings were sitting in the advisory bucket, which
+ * reads as "English was edited, nothing to do" when it actually meant "this
+ * translation has never once been displayed".
  */
+const entityWarn = [];
 const contentPath = path.join(ROOT, "lang", "content", `${LANG}.json`);
-const contentOrphans = { quoted: [], moved: [], dropped: [] };
+const contentOrphans = { quoted: [], moved: [], entity: [], entityDup: [], dropped: [] };
 if (fs.existsSync(contentPath)) {
   const overlay = JSON.parse(fs.readFileSync(contentPath, "utf8"));
   const byNs = new Set();      // "ns\0normEn"
@@ -126,8 +165,22 @@ if (fs.existsSync(contentPath)) {
     for (const normEn of Object.keys(entries)) {
       if (byNs.has(`${ns}\0${normEn}`)) continue;
       const u = unquoted(normEn);
+      const decoded = normalizeKey(domSourceKey(normEn));
       if (u && byNs.has(`${ns}\0${normalizeKey(u)}`)) {
         contentOrphans.quoted.push(`${ns}: ${normEn.slice(0, 70)}…`);
+      } else if (decoded !== normEn && byNs.has(`${ns}\0${decoded}`)) {
+        // Name the entities rather than the whole string: the two forms differ by
+        // a few bytes in a paragraph, and a diff nobody can see is a diff nobody acts on.
+        const ents = [...new Set(normEn.match(/&[a-zA-Z][a-zA-Z0-9]*;|&#[xX]?[0-9a-fA-F]+;/g) ?? [])];
+        // Two very different situations wear the same shape, and conflating them
+        // would mean the count never clears. If the overlay ALREADY holds the
+        // decoded key, the re-key has happened and this row is spent residue —
+        // harmless, deletable, and no translation is being lost. Only when the
+        // decoded key is absent is a finished translation actually going
+        // undisplayed, and that is the number worth shouting about.
+        const line = `${ns}: ${ents.join(" ")} → decode; ${normEn.slice(0, 60)}`;
+        if (entries[decoded] !== undefined) contentOrphans.entityDup.push(line);
+        else contentOrphans.entity.push(line);
       } else if (byText.has(normEn)) {
         contentOrphans.moved.push(`${ns} → ${[...byText.get(normEn)].join("/")}: ${normEn.slice(0, 60)}`);
       } else {
@@ -137,10 +190,25 @@ if (fs.existsSync(contentPath)) {
   }
   const bad = contentOrphans.quoted.length + contentOrphans.moved.length;
   for (const e of [...contentOrphans.quoted, ...contentOrphans.moved]) errors.push(`content overlay — ${e}`);
+  // `entity` is loud but not fatal by default, for the same reason value drift
+  // is not: clearing it means writing lang/content/<lang>.json, which belongs to
+  // the translator. A gate that can only go green by editing somebody else's
+  // file is a gate that gets forced. --strict makes it fatal for a release.
+  for (const e of contentOrphans.entity) entityWarn.push(e);
   console.log(`\nlang/content/${LANG}.json vs src/packs/`);
   console.log(`  entries     : ${Object.values(overlay).reduce((n, e) => n + Object.keys(e ?? {}).length, 0)}`);
   console.log(`  CSV-quoted  : ${contentOrphans.quoted.length}   (spreadsheet mangling — re-run i18n:import)`);
   console.log(`  moved ns    : ${contentOrphans.moved.length}   (re-key, do not retranslate)`);
+  console.log(`  HTML entity : ${contentOrphans.entity.length}   (keyed on &mdash;/&rsquo; the DOM never asks for — these have NEVER been displayed)`);
+  if (contentOrphans.entity.length) {
+    for (const w of contentOrphans.entity.slice(0, 10)) console.log(`     ! ${w}`);
+    if (contentOrphans.entity.length > 10) console.log(`     … and ${contentOrphans.entity.length - 10} more`);
+    console.log(`     fix: npm run i18n:extract && npm run i18n:import -- --lang ${LANG}`);
+    console.log(`          (re-keys them mechanically, keeping every translated value — it WRITES lang/content/${LANG}.json)`);
+  }
+  if (contentOrphans.entityDup.length) {
+    console.log(`  entity residue: ${contentOrphans.entityDup.length}   (already re-keyed; the old entity key is spent and safe to delete)`);
+  }
   console.log(`  source gone : ${contentOrphans.dropped.length}   (English edited or removed — advisory)`);
   if (contentOrphans.dropped.length) {
     for (const w of contentOrphans.dropped.slice(0, 10)) console.log(`     ! ${w}`);
@@ -192,6 +260,15 @@ console.log(`  translated  : ${translated}/${enCount}  (${pct}%)`);
 console.log(`  missing     : ${missing.length}${missing.length ? `   e.g. ${missing.slice(0, 5).join(", ")}` : ""}`);
 console.log(`  ${LANG} == en    : ${untranslated.length}`);
 console.log(`  stale       : ${stale.length}${stale.length ? `   e.g. ${stale.slice(0, 5).join(", ")}` : ""}`);
+if (noBaseline) {
+  console.log(`  drifted     : ?   no tools/i18n/baseline/${LANG}.json — run \`npm run i18n:baseline -- --lang ${LANG}\``);
+} else {
+  console.log(`  drifted     : ${drifted.length}   (translated, but the English changed underneath — the translation is WRONG, not missing)`);
+  for (const k of drifted) console.log(`     ! ${k}`);
+  if (unverified.length) {
+    console.log(`  unverified  : ${unverified.length}   (translated with no baseline entry — nothing known about their source English)`);
+  }
+}
 
 if (errors.length) {
   console.log(`\n  x ${errors.length} validation error(s):`);
@@ -212,4 +289,5 @@ if (GLOSSARY) {
 }
 
 const coverageBad = STRICT && (missing.length > 0 || untranslated.length > 0);
-process.exit(errors.length > 0 || coverageBad ? 1 : 0);
+const driftBad = STRICT && (drifted.length > 0 || entityWarn.length > 0);
+process.exit(errors.length > 0 || coverageBad || driftBad ? 1 : 0);

@@ -119,10 +119,49 @@ whatever the other path committed), so a project can switch between them mid-way
 npm run i18n:extract            # JSON → tools/i18n/tsv/*.tsv  (es pre-filled from current JSON)
    → hand tools/i18n/tsv/*.tsv to the translator; they fill the `es` column
 npm run i18n:import             # filled TSV → lang/es.json + lang/content/es.json  (merge + validate)
-npm run i18n:check              # release gate: coverage + placeholder/HTML/enricher parity
+npm run i18n:check              # release gate: coverage + placeholder/HTML/enricher parity + VALUE DRIFT
 npm run i18n:check -- --glossary  # advisory: flags a term translated inconsistently
    → you commit the JSON changes
 ```
+
+### Value drift — the check that did not exist until 2026-08-07
+
+Everything else here is structural: is the key present, do the placeholders and
+the tags match. **None of it moves when you rewrite an English string that
+already has a translation.** The key stays, the placeholders stay, and the
+translation becomes *wrong* rather than missing — it still answers to the key
+while promising what the English was deliberately changed to stop saying. Worse,
+`extract-ui` computed `status = tr === en ? "todo" : "done"`, so the artefact
+whose job is to show outstanding work marked those rows **done**.
+
+Five Spanish strings were in that state when review #10 looked, and `CAIRN.Scars`
+was in it for all six locales.
+
+So `tools/i18n/baseline/<lang>.json` records, per key, the English that
+translation was verified against:
+
+```
+npm run i18n:baseline -- --lang es       # seed once, from lang/en.json at the last tag
+npm run i18n:check                       # reports `drifted:` and names every key
+npm run i18n:check -- --strict           # makes drift (and dead entity keys) fatal
+```
+
+- **`i18n:import` advances it automatically.** Importing is the only event that
+  re-verifies a key — the translator saw that English and sent back what they
+  sent back. It records the row's `en`, not the live `lang/en.json`, so English
+  that moved while the TSV was out with the translator still registers as drift.
+- **Re-seeding is refused without `--force`**, because it would mark every
+  currently-drifted key as verified and destroy exactly what the file is for.
+- **Advisory by default, fatal under `--strict`.** Clearing drift needs the
+  translator, and a gate only a third party can turn green is a gate that gets
+  forced.
+- **The limit, stated because a baseline that overclaims is worse than none:**
+  the seed cannot see drift from before the tag it was seeded at. It is a floor,
+  not a history.
+
+These files are **not** in `lang/` on purpose — that directory ships in the
+release zip, and `check:manifest` asserts every `lang/*.json` is a declared
+Foundry language, which a baseline is not.
 
 - `i18n:import` flags: `--dry` (validate without writing), `--lang <xx>` (target a
   locale other than `es`), `--tsv <dir>` (read TSVs from elsewhere). It rejects

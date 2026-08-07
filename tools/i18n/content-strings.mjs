@@ -16,6 +16,8 @@
  * -- keep the two in step.
  */
 
+import { domSourceKey } from "./lib.mjs";
+
 const ACTOR_TYPES = new Set(["character", "npc", "container", "hireling"]);
 
 /**
@@ -34,7 +36,12 @@ const ACTOR_TYPES = new Set(["character", "npc", "container", "hireling"]);
  */
 export function* stringsFromDoc(doc) {
   const emit = function* (row) {
-    if (typeof row.en === "string" && row.en.length) yield row;
+    if (typeof row.en !== "string" || !row.en.length) return;
+    // Key on what the RUNTIME will ask for, not on the YAML bytes. The overlay
+    // is looked up with `node.innerHTML`, so the browser has already turned
+    // `&mdash;` into `—`; an extractor keying on the raw source emits a key
+    // nothing ever asks for and the translation ships dead. See domSourceKey.
+    yield { ...row, en: domSourceKey(row.en) };
   };
   // Pack-internal FOLDER documents (mounts-transports ships two, the repo's
   // first). They fell through every branch here to the Item fallthrough and
