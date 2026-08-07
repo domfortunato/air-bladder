@@ -1867,8 +1867,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   /**
    * Flip random-generation mode for this actor. Under AppV1 this had to rewrite
-   * the header's innerHTML by hand; ApplicationV2 rebuilds the control menu from
-   * _getHeaderControls every time it opens, so a re-render is all it takes.
+   * the header's innerHTML by hand; here the update alone is enough, because the
+   * re-render it triggers reaches `_onRender` → #syncGenerationButtons, which
+   * toggles `cairn-header-hidden` on the Roll button already in the frame.
+   *
+   * NOT through `_getHeaderControls` — this sheet does not override it, and a
+   * comment here claimed it did until 2026-08-07. These are FRAME buttons
+   * (`_getFrameButtons`, above), and `_renderFrame` runs only on FIRST render,
+   * so re-returning a different array would change nothing on a live sheet.
+   * That is the whole reason #syncGenerationButtons exists.
    * @this {CairnActorSheet}
    */
   static async #onToggleGeneration(event) {

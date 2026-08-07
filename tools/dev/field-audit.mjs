@@ -97,6 +97,50 @@ const htmlPaths = (schema, prefix = "") => {
   return out;
 };
 
+/**
+ * HTMLFields living INSIDE an ArrayField, at any depth.
+ *
+ * These are not a gap in `htmlPaths` to be closed by recursing further — they
+ * are UNDECLARABLE. `htmlFields` addresses dotted schema paths, and there is no
+ * syntax for "every element of this array", so the server has nothing to match
+ * a write against and stores it verbatim however the manifest is written. The
+ * failure mode is therefore the worst available: `htmlPaths` returns nothing for
+ * such a field, the manifest declares nothing, both directions of the
+ * cross-check agree, and the gate passes while the field is never sanitized.
+ *
+ * So this refuses rather than reports a missing declaration. The recipe for a
+ * channel the manifest cannot cover is to clean at the SINK with core's own
+ * cleaner — `foundry.utils.cleanHTML`, which is what `cleanDescription` in
+ * `module/utils.js` does for `features[]`, the ArrayField(ObjectField) that was
+ * a live player→GM XSS until f674730. `dev:feature-xss` is that path's probe.
+ *
+ * Latent today: no schema here declares an HTMLField under an array. It is
+ * gated because the day one is added is the day the gate would otherwise go
+ * quiet, and because "declare it in system.json" is the wrong instinct and the
+ * one somebody will reach for.
+ */
+const htmlUnderArray = (field, p, inArray) => {
+  const out = new Set();
+  if (field instanceof StubHTMLField) {
+    if (inArray) out.add(p);
+  } else if (field instanceof StubSchemaField) {
+    for (const [k, f] of Object.entries(field.fields)) {
+      for (const s of htmlUnderArray(f, p ? `${p}.${k}` : k, inArray)) out.add(s);
+    }
+  } else if (field instanceof StubArrayField) {
+    for (const s of htmlUnderArray(field.element, `${p}[]`, true)) out.add(s);
+  }
+  return out;
+};
+
+const undeclarableHtml = (schema) => {
+  const out = new Set();
+  for (const [k, f] of Object.entries(schema)) {
+    for (const s of htmlUnderArray(f, k, false)) out.add(s);
+  }
+  return out;
+};
+
 /* -------------------------------------------- */
 /*  2. Persisted paths                            */
 /* -------------------------------------------- */
@@ -198,6 +242,10 @@ for (const file of walk(at("src", "packs"), ".yml")) {
   }
 }
 
+// Parsed here rather than at its other use below, because the provenance check
+// reads `manifest.id` and runs first.
+const manifest = JSON.parse(readFile(at("system.json")));
+
 // Shipped provenance must be real or absent. `_stats.compendiumSource` records
 // which COMPENDIUM document this one was copied from; the server does not manage
 // it, and fromDropData stamps it only when EMPTY (client-document.mjs:989-991) —
@@ -220,7 +268,31 @@ for (const file of walk(at("src", "packs"), ".yml")) {
 // single remaining coreVersion in this repo's content that was not 14.365.
 // `duplicateSource` has never been non-null here; it is checked because the cost
 // is one regex and the failure mode is identical (a world uuid nobody can resolve).
+//
+// `_stats.systemId` is checked alongside them for a DIFFERENT reason, and the
+// difference is worth keeping straight. It is not one of the three `clearSource`
+// strips — it is a MANAGED field: "managed by the server and ignored if they
+// appear in creation or update data" (`common/data/fields.mjs:4060-4063`, and
+// `_sanitizeType` at :4158-4164 overwrites it). So a foreign value here is inert
+// on import, exactly as the ownership keys below are unreadable — and that is
+// what makes removing it a zero-behaviour edit, i.e. what makes it SAFE, not
+// what makes it unnecessary. What it is NOT is inert to a reader: six documents
+// shipped saying `systemId: cairn`, `systemVersion: 0.10.26` — the private fork
+// this system descends from, at a version that has never existed here (stripped
+// 2026-08-07). Content that names another system as its origin is wrong on the
+// face of it, whoever is or is not reading the field.
+//
+// Only `systemId` is gated. `systemVersion` needs no rule of its own because the
+// server stamps the pair together at creation, so a foreign version cannot
+// arrive without the foreign id beside it — and a rule about which version
+// strings are "ours" would be a hardcoded list going stale every release.
 const SOURCE_FIELDS = {
+  // null, or this system's own id. Read from the manifest rather than written
+  // here, so a rename cannot leave the gate asserting the old name.
+  systemId: v =>
+    v === "null" || v === manifest.id
+      ? null
+      : `ships _stats.systemId ${v} — content naming a system other than ${manifest.id} as its origin`,
   // null, or a genuine Compendium.* uuid — anything else blocks true provenance.
   compendiumSource: v =>
     v === "null" || v.startsWith("Compendium.")
@@ -296,7 +368,7 @@ for (const file of walk(at("src", "packs"), ".yml")) {
 // enrichHTML does not sanitize. So the schema and the manifest must agree, and an
 // HTMLField added later must not be able to slip through unlisted.
 
-const manifest = JSON.parse(readFile(at("system.json")));
+// `manifest` is parsed further up — the provenance check needs the system id.
 const DOC_OF = {
   ...Object.fromEntries(Object.keys(ACTOR_DATA_MODELS).map((t) => [t, "Actor"])),
   ...Object.fromEntries(Object.keys(ITEM_DATA_MODELS).map((t) => [t, "Item"])),
@@ -317,6 +389,13 @@ for (const [type, cls] of Object.entries({ ...ACTOR_DATA_MODELS, ...ITEM_DATA_MO
     if (!want.has(p)) {
       problems.push(`system.json declares ${DOC_OF[type]}.${type}.htmlFields "${p}" — no such HTMLField in the schema`);
     }
+  }
+  for (const p of undeclarableHtml(cls.defineSchema())) {
+    problems.push(
+      `${type} schema puts an HTMLField inside an ArrayField at "${p}" — that path CANNOT be declared in ` +
+      `system.json htmlFields, so the server will never sanitize it and this cross-check cannot see it. ` +
+      `Clean at the sink with foundry.utils.cleanHTML instead (see cleanDescription in module/utils.js)`
+    );
   }
 }
 

@@ -72,11 +72,23 @@ export const registerWardenDamageControl = () => {
 /**
  * Build the dialog's fields.
  *
- * An HTMLDivElement rather than a string, which is the security property here:
- * DialogV2 runs a STRING through `cleanHTML` but takes an element's innerHTML
- * VERBATIM (`options.content = options.content.innerHTML`, dialog.mjs:186-190),
- * and `cleanHTML`'s allow-list would strip the placeholder off the text input.
- * The outer div must carry NO attributes at all — core throws on any (:189).
+ * An HTMLDivElement rather than a string. DialogV2 runs a STRING through
+ * `cleanHTML` but takes an element's innerHTML VERBATIM
+ * (`options.content = options.content.innerHTML`, dialog.mjs:187-191), so the
+ * element path is the one that is NOT sanitized. Safe here for a reason worth
+ * stating rather than assuming: every node below is built in code, and every
+ * value is a localized string or a literal — no authored content is
+ * interpolated. Interpolate any, and this must go back to being a string.
+ *
+ * Until 2026-08-07 this comment justified the element by claiming `cleanHTML`
+ * would strip the placeholder off the text input. It would not: `placeholder`
+ * is in core's `input` allow-list (`common/constants.mjs:1863-1866`), `class`
+ * is global (:1839-1841), and `select`/`option` keep `name`/`value`/`selected`
+ * — nothing in this form would be touched. The element that lacks
+ * `placeholder` is `textarea` (:1885).
+ *
+ * The outer div must BE a div and carry NO attributes at all — core throws on
+ * each separately (dialog.mjs:188-189).
  *
  * Every value is set with `setAttribute` and never as a property. The element is
  * serialized to HTML and re-parsed, so `input.value = x` sets an IDL property

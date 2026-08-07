@@ -26,6 +26,10 @@
  *      listing and third-party installers read.
  *   3. Nothing in `packs` points at a `path` that is missing from `src/packs/`,
  *      which is the source of truth (`packs/` is generated and gitignored).
+ *   4. Every `languages[]` entry names a file that exists, and every interface
+ *      file in `lang/` is declared. Added 2026-08-07 (review #10): this was the
+ *      one manifest key a contributor's PR routinely touches and the only
+ *      file-naming key nothing checked.
  *
  * WHERE THESE KEYS ACTUALLY RENDER, measured against the shipped client rather
  * than assumed — because the obvious claim ("Setup's system card shows them") is
@@ -46,7 +50,7 @@
  *   The optional path is how this gets negative-controlled: run it against
  *   `git show <ref>:system.json` and it must fail.
  */
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve, join } from "node:path";
 
@@ -113,6 +117,43 @@ if (packsChecked < EXPECTED_PACKS) {
 } else {
   ok(`all ${packsChecked} declared packs have sources in src/packs/`);
 }
+
+/* 4. Languages -------------------------------------------------------------- */
+
+// The failure mode is why this is worth a gate. A declared path that 404s does
+// NOT throw and does not stop the world loading: `#loadTranslationFile` logs
+// `Unable to load requested localization file <src>` and returns `{}`
+// (client/helpers/localization.mjs:353-360), so the language silently falls back
+// to English. And `#filterLanguagePaths` (:330-338) only ever fetches the paths
+// whose `lang` matches the ACTIVE language — so a broken `pl.json` is invisible
+// to everyone except a client set to Polish. Nothing here runs in a non-English
+// locale, `dev:smoke` included, which is what makes this offline and cheap the
+// right place for it rather than a probe.
+const langs = manifest.languages ?? [];
+if (!langs.length) fail("no languages declared — not even lang/en.json");
+
+const declared = new Set();
+for (const [i, l] of langs.entries()) {
+  const where = l?.lang ? `languages[${i}] (${l.lang})` : `languages[${i}]`;
+  if (typeof l?.lang !== "string" || !l.lang) fail(`${where} has no "lang" code`);
+  if (typeof l?.name !== "string" || !l.name) fail(`${where} has no "name"`);
+  if (typeof l?.path !== "string" || !l.path) { fail(`${where} has no "path"`); continue; }
+  declared.add(l.path);
+  if (existsSync(join(ROOT, l.path))) ok(`languages: ${l.path} exists`);
+  else fail(`${where} names "${l.path}", which does not exist — that language silently falls back to English for anyone using it`);
+}
+
+// The other direction, for the same reason check:fields walks htmlFields both
+// ways: a translation file nobody declared is work no user can ever select.
+// `lang/content/` is the CONTENT OVERLAY, loaded by module/i18n-content.js and
+// deliberately not a Foundry language — hence files-only, no recursion.
+const onDisk = readdirSync(join(ROOT, "lang"), { withFileTypes: true })
+  .filter((e) => e.isFile() && e.name.endsWith(".json"))
+  .map((e) => `lang/${e.name}`);
+const undeclared = onDisk.filter((p) => !declared.has(p));
+undeclared.length === 0
+  ? ok(`all ${onDisk.length} interface files in lang/ are declared`)
+  : fail(`interface file(s) in lang/ that system.json never declares, so nobody can select them: ${undeclared.join(", ")}`);
 
 console.log(`\n${failed ? "MANIFEST CHECK FAILED" : "Manifest check passed."}`);
 process.exit(failed ? 1 : 0);
