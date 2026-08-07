@@ -11,12 +11,17 @@
  * the button/form wiring is correct in the DOM.
  */
 import { chromium } from "playwright";
-import { FOUNDRY_URL, VIEWPORT, dismissChrome, joinAsGM, watchErrors } from "./lib.mjs";
+import { FOUNDRY_URL, VIEWPORT, dismissChrome, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
 
 let failures = 0;
 const ok = (l, d = "") => console.log(`  ok    ${l.padEnd(34)} ${d}`);
 const fail = (l, d = "") => { console.log(`  FAIL  ${l.padEnd(34)} ${d}`); failures++; };
 
+// This probe awaits DIALOG promises, which never resolve if the dialog fails to
+// open — so a bug here is a hang, not a failure, and it ran 15 minutes with no
+// output before anyone noticed. Every dialog await below is raced against a
+// timeout as well; this is the backstop for the ones that are not.
+watchdog(300000, "dialogs");
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: VIEWPORT });
 const errors = watchErrors(page);
@@ -268,6 +273,184 @@ switchboard.selected === "character" && switchboard.resolvedNull
 switchboard.hookGone
   ? ok("abHideHirelingType is no longer registered", "the surgery died with the dialog it operated on")
   : fail("abHideHirelingType is no longer registered", "still on renderDialogV2");
+
+/* ------------------------------------------- impaired / enhanced damage ---
+ * Cairn has no advantage or disadvantage: a damage roll is normal (the weapon's
+ * die), impaired (1d4 whatever the weapon) or enhanced (1d12 whatever the
+ * weapon). The choice is asked on the damage click.
+ *
+ * Run with use-panic OFF, and that is a REQUIREMENT of the design rather than
+ * probe tidiness: the only d4 substitution that existed before this lived inside
+ * panic's branch and was gated on that setting, so a version of this feature
+ * built by extending it would disappear for a table with panic off. If these legs
+ * only pass with panic on, the seam is wrong.
+ * -------------------------------------------------------------------------- */
+// Installed once: every dialog await in this section goes through it. A promise
+// from a dialog that never opened never settles, and `await` on one hangs the
+// whole probe with no output — which is exactly what happened while writing this.
+// Racing means a missing dialog FAILS a leg instead of stopping the run.
+const installQualityHelpers = async () => page.evaluate(async () => {
+  window.__ab = {
+    settle: (ms) => new Promise((r) => setTimeout(r, ms)),
+    /**
+     * Wait until NO dialog is left in the DOM.
+     *
+     * Call before opening the next one. A closing DialogV2 lingers for its
+     * animation, so a poll for "a dialog button exists" that runs immediately
+     * after a submit finds the PREVIOUS dialog — and every subsequent click then
+     * lands on a corpse. That is what made the dismiss leg report UNSETTLED while
+     * the ✕ works perfectly in isolation, and it silently turned the leg after it
+     * into a false pass, because nothing was ever rolled.
+     */
+    async gone() {
+      for (let i = 0; i < 40; i++) {
+        if (!document.querySelector("dialog.dialog")) return true;
+        await window.__ab.settle(150);
+      }
+      return false;
+    },
+    /** Wait for a button in the impaired/normal/enhanced dialog, or null. */
+    async btn(action) {
+      for (let i = 0; i < 40; i++) {
+        const b = document.querySelector(`dialog.dialog button[data-action='${action}']`);
+        if (b) return b;
+        await window.__ab.settle(150);
+      }
+      return null;
+    },
+    /** Await a promise, or resolve to "UNSETTLED" — never hang. */
+    race: (p, ms = 6000) =>
+      Promise.race([p, new Promise((r) => setTimeout(() => r("UNSETTLED"), ms))]),
+  };
+});
+await installQualityHelpers();
+
+const quality = await page.evaluate(async ({ id }) => {
+  const { settle, btn, race, gone } = window.__ab;
+  const out = {};
+  const actor = game.actors.get(id);
+  const panicWas = game.settings.get("air-bladder", "use-panic");
+  if (panicWas) await game.settings.set("air-bladder", "use-panic", false);
+  out.panicOff = game.settings.get("air-bladder", "use-panic") === false;
+
+  const { askDamageQuality, damageFormulaFor } = await import("/systems/air-bladder/module/utils.js");
+
+  // 1. The three buttons render, and the middle one shows the WEAPON's die.
+  await gone();
+  const asked = askDamageQuality("1d6");
+  const normalBtn = await btn("normal");
+  out.dialogOpened = !!normalBtn;
+  const btns = [...document.querySelectorAll("dialog.dialog button[data-action]")]
+    .filter((b) => ["impaired", "normal", "enhanced"].includes(b.dataset.action));
+  out.actions = btns.map((b) => b.dataset.action);
+  out.labels = btns.map((b) => b.textContent.trim());
+  normalBtn?.click();
+  out.normalResult = await race(asked);
+
+  // 2. DISMISSING resolves null and must roll nothing. This is the leg that
+  //    catches DialogV2's null-callback trap: a button callback returning null
+  //    resolves to the ACTION STRING instead (dialog.mjs:273), so a design that
+  //    signalled "cancel" that way would be indistinguishable from a choice.
+  out.priorGone = await gone();
+  const dismissed = askDamageQuality("1d6");
+  await btn("normal");
+  document.querySelector("dialog.dialog")
+    ?.querySelector('[data-action="close"], button[data-action="cancel"]')?.click();
+  out.dismissed = await race(dismissed);
+  await gone();
+
+  // 3. Each choice maps to the right formula. Pure function, no dialog.
+  out.formulas = ["impaired", "normal", "enhanced"].map((q) => damageFormulaFor(q, "1d6"));
+
+  if (panicWas) await game.settings.set("air-bladder", "use-panic", true);
+  return out;
+}, { id: actorId });
+
+// End to end through the REAL action, one evaluate per roll so a hang in any of
+// them names itself. Asserted on the ROLL, not on the badge — the badge is the
+// label, the formula is the rule.
+const rollWith = async (choice) => page.evaluate(async ({ id, choice }) => {
+  const { settle, btn, race, gone } = window.__ab;
+  const actor = game.actors.get(id);
+  const panicWas = game.settings.get("air-bladder", "use-panic");
+  if (panicWas) await game.settings.set("air-bladder", "use-panic", false);
+  // The previous roll's dialog must be off the DOM first, or every click below
+  // lands on it instead.
+  const priorGone = await gone();
+
+  const before = game.messages.size;
+  const target = document.createElement("a");
+  target.dataset.roll = "1d6";
+  target.dataset.label = "Probe Blade";
+  const rolling = actor.sheet.options.actions.rollDamage.call(
+    actor.sheet, { preventDefault() {}, button: 0 }, target);
+  const asked = !!(await btn("normal"));
+  if (choice === "dismiss") {
+    document.querySelector("dialog.dialog")
+      ?.querySelector('[data-action="close"], button[data-action="cancel"]')?.click();
+  } else {
+    document.querySelector(`dialog.dialog button[data-action='${choice}']`)?.click();
+  }
+  await race(rolling);
+  for (let i = 0; i < 30 && game.messages.size <= before; i++) await settle(150);
+  await settle(400);
+
+  const posted = game.messages.size > before;
+  const card = posted ? game.messages.contents.at(-1) : null;
+  const out = {
+    priorGone, asked, posted,
+    formula: card?.rolls?.[0]?.formula ?? null,
+    total: card?.rolls?.[0]?.total ?? null,
+    flavor: String(card?.flavor ?? ""),
+  };
+  await card?.delete();
+  if (panicWas) await game.settings.set("air-bladder", "use-panic", true);
+  return out;
+}, { id: actorId, choice });
+
+const enhancedRoll = await rollWith("enhanced");
+const normalRoll = await rollWith("normal");
+const dismissedRoll = await rollWith("dismiss");
+
+quality.panicOff
+  ? ok("precondition: use-panic is OFF", "the whole feature must work without it")
+  : fail("precondition: use-panic is OFF", "these legs prove nothing with panic on");
+quality.dialogOpened
+  ? ok("the dialog opens")
+  : fail("the dialog opens", "no dialog.dialog button[data-action=normal] appeared");
+JSON.stringify(quality.actions) === JSON.stringify(["impaired", "normal", "enhanced"])
+  ? ok("three choices, in order", quality.actions.join(" / "))
+  : fail("three choices, in order", JSON.stringify(quality.actions));
+/1d4/.test(quality.labels?.[0] ?? "") && /1d6/.test(quality.labels?.[1] ?? "") && /1d12/.test(quality.labels?.[2] ?? "")
+  ? ok("the middle button shows the WEAPON's die", quality.labels.join(" | "))
+  : fail("the middle button shows the WEAPON's die", JSON.stringify(quality.labels));
+quality.normalResult === "normal"
+  ? ok("a click resolves to its action")
+  : fail("a click resolves to its action", String(quality.normalResult));
+quality.dismissed === null
+  ? ok("dismissing resolves null", "not the action string — DialogV2's null-callback trap")
+  : fail("dismissing resolves null", String(quality.dismissed));
+JSON.stringify(quality.formulas) === JSON.stringify(["1d4", "1d6", "1d12"])
+  ? ok("each choice maps to its die", quality.formulas.join(" / "))
+  : fail("each choice maps to its die", JSON.stringify(quality.formulas));
+enhancedRoll.asked && enhancedRoll.posted && enhancedRoll.formula === "1d12"
+  && enhancedRoll.total >= 1 && enhancedRoll.total <= 12 && /Enhanced/.test(enhancedRoll.flavor)
+  ? ok("enhanced rolls 1d12 and says so", `${enhancedRoll.formula} = ${enhancedRoll.total}`)
+  : fail("enhanced rolls 1d12 and says so", JSON.stringify(enhancedRoll));
+// CONTROL: the same weapon rolled NORMAL keeps its own die and carries no badge,
+// so "the formula changed" is the choice and not the plumbing.
+normalRoll.posted && normalRoll.formula === "1d6" && !/Enhanced|Impaired/.test(normalRoll.flavor)
+  ? ok("control: normal keeps the weapon's die, no badge", normalRoll.formula)
+  : fail("control: normal keeps the weapon's die, no badge", JSON.stringify(normalRoll));
+// priorGone on every leg: without it a stale dialog makes "nothing was rolled"
+// pass for the wrong reason.
+[enhancedRoll, normalRoll, dismissedRoll].every((r) => r.priorGone)
+  ? ok("each roll starts with no dialog open", "a stale dialog eats the next leg's clicks")
+  : fail("each roll starts with no dialog open",
+    JSON.stringify([enhancedRoll.priorGone, normalRoll.priorGone, dismissedRoll.priorGone]));
+dismissedRoll.asked && !dismissedRoll.posted
+  ? ok("dismissing the damage roll posts nothing", "a ✕ is an instruction, not a default")
+  : fail("dismissing the damage roll posts nothing", JSON.stringify(dismissedRoll));
 
 /* ----------------------------------------------------------- teardown ---- */
 await page.evaluate(async ({ id, was }) => {

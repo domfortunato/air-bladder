@@ -1214,6 +1214,14 @@
     opacity: 0.85;
 }
 
+/* Impaired / Enhanced. Same own-row treatment as the summary above, and bold
+   because it changes what the die WAS -- a table skimming the log has to be able
+   to see that this roll was not the weapon's own damage. */
+.chat-message .dmg-quality {
+    flex-basis: 100%;
+    font-weight: 700;
+}
+
 /* "Got a scar" on a damage card. A scar is a rules event with lasting
    consequences and it read as one more bold label in a stack of them. Centred
    and glowed, borrowing #die-of-fate-button's treatment (user ask) -- the same

@@ -1,7 +1,7 @@
 import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, regenerateNpc, rerollNpcProfession, rerollNpcName, rerollNpcFaction, rollNameFromTable, rollAge } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
-import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, sourceLabel } from "../utils.js";
+import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel } from "../utils.js";
 import { resultText } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES } from "../icons.js";
@@ -2204,7 +2204,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   /**
    * Roll a weapon's damage, honouring panic (a panicked character rolls d4
-   * regardless of the weapon) and any targeted tokens.
+   * regardless of the weapon), the impaired/enhanced choice, and any targeted
+   * tokens.
+   *
+   * Both sheets share `templates/parts/items-list.html`, so a Warden rolling a
+   * monster's damage gets the same dialog a player does — one surface, not two.
    * @this {CairnActorSheet}
    */
   static async #onRollDamage(event, target) {
@@ -2220,6 +2224,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       panicked = true;
     }
 
+    // Impaired / enhanced is asked AFTER panic has had its say, so the middle
+    // button shows what a normal roll would actually be for this character right
+    // now. Nothing below reads `use-panic` — see damageFormulaFor for why that
+    // separation is the point and not an accident.
+    const quality = await askDamageQuality(formula);
+    if (quality === null) return; // dismissed: roll nothing
+    formula = damageFormulaFor(quality, formula);
+
     const roll = await evaluateFormula(formula, this.actor.getRollData());
     // Two whole-sentence keys, not fragments glued with `+`: word order is not
     // universal, and the translator could not move the weapon name or the
@@ -2234,7 +2246,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     const flavor = await foundry.applications.handlebars.renderTemplate(
       "systems/air-bladder/templates/chat/dmg-roll-card.html",
-      { label, targets: targetIds }
+      { label, targets: targetIds, quality: damageQualityLabel(quality) }
     );
     roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor });
   }

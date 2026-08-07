@@ -8,4 +8,10 @@
         </a>
     </div>
     {{/if}}
+
+    {{!-- Impaired / Enhanced, on its own line. Empty for a normal roll, so an
+          ordinary attack gains nothing. --}}
+    {{#if quality}}
+    <div class="dmg-quality">{{quality}}</div>
+    {{/if}}
 </div>

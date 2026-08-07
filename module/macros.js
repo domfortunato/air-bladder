@@ -1,4 +1,4 @@
-import { evaluateFormula, getInfoFromDropData } from "./utils.js";
+import { evaluateFormula, getInfoFromDropData, askDamageQuality, damageFormulaFor, damageQualityLabel } from "./utils.js";
 import { SETTINGS_NS } from "./settings.js";
 
 /**
@@ -70,6 +70,13 @@ export const rollItemMacro = async (actorId, itemId) => {
     rollSchema = "1d4"; // panicked character
     panicked = true;
   }
+  // Same question the sheet's damage control asks, through the same helper. The
+  // panic substitution above was written twice and drifted; impaired/enhanced is
+  // not repeating that.
+  const quality = await askDamageQuality(rollSchema);
+  if (quality === null) return; // dismissed: roll nothing
+  rollSchema = damageFormulaFor(quality, rollSchema);
+
   // determine roll result
   const roll = await evaluateFormula(rollSchema, actor.getRollData());
   // Whole-sentence keys, same as the sheet's damage roll — this was the third
@@ -93,7 +100,7 @@ export const rollItemMacro = async (actorId, itemId) => {
   }
   
   const rollMessageTpl = "systems/air-bladder/templates/chat/dmg-roll-card.html";
-  const tplData = { label: label, targets: targetIds };
+  const tplData = { label: label, targets: targetIds, quality: damageQualityLabel(quality) };
   const msg = await foundry.applications.handlebars.renderTemplate(rollMessageTpl, tplData);
   roll.toMessage({    
     speaker: ChatMessage.getSpeaker({ actor: actor }),

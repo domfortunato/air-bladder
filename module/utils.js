@@ -24,6 +24,107 @@ export const evaluateFormula = async (formula, data) => {
   return roll.evaluate();
 };
 
+/* -------------------------------------------- */
+/*  Impaired / Enhanced damage                  */
+/* -------------------------------------------- */
+
+/**
+ * Cairn has no advantage or disadvantage. A damage roll is NORMAL (the weapon's
+ * own die), IMPAIRED (1d4 whatever the weapon is) or ENHANCED (1d12 whatever the
+ * weapon is). 2e p.10.
+ *
+ * The die is REPLACED wholesale — it is not a penalty term added to the formula,
+ * and that distinction is load-bearing here, not stylistic: this system overloads
+ * "+" so `d8 + d8` means keep-highest (see evaluateFormula above). An
+ * implementation that appended a term would silently mean something else.
+ */
+export const IMPAIRED_FORMULA = "1d4";
+export const ENHANCED_FORMULA = "1d12";
+
+/**
+ * The formula a damage roll of the given quality uses.
+ *
+ * **INDEPENDENT OF PANIC, and that is the whole point of the seam.** The only d4
+ * substitution that existed before this lived inside panic's branch, gated on the
+ * `use-panic` SETTING — so building impaired by extending it would have made a
+ * core Cairn rule vanish for any table that turns panic off. Nothing in this
+ * function reads a setting or an actor: the caller hands in whatever a normal
+ * roll would be for this character RIGHT NOW (which is panic's 1d4 when panicked,
+ * because panic already decided that), and impaired/enhanced override it or
+ * "normal" keeps it.
+ *
+ * The collision therefore needs no ruling to build: a panicked character whose
+ * player picks Enhanced gets 1d12, because both panic and enhanced are the
+ * Warden's call and the later one wins. Whether panic should instead be
+ * re-expressed AS impaired is an optional tidy-up and not a prerequisite.
+ *
+ * @param {"impaired"|"normal"|"enhanced"} quality
+ * @param {String} normalFormula  what this roll would be without the choice
+ * @return {String}
+ */
+export const damageFormulaFor = (quality, normalFormula) =>
+  quality === "impaired" ? IMPAIRED_FORMULA
+    : quality === "enhanced" ? ENHANCED_FORMULA
+      : normalFormula;
+
+/**
+ * The badge a card shows for a non-normal roll, or "" for a normal one, so the
+ * table can see which it was. Its own line on the card rather than folded into
+ * the flavor sentence: there are already two whole-sentence damage keys (weapon,
+ * weapon-panicked) and the attack line makes a third — multiplying them by three
+ * qualities is how a translator ends up with nine sentences to keep in step.
+ * @param {String} quality
+ * @return {String}
+ */
+export const damageQualityLabel = (quality) =>
+  quality === "impaired" || quality === "enhanced"
+    ? game.i18n.localize(`CAIRN.DamageQuality.Badge${quality === "impaired" ? "Impaired" : "Enhanced"}`)
+    : "";
+
+/**
+ * Ask whether this damage roll is impaired, normal or enhanced.
+ *
+ * ONE helper, called by both producers — the sheet's damage control and
+ * `macros.js`, which builds the same card independently. The panic substitution
+ * was written twice and drifted; this is not repeating that.
+ *
+ * The middle button shows the WEAPON's own die, so a d6 weapon offers d4 / d6 /
+ * d12 and the player sees what they are choosing rather than three words.
+ *
+ * DialogV2 notes, all three of which this repo has paid for:
+ *   - Buttons carry `action` and NO callback. `DialogV2` resolves a button to
+ *     `(await callback(...)) ?? button.action` (dialog.mjs:273), so a callback
+ *     returning null is indistinguishable from no callback at all. Having none
+ *     means the resolved value is exactly the action string, with no trap to
+ *     step in.
+ *   - Nothing is built in JS and handed to `content`: DialogV2 serializes it to
+ *     innerHTML, so listeners on constructed nodes are dead on arrival. The three
+ *     choices ARE the dialog's buttons.
+ *   - `rejectClose: false`, so dismissing resolves rather than throwing.
+ *
+ * @param {String} normalFormula  the weapon's die, shown on the middle button
+ * @return {Promise<"impaired"|"normal"|"enhanced"|null>} null = dismissed, and
+ *   a dismissal must roll NOTHING — a ✕ is an instruction, not a default.
+ */
+export const askDamageQuality = async (normalFormula) => {
+  const opt = (action, key, formula) => ({
+    action,
+    label: game.i18n.format(key, { formula }),
+  });
+  const chosen = await foundry.applications.api.DialogV2.wait({
+    window: { title: game.i18n.localize("CAIRN.DamageQuality.Title") },
+    content: `<p>${game.i18n.localize("CAIRN.DamageQuality.Prompt")}</p>`,
+    buttons: [
+      opt("impaired", "CAIRN.DamageQuality.Impaired", IMPAIRED_FORMULA),
+      // default: Enter rolls the ordinary roll, which is most of them.
+      { ...opt("normal", "CAIRN.DamageQuality.Normal", normalFormula), default: true },
+      opt("enhanced", "CAIRN.DamageQuality.Enhanced", ENHANCED_FORMULA),
+    ],
+    rejectClose: false,
+  });
+  return chosen ?? null;
+};
+
 /**
  * A content source's display name — "Cairn 2e", "Cairn Barebones".
  *
