@@ -13,7 +13,7 @@ import * as kettlewrightImport from "./kettlewright-import.js";
 import { Cairn } from "./config.js";
 import { CairnCombat } from "./combat.js";
 import { createCairnMacro, rollItemMacro } from "./macros.js";
-import { Damage, DAMAGE_APPLIED_FLAG } from "./damage.js";
+import { Damage, DAMAGE_APPLIED_FLAG, DAMAGE_SOURCE_FLAG } from "./damage.js";
 import { registerSettings, SETTINGS_NS, migrateSettingsNamespace } from "./settings.js";
 import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS, deriveNpcRole } from "./data-models.js";
 import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNERSHIP_SYNC_FLAG } from "./connections.js";
@@ -1590,6 +1590,33 @@ const offerUntargetedApply = (html) => {
   else row.append(wrapper);
 };
 
+/**
+ * Who dealt this damage, as a display name.
+ *
+ * ONE rule, shared by the attack line on the roll card and the attribution line
+ * on each detail card, because two copies of "resolve the token, else fall back
+ * to the alias" is two things that can drift — and the drift would be invisible,
+ * since both produce a plausible name either way.
+ *
+ * The token is PREFERRED and the alias is only a fallback: a Warden who renamed
+ * a token "Goblin A" means the card must say "Goblin A", and `tokenDisplayName`
+ * is also what routes a monster's name through the content overlay while leaving
+ * a player-authored PC name alone.
+ *
+ * NOT gated on `nameableTokens`, unlike the TARGETS. The attacker is the speaker
+ * of the roll card everybody can already see, so concealing the name here would
+ * hide nothing that is not already in the header two cards up.
+ *
+ * @param {{token?: String, alias?: String}} speaker  a message speaker, or the
+ *   damage-source flag, which is deliberately the same shape
+ * @param {Scene} [scene]
+ * @return {String}  "" when there is nobody to name
+ */
+const attackerDisplayName = (speaker, scene) => {
+  const tok = scene?.tokens?.get(speaker?.token);
+  return tok ? tokenDisplayName(tok) : (speaker?.alias ?? "");
+};
+
 const nameDamageTargets = (message, html, scene) => {
   const label = html.querySelector(".flavor-dice-roll .dmg-label")
     // Cards posted before the class existed: the label is the child div that is
@@ -1607,10 +1634,7 @@ const nameDamageTargets = (message, html, scene) => {
   // — it reveals nothing about the one left out.
   if (!names.length) return;
 
-  const attackerTok = scene?.tokens?.get(message.speaker?.token);
-  const attacker = attackerTok
-    ? tokenDisplayName(attackerTok)
-    : (message.speaker?.alias ?? "");
+  const attacker = attackerDisplayName(message.speaker, scene);
   if (!attacker) return;
 
   // Whole-sentence keys with every placeholder inside, per the rule the two
@@ -1653,6 +1677,56 @@ const nameDamageTargets = (message, html, scene) => {
   strong.textContent = game.i18n.getListFormatter().format(names);
   label.replaceChildren(
     document.createTextNode(before), strong, document.createTextNode(after));
+};
+
+/**
+ * Say on a DETAIL card where its damage came from.
+ *
+ * The applied-damage card named the victim and nothing else — "Damage: 2 / HP: 0
+ * / STR: 2 => 0" — so read on its own it does not say who hit it or with what.
+ * The attribution existed one card higher up, but the two are not adjacent once
+ * several targets, a Scar draw and a death bar have landed between them, and an
+ * hour later in a scrolled-back log the card IS on its own.
+ *
+ * Rendered from the FLAG at display time rather than written into the card's
+ * stored content, for the three reasons its siblings above are:
+ *   - INJECTION. Token and item names are authored free text and this card
+ *     renders in every player's log. The whole line is ONE text node, so nothing
+ *     authored is ever parsed as markup — the strongest form of the rule, and
+ *     available here because (unlike the attack line) nothing inside is bolded.
+ *   - it localizes per VIEWER, so a monster attacker's name goes through the
+ *     content overlay while a player-authored PC name does not;
+ *   - the naming rule stays in one place (`attackerDisplayName`).
+ *
+ * TOP of the card body, above "Damage:", so it reads in the order the eye
+ * already takes it — who was hit, where it came from, what it did — and the
+ * Damage line stays clean, which matters because with armour it is already
+ * "Damage: 2 (5 damage − 3 armor)".
+ *
+ * Two whole-sentence keys rather than one with an empty {weapon}: a roll made
+ * from a control with no label has no weapon at all, and a dangling "'s " is not
+ * something a translator can repair. THE POSSESSIVE IS INSIDE THE STRING —
+ * "Lisbeth's crossbow" is an English form Spanish does not have, and a
+ * translator handed the pieces could not rebuild it.
+ */
+const nameDamageSource = (message, html, scene) => {
+  const src = message.getFlag(FLAG_SCOPE, DAMAGE_SOURCE_FLAG);
+  if (!src) return;                        // not a detail card, or a legacy one
+  const body = html.querySelector(".message-content");
+  if (!body || body.querySelector(".dmg-source")) return;   // already injected
+
+  const attacker = attackerDisplayName(src, scene);
+  // Nobody to name — the token is gone and the card carried no alias. The card
+  // stands as it is rather than announcing that SOMETHING hit them, the same
+  // choice the attack line and the applied summary make.
+  if (!attacker) return;
+
+  const line = document.createElement("div");
+  line.className = "dmg-source";
+  line.textContent = game.i18n.format(
+    src.weapon ? "CAIRN.DamageFromWeapon" : "CAIRN.DamageFrom",
+    { attacker, weapon: src.weapon ?? "" });
+  body.prepend(line);
 };
 
 /**
@@ -1729,6 +1803,11 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   offerUntargetedApply(html);
   nameDamageTargets(message, html, scene);
   showDamageApplied(message, html, scene);
+  // A DETAIL card, not the roll card the three above rewrite, so this is
+  // independent of their ordering. It is still run beside them and before the
+  // player-trim below, because it must reach a player's copy too: knowing what
+  // hit you is not Warden-only information.
+  nameDamageSource(message, html, scene);
 
   if (token?.actor) {
     if (token.actor.testUserPermission(game.user, "OWNER") || game.user.isGM) {

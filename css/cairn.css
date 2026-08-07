@@ -1235,6 +1235,16 @@
     opacity: 0.85;
 }
 
+/* Where a detail card's damage came from -- "from Lisbeth's crossbow", above the
+   numbers. Same italic-and-faded register as .dmg-applied above, because both
+   are secondary lines about a card whose subject is elsewhere; no flex-basis,
+   since this one sits in .message-content and not in the flavor's flex row. */
+.chat-message .dmg-source {
+    font-style: italic;
+    opacity: 0.85;
+    margin-bottom: 4px;
+}
+
 /* Impaired / Enhanced. Same own-row treatment as the summary above, and bold
    because it changes what the die WAS -- a table skimming the log has to be able
    to see that this roll was not the weapon's own damage. */

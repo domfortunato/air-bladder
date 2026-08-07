@@ -930,6 +930,146 @@ try {
 }
 
 /* ---------------------------------------------------------------------------
+ * The DETAIL card says where its damage came from.
+ *
+ * "Damage: 2 / HP: 0 / STR: 2 => 0" named the victim and nothing else, so read
+ * on its own — which is how it is read once several targets, a Scar draw and a
+ * death bar have landed between it and the roll — it did not say who hit them.
+ *
+ * Driven through the REAL Apply control and read on BOTH clients. Alice's copy
+ * is the one that matters twice over: knowing what hit you is not Warden-only
+ * information, and the injection leg must not pass on markup only a GM saw.
+ * ------------------------------------------------------------------------- */
+const dsource = { ran: false };
+// The attacker's own NAME is the payload, because the attacker's name is what
+// this line interpolates. Same shape as XSS_NAME above: if it is ever parsed as
+// HTML the browser fetches nothing, fails, and sets the flag — a positive
+// witness, not merely the absence of a tag.
+const SRC_XSS_NAME = 'ZZ <img src=x onerror="window.__abSrcXSS=1"> Bowman';
+try {
+  const alicePage = await browser.newPage({ viewport: VIEWPORT });
+  await joinAs(alicePage, "Alice");
+
+  const fixture = await page.evaluate(async ({ xssName }) => {
+    const ActorImpl = CONFIG.Actor.documentClass;
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    const bowman = await ActorImpl.create({ name: xssName, type: "npc", system: { role: "monster" } });
+    const victim = await ActorImpl.create({
+      name: "ZZ Shot Victim", type: "npc",
+      system: { role: "monster", hp: { value: 9, max: 9 }, armor: 0 },
+    });
+    // OBSERVER by default so Alice's client holds the tokens at all — same
+    // reason the attack-line fixture above does it.
+    const scene = await Scene.create({
+      name: "ZZ Source Scene", width: 1000, height: 1000,
+      ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER },
+    });
+    const mk = async (actor, x) => {
+      const [t] = await scene.createEmbeddedDocuments("Token", [await actor.getTokenDocument({ x, y: 100 })]);
+      return t;
+    };
+    const bTok = await mk(bowman, 100);
+    const vTok = await mk(victim, 300);
+
+    const { evaluateFormula } = await import("/systems/air-bladder/module/utils.js");
+    // Post a roll card, click its REAL control, and hand back the DETAIL card it
+    // produced. Clicking the control rather than calling applyToTargets is the
+    // point: the source is read off the clicked card, so a leg that called the
+    // function directly would supply the very thing it means to test.
+    const post = async (weapon) => {
+      const before = new Set(game.messages.contents.map((m) => m.id));
+      const roll = await evaluateFormula("2", {});
+      const flavor = await foundry.applications.handlebars.renderTemplate(
+        "systems/air-bladder/templates/chat/dmg-roll-card.html",
+        { label: "ZZ source probe", weapon, targets: vTok.id },
+      );
+      const msg = await roll.toMessage({ speaker: ChatMessage.getSpeaker({ token: bTok }), flavor });
+      let btn = null;
+      for (let i = 0; i < 40 && !btn; i++) {
+        btn = document.querySelector(`[data-message-id="${msg.id}"] .apply-dmg`);
+        if (!btn) await sleep(150);
+      }
+      btn?.click();
+      let detail = null;
+      for (let i = 0; i < 40 && !detail; i++) {
+        detail = game.messages.contents.slice().reverse()
+          .find((m) => !before.has(m.id) && m.id !== msg.id && m.speaker?.token === vTok.id);
+        if (!detail) await sleep(150);
+      }
+      const flag = detail?.getFlag("air-bladder", "damageSource") ?? null;
+      return {
+        rollId: msg.id, detailId: detail?.id ?? null,
+        flagged: !!flag, flagWeapon: flag?.weapon ?? null, flagToken: flag?.token ?? null,
+        // The STORED content must not carry the attacker's name: the whole
+        // design is that the sentence is built per viewer, so a name appearing
+        // in the persisted HTML means it was baked in after all.
+        storedHasAttacker: /Bowman/.test(String(detail?.content ?? "")),
+      };
+    };
+
+    return {
+      withWeapon: await post("ZZ Probe Crossbow"),
+      bare: await post(""),
+      sceneId: scene.id, bowmanId: bowman.id, victimId: victim.id, vTokId: vTok.id,
+    };
+  }, { xssName: SRC_XSS_NAME });
+
+  const readSource = async (pg, id) => pg.evaluate(async (mid) => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    let row = null;
+    for (let i = 0; i < 40 && !row; i++) {
+      row = document.querySelector(`[data-message-id="${mid}"]`);
+      if (!row) await sleep(150);
+    }
+    await sleep(300);
+    const body = row?.querySelector(".message-content");
+    const el = body?.querySelector(".dmg-source");
+    return {
+      present: !!row, isGM: game.user.isGM,
+      text: (el?.textContent ?? "").trim(),
+      // FIRST element of the body. The ruling is that it sits ABOVE the numbers,
+      // and "it is somewhere on the card" would not test that.
+      isFirst: !!el && body?.firstElementChild === el,
+      // No element an authored name asked for. The line is ONE text node, so
+      // unlike the attack label this list must be EMPTY, not [strong].
+      injectedTags: el ? [...el.querySelectorAll("*")].map((n) => n.tagName.toLowerCase()) : null,
+      xssFired: window.__abSrcXSS === 1,
+      italic: el ? getComputedStyle(el).fontStyle : null,
+    };
+  }, id);
+
+  const gmWeapon = await readSource(page, fixture.withWeapon.detailId);
+  const alWeapon = await readSource(alicePage, fixture.withWeapon.detailId);
+  const alBare = await readSource(alicePage, fixture.bare.detailId);
+  Object.assign(dsource, {
+    ran: true, gmIsGM: gmWeapon.isGM, aliceIsGM: alWeapon.isGM,
+    flagged: fixture.withWeapon.flagged, flagWeapon: fixture.withWeapon.flagWeapon,
+    flagToken: fixture.withWeapon.flagToken,
+    storedHasAttacker: fixture.withWeapon.storedHasAttacker,
+    gmText: gmWeapon.text, gmFirst: gmWeapon.isFirst, gmItalic: gmWeapon.italic,
+    aliceSawCard: alWeapon.present, aliceText: alWeapon.text,
+    aliceTags: alWeapon.injectedTags, xssFired: alWeapon.xssFired,
+    bareText: alBare.text, bareFlagWeapon: fixture.bare.flagWeapon,
+  });
+
+  await page.evaluate(async (f) => {
+    for (const id of [f.withWeapon.rollId, f.withWeapon.detailId, f.bare.rollId, f.bare.detailId]) {
+      if (id) await game.messages.get(id)?.delete();
+    }
+    // Anything else this section's clicks produced (a Scar draw, a status bar).
+    for (const m of game.messages.contents.slice().reverse().slice(0, 12)) {
+      if (m.speaker?.token === f.vTokId) await m.delete();
+    }
+    await game.scenes.get(f.sceneId)?.delete();
+    for (const id of [f.bowmanId, f.victimId]) await game.actors.get(id)?.delete();
+  }, fixture);
+  await alicePage.close();
+} catch (e) {
+  dsource.error = `${e.name}: ${e.message}`;
+}
+
+/* ---------------------------------------------------------------------------
  * A damage roll made with NOTHING TARGETED gets an Apply control anyway, and the
  * Warden is asked who takes it.
  *
@@ -1260,10 +1400,15 @@ try {
       (m) => (String(m.content).match(/status-banner\s+status-(\w+)/) ?? [, null])[1]);
 
     // 1. false -> true posts ONE critical bar.
+    r.activeUsers = game.users.contents.filter((u) => u.active).map((u) => u.name);
     await pc.update({ "system.critical": true });
     for (let i = 0; i < 40 && !bars().length; i++) await sleep(150);
     await sleep(600);                    // room for a duplicate to arrive
     r.afterMark = kindsOf();
+    // WHO posted them. A duplicate is one card per client that thought it was the
+    // originator, so naming the authors is what tells a real missing-guard
+    // regression apart from a stray extra session of the same user.
+    r.markAuthors = bars().map((m) => m.author?.name ?? m.user?.name ?? "?");
 
     // 2. A NO-OP must post nothing. This is the transition rule, and the leg a
     //    naive "post whenever the value is truthy" implementation fails.
@@ -1601,6 +1746,36 @@ check("and it still reads literally",
   && (attack.injectedText ?? "").includes("<img src=x"),
   `"${attack.injectedStrong}" - escaping it away would hide the attack from the Warden who has to notice it`);
 
+console.log("\nthe detail card says where its damage came from");
+if (dsource.error) check("the source leg ran", false, dsource.error);
+check("the two-client leg ran", dsource.ran && dsource.gmIsGM && !dsource.aliceIsGM,
+  `ran=${dsource.ran} gmIsGM=${dsource.gmIsGM} aliceIsGM=${dsource.aliceIsGM}`);
+check("the detail card is flagged", dsource.flagged && dsource.flagWeapon === "ZZ Probe Crossbow"
+  && !!dsource.flagToken,
+  `weapon=${JSON.stringify(dsource.flagWeapon)} token=${dsource.flagToken} - ids and a raw name, never a finished sentence`);
+check("the attacker is NOT in the stored card", dsource.storedHasAttacker === false,
+  "the sentence is built per viewer at render, so a name in the persisted HTML means it was baked in after all");
+check("the Warden reads the whole line",
+  dsource.gmText === "from ZZ <img src=x onerror=\"window.__abSrcXSS=1\"> Bowman's ZZ Probe Crossbow",
+  `"${dsource.gmText}"`);
+check("and it sits ABOVE the numbers", dsource.gmFirst,
+  "first element of .message-content - the ruling was top of the body, and 'somewhere on the card' would not test it");
+check("set apart from them", dsource.gmItalic === "italic",
+  `font-style: ${dsource.gmItalic} - the same register .dmg-applied uses for a secondary line`);
+// The POSITIVE, not just agreement: `alice === gm` is satisfied by two empty
+// strings, so written as agreement alone this leg stayed GREEN with the whole
+// feature switched off. Caught by the flag-write witness, which is the only
+// thing that could have caught it.
+check("Alice sees it too",
+  dsource.aliceSawCard && !!dsource.aliceText && dsource.aliceText === dsource.gmText,
+  `"${dsource.aliceText}" - knowing what hit you is not Warden-only information`);
+check("no weapon drops the possessive", dsource.bareFlagWeapon === ""
+  && /Bowman$/.test(dsource.bareText ?? "") && !/'s/.test(dsource.bareText ?? ""),
+  `"${dsource.bareText}" - two whole-sentence keys, so a roll from a control with no label never renders a dangling "'s "`);
+check("an authored name is never parsed as HTML",
+  dsource.aliceTags?.length === 0 && dsource.xssFired === false,
+  `tags=${JSON.stringify(dsource.aliceTags)} xssFired=${dsource.xssFired} - the line is ONE text node, so unlike the attack label this list must be EMPTY`);
+
 console.log("\nan UNTARGETED roll gets a splat, and the Warden picks who takes it");
 // The pair. Either half alone proves nothing: the first is what a pre-change card
 // looks like, the second is what the render hook adds to it.
@@ -1689,7 +1864,7 @@ check("the two-client leg ran", status.ran && !status.aliceIsGM,
 // single browser that is invisible, which is why Alice is joined for this.
 check("marking critical posts ONE bar",
   JSON.stringify(status.afterMark) === JSON.stringify(["critical"]),
-  `${JSON.stringify(status.afterMark)} — one card per connected client is what a missing userId guard looks like`);
+  `${JSON.stringify(status.afterMark)} by ${JSON.stringify(status.markAuthors)}, active users ${JSON.stringify(status.activeUsers)} — one card per connected client is what a missing userId guard looks like, and the authors say WHICH clients thought they were the originator`);
 // Real behaviour, but it is FOUNDRY's diff that produces it, not our guard:
 // setting a field to the value it already holds drops it from `changed`, so
 // _preUpdate never stashes and the outer `!== undefined` skips. Witnessed —

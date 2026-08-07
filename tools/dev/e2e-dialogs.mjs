@@ -350,6 +350,19 @@ const quality = await page.evaluate(async ({ id }) => {
     .filter((b) => ["impaired", "standard", "enhanced"].includes(b.dataset.action));
   out.actions = btns.map((b) => b.dataset.action);
   out.labels = btns.map((b) => b.textContent.trim());
+  // The QUESTION above the buttons, and the order it names the three qualities
+  // in. What is asserted below is that the sentence and the buttons AGREE —
+  // not that the prompt equals a literal. Round 3 moved Standard to the front of
+  // the buttons and left the sentence saying "impaired, standard or enhanced",
+  // so the prompt was the last place in the dialog still stating the old order;
+  // a literal check would go stale the next time a button moves and would not
+  // have caught that drift either.
+  out.prompt = document.querySelector("dialog.dialog .window-content p")?.textContent.trim() ?? null;
+  out.promptOrder = ["standard", "impaired", "enhanced"]
+    .map((w) => [w, (out.prompt ?? "").toLowerCase().indexOf(w)])
+    .filter(([, i]) => i >= 0)
+    .sort((a, b) => a[1] - b[1])
+    .map(([w]) => w);
   // Each button carries its OWN die's glyph. Read the <i>'s class list rather
   // than the rendered glyph: unlike the chat control's fa-burst, the point here
   // is that d4/d6/d12 are three DIFFERENT icons, and every fa-dice-dN renders
@@ -519,6 +532,15 @@ JSON.stringify(quality.actions) === JSON.stringify(["standard", "impaired", "enh
 /1d6/.test(quality.labels?.[0] ?? "") && /1d4/.test(quality.labels?.[1] ?? "") && /1d12/.test(quality.labels?.[2] ?? "")
   ? ok("the FIRST button shows the WEAPON's die", quality.labels.join(" | "))
   : fail("the FIRST button shows the WEAPON's die", JSON.stringify(quality.labels));
+// THE PROMPT AGREES WITH THE BUTTONS. Compared to `actions` rather than to a
+// literal sentence: the invariant is that the question does not name the three
+// in an order the buttons contradict, and that is what stops this drifting again
+// the next time one moves. All three must appear, or promptOrder is short and
+// the comparison fails.
+JSON.stringify(quality.promptOrder) === JSON.stringify(quality.actions)
+  ? ok("the question names them in button order", `"${quality.prompt}"`)
+  : fail("the question names them in button order",
+    `prompt "${quality.prompt}" reads ${JSON.stringify(quality.promptOrder)}, buttons are ${JSON.stringify(quality.actions)}`);
 // The title names the item the roll came from, BOTH ENDS: a roll with no item
 // falls back to the plain title. Asserting only the named form passes on a build
 // that always appends, and a dangling "— " is not repairable by a translator —

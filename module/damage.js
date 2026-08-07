@@ -12,6 +12,21 @@ import { FLAG_SCOPE } from './character-generator.js'
 /** Flag recording that a damage card's Apply control has already been used. */
 export const DAMAGE_APPLIED_FLAG = "damageApplied";
 
+/**
+ * Flag on a DETAIL card naming where its damage came from.
+ *
+ * IDS AND A RAW WEAPON NAME, never a finished sentence. The line is built per
+ * VIEWER at render time (nameDamageSource in cairn.js), which is what lets a
+ * monster attacker's name go through the content overlay in a Spanish client
+ * while a player-authored PC name is left alone — and what keeps every authored
+ * name out of stored HTML, since this card renders in everyone's log.
+ *
+ * Deliberately the same SHAPE as `message.speaker` (`token`, `actor`, `alias`),
+ * so the attacker-naming rule is one function both the attack line and this
+ * share rather than two that can drift.
+ */
+export const DAMAGE_SOURCE_FLAG = "damageSource";
+
 export class Damage {
 
     /**
@@ -19,12 +34,16 @@ export class Damage {
      * @param {String[]} targets Array of Id of the targeted tokens
      * @param {Number} damage Positive number
      * @param {Scene} [scene] Scene the card was spoken in; defaults to the viewer's
+     * @param {Object|null} [source] Where the damage came from — see
+     *   DAMAGE_SOURCE_FLAG. OPTIONAL and defaulting to null so every existing
+     *   caller (the shift-click path, the probes) keeps working and simply
+     *   renders no attribution line.
      * @returns {Promise<{id: String, dmg: Number}[]>} what actually landed, per
      *   token. The caller stamps this onto the originating card so the log records
      *   that the Warden used the control and what it did; targets whose token is
      *   gone are absent, exactly as they are absent from the detail cards.
      */
-    static async applyToTargets(targets, damage, scene = canvas?.scene) {
+    static async applyToTargets(targets, damage, scene = canvas?.scene, source = null) {
         let missed = 0;
         const applied = [];
         for (const target of targets) {
@@ -34,7 +53,7 @@ export class Damage {
                 // second card (the death bar) that must land AFTER the damage
                 // card, and two un-awaited creates racing per target would also
                 // let a second target's damage card overtake the first's.
-                await this._showDetails(data);   // skip targets whose token is gone
+                await this._showDetails({ ...data, source });   // skip targets whose token is gone
                 applied.push({ id: target, dmg: data.dmg });
             }
             else missed++;
@@ -172,7 +191,24 @@ export class Damage {
             }
 
             const dmg = parseInt(html.querySelector(".dice-total").textContent);
-            const applied = await this.applyToTargets(targetsList, dmg, scene);
+            // Where it came from, read off the card that was clicked. Both halves
+            // are already here and neither has to be captured at roll time: the
+            // attacker is the message's own speaker, and the weapon is the datum
+            // dmg-roll-card.html stamps precisely so the sentence can be rebuilt
+            // from DATA rather than scraped back out of localized prose (the
+            // attack line reads the same attribute). `nameDamageTargets` rewrote
+            // that label with replaceChildren, which replaces child NODES and not
+            // attributes, so data-weapon is still here after it ran.
+            //
+            // Nothing is localized or formatted here. Ids and the raw name travel;
+            // the sentence is built per viewer at render — see DAMAGE_SOURCE_FLAG.
+            const source = {
+                token: message?.speaker?.token ?? null,
+                actor: message?.speaker?.actor ?? null,
+                alias: message?.speaker?.alias ?? "",
+                weapon: html.querySelector(".dmg-label")?.dataset.weapon ?? "",
+            };
+            const applied = await this.applyToTargets(targetsList, dmg, scene, source);
             // Only a GM reaches this line (the guard at the top), so the write
             // needs no socket relay. Token ids, not names: the summary is
             // rendered per VIEWER so it localizes and so a concealed token is
@@ -220,7 +256,7 @@ export class Damage {
      */
     static async _showDetails(data) {
 
-        const { token, dmg, damage, armor, hp, str, newHp, newStr } = data
+        const { token, dmg, damage, armor, hp, str, newHp, newStr, source } = data
 
 
 
@@ -310,11 +346,17 @@ export class Damage {
             });
         }
 
-        await ChatMessage.create({
+        // The source rides as a FLAG in the CREATE data — one write, not a
+        // setFlag afterwards, which would be a second update every viewer has to
+        // re-render for. Omitted entirely when there is none, so a card carrying
+        // no attribution is indistinguishable from every card already in the log.
+        const messageData = {
             user: game.user._id,
             speaker: ChatMessage.getSpeaker({ token: token }),
             content: content,
-        }, {})
+        }
+        if (source) messageData.flags = { [FLAG_SCOPE]: { [DAMAGE_SOURCE_FLAG]: source } }
+        await ChatMessage.create(messageData, {})
 
         // AFTER the damage card, and that ordering is the whole reason this is
         // posted here rather than from CairnActor's update hook -- see
