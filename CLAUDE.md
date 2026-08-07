@@ -190,11 +190,19 @@ against the reason, not against the fact.
     **Comparing `packs/` to `src/packs` directly** has no DIRECTION: editing YAML
     then building is the normal workflow and differs exactly as much as a
     compendium edit does, so it would block ordinary content work.
-  - **Opening a world mutates pack CONTENT**, not just its housekeeping files —
-    v12-era documents migrate to the v14 schema on load (`flags.core.sourceId` →
-    `_stats.compendiumSource`, the `turnMarker`/`hexagonalShape` token fields).
-    So the guard legitimately fires after a world open. Folding that in with
-    `extract:packs` is a ~950-file diff; it is a real decision, not noise.
+  - **The v14 schema fold-in is DONE — do not re-plan it.** The committed YAML
+    was written by Foundry 12, and every extract re-derived the v14 shape
+    (`flags.core.sourceId` → `_stats.compendiumSource`, the
+    `turnMarker`/`hexagonalShape` token fields), which made a ~950-file diff sit
+    permanently in front of every build. It was accepted on 2026-08-04 in
+    `b2eda4a`, classified line by line first: every change schema normalization
+    or an extractor rename, zero Warden content. **This file went on calling it
+    a pending decision for two days afterwards**, which is how it kept getting
+    raised — a stale to-do reads exactly like a live one.
+    The guard therefore no longer fires with a schema diff: an extract after a
+    world open now yields `_stats.modifiedTime` bumps and nothing else
+    (re-verified 2026-08-06, 6 files, zero content paths). Drift that is not
+    housekeeping is now a real write, so classify it rather than assuming churn.
   - **`extract` RENAMES files to `<Name>_<id>.yml`.** Committed files whose name
     lacks the id suffix (`marketplace/Market_Armor.yml`) are deleted and rewritten
     under the new name, so an extract you want to undo needs BOTH halves, in this
@@ -378,6 +386,21 @@ only when someone remembers it.**
   GM through their own character's notes. `check:fields` cross-checks the two, and
   `npm run dev:sanitize` proves it takes effect — the server reads `system.json`
   only at STARTUP, so an un-restarted edit looks exactly like no edit.
+- **`check:fields` also holds shipped pack PROVENANCE clean, and it checks all
+  three fields together on purpose.** `toCompendium`'s `clearSource` clears
+  `_stats.compendiumSource`, `duplicateSource` AND `exportSource` in one go
+  (`client-document.mjs:1117`) under a docstring reading "Remove any features of
+  the data which are world-specific" — but `compilePack` builds straight from
+  YAML and never runs it, so the YAML has to be clean itself. The gate originally
+  checked only `compendiumSource`, and a spellbook consequently shipped for
+  months stamped `exportSource: {worldId: cairn, coreVersion: 0.7.5}` — someone
+  else's world, on a Foundry six majors dead, and the last `coreVersion` in this
+  repo's content that was not 14.365 (fixed 2026-08-06). **Checking one member of
+  a set the framework clears atomically is how the other members ship.**
+  Per-user `ownership` entries in packs are the one thing NOT worth chasing:
+  `fromCompendium` defaults `clearOwnership: true` and even when opted out drops
+  ids that are not real users (`world-collection.mjs:119-132`), so the ~586
+  documents carrying a foreign owner id are inert twice over.
 - **Three rules paid for the hard way.** A new test must be confirmed to FAIL with
   its fix removed. A test's precondition must not be satisfiable by stale world
   state — several assertions here once passed by reading an actor a previous

@@ -7,11 +7,11 @@ effects: []
 _id: mjddKpJ42HUs5GA7
 _stats:
   coreVersion: '14.365'
-  systemId: null
-  systemVersion: null
-  createdTime: null
-  modifiedTime: null
-  lastModifiedBy: null
+  systemId: air-bladder
+  systemVersion: 0.1.10
+  createdTime: 1786058536947
+  modifiedTime: 1786058537849
+  lastModifiedBy: ipqqDDQxZaMLtwLc
   compendiumSource: null
   duplicateSource: null
   exportSource: null

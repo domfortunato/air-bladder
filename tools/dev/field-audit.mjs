@@ -209,14 +209,41 @@ for (const file of walk(at("src", "packs"), ".yml")) {
 // before this check existed. Valid values: null, or a Compendium.* uuid.
 // Text-level scan, not a YAML walk: the field recurs at every embedding depth
 // (actors' items, table results), and the line shape is the invariant.
+//
+// ALL THREE source fields are checked, because all three are what Foundry itself
+// strips: toCompendium's clearSource clears `_stats.compendiumSource`,
+// `duplicateSource` AND `exportSource` together (client-document.mjs:1117), under
+// a docstring that reads "Remove any features of the data which are
+// world-specific". Checking only the first is how a spellbook shipped for months
+// still stamped `exportSource: {worldId: cairn, coreVersion: 0.7.5, systemId:
+// cairn}` — provenance from a Foundry 0.7.5 world of a different system, and the
+// single remaining coreVersion in this repo's content that was not 14.365.
+// `duplicateSource` has never been non-null here; it is checked because the cost
+// is one regex and the failure mode is identical (a world uuid nobody can resolve).
+const SOURCE_FIELDS = {
+  // null, or a genuine Compendium.* uuid — anything else blocks true provenance.
+  compendiumSource: v =>
+    v === "null" || v.startsWith("Compendium.")
+      ? null
+      : `ships compendiumSource ${v} — a non-compendium uuid blocks true provenance from ever being stamped`,
+  // A world uuid recording what this was duplicated from. Meaningless in a pack.
+  duplicateSource: v =>
+    v === "null" ? null : `ships duplicateSource ${v} — a world uuid that resolves nowhere for anyone installing this system`,
+  // A block stamped by exportToJSON naming the world, core and system it left
+  // (client-document.mjs:935). In a shipped pack it is someone else's world.
+  exportSource: v =>
+    v === "null" ? null : `ships a non-null exportSource — foreign world/core provenance belongs to whoever exported it, not to this pack`,
+};
+
 for (const file of walk(at("src", "packs"), ".yml")) {
   const text = readFile(file);
-  for (const m of text.matchAll(/^[ \t]*compendiumSource: (\S+)$/gm)) {
-    if (m[1] !== "null" && !m[1].startsWith("Compendium.")) {
-      problems.push(
-        `${path.relative(ROOT, file).replace(/\\/g, "/")} ships compendiumSource ${m[1]} ` +
-        `— a non-compendium uuid blocks true provenance from ever being stamped`
-      );
+  for (const [field, check] of Object.entries(SOURCE_FIELDS)) {
+    // `(.*)` not `(\S+)`: a non-null exportSource is a BLOCK, so its own line has
+    // nothing after the colon. Matching only non-empty values would skip exactly
+    // the case worth catching.
+    for (const m of text.matchAll(new RegExp(`^[ \\t]*${field}:(.*)$`, "gm"))) {
+      const problem = check(m[1].trim());
+      if (problem) problems.push(`${path.relative(ROOT, file).replace(/\\/g, "/")} ${problem}`);
     }
   }
 }

@@ -14,12 +14,7 @@ _stats:
   lastModifiedBy: null
   compendiumSource: null
   duplicateSource: null
-  exportSource:
-    worldId: cairn
-    uuid: null
-    coreVersion: 0.7.5
-    systemId: cairn
-    systemVersion: 1.0.0
+  exportSource: null
 ownership:
   default: 0
   tw8WBuj1heybSIqW: 3
