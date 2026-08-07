@@ -182,9 +182,16 @@ export const openWardenDamage = async () => {
   const { source, formula, pool } = answer;
   // Refused rather than defaulted. A hazard with no damage is not a hazard, and
   // silently substituting a die would apply a number the Warden never chose.
-  // `Roll.validate` evaluates a copy with data references stubbed
-  // (dice/roll.mjs:773-788), so it accepts "@abilities.STR.value" too.
-  if (!formula || !Roll.validate(formula)) {
+  //
+  // `@` REFERENCES ARE REFUSED TOO, and the two stubs are why: `Roll.validate`
+  // replaces every `@ref` with "1" before evaluating (dice/roll.mjs:772-790), so it
+  // ACCEPTS them -- while `Roll.parse` resolves them against roll data with
+  // `{missing: "0"}` (:689-701, :735-743), and a hazard has no actor to supply any.
+  // So the validator said yes to a formula the evaluator then silently gutted:
+  // "1d6 + @abilities.STR.value" rolled as "1d6 + 0" with no warning anywhere. A
+  // hazard genuinely has nothing to resolve against, so refusing is the honest
+  // answer rather than a workaround. This comment used to claim the opposite.
+  if (!formula || formula.includes("@") || !Roll.validate(formula)) {
     ui.notifications.warn(
       game.i18n.format("CAIRN.Notify.WardenDamageBadFormula", { formula: formula || "" }));
     return null;

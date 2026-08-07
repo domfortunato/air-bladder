@@ -6,6 +6,7 @@ import {
   connectedOwnershipShape, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG,
 } from "../connections.js";
 import { actorDisplayName, t } from "../i18n-content.js";
+import { concealmentWhisper } from "../utils.js";
 import { FATIGUE_NAME } from "../item/item.js";
 
 /** Document names go into dialog HTML; a name is user-authored text. */
@@ -96,11 +97,17 @@ export const postStatusCard = async (actor, kind) => {
   const speaker = actor.token
     ? ChatMessage.getSpeaker({ token: actor.token })
     : ChatMessage.getSpeaker({ actor });
-  return ChatMessage.create({
+  const messageData = {
     speaker,
     content: `<div class="status-banner ${spec.cls}"><i class="fas ${spec.icon}"></i>`
       + `<span><strong>${spec.label()}:</strong> ${game.i18n.localize(spec.text)}</span></div>`,
-  });
+  };
+  // A hidden creature's death is not table news. Only a TOKEN can be concealed --
+  // a world actor with no token has nothing to hide behind, and concealmentWhisper
+  // returns null for it. See its docblock for why nameableTokens is not reusable.
+  const whisper = concealmentWhisper(actor.token);
+  if (whisper) messageData.whisper = whisper;
+  return ChatMessage.create(messageData);
 };
 
 /**

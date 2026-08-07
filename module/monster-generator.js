@@ -318,6 +318,10 @@ export const regenerateMonster = async (actor, tierChoice) => {
       critical: false,
       armorOverride: null,
     },
+  }, {
+    // A regenerated monster is a NEW creature, not one that pulled through, so the
+    // cleared `critical` must not post a Stabilized bar. Same flag as regenerateNpc.
+    abNoStatusCard: true,
   });
   return actor;
 };

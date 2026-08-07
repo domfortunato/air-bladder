@@ -1726,10 +1726,21 @@ const nameDamageSource = (message, html, scene) => {
   if (!body || body.querySelector(".dmg-source")) return;   // already injected
 
   let sentence;
-  if (src.hazard) {
+  if (src.isHazard) {
     // A Warden's hazard: no attacker and no weapon, so what the line names is
     // the Warden's own words for it. Checked BEFORE the attacker, because a trap
     // has none and the guard below would drop the line entirely.
+    //
+    // Branch on the BOOLEAN, not on the text: Source is optional, and an unnamed
+    // hazard that fell through to the attacker branch printed the Warden's login
+    // name as the thing that hit the character. With no words to quote, the card
+    // stands as it is — the same choice the attacker branch makes below when it
+    // has nobody to name, and the same one the roll card already made.
+    if (!src.hazard) return;
+    sentence = game.i18n.format("CAIRN.DamageFromHazard", { source: src.hazard });
+  } else if (src.hazard && src.isHazard === undefined) {
+    // A card stamped before `isHazard` existed. Named hazards were the only ones
+    // this branch ever rendered correctly, and they still do.
     sentence = game.i18n.format("CAIRN.DamageFromHazard", { source: src.hazard });
   } else {
     const attacker = attackerDisplayName(src, scene);

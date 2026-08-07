@@ -539,6 +539,16 @@ export const openMarketplace = async (actor, opts = {}) => {
       }
     });
 
+    // Enter in a search box means "search", and here it meant "leave the shop".
+    // DialogV2 renders its content inside a <form> and gives every button
+    // type="submit" (applications/api/dialog.mjs:225-227), so HTML implicit
+    // submission fired the Close button and `closeOnSubmit` did the rest -- taking
+    // the encumbrance warning on the way out, as though the buyer had walked off.
+    // art-picker.js:368 guards the identical case on its URL field.
+    root.querySelector(".mkt-search").addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") ev.preventDefault();
+    });
+
     // Search: filter rows by name, and hide categories left with nothing.
     root.querySelector(".mkt-search").addEventListener("input", (ev) => {
       const q = ev.target.value.trim().toLowerCase();

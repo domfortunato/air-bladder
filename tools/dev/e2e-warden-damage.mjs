@@ -209,6 +209,28 @@ const dialog = await page.evaluate(async ({ xss }) => {
   r.badFormulaPostedNothing = game.messages.size === beforeBad;
   document.querySelector("dialog.dialog")?.remove();
 
+  // AN @-REFERENCE IS REFUSED TOO, and it is a separate leg because it is the
+  // case the guard used to LET THROUGH. `Roll.validate` stubs every @ref with "1"
+  // and accepts it (dice/roll.mjs:772-790); `Roll.parse` then resolves it against
+  // roll data with `{missing: "0"}` (:735-743), and a hazard has no actor to
+  // supply any. So the validator said yes and the evaluator silently zeroed it.
+  // Asserted on the CARD, not just on the notification: "it warned" would pass
+  // while a gutted card was posted anyway.
+  const beforeAt = game.messages.size;
+  document.querySelector('button[data-tool="abWardenDamage"]')?.click();
+  let f3 = null;
+  for (let i = 0; i < 40 && !f3; i++) {
+    f3 = document.querySelector("dialog.dialog input[name='formula']");
+    if (!f3) await sleep(150);
+  }
+  f3.value = "1d6 + @abilities.STR.value";
+  document.querySelector('dialog.dialog button[data-action="roll"]')?.click();
+  await sleep(800);
+  r.atRefPostedNothing = game.messages.size === beforeAt;
+  // And the reason a plain `Roll.validate` gate cannot be trusted here.
+  r.atRefStillValidates = Roll.validate("1d6 + @abilities.STR.value");
+  document.querySelector("dialog.dialog")?.remove();
+
   game.user.targets.forEach((t) => t.setTarget(false, { releaseOthers: false }));
   r.ids = { sceneId: scene.id, victimId: victim.id, msgId: msg?.id ?? null };
   return r;
@@ -239,6 +261,10 @@ check("a trap speaks as nobody", dialog.speakerActor === null && dialog.speakerT
   `actor=${dialog.speakerActor} token=${dialog.speakerToken} alias="${dialog.speakerAlias}" — a bare getSpeaker() infers one from the CONTROLLED token (chat-message.mjs:243-247), which is exactly what a Warden has selected`);
 check("a bad formula is refused", dialog.badFormulaPostedNothing,
   "defaulting a die would apply a number the Warden never chose");
+check("an @-reference is refused", dialog.atRefPostedNothing && dialog.atRefStillValidates,
+  `posted nothing=${dialog.atRefPostedNothing}, Roll.validate still says yes=${dialog.atRefStillValidates}`
+  + " — validate stubs @refs with 1 and ACCEPTS them, while evaluation stubs them with 0,"
+  + " so this must be refused explicitly or the card is silently short by the whole term");
 
 /* ---------------------------------------------------------------------------
  * 4. Where the damage LANDS.

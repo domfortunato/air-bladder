@@ -2284,7 +2284,12 @@ export const updateActorWithCharacter = async (actor, characterData) => {
   // a bought mule or a hand-made chest survives a regenerate.
   await clearGrantedContainers(actor);
   if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false });
-  await actor.update(data);
+  // `characterToActorData` clears `critical` unconditionally, and regenerating is
+  // REPLACING this person, not healing them -- without this the rebuild announces a
+  // stabilization that never happened. Same argument and same flag as regenerateNpc
+  // and rerollNpcProfession; this path and regenerateMonster were the two that
+  // missed it. See CairnActor#_onUpdate.
+  await actor.update(data, { abNoStatusCard: true });
   await grantContainers(actor, characterData.containers);
   for (const token of actor.getActiveTokens()) {
     await token.document.update({ name: actor.name });

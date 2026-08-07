@@ -64,7 +64,16 @@ import { chromium } from "playwright";
 import { VIEWPORT, joinAsGM, joinAs, watchErrors, watchdog } from "./lib.mjs";
 
 const browser = await chromium.launch();
-watchdog(240000, "encumbered-damage probe");
+// RAISED from 240000 on 2026-08-07, and the reason is worth keeping: this probe
+// had grown to ~238s, so the concealment and regeneration sections tipped it to
+// ~242s and it started reporting "treating as a hang". That looked exactly like a
+// real hang caused by the change under test — two fail-witness runs were read as
+// the code hanging before the RESTORED tree failed the same way, which is what
+// showed the margin was the culprit. The watchdog's own process.exit() drops
+// buffered stdout, so a timed-out run prints NOTHING and cannot be located from
+// its log; time the run instead. Raise this with the probe rather than trimming
+// coverage to fit it.
+watchdog(420000, "encumbered-damage probe");
 const page = await browser.newPage({ viewport: VIEWPORT });
 const errors = watchErrors(page);
 await joinAsGM(page);
@@ -1502,15 +1511,92 @@ try {
     return r;
   }));
 
+  /* REGENERATING is not RECOVERING, and CONCEALED creatures do not report in. */
+  Object.assign(status, await page.evaluate(async () => {
+    const ActorImpl = CONFIG.Actor.documentClass;
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const { Damage } = await import("/systems/air-bladder/module/damage.js");
+    const gen = await import("/systems/air-bladder/module/character-generator.js");
+    const mon = await import("/systems/air-bladder/module/monster-generator.js");
+    const r = {};
+    const stabilizedIn = (cards) => cards.filter((m) => /status-stabilized/.test(String(m.content ?? ""))).length;
+    const fresh = async (fn) => {
+      const before = new Set(game.messages.map((m) => m.id));
+      await fn();
+      await sleep(1500);
+      return game.messages.contents.filter((m) => !before.has(m.id));
+    };
+
+    // Regeneration REPLACES a character. `characterToActorData` clears `critical`
+    // unconditionally, so without `abNoStatusCard` the rebuild announced a
+    // recovery that never happened. The two NPC paths always passed the flag;
+    // these two did not, which is why this asserts the ACTOR kinds separately.
+    const pc = await ActorImpl.create({ name: "ZZ Regen PC", type: "character" });
+    await fresh(() => pc.update({ "system.critical": true }));
+    r.pcRegenStabilized = stabilizedIn(await fresh(() => gen.regenerateActor(pc)));
+    const mn = await ActorImpl.create({ name: "ZZ Regen Monster", type: "npc", system: { role: "monster" } });
+    await fresh(() => mn.update({ "system.critical": true }));
+    r.monsterRegenStabilized = stabilizedIn(await fresh(() => mon.regenerateMonster(mn, "standard")));
+    // THE CONTROL, and it is the half that matters: a Warden genuinely clearing
+    // the flag must still announce. Without this, deleting postStatusCard
+    // altogether would pass the two legs above.
+    const ctl = await ActorImpl.create({ name: "ZZ Real Stabilize", type: "character" });
+    await fresh(() => ctl.update({ "system.critical": true }));
+    r.realStabilizeAnnounces = stabilizedIn(await fresh(() => ctl.update({ "system.critical": false })));
+    for (const a of [pc, mn, ctl]) await a.delete();
+
+    // CONCEALMENT. The roll card already withholds a hidden token's name; the
+    // cards that follow are spoken AS the token, so the name lands in the message
+    // header for every reader unless they are whispered. Both tokens are damaged
+    // the same way — the visible one is the control, and it is what stops this
+    // being satisfied by whispering everything.
+    const scene = await Scene.create({ name: "ZZ Conceal Scene", width: 1000, height: 1000 });
+    const mk = async (name, hidden) => {
+      const a = await ActorImpl.create({
+        name, type: "npc",
+        system: { role: "monster", hp: { value: 4, max: 4 }, armor: 0, abilities: { STR: { value: 2, max: 2 } } },
+      });
+      const [t] = await scene.createEmbeddedDocuments("Token", [{ name, actorId: a.id, x: 100, y: 100, hidden }]);
+      return { a, t };
+    };
+    const hid = await mk("ZZ Concealed Foe", true);
+    const vis = await mk("ZZ Open Foe", false);
+    const hidCards = await fresh(() => Damage.applyToTargets([hid.t.id], 99, scene));
+    const visCards = await fresh(() => Damage.applyToTargets([vis.t.id], 1, scene));
+    r.hiddenCardCount = hidCards.length;
+    r.hiddenAllWhispered = hidCards.length > 0 && hidCards.every((m) => (m.whisper ?? []).length > 0);
+    r.hiddenNamesInHeader = hidCards.every((m) => m.speaker?.alias === "ZZ Concealed Foe");
+    r.visibleCardCount = visCards.length;
+    r.visibleNoneWhispered = visCards.length > 0 && visCards.every((m) => (m.whisper ?? []).length === 0);
+    r.concealIds = { hidden: hidCards.map((m) => m.id), visible: visCards.map((m) => m.id) };
+    r.concealCleanup = { sceneId: scene.id, actorIds: [hid.a.id, vis.a.id] };
+    return r;
+  }));
+
   // Alice's client must have posted NOTHING. Read from HER page: the count above
   // is the GM's view of the world collection, which is the same document set —
   // what this adds is proof her client was connected and receiving the whole
   // time, so "one card" is not "one client was asleep".
-  Object.assign(status, await alicePage.evaluate(async () => ({
+  //
+  // She is also the only one who can answer the concealment question. `hidden` is
+  // paired with `isOwner` and `isSecret` is evaluated against the CURRENT user
+  // (token.mjs:341-343), so on the Warden's client every token is nameable and a
+  // GM-side assertion would pass with the whisper removed.
+  Object.assign(status, await alicePage.evaluate(async ({ hidden, visible }) => ({
     aliceIsGM: game.user.isGM,
     aliceSaw: game.messages.contents.filter((m) => /class="status-banner/.test(String(m.content ?? ""))).length,
-  })));
+    aliceSeesHidden: hidden.filter((id) => game.messages.get(id)?.visible).length,
+    aliceSeesVisible: visible.filter((id) => game.messages.get(id)?.visible).length,
+  }), status.concealIds ?? { hidden: [], visible: [] }));
   await alicePage.close();
+
+  await page.evaluate(async ({ concealIds, concealCleanup }) => {
+    for (const id of [...(concealIds?.hidden ?? []), ...(concealIds?.visible ?? [])]) {
+      await game.messages.get(id)?.delete();
+    }
+    for (const id of concealCleanup?.actorIds ?? []) await game.actors.get(id)?.delete();
+    if (concealCleanup?.sceneId) await game.scenes.get(concealCleanup.sceneId)?.delete();
+  }, { concealIds: status.concealIds, concealCleanup: status.concealCleanup });
 } catch (e) {
   status.error = `${e.name}: ${e.message}`;
 }
@@ -1879,6 +1965,14 @@ check("clearing posts the stabilized bar",
 check("abNoStatusCard silences it",
   JSON.stringify(status.afterSuppressed) === JSON.stringify(["critical", "stabilized"]),
   `${JSON.stringify(status.afterSuppressed)} — the flag the damage flow and the regeneration paths pass`);
+// The flag existing is not the same as the regeneration paths PASSING it, which
+// is exactly how two of the four shipped without it.
+check("regenerating a PC announces no recovery", status.pcRegenStabilized === 0,
+  `${status.pcRegenStabilized} stabilized bar(s) — a regenerate REPLACES this person; it does not heal them`);
+check("regenerating a monster announces no recovery", status.monsterRegenStabilized === 0,
+  `${status.monsterRegenStabilized} stabilized bar(s)`);
+check("but a real stabilize still announces", status.realStabilizeAnnounces === 1,
+  `${status.realStabilizeAnnounces} — the control: without it, deleting the card entirely would pass the two legs above`);
 // `dead` is DERIVED (STR <= 0), so there is no flag to watch and the pre-state
 // has to be stashed in _preUpdate. This leg is what proves that stash works.
 check("STR reaching 0 posts the dead bar", status.afterDeath?.includes("dead"),
@@ -1906,6 +2000,24 @@ check("the damage card drops its bare Dead", status.damageCardHasDead === false,
 check("a corpse still gets feedback",
   JSON.stringify(status.corpseCards) === JSON.stringify(["deadbar"]),
   `${JSON.stringify(status.corpseCards)} — STR was already 0, so no transition fires and _showDetails posts it directly`);
+
+/* Concealment. The attack line withholds a hidden token's name and the cards that
+ * follow are spoken AS that token, so without a whisper the header hands the name
+ * back — the gate would conceal in one sentence and publish in the next. */
+check("a concealed creature's cards are whispered",
+  status.hiddenCardCount > 0 && status.hiddenAllWhispered,
+  `${status.hiddenCardCount} card(s), all whispered=${status.hiddenAllWhispered}`);
+check("and Alice sees none of them", status.aliceSeesHidden === 0,
+  `she can see ${status.aliceSeesHidden} of ${status.hiddenCardCount} — read from HER client, because both concealment`
+  + " channels are evaluated against the current user and a GM owns and observes everything");
+check("the header did carry the name", status.hiddenNamesInHeader,
+  "the whisper is what conceals it — if the alias were blank this would pass for the wrong reason");
+// THE CONTROL. Whispering everything would satisfy every leg above.
+check("an unconcealed creature's cards stay public",
+  status.visibleCardCount > 0 && status.visibleNoneWhispered,
+  `${status.visibleCardCount} card(s), none whispered=${status.visibleNoneWhispered}`);
+check("and Alice sees all of them", status.aliceSeesVisible === status.visibleCardCount,
+  `${status.aliceSeesVisible}/${status.visibleCardCount} — knowing what happened to a creature on the board is not Warden-only`);
 
 if (errors.length) { bad++; console.log("Console errors:\n" + errors.join("\n")); }
 console.log(bad === 0 ? "\nencumbered-damage e2e passed" : `\nencumbered-damage e2e FAILED — ${bad}`);

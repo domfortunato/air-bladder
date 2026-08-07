@@ -253,6 +253,54 @@ export const nameableTokens = (ids, scene) => {
 };
 
 /**
+ * Who may be told this token's NAME — as a whisper list, or null for "everybody".
+ *
+ * `nameableTokens` above answers the same question, but it answers it for the
+ * CURRENT client, which is exactly wrong here. Both of its concealment channels
+ * are viewer-evaluated — `hidden` is paired with `isOwner`, and `TokenDocument
+ * #isSecret` is literally `disposition === SECRET && !testUserPermission(game.user,
+ * "OBSERVER")` (documents/token.mjs:341-343). The card is CREATED on the Warden's
+ * client, and a GM owns and observes everything, so asking there always returns
+ * "visible" and would conceal nothing.
+ *
+ * So the same two rules are re-stated per USER instead of per client. They must
+ * stay in step with `nameableTokens`: a viewer who would be shown the name in the
+ * attack line must be a viewer who receives the cards that follow it, or the
+ * concealment moves rather than holds.
+ *
+ * Why a whisper at all: the roll card withholds the name and the detail, Scar and
+ * status cards that follow are spoken AS the token, so its name lands in
+ * `message-sender` for every reader (`templates/sidebar/chat-message.hbs:4`,
+ * fed by `alias` at `documents/chat-message.mjs:433`). Suppressing just the header
+ * was rejected — a player who cannot know the creature exists should not be told
+ * something took 6 damage either (user ruling, 2026-08-07).
+ *
+ * ONE CAVEAT that decides where this may be used: `ChatMessage#visible` returns
+ * true for a whispered message when `isRoll` (`chat-message.mjs:101-104`), so a
+ * card carrying a Roll CANNOT be concealed this way. Every call site here posts a
+ * plain `ChatMessage.create`, and the Scars card deliberately does not forward its
+ * roll — see `_rollScarsTable`. Attach a roll to any of them and this silently
+ * stops working.
+ *
+ * @param {TokenDocument} [token]
+ * @return {String[]|null}  user ids to whisper to, or null to post publicly
+ */
+export const concealmentWhisper = (token) => {
+  if (!token) return null;
+  const mayName = (user) => {
+    if (user.isGM) return true;
+    if (token.hidden && !token.testUserPermission(user, "OWNER")) return false;
+    if (token.disposition === CONST.TOKEN_DISPOSITIONS.SECRET
+      && !token.testUserPermission(user, "OBSERVER")) return false;
+    return true;
+  };
+  const allowed = game.users.filter(mayName);
+  // Public is the default and must stay indistinguishable from a card that never
+  // considered concealment — an empty `whisper` is what every existing card has.
+  return allowed.length === game.users.size ? null : allowed.map((u) => u.id);
+};
+
+/**
  * Ask the Warden who takes an UNTARGETED damage roll.
  *
  * A roll made with nothing targeted used to carry no Apply control at all, so the

@@ -1,5 +1,5 @@
 import { findCompendiumItem } from './compendium.js'
-import { evaluateFormula, askDamageTargets } from './utils.js'
+import { evaluateFormula, askDamageTargets, concealmentWhisper } from './utils.js'
 import { postStatusCard } from './actor/actor.js'
 
 // The system's flag namespace, imported rather than re-declared: a second
@@ -251,10 +251,19 @@ export class Damage {
                 actor: message?.speaker?.actor ?? null,
                 alias: message?.speaker?.alias ?? "",
                 weapon: label?.dataset.weapon ?? "",
-                // A hazard has no attacker to name, so what the line names
-                // instead is the Warden's own words for it — which are the
-                // card's label, still intact because the attack-line rewrite
-                // stands off a hazard card. Empty for every ordinary roll.
+                // HAZARD-NESS IS THE BOOLEAN, NOT THE TEXT. The Warden may leave
+                // Source blank on purpose — openWardenDamage allows it, and the
+                // roll card then carries the die alone. Deciding hazard-ness from
+                // the text made a blank Source fall through to the attacker branch,
+                // which resolved a null token to the speaker's alias and printed
+                // "from <the Warden's login>" as the thing that hit the character.
+                // The roll card never had this bug because it tests the ATTRIBUTE
+                // (cairn.js, nameDamageTargets). Absent on every card already in a
+                // log, so those keep their old, correct behaviour.
+                isHazard: label?.dataset.hazard === "1",
+                // The Warden's own words for it — the card's label, still intact
+                // because the attack-line rewrite stands off a hazard card. Empty
+                // for every ordinary roll, and for a deliberately unnamed hazard.
                 hazard: label?.dataset.hazard === "1"
                     ? (label.textContent ?? "").trim() : "",
             };
@@ -416,6 +425,11 @@ export class Damage {
             content: content,
         }
         if (source) messageData.flags = { [FLAG_SCOPE]: { [DAMAGE_SOURCE_FLAG]: source } }
+        // The card is spoken AS the token, so its name is in the header whatever the
+        // body says. A token the attack line was not allowed to name does not get
+        // named here either -- see concealmentWhisper.
+        const whisper = concealmentWhisper(token)
+        if (whisper) messageData.whisper = whisper
         await ChatMessage.create(messageData, {})
 
         // AFTER the damage card, and that ordering is the whole reason this is
@@ -463,6 +477,10 @@ export class Damage {
             content: content,
         }
         if (source) messageData.flags = { [FLAG_SCOPE]: { [DAMAGE_SOURCE_FLAG]: source } }
+        // Same concealment rule as _showDetails -- an ability hazard aimed at a
+        // hidden creature must not name it in the header either.
+        const whisper = concealmentWhisper(token)
+        if (whisper) messageData.whisper = whisper
         await ChatMessage.create(messageData, {})
 
         // AFTER the damage card, which is the whole reason applyToTarget passed
@@ -510,6 +528,11 @@ export class Damage {
         // keeps core's default rather than inventing an empty header.
         const messageData = { flavor: game.i18n.localize("CAIRN.ScarFlavor") };
         if (token) messageData.speaker = ChatMessage.getSpeaker({ token });
+        // Concealed creatures do not announce their scars to the table either. This
+        // one only works because the roll below is NOT forwarded: a whispered
+        // message carrying a Roll is visible to everyone (chat-message.mjs:101-104).
+        const whisper = concealmentWhisper(token);
+        if (whisper) messageData.whisper = whisper;
         // The roll goes to `draw` -- it is what SELECTS the result row -- and is
         // deliberately NOT forwarded to `toMessage`, which renders
         // `rollHTML: this.displayRoll && roll` (roll-table.mjs:76). The roll here is
