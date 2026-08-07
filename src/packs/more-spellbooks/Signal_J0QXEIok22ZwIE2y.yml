@@ -18,7 +18,6 @@ _stats:
   exportSource: null
 ownership:
   default: 0
-  wBjuzO9m8tt5ZLAf: 3
 system:
   description: <p>Sends up a flare that can be seen for some distance.</p>
   weightless: false

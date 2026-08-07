@@ -18,7 +18,6 @@ _stats:
   exportSource: null
 ownership:
   default: 0
-  wBjuzO9m8tt5ZLAf: 3
 system:
   description: <p>Deals 1d4+2 STR loss when read.</p>
   weightless: false

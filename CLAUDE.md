@@ -397,10 +397,17 @@ only when someone remembers it.**
   else's world, on a Foundry six majors dead, and the last `coreVersion` in this
   repo's content that was not 14.365 (fixed 2026-08-06). **Checking one member of
   a set the framework clears atomically is how the other members ship.**
-  Per-user `ownership` entries in packs are the one thing NOT worth chasing:
-  `fromCompendium` defaults `clearOwnership: true` and even when opted out drops
-  ids that are not real users (`world-collection.mjs:119-132`), so the ~586
-  documents carrying a foreign owner id are inert twice over.
+  The gate covers **`ownership`** for the same reason: `clearOwnership` strips it
+  in the same breath, and 586 documents shipped a per-user key naming a User id
+  from the fork-era worlds they were authored in (stripped 2026-08-06; only
+  `default` is allowed now). **"Unreadable" was briefly argued as a reason to
+  LEAVE them, and that is backwards.** They are unreadable —
+  `getUserLevel` short-circuits on `if (this.pack)` before ownership is
+  consulted (`common/abstract/document.mjs:388`, docstring: "Compendium content
+  ignores the ownership field in favor of User role-based ownership"), and
+  `fromCompendium` clears it again on the way out. That makes removing them a
+  zero-behaviour edit, which is what makes it SAFE — not what makes it
+  unnecessary. Data nothing will ever surface is data nothing will ever correct.
 - **Three rules paid for the hard way.** A new test must be confirmed to FAIL with
   its fix removed. A test's precondition must not be satisfiable by stale world
   state — several assertions here once passed by reading an actor a previous

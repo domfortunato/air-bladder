@@ -18,7 +18,6 @@ _stats:
   exportSource: null
 ownership:
   default: 0
-  wBjuzO9m8tt5ZLAf: 3
 system:
   description: <p>Target creatures must make a DEX save or their attacks are impaired.</p>
   weightless: false

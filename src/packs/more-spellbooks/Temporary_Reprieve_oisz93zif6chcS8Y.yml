@@ -18,7 +18,6 @@ _stats:
   exportSource: null
 ownership:
   default: 0
-  wBjuzO9m8tt5ZLAf: 3
 system:
   description: <p>Target regains any lost STR, but loses it again after a few minutes.</p>
   weightless: false

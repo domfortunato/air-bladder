@@ -246,6 +246,40 @@ for (const file of walk(at("src", "packs"), ".yml")) {
       if (problem) problems.push(`${path.relative(ROOT, file).replace(/\\/g, "/")} ${problem}`);
     }
   }
+
+  // ...and the same for `ownership`, which toCompendium's clearOwnership strips
+  // alongside them. A shipped document may carry `default` and nothing else: a
+  // per-user key names a User id from whatever world the document was authored
+  // in, which is nobody's world once the system is installed.
+  //
+  // It is UNREADABLE rather than merely unused, and that is the point — nothing
+  // will ever surface it to be noticed. `getUserLevel` short-circuits on
+  // `if (this.pack) return this.compendium.getUserLevel(user)`
+  // (common/abstract/document.mjs:388), whose docstring says outright that
+  // "Compendium content ignores the ownership field in favor of User role-based
+  // ownership"; and on the way out, fromCompendium clears ownership by default
+  // and, when a caller opts out, keeps only `default` and ids that are real
+  // users (world-collection.mjs:119-132). So 586 of these rode along invisibly
+  // from the upstream fork's worlds until they were stripped on 2026-08-06.
+  // Data that cannot be read is data nothing can correct — hence a gate.
+  let ownerIndent = null;
+  for (const line of text.split("\n")) {
+    if (ownerIndent !== null) {
+      const child = line.match(/^(\s*)(\S+):/);
+      if (child && child[1].length > ownerIndent) {
+        if (child[2] !== "default") {
+          problems.push(
+            `${path.relative(ROOT, file).replace(/\\/g, "/")} ships ownership for user ${child[2]} ` +
+            `— a User id from the authoring world, which exists in nobody else's`
+          );
+        }
+        continue;
+      }
+      ownerIndent = null;
+    }
+    const open = line.match(/^(\s*)ownership:\s*$/);
+    if (open) ownerIndent = open[1].length;
+  }
 }
 
 /* -------------------------------------------- */

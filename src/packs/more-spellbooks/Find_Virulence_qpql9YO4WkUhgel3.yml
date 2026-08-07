@@ -18,7 +18,6 @@ _stats:
   exportSource: null
 ownership:
   default: 0
-  wBjuzO9m8tt5ZLAf: 3
 system:
   description: <p>Detects poison in any creature or object within 30ft.</p>
   weightless: false
