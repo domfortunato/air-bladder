@@ -412,6 +412,53 @@ const enhancedRoll = await rollWith("enhanced");
 const normalRoll = await rollWith("normal");
 const dismissedRoll = await rollWith("dismiss");
 
+/* PANIC IMPOSES IMPAIRED and offers no choice (user ruling 2026-08-07). With
+ * use-panic ON and the character panicked, NO dialog opens and the roll is 1d4.
+ * This is the one leg in the section that turns panic on, and it is deliberately
+ * last so it cannot leak the setting into the legs above. */
+const panicRoll = await page.evaluate(async ({ id }) => {
+  const { settle, btn, race, gone } = window.__ab;
+  const actor = game.actors.get(id);
+  const panicWas = game.settings.get("air-bladder", "use-panic");
+  if (!panicWas) await game.settings.set("air-bladder", "use-panic", true);
+  await actor.update({ "system.panicked": true });
+  const priorGone = await gone();
+
+  const before = game.messages.size;
+  const target = document.createElement("a");
+  target.dataset.roll = "1d6";
+  target.dataset.label = "Probe Blade";
+  const rolling = actor.sheet.options.actions.rollDamage.call(
+    actor.sheet, { preventDefault() {}, button: 0 }, target);
+  // A SHORT wait, deliberately: the claim is that no dialog appears, so this must
+  // not be the same 6s poll the other legs use — it would pass just as well on a
+  // dialog that was slow.
+  await settle(1200);
+  const dialogOpened = !!document.querySelector("dialog.dialog");
+  if (dialogOpened) document.querySelector("dialog.dialog button[data-action='normal']")?.click();
+  await race(rolling);
+  for (let i = 0; i < 30 && game.messages.size <= before; i++) await settle(150);
+  await settle(400);
+
+  const card = game.messages.size > before ? game.messages.contents.at(-1) : null;
+  const flavor = String(card?.flavor ?? "");
+  const out = {
+    priorGone, dialogOpened,
+    posted: !!card,
+    formula: card?.rolls?.[0]?.formula ?? null,
+    total: card?.rolls?.[0]?.total ?? null,
+    flavor,
+    // The BADGE specifically, not "Panic appears anywhere in the flavor". The
+    // weapon sentence already ends "(Panic)", so a whole-flavor regex stayed
+    // GREEN in the fail-witness while the badge itself was absent.
+    badge: (flavor.match(/class="dmg-quality"[^>]*>([^<]*)</) ?? [, ""])[1].trim(),
+  };
+  await card?.delete();
+  await actor.update({ "system.panicked": false });
+  if (!panicWas) await game.settings.set("air-bladder", "use-panic", false);
+  return out;
+}, { id: actorId });
+
 quality.panicOff
   ? ok("precondition: use-panic is OFF", "the whole feature must work without it")
   : fail("precondition: use-panic is OFF", "these legs prove nothing with panic on");
@@ -451,6 +498,24 @@ normalRoll.posted && normalRoll.formula === "1d6" && !/Enhanced|Impaired/.test(n
 dismissedRoll.asked && !dismissedRoll.posted
   ? ok("dismissing the damage roll posts nothing", "a ✕ is an instruction, not a default")
   : fail("dismissing the damage roll posts nothing", JSON.stringify(dismissedRoll));
+
+// Panic imposes impaired and offers NO choice. Both halves matter: no dialog
+// (the ruling) and 1d4 (the rule). Asserting only the die would pass on a build
+// that still asked and then ignored the answer.
+panicRoll.priorGone && !panicRoll.dialogOpened
+  ? ok("panic asks nothing", "a panicked character cannot roll normal or enhanced")
+  : fail("panic asks nothing", JSON.stringify(panicRoll));
+panicRoll.posted && panicRoll.formula === "1d4"
+  && panicRoll.total >= 1 && panicRoll.total <= 4
+  ? ok("panic rolls impaired", `${panicRoll.formula} = ${panicRoll.total}`)
+  : fail("panic rolls impaired", JSON.stringify(panicRoll));
+// Read from the BADGE element, not the whole flavor: the weapon sentence already
+// ends "(Panic)", so a flavor-wide regex stayed green in the fail-witness with no
+// badge at all. It matters because the attack line REPLACES that sentence
+// whenever there is a target, leaving the badge as the only thing saying why.
+/Panic/.test(panicRoll.badge)
+  ? ok("and the badge says why", `"${panicRoll.badge}"`)
+  : fail("and the badge says why", `badge="${panicRoll.badge}"`);
 
 /* ----------------------------------------------------------- teardown ---- */
 await page.evaluate(async ({ id, was }) => {

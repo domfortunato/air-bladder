@@ -1,5 +1,12 @@
 <div class="flavor-dice-roll">
-    <div class="dmg-label">{{label}}</div>
+    {{!-- data-weapon carries the weapon NAME as a datum. The label holds it only
+          inside a localized sentence, which is prose and not readable, and the
+          attack line has to rebuild the sentence at render time. Verbatim, not
+          re-localized: the sheet's item.name is already the display name, so this
+          is whatever the roller saw -- exactly what the flavor sentence has
+          always frozen. Translating it per viewer would need a reverse lookup,
+          and the content overlay is MANY-TO-ONE. --}}
+    <div class="dmg-label" data-weapon="{{weapon}}">{{label}}</div>
 
     {{#if (isNotNull targets)}}
     <div class="icon-action">

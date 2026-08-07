@@ -71,15 +71,27 @@ export const damageFormulaFor = (quality, normalFormula) =>
  * The badge a card shows for a non-normal roll, or "" for a normal one, so the
  * table can see which it was. Its own line on the card rather than folded into
  * the flavor sentence: there are already two whole-sentence damage keys (weapon,
- * weapon-panicked) and the attack line makes a third — multiplying them by three
- * qualities is how a translator ends up with nine sentences to keep in step.
+ * weapon-panicked) and the attack line makes two more — multiplying those by
+ * three qualities is how a translator ends up with a dozen sentences to keep in
+ * step.
+ *
+ * `panicked` gets its own badge because the flavor that used to carry "(Panic)"
+ * is REPLACED by the attack line whenever there is a target, so without this the
+ * table would see "Impaired" with nothing saying why. It says both.
+ *
  * @param {String} quality
+ * @param {Object} [opts]
+ * @param {Boolean} [opts.panicked]  panic imposed this, rather than a choice
  * @return {String}
  */
-export const damageQualityLabel = (quality) =>
-  quality === "impaired" || quality === "enhanced"
-    ? game.i18n.localize(`CAIRN.DamageQuality.Badge${quality === "impaired" ? "Impaired" : "Enhanced"}`)
-    : "";
+export const damageQualityLabel = (quality, { panicked = false } = {}) => {
+  if (quality === "impaired") {
+    return game.i18n.localize(
+      panicked ? "CAIRN.DamageQuality.BadgePanic" : "CAIRN.DamageQuality.BadgeImpaired");
+  }
+  if (quality === "enhanced") return game.i18n.localize("CAIRN.DamageQuality.BadgeEnhanced");
+  return "";
+};
 
 /**
  * Ask whether this damage roll is impaired, normal or enhanced.

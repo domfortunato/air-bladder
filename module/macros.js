@@ -62,20 +62,21 @@ export const rollItemMacro = async (actorId, itemId) => {
     return ui.notifications.warn(game.i18n.format("CAIRN.Macro.NoItem", { name: actor.name }));
   }
 
-  let rollSchema = item.system.damageFormula;
-  // determine panic
   const usePanic = game.settings.get(SETTINGS_NS, "use-panic");
-  let panicked = false;
-  if (usePanic && actor.system.panicked) {
-    rollSchema = "1d4"; // panicked character
-    panicked = true;
+  const panicked = usePanic && actor.system.panicked;
+
+  // Same rule and the same helper as the sheet's damage control: panic IMPOSES
+  // impaired and offers no choice, so a panicked character is never asked. Panic
+  // no longer substitutes a formula of its own — it names a quality, and
+  // damageFormulaFor turns that into the die. The old d4 substitution was
+  // written twice and drifted; impaired/enhanced is not repeating that.
+  let quality;
+  if (panicked) quality = "impaired";
+  else {
+    quality = await askDamageQuality(item.system.damageFormula);
+    if (quality === null) return; // dismissed: roll nothing
   }
-  // Same question the sheet's damage control asks, through the same helper. The
-  // panic substitution above was written twice and drifted; impaired/enhanced is
-  // not repeating that.
-  const quality = await askDamageQuality(rollSchema);
-  if (quality === null) return; // dismissed: roll nothing
-  rollSchema = damageFormulaFor(quality, rollSchema);
+  const rollSchema = damageFormulaFor(quality, item.system.damageFormula);
 
   // determine roll result
   const roll = await evaluateFormula(rollSchema, actor.getRollData());
@@ -100,7 +101,11 @@ export const rollItemMacro = async (actorId, itemId) => {
   }
   
   const rollMessageTpl = "systems/air-bladder/templates/chat/dmg-roll-card.html";
-  const tplData = { label: label, targets: targetIds, quality: damageQualityLabel(quality) };
+  const tplData = {
+    label: label, targets: targetIds,
+    weapon: item.name ?? "",
+    quality: damageQualityLabel(quality, { panicked }),
+  };
   const msg = await foundry.applications.handlebars.renderTemplate(rollMessageTpl, tplData);
   roll.toMessage({    
     speaker: ChatMessage.getSpeaker({ actor: actor }),

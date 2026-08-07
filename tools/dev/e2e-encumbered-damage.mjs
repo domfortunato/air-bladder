@@ -814,7 +814,7 @@ try {
       const roll = await evaluateFormula("2", {});
       const flavor = await foundry.applications.handlebars.renderTemplate(
         "systems/air-bladder/templates/chat/dmg-roll-card.html",
-        { label: "ZZ weapon sentence", targets: ids.join(";") },
+        { label: "ZZ weapon sentence", weapon: "ZZ Probe Mace", targets: ids.join(";") },
       );
       const msg = await roll.toMessage({
         speaker: ChatMessage.getSpeaker({ token: aTok }),
@@ -1046,6 +1046,12 @@ check("the Warden sees the whole sentence",
   attack.gmText?.includes("ZZ Attacker PC") && attack.gmText?.includes("ZZ Seen Foe")
   && attack.gmText?.includes("ZZ Unseen Foe"),
   `"${attack.gmText}" - a GM owns everything, so both targets are named`);
+check("it names the weapon", attack.gmText?.includes("ZZ Probe Mace"),
+  `"${attack.gmText}" - the card shows the die but never the weapon, so dropping it lost that from the log entirely`);
+// No article. "attacks the Thaddeus!" is what an early cut produced, and it reads
+// wrongly for every named NPC.
+check("no article before the target", !/attacks the /.test(attack.gmText ?? ""),
+  `"${attack.gmText}"`);
 check("the weapon sentence is gone", !attack.gmText?.includes("ZZ weapon sentence"),
   `"${attack.gmText}" - the attack line REPLACES it, it is not added beside it`);
 check("Alice is told the visible one",

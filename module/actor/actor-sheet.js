@@ -2217,20 +2217,26 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (!dataset.roll) return;
 
     const usePanic = game.settings.get(SETTINGS_NS, "use-panic");
-    let formula = dataset.roll;
-    let panicked = false;
-    if (usePanic && this.actor.system.panicked) {
-      formula = "1d4"; // panicked character
-      panicked = true;
-    }
+    const panicked = usePanic && this.actor.system.panicked;
 
-    // Impaired / enhanced is asked AFTER panic has had its say, so the middle
-    // button shows what a normal roll would actually be for this character right
-    // now. Nothing below reads `use-panic` — see damageFormulaFor for why that
-    // separation is the point and not an accident.
-    const quality = await askDamageQuality(formula);
-    if (quality === null) return; // dismissed: roll nothing
-    formula = damageFormulaFor(quality, formula);
+    // PANIC IMPOSES IMPAIRED, and offers no choice (user ruling 2026-08-07).
+    // Panic's d4 is not a separate substitution any more — it IS the impaired
+    // die, expressed through the same helper, which is the tidy-up the design
+    // note called optional. A panicked character cannot roll normal or enhanced,
+    // so the dialog does not open at all rather than opening with two buttons
+    // that would be refused.
+    //
+    // This does NOT make the mechanic depend on panic. `damageFormulaFor` still
+    // reads no setting and no actor; the caller decides. With use-panic off,
+    // `panicked` is false and every roll is asked for as normal — which is the
+    // whole reason the seam is where it is.
+    let quality;
+    if (panicked) quality = "impaired";
+    else {
+      quality = await askDamageQuality(dataset.roll);
+      if (quality === null) return; // dismissed: roll nothing
+    }
+    const formula = damageFormulaFor(quality, dataset.roll);
 
     const roll = await evaluateFormula(formula, this.actor.getRollData());
     // Two whole-sentence keys, not fragments glued with `+`: word order is not
@@ -2246,7 +2252,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     const flavor = await foundry.applications.handlebars.renderTemplate(
       "systems/air-bladder/templates/chat/dmg-roll-card.html",
-      { label, targets: targetIds, quality: damageQualityLabel(quality) }
+      {
+        label, targets: targetIds,
+        // The weapon travels as a datum too — the attack line rebuilds the
+        // sentence at render and cannot read it back out of localized prose.
+        weapon: dataset.label ?? "",
+        quality: damageQualityLabel(quality, { panicked }),
+      }
     );
     roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor });
   }

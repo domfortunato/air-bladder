@@ -71,7 +71,7 @@ Air Bladder es un sistema complementario amigable, no el sistema oficial de Cair
 - Una galería de 368 tokens de criaturas y PNJ en blanco y negro, con licencia CC BY-SA 4.0, de [tlomdev](https://tlomdev.itch.io/), que incluye el juego de retratos de Kettlewright: un personaje importado de Kettlewright conserva su rostro
 - Una galería de 17 monstruos dibujados para Air Bladder por [Lydia Comer](https://linktr.ee/lydiadidmyink), cada uno con un retrato emparejado con su propio token
 - Automatización mínima; con botones para descansar, restaurar características, pánico y daño crítico
-- Tiradas de daño mermadas y potenciadas — elige una al tirar, y la tarjeta indica cuál fue
+- Tiradas de daño mermadas y potenciadas — elige una al tirar, y la tarjeta indica cuál fue. Un personaje con pánico tira mermado automáticamente
 
 ## Funciones en el horizonte
 - Generador de encuentros

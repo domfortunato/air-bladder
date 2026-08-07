@@ -1586,15 +1586,20 @@ const nameDamageTargets = (message, html, scene) => {
     : (message.speaker?.alias ?? "");
   if (!attacker) return;
 
-  // ONE whole-sentence key with both placeholders, per the rule the two
-  // "Rolling damage with…" keys already follow: word order is not universal,
-  // and the article ("the") is English's problem to have — a translator holding
-  // the whole sentence can drop it, gender it, or move it.
-  // textContent, never innerHTML: a token name is Warden-authored free text.
-  label.textContent = game.i18n.format("CAIRN.AttacksTarget", {
-    attacker,
-    target: game.i18n.getListFormatter().format(names),
-  });
+  // Whole-sentence keys with every placeholder inside, per the rule the two
+  // "Rolling damage with…" keys already follow: word order is not universal, so
+  // a translator holds the entire sentence and can reorder, gender or drop parts
+  // of it. There is NO article — an early cut said "attacks the {target}" and
+  // read wrongly for any named NPC ("Lisbeth attacks the Thaddeus!").
+  // Two keys, not one with an empty {weapon}: a damage roll made from a control
+  // with no label has no weapon at all, and a dangling "with " is not something a
+  // translator can repair.
+  // textContent, never innerHTML: token and item names are authored free text.
+  const weapon = label.dataset.weapon ?? "";
+  label.textContent = game.i18n.format(
+    weapon ? "CAIRN.AttacksTargetWeapon" : "CAIRN.AttacksTarget",
+    { attacker, weapon, target: game.i18n.getListFormatter().format(names) },
+  );
 };
 
 /**
