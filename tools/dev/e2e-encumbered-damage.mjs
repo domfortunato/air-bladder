@@ -549,6 +549,22 @@ const scar = await page.evaluate(async () => {
       r.bannerCentered = cs.textAlign === "center";
       r.bannerBold = Number(cs.fontWeight) >= 700;
       r.bannerGlow = !!cs.textShadow && cs.textShadow !== "none";
+      r.bannerText = el.textContent.trim();
+      // The GLOW's COLOUR, which the leg above cannot see: `textShadow !== none`
+      // stayed green through the whole teal era. Read as the banner's shadow
+      // against a planted .dice-total.failure swatch and compared to EACH OTHER,
+      // never against rgb(206,7,7) — a literal would red on core retuning its own
+      // token (not a regression) and stay green if this rule drifted off the
+      // token while its three siblings did not. Planted, read, removed: a
+      // computed style is READ and nothing is written.
+      const swatch = document.createElement("div");
+      swatch.className = "dice-roll";
+      swatch.innerHTML = '<h4 class="dice-total failure">0</h4>';
+      el.parentElement?.appendChild(swatch);
+      r.failColor = getComputedStyle(swatch.querySelector(".dice-total")).color;
+      swatch.remove();
+      // textShadow computes as "<color> 0px 0px 8px"; the colour is the rgb(...).
+      r.bannerShadowColor = (cs.textShadow.match(/rgba?\([^)]*\)/) ?? [null])[0];
     }
   }
 
@@ -1005,8 +1021,16 @@ const untargeted = await page.evaluate(async () => {
   await scene.view();
   for (let i = 0; i < 40 && canvas?.scene?.id !== scene.id; i++) await sleep(150);
   for (let i = 0; i < 40 && !canvas?.tokens?.get(foeTok.id); i++) await sleep(150);
+  // BOTH candidate signals are established, then both are proven ignored. The
+  // picker proposes NOBODY (user ruling 2026-08-07) — the first cut pre-ticked
+  // the canvas selection and in play offered the ATTACKER as her own victim,
+  // because the gesture before a damage roll selects the roller. A targets-only
+  // variant was offered and rejected too, so targeting is set here as well: this
+  // is what catches a future edit reintroducing either default.
   canvas.tokens.get(foeTok.id)?.control({ releaseOthers: true });
+  canvas.tokens.get(pcTok.id)?.setTarget(true, { releaseOthers: true });
   r.controlled = canvas.tokens.controlled.map((t) => t.id);
+  r.targeted = Array.from(game.user.targets).map((t) => t.id);
 
   const dialogEl = async () => {
     for (let i = 0; i < 60; i++) {
@@ -1064,10 +1088,15 @@ const untargeted = await page.evaluate(async () => {
   anchor?.click();
   const dlg2 = await dialogEl();
   r.clickOpenedPicker = !!dlg2;
-  // Tick the PC as well — two ticked, and BOTH take the FULL roll, which is what
-  // a targeted card with two ids already does.
-  const pcBox = dlg2?.querySelector(`input[value="${pcTok.id}"]`);
-  if (pcBox && !pcBox.checked) pcBox.click();
+  // Tick BOTH — two ticked, and each takes the FULL roll, which is what a
+  // targeted card with two ids already does. Both, because the picker now
+  // proposes nobody: this leg used to tick only the PC and rely on the foe being
+  // pre-ticked from the selection, and it correctly went red when that default
+  // was removed.
+  for (const id of [foeTok.id, pcTok.id]) {
+    const box = dlg2?.querySelector(`input[value="${id}"]`);
+    if (box && !box.checked) box.click();
+  }
   r.tickedAtApply = Array.from(dlg2?.querySelectorAll('input[name="abDamageTarget"]:checked') ?? [])
     .map((b) => b.value);
   dlg2?.querySelector('button[data-action="apply"]')?.click();
@@ -1118,6 +1147,9 @@ const untargeted = await page.evaluate(async () => {
   for (const m of game.messages.contents.slice().reverse().slice(0, 16)) {
     if (m.speaker?.token === foeTok.id || m.speaker?.token === pcTok.id) await m.delete();
   }
+  // Release the target before leaving, or it follows the probe out of the
+  // section and the next leg's user state is not what it thinks it is.
+  canvas.tokens.get(pcTok.id)?.setTarget(false, { releaseOthers: true });
   // Look away FIRST, then delete — see prevScene above.
   if (prevScene && prevScene.id !== scene.id) await prevScene.view();
   for (let i = 0; i < 40 && canvas?.scene?.id === scene.id; i++) await sleep(150);
@@ -1192,6 +1224,151 @@ const breakdown = await page.evaluate(async () => {
   for (const a of made) await a.delete();
   return r;
 });
+
+/* ---------------------------------------------------------------------------
+ * Critical Damage, Stabilized and Dead announce themselves in chat.
+ *
+ * Marking Critical Damage used to set a flag and nothing else, and death was a
+ * bare unstyled <strong>Dead</strong> at the foot of the damage card — the
+ * plainest thing on it, for the worst outcome in the game. All three are now the
+ * SHEET's own status bars, posted to the log.
+ *
+ * Driven with ALICE connected, because the leg that matters most cannot be seen
+ * with one browser: `_onUpdate` runs on EVERY client, so a missing
+ * `userId === game.user.id` guard posts one card per logged-in user and a
+ * single-context probe counts one either way.
+ * ------------------------------------------------------------------------- */
+const status = { ran: false };
+try {
+  const alicePage = await browser.newPage({ viewport: VIEWPORT });
+  await joinAs(alicePage, "Alice");
+  Object.assign(status, await page.evaluate(async () => {
+    const ActorImpl = CONFIG.Actor.documentClass;
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const r = { ran: true };
+
+    const pc = await ActorImpl.create({
+      name: "ZZ Status PC", type: "character",
+      system: { hp: { value: 4, max: 4 }, armor: 0, abilities: { STR: { value: 10, max: 10 } } },
+    });
+    const bars = () => game.messages.contents
+      .filter((m) => m.speaker?.actor === pc.id && /class="status-banner/.test(String(m.content ?? "")));
+    // The SECOND class, not the first: every bar carries `status-banner
+    // status-<kind>`, so a bare /status-(\w+)/ matches "banner" every time and
+    // reports the same word for all three.
+    const kindsOf = () => bars().map(
+      (m) => (String(m.content).match(/status-banner\s+status-(\w+)/) ?? [, null])[1]);
+
+    // 1. false -> true posts ONE critical bar.
+    await pc.update({ "system.critical": true });
+    for (let i = 0; i < 40 && !bars().length; i++) await sleep(150);
+    await sleep(600);                    // room for a duplicate to arrive
+    r.afterMark = kindsOf();
+
+    // 2. A NO-OP must post nothing. This is the transition rule, and the leg a
+    //    naive "post whenever the value is truthy" implementation fails.
+    await pc.update({ "system.critical": true });
+    await sleep(600);
+    r.afterNoop = kindsOf();
+
+    // 3. true -> false posts the calmer stabilized bar.
+    await pc.update({ "system.critical": false });
+    for (let i = 0; i < 40 && kindsOf().length < 2; i++) await sleep(150);
+    await sleep(400);
+    r.afterClear = kindsOf();
+
+    // 4. The suppression flag the damage flow and the regeneration paths use.
+    await pc.update({ "system.critical": true }, { abNoStatusCard: true });
+    await sleep(600);
+    r.afterSuppressed = kindsOf();
+    await pc.update({ "system.critical": false }, { abNoStatusCard: true });
+    await sleep(300);
+
+    // 5. STR reaching 0 by a SHEET edit posts the dead bar. `dead` is DERIVED
+    //    (STR <= 0), so there is no flag to watch — the pre-state is stashed in
+    //    _preUpdate, and this is what proves that stash works.
+    await pc.update({ "system.abilities.STR.value": 0 });
+    for (let i = 0; i < 40 && !kindsOf().includes("dead"); i++) await sleep(150);
+    await sleep(400);
+    r.afterDeath = kindsOf();
+    // ...and 0 -> 0 is not a transition.
+    await pc.update({ "system.abilities.STR.value": 0 });
+    await sleep(600);
+    r.afterDeathNoop = kindsOf();
+    // 6. A CORPSE is never "stabilized". Death overrides Critical Damage on the
+    //    sheet (`critical && !dead`), so clearing the flag on a dead actor must
+    //    stay silent — this is the leg that exercises the transition guard
+    //    itself, since the no-op above is caught by Foundry's own diff before
+    //    the guard is ever consulted.
+    await pc.update({ "system.critical": true });
+    for (let i = 0; i < 40 && kindsOf().filter((k) => k === "critical").length < 2; i++) await sleep(150);
+    await sleep(300);
+    r.corpseMark = kindsOf();
+    await pc.update({ "system.critical": false });
+    await sleep(700);
+    r.corpseClear = kindsOf();
+
+    r.deadCard = String(bars().find((m) => /status-dead/.test(String(m.content)))?.content ?? "");
+    // No name is interpolated: the header names the actor.
+    r.deadCardNamesNobody = !r.deadCard.includes("ZZ Status PC");
+    r.deadSpeaker = bars().find((m) => /status-dead/.test(String(m.content)))?.speaker?.actor === pc.id;
+
+    for (const m of bars()) await m.delete();
+    await pc.delete();
+    return r;
+  }));
+
+  /* Killing by DAMAGE: the damage card must come FIRST, then the death bar. */
+  Object.assign(status, await page.evaluate(async () => {
+    const ActorImpl = CONFIG.Actor.documentClass;
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const { Damage } = await import("/systems/air-bladder/module/damage.js");
+    const r = {};
+    const foe = await ActorImpl.create({
+      name: "ZZ Dying Foe", type: "npc",
+      system: { role: "monster", hp: { value: 0, max: 4 }, armor: 0, abilities: { STR: { value: 2, max: 2 } } },
+    });
+    const scene = await Scene.create({ name: "ZZ Dying Scene", width: 1000, height: 1000 });
+    const [tok] = await scene.createEmbeddedDocuments("Token", [await foe.getTokenDocument({ x: 100, y: 100 })]);
+
+    await Damage.applyToTargets([tok.id], 5, scene);
+    const mine = () => game.messages.contents.filter((m) => m.speaker?.token === tok.id);
+    for (let i = 0; i < 40 && mine().length < 2; i++) await sleep(150);
+    await sleep(500);
+    const ordered = mine();
+    r.killCards = ordered.map((m) => (/status-dead/.test(String(m.content)) ? "deadbar"
+      : /CAIRN|Damage|<strong>/.test(String(m.content)) ? "damage" : "other"));
+    // The damage card must not carry a bare Dead line any more — the bar owns it.
+    r.damageCardHasDead = ordered.some((m) => !/status-banner/.test(String(m.content))
+      && /<strong>Dead<\/strong>/.test(String(m.content)));
+
+    // Hitting an ALREADY-dead creature: STR was 0 before, so no transition fires
+    // and the shared card is silent — this path posts the bar itself, or a click
+    // on a corpse would do nothing visible at all.
+    for (const m of mine()) await m.delete();
+    await Damage.applyToTargets([tok.id], 3, scene);
+    for (let i = 0; i < 40 && !mine().length; i++) await sleep(150);
+    await sleep(400);
+    r.corpseCards = mine().map((m) => (/status-dead/.test(String(m.content)) ? "deadbar" : "other"));
+
+    for (const m of mine()) await m.delete();
+    await scene.delete();
+    await foe.delete();
+    return r;
+  }));
+
+  // Alice's client must have posted NOTHING. Read from HER page: the count above
+  // is the GM's view of the world collection, which is the same document set —
+  // what this adds is proof her client was connected and receiving the whole
+  // time, so "one card" is not "one client was asleep".
+  Object.assign(status, await alicePage.evaluate(async () => ({
+    aliceIsGM: game.user.isGM,
+    aliceSaw: game.messages.contents.filter((m) => /class="status-banner/.test(String(m.content ?? ""))).length,
+  })));
+  await alicePage.close();
+} catch (e) {
+  status.error = `${e.name}: ${e.message}`;
+}
 
 await browser.close();
 
@@ -1328,6 +1505,13 @@ console.log("\nthe Scar banner and chat legibility");
 check("the banner renders", scar.bannerRendered, ".cairn-scar-banner on the damage card");
 check("centred, bold and glowed", scar.bannerCentered && scar.bannerBold && scar.bannerGlow,
   `align=${scar.bannerCentered} bold=${scar.bannerBold} glow=${scar.bannerGlow}`);
+// The COLOUR, which the leg above is structurally blind to — it only asks
+// whether a shadow exists, and stayed green through the whole teal era.
+check("the glow is the failure colour",
+  !!scar.bannerShadowColor && scar.bannerShadowColor === scar.failColor,
+  `banner glow is ${scar.bannerShadowColor}, .dice-total.failure is ${scar.failColor} — compared to EACH OTHER, so a core retune of the token is not a failure and a rule that drifted off it is`);
+check("and it ends in an exclamation", /!$/.test(scar.bannerText ?? ""),
+  `"${scar.bannerText}" — i18n:check cannot see a changed English value, so this is the only thing watching it`);
 check("chat body above core's 14px", scar.contentPx > 14,
   `.message-content computes to ${scar.contentPx}px`);
 // The flavor is a different element from the content and was left behind by the
@@ -1443,13 +1627,16 @@ check("the PC is listed", untargeted.rows?.some((x) => x.name === "ZZ Untargeted
   `${JSON.stringify(untargeted.rows?.map((x) => x.name))} — falling damage and friendly fire are real, so PCs are never filtered out`);
 check("and listed second", untargeted.foeBeforePc,
   "ticked in place: nothing re-sorts under the Warden, but the common case is at the top");
-// The pre-tick is the whole reason it can always confirm without being a
-// nuisance. Asserted on the SELECTED token specifically, not "something is
-// ticked" — a build that ticked everything would satisfy the weaker claim.
-check("the canvas selection is pre-ticked",
-  JSON.stringify(untargeted.pretickedIds) === JSON.stringify(untargeted.controlled),
-  `ticked ${JSON.stringify(untargeted.pretickedIds)} vs selected ${JSON.stringify(untargeted.controlled)} — and `
-  + "`checked` had to be set as an ATTRIBUTE: the element is serialized to HTML, so the IDL property would not survive");
+// The picker proposes NOBODY. STATES ITS OWN PRECONDITION: with nothing selected
+// and nothing targeted, "nothing is ticked" is true for the wrong reason, so both
+// signals must be present and both ignored. The first cut pre-ticked the canvas
+// selection and offered the ATTACKER as her own victim — the gesture before a
+// damage roll SELECTS the roller — and a targets-only variant was rejected too.
+check("the picker proposes nobody",
+  untargeted.controlled?.length > 0 && untargeted.targeted?.length > 0
+  && untargeted.pretickedIds?.length === 0,
+  `ticked ${JSON.stringify(untargeted.pretickedIds)} with ${JSON.stringify(untargeted.controlled)} selected `
+  + `and ${JSON.stringify(untargeted.targeted)} targeted — a wrong default is worse than no default`);
 check("Cancel applies nothing", untargeted.cancelGaveNothing,
   `resolved to ${JSON.stringify(untargeted.cancelResult)} — a ✕ is an instruction, not a default`);
 check("clicking the real anchor asks", untargeted.clickOpenedPicker,
@@ -1493,6 +1680,57 @@ check("a spaced U+2212, not a hyphen", /−/.test(breakdown.armored) && !/6 dama
 check("HP and STR are unchanged on screen",
   !!breakdown.controlContent && breakdown.overflow.includes(breakdown.controlContent),
   `card has "${breakdown.overflow.replace(/<[^>]*>/g, "|")}"; the pre-fix concatenation renders "${breakdown.controlContent}" — same "=>", same strike-through: the keying was sold as a translatability fix with NO visual consequence`);
+
+console.log("\nCritical Damage, Stabilized and Dead announce themselves");
+check("the two-client leg ran", status.ran && !status.aliceIsGM,
+  status.error ?? `Alice isGM=${status.aliceIsGM} (needs npm run dev:players)`);
+// EXACTLY one. _onUpdate runs on every connected client, so a missing
+// `userId === game.user.id` guard posts one card per logged-in user — and with a
+// single browser that is invisible, which is why Alice is joined for this.
+check("marking critical posts ONE bar",
+  JSON.stringify(status.afterMark) === JSON.stringify(["critical"]),
+  `${JSON.stringify(status.afterMark)} — one card per connected client is what a missing userId guard looks like`);
+// Real behaviour, but it is FOUNDRY's diff that produces it, not our guard:
+// setting a field to the value it already holds drops it from `changed`, so
+// _preUpdate never stashes and the outer `!== undefined` skips. Witnessed —
+// removing our transition check leaves this leg green. Asserted anyway because
+// it is what a user gets; the guard's own leg is the corpse one below.
+check("a no-op posts nothing",
+  JSON.stringify(status.afterNoop) === JSON.stringify(["critical"]),
+  `${JSON.stringify(status.afterNoop)} — Foundry drops an unchanged field from the diff`);
+check("clearing posts the stabilized bar",
+  JSON.stringify(status.afterClear) === JSON.stringify(["critical", "stabilized"]),
+  `${JSON.stringify(status.afterClear)}`);
+check("abNoStatusCard silences it",
+  JSON.stringify(status.afterSuppressed) === JSON.stringify(["critical", "stabilized"]),
+  `${JSON.stringify(status.afterSuppressed)} — the flag the damage flow and the regeneration paths pass`);
+// `dead` is DERIVED (STR <= 0), so there is no flag to watch and the pre-state
+// has to be stashed in _preUpdate. This leg is what proves that stash works.
+check("STR reaching 0 posts the dead bar", status.afterDeath?.includes("dead"),
+  `${JSON.stringify(status.afterDeath)} — by a sheet edit, not by damage`);
+check("and 0 -> 0 posts nothing",
+  JSON.stringify(status.afterDeathNoop) === JSON.stringify(status.afterDeath),
+  `${JSON.stringify(status.afterDeathNoop)}`);
+// THE transition guard's own leg. Marking critical on a corpse still announces
+// (nothing ruled otherwise), but CLEARING it must not claim a stabilization —
+// death overrides Critical Damage. Both halves, so "nothing was posted" cannot
+// pass because the mark failed too.
+check("a corpse is never stabilized",
+  status.corpseMark?.filter((k) => k === "critical").length === 2
+  && JSON.stringify(status.corpseClear) === JSON.stringify(status.corpseMark),
+  `marked ${JSON.stringify(status.corpseMark)} then cleared to ${JSON.stringify(status.corpseClear)}`);
+check("the bar names nobody in its body", status.deadCardNamesNobody && status.deadSpeaker,
+  "the header names the actor, so no authored text is interpolated into the markup");
+// The ORDER. Nothing else can see it: both cards exist either way, and posting
+// the bar from _onUpdate puts it ABOVE the damage card that caused it.
+check("damage first, then the death bar",
+  JSON.stringify(status.killCards) === JSON.stringify(["damage", "deadbar"]),
+  `${JSON.stringify(status.killCards)} — _onUpdate fires when applyToTarget's update resolves, which is BEFORE _showDetails posts`);
+check("the damage card drops its bare Dead", status.damageCardHasDead === false,
+  "the bar owns the announcement; two would be a duplicate");
+check("a corpse still gets feedback",
+  JSON.stringify(status.corpseCards) === JSON.stringify(["deadbar"]),
+  `${JSON.stringify(status.corpseCards)} — STR was already 0, so no transition fires and _showDetails posts it directly`);
 
 if (errors.length) { bad++; console.log("Console errors:\n" + errors.join("\n")); }
 console.log(bad === 0 ? "\nencumbered-damage e2e passed" : `\nencumbered-damage e2e FAILED — ${bad}`);

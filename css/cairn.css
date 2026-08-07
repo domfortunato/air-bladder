@@ -1243,16 +1243,23 @@
     font-weight: 700;
 }
 
-/* "Got a scar" on a damage card. A scar is a rules event with lasting
+/* "Got a scar!" on a damage card. A scar is a rules event with lasting
    consequences and it read as one more bold label in a stack of them. Centred
    and glowed, borrowing #die-of-fate-button's treatment (user ask) -- the same
-   idea, that a deliberate/consequential moment lights up rather than boxes. */
+   idea, that a consequential moment lights up rather than boxes.
+
+   The SHAPE is the Die of Fate's glow; the COLOUR is Foundry's error token
+   (user ask, 2026-08-07), which is the distinction: a Die of Fate is a choice
+   you MAKE, a scar is something that HAPPENS to you. That put this in the same
+   set as .apply-dmg and .mark-critical-damage, whose 8px error-red glow this now
+   matches exactly -- it was the last consequential-damage surface in the log
+   still reading teal. Constant across light and dark, so it reads on either. */
 .chat-message .cairn-scar-banner {
     font-weight: 700;
     font-size: 17px;
     text-align: center;
     margin: 8px 0 4px;
-    text-shadow: 0 0 8px var(--ab-accent);
+    text-shadow: 0 0 8px var(--color-level-error, #ce0707);
 }
 
 /* The character-generation card: HP / STR / DEX / WIL / Gold, one "LABEL: value"
@@ -2050,6 +2057,12 @@ textarea.omen-input {
 .status-paralyzed { background: #1565c0; }
 .status-delirious { background: #6a1b9a; }
 .status-encumbered { background: #bf360c; }
+/* CHAT ONLY -- the sheet lists ACTIVE conditions and "not critical any more" is
+   not one. Material green 800, the register the five above are drawn from, so
+   the recovery bar sits in the same family as the wounds. These bars are all
+   white-on-solid and identical in chat and on a sheet: the rules-critical
+   statuses are deliberately ONE visual language wherever they appear. */
+.status-stabilized { background: #2e7d32; }
 
 /* STR-only Critical Damage skull toggle, pinned to the right of the counter
    (which must be positioned for the absolute skull to anchor to it). */

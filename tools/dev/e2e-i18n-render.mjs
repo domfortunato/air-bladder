@@ -101,10 +101,15 @@ try {
       r.cleanup.actorId = actor.id;
 
       // Critical Damage shows only while STR is damaged and the character alive.
+      //
+      // abNoStatusCard: since 2026-08-07 crossing into Critical Damage posts a
+      // chat card, and this probe only wants the SHEET banner. Without the flag
+      // every run of it drops a bar into the dev world's log, which nothing here
+      // would clean up.
       await actor.update({
         "system.abilities.STR.value": Math.max(1, actor.system.abilities.STR.max - 2),
         "system.critical": true,
-      });
+      }, { abNoStatusCard: true });
       await actor.createEmbeddedDocuments("Item", [
         { name: "Magic Missile", type: "spellbook" },
         { name: "Spellbook — Hempen Hoop", type: "spellbook" },

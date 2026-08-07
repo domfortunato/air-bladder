@@ -1,5 +1,6 @@
 import { findCompendiumItem } from './compendium.js'
 import { evaluateFormula, askDamageTargets } from './utils.js'
+import { postStatusCard } from './actor/actor.js'
 
 // The system's flag namespace, imported rather than re-declared: a second
 // "air-bladder" literal is a second thing that can drift, and a flag written
@@ -29,7 +30,11 @@ export class Damage {
         for (const target of targets) {
             const data = await this.applyToTarget(target, damage, scene);
             if (data) {
-                this._showDetails(data);   // skip targets whose token is gone
+                // AWAITED, which it was not before. _showDetails now posts a
+                // second card (the death bar) that must land AFTER the damage
+                // card, and two un-awaited creates racing per target would also
+                // let a second target's damage card overtake the first's.
+                await this._showDetails(data);   // skip targets whose token is gone
                 applied.push({ id: target, dmg: data.dmg });
             }
             else missed++;
@@ -72,7 +77,14 @@ export class Damage {
         let { dmg, newHp, newStr } = this._calculateHpAndStr(damage, armor, hp, str);
         if (newStr < 0) newStr = 0; // cannot drop below being dead
 
-        await token.actor.update({ 'system.hp.value': newHp, 'system.abilities.STR.value': newStr });
+        // abNoStatusCard: this write is what KILLS the target, so CairnActor's
+        // _onUpdate would post the death bar the instant it resolves -- which is
+        // before _showDetails posts the damage card below it, leaving the log
+        // reading "Dead" above the "Damage: 5" that caused it. _showDetails posts
+        // it instead, in order. See postStatusCard.
+        await token.actor.update(
+            { 'system.hp.value': newHp, 'system.abilities.STR.value': newStr },
+            { abNoStatusCard: true });
 
         return { token, dmg, damage, armor, hp, str, newHp, newStr };
     }
@@ -198,22 +210,29 @@ export class Damage {
     }
 
     /**
-     * Show chat message details of damage done for a token
+     * Show chat message details of damage done for a token.
+     *
+     * ASYNC since 2026-08-07, and awaited by applyToTargets: death is announced
+     * by its own card and that card has to land AFTER this one, which two
+     * un-awaited creates cannot guarantee.
      * @param data
      * @private
      */
-    static _showDetails(data) {
+    static async _showDetails(data) {
 
         const { token, dmg, damage, armor, hp, str, newHp, newStr } = data
 
-        
+
 
         if (str == 0) {
-            ChatMessage.create({
-                user: game.user._id,
-                speaker: ChatMessage.getSpeaker({ token: token }),
-                content: '<strong>' + game.i18n.localize('CAIRN.Dead') + '</strong>',
-            }, {});
+            // ALREADY dead before this hit, so the update was 0 -> 0 and no
+            // transition fired: this bar is the only feedback the Warden gets,
+            // and without it a click on a corpse does nothing visible at all --
+            // the same "nothing is indistinguishable from armor absorbed it"
+            // problem the missed-target warning exists for. It is a statement of
+            // state rather than an announcement, which is why it is posted here
+            // and not by the update hook.
+            await postStatusCard(token?.actor, "dead");
             return;
         }
 
@@ -264,30 +283,43 @@ export class Damage {
         // overflow past HP offers the STR-save button, and damage landing
         // exactly on 0 HP rolls a Scar. Cairn's rules carve monsters out of
         // neither, so no npcRole gate belongs here.
+        // DEATH, decided here and announced below. The old code appended a bare
+        // <strong>Dead</strong> to this card -- the plainest thing on it, for the
+        // worst outcome in the game -- and it is now its own red status bar,
+        // posted AFTER this card so the log reads "Damage: 5" and then "Dead".
+        const died = newStr < str && newStr === 0;
+
+        // Monsters take BOTH branches below on purpose (ratified 2026-08-01):
+        // overflow past HP offers the STR-save button, and damage landing
+        // exactly on 0 HP rolls a Scar. Cairn's rules carve monsters out of
+        // neither, so no npcRole gate belongs here.
         if (newStr < str) {
-            if (newStr === 0) {
-                content += '<strong>' + game.i18n.localize('CAIRN.Dead') + '</strong>'
-            } else {
+            if (!died) {
                 content += '<p><strong>' + game.i18n.localize('CAIRN.StrSave') + '</strong></p>'
                 content += '<button type="button" class="roll-str-save">' + game.i18n.localize('CAIRN.RollStrSave') + '</button>'
             }
         } else if (newHp === 0 && hp !== 0) {
             content += '<p class="cairn-scar-banner">' + game.i18n.localize('CAIRN.Scars') + '</p>'
             // The TOKEN goes with it, or the scar card is posted in someone else's
-            // name -- see _rollScarsTable. Not awaited (this method is sync and the
-            // damage card below should land first), so catch here: an unhandled
+            // name -- see _rollScarsTable. Deliberately NOT awaited even though
+            // this method is async now: the damage card below must land first,
+            // and the draw is slower than it. Catch here -- an unhandled
             // rejection mid-damage-resolution is silent.
             this._rollScarsTable(dmg, token).catch((err) => {
                 console.error("Air Bladder | the Scars draw failed:", err);
             });
         }
 
-        ChatMessage.create({
+        await ChatMessage.create({
             user: game.user._id,
             speaker: ChatMessage.getSpeaker({ token: token }),
             content: content,
         }, {})
 
+        // AFTER the damage card, and that ordering is the whole reason this is
+        // posted here rather than from CairnActor's update hook -- see
+        // postStatusCard's docblock.
+        if (died) await postStatusCard(token?.actor, "dead");
     }
 
     /**

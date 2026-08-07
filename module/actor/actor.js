@@ -24,6 +24,73 @@ const confirmDelete = (name) =>
   });
 
 /**
+ * The three status bars that announce themselves in chat.
+ *
+ * The SHEETS already render exactly these conditions as filled bars
+ * (`.status-banner` + `.status-<key>`, `css/cairn.css`, built for
+ * `context.statusBanners` in `actor-sheet.js`), so the chat card reuses that
+ * markup verbatim: the player sees the IDENTICAL bar in the log and on the
+ * sheet, and critical/dead need no new colour and no new string at all. Only
+ * `stabilized` is new, and it is chat-only — the sheet lists ACTIVE conditions,
+ * and "not critical any more" is not one.
+ *
+ * `label` is a function because the two ability-scoped ones format STR through
+ * `CAIRN.*StatusFor`, which exists precisely so a translation need not put the
+ * ability name last.
+ */
+const STATUS_CARDS = {
+  critical: {
+    cls: "status-critical", icon: "fa-heart-crack", text: "CAIRN.CriticalDamageBanner",
+    label: () => game.i18n.format("CAIRN.CriticalDamageStatusFor", { key: game.i18n.localize("STR") }),
+  },
+  stabilized: {
+    cls: "status-stabilized", icon: "fa-heart-pulse", text: "CAIRN.StabilizedBanner",
+    label: () => game.i18n.format("CAIRN.StabilizedStatusFor", { key: game.i18n.localize("STR") }),
+  },
+  dead: {
+    cls: "status-dead", icon: "fa-skull", text: "CAIRN.DeadBanner",
+    label: () => game.i18n.localize("CAIRN.Dead"),
+  },
+};
+
+/**
+ * Post one status bar to chat.
+ *
+ * ONE builder with TWO callers, and that is deliberate rather than a compromise.
+ * `_onUpdate` handles every route that sets the state from a sheet or a button;
+ * the DAMAGE flow suppresses that hook and calls this itself, because `_onUpdate`
+ * fires the moment `applyToTarget`'s `update()` resolves — which is BEFORE
+ * `_showDetails` posts the damage card, so a hook-posted death card would race
+ * ahead of the card that explains it and the log would read "Dead" above
+ * "Damage: 5". Two producers of the same markup would be the bug; two callers of
+ * one builder, each owning its own ordering, is the fix.
+ *
+ * NO name is interpolated: the header names the actor, exactly as the scar card
+ * was fixed to do. That keeps authored text out of the markup entirely — the
+ * label and body are localized strings and nothing else — and dodges the
+ * many-to-one reverse lookup that stops a name being localized per viewer.
+ *
+ * The TOKEN is preferred for the speaker: damage on an unlinked token lands on a
+ * synthetic delta actor that is NOT in `game.actors`, so naming it through the
+ * world actor would miss.
+ *
+ * @param {Actor} actor
+ * @param {"critical"|"stabilized"|"dead"} kind
+ */
+export const postStatusCard = async (actor, kind) => {
+  const spec = STATUS_CARDS[kind];
+  if (!spec || !actor) return;
+  const speaker = actor.token
+    ? ChatMessage.getSpeaker({ token: actor.token })
+    : ChatMessage.getSpeaker({ actor });
+  return ChatMessage.create({
+    speaker,
+    content: `<div class="status-banner ${spec.cls}"><i class="fas ${spec.icon}"></i>`
+      + `<span><strong>${spec.label()}:</strong> ${game.i18n.localize(spec.text)}</span></div>`,
+  });
+};
+
+/**
  * Extend the base Actor entity by defining a custom roll data structure which is ideal for the Simple system.
  * @extends {Actor}
  */
@@ -1305,6 +1372,19 @@ export class CairnActor extends Actor {
       options.airBladderFormerOwners = [this.system.connectedTo].filter(Boolean);
     }
 
+    // Critical Damage and death announce themselves in chat, and both need the
+    // value BEFORE the write to tell a real transition from a no-op.
+    //
+    // Death is the awkward one: there is NO dead flag — `dead` is DERIVED as
+    // `STR <= 0` (the sheets compute it that way) — so "was it alive?" cannot be
+    // read back in _onUpdate and has to be captured here. Flattened for the
+    // reason the Kind block above flattens: an update may arrive keyed either way.
+    const statusFlat = foundry.utils.flattenObject(changed);
+    if ("system.abilities.STR.value" in statusFlat) {
+      options.abWasAlive = Number(this.system.abilities?.STR?.value) > 0;
+    }
+    if ("system.critical" in statusFlat) options.abWasCritical = this.system.critical === true;
+
     return result;
   }
 
@@ -1313,6 +1393,46 @@ export class CairnActor extends Actor {
     this.system.slotsMax = this.calcCurrentMaxSlots();
     super._onUpdate(changed, options, userId);
     this._synchronizeOwnerSheets(options.airBladderFormerOwners ?? []);
+    this.#announceStatusChange(options, userId);
+  }
+
+  /**
+   * Announce a crossing into (or out of) Critical Damage, and into death.
+   *
+   * Marking Critical Damage used to set a flag and nothing else, so the table
+   * learned about the most consequential status in the game only if somebody
+   * looked at a sheet. It fires for EVERY route that sets the state — the chat
+   * button and the sheet's skull toggle both — because a button-only card would
+   * miss the one a Warden actually uses on a monster.
+   *
+   * No actor-type gate: monsters are carved out of neither the STR save nor the
+   * scar draw (ratified 2026-08-01, see `Damage._showDetails`), so they are not
+   * carved out of this either.
+   */
+  #announceStatusChange(options, userId) {
+    // ONE client posts. `_onUpdate` runs on EVERY connected client, so without
+    // this the table gets one card per logged-in user — and with a single
+    // browser open that is completely invisible, which is why the probe leg for
+    // it has to join as a second player.
+    if (userId !== game.user.id) return;
+    // The damage flow posts its own, in order, after the damage card; the
+    // regeneration paths set these fields while REBUILDING a character, which is
+    // neither stabilizing nor killing one.
+    if (options.abNoStatusCard) return;
+
+    const dead = Number(this.system.abilities?.STR?.value) <= 0;
+
+    if (options.abWasCritical !== undefined) {
+      const now = this.system.critical === true;
+      // Death overrides Critical Damage on the sheet (`strCritical && !dead`),
+      // so a corpse is never announced as "stabilized".
+      if (now !== options.abWasCritical && !(dead && !now)) {
+        postStatusCard(this, now ? "critical" : "stabilized");
+      }
+    }
+    // Alive -> dead only. Nothing asked for a resurrection card, and STR
+    // climbing back off 0 is ordinary healing.
+    if (options.abWasAlive === true && dead) postStatusCard(this, "dead");
   }
 
   /** @override */

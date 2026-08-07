@@ -2645,6 +2645,11 @@ export const regenerateNpc = async (actor) => {
       traits: h.traits,
       critical: false,
     },
+  }, {
+    // Regenerating is REPLACING this person, not healing them: clearing
+    // `critical` here must not announce a stabilization in chat. See
+    // CairnActor#_onUpdate.
+    abNoStatusCard: true,
   });
   return actor;
 };
@@ -2677,6 +2682,10 @@ export const rerollNpcProfession = async (actor) => {
       hp: { value: h?.hp ?? 6, max: h?.hp ?? 6 },
       critical: false,
     },
+  }, {
+    // Same as regenerateNpc: a re-rolled career is a new statblock, not a
+    // recovery, so the cleared `critical` stays out of chat.
+    abNoStatusCard: true,
   });
   return actor;
 };

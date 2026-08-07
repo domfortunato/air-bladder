@@ -261,16 +261,26 @@ export const nameableTokens = (ids, scene) => {
  * (`applyToTarget` wants a token id and a scene, and has no notion of "was this
  * targeted"); only the answer to "who?" was missing.
  *
- * It ALWAYS confirms, even with a selection on the canvas. Applying damage
- * decides what happened to somebody else's character, and a control that reads
- * the canvas silently would make the most consequential click in the log depend
- * on state the Warden cannot see from the log. The selection is honoured as the
- * PRE-TICK instead, so the common case is still one extra click.
+ * It ALWAYS confirms, and it **PROPOSES NOBODY** (user ruling 2026-08-07,
+ * superseding the first cut). Applying damage decides what happened to somebody
+ * else's character, and a control that reads the canvas silently would make the
+ * most consequential click in the log depend on state the Warden cannot see from
+ * the log.
+ *
+ * The first cut pre-ticked the canvas selection, and in play it proposed the
+ * ATTACKER as her own victim. That is not bad luck: the gesture that PRECEDES a
+ * damage roll — opening a combatant's sheet, usually by double-clicking its token
+ * — SELECTS the roller. So the heuristic was biased toward exactly the wrong
+ * answer, and most reliably wrong in the commonest case.
+ *
+ * A targets-only variant (`game.user.targets`, which has no such bias, since
+ * targeting is aiming where selection is controlling) was offered and rejected
+ * too. **Nothing is pre-ticked; do not re-propose a smarter default.** A wrong
+ * default is worse than no default, and the cost is one tick.
  *
  * Two groups, monsters first — that is the common case — and PCs listed rather
  * than filtered out, because falling damage and friendly fire are real and a
- * filter would have to guess. Nothing re-sorts under the Warden: a pre-ticked
- * token stays where it is in the list.
+ * filter would have to guess. Nothing re-sorts under the Warden.
  *
  * Concealment is `nameableTokens`, not a second test. A GM is above every gate in
  * it, so in practice the Warden is offered the whole scene — but routing through
@@ -291,15 +301,8 @@ export const askDamageTargets = async (scene) => {
     return [];
   }
 
-  // Only when the viewed scene IS the card's. A selection made somewhere else is
-  // not an answer to "who on THIS scene takes it", and pre-ticking from it would
-  // silently propose the wrong creatures.
-  const preticked = new Set();
-  if (canvas?.scene?.id === scene?.id) {
-    for (const t of canvas.tokens?.controlled ?? []) preticked.add(t.id);
-    for (const t of game.user?.targets ?? []) preticked.add(t.id);
-  }
-
+  // NOTHING is read from the canvas here — see the docblock. Neither
+  // `canvas.tokens.controlled` nor `game.user.targets`.
   const foes = [];
   const pcs = [];
   for (const entry of listed) {
@@ -332,15 +335,16 @@ export const askDamageTargets = async (scene) => {
       row.className = "ab-target-row";
       const box = document.createElement("input");
       // setAttribute, NOT the properties. The element is serialized to HTML and
-      // re-parsed, and `box.checked = true` / `box.value = id` set IDL properties
-      // that do NOT reflect into the markup — the dialog would open with every
-      // box blank and every value empty, silently. `type` and `name` do reflect;
-      // they are written the same way so the next reader is not left deciding
-      // which of four lines is safe.
+      // re-parsed, so `box.value = id` sets an IDL property that does NOT reflect
+      // into the markup — every row would arrive with an empty value, silently.
+      // `type` and `name` do reflect; they are written the same way so the next
+      // reader is not left deciding which of three lines is safe.
+      //
+      // Nothing sets `checked` any more (the picker proposes nobody), which is
+      // why no row is ticked and not an oversight.
       box.setAttribute("type", "checkbox");
       box.setAttribute("name", "abDamageTarget");
       box.setAttribute("value", entry.id);
-      if (preticked.has(entry.id)) box.setAttribute("checked", "checked");
       const name = document.createElement("span");
       name.textContent = entry.name;
       row.append(box, name);
