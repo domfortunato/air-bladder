@@ -447,7 +447,7 @@
   "CAIRN.RollingDmgWithWeaponPanic": "Rolling damage with {weapon} (Panic)",
   "CAIRN.RollingWhat": "Rolling {what}",
   "CAIRN.Save": "{key} save",
-  "CAIRN.ScarFlavor": "Takes a scar",
+  "CAIRN.ScarFlavor": "Takes a scar!",
   "CAIRN.Scars": "Got a scar",
   "CAIRN.ScarsHint": "If damage reduced your HP to exactly 0, check the Scars box and choose the value equal to the damage you received.",
   "CAIRN.ScarsSection": "Scars",

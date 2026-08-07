@@ -552,9 +552,27 @@ const scar = await page.evaluate(async () => {
     }
   }
 
+  // The scar card carries NO dice block. The roll handed to draw() is a CONSTANT
+  // (new Roll("3")), so forwarding it to toMessage rendered formula "3" and total
+  // "3" — the damage number twice, under a damage card that had just given it.
+  // BOTH ENDS: the dice block is gone AND the scar text survives, so "removed the
+  // block" cannot pass as "removed the card".
+  if (card) {
+    await sleep(300);
+    const row = document.querySelector(`[data-message-id="${card.id}"]`);
+    r.scarRendered = !!row;
+    r.scarDiceBlocks = row ? row.querySelectorAll(".dice-roll").length : null;
+    r.scarResultText = row
+      ? (row.querySelector(".table-results li")?.textContent ?? "").trim()
+      : null;
+  }
+
   // CONTROL, in-page: the pre-fix call — bare draw() with its own chat card, the
   // exact line this fix replaced. Its speaker must NOT be the victim; if it were,
-  // the assertion above would not be measuring anything we changed.
+  // the assertion above would not be measuring anything we changed. It is also
+  // the control for the dice block: draw() forwards the roll, so this card MUST
+  // show one — otherwise the table has displayRoll off and the leg above proves
+  // nothing about our change.
   const { findCompendiumItem } = await import("/systems/air-bladder/module/compendium.js");
   const table = await findCompendiumItem("air-bladder.utils", "Scars");
   const beforeCtl = new Set(game.messages.filter(isTableCard).map((m) => m.id));
@@ -565,12 +583,28 @@ const scar = await page.evaluate(async () => {
     if (!ctl) await sleep(150);
   }
   r.controlSpeakerToken = ctl?.speaker?.token ?? null;
+  if (ctl) {
+    await sleep(300);
+    const ctlRow = document.querySelector(`[data-message-id="${ctl.id}"]`);
+    r.controlDiceBlocks = ctlRow ? ctlRow.querySelectorAll(".dice-roll").length : null;
+  }
 
   // Chat body text: bigger than core's 14px. An inequality, not "15px" — the ask
   // was "up a point", and pinning the literal reds on any later tweak while
   // proving no more than this does.
   const anyContent = document.querySelector(".chat-message .message-content");
   r.contentPx = anyContent ? parseFloat(getComputedStyle(anyContent).fontSize) : null;
+
+  // FLAVOR is a separate element in the message HEADER (chat-message.hbs:24), so
+  // the .message-content rule above never touched it and every flavor line —
+  // "Takes a scar!", "Rolling damage with Mace" — stayed at core's size. Measured
+  // on the scar card's own flavor rather than any flavor in the log, so the leg
+  // cannot pass on some other message's styling.
+  if (card) {
+    const flavorEl = document.querySelector(`[data-message-id="${card.id}"] .flavor-text`);
+    r.flavorPx = flavorEl ? parseFloat(getComputedStyle(flavorEl).fontSize) : null;
+    r.flavorShown = (flavorEl?.textContent ?? "").trim();
+  }
 
   for (const id of [card?.id, ctl?.id, dmgCard?.id].filter(Boolean)) {
     await game.messages.get(id)?.delete();
@@ -596,6 +630,26 @@ try {
     );
     return { id: (await roll.toMessage({ speaker: ChatMessage.getSpeaker(), flavor })).id };
   });
+  // The GM's own copy, while the card is still in the log: the Apply control has
+  // to DRAW. A Font Awesome class that does not exist in the shipped font renders
+  // an empty box silently — no error, no missing element — so read the glyph's
+  // ::before content rather than trusting the class name.
+  Object.assign(warden, await page.evaluate(async ({ id }) => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    let icon = null;
+    for (let i = 0; i < 40 && !icon; i++) {
+      icon = document.querySelector(`[data-message-id="${id}"] .apply-dmg i`);
+      if (!icon) await sleep(150);
+    }
+    if (!icon) return { iconClass: null, iconGlyph: null, iconPx: null };
+    const before = getComputedStyle(icon, "::before").content;
+    return {
+      iconClass: icon.className,
+      // "none" or '""' means the class matched no glyph in the font.
+      iconGlyph: before && before !== "none" && before !== '""' ? before : null,
+      iconPx: parseFloat(getComputedStyle(icon.closest(".apply-dmg")).fontSize),
+    };
+  }, posted));
   Object.assign(warden, await alicePage.evaluate(async ({ id }) => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     let row = null;
@@ -747,12 +801,26 @@ check("flavor is ours, not core's", !!scar.flavor && scar.flavor !== scar.coreDr
 check("control: bare draw() still misattributes", scar.controlSpeakerToken !== scar.victimToken,
   `bare draw() speaker.token=${scar.controlSpeakerToken} - if this equalled the victim the leg above would prove nothing`);
 
+console.log("\nthe Scar card does not repeat the damage number");
+check("the card rendered", scar.scarRendered, "needed before either half below means anything");
+check("no dice block", scar.scarDiceBlocks === 0,
+  `${scar.scarDiceBlocks} .dice-roll in the card - the roll is a CONSTANT, so rendering it printed the damage as formula AND total`);
+check("the scar text survives", !!scar.scarResultText,
+  `result row "${scar.scarResultText}" - dropping the dice block must not drop the card`);
+check("control: draw() forwarding the roll DOES show dice", scar.controlDiceBlocks > 0,
+  `bare draw() card has ${scar.controlDiceBlocks} .dice-roll - if this were 0 the table has displayRoll off and the leg above proves nothing`);
+
 console.log("\nthe Scar banner and chat legibility");
 check("the banner renders", scar.bannerRendered, ".cairn-scar-banner on the damage card");
 check("centred, bold and glowed", scar.bannerCentered && scar.bannerBold && scar.bannerGlow,
   `align=${scar.bannerCentered} bold=${scar.bannerBold} glow=${scar.bannerGlow}`);
 check("chat body above core's 14px", scar.contentPx > 14,
   `.message-content computes to ${scar.contentPx}px`);
+// The flavor is a different element from the content and was left behind by the
+// first pass at this; measured on the scar card's OWN flavor so no other
+// message's styling can carry the leg.
+check("flavor above core's 14px too", scar.flavorPx > 14,
+  `.flavor-text computes to ${scar.flavorPx}px on the scar card ("${scar.flavorShown}")`);
 
 console.log("\nApply damage is Warden-only");
 check("the player leg ran", warden.ran && !warden.isGM,
@@ -762,6 +830,10 @@ check("the stored card still carries it", !!warden.contentHasAnchor,
   "one HTML goes to everyone, so the render hook is the only place to trim it - and this proves there was something to trim");
 check("her copy has no Apply control", warden.ran && !warden.anchorInDom,
   "removed, not display:none - nothing left to un-hide in devtools");
+check("the Warden's control draws a glyph", !!warden.iconGlyph,
+  `${warden.iconClass} renders ${warden.iconGlyph ?? "NOTHING"} - a Font Awesome class absent from the shipped font fails silently as an empty box`);
+check("and at a clickable size", warden.iconPx > 14,
+  `.apply-dmg computes to ${warden.iconPx}px`);
 
 if (errors.length) { bad++; console.log("Console errors:\n" + errors.join("\n")); }
 console.log(bad === 0 ? "\nencumbered-damage e2e passed" : `\nencumbered-damage e2e FAILED — ${bad}`);

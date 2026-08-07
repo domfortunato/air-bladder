@@ -1153,6 +1153,17 @@
     font-size: 15px;
 }
 
+/* The FLAVOR line is not part of .message-content and the rule above misses it
+   entirely: core renders it in the message HEADER as
+   <span class="flavor-text"> (templates/sidebar/chat-message.hbs:24), beside the
+   sender name. So the first pass at this left every flavor line at core's size
+   and the user reported "Takes a scar" as too small -- true of "Rolling damage
+   with Mace" too, which is the same element. Raised globally rather than
+   per-card for that reason. */
+.chat-message .flavor-text {
+    font-size: 15px;
+}
+
 .chat-message .flavor-dice-roll {
     display: flex;
     flex-direction: row;
@@ -1164,10 +1175,12 @@
 }
 
 /* Apply Damage. The single most consequential control in the log and it was
-   drawn at body size, which also made fa-user-minus hard to tell from
-   fa-user-plus at a glance -- the Warden is aiming at it repeatedly during a
-   fight, so it gets a real target rather than an icon-sized one. Only a GM ever
-   sees it (renderChatMessageHTML removes it for everyone else). */
+   drawn at body size -- the Warden is aiming at it repeatedly during a fight, so
+   it gets a real target rather than an icon-sized one. Only a GM ever sees it
+   (renderChatMessageHTML removes it for everyone else).
+   The glyph is fa-burst, an impact starburst, replacing fa-user-minus: at 20px
+   the meeple read as a roster control rather than as a hit landing, and Cairn
+   damage is as often a fall or a spell as a weapon. Glyph-agnostic rule. */
 .chat-message .apply-dmg {
     display: inline-flex;
     align-items: center;

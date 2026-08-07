@@ -236,7 +236,17 @@ export class Damage {
         // keeps core's default rather than inventing an empty header.
         const messageData = { flavor: game.i18n.localize("CAIRN.ScarFlavor") };
         if (token) messageData.speaker = ChatMessage.getSpeaker({ token });
-        await table.toMessage(drawn.results, { roll: drawn.roll, messageData });
+        // The roll goes to `draw` -- it is what SELECTS the result row -- and is
+        // deliberately NOT forwarded to `toMessage`, which renders
+        // `rollHTML: this.displayRoll && roll` (roll-table.mjs:76). The roll here is
+        // a CONSTANT (`new Roll("5")`), so rendering it printed formula "5" and
+        // total "5": the damage number twice, on a card whose only job is to name
+        // the scar, directly below a damage card that had just said "Damage: 5
+        // (7-2)". Dropping it takes the whole dice block out.
+        // Costs the dice sound (`sound: roll ? CONFIG.sounds.dice : null`, :64),
+        // which is right -- nothing is rolled visibly here and the damage card that
+        // triggered this already made the noise.
+        await table.toMessage(drawn.results, { messageData });
     }
 
     static async _rollStrSave(token, html) {
