@@ -121,6 +121,16 @@ export const actorDisplayName = (a) =>
   a?.type === "character" ? (a?.name ?? "") : t("monster.name", a?.name ?? "");
 
 /**
+ * The same ruling applied to a TOKEN. The token's OWN name is what everyone sees
+ * on the canvas and it is not always the actor's — a Warden renaming a token
+ * "Goblin A" means the card must say "Goblin A", not "Goblin". A hand-renamed
+ * token simply misses the overlay and `t` hands it straight back, so this needs
+ * no separate case; only the character gate has to be preserved.
+ */
+export const tokenDisplayName = (tok) =>
+  tok?.actor?.type === "character" ? (tok?.name ?? "") : t("monster.name", tok?.name ?? "");
+
+/**
  * Return a shallow copy of an item-like object ({ name, system: { description } })
  * with its display name/description translated under the given namespaces. The
  * original is NEVER mutated — callers hand this to a template, never back to a

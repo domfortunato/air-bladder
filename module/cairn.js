@@ -17,7 +17,7 @@ import { Damage } from "./damage.js";
 import { registerSettings, SETTINGS_NS, migrateSettingsNamespace } from "./settings.js";
 import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS, deriveNpcRole } from "./data-models.js";
 import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNERSHIP_SYNC_FLAG } from "./connections.js";
-import { loadContentOverlay, t, translationOf, contentLocalized } from "./i18n-content.js";
+import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName } from "./i18n-content.js";
 
 Hooks.once("init", async function () {
   game.cairn = {
@@ -1510,6 +1510,81 @@ Hooks.on("renderActorDirectory", (app, html) => {
   });
 });
 
+/**
+ * Rewrite a damage card's flavor line to say who is attacking whom.
+ *
+ * The ids were always on the card — `data-targets` is what Apply damage reads —
+ * and the card simply never showed them, so the log recorded "Rolling damage
+ * with Crossbow" and left the table to remember who that was aimed at.
+ *
+ * Resolved AT RENDER rather than at roll time, and all three reasons matter:
+ * the names then localize per VIEWER (so the content overlay translates a
+ * monster's name in a Spanish client and leaves a player-authored PC name
+ * alone), BOTH producers are covered without touching either (`#onRollDamage`
+ * and macros.js already ship the same `data-targets`), and every damage card
+ * already in the log gains the line the next time it renders. Resolving at
+ * creation would freeze the sentence in the roller's language and have to be
+ * written twice.
+ *
+ * ORDERING: must run BEFORE the player-trim below, which REMOVES `.apply-dmg`
+ * from a non-GM's copy and with it the only copy of the ids. Deliberately not
+ * duplicated onto the label to make that safe — a second attribute holding the
+ * same data is the shape that produced years of container bugs here. The Alice
+ * leg in dev:enc-damage is what guards the ordering: move this after the trim
+ * and a player stops seeing the names, which that leg asserts.
+ */
+const nameDamageTargets = (message, html, scene) => {
+  const label = html.querySelector(".flavor-dice-roll .dmg-label")
+    // Cards posted before the class existed: the label is the child div that is
+    // not the Apply-damage wrapper.
+    ?? html.querySelector(".flavor-dice-roll > div:not(.icon-action)");
+  if (!label) return;
+
+  const raw = html.querySelector(".apply-dmg")?.dataset.targets ?? "";
+  const ids = raw.split(";").map((s) => s.trim()).filter(Boolean);
+  if (!ids.length) return;
+
+  const names = [];
+  for (const id of ids) {
+    const tok = scene?.tokens?.get(id);
+    if (!tok) continue; // killed since, or the scene is gone
+    // Core's own test for whether a user may be shown a token at all:
+    // Combatant#visible is `this.isOwner || !this.hidden`
+    // (documents/combatant.mjs:82-84). A token the Warden has hidden must not be
+    // named in a card every player reads; a GM owns everything, so the Warden
+    // still gets the whole sentence.
+    if (tok.hidden && !tok.isOwner) continue;
+    // And the second concealment channel, which is not the same one: a SECRET
+    // disposition hides a token from anyone below OBSERVER on it
+    // (TokenDocument#isSecret, documents/token.mjs:341-343). Evaluated on the
+    // VIEWER's client, so the Warden's copy is unaffected. Not folded into the
+    // test above — `hidden` is "the Warden took it off the board", SECRET is
+    // "this one is not for the players", and a Warden may use either.
+    if (tok.isSecret) continue;
+    names.push(tokenDisplayName(tok));
+  }
+  // Nothing this viewer may be told about: the weapon sentence stands rather
+  // than a half-written one. Naming the visible subset of a mixed group is fine
+  // — it reveals nothing about the one left out.
+  if (!names.length) return;
+
+  const attackerTok = scene?.tokens?.get(message.speaker?.token);
+  const attacker = attackerTok
+    ? tokenDisplayName(attackerTok)
+    : (message.speaker?.alias ?? "");
+  if (!attacker) return;
+
+  // ONE whole-sentence key with both placeholders, per the rule the two
+  // "Rolling damage with…" keys already follow: word order is not universal,
+  // and the article ("the") is English's problem to have — a translator holding
+  // the whole sentence can drop it, gender it, or move it.
+  // textContent, never innerHTML: a token name is Warden-authored free text.
+  label.textContent = game.i18n.format("CAIRN.AttacksTarget", {
+    attacker,
+    target: game.i18n.getListFormatter().format(names),
+  });
+};
+
 Hooks.on("renderChatMessageHTML", (message, html, data) => {
   // Display-only content overlay for RollTable draw cards (see above).
   localizeTableResults(html);
@@ -1526,6 +1601,9 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   const speaker = message.speaker ?? {};
   const scene = speaker.scene ? game.scenes?.get(speaker.scene) : canvas?.scene;
   const token = scene?.tokens?.get(speaker.token);
+
+  // Before the player-trim at the bottom of this hook — see the docblock.
+  nameDamageTargets(message, html, scene);
 
   if (token?.actor) {
     if (token.actor.testUserPermission(game.user, "OWNER") || game.user.isGM) {

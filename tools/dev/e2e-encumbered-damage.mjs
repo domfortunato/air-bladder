@@ -679,6 +679,99 @@ try {
   warden.error = `${e.name}: ${e.message}`;
 }
 
+/* ---------------------------------------------------------------------------
+ * The damage card names who is attacking whom — and never names a token the
+ * viewer is not allowed to know about.
+ *
+ * Driven as ALICE, because this is the one item in the batch that can do real
+ * harm and a GM cannot see it by looking: the Warden owns everything, so on the
+ * Warden's own screen a hidden token is named correctly and the leak is
+ * invisible. Both ends, twice over — a visible target IS named for her, a hidden
+ * one is NOT, and the Warden's copy carries both.
+ * ------------------------------------------------------------------------- */
+const attack = { ran: false };
+try {
+  const alicePage = await browser.newPage({ viewport: VIEWPORT });
+  await joinAs(alicePage, "Alice");
+
+  const fixture = await page.evaluate(async () => {
+    const ActorImpl = CONFIG.Actor.documentClass;
+    const attacker = await ActorImpl.create({ name: "ZZ Attacker PC", type: "character" });
+    const seen = await ActorImpl.create({ name: "ZZ Seen Foe", type: "npc", system: { role: "monster" } });
+    const unseen = await ActorImpl.create({ name: "ZZ Unseen Foe", type: "npc", system: { role: "monster" } });
+    // OBSERVER on the SCENE so a player's client holds its tokens at all. Token
+    // ownership is unaffected — TokenDocument#isOwner delegates to the actor
+    // (documents/token.mjs:271-275) — so the hidden-token gate is still being
+    // tested and not handed a free pass.
+    const scene = await Scene.create({
+      name: "ZZ Attack Scene", width: 1000, height: 1000,
+      ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER },
+    });
+    const mk = async (actor, x, hidden) => {
+      const td = (await actor.getTokenDocument({ x, y: 100 })).toObject();
+      td.hidden = hidden;
+      const [t] = await scene.createEmbeddedDocuments("Token", [td]);
+      return t;
+    };
+    const aTok = await mk(attacker, 100, false);
+    const sTok = await mk(seen, 300, false);
+    const uTok = await mk(unseen, 500, true);
+
+    const { evaluateFormula } = await import("/systems/air-bladder/module/utils.js");
+    const post = async (ids) => {
+      const roll = await evaluateFormula("2", {});
+      const flavor = await foundry.applications.handlebars.renderTemplate(
+        "systems/air-bladder/templates/chat/dmg-roll-card.html",
+        { label: "ZZ weapon sentence", targets: ids.join(";") },
+      );
+      const msg = await roll.toMessage({
+        speaker: ChatMessage.getSpeaker({ token: aTok }),
+        flavor,
+      });
+      return msg.id;
+    };
+    return {
+      bothId: await post([sTok.id, uTok.id]),
+      hiddenOnlyId: await post([uTok.id]),
+      sceneId: scene.id, attackerId: attacker.id, seenId: seen.id, unseenId: unseen.id,
+      aTokId: aTok.id,
+    };
+  });
+
+  // What the WARDEN sees on the same two cards. Read here rather than assumed:
+  // "Alice is missing the hidden name" only means something if the name was
+  // there to miss.
+  const readLabel = async (pg, id) => pg.evaluate(async (mid) => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    let row = null;
+    for (let i = 0; i < 40 && !row; i++) {
+      row = document.querySelector(`[data-message-id="${mid}"]`);
+      if (!row) await sleep(150);
+    }
+    await sleep(300);
+    const el = row?.querySelector(".flavor-dice-roll .dmg-label");
+    return { present: !!row, text: (el?.textContent ?? "").trim(), isGM: game.user.isGM };
+  }, id);
+
+  const gmBoth = await readLabel(page, fixture.bothId);
+  const alBoth = await readLabel(alicePage, fixture.bothId);
+  const alHiddenOnly = await readLabel(alicePage, fixture.hiddenOnlyId);
+  Object.assign(attack, {
+    ran: true, gmIsGM: gmBoth.isGM, aliceIsGM: alBoth.isGM,
+    aliceSawCard: alBoth.present,
+    gmText: gmBoth.text, aliceText: alBoth.text, aliceHiddenOnlyText: alHiddenOnly.text,
+  });
+
+  await page.evaluate(async (f) => {
+    for (const id of [f.bothId, f.hiddenOnlyId]) await game.messages.get(id)?.delete();
+    await game.scenes.get(f.sceneId)?.delete();
+    for (const id of [f.attackerId, f.seenId, f.unseenId]) await game.actors.get(id)?.delete();
+  }, fixture);
+  await alicePage.close();
+} catch (e) {
+  attack.error = `${e.name}: ${e.message}`;
+}
+
 await browser.close();
 
 let bad = 0;
@@ -834,6 +927,27 @@ check("the Warden's control draws a glyph", !!warden.iconGlyph,
   `${warden.iconClass} renders ${warden.iconGlyph ?? "NOTHING"} - a Font Awesome class absent from the shipped font fails silently as an empty box`);
 check("and at a clickable size", warden.iconPx > 14,
   `.apply-dmg computes to ${warden.iconPx}px`);
+
+console.log("\nthe damage card names attacker and target");
+check("the player leg ran", attack.ran && attack.gmIsGM && !attack.aliceIsGM,
+  attack.error ?? `GM=${attack.gmIsGM} Alice=${attack.aliceIsGM} (needs Alice - npm run dev:players)`);
+check("Alice sees the card", !!attack.aliceSawCard, "the damage card reached her log");
+check("the Warden sees the whole sentence",
+  attack.gmText?.includes("ZZ Attacker PC") && attack.gmText?.includes("ZZ Seen Foe")
+  && attack.gmText?.includes("ZZ Unseen Foe"),
+  `"${attack.gmText}" - a GM owns everything, so both targets are named`);
+check("the weapon sentence is gone", !attack.gmText?.includes("ZZ weapon sentence"),
+  `"${attack.gmText}" - the attack line REPLACES it, it is not added beside it`);
+check("Alice is told the visible one",
+  attack.aliceText?.includes("ZZ Attacker PC") && attack.aliceText?.includes("ZZ Seen Foe"),
+  `"${attack.aliceText}"`);
+// The leak. The Warden's copy above proves the name was there to leak, so this
+// is not a leg that passes because nothing was resolved.
+check("and NOT the hidden one", attack.ran && !attack.aliceText?.includes("ZZ Unseen Foe"),
+  `"${attack.aliceText}" - a token the Warden took off the board must not be named in a card the whole table reads`);
+check("nothing nameable falls back to the weapon",
+  attack.aliceHiddenOnlyText === "ZZ weapon sentence",
+  `"${attack.aliceHiddenOnlyText}" - with only a hidden target, she gets the original sentence, not a half-written one`);
 
 if (errors.length) { bad++; console.log("Console errors:\n" + errors.join("\n")); }
 console.log(bad === 0 ? "\nencumbered-damage e2e passed" : `\nencumbered-damage e2e FAILED — ${bad}`);

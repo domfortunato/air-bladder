@@ -17,6 +17,7 @@
   "CAIRN.ArmorReset": "Reset to armor from equipped gear",
   "CAIRN.ArmorTip": "If damage can be mitigated by armor, reduce it by your Armor value. Each piece of equipped armor adds 1 armor point but the maximum value is 3.",
   "CAIRN.AssistantWarden": "Assistant Warden",
+  "CAIRN.AttacksTarget": "{attacker} attacks the {target}!",
   "CAIRN.Background": "Background",
   "CAIRN.BackgroundAndNotes": "Background & Notes",
   "CAIRN.BackgroundDetails": "Details",
