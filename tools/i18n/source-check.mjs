@@ -19,8 +19,10 @@
  *              through game.i18n. Untranslatable by construction.
  *   unlabelled a gallery category in a MANIFEST with no label key — the one the
  *              first two are structurally blind to. See CATEGORY_LABELS below.
+ *   rawattr    a `{{{ }}}` inside an HTML attribute, where not escaping means a
+ *              quotation mark in the value ends the attribute. Added 2026-08-07.
  *
- * All four are errors. A warning that is permanently non-zero is a gate nobody
+ * All five are errors. A warning that is permanently non-zero is a gate nobody
  * reads, which is the failure mode this file exists to correct.
  *
  *   node tools/i18n/source-check.mjs [--verbose]
@@ -324,6 +326,34 @@ const unused = en.filter(
     !isPluralFormOfUsed(k));
 const hardcoded = [...scanTemplates(), ...scanJs()];
 
+/**
+ * A triple-stache inside an HTML ATTRIBUTE.
+ *
+ * `{{{ }}}` tells Handlebars not to escape, which is right for a block of
+ * authored prose and wrong inside quotes: the value is not markup there, it is
+ * an attribute, and a `"` anywhere in it terminates the attribute early and
+ * puts whatever follows into the tag. When the value is a LOCALIZED string that
+ * is a translator's quotation mark away from injecting into a sheet, and no
+ * gate here could see it — `i18n:check` compares language files to each other,
+ * and a quote is legal in every one of them.
+ *
+ * Two sites carried it (review #10), both
+ * `data-label="{{{ localize 'CAIRN.Save' … }}}"`, and neither wanted markup at
+ * all: `dataset.label` is read as plain text into a dialog title and into chat
+ * flavor (actor-sheet.js:2246, :2617). Escaping is not a restriction on those,
+ * it is what makes them read back correctly.
+ *
+ * Deliberately narrow — a triple-stache in element CONTENT is a legitimate and
+ * common thing here, so only the quoted-attribute position is flagged.
+ */
+const rawAttrs = [];
+for (const f of TPL_FILES) {
+  const src = stripComments(fs.readFileSync(f, "utf8"));
+  for (const m of src.matchAll(/([\w:-]+)\s*=\s*"[^"]*\{\{\{/g)) {
+    rawAttrs.push({ site: `${rel(f)}:${lineOf(src, m.index)}`, what: `${m[1]}="{{{ … }}}" — unescaped inside an attribute; use {{ }}` });
+  }
+}
+
 const list = (label, rows, fmt) => {
   console.log(`  ${rows.length ? "x" : "ok -"} ${label}: ${rows.length}`);
   for (const r of rows) console.log(`      ${fmt(r)}`);
@@ -340,7 +370,8 @@ list("keys used but missing from en.json", missing, (k) => `${k}   @ ${used.get(
 list("keys in en.json nothing references", unused, (k) => k);
 list("hardcoded user-visible strings", hardcoded, (h) => `${h.site}   ${h.what}`);
 list("manifest categories with no label key", unlabelled, (r) => `${r.key}   needs ${r.label}`);
+list("unescaped {{{ }}} inside an HTML attribute", rawAttrs, (r) => `${r.site}   ${r.what}`);
 
-const bad = missing.length + unused.length + hardcoded.length + unlabelled.length;
+const bad = missing.length + unused.length + hardcoded.length + unlabelled.length + rawAttrs.length;
 console.log(bad ? `\n${bad} problem(s).\n` : "");
 process.exit(bad ? 1 : 0);

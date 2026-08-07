@@ -247,8 +247,47 @@ const collisionsIn = (file) => {
     .map(([p, child]) => `${file}: "${p}" is a string AND the parent of "${child}" — the loader drops the whole file`);
 };
 
+// The same loader, a second way to lose a block of strings — and this one is
+// currently load-bearing rather than hypothetical.
+//
+// `#loadTranslationFile` runs the whole file through `expandObject`
+// (client/helpers/localization.mjs:368), which walks `Object.entries` in
+// INSERTION ORDER and `setProperty`s each key in turn. So a file holding both
+// an object-valued `"CAIRN.Notify"` and a dotted `"CAIRN.Notify.LastBackground"`
+// merges them — but only if the OBJECT comes first. Reversed, the object write
+// lands second and replaces the branch the dotted keys built, taking them with
+// it. Verified against the shipped 14.365 helper:
+//
+//   {"X.G": {a,b}, "X.G.c": 3}  ->  {a, b, c}
+//   {"X.G.c": 3, "X.G": {a,b}}  ->  {a, b}          <- c is gone, silently
+//
+// Both `lang/en.json` and `lang/es.json` are in this shape today and both are
+// safe purely by ordering. Nothing enforced that, and nothing would report it:
+// the keys simply stop existing, and Foundry falls back to English for them, so
+// a Spanish client shows a few English notifications and no error anywhere.
+const orderingIn = (file) => {
+  const raw = JSON.parse(fs.readFileSync(path.join(ROOT, file), "utf8"));
+  const top = Object.keys(raw);
+  const out = [];
+  for (const [i, k] of top.entries()) {
+    if (!raw[k] || typeof raw[k] !== "object" || Array.isArray(raw[k])) continue;
+    const dotted = top.filter((o) => o.startsWith(`${k}.`));
+    if (!dotted.length) continue;
+    const firstDotted = Math.min(...dotted.map((o) => top.indexOf(o)));
+    if (firstDotted < i) {
+      out.push(
+        `${file}: "${k}" is an object literal declared AFTER ${dotted.length} dotted "${k}.*" key(s) — ` +
+        `expandObject writes the object second and DELETES them (e.g. "${top[firstDotted]}"). ` +
+        `Move the object literal above them, or fold them into it.`
+      );
+    }
+  }
+  return out;
+};
+
 for (const f of fs.readdirSync(path.join(ROOT, "lang")).filter((f) => f.endsWith(".json"))) {
   for (const e of collisionsIn(`lang/${f}`)) errors.push(e);
+  for (const e of orderingIn(`lang/${f}`)) errors.push(e);
 }
 
 const enCount = Object.keys(en).length;

@@ -353,6 +353,8 @@
   "CAIRN.NotesPlaceholderMonster": "Put notes about this monster here.",
   "CAIRN.Notify": {
     "ApplyDamageWardenOnly": "Only the Warden can apply damage.",
+    "BackgroundNotCharacter": "Only a player character has a background.",
+    "BackgroundWrongSource": "That is a {backgroundEdition} background and this is a {characterEdition} character. A character does not change edition.",
     "Bought": "Bought {name} for {cost} gold.",
     "CannotConnect": "{name} can't be connected — monsters never join a party's connections.",
     "ConfirmDeleteNamed": "Delete {name}?",
@@ -368,6 +370,8 @@
     "DropNoSource": "You can't take that item — you don't have permission to change the sheet it came from.",
     "EffectsUnsupported": "Air Bladder doesn't use Active Effects — nothing on the sheet would show it. The drop was refused.",
     "GrantFailedFor": "{player}'s background grant failed — see the console. Their character kept everything else.",
+    "LastBackground": "At least one background must stay enabled.",
+    "LastSource": "At least one background source must stay enabled — Cairn 2e has been switched back on.",
     "LeftOverloaded": "You left the marketplace over capacity — HP stays 0 until you free a slot.",
     "MaxSlotsOccupied": "Maximum equipment slots used.",
     "NoActorCreate": "Only the Warden can create containers and transports.",
@@ -397,10 +401,6 @@
     "WardenDamageBadFormula": "\"{formula}\" is not a damage roll — try 1d6, 2d6 or 3.",
     "WardenDamageWardenOnly": "Only the Warden can deal damage from a trap or the environment."
   },
-  "CAIRN.Notify.BackgroundNotCharacter": "Only a player character has a background.",
-  "CAIRN.Notify.BackgroundWrongSource": "That is a {backgroundEdition} background and this is a {characterEdition} character. A character does not change edition.",
-  "CAIRN.Notify.LastBackground": "At least one background must stay enabled.",
-  "CAIRN.Notify.LastSource": "At least one background source must stay enabled — Cairn 2e has been switched back on.",
   "CAIRN.Npc": "NPC",
   "CAIRN.NpcRegeneratorConfirm": "Are you sure you want to roll this NPC again?</p><p>Everything it is carrying will be deleted, and its abilities, HP, career and day rate will be replaced. This cannot be undone.",
   "CAIRN.NpcRegeneratorTitle": "Roll this NPC again?",
