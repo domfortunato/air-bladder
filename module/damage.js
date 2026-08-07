@@ -1,6 +1,16 @@
 import { findCompendiumItem } from './compendium.js'
 import { evaluateFormula } from './utils.js'
 
+// The system's flag namespace, imported rather than re-declared: a second
+// "air-bladder" literal is a second thing that can drift, and a flag written
+// under one namespace and read under another is invisible until it is missing.
+// FLAG_SCOPE's home in character-generator.js is historical; nothing there
+// imports this file, so there is no cycle.
+import { FLAG_SCOPE } from './character-generator.js'
+
+/** Flag recording that a damage card's Apply control has already been used. */
+export const DAMAGE_APPLIED_FLAG = "damageApplied";
+
 export class Damage {
 
     /**
@@ -8,12 +18,20 @@ export class Damage {
      * @param {String[]} targets Array of Id of the targeted tokens
      * @param {Number} damage Positive number
      * @param {Scene} [scene] Scene the card was spoken in; defaults to the viewer's
+     * @returns {Promise<{id: String, dmg: Number}[]>} what actually landed, per
+     *   token. The caller stamps this onto the originating card so the log records
+     *   that the Warden used the control and what it did; targets whose token is
+     *   gone are absent, exactly as they are absent from the detail cards.
      */
     static async applyToTargets(targets, damage, scene = canvas?.scene) {
         let missed = 0;
+        const applied = [];
         for (const target of targets) {
             const data = await this.applyToTarget(target, damage, scene);
-            if (data) this._showDetails(data);   // skip targets whose token is gone
+            if (data) {
+                this._showDetails(data);   // skip targets whose token is gone
+                applied.push({ id: target, dmg: data.dmg });
+            }
             else missed++;
         }
         // A miss used to be swallowed here. The button reports success by posting a
@@ -25,6 +43,7 @@ export class Damage {
                 game.i18n.format("CAIRN.Notify.DamageTargetsGone", { count: missed })
             );
         }
+        return applied;
     }
 
     /**
@@ -68,8 +87,12 @@ export class Damage {
      *   reading `canvas.scene` here meant the button silently applied nothing
      *   the moment the party moved on. The sibling STR-save button was fixed for
      *   exactly this (cairn.js, `speaker.scene`); this one never was.
+     * @param {ChatMessage} [message] The card that was clicked. Given, the outcome
+     *   is stamped onto it as a flag, which is what lets the card say it was used
+     *   and what it did -- and what makes a second click impossible. Optional so
+     *   the shift-click targeting path and any other caller still work without it.
      */
-    static onClickChatMessageApplyButton(event, html, data, scene = canvas?.scene) {
+    static async onClickChatMessageApplyButton(event, html, data, scene = canvas?.scene, message = null) {
         // Warden only, and stated HERE as well as in the render hook that removes
         // the control from a player's copy of the card. Removing the button is the
         // affordance; this is the refusal, and it is the half that survives someone
@@ -105,9 +128,26 @@ export class Damage {
         }
         // Apply damage to targets
         else {
+            // Once only. The control used to leave the card exactly as it found
+            // it, so nothing on the tile recorded that it had been used -- and a
+            // second click applied the whole roll again, silently, to a creature
+            // that had already taken it. The flag is the enforcement; the render
+            // hook disabling the anchor is the affordance, and a card left open
+            // in a scrolled-back log must not be a way past it.
+            if (message?.getFlag(FLAG_SCOPE, DAMAGE_APPLIED_FLAG)) {
+                ui.notifications.warn(game.i18n.localize("CAIRN.Notify.DamageAlreadyApplied"));
+                return;
+            }
             if (targets !== undefined) {
                 const dmg = parseInt(html.querySelector(".dice-total").textContent);
-                this.applyToTargets(targetsList, dmg, scene);
+                const applied = await this.applyToTargets(targetsList, dmg, scene);
+                // Only a GM reaches this line (the guard at the top), so the write
+                // needs no socket relay. Token ids, not names: the summary is
+                // rendered per VIEWER so it localizes and so a concealed token is
+                // never named -- see nameDamageTargets in cairn.js.
+                if (message && applied.length) {
+                    await message.setFlag(FLAG_SCOPE, DAMAGE_APPLIED_FLAG, { applied });
+                }
             }
         }
     }

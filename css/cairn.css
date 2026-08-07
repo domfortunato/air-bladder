@@ -1195,6 +1195,25 @@
     text-shadow: 0 0 8px var(--ab-accent);
 }
 
+/* Spent: the card records that the Warden used it, and the control must stop
+   inviting a second click. Faded rather than removed, because "this one was
+   used" is exactly what the log needs to still show an hour later -- a control
+   that vanishes reads the same as a card that never had one. The refusal is in
+   onClickChatMessageApplyButton; this is only the affordance. */
+.chat-message .apply-dmg.spent {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+/* The applied-damage summary, on the card that was clicked. flex-basis forces
+   its own row: .flavor-dice-roll is a wrapping flex ROW, so without this the
+   line sits beside the attack sentence. */
+.chat-message .dmg-applied {
+    flex-basis: 100%;
+    font-style: italic;
+    opacity: 0.85;
+}
+
 /* "Got a scar" on a damage card. A scar is a rules event with lasting
    consequences and it read as one more bold label in a stack of them. Centred
    and glowed, borrowing #die-of-fate-button's treatment (user ask) -- the same

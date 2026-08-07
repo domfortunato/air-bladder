@@ -680,6 +680,98 @@ try {
 }
 
 /* ---------------------------------------------------------------------------
+ * Clicking Apply marks the card it was clicked on, and a second click applies
+ * nothing.
+ *
+ * The control used to leave the tile exactly as it found it: three detail cards
+ * appeared further down the log and the card that was clicked recorded nothing,
+ * so a second click silently applied the whole roll again. Asserted on ACTOR HP,
+ * not on the summary text — the text is the affordance, the HP is the hazard.
+ * ------------------------------------------------------------------------- */
+const applied = await page.evaluate(async () => {
+  const ActorImpl = CONFIG.Actor.documentClass;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const r = {};
+
+  const foe = await ActorImpl.create({
+    name: "ZZ Applied Foe", type: "npc",
+    system: { role: "monster", hp: { value: 9, max: 9 }, armor: 0 },
+  });
+  const scene = await Scene.create({ name: "ZZ Applied Scene", width: 1000, height: 1000 });
+  const [tok] = await scene.createEmbeddedDocuments("Token", [await foe.getTokenDocument({ x: 100, y: 100 })]);
+
+  const { evaluateFormula } = await import("/systems/air-bladder/module/utils.js");
+  const roll = await evaluateFormula("3", {});
+  const flavor = await foundry.applications.handlebars.renderTemplate(
+    "systems/air-bladder/templates/chat/dmg-roll-card.html",
+    { label: "ZZ apply-once probe", targets: tok.id },
+  );
+  const msg = await roll.toMessage({ speaker: ChatMessage.getSpeaker({ token: tok }), flavor });
+
+  const btn = async () => {
+    let b = null;
+    for (let i = 0; i < 40 && !b; i++) {
+      b = document.querySelector(`[data-message-id="${msg.id}"] .apply-dmg`);
+      if (!b) await sleep(150);
+    }
+    return b;
+  };
+  // The TOKEN's actor, not `foe`. An npc token is unlinked, so damage lands on
+  // the synthetic delta actor and `game.actors.get(foe.id)` never moves — read
+  // the world actor here and the leg reports "nothing applied" while the card
+  // itself says otherwise. Source, not derived, for the reason applyToTarget
+  // documents: data prep zeroes derived HP on an encumbered or panicked actor.
+  const hp = () => tok.actor.toObject().system.hp.value;
+
+  r.hpBefore = hp();
+  const first = await btn();
+  r.buttonFound = !!first;
+  first?.click();
+  for (let i = 0; i < 40 && hp() === r.hpBefore; i++) await sleep(150);
+  r.hpAfterFirst = hp();
+
+  // The flag is what survives a re-render, so wait for it rather than for paint.
+  for (let i = 0; i < 40 && !msg.getFlag("air-bladder", "damageApplied"); i++) await sleep(150);
+  r.flagged = !!msg.getFlag("air-bladder", "damageApplied");
+  await sleep(400);
+  const row = document.querySelector(`[data-message-id="${msg.id}"]`);
+  r.summary = (row?.querySelector(".dmg-applied")?.textContent ?? "").trim();
+  const after = row?.querySelector(".apply-dmg");
+  r.spentClass = !!after?.classList.contains("spent");
+  r.spentDisabled = after?.hasAttribute("disabled") ?? false;
+  r.pointerEvents = after ? getComputedStyle(after).pointerEvents : null;
+
+  // The hazard: click it AGAIN. Called directly rather than via .click(), because
+  // pointer-events:none means a real click never lands — and "the CSS stopped it"
+  // is exactly the reassurance this leg must not accept. This reaches the handler
+  // the way a devtools-enabled or stale-DOM click would.
+  const { Damage } = await import("/systems/air-bladder/module/damage.js");
+  await Damage.onClickChatMessageApplyButton(
+    { currentTarget: { dataset: { targets: tok.id } }, shiftKey: false },
+    row, {}, scene, msg,
+  );
+  await sleep(500);
+  r.hpAfterSecond = hp();
+
+  // CONTROL, in-page: the same call with NO message, which is the pre-fix
+  // signature. It must still apply — otherwise the leg above passes because the
+  // path is broken, not because the flag refused.
+  await Damage.onClickChatMessageApplyButton(
+    { currentTarget: { dataset: { targets: tok.id } }, shiftKey: false },
+    row, {}, scene, null,
+  );
+  for (let i = 0; i < 40 && hp() === r.hpAfterSecond; i++) await sleep(150);
+  r.hpAfterControl = hp();
+
+  for (const m of game.messages.contents.slice().reverse().slice(0, 12)) {
+    if (m.speaker?.token === tok.id || m.id === msg.id) await m.delete();
+  }
+  await scene.delete();
+  await foe.delete();
+  return r;
+});
+
+/* ---------------------------------------------------------------------------
  * The damage card names who is attacking whom — and never names a token the
  * viewer is not allowed to know about.
  *
@@ -927,6 +1019,24 @@ check("the Warden's control draws a glyph", !!warden.iconGlyph,
   `${warden.iconClass} renders ${warden.iconGlyph ?? "NOTHING"} - a Font Awesome class absent from the shipped font fails silently as an empty box`);
 check("and at a clickable size", warden.iconPx > 14,
   `.apply-dmg computes to ${warden.iconPx}px`);
+
+console.log("\nApply marks the card, and applies once");
+check("the control was there", applied.buttonFound, "the card rendered with .apply-dmg");
+check("the first click lands", applied.hpAfterFirst === applied.hpBefore - 3,
+  `hp ${applied.hpBefore} -> ${applied.hpAfterFirst} (expected -3)`);
+check("the card is flagged", applied.flagged,
+  "a DOM-only disable would be undone by the next chat re-render");
+check("the card says what it did", /ZZ Applied Foe/.test(applied.summary) && /3/.test(applied.summary),
+  `"${applied.summary}"`);
+check("the control reads as spent", applied.spentClass && applied.spentDisabled && applied.pointerEvents === "none",
+  `class=${applied.spentClass} disabled=${applied.spentDisabled} pointer-events=${applied.pointerEvents}`);
+// The hazard, asserted on HP rather than on the greying. Called directly, so
+// "pointer-events stopped it" cannot be what makes this pass.
+check("a second application is refused", applied.hpAfterSecond === applied.hpAfterFirst,
+  `hp ${applied.hpAfterFirst} -> ${applied.hpAfterSecond} (a second click must change nothing)`);
+check("control: the same call without the card still applies",
+  applied.hpAfterControl === applied.hpAfterSecond - 3,
+  `hp ${applied.hpAfterSecond} -> ${applied.hpAfterControl} - the pre-fix signature, proving the leg above is the FLAG refusing and not a broken path`);
 
 console.log("\nthe damage card names attacker and target");
 check("the player leg ran", attack.ran && attack.gmIsGM && !attack.aliceIsGM,

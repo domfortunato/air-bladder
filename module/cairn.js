@@ -13,7 +13,7 @@ import * as kettlewrightImport from "./kettlewright-import.js";
 import { Cairn } from "./config.js";
 import { CairnCombat } from "./combat.js";
 import { createCairnMacro, rollItemMacro } from "./macros.js";
-import { Damage } from "./damage.js";
+import { Damage, DAMAGE_APPLIED_FLAG } from "./damage.js";
 import { registerSettings, SETTINGS_NS, migrateSettingsNamespace } from "./settings.js";
 import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS, deriveNpcRole } from "./data-models.js";
 import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNERSHIP_SYNC_FLAG } from "./connections.js";
@@ -1533,18 +1533,15 @@ Hooks.on("renderActorDirectory", (app, html) => {
  * leg in dev:enc-damage is what guards the ordering: move this after the trim
  * and a player stops seeing the names, which that leg asserts.
  */
-const nameDamageTargets = (message, html, scene) => {
-  const label = html.querySelector(".flavor-dice-roll .dmg-label")
-    // Cards posted before the class existed: the label is the child div that is
-    // not the Apply-damage wrapper.
-    ?? html.querySelector(".flavor-dice-roll > div:not(.icon-action)");
-  if (!label) return;
-
-  const raw = html.querySelector(".apply-dmg")?.dataset.targets ?? "";
-  const ids = raw.split(";").map((s) => s.trim()).filter(Boolean);
-  if (!ids.length) return;
-
-  const names = [];
+/**
+ * The subset of token ids this VIEWER may be told about, as display names.
+ *
+ * One function, because both the attack line and the applied-damage summary must
+ * conceal the same tokens and a second copy of this test is a second thing to get
+ * wrong. Order is preserved so a caller can zip names back against its own data.
+ */
+const nameableTokens = (ids, scene) => {
+  const out = [];
   for (const id of ids) {
     const tok = scene?.tokens?.get(id);
     if (!tok) continue; // killed since, or the scene is gone
@@ -1561,8 +1558,23 @@ const nameDamageTargets = (message, html, scene) => {
     // test above — `hidden` is "the Warden took it off the board", SECRET is
     // "this one is not for the players", and a Warden may use either.
     if (tok.isSecret) continue;
-    names.push(tokenDisplayName(tok));
+    out.push({ id, name: tokenDisplayName(tok) });
   }
+  return out;
+};
+
+const nameDamageTargets = (message, html, scene) => {
+  const label = html.querySelector(".flavor-dice-roll .dmg-label")
+    // Cards posted before the class existed: the label is the child div that is
+    // not the Apply-damage wrapper.
+    ?? html.querySelector(".flavor-dice-roll > div:not(.icon-action)");
+  if (!label) return;
+
+  const raw = html.querySelector(".apply-dmg")?.dataset.targets ?? "";
+  const ids = raw.split(";").map((s) => s.trim()).filter(Boolean);
+  if (!ids.length) return;
+
+  const names = nameableTokens(ids, scene).map((n) => n.name);
   // Nothing this viewer may be told about: the weapon sentence stands rather
   // than a half-written one. Naming the visible subset of a mixed group is fine
   // — it reveals nothing about the one left out.
@@ -1585,6 +1597,57 @@ const nameDamageTargets = (message, html, scene) => {
   });
 };
 
+/**
+ * Say on the originating card that its damage was applied, and what it did.
+ *
+ * The control used to leave the tile exactly as it found it: the Warden clicked,
+ * three detail cards appeared further down the log, and the card that was
+ * actually clicked recorded nothing. Scrolled back an hour later there is no way
+ * to tell a card that was used from one that was not.
+ *
+ * The detail cards STAY — they carry the armor arithmetic, the HP strike-through
+ * and the Scar / STR-save buttons, and each of those needs its own card. This is
+ * a one-line summary, never a second copy of them.
+ *
+ * Rendered from the FLAG at display time rather than written into the card's
+ * HTML, for the same three reasons the attack line is: it localizes per viewer,
+ * it conceals per viewer (same `nameableTokens` gate, not a second copy of it),
+ * and it survives a re-render. The flag is also what disables the control, so a
+ * card scrolled back to hours later is still spent.
+ */
+const showDamageApplied = (message, html, scene) => {
+  const flag = message.getFlag(FLAG_SCOPE, DAMAGE_APPLIED_FLAG);
+  if (!flag?.applied?.length) return;
+
+  // The affordance. The refusal lives in onClickChatMessageApplyButton and reads
+  // the same flag — removing either one alone would leave a change that looks
+  // landed and is not.
+  const btn = html.querySelector(".apply-dmg");
+  if (btn) {
+    btn.classList.add("spent");
+    btn.setAttribute("disabled", "disabled");
+    btn.dataset.tooltip = game.i18n.localize("CAIRN.Notify.DamageAlreadyApplied");
+  }
+
+  const row = html.querySelector(".flavor-dice-roll");
+  if (!row || row.querySelector(".dmg-applied")) return;
+
+  const byId = new Map(flag.applied.map((a) => [a.id, a.dmg]));
+  const entries = nameableTokens([...byId.keys()], scene).map((n) =>
+    game.i18n.format("CAIRN.DamageAppliedEntry", { dmg: byId.get(n.id), target: n.name }));
+  // Nothing this viewer may be named: the card stays as it is rather than
+  // announcing that SOMETHING was hit. The control is still disabled above.
+  if (!entries.length) return;
+
+  const line = document.createElement("div");
+  line.className = "dmg-applied";
+  // textContent: token names are Warden-authored free text.
+  line.textContent = game.i18n.format("CAIRN.DamageApplied", {
+    list: game.i18n.getListFormatter().format(entries),
+  });
+  row.append(line);
+};
+
 Hooks.on("renderChatMessageHTML", (message, html, data) => {
   // Display-only content overlay for RollTable draw cards (see above).
   localizeTableResults(html);
@@ -1602,8 +1665,9 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   const scene = speaker.scene ? game.scenes?.get(speaker.scene) : canvas?.scene;
   const token = scene?.tokens?.get(speaker.token);
 
-  // Before the player-trim at the bottom of this hook — see the docblock.
+  // Both before the player-trim at the bottom of this hook — see the docblocks.
   nameDamageTargets(message, html, scene);
+  showDamageApplied(message, html, scene);
 
   if (token?.actor) {
     if (token.actor.testUserPermission(game.user, "OWNER") || game.user.isGM) {
@@ -1647,8 +1711,10 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
     // data-targets holds token ids from the scene the roll was made on. Reading
     // the viewer's scene inside the handler meant every id missed after a scene
     // change and the button applied nothing, silently.
+    // `message` rides along so the handler can stamp the outcome onto the card
+    // it was clicked on, and refuse a second click by reading it back.
     if (btn)
-      btn.onclick = (ev) => Damage.onClickChatMessageApplyButton(ev, html, data, scene);
+      btn.onclick = (ev) => Damage.onClickChatMessageApplyButton(ev, html, data, scene, message);
   } else {
     // REMOVED, not hidden. The card's HTML is stored on the message and sent to
     // everyone, so this is the only place a player's copy can be trimmed — and
