@@ -116,6 +116,16 @@ try {
     await wait(150);   // let any (non-)gold update flush; Take must not change gold
     const goldAfterTake = actor.system.gold;
 
+    // A shop Torch must arrive 3/3 (item 3, 2026-08-08). The marketplace copies
+    // the pool item's system verbatim, so this pins the SOURCE data: generation
+    // masked the pack's old 0/0 through its `uses: 3` annotation, and the shop
+    // was the surface where the real value showed. Runs against the REBUILT
+    // pack — before the build this leg IS the red state the bug report was.
+    const torchBtn = document.querySelector('.marketplace .mkt-row[data-name="torch"] .mkt-take');
+    torchBtn?.click();
+    await poll(() => actor.items.find((i) => i.name === "Torch"));
+    const torch = actor.items.find((i) => i.name === "Torch");
+
     const buy = {
       hadBuyButton: !!buyBtn,
       bought,
@@ -126,6 +136,8 @@ try {
       goldAfterTake,
       takeWasFree: goldAfterTake === goldAfterBuy,
       daggerPrice: origCost,
+      torchHadButton: !!torchBtn,
+      torchUses: torch ? `${torch.system.uses?.value}/${torch.system.uses?.max}` : null,
     };
 
     // 4. A FULL PACK refuses the shop (2026-08-05 ruling). Shopping is ordinary
@@ -261,6 +273,9 @@ try {
   r.buy.spent5 ? ok(`Buy deducted ${r.buy.daggerPrice} gold (100 → ${r.buy.goldAfterBuy})`) : fail(`gold after buy ${r.buy.goldAfterBuy}, expected ${100 - r.buy.daggerPrice}`);
   r.buy.took ? ok("Take added the bundle to the character") : fail("Take did not add the bundle");
   r.buy.takeWasFree ? ok(`Take was free (gold unchanged at ${r.buy.goldAfterTake})`) : fail(`Take changed gold (${r.buy.goldAfterBuy} → ${r.buy.goldAfterTake})`);
+  r.buy.torchHadButton && r.buy.torchUses === "3/3"
+    ? ok("a shop Torch arrives with 3/3 uses — the pool item carries them itself")
+    : fail(`shop Torch uses ${r.buy.torchUses} (want 3/3; row found=${r.buy.torchHadButton}) — the pool YAML is the source, and generation's annotation masks it`);
 
   const F = r.full;
   F.encumbered && F.closedOk && F.openedOk && F.shopRoots === 1
