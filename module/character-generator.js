@@ -1506,11 +1506,31 @@ export const enabledContentSources = () => CONTENT_SOURCES.filter((s) => s.enabl
 /**
  * Which content source to generate from: the only enabled one, or a prompt when
  * a Warden has enabled both. Falls back to 2e if a Warden has turned everything
- * off, so the Generate button can never do nothing.
- * @returns {Promise<String>}
+ * off, so the Generate button never dies silently — though since 2026-08-08 a
+ * PLAYER is asked first when no chooser would appear, so for them "nothing"
+ * is now a choice (null), never an accident.
+ * @returns {Promise<String|null>} null = the user declined (confirm or picker ✕)
  */
 export const promptContentSource = async () => {
   const sources = enabledContentSources();
+  // With one or zero sources enabled, no chooser appears below — a player's
+  // click would mint a character instantly, so interpose a Yes/No first (user
+  // ask, 2026-08-08: an accidental click must not silently roll a PC). PLAYERS
+  // only — the Warden's own button keeps rolling instantly (user ruling). With
+  // 2+ sources the picker below is itself the interrupt, and its ✕ already
+  // means "not now", so a confirm there would double-stack. This runs on the
+  // ACTING user's client in both fresh paths (the GM directory button via
+  // createCharacter, and requestPcGeneration which deliberately prompts on the
+  // clicking player's client), so isGM is evaluated for the right person;
+  // Regenerate never reaches here (it passes a background/source).
+  if (sources.length <= 1 && !game.user.isGM) {
+    const go = await foundry.applications.api.DialogV2.confirm({
+      window: { title: game.i18n.localize("CAIRN.GeneratePcConfirmTitle") },
+      content: `<p>${game.i18n.localize("CAIRN.GeneratePcConfirm")}</p>`,
+      rejectClose: false, // ✕ resolves falsy — an instruction, like the picker's
+    });
+    if (!go) return null; // No or ✕: create nothing (callers already bail on null)
+  }
   if (sources.length === 1) return sources[0].key;
   if (!sources.length) return "2e";
   const buttons = sources.map((s) => ({ action: s.key, label: game.i18n.localize(s.label) }));
@@ -1543,8 +1563,9 @@ export const promptContentSource = async () => {
  */
 export const generateCharacter = async (background = null, source = null) => {
   const chosen = background?.system?.source ?? source ?? (await promptContentSource());
-  // Only reachable when the picker was dismissed — a background or an explicit
-  // source never yields null, so Regenerate cannot land here.
+  // Only reachable when the picker was dismissed or a player declined the
+  // roll-confirm — a background or an explicit source never yields null, so
+  // Regenerate cannot land here.
   if (!chosen) return null;
   return chosen === "barebones"
     ? generateBarebonesCharacter(background)

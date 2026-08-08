@@ -261,6 +261,8 @@
   "CAIRN.GameIconCategory.Wings": "Wings",
   "CAIRN.GameIconsBack": "All categories",
   "CAIRN.GameIconsCredit": "Icons by <a href=\"https://game-icons.net\" target=\"_blank\" rel=\"noopener\">game-icons.net</a> contributors · <a href=\"https://creativecommons.org/licenses/by/3.0/\" target=\"_blank\" rel=\"noopener\">CC BY 3.0</a> · per-icon authors in art/game-icons/CREDITS.md",
+  "CAIRN.GeneratePcConfirm": "This will roll up a brand-new character. Continue?",
+  "CAIRN.GeneratePcConfirmTitle": "Generate a new character?",
   "CAIRN.GenerationRolls": "rolled a new character, {name}!",
   "CAIRN.Gold": "Gold",
   "CAIRN.GoldTip": "Gold is heavy: the first {n} are petty (weightless); every further {n} fills an inventory slot.",
