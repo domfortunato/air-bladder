@@ -5,7 +5,7 @@ import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, sourceLabel
 import { resultText } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES } from "../icons.js";
-import { NPC_ROLES } from "../data-models.js";
+import { NPC_ROLES, THING_ROLES } from "../data-models.js";
 import { atConnectionLimit, maxConnections, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
 import { actorDisplayName, localizeNameDesc, sourceOf, t } from "../i18n-content.js";
 import { FATIGUE_NAME } from "../item/item.js";
@@ -420,11 +420,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const popOut = { action: "detach", icon: "fas fa-arrow-up-right-from-square", label: "CAIRN.PopOut" };
 
     const isChar = this.actor.type === "character";
-    // Print — characters only (the page is a PC layout: traits, bonds, omen).
-    // NO ownership gate, deliberately: the page renders exactly what the sheet
-    // already shows this viewer, so being able to open the sheet IS the gate.
-    // Static state; #syncGenerationButtons never touches it.
-    const print = isChar ? [{ action: "printSheet", icon: "fas fa-print", label: "CAIRN.Print" }] : [];
+    // Print — characters, and (2026-08-08, superseding the "characters only"
+    // ruling of the same day) PEOPLE and MONSTERS too: a Warden hands a
+    // statblock across the table. Things stay off the list — a cart prints on
+    // its keeper's page. NO ownership gate, deliberately: the page renders
+    // exactly what the sheet already shows this viewer, so being able to open
+    // the sheet IS the gate. Role changes under an open sheet are synced by
+    // #syncGenerationButtons like the Roll button's.
+    const printable = isChar || ["npc", "monster"].includes(this.actor.npcRole);
+    const print = printable ? [{ action: "printSheet", icon: "fas fa-print", label: "CAIRN.Print" }] : [];
 
     // npc and hireling are one thing, so both get the NPC generation controls.
     const isNpc = ["hireling", "npc"].includes(this.actor.type);
@@ -435,7 +439,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // open sheet and the frame builds once, so #syncGenerationButtons applies
     // the same test per render to the buttons this frame did build.
     const rollableRole = !isNpc || ["npc", "monster"].includes(this.actor.npcRole);
-    if (!(isChar || isNpc) || !rollableRole || !this.actor.isOwner) return [...print, popOut, ...buttons];
+    // Print sits to the RIGHT of Pop Out (user ruling 2026-08-08).
+    if (!(isChar || isNpc) || !rollableRole || !this.actor.isOwner) return [popOut, ...print, ...buttons];
 
     // The toggle is created UNCONDITIONALLY for an owner of a generating type,
     // and only the Roll button rides `show-generate-header`. It used to gate
@@ -457,8 +462,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
           : isNpc ? "CAIRN.RollNpc" : "CAIRN.RegenerateCharacter",
       }] : []),
       { action: "toggleGeneration", icon: "fas fa-toggle-on", label: "CAIRN.RandomizationOn" },
-      ...print,
       popOut,
+      // To the RIGHT of Pop Out (user ruling 2026-08-08).
+      ...print,
       ...buttons,
     ];
   }
@@ -478,7 +484,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   async _renderFrame(options) {
     const frame = await super._renderFrame(options);
-    for (const action of ["rollActor", "toggleGeneration", "detach"]) {
+    for (const action of ["rollActor", "toggleGeneration", "detach", "printSheet"]) {
       const button = frame.querySelector(`.window-header button[data-action="${action}"]`);
       if (!button) continue;
       // The template puts the glyph on the BUTTON as classes and leaves it
@@ -568,6 +574,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * @param {HTMLElement} [root] The frame, when it is not yet `this.element`.
    */
   #syncGenerationButtons(root = this.element) {
+    // Print follows the same per-render role test as Roll: a monster re-typed
+    // into a crate under an open sheet loses the button its frame built. (The
+    // other direction gains it on the next sheet open — a frame cannot grow
+    // buttons it never built.)
+    const print = root?.querySelector('.window-header button[data-action="printSheet"]');
+    if (print) {
+      const unprintable = ["hireling", "npc"].includes(this.actor.type)
+        && !["npc", "monster"].includes(this.actor.npcRole);
+      print.classList.toggle("cairn-header-hidden", unprintable);
+    }
     const roll = root?.querySelector('.window-header button[data-action="rollActor"]');
     const toggle = root?.querySelector('.window-header button[data-action="toggleGeneration"]');
     if (!roll && !toggle) return;
@@ -1839,11 +1855,68 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       sys.critical && L("CAIRN.CriticalDamage"),
     ].filter(Boolean).join(" · ");
 
+    const isChar = actor.type === "character";
+
+    // The background's own prose and its rolled question/answer pairs (user
+    // additions 2026-08-08), routed exactly as the sheet routes them —
+    // bg.desc / bg.question / bg.optionDesc — so a Spanish player prints
+    // Spanish. Each Q&A stays its OWN pair of paragraphs: Kettlewright smushes
+    // them into one blob, and the ruling is exactly not that.
+    const bg = isChar && sys.backgroundUuid ? await fromUuid(sys.backgroundUuid) : null;
+    const backgroundDesc = bg?.system?.description
+      ? await enrich(t("bg.desc", bg.system.description))
+      : "";
+    const questions = (sys.questions ?? [])
+      .filter((q) => String(q?.answer ?? "").trim())
+      .map((q) => ({
+        question: t("bg.question", q.question ?? ""),
+        answer: t("bg.optionDesc", q.answer ?? ""),
+      }));
+
+    // Connections as their own section (user addition 2026-08-08): every
+    // connected actor by name and role; the animate ones — companions, whose
+    // attacks and temperament live in their description — carry a stat line
+    // and that prose. Things get the name and role only: what a transport or
+    // container HOLDS is already an inventory section above.
+    const connections = [];
+    for (const c of actor.connectedActors()) {
+      const role = c.npcRole ?? c.system.role ?? "npc";
+      const thing = THING_ROLES.includes(role);
+      connections.push({
+        name: t("monster.name", c.name),
+        role: L(`CAIRN.Role${role.charAt(0).toUpperCase()}${role.slice(1)}`),
+        stats: thing ? "" : [
+          `${L("CAIRN.HitProtection")} ${c.system.hp.value}/${c.system.hp.max}`,
+          `${L("STR")} ${c.system.abilities.STR.value}`,
+          `${L("DEX")} ${c.system.abilities.DEX.value}`,
+          `${L("WIL")} ${c.system.abilities.WIL.value}`,
+        ].join(" · "),
+        desc: thing ? "" : await enrich(t("monster.desc", c.system.description ?? "")),
+      });
+    }
+
+    // The line under the name: a character's background (source parenthetical
+    // beside it, user ruling 2026-08-08), a person's role and career, a
+    // monster's role. Overlay-routed like the sheet header.
+    const role = actor.npcRole ?? "npc";
+    const roleLabel = isChar ? "" : L(`CAIRN.Role${role.charAt(0).toUpperCase()}${role.slice(1)}`);
+    const career = !isChar && role === "npc" ? t("table.result", String(sys.profession ?? "").trim()) : "";
+    const subtitle = isChar
+      ? t("bg.name", sys.background ?? "")
+      : career ? game.i18n.format("CAIRN.PrintRoleCareer", { role: roleLabel, career }) : roleLabel;
+
     const context = {
       lang: game.i18n.lang,
       name: actor.name,
       portrait: abs(actor.img),
-      background: sys.background,
+      subtitle,
+      subtitleSource: isChar ? sourceLabel(sys.contentSource) : "",
+      // Barebones only, below the background, labelled per the user's exact
+      // wording (2026-08-08). Same gate as the sheet: contentSource AND the
+      // world setting, read live.
+      failedCareer: isChar && sys.contentSource === "barebones"
+        && game.settings.get(SETTINGS_NS, "barebones-failed-career")
+        ? t("bg.name", sys.failedCareer ?? "") : "",
       pronouns: sys.pronouns,
       stats: {
         str: sys.abilities.STR.value, strMax: sys.abilities.STR.max,
@@ -1858,20 +1931,34 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       },
       status,
       traitsProse: this._buildTraitSentence(sys.traits, sys.age),
+      showBackground: !!(backgroundDesc || questions.length),
+      backgroundDesc,
+      questions,
+      connections,
       main: { used: sys.slotsUsed, max: sys.slotsMax, rows: rows(actor.items.contents) },
-      // One inventory section per connected actor — KW's multi-container
-      // layout. A 0-slot companion prints without the slot fraction.
+      // One inventory section per connected actor that can HOLD something —
+      // KW's multi-container layout, without the slot fraction for 0 slots. A
+      // 0-slot companion carrying nothing is Connections' business, not an
+      // empty inventory heading. The test is the AUTHORED `slots` override,
+      // never derived slotsMax: calcCurrentMaxSlots floors an npc's maximum
+      // at the world's max-equip-slots setting, so a falcon's slotsMax reads
+      // 10 while the creature owns no slots at all — the probe's first run
+      // caught exactly that.
       containers: actor.connectedActors().map((c) => ({
-        name: c.name,
+        name: t("monster.name", c.name),
         used: c.system.slotsUsed,
         max: c.system.slotsMax,
-        showSlots: (c.system.slotsMax ?? 0) > 0,
+        showSlots: (c.system.slots ?? 0) > 0,
         rows: rows(c.items.contents),
-      })),
-      description: await enrich(sys.description),
-      bonds: (sys.bonds ?? []).map((b) => String(b?.description ?? "").trim()).filter(Boolean),
-      omen: sys.omenEnabled ? String(sys.omen ?? "").trim() : "",
-      scars: sys.scars ?? [],
+      })).filter((s) => s.showSlots || s.rows.length),
+      // A character's description is the player's own prose; an NPC's is the
+      // statblock prose the overlay files under monster.desc.
+      description: await enrich(isChar ? sys.description : t("monster.desc", sys.description ?? "")),
+      // Bonds, the omen and scars are table text — through the overlay
+      // (table.result), the same routing the sheet gives them.
+      bonds: (sys.bonds ?? []).map((b) => t("table.result", String(b?.description ?? "").trim())).filter(Boolean),
+      omen: sys.omenEnabled ? t("table.result", String(sys.omen ?? "").trim()) : "",
+      scars: (sys.scars ?? []).map((s) => t("table.result", s)),
       notes: await enrich(sys.notes),
       features: (sys.features ?? []).map((f) => ({
         name: String(f?.name ?? "").trim(),
