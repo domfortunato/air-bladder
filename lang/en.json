@@ -443,6 +443,7 @@
   "CAIRN.PrintFailedCareer": "Failed Career:",
   "CAIRN.PrintMain": "Main",
   "CAIRN.PrintRoleCareer": "{role} — {career}",
+  "CAIRN.PrintSourceCustom": "Custom Cairn 2e",
   "CAIRN.PrintStats": "Stats",
   "CAIRN.PrintUsesMany": "({n} uses)",
   "CAIRN.PrintUsesOne": "({n} use)",

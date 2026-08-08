@@ -187,6 +187,15 @@ const r = await page.evaluate(async ({ xssName }) => {
   out.headerSource = doc?.querySelector("header.pc .bg-source")?.textContent?.trim() ?? null;
   out.headerSourceItalic = doc && doc.querySelector("header.pc .bg-source")
     ? popup.getComputedStyle(doc.querySelector("header.pc .bg-source")).fontStyle : null;
+  // The fixture background is a WORLD item — not the canon pack — so the
+  // custom label is what must print (custom is MEMBERSHIP, not a stored
+  // source; the character stores contentSource "2e").
+  out.customLabel = `(${game.i18n.localize("CAIRN.PrintSourceCustom")})`;
+  // Traits and Background print BELOW Items (user ruling 2026-08-08).
+  const wanted = ["CAIRN.PrintStats", "CAIRN.Items", "CAIRN.Traits", "CAIRN.Background", "CAIRN.Connections"]
+    .map((k) => game.i18n.localize(k));
+  out.sectionOrder = h2s.filter((h) => wanted.includes(h));
+  out.sectionOrderWanted = wanted;
   out.connHeader = h2s.includes(game.i18n.localize("CAIRN.Connections"));
   const connRows = [...(doc?.querySelectorAll("li.conn") ?? [])];
   const falconRow = connRows.find((li) => li.textContent.includes("ZZ Print Falcon"));
@@ -257,6 +266,9 @@ const r = await page.evaluate(async ({ xssName }) => {
   const fcLine = doc2?.querySelector("header.pc .failed-career");
   out.careerPass2 = !!fcLine && fcLine.textContent.includes("ZZ CAREER MARKER")
     && fcLine.textContent.includes(game.i18n.localize("CAIRN.PrintFailedCareer"));
+  // Barebones is NOT custom — the plain source label branch.
+  out.sourcePass2 = doc2?.querySelector("header.pc .bg-source")?.textContent?.trim() ?? null;
+  out.barebonesLabel = `(${game.i18n.localize("CAIRN.ContentSourceBarebones")})`;
   popup2?.close();
 
   await pc.sheet.close();
@@ -331,9 +343,13 @@ check("the background's own prose prints", r.hasBgDesc && r.bgHeader,
   `desc=${r.hasBgDesc} header=${r.bgHeader} — every 2e background has one, and KW's print carries it`);
 check("Q&A as SEPARATE paragraphs", r.qCount === 2 && r.qaCount === 2 && r.qSeparate,
   `q=${r.qCount} qa=${r.qaCount} separate=${r.qSeparate} — never Kettlewright's single blob`);
-check("the source, parenthetical and italic", r.headerSource?.startsWith("(")
-  && r.headerSource?.endsWith(")") && r.headerSourceItalic === "italic",
-  `"${r.headerSource}" style=${r.headerSourceItalic} — under the name, beside the background`);
+check("the source, parenthetical and italic", r.headerSource === r.customLabel
+  && r.headerSourceItalic === "italic",
+  `"${r.headerSource}" style=${r.headerSourceItalic} — a world-item background is CUSTOM by membership`);
+check("Barebones is not custom", r.sourcePass2 === r.barebonesLabel,
+  `pass2="${r.sourcePass2}" — the plain source-label branch`);
+check("Traits and Background BELOW Items", JSON.stringify(r.sectionOrder) === JSON.stringify(r.sectionOrderWanted),
+  `${JSON.stringify(r.sectionOrder)} — Stats, Items, Traits, Background, Connections`);
 check("a companion prints in Connections", r.connHeader && r.falconConn,
   `header=${r.connHeader} falcon=${r.falconConn} — stat line (DEX 16) and its description prose`);
 check("a thing gets the line only", r.sackConnLine,

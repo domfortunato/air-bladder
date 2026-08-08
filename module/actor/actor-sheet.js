@@ -1904,13 +1904,20 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const subtitle = isChar
       ? t("bg.name", sys.background ?? "")
       : career ? game.i18n.format("CAIRN.PrintRoleCareer", { role: roleLabel, career }) : roleLabel;
+    // "Custom" is MEMBERSHIP, not a stored source (the recorded definition:
+    // not in the Player's Guide, nothing more — a custom character still
+    // stores contentSource "2e"). A 2e background resolved from anywhere but
+    // the canon pack — the shipped custom pack, the world compendium, a
+    // module, a bare world item — prints the custom label (user ruling
+    // 2026-08-08).
+    const isCustomBg = !!bg && sys.contentSource === "2e" && bg.pack !== "air-bladder.backgrounds-2e";
 
     const context = {
       lang: game.i18n.lang,
       name: actor.name,
       portrait: abs(actor.img),
       subtitle,
-      subtitleSource: isChar ? sourceLabel(sys.contentSource) : "",
+      subtitleSource: !isChar ? "" : isCustomBg ? L("CAIRN.PrintSourceCustom") : sourceLabel(sys.contentSource),
       // Barebones only, below the background, labelled per the user's exact
       // wording (2026-08-08). Same gate as the sheet: contentSource AND the
       // world setting, read live.

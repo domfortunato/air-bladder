@@ -2,10 +2,11 @@
 {{!--
   The printable character sheet — one standalone page, modelled on
   Kettlewright's /print/ layout (user-supplied example, 2026-08-08): header,
-  Stats, Traits, Background (description + Q&A as separate paragraphs — KW
-  smushes them into one blob, ruled against 2026-08-08), Inventory (Main + one
-  section per connected holder), Connections, Description, Bonds, Omen, Scars,
-  Notes, Features, and a small-type credits footer. Empty sections are OMITTED
+  Stats, Inventory (Main + one section per connected holder), then Traits and
+  Background BELOW the items (user ruling 2026-08-08; description + Q&A as
+  separate paragraphs — KW smushes them into one blob, ruled against the same
+  day), Connections, Description, Bonds, Omen, Scars, Notes, Features, and a
+  small-type credits footer. Empty sections are OMITTED
   where KW prints placeholders — EXCEPT Notes, whose header always prints so
   the player has somewhere to write at the table (user ruling 2026-08-08).
 
@@ -100,24 +101,6 @@
   {{#if status}}<div class="statusline">{{ status }}</div>{{/if}}
 </section>
 
-{{#if traitsProse}}
-<section>
-  <h2>{{ localize "CAIRN.Traits" }}</h2>
-  <p>{{ traitsProse }}</p>
-</section>
-{{/if}}
-
-{{#if showBackground}}
-<section>
-  <h2>{{ localize "CAIRN.Background" }}</h2>
-  {{#if backgroundDesc}}<div class="prose">{{{ backgroundDesc }}}</div>{{/if}}
-  {{#each questions}}
-  <p class="q"><strong>{{ question }}</strong></p>
-  <p class="qa">{{ answer }}</p>
-  {{/each}}
-</section>
-{{/if}}
-
 <section>
   <h2>{{ localize "CAIRN.Items" }}</h2>
   <div class="inv-head">{{ localize "CAIRN.PrintMain" }} ( {{ main.used }} / {{ main.max }} )</div>
@@ -135,6 +118,25 @@
   </ul>
   {{/each}}
 </section>
+
+{{!-- Traits and Background sit BELOW Items (user ruling 2026-08-08). --}}
+{{#if traitsProse}}
+<section>
+  <h2>{{ localize "CAIRN.Traits" }}</h2>
+  <p>{{ traitsProse }}</p>
+</section>
+{{/if}}
+
+{{#if showBackground}}
+<section>
+  <h2>{{ localize "CAIRN.Background" }}</h2>
+  {{#if backgroundDesc}}<div class="prose">{{{ backgroundDesc }}}</div>{{/if}}
+  {{#each questions}}
+  <p class="q"><strong>{{ question }}</strong></p>
+  <p class="qa">{{ answer }}</p>
+  {{/each}}
+</section>
+{{/if}}
 
 {{#if connections.length}}
 <section>
