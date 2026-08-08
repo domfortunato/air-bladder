@@ -300,15 +300,20 @@ export const acquireTransport = async (actor, doc, pay) => {
   // An Actor row states its `role` outright (NpcData.migrateData derives one
   // for a pre-roles document). A legacy `transport` Item has no such field, so
   // infer from transportKind: worn packs and vehicles are things, only a mount
-  // is a creature. Without this a bought Backpack came out animate — and,
-  // having no hp field either, was handed the schema's default 6 HP on the way
-  // through (the same phantom-6 trap mounts.mjs documents). A kindless legacy
-  // Item keeps its old animate reading, which under roles is a mount.
+  // (the transportKind) is a creature. Without this a bought Backpack came out
+  // animate — and, having no hp field either, was handed the schema's default
+  // 6 HP on the way through (the same phantom-6 trap mounts.mjs documents). A
+  // kindless legacy Item keeps its old animate reading, a companion.
+  //
+  // The animate ROLE is `companion` (renamed from `mount` on 2026-08-08); the
+  // `transportKind === "mount"` test stays because "mount" is a live KIND value,
+  // not a role. Writing "mount" as a role here relied on migrateData rewriting
+  // it on read — a shim for legacy data doing live work for a current write.
   const role = s.role
     ?? (s.transportKind
-      ? (s.transportKind === "mount" ? "mount"
+      ? (s.transportKind === "mount" ? "companion"
         : s.transportKind === "vehicle" ? "transport" : "container")
-      : "mount");
+      : "companion");
   const isThing = role === "transport" || role === "container";
   // An npc, not a `container`. What is bought is now the same kind of document as
   // what the compendium ships, so a Horse bought from the shop and a Horse

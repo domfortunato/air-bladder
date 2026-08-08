@@ -14,16 +14,14 @@ flags:
   air-bladder:
     transportSource: background-2e
 system:
-  description: >-
-    From the Outrider background. Intelligent, it can understand simple commands
-    and even has an instinct for danger. 6 HP. +4 slots.
+  description: 'From the Outrider background. Intelligent, it can understand simple commands and even has an instinct for danger. 6 HP. +4 slots.'
   hp:
     value: 6
     max: 6
   slots: 4
   cost: 0
   containerClass: horse
-  role: mount
+  role: companion
   generationEnabled: false
 ownership:
   default: 0

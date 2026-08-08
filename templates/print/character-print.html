@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+{{!--
+  The printable character sheet — one standalone page, modelled on
+  Kettlewright's /print/ layout (user-supplied example, 2026-08-08): header,
+  then KW's two-column band — Stats and Inventory (Main + one section per
+  connected holder) on the left; Traits, the background's description and
+  Connections on the right — then full-width: the background's Q&A as
+  separate paragraphs (KW smushes them into one blob, ruled against
+  2026-08-08), Description, Bonds, Omen, Scars, Notes, Features, and a
+  small-type credits footer. Empty sections are OMITTED
+  where KW prints placeholders — EXCEPT Notes, whose header always prints so
+  the player has somewhere to write at the table (user ruling 2026-08-08).
+
+  DELIBERATELY NOT THEME-TRACKING — paper is white. This is the one surface
+  exempt from the dark-mode token rule; docs/theming.md records the exemption.
+  Everything is inline and self-contained: the page opens in a fresh window
+  whose document is written by the sheet's Print action, so there is no
+  stylesheet to reach and nothing external to load except the portrait, whose
+  src the action makes absolute.
+
+  Every text field renders through {{ }} (escaped). Only the enriched HTML
+  fields (description, notes, the background description and each connection's
+  description) use triple-stash — all are server-sanitized (htmlFields) and
+  enriched by the action.
+--}}
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<title>{{ name }}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: Georgia, "Times New Roman", serif;
+    color: #000;
+    background: #fff;
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+    font-size: 12pt;
+    line-height: 1.45;
+  }
+  header.pc { display: flex; align-items: center; gap: 1.25rem; margin-bottom: 1.5rem; }
+  header.pc img { width: 90px; height: 90px; object-fit: cover; border-radius: 50%; border: 2px solid #000; }
+  header.pc h1 { font-size: 2rem; letter-spacing: 0.06em; text-transform: uppercase; line-height: 1.1; }
+  header.pc .background { font-size: 1.05rem; letter-spacing: 0.12em; text-transform: uppercase; color: #333; }
+  header.pc .pronouns { font-size: 0.9rem; color: #444; font-style: italic; }
+  section { margin-bottom: 1.3rem; break-inside: avoid; }
+  h2 {
+    font-size: 0.95rem; letter-spacing: 0.14em; text-transform: uppercase;
+    border-bottom: 1px solid #000; padding-bottom: 0.15rem; margin-bottom: 0.5rem;
+  }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 0.2rem 2.5rem; max-width: 24rem; }
+  .stats .row { display: flex; justify-content: space-between; border-bottom: 1px dotted #999; }
+  .stats .row b { font-style: italic; }
+  .statusline { margin-top: 0.4rem; font-style: italic; }
+  ul.inv { list-style: none; }
+  ul.inv li { border-bottom: 1px dashed #999; padding: 0.1rem 0; }
+  ul.inv li .notes { color: #333; font-style: italic; }
+  .inv-head { font-style: italic; font-weight: bold; margin: 0.5rem 0 0.2rem; }
+  ul.plain { list-style: none; }
+  ul.plain li { margin-bottom: 0.35rem; }
+  .feature b { font-variant: small-caps; }
+  /* Kettlewright's band: two explicit columns, print-safe (never CSS
+     columns, which fragment unpredictably across page breaks). */
+  .band.has-side { display: grid; grid-template-columns: 11fr 9fr; column-gap: 2rem; align-items: start; }
+  /* The source parenthetical sits inside the uppercase background line and
+     must not shout with it. */
+  .bg-source { font-style: italic; text-transform: none; letter-spacing: normal; font-size: 0.85rem; color: #444; }
+  header.pc .failed-career { font-size: 0.95rem; color: #333; }
+  header.pc .failed-career .fc-label { font-style: italic; }
+  p.q { margin-top: 0.55rem; }
+  p.qa { margin-bottom: 0.35rem; }
+  li.conn { margin-bottom: 0.5rem; }
+  .conn-stats { font-style: italic; color: #333; }
+  /* Content links print as plain text — an anchor is useless on paper. */
+  a { color: inherit; text-decoration: none; }
+  .prose p { margin-bottom: 0.5rem; }
+  /* Notes opens its own page on a CHARACTER print — a fresh full page to
+     write on (user ruling 2026-08-08). A monster's one-pager stays one page,
+     which is why the rule rides the body class. */
+  body.pc-print section.notes-section { break-before: page; page-break-before: always; }
+  /* Very small type by ruling — a notice, not a section. */
+  footer.credits { margin-top: 2rem; padding-top: 0.4rem; border-top: 1px solid #999; font-size: 7pt; color: #555; }
+  @page { margin: 1.6cm; }
+</style>
+</head>
+<body class="{{#if isChar}}pc-print{{else}}npc-print{{/if}}">
+
+<header class="pc">
+  {{#if portrait}}<img src="{{ portrait }}" alt="{{ name }}">{{/if}}
+  <div>
+    <h1>{{ name }}</h1>
+    {{#if subtitle}}<div class="background">{{ subtitle }}{{#if subtitleSource}} <span class="bg-source">({{ subtitleSource }})</span>{{/if}}</div>{{/if}}
+    {{#if failedCareer}}<div class="failed-career"><span class="fc-label">{{ localize "CAIRN.PrintFailedCareer" }}</span> {{ failedCareer }}</div>{{/if}}
+    {{#if pronouns}}<div class="pronouns">{{ pronouns }}</div>{{/if}}
+  </div>
+</header>
+
+{{!-- Kettlewright's two-column band (user rulings 2026-08-08): Stats and
+      Items left; Traits, the background's description and Connections right.
+      With nothing for the right column the band collapses to one column
+      (hasSide) rather than printing at half width. --}}
+<div class="band{{#if hasSide}} has-side{{/if}}">
+<div class="col-main">
+<section>
+  <h2>{{ localize "CAIRN.PrintStats" }}</h2>
+  <div class="stats">
+    <div class="row"><b>{{ localize "STR" }}</b><span>{{ stats.str }}/{{ stats.strMax }}</span></div>
+    <div class="row"><b>{{ localize "CAIRN.Gold" }}</b><span>{{ stats.gold }}</span></div>
+    <div class="row"><b>{{ localize "DEX" }}</b><span>{{ stats.dex }}/{{ stats.dexMax }}</span></div>
+    <div class="row"><b>{{ localize "CAIRN.Armor" }}</b><span>{{ stats.armor }}</span></div>
+    <div class="row"><b>{{ localize "WIL" }}</b><span>{{ stats.wil }}/{{ stats.wilMax }}</span></div>
+    <div class="row"><b>{{ localize "CAIRN.HitProtection" }}</b><span>{{ stats.hp }}/{{ stats.hpMax }}</span></div>
+  </div>
+  {{#if status}}<div class="statusline">{{ status }}</div>{{/if}}
+</section>
+
+<section>
+  <h2>{{ localize "CAIRN.Items" }}</h2>
+  <div class="inv-head">{{ localize "CAIRN.PrintMain" }} ( {{ main.used }} / {{ main.max }} )</div>
+  <ul class="inv">
+    {{#each main.rows}}
+    <li>{{ name }}{{#if notes}} <span class="notes">{{ notes }}</span>{{/if}}</li>
+    {{/each}}
+  </ul>
+  {{#each containers}}
+  <div class="inv-head">{{ name }}{{#if showSlots}} ( {{ used }} / {{ max }} ){{/if}}</div>
+  <ul class="inv">
+    {{#each rows}}
+    <li>{{ name }}{{#if notes}} <span class="notes">{{ notes }}</span>{{/if}}</li>
+    {{/each}}
+  </ul>
+  {{/each}}
+</section>
+</div>
+
+{{#if hasSide}}
+<div class="col-side">
+{{#if traitsProse}}
+<section>
+  <h2>{{ localize "CAIRN.Traits" }}</h2>
+  <p>{{ traitsProse }}</p>
+</section>
+{{/if}}
+
+{{!-- The background's DESCRIPTION rides the right column under Traits (user
+      ruling 2026-08-08); its Q&A prints full-width below the band. --}}
+{{#if backgroundDesc}}
+<section>
+  <h2>{{ localize "CAIRN.Background" }}</h2>
+  <div class="prose">{{{ backgroundDesc }}}</div>
+</section>
+{{/if}}
+
+{{#if connections.length}}
+<section>
+  <h2>{{ localize "CAIRN.Connections" }}</h2>
+  <ul class="plain">
+    {{#each connections}}
+    <li class="conn"><b>{{ name }}</b> — {{ role }}
+      {{#if stats}}<div class="conn-stats">{{ stats }}</div>{{/if}}
+      {{#if desc}}<div class="prose">{{{ desc }}}</div>{{/if}}
+    </li>
+    {{/each}}
+  </ul>
+</section>
+{{/if}}
+</div>
+{{/if}}
+</div>
+
+{{#if questions.length}}
+<section>
+  <h2>{{ localize "CAIRN.PrintQuestions" }}</h2>
+  {{#each questions}}
+  <p class="q"><strong>{{ question }}</strong></p>
+  <p class="qa">{{ answer }}</p>
+  {{/each}}
+</section>
+{{/if}}
+
+{{#if description}}
+<section>
+  <h2>{{ localize "CAIRN.Description" }}</h2>
+  <div class="prose">{{{ description }}}</div>
+</section>
+{{/if}}
+
+{{#if bonds.length}}
+<section>
+  <h2>{{ localize "CAIRN.PrintBonds" }}</h2>
+  <ul class="plain">
+    {{#each bonds}}<li>{{ this }}</li>{{/each}}
+  </ul>
+</section>
+{{/if}}
+
+{{#if omen}}
+<section>
+  <h2>{{ localize "CAIRN.Omen" }}</h2>
+  <p>{{ omen }}</p>
+</section>
+{{/if}}
+
+{{#if scars.length}}
+<section>
+  <h2>{{ localize "CAIRN.ScarsSection" }}</h2>
+  <ul class="plain">
+    {{#each scars}}<li>{{ this }}</li>{{/each}}
+  </ul>
+</section>
+{{/if}}
+
+{{!-- The Notes HEADER always prints, content or not — a printed sheet is for
+      the table, and an empty Notes block is where the pencil goes. --}}
+<section class="notes-section">
+  <h2>{{ localize "CAIRN.Notes" }}</h2>
+  {{#if notes}}<div class="prose">{{{ notes }}}</div>{{/if}}
+</section>
+
+{{#if features.length}}
+<section>
+  <h2>{{ localize "CAIRN.Features" }}</h2>
+  <ul class="plain">
+    {{#each features}}
+    <li class="feature">{{#if name}}<b>{{ name }}</b>{{#if text}} — {{/if}}{{/if}}{{ text }}</li>
+    {{/each}}
+  </ul>
+</section>
+{{/if}}
+
+<footer class="credits">{{ credits }}</footer>
+
+</body>
+</html>

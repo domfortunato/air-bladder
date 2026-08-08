@@ -254,8 +254,13 @@ const render = (d) => {
     if (mech.moved) P(`- **${mech.moved}** whose document changed type, moving them to a different namespace.`);
     if (mech.entityDup) P(`- **${mech.entityDup}** already re-keyed; the old key is spent residue and safe to delete.`);
     P();
-    P(`Fixed our side with \`npm run i18n:repair -- --lang ${d.lang} --write\`, which touches only`);
-    P(`the entries it names and keeps every ${d.langName} value byte-identical.`);
+    // OUR side's to-do, stated as one — never in the completed voice. Review
+    // #11 caught this section claiming "Fixed our side" unconditionally,
+    // emitted by the same scan that was reporting the entry UNfixed: the
+    // reader's only document accounted for work nobody had run.
+    P(`Our side runs \`npm run i18n:repair -- --lang ${d.lang} --write\` for these — it touches only`);
+    P(`the entries it names and keeps every ${d.langName} value byte-identical. If this section`);
+    P(`still appears in the NEXT handoff, that run has not happened yet.`);
     P();
   }
   P(`---`);

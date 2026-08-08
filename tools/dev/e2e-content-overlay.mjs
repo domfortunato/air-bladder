@@ -955,7 +955,7 @@ const mountLeg = await page.evaluate(async () => {
   i18n._setOverlay({ "monster.name": { "Heavy Destrier": ES } });
 
   // Not awaited: createThing resolves only when the dialog is answered.
-  const pending = CONFIG.Actor.documentClass.createThing("mount");
+  const pending = CONFIG.Actor.documentClass.createThing("companion");
   let form = null;
   await until(() => {
     form = [...document.querySelectorAll("dialog form")].find((f) => f.elements?.thingName);

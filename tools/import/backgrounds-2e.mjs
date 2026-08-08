@@ -106,6 +106,24 @@ const ADDITIONS = {
   // coins occupy slots in 2e so it is not free money. (Decided 2026-07-22.)
   Kettlewright: { options: [{ table: 1, option: 2, bonusGold: 20 }] },
   "Rill Runner": { options: [{ table: 2, option: 3, bonusGold: 20 }] },
+
+  // THE PROSE COMPANIONS ARE MINTED (2026-08-08, user ruling — a deliberate
+  // widening of the mount/donkey exception to the "no automation of mechanical
+  // text" rule). The falcon and the raven carry real stat blocks in their
+  // option prose and stand on the map, so they become connected companion
+  // Actors the way the Outrider's horse always has; mounts.mjs authors their
+  // pack documents from these very grants, stats parsed from the prose. The
+  // Alchemical Tattoo and the Living Nightmare stay prose — ruled the same
+  // day: neither is a persistent creature (the tattoo is statless, the
+  // Nightmare mirrors the PC and would drift the moment their stats moved).
+  Fletchwind: { options: [{ table: 1, option: 2, containers: [{ name: "Falcon", slots: 0 }] }] },
+  // The raven was an inventory ITEM until 2026-08-08 — the Outrider precedent
+  // verbatim: "an outrider's horse should never appear in their inventory".
+  // Its `items` grant was REMOVED from the pack in the same commit and stays
+  // removed by round-trip (this script re-sources prose and carries the pack's
+  // mechanical fields forward; it never re-adds what the pack no longer has),
+  // and the orphaned Raven Familiar item left background-items with it.
+  "Half Witch": { options: [{ table: 1, option: 4, containers: [{ name: "Raven Familiar", slots: 0 }] }] },
 };
 
 /* ------------------------------------------------------------------ parsing */

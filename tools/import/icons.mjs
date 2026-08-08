@@ -43,6 +43,11 @@ const ICONS = {
   "chest": ["lorc", "locked-chest"],
   "donkey": ["skoll", "donkey"],
   "horse": ["delapouite", "horse-head"],
+  // The 0-slot companions (2026-08-08): Fletchwind's falcon, Half Witch's
+  // raven. Both glyphs already ship in the art/game-icons GALLERY under the
+  // same licence; these are the class-art copies icons/ needs.
+  "falcon": ["delapouite", "falcon-moon"],
+  "raven": ["lorc", "raven"],
   "cart": ["lorc", "cartwheel"],
   "handcart": ["delapouite", "wheelbarrow"],
   // Used to be the cartwheel again, which put two identical wheels in the

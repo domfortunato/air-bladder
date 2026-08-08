@@ -2169,6 +2169,76 @@ textarea.omen-input {
     font-weight: bold;
 }
 
+/* The Warden's Damage dialog: the dice builder under the Damage field. It
+   wears the core dialog skin; these rules are layout plus a disabled state,
+   no colours of their own (docs/theming.md — inherit, don't restate). */
+.cairn-warden-damage .wd-dice-builder {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 2px 0 6px;
+}
+.cairn-warden-damage .wd-dice-row {
+    display: flex;
+    gap: 4px;
+}
+.cairn-warden-damage .wd-die,
+.cairn-warden-damage .wd-clear {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 2px 0;
+    font-size: 12px;
+    line-height: 1.6;
+}
+/* ✕ is an action on the field, not a die — it never stretches like one. */
+.cairn-warden-damage .wd-clear { flex: 0 0 2.2em; }
+.cairn-warden-damage .wd-die[disabled],
+.cairn-warden-damage .wd-mode-row input[disabled],
+.cairn-warden-damage .wd-mode-row input[disabled] + span {
+    opacity: 0.4;
+    cursor: default;
+}
+.cairn-warden-damage .wd-mode-row {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+}
+.cairn-warden-damage .wd-mode-row label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--font-size-13, 13px);
+}
+
+/* The combat tracker's Cairn buckets. The list wears core's skin; these rules
+   add only the section dividers and the bucket word that replaces the numeric
+   initiative input — no colours of their own (inherit, don't restate). */
+#combat .cairn-bucket-divider {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 8px 0;
+    font-variant: small-caps;
+    letter-spacing: 0.5px;
+    font-size: 12px;
+    opacity: 0.75;
+}
+#combat .cairn-bucket-divider::after {
+    content: "";
+    flex: 1;
+    border-bottom: 1px solid currentColor;
+    opacity: 0.4;
+}
+#combat .cairn-bucket-word {
+    font-variant: small-caps;
+    letter-spacing: 0.3px;
+    font-size: 13px;
+    opacity: 0.9;
+}
+
 /******************************************************************************
  * Grant-source chip + inventory drag-to-reorder.
  ******************************************************************************/

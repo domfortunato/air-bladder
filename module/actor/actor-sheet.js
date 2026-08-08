@@ -1,11 +1,11 @@
 import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, regenerateNpc, rerollNpcProfession, rerollNpcName, rerollNpcFaction, rollNameFromTable, rollAge } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
-import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel } from "../utils.js";
+import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel } from "../utils.js";
 import { resultText } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES } from "../icons.js";
-import { NPC_ROLES } from "../data-models.js";
+import { NPC_ROLES, THING_ROLES } from "../data-models.js";
 import { atConnectionLimit, maxConnections, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
 import { actorDisplayName, localizeNameDesc, sourceOf, t } from "../i18n-content.js";
 import { FATIGUE_NAME } from "../item/item.js";
@@ -196,6 +196,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // Header
       rollActor: owned(CairnActorSheet.#onRollActor),
       toggleGeneration: owned(CairnActorSheet.#onToggleGeneration),
+      // NOT owned(): printing shows nothing the open sheet does not already
+      // show this viewer, so being able to open the sheet is the whole gate.
+      printSheet: CairnActorSheet.#onPrintSheet,
       // Portrait + name
       editPortrait: owned(CairnActorSheet.#onEditPortrait),
       rollPortrait: owned(CairnActorSheet.#onRollPortrait),
@@ -417,6 +420,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const popOut = { action: "detach", icon: "fas fa-arrow-up-right-from-square", label: "CAIRN.PopOut" };
 
     const isChar = this.actor.type === "character";
+    // Print — characters, and (2026-08-08, superseding the "characters only"
+    // ruling of the same day) PEOPLE and MONSTERS too: a Warden hands a
+    // statblock across the table. Things stay off the list — a cart prints on
+    // its keeper's page. NO ownership gate, deliberately: the page renders
+    // exactly what the sheet already shows this viewer, so being able to open
+    // the sheet IS the gate. Role changes under an open sheet are synced by
+    // #syncGenerationButtons like the Roll button's.
+    const printable = isChar || ["npc", "monster"].includes(this.actor.npcRole);
+    const print = printable ? [{ action: "printSheet", icon: "fas fa-print", label: "CAIRN.Print" }] : [];
+
     // npc and hireling are one thing, so both get the NPC generation controls.
     const isNpc = ["hireling", "npc"].includes(this.actor.type);
     // Thing roles — mount, transport, container — get NEITHER button (ruled
@@ -426,7 +439,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // open sheet and the frame builds once, so #syncGenerationButtons applies
     // the same test per render to the buttons this frame did build.
     const rollableRole = !isNpc || ["npc", "monster"].includes(this.actor.npcRole);
-    if (!(isChar || isNpc) || !rollableRole || !this.actor.isOwner) return [popOut, ...buttons];
+    // Print sits to the RIGHT of Pop Out (user ruling 2026-08-08).
+    if (!(isChar || isNpc) || !rollableRole || !this.actor.isOwner) return [popOut, ...print, ...buttons];
 
     // The toggle is created UNCONDITIONALLY for an owner of a generating type,
     // and only the Roll button rides `show-generate-header`. It used to gate
@@ -449,6 +463,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       }] : []),
       { action: "toggleGeneration", icon: "fas fa-toggle-on", label: "CAIRN.RandomizationOn" },
       popOut,
+      // To the RIGHT of Pop Out (user ruling 2026-08-08).
+      ...print,
       ...buttons,
     ];
   }
@@ -468,7 +484,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   async _renderFrame(options) {
     const frame = await super._renderFrame(options);
-    for (const action of ["rollActor", "toggleGeneration", "detach"]) {
+    for (const action of ["rollActor", "toggleGeneration", "detach", "printSheet"]) {
       const button = frame.querySelector(`.window-header button[data-action="${action}"]`);
       if (!button) continue;
       // The template puts the glyph on the BUTTON as classes and leaves it
@@ -558,6 +574,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * @param {HTMLElement} [root] The frame, when it is not yet `this.element`.
    */
   #syncGenerationButtons(root = this.element) {
+    // Print follows the same per-render role test as Roll: a monster re-typed
+    // into a crate under an open sheet loses the button its frame built. (The
+    // other direction gains it on the next sheet open — a frame cannot grow
+    // buttons it never built.)
+    const print = root?.querySelector('.window-header button[data-action="printSheet"]');
+    if (print) {
+      const unprintable = ["hireling", "npc"].includes(this.actor.type)
+        && !["npc", "monster"].includes(this.actor.npcRole);
+      print.classList.toggle("cairn-header-hidden", unprintable);
+    }
     const roll = root?.querySelector('.window-header button[data-action="rollActor"]');
     const toggle = root?.querySelector('.window-header button[data-action="toggleGeneration"]');
     if (!roll && !toggle) return;
@@ -683,7 +709,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // Monsters never saw it: Career is a person's job, and a monster has a
       // side without one.
       context.showFaction = ["npc", "monster"].includes(role);
-      context.showKind = ["mount", "transport", "container"].includes(role);
+      context.showKind = ["companion", "transport", "container"].includes(role);
       // The Type select's rows: the CONTAINER_CLASSES table filtered to the
       // current role, so a class added there appears here with nothing else to
       // keep in step. STRICT since 2026-08-02 — the free-text input lives
@@ -764,30 +790,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     // Alphabetical must be alphabetical in the language the eye reads (review
     // #9): sorting on stored English and translating afterwards rendered the
-    // list shuffled for any other language. The comparator sorts on the same
-    // display copy the render below produces (Fatigue's UI label included);
-    // the stored names stay English and every identity test still uses them.
-    const { nameNs: sortNameNs } = this._itemNamespaces();
-    const displayNameOf = (i) =>
-      i.name === FATIGUE_NAME ? game.i18n.localize("CAIRN.Fatigue") : t(sortNameNs, i.name);
-    const byDisplayName = (a, b) =>
-      displayNameOf(a).localeCompare(displayNameOf(b), game.i18n.lang);
-    if (game.settings.get(SETTINGS_NS, "enable-inventory-reorder")) {
-      // Manual order: honour each item's stored `sort` (Foundry's native field,
-      // written by the drag-to-reorder handler), falling back to name. Fatigue is
-      // NOT forced last here — with reorder on, the player controls placement.
-      items.sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || byDisplayName(a, b));
-    } else {
-      items.sort(byDisplayName);
-      items.sort((a, b) =>
-        a.system.equipped && !b.system.equipped
-          ? -1
-          : a.system.equipped === b.system.equipped
-          ? 0
-          : 1
-      );
-      items.sort((a, b) => (a.name === FATIGUE_NAME ? 1 : b.name === FATIGUE_NAME ? -1 : 0));
-    }
+    // list shuffled for any other language. `_sortItemsForDisplay` sorts on the
+    // same display copy the render below produces (Fatigue's UI label included)
+    // and is the SAME helper the printed page uses, so the two cannot drift; the
+    // stored names stay English and every identity test still uses them.
+    items = this._sortItemsForDisplay(items, this._itemNamespaces().nameNs);
 
     // Display-only content localization: translate inventory item names/descriptions
     // into the active language for rendering only. These are plain data copies (not
@@ -922,10 +929,48 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * and containers. The split is deliberate: item rule by role, actor rule by type.
    * @private
    */
-  _itemNamespaces() {
-    return this.actor.npcRole === "monster"
+  _itemNamespaces(actor = this.actor) {
+    return actor.npcRole === "monster"
       ? { nameNs: "monster.itemName", descNs: "monster.itemDesc" }
       : { nameNs: "item.name", descNs: "item.desc" };
+  }
+
+  /**
+   * Order an item list the way the inventory tab renders it, so the sheet and the
+   * printed page cannot drift (review #12: print built rows in insertion order
+   * while the sheet sorted). Manual `sort` when drag-to-reorder is on, else
+   * alphabetical by DISPLAY name (localeCompare in the reader's language),
+   * equipped first, Fatigue last. `nameNs` is the OWNING actor's item namespace —
+   * a connected monster's gear is filed under monster.itemName — and Fatigue's
+   * label comes from the UI key, both matching `_prepareContext`. Returns a copy;
+   * the source array is never mutated.
+   * @param {Item[]} items
+   * @param {string} nameNs  the name namespace for display sorting
+   * @returns {Item[]}
+   */
+  _sortItemsForDisplay(items, nameNs) {
+    const displayNameOf = (i) =>
+      i.name === FATIGUE_NAME ? game.i18n.localize("CAIRN.Fatigue") : t(nameNs, i.name);
+    const byDisplayName = (a, b) =>
+      displayNameOf(a).localeCompare(displayNameOf(b), game.i18n.lang);
+    const sorted = [...items];
+    if (game.settings.get(SETTINGS_NS, "enable-inventory-reorder")) {
+      // Manual order: honour each item's stored `sort` (Foundry's native field,
+      // written by the drag-to-reorder handler), falling back to name. Fatigue is
+      // NOT forced last here — with reorder on, the player controls placement.
+      sorted.sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || byDisplayName(a, b));
+    } else {
+      sorted.sort(byDisplayName);
+      sorted.sort((a, b) =>
+        a.system.equipped && !b.system.equipped
+          ? -1
+          : a.system.equipped === b.system.equipped
+          ? 0
+          : 1
+      );
+      sorted.sort((a, b) => (a.name === FATIGUE_NAME ? 1 : b.name === FATIGUE_NAME ? -1 : 0));
+    }
+    return sorted;
   }
 
   /**
@@ -1764,6 +1809,250 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
+   * Print: one standalone page holding the WHOLE character — a detached sheet
+   * prints only its displayed tab, which is the reason this exists. Layout
+   * modelled on Kettlewright's /print/ page (user example, 2026-08-08).
+   *
+   * The window is opened SYNCHRONOUSLY in the click gesture: popup blockers
+   * allow a user-gesture open and eat one that arrives after an `await`, so the
+   * async page build starts only once the window already exists.
+   * @this {CairnActorSheet}
+   */
+  static #onPrintSheet(event) {
+    event.preventDefault();
+    const win = window.open("", "_blank");
+    if (!win) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.PrintBlocked"));
+      return;
+    }
+    this.#fillPrintPage(win).catch((err) => {
+      console.error("Air Bladder | the print page failed:", err);
+      win.close();
+    });
+  }
+
+  /**
+   * Build the print page into an already-open window, then offer the print
+   * dialog (user ruling: the button means print; cancelling leaves the page
+   * open to read or re-print).
+   *
+   * Everything the page needs is made ABSOLUTE (`about:blank` has no base URL
+   * to resolve a relative path against), item names and descriptions go
+   * through the content overlay so a Spanish player prints Spanish, and the
+   * two ProseMirror fields are enriched so an `@UUID` link prints as its
+   * name — the page CSS then renders every anchor as plain text, because a
+   * content link is useless on paper.
+   * @param {Window} win
+   */
+  async #fillPrintPage(win) {
+    const actor = this.actor;
+    const sys = actor.system;
+    const L = (k) => game.i18n.localize(k);
+    const abs = (p) => (p ? new URL(p, `${location.origin}/`).href : null);
+    const enrich = (html) => (html
+      ? foundry.applications.ux.TextEditor.implementation.enrichHTML(html, { relativeTo: actor })
+      : Promise.resolve(""));
+
+    // A row per item, Kettlewright's annotations: (petty), (N uses), (dN),
+    // bulky and quantity. Notes are TEXT assembled here and escaped by the
+    // template — item names are authored free text.
+    const rows = (items, nameNs) => this._sortItemsForDisplay(items, nameNs).map((it) => {
+      const notes = [];
+      // The translator's strings AS WRITTEN — no locale-less case transform
+      // (review #11: the print page was the only surface lowercasing a
+      // localized value, wrong for any language that capitalises the term).
+      if (it.system.weightless) notes.push(`(${L("CAIRN.Weightless")})`);
+      const uses = it.system.uses?.value ?? 0;
+      // formatCount, not a hand-rolled binary fork (review #11): the item
+      // sheet and marketplace both learned this in review #9, and the fork
+      // here duplicated CAIRN.NUses under two print-only keys while cutting
+      // Polish off from its _few form.
+      if (uses > 0) notes.push(`(${formatCount("CAIRN.NUses", uses)})`);
+      if (it.system.damageFormula) notes.push(`(${it.system.damageFormula})`);
+      if (it.system.bulky) notes.push(`(${L("CAIRN.Bulky")})`);
+      if ((it.system.quantity ?? 1) > 1) notes.push(`×${it.system.quantity}`);
+      // The OWNING actor's namespace, and Fatigue relabelled from the UI key —
+      // both matching the sheet (review #12: print hard-coded item.name, so a
+      // Spanish player's Fatigue printed "Fatigue" and a monster's statblock
+      // items would print English the moment their translation landed).
+      const name = it.name === FATIGUE_NAME
+        ? game.i18n.localize("CAIRN.Fatigue")
+        : t(nameNs, it.name);
+      return { name, notes: notes.join(" ") };
+    });
+
+    // The status line: deprived / panicked / critical, when set.
+    const status = [
+      sys.deprived && L("CAIRN.Deprived"),
+      sys.panicked && L("CAIRN.Panicked"),
+      sys.critical && L("CAIRN.CriticalDamage"),
+    ].filter(Boolean).join(" · ");
+    const traitsProse = this._buildTraitSentence(sys.traits, sys.age);
+
+    const isChar = actor.type === "character";
+
+    // The background's own prose and its rolled question/answer pairs (user
+    // additions 2026-08-08), routed exactly as the sheet routes them —
+    // bg.desc / bg.question / bg.optionDesc — so a Spanish player prints
+    // Spanish. Each Q&A stays its OWN pair of paragraphs: Kettlewright smushes
+    // them into one blob, and the ruling is exactly not that.
+    const bg = isChar && sys.backgroundUuid ? await fromUuid(sys.backgroundUuid) : null;
+    const backgroundDesc = bg?.system?.description
+      ? await enrich(t("bg.desc", bg.system.description))
+      : "";
+    const questions = (sys.questions ?? [])
+      .filter((q) => String(q?.answer ?? "").trim())
+      .map((q) => ({
+        question: t("bg.question", q.question ?? ""),
+        answer: t("bg.optionDesc", q.answer ?? ""),
+      }));
+
+    // Connections as their own section (user addition 2026-08-08): every
+    // connected actor by name and role; the animate ones — companions, whose
+    // attacks and temperament live in their description — carry a stat line
+    // and that prose. Things get the name and role only: what a transport or
+    // container HOLDS is already an inventory section above.
+    const connections = [];
+    for (const c of actor.connectedActors()) {
+      const role = c.npcRole ?? c.system.role ?? "npc";
+      const thing = THING_ROLES.includes(role);
+      connections.push({
+        name: t("monster.name", c.name),
+        role: L(`CAIRN.Role${role.charAt(0).toUpperCase()}${role.slice(1)}`),
+        stats: thing ? "" : [
+          `${L("CAIRN.HitProtection")} ${c.system.hp.value}/${c.system.hp.max}`,
+          `${L("STR")} ${c.system.abilities.STR.value}`,
+          `${L("DEX")} ${c.system.abilities.DEX.value}`,
+          `${L("WIL")} ${c.system.abilities.WIL.value}`,
+        ].join(" · "),
+        desc: thing ? "" : await enrich(t("monster.desc", c.system.description ?? "")),
+      });
+    }
+
+    // The line under the name: a character's background (source parenthetical
+    // beside it, user ruling 2026-08-08), a person's role and career, a
+    // monster's role. Overlay-routed like the sheet header.
+    const role = actor.npcRole ?? "npc";
+    const roleLabel = isChar ? "" : L(`CAIRN.Role${role.charAt(0).toUpperCase()}${role.slice(1)}`);
+    const career = !isChar && role === "npc" ? t("table.result", String(sys.profession ?? "").trim()) : "";
+    const subtitle = isChar
+      ? t("bg.name", sys.background ?? "")
+      : career ? game.i18n.format("CAIRN.PrintRoleCareer", { role: roleLabel, career }) : roleLabel;
+    // "Custom" is MEMBERSHIP, not a stored source (the recorded definition:
+    // not in the Player's Guide, nothing more — a custom character still
+    // stores contentSource "2e"). A 2e background resolved from anywhere but
+    // the canon pack — the shipped custom pack, the world compendium, a
+    // module, a bare world item — prints the custom label (user ruling
+    // 2026-08-08).
+    const isCustomBg = !!bg && sys.contentSource === "2e" && bg.pack !== "air-bladder.backgrounds-2e";
+
+    // The footer credits the art actually ON the page (user ruling
+    // 2026-08-08): the portrait's PATH picks its attribution line, so an
+    // Aspeheim page never credits Tlomdev and vice versa. Lydia Comer's
+    // grant is NOT CC — her line says all rights reserved. A custom image
+    // or core's mystery-man earns no art line at all; the game-text credit
+    // always prints, because the page always reproduces licensed prose.
+    const ART_CREDITS = [
+      ["art/jon-aspeheim/", "CAIRN.PrintCreditAspeheim"],
+      ["art/tlomdev/", "CAIRN.PrintCreditTlomdev"],
+      ["art/lydia-comer/", "CAIRN.PrintCreditLydiaComer"],
+      ["art/game-icons/", "CAIRN.PrintCreditGameIcons"],
+      ["air-bladder/icons/", "CAIRN.PrintCreditGameIcons"],
+    ];
+    const artCredit = ART_CREDITS.find(([prefix]) => (actor.img ?? "").includes(prefix))?.[1];
+    const credits = [L("CAIRN.PrintCreditText"), artCredit ? L(artCredit) : ""]
+      .filter(Boolean).join(" ");
+
+    const context = {
+      lang: game.i18n.lang,
+      isChar,
+      credits,
+      name: actor.name,
+      portrait: abs(actor.img),
+      subtitle,
+      subtitleSource: !isChar ? "" : isCustomBg ? L("CAIRN.PrintSourceCustom") : sourceLabel(sys.contentSource),
+      // Barebones only, below the background, labelled per the user's exact
+      // wording (2026-08-08). Same gate as the sheet: contentSource AND the
+      // world setting, read live.
+      failedCareer: isChar && sys.contentSource === "barebones"
+        && game.settings.get(SETTINGS_NS, "barebones-failed-career")
+        ? t("bg.name", sys.failedCareer ?? "") : "",
+      pronouns: sys.pronouns,
+      stats: {
+        str: sys.abilities.STR.value, strMax: sys.abilities.STR.max,
+        dex: sys.abilities.DEX.value, dexMax: sys.abilities.DEX.max,
+        wil: sys.abilities.WIL.value, wilMax: sys.abilities.WIL.max,
+        // The SOURCE HP, not the derived value: encumbrance and panic zero the
+        // derived one, and a printout of "HP 0/4" for a loaded-but-healthy
+        // character reads as dying rather than as slow.
+        hp: actor._source.system.hp.value, hpMax: sys.hp.max,
+        armor: sys.armor ?? 0,
+        gold: sys.gold ?? 0,
+      },
+      status,
+      traitsProse,
+      // Kettlewright's two-column band (user rulings 2026-08-08): Stats and
+      // Items on the left; Traits, the background's description and
+      // Connections beside them. With nothing for the right column — a
+      // monster, usually — the band collapses to one column rather than
+      // printing at half width. The Q&A prints full-width below the band.
+      hasSide: !!(traitsProse || backgroundDesc || connections.length),
+      backgroundDesc,
+      questions,
+      connections,
+      main: { used: sys.slotsUsed, max: sys.slotsMax, rows: rows(actor.items.contents, this._itemNamespaces(actor).nameNs) },
+      // One inventory section per connected actor that can HOLD something —
+      // KW's multi-container layout, without the slot fraction for 0 slots. A
+      // 0-slot companion carrying nothing is Connections' business, not an
+      // empty inventory heading. The test is the AUTHORED `slots` override,
+      // never derived slotsMax: calcCurrentMaxSlots floors an npc's maximum
+      // at the world's max-equip-slots setting, so a falcon's slotsMax reads
+      // 10 while the creature owns no slots at all — the probe's first run
+      // caught exactly that.
+      containers: actor.connectedActors().map((c) => ({
+        name: t("monster.name", c.name),
+        used: c.system.slotsUsed,
+        max: c.system.slotsMax,
+        showSlots: (c.system.slots ?? 0) > 0,
+        rows: rows(c.items.contents, this._itemNamespaces(c).nameNs),
+      })).filter((s) => s.showSlots || s.rows.length),
+      // A character's description is the player's own prose; an NPC's is the
+      // statblock prose the overlay files under monster.desc.
+      description: await enrich(isChar ? sys.description : t("monster.desc", sys.description ?? "")),
+      // Bonds, the omen and scars are table text — through the overlay
+      // (table.result), the same routing the sheet gives them.
+      bonds: (sys.bonds ?? []).map((b) => t("table.result", String(b?.description ?? "").trim())).filter(Boolean),
+      omen: sys.omenEnabled ? t("table.result", String(sys.omen ?? "").trim()) : "",
+      scars: (sys.scars ?? []).map((s) => t("table.result", s)),
+      notes: await enrich(sys.notes),
+      features: (sys.features ?? []).map((f) => ({
+        name: String(f?.name ?? "").trim(),
+        text: String(f?.description ?? "").trim(),
+      })).filter((f) => f.name || f.text),
+    };
+
+    const html = await foundry.applications.handlebars.renderTemplate(
+      "systems/air-bladder/templates/print/character-print.html", context);
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+
+    // Print only after the portrait has settled — the browser otherwise
+    // snapshots a page with an empty circle where the face goes. The timeout
+    // keeps a dead image path from holding the dialog hostage.
+    const img = win.document.querySelector("header.pc img");
+    if (img && !img.complete) {
+      await new Promise((res) => {
+        img.addEventListener("load", res, { once: true });
+        img.addEventListener("error", res, { once: true });
+        setTimeout(res, 3000);
+      });
+    }
+    win.focus();
+    win.print();
+  }
+
+  /**
    * Set the actor portrait and its token together. The token is the shipped
    * prepped art paired with the portrait by filename; for a custom image with no
    * paired token, the portrait itself is used so the token is never left stale.
@@ -1898,7 +2187,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // A thing-role npc is a container in every sense that matters here, and a
     // MOUNT wants the horse/mule glyphs, not 80 human portraits — so all three
     // container-line roles get the container gallery.
-    const isContainerish = this.actor.isThing || this.actor.npcRole === "mount";
+    const isContainerish = this.actor.isThing || this.actor.npcRole === "companion";
     return isContainerish
       ? this._pickContainerArt(event)
       : this._pickPortrait(event);
@@ -2970,9 +3259,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   /**
    * Container art picker: a grayscale gallery of transport/container art
-   * (CONTAINER_ART, all Foundry core icons), plus a Browse escape for anyone
+   * (CONTAINER_ART — game-icons.net glyphs, CC BY 3.0, per icons.js and
+   * icons/CREDITS.md, NOT Foundry core icons), plus a Browse escape for anyone
    * with FILES_BROWSE. This is the container counterpart to _pickPortrait --
    * clicking a container's portrait opens THIS, not the character gallery.
+   * The Kinds tab passes its own credit line so it carries attribution under
+   * the grid, like every other gallery in the picker.
    * @private
    */
   async _pickContainerArt(event) {
@@ -2996,7 +3288,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     await pickArt({
       current,
       title: game.i18n.localize("CAIRN.ChooseContainerArt"),
-      classes: { label: game.i18n.localize("CAIRN.ContainerArtTabKinds"), cells },
+      classes: { label: game.i18n.localize("CAIRN.ContainerArtTabKinds"), cells, credit: "CAIRN.GameIconsCredit" },
       // No Aspeheim here — a sack has no face. Custom, Game-Icons and Tlomdev
       // ride along so a Warden can dress a thing in their own art without
       // leaving for the FilePicker (tlomdev's beasts suit mounts). Every pick

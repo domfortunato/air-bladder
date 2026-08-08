@@ -1171,7 +1171,6 @@
     "Raise Spirit": "Invocar espíritu",
     "Rapier": "Estoque",
     "Rations": "Raciones",
-    "Raven Familiar": "Cuervo familiar",
     "Read Mind": "Leer mentes",
     "Rebirth Ash": "Cenizas revitalizantes",
     "Rebreak Glass": "Vidrio recuperable",
@@ -1379,7 +1378,8 @@
     "Rivertooth": "Colmillo firme",
     "Sack": "Saco",
     "Stray Fogger": "Niebla errante",
-    "Wagon": "Carromato"
+    "Wagon": "Carromato",
+    "Raven Familiar": "Cuervo familiar"
   },
   "npc.career": {
     "Alchemist": "Alquimista",

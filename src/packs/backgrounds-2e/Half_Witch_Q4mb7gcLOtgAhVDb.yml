@@ -61,8 +61,9 @@ system:
         - description: >-
             A Raven Familiar [8 HP, 3 STR, 11 DEX, 13 WIL, beak, (d6)]. It
             speaks as an intelligent being and is entirely devoted to you.
-          items:
+          containers:
             - name: Raven Familiar
+              slots: 0
         - description: >-
             A Briar Thorn. It can pierce any organic material (quite painfully)
             but when removed leaves no trace of the intrusion.

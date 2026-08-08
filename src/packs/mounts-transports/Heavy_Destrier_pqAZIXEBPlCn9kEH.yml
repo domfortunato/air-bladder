@@ -14,9 +14,7 @@ flags:
   air-bladder:
     transportSource: background-2e
 system:
-  description: >-
-    From the Outrider background. A beast built for war, an imposing creature. 8
-    HP, 1 Armor, hooves (d10+d10), +2 slots.
+  description: 'From the Outrider background. A beast built for war, an imposing creature. 8 HP, 1 Armor, hooves (d10+d10), +2 slots.'
   hp:
     value: 8
     max: 8
@@ -24,7 +22,7 @@ system:
   slots: 2
   cost: 0
   containerClass: horse
-  role: mount
+  role: companion
   generationEnabled: false
 ownership:
   default: 0

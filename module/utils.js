@@ -26,6 +26,103 @@ export const evaluateFormula = async (formula, data) => {
 };
 
 /* -------------------------------------------- */
+/*  Dice-formula composer / parser              */
+/* -------------------------------------------- */
+
+/**
+ * Compose the formula the Warden's dice buttons have built. The INVERSE of
+ * `evaluateFormula`'s rewrite above, and it lives beside it on purpose: a
+ * change to either is a change to both, and separating them is how they drift.
+ *
+ * The dialect is an ARGUMENT, never read from the setting here (the
+ * `damageFormulaFor` rule: nothing in this function reads a setting or an
+ * actor). It matters because the two dialects disagree about what "keep
+ * highest" is spelled like:
+ *
+ *  - Cairn notation ON:  `d6 + d6` — the die-plus-die form the rewrite claims.
+ *  - Cairn notation OFF: `{1d6,1d6}kh` — with the rewrite off, `d6 + d6` is
+ *    ARITHMETIC, so emitting it would say "keep highest" on the control and
+ *    roll a sum, silently, at any table that turned the setting off.
+ *
+ * A mixed-size SUM can never use `+` in the Cairn dialect — both terms are
+ * bare dice, so the rewrite would claim `d6 + d8` as keep-highest. The pool
+ * form `{1d6,1d8}` is the one notation that means mixed-sum in both dialects:
+ * a bare PoolTerm sums its kept rolls (dice/terms/pool.mjs:13-15, :122-129).
+ *
+ * Keep-highest terms are NEVER grouped: `{2d6}kh` is one two-die SUM result
+ * with nothing to keep against — grouping is only safe in sum mode.
+ *
+ * @param {Number[]} sizes            die sizes in click order, e.g. [6, 6, 8]
+ * @param {"sum"|"kh"} mode
+ * @param {Object} [opts]
+ * @param {Boolean} [opts.cairnNotation]  the `use-cairn-dice-notation` value
+ * @return {String}  "" for an empty tray
+ */
+export const composeDiceFormula = (sizes, mode, { cairnNotation = true } = {}) => {
+  if (!sizes?.length) return "";
+  // One die: sum and keep-highest are the same roll.
+  if (sizes.length === 1) return `1d${sizes[0]}`;
+  if (mode === "kh") {
+    return cairnNotation
+      ? sizes.map((s) => `d${s}`).join(" + ")
+      : `{${sizes.map((s) => `1d${s}`).join(",")}}kh`;
+  }
+  // Sum: group same-size dice into NdS; a single group needs no pool at all.
+  const counts = new Map();
+  for (const s of sizes) counts.set(s, (counts.get(s) ?? 0) + 1);
+  const terms = [...counts.entries()].map(([s, n]) => `${n}d${s}`);
+  return terms.length === 1 ? terms[0] : `{${terms.join(",")}}`;
+};
+
+/**
+ * Read a formula back into what the buttons could have built — the composer's
+ * table read backwards. Returns `{sizes, mode}` where `mode` is null when the
+ * string does not decide it (one die, or an empty field), or **null** when the
+ * formula is not representable at all (`2d6 + 3`, `3`, `1d6 + @str`) — the
+ * dialog greys the buttons on null and nothing else.
+ *
+ * A `+`-joined or `kh` term with a COUNT (`2d6 + d8`) is deliberately
+ * unrepresentable: the builder's keep-highest terms are single dice, and
+ * max(2d6, d8) is not something its controls can say.
+ *
+ * @param {String} formula
+ * @return {{sizes: Number[], mode: "sum"|"kh"|null} | null}
+ */
+export const parseDiceFormula = (formula) => {
+  const f = String(formula ?? "").trim();
+  if (!f) return { sizes: [], mode: null };
+  const single = /^(\d*)d(\d+)$/i.exec(f);
+  if (single) {
+    const n = Math.max(1, Number(single[1] || 1));
+    return { sizes: Array(n).fill(Number(single[2])), mode: n > 1 ? "sum" : null };
+  }
+  const pool = /^\{([^{}]+)\}(kh)?$/i.exec(f);
+  if (pool) {
+    const mode = pool[2] ? "kh" : "sum";
+    const sizes = [];
+    for (const raw of pool[1].split(",")) {
+      const m = /^(\d*)d(\d+)$/i.exec(raw.trim());
+      if (!m) return null;
+      const n = Math.max(1, Number(m[1] || 1));
+      if (mode === "kh" && n > 1) return null;
+      for (let i = 0; i < n; i++) sizes.push(Number(m[2]));
+    }
+    return { sizes, mode };
+  }
+  if (f.includes("+")) {
+    const terms = f.split("+").map((t) => t.trim());
+    const sizes = [];
+    for (const t of terms) {
+      const m = /^(\d*)d(\d+)$/i.exec(t);
+      if (!m || (m[1] && m[1] !== "1")) return null;
+      sizes.push(Number(m[2]));
+    }
+    return { sizes, mode: "kh" };
+  }
+  return null;
+};
+
+/* -------------------------------------------- */
 /*  Impaired / Enhanced damage                  */
 /* -------------------------------------------- */
 
@@ -96,8 +193,9 @@ export const damageQualityLabel = (quality, { panicked = false } = {}) => {
   return "";
 };
 
-/** The dice Font Awesome actually ships a glyph for. */
-const DIE_ICONS = new Set([4, 6, 8, 10, 12, 20]);
+/** The dice Font Awesome actually ships a glyph for. Exported for the Warden's
+ * damage dice buttons — one list, not two to drift. */
+export const DIE_ICONS = new Set([4, 6, 8, 10, 12, 20]);
 
 /**
  * The Font Awesome class for a formula's die, or "" if it names none.
@@ -115,7 +213,7 @@ const DIE_ICONS = new Set([4, 6, 8, 10, 12, 20]);
  * @param {String} formula
  * @return {String}  a class list, or "" for no icon at all
  */
-const dieIcon = (formula) => {
+export const dieIcon = (formula) => {
   const n = Number(/d(\d+)/i.exec(String(formula ?? ""))?.[1]);
   return DIE_ICONS.has(n) ? `fa-solid fa-dice-d${n}` : "";
 };

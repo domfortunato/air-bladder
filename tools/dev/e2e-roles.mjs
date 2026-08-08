@@ -152,7 +152,7 @@ try {
     const goldStoredAsThing = a.system.gold;
 
     // A mount is a CREATURE with no purse: stat block stays, Gold goes.
-    await pickRole(sheet, "mount");
+    await pickRole(sheet, "companion");
     const asMount = read(sheet);
     const storedMount = a.system.role;
 
@@ -224,7 +224,7 @@ try {
     : bad("the Kind field rides the container role", JSON.stringify({ thing: asThing.kind, hireling: asPerson.kind }));
 
   console.log("\na mount is a creature with no purse");
-  out.storedMount === "mount" && asMount.hp && asMount.str && asMount.armor
+  out.storedMount === "companion" && asMount.hp && asMount.str && asMount.armor
     ? ok("the stat block stays", "a warhorse can be hit")
     : bad("the stat block stays", JSON.stringify({ stored: out.storedMount, ...asMount }));
   !asMount.gold && asMount.kind
@@ -1038,12 +1038,13 @@ try {
   pick.isContainerGallery
     ? ok("a thing-role NPC gets the container gallery", "not the 80-portrait one")
     : bad("a thing-role NPC gets the container gallery", "it opened the character portrait picker");
-  // 13 cells for 14 classes: mule/donkey share Skoll's donkey (game-icons.net
+  // 15 cells for 16 classes: mule/donkey share Skoll's donkey (game-icons.net
   // has no mule), and the coffin glyph left the gallery WITH the funeralwagon
   // class (2026-08-02) — the ASSET still ships for the Burial Wagon pack doc,
   // and Browse still reaches it. Removing the dedupe filter doubles donkey.svg
-  // and the src-uniqueness leg fails.
-  pick.cellCount === 13 && pick.classed === 0
+  // and the src-uniqueness leg fails. Was 13 for 14 until the falcon and raven
+  // classes joined (2026-08-08, the companions).
+  pick.cellCount === 15 && pick.classed === 0
     ? ok("one cell per glyph, NONE carrying a class claim", `${pick.cellCount} cells, art only`)
     : bad("one cell per glyph, NONE carrying a class claim", `${pick.cellCount} cells, ${pick.classed} still classed`);
   new Set(pick.srcs).size === pick.srcs.length

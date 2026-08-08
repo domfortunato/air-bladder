@@ -1,5 +1,6 @@
-import { evaluateFormula } from "./utils.js";
+import { evaluateFormula, composeDiceFormula, parseDiceFormula, DIE_ICONS, dieIcon } from "./utils.js";
 import { DAMAGE_POOLS } from "./damage.js";
+import { SETTINGS_NS } from "./settings.js";
 
 /**
  * The Warden's damage: traps, environments, conditions.
@@ -126,6 +127,67 @@ const buildForm = () => {
   formula.setAttribute("value", DEFAULT_FORMULA);
   group("CAIRN.WardenDamage.Formula", formula);
 
+  // The dice builder. It writes INTO the formula field and holds no state of
+  // its own — every click re-reads the field through `parseDiceFormula`, so a
+  // hand edit is never clobbered, and nothing downstream can tell a built
+  // formula from a typed one. When the field says something the buttons cannot
+  // (`2d6 + 3`, an `@ref`), they grey out and the field stays fully editable:
+  // the greying is the affordance, and there is nothing to enforce because the
+  // field is authoritative.
+  //
+  // Every <button> is `type="button"` EXPLICITLY: DialogV2 renders content
+  // inside a <form>, where a bare <button> is type=submit — a die click would
+  // submit the dialog and close it.
+  //
+  // Listeners are NOT attached here. This element is serialized to innerHTML
+  // and re-parsed (dialog.mjs:187-191), so anything wired now is dead on
+  // arrival; `openWardenDamage` wires the LIVE nodes in its `render` callback.
+  const builder = document.createElement("div");
+  builder.className = "wd-dice-builder";
+
+  const diceRow = document.createElement("div");
+  diceRow.className = "wd-dice-row";
+  for (const size of [...DIE_ICONS].sort((a, b) => a - b)) {
+    const btn = document.createElement("button");
+    btn.setAttribute("type", "button");
+    btn.className = "wd-die";
+    btn.setAttribute("data-die", String(size));
+    btn.setAttribute("data-tooltip", game.i18n.format("CAIRN.WardenDamage.AddDie", { die: `d${size}` }));
+    const icon = document.createElement("i");
+    icon.className = dieIcon(`d${size}`);
+    const label = document.createElement("span");
+    label.textContent = `d${size}`;
+    btn.append(icon, label);
+    diceRow.append(btn);
+  }
+  const clear = document.createElement("button");
+  clear.setAttribute("type", "button");
+  clear.className = "wd-clear";
+  clear.setAttribute("data-tooltip", game.i18n.localize("CAIRN.WardenDamage.Clear"));
+  const clearIcon = document.createElement("i");
+  clearIcon.className = "fa-solid fa-xmark";
+  clear.append(clearIcon);
+  diceRow.append(clear);
+  builder.append(diceRow);
+
+  const modeRow = document.createElement("div");
+  modeRow.className = "wd-mode-row";
+  for (const [value, key] of [["sum", "CAIRN.WardenDamage.Sum"], ["kh", "CAIRN.WardenDamage.KeepHighest"]]) {
+    const lbl = document.createElement("label");
+    const radio = document.createElement("input");
+    radio.setAttribute("type", "radio");
+    radio.setAttribute("name", "diceMode");
+    radio.setAttribute("value", value);
+    // `checked` as an ATTRIBUTE — a property never reaches the serialized markup.
+    if (value === "sum") radio.setAttribute("checked", "");
+    const text = document.createElement("span");
+    text.textContent = game.i18n.localize(key);
+    lbl.append(radio, text);
+    modeRow.append(lbl);
+  }
+  builder.append(modeRow);
+  content.append(builder);
+
   const pool = document.createElement("select");
   pool.setAttribute("name", "pool");
   for (const value of DAMAGE_POOLS) {
@@ -140,6 +202,71 @@ const buildForm = () => {
   group("CAIRN.WardenDamage.Pool", pool);
 
   return content;
+};
+
+/**
+ * Wire the dice builder onto the dialog's LIVE nodes.
+ *
+ * Called from DialogV2's `render` option (dialog.mjs:405, :420-422) — the seam
+ * the client's own docs point at for exactly this ("the element will get
+ * stringified, so any listeners … will not carry forward; you must still use
+ * the `render` option", dialog.mjs:152-155). The same rule the background
+ * picker's eye toggles already follow via `dialog.render(true).then(...)`.
+ *
+ * THE FIELD IS THE ONLY STATE. Every gesture is read-modify-write against the
+ * formula input via `parseDiceFormula` / `composeDiceFormula`:
+ *
+ *  - a die button parses the field, appends its die, recomposes;
+ *  - a mode radio recomposes the same dice under the new mode;
+ *  - ✕ EMPTIES the field (user ruling — ✕ means clear, the buttons are the way
+ *    back; only opening the dialog pre-fills 1d6);
+ *  - a hand edit re-greys or re-enables on every keystroke.
+ *
+ * The DIALECT is read from the setting ONCE here and passed as an argument —
+ * `composeDiceFormula` itself reads nothing, which is what lets a probe drive
+ * both dialects with zero world writes against a `requiresReload` setting.
+ */
+const wireDiceBuilder = (root) => {
+  const field = root.querySelector('input[name="formula"]');
+  const dice = [...root.querySelectorAll(".wd-die")];
+  const clear = root.querySelector(".wd-clear");
+  const radios = [...root.querySelectorAll('input[name="diceMode"]')];
+  if (!field || !dice.length || !clear || !radios.length) return;
+  const cairnNotation = game.settings.get(SETTINGS_NS, "use-cairn-dice-notation");
+
+  const mode = () => radios.find((r) => r.checked)?.value ?? "sum";
+  const refresh = () => {
+    const parsed = parseDiceFormula(field.value);
+    const off = parsed === null;
+    for (const el of [...dice, ...radios]) el.disabled = off;
+    // The string decides the mode where it can (2d6 is a sum, d6 + d6 a keep-
+    // highest); a single die or an empty field leaves the radios where they are.
+    if (parsed?.mode) for (const r of radios) r.checked = r.value === parsed.mode;
+  };
+
+  for (const btn of dice) {
+    btn.addEventListener("click", () => {
+      const parsed = parseDiceFormula(field.value);
+      if (parsed === null) return; // disabled anyway; a race is not a crash
+      parsed.sizes.push(Number(btn.dataset.die));
+      field.value = composeDiceFormula(parsed.sizes, mode(), { cairnNotation });
+      refresh();
+    });
+  }
+  for (const r of radios) {
+    r.addEventListener("change", () => {
+      const parsed = parseDiceFormula(field.value);
+      if (parsed === null || !parsed.sizes.length) return;
+      field.value = composeDiceFormula(parsed.sizes, mode(), { cairnNotation });
+      refresh();
+    });
+  }
+  clear.addEventListener("click", () => {
+    field.value = "";
+    refresh();
+  });
+  field.addEventListener("input", refresh);
+  refresh();
 };
 
 /**
@@ -168,6 +295,8 @@ export const openWardenDamage = async () => {
     classes: ["cairn-warden-damage"],
     window: { title: game.i18n.localize("CAIRN.WardenDamage.Title") },
     content: buildForm(),
+    // The dice builder's listeners go on the LIVE nodes — see wireDiceBuilder.
+    render: (event, dialog) => wireDiceBuilder(dialog.element),
     buttons: [
       {
         action: "roll",

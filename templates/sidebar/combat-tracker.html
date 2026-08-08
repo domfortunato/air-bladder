@@ -1,0 +1,75 @@
+{{!--
+  The tracker PART, forked from core's templates/sidebar/tabs/combat/tracker.hbs
+  (build 14.365 — the deploy target is pinned, so this copy cannot drift under
+  us). Two changes, both in service of Cairn's turn order, which has buckets and
+  not numbers:
+
+  - a thin divider row opens each bucket (Act first / Enemies / Act last),
+    stamped by CairnCombatTracker._prepareTrackerContext on the first row of
+    its section;
+  - the initiative block renders the bucket WORD where core renders a numeric
+    <input class="initiative-input">. 1 / 0 / −1 is an encoding, not
+    information, and order inside a bucket is table talk — there is nothing to
+    edit. An UNROLLED combatant keeps core's roll button: that is the state
+    where a gesture is owed.
+
+  Everything else is core's markup verbatim, including its localization keys.
+--}}
+<ol class="combat-tracker plain">
+    {{#each turns}}
+    {{#if bucketHeader}}
+    <li class="cairn-bucket-divider">{{ bucketHeader }}</li>
+    {{/if}}
+    <li class="combatant {{ css }}" data-combatant-id="{{ id }}" data-action="activateCombatant">
+        {{!-- Image --}}
+        <img class="token-image" src="{{ img }}" alt="{{ name }}" loading="lazy">
+
+        {{!-- Name & Controls --}}
+        <div class="token-name">
+            <strong class="name">{{ name }}</strong>
+            <div class="combatant-controls">
+                {{#if @root.user.isGM}}
+                <button type="button" class="inline-control combatant-control icon fa-solid fa-eye-slash {{#if hidden}}active{{/if}}"
+                        data-action="toggleHidden" data-tooltip aria-label="{{ localize (ifThen hidden "COMBATANT.Show" "COMBATANT.Hide") }}"></button>
+                <button type="button" class="inline-control combatant-control icon fa-solid fa-skull {{#if isDefeated}}active{{/if}}"
+                        data-action="toggleDefeated" data-tooltip
+                        aria-label="{{ localize (ifThen isDefeated "COMBATANT.UnmarkDefeated" "COMBATANT.MarkDefeated") }}"></button>
+                {{/if}}
+                {{#if canPing}}
+                <button type="button" class="inline-control combatant-control icon fa-solid fa-bullseye-arrow"
+                        data-action="pingCombatant" data-tooltip
+                        aria-label="{{ localize "COMBATANT.Ping" }}"></button>
+                {{/if}}
+                {{#unless @root.user.isGM}}
+                <button type="button" class="inline-control combatant-control icon fa-solid fa-arrows-to-eye"
+                        data-action="panToCombatant" data-tooltip
+                        aria-label="{{ localize "COMBATANT.PanTo" }}"></button>
+                {{/unless}}
+                <div class="token-effects" data-tooltip-html="{{ effects.tooltip }}">
+                    {{#each effects.icons}}
+                    <img class="token-effect" src="{{ img }}" alt="{{ name }}">
+                    {{/each}}
+                </div>
+            </div>
+        </div>
+
+        {{!-- Resource --}}
+        {{#if resource includeZero=true}}
+        <div class="token-resource">
+            <span class="resource">{{ resource }}</span>
+        </div>
+        {{/if}}
+
+        {{!-- Turn bucket (Cairn: the DEX save's outcome, never a number) --}}
+        <div class="token-initiative">
+            {{#if bucketWord}}
+            <span class="cairn-bucket-word">{{ bucketWord }}</span>
+            {{else if isOwner}}
+            <button type="button" class="combatant-control roll" data-action="rollInitiative" data-tooltip
+                    aria-label="{{ localize "COMBAT.InitiativeRoll" }}"
+                    style="--initiative-icon: url('{{ @root.initiativeIcon.icon }}'); --initiative-icon-hover: url('{{ @root.initiativeIcon.hover }}');"></button>
+            {{/if}}
+        </div>
+    </li>
+    {{/each}}
+</ol>

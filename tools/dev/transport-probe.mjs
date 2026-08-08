@@ -8,7 +8,7 @@
  *
  * Steps, driven headless as GM:
  *   1. ONE pack: the shop's "Transports & Containers" table references the
- *      Mounts & Transports ACTOR pack for every row — 15 npc documents in 3
+ *      Mounts & Transports ACTOR pack for every row — 17 npc documents in 3
  *      folders (Containers / Mounts / Transports), the worn shapes included —
  *      and the legacy `transports` Item pack is asserted GONE. Capacity/cost
  *      are read off the referenced document.
@@ -300,9 +300,9 @@ try {
     r.setup.legacyPackGone
       ? ok("the legacy transports Item pack is GONE", "dissolved into the Actor pack")
       : fail("the legacy transports Item pack is registered again", "the dissolution regressed");
-    r.setup.actorCount === 15
-      ? ok("15 npc Actors in mounts-transports", "13 mounts/vehicles + Backpack + Sack")
-      : fail(`expected 15 Actors in mounts-transports, got ${r.setup.actorCount}`);
+    r.setup.actorCount === 17
+      ? ok("17 npc Actors in mounts-transports", "13 mounts/vehicles + Backpack + Sack + Falcon + Raven")
+      : fail(`expected 17 Actors in mounts-transports, got ${r.setup.actorCount}`);
     r.setup.folderCount === 3 && r.setup.wornInContainers
       ? ok("3 folders, worn shapes in Containers")
       : fail(`folders=${r.setup.folderCount}, wornInContainers=${r.setup.wornInContainers}`);
@@ -311,9 +311,9 @@ try {
       : fail(`expected 7 stocked / 7 shop rows, got ${r.setup.stockedCount}/${r.setup.shopCount}`);
     // Covered in depth by tools/dev/bg-container-probe.mjs; asserted here so a
     // beast can never leak into the shop unnoticed.
-    r.setup.beastCount === 8
-      ? ok("8 background-granted beasts share the pack but not the shop")
-      : fail(`expected 8 beasts, got ${r.setup.beastCount}`);
+    r.setup.beastCount === 10
+      ? ok("10 background-granted beasts share the pack but not the shop", "incl. round 6's Falcon and Raven")
+      : fail(`expected 10 beasts, got ${r.setup.beastCount}`);
     r.setup.shopRowIsActor ? ok("a mount's shop row resolves to the ACTOR document") : fail("the Mule shop row does not resolve to an Actor");
     r.setup.wornRowIsActor ? ok("a worn shape's row resolves to the ACTOR document too") : fail("the Backpack row does not resolve to the Actor pack");
     r.setup.shopReadsDoc ? ok(`shop reads the document (Mule +${r.setup.muleSlots}, ${r.setup.muleCost}gp)`) : fail("shop row does not match the document");

@@ -142,3 +142,14 @@ also looks right.
 If you find yourself wanting a dark value that is just the light one dimmed, check the
 contrast first: the dark backdrop is `rgb(10, 9, 17)`, which is much darker than most
 "dark mode" palettes assume, and mid-greys that look safe disappear on it.
+
+---
+
+## The print page is exempt — on purpose
+
+`templates/print/character-print.html` (the sheet's Print button) is the ONE surface
+that does not track the viewer's colour scheme: it is black on white, always, because
+paper is white and the page exists to be printed. Its styles are inline in the template
+— it opens in a fresh window with no reach back to `css/cairn.css` — and none of them
+use theme tokens. Do not "fix" this by tokenising it; `dev:print` asserts the page
+computes black-on-white with the Foundry theme set dark.

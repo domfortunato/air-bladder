@@ -286,6 +286,16 @@ const manifest = JSON.parse(readFile(at("system.json")));
 // server stamps the pair together at creation, so a foreign version cannot
 // arrive without the foreign id beside it — and a rule about which version
 // strings are "ours" would be a hardcoded list going stale every release.
+//
+// `_stats.lastModifiedBy` and top-level `author` are gated for the SAME
+// zero-behaviour-provenance reason as the ownership keys below: `author` is one
+// of the fields toCompendium's clearOwnership strips (client-document.mjs:1119)
+// and `lastModifiedBy` is a server-managed `_stats` field, so both are inert on
+// import — but a shipped pack naming a specific User id is provenance from the
+// authoring world that resolves to nobody once installed. 46 documents shipped
+// `lastModifiedBy` naming two fork-era users until they were nulled 2026-08-08;
+// checking one member of the set the framework clears atomically is how the
+// others ship. Valid value for either: null.
 const SOURCE_FIELDS = {
   // null, or this system's own id. Read from the manifest rather than written
   // here, so a rename cannot leave the gate asserting the old name.
@@ -293,6 +303,14 @@ const SOURCE_FIELDS = {
     v === "null" || v === manifest.id
       ? null
       : `ships _stats.systemId ${v} — content naming a system other than ${manifest.id} as its origin`,
+  // null only — a User id here names whoever last touched the document in the
+  // authoring world, which exists in nobody's world once the system is installed.
+  lastModifiedBy: v =>
+    v === "null" ? null : `ships _stats.lastModifiedBy ${v} — a User id from the authoring world, which exists in nobody else's`,
+  // null only — cleared by toCompendium's clearOwnership; a non-null value names
+  // an author who is a User id from someone else's world.
+  author: v =>
+    v === "null" ? null : `ships a non-null author — a User id from the authoring world that resolves to nobody once installed`,
   // null, or a genuine Compendium.* uuid — anything else blocks true provenance.
   compendiumSource: v =>
     v === "null" || v.startsWith("Compendium.")

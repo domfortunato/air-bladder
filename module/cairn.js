@@ -11,7 +11,7 @@ import { generateFaction } from "./faction-generator.js";
 import { importKettlewrightCharacter } from "./kettlewright-import.js";
 import * as kettlewrightImport from "./kettlewright-import.js";
 import { Cairn } from "./config.js";
-import { CairnCombat } from "./combat.js";
+import { CairnCombat, CairnCombatTracker, registerCombatOrderGuard } from "./combat.js";
 import { createCairnMacro, rollItemMacro } from "./macros.js";
 import { Damage, DAMAGE_APPLIED_FLAG, DAMAGE_SOURCE_FLAG } from "./damage.js";
 import { registerWardenDamageControl } from "./warden-damage.js";
@@ -44,9 +44,12 @@ Hooks.once("init", async function () {
 
   // configure combat
   CONFIG.Combat.documentClass = CairnCombat;
-  CONFIG.Combat.initiative = {
-    formula: "1d20",
-  };
+  // Set the formula only; assigning a fresh object would drop core's other
+  // members (notably `decimals`, which the tracker reads unconditionally at
+  // combat-tracker.mjs:263).
+  CONFIG.Combat.initiative.formula = "1d20";
+  // The tracker that prints Cairn's buckets as words — see module/combat.js.
+  CONFIG.ui.combat = CairnCombatTracker;
 
   // Register sheet application classes.
   //
@@ -87,6 +90,9 @@ Hooks.once("init", async function () {
 // load on the migration load and self-corrects — recorded, not fixed.
 let settingsNamespaceReady = Promise.resolve();
 Hooks.once("ready", () => {
+  // AT READY on purpose: this hook must register AFTER every module's
+  // init-time hooks so it runs after them — see registerCombatOrderGuard.
+  registerCombatOrderGuard();
   Hooks.on("hotbarDrop", (bar, data, slot) => {
     // Let Foundry place an existing Macro normally; only Items (and other
     // documents) get a Cairn hotbar wrapper. Without this, dragging a Macro made
@@ -156,21 +162,34 @@ Hooks.on("renderCompendium", (app, html) => {
   if (!app._abSearchWrapped && typeof app._matchSearchEntries === "function") {
     app._abSearchWrapped = true;
     const coreMatch = app._matchSearchEntries.bind(app);
-    app._matchSearchEntries = (query, entryIds, folderIds, autoExpandIds, options = {}) => {
-      coreMatch(query, entryIds, folderIds, autoExpandIds, options);
-      if (!contentLocalized() || !query) return;
-      const clean = foundry.applications.ux.SearchFilter.cleanQuery;
-      const entries = app.collection.index ?? app.collection.contents;
-      for (const e of entries) {
-        if (entryIds.has(e._id)) continue;
-        const display = translationOf(ns, e.name ?? "");
-        if (display === undefined || !query.test(clean(display))) continue;
-        entryIds.add(e._id);
-        const fid = e.folder?._id ?? e.folder;
-        if (fid) {
-          folderIds.add(fid);
-          autoExpandIds.add(fid);
+    // Forward WHATEVER core passes (…args): `_matchSearchEntries` is @private
+    // (leading underscore) and Foundry may change its signature without notice,
+    // even in a stable release. Forwarding by spread keeps core's own English
+    // search working verbatim through any such change; our additive
+    // translated-name pass reads the first four args positionally and is wrapped
+    // so a shape change degrades to "translated search stops matching" — the same
+    // symptom as the pre-review-#9 bug — rather than throwing inside a render hook
+    // on every compendium open.
+    app._matchSearchEntries = (...args) => {
+      coreMatch(...args);
+      try {
+        const [query, entryIds, folderIds, autoExpandIds] = args;
+        if (!contentLocalized() || !query) return;
+        const clean = foundry.applications.ux.SearchFilter.cleanQuery;
+        const entries = app.collection.index ?? app.collection.contents;
+        for (const e of entries) {
+          if (entryIds.has(e._id)) continue;
+          const display = translationOf(ns, e.name ?? "");
+          if (display === undefined || !query.test(clean(display))) continue;
+          entryIds.add(e._id);
+          const fid = e.folder?._id ?? e.folder;
+          if (fid) {
+            folderIds.add(fid);
+            autoExpandIds.add(fid);
+          }
         }
+      } catch (err) {
+        console.warn("Air Bladder | translated compendium-search pass failed; English search is unaffected", err);
       }
     };
   }
@@ -332,7 +351,7 @@ Hooks.on("setup", () => {
 /** The only roles a grant payload may claim — the non-keeping ones. A payload
  *  saying anything else falls back to deriving from its class/legacy fields,
  *  clamped to `container` if even that derives a keeper. */
-const GRANTABLE_ROLES = ["mount", "transport", "container"];
+const GRANTABLE_ROLES = ["companion", "transport", "container"];
 const grantableRole = (sys) => {
   const claimed = String(sys?.role ?? "");
   if (GRANTABLE_ROLES.includes(claimed)) return claimed;
@@ -344,6 +363,129 @@ const grantableRole = (sys) => {
  *  per player at a time: generation takes seconds, and without this a doubled
  *  click (or a hostile loop) has the Warden's client minting a PC per emit. */
 const pcGenerationInFlight = new Set();
+
+/** Requesters with a grantActors request running on this client. One at a time
+ *  per sender, for the same reason pcGenerationInFlight exists: the connection
+ *  ceiling is read after the handler's first await, so concurrent messages would
+ *  each mint against the same headroom and blow past MAX_CONNECTIONS. */
+const grantActorsInFlight = new Set();
+
+/**
+ * Mint the actors a player's background grant requested, on the active GM's
+ * client. The socket handler has already confirmed this is the active GM and
+ * taken the per-sender in-flight lock; this validates the request and writes.
+ * @param {object} msg  the grantActors payload
+ * @param {string} senderId  the server-authenticated sender (a client cannot forge it)
+ */
+async function handleGrantActors(msg, senderId) {
+  const owner = await fromUuid(msg.ownerUuid);
+  const user = game.users.get(senderId);
+  if (!owner || !user) return;
+  // A world Actor, not whatever else the uuid resolved to.
+  if (!(owner instanceof getDocumentClass("Actor")) || owner.pack || owner.parent) {
+    console.warn(`Air Bladder | refused a grant request from ${user.name}: ${msg.ownerUuid} is not a world Actor`);
+    return;
+  }
+  // The SENDER must already own the character they are attaching to.
+  if (!owner.testUserPermission(user, "OWNER")) {
+    console.warn(`Air Bladder | refused a grant request from ${user.name}: not an owner of ${owner.name}`);
+    return;
+  }
+  // ...and the target must be able to KEEP. Alice owns the mule her horse
+  // grant minted (ownership is copied), so without this she could aim a
+  // second request at the mule and chain-nest through the Warden's client.
+  if (!owner.canKeepConnected) {
+    console.warn(`Air Bladder | refused a grant request from ${user.name}: ${owner.name} cannot keep connected actors`);
+    return;
+  }
+  // A background grants a handful; anything more is not a background. And
+  // never past the connection ceiling: this handler runs on the WARDEN'S
+  // client, so it is the wall — the matching clamp in grantContainers runs in
+  // the player's browser, where a crafted message ignores it. Clamped rather
+  // than refused so a request that is partly grantable grants that part; the
+  // console names what was cut, because a wall that trims silently reads as
+  // "generation lost my mule".
+  const room = Math.min(8, connectionHeadroom(owner));
+  const asked = Array.isArray(msg.payloads) ? msg.payloads : [];
+  if (asked.length > room) {
+    console.warn(`Air Bladder | grant request from ${user.name} clamped: ${owner.name} has room for ${room} of ${asked.length} (connection limit)`);
+  }
+  const payloads = asked.slice(0, room);
+  // `img` comes off the wire into a FilePathField, which refuses an unknown
+  // extension by THROWING — and createDocuments below is one batched call, so
+  // a single malformed path rejected every grant in the request, not the one
+  // payload carrying it. A path we cannot recognise is dropped instead, and
+  // the document takes Foundry's own default art. Extension only: whether the
+  // file EXISTS is the server's business, and a broken-but-plausible path
+  // renders as a missing image rather than losing the actor.
+  const imageOf = (v) => {
+    const s = String(v ?? "");
+    const ext = s.split("?")[0].split(".").pop()?.toLowerCase() ?? "";
+    return ext in CONST.IMAGE_FILE_EXTENSIONS ? s : "";
+  };
+  const clean = payloads.map((p) => ({
+    type: "npc",                                   // forced, never taken from the wire
+    name: String(p?.name ?? "").slice(0, 120),
+    img: imageOf(p?.img),
+    prototypeToken: { texture: { src: imageOf(p?.img) } },
+    system: {
+      connectedTo: owner.uuid,                     // forced to the verified owner
+      slots: Number(p?.system?.slots) || 0,
+      description: String(p?.system?.description ?? ""),
+      containerClass: String(p?.system?.containerClass ?? ""),
+      // Grants mint beasts and things, never people: a role that can KEEP
+      // would let a crafted message mint a keeper and chain further grants
+      // through it — the same hole the canKeepConnected check above closes
+      // for the TARGET, closed here for what the grant creates. Anything
+      // else on the wire derives from the class, as a pre-roles payload did.
+      role: grantableRole(p?.system),
+      cost: Number(p?.system?.cost) || 0,
+      generationEnabled: false,
+      ...(p?.system?.hp ? { hp: { value: Number(p.system.hp.value) || 0, max: Number(p.system.hp.max) || 0 } } : {}),
+      ...(p?.system?.armorOverride != null ? { armorOverride: Number(p.system.armorOverride) || 0 } : {}),
+      // The ABILITIES, same distrust as hp: numbers coerced field by field,
+      // nothing else off the wire. Missing from this whitelist until
+      // 2026-08-08, which the companions probe caught on its FIRST run — the
+      // GM's own grant path copied the Falcon's DEX 16 while a player's
+      // arrived through here as the schema's 10/10/10: the broker quietly
+      // rebuilt a different creature depending on who rolled it.
+      ...(p?.system?.abilities ? {
+        abilities: Object.fromEntries(["STR", "DEX", "WIL"]
+          .filter((k) => p.system.abilities[k])
+          .map((k) => [k, {
+            value: Number(p.system.abilities[k].value) || 0,
+            max: Number(p.system.abilities[k].max) || 0,
+          }])),
+      } : {}),
+    },
+    // Only the one flag generation uses to find its own grants later.
+    flags: { [FLAG_SCOPE]: { grantSource: String(p?.flags?.[FLAG_SCOPE]?.grantSource ?? "background") } },
+  })).filter((p) => p.name);
+  if (!clean.length) return;
+
+  // Caught, not left to reject an async socket handler nobody awaits. A throw
+  // here loses the player's whole background grant with no console line and
+  // no notification on either screen — the same silence generatePC used to
+  // have, one handler down.
+  try {
+    const made = await getDocumentClass("Actor").createDocuments(clean);
+    // The CONNECTED ownership shape, not the old wholesale copy of the
+    // owner's ownership: {default: OBSERVER, the keeper's players: OWNER}.
+    // This client is the active GM's, so the write cannot be refused.
+    // ONE batched write (review 2026-08-04, same rule as the orphan sweep in
+    // actor.js): a per-document loop that throws midway leaves grant 1
+    // connected and grants 2-3 on the LIMITED default — a player staring at
+    // silhouettes of half their background's animals with nothing naming
+    // which. A batch lands or fails as one.
+    await getDocumentClass("Actor").updateDocuments(made.map((a) => ({
+      _id: a.id,
+      ownership: foundry.data.operators.ForcedReplacement.create(connectedOwnershipShape(owner)),
+    })));
+  } catch (err) {
+    console.error(`Air Bladder | grant request from ${user.name} for ${owner.name} failed:`, err);
+    ui.notifications.error(game.i18n.format("CAIRN.Notify.GrantFailedFor", { player: user.name }));
+  }
+}
 
 Hooks.once("init", () => {
   game.socket.on(`system.${game.system.id}`, async (msg, senderId) => {
@@ -469,99 +611,19 @@ Hooks.once("init", () => {
     if (msg?.action !== "grantActors") return;
     // Exactly ONE client acts, or every logged-in GM mints its own copy.
     if (game.users.activeGM !== game.user) return;
-
-    const owner = await fromUuid(msg.ownerUuid);
-    const user = game.users.get(senderId);
-    if (!owner || !user) return;
-    // A world Actor, not whatever else the uuid resolved to.
-    if (!(owner instanceof getDocumentClass("Actor")) || owner.pack || owner.parent) {
-      console.warn(`Air Bladder | refused a grant request from ${user.name}: ${msg.ownerUuid} is not a world Actor`);
-      return;
-    }
-    // The SENDER must already own the character they are attaching to.
-    if (!owner.testUserPermission(user, "OWNER")) {
-      console.warn(`Air Bladder | refused a grant request from ${user.name}: not an owner of ${owner.name}`);
-      return;
-    }
-    // ...and the target must be able to KEEP. Alice owns the mule her horse
-    // grant minted (ownership is copied), so without this she could aim a
-    // second request at the mule and chain-nest through the Warden's client.
-    if (!owner.canKeepConnected) {
-      console.warn(`Air Bladder | refused a grant request from ${user.name}: ${owner.name} cannot keep connected actors`);
-      return;
-    }
-    // A background grants a handful; anything more is not a background. And
-    // never past the connection ceiling: this handler runs on the WARDEN'S
-    // client, so it is the wall — the matching clamp in grantContainers runs in
-    // the player's browser, where a crafted message ignores it. Clamped rather
-    // than refused so a request that is partly grantable grants that part; the
-    // console names what was cut, because a wall that trims silently reads as
-    // "generation lost my mule".
-    const room = Math.min(8, connectionHeadroom(owner));
-    const asked = Array.isArray(msg.payloads) ? msg.payloads : [];
-    if (asked.length > room) {
-      console.warn(`Air Bladder | grant request from ${user.name} clamped: ${owner.name} has room for ${room} of ${asked.length} (connection limit)`);
-    }
-    const payloads = asked.slice(0, room);
-    // `img` comes off the wire into a FilePathField, which refuses an unknown
-    // extension by THROWING — and createDocuments below is one batched call, so
-    // a single malformed path rejected every grant in the request, not the one
-    // payload carrying it. A path we cannot recognise is dropped instead, and
-    // the document takes Foundry's own default art. Extension only: whether the
-    // file EXISTS is the server's business, and a broken-but-plausible path
-    // renders as a missing image rather than losing the actor.
-    const imageOf = (v) => {
-      const s = String(v ?? "");
-      const ext = s.split("?")[0].split(".").pop()?.toLowerCase() ?? "";
-      return ext in CONST.IMAGE_FILE_EXTENSIONS ? s : "";
-    };
-    const clean = payloads.map((p) => ({
-      type: "npc",                                   // forced, never taken from the wire
-      name: String(p?.name ?? "").slice(0, 120),
-      img: imageOf(p?.img),
-      prototypeToken: { texture: { src: imageOf(p?.img) } },
-      system: {
-        connectedTo: owner.uuid,                     // forced to the verified owner
-        slots: Number(p?.system?.slots) || 0,
-        description: String(p?.system?.description ?? ""),
-        containerClass: String(p?.system?.containerClass ?? ""),
-        // Grants mint beasts and things, never people: a role that can KEEP
-        // would let a crafted message mint a keeper and chain further grants
-        // through it — the same hole the canKeepConnected check above closes
-        // for the TARGET, closed here for what the grant creates. Anything
-        // else on the wire derives from the class, as a pre-roles payload did.
-        role: grantableRole(p?.system),
-        cost: Number(p?.system?.cost) || 0,
-        generationEnabled: false,
-        ...(p?.system?.hp ? { hp: { value: Number(p.system.hp.value) || 0, max: Number(p.system.hp.max) || 0 } } : {}),
-        ...(p?.system?.armorOverride != null ? { armorOverride: Number(p.system.armorOverride) || 0 } : {}),
-      },
-      // Only the one flag generation uses to find its own grants later.
-      flags: { [FLAG_SCOPE]: { grantSource: String(p?.flags?.[FLAG_SCOPE]?.grantSource ?? "background") } },
-    })).filter((p) => p.name);
-    if (!clean.length) return;
-
-    // Caught, not left to reject an async socket handler nobody awaits. A throw
-    // here loses the player's whole background grant with no console line and
-    // no notification on either screen — the same silence generatePC used to
-    // have, one handler down.
+    // One grant request per sender at a time — the same synchronous wall
+    // pcGenerationInFlight puts on generatePC, and for the same reason: the
+    // connection ceiling (connectionHeadroom) is read only AFTER handleGrantActors'
+    // first await, so without this N concurrent messages from one sender each read
+    // the same headroom and mint past MAX_CONNECTIONS. The flag serializes them;
+    // the finally releases it however handleGrantActors exits, so a throw cannot
+    // wedge a sender out of ever granting again.
+    if (grantActorsInFlight.has(senderId)) return;
+    grantActorsInFlight.add(senderId);
     try {
-      const made = await getDocumentClass("Actor").createDocuments(clean);
-      // The CONNECTED ownership shape, not the old wholesale copy of the
-      // owner's ownership: {default: OBSERVER, the keeper's players: OWNER}.
-      // This client is the active GM's, so the write cannot be refused.
-      // ONE batched write (review 2026-08-04, same rule as the orphan sweep in
-      // actor.js): a per-document loop that throws midway leaves grant 1
-      // connected and grants 2-3 on the LIMITED default — a player staring at
-      // silhouettes of half their background's animals with nothing naming
-      // which. A batch lands or fails as one.
-      await getDocumentClass("Actor").updateDocuments(made.map((a) => ({
-        _id: a.id,
-        ownership: foundry.data.operators.ForcedReplacement.create(connectedOwnershipShape(owner)),
-      })));
-    } catch (err) {
-      console.error(`Air Bladder | grant request from ${user.name} for ${owner.name} failed:`, err);
-      ui.notifications.error(game.i18n.format("CAIRN.Notify.GrantFailedFor", { player: user.name }));
+      await handleGrantActors(msg, senderId);
+    } finally {
+      grantActorsInFlight.delete(senderId);
     }
   });
 });
@@ -645,6 +707,8 @@ Hooks.once("ready", async () => {
   await phase("spellscroll -> flagged spellbook migration", migrateScrollsToSpellbooks);
 
   await phase("npc role migration", migrateNpcRoles);
+
+  await phase("mount -> companion restamp", migrateMountToCompanion);
 
   await phase("connections flatten + ownership migration", flattenConnections);
 
@@ -1097,6 +1161,38 @@ const migrateNpcRoles = async () => {
 };
 
 /**
+ * Restamp `role: "mount"` as `"companion"` (2026-08-08 — the role evolved; see
+ * NPC_ROLES). The hireling retirement's exact machinery, reused rather than
+ * rewritten: reading an actor routes the stored value through `migrateData`
+ * (which already answers "companion"), so writing the READ value back with
+ * `diff: false` is the whole restamp, and unlinked-token deltas need no walk
+ * because they store differences from a base this flips.
+ *
+ * BLIND, like its sibling above, and the reason bears repeating because the
+ * first draft of this function got it wrong: a stored "mount" is UNOBSERVABLE
+ * from a client — migrateData rewrites the source object at initialization, so
+ * `_source.system.role` already reads "companion" on every document the
+ * database still holds as "mount". A filter on the stored value matches
+ * nothing, ever, and the migration it guards stamps nothing while reporting
+ * itself done. So: every npc, no test.
+ *
+ * Its own marker, not `roles-restamped` — that one is long true in every
+ * existing world. Set even when nothing matched, and only after the writes
+ * land, so a failed run retries instead of recording itself done.
+ */
+const migrateMountToCompanion = async () => {
+  if (game.settings.get(SETTINGS_NS, "companion-restamped")) return;
+  const updates = game.actors
+    .filter((a) => ["npc", "hireling"].includes(a.type))
+    .map((a) => ({ _id: a.id, "system.role": a.system.role }));
+  if (updates.length) {
+    await Actor.updateDocuments(updates, { diff: false });
+    console.log(`Air Bladder | role restamped on ${updates.length} npc(s) (mount -> companion)`);
+  }
+  await game.settings.set(SETTINGS_NS, "companion-restamped", true);
+};
+
+/**
  * Flatten the connection graph and normalize connection-driven ownership —
  * Phase B of the 2026-08-01 redesign, running after the role re-stamp above.
  *
@@ -1371,7 +1467,16 @@ Hooks.on("renderSettingsConfig", (app, element) => {
       document.createTextNode(text.slice(i + phrase.length)),
     );
   };
-  boldPhrase("content-source-2e", "CAIRN.ContentSource2e");
+  // The phrase is the SOURCE AS THE LABEL NAMES IT, which is not always the
+  // source's own name. The two 2e labels distinguish canon from custom, and the
+  // qualifier is the whole point of the sentence — bolding "Cairn 2e" inside
+  // "Offer canon Cairn 2e backgrounds" emphasises the half the reader already
+  // knew (user ask, 2026-08-07).
+  //
+  // `CAIRN.ContentSource2e` cannot simply be widened: it is the source's name
+  // and is reused by the generation picker and utils' SOURCE_KEYS, where "canon
+  // Cairn 2e" would read as a different edition. Hence a key of its own.
+  boldPhrase("content-source-2e", "CAIRN.ContentSourceCanon2e");
   boldPhrase("content-source-custom", "CAIRN.ContentSourceCustom");
   boldPhrase("content-source-barebones", "CAIRN.ContentSourceBarebones");
 });
@@ -1408,7 +1513,7 @@ Hooks.on("renderActorDirectory", (app, html) => {
           "CAIRN.CreateNpc"
         )}</button>
           ${game.user.isGM ? `<button class="create-monster-button"><i class="fas fa-dragon"></i>${game.i18n.localize("CAIRN.CreateMonster")}</button>` : ""}
-          <button class="create-mount-button"><i class="fas fa-horse"></i>${game.i18n.localize("CAIRN.CreateMount")}</button>
+          <button class="create-mount-button"><i class="fas fa-horse"></i>${game.i18n.localize("CAIRN.CreateCompanion")}</button>
           <button class="create-transport-button"><i class="fas fa-cart-flatbed"></i>${game.i18n.localize("CAIRN.CreateTransport")}</button>
           <button class="create-container-button"><i class="fas fa-box-open"></i>${game.i18n.localize("CAIRN.CreateContainer")}</button>
           ${game.user.isGM ? `<button class="create-faction-button"><i class="fas fa-flag"></i>${game.i18n.localize("CAIRN.CreateFaction")}</button>` : ""}
@@ -1434,7 +1539,7 @@ Hooks.on("renderActorDirectory", (app, html) => {
       // players who may create actors may create the things they own.
       for (const [cls, role] of [
         ["create-container-button", "container"],
-        ["create-mount-button", "mount"],
+        ["create-mount-button", "companion"],
         ["create-transport-button", "transport"],
       ]) {
         section.querySelector(`.${cls}`)?.addEventListener("click", async () => {
@@ -1511,7 +1616,7 @@ Hooks.on("renderActorDirectory", (app, html) => {
     //
     // The `show-container-actors` hide rule that lived beside this is GONE
     // (2026-08-02, by ruling): every container actor is always listed.
-    const containerLine = actor.isThing || actor.npcRole === "mount";
+    const containerLine = actor.isThing || actor.npcRole === "companion";
     a.classList.toggle('cairn-grayscale-portrait', containerLine);
   });
 });

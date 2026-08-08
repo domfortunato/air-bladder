@@ -49,6 +49,27 @@ export const loadContentOverlay = async () => {
   } catch (_) {
     OVERLAY = null; // no overlay for this language yet — English everywhere
   }
+  // A LATE load must not leave already-rendered content in English. This runs on
+  // the i18nInit hook, which core fires synchronously and does not await (Hooks
+  // .callAll discards the promise), so the fetch above can resolve AFTER a sheet
+  // has already rendered — one auto-opened at `ready`, a compendium tab restored
+  // from the sidebar. Re-render open document sheets now that the overlay is in,
+  // so those correct themselves. A no-op when nothing is open yet (the common
+  // case, since i18nInit is early) or when the overlay failed to load.
+  refreshLocalizedApps();
+};
+
+/**
+ * Re-render open document sheets so a late overlay load corrects any content
+ * names already drawn in English. Guarded: `foundry.applications.instances` may
+ * not exist at i18nInit, and only rendered document sheets are touched.
+ */
+const refreshLocalizedApps = () => {
+  const apps = foundry?.applications?.instances;
+  if (!apps) return;
+  for (const app of apps.values()) {
+    if (app?.document && app.rendered) app.render(false);
+  }
 };
 
 /** True when a content overlay is loaded (i.e. worth attempting translation). */

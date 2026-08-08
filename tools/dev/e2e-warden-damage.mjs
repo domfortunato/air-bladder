@@ -267,6 +267,153 @@ check("an @-reference is refused", dialog.atRefPostedNothing && dialog.atRefStil
   + " so this must be refused explicitly or the card is silently short by the whole term");
 
 /* ---------------------------------------------------------------------------
+ * 3b. The dice builder writes the field, and the field stays the truth.
+ *
+ * Two layers, asserted separately because they fail separately:
+ *
+ *  - `composeDiceFormula` / `parseDiceFormula` as pure functions — the
+ *    composer must be `evaluateFormula`'s exact inverse, so each emitted
+ *    string is fed BACK to the evaluator and the resulting roll formula is
+ *    checked for `kh`. Deterministic: it asserts the rewrite, not a die.
+ *  - the LIVE dialog, driven through the real palette button — clicks must
+ *    change the field at all (listeners on the built nodes are serialized
+ *    away, so this is the leg that catches wiring them in buildForm instead
+ *    of in `render`), greying must follow a hand edit, and a built string
+ *    must survive Roll.validate on the way to a card.
+ *
+ * The DIALECT leg shadows `game.settings.get` in-page rather than writing the
+ * world setting: `use-cairn-dice-notation` is requiresReload, and a leaked
+ * setting is the 0.1.12 pre-tag lesson.
+ * ------------------------------------------------------------------------- */
+console.log("\nthe dice builder");
+const builder = await page.evaluate(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const r = {};
+  const { composeDiceFormula, parseDiceFormula, evaluateFormula } =
+    await import("/systems/air-bladder/module/utils.js");
+
+  // The composer's table, then the loop closed through the evaluator.
+  r.cOne = composeDiceFormula([6], "sum");                                //  1d6
+  r.cOneKh = composeDiceFormula([6], "kh");                               //  1d6 — one die, same roll
+  r.cSum = composeDiceFormula([6, 6], "sum");                             //  2d6
+  r.cSum3 = composeDiceFormula([6, 6, 6], "sum");                         //  3d6
+  r.cMix = composeDiceFormula([6, 8], "sum");                             //  {1d6,1d8}
+  r.cKhOn = composeDiceFormula([6, 6], "kh", { cairnNotation: true });    //  d6 + d6
+  r.cKhOff = composeDiceFormula([6, 6], "kh", { cairnNotation: false });  //  {1d6,1d6}kh
+  const fml = async (s) => (await evaluateFormula(s, {})).formula;
+  r.eSum = await fml(r.cSum);
+  r.eMix = await fml(r.cMix);
+  r.eKhOn = await fml(r.cKhOn);
+  r.eKhOff = await fml(r.cKhOff);
+
+  // The parser's refusals are what grey the buttons.
+  r.pArith = parseDiceFormula("2d6 + 3");
+  r.pAt = parseDiceFormula("1d6 + @str");
+  r.pNum = parseDiceFormula("3");
+  r.pEmpty = JSON.stringify(parseDiceFormula(""));
+  r.pKhCount = parseDiceFormula("2d6 + d8");   // max(2d6,d8) is not a builder shape
+
+  const open = async () => {
+    // A CLOSING dialog LINGERS in the DOM. Reopening while the last one is
+    // still tearing down hands every q() below the OLD dialog's nodes — whose
+    // listeners are live and whose closure captured the OLD dialect, which is
+    // exactly the wrong thing to click in the shadow leg. Wait it out first.
+    for (let i = 0; i < 40 && document.querySelector("dialog.dialog"); i++) await sleep(150);
+    document.querySelector('button[data-tool="abWardenDamage"]')?.click();
+    let f = null;
+    for (let i = 0; i < 40 && !f; i++) {
+      f = document.querySelector("dialog.dialog input[name='formula']");
+      if (!f) await sleep(150);
+    }
+    return f;
+  };
+  const q = (sel) => document.querySelector(`dialog.dialog ${sel}`);
+
+  let f = await open();
+  r.uiOpened = !!f;
+  q(".wd-clear")?.click();
+  r.uiCleared = f?.value ?? null;                                    // "" — ✕ empties, never re-fills
+  r.uiEnabledAfterClear = q(".wd-die[data-die='6']")?.disabled === false;
+  q(".wd-die[data-die='6']")?.click();
+  q(".wd-die[data-die='6']")?.click();
+  r.uiTwoD6 = f?.value ?? null;                                      // 2d6 — the live-listeners leg
+  q("input[name='diceMode'][value='kh']")?.click();
+  r.uiKh = f?.value ?? null;                                         // d6 + d6 (dev world: setting on)
+  q(".wd-die[data-die='8']")?.click();
+  r.uiKh3 = f?.value ?? null;                                        // d6 + d6 + d8
+  q("input[name='diceMode'][value='sum']")?.click();
+  r.uiSumMix = f?.value ?? null;                                     // {2d6,1d8}
+  // A hand edit the buttons cannot represent greys them — and only them.
+  f.value = "2d6 + 3";
+  f.dispatchEvent(new Event("input", { bubbles: true }));
+  r.uiGreyed = q(".wd-die[data-die='6']")?.disabled === true
+    && q("input[name='diceMode'][value='kh']")?.disabled === true;
+  r.uiFieldStillEditable = f?.disabled === false;
+  q(".wd-clear")?.click();
+  r.uiReEnabled = (f?.value === "") && q(".wd-die[data-die='6']")?.disabled === false;
+  // A BUILT string reaches a card: through Roll.validate and the real button.
+  q(".wd-die[data-die='6']")?.click();
+  q(".wd-die[data-die='6']")?.click();
+  const src = q("input[name='source']");
+  if (src) src.value = "ZZ Builder Trap";
+  const beforeRoll = game.messages.size;
+  q('button[data-action="roll"]')?.click();
+  for (let i = 0; i < 40 && game.messages.size === beforeRoll; i++) await sleep(150);
+  r.uiPosted = game.messages.size > beforeRoll;
+
+  // THE DIALECT LEG. With Cairn notation OFF, `d6 + d6` is ARITHMETIC — a
+  // builder that emitted it would say "keep highest" and roll a sum. Shadow the
+  // read on the instance, then delete the shadow so the prototype's own method
+  // returns — no world write against a requiresReload setting.
+  const settings = game.settings;
+  const origGet = settings.get.bind(settings);
+  settings.get = (ns, key) =>
+    key === "use-cairn-dice-notation" ? false : origGet(ns, key);
+  f = await open();
+  q(".wd-clear")?.click();
+  q(".wd-die[data-die='6']")?.click();
+  q(".wd-die[data-die='6']")?.click();
+  q("input[name='diceMode'][value='kh']")?.click();
+  r.uiKhOff = f?.value ?? null;                                      // {1d6,1d6}kh
+  delete settings.get;
+  r.settingRestored = settings.get(
+    "air-bladder", "use-cairn-dice-notation") === true;
+  q('button[data-action="cancel"]')?.click();
+  await sleep(300);
+  return r;
+});
+
+check("the composer's table", builder.cOne === "1d6" && builder.cOneKh === "1d6"
+  && builder.cSum === "2d6" && builder.cSum3 === "3d6",
+  `[6]→${builder.cOne} kh[6]→${builder.cOneKh} [6,6]→${builder.cSum} [6,6,6]→${builder.cSum3}`);
+check("mixed sum is the pool form", builder.cMix === "{1d6,1d8}" && !/kh/.test(builder.eMix),
+  `${builder.cMix} → rolls "${builder.eMix}" — the + form cannot say this: both terms are bare dice, so the rewrite would claim it as keep-highest`);
+check("the loop closes through the evaluator", !/kh/.test(builder.eSum)
+  && /kh/.test(builder.eKhOn) && /kh/.test(builder.eKhOff),
+  `sum "${builder.eSum}" | kh-on "${builder.eKhOn}" | kh-off "${builder.eKhOff}" — kh exactly where keep-highest was meant`);
+check("keep-highest speaks both dialects", builder.cKhOn === "d6 + d6"
+  && builder.cKhOff === "{1d6,1d6}kh",
+  `on→"${builder.cKhOn}" off→"${builder.cKhOff}" — with the setting off, d6 + d6 is ARITHMETIC`);
+check("the parser refuses what the buttons can't say", builder.pArith === null
+  && builder.pAt === null && builder.pNum === null && builder.pKhCount === null
+  && builder.pEmpty === JSON.stringify({ sizes: [], mode: null }),
+  `2d6+3, @ref, 3, 2d6+d8 → null; "" → empty tray`);
+check("clicks reach the field", builder.uiOpened && builder.uiCleared === ""
+  && builder.uiTwoD6 === "2d6",
+  `✕→"${builder.uiCleared}" then d6,d6→"${builder.uiTwoD6}" — the leg that catches listeners wired on the built nodes, which serialization discards`);
+check("the mode recomposes the same dice", builder.uiKh === "d6 + d6"
+  && builder.uiKh3 === "d6 + d6 + d8" && builder.uiSumMix === "{2d6,1d8}",
+  `kh→"${builder.uiKh}" +d8→"${builder.uiKh3}" sum→"${builder.uiSumMix}"`);
+check("a hand edit greys the buttons", builder.uiGreyed && builder.uiFieldStillEditable,
+  "2d6 + 3 — the greying is the affordance; the field stays authoritative and editable");
+check("✕ clears and re-enables", builder.uiReEnabled, 'field "" and the d6 button live again');
+check("a built formula reaches a card", builder.uiPosted,
+  "2d6 through Roll.validate and the real Roll button");
+check("the dialect is read from the setting", builder.uiKhOff === "{1d6,1d6}kh"
+  && builder.settingRestored,
+  `shadowed off → "${builder.uiKhOff}", shadow deleted → true — no world write against a requiresReload setting`);
+
+/* ---------------------------------------------------------------------------
  * 4. Where the damage LANDS.
  *
  * Each pool is driven by clicking the REAL Apply control on a real card, so the
@@ -413,7 +560,8 @@ check("an unrecognised pool falls back to HP", pools.bogusHp === 3
 /* ----------------------------------------------------------- teardown ---- */
 await page.evaluate(async (ids) => {
   if (ids.msgId) await game.messages.get(ids.msgId)?.delete();
-  for (const m of game.messages.contents.slice().reverse().slice(0, 20)) {
+  // 30, not 20: section 3b's builder card lands on the same scene.
+  for (const m of game.messages.contents.slice().reverse().slice(0, 30)) {
     if (m.speaker?.scene === ids.sceneId) await m.delete();
   }
   await game.scenes.get(ids.sceneId)?.delete();

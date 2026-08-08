@@ -29,6 +29,8 @@ credited under CC BY 3.0. The icons used here are by **Lorc**, **Delapouite** an
 | `chest.svg` | chests / boxes (default container art) | Locked Chest | Lorc | <https://game-icons.net/1x1/lorc/locked-chest.html> |
 | `donkey.svg` | pack animals (donkey, mule) | Donkey | Skoll | <https://game-icons.net/1x1/skoll/donkey.html> |
 | `horse.svg` | riding mounts | Horse Head | Delapouite | <https://game-icons.net/1x1/delapouite/horse-head.html> |
+| `falcon.svg` | falcon companions | Falcon Moon | Delapouite | <https://game-icons.net/1x1/delapouite/falcon-moon.html> |
+| `raven.svg` | raven companions | Raven | Lorc | <https://game-icons.net/1x1/lorc/raven.html> |
 | `cart.svg` | carts | Cartwheel | Lorc | <https://game-icons.net/1x1/lorc/cartwheel.html> |
 | `handcart.svg` | handcarts | Wheelbarrow | Delapouite | <https://game-icons.net/1x1/delapouite/wheelbarrow.html> |
 | `wagon.svg` | wagons | Old Wagon | Delapouite | <https://game-icons.net/1x1/delapouite/old-wagon.html> |

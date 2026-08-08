@@ -261,7 +261,7 @@ const switchboard = await page.evaluate(async () => {
 });
 
 switchboard.opened
-  && JSON.stringify(switchboard.values) === JSON.stringify(["character", "npc", "monster", "mount", "transport", "container"])
+  && JSON.stringify(switchboard.values) === JSON.stringify(["character", "npc", "monster", "companion", "transport", "container"])
   ? ok("the switchboard offers the Warden six role choices", switchboard.values.join(", "))
   : fail("the switchboard offers the Warden six role choices", JSON.stringify(switchboard));
 !switchboard.values.includes("hireling") && !switchboard.coreTypeSelect
