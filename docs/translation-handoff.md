@@ -6,12 +6,12 @@ as of 2026-08-08, measured against the last release (`0.1.12`).
 
 | | |
 | --- | --- |
-| English interface keys | 594 |
-| translated in `lang/es.json` | 521 (88%) |
-| **changed under your translation** | **6** ← Part 1 |
-| **content you translated, now unreachable** | **2** ← Part 2 |
-| new interface keys, untranslated | 73 ← Part 3 |
-| new content strings, untranslated | 1839 ← Part 4 |
+| English interface keys | 615 |
+| translated in `lang/es.json` | 518 (84%) |
+| **changed under your translation** | **11** ← Part 1 |
+| **content you translated, now unreachable** | **3** ← Part 2 |
+| new interface keys, untranslated | 97 ← Part 3 |
+| new content strings, untranslated | 1843 ← Part 4 |
 
 Only two files are yours, and only you should edit them: `lang/es.json`
 (interface) and `lang/content/es.json` (the content overlay). Nothing in this
@@ -19,7 +19,7 @@ list asks you to touch anything else.
 
 ---
 
-## Part 1 — interface strings you translated, whose English I have since changed (6)
+## Part 1 — interface strings you translated, whose English I have since changed (11)
 
 **Do these first.** Each key below already has a Spanish translation, so no tool
 reports it as missing — but the English changed underneath it. The translation is not
@@ -32,6 +32,12 @@ English was deliberately changed to stop saying.
 - **now (EN):** Give this an archetype so it groups in the character-creation picker, and enable "Offer custom Cairn 2e backgrounds" in Settings so it appears there.
 - **your current Spanish:** Asignale un arquetipo para que aparezca agrupado en el selector de creación de personajes, y activa "Ofrecer trasfondos personalizados de 2.ª edición" en «Configuración» para que aparezca allí.
 
+### `CAIRN.ConnectHint`
+
+- **was (EN):** Connect an existing actor — an NPC, mount, transport, or container. The Warden always can; a player needs to own both ends.
+- **now (EN):** Connect an existing actor — an NPC, companion, transport, or container. The Warden always can; a player needs to own both ends.
+- **your current Spanish:** Conectar un actor ya existente — un PNJ, una montura, un medio de transporte o un contenedor. El Guardián siempre puede hacerlo; un jugador debe ser propietario de ambas partes.
+
 ### `CAIRN.ContentSourceCustom`
 
 - **was (EN):** Custom 2e
@@ -39,6 +45,24 @@ English was deliberately changed to stop saying.
 - **your current Spanish:** 2e casero
 - **quoted verbatim by:** `CAIRN.BgAuthor.SourceHint`, `CAIRN.Settings.ContentSourceCustom.label` — whatever you choose here has to be pasted
   into those too, or they will name a control that is not on the menu.
+
+### `CAIRN.Notify.NoContainerBackground`
+
+- **was (EN):** Changing this character's background could add or remove a container (a mount, cart or pack), which only the Warden can do — ask them to change it for you.
+- **now (EN):** Changing this character's background could add or remove a container (a companion, cart or pack), which only the Warden can do — ask them to change it for you.
+- **your current Spanish:** Al modificar el trasfondo de este personaje, se podría añadir o eliminar un contenedor (una montura, una carreta o una mochila), algo que solo el Guardián puede hacer; pídele que lo cambie por ti.
+
+### `CAIRN.Notify.NoContainerRegen`
+
+- **was (EN):** Regenerating this character could add or remove a container (a mount, cart or pack), which only the Warden can do — ask them to re-roll it for you.
+- **now (EN):** Regenerating this character could add or remove a container (a companion, cart or pack), which only the Warden can do — ask them to re-roll it for you.
+- **your current Spanish:** Al regenerar este personaje, podría añadirse o eliminarse un contenedor (una montura, un carro o una mochila), algo que solo el Guardián puede hacer; pídele que vuelva a generarlo por ti.
+
+### `CAIRN.Notify.NoGmForGrant`
+
+- **was (EN):** No Warden is logged in, so the mount this background grants could not be created. Ask them to open the world, then re-roll.
+- **now (EN):** No Warden is logged in, so the companion this background grants could not be created. Ask them to open the world, then re-roll.
+- **your current Spanish:** No hay ningún Guardián conectado, por lo que no se ha podido crear la montura que otorga este trasfondo. Pídeles que abran el mundo y vuelve a intentarlo.
 
 ### `CAIRN.Scars`
 
@@ -68,26 +92,43 @@ English was deliberately changed to stop saying.
 - **quoted verbatim by:** `CAIRN.BgAuthor.SourceHint` — whatever you choose here has to be pasted
   into those too, or they will name a control that is not on the menu.
 
+### `CAIRN.TransportMount`
+
+- **was (EN):** Mount
+- **now (EN):** Companion
+- **your current Spanish:** Montura
+
 ---
 
-## Part 2 — content you translated, whose English I have since changed (2)
+## Part 2 — content you translated, whose English I have since changed (3)
 
 `lang/content/es.json` is keyed on the **English source string**, so editing
 English prose does not make your translation wrong — it makes it unreachable. The key
 stops being asked for and the entry goes dead silently. These are the entries in that
 state whose replacement needs a human.
 
-### The English is gone entirely (2)
+### The English is gone entirely (3)
 
 No live string resembles these, so the prose was removed rather than rewritten. Nothing
 to do — they are listed so the work is accounted for rather than vanishing.
 
+- `item.desc` · [8 HP, 3 STR, 11 DEX, 13 WIL, beak, (d6)]. It speaks as an intelligent being and is entirely devoted to you.
 - `item.name` · Instrument
 - `table.result` · Instrument
 
+### Mechanical — nothing for you to do (1)
+
+These lost their key to our tooling, not to an edit, and are recovered by re-keying
+with every Spanish value kept byte-identical.
+
+- **1** whose document changed type, moving them to a different namespace.
+
+Fixed our side with `npm run i18n:repair -- --lang es --write`, which touches only
+the entries it names and keeps every Spanish value byte-identical.
+
 ---
 
-## Part 3 — new interface keys, untranslated (73)
+## Part 3 — new interface keys, untranslated (97)
 
 Ordinary outstanding work: these have no Spanish at all, so a Spanish client
 falls back to English for them. Nothing here is urgent — a missing key is visibly
@@ -161,7 +202,7 @@ untranslated, which is the honest failure.
 | `CAIRN.GameIconCategory.Smoke` | Smoke |
 | `CAIRN.GameIconCategory.Sounds` | Sounds |
 
-### General (23)
+### General (34)
 
 | key | English |
 | --- | --- |
@@ -172,18 +213,29 @@ untranslated, which is the honest failure.
 | `CAIRN.BgPickEnable` | Enable this background |
 | `CAIRN.BgPickFootLink` | Creating custom backgrounds |
 | `CAIRN.BgPickFootQuestion` | Want backgrounds of your own? |
+| `CAIRN.ClassFalcon` | Falcon |
+| `CAIRN.ClassRaven` | Raven |
 | `CAIRN.ContentSource2e` | Cairn 2e |
 | `CAIRN.ContentSourceBarebones` | Cairn Barebones |
 | `CAIRN.ContentSourceCanon2e` | canon Cairn 2e |
+| `CAIRN.CreateCompanion` | Create Companion |
 | `CAIRN.DamageApplied` | Damage applied: {list} |
 | `CAIRN.DamageAppliedEntry` | {dmg} to {target} |
 | `CAIRN.DamageBreakdown` | {dmg} ({damage} damage − {armor} armor) |
 | `CAIRN.DamageFrom` | from {attacker} |
 | `CAIRN.DamageFromHazard` | from {source} |
 | `CAIRN.DamageFromWeapon` | from {attacker}'s {weapon} |
+| `CAIRN.KindNamedCompanions` | Named Companions |
 | `CAIRN.PortraitTabLydia` | Lydia Comer |
 | `CAIRN.PortraitTabShipped` | Jon Aspeheim |
 | `CAIRN.PortraitTabTlomdev` | Tlomdev |
+| `CAIRN.Print` | Print |
+| `CAIRN.PrintBonds` | Bonds |
+| `CAIRN.PrintMain` | Main |
+| `CAIRN.PrintStats` | Stats |
+| `CAIRN.PrintUsesMany` | ({n} uses) |
+| `CAIRN.PrintUsesOne` | ({n} use) |
+| `CAIRN.RoleCompanion` | Companion |
 | `CAIRN.ScarFlavor` | Takes a scar! |
 | `CAIRN.StabilizedBanner` | no longer critically wounded. |
 | `CAIRN.StabilizedStatusFor` | Stabilized — {key} |
@@ -191,13 +243,26 @@ untranslated, which is the honest failure.
 
 - **`CAIRN.DamageFromWeapon`** — The possessive is inside the string on purpose ("from Lisbeth's crossbow"). English builds that with 's, which Spanish does not have, so you get the whole sentence and can put "de" wherever it belongs. Same reasoning as CAIRN.AttacksTarget.
 
+### Initiative (8)
+
+| key | English |
+| --- | --- |
+| `CAIRN.Initiative.ActFirst` | Act first |
+| `CAIRN.Initiative.ActLast` | Act last |
+| `CAIRN.Initiative.Enemies` | — |
+| `CAIRN.Initiative.EnemiesHeader` | Enemies |
+| `CAIRN.Initiative.Fail` | {name} — DEX save {total} vs {dex}: acts after the enemies. |
+| `CAIRN.Initiative.First` | First |
+| `CAIRN.Initiative.Last` | Last |
+| `CAIRN.Initiative.Pass` | {name} — DEX save {total} vs {dex}: acts before the enemies! |
+
 ### MonsterGen (1)
 
 | key | English |
 | --- | --- |
 | `CAIRN.MonsterGen.AttackName` | {type}* |
 
-### Notify (10)
+### Notify (11)
 
 | key | English |
 | --- | --- |
@@ -209,25 +274,30 @@ untranslated, which is the honest failure.
 | `CAIRN.Notify.NoFatigueOnThing` | {name} can't carry Fatigue — Fatigue belongs to a character, not to a container or transport. |
 | `CAIRN.Notify.NoTargetsToSelect` | This roll had no targets, so there is nothing to select. |
 | `CAIRN.Notify.NoTokensToDamage` | There are no creatures on that card's scene to apply this damage to. |
+| `CAIRN.Notify.PrintBlocked` | The browser blocked the print window — allow pop-ups for this site and try again. |
 | `CAIRN.Notify.WardenDamageBadFormula` | "{formula}" is not a damage roll — try 1d6, 2d6 or 3. |
 | `CAIRN.Notify.WardenDamageWardenOnly` | Only the Warden can deal damage from a trap or the environment. |
 
-### WardenDamage (8)
+### WardenDamage (12)
 
 | key | English |
 | --- | --- |
+| `CAIRN.WardenDamage.AddDie` | Add a {die} |
+| `CAIRN.WardenDamage.Clear` | Clear the damage |
 | `CAIRN.WardenDamage.Formula` | Damage |
 | `CAIRN.WardenDamage.Hint` | Damage from a trap, the environment or a condition. Anyone you have targeted takes it; with nothing targeted, the card's splat asks who. |
+| `CAIRN.WardenDamage.KeepHighest` | Keep highest |
 | `CAIRN.WardenDamage.Pool` | Applies to |
 | `CAIRN.WardenDamage.Roll` | Roll damage |
 | `CAIRN.WardenDamage.Source` | Source |
 | `CAIRN.WardenDamage.SourcePlaceholder` | Spiked pit |
-| `CAIRN.WardenDamage.Title` | Warden's damage |
-| `CAIRN.WardenDamage.Tool` | Warden's damage — traps, environments, conditions |
+| `CAIRN.WardenDamage.Sum` | Sum |
+| `CAIRN.WardenDamage.Title` | Warden's Damage |
+| `CAIRN.WardenDamage.Tool` | Warden's Damage — traps, environments, conditions |
 
 ---
 
-## Part 4 — new content strings, untranslated (1839)
+## Part 4 — new content strings, untranslated (1843)
 
 Pack content — monster names and descriptions, table rows, background prose. Too many
 to list here; they are pre-filled in the spreadsheets `npm run i18n:extract` writes to
@@ -238,12 +308,12 @@ to list here; they are pre-filled in the spreadsheets `npm run i18n:extract` wri
 | `monster.itemName` | 171 | 171 | **0% — nothing at all** |
 | `table.desc` | 55 | 55 | **0% — nothing at all** |
 | `monster.itemDesc` | 28 | 28 | **0% — nothing at all** |
-| `monster.name` | 205 | 220 | 7% |
-| `monster.desc` | 200 | 219 | 9% |
+| `monster.name` | 207 | 222 | 7% |
+| `monster.desc` | 202 | 221 | 9% |
 | `table.result` | 432 | 750 | 42% |
 | `table.name` | 30 | 55 | 45% |
-| `item.desc` | 291 | 711 | 59% |
-| `item.name` | 317 | 806 | 61% |
+| `item.desc` | 291 | 710 | 59% |
+| `item.name` | 317 | 805 | 61% |
 | `bg.optionDesc` | 84 | 324 | 74% |
 | `bg.desc` | 7 | 27 | 74% |
 | `bg.question` | 13 | 53 | 75% |
