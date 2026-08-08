@@ -42,8 +42,16 @@ const fields = foundry.data.fields;
  * something IS. Every stored "hireling" is converted by `migrateData` below on
  * read and by the world migration in cairn.js on write; the `hireling` TYPE stays
  * registered (ids are immutable) but is hidden from Create Actor.
+ *
+ * **`mount` EVOLVED into `companion` (2026-08-08, user ruling).** The role was
+ * never really about riding — the generator already mapped every one-off
+ * granted beast to it — and the canon backgrounds grant companions nobody
+ * rides (Fletchwind's falcon, Half Witch's raven). Same retirement machinery
+ * as hireling's: `migrateData` converts stored "mount" on read, the world
+ * migration in cairn.js restamps on write, and the pack YAML was rewritten by
+ * its importer in the same commit.
  */
-export const NPC_ROLES = ["npc", "monster", "mount", "transport", "container"];
+export const NPC_ROLES = ["npc", "monster", "companion", "transport", "container"];
 
 /** Roles that hide the stat block — what `inanimate` used to mean. */
 export const THING_ROLES = ["transport", "container"];
@@ -73,7 +81,7 @@ export const deriveNpcRole = (src = {}) => {
   // Being for hire is its own stored field now and needs nothing derived.
   const clsRole = containerClassRole(src.containerClass ?? "");
   if (src.inanimate === true) return clsRole === "transport" ? "transport" : "container";
-  if (clsRole === "mount") return "mount";
+  if (clsRole === "companion") return "companion";
   return "npc";
 };
 
@@ -437,6 +445,14 @@ class NpcData extends CairnDataModel {
       // arriving alongside it is a caller who means it.
       if (source.forHire === undefined) source.forHire = true;
     }
+    // The mount→companion evolution (2026-08-08), same shape and same
+    // constraints as the hireling shim above: it MUST ship in the commit that
+    // renames the enum entry (migrateData runs BEFORE choices validation, so
+    // this is what stops every stored "mount" failing the enum on load), and
+    // it is guarded on the LITERAL value because this also runs on update
+    // diffs, where absence says nothing. A pure rename — nothing else about
+    // the document changes meaning.
+    if (source && source.role === "mount") source.role = "companion";
     // Armed on `inanimate` ALONE. It used to accept `forHire` beside it, and
     // that was correct for exactly one day: `forHire` came BACK as a live,
     // sheet-written field on 2026-08-01 when the hireling role collapsed, and

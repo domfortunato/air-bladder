@@ -182,17 +182,26 @@ const y = (s) => {
   return str;
 };
 
-/** "8 HP, 1 Armor" -> {hp: 8, armor: 1}. Absent is absent, never invented. */
+/** "8 HP, 1 Armor, 5 STR, 16 DEX" -> {hp, armor, STR, DEX, WIL}. Absent is
+ * absent, never invented — a horse with no stated DEX keeps the schema's
+ * default rather than an authored guess. The ability parse arrived with the
+ * falcon (2026-08-08), whose whole point is 16 DEX against 5 STR. */
 const statsFromProse = (text) => ({
   hp: Number((text.match(/(\d+)\s*HP\b/i) ?? [])[1]) || null,
   armor: Number((text.match(/(\d+)\s*Armou?r\b/i) ?? [])[1]) || null,
+  STR: Number((text.match(/(\d+)\s*STR\b/i) ?? [])[1]) || null,
+  DEX: Number((text.match(/(\d+)\s*DEX\b/i) ?? [])[1]) || null,
+  WIL: Number((text.match(/(\d+)\s*WIL\b/i) ?? [])[1]) || null,
 });
 
 /* ---- emit -------------------------------------------------------------- */
 
 const FOLDERS = [
   { key: "containers", name: "Containers", seed: "air-bladder-folder:containers" },
-  { key: "mounts", name: "Mounts", seed: "air-bladder-folder:mounts" },
+  // "Companions" since 2026-08-08 (the mount role evolved). The SEED — and so
+  // the folder id — deliberately keeps the old word: every actor in the pack
+  // stores this folder's id, and a re-seed would orphan the lot.
+  { key: "mounts", name: "Companions", seed: "air-bladder-folder:mounts" },
   { key: "transports", name: "Transports", seed: "air-bladder-folder:transports" },
 ];
 
@@ -218,10 +227,13 @@ const actorYaml = (t, id, folderId) => {
   // the sheet shows and the art the token draws, so they cannot disagree.
   const cls = containerClass(t.name, t.kind);
   const img = iconForTransport(t.name, t.kind);
-  const { hp, armor } = statsFromProse(t.description);
+  const stats = statsFromProse(t.description);
+  const { hp, armor } = stats;
   // Role by kind, matching the pack's three folders: worn shapes are
-  // containers, vehicles are transports, only a mount is a creature.
-  const role = t.kind === "mount" ? "mount" : t.kind === "vehicle" ? "transport" : "container";
+  // containers, vehicles are transports, only a beast is a creature — and the
+  // creature role is COMPANION (2026-08-08; the internal kind vocabulary
+  // deliberately still says "mount", it is the retired transportKind dialect).
+  const role = t.kind === "mount" ? "companion" : t.kind === "vehicle" ? "transport" : "container";
   const lines = [
     `_id: ${id}`,
     `name: ${y(t.name)}`,
@@ -244,7 +256,15 @@ const actorYaml = (t, id, folderId) => {
     // thing-role row with none is written 0/0 explicitly, or the schema default
     // hands a cart six hit points.
     ...(hp ? ["  hp:", `    value: ${hp}`, `    max: ${hp}`]
-      : role !== "mount" ? ["  hp:", "    value: 0", "    max: 0"] : []),
+      : role !== "companion" ? ["  hp:", "    value: 0", "    max: 0"] : []),
+    // Stated abilities only — see statsFromProse. Written value AND max: a
+    // falcon's 16 DEX is its whole stat, not damage it is recovering from.
+    ...(stats.STR || stats.DEX || stats.WIL ? [
+      "  abilities:",
+      ...(stats.STR ? ["    STR:", `      value: ${stats.STR}`, `      max: ${stats.STR}`] : []),
+      ...(stats.DEX ? ["    DEX:", `      value: ${stats.DEX}`, `      max: ${stats.DEX}`] : []),
+      ...(stats.WIL ? ["    WIL:", `      value: ${stats.WIL}`, `      max: ${stats.WIL}`] : []),
+    ] : []),
     // `armor` is DERIVED every prepare from worn gear, so an authored value never
     // survives; `armorOverride` is the field that actually holds a stated Armor.
     ...(armor ? [`  armorOverride: ${armor}`] : []),
@@ -358,8 +378,16 @@ const newBeasts = beasts.filter((b) => !stocked.has(b.name.toLowerCase()));
 for (const b of newBeasts) write(b);
 
 // ---- the shop table ----
+// THE EXTRACTOR'S filename, not a scheme of our own. extractPack names files
+// `<Name>_<id>.yml` with every non-alphanumeric a separate underscore, and it
+// CLEANS the pack dir on extract — so a second file carrying the same _id
+// under a different name gives the build two writes to one key and the next
+// extract deletes both spellings. That emptied the live marketplace pack on
+// 2026-08-08 (caught before anything shipped: four tables, restored from git).
 const marketDir = path.join(root, "src", "packs", "marketplace");
-const tableFile = path.join(marketDir, `Market_${CATEGORY.replace(/[^A-Za-z0-9]+/g, "_")}.yml`);
+const tableId = idFor(`air-bladder-market-table:${CATEGORY}`);
+const tableFile = path.join(marketDir,
+  `${`Market: ${CATEGORY}`.replace(/[^A-Za-z0-9]/g, "_")}_${tableId}.yml`);
 if (!dry) {
   fs.mkdirSync(marketDir, { recursive: true });
   fs.writeFileSync(tableFile, tableYaml(refs), "utf8");

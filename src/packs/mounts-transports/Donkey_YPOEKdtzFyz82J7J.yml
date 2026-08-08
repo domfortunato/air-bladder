@@ -18,7 +18,7 @@ system:
   slots: 4
   cost: 0
   containerClass: donkey
-  role: mount
+  role: companion
   generationEnabled: false
 ownership:
   default: 0

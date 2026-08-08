@@ -14,9 +14,7 @@ flags:
   air-bladder:
     transportSource: 2e
 system:
-  description: >-
-    A two-wheeled cart, pulled by hand or beast. Holds four slots; bulky and
-    awkward over rough country.
+  description: 'A two-wheeled cart, pulled by hand or beast. Holds four slots; bulky and awkward over rough country.'
   hp:
     value: 0
     max: 0

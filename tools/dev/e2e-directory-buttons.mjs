@@ -89,7 +89,7 @@ try {
   r.docked.buttons.length === GM_BUTTONS
     ? ok(`docked directory has its ${GM_BUTTONS} buttons`, `(${r.docked.buttons.join(", ")})`)
     : fail(`docked directory buttons: ${JSON.stringify(r.docked.buttons)}`);
-  ["Create Container", "Create Mount", "Create Transport"].every((l) => r.docked.buttons.includes(l))
+  ["Create Container", "Create Companion", "Create Transport"].every((l) => r.docked.buttons.includes(l))
     ? ok("the three role buttons are among them")
     : fail("the three role buttons are among them", JSON.stringify(r.docked.buttons));
   !r.docked.coreCreate && !r.popped.coreCreate
@@ -116,7 +116,7 @@ try {
     // this evaluate and a RegExp does not reliably survive the serialization.
     const CASES = [
       { btn: ".create-container-button", role: "container", kind: "crate", name: "ZZ Dir Crate", slots: 6, art: "crate\\.svg$" },
-      { btn: ".create-mount-button", role: "mount", kind: "horse", name: "ZZ Dir Horse", slots: 4, art: "horse\\.svg$" },
+      { btn: ".create-mount-button", role: "companion", kind: "horse", name: "ZZ Dir Horse", slots: 4, art: "horse\\.svg$" },
       { btn: ".create-transport-button", role: "transport", kind: "wagon", name: "ZZ Dir Wagon", slots: 8, art: "wagon\\.svg$" },
     ];
     for (const c of CASES) {
@@ -258,7 +258,7 @@ try {
   template.namePrefilled === "Heavy Destrier"
     ? ok("picking one prefills the (editable) name")
     : fail("picking one prefills the name", `"${template.namePrefilled}"`);
-  !template.error && template.minted && template.role === "mount" && template.connectedTo === "" && template.isWorldActor
+  !template.error && template.minted && template.role === "companion" && template.connectedTo === "" && template.isWorldActor
     ? ok("the pick mints a world actor: role mount, unconnected")
     : fail("the pick mints a world actor", JSON.stringify(template));
   // The statblock crosses whole — judged against the pack doc, with the

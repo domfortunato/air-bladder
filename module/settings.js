@@ -119,6 +119,17 @@ export const registerSettings = () => {
     default: false,
   });
 
+  // Completion marker for the mount→companion restamp (2026-08-08, the role
+  // evolved — see NPC_ROLES). Its own marker rather than a reuse of
+  // `roles-restamped`, which is long true in every existing world and would
+  // skip exactly the population this exists for.
+  game.settings.register(SETTINGS_NS, "companion-restamped", {
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false,
+  });
+
   // Completion marker for the connections flatten + ownership migration
   // (2026-08-01, the flat graph). Same reasoning as its sibling above: gated
   // on a marker, not on state, because both things it writes are re-editable

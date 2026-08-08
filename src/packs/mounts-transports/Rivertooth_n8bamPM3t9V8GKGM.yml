@@ -6,81 +6,6 @@ prototypeToken:
   name: Rivertooth
   texture:
     src: systems/air-bladder/icons/horse.svg
-    anchorX: 0.5
-    anchorY: 0.5
-    fit: contain
-    scaleX: 1
-    scaleY: 1
-    tint: '#ffffff'
-    alphaThreshold: 0.75
-  displayName: 0
-  actorLink: false
-  width: 1
-  height: 1
-  depth: 1
-  lockRotation: false
-  rotation: 0
-  alpha: 1
-  disposition: -1
-  displayBars: 0
-  bar1:
-    attribute: abilities.STR
-  bar2:
-    attribute: hp
-  light:
-    negative: false
-    priority: 0
-    alpha: 0.5
-    angle: 360
-    bright: 0
-    color: null
-    coloration: 1
-    dim: 0
-    attenuation: 0.5
-    luminosity: 0.5
-    saturation: 0
-    contrast: 0
-    shadows: 0
-    animation:
-      type: null
-      speed: 5
-      intensity: 5
-      reverse: false
-    darkness:
-      min: 0
-      max: 1
-  sight:
-    enabled: false
-    range: 0
-    angle: 360
-    visionMode: basic
-    color: null
-    attenuation: 0.1
-    brightness: 0
-    saturation: 0
-    contrast: 0
-  detectionModes: {}
-  occludable:
-    radius: 0
-  ring:
-    enabled: false
-    colors:
-      ring: null
-      background: null
-    effects: 1
-    subject:
-      scale: 1
-      texture: null
-  turnMarker:
-    mode: 1
-    animation: null
-    src: null
-    disposition: false
-  movementAction: null
-  flags: {}
-  randomImg: false
-  appendNumber: false
-  prependAdjective: false
 items: []
 effects: []
 folder: CCMtMzMwK7XAuWfq
@@ -89,27 +14,18 @@ flags:
   air-bladder:
     transportSource: background-2e
 system:
-  description: >-
-    From the Outrider background. Impressively strong, capable of carrying heavy
-    loads. 4 HP. +6 slots (only +2 slots if carrying two people).
+  description: 'From the Outrider background. Impressively strong, capable of carrying heavy loads. 4 HP. +6 slots (only +2 slots if carrying two people).'
   hp:
     value: 4
     max: 4
   slots: 6
   cost: 0
   containerClass: horse
-  role: mount
+  role: companion
   generationEnabled: false
 ownership:
   default: 0
 _stats:
   systemId: air-bladder
   coreVersion: '14.365'
-  systemVersion: 0.1.11
-  createdTime: 1785873053553
-  modifiedTime: 1786149256058
-  lastModifiedBy: ipqqDDQxZaMLtwLc
-  compendiumSource: null
-  duplicateSource: null
-  exportSource: null
 _key: '!actors!n8bamPM3t9V8GKGM'

@@ -172,9 +172,11 @@ try {
   !shim.hireDiffKeys.includes("role")
     ? ok("migrateData over a forHire diff injects no role", `kept ${shim.hireDiffKeys.join(", ")}`)
     : fail("migrateData over a forHire diff injects no role", `it added: ${shim.hireDiffKeys.join(", ")}`);
-  shim.afterForHire === "mount"
-    ? ok("...so unticking For hire on a live mount leaves it a mount")
-    : fail(`unticking For hire demoted the mount to ${JSON.stringify(shim.afterForHire)}`);
+  // "companion" since 2026-08-08 — the mount role evolved; the claim is
+  // unchanged: unticking For hire must not demote the creature to a person.
+  shim.afterForHire === "companion"
+    ? ok("...so unticking For hire on a live companion leaves it a companion")
+    : fail(`unticking For hire demoted the companion to ${JSON.stringify(shim.afterForHire)}`);
   shim.forHireCart === "transport"
     ? ok("...and it no longer STEERS the role — inanimate+cart still wins")
     : fail(`forHire masked a live inanimate signal: a cart derived ${JSON.stringify(shim.forHireCart)}`);

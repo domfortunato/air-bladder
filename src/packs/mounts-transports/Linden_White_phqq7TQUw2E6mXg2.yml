@@ -14,16 +14,14 @@ flags:
   air-bladder:
     transportSource: background-2e
 system:
-  description: >-
-    From the Outrider background. Highly trained and agile, it can perform
-    intricate maneuvers in a time of need (no DEX save to flee). 4 HP. +3 slots.
+  description: 'From the Outrider background. Highly trained and agile, it can perform intricate maneuvers in a time of need (no DEX save to flee). 4 HP. +3 slots.'
   hp:
     value: 4
     max: 4
   slots: 3
   cost: 0
   containerClass: horse
-  role: mount
+  role: companion
   generationEnabled: false
 ownership:
   default: 0

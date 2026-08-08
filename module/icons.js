@@ -87,9 +87,14 @@ export const CONTAINER_CLASSES = {
   // wagon's number, chosen because a rowboat and a wagon hold about one load of
   // gear each; a Warden who disagrees types over it, which is what the field is for.
   smallcraft: { icon: "smallcraft", label: "CAIRN.ClassSmallcraft", slots: 8, role: "transport" },
-  mule: { icon: "donkey", label: "CAIRN.ClassMule", slots: 6, role: "mount" },
-  donkey: { icon: "donkey", label: "CAIRN.ClassDonkey", slots: 4, role: "mount" },
-  horse: { icon: "horse", label: "CAIRN.ClassHorse", slots: 4, role: "mount" },
+  mule: { icon: "donkey", label: "CAIRN.ClassMule", slots: 6, role: "companion" },
+  donkey: { icon: "donkey", label: "CAIRN.ClassDonkey", slots: 4, role: "companion" },
+  horse: { icon: "horse", label: "CAIRN.ClassHorse", slots: 4, role: "companion" },
+  // The 0-slot companions (2026-08-08): creatures the canon grants that carry
+  // nothing — Fletchwind's falcon, Half Witch's raven. Their stat blocks live
+  // on their pack documents; these rows are only shape, art and the role.
+  falcon: { icon: "falcon", label: "CAIRN.ClassFalcon", slots: 0, role: "companion" },
+  raven: { icon: "raven", label: "CAIRN.ClassRaven", slots: 0, role: "companion" },
   chest: { icon: "chest", label: "CAIRN.ClassChest", slots: 6, role: "container" },
   crate: { icon: "crate", label: "CAIRN.ClassCrate", slots: 6, role: "container" },
   barrel: { icon: "barrel", label: "CAIRN.ClassBarrel", slots: 4, role: "container" },
@@ -105,9 +110,9 @@ export const containerClassSlots = (cls) => CONTAINER_CLASSES[cls]?.slots ?? 0;
 export const containerClassRole = (cls) => CONTAINER_CLASSES[cls]?.role ?? "";
 
 /** Is this class a CREATURE? Derived from role, not stored beside it — a second
- *  boolean saying "mount" would be a second thing to drift. A mule gets a stat
- *  block, a barrel gets 0/0. */
-export const containerClassAnimate = (cls) => containerClassRole(cls) === "mount";
+ *  boolean saying "companion" would be a second thing to drift. A mule gets a
+ *  stat block, a barrel gets 0/0. */
+export const containerClassAnimate = (cls) => containerClassRole(cls) === "companion";
 
 /**
  * Classify a container / transport. Keyed on the NAME first (so "Handcart" and
@@ -162,6 +167,10 @@ export const containerClass = (name = "", legacyKind = "", stored = "") => {
   if (n.includes("chest") || n.includes("coffer")) return "chest";
   if (n.includes("box") || n.includes("case")) return "box";
   if (n.includes("horse")) return "horse";
+  // The winged companions. "Raven Familiar" answers by its head noun; hawks and
+  // crows borrow the nearest shape the way a cask borrows the barrel's.
+  if (n.includes("falcon") || n.includes("hawk")) return "falcon";
+  if (n.includes("raven") || n.includes("crow")) return "raven";
   if (n.includes("pile") || n.includes("hoard") || n.includes("stash")) return "pile";
   if (legacyKind === "worn") return "sack";
   if (legacyKind === "vehicle") return "wagon";

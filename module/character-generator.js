@@ -791,7 +791,7 @@ export const grantContainers = async (actor, specs) => {
   // Actor carries its class outright.
   const resolve = (spec) => {
     const doc = docs.find((d) => d.name.toLowerCase() === String(spec.name).toLowerCase());
-    const kind = doc ? (doc.system.role === "mount" ? "mount" : "vehicle") : containerKindFor(spec.name);
+    const kind = doc ? (doc.system.role === "companion" ? "mount" : "vehicle") : containerKindFor(spec.name);
     return { doc, kind, art: doc?.img ?? iconForTransport(spec.name, kind) };
   };
 
@@ -830,11 +830,19 @@ export const grantContainers = async (actor, specs) => {
         // inferred kind (a granted "Mangy Wolfdog" is a mount-shaped creature
         // and keeps its stat block, exactly as the old animate default did).
         role: doc?.system.role
-          ?? ({ mount: "mount", vehicle: "transport", worn: "container", pile: "container" }[kind] ?? "mount"),
+          ?? ({ mount: "companion", vehicle: "transport", worn: "container", pile: "container" }[kind] ?? "companion"),
         cost: doc?.system.cost ?? 0,
         generationEnabled: false,
         ...(doc?.system.hp ? { hp: { value: doc.system.hp.value, max: doc.system.hp.max } } : {}),
         ...(doc?.system.armorOverride != null ? { armorOverride: doc.system.armorOverride } : {}),
+        // The ABILITIES too — the stat block travels whole. hp/armorOverride
+        // have been copied since review #5 ("a granted Rivertooth arrived with
+        // the schema's default 6 HP"); abilities joined 2026-08-08 when the
+        // Falcon arrived, whose whole point is DEX 16 — landing it with the
+        // schema's 10/10/10 is the same bug class. Via toObject(), never by
+        // reference: a DataModel getter hands back the LIVE object, and a
+        // shared reference here poisons the pack document.
+        ...(doc ? { abilities: doc.system.toObject().abilities } : {}),
       },
       flags: { [FLAG_SCOPE]: { grantSource: spec.grantSource ?? "background" } },
     };

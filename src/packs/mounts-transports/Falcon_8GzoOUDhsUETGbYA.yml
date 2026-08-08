@@ -1,0 +1,41 @@
+_id: 8GzoOUDhsUETGbYA
+name: Falcon
+type: npc
+img: systems/air-bladder/icons/falcon.svg
+prototypeToken:
+  name: Falcon
+  texture:
+    src: systems/air-bladder/icons/falcon.svg
+items: []
+effects: []
+folder: CCMtMzMwK7XAuWfq
+sort: 0
+flags:
+  air-bladder:
+    transportSource: background-2e
+system:
+  description: 'From the Fletchwind background. Falconry. You keep a falcon [3 hp, 5 STR, 16 DEX, 4 WIL, claws (d6+d6), bite (d8)]. It only eats live game.'
+  hp:
+    value: 3
+    max: 3
+  abilities:
+    STR:
+      value: 5
+      max: 5
+    DEX:
+      value: 16
+      max: 16
+    WIL:
+      value: 4
+      max: 4
+  slots: 0
+  cost: 0
+  containerClass: falcon
+  role: companion
+  generationEnabled: false
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!actors!8GzoOUDhsUETGbYA'

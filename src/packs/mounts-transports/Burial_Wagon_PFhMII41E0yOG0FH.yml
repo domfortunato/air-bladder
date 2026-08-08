@@ -1,11 +1,11 @@
 _id: PFhMII41E0yOG0FH
 name: Burial Wagon
 type: npc
-img: systems/air-bladder/icons/funeralwagon.svg
+img: systems/air-bladder/icons/wagon.svg
 prototypeToken:
   name: Burial Wagon
   texture:
-    src: systems/air-bladder/icons/funeralwagon.svg
+    src: systems/air-bladder/icons/wagon.svg
 items: []
 effects: []
 folder: Y7FAeuwxTR9cyRtC
@@ -14,10 +14,7 @@ flags:
   air-bladder:
     transportSource: background-2e
 system:
-  description: >-
-    From the Bonekeeper background. A burial wagon (+6 slots, slow) from your
-    last job. It came with a stubborn old donkey (+4 slots, only +2 slots if
-    pulling wagon).
+  description: 'From the Bonekeeper background. A burial wagon (+6 slots, slow) from your last job. It came with a stubborn old donkey (+4 slots, only +2 slots if pulling wagon).'
   hp:
     value: 0
     max: 0

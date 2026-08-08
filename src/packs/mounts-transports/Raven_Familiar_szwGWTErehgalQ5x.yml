@@ -1,0 +1,41 @@
+_id: szwGWTErehgalQ5x
+name: Raven Familiar
+type: npc
+img: systems/air-bladder/icons/raven.svg
+prototypeToken:
+  name: Raven Familiar
+  texture:
+    src: systems/air-bladder/icons/raven.svg
+items: []
+effects: []
+folder: CCMtMzMwK7XAuWfq
+sort: 0
+flags:
+  air-bladder:
+    transportSource: background-2e
+system:
+  description: 'From the Half Witch background. A Raven Familiar [8 HP, 3 STR, 11 DEX, 13 WIL, beak, (d6)]. It speaks as an intelligent being and is entirely devoted to you.'
+  hp:
+    value: 8
+    max: 8
+  abilities:
+    STR:
+      value: 3
+      max: 3
+    DEX:
+      value: 11
+      max: 11
+    WIL:
+      value: 13
+      max: 13
+  slots: 0
+  cost: 0
+  containerClass: raven
+  role: companion
+  generationEnabled: false
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!actors!szwGWTErehgalQ5x'

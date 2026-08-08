@@ -693,7 +693,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // Monsters never saw it: Career is a person's job, and a monster has a
       // side without one.
       context.showFaction = ["npc", "monster"].includes(role);
-      context.showKind = ["mount", "transport", "container"].includes(role);
+      context.showKind = ["companion", "transport", "container"].includes(role);
       // The Type select's rows: the CONTAINER_CLASSES table filtered to the
       // current role, so a class added there appears here with nothing else to
       // keep in step. STRICT since 2026-08-02 — the free-text input lives
@@ -2035,7 +2035,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // A thing-role npc is a container in every sense that matters here, and a
     // MOUNT wants the horse/mule glyphs, not 80 human portraits — so all three
     // container-line roles get the container gallery.
-    const isContainerish = this.actor.isThing || this.actor.npcRole === "mount";
+    const isContainerish = this.actor.isThing || this.actor.npcRole === "companion";
     return isContainerish
       ? this._pickContainerArt(event)
       : this._pickPortrait(event);

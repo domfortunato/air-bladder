@@ -45,6 +45,9 @@ system:
         - description: >-
             Falconry. You keep a falcon [3 hp, 5 STR, 16 DEX, 4 WIL, claws
             (d6+d6), bite (d8)]. It only eats live game.
+          containers:
+            - name: Falcon
+              slots: 0
         - description: >-
             Hunting. When taking the Supply action, your ability to secure
             Rations increases by one step (e.g. 1d4 becomes 1d6).

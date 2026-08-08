@@ -151,7 +151,7 @@ export class CairnActor extends Actor {
       ["character", game.i18n.localize(CONFIG.Actor.typeLabels?.character ?? "TYPES.Actor.character")],
       ["npc", game.i18n.localize("CAIRN.RoleNpc")],
       ...(game.user.isGM ? [["monster", game.i18n.localize("CAIRN.RoleMonster")]] : []),
-      ["mount", game.i18n.localize("CAIRN.RoleMount")],
+      ["companion", game.i18n.localize("CAIRN.RoleCompanion")],
       ["transport", game.i18n.localize("CAIRN.RoleTransport")],
       ["container", game.i18n.localize("CAIRN.RoleContainer")],
     ];
@@ -211,7 +211,7 @@ export class CairnActor extends Actor {
    * the old custom-container dialog's skip-on-blank guard is the recorded
    * counter-lesson. Art arrives via _preCreate's stamping; capacity is the
    * kind's default, 0 (world setting) for a blank or custom kind.
-   * @param {"mount"|"transport"|"container"} role
+   * @param {"companion"|"transport"|"container"} role
    * @param {{folder?: string|null}} [opts]
    * @returns {Promise<CairnActor|null>}
    */
@@ -242,7 +242,7 @@ export class CairnActor extends Actor {
     // pack with this role whose name is not already a kind's KEY (locale-
     // independent, unlike the localized label) auto-appears here.
     let namedDocs = [];
-    if (role === "mount") {
+    if (role === "companion") {
       const kindKeys = new Set(Object.entries(CONTAINER_CLASSES)
         .filter(([, c]) => c.role === role).map(([k]) => k));
       const docs = await game.packs.get("air-bladder.mounts-transports")?.getDocuments() ?? [];
@@ -536,7 +536,7 @@ export class CairnActor extends Actor {
     // and monsters keep mystery-man.
     const artRole = data.system?.role;
     const isContainerish = ["npc", "hireling"].includes(data.type) && (data.system?.containerClass
-      || THING_ROLES.includes(artRole) || artRole === "mount");
+      || THING_ROLES.includes(artRole) || artRole === "companion");
     if (isContainerish && !data.img) {
       const art = iconForTransport(
         data.name ?? "",
@@ -632,11 +632,11 @@ export class CairnActor extends Actor {
     this.system.isNpcPerson = this.npcRole === "npc";
     this.system.showDayRate = this.npcRole === "npc" && this.system.forHire === true;
     this.system.canKeep = this.canKeepConnected;
-    // Round 2: Gold follows the role too. Mounts and things hide the COUNTER;
+    // Round 2: Gold follows the role too. Companions and things hide the COUNTER;
     // the stored value and the coins-take-slots rule are untouched, so a chest
     // that held 25gp still holds it (and it still weighs) — the sheet just
     // stops offering a purse on something that has no pockets to manage.
-    this.system.showGold = !this.isThing && this.npcRole !== "mount";
+    this.system.showGold = !this.isThing && this.npcRole !== "companion";
     // The Items tab's Fatigue +/- header. A THING cannot be tired: a sack, cart
     // or crate has no STR to burn and no save to fail, so the control was pure
     // nonsense on one — and on a GLOG grimoire it is worse than nonsense,

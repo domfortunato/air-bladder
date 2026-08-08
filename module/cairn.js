@@ -337,7 +337,7 @@ Hooks.on("setup", () => {
 /** The only roles a grant payload may claim — the non-keeping ones. A payload
  *  saying anything else falls back to deriving from its class/legacy fields,
  *  clamped to `container` if even that derives a keeper. */
-const GRANTABLE_ROLES = ["mount", "transport", "container"];
+const GRANTABLE_ROLES = ["companion", "transport", "container"];
 const grantableRole = (sys) => {
   const claimed = String(sys?.role ?? "");
   if (GRANTABLE_ROLES.includes(claimed)) return claimed;
@@ -540,6 +540,20 @@ Hooks.once("init", () => {
         generationEnabled: false,
         ...(p?.system?.hp ? { hp: { value: Number(p.system.hp.value) || 0, max: Number(p.system.hp.max) || 0 } } : {}),
         ...(p?.system?.armorOverride != null ? { armorOverride: Number(p.system.armorOverride) || 0 } : {}),
+        // The ABILITIES, same distrust as hp: numbers coerced field by field,
+        // nothing else off the wire. Missing from this whitelist until
+        // 2026-08-08, which the companions probe caught on its FIRST run — the
+        // GM's own grant path copied the Falcon's DEX 16 while a player's
+        // arrived through here as the schema's 10/10/10: the broker quietly
+        // rebuilt a different creature depending on who rolled it.
+        ...(p?.system?.abilities ? {
+          abilities: Object.fromEntries(["STR", "DEX", "WIL"]
+            .filter((k) => p.system.abilities[k])
+            .map((k) => [k, {
+              value: Number(p.system.abilities[k].value) || 0,
+              max: Number(p.system.abilities[k].max) || 0,
+            }])),
+        } : {}),
       },
       // Only the one flag generation uses to find its own grants later.
       flags: { [FLAG_SCOPE]: { grantSource: String(p?.flags?.[FLAG_SCOPE]?.grantSource ?? "background") } },
@@ -650,6 +664,8 @@ Hooks.once("ready", async () => {
   await phase("spellscroll -> flagged spellbook migration", migrateScrollsToSpellbooks);
 
   await phase("npc role migration", migrateNpcRoles);
+
+  await phase("mount -> companion restamp", migrateMountToCompanion);
 
   await phase("connections flatten + ownership migration", flattenConnections);
 
@@ -1102,6 +1118,38 @@ const migrateNpcRoles = async () => {
 };
 
 /**
+ * Restamp `role: "mount"` as `"companion"` (2026-08-08 — the role evolved; see
+ * NPC_ROLES). The hireling retirement's exact machinery, reused rather than
+ * rewritten: reading an actor routes the stored value through `migrateData`
+ * (which already answers "companion"), so writing the READ value back with
+ * `diff: false` is the whole restamp, and unlinked-token deltas need no walk
+ * because they store differences from a base this flips.
+ *
+ * BLIND, like its sibling above, and the reason bears repeating because the
+ * first draft of this function got it wrong: a stored "mount" is UNOBSERVABLE
+ * from a client — migrateData rewrites the source object at initialization, so
+ * `_source.system.role` already reads "companion" on every document the
+ * database still holds as "mount". A filter on the stored value matches
+ * nothing, ever, and the migration it guards stamps nothing while reporting
+ * itself done. So: every npc, no test.
+ *
+ * Its own marker, not `roles-restamped` — that one is long true in every
+ * existing world. Set even when nothing matched, and only after the writes
+ * land, so a failed run retries instead of recording itself done.
+ */
+const migrateMountToCompanion = async () => {
+  if (game.settings.get(SETTINGS_NS, "companion-restamped")) return;
+  const updates = game.actors
+    .filter((a) => ["npc", "hireling"].includes(a.type))
+    .map((a) => ({ _id: a.id, "system.role": a.system.role }));
+  if (updates.length) {
+    await Actor.updateDocuments(updates, { diff: false });
+    console.log(`Air Bladder | role restamped on ${updates.length} npc(s) (mount -> companion)`);
+  }
+  await game.settings.set(SETTINGS_NS, "companion-restamped", true);
+};
+
+/**
  * Flatten the connection graph and normalize connection-driven ownership —
  * Phase B of the 2026-08-01 redesign, running after the role re-stamp above.
  *
@@ -1422,7 +1470,7 @@ Hooks.on("renderActorDirectory", (app, html) => {
           "CAIRN.CreateNpc"
         )}</button>
           ${game.user.isGM ? `<button class="create-monster-button"><i class="fas fa-dragon"></i>${game.i18n.localize("CAIRN.CreateMonster")}</button>` : ""}
-          <button class="create-mount-button"><i class="fas fa-horse"></i>${game.i18n.localize("CAIRN.CreateMount")}</button>
+          <button class="create-mount-button"><i class="fas fa-horse"></i>${game.i18n.localize("CAIRN.CreateCompanion")}</button>
           <button class="create-transport-button"><i class="fas fa-cart-flatbed"></i>${game.i18n.localize("CAIRN.CreateTransport")}</button>
           <button class="create-container-button"><i class="fas fa-box-open"></i>${game.i18n.localize("CAIRN.CreateContainer")}</button>
           ${game.user.isGM ? `<button class="create-faction-button"><i class="fas fa-flag"></i>${game.i18n.localize("CAIRN.CreateFaction")}</button>` : ""}
@@ -1448,7 +1496,7 @@ Hooks.on("renderActorDirectory", (app, html) => {
       // players who may create actors may create the things they own.
       for (const [cls, role] of [
         ["create-container-button", "container"],
-        ["create-mount-button", "mount"],
+        ["create-mount-button", "companion"],
         ["create-transport-button", "transport"],
       ]) {
         section.querySelector(`.${cls}`)?.addEventListener("click", async () => {
@@ -1525,7 +1573,7 @@ Hooks.on("renderActorDirectory", (app, html) => {
     //
     // The `show-container-actors` hide rule that lived beside this is GONE
     // (2026-08-02, by ruling): every container actor is always listed.
-    const containerLine = actor.isThing || actor.npcRole === "mount";
+    const containerLine = actor.isThing || actor.npcRole === "companion";
     a.classList.toggle('cairn-grayscale-portrait', containerLine);
   });
 });

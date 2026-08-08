@@ -188,7 +188,7 @@
     },
     {
       "name": "mounts-transports",
-      "label": "Mounts & Transports",
+      "label": "Companions & Transports",
       "type": "Actor",
       "system": "air-bladder"
     },
