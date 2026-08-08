@@ -330,16 +330,25 @@ if (!icons.rowFound || !gmIcons.rowFound) {
 // PLAYER in core.permissions.ACTOR_CREATE, which made dev:socket-grant refuse
 // to run at all ("this world grants players ACTOR_CREATE") — found as litter
 // on 2026-08-01. The remaining legs run as the GM and need no grant.
-// Writing core.permissions makes Foundry reload every connected client, which
-// destroys this page's execution context — so `await`ing the set is a race the
-// probe sometimes LOSES, and losing it kills the run here, before the cleanup
-// below. That leaves the PC, the mule, the purchased container and the planted
-// grant in the world, and (the expensive part) PLAYER still holding
-// ACTOR_CREATE, which is precisely the litter this block exists to prevent.
+// This await can die with Playwright's "Execution context was destroyed", and
+// the tempting explanation is wrong: **`core.permissions` does NOT reload
+// clients.** It is `config: false` with an `onChange` that only re-renders the
+// controls, the sidebar and the canvas cursors — no `requiresReload` anywhere
+// (`client/game.mjs:1152-1164`, checked against the shipped 14.365). A comment
+// here said otherwise for one commit on 2026-08-07; the theory sounded right and
+// this repo has already paid once for a confident comment sitting above code
+// that contradicts it.
 //
-// So: fire it, tolerate the teardown, and wait for the client to come back
-// before any later leg touches `game`. Not awaiting at all would be worse — the
-// next evaluate would race the reload instead.
+// The real cause is LOAD. A long serial batch degrades the server enough that a
+// join is still settling when this runs (0.1.11: `Vended World data` 5,059 ms an
+// hour into a batch versus 418 ms quiet), and the page loses its context to the
+// harness, not to Foundry. Nothing here is a system defect, which is why the
+// answer is tolerance rather than a fix to the write.
+//
+// Dying here would take the cleanup below with it, stranding the PC, the mule,
+// the purchased container and the planted grant — and, expensively, leaving
+// PLAYER holding ACTOR_CREATE, the exact litter this block exists to prevent and
+// which has previously stopped dev:socket-grant running at all.
 await gmPage.evaluate(() => {
   const perms = foundry.utils.deepClone(game.settings.get("core", "permissions"));
   perms.ACTOR_CREATE = (perms.ACTOR_CREATE ?? []).filter((r) => r !== CONST.USER_ROLES.PLAYER);
