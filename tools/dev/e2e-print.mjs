@@ -50,7 +50,9 @@ const r = await page.evaluate(async ({ xssName }) => {
 
   const pc = await ActorImpl.create({
     name: "ZZ Print Hero", type: "character",
-    img: "icons/svg/mystery-man.svg",
+    // A REAL Aspeheim gallery path — the credits footer picks its
+    // attribution line from the portrait's path.
+    img: "systems/air-bladder/art/jon-aspeheim/portraits/dwarf_01.webp",
     system: {
       background: "Greenwise",
       backgroundUuid: bgItem.uuid,
@@ -106,6 +108,9 @@ const r = await page.evaluate(async ({ xssName }) => {
   // no-button fixture now.
   const npc = await ActorImpl.create({
     name: "ZZ Print Foe", type: "npc",
+    // A Tlomdev gallery path — the monster page must credit TLOMDEV, and
+    // never Aspeheim.
+    img: "systems/air-bladder/art/tlomdev/kettlewright-portraits/portrait1.webp",
     system: {
       role: "monster", generationEnabled: false,
       hp: { value: 6, max: 6 },
@@ -310,6 +315,7 @@ const r = await page.evaluate(async ({ xssName }) => {
     && !h2s3.includes(game.i18n.localize("CAIRN.Omen"));
   out.npcNotesHeader = h2s3.includes(game.i18n.localize("CAIRN.Notes"));
   out.npcCredits = !!doc3?.querySelector("footer.credits");
+  out.npcCreditsText = doc3?.querySelector("footer.credits")?.textContent ?? "";
   // A monster's one-pager stays one page — no forced break on ITS notes.
   const notesSec3 = doc3?.querySelector("section.notes-section");
   out.npcNotesBreak = notesSec3 ? popup3.getComputedStyle(notesSec3).breakBefore : null;
@@ -371,10 +377,10 @@ check("a thing gets the line only", r.sackConnLine,
   "the sack's contents are an inventory section; Connections adds no stat line for a container");
 check("no empty inventory heading for the falcon", r.falconNotInventory,
   "a 0-slot companion carrying nothing lives in Connections, not as a bare inv-head");
-check("credits footer, very small type", /Yochai Gal/.test(r.creditsText)
-  && /Aspeheim/.test(r.creditsText) && /Tlomdev/.test(r.creditsText)
+check("credits match the art ON the page", /Yochai Gal/.test(r.creditsText)
+  && /Aspeheim/.test(r.creditsText) && !/Tlomdev/.test(r.creditsText)
   && r.creditsSmall !== null && r.creditsSmall < 10,
-  `${r.creditsSmall}px — CC BY-SA 4.0 text, CC BY 4.0 / CC BY-SA 4.0 art, at the page foot`);
+  `${r.creditsSmall}px — an Aspeheim portrait credits Aspeheim and NEVER Tlomdev; the text credit always prints`);
 check("empty Notes still prints its header", r.emptyNotesHeader,
   "the ruling: the empty block is where the pencil goes");
 check("Notes opens its own page (PC only)", r.notesBreak === "page" && r.npcNotesBreak !== "page",
@@ -391,6 +397,9 @@ check("statblock prose and numbers", r.npcDesc && r.npcStats,
   `desc=${r.npcDesc} stats=${r.npcStats}`);
 check("no PC-only sections", r.npcNoPcSections && r.npcNotesHeader && r.npcCredits,
   `pcSections=${!r.npcNoPcSections} notesHeader=${r.npcNotesHeader} credits=${r.npcCredits} — no Background/Bonds/Omen; Notes header and credits still on`);
+check("the monster credits Tlomdev, not Aspeheim", /Tlomdev/.test(r.npcCreditsText)
+  && !/Aspeheim/.test(r.npcCreditsText) && /Yochai Gal/.test(r.npcCreditsText),
+  "the attribution follows the portrait's gallery");
 
 console.log("\nwhat must not happen");
 check("an item name is never parsed as HTML", r.injText?.includes("ZZ Inj <img")
