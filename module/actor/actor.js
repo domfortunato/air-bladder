@@ -251,7 +251,12 @@ export class CairnActor extends Actor {
         .sort((a, b) => a.name.localeCompare(b.name));
       if (namedDocs.length) {
         const group = document.createElement("optgroup");
-        group.label = game.i18n.localize("CAIRN.KindNamedMounts");
+        // KindNamedCompanions, since the mount->companion rename — review #11
+        // caught this call site still asking for the RETIRED key, which
+        // rendered the raw key text as the optgroup heading in every locale
+        // except Spanish (whose stale old-key translation answered by
+        // accident).
+        group.label = game.i18n.localize("CAIRN.KindNamedCompanions");
         for (const d of namedDocs) {
           const o = document.createElement("option");
           // `doc:<uuid>` is a SENTINEL (the sheet Type-select discipline): it

@@ -1,7 +1,7 @@
 import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, regenerateNpc, rerollNpcProfession, rerollNpcName, rerollNpcFaction, rollNameFromTable, rollAge } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
-import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel } from "../utils.js";
+import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel } from "../utils.js";
 import { resultText } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES } from "../icons.js";
@@ -1839,11 +1839,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // template — item names are authored free text.
     const rows = (items) => items.map((it) => {
       const notes = [];
-      if (it.system.weightless) notes.push(`(${L("CAIRN.Weightless").toLowerCase()})`);
+      // The translator's strings AS WRITTEN — no locale-less case transform
+      // (review #11: the print page was the only surface lowercasing a
+      // localized value, wrong for any language that capitalises the term).
+      if (it.system.weightless) notes.push(`(${L("CAIRN.Weightless")})`);
       const uses = it.system.uses?.value ?? 0;
-      if (uses > 0) notes.push(game.i18n.format(uses === 1 ? "CAIRN.PrintUsesOne" : "CAIRN.PrintUsesMany", { n: uses }));
+      // formatCount, not a hand-rolled binary fork (review #11): the item
+      // sheet and marketplace both learned this in review #9, and the fork
+      // here duplicated CAIRN.NUses under two print-only keys while cutting
+      // Polish off from its _few form.
+      if (uses > 0) notes.push(`(${formatCount("CAIRN.NUses", uses)})`);
       if (it.system.damageFormula) notes.push(`(${it.system.damageFormula})`);
-      if (it.system.bulky) notes.push(`(${L("CAIRN.Bulky").toLowerCase()})`);
+      if (it.system.bulky) notes.push(`(${L("CAIRN.Bulky")})`);
       if ((it.system.quantity ?? 1) > 1) notes.push(`×${it.system.quantity}`);
       return { name: t("item.name", it.name), notes: notes.join(" ") };
     });

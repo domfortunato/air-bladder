@@ -224,7 +224,10 @@ const r = await page.evaluate(async ({ xssName }) => {
   out.notesBreak = notesSec ? popup.getComputedStyle(notesSec).breakBefore : null;
   out.knifeNote = /Root Knife\s*\(d6\)/.test(body.replace(/\s+/g, " "));
   out.rationsNote = /Rations\s*\(3 uses\)/.test(body.replace(/\s+/g, " "));
-  out.pettyNote = /Signet Ring\s*\(petty\)/.test(body.replace(/\s+/g, " "));
+  // "(Petty)" as the translator wrote it — review #11 removed the print
+  // page's locale-less toLowerCase, the only case transform of a localized
+  // value in module/.
+  out.pettyNote = /Signet Ring\s*\(Petty\)/.test(body.replace(/\s+/g, " "));
   // Injection: the item name is LITERAL TEXT — one text node, no element, no fire.
   const injRow = [...(doc?.querySelectorAll("ul.inv li") ?? [])].find((li) => li.textContent.includes("ZZ Inj"));
   out.injText = injRow?.textContent.trim() ?? null;
@@ -352,7 +355,7 @@ check("stats carry the numbers", /12\/12/.test(r.statsText) && /6\/6/.test(r.sta
   && /11/.test(r.statsText) && /5\/5/.test(r.statsText),
   `"${r.statsText.slice(0, 90)}"`);
 check("KW's item annotations", r.knifeNote && r.rationsNote && r.pettyNote,
-  `(d6)=${r.knifeNote} (3 uses)=${r.rationsNote} (petty)=${r.pettyNote}`);
+  `(d6)=${r.knifeNote} (3 uses)=${r.rationsNote} (Petty)=${r.pettyNote} — Petty as the translator wrote it, uses via formatCount`);
 check("a connected container is its own section", r.sackSection && r.sackSlots,
   "ZZ Print Sack ( 1 / 4 ) with ZZ Sack Item — KW's multi-container inventory");
 

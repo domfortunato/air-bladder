@@ -6,12 +6,12 @@ as of 2026-08-08, measured against the last release (`0.1.12`).
 
 | | |
 | --- | --- |
-| English interface keys | 615 |
-| translated in `lang/es.json` | 518 (84%) |
+| English interface keys | 622 |
+| translated in `lang/es.json` | 518 (83%) |
 | **changed under your translation** | **11** ← Part 1 |
 | **content you translated, now unreachable** | **3** ← Part 2 |
-| new interface keys, untranslated | 97 ← Part 3 |
-| new content strings, untranslated | 1843 ← Part 4 |
+| new interface keys, untranslated | 104 ← Part 3 |
+| new content strings, untranslated | 1842 ← Part 4 |
 
 Only two files are yours, and only you should edit them: `lang/es.json`
 (interface) and `lang/content/es.json` (the content overlay). Nothing in this
@@ -116,19 +116,9 @@ to do — they are listed so the work is accounted for rather than vanishing.
 - `item.name` · Instrument
 - `table.result` · Instrument
 
-### Mechanical — nothing for you to do (1)
-
-These lost their key to our tooling, not to an edit, and are recovered by re-keying
-with every Spanish value kept byte-identical.
-
-- **1** whose document changed type, moving them to a different namespace.
-
-Fixed our side with `npm run i18n:repair -- --lang es --write`, which touches only
-the entries it names and keeps every Spanish value byte-identical.
-
 ---
 
-## Part 3 — new interface keys, untranslated (97)
+## Part 3 — new interface keys, untranslated (104)
 
 Ordinary outstanding work: these have no Spanish at all, so a Spanish client
 falls back to English for them. Nothing here is urgent — a missing key is visibly
@@ -202,7 +192,7 @@ untranslated, which is the honest failure.
 | `CAIRN.GameIconCategory.Smoke` | Smoke |
 | `CAIRN.GameIconCategory.Sounds` | Sounds |
 
-### General (34)
+### General (41)
 
 | key | English |
 | --- | --- |
@@ -231,10 +221,17 @@ untranslated, which is the honest failure.
 | `CAIRN.PortraitTabTlomdev` | Tlomdev |
 | `CAIRN.Print` | Print |
 | `CAIRN.PrintBonds` | Bonds |
+| `CAIRN.PrintCreditAspeheim` | Portrait by Jon Aspeheim, licensed CC BY 4.0. |
+| `CAIRN.PrintCreditGameIcons` | Portrait from game-icons.net, licensed CC BY 3.0. |
+| `CAIRN.PrintCreditLydiaComer` | Portrait by Lydia Comer, all rights reserved, used with the artist's permission. |
+| `CAIRN.PrintCreditText` | Cairn is by Yochai Gal, text licensed CC BY-SA 4.0. |
+| `CAIRN.PrintCreditTlomdev` | Portrait by Tlomdev, licensed CC BY-SA 4.0. |
+| `CAIRN.PrintFailedCareer` | Failed Career: |
 | `CAIRN.PrintMain` | Main |
+| `CAIRN.PrintQuestions` | Questions |
+| `CAIRN.PrintRoleCareer` | {role} — {career} |
+| `CAIRN.PrintSourceCustom` | Custom Cairn 2e |
 | `CAIRN.PrintStats` | Stats |
-| `CAIRN.PrintUsesMany` | ({n} uses) |
-| `CAIRN.PrintUsesOne` | ({n} use) |
 | `CAIRN.RoleCompanion` | Companion |
 | `CAIRN.ScarFlavor` | Takes a scar! |
 | `CAIRN.StabilizedBanner` | no longer critically wounded. |
@@ -297,7 +294,7 @@ untranslated, which is the honest failure.
 
 ---
 
-## Part 4 — new content strings, untranslated (1843)
+## Part 4 — new content strings, untranslated (1842)
 
 Pack content — monster names and descriptions, table rows, background prose. Too many
 to list here; they are pre-filled in the spreadsheets `npm run i18n:extract` writes to
@@ -308,7 +305,7 @@ to list here; they are pre-filled in the spreadsheets `npm run i18n:extract` wri
 | `monster.itemName` | 171 | 171 | **0% — nothing at all** |
 | `table.desc` | 55 | 55 | **0% — nothing at all** |
 | `monster.itemDesc` | 28 | 28 | **0% — nothing at all** |
-| `monster.name` | 207 | 222 | 7% |
+| `monster.name` | 206 | 222 | 7% |
 | `monster.desc` | 202 | 221 | 9% |
 | `table.result` | 432 | 750 | 42% |
 | `table.name` | 30 | 55 | 45% |

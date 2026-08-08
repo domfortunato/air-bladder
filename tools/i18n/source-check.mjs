@@ -64,6 +64,19 @@ const TPL_FILES = walk(path.join(ROOT, "templates"), /\.(html|hbs)$/);
  */
 const CORE_RESOLVED = [/^TYPES\./];
 
+/**
+ * Keys our forked core templates reference that the CLIENT's own language
+ * file supplies, so they are rightly absent from lang/en.json. The forked
+ * combat tracker (templates/sidebar/combat-tracker.html is core 14.365's
+ * tracker.hbs with the initiative block swapped) keeps core's own localize
+ * calls — each verified present in
+ * C:\Users\domin\foundry\app\public\lang\en.json. EXACT keys, never a
+ * prefix: a prefix would hide a typo'd COMBAT.* key of our own, which is
+ * this gate's whole job to catch. (Review #11: these three rows kept the
+ * gate permanently red, which is the failure mode its docstring names.)
+ */
+const CORE_SUPPLIED = new Set(["COMBATANT.Ping", "COMBATANT.PanTo", "COMBAT.InitiativeRoll"]);
+
 /** Literal keys, plus the PREFIXES of keys built by interpolation. */
 const collectKeys = () => {
   const used = new Map(); // key -> "file:line" of its first use
@@ -145,6 +158,19 @@ const tokenize = (src) => {
   let i = 0;
   let textStart = 0;
   while (i < src.length) {
+    // `<!` opens a declaration or an HTML comment, neither of which is
+    // user-visible text: `<!DOCTYPE html>` used to fall through to the TEXT
+    // branch and report itself as a hardcoded string. A comment consumes to
+    // `-->` (a bare `>` inside one must not end it); a declaration to `>`.
+    if (src[i] === "<" && src[i + 1] === "!") {
+      if (i > textStart) text.push({ start: textStart, value: src.slice(textStart, i) });
+      const end = src.startsWith("<!--", i)
+        ? src.indexOf("-->", i + 4) + 3
+        : src.indexOf(">", i) + 1;
+      i = end > 2 ? end : src.length;
+      textStart = i;
+      continue;
+    }
     // A tag starts only at `<` followed by a name or a closing slash; `<=`
     // inside an attribute or a stray comparison is text.
     if (src[i] === "<" && /[a-zA-Z/]/.test(src[i + 1] ?? "")) {
@@ -162,6 +188,16 @@ const tokenize = (src) => {
       tags.push({ start, value: src.slice(start, i + 1) });
       i++;
       textStart = i;
+      // A stylesheet is not prose: the print page's inline <style> block
+      // used to be scanned as one giant "hardcoded user-visible string".
+      // Same for <script>, should a template ever carry one.
+      const opened = /^<(style|script)[\s>]/i.exec(src.slice(start, start + 8));
+      if (opened) {
+        const close = new RegExp(`</${opened[1]}\\s*>`, "i");
+        const m = close.exec(src.slice(i));
+        i = m ? i + m.index + m[0].length : src.length;
+        textStart = i;
+      }
     } else i++;
   }
   if (textStart < src.length) text.push({ start: textStart, value: src.slice(textStart) });
@@ -316,7 +352,7 @@ const unlabelled = CATEGORY_LABELS.flatMap(({ manifest, prefix }) => {
     .filter((r) => !enSet.has(r.label));
 });
 
-const missing = [...used.keys()].filter((k) => !enSet.has(k));
+const missing = [...used.keys()].filter((k) => !enSet.has(k) && !CORE_SUPPLIED.has(k));
 const unused = en.filter(
   (k) =>
     !used.has(k) &&
