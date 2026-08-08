@@ -1915,6 +1915,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     const context = {
       lang: game.i18n.lang,
+      isChar,
       name: actor.name,
       portrait: abs(actor.img),
       subtitle,

@@ -213,6 +213,10 @@ const r = await page.evaluate(async ({ xssName }) => {
   const credits = doc?.querySelector("footer.credits");
   out.creditsText = credits?.textContent ?? "";
   out.creditsSmall = credits ? parseFloat(popup.getComputedStyle(credits).fontSize) : null;
+  // Notes opens its own PAGE on a character print (user ruling 2026-08-08) —
+  // the computed break, which is what the print engine reads.
+  const notesSec = doc?.querySelector("section.notes-section");
+  out.notesBreak = notesSec ? popup.getComputedStyle(notesSec).breakBefore : null;
   out.knifeNote = /Root Knife\s*\(d6\)/.test(body.replace(/\s+/g, " "));
   out.rationsNote = /Rations\s*\(3 uses\)/.test(body.replace(/\s+/g, " "));
   out.pettyNote = /Signet Ring\s*\(petty\)/.test(body.replace(/\s+/g, " "));
@@ -306,6 +310,9 @@ const r = await page.evaluate(async ({ xssName }) => {
     && !h2s3.includes(game.i18n.localize("CAIRN.Omen"));
   out.npcNotesHeader = h2s3.includes(game.i18n.localize("CAIRN.Notes"));
   out.npcCredits = !!doc3?.querySelector("footer.credits");
+  // A monster's one-pager stays one page — no forced break on ITS notes.
+  const notesSec3 = doc3?.querySelector("section.notes-section");
+  out.npcNotesBreak = notesSec3 ? popup3.getComputedStyle(notesSec3).breakBefore : null;
   popup3?.close();
   await npc.sheet.close();
   out.ids = { pc: pc.id, sack: sack.id, npc: npc.id, falcon: falcon.id };
@@ -370,6 +377,8 @@ check("credits footer, very small type", /Yochai Gal/.test(r.creditsText)
   `${r.creditsSmall}px — CC BY-SA 4.0 text, CC BY 4.0 / CC BY-SA 4.0 art, at the page foot`);
 check("empty Notes still prints its header", r.emptyNotesHeader,
   "the ruling: the empty block is where the pencil goes");
+check("Notes opens its own page (PC only)", r.notesBreak === "page" && r.npcNotesBreak !== "page",
+  `pc=${r.notesBreak} monster=${r.npcNotesBreak} — a fresh page to write on; a monster stays a one-pager`);
 check("no connections, no Connections section", r.connectionsGone,
   "the section exists only when connections do");
 check("failed career: Barebones only, labelled", r.careerPass1 && r.careerPass2,
