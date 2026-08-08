@@ -68,7 +68,10 @@ const attr = (s) => String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").rep
  * @param {Boolean}  [opts.gameIcons]    offer the Game-Icons gallery
  * @param {Boolean}  [opts.tlomdev]      offer the Tlomdev gallery
  * @param {Boolean}  [opts.lydia]        offer the Lydia Comer gallery
- * @param {Object}   [opts.classes]      {label, cells:[{key,src,label,selected}]}
+ * @param {Object}   [opts.classes]      {label, cells:[{key,src,label,selected}], credit?}
+ *                                       `credit` is an i18n key for the attribution
+ *                                       line shown under the grid (the Kinds glyphs
+ *                                       are licensed art, so the caller names it).
  * @param {String}   [opts.browseStart]  where the Browse escape opens
  * @param {Function} opts.onPick         async (src) => void; the dialog closes after.
  *                                       ART ONLY (2026-08-02): a pick carries no
@@ -126,7 +129,15 @@ export async function pickArt({
       `<img class="cairn-portrait-choice${selected ? " selected" : ""}" src="${attr(src)}" `
       + `data-src="${attr(src)}" title="${attr(label)}" alt="${attr(label)}" />`
     ).join("");
-    panes.push({ id: "classes", count: classes.cells.length, label: classes.label, body: `<div class="cairn-portrait-grid">${cells}</div>` });
+    // A credit under its OWN grid, like every other gallery here — the classes
+    // pane is the Kinds tab, whose glyphs are licensed game-icons.net art, so a
+    // caller passing `credit` gets an attribution line the way the folder panes
+    // and the shipped/Lydia panes do (a credit under the wrong art is worse than
+    // none, so the caller names the key rather than this having to guess).
+    const classesCredit = classes.credit
+      ? `\n        <div class="cairn-portrait-credit">${game.i18n.localize(classes.credit)}</div>`
+      : "";
+    panes.push({ id: "classes", count: classes.cells.length, label: classes.label, body: `<div class="cairn-portrait-grid">${cells}</div>${classesCredit}` });
   }
 
   if (showShipped) {

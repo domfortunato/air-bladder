@@ -78,11 +78,15 @@ export const CONTAINER_CLASSES = {
   // `funeralwagon` was a row here until 2026-08-02 — a wagon with most of its
   // bed spoken for (6 slots). It died with the strict Type pick list: a hearse
   // is a WAGON a Warden has named, not a kind of its own, and the one shipped
-  // consumer (the Bonekeeper's Burial Wagon) stores `wagon` now while keeping
-  // the coffin ART — legal since art decoupled from Kind the same day.
-  // migrateData converts every stored "funeralwagon" on read; the classifier
-  // below still catches funeral/hearse/burial and answers "wagon" so the art
-  // fallback never sends a Hearse to the chest. Do not re-add the row.
+  // consumer (the Bonekeeper's Burial Wagon) stores `wagon` AND wagon.svg now —
+  // NOT the coffin art (an earlier version of this comment claimed it kept the
+  // coffin; the pack points at wagon.svg, verified). migrateData converts every
+  // stored "funeralwagon" on read; the classifier below still catches
+  // funeral/hearse/burial and answers "wagon" so the art fallback never sends a
+  // Hearse to the chest. funeralwagon.svg still SHIPS (it is in ICONS and
+  // CREDITS, and a pre-2026-08-02 world may have stored that path directly as an
+  // actor's img, which migrateArtPaths does not rewrite) — so do not delete the
+  // file, and do not re-add the row.
   // Open 2e gives no capacity for a boat -- there is no boat in it. 8 is the
   // wagon's number, chosen because a rowboat and a wagon hold about one load of
   // gear each; a Warden who disagrees types over it, which is what the field is for.

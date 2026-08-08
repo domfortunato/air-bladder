@@ -32,8 +32,9 @@ export const SETTING_KEYS = [
   // disabled-backgrounds is Warden CONFIGURATION (which 2e backgrounds are
   // switched off), not a migration marker — it must ride the namespace
   // migration like custom-portrait-list does. It was registered without being
-  // listed here (review #9); the two completion markers stay unlisted on
-  // purpose, because losing one only re-runs an idempotent migration.
+  // listed here (review #9); the three completion markers (roles-restamped,
+  // companion-restamped, connections-migrated) stay unlisted on purpose,
+  // because losing one only re-runs an idempotent migration.
   "custom-portrait-folder", "custom-portrait-list", "min-age",
   "disabled-backgrounds",
   // Inventory & Encumbrance
@@ -157,10 +158,16 @@ export const registerSettings = () => {
     default: [],
   });
 
+  // `name`/`hint` are i18n KEYS, not localized strings. registerSettings runs on
+  // the `init` hook, which the client fires (game.mjs:652) BEFORE it loads any
+  // translations (`await i18n.initialize()`, game.mjs:663) — so calling
+  // game.i18n.localize() here returns the key verbatim and stores that. Core
+  // re-localizes name/hint at display time (settings/config.mjs:126-127), which
+  // is what the key is for. Do NOT wrap these in game.i18n.localize().
   // ---- General -------------------------------------------------------------
   game.settings.register(SETTINGS_NS, "use-panic", {
-    name: game.i18n.localize("CAIRN.Settings.UsePanic.label"),
-    hint: game.i18n.localize("CAIRN.Settings.UsePanic.hint"),
+    name: "CAIRN.Settings.UsePanic.label",
+    hint: "CAIRN.Settings.UsePanic.hint",
     scope: "world",
     config: true,
     type: Boolean,
@@ -169,8 +176,8 @@ export const registerSettings = () => {
   });
 
   game.settings.register(SETTINGS_NS, "use-cairn-dice-notation", {
-    name: game.i18n.localize("CAIRN.Settings.UseCairnDiceNotation.label"),
-    hint: game.i18n.localize("CAIRN.Settings.UseCairnDiceNotation.hint"),
+    name: "CAIRN.Settings.UseCairnDiceNotation.label",
+    hint: "CAIRN.Settings.UseCairnDiceNotation.hint",
     scope: "world",
     config: true,
     type: Boolean,
@@ -179,8 +186,8 @@ export const registerSettings = () => {
   });
 
   game.settings.register(SETTINGS_NS, "use-item-icons", {
-    name: game.i18n.localize("CAIRN.Settings.UseItemIcons.label"),
-    hint: game.i18n.localize("CAIRN.Settings.UseItemIcons.hint"),
+    name: "CAIRN.Settings.UseItemIcons.label",
+    hint: "CAIRN.Settings.UseItemIcons.hint",
     scope: "world",
     config: true,
     type: Boolean,
@@ -190,8 +197,8 @@ export const registerSettings = () => {
 
   // Show a "Background / Bond / Question" chip on items that generation granted.
   game.settings.register(SETTINGS_NS, "show-grant-tags", {
-    name: game.i18n.localize("CAIRN.Settings.ShowGrantTags.label"),
-    hint: game.i18n.localize("CAIRN.Settings.ShowGrantTags.hint"),
+    name: "CAIRN.Settings.ShowGrantTags.label",
+    hint: "CAIRN.Settings.ShowGrantTags.hint",
     scope: "world",
     config: true,
     type: Boolean,
@@ -200,8 +207,8 @@ export const registerSettings = () => {
   });
 
   game.settings.register(SETTINGS_NS, "show-features-section", {
-    name: game.i18n.localize("CAIRN.Settings.ShowFeatures.label"),
-    hint: game.i18n.localize("CAIRN.Settings.ShowFeatures.hint"),
+    name: "CAIRN.Settings.ShowFeatures.label",
+    hint: "CAIRN.Settings.ShowFeatures.hint",
     scope: "world",
     config: true,
     type: Boolean,
@@ -222,7 +229,7 @@ export const registerSettings = () => {
   // wherever Foundry localizes it and rename the default account. Applied in
   // cairn.js; reload to take effect.
   game.settings.register(SETTINGS_NS, "use-warden-title", {
-    name: game.i18n.localize("CAIRN.Settings.UseWardenTitle.label"),
+    name: "CAIRN.Settings.UseWardenTitle.label",
     scope: "world",
     config: true,
     type: Boolean,
@@ -254,8 +261,8 @@ export const registerSettings = () => {
   };
 
   game.settings.register(SETTINGS_NS, "content-source-2e", {
-    name: game.i18n.localize("CAIRN.Settings.ContentSource2e.label"),
-    hint: game.i18n.localize("CAIRN.Settings.ContentSource2e.hint"),
+    name: "CAIRN.Settings.ContentSource2e.label",
+    hint: "CAIRN.Settings.ContentSource2e.hint",
     scope: "world",
     config: true,
     type: Boolean,
@@ -269,8 +276,8 @@ export const registerSettings = () => {
   // the same picker; with it off they are the only backgrounds (a homebrew-only
   // game). Default off: a fresh world has no custom backgrounds to offer.
   game.settings.register(SETTINGS_NS, "content-source-custom", {
-    name: game.i18n.localize("CAIRN.Settings.ContentSourceCustom.label"),
-    hint: game.i18n.localize("CAIRN.Settings.ContentSourceCustom.hint"),
+    name: "CAIRN.Settings.ContentSourceCustom.label",
+    hint: "CAIRN.Settings.ContentSourceCustom.hint",
     scope: "world",
     config: true,
     type: Boolean,
@@ -280,8 +287,8 @@ export const registerSettings = () => {
   });
 
   game.settings.register(SETTINGS_NS, "content-source-barebones", {
-    name: game.i18n.localize("CAIRN.Settings.ContentSourceBarebones.label"),
-    hint: game.i18n.localize("CAIRN.Settings.ContentSourceBarebones.hint"),
+    name: "CAIRN.Settings.ContentSourceBarebones.label",
+    hint: "CAIRN.Settings.ContentSourceBarebones.hint",
     scope: "world",
     config: true,
     type: Boolean,
@@ -293,8 +300,8 @@ export const registerSettings = () => {
   // A second background name as pure flavor -- the career that didn't work out.
   // Grants nothing; it is a story hook, not a mechanic.
   game.settings.register(SETTINGS_NS, "barebones-failed-career", {
-    name: game.i18n.localize("CAIRN.Settings.BarebonesFailedCareer.label"),
-    hint: game.i18n.localize("CAIRN.Settings.BarebonesFailedCareer.hint"),
+    name: "CAIRN.Settings.BarebonesFailedCareer.label",
+    hint: "CAIRN.Settings.BarebonesFailedCareer.hint",
     scope: "world",
     config: true,
     type: Boolean,
@@ -306,8 +313,8 @@ export const registerSettings = () => {
   // generation -- an omen is never rolled at creation in either edition -- it
   // only decides whether the Description tab offers the field at all.
   game.settings.register(SETTINGS_NS, "show-omens-barebones", {
-    name: game.i18n.localize("CAIRN.Settings.BarebonesOmens.label"),
-    hint: game.i18n.localize("CAIRN.Settings.BarebonesOmens.hint"),
+    name: "CAIRN.Settings.BarebonesOmens.label",
+    hint: "CAIRN.Settings.BarebonesOmens.hint",
     scope: "world",
     config: true,
     type: Boolean,
@@ -320,8 +327,8 @@ export const registerSettings = () => {
   // -- a bond already grants an item and gold, and rolling both overloads ten
   // slots.
   game.settings.register(SETTINGS_NS, "show-bonds-barebones", {
-    name: game.i18n.localize("CAIRN.Settings.BarebonesBonds.label"),
-    hint: game.i18n.localize("CAIRN.Settings.BarebonesBonds.hint"),
+    name: "CAIRN.Settings.BarebonesBonds.label",
+    hint: "CAIRN.Settings.BarebonesBonds.hint",
     scope: "world",
     config: true,
     type: Boolean,
@@ -330,8 +337,8 @@ export const registerSettings = () => {
   });
 
   game.settings.register(SETTINGS_NS, "show-generate-header", {
-    name: game.i18n.localize("CAIRN.Settings.ShowGenerateHeader.label"),
-    hint: game.i18n.localize("CAIRN.Settings.ShowGenerateHeader.hint"),
+    name: "CAIRN.Settings.ShowGenerateHeader.label",
+    hint: "CAIRN.Settings.ShowGenerateHeader.hint",
     scope: "world",
     config: true,
     type: Boolean,
@@ -346,8 +353,8 @@ export const registerSettings = () => {
   // relay runs generation on the Warden's client for a player who lacks
   // ACTOR_CREATE: the posting client must read the same value the roller would.
   game.settings.register(SETTINGS_NS, "show-generation-rolls", {
-    name: game.i18n.localize("CAIRN.Settings.ShowGenerationRolls.label"),
-    hint: game.i18n.localize("CAIRN.Settings.ShowGenerationRolls.hint"),
+    name: "CAIRN.Settings.ShowGenerationRolls.label",
+    hint: "CAIRN.Settings.ShowGenerationRolls.hint",
     scope: "world",
     config: true,
     type: Boolean,
@@ -362,8 +369,8 @@ export const registerSettings = () => {
   // system folder, which is overwritten on update. Portraits are its OWN token
   // (no paired token art), so each image doubles as portrait and token.
   game.settings.register(SETTINGS_NS, "custom-portrait-folder", {
-    name: game.i18n.localize("CAIRN.Settings.CustomPortraitFolder.label"),
-    hint: game.i18n.localize("CAIRN.Settings.CustomPortraitFolder.hint"),
+    name: "CAIRN.Settings.CustomPortraitFolder.label",
+    hint: "CAIRN.Settings.CustomPortraitFolder.hint",
     scope: "world",
     config: true,
     type: String,
@@ -423,8 +430,8 @@ export const registerSettings = () => {
   // character (kettlewright-import.js), which is a secondary consumer, not the
   // setting's purpose. Placement is positional -- see the ordering note above.
   game.settings.register(SETTINGS_NS, "min-age", {
-    name: game.i18n.localize("CAIRN.Settings.MinAge.label"),
-    hint: game.i18n.localize("CAIRN.Settings.MinAge.hint"),
+    name: "CAIRN.Settings.MinAge.label",
+    hint: "CAIRN.Settings.MinAge.hint",
     scope: "world",
     config: true,
     type: Number,
@@ -434,8 +441,8 @@ export const registerSettings = () => {
 
   // ---- Inventory & Encumbrance ---------------------------------------------
   game.settings.register(SETTINGS_NS, "max-equip-slots", {
-    name: game.i18n.localize("CAIRN.Settings.MaxEquipSlots.label"),
-    hint: game.i18n.localize("CAIRN.Settings.MaxEquipSlots.hint"),
+    name: "CAIRN.Settings.MaxEquipSlots.label",
+    hint: "CAIRN.Settings.MaxEquipSlots.hint",
     scope: "world",
     config: true,
     type: Number,
@@ -444,8 +451,8 @@ export const registerSettings = () => {
   });
 
   game.settings.register(SETTINGS_NS, "character-inventory-limit", {
-    name: game.i18n.localize("CAIRN.Settings.CharacterInventoryLimit.label"),
-    hint: game.i18n.localize("CAIRN.Settings.CharacterInventoryLimit.hint"),
+    name: "CAIRN.Settings.CharacterInventoryLimit.label",
+    hint: "CAIRN.Settings.CharacterInventoryLimit.hint",
     scope: "world",
     config: true,
     type: Boolean,
@@ -456,8 +463,8 @@ export const registerSettings = () => {
   // Cairn 2e (p.9): coins are heavy. The first N are petty; every further N fills
   // a slot. N is this "coins per slot" value (default 100). 0 = coins weightless.
   game.settings.register(SETTINGS_NS, "use-gold-threshold", {
-    name: game.i18n.localize("CAIRN.Settings.UseGoldThreshold.label"),
-    hint: game.i18n.localize("CAIRN.Settings.UseGoldThreshold.hint"),
+    name: "CAIRN.Settings.UseGoldThreshold.label",
+    hint: "CAIRN.Settings.UseGoldThreshold.hint",
     scope: "world",
     config: true,
     type: Number,
@@ -483,8 +490,8 @@ export const registerSettings = () => {
   // Drag-to-reorder inventory items. On by default; turning it off keeps the
   // item list's automatic order (equipped first, then alphabetical, Fatigue last).
   game.settings.register(SETTINGS_NS, "enable-inventory-reorder", {
-    name: game.i18n.localize("CAIRN.Settings.EnableInventoryReorder.label"),
-    hint: game.i18n.localize("CAIRN.Settings.EnableInventoryReorder.hint"),
+    name: "CAIRN.Settings.EnableInventoryReorder.label",
+    hint: "CAIRN.Settings.EnableInventoryReorder.hint",
     scope: "world",
     config: true,
     type: Boolean,

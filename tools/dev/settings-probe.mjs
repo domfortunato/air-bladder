@@ -58,7 +58,7 @@ try {
     // invisible to this probe, because a config:false key is absent from
     // both sides of the visible-count compare. Markers are exempt on
     // purpose: losing one only re-runs an idempotent migration.
-    const MARKERS = ["roles-restamped", "connections-migrated"];
+    const MARKERS = ["roles-restamped", "companion-restamped", "connections-migrated"];
     out.unlisted = [...game.settings.settings.keys()]
       .filter((k) => k.startsWith(`${mod.SETTINGS_NS}.`))
       .map((k) => k.slice(mod.SETTINGS_NS.length + 1))

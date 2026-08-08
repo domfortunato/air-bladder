@@ -790,30 +790,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     // Alphabetical must be alphabetical in the language the eye reads (review
     // #9): sorting on stored English and translating afterwards rendered the
-    // list shuffled for any other language. The comparator sorts on the same
-    // display copy the render below produces (Fatigue's UI label included);
-    // the stored names stay English and every identity test still uses them.
-    const { nameNs: sortNameNs } = this._itemNamespaces();
-    const displayNameOf = (i) =>
-      i.name === FATIGUE_NAME ? game.i18n.localize("CAIRN.Fatigue") : t(sortNameNs, i.name);
-    const byDisplayName = (a, b) =>
-      displayNameOf(a).localeCompare(displayNameOf(b), game.i18n.lang);
-    if (game.settings.get(SETTINGS_NS, "enable-inventory-reorder")) {
-      // Manual order: honour each item's stored `sort` (Foundry's native field,
-      // written by the drag-to-reorder handler), falling back to name. Fatigue is
-      // NOT forced last here — with reorder on, the player controls placement.
-      items.sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || byDisplayName(a, b));
-    } else {
-      items.sort(byDisplayName);
-      items.sort((a, b) =>
-        a.system.equipped && !b.system.equipped
-          ? -1
-          : a.system.equipped === b.system.equipped
-          ? 0
-          : 1
-      );
-      items.sort((a, b) => (a.name === FATIGUE_NAME ? 1 : b.name === FATIGUE_NAME ? -1 : 0));
-    }
+    // list shuffled for any other language. `_sortItemsForDisplay` sorts on the
+    // same display copy the render below produces (Fatigue's UI label included)
+    // and is the SAME helper the printed page uses, so the two cannot drift; the
+    // stored names stay English and every identity test still uses them.
+    items = this._sortItemsForDisplay(items, this._itemNamespaces().nameNs);
 
     // Display-only content localization: translate inventory item names/descriptions
     // into the active language for rendering only. These are plain data copies (not
@@ -948,10 +929,48 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * and containers. The split is deliberate: item rule by role, actor rule by type.
    * @private
    */
-  _itemNamespaces() {
-    return this.actor.npcRole === "monster"
+  _itemNamespaces(actor = this.actor) {
+    return actor.npcRole === "monster"
       ? { nameNs: "monster.itemName", descNs: "monster.itemDesc" }
       : { nameNs: "item.name", descNs: "item.desc" };
+  }
+
+  /**
+   * Order an item list the way the inventory tab renders it, so the sheet and the
+   * printed page cannot drift (review #12: print built rows in insertion order
+   * while the sheet sorted). Manual `sort` when drag-to-reorder is on, else
+   * alphabetical by DISPLAY name (localeCompare in the reader's language),
+   * equipped first, Fatigue last. `nameNs` is the OWNING actor's item namespace —
+   * a connected monster's gear is filed under monster.itemName — and Fatigue's
+   * label comes from the UI key, both matching `_prepareContext`. Returns a copy;
+   * the source array is never mutated.
+   * @param {Item[]} items
+   * @param {string} nameNs  the name namespace for display sorting
+   * @returns {Item[]}
+   */
+  _sortItemsForDisplay(items, nameNs) {
+    const displayNameOf = (i) =>
+      i.name === FATIGUE_NAME ? game.i18n.localize("CAIRN.Fatigue") : t(nameNs, i.name);
+    const byDisplayName = (a, b) =>
+      displayNameOf(a).localeCompare(displayNameOf(b), game.i18n.lang);
+    const sorted = [...items];
+    if (game.settings.get(SETTINGS_NS, "enable-inventory-reorder")) {
+      // Manual order: honour each item's stored `sort` (Foundry's native field,
+      // written by the drag-to-reorder handler), falling back to name. Fatigue is
+      // NOT forced last here — with reorder on, the player controls placement.
+      sorted.sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || byDisplayName(a, b));
+    } else {
+      sorted.sort(byDisplayName);
+      sorted.sort((a, b) =>
+        a.system.equipped && !b.system.equipped
+          ? -1
+          : a.system.equipped === b.system.equipped
+          ? 0
+          : 1
+      );
+      sorted.sort((a, b) => (a.name === FATIGUE_NAME ? 1 : b.name === FATIGUE_NAME ? -1 : 0));
+    }
+    return sorted;
   }
 
   /**
@@ -1837,7 +1856,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // A row per item, Kettlewright's annotations: (petty), (N uses), (dN),
     // bulky and quantity. Notes are TEXT assembled here and escaped by the
     // template — item names are authored free text.
-    const rows = (items) => items.map((it) => {
+    const rows = (items, nameNs) => this._sortItemsForDisplay(items, nameNs).map((it) => {
       const notes = [];
       // The translator's strings AS WRITTEN — no locale-less case transform
       // (review #11: the print page was the only surface lowercasing a
@@ -1852,7 +1871,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       if (it.system.damageFormula) notes.push(`(${it.system.damageFormula})`);
       if (it.system.bulky) notes.push(`(${L("CAIRN.Bulky")})`);
       if ((it.system.quantity ?? 1) > 1) notes.push(`×${it.system.quantity}`);
-      return { name: t("item.name", it.name), notes: notes.join(" ") };
+      // The OWNING actor's namespace, and Fatigue relabelled from the UI key —
+      // both matching the sheet (review #12: print hard-coded item.name, so a
+      // Spanish player's Fatigue printed "Fatigue" and a monster's statblock
+      // items would print English the moment their translation landed).
+      const name = it.name === FATIGUE_NAME
+        ? game.i18n.localize("CAIRN.Fatigue")
+        : t(nameNs, it.name);
+      return { name, notes: notes.join(" ") };
     });
 
     // The status line: deprived / panicked / critical, when set.
@@ -1974,7 +2000,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       backgroundDesc,
       questions,
       connections,
-      main: { used: sys.slotsUsed, max: sys.slotsMax, rows: rows(actor.items.contents) },
+      main: { used: sys.slotsUsed, max: sys.slotsMax, rows: rows(actor.items.contents, this._itemNamespaces(actor).nameNs) },
       // One inventory section per connected actor that can HOLD something —
       // KW's multi-container layout, without the slot fraction for 0 slots. A
       // 0-slot companion carrying nothing is Connections' business, not an
@@ -1988,7 +2014,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         used: c.system.slotsUsed,
         max: c.system.slotsMax,
         showSlots: (c.system.slots ?? 0) > 0,
-        rows: rows(c.items.contents),
+        rows: rows(c.items.contents, this._itemNamespaces(c).nameNs),
       })).filter((s) => s.showSlots || s.rows.length),
       // A character's description is the player's own prose; an NPC's is the
       // statblock prose the overlay files under monster.desc.
@@ -3233,9 +3259,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   /**
    * Container art picker: a grayscale gallery of transport/container art
-   * (CONTAINER_ART, all Foundry core icons), plus a Browse escape for anyone
+   * (CONTAINER_ART — game-icons.net glyphs, CC BY 3.0, per icons.js and
+   * icons/CREDITS.md, NOT Foundry core icons), plus a Browse escape for anyone
    * with FILES_BROWSE. This is the container counterpart to _pickPortrait --
    * clicking a container's portrait opens THIS, not the character gallery.
+   * The Kinds tab passes its own credit line so it carries attribution under
+   * the grid, like every other gallery in the picker.
    * @private
    */
   async _pickContainerArt(event) {
@@ -3259,7 +3288,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     await pickArt({
       current,
       title: game.i18n.localize("CAIRN.ChooseContainerArt"),
-      classes: { label: game.i18n.localize("CAIRN.ContainerArtTabKinds"), cells },
+      classes: { label: game.i18n.localize("CAIRN.ContainerArtTabKinds"), cells, credit: "CAIRN.GameIconsCredit" },
       // No Aspeheim here — a sack has no face. Custom, Game-Icons and Tlomdev
       // ride along so a Warden can dress a thing in their own art without
       // leaving for the FilePicker (tlomdev's beasts suit mounts). Every pick
