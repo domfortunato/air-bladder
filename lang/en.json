@@ -101,6 +101,21 @@
   "CAIRN.ChangeBackgroundTip": "The old background's starting gear and the items its questions granted are removed, and the new background's are rolled in their place. Bonds, portrait and notes are kept.",
   "CAIRN.ChangeBackgroundTitle": "Change background",
   "CAIRN.ChangeFailedCareer": "Change failed career",
+  "CAIRN.ChangeLog": {
+    "By": "Changed by {user}",
+    "Cleared": "{label} cleared",
+    "FatigueAdded": "Fatigue added",
+    "FatigueRemoved": "Fatigue removed",
+    "FeatureAdded": "Feature added: {name}",
+    "FeatureRemoved": "Feature removed: {name}",
+    "Field": "{label}: {from} → {to}",
+    "ItemAdded": "Item added: {name}",
+    "ItemRemoved": "Item removed: {name}",
+    "Marked": "{label} marked",
+    "MaxOf": "Max {label}",
+    "ScarAdded": "Scar added: {name}",
+    "ScarRemoved": "Scar removed: {name}"
+  },
   "CAIRN.CharacterGenerator": "Generate PC",
   "CAIRN.CharacterRegeneratorConfirm": "Are you sure you want to roll a new character?</p><p>Note that the given background will persist unless you click the magnifier next to the Background under your character's name.</p><p>The given portrait and notes field (bottom of notes tab) will persist. You can change them manually.",
   "CAIRN.CharacterRegeneratorTitle": "Roll a new character?",
@@ -369,6 +384,8 @@
     "BackgroundNotCharacter": "Only a player character has a background.",
     "BackgroundWrongSource": "That is a {backgroundEdition} background and this is a {characterEdition} character. A character does not change edition.",
     "Bought": "Bought {name} for {cost} gold.",
+    "ChangeLogOff": "The change log is off.",
+    "ChangeLogOn": "The change log is on.",
     "CannotConnect": "{name} can't be connected — monsters never join a party's connections.",
     "ConfirmDeleteNamed": "Delete {name}?",
     "ConnectionCycle": "Connecting {name} here would make a loop.",
@@ -537,6 +554,10 @@
     "AllowPlayerMarketplace": {
       "hint": "Offer players the Marketplace button on sheets they own. Turn off to close the shop to every player mid-session — the shipped 'Toggle Player Marketplace' macro flips this. The Warden always shops.",
       "label": "Let players buy and take from the marketplace"
+    },
+    "ChangeLog": {
+      "hint": "Whisper a chat card to the actor's owners, observers and the Warden whenever someone hand-changes stats, gold, traits, Panicked/Deprived, scars, features or inventory. Rolled generation, damage and other automatic changes are never logged. The shipped 'Toggle Change Log' macro flips this.",
+      "label": "Log manual changes to chat"
     },
     "CharacterInventoryLimit": {
       "hint": "Equipment limit is defined per character instead of global value.",

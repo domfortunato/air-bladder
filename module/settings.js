@@ -23,7 +23,7 @@ export const SETTINGS_NS = "air-bladder";
 export const SETTING_KEYS = [
   // General
   "use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
-  "show-features-section", "use-warden-title",
+  "show-features-section", "use-warden-title", "change-log",
   // Character Generation
   "content-source-2e", "content-source-custom", "content-source-barebones",
   "barebones-failed-career",
@@ -235,6 +235,23 @@ export const registerSettings = () => {
     type: Boolean,
     default: true,
     requiresReload: true,
+  });
+
+  // The manual-change log: whisper a ledger card (to the actor's
+  // owners/observers plus the Warden) whenever someone HAND-changes a tracked
+  // field or adds/removes an item — see CairnActor#postChangeLog for what
+  // counts as manual. Default ON (user ruling 2026-08-08: existing worlds
+  // start logging on upgrade). No reload and no onChange: the posting sites
+  // read it live, so the shipped "Toggle Change Log" macro takes effect on the
+  // next change.
+  game.settings.register(SETTINGS_NS, "change-log", {
+    name: "CAIRN.Settings.ChangeLog.label",
+    hint: "CAIRN.Settings.ChangeLog.hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+    requiresReload: false,
   });
 
   // ---- Character Generation ------------------------------------------------

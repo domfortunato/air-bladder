@@ -2143,7 +2143,11 @@ export const changeBackground = async (actor, newBg = null) => {
     );
     if (hit) { claimed.add(hit.id); toDelete.push(hit.id); }
   }
-  if (toDelete.length) await actor.deleteEmbeddedDocuments("Item", toDelete, { render: false });
+  // abNoStatusCard on every write in this swap (and in the generators below):
+  // a background change is MACHINERY, and the change log defines "manual" as
+  // an operation without the flag — without it a swap floods the ledger with a
+  // dozen add/remove lines and a gold line nobody typed.
+  if (toDelete.length) await actor.deleteEmbeddedDocuments("Item", toDelete, { render: false, abNoStatusCard: true });
   await clearGrantedContainers(actor);
 
   // In with the new. Weapons and armor arrive equipped, as at generation, so
@@ -2156,7 +2160,7 @@ export const changeBackground = async (actor, newBg = null) => {
   }
   const choices = await applyChoiceTables(bg);
   const newItems = [...gear, ...choices.items];
-  if (newItems.length) await actor.createEmbeddedDocuments("Item", newItems, { render: false });
+  if (newItems.length) await actor.createEmbeddedDocuments("Item", newItems, { render: false, abNoStatusCard: true });
   await grantContainers(actor, [
     ...(bg.system.containers ?? []).map((c) => ({ ...c, grantSource: "background" })),
     ...choices.containers,
@@ -2179,7 +2183,7 @@ export const changeBackground = async (actor, newBg = null) => {
       if (String(i.getFlag(FLAG_SCOPE, "grantSource") ?? "") === `bond:${dropped.id}`) clampItemIds.push(i.id);
     }
   }
-  if (clampItemIds.length) await actor.deleteEmbeddedDocuments("Item", clampItemIds, { render: false });
+  if (clampItemIds.length) await actor.deleteEmbeddedDocuments("Item", clampItemIds, { render: false, abNoStatusCard: true });
 
   // Trade the old questions' coins for the new ones'.
   const oldQGold = (actor.system.questions ?? []).reduce((n, q) => n + (q.gold ?? 0), 0);
@@ -2198,7 +2202,7 @@ export const changeBackground = async (actor, newBg = null) => {
   // Write bonds only when the clamp bit — preservation stays the default, and
   // an untouched array is not re-written wholesale for nothing.
   if (bonds.length !== (actor.system.bonds ?? []).length) update["system.bonds"] = bonds;
-  await actor.update(update);
+  await actor.update(update, { abNoStatusCard: true });
 };
 
 /* -------------------------------------------------------------------------- */
@@ -2307,12 +2311,15 @@ export const updateActorWithCharacter = async (actor, characterData) => {
   // `render: false` + data-update last mirrors it: one render, inventory present.
   const items = data.items ?? [];
   delete data.items;
-  await actor.deleteEmbeddedDocuments("Item", [], { deleteAll: true, render: false });
+  // abNoStatusCard on both embedded writes: regenerating is machinery, and the
+  // change log must not report a rebuild as a player emptying and refilling
+  // their own pack. The data update below already carries the flag.
+  await actor.deleteEmbeddedDocuments("Item", [], { deleteAll: true, render: false, abNoStatusCard: true });
   // Containers are Actors, so re-rolling the inventory has to clear them by hand.
   // Only GENERATION-granted ones (they carry a grantSource flag) are deleted —
   // a bought mule or a hand-made chest survives a regenerate.
   await clearGrantedContainers(actor);
-  if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false });
+  if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false, abNoStatusCard: true });
   // `characterToActorData` clears `critical` unconditionally, and regenerating is
   // REPLACING this person, not healing them -- without this the rebuild announces a
   // stabilization that never happened. Same argument and same flag as regenerateNpc
@@ -2655,11 +2662,12 @@ export const createNpc = async ({ folder = null } = {}) => {
  */
 export const regenerateNpc = async (actor) => {
   const h = await generateNpc();
-  await actor.deleteEmbeddedDocuments("Item", [], { deleteAll: true, render: false });
+  await actor.deleteEmbeddedDocuments("Item", [], { deleteAll: true, render: false, abNoStatusCard: true });
   // createEmbeddedDocuments, never `items` inside the update: the update route
   // creates embedded documents without firing createItem hooks. Same order as
   // rerollNpcProfession below — create render:false, then one update renders.
-  if (h.items?.length) await actor.createEmbeddedDocuments("Item", h.items, { render: false });
+  // abNoStatusCard keeps the rebuild out of the change log, like the update's.
+  if (h.items?.length) await actor.createEmbeddedDocuments("Item", h.items, { render: false, abNoStatusCard: true });
   await actor.update({
     system: {
       // Set alongside the rate, never separately: role npc AND forHire gate the
@@ -2710,8 +2718,8 @@ export const rerollNpcProfession = async (actor) => {
   const stale = actor.items
     .filter((i) => i.getFlag(FLAG_SCOPE, "grantSource") === "profession")
     .map((i) => i.id);
-  if (stale.length) await actor.deleteEmbeddedDocuments("Item", stale, { render: false });
-  if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false });
+  if (stale.length) await actor.deleteEmbeddedDocuments("Item", stale, { render: false, abNoStatusCard: true });
+  if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false, abNoStatusCard: true });
   await actor.update({
     system: {
       // See regenerateNpc: the pair travels with the rate it gates.

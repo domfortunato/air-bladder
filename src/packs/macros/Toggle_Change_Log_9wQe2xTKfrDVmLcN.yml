@@ -1,0 +1,25 @@
+_id: 9wQe2xTKfrDVmLcN
+name: Toggle Change Log
+type: script
+author: null
+img: icons/svg/book.svg
+scope: global
+command: |-
+  // Flip the manual-change log (the change-log world setting). Read live at
+  // every posting site, so it takes effect on the next change with no reload.
+  // Warden-only: the server refuses a world-setting write from anyone else
+  // anyway; the check just says so politely.
+  if (!game.user.isGM) return ui.notifications.warn(game.i18n.localize("CAIRN.Notify.WardenOnly"));
+  const KEY = "change-log";
+  const on = !game.settings.get("air-bladder", KEY);
+  await game.settings.set("air-bladder", KEY, on);
+  ui.notifications.info(game.i18n.localize(on ? "CAIRN.Notify.ChangeLogOn" : "CAIRN.Notify.ChangeLogOff"));
+folder: null
+sort: 300000
+ownership:
+  default: 0
+flags: {}
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!macros!9wQe2xTKfrDVmLcN'

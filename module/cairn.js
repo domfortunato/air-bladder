@@ -1079,8 +1079,11 @@ const migrateScrollsToSpellbooks = async () => {
     const payload = legacy.map(asFlaggedScroll);
     const ids = legacy.map((i) => i.id);
     if (parent) {
-      await parent.createEmbeddedDocuments("Item", payload);
-      await parent.deleteEmbeddedDocuments("Item", ids);
+      // abNoStatusCard: this is a MIGRATION — without it, a world upgrading
+      // through it would greet the Warden with one change-log card per actor
+      // that ever owned a scroll.
+      await parent.createEmbeddedDocuments("Item", payload, { abNoStatusCard: true });
+      await parent.deleteEmbeddedDocuments("Item", ids, { abNoStatusCard: true });
     } else {
       await ItemCls.createDocuments(payload);
       await ItemCls.deleteDocuments(ids);

@@ -2074,6 +2074,21 @@ textarea.omen-input {
    statuses are deliberately ONE visual language wherever they appear. */
 .status-stabilized { background: #2e7d32; }
 
+/* The manual-change ledger card (whispered; CairnActor#postChangeLog). Colours
+   are inherited on purpose — a whisper already renders on core's whisper
+   background in both schemes, and the ledger should read as chat, not as a
+   status banner. */
+.chat-message .change-log .change-log-user {
+    margin: 0;
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+.chat-message .change-log ul {
+    margin: 0.25em 0 0;
+    padding-left: 1.25em;
+}
+
 /* STR-only Critical Damage skull toggle, pinned to the right of the counter
    (which must be positioned for the absolute skull to anchor to it). */
 .character-sheet-section-abilities .resource-counter {

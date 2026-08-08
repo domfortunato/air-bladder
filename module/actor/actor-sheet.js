@@ -1736,10 +1736,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       .filter((i) => i.getFlag("air-bladder", "grantSource") === source)
       .map((i) => i.id);
     if (oldIds.length) {
-      await this.actor.deleteEmbeddedDocuments("Item", oldIds, { render: false });
+      // abNoStatusCard: grant machinery is not a player packing or shedding
+      // gear, so it stays out of the manual-change log (every caller here —
+      // bonds, questions, the failed-career keepsake — is a re-roll).
+      await this.actor.deleteEmbeddedDocuments("Item", oldIds, { render: false, abNoStatusCard: true });
     }
     if (newItems.length) {
-      await this.actor.createEmbeddedDocuments("Item", newItems, { render: false });
+      await this.actor.createEmbeddedDocuments("Item", newItems, { render: false, abNoStatusCard: true });
     }
   }
 
@@ -3179,10 +3182,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       if (!rec) return;
       bonds.push(rec.bond);
       if (rec.items.length) {
-        await this.actor.createEmbeddedDocuments("Item", rec.items, { render: false });
+        // abNoStatusCard here and on the update below: a bond's grants are
+        // machinery, same as _replaceGrantedItems.
+        await this.actor.createEmbeddedDocuments("Item", rec.items, { render: false, abNoStatusCard: true });
       }
       const gold = (this.actor.system.gold ?? 0) + rec.bond.gold;
-      await this.actor.update({ "system.bonds": bonds, "system.gold": gold });
+      await this.actor.update({ "system.bonds": bonds, "system.gold": gold }, { abNoStatusCard: true });
     } finally {
       this._rerolling = false;
     }
@@ -3210,7 +3215,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       await this._replaceGrantedItems(`bond:${id}`, []);
       const gold = Math.max(0, (this.actor.system.gold ?? 0) - (bonds[idx].gold ?? 0));
       bonds.splice(idx, 1);
-      await this.actor.update({ "system.bonds": bonds, "system.gold": gold });
+      // abNoStatusCard: the refund is grant machinery, like the grant was.
+      await this.actor.update({ "system.bonds": bonds, "system.gold": gold }, { abNoStatusCard: true });
     } finally {
       this._rerolling = false;
     }
@@ -3254,7 +3260,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       const newGold = opt.bonusGold ?? 0;
       const gold = Math.max(0, (this.actor.system.gold ?? 0) - oldGold + newGold);
       questions[idx] = { question: table.question ?? "", answer: opt.description ?? "", gold: newGold };
-      await this.actor.update({ "system.questions": questions, "system.gold": gold });
+      // abNoStatusCard: a question re-roll's gold swing is grant machinery.
+      await this.actor.update({ "system.questions": questions, "system.gold": gold }, { abNoStatusCard: true });
     } finally {
       this._rerolling = false;
     }
