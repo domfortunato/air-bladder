@@ -307,9 +307,16 @@ const render = (d) => {
     P(`to list here; they are pre-filled in the spreadsheets \`npm run i18n:extract\` writes to`);
     P(`\`tools/i18n/tsv/\`, which is the file to actually work from.`);
     P();
-    P(`| namespace | untranslated |`);
-    P(`| --- | --- |`);
-    for (const [ns, n] of d.newContent) P(`| \`${ns}\` | ${n} |`);
+    P(`| namespace | untranslated | of | coverage |`);
+    P(`| --- | --- | --- | --- |`);
+    for (const [ns, n, total] of d.newContent) {
+      const pct = Math.round(((total - n) / total) * 100);
+      // A namespace at 0% is a different thing from a namespace that is merely
+      // behind, and a bare count hides that: `table.desc` sat at zero of 55 while
+      // reading like any other row, and the visible consequence was every table
+      // draw card in the game leading with an English sentence. Say it outright.
+      P(`| \`${ns}\` | ${n} | ${total} | ${pct === 0 ? "**0% — nothing at all**" : `${pct}%`} |`);
+    }
   }
   P();
   P(`---`);
@@ -368,8 +375,10 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const content = classifyOverlay(LANG, live);
   const orphans = content?.orphans ?? { quoted: [], moved: [], entity: [], entityDup: [], dropped: [] };
   const newContent = [...untranslatedSources(content?.overlay ?? {}, live)]
-    .map(([ns, list]) => [ns, list.length])
-    .sort((a, b) => b[1] - a[1]);
+    .map(([ns, list]) => [ns, list.length, live.perNs.get(ns).size])
+    // Emptiest first, then largest: a namespace with nothing in it is the one
+    // whose absence a player actually notices, whatever its size.
+    .sort((a, b) => (a[1] / a[2] !== b[1] / b[2] ? b[1] / b[2] - a[1] / a[2] : b[1] - a[1]));
 
   const notesPath = path.join(ROOT, "tools", "i18n", "handoff-notes.json");
   const notes = fs.existsSync(notesPath) ? JSON.parse(fs.readFileSync(notesPath, "utf8")) : {};

@@ -224,21 +224,21 @@ Pack content — monster names and descriptions, table rows, background prose. T
 to list here; they are pre-filled in the spreadsheets `npm run i18n:extract` writes to
 `tools/i18n/tsv/`, which is the file to actually work from.
 
-| namespace | untranslated |
-| --- | --- |
-| `table.result` | 432 |
-| `item.name` | 317 |
-| `item.desc` | 291 |
-| `monster.name` | 205 |
-| `monster.desc` | 200 |
-| `monster.itemName` | 171 |
-| `bg.optionDesc` | 84 |
-| `table.desc` | 55 |
-| `table.name` | 30 |
-| `monster.itemDesc` | 28 |
-| `bg.question` | 13 |
-| `bg.desc` | 7 |
-| `bg.name` | 6 |
+| namespace | untranslated | of | coverage |
+| --- | --- | --- | --- |
+| `monster.itemName` | 171 | 171 | **0% — nothing at all** |
+| `table.desc` | 55 | 55 | **0% — nothing at all** |
+| `monster.itemDesc` | 28 | 28 | **0% — nothing at all** |
+| `monster.name` | 205 | 220 | 7% |
+| `monster.desc` | 200 | 219 | 9% |
+| `table.result` | 432 | 750 | 42% |
+| `table.name` | 30 | 55 | 45% |
+| `item.desc` | 291 | 711 | 59% |
+| `item.name` | 317 | 806 | 61% |
+| `bg.optionDesc` | 84 | 324 | 74% |
+| `bg.desc` | 7 | 27 | 74% |
+| `bg.question` | 13 | 53 | 75% |
+| `bg.name` | 6 | 125 | 95% |
 
 ---
 
