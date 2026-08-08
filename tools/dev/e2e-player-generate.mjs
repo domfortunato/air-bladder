@@ -46,6 +46,9 @@ const alErrors = watchErrors(alice);
 let failed = false;
 const fail = (m) => { console.error(`  FAIL  ${m}`); failed = true; };
 const ok = (m) => console.log(`  ok    ${m}`);
+// Captured before the switch legs flip it; restored in the Node-level finally
+// so a throw mid-leg cannot leak a hidden button into the world.
+let priorSwitch = null;
 
 /** Shadow the three content-source reads on one page. mode: "one" | "two". */
 const shadowSources = (page, mode) => page.evaluate((mode) => {
@@ -228,10 +231,76 @@ try {
     : fail("picker ✕ created something");
   await unshadowSources(alice);
 
+  // ---- The Warden's switch (allow-player-generate) -------------------------
+  // A REAL world write, flipped from the GM client and restored in the finally
+  // below — the one probe-owned setting write in this file. requiresReload is
+  // false and the onChange only re-renders directories, so a mid-run crash
+  // leaves nothing worse than a hidden button; the finally puts it back anyway.
+  console.log("\nthe Warden's switch");
+  const SWITCH = "allow-player-generate";
+  priorSwitch = await gm.evaluate((k) => game.settings.get("air-bladder", k), SWITCH);
+
+  const genButton = (page) => page.evaluate(() =>
+    !!document.querySelector("#cairn-character-gen-button .create-character-generator-button"));
+  const waitButton = async (page, want, ms = 15000) => {
+    const t0 = Date.now();
+    while (Date.now() - t0 < ms) {
+      if (await genButton(page) === want) return true;
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    return false;
+  };
+
+  (await genButton(alice)) && (await genButton(gm))
+    ? ok("switch on: both clients show Generate PC")
+    : fail("switch on: a Generate PC button is missing");
+
+  // Live flip OFF: the GM writes, the onChange fires on Alice's client, her
+  // ALREADY-OPEN directory re-renders and the hook reconciles — no reload.
+  await gm.evaluate((k) => game.settings.set("air-bladder", k, false), SWITCH);
+  (await waitButton(alice, false))
+    ? ok("flip off: Alice's open directory lost the button, live")
+    : fail("flip off: Alice still shows Generate PC after 15s");
+  (await genButton(gm))
+    ? ok("flip off: the Warden keeps their own button")
+    : fail("flip off: the WARDEN's button vanished — the isGM OR is gone");
+
+  // The broker is the enforcement: a crafted client emitting past the hidden
+  // button must be refused on the answering GM client, with the addressed
+  // refusal notify landing back on the requester.
+  before = await snapshot();
+  await alice.evaluate(() => game.socket.emit(`system.${game.system.id}`, { action: "generatePC", source: "2e" }));
+  await new Promise((r) => setTimeout(r, 4000));
+  const afterRaw = await snapshot();
+  afterRaw.actors.length === before.actors.length
+    ? ok("raw emit while off: the broker minted nothing")
+    : fail(`raw emit while off minted ${afterRaw.actors.length - before.actors.length} actor(s)`);
+  const disabledMsg = await alice.evaluate(() => {
+    const want = game.i18n.localize("CAIRN.Notify.PcGenDisabled");
+    return [...document.querySelectorAll(".notification")].some((n) => n.textContent.includes(want));
+  });
+  disabledMsg
+    ? ok("…and Alice was told the Warden switched it off")
+    : fail("no PcGenDisabled notification reached Alice");
+
+  // Live flip back ON: the button returns without a reload.
+  await gm.evaluate((k) => game.settings.set("air-bladder", k, true), SWITCH);
+  (await waitButton(alice, true))
+    ? ok("flip on: Alice's button returned, live")
+    : fail("flip on: Alice's button did not come back");
+
   const errs = [...gmErrors, ...alErrors];
   errs.length === 0 ? ok("zero console errors across both clients") : fail(`console errors: ${errs.join(" | ")}`);
 } finally {
   clearTimeout(dog);
+  if (priorSwitch !== null) {
+    try {
+      await gm.evaluate((v) => game.settings.set("air-bladder", "allow-player-generate", v), priorSwitch);
+      console.log(`  (allow-player-generate restored to ${priorSwitch})`);
+    } catch (e) {
+      console.error(`  COULD NOT RESTORE allow-player-generate (wanted ${priorSwitch}): ${e.message}`);
+    }
+  }
   await browser.close();
 }
 

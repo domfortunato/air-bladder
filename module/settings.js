@@ -28,7 +28,7 @@ export const SETTING_KEYS = [
   "content-source-2e", "content-source-custom", "content-source-barebones",
   "barebones-failed-career",
   "show-omens-barebones", "show-bonds-barebones", "show-generate-header",
-  "show-generation-rolls",
+  "allow-player-generate", "show-generation-rolls",
   // disabled-backgrounds is Warden CONFIGURATION (which 2e backgrounds are
   // switched off), not a migration marker — it must ride the namespace
   // migration like custom-portrait-list does. It was registered without being
@@ -344,6 +344,34 @@ export const registerSettings = () => {
     type: Boolean,
     default: true,
     requiresReload: true,
+  });
+
+  // The Warden's switch for the PLAYER-facing Generate PC button in the Actor
+  // Directory (both variants: the create-row button and the no-ACTOR_CREATE
+  // relay button). Sibling of show-generate-header above — that one gates the
+  // sheet's Regenerate button, this one gates the directory's Generate PC —
+  // and the toggle the shipped "Toggle Player Generate PC" macro flips. The
+  // GM's own button never hides: the read site ORs in isGM.
+  //
+  // No reload: onChange fires on EVERY client (the settings-fanout primitive
+  // the custom-portrait folder scan also rides), so each connected player's
+  // directory re-renders itself the moment the Warden flips it — the whole
+  // point of a mid-session switch. The pop-out directory is a second,
+  // independent ActorDirectory application (the render hook already handles
+  // its DOM separately), so the sweep covers both.
+  game.settings.register(SETTINGS_NS, "allow-player-generate", {
+    name: "CAIRN.Settings.AllowPlayerGenerate.label",
+    hint: "CAIRN.Settings.AllowPlayerGenerate.hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+    requiresReload: false,
+    onChange: () => {
+      for (const app of foundry.applications.instances.values()) {
+        if (app instanceof foundry.applications.sidebar.tabs.ActorDirectory && app.rendered) app.render();
+      }
+    },
   });
 
   // Post the five generation rolls -- HP, STR, DEX, WIL, Gold -- as one chat

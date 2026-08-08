@@ -520,6 +520,18 @@ Hooks.once("init", () => {
       if (game.users.activeGM !== game.user) return;
       const user = game.users.get(senderId);
       if (!user || user.isGM) return;
+      // The Warden's allow-player-generate switch, enforced where it is real:
+      // hiding the button is the affordance, but this broker is what actually
+      // mints for a player, so a crafted (or merely stale) client emitting
+      // past the hidden button must be refused HERE, on the answering GM
+      // client — the one place a player's request cannot script around.
+      if (!game.settings.get(SETTINGS_NS, "allow-player-generate")) {
+        ui.notifications.info(game.i18n.format("CAIRN.Notify.PcGenRefusedFor", { player: user.name }));
+        game.socket.emit(`system.${game.system.id}`, {
+          action: "pcGenerated", userId: senderId, uuid: null, refused: true,
+        });
+        return;
+      }
       if (pcGenerationInFlight.has(senderId)) return;
       pcGenerationInFlight.add(senderId);
       try {
@@ -580,9 +592,11 @@ Hooks.once("init", () => {
       if (msg.userId !== game.user.id) return;
       if (!game.users.get(senderId)?.isGM) return;
       if (!msg.uuid) {
-        ui.notifications.warn(game.i18n.localize(msg.failed
-          ? "CAIRN.Notify.PcGenFailed"
-          : "CAIRN.Notify.PcGenCancelled"));
+        ui.notifications.warn(game.i18n.localize(msg.refused
+          ? "CAIRN.Notify.PcGenDisabled" // the Warden's switch is off
+          : msg.failed
+            ? "CAIRN.Notify.PcGenFailed"
+            : "CAIRN.Notify.PcGenCancelled"));
         return;
       }
       // The custom emit can outrun the document broadcast that carries the
@@ -1489,6 +1503,19 @@ Hooks.on("renderActorDirectory", (app, html) => {
   // Removal runs per-render on THIS directory root, so the docked and
   // popped-out instances are both covered.
   html.querySelector(".directory-header .create-entry")?.remove();
+  // The Warden's switch for the player-facing Generate PC button
+  // (allow-player-generate, flipped live by its shipped macro). GM always
+  // keeps the button — the OR is what makes "off" mean players only.
+  const allowGen = game.user.isGM || game.settings.get(SETTINGS_NS, "allow-player-generate");
+  // Remove any persisted injection BEFORE the branches below rebuild it. The
+  // injected section is not a template part, so a re-render leaves it in the
+  // DOM — which is exactly what the setting's onChange relies on this hook to
+  // fix: without this line a flip re-rendered the directory and changed
+  // nothing, because the "already injected?" tests underneath saw the stale
+  // section and skipped. Rebuilding fresh each render also re-binds every
+  // listener onto live nodes, so the dedupe tests below now only guard
+  // against a double-fire WITHIN one render pass.
+  html.querySelector("#cairn-character-gen-button")?.closest("header.character-generator")?.remove();
   if (game.user.can("ACTOR_CREATE")) {
     // Scope the "already injected?" test to THIS directory, not the document.
     // Foundry renders a second, independent ActorDirectory when the tab is
@@ -1506,9 +1533,9 @@ Hooks.on("renderActorDirectory", (app, html) => {
         "afterbegin",
         `
         <div class="header-actions action-buttons flexrow" id="cairn-character-gen-button">
-          <button class="create-character-generator-button"><i class="fas fa-dice-d6"></i>${game.i18n.localize(
+          ${allowGen ? `<button class="create-character-generator-button"><i class="fas fa-dice-d6"></i>${game.i18n.localize(
           "CAIRN.CharacterGenerator"
-        )}</button>
+        )}</button>` : ""}
           <button class="create-npc-button"><i class="fas fa-user-plus"></i>${game.i18n.localize(
           "CAIRN.CreateNpc"
         )}</button>
@@ -1523,7 +1550,7 @@ Hooks.on("renderActorDirectory", (app, html) => {
       );
       section
         .querySelector(".create-character-generator-button")
-        .addEventListener("click", async () => {
+        ?.addEventListener("click", async () => {
           const actor = await createCharacter();
           if (actor) actor.sheet.render(true);
         });
@@ -1572,14 +1599,16 @@ Hooks.on("renderActorDirectory", (app, html) => {
           if (actor) actor.sheet.render(true);
         });
     }
-  } else if (!html.querySelector("#cairn-character-gen-button")) {
+  } else if (allowGen && !html.querySelector("#cairn-character-gen-button")) {
     // A player with no ACTOR_CREATE at all still gets Generate PC — the one
     // creation the game owes every player. Their client cannot create an
     // Actor (a server wall, not a UI gate), so the click asks the active
     // Warden's client to run the same generator and stamp them OWNER — the
     // generatePC relay above, the grantActors shape. Same section id as the
     // full row: it is the injected-already test, and the two variants are
-    // mutually exclusive per user.
+    // mutually exclusive per user. Generate PC is this variant's ONLY button,
+    // so the Warden's allow-player-generate switch gates the whole section —
+    // off, this player's directory simply has no generator row.
     const section = document.createElement("header");
     section.classList.add("character-generator");
     section.classList.add("directory-header");

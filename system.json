@@ -251,6 +251,12 @@
       "label": "Warden — Monsters",
       "type": "RollTable",
       "system": "air-bladder"
+    },
+    {
+      "name": "macros",
+      "label": "Warden Macros",
+      "type": "Macro",
+      "system": "air-bladder"
     }
   ],
   "packFolders": [

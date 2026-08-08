@@ -89,8 +89,8 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
 - `module/actor/actor-sheet.js` is the largest file
 - `module/damage.js` holds Cairn's damage flow
 - Data models in `module/data-models.js` (TypeDataModel; `template.json` is gone,
-  sub-types are declared in `system.json` `documentTypes`); 23 compendium packs
-- 20 GM-visible settings in `module/settings.js` (25 `register` calls; `roles-restamped`,
+  sub-types are declared in `system.json` `documentTypes`); 24 compendium packs
+- 21 GM-visible settings in `module/settings.js` (26 `register` calls; `roles-restamped`,
   `companion-restamped`, `connections-migrated`, `custom-portrait-list` and
   `disabled-backgrounds` are internal, `config: false`) —
   **registration ORDER is load-bearing**, because Foundry's group headers are positional. Two went on

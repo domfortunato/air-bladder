@@ -405,15 +405,20 @@
     "Overloaded": "{name} added — you are now over capacity (HP 0 until you free a slot).",
     "PackLocked": "{pack} is locked — unlock the compendium to edit this document.",
     "PcGenCancelled": "Your character was not generated — the Warden cancelled it.",
+    "PcGenDisabled": "The Warden has switched off character generation.",
     "PcGenFailed": "Your character could not be generated — ask the Warden, then try again.",
     "PcGenFailedFor": "Generating a character for {player} failed — see the console.",
+    "PcGenRefusedFor": "{player} asked to generate a character, but player generation is switched off.",
     "PcGenRequested": "Rolling your character — the sheet will open in a moment.",
     "PcGeneratedFor": "Generated {name} for {player}.",
+    "PlayerGenOff": "Players can no longer generate characters.",
+    "PlayerGenOn": "Players can generate characters again.",
     "PortraitFolderScanned": "Custom portrait folder scanned — {count} image(s) found.",
     "PrintBlocked": "The browser blocked the print window — allow pop-ups for this site and try again.",
     "Took": "Took {name}.",
     "WardenDamageBadFormula": "\"{formula}\" is not a damage roll — try 1d6, 2d6 or 3.",
-    "WardenDamageWardenOnly": "Only the Warden can deal damage from a trap or the environment."
+    "WardenDamageWardenOnly": "Only the Warden can deal damage from a trap or the environment.",
+    "WardenOnly": "Only the Warden can do that."
   },
   "CAIRN.Npc": "NPC",
   "CAIRN.NpcRegeneratorConfirm": "Are you sure you want to roll this NPC again?</p><p>Everything it is carrying will be deleted, and its abilities, HP, career and day rate will be replaced. This cannot be undone.",
@@ -521,6 +526,10 @@
     "BarebonesOmens": {
       "hint": "Show the Omen field for Barebones characters. Omens are never rolled at creation in either edition — this only decides whether the field is offered.",
       "label": "Show 2e Omens on Barebones character sheets"
+    },
+    "AllowPlayerGenerate": {
+      "hint": "Offer players the Generate PC button in the Actors sidebar. Turn off to hide it from every player mid-session — the shipped 'Toggle Player Generate PC' macro flips this. The Warden's own button never hides.",
+      "label": "Let players generate characters"
     },
     "CharacterInventoryLimit": {
       "hint": "Equipment limit is defined per character instead of global value.",
