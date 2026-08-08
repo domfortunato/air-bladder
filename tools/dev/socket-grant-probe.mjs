@@ -49,6 +49,34 @@ const gmErrors = watchErrors(gmPage);
 await joinAsGM(gmPage);
 await dismissChrome(gmPage);
 
+/* ---- the one precondition this probe cannot assert its way around --------- */
+
+// EVERY assertion here rests on there being exactly one broker. The handler's
+// sole defence against a double mint is `game.users.activeGM !== game.user`,
+// and that is a test of the USER, not of the client — so a second tab logged in
+// as the same Warden is a second broker, and both of them act.
+//
+// Written after a pre-tag batch on 2026-08-07 where the cap witness reported
+// `kept: 11` against a ceiling of 10, with TWO actors of the same name at
+// different ids. The clamp itself was provably correct (room 0 at the cap, room
+// 1 below it, both logged), and the probe passed cleanly in isolation minutes
+// later — which is the worst possible shape for a failure: it looks exactly
+// like an intermittent product bug in the connection ceiling, and re-running it
+// makes the evidence disappear. Nothing recorded who was connected at the time,
+// so it could never be settled after the fact.
+//
+// Refuse to run instead. A precondition the probe cannot establish is one it
+// must at least NAME — a wrong answer here is far more expensive than no answer.
+const brokers = await gmPage.evaluate(() =>
+  game.users.filter((u) => u.active && u.isGM).map((u) => `${u.name} (${u.id})`));
+if (brokers.length > 1) {
+  console.log(`\n  REFUSED: ${brokers.length} GM clients are connected — ${brokers.join(", ")}`);
+  console.log("  Every leg below assumes ONE broker; two mint everything twice.");
+  console.log("  Close the other Foundry tab/window on :30000 and re-run.\n");
+  await browser.close();
+  process.exit(1);
+}
+
 /* ---- GM sets the scene --------------------------------------------------- */
 
 const scene = await gmPage.evaluate(async () => {

@@ -57,7 +57,29 @@ const scene = await gmPage.evaluate(async () => {
     system: { slots: 6, role: "container", containerClass: "mule" },
   });
 
-  return { pcId: pc.id, pcUuid: pc.uuid, muleId: mule.id, muleUuid: mule.uuid };
+  // A connected child she does NOT own, already on the tab before she buys
+  // anything. This is not a hypothetical: generation GRANTS one — a rolled
+  // Outrider background mints its named horse (Linden White, Destrier…) as a
+  // connected npc, and the keeper's ownership is applied on the connect
+  // TRANSITION, which has already happened by the time the GM hands the PC to
+  // Alice above. So a real player's tab routinely holds a row she cannot
+  // break, above the one she can.
+  //
+  // Planted rather than left to the dice, because the roll decided whether this
+  // probe was testing anything: the edge-control assertions below used to take
+  // the FIRST connected row, so they passed on most backgrounds and failed on
+  // Outriders, reporting a missing control that was correctly absent from a row
+  // the test was never about.
+  const decoy = await Actor.create({
+    name: "ZZ Warden Grant", type: "npc",
+    system: { connectedTo: pc.uuid, slots: 2, role: "container", containerClass: "sack" },
+    ownership: { default: 2 },
+  });
+
+  return {
+    pcId: pc.id, pcUuid: pc.uuid, muleId: mule.id, muleUuid: mule.uuid,
+    decoyId: decoy.id, decoyName: decoy.name,
+  };
 });
 
 if (scene.error) {
@@ -230,7 +252,7 @@ else {
    Same template, two users: the GM's trash is what keeps Alice's missing
    trash load-bearing rather than a row that renders no icons for everybody. */
 console.log("\nthe Connected tab's edge controls");
-const icons = await alicePage.evaluate(async (pcId) => {
+const icons = await alicePage.evaluate(async ({ pcId, containerId }) => {
   const pc = game.actors.get(pcId);
   // CLOSE first, then render, then POLL — do not sleep a fixed interval on an
   // already-open sheet. Alice's sheet was opened earlier in this probe, BEFORE
@@ -242,12 +264,20 @@ const icons = await alicePage.evaluate(async (pcId) => {
   await pc.sheet.close();
   await new Promise((r) => setTimeout(r, 300));
   await pc.sheet.render(true);
+  // The row SHE BOUGHT, by uuid — not the first connected row on the sheet.
+  // This PC is randomly generated, and a rolled Outrider background GRANTS a
+  // named horse (Linden White, Destrier…) as a connected NPC. So the tab can
+  // hold two children, the grant sorts first, and Alice does not own the grant
+  // — the keeper's ownership is applied on the connect TRANSITION and the GM
+  // here makes her an owner of the PC only after generation has run. The
+  // assertion then read a row it was never about and reported a missing
+  // control that is correctly absent. Worse, it depended on the rolled
+  // background, so it passed most runs and failed on Outriders.
+  const sel = `.cairn-items-list-row[data-item-id="Actor.${containerId}"]`;
   let row = null;
   for (let i = 0; i < 40 && !row; i++) {
     await new Promise((r) => setTimeout(r, 250));
-    row = pc.sheet.rendered
-      ? pc.sheet.element?.querySelector('.cairn-items-list-row[data-is-container="true"]')
-      : null;
+    row = pc.sheet.rendered ? pc.sheet.element?.querySelector(sel) : null;
   }
   // The INPUTS to canUnlink, not just its rendered effect: "her row offers no
   // break" names a symptom and no cause, and this assertion has two ends that
@@ -255,6 +285,7 @@ const icons = await alicePage.evaluate(async (pcId) => {
   // actor) plus a relay that may not have settled.
   const kids = pc.connectedActors();
   const why = {
+    lookedFor: sel,
     pcIsOwner: pc.isOwner,
     kids: kids.map((c) => ({ name: c.name, isOwner: c.isOwner, own: { ...c.ownership } })),
   };
@@ -264,17 +295,19 @@ const icons = await alicePage.evaluate(async (pcId) => {
     trash: !!row.querySelector('[data-action="itemDelete"]'),
     why,
   } : { rowFound: false, why };
-}, scene.pcId);
-const gmIcons = await gmPage.evaluate(async (pcId) => {
+}, { pcId: scene.pcId, containerId: buy.containerId });
+const gmIcons = await gmPage.evaluate(async ({ pcId, containerId }) => {
   const pc = game.actors.get(pcId);
   await pc.sheet.render(true);
   await new Promise((r) => setTimeout(r, 1000));
-  const row = pc.sheet.element?.querySelector('.cairn-items-list-row[data-is-container="true"]');
+  // Same row as Alice's, for the same reason — the two verdicts are only
+  // comparable if they are about the same document.
+  const row = pc.sheet.element?.querySelector(`.cairn-items-list-row[data-item-id="Actor.${containerId}"]`);
   const trash = !!row?.querySelector('[data-action="itemDelete"]');
   const unlink = !!row?.querySelector('[data-action="containerUnlink"]');
   await pc.sheet.close();
   return { rowFound: !!row, trash, unlink };
-}, scene.pcId);
+}, { pcId: scene.pcId, containerId: buy.containerId });
 
 if (!icons.rowFound || !gmIcons.rowFound) {
   fail("connected row rendered for both users", JSON.stringify({ alice: icons.rowFound, gm: gmIcons.rowFound }));
@@ -297,11 +330,25 @@ if (!icons.rowFound || !gmIcons.rowFound) {
 // PLAYER in core.permissions.ACTOR_CREATE, which made dev:socket-grant refuse
 // to run at all ("this world grants players ACTOR_CREATE") — found as litter
 // on 2026-08-01. The remaining legs run as the GM and need no grant.
-await gmPage.evaluate(async () => {
+// Writing core.permissions makes Foundry reload every connected client, which
+// destroys this page's execution context — so `await`ing the set is a race the
+// probe sometimes LOSES, and losing it kills the run here, before the cleanup
+// below. That leaves the PC, the mule, the purchased container and the planted
+// grant in the world, and (the expensive part) PLAYER still holding
+// ACTOR_CREATE, which is precisely the litter this block exists to prevent.
+//
+// So: fire it, tolerate the teardown, and wait for the client to come back
+// before any later leg touches `game`. Not awaiting at all would be worse — the
+// next evaluate would race the reload instead.
+await gmPage.evaluate(() => {
   const perms = foundry.utils.deepClone(game.settings.get("core", "permissions"));
   perms.ACTOR_CREATE = (perms.ACTOR_CREATE ?? []).filter((r) => r !== CONST.USER_ROLES.PLAYER);
-  await game.settings.set("core", "permissions", perms);
+  game.settings.set("core", "permissions", perms);
+}).catch((e) => {
+  if (!/Execution context was destroyed|Target closed|frame was detached/i.test(e.message)) throw e;
 });
+await gmPage.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 60000 })
+  .catch(() => { throw new Error("the GM client did not come back after the permissions write"); });
 
 /* ---- the Connected tab, derived from `connectedTo` ---- */
 
@@ -365,13 +412,20 @@ connected.beforeDelete === 1 && connected.afterDelete === 0
 
 /* ---- cleanup -------------------------------- */
 
-await gmPage.evaluate(async ({ pcId, muleId, containerId }) => {
+await gmPage.evaluate(async ({ pcId, muleId, containerId, decoyId }) => {
   // Belt over the mid-run restore above — filtering an already-clean list is
   // a no-op, and a future leg added between the two cannot re-leak the grant.
   const perms = foundry.utils.deepClone(game.settings.get("core", "permissions"));
   perms.ACTOR_CREATE = (perms.ACTOR_CREATE ?? []).filter((r) => r !== CONST.USER_ROLES.PLAYER);
   await game.settings.set("core", "permissions", perms);
-  for (const id of [pcId, muleId, containerId]) {
+  // The PC's connected children FIRST, while the uuid that identifies them
+  // still resolves. Generation grants some of them (an Outrider's named horse),
+  // and deleting only the PC left those behind on every Outrider roll — an
+  // actor whose keeper no longer exists, accumulating one per run in the dev
+  // world and eventually turning up as somebody else's failing precondition.
+  const pc = game.actors.get(pcId);
+  if (pc) for (const kid of pc.connectedActors()) await kid.delete().catch(() => {});
+  for (const id of [pcId, muleId, containerId, decoyId]) {
     if (id) await game.actors.get(id)?.delete().catch(() => {});
   }
 }, { ...scene, containerId: buy.containerId });

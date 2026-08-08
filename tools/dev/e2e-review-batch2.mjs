@@ -56,6 +56,15 @@ const cleanup = {
   itemIds: [],
   messageIds: [],
   permSnap: null,        // JSON of core.permissions before the widen (null = untouched)
+  // The panic toggle. This probe flips it to true and then to FALSE to prove the
+  // HP strip follows it, and used to walk away leaving it off — while the header
+  // above claimed "world writes are restored in finally … settings". Seventeen
+  // probes later `dev:ui-parity` looked for `.panicked-check`, which the sheet
+  // gates on `system.usePanic`, found nothing, and reported a UI regression that
+  // did not exist. A leaked SETTING is worse than a leaked document: nothing
+  // names it in a directory, and the probe it breaks is not the one that did it.
+  panicWas: null,        // null = never touched
+
   packWasUnlocked: false, // monsters pack lock state to restore
   gm2Made: false,
   portraitDir: null,      // probe folder to rmdir from Node
@@ -71,6 +80,10 @@ try {
     // Each phase CREATES its actor after setting the toggle: use-panic is
     // requiresReload, and a fresh create is the honest stand-in for the reload
     // (prepareData runs once, under the new value, exactly as it would after).
+    // Snapshot BEFORE the first write, not after — the value this world had is
+    // the only thing that can be put back.
+    cleanup.panicWas = await page.evaluate(() => game.settings.get("air-bladder", "use-panic"));
+
     const panicOn = await page.evaluate(async () => {
       await game.settings.set("air-bladder", "use-panic", true);
       const settle = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -505,7 +518,7 @@ try {
   try {
     if (gm2Page) await gm2Page.context().close();
     if (alicePage) await alicePage.context().close();
-    await page.evaluate(async ({ actorIds, itemIds, messageIds, permSnap, packWasUnlocked, gm2Made }) => {
+    await page.evaluate(async ({ actorIds, itemIds, messageIds, permSnap, packWasUnlocked, gm2Made, panicWas }) => {
       for (const id of actorIds) await game.actors.get(id)?.delete();
       for (const id of itemIds) await game.items.get(id)?.delete();
       for (const id of messageIds) await game.messages.get(id)?.delete();
@@ -514,6 +527,9 @@ try {
       }
       if (packWasUnlocked) await game.packs.get("air-bladder.monsters")?.configure({ locked: false });
       if (gm2Made) await game.users.getName("ZZ PROBE GM2")?.delete();
+      if (panicWas !== null && game.settings.get("air-bladder", "use-panic") !== panicWas) {
+        await game.settings.set("air-bladder", "use-panic", panicWas);
+      }
     }, cleanup);
   } catch (e) {
     console.error(`  note  cleanup failed: ${e.message}`);

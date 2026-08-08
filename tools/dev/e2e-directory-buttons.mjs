@@ -546,9 +546,24 @@ try {
       if (!fresh.length) return { minted: false };
       const actor = game.actors.get(fresh[0]);
       // The pcGenerated answer renders the sheet — poll for the window.
+      //
+      // 30s, not the 8s this used to allow, and the number is derived rather
+      // than padded. On the relay path Alice's client does three things before
+      // it renders: polls up to 3s for the actor broadcast to catch up with the
+      // custom emit, polls up to 1.5s for the generation card, and then AWAITS
+      // THE DICE ANIMATION — deliberately, so the sheet does not cover the roll
+      // that made the character (cairn.js, and `dev:gen-dice` proves it with a
+      // control that stubs DSN's wait and watches the sheet jump the dice).
+      // awaitDiceAnimation's own ceiling is 20s, so anything under ~25s is
+      // budgeting for less than the code is allowed to take, and Dice So Nice
+      // is installed and enabled in this world with five rolls on that card.
+      //
+      // The old budget predated that wait, which shipped this cycle. It failed
+      // here while the mint, the ownership and the no-double-mint legs all
+      // passed — i.e. the relay worked and only the clock was wrong.
       let sheetOpen = false;
       const t1 = Date.now();
-      while (Date.now() - t1 < 8000 && !sheetOpen) {
+      while (Date.now() - t1 < 30000 && !sheetOpen) {
         sheetOpen = [...foundry.applications.instances.values()]
           .some((x) => x.document === actor && x.rendered);
         await sleep(200);
