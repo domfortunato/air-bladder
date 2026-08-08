@@ -24,8 +24,8 @@ ownership:
 folder: null
 sort: 0
 _stats:
-  systemId: null
-  systemVersion: null
+  systemId: cairn
+  systemVersion: 0.10.26
   coreVersion: '14.365'
   createdTime: 1785861587500
   modifiedTime: 1786054092169
