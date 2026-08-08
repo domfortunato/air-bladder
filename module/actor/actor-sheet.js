@@ -728,10 +728,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // (randomCareer's repeat-exclusion, _preUpdate's day-rate fill), so the
       // input shows t() and the submit maps back through sourceOf().
       context.professionDisplay = t("npc.career", this.actor.system.profession);
-      // Static per role, not per document: a person's Notes tab carries the
-      // character sheet's wording, everything else says plain Notes.
-      context.notesTabLabel = game.i18n.localize(
-        role === "npc" ? "CAIRN.BackgroundAndNotes" : "CAIRN.Notes");
+      // Every role says plain "Notes" (user ruling 2026-08-08). The person role
+      // used to mirror the character sheet's "Background & Notes" wording; that
+      // parity read as noise on an NPC, so only the character sheet keeps it.
+      context.notesTabLabel = game.i18n.localize("CAIRN.Notes");
       // The connection line under the header (2026-08-02): the child end's ONE
       // upward edge, expressed as a field rather than a tab — any child role
       // has at most one keeper, so the Connections tab this sheet used to carry
@@ -1115,11 +1115,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.hasGeneratedBackground = !!this.actor.system.backgroundUuid;
     // `showBackgroundNotesLabel` lived here (the Notes tab renamed itself
     // "Background & Notes" once a background was attached). Retired 2026-08-01:
-    // the tab is "Notes" for everyone — one name, one key, and the label no
-    // longer disagrees with TAB_LABELS.notes on generated characters.
-    // Since 2026-08-02 the label is static PER ROLE instead — a character and a
-    // role-npc person read CAIRN.BackgroundAndNotes, a monster, mount, transport
-    // or container reads CAIRN.Notes (`context.notesTabLabel`). The DYNAMIC,
+    // one name, one key, and the label no longer disagrees with
+    // TAB_LABELS.notes on generated characters. 2026-08-02 made the label
+    // static per role (person read CAIRN.BackgroundAndNotes); 2026-08-08
+    // flattened that too — every NPC-sheet role reads CAIRN.Notes, and only
+    // the character sheet's hardcoded tab keeps the long wording. The DYNAMIC,
     // data-driven rename stays dead: two characters must not disagree on what
     // their own tabs are called.
     // Scars and Age are never generated — a player fills each in by hand after
