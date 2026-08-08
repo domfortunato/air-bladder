@@ -218,6 +218,54 @@ try {
     ? ok("boldPhrase bolds the localized product name", `"${bold.bolded}" inside "${bold.labelText}"`)
     : fail(`sentinel label was not bolded — label "${bold.labelText}", strong ${JSON.stringify(bold.bolded)}`
         + " (an English literal cannot match a translated label)");
+
+  /* ---- the SHIPPED label against the SHIPPED phrase ---------------------- */
+
+  // The leg above plants BOTH halves — a sentinel label and a sentinel phrase
+  // built to match each other — so it proves boldPhrase works and is
+  // structurally blind to the only thing that can actually go wrong: the real
+  // label and the real phrase disagreeing. They did. `CAIRN.ContentSourceCustom`
+  // was "Custom 2e" while its label read "Offer custom Cairn 2e backgrounds",
+  // so `indexOf` missed, boldPhrase took its `i < 0` exit, and that setting
+  // rendered with no emphasis at all for months. Nothing failed; the degradation
+  // is silent by design.
+  //
+  // This is the same lesson the omen round paid for: a probe that plants a
+  // consistent state tests the renderer, not the product. So: no stubs, no
+  // sentinels — open the real settings window and read the real labels.
+  const real = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+    const app = new foundry.applications.settings.SettingsConfig();
+    await app.render(true);
+    await sleep(800);
+    const read = (key, phraseKey) => {
+      const label = app.element.querySelector(`[name="air-bladder.${key}"]`)
+        ?.closest(".form-group")?.querySelector("label");
+      return {
+        key,
+        phrase: game.i18n.localize(phraseKey),
+        text: label?.textContent?.trim() ?? null,
+        bolded: label?.querySelector("strong")?.textContent ?? null,
+      };
+    };
+    const out = [
+      read("content-source-2e", "CAIRN.ContentSourceCanon2e"),
+      read("content-source-custom", "CAIRN.ContentSourceCustom"),
+      read("content-source-barebones", "CAIRN.ContentSourceBarebones"),
+    ];
+    await app.close();
+    return out;
+  });
+
+  for (const r of real) {
+    // This probe's ok() takes ONE argument — a second is silently dropped, and a
+    // passing leg that prints nothing is how "it matched" and "it matched the
+    // wrong thing" look identical in a log. The strings go in the label.
+    r.bolded === r.phrase && r.phrase && r.text?.includes(r.phrase)
+      ? ok(`${r.key} bolds its real phrase — "${r.bolded}" inside "${r.text}"`)
+      : fail(`${r.key}: shipped label and shipped phrase disagree — `
+          + `phrase ${JSON.stringify(r.phrase)}, bolded ${JSON.stringify(r.bolded)}, label ${JSON.stringify(r.text)}`);
+  }
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {

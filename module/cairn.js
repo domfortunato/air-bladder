@@ -1371,7 +1371,16 @@ Hooks.on("renderSettingsConfig", (app, element) => {
       document.createTextNode(text.slice(i + phrase.length)),
     );
   };
-  boldPhrase("content-source-2e", "CAIRN.ContentSource2e");
+  // The phrase is the SOURCE AS THE LABEL NAMES IT, which is not always the
+  // source's own name. The two 2e labels distinguish canon from custom, and the
+  // qualifier is the whole point of the sentence — bolding "Cairn 2e" inside
+  // "Offer canon Cairn 2e backgrounds" emphasises the half the reader already
+  // knew (user ask, 2026-08-07).
+  //
+  // `CAIRN.ContentSource2e` cannot simply be widened: it is the source's name
+  // and is reused by the generation picker and utils' SOURCE_KEYS, where "canon
+  // Cairn 2e" would read as a different edition. Hence a key of its own.
+  boldPhrase("content-source-2e", "CAIRN.ContentSourceCanon2e");
   boldPhrase("content-source-custom", "CAIRN.ContentSourceCustom");
   boldPhrase("content-source-barebones", "CAIRN.ContentSourceBarebones");
 });
