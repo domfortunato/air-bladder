@@ -196,6 +196,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // Header
       rollActor: owned(CairnActorSheet.#onRollActor),
       toggleGeneration: owned(CairnActorSheet.#onToggleGeneration),
+      // NOT owned(): printing shows nothing the open sheet does not already
+      // show this viewer, so being able to open the sheet is the whole gate.
+      printSheet: CairnActorSheet.#onPrintSheet,
       // Portrait + name
       editPortrait: owned(CairnActorSheet.#onEditPortrait),
       rollPortrait: owned(CairnActorSheet.#onRollPortrait),
@@ -417,6 +420,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const popOut = { action: "detach", icon: "fas fa-arrow-up-right-from-square", label: "CAIRN.PopOut" };
 
     const isChar = this.actor.type === "character";
+    // Print — characters only (the page is a PC layout: traits, bonds, omen).
+    // NO ownership gate, deliberately: the page renders exactly what the sheet
+    // already shows this viewer, so being able to open the sheet IS the gate.
+    // Static state; #syncGenerationButtons never touches it.
+    const print = isChar ? [{ action: "printSheet", icon: "fas fa-print", label: "CAIRN.Print" }] : [];
+
     // npc and hireling are one thing, so both get the NPC generation controls.
     const isNpc = ["hireling", "npc"].includes(this.actor.type);
     // Thing roles — mount, transport, container — get NEITHER button (ruled
@@ -426,7 +435,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // open sheet and the frame builds once, so #syncGenerationButtons applies
     // the same test per render to the buttons this frame did build.
     const rollableRole = !isNpc || ["npc", "monster"].includes(this.actor.npcRole);
-    if (!(isChar || isNpc) || !rollableRole || !this.actor.isOwner) return [popOut, ...buttons];
+    if (!(isChar || isNpc) || !rollableRole || !this.actor.isOwner) return [...print, popOut, ...buttons];
 
     // The toggle is created UNCONDITIONALLY for an owner of a generating type,
     // and only the Roll button rides `show-generate-header`. It used to gate
@@ -448,6 +457,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
           : isNpc ? "CAIRN.RollNpc" : "CAIRN.RegenerateCharacter",
       }] : []),
       { action: "toggleGeneration", icon: "fas fa-toggle-on", label: "CAIRN.RandomizationOn" },
+      ...print,
       popOut,
       ...buttons,
     ];
@@ -1761,6 +1771,133 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (ageStr) parts.push(F("CAIRN.Bio.Age", { value: ageStr }));
 
     return parts.join(" ");
+  }
+
+  /**
+   * Print: one standalone page holding the WHOLE character — a detached sheet
+   * prints only its displayed tab, which is the reason this exists. Layout
+   * modelled on Kettlewright's /print/ page (user example, 2026-08-08).
+   *
+   * The window is opened SYNCHRONOUSLY in the click gesture: popup blockers
+   * allow a user-gesture open and eat one that arrives after an `await`, so the
+   * async page build starts only once the window already exists.
+   * @this {CairnActorSheet}
+   */
+  static #onPrintSheet(event) {
+    event.preventDefault();
+    const win = window.open("", "_blank");
+    if (!win) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.PrintBlocked"));
+      return;
+    }
+    this.#fillPrintPage(win).catch((err) => {
+      console.error("Air Bladder | the print page failed:", err);
+      win.close();
+    });
+  }
+
+  /**
+   * Build the print page into an already-open window, then offer the print
+   * dialog (user ruling: the button means print; cancelling leaves the page
+   * open to read or re-print).
+   *
+   * Everything the page needs is made ABSOLUTE (`about:blank` has no base URL
+   * to resolve a relative path against), item names and descriptions go
+   * through the content overlay so a Spanish player prints Spanish, and the
+   * two ProseMirror fields are enriched so an `@UUID` link prints as its
+   * name — the page CSS then renders every anchor as plain text, because a
+   * content link is useless on paper.
+   * @param {Window} win
+   */
+  async #fillPrintPage(win) {
+    const actor = this.actor;
+    const sys = actor.system;
+    const L = (k) => game.i18n.localize(k);
+    const abs = (p) => (p ? new URL(p, `${location.origin}/`).href : null);
+    const enrich = (html) => (html
+      ? foundry.applications.ux.TextEditor.implementation.enrichHTML(html, { relativeTo: actor })
+      : Promise.resolve(""));
+
+    // A row per item, Kettlewright's annotations: (petty), (N uses), (dN),
+    // bulky and quantity. Notes are TEXT assembled here and escaped by the
+    // template — item names are authored free text.
+    const rows = (items) => items.map((it) => {
+      const notes = [];
+      if (it.system.weightless) notes.push(`(${L("CAIRN.Weightless").toLowerCase()})`);
+      const uses = it.system.uses?.value ?? 0;
+      if (uses > 0) notes.push(game.i18n.format(uses === 1 ? "CAIRN.PrintUsesOne" : "CAIRN.PrintUsesMany", { n: uses }));
+      if (it.system.damageFormula) notes.push(`(${it.system.damageFormula})`);
+      if (it.system.bulky) notes.push(`(${L("CAIRN.Bulky").toLowerCase()})`);
+      if ((it.system.quantity ?? 1) > 1) notes.push(`×${it.system.quantity}`);
+      return { name: t("item.name", it.name), notes: notes.join(" ") };
+    });
+
+    // The status line: deprived / panicked / critical, when set.
+    const status = [
+      sys.deprived && L("CAIRN.Deprived"),
+      sys.panicked && L("CAIRN.Panicked"),
+      sys.critical && L("CAIRN.CriticalDamage"),
+    ].filter(Boolean).join(" · ");
+
+    const context = {
+      lang: game.i18n.lang,
+      name: actor.name,
+      portrait: abs(actor.img),
+      background: sys.background,
+      pronouns: sys.pronouns,
+      stats: {
+        str: sys.abilities.STR.value, strMax: sys.abilities.STR.max,
+        dex: sys.abilities.DEX.value, dexMax: sys.abilities.DEX.max,
+        wil: sys.abilities.WIL.value, wilMax: sys.abilities.WIL.max,
+        // The SOURCE HP, not the derived value: encumbrance and panic zero the
+        // derived one, and a printout of "HP 0/4" for a loaded-but-healthy
+        // character reads as dying rather than as slow.
+        hp: actor._source.system.hp.value, hpMax: sys.hp.max,
+        armor: sys.armor ?? 0,
+        gold: sys.gold ?? 0,
+      },
+      status,
+      traitsProse: this._buildTraitSentence(sys.traits, sys.age),
+      main: { used: sys.slotsUsed, max: sys.slotsMax, rows: rows(actor.items.contents) },
+      // One inventory section per connected actor — KW's multi-container
+      // layout. A 0-slot companion prints without the slot fraction.
+      containers: actor.connectedActors().map((c) => ({
+        name: c.name,
+        used: c.system.slotsUsed,
+        max: c.system.slotsMax,
+        showSlots: (c.system.slotsMax ?? 0) > 0,
+        rows: rows(c.items.contents),
+      })),
+      description: await enrich(sys.description),
+      bonds: (sys.bonds ?? []).map((b) => String(b?.description ?? "").trim()).filter(Boolean),
+      omen: sys.omenEnabled ? String(sys.omen ?? "").trim() : "",
+      scars: sys.scars ?? [],
+      notes: await enrich(sys.notes),
+      features: (sys.features ?? []).map((f) => ({
+        name: String(f?.name ?? "").trim(),
+        text: String(f?.description ?? "").trim(),
+      })).filter((f) => f.name || f.text),
+    };
+
+    const html = await foundry.applications.handlebars.renderTemplate(
+      "systems/air-bladder/templates/print/character-print.html", context);
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+
+    // Print only after the portrait has settled — the browser otherwise
+    // snapshots a page with an empty circle where the face goes. The timeout
+    // keeps a dead image path from holding the dialog hostage.
+    const img = win.document.querySelector("header.pc img");
+    if (img && !img.complete) {
+      await new Promise((res) => {
+        img.addEventListener("load", res, { once: true });
+        img.addEventListener("error", res, { once: true });
+        setTimeout(res, 3000);
+      });
+    }
+    win.focus();
+    win.print();
   }
 
   /**

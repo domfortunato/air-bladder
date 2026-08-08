@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+{{!--
+  The printable character sheet — one standalone page, modelled on
+  Kettlewright's /print/ layout (user-supplied example, 2026-08-08): header,
+  Stats, Traits, Inventory (Main + one section per connected container),
+  Description, Bonds, Omen, Scars, Notes, Features. Empty sections are OMITTED
+  where KW prints placeholders.
+
+  DELIBERATELY NOT THEME-TRACKING — paper is white. This is the one surface
+  exempt from the dark-mode token rule; docs/theming.md records the exemption.
+  Everything is inline and self-contained: the page opens in a fresh window
+  whose document is written by the sheet's Print action, so there is no
+  stylesheet to reach and nothing external to load except the portrait, whose
+  src the action makes absolute.
+
+  Every text field renders through {{ }} (escaped). Only the two enriched
+  ProseMirror fields (description, notes) use triple-stash — they are
+  server-sanitized (htmlFields) and enriched by the action.
+--}}
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<title>{{ name }}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: Georgia, "Times New Roman", serif;
+    color: #000;
+    background: #fff;
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+    font-size: 12pt;
+    line-height: 1.45;
+  }
+  header.pc { display: flex; align-items: center; gap: 1.25rem; margin-bottom: 1.5rem; }
+  header.pc img { width: 90px; height: 90px; object-fit: cover; border-radius: 50%; border: 2px solid #000; }
+  header.pc h1 { font-size: 2rem; letter-spacing: 0.06em; text-transform: uppercase; line-height: 1.1; }
+  header.pc .background { font-size: 1.05rem; letter-spacing: 0.12em; text-transform: uppercase; color: #333; }
+  header.pc .pronouns { font-size: 0.9rem; color: #444; font-style: italic; }
+  section { margin-bottom: 1.3rem; break-inside: avoid; }
+  h2 {
+    font-size: 0.95rem; letter-spacing: 0.14em; text-transform: uppercase;
+    border-bottom: 1px solid #000; padding-bottom: 0.15rem; margin-bottom: 0.5rem;
+  }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 0.2rem 2.5rem; max-width: 24rem; }
+  .stats .row { display: flex; justify-content: space-between; border-bottom: 1px dotted #999; }
+  .stats .row b { font-style: italic; }
+  .statusline { margin-top: 0.4rem; font-style: italic; }
+  ul.inv { list-style: none; }
+  ul.inv li { border-bottom: 1px dashed #999; padding: 0.1rem 0; }
+  ul.inv li .notes { color: #333; font-style: italic; }
+  .inv-head { font-style: italic; font-weight: bold; margin: 0.5rem 0 0.2rem; }
+  ul.plain { list-style: none; }
+  ul.plain li { margin-bottom: 0.35rem; }
+  .feature b { font-variant: small-caps; }
+  /* Content links print as plain text — an anchor is useless on paper. */
+  a { color: inherit; text-decoration: none; }
+  .prose p { margin-bottom: 0.5rem; }
+  @page { margin: 1.6cm; }
+</style>
+</head>
+<body>
+
+<header class="pc">
+  {{#if portrait}}<img src="{{ portrait }}" alt="{{ name }}">{{/if}}
+  <div>
+    <h1>{{ name }}</h1>
+    {{#if background}}<div class="background">{{ background }}</div>{{/if}}
+    {{#if pronouns}}<div class="pronouns">{{ pronouns }}</div>{{/if}}
+  </div>
+</header>
+
+<section>
+  <h2>{{ localize "CAIRN.PrintStats" }}</h2>
+  <div class="stats">
+    <div class="row"><b>{{ localize "STR" }}</b><span>{{ stats.str }}/{{ stats.strMax }}</span></div>
+    <div class="row"><b>{{ localize "CAIRN.Gold" }}</b><span>{{ stats.gold }}</span></div>
+    <div class="row"><b>{{ localize "DEX" }}</b><span>{{ stats.dex }}/{{ stats.dexMax }}</span></div>
+    <div class="row"><b>{{ localize "CAIRN.Armor" }}</b><span>{{ stats.armor }}</span></div>
+    <div class="row"><b>{{ localize "WIL" }}</b><span>{{ stats.wil }}/{{ stats.wilMax }}</span></div>
+    <div class="row"><b>{{ localize "CAIRN.HitProtection" }}</b><span>{{ stats.hp }}/{{ stats.hpMax }}</span></div>
+  </div>
+  {{#if status}}<div class="statusline">{{ status }}</div>{{/if}}
+</section>
+
+{{#if traitsProse}}
+<section>
+  <h2>{{ localize "CAIRN.Traits" }}</h2>
+  <p>{{ traitsProse }}</p>
+</section>
+{{/if}}
+
+<section>
+  <h2>{{ localize "CAIRN.Items" }}</h2>
+  <div class="inv-head">{{ localize "CAIRN.PrintMain" }} ( {{ main.used }} / {{ main.max }} )</div>
+  <ul class="inv">
+    {{#each main.rows}}
+    <li>{{ name }}{{#if notes}} <span class="notes">{{ notes }}</span>{{/if}}</li>
+    {{/each}}
+  </ul>
+  {{#each containers}}
+  <div class="inv-head">{{ name }}{{#if showSlots}} ( {{ used }} / {{ max }} ){{/if}}</div>
+  <ul class="inv">
+    {{#each rows}}
+    <li>{{ name }}{{#if notes}} <span class="notes">{{ notes }}</span>{{/if}}</li>
+    {{/each}}
+  </ul>
+  {{/each}}
+</section>
+
+{{#if description}}
+<section>
+  <h2>{{ localize "CAIRN.Description" }}</h2>
+  <div class="prose">{{{ description }}}</div>
+</section>
+{{/if}}
+
+{{#if bonds.length}}
+<section>
+  <h2>{{ localize "CAIRN.PrintBonds" }}</h2>
+  <ul class="plain">
+    {{#each bonds}}<li>{{ this }}</li>{{/each}}
+  </ul>
+</section>
+{{/if}}
+
+{{#if omen}}
+<section>
+  <h2>{{ localize "CAIRN.Omen" }}</h2>
+  <p>{{ omen }}</p>
+</section>
+{{/if}}
+
+{{#if scars.length}}
+<section>
+  <h2>{{ localize "CAIRN.ScarsSection" }}</h2>
+  <ul class="plain">
+    {{#each scars}}<li>{{ this }}</li>{{/each}}
+  </ul>
+</section>
+{{/if}}
+
+{{#if notes}}
+<section>
+  <h2>{{ localize "CAIRN.Notes" }}</h2>
+  <div class="prose">{{{ notes }}}</div>
+</section>
+{{/if}}
+
+{{#if features.length}}
+<section>
+  <h2>{{ localize "CAIRN.Features" }}</h2>
+  <ul class="plain">
+    {{#each features}}
+    <li class="feature">{{#if name}}<b>{{ name }}</b>{{#if text}} — {{/if}}{{/if}}{{ text }}</li>
+    {{/each}}
+  </ul>
+</section>
+{{/if}}
+
+</body>
+</html>
