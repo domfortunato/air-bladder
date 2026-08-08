@@ -160,14 +160,52 @@ if (content) {
   }
   console.log(`\nlang/content/${LANG}.json vs src/packs/`);
   console.log(`  entries     : ${overlayEntries}`);
-  console.log(`  CSV-quoted  : ${contentOrphans.quoted.length}   (spreadsheet mangling — re-run i18n:import)`);
+  /* ---- corrupt VALUES, which no orphan class can see ----------------------
+   * Every class above asks whether a KEY is still asked for. A key can be
+   * perfectly live while its VALUE is wreckage — and that is worse, because the
+   * entry is being displayed. Four Scars translations shipped this way: a cell
+   * split wrongly on some old spreadsheet import left them holding a leading
+   * unmatched quote and, in two cases, the raw TSV of a dozen following rows.
+   * One was 1,281 characters where the sentence is 158, and a Spanish player
+   * rolling that Scar read the spreadsheet.
+   *
+   * Nothing looked, because `quoted` above tests the key for CSV mangling and
+   * these keys were clean. **Checking one side of a record the same accident
+   * damages on both is how the other side ships** — the same lesson
+   * `check:fields` learned about `_stats`.
+   *
+   * ERROR, not advisory: the repair recovers the translator's own words
+   * verbatim (the text before the first tab) and needs nothing from him.
+   */
+  const corruptValues = [];
+  for (const [ns, group] of Object.entries(content.overlay)) {
+    if (!group || typeof group !== "object") continue;
+    for (const [k, v] of Object.entries(group)) {
+      if (typeof v !== "string") continue;
+      if (v.includes("\t") || (v.startsWith('"') && !v.endsWith('"'))) {
+        corruptValues.push(
+          `content overlay VALUE — ${ns}: ${v.length} chars of spreadsheet debris; ` +
+          `sentence is "${v.replace(/^"/, "").split("\t")[0].slice(0, 45)}…" (key: ${k.slice(0, 40)})`
+        );
+      }
+    }
+  }
+  for (const e of corruptValues) errors.push(e);
+
+  console.log(`  CSV-quoted  : ${contentOrphans.quoted.length}   (key mangled by a spreadsheet — npm run i18n:repair)`);
+  console.log(`  corrupt val : ${corruptValues.length}   (key is live, VALUE holds tab/quote debris — these ARE being displayed)`);
   console.log(`  moved ns    : ${contentOrphans.moved.length}   (re-key, do not retranslate)`);
   console.log(`  HTML entity : ${contentOrphans.entity.length}   (keyed on &mdash;/&rsquo; the DOM never asks for — these have NEVER been displayed)`);
   if (contentOrphans.entity.length) {
     for (const w of entityWarn.slice(0, 10)) console.log(`     ! ${w}`);
     if (contentOrphans.entity.length > 10) console.log(`     … and ${contentOrphans.entity.length - 10} more`);
-    console.log(`     fix: npm run i18n:extract && npm run i18n:import -- --lang ${LANG}`);
-    console.log(`          (re-keys them mechanically, keeping every translated value — it WRITES lang/content/${LANG}.json)`);
+    // NOT "extract && import". That was the advice here until 2026-08-07, and it
+    // drags all ~1,700 entries through the TSV parser to fix a couple of dozen
+    // keys — which on that day re-split three already-damaged values and made
+    // them worse (172 chars → 875 of another row's text). i18n:repair touches
+    // only the entries it names and never parses a TSV.
+    console.log(`     fix: npm run i18n:repair -- --lang ${LANG}        (dry run; add --write to apply)`);
+    console.log(`          (re-keys them in place, keeping every translated value byte-identical)`);
   }
   if (contentOrphans.entityDup.length) {
     console.log(`  entity residue: ${contentOrphans.entityDup.length}   (already re-keyed; the old entity key is spent and safe to delete)`);

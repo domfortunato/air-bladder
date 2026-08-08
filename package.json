@@ -24,6 +24,7 @@
     "i18n:check": "node tools/i18n/check.mjs",
     "i18n:baseline": "node tools/i18n/baseline.mjs",
     "i18n:handoff": "node tools/i18n/handoff.mjs",
+    "i18n:repair": "node tools/i18n/repair.mjs",
     "i18n:source": "node tools/i18n/source-check.mjs",
     "release": "node tools/release.mjs",
     "dev:enc-damage": "node tools/dev/e2e-encumbered-damage.mjs",

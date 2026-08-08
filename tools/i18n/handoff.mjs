@@ -254,7 +254,8 @@ const render = (d) => {
     if (mech.moved) P(`- **${mech.moved}** whose document changed type, moving them to a different namespace.`);
     if (mech.entityDup) P(`- **${mech.entityDup}** already re-keyed; the old key is spent residue and safe to delete.`);
     P();
-    P(`Fixed our side with \`npm run i18n:extract && npm run i18n:import -- --lang ${d.lang}\`.`);
+    P(`Fixed our side with \`npm run i18n:repair -- --lang ${d.lang} --write\`, which touches only`);
+    P(`the entries it names and keeps every ${d.langName} value byte-identical.`);
     P();
   }
   P(`---`);

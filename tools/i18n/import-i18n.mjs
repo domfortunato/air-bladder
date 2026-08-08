@@ -106,19 +106,37 @@ for (const file of tsvFiles.sort()) {
     if (trailingTrap(en, tr)) warnings.push(`${where}: ${LANG} drops a trailing space/em-dash that en carries`);
 
     if (isUI) {
+      const previous = ui[key];
       ui[key] = tr;
-      // Record WHICH English this translation answers to. Importing is the only
-      // event that re-verifies a key: the translator was handed the row with its
-      // current English in column 3 — and, when it had drifted, the superseded
-      // English in `notes` — and sent back what they sent back. Whether they
-      // rewrote it or judged it still correct, they saw this English.
+      // Record WHICH English this translation answers to — but ONLY where a human
+      // actually wrote something on this round trip.
       //
-      // Taken from the ROW's `en`, not from lang/en.json, on purpose. Those two
-      // differ exactly when English moved while the TSV was out with the
-      // translator, and in that case the row was NOT verified against the
-      // current value — recording the live one would erase a real drift the
-      // moment it appeared.
-      nextBaseline[key] = en;
+      // The first version of this advanced the baseline for every accepted row,
+      // reasoning that the translator was handed the row with its current English
+      // and sent back what they sent back, so they saw it either way. That
+      // reasoning has one assumption in it that is not always true: **that a
+      // translator was involved at all.** An extract→import pair run purely as a
+      // maintenance step has no human in the middle, and on 2026-08-07 exactly one
+      // such run silently marked all five DRIFTED keys as verified — erasing the
+      // signal the baseline exists to hold, with nobody having read a word of
+      // Spanish. It looked like the drift had been dealt with.
+      //
+      // So the test is an affirmative act, and there are two:
+      //   - the translation differs from what the shipped JSON already held, or
+      //   - a row that WAS drifted at export time comes back marked `done`, which
+      //     is a translator explicitly re-certifying wording they chose to keep.
+      // Anything else leaves the baseline alone — including an untouched `done`
+      // row, where by definition nothing happened. Failing to clear a real
+      // re-verification leaves a row visibly on the list, which someone can act
+      // on; falsely clearing one is silent and unrecoverable.
+      //
+      // `en` is the ROW's, not lang/en.json's, on purpose: those differ exactly
+      // when English moved while the TSV was out with the translator, and
+      // recording the live value would erase that drift the moment it appeared.
+      const wasDrifted = key in nextBaseline && nextBaseline[key] !== en;
+      const humanTouched = tr !== previous || (wasDrifted && status === "done");
+      // An untranslated row asserts no verification, matching the seeder's rule.
+      if (humanTouched && tr !== en) nextBaseline[key] = en;
     } else {
       (content[key] ??= {})[normalizeKey(en)] = tr;
     }
