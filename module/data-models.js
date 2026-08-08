@@ -259,7 +259,9 @@ class CharacterData extends CairnDataModel {
  * One model for every non-player actor. The `hireling` type was folded into this
  * one: a hireling was only ever an NPC you were paying, so it carried a parallel
  * schema and a parallel sheet for the sake of three fields. `profession` and
- * `dayRate` now live here, the day rate showing only for `role: hireling`.
+ * `dayRate` now live here, the day rate showing only when `role: npc` and
+ * `forHire` is set (the `hireling` ROLE was retired 2026-08-01 and `migrateData`
+ * converts it away; the gate is `role === "npc" && forHire === true`, actor.js:638).
  * `hireling` is NOT migrated away -- it stays registered as an alias of this
  * model (see ACTOR_DATA_MODELS below for why a real retirement would cost every
  * existing hireling its document id); an alias-typed document reads as role
@@ -278,10 +280,12 @@ class NpcData extends CairnDataModel {
       description: html(),
       biography: html(),
       notes: html(),
-      // Nullable because 202 of the 205 shipped monsters store null. NOTE this is
-      // also overwritten every prepareData by `_prepareNpcData` (armor = calcArmor()),
-      // so an authored value never reaches the sheet — a stored-vs-derived collision
-      // left as-is by the migration, not introduced by it.
+      // Nullable because 202 of the 205 shipped monsters store null. An authored
+      // value DOES reach the sheet: `_prepareCharacterData` uses it as a FLOOR the
+      // equipped-gear sum cannot go below (actor.js:696-702, the review #9 fix),
+      // with an override still beating both. (This comment once said a
+      // `_prepareNpcData` clobbered it every prepare so an authored value never
+      // showed — false, and doubly so since that method was deleted 2026-07-31.)
       armor: optInt(),
       gold: purse(),
       slots: capacity(),

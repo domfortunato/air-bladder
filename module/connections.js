@@ -192,9 +192,30 @@ export const syncPendingOwnership = async (child, { requester = null } = {}) => 
   if (["npc", "hireling"].includes(child.type) && child.npcRole !== "monster") {
     const link = child.system?.connectedTo || "";
     const keeper = link ? game.actors.find((a) => a.uuid === link) : null;
-    changes.ownership = ops.ForcedReplacement.create(
-      keeper?.type === "character" ? connectedOwnershipShape(keeper) : brokenOwnershipShape(child)
-    );
+    let shape;
+    if (keeper?.type === "character") {
+      shape = connectedOwnershipShape(keeper);
+    } else {
+      shape = brokenOwnershipShape(child);
+      // A PLAYER-requested break must never degrade ANOTHER user's access. With
+      // `connectedTo` already empty, the both-ends check above reduces to "owns
+      // the child" (there is no other end left to check), so a crafted request
+      // could otherwise force this broken shape onto an UNCONNECTED actor the
+      // requester merely co-owns — stripping a co-owner's OWNER or a Warden's
+      // manual grant, which the transitions-only rule forbids (see the shapes'
+      // docblocks). Preserve every explicit OWNER entry that is not the
+      // requester's own: the breaker still loses OWNER and `default` still drops
+      // to LIMITED (a real break's loot-pile-is-a-stranger rule holds), but no
+      // one else's rights move. The GM-side direct break paths call
+      // brokenOwnershipShape themselves, not through here, and are unaffected.
+      if (requester) {
+        const OWNER = CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
+        for (const [id, level] of Object.entries(child.ownership ?? {})) {
+          if (id !== "default" && id !== requester.id && level >= OWNER) shape[id] = OWNER;
+        }
+      }
+    }
+    changes.ownership = ops.ForcedReplacement.create(shape);
   }
   await child.update(changes);
 };

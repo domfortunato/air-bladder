@@ -85,6 +85,20 @@ export class CairnCombat extends Combat {
   async rollInitiative(ids, { formula = null, updateTurn = true, messageMode, messageOptions = {} } = {}) {
     ids = typeof ids === "string" ? [ids] : ids;
 
+    // Reproduce core's still-live rollMode→messageMode compatibility shim
+    // (documents/combat.mjs:386-393, {since:14, until:16}). Without it a caller
+    // passing the pre-v14 `messageOptions.rollMode: "gmroll"` — which core 14.365
+    // still honours with a warning — would have that key merged into messageData
+    // (below) where ChatMessage prunes the unknown field, so a whispered save
+    // would post PUBLIC with nothing to explain it.
+    if ("rollMode" in messageOptions) {
+      foundry.utils.logCompatibilityWarning("The rollMode option of Combat#rollInitiative messageOptions is"
+        + " deprecated in favor of the `messageMode` option, a string key of CONFIG.ChatMessage.modes",
+      { since: 14, until: 16 });
+      messageMode = foundry.dice.Roll._mapLegacyRollMode(messageOptions.rollMode);
+      delete messageOptions.rollMode;
+    }
+
     const updates = [];
     const messages = [];
     for (const id of ids) {

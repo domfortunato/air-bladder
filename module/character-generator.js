@@ -2657,6 +2657,13 @@ export const regenerateNpc = async (actor) => {
       age: h.age,
       traits: h.traits,
       critical: false,
+      // A whole new person resets the same defensive/status/wealth fields the
+      // create payload (npcToActorData) sets — omitting them left the OLD npc's
+      // armorOverride, gold, deprived and panicked on the regenerated one.
+      armorOverride: null,
+      gold: 0,
+      deprived: false,
+      panicked: false,
     },
   }, {
     // Regenerating is REPLACING this person, not healing them: clearing

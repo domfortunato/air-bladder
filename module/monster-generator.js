@@ -316,7 +316,14 @@ export const regenerateMonster = async (actor, tierChoice) => {
       abilities: abilityData(m.abilities),
       description: m.description,
       critical: false,
+      // Reset the whole defensive/status set the create payload (monsterToActorData)
+      // writes: a regenerated monster is a NEW creature. `armor` in particular is a
+      // FLOOR the sheet honours (actor.js:696-702), so omitting it left the previous
+      // creature's protection stapled to the new statblock.
+      armor: null,
       armorOverride: null,
+      deprived: false,
+      panicked: false,
     },
   }, {
     // A regenerated monster is a NEW creature, not one that pulled through, so the

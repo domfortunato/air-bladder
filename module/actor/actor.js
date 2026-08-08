@@ -1389,12 +1389,24 @@ export class CairnActor extends Actor {
       }
     }
 
+    // Pre-update state that _onUpdate needs but cannot read back is stashed on
+    // `options`, which travel with the operation to _onUpdate on every client.
+    // KEYED BY DOCUMENT ID: Foundry builds ONE `options` object per operation and
+    // hands the SAME reference to every document's _preUpdate in a batch
+    // (client-backend.mjs:218 destructures it outside the loop, :238 passes it in
+    // each iteration). A flat `options.abWasAlive` would therefore be overwritten
+    // by the last document in the batch, and every sibling's _onUpdate would read
+    // ITS value — a batched STR write could post a death card for the wrong actor.
+    // A per-id sub-object keeps each document's state its own while still crossing
+    // the wire. (`abNoStatusCard` and the like stay flat on `options`: those are
+    // operation-level flags a caller sets for the whole write, not per-document.)
+    const stash = ((options.airBladder ??= {})[this.id] ??= {});
+
     // A changed link must re-render the FORMER owner's sheet too (an unlinked
-    // mule has to vanish from the tab it was on), and by _onUpdate the old
-    // value is gone — stash it on `options`, which travel with the operation
-    // to _onUpdate on every client.
+    // mule has to vanish from the tab it was on), and by _onUpdate the old value
+    // is gone.
     if (changed.system && "connectedTo" in changed.system) {
-      options.airBladderFormerOwners = [this.system.connectedTo].filter(Boolean);
+      stash.formerOwners = [this.system.connectedTo].filter(Boolean);
     }
 
     // Critical Damage and death announce themselves in chat, and both need the
@@ -1406,16 +1418,16 @@ export class CairnActor extends Actor {
     // reason the Kind block above flattens: an update may arrive keyed either way.
     const statusFlat = foundry.utils.flattenObject(changed);
     if ("system.abilities.STR.value" in statusFlat) {
-      options.abWasAlive = Number(this.system.abilities?.STR?.value) > 0;
+      stash.wasAlive = Number(this.system.abilities?.STR?.value) > 0;
     }
-    if ("system.critical" in statusFlat) options.abWasCritical = this.system.critical === true;
+    if ("system.critical" in statusFlat) stash.wasCritical = this.system.critical === true;
     // DEX and WIL take the same shape as death and for exactly the same reason:
     // paralyzed and delirious are DERIVED from the value being 0, so "was it
     // above zero?" cannot be read back afterwards either. One stash object
     // rather than two more flat keys.
     for (const k of ["DEX", "WIL"]) {
       if (`system.abilities.${k}.value` in statusFlat) {
-        (options.abWasAble ??= {})[k] = Number(this.system.abilities?.[k]?.value) > 0;
+        (stash.wasAble ??= {})[k] = Number(this.system.abilities?.[k]?.value) > 0;
       }
     }
 
@@ -1424,10 +1436,12 @@ export class CairnActor extends Actor {
 
   /** @override */
   _onUpdate(changed, options, userId) {
-    this.system.slotsMax = this.calcCurrentMaxSlots();
     super._onUpdate(changed, options, userId);
-    this._synchronizeOwnerSheets(options.airBladderFormerOwners ?? []);
-    this.#announceStatusChange(options, userId);
+    // Per-document pre-update state, keyed by id (see _preUpdate for why a shared
+    // batch `options` cannot carry it flat).
+    const stash = options.airBladder?.[this.id] ?? {};
+    this._synchronizeOwnerSheets(stash.formerOwners ?? []);
+    this.#announceStatusChange(stash, options, userId);
   }
 
   /**
@@ -1443,7 +1457,7 @@ export class CairnActor extends Actor {
    * scar draw (ratified 2026-08-01, see `Damage._showDetails`), so they are not
    * carved out of this either.
    */
-  #announceStatusChange(options, userId) {
+  #announceStatusChange(stash, options, userId) {
     // ONE client posts. `_onUpdate` runs on EVERY connected client, so without
     // this the table gets one card per logged-in user — and with a single
     // browser open that is completely invisible, which is why the probe leg for
@@ -1451,22 +1465,23 @@ export class CairnActor extends Actor {
     if (userId !== game.user.id) return;
     // The damage flow posts its own, in order, after the damage card; the
     // regeneration paths set these fields while REBUILDING a character, which is
-    // neither stabilizing nor killing one.
+    // neither stabilizing nor killing one. Operation-level (a caller sets it for
+    // the whole write), so it stays flat on `options`, not in the per-id stash.
     if (options.abNoStatusCard) return;
 
     const dead = Number(this.system.abilities?.STR?.value) <= 0;
 
-    if (options.abWasCritical !== undefined) {
+    if (stash.wasCritical !== undefined) {
       const now = this.system.critical === true;
       // Death overrides Critical Damage on the sheet (`strCritical && !dead`),
       // so a corpse is never announced as "stabilized".
-      if (now !== options.abWasCritical && !(dead && !now)) {
+      if (now !== stash.wasCritical && !(dead && !now)) {
         postStatusCard(this, now ? "critical" : "stabilized");
       }
     }
     // Alive -> dead only. Nothing asked for a resurrection card, and STR
     // climbing back off 0 is ordinary healing.
-    if (options.abWasAlive === true && dead) postStatusCard(this, "dead");
+    if (stash.wasAlive === true && dead) postStatusCard(this, "dead");
 
     // DEX 0 is paralyzed, WIL 0 is delirious. ONSET ONLY, and that asymmetry
     // with "stabilized" is deliberate: critical is a flag a Warden sets and
@@ -1478,7 +1493,7 @@ export class CairnActor extends Actor {
     // one write must not announce both.
     if (dead) return;
     for (const [k, kind] of [["DEX", "paralyzed"], ["WIL", "delirious"]]) {
-      if (options.abWasAble?.[k] !== true) continue;
+      if (stash.wasAble?.[k] !== true) continue;
       if (Number(this.system.abilities?.[k]?.value) <= 0) postStatusCard(this, kind);
     }
   }
