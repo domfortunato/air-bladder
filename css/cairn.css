@@ -2213,6 +2213,32 @@ textarea.omen-input {
     font-size: var(--font-size-13, 13px);
 }
 
+/* The combat tracker's Cairn buckets. The list wears core's skin; these rules
+   add only the section dividers and the bucket word that replaces the numeric
+   initiative input — no colours of their own (inherit, don't restate). */
+#combat .cairn-bucket-divider {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 8px 0;
+    font-variant: small-caps;
+    letter-spacing: 0.5px;
+    font-size: 12px;
+    opacity: 0.75;
+}
+#combat .cairn-bucket-divider::after {
+    content: "";
+    flex: 1;
+    border-bottom: 1px solid currentColor;
+    opacity: 0.4;
+}
+#combat .cairn-bucket-word {
+    font-variant: small-caps;
+    letter-spacing: 0.3px;
+    font-size: 13px;
+    opacity: 0.9;
+}
+
 /******************************************************************************
  * Grant-source chip + inventory drag-to-reorder.
  ******************************************************************************/

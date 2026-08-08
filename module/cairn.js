@@ -11,7 +11,7 @@ import { generateFaction } from "./faction-generator.js";
 import { importKettlewrightCharacter } from "./kettlewright-import.js";
 import * as kettlewrightImport from "./kettlewright-import.js";
 import { Cairn } from "./config.js";
-import { CairnCombat } from "./combat.js";
+import { CairnCombat, CairnCombatTracker, registerCombatOrderGuard } from "./combat.js";
 import { createCairnMacro, rollItemMacro } from "./macros.js";
 import { Damage, DAMAGE_APPLIED_FLAG, DAMAGE_SOURCE_FLAG } from "./damage.js";
 import { registerWardenDamageControl } from "./warden-damage.js";
@@ -47,6 +47,8 @@ Hooks.once("init", async function () {
   CONFIG.Combat.initiative = {
     formula: "1d20",
   };
+  // The tracker that prints Cairn's buckets as words — see module/combat.js.
+  CONFIG.ui.combat = CairnCombatTracker;
 
   // Register sheet application classes.
   //
@@ -87,6 +89,9 @@ Hooks.once("init", async function () {
 // load on the migration load and self-corrects — recorded, not fixed.
 let settingsNamespaceReady = Promise.resolve();
 Hooks.once("ready", () => {
+  // AT READY on purpose: this hook must register AFTER every module's
+  // init-time hooks so it runs after them — see registerCombatOrderGuard.
+  registerCombatOrderGuard();
   Hooks.on("hotbarDrop", (bar, data, slot) => {
     // Let Foundry place an existing Macro normally; only Items (and other
     // documents) get a Cairn hotbar wrapper. Without this, dragging a Macro made
