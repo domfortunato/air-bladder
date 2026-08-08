@@ -90,7 +90,7 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
 - `module/damage.js` holds Cairn's damage flow
 - Data models in `module/data-models.js` (TypeDataModel; `template.json` is gone,
   sub-types are declared in `system.json` `documentTypes`); 24 compendium packs
-- 21 GM-visible settings in `module/settings.js` (26 `register` calls; `roles-restamped`,
+- 22 GM-visible settings in `module/settings.js` (27 `register` calls; `roles-restamped`,
   `companion-restamped`, `connections-migrated`, `custom-portrait-list` and
   `disabled-backgrounds` are internal, `config: false`) —
   **registration ORDER is load-bearing**, because Foundry's group headers are positional. Two went on

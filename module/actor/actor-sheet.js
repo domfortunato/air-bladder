@@ -642,6 +642,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // Foundry ROLE gate (Actor deletion is Assistant+, no player-grantable
     // permission) and stays isGM — the reason the two were never one flag.
     context.canManageConnections = game.user.isGM || this.actor.isOwner;
+    // The Warden's switch for player shopping (allow-player-marketplace, the
+    // shipped macro's setting). Both sheet templates pass this straight into
+    // the items-list partial's withShop — it was a hardcoded 1 there until the
+    // switch existed. Hiding the button is the affordance; acquire() refusing
+    // is the enforcement (the marketplace's own greying/refusal doctrine), so
+    // a sheet left open across a flip still cannot buy. GM always shops.
+    context.withShop = game.user.isGM || game.settings.get(SETTINGS_NS, "allow-player-marketplace");
     // Per-window id prefix for label[for]/input[id] pairs. Templates hardcoded the
     // field path as the DOM id ("system.gold"), so every open sheet of a type used
     // the SAME ids — and `label[for]` resolves against the first match in tree

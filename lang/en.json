@@ -386,6 +386,7 @@
     "LastBackground": "At least one background must stay enabled.",
     "LastSource": "At least one background source must stay enabled — Cairn 2e has been switched back on.",
     "LeftOverloaded": "You left the marketplace over capacity — HP stays 0 until you free a slot.",
+    "MarketplaceDisabled": "The Warden has closed the marketplace.",
     "MaxSlotsOccupied": "Maximum equipment slots used.",
     "NoActorCreate": "Only the Warden can create containers and transports.",
     "NoConnectables": "No eligible actors to connect — they must be unconnected, not monsters, and yours to change.",
@@ -413,6 +414,8 @@
     "PcGeneratedFor": "Generated {name} for {player}.",
     "PlayerGenOff": "Players can no longer generate characters.",
     "PlayerGenOn": "Players can generate characters again.",
+    "PlayerMarketOff": "The marketplace is closed to players.",
+    "PlayerMarketOn": "The marketplace is open to players again.",
     "PortraitFolderScanned": "Custom portrait folder scanned — {count} image(s) found.",
     "PrintBlocked": "The browser blocked the print window — allow pop-ups for this site and try again.",
     "Took": "Took {name}.",
@@ -530,6 +533,10 @@
     "AllowPlayerGenerate": {
       "hint": "Offer players the Generate PC button in the Actors sidebar. Turn off to hide it from every player mid-session — the shipped 'Toggle Player Generate PC' macro flips this. The Warden's own button never hides.",
       "label": "Let players generate characters"
+    },
+    "AllowPlayerMarketplace": {
+      "hint": "Offer players the Marketplace button on sheets they own. Turn off to close the shop to every player mid-session — the shipped 'Toggle Player Marketplace' macro flips this. The Warden always shops.",
+      "label": "Let players buy and take from the marketplace"
     },
     "CharacterInventoryLimit": {
       "hint": "Equipment limit is defined per character instead of global value.",

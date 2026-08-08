@@ -38,8 +38,8 @@ export const SETTING_KEYS = [
   "custom-portrait-folder", "custom-portrait-list", "min-age",
   "disabled-backgrounds",
   // Inventory & Encumbrance
-  "max-equip-slots", "character-inventory-limit", "use-gold-threshold",
-  "enable-inventory-reorder",
+  "max-equip-slots", "character-inventory-limit", "allow-player-marketplace",
+  "use-gold-threshold", "enable-inventory-reorder",
 ];
 
 /**
@@ -486,6 +486,30 @@ export const registerSettings = () => {
     type: Boolean,
     default: false,
     requiresReload: true,
+  });
+
+  // The Warden's switch for player shopping — the sheet's Marketplace button
+  // and both acquire paths (marketplace.js reads it live; the shipped "Toggle
+  // Player Marketplace" macro flips it). The GM always shops. Sibling of
+  // allow-player-generate in the Generation group; this one lives here
+  // because shopping is an INVENTORY affair. No reload: the onChange fires on
+  // every client and re-renders each open actor sheet, so the button
+  // hides/returns mid-session — and a sheet that somehow keeps a stale button
+  // still cannot buy, because acquire() refuses (the shop's own
+  // affordance/enforcement split).
+  game.settings.register(SETTINGS_NS, "allow-player-marketplace", {
+    name: "CAIRN.Settings.AllowPlayerMarketplace.label",
+    hint: "CAIRN.Settings.AllowPlayerMarketplace.hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+    requiresReload: false,
+    onChange: () => {
+      for (const app of foundry.applications.instances.values()) {
+        if (app.document instanceof Actor && app.rendered) app.render();
+      }
+    },
   });
 
   // Cairn 2e (p.9): coins are heavy. The first N are petty; every further N fills

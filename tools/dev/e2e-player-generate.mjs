@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 /**
- * Player-side Generate PC behaviour: the roll-confirm (and, since the same
- * round, the Warden's on/off switch for the button itself).
+ * Player-side Generate PC behaviour — the roll-confirm and the Warden's two
+ * player switches (allow-player-generate, allow-player-marketplace). The
+ * marketplace legs live HERE rather than in dev:marketplace because that
+ * probe is a single GM page and these legs need this file's two-client
+ * harness — and the Yes-leg's minted character doubles as the owned sheet
+ * the shop button lives on.
  *
  *   npm run dev:playergen     (needs Foundry running, world launched, and
  *                              Alice — `npm run dev:players` seeds her)
@@ -46,9 +50,10 @@ const alErrors = watchErrors(alice);
 let failed = false;
 const fail = (m) => { console.error(`  FAIL  ${m}`); failed = true; };
 const ok = (m) => console.log(`  ok    ${m}`);
-// Captured before the switch legs flip it; restored in the Node-level finally
-// so a throw mid-leg cannot leak a hidden button into the world.
+// Captured before the switch legs flip them; restored in the Node-level finally
+// so a throw mid-leg cannot leak a hidden button or a closed shop into the world.
 let priorSwitch = null;
+let priorMarket = null;
 
 /** Shadow the three content-source reads on one page. mode: "one" | "two". */
 const shadowSources = (page, mode) => page.evaluate((mode) => {
@@ -191,6 +196,128 @@ try {
       ? ok("   …via exactly one generatePC relay emit")
       : fail(`expected exactly 1 generatePC emit, saw ${await emitsOf("generatePC")}`);
   }
+
+  // ---- The marketplace switch, on the Alice-owned character just minted ---
+  // (allow-player-marketplace — the second Warden switch, item-5 of the same
+  // round.) Runs BEFORE the sweep so the sheet under test is a real owned
+  // character, not a fixture. The switch is flipped from the GM client and
+  // restored in the Node-level finally alongside the generate switch.
+  console.log("\nthe marketplace switch");
+  const MKT = "allow-player-marketplace";
+  priorMarket = await gm.evaluate((k) => game.settings.get("air-bladder", k), MKT);
+  const pcId = await gm.evaluate((before) =>
+    game.actors.find((a) => a.type === "character" && !before.actors.includes(a.id))?.id ?? null, before);
+  if (!pcId) fail("no minted character to run the marketplace legs on");
+  else {
+    const shopBtn = () => alice.evaluate((id) =>
+      !!game.actors.get(id)?.sheet?.element?.querySelector?.(".item-shop"), pcId);
+    const waitShopBtn = async (want, ms = 15000) => {
+      const t0 = Date.now();
+      while (Date.now() - t0 < ms) {
+        if (await shopBtn() === want) return true;
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      return false;
+    };
+    await alice.evaluate(async (id) => {
+      game.actors.get(id).sheet.render(true);
+      await new Promise((r) => setTimeout(r, 1500));
+    }, pcId);
+    (await waitShopBtn(true))
+      ? ok("switch on: Alice's owned sheet shows the Marketplace button")
+      : fail("switch on: no Marketplace button on Alice's sheet");
+
+    // Open the shop NOW (allowed), so the flip-off can prove the stale-dialog
+    // case: the greying is the affordance, acquire's refusal the enforcement.
+    await alice.evaluate((id) => {
+      game.actors.get(id).sheet.element.querySelector(".item-shop")?.click();
+    }, pcId);
+    const dialogUp = await (async () => {
+      const t0 = Date.now();
+      // 30s, not 15: the catalog resolves ~70 compendium refs and each
+      // getDocuments call is a server round trip — a cold player cache can
+      // push the open past 15s, which read as "never opened" and then
+      // poisoned the two legs after it when the dialog surfaced late.
+      while (Date.now() - t0 < 30000) {
+        if (await alice.evaluate(() => !!document.querySelector(".marketplace .mkt-row"))) return true;
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      return false;
+    })();
+    dialogUp ? ok("…and the shop opens for them") : fail("the shop did not open while allowed");
+
+    await gm.evaluate((k) => game.settings.set("air-bladder", k, false), MKT);
+    (await waitShopBtn(false))
+      ? ok("flip off: the button left Alice's open sheet, live")
+      : fail("flip off: Alice's sheet still shows the Marketplace button");
+
+    // The dialog opened BEFORE the flip is still on screen — a Take through it
+    // must refuse with the switch message and create nothing.
+    const itemsBefore = await gm.evaluate((id) => game.actors.get(id)?.items.size ?? -1, pcId);
+    const refusal = await alice.evaluate(async () => {
+      // Force the button enabled before clicking — dev:marketplace's own
+      // technique. The greying reflects SLOTS/gold, and a randomly-generated
+      // character is sometimes born encumbered, so a plain click on the
+      // first Take was dice-decided: a disabled button dispatches nothing
+      // and the leg read green/red by the character's inventory luck.
+      const take = document.querySelector(".marketplace .mkt-take");
+      if (take) { take.disabled = false; take.click(); }
+      await new Promise((r) => setTimeout(r, 1500));
+      const want = game.i18n.localize("CAIRN.Notify.MarketplaceDisabled");
+      return [...document.querySelectorAll(".notification")].some((n) => n.textContent.includes(want));
+    });
+    const itemsAfter = await gm.evaluate((id) => game.actors.get(id)?.items.size ?? -1, pcId);
+    refusal && itemsAfter === itemsBefore
+      ? ok("stale dialog: Take refused with the switch message, nothing created")
+      : fail(`stale dialog: refused=${refusal}, items ${itemsBefore}→${itemsAfter}`);
+    await alice.evaluate(async () => {
+      for (const app of [...foundry.applications.instances.values()]) {
+        if (app.element?.querySelector?.(".marketplace")) await app.close();
+      }
+    });
+
+    // The Warden always shops: with the switch off, the GM's own open works.
+    const gmShop = await gm.evaluate(async (id) => {
+      const mkt = await import("/systems/air-bladder/module/marketplace.js");
+      await mkt.openMarketplace(game.actors.get(id));
+      await new Promise((r) => setTimeout(r, 1000));
+      const open = !!document.querySelector(".marketplace .mkt-row");
+      for (const app of [...foundry.applications.instances.values()]) {
+        if (app.element?.querySelector?.(".marketplace")) await app.close();
+      }
+      return open;
+    }, pcId);
+    gmShop ? ok("switch off: the Warden still shops") : fail("switch off closed the WARDEN's shop too");
+
+    // And the door itself: Alice calling openMarketplace directly (the stale
+    // sheet-button path) is refused before any dialog exists. Close any
+    // straggler dialog first — a slow leg-1 open surfacing late must not
+    // read as "the door let her in".
+    await alice.evaluate(async () => {
+      for (const app of [...foundry.applications.instances.values()]) {
+        if (app.element?.querySelector?.(".marketplace")) await app.close();
+      }
+    });
+    const doorRefused = await alice.evaluate(async (id) => {
+      const mkt = await import("/systems/air-bladder/module/marketplace.js");
+      await mkt.openMarketplace(game.actors.get(id));
+      await new Promise((r) => setTimeout(r, 800));
+      const open = !!document.querySelector(".marketplace");
+      const want = game.i18n.localize("CAIRN.Notify.MarketplaceDisabled");
+      const told = [...document.querySelectorAll(".notification")].some((n) => n.textContent.includes(want));
+      return !open && told;
+    }, pcId);
+    doorRefused
+      ? ok("switch off: openMarketplace refuses Alice at the door")
+      : fail("switch off: Alice opened the marketplace directly");
+
+    await gm.evaluate((k) => game.settings.set("air-bladder", k, true), MKT);
+    (await waitShopBtn(true))
+      ? ok("flip on: the button returned to Alice's open sheet, live")
+      : fail("flip on: Alice's Marketplace button did not return");
+    await alice.evaluate((id) => game.actors.get(id)?.sheet?.close(), pcId);
+  }
+
   const swept = await sweep(before);
   console.log(`  (cleaned up: ${swept.named.join(", ") || "nothing"}; ${swept.messages} chat message(s))`);
 
@@ -293,12 +420,13 @@ try {
   errs.length === 0 ? ok("zero console errors across both clients") : fail(`console errors: ${errs.join(" | ")}`);
 } finally {
   clearTimeout(dog);
-  if (priorSwitch !== null) {
+  for (const [key, prior] of [["allow-player-generate", priorSwitch], ["allow-player-marketplace", priorMarket]]) {
+    if (prior === null) continue;
     try {
-      await gm.evaluate((v) => game.settings.set("air-bladder", "allow-player-generate", v), priorSwitch);
-      console.log(`  (allow-player-generate restored to ${priorSwitch})`);
+      await gm.evaluate(([k, v]) => game.settings.set("air-bladder", k, v), [key, prior]);
+      console.log(`  (${key} restored to ${prior})`);
     } catch (e) {
-      console.error(`  COULD NOT RESTORE allow-player-generate (wanted ${priorSwitch}): ${e.message}`);
+      console.error(`  COULD NOT RESTORE ${key} (wanted ${prior}): ${e.message}`);
     }
   }
   await browser.close();
