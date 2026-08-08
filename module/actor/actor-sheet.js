@@ -1854,6 +1854,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       sys.panicked && L("CAIRN.Panicked"),
       sys.critical && L("CAIRN.CriticalDamage"),
     ].filter(Boolean).join(" · ");
+    const traitsProse = this._buildTraitSentence(sys.traits, sys.age);
 
     const isChar = actor.type === "character";
 
@@ -1937,8 +1938,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         gold: sys.gold ?? 0,
       },
       status,
-      traitsProse: this._buildTraitSentence(sys.traits, sys.age),
-      showBackground: !!(backgroundDesc || questions.length),
+      traitsProse,
+      // Kettlewright's two-column band (user rulings 2026-08-08): Stats and
+      // Items on the left; Traits, the background's description and
+      // Connections beside them. With nothing for the right column — a
+      // monster, usually — the band collapses to one column rather than
+      // printing at half width. The Q&A prints full-width below the band.
+      hasSide: !!(traitsProse || backgroundDesc || connections.length),
       backgroundDesc,
       questions,
       connections,

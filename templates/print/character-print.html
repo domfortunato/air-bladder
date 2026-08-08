@@ -2,10 +2,11 @@
 {{!--
   The printable character sheet — one standalone page, modelled on
   Kettlewright's /print/ layout (user-supplied example, 2026-08-08): header,
-  Stats, Inventory (Main + one section per connected holder), then Traits and
-  Background BELOW the items (user ruling 2026-08-08; description + Q&A as
-  separate paragraphs — KW smushes them into one blob, ruled against the same
-  day), Connections, Description, Bonds, Omen, Scars, Notes, Features, and a
+  then KW's two-column band — Stats and Inventory (Main + one section per
+  connected holder) on the left; Traits, the background's description and
+  Connections on the right — then full-width: the background's Q&A as
+  separate paragraphs (KW smushes them into one blob, ruled against
+  2026-08-08), Description, Bonds, Omen, Scars, Notes, Features, and a
   small-type credits footer. Empty sections are OMITTED
   where KW prints placeholders — EXCEPT Notes, whose header always prints so
   the player has somewhere to write at the table (user ruling 2026-08-08).
@@ -59,6 +60,9 @@
   ul.plain { list-style: none; }
   ul.plain li { margin-bottom: 0.35rem; }
   .feature b { font-variant: small-caps; }
+  /* Kettlewright's band: two explicit columns, print-safe (never CSS
+     columns, which fragment unpredictably across page breaks). */
+  .band.has-side { display: grid; grid-template-columns: 11fr 9fr; column-gap: 2rem; align-items: start; }
   /* The source parenthetical sits inside the uppercase background line and
      must not shout with it. */
   .bg-source { font-style: italic; text-transform: none; letter-spacing: normal; font-size: 0.85rem; color: #444; }
@@ -88,6 +92,12 @@
   </div>
 </header>
 
+{{!-- Kettlewright's two-column band (user rulings 2026-08-08): Stats and
+      Items left; Traits, the background's description and Connections right.
+      With nothing for the right column the band collapses to one column
+      (hasSide) rather than printing at half width. --}}
+<div class="band{{#if hasSide}} has-side{{/if}}">
+<div class="col-main">
 <section>
   <h2>{{ localize "CAIRN.PrintStats" }}</h2>
   <div class="stats">
@@ -118,8 +128,10 @@
   </ul>
   {{/each}}
 </section>
+</div>
 
-{{!-- Traits and Background sit BELOW Items (user ruling 2026-08-08). --}}
+{{#if hasSide}}
+<div class="col-side">
 {{#if traitsProse}}
 <section>
   <h2>{{ localize "CAIRN.Traits" }}</h2>
@@ -127,14 +139,12 @@
 </section>
 {{/if}}
 
-{{#if showBackground}}
+{{!-- The background's DESCRIPTION rides the right column under Traits (user
+      ruling 2026-08-08); its Q&A prints full-width below the band. --}}
+{{#if backgroundDesc}}
 <section>
   <h2>{{ localize "CAIRN.Background" }}</h2>
-  {{#if backgroundDesc}}<div class="prose">{{{ backgroundDesc }}}</div>{{/if}}
-  {{#each questions}}
-  <p class="q"><strong>{{ question }}</strong></p>
-  <p class="qa">{{ answer }}</p>
-  {{/each}}
+  <div class="prose">{{{ backgroundDesc }}}</div>
 </section>
 {{/if}}
 
@@ -149,6 +159,19 @@
     </li>
     {{/each}}
   </ul>
+</section>
+{{/if}}
+</div>
+{{/if}}
+</div>
+
+{{#if questions.length}}
+<section>
+  <h2>{{ localize "CAIRN.PrintQuestions" }}</h2>
+  {{#each questions}}
+  <p class="q"><strong>{{ question }}</strong></p>
+  <p class="qa">{{ answer }}</p>
+  {{/each}}
 </section>
 {{/if}}
 

@@ -191,11 +191,16 @@ const r = await page.evaluate(async ({ xssName }) => {
   // custom label is what must print (custom is MEMBERSHIP, not a stored
   // source; the character stores contentSource "2e").
   out.customLabel = `(${game.i18n.localize("CAIRN.PrintSourceCustom")})`;
-  // Traits and Background print BELOW Items (user ruling 2026-08-08).
-  const wanted = ["CAIRN.PrintStats", "CAIRN.Items", "CAIRN.Traits", "CAIRN.Background", "CAIRN.Connections"]
-    .map((k) => game.i18n.localize(k));
-  out.sectionOrder = h2s.filter((h) => wanted.includes(h));
-  out.sectionOrderWanted = wanted;
+  // Kettlewright's band (user rulings 2026-08-08): Stats+Items left; Traits,
+  // the background's description and Connections right; the Q&A full-width
+  // BELOW the band under its own Questions heading.
+  out.bandLeft = [...(doc?.querySelectorAll(".band .col-main h2") ?? [])].map((h) => h.textContent.trim());
+  out.bandRight = [...(doc?.querySelectorAll(".band .col-side h2") ?? [])].map((h) => h.textContent.trim());
+  out.bandLeftWanted = ["CAIRN.PrintStats", "CAIRN.Items"].map((k) => game.i18n.localize(k));
+  out.bandRightWanted = ["CAIRN.Traits", "CAIRN.Background", "CAIRN.Connections"].map((k) => game.i18n.localize(k));
+  out.bandIsGrid = doc ? popup.getComputedStyle(doc.querySelector(".band")).display : null;
+  out.qOutsideBand = !doc?.querySelector(".band p.q")
+    && h2s.includes(game.i18n.localize("CAIRN.PrintQuestions"));
   out.connHeader = h2s.includes(game.i18n.localize("CAIRN.Connections"));
   const connRows = [...(doc?.querySelectorAll("li.conn") ?? [])];
   const falconRow = connRows.find((li) => li.textContent.includes("ZZ Print Falcon"));
@@ -348,8 +353,11 @@ check("the source, parenthetical and italic", r.headerSource === r.customLabel
   `"${r.headerSource}" style=${r.headerSourceItalic} — a world-item background is CUSTOM by membership`);
 check("Barebones is not custom", r.sourcePass2 === r.barebonesLabel,
   `pass2="${r.sourcePass2}" — the plain source-label branch`);
-check("Traits and Background BELOW Items", JSON.stringify(r.sectionOrder) === JSON.stringify(r.sectionOrderWanted),
-  `${JSON.stringify(r.sectionOrder)} — Stats, Items, Traits, Background, Connections`);
+check("KW's two-column band", JSON.stringify(r.bandLeft) === JSON.stringify(r.bandLeftWanted)
+  && JSON.stringify(r.bandRight) === JSON.stringify(r.bandRightWanted) && r.bandIsGrid === "grid",
+  `left=${JSON.stringify(r.bandLeft)} right=${JSON.stringify(r.bandRight)} display=${r.bandIsGrid}`);
+check("Q&A full-width BELOW the band", r.qOutsideBand === true,
+  "under its own Questions heading — never inside a half-width column");
 check("a companion prints in Connections", r.connHeader && r.falconConn,
   `header=${r.connHeader} falcon=${r.falconConn} — stat line (DEX 16) and its description prose`);
 check("a thing gets the line only", r.sackConnLine,
