@@ -387,6 +387,7 @@
     "ChangeLogOff": "The change log is off.",
     "ChangeLogOn": "The change log is on.",
     "CannotConnect": "{name} can't be connected — monsters never join a party's connections.",
+    "CombatDragBucket": "Changing sides is a re-roll of the DEX save, not a drag — reorder a combatant only within its own group.",
     "ConfirmDeleteNamed": "Delete {name}?",
     "ConnectionCycle": "Connecting {name} here would make a loop.",
     "ConnectionLimit": "{name} already keeps {max} connections — unlink something first.",

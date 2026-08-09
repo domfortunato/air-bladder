@@ -2332,6 +2332,24 @@ textarea.omen-input {
     opacity: 0.9;
 }
 
+/* Warden drag-to-reorder within a bucket (2026-08-08). The grab cursor is the
+   affordance on rolled rows; the drop indicator is an inset accent line above
+   or below the hovered row. Cosmetic only — the drop WRITES combatSort flags
+   and the render re-asserts the order. Scoped to the <ol> class, not #combat,
+   so a popped-out tracker keeps the affordance. */
+ol.combat-tracker li.combatant[draggable="true"] {
+    cursor: grab;
+}
+ol.combat-tracker li.combatant.cairn-dragging {
+    opacity: 0.5;
+}
+ol.combat-tracker li.combatant.cairn-drop-above {
+    box-shadow: inset 0 2px 0 var(--ab-accent);
+}
+ol.combat-tracker li.combatant.cairn-drop-below {
+    box-shadow: inset 0 -2px 0 var(--ab-accent);
+}
+
 /******************************************************************************
  * Grant-source chip + inventory drag-to-reorder.
  ******************************************************************************/

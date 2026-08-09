@@ -9,9 +9,13 @@
     its section;
   - the initiative block renders the bucket WORD where core renders a numeric
     <input class="initiative-input">. 1 / 0 / −1 is an encoding, not
-    information, and order inside a bucket is table talk — there is nothing to
-    edit. An UNROLLED combatant keeps core's roll button: that is the state
-    where a gesture is owed.
+    information. An UNROLLED combatant keeps core's roll button: that is the
+    state where a gesture is owed;
+  - rolled rows are draggable for the Warden — reorder WITHIN a bucket only
+    (combat.js #onDropReorder; ruling 2026-08-08, superseding the same-day
+    "order inside a bucket is table talk" — table talk survives as the
+    default when nobody drags). Unrolled rows are not draggable: their state
+    is the roll button, not a position.
 
   Everything else is core's markup verbatim, including its localization keys.
 --}}
@@ -20,7 +24,8 @@
     {{#if bucketHeader}}
     <li class="cairn-bucket-divider">{{ bucketHeader }}</li>
     {{/if}}
-    <li class="combatant {{ css }}" data-combatant-id="{{ id }}" data-action="activateCombatant">
+    <li class="combatant {{ css }}" data-combatant-id="{{ id }}" data-action="activateCombatant"
+        {{#if bucketWord}}{{#if @root.user.isGM}}draggable="true"{{/if}}{{/if}}>
         {{!-- Image --}}
         <img class="token-image" src="{{ img }}" alt="{{ name }}" loading="lazy">
 

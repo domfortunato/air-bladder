@@ -2,11 +2,13 @@
  * Cairn's turn order in Foundry's tracker.
  *
  * Cairn has no initiative queue: each party member makes a DEX save at the
- * start of combat — pass acts before the enemies, fail acts after — and order
- * inside a bucket is table talk. The buckets are stored as initiative
- * 1 / 0 / −1 (core's descending sort orders them by itself), the save posts an
- * HONEST card ("DEX save 8 vs 13: acts before the enemies"), and the tracker
- * prints words and section dividers where core prints a numeric input.
+ * start of combat — pass acts before the enemies, fail acts after. The buckets
+ * are stored as initiative 1 / 0 / −1 (core's descending sort orders them by
+ * itself), the save posts an HONEST card ("DEX save 8 vs 13: acts before the
+ * enemies"), and the tracker prints words and section dividers where core
+ * prints a numeric input. Since 2026-08-08 the Warden may DRAG rows to
+ * reorder WITHIN a bucket (combatSort flags; cross-bucket refuses — changing
+ * sides is a re-roll, not a drag), which section 4 covers.
  *
  * THE SAVE IS DETERMINISTIC WITHOUT STUBBING A DIE: DEX 20 cannot fail a d20
  * save and DEX 0 cannot pass one, so every bucket is forced by fixture — no
@@ -251,6 +253,148 @@ check("her save lands", alice.threw === null && alice.mine === 1,
   `threw=${alice.threw} initiative=${alice.mine} — DEX 20 cannot fail`);
 check("the unowned id is skipped, NOT passed", alice.other === null,
   `initiative=${alice.other} — null <= DEX is true, so the old code put exactly this combatant in the acts-first bucket`);
+
+/* ---------------------------------------------------------------------------
+ * 4. Warden drag-to-reorder, WITHIN buckets only.
+ *
+ * The drop handler writes combatSort flags in ONE batch and the render
+ * re-asserts (enforceTurnOrder un-does any DOM-only move on the next render,
+ * so a drag that failed to WRITE would visibly snap back — that is what the
+ * "rendered rows follow" leg would catch). Cross-bucket refuses with a toast:
+ * the bucket is the DEX save's outcome. Real DragEvents on the real rows, so
+ * the listeners are exercised, not the handler called directly. By this point
+ * Alice has rolled ZZ Init Mine (section 3), so the first bucket holds FOUR
+ * rows and ZZ Init Unrolled is the one unrolled row left.
+ * ------------------------------------------------------------------------- */
+console.log("\nthe Warden drags within a bucket");
+const drag = await page.evaluate(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const r = {};
+  const combat = game.combats.find((c) => c.combatants.some((x) => x.name === "ZZ Init Pass"));
+  ui.sidebar.expand();
+  ui.sidebar.changeTab("combat", "primary");
+  await ui.combat.render({ force: true });
+  await sleep(600);
+  const root = document.querySelector("#combat");
+  const rowOf = (n) => [...root.querySelectorAll("li.combatant")]
+    .find((li) => li.querySelector(".name")?.textContent.trim() === n);
+  const firstNames = () => combat.turns.filter((c) => c.initiative === 1).map((c) => c.name);
+  const domNames = () => [...root.querySelectorAll("li.combatant")]
+    .map((li) => li.querySelector(".name")?.textContent.trim());
+  const drive = (sName, dName, below = true) => {
+    const src = rowOf(sName);
+    const dst = rowOf(dName);
+    const dt = new DataTransfer();
+    const rect = dst.getBoundingClientRect();
+    const y = below ? rect.bottom - 2 : rect.top + 2;
+    src.dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer: dt }));
+    dst.dispatchEvent(new DragEvent("dragover", { bubbles: true, dataTransfer: dt, clientY: y }));
+    dst.dispatchEvent(new DragEvent("drop", { bubbles: true, dataTransfer: dt, clientY: y }));
+    src.dispatchEvent(new DragEvent("dragend", { bubbles: true, dataTransfer: dt }));
+  };
+
+  // Draggability is bucket-gated in the template.
+  r.rolledDraggable = rowOf("ZZ Init Pass")?.getAttribute("draggable") === "true";
+  r.unrolledDraggable = rowOf("ZZ Init Unrolled")?.getAttribute("draggable") ?? null;
+
+  // Reorder: the first bucket's top row dropped below its last row.
+  r.before = firstNames();
+  let batches = 0;
+  const origUED = combat.updateEmbeddedDocuments.bind(combat);
+  combat.updateEmbeddedDocuments = (...a) => { batches++; return origUED(...a); };
+  drive(r.before[0], r.before[r.before.length - 1], true);
+  for (let i = 0; i < 40 && firstNames().at(-1) !== r.before[0]; i++) await sleep(150);
+  delete combat.updateEmbeddedDocuments;
+  r.after = firstNames();
+  r.batches = batches;
+  r.flags = combat.turns.filter((c) => c.initiative === 1)
+    .map((c) => c.flags?.["air-bladder"]?.combatSort ?? null);
+  await sleep(700); // let the re-render (and the order guard behind it) land
+  r.domFirstBucket = domNames().slice(0, r.after.length);
+
+  // Cross-bucket: the enemy row dropped into the first bucket refuses.
+  const warned = [];
+  const origWarn = ui.notifications.warn;
+  ui.notifications.warn = (m, ...rest) => { warned.push(String(m)); return origWarn.call(ui.notifications, m, ...rest); };
+  const snapshot = () => JSON.stringify(combat.turns.map(
+    (c) => `${c.name}:${c.initiative}:${c.flags?.["air-bladder"]?.combatSort ?? ""}`));
+  const beforeCross = snapshot();
+  drive("ZZ Init Foe", r.after[0], false);
+  await sleep(1200);
+  r.crossUnchanged = snapshot() === beforeCross;
+  r.crossWarned = warned.slice();
+  r.expectedToast = game.i18n.localize("CAIRN.Notify.CombatDragBucket");
+
+  // An unrolled row is not a drop anchor either — its state is the roll button.
+  const beforeNull = snapshot();
+  drive(r.after[0], "ZZ Init Unrolled", true);
+  await sleep(1000);
+  ui.notifications.warn = origWarn;
+  r.nullAnchorUnchanged = snapshot() === beforeNull;
+
+  // Turn pointer: with combat STARTED and B active, reordering A must not
+  // hand the turn to whoever inherits B's index.
+  await combat.startCombat();
+  await sleep(400);
+  const bucketNow = firstNames();
+  const B = combat.turns[1];
+  await combat.update({ turn: 1 });
+  await sleep(300);
+  r.activeBefore = combat.combatant?.name;
+  r.bName = B.name;
+  drive(combat.turns[0].name, bucketNow[bucketNow.length - 1], true);
+  // Poll for the ORDER change, never for "B is active" — B was active BEFORE
+  // the drop too, so that condition is satisfiable at t=0 and the first run
+  // of this leg read combat.turn mid-flight, before the restore write landed
+  // (the stale-precondition lesson). B moving to index 0 is the state only
+  // the reorder plus the restore can produce.
+  for (let i = 0; i < 40 && !(combat.turns[0]?.id === B.id && combat.combatant?.id === B.id); i++) await sleep(150);
+  r.activeAfter = combat.combatant?.name;
+  r.turnIndex = combat.turn;
+  return r;
+});
+
+check("rolled rows are draggable, unrolled are NOT", drag.rolledDraggable && drag.unrolledDraggable !== "true",
+  `rolled=${drag.rolledDraggable} unrolled=${JSON.stringify(drag.unrolledDraggable)} — the unrolled row's state is the roll button, not a position`);
+check("a drag moves the row to the bucket's end, in ONE batch",
+  drag.after.length === drag.before.length && drag.after.at(-1) === drag.before[0] && drag.batches === 1,
+  `before=${JSON.stringify(drag.before)} after=${JSON.stringify(drag.after)} batches=${drag.batches}`);
+check("the drop renumbers the whole bucket", JSON.stringify(drag.flags) === JSON.stringify(drag.flags.map((_, i) => (i + 1) * 10)),
+  `${JSON.stringify(drag.flags)} — one write, every client re-sorts off the flags`);
+check("the rendered rows follow the write", JSON.stringify(drag.domFirstBucket) === JSON.stringify(drag.after),
+  `dom=${JSON.stringify(drag.domFirstBucket)} turns=${JSON.stringify(drag.after)} — the render, not the drag, is the truth`);
+check("a cross-bucket drop refuses with the toast",
+  drag.crossUnchanged && drag.crossWarned.includes(drag.expectedToast),
+  `unchanged=${drag.crossUnchanged} warned=${JSON.stringify(drag.crossWarned)}`);
+check("an unrolled row is not a drop anchor", drag.nullAnchorUnchanged, "nothing written, nothing moved");
+check("mid-combat, a reorder keeps the active combatant",
+  drag.activeBefore === drag.bName && drag.activeAfter === drag.bName && drag.turnIndex === 0,
+  `before=${drag.activeBefore} after=${drag.activeAfter} turn=${drag.turnIndex} (B=${drag.bName}) — setupTurns keeps turn as a numeric INDEX, so without the restore the turn lands on whoever inherits it`);
+
+// The order is document-level, so a SECOND client must read the same bucket
+// order with no tracker open at all.
+const second = { ran: false };
+try {
+  const alicePage2 = await browser.newPage({ viewport: VIEWPORT });
+  await joinAs(alicePage2, "Alice");
+  Object.assign(second, await alicePage2.evaluate(async () => {
+    const combat = game.combats.find((c) => c.combatants.some((x) => x.name === "ZZ Init Pass"));
+    if (!combat) return { ran: false };
+    return { ran: true, first: combat.turns.filter((c) => c.initiative === 1).map((c) => c.name) };
+  }));
+  await alicePage2.close();
+} catch (e) {
+  second.error = `${e.name}: ${e.message}`;
+}
+// The turn-pointer leg reordered the bucket again after `drag.after` was
+// taken, so compare against the GM's CURRENT order, read fresh.
+const gmNow = await page.evaluate(() => {
+  const combat = game.combats.find((c) => c.combatants.some((x) => x.name === "ZZ Init Pass"));
+  return combat.turns.filter((c) => c.initiative === 1).map((c) => c.name);
+});
+check("a second client reads the same order", second.ran && !second.error
+  && JSON.stringify(second.first) === JSON.stringify(gmNow),
+  second.error ?? `alice=${JSON.stringify(second.first)} gm=${JSON.stringify(gmNow)}`);
 
 /* ----------------------------------------------------------- teardown ---- */
 await page.evaluate(async (ids) => {

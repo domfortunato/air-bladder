@@ -2,10 +2,17 @@
  * Cairn's turn order, spoken by Foundry's tracker.
  *
  * Cairn has no initiative queue. At the start of combat each party member makes
- * a DEX save: pass and you act before the enemies, fail and you act after.
- * Order inside a bucket is table talk, on purpose — the tracker does not manage
- * it (user ruling 2026-08-08), and the save is rolled once when combat starts,
- * not per round.
+ * a DEX save: pass and you act before the enemies, fail and you act after. The
+ * save is rolled once when combat starts, not per round.
+ *
+ * Order INSIDE a bucket: the Warden may drag rows to reorder within a bucket
+ * (`flags.air-bladder.combatSort`, written by the tracker's drop handler,
+ * read by _sortCombatants). This SUPERSEDES the same-day ruling that order
+ * inside a bucket is table talk the tracker does not manage (both rulings
+ * 2026-08-08, the second with the tracker in actual play) — table talk
+ * survives as the default when nobody drags, since an absent flag reads 0.
+ * The bucket itself stays the DEX save's outcome: changing sides is a
+ * re-roll, never a drag, and the drop handler refuses across buckets.
  *
  * The buckets are encoded as initiative 1 / 0 / −1, which the fork-era version
  * of this file already did and which is the part worth keeping: core's sort is
@@ -148,6 +155,25 @@ export class CairnCombat extends Combat {
     if (messages.length) await foundry.documents.ChatMessage.implementation.create(messages);
     return this;
   }
+
+  /**
+   * Bucket first (1 > 0 > −1, null to the bottom — core's descending sort,
+   * kept verbatim), then the Warden's drag order (`combatSort`, ascending),
+   * then core's id tiebreak. An absent flag reads 0, so every existing combat
+   * keeps today's order with no migration; the initiative term compares
+   * unequal for any cross-bucket pair (and for legacy hand-typed values
+   * inside one), so combatSort can never promote a row across a bucket
+   * boundary — the comparator itself enforces what the drop handler refuses.
+   * @override
+   */
+  _sortCombatants(a, b) {
+    const ia = Number.isNumeric(a.initiative) ? a.initiative : -Infinity;
+    const ib = Number.isNumeric(b.initiative) ? b.initiative : -Infinity;
+    if (ia !== ib) return ib - ia;
+    const sa = a.flags?.["air-bladder"]?.combatSort ?? 0;
+    const sb = b.flags?.["air-bladder"]?.combatSort ?? 0;
+    return (sa - sb) || (a.id > b.id ? 1 : -1);
+  }
 }
 
 /* -------------------------------------------- */
@@ -217,6 +243,106 @@ export class CairnCombatTracker extends foundry.applications.sidebar.tabs.Combat
     }
   }
 
+  /** @override */
+  async _onRender(context, options) {
+    await super._onRender(context, options);
+    this.#bindDragReorder();
+  }
+
+  /** The combatant id a drag has picked up, between dragstart and drop. */
+  #dragId = null;
+
+  /**
+   * Warden drag-to-reorder, WITHIN a bucket (ruling 2026-08-08 — see the file
+   * header). Drags WRITE and the render re-asserts: enforceTurnOrder re-appends
+   * every row in turns order after each render, so a drag that only moved DOM
+   * nodes would be un-done on the next one. The drop renumbers the whole
+   * bucket in ONE batch — one write, one setupTurns, every client re-sorts —
+   * and the indicator classes are cosmetic. Listeners go on the <ol>, which
+   * the render rebuilds, so nothing stacks.
+   */
+  #bindDragReorder() {
+    if (!game.user.isGM) return;
+    const ol = this.element.querySelector("ol.combat-tracker");
+    if (!ol) return;
+    const clearMarks = () => {
+      for (const el of ol.querySelectorAll(".cairn-drop-above, .cairn-drop-below, .cairn-dragging")) {
+        el.classList.remove("cairn-drop-above", "cairn-drop-below", "cairn-dragging");
+      }
+    };
+    ol.addEventListener("dragstart", (ev) => {
+      const row = ev.target.closest?.('li.combatant[draggable="true"]');
+      if (!row) return;
+      this.#dragId = row.dataset.combatantId;
+      ev.dataTransfer?.setData("text/plain", this.#dragId);
+      if (ev.dataTransfer) ev.dataTransfer.effectAllowed = "move";
+      row.classList.add("cairn-dragging");
+    });
+    ol.addEventListener("dragover", (ev) => {
+      if (!this.#dragId) return;
+      const row = ev.target.closest?.("li.combatant[data-combatant-id]");
+      for (const el of ol.querySelectorAll(".cairn-drop-above, .cairn-drop-below")) {
+        el.classList.remove("cairn-drop-above", "cairn-drop-below");
+      }
+      if (!row || row.dataset.combatantId === this.#dragId) return;
+      ev.preventDefault(); // a drop is allowed here; refusal is decided on drop
+      const rect = row.getBoundingClientRect();
+      const after = ev.clientY > rect.top + rect.height / 2;
+      row.classList.add(after ? "cairn-drop-below" : "cairn-drop-above");
+    });
+    ol.addEventListener("drop", (ev) => {
+      ev.preventDefault();
+      const sourceId = this.#dragId ?? ev.dataTransfer?.getData("text/plain");
+      this.#dragId = null;
+      const row = ev.target.closest?.("li.combatant[data-combatant-id]");
+      clearMarks();
+      if (sourceId && row) this.#onDropReorder(sourceId, row, ev.clientY);
+    });
+    ol.addEventListener("dragend", () => {
+      this.#dragId = null;
+      clearMarks();
+    });
+  }
+
+  /**
+   * Resolve a drop: refuse across buckets, renumber the bucket within.
+   * @param {String} sourceId   the dragged combatant's id
+   * @param {HTMLElement} targetRow  the row the drop landed on
+   * @param {Number} clientY    the drop point, for the above/below decision
+   */
+  async #onDropReorder(sourceId, targetRow, clientY) {
+    const combat = this.viewed;
+    const source = combat?.combatants.get(sourceId);
+    const target = combat?.combatants.get(targetRow.dataset.combatantId);
+    if (!source || !target || source === target) return;
+    const bucket = initiativeBucket(source.initiative);
+    // Cross-bucket refuses — the bucket is the DEX save's outcome, and
+    // changing sides is a re-roll, not a drag. An unrolled target (bucket
+    // null) refuses the same way: its state is the roll button.
+    if (!bucket || initiativeBucket(target.initiative) !== bucket) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.CombatDragBucket"));
+      return;
+    }
+    const rect = targetRow.getBoundingClientRect();
+    const after = clientY > rect.top + rect.height / 2;
+    const members = combat.turns.filter(
+      (c) => initiativeBucket(c.initiative) === bucket && c.id !== sourceId);
+    const idx = members.findIndex((c) => c.id === target.id) + (after ? 1 : 0);
+    members.splice(idx, 0, source);
+    const updates = members.map((c, i) => ({ _id: c.id, "flags.air-bladder.combatSort": (i + 1) * 10 }));
+    const currentId = combat.started ? combat.combatant?.id : null;
+    await combat.updateEmbeddedDocuments("Combatant", updates, { turnEvents: false });
+    // setupTurns keeps `turn` as a NUMERIC INDEX (combat.mjs:488-503 — it
+    // never re-finds the current combatant by id), so a mid-combat reorder
+    // can silently hand the turn to whoever now holds that index. Restore it
+    // to the combatant whose turn it was; turnEvents: false so the correction
+    // fires no phantom start/end-of-turn events. Written only when the
+    // pointer actually moved.
+    if (currentId && combat.combatant?.id !== currentId) {
+      const turn = combat.turns.findIndex((c) => c.id === currentId);
+      if (turn >= 0) await combat.update({ turn }, { turnEvents: false });
+    }
+  }
 }
 
 /**
