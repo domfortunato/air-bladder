@@ -370,6 +370,36 @@ const unlabelled = CATEGORY_LABELS.flatMap(({ manifest, prefix }) => {
     .filter((r) => !enSet.has(r.label));
 });
 
+/**
+ * Pack LABELS in system.json — a fourth key producer the three classes above
+ * are all blind to.
+ *
+ * Foundry localizes `metadata.label` per viewer when the collection is built
+ * (compendium-collection.mjs:46), so a CAIRN.* key in a pack's `label` is the
+ * supported route, and the manifest is scanned in both directions: a
+ * key-shaped label is a REFERENCE (fed into `used`, so `missing` catches a
+ * key en.json lacks — which every client would render as the literal key —
+ * and `unused` stops calling the 24 CAIRN.Pack.* strings dead), and a
+ * non-key label is hardcoded English on a user-visible surface, reported
+ * beside scanJs's findings.
+ *
+ * `packFolders` names are deliberately NOT held to this. The server writes a
+ * packFolder's name VERBATIM into a real world Folder document at world init
+ * (dist/packages/world.mjs — db.Folder.createDocuments, matched across
+ * launches by the dot-joined hierarchyName), nothing localizes a Folder
+ * document's name, and one shared document serves every viewer's language —
+ * so a key there would BE the sidebar text. Folder names stay English by
+ * mechanism, not oversight; the review #13 claim that they share the pack
+ * labels' route was checked against the server and refuted.
+ */
+const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, "system.json"), "utf8"));
+const packLabels = [];
+for (const p of manifest.packs ?? []) {
+  const label = String(p.label ?? "");
+  if (/^CAIRN\./.test(label)) used.set(label, `system.json pack "${p.name}"`);
+  else packLabels.push({ site: `system.json pack "${p.name}"`, what: `hardcoded label ${JSON.stringify(label)} — core localizes metadata.label, use a CAIRN.Pack.* key` });
+}
+
 const missing = [...used.keys()].filter((k) => !enSet.has(k) && !CORE_SUPPLIED.has(k));
 const unused = en.filter(
   (k) =>
@@ -424,8 +454,9 @@ list("keys used but missing from en.json", missing, (k) => `${k}   @ ${used.get(
 list("keys in en.json nothing references", unused, (k) => k);
 list("hardcoded user-visible strings", hardcoded, (h) => `${h.site}   ${h.what}`);
 list("manifest categories with no label key", unlabelled, (r) => `${r.key}   needs ${r.label}`);
+list("hardcoded pack labels in system.json", packLabels, (r) => `${r.site}   ${r.what}`);
 list("unescaped {{{ }}} inside an HTML attribute", rawAttrs, (r) => `${r.site}   ${r.what}`);
 
-const bad = missing.length + unused.length + hardcoded.length + unlabelled.length + rawAttrs.length;
+const bad = missing.length + unused.length + hardcoded.length + unlabelled.length + packLabels.length + rawAttrs.length;
 console.log(bad ? `\n${bad} problem(s).\n` : "");
 process.exit(bad ? 1 : 0);
