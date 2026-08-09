@@ -377,8 +377,8 @@
   "CAIRN.NoItemToDelete": "Cannot find Item to delete.",
   "CAIRN.NoneYet": "NONE YET",
   "CAIRN.Notes": "Notes",
-  "CAIRN.NotesPlaceholder": "Put notes about this character here.",
-  "CAIRN.NotesPlaceholderMonster": "Put notes about this monster here.",
+  "CAIRN.NotesPlaceholder": "Click here to add notes about this character.",
+  "CAIRN.NotesPlaceholderMonster": "Click here to add notes about this monster.",
   "CAIRN.Notify": {
     "ApplyDamageWardenOnly": "Only the Warden can apply damage.",
     "BackgroundNotCharacter": "Only a player character has a background.",

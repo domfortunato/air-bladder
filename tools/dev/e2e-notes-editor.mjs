@@ -58,9 +58,9 @@ try {
   // CLICK-AWAY (bindEditorClickAwaySave covers active toggled editors), then a
   // re-open proves the display half serves the prose instead of the hint.
   for (const { label, type, system, expectHint } of [
-    { label: "character (toggled since 2026-08-02)", type: "character", system: {}, expectHint: "Put notes about this character here." },
-    { label: "hireling (npc sheet, person)", type: "hireling", system: {}, expectHint: "Put notes about this character here." },
-    { label: "npc, role monster", type: "npc", system: { role: "monster" }, expectHint: "Put notes about this monster here." },
+    { label: "character (toggled since 2026-08-02)", type: "character", system: {}, expectHint: "Click here to add notes about this character." },
+    { label: "hireling (npc sheet, person)", type: "hireling", system: {}, expectHint: "Click here to add notes about this character." },
+    { label: "npc, role monster", type: "npc", system: { role: "monster" }, expectHint: "Click here to add notes about this monster." },
   ]) {
     console.log(`\n${label}`);
     const field = "system.notes";
@@ -146,6 +146,95 @@ try {
       ? ok("re-opened: the display half serves the prose", "hint gone")
       : fail("re-opened: the display half serves the prose", JSON.stringify({ hintGone: after.hintGone, displayShows: after.displayShows }));
   }
+
+  /* ---------------------------------------------------- */
+  /*  Discoverability (2026-08-08): field look, pencil,    */
+  /*  click-to-edit on the EMPTY area only                 */
+  /* ---------------------------------------------------- */
+
+  // Players did not notice the editor: an inactive toggled editor reads as
+  // static text, and core's pencil is display:none until the editor is
+  // HOVERED. So the empty state now reads as a field (border + wash), the
+  // pencil shows unhovered in palette colours, and a click on the empty
+  // display area activates the editor — but with CONTENT present, clicks stay
+  // inert so text selection and links keep working, and the pencil is the way
+  // in. Colour is compared against the token the page itself resolves, so the
+  // legs are scheme-agnostic.
+  console.log("\ndiscoverability (character notes tab)");
+  const disco = await page.evaluate(async () => {
+    for (const a of game.actors.filter((a) => a.name.startsWith("ZZ Notes"))) await a.delete();
+    const actor = await CONFIG.Actor.documentClass.create({ name: "ZZ Notes disco", type: "character" });
+    await actor.update({ "system.notes": "" });
+    const hexToRgb = (h) => {
+      const m = h.trim().match(/^#?([0-9a-f]{6})$/i);
+      if (!m) return h.trim();
+      const n = parseInt(m[1], 16);
+      return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
+    };
+    const openOnNotes = async () => {
+      await actor.sheet.render(true);
+      for (let i = 0; i < 40 && !actor.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 700));
+      actor.sheet.element.querySelector('.tabs .item[data-tab="notes"]')?.click();
+      await new Promise((r) => setTimeout(r, 400));
+      return actor.sheet.element.querySelector('prose-mirror[name="system.notes"]');
+    };
+    const out = {};
+
+    // Empty state: field look + unhovered pencil.
+    let pm = await openOnNotes();
+    const cs = getComputedStyle(pm);
+    out.field = { borderStyle: cs.borderStyle, background: cs.backgroundColor };
+    const btn = pm.querySelector("button.toggle");
+    const bcs = btn ? getComputedStyle(btn) : null;
+    out.pencil = btn
+      ? { display: bcs.display, color: bcs.color, muted: hexToRgb(bcs.getPropertyValue("--ab-muted")) }
+      : null;
+
+    // Click-to-edit: a click on the placeholder (empty display area, not the
+    // pencil) must activate the editor.
+    pm.querySelector(".cairn-editor-placeholder")?.click();
+    out.clickActivates = false;
+    for (let i = 0; i < 30 && !out.clickActivates; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+      out.clickActivates = pm.classList.contains("active");
+    }
+
+    // Content boundary: with notes present, a click ON the text stays inert;
+    // the pencil still opens it. Fresh render so the editor starts inactive.
+    await actor.sheet.close();
+    await actor.update({ "system.notes": "<p>Existing prose the player may want to select.</p>" });
+    pm = await openOnNotes();
+    pm.querySelector(".editor-content")?.click();
+    await new Promise((r) => setTimeout(r, 800));
+    out.contentClickInert = pm.classList.contains("inactive");
+    pm.querySelector("button.toggle")?.click();
+    out.pencilOpens = false;
+    for (let i = 0; i < 30 && !out.pencilOpens; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+      out.pencilOpens = pm.classList.contains("active");
+    }
+
+    await actor.sheet.close();
+    await actor.delete();
+    return out;
+  });
+
+  disco.field.borderStyle !== "none" && disco.field.background !== "rgba(0, 0, 0, 0)"
+    ? ok("the empty notes editor reads as a field", `border ${disco.field.borderStyle}, bg ${disco.field.background}`)
+    : fail("the empty notes editor reads as a field", JSON.stringify(disco.field));
+  disco.pencil && disco.pencil.display === "block" && disco.pencil.color === disco.pencil.muted
+    ? ok("the pencil is visible UNHOVERED, in the palette colour", disco.pencil.color)
+    : fail("the pencil is visible UNHOVERED, in the palette colour", JSON.stringify(disco.pencil));
+  disco.clickActivates
+    ? ok("a click on the empty display area activates the editor")
+    : fail("a click on the empty display area activates the editor", "still inactive after the click");
+  disco.contentClickInert
+    ? ok("with content present, a click on the text stays inert", "selection and links keep working")
+    : fail("with content present, a click on the text stays inert", "the click activated the editor");
+  disco.pencilOpens
+    ? ok("...and the pencil still opens it")
+    : fail("...and the pencil still opens it", "pencil click did not activate");
 
   /* -------------------------------------------- */
   /*  Item sheets — closing must not eat the text  */

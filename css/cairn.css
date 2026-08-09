@@ -611,6 +611,41 @@
     color: var(--ab-faint);
 }
 
+/* The INACTIVE Notes editor reads as a FIELD (both actor sheets, 2026-08-08):
+   players did not notice the editor at all, because an inactive toggled editor
+   is indistinguishable from static page text. Border + wash + radius say
+   "this is an input"; the click-to-edit binding in _onRender makes the empty
+   area act like one. Kept separate from the pencil block below so each
+   probe witness disables exactly one thing. */
+.cairn .tab[data-tab="notes"] prose-mirror.inactive {
+    border: 1px solid var(--ab-edge);
+    background: var(--ab-wash);
+    border-radius: 6px;
+}
+.cairn .tab[data-tab="notes"] prose-mirror.inactive .editor-content {
+    /* Core pads the display half right-only (0.5rem, unlayered —
+       foundry2.css:13592), which jams text against the new border. */
+    padding: 0 10px !important;
+}
+
+/* The pencil is core's ONLY affordance for a toggled editor, and core keeps it
+   `display: none` until the editor is HOVERED (foundry2.css:13564-13579) —
+   invisible is not an affordance. On the notes tab it shows whenever the
+   editor is inactive, in palette colours that survive dark mode. `:enabled`
+   is load-bearing: activation disables the button, and without the guard the
+   `display` override would beat core's `[disabled] { display: none }` and
+   leave a dead pencil floating over the open editor. !important throughout —
+   core's rules are unlayered, this file is @layer system. */
+.cairn .tab[data-tab="notes"] prose-mirror.inactive > button.icon.toggle:enabled {
+    display: block !important;
+    color: var(--ab-muted) !important;
+    top: 6px !important;
+    right: 6px !important;
+}
+.cairn .tab[data-tab="notes"] prose-mirror.inactive > button.icon.toggle:enabled:hover {
+    color: var(--ab-accent) !important;
+}
+
 /* The two generation buttons carry TEXT, unlike Foundry's own frame buttons.
    This rule is COSMETIC ONLY -- measured, not assumed. Foundry's
    `.application .window-header button.header-control` sets --button-size:1.5rem,

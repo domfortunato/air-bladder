@@ -1350,6 +1350,22 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // when the Warden has enabled per-character limits.
     on("#set-equipment-limit", "dblclick", (ev) => this._onSetEquipmentLimit(ev));
 
+    // Click-to-edit on the EMPTY Notes display (both sheets, 2026-08-08): a
+    // toggled editor's only core affordance is the pencil, so an empty notes
+    // area activates on a click anywhere in the display half — through core's
+    // own toggle button, never a reimplemented activation. With content
+    // present clicks stay inert (text selection and links keep working) and
+    // the now-visible pencil is the way in. The emptiness test is the
+    // placeholder element itself: the template renders it exactly when the
+    // stored notes are empty.
+    on('.tab[data-tab="notes"] prose-mirror', "click", (ev) => {
+      const pm = ev.currentTarget;
+      if (!pm.classList.contains("inactive")) return;
+      if (ev.target.closest("a, button")) return;
+      if (!pm.querySelector(".cairn-editor-placeholder")) return;
+      pm.querySelector("button.toggle")?.click();
+    });
+
     // Stat inputs (HP + abilities, current & max) are numeric and capped 0-18.
     on(".stat-input", "change", (ev) => {
       const input = ev.currentTarget;
