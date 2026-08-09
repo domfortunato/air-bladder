@@ -1364,8 +1364,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * `submitOnChange` is on.
    * @override
    */
-  _onFirstRender(context, options) {
-    super._onFirstRender(context, options);
+  async _onFirstRender(context, options) {
+    // Await the async super (review #13 #22): DocumentSheetV2's registers the
+    // sheet in `document.apps` AFTER its own await, and the framework awaits
+    // this handler (application.mjs:589) — a sync override dropped that
+    // promise, so the registration landed after first-render supposedly
+    // finished and a rejection in super's chain was unhandled.
+    await super._onFirstRender(context, options);
     bindEditorClickAwaySave(this.element);
   }
 
