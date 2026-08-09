@@ -463,13 +463,18 @@ try {
     // directory always lists container actors, so a toggle for hiding them
     // governed nothing a Warden should switch. Both removed rather than left
     // registered, exactly as `show-containers-tab` was.
-    "Inventory & Encumbrance": ["max-equip-slots", "character-inventory-limit", "use-gold-threshold",
-      "enable-inventory-reorder"],
+    // The three Warden switches of the 2026-08-08 batch: allow-player-marketplace
+    // beside the inventory limit it polices, allow-player-generate beside the
+    // Generate-header toggle (directory button and sheet button, side by side),
+    // change-log at the end of General. This table went stale-red for that batch
+    // because dev:ui-parity was not on its run list — the probe-orphan lesson.
+    "Inventory & Encumbrance": ["max-equip-slots", "character-inventory-limit", "allow-player-marketplace",
+      "use-gold-threshold", "enable-inventory-reorder"],
     "Character Generation": ["content-source-2e", "content-source-custom", "content-source-barebones",
       "barebones-failed-career", "show-omens-barebones", "show-bonds-barebones", "show-generate-header",
-      "show-generation-rolls", "custom-portrait-folder", "min-age"],
+      "allow-player-generate", "show-generation-rolls", "custom-portrait-folder", "min-age"],
     "General Settings": ["use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
-      "show-features-section", "use-warden-title"],
+      "show-features-section", "use-warden-title", "change-log"],
   };
   for (const [group, keys] of Object.entries(EXPECTED)) {
     const got = r.grouped?.[group] ?? [];
@@ -502,6 +507,62 @@ try {
   r.tabPresentAfterReload
     ? ok("the Connections tab renders with no setting to enable")
     : fail("the Connections tab is absent");
+
+  // --- Deprived: Rest/Restore stay disabled, but the tooltip must say WHY.
+  // The complaint (2026-08-08, a live Warden on actor "Lisbeth"): the buttons
+  // grey out under Deprived and their tooltips went on describing how resting
+  // WORKS — nothing on the sheet said why they were off. While deprived the
+  // tooltip swaps to DeprivedTip (through deprivedTipKey, so npc sheets get
+  // the …Npc wording). The hover leg drives a REAL pointer because it also
+  // guards the assumption underneath: a disabled control still receives
+  // pointerenter — TooltipManager's activation event — in Chromium AND Firefox
+  // (both verified live 2026-08-08). If an engine or core ever stops
+  // delivering it, this leg is what notices, and the fix that day is
+  // aria-disabled plus a mirrored grey.
+  const dep = await page.evaluate(async (ids) => {
+    // Anything else this probe rendered may cover the character sheet — the
+    // hover below is a real pointer, so the button must be topmost.
+    for (const id of ids.slice(1)) game.actors.get(id)?.sheet?.close();
+    const actor = game.actors.get(ids[0]);
+    const out = {};
+    const read = (sel) => {
+      const b = actor.sheet.element.querySelector(sel);
+      return b ? { disabledAttr: b.hasAttribute("disabled"), tooltip: b.dataset.tooltip } : null;
+    };
+    out.restBefore = read("#rest-button");
+    // abNoStatusCard: a probe write must not post the Deprived status card or
+    // an audit line into the dev world's chat.
+    await actor.update({ "system.deprived": true }, { abNoStatusCard: true });
+    await actor.sheet.render(true);
+    await new Promise((res) => setTimeout(res, 700));
+    out.rest = read("#rest-button");
+    out.restore = read("#restore-abilities-button");
+    out.deprivedTip = game.i18n.localize("CAIRN.DeprivedTip");
+    out.restTip = game.i18n.localize("CAIRN.RestTip");
+    const rct = actor.sheet.element.querySelector("#rest-button").getBoundingClientRect();
+    out.center = { x: rct.x + rct.width / 2, y: rct.y + rct.height / 2 };
+    return out;
+  }, r.made ?? []);
+
+  !dep.restBefore?.disabledAttr && dep.rest?.disabledAttr && dep.restore?.disabledAttr
+    ? ok("Rest/Restore are disabled while deprived, enabled otherwise")
+    : fail(`deprived disable wrong: before=${JSON.stringify(dep.restBefore)} after=${JSON.stringify(dep.rest)}`);
+  dep.restBefore?.tooltip === dep.restTip && dep.rest?.tooltip === dep.deprivedTip && dep.restore?.tooltip === dep.deprivedTip
+    ? ok("the tooltip swaps to DeprivedTip while deprived, RestTip otherwise")
+    : fail(`tooltip not swapped: before="${dep.restBefore?.tooltip?.slice(0, 40)}" deprived="${dep.rest?.tooltip?.slice(0, 40)}"`);
+
+  await page.mouse.move(dep.center.x - 180, dep.center.y - 120);
+  await page.waitForTimeout(200);
+  await page.mouse.move(dep.center.x, dep.center.y, { steps: 6 });
+  await page.waitForTimeout(1400);
+  const hover = await page.evaluate(() => {
+    const t = document.getElementById("tooltip");
+    return { active: t?.classList.contains("active") ?? false, text: t?.textContent ?? "" };
+  });
+  const strip = (s) => (s ?? "").replace(/<[^>]+>/g, "").trim();
+  hover.active && strip(hover.text).startsWith(strip(dep.deprivedTip).slice(0, 30))
+    ? ok("hovering the disabled Rest button really shows the Deprived tooltip")
+    : fail(`hover tooltip wrong on the disabled button: active=${hover.active} text="${strip(hover.text).slice(0, 60)}"`);
 
   await page.screenshot({ path: "tools/dev/out/ui-parity.png" });
   console.log("\n  screenshot: tools/dev/out/ui-parity.png");

@@ -80,8 +80,13 @@
         </div>
         <!-- Buttons -->
         <div class="character-sheet-section-buttons">
-            <button id="rest-button" type="button" data-action="rest" class="strict-size-button" data-tooltip="{{ localize 'CAIRN.RestTip' }}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-campground"></i> {{ localize 'CAIRN.Rest' }}</button>
-            <button id="restore-abilities-button" type="button" data-action="restoreAbilities" class="strict-size-button" data-tooltip="{{ localize 'CAIRN.RestoreTip' }}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-heart-pulse"></i> {{ localize 'CAIRN.RestoreAbilities' }}</button>
+            {{!-- While Deprived the tooltip says WHY the button is off (DeprivedTip),
+                  not how resting works. A disabled control still receives pointerenter
+                  in Chromium and Firefox both (verified live 2026-08-08), so the
+                  tooltip fires on the disabled button as-is — no aria-disabled
+                  workaround needed, and dev:ui-parity hovers it for real. --}}
+            <button id="rest-button" type="button" data-action="rest" class="strict-size-button" data-tooltip="{{#if system.deprived}}{{ localize deprivedTipKey }}{{else}}{{ localize 'CAIRN.RestTip' }}{{/if}}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-campground"></i> {{ localize 'CAIRN.Rest' }}</button>
+            <button id="restore-abilities-button" type="button" data-action="restoreAbilities" class="strict-size-button" data-tooltip="{{#if system.deprived}}{{ localize deprivedTipKey }}{{else}}{{ localize 'CAIRN.RestoreTip' }}{{/if}}" {{#if system.deprived}}disabled{{/if}}><i class="fas fa-heart-pulse"></i> {{ localize 'CAIRN.RestoreAbilities' }}</button>
             <button id="die-of-fate-button" type="button" data-action="dieOfFate" class="strict-size-button" data-tooltip="{{ localize 'CAIRN.DieOfFateTip' }}"><i class="fas fa-dice-d6"></i> {{ localize 'CAIRN.DieOfFate' }}</button>
         </div>
         <!-- Abilities -->
