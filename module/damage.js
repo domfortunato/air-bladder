@@ -1,4 +1,5 @@
-import { findCompendiumItem } from './compendium.js'
+import { findCompendiumItem, resultText } from './compendium.js'
+import { SETTINGS_NS } from './settings.js'
 import { evaluateFormula, askDamageTargets, concealmentWhisper } from './utils.js'
 import { postStatusCard } from './actor/actor.js'
 
@@ -48,6 +49,20 @@ export const DAMAGE_POOLS = ["hp", "STR", "DEX", "WIL"];
 
 /** The status bar an ability reaching 0 announces. STR's is death. */
 const POOL_ZERO_STATUS = { STR: "dead", DEX: "paralyzed", WIL: "delirious" };
+
+/**
+ * One labelled line of a detail card, the WHOLE line through one key —
+ * bold and colon included, the rule faction-generator.js states and its
+ * FactionDossier keys follow. `'<strong>' + label + '</strong>: '` in code
+ * hands a translator the nouns and keeps the punctuation: French wants a
+ * narrow no-break space before a colon, English does not, and neither can
+ * be written from the other end. The English value renders byte-identical
+ * to what the concatenation produced — dev:enc-damage's breakdown legs
+ * assert those exact bytes — so the move has no visual consequence; the
+ * line now lives in a key and can be changed on purpose.
+ */
+const cardLine = (label, value) =>
+    '<p>' + game.i18n.format('CAIRN.DamageCardLine', { label, value }) + '</p>'
 
 export class Damage {
 
@@ -362,11 +377,13 @@ export class Damage {
         const breakdown = armor > 0
             ? game.i18n.format('CAIRN.DamageBreakdown', { dmg, damage, armor })
             : String(dmg)
-        let content = '<p><strong>' + game.i18n.localize('CAIRN.Damage') + '</strong>: ' + breakdown + '</p>'
+        let content = cardLine(game.i18n.localize('CAIRN.Damage'), breakdown)
         // The HP and STR lines were the same untranslatable concatenation, so they
         // move in the same breath -- one handoff to the translator rather than
         // two. ONE key SHARED by both: they are the same sentence, and a second
-        // copy is a second thing to drift.
+        // copy is a second thing to drift. (That first move carried the VALUES
+        // into CAIRN.StatChange and left the label+colon halves behind as
+        // concatenation; cardLine finishes it -- review #13.)
         //
         // THE VISIBLE CARD MUST NOT CHANGE HERE. Same "=>", same strike-through;
         // the arrow is kept verbatim rather than smartened to an arrow glyph,
@@ -374,14 +391,14 @@ export class Damage {
         // consequence. It now lives in a key, so it can be changed later on
         // purpose rather than as a side effect.
         if (newHp !== hp) {
-            content += '<p><strong>' + game.i18n.localize('CAIRN.HitProtection') + '</strong>: '
-                + game.i18n.format('CAIRN.StatChange', { from: hp, to: newHp }) + '</p>'
+            content += cardLine(game.i18n.localize('CAIRN.HitProtection'),
+                game.i18n.format('CAIRN.StatChange', { from: hp, to: newHp }))
         } else {
-            content += '<p><strong>' + game.i18n.localize('CAIRN.HitProtection') + '</strong>: ' + hp + '</p>'
+            content += cardLine(game.i18n.localize('CAIRN.HitProtection'), hp)
         }
         if (newStr !== str) {
-            content += '<p><strong>' + game.i18n.localize('STR') + '</strong>: '
-                + game.i18n.format('CAIRN.StatChange', { from: str, to: newStr }) + '</p>'
+            content += cardLine(game.i18n.localize('STR'),
+                game.i18n.format('CAIRN.StatChange', { from: str, to: newStr }))
         }
 
         // Monsters take BOTH branches below on purpose (ratified 2026-08-01):
@@ -456,9 +473,9 @@ export class Damage {
 
         const { token, dmg, abl, newAbl, source, pool } = data
 
-        let content = '<p><strong>' + game.i18n.localize('CAIRN.Damage') + '</strong>: ' + dmg + '</p>'
-        content += '<p><strong>' + game.i18n.localize(pool) + '</strong>: '
-            + game.i18n.format('CAIRN.StatChange', { from: abl, to: newAbl }) + '</p>'
+        let content = cardLine(game.i18n.localize('CAIRN.Damage'), dmg)
+        content += cardLine(game.i18n.localize(pool),
+            game.i18n.format('CAIRN.StatChange', { from: abl, to: newAbl }))
 
         // STR loss owes a save, and it is not a second rule: combat's branch is
         // `newStr < str`, which direct STR damage lands in unchanged. Withheld
@@ -544,6 +561,36 @@ export class Damage {
         // which is right -- nothing is rolled visibly here and the damage card that
         // triggered this already made the noise.
         await table.toMessage(drawn.results, { messageData });
+
+        // Record the drawn scar on the sheet as well, when the Warden turned
+        // the switch on ("auto-record-scars", default off — the one automated
+        // sheet write in this flow, user ruling 2026-08-09). PLAYER CHARACTERS
+        // only, BY RULING and not by schema — the npc model carries scars too
+        // ("a person is a person", data-models.js) — because the ask was
+        // bookkeeping help for PCs; monsters and npcs keep the card-only
+        // behavior. The write mirrors the sheet's
+        // checklist exactly — the ENGLISH source text (`.scar-check` persists
+        // resultText verbatim; display goes through the overlay), deduped
+        // because a checklist shows a name once, and scarEnabled comes on
+        // with it or the recorded scar would sit invisible behind the sheet's
+        // opt-in. Owner-gated so a client applying damage to a PC it cannot
+        // write (a player hitting another player's character) skips quietly
+        // after the card instead of erroring. abNoStatusCard: this is the
+        // damage flow writing, not a hand edit — the scar card above is
+        // already the announcement, and the flow's HP/STR writes carry the
+        // same flag for the same reason.
+        const scarred = token?.actor;
+        if (scarred?.type === "character" && scarred.isOwner
+            && game.settings.get(SETTINGS_NS, "auto-record-scars")) {
+            const scars = [...(scarred.system.scars ?? [])];
+            const fresh = drawn.results.map((r) => resultText(r))
+                .filter((n) => n && !scars.includes(n));
+            if (fresh.length) {
+                await scarred.update(
+                    { "system.scarEnabled": true, "system.scars": [...scars, ...fresh] },
+                    { abNoStatusCard: true });
+            }
+        }
     }
 
     static async _rollStrSave(token, html) {

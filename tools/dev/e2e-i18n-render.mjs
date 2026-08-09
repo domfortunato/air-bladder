@@ -204,6 +204,24 @@ try {
       r.usesOne = utils.formatCount("CAIRN.NUses", 1);
       r.usesMany = utils.formatCount("CAIRN.NUses", 3);
       r.slotOne = utils.formatCount("CAIRN.NSlot", 1);
+
+      // ---- the gold row's TAG rides formatCount too (review #13 #12) ---------
+      // items-list.html hardcoded `localize 'CAIRN.NSlot_one' n=1`, which only
+      // works in a language shipping the "_one" form: a base-key-only
+      // translation rendered the literal key text in the tag, and a language
+      // whose plural rules map 1 to "other" (ja, zh) was asked for a key its
+      // translator was never told exists. Simulated by deleting the _one form
+      // and sentinelling the base key (the shadow is this probe's own clone,
+      // so mutating it is safe and the finally restores the original), then
+      // giving the actor exactly one filled coin row — the first N coins stay
+      // petty, so 2N gold is one row — and reading the RENDERED tag. The
+      // derived coinRowSlotTag re-prepares under the mutated shadow on update.
+      delete game.i18n.translations.CAIRN.NSlot_one;
+      game.i18n.translations.CAIRN.NSlot = "ZZ-{n} base-slot";
+      const perSlot = actor.system.coinsPerSlot;
+      await actor.update({ "system.gold": perSlot * 2 }, { abNoStatusCard: true });
+      const goldRoot = await rendered(actor.sheet);
+      r.goldRowTag = goldRoot?.querySelector(".gold-slot-row .cairn-item-tag")?.textContent.trim() ?? null;
     } finally {
       game.i18n.translations = original;
       await game.settings.set(NS, "character-inventory-limit", limitWas);
@@ -248,6 +266,8 @@ try {
   is(out.usesOne, "ZZ-1 uso", "a single-use item takes the SINGULAR form (55 shipped items read \"1 uses\")");
   is(out.usesMany, "ZZ-3 usos", "and more than one still takes the plural");
   is(out.slotOne, "ZZ-1 espacio", "the same for slots, whose plural key the gold rows share");
+  is(out.goldRowTag, "ZZ-1 base-slot",
+    "the gold row's TAG rides formatCount — a base-key-only language gets the base form, never the literal key text");
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {

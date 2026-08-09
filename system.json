@@ -2,7 +2,7 @@
   "id": "air-bladder",
   "title": "Air Bladder — Cairn 2e",
   "description": "Air Bladder — a game system for Cairn 2nd Edition and Barebones, the OSR RPG by Yochai Gal, on Foundry VTT. Cairn character generation, backgrounds, marketplace, and Warden tables; descended from Into the Odd. A companion system compatible with Cairn — not the official Cairn system.",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "compatibility": {
     "minimum": "14.365",
     "verified": "14.365"
@@ -116,141 +116,152 @@
   "packs": [
     {
       "name": "armor",
-      "label": "Armor",
+      "label": "CAIRN.Pack.armor",
       "type": "Item",
       "system": "air-bladder"
     },
     {
       "name": "backgrounds-2e",
-      "label": "Backgrounds (2e)",
+      "label": "CAIRN.Pack.backgrounds-2e",
       "type": "Item",
       "system": "air-bladder"
     },
     {
       "name": "backgrounds-barebones",
-      "label": "Backgrounds (Barebones)",
+      "label": "CAIRN.Pack.backgrounds-barebones",
       "type": "Item",
       "system": "air-bladder"
     },
     {
       "name": "backgrounds-custom",
-      "label": "Backgrounds (Custom)",
+      "label": "CAIRN.Pack.backgrounds-custom",
       "type": "Item",
       "system": "air-bladder"
     },
     {
       "name": "tables-2e",
-      "label": "Tables (2e)",
+      "label": "CAIRN.Pack.tables-2e",
       "type": "RollTable",
       "system": "air-bladder"
     },
     {
       "name": "tables-barebones",
-      "label": "Tables (Barebones)",
+      "label": "CAIRN.Pack.tables-barebones",
       "type": "RollTable",
       "system": "air-bladder"
     },
     {
       "name": "expeditionary-gear",
-      "label": "Gear",
+      "label": "CAIRN.Pack.expeditionary-gear",
       "type": "Item",
       "system": "air-bladder"
     },
     {
       "name": "background-items",
-      "label": "Background Items",
+      "label": "CAIRN.Pack.background-items",
       "type": "Item",
       "system": "air-bladder"
     },
     {
       "name": "market-goods",
-      "label": "Market Goods",
+      "label": "CAIRN.Pack.market-goods",
       "type": "Item",
       "system": "air-bladder"
     },
     {
       "name": "marketplace",
-      "label": "Marketplace",
+      "label": "CAIRN.Pack.marketplace",
       "type": "RollTable",
       "system": "air-bladder"
     },
     {
       "name": "utils",
-      "label": "Utils",
+      "label": "CAIRN.Pack.utils",
       "type": "RollTable",
       "system": "air-bladder"
     },
     {
       "name": "monsters",
-      "label": "Monsters",
+      "label": "CAIRN.Pack.monsters",
       "type": "Actor",
       "system": "air-bladder"
     },
     {
       "name": "mounts-transports",
-      "label": "Companions & Transports",
+      "label": "CAIRN.Pack.mounts-transports",
       "type": "Actor",
       "system": "air-bladder"
     },
     {
       "name": "spellbooks",
-      "label": "Spellbooks",
+      "label": "CAIRN.Pack.spellbooks",
       "type": "Item",
       "system": "air-bladder"
     },
     {
       "name": "more-spellbooks",
-      "label": "More Spellbooks",
+      "label": "CAIRN.Pack.more-spellbooks",
       "type": "Item",
       "system": "air-bladder"
     },
     {
       "name": "tools",
-      "label": "Tools",
+      "label": "CAIRN.Pack.tools",
       "type": "Item",
       "system": "air-bladder"
     },
     {
       "name": "trinkets",
-      "label": "Trinkets",
+      "label": "CAIRN.Pack.trinkets",
       "type": "Item",
       "system": "air-bladder"
     },
     {
       "name": "reliquary",
-      "label": "Reliquary",
+      "label": "CAIRN.Pack.reliquary",
       "type": "Item",
       "system": "air-bladder"
     },
     {
       "name": "weapons",
-      "label": "Weapons",
+      "label": "CAIRN.Pack.weapons",
       "type": "Item",
       "system": "air-bladder"
     },
     {
       "name": "warden-encounters",
-      "label": "Warden — Encounters & Reactions",
+      "label": "CAIRN.Pack.warden-encounters",
       "type": "RollTable",
-      "system": "air-bladder"
+      "system": "air-bladder",
+      "ownership": { "PLAYER": "NONE", "TRUSTED": "NONE", "ASSISTANT": "OWNER" }
     },
     {
       "name": "warden-travel",
-      "label": "Warden — Weather & Travel",
+      "label": "CAIRN.Pack.warden-travel",
       "type": "RollTable",
-      "system": "air-bladder"
+      "system": "air-bladder",
+      "ownership": { "PLAYER": "NONE", "TRUSTED": "NONE", "ASSISTANT": "OWNER" }
     },
     {
       "name": "warden-npcs",
-      "label": "Warden — NPCs",
+      "label": "CAIRN.Pack.warden-npcs",
       "type": "RollTable",
-      "system": "air-bladder"
+      "system": "air-bladder",
+      "ownership": { "PLAYER": "NONE", "TRUSTED": "NONE", "ASSISTANT": "OWNER" }
     },
     {
       "name": "warden-monsters",
-      "label": "Warden — Monsters",
+      "label": "CAIRN.Pack.warden-monsters",
       "type": "RollTable",
-      "system": "air-bladder"
+      "system": "air-bladder",
+      "ownership": { "PLAYER": "NONE", "TRUSTED": "NONE", "ASSISTANT": "OWNER" }
+    },
+    {
+      "name": "macros",
+      "label": "CAIRN.Pack.macros",
+      "type": "Macro",
+      "system": "air-bladder",
+      "ownership": { "PLAYER": "NONE", "TRUSTED": "NONE", "ASSISTANT": "OWNER" }
     }
   ],
   "packFolders": [

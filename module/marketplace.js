@@ -3,6 +3,21 @@ import { iconForTransport, TRANSPORT_KINDS } from "./icons.js";
 import { atConnectionLimit, maxConnections, connectedOwnershipShape, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { localizeNameDesc, t } from "./i18n-content.js";
 import { formatCount } from "./utils.js";
+import { SETTINGS_NS } from "./settings.js";
+
+/**
+ * Is the shop closed to THIS user? The Warden's allow-player-marketplace
+ * switch, read live so the shipped toggle macro takes effect with no reload.
+ * Never true for a GM. Checked at open AND inside both acquire paths — the
+ * hidden sheet button is the affordance, the refusal here is the enforcement,
+ * because a marketplace dialog left open across a flip (or a stale sheet)
+ * must not stay a way to buy. Client-enforced like every inventory rule in
+ * this file: an owning player's client can create embedded items regardless
+ * of our JS, so this is a table switch, not a security wall — the same
+ * footing as the encumbrance refusal beside it.
+ */
+const playerMarketClosed = () =>
+  !game.user.isGM && !game.settings.get(SETTINGS_NS, "allow-player-marketplace");
 
 /**
  * The marketplace: a shop dialog a character opens from their Inventory tab.
@@ -199,6 +214,10 @@ const rowHtml = ({ idx, cost, name, tagsHtml, metaHtml, descHtml }) =>
  * @returns {Promise<boolean>} whether the item was added
  */
 const acquire = async (actor, data, pay) => {
+  if (playerMarketClosed()) {
+    ui.notifications.warn(game.i18n.localize("CAIRN.Notify.MarketplaceDisabled"));
+    return false;
+  }
   const cost = data.system.cost ?? 0;
   // Every message below names the item through t(): the row the player clicked
   // showed the localized name, and the toast answering the click read the
@@ -234,9 +253,12 @@ const acquire = async (actor, data, pay) => {
     ui.notifications.warn(game.i18n.localize("CAIRN.Notify.MaxSlotsOccupied"));
     return false;
   }
+  // NO flag on the create: the item arriving IS the change log's record of the
+  // purchase. The gold deduction is flagged so a Buy is one ledger line, not
+  // two — the price is on the item line's other side of the same click.
   await actor.createEmbeddedDocuments("Item", [data]);
   if (pay) {
-    await actor.update({ "system.gold": (actor.system.gold ?? 0) - cost });
+    await actor.update({ "system.gold": (actor.system.gold ?? 0) - cost }, { abNoStatusCard: true });
     ui.notifications.info(game.i18n.format("CAIRN.Notify.Bought", { name: shown, cost }));
   } else {
     ui.notifications.info(game.i18n.format("CAIRN.Notify.Took", { name: shown }));
@@ -261,6 +283,10 @@ const acquire = async (actor, data, pay) => {
  * @returns {Promise<boolean>}
  */
 export const acquireTransport = async (actor, doc, pay) => {
+  if (playerMarketClosed()) {
+    ui.notifications.warn(game.i18n.localize("CAIRN.Notify.MarketplaceDisabled"));
+    return false;
+  }
   // A transport is an Actor; players can't create actors by default, so bail
   // BEFORE charging rather than take the gold and fail on Actor.create.
   if (!game.user.hasPermission("ACTOR_CREATE")) {
@@ -373,6 +399,10 @@ export const acquireTransport = async (actor, doc, pay) => {
     game.socket.emit(`system.${game.system.id}`, { action: "ownershipSync", childUuid: container.uuid });
   }
   if (pay) {
+    // UNFLAGGED, unlike acquire()'s gold write, and the asymmetry is the point:
+    // a transport is a connected ACTOR, so no item lands on the buyer and this
+    // deduction is the ONLY trace a bought mule leaves in the change log.
+    // Flagging it would make transports the one purchase the ledger never sees.
     await actor.update({ "system.gold": (actor.system.gold ?? 0) - cost });
     ui.notifications.info(game.i18n.format("CAIRN.Notify.Bought", { name: shown, cost }));
   } else {
@@ -391,6 +421,13 @@ export const acquireTransport = async (actor, doc, pay) => {
  * @param {string} [opts.titleKey]  i18n key overriding the dialog title
  */
 export const openMarketplace = async (actor, opts = {}) => {
+  // A stale sheet's shop button (rendered before the Warden flipped the
+  // switch) must refuse at the door, not open a dialog whose every click
+  // would refuse one row at a time.
+  if (playerMarketClosed()) {
+    ui.notifications.warn(game.i18n.localize("CAIRN.Notify.MarketplaceDisabled"));
+    return;
+  }
   const catalog = await getMarketplaceCatalog();
   let categories = catalog.categories ?? [];
   if (opts.only) categories = categories.filter((c) => c.name === opts.only);

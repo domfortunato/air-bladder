@@ -224,6 +224,12 @@ try {
       // window template and matches nothing after the port.
       inDom: !!document.querySelector(".application, .app.window-app"),
       tabs: [...(node?.querySelectorAll?.("nav .item, .tabs .item") ?? [])].map((t) => t.textContent.trim()),
+      // The notes tab reads plain "Notes" on EVERY npc role since 2026-08-08 —
+      // the person role used to carry the character sheet's "Background &
+      // Notes" wording (this actor IS a person, so it exercises exactly the
+      // role that changed). The character sheet keeps the long label;
+      // ui-parity-probe.mjs asserts that half.
+      notesTabLabel: node?.querySelector?.('nav .item[data-tab="notes"]')?.textContent?.trim() ?? null,
       hasProfession: !!node?.querySelector?.(".profession-input"),
       hasDayRate: !!node?.querySelector?.(".day-rate-input"),
       // A hireling has no Description tab -- that is the point of the stripped sheet.
@@ -578,6 +584,12 @@ try {
     r.rename.statblockKept ? ok("name re-roll left the statblock alone") : fail("name re-roll disturbed the statblock");
 
     r.sheet.inDom ? ok(`${r.sheet.cls} rendered [${r.sheet.tabs.join(" | ")}]`) : fail("NPC sheet did not appear in the DOM");
+    // Person role — the one that used to read "Background & Notes" (see the
+    // collection comment). Asserted against the literal old wording too, so a
+    // revert of the 2026-08-08 flattening reddens this leg by name.
+    r.sheet.notesTabLabel === "Notes"
+      ? ok(`the npc-person notes tab reads plain "Notes"`)
+      : fail(`npc-person notes tab reads "${r.sheet.notesTabLabel}", expected "Notes" — the per-role label split is back`);
     r.sheet.hasProfession && r.sheet.hasDayRate ? ok("sheet shows the Profession and Day Rate fields") : fail("sheet is missing the Profession/Day Rate fields");
     r.sheet.hasDescriptionTab ? ok("has a Description tab (one merged non-player sheet, so monster prose stays reachable)") : fail("no Description tab — monster/NPC description text would be unreachable");
 

@@ -84,6 +84,14 @@ const r = await page.evaluate(async ({ xssName }) => {
     { name: "Root Knife", type: "weapon", system: { damageFormula: "d6" } },
     { name: "Rations", type: "item", system: { uses: { value: 3, max: 3 } } },
     { name: "Signet Ring", type: "item", system: { weightless: true } },
+    // The three spellbook shapes the prefix logic distinguishes (user report
+    // 2026-08-08: the printed sheet dropped the prefixes): a bare-named book,
+    // a scroll (a flagged spellbook, never a type), and a stored name that
+    // already CARRIES the prefix — the idempotence case, which must not print
+    // it twice.
+    { name: "Detect Magic", type: "spellbook" },
+    { name: "Charm Person", type: "spellbook", system: { scroll: true } },
+    { name: "Spellbook (Fireball)", type: "spellbook" },
     { name: xssName, type: "item" },
   ]);
   const sack = await ActorImpl.create({
@@ -224,6 +232,15 @@ const r = await page.evaluate(async ({ xssName }) => {
   out.notesBreak = notesSec ? popup.getComputedStyle(notesSec).breakBefore : null;
   out.knifeNote = /Root Knife\s*\(d6\)/.test(body.replace(/\s+/g, " "));
   out.rationsNote = /Rations\s*\(3 uses\)/.test(body.replace(/\s+/g, " "));
+  // The spellbook prefixes, exactly as the inventory shows them — read
+  // against the localized keys, so the legs survive a translation.
+  const bodyOne = body.replace(/\s+/g, " ");
+  const bookP = game.i18n.localize("CAIRN.SpellbookPrefix").replace(/\s+/g, " ");
+  const scrollP = game.i18n.localize("CAIRN.SpellscrollPrefix").replace(/\s+/g, " ");
+  out.bookPrefixed = bodyOne.includes(`${bookP}Detect Magic`);
+  out.scrollPrefixed = bodyOne.includes(`${scrollP}Charm Person`);
+  out.prefixNotDoubled = bodyOne.includes("Spellbook (Fireball)")
+    && !bodyOne.includes(`${bookP}Spellbook (Fireball)`);
   // "(Petty)" as the translator wrote it — review #11 removed the print
   // page's locale-less toLowerCase, the only case transform of a localized
   // value in module/.
@@ -324,6 +341,60 @@ const r = await page.evaluate(async ({ xssName }) => {
   out.npcNotesBreak = notesSec3 ? popup3.getComputedStyle(notesSec3).breakBefore : null;
   popup3?.close();
   await npc.sheet.close();
+
+  // Fourth pass: the route prefix (review #13 #7). abs() used to resolve
+  // against location.origin alone, which drops ROUTE_PREFIX — on a prefixed
+  // host every portrait and item icon printed broken, invisible on this
+  // unprefixed dev server where the two spellings coincide. ROUTE_PREFIX is
+  // shadowed in-page (never a server setting) and restored in a finally; the
+  // assertions are on the URL STRING — the image cannot load under a fake
+  // prefix and must not need to (the builder's error listener + timeout keep
+  // print() firing over a dead image path).
+  await pc.sheet.render(true);
+  await sleep(600);
+  const priorPrefix = globalThis.ROUTE_PREFIX;
+  try {
+    globalThis.ROUTE_PREFIX = "pfx-probe";
+    const calls4 = [];
+    let popup4 = null;
+    window.open = (...a) => {
+      popup4 = origOpen.apply(window, a);
+      Object.defineProperty(popup4, "print", { configurable: true, value: () => calls4.push(1) });
+      return popup4;
+    };
+    try {
+      pc.sheet.element.querySelector('[data-action="printSheet"]')?.click();
+      for (let i = 0; i < 60 && !calls4.length; i++) await sleep(150);
+    } finally { window.open = origOpen; }
+    out.prefixedSrc = popup4?.document.querySelector("header.pc img")?.getAttribute("src") ?? null;
+    popup4?.close();
+
+    // Fifth: an already-absolute portrait URL passes through UNTOUCHED with
+    // the prefix still in force — getRoute strips and re-joins slashes, so
+    // feeding it a scheme'd URL would mangle it; the guard must win here.
+    // render:false, or the OPEN sheet re-renders with the unresolvable URL
+    // and its fetch failure lands in the watched opener console as a
+    // resource error — a race the first run happened to win (the popup's own
+    // console is a separate page and stays unwatched).
+    await pc.update({ img: "https://example.invalid/zz-remote.png" }, { render: false });
+    const calls5 = [];
+    let popup5 = null;
+    window.open = (...a) => {
+      popup5 = origOpen.apply(window, a);
+      Object.defineProperty(popup5, "print", { configurable: true, value: () => calls5.push(1) });
+      return popup5;
+    };
+    try {
+      pc.sheet.element.querySelector('[data-action="printSheet"]')?.click();
+      for (let i = 0; i < 60 && !calls5.length; i++) await sleep(150);
+    } finally { window.open = origOpen; }
+    out.absoluteSrc = popup5?.document.querySelector("header.pc img")?.getAttribute("src") ?? null;
+    popup5?.close();
+  } finally {
+    globalThis.ROUTE_PREFIX = priorPrefix;
+  }
+  await pc.sheet.close();
+
   out.ids = { pc: pc.id, sack: sack.id, npc: npc.id, falcon: falcon.id };
   out.itemIds = [bgItem.id];
   return out;
@@ -356,6 +427,10 @@ check("stats carry the numbers", /12\/12/.test(r.statsText) && /6\/6/.test(r.sta
   `"${r.statsText.slice(0, 90)}"`);
 check("KW's item annotations", r.knifeNote && r.rationsNote && r.pettyNote,
   `(d6)=${r.knifeNote} (3 uses)=${r.rationsNote} (Petty)=${r.pettyNote} — Petty as the translator wrote it, uses via formatCount`);
+check("spellbook rows print their prefixes", r.bookPrefixed && r.scrollPrefixed,
+  `book=${r.bookPrefixed} scroll=${r.scrollPrefixed} — the same helper the inventory uses, so the two surfaces cannot drift`);
+check("a stored prefix is not doubled", r.prefixNotDoubled,
+  "the idempotence case — a name already carrying \"Spellbook (\" gets no second prefix");
 check("a connected container is its own section", r.sackSection && r.sackSlots,
   "ZZ Print Sack ( 1 / 4 ) with ZZ Sack Item — KW's multi-container inventory");
 
@@ -403,6 +478,12 @@ check("no PC-only sections", r.npcNoPcSections && r.npcNotesHeader && r.npcCredi
 check("the monster credits Tlomdev, not Aspeheim", /Tlomdev/.test(r.npcCreditsText)
   && !/Aspeheim/.test(r.npcCreditsText) && /Yochai Gal/.test(r.npcCreditsText),
   "the attribution follows the portrait's gallery");
+
+console.log("\nthe route prefix");
+check("a prefixed host keeps its portraits", (r.prefixedSrc ?? "").includes("/pfx-probe/systems/air-bladder/"),
+  `src="${r.prefixedSrc}" — abs() goes through getRoute, so ROUTE_PREFIX survives into the print page`);
+check("an absolute URL passes through untouched", r.absoluteSrc === "https://example.invalid/zz-remote.png",
+  `src="${r.absoluteSrc}" — getRoute must never see a scheme'd URL (it re-joins slashes and mangles it)`);
 
 console.log("\nwhat must not happen");
 check("an item name is never parsed as HTML", r.injText?.includes("ZZ Inj <img")

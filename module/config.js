@@ -10,7 +10,12 @@ Cairn.characterGenerator2e = {
   // bond or background choice-tables grant.
   gold: "3d6",
   biography: {
-    text: "I have a <strong>{physique}</strong> physique, <strong>{skin}</strong> skin, <strong>{hair}</strong> hair, and a <strong>{face}</strong> face. I speak in a <strong>{speech}</strong> manner and wear <strong>{clothing}</strong> clothing. I am <strong>{vice}</strong> yet <strong>{virtue}</strong>. I am <strong>{age}</strong> years old.",
+    // No sentence template here, on purpose (review #13). One lived here —
+    // "I have a <strong>{physique}</strong> physique, …" — with no reader:
+    // the sheet composes the biography per RENDER from the CAIRN.Bio.* keys
+    // (actor-sheet.js), which is what lets a Spanish client re-word it.
+    // Left in place it read as the sentence's authority, and an edit to it
+    // would have changed nothing a user could see.
     age: "2d20 + 10",
     items: {
       physique: "air-bladder.tables-2e;Physique",

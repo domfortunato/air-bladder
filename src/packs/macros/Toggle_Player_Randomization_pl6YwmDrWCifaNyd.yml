@@ -1,0 +1,28 @@
+_id: pl6YwmDrWCifaNyd
+name: Toggle Player Randomization
+type: script
+author: null
+img: icons/svg/dice-target.svg
+scope: global
+command: |-
+  // Flip the Warden's switch for the sheet randomization surface as players
+  // see it (the allow-player-randomization world setting): the title-bar
+  // Randomization toggle, the Roll button and every re-roll die hide from
+  // players while it is off — even on an actor whose own Randomization is on.
+  // Open sheets update live on every client — no reload. The Warden keeps
+  // everything. Warden-only: the server refuses a world-setting write from
+  // anyone else anyway; the check just says so politely.
+  if (!game.user.isGM) return ui.notifications.warn(game.i18n.localize("CAIRN.Notify.WardenOnly"));
+  const KEY = "allow-player-randomization";
+  const on = !game.settings.get("air-bladder", KEY);
+  await game.settings.set("air-bladder", KEY, on);
+  ui.notifications.info(game.i18n.localize(on ? "CAIRN.Notify.PlayerRandomizationOn" : "CAIRN.Notify.PlayerRandomizationOff"));
+folder: null
+sort: 400000
+ownership:
+  default: 0
+flags: {}
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!macros!pl6YwmDrWCifaNyd'

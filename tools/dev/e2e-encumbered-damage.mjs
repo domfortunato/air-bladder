@@ -641,6 +641,98 @@ const scar = await page.evaluate(async () => {
   return r;
 });
 
+/* ---------------------------------------------------------------------------
+ * auto-record-scars: the drawn scar lands on a PC's checklist (Warden switch,
+ * default OFF, user ruling 2026-08-09).
+ *
+ * Three strikes, one block. Setting ON + PC victim: system.scars gains the
+ * drawn name, scarEnabled comes on with it, and the LEDGER stays silent —
+ * the write carries abNoStatusCard, so with change-log forced on there must
+ * be no "Scar added" card. Setting ON + monster victim: card-only, BY RULING
+ * — the npc model HAS a scars field ("a person is a person"), so only the
+ * type gate in damage.js keeps this leg green. Setting OFF (the shipped
+ * default) + PC victim: sheet untouched. PC tokens are LINKED (_preCreate
+ * sets prototypeToken.actorLink for characters), so reading the world actor
+ * here is reading the actor that was hit — no synthetic-delta trap.
+ * Settings snapshotted and restored in-page; actors, scene and cards swept.
+ * ------------------------------------------------------------------------- */
+const autoScar = await page.evaluate(async () => {
+  const ActorImpl = CONFIG.Actor.documentClass;
+  const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+  const { Damage } = await import("/systems/air-bladder/module/damage.js");
+  const NS = "air-bladder";
+  const r = {};
+  const prevAuto = game.settings.get(NS, "auto-record-scars");
+  const prevLog = game.settings.get(NS, "change-log");
+  const isTableCard = (m) => !!m.flags?.core?.RollTable;
+  const isLedger = (m) => (m.content ?? "").includes('class="change-log"');
+  const scene = await Scene.create({ name: "ZZ AutoScar Scene", width: 1000, height: 1000 });
+  const made = [];
+  const preRun = new Set(game.messages.contents.map((m) => m.id));
+  // hp 3 / armor 0 / damage 3 is the exactly-to-zero Scar trigger, same as the
+  // speaker section above.
+  const strike = async (name, type, system = {}) => {
+    const victim = await ActorImpl.create({
+      name, type, system: { hp: { value: 3, max: 3 }, armor: 0, ...system },
+    });
+    made.push(victim);
+    const [tok] = await scene.createEmbeddedDocuments("Token",
+      [await victim.getTokenDocument({ x: 100, y: 100 })]);
+    const before = new Set(game.messages.filter(isTableCard).map((m) => m.id));
+    await Damage.applyToTargets([tok.id], 3, scene);
+    let card = null;
+    for (let i = 0; i < 40 && !card; i++) {
+      card = game.messages.filter(isTableCard).find((m) => !before.has(m.id)) ?? null;
+      if (!card) await sleep(150);
+    }
+    return { victim, card };
+  };
+  try {
+    await game.settings.set(NS, "auto-record-scars", true);
+    await game.settings.set(NS, "change-log", true);
+
+    // ON + PC: poll the ACTOR for the write — it follows the card inside the
+    // same un-awaited draw, so the card's arrival does not mean it landed yet.
+    const pc = await strike("ZZ AutoScar PC", "character");
+    r.pcCard = !!pc.card;
+    for (let i = 0; i < 40 && !(pc.victim.system.scars ?? []).length; i++) await sleep(150);
+    r.pcScars = [...(pc.victim.system.scars ?? [])];
+    r.pcEnabled = pc.victim.system.scarEnabled === true;
+    // The draw is DETERMINISTIC — the roll is the constant damage (3) — so the
+    // recorded value can be asserted against the exact table row, in the same
+    // English source text the checklist stores.
+    const { resultText, findCompendiumItem } = await import("/systems/air-bladder/module/compendium.js");
+    const scarsTable = await findCompendiumItem("air-bladder.utils", "Scars");
+    const expectedRow = scarsTable?.results.find((x) => x.range[0] <= 3 && 3 <= x.range[1]);
+    r.expectedName = expectedRow ? resultText(expectedRow) : null;
+    // Ledger silence: a fixed window, because nothing announces "no card is
+    // coming" (the expect-none shape dev:changelog uses).
+    await sleep(1500);
+    r.pcLedgerCards = game.messages.contents
+      .filter((m) => !preRun.has(m.id) && isLedger(m)).length;
+
+    // ON + monster: card yes, sheet untouched — the type gate, not the schema.
+    const mon = await strike("ZZ AutoScar Monster", "npc", { role: "monster" });
+    r.monCard = !!mon.card;
+    await sleep(1500);
+    r.monScars = [...(mon.victim.system.scars ?? [])];
+
+    // OFF (the shipped default) + PC: sheet untouched.
+    await game.settings.set(NS, "auto-record-scars", false);
+    const off = await strike("ZZ AutoScar PC Off", "character");
+    r.offCard = !!off.card;
+    await sleep(1500);
+    r.offScars = [...(off.victim.system.scars ?? [])];
+  } finally {
+    await game.settings.set(NS, "auto-record-scars", prevAuto);
+    await game.settings.set(NS, "change-log", prevLog);
+    for (const m of game.messages.contents.filter((m) => !preRun.has(m.id))) await m.delete();
+    for (const a of made) await a.delete();
+    await scene.delete();
+  }
+  return r;
+});
+
 /* Apply damage is the WARDEN's. A GM can never see this by looking, so join. */
 const warden = { ran: false };
 try {
@@ -1750,6 +1842,20 @@ check("chat body above core's 14px", scar.contentPx > 14,
 // message's styling can carry the leg.
 check("flavor above core's 14px too", scar.flavorPx > 14,
   `.flavor-text computes to ${scar.flavorPx}px on the scar card ("${scar.flavorShown}")`);
+
+console.log("\nauto-record-scars (Warden switch, default off)");
+check("switch on: the PC's card posted", autoScar.pcCard, "no draw means the legs below prove nothing");
+check("the drawn scar is CHECKED on the sheet",
+  autoScar.pcScars.length === 1 && autoScar.pcScars[0] === autoScar.expectedName,
+  `system.scars=${JSON.stringify(autoScar.pcScars)} (damage 3 draws "${autoScar.expectedName}" — the roll is the constant damage, so the row is exact)`);
+check("scarEnabled came on with it", autoScar.pcEnabled,
+  "without it the recorded scar sits invisible behind the sheet's opt-in checkbox");
+check("the ledger stayed silent", autoScar.pcLedgerCards === 0,
+  `${autoScar.pcLedgerCards} change-log card(s) with change-log ON — the write must carry abNoStatusCard like every other damage-flow write`);
+check("monster control: card yes, sheet untouched", autoScar.monCard && autoScar.monScars.length === 0,
+  `card=${autoScar.monCard} scars=${JSON.stringify(autoScar.monScars)} — the npc model HAS a scars field, so only damage.js's type gate keeps this empty`);
+check("switch off (the default): sheet untouched", autoScar.offCard && autoScar.offScars.length === 0,
+  `card=${autoScar.offCard} scars=${JSON.stringify(autoScar.offScars)} — an update must not change a table's behavior until the Warden flips it`);
 
 console.log("\nApply damage is Warden-only");
 check("the player leg ran", warden.ran && !warden.isGM,

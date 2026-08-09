@@ -97,6 +97,8 @@
     "dev:container-unlink": "node tools/dev/e2e-container-unlink.mjs",
     "dev:connections": "node tools/dev/e2e-connections.mjs",
     "dev:connections-migration": "node tools/dev/e2e-connections-migration.mjs",
+    "dev:playergen": "node tools/dev/e2e-player-generate.mjs",
+    "dev:changelog": "node tools/dev/e2e-change-log.mjs",
     "dev:socket-grant": "node tools/dev/socket-grant-probe.mjs",
     "dev:listeners": "node tools/dev/e2e-listeners.mjs",
     "dev:review-batch2": "node tools/dev/e2e-review-batch2.mjs"

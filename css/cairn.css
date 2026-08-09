@@ -77,6 +77,23 @@
     --ab-accent: #12a3b4;           /* teal: Die of Fate, fatigue, selection */
     --ab-accent-wash: rgba(18, 163, 180, 0.12);   /* fatigue-row tint */
     --ab-ok-wash: rgba(34, 170, 102, 0.18);       /* snapshot chip fill */
+
+    /* Whisper tiles. Core paints every whispered message a cool lavender
+       (--color-whisper-background #e8e8ef, foundry2.css:513) that clashes with
+       the warm parchment of every other tile. These keep a whisper distinct but
+       in the sheet's warm family; the teal stripe (--ab-accent) does the
+       "private" signalling.
+       DELIBERATELY NO DARK OVERRIDE: core's chat tiles are parchment-light in
+       BOTH client themes, and their text colour stays dark to match — so a
+       whisper surface keyed to the CLIENT theme goes near-black behind
+       still-dark text (shipped that way for one evening, user report
+       2026-08-08, illegible). The tile's colour world is always light; these
+       follow the tile, not the theme. The stripe is its own token for the
+       same reason: --ab-accent flips to the near-black-backdrop teal in dark,
+       which washes out on parchment. */
+    --ab-whisper-bg: #ece7d8;
+    --ab-whisper-border: #8a8172;
+    --ab-whisper-stripe: #12a3b4;   /* = light --ab-accent, pinned */
 }
 
 /* Dark scheme.
@@ -116,6 +133,9 @@
        invisible against a near-black backdrop. */
     --ab-accent-wash: rgba(53, 200, 218, 0.18);
     --ab-ok-wash: rgba(79, 208, 138, 0.22);
+
+    /* --ab-whisper-bg/border are deliberately NOT overridden here — see the
+       light block: the chat tile they paint is parchment in both themes. */
 }
 
 .cairn.sheet.actor,
@@ -489,7 +509,11 @@
 
 /* Barebones "Failed career:" line. Sits in the same row-3 slot the 2e background
    description occupies -- the two never coexist -- so it renders directly under
-   the Background line. Secondary to the Background: smaller, greyed label. */
+   the Background line. All three header lines (Background / Failed Career /
+   Failed Career Item) render at ONE size, 17px, matching .background-name:
+   the earlier 15px/13px "quieting" was overruled 2026-08-08 by the user with
+   all three on screen -- they read as one block, so they size as one. The
+   greyed labels keep the label/value distinction. */
 .failed-career-block {
     grid-column: 1 / 3;
     grid-row: 3;
@@ -511,7 +535,7 @@
 .failed-career-label {
     flex: 0 0 auto;
     font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
-    font-size: 15px;
+    font-size: 17px;
     font-variant: small-caps;
     color: var(--ab-muted);
 }
@@ -523,16 +547,16 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
-    font-size: 15px;
+    font-size: 17px;
     font-variant: small-caps;
 }
 
-/* Keepsake-item line: like the career line but a step quieter — it's a detail of
-   the flavour above it. */
+/* Keepsake-item line: same size as the lines above it, per the one-size ruling
+   in the block comment at the top of this section. */
 .failed-career-item-label {
     flex: 0 0 auto;
     font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
-    font-size: 13px;
+    font-size: 17px;
     font-variant: small-caps;
     color: var(--ab-muted);
 }
@@ -544,7 +568,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
-    font-size: 13px;
+    font-size: 17px;
     font-variant: small-caps;
 }
 
@@ -594,6 +618,41 @@
     opacity: 0.65;
     font-style: italic;
     color: var(--ab-faint);
+}
+
+/* The INACTIVE Notes editor reads as a FIELD (both actor sheets, 2026-08-08):
+   players did not notice the editor at all, because an inactive toggled editor
+   is indistinguishable from static page text. Border + wash + radius say
+   "this is an input"; the click-to-edit binding in _onRender makes the empty
+   area act like one. Kept separate from the pencil block below so each
+   probe witness disables exactly one thing. */
+.cairn .tab[data-tab="notes"] prose-mirror.inactive {
+    border: 1px solid var(--ab-edge);
+    background: var(--ab-wash);
+    border-radius: 6px;
+}
+.cairn .tab[data-tab="notes"] prose-mirror.inactive .editor-content {
+    /* Core pads the display half right-only (0.5rem, unlayered —
+       foundry2.css:13592), which jams text against the new border. */
+    padding: 0 10px !important;
+}
+
+/* The pencil is core's ONLY affordance for a toggled editor, and core keeps it
+   `display: none` until the editor is HOVERED (foundry2.css:13564-13579) —
+   invisible is not an affordance. On the notes tab it shows whenever the
+   editor is inactive, in palette colours that survive dark mode. `:enabled`
+   is load-bearing: activation disables the button, and without the guard the
+   `display` override would beat core's `[disabled] { display: none }` and
+   leave a dead pencil floating over the open editor. !important throughout —
+   core's rules are unlayered, this file is @layer system. */
+.cairn .tab[data-tab="notes"] prose-mirror.inactive > button.icon.toggle:enabled {
+    display: block !important;
+    color: var(--ab-muted) !important;
+    top: 6px !important;
+    right: 6px !important;
+}
+.cairn .tab[data-tab="notes"] prose-mirror.inactive > button.icon.toggle:enabled:hover {
+    color: var(--ab-accent) !important;
 }
 
 /* The two generation buttons carry TEXT, unlike Foundry's own frame buttons.
@@ -2074,6 +2133,51 @@ textarea.omen-input {
    statuses are deliberately ONE visual language wherever they appear. */
 .status-stabilized { background: #2e7d32; }
 
+/* Whisper tiles — ALL of them, not just the ledger (user ruling 2026-08-08):
+   core's cool lavender clashes with the warm parchment of every other tile, so
+   the whisper surface is the system's own warm tint, and the teal stripe does
+   the "private" signalling. */
+.chat-message.whisper {
+    /* !important is load-bearing: core sets these vars element-scoped and
+       UNLAYERED on .chat-message (foundry2.css:508-514), and this file is in
+       @layer system — unlayered normal beats layered normal, and !important
+       inverts it. */
+    --color-whisper-background: var(--ab-whisper-bg) !important;
+    --color-whisper-border: var(--ab-whisper-border) !important;
+    /* Core carries a second spelling for inline GM-roll links
+       (--color-whisper-bg, foundry2.css:127, applied :12367) — override it too
+       so a gmroll link inside a whisper tile agrees with its tile. */
+    --color-whisper-bg: var(--ab-whisper-bg) !important;
+    /* Inset shadow, NOT border-left: core's `border: 2px` shorthand on this
+       element (foundry2.css:10006) is unlayered and would win a border war;
+       core sets no box-shadow on .chat-message, so a layered declaration
+       lands. --ab-whisper-stripe, never --ab-accent: the tile under it is
+       parchment in both client themes, and the dark-scheme accent is tuned
+       for near-black backdrops — on parchment it washes out. */
+    box-shadow: inset 3px 0 0 var(--ab-whisper-stripe);
+}
+
+/* The manual-change ledger card (whispered; CairnActor#postChangeLog). Colours
+   are inherited on purpose — the whisper surface above is the system's own in
+   both schemes, and the ledger should read as chat, not as a status banner. */
+.chat-message .change-log .change-log-user {
+    margin: 0;
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+/* The operation naming itself ("Rest", "Restore Abilities") — a touch bolder
+   than the user line so the card leads with WHAT happened. */
+.chat-message .change-log .change-log-action {
+    margin: 0;
+    font-weight: 500;
+}
+
+.chat-message .change-log ul {
+    margin: 0.25em 0 0;
+    padding-left: 1.25em;
+}
+
 /* STR-only Critical Damage skull toggle, pinned to the right of the counter
    (which must be positioned for the absolute skull to anchor to it). */
 .character-sheet-section-abilities .resource-counter {
@@ -2215,8 +2319,12 @@ textarea.omen-input {
 
 /* The combat tracker's Cairn buckets. The list wears core's skin; these rules
    add only the section dividers and the bucket word that replaces the numeric
-   initiative input — no colours of their own (inherit, don't restate). */
-#combat .cairn-bucket-divider {
+   initiative input — no colours of their own (inherit, don't restate).
+   Scoped to the <ol> class like the drag rules below, NOT #combat (review
+   #13): #combat is the sidebar instance's id, and a POPPED-OUT tracker is a
+   different application whose root does not carry it — the popout rendered
+   the dividers as bare unstyled rows while the sidebar looked right. */
+ol.combat-tracker .cairn-bucket-divider {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -2226,17 +2334,35 @@ textarea.omen-input {
     font-size: 12px;
     opacity: 0.75;
 }
-#combat .cairn-bucket-divider::after {
+ol.combat-tracker .cairn-bucket-divider::after {
     content: "";
     flex: 1;
     border-bottom: 1px solid currentColor;
     opacity: 0.4;
 }
-#combat .cairn-bucket-word {
+ol.combat-tracker .cairn-bucket-word {
     font-variant: small-caps;
     letter-spacing: 0.3px;
     font-size: 13px;
     opacity: 0.9;
+}
+
+/* Warden drag-to-reorder within a bucket (2026-08-08). The grab cursor is the
+   affordance on rolled rows; the drop indicator is an inset accent line above
+   or below the hovered row. Cosmetic only — the drop WRITES combatSort flags
+   and the render re-asserts the order. Scoped to the <ol> class, not #combat,
+   so a popped-out tracker keeps the affordance. */
+ol.combat-tracker li.combatant[draggable="true"] {
+    cursor: grab;
+}
+ol.combat-tracker li.combatant.cairn-dragging {
+    opacity: 0.5;
+}
+ol.combat-tracker li.combatant.cairn-drop-above {
+    box-shadow: inset 0 2px 0 var(--ab-accent);
+}
+ol.combat-tracker li.combatant.cairn-drop-below {
+    box-shadow: inset 0 -2px 0 var(--ab-accent);
 }
 
 /******************************************************************************

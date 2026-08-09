@@ -509,8 +509,9 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
    * was removed rather than shipped as insurance against a bug that isn't there.
    * @override
    */
-  _onFirstRender(context, options) {
-    super._onFirstRender(context, options);
+  async _onFirstRender(context, options) {
+    // Await the async super — same reason as the actor sheet's override.
+    await super._onFirstRender(context, options);
     bindEditorClickAwaySave(this.element);
   }
 

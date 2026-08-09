@@ -23,12 +23,12 @@ export const SETTINGS_NS = "air-bladder";
 export const SETTING_KEYS = [
   // General
   "use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
-  "show-features-section", "use-warden-title",
+  "show-features-section", "use-warden-title", "change-log", "auto-record-scars",
   // Character Generation
   "content-source-2e", "content-source-custom", "content-source-barebones",
   "barebones-failed-career",
   "show-omens-barebones", "show-bonds-barebones", "show-generate-header",
-  "show-generation-rolls",
+  "allow-player-generate", "allow-player-randomization", "show-generation-rolls",
   // disabled-backgrounds is Warden CONFIGURATION (which 2e backgrounds are
   // switched off), not a migration marker — it must ride the namespace
   // migration like custom-portrait-list does. It was registered without being
@@ -38,8 +38,8 @@ export const SETTING_KEYS = [
   "custom-portrait-folder", "custom-portrait-list", "min-age",
   "disabled-backgrounds",
   // Inventory & Encumbrance
-  "max-equip-slots", "character-inventory-limit", "use-gold-threshold",
-  "enable-inventory-reorder",
+  "max-equip-slots", "character-inventory-limit", "allow-player-marketplace",
+  "use-gold-threshold", "enable-inventory-reorder",
 ];
 
 /**
@@ -77,6 +77,24 @@ export const migrateSettingsNamespace = async () => {
   }
   if (moved.length) {
     console.log(`Air Bladder | migrated ${moved.length} setting(s) from the "cairn" namespace: ${moved.join(", ")}`);
+  }
+};
+
+/**
+ * Re-render every open actor sheet on this client.
+ *
+ * The onChange body shared by every no-reload toggle whose value a sheet reads
+ * in `_prepareContext`: the read is live, but "live" only means the NEXT
+ * render — without this fan an open sheet keeps its stale surface until
+ * something unrelated redraws it (review #13; the failed-career comment in
+ * actor-sheet.js had promised "switching it off hides the line" since the
+ * toggle shipped, and delivered it only on reopen). onChange fires on every
+ * client, so each client sweeps its own windows. One helper, not five copies
+ * of the loop — the fifth copy is where the drift starts.
+ */
+const rerenderActorSheets = () => {
+  for (const app of foundry.applications.instances.values()) {
+    if (app.document instanceof Actor && app.rendered) app.render();
   }
 };
 
@@ -237,6 +255,41 @@ export const registerSettings = () => {
     requiresReload: true,
   });
 
+  // The manual-change log: whisper a ledger card (to the actor's
+  // owners/observers plus the Warden) whenever someone HAND-changes a tracked
+  // field or adds/removes an item — see CairnActor#postChangeLog for what
+  // counts as manual. Default ON (user ruling 2026-08-08: existing worlds
+  // start logging on upgrade). No reload and no onChange: the posting sites
+  // read it live, so the shipped "Toggle Change Log" macro takes effect on the
+  // next change.
+  game.settings.register(SETTINGS_NS, "change-log", {
+    name: "CAIRN.Settings.ChangeLog.label",
+    hint: "CAIRN.Settings.ChangeLog.hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+    requiresReload: false,
+  });
+
+  // The one AUTOMATED sheet write in the damage flow, and a deliberate,
+  // bounded breach of the "trust players, no automation" house line (user
+  // ruling 2026-08-09): when the Scars draw fires for a PLAYER CHARACTER,
+  // the drawn scar is also checked on the sheet's scar list. Default OFF —
+  // the generationEnabled precedent: an update must not change a table's
+  // behavior until the Warden flips it. The write site, with the PC-only /
+  // owner-only / dedupe rules, is damage.js `_rollScarsTable`; read live
+  // there, no reload.
+  game.settings.register(SETTINGS_NS, "auto-record-scars", {
+    name: "CAIRN.Settings.AutoRecordScars.label",
+    hint: "CAIRN.Settings.AutoRecordScars.hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
+    requiresReload: false,
+  });
+
   // ---- Character Generation ------------------------------------------------
   // Which editions a Warden offers when generating a character. Both on means
   // the Generate button asks; exactly one means it just uses that one. These
@@ -298,7 +351,9 @@ export const registerSettings = () => {
   });
 
   // A second background name as pure flavor -- the career that didn't work out.
-  // Grants nothing; it is a story hook, not a mechanic.
+  // Grants nothing; it is a story hook, not a mechanic. The sheet reads it in
+  // _prepareContext (the header's failed-career block), so the fan below is
+  // what makes "read live" true for a sheet already open.
   game.settings.register(SETTINGS_NS, "barebones-failed-career", {
     name: "CAIRN.Settings.BarebonesFailedCareer.label",
     hint: "CAIRN.Settings.BarebonesFailedCareer.hint",
@@ -307,6 +362,7 @@ export const registerSettings = () => {
     type: Boolean,
     default: false,
     requiresReload: false,
+    onChange: rerenderActorSheets,
   });
 
   // Barebones has no omens of its own. Unlike bonds this changes nothing about
@@ -320,6 +376,8 @@ export const registerSettings = () => {
     type: Boolean,
     default: false,
     requiresReload: false,
+    // Read in _prepareContext (showOmen) — same fan, same reason.
+    onChange: rerenderActorSheets,
   });
 
   // Barebones has no bonds of its own either; this lends it 2e's Bonds table.
@@ -334,6 +392,8 @@ export const registerSettings = () => {
     type: Boolean,
     default: false,
     requiresReload: false,
+    // Read in _prepareContext (the bond entitlement count) — same fan.
+    onChange: rerenderActorSheets,
   });
 
   game.settings.register(SETTINGS_NS, "show-generate-header", {
@@ -346,12 +406,65 @@ export const registerSettings = () => {
     requiresReload: true,
   });
 
+  // The Warden's switch for the PLAYER-facing Generate PC button in the Actor
+  // Directory (both variants: the create-row button and the no-ACTOR_CREATE
+  // relay button). Sibling of show-generate-header above — that one gates the
+  // sheet's Regenerate button, this one gates the directory's Generate PC —
+  // and the toggle the shipped "Toggle Player Generate PC" macro flips. The
+  // GM's own button never hides: the read site ORs in isGM.
+  //
+  // No reload: onChange fires on EVERY client (the settings-fanout primitive
+  // the custom-portrait folder scan also rides), so each connected player's
+  // directory re-renders itself the moment the Warden flips it — the whole
+  // point of a mid-session switch. The pop-out directory is a second,
+  // independent ActorDirectory application (the render hook already handles
+  // its DOM separately), so the sweep covers both.
+  game.settings.register(SETTINGS_NS, "allow-player-generate", {
+    name: "CAIRN.Settings.AllowPlayerGenerate.label",
+    hint: "CAIRN.Settings.AllowPlayerGenerate.hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+    requiresReload: false,
+    onChange: () => {
+      for (const app of foundry.applications.instances.values()) {
+        if (app instanceof foundry.applications.sidebar.tabs.ActorDirectory && app.rendered) app.render();
+      }
+    },
+  });
+
+  // The Warden's switch for the SHEET's randomization surface as seen by
+  // players: the title-bar Randomization toggle, the Roll button behind it,
+  // and every per-line re-roll die (background, failed career, age, omen, an
+  // npc's name/profession/portrait). Off hides ALL of it from players — even
+  // on an actor whose own Randomization flag is on, because the sheet derives
+  // its generationEnabled context through _mayRandomize (render-only; no
+  // actor is written). The Warden keeps everything; the shipped "Toggle
+  // Player Randomization" macro flips this. Third sibling of the two switches
+  // above, same onChange shape as allow-player-marketplace: re-render every
+  // open actor sheet on every client, so the surface leaves and returns
+  // mid-session.
+  game.settings.register(SETTINGS_NS, "allow-player-randomization", {
+    name: "CAIRN.Settings.AllowPlayerRandomization.label",
+    hint: "CAIRN.Settings.AllowPlayerRandomization.hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+    requiresReload: false,
+    onChange: rerenderActorSheets,
+  });
+
   // Post the five generation rolls -- HP, STR, DEX, WIL, Gold -- as one chat
   // message carrying the real Roll objects, so Dice So Nice animates them and
   // core supplies the dice sound without it. Read live at the posting site
   // (postGenerationRolls), hence no reload. World-scoped because the generatePC
   // relay runs generation on the Warden's client for a player who lacks
   // ACTOR_CREATE: the posting client must read the same value the roller would.
+  // NO rerenderActorSheets fan, deliberately (review #13 weighed and dropped
+  // it): no sheet reads this in _prepareContext — the read happens when a
+  // generation POSTS, so there is no open surface to go stale.
   game.settings.register(SETTINGS_NS, "show-generation-rolls", {
     name: "CAIRN.Settings.ShowGenerationRolls.label",
     hint: "CAIRN.Settings.ShowGenerationRolls.hint",
@@ -399,8 +512,15 @@ export const registerSettings = () => {
       const gen = await import("./character-generator.js");
       await gen.ensureCustomPortraitFolder();
       const files = await gen.refreshCustomPortraits();
+      // formatCount, not format: the key carried an "image(s)" hack because no
+      // plural machinery reached this toast. Dynamic import for the same reason
+      // as the line above — utils.js imports SETTINGS_NS from here, so a static
+      // import is a cycle. `{count}` stays the placeholder (formatCount's `n`
+      // rides unused) because lang/es.json already carries it, and that file is
+      // the translator's to edit.
+      const { formatCount } = await import("./utils.js");
       ui.notifications.info(
-        game.i18n.format("CAIRN.Notify.PortraitFolderScanned", { count: files.length })
+        formatCount("CAIRN.Notify.PortraitFolderScanned", files.length, { count: files.length })
       );
     },
   });
@@ -458,6 +578,26 @@ export const registerSettings = () => {
     type: Boolean,
     default: false,
     requiresReload: true,
+  });
+
+  // The Warden's switch for player shopping — the sheet's Marketplace button
+  // and both acquire paths (marketplace.js reads it live; the shipped "Toggle
+  // Player Marketplace" macro flips it). The GM always shops. Sibling of
+  // allow-player-generate in the Generation group; this one lives here
+  // because shopping is an INVENTORY affair. No reload: the onChange fires on
+  // every client and re-renders each open actor sheet, so the button
+  // hides/returns mid-session — and a sheet that somehow keeps a stale button
+  // still cannot buy, because acquire() refuses (the shop's own
+  // affordance/enforcement split).
+  game.settings.register(SETTINGS_NS, "allow-player-marketplace", {
+    name: "CAIRN.Settings.AllowPlayerMarketplace.label",
+    hint: "CAIRN.Settings.AllowPlayerMarketplace.hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+    requiresReload: false,
+    onChange: rerenderActorSheets,
   });
 
   // Cairn 2e (p.9): coins are heavy. The first N are petty; every further N fills

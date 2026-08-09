@@ -304,11 +304,12 @@ export const createMonster = async ({ folder = null } = {}) => {
  */
 export const regenerateMonster = async (actor, tierChoice) => {
   const m = await generateMonster(tierChoice);
-  await actor.deleteEmbeddedDocuments("Item", [], { deleteAll: true, render: false });
+  await actor.deleteEmbeddedDocuments("Item", [], { deleteAll: true, render: false, abNoStatusCard: true });
   // createEmbeddedDocuments, never `items` inside the update: the update route
   // creates embedded documents without firing createItem hooks. Same order as
   // regenerateNpc — create render:false, then the one update renders.
-  if (m.items?.length) await actor.createEmbeddedDocuments("Item", m.items, { render: false });
+  // abNoStatusCard keeps the rebuild out of the change log, like the update's.
+  if (m.items?.length) await actor.createEmbeddedDocuments("Item", m.items, { render: false, abNoStatusCard: true });
   await actor.update({
     system: {
       role: "monster",

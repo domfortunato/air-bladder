@@ -110,12 +110,34 @@ for (const pack of manifest.packs ?? []) {
   if (existsSync(yaml)) packsChecked++;
   else fail(`pack "${pack.name}" is declared but src/packs/${pack.name}/ does not exist`);
 }
-const EXPECTED_PACKS = 22;
+// 24 since 2026-08-08: backgrounds-custom made it 23 (2026-08-04, c56d1b95)
+// and the macros pack 24 (2026-08-08, a2b15d1c), and the floor sat at 22
+// through both (review #13). A floor is a "this check is matching nothing"
+// tripwire, so it must RISE with the count or it slowly stops being one.
+const EXPECTED_PACKS = 24;
 if (packsChecked < EXPECTED_PACKS) {
   fail(`only ${packsChecked} pack source dirs found, expected at least ${EXPECTED_PACKS} — `
     + "this check is matching nothing rather than passing");
 } else {
   ok(`all ${packsChecked} declared packs have sources in src/packs/`);
+}
+
+// Warden-facing packs are hidden from players (review #13 fix #6): every
+// warden-* pack plus the macros pack must carry the ownership block, or the
+// next Warden pack added ships player-visible by default (base-package.mjs
+// :120 defaults PLAYER to OBSERVER). Keyed on the pack NAME, not the label —
+// labels are i18n keys, and a gate keyed on display text goes blind the day
+// the text moves into lang/. Hiding is sidebar-only: a NONE pack still serves
+// reads, verified live 2026-08-09 (Alice's client indexed, fetched and rolled
+// the warden-npcs name table with ownership NONE in force), so generation's
+// reads into warden-npcs/warden-monsters are unaffected.
+const isWardenPack = (p) => /^warden-/.test(p.name) || p.name === "macros";
+for (const pack of (manifest.packs ?? []).filter(isWardenPack)) {
+  if (pack.ownership?.PLAYER === "NONE" && pack.ownership?.TRUSTED === "NONE") {
+    ok(`Warden pack "${pack.name}" is hidden from players`);
+  } else {
+    fail(`Warden pack "${pack.name}" (label "${pack.label}") lacks ownership PLAYER/TRUSTED: NONE`);
+  }
 }
 
 /* 4. Languages -------------------------------------------------------------- */

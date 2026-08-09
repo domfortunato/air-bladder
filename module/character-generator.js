@@ -1003,8 +1003,11 @@ export const canRegenerateContainers = (actor, source = null, warnKey = "CAIRN.N
 };
 
 /**
- * Delete container Actors. Returns the ones that were actually removed, and
- * re-raises on the first failure so the caller aborts.
+ * Delete container Actors — ONE batched operation, not a per-actor loop
+ * (review #13 #20). The loop was N sequential server round trips, and a
+ * throw mid-loop left the earlier deletes committed with nothing recording
+ * where it stopped; a batch is one request that the caller sees succeed or
+ * fail whole. Returns the targets on success, re-raises on failure.
  *
  * It used to prune the keeper's `system.containers` uuid array in the same
  * breath — ahead of the delete, so CairnActor._onDeleteOperation's own prune
@@ -1017,9 +1020,9 @@ export const canRegenerateContainers = (actor, source = null, warnKey = "CAIRN.N
  * @private
  */
 const deleteContainers = async (actor, targets) => {
-  const removed = [];
-  for (const c of targets) { await c.delete(); removed.push(c); }
-  return removed;
+  if (!targets.length) return [];
+  await CairnActor.deleteDocuments(targets.map((c) => c.id));
+  return targets;
 };
 
 /**
@@ -1506,11 +1509,31 @@ export const enabledContentSources = () => CONTENT_SOURCES.filter((s) => s.enabl
 /**
  * Which content source to generate from: the only enabled one, or a prompt when
  * a Warden has enabled both. Falls back to 2e if a Warden has turned everything
- * off, so the Generate button can never do nothing.
- * @returns {Promise<String>}
+ * off, so the Generate button never dies silently — though since 2026-08-08 a
+ * PLAYER is asked first when no chooser would appear, so for them "nothing"
+ * is now a choice (null), never an accident.
+ * @returns {Promise<String|null>} null = the user declined (confirm or picker ✕)
  */
 export const promptContentSource = async () => {
   const sources = enabledContentSources();
+  // With one or zero sources enabled, no chooser appears below — a player's
+  // click would mint a character instantly, so interpose a Yes/No first (user
+  // ask, 2026-08-08: an accidental click must not silently roll a PC). PLAYERS
+  // only — the Warden's own button keeps rolling instantly (user ruling). With
+  // 2+ sources the picker below is itself the interrupt, and its ✕ already
+  // means "not now", so a confirm there would double-stack. This runs on the
+  // ACTING user's client in both fresh paths (the GM directory button via
+  // createCharacter, and requestPcGeneration which deliberately prompts on the
+  // clicking player's client), so isGM is evaluated for the right person;
+  // Regenerate never reaches here (it passes a background/source).
+  if (sources.length <= 1 && !game.user.isGM) {
+    const go = await foundry.applications.api.DialogV2.confirm({
+      window: { title: game.i18n.localize("CAIRN.GeneratePcConfirmTitle") },
+      content: `<p>${game.i18n.localize("CAIRN.GeneratePcConfirm")}</p>`,
+      rejectClose: false, // ✕ resolves falsy — an instruction, like the picker's
+    });
+    if (!go) return null; // No or ✕: create nothing (callers already bail on null)
+  }
   if (sources.length === 1) return sources[0].key;
   if (!sources.length) return "2e";
   const buttons = sources.map((s) => ({ action: s.key, label: game.i18n.localize(s.label) }));
@@ -1543,8 +1566,9 @@ export const promptContentSource = async () => {
  */
 export const generateCharacter = async (background = null, source = null) => {
   const chosen = background?.system?.source ?? source ?? (await promptContentSource());
-  // Only reachable when the picker was dismissed — a background or an explicit
-  // source never yields null, so Regenerate cannot land here.
+  // Only reachable when the picker was dismissed or a player declined the
+  // roll-confirm — a background or an explicit source never yields null, so
+  // Regenerate cannot land here.
   if (!chosen) return null;
   return chosen === "barebones"
     ? generateBarebonesCharacter(background)
@@ -2068,6 +2092,24 @@ export const buildFailedCareerItem = async (careerName) =>
   failedCareerItemFromBg(await getBarebonesBackgroundByName(careerName));
 
 /**
+ * Swap the actor's failed-career keepsake for a fresh pick from `careerName`'s
+ * gear. The generator-side twin of the sheet's `_grantFailedCareerItem` inner
+ * swap (that one is instance-bound and adds a re-entry guard + render the
+ * collision hook below does not need). Matched by the `grantSource:
+ * "failed-career"` flag, the same convention `_replaceGrantedItems` keys on.
+ * @param {CairnActor} actor
+ * @param {String} careerName
+ */
+const replaceFailedCareerKeepsake = async (actor, careerName) => {
+  const oldIds = actor.items
+    .filter((i) => String(i.getFlag(FLAG_SCOPE, "grantSource") ?? "") === "failed-career")
+    .map((i) => i.id);
+  if (oldIds.length) await actor.deleteEmbeddedDocuments("Item", oldIds, { render: false, abNoStatusCard: true });
+  const item = careerName ? await buildFailedCareerItem(careerName) : null;
+  if (item) await actor.createEmbeddedDocuments("Item", [item], { render: false, abNoStatusCard: true });
+};
+
+/**
  * Swap a character's background WITHOUT re-rolling the character. Replaces the
  * background name/uuid, the gear it granted, its containers, and (2e) its two
  * questions and the gear those granted, adjusting coins for the question delta.
@@ -2122,7 +2164,11 @@ export const changeBackground = async (actor, newBg = null) => {
     );
     if (hit) { claimed.add(hit.id); toDelete.push(hit.id); }
   }
-  if (toDelete.length) await actor.deleteEmbeddedDocuments("Item", toDelete, { render: false });
+  // abNoStatusCard on every write in this swap (and in the generators below):
+  // a background change is MACHINERY, and the change log defines "manual" as
+  // an operation without the flag — without it a swap floods the ledger with a
+  // dozen add/remove lines and a gold line nobody typed.
+  if (toDelete.length) await actor.deleteEmbeddedDocuments("Item", toDelete, { render: false, abNoStatusCard: true });
   await clearGrantedContainers(actor);
 
   // In with the new. Weapons and armor arrive equipped, as at generation, so
@@ -2135,7 +2181,7 @@ export const changeBackground = async (actor, newBg = null) => {
   }
   const choices = await applyChoiceTables(bg);
   const newItems = [...gear, ...choices.items];
-  if (newItems.length) await actor.createEmbeddedDocuments("Item", newItems, { render: false });
+  if (newItems.length) await actor.createEmbeddedDocuments("Item", newItems, { render: false, abNoStatusCard: true });
   await grantContainers(actor, [
     ...(bg.system.containers ?? []).map((c) => ({ ...c, grantSource: "background" })),
     ...choices.containers,
@@ -2158,7 +2204,7 @@ export const changeBackground = async (actor, newBg = null) => {
       if (String(i.getFlag(FLAG_SCOPE, "grantSource") ?? "") === `bond:${dropped.id}`) clampItemIds.push(i.id);
     }
   }
-  if (clampItemIds.length) await actor.deleteEmbeddedDocuments("Item", clampItemIds, { render: false });
+  if (clampItemIds.length) await actor.deleteEmbeddedDocuments("Item", clampItemIds, { render: false, abNoStatusCard: true });
 
   // Trade the old questions' coins for the new ones'.
   const oldQGold = (actor.system.questions ?? []).reduce((n, q) => n + (q.gold ?? 0), 0);
@@ -2177,7 +2223,25 @@ export const changeBackground = async (actor, newBg = null) => {
   // Write bonds only when the clamp bit — preservation stays the default, and
   // an untouched array is not re-written wholesale for nothing.
   if (bonds.length !== (actor.system.bonds ?? []).length) update["system.bonds"] = bonds;
-  await actor.update(update);
+  await actor.update(update, { abNoStatusCard: true });
+
+  // A background change may not land ON the failed career (ruled 2026-08-08).
+  // Every ROLL path already excludes — generation filters the background from
+  // the failed-career pool, and the sheet's failed-career die passes the
+  // exclusion — so the one arrival left is this direction: the BACKGROUND
+  // changing onto the name the failed career already holds. Re-roll the career
+  // (rollFailedCareerName excludes the new background, so it cannot
+  // re-collide) and its keepsake, silently: an automatic correction is
+  // machinery, same as every other write in this function. Here at the end of
+  // changeBackground, not in the sheet handlers, so roll, pick and drop are
+  // all covered. A hand-PICKED collision on the failed-career line itself
+  // stays allowed — that is a deliberate player choice; this hook only fires
+  // when the collision arrives from the background side.
+  if (source === "barebones" && actor.system.failedCareer && actor.system.failedCareer === bg.name) {
+    const fresh = await rollFailedCareerName(bg.name);
+    await actor.update({ "system.failedCareer": fresh }, { abNoStatusCard: true });
+    await replaceFailedCareerKeepsake(actor, fresh);
+  }
 };
 
 /* -------------------------------------------------------------------------- */
@@ -2286,12 +2350,15 @@ export const updateActorWithCharacter = async (actor, characterData) => {
   // `render: false` + data-update last mirrors it: one render, inventory present.
   const items = data.items ?? [];
   delete data.items;
-  await actor.deleteEmbeddedDocuments("Item", [], { deleteAll: true, render: false });
+  // abNoStatusCard on both embedded writes: regenerating is machinery, and the
+  // change log must not report a rebuild as a player emptying and refilling
+  // their own pack. The data update below already carries the flag.
+  await actor.deleteEmbeddedDocuments("Item", [], { deleteAll: true, render: false, abNoStatusCard: true });
   // Containers are Actors, so re-rolling the inventory has to clear them by hand.
   // Only GENERATION-granted ones (they carry a grantSource flag) are deleted —
   // a bought mule or a hand-made chest survives a regenerate.
   await clearGrantedContainers(actor);
-  if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false });
+  if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false, abNoStatusCard: true });
   // `characterToActorData` clears `critical` unconditionally, and regenerating is
   // REPLACING this person, not healing them -- without this the rebuild announces a
   // stabilization that never happened. Same argument and same flag as regenerateNpc
@@ -2634,11 +2701,12 @@ export const createNpc = async ({ folder = null } = {}) => {
  */
 export const regenerateNpc = async (actor) => {
   const h = await generateNpc();
-  await actor.deleteEmbeddedDocuments("Item", [], { deleteAll: true, render: false });
+  await actor.deleteEmbeddedDocuments("Item", [], { deleteAll: true, render: false, abNoStatusCard: true });
   // createEmbeddedDocuments, never `items` inside the update: the update route
   // creates embedded documents without firing createItem hooks. Same order as
   // rerollNpcProfession below — create render:false, then one update renders.
-  if (h.items?.length) await actor.createEmbeddedDocuments("Item", h.items, { render: false });
+  // abNoStatusCard keeps the rebuild out of the change log, like the update's.
+  if (h.items?.length) await actor.createEmbeddedDocuments("Item", h.items, { render: false, abNoStatusCard: true });
   await actor.update({
     system: {
       // Set alongside the rate, never separately: role npc AND forHire gate the
@@ -2689,8 +2757,8 @@ export const rerollNpcProfession = async (actor) => {
   const stale = actor.items
     .filter((i) => i.getFlag(FLAG_SCOPE, "grantSource") === "profession")
     .map((i) => i.id);
-  if (stale.length) await actor.deleteEmbeddedDocuments("Item", stale, { render: false });
-  if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false });
+  if (stale.length) await actor.deleteEmbeddedDocuments("Item", stale, { render: false, abNoStatusCard: true });
+  if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false, abNoStatusCard: true });
   await actor.update({
     system: {
       // See regenerateNpc: the pair travels with the rate it gates.

@@ -143,6 +143,32 @@ const slideDown = (el) => {
  * a monster from a locked compendium could not roll its attack, with a
  * PackLocked toast diagnosing a write-permission problem no write had.
  */
+/**
+ * Wrap a randomization-surface handler so it refuses whoever the Warden's
+ * allow-player-randomization switch denies (`_mayRandomize` — the Warden
+ * always passes). Applied to exactly the actions whose CONTROLS hide while
+ * the switch is off: the two frame buttons (#syncGenerationButtons) and every
+ * control inside a template's `generationEnabled` block — that context is
+ * derived as actorFlag && _mayRandomize(), so a hidden control and a refused
+ * handler are the same statement. Review #13: only rollActor and
+ * toggleGeneration carried the guard in-handler, and rollBackground — a
+ * wholesale background-and-gear rewrite — answered a call past its hidden die.
+ * The hidden control is the affordance, this is the enforcement: a sheet
+ * already open when the switch flips, or a crafted client, must not be a way
+ * through (the marketplace acquire() split).
+ *
+ * The actor's OWN generationEnabled flag is deliberately NOT checked here: a
+ * player the switch allows can flip that flag themselves via toggleGeneration,
+ * so refusing on it would enforce nothing.
+ */
+const mayRandomize = (fn) => function (event, target) {
+  if (!this._mayRandomize()) {
+    ui.notifications.warn(game.i18n.localize("CAIRN.Notify.RandomizationDisabled"));
+    return undefined;
+  }
+  return fn.call(this, event, target);
+};
+
 const owned = (fn) => function (event, target) {
   if (!this.isEditable) {
     // SAY WHY. This used to `return undefined` in silence, which is the worst
@@ -194,17 +220,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     form: { submitOnChange: true },
     actions: {
       // Header
-      rollActor: owned(CairnActorSheet.#onRollActor),
-      toggleGeneration: owned(CairnActorSheet.#onToggleGeneration),
+      rollActor: owned(mayRandomize(CairnActorSheet.#onRollActor)),
+      toggleGeneration: owned(mayRandomize(CairnActorSheet.#onToggleGeneration)),
       // NOT owned(): printing shows nothing the open sheet does not already
       // show this viewer, so being able to open the sheet is the whole gate.
       printSheet: CairnActorSheet.#onPrintSheet,
-      // Portrait + name
+      // Portrait + name. editPortrait is a PICK, not a die — it stays outside
+      // the randomization surface, so it wears no mayRandomize().
       editPortrait: owned(CairnActorSheet.#onEditPortrait),
-      rollPortrait: owned(CairnActorSheet.#onRollPortrait),
-      rollName: owned(CairnActorSheet.#onRollName),
-      rollProfession: owned(CairnActorSheet.#onRollProfession),
-      rollFaction: owned(CairnActorSheet.#onRollFaction),
+      rollPortrait: owned(mayRandomize(CairnActorSheet.#onRollPortrait)),
+      rollName: owned(mayRandomize(CairnActorSheet.#onRollName)),
+      rollProfession: owned(mayRandomize(CairnActorSheet.#onRollProfession)),
+      rollFaction: owned(mayRandomize(CairnActorSheet.#onRollFaction)),
       // Inventory
       itemCreate: owned(CairnActorSheet.#onItemCreate),
       itemShop: owned(CairnActorSheet.#onItemShop),
@@ -235,21 +262,22 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       restoreAbilities: owned(CairnActorSheet.#onRestoreAbilities),
       dieOfFate: CairnActorSheet.#onDieOfFate,
       // Description tab
-      rollAge: owned(CairnActorSheet.#onRollAge),
-      rollOmen: owned(CairnActorSheet.#onRollOmen),
+      rollAge: owned(mayRandomize(CairnActorSheet.#onRollAge)),
+      rollOmen: owned(mayRandomize(CairnActorSheet.#onRollOmen)),
       toggleTraits: CairnActorSheet.#onToggleTraits,
       toggleScars: CairnActorSheet.#onToggleScars,
       // Background / failed career
-      rollBackground: owned(CairnActorSheet.#onRollBackground),
-      pickBackground: owned(CairnActorSheet.#onPickBackground),
-      rollFailedCareer: owned(CairnActorSheet.#onRollFailedCareer),
-      pickFailedCareer: owned(CairnActorSheet.#onPickFailedCareer),
-      rollFailedCareerItem: owned(CairnActorSheet.#onRollFailedCareerItem),
-      // Notes tab
-      rerollBond: owned(CairnActorSheet.#onRerollBond),
-      addBond: owned(CairnActorSheet.#onAddBond),
-      removeBond: owned(CairnActorSheet.#onRemoveBond),
-      rerollQuestion: owned(CairnActorSheet.#onRerollQuestion),
+      rollBackground: owned(mayRandomize(CairnActorSheet.#onRollBackground)),
+      pickBackground: owned(mayRandomize(CairnActorSheet.#onPickBackground)),
+      rollFailedCareer: owned(mayRandomize(CairnActorSheet.#onRollFailedCareer)),
+      pickFailedCareer: owned(mayRandomize(CairnActorSheet.#onPickFailedCareer)),
+      rollFailedCareerItem: owned(mayRandomize(CairnActorSheet.#onRollFailedCareerItem)),
+      // Notes tab — the bond/question controls live inside the template's
+      // generationEnabled blocks, so they are surface too, add/remove included.
+      rerollBond: owned(mayRandomize(CairnActorSheet.#onRerollBond)),
+      addBond: owned(mayRandomize(CairnActorSheet.#onAddBond)),
+      removeBond: owned(mayRandomize(CairnActorSheet.#onRemoveBond)),
+      rerollQuestion: owned(mayRandomize(CairnActorSheet.#onRerollQuestion)),
     },
   };
 
@@ -565,6 +593,19 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   /* -------------------------------------------- */
 
   /**
+   * May THIS viewer use the randomization surface — the title-bar toggle, the
+   * Roll button and the per-line re-roll dice? The Warden always may; players
+   * only while the allow-player-randomization switch is on (flipped live by
+   * its shipped macro). ONE helper for all its read sites — the frame-button
+   * sync, both generationEnabled context derivations, and the mayRandomize()
+   * action wrapper that guards every surface handler — so the affordance and
+   * the enforcement cannot disagree.
+   */
+  _mayRandomize() {
+    return game.user.isGM || game.settings.get(SETTINGS_NS, "allow-player-randomization");
+  }
+
+  /**
    * Keep the two title-bar buttons in step with generation mode: the toggle's
    * own label and icon, and whether Roll Character is showing at all — hiding it
    * while Randomization is off is that toggle's entire purpose.
@@ -594,9 +635,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // next sheet open; a frame cannot grow buttons it never built.)
     const thing = ["hireling", "npc"].includes(this.actor.type)
       && !["npc", "monster"].includes(this.actor.npcRole);
-    toggle?.classList.toggle("cairn-header-hidden", thing);
+    // The Warden's allow-player-randomization switch: a player loses BOTH
+    // buttons while it is off (the setting's onChange re-renders open sheets,
+    // which is what brings this sync back around live). Same per-render shape
+    // as the role test — the frame builds once.
+    const denied = !this._mayRandomize();
+    toggle?.classList.toggle("cairn-header-hidden", thing || denied);
     const on = this.actor.system.generationEnabled !== false;
-    roll?.classList.toggle("cairn-header-hidden", !on || thing);
+    roll?.classList.toggle("cairn-header-hidden", !on || thing || denied);
     // The Roll button's face follows the ROLE: a monster re-rolls through the
     // tier picker and wears the Generate Monster button's dragon, so the
     // button says what the click does. The role can change under an open
@@ -642,6 +688,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // Foundry ROLE gate (Actor deletion is Assistant+, no player-grantable
     // permission) and stays isGM — the reason the two were never one flag.
     context.canManageConnections = game.user.isGM || this.actor.isOwner;
+    // The Warden's switch for player shopping (allow-player-marketplace, the
+    // shipped macro's setting). Both sheet templates pass this straight into
+    // the items-list partial's withShop — it was a hardcoded 1 there until the
+    // switch existed. Hiding the button is the affordance; acquire() refusing
+    // is the enforcement (the marketplace's own greying/refusal doctrine), so
+    // a sheet left open across a flip still cannot buy. GM always shops.
+    context.withShop = game.user.isGM || game.settings.get(SETTINGS_NS, "allow-player-marketplace");
     // Per-window id prefix for label[for]/input[id] pairs. Templates hardcoded the
     // field path as the DOM id ("system.gold"), so every open sheet of a type used
     // the SAME ids — and `label[for]` resolves against the first match in tree
@@ -728,10 +781,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // (randomCareer's repeat-exclusion, _preUpdate's day-rate fill), so the
       // input shows t() and the submit maps back through sourceOf().
       context.professionDisplay = t("npc.career", this.actor.system.profession);
-      // Static per role, not per document: a person's Notes tab carries the
-      // character sheet's wording, everything else says plain Notes.
-      context.notesTabLabel = game.i18n.localize(
-        role === "npc" ? "CAIRN.BackgroundAndNotes" : "CAIRN.Notes");
+      // Every role says plain "Notes" (user ruling 2026-08-08). The person role
+      // used to mirror the character sheet's "Background & Notes" wording; that
+      // parity read as noise on an NPC, so only the character sheet keeps it.
+      context.notesTabLabel = game.i18n.localize("CAIRN.Notes");
       // The connection line under the header (2026-08-02): the child end's ONE
       // upward edge, expressed as a field rather than a tab — any child role
       // has at most one keeper, so the Connections tab this sheet used to carry
@@ -880,7 +933,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // an earlier toggle would otherwise keep live dice with no way left to
       // turn them off. Render-only — the stored flag is untouched.
       context.generationEnabled = ["npc", "monster"].includes(this.actor.npcRole)
-        && this.actor.system.generationEnabled !== false;
+        && this.actor.system.generationEnabled !== false
+        // ...and never for a player while the Warden's switch is off — the
+        // whole surface goes, not just the title-bar toggle (ruled 2026-08-09).
+        && this._mayRandomize();
       // A PERSON gets the character's biography block — pronouns, age, the
       // eight traits, scars — on the Description tab (2026-08-01). Role npc
       // only: a monster, mount, transport or container has no pronouns, and
@@ -1115,11 +1171,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.hasGeneratedBackground = !!this.actor.system.backgroundUuid;
     // `showBackgroundNotesLabel` lived here (the Notes tab renamed itself
     // "Background & Notes" once a background was attached). Retired 2026-08-01:
-    // the tab is "Notes" for everyone — one name, one key, and the label no
-    // longer disagrees with TAB_LABELS.notes on generated characters.
-    // Since 2026-08-02 the label is static PER ROLE instead — a character and a
-    // role-npc person read CAIRN.BackgroundAndNotes, a monster, mount, transport
-    // or container reads CAIRN.Notes (`context.notesTabLabel`). The DYNAMIC,
+    // one name, one key, and the label no longer disagrees with
+    // TAB_LABELS.notes on generated characters. 2026-08-02 made the label
+    // static per role (person read CAIRN.BackgroundAndNotes); 2026-08-08
+    // flattened that too — every NPC-sheet role reads CAIRN.Notes, and only
+    // the character sheet's hardcoded tab keeps the long wording. The DYNAMIC,
     // data-driven rename stays dead: two characters must not disagree on what
     // their own tabs are called.
     // Scars and Age are never generated — a player fills each in by hand after
@@ -1167,7 +1223,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     // Random-generation mode (default on): gates the per-field dice rollers
     // (age, omen). Legacy characters lack the field -> default to enabled.
-    context.generationEnabled = this.actor.system.generationEnabled !== false;
+    // _mayRandomize: while the Warden's allow-player-randomization switch is
+    // off, a PLAYER's render derives false even on an actor whose own flag is
+    // on — the whole surface hides, render-only, no actor written (ruled
+    // 2026-08-09). The Warden's own render is unaffected.
+    context.generationEnabled = this.actor.system.generationEnabled !== false
+      && this._mayRandomize();
 
     // Notes tab: bonds (a character can hold several) + the background's
     // re-rollable questions. Questions are 2e; bonds are 2e by default but a
@@ -1303,8 +1364,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * `submitOnChange` is on.
    * @override
    */
-  _onFirstRender(context, options) {
-    super._onFirstRender(context, options);
+  async _onFirstRender(context, options) {
+    // Await the async super (review #13 #22): DocumentSheetV2's registers the
+    // sheet in `document.apps` AFTER its own await, and the framework awaits
+    // this handler (application.mjs:589) — a sync override dropped that
+    // promise, so the registration landed after first-render supposedly
+    // finished and a rejection in super's chain was unhandled.
+    await super._onFirstRender(context, options);
     bindEditorClickAwaySave(this.element);
   }
 
@@ -1342,6 +1408,22 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // Double-click the Items tab label to set this character's equipment limit,
     // when the Warden has enabled per-character limits.
     on("#set-equipment-limit", "dblclick", (ev) => this._onSetEquipmentLimit(ev));
+
+    // Click-to-edit on the EMPTY Notes display (both sheets, 2026-08-08): a
+    // toggled editor's only core affordance is the pencil, so an empty notes
+    // area activates on a click anywhere in the display half — through core's
+    // own toggle button, never a reimplemented activation. With content
+    // present clicks stay inert (text selection and links keep working) and
+    // the now-visible pencil is the way in. The emptiness test is the
+    // placeholder element itself: the template renders it exactly when the
+    // stored notes are empty.
+    on('.tab[data-tab="notes"] prose-mirror', "click", (ev) => {
+      const pm = ev.currentTarget;
+      if (!pm.classList.contains("inactive")) return;
+      if (ev.target.closest("a, button")) return;
+      if (!pm.querySelector(".cairn-editor-placeholder")) return;
+      pm.querySelector("button.toggle")?.click();
+    });
 
     // Stat inputs (HP + abilities, current & max) are numeric and capped 0-18.
     on(".stat-input", "change", (ev) => {
@@ -1729,10 +1811,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       .filter((i) => i.getFlag("air-bladder", "grantSource") === source)
       .map((i) => i.id);
     if (oldIds.length) {
-      await this.actor.deleteEmbeddedDocuments("Item", oldIds, { render: false });
+      // abNoStatusCard: grant machinery is not a player packing or shedding
+      // gear, so it stays out of the manual-change log (every caller here —
+      // bonds, questions, the failed-career keepsake — is a re-roll).
+      await this.actor.deleteEmbeddedDocuments("Item", oldIds, { render: false, abNoStatusCard: true });
     }
     if (newItems.length) {
-      await this.actor.createEmbeddedDocuments("Item", newItems, { render: false });
+      await this.actor.createEmbeddedDocuments("Item", newItems, { render: false, abNoStatusCard: true });
     }
   }
 
@@ -1848,7 +1933,25 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const actor = this.actor;
     const sys = actor.system;
     const L = (k) => game.i18n.localize(k);
-    const abs = (p) => (p ? new URL(p, `${location.origin}/`).href : null);
+    // getRoute, not a bare origin join (review #13): a server behind a
+    // routePrefix serves systems/ and icons/ under that prefix, and resolving
+    // against location.origin alone printed every portrait and item icon as a
+    // broken image on such a host. getRoute prepends ROUTE_PREFIX
+    // (public/scripts/foundry.mjs:2265) — and must NOT see an already-absolute
+    // URL (a remote portrait): it strips and re-joins slashes, so a scheme'd
+    // URL comes back mangled. Those are absolute already; pass them through.
+    // getRoute, not a bare origin join (review #13): a server behind a
+    // routePrefix serves systems/ and icons/ under that prefix, and resolving
+    // against location.origin alone printed every portrait and item icon as a
+    // broken image on such a host. getRoute prepends ROUTE_PREFIX
+    // (public/scripts/foundry.mjs:2265) — and must NOT see an already-absolute
+    // URL (a remote portrait): it strips and re-joins slashes, so a scheme'd
+    // URL comes back mangled. Those are absolute already; pass them through.
+    const abs = (p) => {
+      if (!p) return null;
+      if (/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(p)) return p;
+      return new URL(foundry.utils.getRoute(p), `${location.origin}/`).href;
+    };
     const enrich = (html) => (html
       ? foundry.applications.ux.TextEditor.implementation.enrichHTML(html, { relativeTo: actor })
       : Promise.resolve(""));
@@ -1878,7 +1981,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       const name = it.name === FATIGUE_NAME
         ? game.i18n.localize("CAIRN.Fatigue")
         : t(nameNs, it.name);
-      return { name, notes: notes.join(" ") };
+      // A spellbook row carries the same "Spellbook — " / "Spellscroll — "
+      // prefix the inventory shows (user report 2026-08-08: the printed sheet
+      // dropped it, so a book and its spell read as loose gear). THROUGH the
+      // registered helper, so the two surfaces cannot drift — idempotence
+      // included: a stored name already carrying a prefix gets no second one.
+      const prefix = it.type === "spellbook"
+        ? Handlebars.helpers.spellbookPrefix(it.name, it.system.scroll)
+        : "";
+      return { name: `${prefix}${name}`, notes: notes.join(" ") };
     });
 
     // The status line: deprived / panicked / critical, when set.
@@ -2117,6 +2228,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onRollActor(event) {
     event.preventDefault();
+    // The allow-player-randomization refusal is the mayRandomize() wrapper in
+    // the action map — one declaration for the whole surface, this handler
+    // included, since review #13 found the guard lived here and in
+    // #onToggleGeneration while ten hidden dice answered a call unguarded.
     // The same guard the bond/trait re-roll handlers carry. Every branch below
     // AWAITS a dialog and then wipes and rebuilds the actor, so two clicks in
     // quick succession both get past the confirmation and both regenerate --
@@ -2169,6 +2284,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onToggleGeneration(event) {
     event.preventDefault();
+    // The switch refusal is the mayRandomize() wrapper in the action map.
     await this.actor.update({ "system.generationEnabled": this.actor.system.generationEnabled === false });
   }
 
@@ -2401,12 +2517,20 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const row = CairnActorSheet.#row(target);
     const item = this.actor.getOwnedItem(row?.dataset.itemId);
     if (!item) return;
+    // ONE write whether or not the tick rolls a unit over (review #13 #20).
+    // The rollover case used to be two sequential updates — quantity first,
+    // then the refilled uses — which was two operations for a single click,
+    // and once the ledger logs item updates, two whispered cards for one
+    // press of one button. Merged, quantity and uses also move together or
+    // not at all.
+    const update = {};
     let val = Math.max(item.system.uses.value - 1, 0);
     if (val === 0 && item.system.quantity > 1) {
-      await item.update({ "system.quantity": item.system.quantity - 1 });
+      update["system.quantity"] = item.system.quantity - 1;
       val = item.system.uses.max;
     }
-    await item.update({ "system.uses.value": val });
+    update["system.uses.value"] = val;
+    await item.update(update);
   }
 
   /**
@@ -2947,7 +3071,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   static async #onRest() {
     if (this.actor.system.deprived) return;
     if (!(await this._confirmAction("CAIRN.Rest", "CAIRN.RestTip", "CAIRN.RestConfirm"))) return;
-    await this.actor.update({ "system.hp.value": this.actor.system.hp.max });
+    // abChangeLogAction names the button on the ledger card (whitelisted in
+    // actor.js AUDIT_ACTIONS) — otherwise a Rest reads exactly like a hand
+    // edit of HP.
+    await this.actor.update(
+      { "system.hp.value": this.actor.system.hp.max },
+      { abChangeLogAction: "CAIRN.Rest" },
+    );
   }
 
   /** @this {CairnActorSheet} */
@@ -2961,7 +3091,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       "system.abilities.DEX.value": this.actor.system.abilities.DEX.max,
       "system.abilities.WIL.value": this.actor.system.abilities.WIL.max,
       "system.critical": false,
-    });
+    }, { abChangeLogAction: "CAIRN.RestoreAbilities" });
   }
 
   /** @this {CairnActorSheet} */
@@ -3172,10 +3302,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       if (!rec) return;
       bonds.push(rec.bond);
       if (rec.items.length) {
-        await this.actor.createEmbeddedDocuments("Item", rec.items, { render: false });
+        // abNoStatusCard here and on the update below: a bond's grants are
+        // machinery, same as _replaceGrantedItems.
+        await this.actor.createEmbeddedDocuments("Item", rec.items, { render: false, abNoStatusCard: true });
       }
       const gold = (this.actor.system.gold ?? 0) + rec.bond.gold;
-      await this.actor.update({ "system.bonds": bonds, "system.gold": gold });
+      await this.actor.update({ "system.bonds": bonds, "system.gold": gold }, { abNoStatusCard: true });
     } finally {
       this._rerolling = false;
     }
@@ -3203,7 +3335,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       await this._replaceGrantedItems(`bond:${id}`, []);
       const gold = Math.max(0, (this.actor.system.gold ?? 0) - (bonds[idx].gold ?? 0));
       bonds.splice(idx, 1);
-      await this.actor.update({ "system.bonds": bonds, "system.gold": gold });
+      // abNoStatusCard: the refund is grant machinery, like the grant was.
+      await this.actor.update({ "system.bonds": bonds, "system.gold": gold }, { abNoStatusCard: true });
     } finally {
       this._rerolling = false;
     }
@@ -3247,7 +3380,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       const newGold = opt.bonusGold ?? 0;
       const gold = Math.max(0, (this.actor.system.gold ?? 0) - oldGold + newGold);
       questions[idx] = { question: table.question ?? "", answer: opt.description ?? "", gold: newGold };
-      await this.actor.update({ "system.questions": questions, "system.gold": gold });
+      // abNoStatusCard: a question re-roll's gold swing is grant machinery.
+      await this.actor.update({ "system.questions": questions, "system.gold": gold }, { abNoStatusCard: true });
     } finally {
       this._rerolling = false;
     }
@@ -3444,12 +3578,22 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
     const kind = foundry.utils.getProperty(data, "system.containerClass");
     if (kind !== undefined && kind !== "" && !CONTAINER_CLASSES[kind]) {
-      // Not already a key: accept the label in ANY language — a Warden may type
-      // the English label in a Spanish world — falling through to the verbatim
-      // text, which is the "a Warden's own word is a legal Kind" rule.
+      // Not already a key: accept the label in the ACTIVE language OR in
+      // English. The comment here always promised "any language", but the
+      // compare ran localize() alone — active language only — so a Warden
+      // typing the English label in a Spanish world fell through to the
+      // verbatim-custom branch and silently lost the class's art and capacity
+      // (review #13; es.json also ships 14 of the 16 Class labels, so two
+      // classes had no Spanish label to type at all). English comes from
+      // game.i18n._fallback, the same read core's own fallback path uses
+      // (helpers/localization.mjs:394,441) — empty on an English client,
+      // where localize() already answers. No match still falls through to
+      // the verbatim text: a Warden's own word is a legal Kind.
       const typed = String(kind).trim().toLowerCase();
+      const english = (key) => foundry.utils.getProperty(game.i18n._fallback, key) ?? game.i18n.localize(key);
       for (const [key, cfg] of Object.entries(CONTAINER_CLASSES)) {
-        if (typed === game.i18n.localize(cfg.label).toLowerCase()) {
+        if (typed === game.i18n.localize(cfg.label).toLowerCase()
+          || typed === String(english(cfg.label)).toLowerCase()) {
           foundry.utils.setProperty(data, "system.containerClass", key);
           break;
         }
@@ -3585,7 +3729,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // purpose — barding is equipped armor on a creature that has a stat block.
       const patch = { "system.quantity": 1 };
       if (this.actor.isThing) patch["system.equipped"] = false;
-      await created.update(patch);
+      // abNoStatusCard: this pin is drop machinery normalizing the fresh copy
+      // (a cross-actor transfer moves ONE unit whatever the source stack held),
+      // and the create above already posted the ledger's "Item added" line —
+      // without the flag the update half would follow it with a "3 → 1"
+      // quantity line recording a change nobody made.
+      await created.update(patch, { abNoStatusCard: true });
     }
 
     // Target received it. Only a real transfer FROM another actor removes a unit

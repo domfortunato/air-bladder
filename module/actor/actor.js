@@ -6,7 +6,7 @@ import {
   connectedOwnershipShape, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG,
 } from "../connections.js";
 import { actorDisplayName, t } from "../i18n-content.js";
-import { concealmentWhisper } from "../utils.js";
+import { concealmentWhisper, formatCount } from "../utils.js";
 import { FATIGUE_NAME } from "../item/item.js";
 
 /** Document names go into dialog HTML; a name is user-authored text. */
@@ -99,8 +99,14 @@ export const postStatusCard = async (actor, kind) => {
     : ChatMessage.getSpeaker({ actor });
   const messageData = {
     speaker,
+    // The line goes through CAIRN.StatusBannerLine WHOLE — bold and colon
+    // included, the faction-generator.js rule — so a translator owns the
+    // punctuation. The sheet's banner template consumes the SAME key
+    // (character-sheet.html / npc-sheet.html, the statusBanners block): these
+    // bars were copied value for value from the sheet's, and one key is what
+    // keeps a translator's reordering from splitting the pair.
     content: `<div class="status-banner ${spec.cls}"><i class="fas ${spec.icon}"></i>`
-      + `<span><strong>${spec.label()}:</strong> ${game.i18n.localize(spec.text)}</span></div>`,
+      + `<span>${game.i18n.format("CAIRN.StatusBannerLine", { label: spec.label(), text: game.i18n.localize(spec.text) })}</span></div>`,
   };
   // A hidden creature's death is not table news. Only a TOKEN can be concealed --
   // a world actor with no token has nothing to hide behind, and concealmentWhisper
@@ -109,6 +115,83 @@ export const postStatusCard = async (actor, kind) => {
   if (whisper) messageData.whisper = whisper;
   return ChatMessage.create(messageData);
 };
+
+/* -------------------------------------------------------------------------- */
+/*  The manual-change log                                                      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * What the change log tracks, exactly the user-facing list it was asked for
+ * (2026-08-08): stats (value AND max), gold, the eight descriptive traits,
+ * Panicked/Deprived, scars and features — plus inventory, which is the
+ * descendant-document seams below, not a field: add/remove, and since review
+ * #13 (#21, user ruling — "when torches and rations are marked down a tick"
+ * belongs on the ledger) quantity changes and uses ticks too. Equipped,
+ * renames and description edits stay OFF by the same ruling. Rest and Restore need no
+ * entry of their own: both are plain updates of HP/ability values, so they
+ * surface as those lines — and since 2026-08-08 the two sheet buttons also
+ * NAME themselves on the card, via the whitelisted `abChangeLogAction`
+ * update option (AUDIT_ACTIONS below).
+ *
+ * "Manual" is defined NEGATIVELY, the same way #announceStatusChange defines
+ * it: an operation WITHOUT `abNoStatusCard`. Damage, generation, regeneration
+ * and the grant machinery all set the flag (that is what makes them
+ * programmatic); a sheet edit, a drag-drop, the Create Item dialog and the
+ * Fatigue buttons do not.
+ *
+ * Labels are FUNCTIONS because this table is built at module load, before i18n
+ * initializes — the same reason settings.js stores keys, not localize() calls.
+ */
+const AUDIT_LABELS = {
+  "system.hp.value": () => game.i18n.localize("CAIRN.HitProtection"),
+  "system.hp.max": () => game.i18n.format("CAIRN.ChangeLog.MaxOf", { label: game.i18n.localize("CAIRN.HitProtection") }),
+  "system.gold": () => game.i18n.localize("CAIRN.Gold"),
+};
+for (const k of ["STR", "DEX", "WIL"]) {
+  AUDIT_LABELS[`system.abilities.${k}.value`] = () => game.i18n.localize(k);
+  AUDIT_LABELS[`system.abilities.${k}.max`] = () => game.i18n.format("CAIRN.ChangeLog.MaxOf", { label: game.i18n.localize(k) });
+}
+/** Trait paths need display translation (t) where numbers pass through. A SET
+ *  rather than a startsWith on the path string, which doubles as keeping any
+ *  quoted `system.…` literal out of this file that the field audit would read
+ *  as a persisted write. */
+const AUDIT_TRAIT_PATHS = new Set();
+for (const k of ["physique", "skin", "hair", "face", "speech", "clothing", "virtue", "vice"]) {
+  // The trait-category label IS a tables-2e table name (the sheet's pick-list
+  // labels them the same way), so the capitalized key localizes through the
+  // same table.name namespace and the audit line agrees with the sheet.
+  const p = `system.traits.${k}`;
+  AUDIT_LABELS[p] = () => t("table.name", k[0].toUpperCase() + k.slice(1));
+  AUDIT_TRAIT_PATHS.add(p);
+}
+
+/** Booleans read "marked"/"cleared" rather than "false → true". */
+const AUDIT_BOOLEANS = {
+  "system.deprived": "CAIRN.Deprived",
+  "system.panicked": "CAIRN.Panicked",
+};
+
+/** Arrays are diffed as add/remove lines, never dumped whole. */
+const AUDIT_ARRAYS = ["system.scars", "system.features"];
+
+/**
+ * i18n keys an operation may use to NAME itself on its ledger card (the
+ * `abChangeLogAction` update option — Rest and Restore Abilities so far).
+ *
+ * ADVISORY, and it trusts the acting client (review #13, user ruling —
+ * marketplace.js's playerMarketClosed states the same footing). This docblock
+ * used to call the Set "the security half", which was wrong twice over: the
+ * whole ledger posts from the client that made the change (#postChangeLog's
+ * userId gate), so a crafted client can withhold its own cards outright — and
+ * "CAIRN.Rest" is IN the Set, so the very spoof the old comment warned about
+ * passes it. What the Set actually does is keep the header VOCABULARY closed:
+ * an unknown or free-typed key renders no header at all, so no wire-supplied
+ * prose — escaped or not — reaches the Warden's ledger, and a future call
+ * site cannot drift into posting un-localized text. A table aid on the same
+ * footing as every client-side rule here; do not harden it into GM-side
+ * posting unasked.
+ */
+const AUDIT_ACTIONS = new Set(["CAIRN.Rest", "CAIRN.RestoreAbilities"]);
 
 /**
  * Extend the base Actor entity by defining a custom roll data structure which is ideal for the Simple system.
@@ -723,6 +806,13 @@ export class CairnActor extends Actor {
     // (items-list.html) and count toward encumbrance like any other slot.
     this.system.coinsPerSlot = this._coinsPerSlot();
     this.system.coinRowLabel = game.i18n.format("CAIRN.NGold", { n: this.system.coinsPerSlot });
+    // Each filled row is exactly one slot, but the tag still goes through
+    // formatCount rather than a hardcoded `CAIRN.NSlot_one` (review #13):
+    // "_one" is this repo's suffix convention, not a key every language
+    // carries. A translation shipping only the base key rendered the literal
+    // key text in the tag, and a language whose plural rules map 1 to "other"
+    // (ja, zh) was asked for a form its translator was never told exists.
+    this.system.coinRowSlotTag = formatCount("CAIRN.NSlot", 1);
     this.system.coinTip = this.system.coinsPerSlot > 0
       ? game.i18n.format("CAIRN.GoldTip", { n: this.system.coinsPerSlot })
       : game.i18n.localize("CAIRN.GoldTipWeightless");
@@ -1431,6 +1521,31 @@ export class CairnActor extends Actor {
       }
     }
 
+    // The change log wants "old → new" lines, and by _onUpdate the old values
+    // are gone — the same shape as the status stashes above. Stash on the
+    // REQUEST and diff strictly at post time: a sheet submit resends every
+    // field whether or not it changed, so the request over-approximates, and
+    // an unchanged field stashes equal to its post-value and produces no line.
+    // Values come from SOURCE (toObject — damage.js reads HP the same way and
+    // says why): _prepareCharacterData pins the derived system.hp.value to 0
+    // while the actor is encumbered or panicked, so reading derived here made
+    // a real write diff 0 → 0 and the card never posted. The ledger records
+    // what was WRITTEN, not what the rules currently display. toObject() is a
+    // deep clone already, which also covers what deepClone on the array paths
+    // was for.
+    const audit = {};
+    const src = this.toObject();
+    for (const p of Object.keys(AUDIT_LABELS)) {
+      if (p in statusFlat) audit[p] = foundry.utils.getProperty(src, p);
+    }
+    for (const p of Object.keys(AUDIT_BOOLEANS)) {
+      if (p in statusFlat) audit[p] = foundry.utils.getProperty(src, p) === true;
+    }
+    for (const p of AUDIT_ARRAYS) {
+      if (p in statusFlat) audit[p] = foundry.utils.getProperty(src, p) ?? [];
+    }
+    if (!foundry.utils.isEmpty(audit)) stash.audit = audit;
+
     return result;
   }
 
@@ -1442,6 +1557,213 @@ export class CairnActor extends Actor {
     const stash = options.airBladder?.[this.id] ?? {};
     this._synchronizeOwnerSheets(stash.formerOwners ?? []);
     this.#announceStatusChange(stash, options, userId);
+    this.#postChangeLog(stash, options, userId);
+  }
+
+  /**
+   * The manual-change log, field half (the "change-log" setting; the shipped
+   * "Toggle Change Log" macro flips it). One whispered message per UPDATE,
+   * listing every tracked change the operation made — so Restore is one card
+   * with three ability lines, not three cards. Runs AFTER
+   * #announceStatusChange on purpose: where both fire (a hand edit that drops
+   * STR to 0), the public status card leads and the ledger line follows it.
+   *
+   * The gates mirror #announceStatusChange exactly — one poster, then the
+   * suppression flag — plus the setting, read LIVE so the macro needs no
+   * reload. Diffs are strict: the _preUpdate stash over-approximates (a sheet
+   * submit resends everything), so equality here is what keeps an untouched
+   * field silent. BOTH sides of the diff read SOURCE, never the prepared
+   * document — see the stash comment in _preUpdate: derived HP is pinned to 0
+   * under encumbrance/panic, and a derived read here diffed 0 → 0 across a
+   * real write.
+   */
+  #postChangeLog(stash, options, userId) {
+    if (userId !== game.user.id) return;
+    if (options.abNoStatusCard) return;
+    const before = stash.audit;
+    if (!before) return;
+    if (!game.settings.get(SETTINGS_NS, "change-log")) return;
+
+    const src = this.toObject();
+    const lines = [];
+    for (const [p, label] of Object.entries(AUDIT_LABELS)) {
+      if (!(p in before)) continue;
+      const now = foundry.utils.getProperty(src, p);
+      if (now === before[p]) continue;
+      // Trait values are stored English and displayed through the overlay, so
+      // the ledger shows what the pick-list shows; numbers pass through.
+      const disp = AUDIT_TRAIT_PATHS.has(p)
+        ? (v) => (v ? t("table.result", String(v)) : "—")
+        : (v) => (v === "" || v === undefined || v === null ? "—" : String(v));
+      lines.push(game.i18n.format("CAIRN.ChangeLog.Field", { label: label(), from: disp(before[p]), to: disp(now) }));
+    }
+    for (const [p, key] of Object.entries(AUDIT_BOOLEANS)) {
+      if (!(p in before)) continue;
+      const now = foundry.utils.getProperty(src, p) === true;
+      if (now === before[p]) continue;
+      lines.push(game.i18n.format(now ? "CAIRN.ChangeLog.Marked" : "CAIRN.ChangeLog.Cleared", { label: game.i18n.localize(key) }));
+    }
+    // Scars are free-typed strings and may repeat, so the diff is a MULTISET
+    // one: matching occurrences cancel, whatever their positions.
+    if (before["system.scars"]) {
+      const old = [...before["system.scars"]];
+      for (const s of src.system.scars ?? []) {
+        const i = old.indexOf(s);
+        if (i >= 0) old.splice(i, 1);
+        else lines.push(game.i18n.format("CAIRN.ChangeLog.ScarAdded", { name: s }));
+      }
+      for (const s of old) lines.push(game.i18n.format("CAIRN.ChangeLog.ScarRemoved", { name: s }));
+    }
+    // Features carry stable ids (createOwnedFeature stamps one), so add/remove
+    // is an id diff; an in-place text edit is deliberately not a line.
+    if (before["system.features"]) {
+      const oldF = before["system.features"];
+      const nowF = src.system.features ?? [];
+      const oldIds = new Set(oldF.map((f) => f?.id));
+      const nowIds = new Set(nowF.map((f) => f?.id));
+      for (const f of nowF) if (!oldIds.has(f?.id)) lines.push(game.i18n.format("CAIRN.ChangeLog.FeatureAdded", { name: f?.name ?? "" }));
+      for (const f of oldF) if (!nowIds.has(f?.id)) lines.push(game.i18n.format("CAIRN.ChangeLog.FeatureRemoved", { name: f?.name ?? "" }));
+    }
+    if (lines.length) {
+      // Whitelisted or dropped — never pass a wire-supplied key through raw.
+      const actionKey = AUDIT_ACTIONS.has(options.abChangeLogAction) ? options.abChangeLogAction : null;
+      this.#postChangeLogCard(lines, userId, actionKey);
+    }
+  }
+
+  /**
+   * The manual-change log, inventory half. Items added to or removed from this
+   * actor do NOT pass _onUpdate — embedded CRUD has its own workflow — so the
+   * descendant-document callbacks are the seam. Same gates as the field half;
+   * `options` here are the EMBEDDED operation's options, which is exactly what
+   * lets generation/regeneration/grant writes opt out with `abNoStatusCard`.
+   * Fatigue gets its own wording: "Item added: Fatigue" reads like gear, and
+   * the − button's whole point is that it is not.
+   */
+  #postItemChangeLog(added, parent, collection, documents, options, userId) {
+    if (parent !== this || collection !== "items") return;
+    if (userId !== game.user.id) return;
+    if (options.abNoStatusCard) return;
+    if (!game.settings.get(SETTINGS_NS, "change-log")) return;
+    const ns = this.npcRole === "monster" ? "monster.itemName" : "item.name";
+    const lines = documents.map((d) => {
+      if (d.name === FATIGUE_NAME) {
+        return game.i18n.localize(added ? "CAIRN.ChangeLog.FatigueAdded" : "CAIRN.ChangeLog.FatigueRemoved");
+      }
+      return game.i18n.format(added ? "CAIRN.ChangeLog.ItemAdded" : "CAIRN.ChangeLog.ItemRemoved", { name: t(ns, d.name) });
+    });
+    if (lines.length) this.#postChangeLogCard(lines, userId);
+  }
+
+  /**
+   * The manual-change log, inventory-UPDATE half: quantity changes and uses
+   * ticks (review #13 #21, user ruling — a torch marked down a tick belongs on
+   * the ledger like a torch dropped). ONLY those two: equipped, renames and
+   * description edits stay off by the same ruling. Quantity rides the shared
+   * Field line with the item's overlay name as the label; uses get their own
+   * whole-line key. Old values come from the per-id stash
+   * _preUpdateDescendantDocuments wrote — by the time this runs the document
+   * already holds the new state. Same gates as the add/remove half.
+   */
+  #postItemUpdateChangeLog(parent, collection, documents, options, userId) {
+    if (parent !== this || collection !== "items") return;
+    if (userId !== game.user.id) return;
+    if (options.abNoStatusCard) return;
+    if (!game.settings.get(SETTINGS_NS, "change-log")) return;
+    const ns = this.npcRole === "monster" ? "monster.itemName" : "item.name";
+    const lines = [];
+    for (const d of documents) {
+      const before = options.airBladder?.[d.id]?.itemAudit;
+      if (!before) continue;
+      const src = d.toObject();
+      const name = t(ns, d.name);
+      if (before.quantity !== undefined) {
+        const now = src.system.quantity ?? 1;
+        if (now !== before.quantity) {
+          lines.push(game.i18n.format("CAIRN.ChangeLog.Field", { label: name, from: before.quantity, to: now }));
+        }
+      }
+      if (before.uses !== undefined) {
+        const now = src.system.uses?.value ?? 0;
+        if (now !== before.uses) {
+          lines.push(game.i18n.format("CAIRN.ChangeLog.Uses", { name, from: before.uses, to: now }));
+        }
+      }
+    }
+    if (lines.length) this.#postChangeLogCard(lines, userId);
+  }
+
+  /** @override */
+  _onCreateDescendantDocuments(parent, collection, documents, data, options, userId) {
+    super._onCreateDescendantDocuments(parent, collection, documents, data, options, userId);
+    this.#postItemChangeLog(true, parent, collection, documents, options, userId);
+  }
+
+  /** @override */
+  _onDeleteDescendantDocuments(parent, collection, documents, ids, options, userId) {
+    super._onDeleteDescendantDocuments(parent, collection, documents, ids, options, userId);
+    this.#postItemChangeLog(false, parent, collection, documents, options, userId);
+  }
+
+  /**
+   * Stash the ledger's "old" side for item updates. Runs on the initiating
+   * client before the write goes out; the values ride `options`, keyed per
+   * ITEM id for the reason _preUpdate's actor stash is keyed per actor id —
+   * one shared options object serves the whole batch. SOURCE values on
+   * purpose: CairnItem.prepareData clamps DERIVED uses.value to max, so a
+   * derived read here could show a value the write never stored — the same
+   * "the ledger records what was WRITTEN" rule as the field half.
+   * @override
+   */
+  _preUpdateDescendantDocuments(parent, collection, changes, options, userId) {
+    super._preUpdateDescendantDocuments(parent, collection, changes, options, userId);
+    if (parent !== this || collection !== "items") return;
+    for (const change of changes) {
+      const item = this.items.get(change._id);
+      if (!item) continue;
+      const flat = foundry.utils.flattenObject(change);
+      if (!("system.quantity" in flat) && !("system.uses.value" in flat)) continue;
+      const src = item.toObject();
+      const audit = {};
+      if ("system.quantity" in flat) audit.quantity = src.system.quantity ?? 1;
+      if ("system.uses.value" in flat) audit.uses = src.system.uses?.value ?? 0;
+      ((options.airBladder ??= {})[change._id] ??= {}).itemAudit = audit;
+    }
+  }
+
+  /** @override */
+  _onUpdateDescendantDocuments(parent, collection, documents, changes, options, userId) {
+    super._onUpdateDescendantDocuments(parent, collection, documents, changes, options, userId);
+    this.#postItemUpdateChangeLog(parent, collection, documents, options, userId);
+  }
+
+  /**
+   * Post one ledger card. ALWAYS whispered — audience is the actor's
+   * owners/observers plus the Warden(s) (user ruling 2026-08-08), and a GM
+   * passes every permission test, so the filter needs no isGM branch. Never
+   * attach a Roll here: `ChatMessage#visible` returns true for any whispered
+   * message that isRoll (chat-message.mjs:101-104), which would silently
+   * publish the ledger to the whole table — the same caveat concealmentWhisper
+   * documents. Lines are localized TEXT; esc() at assembly is what makes a
+   * user-authored item name or scar safe in the markup.
+   *
+   * `actionKey` (already vetted against AUDIT_ACTIONS by the caller) names
+   * the operation — "Rest", "Restore Abilities" — between the user line and
+   * the diff, so a button's card stops being indistinguishable from a hand
+   * edit. Localized at post time on the acting client, stored localized in
+   * content — the same contract as every other ledger line.
+   */
+  #postChangeLogCard(lines, userId, actionKey = null) {
+    const user = game.users.get(userId);
+    const speaker = this.token
+      ? ChatMessage.getSpeaker({ token: this.token })
+      : ChatMessage.getSpeaker({ actor: this });
+    const whisper = game.users.filter((u) => this.testUserPermission(u, "OBSERVER")).map((u) => u.id);
+    const content = `<div class="change-log">`
+      + `<p class="change-log-user">${esc(game.i18n.format("CAIRN.ChangeLog.By", { user: user?.name ?? userId }))}</p>`
+      + (actionKey ? `<p class="change-log-action">${esc(game.i18n.localize(actionKey))}</p>` : "")
+      + `<ul>${lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul></div>`;
+    return ChatMessage.create({ speaker, content, whisper });
   }
 
   /**

@@ -557,6 +557,151 @@ check("an unrecognised pool falls back to HP", pools.bogusHp === 3
   && JSON.stringify(pools.bogusKinds) === JSON.stringify(["damage"]),
   `hp 5 -> ${pools.bogusHp}, abilities ${pools.bogusAbilities} — the pool is spliced into system.abilities.<POOL>.value, so anything unrecognised must be Cairn's ordinary rule`);
 
+/* ---------------------------------------------------------------------------
+ * 5. Every card line comes through a WHOLE-LINE key (review #13 fix #10).
+ *
+ * The detail cards assembled `'<strong>' + label + '</strong>: '` in code,
+ * which hands a translator the nouns and keeps the punctuation — the exact
+ * shape faction-generator.js:91-95 records as forbidden. The lines now go
+ * through CAIRN.DamageCardLine and CAIRN.StatusBannerLine whole.
+ *
+ * Byte-identical English output means "the card contains the formatted key"
+ * is satisfied by the OLD concatenation too, so that assertion cannot witness
+ * the fix. The witness is the same shape as dev:content-overlay's Kind leg:
+ * SHADOW each key to a reordered form ("ZZ-LINE {value} ← {label}") and drive
+ * real cards — code reading the key renders the reordered line; the old
+ * concatenation never consults it and stays "Damage: 6". Shadowing is nested
+ * (lang JSON is expandObject-ed on load, localization.mjs:368), so
+ * get/setProperty, restored in a finally.
+ *
+ * Three surfaces on purpose: the hazard card (_showAbilityDetails), the
+ * combat card (_showDetails — a different method whose lines could regress
+ * alone), and the status bar, read BOTH where it is posted (chat) and where
+ * the sheet template renders the same key (npc-sheet.html; the character
+ * sheet's block is the identical line, and dev:i18n-render's critBanner leg
+ * covers that template rendering). An unshadowed hit first asserts the
+ * English bytes did not move — dev:enc-damage's breakdown legs pin the
+ * Damage line, this pins the banner join.
+ * ------------------------------------------------------------------------- */
+console.log("\nthe card lines come through whole-line keys");
+const lines = await page.evaluate(async () => {
+  const ActorImpl = CONFIG.Actor.documentClass;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const r = {};
+
+  const scene = await Scene.create({ name: "ZZ Line Scene", width: 1000, height: 1000 });
+  await scene.view();
+  await sleep(400);
+  const mk = async (name, system, x) => {
+    const a = await ActorImpl.create({ name, type: "npc", system: { role: "monster", ...system } });
+    const [t] = await scene.createEmbeddedDocuments("Token", [await a.getTokenDocument({ x, y: 100 })]);
+    return { a, t };
+  };
+  // TWO DEX victims: paralysis announces only on the 2->0 transition, so the
+  // unshadowed and shadowed halves each need a fresh one.
+  const dexA = await mk("ZZ Line Plain", { hp: { value: 9, max: 9 }, armor: 0, abilities: { DEX: { value: 2, max: 2 } } }, 100);
+  const dexB = await mk("ZZ Line Shadow", { hp: { value: 9, max: 9 }, armor: 0, abilities: { DEX: { value: 2, max: 2 } } }, 300);
+  const hpV = await mk("ZZ Line Combat", { hp: { value: 5, max: 5 }, armor: 0 }, 500);
+
+  const { evaluateFormula } = await import("/systems/air-bladder/module/utils.js");
+  // Same real-button drive as section 4: post a card, click its Apply control,
+  // hand back the fresh messages' content in order.
+  const spend = async (tok, damage, pool) => {
+    const before = new Set(game.messages.contents.map((m) => m.id));
+    const roll = await evaluateFormula(String(damage), {});
+    const flavor = await foundry.applications.handlebars.renderTemplate(
+      "systems/air-bladder/templates/chat/dmg-roll-card.html",
+      { label: "ZZ line probe", targets: tok.id, pool, hazard: !!pool },
+    );
+    const msg = await roll.toMessage({
+      speaker: { scene: scene.id, actor: null, token: null, alias: "ZZ Warden" }, flavor,
+    });
+    let btn = null;
+    for (let i = 0; i < 40 && !btn; i++) {
+      btn = document.querySelector(`[data-message-id="${msg.id}"] .apply-dmg`);
+      if (!btn) await sleep(150);
+    }
+    btn?.click();
+    for (let i = 0; i < 40; i++) {
+      if (game.messages.contents.some((m) => !before.has(m.id) && m.id !== msg.id
+        && m.speaker?.token === tok.id)) break;
+      await sleep(150);
+    }
+    await sleep(700);   // room for the trailing status bar
+    return game.messages.contents
+      .filter((m) => !before.has(m.id) && m.id !== msg.id && m.speaker?.token === tok.id)
+      .map((m) => String(m.content));
+  };
+
+  // Unshadowed: the English bytes must not have moved.
+  const plain = await spend(dexA.t, 2, "DEX");
+  r.plainCard = plain[0] ?? "";
+  r.plainBanner = plain[1] ?? "";
+
+  const LINE_KEY = "CAIRN.DamageCardLine";
+  const BANNER_KEY = "CAIRN.StatusBannerLine";
+  const priorLine = foundry.utils.getProperty(game.i18n.translations, LINE_KEY);
+  const priorBanner = foundry.utils.getProperty(game.i18n.translations, BANNER_KEY);
+  try {
+    foundry.utils.setProperty(game.i18n.translations, LINE_KEY, "ZZ-LINE {value} ← {label}");
+    foundry.utils.setProperty(game.i18n.translations, BANNER_KEY, "ZZ-BANNER {text} ← {label}");
+
+    const hazard = await spend(dexB.t, 2, "DEX");
+    r.shadowCard = hazard[0] ?? "";
+    r.shadowBanner = hazard[1] ?? "";
+    const combat = await spend(hpV.t, 2, null);
+    r.shadowCombat = combat[0] ?? "";
+
+    // The SHEET's copy of the banner line, while dexB is paralyzed and the
+    // shadow is still up: the npc template must render the same key. The
+    // TOKEN actor's sheet, not the world actor's — the token is unlinked, so
+    // the hit paralyzed the synthetic delta actor and the world actor still
+    // has DEX 2 and no banner (the unlinked-token trap, third catch).
+    const sheet = dexB.t.actor.sheet;
+    await sheet.render(true);
+    let span = null;
+    for (let i = 0; i < 40 && !span; i++) {
+      span = sheet.element?.querySelector(".critical-banner .status-banner span") ?? null;
+      if (!span) await sleep(150);
+    }
+    r.sheetBanner = span?.textContent ?? "";
+    await sheet.close();
+  } finally {
+    foundry.utils.setProperty(game.i18n.translations, LINE_KEY, priorLine);
+    foundry.utils.setProperty(game.i18n.translations, BANNER_KEY, priorBanner);
+  }
+
+  r.dmgLabel = game.i18n.localize("CAIRN.Damage");
+  r.hpLabel = game.i18n.localize("CAIRN.HitProtection");
+  r.paralyzedJoin = "<strong>" + game.i18n.localize("CAIRN.Paralyzed") + ":</strong> "
+    + game.i18n.localize("CAIRN.ParalyzedBanner");
+
+  // Clean up: this scene's messages, then the documents.
+  for (const m of game.messages.contents.slice().reverse().slice(0, 30)) {
+    if (m.speaker?.scene === scene.id) await m.delete();
+  }
+  await scene.delete();
+  for (const v of [dexA, dexB, hpV]) await v.a.delete();
+  return r;
+});
+
+check("the visible English lines are unchanged",
+  lines.plainCard.includes("<strong>" + lines.dmgLabel + "</strong>: ")
+  && lines.plainBanner.includes(lines.paralyzedJoin),
+  "colon outside the bold on card lines, inside it on the banner — each key preserves its surface byte-for-byte; the difference is history, now changeable on purpose");
+check("the hazard card reads CAIRN.DamageCardLine",
+  /ZZ-LINE/.test(lines.shadowCard) && lines.shadowCard.includes("← DEX"),
+  `a reordered shadow renders reordered: ${JSON.stringify((lines.shadowCard.match(/ZZ-LINE[^<]*/) ?? ["NOT FOUND — the line is still concatenated in code"])[0])}`);
+check("the combat card's lines do too",
+  /ZZ-LINE/.test(lines.shadowCombat) && lines.shadowCombat.includes("← " + lines.hpLabel),
+  "_showDetails is a separate method from the hazard card, and its lines could regress alone");
+check("the status bar reads CAIRN.StatusBannerLine",
+  /ZZ-BANNER/.test(lines.shadowBanner),
+  (lines.shadowBanner.match(/ZZ-BANNER[^<]*/) ?? ["NOT FOUND — the banner is still concatenated in postStatusCard"])[0]);
+check("and the sheet's banner is the SAME key",
+  /ZZ-BANNER/.test(lines.sheetBanner),
+  `npc-sheet.html renders through it — one key is what keeps a translator's reordering from splitting chat from sheet (got ${JSON.stringify(lines.sheetBanner.slice(0, 60))})`);
+
 /* ----------------------------------------------------------- teardown ---- */
 await page.evaluate(async (ids) => {
   if (ids.msgId) await game.messages.get(ids.msgId)?.delete();

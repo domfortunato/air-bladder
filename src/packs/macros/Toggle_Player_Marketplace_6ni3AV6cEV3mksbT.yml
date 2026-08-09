@@ -1,0 +1,27 @@
+_id: 6ni3AV6cEV3mksbT
+name: Toggle Player Marketplace
+type: script
+author: null
+img: icons/svg/coins.svg
+scope: global
+command: |-
+  // Flip the Warden's switch for player shopping (the
+  // allow-player-marketplace world setting). Open sheets update live — the
+  // Marketplace button hides or returns with no reload, and acquire() refuses
+  // behind a stale dialog besides. Warden-only: the server refuses a
+  // world-setting write from anyone else anyway; the check just says so
+  // politely.
+  if (!game.user.isGM) return ui.notifications.warn(game.i18n.localize("CAIRN.Notify.WardenOnly"));
+  const KEY = "allow-player-marketplace";
+  const on = !game.settings.get("air-bladder", KEY);
+  await game.settings.set("air-bladder", KEY, on);
+  ui.notifications.info(game.i18n.localize(on ? "CAIRN.Notify.PlayerMarketOn" : "CAIRN.Notify.PlayerMarketOff"));
+folder: null
+sort: 200000
+ownership:
+  default: 0
+flags: {}
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!macros!6ni3AV6cEV3mksbT'
