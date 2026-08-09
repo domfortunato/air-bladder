@@ -16,6 +16,9 @@
  *                 abNoStatusCard at source (damage.js:125,149,487 — the same
  *                 flag this probe proves suppresses), and clicking the real
  *                 Apply button is dev:enc-damage / dev:hazard territory.
+ *   action header — Rest and Restore, driven through the REAL button and
+ *                 confirm dialog, name themselves on the card; a hand edit
+ *                 stays anonymous; a non-whitelisted key renders no header
  *   whisper look — the rendered tile wears the system's warm tint + teal
  *                 stripe (cairn.css .chat-message.whisper), not core lavender
  *   audience    — Alice sees the card for HER actor, not the hidden actor's;
@@ -210,6 +213,86 @@ const run = async () => {
         }, created.witness);
         const logs = await logsSince(gm, since);
         assert(logs.length === 1 && logs[0].items === 1, `expected 1 card / 1 line, got ${logs.length} / ${logs[0]?.items}`);
+      });
+
+      // ---- action headers (Rest / Restore name themselves) -----------------
+      // Both legs drive the REAL button + confirm dialog on Alice's client:
+      // the abChangeLogAction option lives in the sheet handler, so a leg
+      // that called actor.update itself would stay green with the handler's
+      // option removed — the two-layer Fatigue lesson.
+      const clickThroughConfirm = (page, actorId, buttonSel) =>
+        page.evaluate(async ({ id, sel }) => {
+          const sheet = game.actors.get(id).sheet;
+          await sheet.render(true);
+          const t0 = Date.now();
+          let btn;
+          while (!(btn = sheet.element?.querySelector(sel))) {
+            if (Date.now() - t0 > 5000) throw new Error(`${sel} never rendered`);
+            await new Promise((r) => setTimeout(r, 100));
+          }
+          // A CLOSING DialogV2 lingers in the DOM with DEAD listeners, and a
+          // click on a dead dialog's submit button is a NATIVE form submit —
+          // a full page navigation that destroys the execution context (seen
+          // live: the Restore leg's click found the closing Rest dialog).
+          // Snapshot the dialogs already present and click only one that
+          // appears AFTER this button press.
+          const stale = new Set(document.querySelectorAll(".application.dialog"));
+          btn.click();
+          let dlg;
+          while (!(dlg = [...document.querySelectorAll(".application.dialog")].find((d) => !stale.has(d)))) {
+            if (Date.now() - t0 > 5000) throw new Error("confirm dialog never appeared");
+            await new Promise((r) => setTimeout(r, 100));
+          }
+          dlg.querySelector("button[data-action='yes']").click();
+        }, { id: actorId, sel: buttonSel });
+
+      since = await messageIds(gm);
+      await leg("Rest names itself on the card (real button flow)", async () => {
+        await gm.evaluate((id) => game.actors.get(id).update(
+          { "system.hp.value": 1 }, { abNoStatusCard: true }), created.witness);
+        await clickThroughConfirm(alice, created.witness, "#rest-button");
+        const logs = await logsSince(gm, since);
+        assert(logs.length === 1, `expected 1 card, got ${logs.length}`);
+        assert(logs[0].content.includes('class="change-log-action"'), "no action header on the Rest card");
+        const restLabel = await gm.evaluate(() => game.i18n.localize("CAIRN.Rest"));
+        assert(logs[0].content.includes(`>${restLabel}<`), `header does not read "${restLabel}"`);
+        assert(logs[0].items === 1, `expected the HP line alone, got ${logs[0].items}`);
+      });
+
+      since = await messageIds(gm);
+      await leg("Restore Abilities names itself on the card", async () => {
+        await gm.evaluate((id) => game.actors.get(id).update(
+          { "system.abilities.DEX.value": 4 }, { abNoStatusCard: true }), created.witness);
+        await clickThroughConfirm(alice, created.witness, "#restore-abilities-button");
+        const logs = await logsSince(gm, since);
+        assert(logs.length === 1, `expected 1 card, got ${logs.length}`);
+        const label = await gm.evaluate(() => game.i18n.localize("CAIRN.RestoreAbilities"));
+        assert(logs[0].content.includes('class="change-log-action"') && logs[0].content.includes(`>${label}<`),
+          `no "${label}" header on the Restore card`);
+        assert(logs[0].items >= 1, "no ability lines on the Restore card");
+        await alice.evaluate((id) => game.actors.get(id).sheet.close(), created.witness);
+      });
+
+      since = await messageIds(gm);
+      await leg("a hand edit stays anonymous (no action header)", async () => {
+        await alice.evaluate((id) => game.actors.get(id).update({ "system.gold": 62 }), created.witness);
+        const logs = await logsSince(gm, since);
+        assert(logs.length === 1, `expected 1 card, got ${logs.length}`);
+        assert(!logs[0].content.includes("change-log-action"),
+          "a plain update grew an action header — the header must be earned");
+      });
+
+      since = await messageIds(gm);
+      await leg("a non-whitelisted action key renders nothing", async () => {
+        // CAIRN.Gold is a REAL i18n key that is not in AUDIT_ACTIONS — the
+        // exact shape a crafted client would send to stamp the ledger.
+        await alice.evaluate((id) => game.actors.get(id).update(
+          { "system.gold": 64 }, { abChangeLogAction: "CAIRN.Gold" }), created.witness);
+        const logs = await logsSince(gm, since);
+        assert(logs.length === 1, `expected 1 card, got ${logs.length}`);
+        assert(logs[0].content.includes("64"), "the gold line itself is missing");
+        assert(!logs[0].content.includes("change-log-action"),
+          "an unlisted key produced a header — the whitelist is the security half");
       });
 
       // ---- whisper look ----------------------------------------------------

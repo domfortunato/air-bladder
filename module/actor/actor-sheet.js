@@ -2957,7 +2957,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   static async #onRest() {
     if (this.actor.system.deprived) return;
     if (!(await this._confirmAction("CAIRN.Rest", "CAIRN.RestTip", "CAIRN.RestConfirm"))) return;
-    await this.actor.update({ "system.hp.value": this.actor.system.hp.max });
+    // abChangeLogAction names the button on the ledger card (whitelisted in
+    // actor.js AUDIT_ACTIONS) — otherwise a Rest reads exactly like a hand
+    // edit of HP.
+    await this.actor.update(
+      { "system.hp.value": this.actor.system.hp.max },
+      { abChangeLogAction: "CAIRN.Rest" },
+    );
   }
 
   /** @this {CairnActorSheet} */
@@ -2971,7 +2977,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       "system.abilities.DEX.value": this.actor.system.abilities.DEX.max,
       "system.abilities.WIL.value": this.actor.system.abilities.WIL.max,
       "system.critical": false,
-    });
+    }, { abChangeLogAction: "CAIRN.RestoreAbilities" });
   }
 
   /** @this {CairnActorSheet} */

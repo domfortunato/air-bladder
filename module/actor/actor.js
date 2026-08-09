@@ -120,7 +120,9 @@ export const postStatusCard = async (actor, kind) => {
  * Panicked/Deprived, scars and features — plus inventory add/remove, which is
  * the descendant-document seam below, not a field. Rest and Restore need no
  * entry of their own: both are plain updates of HP/ability values, so they
- * surface as those lines.
+ * surface as those lines — and since 2026-08-08 the two sheet buttons also
+ * NAME themselves on the card, via the whitelisted `abChangeLogAction`
+ * update option (AUDIT_ACTIONS below).
  *
  * "Manual" is defined NEGATIVELY, the same way #announceStatusChange defines
  * it: an operation WITHOUT `abNoStatusCard`. Damage, generation, regeneration
@@ -162,6 +164,17 @@ const AUDIT_BOOLEANS = {
 
 /** Arrays are diffed as add/remove lines, never dumped whole. */
 const AUDIT_ARRAYS = ["system.scars", "system.features"];
+
+/**
+ * i18n keys an operation may use to NAME itself on its ledger card (the
+ * `abChangeLogAction` update option — Rest and Restore Abilities so far). A
+ * whitelist, and the whitelist is the security half: the option crosses the
+ * wire from the ACTING client, localize() of an unknown string returns the
+ * string itself, and esc() only stops markup — so without this Set a crafted
+ * client could stamp arbitrary (escaped) text, or a spoofed "Rest", onto the
+ * Warden's ledger. An unknown key renders nothing.
+ */
+const AUDIT_ACTIONS = new Set(["CAIRN.Rest", "CAIRN.RestoreAbilities"]);
 
 /**
  * Extend the base Actor entity by defining a custom roll data structure which is ideal for the Simple system.
@@ -1577,7 +1590,11 @@ export class CairnActor extends Actor {
       for (const f of nowF) if (!oldIds.has(f?.id)) lines.push(game.i18n.format("CAIRN.ChangeLog.FeatureAdded", { name: f?.name ?? "" }));
       for (const f of oldF) if (!nowIds.has(f?.id)) lines.push(game.i18n.format("CAIRN.ChangeLog.FeatureRemoved", { name: f?.name ?? "" }));
     }
-    if (lines.length) this.#postChangeLogCard(lines, userId);
+    if (lines.length) {
+      // Whitelisted or dropped — never pass a wire-supplied key through raw.
+      const actionKey = AUDIT_ACTIONS.has(options.abChangeLogAction) ? options.abChangeLogAction : null;
+      this.#postChangeLogCard(lines, userId, actionKey);
+    }
   }
 
   /**
@@ -1625,8 +1642,14 @@ export class CairnActor extends Actor {
    * publish the ledger to the whole table — the same caveat concealmentWhisper
    * documents. Lines are localized TEXT; esc() at assembly is what makes a
    * user-authored item name or scar safe in the markup.
+   *
+   * `actionKey` (already vetted against AUDIT_ACTIONS by the caller) names
+   * the operation — "Rest", "Restore Abilities" — between the user line and
+   * the diff, so a button's card stops being indistinguishable from a hand
+   * edit. Localized at post time on the acting client, stored localized in
+   * content — the same contract as every other ledger line.
    */
-  #postChangeLogCard(lines, userId) {
+  #postChangeLogCard(lines, userId, actionKey = null) {
     const user = game.users.get(userId);
     const speaker = this.token
       ? ChatMessage.getSpeaker({ token: this.token })
@@ -1634,6 +1657,7 @@ export class CairnActor extends Actor {
     const whisper = game.users.filter((u) => this.testUserPermission(u, "OBSERVER")).map((u) => u.id);
     const content = `<div class="change-log">`
       + `<p class="change-log-user">${esc(game.i18n.format("CAIRN.ChangeLog.By", { user: user?.name ?? userId }))}</p>`
+      + (actionKey ? `<p class="change-log-action">${esc(game.i18n.localize(actionKey))}</p>` : "")
       + `<ul>${lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul></div>`;
     return ChatMessage.create({ speaker, content, whisper });
   }
