@@ -1904,7 +1904,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       const name = it.name === FATIGUE_NAME
         ? game.i18n.localize("CAIRN.Fatigue")
         : t(nameNs, it.name);
-      return { name, notes: notes.join(" ") };
+      // A spellbook row carries the same "Spellbook — " / "Spellscroll — "
+      // prefix the inventory shows (user report 2026-08-08: the printed sheet
+      // dropped it, so a book and its spell read as loose gear). THROUGH the
+      // registered helper, so the two surfaces cannot drift — idempotence
+      // included: a stored name already carrying a prefix gets no second one.
+      const prefix = it.type === "spellbook"
+        ? Handlebars.helpers.spellbookPrefix(it.name, it.system.scroll)
+        : "";
+      return { name: `${prefix}${name}`, notes: notes.join(" ") };
     });
 
     // The status line: deprived / panicked / critical, when set.
