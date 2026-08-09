@@ -2512,12 +2512,20 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const row = CairnActorSheet.#row(target);
     const item = this.actor.getOwnedItem(row?.dataset.itemId);
     if (!item) return;
+    // ONE write whether or not the tick rolls a unit over (review #13 #20).
+    // The rollover case used to be two sequential updates — quantity first,
+    // then the refilled uses — which was two operations for a single click,
+    // and once the ledger logs item updates, two whispered cards for one
+    // press of one button. Merged, quantity and uses also move together or
+    // not at all.
+    const update = {};
     let val = Math.max(item.system.uses.value - 1, 0);
     if (val === 0 && item.system.quantity > 1) {
-      await item.update({ "system.quantity": item.system.quantity - 1 });
+      update["system.quantity"] = item.system.quantity - 1;
       val = item.system.uses.max;
     }
-    await item.update({ "system.uses.value": val });
+    update["system.uses.value"] = val;
+    await item.update(update);
   }
 
   /**
@@ -3716,7 +3724,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // purpose — barding is equipped armor on a creature that has a stat block.
       const patch = { "system.quantity": 1 };
       if (this.actor.isThing) patch["system.equipped"] = false;
-      await created.update(patch);
+      // abNoStatusCard: this pin is drop machinery normalizing the fresh copy
+      // (a cross-actor transfer moves ONE unit whatever the source stack held),
+      // and the create above already posted the ledger's "Item added" line —
+      // without the flag the update half would follow it with a "3 → 1"
+      // quantity line recording a change nobody made.
+      await created.update(patch, { abNoStatusCard: true });
     }
 
     // Target received it. Only a real transfer FROM another actor removes a unit

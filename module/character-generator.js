@@ -1003,8 +1003,11 @@ export const canRegenerateContainers = (actor, source = null, warnKey = "CAIRN.N
 };
 
 /**
- * Delete container Actors. Returns the ones that were actually removed, and
- * re-raises on the first failure so the caller aborts.
+ * Delete container Actors — ONE batched operation, not a per-actor loop
+ * (review #13 #20). The loop was N sequential server round trips, and a
+ * throw mid-loop left the earlier deletes committed with nothing recording
+ * where it stopped; a batch is one request that the caller sees succeed or
+ * fail whole. Returns the targets on success, re-raises on failure.
  *
  * It used to prune the keeper's `system.containers` uuid array in the same
  * breath — ahead of the delete, so CairnActor._onDeleteOperation's own prune
@@ -1017,9 +1020,9 @@ export const canRegenerateContainers = (actor, source = null, warnKey = "CAIRN.N
  * @private
  */
 const deleteContainers = async (actor, targets) => {
-  const removed = [];
-  for (const c of targets) { await c.delete(); removed.push(c); }
-  return removed;
+  if (!targets.length) return [];
+  await CairnActor.deleteDocuments(targets.map((c) => c.id));
+  return targets;
 };
 
 /**

@@ -123,8 +123,11 @@ export const postStatusCard = async (actor, kind) => {
 /**
  * What the change log tracks, exactly the user-facing list it was asked for
  * (2026-08-08): stats (value AND max), gold, the eight descriptive traits,
- * Panicked/Deprived, scars and features — plus inventory add/remove, which is
- * the descendant-document seam below, not a field. Rest and Restore need no
+ * Panicked/Deprived, scars and features — plus inventory, which is the
+ * descendant-document seams below, not a field: add/remove, and since review
+ * #13 (#21, user ruling — "when torches and rations are marked down a tick"
+ * belongs on the ledger) quantity changes and uses ticks too. Equipped,
+ * renames and description edits stay OFF by the same ruling. Rest and Restore need no
  * entry of their own: both are plain updates of HP/ability values, so they
  * surface as those lines — and since 2026-08-08 the two sheet buttons also
  * NAME themselves on the card, via the whitelisted `abChangeLogAction`
@@ -1652,6 +1655,44 @@ export class CairnActor extends Actor {
     if (lines.length) this.#postChangeLogCard(lines, userId);
   }
 
+  /**
+   * The manual-change log, inventory-UPDATE half: quantity changes and uses
+   * ticks (review #13 #21, user ruling — a torch marked down a tick belongs on
+   * the ledger like a torch dropped). ONLY those two: equipped, renames and
+   * description edits stay off by the same ruling. Quantity rides the shared
+   * Field line with the item's overlay name as the label; uses get their own
+   * whole-line key. Old values come from the per-id stash
+   * _preUpdateDescendantDocuments wrote — by the time this runs the document
+   * already holds the new state. Same gates as the add/remove half.
+   */
+  #postItemUpdateChangeLog(parent, collection, documents, options, userId) {
+    if (parent !== this || collection !== "items") return;
+    if (userId !== game.user.id) return;
+    if (options.abNoStatusCard) return;
+    if (!game.settings.get(SETTINGS_NS, "change-log")) return;
+    const ns = this.npcRole === "monster" ? "monster.itemName" : "item.name";
+    const lines = [];
+    for (const d of documents) {
+      const before = options.airBladder?.[d.id]?.itemAudit;
+      if (!before) continue;
+      const src = d.toObject();
+      const name = t(ns, d.name);
+      if (before.quantity !== undefined) {
+        const now = src.system.quantity ?? 1;
+        if (now !== before.quantity) {
+          lines.push(game.i18n.format("CAIRN.ChangeLog.Field", { label: name, from: before.quantity, to: now }));
+        }
+      }
+      if (before.uses !== undefined) {
+        const now = src.system.uses?.value ?? 0;
+        if (now !== before.uses) {
+          lines.push(game.i18n.format("CAIRN.ChangeLog.Uses", { name, from: before.uses, to: now }));
+        }
+      }
+    }
+    if (lines.length) this.#postChangeLogCard(lines, userId);
+  }
+
   /** @override */
   _onCreateDescendantDocuments(parent, collection, documents, data, options, userId) {
     super._onCreateDescendantDocuments(parent, collection, documents, data, options, userId);
@@ -1662,6 +1703,38 @@ export class CairnActor extends Actor {
   _onDeleteDescendantDocuments(parent, collection, documents, ids, options, userId) {
     super._onDeleteDescendantDocuments(parent, collection, documents, ids, options, userId);
     this.#postItemChangeLog(false, parent, collection, documents, options, userId);
+  }
+
+  /**
+   * Stash the ledger's "old" side for item updates. Runs on the initiating
+   * client before the write goes out; the values ride `options`, keyed per
+   * ITEM id for the reason _preUpdate's actor stash is keyed per actor id —
+   * one shared options object serves the whole batch. SOURCE values on
+   * purpose: CairnItem.prepareData clamps DERIVED uses.value to max, so a
+   * derived read here could show a value the write never stored — the same
+   * "the ledger records what was WRITTEN" rule as the field half.
+   * @override
+   */
+  _preUpdateDescendantDocuments(parent, collection, changes, options, userId) {
+    super._preUpdateDescendantDocuments(parent, collection, changes, options, userId);
+    if (parent !== this || collection !== "items") return;
+    for (const change of changes) {
+      const item = this.items.get(change._id);
+      if (!item) continue;
+      const flat = foundry.utils.flattenObject(change);
+      if (!("system.quantity" in flat) && !("system.uses.value" in flat)) continue;
+      const src = item.toObject();
+      const audit = {};
+      if ("system.quantity" in flat) audit.quantity = src.system.quantity ?? 1;
+      if ("system.uses.value" in flat) audit.uses = src.system.uses?.value ?? 0;
+      ((options.airBladder ??= {})[change._id] ??= {}).itemAudit = audit;
+    }
+  }
+
+  /** @override */
+  _onUpdateDescendantDocuments(parent, collection, documents, changes, options, userId) {
+    super._onUpdateDescendantDocuments(parent, collection, documents, changes, options, userId);
+    this.#postItemUpdateChangeLog(parent, collection, documents, options, userId);
   }
 
   /**

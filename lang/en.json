@@ -114,7 +114,8 @@
     "Marked": "{label} marked",
     "MaxOf": "Max {label}",
     "ScarAdded": "Scar added: {name}",
-    "ScarRemoved": "Scar removed: {name}"
+    "ScarRemoved": "Scar removed: {name}",
+    "Uses": "Uses of {name}: {from} → {to}"
   },
   "CAIRN.CharacterGenerator": "Generate PC",
   "CAIRN.CharacterRegeneratorConfirm": "Are you sure you want to roll a new character?</p><p>Note that the given background will persist unless you click the magnifier next to the Background under your character's name.</p><p>The given portrait and notes field (bottom of notes tab) will persist. You can change them manually.",

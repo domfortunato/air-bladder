@@ -10,6 +10,12 @@
  *   field seam  — gold / STR value+max batch / trait / panicked / scar /
  *                 feature add+remove / rest-shaped HP write, each ONE card
  *   item seam   — plain item add + remove, Fatigue add + remove (distinct wording)
+ *   item update seam — a uses tick via the REAL − button posts the whole-line
+ *                 uses line; the rollover click (uses cross zero on a stack)
+ *                 posts ONE card carrying quantity AND uses lines (the
+ *                 handler's one-write merge, review #13 #20+#21); a flagged
+ *                 quantity write and a rename post nothing (machinery stays
+ *                 silent; renames are off the ledger by ruling)
  *   suppression — a flagged update posts nothing; regenerateNpc (the real
  *                 machinery path: deleteAll + create + update) posts nothing.
  *                 The DAMAGE path is not driven here: its writes carry
@@ -422,6 +428,87 @@ const run = async () => {
         }, created.witness);
         logs = await logsSince(gm, since);
         assert(logs.length === 1 && /Fatigue removed/.test(logs[0].content), "no Fatigue-removed card");
+      });
+
+      // ---- item UPDATE seam (review #13 #20+#21) ---------------------------
+      // The REAL − button, not item.update: the one-write rollover merge lives
+      // in the sheet handler, so a leg driving the update itself would stay
+      // green with the handler reverted — the two-layer Fatigue lesson.
+      const clickUsesMinus = (page, actorId, itemName) =>
+        page.evaluate(async ({ id, name }) => {
+          const actor = game.actors.get(id);
+          const sheet = actor.sheet;
+          await sheet.render(true);
+          const item = actor.items.find((i) => i.name === name);
+          if (!item) throw new Error(`no "${name}" on the witness`);
+          const sel = `.cairn-items-list-row[data-item-id="${item.id}"] [data-action="itemRemoveUse"]`;
+          const t0 = Date.now();
+          let btn;
+          while (!(btn = sheet.element?.querySelector(sel))) {
+            if (Date.now() - t0 > 5000) throw new Error(`${sel} never rendered`);
+            await new Promise((r) => setTimeout(r, 100));
+          }
+          btn.click();
+        }, { id: actorId, name: itemName });
+
+      await leg("uses tick via the real − button → whole-line uses line", async () => {
+        await gm.evaluate((id) => game.actors.get(id).createEmbeddedDocuments("Item",
+          [{ name: "Probe Torch", type: "item", system: { quantity: 1, uses: { value: 3, max: 3 } } }],
+          { abNoStatusCard: true }), created.witness);
+        since = await messageIds(gm);
+        await clickUsesMinus(gm, created.witness, "Probe Torch");
+        const logs = await logsSince(gm, since);
+        assert(logs.length === 1, `expected 1 card, got ${logs.length}`);
+        const want = await gm.evaluate(() => game.i18n.format("CAIRN.ChangeLog.Uses",
+          { name: "Probe Torch", from: "3", to: "2" }));
+        assert(logs[0].content.includes(want), `card lacks the uses line "${want}"`);
+        assert(logs[0].items === 1, `expected the uses line alone, got ${logs[0].items} lines`);
+      });
+
+      since = await messageIds(gm);
+      await leg("rollover click → ONE card carrying quantity AND uses lines", async () => {
+        // uses 1 on a stack of 2: the − click crosses zero, consumes a unit
+        // and refills the counter. That is ONE write in the handler now, so
+        // ONE card with both lines — the pre-#20 double update posted two
+        // operations, which this seam would have turned into two whispered
+        // cards for a single press of one button.
+        await gm.evaluate(async (id) => {
+          const it = game.actors.get(id).items.find((i) => i.name === "Probe Torch");
+          await it.update({ "system.quantity": 2, "system.uses.value": 1 }, { abNoStatusCard: true });
+        }, created.witness);
+        since = await messageIds(gm);
+        await clickUsesMinus(gm, created.witness, "Probe Torch");
+        const logs = await logsSince(gm, since);
+        assert(logs.length === 1, `expected ONE card for one click, got ${logs.length}`);
+        assert(logs[0].items === 2, `expected quantity + uses lines together, got ${logs[0].items}`);
+        const qty = await gm.evaluate(() => game.i18n.format("CAIRN.ChangeLog.Field",
+          { label: "Probe Torch", from: "2", to: "1" }));
+        const uses = await gm.evaluate(() => game.i18n.format("CAIRN.ChangeLog.Uses",
+          { name: "Probe Torch", from: "1", to: "3" }));
+        assert(logs[0].content.includes(qty), `no quantity line "${qty}"`);
+        assert(logs[0].content.includes(uses), `no uses line "${uses}"`);
+      });
+
+      since = await messageIds(gm);
+      await leg("flagged quantity write and a rename post nothing", async () => {
+        await gm.evaluate(async (id) => {
+          const a = game.actors.get(id);
+          const it = a.items.find((i) => i.name === "Probe Torch");
+          // Machinery-shaped write: every generation/grant path flags like this.
+          await it.update({ "system.quantity": 5 }, { abNoStatusCard: true });
+          // A rename is a REAL unflagged update, and it must stay off the
+          // ledger: quantity and uses are the whole update-seam vocabulary
+          // (equipped/rename/description excluded by ruling).
+          await it.update({ name: "Probe Torch Renamed" });
+        }, created.witness);
+        const logs = await logsSince(gm, since, { expectNone: true });
+        assert(logs.length === 0, `expected no cards, got ${logs.length}`);
+        await gm.evaluate(async (id) => {
+          const a = game.actors.get(id);
+          const it = a.items.find((i) => i.name === "Probe Torch Renamed");
+          if (it) await a.deleteEmbeddedDocuments("Item", [it.id], { abNoStatusCard: true });
+          await a.sheet.close();
+        }, created.witness);
       });
 
       // ---- suppression -----------------------------------------------------
