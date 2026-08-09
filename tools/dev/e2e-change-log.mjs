@@ -133,6 +133,18 @@ const run = async () => {
           `PRECONDITION: ${canary.length} cards for one GM edit — another client of this `
           + "Gamemaster user is connected (another tab or browser on :30000). Close it and re-run.");
       }
+      // The SAME canary for the acting player: the GM check above stayed
+      // green on 2026-08-08 while every Alice-driven leg redded "got 3" —
+      // the user's two browser tabs were joined as ALICE, and the gate is
+      // per acting user, whoever that is. One Alice edit, same refusal.
+      {
+        const canarySince = await messageIds(gm);
+        await alice.evaluate((id) => game.actors.get(id).update({ "system.gold": 52 }), created.witness);
+        const canary = await logsSince(gm, canarySince);
+        if (canary.length > 1) throw new Error(
+          `PRECONDITION: ${canary.length} cards for one Alice edit — another client of the `
+          + "Alice user is connected (another tab or browser on :30000). Close it and re-run.");
+      }
 
       // ---- field seam + one-poster + audience (positive) -------------------
       let since = await messageIds(gm);
@@ -322,14 +334,18 @@ const run = async () => {
             bg: cs.backgroundColor,
             shadow: cs.boxShadow,
             wantBg: hexToRgb(cs.getPropertyValue("--ab-whisper-bg")),
-            wantAccent: hexToRgb(cs.getPropertyValue("--ab-accent")),
+            // The stripe token, not --ab-accent: the whisper tokens carry NO
+            // dark override (the tile is parchment in both client themes —
+            // the theme-keyed dark values shipped for one evening and were
+            // illegible), so all three resolve identically in either scheme.
+            wantStripe: hexToRgb(cs.getPropertyValue("--ab-whisper-stripe")),
           };
         }, logs[0].id);
         assert(!style.missing, "card never rendered in the chat log");
         assert(style.bg !== "rgb(232, 232, 239)", "tile still wears core's lavender");
         assert(style.bg === style.wantBg,
           `tile bg ${style.bg} != resolved --ab-whisper-bg ${style.wantBg}`);
-        assert(style.shadow.includes("inset") && style.shadow.includes(style.wantAccent),
+        assert(style.shadow.includes("inset") && style.shadow.includes(style.wantStripe),
           `no accent stripe (box-shadow: ${style.shadow})`);
       });
 

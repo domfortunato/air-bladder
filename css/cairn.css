@@ -82,9 +82,18 @@
        (--color-whisper-background #e8e8ef, foundry2.css:513) that clashes with
        the warm parchment of every other tile. These keep a whisper distinct but
        in the sheet's warm family; the teal stripe (--ab-accent) does the
-       "private" signalling. */
+       "private" signalling.
+       DELIBERATELY NO DARK OVERRIDE: core's chat tiles are parchment-light in
+       BOTH client themes, and their text colour stays dark to match — so a
+       whisper surface keyed to the CLIENT theme goes near-black behind
+       still-dark text (shipped that way for one evening, user report
+       2026-08-08, illegible). The tile's colour world is always light; these
+       follow the tile, not the theme. The stripe is its own token for the
+       same reason: --ab-accent flips to the near-black-backdrop teal in dark,
+       which washes out on parchment. */
     --ab-whisper-bg: #ece7d8;
     --ab-whisper-border: #8a8172;
+    --ab-whisper-stripe: #12a3b4;   /* = light --ab-accent, pinned */
 }
 
 /* Dark scheme.
@@ -125,8 +134,8 @@
     --ab-accent-wash: rgba(53, 200, 218, 0.18);
     --ab-ok-wash: rgba(79, 208, 138, 0.22);
 
-    --ab-whisper-bg: #211d17;       /* lifted warm dark, a shade above the tile */
-    --ab-whisper-border: #6f6659;   /* = dark --ab-rule-strong */
+    /* --ab-whisper-bg/border are deliberately NOT overridden here — see the
+       light block: the chat tile they paint is parchment in both themes. */
 }
 
 .cairn.sheet.actor,
@@ -2142,8 +2151,10 @@ textarea.omen-input {
     /* Inset shadow, NOT border-left: core's `border: 2px` shorthand on this
        element (foundry2.css:10006) is unlayered and would win a border war;
        core sets no box-shadow on .chat-message, so a layered declaration
-       lands. */
-    box-shadow: inset 3px 0 0 var(--ab-accent);
+       lands. --ab-whisper-stripe, never --ab-accent: the tile under it is
+       parchment in both client themes, and the dark-scheme accent is tuned
+       for near-black backdrops — on parchment it washes out. */
+    box-shadow: inset 3px 0 0 var(--ab-whisper-stripe);
 }
 
 /* The manual-change ledger card (whispered; CairnActor#postChangeLog). Colours
