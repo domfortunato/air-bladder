@@ -227,6 +227,44 @@ const run = async () => {
         assert(logs.length === 1 && logs[0].items === 1, `expected 1 card / 1 line, got ${logs.length} / ${logs[0]?.items}`);
       });
 
+      since = await messageIds(gm);
+      await leg("encumbered actor's HP write logs STORED values", async () => {
+        // Review #13 #1: _prepareCharacterData pins DERIVED hp.value to 0
+        // while encumbered (actor.js livesByPlayerRules), and the ledger's
+        // first shipping read the PREPARED document on both sides of the
+        // diff — so a real write under encumbrance compared 0 → 0 and posted
+        // NOTHING (observed live: a Rest took source HP 1 → 6, zero cards).
+        // Both halves must read SOURCE. The in-page precondition checks are
+        // what stop this leg passing vacuously on an un-encumbered witness.
+        await gm.evaluate(async (id) => {
+          const a = game.actors.get(id);
+          await a.update({ "system.hp.value": 1 }, { abNoStatusCard: true });
+          await a.createEmbeddedDocuments("Item",
+            [{ name: "Probe Ballast", type: "item", system: { quantity: 20 } }],
+            { abNoStatusCard: true });
+          if (!a.system.encumbered) throw new Error("witness never became encumbered");
+          if (a.system.hp.value !== 0) throw new Error(`derived HP is ${a.system.hp.value}, expected pinned 0`);
+        }, created.witness);
+        try {
+          await gm.evaluate((id) => game.actors.get(id).update({ "system.hp.value": 3 }), created.witness);
+          const logs = await logsSince(gm, since);
+          assert(logs.length === 1,
+            `expected 1 card, got ${logs.length} — a derived read diffs 0 → 0 and posts nothing`);
+          const wantLine = await gm.evaluate(() => game.i18n.format("CAIRN.ChangeLog.Field", {
+            label: game.i18n.localize("CAIRN.HitProtection"), from: "1", to: "3",
+          }));
+          assert(logs[0].content.includes(wantLine),
+            `card lacks the stored-value line "${wantLine}"`);
+        } finally {
+          await gm.evaluate(async (id) => {
+            const a = game.actors.get(id);
+            const it = a.items.find((i) => i.name === "Probe Ballast");
+            if (it) await a.deleteEmbeddedDocuments("Item", [it.id], { abNoStatusCard: true });
+            await a.update({ "system.hp.value": a.system.hp.max }, { abNoStatusCard: true });
+          }, created.witness);
+        }
+      });
+
       // ---- action headers (Rest / Restore name themselves) -----------------
       // Both legs drive the REAL button + confirm dialog on Alice's client:
       // the abChangeLogAction option lives in the sheet handler, so a leg

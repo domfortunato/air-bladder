@@ -1502,17 +1502,23 @@ export class CairnActor extends Actor {
     // REQUEST and diff strictly at post time: a sheet submit resends every
     // field whether or not it changed, so the request over-approximates, and
     // an unchanged field stashes equal to its post-value and produces no line.
-    // Arrays are cloned — the prepared array is otherwise the same reference
-    // _onUpdate would read back as "after".
+    // Values come from SOURCE (toObject — damage.js reads HP the same way and
+    // says why): _prepareCharacterData pins the derived system.hp.value to 0
+    // while the actor is encumbered or panicked, so reading derived here made
+    // a real write diff 0 → 0 and the card never posted. The ledger records
+    // what was WRITTEN, not what the rules currently display. toObject() is a
+    // deep clone already, which also covers what deepClone on the array paths
+    // was for.
     const audit = {};
+    const src = this.toObject();
     for (const p of Object.keys(AUDIT_LABELS)) {
-      if (p in statusFlat) audit[p] = foundry.utils.getProperty(this, p);
+      if (p in statusFlat) audit[p] = foundry.utils.getProperty(src, p);
     }
     for (const p of Object.keys(AUDIT_BOOLEANS)) {
-      if (p in statusFlat) audit[p] = foundry.utils.getProperty(this, p) === true;
+      if (p in statusFlat) audit[p] = foundry.utils.getProperty(src, p) === true;
     }
     for (const p of AUDIT_ARRAYS) {
-      if (p in statusFlat) audit[p] = foundry.utils.deepClone(foundry.utils.getProperty(this, p) ?? []);
+      if (p in statusFlat) audit[p] = foundry.utils.getProperty(src, p) ?? [];
     }
     if (!foundry.utils.isEmpty(audit)) stash.audit = audit;
 
@@ -1542,7 +1548,10 @@ export class CairnActor extends Actor {
    * suppression flag — plus the setting, read LIVE so the macro needs no
    * reload. Diffs are strict: the _preUpdate stash over-approximates (a sheet
    * submit resends everything), so equality here is what keeps an untouched
-   * field silent.
+   * field silent. BOTH sides of the diff read SOURCE, never the prepared
+   * document — see the stash comment in _preUpdate: derived HP is pinned to 0
+   * under encumbrance/panic, and a derived read here diffed 0 → 0 across a
+   * real write.
    */
   #postChangeLog(stash, options, userId) {
     if (userId !== game.user.id) return;
@@ -1551,10 +1560,11 @@ export class CairnActor extends Actor {
     if (!before) return;
     if (!game.settings.get(SETTINGS_NS, "change-log")) return;
 
+    const src = this.toObject();
     const lines = [];
     for (const [p, label] of Object.entries(AUDIT_LABELS)) {
       if (!(p in before)) continue;
-      const now = foundry.utils.getProperty(this, p);
+      const now = foundry.utils.getProperty(src, p);
       if (now === before[p]) continue;
       // Trait values are stored English and displayed through the overlay, so
       // the ledger shows what the pick-list shows; numbers pass through.
@@ -1565,7 +1575,7 @@ export class CairnActor extends Actor {
     }
     for (const [p, key] of Object.entries(AUDIT_BOOLEANS)) {
       if (!(p in before)) continue;
-      const now = foundry.utils.getProperty(this, p) === true;
+      const now = foundry.utils.getProperty(src, p) === true;
       if (now === before[p]) continue;
       lines.push(game.i18n.format(now ? "CAIRN.ChangeLog.Marked" : "CAIRN.ChangeLog.Cleared", { label: game.i18n.localize(key) }));
     }
@@ -1573,7 +1583,7 @@ export class CairnActor extends Actor {
     // one: matching occurrences cancel, whatever their positions.
     if (before["system.scars"]) {
       const old = [...before["system.scars"]];
-      for (const s of this.system.scars ?? []) {
+      for (const s of src.system.scars ?? []) {
         const i = old.indexOf(s);
         if (i >= 0) old.splice(i, 1);
         else lines.push(game.i18n.format("CAIRN.ChangeLog.ScarAdded", { name: s }));
@@ -1584,7 +1594,7 @@ export class CairnActor extends Actor {
     // is an id diff; an in-place text edit is deliberately not a line.
     if (before["system.features"]) {
       const oldF = before["system.features"];
-      const nowF = this.system.features ?? [];
+      const nowF = src.system.features ?? [];
       const oldIds = new Set(oldF.map((f) => f?.id));
       const nowIds = new Set(nowF.map((f) => f?.id));
       for (const f of nowF) if (!oldIds.has(f?.id)) lines.push(game.i18n.format("CAIRN.ChangeLog.FeatureAdded", { name: f?.name ?? "" }));
