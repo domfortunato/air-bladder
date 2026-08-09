@@ -118,6 +118,24 @@ if (packsChecked < EXPECTED_PACKS) {
   ok(`all ${packsChecked} declared packs have sources in src/packs/`);
 }
 
+// Warden-facing packs are hidden from players (review #13 fix #6): every
+// warden-* pack plus the macros pack must carry the ownership block, or the
+// next Warden pack added ships player-visible by default (base-package.mjs
+// :120 defaults PLAYER to OBSERVER). Keyed on the pack NAME, not the label —
+// labels are i18n keys, and a gate keyed on display text goes blind the day
+// the text moves into lang/. Hiding is sidebar-only: a NONE pack still serves
+// reads, verified live 2026-08-09 (Alice's client indexed, fetched and rolled
+// the warden-npcs name table with ownership NONE in force), so generation's
+// reads into warden-npcs/warden-monsters are unaffected.
+const isWardenPack = (p) => /^warden-/.test(p.name) || p.name === "macros";
+for (const pack of (manifest.packs ?? []).filter(isWardenPack)) {
+  if (pack.ownership?.PLAYER === "NONE" && pack.ownership?.TRUSTED === "NONE") {
+    ok(`Warden pack "${pack.name}" is hidden from players`);
+  } else {
+    fail(`Warden pack "${pack.name}" (label "${pack.label}") lacks ownership PLAYER/TRUSTED: NONE`);
+  }
+}
+
 /* 4. Languages -------------------------------------------------------------- */
 
 // The failure mode is why this is worth a gate. A declared path that 404s does

@@ -232,31 +232,36 @@
       "name": "warden-encounters",
       "label": "Warden — Encounters & Reactions",
       "type": "RollTable",
-      "system": "air-bladder"
+      "system": "air-bladder",
+      "ownership": { "PLAYER": "NONE", "TRUSTED": "NONE", "ASSISTANT": "OWNER" }
     },
     {
       "name": "warden-travel",
       "label": "Warden — Weather & Travel",
       "type": "RollTable",
-      "system": "air-bladder"
+      "system": "air-bladder",
+      "ownership": { "PLAYER": "NONE", "TRUSTED": "NONE", "ASSISTANT": "OWNER" }
     },
     {
       "name": "warden-npcs",
       "label": "Warden — NPCs",
       "type": "RollTable",
-      "system": "air-bladder"
+      "system": "air-bladder",
+      "ownership": { "PLAYER": "NONE", "TRUSTED": "NONE", "ASSISTANT": "OWNER" }
     },
     {
       "name": "warden-monsters",
       "label": "Warden — Monsters",
       "type": "RollTable",
-      "system": "air-bladder"
+      "system": "air-bladder",
+      "ownership": { "PLAYER": "NONE", "TRUSTED": "NONE", "ASSISTANT": "OWNER" }
     },
     {
       "name": "macros",
       "label": "Warden Macros",
       "type": "Macro",
-      "system": "air-bladder"
+      "system": "air-bladder",
+      "ownership": { "PLAYER": "NONE", "TRUSTED": "NONE", "ASSISTANT": "OWNER" }
     }
   ],
   "packFolders": [
