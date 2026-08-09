@@ -444,7 +444,7 @@
     "RandomizationDisabled": "El Guardián ha desactivado la aleatorización para los jugadores.",
     "Took": "Se ha tomado {name}.",
     "WardenDamageBadFormula": "\"{formula}\" no es una tirada de daño — prueba con 1d6, 2d6 o 3.",
-    "WardenDamageWardenOnly": "Solo el Guardián puede infligir daño mediante una trampa o el entorno."
+    "WardenDamageWardenOnly": "Solo el Guardián puede infligir daño mediante una trampa o el entorno.",
     "WardenOnly": "Solo el Guardián puede hacerlo."
   },
   "CAIRN.Npc": "PNJ",
