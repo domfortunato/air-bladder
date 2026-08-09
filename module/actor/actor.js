@@ -6,7 +6,7 @@ import {
   connectedOwnershipShape, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG,
 } from "../connections.js";
 import { actorDisplayName, t } from "../i18n-content.js";
-import { concealmentWhisper } from "../utils.js";
+import { concealmentWhisper, formatCount } from "../utils.js";
 import { FATIGUE_NAME } from "../item/item.js";
 
 /** Document names go into dialog HTML; a name is user-authored text. */
@@ -803,6 +803,13 @@ export class CairnActor extends Actor {
     // (items-list.html) and count toward encumbrance like any other slot.
     this.system.coinsPerSlot = this._coinsPerSlot();
     this.system.coinRowLabel = game.i18n.format("CAIRN.NGold", { n: this.system.coinsPerSlot });
+    // Each filled row is exactly one slot, but the tag still goes through
+    // formatCount rather than a hardcoded `CAIRN.NSlot_one` (review #13):
+    // "_one" is this repo's suffix convention, not a key every language
+    // carries. A translation shipping only the base key rendered the literal
+    // key text in the tag, and a language whose plural rules map 1 to "other"
+    // (ja, zh) was asked for a form its translator was never told exists.
+    this.system.coinRowSlotTag = formatCount("CAIRN.NSlot", 1);
     this.system.coinTip = this.system.coinsPerSlot > 0
       ? game.i18n.format("CAIRN.GoldTip", { n: this.system.coinsPerSlot })
       : game.i18n.localize("CAIRN.GoldTipWeightless");

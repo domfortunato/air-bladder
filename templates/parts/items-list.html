@@ -126,7 +126,10 @@
     <div class="cairn-item-name-and-tags">
       <i class="fas fa-coins gold-slot-icon"></i>
       <span class="cairn-item-title">{{ system.coinRowLabel }}</span>
-      <span class="cairn-item-tag">{{ localize 'CAIRN.NSlot_one' n=1 }}</span>
+      {{!-- Derived through formatCount (actor.js), never a hardcoded plural
+            form: `localize 'CAIRN.NSlot_one'` renders the literal key text in
+            any language that ships only the base key. --}}
+      <span class="cairn-item-tag">{{ system.coinRowSlotTag }}</span>
     </div>
   </div>
 </div>
