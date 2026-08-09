@@ -11,8 +11,9 @@
  *
  * Four classes, all checkable offline:
  *
- *   missing    a key referenced by module/ or templates/ that en.json lacks.
- *              Foundry renders the raw key, so the user sees "CAIRN.Whatever".
+ *   missing    a key referenced by module/, templates/ or the macros pack's
+ *              command JS that en.json lacks. Foundry renders the raw key, so
+ *              the user sees "CAIRN.Whatever".
  *   unused     a key in en.json that nothing references. Dead weight a
  *              translator is nonetheless asked to translate.
  *   hardcoded  user-visible English in module/ or templates/ that never passes
@@ -52,6 +53,23 @@ const flattenKeys = (o, prefix = "") =>
 const JS_FILES = walk(path.join(ROOT, "module"), /\.js$/);
 const TPL_FILES = walk(path.join(ROOT, "templates"), /\.(html|hbs)$/);
 
+/**
+ * The macros pack is CODE, not content: each document's `command` is JS the
+ * client executes, and its toasts localize exactly like module/ does. Review
+ * #13 found this gate's corpus stopped at module/ + templates/, so all nine
+ * keys referenced only by macro commands (WardenOnly + the four On/Off pairs)
+ * sat "unused" — a red that teaches people to stop reading the gate. The scan
+ * is the raw YAML text: a key literal survives both block-scalar styles the
+ * pack round-trip produces (`|-` as committed, `>-` after an extract — folded
+ * style wraps at spaces, and a localize("CAIRN.X") call carries none inside).
+ * Deliberately ONLY the macros pack: the other packs hold prose for the
+ * content overlay, where an en.json key would be a bug, not a reference.
+ * No existsSync guard on purpose — if the pack directory vanishes, its keys
+ * genuinely are unreferenced, and the walk of a missing dir failing loudly
+ * beats reporting green over a corpus that silently shrank.
+ */
+const MACRO_FILES = walk(path.join(ROOT, "src/packs/macros"), /\.yml$/);
+
 // ---------------------------------------------------------------------------
 // Keys referenced by the code
 // ---------------------------------------------------------------------------
@@ -84,7 +102,7 @@ const collectKeys = () => {
   const suffixes = new Map(); // dynamic suffix -> "file:line"
   const note = (map, k, site) => { if (!map.has(k)) map.set(k, site); };
 
-  for (const f of [...JS_FILES, ...TPL_FILES]) {
+  for (const f of [...JS_FILES, ...TPL_FILES, ...MACRO_FILES]) {
     let src = fs.readFileSync(f, "utf8");
     // Strip JS BLOCK comments before scanning (newline-preserving, so the
     // recorded line numbers hold). A JSDoc that QUOTES a key otherwise counts
@@ -396,7 +414,7 @@ const list = (label, rows, fmt) => {
 };
 
 console.log(`\nsource vs lang/en.json`);
-console.log(`  scanned     : ${JS_FILES.length} js, ${TPL_FILES.length} templates`);
+console.log(`  scanned     : ${JS_FILES.length} js, ${TPL_FILES.length} templates, ${MACRO_FILES.length} macro yml`);
 console.log(`  en.json keys: ${en.length}   referenced: ${used.size}   dynamic prefixes: ${prefixes.size}   suffixes: ${suffixes.size}`);
 if (VERBOSE && prefixes.size) for (const [p, site] of prefixes) console.log(`      ${p}*  @ ${site}`);
 if (VERBOSE && suffixes.size) for (const [s, site] of suffixes) console.log(`      *${s}  @ ${site}`);
