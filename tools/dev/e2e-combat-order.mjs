@@ -212,6 +212,35 @@ check("a word on every rolled row, no numbers", dom.numericInputs === 0
 check("the unrolled keep the roll button", dom.rollButtons === 2,
   `${dom.rollButtons} — the empty slot is the invitation to save`);
 
+// The POPPED-OUT tracker (review #13 #8): #combat is the sidebar instance's
+// id, and the popout is a different application without it — the divider and
+// bucket-word rules were #combat-scoped and the popout rendered them as bare
+// unstyled rows while every sidebar leg above stayed green. Scoped to
+// ol.combat-tracker now, like the drag rules always were; this leg reads the
+// COMPUTED styles inside the popout, which is the only place the difference
+// shows.
+const pop = await page.evaluate(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  await ui.combat.renderPopout();
+  await sleep(800);
+  const el = ui.combat.popout?.element;
+  const out = { hasPopout: !!el, popoutId: el?.id ?? null };
+  const div = el?.querySelector(".cairn-bucket-divider");
+  const word = el?.querySelector(".cairn-bucket-word");
+  if (div) {
+    const cs = getComputedStyle(div);
+    out.dividerDisplay = cs.display;
+    out.dividerCaps = cs.fontVariant;
+  }
+  if (word) out.wordCaps = getComputedStyle(word).fontVariant;
+  await ui.combat.popout?.close();
+  return out;
+});
+check("the POPPED-OUT tracker styles its dividers", pop.hasPopout
+  && pop.dividerDisplay === "flex" && /small-caps/.test(pop.dividerCaps ?? "")
+  && /small-caps/.test(pop.wordCaps ?? ""),
+  `popout id="${pop.popoutId}" divider display=${pop.dividerDisplay} caps=${pop.dividerCaps} word=${pop.wordCaps}`);
+
 /* ---------------------------------------------------------------------------
  * 3. A player's roll: hers lands, an id she does not own is SKIPPED.
  *

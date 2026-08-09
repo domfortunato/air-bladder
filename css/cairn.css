@@ -2319,8 +2319,12 @@ textarea.omen-input {
 
 /* The combat tracker's Cairn buckets. The list wears core's skin; these rules
    add only the section dividers and the bucket word that replaces the numeric
-   initiative input — no colours of their own (inherit, don't restate). */
-#combat .cairn-bucket-divider {
+   initiative input — no colours of their own (inherit, don't restate).
+   Scoped to the <ol> class like the drag rules below, NOT #combat (review
+   #13): #combat is the sidebar instance's id, and a POPPED-OUT tracker is a
+   different application whose root does not carry it — the popout rendered
+   the dividers as bare unstyled rows while the sidebar looked right. */
+ol.combat-tracker .cairn-bucket-divider {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -2330,13 +2334,13 @@ textarea.omen-input {
     font-size: 12px;
     opacity: 0.75;
 }
-#combat .cairn-bucket-divider::after {
+ol.combat-tracker .cairn-bucket-divider::after {
     content: "";
     flex: 1;
     border-bottom: 1px solid currentColor;
     opacity: 0.4;
 }
-#combat .cairn-bucket-word {
+ol.combat-tracker .cairn-bucket-word {
     font-variant: small-caps;
     letter-spacing: 0.3px;
     font-size: 13px;
