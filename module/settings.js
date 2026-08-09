@@ -81,6 +81,24 @@ export const migrateSettingsNamespace = async () => {
 };
 
 /**
+ * Re-render every open actor sheet on this client.
+ *
+ * The onChange body shared by every no-reload toggle whose value a sheet reads
+ * in `_prepareContext`: the read is live, but "live" only means the NEXT
+ * render — without this fan an open sheet keeps its stale surface until
+ * something unrelated redraws it (review #13; the failed-career comment in
+ * actor-sheet.js had promised "switching it off hides the line" since the
+ * toggle shipped, and delivered it only on reopen). onChange fires on every
+ * client, so each client sweeps its own windows. One helper, not five copies
+ * of the loop — the fifth copy is where the drift starts.
+ */
+const rerenderActorSheets = () => {
+  for (const app of foundry.applications.instances.values()) {
+    if (app.document instanceof Actor && app.rendered) app.render();
+  }
+};
+
+/**
  * Registration ORDER is meaningful here, not cosmetic.
  *
  * The Configure Settings tab is grouped by inserting a header before the first
@@ -315,7 +333,9 @@ export const registerSettings = () => {
   });
 
   // A second background name as pure flavor -- the career that didn't work out.
-  // Grants nothing; it is a story hook, not a mechanic.
+  // Grants nothing; it is a story hook, not a mechanic. The sheet reads it in
+  // _prepareContext (the header's failed-career block), so the fan below is
+  // what makes "read live" true for a sheet already open.
   game.settings.register(SETTINGS_NS, "barebones-failed-career", {
     name: "CAIRN.Settings.BarebonesFailedCareer.label",
     hint: "CAIRN.Settings.BarebonesFailedCareer.hint",
@@ -324,6 +344,7 @@ export const registerSettings = () => {
     type: Boolean,
     default: false,
     requiresReload: false,
+    onChange: rerenderActorSheets,
   });
 
   // Barebones has no omens of its own. Unlike bonds this changes nothing about
@@ -337,6 +358,8 @@ export const registerSettings = () => {
     type: Boolean,
     default: false,
     requiresReload: false,
+    // Read in _prepareContext (showOmen) — same fan, same reason.
+    onChange: rerenderActorSheets,
   });
 
   // Barebones has no bonds of its own either; this lends it 2e's Bonds table.
@@ -351,6 +374,8 @@ export const registerSettings = () => {
     type: Boolean,
     default: false,
     requiresReload: false,
+    // Read in _prepareContext (the bond entitlement count) — same fan.
+    onChange: rerenderActorSheets,
   });
 
   game.settings.register(SETTINGS_NS, "show-generate-header", {
@@ -410,11 +435,7 @@ export const registerSettings = () => {
     type: Boolean,
     default: true,
     requiresReload: false,
-    onChange: () => {
-      for (const app of foundry.applications.instances.values()) {
-        if (app.document instanceof Actor && app.rendered) app.render();
-      }
-    },
+    onChange: rerenderActorSheets,
   });
 
   // Post the five generation rolls -- HP, STR, DEX, WIL, Gold -- as one chat
@@ -423,6 +444,9 @@ export const registerSettings = () => {
   // (postGenerationRolls), hence no reload. World-scoped because the generatePC
   // relay runs generation on the Warden's client for a player who lacks
   // ACTOR_CREATE: the posting client must read the same value the roller would.
+  // NO rerenderActorSheets fan, deliberately (review #13 weighed and dropped
+  // it): no sheet reads this in _prepareContext — the read happens when a
+  // generation POSTS, so there is no open surface to go stale.
   game.settings.register(SETTINGS_NS, "show-generation-rolls", {
     name: "CAIRN.Settings.ShowGenerationRolls.label",
     hint: "CAIRN.Settings.ShowGenerationRolls.hint",
@@ -555,11 +579,7 @@ export const registerSettings = () => {
     type: Boolean,
     default: true,
     requiresReload: false,
-    onChange: () => {
-      for (const app of foundry.applications.instances.values()) {
-        if (app.document instanceof Actor && app.rendered) app.render();
-      }
-    },
+    onChange: rerenderActorSheets,
   });
 
   // Cairn 2e (p.9): coins are heavy. The first N are petty; every further N fills

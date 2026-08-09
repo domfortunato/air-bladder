@@ -312,8 +312,34 @@ try {
       keepsakeCount: afterKeep.length,
     };
 
+    // 9. The Barebones toggles re-render an OPEN sheet (review #13 #19). All
+    //    three are read in _prepareContext, and the failed-career comment had
+    //    promised "switching it off hides the line on an already-generated
+    //    character" since the toggle shipped — true only on reopen until the
+    //    onChange fan. Driven on the real open sheet of the collision actor:
+    //    flip the setting, POLL for the header block's transition (the
+    //    onChange render is async), never close the sheet. One toggle carries
+    //    the leg; the other two share the same onChange body, so three
+    //    repeats would witness one line three times.
+    const fcWas = game.settings.get("air-bladder", "barebones-failed-career");
+    const sheet = colActor.sheet;
+    await sheet.render(true);
+    for (let i = 0; i < 30 && !sheet.element; i++) await new Promise((res) => setTimeout(res, 150));
+    const pollFor = async (test) => {
+      const deadline = Date.now() + 8000;
+      while (!test() && Date.now() < deadline) await new Promise((res) => setTimeout(res, 150));
+      return test();
+    };
+    await game.settings.set("air-bladder", "barebones-failed-career", true);
+    const liveOn = await pollFor(() => !!sheet.element?.querySelector(".failed-career-block"));
+    await game.settings.set("air-bladder", "barebones-failed-career", false);
+    const liveOff = await pollFor(() => !sheet.element?.querySelector(".failed-career-block"));
+    await game.settings.set("air-bladder", "barebones-failed-career", fcWas);
+    await sheet.close();
+    const liveFlip = { on: liveOn, off: liveOff };
+
     for (const a of made) { try { await a.delete(); } catch { /* already gone */ } }
-    return { setup, character, edit, regen, transport, step6, bonds, dupGuard, control, collision };
+    return { setup, character, edit, regen, transport, step6, bonds, dupGuard, control, collision, liveFlip };
   });
 
   if (r.error) {
@@ -378,6 +404,12 @@ try {
   col.cleared && col.sentinelGone && col.keepsakeCount <= 1
     ? ok(`a background change ONTO the failed career re-rolls it ("${col.newBackground}" -> "${col.career}") and swaps the keepsake`)
     : fail(`collision unresolved: background="${col.newBackground}", career="${col.career}", sentinelGone=${col.sentinelGone}, keepsakes=${col.keepsakeCount}`);
+
+  // Step 9: flipping a Barebones toggle reaches an OPEN sheet.
+  const lf = r.liveFlip ?? {};
+  lf.on && lf.off
+    ? ok("flipping barebones-failed-career re-renders the open sheet, both directions")
+    : fail(`stale open sheet: appeared=${lf.on} left=${lf.off} — the toggle is read at render and needs the onChange fan`);
   }
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
