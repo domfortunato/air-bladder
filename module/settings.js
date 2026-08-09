@@ -470,8 +470,15 @@ export const registerSettings = () => {
       const gen = await import("./character-generator.js");
       await gen.ensureCustomPortraitFolder();
       const files = await gen.refreshCustomPortraits();
+      // formatCount, not format: the key carried an "image(s)" hack because no
+      // plural machinery reached this toast. Dynamic import for the same reason
+      // as the line above — utils.js imports SETTINGS_NS from here, so a static
+      // import is a cycle. `{count}` stays the placeholder (formatCount's `n`
+      // rides unused) because lang/es.json already carries it, and that file is
+      // the translator's to edit.
+      const { formatCount } = await import("./utils.js");
       ui.notifications.info(
-        game.i18n.format("CAIRN.Notify.PortraitFolderScanned", { count: files.length })
+        formatCount("CAIRN.Notify.PortraitFolderScanned", files.length, { count: files.length })
       );
     },
   });

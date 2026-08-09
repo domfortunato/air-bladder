@@ -83,8 +83,26 @@ const res = await page.evaluate(async () => {
   await game.settings.set(NS, "custom-portrait-folder", "");
   out.afterClear = await settled((l) => l.length === 0);
 
+  // The toast (review #13 #13): with exactly one image in the folder the scan
+  // must announce "1 image found." — the singular picked by formatCount, not
+  // the old "image(s)" hack and not the bare plural a reverted call would
+  // produce ("1 images found."). Captured by wrapping ui.notifications.info
+  // around this rescan; the list write lands BEFORE the toast inside
+  // onChange, so the wrapper stays on until a toast arrives (short poll), not
+  // merely until `settled` returns.
+  // Poll for the RESCAN's own toast, not merely the first to arrive: the
+  // clear above also toasts ("0 images found."), and its onChange lands the
+  // list write before the toast — so the previous step's toast can arrive
+  // AFTER this wrapper goes on. /1 image/ matches every shape this leg must
+  // distinguish (singular, "image(s)", bare plural), so waiting on it never
+  // pre-judges the assertion below.
+  const realInfo = ui.notifications.info.bind(ui.notifications);
+  out.toasts = [];
+  ui.notifications.info = (msg, opts) => { out.toasts.push(String(msg)); return realInfo(msg, opts); };
   await game.settings.set(NS, "custom-portrait-folder", DIR);
   out.afterRescan = await settled((l) => l.some((f) => f.includes("probe-portrait.png")));
+  for (let i = 0; i < 20 && !out.toasts.some((t) => /1 image/.test(t)); i++) await new Promise((r) => setTimeout(r, 200));
+  ui.notifications.info = realInfo;
 
   // Restore — and WAIT for the restore's own rescan to land, or its late write
   // clobbers whatever the next probe seeds into the list.
@@ -121,6 +139,16 @@ if (res.uploadError) {
 Array.isArray(res.afterClear) && res.afterClear.length === 0
   ? ok("clearing the setting empties it", "")
   : fail("clearing the setting empties it", JSON.stringify(res.afterClear));
+
+// One file in the folder, so the toast must be singular. "1 image found." is a
+// substring of NEITHER failure shape — "1 image(s) found." (the pre-fix key
+// text) nor "1 images found." (a reverted call formatting the base key) — so
+// this one contains() reds both.
+const scanToast = (res.toasts ?? []).find((t) => /1 image/.test(t)) ?? "";
+scanToast.includes("1 image found.")
+  ? ok("the scan toast takes the singular", JSON.stringify(scanToast))
+  : fail("the scan toast takes the singular",
+      `${JSON.stringify(res.toasts)} — formatCount picks the _one form for a count of 1`);
 
 /* -------------------------------------------- */
 
