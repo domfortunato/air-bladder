@@ -688,6 +688,39 @@ try {
         }
       }
       out.kindStoredCustom = crate.system.containerClass;
+      // The English-in-a-translated-world half (review #13 #9). The matcher's
+      // comment always promised "any language" while the compare ran
+      // localize() alone — active language only. Reproduce a Spanish client's
+      // exact shape in-page: the ACTIVE translation for one class label made
+      // non-English, English stuffed into game.i18n._fallback (empty on an
+      // English client, populated on every translated one — the same object
+      // core's own fallback path reads, helpers/localization.mjs:394). Typing
+      // the ENGLISH label must still land the KEY with the class's art and
+      // capacity behind it; the old compare fell through to verbatim-custom
+      // and stored "Sack" as a Warden's own word.
+      const priorActive = foundry.utils.getProperty(game.i18n.translations, "CAIRN.ClassSack");
+      const priorFallback = foundry.utils.getProperty(game.i18n._fallback, "CAIRN.ClassSack");
+      foundry.utils.setProperty(game.i18n.translations, "CAIRN.ClassSack", "ZZ-SACO");
+      foundry.utils.setProperty(game.i18n._fallback, "CAIRN.ClassSack", "Sack");
+      try {
+        const kindSelect3 = crate.sheet.element?.querySelector(".kind-select");
+        if (kindSelect3) {
+          kindSelect3.value = "__other__";
+          kindSelect3.dispatchEvent(new Event("change", { bubbles: true }));
+          await settle(300);
+          const kindInput3 = crate.sheet.element?.querySelector(".kind-input");
+          if (kindInput3) {
+            kindInput3.value = "Sack";
+            kindInput3.dispatchEvent(new Event("change", { bubbles: true }));
+            await settle(700);
+          }
+        }
+        out.kindStoredEnglish = crate.system.containerClass;
+      } finally {
+        foundry.utils.setProperty(game.i18n.translations, "CAIRN.ClassSack", priorActive);
+        if (priorFallback === undefined) delete game.i18n._fallback?.CAIRN?.ClassSack;
+        else foundry.utils.setProperty(game.i18n._fallback, "CAIRN.ClassSack", priorFallback);
+      }
       await crate.sheet.close();
       // Restore a known key so the connections-row leg below shows a Kinded crate.
       await crate.update({ "system.containerClass": "crate" });
@@ -873,6 +906,10 @@ try {
   r2.kindStoredCustom === "ZZ Weird Basket"
     ? ok("a Warden's own Kind passes verbatim", "through the Other input")
     : fail("a Warden's own Kind passes verbatim", `stored ${JSON.stringify(r2.kindStoredCustom)}`);
+  r2.kindStoredEnglish === "sack"
+    ? ok("the ENGLISH label lands the key in a translated world", '"Sack" → "sack" with the active label ZZ-SACO')
+    : fail("the ENGLISH label lands the key in a translated world",
+      `stored ${JSON.stringify(r2.kindStoredEnglish)} — the matcher compared the active language alone (review #13 #9)`);
 
   r2.connRow?.includes("ZZ-CAJA")
     ? ok("connections row translated", `"${r2.connRow}"`)

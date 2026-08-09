@@ -3565,12 +3565,22 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
     const kind = foundry.utils.getProperty(data, "system.containerClass");
     if (kind !== undefined && kind !== "" && !CONTAINER_CLASSES[kind]) {
-      // Not already a key: accept the label in ANY language — a Warden may type
-      // the English label in a Spanish world — falling through to the verbatim
-      // text, which is the "a Warden's own word is a legal Kind" rule.
+      // Not already a key: accept the label in the ACTIVE language OR in
+      // English. The comment here always promised "any language", but the
+      // compare ran localize() alone — active language only — so a Warden
+      // typing the English label in a Spanish world fell through to the
+      // verbatim-custom branch and silently lost the class's art and capacity
+      // (review #13; es.json also ships 14 of the 16 Class labels, so two
+      // classes had no Spanish label to type at all). English comes from
+      // game.i18n._fallback, the same read core's own fallback path uses
+      // (helpers/localization.mjs:394,441) — empty on an English client,
+      // where localize() already answers. No match still falls through to
+      // the verbatim text: a Warden's own word is a legal Kind.
       const typed = String(kind).trim().toLowerCase();
+      const english = (key) => foundry.utils.getProperty(game.i18n._fallback, key) ?? game.i18n.localize(key);
       for (const [key, cfg] of Object.entries(CONTAINER_CLASSES)) {
-        if (typed === game.i18n.localize(cfg.label).toLowerCase()) {
+        if (typed === game.i18n.localize(cfg.label).toLowerCase()
+          || typed === String(english(cfg.label)).toLowerCase()) {
           foundry.utils.setProperty(data, "system.containerClass", key);
           break;
         }
