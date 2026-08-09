@@ -143,6 +143,32 @@ const slideDown = (el) => {
  * a monster from a locked compendium could not roll its attack, with a
  * PackLocked toast diagnosing a write-permission problem no write had.
  */
+/**
+ * Wrap a randomization-surface handler so it refuses whoever the Warden's
+ * allow-player-randomization switch denies (`_mayRandomize` — the Warden
+ * always passes). Applied to exactly the actions whose CONTROLS hide while
+ * the switch is off: the two frame buttons (#syncGenerationButtons) and every
+ * control inside a template's `generationEnabled` block — that context is
+ * derived as actorFlag && _mayRandomize(), so a hidden control and a refused
+ * handler are the same statement. Review #13: only rollActor and
+ * toggleGeneration carried the guard in-handler, and rollBackground — a
+ * wholesale background-and-gear rewrite — answered a call past its hidden die.
+ * The hidden control is the affordance, this is the enforcement: a sheet
+ * already open when the switch flips, or a crafted client, must not be a way
+ * through (the marketplace acquire() split).
+ *
+ * The actor's OWN generationEnabled flag is deliberately NOT checked here: a
+ * player the switch allows can flip that flag themselves via toggleGeneration,
+ * so refusing on it would enforce nothing.
+ */
+const mayRandomize = (fn) => function (event, target) {
+  if (!this._mayRandomize()) {
+    ui.notifications.warn(game.i18n.localize("CAIRN.Notify.RandomizationDisabled"));
+    return undefined;
+  }
+  return fn.call(this, event, target);
+};
+
 const owned = (fn) => function (event, target) {
   if (!this.isEditable) {
     // SAY WHY. This used to `return undefined` in silence, which is the worst
@@ -194,17 +220,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     form: { submitOnChange: true },
     actions: {
       // Header
-      rollActor: owned(CairnActorSheet.#onRollActor),
-      toggleGeneration: owned(CairnActorSheet.#onToggleGeneration),
+      rollActor: owned(mayRandomize(CairnActorSheet.#onRollActor)),
+      toggleGeneration: owned(mayRandomize(CairnActorSheet.#onToggleGeneration)),
       // NOT owned(): printing shows nothing the open sheet does not already
       // show this viewer, so being able to open the sheet is the whole gate.
       printSheet: CairnActorSheet.#onPrintSheet,
-      // Portrait + name
+      // Portrait + name. editPortrait is a PICK, not a die — it stays outside
+      // the randomization surface, so it wears no mayRandomize().
       editPortrait: owned(CairnActorSheet.#onEditPortrait),
-      rollPortrait: owned(CairnActorSheet.#onRollPortrait),
-      rollName: owned(CairnActorSheet.#onRollName),
-      rollProfession: owned(CairnActorSheet.#onRollProfession),
-      rollFaction: owned(CairnActorSheet.#onRollFaction),
+      rollPortrait: owned(mayRandomize(CairnActorSheet.#onRollPortrait)),
+      rollName: owned(mayRandomize(CairnActorSheet.#onRollName)),
+      rollProfession: owned(mayRandomize(CairnActorSheet.#onRollProfession)),
+      rollFaction: owned(mayRandomize(CairnActorSheet.#onRollFaction)),
       // Inventory
       itemCreate: owned(CairnActorSheet.#onItemCreate),
       itemShop: owned(CairnActorSheet.#onItemShop),
@@ -235,21 +262,22 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       restoreAbilities: owned(CairnActorSheet.#onRestoreAbilities),
       dieOfFate: CairnActorSheet.#onDieOfFate,
       // Description tab
-      rollAge: owned(CairnActorSheet.#onRollAge),
-      rollOmen: owned(CairnActorSheet.#onRollOmen),
+      rollAge: owned(mayRandomize(CairnActorSheet.#onRollAge)),
+      rollOmen: owned(mayRandomize(CairnActorSheet.#onRollOmen)),
       toggleTraits: CairnActorSheet.#onToggleTraits,
       toggleScars: CairnActorSheet.#onToggleScars,
       // Background / failed career
-      rollBackground: owned(CairnActorSheet.#onRollBackground),
-      pickBackground: owned(CairnActorSheet.#onPickBackground),
-      rollFailedCareer: owned(CairnActorSheet.#onRollFailedCareer),
-      pickFailedCareer: owned(CairnActorSheet.#onPickFailedCareer),
-      rollFailedCareerItem: owned(CairnActorSheet.#onRollFailedCareerItem),
-      // Notes tab
-      rerollBond: owned(CairnActorSheet.#onRerollBond),
-      addBond: owned(CairnActorSheet.#onAddBond),
-      removeBond: owned(CairnActorSheet.#onRemoveBond),
-      rerollQuestion: owned(CairnActorSheet.#onRerollQuestion),
+      rollBackground: owned(mayRandomize(CairnActorSheet.#onRollBackground)),
+      pickBackground: owned(mayRandomize(CairnActorSheet.#onPickBackground)),
+      rollFailedCareer: owned(mayRandomize(CairnActorSheet.#onRollFailedCareer)),
+      pickFailedCareer: owned(mayRandomize(CairnActorSheet.#onPickFailedCareer)),
+      rollFailedCareerItem: owned(mayRandomize(CairnActorSheet.#onRollFailedCareerItem)),
+      // Notes tab — the bond/question controls live inside the template's
+      // generationEnabled blocks, so they are surface too, add/remove included.
+      rerollBond: owned(mayRandomize(CairnActorSheet.#onRerollBond)),
+      addBond: owned(mayRandomize(CairnActorSheet.#onAddBond)),
+      removeBond: owned(mayRandomize(CairnActorSheet.#onRemoveBond)),
+      rerollQuestion: owned(mayRandomize(CairnActorSheet.#onRerollQuestion)),
     },
   };
 
@@ -568,9 +596,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * May THIS viewer use the randomization surface — the title-bar toggle, the
    * Roll button and the per-line re-roll dice? The Warden always may; players
    * only while the allow-player-randomization switch is on (flipped live by
-   * its shipped macro). ONE helper for all three read sites — the frame-button
-   * sync, both generationEnabled context derivations, and the two handler
-   * guards — so the affordance and the enforcement cannot disagree.
+   * its shipped macro). ONE helper for all its read sites — the frame-button
+   * sync, both generationEnabled context derivations, and the mayRandomize()
+   * action wrapper that guards every surface handler — so the affordance and
+   * the enforcement cannot disagree.
    */
   _mayRandomize() {
     return game.user.isGM || game.settings.get(SETTINGS_NS, "allow-player-randomization");
@@ -2176,14 +2205,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onRollActor(event) {
     event.preventDefault();
-    // The hidden button is the affordance; this is the enforcement — a stale
-    // sheet (or a crafted client) calling the action past the Warden's
-    // allow-player-randomization switch must be refused here (the marketplace
-    // acquire() split).
-    if (!this._mayRandomize()) {
-      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.RandomizationDisabled"));
-      return;
-    }
+    // The allow-player-randomization refusal is the mayRandomize() wrapper in
+    // the action map — one declaration for the whole surface, this handler
+    // included, since review #13 found the guard lived here and in
+    // #onToggleGeneration while ten hidden dice answered a call unguarded.
     // The same guard the bond/trait re-roll handlers carry. Every branch below
     // AWAITS a dialog and then wipes and rebuilds the actor, so two clicks in
     // quick succession both get past the confirmation and both regenerate --
@@ -2236,12 +2261,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onToggleGeneration(event) {
     event.preventDefault();
-    // Same affordance/enforcement split as #onRollActor above: the switch
-    // hides this button, and the guard refuses whoever calls past it.
-    if (!this._mayRandomize()) {
-      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.RandomizationDisabled"));
-      return;
-    }
+    // The switch refusal is the mayRandomize() wrapper in the action map.
     await this.actor.update({ "system.generationEnabled": this.actor.system.generationEnabled === false });
   }
 

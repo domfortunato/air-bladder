@@ -396,6 +396,28 @@ try {
     await gm.evaluate((id) =>
       game.actors.get(id).update({ "system.generationEnabled": true }, { abNoStatusCard: true }), pcId);
 
+    // The same enforcement for the widest of the dice the mayRandomize()
+    // action wrapper guards (review #13 #3: only the two frame buttons
+    // carried the guard in-handler while every per-line die answered a call
+    // past its hidden control). rollBackground is the one a crafted client
+    // would pick — changeBackground(actor, null) rewrites background AND
+    // granted gear immediately, no confirm — which also makes the witness
+    // deterministic: wrapper dropped, the call writes and never toasts.
+    const bgBefore = await gm.evaluate((id) => game.actors.get(id).system.background, pcId);
+    const enforceBg = await alice.evaluate(async (id) => {
+      const sheet = game.actors.get(id).sheet;
+      await sheet.options.actions.rollBackground.call(sheet, new Event("click"), null);
+      await new Promise((r) => setTimeout(r, 800));
+      const want = game.i18n.localize("CAIRN.Notify.RandomizationDisabled");
+      return {
+        background: game.actors.get(id).system.background,
+        told: [...document.querySelectorAll(".notification")].some((n) => n.textContent.includes(want)),
+      };
+    }, pcId);
+    enforceBg.background === bgBefore && enforceBg.told
+      ? ok("switch off: rollBackground refuses past its hidden die (background unwritten, toast shown)")
+      : fail(`switch off rollBackground: background "${bgBefore}" → "${enforceBg.background}" told=${enforceBg.told}`);
+
     // The Warden keeps the whole surface while the switch is off. POLLED, with
     // the same open-guard as Alice's reads: this is the GM client's FIRST
     // render of this sheet, so the pack caches are cold and a fixed sleep read
