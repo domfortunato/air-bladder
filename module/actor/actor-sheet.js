@@ -565,6 +565,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   /* -------------------------------------------- */
 
   /**
+   * May THIS viewer use the randomization surface — the title-bar toggle, the
+   * Roll button and the per-line re-roll dice? The Warden always may; players
+   * only while the allow-player-randomization switch is on (flipped live by
+   * its shipped macro). ONE helper for all three read sites — the frame-button
+   * sync, both generationEnabled context derivations, and the two handler
+   * guards — so the affordance and the enforcement cannot disagree.
+   */
+  _mayRandomize() {
+    return game.user.isGM || game.settings.get(SETTINGS_NS, "allow-player-randomization");
+  }
+
+  /**
    * Keep the two title-bar buttons in step with generation mode: the toggle's
    * own label and icon, and whether Roll Character is showing at all — hiding it
    * while Randomization is off is that toggle's entire purpose.
@@ -594,9 +606,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // next sheet open; a frame cannot grow buttons it never built.)
     const thing = ["hireling", "npc"].includes(this.actor.type)
       && !["npc", "monster"].includes(this.actor.npcRole);
-    toggle?.classList.toggle("cairn-header-hidden", thing);
+    // The Warden's allow-player-randomization switch: a player loses BOTH
+    // buttons while it is off (the setting's onChange re-renders open sheets,
+    // which is what brings this sync back around live). Same per-render shape
+    // as the role test — the frame builds once.
+    const denied = !this._mayRandomize();
+    toggle?.classList.toggle("cairn-header-hidden", thing || denied);
     const on = this.actor.system.generationEnabled !== false;
-    roll?.classList.toggle("cairn-header-hidden", !on || thing);
+    roll?.classList.toggle("cairn-header-hidden", !on || thing || denied);
     // The Roll button's face follows the ROLE: a monster re-rolls through the
     // tier picker and wears the Generate Monster button's dragon, so the
     // button says what the click does. The role can change under an open
@@ -887,7 +904,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // an earlier toggle would otherwise keep live dice with no way left to
       // turn them off. Render-only — the stored flag is untouched.
       context.generationEnabled = ["npc", "monster"].includes(this.actor.npcRole)
-        && this.actor.system.generationEnabled !== false;
+        && this.actor.system.generationEnabled !== false
+        // ...and never for a player while the Warden's switch is off — the
+        // whole surface goes, not just the title-bar toggle (ruled 2026-08-09).
+        && this._mayRandomize();
       // A PERSON gets the character's biography block — pronouns, age, the
       // eight traits, scars — on the Description tab (2026-08-01). Role npc
       // only: a monster, mount, transport or container has no pronouns, and
@@ -1174,7 +1194,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     // Random-generation mode (default on): gates the per-field dice rollers
     // (age, omen). Legacy characters lack the field -> default to enabled.
-    context.generationEnabled = this.actor.system.generationEnabled !== false;
+    // _mayRandomize: while the Warden's allow-player-randomization switch is
+    // off, a PLAYER's render derives false even on an actor whose own flag is
+    // on — the whole surface hides, render-only, no actor written (ruled
+    // 2026-08-09). The Warden's own render is unaffected.
+    context.generationEnabled = this.actor.system.generationEnabled !== false
+      && this._mayRandomize();
 
     // Notes tab: bonds (a character can hold several) + the background's
     // re-rollable questions. Questions are 2e; bonds are 2e by default but a
@@ -2151,6 +2176,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onRollActor(event) {
     event.preventDefault();
+    // The hidden button is the affordance; this is the enforcement — a stale
+    // sheet (or a crafted client) calling the action past the Warden's
+    // allow-player-randomization switch must be refused here (the marketplace
+    // acquire() split).
+    if (!this._mayRandomize()) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.RandomizationDisabled"));
+      return;
+    }
     // The same guard the bond/trait re-roll handlers carry. Every branch below
     // AWAITS a dialog and then wipes and rebuilds the actor, so two clicks in
     // quick succession both get past the confirmation and both regenerate --
@@ -2203,6 +2236,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onToggleGeneration(event) {
     event.preventDefault();
+    // Same affordance/enforcement split as #onRollActor above: the switch
+    // hides this button, and the guard refuses whoever calls past it.
+    if (!this._mayRandomize()) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.RandomizationDisabled"));
+      return;
+    }
     await this.actor.update({ "system.generationEnabled": this.actor.system.generationEnabled === false });
   }
 

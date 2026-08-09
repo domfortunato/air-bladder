@@ -28,7 +28,7 @@ export const SETTING_KEYS = [
   "content-source-2e", "content-source-custom", "content-source-barebones",
   "barebones-failed-career",
   "show-omens-barebones", "show-bonds-barebones", "show-generate-header",
-  "allow-player-generate", "show-generation-rolls",
+  "allow-player-generate", "allow-player-randomization", "show-generation-rolls",
   // disabled-backgrounds is Warden CONFIGURATION (which 2e backgrounds are
   // switched off), not a migration marker — it must ride the namespace
   // migration like custom-portrait-list does. It was registered without being
@@ -387,6 +387,32 @@ export const registerSettings = () => {
     onChange: () => {
       for (const app of foundry.applications.instances.values()) {
         if (app instanceof foundry.applications.sidebar.tabs.ActorDirectory && app.rendered) app.render();
+      }
+    },
+  });
+
+  // The Warden's switch for the SHEET's randomization surface as seen by
+  // players: the title-bar Randomization toggle, the Roll button behind it,
+  // and every per-line re-roll die (background, failed career, age, omen, an
+  // npc's name/profession/portrait). Off hides ALL of it from players — even
+  // on an actor whose own Randomization flag is on, because the sheet derives
+  // its generationEnabled context through _mayRandomize (render-only; no
+  // actor is written). The Warden keeps everything; the shipped "Toggle
+  // Player Randomization" macro flips this. Third sibling of the two switches
+  // above, same onChange shape as allow-player-marketplace: re-render every
+  // open actor sheet on every client, so the surface leaves and returns
+  // mid-session.
+  game.settings.register(SETTINGS_NS, "allow-player-randomization", {
+    name: "CAIRN.Settings.AllowPlayerRandomization.label",
+    hint: "CAIRN.Settings.AllowPlayerRandomization.hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+    requiresReload: false,
+    onChange: () => {
+      for (const app of foundry.applications.instances.values()) {
+        if (app.document instanceof Actor && app.rendered) app.render();
       }
     },
   });

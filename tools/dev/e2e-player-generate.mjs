@@ -54,6 +54,7 @@ const ok = (m) => console.log(`  ok    ${m}`);
 // so a throw mid-leg cannot leak a hidden button or a closed shop into the world.
 let priorSwitch = null;
 let priorMarket = null;
+let priorRand = null;
 
 /** Shadow the three content-source reads on one page. mode: "one" | "two". */
 const shadowSources = (page, mode) => page.evaluate((mode) => {
@@ -205,6 +206,11 @@ try {
   console.log("\nthe marketplace switch");
   const MKT = "allow-player-marketplace";
   priorMarket = await gm.evaluate((k) => game.settings.get("air-bladder", k), MKT);
+  // ESTABLISH the on-state, never assume it (a probe's precondition is its
+  // own to make): the dev world arrived 2026-08-09 with this switch OFF —
+  // leaked or deliberate — and every "switch on" leg below redded on world
+  // state, not on code. The finally still restores the captured prior.
+  await gm.evaluate((k) => game.settings.set("air-bladder", k, true), MKT);
   const pcId = await gm.evaluate((before) =>
     game.actors.find((a) => a.type === "character" && !before.actors.includes(a.id))?.id ?? null, before);
   if (!pcId) fail("no minted character to run the marketplace legs on");
@@ -318,6 +324,116 @@ try {
     await alice.evaluate((id) => game.actors.get(id)?.sheet?.close(), pcId);
   }
 
+  // ---- The randomization switch, on the same Alice-owned character --------
+  // (allow-player-randomization — the THIRD Warden switch, 2026-08-09; its
+  // shipped macro is "Toggle Player Randomization".) Off hides the WHOLE
+  // surface from a player — title-bar toggle, Roll button, per-line dice —
+  // even on an actor whose OWN Randomization flag is on (the derivation is
+  // render-only; nothing is written to the actor), while the Warden keeps
+  // everything. Flipped from the GM client; restored in the Node-level
+  // finally with its two siblings.
+  console.log("\nthe randomization switch");
+  const RND = "allow-player-randomization";
+  priorRand = await gm.evaluate((k) => game.settings.get("air-bladder", k), RND);
+  // ESTABLISH the on-state (same rule as the marketplace section above).
+  await gm.evaluate((k) => game.settings.set("air-bladder", k, true), RND);
+  if (!pcId) fail("no minted character to run the randomization legs on");
+  else {
+    // The actor's own flag ON, so the dice legs prove the world switch
+    // overrides it rather than merely agreeing with a flag that is off.
+    await gm.evaluate((id) =>
+      game.actors.get(id).update({ "system.generationEnabled": true }, { abNoStatusCard: true }), pcId);
+    // `open` guards the polls: a sheet that CLOSED also reads toggle=false,
+    // dice=false, which must never pass as "the surface hid".
+    const surface = () => alice.evaluate((id) => {
+      const el = game.actors.get(id)?.sheet?.element;
+      const btn = el?.querySelector('.window-header button[data-action="toggleGeneration"]');
+      return {
+        open: !!el,
+        toggleShown: !!btn && !btn.classList.contains("cairn-header-hidden"),
+        dice: !!el?.querySelector(".background-roll"),
+      };
+    }, pcId);
+    await alice.evaluate(async (id) => {
+      game.actors.get(id).sheet.render(true);
+      await new Promise((r) => setTimeout(r, 1200));
+    }, pcId);
+    const onState = await surface();
+    onState.toggleShown && onState.dice
+      ? ok("switch on: Alice sees the Randomization toggle and the re-roll dice")
+      : fail(`switch on: toggle=${onState.toggleShown} dice=${onState.dice}`);
+
+    await gm.evaluate((k) => game.settings.set("air-bladder", k, false), RND);
+    let offState = await surface();
+    for (const t0 = Date.now(); Date.now() - t0 < 15000 && (offState.toggleShown || offState.dice);) {
+      await new Promise((r) => setTimeout(r, 250));
+      offState = await surface();
+    }
+    offState.open && !offState.toggleShown && !offState.dice
+      ? ok("flip off: toggle AND dice left Alice's open sheet, live — her actor's own flag still on")
+      : fail(`flip off: open=${offState.open} toggle=${offState.toggleShown} dice=${offState.dice}`);
+
+    // Enforcement behind the affordance: calling the action past the hidden
+    // button is refused — flag unwritten, the switch toast shown.
+    const enforce = await alice.evaluate(async (id) => {
+      const sheet = game.actors.get(id).sheet;
+      await sheet.options.actions.toggleGeneration.call(sheet, new Event("click"), null);
+      await new Promise((r) => setTimeout(r, 800));
+      const want = game.i18n.localize("CAIRN.Notify.RandomizationDisabled");
+      return {
+        flag: game.actors.get(id).system.generationEnabled,
+        told: [...document.querySelectorAll(".notification")].some((n) => n.textContent.includes(want)),
+      };
+    }, pcId);
+    enforce.flag === true && enforce.told
+      ? ok("switch off: the toggle action refuses past the hidden button (flag unwritten, toast shown)")
+      : fail(`switch off enforcement: flag=${enforce.flag} told=${enforce.told}`);
+    // Re-establish the actor's own flag before the Warden leg. Idempotent
+    // when the guard holds (the flag was never written); under the
+    // guard-removed witness the enforcement call above DID write it off, and
+    // without this line that one mutation cascaded into the two legs below —
+    // a witness should red exactly its own leg.
+    await gm.evaluate((id) =>
+      game.actors.get(id).update({ "system.generationEnabled": true }, { abNoStatusCard: true }), pcId);
+
+    // The Warden keeps the whole surface while the switch is off. POLLED, with
+    // the same open-guard as Alice's reads: this is the GM client's FIRST
+    // render of this sheet, so the pack caches are cold and a fixed sleep read
+    // a not-yet-rendered sheet as "surface hidden" (bit this leg's first run).
+    const gmSurface = await gm.evaluate(async (id) => {
+      const a = game.actors.get(id);
+      a.sheet.render(true);
+      let out = {};
+      for (const t0 = Date.now(); Date.now() - t0 < 20000;) {
+        const el = a.sheet.element;
+        const btn = el?.querySelector('.window-header button[data-action="toggleGeneration"]');
+        out = {
+          open: !!el,
+          toggleShown: !!btn && !btn.classList.contains("cairn-header-hidden"),
+          dice: !!el?.querySelector(".background-roll"),
+        };
+        if (out.toggleShown && out.dice) break;
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      await a.sheet.close();
+      return out;
+    }, pcId);
+    gmSurface.toggleShown && gmSurface.dice
+      ? ok("switch off: the Warden keeps the toggle and the dice")
+      : fail(`switch off hid the WARDEN's surface: ${JSON.stringify(gmSurface)}`);
+
+    await gm.evaluate((k) => game.settings.set("air-bladder", k, true), RND);
+    let backState = await surface();
+    for (const t0 = Date.now(); Date.now() - t0 < 15000 && !(backState.toggleShown && backState.dice);) {
+      await new Promise((r) => setTimeout(r, 250));
+      backState = await surface();
+    }
+    backState.toggleShown && backState.dice
+      ? ok("flip on: the surface returned to Alice's open sheet, live")
+      : fail(`flip on: toggle=${backState.toggleShown} dice=${backState.dice}`);
+    await alice.evaluate((id) => game.actors.get(id)?.sheet?.close(), pcId);
+  }
+
   const swept = await sweep(before);
   console.log(`  (cleaned up: ${swept.named.join(", ") || "nothing"}; ${swept.messages} chat message(s))`);
 
@@ -366,6 +482,8 @@ try {
   console.log("\nthe Warden's switch");
   const SWITCH = "allow-player-generate";
   priorSwitch = await gm.evaluate((k) => game.settings.get("air-bladder", k), SWITCH);
+  // ESTABLISH the on-state (same rule as the marketplace section above).
+  await gm.evaluate((k) => game.settings.set("air-bladder", k, true), SWITCH);
 
   const genButton = (page) => page.evaluate(() =>
     !!document.querySelector("#cairn-character-gen-button .create-character-generator-button"));
@@ -420,7 +538,8 @@ try {
   errs.length === 0 ? ok("zero console errors across both clients") : fail(`console errors: ${errs.join(" | ")}`);
 } finally {
   clearTimeout(dog);
-  for (const [key, prior] of [["allow-player-generate", priorSwitch], ["allow-player-marketplace", priorMarket]]) {
+  for (const [key, prior] of [["allow-player-generate", priorSwitch], ["allow-player-marketplace", priorMarket],
+    ["allow-player-randomization", priorRand]]) {
     if (prior === null) continue;
     try {
       await gm.evaluate(([k, v]) => game.settings.set("air-bladder", k, v), [key, prior]);

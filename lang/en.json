@@ -434,8 +434,11 @@
     "PlayerGenOn": "Players can generate characters again.",
     "PlayerMarketOff": "The marketplace is closed to players.",
     "PlayerMarketOn": "The marketplace is open to players again.",
+    "PlayerRandomizationOff": "Randomization is now Warden-only.",
+    "PlayerRandomizationOn": "Players can use Randomization on their sheets again.",
     "PortraitFolderScanned": "Custom portrait folder scanned — {count} image(s) found.",
     "PrintBlocked": "The browser blocked the print window — allow pop-ups for this site and try again.",
+    "RandomizationDisabled": "The Warden has turned off Randomization for players.",
     "Took": "Took {name}.",
     "WardenDamageBadFormula": "\"{formula}\" is not a damage roll — try 1d6, 2d6 or 3.",
     "WardenDamageWardenOnly": "Only the Warden can deal damage from a trap or the environment.",
@@ -555,6 +558,10 @@
     "AllowPlayerMarketplace": {
       "hint": "Offer players the Marketplace button on sheets they own. Turn off to close the shop to every player mid-session — the shipped 'Toggle Player Marketplace' macro flips this. The Warden always shops.",
       "label": "Let players buy and take from the marketplace"
+    },
+    "AllowPlayerRandomization": {
+      "hint": "Offer players the Randomization toggle on sheets they own, with the Roll button and every re-roll die behind it. Turn off to hide the whole randomization surface from every player mid-session — the shipped 'Toggle Player Randomization' macro flips this. The Warden keeps everything.",
+      "label": "Let players use Randomization on their sheets"
     },
     "ChangeLog": {
       "hint": "Whisper a chat card to the actor's owners, observers and the Warden whenever someone hand-changes stats, gold, traits, Panicked/Deprived, scars, features or inventory. Rolled generation, damage and other automatic changes are never logged. The shipped 'Toggle Change Log' macro flips this.",

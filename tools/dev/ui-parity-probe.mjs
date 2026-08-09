@@ -497,7 +497,8 @@ try {
       "use-gold-threshold", "enable-inventory-reorder"],
     "Character Generation": ["content-source-2e", "content-source-custom", "content-source-barebones",
       "barebones-failed-career", "show-omens-barebones", "show-bonds-barebones", "show-generate-header",
-      "allow-player-generate", "show-generation-rolls", "custom-portrait-folder", "min-age"],
+      "allow-player-generate", "allow-player-randomization", "show-generation-rolls",
+      "custom-portrait-folder", "min-age"],
     "General Settings": ["use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
       "show-features-section", "use-warden-title", "change-log"],
   };
