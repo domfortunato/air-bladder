@@ -77,6 +77,14 @@
     --ab-accent: #12a3b4;           /* teal: Die of Fate, fatigue, selection */
     --ab-accent-wash: rgba(18, 163, 180, 0.12);   /* fatigue-row tint */
     --ab-ok-wash: rgba(34, 170, 102, 0.18);       /* snapshot chip fill */
+
+    /* Whisper tiles. Core paints every whispered message a cool lavender
+       (--color-whisper-background #e8e8ef, foundry2.css:513) that clashes with
+       the warm parchment of every other tile. These keep a whisper distinct but
+       in the sheet's warm family; the teal stripe (--ab-accent) does the
+       "private" signalling. */
+    --ab-whisper-bg: #ece7d8;
+    --ab-whisper-border: #8a8172;
 }
 
 /* Dark scheme.
@@ -116,6 +124,9 @@
        invisible against a near-black backdrop. */
     --ab-accent-wash: rgba(53, 200, 218, 0.18);
     --ab-ok-wash: rgba(79, 208, 138, 0.22);
+
+    --ab-whisper-bg: #211d17;       /* lifted warm dark, a shade above the tile */
+    --ab-whisper-border: #6f6659;   /* = dark --ab-rule-strong */
 }
 
 .cairn.sheet.actor,
@@ -2074,10 +2085,31 @@ textarea.omen-input {
    statuses are deliberately ONE visual language wherever they appear. */
 .status-stabilized { background: #2e7d32; }
 
+/* Whisper tiles — ALL of them, not just the ledger (user ruling 2026-08-08):
+   core's cool lavender clashes with the warm parchment of every other tile, so
+   the whisper surface is the system's own warm tint, and the teal stripe does
+   the "private" signalling. */
+.chat-message.whisper {
+    /* !important is load-bearing: core sets these vars element-scoped and
+       UNLAYERED on .chat-message (foundry2.css:508-514), and this file is in
+       @layer system — unlayered normal beats layered normal, and !important
+       inverts it. */
+    --color-whisper-background: var(--ab-whisper-bg) !important;
+    --color-whisper-border: var(--ab-whisper-border) !important;
+    /* Core carries a second spelling for inline GM-roll links
+       (--color-whisper-bg, foundry2.css:127, applied :12367) — override it too
+       so a gmroll link inside a whisper tile agrees with its tile. */
+    --color-whisper-bg: var(--ab-whisper-bg) !important;
+    /* Inset shadow, NOT border-left: core's `border: 2px` shorthand on this
+       element (foundry2.css:10006) is unlayered and would win a border war;
+       core sets no box-shadow on .chat-message, so a layered declaration
+       lands. */
+    box-shadow: inset 3px 0 0 var(--ab-accent);
+}
+
 /* The manual-change ledger card (whispered; CairnActor#postChangeLog). Colours
-   are inherited on purpose — a whisper already renders on core's whisper
-   background in both schemes, and the ledger should read as chat, not as a
-   status banner. */
+   are inherited on purpose — the whisper surface above is the system's own in
+   both schemes, and the ledger should read as chat, not as a status banner. */
 .chat-message .change-log .change-log-user {
     margin: 0;
     font-size: 12px;

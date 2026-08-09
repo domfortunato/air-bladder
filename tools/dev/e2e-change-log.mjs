@@ -16,6 +16,8 @@
  *                 abNoStatusCard at source (damage.js:125,149,487 — the same
  *                 flag this probe proves suppresses), and clicking the real
  *                 Apply button is dev:enc-damage / dev:hazard territory.
+ *   whisper look — the rendered tile wears the system's warm tint + teal
+ *                 stripe (cairn.css .chat-message.whisper), not core lavender
  *   audience    — Alice sees the card for HER actor, not the hidden actor's;
  *                 whisper ids are exactly the observers + Warden
  *   one-poster  — with both clients connected, exactly ONE card per change
@@ -113,6 +115,22 @@ const run = async () => {
 
       await joinAs(alice, "Alice");
 
+      // PRECONDITION — the one-poster gate is per acting USER, and every
+      // connected client of that user posts: a second session of this same
+      // Gamemaster (another tab, another browser) doubles every GM-driven
+      // card, which reds half the legs below with a misleading "got 2".
+      // Detect it with a canary write and refuse the run with the real
+      // diagnosis instead (seen live 2026-08-08: the user's own Chrome and
+      // Brave sessions on :30000 while a probe ran).
+      {
+        const canarySince = await messageIds(gm);
+        await gm.evaluate((id) => game.actors.get(id).update({ "system.gold": 51 }), created.witness);
+        const canary = await logsSince(gm, canarySince);
+        if (canary.length > 1) throw new Error(
+          `PRECONDITION: ${canary.length} cards for one GM edit — another client of this `
+          + "Gamemaster user is connected (another tab or browser on :30000). Close it and re-run.");
+      }
+
       // ---- field seam + one-poster + audience (positive) -------------------
       let since = await messageIds(gm);
       await leg("gold edit by Alice → one whispered card naming her", async () => {
@@ -192,6 +210,44 @@ const run = async () => {
         }, created.witness);
         const logs = await logsSince(gm, since);
         assert(logs.length === 1 && logs[0].items === 1, `expected 1 card / 1 line, got ${logs.length} / ${logs[0]?.items}`);
+      });
+
+      // ---- whisper look ----------------------------------------------------
+      since = await messageIds(gm);
+      await leg("whisper tile wears the system tint + accent stripe", async () => {
+        // Alice drives the edit: a single-session user posts exactly once even
+        // if a stray second GM client is connected — the leg tests the CSS,
+        // not the one-poster gate.
+        await alice.evaluate((id) => game.actors.get(id).update({ "system.gold": 57 }), created.witness);
+        const logs = await logsSince(gm, since);
+        assert(logs.length === 1, `expected 1 card, got ${logs.length}`);
+        const style = await gm.evaluate(async (mid) => {
+          const t0 = Date.now();
+          let el;
+          while (!(el = document.querySelector(`.chat-message[data-message-id="${mid}"]`))) {
+            if (Date.now() - t0 > 5000) return { missing: true };
+            await new Promise((r) => setTimeout(r, 100));
+          }
+          const cs = getComputedStyle(el);
+          // Computed box-shadow/background colours come back as rgb(); the
+          // tokens are authored as hex — compare in rgb space.
+          const hexToRgb = (h) => {
+            const n = parseInt(h.trim().slice(1), 16);
+            return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
+          };
+          return {
+            bg: cs.backgroundColor,
+            shadow: cs.boxShadow,
+            wantBg: hexToRgb(cs.getPropertyValue("--ab-whisper-bg")),
+            wantAccent: hexToRgb(cs.getPropertyValue("--ab-accent")),
+          };
+        }, logs[0].id);
+        assert(!style.missing, "card never rendered in the chat log");
+        assert(style.bg !== "rgb(232, 232, 239)", "tile still wears core's lavender");
+        assert(style.bg === style.wantBg,
+          `tile bg ${style.bg} != resolved --ab-whisper-bg ${style.wantBg}`);
+        assert(style.shadow.includes("inset") && style.shadow.includes(style.wantAccent),
+          `no accent stripe (box-shadow: ${style.shadow})`);
       });
 
       // ---- item seam -------------------------------------------------------
