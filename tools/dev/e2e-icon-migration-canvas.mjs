@@ -78,12 +78,19 @@ try {
     // canvas is still initialising, and `viewed` does not survive a reload.
     await scene.update({ active: true });
 
+    // By POSITION, never by index: createEmbeddedDocuments' result arrives
+    // ordered by the documents' random ids, not by input order — measured
+    // 2026-08-09, when this probe's docs[0] assumption finally lost its coin
+    // flip four runs straight and "plant failed" pointed at a migration that
+    // was working. The x each token was planted at is the identity.
+    const subjectDoc = docs.find((d) => d.x === 300);
+    const controlDoc = docs.find((d) => d.x === 600);
     return {
       previousActive,
       sceneId: scene.id,
       actorId: actor.id,
-      subject: { id: docs[0].id, src: docs[0].texture.src },
-      control: { id: docs[1].id, src: docs[1].texture.src },
+      subject: { id: subjectDoc.id, src: subjectDoc.texture.src },
+      control: { id: controlDoc.id, src: controlDoc.texture.src },
     };
   }, { OLD, GOOD, SCENE });
 

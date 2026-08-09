@@ -500,7 +500,7 @@ try {
       "allow-player-generate", "allow-player-randomization", "show-generation-rolls",
       "custom-portrait-folder", "min-age"],
     "General Settings": ["use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
-      "show-features-section", "use-warden-title", "change-log"],
+      "show-features-section", "use-warden-title", "change-log", "auto-record-scars"],
   };
   for (const [group, keys] of Object.entries(EXPECTED)) {
     const got = r.grouped?.[group] ?? [];

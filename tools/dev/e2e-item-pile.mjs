@@ -56,6 +56,14 @@ const EXPECTED = {
   "Burial Wagon": ["Wagon", "wagon.svg"],
   Sack: ["Sack", "sack.svg"],
   Backpack: ["Backpack", "backpack.svg"],
+  // The two companions (round 6, 7cd36268 — "the falcon and raven are owed").
+  // Absent from this table, both listed as "wrong" on every run after the
+  // post-Plan-A pack rebuild synced the live pack to their YAML: the table is
+  // the probe's contract with the pack, so a pack that gains a document grows
+  // a row here in the same change. Head-final compounds: "Raven Familiar"
+  // labels "Raven".
+  Falcon: ["Falcon", "falcon.svg"],
+  "Raven Familiar": ["Raven", "raven.svg"],
 };
 
 try {
