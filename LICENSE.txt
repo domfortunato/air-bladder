@@ -29,12 +29,18 @@ Code — MIT
     Brazilian Portuguese files are inherited from Cairn-FoundryVTT and travel
     under its MIT licence; they are not actively maintained here. The Castilian
     files are covered by the Spanish clause below instead.
+    The four Warden macros in src/packs/macros/ (and their compiled copies in
+    packs/) are code too: original JavaScript written for this system, carrying
+    no Cairn text. They travel under this MIT notice, not the game-text clause
+    below — a pack is a container, not a licence boundary.
 
 Game text — CC BY-SA 4.0, © Yochai Gal
     https://creativecommons.org/licenses/by-sa/4.0/
     The Cairn rules and text (1st and 2nd edition), and so the compendium content
     in packs/ and src/packs/ that reproduces them: backgrounds, items, monsters,
     tables and their descriptions.
+    The macros pack is the one exception — it holds no game text and is covered
+    by the Code clause above.
     ATTRIBUTION IS REQUIRED AND SHAREALIKE IS NOT WAIVED. A derivative of this
     text must carry the same licence. The MIT grant below does not reach it and
     cannot be used to relicense it, including by a fork of this repository.
