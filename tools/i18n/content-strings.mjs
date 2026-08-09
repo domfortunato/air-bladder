@@ -51,6 +51,17 @@ export function* stringsFromDoc(doc) {
   // record IS regardless of shape; if folder names ever get an overlay
   // surface, give them their own ns rather than un-skipping this.
   if (String(doc._key ?? "").startsWith("!folders!")) return;
+  // Macro documents (the macros pack's four Toggle_* scripts, 2026-08-08).
+  // Same shape as the folder skip above: their `name` fell through to the Item
+  // fallthrough and reached the translator as `item.name` rows, but
+  // module/i18n-content.js has no macro surface — the Macros compendium
+  // directory and the hotbar both render `macro.name` raw — so the row
+  // promised a translation nothing would ever display. The `command` is
+  // client-executed JS: its user-visible strings are i18n:source's beat (it
+  // scans the macro YAML for hardcoded prose), not the content overlay's. If
+  // macro names ever get an overlay surface, give them their own ns rather
+  // than un-skipping this.
+  if (String(doc._key ?? "").startsWith("!macros!")) return;
   const name = doc.name ?? "(unnamed)";
 
   // RollTable — has a top-level results[] array.
