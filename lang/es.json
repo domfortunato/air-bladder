@@ -594,7 +594,7 @@
     },
     "AutoRecordScars": {
       "hint": "Cuando el personaje de un jugador reciba un golpe que lo deje exactamente con 0 PG y se le marque una cicatriz, comprueba también esa cicatriz en la lista de cicatrices de su ficha. A los PNJ y a los monstruos solo se les entrega la tarjeta de diálogo en cualquier caso, y las instrucciones de la cicatriz siguen correspondiendo al jugador, que deberá representarlas.",
-      "label": "Anota las cicatrices causadas por los dados en las fichas de los personajes de los jugadores"
+      "label": "Anota las cicatrices causadas por los dados en las fichas de los personajes"
     },
     "ChangeLog": {
       "hint": "Envía un mensaje privado a los propietarios del personaje, a los observadores y al Guardián cada vez que alguien modifique manualmente las características, el oro, los rasgos, los estados de pánico o exhausto, las cicatrices, las hazañas o el inventario. Los cambios generados por tiradas de dados, el daño y otros cambios automáticos nunca se registran. La macro «Mostrar/ocultar el registro de cambios» incluida en el juego activa o desactiva esta función.",
