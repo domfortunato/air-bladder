@@ -99,8 +99,14 @@ export const postStatusCard = async (actor, kind) => {
     : ChatMessage.getSpeaker({ actor });
   const messageData = {
     speaker,
+    // The line goes through CAIRN.StatusBannerLine WHOLE — bold and colon
+    // included, the faction-generator.js rule — so a translator owns the
+    // punctuation. The sheet's banner template consumes the SAME key
+    // (character-sheet.html / npc-sheet.html, the statusBanners block): these
+    // bars were copied value for value from the sheet's, and one key is what
+    // keeps a translator's reordering from splitting the pair.
     content: `<div class="status-banner ${spec.cls}"><i class="fas ${spec.icon}"></i>`
-      + `<span><strong>${spec.label()}:</strong> ${game.i18n.localize(spec.text)}</span></div>`,
+      + `<span>${game.i18n.format("CAIRN.StatusBannerLine", { label: spec.label(), text: game.i18n.localize(spec.text) })}</span></div>`,
   };
   // A hidden creature's death is not table news. Only a TOKEN can be concealed --
   // a world actor with no token has nothing to hide behind, and concealmentWhisper

@@ -288,12 +288,13 @@
         <div class="character-sheet-section-tabs">
             <!-- Attribute-loss status banners: 0-height when healthy, otherwise one
                  bar per active condition (Dead / STR Critical / Paralyzed /
-                 Delirious / Overburdened). -->
+                 Delirious / Overburdened). One whole-line key, shared with the
+                 chat bars — see the character sheet's copy of this block. -->
             <div class="critical-banner">
                 {{#each statusBanners}}
                 <div class="status-banner status-{{this.key}}">
                     <i class="fas {{this.icon}}"></i>
-                    <span><strong>{{this.label}}:</strong> {{this.text}}</span>
+                    <span>{{{localize "CAIRN.StatusBannerLine" label=this.label text=this.text}}}</span>
                 </div>
                 {{/each}}
             </div>

@@ -142,12 +142,17 @@
         <div class="character-sheet-section-tabs">
             <!-- Attribute-loss status banners (2e): empty/0-height when healthy,
                  otherwise one unmissable bar per active condition (Dead, STR
-                 Critical Damage, Paralyzed, Delirious, Overburdened). -->
+                 Critical Damage, Paralyzed, Delirious, Overburdened). The line
+                 goes through CAIRN.StatusBannerLine WHOLE — the same key the
+                 chat bars use (postStatusCard), so a translator reordering it
+                 cannot split the pair. Triple-stache because the key carries the
+                 <strong>; label and text are system i18n strings, never authored
+                 data (see the statusBanners builder in actor-sheet.js). -->
             <div class="critical-banner">
                 {{#each statusBanners}}
                 <div class="status-banner status-{{this.key}}">
                     <i class="fas {{this.icon}}"></i>
-                    <span><strong>{{this.label}}:</strong> {{this.text}}</span>
+                    <span>{{{localize "CAIRN.StatusBannerLine" label=this.label text=this.text}}}</span>
                 </div>
                 {{/each}}
             </div>
