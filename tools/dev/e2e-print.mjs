@@ -341,6 +341,60 @@ const r = await page.evaluate(async ({ xssName }) => {
   out.npcNotesBreak = notesSec3 ? popup3.getComputedStyle(notesSec3).breakBefore : null;
   popup3?.close();
   await npc.sheet.close();
+
+  // Fourth pass: the route prefix (review #13 #7). abs() used to resolve
+  // against location.origin alone, which drops ROUTE_PREFIX — on a prefixed
+  // host every portrait and item icon printed broken, invisible on this
+  // unprefixed dev server where the two spellings coincide. ROUTE_PREFIX is
+  // shadowed in-page (never a server setting) and restored in a finally; the
+  // assertions are on the URL STRING — the image cannot load under a fake
+  // prefix and must not need to (the builder's error listener + timeout keep
+  // print() firing over a dead image path).
+  await pc.sheet.render(true);
+  await sleep(600);
+  const priorPrefix = globalThis.ROUTE_PREFIX;
+  try {
+    globalThis.ROUTE_PREFIX = "pfx-probe";
+    const calls4 = [];
+    let popup4 = null;
+    window.open = (...a) => {
+      popup4 = origOpen.apply(window, a);
+      Object.defineProperty(popup4, "print", { configurable: true, value: () => calls4.push(1) });
+      return popup4;
+    };
+    try {
+      pc.sheet.element.querySelector('[data-action="printSheet"]')?.click();
+      for (let i = 0; i < 60 && !calls4.length; i++) await sleep(150);
+    } finally { window.open = origOpen; }
+    out.prefixedSrc = popup4?.document.querySelector("header.pc img")?.getAttribute("src") ?? null;
+    popup4?.close();
+
+    // Fifth: an already-absolute portrait URL passes through UNTOUCHED with
+    // the prefix still in force — getRoute strips and re-joins slashes, so
+    // feeding it a scheme'd URL would mangle it; the guard must win here.
+    // render:false, or the OPEN sheet re-renders with the unresolvable URL
+    // and its fetch failure lands in the watched opener console as a
+    // resource error — a race the first run happened to win (the popup's own
+    // console is a separate page and stays unwatched).
+    await pc.update({ img: "https://example.invalid/zz-remote.png" }, { render: false });
+    const calls5 = [];
+    let popup5 = null;
+    window.open = (...a) => {
+      popup5 = origOpen.apply(window, a);
+      Object.defineProperty(popup5, "print", { configurable: true, value: () => calls5.push(1) });
+      return popup5;
+    };
+    try {
+      pc.sheet.element.querySelector('[data-action="printSheet"]')?.click();
+      for (let i = 0; i < 60 && !calls5.length; i++) await sleep(150);
+    } finally { window.open = origOpen; }
+    out.absoluteSrc = popup5?.document.querySelector("header.pc img")?.getAttribute("src") ?? null;
+    popup5?.close();
+  } finally {
+    globalThis.ROUTE_PREFIX = priorPrefix;
+  }
+  await pc.sheet.close();
+
   out.ids = { pc: pc.id, sack: sack.id, npc: npc.id, falcon: falcon.id };
   out.itemIds = [bgItem.id];
   return out;
@@ -424,6 +478,12 @@ check("no PC-only sections", r.npcNoPcSections && r.npcNotesHeader && r.npcCredi
 check("the monster credits Tlomdev, not Aspeheim", /Tlomdev/.test(r.npcCreditsText)
   && !/Aspeheim/.test(r.npcCreditsText) && /Yochai Gal/.test(r.npcCreditsText),
   "the attribution follows the portrait's gallery");
+
+console.log("\nthe route prefix");
+check("a prefixed host keeps its portraits", (r.prefixedSrc ?? "").includes("/pfx-probe/systems/air-bladder/"),
+  `src="${r.prefixedSrc}" — abs() goes through getRoute, so ROUTE_PREFIX survives into the print page`);
+check("an absolute URL passes through untouched", r.absoluteSrc === "https://example.invalid/zz-remote.png",
+  `src="${r.absoluteSrc}" — getRoute must never see a scheme'd URL (it re-joins slashes and mangles it)`);
 
 console.log("\nwhat must not happen");
 check("an item name is never parsed as HTML", r.injText?.includes("ZZ Inj <img")
