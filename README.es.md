@@ -62,7 +62,6 @@ Air Bladder es un sistema complementario amigable, no el sistema oficial de Cair
 - Funciones caseras (*homebrew*) opcionales que mezclan características de 2e con Barebones
 - Trasfondos de 2e personalizados — el sistema incluye siete trasfondos de clase en el compendio **Backgrounds (Custom)**, y puedes [crear y revisar los tuyos](https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md) junto a ellos y después [compartirlos entre mundos](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md)
 - Generación aleatoria o manual de PNJ, contratados o no
-- Conexiones entre PJ y PNJ que transfieren la propiedad a los jugadores
 - Ayudas contextuales en la hoja de personaje para los jugadores
 - ¡Hojas de personaje desacoplables! Sí, ya estamos completamente en AppV2: listos para la v16, cuando Foundry retire el marco de trabajo V1
 - Mercado y contenedores; caballos, carros, carretas, cofres y ¡PILAS DE OBJETOS!

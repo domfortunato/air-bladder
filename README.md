@@ -31,7 +31,6 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 - Optional homebrew features that mix 2e features with Barebones
 - Custom 2e backgrounds — seven class backgrounds ship in the **Backgrounds (Custom)** compendium, and you can [create and lint your own](https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md) alongside them, then [share them across worlds](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md)
 - Random or manual generation of NPCs, hired or not
-- Connections between PCs and NPCs which transfer ownership to Players
 - Character Sheet tooltips for players
 - Pop-out Character Sheets! Yes, we're fully on AppV2 — ready for v16, when Foundry removes the V1 framework
 - Marketplace and containers; horses, carts, wagons, chests, and ITEM PILES!
