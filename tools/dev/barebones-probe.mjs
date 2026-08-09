@@ -271,8 +271,49 @@ try {
       };
     }
 
+    // 8. A background change may not land ON the failed career (ruled
+    //    2026-08-08). Every ROLL path already excludes, so the one arrival is
+    //    the background side, and the hook lives at the END of changeBackground
+    //    where roll, pick and drop all pass. Control FIRST (a non-colliding
+    //    change must leave the failed career alone — the hook fires on
+    //    collision only), then the collision on the same actor. The keepsake is
+    //    a planted SENTINEL, so "replaced" is observable no matter which career
+    //    the re-roll lands on; probe writes carry abNoStatusCard so none of
+    //    this reaches the dev world's ledger.
+    const plainBgs = bgs.filter((b) => !(b.system.containers ?? []).length);
+    const [colBgA, colBgB, colBgC] = plainBgs;
+    const colActor = track(await gen.createActorWithCharacter(await gen.generateBarebonesCharacter(colBgA)));
+    for (const c of containersOf(colActor)) made.push(c);
+    const staleKeep = colActor.items
+      .filter((i) => i.getFlag("air-bladder", "grantSource") === "failed-career").map((i) => i.id);
+    if (staleKeep.length) await colActor.deleteEmbeddedDocuments("Item", staleKeep, { abNoStatusCard: true });
+    await colActor.update({ "system.failedCareer": colBgB.name }, { abNoStatusCard: true });
+    await colActor.createEmbeddedDocuments("Item", [{
+      name: "PROBE-COLLIDE-KEEPSAKE", type: "item",
+      flags: { "air-bladder": { grantSource: "failed-career" } },
+    }], { abNoStatusCard: true });
+    const keepsakes = () => colActor.items
+      .filter((i) => i.getFlag("air-bladder", "grantSource") === "failed-career");
+
+    await gen.changeBackground(colActor, colBgC);
+    const control = {
+      career: colActor.system.failedCareer,
+      expected: colBgB.name,
+      sentinelKept: keepsakes().some((i) => i.name === "PROBE-COLLIDE-KEEPSAKE"),
+    };
+
+    await gen.changeBackground(colActor, colBgB);
+    const afterKeep = keepsakes();
+    const collision = {
+      newBackground: colActor.system.background,
+      career: colActor.system.failedCareer,
+      cleared: !!colActor.system.failedCareer && colActor.system.failedCareer !== colBgB.name,
+      sentinelGone: !afterKeep.some((i) => i.name === "PROBE-COLLIDE-KEEPSAKE"),
+      keepsakeCount: afterKeep.length,
+    };
+
     for (const a of made) { try { await a.delete(); } catch { /* already gone */ } }
-    return { setup, character, edit, regen, transport, step6, bonds, dupGuard };
+    return { setup, character, edit, regen, transport, step6, bonds, dupGuard, control, collision };
   });
 
   if (r.error) {
@@ -326,7 +367,18 @@ try {
     g.seededFirst && g.noDuplicates
       ? ok(`${name}: guarded before the roll -> [${(g.seeded ?? []).join(", ")}] (needs: ${g.literals.join(", ")})`)
       : fail(`${name}: seededFirst=${g.seededFirst}, noDuplicates=${g.noDuplicates}, seeded=[${(g.seeded ?? []).join(", ")}]`);
-  }  }
+  }
+
+  // Step 8: the failed-career collision hook — silent on a non-colliding
+  // change, fires when the background lands ON the failed career.
+  const ctl = r.control, col = r.collision;
+  ctl.career === ctl.expected && ctl.sentinelKept
+    ? ok(`a NON-colliding background change leaves the failed career alone ("${ctl.career}")`)
+    : fail(`control disturbed: career="${ctl.career}" (expected "${ctl.expected}"), sentinelKept=${ctl.sentinelKept}`);
+  col.cleared && col.sentinelGone && col.keepsakeCount <= 1
+    ? ok(`a background change ONTO the failed career re-rolls it ("${col.newBackground}" -> "${col.career}") and swaps the keepsake`)
+    : fail(`collision unresolved: background="${col.newBackground}", career="${col.career}", sentinelGone=${col.sentinelGone}, keepsakes=${col.keepsakeCount}`);
+  }
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {

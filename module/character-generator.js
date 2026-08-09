@@ -2089,6 +2089,24 @@ export const buildFailedCareerItem = async (careerName) =>
   failedCareerItemFromBg(await getBarebonesBackgroundByName(careerName));
 
 /**
+ * Swap the actor's failed-career keepsake for a fresh pick from `careerName`'s
+ * gear. The generator-side twin of the sheet's `_grantFailedCareerItem` inner
+ * swap (that one is instance-bound and adds a re-entry guard + render the
+ * collision hook below does not need). Matched by the `grantSource:
+ * "failed-career"` flag, the same convention `_replaceGrantedItems` keys on.
+ * @param {CairnActor} actor
+ * @param {String} careerName
+ */
+const replaceFailedCareerKeepsake = async (actor, careerName) => {
+  const oldIds = actor.items
+    .filter((i) => String(i.getFlag(FLAG_SCOPE, "grantSource") ?? "") === "failed-career")
+    .map((i) => i.id);
+  if (oldIds.length) await actor.deleteEmbeddedDocuments("Item", oldIds, { render: false, abNoStatusCard: true });
+  const item = careerName ? await buildFailedCareerItem(careerName) : null;
+  if (item) await actor.createEmbeddedDocuments("Item", [item], { render: false, abNoStatusCard: true });
+};
+
+/**
  * Swap a character's background WITHOUT re-rolling the character. Replaces the
  * background name/uuid, the gear it granted, its containers, and (2e) its two
  * questions and the gear those granted, adjusting coins for the question delta.
@@ -2203,6 +2221,24 @@ export const changeBackground = async (actor, newBg = null) => {
   // an untouched array is not re-written wholesale for nothing.
   if (bonds.length !== (actor.system.bonds ?? []).length) update["system.bonds"] = bonds;
   await actor.update(update, { abNoStatusCard: true });
+
+  // A background change may not land ON the failed career (ruled 2026-08-08).
+  // Every ROLL path already excludes — generation filters the background from
+  // the failed-career pool, and the sheet's failed-career die passes the
+  // exclusion — so the one arrival left is this direction: the BACKGROUND
+  // changing onto the name the failed career already holds. Re-roll the career
+  // (rollFailedCareerName excludes the new background, so it cannot
+  // re-collide) and its keepsake, silently: an automatic correction is
+  // machinery, same as every other write in this function. Here at the end of
+  // changeBackground, not in the sheet handlers, so roll, pick and drop are
+  // all covered. A hand-PICKED collision on the failed-career line itself
+  // stays allowed — that is a deliberate player choice; this hook only fires
+  // when the collision arrives from the background side.
+  if (source === "barebones" && actor.system.failedCareer && actor.system.failedCareer === bg.name) {
+    const fresh = await rollFailedCareerName(bg.name);
+    await actor.update({ "system.failedCareer": fresh }, { abNoStatusCard: true });
+    await replaceFailedCareerKeepsake(actor, fresh);
+  }
 };
 
 /* -------------------------------------------------------------------------- */
