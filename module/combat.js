@@ -14,6 +14,19 @@
  * The bucket itself stays the DEX save's outcome: changing sides is a
  * re-roll, never a drag, and the drop handler refuses across buckets.
  *
+ * ACCEPTED DEVIATION (review #13, user ruling — do not re-raise): those two
+ * rules bind the UI, not the database. Core grants a combatant's OWNER update
+ * rights on `initiative` and `flags` outright (common/documents/combatant.mjs
+ * :76-88, "the ability to update their own initiative"), so a player who owns
+ * their combatant can pin their row by writing combatSort, or cross buckets
+ * by writing initiative, from the console. Foundry is closed to a system
+ * here — the permission test is core's own `_preUpdate`, there is no seam to
+ * narrow it, and a GM-relay would break core's roll-your-own-initiative flow.
+ * Accepted under the same trust-the-players house rule as the unautomated
+ * mechanics: the GM-only guard on the DRAG UI is an affordance boundary, not
+ * a wall, and a player rearranging the tracker by console write is table
+ * behaviour for the table to police.
+ *
  * The buckets are encoded as initiative 1 / 0 / −1, which the fork-era version
  * of this file already did and which is the part worth keeping: core's sort is
  * descending with an id tiebreak (documents/combat.mjs:565-569), so the three
