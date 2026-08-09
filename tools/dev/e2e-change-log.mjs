@@ -334,15 +334,17 @@ const run = async () => {
 
       since = await messageIds(gm);
       await leg("a non-whitelisted action key renders nothing", async () => {
-        // CAIRN.Gold is a REAL i18n key that is not in AUDIT_ACTIONS — the
-        // exact shape a crafted client would send to stamp the ledger.
+        // CAIRN.Gold is a REAL i18n key that is not in AUDIT_ACTIONS. The Set
+        // is ADVISORY — the acting client is trusted (review #13 ruling) —
+        // but the header vocabulary must stay closed: an unlisted key renders
+        // no header, which is what keeps free-typed prose off the card.
         await alice.evaluate((id) => game.actors.get(id).update(
           { "system.gold": 64 }, { abChangeLogAction: "CAIRN.Gold" }), created.witness);
         const logs = await logsSince(gm, since);
         assert(logs.length === 1, `expected 1 card, got ${logs.length}`);
         assert(logs[0].content.includes("64"), "the gold line itself is missing");
         assert(!logs[0].content.includes("change-log-action"),
-          "an unlisted key produced a header — the whitelist is the security half");
+          "an unlisted key produced a header — the header vocabulary must stay closed");
       });
 
       // ---- whisper look ----------------------------------------------------

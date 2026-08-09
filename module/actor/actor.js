@@ -167,12 +167,20 @@ const AUDIT_ARRAYS = ["system.scars", "system.features"];
 
 /**
  * i18n keys an operation may use to NAME itself on its ledger card (the
- * `abChangeLogAction` update option — Rest and Restore Abilities so far). A
- * whitelist, and the whitelist is the security half: the option crosses the
- * wire from the ACTING client, localize() of an unknown string returns the
- * string itself, and esc() only stops markup — so without this Set a crafted
- * client could stamp arbitrary (escaped) text, or a spoofed "Rest", onto the
- * Warden's ledger. An unknown key renders nothing.
+ * `abChangeLogAction` update option — Rest and Restore Abilities so far).
+ *
+ * ADVISORY, and it trusts the acting client (review #13, user ruling —
+ * marketplace.js's playerMarketClosed states the same footing). This docblock
+ * used to call the Set "the security half", which was wrong twice over: the
+ * whole ledger posts from the client that made the change (#postChangeLog's
+ * userId gate), so a crafted client can withhold its own cards outright — and
+ * "CAIRN.Rest" is IN the Set, so the very spoof the old comment warned about
+ * passes it. What the Set actually does is keep the header VOCABULARY closed:
+ * an unknown or free-typed key renders no header at all, so no wire-supplied
+ * prose — escaped or not — reaches the Warden's ledger, and a future call
+ * site cannot drift into posting un-localized text. A table aid on the same
+ * footing as every client-side rule here; do not harden it into GM-side
+ * posting unasked.
  */
 const AUDIT_ACTIONS = new Set(["CAIRN.Rest", "CAIRN.RestoreAbilities"]);
 
