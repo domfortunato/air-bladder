@@ -250,6 +250,22 @@ try {
     out.made.push(bbActor.id);
     await sweep(bbActor);
     out.rawKeys = [...new Set(out.rawKeys)];
+
+    // --- The three Barebones header lines size as ONE block (ruling
+    // 2026-08-08: all at .background-name's size; the 15px/13px quieting is
+    // overruled). Asserted as EQUALITY across all six halves, not a literal
+    // 17px, so a future resize ruling moves one number in cairn.css and this
+    // leg follows. Collected here, before the settings restore below --
+    // showFailedCareer is derived from barebones-failed-career, so restoring
+    // the setting can re-render the block away.
+    out.bbHeaderSizes = Object.fromEntries(
+      ["background-label", "background-name",
+       "failed-career-label", "failed-career-name",
+       "failed-career-item-label", "failed-career-item-name"].map((cls) => {
+        const node = bbActor.sheet.element.querySelector(`.${cls}`);
+        return [cls, node ? getComputedStyle(node).fontSize : null];
+      })
+    );
     await game.settings.set(NS, "content-source-barebones", wasBB);
     await game.settings.set(NS, "barebones-failed-career", wasCareer);
 
@@ -420,6 +436,15 @@ try {
   r.rawKeys?.length === 0
     ? ok("no untranslated CAIRN.* keys render on either the 2e or Barebones sheet")
     : fail(`untranslated keys visible: ${r.rawKeys?.join(", ")}`);
+
+  // Barebones header lines: one size across all three lines (both halves each).
+  {
+    const sizes = Object.values(r.bbHeaderSizes ?? {});
+    const allPresent = sizes.length === 6 && sizes.every((s) => s);
+    allPresent && new Set(sizes).size === 1
+      ? ok(`the three Barebones header lines share one size (${sizes[0]})`)
+      : fail(`Barebones header sizes unequal or missing: ${JSON.stringify(r.bbHeaderSizes)}`);
+  }
 
   // Settings sheet.
   r.settingHeaders?.length === 3

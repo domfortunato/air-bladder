@@ -500,7 +500,11 @@
 
 /* Barebones "Failed career:" line. Sits in the same row-3 slot the 2e background
    description occupies -- the two never coexist -- so it renders directly under
-   the Background line. Secondary to the Background: smaller, greyed label. */
+   the Background line. All three header lines (Background / Failed Career /
+   Failed Career Item) render at ONE size, 17px, matching .background-name:
+   the earlier 15px/13px "quieting" was overruled 2026-08-08 by the user with
+   all three on screen -- they read as one block, so they size as one. The
+   greyed labels keep the label/value distinction. */
 .failed-career-block {
     grid-column: 1 / 3;
     grid-row: 3;
@@ -522,7 +526,7 @@
 .failed-career-label {
     flex: 0 0 auto;
     font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
-    font-size: 15px;
+    font-size: 17px;
     font-variant: small-caps;
     color: var(--ab-muted);
 }
@@ -534,16 +538,16 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
-    font-size: 15px;
+    font-size: 17px;
     font-variant: small-caps;
 }
 
-/* Keepsake-item line: like the career line but a step quieter — it's a detail of
-   the flavour above it. */
+/* Keepsake-item line: same size as the lines above it, per the one-size ruling
+   in the block comment at the top of this section. */
 .failed-career-item-label {
     flex: 0 0 auto;
     font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
-    font-size: 13px;
+    font-size: 17px;
     font-variant: small-caps;
     color: var(--ab-muted);
 }
@@ -555,7 +559,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
-    font-size: 13px;
+    font-size: 17px;
     font-variant: small-caps;
 }
 
