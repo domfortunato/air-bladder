@@ -145,53 +145,71 @@ try {
     out.badgeCredit = root.querySelector(".cairn-compat-caption")?.textContent?.trim() ?? null;
 
     // --- Connections tab: empty state + the custom-container escape hatch.
-    // The tab is structural on a character — and the CHARACTER's alone since
-    // 2026-08-02, when the child end became the npc header's connection line —
-    // so this generated character is the right (and only) sheet to read it on.
-    const cRoot = actor.sheet.element;
-    out.containerEmpty = !!cRoot.querySelector(".container-empty");
-    // The market link is REMOVED from this tab by design (docs/npc-roles-plan.md)
-    // — the tab is relationships, not shopping. Asserted absent below. The
-    // "Custom container…" escape hatch followed it out (2026-08-01): asserted
-    // absent too, because a template copy could quietly resurrect either.
-    out.containerShop = !!(cRoot.querySelector(".container-empty-shop") || cRoot.querySelector(".container-shop"));
-    out.containerCustom = !!cRoot.querySelector(".container-custom");
+    // PARKED since 2026-08-09: the tab renders only under the in-page settings
+    // shadow (never a world write — the parked DEFAULT is asserted in the
+    // settings block below, beside the internal-flag check). These legs keep
+    // covering the RESTORED state, so the UI is known-good on the day it is
+    // unparked.
+    const origSettingsGet = game.settings.get;
+    game.settings.get = function (ns, key) {
+      if (key === "connections-ui-enabled") return true;
+      return origSettingsGet.call(this, ns, key);
+    };
+    try {
+      actor.prepareData();
+      await actor.sheet.render(true);
+      await new Promise((res) => setTimeout(res, 600));
+      const cRoot = actor.sheet.element;
+      out.containerEmpty = !!cRoot.querySelector(".container-empty");
+      // The market link is REMOVED from this tab by design (docs/npc-roles-plan.md)
+      // — the tab is relationships, not shopping. Asserted absent below. The
+      // "Custom container…" escape hatch followed it out (2026-08-01): asserted
+      // absent too, because a template copy could quietly resurrect either.
+      out.containerShop = !!(cRoot.querySelector(".container-empty-shop") || cRoot.querySelector(".container-shop"));
+      out.containerCustom = !!cRoot.querySelector(".container-custom");
 
-    // Presence is NOT enough -- a copied template can render a link that has no
-    // handler behind it. CLICK Add Connection and assert its dialog opens,
-    // offering the connectable npc seeded here for exactly that purpose.
-    //
-    // Open the tab as a player would, then click the control.
-    cRoot.querySelector('.tabs .item[data-tab="containers"]')?.click();
-    await new Promise((res) => setTimeout(res, 400));
-    out.tabActive = cRoot.querySelector('.tab[data-tab="containers"]')?.classList.contains("active") ?? null;
+      // Presence is NOT enough -- a copied template can render a link that has no
+      // handler behind it. CLICK Add Connection and assert its dialog opens,
+      // offering the connectable npc seeded here for exactly that purpose.
+      //
+      // Open the tab as a player would, then click the control.
+      cRoot.querySelector('.tabs .item[data-tab="containers"]')?.click();
+      await new Promise((res) => setTimeout(res, 400));
+      out.tabActive = cRoot.querySelector('.tab[data-tab="containers"]')?.classList.contains("active") ?? null;
 
-    const connectable = await CONFIG.Actor.documentClass.create({
-      name: "ZZ Parity Connectable", type: "npc", system: { role: "npc" },
-    });
-    const addLink = cRoot.querySelector(".connection-add");
-    // Report the action NAME: a link with no data-action reaches no handler,
-    // whatever is bound to it (ApplicationV2 dispatches through `actions`).
-    out.addLinkAction = addLink?.dataset.action ?? null;
-    addLink?.click();
-    let dlg = null;
-    for (let i = 0; i < 40 && !dlg; i++) {
-      await new Promise((res) => setTimeout(res, 250));
-      dlg = document.querySelector("dialog select[name=connectionTarget]");
+      const connectable = await CONFIG.Actor.documentClass.create({
+        name: "ZZ Parity Connectable", type: "npc", system: { role: "npc" },
+      });
+      const addLink = cRoot.querySelector(".connection-add");
+      // Report the action NAME: a link with no data-action reaches no handler,
+      // whatever is bound to it (ApplicationV2 dispatches through `actions`).
+      out.addLinkAction = addLink?.dataset.action ?? null;
+      addLink?.click();
+      let dlg = null;
+      for (let i = 0; i < 40 && !dlg; i++) {
+        await new Promise((res) => setTimeout(res, 250));
+        dlg = document.querySelector("dialog select[name=connectionTarget]");
+      }
+      out.connectionDialogOpens = !!dlg;
+      out.connectionOffersSeed = dlg
+        ? [...dlg.options].some((o) => o.textContent === "ZZ Parity Connectable")
+        : false;
+      // On failure, say what WAS on screen — "opens nothing" is not a diagnosis.
+      out.openDialogTitles = [...document.querySelectorAll(".application")]
+        .map((d) => d.querySelector(".window-title")?.textContent?.trim() ?? "(untitled)");
+      dlg?.closest("dialog")?.querySelector('button[data-action="cancel"], button[data-action="close"]')?.click();
+      await new Promise((res) => setTimeout(res, 400));
+      // A settled DialogV2 outlives its promise in the DOM — wait it out before
+      // anything else opens one.
+      for (let i = 0; i < 40 && document.querySelector("dialog.dialog"); i++) await new Promise((res) => setTimeout(res, 100));
+      await connectable.delete();
+    } finally {
+      // Back to the parked default for every leg below.
+      game.settings.get = origSettingsGet;
+      actor.prepareData();
+      await actor.sheet.render(true);
+      await new Promise((res) => setTimeout(res, 400));
     }
-    out.connectionDialogOpens = !!dlg;
-    out.connectionOffersSeed = dlg
-      ? [...dlg.options].some((o) => o.textContent === "ZZ Parity Connectable")
-      : false;
-    // On failure, say what WAS on screen — "opens nothing" is not a diagnosis.
-    out.openDialogTitles = [...document.querySelectorAll(".application")]
-      .map((d) => d.querySelector(".window-title")?.textContent?.trim() ?? "(untitled)");
-    dlg?.closest("dialog")?.querySelector('button[data-action="cancel"], button[data-action="close"]')?.click();
-    await new Promise((res) => setTimeout(res, 400));
-    // A settled DialogV2 outlives its promise in the DOM — wait it out before
-    // anything else opens one.
-    for (let i = 0; i < 40 && document.querySelector("dialog.dialog"); i++) await new Promise((res) => setTimeout(res, 100));
-    await connectable.delete();
 
     // A background sheet lists its starting gear WITH tags resolved from the
     // editable pool (the background doc itself stores only names).
@@ -314,13 +332,16 @@ try {
     out.assistantLabel = game.i18n.localize("USER.RoleAssistant");
     out.gmNames = game.users.filter((u) => u.role === CONST.USER_ROLES.GAMEMASTER).map((u) => u.name);
 
-    // The Connections tab is STRUCTURAL now — no setting gates it. What is
-    // still worth asserting is that the derived flag says so for an ordinary
-    // character, and that the tab is really on the loaded sheet. The setting
-    // this block used to flip (`show-containers-tab`) no longer exists; a
-    // `game.settings.get` for it would THROW, which is the honest way for this
-    // probe to notice if it ever comes back.
+    // The Connections tab is PARKED (2026-08-09): the internal
+    // `connections-ui-enabled` flag defaults false and no UI writes it, so an
+    // ordinary character's derived flag reads false and the tab is absent.
+    // The Warden-visible setting this block used to flip
+    // (`show-containers-tab`) no longer exists; a `game.settings.get` for it
+    // would THROW, which is the honest way for this probe to notice if it
+    // ever comes back. The parked flag must never become Warden-visible
+    // either — that removal's reasoning covers it.
     out.settingIsGone = !game.settings.settings.has(`${NS}.show-containers-tab`);
+    out.parkedFlagInternal = game.settings.settings.get(`${NS}.connections-ui-enabled`)?.config === false;
     // Same shape, same reason: `show-gold-not-cost` swapped the retired
     // container sheet's Cost box for Gold, and both the box and the sheet are
     // gone. Asserted here rather than only by the grouping list above, because
@@ -328,10 +349,10 @@ try {
     // one and neither would name the real problem.
     out.goldNotCostGone = !game.settings.settings.has(`${NS}.show-gold-not-cost`);
     actor.prepareData();
-    out.derivedOnByDefault = actor.system.showContainersTab === true;
+    out.derivedOffByDefault = actor.system.showContainersTab === false;
     await actor.sheet.render(true);
     await new Promise((res) => setTimeout(res, 400));
-    out.tabPresentAfterReload = !!actor.sheet.element.querySelector('.tabs .item[data-tab="containers"]');
+    out.tabAbsentByDefault = !actor.sheet.element.querySelector('.tabs .item[data-tab="containers"]');
 
     await game.settings.set(NS, "show-generate-header", was);
     return out;
@@ -520,19 +541,22 @@ try {
     ? ok(`no GM account is still named "Gamemaster" (${r.gmNames?.join(", ")})`)
     : fail(`a default GM account survived the rename: ${r.gmNames?.join(", ")}`);
 
-  // The Connections tab is structural — no setting gates it any more.
+  // The Connections tab is parked behind the internal flag (2026-08-09).
   r.settingIsGone
     ? ok("show-containers-tab is no longer registered")
-    : fail("show-containers-tab is registered again — the tab is structural, not a display toggle");
+    : fail("show-containers-tab is registered again — the parked flag is internal, not a display toggle");
+  r.parkedFlagInternal
+    ? ok("connections-ui-enabled is registered config:false")
+    : fail("connections-ui-enabled is missing or Warden-visible — the show-containers-tab removal's reasoning forbids a visible toggle");
   r.goldNotCostGone
     ? ok("show-gold-not-cost is no longer registered")
     : fail("show-gold-not-cost is registered again — it has no Cost box left to govern");
-  r.derivedOnByDefault
-    ? ok("system.showContainersTab is true for an ordinary character, unconfigured")
-    : fail("the derived flag is false with nothing to turn it on");
-  r.tabPresentAfterReload
-    ? ok("the Connections tab renders with no setting to enable")
-    : fail("the Connections tab is absent");
+  r.derivedOffByDefault
+    ? ok("system.showContainersTab is false while the Connections UI is parked")
+    : fail("the derived flag is true with the Connections UI parked — a gate is missing");
+  r.tabAbsentByDefault
+    ? ok("the Connections tab is absent in the parked default")
+    : fail("the Connections tab renders while parked");
 
   // --- Deprived: Rest/Restore stay disabled, but the tooltip must say WHY.
   // The complaint (2026-08-08, a live Warden on actor "Lisbeth"): the buttons

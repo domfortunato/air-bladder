@@ -162,6 +162,29 @@ export const registerSettings = () => {
     default: false,
   });
 
+  // The Connections UI is PARKED (user ruling 2026-08-09): the mechanic is not
+  // being pursued further for now, and its surfaces hide until it is — the PC
+  // Connections tab, the npc header attach/detach line and wording (the For
+  // Hire checkbox on that line SURVIVES — it is the day-rate mechanic, not
+  // connections), the four connection sheet actions, and drag-to-connect.
+  // Everything underneath keeps working: the minting flows (marketplace
+  // transports, generation grants), carry capacity from connected containers,
+  // the ownership automation and its socket brokers, and the flatten
+  // migration. Flipping this to true restores the whole UI.
+  //
+  // `config: false` on purpose, and NOT a Warden-visible setting: this repo
+  // removed `show-containers-tab` (2026-07-31) on the reasoning that a display
+  // toggle hiding a live graph is not a setting worth having, and a visible
+  // toggle here would re-litigate that. Probes exercise the enabled state by
+  // SHADOWING the settings read in-page (the dev:print failed-career pattern)
+  // — never by writing this into a world.
+  game.settings.register(SETTINGS_NS, "connections-ui-enabled", {
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false,
+  });
+
   // The 2e backgrounds a Warden has switched off, as an array of UUIDs — the
   // eye toggle on the picker's rows (2026-08-04; canon and custom rows alike,
   // Barebones is all-or-nothing via its source checkbox). World state, NOT a

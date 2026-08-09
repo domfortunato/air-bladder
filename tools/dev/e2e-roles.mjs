@@ -578,6 +578,14 @@ try {
       while (Date.now() - t0 < ms) { if (test()) return true; await sleep(150); }
       return test();
     };
+    // Parked Connections UI (2026-08-09): the tab this count sits on renders
+    // only under the in-page settings shadow. The count logic is unchanged.
+    const origGet = game.settings.get;
+    game.settings.get = function (ns, key) {
+      if (key === "connections-ui-enabled") return true;
+      return origGet.call(this, ns, key);
+    };
+    try {
     const pc = await Cls.create({ name: "ZZ Roles Count PC", type: "character" });
     await pc.sheet.render(true);
     await until(() => pc.sheet.element instanceof HTMLElement);
@@ -597,6 +605,9 @@ try {
     await pc.sheet.close();
     await pc.delete();
     return { fresh, connected, after };
+    } finally {
+      game.settings.get = origGet;
+    }
   });
 
   /\(0\)$/.test(tabs.fresh)
@@ -669,9 +680,12 @@ try {
   });
 
   // THREE tabs on the npc sheet since 2026-08-02 — the child end's Connections
-  // tab became the header's connection line. The character keeps all four.
+  // tab became the header's connection line. The character is down to three as
+  // well since 2026-08-09: the Connections tab is PARKED (internal flag,
+  // default off), so the parked list IS the default this leg reads. The
+  // four-tab restored state is covered by dev:connections' shadow legs.
   const NPC_ORDER = ["description", "items", "notes"];
-  const PC_ORDER = ["items", "description", "containers", "notes"];
+  const PC_ORDER = ["items", "description", "notes"];
   JSON.stringify(order.asNpc.nav) === JSON.stringify(NPC_ORDER)
     && JSON.stringify(order.asNpc.panels) === JSON.stringify(NPC_ORDER)
     ? ok("npc nav AND panels run Description → Items → Notes")
@@ -705,6 +719,17 @@ try {
       while (Date.now() - t0 < ms) { if (test()) return true; await sleep(150); }
       return test();
     };
+    // Parked Connections UI (2026-08-09): every surface this leg reads —
+    // labels, attach/detach, the PC tab, the keeper picker — renders only
+    // under the in-page shadow. The parked For Hire differential runs in its
+    // own leg BELOW, without the shadow, which is what proves the day-rate
+    // control outlived the parking.
+    const origGet = game.settings.get;
+    game.settings.get = function (ns, key) {
+      if (key === "connections-ui-enabled") return true;
+      return origGet.call(this, ns, key);
+    };
+    try {
     const pc = await Cls.create({ name: "ZZ Roles Dir PC", type: "character" });
     // BOTH children hang off the PC now — the hireling no longer keeps the
     // sack, because nothing but a character keeps anything.
@@ -811,6 +836,9 @@ try {
     await h.sheet.close();
     await s.delete(); await h.delete(); await pc.delete();
     return { sackHead, hireHead, mountHead, hireOff, pcTab, afterDetach, attachShown, offered: offered.length, npcOffered, reattached };
+    } finally {
+      game.settings.get = origGet;
+    }
   });
 
   dirs.sackHead.label === "Connected to: ZZ Roles Dir PC" && dirs.sackHead.detach
@@ -842,6 +870,46 @@ try {
     ? ok("the header's Connect offers characters only, reattaches", `${dirs.offered} keeper(s), hireling not among them`)
     : bad("the header's Connect offers characters only, reattaches", JSON.stringify(dirs));
 
+  /* ---- the PARKED default: For Hire survives, the connection wording dies ---- */
+  // Deliberately WITHOUT the shadow — this differential against the shadowed
+  // leg above is what proves the parking hid the connection UI while leaving
+  // the day-rate mechanic (the For Hire checkbox and the row it reveals)
+  // standing. The checkbox rides the same header line the connection wording
+  // used to share, which is exactly why it needs its own witness.
+  console.log("\nparked (2026-08-09): For Hire outlives the connection line");
+  const parkedLine = await page.evaluate(async () => {
+    const Cls = CONFIG.Actor.documentClass;
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const pc = await Cls.create({ name: "ZZ Roles Parked PC", type: "character" });
+    // Created without forHire, so the schema initial (true) applies — a
+    // for-hire person WITH a keeper, the state where the old line had the
+    // most to say.
+    const h = await Cls.create({
+      name: "ZZ Roles Parked Hire", type: "npc",
+      system: { role: "npc", connectedTo: pc.uuid, dayRate: 5 },
+    });
+    await h.sheet.render(true);
+    await sleep(900);
+    const el = h.sheet.element;
+    const res = {
+      line: !!el.querySelector(".connection-line"),
+      forHire: !!el.querySelector(".connection-line .for-hire-check"),
+      label: el.querySelector(".connection-line .connection-label")?.textContent?.trim() ?? "",
+      detach: !!el.querySelector(".connection-detach"),
+      attach: !!el.querySelector(".connection-attach"),
+      dayRate: !!el.querySelector(".day-rate-line"),
+    };
+    await h.sheet.close();
+    await h.delete(); await pc.delete();
+    return res;
+  });
+  parkedLine.line && parkedLine.forHire && parkedLine.dayRate
+    ? ok("a for-hire person keeps the line, checkbox and day rate", "the day-rate mechanic is not connections")
+    : bad("a for-hire person keeps the line, checkbox and day rate", JSON.stringify(parkedLine));
+  parkedLine.label === "" && !parkedLine.detach && !parkedLine.attach
+    ? ok("and the line says nothing about connections", "no label, no attach, no detach")
+    : bad("and the line says nothing about connections", JSON.stringify(parkedLine));
+
   /* ---- an UNLINKED token's actor is not in the graph ---- */
   // Reported from the dev world: a Backpack was connected to the world
   // "Bat, Vampire" while the sheet on screen was an unlinked TOKEN's actor —
@@ -855,6 +923,16 @@ try {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const scene = game.scenes.find((s) => s.tokens.size >= 0) ?? game.scenes.contents[0];
     if (!scene) return { error: "no scene in this world" };
+    // Shadowed (parked Connections UI, 2026-08-09): the world-vs-token attach
+    // differential below reads the header's Connect control, which renders
+    // only with the UI restored. The graph-membership and refusal legs are
+    // document methods and never consult the flag.
+    const origGet = game.settings.get;
+    game.settings.get = function (ns, key) {
+      if (key === "connections-ui-enabled") return true;
+      return origGet.call(this, ns, key);
+    };
+    try {
 
     const world = await Cls.create({ name: "ZZ Roles Tok NPC", type: "npc", system: { role: "npc" } });
     // actorLink FALSE is the whole point — a linked token's `.actor` IS the
@@ -916,6 +994,9 @@ try {
     await worldChar.delete();
     await sleep(200);
     return res;
+    } finally {
+      game.settings.get = origGet;
+    }
   });
 
   if (tok.error) bad("token leg", tok.error);
@@ -1189,6 +1270,18 @@ try {
       const sack = await fromUuid(sackUuid);
       const free = await fromUuid(freeUuid);
       const foreign = await fromUuid(foreignUuid);
+      // Shadowed (parked Connections UI, 2026-08-09): the tab, rows and
+      // header labels Alice reads render only with the UI restored. Her
+      // connect/break relays further down are document methods and would land
+      // identically without the shadow. `prepareData` re-derives the tab flag
+      // — her client loaded this PC parked.
+      const origGet = game.settings.get;
+      game.settings.get = function (ns, key) {
+        if (key === "connections-ui-enabled") return true;
+        return origGet.call(this, ns, key);
+      };
+      try {
+      pc.prepareData();
       await pc.sheet.render(true);
       await sleep(900);
       pc.sheet.changeTab?.("containers", "primary");
@@ -1261,6 +1354,9 @@ try {
       await sack.sheet.close();
       return { pcTab, sackHead, halfHead, connectReturned, connectLanded, shapeSettled, freeShape,
         foreignReturned, foreignUntouched, breakLanded, broke, lostWrite };
+      } finally {
+        game.settings.get = origGet;
+      }
     }, seed);
 
     player.pcTab.tab && player.pcTab.rowForSack && player.pcTab.editIcon

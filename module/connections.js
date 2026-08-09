@@ -14,6 +14,22 @@
  * is exactly its direct children, so there is no walk to get wrong.
  */
 
+import { SETTINGS_NS } from "./settings.js";
+
+/**
+ * Whether the Connections UI renders at all. PARKED since 2026-08-09 (user
+ * ruling): the internal `connections-ui-enabled` setting defaults false and no
+ * UI writes it, so the tab, the npc header connection line and drag-to-connect
+ * are hidden for everyone, Warden included, until the mechanic is picked back
+ * up. Every gate reads THIS helper so the flag has one spelling; probes shadow
+ * `game.settings.get` for the key to exercise the enabled state in-page.
+ *
+ * This gates the UI ONLY. The graph itself — minting flows, capacity,
+ * ownership automation, migration — never consults it.
+ * @returns {boolean}
+ */
+export const connectionsUiEnabled = () => game.settings.get(SETTINGS_NS, "connections-ui-enabled");
+
 /**
  * How many actors one character may keep. Ten, counting EVERY role: a horse, a
  * cart and two sacks are four of the ten, not four of some per-role allowance.

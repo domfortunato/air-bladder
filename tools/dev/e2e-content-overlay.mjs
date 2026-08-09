@@ -746,6 +746,16 @@ try {
         "item.name": { "ZZ Muddy Shovel": "ZZ-PALA" },
       });
 
+      // Parked Connections UI (2026-08-09): the row the connRow leg reads
+      // renders only under the in-page settings shadow. It stays on through
+      // the omen legs (same rendered sheet) and comes off before the
+      // marketplace section, which needs nothing from the tab.
+      const origSettingsGet = game.settings.get;
+      game.settings.get = function (ns2, key) {
+        if (key === "connections-ui-enabled") return true;
+        return origSettingsGet.call(this, ns2, key);
+      };
+      pc.prepareData();
       await pc.sheet.render(true);
       for (let i = 0; i < 60 && !pc.sheet.element; i++) await settle(100);
       await settle(500);
@@ -788,6 +798,7 @@ try {
       }
       out.omenStoredAfterEdit = pc.system.omen;
       await pc.sheet.close();
+      game.settings.get = origSettingsGet;
 
       // ---- marketplace: gear row, TRANSPORT row, and the purchase toast ------
       const market = await import("/systems/air-bladder/module/marketplace.js");
@@ -1300,6 +1311,14 @@ const pickerLeg = await page.evaluate(async () => {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const Impl = CONFIG.Actor.documentClass;
   const out = { ids: [] };
+  // The Connections UI is parked (2026-08-09): the tab this picker lives on
+  // renders only under the in-page settings shadow. What the leg measures —
+  // display-name labels and sort — is unchanged by the parking.
+  const origGet = game.settings.get;
+  game.settings.get = function (ns, key) {
+    if (key === "connections-ui-enabled") return true;
+    return origGet.call(this, ns, key);
+  };
   try {
     const keeper = await Impl.create({ name: "ZZ Picker Keeper", type: "character" });
     const alpha = await Impl.create({ name: "ZZ Alpha Crate", type: "npc", system: { role: "container" } });
@@ -1329,6 +1348,7 @@ const pickerLeg = await page.evaluate(async () => {
     out.alphaUuid = alpha.uuid;
     out.betaUuid = beta.uuid;
   } finally {
+    game.settings.get = origGet;
     i18n._setOverlay(null);
     for (const id of out.ids) await game.actors.get(id)?.delete().catch(() => {});
   }

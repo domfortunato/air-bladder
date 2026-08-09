@@ -6,7 +6,7 @@ import { resultText } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES } from "../icons.js";
 import { NPC_ROLES, THING_ROLES } from "../data-models.js";
-import { atConnectionLimit, maxConnections, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
+import { atConnectionLimit, maxConnections, connectionsUiEnabled, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
 import { actorDisplayName, localizeNameDesc, sourceOf, t } from "../i18n-content.js";
 import { FATIGUE_NAME } from "../item/item.js";
 import { pickArt } from "../art-picker.js";
@@ -801,7 +801,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // reuse the registered connectionAttach/connectionDetach actions and
       // their gates verbatim; only their template home moved.
       const hired = role === "npc" && this.actor.system.forHire === true;
-      if (keeperDoc) {
+      // Parked (2026-08-09): with the Connections UI off, the line never gains
+      // a label or a control — but it still RENDERS for a person, because
+      // showConnectionLine's isNpcPerson arm below is what keeps the For Hire
+      // checkbox on screen, and For Hire is the day-rate mechanic, not
+      // connections. The builder is skipped, not the line.
+      if (!connectionsUiEnabled()) {
+        // no connectionLine
+      } else if (keeperDoc) {
         context.connectionLine = {
           label: game.i18n.format(hired ? "CAIRN.HiredBy" : "CAIRN.ConnectedToNamed",
             { name: keeperDoc.name }),
@@ -2477,6 +2484,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static #onContainerUnlink(event, target) {
     event.preventDefault();
+    // Parked UI (2026-08-09): the control is hidden, the refusal is the wall —
+    // a sheet rendered before the park must not be a way in.
+    if (!connectionsUiEnabled()) return;
     const row = CairnActorSheet.#row(target);
     if (!row?.dataset.isContainer) return;
     // Both ends, per row — unlinkOwnedContainer re-checks; this just refuses
@@ -2705,6 +2715,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onConnectionAdd(event) {
     event.preventDefault();
+    // Parked UI (2026-08-09): hidden control, handler wall (stale sheets).
+    if (!connectionsUiEnabled()) return;
     // connectActor re-checks; refusing before the dialog just spares a
     // gesture from users who found the action some way the template gating
     // does not cover. This is the keeper-side HALF of the both-ends wall —
@@ -2782,6 +2794,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onConnectionAttach(event) {
     event.preventDefault();
+    // Parked UI (2026-08-09): hidden control, handler wall (stale sheets).
+    if (!connectionsUiEnabled()) return;
     const child = this.actor;
     // The child-side half of the both-ends wall; the keeper filter below adds
     // the other half, so a player is only offered keepers they own.
@@ -2855,6 +2869,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onConnectionDetach(event) {
     event.preventDefault();
+    // Parked UI (2026-08-09): hidden control, handler wall (stale sheets).
+    if (!connectionsUiEnabled()) return;
     const child = this.actor;
     const link = child.system.connectedTo || "";
     if (!link) return;
@@ -3790,6 +3806,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * @param {CairnActor} actor  the dropped Actor, already resolved by ActorSheetV2
    */
   async _onDropActor(event, actor) {
+    // Parked UI (2026-08-09): drag-to-connect goes with the rest of the
+    // Connections surfaces. Silent, matching every other invalid drop here.
+    if (!connectionsUiEnabled()) return null;
     // Only WORLD actors can be attached. AppV1 expressed this by looking the
     // uuid up in `game.actors`, which a compendium or unlinked-token actor is
     // never in; ApplicationV2 hands us the resolved document, so say it directly.

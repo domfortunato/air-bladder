@@ -51,6 +51,17 @@ try {
     const orig = DialogV2.confirm;
     let asked = 0;
     DialogV2.confirm = async () => { asked += 1; return true; };
+    // The Connections UI is parked (2026-08-09). Every DOM witness here — the
+    // "Formerly connected to" header line, the Connected-tab rows the rerender
+    // legs poll — renders only with the UI restored, so the whole evaluate
+    // runs under the in-page settings shadow (never a world write). The
+    // document methods this probe is ABOUT are unaffected by the parking;
+    // the parked default itself is dev:connections' leg.
+    const origGet = game.settings.get;
+    game.settings.get = function (ns, key) {
+      if (key === "connections-ui-enabled") return true;
+      return origGet.call(this, ns, key);
+    };
 
     const mk = async () => {
       const owner = await Cls.create({ name: "ZZ Unlink Owner", type: "character" });
@@ -205,6 +216,7 @@ try {
     await watcher.delete();
 
     DialogV2.confirm = orig;
+    game.settings.get = origGet;
     return { unlink, orphan, del, control, ownerDeath, deathControl, rerender };
   });
 

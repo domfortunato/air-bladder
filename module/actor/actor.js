@@ -2,7 +2,7 @@ import { SETTINGS_NS } from "../settings.js";
 import { iconForItem, iconForTransport, containerClassSlots, CONTAINER_CLASSES, ICON_DIR } from "../icons.js";
 import { THING_ROLES } from "../data-models.js";
 import {
-  atConnectionLimit, maxConnections,
+  atConnectionLimit, maxConnections, connectionsUiEnabled,
   connectedOwnershipShape, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG,
 } from "../connections.js";
 import { actorDisplayName, t } from "../i18n-content.js";
@@ -709,7 +709,10 @@ export class CairnActor extends Actor {
     // left. The npcRole clause is vestigial for them (a character's npcRole is
     // null); the isToken clause is the live one — an unlinked token's synthetic
     // actor cannot appear in anyone's list nor keep its own (canBeConnected).
-    this.system.showContainersTab = this.npcRole !== "monster" && !this.isToken;
+    // The connectionsUiEnabled clause parks the tab entirely (2026-08-09) —
+    // _getTabsConfig's vanished-tab reset moves anyone standing on it.
+    this.system.showContainersTab = connectionsUiEnabled()
+      && this.npcRole !== "monster" && !this.isToken;
     // Role-derived sheet facts, computed once here rather than re-tested in
     // template conditionals: what `inanimate` and `forHire` used to answer.
     this.system.isThing = this.isThing;
