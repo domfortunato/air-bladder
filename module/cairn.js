@@ -1446,7 +1446,8 @@ Hooks.on("renderSettingsConfig", (app, element) => {
 
   // Barebones sub-options are meaningless unless Barebones character sheets are
   // offered, so grey them out (and disable them) while that master toggle is off.
-  const barebonesSubKeys = ["barebones-failed-career", "show-omens-barebones", "show-bonds-barebones"];
+  // Down to one carrier: the omen/bond lending settings were removed 2026-08-09.
+  const barebonesSubKeys = ["barebones-failed-career"];
   const barebonesToggle = root.querySelector(`[name="${SETTINGS_NS}.content-source-barebones"]`);
   const syncBarebonesSubs = () => {
     const on = !!barebonesToggle?.checked;

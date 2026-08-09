@@ -1413,29 +1413,13 @@ export const generateBarebonesCharacter = async (chosenBg = null) => {
   if (armor) { armor.system.equipped = true; avoid.add(armor.name.toLowerCase()); }
   const extraGearRoll = !armor;
 
-  const bondsEnabled = game.settings.get(SETTINGS_NS, "show-bonds-barebones");
-
-  // Step 6 — skipped entirely when bonds are on (the bond takes its place).
+  // Step 6 — Additional Gear, always. Barebones generation mints no bonds:
+  // the retired show-bonds-barebones setting (removed 2026-08-09) used to let
+  // a lent 2e bond REPLACE this step; bonds are 2e's alone now.
   const extras = [];
-  if (!bondsEnabled) {
-    for (let i = 0; i < 1 + (extraGearRoll ? 1 : 0); i++) {
-      const x = await rollAdditionalGear(avoid);
-      if (x) { extras.push(x); avoid.add(x.name.toLowerCase()); }
-    }
-  }
-
-  // Barebones bonds are a SINGLE optional bond — no second bond and no background
-  // questions, both of which are 2e. Like 2e it supplies starting gold and an item.
-  const bonds = [];
-  const bondItems = [];
-  let bondGold = 0;
-  if (bondsEnabled) {
-    const rec = bondRecordFrom(await drawBond());
-    if (rec) {
-      bonds.push(rec.bond);
-      bondItems.push(...rec.items);
-      bondGold += rec.bond.gold;
-    }
+  for (let i = 0; i < 1 + (extraGearRoll ? 1 : 0); i++) {
+    const x = await rollAdditionalGear(avoid);
+    if (x) { extras.push(x); avoid.add(x.name.toLowerCase()); }
   }
 
   // A failed career (Knave-style): a second background name, plus one Petty
@@ -1457,7 +1441,7 @@ export const generateBarebonesCharacter = async (chosenBg = null) => {
   return {
     name: await rollNameFromTable(Cairn.barebonesGenerator.name, bg.name),
     hp: hpRoll.total,
-    gold: goldRoll.total + bondGold,
+    gold: goldRoll.total,
     abilities: {
       STR: abilityRolls.STR.total,
       DEX: abilityRolls.DEX.total,
@@ -1469,10 +1453,10 @@ export const generateBarebonesCharacter = async (chosenBg = null) => {
     backgroundUuid: bg.uuid,
     contentSource: "barebones",
     failedCareer,
-    bonds,
+    bonds: [],
     age: String(await rollAge(Cairn.characterGenerator2e.biography.age)),
     traits: await rollTextItems(Cairn.characterGenerator2e.biography.items),
-    items: [...bgItems, ...base, ...(weapon ? [weapon] : []), ...(armor ? [armor] : []), ...extras, ...bondItems, ...failedCareerItems],
+    items: [...bgItems, ...base, ...(weapon ? [weapon] : []), ...(armor ? [armor] : []), ...extras, ...failedCareerItems],
     containers,
     questions: [],
   };

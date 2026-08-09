@@ -516,8 +516,11 @@ try {
     // because dev:ui-parity was not on its run list — the probe-orphan lesson.
     "Inventory & Encumbrance": ["max-equip-slots", "character-inventory-limit", "allow-player-marketplace",
       "use-gold-threshold", "enable-inventory-reorder"],
+    // show-omens-barebones and show-bonds-barebones left this list 2026-08-09:
+    // the Barebones lending they toggled was removed outright (user ruling),
+    // Barebones sheets never show Omen and generation never mints a bond.
     "Character Generation": ["content-source-2e", "content-source-custom", "content-source-barebones",
-      "barebones-failed-career", "show-omens-barebones", "show-bonds-barebones", "show-generate-header",
+      "barebones-failed-career", "show-generate-header",
       "allow-player-generate", "allow-player-randomization", "show-generation-rolls",
       "custom-portrait-folder", "min-age"],
     "General Settings": ["use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",

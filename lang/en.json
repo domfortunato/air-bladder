@@ -568,17 +568,9 @@
   "CAIRN.ScrollTip": "A spellscroll is this spell written once on paper: petty, a single use, and gone when it is read. Marking one sets all of that and shows it as a scroll in the inventory.",
   "CAIRN.SetLimit": "Set limit",
   "CAIRN.Settings": {
-    "BarebonesBonds": {
-      "hint": "Give Barebones characters a bond from the 2e Bonds table. The bond replaces the Additional Gear roll rather than adding to it, so the inventory stays within ten slots.",
-      "label": "Show 2e Bonds for Barebones character sheets"
-    },
     "BarebonesFailedCareer": {
       "hint": "Give Barebones characters a second background name as flavour — the career that didn't work out. Grants no items and no mechanics.",
       "label": "Give Barebones Characters a failed career (like Knave 2e)"
-    },
-    "BarebonesOmens": {
-      "hint": "Show the Omen field for Barebones characters. Omens are never rolled at creation in either edition — this only decides whether the field is offered.",
-      "label": "Show 2e Omens on Barebones character sheets"
     },
     "AllowPlayerGenerate": {
       "hint": "Offer players the Generate PC button in the Actors sidebar. Turn off to hide it from every player mid-session — the shipped 'Toggle Player Generate PC' macro flips this. The Warden's own button never hides.",

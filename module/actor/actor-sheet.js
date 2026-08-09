@@ -1192,12 +1192,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.showScars = true;
     context.showAge = true;
     // Omen is the one exception, and it is a CONTENT question rather than a rule:
-    // Barebones ships no omens table, so a Warden opts in to lending it 2e's, the
-    // same way they can lend it 2e's bonds. Nothing about generation changes —
-    // an omen is never rolled at creation in either edition.
-    context.showOmen =
-      this.actor.system.contentSource !== "barebones" ||
-      game.settings.get(SETTINGS_NS, "show-omens-barebones");
+    // Barebones ships no omens table, so the field is 2e's alone. (A Warden
+    // used to be able to lend it via show-omens-barebones; the lending was
+    // removed 2026-08-09. A legacy Barebones character's stored omen text
+    // survives on the document — only the field hides.)
+    context.showOmen = this.actor.system.contentSource !== "barebones";
     // The omen shows t("table.result", …) on BOTH surfaces — the read span and
     // the TEXTAREA — with the submit anchored back to the stored English in
     // _processFormData (2026-08-06, Malecho's second omen report). The textarea
@@ -1238,9 +1237,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       && this._mayRandomize();
 
     // Notes tab: bonds (a character can hold several) + the background's
-    // re-rollable questions. Questions are 2e; bonds are 2e by default but a
-    // Warden can lend them to Barebones (show-bonds-barebones), so show the
-    // section whenever the character actually has one.
+    // re-rollable questions. Questions are 2e; bonds are 2e, but a legacy
+    // Barebones character may still hold one from the retired lending
+    // setting, so show the section whenever the character actually has one.
     // Translate bond prose for display (bonds are drawn from the Bonds table →
     // table.result). A composed bond string that doesn't match a source key
     // falls back to English; the count/entitlement below is unaffected.
@@ -1675,13 +1674,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (bg === undefined) {
       bg = this.actor.system.backgroundUuid ? await fromUuid(this.actor.system.backgroundUuid) : null;
     }
-    // Barebones gets exactly one bond, and only when the Warden lends it 2e's
-    // Bonds table — it has no second-bond options of its own. Display policy,
-    // so it stays HERE: the generator's clamp must never delete a lent bond
-    // because this setting happens to be off.
-    if (this.actor.system.contentSource === "barebones") {
-      return game.settings.get(SETTINGS_NS, "show-bonds-barebones") ? 1 : 0;
-    }
+    // Barebones is entitled to no bonds — the lending setting that granted
+    // one is retired (2026-08-09). Display policy, so it stays HERE: the
+    // generator's clamp uses the SHARED bondEntitlement and must never
+    // delete a legacy lent bond because this arm reads 0 — zero only gates
+    // "Add a bond"; existing bonds display on content.
+    if (this.actor.system.contentSource === "barebones") return 0;
     // The shared rule — one implementation for generation, the Add-a-bond cap
     // and changeBackground's clamp, after its two hand-kept twins drifted
     // apart in wording and agreed only by luck (dedup'd 2026-08-02).

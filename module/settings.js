@@ -26,8 +26,7 @@ export const SETTING_KEYS = [
   "show-features-section", "use-warden-title", "change-log", "auto-record-scars",
   // Character Generation
   "content-source-2e", "content-source-custom", "content-source-barebones",
-  "barebones-failed-career",
-  "show-omens-barebones", "show-bonds-barebones", "show-generate-header",
+  "barebones-failed-career", "show-generate-header",
   "allow-player-generate", "allow-player-randomization", "show-generation-rolls",
   // disabled-backgrounds is Warden CONFIGURATION (which 2e backgrounds are
   // switched off), not a migration marker — it must ride the namespace
@@ -37,6 +36,10 @@ export const SETTING_KEYS = [
   // because losing one only re-runs an idempotent migration.
   "custom-portrait-folder", "custom-portrait-list", "min-age",
   "disabled-backgrounds",
+  // Internal but CONFIGURATION, not a marker: the parked-Connections flag
+  // (2026-08-09) must ride the namespace migration — losing it would re-park
+  // a world the user had unparked.
+  "connections-ui-enabled",
   // Inventory & Encumbrance
   "max-equip-slots", "character-inventory-limit", "allow-player-marketplace",
   "use-gold-threshold", "enable-inventory-reorder",
@@ -388,37 +391,14 @@ export const registerSettings = () => {
     onChange: rerenderActorSheets,
   });
 
-  // Barebones has no omens of its own. Unlike bonds this changes nothing about
-  // generation -- an omen is never rolled at creation in either edition -- it
-  // only decides whether the Description tab offers the field at all.
-  game.settings.register(SETTINGS_NS, "show-omens-barebones", {
-    name: "CAIRN.Settings.BarebonesOmens.label",
-    hint: "CAIRN.Settings.BarebonesOmens.hint",
-    scope: "world",
-    config: true,
-    type: Boolean,
-    default: false,
-    requiresReload: false,
-    // Read in _prepareContext (showOmen) — same fan, same reason.
-    onChange: rerenderActorSheets,
-  });
-
-  // Barebones has no bonds of its own either; this lends it 2e's Bonds table.
-  // When on, the bond REPLACES the Additional Gear step rather than adding to it
-  // -- a bond already grants an item and gold, and rolling both overloads ten
-  // slots.
-  game.settings.register(SETTINGS_NS, "show-bonds-barebones", {
-    name: "CAIRN.Settings.BarebonesBonds.label",
-    hint: "CAIRN.Settings.BarebonesBonds.hint",
-    scope: "world",
-    config: true,
-    type: Boolean,
-    default: false,
-    requiresReload: false,
-    // Read in _prepareContext (the bond entitlement count) — same fan.
-    onChange: rerenderActorSheets,
-  });
-
+  // `show-omens-barebones` and `show-bonds-barebones` were REMOVED here
+  // (2026-08-09, user ruling): the lending they toggled is gone — Barebones
+  // sheets never show the Omen field and Barebones generation never mints a
+  // bond (Additional Gear always runs). Both defaulted false, so the removal
+  // makes the default the only behaviour. Legacy lent bonds survive as data
+  // and keep displaying (the Notes section shows on content); stored omen
+  // TEXT survives invisibly. Their orphaned world rows are harmless, like
+  // the three settings retired in 2026-07/08.
   game.settings.register(SETTINGS_NS, "show-generate-header", {
     name: "CAIRN.Settings.ShowGenerateHeader.label",
     hint: "CAIRN.Settings.ShowGenerateHeader.hint",

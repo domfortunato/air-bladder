@@ -6,8 +6,10 @@
  *      a value you are stuck with from generation.
  *   2. The failed-career line respects its GM setting live: switching the setting
  *      off hides it on an already-generated character.
- *   3. show-omens-barebones gates the Omen field for Barebones characters, and
- *      leaves 2e characters alone.
+ *   3. The Omen field is 2e's alone: absent on a Barebones sheet
+ *      unconditionally (the show-omens-barebones lending setting was removed
+ *      2026-08-09), present on a 2e sheet — the differential that proves the
+ *      hiding is the content source, not a broken field.
  *
  * Drives a real Barebones character rather than inspecting config, because every
  * one of these is a context/handler question and reading the setting back proves
@@ -33,12 +35,10 @@ try {
 
     const was = {
       career: game.settings.get(NS, "barebones-failed-career"),
-      omens: game.settings.get(NS, "show-omens-barebones"),
       bb: game.settings.get(NS, "content-source-barebones"),
     };
     await game.settings.set(NS, "content-source-barebones", true);
     await game.settings.set(NS, "barebones-failed-career", true);
-    await game.settings.set(NS, "show-omens-barebones", false);
 
     try {
       const bgs = await gen.getBarebonesBackgrounds();
@@ -79,12 +79,7 @@ try {
       out.shownWithoutSetting = (await actor.sheet._prepareContext({})).showFailedCareer;
       await game.settings.set(NS, "barebones-failed-career", true);
 
-      // 3. the omens setting opens the field for Barebones...
-      await game.settings.set(NS, "show-omens-barebones", true);
-      out.omenShownWhenEnabled = (await actor.sheet._prepareContext({})).showOmen;
-      await game.settings.set(NS, "show-omens-barebones", false);
-
-      // ...and a 2e character is unaffected either way
+      // 3. ...and the 2e differential for the unconditional hide above
       const p2 = game.packs.get("air-bladder.backgrounds-2e");
       const bg2 = (await p2.getDocuments())[0];
       const c2 = await gen.generate2eCharacter(bg2);
@@ -100,7 +95,6 @@ try {
     } finally {
       for (const id of out.made) { try { await game.actors.get(id)?.delete(); } catch { /* gone */ } }
       await game.settings.set(NS, "barebones-failed-career", was.career);
-      await game.settings.set(NS, "show-omens-barebones", was.omens);
       await game.settings.set(NS, "content-source-barebones", was.bb);
     }
     return out;
@@ -125,12 +119,10 @@ try {
               : fail("promptFailedCareer missing");
 
   r.omenHiddenForBarebones === false
-    ? ok("Omen is hidden for Barebones by default")
-    : fail("Omen shown for Barebones with show-omens-barebones off");
-  r.omenShownWhenEnabled ? ok("show-omens-barebones reveals the Omen field")
-                         : fail("show-omens-barebones did not reveal the Omen field");
-  r.omenShownFor2e ? ok("a 2e character keeps its Omen regardless of that setting")
-                   : fail("the Barebones omens setting leaked onto 2e characters");
+    ? ok("Omen is hidden for Barebones, unconditionally (the lending setting is retired)")
+    : fail("Omen shown for a Barebones character — the retired lending is back");
+  r.omenShownFor2e ? ok("a 2e character keeps its Omen — the differential for the hide")
+                   : fail("the Omen field is gone from 2e characters too — the hide is not the content source");
   r.careerHiddenFor2e === false
     ? ok("a 2e character shows no failed-career line")
     : fail("failed-career line leaked onto a 2e character");
