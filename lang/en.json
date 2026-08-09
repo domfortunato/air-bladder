@@ -592,6 +592,10 @@
       "hint": "Offer players the Randomization toggle on sheets they own, with the Roll button and every re-roll die behind it. Turn off to hide the whole randomization surface from every player mid-session — the shipped 'Toggle Player Randomization' macro flips this. The Warden keeps everything.",
       "label": "Let players use Randomization on their sheets"
     },
+    "AutoRecordScars": {
+      "hint": "When a player character takes a hit that lands exactly on 0 HP and a scar is drawn, also check that scar on their sheet's scar list. NPCs and monsters get only the chat card either way, and the scar's instructions stay the player's to act out.",
+      "label": "Record rolled scars on player character sheets"
+    },
     "ChangeLog": {
       "hint": "Whisper a chat card to the actor's owners, observers and the Warden whenever someone hand-changes stats, gold, traits, Panicked/Deprived, scars, features or inventory. Rolled generation, damage and other automatic changes are never logged. The shipped 'Toggle Change Log' macro flips this.",
       "label": "Log manual changes to chat"

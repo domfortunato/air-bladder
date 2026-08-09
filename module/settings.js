@@ -23,7 +23,7 @@ export const SETTINGS_NS = "air-bladder";
 export const SETTING_KEYS = [
   // General
   "use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
-  "show-features-section", "use-warden-title", "change-log",
+  "show-features-section", "use-warden-title", "change-log", "auto-record-scars",
   // Character Generation
   "content-source-2e", "content-source-custom", "content-source-barebones",
   "barebones-failed-career",
@@ -269,6 +269,24 @@ export const registerSettings = () => {
     config: true,
     type: Boolean,
     default: true,
+    requiresReload: false,
+  });
+
+  // The one AUTOMATED sheet write in the damage flow, and a deliberate,
+  // bounded breach of the "trust players, no automation" house line (user
+  // ruling 2026-08-09): when the Scars draw fires for a PLAYER CHARACTER,
+  // the drawn scar is also checked on the sheet's scar list. Default OFF —
+  // the generationEnabled precedent: an update must not change a table's
+  // behavior until the Warden flips it. The write site, with the PC-only /
+  // owner-only / dedupe rules, is damage.js `_rollScarsTable`; read live
+  // there, no reload.
+  game.settings.register(SETTINGS_NS, "auto-record-scars", {
+    name: "CAIRN.Settings.AutoRecordScars.label",
+    hint: "CAIRN.Settings.AutoRecordScars.hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
     requiresReload: false,
   });
 

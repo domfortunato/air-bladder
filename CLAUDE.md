@@ -90,11 +90,12 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
 - `module/damage.js` holds Cairn's damage flow
 - Data models in `module/data-models.js` (TypeDataModel; `template.json` is gone,
   sub-types are declared in `system.json` `documentTypes`); 24 compendium packs
-- 24 GM-visible settings in `module/settings.js` (29 `register` calls; `roles-restamped`,
+- 25 GM-visible settings in `module/settings.js` (30 `register` calls; `roles-restamped`,
   `companion-restamped`, `connections-migrated`, `custom-portrait-list` and
   `disabled-backgrounds` are internal, `config: false`; counts stale twice now —
   `allow-player-randomization` outdated them and review #13 caught it, its third
-  "record claiming what the code does not say") —
+  "record claiming what the code does not say" — so `auto-record-scars` updated
+  them in ITS OWN commit, 2026-08-09) —
   **registration ORDER is load-bearing**, because Foundry's group headers are positional. Two went on
   2026-07-31, both because the thing they toggled stopped existing:
   `show-containers-tab` (the Connections tab is structural now, and a display
