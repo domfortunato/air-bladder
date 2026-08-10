@@ -120,6 +120,7 @@
     "eslint-plugin-i18n-json": "^4.0.0",
     "eslint-plugin-import": "^2.26.0",
     "js-yaml": "^5.2.1",
+    "marked": "^18.0.9",
     "playwright": "^1.49.0",
     "sharp": "^0.35.3",
     "standard": "^16.0.3"
