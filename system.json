@@ -263,6 +263,18 @@
       "ownership": { "PLAYER": "NONE", "TRUSTED": "NONE", "ASSISTANT": "OWNER" }
     },
     {
+      "name": "tables-glog",
+      "label": "CAIRN.Pack.tables-glog",
+      "type": "RollTable",
+      "system": "air-bladder"
+    },
+    {
+      "name": "journals-glog",
+      "label": "CAIRN.Pack.journals-glog",
+      "type": "JournalEntry",
+      "system": "air-bladder"
+    },
+    {
       "name": "macros",
       "label": "CAIRN.Pack.macros",
       "type": "Macro",
@@ -312,7 +324,15 @@
         "marketplace",
         "tables-2e",
         "tables-barebones",
+        "tables-glog",
         "utils"
+      ]
+    },
+    {
+      "name": "Air Bladder - Journals",
+      "sorting": "a",
+      "packs": [
+        "journals-glog"
       ]
     },
     {
