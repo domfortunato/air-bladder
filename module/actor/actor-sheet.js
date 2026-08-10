@@ -9,7 +9,7 @@ import { NPC_ROLES, THING_ROLES } from "../data-models.js";
 import { atConnectionLimit, maxConnections, connectionsUiEnabled, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
 import { actorDisplayName, localizeNameDesc, sourceOf, t } from "../i18n-content.js";
 import { FATIGUE_NAME } from "../item/item.js";
-import { castFromGrimoire } from "../grimoire.js";
+import { castFromGrimoire, castScroll } from "../grimoire.js";
 import { pickArt } from "../art-picker.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -236,6 +236,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       itemRemoveUse: owned(CairnActorSheet.#onItemRemoveUse),
       pageTransmute: owned(CairnActorSheet.#onPageTransmute),
       grimoireCast: owned(CairnActorSheet.#onGrimoireCast),
+      scrollCast: owned(CairnActorSheet.#onScrollCast),
       itemDescription: CairnActorSheet.#onItemDescription,
       addFatigue: owned(CairnActorSheet.#onAddFatigue),
       removeFatigue: owned(CairnActorSheet.#onRemoveFatigue),
@@ -864,6 +865,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // Everything here is display annotation on the context copies — the
     // ENFORCEMENT lives in the handlers and CairnItem, which re-derive it.
     if (this.actor.type === "character") {
+      // A SCROLL casts with no book at all — the hack's rule ("they work
+      // exactly the same as spells recorded in your Grimoire"), gated on the
+      // GLOG rules setting, spent scrolls and bound pages excluded. The
+      // control is the affordance; castScroll re-derives every guard.
+      if (game.settings.get(SETTINGS_NS, "enable-glog-magic")) {
+        context.items = context.items.map((i) =>
+          i.type === "spellbook" && i.system.scroll && !i.system.bound
+            && (i.system.uses?.value ?? 0) > 0
+            ? { ...i, system: { ...i.system, canCastScroll: true } } : i);
+      }
       const grimoire = this.actor.items.find((i) => i.type === "item" && i.system.grimoire);
       const pageCount = this.actor.items.filter((i) => i.type === "spellbook" && i.system.bound).length;
       if (grimoire) {
@@ -2577,6 +2588,19 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   static async #onGrimoireCast(event) {
     event.preventDefault();
     await castFromGrimoire(this.actor);
+  }
+
+  /**
+   * The Cast control on an unspent spellscroll's row — no Grimoire required
+   * (the hack: a scroll works exactly like a recorded spell, destroyed after
+   * its single use). All guards re-derive in module/grimoire.js.
+   * @this {CairnActorSheet}
+   */
+  static async #onScrollCast(event, target) {
+    event.preventDefault();
+    const row = CairnActorSheet.#row(target);
+    const item = this.actor.getOwnedItem(row?.dataset.itemId);
+    if (item) await castScroll(this.actor, item);
   }
 
   /** Not exactly quantity, this is about uses. @this {CairnActorSheet} */

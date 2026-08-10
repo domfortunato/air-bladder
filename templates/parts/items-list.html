@@ -113,6 +113,13 @@
       </a>
       {{/if}}
 
+      {{#if item.system.canCastScroll}}
+      <a class="item-control scroll-cast" data-action="scrollCast"
+        title="{{ localize 'CAIRN.ScrollCastHint' }}">
+        <i class="fas fa-hand-sparkles"></i>
+      </a>
+      {{/if}}
+
       {{! Equipping is a character-only affordance -- gear stowed in a container
           is not to hand, so a container's rows never offer the toggle. }}
       {{#unless container}}

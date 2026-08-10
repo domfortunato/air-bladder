@@ -17,6 +17,7 @@ import { FATIGUE_NAME } from "./item/item.js";
 import { findTableByName } from "./compendium.js";
 import { t } from "./i18n-content.js";
 import { formatCount } from "./utils.js";
+import { SETTINGS_NS } from "./settings.js";
 
 /** The shipped Mishaps table's stored English name (tables-glog). */
 export const MISHAPS_TABLE_NAME = "GLOG Magic: Mishaps";
@@ -89,67 +90,27 @@ export const resolveSpellText = (text, dice, sum) => {
 const esc = (s) => foundry.utils.escapeHTML(String(s ?? ""));
 
 /**
- * Cast from `actor`'s carried Grimoire: pick a bound page and a power
- * (1..min(4, free slots)), roll, and report — the resolved effect publicly,
- * the mechanics privately. Returns the public ChatMessage, or null when the
- * cast could not happen (no book, no pages, no dice, dialog dismissed).
- * @param {CairnActor} actor
- * @returns {Promise<ChatMessage|null>}
+ * Magic Dice available to `actor` right now: min(4, free inventory slots).
+ * Read at the moment of asking, never stored — see the module docblock.
  */
-export const castFromGrimoire = async (actor) => {
-  if (actor?.type !== "character") return null;
-  const book = actor.items.find((i) => i.type === "item" && i.system.grimoire);
-  if (!book) return null;
-  const pages = actor.items.filter((i) => i.type === "spellbook" && i.system.bound);
-  if (!pages.length) {
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.GrimoireNoPages", { name: book.name }));
-    return null;
-  }
-  const free = Math.max(0, (actor.system.slotsMax ?? 0) - (actor.system.slotsUsed ?? 0));
-  const maxDice = Math.min(4, free);
-  if (maxDice < 1) {
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.GrimoireNoDice", { name: actor.name }));
-    return null;
-  }
+const magicDice = (actor) =>
+  Math.min(4, Math.max(0, (actor.system.slotsMax ?? 0) - (actor.system.slotsUsed ?? 0)));
 
+/**
+ * The shared back half of every cast: roll the invested dice and report —
+ * the resolved effect publicly, the mechanics privately. One function on
+ * purpose: a scroll "works exactly the same as spells recorded in your
+ * Grimoire" (the hack's own sentence, shipped verbatim in the handout), so a
+ * second copy of the fatigue/mishap machinery would be a place for the two
+ * casts to drift apart.
+ * @param {CairnActor} actor
+ * @param {CairnItem} spell   a bound page, or a spellscroll
+ * @param {number} dice       Magic Dice invested (1..4)
+ * @returns {Promise<ChatMessage>} the public card
+ */
+const reportCast = async (actor, spell, dice) => {
   const L = (k) => game.i18n.localize(k);
-  // Display names through the overlay; the VALUE stays the item id.
-  const pageOptions = pages.map((p) =>
-    `<option value="${esc(p.id)}">${esc(t("item.name", p.name))}</option>`).join("");
-  const powerOptions = Array.from({ length: maxDice }, (_, i) =>
-    `<option value="${i + 1}">${i + 1}</option>`).join("");
-  const picked = await foundry.applications.api.DialogV2.wait({
-    window: {
-      title: game.i18n.format("CAIRN.GrimoireCastFrom", { book: book.name }),
-      icon: "fas fa-hand-sparkles",
-    },
-    position: { width: 400 },
-    content: `
-      <div class="form-group">
-        <label>${L("CAIRN.GrimoireCastSpell")}</label>
-        <select name="page">${pageOptions}</select>
-      </div>
-      <div class="form-group">
-        <label>${game.i18n.format("CAIRN.GrimoireCastPick", { max: maxDice })}</label>
-        <select name="dice">${powerOptions}</select>
-      </div>`,
-    buttons: [
-      {
-        action: "cast", label: L("CAIRN.GrimoireCast"), icon: "fas fa-hand-sparkles", default: true,
-        callback: (_ev, button) => ({
-          pageId: String(button.form?.elements?.page?.value ?? ""),
-          dice: Number(button.form?.elements?.dice?.value) || 1,
-        }),
-      },
-      { action: "cancel", label: L("CAIRN.Cancel"), callback: () => null },
-    ],
-    rejectClose: false,
-  });
-  if (!picked) return null;
-  const page = actor.items.get(picked.pageId);
-  if (!page) return null;
-
-  const roll = new Roll(`${picked.dice}d6`);
+  const roll = new Roll(`${dice}d6`);
   await roll.evaluate();
   const faces = roll.dice[0].results.map((r) => r.result);
   const sum = faces.reduce((a, b) => a + b, 0);
@@ -161,14 +122,14 @@ export const castFromGrimoire = async (actor) => {
   // HTML the same way the inventory's description dropdowns render it; the
   // resolution runs on the localized copy so every reader of a Spanish client
   // got a Spanish sentence resolved with the same numbers.
-  const resolved = resolveSpellText(t("item.desc", page.system.description), picked.dice, sum);
+  const resolved = resolveSpellText(t("item.desc", spell.system.description), dice, sum);
   const speaker = ChatMessage.getSpeaker({ actor });
   const publicCard = await ChatMessage.create({
     speaker,
     rolls: [roll],
     content: [
       `<div class="grimoire-cast-card">`,
-      `<h3>${esc(t("item.name", page.name))}</h3>`,
+      `<h3>${esc(t("item.name", spell.name))}</h3>`,
       `<div class="grimoire-cast-effect">${resolved}</div>`,
       `</div>`,
     ].join("\n"),
@@ -215,6 +176,133 @@ export const castFromGrimoire = async (actor) => {
   });
 
   return publicCard;
+};
+
+/**
+ * Cast from `actor`'s carried Grimoire: pick a bound page and a power
+ * (1..min(4, free slots)), roll, and report — the resolved effect publicly,
+ * the mechanics privately. Returns the public ChatMessage, or null when the
+ * cast could not happen (no book, no pages, no dice, dialog dismissed).
+ * @param {CairnActor} actor
+ * @returns {Promise<ChatMessage|null>}
+ */
+export const castFromGrimoire = async (actor) => {
+  if (actor?.type !== "character") return null;
+  const book = actor.items.find((i) => i.type === "item" && i.system.grimoire);
+  if (!book) return null;
+  const pages = actor.items.filter((i) => i.type === "spellbook" && i.system.bound);
+  if (!pages.length) {
+    ui.notifications.warn(game.i18n.format("CAIRN.Notify.GrimoireNoPages", { name: book.name }));
+    return null;
+  }
+  const maxDice = magicDice(actor);
+  if (maxDice < 1) {
+    ui.notifications.warn(game.i18n.format("CAIRN.Notify.GrimoireNoDice", { name: actor.name }));
+    return null;
+  }
+
+  const L = (k) => game.i18n.localize(k);
+  // Display names through the overlay; the VALUE stays the item id.
+  const pageOptions = pages.map((p) =>
+    `<option value="${esc(p.id)}">${esc(t("item.name", p.name))}</option>`).join("");
+  const powerOptions = Array.from({ length: maxDice }, (_, i) =>
+    `<option value="${i + 1}">${i + 1}</option>`).join("");
+  const picked = await foundry.applications.api.DialogV2.wait({
+    window: {
+      title: game.i18n.format("CAIRN.GrimoireCastFrom", { book: book.name }),
+      icon: "fas fa-hand-sparkles",
+    },
+    position: { width: 400 },
+    content: `
+      <div class="form-group">
+        <label>${L("CAIRN.GrimoireCastSpell")}</label>
+        <select name="page">${pageOptions}</select>
+      </div>
+      <div class="form-group">
+        <label>${game.i18n.format("CAIRN.GrimoireCastPick", { max: maxDice })}</label>
+        <select name="dice">${powerOptions}</select>
+      </div>`,
+    buttons: [
+      {
+        action: "cast", label: L("CAIRN.GrimoireCast"), icon: "fas fa-hand-sparkles", default: true,
+        callback: (_ev, button) => ({
+          pageId: String(button.form?.elements?.page?.value ?? ""),
+          dice: Number(button.form?.elements?.dice?.value) || 1,
+        }),
+      },
+      { action: "cancel", label: L("CAIRN.Cancel"), callback: () => null },
+    ],
+    rejectClose: false,
+  });
+  if (!picked) return null;
+  const page = actor.items.get(picked.pageId);
+  if (!page) return null;
+
+  return reportCast(actor, page, picked.dice);
+};
+
+/**
+ * Cast a SPELLSCROLL — no Grimoire needed, by the hack's own rule: "Scrolls
+ * contain a single spell and are destroyed after a single use. Otherwise,
+ * they work exactly the same as spells recorded in your Grimoire." So the
+ * whole cast machinery runs — full Magic Dice, Fatigue, Mishaps — and the
+ * one difference is the spend at the end: the scroll's single use is marked
+ * (uses 1 -> 0, the strike-through every spent scroll already wears), never
+ * deleted, so the paid 50gp transmute into a book someone later finds is
+ * still the player's to weigh against a spent piece of vellum.
+ *
+ * Gated on `enable-glog-magic` — a RULES setting (the use-panic class): the
+ * setting is what makes Magic Dice a rule of this world at all. The row
+ * control is the affordance; every guard re-derives here.
+ * @param {CairnActor} actor
+ * @param {CairnItem} scroll
+ * @returns {Promise<ChatMessage|null>}
+ */
+export const castScroll = async (actor, scroll) => {
+  if (actor?.type !== "character") return null;
+  if (!game.settings.get(SETTINGS_NS, "enable-glog-magic")) return null;
+  if (scroll?.type !== "spellbook" || !scroll.system.scroll || scroll.system.bound) return null;
+  if ((scroll.system.uses?.value ?? 0) < 1) {
+    ui.notifications.warn(game.i18n.localize("CAIRN.Notify.ScrollSpent"));
+    return null;
+  }
+  const maxDice = magicDice(actor);
+  if (maxDice < 1) {
+    ui.notifications.warn(game.i18n.format("CAIRN.Notify.GrimoireNoDice", { name: actor.name }));
+    return null;
+  }
+
+  const L = (k) => game.i18n.localize(k);
+  const powerOptions = Array.from({ length: maxDice }, (_, i) =>
+    `<option value="${i + 1}">${i + 1}</option>`).join("");
+  const picked = await foundry.applications.api.DialogV2.wait({
+    window: {
+      title: game.i18n.format("CAIRN.GrimoireCastTitle", { spell: t("item.name", scroll.name) }),
+      icon: "fas fa-hand-sparkles",
+    },
+    position: { width: 400 },
+    content: `
+      <div class="form-group">
+        <label>${game.i18n.format("CAIRN.GrimoireCastPick", { max: maxDice })}</label>
+        <select name="dice">${powerOptions}</select>
+      </div>`,
+    buttons: [
+      {
+        action: "cast", label: L("CAIRN.GrimoireCast"), icon: "fas fa-hand-sparkles", default: true,
+        callback: (_ev, button) => Number(button.form?.elements?.dice?.value) || 1,
+      },
+      { action: "cancel", label: L("CAIRN.Cancel"), callback: () => null },
+    ],
+    rejectClose: false,
+  });
+  if (!picked) return null;
+
+  const card = await reportCast(actor, scroll, picked);
+  // The spend, AFTER the report so a failed card never eats the scroll.
+  // `_preUpdate`'s scroll pin deliberately leaves `uses.value` alone, which is
+  // exactly what lets this stick.
+  await scroll.update({ "system.uses.value": 0 });
+  return card;
 };
 
 /**

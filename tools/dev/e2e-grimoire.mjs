@@ -458,6 +458,131 @@ try {
     "and came home the same way", JSON.stringify(travel.afterBack));
   check(travel.pageRefused, "a page dragged on its own is refused, and stays");
 
+  /* -------------------------------------- 10b. a scroll casts with NO book -- */
+  // The hack's rule: a scroll works exactly like a recorded spell, destroyed
+  // after its single use. Gated on enable-glog-magic, which the probe SHADOWS
+  // in-page — flipping the real setting would convert the dev world.
+  const scrollFx = await gm.evaluate(async () => {
+    const c = await CONFIG.Actor.documentClass.create({
+      name: "ZZ Grim Scrollcaster", type: "character" });
+    await c.createEmbeddedDocuments("Item", [
+      { name: "ZZ Scroll Solo", type: "spellbook",
+        system: { description: "<p>A bolt leaps [sum*10] feet.</p>", scroll: true } },
+      { name: "ZZ Scroll Used", type: "spellbook",
+        system: { description: "<p>Ash.</p>", scroll: true, uses: { value: 0, max: 1 } } },
+    ]);
+    await c.sheet.render(true);
+    return { id: c.id };
+  });
+  cleanup.actorIds.push(scrollFx.id);
+
+  // BOTH directions run under a read-shadow, symmetrically — the world's real
+  // value is the USER'S (they may be playing in GLOG mode right now), so the
+  // differential is established in-page, never read from or written to the
+  // world. The probe-precondition rule: establish it, don't assume it.
+  const offState = await gm.evaluate(async (aid) => {
+    const a = game.actors.get(aid);
+    const origGet = game.settings.get;
+    const ns = game.system.id;
+    game.settings.get = function (scope, key, ...rest) {
+      if (scope === ns && key === "enable-glog-magic") return false;
+      return origGet.call(this, scope, key, ...rest);
+    };
+    try {
+      await a.sheet.render(true);
+      await new Promise((r) => setTimeout(r, 400));
+      const rowOf = (name) => [...a.sheet.element.querySelectorAll("[data-item-id]")]
+        .find((r) => r.textContent.includes(name));
+      return {
+        solo: !!rowOf("ZZ Scroll Solo")?.querySelector('[data-action="scrollCast"]'),
+        used: !!rowOf("ZZ Scroll Used")?.querySelector('[data-action="scrollCast"]'),
+        probed: !!rowOf("ZZ Scroll Solo"),
+      };
+    } finally { game.settings.get = origGet; }
+  }, scrollFx.id);
+  check(offState?.probed && !offState.solo && !offState.used,
+    "setting shadowed OFF: no scroll row offers Cast (the gate's differential)");
+
+  const scrollCastRun = await gm.evaluate(async ({ id, seq }) => {
+    const { castScroll } = await import(`/systems/${game.system.id}/module/grimoire.js`);
+    const a = game.actors.get(id);
+    const origGet = game.settings.get;
+    const ns = game.system.id;
+    game.settings.get = function (scope, key, ...rest) {
+      if (scope === ns && key === "enable-glog-magic") return true;
+      return origGet.call(this, scope, key, ...rest);
+    };
+    let i = 0;
+    const origRnd = CONFIG.Dice.randomUniform;
+    CONFIG.Dice.randomUniform = () => seq[Math.min(i++, seq.length - 1)];
+    try {
+      // Re-render under the shadow: the affordance should appear on the
+      // unspent scroll only.
+      await a.sheet.render(true);
+      await new Promise((r) => setTimeout(r, 400));
+      const rowOf = (name) => [...a.sheet.element.querySelectorAll("[data-item-id]")]
+        .find((r) => r.textContent.includes(name));
+      const shadowedControls = {
+        solo: !!rowOf("ZZ Scroll Solo")?.querySelector('[data-action="scrollCast"]'),
+        used: !!rowOf("ZZ Scroll Used")?.querySelector('[data-action="scrollCast"]'),
+      };
+      const solo = a.items.find((x) => x.name === "ZZ Scroll Solo");
+      const msgsBefore = game.messages.size;
+      const p = castScroll(a, solo);
+      for (let tADry = 0; tADry < 40; tADry++) {
+        const dlg = [...foundry.applications.instances.values()]
+          .find((x) => x.constructor.name === "DialogV2"
+            && x.element?.querySelector('select[name="dice"]')
+            && !x.element?.querySelector('select[name="page"]'));
+        if (dlg) {
+          dlg.element.querySelector('select[name="dice"]').value = "2";
+          dlg.element.querySelector('[data-action="cast"]').click();
+          break;
+        }
+        await new Promise((r) => setTimeout(r, 150));
+      }
+      const publicCard = await p;
+      await new Promise((r) => setTimeout(r, 300));
+      const msgs = [...game.messages].slice(-(game.messages.size - msgsBefore));
+      const whisper = msgs.find((m) => m.whisper?.length);
+      // The spent scroll refuses a second cast, with the warning. Attempted
+      // ONLY when the first cast actually spent it: an unspent scroll would
+      // re-open the dialog and hang the run — with the spend defeated, this
+      // leg must RED, not hang (the timed-witness rule).
+      const warns = [];
+      let second = undefined;
+      if (solo.system.uses.value === 0) {
+        const origWarn = ui.notifications.warn;
+        ui.notifications.warn = (m) => { warns.push(String(m)); };
+        try { second = await castScroll(a, solo); } finally { ui.notifications.warn = origWarn; }
+      }
+      return {
+        shadowedControls,
+        publicContent: publicCard?.content ?? "",
+        rollTotal: publicCard?.rolls?.[0]?.total ?? null,
+        whisperContent: whisper?.content ?? "",
+        usesAfter: solo.system.uses.value,
+        secondRefused: second === null
+          && warns.includes(game.i18n.localize("CAIRN.Notify.ScrollSpent")),
+      };
+    } finally {
+      game.settings.get = origGet;
+      CONFIG.Dice.randomUniform = origRnd;
+      await a.sheet.render(true);
+    }
+  }, { id: scrollFx.id, seq: [0.4, 0.4] });
+  check(scrollCastRun.shadowedControls.solo && !scrollCastRun.shadowedControls.used,
+    "setting on: the unspent scroll offers Cast, the spent one does not");
+  check(scrollCastRun.rollTotal === 8
+    && scrollCastRun.publicContent.includes("80 feet"),
+    "a bookless scroll casts with the full machinery — resolved card, real roll");
+  check(scrollCastRun.whisperContent.includes('data-count="2"'),
+    "and the same whisper: fatigue button for the two 4-6 dice");
+  check(scrollCastRun.usesAfter === 0,
+    "the cast SPENDS the scroll (single use, the hack's one difference)");
+  check(scrollCastRun.secondRefused,
+    "a spent scroll refuses a second cast with the warning");
+
   /* --------------------------------------------------------- 11. Alice casts */
   const alicePage = await browser.newPage({ viewport: VIEWPORT });
   const aliceErrors = watchErrors(alicePage);

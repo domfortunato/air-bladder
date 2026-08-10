@@ -298,6 +298,7 @@
   "CAIRN.GrimoireCastHint": "Cast a spell from this Grimoire's pages",
   "CAIRN.GrimoireCastPick": "Magic Dice to invest (up to {max})",
   "CAIRN.GrimoireCastSpell": "Spell",
+  "CAIRN.GrimoireCastTitle": "Cast {spell}",
   "CAIRN.GrimoireFatigueLine": "{count} dice came up 4–6: the caster takes {count} Fatigue.",
   "CAIRN.GrimoireFatigueLine_one": "{count} die came up 4–6: the caster takes 1 Fatigue.",
   "CAIRN.GrimoireMishapLine": "Doubles — Mishap!",
@@ -472,6 +473,7 @@
     "PortraitFolderScanned_one": "Custom portrait folder scanned — {count} image found.",
     "PrintBlocked": "The browser blocked the print window — allow pop-ups for this site and try again.",
     "RandomizationDisabled": "The Warden has turned off Randomization for players.",
+    "ScrollSpent": "That scroll is already spent.",
     "TableReseeded": "{name} reseeded: {count} spells from {pack}.",
     "Took": "Took {name}.",
     "WardenDamageBadFormula": "\"{formula}\" is not a damage roll — try 1d6, 2d6 or 3.",
@@ -603,6 +605,7 @@
   "CAIRN.ScarsHint": "If damage reduced your HP to exactly 0, check the Scars box and choose the value equal to the damage you received.",
   "CAIRN.ScarsSection": "Scars",
   "CAIRN.Scroll": "Scroll",
+  "CAIRN.ScrollCastHint": "Cast this scroll — its single use is spent",
   "CAIRN.ScrollTip": "A spellscroll is this spell written once on paper: petty, a single use, and gone when it is read. Marking one sets all of that and shows it as a scroll in the inventory.",
   "CAIRN.SetLimit": "Set limit",
   "CAIRN.Settings": {
