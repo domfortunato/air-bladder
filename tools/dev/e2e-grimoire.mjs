@@ -37,9 +37,12 @@
  *      and the RESOLVED effect (sum 8 -> "80 damage"), whisper goes to the
  *      caster alone with dice, sum, the 2-Fatigue line, the Add-2-Fatigue
  *      button, the Mishap line and a drawn Mishaps-table row (world-first
- *      resolution against the shipped pack).
- *   7. The cast, seeded [1,4]: no doubles -> no mishap; the fatigue line
- *      takes its _one form. Block selection picks the power-2 block.
+ *      resolution against the shipped pack). Both tiles identify themselves
+ *      in the flavor line — "{name}'s Spell" on the card, and on doubles the
+ *      whisper's escalates to the mishap wording (ruling 2026-08-10).
+ *   7. The cast, seeded [1,4]: no doubles -> no mishap; the whisper's flavor
+ *      stays the plain spell line; the fatigue line takes its _one form.
+ *      Block selection picks the power-2 block.
  *   8. The Fatigue button: clicked at a FULL pack it still lands both
  *      Fatigue items (ignoreCapacity — a cost, never refused); the message
  *      flag spends it, so a second click adds nothing.
@@ -337,8 +340,10 @@ try {
           return {
             options,
             publicContent: publicCard?.content ?? "",
+            publicFlavor: publicCard?.flavor ?? "",
             rollTotal: publicCard?.rolls?.[0]?.total ?? null,
             whisperContent: whisper?.content ?? "",
+            whisperFlavor: whisper?.flavor ?? "",
             whisperTo: whisper?.whisper ?? [],
             whisperId: whisper?.id, publicId: publicCard?.id,
             userId: game.user.id,
@@ -367,6 +372,12 @@ try {
     "doubles: the Mishap line is present");
   check(/grimoire-mishap-text/.test(castA.whisperContent) && !/grimoire-mishap-text"><\/div>/.test(castA.whisperContent),
     "and a drawn Mishaps row rides in the whisper (world-first table resolved)");
+  check(castA.publicFlavor === await gm.evaluate(() =>
+    game.i18n.format("CAIRN.GrimoireCastFlavor", { name: "ZZ Grim Caster" })),
+    "public card's flavor identifies the tile as the caster's spell", castA.publicFlavor);
+  check(castA.whisperFlavor === await gm.evaluate(() =>
+    game.i18n.format("CAIRN.GrimoireMishapFlavor", { name: "ZZ Grim Caster" })),
+    "doubles: the whisper's flavor announces the magical mishap", castA.whisperFlavor);
 
   // [1,4]: no doubles, exactly 1 fatigue.
   const castB = await seedCast(gm, [0.9, 0.4]);
@@ -376,6 +387,9 @@ try {
   check(castB.whisperContent.includes(await gm.evaluate(() =>
     game.i18n.format("CAIRN.GrimoireFatigueLine_one", { count: 1 }))),
     "one 4-6 die: the _one fatigue form");
+  check(castB.whisperFlavor === await gm.evaluate(() =>
+    game.i18n.format("CAIRN.GrimoireCastFlavor", { name: "ZZ Grim Caster" })),
+    "no doubles: the whisper's flavor stays the plain spell line", castB.whisperFlavor);
 
   /* --------------------------------------- 8. the Fatigue button, full pack */
   const fatigue = await gm.evaluate(async ({ casterId, whisperId }) => {

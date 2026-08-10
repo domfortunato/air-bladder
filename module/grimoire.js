@@ -124,8 +124,14 @@ const reportCast = async (actor, spell, dice) => {
   // got a Spanish sentence resolved with the same numbers.
   const resolved = resolveSpellText(t("item.desc", spell.system.description), dice, sum);
   const speaker = ChatMessage.getSpeaker({ actor });
+  // Both tiles identify themselves as spellcasting in the flavor line — the
+  // speaker name alone reads as ordinary chat (user wording, 2026-08-10:
+  // "Salina's Spell" / "Salina's spell triggered a magical mishap!").
+  const castFlavor = game.i18n.format("CAIRN.GrimoireCastFlavor",
+    { name: esc(speaker.alias ?? actor.name) });
   const publicCard = await ChatMessage.create({
     speaker,
+    flavor: castFlavor,
     rolls: [roll],
     content: [
       `<div class="grimoire-cast-card">`,
@@ -171,6 +177,9 @@ const reportCast = async (actor, spell, dice) => {
   lines.push(`</div>`);
   await ChatMessage.create({
     speaker,
+    flavor: doubles
+      ? game.i18n.format("CAIRN.GrimoireMishapFlavor", { name: esc(speaker.alias ?? actor.name) })
+      : castFlavor,
     whisper: [game.user.id],
     content: lines.join("\n"),
   });
