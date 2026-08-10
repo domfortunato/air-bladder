@@ -27,6 +27,7 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 - Random or manual generation of characters from Cairn 2e, **Custom Cairn 2e**, and Cairn Barebones backgrounds — The Warden can toggle each source on or off
 - [Monster Generator](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-monsters.md)
 - [Faction Generator](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-factions.md)
+- [Encounter Tables](https://github.com/domfortunato/air-bladder/blob/master/docs/encounter-tables.md) — roll terrain encounters and add them to the scene with one click, or build your own tables by typing the dice and dragging the monster in
 - .json character import from the Official Cairn app, [Kettlewright!](https://kettlewright.com/)
 - Optional homebrew features that mix 2e features with Barebones
 - Custom 2e backgrounds — seven class backgrounds ship in the **Backgrounds (Custom)** compendium, and you can [create and lint your own](https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md) alongside them, then [share them across worlds](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md)
