@@ -367,10 +367,10 @@ export const bindGrimoireFatigueButton = (message, html) => {
     const actor = fromUuidSync(btn.dataset.actorUuid);
     if (!actor?.isOwner) return;
     const count = Math.max(1, Number(btn.dataset.count) || 1);
-    for (let i = 0; i < count; i++) {
-      // Fatigue is a COST, never refused — the one thing ignoreCapacity is for.
-      await actor.createOwnedItem({ name: FATIGUE_NAME, type: "item" }, { ignoreCapacity: true });
-    }
+    // Fatigue is a COST, never refused — the one thing ignoreCapacity is for.
+    // ONE batched create for all N (createOwnedItem's count), not N awaits that
+    // each wrote a document and re-rendered the sheet.
+    await actor.createOwnedItem({ name: FATIGUE_NAME, type: "item" }, { ignoreCapacity: true, count });
     await message.setFlag("air-bladder", "fatigueApplied", true);
   };
 };

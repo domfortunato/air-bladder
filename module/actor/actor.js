@@ -333,7 +333,13 @@ export class CairnActor extends Actor {
       const docs = await game.packs.get("air-bladder.mounts-transports")?.getDocuments() ?? [];
       namedDocs = docs
         .filter((d) => d.system?.role === role && !kindKeys.has(d.name.toLowerCase()))
-        .sort((a, b) => a.name.localeCompare(b.name));
+        // Sort on the DISPLAYED (overlay-translated) name, in the reader's
+        // language, not on stored English — otherwise the list renders shuffled
+        // in every non-English locale, sorted by names nobody sees (the review
+        // #9 sort-vs-display class, the same fix as _sortItemsForDisplay). The
+        // option value stays the uuid sentinel below; only the order changes.
+        .sort((a, b) =>
+          t("monster.name", a.name).localeCompare(t("monster.name", b.name), game.i18n.lang));
       if (namedDocs.length) {
         const group = document.createElement("optgroup");
         // KindNamedCompanions, since the mount->companion rename — review #11
@@ -922,20 +928,29 @@ export class CairnActor extends Actor {
    * Ordinary acquisition still refuses. The Create Item dialog is the caller
    * that keeps the guard.
    */
-  async createOwnedItem(itemData, { ignoreCapacity = false } = {}) {
+  async createOwnedItem(itemData, { ignoreCapacity = false, count = 1 } = {}) {
     if (!ignoreCapacity && this.isEncumbered() && !itemData.weightless) {
       await ui.notifications.warn(
         game.i18n.localize("CAIRN.Notify.MaxSlotsOccupied")
       );
       return;
     }
-    await this.createEmbeddedDocuments("Item", [{
+    const payload = {
       ...itemData,
       img: itemData.img ?? iconForItem(itemData.type, itemData.name),
       // Merge, don't replace: a future caller passing a full system payload
       // (a weapon's damage, an armor value) would otherwise lose it.
       system: { ...(itemData.system ?? {}), weightless: itemData.weightless },
-    }]);
+    };
+    // count > 1 mints N copies in ONE createEmbeddedDocuments and ONE owner
+    // sync — the grimoire's Add-N-Fatigue button did N separate awaited creates,
+    // each its own document write and sheet re-render. A fresh clone per copy:
+    // the same object reference N times lets one document's write reach the rest.
+    const n = Math.max(1, count);
+    await this.createEmbeddedDocuments(
+      "Item",
+      Array.from({ length: n }, () => foundry.utils.deepClone(payload)),
+    );
     // The owner's Connected row shows this actor's slotsUsed, so a content
     // change refreshes the owner's open sheet. Ungated: an npc can be a
     // container now, and the call is a no-op for anything unconnected.
