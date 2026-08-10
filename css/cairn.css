@@ -94,6 +94,13 @@
     --ab-whisper-bg: #ece7d8;
     --ab-whisper-border: #8a8172;
     --ab-whisper-stripe: #12a3b4;   /* = light --ab-accent, pinned */
+
+    /* The GLOG tag on cast cards: the Die of Fate glow recast in violet --
+       magic gets its own colour beside the teal (a choice you make) and the
+       error red (a consequence). Chat-only, so PINNED like the whisper tokens
+       above: the tile is parchment in both themes and the colour follows the
+       tile, not the theme. */
+    --ab-glog: #8a2be2;
 }
 
 /* Dark scheme.
@@ -1358,6 +1365,15 @@
     text-align: center;
     margin: 8px 0 4px;
     text-shadow: 0 0 8px var(--color-level-error, #ce0707);
+}
+
+/* The "GLOG" word opening the flavor line of every GLOG cast card (the public
+   card and the caster's whisper, module/grimoire.js): each card names its
+   system, lit with the Die of Fate treatment (#die-of-fate-button) in the
+   magic violet (user ask, 2026-08-10). */
+.chat-message .glog-flavor-tag {
+    font-weight: 700;
+    text-shadow: 0 0 8px var(--ab-glog);
 }
 
 /* The character-generation card: HP / STR / DEX / WIL / Gold, one "LABEL: value"

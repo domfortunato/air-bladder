@@ -126,8 +126,12 @@ const reportCast = async (actor, spell, dice) => {
   const speaker = ChatMessage.getSpeaker({ actor });
   // Both tiles identify themselves as spellcasting in the flavor line — the
   // speaker name alone reads as ordinary chat (user wording, 2026-08-10:
-  // "Salina's Spell" / "Salina's spell triggered a magical mishap!").
-  const castFlavor = game.i18n.format("CAIRN.GrimoireCastFlavor",
+  // "Salina's Spell" / "Salina's spell triggered a magical mishap!") — and
+  // every GLOG card opens it with a lit "GLOG" tag (same day's ruling: the
+  // Die of Fate treatment in its own colour). A future GLOG card must carry
+  // the tag too; today these two messages are the only ones.
+  const glogTag = `<span class="glog-flavor-tag">GLOG</span> `;
+  const castFlavor = glogTag + game.i18n.format("CAIRN.GrimoireCastFlavor",
     { name: esc(speaker.alias ?? actor.name) });
   const publicCard = await ChatMessage.create({
     speaker,
@@ -173,12 +177,16 @@ const reportCast = async (actor, spell, dice) => {
       lines.push(`<p>${game.i18n.format("CAIRN.GrimoireMishapNoTable",
         { name: MISHAPS_TABLE_NAME })}</p>`);
     }
+  } else {
+    // Silence reads as an unfinished card — the whisper SAYS no mishap
+    // happened (user ask, 2026-08-10).
+    lines.push(`<p>${L("CAIRN.GrimoireNoMishapLine")}</p>`);
   }
   lines.push(`</div>`);
   await ChatMessage.create({
     speaker,
     flavor: doubles
-      ? game.i18n.format("CAIRN.GrimoireMishapFlavor", { name: esc(speaker.alias ?? actor.name) })
+      ? glogTag + game.i18n.format("CAIRN.GrimoireMishapFlavor", { name: esc(speaker.alias ?? actor.name) })
       : castFlavor,
     whisper: [game.user.id],
     content: lines.join("\n"),
