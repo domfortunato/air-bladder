@@ -2,7 +2,7 @@ import { resolveGearItem } from "../gear.js";
 import { previewBackground, duplicateBackgroundToWorld } from "../character-generator.js";
 import { t } from "../i18n-content.js";
 import { TRANSPORT_KINDS } from "../icons.js";
-import { bindEditorClickAwaySave, formatCount, sourceLabel } from "../utils.js";
+import { bindEditorClickAwaySave, cleanDescription, formatCount, sourceLabel } from "../utils.js";
 import { pickArt } from "../art-picker.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -348,10 +348,18 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     context.nameDisplay = t(this.#nameNs, this.item.name);
     const descNs = this.item.type === "background" ? "bg.desc" : "item.desc";
     const descSrc = t(descNs, this.item.system.description);
-    const enrich = foundry.applications.ux.TextEditor.implementation.enrichHTML;
-    context.enrichedDescription = await enrich(descSrc, { relativeTo: this.item });
-    context.enrichedCriticalDamage = await enrich(this.item.system.criticalDamage, { relativeTo: this.item });
-    context.enrichedRecharge = await enrich(this.item.system.recharge ?? "", { relativeTo: this.item });
+    // Every enriched field on this sheet reaches innerHTML via {{{ }}}, so it
+    // goes through cleanDescription first — the sheet-XSS sink (cleanDescription
+    // in utils.js): a player owns the browser that writes system.description, so
+    // an injected data-action/name/on* would otherwise ride the enriched output
+    // into the viewer's sheet. Baked into the local enrich so no field skips it;
+    // enricher output (content-link/inline-roll) carries no data-action, safe.
+    const enrich = async (html) =>
+      cleanDescription(await foundry.applications.ux.TextEditor.implementation.enrichHTML(
+        html ?? "", { relativeTo: this.item }));
+    context.enrichedDescription = await enrich(descSrc);
+    context.enrichedCriticalDamage = await enrich(this.item.system.criticalDamage);
+    context.enrichedRecharge = await enrich(this.item.system.recharge);
 
     // "Charges" and "Uses" are ONE counter. Across all 46 shipped relics the
     // distinction is exactly this: a relic that states a recharge condition has
@@ -692,9 +700,11 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
    * cursor decides where it lands: a table option (`data-drop="option"`) or, by
    * default, starting gear.
    *
-   * Only backgrounds react. Everything else falls through to ItemSheetV2, which
-   * in v14 handles ActiveEffect drops — AppV1's version did nothing, so this
-   * delegation is new behaviour rather than a translation.
+   * Only backgrounds react to Item drops. Everything else falls through to
+   * ItemSheetV2 — whose _onDrop routes ActiveEffect drops to _onDropActiveEffect,
+   * which this sheet OVERRIDES to refuse (below), matching the actor sheet.
+   * Core's default would create an invisible, unremovable effect on the item;
+   * nothing here renders or consumes one.
    * @override
    */
   async _onDrop(event) {
@@ -729,5 +739,19 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       gear.push({ name: snap.name, itemData: snap });
       await this.item.update({ "system.startingGear": gear });
     }
+  }
+
+  /**
+   * Refuse ActiveEffect drops, mirroring the actor sheet (review #9). No sheet
+   * here renders an effects list and no data model consumes one, so core's
+   * default — creating the effect on the item — would leave an invisible
+   * modifier that transfers to the owning actor on the normal preparation pass,
+   * unremovable except via the console. If effects ever get a surface, this
+   * override goes with it.
+   * @override
+   */
+  async _onDropActiveEffect() {
+    ui.notifications.warn(game.i18n.localize("CAIRN.Notify.EffectsUnsupported"));
+    return null;
   }
 }

@@ -229,7 +229,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // Inventory
       itemCreate: owned(CairnActorSheet.#onItemCreate),
       itemShop: owned(CairnActorSheet.#onItemShop),
-      itemEdit: owned(CairnActorSheet.#onItemEdit),
+      // NOT owned(): editing only OPENS the item's own sheet (a read), which
+      // enforces its own edit permission. Like printSheet above, being able to
+      // open this actor sheet is the whole gate — owned() wrongly refused a
+      // viewer of a locked or limited-permission actor from even looking at an
+      // item, warning "not editable" for a view that writes nothing here.
+      itemEdit: CairnActorSheet.#onItemEdit,
       itemDelete: owned(CairnActorSheet.#onItemDelete),
       itemToggleEquipped: owned(CairnActorSheet.#onItemToggleEquipped),
       itemAddUse: owned(CairnActorSheet.#onItemAddUse),
@@ -919,18 +924,23 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // (user ask), and a toggled editor needs a display half. The character
     // sheet's copy is built in _prepareCharacterContext.
     if (["npc", "hireling"].includes(this.actor.type)) {
+      // cleanDescription AFTER enrich (utils.js): the enriched string reaches
+      // innerHTML via {{{ }}}, and a player owns the browser that writes
+      // system.description — an injected data-action/name/on* would otherwise
+      // ride the enriched output into the viewer's sheet. Enricher output
+      // (content-link/inline-roll) carries no data-action, so the strip is safe.
       context.enrichedDescription =
-        await foundry.applications.ux.TextEditor.implementation.enrichHTML(
+        cleanDescription(await foundry.applications.ux.TextEditor.implementation.enrichHTML(
           t("monster.desc", this.actor.system.description),
           { relativeTo: this.actor },
-        );
+        ));
       // Enriched but NOT translated: notes are the Warden's own prose, and no
       // content namespace files them.
       context.enrichedNotes =
-        await foundry.applications.ux.TextEditor.implementation.enrichHTML(
+        cleanDescription(await foundry.applications.ux.TextEditor.implementation.enrichHTML(
           this.actor.system.notes,
           { relativeTo: this.actor },
-        );
+        ));
       // The Notes empty-state hint lives in the display half now — the
       // data-placeholder mechanism anchors ::before to .editor-container,
       // which a toggled editor only grows on activation. Monster wording on
@@ -1195,8 +1205,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const bgUuid = this.actor.system.backgroundUuid;
     const bg = bgUuid ? await fromUuid(bgUuid) : null;
     context.backgroundDescription = bg?.system?.description
-      ? await foundry.applications.ux.TextEditor.implementation.enrichHTML(
-          t("bg.desc", bg.system.description), { relativeTo: this.actor })
+      ? cleanDescription(await foundry.applications.ux.TextEditor.implementation.enrichHTML(
+          t("bg.desc", bg.system.description), { relativeTo: this.actor }))
       : "";
     // Translated background name for the header (generated case). The editable
     // input for a hand-made character keeps the raw system.background so a Warden
@@ -1298,10 +1308,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // light-DOM DISPLAY half. Enriched but NOT translated: notes are the
     // player's own prose and no content namespace files them.
     context.enrichedNotes =
-      await foundry.applications.ux.TextEditor.implementation.enrichHTML(
+      cleanDescription(await foundry.applications.ux.TextEditor.implementation.enrichHTML(
         this.actor.system.notes,
         { relativeTo: this.actor },
-      );
+      ));
 
     // Attribute-loss statuses, ability tooltips, peril/low cues, critical skull.
     this._computeStatContext(context);
@@ -1992,9 +2002,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       if (/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(p)) return p;
       return new URL(foundry.utils.getRoute(p), `${location.origin}/`).href;
     };
-    const enrich = (html) => (html
-      ? foundry.applications.ux.TextEditor.implementation.enrichHTML(html, { relativeTo: actor })
-      : Promise.resolve(""));
+    // Enriched print fields are written into the print window via document.write
+    // (below), so each passes through cleanDescription first — the same innerHTML
+    // sink the live sheet guards (see cleanDescription in utils.js). The print
+    // window is the viewer's own browser: an injected on*/data-action in a
+    // player-owned description would otherwise execute there.
+    const enrich = async (html) => (html
+      ? cleanDescription(await foundry.applications.ux.TextEditor.implementation.enrichHTML(html, { relativeTo: actor }))
+      : "");
 
     // A row per item, Kettlewright's annotations: (petty), (N uses), (dN),
     // bulky and quantity. Notes are TEXT assembled here and escaped by the
