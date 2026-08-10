@@ -230,6 +230,13 @@ const spawnTokens = async (actor, count, start) => {
   return count;
 };
 
+/** Cards with a spawn currently running on this client, keyed by message id.
+ *  The spent stamp lands only after the whole roll-import-mint loop, so this
+ *  serializes a doubled click across that window; the finally in the handler
+ *  releases it however the run exits. The encounter twin of pcGenerationInFlight
+ *  (cairn.js). */
+const encounterSpawnInFlight = new Set();
+
 /**
  * The button's action, and the enforcement layer. Re-derives everything from
  * the message — a caller's arguments are not trusted — and refuses for a
@@ -242,54 +249,66 @@ export const spawnEncounterFromMessage = async (message) => {
     return null;
   }
   if (message.getFlag(game.system.id, ENCOUNTER_SPAWNED_FLAG)) return null;
-  if (!canvas?.ready || !canvas.scene) {
-    ui.notifications.warn(game.i18n.localize("CAIRN.Notify.NoSceneForEncounter"));
-    return null;
-  }
-  const specs = await encounterSpecsForMessage(message);
-  if (!specs.length) return null;
-
-  const placedNames = [];
-  let placed = 0;
-  for (const spec of specs) {
-    const roll = await new Roll(spec.qty).evaluate();
-    const name = spec.npc
-      ? game.i18n.localize("CAIRN.Encounter.RandomNpc")
-      : t("monster.name", spec.label || "");
-    await roll.toMessage({
-      flavor: game.i18n.format("CAIRN.Encounter.QtyFlavor", { what: name }),
-      speaker: { alias: game.user.name },
-    });
-    const count = Math.max(0, Math.floor(roll.total));
-    if (!count) continue;
-
-    if (spec.npc) {
-      // A fresh PERSON each time (user ruling): the generator mints the actor
-      // with statblock, biography and paired portrait/token art.
-      const folder = await encounterFolder();
-      for (let i = 0; i < count; i++) {
-        const npc = await createNpc({ folder: folder.id });
-        placed += await spawnTokens(npc, 1, placed);
-        placedNames.push(npc.name);
-      }
-    } else {
-      const actor = await resolveWorldActor(spec.uuid);
-      if (!actor) {
-        ui.notifications.warn(game.i18n.format("CAIRN.Notify.EncounterActorMissing", { uuid: spec.uuid }));
-        continue;
-      }
-      placed += await spawnTokens(actor, count, placed);
-      placedNames.push(`${count} × ${t("monster.name", actor.name)}`);
+  // In-flight lock, taken SYNCHRONOUSLY before the first await: the spent stamp
+  // lands only after a loop that rolls, imports actors and mints tokens (whole
+  // seconds on a random-NPC row), so without this a second click inside that
+  // window clears the flag check and spawns the encounter twice while the card
+  // still reads "Added" once. The finally releases it however the run exits, so
+  // a no-scene refusal or a throw cannot wedge the card out of ever spawning.
+  if (encounterSpawnInFlight.has(message.id)) return null;
+  encounterSpawnInFlight.add(message.id);
+  try {
+    if (!canvas?.ready || !canvas.scene) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.NoSceneForEncounter"));
+      return null;
     }
-  }
+    const specs = await encounterSpecsForMessage(message);
+    if (!specs.length) return null;
 
-  // The stamp is the refusal (the greyed button is only the affordance), and
-  // setting it re-renders the card into its "Added" state on every client.
-  await message.setFlag(game.system.id, ENCOUNTER_SPAWNED_FLAG, true);
-  if (placedNames.length) {
-    ui.notifications.info(game.i18n.format("CAIRN.Notify.EncounterPlaced", {
-      what: placedNames.join(", "), scene: canvas.scene.name,
-    }));
+    const placedNames = [];
+    let placed = 0;
+    for (const spec of specs) {
+      const roll = await new Roll(spec.qty).evaluate();
+      const name = spec.npc
+        ? game.i18n.localize("CAIRN.Encounter.RandomNpc")
+        : t("monster.name", spec.label || "");
+      await roll.toMessage({
+        flavor: game.i18n.format("CAIRN.Encounter.QtyFlavor", { what: name }),
+        speaker: { alias: game.user.name },
+      });
+      const count = Math.max(0, Math.floor(roll.total));
+      if (!count) continue;
+
+      if (spec.npc) {
+        // A fresh PERSON each time (user ruling): the generator mints the actor
+        // with statblock, biography and paired portrait/token art.
+        const folder = await encounterFolder();
+        for (let i = 0; i < count; i++) {
+          const npc = await createNpc({ folder: folder.id });
+          placed += await spawnTokens(npc, 1, placed);
+          placedNames.push(npc.name);
+        }
+      } else {
+        const actor = await resolveWorldActor(spec.uuid);
+        if (!actor) {
+          ui.notifications.warn(game.i18n.format("CAIRN.Notify.EncounterActorMissing", { uuid: spec.uuid }));
+          continue;
+        }
+        placed += await spawnTokens(actor, count, placed);
+        placedNames.push(`${count} × ${t("monster.name", actor.name)}`);
+      }
+    }
+
+    // The stamp is the refusal (the greyed button is only the affordance), and
+    // setting it re-renders the card into its "Added" state on every client.
+    await message.setFlag(game.system.id, ENCOUNTER_SPAWNED_FLAG, true);
+    if (placedNames.length) {
+      ui.notifications.info(game.i18n.format("CAIRN.Notify.EncounterPlaced", {
+        what: placedNames.join(", "), scene: canvas.scene.name,
+      }));
+    }
+    return placed;
+  } finally {
+    encounterSpawnInFlight.delete(message.id);
   }
-  return placed;
 };

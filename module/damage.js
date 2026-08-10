@@ -13,6 +13,14 @@ import { FLAG_SCOPE } from './character-generator.js'
 /** Flag recording that a damage card's Apply control has already been used. */
 export const DAMAGE_APPLIED_FLAG = "damageApplied";
 
+/** Cards whose Apply control is currently running on this client, keyed by
+ *  message id. The damageApplied stamp lands only after target selection and
+ *  the write, and the untargeted path holds a picker dialog open inside that
+ *  window, so this serializes a doubled click across it; the finally releases
+ *  it however the handler exits. The chat-card twin of pcGenerationInFlight
+ *  (cairn.js). */
+const damageApplyInFlight = new Set();
+
 /**
  * Flag on a DETAIL card naming where its damage came from.
  *
@@ -239,61 +247,77 @@ export class Damage {
                 ui.notifications.warn(game.i18n.localize("CAIRN.Notify.DamageAlreadyApplied"));
                 return;
             }
-
-            // An UNTARGETED roll: ask who takes it. AFTER the once-only check
-            // above and not before -- a card that has already been spent must not
-            // open a picker, or the Warden chooses targets and is then refused.
-            if (!targetsList.length) {
-                targetsList = await askDamageTargets(scene);
-                if (!targetsList.length) return; // dismissed, cancelled, or nothing ticked
+            // In-flight lock, taken SYNCHRONOUSLY before the untargeted picker
+            // opens and the write runs: the stamp lands only after both, so
+            // without this a second click while the target dialog sits open (or
+            // mid-write) clears the flag check and applies the whole roll twice
+            // -- two HP/STR passes, two Scar draws. The finally releases it
+            // however this exits, so a cancelled dialog or a throw cannot wedge
+            // the card out of ever applying. Keyed on the card; a null-message
+            // caller takes no lock.
+            if (message && damageApplyInFlight.has(message.id)) {
+                ui.notifications.warn(game.i18n.localize("CAIRN.Notify.DamageAlreadyApplied"));
+                return;
             }
+            if (message) damageApplyInFlight.add(message.id);
+            try {
+                // An UNTARGETED roll: ask who takes it. AFTER the once-only check
+                // above and not before -- a card that has already been spent must not
+                // open a picker, or the Warden chooses targets and is then refused.
+                if (!targetsList.length) {
+                    targetsList = await askDamageTargets(scene);
+                    if (!targetsList.length) return; // dismissed, cancelled, or nothing ticked
+                }
 
-            const dmg = parseInt(html.querySelector(".dice-total").textContent);
-            // Where it came from, read off the card that was clicked. Both halves
-            // are already here and neither has to be captured at roll time: the
-            // attacker is the message's own speaker, and the weapon is the datum
-            // dmg-roll-card.html stamps precisely so the sentence can be rebuilt
-            // from DATA rather than scraped back out of localized prose (the
-            // attack line reads the same attribute). `nameDamageTargets` rewrote
-            // that label with replaceChildren, which replaces child NODES and not
-            // attributes, so data-weapon is still here after it ran.
-            //
-            // Nothing is localized or formatted here. Ids and the raw name travel;
-            // the sentence is built per viewer at render — see DAMAGE_SOURCE_FLAG.
-            const label = html.querySelector(".dmg-label");
-            const source = {
-                token: message?.speaker?.token ?? null,
-                actor: message?.speaker?.actor ?? null,
-                alias: message?.speaker?.alias ?? "",
-                weapon: label?.dataset.weapon ?? "",
-                // HAZARD-NESS IS THE BOOLEAN, NOT THE TEXT. The Warden may leave
-                // Source blank on purpose — openWardenDamage allows it, and the
-                // roll card then carries the die alone. Deciding hazard-ness from
-                // the text made a blank Source fall through to the attacker branch,
-                // which resolved a null token to the speaker's alias and printed
-                // "from <the Warden's login>" as the thing that hit the character.
-                // The roll card never had this bug because it tests the ATTRIBUTE
-                // (cairn.js, nameDamageTargets). Absent on every card already in a
-                // log, so those keep their old, correct behaviour.
-                isHazard: label?.dataset.hazard === "1",
-                // The Warden's own words for it — the card's label, still intact
-                // because the attack-line rewrite stands off a hazard card. Empty
-                // for every ordinary roll, and for a deliberately unnamed hazard.
-                hazard: label?.dataset.hazard === "1"
-                    ? (label.textContent ?? "").trim() : "",
-            };
-            // WHERE it lands rides on the card too, beside the weapon, and not
-            // in the dialog that made it: the Warden may spend this card minutes
-            // later, or on a second creature, and a poison must still be poison.
-            // `||` and not `??` — an empty attribute is not a pool.
-            const applied = await this.applyToTargets(
-                targetsList, dmg, scene, source, label?.dataset.pool || "hp");
-            // Only a GM reaches this line (the guard at the top), so the write
-            // needs no socket relay. Token ids, not names: the summary is
-            // rendered per VIEWER so it localizes and so a concealed token is
-            // never named -- see nameDamageTargets in cairn.js.
-            if (message && applied.length) {
-                await message.setFlag(FLAG_SCOPE, DAMAGE_APPLIED_FLAG, { applied });
+                const dmg = parseInt(html.querySelector(".dice-total").textContent);
+                // Where it came from, read off the card that was clicked. Both halves
+                // are already here and neither has to be captured at roll time: the
+                // attacker is the message's own speaker, and the weapon is the datum
+                // dmg-roll-card.html stamps precisely so the sentence can be rebuilt
+                // from DATA rather than scraped back out of localized prose (the
+                // attack line reads the same attribute). `nameDamageTargets` rewrote
+                // that label with replaceChildren, which replaces child NODES and not
+                // attributes, so data-weapon is still here after it ran.
+                //
+                // Nothing is localized or formatted here. Ids and the raw name travel;
+                // the sentence is built per viewer at render — see DAMAGE_SOURCE_FLAG.
+                const label = html.querySelector(".dmg-label");
+                const source = {
+                    token: message?.speaker?.token ?? null,
+                    actor: message?.speaker?.actor ?? null,
+                    alias: message?.speaker?.alias ?? "",
+                    weapon: label?.dataset.weapon ?? "",
+                    // HAZARD-NESS IS THE BOOLEAN, NOT THE TEXT. The Warden may leave
+                    // Source blank on purpose — openWardenDamage allows it, and the
+                    // roll card then carries the die alone. Deciding hazard-ness from
+                    // the text made a blank Source fall through to the attacker branch,
+                    // which resolved a null token to the speaker's alias and printed
+                    // "from <the Warden's login>" as the thing that hit the character.
+                    // The roll card never had this bug because it tests the ATTRIBUTE
+                    // (cairn.js, nameDamageTargets). Absent on every card already in a
+                    // log, so those keep their old, correct behaviour.
+                    isHazard: label?.dataset.hazard === "1",
+                    // The Warden's own words for it — the card's label, still intact
+                    // because the attack-line rewrite stands off a hazard card. Empty
+                    // for every ordinary roll, and for a deliberately unnamed hazard.
+                    hazard: label?.dataset.hazard === "1"
+                        ? (label.textContent ?? "").trim() : "",
+                };
+                // WHERE it lands rides on the card too, beside the weapon, and not
+                // in the dialog that made it: the Warden may spend this card minutes
+                // later, or on a second creature, and a poison must still be poison.
+                // `||` and not `??` — an empty attribute is not a pool.
+                const applied = await this.applyToTargets(
+                    targetsList, dmg, scene, source, label?.dataset.pool || "hp");
+                // Only a GM reaches this line (the guard at the top), so the write
+                // needs no socket relay. Token ids, not names: the summary is
+                // rendered per VIEWER so it localizes and so a concealed token is
+                // never named -- see nameDamageTargets in cairn.js.
+                if (message && applied.length) {
+                    await message.setFlag(FLAG_SCOPE, DAMAGE_APPLIED_FLAG, { applied });
+                }
+            } finally {
+                if (message) damageApplyInFlight.delete(message.id);
             }
         }
     }
