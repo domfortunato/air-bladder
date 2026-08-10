@@ -36,6 +36,7 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 - Pop-out Character Sheets! Yes, we're fully on AppV2 — ready for v16, when Foundry removes the V1 framework
 - Marketplace and containers; horses, carts, wagons, chests, and ITEM PILES!
 - Warden-facing roll tables!
+- [Supplied macros](https://github.com/domfortunato/air-bladder/blob/master/docs/supplied-macros.md) — four Warden switches for the hotbar: flip the change log, player PC generation, the marketplace, or player randomization without a trip into Game Settings
 - A gallery of 80 CC BY 4.0 character portraits with matching icons by [Jon Aspeheim](https://jonaspeheim.itch.io/)
 - A gallery of 368 CC BY-SA 4.0 black-and-white creature & NPC tokens by [tlomdev](https://tlomdev.itch.io/), including the Kettlewright portrait set — an imported Kettlewright character keeps its face
 - A gallery of 17 monsters drawn for Air Bladder by [Lydia Comer](https://linktr.ee/lydiadidmyink), each a portrait paired with its own token

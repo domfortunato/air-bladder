@@ -67,6 +67,7 @@ Air Bladder es un sistema complementario amigable, no el sistema oficial de Cair
 - ¡Hojas de personaje desacoplables! Sí, ya estamos completamente en AppV2: listos para la v16, cuando Foundry retire el marco de trabajo V1
 - Mercado y contenedores; caballos, carros, carretas, cofres y ¡PILAS DE OBJETOS!
 - ¡Tablas de tiradas orientadas al Guardián!
+- [Macros incluidas](https://github.com/domfortunato/air-bladder/blob/master/docs/supplied-macros.md) — cuatro interruptores del Guardián para la barra de macros: activa o desactiva el registro de cambios, la generación de PJ por los jugadores, el mercado o la aleatorización para los jugadores sin pasar por la configuración del juego
 - Una galería de 80 retratos de personaje con sus iconos a juego, con licencia CC BY 4.0, de [Jon Aspeheim](https://jonaspeheim.itch.io/)
 - Una galería de 368 tokens de criaturas y PNJ en blanco y negro, con licencia CC BY-SA 4.0, de [tlomdev](https://tlomdev.itch.io/), que incluye el juego de retratos de Kettlewright: un personaje importado de Kettlewright conserva su rostro
 - Una galería de 17 monstruos dibujados para Air Bladder por [Lydia Comer](https://linktr.ee/lydiadidmyink), cada uno con un retrato emparejado con su propio token
