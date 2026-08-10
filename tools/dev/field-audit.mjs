@@ -419,6 +419,25 @@ for (const [type, cls] of Object.entries({ ...ACTOR_DATA_MODELS, ...ITEM_DATA_MO
   }
 }
 
+// The loop above iterates the DATA MODELS, so a subtype declared ONLY in the
+// manifest — never backed by a data model — is never visited, and a stray or
+// missing htmlFields on it stays invisible. Walk the other direction too: every
+// documentTypes subtype in system.json must map back to a model, or its
+// htmlFields are cross-checked by nothing. Every current subtype IS backed
+// (character/npc/hireling, every item type), so today this is future-proofing —
+// but a new manifest subtype whose model someone forgot would XSS through this
+// gate's blind spot.
+for (const [doc, subs] of Object.entries(manifest.documentTypes ?? {})) {
+  for (const type of Object.keys(subs)) {
+    if (DOC_OF[type] !== doc) {
+      problems.push(
+        `system.json documentTypes.${doc}.${type} has no matching data model ` +
+        `(ACTOR_DATA_MODELS/ITEM_DATA_MODELS) — its htmlFields, if any, are checked by nothing`
+      );
+    }
+  }
+}
+
 /* -------------------------------------------- */
 /*  4. Report                                     */
 /* -------------------------------------------- */
