@@ -379,6 +379,9 @@ try {
     "no unresolved [sum] survives in the card's visible text");
   check(castA.whisperTo.length === 1 && castA.whisperTo[0] === castA.userId,
     "whisper goes to the caster alone", JSON.stringify(castA.whisperTo));
+  check(castA.whisperContent.includes(await gm.evaluate(() =>
+    game.i18n.format("CAIRN.GrimoireWhisperDice", { faces: "4 + 4", sum: 8 }))),
+    "the dice line reads as the roll's own arithmetic (Rolled 4 + 4 = 8)");
   check(castA.whisperContent.includes('data-count="2"'),
     "whisper offers Add-2-Fatigue");
   check(castA.whisperContent.includes(await gm.evaluate(() => game.i18n.localize("CAIRN.GrimoireMishapLine"))),

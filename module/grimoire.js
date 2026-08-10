@@ -160,8 +160,11 @@ const reportCast = async (actor, spell, dice) => {
   // without the table's own card announcing it to the room.
   const lines = [
     `<div class="grimoire-cast-whisper">`,
+    // "Rolled 4 + 4 = 8": the faces join as the sum's own arithmetic, so the
+    // numbers read as what the dice MADE, not a count of dice (user ask,
+    // 2026-08-10, the equals-sign family).
     `<p>${game.i18n.format("CAIRN.GrimoireWhisperDice",
-      { faces: faces.join(", "), sum })}</p>`,
+      { faces: faces.join(" + "), sum })}</p>`,
   ];
   if (fatigue > 0) {
     lines.push(`<p>${formatCount("CAIRN.GrimoireFatigueLine", fatigue, { count: fatigue })}</p>`);
