@@ -110,6 +110,19 @@ try {
         "system.abilities.STR.value": Math.max(1, actor.system.abilities.STR.max - 2),
         "system.critical": true,
       }, { abNoStatusCard: true });
+      // enable-glog-magic is the WORLD's to set (the user runs the dev world in
+      // GLOG mode), and its create seam converts a plain spellbook to a
+      // weightless SCROLL — which then correctly reads the pergamino (scroll)
+      // prefix, not the hechizo (spell) one this DISPLAY-localization leg is
+      // checking. Shadow the setting OFF for the plant so the authored types
+      // stand; never write the world's value (probe-preconditions,
+      // negative-controls — the grimoire probe's fixture does the same).
+      const origGlogGet = game.settings.get;
+      game.settings.get = function (scope, key, ...rest) {
+        if (scope === game.system.id && key === "enable-glog-magic") return false;
+        return origGlogGet.call(this, scope, key, ...rest);
+      };
+      try {
       await actor.createEmbeddedDocuments("Item", [
         { name: "Magic Missile", type: "spellbook" },
         { name: "Spellbook — Hempen Hoop", type: "spellbook" },
@@ -128,6 +141,7 @@ try {
         { name: "ZZ-pergamino (Adherir)", type: "spellbook", system: { scroll: true } },
         { name: "ZZ Probe Torch", type: "item", system: { uses: { value: 3, max: 3 } } },
       ]);
+      } finally { game.settings.get = origGlogGet; }
 
       const root = await rendered(actor.sheet);
       if (!root) throw new Error("character sheet did not render");

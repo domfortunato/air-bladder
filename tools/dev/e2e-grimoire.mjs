@@ -348,7 +348,13 @@ try {
           // The whisper is the newest message.
           await new Promise((r) => setTimeout(r, 300));
           const msgs = [...game.messages].slice(-(game.messages.size - msgsBefore));
-          const whisper = msgs.find((m) => m.whisper?.length);
+          // The CAST whisper, not merely the FIRST whispered message: the
+          // change-log posts its own [GM + owner] whisper asynchronously from
+          // the item edits these legs make (the caster is owned by Alice), and a
+          // debounced one can land in this window — a race that reddened only
+          // castA, where a preceding transmute's log was still in flight. The
+          // cast whisper is the one carrying the grimoire-cast-whisper container.
+          const whisper = msgs.find((m) => m.whisper?.length && m.content?.includes("grimoire-cast-whisper"));
           return {
             options,
             publicContent: publicCard?.content ?? "",
@@ -616,7 +622,10 @@ try {
       const publicCard = await p;
       await new Promise((r) => setTimeout(r, 300));
       const msgs = [...game.messages].slice(-(game.messages.size - msgsBefore));
-      const whisper = msgs.find((m) => m.whisper?.length);
+      // The cast whisper by its own container, not the first whispered message —
+      // the change-log's async [GM + owner] whisper can share this window (the
+      // race documented at the seedCast helper above).
+      const whisper = msgs.find((m) => m.whisper?.length && m.content?.includes("grimoire-cast-whisper"));
       // The spent scroll refuses a second cast, with the warning. Attempted
       // ONLY when the first cast actually spent it: an unspent scroll would
       // re-open the dialog and hang the run — with the spend defeated, this

@@ -54,6 +54,17 @@ await dismissChrome(page);
 
 console.log("\nthe scroll flag");
 const flag = await page.evaluate(async () => {
+  // The world runs in GLOG mode (the user's setting); its create seam converts a
+  // plain spellbook to a weightless scroll. This section tests the
+  // setting-INDEPENDENT scroll-flag invariants on plain BOOKS, so shadow
+  // enable-glog-magic OFF for the section — never write the world's value
+  // (probe-preconditions). The glog-flag legs set glog explicitly, unaffected;
+  // ticking Scroll makes a scroll under either setting.
+  const origGlogGet = game.settings.get;
+  game.settings.get = function (scope, key, ...rest) {
+    if (scope === game.system.id && key === "enable-glog-magic") return false;
+    return origGlogGet.call(this, scope, key, ...rest);
+  };
   const snap = (i) => ({
     weightless: i.system.weightless,
     uses: { value: i.system.uses.value, max: i.system.uses.max },
@@ -123,6 +134,7 @@ const flag = await page.evaluate(async () => {
   out.glogUnticked = { glog: gl.toObject().system.glog, uses: gl.toObject().system.uses };
   await gl.delete();
 
+  game.settings.get = origGlogGet;
   return out;
 });
 
@@ -196,10 +208,22 @@ console.log("\ninventory row");
 const rows = await page.evaluate(async () => {
   const p = (name, scroll) => Handlebars.helpers.spellbookPrefix(name, scroll);
   const actor = await getDocumentClass("Actor").create({ name: "zz-scroll-actor", type: "character" });
-  await actor.createEmbeddedDocuments("Item", [
-    { name: "Adhere", type: "spellbook", system: { scroll: true } },
-    { name: "Bafflement", type: "spellbook" },
-  ]);
+  // "Bafflement" is planted as a plain BOOK to test the "Spellbook — " prefix,
+  // but the world runs in GLOG mode (the user's setting) and the create seam
+  // converts a plain spellbook to a weightless scroll. Shadow enable-glog-magic
+  // OFF for the plant so the authored types stand — the display-prefix logic is
+  // GLOG-independent; never write the world's value (probe-preconditions).
+  const origGlogGet = game.settings.get;
+  game.settings.get = function (scope, key, ...rest) {
+    if (scope === game.system.id && key === "enable-glog-magic") return false;
+    return origGlogGet.call(this, scope, key, ...rest);
+  };
+  try {
+    await actor.createEmbeddedDocuments("Item", [
+      { name: "Adhere", type: "spellbook", system: { scroll: true } },
+      { name: "Bafflement", type: "spellbook" },
+    ]);
+  } finally { game.settings.get = origGlogGet; }
   await actor.sheet.render(true);
   for (let k = 0; k < 60 && !actor.sheet.element; k++) await new Promise((r) => setTimeout(r, 100));
   await new Promise((r) => setTimeout(r, 400));
@@ -298,10 +322,22 @@ const dialog = await page.evaluate(async (SCROLL_LABEL) => {
     await scrollDoc?.sheet?.close();
     await scrollDoc?.delete();
 
-    // The plain Spellbook option must still make a plain book.
-    ({ p, form } = await open());
-    await pick(form, false);
-    const bookDoc = await p.catch(() => null);
+    // The plain Spellbook option must still make a plain book — but the GLOG
+    // create seam (the world runs in GLOG mode, the user's setting) would
+    // convert it to a scroll. Shadow enable-glog-magic OFF for this create so
+    // the 2e behaviour stands; never write the world's value. The scroll create
+    // above is unaffected — ticking Scroll makes a scroll under either setting.
+    const origGlogGet = game.settings.get;
+    game.settings.get = function (scope, key, ...rest) {
+      if (scope === game.system.id && key === "enable-glog-magic") return false;
+      return origGlogGet.call(this, scope, key, ...rest);
+    };
+    let bookDoc;
+    try {
+      ({ p, form } = await open());
+      await pick(form, false);
+      bookDoc = await p.catch(() => null);
+    } finally { game.settings.get = origGlogGet; }
     out.book = bookDoc && {
       type: bookDoc.type, flag: bookDoc.system.scroll, weightless: bookDoc.system.weightless, img: bookDoc.img,
     };
