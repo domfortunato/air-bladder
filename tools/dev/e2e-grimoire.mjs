@@ -47,7 +47,9 @@
  *   7. The cast, seeded [1,4]: no doubles -> no mishap, and the whisper SAYS
  *      so outright (the no-mishap line, absent on doubles); its flavor stays
  *      the plain spell line; the fatigue line takes its _one form. Block
- *      selection picks the power-2 block.
+ *      selection picks the power-2 block. A third cast, seeded [4] on ONE
+ *      die, proves the dice line's own _one form ("Rolled 1 magic die,
+ *      result is 4") — a lone number must read as a result, never a count.
  *   8. The Fatigue button: clicked at a FULL pack it still lands both
  *      Fatigue items (ignoreCapacity — a cost, never refused); the message
  *      flag spends it, so a second click adds nothing.
@@ -321,7 +323,7 @@ try {
     "and the handler refuses with the full warning (enforcement)");
 
   /* -------------------------------------------------- 6. the cast, seeded -- */
-  const seedCast = async (page, sequence) => page.evaluate(async ({ id, seq }) => {
+  const seedCast = async (page, sequence, diceVal = "2") => page.evaluate(async ({ id, seq, diceVal }) => {
     const { castFromGrimoire } = await import(`/systems/${game.system.id}/module/grimoire.js`);
     const a = game.actors.get(id);
     let i = 0;
@@ -340,7 +342,7 @@ try {
           pageSel.value = alphaId;
           const diceSel = dlg.element.querySelector('select[name="dice"]');
           const options = diceSel.options.length;
-          diceSel.value = "2";
+          diceSel.value = diceVal;
           dlg.element.querySelector('[data-action="cast"]').click();
           const publicCard = await p;
           // The whisper is the newest message.
@@ -363,7 +365,7 @@ try {
       }
       return { error: "dialog never appeared" };
     } finally { CONFIG.Dice.randomUniform = orig; }
-  }, { id, seq: sequence });
+  }, { id, seq: sequence, diceVal });
 
   let id = fx.casterId;
   // The client maps u -> Math.ceil((1 - u) * faces) (dice.mjs:366), so the
@@ -380,8 +382,8 @@ try {
   check(castA.whisperTo.length === 1 && castA.whisperTo[0] === castA.userId,
     "whisper goes to the caster alone", JSON.stringify(castA.whisperTo));
   check(castA.whisperContent.includes(await gm.evaluate(() =>
-    game.i18n.format("CAIRN.GrimoireWhisperDice", { faces: "4 + 4", sum: 8 }))),
-    "the dice line reads as the roll's own arithmetic (Rolled 4 + 4 = 8)");
+    `<p>${game.i18n.format("CAIRN.GrimoireWhisperDice", { count: 2, faces: "4, 4" })}</p>`)),
+    "the dice line counts the invested dice and lists what they made");
   check(castA.whisperContent.includes('data-count="2"'),
     "whisper offers Add-2-Fatigue");
   check(castA.whisperContent.includes(await gm.evaluate(() => game.i18n.localize("CAIRN.GrimoireMishapLine"))),
@@ -416,6 +418,15 @@ try {
     "no doubles: the whisper's flavor stays the plain spell line", castB.whisperFlavor);
   check(castB.whisperContent.includes(noMishapText),
     "no doubles: the whisper SAYS no mishap outright");
+
+  // [4] alone: the _one form. A lone number must read as a RESULT, never a
+  // count — the user's screenshot case ("Rolled 1 = 1"), 2026-08-10. The
+  // whole <p> is asserted so a defeated singular cannot pass by substring.
+  const castC = await seedCast(gm, [0.4], "1");
+  check(castC.rollTotal === 4, "seeded [4]: single-die total 4", castC.error ?? "");
+  check(castC.whisperContent.includes(await gm.evaluate(() =>
+    `<p>${game.i18n.format("CAIRN.GrimoireWhisperDice_one", { count: 1, faces: "4" })}</p>`)),
+    "one die: the dice line takes its _one form (magic die, singular)");
 
   /* --------------------------------------- 8. the Fatigue button, full pack */
   const fatigue = await gm.evaluate(async ({ casterId, whisperId }) => {
