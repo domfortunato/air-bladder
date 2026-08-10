@@ -94,13 +94,14 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   `journals-glog`, and on 2026-08-10 `journals-2e` and `journals-docs`; this
   count went stale TWICE in one day, both times by the hand that had just
   corrected it — a new pack's commit must carry this line)
-- 22 GM-visible settings in `module/settings.js` (28 `register` calls; `roles-restamped`,
+- 23 GM-visible settings in `module/settings.js` (29 `register` calls; `roles-restamped`,
   `companion-restamped`, `connections-migrated`, `custom-portrait-list`,
   `disabled-backgrounds` and `connections-ui-enabled` are internal, `config: false`;
-  counts have gone stale twice — `allow-player-randomization` outdated them and
-  review #13 caught it, its third "record claiming what the code does not say" —
-  so each settings change updates them in its own commit, this one dated
-  2026-08-09) —
+  counts have gone stale three times — `allow-player-randomization` outdated them
+  (review #13's catch, its third "record claiming what the code does not say"),
+  then `enable-glog-magic` rode a topic branch whose cherry-picks never carried
+  this line, caught only when the branch merged — so each settings change updates
+  them in its own commit, this one dated 2026-08-10) —
   **registration ORDER is load-bearing**, because Foundry's group headers are positional. Two went on
   2026-07-31, both because the thing they toggled stopped existing:
   `show-containers-tab` (the Connections tab was structural then — see the
@@ -409,7 +410,7 @@ What belongs here is what those two files do not say:
 
 ## Testing
 
-**`docs/release-testing.md` is the full list — 87 probes (`check:probes` states
+**`docs/release-testing.md` is the full list — 91 probes (`check:probes` states
 the current count), what each covers, and what to run before tagging vs after
 publishing. Keep it in step with `package.json`; a probe not listed there runs
 only when someone remembers it.**
