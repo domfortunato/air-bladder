@@ -43,10 +43,6 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 - Minimal automation; with buttons for rest, restoring abilities, panicked and critical damage
 - Impaired and Enhanced damage rolls — pick one when you roll, and the card says which it was. A panicked character rolls impaired automatically
 
-## Features on the Horizon
-- Encounter Generator
-- GLOG Magic (optional)
-
 ## Screenshots
 
 <table>

@@ -74,10 +74,6 @@ Air Bladder es un sistema complementario amigable, no el sistema oficial de Cair
 - Automatización mínima; con botones para descansar, restaurar características, pánico y daño crítico
 - Tiradas de daño mermadas y potenciadas — elige una al tirar, y la tarjeta indica cuál fue. Un personaje con pánico tira mermado automáticamente
 
-## Funciones en el horizonte
-- Generador de encuentros
-- Magia GLOG (opcional)
-
 ## Capturas de pantalla
 
 <table>
