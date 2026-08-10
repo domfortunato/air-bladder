@@ -65,6 +65,7 @@ Air Bladder es un sistema complementario amigable, no el sistema oficial de Cair
 - Generación aleatoria o manual de PNJ, contratados o no
 - Ayudas contextuales en la hoja de personaje para los jugadores
 - ¡Hojas de personaje desacoplables! Sí, ya estamos completamente en AppV2: listos para la v16, cuando Foundry retire el marco de trabajo V1
+- **Hojas de personaje imprimibles** — imprime el personaje entero en una página: características, inventario, trasfondo, vínculos y augurio
 - Mercado y contenedores; caballos, carros, carretas, cofres y ¡PILAS DE OBJETOS!
 - ¡Tablas de tiradas orientadas al Guardián!
 - [Macros incluidas](https://github.com/domfortunato/air-bladder/blob/master/docs/supplied-macros.md) — cuatro interruptores del Guardián para la barra de macros: activa o desactiva el registro de cambios, la generación de PJ por los jugadores, el mercado o la aleatorización para los jugadores sin pasar por la configuración del juego
@@ -84,11 +85,15 @@ Air Bladder es un sistema complementario amigable, no el sistema oficial de Cair
   </tr>
 </table>
 
-*La hoja de personaje: pestañas de Equipo, Descripción, y Trasfondo y notas. La franja roja es la condición automática de **Daño Crítico**, que aparece cuando la FUE recibe daño.*
+*La hoja de personaje: pestañas de Equipo, Descripción, y Trasfondo y notas. Las hojas siguen el esquema de color de tu Foundry; estas están en modo claro.*
+
+<img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/sheet-print.png" alt="Una hoja de personaje impresa — el personaje entero en una página" width="320">
+
+*Imprime una hoja de personaje limpia de una sola página: características, inventario, trasfondo, vínculos y augurio, lista para la mesa.*
 
 <img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/game-settings.png" alt="La configuración de juego del Guardián" width="480">
 
-*La configuración de juego del Guardián, agrupada por secciones.*
+*La configuración de juego del Guardián, agrupada por secciones — mostrada aquí en modo oscuro.*
 
 ## Estado
 

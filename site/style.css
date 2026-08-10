@@ -195,6 +195,8 @@ figcaption {
 
 .wide { margin-top: 2rem; max-width: 640px; }
 .wide figcaption { text-align: left; }
+.print { margin: 2rem auto 0; max-width: 360px; }
+.print figcaption { text-align: center; }
 .caption { font-size: .95rem; color: var(--ink-soft); }
 
 /* ---- guide cards ---- */

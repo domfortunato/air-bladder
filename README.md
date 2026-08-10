@@ -34,6 +34,7 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 - Random or manual generation of NPCs, hired or not
 - Character Sheet tooltips for players
 - Pop-out Character Sheets! Yes, we're fully on AppV2 — ready for v16, when Foundry removes the V1 framework
+- **Printable character sheets** — print the whole character to one page: stats, inventory, background, bonds and omen
 - Marketplace and containers; horses, carts, wagons, chests, and ITEM PILES!
 - Warden-facing roll tables!
 - [Supplied macros](https://github.com/domfortunato/air-bladder/blob/master/docs/supplied-macros.md) — four Warden switches for the hotbar: flip the change log, player PC generation, the marketplace, or player randomization without a trip into Game Settings
@@ -53,11 +54,15 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
   </tr>
 </table>
 
-*The character sheet — Items, Description, and Background & Notes tabs. The red banner is the automatic **Critical Damage** condition, shown when STR is damaged.*
+*The character sheet — Items, Description, and Background & Notes tabs. Sheets follow your Foundry colour scheme; these are light.*
+
+<img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/sheet-print.png" alt="A printed character sheet — the whole character on one page" width="320">
+
+*Print a clean one-page character sheet — stats, inventory, background, bonds and omen, ready for the table.*
 
 <img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/game-settings.png" alt="The Warden's game settings" width="480">
 
-*The Warden's game settings, grouped by section.*
+*The Warden's game settings, grouped by section — shown here in dark mode.*
 
 ## Status
 
