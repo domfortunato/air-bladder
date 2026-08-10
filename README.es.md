@@ -60,7 +60,7 @@ Air Bladder es un sistema complementario amigable, no el sistema oficial de Cair
 - Importación de personajes en .json desde la aplicación oficial de Cairn, [Kettlewright](https://kettlewright.com/)
 - **Magia GLOG opcional** — el [hack GLOG](https://cairnrpg.com/hacks/glog-magic/) oficial tras un interruptor del Guardián: lanza desde un grimorio encontrado con 1–4 dados de magia, los valores obtenidos se escriben en el texto del conjuro, percances con dobles — los 100 conjuros incluidos
 - Trasfondos de 2e personalizados — siete se incluyen en el compendio **Backgrounds (Custom)**; [crea y revisa los tuyos](https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md) y [compártelos entre mundos](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md)
-- Hojas de personaje desacoplables e **imprimibles** — imprime el personaje entero en una página
+- Hojas de personaje desacoplables e **imprimibles** — imprime el personaje entero en una o dos páginas
 - [Macros incluidas](https://github.com/domfortunato/air-bladder/blob/master/docs/supplied-macros.md) — cuatro interruptores del Guardián para la barra de macros, sin pasar por la configuración del juego
 - Tres galerías del selector de retratos: 80 retratos de personaje de [Jon Aspeheim](https://jonaspeheim.itch.io/), 368 tokens de criaturas y PNJ de [tlomdev](https://tlomdev.itch.io/) (un personaje importado de Kettlewright conserva su rostro) y 17 monstruos dibujados para Air Bladder por [Lydia Comer](https://linktr.ee/lydiadidmyink)
 - Automatización mínima — botones para descansar, restaurar características, pánico y daño crítico
@@ -78,9 +78,9 @@ Air Bladder es un sistema complementario amigable, no el sistema oficial de Cair
 
 *La hoja de personaje: pestañas de Equipo, Descripción, y Trasfondo y notas. Las hojas siguen el esquema de color de tu Foundry; estas están en modo claro.*
 
-<img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/sheet-print.png" alt="Una hoja de personaje impresa — el personaje entero en una página" width="320">
+<img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/sheet-print.png" alt="Una hoja de personaje impresa — el personaje entero en una o dos páginas" width="320">
 
-*Imprime una hoja de personaje limpia de una sola página: características, inventario, trasfondo, vínculos y augurio, lista para la mesa.*
+*Imprime una hoja de personaje limpia: características, inventario, trasfondo, vínculos y augurio en una o dos páginas, lista para la mesa.*
 
 <img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/game-settings.png" alt="La configuración de juego del Guardián" width="480">
 
@@ -135,7 +135,7 @@ Air Bladder combina varios regímenes de licencia; por favor, conserva la atribu
 - **Tlomdev's Tokens — CC BY-SA 4.0.** Los 368 dibujos de token en blanco y negro de `art/tlomdev/` son de **[tlomdev](https://tlomdev.itch.io/)** (fuente: [Tlomdev's Tokens](https://tlomdev.itch.io/tlomdevs-tokens)), con licencia [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). **Modificados: recodificados de PNG a WebP (calidad 95) y sin ningún otro cambio** — el aviso de modificación completo que exige la cláusula §3(a)(1)(B) de CC BY-SA está en la sección «Modifications» de `art/tlomdev/CREDITS.md`. Aparecen en la galería **Tlomdev** del selector de retratos, bajo las carpetas de categoría del propio artista. La subcarpeta `kettlewright-portraits/` (el selector la muestra como «Kettlewright Portraits») contiene los dibujos del mismo artista tal como los distribuye [Kettlewright](https://github.com/yochaigal/kettlewright), con los nombres de archivo exactos de Kettlewright, de modo que un personaje importado de Kettlewright conserva el retrato que eligió su jugador. ShareAlike: las adaptaciones del arte deben llevar la misma licencia. La atribución y la procedencia están registradas en `art/tlomdev/CREDITS.md`; el aviso se distribuye como `art/tlomdev/license.txt`.
 - **Tipografía Alegreya — SIL Open Font License 1.1.** Las tres fuentes web de `fonts/` son **Alegreya**, de Juan Pablo del Peral y los autores del Proyecto Alegreya ([Huerta Tipográfica](https://github.com/huertatipografica/Alegreya)), © 2011, con licencia [OFL 1.1](https://openfontlicense.org/). Se redistribuyen sin modificaciones; la licencia exige que su aviso acompañe a cada copia, por lo que `fonts/OFL.txt` y `fonts/license.txt` se distribuyen junto a ellas.
 
-**Y un agradecimiento, no una licencia: [Kettlewright](https://kettlewright.com/)**, la aplicación oficial de Cairn de Yochai Gal. El diseño de una sola página de la hoja de personaje imprimible está inspirado en la página de impresión de Kettlewright, y la importación de personajes `.json` existe para que un personaje de Kettlewright pueda entrar directamente. Inspiración e interoperabilidad — aquí no se distribuye código ni material de Kettlewright más allá de lo que recoge la entrada de Tlomdev de más arriba.
+**Y un agradecimiento, no una licencia: [Kettlewright](https://kettlewright.com/)**, la aplicación oficial de Cairn de Yochai Gal. El diseño de la hoja de personaje imprimible está inspirado en la página de impresión de Kettlewright, y la importación de personajes `.json` existe para que un personaje de Kettlewright pueda entrar directamente. Inspiración e interoperabilidad — aquí no se distribuye código ni material de Kettlewright más allá de lo que recoge la entrada de Tlomdev de más arriba.
 
 ---
 

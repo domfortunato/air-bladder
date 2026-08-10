@@ -29,7 +29,7 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 - .json character import from the official Cairn app, [Kettlewright](https://kettlewright.com/)
 - **Optional GLOG Magic** — the official [GLOG hack](https://cairnrpg.com/hacks/glog-magic/) behind a Warden switch: cast from a found Grimoire with 1–4 Magic Dice, the rolled values written into the spell text, Mishaps on doubles — all 100 spells included
 - Custom 2e backgrounds — seven ship in the **Backgrounds (Custom)** compendium; [create and lint your own](https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md), then [share them across worlds](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md)
-- Pop-out and **printable** character sheets — print the whole character to one page
+- Pop-out and **printable** character sheets — print the whole character on one or two pages
 - [Supplied macros](https://github.com/domfortunato/air-bladder/blob/master/docs/supplied-macros.md) — four Warden switches for the hotbar, no trip into Game Settings
 - Three portrait-picker galleries: 80 character portraits by [Jon Aspeheim](https://jonaspeheim.itch.io/), 368 creature & NPC tokens by [tlomdev](https://tlomdev.itch.io/) (an imported Kettlewright character keeps its face), and 17 monsters drawn for Air Bladder by [Lydia Comer](https://linktr.ee/lydiadidmyink)
 - Minimal automation — buttons for rest, restoring abilities, panic and critical damage
@@ -47,9 +47,9 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 
 *The character sheet — Items, Description, and Background & Notes tabs. Sheets follow your Foundry colour scheme; these are light.*
 
-<img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/sheet-print.png" alt="A printed character sheet — the whole character on one page" width="320">
+<img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/sheet-print.png" alt="A printed character sheet — the whole character on one or two pages" width="320">
 
-*Print a clean one-page character sheet — stats, inventory, background, bonds and omen, ready for the table.*
+*Print a clean character sheet — stats, inventory, background, bonds and omen on one or two pages, ready for the table.*
 
 <img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/game-settings.png" alt="The Warden's game settings" width="480">
 
@@ -104,7 +104,7 @@ Air Bladder mixes several licensing regimes — please keep the attribution inta
 - **Tlomdev's Tokens — CC BY-SA 4.0.** The 368 black-and-white token drawings in `art/tlomdev/` are by **[tlomdev](https://tlomdev.itch.io/)** (source: [Tlomdev's Tokens](https://tlomdev.itch.io/tlomdevs-tokens)), licensed [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). **Modified: re-encoded from PNG to WebP (quality 95) and changed in no other way** — the full modification notice CC BY-SA §3(a)(1)(B) requires is the Modifications section of `art/tlomdev/CREDITS.md`. They appear in the portrait picker's **Tlomdev** gallery under the artist's own category folders. The `kettlewright-portraits/` subfolder (the picker labels it “Kettlewright Portraits”) carries the same artist's drawings as shipped by [Kettlewright](https://github.com/yochaigal/kettlewright), with Kettlewright's exact filenames, so an imported Kettlewright character keeps the portrait its player chose. ShareAlike: adaptations of the art must carry the same licence. Attribution and provenance are recorded in `art/tlomdev/CREDITS.md`; the notice ships as `art/tlomdev/license.txt`.
 - **Alegreya typeface — SIL Open Font License 1.1.** The three webfonts in `fonts/` are **Alegreya** by Juan Pablo del Peral and the Alegreya Project Authors ([Huerta Tipográfica](https://github.com/huertatipografica/Alegreya)), © 2011, licensed [OFL 1.1](https://openfontlicense.org/). Redistributed unmodified; the licence requires its notice travel with every copy, so `fonts/OFL.txt` and `fonts/license.txt` ship with them.
 
-**And a thank-you, not a licence: [Kettlewright](https://kettlewright.com/)**, Yochai Gal's official Cairn app. The printable character sheet's one-page layout is modelled on Kettlewright's print page, and the `.json` character import exists so a Kettlewright character can walk straight in. Inspiration and interoperability — no Kettlewright code or assets ship here beyond what the Tlomdev entry above records.
+**And a thank-you, not a licence: [Kettlewright](https://kettlewright.com/)**, Yochai Gal's official Cairn app. The printable character sheet's layout is modelled on Kettlewright's print page, and the `.json` character import exists so a Kettlewright character can walk straight in. Inspiration and interoperability — no Kettlewright code or assets ship here beyond what the Tlomdev entry above records.
 
 ---
 
