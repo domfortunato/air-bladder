@@ -30,6 +30,7 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 - [Encounter Tables](https://github.com/domfortunato/air-bladder/blob/master/docs/encounter-tables.md) — roll terrain encounters and add them to the scene with one click, or build your own tables by typing the dice and dragging the monster in
 - .json character import from the Official Cairn app, [Kettlewright!](https://kettlewright.com/)
 - Optional homebrew features that mix 2e features with Barebones
+- **Optional GLOG Magic** — the official [GLOG Magic](https://cairnrpg.com/hacks/glog-magic/) hack behind a Warden switch: spells live on scrolls, a found Grimoire binds them into pages, casting invests 1–4 Magic Dice and writes the rolled values into the spell's own text, and doubles draw a Mishap — with all 100 GLOG spells shipped as a compendium
 - Custom 2e backgrounds — seven class backgrounds ship in the **Backgrounds (Custom)** compendium, and you can [create and lint your own](https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md) alongside them, then [share them across worlds](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md)
 - Random or manual generation of NPCs, hired or not
 - Character Sheet tooltips for players

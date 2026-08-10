@@ -61,6 +61,7 @@ Air Bladder es un sistema complementario amigable, no el sistema oficial de Cair
 - [Tablas de encuentros](https://github.com/domfortunato/air-bladder/blob/master/docs/encounter-tables.md) — tira encuentros por terreno y añádelos a la escena con un clic, o crea tus propias tablas escribiendo los dados y arrastrando el monstruo
 - Importación de personajes en `.json` desde la aplicación oficial de Cairn, ¡[Kettlewright!](https://kettlewright.com/)
 - Funciones caseras (*homebrew*) opcionales que mezclan características de 2e con Barebones
+- **Magia GLOG opcional** — el hack oficial [GLOG Magic](https://cairnrpg.com/hacks/glog-magic/) tras un interruptor del Guardián: los conjuros viven en pergaminos, un grimorio encontrado los encuaderna como páginas, lanzar invierte de 1 a 4 dados de magia y escribe los valores obtenidos en el propio texto del conjuro, y los dobles sacan un percance — con los 100 conjuros GLOG incluidos como compendio
 - Trasfondos de 2e personalizados — el sistema incluye siete trasfondos de clase en el compendio **Backgrounds (Custom)**, y puedes [crear y revisar los tuyos](https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md) junto a ellos y después [compartirlos entre mundos](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md)
 - Generación aleatoria o manual de PNJ, contratados o no
 - Ayudas contextuales en la hoja de personaje para los jugadores
