@@ -53,6 +53,13 @@
   .stats .row { display: flex; justify-content: space-between; border-bottom: 1px dotted #999; }
   .stats .row b { font-style: italic; }
   .statusline { margin-top: 0.4rem; font-style: italic; }
+  /* Deprived/Panicked mark-later boxes (user ask 2026-08-10): always printed
+     on a character page so a player can pencil the condition mid-session;
+     the box arrives filled when the condition is on at print time. Literal
+     black, like everything here — the print page is exempt from theming. */
+  .cond-marks { margin-top: 0.4rem; display: flex; gap: 1.5rem; }
+  .cond-marks .box { display: inline-block; width: 0.8rem; height: 0.8rem; border: 1.5px solid #000;
+    text-align: center; line-height: 0.8rem; font-size: 0.7rem; font-weight: bold; vertical-align: -0.1rem; }
   ul.inv { list-style: none; }
   ul.inv li { border-bottom: 1px dashed #999; padding: 0.1rem 0; }
   ul.inv li .notes { color: #333; font-style: italic; }
@@ -111,6 +118,12 @@
     <div class="row"><b>{{ localize "WIL" }}</b><span>{{ stats.wil }}/{{ stats.wilMax }}</span></div>
     <div class="row"><b>{{ localize "CAIRN.HitProtection" }}</b><span>{{ stats.hp }}/{{ stats.hpMax }}</span></div>
   </div>
+  {{#if marks}}
+  <div class="cond-marks">
+    <span><span class="box">{{#if marks.deprived}}✕{{/if}}</span> {{ localize "CAIRN.Deprived" }}</span>
+    <span><span class="box">{{#if marks.panicked}}✕{{/if}}</span> {{ localize "CAIRN.Panicked" }}</span>
+  </div>
+  {{/if}}
   {{#if status}}<div class="statusline">{{ status }}</div>{{/if}}
 </section>
 

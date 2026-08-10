@@ -16,6 +16,15 @@
  * than a timing bet.
  *
  * The dev world has NO actors; every fixture is created here and removed.
+ * The spellbook fixtures plant under a settings-read shadow forcing GLOG OFF
+ * (2026-08-10): in a GLOG world the create seam converts a bare spellbook to
+ * a scroll on arrival, which turned "Detect Magic" into a scroll and redded
+ * the book-prefix leg — the dev:grimoire corollary reaching this probe.
+ *
+ * Deprived/Panicked print as ALWAYS-PRESENT mark boxes on a character page
+ * (user ask 2026-08-10): empty on a clean actor (pass 1), pre-filled when
+ * the conditions are on (pass 2), absent on an npc page (pass 3), which
+ * keeps the text status line instead.
  */
 import { chromium } from "playwright";
 import { FOUNDRY_URL, VIEWPORT, dismissChrome, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
@@ -83,20 +92,35 @@ const r = await page.evaluate(async ({ xssName }) => {
       features: [{ name: "ZZ Feature", description: "ZZ FEATURE MARKER" }],
     },
   });
-  await pc.createEmbeddedDocuments("Item", [
-    { name: "Root Knife", type: "weapon", system: { damageFormula: "d6" } },
-    { name: "Rations", type: "item", system: { uses: { value: 3, max: 3 } } },
-    { name: "Signet Ring", type: "item", system: { weightless: true } },
-    // The three spellbook shapes the prefix logic distinguishes (user report
-    // 2026-08-08: the printed sheet dropped the prefixes): a bare-named book,
-    // a scroll (a flagged spellbook, never a type), and a stored name that
-    // already CARRIES the prefix — the idempotence case, which must not print
-    // it twice.
-    { name: "Detect Magic", type: "spellbook" },
-    { name: "Charm Person", type: "spellbook", system: { scroll: true } },
-    { name: "Spellbook (Fireball)", type: "spellbook" },
-    { name: xssName, type: "item" },
-  ]);
+  // The fixtures assume a 2e world: in a GLOG world the create seam converts
+  // any bare spellbook to a scroll on arrival, which turned "Detect Magic"
+  // into a scroll and redded the book-prefix leg (found 2026-08-10 — the
+  // dev:grimoire corollary reaching this probe). Plant under a settings-READ
+  // shadow forcing GLOG off; the world's value is the user's, never written.
+  const origGetGlog = game.settings.get;
+  game.settings.get = function (scope, key, ...rest) {
+    if (scope === game.system.id && key === "enable-glog-magic") return false;
+    return origGetGlog.call(this, scope, key, ...rest);
+  };
+  try {
+    await pc.createEmbeddedDocuments("Item", [
+      { name: "Root Knife", type: "weapon", system: { damageFormula: "d6" } },
+      { name: "Rations", type: "item", system: { uses: { value: 3, max: 3 } } },
+      { name: "Signet Ring", type: "item", system: { weightless: true } },
+      // The three spellbook shapes the prefix logic distinguishes (user report
+      // 2026-08-08: the printed sheet dropped the prefixes): a bare-named book,
+      // a scroll (a flagged spellbook, never a type), and a stored name that
+      // already CARRIES the prefix — the idempotence case, which must not print
+      // it twice.
+      { name: "Detect Magic", type: "spellbook" },
+      { name: "Charm Person", type: "spellbook", system: { scroll: true } },
+      { name: "Spellbook (Fireball)", type: "spellbook" },
+      { name: xssName, type: "item" },
+    ]);
+  } finally { game.settings.get = origGetGlog; }
+  if (pc.items.find((i) => i.name === "Detect Magic")?.system.scroll) {
+    return { error: "planted book arrived as a scroll DESPITE the shadow — the seam is not reading game.settings.get" };
+  }
   const sack = await ActorImpl.create({
     name: "ZZ Print Sack", type: "npc",
     system: { role: "container", connectedTo: pc.uuid, slots: 4, generationEnabled: false },
@@ -187,6 +211,15 @@ const r = await page.evaluate(async ({ xssName }) => {
   out.traitsProse = [...(doc?.querySelectorAll("section p") ?? [])]
     .map((p) => p.textContent).find((s) => s.includes("Physique")) ?? "";
   out.statsText = doc?.querySelector(".stats")?.textContent.replace(/\s+/g, " ") ?? "";
+  // Deprived/Panicked print as ALWAYS-PRESENT mark boxes (user ask
+  // 2026-08-10) — EMPTY here, on an actor with neither condition: the ask's
+  // exact case, a clean sheet with somewhere to pencil them later.
+  const condBoxes = [...(doc?.querySelectorAll(".cond-marks .box") ?? [])];
+  out.condBoxCount = condBoxes.length;
+  out.condBoxesEmpty = condBoxes.every((b) => !b.textContent.trim());
+  out.condLabels = doc?.querySelector(".cond-marks")?.textContent.replace(/\s+/g, " ") ?? "";
+  out.condDeprivedLabel = game.i18n.localize("CAIRN.Deprived");
+  out.condPanickedLabel = game.i18n.localize("CAIRN.Panicked");
   out.sackSection = body.includes("ZZ Print Sack") && body.includes("ZZ Sack Item");
   out.sackSlots = /ZZ Print Sack\s*\(\s*1\s*\/\s*4\s*\)/.test(body.replace(/\s+/g, " "));
 
@@ -272,7 +305,9 @@ const r = await page.evaluate(async ({ xssName }) => {
   // appear under the background. The `barebones-failed-career` setting
   // defaults OFF, so its READ is shadowed in-page for this pass — never a
   // world write (the leaked-setting rule).
-  await pc.update({ "system.notes": "", "system.contentSource": "barebones" });
+  // Both conditions ON for this pass — the boxes must arrive FILLED.
+  await pc.update({ "system.notes": "", "system.contentSource": "barebones",
+    "system.deprived": true, "system.panicked": true });
   await sack.update({ "system.connectedTo": "" });
   await falcon.update({ "system.connectedTo": "" });
   const calls2 = [];
@@ -307,6 +342,9 @@ const r = await page.evaluate(async ({ xssName }) => {
   // Barebones is NOT custom — the plain source label branch.
   out.sourcePass2 = doc2?.querySelector("header.pc .bg-source")?.textContent?.trim() ?? null;
   out.barebonesLabel = `(${game.i18n.localize("CAIRN.ContentSourceBarebones")})`;
+  const condBoxes2 = [...(doc2?.querySelectorAll(".cond-marks .box") ?? [])];
+  out.condBoxesFilled = condBoxes2.length === 2
+    && condBoxes2.every((b) => b.textContent.trim() === "✕");
   popup2?.close();
 
   await pc.sheet.close();
@@ -343,6 +381,8 @@ const r = await page.evaluate(async ({ xssName }) => {
   // A monster's one-pager stays one page — no forced break on ITS notes.
   const notesSec3 = doc3?.querySelector("section.notes-section");
   out.npcNotesBreak = notesSec3 ? popup3.getComputedStyle(notesSec3).breakBefore : null;
+  // The mark boxes are CHARACTER-only; an npc page keeps the text status.
+  out.npcNoCondBoxes = !doc3?.querySelector(".cond-marks");
   popup3?.close();
   await npc.sheet.close();
 
@@ -431,6 +471,10 @@ check("traits compose to prose, age included",
 check("stats carry the numbers", /12\/12/.test(r.statsText) && /6\/6/.test(r.statsText)
   && /11/.test(r.statsText) && /5\/5/.test(r.statsText),
   `"${r.statsText.slice(0, 90)}"`);
+check("Deprived/Panicked mark boxes print EMPTY on a clean character",
+  r.condBoxCount === 2 && r.condBoxesEmpty
+  && r.condLabels.includes(r.condDeprivedLabel) && r.condLabels.includes(r.condPanickedLabel),
+  `boxes=${r.condBoxCount} empty=${r.condBoxesEmpty} "${r.condLabels}" — the ask's exact case (2026-08-10): somewhere to pencil a condition mid-session`);
 check("KW's item annotations", r.knifeNote && r.rationsNote && r.pettyNote,
   `(d6)=${r.knifeNote} (3 uses)=${r.rationsNote} (Petty)=${r.pettyNote} — Petty as the translator wrote it, uses via formatCount`);
 check("spellbook rows print their prefixes", r.bookPrefixed && r.scrollPrefixed,
@@ -450,6 +494,8 @@ check("the source, parenthetical and italic", r.headerSource === r.customLabel
   `"${r.headerSource}" style=${r.headerSourceItalic} — a world-item background is CUSTOM by membership`);
 check("Barebones is not custom", r.sourcePass2 === r.barebonesLabel,
   `pass2="${r.sourcePass2}" — the plain source-label branch`);
+check("both mark boxes print FILLED when the conditions are on", r.condBoxesFilled,
+  "pass 2 set deprived+panicked — the boxes arrive pre-marked, not re-blanked");
 check("KW's two-column band", JSON.stringify(r.bandLeft) === JSON.stringify(r.bandLeftWanted)
   && JSON.stringify(r.bandRight) === JSON.stringify(r.bandRightWanted) && r.bandIsGrid === "grid",
   `left=${JSON.stringify(r.bandLeft)} right=${JSON.stringify(r.bandRight)} display=${r.bandIsGrid}`);
@@ -477,6 +523,8 @@ check("failed career: Barebones only, labelled", r.careerPass1 && r.careerPass2,
 console.log("\nthe monster's page");
 check("a monster prints", r.npcPrinted && r.npcSubtitle === r.npcRoleWord,
   `printed=${r.npcPrinted} subtitle="${r.npcSubtitle}" — the role where a PC's background goes`);
+check("an npc page has NO mark boxes", r.npcNoCondBoxes,
+  "the boxes are character-only; an npc keeps the text status line");
 check("statblock prose and numbers", r.npcDesc && r.npcStats,
   `desc=${r.npcDesc} stats=${r.npcStats}`);
 check("no PC-only sections", r.npcNoPcSections && r.npcNotesHeader && r.npcCredits,

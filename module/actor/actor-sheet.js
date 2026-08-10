@@ -2032,15 +2032,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       return { name: `${prefix}${name}`, notes: notes.join(" ") };
     });
 
-    // The status line: deprived / panicked / critical, when set.
+    const isChar = actor.type === "character";
+    // The status line: critical, plus deprived/panicked as text on an NPC
+    // page. A CHARACTER prints those two as ALWAYS-PRESENT mark boxes
+    // instead (user ask 2026-08-10: the paper sheet needs somewhere to
+    // pencil them mid-session even when printed clean) — filled at print
+    // time when the condition is already on.
     const status = [
-      sys.deprived && L("CAIRN.Deprived"),
-      sys.panicked && L("CAIRN.Panicked"),
+      !isChar && sys.deprived && L("CAIRN.Deprived"),
+      !isChar && sys.panicked && L("CAIRN.Panicked"),
       sys.critical && L("CAIRN.CriticalDamage"),
     ].filter(Boolean).join(" · ");
     const traitsProse = this._buildTraitSentence(sys.traits, sys.age);
-
-    const isChar = actor.type === "character";
 
     // The background's own prose and its rolled question/answer pairs (user
     // additions 2026-08-08), routed exactly as the sheet routes them —
@@ -2141,6 +2144,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         gold: sys.gold ?? 0,
       },
       status,
+      marks: isChar ? { deprived: !!sys.deprived, panicked: !!sys.panicked } : null,
       traitsProse,
       // Kettlewright's two-column band (user rulings 2026-08-08): Stats and
       // Items on the left; Traits, the background's description and
