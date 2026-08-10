@@ -1,5 +1,6 @@
 import { SETTINGS_NS } from "../settings.js";
 import { iconForItem, SPELLBOOK_ICON, SPELLSCROLL_ICON } from "../icons.js";
+import { glogEnabled, glogConversionDiff, glogTextCached } from "../glog.js";
 
 /**
  * The stored name of a Fatigue item. ENGLISH, always — Foundry's language setting
@@ -117,6 +118,25 @@ export class CairnItem extends Item {
     // holds its invariant from the first write, same as a scroll does below.
     if (this.type === "spellbook" && this.system.bound) {
       this.updateSource({ system: { ...PAGE_PINNED } });
+    }
+
+    // Under GLOG there are no spellbooks (user ruling 2026-08-09) — only
+    // Grimoires, their bound pages, and spellscrolls. The flip's world sweep
+    // (glog.js) converts what EXISTS; this seam converts what ARRIVES: a
+    // compendium drag, the Create Item dialog, an importer, a macro — which is
+    // how a post-flip drop of Haste stayed a book. Bound pages are exempt (the
+    // travel bundle must land pages as pages, and a page is past the scroll
+    // stage). Runs BEFORE the class-art and scroll-pin blocks below so both
+    // then see a scroll. `uses.value` is set here rather than left to the pin,
+    // whose data-guard would read the BOOK's stored 0 as "a spent scroll
+    // carried across" — a converted book always arrives unspent, the same
+    // choice _preUpdate makes on the sweep's book→scroll transition.
+    if (this.type === "spellbook" && !this.system.scroll && !this.system.bound
+        && glogEnabled()) {
+      const diff = glogConversionDiff(this, await glogTextCached());
+      if (diff) {
+        this.updateSource(foundry.utils.expandObject({ ...diff, "system.uses.value": 1 }));
+      }
     }
 
     // Class art for anything created WITHOUT its own image. Foundry's Item schema

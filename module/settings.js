@@ -330,8 +330,12 @@ export const registerSettings = () => {
     type: Boolean,
     default: false,
     onChange: async (value) => {
+      // Either flip drops the create seam's cached swap map (module/glog.js)
+      // — caution, not need: the pack is locked, but a stale cache after an
+      // unlock-edit-relock would be a silent wrong text with no error.
+      const { runGlogConversion, clearGlogTextCache } = await import("./glog.js");
+      clearGlogTextCache();
       if (!value) return;
-      const { runGlogConversion } = await import("./glog.js");
       await runGlogConversion();
     },
   });

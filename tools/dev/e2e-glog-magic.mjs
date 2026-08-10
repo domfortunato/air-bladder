@@ -38,7 +38,18 @@
  *      wording with `glog: true`.
  *   4. Idempotence: a second, direct `runGlogConversion()` changes nothing —
  *      `_stats.modifiedTime` identical across the planted set.
- *   5. The invariant, world-wide: no spellbook item anywhere still carries the
+ *   5. The CREATE seam (2026-08-09 ruling: there are no spellbooks in GLOG):
+ *      what ARRIVES after the flip converts too — a canon book created on a
+ *      character lands as an unspent scroll wearing the GLOG wording; a
+ *      GLOG-pack drag (the reported repro: a dropped Haste stayed a book)
+ *      lands as an unspent scroll whether the pack stores books or scrolls;
+ *      a no-counterpart book converts in FORM and keeps its own words; a
+ *      BOUND page arrives a page (the travel bundle), and the sweep-side
+ *      immunity is asserted on `glogConversionDiff` as a PURE FUNCTION —
+ *      never by running the world sweep against a defeated skip, which would
+ *      be a real write. The off direction is leg 2b's plant itself: created
+ *      with the setting off, the plants must ARRIVE as books.
+ *   6. The invariant, world-wide: no spellbook item anywhere still carries the
  *      canon wording of a spell whose GLOG counterpart differs (the two
  *      byte-identical spells are skipped — for them "canon text" IS the GLOG
  *      text and the claim would be unfalsifiable).
@@ -50,6 +61,15 @@
  * changing, because writing `scroll: true` over a scroll re-enters the
  * transition branch of CairnItem._preUpdate and would REFILL a spent scroll.
  * Planted documents are deleted, names and ids printed at plant time.
+ *
+ * A world that arrives CONVERTED (the setting already ON — the dev world since
+ * the user turned GLOG on to play) is handled, not refused: the probe flips
+ * OFF for the canon legs (converting nothing back, by ruling), the mid-run
+ * flip re-converts, and teardown leaves the setting ON exactly as found —
+ * `withSettings`' snapshot sees no diff, so no teardown flip races cleanup.
+ * The item restore above still returns every PRE-EXISTING spellbook to its
+ * as-found state, unconverted strays included: fixing user content is the
+ * sweep's job on a real flip, never a probe's.
  */
 import { chromium } from "playwright";
 import { VIEWPORT, joinAsGM, watchErrors, watchdog, withSettings } from "./lib.mjs";
@@ -78,6 +98,10 @@ const invariantCheck = async ({ canonByName, swappable }) => {
   const violations = [];
   const check = (loc, it) => {
     if (it.type !== "spellbook") return;
+    // A bound Grimoire page is legitimately scroll: false — it is past the
+    // scroll stage, and the sweep skips it for the same reason (a converted
+    // page would violate PAGE_PINNED's flags-never-both-true invariant).
+    if (it.system.bound) return;
     const key = String(it.name).toLowerCase();
     // EVERY spellbook converts in form — canon-named or not. Only the ones
     // with a differing (possibly ALIASED) GLOG counterpart must also have
@@ -164,7 +188,15 @@ try {
     }, { CANON, GLOG, MORE });
 
     if (pre.missing) { fail("canon or GLOG pack missing — is the pack built?"); return; }
-    if (pre.settingOn) { fail("enable-glog-magic is ALREADY ON in this world — the world is converted and every leg below would be vacuous; flip it off and restore content before re-running"); return; }
+    if (pre.settingOn) {
+      // Flipping OFF converts nothing back (the ruling's accepted asymmetry),
+      // so this write changes no world content — only which rules generation
+      // and the create seam consult. The mid-run flip below turns it back ON,
+      // which is the state teardown leaves: withSettings' entry snapshot was
+      // ON, so its restore finds no diff and writes nothing.
+      await page.evaluate(() => game.settings.set("air-bladder", "enable-glog-magic", false));
+      note("world arrived converted (setting ON) — flipped OFF for the canon legs; the mid-run flip re-converts and teardown leaves it ON as found");
+    }
     pre.canonSize > 0 && pre.glogSize > 0
       ? ok(`packs: canon ${pre.canonSize}, GLOG ${pre.glogSize}, More ${pre.moreSize} (canon non-empty, so GLOG's exclusion of it is a real claim)`)
       : fail(`a spell pack is empty (canon ${pre.canonSize}, GLOG ${pre.glogSize})`);
@@ -248,6 +280,10 @@ try {
       const out = {};
       const wi = await Item.create(mkBook(NAME, canonText));
       out.worldItemId = wi.id;
+      // The create seam's OFF direction: with the setting off, a created book
+      // must ARRIVE a book. If the seam ever fires unswitched, this plant (and
+      // with it the 2c control) turns scroll and the run reds here, not there.
+      out.worldBookAtPlant = wi.system.scroll;
       const wu = await Item.create(mkBook("zz-glog-unique-spell", "<p>zz unique wording with no GLOG counterpart</p>"));
       out.uniqueId = wu.id;
       // The RENAMED pair: a canon book whose GLOG counterpart lives under a new
@@ -295,6 +331,9 @@ try {
     planted.spentAtPlant === 0
       ? ok("planted scroll really is spent (uses 0/1) — the uses-untouched claim below can fail")
       : fail(`planted scroll arrived with uses.value ${planted.spentAtPlant}, not 0 — _preCreate refilled it and the spent-stays-spent leg is vacuous`);
+    planted.worldBookAtPlant === false
+      ? ok("GLOG off: a spellbook created with the setting off arrives a BOOK — the create seam respects the switch")
+      : fail("GLOG off: the create seam fired with the setting OFF — a planted canon book arrived as a scroll");
     if (!planted.packLockedAtPlant) fail("could not lock the planted world pack — the re-lock assertion would be vacuous");
 
     /* --- 2c. CONTROL: the detector must fire on the unconverted state ------- */
@@ -456,6 +495,89 @@ try {
     idem.unchanged
       ? ok("idempotent: a second runGlogConversion() modified nothing (all _stats.modifiedTime unchanged)")
       : fail(`a second sweep WROTE again — modifiedTimes moved: ${JSON.stringify(idem.beforeTimes)} -> ${JSON.stringify(idem.afterTimes)}`);
+
+    /* --- 5b. the CREATE seam: what ARRIVES after the flip converts too ------ */
+    // The sweep converts what EXISTS; CairnItem._preCreate converts what
+    // ARRIVES (there are no spellbooks in GLOG — 2026-08-09 ruling, made when
+    // a Haste dropped from the GLOG compendium stayed a book). Everything here
+    // lands on the planted carrier, so the outer finally sweeps it all.
+
+    const seam = await page.evaluate(async ({ NAME, canonText, glogText, GLOG, carrierId, uniqueWords }) => {
+      const out = {};
+      const carrier = game.actors.get(carrierId);
+      const shape = (it) => ({
+        scroll: it.system.scroll, glog: it.system.glog, bound: it.system.bound,
+        desc: it.system.description, weightless: it.system.weightless,
+        uses: { ...it.system.uses },
+      });
+
+      // (a) a canon BOOK arriving on a character — the Create dialog / import
+      // / world-drag path. Must land an UNSPENT scroll wearing the GLOG text.
+      const [canonArr] = await carrier.createEmbeddedDocuments("Item", [
+        { name: NAME, type: "spellbook", system: { description: canonText, scroll: false, glog: false } },
+      ]);
+      out.canon = shape(canonArr);
+      out.canonSwapped = canonArr.system.description === glogText;
+
+      // (b) the reported repro: a GLOG-pack drag, via the same fromCompendium
+      // data a real drop builds. This leg pins the OUTCOME, not the mechanism:
+      // while the pack stores books the seam converts; once the pack ships
+      // scrolls the seam skips — either way an unspent scroll must arrive.
+      const pack = game.packs.get(GLOG);
+      const entry = pack.index.find((e) => e.name.toLowerCase() === NAME.toLowerCase());
+      out.packEntryFound = !!entry;
+      if (entry) {
+        const src = await pack.getDocument(entry._id);
+        const [dropped] = await carrier.createEmbeddedDocuments("Item", [game.items.fromCompendium(src)]);
+        out.fromPack = shape(dropped);
+      }
+
+      // (c) a book with NO GLOG counterpart converts in FORM only.
+      const [uniq] = await carrier.createEmbeddedDocuments("Item", [
+        { name: "zz-seam-unique-spell", type: "spellbook", system: { description: uniqueWords, scroll: false, glog: false } },
+      ]);
+      out.unique = shape(uniq);
+
+      // (d) a BOUND page arriving (the travel bundle copies pages between
+      // actors) stays a page — the seam's one exemption.
+      const [pg] = await carrier.createEmbeddedDocuments("Item", [
+        { name: NAME, type: "spellbook", system: { description: glogText, bound: true, scroll: false } },
+      ]);
+      out.page = shape(pg);
+
+      // (e) the sweep-side half of that exemption, asserted on the PURE
+      // function the sweep calls — running the real sweep against a defeated
+      // skip would be a real write against the shared world, so the witness
+      // for the skip is the diff itself.
+      const glogMod = await import("/systems/air-bladder/module/glog.js");
+      const map = await glogMod.glogTextCached();
+      out.mapSize = map.size;
+      out.pageDiffNull = glogMod.glogConversionDiff(
+        { name: NAME, system: { bound: true, scroll: false, glog: false, description: canonText } }, map,
+      ) === null;
+      return out;
+    }, { NAME, canonText: pre.canonText, glogText: pre.glogText, GLOG,
+      carrierId: planted.carrierId, uniqueWords: "<p>zz seam unique wording, no counterpart</p>" });
+
+    const unspentScroll = (s) => s && s.scroll === true && s.uses?.value === 1 && s.uses?.max === 1 && s.weightless === true;
+    unspentScroll(seam.canon) && seam.canon.glog === true && seam.canonSwapped
+      ? ok(`create seam: a canon "${NAME}" book ARRIVING under GLOG lands as an unspent scroll wearing the GLOG wording, glog: true`)
+      : fail(`create seam: canon-book arrival wrong — ${JSON.stringify(seam.canon)} (swapped ${seam.canonSwapped})`);
+    seam.packEntryFound
+      ? (unspentScroll(seam.fromPack) && seam.fromPack.desc === pre.glogText
+        ? ok("create seam: the GLOG-pack drag (the reported repro) lands as an unspent scroll, wording intact")
+        : fail(`create seam: the GLOG-pack drag still lands wrong — ${JSON.stringify(seam.fromPack)}`))
+      : fail(`create seam: no "${NAME}" entry in the GLOG pack index — the repro leg keyed on nothing`);
+    seam.unique.scroll === true && seam.unique.glog === false
+      && seam.unique.desc === "<p>zz seam unique wording, no counterpart</p>"
+      ? ok("create seam: a no-counterpart book converts in FORM and keeps its own words, glog stays false")
+      : fail(`create seam: no-counterpart arrival wrong — ${JSON.stringify(seam.unique)}`);
+    seam.page.bound === true && seam.page.scroll === false && seam.page.weightless === true
+      ? ok("create seam: a BOUND page arriving is left a page — the travel bundle is unharmed")
+      : fail(`create seam: a bound page was converted on arrival — ${JSON.stringify(seam.page)}`);
+    seam.pageDiffNull && seam.mapSize > 0
+      ? ok("sweep immunity: glogConversionDiff(bound page) is null — a flip can never turn a Grimoire page back into a scroll")
+      : fail(`sweep immunity: glogConversionDiff returned a diff for a bound page (map size ${seam.mapSize}) — a flip would unbind every Grimoire in the world`);
 
     /* --- 6. the invariant, world-wide --------------------------------------- */
 

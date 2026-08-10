@@ -11,8 +11,14 @@
  * the world. Flipping OFF converts nothing back, accepted at ruling time —
  * generation reverts to canon and existing GLOG scrolls simply remain.
  *
- * The grimoire itself (the npc role, the cast flow) lives elsewhere; this file
- * is only the setting's reach into CONTENT.
+ * The sweep converts what EXISTS at flip time; what ARRIVES afterwards is
+ * converted by CairnItem._preCreate calling glogConversionDiff (2026-08-09
+ * ruling: there are no spellbooks in GLOG — only Grimoires, their pages, and
+ * spellscrolls). Before that seam, a compendium drag landed exactly as
+ * stored, which is how a post-flip drop of Haste stayed a book.
+ *
+ * The Grimoire itself (the flag-marked item, the cast flow) lives in
+ * grimoire.js and item.js; this file is only the setting's reach into CONTENT.
  */
 import { SETTINGS_NS } from "./settings.js";
 import { formatCount } from "./utils.js";
@@ -90,6 +96,13 @@ export const glogTextByName = async () => {
  */
 export const glogConversionDiff = (item, glogText) => {
   const sys = item.system ?? {};
+  // A bound Grimoire page is not found magic — it is already INSIDE the book,
+  // past the scroll stage. Converting it would set `scroll` while `bound`
+  // stays on, which PAGE_PINNED exists to make impossible. This function
+  // predates pages (it shipped with the flip sweep; pages came with the item
+  // Grimoire), so without this line a flip in a world with an existing
+  // Grimoire would turn every page back into a scroll.
+  if (sys.bound) return null;
   const diff = {};
   if (!sys.scroll) diff["system.scroll"] = true;
   const swap = glogText.get(String(item.name).toLowerCase());
@@ -97,6 +110,18 @@ export const glogConversionDiff = (item, glogText) => {
   if (swap !== undefined && !sys.glog) diff["system.glog"] = true;
   return Object.keys(diff).length ? diff : null;
 };
+
+/**
+ * The swap map for the CREATE seam (CairnItem._preCreate), cached at module
+ * level: the sweep runs once per flip and loads the pack fresh, but the seam
+ * runs on every spellbook creation, and `pack.getDocuments()` is a full round
+ * trip per call — uncached, every compendium drag would re-download the pack.
+ * The pack is a locked system pack, so the text is static for a session; the
+ * setting's onChange clears the cache anyway, out of caution rather than need.
+ */
+let glogTextCache = null;
+export const glogTextCached = async () => (glogTextCache ??= await glogTextByName());
+export const clearGlogTextCache = () => { glogTextCache = null; };
 
 /**
  * The world sweep. Runs on the ACTIVE GM's client only (the enforceSourceFloor
