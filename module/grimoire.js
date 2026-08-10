@@ -160,21 +160,24 @@ const reportCast = async (actor, spell, dice) => {
   // without the table's own card announcing it to the room.
   const lines = [
     `<div class="grimoire-cast-whisper">`,
-    // "Rolled 2 magic dice, result is 4, 4" — or "Rolled 1 magic die, result
-    // is 1" (user wording, 2026-08-10, refined live twice): the left side
-    // names what was invested, the right lists what the dice made, so a lone
-    // "1" can never read as a count. _one form via formatCount, the fatigue
-    // line's mechanism.
+    // "Rolled 2 magic dice, result is 4, 4 (8)" — or "Rolled 1 magic die,
+    // result is 1" (user wording, 2026-08-10, refined live): the left side
+    // names what was invested, the right lists what the dice made with the
+    // sum in parentheses — one die IS its sum, so the singular skips it.
+    // _one form via formatCount, the fatigue line's mechanism.
     `<p>${formatCount("CAIRN.GrimoireWhisperDice", dice, {
       count: dice,
-      faces: faces.join(", "),
+      faces: dice === 1 ? String(faces[0]) : `${faces.join(", ")} (${sum})`,
     })}</p>`,
   ];
   if (fatigue > 0) {
     lines.push(`<p>${formatCount("CAIRN.GrimoireFatigueLine", fatigue, { count: fatigue })}</p>`);
     lines.push(`<button type="button" class="grimoire-add-fatigue"`
       + ` data-actor-uuid="${esc(actor.uuid)}" data-count="${fatigue}">`
-      + `<i class="fas fa-battery-quarter"></i> `
+      // weight-hanging, NOT a battery: the same icon Fatigue wears in the
+      // inventory (item.js stamps it on the Fatigue item), so the button
+      // shows the thing it mints (user ask, 2026-08-10).
+      + `<i class="fas fa-weight-hanging"></i> `
       + `${game.i18n.format("CAIRN.GrimoireAddFatigue", { count: fatigue })}</button>`);
   }
   if (doubles) {

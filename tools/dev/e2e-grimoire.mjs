@@ -382,8 +382,10 @@ try {
   check(castA.whisperTo.length === 1 && castA.whisperTo[0] === castA.userId,
     "whisper goes to the caster alone", JSON.stringify(castA.whisperTo));
   check(castA.whisperContent.includes(await gm.evaluate(() =>
-    `<p>${game.i18n.format("CAIRN.GrimoireWhisperDice", { count: 2, faces: "4, 4" })}</p>`)),
-    "the dice line counts the invested dice and lists what they made");
+    `<p>${game.i18n.format("CAIRN.GrimoireWhisperDice", { count: 2, faces: "4, 4 (8)" })}</p>`)),
+    "the dice line counts the invested dice, lists what they made, sums in parentheses");
+  check(castA.whisperContent.includes("fa-weight-hanging") && !castA.whisperContent.includes("fa-battery"),
+    "the Add-Fatigue button wears the inventory Fatigue icon, not a battery");
   check(castA.whisperContent.includes('data-count="2"'),
     "whisper offers Add-2-Fatigue");
   check(castA.whisperContent.includes(await gm.evaluate(() => game.i18n.localize("CAIRN.GrimoireMishapLine"))),
