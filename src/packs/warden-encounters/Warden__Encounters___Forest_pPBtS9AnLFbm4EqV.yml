@@ -9,9 +9,8 @@ results:
     type: text
     description: >-
       1 @UUID[Compendium.air-bladder.monsters.Actor.IR9jwGxZ2SKSb26J]{Couatl}
-      (pg 32) or
-      @UUID[Compendium.air-bladder.monsters.Actor.RBOcFBLqVrKckJRD]{Unicorn} (pg
-      135)
+      or
+      @UUID[Compendium.air-bladder.monsters.Actor.RBOcFBLqVrKckJRD]{Unicorn}
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -35,7 +34,6 @@ results:
     type: text
     description: >-
       1 @UUID[Compendium.air-bladder.monsters.Actor.V9HUcKBhe34AgX0v]{Basilisk}
-      (pg 11)
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -60,7 +58,6 @@ results:
     description: >-
       1
       @UUID[Compendium.air-bladder.monsters.Actor.caOUQQxQjCKvE26T]{Pseudodragon}
-      (pg 110)
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -84,7 +81,6 @@ results:
     type: text
     description: >-
       1d6 @UUID[Compendium.air-bladder.monsters.Actor.QDWpC77DB1L8JHm4]{Elves}
-      (pg 45)
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -108,7 +104,7 @@ results:
     type: text
     description: >-
       1 @UUID[Compendium.air-bladder.monsters.Actor.z20nqrzkEb4g8mDa]{Wood
-      Troll} (pg 146)
+      Troll}
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -132,7 +128,6 @@ results:
     type: text
     description: >-
       1 @UUID[Compendium.air-bladder.monsters.Actor.77sRygzleCJ6fxlj]{Panther}
-      (pg 107)
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -178,7 +173,6 @@ results:
     type: text
     description: >-
       1d4 @UUID[Compendium.air-bladder.monsters.Actor.gFHbSGdhNLgaNTOm]{Pixies}
-      (pg 109)
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -202,9 +196,8 @@ results:
     type: text
     description: >-
       1d4 @UUID[Compendium.air-bladder.monsters.Actor.Ef8rxaWBXlNUp9d2]{Boars}
-      (pg 19) or a
+      or a
       @UUID[Compendium.air-bladder.monsters.Actor.my1ZCHkI8h14cSSr]{Black Bear}
-      (pg 13)
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -228,7 +221,6 @@ results:
     type: text
     description: >-
       1 @UUID[Compendium.air-bladder.monsters.Actor.QwB27rUHXONNsTUZ]{Owl Bear}
-      (pg 106)
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -252,7 +244,6 @@ results:
     type: text
     description: >-
       1 @UUID[Compendium.air-bladder.monsters.Actor.IYGXEpIK4zp5JmT8]{Boggart}
-      (pg 19)
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -275,10 +266,9 @@ results:
   - _id: I7oJYoF44R0Dgiih
     type: text
     description: >-
-      1 @UUID[Compendium.air-bladder.monsters.Actor.Agd70uiJbjDrsVyg]{Dryad} (pg
-      41) or
-      @UUID[Compendium.air-bladder.monsters.Actor.BSZTV8DEkqwSynS0]{Satyr} (pg
-      120)
+      1 @UUID[Compendium.air-bladder.monsters.Actor.Agd70uiJbjDrsVyg]{Dryad}
+      or
+      @UUID[Compendium.air-bladder.monsters.Actor.BSZTV8DEkqwSynS0]{Satyr}
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -302,7 +292,6 @@ results:
     type: text
     description: >-
       1 @UUID[Compendium.air-bladder.monsters.Actor.Ph0c8ROXMZJNPRSG]{Werewolf}
-      (pg 142)
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -326,7 +315,6 @@ results:
     type: text
     description: >-
       1 @UUID[Compendium.air-bladder.monsters.Actor.lboFXu1Bkv7c40im]{Treant}
-      (pg 131)
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -350,7 +338,7 @@ results:
     type: text
     description: >-
       1 @UUID[Compendium.air-bladder.monsters.Actor.iFUWnJQHFxXqsCrx]{Green
-      Dragon} (pg 75)
+      Dragon}
     img: icons/svg/d20-black.svg
     weight: 1
     range:

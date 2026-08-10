@@ -10,7 +10,7 @@ results:
     type: text
     description: >-
       1 @UUID[Compendium.air-bladder.monsters.Actor.eA1lxkIpmRf9Vcpg]{Bronze
-      Construct} (pg 20)
+      Construct}
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -34,7 +34,6 @@ results:
     type: text
     description: >-
       1 @UUID[Compendium.air-bladder.monsters.Actor.fZPvIDFDk6MQSURn]{Medusa}
-      (pg 94)
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -59,7 +58,6 @@ results:
     description: >-
       1d2
       @UUID[Compendium.air-bladder.monsters.Actor.KtZAnOjQ8lTjBxYF]{Gargoyles}
-      (pg 55)
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -83,7 +81,7 @@ results:
     type: text
     description: >-
       1 @UUID[Compendium.air-bladder.monsters.Actor.TPDznKjahIZQcHVo]{Black
-      Pudding} (pg 13)
+      Pudding}
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -105,7 +103,7 @@ results:
     _key: '!tables.results!pZxtsjQFNE6Puk4G.l0Mn5mHxQXaL26zN'
   - _id: EXqoiXFhLJQlCj59
     type: text
-    description: Creeping Vines (pg 33)
+    description: Creeping Vines
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -129,7 +127,7 @@ results:
     type: text
     description: >-
       2d4 @UUID[Compendium.air-bladder.monsters.Actor.g6PFqJoE3HUgjYJq]{Fire
-      Beetles} (pg 50)
+      Beetles}
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -154,7 +152,6 @@ results:
     description: >-
       1d2
       @UUID[Compendium.air-bladder.monsters.Actor.AcO1yWVL9r38fpqX]{Cobblehounds}
-      (pg 30)
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -179,7 +176,6 @@ results:
     description: >-
       2d4
       @UUID[Compendium.air-bladder.monsters.Actor.Cs7gfocqm6ij1hxh]{Skeletons}
-      (pg 124)
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -203,7 +199,7 @@ results:
     type: text
     description: >-
       1 @UUID[Compendium.air-bladder.monsters.Actor.bFpRUtpbR1G05Hy9]{Giant
-      Aquatic Spider} (pg 59)
+      Aquatic Spider}
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -227,7 +223,7 @@ results:
     type: text
     description: >-
       1d2 @UUID[Compendium.air-bladder.monsters.Actor.ncPpG2cBkkgbtxMa]{Giant
-      Centipedes} (pg 62)
+      Centipedes}
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -252,7 +248,6 @@ results:
     description: >-
       1d4
       @UUID[Compendium.air-bladder.monsters.Actor.PqMlr88DrhaCHp7e]{Acolytes}
-      (pg 4)
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -276,7 +271,6 @@ results:
     type: text
     description: >-
       1d2 @UUID[Compendium.air-bladder.monsters.Actor.jgtycd2HoWTQEU5T]{Ogres}
-      (pg 105)
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -300,7 +294,6 @@ results:
     type: text
     description: >-
       1d4 @UUID[Compendium.air-bladder.monsters.Actor.t0neKoOGF9FKyN61]{Ghouls}
-      (pg 58)
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -323,8 +316,7 @@ results:
   - _id: T022MXSAdkpOLrRK
     type: text
     description: >-
-      1 @UUID[Compendium.air-bladder.monsters.Actor.DXVKJIPIjDmVKiTQ]{Mummy} (pg
-      100)
+      1 @UUID[Compendium.air-bladder.monsters.Actor.DXVKJIPIjDmVKiTQ]{Mummy}
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -348,7 +340,6 @@ results:
     type: text
     description: >-
       1 @UUID[Compendium.air-bladder.monsters.Actor.Lj5QQeJmOclaBySh]{Chimera}
-      (pg 29)
     img: icons/svg/d20-black.svg
     weight: 1
     range:

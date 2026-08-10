@@ -7,7 +7,7 @@ description: >-
 results:
   - _id: stpXWRiCEB7lD76R
     type: text
-    description: 1 Kraken (pg 89)
+    description: 1 Kraken
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -31,7 +31,6 @@ results:
     type: text
     description: >-
       1d4 @UUID[Compendium.air-bladder.monsters.Actor.dJAN3KJC2pvioawd]{Tritons}
-      (pg 130)
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -55,7 +54,6 @@ results:
     type: text
     description: >-
       1 @UUID[Compendium.air-bladder.monsters.Actor.Qos89zK4mdNg1rO7]{Sea Hag}
-      (pg 121)
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -123,7 +121,7 @@ results:
     type: text
     description: >-
       1d4 @UUID[Compendium.air-bladder.monsters.Actor.J6kjuBfXIWRP0fxm]{Deep
-      Ones} (pg 34)
+      Ones}
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -147,7 +145,7 @@ results:
     type: text
     description: >-
       1 @UUID[Compendium.air-bladder.monsters.Actor.NY94UhmWTBgw3gMC]{Water
-      Elemental} (pg 139)
+      Elemental}
     img: icons/svg/d20-black.svg
     weight: 1
     range:

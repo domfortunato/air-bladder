@@ -10,7 +10,6 @@ results:
     type: text
     description: >-
       1 @UUID[Compendium.air-bladder.monsters.Actor.2wYIinqSgv6NtD8Y]{Wyvern}
-      (pg 149)
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -34,7 +33,6 @@ results:
     type: text
     description: >-
       1 @UUID[Compendium.air-bladder.monsters.Actor.qzELwDxQrJbenkti]{Estrie}
-      (pg 44)
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -58,7 +56,7 @@ results:
     type: text
     description: >-
       1d4 @UUID[Compendium.air-bladder.monsters.Actor.2mncPhXnmdeGOlCi]{Blink
-      Dogs} (pg 14)
+      Dogs}
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -81,8 +79,7 @@ results:
   - _id: O1SJ2XhlZGXKI99Y
     type: text
     description: >-
-      1 @UUID[Compendium.air-bladder.monsters.Actor.bKy98z6f6VgGsKPh]{Viper} (pg
-      136)
+      1 @UUID[Compendium.air-bladder.monsters.Actor.bKy98z6f6VgGsKPh]{Viper}
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -106,9 +103,8 @@ results:
     type: text
     description: >-
       1d6 @UUID[Compendium.air-bladder.monsters.Actor.HsBeXxBZN4FKLwzk]{Gnolls}
-      (pg 69) or
-      @UUID[Compendium.air-bladder.monsters.Actor.kCBI78rAGffFNBsj]{Gnomes} (pg
-      70)
+      or
+      @UUID[Compendium.air-bladder.monsters.Actor.kCBI78rAGffFNBsj]{Gnomes}
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -132,9 +128,8 @@ results:
     type: text
     description: >-
       1d4 @UUID[Compendium.air-bladder.monsters.Actor.Ef8rxaWBXlNUp9d2]{Boars}
-      (pg 19) or
-      @UUID[Compendium.air-bladder.monsters.Actor.vilAIkfWFALYkkNP]{Wolves} (pg
-      147)
+      or
+      @UUID[Compendium.air-bladder.monsters.Actor.vilAIkfWFALYkkNP]{Wolves}
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -180,7 +175,7 @@ results:
     type: text
     description: >-
       2d4 @UUID[Compendium.air-bladder.monsters.Actor.LWnAkJHVXXI5fbSn]{Killer
-      Bees} (pg 89)
+      Bees}
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -204,7 +199,7 @@ results:
     type: text
     description: >-
       2d4 @UUID[Compendium.air-bladder.monsters.Actor.oiJxOlib09XTpo7Z]{Driver
-      Ants} (pg 40)
+      Ants}
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -228,7 +223,6 @@ results:
     type: text
     description: >-
       1d6 @UUID[Compendium.air-bladder.monsters.Actor.ZDfLyzBNBwF1VdMl]{Bandits}
-      (pg 7)
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -252,7 +246,6 @@ results:
     type: text
     description: >-
       1d2 @UUID[Compendium.air-bladder.monsters.Actor.jgtycd2HoWTQEU5T]{Ogres}
-      (pg 105)
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -274,7 +267,7 @@ results:
     _key: '!tables.results!Gu6ud7MlhSdt9Cxc.xGE9rWdhpUhr0sgR'
   - _id: p8OSyKhoWrUEs5sI
     type: text
-    description: 1 Burrowing Horror (pg 22)
+    description: 1 Burrowing Horror
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -297,8 +290,7 @@ results:
   - _id: hjbUkzkeakZ9j33f
     type: text
     description: >-
-      1 @UUID[Compendium.air-bladder.monsters.Actor.SuPF9kSGGZEBWV7f]{Ghost} (pg
-      59)
+      1 @UUID[Compendium.air-bladder.monsters.Actor.SuPF9kSGGZEBWV7f]{Ghost}
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -323,7 +315,6 @@ results:
     description: >-
       1
       @UUID[Compendium.air-bladder.monsters.Actor.ahHzXh2NhnPtPDIM]{Cockatrice}
-      (pg 29)
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -347,7 +338,7 @@ results:
     type: text
     description: >-
       1 @UUID[Compendium.air-bladder.monsters.Actor.pRAyyFwhHCTqQmB8]{Blue
-      Dragon} (pg 18)
+      Dragon}
     img: icons/svg/d20-black.svg
     weight: 1
     range:
