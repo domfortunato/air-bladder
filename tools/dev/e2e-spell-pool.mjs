@@ -79,6 +79,17 @@ try {
       return origGetDocs.call(this, query, ...rest);
     };
 
+    // The dev world plays in GLOG mode, where randomSpellbookDoc DELIBERATELY
+    // swaps the pool to the GLOG packs, canon excluded — so the canon-only leg
+    // reds on the world's setting while both rulings hold. This probe's
+    // subject is the 2e pool, so pin GLOG off with a read-shadow (never a
+    // world write); the GLOG pool's own behaviour is dev:glog-magic's.
+    const origGlogGet = game.settings.get;
+    game.settings.get = function (scope, key, ...rest) {
+      if (scope === game.system.id && key === "enable-glog-magic") return false;
+      return origGlogGet.call(this, scope, key, ...rest);
+    };
+
     try {
       const drawn = [];
       for (let i = 0; i < 5; i++) {
@@ -128,6 +139,7 @@ try {
       out.controlDrew = !!legacy;
     } finally {
       proto.getDocuments = origGetDocs;
+      game.settings.get = origGlogGet;
     }
     return out;
   });

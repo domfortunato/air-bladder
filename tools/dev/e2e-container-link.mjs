@@ -190,6 +190,19 @@ const buy = await alicePage.evaluate(async (pcId) => {
   const pc = game.actors.get(pcId);
   await pc.update({ "system.gold": 500 });
   const mkt = await import("/systems/air-bladder/module/marketplace.js");
+  // The dev world keeps allow-player-marketplace OFF (the Warden's table
+  // choice), and acquireTransport reads it live on the calling client — so
+  // without this shadow the buy refuses at the shop door and every leg
+  // below reds on world state, not code. This section's subject is the
+  // connect + ownership relay of a LEGITIMATE purchase, so establish the
+  // open-shop precondition in-page; the switch-off refusal is the
+  // marketplace probe's differential, not this one's. Never a world write.
+  const origGet = game.settings.get;
+  game.settings.get = function (ns, key) {
+    if (key === "allow-player-marketplace") return true;
+    return origGet.call(this, ns, key);
+  };
+  try {
   const cat = await mkt.getMarketplaceCatalog();
   const transports = cat.categories.find((c) => c.name === "Transports & Containers")?.items ?? [];
   const doc = transports.find((d) => (d.system.cost ?? 0) <= 500);
@@ -228,6 +241,9 @@ const buy = await alicePage.evaluate(async (pcId) => {
     goldAfter: pc.system.gold,
     cost: doc.system.cost ?? 0,
   };
+  } finally {
+    game.settings.get = origGet;
+  }
 }, scene.pcId);
 
 if (buy.error) fail("transport purchase", buy.error);

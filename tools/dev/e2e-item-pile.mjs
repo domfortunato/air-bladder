@@ -303,6 +303,19 @@ try {
   const scrollMerge = await gmPage.evaluate(async () => {
     const ActorImpl = CONFIG.Actor.documentClass;
     const ItemImpl = CONFIG.Item.documentClass;
+    // The dev world plays in GLOG mode, whose create seam converts a plain
+    // spellbook to a scroll at creation — the "book" below would be born a
+    // scroll and the first drop would merge LEGITIMATELY, reading exactly
+    // like the review-#9 regression this section guards against. The flag
+    // test under test is setting-independent, so pin GLOG off with a
+    // read-shadow for the plant AND the drops (a drop creates an embedded
+    // copy, which runs the seam again); never a world write.
+    const origGlogGet = game.settings.get;
+    game.settings.get = function (scope, key, ...rest) {
+      if (scope === game.system.id && key === "enable-glog-magic") return false;
+      return origGlogGet.call(this, scope, key, ...rest);
+    };
+    try {
     for (const a of game.actors.filter((a) => a.name.startsWith("ZZ Cache Holder"))) await a.delete();
     const holder = await ActorImpl.create({ name: "ZZ Cache Holder", type: "character" });
     await holder.createEmbeddedDocuments("Item", [
@@ -329,6 +342,9 @@ try {
     await holder.delete();
     await book.delete();
     return { afterBook, afterSecond };
+    } finally {
+      game.settings.get = origGlogGet;
+    }
   });
   JSON.stringify(scrollMerge.afterBook) === JSON.stringify([{ scroll: false, qty: 1 }, { scroll: true, qty: 1 }])
     ? ok("a book dropped on a scroll-holder stays a separate doc", "scroll qty unchanged")

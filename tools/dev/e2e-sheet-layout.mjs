@@ -364,6 +364,18 @@ try {
       ["transport", { name: "ZZ Layout Transport", type: "transport" }],
       ["background", { name: "ZZ Layout Background", type: "background" }],
     ];
+    // The dev world plays in GLOG mode, whose create seam converts any plain
+    // spellbook to a scroll at creation — the "(book)" and "(glog)" cases
+    // would silently render (and PASS) as scrolls, never exercising the book
+    // label sets this table exists to cover. Plant under a read-shadow
+    // pinning GLOG off; the layout under test reads item flags, never the
+    // setting, so the shadow changes nothing about what renders.
+    const origGlogGet = game.settings.get;
+    game.settings.get = function (scope, key, ...rest) {
+      if (scope === game.system.id && key === "enable-glog-magic") return false;
+      return origGlogGet.call(this, scope, key, ...rest);
+    };
+    try {
     for (const [label, data] of cases) {
       const item = await CONFIG.Item.documentClass.create(data);
       await item.sheet.render(true);
@@ -400,6 +412,9 @@ try {
       out.push(entry);
       await item.sheet.close();
       await item.delete();
+    }
+    } finally {
+      game.settings.get = origGlogGet;
     }
     return out;
   });
