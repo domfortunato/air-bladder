@@ -104,7 +104,13 @@ const money = (initial = 0) => new fields.NumberField({ required: true, nullable
 const optInt = () =>
   new fields.NumberField({ required: false, integer: true, nullable: true, initial: null });
 
-const strList = () => new fields.ArrayField(new fields.StringField(), { required: true, initial: [] });
+// NO explicit `initial` — a required ArrayField supplies a FRESH [] on its own
+// (fields.mjs getInitialValue), whereas `initial: []` hands every document that
+// lacks the key the schema's ONE shared array BY REFERENCE, and ArrayField's
+// _updateCommit truncates-and-pushes it in place: the first write poisons the
+// initial for every other such document and every one made afterwards. Exactly
+// the by-reference trap actor.js documents for DocumentOwnershipField.
+const strList = () => new fields.ArrayField(new fields.StringField(), { required: true });
 
 /**
  * The eight 2e descriptive traits (Physique … Vice), one pick-list each on the
@@ -130,7 +136,9 @@ const traits = () => new fields.SchemaField({
  * d6 tables. ObjectField preserves whatever the generator and the importers put
  * there; over-specifying these is how fields go missing.
  */
-const objList = () => new fields.ArrayField(new fields.ObjectField(), { required: true, initial: [] });
+// No explicit `initial` — see strList above; the shared-reference poisoning is
+// identical for an ArrayField of ObjectFields.
+const objList = () => new fields.ArrayField(new fields.ObjectField(), { required: true });
 
 const valueMax = (initial) => new fields.SchemaField({
   value: int(initial),
