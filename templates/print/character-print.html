@@ -6,7 +6,7 @@
   connected holder) on the left; Traits, the background's description and
   Connections on the right — then full-width: the background's Q&A as
   separate paragraphs (KW smushes them into one blob, ruled against
-  2026-08-08), Description, Bonds, Omen, Scars, Notes, Features, and a
+  2026-08-08), Description, Bonds, Omen, Scars, Notes, and a
   small-type credits footer. Empty sections are OMITTED
   where KW prints placeholders — EXCEPT Notes, whose header always prints so
   the player has somewhere to write at the table (user ruling 2026-08-08).
@@ -59,7 +59,6 @@
   .inv-head { font-style: italic; font-weight: bold; margin: 0.5rem 0 0.2rem; }
   ul.plain { list-style: none; }
   ul.plain li { margin-bottom: 0.35rem; }
-  .feature b { font-variant: small-caps; }
   /* Kettlewright's band: two explicit columns, print-safe (never CSS
      columns, which fragment unpredictably across page breaks). */
   .band.has-side { display: grid; grid-template-columns: 11fr 9fr; column-gap: 2rem; align-items: start; }
@@ -218,16 +217,9 @@
   {{#if notes}}<div class="prose">{{{ notes }}}</div>{{/if}}
 </section>
 
-{{#if features.length}}
-<section>
-  <h2>{{ localize "CAIRN.Features" }}</h2>
-  <ul class="plain">
-    {{#each features}}
-    <li class="feature">{{#if name}}<b>{{ name }}</b>{{#if text}} — {{/if}}{{/if}}{{ text }}</li>
-    {{/each}}
-  </ul>
-</section>
-{{/if}}
+{{!-- A Features section printed here until 2026-08-09 and went with the
+      Features UI — the print page records what the game renders, and nothing
+      renders `system.features` any more. --}}
 
 <footer class="credits">{{ credits }}</footer>
 

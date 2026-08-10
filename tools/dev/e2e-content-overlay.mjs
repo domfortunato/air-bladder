@@ -1453,7 +1453,9 @@ const cssLeg = await page.evaluate(() => {
       inside: { display: i.display, dir: i.flexDirection, height: i.height, maxHeight: i.maxHeight },
     };
   };
-  const out = { description: read("description"), portrait: read("portrait"), features: read("features") };
+  // (.features was a third name read here until its rule went with the
+  // Features UI, 2026-08-09.)
+  const out = { description: read("description"), portrait: read("portrait") };
   for (const n of nodes) n.remove();
   return out;
 });
@@ -1467,9 +1469,6 @@ cssLeg.description.inside.display === "flex" && cssLeg.description.inside.dir ==
 cssLeg.portrait.outside.height !== "140px" && cssLeg.portrait.inside.height === "140px"
   ? ok(".portrait scoped", "140px only inside .cairn")
   : fail(".portrait scoped", JSON.stringify(cssLeg.portrait));
-cssLeg.features.outside.maxHeight !== "150px" && cssLeg.features.inside.maxHeight === "150px"
-  ? ok(".features scoped", "150px cap only inside .cairn")
-  : fail(".features scoped", JSON.stringify(cssLeg.features));
 
 /* -------------------------------------------- */
 

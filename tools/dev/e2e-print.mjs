@@ -77,6 +77,9 @@ const r = await page.evaluate(async ({ xssName }) => {
       // Omen text present but DISABLED — the section must be omitted.
       omenEnabled: false, omen: "ZZ OMEN MARKER laughter from the wells.",
       scars: ["ZZ SCAR MARKER a burn"],
+      // STORED features stay OFF the page since the Features UI went
+      // (2026-08-09) — planted so the absence assertion bites on data, not on
+      // an empty list, and so the survival of the orphaned field is witnessed.
       features: [{ name: "ZZ Feature", description: "ZZ FEATURE MARKER" }],
     },
   });
@@ -177,7 +180,8 @@ const r = await page.evaluate(async ({ xssName }) => {
   out.hasNotes = body.includes("ZZ NOTES MARKER");
   out.hasBond = body.includes("ZZ BOND MARKER");
   out.hasScar = body.includes("ZZ SCAR MARKER");
-  out.hasFeature = body.includes("ZZ FEATURE MARKER");
+  out.featureOffPage = !body.includes("ZZ FEATURE MARKER");
+  out.featureSurvives = (game.actors.get(pc.id) ?? pc).system.features?.length === 1;
   out.omenOmitted = !body.includes("ZZ OMEN MARKER");
   out.omenHeader = [...(doc?.querySelectorAll("h2") ?? [])].some((h) => h.textContent.trim() === game.i18n.localize("CAIRN.Omen"));
   out.traitsProse = [...(doc?.querySelectorAll("section p") ?? [])]
@@ -415,8 +419,10 @@ check("the page is titled", r.title === "ZZ Print Hero", `"${r.title}"`);
 console.log("\none page, the whole character");
 check("Description AND Notes", r.hasDesc && r.hasNotes,
   "the both-tabs leg — a detached sheet prints only its displayed tab, which is why this feature exists");
-check("bonds, scars, features", r.hasBond && r.hasScar && r.hasFeature,
-  `bond=${r.hasBond} scar=${r.hasScar} feature=${r.hasFeature}`);
+check("bonds and scars carried", r.hasBond && r.hasScar,
+  `bond=${r.hasBond} scar=${r.hasScar}`);
+check("stored features stay OFF the page", r.featureOffPage && r.featureSurvives,
+  `offPage=${r.featureOffPage} survives=${r.featureSurvives} — the UI went 2026-08-09; the data must not`);
 check("a disabled omen is OMITTED", r.omenOmitted && !r.omenHeader,
   "text present on the actor, omenEnabled false — empty sections are dropped, not printed as placeholders");
 check("traits compose to prose, age included",

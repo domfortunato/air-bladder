@@ -1,5 +1,8 @@
 /**
- * One-off probe: the four sheet dialogs ported from V1 Dialog to DialogV2.
+ * One-off probe: the sheet dialogs ported from V1 Dialog to DialogV2 — add
+ * item and the regenerate confirm (the add/edit-feature pair went with the
+ * Features UI, 2026-08-09; this probe now asserts the Features section is
+ * ABSENT, against planted stored data, and that the data survives).
  *
  * Each one used to reach through the V1 callback's jQuery argument
  * (`html[0].querySelector("form")`). DialogV2 hands the callback the clicked
@@ -29,25 +32,22 @@ await page.goto(FOUNDRY_URL);
 await joinAsGM(page);
 await dismissChrome(page);
 
-// A throwaway actor, so nothing in the dev world is disturbed. The Features
-// section is behind a GM setting, so turn it on and put it back afterwards.
+// A throwaway actor, so nothing in the dev world is disturbed.
 //
 // Sweep leftovers FIRST. This probe creates a world Actor by name and later looks
 // it up the same way, so a run that dies midway leaves one behind — and every
 // later run then finds the STALE sack, whose keeper points at an actor that no
 // longer exists, and fails identically forever. One real failure otherwise turns
 // into a permanent one, which reads exactly like a code bug and is not.
-const { actorId, featuresWere } = await page.evaluate(async () => {
+const { actorId } = await page.evaluate(async () => {
   for (const stale of game.actors.filter((a) => ["ZZ DialogV2 Probe", "ZZ Probe Mochila"].includes(a.name))) {
     await stale.delete().catch(() => {});
   }
-  const was = game.settings.get("air-bladder", "show-features-section");
-  if (!was) await game.settings.set("air-bladder", "show-features-section", true);
   // generationEnabled seeded: the default is Off since 2026-08-02 and the
   // rollActor leg below clicks the header button that flag reveals.
   const a = await Actor.create({ name: "ZZ DialogV2 Probe", type: "character", system: { generationEnabled: true } });
   a.sheet.render(true);
-  return { actorId: a.id, featuresWere: was };
+  return { actorId: a.id };
 });
 await page.waitForTimeout(2500);
 
@@ -105,83 +105,32 @@ made && made.type === "weapon" && made.weightless === true
   ? ok("item created with form values", JSON.stringify(made))
   : fail("item created with form values", JSON.stringify(made));
 
-/* ------------------------------------------------------------- feature ---- */
-// The Features section lives on the Description tab, not the default Items tab.
+/* ------------------------------------------- features are gone (2026-08-09) */
+// The add/edit-feature dialogs and the Features section were removed with the
+// Features UI (user ruling). The absence is asserted on the tab that carried
+// them, with STORED features planted first — the load-bearing half: an empty
+// list renders nothing whether or not the removal landed, so only planted data
+// can prove the section is gone rather than merely empty. The data itself must
+// survive on the document (the field stays declared; user data is kept).
+await page.evaluate((id) =>
+  game.actors.get(id).update({ "system.features": [{ id: "zzdlg1", name: "ZZ Stored Feature", description: "kept" }] }), actorId);
 await page.locator(`nav.tabs a[data-tab="description"]`).first().click();
 await page.waitForTimeout(600);
-await page.locator(".feature-create").first().click().catch(() => {});
-const hasFeatureDialog = await page
-  .waitForSelector("dialog.dialog input[name='itemname']", { timeout: 5000 })
-  .then(() => true)
-  .catch(() => false);
-
-if (!hasFeatureDialog) {
-  fail("feature dialog opened", "no .feature-create on this sheet/tab");
-} else {
-  // The description TEXTAREA keeps its localized placeholder. DialogV2 runs
-  // STRING content through cleanHTML, whose allow-list gives <textarea> no
-  // `placeholder` (constants.mjs:1885) — the attribute silently vanished until
-  // the content became a <div> ELEMENT (review #6 batch 3). The name INPUT
-  // beside it proves nothing: `input` is allowed the attribute, so it survived
-  // the string path all along.
-  const descPlaceholder = await page.evaluate(() =>
-    document.querySelector("dialog.dialog textarea[name='itemdesc']")?.getAttribute("placeholder") ?? null);
-  descPlaceholder
-    ? ok("textarea placeholder survives DialogV2", `"${descPlaceholder}"`)
-    : fail("textarea placeholder survives DialogV2", "cleanHTML stripped it — content went in as a string");
-
-  await page.fill("dialog.dialog input[name='itemname']", "Probe Feature");
-  await page.fill("dialog.dialog textarea[name='itemdesc']", "probe description");
-  await page.check("dialog.dialog input[name='str']");
-  await page.check("dialog.dialog input[name='blast']");
-  await page.locator("dialog.dialog button[data-action='ok']").click();
-  await page.waitForTimeout(1200);
-
-  const feat = await page.evaluate((id) =>
-    game.actors.get(id).system.features?.find((f) => f.name === "Probe Feature") ?? null, actorId);
-  feat && feat.str === true && feat.blast === true && feat.dex === false
-    ? ok("feature created, all 9 flags read", `str=${feat.str} blast=${feat.blast} dex=${feat.dex}`)
-    : fail("feature created, all 9 flags read", JSON.stringify(feat));
-
-  // A SECOND feature, so the edit below has an order to preserve. With one
-  // feature there is no observable difference between replacing it in place and
-  // removing it and pushing it back on.
-  await page.locator(".feature-create").first().click();
-  await page.waitForSelector("dialog.dialog input[name='itemname']", { timeout: 5000 });
-  await page.fill("dialog.dialog input[name='itemname']", "Probe Feature Two");
-  await page.locator("dialog.dialog button[data-action='ok']").click();
-  await page.waitForTimeout(1200);
-
-  // Edit reads the SAME template as Create and must read the same flag list --
-  // that list used to be declared twice, inline, once per dialog.
-  await page.locator(".feature-edit").first().click();
-  await page.waitForSelector("dialog.dialog input[name='itemname']", { timeout: 5000 });
-  const prefilled = await page.inputValue("dialog.dialog input[name='itemname']");
-  prefilled === "Probe Feature"
-    ? ok("edit dialog pre-filled", prefilled)
-    : fail("edit dialog pre-filled", `got "${prefilled}"`);
-  await page.fill("dialog.dialog input[name='itemname']", "Probe Feature Edited");
-  await page.uncheck("dialog.dialog input[name='str']");
-  await page.check("dialog.dialog input[name='wil']");
-  await page.locator("dialog.dialog button[data-action='ok']").click();
-  await page.waitForTimeout(1200);
-
-  const after = await page.evaluate((id) => {
-    const fs = game.actors.get(id).system.features ?? [];
-    return { names: fs.map((f) => f.name), edited: fs.find((f) => f.name === "Probe Feature Edited") ?? null };
-  }, actorId);
-  const edited = after.edited;
-  edited && edited.str === false && edited.wil === true && edited.blast === true
-    ? ok("feature edited, flags round-tripped", `str=${edited.str} wil=${edited.wil} blast=${edited.blast}`)
-    : fail("feature edited, flags round-tripped", JSON.stringify(edited));
-
-  // Editing the FIRST feature must leave it first. The handler filtered it out
-  // and pushed it back, so every edit silently sent that feature to the bottom
-  // of the list -- on a sheet where the Warden chose the order.
-  after.names[0] === "Probe Feature Edited" && after.names[1] === "Probe Feature Two"
-    ? ok("edit keeps list order", after.names.join(", "))
-    : fail("edit keeps list order", `order is now ${after.names.join(", ")}`);
-}
+const featGone = await page.evaluate((id) => {
+  const a = game.actors.get(id);
+  const el = a.sheet.element instanceof HTMLElement ? a.sheet.element : a.sheet.element?.[0];
+  return {
+    createControl: !!el?.querySelector(".feature-create"),
+    section: !!el?.querySelector(".features"),
+    stored: a.system.features?.length ?? 0,
+  };
+}, actorId);
+!featGone.createControl && !featGone.section
+  ? ok("no Features section on the PC Description tab", "with a stored feature planted — gone, not merely empty")
+  : fail("no Features section on the PC Description tab", JSON.stringify(featGone));
+featGone.stored === 1
+  ? ok("the stored feature survives on the document", "the field is orphaned, not dropped")
+  : fail("the stored feature survives on the document", `system.features length ${featGone.stored}`);
 
 /* ----------------------------------------------------------- container ---- */
 // GONE (2026-08-01): the "Custom container…" dialog was removed with the flat
@@ -635,11 +584,10 @@ panicRoll.posted && panicRoll.formula === "1d4"
   : fail("and the badge says why", `badge="${panicRoll.badge}"`);
 
 /* ----------------------------------------------------------- teardown ---- */
-await page.evaluate(async ({ id, was }) => {
+await page.evaluate(async (id) => {
   await game.actors.find((a) => a.name === "ZZ Probe Mochila")?.delete();
   await game.actors.get(id)?.delete();
-  if (!was) await game.settings.set("air-bladder", "show-features-section", false);
-}, { id: actorId, was: featuresWere });
+}, actorId);
 
 const errs = errors.filter((e) => !/Probe/.test(e));
 errs.length === 0 ? ok("zero console errors") : fail("zero console errors", errs.join(" | "));

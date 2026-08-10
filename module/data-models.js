@@ -240,6 +240,10 @@ class CharacterData extends CairnDataModel {
       armorOverride: optInt(),
       gold: purse(),
       slots: capacity(),
+      // ORPHANED since 2026-08-09 (user ruling): the Features UI went — nothing
+      // renders or writes this field any more — but it STAYS declared, so
+      // anything a Warden recorded survives on the document. `description`
+      // above is the precedent (orphaned on characters, kept declared).
       features: objList(),
       // NO `connectedTo` / `formerlyBelongedTo` HERE, and do not re-add them.
       // **A PC is never kept** (settled 2026-07-31, superseding Round 2's PC→PC
@@ -289,6 +293,8 @@ class NpcData extends CairnDataModel {
       armor: optInt(),
       gold: purse(),
       slots: capacity(),
+      // ORPHANED since 2026-08-09, same ruling as CharacterData's: the field
+      // stays so recorded data survives, but no UI reads or writes it.
       features: objList(),
       // --- folded in from the retired `hireling` type ---
       // OFF by default since 2026-08-02, same reasoning as CharacterData's.

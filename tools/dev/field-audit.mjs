@@ -111,8 +111,10 @@ const htmlPaths = (schema, prefix = "") => {
  * So this refuses rather than reports a missing declaration. The recipe for a
  * channel the manifest cannot cover is to clean at the SINK with core's own
  * cleaner — `foundry.utils.cleanHTML`, which is what `cleanDescription` in
- * `module/utils.js` does for `features[]`, the ArrayField(ObjectField) that was
- * a live player→GM XSS until f674730. `dev:feature-xss` is that path's probe.
+ * `module/utils.js` did for `features[]`, the ArrayField(ObjectField) that was
+ * a live player→GM XSS until f674730. (The Features UI and its probe,
+ * `dev:feature-xss`, went 2026-08-09 — the field survives unrendered, so the
+ * sink is gone; cleanDescription and its history remain for the next one.)
  *
  * Latent today: no schema here declares an HTMLField under an array. It is
  * gated because the day one is added is the day the gate would otherwise go

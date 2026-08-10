@@ -194,11 +194,11 @@
                               for role-npc people (2026-08-01). Moved, not
                               copied: this is its original home. --}}
                         {{> "systems/air-bladder/templates/parts/bio-block.html"}}
-                        {{#if system.showFeatures}}
-                        <div class="features">
-                            {{> "systems/air-bladder/templates/parts/feature-list.html"}}
-                        </div>
-                        {{/if}}
+                        {{!-- The Features list rendered here until 2026-08-09,
+                              behind the show-features-section setting; both went
+                              (user ruling). `system.features` survives on the
+                              document, unrendered — same treatment as
+                              `description` below. --}}
                         {{!-- No free-form editor here. A character's `system.description`
                               is orphaned -- nothing generates it and nothing else renders
                               it (the italic trait line is `traitSentence`, derived) -- so

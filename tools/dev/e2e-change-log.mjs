@@ -8,7 +8,8 @@
  *
  * Legs:
  *   field seam  — gold / STR value+max batch / trait / panicked / scar /
- *                 feature add+remove / rest-shaped HP write, each ONE card
+ *                 rest-shaped HP write, each ONE card (the feature add+remove
+ *                 leg went with the Features UI, 2026-08-09)
  *   item seam   — plain item add + remove, Fatigue add + remove (distinct wording)
  *   item update seam — a uses tick via the REAL − button posts the whole-line
  *                 uses line; the rollover click (uses cross zero on a stack)
@@ -209,19 +210,10 @@ const run = async () => {
         assert(logs.length === 1 && logs[0].content.includes("Nasty burn"), "no scar line");
       });
 
-      since = await messageIds(gm);
-      await leg("feature add then remove → one card each", async () => {
-        await gm.evaluate((id) => game.actors.get(id).createOwnedFeature({ name: "Probe Feature", description: "" }), created.witness);
-        let logs = await logsSince(gm, since);
-        assert(logs.length === 1 && logs[0].content.includes("Probe Feature"), "no feature-added line");
-        since = await messageIds(gm);
-        await gm.evaluate((id) => {
-          const a = game.actors.get(id);
-          return a.update({ "system.features": (a.system.features ?? []).filter((f) => f.name !== "Probe Feature") });
-        }, created.witness);
-        logs = await logsSince(gm, since);
-        assert(logs.length === 1 && /removed/i.test(logs[0].content), "no feature-removed line");
-      });
+      // The feature add/remove leg sat here until the Features UI went
+      // (2026-08-09): nothing writes system.features any more, so its ledger
+      // lines were removed as dead code — a write via console would post
+      // nothing, and that is the intended behavior, not a regression.
 
       since = await messageIds(gm);
       await leg("rest-shaped HP write → one card, one line", async () => {

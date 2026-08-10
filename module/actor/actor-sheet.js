@@ -14,13 +14,6 @@ import { pickArt } from "../art-picker.js";
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
 
-/**
- * The checkbox names on the add/edit-feature dialog, which are also the keys the
- * feature record stores them under. Create and Edit read the same form template,
- * so they must read the same list — it used to be declared twice, inline.
- */
-const FEATURE_FLAGS = ["str", "dex", "wil", "hp", "armor", "dmg", "crit", "deprived", "blast"];
-
 /** Tab labels by id. The nav itself is hand-written in each template, because
  *  the labels carry live data (slot counts, connection counts) and, on the NPC
  *  sheet, a per-role static name: "Background & Notes" on a person and on a
@@ -50,7 +43,7 @@ const TAB_LABELS = {
 const TAB_IDS = {
   character: ["items", "description", "containers", "notes"],
   // Description FIRST on the non-player sheet (2026-08-01, asked for): a Warden
-  // opens an NPC to remember who they are — statblock, features, biography —
+  // opens an NPC to remember who they are — statblock, biography —
   // and reaches for the inventory second. The character sheet deliberately
   // keeps Items first; the reorder is the NPC's alone. The order here must
   // match the hand-written nav in npc-sheet.html, and `_getTabsConfig` takes
@@ -249,11 +242,6 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       connectionAttach: owned(CairnActorSheet.#onConnectionAttach),
       connectionDetach: owned(CairnActorSheet.#onConnectionDetach),
       containerUnlink: owned(CairnActorSheet.#onContainerUnlink),
-      // Features
-      featureCreate: owned(CairnActorSheet.#onFeatureCreate),
-      featureEdit: owned(CairnActorSheet.#onFeatureEdit),
-      featureDelete: owned(CairnActorSheet.#onFeatureDelete),
-      featureDescription: CairnActorSheet.#onFeatureDescription,
       // Header counters + buttons
       rollAbility: CairnActorSheet.#onRollAbility,
       toggleCritical: owned(CairnActorSheet.#onToggleCritical),
@@ -350,7 +338,6 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         templates: [
           "systems/air-bladder/templates/parts/items-list.html",
           "systems/air-bladder/templates/parts/container-list.html",
-          "systems/air-bladder/templates/parts/feature-list.html",
           "systems/air-bladder/templates/parts/bio-block.html",
         ],
       },
@@ -1630,8 +1617,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   /**
    * Expand or collapse a row's description panel. `build` returns the panel
-   * element for the closed→open direction; nothing else differs between an item,
-   * a container and a feature.
+   * element for the closed→open direction; nothing else differs between an item
+   * and a container.
    * @private
    */
   _toggleRowDescription(row, build) {
@@ -1739,8 +1726,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     //
     // Escaped because the result is interpolated into HTML. `bg.name` is a stored
     // document field, and a world Item is creatable by any player a Warden has
-    // granted Create Item to — the same player→GM path as the feature-description
-    // XSS, and this dialog renders in the GM's client.
+    // granted Create Item to — the same player→GM escalation this repo has paid
+    // for before (see cleanDescription in utils.js), and this dialog renders in
+    // the GM's client.
     const bgName = foundry.utils.escapeHTML(t("bg.name", bg.name));
     const ok = await foundry.applications.api.DialogV2.confirm({
       window: { title: game.i18n.localize("CAIRN.ChangeBackgroundTitle") },
@@ -2141,10 +2129,6 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       omen: sys.omenEnabled ? t("table.result", String(sys.omen ?? "").trim()) : "",
       scars: (sys.scars ?? []).map((s) => t("table.result", s)),
       notes: await enrich(sys.notes),
-      features: (sys.features ?? []).map((f) => ({
-        name: String(f?.name ?? "").trim(),
-        text: String(f?.description ?? "").trim(),
-      })).filter((f) => f.name || f.text),
     };
 
     const html = await foundry.applications.handlebars.renderTemplate(
@@ -2463,9 +2447,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // question was still on screen — answer "no" and the item was still there
     // with its row gone, until something re-rendered the sheet and put it back.
     // The connected-actor branch stopped doing this in review #5 (an Actor delete
-    // can also be refused by the server: Assistant+, ungrantable); the item and
-    // feature branches were never brought in line, though the decline half of the
-    // reasoning covers all three. On success the delete re-renders this sheet
+    // can also be refused by the server: Assistant+, ungrantable); the item branch
+    // — and the feature branch, while the Features UI existed — was not brought in
+    // line until review #7, though the decline half of the reasoning covers them
+    // all. On success the delete re-renders this sheet
     // — descendant deletes render the parent (client-document.mjs:691-694) — and
     // the row goes with it.
     if (row.dataset.isContainer) this.actor.deleteOwnedContainer(row.dataset.itemId);
@@ -2919,110 +2904,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
   }
 
-  /* -------------------------------------------- */
-  /*  Actions — features                          */
-  /* -------------------------------------------- */
-
-  /** @this {CairnActorSheet} */
-  static async #onFeatureCreate(event) {
-    event.preventDefault();
-    const template = "systems/air-bladder/templates/dialog/add-feature-dialog.html";
-    // DialogV2 runs STRING content through cleanHTML, whose allow-list gives
-    // <textarea> no `placeholder` (constants.mjs:1885), so the description
-    // box's localized placeholder was silently stripped (review #6). An
-    // attribute-less <div> ELEMENT is core's documented trusted-content route
-    // (dialog.mjs:136-155) and skips the cleaning — the template is our own
-    // file, not user input.
-    const content = document.createElement("div");
-    content.innerHTML = await foundry.applications.handlebars.renderTemplate(template);
-
-    await foundry.applications.api.DialogV2.prompt({
-      window: { title: game.i18n.localize("CAIRN.CreateFeature") },
-      position: { width: 500 },
-      content,
-      ok: {
-        icon: "fas fa-check",
-        label: game.i18n.localize("CAIRN.CreateFeature"),
-        callback: async (dialogEvent, button) => {
-          const form = button.form;
-          if (form.itemname.value.trim() !== "") {
-            const data = { name: form.itemname.value, description: form.itemdesc.value };
-            FEATURE_FLAGS.forEach((c) => { data[c] = form[c].checked; });
-            await this.actor.createOwnedFeature(data);
-          }
-        },
-      },
-      rejectClose: false,
-    });
-  }
-
-  /** @this {CairnActorSheet} */
-  static async #onFeatureEdit(event, target) {
-    event.preventDefault();
-    const row = CairnActorSheet.#row(target);
-    const item = this.actor.getOwnedFeature(row?.dataset.itemId);
-    if (!item) return;
-
-    const template = "systems/air-bladder/templates/dialog/add-feature-dialog.html";
-    // Same cleanHTML dodge as #onFeatureCreate: an element, not a string.
-    const content = document.createElement("div");
-    content.innerHTML = await foundry.applications.handlebars.renderTemplate(template, item);
-
-    await foundry.applications.api.DialogV2.prompt({
-      window: { title: game.i18n.localize("CAIRN.EditFeature") },
-      position: { width: 500 },
-      content,
-      ok: {
-        icon: "fas fa-check",
-        label: game.i18n.localize("CAIRN.UpdateFeature"),
-        callback: async (dialogEvent, button) => {
-          const form = button.form;
-          if (form.itemname.value.trim() !== "") {
-            // Copy, never mutate `item`. `system.features` is an ArrayField of
-            // ObjectField, and an ObjectField hands back the SOURCE object by
-            // reference — so assigning to `item` edited the actor's stored data
-            // in place, before (and regardless of) the update. A rejected or
-            // refused update then left the sheet showing values the document did
-            // not have, until something re-read it from source.
-            const newItem = { ...item, name: form.itemname.value, description: form.itemdesc.value };
-            FEATURE_FLAGS.forEach((c) => { newItem[c] = form[c].checked; });
-            // Replace in place rather than filter+push, so editing a feature does
-            // not silently move it to the bottom of the list.
-            const features = this.actor.system.features.map((f) => (f.id === newItem.id ? newItem : f));
-            await this.actor.update({ "system.features": features });
-          }
-        },
-      },
-      rejectClose: false,
-    });
-  }
-
-  /** @this {CairnActorSheet} */
-  static #onFeatureDelete(event, target) {
-    event.preventDefault();
-    const row = CairnActorSheet.#row(target);
-    if (!row) return;
-    // Not slid up — see #onItemDelete. deleteOwnedFeature confirms first, and
-    // its update re-renders the sheet when it goes through.
-    this.actor.deleteOwnedFeature(row.dataset.itemId);
-  }
-
-  /** @this {CairnActorSheet} */
-  static #onFeatureDescription(event, target) {
-    event.preventDefault();
-    const row = CairnActorSheet.#row(target);
-    if (!row) return;
-    this._toggleRowDescription(row, () => {
-      const feature = this.actor.getOwnedFeature(row.dataset.itemId);
-      if (!feature) return null;
-      const div = document.createElement("div");
-      div.className = "item-description";
-      // cleanDescription, not stripPar: `system.features` is an ObjectField interior,
-      // so the server never sanitizes it and this was a player→GM XSS. See utils.js.
-      div.innerHTML = cleanDescription(feature.description);
-      return div;
-    });
-  }
+  /* The "Actions — features" section lived here and is gone with the Features
+     UI (2026-08-09): #onFeatureCreate/Edit/Delete/Description, their DialogV2
+     forms and the FEATURE_FLAGS list. Its two lessons live on with their
+     survivors — the DialogV2 element-not-string content dodge is recorded at
+     the role-pick dialog (actor.js, "ELEMENT content, not a string") and in
+     warden-damage.js, and the sink-side cleaning it needed lives on in
+     cleanDescription (utils.js), whose docblock keeps the XSS history. */
 
   /* -------------------------------------------- */
   /*  Actions — counters and buttons              */

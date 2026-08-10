@@ -1,7 +1,6 @@
 {
   "CAIRN.AddBond": "Add a bond",
   "CAIRN.AddFatigue": "Add fatigue",
-  "CAIRN.AddFeature": "Add Feature",
   "CAIRN.AddItem": "Add Item",
   "CAIRN.Age": "Age",
   "CAIRN.AlreadyConnected": "Already connected to someone.",
@@ -106,8 +105,6 @@
     "Cleared": "{label} cleared",
     "FatigueAdded": "Fatigue added",
     "FatigueRemoved": "Fatigue removed",
-    "FeatureAdded": "Feature added: {name}",
-    "FeatureRemoved": "Feature removed: {name}",
     "Field": "{label}: {from} → {to}",
     "ItemAdded": "Item added: {name}",
     "ItemRemoved": "Item removed: {name}",
@@ -164,7 +161,6 @@
   "CAIRN.CreateActorTitle": "Create Actor",
   "CAIRN.CreateContainer": "Create Container",
   "CAIRN.CreateFaction": "Generate Faction",
-  "CAIRN.CreateFeature": "Create Feature",
   "CAIRN.CreateItem": "Create Item",
   "CAIRN.CreateMonster": "Generate Monster",
   "CAIRN.CreateCompanion": "Create Companion",
@@ -217,7 +213,6 @@
   "CAIRN.DexTip": "Used for saves requiring poise, speed, reflexes, dodging, climbing, sneaking, balancing, etc.",
   "CAIRN.DieOfFate": "Die of Fate",
   "CAIRN.DieOfFateTip": "At the Warden's request, roll 1d6 whenever the outcome of an event is uncertain or to simulate an element of randomness and chance.",
-  "CAIRN.EditFeature": "Edit Feature",
   "CAIRN.EditItem": "Edit Item",
   "CAIRN.EquipmentLimitTip": "Double click to change limit",
   "CAIRN.Equipped": "Equipped",
@@ -233,8 +228,6 @@
   "CAIRN.FailedCareerItemLabel": "Failed career item:",
   "CAIRN.FailedCareerLabel": "Failed career:",
   "CAIRN.Fatigue": "Fatigue",
-  "CAIRN.Features": "Features",
-  "CAIRN.FeaturesInfo": "Additional character traits with some mechanical effect.",
   "CAIRN.ForHire": "For Hire",
   "CAIRN.ForHireTip": "This NPC will work for the party at a daily rate. Untick for someone who is not taking work — the career stays.",
   "CAIRN.FormerlyBelongedTo": "Formerly connected to {name}",
@@ -345,7 +338,6 @@
   "CAIRN.MaxCharges": "Max charges",
   "CAIRN.MaxUses": "Max # of uses",
   "CAIRN.Maximum": "Maximum",
-  "CAIRN.ModifiedElements": "Modified Elements",
   "CAIRN.MonsterGen.ArmorName": "Tough Hide",
   "CAIRN.MonsterGen.AttackName": "{type}*",
   "CAIRN.MonsterGen.DescAbility": "<strong>Ability:</strong> {power} {target}",
@@ -627,10 +619,6 @@
       "hint": "A floor on every generated character's age, applied to all character sheets. Generation and the sheet's age re-roll never produce an age below this. Default 21; set it below 12 (the lowest a 2d20 + 10 roll can give) to switch the floor off.",
       "label": "Minimum character age (floor for the 2d20 + 10 roll)"
     },
-    "ShowFeatures": {
-      "hint": "Show additional 'feature' list in the character description tab.",
-      "label": "Show Features List on character's Description tab"
-    },
     "ShowGenerateHeader": {
       "hint": "Show 'Regenerate' button at character sheet header",
       "label": "Show a Roll Character button on the character sheet header"
@@ -708,7 +696,6 @@
   "CAIRN.UnlinkContainer": "Unlink — leaves it in the world, connected to no one",
   "CAIRN.UnlinkContainerQ": "Disconnect \"{name}\"? It stays in the world with everything in it, connected to no one — a pile anyone can find.",
   "CAIRN.UnlinkContainerTitle": "Unlink this?",
-  "CAIRN.UpdateFeature": "Update Feature",
   "CAIRN.Uses": "Available uses",
   "CAIRN.Warden": "Warden",
   "CAIRN.WardenDamage.AddDie": "Add a {die}",

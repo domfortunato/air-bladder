@@ -23,7 +23,7 @@ export const SETTINGS_NS = "air-bladder";
 export const SETTING_KEYS = [
   // General
   "use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
-  "show-features-section", "use-warden-title", "change-log", "auto-record-scars",
+  "use-warden-title", "change-log", "auto-record-scars",
   // Character Generation
   "content-source-2e", "content-source-custom", "content-source-barebones",
   "barebones-failed-career", "show-generate-header",
@@ -250,15 +250,11 @@ export const registerSettings = () => {
     requiresReload: true,
   });
 
-  game.settings.register(SETTINGS_NS, "show-features-section", {
-    name: "CAIRN.Settings.ShowFeatures.label",
-    hint: "CAIRN.Settings.ShowFeatures.hint",
-    scope: "world",
-    config: true,
-    type: Boolean,
-    default: true,
-    requiresReload: true,
-  });
+  // `show-features-section` was registered here and is GONE (2026-08-09, user
+  // ruling): the Features list it toggled was removed outright — a
+  // fork-inherited UI nobody here uses. The `system.features` field SURVIVES,
+  // orphaned, so anything a Warden recorded is still on the document (the
+  // character-`description` precedent).
 
   // `show-containers-tab` was registered here and is GONE. It dated from when a
   // container was a bag of slots a character might not own one of, so an empty

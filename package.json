@@ -76,7 +76,6 @@
     "dev:kw-import": "node tools/dev/e2e-kettlewright-import.mjs",
     "dev:kw-import-data": "node tools/dev/probe-kettlewright-import.mjs",
     "dev:directory-ui": "node tools/dev/probe-ui-batch.mjs",
-    "dev:feature-xss": "node tools/dev/e2e-feature-xss.mjs",
     "dev:roll-npc": "node tools/dev/e2e-roll-npc.mjs",
     "dev:gen-dice": "node tools/dev/e2e-generation-dice.mjs",
     "dev:monster-gen": "node tools/dev/e2e-monster-gen.mjs",

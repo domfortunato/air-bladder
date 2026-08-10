@@ -4,8 +4,8 @@
  *
  *   npm run dev:delete-confirm      (dev world on :30000, which runs the working tree)
  *
- * `deleteOwnedItem` and `deleteOwnedFeature` both AWAIT a confirm dialog before
- * they delete anything, and both sheet handlers used to fire an optimistic
+ * `deleteOwnedItem` AWAITS a confirm dialog before it deletes anything, and the
+ * sheet handler used to fire an optimistic
  * `slideUp(row, () => this.render(false))` on the same tick. So the row
  * collapsed to nothing while the question was still on screen, and 200ms later
  * the animation's callback re-rendered the sheet — with the item still there,
@@ -14,8 +14,9 @@
  *
  * The connected-actor branch of the same handler dropped its slide in review #5
  * (an Actor delete can also be REFUSED by the server: Assistant+, ungrantable).
- * The decline half of that reasoning covers all three branches, and the other
- * two never got it — review #7 finding 7.
+ * The decline half of that reasoning covers every branch, and the others never
+ * got it — review #7 finding 7. (A feature row ran the same two passes here
+ * until the Features UI and `deleteOwnedFeature` went, 2026-08-09.)
  *
  * THREE INDEPENDENT READINGS while the dialog is open, because any one of them
  * alone could be argued away:
@@ -57,14 +58,12 @@ const sweep = () => page.evaluate(async (n) => {
 try {
   await sweep();
 
-  /* Fixture: one item and one feature on one character. -------------------- */
+  /* Fixture: one item on one character. ------------------------------------ */
   const ids = await page.evaluate(async (n) => {
     const actor = await CONFIG.Actor.documentClass.create({ name: `${n} Victim`, type: "character" });
     const [item] = await actor.createEmbeddedDocuments("Item", [{ name: `${n} Item`, type: "item" }]);
-    await actor.createOwnedFeature({ name: `${n} Feature`, description: "<p>a feature</p>" });
-    const feature = actor.system.features.at(-1);
     await actor.sheet.render(true);
-    return { actorId: actor.id, itemId: item.id, featureId: feature.id };
+    return { actorId: actor.id, itemId: item.id };
   }, NAME);
   await page.waitForSelector(".cairn.sheet.actor", { timeout: 15000 });
 
@@ -123,12 +122,10 @@ try {
     await page.waitForTimeout(500);
   };
 
-  const stillThere = (kind) => page.evaluate(({ kind, actorId, itemId, featureId }) => {
+  const stillThere = () => page.evaluate(({ actorId, itemId }) => {
     const actor = game.actors.get(actorId);
-    return kind === "item"
-      ? !!actor.items.get(itemId)
-      : !!actor.system.features.find((f) => f.id === featureId);
-  }, { kind, ...ids });
+    return !!actor.items.get(itemId);
+  }, ids);
 
   /* 1. An ITEM row, declined ----------------------------------------------- */
   console.log("\nan item row, while the question is on screen");
@@ -142,33 +139,14 @@ try {
   check("row still in the DOM", item.rowStillInDom,
     "the slide's callback re-rendered the sheet under an unanswered question");
   await answer("no");
-  check("declining keeps the item", await stillThere("item"), "answering \"no\" deleted nothing");
+  check("declining keeps the item", await stillThere(), "answering \"no\" deleted nothing");
 
   /* 2. ...and accepting really deletes ------------------------------------- */
   const itemAgain = await watchWhileAsking(ids.itemId, "itemDelete");
   check("the confirm appeared again", itemAgain.dialogShown, "the row survived the decline and is clickable");
   await answer("yes");
-  check("accepting deletes it", !(await stillThere("item")),
+  check("accepting deletes it", !(await stillThere()),
     "otherwise \"nothing vanished\" would pass on a control that does nothing");
-
-  /* 3. A FEATURE row, same two passes -------------------------------------- */
-  console.log("\na feature row, while the question is on screen");
-  await page.locator('.cairn.sheet.actor nav [data-tab="description"]').click();
-  await page.waitForTimeout(400);
-  const feat = await watchWhileAsking(ids.featureId, "featureDelete");
-  check("the confirm appeared", feat.found && feat.dialogShown, "");
-  check("no slide on the row", feat.rowAnimations === 0,
-    `animate() calls on the row: ${feat.rowAnimations}`);
-  check("row keeps its height", feat.minHeight > 0 && feat.minHeight === feat.startHeight,
-    `height ${feat.startHeight} -> min ${feat.minHeight} while asking`);
-  check("row still in the DOM", feat.rowStillInDom, "");
-  await answer("no");
-  check("declining keeps the feature", await stillThere("feature"), "");
-
-  const featAgain = await watchWhileAsking(ids.featureId, "featureDelete");
-  check("the confirm appeared again", featAgain.dialogShown, "");
-  await answer("yes");
-  check("accepting deletes it", !(await stillThere("feature")), "");
 } finally {
   // Restore from NODE: an exception inside page.evaluate propagates out of it,
   // so an in-page restore after the throw never runs and the world keeps a

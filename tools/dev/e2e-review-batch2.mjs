@@ -13,8 +13,8 @@
  *      override, the Kind label, and container art at creation.
  *   4. A deleted keeper's orphans are unlinked in ONE batched
  *      updateDocuments call, not one awaited update() each.
- *   5. createOwnedFeature neither mutates the caller's object nor pushes
- *      into prepared state before the write.
+ *   5. (RETIRED 2026-08-09 — createOwnedFeature went with the Features UI, so
+ *      its non-mutating contract has no subject. See the note where the leg sat.)
  *   6. custom-portrait-folder's onChange elects the activeGM: with two GMs
  *      connected, exactly one client scans and writes the cached list.
  *   7. Read-only actions (rollDamage etc.) work on a LOCKED pack's sheet;
@@ -231,25 +231,12 @@ try {
       ? ok("ONE updateDocuments call for two orphans", "(batched)")
       : fail(`${batch.calls} updateDocuments calls for two orphans`, "still one awaited update() per child");
 
-    /* ---- 5. createOwnedFeature is non-mutating ---------------------------- */
-    console.log("\ncreateOwnedFeature");
-
-    const feat = await page.evaluate(async () => {
-      const npc = await CONFIG.Actor.documentClass.create({
-        name: "ZZ PROBE B2 Feat", type: "npc", system: { role: "npc" },
-      });
-      const data = { name: "ZZ Probe Feature", description: "probe" };
-      await npc.createOwnedFeature(data);
-      const stored = (npc.system.features ?? []).find((f) => f.name === "ZZ Probe Feature");
-      return { id: npc.id, callerMutated: "id" in data, storedWithId: !!(stored && stored.id) };
-    });
-    cleanup.actorIds.push(feat.id);
-    feat.storedWithId
-      ? ok("feature stored, id assigned")
-      : fail("feature missing or without id after create");
-    feat.callerMutated
-      ? fail("caller's data object was mutated", "createOwnedFeature still writes data.id in place")
-      : ok("caller's object untouched");
+    /* ---- 5. RETIRED (2026-08-09) ------------------------------------------ */
+    // The createOwnedFeature non-mutation leg sat here. The method went with
+    // the Features UI (its finding — review #6 #5 — was fixed and held green
+    // from 2026-08-01 until the removal), so the leg's subject no longer
+    // exists. Finding 8's precedent: the number keeps its slot so the docblock
+    // stays one-leg-per-finding.
 
     /* ---- 7. read-only actions on a locked pack ---------------------------- */
     console.log("\nread actions on a locked compendium sheet");
