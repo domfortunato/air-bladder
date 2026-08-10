@@ -1,0 +1,167 @@
+_id: yPLlVpytBd8YWyHG
+name: 'Warden: Encounters - Dungeon'
+img: icons/svg/d20-grey.svg
+description: >-
+  Example dungeon encounters. A row that begins with a quantity and a dragged-in
+  monster link grows an Add to scene button on its draw card — build a table of
+  your own the same way: type the dice, then drag the monster in.
+results:
+  - _id: ofl2sABWKdQVXmg9
+    type: text
+    description: >-
+      1d6 @UUID[Compendium.air-bladder.monsters.Actor.S6lcn0jsoTeJgqst]{Goblins}
+      — squabbling over something they found
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 1
+      - 1
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!yPLlVpytBd8YWyHG.ofl2sABWKdQVXmg9'
+  - _id: 1LvQnCyxB9g7NFsH
+    type: text
+    description: >-
+      1d2 @UUID[Compendium.air-bladder.monsters.Actor.jgtycd2HoWTQEU5T]{Ogres} —
+      hungry, and between the party and the way out
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!yPLlVpytBd8YWyHG.1LvQnCyxB9g7NFsH'
+  - _id: RpfnhBEUNszTFVub
+    type: text
+    description: 1 random NPC — lost, curious, or up to no good
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!yPLlVpytBd8YWyHG.RpfnhBEUNszTFVub'
+  - _id: GIvYhU9Dorc6DWOx
+    type: text
+    description: >-
+      1d4 @UUID[Compendium.air-bladder.monsters.Actor.X827Q1OhOMlNkNvm]{Root
+      Goblins} — dragging a sack the wrong way
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!yPLlVpytBd8YWyHG.GIvYhU9Dorc6DWOx'
+  - _id: oilIhfBRTDpFYQMu
+    type: text
+    description: >-
+      1 @UUID[Compendium.air-bladder.monsters.Actor.4mXfyxLUlRQzgnvt]{Mimic} —
+      patient, and shaped like something worth opening
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!yPLlVpytBd8YWyHG.oilIhfBRTDpFYQMu'
+  - _id: vMm5wslLPDPwsYBp
+    type: text
+    description: All quiet
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!yPLlVpytBd8YWyHG.vMm5wslLPDPwsYBp'
+formula: 1d6
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+  systemVersion: 0.1.14
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!tables!yPLlVpytBd8YWyHG'

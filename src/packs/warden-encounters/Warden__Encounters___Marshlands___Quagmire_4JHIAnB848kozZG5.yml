@@ -1,0 +1,383 @@
+_id: 4JHIAnB848kozZG5
+name: 'Warden: Encounters - Marshlands / Quagmire'
+img: icons/svg/d20-grey.svg
+description: >-
+  Wilderness encounters for Marshlands and Quagmire. The Warden rolls d6 + d10
+  when an Encounter comes up in the wetlands. Page references are to the Cairn
+  2e Bestiary.
+results:
+  - _id: EBFlA5ChXWzOPpsy
+    type: text
+    description: >-
+      1 @UUID[Compendium.air-bladder.monsters.Actor.n6qiiCxlLjdf8Qpv]{Giant
+      Crocodile} (pg 62)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!4JHIAnB848kozZG5.EBFlA5ChXWzOPpsy'
+  - _id: FM84kSVC9yMVdZG8
+    type: text
+    description: >-
+      1 @UUID[Compendium.air-bladder.monsters.Actor.NY94UhmWTBgw3gMC]{Water
+      Elemental} (pg 139)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!4JHIAnB848kozZG5.FM84kSVC9yMVdZG8'
+  - _id: 1gaYhHDzipEDy6Ce
+    type: text
+    description: >-
+      1
+      @UUID[Compendium.air-bladder.monsters.Actor.OfaCrvATIqJDr3ns]{Catoblepas}
+      (pg 24)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!4JHIAnB848kozZG5.1gaYhHDzipEDy6Ce'
+  - _id: YukzDIUO9DY9szXo
+    type: text
+    description: >-
+      1 @UUID[Compendium.air-bladder.monsters.Actor.bKy98z6f6VgGsKPh]{Viper} (pg
+      136)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!4JHIAnB848kozZG5.YukzDIUO9DY9szXo'
+  - _id: OAjXFngPrPAySCB1
+    type: text
+    description: 1 Night Cat (pg 100)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!4JHIAnB848kozZG5.OAjXFngPrPAySCB1'
+  - _id: vwi1r91u1q6ZGv4G
+    type: text
+    description: >-
+      1d4 @UUID[Compendium.air-bladder.monsters.Actor.X827Q1OhOMlNkNvm]{Root
+      Goblins} (pg 114) or 1 Root Witch (pg 115)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 7
+      - 7
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!4JHIAnB848kozZG5.vwi1r91u1q6ZGv4G'
+  - _id: AtwASS2lFsLnX4VL
+    type: text
+    description: >-
+      1d4
+      @UUID[Compendium.air-bladder.monsters.Actor.gnqJAsLHGhqGJnWK]{Reptilians}
+      (pg 112)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 8
+      - 8
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!4JHIAnB848kozZG5.AtwASS2lFsLnX4VL'
+  - _id: 70JU5i4EdEnUw8EQ
+    type: text
+    description: Insect Swarm (2 HP, 4 STR, bite d4, detachment)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 9
+      - 9
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!4JHIAnB848kozZG5.70JU5i4EdEnUw8EQ'
+  - _id: 4hVvDQkoORv7FE7U
+    type: text
+    description: >-
+      2d4 @UUID[Compendium.air-bladder.monsters.Actor.QhJ4wH9BX3piTGCi]{Zombies}
+      (pg 148)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 10
+      - 10
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!4JHIAnB848kozZG5.4hVvDQkoORv7FE7U'
+  - _id: 2wGavIFvbPg8c8I1
+    type: text
+    description: >-
+      1 @UUID[Compendium.air-bladder.monsters.Actor.bFpRUtpbR1G05Hy9]{Giant
+      Aquatic Spider} (pg 59)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 11
+      - 11
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!4JHIAnB848kozZG5.2wGavIFvbPg8c8I1'
+  - _id: 3sYw9tMXx06zyIFD
+    type: text
+    description: 1 Will-o-Wisp (pg 144)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 12
+      - 12
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!4JHIAnB848kozZG5.3sYw9tMXx06zyIFD'
+  - _id: gH3LNYSkHSYbPn1Q
+    type: text
+    description: >-
+      1 @UUID[Compendium.air-bladder.monsters.Actor.YFnHWQ7mAi068Zsp]{Night Hag}
+      (pg 101)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 13
+      - 13
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!4JHIAnB848kozZG5.gH3LNYSkHSYbPn1Q'
+  - _id: InGkXABXqngIOClK
+    type: text
+    description: >-
+      1 @UUID[Compendium.air-bladder.monsters.Actor.o3Fd5JdfnJuvWQfK]{Troll} (pg
+      131)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 14
+      - 14
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!4JHIAnB848kozZG5.InGkXABXqngIOClK'
+  - _id: PZPZn3npmFueLodJ
+    type: text
+    description: >-
+      1 @UUID[Compendium.air-bladder.monsters.Actor.zlSMKSJmEdrnG2ws]{Shambling
+      Mound} (pg 121)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 15
+      - 15
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!4JHIAnB848kozZG5.PZPZn3npmFueLodJ'
+  - _id: sWMNLeLkmK5tGGAD
+    type: text
+    description: >-
+      1 @UUID[Compendium.air-bladder.monsters.Actor.6APbclPukyhqVuFD]{Black
+      Dragon} (pg 14)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 16
+      - 16
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!4JHIAnB848kozZG5.sWMNLeLkmK5tGGAD'
+formula: 1d6 + 1d10
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+  systemVersion: 0.1.14
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!tables!4JHIAnB848kozZG5'

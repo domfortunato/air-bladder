@@ -71,6 +71,23 @@ const malformed = [];
 let checked = 0, tables = 0;
 
 /**
+ * Inline `@UUID[...]` links in result TEXT are how encounter rows reference
+ * monsters (2026-08-09): the Warden-authorable convention carries the link in
+ * the row's rich text because Foundry's table editor exposes no flags UI. They
+ * draw and enrich exactly like document rows and fail exactly as silently, so
+ * they are held to the same standard — with one deliberate difference: no
+ * name-matching. An inline label is display WORDING, not a document name
+ * ("Mountain Lion" deliberately links the Tiger; "Bronze Construct" links
+ * Golem, Bronze). A non-Compendium link (`@UUID[Actor.<id>]`) in shipped YAML
+ * can resolve only in the world it was authored in, so here it is always a bug.
+ */
+const INLINE_UUID = /@UUID\[([^\]]+)\]/g;
+const EXPECTED_INLINE_REFS = 80;   // raise deliberately when content adds links
+let inlineChecked = 0;
+const inlineDangling = [];
+const inlineUnresolvable = [];
+
+/**
  * How many compendium references there are supposed to BE.
  *
  * Because this gate reads a schema, and a schema rename turns it into a gate that
@@ -90,6 +107,17 @@ for (const pack of packDirs) {
     if (!Array.isArray(d.results)) continue;
     tables++;
     for (const r of d.results) {
+      for (const m of String(r.description ?? "").matchAll(INLINE_UUID)) {
+        const p = m[1].split(".");
+        if (p[0] !== "Compendium" || p.length !== 5 || p[1] !== "air-bladder") {
+          inlineUnresolvable.push(`${d.name} [${(r.range ?? []).join("-")}] -> ${m[1]}`);
+          continue;
+        }
+        inlineChecked++;
+        if (!byId.has(`${p[1]}.${p[2]}/${p[4]}`)) {
+          inlineDangling.push(`${d.name} [${(r.range ?? []).join("-")}] -> ${m[1]}`);
+        }
+      }
       // v13 merged the "compendium"/"pack" row type into "document". The legacy
       // numeric form is tolerated rather than silently skipping a whole table.
       if (r.type !== "document" && r.type !== 2) continue;
@@ -115,7 +143,7 @@ for (const pack of packDirs) {
   }
 }
 
-console.log(`${tables} table(s), ${checked} compendium reference(s) across ${packDirs.length} packs`);
+console.log(`${tables} table(s), ${checked} compendium reference(s) + ${inlineChecked} inline link(s) across ${packDirs.length} packs`);
 
 let failed = false;
 
@@ -146,6 +174,28 @@ if (byName.length) {
   for (const d of byName) console.error(`  ${d}`);
 } else if (checked) {
   console.log("  ok    every reference resolves to a document of the same name");
+}
+
+if (inlineChecked < EXPECTED_INLINE_REFS) {
+  failed = true;
+  console.error(`\nUNDER-COUNTED — found ${inlineChecked} inline @UUID link(s), expected at least `
+    + `${EXPECTED_INLINE_REFS}. Same rule as EXPECTED_REFS: if content did not shrink, this `
+    + "gate has stopped looking. Check the regex and the description field before raising it.");
+}
+
+if (inlineUnresolvable.length) {
+  failed = true;
+  console.error(`\nUNRESOLVABLE — ${inlineUnresolvable.length} inline link(s) are world-scoped or `
+    + "foreign (only Compendium.air-bladder.* can resolve in a user's world):");
+  for (const d of inlineUnresolvable) console.error(`  ${d}`);
+}
+
+if (inlineDangling.length) {
+  failed = true;
+  console.error(`\nDANGLING — ${inlineDangling.length} inline link(s) name a document that does not exist:`);
+  for (const d of inlineDangling) console.error(`  ${d}`);
+} else {
+  console.log("  ok    every inline @UUID link resolves");
 }
 
 /* ---- no two canonical gear packs may hold the same item NAME ----------------

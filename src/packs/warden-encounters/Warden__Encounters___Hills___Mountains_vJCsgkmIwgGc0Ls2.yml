@@ -1,0 +1,385 @@
+_id: vJCsgkmIwgGc0Ls2
+name: 'Warden: Encounters - Hills / Mountains'
+img: icons/svg/d20-grey.svg
+description: >-
+  Wilderness encounters for Hills and Mountains. The Warden rolls d6 + d10 when
+  an Encounter comes up in high country. Page references are to the Cairn 2e
+  Bestiary.
+results:
+  - _id: AGUFLEHJAOFzo9DD
+    type: text
+    description: >-
+      1 @UUID[Compendium.air-bladder.monsters.Actor.IXxn817B5SFZf6qm]{Cyclops}
+      (pg 35)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!vJCsgkmIwgGc0Ls2.AGUFLEHJAOFzo9DD'
+  - _id: 8mxVSBzKTVuRxDwA
+    type: text
+    description: >-
+      1 @UUID[Compendium.air-bladder.monsters.Actor.bmZBRmZ5ci84Eouu]{Banshee}
+      (pg 10)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!vJCsgkmIwgGc0Ls2.8mxVSBzKTVuRxDwA'
+  - _id: bVH8f7y5uDQr0N1n
+    type: text
+    description: >-
+      2d4 @UUID[Compendium.air-bladder.monsters.Actor.o1YZYLD04Frr7H9x]{Cave
+      Locusts} (pg 27)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!vJCsgkmIwgGc0Ls2.bVH8f7y5uDQr0N1n'
+  - _id: FTlLmgR95VKiumGu
+    type: text
+    description: >-
+      1d4 @UUID[Compendium.air-bladder.monsters.Actor.lHkthPHDYcegFU04]{Dire
+      Wolves} (pg 37)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!vJCsgkmIwgGc0Ls2.FTlLmgR95VKiumGu'
+  - _id: GBKKzFRwuLiLClRr
+    type: text
+    description: Herd Animal (Goats)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!vJCsgkmIwgGc0Ls2.GBKKzFRwuLiLClRr'
+  - _id: ZcY9umoHX2CmQF2k
+    type: text
+    description: >-
+      1d6 @UUID[Compendium.air-bladder.monsters.Actor.vilAIkfWFALYkkNP]{Wolves}
+      (pg 147)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 7
+      - 7
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!vJCsgkmIwgGc0Ls2.ZcY9umoHX2CmQF2k'
+  - _id: rRZFwwtWmPGeAwqu
+    type: text
+    description: >-
+      1d6 @UUID[Compendium.air-bladder.monsters.Actor.uLYRD40eBgzTuPKC]{Dwarves}
+      (pg 42)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 8
+      - 8
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!vJCsgkmIwgGc0Ls2.rRZFwwtWmPGeAwqu'
+  - _id: x0bm9GkH9yPoNnxw
+    type: text
+    description: >-
+      1d4 @UUID[Compendium.air-bladder.monsters.Actor.gZNwDJm20aKLCt2S]{Harpies}
+      (pg 78)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 9
+      - 9
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!vJCsgkmIwgGc0Ls2.x0bm9GkH9yPoNnxw'
+  - _id: jJU5BAo02ldO5aIW
+    type: text
+    description: >-
+      1 @UUID[Compendium.air-bladder.monsters.Actor.PeCa3OvEr7zjIE45]{Griffon}
+      (pg 77)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 10
+      - 10
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!vJCsgkmIwgGc0Ls2.jJU5BAo02ldO5aIW'
+  - _id: e604RBWE2F1gbJwX
+    type: text
+    description: >-
+      1d2 @UUID[Compendium.air-bladder.monsters.Actor.jgtycd2HoWTQEU5T]{Ogres}
+      (pg 105)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 11
+      - 11
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!vJCsgkmIwgGc0Ls2.e604RBWE2F1gbJwX'
+  - _id: YpsYy8q5dUL92V59
+    type: text
+    description: >-
+      1 @UUID[Compendium.air-bladder.monsters.Actor.iAygOSV2asxDBHxq]{Mountain
+      Lion} (use Tiger, pg 127)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 12
+      - 12
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!vJCsgkmIwgGc0Ls2.YpsYy8q5dUL92V59'
+  - _id: TAgNpLDJQA1iTwMH
+    type: text
+    description: >-
+      1 @UUID[Compendium.air-bladder.monsters.Actor.IBs0FSpebF0Xx74S]{Manticore}
+      (pg 95)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 13
+      - 13
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!vJCsgkmIwgGc0Ls2.TAgNpLDJQA1iTwMH'
+  - _id: spxZNf7lHpQnMiQn
+    type: text
+    description: >-
+      1 @UUID[Compendium.air-bladder.monsters.Actor.DKGif4NO4Jgu4qMc]{Red
+      Dragon} (pg 113)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 14
+      - 14
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!vJCsgkmIwgGc0Ls2.spxZNf7lHpQnMiQn'
+  - _id: VrKTpvCZsUDIayLt
+    type: text
+    description: >-
+      1 @UUID[Compendium.air-bladder.monsters.Actor.temXizg97jCmnoBj]{Roc} (pg
+      115)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 15
+      - 15
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!vJCsgkmIwgGc0Ls2.VrKTpvCZsUDIayLt'
+  - _id: 2OvvFPEkGAsjLW8g
+    type: text
+    description: >-
+      1 @UUID[Compendium.air-bladder.monsters.Actor.BI0XNm1nghvHmDXN]{Sky Giant}
+      (pg 123)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 16
+      - 16
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!vJCsgkmIwgGc0Ls2.2OvvFPEkGAsjLW8g'
+formula: 1d6 + 1d10
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+  systemVersion: 0.1.14
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!tables!vJCsgkmIwgGc0Ls2'
