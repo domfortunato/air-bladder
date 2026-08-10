@@ -24,26 +24,16 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 
 ## Key Features
 
-- Random or manual generation of characters from Cairn 2e, **Custom Cairn 2e**, and Cairn Barebones backgrounds — The Warden can toggle each source on or off
-- [Monster Generator](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-monsters.md)
-- [Faction Generator](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-factions.md)
-- [Encounter Tables](https://github.com/domfortunato/air-bladder/blob/master/docs/encounter-tables.md) — roll terrain encounters and add them to the scene with one click, or build your own tables by typing the dice and dragging the monster in
-- .json character import from the Official Cairn app, [Kettlewright!](https://kettlewright.com/)
-- Optional homebrew features that mix 2e features with Barebones
-- **Optional GLOG Magic** — the official [GLOG Magic](https://cairnrpg.com/hacks/glog-magic/) hack behind a Warden switch: spells live on scrolls, a found Grimoire binds them into pages, casting invests 1–4 Magic Dice and writes the rolled values into the spell's own text, and doubles draw a Mishap — with all 100 GLOG spells shipped as a compendium
-- Custom 2e backgrounds — seven class backgrounds ship in the **Backgrounds (Custom)** compendium, and you can [create and lint your own](https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md) alongside them, then [share them across worlds](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md)
-- Random or manual generation of NPCs, hired or not
-- Character Sheet tooltips for players
-- Pop-out Character Sheets! Yes, we're fully on AppV2 — ready for v16, when Foundry removes the V1 framework
-- **Printable character sheets** — print the whole character to one page: stats, inventory, background, bonds and omen
-- Marketplace and containers; horses, carts, wagons, chests, and ITEM PILES!
-- Warden-facing roll tables!
-- [Supplied macros](https://github.com/domfortunato/air-bladder/blob/master/docs/supplied-macros.md) — four Warden switches for the hotbar: flip the change log, player PC generation, the marketplace, or player randomization without a trip into Game Settings
-- A gallery of 80 CC BY 4.0 character portraits with matching icons by [Jon Aspeheim](https://jonaspeheim.itch.io/)
-- A gallery of 368 CC BY-SA 4.0 black-and-white creature & NPC tokens by [tlomdev](https://tlomdev.itch.io/), including the Kettlewright portrait set — an imported Kettlewright character keeps its face
-- A gallery of 17 monsters drawn for Air Bladder by [Lydia Comer](https://linktr.ee/lydiadidmyink), each a portrait paired with its own token
-- Minimal automation; with buttons for rest, restoring abilities, panicked and critical damage
-- Impaired and Enhanced damage rolls — pick one when you roll, and the card says which it was. A panicked character rolls impaired automatically
+- Random or manual character generation from Cairn 2e, **Custom Cairn 2e**, and Cairn Barebones backgrounds — each source toggles on or off
+- [Monster](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-monsters.md) and [Faction](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-factions.md) generators, [Encounter Tables](https://github.com/domfortunato/air-bladder/blob/master/docs/encounter-tables.md) with one-click Add to Scene, and more Warden-facing roll tables
+- Character import from the official Cairn app, [Kettlewright](https://kettlewright.com/)
+- **Optional GLOG Magic** — the official [GLOG hack](https://cairnrpg.com/hacks/glog-magic/) behind a Warden switch: cast from a found Grimoire with 1–4 Magic Dice, the rolled values written into the spell text, Mishaps on doubles — all 100 spells included
+- Custom 2e backgrounds — seven ship in the **Backgrounds (Custom)** compendium; [create and lint your own](https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md), then [share them across worlds](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md)
+- Pop-out and **printable** character sheets — print the whole character to one page
+- [Supplied macros](https://github.com/domfortunato/air-bladder/blob/master/docs/supplied-macros.md) — four Warden switches for the hotbar, no trip into Game Settings
+- Three portrait-picker galleries: 80 character portraits by [Jon Aspeheim](https://jonaspeheim.itch.io/), 368 creature & NPC tokens by [tlomdev](https://tlomdev.itch.io/) (an imported Kettlewright character keeps its face), and 17 monsters drawn for Air Bladder by [Lydia Comer](https://linktr.ee/lydiadidmyink)
+- Minimal automation — buttons for rest, restoring abilities, panic and critical damage
+- Impaired and Enhanced damage rolls — pick one when you roll; a panicked character rolls impaired automatically
 
 ## Screenshots
 

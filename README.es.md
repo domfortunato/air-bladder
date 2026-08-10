@@ -55,26 +55,16 @@ Air Bladder es un sistema complementario amigable, no el sistema oficial de Cair
 
 ## Características principales
 
-- Generación aleatoria o manual de personajes a partir de trasfondos de Cairn 2e, **Cairn 2e personalizado** y Cairn Barebones — el Guardián puede activar o desactivar cada fuente
-- [Generador de monstruos](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-monsters.md)
-- [Generador de facciones](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-factions.md)
-- [Tablas de encuentros](https://github.com/domfortunato/air-bladder/blob/master/docs/encounter-tables.md) — tira encuentros por terreno y añádelos a la escena con un clic, o crea tus propias tablas escribiendo los dados y arrastrando el monstruo
-- Importación de personajes en `.json` desde la aplicación oficial de Cairn, ¡[Kettlewright!](https://kettlewright.com/)
-- Funciones caseras (*homebrew*) opcionales que mezclan características de 2e con Barebones
-- **Magia GLOG opcional** — el hack oficial [GLOG Magic](https://cairnrpg.com/hacks/glog-magic/) tras un interruptor del Guardián: los conjuros viven en pergaminos, un grimorio encontrado los encuaderna como páginas, lanzar invierte de 1 a 4 dados de magia y escribe los valores obtenidos en el propio texto del conjuro, y los dobles sacan un percance — con los 100 conjuros GLOG incluidos como compendio
-- Trasfondos de 2e personalizados — el sistema incluye siete trasfondos de clase en el compendio **Backgrounds (Custom)**, y puedes [crear y revisar los tuyos](https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md) junto a ellos y después [compartirlos entre mundos](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md)
-- Generación aleatoria o manual de PNJ, contratados o no
-- Ayudas contextuales en la hoja de personaje para los jugadores
-- ¡Hojas de personaje desacoplables! Sí, ya estamos completamente en AppV2: listos para la v16, cuando Foundry retire el marco de trabajo V1
-- **Hojas de personaje imprimibles** — imprime el personaje entero en una página: características, inventario, trasfondo, vínculos y augurio
-- Mercado y contenedores; caballos, carros, carretas, cofres y ¡PILAS DE OBJETOS!
-- ¡Tablas de tiradas orientadas al Guardián!
-- [Macros incluidas](https://github.com/domfortunato/air-bladder/blob/master/docs/supplied-macros.md) — cuatro interruptores del Guardián para la barra de macros: activa o desactiva el registro de cambios, la generación de PJ por los jugadores, el mercado o la aleatorización para los jugadores sin pasar por la configuración del juego
-- Una galería de 80 retratos de personaje con sus iconos a juego, con licencia CC BY 4.0, de [Jon Aspeheim](https://jonaspeheim.itch.io/)
-- Una galería de 368 tokens de criaturas y PNJ en blanco y negro, con licencia CC BY-SA 4.0, de [tlomdev](https://tlomdev.itch.io/), que incluye el juego de retratos de Kettlewright: un personaje importado de Kettlewright conserva su rostro
-- Una galería de 17 monstruos dibujados para Air Bladder por [Lydia Comer](https://linktr.ee/lydiadidmyink), cada uno con un retrato emparejado con su propio token
-- Automatización mínima; con botones para descansar, restaurar características, pánico y daño crítico
-- Tiradas de daño mermadas y potenciadas — elige una al tirar, y la tarjeta indica cuál fue. Un personaje con pánico tira mermado automáticamente
+- Generación aleatoria o manual de personajes a partir de trasfondos de Cairn 2e, **Cairn 2e personalizado** y Cairn Barebones — cada fuente se activa o desactiva
+- Generadores de [monstruos](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-monsters.md) y [facciones](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-factions.md), [tablas de encuentros](https://github.com/domfortunato/air-bladder/blob/master/docs/encounter-tables.md) con añadir a la escena en un clic, y más tablas de tiradas orientadas al Guardián
+- Importación de personajes desde la aplicación oficial de Cairn, [Kettlewright](https://kettlewright.com/)
+- **Magia GLOG opcional** — el [hack GLOG](https://cairnrpg.com/hacks/glog-magic/) oficial tras un interruptor del Guardián: lanza desde un grimorio encontrado con 1–4 dados de magia, los valores obtenidos se escriben en el texto del conjuro, percances con dobles — los 100 conjuros incluidos
+- Trasfondos de 2e personalizados — siete se incluyen en el compendio **Backgrounds (Custom)**; [crea y revisa los tuyos](https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md) y [compártelos entre mundos](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md)
+- Hojas de personaje desacoplables e **imprimibles** — imprime el personaje entero en una página
+- [Macros incluidas](https://github.com/domfortunato/air-bladder/blob/master/docs/supplied-macros.md) — cuatro interruptores del Guardián para la barra de macros, sin pasar por la configuración del juego
+- Tres galerías del selector de retratos: 80 retratos de personaje de [Jon Aspeheim](https://jonaspeheim.itch.io/), 368 tokens de criaturas y PNJ de [tlomdev](https://tlomdev.itch.io/) (un personaje importado de Kettlewright conserva su rostro) y 17 monstruos dibujados para Air Bladder por [Lydia Comer](https://linktr.ee/lydiadidmyink)
+- Automatización mínima — botones para descansar, restaurar características, pánico y daño crítico
+- Tiradas de daño mermadas y potenciadas — elige una al tirar; un personaje con pánico tira mermado automáticamente
 
 ## Capturas de pantalla
 
