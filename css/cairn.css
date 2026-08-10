@@ -94,6 +94,20 @@
     --ab-whisper-bg: #ece7d8;
     --ab-whisper-border: #8a8172;
     --ab-whisper-stripe: #12a3b4;   /* = light --ab-accent, pinned */
+
+    /* The GLOG tag on cast cards: the Die of Fate glow recast in violet --
+       magic gets its own colour beside the teal (a choice you make) and the
+       error red (a consequence). Chat-only, so PINNED like the whisper tokens
+       above: the tile is parchment in both themes and the colour follows the
+       tile, not the theme. */
+    --ab-glog: #8a2be2;
+
+    /* The whisper's Add-N-Fatigue button glows in the teal Fatigue wears in
+       the inventory (.fatigue-row's --ab-accent), so the button and the rows
+       it mints share a colour (user ask, 2026-08-10). Chat-only, so pinned at
+       the LIGHT accent for the same reason as the stripe: the dark-theme teal
+       washes out on a tile that is parchment in both themes. */
+    --ab-fatigue-chat: #12a3b4;
 }
 
 /* Dark scheme.
@@ -419,13 +433,14 @@
  * Portrait and name section.                                                 * 
  ******************************************************************************/
 
-/* Scoped under .cairn (review #9): these four class names are live CORE
+/* Scoped under .cairn (review #9): these class names are live CORE
    vocabulary — .description styles every RollTable draw card and the Scene
-   sidebar's placeable entries, .portrait and .features are equally generic —
+   sidebar's placeable entries, .portrait is equally generic —
    and Foundry's layer order (`system` after `applications`, foundry2.css:5)
    means an unscoped system rule beats core's own regardless of specificity.
    Unscoped, these stacked every placeables-sidebar row vertically and
-   restyled every table-draw card in the world. */
+   restyled every table-draw card in the world. (.features was the fourth name
+   here until the Features UI went, 2026-08-09.) */
 .cairn .portrait {
     border: 2px solid var(--ab-line);
     border-radius: 5px;
@@ -946,15 +961,15 @@
     height: 100%;
 }
 
-/* One heading style for the labelled sections on a Description tab: the
-   Features list header (both sheets) and the NPC's description label. It has to
+/* One heading style for a labelled section on a Description tab — the NPC's
+   description label is the caller left (the Features list header shared it
+   until the Features UI went, 2026-08-09). It has to
    be stated on the heading ELEMENT, not inherited -- core's
    `body.game .app h1,...,h6` (foundry2.css, the V1 compatibility layer) targets
    the tag directly, so the `!important` font-family on `.cairn-items-list-header`
-   below never reaches an <h3> inside it. Left to core, Features rendered 28px
-   Signika beside a 17px small-caps Alegreya label.
-   Typography only -- no border. Each caller draws its own rule line: the list
-   header on its wrapper, the NPC label on itself. */
+   below never reaches an <h3> inside it. Left to core, such a heading renders
+   28px Signika beside the sheet's 17px small-caps Alegreya labels.
+   Typography only -- no border; the NPC label draws its own rule line. */
 .cairn-section-label {
     font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
     font-variant: small-caps;
@@ -1076,7 +1091,6 @@
     grid-template-rows: 46px 36px 36px 36px 36px 1fr;
 }
 
-.spellbook.item-sheet-grid,
 .background.item-sheet-grid {
     grid-template-rows: 46px 36px 46px 1fr;
 }
@@ -1087,27 +1101,50 @@
     grid-row-end: 6;
 }
 
-.spellbook.item-sheet-grid .item-sheet-section-tabs,
 .background.item-sheet-grid .item-sheet-section-tabs {
     grid-row-start: 4;
     grid-row-end: 4;
 }
 
-/* A scroll shows one counter more than a book (its remaining use), which makes FIVE
-   — an odd number, so the fifth lands alone on a third counter row. Row counts in
-   this file are hand-declared per item type and the tabs section is pinned to a
-   numbered row, so a new counter needs both a new row and the tabs moved down.
-   Without this the extra counter auto-places into an IMPLICIT row beneath the tabs:
-   measured 2026-07-29 with Quantity at y=676 of a 720px grid, off the bottom of the
-   window and hit-tested to the canvas. It was in the DOM, so the region count still
-   looked right. */
-.spellbook.item-sheet-grid.has-scroll-uses {
+/* The spellbook split off .background when the GLOG checkbox became its fifth
+   counter (a scroll's Uses makes six). Counters auto-place two per row, so five
+   and six both need THREE counter rows — one template covers book and scroll
+   alike, which is also why the old `.has-scroll-uses` variant (a conditional
+   class the template computed) is gone: there is nothing left to vary.
+   Row counts in this file are hand-declared per item type and the tabs section
+   is pinned to a numbered row, so a new counter needs both a new row and the
+   tabs moved down. Without that the extra counter auto-places into an IMPLICIT
+   row beneath the tabs: measured 2026-07-29 with Quantity at y=676 of a 720px
+   grid, off the bottom of the window and hit-tested to the canvas. It was in
+   the DOM, so the region count still looked right. */
+.spellbook.item-sheet-grid {
     grid-template-rows: 46px 36px 46px 36px 1fr;
 }
 
-.spellbook.item-sheet-grid.has-scroll-uses .item-sheet-section-tabs {
+.spellbook.item-sheet-grid .item-sheet-section-tabs {
     grid-row-start: 5;
     grid-row-end: 5;
+}
+
+/* The plain-item sheet grew its own variant when the Grimoire checkbox became
+   its 11th counter (page capacity makes 12): rows 2-6 hold ten counters beside
+   the portrait, so the sixth counter row here is what keeps numbers 11 and 12
+   out of an implicit row under the tabs — the same measured failure the
+   spellbook block above records. */
+.plain-item.item-sheet-grid {
+    grid-template-rows: 46px 36px 36px 36px 36px 36px 36px 1fr;
+}
+
+.plain-item.item-sheet-grid .item-sheet-section-tabs {
+    grid-row-start: 8;
+    grid-row-end: 8;
+}
+
+/* A bound page's row sits indented under its Grimoire — the grouping is done in
+   the sheet context (pages re-inserted after the book's row); this is only the
+   visual step that says "these belong to that". */
+.cairn-items-list-row.grimoire-page {
+    margin-left: 18px;
 }
 
 .small-resource-label {
@@ -1186,12 +1223,6 @@
 .cairn .description {
     display: flex;
     flex-direction: column;
-}
-
-.cairn .features {
-    max-height: 150px;
-    overflow: auto;
-    margin-bottom: 16px;
 }
 
 /******************************************************************************
@@ -1274,6 +1305,18 @@
     pointer-events: none;
 }
 
+/* The encounter card's "Add to scene" (module/encounters.js), under the drawn
+   rows. Spent mirrors .apply-dmg's reasoning above; the refusal itself is the
+   message stamp, this is only the affordance. */
+.chat-message .encounter-spawn {
+    margin-top: 6px;
+}
+
+.chat-message .encounter-spawn.spent {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
 /* The creature being attacked, inside the attack sentence (user ask,
    2026-08-07): "Lisbeth attacks Feathered Carapace Creature with Crossbow!" runs
    as one flat line, so the thing being hit is no easier to find than the
@@ -1329,6 +1372,40 @@
     text-align: center;
     margin: 8px 0 4px;
     text-shadow: 0 0 8px var(--color-level-error, #ce0707);
+}
+
+/* The "GLOG" word opening the flavor line of every GLOG cast card (the public
+   card and the caster's whisper, module/grimoire.js): each card names its
+   system, lit with the Die of Fate treatment (#die-of-fate-button) in the
+   magic violet (user ask, 2026-08-10). */
+.chat-message .glog-flavor-tag {
+    font-weight: 700;
+    text-shadow: 0 0 8px var(--ab-glog);
+}
+
+/* A dice-resolved value inside a cast card's effect text ([sum]/[dice]/[dado]
+   and their arithmetic, resolveSpellText in module/grimoire.js): bold with a
+   dotted underline in the GLOG violet, the tooltip affordance — hovering
+   shows the authored expression behind the number (user ask, 2026-08-10).
+   Bold alone would read as emphasis the author wrote; the dotted line says
+   "computed, hover me". Same pinned token as the tag above: chat tiles are
+   parchment in both themes. */
+.chat-message .grimoire-resolved {
+    font-weight: 700;
+    text-decoration: underline dotted var(--ab-glog);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+}
+
+/* The Add-N-Fatigue button on the cast whisper: Foundry's default button
+   chrome (the Die of Fate rule's shape) with the inventory fatigue-row glow
+   on it -- the same teal on the control that mints those rows, so cause and
+   effect share a colour (user ask, 2026-08-10). Text AND box glow, matching
+   .fatigue-row's pair. */
+.chat-message .grimoire-add-fatigue {
+    font-weight: bold;
+    box-shadow: 0 0 8px var(--ab-fatigue-chat);
+    text-shadow: 0 0 8px var(--ab-fatigue-chat);
 }
 
 /* The character-generation card: HP / STR / DEX / WIL / Gold, one "LABEL: value"
@@ -2782,7 +2859,7 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     grid-template-rows: repeat(3, 36px);
 }
 
-/* Description tab: the Features list, then a labelled description editor. The
+/* Description tab: a labelled description editor. The
    heading exists so the single remaining editor reads as the description rather
    than as a second, unlabelled notes box (the Notes tab owns free-form notes). */
 .cairn-npc-sheet .npc-description-section {
@@ -2792,7 +2869,7 @@ ol.combat-tracker li.combatant.cairn-drop-below {
 }
 
 /* Typography comes from `.cairn-section-label`; this adds only the rule line
-   under it, which the Features header gets from its own wrapper instead. */
+   under it. */
 .cairn-npc-sheet .npc-description-label {
     border-bottom: 1px solid var(--ab-rule);
     margin: 0 0 4px 0;

@@ -21,14 +21,12 @@
  *      survives.
  *   6. Name re-roll changes the name and leaves the statblock alone.
  *   7. Render the sheet and check the merged NPC layout: a Description tab exists,
- *      Features show there even with the world setting OFF, that tab holds exactly
- *      ONE editor (the description -- notes belong on the Notes tab), the portrait
- *      opens the picker, and no checkbox is left on Foundry's own styling.
- *   7b. CLICK those controls, because a present `data-action` proves only that the
- *      attribute is there: the portrait must really open the gallery, Add Feature
- *      must really open its dialog, and a feature must round-trip through
- *      system.features and appear on the tab. Both feature dialogs are answered
- *      rather than dismissed -- see the notes inline, each cost a hung run.
+ *      NO Features section renders there (the Features UI went 2026-08-09 —
+ *      asserted against planted stored data, which must survive), that tab holds
+ *      exactly ONE editor (the description -- notes belong on the Notes tab), the
+ *      portrait opens the picker, and no checkbox is left on Foundry's own styling.
+ *   7b. CLICK the portrait, because a present `data-action` proves only that the
+ *      attribute is there: it must really open the gallery.
  *   8. NPC-role sheet parity (2026-08-01): a generated NPC arrives with pronouns,
  *      an age and eight traits; all of them — plus scarEnabled and a picked scar —
  *      ROUND-TRIP through the real sheet (written via the form, read off the
@@ -200,12 +198,11 @@ try {
 
     // 7. The sheet itself renders (the probe above is all data; a template typo
     //    would sail straight through it).
-    //    Force the features world setting OFF first. The character sheet hides its
-    //    Features list when this is off; a non-player sheet must NOT, because a
-    //    monster's attacks are its statblock rather than an optional extra. Left at
-    //    whatever the world happens to hold, that assertion passes for the wrong
-    //    reason. Restored from Node by withSettings, so a throw here cannot leak it.
-    await game.settings.set("air-bladder", "show-features-section", false);
+    //    Plant a STORED feature first: the Features UI is gone (2026-08-09) and
+    //    the absence assertion below is only load-bearing against data — an
+    //    empty list renders nothing whichever way the removal went. The planted
+    //    record must also SURVIVE, because the field stays declared on purpose.
+    await actor.update({ "system.features": [{ id: "zznpcft1", name: "ZZ NPC Stored Feature", description: "kept" }] });
     await actor.sheet.render(true);
     for (let i = 0; i < 40 && !(actor.sheet.element instanceof HTMLElement); i++) {
       await new Promise((res) => setTimeout(res, 100));
@@ -240,12 +237,12 @@ try {
       // that merge.
       hasDescriptionTab: [...(node?.querySelectorAll?.("nav .item") ?? [])]
         .some((t) => t.dataset.tab === "description"),
-      // Features are ALWAYS on for a non-player actor -- a monster's attacks are
-      // its statblock, so they must not sit behind the world setting the character
-      // sheet gates them with. Assert against the setting turned OFF, or the check
-      // passes for the wrong reason in a world that happens to have it on.
-      featuresSettingOff: !game.settings.get("air-bladder", "show-features-section"),
-      hasFeatures: !!node?.querySelector?.('[data-tab="description"] .feature-create'),
+      // The Features UI is GONE (2026-08-09): no section, no Add control,
+      // anywhere on the sheet — while the actor demonstrably STORES one.
+      featuresAbsent: !node?.querySelector?.(".features")
+        && !node?.querySelector?.(".feature-create")
+        && !node?.querySelector?.(".cairn-feature-title"),
+      featuresStored: actor.system.features?.length ?? 0,
       // Exactly ONE editor on Description (the description) and one on Notes.
       // There were two here: an always-true `showBio` guard put an unlabelled
       // biography box above the description.
@@ -280,54 +277,10 @@ try {
     }
     await settle(300);
 
-    // Add Feature -> a feature record on the actor, then remove it again. Features
-    // live in system.features (an ArrayField), not as embedded Items, so a handler
-    // that assumed `character` would fail here and nowhere else.
-    //
-    // Add Feature opens a DialogV2 PROMPT: nothing is created until OK is pressed,
-    // and the name must be non-blank. A first version of this check clicked the
-    // control, dismissed the dialog and reported a bug that was not there.
-    //
-    // Split in two deliberately. The CLICK is checked as far as "the dialog opened",
-    // and no further: driving DialogV2's OK from inside page.evaluate hung the run,
-    // and the dialog is shared with the character sheet and covered by dev:dialogs.
-    // What is specific to an NPC is the STORAGE — features are an ArrayField on
-    // system.features, not embedded Items — so the round trip is exercised through
-    // the same method the dialog's callback calls.
-    const beforeFeatures = actor.system.features?.length ?? 0;
-    node?.querySelector('[data-tab="description"] .feature-create')?.click();
-    await settle(700);
-    const dlg = [...foundry.applications.instances.values()]
-      .find((a) => a.element?.querySelector?.('[name="itemname"]'));
-    live.featureDialogOpened = !!dlg;
-    if (dlg) await dlg.close();
-    await settle(300);
-
-    await actor.createOwnedFeature({ name: "PROBE Feature", description: "probe", str: true });
-    live.featureAdded = (actor.system.features?.length ?? 0) === beforeFeatures + 1;
-    const added = actor.system.features?.find((f) => f.name === "PROBE Feature");
-    // Only meaningful if one was actually created -- otherwise "the count matches"
-    // is true because nothing ever happened.
-    if (added) {
-      // It must also REACH the sheet: the list is rendered from the same array, and
-      // a Description tab that dropped the partial would still pass the count check.
-      await actor.sheet.render(false);
-      await settle(500);
-      const n2 = actor.sheet.element instanceof HTMLElement ? actor.sheet.element : actor.sheet.element?.[0];
-      live.featureShown = [...(n2?.querySelectorAll?.('[data-tab="description"] .cairn-feature-title') ?? [])]
-        .some((t) => t.textContent.includes("PROBE Feature"));
-      // deleteOwnedFeature asks "Delete <name>?" through a MODAL DialogV2.confirm,
-      // so awaiting it directly waits forever for a click that never comes -- which
-      // is exactly how this probe hung. Kick it off, answer the dialog, then await.
-      const deletion = actor.deleteOwnedFeature(added.id);
-      await settle(600);
-      const confirmDlg = [...foundry.applications.instances.values()]
-        .find((a) => a.element?.querySelector?.('button[data-action="yes"]'));
-      live.deleteConfirmed = !!confirmDlg;
-      confirmDlg?.element.querySelector('button[data-action="yes"]').click();
-      await deletion;
-      live.featureRemoved = (actor.system.features?.length ?? 0) === beforeFeatures;
-    }
+    // The Add Feature click, the createOwnedFeature round trip and the
+    // deleteOwnedFeature confirm were exercised here until the Features UI
+    // went (2026-08-09) — control, dialog and document methods all removed.
+    // The absence half lives in `sheet.featuresAbsent`/`featuresStored` above.
 
     // 7c. The shared confirmations must address an NPC, not a player's character.
     //      Deprived/Panicked/Rest/Restore all come from the character sheet, where
@@ -593,11 +546,12 @@ try {
     r.sheet.hasProfession && r.sheet.hasDayRate ? ok("sheet shows the Profession and Day Rate fields") : fail("sheet is missing the Profession/Day Rate fields");
     r.sheet.hasDescriptionTab ? ok("has a Description tab (one merged non-player sheet, so monster prose stays reachable)") : fail("no Description tab — monster/NPC description text would be unreachable");
 
-    r.sheet.featuresSettingOff
-      ? (r.sheet.hasFeatures
-        ? ok("Features show on Description with the world setting OFF (a statblock is not optional)")
-        : fail("Features are missing from the Description tab — they must not follow the character sheet's world setting"))
-      : fail("could not force show-features-section off, so the Features check would prove nothing");
+    r.sheet.featuresAbsent
+      ? ok("no Features section anywhere on the sheet (UI removed 2026-08-09, asserted against planted data)")
+      : fail("a Features surface still renders — the removal did not reach the npc sheet");
+    r.sheet.featuresStored === 1
+      ? ok("the planted stored feature survives on the document (field kept, orphaned)")
+      : fail(`planted feature did not survive: system.features length ${r.sheet.featuresStored}`);
 
     JSON.stringify(r.sheet.descEditors) === JSON.stringify(["system.description"])
       ? ok("Description tab has exactly one editor, the description")
@@ -617,18 +571,6 @@ try {
     r.live.galleryOpened
       ? ok("clicking the portrait really opens the portrait gallery")
       : fail("clicking the portrait opened nothing");
-    r.live.featureDialogOpened
-      ? ok("Add Feature opens its dialog on an NPC")
-      : fail("Add Feature opened no dialog");
-    r.live.featureAdded
-      ? ok("createOwnedFeature stores a feature on an NPC")
-      : fail("createOwnedFeature stored nothing — system.features may be missing from NpcData");
-    // Vacuous unless something was created, so both are only reported in that case.
-    if (r.live.featureAdded) {
-      r.live.featureShown ? ok("the new feature appears on the Description tab") : fail("the feature was stored but the Description tab does not list it");
-      r.live.deleteConfirmed ? ok("deleting a feature asks for confirmation") : fail("no confirmation dialog appeared for a feature delete");
-      r.live.featureRemoved ? ok("the confirmed delete removes the feature") : fail("deleteOwnedFeature left the record behind");
-    }
 
     const w = r.words;
     const varied = ["deprivedQ", "deprivedTip", "panickedQ", "restQ", "restoreQ"]

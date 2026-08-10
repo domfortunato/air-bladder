@@ -104,7 +104,13 @@ const money = (initial = 0) => new fields.NumberField({ required: true, nullable
 const optInt = () =>
   new fields.NumberField({ required: false, integer: true, nullable: true, initial: null });
 
-const strList = () => new fields.ArrayField(new fields.StringField(), { required: true, initial: [] });
+// NO explicit `initial` — a required ArrayField supplies a FRESH [] on its own
+// (fields.mjs getInitialValue), whereas `initial: []` hands every document that
+// lacks the key the schema's ONE shared array BY REFERENCE, and ArrayField's
+// _updateCommit truncates-and-pushes it in place: the first write poisons the
+// initial for every other such document and every one made afterwards. Exactly
+// the by-reference trap actor.js documents for DocumentOwnershipField.
+const strList = () => new fields.ArrayField(new fields.StringField(), { required: true });
 
 /**
  * The eight 2e descriptive traits (Physique … Vice), one pick-list each on the
@@ -130,7 +136,9 @@ const traits = () => new fields.SchemaField({
  * d6 tables. ObjectField preserves whatever the generator and the importers put
  * there; over-specifying these is how fields go missing.
  */
-const objList = () => new fields.ArrayField(new fields.ObjectField(), { required: true, initial: [] });
+// No explicit `initial` — see strList above; the shared-reference poisoning is
+// identical for an ArrayField of ObjectFields.
+const objList = () => new fields.ArrayField(new fields.ObjectField(), { required: true });
 
 const valueMax = (initial) => new fields.SchemaField({
   value: int(initial),
@@ -240,6 +248,10 @@ class CharacterData extends CairnDataModel {
       armorOverride: optInt(),
       gold: purse(),
       slots: capacity(),
+      // ORPHANED since 2026-08-09 (user ruling): the Features UI went — nothing
+      // renders or writes this field any more — but it STAYS declared, so
+      // anything a Warden recorded survives on the document. `description`
+      // above is the precedent (orphaned on characters, kept declared).
       features: objList(),
       // NO `connectedTo` / `formerlyBelongedTo` HERE, and do not re-add them.
       // **A PC is never kept** (settled 2026-07-31, superseding Round 2's PC→PC
@@ -289,6 +301,8 @@ class NpcData extends CairnDataModel {
       armor: optInt(),
       gold: purse(),
       slots: capacity(),
+      // ORPHANED since 2026-08-09, same ruling as CharacterData's: the field
+      // stays so recorded data survives, but no UI reads or writes it.
       features: objList(),
       // --- folded in from the retired `hireling` type ---
       // OFF by default since 2026-08-02, same reasoning as CharacterData's.
@@ -562,6 +576,17 @@ class ItemData extends CairnDataModel {
       // and `item` types, and items-list.html renders the tag. No shipped item
       // carries a non-zero value, but a Warden's homebrew amulet can.
       armor: optInt(),
+      // A GLOG Grimoire (the official GLOG Magic hack, rebuilt 2026-08-09 as an
+      // ITEM after the npc-role book was ditched). A FLAG, not a type, by the
+      // relic argument above: the book is an ordinary bulky item that happens
+      // to hold spells, and a type could never be un-become. `grimoirePages`
+      // is the Warden-set page capacity the transmute flow enforces; it means
+      // nothing while `grimoire` is false, which is why it is not a shared
+      // field. At most ONE grimoire per character — enforced in CairnItem
+      // _preCreate and the drop handler, not here (schemas describe one
+      // document; the wall is a statement about the actor's whole inventory).
+      grimoire: bool(),
+      grimoirePages: int(10),
     };
   }
 }
@@ -598,10 +623,35 @@ class ArmorData extends CairnDataModel {
  *
  * `uses.value` stays free so a player can mark a scroll spent; only `max` is
  * pinned.
+ *
+ * `glog` marks the GLOG-format wording of a spell (the official GLOG Magic
+ * hack re-words the canon 100 to scale on [dice]/[sum]). A FLAG, not a type,
+ * by the same argument as `scroll` — a GLOG spell carries no data a spellbook
+ * does not, and it must COMPOSE with `scroll` because GLOG scrolls are real
+ * ("they work exactly the same as spells recorded in your Grimoire") — and
+ * not a second description field, because the GLOG text is usually different
+ * from canon but occasionally byte-identical (Sniff, Hear Whispers), so
+ * neither wording can be derived from the other: two documents, one flag
+ * each. No per-spell GLOG properties exist to store — the hack states range
+ * and duration once, page-wide ("[sum]×10 minutes", "40 feet"), and the
+ * [dice]/[sum] variables live inside the effect sentence, which stays prose
+ * (no automation of mechanical text).
  */
 class SpellbookData extends CairnDataModel {
   static defineSchema() {
-    return { ...universal(), ...consumable(), scroll: bool() };
+    return {
+      ...universal(),
+      ...consumable(),
+      scroll: bool(),
+      glog: bool(),
+      // A page BOUND into a carried Grimoire (transmuted spellbook or scroll).
+      // A flag by the same argument as `scroll` — a page carries no data a
+      // spellbook does not — and one-directional by ruling (2026-08-09, #12):
+      // binding is forever, so CairnItem._preUpdate strips any write that
+      // clears it. A bound page is weightless (PAGE_PINNED), never equippable,
+      // never a scroll, and travels with the Grimoire when the book moves.
+      bound: bool(),
+    };
   }
 }
 

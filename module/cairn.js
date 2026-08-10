@@ -8,6 +8,7 @@ import * as characterGenerator from "./character-generator.js";
 import { createMonster } from "./monster-generator.js";
 import * as monsterGenerator from "./monster-generator.js";
 import { generateFaction } from "./faction-generator.js";
+import { reseedSpellTable } from "./spell-tables.js";
 import { importKettlewrightCharacter } from "./kettlewright-import.js";
 import * as kettlewrightImport from "./kettlewright-import.js";
 import { Cairn } from "./config.js";
@@ -19,6 +20,8 @@ import { registerSettings, SETTINGS_NS, migrateSettingsNamespace } from "./setti
 import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS, deriveNpcRole } from "./data-models.js";
 import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName } from "./i18n-content.js";
+import { injectEncounterButton } from "./encounters.js";
+import { bindGrimoireFatigueButton } from "./grimoire.js";
 import { nameableTokens } from "./utils.js";
 
 Hooks.once("init", async function () {
@@ -1446,7 +1449,8 @@ Hooks.on("renderSettingsConfig", (app, element) => {
 
   // Barebones sub-options are meaningless unless Barebones character sheets are
   // offered, so grey them out (and disable them) while that master toggle is off.
-  const barebonesSubKeys = ["barebones-failed-career", "show-omens-barebones", "show-bonds-barebones"];
+  // Down to one carrier: the omen/bond lending settings were removed 2026-08-09.
+  const barebonesSubKeys = ["barebones-failed-career"];
   const barebonesToggle = root.querySelector(`[name="${SETTINGS_NS}.content-source-barebones"]`);
   const syncBarebonesSubs = () => {
     const on = !!barebonesToggle?.checked;
@@ -1947,9 +1951,43 @@ const showDamageApplied = (message, html, scene) => {
   row.append(line);
 };
 
+Hooks.on("renderRollTableDirectory", (app, html) => {
+  // Warden-only: reseed a world spell table from a compendium's index,
+  // update-in-place (module/spell-tables.js). Same injection rules as the
+  // Actor directory's row above: scope the injected-already test to THIS
+  // directory root — the popped-out window is a second, independent render.
+  if (!game.user.isGM) return;
+  if (html.querySelector(".cairn-reseed-spell-table")) return;
+  const dirHeader = html.querySelector(".directory-header");
+  if (!dirHeader) return;
+  const section = document.createElement("header");
+  section.classList.add("character-generator", "directory-header");
+  dirHeader.parentNode.insertBefore(section, dirHeader);
+  section.insertAdjacentHTML(
+    "afterbegin",
+    `<div class="header-actions action-buttons flexrow">
+      <button class="cairn-reseed-spell-table"><i class="fas fa-arrows-rotate"></i>${game.i18n.localize("CAIRN.ReseedSpellTable")}</button>
+    </div>`
+  );
+  section.querySelector(".cairn-reseed-spell-table")
+    .addEventListener("click", () => reseedSpellTable());
+});
+
 Hooks.on("renderChatMessageHTML", (message, html, data) => {
   // Display-only content overlay for RollTable draw cards (see above).
   localizeTableResults(html);
+
+  // A table-draw card whose drawn rows PARSE as encounters grows the Warden's
+  // "Add to scene" button (module/encounters.js). Injected per viewer, never
+  // stored — a player's copy has nothing to trim. Async, and deliberately not
+  // awaited: a pack-drawn table resolves through getDocument, and the hook
+  // chain must not stall on it; the button lands when it lands.
+  injectEncounterButton(message, html);
+
+  // The GLOG cast whisper's Add-N-Fatigue button (module/grimoire.js): wired
+  // per render, spent-state read from the message flag, ownership re-checked
+  // in the handler.
+  bindGrimoireFatigueButton(message, html);
 
   // Roll Str Save.
   //
@@ -2042,7 +2080,6 @@ const configureHandleBar = () => {
   const templatePaths = [
     "systems/air-bladder/templates/parts/items-list.html",
     "systems/air-bladder/templates/parts/container-list.html",
-    "systems/air-bladder/templates/parts/feature-list.html",
     "systems/air-bladder/templates/parts/bio-block.html",
   ];
 

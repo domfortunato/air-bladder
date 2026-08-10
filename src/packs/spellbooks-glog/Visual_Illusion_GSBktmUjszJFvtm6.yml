@@ -1,0 +1,28 @@
+_id: GSBktmUjszJFvtm6
+name: Visual Illusion
+type: spellbook
+img: systems/air-bladder/icons/spellscroll.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: glog-spells
+system:
+  cost: 0
+  description: <p>A silent, immobile, illusion of your choice appears, up to the size of a bedroom.</p>
+  weightless: true
+  equipped: false
+  bulky: false
+  quantity: 1
+  scroll: true
+  glog: true
+  uses:
+    value: 1
+    max: 1
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!GSBktmUjszJFvtm6'

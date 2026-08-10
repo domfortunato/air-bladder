@@ -111,8 +111,10 @@ const htmlPaths = (schema, prefix = "") => {
  * So this refuses rather than reports a missing declaration. The recipe for a
  * channel the manifest cannot cover is to clean at the SINK with core's own
  * cleaner — `foundry.utils.cleanHTML`, which is what `cleanDescription` in
- * `module/utils.js` does for `features[]`, the ArrayField(ObjectField) that was
- * a live player→GM XSS until f674730. `dev:feature-xss` is that path's probe.
+ * `module/utils.js` did for `features[]`, the ArrayField(ObjectField) that was
+ * a live player→GM XSS until f674730. (The Features UI and its probe,
+ * `dev:feature-xss`, went 2026-08-09 — the field survives unrendered, so the
+ * sink is gone; cleanDescription and its history remain for the next one.)
  *
  * Latent today: no schema here declares an HTMLField under an array. It is
  * gated because the day one is added is the day the gate would otherwise go
@@ -414,6 +416,25 @@ for (const [type, cls] of Object.entries({ ...ACTOR_DATA_MODELS, ...ITEM_DATA_MO
       `system.json htmlFields, so the server will never sanitize it and this cross-check cannot see it. ` +
       `Clean at the sink with foundry.utils.cleanHTML instead (see cleanDescription in module/utils.js)`
     );
+  }
+}
+
+// The loop above iterates the DATA MODELS, so a subtype declared ONLY in the
+// manifest — never backed by a data model — is never visited, and a stray or
+// missing htmlFields on it stays invisible. Walk the other direction too: every
+// documentTypes subtype in system.json must map back to a model, or its
+// htmlFields are cross-checked by nothing. Every current subtype IS backed
+// (character/npc/hireling, every item type), so today this is future-proofing —
+// but a new manifest subtype whose model someone forgot would XSS through this
+// gate's blind spot.
+for (const [doc, subs] of Object.entries(manifest.documentTypes ?? {})) {
+  for (const type of Object.keys(subs)) {
+    if (DOC_OF[type] !== doc) {
+      problems.push(
+        `system.json documentTypes.${doc}.${type} has no matching data model ` +
+        `(ACTOR_DATA_MODELS/ITEM_DATA_MODELS) — its htmlFields, if any, are checked by nothing`
+      );
+    }
   }
 }
 

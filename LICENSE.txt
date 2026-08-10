@@ -55,6 +55,15 @@ Game text — CC BY-SA 4.0, © Yochai Gal
     (Perplexing Ruins, Jeff Koch) IS NOT COVERED by its text licence and none
     of it ships here. ShareAlike is not waived.
 
+GLOG Magic — CC BY-SA 4.0
+    https://creativecommons.org/licenses/by-sa/4.0/
+    The 100 spells in the Spellbooks (GLOG) compendium, transcribed verbatim
+    from the official Cairn GLOG Magic hack's spell list
+    (https://cairnrpg.com/hacks/glog-spells/, with the rules at
+    https://cairnrpg.com/hacks/glog-magic/), whose pages state the CC BY-SA
+    4.0 licence. [dice] and [sum] are the hack's casting variables and are
+    part of the text. ShareAlike is not waived.
+
 Spanish translation — CC BY-SA 4.0, © Malecho (https://github.com/fsmalecho)
     https://creativecommons.org/licenses/by-sa/4.0/
     lang/es.json (interface) and lang/content/es.json (game content) — the
@@ -88,6 +97,10 @@ Character portraits and tokens — CC BY 4.0, © Jon Aspeheim
     https://jonaspeheim.itch.io/lemurs-portraits
     Redistribution is fine; attribution is required. Keep the credit if the art
     ships. The artist states these were created without AI.
+    MODIFIED: the source ships 1000×1000 PNG portraits and no tokens. The
+    portraits/ half is re-encoded to WebP at the same size; the tokens/ half is
+    derived from those portraits — cropped and downscaled to 256×256 for the
+    canvas. This is the indication CC BY 4.0 §3(a)(1)(B) requires.
     See art/jon-aspeheim/license.txt.
 
 game-icons.net art — CC BY 3.0

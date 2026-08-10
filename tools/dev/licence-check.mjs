@@ -348,18 +348,27 @@ lydiaProblems.length === 0
 // review note. The three sites checked are the generated notice itself and the
 // two canonical surfaces that must point at it (README is canonical over
 // LICENSE.txt, so both carry it).
+// Aspeheim rides the same rule (2026-08-10): CC BY 4.0 carries the identical
+// §3(a)(1)(B) indication requirement, and its modification is LARGER than
+// tlomdev's — the itch source ships portraits-only PNG, so the tokens/ half is
+// a DERIVATIVE (cropped + downscaled to 256×256), not just a re-encode. No
+// generated CREDITS.md here, so the two canonical surfaces (LICENSE.txt,
+// README.md) carry it and are gated; README.es.md mirrors it ungated, as
+// tlomdev's does.
 const MOD_SITES = [
   ["art/tlomdev/CREDITS.md", /## Modifications[\s\S]*re-encoded from PNG to WebP \(quality 95\)/],
   ["LICENSE.txt", /re-encoded from\s+PNG to WebP \(quality 95\)[\s\S]*?art\/tlomdev\/CREDITS\.md/],
   ["README.md", /Modified: re-encoded from PNG to WebP \(quality 95\)[\s\S]*?art\/tlomdev\/CREDITS\.md/],
+  ["LICENSE.txt", /MODIFIED: the source ships 1000×1000 PNG portraits and no tokens[\s\S]*?cropped and downscaled to 256×256/],
+  ["README.md", /Modified: the source ships 1000×1000 PNG portraits and no tokens[\s\S]*?256×256 for the canvas/],
 ];
 let modMissing = 0;
 for (const [file, pattern] of MOD_SITES) {
   if (pattern.test(read(file))) continue;
-  fail(`${file}: the tlomdev CC BY-SA modification indication is missing or reworded (${pattern})`);
+  fail(`${file}: a CC BY §3(a)(1)(B) modification indication is missing or reworded (${pattern})`);
   modMissing++;
 }
-if (!modMissing) ok(`the tlomdev §3(a)(1)(B) modification indication is present at all ${MOD_SITES.length} sites`);
+if (!modMissing) ok(`the §3(a)(1)(B) modification indications (tlomdev, Aspeheim) are present at all ${MOD_SITES.length} sites`);
 
 console.log(`\n${failed ? "LICENCE CHECK FAILED" : "Licence check passed."}`);
 process.exit(failed ? 1 : 0);

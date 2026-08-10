@@ -20,8 +20,11 @@
  *   5. The Merchant's wagon and the Peddler's cart are CONTAINER ACTORS, not
  *      items — the fork could not grant these at all.
  *   6. The armor "None" row buys a second Additional Gear roll instead.
- *   7. The bond setting REPLACES the Additional Gear step rather than adding to
- *      it, so the inventory cannot overflow.
+ *   7. Barebones generation NEVER mints a bond — the show-bonds-barebones
+ *      lending setting is retired (2026-08-09): no bond record, no
+ *      bond-tagged item, no Add-a-bond link (entitlement 0) — while a legacy
+ *      lent bond PLANTED on the document still displays. Data survives the
+ *      retirement; only the minting is gone.
  * Exits non-zero on any failed assertion or console error.
  */
 
@@ -180,13 +183,10 @@ try {
     //    deliberately untagged, and a background-granted weapon was subtracted
     //    both as a startingGear reference and as a weapon. Counting nothing is
     //    the fix.
-    //    The bond setting is forced OFF here rather than inherited: with bonds on,
-    //    step 6 is skipped entirely and this measures nothing. An interrupted run
-    //    of THIS probe once left the setting on in the dev world and the failure
-    //    looked exactly like a generation bug.
-    const bondsWere = game.settings.get("air-bladder", "show-bonds-barebones");
-    await game.settings.set("air-bladder", "show-bonds-barebones", false);
-
+    //    (This leg once had to force the bond-lending setting OFF first — with
+    //    bonds on, step 6 was skipped and it measured nothing, and a leaked
+    //    setting from an interrupted run looked exactly like a generation bug.
+    //    The setting is retired (2026-08-09); step 6 always runs now.)
     const step6Bg = bgs.find((b) => b.name === "Beadle");   // fixed: gear is 3 plain items
     let armored = null, unarmored = null, tries = 0;
     for (; tries < 60 && (armored === null || unarmored === null); tries++) {
@@ -197,44 +197,30 @@ try {
     }
     const step6 = { armored, unarmored, tries, balanced: armored !== null && armored === unarmored };
 
-    // 7. Bonds REPLACE the Additional Gear step rather than adding to it.
-    await game.settings.set("air-bladder", "show-bonds-barebones", true);
-    const bonded = await gen.generateBarebonesCharacter();
-    await game.settings.set("air-bladder", "show-bonds-barebones", bondsWere);
-    //    Two of the twenty bond results grant only gold and narrative, no item, so
-    //    "the bond granted a tagged item" is NOT a safe assertion — it fails one
-    //    run in ten. What must hold is that every item a bond DOES grant is tagged
-    //    with that bond's id, and that enabling bonds does not also roll step 6.
-    const bondItems = bonded.items.filter((i) =>
-      String(i.flags?.["air-bladder"]?.grantSource ?? "").startsWith("bond:"));
-    const bondId = (bonded.bonds ?? [])[0]?.id;
-    // Same fixed background, bonds off, for a like-for-like total.
-    await game.settings.set("air-bladder", "show-bonds-barebones", false);
-    const plain = await gen.generateBarebonesCharacter(step6Bg);
-    await game.settings.set("air-bladder", "show-bonds-barebones", true);
-    const bondedSame = await gen.generateBarebonesCharacter(step6Bg);
-    await game.settings.set("air-bladder", "show-bonds-barebones", bondsWere);
-    const bondedItems = bondedSame.items.filter((i) =>
-      String(i.flags?.["air-bladder"]?.grantSource ?? "").startsWith("bond:")).length;
-    const plainArmor = plain.items.some((i) => i.type === "armor") ? 1 : 0;
-    const bondedArmor = bondedSame.items.some((i) => i.type === "armor") ? 1 : 0;
+    // 7. Barebones generation NEVER mints a bond — the lending setting that
+    //    once let one REPLACE Step 6 is retired (2026-08-09). Data first: no
+    //    bond record, no bond-tagged item (Step 6 always running is the
+    //    invariant leg above). Then the sheet, on a real created actor: no
+    //    bonds section, no Add-a-bond link (entitlement 0) — while a legacy
+    //    lent bond PLANTED on the same document still displays and is not
+    //    deleted by any clamp. Data survives the retirement.
+    const bonded = await gen.generateBarebonesCharacter(step6Bg);
     const bonds = {
       count: (bonded.bonds ?? []).length,
-      hasGold: (bonded.bonds ?? []).every((b) => typeof b.gold === "number"),
-      allTagged: bondItems.every((i) => i.flags["air-bladder"].grantSource === `bond:${bondId}`),
-      // The bond REPLACES the Additional Gear roll: strip each side down to the
-      // background's base kit and the two must match. The plain side sheds ONE
-      // extra when armor was granted — but TWO when armor came up "None", because
-      // None buys a second Additional Gear roll (asserted by the step-6 leg
-      // above). The old `- 1 - plainArmor` form ignored that branch, so the
-      // assertion failed on dice — whenever the plain draw rolled None — while
-      // reading as "bonds did not replace step 6" (2026-08-04, pre-tag suite).
-      replaced:
-        (bondedSame.items.length - bondedItems - bondedArmor) ===
-        (plain.items.length - (plainArmor ? 1 : 2) - plainArmor),
-      plainTotal: plain.items.length,
-      bondedTotal: bondedSame.items.length,
+      taggedItems: bonded.items.filter((i) =>
+        String(i.flags?.["air-bladder"]?.grantSource ?? "").startsWith("bond:")).length,
     };
+    const bondActor = track(await gen.createActorWithCharacter(bonded));
+    const freshCtx = await bondActor.sheet._prepareContext({});
+    bonds.freshShows = freshCtx.showBonds;
+    bonds.freshCanAdd = freshCtx.canAddBond;
+    await bondActor.update({
+      "system.bonds": [{ id: "zzlegacy", description: "ZZ legacy lent bond", gold: 5 }],
+    });
+    const legacyCtx = await bondActor.sheet._prepareContext({});
+    bonds.legacyShown = legacyCtx.showBonds === true && legacyCtx.bonds.length === 1;
+    bonds.legacyNoAdd = legacyCtx.canAddBond;
+    bonds.legacySurvives = (bondActor.system.bonds ?? []).length === 1;
 
     // A background whose gear list mixes a "Random Additional Gear" row with
     // literal items must never hand out two of the same thing.
@@ -378,12 +364,12 @@ try {
       ? ok(`armor "None" buys a second Additional Gear roll (same ${r.step6.armored} items either way, over ${r.step6.tries} rolls)`)
       : fail(`step 6 unbalanced: ${r.step6.armored} items with armor vs ${r.step6.unarmored} without (should match)`);
 
-    r.bonds.count === 1 && r.bonds.hasGold && r.bonds.allTagged
-      ? ok("with bonds enabled, exactly one bond is rolled and every item it grants is tagged to it")
-      : fail(`bond gating wrong: ${r.bonds.count} bonds, allTagged=${r.bonds.allTagged}`);
-    r.bonds.replaced
-      ? ok(`the bond REPLACES the Additional Gear roll (${r.bonds.plainTotal} items without, ${r.bonds.bondedTotal} with)`)
-      : fail(`bonds did not replace step 6: ${r.bonds.plainTotal} plain vs ${r.bonds.bondedTotal} bonded`);
+    r.bonds.count === 0 && r.bonds.taggedItems === 0 && r.bonds.freshShows === false && r.bonds.freshCanAdd === false
+      ? ok("Barebones generation mints no bond: no record, no tagged item, no section, no Add-a-bond link")
+      : fail(`the retired bond lending is back: ${r.bonds.count} bonds, ${r.bonds.taggedItems} tagged items, shows=${r.bonds.freshShows}, canAdd=${r.bonds.freshCanAdd}`);
+    r.bonds.legacyShown && r.bonds.legacyNoAdd === false && r.bonds.legacySurvives
+      ? ok("a planted legacy lent bond still displays and survives (entitlement 0 only gates adding)")
+      : fail(`legacy lent bond mishandled: shown=${r.bonds.legacyShown}, canAdd=${r.bonds.legacyNoAdd}, survives=${r.bonds.legacySurvives}`);
 
 
   // Duplicate guard: a "Random Additional Gear" roll must not re-grant something

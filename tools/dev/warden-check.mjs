@@ -226,6 +226,31 @@ const SPEC = [
 const NOT_SRD = new Map([[
   "Warden: NPC - What Do They Want?",
   "third-party (Modular Rules & Procedures hack, cairnrpg.com/hacks) — not Cairn 2e core",
+], [
+  // The seven encounter tables (2026-08-09) are the user's own content: the
+  // terrain six reference the Cairn 2e Bestiary by page number rather than any
+  // SRD text, and the dungeon table exists to demonstrate the Add-to-scene row
+  // convention. There is no SRD heading to compare any of them against.
+  "Warden: Encounters - Dungeon",
+  "user-authored example (Dom Fortunato) — demonstrates the Add-to-scene encounter rows",
+], [
+  "Warden: Encounters - Plains",
+  "user-authored (Dom Fortunato) — references the Cairn 2e Bestiary, not SRD text",
+], [
+  "Warden: Encounters - Forest",
+  "user-authored (Dom Fortunato) — references the Cairn 2e Bestiary, not SRD text",
+], [
+  "Warden: Encounters - City Ruins",
+  "user-authored (Dom Fortunato) — references the Cairn 2e Bestiary, not SRD text",
+], [
+  "Warden: Encounters - Hills / Mountains",
+  "user-authored (Dom Fortunato) — references the Cairn 2e Bestiary, not SRD text",
+], [
+  "Warden: Encounters - Marshlands / Quagmire",
+  "user-authored (Dom Fortunato) — references the Cairn 2e Bestiary, not SRD text",
+], [
+  "Warden: Encounters - Lake",
+  "user-authored (Dom Fortunato) — references the Cairn 2e Bestiary, not SRD text",
 ]]);
 
 /* -------------------------------------------------------------------- compare */

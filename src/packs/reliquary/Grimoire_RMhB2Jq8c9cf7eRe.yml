@@ -1,0 +1,49 @@
+_id: RMhB2Jq8c9cf7eRe
+name: Grimoire
+type: item
+img: systems/air-bladder/art/game-icons/book/book-aura.svg
+effects: []
+folder: null
+sort: 0
+flags: {}
+system:
+  description: >-
+    <p>A heavy book of vellum and gold-inked script, made under a full moon at
+    ruinous cost. Its carrier may <strong>transmute</strong> the Spellbooks and
+    Scrolls they hold into its pages: a bound page weighs nothing, travels with
+    the book, and can never be removed. Copying a Scroll costs 50gp for the gold
+    inks and takes 6 hours to complete, reduced by [sum] hours; the Scroll is
+    destroyed in the process.</p><p>To cast from the book, invest <strong>Magic
+    Dice</strong> — up to your free inventory slots, at most 4. Dice that come
+    up 4–6 are spent as Fatigue; doubles mean a Mishap. The full rules ship as
+    the <em>GLOG Magic — Player Rules</em> journal (Journals
+    (GLOG)).</p><p><em>After the GLOG Magic hack, cairnrpg.com/hacks/glog-magic/
+    (CC BY-SA 4.0).</em></p>
+  weightless: false
+  equipped: false
+  bulky: true
+  cost: 0
+  quantity: 1
+  uses:
+    value: 0
+    max: 0
+  relic: false
+  recharge: ''
+  damageFormula: ''
+  criticalDamage: ''
+  blast: false
+  grimoire: true
+  grimoirePages: 10
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+  systemVersion: 0.1.14
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!RMhB2Jq8c9cf7eRe'

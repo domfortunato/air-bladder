@@ -16,6 +16,24 @@
  * than a timing bet.
  *
  * The dev world has NO actors; every fixture is created here and removed.
+ * The spellbook fixtures plant under a settings-read shadow forcing GLOG OFF
+ * (2026-08-10): in a GLOG world the create seam converts a bare spellbook to
+ * a scroll on arrival, which turned "Detect Magic" into a scroll and redded
+ * the book-prefix leg — the dev:grimoire corollary reaching this probe.
+ *
+ * Deprived/Panicked print as ALWAYS-PRESENT mark boxes on a character page
+ * (user ask 2026-08-10): empty on a clean actor (pass 1), pre-filled when
+ * the conditions are on (pass 2), absent on an npc page (pass 3), which
+ * keeps the text status line instead. The boxes ride the HEADER, in the
+ * free height the portrait reserves — under the stats they cost a row, and
+ * that row pushed a boundary character's Notes to a third page.
+ *
+ * Pagination policy (rulings 2026-08-10): entries are ATOMIC (an inventory
+ * row, a bond, a scar, a connection, a question WITH its answer prints
+ * whole or moves whole), headings keep their content, and Notes takes the
+ * MIN-ROOM rule — break-inside: avoid + min-height 10cm, superseding the
+ * 2026-08-08 always-fresh-page break, so pencil room lands on the earliest
+ * page with real space and never buys a near-empty page.
  */
 import { chromium } from "playwright";
 import { FOUNDRY_URL, VIEWPORT, dismissChrome, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
@@ -77,23 +95,41 @@ const r = await page.evaluate(async ({ xssName }) => {
       // Omen text present but DISABLED — the section must be omitted.
       omenEnabled: false, omen: "ZZ OMEN MARKER laughter from the wells.",
       scars: ["ZZ SCAR MARKER a burn"],
+      // STORED features stay OFF the page since the Features UI went
+      // (2026-08-09) — planted so the absence assertion bites on data, not on
+      // an empty list, and so the survival of the orphaned field is witnessed.
       features: [{ name: "ZZ Feature", description: "ZZ FEATURE MARKER" }],
     },
   });
-  await pc.createEmbeddedDocuments("Item", [
-    { name: "Root Knife", type: "weapon", system: { damageFormula: "d6" } },
-    { name: "Rations", type: "item", system: { uses: { value: 3, max: 3 } } },
-    { name: "Signet Ring", type: "item", system: { weightless: true } },
-    // The three spellbook shapes the prefix logic distinguishes (user report
-    // 2026-08-08: the printed sheet dropped the prefixes): a bare-named book,
-    // a scroll (a flagged spellbook, never a type), and a stored name that
-    // already CARRIES the prefix — the idempotence case, which must not print
-    // it twice.
-    { name: "Detect Magic", type: "spellbook" },
-    { name: "Charm Person", type: "spellbook", system: { scroll: true } },
-    { name: "Spellbook (Fireball)", type: "spellbook" },
-    { name: xssName, type: "item" },
-  ]);
+  // The fixtures assume a 2e world: in a GLOG world the create seam converts
+  // any bare spellbook to a scroll on arrival, which turned "Detect Magic"
+  // into a scroll and redded the book-prefix leg (found 2026-08-10 — the
+  // dev:grimoire corollary reaching this probe). Plant under a settings-READ
+  // shadow forcing GLOG off; the world's value is the user's, never written.
+  const origGetGlog = game.settings.get;
+  game.settings.get = function (scope, key, ...rest) {
+    if (scope === game.system.id && key === "enable-glog-magic") return false;
+    return origGetGlog.call(this, scope, key, ...rest);
+  };
+  try {
+    await pc.createEmbeddedDocuments("Item", [
+      { name: "Root Knife", type: "weapon", system: { damageFormula: "d6" } },
+      { name: "Rations", type: "item", system: { uses: { value: 3, max: 3 } } },
+      { name: "Signet Ring", type: "item", system: { weightless: true } },
+      // The three spellbook shapes the prefix logic distinguishes (user report
+      // 2026-08-08: the printed sheet dropped the prefixes): a bare-named book,
+      // a scroll (a flagged spellbook, never a type), and a stored name that
+      // already CARRIES the prefix — the idempotence case, which must not print
+      // it twice.
+      { name: "Detect Magic", type: "spellbook" },
+      { name: "Charm Person", type: "spellbook", system: { scroll: true } },
+      { name: "Spellbook (Fireball)", type: "spellbook" },
+      { name: xssName, type: "item" },
+    ]);
+  } finally { game.settings.get = origGetGlog; }
+  if (pc.items.find((i) => i.name === "Detect Magic")?.system.scroll) {
+    return { error: "planted book arrived as a scroll DESPITE the shadow — the seam is not reading game.settings.get" };
+  }
   const sack = await ActorImpl.create({
     name: "ZZ Print Sack", type: "npc",
     system: { role: "container", connectedTo: pc.uuid, slots: 4, generationEnabled: false },
@@ -177,12 +213,33 @@ const r = await page.evaluate(async ({ xssName }) => {
   out.hasNotes = body.includes("ZZ NOTES MARKER");
   out.hasBond = body.includes("ZZ BOND MARKER");
   out.hasScar = body.includes("ZZ SCAR MARKER");
-  out.hasFeature = body.includes("ZZ FEATURE MARKER");
+  out.featureOffPage = !body.includes("ZZ FEATURE MARKER");
+  out.featureSurvives = (game.actors.get(pc.id) ?? pc).system.features?.length === 1;
   out.omenOmitted = !body.includes("ZZ OMEN MARKER");
   out.omenHeader = [...(doc?.querySelectorAll("h2") ?? [])].some((h) => h.textContent.trim() === game.i18n.localize("CAIRN.Omen"));
   out.traitsProse = [...(doc?.querySelectorAll("section p") ?? [])]
     .map((p) => p.textContent).find((s) => s.includes("Physique")) ?? "";
   out.statsText = doc?.querySelector(".stats")?.textContent.replace(/\s+/g, " ") ?? "";
+  // Deprived/Panicked print as ALWAYS-PRESENT mark boxes (user ask
+  // 2026-08-10) — EMPTY here, on an actor with neither condition: the ask's
+  // exact case, a clean sheet with somewhere to pencil them later.
+  const condBoxes = [...(doc?.querySelectorAll(".cond-marks .box") ?? [])];
+  out.condBoxCount = condBoxes.length;
+  out.condBoxesEmpty = condBoxes.every((b) => !b.textContent.trim());
+  out.condLabels = doc?.querySelector(".cond-marks")?.textContent.replace(/\s+/g, " ") ?? "";
+  out.condDeprivedLabel = game.i18n.localize("CAIRN.Deprived");
+  out.condPanickedLabel = game.i18n.localize("CAIRN.Panicked");
+  // The boxes ride the HEADER — free height beside the portrait; under the
+  // stats they cost a row (the page-3 Notes report, 2026-08-10).
+  out.condInHeader = !!doc?.querySelector("header.pc .cond-marks");
+  // The atomic-entry policy: an entry prints whole or moves whole, and a
+  // heading never strands apart from its section.
+  const csOf = (sel) => (doc?.querySelector(sel) ? popup.getComputedStyle(doc.querySelector(sel)) : null);
+  out.invLiBreak = csOf("ul.inv li")?.breakInside ?? null;
+  out.plainLiBreak = csOf("ul.plain li")?.breakInside ?? null;
+  out.qaPairBreak = csOf(".qa-pair")?.breakInside ?? null;
+  out.h2BreakAfter = csOf("h2")?.breakAfter ?? null;
+  out.invHeadBreakAfter = csOf(".inv-head")?.breakAfter ?? null;
   out.sackSection = body.includes("ZZ Print Sack") && body.includes("ZZ Sack Item");
   out.sackSlots = /ZZ Print Sack\s*\(\s*1\s*\/\s*4\s*\)/.test(body.replace(/\s+/g, " "));
 
@@ -230,6 +287,8 @@ const r = await page.evaluate(async ({ xssName }) => {
   // the computed break, which is what the print engine reads.
   const notesSec = doc?.querySelector("section.notes-section");
   out.notesBreak = notesSec ? popup.getComputedStyle(notesSec).breakBefore : null;
+  out.notesBreakInside = notesSec ? popup.getComputedStyle(notesSec).breakInside : null;
+  out.notesMinHeight = notesSec ? parseFloat(popup.getComputedStyle(notesSec).minHeight) : null;
   out.knifeNote = /Root Knife\s*\(d6\)/.test(body.replace(/\s+/g, " "));
   out.rationsNote = /Rations\s*\(3 uses\)/.test(body.replace(/\s+/g, " "));
   // The spellbook prefixes, exactly as the inventory shows them — read
@@ -268,7 +327,9 @@ const r = await page.evaluate(async ({ xssName }) => {
   // appear under the background. The `barebones-failed-career` setting
   // defaults OFF, so its READ is shadowed in-page for this pass — never a
   // world write (the leaked-setting rule).
-  await pc.update({ "system.notes": "", "system.contentSource": "barebones" });
+  // Both conditions ON for this pass — the boxes must arrive FILLED.
+  await pc.update({ "system.notes": "", "system.contentSource": "barebones",
+    "system.deprived": true, "system.panicked": true });
   await sack.update({ "system.connectedTo": "" });
   await falcon.update({ "system.connectedTo": "" });
   const calls2 = [];
@@ -303,6 +364,9 @@ const r = await page.evaluate(async ({ xssName }) => {
   // Barebones is NOT custom — the plain source label branch.
   out.sourcePass2 = doc2?.querySelector("header.pc .bg-source")?.textContent?.trim() ?? null;
   out.barebonesLabel = `(${game.i18n.localize("CAIRN.ContentSourceBarebones")})`;
+  const condBoxes2 = [...(doc2?.querySelectorAll(".cond-marks .box") ?? [])];
+  out.condBoxesFilled = condBoxes2.length === 2
+    && condBoxes2.every((b) => b.textContent.trim() === "✕");
   popup2?.close();
 
   await pc.sheet.close();
@@ -336,9 +400,13 @@ const r = await page.evaluate(async ({ xssName }) => {
   out.npcNotesHeader = h2s3.includes(game.i18n.localize("CAIRN.Notes"));
   out.npcCredits = !!doc3?.querySelector("footer.credits");
   out.npcCreditsText = doc3?.querySelector("footer.credits")?.textContent ?? "";
-  // A monster's one-pager stays one page — no forced break on ITS notes.
+  // A monster's one-pager stays one page — no forced break and NO min-height
+  // inflating ITS notes.
   const notesSec3 = doc3?.querySelector("section.notes-section");
   out.npcNotesBreak = notesSec3 ? popup3.getComputedStyle(notesSec3).breakBefore : null;
+  out.npcNotesMinHeight = notesSec3 ? parseFloat(popup3.getComputedStyle(notesSec3).minHeight) : null;
+  // The mark boxes are CHARACTER-only; an npc page keeps the text status.
+  out.npcNoCondBoxes = !doc3?.querySelector(".cond-marks");
   popup3?.close();
   await npc.sheet.close();
 
@@ -415,8 +483,10 @@ check("the page is titled", r.title === "ZZ Print Hero", `"${r.title}"`);
 console.log("\none page, the whole character");
 check("Description AND Notes", r.hasDesc && r.hasNotes,
   "the both-tabs leg — a detached sheet prints only its displayed tab, which is why this feature exists");
-check("bonds, scars, features", r.hasBond && r.hasScar && r.hasFeature,
-  `bond=${r.hasBond} scar=${r.hasScar} feature=${r.hasFeature}`);
+check("bonds and scars carried", r.hasBond && r.hasScar,
+  `bond=${r.hasBond} scar=${r.hasScar}`);
+check("stored features stay OFF the page", r.featureOffPage && r.featureSurvives,
+  `offPage=${r.featureOffPage} survives=${r.featureSurvives} — the UI went 2026-08-09; the data must not`);
 check("a disabled omen is OMITTED", r.omenOmitted && !r.omenHeader,
   "text present on the actor, omenEnabled false — empty sections are dropped, not printed as placeholders");
 check("traits compose to prose, age included",
@@ -425,6 +495,17 @@ check("traits compose to prose, age included",
 check("stats carry the numbers", /12\/12/.test(r.statsText) && /6\/6/.test(r.statsText)
   && /11/.test(r.statsText) && /5\/5/.test(r.statsText),
   `"${r.statsText.slice(0, 90)}"`);
+check("Deprived/Panicked mark boxes print EMPTY on a clean character",
+  r.condBoxCount === 2 && r.condBoxesEmpty
+  && r.condLabels.includes(r.condDeprivedLabel) && r.condLabels.includes(r.condPanickedLabel),
+  `boxes=${r.condBoxCount} empty=${r.condBoxesEmpty} "${r.condLabels}" — the ask's exact case (2026-08-10): somewhere to pencil a condition mid-session`);
+check("and they ride the HEADER, in the portrait's free height", r.condInHeader,
+  "under the stats they cost a row — the row that pushed a boundary character's Notes to page 3");
+check("entries are ATOMIC — whole on a page or moved whole",
+  r.invLiBreak === "avoid" && r.plainLiBreak === "avoid" && r.qaPairBreak === "avoid",
+  `inv=${r.invLiBreak} plain=${r.plainLiBreak} qa-pair=${r.qaPairBreak} — a question never strands apart from its answer (ruling 2026-08-10)`);
+check("headings keep their content", r.h2BreakAfter === "avoid" && r.invHeadBreakAfter === "avoid",
+  `h2=${r.h2BreakAfter} inv-head=${r.invHeadBreakAfter} — no heading alone at a page bottom`);
 check("KW's item annotations", r.knifeNote && r.rationsNote && r.pettyNote,
   `(d6)=${r.knifeNote} (3 uses)=${r.rationsNote} (Petty)=${r.pettyNote} — Petty as the translator wrote it, uses via formatCount`);
 check("spellbook rows print their prefixes", r.bookPrefixed && r.scrollPrefixed,
@@ -444,6 +525,8 @@ check("the source, parenthetical and italic", r.headerSource === r.customLabel
   `"${r.headerSource}" style=${r.headerSourceItalic} — a world-item background is CUSTOM by membership`);
 check("Barebones is not custom", r.sourcePass2 === r.barebonesLabel,
   `pass2="${r.sourcePass2}" — the plain source-label branch`);
+check("both mark boxes print FILLED when the conditions are on", r.condBoxesFilled,
+  "pass 2 set deprived+panicked — the boxes arrive pre-marked, not re-blanked");
 check("KW's two-column band", JSON.stringify(r.bandLeft) === JSON.stringify(r.bandLeftWanted)
   && JSON.stringify(r.bandRight) === JSON.stringify(r.bandRightWanted) && r.bandIsGrid === "grid",
   `left=${JSON.stringify(r.bandLeft)} right=${JSON.stringify(r.bandRight)} display=${r.bandIsGrid}`);
@@ -461,8 +544,10 @@ check("credits match the art ON the page", /Yochai Gal/.test(r.creditsText)
   `${r.creditsSmall}px — an Aspeheim portrait credits Aspeheim and NEVER Tlomdev; the text credit always prints`);
 check("empty Notes still prints its header", r.emptyNotesHeader,
   "the ruling: the empty block is where the pencil goes");
-check("Notes opens its own page (PC only)", r.notesBreak === "page" && r.npcNotesBreak !== "page",
-  `pc=${r.notesBreak} monster=${r.npcNotesBreak} — a fresh page to write on; a monster stays a one-pager`);
+check("Notes takes the MIN-ROOM rule (PC only)",
+  r.notesBreak !== "page" && r.notesBreakInside === "avoid" && r.notesMinHeight > 370
+  && r.npcNotesBreak !== "page" && !(r.npcNotesMinHeight > 100),
+  `pc break-inside=${r.notesBreakInside} min=${r.notesMinHeight}px npc min=${r.npcNotesMinHeight} — pencil room on the earliest page with ~10cm free, a fresh page only when less remains (ruling 2026-08-10, superseding always-fresh-page); a monster stays a one-pager`);
 check("no connections, no Connections section", r.connectionsGone,
   "the section exists only when connections do");
 check("failed career: Barebones only, labelled", r.careerPass1 && r.careerPass2,
@@ -471,6 +556,8 @@ check("failed career: Barebones only, labelled", r.careerPass1 && r.careerPass2,
 console.log("\nthe monster's page");
 check("a monster prints", r.npcPrinted && r.npcSubtitle === r.npcRoleWord,
   `printed=${r.npcPrinted} subtitle="${r.npcSubtitle}" — the role where a PC's background goes`);
+check("an npc page has NO mark boxes", r.npcNoCondBoxes,
+  "the boxes are character-only; an npc keeps the text status line");
 check("statblock prose and numbers", r.npcDesc && r.npcStats,
   `desc=${r.npcDesc} stats=${r.npcStats}`);
 check("no PC-only sections", r.npcNoPcSections && r.npcNotesHeader && r.npcCredits,

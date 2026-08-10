@@ -2,7 +2,7 @@ import { SETTINGS_NS } from "../settings.js";
 import { iconForItem, iconForTransport, containerClassSlots, CONTAINER_CLASSES, ICON_DIR } from "../icons.js";
 import { THING_ROLES } from "../data-models.js";
 import {
-  atConnectionLimit, maxConnections,
+  atConnectionLimit, maxConnections, connectionsUiEnabled,
   connectedOwnershipShape, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG,
 } from "../connections.js";
 import { actorDisplayName, t } from "../i18n-content.js";
@@ -123,7 +123,7 @@ export const postStatusCard = async (actor, kind) => {
 /**
  * What the change log tracks, exactly the user-facing list it was asked for
  * (2026-08-08): stats (value AND max), gold, the eight descriptive traits,
- * Panicked/Deprived, scars and features — plus inventory, which is the
+ * Panicked/Deprived and scars — plus inventory, which is the
  * descendant-document seams below, not a field: add/remove, and since review
  * #13 (#21, user ruling — "when torches and rations are marked down a tick"
  * belongs on the ledger) quantity changes and uses ticks too. Equipped,
@@ -171,8 +171,10 @@ const AUDIT_BOOLEANS = {
   "system.panicked": "CAIRN.Panicked",
 };
 
-/** Arrays are diffed as add/remove lines, never dumped whole. */
-const AUDIT_ARRAYS = ["system.scars", "system.features"];
+/** Arrays are diffed as add/remove lines, never dumped whole. `system.features`
+ *  left this list with the Features UI (2026-08-09) — the field survives,
+ *  orphaned, but nothing writes it, so its ledger lines were dead code. */
+const AUDIT_ARRAYS = ["system.scars"];
 
 /**
  * i18n keys an operation may use to NAME itself on its ledger card (the
@@ -331,7 +333,13 @@ export class CairnActor extends Actor {
       const docs = await game.packs.get("air-bladder.mounts-transports")?.getDocuments() ?? [];
       namedDocs = docs
         .filter((d) => d.system?.role === role && !kindKeys.has(d.name.toLowerCase()))
-        .sort((a, b) => a.name.localeCompare(b.name));
+        // Sort on the DISPLAYED (overlay-translated) name, in the reader's
+        // language, not on stored English — otherwise the list renders shuffled
+        // in every non-English locale, sorted by names nobody sees (the review
+        // #9 sort-vs-display class, the same fix as _sortItemsForDisplay). The
+        // option value stays the uuid sentinel below; only the order changes.
+        .sort((a, b) =>
+          t("monster.name", a.name).localeCompare(t("monster.name", b.name), game.i18n.lang));
       if (namedDocs.length) {
         const group = document.createElement("optgroup");
         // KindNamedCompanions, since the mount->companion rename — review #11
@@ -701,7 +709,6 @@ export class CairnActor extends Actor {
     super.prepareData();
 
     this.system.useItemIcons = game.settings.get(SETTINGS_NS, "use-item-icons");
-    this.system.showFeatures = game.settings.get(SETTINGS_NS, "show-features-section");
     // Who shows the Connections tab. CHARACTERS ONLY consume this now
     // (2026-08-02): the child end's single upward edge became a header line on
     // the npc sheet, and a tab whose count could only ever read (0) or (1) went
@@ -709,7 +716,10 @@ export class CairnActor extends Actor {
     // left. The npcRole clause is vestigial for them (a character's npcRole is
     // null); the isToken clause is the live one — an unlinked token's synthetic
     // actor cannot appear in anyone's list nor keep its own (canBeConnected).
-    this.system.showContainersTab = this.npcRole !== "monster" && !this.isToken;
+    // The connectionsUiEnabled clause parks the tab entirely (2026-08-09) —
+    // _getTabsConfig's vanished-tab reset moves anyone standing on it.
+    this.system.showContainersTab = connectionsUiEnabled()
+      && this.npcRole !== "monster" && !this.isToken;
     // Role-derived sheet facts, computed once here rather than re-tested in
     // template conditionals: what `inanimate` and `forHire` used to answer.
     this.system.isThing = this.isThing;
@@ -901,10 +911,11 @@ export class CairnActor extends Actor {
     return game.actors.find((a) => a.uuid == itemId);
   }
 
-  getOwnedFeature(itemId) {
-    if (!this.system.features) return undefined;
-    return this.system.features.find(a => a.id == itemId);
-  }
+  /* `getOwnedFeature`, `createOwnedFeature` and `deleteOwnedFeature` lived here
+     and are gone with the Features UI (2026-08-09): once the sheet actions went,
+     nothing called them, and dead document methods are how a retired surface
+     quietly comes back half-wired. `system.features` itself SURVIVES in both
+     data models — anything recorded is still on the document. */
 
   /**
    * `ignoreCapacity` is for things the rules OWE a character rather than things
@@ -917,20 +928,29 @@ export class CairnActor extends Actor {
    * Ordinary acquisition still refuses. The Create Item dialog is the caller
    * that keeps the guard.
    */
-  async createOwnedItem(itemData, { ignoreCapacity = false } = {}) {
+  async createOwnedItem(itemData, { ignoreCapacity = false, count = 1 } = {}) {
     if (!ignoreCapacity && this.isEncumbered() && !itemData.weightless) {
       await ui.notifications.warn(
         game.i18n.localize("CAIRN.Notify.MaxSlotsOccupied")
       );
       return;
     }
-    await this.createEmbeddedDocuments("Item", [{
+    const payload = {
       ...itemData,
       img: itemData.img ?? iconForItem(itemData.type, itemData.name),
       // Merge, don't replace: a future caller passing a full system payload
       // (a weapon's damage, an armor value) would otherwise lose it.
       system: { ...(itemData.system ?? {}), weightless: itemData.weightless },
-    }]);
+    };
+    // count > 1 mints N copies in ONE createEmbeddedDocuments and ONE owner
+    // sync — the grimoire's Add-N-Fatigue button did N separate awaited creates,
+    // each its own document write and sheet re-render. A fresh clone per copy:
+    // the same object reference N times lets one document's write reach the rest.
+    const n = Math.max(1, count);
+    await this.createEmbeddedDocuments(
+      "Item",
+      Array.from({ length: n }, () => foundry.utils.deepClone(payload)),
+    );
     // The owner's Connected row shows this actor's slotsUsed, so a content
     // change refreshes the owner's open sheet. Ungated: an npc can be a
     // container now, and the call is a no-op for anything unconnected.
@@ -943,16 +963,6 @@ export class CairnActor extends Actor {
      array plus the child's `keeper` — with a rollback because either half alone
      was a broken state. `connectActor` replaced it with ONE write and no
      rollback to get wrong. */
-
-  async createOwnedFeature(data) {
-    // Build the new array without touching prepared state or the caller's
-    // object (review #6): pushing into this.system.features put the feature
-    // on the PREPARED data before the write, so a rejected update still
-    // showed a phantom feature until the next prepare. deleteOwnedFeature's
-    // shape — derive, then update.
-    const feature = { ...data, id: foundry.utils.randomID() };
-    await this.update({ "system.features": [...(this.system.features ?? []), feature] });
-  }
 
   /** No longer an override as deleteOwnedItem is deprecated on type Actor */
   async deleteOwnedItem(itemId) {
@@ -1055,15 +1065,6 @@ export class CairnActor extends Actor {
     if (!game.user.isGM && actor.npcRole !== "monster") {
       game.socket.emit(`system.${game.system.id}`, { action: "ownershipSync", childUuid: actor.uuid });
     }
-  }
-
-  async deleteOwnedFeature(itemId) {
-    const ft = this.getOwnedFeature(itemId);
-    if (!ft) return;
-    const proceed = await confirmDelete(ft.name);
-    if (!proceed) return;
-    const features = this.system.features.filter((c) => c.id !== itemId);
-    await this.update({ "system.features": features });
   }
 
   /**
@@ -1613,16 +1614,6 @@ export class CairnActor extends Actor {
         else lines.push(game.i18n.format("CAIRN.ChangeLog.ScarAdded", { name: s }));
       }
       for (const s of old) lines.push(game.i18n.format("CAIRN.ChangeLog.ScarRemoved", { name: s }));
-    }
-    // Features carry stable ids (createOwnedFeature stamps one), so add/remove
-    // is an id diff; an in-place text edit is deliberately not a line.
-    if (before["system.features"]) {
-      const oldF = before["system.features"];
-      const nowF = src.system.features ?? [];
-      const oldIds = new Set(oldF.map((f) => f?.id));
-      const nowIds = new Set(nowF.map((f) => f?.id));
-      for (const f of nowF) if (!oldIds.has(f?.id)) lines.push(game.i18n.format("CAIRN.ChangeLog.FeatureAdded", { name: f?.name ?? "" }));
-      for (const f of oldF) if (!nowIds.has(f?.id)) lines.push(game.i18n.format("CAIRN.ChangeLog.FeatureRemoved", { name: f?.name ?? "" }));
     }
     if (lines.length) {
       // Whitelisted or dropped — never pass a wire-supplied key through raw.

@@ -643,14 +643,18 @@ export const getInfoFromDropData = async (dropData) => {
  * being called `stripPar`: it was two literal `.replace()` calls and nothing else,
  * a name that sounds cosmetic on a helper that is now load-bearing for security.
  *
- * `system.features[]` is an `ArrayField(ObjectField)` (`data-models.js:171,205`), and
+ * The case it was built for: `system.features[]`, an `ArrayField(ObjectField)`,
+ * while the Features UI existed (removed 2026-08-09; the field survives, unrendered).
  * `htmlFields` in `system.json` addresses TOP-LEVEL SCHEMA PATHS: the server has no
  * schema for the interior of an ObjectField, so it can never sanitize what is stored
  * in there no matter what the manifest declares. A player writing raw HTML into a
  * feature description on their OWN character therefore had it stored byte-for-byte
  * and injected into the GM's DOM — a player→GM XSS, observed end-to-end 2026-07-30,
  * the same escalation as the declared-field hole closed the day before and NOT
- * fixable the same way.
+ * fixable the same way. The feature sink is gone; the weapon crit/description
+ * panel (actor-sheet.js) is the caller that keeps this load-bearing, and any
+ * future array-interior render must come through here too (field-audit.mjs
+ * refuses the alternative).
  *
  * Cleaning at the SINK is the whole fix. Filtering our own dialog would be theatre:
  * the attacker owns the browser that writes the document and can call
@@ -688,9 +692,10 @@ export const cleanDescription = (text) => {
   if (!text) return "";
   // A <template> and not a <div>: template content is INERT, so parsing here does
   // not fetch the images and media a description references. A detached div is not
-  // inert — it cost a duplicate request per call, and `dev:feature-xss`'s 404
-  // bookkeeping caught it. One caller only asks whether the result is empty
-  // (actor-sheet.js, the crit line), which must not hit the network at all.
+  // inert — it cost a duplicate request per call, and the feature-XSS probe's 404
+  // bookkeeping caught it (probe retired with the Features UI, 2026-08-09). One
+  // caller only asks whether the result is empty (actor-sheet.js, the crit line),
+  // which must not hit the network at all.
   const tpl = document.createElement("template");
   tpl.innerHTML = foundry.utils.cleanHTML(String(text));
   // Core's allow-list is calibrated for core's sinks — a chat bubble and a tooltip,

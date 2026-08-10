@@ -1,0 +1,28 @@
+_id: GS1dGaE6FgVrtQV2
+name: Body Swap
+type: spellbook
+img: systems/air-bladder/icons/spellscroll.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: glog-spells
+system:
+  cost: 0
+  description: <p>You switch bodies with a creature you touch. If one body dies, the other dies as well.</p>
+  weightless: true
+  equipped: false
+  bulky: false
+  quantity: 1
+  scroll: true
+  glog: true
+  uses:
+    value: 1
+    max: 1
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!GS1dGaE6FgVrtQV2'

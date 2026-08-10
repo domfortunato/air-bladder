@@ -6,20 +6,14 @@ import { resultText } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES } from "../icons.js";
 import { NPC_ROLES, THING_ROLES } from "../data-models.js";
-import { atConnectionLimit, maxConnections, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
+import { atConnectionLimit, maxConnections, connectionsUiEnabled, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
 import { actorDisplayName, localizeNameDesc, sourceOf, t } from "../i18n-content.js";
 import { FATIGUE_NAME } from "../item/item.js";
+import { castFromGrimoire, castScroll } from "../grimoire.js";
 import { pickArt } from "../art-picker.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ActorSheetV2 } = foundry.applications.sheets;
-
-/**
- * The checkbox names on the add/edit-feature dialog, which are also the keys the
- * feature record stores them under. Create and Edit read the same form template,
- * so they must read the same list — it used to be declared twice, inline.
- */
-const FEATURE_FLAGS = ["str", "dex", "wil", "hp", "armor", "dmg", "crit", "deprived", "blast"];
 
 /** Tab labels by id. The nav itself is hand-written in each template, because
  *  the labels carry live data (slot counts, connection counts) and, on the NPC
@@ -50,7 +44,7 @@ const TAB_LABELS = {
 const TAB_IDS = {
   character: ["items", "description", "containers", "notes"],
   // Description FIRST on the non-player sheet (2026-08-01, asked for): a Warden
-  // opens an NPC to remember who they are — statblock, features, biography —
+  // opens an NPC to remember who they are — statblock, biography —
   // and reaches for the inventory second. The character sheet deliberately
   // keeps Items first; the reorder is the NPC's alone. The order here must
   // match the hand-written nav in npc-sheet.html, and `_getTabsConfig` takes
@@ -235,11 +229,19 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // Inventory
       itemCreate: owned(CairnActorSheet.#onItemCreate),
       itemShop: owned(CairnActorSheet.#onItemShop),
-      itemEdit: owned(CairnActorSheet.#onItemEdit),
+      // NOT owned(): editing only OPENS the item's own sheet (a read), which
+      // enforces its own edit permission. Like printSheet above, being able to
+      // open this actor sheet is the whole gate — owned() wrongly refused a
+      // viewer of a locked or limited-permission actor from even looking at an
+      // item, warning "not editable" for a view that writes nothing here.
+      itemEdit: CairnActorSheet.#onItemEdit,
       itemDelete: owned(CairnActorSheet.#onItemDelete),
       itemToggleEquipped: owned(CairnActorSheet.#onItemToggleEquipped),
       itemAddUse: owned(CairnActorSheet.#onItemAddUse),
       itemRemoveUse: owned(CairnActorSheet.#onItemRemoveUse),
+      pageTransmute: owned(CairnActorSheet.#onPageTransmute),
+      grimoireCast: owned(CairnActorSheet.#onGrimoireCast),
+      scrollCast: owned(CairnActorSheet.#onScrollCast),
       itemDescription: CairnActorSheet.#onItemDescription,
       addFatigue: owned(CairnActorSheet.#onAddFatigue),
       removeFatigue: owned(CairnActorSheet.#onRemoveFatigue),
@@ -249,11 +251,6 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       connectionAttach: owned(CairnActorSheet.#onConnectionAttach),
       connectionDetach: owned(CairnActorSheet.#onConnectionDetach),
       containerUnlink: owned(CairnActorSheet.#onContainerUnlink),
-      // Features
-      featureCreate: owned(CairnActorSheet.#onFeatureCreate),
-      featureEdit: owned(CairnActorSheet.#onFeatureEdit),
-      featureDelete: owned(CairnActorSheet.#onFeatureDelete),
-      featureDescription: CairnActorSheet.#onFeatureDescription,
       // Header counters + buttons
       rollAbility: CairnActorSheet.#onRollAbility,
       toggleCritical: owned(CairnActorSheet.#onToggleCritical),
@@ -350,7 +347,6 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         templates: [
           "systems/air-bladder/templates/parts/items-list.html",
           "systems/air-bladder/templates/parts/container-list.html",
-          "systems/air-bladder/templates/parts/feature-list.html",
           "systems/air-bladder/templates/parts/bio-block.html",
         ],
       },
@@ -801,7 +797,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // reuse the registered connectionAttach/connectionDetach actions and
       // their gates verbatim; only their template home moved.
       const hired = role === "npc" && this.actor.system.forHire === true;
-      if (keeperDoc) {
+      // Parked (2026-08-09): with the Connections UI off, the line never gains
+      // a label or a control — but it still RENDERS for a person, because
+      // showConnectionLine's isNpcPerson arm below is what keeps the For Hire
+      // checkbox on screen, and For Hire is the day-rate mechanic, not
+      // connections. The builder is skipped, not the line.
+      if (!connectionsUiEnabled()) {
+        // no connectionLine
+      } else if (keeperDoc) {
         context.connectionLine = {
           label: game.i18n.format(hired ? "CAIRN.HiredBy" : "CAIRN.ConnectedToNamed",
             { name: keeperDoc.name }),
@@ -861,6 +864,49 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const fatigueLabel = game.i18n.localize("CAIRN.Fatigue");
     context.items = items.map((i) => (i.name === FATIGUE_NAME ? { ...i, name: fatigueLabel } : i));
 
+    // The Grimoire's inventory affordances (GLOG Magic, rebuilt on an ITEM
+    // 2026-08-09). Character-only: the transmute and the cast belong to the
+    // book's carrier, and a pile holding a recovered book offers neither.
+    // Everything here is display annotation on the context copies — the
+    // ENFORCEMENT lives in the handlers and CairnItem, which re-derive it.
+    if (this.actor.type === "character") {
+      // A SCROLL casts with no book at all — the hack's rule ("they work
+      // exactly the same as spells recorded in your Grimoire"), gated on the
+      // GLOG rules setting, spent scrolls and bound pages excluded. The
+      // control is the affordance; castScroll re-derives every guard.
+      if (game.settings.get(SETTINGS_NS, "enable-glog-magic")) {
+        context.items = context.items.map((i) =>
+          i.type === "spellbook" && i.system.scroll && !i.system.bound
+            && (i.system.uses?.value ?? 0) > 0
+            ? { ...i, system: { ...i.system, canCastScroll: true } } : i);
+      }
+      const grimoire = this.actor.items.find((i) => i.type === "item" && i.system.grimoire);
+      const pageCount = this.actor.items.filter((i) => i.type === "spellbook" && i.system.bound).length;
+      if (grimoire) {
+        const hasRoom = pageCount < (grimoire.system.grimoirePages ?? 0);
+        context.items = context.items.map((i) => {
+          if (i.type === "spellbook" && !i.system.bound) {
+            return { ...i, system: { ...i.system, canTransmute: hasRoom } };
+          }
+          if (i._id === grimoire.id) {
+            return { ...i, system: { ...i.system, canCast: pageCount > 0 } };
+          }
+          return i;
+        });
+        // Pages render GROUPED under the book: pull the bound pages out of the
+        // alphabetical list and re-insert them (still alphabetical among
+        // themselves) right after the Grimoire's row. Display order only — the
+        // stored documents and their `sort` values are untouched.
+        const pages = context.items.filter((i) => i.type === "spellbook" && i.system.bound);
+        if (pages.length) {
+          const rest = context.items.filter((i) => !(i.type === "spellbook" && i.system.bound));
+          const at = rest.findIndex((i) => i._id === grimoire.id);
+          rest.splice(at + 1, 0, ...pages);
+          context.items = rest;
+        }
+      }
+    }
+
     // The npc sheet's description editor is TOGGLED (npc-sheet.html), so this is
     // its light-DOM DISPLAY half: translated via monster.desc — the namespace the
     // extractor files EVERY actor doc's description under, mounts and containers
@@ -878,18 +924,23 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // (user ask), and a toggled editor needs a display half. The character
     // sheet's copy is built in _prepareCharacterContext.
     if (["npc", "hireling"].includes(this.actor.type)) {
+      // cleanDescription AFTER enrich (utils.js): the enriched string reaches
+      // innerHTML via {{{ }}}, and a player owns the browser that writes
+      // system.description — an injected data-action/name/on* would otherwise
+      // ride the enriched output into the viewer's sheet. Enricher output
+      // (content-link/inline-roll) carries no data-action, so the strip is safe.
       context.enrichedDescription =
-        await foundry.applications.ux.TextEditor.implementation.enrichHTML(
+        cleanDescription(await foundry.applications.ux.TextEditor.implementation.enrichHTML(
           t("monster.desc", this.actor.system.description),
           { relativeTo: this.actor },
-        );
+        ));
       // Enriched but NOT translated: notes are the Warden's own prose, and no
       // content namespace files them.
       context.enrichedNotes =
-        await foundry.applications.ux.TextEditor.implementation.enrichHTML(
+        cleanDescription(await foundry.applications.ux.TextEditor.implementation.enrichHTML(
           this.actor.system.notes,
           { relativeTo: this.actor },
-        );
+        ));
       // The Notes empty-state hint lives in the display half now — the
       // data-placeholder mechanism anchors ::before to .editor-container,
       // which a toggled editor only grows on activation. Monster wording on
@@ -1154,8 +1205,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const bgUuid = this.actor.system.backgroundUuid;
     const bg = bgUuid ? await fromUuid(bgUuid) : null;
     context.backgroundDescription = bg?.system?.description
-      ? await foundry.applications.ux.TextEditor.implementation.enrichHTML(
-          t("bg.desc", bg.system.description), { relativeTo: this.actor })
+      ? cleanDescription(await foundry.applications.ux.TextEditor.implementation.enrichHTML(
+          t("bg.desc", bg.system.description), { relativeTo: this.actor }))
       : "";
     // Translated background name for the header (generated case). The editable
     // input for a hand-made character keeps the raw system.background so a Warden
@@ -1185,12 +1236,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.showScars = true;
     context.showAge = true;
     // Omen is the one exception, and it is a CONTENT question rather than a rule:
-    // Barebones ships no omens table, so a Warden opts in to lending it 2e's, the
-    // same way they can lend it 2e's bonds. Nothing about generation changes —
-    // an omen is never rolled at creation in either edition.
-    context.showOmen =
-      this.actor.system.contentSource !== "barebones" ||
-      game.settings.get(SETTINGS_NS, "show-omens-barebones");
+    // Barebones ships no omens table, so the field is 2e's alone. (A Warden
+    // used to be able to lend it via show-omens-barebones; the lending was
+    // removed 2026-08-09. A legacy Barebones character's stored omen text
+    // survives on the document — only the field hides.)
+    context.showOmen = this.actor.system.contentSource !== "barebones";
     // The omen shows t("table.result", …) on BOTH surfaces — the read span and
     // the TEXTAREA — with the submit anchored back to the stored English in
     // _processFormData (2026-08-06, Malecho's second omen report). The textarea
@@ -1231,9 +1281,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       && this._mayRandomize();
 
     // Notes tab: bonds (a character can hold several) + the background's
-    // re-rollable questions. Questions are 2e; bonds are 2e by default but a
-    // Warden can lend them to Barebones (show-bonds-barebones), so show the
-    // section whenever the character actually has one.
+    // re-rollable questions. Questions are 2e; bonds are 2e, but a legacy
+    // Barebones character may still hold one from the retired lending
+    // setting, so show the section whenever the character actually has one.
     // Translate bond prose for display (bonds are drawn from the Bonds table →
     // table.result). A composed bond string that doesn't match a source key
     // falls back to English; the count/entitlement below is unaffected.
@@ -1258,10 +1308,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // light-DOM DISPLAY half. Enriched but NOT translated: notes are the
     // player's own prose and no content namespace files them.
     context.enrichedNotes =
-      await foundry.applications.ux.TextEditor.implementation.enrichHTML(
+      cleanDescription(await foundry.applications.ux.TextEditor.implementation.enrichHTML(
         this.actor.system.notes,
         { relativeTo: this.actor },
-      );
+      ));
 
     // Attribute-loss statuses, ability tooltips, peril/low cues, critical skull.
     this._computeStatContext(context);
@@ -1624,8 +1674,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   /**
    * Expand or collapse a row's description panel. `build` returns the panel
-   * element for the closed→open direction; nothing else differs between an item,
-   * a container and a feature.
+   * element for the closed→open direction; nothing else differs between an item
+   * and a container.
    * @private
    */
   _toggleRowDescription(row, build) {
@@ -1668,13 +1718,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (bg === undefined) {
       bg = this.actor.system.backgroundUuid ? await fromUuid(this.actor.system.backgroundUuid) : null;
     }
-    // Barebones gets exactly one bond, and only when the Warden lends it 2e's
-    // Bonds table — it has no second-bond options of its own. Display policy,
-    // so it stays HERE: the generator's clamp must never delete a lent bond
-    // because this setting happens to be off.
-    if (this.actor.system.contentSource === "barebones") {
-      return game.settings.get(SETTINGS_NS, "show-bonds-barebones") ? 1 : 0;
-    }
+    // Barebones is entitled to no bonds — the lending setting that granted
+    // one is retired (2026-08-09). Display policy, so it stays HERE: the
+    // generator's clamp uses the SHARED bondEntitlement and must never
+    // delete a legacy lent bond because this arm reads 0 — zero only gates
+    // "Add a bond"; existing bonds display on content.
+    if (this.actor.system.contentSource === "barebones") return 0;
     // The shared rule — one implementation for generation, the Add-a-bond cap
     // and changeBackground's clamp, after its two hand-kept twins drifted
     // apart in wording and agreed only by luck (dedup'd 2026-08-02).
@@ -1734,8 +1783,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     //
     // Escaped because the result is interpolated into HTML. `bg.name` is a stored
     // document field, and a world Item is creatable by any player a Warden has
-    // granted Create Item to — the same player→GM path as the feature-description
-    // XSS, and this dialog renders in the GM's client.
+    // granted Create Item to — the same player→GM escalation this repo has paid
+    // for before (see cleanDescription in utils.js), and this dialog renders in
+    // the GM's client.
     const bgName = foundry.utils.escapeHTML(t("bg.name", bg.name));
     const ok = await foundry.applications.api.DialogV2.confirm({
       window: { title: game.i18n.localize("CAIRN.ChangeBackgroundTitle") },
@@ -1952,9 +2002,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       if (/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(p)) return p;
       return new URL(foundry.utils.getRoute(p), `${location.origin}/`).href;
     };
-    const enrich = (html) => (html
-      ? foundry.applications.ux.TextEditor.implementation.enrichHTML(html, { relativeTo: actor })
-      : Promise.resolve(""));
+    // Enriched print fields are written into the print window via document.write
+    // (below), so each passes through cleanDescription first — the same innerHTML
+    // sink the live sheet guards (see cleanDescription in utils.js). The print
+    // window is the viewer's own browser: an injected on*/data-action in a
+    // player-owned description would otherwise execute there.
+    const enrich = async (html) => (html
+      ? cleanDescription(await foundry.applications.ux.TextEditor.implementation.enrichHTML(html, { relativeTo: actor }))
+      : "");
 
     // A row per item, Kettlewright's annotations: (petty), (N uses), (dN),
     // bulky and quantity. Notes are TEXT assembled here and escaped by the
@@ -1992,15 +2047,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       return { name: `${prefix}${name}`, notes: notes.join(" ") };
     });
 
-    // The status line: deprived / panicked / critical, when set.
+    const isChar = actor.type === "character";
+    // The status line: critical, plus deprived/panicked as text on an NPC
+    // page. A CHARACTER prints those two as ALWAYS-PRESENT mark boxes
+    // instead (user ask 2026-08-10: the paper sheet needs somewhere to
+    // pencil them mid-session even when printed clean) — filled at print
+    // time when the condition is already on.
     const status = [
-      sys.deprived && L("CAIRN.Deprived"),
-      sys.panicked && L("CAIRN.Panicked"),
+      !isChar && sys.deprived && L("CAIRN.Deprived"),
+      !isChar && sys.panicked && L("CAIRN.Panicked"),
       sys.critical && L("CAIRN.CriticalDamage"),
     ].filter(Boolean).join(" · ");
     const traitsProse = this._buildTraitSentence(sys.traits, sys.age);
-
-    const isChar = actor.type === "character";
 
     // The background's own prose and its rolled question/answer pairs (user
     // additions 2026-08-08), routed exactly as the sheet routes them —
@@ -2101,6 +2159,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         gold: sys.gold ?? 0,
       },
       status,
+      marks: isChar ? { deprived: !!sys.deprived, panicked: !!sys.panicked } : null,
       traitsProse,
       // Kettlewright's two-column band (user rulings 2026-08-08): Stats and
       // Items on the left; Traits, the background's description and
@@ -2136,10 +2195,6 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       omen: sys.omenEnabled ? t("table.result", String(sys.omen ?? "").trim()) : "",
       scars: (sys.scars ?? []).map((s) => t("table.result", s)),
       notes: await enrich(sys.notes),
-      features: (sys.features ?? []).map((f) => ({
-        name: String(f?.name ?? "").trim(),
-        text: String(f?.description ?? "").trim(),
-      })).filter((f) => f.name || f.text),
     };
 
     const html = await foundry.applications.handlebars.renderTemplate(
@@ -2458,9 +2513,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // question was still on screen — answer "no" and the item was still there
     // with its row gone, until something re-rendered the sheet and put it back.
     // The connected-actor branch stopped doing this in review #5 (an Actor delete
-    // can also be refused by the server: Assistant+, ungrantable); the item and
-    // feature branches were never brought in line, though the decline half of the
-    // reasoning covers all three. On success the delete re-renders this sheet
+    // can also be refused by the server: Assistant+, ungrantable); the item branch
+    // — and the feature branch, while the Features UI existed — was not brought in
+    // line until review #7, though the decline half of the reasoning covers them
+    // all. On success the delete re-renders this sheet
     // — descendant deletes render the parent (client-document.mjs:691-694) — and
     // the row goes with it.
     if (row.dataset.isContainer) this.actor.deleteOwnedContainer(row.dataset.itemId);
@@ -2477,6 +2533,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static #onContainerUnlink(event, target) {
     event.preventDefault();
+    // Parked UI (2026-08-09): the control is hidden, the refusal is the wall —
+    // a sheet rendered before the park must not be a way in.
+    if (!connectionsUiEnabled()) return;
     const row = CairnActorSheet.#row(target);
     if (!row?.dataset.isContainer) return;
     // Both ends, per row — unlinkOwnedContainer re-checks; this just refuses
@@ -2498,6 +2557,69 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const row = CairnActorSheet.#row(target);
     const item = this.actor.getOwnedItem(row?.dataset.itemId);
     if (item) await item.update({ "system.equipped": !item.system.equipped });
+  }
+
+  /**
+   * Transmute a spellbook or spellscroll into the carried Grimoire: the item
+   * becomes a BOUND PAGE (weightless, grouped under the book, no way back —
+   * CairnItem holds the invariant). The row control is the affordance; every
+   * precondition is re-derived here because a sheet rendered before the book
+   * filled up, or before the book left, must not be a way through. The scroll's
+   * conversion is the hack's paid one — 50gp and 6 hours — and the cost STAYS
+   * PROSE in the confirm (no automation of mechanical text; trust players).
+   * @this {CairnActorSheet}
+   */
+  static async #onPageTransmute(event, target) {
+    event.preventDefault();
+    const row = CairnActorSheet.#row(target);
+    const item = this.actor.getOwnedItem(row?.dataset.itemId);
+    if (!item || item.type !== "spellbook" || item.system.bound) return;
+    if (this.actor.type !== "character") return;
+    const grimoire = this.actor.items.find((i) => i.type === "item" && i.system.grimoire);
+    if (!grimoire) return;
+    const pageCount = this.actor.items.filter(
+      (i) => i.type === "spellbook" && i.system.bound).length;
+    if (pageCount >= (grimoire.system.grimoirePages ?? 0)) {
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.GrimoireFull",
+        { name: grimoire.name }));
+      return;
+    }
+    // Names go into dialog HTML and are user-authored text.
+    const esc = foundry.utils.escapeHTML;
+    const proceed = await foundry.applications.api.DialogV2.confirm({
+      content: game.i18n.format(
+        item.system.scroll ? "CAIRN.GrimoireTransmuteScrollQ" : "CAIRN.GrimoireTransmuteQ",
+        { spell: esc(item.name), book: esc(grimoire.name) }),
+      rejectClose: false,
+      modal: true,
+    });
+    if (!proceed) return;
+    await item.update({ "system.bound": true });
+  }
+
+  /**
+   * The Cast control on the Grimoire's row. Everything real — the page picker,
+   * the dice cap, the roll, both cards — lives in module/grimoire.js; the
+   * guards re-derive there, so a stale row control cannot cast from a book
+   * that has left or emptied.
+   * @this {CairnActorSheet}
+   */
+  static async #onGrimoireCast(event) {
+    event.preventDefault();
+    await castFromGrimoire(this.actor);
+  }
+
+  /**
+   * The Cast control on an unspent spellscroll's row — no Grimoire required
+   * (the hack: a scroll works exactly like a recorded spell, destroyed after
+   * its single use). All guards re-derive in module/grimoire.js.
+   * @this {CairnActorSheet}
+   */
+  static async #onScrollCast(event, target) {
+    event.preventDefault();
+    const row = CairnActorSheet.#row(target);
+    const item = this.actor.getOwnedItem(row?.dataset.itemId);
+    if (item) await castScroll(this.actor, item);
   }
 
   /** Not exactly quantity, this is about uses. @this {CairnActorSheet} */
@@ -2705,6 +2827,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onConnectionAdd(event) {
     event.preventDefault();
+    // Parked UI (2026-08-09): hidden control, handler wall (stale sheets).
+    if (!connectionsUiEnabled()) return;
     // connectActor re-checks; refusing before the dialog just spares a
     // gesture from users who found the action some way the template gating
     // does not cover. This is the keeper-side HALF of the both-ends wall —
@@ -2782,6 +2906,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onConnectionAttach(event) {
     event.preventDefault();
+    // Parked UI (2026-08-09): hidden control, handler wall (stale sheets).
+    if (!connectionsUiEnabled()) return;
     const child = this.actor;
     // The child-side half of the both-ends wall; the keeper filter below adds
     // the other half, so a player is only offered keepers they own.
@@ -2855,6 +2981,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onConnectionDetach(event) {
     event.preventDefault();
+    // Parked UI (2026-08-09): hidden control, handler wall (stale sheets).
+    if (!connectionsUiEnabled()) return;
     const child = this.actor;
     const link = child.system.connectedTo || "";
     if (!link) return;
@@ -2905,110 +3033,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
   }
 
-  /* -------------------------------------------- */
-  /*  Actions — features                          */
-  /* -------------------------------------------- */
-
-  /** @this {CairnActorSheet} */
-  static async #onFeatureCreate(event) {
-    event.preventDefault();
-    const template = "systems/air-bladder/templates/dialog/add-feature-dialog.html";
-    // DialogV2 runs STRING content through cleanHTML, whose allow-list gives
-    // <textarea> no `placeholder` (constants.mjs:1885), so the description
-    // box's localized placeholder was silently stripped (review #6). An
-    // attribute-less <div> ELEMENT is core's documented trusted-content route
-    // (dialog.mjs:136-155) and skips the cleaning — the template is our own
-    // file, not user input.
-    const content = document.createElement("div");
-    content.innerHTML = await foundry.applications.handlebars.renderTemplate(template);
-
-    await foundry.applications.api.DialogV2.prompt({
-      window: { title: game.i18n.localize("CAIRN.CreateFeature") },
-      position: { width: 500 },
-      content,
-      ok: {
-        icon: "fas fa-check",
-        label: game.i18n.localize("CAIRN.CreateFeature"),
-        callback: async (dialogEvent, button) => {
-          const form = button.form;
-          if (form.itemname.value.trim() !== "") {
-            const data = { name: form.itemname.value, description: form.itemdesc.value };
-            FEATURE_FLAGS.forEach((c) => { data[c] = form[c].checked; });
-            await this.actor.createOwnedFeature(data);
-          }
-        },
-      },
-      rejectClose: false,
-    });
-  }
-
-  /** @this {CairnActorSheet} */
-  static async #onFeatureEdit(event, target) {
-    event.preventDefault();
-    const row = CairnActorSheet.#row(target);
-    const item = this.actor.getOwnedFeature(row?.dataset.itemId);
-    if (!item) return;
-
-    const template = "systems/air-bladder/templates/dialog/add-feature-dialog.html";
-    // Same cleanHTML dodge as #onFeatureCreate: an element, not a string.
-    const content = document.createElement("div");
-    content.innerHTML = await foundry.applications.handlebars.renderTemplate(template, item);
-
-    await foundry.applications.api.DialogV2.prompt({
-      window: { title: game.i18n.localize("CAIRN.EditFeature") },
-      position: { width: 500 },
-      content,
-      ok: {
-        icon: "fas fa-check",
-        label: game.i18n.localize("CAIRN.UpdateFeature"),
-        callback: async (dialogEvent, button) => {
-          const form = button.form;
-          if (form.itemname.value.trim() !== "") {
-            // Copy, never mutate `item`. `system.features` is an ArrayField of
-            // ObjectField, and an ObjectField hands back the SOURCE object by
-            // reference — so assigning to `item` edited the actor's stored data
-            // in place, before (and regardless of) the update. A rejected or
-            // refused update then left the sheet showing values the document did
-            // not have, until something re-read it from source.
-            const newItem = { ...item, name: form.itemname.value, description: form.itemdesc.value };
-            FEATURE_FLAGS.forEach((c) => { newItem[c] = form[c].checked; });
-            // Replace in place rather than filter+push, so editing a feature does
-            // not silently move it to the bottom of the list.
-            const features = this.actor.system.features.map((f) => (f.id === newItem.id ? newItem : f));
-            await this.actor.update({ "system.features": features });
-          }
-        },
-      },
-      rejectClose: false,
-    });
-  }
-
-  /** @this {CairnActorSheet} */
-  static #onFeatureDelete(event, target) {
-    event.preventDefault();
-    const row = CairnActorSheet.#row(target);
-    if (!row) return;
-    // Not slid up — see #onItemDelete. deleteOwnedFeature confirms first, and
-    // its update re-renders the sheet when it goes through.
-    this.actor.deleteOwnedFeature(row.dataset.itemId);
-  }
-
-  /** @this {CairnActorSheet} */
-  static #onFeatureDescription(event, target) {
-    event.preventDefault();
-    const row = CairnActorSheet.#row(target);
-    if (!row) return;
-    this._toggleRowDescription(row, () => {
-      const feature = this.actor.getOwnedFeature(row.dataset.itemId);
-      if (!feature) return null;
-      const div = document.createElement("div");
-      div.className = "item-description";
-      // cleanDescription, not stripPar: `system.features` is an ObjectField interior,
-      // so the server never sanitizes it and this was a player→GM XSS. See utils.js.
-      div.innerHTML = cleanDescription(feature.description);
-      return div;
-    });
-  }
+  /* The "Actions — features" section lived here and is gone with the Features
+     UI (2026-08-09): #onFeatureCreate/Edit/Delete/Description, their DialogV2
+     forms and the FEATURE_FLAGS list. Its two lessons live on with their
+     survivors — the DialogV2 element-not-string content dodge is recorded at
+     the role-pick dialog (actor.js, "ELEMENT content, not a string") and in
+     warden-damage.js, and the sink-side cleaning it needed lives on in
+     cleanDescription (utils.js), whose docblock keeps the XSS history. */
 
   /* -------------------------------------------- */
   /*  Actions — counters and buttons              */
@@ -3658,6 +3689,26 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       return null;
     }
 
+    // A bound page never moves on its own — it travels with its Grimoire, in
+    // the bundle below, or not at all (2026-08-09 ruling: pages are bound, no
+    // way back, and they stay with the book). The bundle writes with
+    // createEmbeddedDocuments and never comes through here.
+    if (originalItem.type === "spellbook" && originalItem.system?.bound) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.PageBound"));
+      return null;
+    }
+
+    // The one-book wall's AFFORDANCE half — the toast a player actually sees.
+    // The enforcement is CairnItem._preCreate, which refuses the same create
+    // whatever UI produced it (two layers, the Fatigue precedent: removing
+    // either alone must not look like a landed change).
+    if (originalItem.type === "item" && originalItem.system?.grimoire
+        && this.actor.type === "character"
+        && this.actor.items.some((i) => i.type === "item" && i.system?.grimoire)) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.GrimoireOnlyOne"));
+      return null;
+    }
+
     // Capacity rules differ by target. A CHARACTER with no free slot refuses:
     // a drop is ORDINARY ACQUISITION, and the rule only owes a character
     // overflow in two cases, neither of them this one — what generation and a
@@ -3715,6 +3766,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         // target's book (review #9). Any future flag-style splitter joins
         // this test rather than growing a new merge.
         && !!it.system?.scroll === !!originalItem.system?.scroll
+        // A bound page and the loose book of the same spell are different
+        // things (the page is the book's), and a GRIMOIRE never stacks at all:
+        // each book carries its own pages, and quantity 2 on one document
+        // would make two libraries indistinguishable.
+        && !!it.system?.bound === !!originalItem.system?.bound
+        && !it.system?.grimoire && !originalItem.system?.grimoire
     );
     let created = foundItem ?? null;
     if (foundItem) {
@@ -3747,6 +3804,23 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         await originalItem.update({ "system.quantity": osq });
       } else {
         await originalActor.deleteEmbeddedDocuments("Item", [originalItem.id]);
+      }
+    }
+
+    // PAGES TRAVEL WITH THE BOOK (2026-08-09 ruling, #10's replacement): a
+    // Grimoire moving off an actor bundles every bound page in the same move —
+    // to another character, to an Item Pile, anywhere this handler can take it.
+    // A recovered book is the book WITH its spells. The pages are weightless,
+    // so they cannot fail a capacity check the book itself just passed, and
+    // they move via createEmbeddedDocuments — the same door generation uses —
+    // so the bound-page drop refusal above never sees them.
+    if (originalActor
+        && originalItem.type === "item" && originalItem.system?.grimoire) {
+      const pages = originalActor.items.filter(
+        (i) => i.type === "spellbook" && i.system.bound);
+      if (pages.length) {
+        await this.actor.createEmbeddedDocuments("Item", pages.map((p) => p.toObject()));
+        await originalActor.deleteEmbeddedDocuments("Item", pages.map((p) => p.id));
       }
     }
     return created;
@@ -3790,6 +3864,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * @param {CairnActor} actor  the dropped Actor, already resolved by ActorSheetV2
    */
   async _onDropActor(event, actor) {
+    // Parked UI (2026-08-09): drag-to-connect goes with the rest of the
+    // Connections surfaces. Silent, matching every other invalid drop here.
+    if (!connectionsUiEnabled()) return null;
     // Only WORLD actors can be attached. AppV1 expressed this by looking the
     // uuid up in `game.actors`, which a compendium or unlinked-token actor is
     // never in; ApplicationV2 hands us the resolved document, so say it directly.

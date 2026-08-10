@@ -256,9 +256,11 @@ console.log("\nphase 1 — and the paths actually did something");
 out.shopItems > 50
   ? ok("the shop stocked its catalogue", `${out.shopItems} items`)
   : fail("the shop came back near-empty", `${out.shopItems} items — phase 1 proved nothing`);
-out.shippedResolved === 198
-  ? ok("every shipped document row resolved", `${out.shippedResolved}/198`)
-  : fail("shipped rows resolved to a different count", `${out.shippedResolved}, expected 198`);
+// 198 → 298 on 2026-08-05: "Spells — Canon (1d100)" added 100 document rows
+// (the same deliberate bump as EXPECTED_REFS in ref-audit.mjs).
+out.shippedResolved === 298
+  ? ok("every shipped document row resolved", `${out.shippedResolved}/298`)
+  : fail("shipped rows resolved to a different count", `${out.shippedResolved}, expected 298`);
 Object.keys(out.traits ?? {}).length >= 8 && Object.values(out.traits ?? {}).every(Boolean)
   ? ok("all eight 2e traits drew text", Object.values(out.traits)[0])
   : fail("a 2e trait draw came back empty", JSON.stringify(out.traits));

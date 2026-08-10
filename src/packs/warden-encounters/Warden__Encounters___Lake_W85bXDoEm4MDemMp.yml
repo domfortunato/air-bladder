@@ -1,0 +1,186 @@
+_id: W85bXDoEm4MDemMp
+name: 'Warden: Encounters - Lake'
+img: icons/svg/d20-grey.svg
+description: >-
+  Wilderness encounters for a Lake. The Warden may optionally roll 2d4 when the
+  party is near open water. Page references are to the Cairn 2e Bestiary.
+results:
+  - _id: stpXWRiCEB7lD76R
+    type: text
+    description: 1 Kraken
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!W85bXDoEm4MDemMp.stpXWRiCEB7lD76R'
+  - _id: eaEUXerx9wG4gi30
+    type: text
+    description: >-
+      1d4 @UUID[Compendium.air-bladder.monsters.Actor.dJAN3KJC2pvioawd]{Tritons}
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!W85bXDoEm4MDemMp.eaEUXerx9wG4gi30'
+  - _id: tVusBKLyAnWBuFwI
+    type: text
+    description: >-
+      1 @UUID[Compendium.air-bladder.monsters.Actor.Qos89zK4mdNg1rO7]{Sea Hag}
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!W85bXDoEm4MDemMp.tVusBKLyAnWBuFwI'
+  - _id: J6pfi0dy7KJD7VtA
+    type: text
+    description: 1 Giant Bass (3 HP, 12 DEX, bite 1d6)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!W85bXDoEm4MDemMp.J6pfi0dy7KJD7VtA'
+  - _id: rsBp8sK7i0Y0gZWl
+    type: text
+    description: Insect Swarm (2 HP, 4 STR, bite d4, detachment)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!W85bXDoEm4MDemMp.rsBp8sK7i0Y0gZWl'
+  - _id: ZHCleaAIOFU1OT36
+    type: text
+    description: >-
+      1d4 @UUID[Compendium.air-bladder.monsters.Actor.J6kjuBfXIWRP0fxm]{Deep
+      Ones}
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 7
+      - 7
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!W85bXDoEm4MDemMp.ZHCleaAIOFU1OT36'
+  - _id: nn0btQsIDAR7YF9k
+    type: text
+    description: >-
+      1 @UUID[Compendium.air-bladder.monsters.Actor.NY94UhmWTBgw3gMC]{Water
+      Elemental}
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 8
+      - 8
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!W85bXDoEm4MDemMp.nn0btQsIDAR7YF9k'
+formula: 2d4
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+  systemVersion: 0.1.14
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!tables!W85bXDoEm4MDemMp'

@@ -110,11 +110,13 @@ for (const pack of manifest.packs ?? []) {
   if (existsSync(yaml)) packsChecked++;
   else fail(`pack "${pack.name}" is declared but src/packs/${pack.name}/ does not exist`);
 }
-// 24 since 2026-08-08: backgrounds-custom made it 23 (2026-08-04, c56d1b95)
-// and the macros pack 24 (2026-08-08, a2b15d1c), and the floor sat at 22
-// through both (review #13). A floor is a "this check is matching nothing"
-// tripwire, so it must RISE with the count or it slowly stops being one.
-const EXPECTED_PACKS = 24;
+// 29 since 2026-08-10: backgrounds-custom made it 23 (2026-08-04, c56d1b95),
+// the macros pack 24 (2026-08-08, a2b15d1c) — the floor sat at 22 through
+// both (review #13) — then spellbooks-glog 25, tables-glog + journals-glog
+// 27 (2026-08-09), and journals-2e + journals-docs 29 (2026-08-10). A floor
+// is a "this check is matching nothing" tripwire, so it must RISE with the
+// count or it slowly stops being one.
+const EXPECTED_PACKS = 29;
 if (packsChecked < EXPECTED_PACKS) {
   fail(`only ${packsChecked} pack source dirs found, expected at least ${EXPECTED_PACKS} — `
     + "this check is matching nothing rather than passing");

@@ -1,0 +1,26 @@
+_id: xrpS5v0W5q67jIzx
+name: Generating Factions
+pages:
+  - _id: 4x37j7KjHcPLbseT
+    name: Generating Factions
+    type: text
+    title:
+      show: false
+      level: 1
+    text:
+      content: '<p>One click composes Cairn 2e&#39;s <strong>Setting Seeds</strong> faction tables into a complete faction write-up — a <strong>dossier</strong> — and files it as a <strong>Journal Entry</strong>. A faction is campaign machinery, not a creature, so it does not become an Actor, and it does not scroll away in chat: it lands in your Journal sidebar, ready to rename, edit and build on.</p> <p>You need to be the Warden (GM). Players never see the button, and the dossiers it creates are private to you by default.</p> <hr> <h2>Where the button is</h2> <p><strong>Actors tab → the button row at the top → Generate Faction</strong> (the flag icon).</p> <p>There is no confirmation dialog, deliberately: creating a journal destroys nothing. The dossier opens as soon as it is rolled. Click again for another candidate — every click makes a new entry, and nothing is ever overwritten.</p> <h2>What the dossier contains</h2> <p>Six lines, each rolled from its own table:</p> <table> <thead> <tr> <th>Line</th> <th>What it answers</th> </tr> </thead> <tbody><tr> <td><strong>Type</strong></td> <td>What kind of group this is — Artisans, Criminals, Cultists…</td> </tr> <tr> <td><strong>Agent</strong></td> <td>A representative you can put in front of the party</td> </tr> <tr> <td><strong>Traits</strong></td> <td>Two character notes for how the faction behaves</td> </tr> <tr> <td><strong>Advantages</strong></td> <td>What the faction has going for it — 1 to 4 entries, always distinct (the count is itself rolled, per the SRD&#39;s procedure)</td> </tr> <tr> <td><strong>Agenda</strong></td> <td>What they are trying to do</td> </tr> <tr> <td><strong>Obstacle</strong></td> <td>What stands in their way</td> </tr> </tbody></table> <p>The entry&#39;s name is drafted as <strong>&quot;The ⟨Trait⟩ ⟨Type⟩&quot;</strong> — <em>The Enigmatic Cultists</em> — and it is <em>meant</em> to be replaced once the faction earns a real name in your campaign.</p> <p><strong>Dossiers are private by default.</strong> Each journal is created with no player visibility — factions are the Warden&#39;s machinery. Grant Observer on an entry in the usual Foundry way if you ever want to hand one to the table.</p> <h2>The eight tables behind it</h2> <p>All of them ship as RollTables in the <strong>Warden: NPCs</strong> compendium:</p> <ul> <li><code>Warden: NPC - Faction</code> — the Type column (shared with the sheet die, below)</li> <li><code>Warden: Faction - Agent</code></li> <li><code>Warden: Faction - Trait (Trait 1)</code></li> <li><code>Warden: Faction - Trait (Trait 2)</code></li> <li><code>Warden: Faction - Advantage (Count)</code></li> <li><code>Warden: Faction - Advantage</code></li> <li><code>Warden: Faction - Agenda</code></li> <li><code>Warden: Faction - Obstacle</code></li> </ul> <p>The text is the Cairn 2e SRD&#39;s Setting Seeds content (CC BY-SA 4.0, by Yochai Gal). The generator <em>rolls</em> these tables rather than <em>drawing</em> from them, so it never marks your table rows as drawn.</p> <h2>Making the tables yours</h2> <p>Every roll resolves <strong>by table name, world first</strong>. If a RollTable in your world has exactly one of the names above, it silently wins over the shipped copy — so you can either edit the compendium tables, or (better) import one into the world and rework it there. Your version survives every system update, because the generator finds it by name, not by id.</p> <p>If a table is missing or empty, its line degrades to an em-dash and the dossier still mints — mid-edit you get a partial dossier, never an error.</p> <h2>Closing the loop: the Faction die on NPC and Monster sheets</h2> <p>NPC and Monster sheets carry a <strong>Faction</strong> field in the header — free text, always editable. When <strong>Randomization is On</strong> (the toggle in the sheet&#39;s title bar), a d20 die appears beside it; clicking it rolls <code>Warden: NPC - Faction</code> — world first, same contract — and fills the field. It touches nothing else on the sheet.</p> <p>That gives the feature its intended workflow:</p> <ol> <li><strong>Generate Faction</strong> until a candidate sticks. Rename it, edit the dossier, keep it in the Journal.</li> <li><strong>Add the faction&#39;s name as a row</strong> in your world copy of <code>Warden: NPC - Faction</code>.</li> <li>From then on, the <strong>Faction die deals your factions</strong> to every NPC and Monster you stamp it on. The generator invents candidates; your table is the canon.</li> </ol> <h2>One note on language</h2> <p>The dossier&#39;s text is baked in the language of the session that generated it. Generate in an English world and the entry is English prose thereafter; a Spanish client generates a Spanish dossier. Rolled world content is authored content, not display-translated content — the same rule monster generation follows.</p>'
+      format: 1
+    sort: 0
+    ownership:
+      default: -1
+    flags: {}
+    _key: '!journal.pages!xrpS5v0W5q67jIzx.4x37j7KjHcPLbseT'
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!journal!xrpS5v0W5q67jIzx'

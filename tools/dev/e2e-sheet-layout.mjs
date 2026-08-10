@@ -231,15 +231,15 @@ try {
           gold: edge(".npc-vitals-line .gold-counter > label"),
           armor: edge(".armor-counter > label"),
         };
-        // The two Description-tab section headings must render as the SAME
-        // heading. This is the one sheet that shows both at once, and the
-        // Features header comes from the partial the character sheet also uses,
-        // so checking it here covers both. Typography only, no geometry — so an
-        // inactive tab still resolves it.
-        // Measured 2026-07-29: the Features <h3> carried no class, and core's
-        // `body.game .app h1,...,h6` (the V1 compatibility layer) styles the TAG
-        // directly, so the `!important` font-family on `.cairn-items-list-header`
-        // could never reach it: 28px Signika beside 17px small-caps Alegreya.
+        // The Description-tab section heading must wear the house face, pinned
+        // ABSOLUTELY. Until the Features UI went (2026-08-09) this compared the
+        // Features header against the description label — two headings, same
+        // face — and the comparison form died with its second subject, but the
+        // trap it guarded is intact: core's `body.game .app h1,...,h6` (the V1
+        // compatibility layer) styles the TAG directly, so an <h3> that loses
+        // `.cairn-section-label` silently renders 28px Signika, and no
+        // comparison remains to catch it. Typography only, no geometry — so an
+        // inactive tab still resolves it. Measured 2026-07-29.
         const face = (sel) => {
           const el = root.querySelector(sel);
           if (!el) return null;
@@ -248,7 +248,6 @@ try {
           return `${family} ${cs.fontSize} ${cs.fontWeight} ${cs.fontVariantCaps}`;
         };
         entry.headings = {
-          features: face(".features .cairn-items-list-header h3"),
           description: face(".npc-description-label"),
         };
       }
@@ -314,9 +313,9 @@ try {
 
     const hd = r.headings;
     if (hd) {
-      if (!hd.features || !hd.description) fail(r.type, "description tab: Features/Description headings not both found");
-      else if (hd.features !== hd.description) fail(r.type, `description tab: Features renders "${hd.features}", Description renders "${hd.description}" — both must be the same heading`);
-      else ok(r.type, `description tab: Features and Description headings match (${hd.features})`);
+      if (!hd.description) fail(r.type, "description tab: the Description heading was not found");
+      else if (hd.description !== "Alegreya 17px 700 small-caps") fail(r.type, `description tab: the heading renders "${hd.description}" — expected the house face (Alegreya 17px 700 small-caps); core's h1..h6 tag rule has probably reached it`);
+      else ok(r.type, `description tab: the Description heading wears the house face (${hd.description})`);
     }
 
     const f = r.inanimateFill;
@@ -351,6 +350,13 @@ try {
       // sets and only the scroll's can clip.
       ["spellbook (book)", { name: "ZZ Layout Book", type: "spellbook" }],
       ["spellbook (scroll)", { name: "ZZ Layout Scroll", type: "spellbook", system: { scroll: true } }],
+      // The GLOG flag added a FIFTH counter to every spellbook (and a glog
+      // scroll shows six). Five and six both need three counter rows, which is
+      // why the old `.has-scroll-uses` conditional class is gone — one 5-row
+      // template covers all four states, and the visibility check below is the
+      // gate that catches a counter landing in an implicit row under the tabs.
+      ["spellbook (glog)", { name: "ZZ Layout Glog", type: "spellbook", system: { glog: true } }],
+      ["spellbook (glog scroll)", { name: "ZZ Layout GlogScroll", type: "spellbook", system: { glog: true, scroll: true } }],
       // Every remaining type, because the grid's row count is declared PER TYPE and
       // the visibility check below is what catches one counter too many. Covering
       // four of seven types is how the weapon sheet's Cost sat off-screen unnoticed.

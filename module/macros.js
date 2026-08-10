@@ -1,5 +1,6 @@
 import { evaluateFormula, getInfoFromDropData, askDamageQuality, damageFormulaFor, damageQualityLabel } from "./utils.js";
 import { SETTINGS_NS } from "./settings.js";
+import { t } from "./i18n-content.js";
 
 /**
  * @param {Object} data
@@ -62,6 +63,14 @@ export const rollItemMacro = async (actorId, itemId) => {
     return ui.notifications.warn(game.i18n.format("CAIRN.Macro.NoItem", { name: actor.name }));
   }
 
+  // Show the weapon's name through the content overlay, exactly as the sheet's
+  // damage control does (localizeNameDesc over _itemNamespaces): a Spanish
+  // player's hotbar macro must not print the English name the sheet already
+  // localizes — the "one sheet, two answers" tell. Monster-owned items file
+  // under a different namespace than a character's; a character's npcRole is
+  // undefined, so it falls to item.name.
+  const weaponName = t(actor.npcRole === "monster" ? "monster.itemName" : "item.name", item.name);
+
   const usePanic = game.settings.get(SETTINGS_NS, "use-panic");
   const panicked = usePanic && actor.system.panicked;
 
@@ -73,8 +82,8 @@ export const rollItemMacro = async (actorId, itemId) => {
   let quality;
   if (panicked) quality = "impaired";
   else {
-    // Same title as the sheet's control gets — the macro has the item itself.
-    quality = await askDamageQuality(item.system.damageFormula, item.name ?? "");
+    // Same title as the sheet's control gets — the localized weapon name.
+    quality = await askDamageQuality(item.system.damageFormula, weaponName);
     if (quality === null) return; // dismissed: roll nothing
   }
   const rollSchema = damageFormulaFor(quality, item.system.damageFormula);
@@ -83,12 +92,12 @@ export const rollItemMacro = async (actorId, itemId) => {
   const roll = await evaluateFormula(rollSchema, actor.getRollData());
   // Whole-sentence keys, same as the sheet's damage roll — this was the third
   // copy of the localize()+concat shape and the one nobody remembered.
-  const label = item.name
+  const label = weaponName
     ? game.i18n.format(panicked ? "CAIRN.RollingDmgWithWeaponPanic" : "CAIRN.RollingDmgWithWeapon",
-      { weapon: item.name })
+      { weapon: weaponName })
     : "";
 
-  const targetedTokens = Array.from(game.user.targets).map((t) => t.id);
+  const targetedTokens = Array.from(game.user.targets).map((tk) => tk.id);
 
   let targetIds;
   if (targetedTokens.length == 0) targetIds = null;
@@ -104,7 +113,7 @@ export const rollItemMacro = async (actorId, itemId) => {
   const rollMessageTpl = "systems/air-bladder/templates/chat/dmg-roll-card.html";
   const tplData = {
     label: label, targets: targetIds,
-    weapon: item.name ?? "",
+    weapon: weaponName,
     quality: damageQualityLabel(quality, { panicked }),
   };
   const msg = await foundry.applications.handlebars.renderTemplate(rollMessageTpl, tplData);

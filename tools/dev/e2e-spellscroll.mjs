@@ -109,6 +109,20 @@ const flag = await page.evaluate(async () => {
   out.spentAtBirth = snap(spentAtBirth);
   await spentAtBirth.delete();
 
+  // GLOG composes with Scroll in BOTH directions. The pins are mergeObjects
+  // over changed.system that do not name `glog`, so this should hold — but
+  // SCROLL_PINNED/BOOK_PINNED are exactly where a future edit would clobber
+  // it, and nothing else would notice a wording flag silently going false.
+  const gl = await getDocumentClass("Item").create({
+    name: "zz-glog-scroll", type: "spellbook", system: { glog: true },
+  });
+  out.glogBook = gl.toObject().system.glog;
+  await gl.update({ "system.scroll": true });
+  out.glogTicked = { glog: gl.toObject().system.glog, ...snap(gl) };
+  await gl.update({ "system.scroll": false });
+  out.glogUnticked = { glog: gl.toObject().system.glog, uses: gl.toObject().system.uses };
+  await gl.delete();
+
   return out;
 });
 
@@ -135,6 +149,12 @@ eq("a spellbook created with no image gets the book art, and the scroll art when
   { created: BOOK_ICON, ticked: SCROLL_ICON });
 eq("...but an explicit count is the caller's (a migrated spent scroll stays spent)",
   flag.spentAtBirth.uses, { value: 0, max: 1 });
+eq("glog survives ticking Scroll (SCROLL_PINNED must not clobber the wording flag)",
+  { glog: flag.glogTicked.glog, weightless: flag.glogTicked.weightless },
+  { glog: true, weightless: true });
+eq("glog survives unticking too (BOOK_PINNED restores the book, not the wording)",
+  { glog: flag.glogUnticked.glog, uses: flag.glogUnticked.uses },
+  { glog: true, uses: { value: 0, max: 0 } });
 
 /* --- 3. what generation builds ---------------------------------------------- */
 

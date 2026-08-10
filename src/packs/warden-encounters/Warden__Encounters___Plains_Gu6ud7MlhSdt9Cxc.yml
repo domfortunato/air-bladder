@@ -1,0 +1,379 @@
+_id: Gu6ud7MlhSdt9Cxc
+name: 'Warden: Encounters - Plains'
+img: icons/svg/d20-grey.svg
+description: >-
+  Wilderness encounters for the Plains. The Warden rolls d6 + d10 when an
+  Encounter comes up in open grassland. Page references are to the Cairn 2e
+  Bestiary.
+results:
+  - _id: 71oiQM8UDjDf0AtH
+    type: text
+    description: >-
+      1 @UUID[Compendium.air-bladder.monsters.Actor.2wYIinqSgv6NtD8Y]{Wyvern}
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Gu6ud7MlhSdt9Cxc.71oiQM8UDjDf0AtH'
+  - _id: WgOEIQjK63fCbcmi
+    type: text
+    description: >-
+      1 @UUID[Compendium.air-bladder.monsters.Actor.qzELwDxQrJbenkti]{Estrie}
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Gu6ud7MlhSdt9Cxc.WgOEIQjK63fCbcmi'
+  - _id: 7yeMgU7TY9A39Noi
+    type: text
+    description: >-
+      1d4 @UUID[Compendium.air-bladder.monsters.Actor.2mncPhXnmdeGOlCi]{Blink
+      Dogs}
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Gu6ud7MlhSdt9Cxc.7yeMgU7TY9A39Noi'
+  - _id: O1SJ2XhlZGXKI99Y
+    type: text
+    description: >-
+      1 @UUID[Compendium.air-bladder.monsters.Actor.bKy98z6f6VgGsKPh]{Viper}
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Gu6ud7MlhSdt9Cxc.O1SJ2XhlZGXKI99Y'
+  - _id: hpQd431cB6UEvl7B
+    type: text
+    description: >-
+      1d6 @UUID[Compendium.air-bladder.monsters.Actor.HsBeXxBZN4FKLwzk]{Gnolls}
+      or
+      @UUID[Compendium.air-bladder.monsters.Actor.kCBI78rAGffFNBsj]{Gnomes}
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Gu6ud7MlhSdt9Cxc.hpQd431cB6UEvl7B'
+  - _id: TOhjyQkzX53UxAgs
+    type: text
+    description: >-
+      1d4 @UUID[Compendium.air-bladder.monsters.Actor.Ef8rxaWBXlNUp9d2]{Boars}
+      or
+      @UUID[Compendium.air-bladder.monsters.Actor.vilAIkfWFALYkkNP]{Wolves}
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 7
+      - 7
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Gu6ud7MlhSdt9Cxc.TOhjyQkzX53UxAgs'
+  - _id: jh7R8BHpXQ1Sivfh
+    type: text
+    description: Herd Animals (Deer, Goats)
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 8
+      - 8
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Gu6ud7MlhSdt9Cxc.jh7R8BHpXQ1Sivfh'
+  - _id: ykWNsW5GzSXMbFRg
+    type: text
+    description: >-
+      2d4 @UUID[Compendium.air-bladder.monsters.Actor.LWnAkJHVXXI5fbSn]{Killer
+      Bees}
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 9
+      - 9
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Gu6ud7MlhSdt9Cxc.ykWNsW5GzSXMbFRg'
+  - _id: tLY5tcAiz4iACcae
+    type: text
+    description: >-
+      2d4 @UUID[Compendium.air-bladder.monsters.Actor.oiJxOlib09XTpo7Z]{Driver
+      Ants}
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 10
+      - 10
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Gu6ud7MlhSdt9Cxc.tLY5tcAiz4iACcae'
+  - _id: HuaADEw0b45vOae6
+    type: text
+    description: >-
+      1d6 @UUID[Compendium.air-bladder.monsters.Actor.ZDfLyzBNBwF1VdMl]{Bandits}
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 11
+      - 11
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Gu6ud7MlhSdt9Cxc.HuaADEw0b45vOae6'
+  - _id: xGE9rWdhpUhr0sgR
+    type: text
+    description: >-
+      1d2 @UUID[Compendium.air-bladder.monsters.Actor.jgtycd2HoWTQEU5T]{Ogres}
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 12
+      - 12
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Gu6ud7MlhSdt9Cxc.xGE9rWdhpUhr0sgR'
+  - _id: p8OSyKhoWrUEs5sI
+    type: text
+    description: 1 Burrowing Horror
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 13
+      - 13
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Gu6ud7MlhSdt9Cxc.p8OSyKhoWrUEs5sI'
+  - _id: hjbUkzkeakZ9j33f
+    type: text
+    description: >-
+      1 @UUID[Compendium.air-bladder.monsters.Actor.SuPF9kSGGZEBWV7f]{Ghost}
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 14
+      - 14
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Gu6ud7MlhSdt9Cxc.hjbUkzkeakZ9j33f'
+  - _id: NtjuLyrDjS5lcE7v
+    type: text
+    description: >-
+      1
+      @UUID[Compendium.air-bladder.monsters.Actor.ahHzXh2NhnPtPDIM]{Cockatrice}
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 15
+      - 15
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Gu6ud7MlhSdt9Cxc.NtjuLyrDjS5lcE7v'
+  - _id: E8Dtia7kJ3R7q7EB
+    type: text
+    description: >-
+      1 @UUID[Compendium.air-bladder.monsters.Actor.pRAyyFwhHCTqQmB8]{Blue
+      Dragon}
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 16
+      - 16
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!Gu6ud7MlhSdt9Cxc.E8Dtia7kJ3R7q7EB'
+formula: 1d6 + 1d10
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+  systemVersion: 0.1.14
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!tables!Gu6ud7MlhSdt9Cxc'

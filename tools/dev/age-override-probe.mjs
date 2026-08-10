@@ -3,7 +3,8 @@
  * The minimum-age floor + the settings-tab reorder.
  *
  *   1. Settings sections render General → Character Generation → Inventory.
- *   2. The Features toggle reads "Show Features List on character's Description tab".
+ *      (Item 2 here was the Features toggle's relabel; the setting was removed
+ *      with the Features UI, 2026-08-09, and the leg went with it.)
  *   3. The single min-age setting sits under the Character Generation header
  *      (no on/off toggle).
  *   4. rollAge() ALWAYS floors the roll at min-age — both generation and the sheet
@@ -106,8 +107,6 @@ try {
       return null;
     };
     out.minAgeGroup = groupOf("min-age");
-    out.featuresLabel = root.querySelector(`[name="${NS}.show-features-section"]`)
-      ?.closest(".form-group")?.querySelector("label")?.textContent.trim() ?? null;
     // The min-age number field really is a number input defaulting to 21.
     const minInput = root.querySelector(`[name="${NS}.min-age"]`);
     out.minAgeInputType = minInput?.getAttribute("type") ?? minInput?.tagName?.toLowerCase() ?? null;
@@ -121,11 +120,6 @@ try {
   JSON.stringify(r.headerOrder) === JSON.stringify(wanted)
     ? ok(`settings sections in order: ${r.headerOrder.join(" → ")}`)
     : fail(`section order is ${JSON.stringify(r.headerOrder)}, expected ${JSON.stringify(wanted)}`);
-
-  // 2. relabelled Features setting
-  r.featuresLabel === "Show Features List on character's Description tab"
-    ? ok(`Features toggle relabelled ("${r.featuresLabel}")`)
-    : fail(`Features label is "${r.featuresLabel}"`);
 
   // 3. single age setting under Character Generation, no on/off toggle.
   //    It sat under General until 2026-07-28; it is a parameter of the character

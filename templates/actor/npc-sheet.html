@@ -328,15 +328,13 @@
                         {{#if showBiography}}
                         {{> "systems/air-bladder/templates/parts/bio-block.html"}}
                         {{/if}}
-                        {{!-- Features are ALWAYS shown here, unlike the character
-                              sheet, where they sit behind the "show-features
-                              section" world setting. A monster's attacks and
-                              special abilities are its statblock, not an optional
-                              extra, so a Warden must never have to find a setting
-                              to record them. --}}
-                        <div class="features">
-                            {{> "systems/air-bladder/templates/parts/feature-list.html"}}
-                        </div>
+                        {{!-- The Features list rendered here until 2026-08-09
+                              (always shown, unlike the character sheet's gated
+                              copy) and went with the Features UI (user ruling).
+                              A monster's attacks and abilities are ITEMS, which
+                              is where the shipped monsters keep them;
+                              `system.features` survives on the document,
+                              unrendered. --}}
                         {{!-- ONE editor on this tab, and it is the description --
                               the monster/NPC prose that 204 of the 205 shipped
                               monsters carry. There used to be a second, unlabelled

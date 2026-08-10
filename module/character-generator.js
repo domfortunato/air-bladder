@@ -2,10 +2,11 @@ import { CairnActor } from "./actor/actor.js";
 import { compendiumInfoFromString, drawTableText, resultText, findTableByName } from "./compendium.js";
 import { Cairn } from "./config.js";
 import { evaluateFormula, formatCount } from "./utils.js";
-import { resolveGearItem, SPELL_PACKS, GEAR_ALIASES, spellScrollItem } from "./gear.js";
+import { resolveGearItem, GEAR_ALIASES, spellScrollItem } from "./gear.js";
 import { containerClass, iconForTransport } from "./icons.js";
 import { connectionHeadroom, maxConnections, connectedOwnershipShape, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { SETTINGS_NS } from "./settings.js";
+import { glogEnabled, GLOG_SPELL_PACKS } from "./glog.js";
 import { t } from "./i18n-content.js";
 
 // Foundry validates a document flag's scope against real package ids, so flags
@@ -1188,27 +1189,66 @@ const barebonesTable = async (name) => {
   return (await pack.getDocuments()).find((t) => t.name === name) ?? null;
 };
 
-/** Every spellbook across both packs, cached. @returns {Promise<CairnItem[]>} */
-let _spellbooks = null;
-const getSpellbooks = async () => {
-  if (_spellbooks === null) {
-    _spellbooks = [];
-    for (const key of SPELL_PACKS) {
-      const pack = game.packs.get(key);
-      if (pack) _spellbooks.push(...(await pack.getDocuments()));
+/**
+ * The pack a RANDOM spell is drawn from — canon only, by ruling (2026-08-05):
+ * "random assignment of spells and spell scrolls during character generation
+ * with Cairn 2e Canon Backgrounds [uses] only the spells listed in the
+ * Spellbooks compendium." Deliberately NOT `SPELL_PACKS`: that list answers a
+ * different question — which packs a by-NAME grant like "Spellbook (Shield)"
+ * resolves against — and a shared constant would let widening one silently
+ * widen the other.
+ */
+const SPELL_POOL_PACK = "air-bladder.spellbooks";
+
+/**
+ * One random spellbook DOCUMENT out of `packIds`, index-first.
+ *
+ * No cache, on purpose. The old shape memoized `getDocuments()` across both
+ * spell packs and never invalidated, so a spell a Warden added to an unlocked
+ * pack was undrawable until the browser reloaded — silently. There is nothing
+ * to invalidate here: core maintains `pack.index` live on every client
+ * (client-document.mjs _onCreate/_onUpdate/_onDelete all reindex), so reading
+ * the index each draw is both current and effectively free, and only the one
+ * winning document pays a server fetch.
+ *
+ * The type filter is load-bearing: an unlocked pack accepts ANY item, and a
+ * Dagger dropped into Spellbooks must not come out of "a random spellbook".
+ * @returns {Promise<CairnItem|null>}
+ */
+export const randomSpellbookDoc = async (packIds = null) => {
+  // Under GLOG the pool is the GLOG wordings plus the custom set, canon
+  // excluded (ruling 2026-08-05). The setting is read per DRAW, so flipping it
+  // needs no reload. Statically imported: a per-call `await import()` here
+  // cost ~600ms EVERY call in the live page (it is why dev:spell-pool timed
+  // out on 2026-08-05), and glog.js → settings.js is a leaf chain, no cycle.
+  if (!packIds) {
+    packIds = glogEnabled() ? GLOG_SPELL_PACKS : [SPELL_POOL_PACK];
+  }
+  const candidates = [];
+  for (const key of packIds) {
+    const pack = game.packs.get(key);
+    if (!pack) continue;
+    for (const e of await pack.getIndex()) {
+      if (e.type === "spellbook") candidates.push({ pack, id: e._id });
     }
   }
-  return _spellbooks;
+  if (!candidates.length) return null;
+  const pick = candidates[Math.floor(Math.random() * candidates.length)];
+  return pick.pack.getDocument(pick.id);
 };
 
 /** A random spellbook as an owned item, named for the spell it holds. The
  *  inventory list adds the "Spellbook — " prefix at display time
  *  (templates/parts/items-list.html), so the stored name stays the bare spell
  *  name — baking the prefix in here too would double it. */
-const randomSpellbookItem = async () => {
-  const books = await getSpellbooks();
-  if (!books.length) return null;
-  const b = books[Math.floor(Math.random() * books.length)];
+export const randomSpellbookItem = async () => {
+  const b = await randomSpellbookDoc();
+  if (!b) return null;
+  // Under GLOG every granted spell is a SCROLL, and this path is reachable then:
+  // the Barebones "Spellbook" / "Random Spellbook" instruction rows call it, and
+  // GLOG is a rules setting, not a content source — it does not turn Barebones
+  // off. Same rule as resolveGearItem's book grants (rulings 2 and 7, 2026-08-05).
+  if (glogEnabled()) return spellScrollItem(b);
   // toObject(), not deepClone — deepClone returns a TypeDataModel by reference,
   // so this would alias the compendium document. See gear.js resolveGearItem.
   return { name: b.name, type: b.type, img: b.img, system: b.system.toObject() };
@@ -1216,10 +1256,9 @@ const randomSpellbookItem = async () => {
 
 /** A random spellbook as a single-use petty scroll. The spell's effect is the
  *  description; casting consumes it. */
-const randomScrollItem = async () => {
-  const books = await getSpellbooks();
-  if (!books.length) return null;
-  const b = books[Math.floor(Math.random() * books.length)];
+export const randomScrollItem = async () => {
+  const b = await randomSpellbookDoc();
+  if (!b) return null;
   return spellScrollItem(b);   // shared scroll shape — see gear.js
 };
 
@@ -1413,29 +1452,13 @@ export const generateBarebonesCharacter = async (chosenBg = null) => {
   if (armor) { armor.system.equipped = true; avoid.add(armor.name.toLowerCase()); }
   const extraGearRoll = !armor;
 
-  const bondsEnabled = game.settings.get(SETTINGS_NS, "show-bonds-barebones");
-
-  // Step 6 — skipped entirely when bonds are on (the bond takes its place).
+  // Step 6 — Additional Gear, always. Barebones generation mints no bonds:
+  // the retired show-bonds-barebones setting (removed 2026-08-09) used to let
+  // a lent 2e bond REPLACE this step; bonds are 2e's alone now.
   const extras = [];
-  if (!bondsEnabled) {
-    for (let i = 0; i < 1 + (extraGearRoll ? 1 : 0); i++) {
-      const x = await rollAdditionalGear(avoid);
-      if (x) { extras.push(x); avoid.add(x.name.toLowerCase()); }
-    }
-  }
-
-  // Barebones bonds are a SINGLE optional bond — no second bond and no background
-  // questions, both of which are 2e. Like 2e it supplies starting gold and an item.
-  const bonds = [];
-  const bondItems = [];
-  let bondGold = 0;
-  if (bondsEnabled) {
-    const rec = bondRecordFrom(await drawBond());
-    if (rec) {
-      bonds.push(rec.bond);
-      bondItems.push(...rec.items);
-      bondGold += rec.bond.gold;
-    }
+  for (let i = 0; i < 1 + (extraGearRoll ? 1 : 0); i++) {
+    const x = await rollAdditionalGear(avoid);
+    if (x) { extras.push(x); avoid.add(x.name.toLowerCase()); }
   }
 
   // A failed career (Knave-style): a second background name, plus one Petty
@@ -1457,7 +1480,7 @@ export const generateBarebonesCharacter = async (chosenBg = null) => {
   return {
     name: await rollNameFromTable(Cairn.barebonesGenerator.name, bg.name),
     hp: hpRoll.total,
-    gold: goldRoll.total + bondGold,
+    gold: goldRoll.total,
     abilities: {
       STR: abilityRolls.STR.total,
       DEX: abilityRolls.DEX.total,
@@ -1469,10 +1492,10 @@ export const generateBarebonesCharacter = async (chosenBg = null) => {
     backgroundUuid: bg.uuid,
     contentSource: "barebones",
     failedCareer,
-    bonds,
+    bonds: [],
     age: String(await rollAge(Cairn.characterGenerator2e.biography.age)),
     traits: await rollTextItems(Cairn.characterGenerator2e.biography.items),
-    items: [...bgItems, ...base, ...(weapon ? [weapon] : []), ...(armor ? [armor] : []), ...extras, ...bondItems, ...failedCareerItems],
+    items: [...bgItems, ...base, ...(weapon ? [weapon] : []), ...(armor ? [armor] : []), ...extras, ...failedCareerItems],
     containers,
     questions: [],
   };

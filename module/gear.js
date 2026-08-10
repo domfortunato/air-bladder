@@ -18,6 +18,7 @@
  */
 
 import { iconForItem, SPELLSCROLL_ICON } from "./icons.js";
+import { glogEnabled, GLOG_SPELL_PACKS, GLOG_NAME_ALIASES } from "./glog.js";
 
 // Packs searched to resolve a gear name, in precedence order — an earlier pack
 // wins a name collision. Spellbook packs are separate (spell grants route there).
@@ -194,8 +195,22 @@ export const buildGearItem = (g) => {
  */
 export const resolveGearItem = async (name, { quantity = 1, uses } = {}) => {
   const spell = spellNameFromGrant(name);
-  const targetName = spell ?? GEAR_ALIASES.get(String(name).trim().toLowerCase()) ?? name;
-  const packs = spell ? SPELL_PACKS : CANONICAL_GEAR_PACKS;
+  let targetName = spell ?? GEAR_ALIASES.get(String(name).trim().toLowerCase()) ?? name;
+  // Under GLOG only GLOG and custom spells are used (ruling 2026-08-05):
+  // spell grants resolve against the GLOG wordings and the custom set, with
+  // canon EXCLUDED — a "Spellbook (Charm)" grant must come back scaling on
+  // [dice]/[sum], not as the canon sentence. Non-spell gear is untouched.
+  // Two canon spells exist in the GLOG list under NEW names (Marble Craze,
+  // Missile Shield — see GLOG_NAME_ALIASES); the alias applies ONLY while GLOG
+  // is in force, so canon-mode resolution never sees it. glog.js is imported
+  // STATICALLY: a per-call `await import()` cost ~600ms every call in the live
+  // page — once per resolved gear NAME — and glog.js → settings.js is a leaf
+  // chain, no cycle.
+  const useGlog = !!spell && glogEnabled();
+  if (useGlog) targetName = GLOG_NAME_ALIASES.get(targetName.toLowerCase()) ?? targetName;
+  const packs = spell
+    ? (useGlog ? GLOG_SPELL_PACKS : SPELL_PACKS)
+    : CANONICAL_GEAR_PACKS;
   const lower = String(targetName).toLowerCase();
 
   let found = null;
@@ -215,7 +230,10 @@ export const resolveGearItem = async (name, { quantity = 1, uses } = {}) => {
   // A "Scroll (X)" grant is the spell as a single-use petty scroll, not the
   // slot-taking book. Without this a background handing out a scroll silently
   // grants a full spellbook (and the sheet even labels it "Spellbook — X").
-  if (found.type === "spellbook" && isScrollGrant(name)) {
+  // Under GLOG, EVERY spell grant is a scroll — "Spellbook (X)" included: found
+  // magic is a scroll you copy into your grimoire, and permanent books are
+  // treasure, never handed out (rulings 2 and 7, 2026-08-05).
+  if (found.type === "spellbook" && (isScrollGrant(name) || glogEnabled())) {
     return spellScrollItem(found, { quantity, uses });
   }
 

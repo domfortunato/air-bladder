@@ -29,6 +29,12 @@
  *      a monster keeps NONE, explicit creation data wins, the global-Actor
  *      path gets it too — with the in-page prototype-swap control making the
  *      default vanish, so the assertions demonstrably can fail.
+ *   8. the PARKED UI (2026-08-09): the tab, the attach affordance and
+ *      drag-to-connect are gone by default; the in-page settings shadow
+ *      brings them back; a stale sheet's control is refused by the handler;
+ *      the vanished-tab reset lands a re-parked sheet on Items. Every other
+ *      leg in this probe drives DOCUMENT METHODS, which is itself the
+ *      witness that parking hid the UI without touching the plumbing.
  *
  * MUST run with a live GM client for the relay legs, and deliberately WITHOUT
  * one for the sweep leg — the GM context is closed and reopened mid-probe.
@@ -151,6 +157,93 @@ pre.viaGlobal === pre.L.LIMITED
 pre.control === pre.L.NONE
   ? ok("   control: with _preCreate swapped off it vanishes", "the assertions can fail")
   : fail("   control: with _preCreate swapped off it vanishes", `default=${pre.control} — not load-bearing`);
+
+/* ---- the parked UI (2026-08-09) -------------------------------------------- */
+
+// The Connections UI is PARKED: the internal `connections-ui-enabled` flag
+// defaults false, so the tab, the npc header connection controls and
+// drag-to-connect are hidden while every document method above and below this
+// section keeps working — which is exactly what the rest of this probe
+// witnesses. The enabled state is exercised by SHADOWING the settings read
+// in-page (the dev:print failed-career pattern), never by writing the flag
+// into the world.
+console.log("\nthe Connections UI is parked; the plumbing is not");
+const parked = await gmPage.evaluate(async ({ pcUuid, freeUuid }) => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const pc = await fromUuid(pcUuid);
+  const free = await fromUuid(freeUuid);
+  const out = {};
+
+  // Parked default: a rendered PC sheet has neither the nav entry nor the
+  // panel, and the drag spelling of Connect refuses silently.
+  await pc.sheet.render(true);
+  await sleep(600);
+  out.tabGone = !pc.sheet.element.querySelector('.tabs .item[data-tab="containers"]');
+  out.panelGone = !pc.sheet.element.querySelector('.tab[data-tab="containers"]');
+  out.dropRefused = (await pc.sheet._onDropActor(new Event("drop"), free)) === null
+    && !free.system.connectedTo;
+
+  // Under the shadow the whole UI returns: the tab on the PC sheet, the
+  // attach affordance on an unconnected child's header line.
+  const origGet = game.settings.get;
+  game.settings.get = function (ns, key) {
+    if (key === "connections-ui-enabled") return true;
+    return origGet.call(this, ns, key);
+  };
+  let attachEl = null;
+  try {
+    pc.prepareData();                       // showContainersTab derives here
+    await pc.sheet.render(true);
+    await sleep(600);
+    out.tabBackUnderShadow = !!pc.sheet.element.querySelector('.tabs .item[data-tab="containers"]');
+    // Stand on the tab, so the re-park below exercises the vanished-tab reset.
+    pc.sheet.element.querySelector('.tabs .item[data-tab="containers"]')?.click();
+    await sleep(300);
+    out.stoodOnTab = pc.sheet.tabGroups.primary === "containers";
+    await free.sheet.render(true);
+    await sleep(600);
+    attachEl = free.sheet.element.querySelector('[data-action="connectionAttach"]');
+    out.attachOfferedUnderShadow = !!attachEl;
+  } finally {
+    game.settings.get = origGet;
+  }
+
+  // THE STALE-SHEET WALL: the shadow is gone but the attach control is still
+  // in the child sheet's DOM. The hidden control is the affordance; the
+  // handler refusal is the enforcement — no picker may open, nothing written.
+  attachEl?.click();
+  await sleep(800);
+  const dialogOpen = [...foundry.applications.instances.values()]
+    .some((a) => a instanceof foundry.applications.api.DialogV2);
+  out.staleClickRefused = !dialogOpen && !free.system.connectedTo;
+
+  // Re-park the PC sheet while it stands on the Connections tab: the
+  // vanished-tab reset must land it on a real tab, not a blank body.
+  pc.prepareData();
+  await pc.sheet.render(true);
+  await sleep(600);
+  out.tabGoneAgain = !pc.sheet.element.querySelector('.tabs .item[data-tab="containers"]');
+  out.resetLandsOnItems = pc.sheet.tabGroups.primary === "items"
+    && !!pc.sheet.element.querySelector('.tab.active[data-tab="items"]');
+  await pc.sheet.close();
+  await free.sheet.close();
+  return out;
+}, scene);
+parked.tabGone && parked.panelGone
+  ? ok("parked: the Connections tab is gone", "nav and panel both")
+  : fail("parked: the Connections tab is gone", JSON.stringify(parked));
+parked.dropRefused
+  ? ok("parked: drag-to-connect refuses silently", "null, nothing written")
+  : fail("parked: drag-to-connect refuses silently", JSON.stringify(parked));
+parked.tabBackUnderShadow && parked.attachOfferedUnderShadow
+  ? ok("   shadow: the whole UI returns", "tab + attach affordance")
+  : fail("   shadow: the whole UI returns", JSON.stringify(parked));
+parked.stoodOnTab && parked.tabGoneAgain && parked.resetLandsOnItems
+  ? ok("re-parked mid-stand: the reset lands on Items", "no blank sheet body")
+  : fail("re-parked mid-stand: the reset lands on Items", JSON.stringify(parked));
+parked.staleClickRefused
+  ? ok("a stale sheet's control is refused by the handler", "no picker, nothing written")
+  : fail("a stale sheet's control is refused by the handler", JSON.stringify(parked));
 
 /* ---- Alice joins ---------------------------------------------------------- */
 

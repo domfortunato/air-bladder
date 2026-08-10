@@ -1,0 +1,28 @@
+_id: GScvVThFzbUfgnMu
+name: Spellsaw
+type: spellbook
+img: systems/air-bladder/icons/spellscroll.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: glog-spells
+system:
+  cost: 0
+  description: <p>A whirling blade flies from your chest, clearing any plant material in its way. It is otherwise harmless.</p>
+  weightless: true
+  equipped: false
+  bulky: false
+  quantity: 1
+  scroll: true
+  glog: true
+  uses:
+    value: 1
+    max: 1
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!GScvVThFzbUfgnMu'

@@ -66,11 +66,12 @@ try {
     out.systemId = game.system.id;
     out.knownPackage = !!(game.system.id === "air-bladder");
 
-    // what a value reads as now
+    // what a value reads as now (bonds left this sample 2026-08-09 with the
+    // retired show-bonds-barebones — an unregistered get THROWS)
     out.sample = {
       panic: game.settings.get("air-bladder", "use-panic"),
       goldThreshold: game.settings.get("air-bladder", "use-gold-threshold"),
-      bonds: game.settings.get("air-bladder", "show-bonds-barebones"),
+      failedCareer: game.settings.get("air-bladder", "barebones-failed-career"),
     };
 
     // stored world documents, old namespace vs new

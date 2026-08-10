@@ -23,11 +23,10 @@ export const SETTINGS_NS = "air-bladder";
 export const SETTING_KEYS = [
   // General
   "use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
-  "show-features-section", "use-warden-title", "change-log", "auto-record-scars",
+  "use-warden-title", "change-log", "auto-record-scars", "enable-glog-magic",
   // Character Generation
   "content-source-2e", "content-source-custom", "content-source-barebones",
-  "barebones-failed-career",
-  "show-omens-barebones", "show-bonds-barebones", "show-generate-header",
+  "barebones-failed-career", "show-generate-header",
   "allow-player-generate", "allow-player-randomization", "show-generation-rolls",
   // disabled-backgrounds is Warden CONFIGURATION (which 2e backgrounds are
   // switched off), not a migration marker — it must ride the namespace
@@ -37,6 +36,10 @@ export const SETTING_KEYS = [
   // because losing one only re-runs an idempotent migration.
   "custom-portrait-folder", "custom-portrait-list", "min-age",
   "disabled-backgrounds",
+  // Internal but CONFIGURATION, not a marker: the parked-Connections flag
+  // (2026-08-09) must ride the namespace migration — losing it would re-park
+  // a world the user had unparked.
+  "connections-ui-enabled",
   // Inventory & Encumbrance
   "max-equip-slots", "character-inventory-limit", "allow-player-marketplace",
   "use-gold-threshold", "enable-inventory-reorder",
@@ -162,6 +165,29 @@ export const registerSettings = () => {
     default: false,
   });
 
+  // The Connections UI is PARKED (user ruling 2026-08-09): the mechanic is not
+  // being pursued further for now, and its surfaces hide until it is — the PC
+  // Connections tab, the npc header attach/detach line and wording (the For
+  // Hire checkbox on that line SURVIVES — it is the day-rate mechanic, not
+  // connections), the four connection sheet actions, and drag-to-connect.
+  // Everything underneath keeps working: the minting flows (marketplace
+  // transports, generation grants), carry capacity from connected containers,
+  // the ownership automation and its socket brokers, and the flatten
+  // migration. Flipping this to true restores the whole UI.
+  //
+  // `config: false` on purpose, and NOT a Warden-visible setting: this repo
+  // removed `show-containers-tab` (2026-07-31) on the reasoning that a display
+  // toggle hiding a live graph is not a setting worth having, and a visible
+  // toggle here would re-litigate that. Probes exercise the enabled state by
+  // SHADOWING the settings read in-page (the dev:print failed-career pattern)
+  // — never by writing this into a world.
+  game.settings.register(SETTINGS_NS, "connections-ui-enabled", {
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false,
+  });
+
   // The 2e backgrounds a Warden has switched off, as an array of UUIDs — the
   // eye toggle on the picker's rows (2026-08-04; canon and custom rows alike,
   // Barebones is all-or-nothing via its source checkbox). World state, NOT a
@@ -224,15 +250,11 @@ export const registerSettings = () => {
     requiresReload: true,
   });
 
-  game.settings.register(SETTINGS_NS, "show-features-section", {
-    name: "CAIRN.Settings.ShowFeatures.label",
-    hint: "CAIRN.Settings.ShowFeatures.hint",
-    scope: "world",
-    config: true,
-    type: Boolean,
-    default: true,
-    requiresReload: true,
-  });
+  // `show-features-section` was registered here and is GONE (2026-08-09, user
+  // ruling): the Features list it toggled was removed outright — a
+  // fork-inherited UI nobody here uses. The `system.features` field SURVIVES,
+  // orphaned, so anything a Warden recorded is still on the document (the
+  // character-`description` precedent).
 
   // `show-containers-tab` was registered here and is GONE. It dated from when a
   // container was a bag of slots a character might not own one of, so an empty
@@ -288,6 +310,53 @@ export const registerSettings = () => {
     type: Boolean,
     default: false,
     requiresReload: false,
+  });
+
+  // GLOG Magic (the official Cairn hack) — a RULES setting like use-panic, not
+  // a content source: it never joins SOURCE_KEYS or the floor below. OVERRIDING
+  // by ruling (2026-08-05): while on, generation uses only GLOG and custom
+  // spells and every granted spell lands as a spellscroll — and TURNING IT ON
+  // CONVERTS THE WORLD, totally: every canon spellbook anywhere becomes a GLOG
+  // spellscroll and every canon scroll's text swaps (module/glog.js). Turning
+  // it OFF converts nothing back; that asymmetry was accepted at ruling time,
+  // which is why the hint says so out loud. The onChange runs the sweep on the
+  // active GM's client only, and the sweep is idempotent, so the two-tab GM
+  // quirk cannot double-convert.
+  game.settings.register(SETTINGS_NS, "enable-glog-magic", {
+    name: "CAIRN.Settings.EnableGlogMagic.label",
+    hint: "CAIRN.Settings.EnableGlogMagic.hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
+    onChange: async (value) => {
+      // Either flip drops the create seam's cached swap map (module/glog.js)
+      // — caution, not need: the pack is locked, but a stale cache after an
+      // unlock-edit-relock would be a silent wrong text with no error.
+      const { runGlogConversion, clearGlogTextCache } = await import("./glog.js");
+      clearGlogTextCache();
+      // The sweep is a one-way world conversion with no rollback, and the
+      // client fires onChange WITHOUT awaiting it (Setting._onUpdate), so a
+      // throw out of here is an unhandled rejection naming neither the system
+      // nor the operation, with the world left half-converted and no signal
+      // but the ABSENCE of the "converted N" toast. Caught and surfaced, the
+      // way every other async seam in this system is (cairn.js phase/socket).
+      if (value) {
+        try {
+          await runGlogConversion();
+        } catch (err) {
+          console.error("air-bladder | GLOG world conversion failed:", err);
+          ui.notifications.error(game.i18n.localize("CAIRN.Notify.GlogConversionFailed"));
+        }
+      }
+      // The per-scroll Cast control (canCastScroll, actor-sheet.js) is read
+      // live in _prepareContext but only takes effect on the NEXT render.
+      // Turning the setting OFF converts nothing, so no document update fires
+      // and without this fan an open sheet keeps its now-dead Cast controls
+      // until an unrelated redraw (the review #13 rule that rerenderActorSheets
+      // exists for). Both directions, and on every client the onChange reaches.
+      rerenderActorSheets();
+    },
   });
 
   // ---- Character Generation ------------------------------------------------
@@ -365,37 +434,14 @@ export const registerSettings = () => {
     onChange: rerenderActorSheets,
   });
 
-  // Barebones has no omens of its own. Unlike bonds this changes nothing about
-  // generation -- an omen is never rolled at creation in either edition -- it
-  // only decides whether the Description tab offers the field at all.
-  game.settings.register(SETTINGS_NS, "show-omens-barebones", {
-    name: "CAIRN.Settings.BarebonesOmens.label",
-    hint: "CAIRN.Settings.BarebonesOmens.hint",
-    scope: "world",
-    config: true,
-    type: Boolean,
-    default: false,
-    requiresReload: false,
-    // Read in _prepareContext (showOmen) — same fan, same reason.
-    onChange: rerenderActorSheets,
-  });
-
-  // Barebones has no bonds of its own either; this lends it 2e's Bonds table.
-  // When on, the bond REPLACES the Additional Gear step rather than adding to it
-  // -- a bond already grants an item and gold, and rolling both overloads ten
-  // slots.
-  game.settings.register(SETTINGS_NS, "show-bonds-barebones", {
-    name: "CAIRN.Settings.BarebonesBonds.label",
-    hint: "CAIRN.Settings.BarebonesBonds.hint",
-    scope: "world",
-    config: true,
-    type: Boolean,
-    default: false,
-    requiresReload: false,
-    // Read in _prepareContext (the bond entitlement count) — same fan.
-    onChange: rerenderActorSheets,
-  });
-
+  // `show-omens-barebones` and `show-bonds-barebones` were REMOVED here
+  // (2026-08-09, user ruling): the lending they toggled is gone — Barebones
+  // sheets never show the Omen field and Barebones generation never mints a
+  // bond (Additional Gear always runs). Both defaulted false, so the removal
+  // makes the default the only behaviour. Legacy lent bonds survive as data
+  // and keep displaying (the Notes section shows on content); stored omen
+  // TEXT survives invisibly. Their orphaned world rows are harmless, like
+  // the three settings retired in 2026-07/08.
   game.settings.register(SETTINGS_NS, "show-generate-header", {
     name: "CAIRN.Settings.ShowGenerateHeader.label",
     hint: "CAIRN.Settings.ShowGenerateHeader.hint",

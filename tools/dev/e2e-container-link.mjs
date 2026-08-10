@@ -101,6 +101,15 @@ const claim = await alicePage.evaluate(async ({ pcId, muleUuid }) => {
   const notices = [];
   const origWarn = ui.notifications.warn.bind(ui.notifications);
   ui.notifications.warn = (m, ...a) => { notices.push(String(m)); return origWarn(m, ...a); };
+  // The Connections UI is parked (2026-08-09): without the in-page shadow the
+  // drop refuses SILENTLY at the parked gate, before the ownership wall this
+  // leg exists to witness. The shadow lets the drop reach that wall; the
+  // parked-default refusal itself is dev:connections' leg, not this one.
+  const origGet = game.settings.get;
+  game.settings.get = function (ns, key) {
+    if (key === "connections-ui-enabled") return true;
+    return origGet.call(this, ns, key);
+  };
   try {
     await pc.sheet.render(true);
     await new Promise((r) => setTimeout(r, 1200));
@@ -134,6 +143,7 @@ const claim = await alicePage.evaluate(async ({ pcId, muleUuid }) => {
       threw,
     };
   } finally {
+    game.settings.get = origGet;
     ui.notifications.warn = origWarn;
   }
 }, scene);
@@ -254,6 +264,15 @@ else {
 console.log("\nthe Connected tab's edge controls");
 const icons = await alicePage.evaluate(async ({ pcId, containerId }) => {
   const pc = game.actors.get(pcId);
+  // Parked Connections UI (2026-08-09): the rows these controls sit on render
+  // only under the in-page shadow. What the leg measures — per-row unlink for
+  // the owner of both ends, no trash for a player — is unchanged.
+  const origGet = game.settings.get;
+  game.settings.get = function (ns, key) {
+    if (key === "connections-ui-enabled") return true;
+    return origGet.call(this, ns, key);
+  };
+  try {
   // CLOSE first, then render, then POLL — do not sleep a fixed interval on an
   // already-open sheet. Alice's sheet was opened earlier in this probe, BEFORE
   // the relay made her an owner of the mule, so its DOM holds a row with no
@@ -263,6 +282,7 @@ const icons = await alicePage.evaluate(async ({ pcId, containerId }) => {
   // race docs/release-testing.md refuses to let anyone re-run away.
   await pc.sheet.close();
   await new Promise((r) => setTimeout(r, 300));
+  pc.prepareData();
   await pc.sheet.render(true);
   // The row SHE BOUGHT, by uuid — not the first connected row on the sheet.
   // This PC is randomly generated, and a rolled Outrider background GRANTS a
@@ -295,18 +315,32 @@ const icons = await alicePage.evaluate(async ({ pcId, containerId }) => {
     trash: !!row.querySelector('[data-action="itemDelete"]'),
     why,
   } : { rowFound: false, why };
+  } finally {
+    game.settings.get = origGet;
+  }
 }, { pcId: scene.pcId, containerId: buy.containerId });
 const gmIcons = await gmPage.evaluate(async ({ pcId, containerId }) => {
   const pc = game.actors.get(pcId);
-  await pc.sheet.render(true);
-  await new Promise((r) => setTimeout(r, 1000));
-  // Same row as Alice's, for the same reason — the two verdicts are only
-  // comparable if they are about the same document.
-  const row = pc.sheet.element?.querySelector(`.cairn-items-list-row[data-item-id="Actor.${containerId}"]`);
-  const trash = !!row?.querySelector('[data-action="itemDelete"]');
-  const unlink = !!row?.querySelector('[data-action="containerUnlink"]');
-  await pc.sheet.close();
-  return { rowFound: !!row, trash, unlink };
+  // Same shadow as Alice's leg — the rows exist only with the UI restored.
+  const origGet = game.settings.get;
+  game.settings.get = function (ns, key) {
+    if (key === "connections-ui-enabled") return true;
+    return origGet.call(this, ns, key);
+  };
+  try {
+    pc.prepareData();
+    await pc.sheet.render(true);
+    await new Promise((r) => setTimeout(r, 1000));
+    // Same row as Alice's, for the same reason — the two verdicts are only
+    // comparable if they are about the same document.
+    const row = pc.sheet.element?.querySelector(`.cairn-items-list-row[data-item-id="Actor.${containerId}"]`);
+    const trash = !!row?.querySelector('[data-action="itemDelete"]');
+    const unlink = !!row?.querySelector('[data-action="containerUnlink"]');
+    await pc.sheet.close();
+    return { rowFound: !!row, trash, unlink };
+  } finally {
+    game.settings.get = origGet;
+  }
 }, { pcId: scene.pcId, containerId: buy.containerId });
 
 if (!icons.rowFound || !gmIcons.rowFound) {
