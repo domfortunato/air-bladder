@@ -90,23 +90,41 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
 - `module/damage.js` holds Cairn's damage flow
 - Data models in `module/data-models.js` (TypeDataModel; `template.json` is gone,
   sub-types are declared in `system.json` `documentTypes`); 24 compendium packs
-- 25 GM-visible settings in `module/settings.js` (30 `register` calls; `roles-restamped`,
-  `companion-restamped`, `connections-migrated`, `custom-portrait-list` and
-  `disabled-backgrounds` are internal, `config: false`; counts stale twice now —
-  `allow-player-randomization` outdated them and review #13 caught it, its third
-  "record claiming what the code does not say" — so `auto-record-scars` updated
-  them in ITS OWN commit, 2026-08-09) —
+- 22 GM-visible settings in `module/settings.js` (28 `register` calls; `roles-restamped`,
+  `companion-restamped`, `connections-migrated`, `custom-portrait-list`,
+  `disabled-backgrounds` and `connections-ui-enabled` are internal, `config: false`;
+  counts have gone stale twice — `allow-player-randomization` outdated them and
+  review #13 caught it, its third "record claiming what the code does not say" —
+  so each settings change updates them in its own commit, this one dated
+  2026-08-09) —
   **registration ORDER is load-bearing**, because Foundry's group headers are positional. Two went on
   2026-07-31, both because the thing they toggled stopped existing:
-  `show-containers-tab` (the Connections tab is structural now, and a display
-  toggle that hides a graph which goes on existing behind it is not a setting
-  worth having) and `show-gold-not-cost` (it swapped the container sheet's Cost
+  `show-containers-tab` (the Connections tab was structural then — see the
+  2026-08-09 parking below — and a display toggle that hides a graph which goes
+  on existing behind it is not a setting worth having) and `show-gold-not-cost`
+  (it swapped the container sheet's Cost
   box for Gold; that sheet went with the type, and the npc sheet has no Cost box).
   A third went on 2026-08-02 by ruling rather than by obsolescence:
   `show-container-actors` hid plain/worn containers from the Actor Directory, and
   the ruling is that they are ALWAYS listed — a behavior that must never be off is
   not a setting, so the directory hide rule went with it (the grayscale-thumbnail
-  rule beside it survives; it never depended on the setting)
+  rule beside it survives; it never depended on the setting).
+  **Three more went on 2026-08-09, all by user ruling:** `show-omens-barebones`
+  and `show-bonds-barebones` (the 2e-lending they toggled was removed with them —
+  Barebones sheets never show Omen, Barebones generation never mints a bond; a
+  legacy lent bond survives as data and keeps displaying) and
+  `show-features-section` (the whole Features UI went; the `features` schema
+  field STAYS on both actor models so anything recorded survives invisibly, the
+  orphaned-`description` precedent).
+  **The Connections UI is PARKED since 2026-08-09** (`connections-ui-enabled`,
+  internal, default false — deliberately NOT a Warden-visible setting, or it
+  would re-litigate the `show-containers-tab` removal above): the tab, the NPC
+  header attach/detach line and drag-to-connect are hidden for everyone while
+  everything underneath keeps working — marketplace transports mint connected,
+  generation grants land connected, connected capacity counts, the ownership
+  automation and socket brokers run, `flattenConnections` migrates. One flag
+  flip restores the UI; probes exercise the enabled state by shadowing the
+  settings READ in-page, never by a world write.
 
 **One system, two generators.** Cairn 2e and Barebones differ ONLY in how a
 character is MADE. Every rule after a character exists — damage, slots, saves,
@@ -169,7 +187,11 @@ against the reason, not against the fact.
 - **No automation of mechanical text.** "Restores 1 STR" stays prose. Trust
   players; no macros, no buttons. House style, and it dissolves the hardest
   content cases (a background granting a statted homunculus is text, not a spawned
-  Actor).
+  Actor). **Scoped 2026-08-09 by the encounter tables' Add-to-scene button:**
+  the deviation protects PLAYER-FACING rules prose — what a rule costs a player
+  stays theirs to apply. Automating the Warden's LOGISTICS (rolling a quantity
+  and minting the tokens a table row names) does not touch that reasoning, so
+  it is allowed; a button that applied "Restores 1 STR" still is not.
 - **Content translation is a display-only overlay** keyed on the ENGLISH SOURCE
   STRING (`lang/content/<lang>.json`, `module/i18n-content.js`), not on ids.
   Consequence that bites: **editing an English description orphans its
@@ -373,7 +395,7 @@ What belongs here is what those two files do not say:
 
 ## Testing
 
-**`docs/release-testing.md` is the full list — 85 probes (`check:probes` states
+**`docs/release-testing.md` is the full list — 87 probes (`check:probes` states
 the current count), what each covers, and what to run before tagging vs after
 publishing. Keep it in step with `package.json`; a probe not listed there runs
 only when someone remembers it.**
