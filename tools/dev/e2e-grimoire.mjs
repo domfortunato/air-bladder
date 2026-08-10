@@ -429,6 +429,8 @@ try {
   check(castC.whisperContent.includes(await gm.evaluate(() =>
     `<p>${game.i18n.format("CAIRN.GrimoireWhisperDice_one", { count: 1, faces: "4" })}</p>`)),
     "one die: the dice line takes its _one form (magic die, singular)");
+  check(!castC.whisperContent.includes(noMishapText),
+    "one die: NO mishap sentence at all — a single die cannot double");
 
   /* --------------------------------------- 8. the Fatigue button, full pack */
   const fatigue = await gm.evaluate(async ({ casterId, whisperId }) => {

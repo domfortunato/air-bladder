@@ -196,9 +196,11 @@ const reportCast = async (actor, spell, dice) => {
       lines.push(`<p>${game.i18n.format("CAIRN.GrimoireMishapNoTable",
         { name: MISHAPS_TABLE_NAME })}</p>`);
     }
-  } else {
+  } else if (dice > 1) {
     // Silence reads as an unfinished card — the whisper SAYS no mishap
-    // happened (user ask, 2026-08-10).
+    // happened (user ask, 2026-08-10). But only where a mishap was POSSIBLE:
+    // one die cannot double, so on a single-die cast the sentence is noise
+    // (same day's ruling).
     lines.push(`<p>${L("CAIRN.GrimoireNoMishapLine")}</p>`);
   }
   lines.push(`</div>`);
