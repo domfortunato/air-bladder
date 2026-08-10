@@ -1,9 +1,19 @@
 #!/usr/bin/env node
 /**
- * The GLOG Magic RULES content: the Mishaps table and the player handout
- * (ruling 15, 2026-08-05) — `tables-glog` (RollTable) and `journals-glog`
- * (the system's FIRST JournalEntry pack; packs are single-type, so the pair
- * is two declarations).
+ * The GLOG Magic RULES content: the Mishaps table and the player journals
+ * (ruling 15, 2026-08-05; journals extended 2026-08-10 by user ask) —
+ * `tables-glog` (RollTable) and `journals-glog` (the system's FIRST
+ * JournalEntry pack; packs are single-type, so the pair is two declarations).
+ * `journals-glog` ships TWO entries:
+ *
+ *   - "GLOG Magic — Player Rules": the hack's rules page, plus a "Magical
+ *     Mishaps" page carrying the mishap table annotated with EXACT odds per
+ *     cast (computed here by enumeration, per dice count — several rows are
+ *     unreachable below a given count and say so) and a risks-by-dice table
+ *     (any-Fatigue chance, average Fatigue, mishap chance).
+ *   - "GLOG Magic — Spells": the full spell list, read FROM the generated
+ *     src/packs/spellbooks-glog so it can never disagree with the documents
+ *     it describes. Cross-linked with the rules journal both ways.
  *
  *   node tools/import/glog-content.mjs [--dry]
  *
@@ -12,20 +22,28 @@
  * upstream, so the transcription below is the artifact of record, VERBATIM
  * including the page's own typos ("One your hands becomes fused", "Both age
  * at at the rate", "call on it for aide") — the glog-spells.mjs standard: fix
- * nothing, or a diff against the page reads as our editing.
+ * nothing, or a diff against the page reads as our editing. The odds
+ * annotations and the risk table are OURS, appended in italics and credited
+ * as such on the page.
  *
  * The Mishaps table is a LOOKUP: the caster's [sum] (2–24) picks the row.
  * Its stored formula is 2d12 — the one dice expression whose range is exactly
  * 2–24 — so core's draw button functions, but the description says out loud
- * that the sum from the cast is what consults it.
+ * that the sum from the cast is what consults it. The ROLLTABLE rows stay
+ * verbatim — the cast whisper quotes them; odds live in the journal only.
  *
- * Run order: independent. Idempotent: both pack dirs are OURS entirely and
- * wiped whole, ids are seed-hashed.
+ * Run order: AFTER glog-spells.mjs — the spell-list journal reads
+ * src/packs/spellbooks-glog, so a spells rerun must precede this one.
+ * Idempotent: both pack dirs are OURS entirely and wiped whole, ids are
+ * seed-hashed.
  */
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
+
+const YAML = createRequire(import.meta.url)("js-yaml");
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const dry = process.argv.includes("--dry");
@@ -114,6 +132,50 @@ const tableYaml = [
   "",
 ].join("\n");
 
+/* ------------------------------------------- the odds, exactly enumerated */
+// A mishap fires when at least two dice match; the ROW is the cast's [sum].
+// Enumerate every 2/3/4-die outcome (36/216/1296) and count, per sum, the
+// outcomes that mishap — the journal's odds are exact, never sampled. One
+// die never mishaps: doubles take two (the cast whisper's own gate).
+const DICE_COUNTS = [2, 3, 4];
+const mishapCounts = new Map(DICE_COUNTS.map((n) => [n, new Map()]));
+const doublesTotals = new Map(DICE_COUNTS.map((n) => [n, 0]));
+for (const n of DICE_COUNTS) {
+  for (let x = 0; x < 6 ** n; x++) {
+    const faces = [];
+    for (let i = 0, v = x; i < n; i++, v = Math.floor(v / 6)) faces.push((v % 6) + 1);
+    if (new Set(faces).size === faces.length) continue;
+    const s = faces.reduce((a, b) => a + b, 0);
+    mishapCounts.get(n).set(s, (mishapCounts.get(n).get(s) ?? 0) + 1);
+    doublesTotals.set(n, doublesTotals.get(n) + 1);
+  }
+}
+const oneIn = (total, count) => `1 in ${Math.round(total / count).toLocaleString("en-US")}`;
+const oddsSentence = (sum) => {
+  const reachable = DICE_COUNTS.filter((n) => mishapCounts.get(n).get(sum));
+  if (!reachable.length) throw new Error(`FATAL: sum ${sum} unreachable at every dice count`);
+  if (reachable.length === 1) {
+    const n = reachable[0];
+    return `Odds per cast: ${oneIn(6 ** n, mishapCounts.get(n).get(sum))} — only possible with ${n} dice.`;
+  }
+  return `Odds per cast: ${reachable
+    .map((n) => `${oneIn(6 ** n, mishapCounts.get(n).get(sum))} with ${n} dice`)
+    .join("; ")}.`;
+};
+const pct = (x) => {
+  const v = x * 100;
+  return Number.isInteger(v) ? `${v}%` : `${v.toFixed(1)}%`;
+};
+
+/* ------------------------------------------------------------- names + ids */
+const JOURNAL_NAME = "GLOG Magic — Player Rules";
+const jid = idFor("air-bladder-glog-handout");
+const pid = idFor("air-bladder-glog-handout-page");
+const mpid = idFor("air-bladder-glog-handout-mishaps-page");
+const SPELLS_JOURNAL_NAME = "GLOG Magic — Spells";
+const sjid = idFor("air-bladder-glog-spells-journal");
+const spid = idFor("air-bladder-glog-spells-journal-page");
+
 /* ------------------------------------------------------ the player handout */
 const p = (t) => `<p>${t}</p>`;
 const h = (t) => `<h2>${t}</h2>`;
@@ -136,31 +198,53 @@ const HANDOUT = [
     + "<li>6 hours of undisturbed labor in the light of a full moon. Afterwards, you are <em>deprived</em>.</li></ul>",
   p("The spell contained within the Scroll becomes the first recorded spell."),
   p("<em>GLOG Magic, cairnrpg.com/hacks/glog-magic/ — CC BY-SA 4.0.</em>"),
+  // Ours, not the hack's: the companion journal, one click away.
+  p(`<em>The full spell list: @UUID[Compendium.air-bladder.journals-glog.JournalEntry.${sjid}]{${SPELLS_JOURNAL_NAME}}.</em>`),
 ].join("");   // NO newlines: the y() quoter emits one single-quoted line, and a
               // raw newline inside it is the YAML indentation error the first
               // build caught ("deficient indentation") — HTML needs none.
 
-const JOURNAL_NAME = "GLOG Magic — Player Rules";
-const jid = idFor("air-bladder-glog-handout");
-const pid = idFor("air-bladder-glog-handout-page");
-const journalYaml = [
-  `_id: ${jid}`,
-  `name: ${y(JOURNAL_NAME)}`,
-  "pages:",
-  `  - _id: ${pid}`,
-  `    name: ${y(JOURNAL_NAME)}`,
+/* -------------------------------------------------- the Magical Mishaps page */
+const RISK_ROWS = [1, 2, 3, 4].map((n) => {
+  const fat = pct(1 - 0.5 ** n);
+  const avg = String(n / 2);
+  const mis = n === 1 ? "Impossible" : pct(doublesTotals.get(n) / 6 ** n);
+  return `<tr><td>${n}</td><td>${fat}</td><td>${avg}</td><td>${mis}</td></tr>`;
+}).join("");
+const MISHAPS_PAGE = [
+  p("When a cast comes up doubles, something has gone very wrong: look up the cast's [sum] on the table below. A single die can never mishap — doubles take at least two."),
+  h("Risks by Magic Dice"),
+  p("Every die that shows 4–6 costs a Fatigue, and every extra die raises the chance of doubles. The odds under each mishap are per cast and exact; a dice count an entry does not list cannot produce that [sum] at all — the deepest mishaps are simply out of reach unless you risk more dice."),
+  "<table><thead><tr><th>Magic Dice</th><th>Any Fatigue</th><th>Average Fatigue</th><th>Mishap</th></tr></thead>"
+    + `<tbody>${RISK_ROWS}</tbody></table>`,
+  h("Mishaps, by [sum]"),
+  "<table><thead><tr><th>[sum]</th><th>Mishap</th></tr></thead><tbody>"
+    + MISHAPS.map(([sum, text]) =>
+      `<tr><td>${sum}</td><td>${text} <em>${oddsSentence(sum)}</em></td></tr>`).join("")
+    + "</tbody></table>",
+  p("<em>Mishap text: GLOG Magic, cairnrpg.com/hacks/glog-magic/ — CC BY-SA 4.0. The odds annotations and the risk table are Air Bladder's.</em>"),
+].join("");
+const page = (ownerId, pageId, name, content, sort) => [
+  `  - _id: ${pageId}`,
+  `    name: ${y(name)}`,
   "    type: text",
   "    title:",
   "      show: false",
   "      level: 1",
   "    text:",
-  `      content: ${y(HANDOUT)}`,
+  `      content: ${y(content)}`,
   "      format: 1",
-  "    sort: 0",
+  `    sort: ${sort}`,
   "    ownership:",
   "      default: -1",
   "    flags: {}",
-  `    _key: '!journal.pages!${jid}.${pid}'`,
+  `    _key: '!journal.pages!${ownerId}.${pageId}'`,
+].join("\n");
+const journalShell = (id, name, pages) => [
+  `_id: ${id}`,
+  `name: ${y(name)}`,
+  "pages:",
+  ...pages,
   "folder: null",
   "sort: 0",
   "ownership:",
@@ -169,15 +253,43 @@ const journalYaml = [
   "_stats:",
   "  systemId: air-bladder",
   "  coreVersion: '14.365'",
-  `_key: '!journal!${jid}'`,
+  `_key: '!journal!${id}'`,
   "",
 ].join("\n");
+const journalYaml = journalShell(jid, JOURNAL_NAME, [
+  page(jid, pid, JOURNAL_NAME, HANDOUT, 0),
+  page(jid, mpid, "Magical Mishaps", MISHAPS_PAGE, 100),
+]);
+
+/* ---------------------------------------------------- the spell-list journal */
+// Read the GENERATED spell pack (glog-spells.mjs runs first), so this list
+// can never disagree with the documents it describes.
+const spellsDir = path.join(root, "src", "packs", "spellbooks-glog");
+const spells = fs.readdirSync(spellsDir).filter((f) => f.endsWith(".yml")).map((f) => {
+  const doc = YAML.load(fs.readFileSync(path.join(spellsDir, f), "utf8"));
+  return { name: String(doc.name), desc: String(doc.system?.description ?? "") };
+}).sort((a, b) => a.name.localeCompare(b.name, "en"));
+if (spells.length !== 100) throw new Error(`FATAL: ${spells.length} spells in ${spellsDir}, expected 100`);
+const spellEntries = spells.map(({ name, desc }) => {
+  const m = desc.match(/^<p>([\s\S]*)<\/p>$/);
+  if (!m || m[1].includes("<p>")) throw new Error(`FATAL: unexpected description shape on ${name}`);
+  return `<p><strong>${name}.</strong> ${m[1]}</p>`;
+}).join("");
+const SPELLS_PAGE = [
+  p(`The GLOG spell list — the canon hundred re-worded to scale with casting: [dice] is the Magic Dice invested, [sum] their total. How casting works: @UUID[Compendium.air-bladder.journals-glog.JournalEntry.${jid}]{${JOURNAL_NAME}}.`),
+  spellEntries,
+  p("<em>GLOG Spells, cairnrpg.com/hacks/glog-spells/ — CC BY-SA 4.0.</em>"),
+].join("");
+const spellsJournalYaml = journalShell(sjid, SPELLS_JOURNAL_NAME, [
+  page(sjid, spid, SPELLS_JOURNAL_NAME, SPELLS_PAGE, 0),
+]);
 
 /* ------------------------------------------------------------------ write */
 const tableDir = path.join(root, "src", "packs", "tables-glog");
 const journalDir = path.join(root, "src", "packs", "journals-glog");
 const tableFile = `${TABLE_NAME.replace(/[^A-Za-z0-9]/g, "_")}_${tid}.yml`;
 const journalFile = `${JOURNAL_NAME.replace(/[^A-Za-z0-9]/g, "_")}_${jid}.yml`;
+const spellsJournalFile = `${SPELLS_JOURNAL_NAME.replace(/[^A-Za-z0-9]/g, "_")}_${sjid}.yml`;
 if (!dry) {
   for (const dir of [tableDir, journalDir]) {
     fs.mkdirSync(dir, { recursive: true });
@@ -185,7 +297,9 @@ if (!dry) {
   }
   fs.writeFileSync(path.join(tableDir, tableFile), tableYaml, "utf8");
   fs.writeFileSync(path.join(journalDir, journalFile), journalYaml, "utf8");
+  fs.writeFileSync(path.join(journalDir, spellsJournalFile), spellsJournalYaml, "utf8");
 }
 console.log(`${dry ? "[dry] would write" : "wrote"} ${tableFile}: ${MISHAPS.length} rows (sums 2–24)`);
-console.log(`${dry ? "[dry] would write" : "wrote"} ${journalFile}: 1 page`);
+console.log(`${dry ? "[dry] would write" : "wrote"} ${journalFile}: 2 pages (rules + annotated mishaps)`);
+console.log(`${dry ? "[dry] would write" : "wrote"} ${spellsJournalFile}: 1 page, ${spells.length} spells`);
 if (!dry) console.log("next: npm run build:packs (stop Foundry first)");
