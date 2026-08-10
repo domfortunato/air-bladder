@@ -1,0 +1,28 @@
+_id: GSSZ8Cci8lxOydr7
+name: Slick
+type: spellbook
+img: systems/air-bladder/icons/spellscroll.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: glog-spells
+system:
+  cost: 0
+  description: <p>Every surface in a [dice]x10ft radius becomes extremely slippery.</p>
+  weightless: true
+  equipped: false
+  bulky: false
+  quantity: 1
+  scroll: true
+  glog: true
+  uses:
+    value: 1
+    max: 1
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!GSSZ8Cci8lxOydr7'

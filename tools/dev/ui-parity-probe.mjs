@@ -526,7 +526,7 @@ try {
     // show-features-section left this list 2026-08-09: the Features UI it
     // toggled was removed outright (user ruling); the field survives, orphaned.
     "General Settings": ["use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
-      "use-warden-title", "change-log", "auto-record-scars"],
+      "use-warden-title", "change-log", "auto-record-scars", "enable-glog-magic"],
   };
   for (const [group, keys] of Object.entries(EXPECTED)) {
     const got = r.grouped?.[group] ?? [];

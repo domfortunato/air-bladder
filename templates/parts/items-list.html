@@ -19,7 +19,7 @@
   </span>
 </div>
 {{#each items as |item id|}}
-<div class="cairn-items-list-row {{#if item.system.isFatigue}}fatigue-row{{/if}}" data-item-id="{{item._id}}">
+<div class="cairn-items-list-row {{#if item.system.isFatigue}}fatigue-row{{/if}}{{#if item.system.bound}} grimoire-page{{/if}}" data-item-id="{{item._id}}">
   <div class="cairn-items-list-row-header">
     <div class="cairn-item-name-and-tags">
       {{#if item.system.useItemIcons}}
@@ -52,9 +52,15 @@
       {{#if item.system.criticalDamage}}
       <div class="cairn-item-tag">{{ localize 'CAIRN.CriticalDamage' }}</div>
       {{/if}}
-      {{#if item.system.weightless}}{{#unless item.system.isContainerItem}}
+      {{!-- A bound page's row says "Page", and Weightless is suppressed the same
+            way it is for a container item: the Page chip already implies the
+            book carries it, and two chips saying one thing is drift bait. --}}
+      {{#if item.system.bound}}
+      <div class="cairn-item-tag">{{ localize 'CAIRN.GrimoirePage' }}</div>
+      {{/if}}
+      {{#if item.system.weightless}}{{#unless item.system.isContainerItem}}{{#unless item.system.bound}}
       <div class="cairn-item-tag">{{ localize 'CAIRN.Weightless' }}</div>
-      {{/unless}}{{/if}}
+      {{/unless}}{{/unless}}{{/if}}
       {{#if (gt item.system.quantity 1)}}
       <div class="cairn-item-tag">{{ localize 'CAIRN.NQuantity' n=item.system.quantity }}</div>
       {{/if}}
@@ -91,6 +97,27 @@
         <i class="fas fa-dice-d20"></i>
       </a>
       {{/if}}
+      {{/if}}
+
+      {{#if item.system.canTransmute}}
+      <a class="item-control page-transmute" data-action="pageTransmute"
+        title="{{ localize 'CAIRN.GrimoireTransmute' }}">
+        <i class="fas fa-book-medical"></i>
+      </a>
+      {{/if}}
+
+      {{#if item.system.canCast}}
+      <a class="item-control grimoire-cast" data-action="grimoireCast"
+        title="{{ localize 'CAIRN.GrimoireCastHint' }}">
+        <i class="fas fa-hand-sparkles"></i>
+      </a>
+      {{/if}}
+
+      {{#if item.system.canCastScroll}}
+      <a class="item-control scroll-cast" data-action="scrollCast"
+        title="{{ localize 'CAIRN.ScrollCastHint' }}">
+        <i class="fas fa-hand-sparkles"></i>
+      </a>
       {{/if}}
 
       {{! Equipping is a character-only affordance -- gear stowed in a container

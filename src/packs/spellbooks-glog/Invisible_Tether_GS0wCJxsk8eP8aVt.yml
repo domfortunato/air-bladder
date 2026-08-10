@@ -1,0 +1,28 @@
+_id: GS0wCJxsk8eP8aVt
+name: Invisible Tether
+type: spellbook
+img: systems/air-bladder/icons/spellscroll.svg
+effects: []
+folder: null
+sort: 0
+flags:
+  air-bladder:
+    gearSource: glog-spells
+system:
+  cost: 0
+  description: <p>Two objects within [dice]x10ft of each other cannot be moved more than [dice]x10ft apart.</p>
+  weightless: true
+  equipped: false
+  bulky: false
+  quantity: 1
+  scroll: true
+  glog: true
+  uses:
+    value: 1
+    max: 1
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!items!GS0wCJxsk8eP8aVt'

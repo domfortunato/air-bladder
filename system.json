@@ -205,6 +205,12 @@
       "system": "air-bladder"
     },
     {
+      "name": "spellbooks-glog",
+      "label": "CAIRN.Pack.spellbooks-glog",
+      "type": "Item",
+      "system": "air-bladder"
+    },
+    {
       "name": "tools",
       "label": "CAIRN.Pack.tools",
       "type": "Item",
@@ -257,6 +263,30 @@
       "ownership": { "PLAYER": "NONE", "TRUSTED": "NONE", "ASSISTANT": "OWNER" }
     },
     {
+      "name": "tables-glog",
+      "label": "CAIRN.Pack.tables-glog",
+      "type": "RollTable",
+      "system": "air-bladder"
+    },
+    {
+      "name": "journals-2e",
+      "label": "CAIRN.Pack.journals-2e",
+      "type": "JournalEntry",
+      "system": "air-bladder"
+    },
+    {
+      "name": "journals-docs",
+      "label": "CAIRN.Pack.journals-docs",
+      "type": "JournalEntry",
+      "system": "air-bladder"
+    },
+    {
+      "name": "journals-glog",
+      "label": "CAIRN.Pack.journals-glog",
+      "type": "JournalEntry",
+      "system": "air-bladder"
+    },
+    {
       "name": "macros",
       "label": "CAIRN.Pack.macros",
       "type": "Macro",
@@ -277,7 +307,8 @@
         "reliquary",
         "market-goods",
         "spellbooks",
-        "more-spellbooks"
+        "more-spellbooks",
+        "spellbooks-glog"
       ]
     },
     {
@@ -305,7 +336,17 @@
         "marketplace",
         "tables-2e",
         "tables-barebones",
+        "tables-glog",
         "utils"
+      ]
+    },
+    {
+      "name": "Air Bladder - Journals",
+      "sorting": "a",
+      "packs": [
+        "journals-2e",
+        "journals-docs",
+        "journals-glog"
       ]
     },
     {

@@ -94,6 +94,20 @@
     --ab-whisper-bg: #ece7d8;
     --ab-whisper-border: #8a8172;
     --ab-whisper-stripe: #12a3b4;   /* = light --ab-accent, pinned */
+
+    /* The GLOG tag on cast cards: the Die of Fate glow recast in violet --
+       magic gets its own colour beside the teal (a choice you make) and the
+       error red (a consequence). Chat-only, so PINNED like the whisper tokens
+       above: the tile is parchment in both themes and the colour follows the
+       tile, not the theme. */
+    --ab-glog: #8a2be2;
+
+    /* The whisper's Add-N-Fatigue button glows in the teal Fatigue wears in
+       the inventory (.fatigue-row's --ab-accent), so the button and the rows
+       it mints share a colour (user ask, 2026-08-10). Chat-only, so pinned at
+       the LIGHT accent for the same reason as the stripe: the dark-theme teal
+       washes out on a tile that is parchment in both themes. */
+    --ab-fatigue-chat: #12a3b4;
 }
 
 /* Dark scheme.
@@ -1077,7 +1091,6 @@
     grid-template-rows: 46px 36px 36px 36px 36px 1fr;
 }
 
-.spellbook.item-sheet-grid,
 .background.item-sheet-grid {
     grid-template-rows: 46px 36px 46px 1fr;
 }
@@ -1088,27 +1101,50 @@
     grid-row-end: 6;
 }
 
-.spellbook.item-sheet-grid .item-sheet-section-tabs,
 .background.item-sheet-grid .item-sheet-section-tabs {
     grid-row-start: 4;
     grid-row-end: 4;
 }
 
-/* A scroll shows one counter more than a book (its remaining use), which makes FIVE
-   — an odd number, so the fifth lands alone on a third counter row. Row counts in
-   this file are hand-declared per item type and the tabs section is pinned to a
-   numbered row, so a new counter needs both a new row and the tabs moved down.
-   Without this the extra counter auto-places into an IMPLICIT row beneath the tabs:
-   measured 2026-07-29 with Quantity at y=676 of a 720px grid, off the bottom of the
-   window and hit-tested to the canvas. It was in the DOM, so the region count still
-   looked right. */
-.spellbook.item-sheet-grid.has-scroll-uses {
+/* The spellbook split off .background when the GLOG checkbox became its fifth
+   counter (a scroll's Uses makes six). Counters auto-place two per row, so five
+   and six both need THREE counter rows — one template covers book and scroll
+   alike, which is also why the old `.has-scroll-uses` variant (a conditional
+   class the template computed) is gone: there is nothing left to vary.
+   Row counts in this file are hand-declared per item type and the tabs section
+   is pinned to a numbered row, so a new counter needs both a new row and the
+   tabs moved down. Without that the extra counter auto-places into an IMPLICIT
+   row beneath the tabs: measured 2026-07-29 with Quantity at y=676 of a 720px
+   grid, off the bottom of the window and hit-tested to the canvas. It was in
+   the DOM, so the region count still looked right. */
+.spellbook.item-sheet-grid {
     grid-template-rows: 46px 36px 46px 36px 1fr;
 }
 
-.spellbook.item-sheet-grid.has-scroll-uses .item-sheet-section-tabs {
+.spellbook.item-sheet-grid .item-sheet-section-tabs {
     grid-row-start: 5;
     grid-row-end: 5;
+}
+
+/* The plain-item sheet grew its own variant when the Grimoire checkbox became
+   its 11th counter (page capacity makes 12): rows 2-6 hold ten counters beside
+   the portrait, so the sixth counter row here is what keeps numbers 11 and 12
+   out of an implicit row under the tabs — the same measured failure the
+   spellbook block above records. */
+.plain-item.item-sheet-grid {
+    grid-template-rows: 46px 36px 36px 36px 36px 36px 36px 1fr;
+}
+
+.plain-item.item-sheet-grid .item-sheet-section-tabs {
+    grid-row-start: 8;
+    grid-row-end: 8;
+}
+
+/* A bound page's row sits indented under its Grimoire — the grouping is done in
+   the sheet context (pages re-inserted after the book's row); this is only the
+   visual step that says "these belong to that". */
+.cairn-items-list-row.grimoire-page {
+    margin-left: 18px;
 }
 
 .small-resource-label {
@@ -1336,6 +1372,40 @@
     text-align: center;
     margin: 8px 0 4px;
     text-shadow: 0 0 8px var(--color-level-error, #ce0707);
+}
+
+/* The "GLOG" word opening the flavor line of every GLOG cast card (the public
+   card and the caster's whisper, module/grimoire.js): each card names its
+   system, lit with the Die of Fate treatment (#die-of-fate-button) in the
+   magic violet (user ask, 2026-08-10). */
+.chat-message .glog-flavor-tag {
+    font-weight: 700;
+    text-shadow: 0 0 8px var(--ab-glog);
+}
+
+/* A dice-resolved value inside a cast card's effect text ([sum]/[dice]/[dado]
+   and their arithmetic, resolveSpellText in module/grimoire.js): bold with a
+   dotted underline in the GLOG violet, the tooltip affordance — hovering
+   shows the authored expression behind the number (user ask, 2026-08-10).
+   Bold alone would read as emphasis the author wrote; the dotted line says
+   "computed, hover me". Same pinned token as the tag above: chat tiles are
+   parchment in both themes. */
+.chat-message .grimoire-resolved {
+    font-weight: 700;
+    text-decoration: underline dotted var(--ab-glog);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+}
+
+/* The Add-N-Fatigue button on the cast whisper: Foundry's default button
+   chrome (the Die of Fate rule's shape) with the inventory fatigue-row glow
+   on it -- the same teal on the control that mints those rows, so cause and
+   effect share a colour (user ask, 2026-08-10). Text AND box glow, matching
+   .fatigue-row's pair. */
+.chat-message .grimoire-add-fatigue {
+    font-weight: bold;
+    box-shadow: 0 0 8px var(--ab-fatigue-chat);
+    text-shadow: 0 0 8px var(--ab-fatigue-chat);
 }
 
 /* The character-generation card: HP / STR / DEX / WIL / Gold, one "LABEL: value"

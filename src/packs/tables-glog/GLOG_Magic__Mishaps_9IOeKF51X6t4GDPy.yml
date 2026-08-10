@@ -1,0 +1,270 @@
+_id: 9IOeKF51X6t4GDPy
+name: 'GLOG Magic: Mishaps'
+img: icons/svg/d20-grey.svg
+description: 'A LOOKUP, not a roll: when a cast comes up doubles, find the cast''s [sum] (2–24) on this table. The 2d12 formula exists only so the draw button works. GLOG Magic, cairnrpg.com/hacks/glog-magic/ (CC BY-SA 4.0).'
+results:
+  - _id: 7ZfBIowEdncqG946
+    type: text
+    description: 'You cannot cast spells for 1d6 hours, and any attempts to manipulate magic will fail.'
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    flags: {}
+    _key: '!tables.results!9IOeKF51X6t4GDPy.7ZfBIowEdncqG946'
+  - _id: 4GljBREGdb4cqEd4
+    type: text
+    description: 'For the next 24 hours, when casting spells you gain a Fatigue on a roll of 3-6.'
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    flags: {}
+    _key: '!tables.results!9IOeKF51X6t4GDPy.4GljBREGdb4cqEd4'
+  - _id: gXUxQMISbO2pfrKO
+    type: text
+    description: There is a chain reaction to the spell (the Warden will say how). Take an additional Fatigue.
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    flags: {}
+    _key: '!tables.results!9IOeKF51X6t4GDPy.gXUxQMISbO2pfrKO'
+  - _id: ygqUR02iImoV0DLs
+    type: text
+    description: The Spell’s effects are reversed; the Warden will tell you how. Take an additional Fatigue.
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    flags: {}
+    _key: '!tables.results!9IOeKF51X6t4GDPy.ygqUR02iImoV0DLs'
+  - _id: QFxfubQQMhKc5CoY
+    type: text
+    description: Any objects in your inventory that are not made of metal instantly combust. You are now immune to fire for short bursts.
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    flags: {}
+    _key: '!tables.results!9IOeKF51X6t4GDPy.QFxfubQQMhKc5CoY'
+  - _id: ZEQkEc2UMOvhyCwT
+    type: text
+    description: 'You are deprived. After recovery, roll 1d6. If the total is higher than your max HP, take the new result.'
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 7
+      - 7
+    drawn: false
+    flags: {}
+    _key: '!tables.results!9IOeKF51X6t4GDPy.ZEQkEc2UMOvhyCwT'
+  - _id: mLGYrjlyrFR2xqx0
+    type: text
+    description: 'You take 1d4 WIL damage when casting spells for the next 24 hours. Afterwards roll 3d6. If the total is higher than your max WIL, take the new result.'
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 8
+      - 8
+    drawn: false
+    flags: {}
+    _key: '!tables.results!9IOeKF51X6t4GDPy.mLGYrjlyrFR2xqx0'
+  - _id: osCdwjkezjGVucDC
+    type: text
+    description: 'The spell turns your skin a dark shade of purple, and makes you invisible in the moonlight. Your eyes however glow a bright yellow at night.'
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 9
+      - 9
+    drawn: false
+    flags: {}
+    _key: '!tables.results!9IOeKF51X6t4GDPy.osCdwjkezjGVucDC'
+  - _id: trLxD5AM8nETzIp7
+    type: text
+    description: 'You become insubstantial for 1d4 hours as your spirit leaves your body, which remains unconscious. You can fly and pass through walls, but not touch anything. Also, no one can see or hear you through mundane means.'
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 10
+      - 10
+    drawn: false
+    flags: {}
+    _key: '!tables.results!9IOeKF51X6t4GDPy.trLxD5AM8nETzIp7'
+  - _id: 66oMRg1PTyxcglBm
+    type: text
+    description: 'You suffer horrible arcane burns; lose 1d4 WIL. From now on you can add +1 Magic Dice to a spell’s [dice] (use a die of a different color). If it results in a 4-6 you lose 1 WIL.'
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 11
+      - 11
+    drawn: false
+    flags: {}
+    _key: '!tables.results!9IOeKF51X6t4GDPy.66oMRg1PTyxcglBm'
+  - _id: 7QpklaEClRbuv3HS
+    type: text
+    description: The spell backfires; you lose 1 inventory slot (scratch it off your sheet). You are now surrounded by a magical essence that provides +1 Armor (normal limits still apply).
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 12
+      - 12
+    drawn: false
+    flags: {}
+    _key: '!tables.results!9IOeKF51X6t4GDPy.7QpklaEClRbuv3HS'
+  - _id: cwdpE59AEtG4QupU
+    type: text
+    description: Your Grimoire is damaged and unusable. Creating a new Grimoire from its remains restores the original spells as well.
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 13
+      - 13
+    drawn: false
+    flags: {}
+    _key: '!tables.results!9IOeKF51X6t4GDPy.cwdpE59AEtG4QupU'
+  - _id: O0OaWx1Qo29y95Eh
+    type: text
+    description: 'Instead of Fatigue, the spell causes magical tumors to fill their respective slots. They can only be removed by a specialized healer. Upon recovery, you are able to ignore a single Fatigue taken from spellcasting. If the spell did not cause Fatigue, you are deprived.'
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 14
+      - 14
+    drawn: false
+    flags: {}
+    _key: '!tables.results!9IOeKF51X6t4GDPy.O0OaWx1Qo29y95Eh'
+  - _id: QQRBgNH9AGMlIIUv
+    type: text
+    description: 'Arcane energies wrack your body as a piece of your soul is transferred into your Grimoire. You lose half your WIL (rounded down). Your Grimoire now appears in any form you wish and takes no space in inventory. It cannot be destroyed except by your own death, and vice-versa.'
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 15
+      - 15
+    drawn: false
+    flags: {}
+    _key: '!tables.results!9IOeKF51X6t4GDPy.QQRBgNH9AGMlIIUv'
+  - _id: 17WQNCXn0lKbSXB0
+    type: text
+    description: 'You permanently lose 1d4 STR as the spell interacts with nearby plant life, which rips out of the earth and fuses against your skin. You have +1 Armor, although fire does enhanced damage against you. You can only feed by photosynthesis.'
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 16
+      - 16
+    drawn: false
+    flags: {}
+    _key: '!tables.results!9IOeKF51X6t4GDPy.17WQNCXn0lKbSXB0'
+  - _id: HN2RWR1BY0N1Aibf
+    type: text
+    description: 'You are transformed into something weird and unnatural (the Warden will say exactly how). Others will have difficulty looking at you. If someone doesn’t focus on you, you are invisible. You fail any attempts at persuasion.'
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 17
+      - 17
+    drawn: false
+    flags: {}
+    _key: '!tables.results!9IOeKF51X6t4GDPy.HN2RWR1BY0N1Aibf'
+  - _id: MreuTRC4C3e3RWPD
+    type: text
+    description: 'One your hands becomes fused with your Grimoire. You can never let go of it, however it only takes up 1 inventory slot. You can fire a bolt of arcane energy from that hand that deals 1d6 damage. If your hand is cut off, you can never cast spells again.'
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 18
+      - 18
+    drawn: false
+    flags: {}
+    _key: '!tables.results!9IOeKF51X6t4GDPy.MreuTRC4C3e3RWPD'
+  - _id: SBw8nBpEMxUQl5PX
+    type: text
+    description: 'Large ugly wings sprout from your back, ripping through whatever you are wearing. You gain 1d4 DEX and can fly. You cannot wear armor or a backpack, and have only 5 inventory slots.'
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 19
+      - 19
+    drawn: false
+    flags: {}
+    _key: '!tables.results!9IOeKF51X6t4GDPy.SBw8nBpEMxUQl5PX'
+  - _id: gTA3MOOQ8Di95r0H
+    type: text
+    description: 'You dimensionally swap limbs with a magical being from an alien plane. Gain its properties (ask the Warden), both good and bad. Also: it’s coming for you, and it’s mad as hell.'
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 20
+      - 20
+    drawn: false
+    flags: {}
+    _key: '!tables.results!9IOeKF51X6t4GDPy.gTA3MOOQ8Di95r0H'
+  - _id: eICTqr3FTysFow3Z
+    type: text
+    description: 'An extra-planar deity senses your arcane power (ask the Warden which). You are now linked, and can call on it for aide. It can likewise ask you for help, and punish you for non-compliance. Good luck.'
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 21
+      - 21
+    drawn: false
+    flags: {}
+    _key: '!tables.results!9IOeKF51X6t4GDPy.eICTqr3FTysFow3Z'
+  - _id: SRw8I2MtXRjd5e4x
+    type: text
+    description: 'Your body becomes a vessel of pure magical energy. You no longer need to consume food, water or air. Fatigue and Mishaps from casting spells does not affect you, but instead you lose 1d4 STR on a result of 5-6. At STR 0 you become a spell (ask the Warden which). You can smell magic.'
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 22
+      - 22
+    drawn: false
+    flags: {}
+    _key: '!tables.results!9IOeKF51X6t4GDPy.SRw8I2MtXRjd5e4x'
+  - _id: IvbFA0cAcTgDO5j8
+    type: text
+    description: 'You create an exact duplicate of yourself. One grows older while the other grows younger. Both age at at the rate of 1 year per day. Your thoughts are joined, and if one dies so does the other. Only magical aide will restore you; afterward add +1d6 to each ability score.'
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 23
+      - 23
+    drawn: false
+    flags: {}
+    _key: '!tables.results!9IOeKF51X6t4GDPy.IvbFA0cAcTgDO5j8'
+  - _id: aDu88u0fRhg6MI0J
+    type: text
+    description: 'You have become Elemental. Create a True Name for yourself. Magical energies surround you at all times, and mundane attacks against you are impaired. If someone learns your True Name, they can control you. Other Elementals will come for you.'
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 24
+      - 24
+    drawn: false
+    flags: {}
+    _key: '!tables.results!9IOeKF51X6t4GDPy.aDu88u0fRhg6MI0J'
+formula: 2d12
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!tables!9IOeKF51X6t4GDPy'

@@ -10,7 +10,7 @@ results:
     type: text
     description: >-
       1 @UUID[Compendium.air-bladder.monsters.Actor.n6qiiCxlLjdf8Qpv]{Giant
-      Crocodile} (pg 62)
+      Crocodile}
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -34,7 +34,7 @@ results:
     type: text
     description: >-
       1 @UUID[Compendium.air-bladder.monsters.Actor.NY94UhmWTBgw3gMC]{Water
-      Elemental} (pg 139)
+      Elemental}
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -59,7 +59,6 @@ results:
     description: >-
       1
       @UUID[Compendium.air-bladder.monsters.Actor.OfaCrvATIqJDr3ns]{Catoblepas}
-      (pg 24)
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -82,8 +81,7 @@ results:
   - _id: YukzDIUO9DY9szXo
     type: text
     description: >-
-      1 @UUID[Compendium.air-bladder.monsters.Actor.bKy98z6f6VgGsKPh]{Viper} (pg
-      136)
+      1 @UUID[Compendium.air-bladder.monsters.Actor.bKy98z6f6VgGsKPh]{Viper}
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -105,7 +103,7 @@ results:
     _key: '!tables.results!4JHIAnB848kozZG5.YukzDIUO9DY9szXo'
   - _id: OAjXFngPrPAySCB1
     type: text
-    description: 1 Night Cat (pg 100)
+    description: 1 Night Cat
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -129,7 +127,7 @@ results:
     type: text
     description: >-
       1d4 @UUID[Compendium.air-bladder.monsters.Actor.X827Q1OhOMlNkNvm]{Root
-      Goblins} (pg 114) or 1 Root Witch (pg 115)
+      Goblins} or 1 Root Witch
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -154,7 +152,6 @@ results:
     description: >-
       1d4
       @UUID[Compendium.air-bladder.monsters.Actor.gnqJAsLHGhqGJnWK]{Reptilians}
-      (pg 112)
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -200,7 +197,6 @@ results:
     type: text
     description: >-
       2d4 @UUID[Compendium.air-bladder.monsters.Actor.QhJ4wH9BX3piTGCi]{Zombies}
-      (pg 148)
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -224,7 +220,7 @@ results:
     type: text
     description: >-
       1 @UUID[Compendium.air-bladder.monsters.Actor.bFpRUtpbR1G05Hy9]{Giant
-      Aquatic Spider} (pg 59)
+      Aquatic Spider}
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -246,7 +242,7 @@ results:
     _key: '!tables.results!4JHIAnB848kozZG5.2wGavIFvbPg8c8I1'
   - _id: 3sYw9tMXx06zyIFD
     type: text
-    description: 1 Will-o-Wisp (pg 144)
+    description: 1 Will-o-Wisp
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -270,7 +266,6 @@ results:
     type: text
     description: >-
       1 @UUID[Compendium.air-bladder.monsters.Actor.YFnHWQ7mAi068Zsp]{Night Hag}
-      (pg 101)
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -293,8 +288,7 @@ results:
   - _id: InGkXABXqngIOClK
     type: text
     description: >-
-      1 @UUID[Compendium.air-bladder.monsters.Actor.o3Fd5JdfnJuvWQfK]{Troll} (pg
-      131)
+      1 @UUID[Compendium.air-bladder.monsters.Actor.o3Fd5JdfnJuvWQfK]{Troll}
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -318,7 +312,7 @@ results:
     type: text
     description: >-
       1 @UUID[Compendium.air-bladder.monsters.Actor.zlSMKSJmEdrnG2ws]{Shambling
-      Mound} (pg 121)
+      Mound}
     img: icons/svg/d20-black.svg
     weight: 1
     range:
@@ -342,7 +336,7 @@ results:
     type: text
     description: >-
       1 @UUID[Compendium.air-bladder.monsters.Actor.6APbclPukyhqVuFD]{Black
-      Dragon} (pg 14)
+      Dragon}
     img: icons/svg/d20-black.svg
     weight: 1
     range:

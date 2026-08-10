@@ -23,7 +23,7 @@ export const SETTINGS_NS = "air-bladder";
 export const SETTING_KEYS = [
   // General
   "use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
-  "use-warden-title", "change-log", "auto-record-scars",
+  "use-warden-title", "change-log", "auto-record-scars", "enable-glog-magic",
   // Character Generation
   "content-source-2e", "content-source-custom", "content-source-barebones",
   "barebones-failed-career", "show-generate-header",
@@ -310,6 +310,34 @@ export const registerSettings = () => {
     type: Boolean,
     default: false,
     requiresReload: false,
+  });
+
+  // GLOG Magic (the official Cairn hack) — a RULES setting like use-panic, not
+  // a content source: it never joins SOURCE_KEYS or the floor below. OVERRIDING
+  // by ruling (2026-08-05): while on, generation uses only GLOG and custom
+  // spells and every granted spell lands as a spellscroll — and TURNING IT ON
+  // CONVERTS THE WORLD, totally: every canon spellbook anywhere becomes a GLOG
+  // spellscroll and every canon scroll's text swaps (module/glog.js). Turning
+  // it OFF converts nothing back; that asymmetry was accepted at ruling time,
+  // which is why the hint says so out loud. The onChange runs the sweep on the
+  // active GM's client only, and the sweep is idempotent, so the two-tab GM
+  // quirk cannot double-convert.
+  game.settings.register(SETTINGS_NS, "enable-glog-magic", {
+    name: "CAIRN.Settings.EnableGlogMagic.label",
+    hint: "CAIRN.Settings.EnableGlogMagic.hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
+    onChange: async (value) => {
+      // Either flip drops the create seam's cached swap map (module/glog.js)
+      // — caution, not need: the pack is locked, but a stale cache after an
+      // unlock-edit-relock would be a silent wrong text with no error.
+      const { runGlogConversion, clearGlogTextCache } = await import("./glog.js");
+      clearGlogTextCache();
+      if (!value) return;
+      await runGlogConversion();
+    },
   });
 
   // ---- Character Generation ------------------------------------------------

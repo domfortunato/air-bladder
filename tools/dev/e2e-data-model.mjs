@@ -119,7 +119,7 @@ const itemRT = await page.evaluate(async () => {
     item: { "system.cost": 11, "system.quantity": 3, "system.bulky": true, "system.armor": 1, "system.uses.max": 4 },
     weapon: { "system.cost": 12, "system.damageFormula": "d8", "system.blast": true, "system.criticalDamage": "<p>c</p>" },
     armor: { "system.cost": 13, "system.armor": 2, "system.uses.value": 1 },
-    spellbook: { "system.cost": 14, "system.weightless": true },
+    spellbook: { "system.cost": 14, "system.weightless": true, "system.glog": true },
     object: { "system.cost": 15, "system.quantity": 2 },
     background: { "system.source": "2e", "system.archetype": "Thief", "system.names": ["Bel", "Cass"] },
     transport: { "system.cost": 16, "system.slots": 8, "system.load": 1, "system.slow": true, "system.transportKind": "vehicle" },
@@ -143,6 +143,22 @@ for (const r of itemRT) {
   if (same) ok(`${r.type}.${r.key}`, JSON.stringify(r.got));
   else fail(`${r.type}.${r.key}`, `wrote ${JSON.stringify(r.want)}, read back ${JSON.stringify(r.got)}`);
 }
+
+// The round-trip above passes for any key the schema DECLARES — it cannot fail
+// for a key that was never added. This control writes a real new field and a
+// fake one through the SAME update: the schema keeping one and dropping the
+// other is what proves the assertion path can tell the difference.
+const glogControl = await page.evaluate(async () => {
+  const item = await Item.create({ name: "__rt_glog_control", type: "spellbook" });
+  await item.update({ "system.glog": true, "system.zzNotAField": true });
+  const src = item.toObject().system;
+  const out = { glog: src.glog, fake: src.zzNotAField };
+  await item.delete();
+  return out;
+});
+glogControl.glog === true && glogControl.fake === undefined
+  ? ok("glog is schema-real", "kept glog, dropped zzNotAField from one update")
+  : fail("glog schema control", `glog=${glogControl.glog}, zzNotAField=${JSON.stringify(glogControl.fake)} — the schema is not discriminating`);
 
 /* -------------------------------------------- */
 
