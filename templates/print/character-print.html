@@ -55,9 +55,12 @@
   .statusline { margin-top: 0.4rem; font-style: italic; }
   /* Deprived/Panicked mark-later boxes (user ask 2026-08-10): always printed
      on a character page so a player can pencil the condition mid-session;
-     the box arrives filled when the condition is on at print time. Literal
-     black, like everything here — the print page is exempt from theming. */
-  .cond-marks { margin-top: 0.4rem; display: flex; gap: 1.5rem; }
+     the box arrives filled when the condition is on at print time. They ride
+     the HEADER, in the free height the 90px portrait already reserves beside
+     the name stack — under the stats they cost a row, and one row was what
+     pushed a boundary character's Notes to a third page (user report, same
+     day). Literal black, like everything here — the page is theme-exempt. */
+  .cond-marks { margin-top: 0.3rem; display: flex; gap: 1.25rem; font-size: 0.9rem; }
   .cond-marks .box { display: inline-block; width: 0.8rem; height: 0.8rem; border: 1.5px solid #000;
     text-align: center; line-height: 0.8rem; font-size: 0.7rem; font-weight: bold; vertical-align: -0.1rem; }
   ul.inv { list-style: none; }
@@ -81,10 +84,21 @@
   /* Content links print as plain text — an anchor is useless on paper. */
   a { color: inherit; text-decoration: none; }
   .prose p { margin-bottom: 0.5rem; }
-  /* Notes opens its own page on a CHARACTER print — a fresh full page to
-     write on (user ruling 2026-08-08). A monster's one-pager stays one page,
-     which is why the rule rides the body class. */
-  body.pc-print section.notes-section { break-before: page; page-break-before: always; }
+  /* Notes gets REAL pencil room without buying a blank page (user ruling
+     2026-08-10, superseding 2026-08-08's always-fresh-page): if at least
+     ~10cm of the current page remains, Notes starts there and the writing
+     room is the rest of that page; with less remaining, the whole section
+     moves to a fresh page (break-inside: avoid + the min-height is what
+     makes it move). A monster's one-pager stays one page, which is why the
+     rule rides the body class. */
+  body.pc-print section.notes-section { break-inside: avoid; min-height: 10cm; }
+  /* Pagination policy (user rulings 2026-08-10): an ENTRY prints whole or
+     moves whole to the next page — an inventory row, a bond, a scar, a
+     connection, a question WITH its answer — and a heading never strands
+     alone at a page bottom. The white-space cost of an atomic move is
+     bounded by the entry's own height, never a near-empty page. */
+  ul.inv li, ul.plain li, .qa-pair { break-inside: avoid; }
+  h2, .inv-head { break-after: avoid; }
   /* Very small type by ruling — a notice, not a section. */
   footer.credits { margin-top: 2rem; padding-top: 0.4rem; border-top: 1px solid #999; font-size: 7pt; color: #555; }
   @page { margin: 1.6cm; }
@@ -99,6 +113,12 @@
     {{#if subtitle}}<div class="background">{{ subtitle }}{{#if subtitleSource}} <span class="bg-source">({{ subtitleSource }})</span>{{/if}}</div>{{/if}}
     {{#if failedCareer}}<div class="failed-career"><span class="fc-label">{{ localize "CAIRN.PrintFailedCareer" }}</span> {{ failedCareer }}</div>{{/if}}
     {{#if pronouns}}<div class="pronouns">{{ pronouns }}</div>{{/if}}
+    {{#if marks}}
+    <div class="cond-marks">
+      <span><span class="box">{{#if marks.deprived}}✕{{/if}}</span> {{ localize "CAIRN.Deprived" }}</span>
+      <span><span class="box">{{#if marks.panicked}}✕{{/if}}</span> {{ localize "CAIRN.Panicked" }}</span>
+    </div>
+    {{/if}}
   </div>
 </header>
 
@@ -118,12 +138,6 @@
     <div class="row"><b>{{ localize "WIL" }}</b><span>{{ stats.wil }}/{{ stats.wilMax }}</span></div>
     <div class="row"><b>{{ localize "CAIRN.HitProtection" }}</b><span>{{ stats.hp }}/{{ stats.hpMax }}</span></div>
   </div>
-  {{#if marks}}
-  <div class="cond-marks">
-    <span><span class="box">{{#if marks.deprived}}✕{{/if}}</span> {{ localize "CAIRN.Deprived" }}</span>
-    <span><span class="box">{{#if marks.panicked}}✕{{/if}}</span> {{ localize "CAIRN.Panicked" }}</span>
-  </div>
-  {{/if}}
   {{#if status}}<div class="statusline">{{ status }}</div>{{/if}}
 </section>
 
@@ -184,9 +198,13 @@
 {{#if questions.length}}
 <section>
   <h2>{{ localize "CAIRN.PrintQuestions" }}</h2>
+  {{!-- Each pair wrapped so a question can never strand at a page bottom
+        with its answer overleaf (atomic-entry ruling, 2026-08-10). --}}
   {{#each questions}}
+  <div class="qa-pair">
   <p class="q"><strong>{{ question }}</strong></p>
   <p class="qa">{{ answer }}</p>
+  </div>
   {{/each}}
 </section>
 {{/if}}

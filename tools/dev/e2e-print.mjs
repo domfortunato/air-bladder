@@ -24,7 +24,16 @@
  * Deprived/Panicked print as ALWAYS-PRESENT mark boxes on a character page
  * (user ask 2026-08-10): empty on a clean actor (pass 1), pre-filled when
  * the conditions are on (pass 2), absent on an npc page (pass 3), which
- * keeps the text status line instead.
+ * keeps the text status line instead. The boxes ride the HEADER, in the
+ * free height the portrait reserves — under the stats they cost a row, and
+ * that row pushed a boundary character's Notes to a third page.
+ *
+ * Pagination policy (rulings 2026-08-10): entries are ATOMIC (an inventory
+ * row, a bond, a scar, a connection, a question WITH its answer prints
+ * whole or moves whole), headings keep their content, and Notes takes the
+ * MIN-ROOM rule — break-inside: avoid + min-height 10cm, superseding the
+ * 2026-08-08 always-fresh-page break, so pencil room lands on the earliest
+ * page with real space and never buys a near-empty page.
  */
 import { chromium } from "playwright";
 import { FOUNDRY_URL, VIEWPORT, dismissChrome, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
@@ -220,6 +229,17 @@ const r = await page.evaluate(async ({ xssName }) => {
   out.condLabels = doc?.querySelector(".cond-marks")?.textContent.replace(/\s+/g, " ") ?? "";
   out.condDeprivedLabel = game.i18n.localize("CAIRN.Deprived");
   out.condPanickedLabel = game.i18n.localize("CAIRN.Panicked");
+  // The boxes ride the HEADER — free height beside the portrait; under the
+  // stats they cost a row (the page-3 Notes report, 2026-08-10).
+  out.condInHeader = !!doc?.querySelector("header.pc .cond-marks");
+  // The atomic-entry policy: an entry prints whole or moves whole, and a
+  // heading never strands apart from its section.
+  const csOf = (sel) => (doc?.querySelector(sel) ? popup.getComputedStyle(doc.querySelector(sel)) : null);
+  out.invLiBreak = csOf("ul.inv li")?.breakInside ?? null;
+  out.plainLiBreak = csOf("ul.plain li")?.breakInside ?? null;
+  out.qaPairBreak = csOf(".qa-pair")?.breakInside ?? null;
+  out.h2BreakAfter = csOf("h2")?.breakAfter ?? null;
+  out.invHeadBreakAfter = csOf(".inv-head")?.breakAfter ?? null;
   out.sackSection = body.includes("ZZ Print Sack") && body.includes("ZZ Sack Item");
   out.sackSlots = /ZZ Print Sack\s*\(\s*1\s*\/\s*4\s*\)/.test(body.replace(/\s+/g, " "));
 
@@ -267,6 +287,8 @@ const r = await page.evaluate(async ({ xssName }) => {
   // the computed break, which is what the print engine reads.
   const notesSec = doc?.querySelector("section.notes-section");
   out.notesBreak = notesSec ? popup.getComputedStyle(notesSec).breakBefore : null;
+  out.notesBreakInside = notesSec ? popup.getComputedStyle(notesSec).breakInside : null;
+  out.notesMinHeight = notesSec ? parseFloat(popup.getComputedStyle(notesSec).minHeight) : null;
   out.knifeNote = /Root Knife\s*\(d6\)/.test(body.replace(/\s+/g, " "));
   out.rationsNote = /Rations\s*\(3 uses\)/.test(body.replace(/\s+/g, " "));
   // The spellbook prefixes, exactly as the inventory shows them — read
@@ -378,9 +400,11 @@ const r = await page.evaluate(async ({ xssName }) => {
   out.npcNotesHeader = h2s3.includes(game.i18n.localize("CAIRN.Notes"));
   out.npcCredits = !!doc3?.querySelector("footer.credits");
   out.npcCreditsText = doc3?.querySelector("footer.credits")?.textContent ?? "";
-  // A monster's one-pager stays one page — no forced break on ITS notes.
+  // A monster's one-pager stays one page — no forced break and NO min-height
+  // inflating ITS notes.
   const notesSec3 = doc3?.querySelector("section.notes-section");
   out.npcNotesBreak = notesSec3 ? popup3.getComputedStyle(notesSec3).breakBefore : null;
+  out.npcNotesMinHeight = notesSec3 ? parseFloat(popup3.getComputedStyle(notesSec3).minHeight) : null;
   // The mark boxes are CHARACTER-only; an npc page keeps the text status.
   out.npcNoCondBoxes = !doc3?.querySelector(".cond-marks");
   popup3?.close();
@@ -475,6 +499,13 @@ check("Deprived/Panicked mark boxes print EMPTY on a clean character",
   r.condBoxCount === 2 && r.condBoxesEmpty
   && r.condLabels.includes(r.condDeprivedLabel) && r.condLabels.includes(r.condPanickedLabel),
   `boxes=${r.condBoxCount} empty=${r.condBoxesEmpty} "${r.condLabels}" — the ask's exact case (2026-08-10): somewhere to pencil a condition mid-session`);
+check("and they ride the HEADER, in the portrait's free height", r.condInHeader,
+  "under the stats they cost a row — the row that pushed a boundary character's Notes to page 3");
+check("entries are ATOMIC — whole on a page or moved whole",
+  r.invLiBreak === "avoid" && r.plainLiBreak === "avoid" && r.qaPairBreak === "avoid",
+  `inv=${r.invLiBreak} plain=${r.plainLiBreak} qa-pair=${r.qaPairBreak} — a question never strands apart from its answer (ruling 2026-08-10)`);
+check("headings keep their content", r.h2BreakAfter === "avoid" && r.invHeadBreakAfter === "avoid",
+  `h2=${r.h2BreakAfter} inv-head=${r.invHeadBreakAfter} — no heading alone at a page bottom`);
 check("KW's item annotations", r.knifeNote && r.rationsNote && r.pettyNote,
   `(d6)=${r.knifeNote} (3 uses)=${r.rationsNote} (Petty)=${r.pettyNote} — Petty as the translator wrote it, uses via formatCount`);
 check("spellbook rows print their prefixes", r.bookPrefixed && r.scrollPrefixed,
@@ -513,8 +544,10 @@ check("credits match the art ON the page", /Yochai Gal/.test(r.creditsText)
   `${r.creditsSmall}px — an Aspeheim portrait credits Aspeheim and NEVER Tlomdev; the text credit always prints`);
 check("empty Notes still prints its header", r.emptyNotesHeader,
   "the ruling: the empty block is where the pencil goes");
-check("Notes opens its own page (PC only)", r.notesBreak === "page" && r.npcNotesBreak !== "page",
-  `pc=${r.notesBreak} monster=${r.npcNotesBreak} — a fresh page to write on; a monster stays a one-pager`);
+check("Notes takes the MIN-ROOM rule (PC only)",
+  r.notesBreak !== "page" && r.notesBreakInside === "avoid" && r.notesMinHeight > 370
+  && r.npcNotesBreak !== "page" && !(r.npcNotesMinHeight > 100),
+  `pc break-inside=${r.notesBreakInside} min=${r.notesMinHeight}px npc min=${r.npcNotesMinHeight} — pencil room on the earliest page with ~10cm free, a fresh page only when less remains (ruling 2026-08-10, superseding always-fresh-page); a monster stays a one-pager`);
 check("no connections, no Connections section", r.connectionsGone,
   "the section exists only when connections do");
 check("failed career: Barebones only, labelled", r.careerPass1 && r.careerPass2,
