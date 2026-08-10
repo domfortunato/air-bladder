@@ -19,6 +19,7 @@ import { registerSettings, SETTINGS_NS, migrateSettingsNamespace } from "./setti
 import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS, deriveNpcRole } from "./data-models.js";
 import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName } from "./i18n-content.js";
+import { injectEncounterButton } from "./encounters.js";
 import { nameableTokens } from "./utils.js";
 
 Hooks.once("init", async function () {
@@ -1951,6 +1952,13 @@ const showDamageApplied = (message, html, scene) => {
 Hooks.on("renderChatMessageHTML", (message, html, data) => {
   // Display-only content overlay for RollTable draw cards (see above).
   localizeTableResults(html);
+
+  // A table-draw card whose drawn rows PARSE as encounters grows the Warden's
+  // "Add to scene" button (module/encounters.js). Injected per viewer, never
+  // stored — a player's copy has nothing to trim. Async, and deliberately not
+  // awaited: a pack-drawn table resolves through getDocument, and the hook
+  // chain must not stall on it; the button lands when it lands.
+  injectEncounterButton(message, html);
 
   // Roll Str Save.
   //

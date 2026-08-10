@@ -1269,6 +1269,18 @@
     pointer-events: none;
 }
 
+/* The encounter card's "Add to scene" (module/encounters.js), under the drawn
+   rows. Spent mirrors .apply-dmg's reasoning above; the refusal itself is the
+   message stamp, this is only the affordance. */
+.chat-message .encounter-spawn {
+    margin-top: 6px;
+}
+
+.chat-message .encounter-spawn.spent {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
 /* The creature being attacked, inside the attack sentence (user ask,
    2026-08-07): "Lisbeth attacks Feathered Carapace Creature with Crossbow!" runs
    as one flat line, so the thing being hit is no easier to find than the
