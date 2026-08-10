@@ -130,7 +130,7 @@ const reportCast = async (actor, spell, dice) => {
   // every GLOG card opens it with a lit "GLOG" tag (same day's ruling: the
   // Die of Fate treatment in its own colour). A future GLOG card must carry
   // the tag too; today these two messages are the only ones.
-  const glogTag = `<span class="glog-flavor-tag">GLOG</span> `;
+  const glogTag = `<span class="glog-flavor-tag">GLOG</span> — `;
   const castFlavor = glogTag + game.i18n.format("CAIRN.GrimoireCastFlavor",
     { name: esc(speaker.alias ?? actor.name) });
   const publicCard = await ChatMessage.create({
