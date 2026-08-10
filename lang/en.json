@@ -414,6 +414,7 @@
     "EmptySpellSource": "{pack} holds no spellbooks — the table was left untouched.",
     "GlogConverted": "GLOG Magic: {count} spellbooks converted to GLOG spellscrolls.",
     "GlogConverted_one": "GLOG Magic: {count} spellbook converted to GLOG spellscrolls.",
+    "GlogConversionFailed": "GLOG Magic: the world conversion did not finish — some spellbooks may be unconverted. See the console for details.",
     "GrimoireFull": "{name} has no empty pages left.",
     "GrimoireNoDice": "{name} has no free slot — no Magic Dice to invest. Drop something first.",
     "GrimoireNoPages": "{name} has no pages — transmute a spellbook or scroll into it first.",

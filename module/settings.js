@@ -335,8 +335,27 @@ export const registerSettings = () => {
       // unlock-edit-relock would be a silent wrong text with no error.
       const { runGlogConversion, clearGlogTextCache } = await import("./glog.js");
       clearGlogTextCache();
-      if (!value) return;
-      await runGlogConversion();
+      // The sweep is a one-way world conversion with no rollback, and the
+      // client fires onChange WITHOUT awaiting it (Setting._onUpdate), so a
+      // throw out of here is an unhandled rejection naming neither the system
+      // nor the operation, with the world left half-converted and no signal
+      // but the ABSENCE of the "converted N" toast. Caught and surfaced, the
+      // way every other async seam in this system is (cairn.js phase/socket).
+      if (value) {
+        try {
+          await runGlogConversion();
+        } catch (err) {
+          console.error("air-bladder | GLOG world conversion failed:", err);
+          ui.notifications.error(game.i18n.localize("CAIRN.Notify.GlogConversionFailed"));
+        }
+      }
+      // The per-scroll Cast control (canCastScroll, actor-sheet.js) is read
+      // live in _prepareContext but only takes effect on the NEXT render.
+      // Turning the setting OFF converts nothing, so no document update fires
+      // and without this fan an open sheet keeps its now-dead Cast controls
+      // until an unrelated redraw (the review #13 rule that rerenderActorSheets
+      // exists for). Both directions, and on every client the onChange reaches.
+      rerenderActorSheets();
     },
   });
 
