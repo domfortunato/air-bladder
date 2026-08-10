@@ -89,9 +89,11 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
 - `module/actor/actor-sheet.js` is the largest file
 - `module/damage.js` holds Cairn's damage flow
 - Data models in `module/data-models.js` (TypeDataModel; `template.json` is gone,
-  sub-types are declared in `system.json` `documentTypes`); 28 compendium packs
+  sub-types are declared in `system.json` `documentTypes`); 29 compendium packs
   (24 on `master` — the GLOG branch added `spellbooks-glog`, `tables-glog`,
-  `journals-glog`, and `journals-2e` on 2026-08-10)
+  `journals-glog`, and on 2026-08-10 `journals-2e` and `journals-docs`; this
+  count went stale TWICE in one day, both times by the hand that had just
+  corrected it — a new pack's commit must carry this line)
 - 22 GM-visible settings in `module/settings.js` (28 `register` calls; `roles-restamped`,
   `companion-restamped`, `connections-migrated`, `custom-portrait-list`,
   `disabled-backgrounds` and `connections-ui-enabled` are internal, `config: false`;
