@@ -269,6 +269,12 @@
       "system": "air-bladder"
     },
     {
+      "name": "journals-2e",
+      "label": "CAIRN.Pack.journals-2e",
+      "type": "JournalEntry",
+      "system": "air-bladder"
+    },
+    {
       "name": "journals-glog",
       "label": "CAIRN.Pack.journals-glog",
       "type": "JournalEntry",
@@ -332,6 +338,7 @@
       "name": "Air Bladder - Journals",
       "sorting": "a",
       "packs": [
+        "journals-2e",
         "journals-glog"
       ]
     },
