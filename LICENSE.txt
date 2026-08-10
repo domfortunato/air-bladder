@@ -97,6 +97,10 @@ Character portraits and tokens — CC BY 4.0, © Jon Aspeheim
     https://jonaspeheim.itch.io/lemurs-portraits
     Redistribution is fine; attribution is required. Keep the credit if the art
     ships. The artist states these were created without AI.
+    MODIFIED: the source ships 1000×1000 PNG portraits and no tokens. The
+    portraits/ half is re-encoded to WebP at the same size; the tokens/ half is
+    derived from those portraits — cropped and downscaled to 256×256 for the
+    canvas. This is the indication CC BY 4.0 §3(a)(1)(B) requires.
     See art/jon-aspeheim/license.txt.
 
 game-icons.net art — CC BY 3.0
