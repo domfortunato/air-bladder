@@ -84,14 +84,17 @@
   /* Content links print as plain text — an anchor is useless on paper. */
   a { color: inherit; text-decoration: none; }
   .prose p { margin-bottom: 0.5rem; }
-  /* Notes gets REAL pencil room without buying a blank page (user ruling
-     2026-08-10, superseding 2026-08-08's always-fresh-page): if at least
-     ~10cm of the current page remains, Notes starts there and the writing
-     room is the rest of that page; with less remaining, the whole section
-     moves to a fresh page (break-inside: avoid + the min-height is what
-     makes it move). A monster's one-pager stays one page, which is why the
-     rule rides the body class. */
-  body.pc-print section.notes-section { break-inside: avoid; min-height: 10cm; }
+  /* Notes gets pencil room by the FIVE-LINE rule (user ruling 2026-08-10,
+     tightening the same day's 10cm draft): if the heading plus at least five
+     blank lines' worth of writing room (~4cm all told at 12pt/1.45) fits on
+     the current page, Notes starts there and the writing room is the rest of
+     that page; with less remaining, the whole section moves to a fresh page
+     (break-inside: avoid + the min-height is what makes it move). 10cm was
+     the defect, not just a draft: its worst case moved Notes overleaf with
+     ~10cm still blank — the half-page gap between Omen and Notes the ruling
+     explicitly forbids. The pad is now bounded at ~4cm. A monster's
+     one-pager stays one page, which is why the rule rides the body class. */
+  body.pc-print section.notes-section { break-inside: avoid; min-height: 4cm; }
   /* Pagination policy (user rulings 2026-08-10): an ENTRY prints whole or
      moves whole to the next page — an inventory row, a bond, a scar, a
      connection, a question WITH its answer — and a heading never strands

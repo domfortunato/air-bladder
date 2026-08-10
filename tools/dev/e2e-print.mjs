@@ -31,9 +31,12 @@
  * Pagination policy (rulings 2026-08-10): entries are ATOMIC (an inventory
  * row, a bond, a scar, a connection, a question WITH its answer prints
  * whole or moves whole), headings keep their content, and Notes takes the
- * MIN-ROOM rule — break-inside: avoid + min-height 10cm, superseding the
- * 2026-08-08 always-fresh-page break, so pencil room lands on the earliest
- * page with real space and never buys a near-empty page.
+ * MIN-ROOM rule — break-inside: avoid + min-height 4cm, the FIVE-LINE
+ * ruling (heading + five blank lines of pencil room; the same day's 10cm
+ * draft was the defect — its worst case was the near-half-page blank
+ * before Notes the ruling forbids). Supersedes 2026-08-08's
+ * always-fresh-page break; pencil room lands on the earliest page with
+ * real space and never buys a near-empty page.
  */
 import { chromium } from "playwright";
 import { FOUNDRY_URL, VIEWPORT, dismissChrome, joinAsGM, watchErrors, watchdog } from "./lib.mjs";
@@ -545,9 +548,15 @@ check("credits match the art ON the page", /Yochai Gal/.test(r.creditsText)
 check("empty Notes still prints its header", r.emptyNotesHeader,
   "the ruling: the empty block is where the pencil goes");
 check("Notes takes the MIN-ROOM rule (PC only)",
-  r.notesBreak !== "page" && r.notesBreakInside === "avoid" && r.notesMinHeight > 370
+  // BOUNDED both ways: 4cm ≈ 151px (heading + five 12pt/1.45 lines — the
+  // user's five-line rule). The lower bound catches the rule vanishing; the
+  // upper bound catches the 10cm regression, whose worst case moved Notes
+  // overleaf with a near-half-page blank after Omen — the gap the ruling
+  // forbids. 10cm (378px) fails this leg on BOTH bounds' intent.
+  r.notesBreak !== "page" && r.notesBreakInside === "avoid"
+  && r.notesMinHeight > 140 && r.notesMinHeight < 200
   && r.npcNotesBreak !== "page" && !(r.npcNotesMinHeight > 100),
-  `pc break-inside=${r.notesBreakInside} min=${r.notesMinHeight}px npc min=${r.npcNotesMinHeight} — pencil room on the earliest page with ~10cm free, a fresh page only when less remains (ruling 2026-08-10, superseding always-fresh-page); a monster stays a one-pager`);
+  `pc break-inside=${r.notesBreakInside} min=${r.notesMinHeight}px npc min=${r.npcNotesMinHeight} — heading + five lines (~4cm) on the current page, a fresh page only when less remains (five-line ruling 2026-08-10); a monster stays a one-pager`);
 check("no connections, no Connections section", r.connectionsGone,
   "the section exists only when connections do");
 check("failed career: Barebones only, labelled", r.careerPass1 && r.careerPass2,
