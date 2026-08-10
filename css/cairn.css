@@ -1376,6 +1376,20 @@
     text-shadow: 0 0 8px var(--ab-glog);
 }
 
+/* A dice-resolved value inside a cast card's effect text ([sum]/[dice]/[dado]
+   and their arithmetic, resolveSpellText in module/grimoire.js): bold with a
+   dotted underline in the GLOG violet, the tooltip affordance — hovering
+   shows the authored expression behind the number (user ask, 2026-08-10).
+   Bold alone would read as emphasis the author wrote; the dotted line says
+   "computed, hover me". Same pinned token as the tag above: chat tiles are
+   parchment in both themes. */
+.chat-message .grimoire-resolved {
+    font-weight: 700;
+    text-decoration: underline dotted var(--ab-glog);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 2px;
+}
+
 /* The character-generation card: HP / STR / DEX / WIL / Gold, one "LABEL: value"
    per row, set larger than core's 14px chat body so the numbers read at a glance
    from across the table -- this card is the result of a roll, not running text.

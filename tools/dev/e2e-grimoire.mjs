@@ -18,7 +18,10 @@
  *   1. resolveSpellText, as a unit: block selection by power (preamble kept,
  *      absent block = whole text), [sum]/[dice]/[dado] substitution,
  *      arithmetic ([sum*10], the × spelling), and the refusal to touch
- *      non-numeric brackets ([8 HP, 3 STR...]).
+ *      non-numeric brackets ([8 HP, 3 STR...]). A resolved value comes back
+ *      wrapped in a grimoire-resolved span whose tooltip holds the authored
+ *      expression (ruling 2026-08-10) — asserted as the exact shape here,
+ *      and on the rendered card in leg 6.
  *   2. Transmute: with a Grimoire carried, a spellbook row offers the control
  *      and the confirm binds it — bound, weightless, grouped after the book's
  *      row with a Page chip, slots freed. A scroll transmutes too, and comes
@@ -153,12 +156,17 @@ try {
       statBlock: resolveSpellText("[8 HP, 3 STR, 11 DEX] guards", 1, 5),
     };
   });
+  // A resolved value comes back MARKED: the exact wrapped shape, tooltip
+  // carrying the authored expression (ruling 2026-08-10).
+  const rv = (expr, v) => `<span class="grimoire-resolved" data-tooltip="${expr}">${v}</span>`;
   check(unit.block2 === "Pre.  two.", "block selection picks the power's block, preamble kept", JSON.stringify(unit.block2));
   check(unit.blockAbsent === "Pre. [1] one. [2] two.", "an absent block leaves the whole text standing");
-  check(unit.noBlocks === "Just 5 words.", "[sum] substitutes without blocks");
-  check(unit.subs === "11 r, 3 t, 3 d", "[sum]/[dice]/[dado] all substitute", unit.subs);
-  check(unit.math === "deal 80 now, then 80 again", "arithmetic evaluates, both * and × spellings", unit.math);
-  check(unit.statBlock === "[8 HP, 3 STR, 11 DEX] guards", "a non-numeric bracket is never touched");
+  check(unit.noBlocks === `Just ${rv("[sum]", 5)} words.`, "[sum] substitutes without blocks, value marked", unit.noBlocks);
+  check(unit.subs === `${rv("[sum]", 11)} r, ${rv("[dice]", 3)} t, ${rv("[dado]", 3)} d`,
+    "[sum]/[dice]/[dado] all substitute, each marked with its own expression", unit.subs);
+  check(unit.math === `deal ${rv("[sum*10]", 80)} now, then ${rv("[sum×10]", 80)} again`,
+    "arithmetic evaluates, both * and × spellings, the AUTHORED spelling in each tooltip", unit.math);
+  check(unit.statBlock === "[8 HP, 3 STR, 11 DEX] guards", "a non-numeric bracket is never touched — and never marked");
 
   /* ------------------------------------------------- 2. transmute, via UI -- */
   // Render the caster's sheet and read the affordances.
@@ -363,9 +371,12 @@ try {
   // [4,4]: sum 8, doubles, 2 fatigue.
   const castA = await seedCast(gm, [0.4, 0.4]);
   check(!castA.error && castA.rollTotal === 8, "seeded [4,4]: the roll is the real Roll, total 8", castA.error ?? "");
-  check(castA.publicContent.includes("80 damage") && castA.publicContent.includes("roaring blast"),
-    "public card carries the RESOLVED power-2 block (sum 8 -> 80)");
-  check(!castA.publicContent.includes("[sum"), "no unresolved [sum] survives on the card");
+  check(castA.publicContent.includes(`${rv("[sum*10]", 80)} damage`) && castA.publicContent.includes("roaring blast"),
+    "public card carries the RESOLVED power-2 block (sum 8 -> 80), the value marked");
+  // The tooltip HOLDS "[sum*10]" on purpose, so the unresolved-marker check
+  // reads the VISIBLE text only (tags stripped).
+  check(!castA.publicContent.replace(/<[^>]+>/g, "").includes("[sum"),
+    "no unresolved [sum] survives in the card's visible text");
   check(castA.whisperTo.length === 1 && castA.whisperTo[0] === castA.userId,
     "whisper goes to the caster alone", JSON.stringify(castA.whisperTo));
   check(castA.whisperContent.includes('data-count="2"'),
@@ -617,8 +628,8 @@ try {
   check(scrollCastRun.shadowedControls.solo && !scrollCastRun.shadowedControls.used,
     "setting on: the unspent scroll offers Cast, the spent one does not");
   check(scrollCastRun.rollTotal === 8
-    && scrollCastRun.publicContent.includes("80 feet"),
-    "a bookless scroll casts with the full machinery — resolved card, real roll");
+    && scrollCastRun.publicContent.includes(`${rv("[sum*10]", 80)} feet`),
+    "a bookless scroll casts with the full machinery — resolved card (value marked), real roll");
   check(scrollCastRun.whisperContent.includes('data-count="2"'),
     "and the same whisper: fatigue button for the two 4-6 dice");
   check(scrollCastRun.usesAfter === 0,

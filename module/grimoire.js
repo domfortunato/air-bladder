@@ -38,7 +38,10 @@ export const MISHAPS_TABLE_NAME = "GLOG Magic: Mishaps";
  *   values, and arithmetic like `[sum*10]` EVALUATES — but only when, after
  *   substitution, nothing but digits and arithmetic remains. Anything else
  *   (`[8 HP, 3 STR…]` stat blocks, the odd stray bracket the verbatim
- *   transcription preserves) is left exactly as written.
+ *   transcription preserves) is left exactly as written. A value that DID
+ *   resolve is wrapped `<span class="grimoire-resolved" data-tooltip="[expr]">`
+ *   so the card marks it as dice-made rather than authored prose, the original
+ *   expression a hover away.
  *
  * Runs on the DISPLAYED text — the overlay-localized copy — so a Spanish
  * client resolves the Spanish sentence, not the stored English under it.
@@ -79,7 +82,13 @@ export const resolveSpellText = (text, dice, sum) => {
     if (!/^[\d+\-*/().\s]+$/.test(sub) || !/\d/.test(sub)) return match;
     try {
       const v = Function(`"use strict"; return (${sub});`)();
-      return Number.isFinite(v) ? String(v) : match;
+      // A resolved value comes back MARKED, at the one moment its provenance
+      // is known: the card shows which number the dice made, and the tooltip
+      // holds the authored expression behind it (ruling 2026-08-10). esc on
+      // the attribute — the expression is pack/Warden-authored text.
+      return Number.isFinite(v)
+        ? `<span class="grimoire-resolved" data-tooltip="${esc(match)}">${v}</span>`
+        : match;
     } catch {
       return match;
     }
