@@ -325,8 +325,12 @@ const LYDIA_COUNT_SITES = [
   ["art/lydia-comer/CREDITS.md", /^(\d+) creatures, \d+ files\./m],
   // Both READMEs state it a second time, up in the feature list. Two statements
   // of one number in one file is the ordinary way a count goes stale.
-  ["README.md", /A gallery of (\d+) monsters drawn for Air Bladder/],
-  ["README.es.md", /Una galería de (\d+) monstruos dibujados para Air Bladder/],
+  // The anchor deliberately stops at the countable phrase: the 2026-08-10
+  // tightening pass folded the three gallery bullets into one and dropped the
+  // "A gallery of" lead-in, which is exactly how the 0.1.15 workflow failed
+  // at the tag — the gate anchored on wording, not on the fact it checks.
+  ["README.md", /(\d+) monsters drawn for Air Bladder/],
+  ["README.es.md", /(\d+) monstruos dibujados para Air Bladder/],
 ];
 for (const [file, pattern] of LYDIA_COUNT_SITES) {
   const m = read(file).match(pattern);
