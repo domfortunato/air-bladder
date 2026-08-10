@@ -215,14 +215,20 @@ const spawnTokens = async (actor, count, start) => {
     const [dx, dy] = CLUSTER_OFFSETS[n % CLUSTER_OFFSETS.length];
     const ring = Math.floor(n / CLUSTER_OFFSETS.length) + 1;
     const p = canvas.grid.getTopLeftPoint({ x: c.x + dx * gs * ring, y: c.y + dy * gs * ring });
-    const proto = actor.prototypeToken.toObject();
-    docs.push(foundry.utils.mergeObject(proto, {
+    // getTokenDocument, not prototypeToken.toObject() (review): it resolves a
+    // wildcard randomImg to an actual file and applies appendNumber /
+    // prependAdjective — which a raw toObject() ships literally (a broken
+    // wildcard src, an unnumbered name). It also stamps actorId and merges this
+    // data LAST, so the forced NEUTRAL disposition and actorLink:false still win.
+    // Latent only because no shipped monster sets those prototype flags; live
+    // the moment a Warden does.
+    const tokenDoc = await actor.getTokenDocument({
       x: p.x,
       y: p.y,
-      actorId: actor.id,
       actorLink: false,
       disposition: CONST.TOKEN_DISPOSITIONS.NEUTRAL,
-    }));
+    });
+    docs.push(tokenDoc.toObject());
   }
   // Batched create; the result is ID-ordered, never input-ordered, so nothing
   // downstream may index into it.
