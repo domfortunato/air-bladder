@@ -1,7 +1,7 @@
 _id: GSf3juw6ujoG3Xef
 name: Push/Pull
 type: spellbook
-img: systems/air-bladder/icons/spellbook.svg
+img: systems/air-bladder/icons/spellscroll.svg
 effects: []
 folder: null
 sort: 0
@@ -11,15 +11,15 @@ flags:
 system:
   cost: 0
   description: <p>[dice] objects of any size are pulled directly towards you or pushed directly away from you with the strength of [sum] men.</p>
-  weightless: false
+  weightless: true
   equipped: false
   bulky: false
   quantity: 1
-  scroll: false
+  scroll: true
   glog: true
   uses:
-    value: 0
-    max: 0
+    value: 1
+    max: 1
 ownership:
   default: 0
 _stats:

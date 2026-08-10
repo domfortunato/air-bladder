@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 /**
- * The GLOG spell pack: 100 spellbooks into src/packs/spellbooks-glog/.
+ * The GLOG spell pack: 100 spellSCROLLS into src/packs/spellbooks-glog/
+ * (labelled "GLOG Spellscrolls" — under GLOG there are no spellbooks, so the
+ * pack ships every spell in scroll form; 2026-08-09 ruling, made when a
+ * dragged Haste landed as a book).
  *
  *   node tools/import/glog-spells.mjs [--dry]
  *
@@ -205,20 +208,26 @@ for (const [name, text] of SPELLS) {
   }
   const _id = stableId(name);
   writeDoc(packDir, {
+    // Shipped as SPELLSCROLLS, not books (2026-08-09 ruling: there are no
+    // spellbooks in GLOG — only Grimoires, their bound pages, and scrolls;
+    // the pack label says "GLOG Spellscrolls" for the same reason). The type
+    // stays `spellbook` — that is the document type both forms share; `scroll`
+    // is the form. Unspent (1/1), petty, scroll art — the SCROLL_PINNED shape,
+    // so a drag lands exactly what CairnItem._preCreate would pin anyway.
     _id, name, type: "spellbook",
-    img: "systems/air-bladder/icons/spellbook.svg",
+    img: "systems/air-bladder/icons/spellscroll.svg",
     effects: [], folder: null, sort: 0,
     flags: { "air-bladder": { gearSource: "glog-spells" } },
     system: {
       cost: 0,
       description: `<p>${text}</p>`,
-      weightless: false,
+      weightless: true,
       equipped: false,
       bulky: false,
       quantity: 1,
-      scroll: false,
+      scroll: true,
       glog: true,
-      uses: { value: 0, max: 0 },
+      uses: { value: 1, max: 1 },
     },
     ownership: { default: 0 },
     _stats: { systemId: "air-bladder", coreVersion: "14.365" },
