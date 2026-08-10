@@ -106,6 +106,13 @@
       </a>
       {{/if}}
 
+      {{#if item.system.canCast}}
+      <a class="item-control grimoire-cast" data-action="grimoireCast"
+        title="{{ localize 'CAIRN.GrimoireCastHint' }}">
+        <i class="fas fa-hand-sparkles"></i>
+      </a>
+      {{/if}}
+
       {{! Equipping is a character-only affordance -- gear stowed in a container
           is not to hand, so a container's rows never offer the toggle. }}
       {{#unless container}}

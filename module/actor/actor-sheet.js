@@ -9,6 +9,7 @@ import { NPC_ROLES, THING_ROLES } from "../data-models.js";
 import { atConnectionLimit, maxConnections, connectionsUiEnabled, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
 import { actorDisplayName, localizeNameDesc, sourceOf, t } from "../i18n-content.js";
 import { FATIGUE_NAME } from "../item/item.js";
+import { castFromGrimoire } from "../grimoire.js";
 import { pickArt } from "../art-picker.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -234,6 +235,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       itemAddUse: owned(CairnActorSheet.#onItemAddUse),
       itemRemoveUse: owned(CairnActorSheet.#onItemRemoveUse),
       pageTransmute: owned(CairnActorSheet.#onPageTransmute),
+      grimoireCast: owned(CairnActorSheet.#onGrimoireCast),
       itemDescription: CairnActorSheet.#onItemDescription,
       addFatigue: owned(CairnActorSheet.#onAddFatigue),
       removeFatigue: owned(CairnActorSheet.#onRemoveFatigue),
@@ -2563,6 +2565,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     });
     if (!proceed) return;
     await item.update({ "system.bound": true });
+  }
+
+  /**
+   * The Cast control on the Grimoire's row. Everything real — the page picker,
+   * the dice cap, the roll, both cards — lives in module/grimoire.js; the
+   * guards re-derive there, so a stale row control cannot cast from a book
+   * that has left or emptied.
+   * @this {CairnActorSheet}
+   */
+  static async #onGrimoireCast(event) {
+    event.preventDefault();
+    await castFromGrimoire(this.actor);
   }
 
   /** Not exactly quantity, this is about uses. @this {CairnActorSheet} */

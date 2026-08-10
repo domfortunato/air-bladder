@@ -21,6 +21,7 @@ import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS, deriveNpcRole } from "./data-model
 import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName } from "./i18n-content.js";
 import { injectEncounterButton } from "./encounters.js";
+import { bindGrimoireFatigueButton } from "./grimoire.js";
 import { nameableTokens } from "./utils.js";
 
 Hooks.once("init", async function () {
@@ -1982,6 +1983,11 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   // awaited: a pack-drawn table resolves through getDocument, and the hook
   // chain must not stall on it; the button lands when it lands.
   injectEncounterButton(message, html);
+
+  // The GLOG cast whisper's Add-N-Fatigue button (module/grimoire.js): wired
+  // per render, spent-state read from the message flag, ownership re-checked
+  // in the handler.
+  bindGrimoireFatigueButton(message, html);
 
   // Roll Str Save.
   //
