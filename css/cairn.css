@@ -1112,6 +1112,27 @@
     grid-row-end: 5;
 }
 
+/* The plain-item sheet grew its own variant when the Grimoire checkbox became
+   its 11th counter (page capacity makes 12): rows 2-6 hold ten counters beside
+   the portrait, so the sixth counter row here is what keeps numbers 11 and 12
+   out of an implicit row under the tabs — the same measured failure the
+   spellbook block above records. */
+.plain-item.item-sheet-grid {
+    grid-template-rows: 46px 36px 36px 36px 36px 36px 36px 1fr;
+}
+
+.plain-item.item-sheet-grid .item-sheet-section-tabs {
+    grid-row-start: 8;
+    grid-row-end: 8;
+}
+
+/* A bound page's row sits indented under its Grimoire — the grouping is done in
+   the sheet context (pages re-inserted after the book's row); this is only the
+   visual step that says "these belong to that". */
+.cairn-items-list-row.grimoire-page {
+    margin-left: 18px;
+}
+
 .small-resource-label {
     max-width: fit-content;
     padding-left: 0.8rem;

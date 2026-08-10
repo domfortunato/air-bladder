@@ -233,6 +233,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       itemToggleEquipped: owned(CairnActorSheet.#onItemToggleEquipped),
       itemAddUse: owned(CairnActorSheet.#onItemAddUse),
       itemRemoveUse: owned(CairnActorSheet.#onItemRemoveUse),
+      pageTransmute: owned(CairnActorSheet.#onPageTransmute),
       itemDescription: CairnActorSheet.#onItemDescription,
       addFatigue: owned(CairnActorSheet.#onAddFatigue),
       removeFatigue: owned(CairnActorSheet.#onRemoveFatigue),
@@ -854,6 +855,39 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // "Fatiga" without the stored document ever being translated.
     const fatigueLabel = game.i18n.localize("CAIRN.Fatigue");
     context.items = items.map((i) => (i.name === FATIGUE_NAME ? { ...i, name: fatigueLabel } : i));
+
+    // The Grimoire's inventory affordances (GLOG Magic, rebuilt on an ITEM
+    // 2026-08-09). Character-only: the transmute and the cast belong to the
+    // book's carrier, and a pile holding a recovered book offers neither.
+    // Everything here is display annotation on the context copies — the
+    // ENFORCEMENT lives in the handlers and CairnItem, which re-derive it.
+    if (this.actor.type === "character") {
+      const grimoire = this.actor.items.find((i) => i.type === "item" && i.system.grimoire);
+      const pageCount = this.actor.items.filter((i) => i.type === "spellbook" && i.system.bound).length;
+      if (grimoire) {
+        const hasRoom = pageCount < (grimoire.system.grimoirePages ?? 0);
+        context.items = context.items.map((i) => {
+          if (i.type === "spellbook" && !i.system.bound) {
+            return { ...i, system: { ...i.system, canTransmute: hasRoom } };
+          }
+          if (i._id === grimoire.id) {
+            return { ...i, system: { ...i.system, canCast: pageCount > 0 } };
+          }
+          return i;
+        });
+        // Pages render GROUPED under the book: pull the bound pages out of the
+        // alphabetical list and re-insert them (still alphabetical among
+        // themselves) right after the Grimoire's row. Display order only — the
+        // stored documents and their `sort` values are untouched.
+        const pages = context.items.filter((i) => i.type === "spellbook" && i.system.bound);
+        if (pages.length) {
+          const rest = context.items.filter((i) => !(i.type === "spellbook" && i.system.bound));
+          const at = rest.findIndex((i) => i._id === grimoire.id);
+          rest.splice(at + 1, 0, ...pages);
+          context.items = rest;
+        }
+      }
+    }
 
     // The npc sheet's description editor is TOGGLED (npc-sheet.html), so this is
     // its light-DOM DISPLAY half: translated via monster.desc — the namespace the
@@ -2493,6 +2527,44 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (item) await item.update({ "system.equipped": !item.system.equipped });
   }
 
+  /**
+   * Transmute a spellbook or spellscroll into the carried Grimoire: the item
+   * becomes a BOUND PAGE (weightless, grouped under the book, no way back —
+   * CairnItem holds the invariant). The row control is the affordance; every
+   * precondition is re-derived here because a sheet rendered before the book
+   * filled up, or before the book left, must not be a way through. The scroll's
+   * conversion is the hack's paid one — 50gp and 6 hours — and the cost STAYS
+   * PROSE in the confirm (no automation of mechanical text; trust players).
+   * @this {CairnActorSheet}
+   */
+  static async #onPageTransmute(event, target) {
+    event.preventDefault();
+    const row = CairnActorSheet.#row(target);
+    const item = this.actor.getOwnedItem(row?.dataset.itemId);
+    if (!item || item.type !== "spellbook" || item.system.bound) return;
+    if (this.actor.type !== "character") return;
+    const grimoire = this.actor.items.find((i) => i.type === "item" && i.system.grimoire);
+    if (!grimoire) return;
+    const pageCount = this.actor.items.filter(
+      (i) => i.type === "spellbook" && i.system.bound).length;
+    if (pageCount >= (grimoire.system.grimoirePages ?? 0)) {
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.GrimoireFull",
+        { name: grimoire.name }));
+      return;
+    }
+    // Names go into dialog HTML and are user-authored text.
+    const esc = foundry.utils.escapeHTML;
+    const proceed = await foundry.applications.api.DialogV2.confirm({
+      content: game.i18n.format(
+        item.system.scroll ? "CAIRN.GrimoireTransmuteScrollQ" : "CAIRN.GrimoireTransmuteQ",
+        { spell: esc(item.name), book: esc(grimoire.name) }),
+      rejectClose: false,
+      modal: true,
+    });
+    if (!proceed) return;
+    await item.update({ "system.bound": true });
+  }
+
   /** Not exactly quantity, this is about uses. @this {CairnActorSheet} */
   static async #onItemAddUse(event, target) {
     event.preventDefault();
@@ -3560,6 +3632,26 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       return null;
     }
 
+    // A bound page never moves on its own — it travels with its Grimoire, in
+    // the bundle below, or not at all (2026-08-09 ruling: pages are bound, no
+    // way back, and they stay with the book). The bundle writes with
+    // createEmbeddedDocuments and never comes through here.
+    if (originalItem.type === "spellbook" && originalItem.system?.bound) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.PageBound"));
+      return null;
+    }
+
+    // The one-book wall's AFFORDANCE half — the toast a player actually sees.
+    // The enforcement is CairnItem._preCreate, which refuses the same create
+    // whatever UI produced it (two layers, the Fatigue precedent: removing
+    // either alone must not look like a landed change).
+    if (originalItem.type === "item" && originalItem.system?.grimoire
+        && this.actor.type === "character"
+        && this.actor.items.some((i) => i.type === "item" && i.system?.grimoire)) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.GrimoireOnlyOne"));
+      return null;
+    }
+
     // Capacity rules differ by target. A CHARACTER with no free slot refuses:
     // a drop is ORDINARY ACQUISITION, and the rule only owes a character
     // overflow in two cases, neither of them this one — what generation and a
@@ -3617,6 +3709,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         // target's book (review #9). Any future flag-style splitter joins
         // this test rather than growing a new merge.
         && !!it.system?.scroll === !!originalItem.system?.scroll
+        // A bound page and the loose book of the same spell are different
+        // things (the page is the book's), and a GRIMOIRE never stacks at all:
+        // each book carries its own pages, and quantity 2 on one document
+        // would make two libraries indistinguishable.
+        && !!it.system?.bound === !!originalItem.system?.bound
+        && !it.system?.grimoire && !originalItem.system?.grimoire
     );
     let created = foundItem ?? null;
     if (foundItem) {
@@ -3649,6 +3747,23 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         await originalItem.update({ "system.quantity": osq });
       } else {
         await originalActor.deleteEmbeddedDocuments("Item", [originalItem.id]);
+      }
+    }
+
+    // PAGES TRAVEL WITH THE BOOK (2026-08-09 ruling, #10's replacement): a
+    // Grimoire moving off an actor bundles every bound page in the same move —
+    // to another character, to an Item Pile, anywhere this handler can take it.
+    // A recovered book is the book WITH its spells. The pages are weightless,
+    // so they cannot fail a capacity check the book itself just passed, and
+    // they move via createEmbeddedDocuments — the same door generation uses —
+    // so the bound-page drop refusal above never sees them.
+    if (originalActor
+        && originalItem.type === "item" && originalItem.system?.grimoire) {
+      const pages = originalActor.items.filter(
+        (i) => i.type === "spellbook" && i.system.bound);
+      if (pages.length) {
+        await this.actor.createEmbeddedDocuments("Item", pages.map((p) => p.toObject()));
+        await originalActor.deleteEmbeddedDocuments("Item", pages.map((p) => p.id));
       }
     }
     return created;

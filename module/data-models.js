@@ -568,6 +568,17 @@ class ItemData extends CairnDataModel {
       // and `item` types, and items-list.html renders the tag. No shipped item
       // carries a non-zero value, but a Warden's homebrew amulet can.
       armor: optInt(),
+      // A GLOG Grimoire (the official GLOG Magic hack, rebuilt 2026-08-09 as an
+      // ITEM after the npc-role book was ditched). A FLAG, not a type, by the
+      // relic argument above: the book is an ordinary bulky item that happens
+      // to hold spells, and a type could never be un-become. `grimoirePages`
+      // is the Warden-set page capacity the transmute flow enforces; it means
+      // nothing while `grimoire` is false, which is why it is not a shared
+      // field. At most ONE grimoire per character — enforced in CairnItem
+      // _preCreate and the drop handler, not here (schemas describe one
+      // document; the wall is a statement about the actor's whole inventory).
+      grimoire: bool(),
+      grimoirePages: int(10),
     };
   }
 }
@@ -620,7 +631,19 @@ class ArmorData extends CairnDataModel {
  */
 class SpellbookData extends CairnDataModel {
   static defineSchema() {
-    return { ...universal(), ...consumable(), scroll: bool(), glog: bool() };
+    return {
+      ...universal(),
+      ...consumable(),
+      scroll: bool(),
+      glog: bool(),
+      // A page BOUND into a carried Grimoire (transmuted spellbook or scroll).
+      // A flag by the same argument as `scroll` — a page carries no data a
+      // spellbook does not — and one-directional by ruling (2026-08-09, #12):
+      // binding is forever, so CairnItem._preUpdate strips any write that
+      // clears it. A bound page is weightless (PAGE_PINNED), never equippable,
+      // never a scroll, and travels with the Grimoire when the book moves.
+      bound: bool(),
+    };
   }
 }
 

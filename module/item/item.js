@@ -46,6 +46,20 @@ const SCROLL_PINNED = { weightless: true, equipped: false, "uses.max": 1 };
 const BOOK_PINNED = { weightless: false, "uses.max": 0, "uses.value": 0 };
 
 /**
+ * A page bound into a Grimoire: weightless (the book carries it), never held
+ * ready, and NOT a scroll — the transmute converts a scroll into a page, which
+ * is the 50gp/6hr conversion the GLOG hack charges for (the cost stays prose;
+ * trust players). `scroll: false` is pinned here so the two flags can never
+ * both be true, whatever path writes them.
+ */
+const PAGE_PINNED = {
+  weightless: true, equipped: false, scroll: false,
+  // A page has no uses: it is the spell recorded permanently in the book, so a
+  // transmuted scroll's one-shot counter clears with the scroll flag.
+  "uses.max": 0, "uses.value": 0,
+};
+
+/**
  * Extend the basic Item with some very simple modifications.
  * @extends {Item}
  */
@@ -85,6 +99,25 @@ export class CairnItem extends Item {
   async _preCreate(data, options, user) {
     const allowed = await super._preCreate(data, options, user);
     if (allowed === false) return false;
+
+    // The one-book wall (2026-08-09 ruling): a CHARACTER carries at most one
+    // Grimoire; other books are unrestricted, and so are npcs — an Item Pile
+    // holding two recovered grimoires is a pile doing its job. This is the
+    // ENFORCEMENT layer behind the drop handler's refusal (the two-layer rule
+    // the Fatigue guards set): a stale open dialog, a macro, or a module write
+    // all land here whatever the UI showed.
+    if (this.type === "item" && this.system.grimoire
+        && this.parent?.type === "character"
+        && this.parent.items.some((i) => i.type === "item" && i.system?.grimoire)) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.Notify.GrimoireOnlyOne"));
+      return false;
+    }
+
+    // A page arriving bound (the travel bundle copies pages between actors)
+    // holds its invariant from the first write, same as a scroll does below.
+    if (this.type === "spellbook" && this.system.bound) {
+      this.updateSource({ system: { ...PAGE_PINNED } });
+    }
 
     // Class art for anything created WITHOUT its own image. Foundry's Item schema
     // initialises `img` to `icons/svg/item-bag.svg`, so every item made through the
@@ -127,22 +160,42 @@ export class CairnItem extends Item {
     const allowed = await super._preUpdate(changed, options, user);
     if (allowed === false) return false;
     if (this.type !== "spellbook") return;
-    if (changed.system?.scroll === undefined) {
-      // No transition: just hold the invariant for a scroll being edited.
-      if (this.system.scroll) foundry.utils.mergeObject(changed, { system: SCROLL_PINNED });
-      return;
+
+    // Binding is FOREVER (2026-08-09 ruling #12): a write clearing `bound` is
+    // stripped rather than refused, the scroll-pin precedent — the rest of the
+    // edit lands, the un-bind silently does not. The sheet offers no control;
+    // only an API write can even try.
+    if (this.system.bound && changed.system?.bound === false) {
+      delete changed.system.bound;
     }
-    const becomingScroll = !!changed.system.scroll;
-    foundry.utils.mergeObject(changed, {
-      system: becomingScroll ? { ...SCROLL_PINNED, "uses.value": 1 } : BOOK_PINNED,
-    });
-    // Re-art only while the image is still ours to change — a Warden who picked their
-    // own keeps it. The default bag counts as ours: items created before the
-    // class-art fill above still carry it, and leaving those on a bag was the whole
-    // reported defect.
-    const was = becomingScroll ? SPELLBOOK_ICON : SPELLSCROLL_ICON;
-    if (this.img === was || this.img === this.constructor.DEFAULT_ICON) {
-      changed.img = becomingScroll ? SPELLSCROLL_ICON : SPELLBOOK_ICON;
+
+    const scrollChanged = changed.system?.scroll !== undefined;
+    if (scrollChanged) {
+      const becomingScroll = !!changed.system.scroll;
+      foundry.utils.mergeObject(changed, {
+        system: becomingScroll ? { ...SCROLL_PINNED, "uses.value": 1 } : BOOK_PINNED,
+      });
+      // Re-art only while the image is still ours to change — a Warden who picked
+      // their own keeps it. The default bag counts as ours: items created before
+      // the class-art fill above still carry it, and leaving those on a bag was
+      // the whole reported defect.
+      const was = becomingScroll ? SPELLBOOK_ICON : SPELLSCROLL_ICON;
+      if (this.img === was || this.img === this.constructor.DEFAULT_ICON) {
+        changed.img = becomingScroll ? SPELLSCROLL_ICON : SPELLBOOK_ICON;
+      }
+    } else if (this.system.scroll && !changed.system?.bound) {
+      // No transition: just hold the invariant for a scroll being edited. The
+      // `!changed.system?.bound` term lets the transmute through — becoming a
+      // page IS the one legal exit from being a scroll, and PAGE_PINNED below
+      // writes the scroll flag off in the same breath.
+      foundry.utils.mergeObject(changed, { system: SCROLL_PINNED });
+    }
+
+    // The page invariant, held on the transition AND on every later edit —
+    // merged LAST, over the scroll handling above, so a scroll being transmuted
+    // ends weightless whatever BOOK_PINNED said a line earlier.
+    if (changed.system?.bound || (this.system.bound && changed.system?.bound !== false)) {
+      foundry.utils.mergeObject(changed, { system: { ...PAGE_PINNED } });
     }
   }
 
@@ -159,10 +212,12 @@ export class CairnItem extends Item {
     // crate and calcArmor counted it. `isThing` is the live rule (role
     // container/transport), the same test every other site migrated to.
     // A spellscroll is read once and consumed, never held ready, so it is the one
-    // spellbook that cannot be equipped.
+    // spellbook that cannot be equipped. A bound page is the other: the BOOK is
+    // what the character holds, and its pages are not separately to hand.
     this.system.isEquipable =
       ["weapon", "armor", "spellbook"].includes(this.type) &&
       !this.system.scroll &&
+      !this.system.bound &&
       !this.actor?.isThing;
     this.system.hasPlusMinus = (this.system.uses?.max ?? 0) > 0;
     if (this.system.uses) {

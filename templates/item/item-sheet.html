@@ -1,6 +1,6 @@
 {{!-- No <form> here: ApplicationV2 supplies it (DocumentSheetV2 sets tag: "form").
       A nested one is dropped by the parser, taking this element's class with it. --}}
-    <div class="item-sheet-grid">
+    <div class="item-sheet-grid plain-item">
         <!-- Portrait -->
         <div class="item-sheet-section-portrait">
             <img class="portrait" src="{{item.img}}" data-action="editImage" data-edit="img" title="{{nameDisplay}}" />
@@ -101,7 +101,30 @@
                        value="{{system.cost}}" data-dtype="Number" />
             </div>
         </div>
-        
+
+        <!-- Grimoire (GLOG Magic). A flag like Relic above, not a type: the book
+             is an ordinary bulky item that happens to hold spells. Ticking it
+             reveals the page-capacity field the transmute flow enforces. The
+             .plain-item grid variant carries the sixth counter row these two
+             boxes need — without it they auto-place into an invisible implicit
+             row under the tabs (the dev:sheet-layout trap). -->
+        <div class="resource-counter long-counter">
+            <label class="large-resource-label" for="{{@root.idp}}-system.grimoire" data-tooltip="{{ localize 'CAIRN.GrimoireTip' }}">{{ localize 'CAIRN.Grimoire' }}</label>
+            <div class="resource-input-wrapper">
+                <input type="checkbox" {{checked system.grimoire}} name="system.grimoire" id="{{@root.idp}}-system.grimoire"
+                        value="{{system.grimoire}}" data-dtype="Boolean" />
+            </div>
+        </div>
+        {{#if system.grimoire}}
+        <div class="resource-counter long-counter">
+            <label class="large-resource-label" for="{{@root.idp}}-system.grimoirePages">{{ localize 'CAIRN.GrimoirePages' }}</label>
+            <div class="resource-input-wrapper">
+                <input type="text" name="system.grimoirePages" id="{{@root.idp}}-system.grimoirePages"
+                        value="{{system.grimoirePages}}" data-dtype="Number" />
+            </div>
+        </div>
+        {{/if}}
+
         <div class="item-sheet-section-tabs">
             <nav class="tabs" data-group="primary">
             {{#each tabs}}
