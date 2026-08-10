@@ -461,7 +461,12 @@ export class Damage {
         // re-render for. Omitted entirely when there is none, so a card carrying
         // no attribution is indistinguishable from every card already in the log.
         const messageData = {
-            user: game.user._id,
+            // `author`, not `user`: the field was renamed in v12 (chat-message.mjs
+            // schema is a DocumentAuthorField named `author`) and no migrateData
+            // maps the old key, so `user:` was silently dropped — the card got the
+            // right author only because that field defaults to the current user.
+            // `.id`, the getter, not the raw `._id` source.
+            author: game.user.id,
             speaker: ChatMessage.getSpeaker({ token: token }),
             content: content,
         }
@@ -513,7 +518,8 @@ export class Damage {
         }
 
         const messageData = {
-            user: game.user._id,
+            // `author`, not `user` — the v12 rename; see the damage card above.
+            author: game.user.id,
             speaker: ChatMessage.getSpeaker({ token: token }),
             content: content,
         }
