@@ -94,18 +94,35 @@ try {
       name: "ZZ Grim Caster", type: "character",
       ownership: { default: 0, [alice.id]: 3 },
     });
-    await caster.createEmbeddedDocuments("Item", [
-      { name: "ZZ Grim Tome", type: "item",
-        system: { grimoire: true, grimoirePages: 3, bulky: true } },
-      { name: "ZZ Spell Alpha", type: "spellbook",
-        system: { description: "<p>[1] A candle-flame. [2] A roaring blast dealing [sum*10] damage.</p>" } },
-      { name: "ZZ Spell Beta", type: "spellbook",
-        system: { description: "<p>It lasts [sum] rounds across [dice] targets, or [dado] in Spanish.</p>" } },
-      { name: "ZZ Scroll Gamma", type: "spellbook",
-        system: { description: "<p>[8 HP, 3 STR, 11 DEX] guards it.</p>", scroll: true } },
-      { name: "ZZ Spell Delta", type: "spellbook",
-        system: { description: "<p>Nothing varies.</p>" } },
-    ]);
+    // Planted under a settings-read shadow forcing GLOG OFF: these legs
+    // exercise the setting-INDEPENDENT grimoire mechanics of a 2e world, and
+    // Alpha/Beta/Delta must arrive as slot-consuming BOOKS. Without the
+    // shadow, a world playing in GLOG mode (the dev world, the user's choice)
+    // makes CairnItem._preCreate convert them to weightless scrolls at create
+    // and the freed-slot leg goes 2 -> 2. Establish the precondition, never
+    // assume the world's value — and never write it.
+    const origGet = game.settings.get;
+    game.settings.get = function (scope, key, ...rest) {
+      if (scope === game.system.id && key === "enable-glog-magic") return false;
+      return origGet.call(this, scope, key, ...rest);
+    };
+    try {
+      await caster.createEmbeddedDocuments("Item", [
+        { name: "ZZ Grim Tome", type: "item",
+          system: { grimoire: true, grimoirePages: 3, bulky: true } },
+        { name: "ZZ Spell Alpha", type: "spellbook",
+          system: { description: "<p>[1] A candle-flame. [2] A roaring blast dealing [sum*10] damage.</p>" } },
+        { name: "ZZ Spell Beta", type: "spellbook",
+          system: { description: "<p>It lasts [sum] rounds across [dice] targets, or [dado] in Spanish.</p>" } },
+        { name: "ZZ Scroll Gamma", type: "spellbook",
+          system: { description: "<p>[8 HP, 3 STR, 11 DEX] guards it.</p>", scroll: true } },
+        { name: "ZZ Spell Delta", type: "spellbook",
+          system: { description: "<p>Nothing varies.</p>" } },
+      ]);
+    } finally { game.settings.get = origGet; }
+    if (caster.items.find((i) => i.name === "ZZ Spell Alpha")?.system.scroll) {
+      return { error: "planted book arrived as a scroll DESPITE the shadow — the seam is not reading game.settings.get" };
+    }
     const pile = await CONFIG.Actor.documentClass.create({
       name: "ZZ Grim Pile", type: "npc",
       system: { role: "container", containerClass: "pile", slots: 10 },
