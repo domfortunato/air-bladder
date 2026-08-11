@@ -2003,6 +2003,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       ? cleanDescription(await foundry.applications.ux.TextEditor.implementation.enrichHTML(html, { relativeTo: actor }))
       : "");
 
+    // Read once for both inventory surfaces (main + connected sections).
+    const printGrantTags = game.settings.get(SETTINGS_NS, "show-grant-tags-print");
     // A row per item, Kettlewright's annotations: (petty), (N uses), (dN),
     // bulky and quantity. Notes are TEXT assembled here and escaped by the
     // template — item names are authored free text.
@@ -2024,6 +2026,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // the translator owns the word order; the code owns the parens, like
       // every note here. Only ArmorData carries the field, so no type test.
       if ((it.system.armor ?? 0) > 0) notes.push(`(${game.i18n.format("CAIRN.PrintArmorPoints", { armor: it.system.armor })})`);
+      // The grant-source tag, under its OWN switch (user ask 2026-08-11) —
+      // brackets, and italic via the .notes span like every note here. The
+      // UNGATED grantLabelRaw, deliberately: system.grantLabel is emptied
+      // whenever the INVENTORY switch is off, and the two switches must not
+      // couple (the probe's inv-off leg is the witness).
+      if (printGrantTags && it.system.grantLabelRaw) notes.push(`[${it.system.grantLabelRaw}]`);
       if (it.system.bulky) notes.push(`(${L("CAIRN.Bulky")})`);
       if ((it.system.quantity ?? 1) > 1) notes.push(`×${it.system.quantity}`);
       // The OWNING actor's namespace, and Fatigue relabelled from the UI key —

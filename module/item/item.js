@@ -261,14 +261,21 @@ export class CairnItem extends Item {
     const grantSource = this.getFlag("air-bladder", "grantSource");
     const isContainerItem = !!this.getFlag("air-bladder", "containerItem");
     this.system.isContainerItem = isContainerItem;
-    this.system.grantLabel =
-      !game.settings.get(SETTINGS_NS, "show-grant-tags") ? ""
-      : isContainerItem ? game.i18n.localize("CAIRN.GrantContainer")
+    // The UNGATED label first — the mapping alone, no setting. The printed
+    // sheet shows the tag under its OWN switch (show-grant-tags-print), so
+    // it reads this raw value; the sheet's display gate is applied one
+    // statement below. Fold the two back together and the print silently
+    // couples to the inventory switch (the probe's inv-off leg is the
+    // witness).
+    this.system.grantLabelRaw =
+      isContainerItem ? game.i18n.localize("CAIRN.GrantContainer")
       : grantSource === "background" ? game.i18n.localize("CAIRN.GrantBackground")
       : typeof grantSource === "string" && grantSource.startsWith("bond:") ? game.i18n.localize("CAIRN.GrantBond")
       : typeof grantSource === "string" && grantSource.startsWith("question:") ? game.i18n.localize("CAIRN.GrantQuestion")
       : grantSource === "failed-career" ? game.i18n.localize("CAIRN.GrantFailedCareer")
       : "";
+    this.system.grantLabel = game.settings.get(SETTINGS_NS, "show-grant-tags")
+      ? this.system.grantLabelRaw : "";
 
     this.system.useItemIcons = game.settings.get(SETTINGS_NS, "use-item-icons");
     if (this.system.useItemIcons) {

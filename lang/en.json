@@ -635,7 +635,7 @@
     },
     "AutoRecordScars": {
       "hint": "When a player character takes a hit that lands exactly on 0 HP and a scar is drawn, also check that scar on their sheet's scar list. NPCs and monsters get only the chat card either way, and the scar's instructions stay the player's to act out.",
-      "label": "Record rolled scars on player character sheets"
+      "label": "Automatically record scars on player character sheets"
     },
     "ChangeLog": {
       "hint": "Whisper a chat card to the actor's owners, observers and the Warden whenever someone hand-changes stats, gold, traits, Panicked/Deprived, scars, features or inventory. Rolled generation, damage and other automatic changes are never logged. The shipped 'Toggle Change Log' macro flips this.",
@@ -691,6 +691,10 @@
     "ShowGrantTags": {
       "hint": "Show a Background / Bond / Question chip on items that character generation granted.",
       "label": "Show grant-source tags (Background / Bond / Question) on inventory"
+    },
+    "ShowGrantTagsPrint": {
+      "hint": "Print each granted item's Background / Bond / Question tag beside it, in italics and brackets.",
+      "label": "Show grant-source tags on printed sheets"
     },
     "UseCairnDiceNotation": {
       "hint": "Interpret Cairn dice notation like 'd6+d6' as described in the rules.",

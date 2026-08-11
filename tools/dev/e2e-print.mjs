@@ -121,7 +121,10 @@ const r = await page.evaluate(async ({ xssName }) => {
       // Armor 2, NOT the schema's initial 1 — the annotation leg must read
       // the VALUE, or it stays green printing every armor as "(1 Armor)".
       { name: "ZZ Print Vest", type: "armor", system: { armor: 2 } },
-      { name: "Rations", type: "item", system: { uses: { value: 3, max: 3 } } },
+      // Carries a grant-source flag for the printed-tag legs — "background"
+      // is the commonest source and its label localizes.
+      { name: "Rations", type: "item", system: { uses: { value: 3, max: 3 } },
+        flags: { "air-bladder": { grantSource: "background" } } },
       { name: "Signet Ring", type: "item", system: { weightless: true } },
       // The three spellbook shapes the prefix logic distinguishes (user report
       // 2026-08-08: the printed sheet dropped the prefixes): a bare-named book,
@@ -528,6 +531,47 @@ const r = await page.evaluate(async ({ xssName }) => {
   popup7?.close();
   await falcon.sheet.close();
 
+  // Grant-source tags on the printed page, under their OWN switch (user ask
+  // 2026-08-11): three prints of the same pc, every setting READ shadowed
+  // in-page both ways — the world's value is the user's, never trusted and
+  // never written. The third print is the drift guard: the INVENTORY switch
+  // (show-grant-tags) is shadowed OFF and the items RE-PREPARED under it,
+  // which empties system.grantLabel — so a print that reads grantLabel
+  // instead of the ungated grantLabelRaw loses its tag exactly there.
+  await pc.sheet.render(true);
+  await sleep(600);
+  const printWithShadow = async (shadow) => {
+    const origGet2 = game.settings.get;
+    game.settings.get = function (ns, key) {
+      if (key in shadow) return shadow[key];
+      return origGet2.call(this, ns, key);
+    };
+    let popup8 = null;
+    window.open = (...a) => {
+      popup8 = origOpen.apply(window, a);
+      Object.defineProperty(popup8, "print", { configurable: true, value: () => {} });
+      return popup8;
+    };
+    try {
+      pc.items.contents.forEach((i) => i.reset());
+      pc.sheet.element?.querySelector('[data-action="printSheet"]')?.click();
+      for (let i = 0; i < 60 && !popup8?.document?.querySelector("footer.credits"); i++) await sleep(150);
+      const text = (popup8?.document?.body?.innerText ?? "").replace(/\s+/g, " ");
+      popup8?.close();
+      return text;
+    } finally {
+      game.settings.get = origGet2;
+      window.open = origOpen;
+      pc.items.contents.forEach((i) => i.reset());
+    }
+  };
+  const wantTag = `Rations (3 uses) [${game.i18n.localize("CAIRN.GrantBackground")}]`;
+  out.grantTagWanted = wantTag;
+  out.grantTagOn = (await printWithShadow({ "show-grant-tags-print": true })).includes(wantTag);
+  out.grantTagOff = !(await printWithShadow({ "show-grant-tags-print": false })).includes(wantTag);
+  out.grantTagInvOff = (await printWithShadow({ "show-grant-tags-print": true, "show-grant-tags": false })).includes(wantTag);
+  await pc.sheet.close();
+
   // Fourth pass: the route prefix (review #13 #7). abs() used to resolve
   // against location.origin alone, which drops ROUTE_PREFIX — on a prefixed
   // host every portrait and item icon printed broken, invisible on this
@@ -719,6 +763,14 @@ check("and no statblock — a thing's page is its cargo",
 check("a slotless companion keeps its statblock, gains no empty inventory heading",
   r.falconPageStats && r.falconPageNoInvHead,
   `stats=${r.falconPageStats} noInvHead=${r.falconPageNoInvHead} — a companion is a creature, not a thing (authored slots 0, derived slotsMax 10)`);
+
+console.log("\ngrant-source tags on the page");
+check("a granted item prints its tag, italic in brackets", r.grantTagOn === true,
+  `wanted "${r.grantTagWanted}" — the tag rides the .notes span, which is already italic; the brackets are the ask (user ruling 2026-08-11, default ON)`);
+check("the print switch turns them off", r.grantTagOff === true && r.grantTagOn === true,
+  `off-hidden=${r.grantTagOff} (precondition on-shown=${r.grantTagOn}, or absence passes for the wrong reason)`);
+check("independent of the INVENTORY switch", r.grantTagInvOff === true && r.grantTagOn === true,
+  `inv-off-still-shown=${r.grantTagInvOff} — items re-prepared under the shadow so system.grantLabel is EMPTY; only the ungated grantLabelRaw can print this tag`);
 
 console.log("\nthe route prefix");
 check("a prefixed host keeps its portraits", (r.prefixedSrc ?? "").includes("/pfx-probe/systems/air-bladder/"),

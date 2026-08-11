@@ -23,6 +23,7 @@ export const SETTINGS_NS = "air-bladder";
 export const SETTING_KEYS = [
   // General
   "use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
+  "show-grant-tags-print",
   "use-warden-title", "change-log", "auto-record-scars", "enable-glog-magic",
   // Character Generation
   "content-source-2e", "content-source-custom", "content-source-barebones",
@@ -248,6 +249,19 @@ export const registerSettings = () => {
     type: Boolean,
     default: true,
     requiresReload: true,
+  });
+
+  // The same tags on the PRINTED sheet, under their own switch (user ask
+  // 2026-08-11) — deliberately independent of show-grant-tags above: the
+  // print reads the ungated grantLabelRaw at print time, so no reload.
+  game.settings.register(SETTINGS_NS, "show-grant-tags-print", {
+    name: "CAIRN.Settings.ShowGrantTagsPrint.label",
+    hint: "CAIRN.Settings.ShowGrantTagsPrint.hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+    requiresReload: false,
   });
 
   // `show-features-section` was registered here and is GONE (2026-08-09, user
