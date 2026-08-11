@@ -444,15 +444,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const popOut = { action: "detach", icon: "fas fa-arrow-up-right-from-square", label: "CAIRN.PopOut" };
 
     const isChar = this.actor.type === "character";
-    // Print — characters, and (2026-08-08, superseding the "characters only"
-    // ruling of the same day) PEOPLE and MONSTERS too: a Warden hands a
-    // statblock across the table. Things stay off the list — a cart prints on
-    // its keeper's page. NO ownership gate, deliberately: the page renders
-    // exactly what the sheet already shows this viewer, so being able to open
-    // the sheet IS the gate. Role changes under an open sheet are synced by
-    // #syncGenerationButtons like the Roll button's.
-    const printable = isChar || ["npc", "monster"].includes(this.actor.npcRole);
-    const print = printable ? [{ action: "printSheet", icon: "fas fa-print", label: "CAIRN.Print" }] : [];
+    // Print — EVERY sheet (2026-08-11, the third ruling in the chain:
+    // characters only → people and monsters the same day → all, because the
+    // user had forgotten Wardens print a container's cargo list too). A
+    // thing's PAGE differs — cargo, no statblock, see #fillPrintPage — but
+    // the button no longer has a role test, so #syncGenerationButtons no
+    // longer syncs it. NO ownership gate, deliberately: the page renders
+    // exactly what the sheet already shows this viewer, so being able to
+    // open the sheet IS the gate.
+    const print = [{ action: "printSheet", icon: "fas fa-print", label: "CAIRN.Print" }];
 
     // npc and hireling are one thing, so both get the NPC generation controls.
     const isNpc = ["hireling", "npc"].includes(this.actor.type);
@@ -611,16 +611,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * @param {HTMLElement} [root] The frame, when it is not yet `this.element`.
    */
   #syncGenerationButtons(root = this.element) {
-    // Print follows the same per-render role test as Roll: a monster re-typed
-    // into a crate under an open sheet loses the button its frame built. (The
-    // other direction gains it on the next sheet open — a frame cannot grow
-    // buttons it never built.)
-    const print = root?.querySelector('.window-header button[data-action="printSheet"]');
-    if (print) {
-      const unprintable = ["hireling", "npc"].includes(this.actor.type)
-        && !["npc", "monster"].includes(this.actor.npcRole);
-      print.classList.toggle("cairn-header-hidden", unprintable);
-    }
+    // Print is deliberately NOT synced here since 2026-08-11: every type and
+    // role prints, so there is no role test left to re-apply per render.
     const roll = root?.querySelector('.window-header button[data-action="rollActor"]');
     const toggle = root?.querySelector('.window-header button[data-action="toggleGeneration"]');
     if (!roll && !toggle) return;
@@ -2027,6 +2019,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // Polish off from its _few form.
       if (uses > 0) notes.push(`(${formatCount("CAIRN.NUses", uses)})`);
       if (it.system.damageFormula) notes.push(`(${it.system.damageFormula})`);
+      // An armor row states its Armor points — the book's own notation,
+      // "Brigandine (1 Armor)" (user ask 2026-08-11). Whole-string key so
+      // the translator owns the word order; the code owns the parens, like
+      // every note here. Only ArmorData carries the field, so no type test.
+      if ((it.system.armor ?? 0) > 0) notes.push(`(${game.i18n.format("CAIRN.PrintArmorPoints", { armor: it.system.armor })})`);
       if (it.system.bulky) notes.push(`(${L("CAIRN.Bulky")})`);
       if ((it.system.quantity ?? 1) > 1) notes.push(`×${it.system.quantity}`);
       // The OWNING actor's namespace, and Fatigue relabelled from the UI key —
@@ -2048,6 +2045,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     });
 
     const isChar = actor.type === "character";
+    const mainRows = rows(actor.items.contents, this._itemNamespaces(actor).nameNs);
     // The status line: critical, plus deprived/panicked as text on an NPC
     // page. A CHARACTER prints those two as ALWAYS-PRESENT mark boxes
     // instead (user ask 2026-08-10: the paper sheet needs somewhere to
@@ -2159,6 +2157,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         gold: sys.gold ?? 0,
       },
       status,
+      // A thing's page is its CARGO (user ruling 2026-08-11, the ruling
+      // that put Print on every sheet): the schema's 10/10/10 on a sack is
+      // noise, not information, so the statblock section is creatures-only.
+      showStats: !actor.isThing,
       marks: isChar ? { deprived: !!sys.deprived, panicked: !!sys.panicked } : null,
       traitsProse,
       // Kettlewright's two-column band (user rulings 2026-08-08): Stats and
@@ -2170,7 +2172,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       backgroundDesc,
       questions,
       connections,
-      main: { used: sys.slotsUsed, max: sys.slotsMax, rows: rows(actor.items.contents, this._itemNamespaces(actor).nameNs) },
+      // A standalone npc page takes the same rule as the connected sections
+      // below (the falcon trap): the slot fraction only where slots are
+      // AUTHORED — derived slotsMax floors at the world setting — and no
+      // Items section at all on a slotless creature carrying nothing. A
+      // character always shows both.
+      main: {
+        used: sys.slotsUsed, max: sys.slotsMax, rows: mainRows,
+        showSlots: isChar || (sys.slots ?? 0) > 0,
+        show: isChar || mainRows.length > 0 || (sys.slots ?? 0) > 0,
+      },
       // One inventory section per connected actor that can HOLD something —
       // KW's multi-container layout, without the slot fraction for 0 slots. A
       // 0-slot companion carrying nothing is Connections' business, not an

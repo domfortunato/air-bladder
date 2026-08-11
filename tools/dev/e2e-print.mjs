@@ -24,9 +24,10 @@
  * Deprived/Panicked print as ALWAYS-PRESENT mark boxes on a character page
  * (user ask 2026-08-10): empty on a clean actor (pass 1), pre-filled when
  * the conditions are on (pass 2), absent on an npc page (pass 3), which
- * keeps the text status line instead. The boxes ride the HEADER, in the
- * free height the portrait reserves — under the stats they cost a row, and
- * that row pushed a boundary character's Notes to a third page.
+ * keeps the text status line instead. The boxes sit BELOW the stats grid
+ * (user ruling 2026-08-11, reversing the previous day's header move — under
+ * the Background line they read badly); the row they cost the left column
+ * at the Notes boundary is accepted with eyes open.
  *
  * Pagination policy (rulings 2026-08-10): entries are ATOMIC (an inventory
  * row, a bond, a scar, a connection, a question WITH its answer prints
@@ -117,6 +118,9 @@ const r = await page.evaluate(async ({ xssName }) => {
   try {
     await pc.createEmbeddedDocuments("Item", [
       { name: "Root Knife", type: "weapon", system: { damageFormula: "d6" } },
+      // Armor 2, NOT the schema's initial 1 — the annotation leg must read
+      // the VALUE, or it stays green printing every armor as "(1 Armor)".
+      { name: "ZZ Print Vest", type: "armor", system: { armor: 2 } },
       { name: "Rations", type: "item", system: { uses: { value: 3, max: 3 } } },
       { name: "Signet Ring", type: "item", system: { weightless: true } },
       // The three spellbook shapes the prefix logic distinguishes (user report
@@ -212,6 +216,48 @@ const r = await page.evaluate(async ({ xssName }) => {
   const doc = popup?.document;
   const body = doc?.body?.innerText ?? "";
   out.title = doc?.title ?? null;
+  // The browser paints its own print header/footer (title/date up top,
+  // about:blank/page numbers below) INTO the @page top/bottom margins, and
+  // only when they are tall enough to hold the text — the template starves
+  // it of the room. 5mm was tried first and the user's Chromium still
+  // painted page numbers (2026-08-11); 0 is the only value known to work.
+  // The rule itself is all a probe can see; the visual absence is eyeballed
+  // in the print preview, recorded in this probe's docs/release-testing.md
+  // row.
+  const sheetRules = [...(doc?.styleSheets?.[0]?.cssRules ?? [])];
+  const pageRule = sheetRules.find((r) => r.constructor?.name === "CSSPageRule");
+  out.pageMargins = pageRule
+    ? [pageRule.style.marginTop, pageRule.style.marginBottom,
+      pageRule.style.marginLeft, pageRule.style.marginRight]
+    : null;
+  // The credits are PINNED to the printed page bottom (user ask 2026-08-11):
+  // print-only position: fixed, which Chromium repeats at the bottom of
+  // every page, with a white background so a full page's last line passes
+  // under it rather than through it. Print-context rules never apply to the
+  // on-screen popup, so this is read off the STYLESHEET like @page above.
+  const printMedia = sheetRules.find((r) => r.constructor?.name === "CSSMediaRule"
+    && /print/.test(r.media?.mediaText ?? ""));
+  const footRule = printMedia
+    ? [...printMedia.cssRules].find((r) => r.selectorText === "footer.credits") : null;
+  out.creditsPinned = footRule
+    ? { position: footRule.style.position, bottom: footRule.style.bottom,
+      bg: footRule.style.backgroundColor }
+    : null;
+  // The running page frame (user report 2026-08-11: with the @page margins
+  // at 0, BONDS moved whole to page 2 and sat flush on the paper's top
+  // edge). A real <table> wraps the content — Chromium repeats its thead
+  // (a small name strip) at the top of every printed page and its tfoot (a
+  // blank spacer reserving the credits zone) at the bottom. Repetition
+  // itself is not DOM-observable, so these legs read the structure and the
+  // print-media rules; the visual truth stays with the preview row.
+  out.frameHead = doc?.querySelector("table.page-frame > thead .page-head")?.textContent.trim() ?? null;
+  out.frameSpacer = !!doc?.querySelector("table.page-frame > tfoot .page-foot-space");
+  const mpRules = printMedia ? [...printMedia.cssRules] : [];
+  const headRule = mpRules.find((r) => r.selectorText === ".page-head");
+  const spacerRule = mpRules.find((r) => r.selectorText === ".page-foot-space");
+  out.frameShownInPrint = headRule?.style.display === "block"
+    && spacerRule?.style.display === "block";
+  out.frameHeadHeight = headRule?.style.height ?? null;
   out.hasDesc = body.includes("ZZ DESC MARKER");
   out.hasNotes = body.includes("ZZ NOTES MARKER");
   out.hasBond = body.includes("ZZ BOND MARKER");
@@ -232,9 +278,14 @@ const r = await page.evaluate(async ({ xssName }) => {
   out.condLabels = doc?.querySelector(".cond-marks")?.textContent.replace(/\s+/g, " ") ?? "";
   out.condDeprivedLabel = game.i18n.localize("CAIRN.Deprived");
   out.condPanickedLabel = game.i18n.localize("CAIRN.Panicked");
-  // The boxes ride the HEADER — free height beside the portrait; under the
-  // stats they cost a row (the page-3 Notes report, 2026-08-10).
-  out.condInHeader = !!doc?.querySelector("header.pc .cond-marks");
+  // The boxes sit BELOW the stats grid (user ruling 2026-08-11, reversing
+  // 2026-08-10's header move — under the Background line they read badly).
+  // The row they cost the left column is accepted with eyes open: at the
+  // boundary it can push Notes to a fresh page, the very report that
+  // motivated the header placement. Both halves asserted — in the stats
+  // section AND out of the header — or a duplicate would pass.
+  out.condBelowStats = !!doc?.querySelector(".stats + .cond-marks")
+    && !doc?.querySelector("header.pc .cond-marks");
   // The atomic-entry policy: an entry prints whole or moves whole, and a
   // heading never strands apart from its section.
   const csOf = (sel) => (doc?.querySelector(sel) ? popup.getComputedStyle(doc.querySelector(sel)) : null);
@@ -243,6 +294,12 @@ const r = await page.evaluate(async ({ xssName }) => {
   out.qaPairBreak = csOf(".qa-pair")?.breakInside ?? null;
   out.h2BreakAfter = csOf("h2")?.breakAfter ?? null;
   out.invHeadBreakAfter = csOf(".inv-head")?.breakAfter ?? null;
+  // The personal inventory's heading says what the count IS, not KW's
+  // "Main" (user ruling 2026-08-11): "Main" named the body-vs-bag split
+  // inside Kettlewright's app and meant nothing on paper. New key, so es
+  // falls back to English instead of showing the stale "Inicio".
+  out.mainHead = doc?.querySelector(".inv-head")?.textContent.replace(/\s+/g, " ").trim() ?? null;
+  out.slotsUsedLabel = game.i18n.localize("CAIRN.PrintSlotsUsed");
   out.sackSection = body.includes("ZZ Print Sack") && body.includes("ZZ Sack Item");
   out.sackSlots = /ZZ Print Sack\s*\(\s*1\s*\/\s*4\s*\)/.test(body.replace(/\s+/g, " "));
 
@@ -297,6 +354,10 @@ const r = await page.evaluate(async ({ xssName }) => {
   // The spellbook prefixes, exactly as the inventory shows them — read
   // against the localized keys, so the legs survive a translation.
   const bodyOne = body.replace(/\s+/g, " ");
+  // The book's own notation — "Brigandine (1 Armor)" — via the whole-string
+  // key, so the leg survives a translation reordering the words.
+  out.armorPointsWanted = game.i18n.format("CAIRN.PrintArmorPoints", { armor: 2 });
+  out.vestNote = bodyOne.includes(`ZZ Print Vest (${out.armorPointsWanted})`);
   const bookP = game.i18n.localize("CAIRN.SpellbookPrefix").replace(/\s+/g, " ");
   const scrollP = game.i18n.localize("CAIRN.SpellscrollPrefix").replace(/\s+/g, " ");
   out.bookPrefixed = bodyOne.includes(`${bookP}Detect Magic`);
@@ -357,8 +418,13 @@ const r = await page.evaluate(async ({ xssName }) => {
   const doc2 = popup2?.document;
   const body2 = doc2?.body?.innerText ?? "";
   const h2s2 = [...(doc2?.querySelectorAll("h2") ?? [])].map((h) => h.textContent.trim());
-  out.emptyNotesHeader = h2s2.includes(game.i18n.localize("CAIRN.Notes"))
-    && !body2.includes("ZZ NOTES MARKER");
+  // Empty Notes prints NOTHING — heading included (user ruling 2026-08-11,
+  // retiring 2026-08-08's pencil-room exception: the always-printed header
+  // kept generating fresh-page moves that read as defects, three threshold
+  // shrinks in two days). Notes now takes the same empty-sections-are-
+  // OMITTED rule as everything else. Both readings, heading and section.
+  out.emptyNotesGone = !h2s2.includes(game.i18n.localize("CAIRN.Notes"))
+    && !doc2?.querySelector("section.notes-section");
   out.connectionsGone = !h2s2.includes(game.i18n.localize("CAIRN.Connections"))
     && !body2.includes("ZZ Print Sack");
   const fcLine = doc2?.querySelector("header.pc .failed-career");
@@ -412,6 +478,55 @@ const r = await page.evaluate(async ({ xssName }) => {
   out.npcNoCondBoxes = !doc3?.querySelector(".cond-marks");
   popup3?.close();
   await npc.sheet.close();
+
+  // Things print too (user ruling 2026-08-11, superseding 2026-08-08's "a
+  // cart prints on its keeper's page" — the Warden had forgotten containers
+  // hold gear worth handing across the table). A thing's page is its CARGO:
+  // no statblock (the schema's 10/10/10 on a sack is noise, not
+  // information), the role where a PC's background goes, and the standalone
+  // Items section takes the connected-section rule — the slot fraction only
+  // where slots are AUTHORED (derived slotsMax floors at the world setting,
+  // the falcon trap), no empty heading on a slotless creature carrying
+  // nothing. Both fixtures were disconnected in pass 2, so these are
+  // genuine standalone pages.
+  await sack.sheet.render(true);
+  await sleep(600);
+  const calls6 = [];
+  let popup6 = null;
+  window.open = (...a) => {
+    popup6 = origOpen.apply(window, a);
+    Object.defineProperty(popup6, "print", { configurable: true, value: () => calls6.push(1) });
+    return popup6;
+  };
+  sack.sheet.element?.querySelector('[data-action="printSheet"]')?.click();
+  for (let i = 0; i < 60 && !calls6.length; i++) await sleep(150);
+  window.open = origOpen;
+  const doc6 = popup6?.document;
+  out.sackPageGear = (doc6?.body?.innerText ?? "").includes("ZZ Sack Item");
+  out.sackPageHead = doc6?.querySelector(".inv-head")?.textContent.replace(/\s+/g, " ").trim() ?? null;
+  out.sackPageNoStats = !!doc6 && !doc6.querySelector(".stats");
+  out.sackPageSubtitle = doc6?.querySelector("header.pc .background")?.textContent.replace(/\s+/g, " ").trim() ?? null;
+  out.containerRoleLabel = game.i18n.localize("CAIRN.RoleContainer");
+  popup6?.close();
+  await sack.sheet.close();
+
+  await falcon.sheet.render(true);
+  await sleep(600);
+  const calls7 = [];
+  let popup7 = null;
+  window.open = (...a) => {
+    popup7 = origOpen.apply(window, a);
+    Object.defineProperty(popup7, "print", { configurable: true, value: () => calls7.push(1) });
+    return popup7;
+  };
+  falcon.sheet.element?.querySelector('[data-action="printSheet"]')?.click();
+  for (let i = 0; i < 60 && !calls7.length; i++) await sleep(150);
+  window.open = origOpen;
+  const doc7 = popup7?.document;
+  out.falconPageStats = !!doc7?.querySelector(".stats");
+  out.falconPageNoInvHead = !!doc7 && !doc7.querySelector(".inv-head");
+  popup7?.close();
+  await falcon.sheet.close();
 
   // Fourth pass: the route prefix (review #13 #7). abs() used to resolve
   // against location.origin alone, which drops ROUTE_PREFIX — on a prefixed
@@ -472,8 +587,8 @@ const r = await page.evaluate(async ({ xssName }) => {
 }, { xssName: XSS_ITEM });
 
 console.log("\nthe Print button");
-check("on characters and monsters, not things", r.pcHasButton && r.npcHasButton && !r.sackHasButton,
-  `pc=${r.pcHasButton} monster=${r.npcHasButton} container=${r.sackHasButton} — a cart prints on its keeper's page`);
+check("on EVERY sheet — things and companions too", r.pcHasButton && r.npcHasButton && r.sackHasButton,
+  `pc=${r.pcHasButton} monster=${r.npcHasButton} container=${r.sackHasButton} — the third ruling in the chain (2026-08-11, superseding "a cart prints on its keeper's page"): a Warden prints a container's cargo list`);
 check("to the RIGHT of Pop Out", r.printAfterPopOut === true,
   "the title-bar order is a ruling, not an accident");
 check("says the word Print", r.printLabelVisible === true,
@@ -482,6 +597,17 @@ check("print() fires once, on a BUILT page", r.printCalls.length === 1
   && r.printCalls[0].sections >= 5 && r.printCalls[0].imgComplete === true,
   `${JSON.stringify(r.printCalls)} — sections and the settled portrait recorded AT CALL TIME`);
 check("the page is titled", r.title === "ZZ Print Hero", `"${r.title}"`);
+check("the @page margins starve the browser's header/footer",
+  JSON.stringify(r.pageMargins) === JSON.stringify(["0px", "0px", "1.6cm", "1.6cm"]),
+  `${JSON.stringify(r.pageMargins)} — Chromium only paints the title/date and about:blank/page-number lines when the top/bottom margins can hold them; 5mm was tried and the user's Chromium still painted page numbers, so 0 it is, dead-band cost on continuation pages accepted (user report 2026-08-11)`);
+check("a BLANK strip heads every printed page",
+  r.frameHead === "" && r.frameHeadHeight === "9mm"
+  && r.frameSpacer === true && r.frameShownInPrint === true,
+  `head="${r.frameHead}" h=${r.frameHeadHeight} spacer=${r.frameSpacer} print-shown=${r.frameShownInPrint} — thead/tfoot repetition is the one page-top mechanism margin-0 leaves (user report 2026-08-11: BONDS rode the paper's top edge); the strip prints NOTHING by ruling (the name was tried and rejected the same hour), and the tfoot spacer reserves the zone the fixed credits paint into`);
+check("the credits pin to the printed page bottom",
+  r.creditsPinned?.position === "fixed" && r.creditsPinned?.bottom === "4mm"
+  && r.creditsPinned?.bg === "rgb(255, 255, 255)",
+  `${JSON.stringify(r.creditsPinned)} — print-only fixed, 4mm above the paper edge (the dead band), white-masked; on screen the popup keeps the in-flow footer (user ask 2026-08-11)`);
 
 console.log("\none page, the whole character");
 check("Description AND Notes", r.hasDesc && r.hasNotes,
@@ -502,8 +628,8 @@ check("Deprived/Panicked mark boxes print EMPTY on a clean character",
   r.condBoxCount === 2 && r.condBoxesEmpty
   && r.condLabels.includes(r.condDeprivedLabel) && r.condLabels.includes(r.condPanickedLabel),
   `boxes=${r.condBoxCount} empty=${r.condBoxesEmpty} "${r.condLabels}" — the ask's exact case (2026-08-10): somewhere to pencil a condition mid-session`);
-check("and they ride the HEADER, in the portrait's free height", r.condInHeader,
-  "under the stats they cost a row — the row that pushed a boundary character's Notes to page 3");
+check("and they sit BELOW the stats, out of the header", r.condBelowStats,
+  "user ruling 2026-08-11, reversing the 2026-08-10 header move — under the Background they read badly; the row they cost at the Notes boundary is accepted");
 check("entries are ATOMIC — whole on a page or moved whole",
   r.invLiBreak === "avoid" && r.plainLiBreak === "avoid" && r.qaPairBreak === "avoid",
   `inv=${r.invLiBreak} plain=${r.plainLiBreak} qa-pair=${r.qaPairBreak} — a question never strands apart from its answer (ruling 2026-08-10)`);
@@ -511,10 +637,16 @@ check("headings keep their content", r.h2BreakAfter === "avoid" && r.invHeadBrea
   `h2=${r.h2BreakAfter} inv-head=${r.invHeadBreakAfter} — no heading alone at a page bottom`);
 check("KW's item annotations", r.knifeNote && r.rationsNote && r.pettyNote,
   `(d6)=${r.knifeNote} (3 uses)=${r.rationsNote} (Petty)=${r.pettyNote} — Petty as the translator wrote it, uses via formatCount`);
+check("an armor row states its Armor points", r.vestNote === true,
+  `wanted "ZZ Print Vest (${r.armorPointsWanted})" — the book's own notation (user ask 2026-08-11); armor 2 on the fixture, not the schema's initial 1, so the leg reads the VALUE`);
 check("spellbook rows print their prefixes", r.bookPrefixed && r.scrollPrefixed,
   `book=${r.bookPrefixed} scroll=${r.scrollPrefixed} — the same helper the inventory uses, so the two surfaces cannot drift`);
 check("a stored prefix is not doubled", r.prefixNotDoubled,
   "the idempotence case — a name already carrying \"Spellbook (\" gets no second prefix");
+check("the personal inventory is headed \"Slots used\", not KW's \"Main\"",
+  r.mainHead !== null && r.mainHead.startsWith(`${r.slotsUsedLabel} (`)
+  && / \( \d+ \/ \d+ \)$/.test(` ${r.mainHead}`),
+  `"${r.mainHead}" vs label "${r.slotsUsedLabel}" — "Main" named KW's body-vs-bag split and meant nothing on paper (user ruling 2026-08-11); read via the localized key, so it survives a translation`);
 check("a connected container is its own section", r.sackSection && r.sackSlots,
   "ZZ Print Sack ( 1 / 4 ) with ZZ Sack Item — KW's multi-container inventory");
 
@@ -545,18 +677,20 @@ check("credits match the art ON the page", /Yochai Gal/.test(r.creditsText)
   && /Aspeheim/.test(r.creditsText) && !/Tlomdev/.test(r.creditsText)
   && r.creditsSmall !== null && r.creditsSmall < 10,
   `${r.creditsSmall}px — an Aspeheim portrait credits Aspeheim and NEVER Tlomdev; the text credit always prints`);
-check("empty Notes still prints its header", r.emptyNotesHeader,
-  "the ruling: the empty block is where the pencil goes");
+check("empty Notes prints NOTHING — heading included", r.emptyNotesGone === true,
+  "user ruling 2026-08-11, retiring the pencil-room exception — Notes takes the empty-sections-are-OMITTED rule like every other section");
 check("Notes takes the MIN-ROOM rule (PC only)",
-  // BOUNDED both ways: 4cm ≈ 151px (heading + five 12pt/1.45 lines — the
-  // user's five-line rule). The lower bound catches the rule vanishing; the
-  // upper bound catches the 10cm regression, whose worst case moved Notes
-  // overleaf with a near-half-page blank after Omen — the gap the ruling
-  // forbids. 10cm (378px) fails this leg on BOTH bounds' intent.
+  // BOUNDED both ways: 2.2cm ≈ 83px (heading + TWO 12pt/1.45 lines — the
+  // two-line ruling of 2026-08-11, shrinking 2026-08-10's five-line rule
+  // after its boundary bit: the mark-box row shifted a real character just
+  // past the 4cm threshold, gap on page 1, a lone NOTES heading on page 2).
+  // The lower bound catches the rule vanishing; the upper catches a
+  // regression to the roomier thresholds — 4cm (151px) and 10cm (378px)
+  // both fail it.
   r.notesBreak !== "page" && r.notesBreakInside === "avoid"
-  && r.notesMinHeight > 140 && r.notesMinHeight < 200
-  && r.npcNotesBreak !== "page" && !(r.npcNotesMinHeight > 100),
-  `pc break-inside=${r.notesBreakInside} min=${r.notesMinHeight}px npc min=${r.npcNotesMinHeight} — heading + five lines (~4cm) on the current page, a fresh page only when less remains (five-line ruling 2026-08-10); a monster stays a one-pager`);
+  && r.notesMinHeight > 70 && r.notesMinHeight < 110
+  && r.npcNotesBreak !== "page" && !(r.npcNotesMinHeight > 60),
+  `pc break-inside=${r.notesBreakInside} min=${r.notesMinHeight}px npc min=${r.npcNotesMinHeight} — heading + two lines (~2.2cm) on the current page, a fresh page only when less remains (two-line ruling 2026-08-11); a monster stays a one-pager`);
 check("no connections, no Connections section", r.connectionsGone,
   "the section exists only when connections do");
 check("failed career: Barebones only, labelled", r.careerPass1 && r.careerPass2,
@@ -569,11 +703,22 @@ check("an npc page has NO mark boxes", r.npcNoCondBoxes,
   "the boxes are character-only; an npc keeps the text status line");
 check("statblock prose and numbers", r.npcDesc && r.npcStats,
   `desc=${r.npcDesc} stats=${r.npcStats}`);
-check("no PC-only sections", r.npcNoPcSections && r.npcNotesHeader && r.npcCredits,
-  `pcSections=${!r.npcNoPcSections} notesHeader=${r.npcNotesHeader} credits=${r.npcCredits} — no Background/Bonds/Omen; Notes header and credits still on`);
+check("no PC-only sections", r.npcNoPcSections && !r.npcNotesHeader && r.npcCredits,
+  `pcSections=${!r.npcNoPcSections} notesHeader=${r.npcNotesHeader} credits=${r.npcCredits} — no Background/Bonds/Omen; a note-less monster gets no Notes header either (2026-08-11), credits still on`);
 check("the monster credits Tlomdev, not Aspeheim", /Tlomdev/.test(r.npcCreditsText)
   && !/Aspeheim/.test(r.npcCreditsText) && /Yochai Gal/.test(r.npcCreditsText),
   "the attribution follows the portrait's gallery");
+
+console.log("\nthe thing's page");
+check("a container prints its cargo with the AUTHORED slot fraction",
+  r.sackPageGear && r.sackPageHead === `${r.slotsUsedLabel} ( 1 / 4 )`,
+  `gear=${r.sackPageGear} head="${r.sackPageHead}" — the point of printing a sack is what's in it (user ruling 2026-08-11); the fraction reads authored slots, the falcon trap's standalone corollary`);
+check("and no statblock — a thing's page is its cargo",
+  r.sackPageNoStats && r.sackPageSubtitle === r.containerRoleLabel,
+  `stats-gone=${r.sackPageNoStats} subtitle="${r.sackPageSubtitle}" — the schema's 10/10/10 on a sack is noise; the role prints where a PC's background goes`);
+check("a slotless companion keeps its statblock, gains no empty inventory heading",
+  r.falconPageStats && r.falconPageNoInvHead,
+  `stats=${r.falconPageStats} noInvHead=${r.falconPageNoInvHead} — a companion is a creature, not a thing (authored slots 0, derived slotsMax 10)`);
 
 console.log("\nthe route prefix");
 check("a prefixed host keeps its portraits", (r.prefixedSrc ?? "").includes("/pfx-probe/systems/air-bladder/"),
