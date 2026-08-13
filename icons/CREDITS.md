@@ -40,4 +40,4 @@ credited under CC BY 3.0. The icons used here are by **Lorc**, **Delapouite**,
 | `crate.svg` | crates | Wooden Crate | Delapouite | <https://game-icons.net/1x1/delapouite/wooden-crate.html> |
 | `barrel.svg` | barrels | Barrel | Delapouite | <https://game-icons.net/1x1/delapouite/barrel.html> |
 | `box.svg` | boxes | Cardboard Box Closed | Delapouite | <https://game-icons.net/1x1/delapouite/cardboard-box-closed.html> |
-| `thought-bubble.svg` | (not yet assigned to a class) | Thought Bubble | SeregaCthtuf | <https://game-icons.net/1x1/seregacthtuf/thought-bubble.html> |
+| `thought-bubble.svg` | the Air Bladder item | Thought Bubble | SeregaCthtuf | <https://game-icons.net/1x1/seregacthtuf/thought-bubble.html> |

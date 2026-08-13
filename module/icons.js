@@ -208,6 +208,13 @@ export const iconForItem = (type = "item", name = "") => {
     case "background": return P("background");
   }
   const n = String(name).toLowerCase();
+  // The system's namesake. A rule here rather than a hand-set `img:` in the
+  // pack, because everything under ICON_DIR is classifier-owned: item-icons.mjs
+  // leaves hand-picked art alone precisely BY being outside this folder, so an
+  // icon set only in the YAML would be restamped to the generic item on the
+  // importer's next run — the "a rerun reverts a fix made only in pack YAML"
+  // failure. Named-based like the rest, so a Warden's own "Air Bladder" gets it.
+  if (n.includes("air bladder")) return P("thought-bubble");
   if (n.includes("scroll")) return P("spellscroll");
   if (n.includes("backpack")) return P("backpack");
   if (/\bsacks?\b/.test(n) || n.includes("pouch") || n.includes("satchel")) return P("sack");
