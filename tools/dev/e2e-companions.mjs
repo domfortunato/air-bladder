@@ -326,6 +326,39 @@ check("the player's own notes survive it", reroll.keptPlayerLine,
   "the bullet is added to and taken out of the player's prose, never written over it");
 
 /* ---------------------------------------------------------------------------
+ * 3d. The line is removed BY THE DELETE, not by the path that caused it — so a
+ *     Warden deleting the beast straight out of the directory cleans up too,
+ *     and half a pair keeps the sentence that describes them both.
+ * ------------------------------------------------------------------------- */
+const gone = await page.evaluate(async () => {
+  const ActorImpl = CONFIG.Actor.documentClass;
+  const { grantContainers } = await import("/systems/air-bladder/module/character-generator.js");
+  const prose = "A burial wagon (+6 slots, slow). It came with a stubborn old donkey.";
+  const keeper = await ActorImpl.create({ name: "ZZ Deleter", type: "character" });
+  const made = await grantContainers(keeper, [
+    { name: "Burial Wagon", slots: 6, grantSource: "question:0", grantNote: prose },
+    { name: "Donkey", slots: 4, grantSource: "question:0", grantNote: prose },
+  ]);
+  const written = keeper.system.notes;
+  const ledger = (keeper.getFlag("air-bladder", "grantNotes") ?? []).length;
+  // Half the pair: the sentence describes both, so it stays.
+  await made.find((a) => a.name === "Donkey").delete();
+  const afterHalf = keeper.system.notes;
+  await made.find((a) => a.name === "Burial Wagon").delete();
+  return {
+    written, ledger, afterHalf, afterBoth: keeper.system.notes,
+    ledgerAfter: (keeper.getFlag("air-bladder", "grantNotes") ?? []).length,
+    keeperId: keeper.id,
+  };
+});
+check("a ledger records what was written", gone.ledger === 1 && !!gone.written,
+  `ledger=${gone.ledger} — removal reads what WAS written, never a recomputation of it; a format change must not orphan a line`);
+check("deleting half a pair keeps the line", gone.afterHalf === gone.written,
+  `notes=${JSON.stringify(gone.afterHalf)} — the sentence describes both`);
+check("deleting the rest takes the line and the record", gone.afterBoth === "" && gone.ledgerAfter === 0,
+  `notes=${JSON.stringify(gone.afterBoth)} ledger=${gone.ledgerAfter} — a Warden deleting the beast from the directory travels the same seam as a re-roll`);
+
+/* ---------------------------------------------------------------------------
  * 4. The player path: Alice's grant goes through the broker (players lack
  *    ACTOR_CREATE) and GRANTABLE_ROLES must speak the new role — reverted to
  *    "mount", the payload falls back to class derivation and the clamp hands
@@ -406,6 +439,7 @@ await page.evaluate(async ({ ids, grantIds, ravenId, rerollIds }) => {
     reroll.keeperId, ...(reroll.beastIds ?? []),
     stock.keeperId, ...(stock.cartIds ?? []),
     pair.keeperId, ...(pair.madeIds ?? []),
+    gone.keeperId,
   ],
 });
 

@@ -7,6 +7,7 @@ import {
 } from "../connections.js";
 import { actorDisplayName, t } from "../i18n-content.js";
 import { concealmentWhisper, formatCount } from "../utils.js";
+import { pruneGrantNotes } from "../grant-notes.js";
 import { FATIGUE_NAME } from "../item/item.js";
 
 /** Document names go into dialog HTML; a name is user-authored text. */
@@ -1892,6 +1893,22 @@ export class CairnActor extends Actor {
     // `this` is CairnActor here (static method), which matters: the global
     // `Actor` is not CONFIG.Actor.documentClass.
     if (updates.length) await this.updateDocuments(updates);
+
+    // A deleted GRANT takes its line off the keeper's notes with it. Every route
+    // that ends a grant arrives here — a re-rolled question, a regenerate, a
+    // changed background, and a Warden deleting the mule out of the directory —
+    // which is the whole reason the prune hangs off the DELETE rather than off
+    // each of those paths. The earlier version pruned inside the paths by
+    // recomputing the line and matching that text; one change to the line's
+    // format later, every note already written became unmatchable and the
+    // bullets outlived their beasts.
+    const keepers = new Map();
+    for (const d of documents) {
+      if (!d.getFlag("air-bladder", "grantSource")) continue;
+      const keeper = d.system?.connectedTo ? game.actors.find((a) => a.uuid === d.system.connectedTo) : null;
+      if (keeper && !deletedIds.has(keeper.id)) keepers.set(keeper.id, keeper);
+    }
+    for (const keeper of keepers.values()) await pruneGrantNotes(keeper, deletedIds);
   }
 
 

@@ -1,13 +1,14 @@
 import { CairnActor } from "./actor/actor.js";
 import { compendiumInfoFromString, drawTableText, resultText, findTableByName } from "./compendium.js";
 import { Cairn } from "./config.js";
-import { evaluateFormula, formatCount, grantSourceLabel } from "./utils.js";
+import { evaluateFormula, formatCount } from "./utils.js";
 import { resolveGearItem, GEAR_ALIASES, spellScrollItem } from "./gear.js";
-import { containerClass, containerClassLabel, iconForTransport } from "./icons.js";
+import { containerClass, iconForTransport } from "./icons.js";
 import { connectionHeadroom, maxConnections, connectedOwnershipShape, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { SETTINGS_NS } from "./settings.js";
 import { glogEnabled, GLOG_SPELL_PACKS } from "./glog.js";
 import { t } from "./i18n-content.js";
+import { applyGrantNotes } from "./grant-notes.js";
 
 // Foundry validates a document flag's scope against real package ids, so flags
 // use the system id "air-bladder" (NOT the internal "cairn" JS/settings namespace,
@@ -759,178 +760,6 @@ const containerKindFor = (name) => (/\b(wagon|cart|sled|sledge)\b/i.test(name) ?
  * @param {Object[]} specs  {name, slots, grantSource, grantNote?, load?, carried_by?}
  * @returns {Promise<CairnActor[]>}  the containers created
  */
-/**
- * The BODY of a grant's bullet: what the thing is, then what it does.
- *
- *   Companion: Horse — Piebald Cob: Intelligent, it can understand simple
- *   commands and even has an instinct for danger. 6 HP. +4 slots.
- *   Transport: Cart — A two-wheeled cart, pulled by hand or beast. …
- *
- * The label answers the question the prose alone does not: a player reading
- * "Rivertooth: impressively strong" has no way to know whether that is a beast
- * they lead or a wagon they push. Role and Kind are the sheet's own two words
- * for it, localized, so the bullet says what the NPC's own header says.
- *
- * The prose is the option's `description` where a question granted the thing,
- * and the STOCK description off its pack document where nothing else did —
- * Mountebank's cart is granted by the background outright and states nothing of
- * its own, and a bullet reading only "Transport: Cart" tells a player less than
- * the compendium already knows.
- *
- * Both halves are localized HERE, at write time, because notes are deliberately
- * NOT run through the content overlay on display (they are the player's own
- * words, see the Notes editor in actor-sheet.js). Everything is escaped: a
- * background is Warden-authorable content and `notes` is an htmlField, so this
- * is not the side that gets to trust it as markup.
- * @param {Object} p
- * @param {String} p.role  an NPC_ROLES key — "companion", "transport", …
- * @param {String} p.cls   a CONTAINER_CLASSES key — "horse", "cart", …
- * @param {String} [p.prose]        the granting option's own words, if any
- * @param {String} [p.stockProse]   the thing's own description, used when there are none
- * @returns {String}  escaped HTML, the inside of one <li>
- */
-export const grantLines = (entries) => {
-  const esc = foundry.utils.escapeHTML;
-  const label = ({ role, cls }) => {
-    const key = String(role || "companion");
-    return [
-      game.i18n.localize(`CAIRN.Role${key.charAt(0).toUpperCase()}${key.slice(1)}`),
-      game.i18n.localize(containerClassLabel("", "", String(cls || ""))),
-    ].join(": ");
-  };
-  // The grant TAG, in the same four words the inventory's chips use
-  // (grantSourceLabel): a note saying only "Companion: Horse" leaves a player
-  // no way to tell the beast their background handed them from one they bought.
-  // NOT gated by show-grant-tags — that switch hides a chip at render time, and
-  // this is text written once into a field the player then owns and edits. A
-  // display switch cannot reach into prose already written, and a note that
-  // silently rewrote itself when a Warden flipped a setting would be worse than
-  // one that never carried the tag.
-  const line = (labels, tag, said) => [
-    `<strong>${esc(labels.join(", "))}</strong>`,
-    tag ? ` <em>[${esc(tag)}]</em>` : "",
-    said ? ` — ${esc(said)}` : "",
-  ].join("");
-
-  // ONE option, ONE line. The Bonekeeper's "a burial wagon … it came with a
-  // stubborn old donkey" grants two things and describes them in a single
-  // sentence; a bullet each printed that sentence twice. Both Actors are still
-  // created — only the note collapses. Grouped by the prose itself, so a
-  // background that ever grants three from one answer collapses the same way,
-  // while a grant with no prose of its own keeps its own line off its own
-  // stock description.
-  const groups = new Map();
-  const out = [];
-  for (const e of entries) {
-    const prose = String(e.prose ?? "").trim();
-    if (!prose) {
-      out.push(line([label(e)], grantSourceLabel(e.source), t("monster.desc", String(e.stockProse ?? "").trim())));
-      continue;
-    }
-    if (!groups.has(prose)) {
-      groups.set(prose, { members: [], at: out.length });
-      out.push(null);
-    }
-    groups.get(prose).members.push(e);
-  }
-  // Which of the group's things the line is filed under: the TRANSPORT, then a
-  // companion, then a container — the wagon is what the answer granted and the
-  // donkey is what came with it (user ruling, 2026-08-13). Chosen by a fixed
-  // order rather than by spec order because the removal paths rebuild these
-  // lines from `game.actors`, whose order is not the order they were created in
-  // (a batched create returns ID-ordered) — a line that comes back filed under
-  // the other half is a line that will never match the one stored.
-  const rank = (e) => {
-    const i = ["transport", "companion", "container"].indexOf(String(e.role));
-    return i < 0 ? 99 : i;
-  };
-  for (const [prose, g] of groups) {
-    const head = g.members.slice().sort((a, b) => (rank(a) - rank(b)) || label(a).localeCompare(label(b)))[0];
-    out[g.at] = line([label(head)], grantSourceLabel(head.source), t("bg.optionDesc", prose));
-  }
-  return out.filter(Boolean);
-};
-
-/**
- * Add one bullet to a character's notes.
- *
- * Appends INTO a trailing list rather than starting a rival one, and adding the
- * same bullet twice is a no-op — regeneration re-runs these paths.
- * @param {String} notes  the notes the character already has
- * @param {String} html   a grantNoteHtml body; blank adds nothing
- * @returns {String}
- */
-export const noteWithGrant = (notes, html) => {
-  const body = String(html ?? "").trim();
-  const existing = String(notes ?? "").trim();
-  if (!body) return existing;
-  const li = `<li>${body}</li>`;
-  if (existing.includes(li)) return existing;
-  if (!existing) return `<ul>${li}</ul>`;
-  return existing.endsWith("</ul>")
-    ? `${existing.slice(0, -"</ul>".length)}${li}</ul>`
-    : `${existing}<ul>${li}</ul>`;
-};
-
-/**
- * The inverse: the bullet a grant left, taken back out when that grant is
- * undone (a re-rolled question, a regenerate). Matched by its TEXT, never by a
- * `data-` marker on the <li> — notes go through the ProseMirror editor the
- * moment a player types in them, and a round trip through PM's schema is not a
- * promise this system gets to make about an attribute it invented.
- * @param {String} notes @param {String} html @returns {String}
- */
-export const withoutGrantNote = (notes, html) => {
-  const body = String(html ?? "").trim();
-  const existing = String(notes ?? "").trim();
-  if (!body || !existing) return existing;
-  return existing
-    .split(`<li>${body}</li>`).join("")
-    .split("<ul></ul>").join("")
-    .trim();
-};
-
-/**
- * The bullet an ALREADY-CREATED grant wrote, rebuilt so it can be taken back
- * out. Everything it needs is on the container itself except the option's
- * words, which live on the keeper as the recorded answer to the question that
- * granted it — so a grant with no question falls back to the same stock
- * description it was written from.
- * @param {CairnActor} actor @param {CairnActor} container @returns {String}
- */
-const grantEntryFor = (actor, container) => {
-  const source = String(container.getFlag(FLAG_SCOPE, "grantSource") ?? "");
-  const idx = source.startsWith("question:") ? Number(source.split(":")[1]) : NaN;
-  return {
-    role: container.system.role,
-    cls: container.system.containerClass,
-    source,
-    prose: Number.isInteger(idx) ? (actor.system.questions?.[idx]?.answer ?? "") : "",
-    stockProse: container.system.description ?? "",
-  };
-};
-
-/**
- * Bullet every grant onto the keeper, in one write.
- *
- * Called from grantContainers BEFORE the fork between the Warden's direct
- * create and the player's socket request, so it lands on both paths: minting an
- * Actor needs the Warden's client, but a player owns their own character and
- * writes this themselves.
- * @param {CairnActor} actor @param {Object[]} entries  resolved grant entries
- */
-const applyGrantNotes = async (actor, entries) => {
-  const before = actor.system.notes ?? "";
-  let notes = before;
-  const lines = grantLines(entries.map((e) => ({
-    role: e.role, cls: e.cls, source: e.spec.grantSource,
-    prose: e.spec.grantNote, stockProse: e.doc?.system.description ?? "",
-  })));
-  for (const line of lines) notes = noteWithGrant(notes, line);
-  if (notes === before) return;
-  await actor.update({ "system.notes": notes }, { abNoStatusCard: true });
-};
-
 export const grantContainers = async (actor, specs) => {
   if (!actor || !specs?.length) return [];
   // The connection ceiling, CLAMPED rather than refused outright: a background
@@ -1004,7 +833,10 @@ export const grantContainers = async (actor, specs) => {
   // The grant's own words onto the character, before the GM/player fork below
   // and before anything can throw: a beast that lands with no line saying what
   // it is and what it does is the half of this the player actually reads.
-  await applyGrantNotes(actor, entries);
+  await applyGrantNotes(actor, entries.map((e) => ({
+    role: e.role, cls: e.cls, source: e.spec.grantSource, name: e.spec.name,
+    prose: e.spec.grantNote, stockProse: e.doc?.system.description ?? "",
+  })));
 
   const payloads = entries.map(({ spec, doc, art, cls, role }) => {
     return {
@@ -1225,17 +1057,12 @@ const deleteContainers = async (actor, targets) => {
  * @param {CairnActor} actor
  */
 export const clearGrantedContainers = async (actor) => {
-  const granted = grantedContainersOf(actor);
-  const lines = grantLines(granted.map((c) => grantEntryFor(actor, c)));
-  await deleteContainers(actor, granted);
-  // ...and the bullets those grants left, rebuilt from the containers THEMSELVES
-  // before they go — role, Kind and stock prose all live on the document, and
-  // the option's words on the keeper beside them.
-  if (!lines.length) return;
-  const before = actor.system.notes ?? "";
-  let notes = before;
-  for (const line of lines) notes = withoutGrantNote(notes, line);
-  if (notes !== before) await actor.update({ "system.notes": notes }, { abNoStatusCard: true });
+  // The bullets those grants left go with them, but NOT from here: the delete
+  // itself is what removes them (CairnActor._onDeleteOperation → pruneGrantNotes),
+  // so every route that ends a grant cleans up the same way — this one, a
+  // re-rolled question, a changed background, and a Warden deleting the mule
+  // straight out of the directory.
+  await deleteContainers(actor, grantedContainersOf(actor));
 };
 
 /**
@@ -1248,16 +1075,10 @@ export const clearGrantedContainers = async (actor) => {
  */
 export const replaceGrantedContainers = async (actor, source, specs) => {
   const stale = grantedContainersOf(actor).filter((c) => c.getFlag(FLAG_SCOPE, "grantSource") === source);
-  // The bullet the PREVIOUS answer left goes with the beast it described; the
-  // new one is added by grantContainers below. Both halves are read BEFORE the
-  // delete and before the sheet overwrites questions[idx] — reversed, the
-  // character keeps a line about a horse they no longer have.
-  const lines = grantLines(stale.map((c) => grantEntryFor(actor, c)));
+  // The previous answer's bullet goes with the beast it described — carried by
+  // the delete, not by this function (see clearGrantedContainers) — and the new
+  // one is added by grantContainers below.
   await deleteContainers(actor, stale);
-  const before = actor.system.notes ?? "";
-  let pruned = before;
-  for (const line of lines) pruned = withoutGrantNote(pruned, line);
-  if (pruned !== before) await actor.update({ "system.notes": pruned }, { abNoStatusCard: true });
   return grantContainers(actor, (specs ?? []).map((c) => ({ ...c, grantSource: source })));
 };
 
