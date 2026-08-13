@@ -180,9 +180,15 @@ const grant = await page.evaluate(async () => {
   const keeper = await ActorImpl.create({ name: "ZZ Falconer", type: "character" });
   const hpBefore = keeper._source.system.hp.value;
   const { grantContainers } = await import("/systems/air-bladder/module/character-generator.js");
-  const made = await grantContainers(keeper, [{ name: "Falcon", grantSource: "question:0" }]);
+  r.prose = "Falcon: it can scout ahead and harry a foe. 3 HP. +0 slots.";
+  const made = await grantContainers(keeper, [
+    { name: "Falcon", grantSource: "question:0", grantNote: r.prose },
+  ]);
   const falcon = made[0] ?? null;
   r.made = made.length;
+  // The bullet belongs to the CHARACTER, on Background & Notes — not to the bird.
+  r.notes = keeper.system.notes ?? null;
+  r.beastNotes = falcon?.system.notes ?? null;
   r.stats = falcon ? {
     role: falcon.system.role, DEX: falcon.system.abilities.DEX.value,
     STR: falcon.system.abilities.STR.value, hp: falcon.system.hp.max,
@@ -203,6 +209,121 @@ check("with DEX 16, not the schema's 10", grant.stats?.DEX === 16 && grant.stats
   `DEX=${grant.stats?.DEX} STR=${grant.stats?.STR} hp=${grant.stats?.hp} — the abilities-copy leg; only hp and armorOverride were copied before`);
 check("the keeper is untouched", grant.keeperUntouched,
   "a 0-slot companion is not inventory and costs no capacity");
+check("the grant's prose lands as a BULLET on the CHARACTER",
+  grant.notes === `<ul><li><strong>Companion: Falcon</strong> — ${grant.prose}</li></ul>`,
+  `keeper notes=${JSON.stringify(grant.notes)} — Background & Notes is where a player reads their character; the beast is a document they have to go and open`);
+check("and not on the beast", !grant.beastNotes,
+  `beast notes=${JSON.stringify(grant.beastNotes)} — its own description already carries the same words`);
+
+/* ---------------------------------------------------------------------------
+ * 3a. A grant the BACKGROUND makes outright — Mountebank's cart — states no
+ *     prose of its own. It still gets a bullet, off the pack document's stock
+ *     description; "Transport: Cart" alone tells a player less than the
+ *     compendium already knows.
+ * ------------------------------------------------------------------------- */
+const stock = await page.evaluate(async () => {
+  const ActorImpl = CONFIG.Actor.documentClass;
+  const { grantContainers } = await import("/systems/air-bladder/module/character-generator.js");
+  const keeper = await ActorImpl.create({ name: "ZZ Mountebank", type: "character" });
+  await grantContainers(keeper, [{ name: "Cart", slots: 4, grantSource: "background" }]);
+  const doc = (await game.packs.get("air-bladder.mounts-transports").getDocuments())
+    .find((d) => d.name === "Cart");
+  return {
+    notes: keeper.system.notes,
+    stockProse: doc?.system.description ?? null,
+    keeperId: keeper.id,
+    cartIds: game.actors.filter((a) => a.system?.connectedTo === keeper.uuid).map((a) => a.id),
+  };
+});
+check("a background's own grant falls back to STOCK prose",
+  stock.notes === `<ul><li><strong>Transport: Cart</strong> — ${stock.stockProse}</li></ul>`,
+  `notes=${JSON.stringify(stock.notes)} — Mountebank's cart has no option text; a bullet reading only the label would say less than the compendium`);
+
+/* ---------------------------------------------------------------------------
+ * 3a-ii. One option, TWO things, ONE line. The Bonekeeper's burial wagon "came
+ *     with a stubborn old donkey" — both Actors are made, but the sentence that
+ *     describes them both is printed once, filed under the Transport.
+ * ------------------------------------------------------------------------- */
+const pair = await page.evaluate(async () => {
+  const ActorImpl = CONFIG.Actor.documentClass;
+  const { grantContainers } = await import("/systems/air-bladder/module/character-generator.js");
+  const prose = "A burial wagon (+6 slots, slow) from your last job. It came with a stubborn old donkey (+4 slots, only +2 slots if pulling wagon).";
+  const keeper = await ActorImpl.create({ name: "ZZ Bonekeeper", type: "character" });
+  const made = await grantContainers(keeper, [
+    { name: "Burial Wagon", slots: 6, grantSource: "question:0", grantNote: prose },
+    { name: "Donkey", slots: 4, grantSource: "question:0", grantNote: prose },
+  ]);
+  return {
+    prose, notes: keeper.system.notes, beasts: made.map((a) => a.name).sort(),
+    bullets: (keeper.system.notes.match(/<li>/g) ?? []).length,
+    keeperId: keeper.id, madeIds: made.map((a) => a.id),
+  };
+});
+check("one option granting two things makes BOTH", JSON.stringify(pair.beasts) === JSON.stringify(["Burial Wagon", "Donkey"]),
+  JSON.stringify(pair.beasts));
+check("...and says it ONCE, under the Transport", pair.bullets === 1
+  && pair.notes === `<ul><li><strong>Transport: Wagon</strong> — ${pair.prose}</li></ul>`,
+  `notes=${JSON.stringify(pair.notes)} — a bullet each printed the same sentence twice`);
+
+/* ---------------------------------------------------------------------------
+ * 3b. ...and the prose reaching grantContainers is the OPTION'S OWN. The roll
+ *     is random; the assertion is not — every container spec must carry the
+ *     description of the answer applyChoiceTables recorded for that question.
+ * ------------------------------------------------------------------------- */
+const prose = await page.evaluate(async () => {
+  const { applyChoiceTables } = await import("/systems/air-bladder/module/character-generator.js");
+  const bg = (await game.packs.get("air-bladder.backgrounds-2e").getDocuments())
+    .find((d) => d.name === "Outrider");
+  if (!bg) return { error: "no Outrider in backgrounds-2e" };
+  const out = await applyChoiceTables(bg);
+  return {
+    granted: out.containers.length,
+    matched: out.containers.every((c) => {
+      const idx = Number(String(c.grantSource).split(":")[1]);
+      return !!c.grantNote && c.grantNote === out.questions[idx]?.answer;
+    }),
+    sample: out.containers[0]?.grantNote ?? null,
+  };
+});
+check("a question's container carries THAT option's words", !prose.error
+  && prose.granted >= 1 && prose.matched,
+  prose.error ?? `granted=${prose.granted} sample=${JSON.stringify(prose.sample)}`);
+
+/* ---------------------------------------------------------------------------
+ * 3c. A re-rolled question SWAPS the bullet. Without the prune the character
+ *     accumulates a line about every horse they were ever briefly promised,
+ *     and the beast those lines describe was deleted with the re-roll.
+ * ------------------------------------------------------------------------- */
+const reroll = await page.evaluate(async () => {
+  const ActorImpl = CONFIG.Actor.documentClass;
+  const gen = await import("/systems/air-bladder/module/character-generator.js");
+  const first = "Rivertooth: Impressively strong. 4 HP. +6 slots.";
+  const second = "Stray Fogger: Wild but very fast. 4 HP. +2 slots.";
+  const keeper = await ActorImpl.create({
+    name: "ZZ Rerouted", type: "character",
+    system: { notes: "<p>The player's own line, which must survive.</p>" },
+  });
+  await gen.grantContainers(keeper, [{ name: "Rivertooth", grantSource: "question:0", grantNote: first }]);
+  const afterFirst = keeper.system.notes;
+  // The sheet records the answer, then re-rolls; replaceGrantedContainers reads
+  // the OLD answer off the actor, so the probe stands the actor in that state.
+  await keeper.update({ "system.questions": [{ question: "What breed?", answer: first, gold: 0 }] });
+  await gen.replaceGrantedContainers(keeper, "question:0",
+    [{ name: "Stray Fogger", grantNote: second }]);
+  const afterSecond = keeper.system.notes;
+  const beasts = game.actors.filter((a) => a.system?.connectedTo === keeper.uuid).map((a) => a.name);
+  return {
+    first, second, afterFirst, afterSecond, beasts,
+    keptPlayerLine: afterSecond.includes("The player's own line, which must survive."),
+    keeperId: keeper.id,
+    beastIds: game.actors.filter((a) => a.system?.connectedTo === keeper.uuid).map((a) => a.id),
+  };
+});
+check("a re-roll drops the old bullet and adds the new", !reroll.afterSecond.includes(reroll.first)
+  && reroll.afterSecond.includes(reroll.second) && JSON.stringify(reroll.beasts) === JSON.stringify(["Stray Fogger"]),
+  `notes=${JSON.stringify(reroll.afterSecond)} beasts=${JSON.stringify(reroll.beasts)}`);
+check("the player's own notes survive it", reroll.keptPlayerLine,
+  "the bullet is added to and taken out of the player's prose, never written over it");
 
 /* ---------------------------------------------------------------------------
  * 4. The player path: Alice's grant goes through the broker (players lack
@@ -228,7 +349,10 @@ try {
       const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       const pc = game.actors.get(pcId);
       const { grantContainers } = await import("/systems/air-bladder/module/character-generator.js");
-      const returned = await grantContainers(pc, [{ name: "Raven Familiar", grantSource: "question:0" }]);
+      const prose = "Raven Familiar: it remembers what you cannot. 2 HP. +0 slots.";
+      const returned = await grantContainers(pc, [
+        { name: "Raven Familiar", grantSource: "question:0", grantNote: prose },
+      ]);
       // The player's side returns [] — the documents appear when the GM's
       // client answers the socket.
       // Poll for the actor AND its ownership: the GM handler creates first
@@ -246,6 +370,10 @@ try {
         DEX: raven?.system.abilities.DEX.value ?? null,
         WIL: raven?.system.abilities.WIL.value ?? null,
         owned: raven?.isOwner ?? false,
+        // Her CHARACTER's notes. She owns the PC, so this write is hers to make
+        // — the socket only ever brokers the Actor she cannot create.
+        notes: pc.system.notes ?? null,
+        prose,
         ravenId: raven?.id ?? null,
       };
     }, prep));
@@ -261,15 +389,25 @@ check("the broker mints her raven as a COMPANION", alice.minted && alice.role ==
   && alice.DEX === 11 && alice.WIL === 13,
   `role=${alice.role} DEX=${alice.DEX} WIL=${alice.WIL} — GRANTABLE_ROLES must name the new role, or the clamp derives and hands her a container`);
 check("and she owns it", alice.owned, "connection drives ownership, monsters never touched");
+check("a PLAYER's own character gets the bullet",
+  alice.notes === `<ul><li><strong>Companion: Raven</strong> — ${alice.prose}</li></ul>`,
+  `notes=${JSON.stringify(alice.notes)} — written on HER client, before the fork to the broker; nothing about it crosses the socket`);
 
 /* ----------------------------------------------------------- teardown ---- */
-await page.evaluate(async ({ ids, grantIds, ravenId }) => {
-  for (const id of [ids.legacyId, grantIds.falconId, grantIds.keeperId, ravenId].filter(Boolean)) {
+await page.evaluate(async ({ ids, grantIds, ravenId, rerollIds }) => {
+  for (const id of [ids.legacyId, grantIds.falconId, grantIds.keeperId, ravenId, ...rerollIds].filter(Boolean)) {
     await game.actors.get(id)?.delete();
   }
   const witch = game.actors.getName("ZZ Witch");
   await witch?.delete();
-}, { ids: role.ids, grantIds: grant.ids, ravenId: alice.ravenId ?? null });
+}, {
+  ids: role.ids, grantIds: grant.ids, ravenId: alice.ravenId ?? null,
+  rerollIds: [
+    reroll.keeperId, ...(reroll.beastIds ?? []),
+    stock.keeperId, ...(stock.cartIds ?? []),
+    pair.keeperId, ...(pair.madeIds ?? []),
+  ],
+});
 
 const errs = errors.filter((e) => !/ZZ /.test(e));
 check("zero console errors", errs.length === 0, errs.join(" | "));

@@ -435,7 +435,10 @@ async function handleGrantActors(msg, senderId) {
       connectedTo: owner.uuid,                     // forced to the verified owner
       slots: Number(p?.system?.slots) || 0,
       description: String(p?.system?.description ?? ""),
-      containerClass: String(p?.system?.containerClass ?? ""),
+      // No `notes` here, deliberately: the grant's prose is bulleted onto the
+      // KEEPER's notes, which the player writes on their own client (they own
+      // their character), never onto the beast. Nothing crosses this wire for
+      // it, so nothing needs whitelisting.
       // Grants mint beasts and things, never people: a role that can KEEP
       // would let a crafted message mint a keeper and chain further grants
       // through it — the same hole the canKeepConnected check above closes

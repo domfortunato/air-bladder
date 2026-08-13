@@ -3424,7 +3424,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       await this._replaceGrantedItems(`question:${idx}`, newItems);
       // An option may also grant a container (Outrider's horse breeds are one whole
       // question of them), which is an Actor — swap those the same way.
-      await replaceGrantedContainers(this.actor, `question:${idx}`, opt.containers);
+      // ...carrying the new option's prose, so the re-rolled beast's notes state
+      // what THIS answer promised rather than the answer it replaced.
+      await replaceGrantedContainers(this.actor, `question:${idx}`,
+        (opt.containers ?? []).map((c) => ({ ...c, grantNote: opt.description ?? "" })));
       const questions = foundry.utils.duplicate(this.actor.system.questions ?? []);
       const oldGold = questions[idx]?.gold ?? 0;
       const newGold = opt.bonusGold ?? 0;
