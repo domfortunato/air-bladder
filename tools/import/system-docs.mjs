@@ -87,6 +87,7 @@ const ROSTER = [
   ["creating-custom-backgrounds.md", "Creating Custom Backgrounds"],
   ["sharing-custom-backgrounds.md", "Sharing Custom Backgrounds"],
   ["custom-portrait-gallery.md", "Custom Portrait Gallery"],
+  ["glog-magic.md", "GLOG Magic in Foundry"],
   ["supplied-macros.md", "Supplied Macros"],
 ];
 const idOf = new Map(ROSTER.map(([f, name]) => [f, idFor(`air-bladder-system-docs:${f}`)]));
