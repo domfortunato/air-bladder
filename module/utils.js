@@ -555,6 +555,33 @@ export const sourceLabel = (source) => {
 };
 
 /**
+ * What granted a thing, in the sheet's own word for it: Background, Bond,
+ * Question, Failed Career.
+ *
+ * The stored source is a flag written at generation — "background",
+ * "bond:<id>", "question:<i>", "failed-career" — and the re-roll machinery keys
+ * off it, so this is display only and must never decide anything.
+ *
+ * Lives HERE because two surfaces need the same four words: the inventory's
+ * grant chip (item.js, gated by show-grant-tags, and the printed sheet by
+ * show-grant-tags-print) and the bulleted line a granted beast writes onto its
+ * keeper's notes (character-generator.js). Two copies of a four-row mapping is
+ * two things to drift, and a note that called a rolled question "Background"
+ * while the inventory beside it called the same grant "Question" would read as
+ * a bug in the generator rather than in a duplicated list.
+ * @param {String} source
+ * @return {String}  localized, or "" for a source nothing granted
+ */
+export const grantSourceLabel = (source) => {
+  const s = String(source ?? "");
+  if (s === "background") return game.i18n.localize("CAIRN.GrantBackground");
+  if (s.startsWith("bond:")) return game.i18n.localize("CAIRN.GrantBond");
+  if (s.startsWith("question:")) return game.i18n.localize("CAIRN.GrantQuestion");
+  if (s === "failed-career") return game.i18n.localize("CAIRN.GrantFailedCareer");
+  return "";
+};
+
+/**
  * Format a counted noun, choosing the locale's plural form.
  *
  * Foundry's Localization has no plural support at all, so "{n} uses" shipped

@@ -210,7 +210,7 @@ check("with DEX 16, not the schema's 10", grant.stats?.DEX === 16 && grant.stats
 check("the keeper is untouched", grant.keeperUntouched,
   "a 0-slot companion is not inventory and costs no capacity");
 check("the grant's prose lands as a BULLET on the CHARACTER",
-  grant.notes === `<ul><li><strong>Companion: Falcon</strong> — ${grant.prose}</li></ul>`,
+  grant.notes === `<ul><li><strong>Companion: Falcon</strong> <em>[Question]</em> — ${grant.prose}</li></ul>`,
   `keeper notes=${JSON.stringify(grant.notes)} — Background & Notes is where a player reads their character; the beast is a document they have to go and open`);
 check("and not on the beast", !grant.beastNotes,
   `beast notes=${JSON.stringify(grant.beastNotes)} — its own description already carries the same words`);
@@ -236,7 +236,7 @@ const stock = await page.evaluate(async () => {
   };
 });
 check("a background's own grant falls back to STOCK prose",
-  stock.notes === `<ul><li><strong>Transport: Cart</strong> — ${stock.stockProse}</li></ul>`,
+  stock.notes === `<ul><li><strong>Transport: Cart</strong> <em>[Background]</em> — ${stock.stockProse}</li></ul>`,
   `notes=${JSON.stringify(stock.notes)} — Mountebank's cart has no option text; a bullet reading only the label would say less than the compendium`);
 
 /* ---------------------------------------------------------------------------
@@ -262,7 +262,7 @@ const pair = await page.evaluate(async () => {
 check("one option granting two things makes BOTH", JSON.stringify(pair.beasts) === JSON.stringify(["Burial Wagon", "Donkey"]),
   JSON.stringify(pair.beasts));
 check("...and says it ONCE, under the Transport", pair.bullets === 1
-  && pair.notes === `<ul><li><strong>Transport: Wagon</strong> — ${pair.prose}</li></ul>`,
+  && pair.notes === `<ul><li><strong>Transport: Wagon</strong> <em>[Question]</em> — ${pair.prose}</li></ul>`,
   `notes=${JSON.stringify(pair.notes)} — a bullet each printed the same sentence twice`);
 
 /* ---------------------------------------------------------------------------
@@ -390,7 +390,7 @@ check("the broker mints her raven as a COMPANION", alice.minted && alice.role ==
   `role=${alice.role} DEX=${alice.DEX} WIL=${alice.WIL} — GRANTABLE_ROLES must name the new role, or the clamp derives and hands her a container`);
 check("and she owns it", alice.owned, "connection drives ownership, monsters never touched");
 check("a PLAYER's own character gets the bullet",
-  alice.notes === `<ul><li><strong>Companion: Raven</strong> — ${alice.prose}</li></ul>`,
+  alice.notes === `<ul><li><strong>Companion: Raven</strong> <em>[Question]</em> — ${alice.prose}</li></ul>`,
   `notes=${JSON.stringify(alice.notes)} — written on HER client, before the fork to the broker; nothing about it crosses the socket`);
 
 /* ----------------------------------------------------------- teardown ---- */

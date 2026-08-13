@@ -1,7 +1,7 @@
 import { CairnActor } from "./actor/actor.js";
 import { compendiumInfoFromString, drawTableText, resultText, findTableByName } from "./compendium.js";
 import { Cairn } from "./config.js";
-import { evaluateFormula, formatCount } from "./utils.js";
+import { evaluateFormula, formatCount, grantSourceLabel } from "./utils.js";
 import { resolveGearItem, GEAR_ALIASES, spellScrollItem } from "./gear.js";
 import { containerClass, containerClassLabel, iconForTransport } from "./icons.js";
 import { connectionHeadroom, maxConnections, connectedOwnershipShape, OWNERSHIP_SYNC_FLAG } from "./connections.js";
@@ -798,9 +798,19 @@ export const grantLines = (entries) => {
       game.i18n.localize(containerClassLabel("", "", String(cls || ""))),
     ].join(": ");
   };
-  const line = (labels, said) => (said
-    ? `<strong>${esc(labels.join(", "))}</strong> — ${esc(said)}`
-    : `<strong>${esc(labels.join(", "))}</strong>`);
+  // The grant TAG, in the same four words the inventory's chips use
+  // (grantSourceLabel): a note saying only "Companion: Horse" leaves a player
+  // no way to tell the beast their background handed them from one they bought.
+  // NOT gated by show-grant-tags — that switch hides a chip at render time, and
+  // this is text written once into a field the player then owns and edits. A
+  // display switch cannot reach into prose already written, and a note that
+  // silently rewrote itself when a Warden flipped a setting would be worse than
+  // one that never carried the tag.
+  const line = (labels, tag, said) => [
+    `<strong>${esc(labels.join(", "))}</strong>`,
+    tag ? ` <em>[${esc(tag)}]</em>` : "",
+    said ? ` — ${esc(said)}` : "",
+  ].join("");
 
   // ONE option, ONE line. The Bonekeeper's "a burial wagon … it came with a
   // stubborn old donkey" grants two things and describes them in a single
@@ -814,7 +824,7 @@ export const grantLines = (entries) => {
   for (const e of entries) {
     const prose = String(e.prose ?? "").trim();
     if (!prose) {
-      out.push(line([label(e)], t("monster.desc", String(e.stockProse ?? "").trim())));
+      out.push(line([label(e)], grantSourceLabel(e.source), t("monster.desc", String(e.stockProse ?? "").trim())));
       continue;
     }
     if (!groups.has(prose)) {
@@ -836,7 +846,7 @@ export const grantLines = (entries) => {
   };
   for (const [prose, g] of groups) {
     const head = g.members.slice().sort((a, b) => (rank(a) - rank(b)) || label(a).localeCompare(label(b)))[0];
-    out[g.at] = line([label(head)], t("bg.optionDesc", prose));
+    out[g.at] = line([label(head)], grantSourceLabel(head.source), t("bg.optionDesc", prose));
   }
   return out.filter(Boolean);
 };
@@ -894,6 +904,7 @@ const grantEntryFor = (actor, container) => {
   return {
     role: container.system.role,
     cls: container.system.containerClass,
+    source,
     prose: Number.isInteger(idx) ? (actor.system.questions?.[idx]?.answer ?? "") : "",
     stockProse: container.system.description ?? "",
   };
@@ -912,7 +923,8 @@ const applyGrantNotes = async (actor, entries) => {
   const before = actor.system.notes ?? "";
   let notes = before;
   const lines = grantLines(entries.map((e) => ({
-    role: e.role, cls: e.cls, prose: e.spec.grantNote, stockProse: e.doc?.system.description ?? "",
+    role: e.role, cls: e.cls, source: e.spec.grantSource,
+    prose: e.spec.grantNote, stockProse: e.doc?.system.description ?? "",
   })));
   for (const line of lines) notes = noteWithGrant(notes, line);
   if (notes === before) return;

@@ -1,4 +1,5 @@
 import { SETTINGS_NS } from "../settings.js";
+import { grantSourceLabel } from "../utils.js";
 import { iconForItem, SPELLBOOK_ICON, SPELLSCROLL_ICON } from "../icons.js";
 import { glogEnabled, glogConversionDiff, glogTextCached } from "../glog.js";
 
@@ -267,13 +268,9 @@ export class CairnItem extends Item {
     // statement below. Fold the two back together and the print silently
     // couples to the inventory switch (the probe's inv-off leg is the
     // witness).
-    this.system.grantLabelRaw =
-      isContainerItem ? game.i18n.localize("CAIRN.GrantContainer")
-      : grantSource === "background" ? game.i18n.localize("CAIRN.GrantBackground")
-      : typeof grantSource === "string" && grantSource.startsWith("bond:") ? game.i18n.localize("CAIRN.GrantBond")
-      : typeof grantSource === "string" && grantSource.startsWith("question:") ? game.i18n.localize("CAIRN.GrantQuestion")
-      : grantSource === "failed-career" ? game.i18n.localize("CAIRN.GrantFailedCareer")
-      : "";
+    this.system.grantLabelRaw = isContainerItem
+      ? game.i18n.localize("CAIRN.GrantContainer")
+      : grantSourceLabel(grantSource);
     this.system.grantLabel = game.settings.get(SETTINGS_NS, "show-grant-tags")
       ? this.system.grantLabelRaw : "";
 
