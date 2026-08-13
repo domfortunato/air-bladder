@@ -11,8 +11,8 @@ system does not recolour them.
 ## Attribution
 
 game-icons.net art is contributed by individual authors, each of whom must be
-credited under CC BY 3.0. The icons used here are by **Lorc**, **Delapouite** and
-**Skoll**. The per-icon author and source page are listed below.
+credited under CC BY 3.0. The icons used here are by **Lorc**, **Delapouite**,
+**Skoll** and **SeregaCthtuf**. The per-icon author and source page are listed below.
 
 | file | class it represents | icon (game-icons.net) | author | source |
 | --- | --- | --- | --- | --- |
@@ -40,3 +40,4 @@ credited under CC BY 3.0. The icons used here are by **Lorc**, **Delapouite** an
 | `crate.svg` | crates | Wooden Crate | Delapouite | <https://game-icons.net/1x1/delapouite/wooden-crate.html> |
 | `barrel.svg` | barrels | Barrel | Delapouite | <https://game-icons.net/1x1/delapouite/barrel.html> |
 | `box.svg` | boxes | Cardboard Box Closed | Delapouite | <https://game-icons.net/1x1/delapouite/cardboard-box-closed.html> |
+| `thought-bubble.svg` | (not yet assigned to a class) | Thought Bubble | SeregaCthtuf | <https://game-icons.net/1x1/seregacthtuf/thought-bubble.html> |

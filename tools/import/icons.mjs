@@ -69,6 +69,11 @@ const ICONS = {
   "crate": ["delapouite", "wooden-crate"],
   "barrel": ["delapouite", "barrel"],
   "box": ["delapouite", "cardboard-box-closed"],
+  // Requested 2026-08-13, not yet wired to a class. FIRST icon here by
+  // SeregaCthtuf, who was already credited for the art/game-icons GALLERY but
+  // not for icons/ — so this row also moved his name into icons/CREDITS.md,
+  // LICENSE.txt and both READMEs, all of which name that folder's authors.
+  "thought-bubble": ["seregacthtuf", "thought-bubble"],
 };
 
 // White glyph on a black field, which is what the PNGs were and what the sheet
