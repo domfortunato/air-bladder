@@ -3316,7 +3316,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       const bonds = this._effectiveBonds();
       const idx = bonds.findIndex((b) => b.id === id);
       if (idx < 0) return;
-      const drawn = await drawBond(await this._bondsTableName());
+      // Avoid every bond held, INCLUDING the one being re-rolled: a re-roll that
+      // hands back the same bond reads as a broken button, and a re-roll that
+      // hands back a copy of the character's other bond is the duplicate this
+      // guard exists to stop. Both are the same exclusion.
+      const drawn = await drawBond(await this._bondsTableName(), {
+        avoid: bonds.map((b) => b.description),
+      });
       if (!drawn) return;
       const newItems = (drawn.items ?? []).map((it) => withGrantSource(it, `bond:${id}`));
       await this._replaceGrantedItems(`bond:${id}`, newItems);
@@ -3348,7 +3354,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     try {
       const bonds = this._effectiveBonds();
       if (bonds.length >= (await this._bondEntitlement())) return;
-      const rec = bondRecordFrom(await drawBond(await this._bondsTableName()));
+      const rec = bondRecordFrom(await drawBond(await this._bondsTableName(), {
+        avoid: bonds.map((b) => b.description),
+      }));
       if (!rec) return;
       bonds.push(rec.bond);
       if (rec.items.length) {

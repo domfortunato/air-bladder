@@ -466,6 +466,30 @@ const shippedBondsTable = async () => {
 };
 
 /**
+ * A bond's identity, for telling two of them apart. A stored bond keeps no
+ * reference to the table row it came from — only prose, gold and an id minted at
+ * draw time — so the text is all there is to compare, and it is enough: two rows
+ * carrying identical text would be the same bond by any reading a player has.
+ */
+const bondKey = (text) => String(text ?? "").trim().toLowerCase();
+
+/**
+ * How many times a duplicate draw is re-rolled before the duplicate is accepted.
+ *
+ * A CAP, not a preference. A custom background may name a bonds table with fewer
+ * rows than the character is entitled to bonds — one row is legal and narratively
+ * fine — and there every draw is a duplicate, so an unbounded loop would hang
+ * generation on content the Warden is allowed to author. Ten attempts costs
+ * nothing (a table roll is local) and on the shipped 20-row table the odds of
+ * stopping on a duplicate by chance are (1/20)^10.
+ *
+ * When the cap IS reached the duplicate is returned rather than null: a repeated
+ * bond is a nuisance, a missing one leaves the character short of what the rules
+ * owe them, and the second is the worse failure.
+ */
+const BOND_DRAW_ATTEMPTS = 10;
+
+/**
  * Draw a Cairn 2e bond. With no argument this is the shipped `tables-2e` "Bonds"
  * table, whose each result carries its mechanical payload in flags.air-bladder
  * (starting gold and a gear reference, resolved here); the result text is the
@@ -481,10 +505,18 @@ const shippedBondsTable = async () => {
  * A named table that cannot be found falls back to the shipped one, so a typo or a
  * table left behind when a background was shared degrades to a normal 2e bond rather
  * than to no bond at all.
+ *
+ * `avoid` is the text of bonds the character already holds; a draw matching one of
+ * them is re-rolled, up to BOND_DRAW_ATTEMPTS. Every caller passes it — generation
+ * rolling a Fieldwarden's two bonds, the sheet's re-roll, the sheet's "Add a bond" —
+ * because the rule is the same wherever a second bond comes from, and a character
+ * holding one bond twice is a generation nobody wants to keep.
  * @param {String} [tableName]
+ * @param {Object} [options]
+ * @param {String[]} [options.avoid]  descriptions already held
  * @returns {Promise<{description:String, gold:Number, items:Object[]}|null>}
  */
-export const drawBond = async (tableName) => {
+export const drawBond = async (tableName, { avoid = [] } = {}) => {
   const wanted = String(tableName ?? "").trim();
   // World-first, by name — the rationale lives on findTableByName.
   let table = wanted ? await findTableByName(wanted) : null;
@@ -493,8 +525,17 @@ export const drawBond = async (tableName) => {
   }
   table ??= await shippedBondsTable();
   if (!table) return null;
-  const { results } = await table.roll();
-  const result = results[0];
+
+  // Re-roll a repeat. `taken` is built once; the table is not mutated by roll(),
+  // so each attempt is an independent draw over the whole table.
+  const taken = new Set((avoid ?? []).map(bondKey).filter((k) => k));
+  let result = null;
+  for (let attempt = 0; attempt < BOND_DRAW_ATTEMPTS; attempt++) {
+    const { results } = await table.roll();
+    result = results[0] ?? null;
+    if (!result) return null;
+    if (!taken.has(bondKey(resultText(result)))) break;
+  }
   if (!result) return null;
   return {
     description: resultText(result),
@@ -1139,7 +1180,11 @@ export const generate2eCharacter = async (chosenBg = null) => {
   let bondGold = 0;
   for (let i = 0; i < bondCount; i++) {
     // A custom background may name its own bonds table; empty means the 2e one.
-    const rec = bondRecordFrom(await drawBond(bg.system.bondsTable));
+    // `avoid` grows as the loop runs, so a Fieldwarden's second bond cannot repeat
+    // the first (and a third could not repeat either).
+    const rec = bondRecordFrom(await drawBond(bg.system.bondsTable, {
+      avoid: bonds.map((b) => b.description),
+    }));
     if (!rec) continue;
     bonds.push(rec.bond);
     bondItems.push(...rec.items);
