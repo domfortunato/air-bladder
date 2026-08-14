@@ -562,6 +562,123 @@ try {
     ? ok("an unknown image falls back to the auto pool", roll.afterUnknown.split("/").pop())
     : fail("an unknown image falls back to the auto pool", JSON.stringify(roll.afterUnknown));
 
+  /* --- 3c. the CUSTOM gallery browses SUBFOLDERS -------------------------- */
+  // A Warden who filed their portraits into category folders got an empty
+  // Custom tab. `FilePicker.browse` returns `{dirs, files}` for ONE directory
+  // and does not recurse; the scan read `files` and threw the folder list away,
+  // so eleven folders and zero loose images came back as "No custom portraits
+  // found" over a full folder. The scan now walks one level down and the pane
+  // browses category-first, like Tlomdev.
+  //
+  // THE FIXTURE IS A REAL SHIPPED FOLDER, not planted files. `art/lydia-comer/`
+  // has exactly the shape under test — three loose images at the top AND two
+  // subfolders of real ones — so the scan being exercised is the real one, every
+  // <img> resolves, and NOTHING is written to disk. Foundry exposes no delete,
+  // so a probe that created real folders could never clean up after itself.
+  //
+  // Both settings are captured and restored, and the restoration is ASSERTED.
+  // Restoring the folder re-fires its onChange, which rescans and puts the
+  // cached list back by itself — checked rather than assumed.
+  const priorArt = await page.evaluate(() => ({
+    folder: game.settings.get("air-bladder", "custom-portrait-folder"),
+    list: game.settings.get("air-bladder", "custom-portrait-list"),
+  }));
+
+  const scanTo = (root) => page.evaluate(async (dir) => {
+    const NS = "air-bladder";
+    await game.settings.set(NS, "custom-portrait-folder", dir);
+    const gen = await import("/systems/air-bladder/module/character-generator.js");
+    const files = await gen.refreshCustomPortraits();
+    const Cls = CONFIG.Actor.documentClass;
+    const a = await Cls.create({ name: "ZZ Art Categories", type: "npc", system: { role: "monster" } });
+    const sheet = a.sheet;
+    await sheet.render(true);
+    await sheet._pickPortrait(new Event("click"));
+    const dlg = [...foundry.applications.instances.values()]
+      .find((x) => x.constructor.name === "DialogV2" && x.element?.querySelector(".cairn-portrait-gallery"));
+    const pane = dlg.element.querySelector('[data-pane="custom"]');
+    const out = {
+      scanned: files.length,
+      inSubfolders: files.filter((f) => f.slice(dir.length + 1).includes("/")).length,
+      tiles: [...pane.querySelectorAll(".cairn-icon-folder")].map((b) => b.querySelector("span")?.textContent.trim()),
+      looseCells: [...pane.querySelectorAll(".cairn-custom-loose .cairn-portrait-choice")].map((i) => i.dataset.src),
+      emptyHidden: pane.querySelector(".cairn-portrait-empty")?.hidden ?? null,
+      credit: pane.querySelector(".cairn-portrait-credit")?.textContent?.trim() ?? null,
+    };
+    const first = pane.querySelector(".cairn-icon-folder");
+    out.firstKey = first?.dataset.category ?? null;
+    out.tileFace = first?.querySelector("img")?.getAttribute("src") ?? null;
+    first?.click();
+    await new Promise((r) => setTimeout(r, 200));
+    out.drilled = [...pane.querySelectorAll(".cairn-icon-category .cairn-portrait-choice")].map((i) => i.dataset.src);
+    out.foldersHidden = pane.querySelector(".cairn-icon-folders")?.hidden ?? null;
+    pane.querySelector(".cairn-icon-back")?.click();
+    await new Promise((r) => setTimeout(r, 150));
+    out.backRestores = pane.querySelector(".cairn-icon-folders")?.hidden === false;
+    await dlg.close(); await sheet.close(); await a.delete();
+    return out;
+  }, root);
+
+  const lydiaRoot = "systems/air-bladder/art/lydia-comer";
+  const cats = await scanTo(lydiaRoot);
+
+  cats.inSubfolders > 0
+    ? ok("the scan reaches images inside subfolders", `${cats.inSubfolders} of ${cats.scanned} — this was 0 before the fix`)
+    : fail("the scan reaches images inside subfolders", `${cats.scanned} found, none below the top level`);
+  eq(cats.tiles, ["Portraits", "Tokens"])
+    ? ok("each subfolder becomes a category tile", cats.tiles.join(" / "))
+    : fail("each subfolder becomes a category tile", JSON.stringify(cats.tiles));
+  cats.looseCells?.length === 3 && cats.looseCells.every((p) => !p.slice(lydiaRoot.length + 1).includes("/"))
+    ? ok("loose top-level images still show in a flat grid", "the simple case costs no extra click")
+    : fail("loose top-level images still show in a flat grid", JSON.stringify(cats.looseCells));
+  cats.drilled?.length === LY_COUNT && cats.drilled.every((p) => p.includes(`/${cats.firstKey}/`))
+    ? ok("clicking a tile drills into that folder alone", `${cats.drilled.length} in ${cats.firstKey}`)
+    : fail("clicking a tile drills into that folder alone", `${cats.drilled?.length} cell(s), key ${cats.firstKey}`);
+  cats.tileFace?.includes(`/${cats.firstKey}/`)
+    ? ok("a tile wears an image from its own folder as its face", cats.tileFace.split("/").pop())
+    : fail("a tile wears an image from its own folder as its face", JSON.stringify(cats.tileFace));
+  cats.foldersHidden === true && cats.backRestores
+    ? ok("and Back returns to the tiles")
+    : fail("and Back returns to the tiles", JSON.stringify([cats.foldersHidden, cats.backRestores]));
+  cats.emptyHidden === true
+    ? ok("the \"no custom portraits\" hint is hidden", "it was showing over a folder that was full")
+    : fail("the \"no custom portraits\" hint is hidden", JSON.stringify(cats.emptyHidden));
+  // Every OTHER folder gallery states a licence under its grid. This one must
+  // not: it is the Warden's own art, and a credit under art it does not cover
+  // is the failure this picker's header names — Lydia's grant especially.
+  cats.credit === null
+    ? ok("no credit line under the Warden's own art", "the custom pane states no licence")
+    : fail("no credit line under the Warden's own art", JSON.stringify(cats.credit));
+
+  // A second root purely for the LABEL rule: `art/` holds four hyphenated
+  // folders and only `lydia-comer` has images directly inside it, so it is also
+  // the control for "a folder with no images of its own grows no tile".
+  const tidy = await scanTo("systems/air-bladder/art");
+  eq(tidy.tiles, ["Lydia Comer"])
+    ? ok("a hyphenated folder name reads as words", "lydia-comer -> Lydia Comer; image-less folders grow no tile")
+    : fail("a hyphenated folder name reads as words", JSON.stringify(tidy.tiles));
+
+  const restored = await page.evaluate(async (prior) => {
+    const NS = "air-bladder";
+    await game.settings.set(NS, "custom-portrait-folder", prior.folder);
+    // The folder's onChange rescans; wait for the cache to settle back rather
+    // than writing it by hand, so the restore exercises the same path a Warden
+    // changing the setting takes.
+    for (let n = 0; n < 40; n++) {
+      const now = game.settings.get(NS, "custom-portrait-list");
+      if (JSON.stringify(now) === JSON.stringify(prior.list)) break;
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    return {
+      folder: game.settings.get(NS, "custom-portrait-folder"),
+      list: game.settings.get(NS, "custom-portrait-list"),
+    };
+  }, priorArt);
+  restored.folder === priorArt.folder && eq(restored.list, priorArt.list)
+    ? ok("the Warden's folder setting and cache are as they were found", `"${restored.folder}", ${restored.list.length} cached`)
+    : fail("the Warden's folder setting and cache are as they were found",
+        `folder "${restored.folder}" want "${priorArt.folder}"; ${restored.list.length} cached want ${priorArt.list.length}`);
+
   /* --- 4. negative control ---------------------------------------------- */
 
   const control = await page.evaluate(async () => {

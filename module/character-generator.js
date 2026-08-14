@@ -141,7 +141,7 @@ const IMAGE_RE = /\.(?:webp|png|jpe?g|gif|svg|avif|bmp)$/i;
 const filePicker = () => foundry.applications.apps.FilePicker.implementation;
 
 /** The configured custom-portrait folder (data-root-relative), or "" if blank. */
-const customPortraitFolder = () =>
+export const customPortraitFolder = () =>
   String(game.settings.get(SETTINGS_NS, "custom-portrait-folder") ?? "").trim();
 
 /**
@@ -182,8 +182,35 @@ export const refreshCustomPortraits = async () => {
   const dir = customPortraitFolder();
   if (!dir) { await game.settings.set(SETTINGS_NS, "custom-portrait-list", []); return []; }
   try {
-    const res = await filePicker().browse("data", dir);
-    const files = (res?.files ?? []).filter((f) => IMAGE_RE.test(f));
+    const FP = filePicker();
+    const root = await FP.browse("data", dir);
+    const files = (root?.files ?? []).filter((f) => IMAGE_RE.test(f));
+    // ONE level of subfolders as well (2026-08-14, user report). `browse` returns
+    // `{dirs, files}` for the target directory ALONE and does not recurse — and
+    // this read only `files`, throwing the folder list away. A Warden who had
+    // organised their portraits into category folders (clerics-paladins,
+    // thieves, magic-users…) therefore got a browse that returned eleven dirs
+    // and zero files, an empty cache, and a picker reading "No custom portraits
+    // found" over a folder that was full. The information was already arriving;
+    // nothing was reading it.
+    //
+    // ONE level, not arbitrary depth, and that is a limit worth stating: each
+    // level is another round trip per folder, this runs on the GM's client
+    // while they wait, and one level is what the shipped galleries use
+    // (art/tlomdev/<category>/, art/game-icons/<category>/). Images deeper than
+    // that are not found — and the picker's category display below assumes the
+    // same one level, so the two must change together if it ever grows.
+    //
+    // A failed subfolder is skipped, not fatal: one unreadable folder must not
+    // cost the Warden every other portrait they have.
+    for (const sub of root?.dirs ?? []) {
+      try {
+        const res = await FP.browse("data", sub);
+        files.push(...(res?.files ?? []).filter((f) => IMAGE_RE.test(f)));
+      } catch (e) {
+        console.warn(`Air Bladder | could not scan custom portrait subfolder ${sub}:`, e);
+      }
+    }
     await game.settings.set(SETTINGS_NS, "custom-portrait-list", files);
     return files;
   } catch (e) {

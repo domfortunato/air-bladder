@@ -38,7 +38,7 @@
  * must not be able to read it as covering her drawings too.
  */
 
-import { getPortraitManifest, getCustomPortraitPaths, refreshCustomPortraits, getGameIconManifest, getTlomdevManifest, getLydiaManifest } from "./character-generator.js";
+import { getPortraitManifest, getCustomPortraitPaths, customPortraitFolder, refreshCustomPortraits, getGameIconManifest, getTlomdevManifest, getLydiaManifest } from "./character-generator.js";
 
 /**
  * Category display names, localized rather than title-cased in place so a
@@ -53,6 +53,61 @@ import { getPortraitManifest, getCustomPortraitPaths, refreshCustomPortraits, ge
 const pascal = (key) => key.split(/[\s-]+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join("");
 const gameIconCategoryLabel = (key) => game.i18n.localize(`CAIRN.GameIconCategory.${pascal(key)}`);
 const tlomdevCategoryLabel = (key) => game.i18n.localize(`CAIRN.TlomdevCategory.${pascal(key)}`);
+
+/**
+ * A CUSTOM category's display name — the Warden's own folder name, tidied.
+ *
+ * NOT localized, and deliberately not a key: these folders are named by the
+ * Warden on their own disk, so there is no English source for a translator to
+ * work from and no way to know one exists. "clerics-paladins" reads as "Clerics
+ * Paladins"; a word that is already capitalised is left alone, so "OSR Fantasy"
+ * survives as itself rather than becoming "Osr Fantasy".
+ *
+ * Percent-decoded first: `browse` hands back web paths, so a folder with a space
+ * in it arrives as "OSR%20Fantasy". The KEY keeps the encoded form (it is used
+ * to build image URLs); only the label is decoded.
+ */
+const customCategoryLabel = (key) => {
+  let name = key;
+  try { name = decodeURIComponent(key); } catch { /* leave a malformed escape as-is */ }
+  return name.replace(/[-_]+/g, " ").trim()
+    .split(/\s+/)
+    .map((w) => (/^[a-z]/.test(w) ? w.charAt(0).toUpperCase() + w.slice(1) : w))
+    .join(" ");
+};
+
+/**
+ * Split the flat cached path list into loose top-level images and one-level
+ * category folders, relative to the configured custom folder.
+ *
+ * The cache is a FLAT array of paths and stays one: the folder is already in
+ * each path, so nothing needed migrating and `randomPortraitPair` — which wants
+ * every custom image in one bag regardless of folder — reads it unchanged.
+ * The structure is derived here, at the only place that displays it.
+ *
+ * Anything that does not sit under the configured root, or that is deeper than
+ * one level, falls back to LOOSE: it still shows and is still pickable. A path
+ * this cannot classify must never become a path this hides.
+ */
+const splitCustomPaths = (paths, root) => {
+  const prefix = root ? `${String(root).replace(/\/+$/, "")}/` : "";
+  const loose = [];
+  const byCat = new Map();
+  for (const p of paths) {
+    const rest = prefix && p.startsWith(prefix) ? p.slice(prefix.length) : null;
+    const cut = rest === null ? -1 : rest.indexOf("/");
+    if (cut < 0) { loose.push(p); continue; }
+    const key = rest.slice(0, cut);
+    const name = rest.slice(cut + 1);
+    if (!key || !name || name.includes("/")) { loose.push(p); continue; }
+    if (!byCat.has(key)) byCat.set(key, []);
+    byCat.get(key).push(name);
+  }
+  const cats = [...byCat.entries()]
+    .map(([key, names]) => ({ key, names }))
+    .sort((a, b) => customCategoryLabel(a.key).localeCompare(customCategoryLabel(b.key)));
+  return { loose, cats };
+};
 
 /** An escaped attribute value — icon names are ours, but paths can come from a Warden. */
 const attr = (s) => String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
@@ -87,6 +142,10 @@ export async function pickArt({
 }) {
   const isGM = game.user.isGM;
   const customPaths = custom ? getCustomPortraitPaths() : [];
+  // The configured root, needed to work out which cached path sits in which
+  // subfolder. A blank setting leaves every path LOOSE, which is the old
+  // behaviour and the right fallback.
+  const customRoot = custom ? customPortraitFolder() : "";
   // A GM with an empty folder still gets the tab — it carries the Refresh button
   // and the "drop images in here" hint, which is the only place either appears.
   const showCustom = custom && (customPaths.length > 0 || isGM);
@@ -118,6 +177,53 @@ export async function pickArt({
   };
 
   /* --- panes ------------------------------------------------------------- */
+
+  // A category-first pane's body: folder tiles (each wearing the first image in
+  // its category as its face, so the gallery reads as art rather than as a list
+  // of words), a hidden drill-down built on demand, and the gallery's own
+  // credit line, sitting OUTSIDE the drill-down so it shows in both views.
+  // `creditKey` is optional since 2026-08-14: the custom gallery reuses this
+  // shape but is the Warden's own art, with no licence to state. A credit under
+  // art it does not cover is the failure this file's header calls out.
+  const folderPaneBody = (dir, cats, labelFor, creditKey) => {
+    const folders = cats.map(({ key, names }) => {
+      const label = attr(labelFor(key));
+      const face = `${dir}/${key}/${names[0]}`;
+      return `<button type="button" class="cairn-icon-folder" data-category="${attr(key)}" title="${label}">
+          <img src="${attr(face)}" alt="" />
+          <span>${label}</span>
+        </button>`;
+    }).join("");
+    return `<div class="cairn-icon-folders">${folders}</div>
+      <div class="cairn-icon-category" hidden>
+        <button type="button" class="cairn-icon-back"><i class="fas fa-chevron-left"></i> ${game.i18n.localize("CAIRN.GameIconsBack")}</button>
+        <div class="cairn-portrait-grid"></div>
+      </div>
+      ${creditKey ? `<div class="cairn-portrait-credit">${game.i18n.localize(creditKey)}</div>` : ""}`;
+  };
+
+  /**
+   * The custom pane's whole body, from a path list — a function because the
+   * Refresh button rebuilds it, and a rescan can change the CATEGORIES and not
+   * just the images. The old handler replaced one grid's innerHTML, which was
+   * right when the pane was one grid and is not any more.
+   *
+   * Loose top-level images render as a flat grid FIRST, exactly as before, and
+   * folder tiles follow. So a Warden who never made a subfolder sees no
+   * difference: the category machinery costs a click, and it must not be
+   * charged to somebody who has nothing to browse.
+   */
+  const customBody = (paths) => {
+    const { loose, cats } = splitCustomPaths(paths, customRoot);
+    const refreshBtn = isGM
+      ? `<button type="button" class="cairn-portrait-refresh"><i class="fas fa-rotate"></i> ${game.i18n.localize("CAIRN.RefreshCustomPortraits")}</button>`
+      : "";
+    const looseGrid = `<div class="cairn-portrait-grid cairn-custom-loose">${loose.map((p) => cellFor(p)).join("")}</div>`;
+    const folders = cats.length ? folderPaneBody(customRoot, cats, customCategoryLabel, null) : "";
+    return `${looseGrid}${folders}
+      <div class="cairn-portrait-empty"${paths.length ? " hidden" : ""}>${game.i18n.localize("CAIRN.CustomPortraitsEmpty")}</div>
+      ${refreshBtn}`;
+  };
 
   const panes = [];
 
@@ -151,39 +257,13 @@ export async function pickArt({
   }
 
   if (showCustom) {
-    const refreshBtn = isGM
-      ? `<button type="button" class="cairn-portrait-refresh"><i class="fas fa-rotate"></i> ${game.i18n.localize("CAIRN.RefreshCustomPortraits")}</button>`
-      : "";
     panes.push({
       id: "custom",
       count: customPaths.length,
       label: game.i18n.localize("CAIRN.PortraitTabCustom"),
-      body: `<div class="cairn-portrait-grid">${customPaths.map((p) => cellFor(p)).join("")}</div>
-        <div class="cairn-portrait-empty"${customPaths.length ? " hidden" : ""}>${game.i18n.localize("CAIRN.CustomPortraitsEmpty")}</div>
-        ${refreshBtn}`,
+      body: customBody(customPaths),
     });
   }
-
-  // A category-first pane's body: folder tiles (each wearing the first image in
-  // its category as its face, so the gallery reads as art rather than as a list
-  // of words), a hidden drill-down built on demand, and the gallery's own
-  // credit line, sitting OUTSIDE the drill-down so it shows in both views.
-  const folderPaneBody = (dir, cats, labelFor, creditKey) => {
-    const folders = cats.map(({ key, names }) => {
-      const label = attr(labelFor(key));
-      const face = `${dir}/${key}/${names[0]}`;
-      return `<button type="button" class="cairn-icon-folder" data-category="${attr(key)}" title="${label}">
-          <img src="${attr(face)}" alt="" />
-          <span>${label}</span>
-        </button>`;
-    }).join("");
-    return `<div class="cairn-icon-folders">${folders}</div>
-      <div class="cairn-icon-category" hidden>
-        <button type="button" class="cairn-icon-back"><i class="fas fa-chevron-left"></i> ${game.i18n.localize("CAIRN.GameIconsBack")}</button>
-        <div class="cairn-portrait-grid"></div>
-      </div>
-      <div class="cairn-portrait-credit">${game.i18n.localize(creditKey)}</div>`;
-  };
 
   if (showIcons) {
     panes.push({
@@ -328,22 +408,24 @@ export async function pickArt({
 
   // Category-first galleries: folder tiles in, back out. The grid is built here
   // and not up front — see the file header. Wiring is scoped to each pane,
-  // because both galleries wear the same class names.
-  for (const g of [
-    { id: "gameicons", dir: iconDir, cats: iconCats, thumbLabel: (n) => n.replace(/\.svg$/, "") },
-    { id: "tlomdev", dir: tlomdevDir, cats: tlomdevCats, thumbLabel: (n) => n.replace(/\.(png|webp)$/, "") },
-  ]) {
-    const pane = root.querySelector(`[data-pane="${g.id}"]`);
+  // because every such gallery wears the same class names.
+  //
+  // A FUNCTION rather than an inline loop body since 2026-08-14: the custom
+  // gallery's tiles are rebuilt by Refresh, so the same wiring has to be
+  // applicable a second time to a pane whose HTML has just been replaced.
+  const wireFolders = (pane, dir, cats, thumbLabel) => {
     const foldersEl = pane?.querySelector(".cairn-icon-folders");
     const categoryEl = pane?.querySelector(".cairn-icon-category");
-    if (!foldersEl || !categoryEl) continue;
+    if (!foldersEl || !categoryEl) return;
+    // The drill-down grid, NOT the loose one: the custom pane carries both, and
+    // `.cairn-icon-category` is what tells them apart.
     const grid = categoryEl.querySelector(".cairn-portrait-grid");
     foldersEl.querySelectorAll(".cairn-icon-folder").forEach((btn) => {
       btn.addEventListener("click", () => {
         const key = btn.dataset.category;
-        const cat = g.cats.find((c) => c.key === key);
+        const cat = cats.find((c) => c.key === key);
         if (!cat) return;
-        grid.innerHTML = cat.names.map((n) => cellFor(`${g.dir}/${key}/${n}`, g.thumbLabel(n))).join("");
+        grid.innerHTML = cat.names.map((n) => cellFor(`${dir}/${key}/${n}`, thumbLabel(n))).join("");
         grid.querySelectorAll(".cairn-portrait-choice").forEach(wireChoice);
         foldersEl.hidden = true;
         categoryEl.hidden = false;
@@ -353,22 +435,43 @@ export async function pickArt({
       categoryEl.hidden = true;
       foldersEl.hidden = false;
     });
+  };
+
+  const stripExt = (n) => n.replace(/\.[^.]+$/, "");
+  for (const g of [
+    { id: "gameicons", dir: iconDir, cats: iconCats, thumbLabel: (n) => n.replace(/\.svg$/, "") },
+    { id: "tlomdev", dir: tlomdevDir, cats: tlomdevCats, thumbLabel: (n) => n.replace(/\.(png|webp)$/, "") },
+    { id: "custom", dir: customRoot, cats: splitCustomPaths(customPaths, customRoot).cats, thumbLabel: stripExt },
+  ]) {
+    wireFolders(root.querySelector(`[data-pane="${g.id}"]`), g.dir, g.cats, g.thumbLabel);
   }
 
-  // Refresh: re-scan the custom folder (GM), then rebuild that grid in place.
-  const refresh = root.querySelector(".cairn-portrait-refresh");
-  refresh?.addEventListener("click", async () => {
-    refresh.disabled = true;
-    const list = await refreshCustomPortraits();
-    const grid = root.querySelector('[data-pane="custom"] .cairn-portrait-grid');
-    const hint = root.querySelector('[data-pane="custom"] .cairn-portrait-empty');
-    if (grid) {
-      grid.innerHTML = list.map((p) => cellFor(p)).join("");
-      grid.querySelectorAll(".cairn-portrait-choice").forEach(wireChoice);
-    }
-    if (hint) hint.hidden = list.length > 0;
-    refresh.disabled = false;
-  });
+  // Refresh: re-scan the custom folder (GM), then rebuild the WHOLE pane.
+  //
+  // It used to replace one grid's innerHTML, which was correct while the pane
+  // WAS one grid. A rescan can now change the set of category folders — the
+  // Warden's likely reason for pressing this at all is that they just added
+  // one — so replacing the grid alone would leave the tiles showing the folders
+  // that existed when the dialog opened. Rebuilt from the same `customBody`
+  // that built it, then re-wired: the button itself is inside the replaced
+  // HTML, so the handler re-binds too.
+  const wireRefresh = (pane) => {
+    const btn = pane?.querySelector(".cairn-portrait-refresh");
+    btn?.addEventListener("click", async () => {
+      btn.disabled = true;
+      try {
+        const list = await refreshCustomPortraits();
+        pane.innerHTML = customBody(list);
+        pane.querySelectorAll(".cairn-portrait-choice").forEach(wireChoice);
+        wireFolders(pane, customRoot, splitCustomPaths(list, customRoot).cats, stripExt);
+        wireRefresh(pane);
+      } catch (err) {
+        console.error("Air Bladder | custom portrait refresh failed:", err);
+        btn.disabled = false;
+      }
+    });
+  };
+  wireRefresh(root.querySelector('[data-pane="custom"]'));
 
   const urlInput = root.querySelector(".cairn-portrait-url-input");
   const applyUrl = () => {

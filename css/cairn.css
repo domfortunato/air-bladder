@@ -2532,6 +2532,15 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     padding: 4px;
 }
 
+/* An EMPTY grid takes no room (2026-08-14). The custom pane carries two of
+   these — the loose top-level images above the category tiles, and the
+   drill-down's — and a Warden who files every portrait into folders has no
+   loose ones at all. Without this, that pane opens with 8px of padded nothing
+   pushing the folder tiles down, which reads as a rendering fault. */
+.cairn-portrait-grid:empty {
+    display: none;
+}
+
 .cairn-portrait-choice {
     width: 72px;
     height: 72px;
