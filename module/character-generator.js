@@ -8,7 +8,7 @@ import { connectionHeadroom, maxConnections, connectedOwnershipShape, OWNERSHIP_
 import { SETTINGS_NS } from "./settings.js";
 import { glogEnabled, GLOG_SPELL_PACKS } from "./glog.js";
 import { t } from "./i18n-content.js";
-import { applyGrantNotes } from "./grant-notes.js";
+import { applyGrantNotes, GRANT_NOTE_ID } from "./grant-notes.js";
 
 // Foundry validates a document flag's scope against real package ids, so flags
 // use the system id "air-bladder" (NOT the internal "cairn" JS/settings namespace,
@@ -874,12 +874,15 @@ export const grantContainers = async (actor, specs) => {
   // The grant's own words onto the character, before the GM/player fork below
   // and before anything can throw: a beast that lands with no line saying what
   // it is and what it does is the half of this the player actually reads.
-  await applyGrantNotes(actor, entries.map((e) => ({
+  // Positional: noteIds[i] is the ledger record speaking for entries[i], and it
+  // rides onto that entry's Actor below. Without the stamp the record is joined
+  // to its things by name, which is the player's to change (review #14).
+  const noteIds = await applyGrantNotes(actor, entries.map((e) => ({
     role: e.role, cls: e.cls, source: e.spec.grantSource, name: e.spec.name,
     prose: e.spec.grantNote, stockProse: e.doc?.system.description ?? "",
   })));
 
-  const payloads = entries.map(({ spec, doc, art, cls, role }) => {
+  const payloads = entries.map(({ spec, doc, art, cls, role }, i) => {
     return {
       type: "npc",
       name: spec.name,
@@ -911,7 +914,12 @@ export const grantContainers = async (actor, specs) => {
         // shared reference here poisons the pack document.
         ...(doc ? { abilities: doc.system.toObject().abilities } : {}),
       },
-      flags: { [FLAG_SCOPE]: { grantSource: spec.grantSource ?? "background" } },
+      flags: {
+        [FLAG_SCOPE]: {
+          grantSource: spec.grantSource ?? "background",
+          ...(noteIds[i] ? { [GRANT_NOTE_ID]: noteIds[i] } : {}),
+        },
+      },
     };
   });
 

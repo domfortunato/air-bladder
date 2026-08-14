@@ -21,15 +21,34 @@ import { t } from "./i18n-content.js";
  * guess about your own past.
  *
  * What is stored instead is a LEDGER: `flags.air-bladder.grantNotes`, one
- * record per line, holding the exact html written and the names it covers.
- * Removal reads the ledger rather than rebuilding it, so a format change can
- * never orphan a line, and it hangs off `_onDeleteOperation` — which every
+ * record per line, holding the exact html written and an ID for the things it
+ * covers. Removal reads the ledger rather than rebuilding it, so a format change
+ * can never orphan a line, and it hangs off `_onDeleteOperation` — which every
  * route travels, the re-roll, the regenerate, the background swap and a Warden
  * deleting the mule straight out of the directory.
+ *
+ * **The record is joined to its things by ID, not by NAME** (review #14). Each
+ * record is minted with one, every Actor the line covers is stamped with it at
+ * creation, and removal asks which stamps are still alive. Names were the first
+ * cut and they are the same mistake as recomputing the html, one field along: a
+ * name is the PLAYER'S to change, and "Cart" becoming "Bessie" made the record
+ * unmatchable, so deleting the mule beside her took Bessie's line away while
+ * Bessie went on existing. Two grants sharing a name under one source had the
+ * mirror-image bug — the first to die satisfied the second's record forever.
+ * Records written before this change carry no id and keep the name match, which
+ * is what they were written under; nothing rewrites them.
  */
 
 const SCOPE = "air-bladder";
 const LEDGER = "grantNotes";
+
+/**
+ * The flag stamped on a granted Actor naming the ledger record that speaks for
+ * it. Set by `grantContainers` on the Warden's path and carried through the
+ * socket broker's whitelist on the player's — a grant that arrives without it
+ * has a line on the sheet that nothing can ever take back.
+ */
+export const GRANT_NOTE_ID = "grantNoteId";
 
 /**
  * One line per grant, as escaped html.
@@ -90,13 +109,19 @@ export const grantLines = (entries) => {
 
   const groups = new Map();
   const out = [];
-  for (const e of entries) {
+  // `covers` is the INDEXES into `entries` this line speaks for, so the caller
+  // can stamp each record's id onto the right Actors. It is working state, not
+  // ledger state — `applyGrantNotes` strips it before storing, because an index
+  // into an array that no longer exists would be worse than nothing.
+  for (const [i, e] of entries.entries()) {
     if (saidElsewhere(e)) continue;
     const prose = String(e.prose ?? "").trim();
     if (!prose) {
       out.push({
+        id: foundry.utils.randomID(),
         html: line([label(e)], grantSourceLabel(e.source), t("monster.desc", String(e.stockProse ?? "").trim())),
         names: [String(e.name ?? "")],
+        covers: [i],
         source: String(e.source ?? ""),
       });
       continue;
@@ -105,7 +130,7 @@ export const grantLines = (entries) => {
       groups.set(prose, { members: [], at: out.length });
       out.push(null);
     }
-    groups.get(prose).members.push(e);
+    groups.get(prose).members.push({ e, i });
   }
   // Which of a group's things the line is filed under: the TRANSPORT, then a
   // companion, then a container — the wagon is what the answer granted and the
@@ -115,10 +140,13 @@ export const grantLines = (entries) => {
     return i < 0 ? 99 : i;
   };
   for (const [prose, g] of groups) {
-    const head = g.members.slice().sort((a, b) => (rank(a) - rank(b)) || label(a).localeCompare(label(b)))[0];
+    const head = g.members.slice()
+      .sort((a, b) => (rank(a.e) - rank(b.e)) || label(a.e).localeCompare(label(b.e)))[0].e;
     out[g.at] = {
+      id: foundry.utils.randomID(),
       html: line([label(head)], grantSourceLabel(head.source), t("bg.optionDesc", prose)),
-      names: g.members.map((m) => String(m.name ?? "")),
+      names: g.members.map((m) => String(m.e.name ?? "")),
+      covers: g.members.map((m) => m.i),
       source: String(head.source ?? ""),
     };
   }
@@ -169,19 +197,46 @@ const ledgerOf = (actor) => {
  * socket request, so it lands on both paths: minting an Actor needs the
  * Warden's client, but a player owns their own character and writes this
  * themselves. Nothing about the note crosses the socket.
+ *
+ * Returns the record id covering each entry, positionally, so the caller can
+ * stamp it onto the Actor it creates for that entry. An entry whose prose the
+ * sheet already shows wrote no line and gets `""` — there is no record to
+ * point at, which is the correct answer rather than a missing one.
  * @param {CairnActor} actor @param {Object[]} entries  see grantLines
+ * @returns {Promise<String[]>}  one record id per entry, "" where no line was written
  */
 export const applyGrantNotes = async (actor, entries) => {
   const lines = grantLines(entries);
-  if (!lines.length) return;
+  const noteIds = new Array(entries.length).fill("");
+  if (!lines.length) return noteIds;
+
+  // A line ALREADY on the sheet keeps the record it already has. `withBullet` is
+  // idempotent, so granting the same thing twice adds no second bullet — and a
+  // ledger that appended a fresh record anyway would leave the FIRST record
+  // covered by nothing, so the next deletion of anything would prune a line
+  // whose things are all still alive. That is the very bug this rewrite closes,
+  // reintroduced from the other end.
+  const existing = ledgerOf(actor);
+  const known = new Map(existing.filter((r) => r?.id).map((r) => [r.html, r.id]));
+  const added = [];
+  for (const l of lines) {
+    const id = known.get(l.html) ?? l.id;
+    for (const i of l.covers) noteIds[i] = id;
+    if (!known.has(l.html)) {
+      known.set(l.html, id);
+      added.push({ id, html: l.html, names: l.names, source: l.source });
+    }
+  }
+
   const before = actor.system.notes ?? "";
   let notes = before;
   for (const line of lines) notes = withBullet(notes, line.html);
-  if (notes === before) return;
+  if (notes === before && !added.length) return noteIds;
   await actor.update({
     "system.notes": notes,
-    [`flags.${SCOPE}.${LEDGER}`]: [...ledgerOf(actor), ...lines],
+    [`flags.${SCOPE}.${LEDGER}`]: [...existing, ...added],
   }, { abNoStatusCard: true });
+  return noteIds;
 };
 
 /**
@@ -205,8 +260,14 @@ export const pruneGrantNotes = async (actor, deletedIds = new Set()) => {
     !deletedIds.has(c.id)
     && c.system?.connectedTo === actor.uuid
     && !!c.getFlag(SCOPE, "grantSource"));
-  const keeps = (rec) => (rec.names ?? []).some((n) =>
-    alive.some((c) => c.name === n && c.getFlag(SCOPE, "grantSource") === rec.source));
+  // By the id stamped on each thing at creation. The name fallback is for
+  // records written before ids existed and NOTHING else: an id-bearing record
+  // must never fall back to it, or a renamed grant would be matchable again by
+  // accident on some worlds and not others.
+  const keeps = (rec) => (rec?.id
+    ? alive.some((c) => c.getFlag(SCOPE, GRANT_NOTE_ID) === rec.id)
+    : (rec?.names ?? []).some((n) =>
+      alive.some((c) => c.name === n && c.getFlag(SCOPE, "grantSource") === rec.source)));
   const kept = ledger.filter(keeps);
   if (kept.length === ledger.length) return;
   const before = actor.system.notes ?? "";

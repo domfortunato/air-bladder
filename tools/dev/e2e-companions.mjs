@@ -390,6 +390,75 @@ check("deleting the rest takes the line and the record", gone.afterBoth === "" &
   `notes=${JSON.stringify(gone.afterBoth)} ledger=${gone.ledgerAfter} — a Warden deleting the beast from the directory travels the same seam as a re-roll`);
 
 /* ---------------------------------------------------------------------------
+ * 3e. A record is joined to its things by ID, not by NAME (review #14). Two
+ *     failures, mirror images of each other, both invisible while every fixture
+ *     keeps the name it was minted with — which is why this section renames one
+ *     and duplicates another instead of testing the happy path again.
+ * ------------------------------------------------------------------------- */
+const renamed = await page.evaluate(async () => {
+  const ActorImpl = CONFIG.Actor.documentClass;
+  const { grantContainers } = await import("/systems/air-bladder/module/character-generator.js");
+  const r = {};
+
+  // Two SEPARATE records — different prose, so neither line speaks for the
+  // other. 3d above already covers one sentence covering a pair.
+  const keeper = await ActorImpl.create({ name: "ZZ Renamer", type: "character" });
+  const made = await grantContainers(keeper, [
+    { name: "Cart", slots: 4, grantSource: "background", grantNote: "ZZ A serviceable cart." },
+    { name: "Mule", slots: 4, grantSource: "background", grantNote: "ZZ A stubborn mule." },
+  ]);
+  const cart = made.find((a) => a.name === "Cart");
+  const mule = made.find((a) => a.name === "Mule");
+  r.stamped = made.every((a) => /^[a-zA-Z0-9]{16}$/.test(String(a.getFlag("air-bladder", "grantNoteId") ?? "")));
+  r.distinct = new Set(made.map((a) => a.getFlag("air-bladder", "grantNoteId"))).size;
+  r.ledger = (keeper.getFlag("air-bladder", "grantNotes") ?? []).length;
+
+  await cart.update({ name: "ZZ Bessie" });   // an ordinary rename, the player's to make
+  await mule.delete();                        // ...and an unrelated deletion, which prunes
+
+  const after = keeper.system.notes ?? "";
+  r.cartAlive = !!game.actors.get(cart.id);
+  r.keptCart = after.includes("ZZ A serviceable cart.");
+  r.droppedMule = !after.includes("ZZ A stubborn mule.");
+  r.ledgerAfter = (keeper.getFlag("air-bladder", "grantNotes") ?? []).length;
+  r.after = after;
+
+  // The mirror image: two things SHARING a name under one source. A live "Ox"
+  // answers a name match for both records, so under names neither line is ever
+  // pruned and the dead one's bullet outlives it.
+  const twin = await ActorImpl.create({ name: "ZZ Twins", type: "character" });
+  const oxen = await grantContainers(twin, [
+    { name: "Ox", slots: 4, grantSource: "background", grantNote: "ZZ The near ox." },
+    { name: "Ox", slots: 4, grantSource: "background", grantNote: "ZZ The off ox." },
+  ]);
+  r.twinLedger = (twin.getFlag("air-bladder", "grantNotes") ?? []).length;
+  // WHICH ox is deleted is deliberately not asserted — a batched create returns
+  // its documents in id order, so picking "the first" picks a coin flip.
+  await oxen[0].delete();
+  r.twinBullets = ((twin.system.notes ?? "").match(/<li>/g) ?? []).length;
+  r.twinLedgerAfter = (twin.getFlag("air-bladder", "grantNotes") ?? []).length;
+  r.twinAfter = twin.system.notes ?? "";
+
+  r.keeperId = keeper.id;
+  r.twinId = twin.id;
+  r.leftIds = [cart.id, ...oxen.map((a) => a.id)];
+  return r;
+});
+check("every granted thing is stamped with its record", renamed.stamped && renamed.distinct === 2,
+  `stamped=${renamed.stamped} distinct ids=${renamed.distinct} of 2 — the join is the id, so a grant that `
+  + "arrives without one has a line nothing can ever take back");
+check("renaming a grant does not orphan its line", renamed.keptCart && renamed.cartAlive,
+  `cart alive=${renamed.cartAlive} notes=${JSON.stringify(renamed.after)} — "Cart" became "ZZ Bessie", which `
+  + "is the player's to do; under the name match her line vanished when the mule beside her died");
+check("...while the sibling's deletion still takes the sibling's",
+  renamed.droppedMule && renamed.ledgerAfter === 1 && renamed.ledger === 2,
+  `ledger ${renamed.ledger} -> ${renamed.ledgerAfter} notes=${JSON.stringify(renamed.after)}`);
+check("two things sharing a name are not each other",
+  renamed.twinLedger === 2 && renamed.twinBullets === 1 && renamed.twinLedgerAfter === 1,
+  `ledger ${renamed.twinLedger} -> ${renamed.twinLedgerAfter} bullets=${renamed.twinBullets} `
+  + `notes=${JSON.stringify(renamed.twinAfter)} — a surviving "Ox" answered for the dead one under names`);
+
+/* ---------------------------------------------------------------------------
  * 4. The player path: Alice's grant goes through the broker (players lack
  *    ACTOR_CREATE) and GRANTABLE_ROLES must speak the new role — reverted to
  *    "mount", the payload falls back to class derivation and the clamp hands
@@ -474,6 +543,7 @@ await page.evaluate(async ({ ids, grantIds, ravenId, rerollIds }) => {
     stock.keeperId, ...(stock.cartIds ?? []),
     pair.keeperId, ...(pair.madeIds ?? []),
     gone.keeperId,
+    renamed.keeperId, renamed.twinId, ...(renamed.leftIds ?? []),
   ],
 });
 

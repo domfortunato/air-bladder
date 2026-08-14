@@ -19,6 +19,7 @@ import { registerWardenDamageControl } from "./warden-damage.js";
 import { registerSettings, SETTINGS_NS, migrateSettingsNamespace } from "./settings.js";
 import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS, deriveNpcRole } from "./data-models.js";
 import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNERSHIP_SYNC_FLAG } from "./connections.js";
+import { GRANT_NOTE_ID } from "./grant-notes.js";
 import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName } from "./i18n-content.js";
 import { injectEncounterButton } from "./encounters.js";
 import { bindGrimoireFatigueButton } from "./grimoire.js";
@@ -464,8 +465,22 @@ async function handleGrantActors(msg, senderId) {
           }])),
       } : {}),
     },
-    // Only the one flag generation uses to find its own grants later.
-    flags: { [FLAG_SCOPE]: { grantSource: String(p?.flags?.[FLAG_SCOPE]?.grantSource ?? "background") } },
+    // Only the two flags generation uses to find its own grants later: which
+    // roll granted this, and which line on the keeper's notes speaks for it.
+    // The note id must survive the wire — the player wrote that line on their
+    // own client a moment ago, and a beast that arrives without the stamp has a
+    // bullet on the sheet that nothing can ever take back. Shape-checked rather
+    // than trusted: a crafted value cannot delete a line (removal only ever
+    // drops records nothing claims), but it could keep a dead one alive, and an
+    // id is a known 16-character shape so there is no reason to accept another.
+    flags: {
+      [FLAG_SCOPE]: {
+        grantSource: String(p?.flags?.[FLAG_SCOPE]?.grantSource ?? "background"),
+        ...(/^[a-zA-Z0-9]{16}$/.test(String(p?.flags?.[FLAG_SCOPE]?.[GRANT_NOTE_ID] ?? ""))
+          ? { [GRANT_NOTE_ID]: String(p.flags[FLAG_SCOPE][GRANT_NOTE_ID]) }
+          : {}),
+      },
+    },
   })).filter((p) => p.name);
   if (!clean.length) return;
 
