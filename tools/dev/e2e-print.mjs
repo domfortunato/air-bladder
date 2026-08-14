@@ -145,8 +145,10 @@ const r = await page.evaluate(async ({ xssName }) => {
     system: { role: "container", connectedTo: pc.uuid, slots: 4, generationEnabled: false },
   });
   await sack.createEmbeddedDocuments("Item", [{ name: "ZZ Sack Item", type: "item" }]);
-  // A 0-slot companion: its stat line and description belong to the
-  // Connections section, and it must NOT print as an empty inventory heading.
+  // A 0-slot companion carrying nothing. It used to be the Connections
+  // section's job to carry its stat line and prose; with that section gone
+  // (2026-08-13) it must print NOWHERE — and in particular must still not
+  // print as an empty inventory heading, which was the original defect.
   const falcon = await ActorImpl.create({
     name: "ZZ Print Falcon", type: "npc",
     system: {
@@ -330,19 +332,27 @@ const r = await page.evaluate(async ({ xssName }) => {
   out.bandLeft = [...(doc?.querySelectorAll(".band .col-main h2") ?? [])].map((h) => h.textContent.trim());
   out.bandRight = [...(doc?.querySelectorAll(".band .col-side h2") ?? [])].map((h) => h.textContent.trim());
   out.bandLeftWanted = ["CAIRN.PrintStats", "CAIRN.Items"].map((k) => game.i18n.localize(k));
-  out.bandRightWanted = ["CAIRN.Traits", "CAIRN.Background", "CAIRN.Connections"].map((k) => game.i18n.localize(k));
+  out.bandRightWanted = ["CAIRN.Traits", "CAIRN.Background"].map((k) => game.i18n.localize(k));
   out.bandIsGrid = doc ? popup.getComputedStyle(doc.querySelector(".band")).display : null;
   out.qOutsideBand = !doc?.querySelector(".band p.q")
     && h2s.includes(game.i18n.localize("CAIRN.PrintQuestions"));
-  out.connHeader = h2s.includes(game.i18n.localize("CAIRN.Connections"));
-  const connRows = [...(doc?.querySelectorAll("li.conn") ?? [])];
-  const falconRow = connRows.find((li) => li.textContent.includes("ZZ Print Falcon"));
-  const sackRow = connRows.find((li) => li.textContent.includes("ZZ Print Sack"));
-  out.falconConn = !!falconRow && /DEX 16/.test(falconRow.querySelector(".conn-stats")?.textContent ?? "")
-    && falconRow.textContent.includes("ZZ COMPANION MARKER");
-  out.sackConnLine = !!sackRow && !sackRow.querySelector(".conn-stats");
-  out.falconNotInventory = ![...(doc?.querySelectorAll(".inv-head") ?? [])]
-    .some((h) => h.textContent.includes("ZZ Print Falcon"));
+  // Connections was a right-column section until 2026-08-13 and is now gone by
+  // ruling. Asserted WITH both a companion and a container connected — this is
+  // the pass where they exist, so "no heading" is a real absence and not the
+  // vacuous truth pass 2 would give.
+  out.connHeaderGone = !h2s.includes(game.i18n.localize("CAIRN.Connections"))
+    && !doc?.querySelector("li.conn");
+  // The falcon has 0 slots and carries nothing, so with Connections gone it has
+  // no place on the page at all: no stat line, no description, and — the older
+  // defect — no bare inventory heading either.
+  out.falconAbsent = !doc?.querySelector(".inv-head, .conn")
+    || ![...(doc?.querySelectorAll(".inv-head, li.conn") ?? [])]
+      .some((h) => h.textContent.includes("ZZ Print Falcon"));
+  out.falconProseGone = !body.includes("ZZ COMPANION MARKER");
+  // The sack DOES still print — as its own inventory section, which is what
+  // Connections was redundant against.
+  out.sackInventory = [...(doc?.querySelectorAll(".inv-head") ?? [])]
+    .some((h) => h.textContent.includes("ZZ Print Sack"));
   const credits = doc?.querySelector("footer.credits");
   out.creditsText = credits?.textContent ?? "";
   out.creditsSmall = credits ? parseFloat(popup.getComputedStyle(credits).fontSize) : null;
@@ -428,8 +438,11 @@ const r = await page.evaluate(async ({ xssName }) => {
   // OMITTED rule as everything else. Both readings, heading and section.
   out.emptyNotesGone = !h2s2.includes(game.i18n.localize("CAIRN.Notes"))
     && !doc2?.querySelector("section.notes-section");
-  out.connectionsGone = !h2s2.includes(game.i18n.localize("CAIRN.Connections"))
-    && !body2.includes("ZZ Print Sack");
+  // Breaking the links takes the sack's inventory section with them. (This once
+  // also asserted the Connections heading was gone; that section no longer
+  // exists in either pass, and the assertion that means something now runs in
+  // pass 1, where connections are PRESENT.)
+  out.connectionsGone = !body2.includes("ZZ Print Sack");
   const fcLine = doc2?.querySelector("header.pc .failed-career");
   out.careerPass2 = !!fcLine && fcLine.textContent.includes("ZZ CAREER MARKER")
     && fcLine.textContent.includes(game.i18n.localize("CAIRN.PrintFailedCareer"));
@@ -711,12 +724,14 @@ check("KW's two-column band", JSON.stringify(r.bandLeft) === JSON.stringify(r.ba
   `left=${JSON.stringify(r.bandLeft)} right=${JSON.stringify(r.bandRight)} display=${r.bandIsGrid}`);
 check("Q&A full-width BELOW the band", r.qOutsideBand === true,
   "under its own Questions heading — never inside a half-width column");
-check("a companion prints in Connections", r.connHeader && r.falconConn,
-  `header=${r.connHeader} falcon=${r.falconConn} — stat line (DEX 16) and its description prose`);
-check("a thing gets the line only", r.sackConnLine,
-  "the sack's contents are an inventory section; Connections adds no stat line for a container");
-check("no empty inventory heading for the falcon", r.falconNotInventory,
-  "a 0-slot companion carrying nothing lives in Connections, not as a bare inv-head");
+check("NO Connections section, with connections present", r.connHeaderGone,
+  "removed 2026-08-13 by ruling — a companion and a container are both connected in this pass, "
+  + "so an absent heading is a real absence, not pass 2's vacuous one");
+check("a 0-slot companion carrying nothing prints nowhere", r.falconAbsent && r.falconProseGone,
+  `absent=${r.falconAbsent} prose-gone=${r.falconProseGone} — no stat line, no description, `
+  + "and no bare inv-head either (the older defect)");
+check("a connected container still prints its inventory", r.sackInventory,
+  "Connections was redundant against this section, not a replacement for it");
 check("credits match the art ON the page", /Yochai Gal/.test(r.creditsText)
   && /Aspeheim/.test(r.creditsText) && !/Tlomdev/.test(r.creditsText)
   && r.creditsSmall !== null && r.creditsSmall < 10,
@@ -735,8 +750,8 @@ check("Notes takes the MIN-ROOM rule (PC only)",
   && r.notesMinHeight > 70 && r.notesMinHeight < 110
   && r.npcNotesBreak !== "page" && !(r.npcNotesMinHeight > 60),
   `pc break-inside=${r.notesBreakInside} min=${r.notesMinHeight}px npc min=${r.npcNotesMinHeight} — heading + two lines (~2.2cm) on the current page, a fresh page only when less remains (two-line ruling 2026-08-11); a monster stays a one-pager`);
-check("no connections, no Connections section", r.connectionsGone,
-  "the section exists only when connections do");
+check("breaking a link removes its inventory section", r.connectionsGone,
+  "the sack's section exists only while the sack is connected");
 check("failed career: Barebones only, labelled", r.careerPass1 && r.careerPass2,
   `2e-hidden=${r.careerPass1} barebones-shown=${r.careerPass2} — "Failed Career:" below the background, setting read shadowed in-page`);
 

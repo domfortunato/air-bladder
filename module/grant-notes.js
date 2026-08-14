@@ -73,9 +73,25 @@ export const grantLines = (entries) => {
     said ? ` — ${esc(said)}` : "",
   ].join("");
 
+  // A grant whose prose the sheet ALREADY shows writes no line (user ruling,
+  // 2026-08-13). This is an identity in the code, not a text comparison:
+  // `applyChoiceTables` stores `answer: opt.description` and hands the container
+  // spec `grantNote: opt.description` — the same string — so a question-sourced
+  // note is a verbatim second copy of what prints under QUESTIONS, and a bond's
+  // is of what prints under BONDS. On Talon's sheet it was a THIRD copy.
+  //
+  // The two sources that survive are the ones with nowhere else to be said:
+  // `background` (Mountebank's cart states nothing of its own, so the line
+  // carries the compendium's stock description) and `failed-career`. And a
+  // question option that grants a beast while saying NOTHING about it also keeps
+  // its line, because that line then carries stock prose the sheet never shows.
+  const saidElsewhere = (e) =>
+    !!String(e.prose ?? "").trim() && /^(question:|bond:)/.test(String(e.source ?? ""));
+
   const groups = new Map();
   const out = [];
   for (const e of entries) {
+    if (saidElsewhere(e)) continue;
     const prose = String(e.prose ?? "").trim();
     if (!prose) {
       out.push({

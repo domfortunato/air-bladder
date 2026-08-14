@@ -3,8 +3,8 @@
   The printable character sheet — one standalone page, modelled on
   Kettlewright's /print/ layout (user-supplied example, 2026-08-08): header,
   then KW's two-column band — Stats and Inventory (Main + one section per
-  connected holder) on the left; Traits, the background's description and
-  Connections on the right — then full-width: the background's Q&A as
+  connected holder) on the left; Traits and the background's description on
+  the right — then full-width: the background's Q&A as
   separate paragraphs (KW smushes them into one blob, ruled against
   2026-08-08), Description, Bonds, Omen, Scars, Notes, and a
   small-type credits footer. Empty sections are OMITTED
@@ -21,9 +21,8 @@
   src the action makes absolute.
 
   Every text field renders through {{ }} (escaped). Only the enriched HTML
-  fields (description, notes, the background description and each connection's
-  description) use triple-stash — all are server-sanitized (htmlFields) and
-  enriched by the action.
+  fields (description, notes and the background description) use triple-stash —
+  all are server-sanitized (htmlFields) and enriched by the action.
 --}}
 <html lang="{{ lang }}">
 <head>
@@ -83,8 +82,6 @@
   header.pc .failed-career .fc-label { font-style: italic; }
   p.q { margin-top: 0.55rem; }
   p.qa { margin-bottom: 0.35rem; }
-  li.conn { margin-bottom: 0.5rem; }
-  .conn-stats { font-style: italic; color: #333; }
   /* Content links print as plain text — an anchor is useless on paper. */
   a { color: inherit; text-decoration: none; }
   .prose p { margin-bottom: 0.5rem; }
@@ -103,7 +100,7 @@
   body.pc-print section.notes-section { break-inside: avoid; min-height: 2.2cm; }
   /* Pagination policy (user rulings 2026-08-10): an ENTRY prints whole or
      moves whole to the next page — an inventory row, a bond, a scar, a
-     connection, a question WITH its answer — and a heading never strands
+     question WITH its answer — and a heading never strands
      alone at a page bottom. The white-space cost of an atomic move is
      bounded by the entry's own height, never a near-empty page. */
   ul.inv li, ul.plain li, .qa-pair { break-inside: avoid; }
@@ -231,19 +228,11 @@
 </section>
 {{/if}}
 
-{{#if connections.length}}
-<section>
-  <h2>{{ localize "CAIRN.Connections" }}</h2>
-  <ul class="plain">
-    {{#each connections}}
-    <li class="conn"><b>{{ name }}</b> — {{ role }}
-      {{#if stats}}<div class="conn-stats">{{ stats }}</div>{{/if}}
-      {{#if desc}}<div class="prose">{{{ desc }}}</div>{{/if}}
-    </li>
-    {{/each}}
-  </ul>
-</section>
-{{/if}}
+{{!-- No Connections section: REMOVED 2026-08-13 by user ruling. Every connected
+      actor was already printed twice over — the question or bond that granted it
+      states what it is under its own heading, and anything it carries prints as
+      its own inventory section above. A third copy of the same prose is what the
+      Talon sheet showed. --}}
 </div>
 {{/if}}
 </div>

@@ -5,7 +5,7 @@ import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, formatCount
 import { resultText } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES } from "../icons.js";
-import { NPC_ROLES, THING_ROLES } from "../data-models.js";
+import { NPC_ROLES } from "../data-models.js";
 import { atConnectionLimit, maxConnections, connectionsUiEnabled, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
 import { actorDisplayName, localizeNameDesc, sourceOf, t } from "../i18n-content.js";
 import { FATIGUE_NAME } from "../item/item.js";
@@ -2082,27 +2082,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         answer: t("bg.optionDesc", q.answer ?? ""),
       }));
 
-    // Connections as their own section (user addition 2026-08-08): every
-    // connected actor by name and role; the animate ones — companions, whose
-    // attacks and temperament live in their description — carry a stat line
-    // and that prose. Things get the name and role only: what a transport or
-    // container HOLDS is already an inventory section above.
-    const connections = [];
-    for (const c of actor.connectedActors()) {
-      const role = c.npcRole ?? c.system.role ?? "npc";
-      const thing = THING_ROLES.includes(role);
-      connections.push({
-        name: t("monster.name", c.name),
-        role: L(`CAIRN.Role${role.charAt(0).toUpperCase()}${role.slice(1)}`),
-        stats: thing ? "" : [
-          `${L("CAIRN.HitProtection")} ${c.system.hp.value}/${c.system.hp.max}`,
-          `${L("STR")} ${c.system.abilities.STR.value}`,
-          `${L("DEX")} ${c.system.abilities.DEX.value}`,
-          `${L("WIL")} ${c.system.abilities.WIL.value}`,
-        ].join(" · "),
-        desc: thing ? "" : await enrich(t("monster.desc", c.system.description ?? "")),
-      });
-    }
+    // A Connections SECTION was built here from 2026-08-08 and REMOVED
+    // 2026-08-13 (user ruling). It printed every connected actor's name, role,
+    // stat line and description — and all of that was already on the page: the
+    // question or bond that granted the beast prints its prose under its own
+    // heading, and whatever a transport or container HOLDS prints as its own
+    // inventory section above. Talon's sheet carried the horse three times over.
+    // The connected actors themselves still print their inventories (`containers`
+    // below); it is only the summary that goes.
 
     // The line under the name: a character's background (source parenthetical
     // beside it, user ruling 2026-08-08), a person's role and career, a
@@ -2172,14 +2159,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       marks: isChar ? { deprived: !!sys.deprived, panicked: !!sys.panicked } : null,
       traitsProse,
       // Kettlewright's two-column band (user rulings 2026-08-08): Stats and
-      // Items on the left; Traits, the background's description and
-      // Connections beside them. With nothing for the right column — a
-      // monster, usually — the band collapses to one column rather than
-      // printing at half width. The Q&A prints full-width below the band.
-      hasSide: !!(traitsProse || backgroundDesc || connections.length),
+      // Items on the left; Traits and the background's description beside
+      // them. With nothing for the right column — a monster, usually — the
+      // band collapses to one column rather than printing at half width. The
+      // Q&A prints full-width below the band. Connections was the third
+      // right-column section until 2026-08-13; see above.
+      hasSide: !!(traitsProse || backgroundDesc),
       backgroundDesc,
       questions,
-      connections,
       // A standalone npc page takes the same rule as the connected sections
       // below (the falcon trap): the slot fraction only where slots are
       // AUTHORED — derived slotsMax floors at the world setting — and no
