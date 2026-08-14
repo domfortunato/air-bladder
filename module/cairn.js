@@ -20,7 +20,7 @@ import { registerSettings, SETTINGS_NS, migrateSettingsNamespace } from "./setti
 import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS, deriveNpcRole } from "./data-models.js";
 import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { GRANT_NOTE_ID } from "./grant-notes.js";
-import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName } from "./i18n-content.js";
+import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName, actorDisplayName } from "./i18n-content.js";
 import { injectEncounterButton } from "./encounters.js";
 import { bindGrimoireFatigueButton } from "./grimoire.js";
 import { nameableTokens } from "./utils.js";
@@ -161,11 +161,132 @@ Hooks.once("ready", () => {
 // string stays English (module/i18n-content.js).
 Hooks.once("i18nInit", loadContentOverlay);
 
+/**
+ * Rewrite the visible `.entry-name` of every row in a directory-shaped list.
+ * `displayOf` maps one entry (a pack index record, or a world document) to what
+ * the eye should read; returning the input unchanged leaves the row alone.
+ *
+ * Shared by the compendium browser and the world sidebar because core builds
+ * both from the same partial (`templates/sidebar/partials/document-partial.hbs`:
+ * `li.directory-item[data-entry-id] > a.entry-name`). Display-only — nothing
+ * stored moves — and idempotent, since each render rebuilds the row from the
+ * collection.
+ */
+const localizeDirectoryNames = (root, collection, displayOf) => {
+  // `collection.index` for a compendium, the collection itself for a world one:
+  // a pack's DOCUMENTS are not loaded until something fetches them, so `.get()`
+  // on the pack returns nothing for a row that is merely listed. The index
+  // record carries `name`, `type` and `folder`, which is everything read here.
+  const source = collection?.index ?? collection;
+  for (const el of root?.querySelectorAll?.(".entry-name") ?? []) {
+    if (el.children.length) continue; // don't clobber an icon/child, only plain-text names
+    const entry = source?.get?.(el.closest("[data-entry-id]")?.dataset.entryId);
+    if (!entry) continue;
+    const display = displayOf(entry);
+    if (display && display !== el.textContent.trim()) el.textContent = display;
+  }
+};
+
+/**
+ * Make SEARCH match what the eye reads, for any directory whose names this
+ * system rewrote above.
+ *
+ * Core's `_matchSearchEntries` tests the query against the COLLECTION's names —
+ * never the DOM — so a rewritten list answers only to the English string that is
+ * no longer on screen: typing the Spanish empties the list (review #9, on the
+ * compendium browser; the same trap on the world sidebar as of 2026-08-14).
+ *
+ * Wrapped PER INSTANCE and ADDITIVE: core's English pass runs first and
+ * untouched, then entries whose translated name matches are added, with their
+ * folder marked matched and auto-expanded the way core's own name pass does. A
+ * query can therefore never LOSE an English match by this, so someone typing
+ * English into a Spanish world keeps both routes.
+ *
+ * Forwarding by `…args` is deliberate: `_matchSearchEntries` is @private and
+ * Foundry may change its signature in a stable release. Core keeps working
+ * verbatim through any such change, and our pass — which reads the first four
+ * positionally — is wrapped so a shape change degrades to "translated search
+ * stops matching" rather than throwing inside a render hook on every open.
+ */
+const wrapTranslatedSearch = (app, displayOf) => {
+  if (app._abSearchWrapped || typeof app._matchSearchEntries !== "function") return;
+  app._abSearchWrapped = true;
+  const coreMatch = app._matchSearchEntries.bind(app);
+  app._matchSearchEntries = (...args) => {
+    coreMatch(...args);
+    try {
+      const [query, entryIds, folderIds, autoExpandIds] = args;
+      if (!contentLocalized() || !query) return;
+      const clean = foundry.applications.ux.SearchFilter.cleanQuery;
+      const entries = app.collection.index ?? app.collection.contents;
+      for (const e of entries) {
+        const id = e._id ?? e.id;
+        if (entryIds.has(id)) continue;
+        const display = displayOf(e);
+        if (!display || display === e.name || !query.test(clean(display))) continue;
+        entryIds.add(id);
+        const fid = e.folder?.id ?? e.folder?._id ?? e.folder;
+        if (fid) {
+          folderIds.add(fid);
+          autoExpandIds.add(fid);
+        }
+      }
+    } catch (err) {
+      console.warn("Air Bladder | translated directory-search pass failed; English search is unaffected", err);
+    }
+  };
+};
+
+/**
+ * What one WORLD document's row should read.
+ *
+ * Per DOCUMENT rather than per collection, unlike the compendium browser below:
+ * a world Actor directory holds player characters, and a PC's name is NEVER
+ * localized (ruled 2026-08-04 — `actorDisplayName` is the one place that gate
+ * lives, and a PC named "Horse" is exactly what it was written for). A world
+ * Item directory mixes backgrounds with gear for the same reason.
+ *
+ * Macros return their own name unchanged: there is no macro overlay namespace,
+ * deliberately, and the extractor skips them for the same reason.
+ */
+const worldDisplayName = (doc) => {
+  switch (doc?.documentName) {
+    case "Actor": return actorDisplayName(doc);
+    case "Item": return t(doc.type === "background" ? "bg.name" : "item.name", doc.name);
+    case "RollTable": return t("table.name", doc.name);
+    case "JournalEntry": return t("journal.name", doc.name);
+    default: return doc?.name;
+  }
+};
+
+/**
+ * The WORLD sidebar (2026-08-14, review #14 finding 14 — user ruling: both this
+ * and the combat tracker translate).
+ *
+ * Until now exactly ONE `.entry-name` sweep existed in this system, on the
+ * compendium browser. So a Spanish Warden dragged a Goblin out of a pack and
+ * into the world, and from then on the sidebar said "Goblin", the sheet header
+ * said "Trasgo", the tracker said "Goblin", and the damage card beneath said
+ * "ataca a Trasgo" — one creature, one screen, two names. That is the project's
+ * own "one surface, two answers" tell, on the surfaces six overlay rounds had
+ * missed.
+ *
+ * Registered per directory rather than once, because each is a separate
+ * Application whose render hook is named after it.
+ */
+for (const dir of ["ActorDirectory", "ItemDirectory", "JournalDirectory", "RollTableDirectory"]) {
+  Hooks.on(`render${dir}`, (app, html) => {
+    if (!contentLocalized()) return;
+    localizeDirectoryNames(html, app.collection, worldDisplayName);
+    wrapTranslatedSearch(app, worldDisplayName);
+  });
+}
+
 // Compendium browser: translate the visible entry names into the active language.
 // Display-only — the pack index and documents stay English; each render rebuilds
 // names from the index, so re-translating every render is idempotent. Drag is
 // safe (it uses data-entry-id, not text); SEARCH is not, which is why the
-// matcher wrap below exists — see its comment.
+// matcher wrap exists — see wrapTranslatedSearch above.
 Hooks.on("renderCompendium", (app, html) => {
   if (!contentLocalized()) return;
   const meta = app.collection?.metadata;
@@ -184,60 +305,12 @@ Hooks.on("renderCompendium", (app, html) => {
     (meta?.name ?? "").startsWith("backgrounds") ? "bg.name" :
     "item.name";
   if (ns === null) return;
-  // v14 render hooks pass the raw HTMLElement — no jQuery ever arrives here.
-  const root = html;
-  root?.querySelectorAll?.(".entry-name").forEach((el) => {
-    if (el.children.length) return; // don't clobber an icon/child, only plain-text names
-    const en = el.textContent.trim();
-    const es = t(ns, en);
-    if (es !== en) el.textContent = es;
-  });
-
-  // Search must match what the eye reads. Core's _matchSearchEntries tests the
-  // query against `collection.index` names — never the DOM — so with the rows
-  // above rewritten to Spanish, typing the Spanish emptied the list and the
-  // only working query was the English string no longer on screen (review #9;
-  // the comment above used to claim names were "only match keys internally",
-  // which was true of drag and false of search). Wrap the matcher PER
-  // INSTANCE: core's English pass runs first and untouched, then entries
-  // whose TRANSLATED name matches are added, with their folder marked matched
-  // and auto-expanded the way core's own name pass does. Additive only — a
-  // query can never lose an English match by this, so an English-typing
-  // Spanish user keeps both routes.
-  if (!app._abSearchWrapped && typeof app._matchSearchEntries === "function") {
-    app._abSearchWrapped = true;
-    const coreMatch = app._matchSearchEntries.bind(app);
-    // Forward WHATEVER core passes (…args): `_matchSearchEntries` is @private
-    // (leading underscore) and Foundry may change its signature without notice,
-    // even in a stable release. Forwarding by spread keeps core's own English
-    // search working verbatim through any such change; our additive
-    // translated-name pass reads the first four args positionally and is wrapped
-    // so a shape change degrades to "translated search stops matching" — the same
-    // symptom as the pre-review-#9 bug — rather than throwing inside a render hook
-    // on every compendium open.
-    app._matchSearchEntries = (...args) => {
-      coreMatch(...args);
-      try {
-        const [query, entryIds, folderIds, autoExpandIds] = args;
-        if (!contentLocalized() || !query) return;
-        const clean = foundry.applications.ux.SearchFilter.cleanQuery;
-        const entries = app.collection.index ?? app.collection.contents;
-        for (const e of entries) {
-          if (entryIds.has(e._id)) continue;
-          const display = translationOf(ns, e.name ?? "");
-          if (display === undefined || !query.test(clean(display))) continue;
-          entryIds.add(e._id);
-          const fid = e.folder?._id ?? e.folder;
-          if (fid) {
-            folderIds.add(fid);
-            autoExpandIds.add(fid);
-          }
-        }
-      } catch (err) {
-        console.warn("Air Bladder | translated compendium-search pass failed; English search is unaffected", err);
-      }
-    };
-  }
+  // A pack is single-type, so the namespace is a property of the PACK here —
+  // unlike the world sidebar above, which must decide per document because its
+  // Actor list mixes player characters (never localized) with everything else.
+  const displayOf = (e) => t(ns, e.name ?? "");
+  localizeDirectoryNames(html, app.collection, displayOf);
+  wrapTranslatedSearch(app, displayOf);
 });
 
 // Table draws to chat: localize the drawn result text into the active language.

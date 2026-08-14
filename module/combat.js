@@ -46,6 +46,8 @@
  *    label, with the DEX it was tested against stated nowhere.
  */
 
+import { t } from "./i18n-content.js";
+
 /**
  * Who makes the DEX save — i.e. who acts with the party (user ruling
  * 2026-08-08): every character-type actor, REGARDLESS of its token's
@@ -233,6 +235,21 @@ export class CairnCombatTracker extends foundry.applications.sidebar.tabs.Combat
   /** @override */
   async _prepareTurnContext(combat, combatant, index) {
     const turn = await super._prepareTurnContext(combat, combatant, index);
+    if (turn.name && combatant.actor?.type !== "character") {
+      turn.name = t("monster.name", turn.name);
+    }
+    // The tracker reads the same name the damage card beneath it reads
+    // (2026-08-14, review #14 finding 14 — user ruling). Without this the
+    // tracker said "Goblin" while the card said "ataca a Trasgo", same token,
+    // same screen. Translated in the CONTEXT rather than swept out of the DOM,
+    // because core already hands the name here and a rendered row is the wrong
+    // layer to be re-reading.
+    //
+    // The character gate is the settled 2026-08-04 ruling: a PC's name is
+    // player-authored and never localized. A combatant whose name the Warden
+    // typed ("Goblin A") simply misses the overlay and `t` hands it straight
+    // back, so only the gate needs stating.
+
     // The bucket is read off the STORED initiative, not re-derived from the
     // side predicate: a value rolled before this build, or hand-set, still
     // lands in a section instead of nowhere.

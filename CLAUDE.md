@@ -201,6 +201,20 @@ against the reason, not against the fact.
   STRING (`lang/content/<lang>.json`, `module/i18n-content.js`), not on ids.
   Consequence that bites: **editing an English description orphans its
   translation.** Weigh that before "fixing" pack prose.
+  **Every list of names a user reads must go through it, or the same token wears
+  two names on one screen** (2026-08-14 ruling, review #14 finding 14). For six
+  rounds exactly ONE `.entry-name` sweep existed — the compendium browser — so a
+  Goblin dragged into the world had an English sidebar row, a Spanish sheet
+  header, an English tracker row and a Spanish damage card. World directories
+  and the combat tracker are covered now (`localizeDirectoryNames` /
+  `worldDisplayName` in `cairn.js`, `_prepareTurnContext` in `combat.js`), and
+  two rules travel with any new surface: **rewriting names breaks SEARCH** —
+  core matches the query against the COLLECTION, never the DOM, so typing the
+  Spanish empties the list unless `wrapTranslatedSearch` is applied too — and a
+  WORLD list needs a per-DOCUMENT namespace, not a per-collection one, because
+  its Actor list holds player characters (**never localized**, the 2026-08-04
+  gate) and its Item list mixes backgrounds with gear. Gate:
+  `npm run dev:directory-i18n`.
 - **Pack YAML in `src/packs/` is the source of truth**; `packs/` is generated
   LevelDB, gitignored. Never edit `packs/`. `npm run build:packs` fails while
   Foundry has the world open (LevelDB EPERM) — stop the server first.
@@ -449,7 +463,7 @@ What belongs here is what those two files do not say:
 
 ## Testing
 
-**`docs/release-testing.md` is the full list — 95 probes (`check:probes` states
+**`docs/release-testing.md` is the full list — 96 probes (`check:probes` states
 the current count), what each covers, and what to run before tagging vs after
 publishing. Keep it in step with `package.json`; a probe not listed there runs
 only when someone remembers it.**

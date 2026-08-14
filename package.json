@@ -61,6 +61,7 @@
     "dev:sanitize": "node tools/dev/e2e-sanitize.mjs",
     "dev:i18n-render": "node tools/dev/e2e-i18n-render.mjs",
     "dev:journal-i18n": "node tools/dev/e2e-journal-i18n.mjs",
+    "dev:directory-i18n": "node tools/dev/e2e-directory-i18n.mjs",
     "dev:i18n-load": "node tools/dev/e2e-i18n-load.mjs",
     "dev:compendium": "node tools/dev/e2e-compendium-lookup.mjs",
     "check:probes": "node tools/dev/probe-wiring-check.mjs",
