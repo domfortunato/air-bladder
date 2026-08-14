@@ -257,9 +257,10 @@
                           re-render to detach the element mid-activation and
                           ProseMirrorMenu.render then throws on a null node.
                           The empty-state hint is a REAL element in the display half, not
-                          `data-placeholder`: that mechanism anchors its ::before to
-                          .editor-container, which a toggled editor only grows on
-                          activation. Gated by `npm run dev:notes-editor`. --}}
+                          a ::before on .editor-container: a toggled editor only grows
+                          that container on activation, so a hint anchored to it appears
+                          after the click it exists to prompt.
+                          Gated by `npm run dev:notes-editor`. --}}
                     <prose-mirror name="system.notes" value="{{system.notes}}" toggled collaborate relative
                         data-document-uuid="{{actor.uuid}}">{{#if system.notes}}{{{enrichedNotes}}}{{else}}<p class="cairn-editor-placeholder">{{ localize 'CAIRN.NotesPlaceholder' }}</p>{{/if}}</prose-mirror>
                 </div>

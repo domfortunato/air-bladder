@@ -70,8 +70,16 @@ Hooks.once("init", async function () {
   // is baked into the `core.sheetClasses` setting of every existing world as
   // `cairn.CairnActorSheet`, so changing it silently resets any sheet a Warden
   // chose by hand.
-  foundry.documents.collections.Actors.registerSheet("cairn", CairnActorSheet, { makeDefault: true });
-  foundry.documents.collections.Items.registerSheet("cairn", CairnItemSheet, { makeDefault: true });
+  //
+  // `label` is what Configure Sheet shows in its dropdown. Without one, core
+  // falls back to `<scope>.<class name>` (document-sheet-config.mjs) and the
+  // Warden picking a sheet reads "cairn.CairnActorSheet" — the deliberately
+  // frozen scope above, spelled out at them. The system NAME, not a localized
+  // key: it is a proper noun, identical in every language, and one dropdown row
+  // per document type needs nothing more to be unambiguous.
+  const label = "Air Bladder";
+  foundry.documents.collections.Actors.registerSheet("cairn", CairnActorSheet, { makeDefault: true, label });
+  foundry.documents.collections.Items.registerSheet("cairn", CairnItemSheet, { makeDefault: true, label });
 
   registerSettings();
   configureHandleBar();
@@ -1065,9 +1073,11 @@ const migrateArtPaths = async () => {
  *
  * Carried across: the name (with the prefix stripped, since the inventory row adds
  * it back at display time), the spell text, cost, quantity, whether the use was
- * already spent, `sort` (so drag-ordered inventories keep their order) and ALL
- * flags — `flags.air-bladder.grantSource` is how a bond or question re-roll finds
- * the items it granted, so dropping it would orphan them.
+ * already spent, `sort` (so drag-ordered inventories keep their order), `folder`
+ * and `ownership` (a world scroll stays where the Warden filed it and stays
+ * visible to whoever could already see it) and ALL flags —
+ * `flags.air-bladder.grantSource` is how a bond or question re-roll finds the
+ * items it granted, so dropping it would orphan them.
  *
  * Idempotent: a converted scroll is no longer `type: "item"`, so a re-run matches
  * nothing.
@@ -1098,6 +1108,16 @@ const asFlaggedScroll = (old) => {
     type: "spellbook",
     img: o.img,                       // already the scroll art, or a Warden's own
     sort: o.sort ?? 0,
+    // Where it LIVES and who may see it, both of which are on the Item schema
+    // (common/documents/item.mjs:55,57) and were both being dropped. A world
+    // scroll filed under "Scrolls" came back at the sidebar root — `sort` was
+    // preserved, so it kept its position within a folder it was no longer in —
+    // and a scroll a Warden had shared with one player came back at the pack
+    // default. Embedded items ignore their own ownership (item.mjs:94) so this
+    // is inert for a character's scrolls and load-bearing for world ones; both
+    // are handled by the same `convert` below, so both must be carried.
+    ...(o.folder ? { folder: o.folder } : {}),
+    ...(o.ownership ? { ownership: o.ownership } : {}),
     flags: o.flags ?? {},
     system: {
       description: o.system?.description ?? "",

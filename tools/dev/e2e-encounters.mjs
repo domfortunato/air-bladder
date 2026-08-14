@@ -36,6 +36,10 @@
  *   8. With canvas.scene shadowed to null IN-PAGE (a define/restore, never a
  *      world write), the spawn refuses before rolling: no quantity-roll
  *      message, no stamp.
+ *   9. Row 6 carries TWO results on one number — the only shape that puts more
+ *      than one spec on a button — and the button joins them through
+ *      Intl.ListFormat, not a hardcoded ", " that would stay English in every
+ *      language. Read, never clicked.
  *
  * Everything planted is swept from Node, names and ids printed. The
  * "Encounters" folder is deleted only when THIS run created it.
@@ -107,13 +111,18 @@ try {
     await scene.view();
 
     const table = await RollTable.create({
-      name: "ZZ Encounter Table", formula: "1d5", replacement: true, displayRoll: true,
+      name: "ZZ Encounter Table", formula: "1d6", replacement: true, displayRoll: true,
       results: [
         { type: "text", description: `3 @UUID[${GOBLIN_UUID}]{Goblins} prowl the hall.`, range: [1, 1], weight: 1 },
         { type: "text", description: `1d6 @UUID[${OGRE_UUID}]{Ogres} argue over bones.`, range: [2, 2], weight: 1 },
         { type: "text", description: "All quiet — nothing stirs.", range: [3, 3], weight: 1 },
         { type: "text", description: "1 random NPC wanders through, lost.", range: [4, 4], weight: 1 },
         { type: "text", description: `2 @UUID[Actor.${hostile.id}]{Bandits} block the way.`, range: [5, 5], weight: 1 },
+        // TWO rows on one number, which a Warden's table is free to have — and
+        // the only shape that puts more than one spec on a button, where the
+        // list SEPARATOR becomes visible. Row 6 is read, never clicked.
+        { type: "text", description: `2 @UUID[${GOBLIN_UUID}]{Goblins} skulk in the dark.`, range: [6, 6], weight: 1 },
+        { type: "text", description: `1 @UUID[${OGRE_UUID}]{Ogre} waits behind them.`, range: [6, 6], weight: 1 },
       ],
     });
     out.tableId = table.id;
@@ -365,6 +374,20 @@ try {
   noScene.returned === null && !noScene.stamped && noScene.messagesAdded === 0
     ? ok("no viewed scene: refused before anything rolls", "no quantity message, no stamp")
     : fail("no viewed scene: refused before anything rolls", JSON.stringify(noScene));
+
+  /* ------------------------------- 9. two specs, and a LOCALIZED join ------ */
+  // The button's label is a translated sentence with a list inside it. A
+  // hardcoded ", " leaves that one fragment in English no matter the client's
+  // language — the same "one surface, two answers" tell the overlay rounds
+  // chase. Read only: this row is never clicked, so nothing is placed.
+  const pairMsg = await draw(6);
+  const pairBtn = await buttonState(gm, pairMsg);
+  const wantJoin = await gm.evaluate(() =>
+    game.i18n.getListFormatter().format(["2 × Goblins", "1 × Ogre"]));
+  pairBtn?.text?.includes(wantJoin)
+    ? ok("two rows on one number join through Intl.ListFormat", `"${wantJoin}"`)
+    : fail("two rows on one number join through Intl.ListFormat",
+        `button read "${pairBtn?.text}", wanted it to contain "${wantJoin}"`);
 
   /* ------------------------------------------------------- console errors -- */
   const gmErrs = gmErrors.filter((e) => !/ZZ Enc/.test(e));

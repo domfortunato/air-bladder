@@ -379,9 +379,10 @@
                           child is display-only, here enriched but NOT translated
                           (notes are the Warden's own prose, no content namespace).
                           The empty-state hint is a real element IN the display half,
-                          not data-placeholder: that mechanism anchors ::before to
-                          .editor-container, which a toggled editor only grows on
-                          activation. `collaborate` is safe here ONLY because of
+                          not a ::before on .editor-container: a toggled editor only
+                          grows that container on activation, so a hint anchored to
+                          it appears after the click it exists to prompt.
+                          `collaborate` is safe here ONLY because of
                           `toggled` — the measured race lives on always-active +
                           collaborate. The character sheet's Notes editor took
                           the same shape later the same day. --}}

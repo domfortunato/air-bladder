@@ -933,9 +933,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
           this.actor.system.notes,
           { relativeTo: this.actor },
         ));
-      // The Notes empty-state hint lives in the display half now — the
-      // data-placeholder mechanism anchors ::before to .editor-container,
-      // which a toggled editor only grows on activation. Monster wording on
+      // The Notes empty-state hint lives in the display half now — a ::before
+      // anchored to .editor-container is no use, because a toggled editor only
+      // grows that container on activation. Monster wording on
       // a monster via a DISTINCT key, not a _wording() variant: that helper
       // keys on type (a monster is type npc) and its has() lookup carries the
       // documented un-translation hazard (#onRollActor's precedent).
@@ -1104,6 +1104,31 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (!name || name === this.actor.name) return super.title;
     const prefix = CONFIG.Actor.typeLabels[this.actor.type] ?? "";
     return `${game.i18n.localize(prefix)}: ${name}`;
+  }
+
+  /**
+   * Repaint the window title when the ROLE changes, not only the name.
+   *
+   * Core refreshes the title on exactly one condition — the update diff carries
+   * `name` (`api/document-sheet.mjs:163-166`) — which is right for a title that
+   * is the document's name and wrong for the one above, where the leading word
+   * is derived from `npcRole`. Re-typing a person into a monster under an open
+   * sheet left "NPC: Bessie" in the title bar while the Role select, the frame
+   * buttons and the sheet body all said monster, and it stayed wrong until the
+   * sheet was closed and reopened.
+   *
+   * This is the title half of what `#syncGenerationButtons` already does for
+   * the frame BUTTONS, written for this same scenario: the frame is built once
+   * and the content many times, so anything derived on the frame is re-applied
+   * per render. Characters are skipped because their title never leaves
+   * `super.title`, so there is nothing to keep in step.
+   * @inheritDoc
+   */
+  _configureRenderOptions(options) {
+    super._configureRenderOptions(options);
+    if (this.hasFrame && options.renderContext && this.actor.type !== "character") {
+      options.window = Object.assign(options.window ?? {}, { title: this.title });
+    }
   }
 
   /**
@@ -1438,14 +1463,19 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       game.settings.get(SETTINGS_NS, "show-grant-tags") && this.actor.type === "character"
     );
 
-    if (!this.isEditable) return;
-
     const on = (selector, type, handler) =>
       el.querySelectorAll(selector).forEach((node) => node.addEventListener(type, handler));
 
     // Double-click to open an item's own sheet, on the same title that
-    // single-clicks to expand its description.
+    // single-clicks to expand its description. ABOVE the isEditable wall on
+    // purpose, and for the reason written on the `itemEdit` action: opening an
+    // item's sheet is a READ, and that sheet enforces its own edit permission.
+    // The pencil and this double-click are the same affordance on the same row,
+    // so gating one and not the other gave one read two answers — and the
+    // silent half was the one nothing tells you about.
     on(".cairn-item-title", "dblclick", (ev) => this._openItemSheet(ev.currentTarget));
+
+    if (!this.isEditable) return;
 
     // Double-click the Items tab label to set this character's equipment limit,
     // when the Warden has enabled per-character limits.
@@ -1559,27 +1589,6 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       const scars = [...el.querySelectorAll(".scar-check:checked")].map((o) => o.value);
       await this.actor.update({ "system.scars": scars }, { render: false });
     });
-
-    // Placeholder prompt in an empty editor. ProseMirror has no placeholder of
-    // its own, and an "empty" document is `<p><br></p>`, so :empty never
-    // matches — the state is carried on a data attribute instead and kept in
-    // step as the player types.
-    for (const editor of el.querySelectorAll("prose-mirror[data-placeholder]")) {
-      // The prompt is drawn by `.editor-container::before`, one level down,
-      // because <prose-mirror> starts at the top of the MENU BAR — anchoring it
-      // there puts the hint on the toolbar. `attr()` only reads the element the
-      // pseudo belongs to, so the text is handed down as a custom property,
-      // which inherits and so is in place whenever ProseMirror gets round to
-      // building that container (it is created on activation, not at render).
-      editor.style.setProperty("--ab-placeholder", JSON.stringify(editor.dataset.placeholder));
-      const sync = () => editor.classList.toggle(
-        "cairn-editor-empty",
-        !(editor.querySelector(".editor-content")?.textContent ?? "").trim()
-      );
-      sync();
-      editor.addEventListener("input", sync);
-      editor.addEventListener("change", sync);
-    }
   }
 
   /* -------------------------------------------- */

@@ -222,6 +222,75 @@ aeLeg.effectsUnderCore === 1
   ? ok("control: core alone creates the invisible effect", "the override is what refuses")
   : fail("control: core alone creates the invisible effect", `effects=${aeLeg.effectsUnderCore} — the leg is not measuring the override`);
 
+console.log("\nopening an item's sheet is a READ — the wall is for writes (review #14)");
+
+// The pencil and the row title are the same affordance on the same row, and
+// `itemEdit` is deliberately un-`owned()` with the reason written beside it:
+// opening the item's own sheet writes nothing, and that sheet enforces its own
+// edit permission. The double-click was below `if (!this.isEditable) return;`,
+// so a viewer of a locked or limited-permission actor got the pencil and a
+// dead double-click — one read with two answers, the silent one being the
+// undocumented gesture.
+//
+// `isEditable` is SHADOWED on the instance, never written to the world: it is a
+// prototype getter, so an own property on the sheet overrides it for this render
+// and `delete` puts it straight back.
+const dbl = await page.evaluate(async (id) => {
+  const a = game.actors.get(id);
+  await a.createEmbeddedDocuments("Item", [{ name: "ZZ Readable Rope", type: "item" }]);
+  const sheet = a.sheet;
+  Object.defineProperty(sheet, "isEditable", { get: () => false, configurable: true });
+  try {
+    await sheet.render(true);
+    await new Promise((r) => setTimeout(r, 600));
+    const el = sheet.element;
+    const out = { editable: sheet.isEditable };
+
+    // The precondition's own control: a listener that IS below the wall must be
+    // absent, or "not editable" would be a claim rather than a state. The stat
+    // input clamps to 0-18 on change; unclamped means _onRender returned early.
+    const stat = el.querySelector(".stat-input");
+    if (stat) {
+      stat.value = "99";
+      stat.dispatchEvent(new Event("change", { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 200));
+      out.walled = stat.value === "99";
+    }
+
+    const item = a.items.find((i) => i.name === "ZZ Readable Rope");
+    const row = el.querySelector(`.cairn-items-list-row[data-item-id="${item.id}"] .cairn-item-title`);
+    out.rowFound = !!row;
+    row?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    for (let n = 0; n < 30 && !item.sheet.rendered; n++) await new Promise((r) => setTimeout(r, 100));
+    out.opened = item.sheet.rendered;
+    await item.sheet.close();
+    return out;
+  } finally {
+    delete sheet.isEditable;
+    await sheet.close();
+  }
+}, actorId);
+
+dbl.editable === false && dbl.walled === true
+  ? ok("precondition: the sheet renders un-editable", "stat-input clamp never bound")
+  : fail("precondition: the sheet renders un-editable", `editable=${dbl.editable} walled=${dbl.walled} — the leg below proves nothing`);
+dbl.rowFound && dbl.opened
+  ? ok("double-click still opens the item sheet", "same answer as the pencil beside it")
+  : fail("double-click still opens the item sheet", `row=${dbl.rowFound} opened=${dbl.opened}`);
+
+console.log("\nConfigure Sheet names the system, not the class (review #14)");
+
+// Without a `label`, core falls back to the registration id
+// (document-sheet-config.mjs:443, `else label = id`) and the Warden's dropdown
+// reads "cairn.CairnActorSheet" — the deliberately frozen scope spelled at them.
+const labels = await page.evaluate(() => ({
+  actor: CONFIG.Actor.sheetClasses?.character?.["cairn.CairnActorSheet"]?.label ?? null,
+  item: CONFIG.Item.sheetClasses?.item?.["cairn.CairnItemSheet"]?.label ?? null,
+}));
+labels.actor === "Air Bladder" && labels.item === "Air Bladder"
+  ? ok("both sheets register a label", `"${labels.actor}" / "${labels.item}"`)
+  : fail("both sheets register a label", `actor="${labels.actor}" item="${labels.item}"`);
+
 /* ----------------------------------------------------------- teardown ---- */
 await page.evaluate(async (id) => { await game.actors.get(id)?.delete(); }, actorId);
 

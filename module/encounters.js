@@ -124,15 +124,18 @@ export const encounterSpecsForMessage = async (message) => {
 /*  The card button                             */
 /* -------------------------------------------- */
 
-/** "1d6 × Goblins, 1 × Mimic" — the button says what it will do before it is
+/** "1d6 × Goblins and 1 × Mimic" — the button says what it will do before it is
  *  clicked. Labels route through the overlay (`monster.name`) so a Spanish
- *  Warden reads the name their own card shows. */
-const specList = (specs) => specs.map((s) => {
+ *  Warden reads the name their own card shows, and the JOIN is localized too:
+ *  the list is read inside a translated sentence, and a hardcoded ", " leaves
+ *  the one English fragment in it. `Intl.ListFormat` via core's helper, as
+ *  cairn.js:1869 and :1990 already do. */
+const specList = (specs) => game.i18n.getListFormatter().format(specs.map((s) => {
   const name = s.npc
     ? game.i18n.localize("CAIRN.Encounter.RandomNpc")
     : t("monster.name", s.label || game.i18n.localize("CAIRN.Encounter.UnknownActor"));
   return `${s.qty} × ${name}`;
-}).join(", ");
+}));
 
 /**
  * Called from the renderChatMessageHTML hook (cairn.js), beside the damage
@@ -309,8 +312,10 @@ export const spawnEncounterFromMessage = async (message) => {
     // setting it re-renders the card into its "Added" state on every client.
     await message.setFlag(game.system.id, ENCOUNTER_SPAWNED_FLAG, true);
     if (placedNames.length) {
+      // Localized join, same reason as specList above: this list is dropped
+      // into a translated sentence, so its separator has to be translated too.
       ui.notifications.info(game.i18n.format("CAIRN.Notify.EncounterPlaced", {
-        what: placedNames.join(", "), scene: canvas.scene.name,
+        what: game.i18n.getListFormatter().format(placedNames), scene: canvas.scene.name,
       }));
     }
     return placed;

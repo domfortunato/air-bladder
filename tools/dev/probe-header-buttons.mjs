@@ -157,11 +157,38 @@ try {
     const thing = read(tSheet);
     await tSheet.close();
 
+    /* --- the WINDOW TITLE is frame state too, and had been left out.
+           This sheet's title LEADS with the role word ("Monster: Bessie"),
+           but core repaints a title only when the update diff carries `name`
+           (api/document-sheet.mjs:163-166) — so a person re-typed under an
+           open sheet kept announcing the old role until it was closed and
+           reopened. Same fixture shape as everything above: read the frame,
+           change one thing, read the frame again. The BUTTONS are the control
+           — they were already kept in step here, so if they move and the
+           title does not, the gap is the title's alone. --- */
+    const retyped = await CONFIG.Actor.documentClass.create({
+      name: "ZZ Header Retype", type: "npc", system: { role: "npc", generationEnabled: true },
+    });
+    made.push(retyped.id);
+    const rSheet = await open(retyped);
+    const titleNow = () => rSheet.element?.querySelector(".window-title")?.textContent?.trim() ?? null;
+    const retype = {
+      before: titleNow(),
+      wantBefore: `${game.i18n.localize("CAIRN.RoleNpc")}: ${retyped.name}`,
+      buttonsBefore: read(rSheet),
+    };
+    await retyped.update({ "system.role": "monster" });
+    await new Promise((r) => setTimeout(r, 900));
+    retype.after = titleNow();
+    retype.wantAfter = `${game.i18n.localize("CAIRN.RoleMonster")}: ${retyped.name}`;
+    retype.buttonsAfter = read(rSheet);
+    await rSheet.close();
+
     for (const id of made) await game.actors.get(id)?.delete().catch(() => {});
-    return { initial, on, afterUnrelated, offAgain, hireling: hire2, npc: npcRead, monster, thing, NS };
+    return { initial, on, afterUnrelated, offAgain, hireling: hire2, npc: npcRead, monster, thing, retype, NS };
   });
 
-  const { initial, on, afterUnrelated, offAgain, hireling, npc, monster, thing } = out;
+  const { initial, on, afterUnrelated, offAgain, hireling, npc, monster, thing, retype } = out;
 
   console.log("\ncharacter — a GENERATED actor opens with Randomization OFF");
   // THE NEW-DEFAULT LEG (2026-08-02). Its negative control is stashing
@@ -382,6 +409,22 @@ try {
   !reattached.windowId && reattached.backInMainDocument && reattached.popOutHidden === false
     ? ok("re-docking brings it back", "_onAttach")
     : fail("re-docking brings it back", JSON.stringify(reattached));
+
+  console.log("\nre-typed under an open sheet — the TITLE is frame state too");
+  retype.before === retype.wantBefore
+    ? ok("a person's sheet opens naming its role", `"${retype.before}"`)
+    : fail("a person's sheet opens naming its role", `"${retype.before}" want "${retype.wantBefore}"`);
+  // The control, and it is the point of putting this leg in THIS probe: the
+  // buttons already followed the role. If they move and the title does not,
+  // the render happened and the title alone was left behind.
+  retype.buttonsBefore?.roll?.text !== retype.buttonsAfter?.roll?.text
+    && retype.buttonsAfter?.roll?.icon === "fa-dragon"
+    ? ok("control: the Roll button follows the role", `"${retype.buttonsBefore?.roll?.text}" → "${retype.buttonsAfter?.roll?.text}"`)
+    : fail("control: the Roll button follows the role",
+        `before="${retype.buttonsBefore?.roll?.text}" after="${retype.buttonsAfter?.roll?.text}" icon=${retype.buttonsAfter?.roll?.icon}`);
+  retype.after === retype.wantAfter
+    ? ok("and so does the window title", `"${retype.after}"`)
+    : fail("and so does the window title", `"${retype.after}" want "${retype.wantAfter}" — stale until the sheet is reopened`);
 } catch (e) {
   fail("probe threw", `${e.name}: ${e.message}`);
 } finally {

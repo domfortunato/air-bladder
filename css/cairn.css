@@ -595,40 +595,14 @@
     display: none;
 }
 
-/* An empty notes editor prompts for what to put in it. ProseMirror has no
-   placeholder of its own and an empty document is `<p><br></p>` (so `:empty`
-   never matches), hence the class the sheet keeps in step as the player types.
-   Drawn OVER the content rather than inside it: anything placed in the editable
-   area becomes part of the document and gets saved.
-
-   Anchored to `.editor-container`, NOT to `<prose-mirror>` -- both are
-   `position: relative`, so hanging it off the wrong one is silent. An active
-   editor is `[.menu-container][.editor-container]` in a column flex
-   (`_wrapEditor`, foundry.mjs:85413-85424), and the menu bar is ~42px tall, so
-   `top: 8px` off prose-mirror lands the hint ON the toolbar. Measured, not
-   guessed: prose-mirror y=522, menu 522-564, editable area starts at 572.
-   The 8px/0 offsets put it exactly over the first paragraph, whose 8px top
-   margin is the only thing between it and the container's edge.
-   Gated by `npm run dev:notes-editor`, which now checks where it lands. */
-.cairn prose-mirror[data-placeholder].cairn-editor-empty .editor-container::before {
-    /* NOT `attr(data-placeholder)` -- that attribute is on <prose-mirror>, and
-       attr() only reads the pseudo's OWN element. The sheet sets the custom
-       property, which inherits down. */
-    content: var(--ab-placeholder, "");
-    position: absolute;
-    top: 8px;
-    left: 0;
-    pointer-events: none;
-    opacity: 0.65;
-    font-style: italic;
-    color: var(--ab-faint);
-}
-
 /* The TOGGLED Notes editor's empty-state hint (both actor sheets): a real
-   element in the display half, because the mechanism above has nothing to anchor to —
-   a toggled editor grows its .editor-container only on activation. Same look
-   as the ::before hint; being part of the light-DOM display child, it can
-   never reach a save (activation swaps the child out for `value`). */
+   element in the display half, put there because a toggled editor grows its
+   .editor-container only on activation, so a ::before hint anchored to that
+   container has nothing to hang off until the player has already clicked in.
+   Being part of the light-DOM display child, it can never reach a save
+   (activation swaps the child out for `value`). Gated by
+   `npm run dev:notes-editor`: it renders, it goes once there is content, and
+   clicking it opens the editor. */
 .cairn prose-mirror .cairn-editor-placeholder {
     opacity: 0.65;
     font-style: italic;

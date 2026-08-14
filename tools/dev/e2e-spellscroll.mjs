@@ -423,7 +423,17 @@ const planted = await page.evaluate(async () => {
     system: { description: "<p>Sticky.</p>", weightless: true, uses: { value: 0, max: 1 }, cost: 3, quantity: 1 },
   });
 
-  const worldItem = await getDocumentClass("Item").create(legacy("Spellscroll — Adhere"));
+  // The world scroll is FILED and SHARED, because those are the two things the
+  // migration used to drop. A folder because `sort` was already carried and is
+  // meaningless outside the folder it sorts within; `default: OBSERVER` because
+  // it is a value no freshly created item ever has by accident — core stamps
+  // only the creating user at OWNER — so the assertion cannot pass on a default.
+  const folder = await getDocumentClass("Folder").create({ name: "ZZ Scroll Folder", type: "Item" });
+  const worldItem = await getDocumentClass("Item").create({
+    ...legacy("Spellscroll — Adhere"),
+    folder: folder.id,
+    ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER },
+  });
 
   const actor = await getDocumentClass("Actor").create({ name: "zz-scroll-migrate", type: "character" });
   await actor.createEmbeddedDocuments("Item", [legacy("Spellscroll — Bafflement")]);
@@ -443,6 +453,9 @@ const planted = await page.evaluate(async () => {
 
   return {
     worldItemId: worldItem.id,
+    folderId: folder.id,
+    filed: worldItem.folder?.id === folder.id,
+    shared: worldItem.ownership?.default === CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER,
     actorId: actor.id,
     tokenActorId: tokenActor.id,
     sceneId: scene.id,
@@ -455,6 +468,9 @@ const planted = await page.evaluate(async () => {
 planted.tokenLegacy === 1 && planted.baseEmpty
   ? ok("planted three old-shape scrolls: a world item, an owned item, an unlinked token's delta")
   : fail(`could not plant the token-delta scroll (delta legacy ${planted.tokenLegacy}, base empty ${planted.baseEmpty})`);
+planted.filed && planted.shared
+  ? ok("and the world one is filed in a folder and shared at OBSERVER, so there is something to lose")
+  : fail(`the world plant did not take (filed ${planted.filed}, shared ${planted.shared}) — the folder/ownership legs below would pass on nothing`);
 
 await page.reload({ waitUntil: "networkidle", timeout: 60000 });
 await page.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
@@ -492,6 +508,7 @@ const after = await page.evaluate(async (p) => {
     uses: { value: i.system.uses.value, max: i.system.uses.max },
     sort: i.sort, grantSource: i.getFlag("air-bladder", "grantSource"),
     description: i.system.description,
+    folder: i.folder?.id ?? null, ownerDefault: i.ownership?.default ?? null,
   });
   const a = game.actors.get(p.actorId);
   const ta = game.actors.get(p.tokenActorId);
@@ -509,6 +526,7 @@ const after = await page.evaluate(async (p) => {
   for (const i of [...game.items].filter((i) => i.name === "Adhere" || i.name.startsWith("Spellscroll"))) {
     try { await i.delete(); } catch { /* leave it */ }
   }
+  try { await game.folders.get(p.folderId)?.delete(); } catch { /* leave it */ }
   return out;
 }, planted);
 
@@ -527,6 +545,17 @@ const check = (where, list, wantName) => {
 };
 
 check("world item", after.world, "Adhere");
+// A world scroll is a document in a sidebar, not only an inventory row: the
+// migration is a create-then-delete, so anything it does not copy forward is
+// gone. `sort` was carried from the start, which made the loss quieter — the
+// scroll kept its position inside a folder it had fallen out of.
+const filed = after.world[0];
+filed?.folder === planted.folderId
+  ? ok(`world item: still filed under the Warden's folder (${filed.folder})`)
+  : fail(`world item: folder lost — came back at the sidebar root (folder ${filed?.folder}, want ${planted.folderId})`);
+filed?.ownerDefault === 2
+  ? ok("world item: still shared at OBSERVER — whoever could see it still can")
+  : fail(`world item: ownership lost — default is ${filed?.ownerDefault}, want 2 (OBSERVER)`);
 check("owned item", after.owned, "Bafflement");
 check("unlinked token delta", after.token, "Charm");
 after.baseStillEmpty
