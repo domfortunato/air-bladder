@@ -46,9 +46,20 @@ export const reseedTableFromPack = async (table, pack) => {
     range: [i + 1, i + 1],
     drawn: false,
   }));
-  // Replace the EMBEDDED documents, never the table: delete → create → formula.
-  await table.deleteEmbeddedDocuments("TableResult", table.results.map((r) => r.id));
+  // Replace the EMBEDDED documents, never the table — and CREATE BEFORE
+  // DELETING. This project's own rule, written where the spellscroll migration
+  // pays it ("Create first so a failure can never lose a scroll", cairn.js), and
+  // it was the wrong way round here: the rows a Warden had curated went first,
+  // and anything that threw before the create left a table with no rows at all
+  // and no undo — LevelDB keeps no history and a world table is not in git.
+  //
+  // The ids are captured BEFORE the create, or the delete would take the
+  // replacements with the originals. The two sets briefly hold overlapping
+  // ranges; that is one await wide, on the acting Warden's client, and a
+  // duplicated row is recoverable in a way an emptied table is not.
+  const old = table.results.map((r) => r.id);
   await table.createEmbeddedDocuments("TableResult", rows);
+  if (old.length) await table.deleteEmbeddedDocuments("TableResult", old);
   await table.update({ formula: `1d${rows.length}` });
   ui.notifications.info(game.i18n.format("CAIRN.Notify.TableReseeded", {
     name: table.name, count: rows.length, pack: pack.title,

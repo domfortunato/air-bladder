@@ -166,6 +166,48 @@ try {
     ? ok("an empty source REFUSES: nothing written, the table untouched — reseed can never mean empty")
     : fail(`empty-source reseed wrote ${refusal.written}, left ${refusal.rows} rows, formula ${refusal.formula}`);
 
+  /* --- 3b. a reseed that FAILS must not empty the table (review #14) -------- */
+
+  // The defeat has to be the CREATE, not the delete. Making the delete throw
+  // proves nothing: under the old delete-then-create order the delete is the
+  // FIRST step, so a throw there leaves the rows exactly where they were and
+  // the leg passes green under both codes. A create that throws is what tells
+  // the two orders apart — and it is the realistic failure too (a malformed
+  // row, a validation refusal, a pack that went away mid-call).
+  //
+  // Old order: delete succeeds (100 -> 0), create throws, the Warden's table is
+  // EMPTY with no undo — a world table is not in git and LevelDB keeps no
+  // history. New order: the create throws before anything is deleted.
+  const survives = await page.evaluate(async ({ tableId, CANON }) => {
+    const { reseedTableFromPack } = await import("/systems/air-bladder/module/spell-tables.js");
+    const table = game.tables.get(tableId);
+    const before = table.results.size;
+    table.createEmbeddedDocuments = async () => { throw new Error("zz-planted create failure"); };
+    let threw = "";
+    try {
+      await reseedTableFromPack(table, game.packs.get(CANON));
+    } catch (e) {
+      threw = e.message;
+    }
+    delete table.createEmbeddedDocuments;      // back to the prototype's
+    return {
+      before,
+      after: table.results.size,
+      threw,
+      shadowGone: table.createEmbeddedDocuments === Object.getPrototypeOf(table).createEmbeddedDocuments,
+    };
+  }, { tableId: planted.tableId, CANON });
+
+  survives.threw.includes("zz-planted")
+    ? ok("precondition: the planted create failure actually fired — the leg below is not vacuous")
+    : fail(`the shadowed create never threw (threw=${JSON.stringify(survives.threw)}) — the assertion below proves nothing`);
+  survives.after === survives.before && survives.after > 0
+    ? ok(`a failed reseed left all ${survives.after} rows in place — create BEFORE delete, so a throw can never empty a curated table`)
+    : fail(`a failed reseed took the table from ${survives.before} rows to ${survives.after} — the Warden's rows are gone with no undo`);
+  survives.shadowGone
+    ? ok("the shadow is off the table again — the legs below run against the real method")
+    : fail("the shadowed createEmbeddedDocuments is STILL on the table; everything below is testing a stub");
+
   /* --- 4. the directory button and its dialog ------------------------------ */
 
   await page.evaluate(() => ui.tables.render(true));
