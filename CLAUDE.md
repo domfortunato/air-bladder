@@ -229,10 +229,29 @@ against the reason, not against the fact.
     or an extractor rename, zero Warden content. **This file went on calling it
     a pending decision for two days afterwards**, which is how it kept getting
     raised — a stale to-do reads exactly like a live one.
-    The guard therefore no longer fires with a schema diff: an extract after a
-    world open now yields `_stats.modifiedTime` bumps and nothing else
-    (re-verified 2026-08-06, 6 files, zero content paths). Drift that is not
-    housekeeping is now a real write, so classify it rather than assuming churn.
+    **The guard COMPARES MEANING, NOT BYTES (2026-08-13).** It used to hash the
+    extracted YAML text, and Foundry rewrites a compendium document merely by
+    loading the world — decoding HTML entities (`&#39;` → `'`) and filling schema
+    defaults — so the hash moved without a Warden touching anything. It fired on
+    five packs twice in one day with nothing but normalization inside them, and a
+    guard that cries wolf teaches the `--force` reflex that destroys the work.
+    `canonicalDoc` in `tools/packs.mjs` now drops `_stats`/`_key`, drops empty
+    containers, decodes entities on both sides, and sorts keys; `.pack-sync.json`
+    carries `__format`, and a marker written by an older shape is treated as no
+    marker (back up, build, re-stamp) rather than compared. **Bump
+    `MARKER_FORMAT` on any change to `canonicalDoc`** — changing one without the
+    other reports every pack as drifted, which is the very false alarm it exists
+    to end.
+    Verified end to end, and the control is the point: a world session alone
+    builds clean, while a document created in a pack AND a journal page edited in
+    the world make it refuse, naming both packs. Re-run that control if you touch
+    the normalization — decoding entities is exactly the sort of change that
+    could blind it to a real text edit.
+    So drift that survives normalization is a REAL write. Classify it rather than
+    assuming churn — and do NOT reach for `extract` when `src/packs` is newer
+    than `packs/`, because extract runs packs → src and reverts your own work
+    (it did, on the live server, 2026-08-13). Extract to a scratch directory and
+    diff instead.
   - **`extract` RENAMES files to `<Name>_<id>.yml`.** Committed files whose name
     lacks the id suffix (`marketplace/Market_Armor.yml`) are deleted and rewritten
     under the new name, so an extract you want to undo needs BOTH halves, in this

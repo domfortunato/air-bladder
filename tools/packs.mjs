@@ -15,6 +15,12 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
+
+// js-yaml arrives with @foundryvtt/foundryvtt-cli, which is this file's only
+// non-builtin import and is what a server installs with --no-save. Required
+// rather than imported: it is CommonJS.
+const yaml = createRequire(import.meta.url)("js-yaml");
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const srcRoot = path.join(root, "src", "packs");
@@ -94,6 +100,86 @@ const listYaml = (dir) => {
   return out;
 };
 
+/**
+ * The fingerprint's canonical form of one document.
+ *
+ * Hashing the extracted YAML TEXT was the first cut and it made the guard cry
+ * wolf: Foundry fills schema defaults into a compendium document merely by
+ * loading the world, so the extract that follows carries `_stats` blocks and
+ * empty-string members the committed YAML omits, and the hash moves without a
+ * single Warden keystroke. Twice on 2026-08-13 the guard named five packs and
+ * every difference in them was default-filling — and a guard that fires on
+ * nothing teaches the same reflex the mtime design did: reach for --force.
+ * That reflex is what destroys the work this exists to protect.
+ *
+ * So the comparison is on MEANING, not bytes:
+ *   - `_stats` goes entirely. Every member of it moves on any write, and
+ *     modifiedTime moves on writes that changed nothing. Provenance is not this
+ *     gate's job — `check:fields` holds compendiumSource/exportSource/ownership
+ *     clean, straight from the YAML.
+ *   - `_key` goes: it is derived from the id.
+ *   - null, undefined and "" are dropped, because "absent" and "empty" is
+ *     exactly the difference default-filling creates. This does NOT hide a
+ *     Warden clearing a field: the repo side still holds the old text, so text
+ *     against absent still differs. Only empty-against-empty collapses.
+ *   - keys are sorted, so serialization order cannot register as change.
+ */
+const ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+
+/**
+ * Foundry stores HTML with entities DECODED. The committed YAML carries them
+ * encoded (`&#39;`, `&quot;`) because that is what the doc importers and the
+ * ProseMirror serializer emit, so every journal page differs the moment a world
+ * has loaded — same markup, different spelling of the same characters. Decoding
+ * both sides makes them agree; it cannot mask an edit, because two different
+ * texts stay different after decoding.
+ */
+const decodeEntities = (s) => s.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (m, body) => {
+  if (body[0] !== "#") return ENTITIES[body.toLowerCase()] ?? m;
+  const code = body[1] === "x" || body[1] === "X"
+    ? parseInt(body.slice(2), 16)
+    : parseInt(body.slice(1), 10);
+  return Number.isFinite(code) ? String.fromCodePoint(code) : m;
+});
+
+/**
+ * Keys Foundry FILLS with a non-empty default the first time a world loads the
+ * pack, which nothing in this system ever authors. Empty defaults (`image: {}`,
+ * `system: {}`, `categories: []`) need no list — they collapse under the
+ * empty-container rule below. Keep this list short and justified: dropping a key
+ * blinds the guard to it, which is why `system` is NOT here (it is where every
+ * Item and Actor keeps its content, and it is dropped only when empty).
+ */
+const FOUNDRY_FILLED = new Set(["video"]);
+
+const canonicalDoc = (v) => {
+  if (typeof v === "string") return decodeEntities(v);
+  if (Array.isArray(v)) {
+    const out = v.map(canonicalDoc);
+    return out.length ? out : undefined;
+  }
+  if (v && typeof v === "object") {
+    const out = {};
+    for (const k of Object.keys(v).sort()) {
+      if (k === "_stats" || k === "_key" || FOUNDRY_FILLED.has(k)) continue;
+      const c = canonicalDoc(v[k]);
+      if (c === null || c === undefined || c === "") continue;
+      out[k] = c;
+    }
+    return Object.keys(out).length ? out : undefined;
+  }
+  return v;
+};
+
+/**
+ * Marker format version. The fingerprint's meaning changed when normalization
+ * landed, so an older marker's hashes are not comparable — and comparing them
+ * anyway would report every pack as drifted, which is the false alarm this
+ * change exists to end. A mismatch is treated as NO marker: back up, proceed,
+ * re-stamp. Bump this on any change to canonicalDoc or to what is hashed.
+ */
+const MARKER_FORMAT = 3;
+
 /** A per-pack fingerprint of the CURRENT contents of packs/, or null if unreadable. */
 const fingerprintBuilt = async () => {
   const scratch = path.join(root, ".pack-guard-tmp");
@@ -108,21 +194,39 @@ const fingerprintBuilt = async () => {
       continue;                       // locked or absent: the build itself will report it
     }
     const docs = listYaml(path.join(scratch, name));
-    out[name] = crypto.createHash("sha256")
-      .update([...docs.keys()].sort().map((k) => `${k}\u0000${docs.get(k)}`).join("\u0001"))
-      .digest("hex");
+    // Keyed by the document's own id, not the filename: `extract` renames files
+    // to <Name>_<id>.yml, so a document renamed in the world would otherwise
+    // register twice over - once as content, once as a path.
+    const canon = [...docs.keys()].map((k) => {
+      let doc = null;
+      try { doc = yaml.load(docs.get(k)); } catch { /* unparseable: fall back to the text */ }
+      return doc && typeof doc === "object"
+        ? `${doc._id ?? k}::${JSON.stringify(canonicalDoc(doc))}`
+        : `${k}::${docs.get(k)}`;
+    }).sort();
+    out[name] = crypto.createHash("sha256").update(canon.join("\n")).digest("hex");
   }
   fs.rmSync(scratch, { recursive: true, force: true });
   return out;
 };
 
 if (mode === "build" && !process.argv.includes("--force")) {
-  const marker = fs.existsSync(SYNC_MARKER)
+  const stored = fs.existsSync(SYNC_MARKER)
     ? JSON.parse(fs.readFileSync(SYNC_MARKER, "utf8"))
     : null;
+  // A marker written before the fingerprint was normalized holds hashes of the
+  // extracted TEXT, which are not comparable with these. Comparing anyway would
+  // report every pack as drifted — the exact false alarm the normalization was
+  // added to end — so an old marker is treated as no marker: back up, build,
+  // re-stamp. Costs one backup, once.
+  const marker = stored && stored.__format === MARKER_FORMAT ? stored.packs : null;
+  if (stored && !marker) {
+    console.log(`  sync marker is format ${stored.__format ?? 1}, this build wants ${MARKER_FORMAT}`
+      + " — re-stamping (the fingerprint now compares meaning, not bytes)");
+  }
 
   if (!marker) {
-    console.log("  no sync marker yet — taking a backup before the first guarded build");
+    console.log("  no comparable sync marker — taking a backup before building");
     try {
       const { execFileSync } = await import("node:child_process");
       execFileSync(process.execPath, [path.join(root, "tools", "dev", "backup.mjs"), "--label", "first-build"], { stdio: "inherit" });
@@ -205,7 +309,8 @@ if (failed) process.exit(1);
 // a marker that advanced past work nobody folded in would silently re-arm the
 // exact loss this guards.
 try {
-  fs.writeFileSync(SYNC_MARKER, JSON.stringify(await fingerprintBuilt(), null, 2) + "\n");
+  fs.writeFileSync(SYNC_MARKER,
+    JSON.stringify({ __format: MARKER_FORMAT, packs: await fingerprintBuilt() }, null, 2) + "\n");
 } catch (err) {
   console.error(`  WARNING  could not write ${path.basename(SYNC_MARKER)} — the next build will `
     + `have no baseline and will back up instead of comparing (${err.message})`);
