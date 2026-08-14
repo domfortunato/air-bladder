@@ -98,11 +98,34 @@ Hooks.once("ready", () => {
   // init-time hooks so it runs after them — see registerCombatOrderGuard.
   registerCombatOrderGuard();
   Hooks.on("hotbarDrop", (bar, data, slot) => {
+    // A LOCKED bar must not be written to, and this hook is the only thing
+    // standing in front of that. Core tests the hook's return value BEFORE its
+    // own lock check (`hotbar.mjs:488-490`) and `User#assignHotbarMacro` never
+    // consults `locked` at all — so `return false` here does not mean "I will
+    // handle it", it means "skip the only enforcement there is", and a Warden
+    // who locked their bar watched a dragged weapon land on it anyway. Handing
+    // the drop BACK to core is the fix rather than refusing here, because core's
+    // very next line is the lock: one owner for the rule. It looked fine because
+    // dragging an existing MACRO is refused by a different check entirely.
+    if (bar?.locked) return true;
     // Let Foundry place an existing Macro normally; only Items (and other
     // documents) get a Cairn hotbar wrapper. Without this, dragging a Macro made
     // a wrapper that opened the macro's own edit sheet instead of running it.
-    if (data.type === "Macro") return true;
-    createCairnMacro(data, slot);
+    if (data?.type === "Macro") return true;
+    // A RollTable too, and it is the same bug one document type along: core
+    // builds a macro that DRAWS from the table (`hotbar.mjs:499`), the wrapper
+    // below builds one that opens its SHEET. This system ships encounter, spell
+    // and Scars tables, so a Warden dragging one to the bar wants to roll it.
+    // Nothing ever recorded a reason to override core here — the wrapper's
+    // catch-all simply swallowed the branch (review #14).
+    if (data?.type === "RollTable") return true;
+    // Not awaited: the hook's return value is read synchronously, so this cannot
+    // be an async callback. Not left to reject either — `Hooks.#call` wraps a
+    // callback in a SYNCHRONOUS try/catch, so a rejection out of an async one
+    // escapes it as an unhandled rejection naming nothing, which is how a
+    // failed hotbar drop reported itself as a blank console entry.
+    createCairnMacro(data, slot).catch((err) =>
+      console.error("Air Bladder | hotbar drop failed", err));
     return false;
   });
   // Settings used to be registered under the "cairn" namespace, which Foundry

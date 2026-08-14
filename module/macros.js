@@ -8,10 +8,17 @@ import { t } from "./i18n-content.js";
  * @return {Promise.<void>}
  */
 export const createCairnMacro = async (data, slot) => {
-  const { item, actor } = await getInfoFromDropData(data);
+  const { item, actor } = await getInfoFromDropData(data ?? {});
 
-  if (data.type !== "Item") {
-    if (item !== undefined) {
+  if (data?.type !== "Item") {
+    // TRUTHINESS, not `!== undefined`. `getInfoFromDropData` initialises the
+    // resolved document to NULL when there is no uuid to resolve, and a text,
+    // URL or file dragged onto the hotbar reaches this hook as an object with
+    // no `type` and no `uuid` at all — so `null !== undefined` was true and the
+    // next line read `.name` off null. It threw out of an unawaited call, which
+    // is why it surfaced as an unhandled rejection naming nothing rather than
+    // as a message anyone could act on (review #14).
+    if (item) {
       const macro = await Macro.create({
         name: item.name,
         type: "script",

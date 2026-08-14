@@ -83,6 +83,7 @@
     "dev:directory-ui": "node tools/dev/probe-ui-batch.mjs",
     "dev:encounters": "node tools/dev/e2e-encounters.mjs",
     "dev:grimoire": "node tools/dev/e2e-grimoire.mjs",
+    "dev:hotbar": "node tools/dev/e2e-hotbar.mjs",
     "dev:roll-npc": "node tools/dev/e2e-roll-npc.mjs",
     "dev:gen-dice": "node tools/dev/e2e-generation-dice.mjs",
     "dev:monster-gen": "node tools/dev/e2e-monster-gen.mjs",
