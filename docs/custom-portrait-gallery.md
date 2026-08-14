@@ -25,6 +25,13 @@ travel inside shared content (see Non-goals).
 - **Custom portraits are their own token.** No paired token art like the shipped 80
   have; each image serves as both portrait and token. (`_setPortrait` already
   handled the no-paired-token case.)
+- **Folders inside the folder are categories** (2026-08-14). File your portraits
+  however you like — `clerics-paladins/`, `OSR Fantasy/townsfolk/`, as deep as you
+  care to go — and each folder that holds images becomes a tile in the Custom tab,
+  labelled by its path ("OSR Fantasy / Townsfolk"). Images sitting loose at the top
+  still show as a plain grid above the tiles, so a Warden who uses no folders sees
+  no change. Auto-assignment ignores the structure entirely: every custom image is
+  one pool no matter which folder it sits in.
 
 ## How it works
 
@@ -40,6 +47,12 @@ travel inside shared content (see Non-goals).
   and writes the cache (GM only), `getCustomPortraitPaths()` reads the cache
   (anyone). Both folder ops are non-fatal — a host that forbids them just leaves the
   pool empty and the shipped art is used.
+- **The scan walks subfolders** (`MAX_SCAN_DEPTH` 6, `MAX_SCAN_DIRS` 200). Foundry's
+  `FilePicker.browse` reports one directory and does not recurse, so the walk is
+  breadth-first, one request per folder, skipping any it cannot read. Hitting either
+  limit logs a warning — a short list otherwise looks exactly like a small
+  collection. The cache stays a FLAT list of paths; the picker derives the folder
+  structure from it at display time.
 - **Auto-assign** (`randomPortraitPair()`): custom-first, else the shipped pair.
   Feeds both PC and NPC creation (they share the code path).
 - **Picker** (`_onEditPortrait`, shared by PC + NPC sheets): a

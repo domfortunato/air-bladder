@@ -562,13 +562,19 @@ try {
     ? ok("an unknown image falls back to the auto pool", roll.afterUnknown.split("/").pop())
     : fail("an unknown image falls back to the auto pool", JSON.stringify(roll.afterUnknown));
 
-  /* --- 3c. the CUSTOM gallery browses SUBFOLDERS -------------------------- */
+  /* --- 3c. the CUSTOM gallery browses SUBFOLDERS, to any depth ------------ */
   // A Warden who filed their portraits into category folders got an empty
   // Custom tab. `FilePicker.browse` returns `{dirs, files}` for ONE directory
   // and does not recurse; the scan read `files` and threw the folder list away,
   // so eleven folders and zero loose images came back as "No custom portraits
-  // found" over a full folder. The scan now walks one level down and the pane
-  // browses category-first, like Tlomdev.
+  // found" over a full folder. The scan walks the tree now and the pane browses
+  // category-first, like Tlomdev.
+  //
+  // ONE LEVEL WAS NOT ENOUGH, and that is why the second fixture below is a
+  // DEPTH-2 tree (2026-08-14, same day, live server): the first fix walked a
+  // single level because that is how the shipped galleries are filed, and a
+  // Warden with a folder inside a category folder got the original symptom
+  // back — images silently absent, no error, a tile that simply never appeared.
   //
   // THE FIXTURE IS A REAL SHIPPED FOLDER, not planted files. `art/lydia-comer/`
   // has exactly the shape under test — three loose images at the top AND two
@@ -597,9 +603,13 @@ try {
     const dlg = [...foundry.applications.instances.values()]
       .find((x) => x.constructor.name === "DialogV2" && x.element?.querySelector(".cairn-portrait-gallery"));
     const pane = dlg.element.querySelector('[data-pane="custom"]');
+    const depthOf = (f) => f.slice(dir.length + 1).split("/").length - 1;
     const out = {
       scanned: files.length,
-      inSubfolders: files.filter((f) => f.slice(dir.length + 1).includes("/")).length,
+      inSubfolders: files.filter((f) => depthOf(f) > 0).length,
+      // How deep the walk actually reached. 1 is a subfolder, 2 is a folder
+      // inside a subfolder — the case the one-level fix missed.
+      maxDepth: files.reduce((m, f) => Math.max(m, depthOf(f)), 0),
       tiles: [...pane.querySelectorAll(".cairn-icon-folder")].map((b) => b.querySelector("span")?.textContent.trim()),
       looseCells: [...pane.querySelectorAll(".cairn-custom-loose .cairn-portrait-choice")].map((i) => i.dataset.src),
       emptyHidden: pane.querySelector(".cairn-portrait-empty")?.hidden ?? null,
@@ -608,6 +618,10 @@ try {
     const first = pane.querySelector(".cairn-icon-folder");
     out.firstKey = first?.dataset.category ?? null;
     out.tileFace = first?.querySelector("img")?.getAttribute("src") ?? null;
+    // A tile's face must DECODE, not merely be pointed at: a key built wrongly
+    // from a nested path renders a blank tile and never an error.
+    const faceImg = first?.querySelector("img");
+    out.faceDecodes = faceImg ? await faceImg.decode().then(() => true, () => false) : null;
     first?.click();
     await new Promise((r) => setTimeout(r, 200));
     out.drilled = [...pane.querySelectorAll(".cairn-icon-category .cairn-portrait-choice")].map((i) => i.dataset.src);
@@ -650,13 +664,32 @@ try {
     ? ok("no credit line under the Warden's own art", "the custom pane states no licence")
     : fail("no credit line under the Warden's own art", JSON.stringify(cats.credit));
 
-  // A second root purely for the LABEL rule: `art/` holds four hyphenated
-  // folders and only `lydia-comer` has images directly inside it, so it is also
-  // the control for "a folder with no images of its own grows no tile".
+  // A second root, DEEPER: `art/` holds four hyphenated folders whose images
+  // sit one level further down again (`art/lydia-comer/portraits/…`), so it is
+  // the depth-2 fixture the one-level fix would have failed — under that code
+  // this root found only `lydia-comer`'s three loose images and grew exactly
+  // one tile. It carries the label rule too, and doubles as the control for
+  // "a folder holding only other folders grows no tile of its own".
   const tidy = await scanTo("systems/air-bladder/art");
-  eq(tidy.tiles, ["Lydia Comer"])
-    ? ok("a hyphenated folder name reads as words", "lydia-comer -> Lydia Comer; image-less folders grow no tile")
-    : fail("a hyphenated folder name reads as words", JSON.stringify(tidy.tiles));
+  tidy.maxDepth >= 2
+    ? ok("the scan reaches images two folders down", `deepest is ${tidy.maxDepth} level(s), ${tidy.scanned} images`)
+    : fail("the scan reaches images two folders down", `deepest is ${tidy.maxDepth} level(s), ${tidy.scanned} images`);
+  tidy.tiles.includes("Lydia Comer / Portraits") && tidy.tiles.includes("Jon Aspeheim / Tokens")
+    ? ok("a nested folder gets its own tile, named by its whole path", "one click deep however the Warden files it")
+    : fail("a nested folder gets its own tile, named by its whole path", JSON.stringify(tidy.tiles.slice(0, 8)));
+  tidy.tiles.includes("Lydia Comer")
+    ? ok("a hyphenated folder name reads as words", "lydia-comer -> Lydia Comer")
+    : fail("a hyphenated folder name reads as words", JSON.stringify(tidy.tiles.slice(0, 8)));
+  // `jon-aspeheim/` and `game-icons/` hold no images directly — only folders
+  // and a licence file — so neither may grow a tile of its own.
+  !tidy.tiles.includes("Jon Aspeheim") && !tidy.tiles.includes("Game Icons")
+    ? ok("a folder of folders grows no tile of its own", "there is no image to put on one")
+    : fail("a folder of folders grows no tile of its own", JSON.stringify(tidy.tiles.slice(0, 8)));
+  tidy.firstKey?.includes("/") && tidy.faceDecodes === true
+    && tidy.drilled?.length > 0 && tidy.drilled.every((p) => p.includes(`/${tidy.firstKey}/`))
+    ? ok("a nested tile's face decodes and its drill-down resolves", `${tidy.drilled.length} in ${tidy.firstKey}`)
+    : fail("a nested tile's face decodes and its drill-down resolves",
+        `key ${tidy.firstKey}, face decodes ${tidy.faceDecodes}, ${tidy.drilled?.length} cell(s)`);
 
   const restored = await page.evaluate(async (prior) => {
     const NS = "air-bladder";

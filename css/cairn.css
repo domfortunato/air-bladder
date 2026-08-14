@@ -2671,10 +2671,14 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     border-radius: 3px;
 }
 
+/* A custom category tile can carry a whole nested path ("OSR Fantasy /
+   Clerics"), and a Warden's folder name can be one long unbroken word, so the
+   caption wraps anywhere rather than pushing the tile out of its column. */
 .cairn-icon-folder span {
     flex: 1 1 auto;
     min-width: 0;
     font-size: 12px;
+    overflow-wrap: anywhere;
 }
 
 .cairn-icon-back {

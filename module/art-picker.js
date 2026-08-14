@@ -66,28 +66,43 @@ const tlomdevCategoryLabel = (key) => game.i18n.localize(`CAIRN.TlomdevCategory.
  * Percent-decoded first: `browse` hands back web paths, so a folder with a space
  * in it arrives as "OSR%20Fantasy". The KEY keeps the encoded form (it is used
  * to build image URLs); only the label is decoded.
+ *
+ * A key can name a NESTED folder ("OSR Fantasy/clerics") since the scan started
+ * walking the whole tree, so each segment is tidied on its own and joined back
+ * with a separator. The full path is shown rather than the last segment alone:
+ * two parents can each hold a "portraits" folder, and two tiles reading
+ * "Portraits" would be a coin toss.
  */
+const tidyFolderWord = (w) => (/^[a-z]/.test(w) ? w.charAt(0).toUpperCase() + w.slice(1) : w);
+
 const customCategoryLabel = (key) => {
   let name = key;
   try { name = decodeURIComponent(key); } catch { /* leave a malformed escape as-is */ }
-  return name.replace(/[-_]+/g, " ").trim()
-    .split(/\s+/)
-    .map((w) => (/^[a-z]/.test(w) ? w.charAt(0).toUpperCase() + w.slice(1) : w))
-    .join(" ");
+  return name.split("/").filter(Boolean)
+    .map((seg) => seg.replace(/[-_]+/g, " ").trim().split(/\s+/).map(tidyFolderWord).join(" "))
+    .join(" / ");
 };
 
 /**
- * Split the flat cached path list into loose top-level images and one-level
- * category folders, relative to the configured custom folder.
+ * Split the flat cached path list into loose top-level images and category
+ * folders, relative to the configured custom folder.
  *
  * The cache is a FLAT array of paths and stays one: the folder is already in
  * each path, so nothing needed migrating and `randomPortraitPair` — which wants
  * every custom image in one bag regardless of folder — reads it unchanged.
  * The structure is derived here, at the only place that displays it.
  *
- * Anything that does not sit under the configured root, or that is deeper than
- * one level, falls back to LOOSE: it still shows and is still pickable. A path
- * this cannot classify must never become a path this hides.
+ * ONE TILE PER FOLDER THAT HOLDS IMAGES, at whatever depth — the key is the
+ * whole relative directory path, so `OSR Fantasy/clerics` is its own tile
+ * alongside `OSR Fantasy` rather than being folded into it or, worse, dropped.
+ * That keeps the drill-down one click deep no matter how the Warden has filed
+ * things: this dialog has one level of navigation and a nested tree would need
+ * a different UI, not a deeper key. A folder holding only other folders grows
+ * no tile of its own, because it has no image to put on one.
+ *
+ * Anything that does not sit under the configured root falls back to LOOSE: it
+ * still shows and is still pickable. A path this cannot classify must never
+ * become a path this hides.
  */
 const splitCustomPaths = (paths, root) => {
   const prefix = root ? `${String(root).replace(/\/+$/, "")}/` : "";
@@ -95,11 +110,11 @@ const splitCustomPaths = (paths, root) => {
   const byCat = new Map();
   for (const p of paths) {
     const rest = prefix && p.startsWith(prefix) ? p.slice(prefix.length) : null;
-    const cut = rest === null ? -1 : rest.indexOf("/");
+    const cut = rest === null ? -1 : rest.lastIndexOf("/");
     if (cut < 0) { loose.push(p); continue; }
     const key = rest.slice(0, cut);
     const name = rest.slice(cut + 1);
-    if (!key || !name || name.includes("/")) { loose.push(p); continue; }
+    if (!key || !name) { loose.push(p); continue; }
     if (!byCat.has(key)) byCat.set(key, []);
     byCat.get(key).push(name);
   }
