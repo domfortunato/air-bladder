@@ -134,9 +134,13 @@ Tlomdev's Tokens — CC BY-SA 4.0, © 2023 tlomdev
 Alegreya typeface — SIL Open Font License 1.1
     fonts/  — © 2011 The Alegreya Project Authors (Huerta Tipográfica)
     https://openfontlicense.org/
-    Redistributed unmodified. Clause 2 requires the notice travel with every
-    copy, so fonts/OFL.txt and fonts/license.txt ship beside the fonts. The OFL
-    also forbids selling the fonts on their own.
+    Converted to WOFF2 for web delivery and changed in no other way. The OFL
+    counts a format change as a "Modified Version" (§1, "or by changing
+    formats"), so this is not an unmodified redistribution and does not claim to
+    be. Nothing is breached by that: Alegreya's notice declares no Reserved Font
+    Name, so §3 leaves the name usable, and clause 2 requires only that the
+    notice travel with every copy — fonts/OFL.txt and fonts/license.txt ship
+    beside the fonts. The OFL also forbids selling the fonts on their own.
 
 
 MIT License — the CODE only, as scoped above

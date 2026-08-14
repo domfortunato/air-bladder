@@ -16,4 +16,9 @@ modified.
 Source: https://github.com/huertatipografica/Alegreya
         https://fonts.google.com/specimen/Alegreya
 
-The fonts are redistributed unmodified, converted to WOFF2 for web delivery.
+The fonts are converted to WOFF2 for web delivery and changed in no other way.
+The OFL counts a format change as a "Modified Version" (clause 1, "or by
+changing formats"), so this is not an unmodified redistribution. Alegreya's
+notice declares no Reserved Font Name, so clause 3 leaves the family name
+usable; clause 2's requirement — that the notice travel with every copy — is met
+by OFL.txt shipping beside these files.
