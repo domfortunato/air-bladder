@@ -256,17 +256,38 @@ try {
     // Layer 2: a bare create (a macro's route).
     await caster.createEmbeddedDocuments("Item", [world.toObject()]);
     const afterCreate = caster.items.filter((i) => i.system?.grimoire).length;
+    // Layer 3: two books in ONE batch, on a character carrying NONE. The
+    // fixture must be fresh — run this against the caster and _preCreate
+    // refuses both for a reason that has nothing to do with the batch, and the
+    // leg passes while the hole stays open. The rope rides along because the
+    // wall must drop the surplus BOOK, not the operation: changeBackground
+    // batches a whole startingGear, and a wall that took the boots with the
+    // second book would be a worse bug than the one it closes.
+    const fresh = await CONFIG.Actor.documentClass.create({ name: "ZZ Grim Batch", type: "character" });
+    await fresh.createEmbeddedDocuments("Item", [
+      world.toObject(),
+      world.toObject(),
+      { name: "ZZ Grim Rope", type: "item" },
+    ]);
+    const batched = fresh.items.filter((i) => i.system?.grimoire).length;
+    const ropeLanded = fresh.items.some((i) => i.name === "ZZ Grim Rope");
     // A pile is exempt.
     const pile = game.actors.get(pileId);
     await pile.createEmbeddedDocuments("Item", [world.toObject(), world.toObject()]);
     const onPile = pile.items.filter((i) => i.system?.grimoire).length;
-    return { worldId: world.id, viaDrop, afterDrop, afterCreate, onPile };
+    return { worldId: world.id, viaDrop, afterDrop, afterCreate, onPile, batched, ropeLanded, freshId: fresh.id };
   }, { casterId: fx.casterId, pileId: fx.pileId });
   cleanup.itemIds.push(wall.worldId);
+  cleanup.actorIds.push(wall.freshId);
   check(wall.viaDrop === null && wall.afterDrop === 1,
     "layer 1: the drop handler refuses a second book");
   check(wall.afterCreate === 1,
     "layer 2: a bare createEmbeddedDocuments is refused by _preCreate");
+  check(wall.batched === 1,
+    `layer 3: two books in ONE batch land as one (${wall.batched}) — _preCreate runs per document before any `
+    + "is in parent.items, so both see zero; only _preCreateOperation can see the batch");
+  check(wall.ropeLanded,
+    "...and the rest of the batch still lands — the surplus book is spliced out, the operation is not refused");
   check(wall.onPile === 2, "an npc pile takes two books — the wall is character-only");
   await gm.evaluate(async (pileId) => {
     const pile = game.actors.get(pileId);

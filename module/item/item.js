@@ -87,6 +87,52 @@ export class CairnItem extends Item {
   }
 
   /**
+   * The one-book wall's other half: the BATCH.
+   *
+   * `_preCreate` above asks `this.parent.items` whether a Grimoire is already
+   * there, and for a single create that is the whole question. For a BATCH it is
+   * blind by construction — Foundry runs every document's `_preCreate` before
+   * inserting any of them (`client-backend.mjs:102-110`, which pushes to
+   * `documents` only after each per-document workflow returns), so two Grimoires
+   * created in one call each look around, each see zero, and both land. Reachable
+   * with no crafting at all: `changeBackground` batches a custom background's
+   * whole startingGear in one `createEmbeddedDocuments`, so a background listing
+   * two books hands over two.
+   *
+   * Surplus books are SPLICED OUT rather than the operation refused, because
+   * `client-backend.mjs:120` assigns `operation.data = documents` — so dropping
+   * the extras leaves the rest of that background's gear to land, where returning
+   * false would take the boots and the rope with them. One warning for the batch,
+   * not one per book.
+   * @override
+   */
+  static async _preCreateOperation(documents, operation, user) {
+    const allowed = await super._preCreateOperation(documents, operation, user);
+    if (allowed === false) return false;
+
+    const parent = operation?.parent;
+    if (parent?.type !== "character") return;
+    const isGrimoire = (d) => d?.type === "item" && d?.system?.grimoire;
+    // Seeded from the parent for completeness only: a book arriving at a
+    // character who already has one was refused one seam up and is not in
+    // `documents` to begin with.
+    let seen = parent.items.some(isGrimoire);
+    const surplus = [];
+    for (const doc of documents) {
+      if (!isGrimoire(doc)) continue;
+      if (seen) surplus.push(doc);
+      else seen = true;
+    }
+    if (!surplus.length) return;
+    ui.notifications.warn(game.i18n.localize("CAIRN.Notify.GrimoireOnlyOne"));
+    for (const doc of surplus) {
+      const at = documents.indexOf(doc);
+      if (at >= 0) documents.splice(at, 1);
+    }
+    if (!documents.length) return false;
+  }
+
+  /**
    * Hold a spellbook to the scroll invariant at write time, whichever path wrote
    * it: the sheet's Scroll box, generation, a drag-and-drop copy, an importer, or
    * `Actor#createOwnedItem` (which rebuilds `system.weightless` from a top-level
@@ -108,6 +154,10 @@ export class CairnItem extends Item {
     // ENFORCEMENT layer behind the drop handler's refusal (the two-layer rule
     // the Fatigue guards set): a stale open dialog, a macro, or a module write
     // all land here whatever the UI showed.
+    //
+    // This half answers "does the character ALREADY have one". It cannot answer
+    // "does this batch contain two" — see `_preCreateOperation` below, which is
+    // the only seam that can.
     if (this.type === "item" && this.system.grimoire
         && this.parent?.type === "character"
         && this.parent.items.some((i) => i.type === "item" && i.system?.grimoire)) {
