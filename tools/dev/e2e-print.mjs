@@ -801,11 +801,108 @@ check("black on white, whatever the theme", r.bodyColor === "rgb(0, 0, 0)"
   && r.bodyBg === "rgb(255, 255, 255)",
   `color=${r.bodyColor} bg=${r.bodyBg} opener=${r.openerThemed} — paper is white; the one theming exemption (docs/theming.md)`);
 
+/* --------------------------------------------------- pagination, on paper --
+ * The only leg here that renders a real PDF, because page COUNT is not
+ * DOM-observable — every other pagination claim in this file reads CSS and
+ * takes it on trust. A user reported a character whose sheet fits printing a
+ * blank second page (2026-08-13): content 1043px on a 1056px US Letter page,
+ * pushed over by the running frame's own furniture. A4 (1123px) never showed
+ * it, which is why it read as intermittent.
+ *
+ * The fixture is that character's shape — nine items, two questions, one bond,
+ * no notes, no description, no omen, no scars — because the defect lives in a
+ * ~70px band near the page bottom and a fixture outside it proves nothing. The
+ * control says so out loud: restoring the body's print padding in-page must
+ * bring the blank page BACK, or this leg is not looking at the right document.
+ * ------------------------------------------------------------------------- */
+console.log("\npagination, rendered to paper");
+const ZERO_MARGIN = { top: "0", bottom: "0", left: "0", right: "0" };
+const pdfPages = (buf) => (buf.toString("latin1").match(/\/Type\s*\/Page[^s]/g) ?? []).length;
+
+const pagerId = await page.evaluate(async () => {
+  const bg = (await game.packs.get("air-bladder.backgrounds-2e").getDocuments())
+    .find((d) => d.name === "Prowler");
+  const actor = await CONFIG.Actor.documentClass.create({
+    name: "ZZ Print Pager", type: "character",
+    system: {
+      background: "Prowler", backgroundUuid: bg?.uuid ?? "", contentSource: "2e",
+      abilities: { STR: { value: 10, max: 10 }, DEX: { value: 16, max: 16 }, WIL: { value: 16, max: 16 } },
+      hp: { value: 3, max: 3 }, gold: 5, age: "23",
+      traits: { physique: "Lanky", skin: "Oily", hair: "Wispy", face: "Rakish",
+        speech: "Whispery", clothing: "Bloody", vice: "Craven", virtue: "Merciful" },
+      bonds: [{ id: "zzpager0000000001", gold: 0,
+        description: "You inherited a Single Gem (500gp, cold and brittle) from a long-dead relative. It arrived with a warning: squander your newfound riches, and a debt long thought forgotten would be called." }],
+      questions: [
+        { question: "What did you last hunt?", gold: 0,
+          answer: "A silver marsh crawler that killed someone close to you. You now carry its Tooth (petty) on a chain around your neck as a warning to others of its kind. The tooth hums softly when something is stalking you." },
+        { question: "What tool is always in your pack?", gold: 0,
+          answer: "Spike and Cord: For traversing difficult terrain or for creating makeshift traps and structures." },
+      ],
+      omenEnabled: false, scars: [], description: "", notes: "",
+    },
+  });
+  await actor.createEmbeddedDocuments("Item", [
+    { name: "ZZ Single Gem", type: "item", system: { description: "You inherited a Single Gem (500gp, cold and brittle) from a long-dead relative. It arrived with a warning: squander your newfound riches, and a debt long thought forgotten would be called." } },
+    { name: "ZZ Rations", type: "item", system: { description: "Preserved trail food.", uses: { value: 3, max: 3 } } },
+    { name: "ZZ Torch", type: "item", system: { description: "A pitch-soaked brand.", uses: { value: 3, max: 3 } } },
+    { name: "ZZ Tarp", type: "item", system: { description: "A large waterproof sheet for shelter, cover, or hauling a load." } },
+    { name: "ZZ Boiled Leather", type: "armor", system: { description: "Hardened leather armor.", armor: 1, equipped: true } },
+    { name: "ZZ Short sword", type: "weapon", system: { description: "A plain, reliable blade.", damageFormula: "d6", equipped: true } },
+    { name: "ZZ Spring-Loaded Trap", type: "item", system: { description: "4 STR damage" } },
+    { name: "ZZ Tooth", type: "item", system: { description: "The Tooth of a Silver Marsh Crawler, carried as a warning to others of its kind. Hums softly when something is stalking you.", weightless: true } },
+    { name: "ZZ Spike and Cord", type: "item", system: { description: "For traversing difficult terrain or for creating makeshift traps and structures." } },
+  ], { render: false });
+  await actor.sheet.render(true);
+  return actor.id;
+});
+await page.waitForSelector('[data-action="printSheet"]', { state: "visible", timeout: 15000 });
+
+const renderPaper = async (restorePadding) => {
+  const popped = page.waitForEvent("popup", { timeout: 20000 });
+  await page.click('[data-action="printSheet"]');
+  const pop = await popped;
+  await pop.waitForLoadState("domcontentloaded").catch(() => null);
+  await new Promise((res) => setTimeout(res, 1500));
+  if (restorePadding) {
+    await pop.evaluate(() => {
+      const s = document.createElement("style");
+      s.textContent = "@media print{body{padding-top:2rem!important;padding-bottom:2rem!important}}";
+      document.head.appendChild(s);
+    });
+  }
+  const out = {
+    letter: pdfPages(await pop.pdf({ format: "Letter", printBackground: true, margin: ZERO_MARGIN })),
+    a4: pdfPages(await pop.pdf({ format: "A4", printBackground: true, margin: ZERO_MARGIN })),
+  };
+  await pop.emulateMedia({ media: "print" });
+  const roof = await pop.evaluate(() => {
+    const th = document.querySelector(".page-frame thead");
+    const rect = th?.getBoundingClientRect();
+    return rect ? { top: Math.round(rect.top + window.scrollY), h: Math.round(rect.height) } : null;
+  });
+  await pop.close();
+  return { ...out, roof };
+};
+
+const paper = await renderPaper(false);
+const paperControl = await renderPaper(true);
+await page.evaluate(async (id) => { await game.actors.get(id)?.sheet.close(); }, pagerId);
+
+check("a character that FITS prints on ONE page", paper.letter === 1 && paper.a4 === 1,
+  `Letter=${paper.letter} A4=${paper.a4} — no page holding nothing but the frame's furniture`);
+check("control: the body's print padding brings the blank page back", paperControl.letter === 2,
+  `Letter=${paperControl.letter} A4=${paperControl.a4} — if this is 1, the fixture drifted out of the `
+  + "~70px band where the defect lives and the leg above proves nothing");
+check("the 9mm roof still lands on page 1", paper.roof?.top === 0 && paper.roof?.h > 30,
+  `${JSON.stringify(paper.roof)} — the frame's thead is what replaced the body padding, so it must be `
+  + "the first thing on the paper, not merely present on continuation pages");
+
 /* ----------------------------------------------------------- teardown ---- */
-await page.evaluate(async ({ ids, itemIds }) => {
+await page.evaluate(async ({ ids, itemIds, pagerId: pid }) => {
   for (const id of Object.values(ids)) await game.actors.get(id)?.delete();
   for (const id of itemIds) await game.items.get(id)?.delete();
-}, { ids: r.ids, itemIds: r.itemIds });
+  await game.actors.get(pid)?.delete();
+}, { ids: r.ids, itemIds: r.itemIds, pagerId });
 
 const errs = errors.filter((e) => !/ZZ /.test(e));
 check("zero console errors", errs.length === 0, errs.join(" | "));

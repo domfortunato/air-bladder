@@ -138,6 +138,21 @@
     footer.credits { position: fixed; bottom: 4mm; left: 0; right: 0; background: #fff; margin: 0; }
     .page-head { display: block; height: 9mm; }
     .page-foot-space { display: block; height: 10mm; }
+    /* The body's 2rem top/bottom padding is SCREEN-ONLY (user report
+       2026-08-13: a character that fits printed a blank second page).
+       Once the running frame above exists, that padding is a second helping
+       of breathing room the page already has — .page-head is a 9mm roof on
+       every printed page INCLUDING the first, and .page-foot-space reserves
+       the strip the fixed credits paint into at every bottom. Paying for
+       both costs 64px of vertical budget, and Chromium additionally reserves
+       the repeated tfoot's height when deciding whether the remaining
+       content fits, so a sheet ending anywhere in the last ~70px of the
+       paper is pushed onto a page holding nothing but the frame's own
+       furniture. Measured: content 1043px, US Letter 1056px — 13px of real
+       slack, and it broke. Left/right padding stays; the @page margins are
+       the horizontal frame and this is only about height.
+       A4 (1123px) never showed it, which is why it reads as intermittent. */
+    body { padding-top: 0; padding-bottom: 0; }
   }
 </style>
 </head>
