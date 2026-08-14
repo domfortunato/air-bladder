@@ -200,21 +200,73 @@ export async function pickArt({
   // `creditKey` is optional since 2026-08-14: the custom gallery reuses this
   // shape but is the Warden's own art, with no licence to state. A credit under
   // art it does not cover is the failure this file's header calls out.
-  const folderPaneBody = (dir, cats, labelFor, creditKey) => {
-    const folders = cats.map(({ key, names }) => {
-      const label = attr(labelFor(key));
-      const face = `${dir}/${key}/${names[0]}`;
-      return `<button type="button" class="cairn-icon-folder" data-category="${attr(key)}" title="${label}">
-          <img src="${attr(face)}" alt="" />
-          <span>${label}</span>
+  //
+  // A tile carries the FULL key in `data-category` and in its tooltip, whatever
+  // its caption says — the caption is display, the key is what the drill-down
+  // looks up.
+  const folderTile = (dir, key, names, caption, tooltip) =>
+    `<button type="button" class="cairn-icon-folder" data-category="${attr(key)}" title="${attr(tooltip ?? caption)}">
+          <img src="${attr(`${dir}/${key}/${names[0]}`)}" alt="" />
+          <span>${attr(caption)}</span>
         </button>`;
-    }).join("");
-    return `<div class="cairn-icon-folders">${folders}</div>
-      <div class="cairn-icon-category" hidden>
+
+  const folderDrilldown = (creditKey) =>
+    `<div class="cairn-icon-category" hidden>
         <button type="button" class="cairn-icon-back"><i class="fas fa-chevron-left"></i> ${game.i18n.localize("CAIRN.GameIconsBack")}</button>
         <div class="cairn-portrait-grid"></div>
       </div>
       ${creditKey ? `<div class="cairn-portrait-credit">${game.i18n.localize(creditKey)}</div>` : ""}`;
+
+  const folderPaneBody = (dir, cats, labelFor, creditKey) => {
+    const folders = cats.map(({ key, names }) => folderTile(dir, key, names, labelFor(key))).join("");
+    return `<div class="cairn-icon-folders">${folders}</div>
+      ${folderDrilldown(creditKey)}`;
+  };
+
+  /**
+   * The CUSTOM pane's folder tiles, GROUPED BY PARENT.
+   *
+   * The shipped galleries are one level deep, so `folderPaneBody` above puts a
+   * plain caption on every tile. The Warden's own folders are not: filed as
+   * `Humans/Clerics`, `Humans/Thieves`, `Kindred/Breggles`, a full-path caption
+   * on each tile repeats the parent six times and wraps to three lines in a
+   * 112px tile. So the parent is lifted OUT into a heading spanning the grid and
+   * the tile keeps only its own name — the information is the same, said once.
+   *
+   * The heading lives INSIDE `.cairn-icon-folders` (as a full-width grid item)
+   * rather than between several grids, because the drill-down wiring hides that
+   * one element to swap views; several would each need hiding, which is a second
+   * thing to keep in step for no gain.
+   *
+   * Top-level folders come first, unheaded — a Warden with no nesting sees
+   * exactly what they saw before. The full path stays in each tile's tooltip.
+   */
+  const customFolderBody = (dir, cats) => {
+    const leafOf = (key) => key.slice(key.lastIndexOf("/") + 1);
+    const parentOf = (key) => (key.includes("/") ? key.slice(0, key.lastIndexOf("/")) : "");
+    const groups = new Map();
+    for (const cat of cats) {
+      const parent = parentOf(cat.key);
+      if (!groups.has(parent)) groups.set(parent, []);
+      groups.get(parent).push(cat);
+    }
+    const ordered = [...groups.entries()].sort(([a], [b]) => {
+      if (a === b) return 0;
+      if (!a) return -1; // the unheaded top-level group leads
+      if (!b) return 1;
+      return customCategoryLabel(a).localeCompare(customCategoryLabel(b));
+    });
+    const body = ordered.map(([parent, items]) => {
+      const heading = parent
+        ? `<div class="cairn-folder-group">${attr(customCategoryLabel(parent))}</div>`
+        : "";
+      const tiles = items
+        .map(({ key, names }) => folderTile(dir, key, names, customCategoryLabel(leafOf(key)), customCategoryLabel(key)))
+        .join("");
+      return `${heading}${tiles}`;
+    }).join("");
+    return `<div class="cairn-icon-folders">${body}</div>
+      ${folderDrilldown(null)}`;
   };
 
   /**
@@ -234,7 +286,7 @@ export async function pickArt({
       ? `<button type="button" class="cairn-portrait-refresh"><i class="fas fa-rotate"></i> ${game.i18n.localize("CAIRN.RefreshCustomPortraits")}</button>`
       : "";
     const looseGrid = `<div class="cairn-portrait-grid cairn-custom-loose">${loose.map((p) => cellFor(p)).join("")}</div>`;
-    const folders = cats.length ? folderPaneBody(customRoot, cats, customCategoryLabel, null) : "";
+    const folders = cats.length ? customFolderBody(customRoot, cats) : "";
     return `${looseGrid}${folders}
       <div class="cairn-portrait-empty"${paths.length ? " hidden" : ""}>${game.i18n.localize("CAIRN.CustomPortraitsEmpty")}</div>
       ${refreshBtn}`;

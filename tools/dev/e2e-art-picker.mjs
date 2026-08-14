@@ -590,7 +590,10 @@ try {
     list: game.settings.get("air-bladder", "custom-portrait-list"),
   }));
 
-  const scanTo = (root) => page.evaluate(async (dir) => {
+  // `drillKey` names WHICH tile to open — the first tile is no longer the
+  // interesting one, since top-level folders lead and the nested case sits
+  // under a heading further down.
+  const scanTo = (root, drillKey = null) => page.evaluate(async ([dir, wanted]) => {
     const NS = "air-bladder";
     await game.settings.set(NS, "custom-portrait-folder", dir);
     const gen = await import("/systems/air-bladder/module/character-generator.js");
@@ -603,19 +606,48 @@ try {
     const dlg = [...foundry.applications.instances.values()]
       .find((x) => x.constructor.name === "DialogV2" && x.element?.querySelector(".cairn-portrait-gallery"));
     const pane = dlg.element.querySelector('[data-pane="custom"]');
+    // The tab must be ACTIVE before anything is measured: a hidden pane reports
+    // every box as 0×0, and a spill leg reading zeroes passes for the wrong
+    // reason. The picker opens on whichever tab holds the current image.
+    dlg.element.querySelector('.cairn-portrait-tab[data-tab="custom"]')?.click();
+    await new Promise((r) => setTimeout(r, 150));
     const depthOf = (f) => f.slice(dir.length + 1).split("/").length - 1;
+    const tileEls = [...pane.querySelectorAll(".cairn-icon-folder")];
     const out = {
       scanned: files.length,
       inSubfolders: files.filter((f) => depthOf(f) > 0).length,
       // How deep the walk actually reached. 1 is a subfolder, 2 is a folder
       // inside a subfolder — the case the one-level fix missed.
       maxDepth: files.reduce((m, f) => Math.max(m, depthOf(f)), 0),
-      tiles: [...pane.querySelectorAll(".cairn-icon-folder")].map((b) => b.querySelector("span")?.textContent.trim()),
+      // Caption, tooltip and key separately: the caption is the folder's OWN
+      // name, the parent is lifted into a heading, and the key stays the whole
+      // relative path because that is what the drill-down looks up.
+      tiles: tileEls.map((b) => b.querySelector("span")?.textContent.trim()),
+      tips: tileEls.map((b) => b.title),
+      keys: tileEls.map((b) => b.dataset.category),
+      headings: [...pane.querySelectorAll(".cairn-folder-group")].map((h) => h.textContent.trim()),
+      // Core pins every <button> to `var(--button-size)` — 32px here — so a
+      // caption that wraps to two lines renders OUTSIDE its own tile, over the
+      // tiles above and below, unless the CSS overrides it. Measured as "is the
+      // box as tall as its contents need", and BOTH weaker tests were tried and
+      // rejected: `scrollHeight > clientHeight` is blind (the tile does not
+      // scroll and Chromium reports them equal while the text is plainly drawn
+      // outside), and rect containment only fires once the overflow exceeds the
+      // padding, so a two-line caption escaping by 0.8px passed. A leg that
+      // stays green with its fix deleted is worse than no leg.
+      spilling: tileEls.filter((b) => {
+        const cs = getComputedStyle(b);
+        const chrome = ["paddingTop", "paddingBottom", "borderTopWidth", "borderBottomWidth"]
+          .reduce((n, k) => n + parseFloat(cs[k] || 0), 0);
+        const h = (el) => (el ? el.getBoundingClientRect().height : 0);
+        const need = Math.max(h(b.querySelector("span")), h(b.querySelector("img"))) + chrome;
+        return b.getBoundingClientRect().height + 0.5 < need;
+      }).length,
       looseCells: [...pane.querySelectorAll(".cairn-custom-loose .cairn-portrait-choice")].map((i) => i.dataset.src),
       emptyHidden: pane.querySelector(".cairn-portrait-empty")?.hidden ?? null,
       credit: pane.querySelector(".cairn-portrait-credit")?.textContent?.trim() ?? null,
     };
-    const first = pane.querySelector(".cairn-icon-folder");
+    const first = wanted ? tileEls.find((b) => b.dataset.category === wanted) : tileEls[0];
     out.firstKey = first?.dataset.category ?? null;
     out.tileFace = first?.querySelector("img")?.getAttribute("src") ?? null;
     // A tile's face must DECODE, not merely be pointed at: a key built wrongly
@@ -631,7 +663,7 @@ try {
     out.backRestores = pane.querySelector(".cairn-icon-folders")?.hidden === false;
     await dlg.close(); await sheet.close(); await a.delete();
     return out;
-  }, root);
+  }, [root, drillKey]);
 
   const lydiaRoot = "systems/air-bladder/art/lydia-comer";
   const cats = await scanTo(lydiaRoot);
@@ -639,9 +671,9 @@ try {
   cats.inSubfolders > 0
     ? ok("the scan reaches images inside subfolders", `${cats.inSubfolders} of ${cats.scanned} — this was 0 before the fix`)
     : fail("the scan reaches images inside subfolders", `${cats.scanned} found, none below the top level`);
-  eq(cats.tiles, ["Portraits", "Tokens"])
-    ? ok("each subfolder becomes a category tile", cats.tiles.join(" / "))
-    : fail("each subfolder becomes a category tile", JSON.stringify(cats.tiles));
+  eq(cats.tiles, ["Portraits", "Tokens"]) && cats.headings.length === 0
+    ? ok("each subfolder becomes a category tile", `${cats.tiles.join(" / ")}, no parent headings`)
+    : fail("each subfolder becomes a category tile", JSON.stringify([cats.tiles, cats.headings]));
   cats.looseCells?.length === 3 && cats.looseCells.every((p) => !p.slice(lydiaRoot.length + 1).includes("/"))
     ? ok("loose top-level images still show in a flat grid", "the simple case costs no extra click")
     : fail("loose top-level images still show in a flat grid", JSON.stringify(cats.looseCells));
@@ -670,21 +702,37 @@ try {
   // this root found only `lydia-comer`'s three loose images and grew exactly
   // one tile. It carries the label rule too, and doubles as the control for
   // "a folder holding only other folders grows no tile of its own".
-  const tidy = await scanTo("systems/air-bladder/art");
+  const tidy = await scanTo("systems/air-bladder/art", "lydia-comer/portraits");
   tidy.maxDepth >= 2
     ? ok("the scan reaches images two folders down", `deepest is ${tidy.maxDepth} level(s), ${tidy.scanned} images`)
     : fail("the scan reaches images two folders down", `deepest is ${tidy.maxDepth} level(s), ${tidy.scanned} images`);
-  tidy.tiles.includes("Lydia Comer / Portraits") && tidy.tiles.includes("Jon Aspeheim / Tokens")
-    ? ok("a nested folder gets its own tile, named by its whole path", "one click deep however the Warden files it")
-    : fail("a nested folder gets its own tile, named by its whole path", JSON.stringify(tidy.tiles.slice(0, 8)));
+  const nested = tidy.keys.indexOf("lydia-comer/portraits");
+  nested >= 0 && tidy.tiles[nested] === "Portraits"
+    && tidy.tips[nested] === "Lydia Comer / Portraits" && tidy.headings.includes("Lydia Comer")
+    ? ok("a nested folder gets its own tile under its parent's heading", "one click deep however the Warden files it")
+    : fail("a nested folder gets its own tile under its parent's heading",
+        JSON.stringify([tidy.keys.slice(0, 6), tidy.headings.slice(0, 6)]));
+  // The parent is said ONCE, in the heading — a full path on every tile repeats
+  // it and wraps to three lines. The whole path stays in the tooltip and in the
+  // key, so nothing is lost but the repetition.
+  !tidy.tiles.some((t) => t.includes(" / ")) && tidy.headings.includes("Jon Aspeheim")
+    ? ok("the parent is a heading, not repeated on every tile", tidy.headings.join(" · "))
+    : fail("the parent is a heading, not repeated on every tile", JSON.stringify(tidy.tiles.slice(0, 8)));
   tidy.tiles.includes("Lydia Comer")
     ? ok("a hyphenated folder name reads as words", "lydia-comer -> Lydia Comer")
     : fail("a hyphenated folder name reads as words", JSON.stringify(tidy.tiles.slice(0, 8)));
   // `jon-aspeheim/` and `game-icons/` hold no images directly — only folders
-  // and a licence file — so neither may grow a tile of its own.
-  !tidy.tiles.includes("Jon Aspeheim") && !tidy.tiles.includes("Game Icons")
+  // and a licence file — so neither may grow a tile of its own. By KEY, since a
+  // heading of that name is exactly what they DO get.
+  !tidy.keys.includes("jon-aspeheim") && !tidy.keys.includes("game-icons")
     ? ok("a folder of folders grows no tile of its own", "there is no image to put on one")
-    : fail("a folder of folders grows no tile of its own", JSON.stringify(tidy.tiles.slice(0, 8)));
+    : fail("a folder of folders grows no tile of its own", JSON.stringify(tidy.keys.slice(0, 8)));
+  // The bug a Warden saw before the box was fixed: core pins every button to
+  // `var(--button-size)`, so a wrapped caption rendered outside its own tile,
+  // over the tiles above and below it.
+  tidy.spilling === 0 && cats.spilling === 0
+    ? ok("every tile is tall enough for its own caption", `${tidy.tiles.length} tiles, none spilling`)
+    : fail("every tile is tall enough for its own caption", `${tidy.spilling} of ${tidy.tiles.length} spill`);
   tidy.firstKey?.includes("/") && tidy.faceDecodes === true
     && tidy.drilled?.length > 0 && tidy.drilled.every((p) => p.includes(`/${tidy.firstKey}/`))
     ? ok("a nested tile's face decodes and its drill-down resolves", `${tidy.drilled.length} in ${tidy.firstKey}`)

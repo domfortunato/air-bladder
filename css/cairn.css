@@ -2633,20 +2633,33 @@ ol.combat-tracker li.combatant.cairn-drop-below {
    category's thumbnails. Both live in one pane and swap by `hidden`, so the
    dialog never resizes between them — the grid below reuses .cairn-portrait-grid
    so a thumbnail is the same object everywhere in the picker. */
+/* 140px, not the 112px this started at: at 112 a tile gives its caption about
+   59px of text, so an ordinary folder name ("Mercenaries", "Greek Roman") broke
+   mid-word. Three roomy columns read better than four cramped ones, and a
+   resized dialog still grows more of them. */
 .cairn-icon-folders {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     gap: 6px;
     max-height: 420px;
     overflow-y: auto;
     padding: 4px;
 }
 
+/* `height`/`min-height` are !important because core pins EVERY button to
+   `var(--button-size)` (foundry2.css:4043, @layer elements.forms) and our
+   @layer system loses to it. A tile is an image beside a caption, not a control
+   of standard height: at 32px a two-line caption rendered OUTSIDE the border,
+   overlapping the tiles above and below, which is what a Warden's nested folder
+   names produce. Nothing here is decoration — remove either line and the box
+   stops containing its own text. */
 .cairn-icon-folder {
     display: flex;
     align-items: center;
     gap: 8px;
     width: auto;
+    height: auto !important;
+    min-height: 44px !important;
     padding: 6px 8px;
     background: none;
     border: 1px solid var(--ab-rule);
@@ -2654,6 +2667,23 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     cursor: pointer;
     text-align: left;
     line-height: 1.2;
+}
+
+/* The parent folder's name, once, over the tiles that sit inside it. A full-width
+   grid item so it breaks the flow of columns rather than taking a cell. */
+.cairn-folder-group {
+    grid-column: 1 / -1;
+    margin: 6px 2px 0;
+    padding-bottom: 2px;
+    border-bottom: 1px solid var(--ab-rule);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 0.7;
+}
+
+.cairn-folder-group:first-child {
+    margin-top: 0;
 }
 
 .cairn-icon-folder:hover {
@@ -2671,14 +2701,14 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     border-radius: 3px;
 }
 
-/* A custom category tile can carry a whole nested path ("OSR Fantasy /
-   Clerics"), and a Warden's folder name can be one long unbroken word, so the
-   caption wraps anywhere rather than pushing the tile out of its column. */
+/* A Warden's folder name can be one long unbroken word, so a caption may have to
+   break inside a word — but `break-word` only does so when the word cannot fit,
+   where `anywhere` split "Mercenaries" across lines while there was still room. */
 .cairn-icon-folder span {
     flex: 1 1 auto;
     min-width: 0;
     font-size: 12px;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
 }
 
 .cairn-icon-back {
