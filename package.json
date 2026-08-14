@@ -60,6 +60,7 @@
     "dev:phantom-save": "node tools/dev/e2e-phantom-save.mjs",
     "dev:sanitize": "node tools/dev/e2e-sanitize.mjs",
     "dev:i18n-render": "node tools/dev/e2e-i18n-render.mjs",
+    "dev:journal-i18n": "node tools/dev/e2e-journal-i18n.mjs",
     "dev:i18n-load": "node tools/dev/e2e-i18n-load.mjs",
     "dev:compendium": "node tools/dev/e2e-compendium-lookup.mjs",
     "check:probes": "node tools/dev/probe-wiring-check.mjs",
@@ -125,6 +126,7 @@
     "eslint-plugin-import": "^2.26.0",
     "js-yaml": "^5.2.1",
     "marked": "^18.0.9",
+    "node-html-parser": "^9.0.1",
     "playwright": "^1.49.0",
     "sharp": "^0.35.3",
     "standard": "^16.0.3"

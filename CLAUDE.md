@@ -363,6 +363,26 @@ importer's ROSTER names which docs mirror; contributor documents (plans,
 design-of-record files, release-testing, theming, i18n process) stay
 repo-side on purpose.
 
+**Journals are TRANSLATABLE, but only the player-facing ones** (user ruling
+2026-08-14). `journals-2e` and `journals-glog` reach the content overlay;
+`journals-docs` deliberately does not, because its pages are REGENERATED from
+`docs/*.md` by the importer above — a translation keyed to that English would
+be orphaned by the routine step this very section tells you to take, which is
+worse than offering none. The list is `TRANSLATABLE_JOURNAL_PACKS` in
+`tools/i18n/content-strings.mjs`; a new journal pack must be added there or it
+silently reaches no translator. Split at PARAGRAPH level, not page level: a
+page is one `text.content` string of up to 14,000 characters, so a page-level
+key would hand a translator a rulebook page in one spreadsheet cell and orphan
+all of it on any English edit. Two consequences worth knowing before you touch
+journal prose — **a block containing an `@UUID` link is NOT translatable at
+all** (Foundry enriches it into `<a class="content-link">` before it reaches
+the DOM, so its key can never match; the extractor skips it rather than
+promising a row that cannot land), and **`BLOCK_TAGS` in the extractor and
+`JOURNAL_BLOCKS` in `module/cairn.js` must stay identical** — a tag in one and
+not the other is a key nothing ever asks for. `npm run dev:journal-i18n` is
+what holds all of this honest: it imports the real extractor from Node, renders
+the real journals in Chromium, and asserts the two agree key for key.
+
 ## Licensing — six regimes, and the traps
 
 **The inventory lives in `README.md` (canonical) and `LICENSE.txt`, and
@@ -429,7 +449,7 @@ What belongs here is what those two files do not say:
 
 ## Testing
 
-**`docs/release-testing.md` is the full list — 94 probes (`check:probes` states
+**`docs/release-testing.md` is the full list — 95 probes (`check:probes` states
 the current count), what each covers, and what to run before tagging vs after
 publishing. Keep it in step with `package.json`; a probe not listed there runs
 only when someone remembers it.**

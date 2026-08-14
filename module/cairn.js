@@ -169,11 +169,21 @@ Hooks.once("i18nInit", loadContentOverlay);
 Hooks.on("renderCompendium", (app, html) => {
   if (!contentLocalized()) return;
   const meta = app.collection?.metadata;
+  // Named document types come FIRST, and the `item.name` fallthrough is the last
+  // resort rather than the catch-all it used to be. Deriving by elimination put
+  // JournalEntry and Macro rows through `item.name` — latent (no name collides
+  // today) but wrong in the same way the extractor's fallthrough was, and it
+  // quietly contradicted the macro skip's stated reason for existing ("macro
+  // names have no overlay surface" is only true if nothing looks them up here).
+  // A Macro pack now resolves to no namespace at all and is left alone.
   const ns =
     meta?.type === "Actor" ? "monster.name" :
     meta?.type === "RollTable" ? "table.name" :
+    meta?.type === "JournalEntry" ? "journal.name" :
+    meta?.type === "Macro" ? null :
     (meta?.name ?? "").startsWith("backgrounds") ? "bg.name" :
     "item.name";
+  if (ns === null) return;
   // v14 render hooks pass the raw HTMLElement — no jQuery ever arrives here.
   const root = html;
   root?.querySelectorAll?.(".entry-name").forEach((el) => {
@@ -321,6 +331,99 @@ Hooks.on("renderRollTableSheet", (app) => {
   // so a plain-text description — every shipped one — is dropped by core
   // before it reaches the DOM. Its real surface is the DRAW CARD, translated
   // above. Code here that "translated" it would be coverage theatre.
+});
+
+/* -------------------------------------------- */
+/*  Journals — the player-facing rules handouts */
+/* -------------------------------------------- */
+
+/**
+ * Block-level tags a journal page is translated at, ONE lookup per element.
+ * MUST stay identical to BLOCK_TAGS in tools/i18n/content-strings.mjs: the
+ * extractor emits `node.innerHTML` for exactly these and the overlay is keyed on
+ * it, so a tag in one list and not the other is a key nothing ever asks for.
+ * `npm run dev:journal-i18n` is what holds the two honest — it collects the real
+ * rendered DOM's keys and checks the extractor emits every one.
+ */
+const JOURNAL_BLOCKS = "p, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, figcaption";
+
+/**
+ * Translate a rendered page's prose, paragraph by paragraph.
+ *
+ * PARAGRAPH-level, ruled 2026-08-14: a page here is one `text.content` string of
+ * up to 14,000 characters, so keying the overlay on the whole page would hand a
+ * translator a rulebook page in one cell and orphan all of it on any English
+ * edit. Split this way an edit costs only the sentences it touched.
+ *
+ * Nested blocks are skipped so only the INNERMOST block owns its text — a `<li>`
+ * wrapping a nested list yields the inner items, never the outer's concatenation
+ * of them, which would otherwise be keyed on a string that is also its own
+ * children and fight them at render.
+ *
+ * `translationOf`, never `t`: the value written to innerHTML is then provably
+ * from our own overlay JSON and DOM text can never round-trip back out as
+ * markup — the same rule swapResultNode above is written to.
+ */
+const localizeJournalBlocks = (root) => {
+  if (!root) return;
+  for (const node of root.querySelectorAll(JOURNAL_BLOCKS)) {
+    if (node.querySelector(JOURNAL_BLOCKS)) continue;
+    const en = node.innerHTML.trim();
+    if (!en) continue;
+    const es = translationOf("journal.block", en);
+    if (es !== undefined && es !== en) node.innerHTML = es;
+  }
+};
+
+/**
+ * Every page sheet, whether it is drawn inside its entry's sheet or opened on
+ * its own — the entry sheet renders each page through the page's OWN sheet
+ * (`_renderPageView`, journal-entry-sheet.mjs:754-758), so this one hook covers
+ * both and the entry-level hook below is left only the chrome.
+ *
+ * `renderJournalEntryPageSheet` rather than the concrete subclass name because
+ * AppV2 fires the hook for every class in the chain, and a text page is served
+ * by JournalEntryPageProseMirrorSheet in v14 — naming the subclass would tie
+ * this to a class core is free to swap under us.
+ *
+ * VIEW MODE ONLY (`app.isView`, journal-entry-page-sheet.mjs:72-74). Edit mode
+ * is an editor over the STORED English, the same read/edit split every overlay
+ * surface keeps: translating there would show a Warden Spanish in a box whose
+ * save writes English back, or worse, writes the Spanish.
+ */
+Hooks.on("renderJournalEntryPageSheet", (app, element) => {
+  if (!contentLocalized() || !app.isView) return;
+  localizeJournalBlocks(element?.querySelector?.(".journal-page-content") ?? element);
+});
+
+/**
+ * The entry sheet's chrome: the window title, and the table-of-contents links
+ * down the left. Both are built from text core captured before the hook above
+ * ran, so without this a Spanish reader gets Spanish prose under an English
+ * title with an English contents list beside it — the "one surface, two
+ * answers" tell, on one screen.
+ *
+ * The TOC is written through `textContent`, and only when NEITHER side carries
+ * markup: a heading's overlay key is its innerHTML, so a marked-up heading's
+ * translation contains tags that would render as literal text in a link. Those
+ * simply stay English, which is the overlay's standing way of missing.
+ */
+Hooks.on("renderJournalEntrySheet", (app, element) => {
+  if (!contentLocalized() || !element) return;
+  const esName = translationOf("journal.name", app.document?.name ?? "");
+  if (esName !== undefined) {
+    const title = element.querySelector(".window-title");
+    if (title) title.textContent = esName;
+  }
+  for (const link of element.querySelectorAll("nav.toc a")) {
+    const en = link.textContent.trim();
+    if (!en || en.includes("<")) continue;
+    // A TOC row is either a heading inside a page (journal.block) or the page
+    // itself (journal.pageName); try both, heading first — headings outnumber
+    // pages by an order of magnitude in every shipped entry.
+    const es = translationOf("journal.block", en) ?? translationOf("journal.pageName", en);
+    if (es !== undefined && es !== en && !es.includes("<")) link.textContent = es;
+  }
 });
 
 // Cairn calls the Game Master the "Warden". When the setting is on, override

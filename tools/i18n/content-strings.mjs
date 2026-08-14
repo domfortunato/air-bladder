@@ -16,9 +16,89 @@
  * -- keep the two in step.
  */
 
+import { parse as parseHTML } from "node-html-parser";
 import { domSourceKey } from "./lib.mjs";
 
 const ACTOR_TYPES = new Set(["character", "npc", "container", "hireling"]);
+
+/**
+ * Journal packs whose text is translatable. Ruled 2026-08-14: the PLAYER-FACING
+ * journals only. `journals-docs` is deliberately absent — every page in it is
+ * REGENERATED from `docs/*.md` by tools/import/system-docs.mjs, so a translation
+ * keyed to its English would be silently orphaned the next time a guide is
+ * edited and the importer re-run, which is the routine maintenance step
+ * CLAUDE.md tells a contributor to take. Offering a translator ~2,000 words
+ * whose keys evaporate on someone else's ordinary workflow is worse than
+ * offering nothing.
+ */
+const TRANSLATABLE_JOURNAL_PACKS = new Set(["journals-2e", "journals-glog"]);
+
+/**
+ * Block-level tags a journal page is split at, one overlay entry per element.
+ *
+ * PARAGRAPH-level rather than page-level, ruled 2026-08-14. A page here is a
+ * single `text.content` string of up to 14,000 characters; keying the overlay on
+ * the whole thing would hand a translator one spreadsheet cell holding an entire
+ * rulebook page — tags and all — and would orphan that page's whole translation
+ * the moment one English word changed. Split this way the four player journals
+ * come to ~400 sentence-sized entries, the same size as the item and table rows
+ * the overlay already carries, and an English edit costs exactly the sentences
+ * it touched.
+ *
+ * `<td>`/`<th>` are in the list because the Scars and Reaction tables are real
+ * prose. Container tags (`ul`, `table`, `tbody`, `tr`, `div`) are NOT: they hold
+ * no text of their own, and emitting them would key a parent on a string that
+ * also exists as its children, so translating the child would leave the parent's
+ * copy of it English and the two would fight at render time.
+ */
+const BLOCK_TAGS = "p, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, figcaption";
+
+/**
+ * A block carrying Foundry ENRICHMENT — `@UUID[…]{…}`, `@Actor[…]`, `[[/roll]]`,
+ * `@Embed[…]` — cannot be translated by this overlay, and must not be offered.
+ *
+ * `TextEditor.enrichHTML` runs before the page reaches the DOM and expands the
+ * stored `@UUID[Compendium.…]{GLOG Magic — Spells}` into a full
+ * `<a class="content-link" data-uuid=… ><i …></i>GLOG Magic — Spells</a>`. The
+ * key the browser then asks for is that expansion; the key the extractor could
+ * emit is the source. They can never be equal, so a translation of such a block
+ * is a row a translator fills in and which then does nothing, for ever, with
+ * nothing anywhere reporting it — the exact dead promise the folder and macro
+ * skips above exist to prevent. Two of the four player journals' 378 blocks are
+ * in this class today; both are cross-reference sentences.
+ *
+ * The block therefore stays English by DESIGN rather than by accident, which is
+ * the same call `swapResultNode` in module/cairn.js already makes for an
+ * enriched table row. `dev:journal-i18n` asserts the DOM's unmatched keys are
+ * exactly the enriched ones, so this boundary is measured rather than assumed —
+ * and the day it grows, the probe says so instead of the translation silently
+ * thinning.
+ */
+const ENRICHED = /@[A-Za-z]+\[|\[\[/;
+
+/**
+ * Yield every block-level chunk of one page's HTML, in document order.
+ *
+ * PARSED, never regexed. The keys have to be byte-identical to what the browser
+ * hands back from `node.innerHTML` at display time — that is the whole contract
+ * with the overlay — and a pattern that merely looks right on today's content is
+ * how a key silently stops matching. `dev:journal-i18n` proves the two agree by
+ * collecting the real DOM's keys in a real page render and checking every one is
+ * a string this extractor emitted.
+ *
+ * Nested blocks are skipped: only the INNERMOST block owns its text, so a
+ * `<li>` holding a nested `<ul><li>` yields the inner items and not the outer's
+ * concatenation of them. Empty and whitespace-only blocks yield nothing.
+ */
+function* blocksOf(html) {
+  const root = parseHTML(String(html ?? ""));
+  for (const node of root.querySelectorAll(BLOCK_TAGS)) {
+    if (node.querySelector(BLOCK_TAGS)) continue; // an outer block; its children carry the text
+    const inner = node.innerHTML.trim();
+    if (!inner || ENRICHED.test(inner)) continue;
+    yield inner;
+  }
+}
 
 /**
  * Yield { ns, en, context } for every translatable string in one document.
@@ -34,7 +114,7 @@ const ACTOR_TYPES = new Set(["character", "npc", "container", "hireling"]);
  * long enough for thirty finished translations to die quietly. A field of the
  * wrong type is not prose and is not a crash; it is nothing.
  */
-export function* stringsFromDoc(doc) {
+export function* stringsFromDoc(doc, pack) {
   const emit = function* (row) {
     if (typeof row.en !== "string" || !row.en.length) return;
     // Key on what the RUNTIME will ask for, not on the YAML bytes. The overlay
@@ -63,6 +143,36 @@ export function* stringsFromDoc(doc) {
   // than un-skipping this.
   if (String(doc._key ?? "").startsWith("!macros!")) return;
   const name = doc.name ?? "(unnamed)";
+
+  // JournalEntry (2026-08-14, review #14 finding 13). Until now a journal fell
+  // through every branch to the Item fallthrough and reached the translator as a
+  // lone `item.name` row — so the entire Cairn 2e rules reference, the document a
+  // Spanish PLAYER is handed and told to read, could never reach `i18n:handoff`
+  // at all. A Spanish game translated its items, backgrounds, spells and tables,
+  // and then opened the rules in English.
+  //
+  // Gated on the PACK, not on the document, because which journals are
+  // translatable is a decision about where the text COMES FROM (see
+  // TRANSLATABLE_JOURNAL_PACKS) and nothing on the document records that. A
+  // journal in any other pack is skipped outright rather than falling through:
+  // the Item fallthrough's `item.name` row is exactly the dead promise the
+  // folder and macro skips above exist to prevent.
+  if (String(doc._key ?? "").startsWith("!journal!")) {
+    if (!TRANSLATABLE_JOURNAL_PACKS.has(pack)) return;
+    if (doc.name) yield* emit({ ns: "journal.name", en: doc.name, context: "journal" });
+    for (const p of doc.pages ?? []) {
+      // A page name is only a heading when the page asks to show its title —
+      // `title.show: false` (which both 2e rules pages set) renders nothing, so
+      // there would be no surface for the translation to appear on.
+      if (p.name && p.title?.show !== false) {
+        yield* emit({ ns: "journal.pageName", en: p.name, context: `${name} · page` });
+      }
+      for (const block of blocksOf(p.text?.content)) {
+        yield* emit({ ns: "journal.block", en: block, context: `${name} · ${p.name ?? "page"}` });
+      }
+    }
+    return;
+  }
 
   // RollTable — has a top-level results[] array.
   if (Array.isArray(doc.results)) {

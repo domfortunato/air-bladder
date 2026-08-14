@@ -42,7 +42,7 @@ export const liveSources = () => {
     perNs.get(ns).add(k);
   };
   for (const pack of listPacks()) {
-    for (const { doc } of readPack(pack)) for (const s of stringsFromDoc(doc)) add(s.ns, s.en);
+    for (const { doc } of readPack(pack)) for (const s of stringsFromDoc(doc, pack)) add(s.ns, s.en);
   }
   // Careers live in a module JSON, not a pack — the same exception extract makes.
   for (const c of JSON.parse(fs.readFileSync(path.join(ROOT, "module", "npc-careers-2e.json"), "utf8"))) {

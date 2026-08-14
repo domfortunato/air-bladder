@@ -91,7 +91,7 @@ const currentKeys = new Set();
 for (const pack of listPacks()) {
   const map = new Map(); // (ns \0 normalizedEn) → row ; first occurrence keeps its context
   for (const { doc } of readPack(pack)) {
-    for (const s of stringsFromDoc(doc)) {
+    for (const s of stringsFromDoc(doc, pack)) {
       const k = `${s.ns}\0${normalizeKey(s.en)}`;
       currentKeys.add(k);
       if (!map.has(k)) {
