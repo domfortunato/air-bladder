@@ -27,6 +27,18 @@
  * button) because this probe was not in that batch's run list; the matrix is
  * the fix for the class of miss, not just the number.
  *
+ * The player legs need TWO preconditions and this probe used to establish only
+ * one. ACTOR_CREATE was granted; `allow-player-generate` — the Warden's switch
+ * for the player-facing Generate PC button — was not, and the dev world keeps it
+ * OFF by the user's own choice. A GM never notices (the directory hook reads
+ * `isGM || setting`), so the probe was green when written and went red the day
+ * somebody turned the switch off in a world they play in. Six legs reported a
+ * missing button that the world had simply switched off. Both are captured at
+ * entry, set, and restored to the CAPTURED value in the finally — never to "on",
+ * which would leave a test run holding the Warden's switch. Alice asserts the
+ * setting on HER client, because asserting it on the page that wrote it proves
+ * only that the write happened.
+ *
  * The relay legs need a quiet world: two GM CLIENTS logged in as the same
  * Warden both pass the activeGM check and both answer a generatePC, so a
  * live user session alongside this probe's GM page can double-mint — the
@@ -425,8 +437,26 @@ try {
   const alicePage = await (await browser.newContext({ viewport: VIEWPORT })).newPage();
   const aliceErrors = watchErrors(alicePage);
   const priorPerms = await page.evaluate(() => game.settings.get("core", "permissions"));
+  // The player legs need TWO preconditions, and only one of them was ever
+  // established. `allow-player-generate` is the Warden's switch for the
+  // player-facing Generate PC button (`allowGen` in cairn.js's directory hook is
+  // `isGM || setting`, so a GM never notices it is off) — and the dev world
+  // keeps it OFF, which is the user's choice and not a bug. Every leg from here
+  // down is about that button: the 5-button count, the bare player's ONE button,
+  // and the whole relay section that clicks it. So all six went red on world
+  // state rather than on code, which is the "a world SETTING is a precondition
+  // too" class already fixed for dev:playergen (2026-08-09) and
+  // dev:container-link and missed here.
+  //
+  // CAPTURE then SET, and the finally restores the CAPTURED value — so a world
+  // that keeps the switch off keeps it off through every run, and the probe is
+  // green either way. Never assert a state nothing established.
+  const priorGen = await page.evaluate(() => game.settings.get("air-bladder", "allow-player-generate"));
   let relayMintedUuid = null;
   try {
+    await page.evaluate(async () => {
+      await game.settings.set("air-bladder", "allow-player-generate", true);
+    });
     // GRANT first, as dev:monster-gen's Alice leg does and for its reason: the
     // dev world's PLAYER role does not hold ACTOR_CREATE, so without the grant
     // every player leg below is vacuous. Restored in the finally.
@@ -451,6 +481,10 @@ try {
         buttons: [...(root?.querySelectorAll(".character-generator button") ?? [])].map((b) => b.textContent.trim()),
         coreCreate: !!root?.querySelector(".directory-header .create-entry"),
         canCreate: game.user.can("ACTOR_CREATE"),
+        // Read on ALICE's client, not the Warden's: a setting set on the GM page
+        // reaches her over the socket, and an assertion made on the page that
+        // WROTE it proves only that the write happened.
+        allowGen: game.settings.get("air-bladder", "allow-player-generate"),
       };
     });
 
@@ -458,6 +492,9 @@ try {
     withCreate.canCreate
       ? ok("Alice holds ACTOR_CREATE", "the player legs are not vacuous")
       : fail("Alice holds ACTOR_CREATE", "grant it in the dev world — every player leg below is vacuous");
+    withCreate.allowGen
+      ? ok("and player generation is switched on for her", "established by this run, restored at the end")
+      : fail("and player generation is switched on for her", "allow-player-generate did not reach her client — every Generate PC leg below is vacuous");
     withCreate.buttons.length === PLAYER_BUTTONS
       && !["Generate Monster", "Generate Faction"].some((l) => withCreate.buttons.includes(l))
       ? ok(`an ACTOR_CREATE player sees ${PLAYER_BUTTONS} buttons, none of the Warden's`, `(${withCreate.buttons.join(", ")})`)
@@ -592,10 +629,13 @@ try {
       ? ok("exactly one character arrived", "no double-mint")
       : fail(`expected exactly one new character, got ${mint.count ?? 0}`, "a second GM client answered too — the live-GM confound, or the in-flight guard broke");
   } finally {
-    // Restore the permission from NODE via the GM page, unconditionally.
-    await page.evaluate(async (perms) => {
+    // Restore BOTH preconditions from NODE via the GM page, unconditionally and
+    // to the values captured at entry — not to "on", which would leave the
+    // Warden's switch flipped by a test run.
+    await page.evaluate(async ([perms, gen]) => {
       await game.settings.set("core", "permissions", perms);
-    }, priorPerms);
+      await game.settings.set("air-bladder", "allow-player-generate", gen);
+    }, [priorPerms, priorGen]);
     // The relay-minted PC has a rolled name, not a ZZ prefix — delete it (and
     // any container its background granted) by the uuid the mint leg kept.
     if (relayMintedUuid) {
