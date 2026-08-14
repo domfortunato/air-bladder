@@ -11,10 +11,7 @@ flags:
 system:
   source: 2e
   archetype: Wizard
-  description: >-
-    <p>You follow the whisperings of the deep earth, the rhythmic pulse of the
-    mycelium forest that grows beneath the surface. The dark holds no terror for
-    you. Also, you really love mushrooms.</p>
+  description: '<p>You follow the whisperings of the deep earth, the rhythmic pulse of the mycelium forest that grows beneath the surface. The dark holds no terror for you. Also, you really love mushrooms.</p>'
   names:
     - Unther
     - Woozy
@@ -36,79 +33,53 @@ system:
     - name: Metal Pail
   containers: []
   tables:
-    - question: What strange fungus did you discover?
+    - question: 'What strange fungus did you discover?'
       options:
-        - description: >-
-            Shrieking Trumpet. When exposed to light, it screams so loudly that
-            all nearby attacks (including your own) are impaired. 2 uses.
+        - description: 'Shrieking Trumpet. When exposed to light, it screams so loudly that all nearby attacks (including your own) are impaired. 2 uses.'
           items:
             - name: Shrieking Trumpet
               uses: 2
-        - description: >-
-            Torch Fungus. When crushed, it creates a cold blue light for a short
-            while. 2 uses.
+        - description: 'Torch Fungus. When crushed, it creates a cold blue light for a short while. 2 uses.'
           items:
             - name: Torch Fungus
               uses: 2
-        - description: >-
-            Murderous Truffle. Pungent, highly toxic, and very rare (worth 50gp
-            to assassins). Illegal pretty much everywhere. 1 use.
+        - description: 'Murderous Truffle. Pungent, highly toxic, and very rare (worth 50gp to assassins). Illegal pretty much everywhere. 1 use.'
           items:
             - name: Murderous Truffle
               uses: 1
-        - description: >-
-            Hellcap. Exposure to its aroma causes intense nausea and vomiting.
-            Either way, it clears the room. Bottled (1 use).
+        - description: 'Hellcap. Exposure to its aroma causes intense nausea and vomiting. Either way, it clears the room. Bottled (1 use).'
           items:
             - name: Hellcap
               uses: 1
-        - description: >-
-            Sproutcup. Ingest to shrink down to the size of a mouse. (Your
-            belongings stay the same size.) You return to normal size within the
-            hour, often in fits and starts. 1 use.
+        - description: 'Sproutcup. Ingest to shrink down to the size of a mouse. (Your belongings stay the same size.) You return to normal size within the hour, often in fits and starts. 1 use.'
           items:
             - name: Sproutcup
               uses: 1
-        - description: >-
-            Rootflower. A white fungus found only on corpses deep underground.
-            Ingest to restore d6 WIL. You will dream of the dead and their
-            stories. 1 use.
+        - description: Rootflower. A white fungus found only on corpses deep underground. Ingest to restore d6 WIL. You will dream of the dead and their stories. 1 use.
           items:
             - name: Rootflower
               uses: 1
-    - question: What keeps you sane, even in utter darkness?
+    - question: 'What keeps you sane, even in utter darkness?'
       options:
-        - description: >-
-            Glowsnail: Casts a soft, bioluminescent light. Feeds on one ration
-            every two days.
+        - description: 'Glowsnail: Casts a soft, bioluminescent light. Feeds on one ration every two days.'
           items:
             - name: Glowsnail
-        - description: >-
-            Silk Moth Shawl: A weatherproof blanket, it can also douse a fire
-            without being damaged.
+        - description: 'Silk Moth Shawl: A weatherproof blanket, it can also douse a fire without being damaged.'
           items:
             - name: Silk Moth Shawl
-        - description: >-
-            Milkflower: A gentle stimulant. Chewing it makes you immune to panic
-            for the next hour. 3 uses.
+        - description: 'Milkflower: A gentle stimulant. Chewing it makes you immune to panic for the next hour. 3 uses.'
           items:
             - name: Milkflower
               uses: 3
-        - description: >-
-            Luxcompass: Hums softly as it moves closer to the Sun. Eventually
-            the noise becomes unbearably loud.
+        - description: 'Luxcompass: Hums softly as it moves closer to the Sun. Eventually the noise becomes unbearably loud.'
           items:
             - name: Luxcompass
-        - description: >-
-            Sloth-Tarp: A tough and weatherproof fabric, useful for hanging off
-            trees. When inside, you have +1 Armor.
+        - description: 'Sloth-Tarp: A tough and weatherproof fabric, useful for hanging off trees. When inside, you have +1 Armor.'
           items:
             - name: Sloth-Tarp
-        - description: >-
-            Miner's Grease: Great for dislodging a gem, tool, or limb from a
-            tight crack. Highly explosive. 3 uses.
+        - description: 'Miner''s Grease: Great for dislodging a gem, tool, or limb from a tight crack. Highly explosive. 3 uses.'
           items:
-            - name: Miner's Grease
+            - name: 'Miner''s Grease'
               uses: 3
 ownership:
   default: 0

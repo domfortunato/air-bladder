@@ -11,10 +11,7 @@ flags:
 system:
   source: 2e
   archetype: Fighter
-  description: >-
-    <p>You strike from afar, but that does not make you a coward. You are a
-    musician, the song of your bowstring naught but a warning, singing the
-    silent promise of a quick death.</p>
+  description: '<p>You strike from afar, but that does not make you a coward. You are a musician, the song of your bowstring naught but a warning, singing the silent promise of a quick death.</p>'
   names:
     - Flint
     - Feather
@@ -37,59 +34,35 @@ system:
       uses: 1
   containers: []
   tables:
-    - question: How did you earn your bow?
+    - question: 'How did you earn your bow?'
       options:
-        - description: >-
-            War. If you are first to attack, your bow gains the blast property
-            for the first round.
-        - description: >-
-            Falconry. You keep a falcon [3 hp, 5 STR, 16 DEX, 4 WIL, claws
-            (d6+d6), bite (d8)]. It only eats live game.
+        - description: 'War. If you are first to attack, your bow gains the blast property for the first round.'
+        - description: 'Falconry. You keep a falcon [3 hp, 5 STR, 16 DEX, 4 WIL, claws (d6+d6), bite (d8)]. It only eats live game.'
           containers:
             - name: Falcon
               slots: 0
-        - description: >-
-            Hunting. When taking the Supply action, your ability to secure
-            Rations increases by one step (e.g. 1d4 becomes 1d6).
-        - description: >-
-            Tournaments. Attacks with your bow are enhanced if the target is
-            immobile.
-        - description: >-
-            Training. If you are the first to attack, melee attacks against you
-            are impaired until you take STR damage.
-        - description: >-
-            Scouting. When taking the Travel action, your presence decreases the
-            chance of getting lost by one step (e.g. 4-in-6 becomes 3-in-6).
-    - question: What kind of wood is your bow made from?
+        - description: 'Hunting. When taking the Supply action, your ability to secure Rations increases by one step (e.g. 1d4 becomes 1d6).'
+        - description: Tournaments. Attacks with your bow are enhanced if the target is immobile.
+        - description: 'Training. If you are the first to attack, melee attacks against you are impaired until you take STR damage.'
+        - description: 'Scouting. When taking the Travel action, your presence decreases the chance of getting lost by one step (e.g. 4-in-6 becomes 3-in-6).'
+    - question: 'What kind of wood is your bow made from?'
       options:
-        - description: >-
-            Western Yew (d6, bulky). Can be wielded as a blunt weapon (d6).
-            Noisy.
+        - description: 'Western Yew (d6, bulky). Can be wielded as a blunt weapon (d6). Noisy.'
           items:
             - name: Western Yew
-        - description: >-
-            Sessile Oak (d8, bulky). Slams into targets. On Critical Damage
-            something is torn off.
+        - description: 'Sessile Oak (d8, bulky). Slams into targets. On Critical Damage something is torn off.'
           items:
             - name: Sessile Oak
-        - description: >-
-            Stone Pine (d6, bulky). Produces one use of Sticky Sap per day. The
-            sap is highly explosive.
+        - description: 'Stone Pine (d6, bulky). Produces one use of Sticky Sap per day. The sap is highly explosive.'
           items:
             - name: Stone Pine
-        - description: >-
-            White Ash (d6, bulky). Can be used in place of a shield in melee
-            combat (+1 Armor).
+        - description: 'White Ash (d6, bulky). Can be used in place of a shield in melee combat (+1 Armor).'
           items:
             - name: White Ash
-        - description: >-
-            Striped Bamboo (d6). Collapsible, it only requires one slot (but
-            still requires both hands).
+        - description: 'Striped Bamboo (d6). Collapsible, it only requires one slot (but still requires both hands).'
           items:
             - name: Striped Bamboo
-        - description: >-
-            Wych Elm (d6, bulky). Protects the bearer from poisons and toxins,
-            so long as they are holding it.
+        - description: 'Wych Elm (d6, bulky). Protects the bearer from poisons and toxins, so long as they are holding it.'
           items:
             - name: Wych Elm
 ownership:

@@ -11,9 +11,7 @@ flags:
 system:
   source: 2e
   archetype: Fighter
-  description: >-
-    <p>You are known by the smell of molten metal and the jingle of tin. You are
-    no mere merchant but an artisan of fire and metal.</p>
+  description: '<p>You are known by the smell of molten metal and the jingle of tin. You are no mere merchant but an artisan of fire and metal.</p>'
   names:
     - Fergus
     - Eon
@@ -36,82 +34,53 @@ system:
     - name: Hammer
   containers: []
   tables:
-    - question: What is your trade?
+    - question: 'What is your trade?'
       options:
-        - description: >-
-            You build small contraptions for local guilds (and don't ask too
-            many questions). Take an extra 40gp and a wanted poster with your
-            face on it. Given time and materials, you can open almost any door
-            or vault.
+        - description: 'You build small contraptions for local guilds (and don''t ask too many questions). Take an extra 40gp and a wanted poster with your face on it. Given time and materials, you can open almost any door or vault.'
           bonusGold: 40
-        - description: >-
-            You deal in home goods and tools, hawking your wares to townspeople
-            across the lands. Take 20gp worth of items from the gear table. You
-            are fluent in the Traveler's Cant.
+        - description: 'You deal in home goods and tools, hawking your wares to townspeople across the lands. Take 20gp worth of items from the gear table. You are fluent in the Traveler''s Cant.'
           bonusGold: 20
-        - description: >-
-            You were a military smelter, before peace destroyed your livelihood.
-            Take a smelting hammer (d10, bulky) and a tin helm (+1 Armor). Given
-            time and adequate materials, you can repair armor.
+        - description: 'You were a military smelter, before peace destroyed your livelihood. Take a smelting hammer (d10, bulky) and a tin helm (+1 Armor). Given time and adequate materials, you can repair armor.'
           items:
             - name: Smelting Hammer
             - name: Tin Helm
-        - description: >-
-            You sell rare and quality items to monasteries and nobles alike.
-            Take a Spyglass, a Necklace (petty) worth 20gp, and a Scroll of
-            Mirrorwalk (petty).
+        - description: 'You sell rare and quality items to monasteries and nobles alike. Take a Spyglass, a Necklace (petty) worth 20gp, and a Scroll of Mirrorwalk (petty).'
           items:
             - name: Spyglass
             - name: Necklace
             - name: Scroll (Mirrorwalk)
-        - description: >-
-            You offer protection as a service, quietly watching for threats as
-            money exchanges hands. You start with +d4 HP, and carry a Long Sword
-            (d10, bulky) and a Gambeson (+1 Armor).
+        - description: 'You offer protection as a service, quietly watching for threats as money exchanges hands. You start with +d4 HP, and carry a Long Sword (d10, bulky) and a Gambeson (+1 Armor).'
           items:
             - name: Long Sword
             - name: Gambeson
-        - description: >-
-            You scavenge raw tin and iron from battlefields, pulling teeth from
-            still-twitching corpses. Start with a young Donkey (+4 slots, slow),
-            a Crossbow (d8 damage, bulky), and a Saw (d6).
+        - description: 'You scavenge raw tin and iron from battlefields, pulling teeth from still-twitching corpses. Start with a young Donkey (+4 slots, slow), a Crossbow (d8 damage, bulky), and a Saw (d6).'
           items:
             - name: Crossbow
             - name: Saw
           containers:
             - name: Donkey
               slots: 4
-    - question: What never fails to get you out of trouble?
+    - question: 'What never fails to get you out of trouble?'
       options:
-        - description: >-
-            Fire Eggs: Six small pellets made of sea salt, wood, and
-            crockery-dust. They explode at low heat (d8, blast) but the flames
-            dissipate quickly.
+        - description: 'Fire Eggs: Six small pellets made of sea salt, wood, and crockery-dust. They explode at low heat (d8, blast) but the flames dissipate quickly.'
           items:
             - name: Fire Eggs
         - description: 'Black Tar: Versatile: both sticky and highly flammable. 3 uses.'
           items:
             - name: Black Tar
               uses: 3
-        - description: >-
-            Spiked Boots: Cracks heads (d8) as easily as it does ice and muck.
-            Travel is also a bit slower, but easier.
+        - description: 'Spiked Boots: Cracks heads (d8) as easily as it does ice and muck. Travel is also a bit slower, but easier.'
           items:
             - name: Spiked Boots
         - description: 'Tinker''s Paste: Seals shut any fist-sized opening. 3 uses.'
           items:
-            - name: Tinker's Paste
+            - name: 'Tinker''s Paste'
               uses: 3
-        - description: >-
-            Fireworks: A dazzling albeit dangerous display. Enough explosive
-            material to blow off a finger or three. 2 uses remain.
+        - description: 'Fireworks: A dazzling albeit dangerous display. Enough explosive material to blow off a finger or three. 2 uses remain.'
           items:
             - name: Fireworks
               uses: 2
-        - description: >-
-            Carrion Cat: A clever pet, small enough to hide in your pack
-            (bulky), but strong enough to scare off smaller predators. Requires
-            one Ration a day, and it must be meat.
+        - description: 'Carrion Cat: A clever pet, small enough to hide in your pack (bulky), but strong enough to scare off smaller predators. Requires one Ration a day, and it must be meat.'
           items:
             - name: Carrion Cat
 ownership:

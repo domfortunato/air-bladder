@@ -81,6 +81,15 @@ const CORRECTIONS = [
     replace: "Start with a map (petty)",
     why: "SRD drops 'with'",
   },
+  {
+    where: "Hexenbane/0/3",
+    find: "Take a short sword (d8)",
+    replace: "Take a short sword (d6)",
+    why: "the die contradicts the weapon the option actually grants — the shipped "
+      + "Short sword is d6, Cairn's light-weapon tier beside the dagger and cudgel, "
+      + "so the sheet said d8 while the item in the player's inventory rolled d6 "
+      + "(user ruling 2026-08-13, from the printed page)",
+  },
 ];
 
 /**
