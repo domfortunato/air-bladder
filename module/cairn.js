@@ -125,7 +125,9 @@ Hooks.once("ready", () => {
     // below builds one that opens its SHEET. This system ships encounter, spell
     // and Scars tables, so a Warden dragging one to the bar wants to roll it.
     // Nothing ever recorded a reason to override core here — the wrapper's
-    // catch-all simply swallowed the branch (review #14).
+    // catch-all simply swallowed the branch (review #14). Raised as a question
+    // in case the override was deliberate and CONFIRMED by the user 2026-08-14:
+    // a table on the bar rolls. Settled — do not re-litigate.
     if (data?.type === "RollTable") return true;
     // Not awaited: the hook's return value is read synchronously, so this cannot
     // be an async callback. Not left to reject either — `Hooks.#call` wraps a
