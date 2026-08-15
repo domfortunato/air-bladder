@@ -42,6 +42,17 @@
                             {{ selectOptions archetypeChoices selected=system.archetype localize=false blank="—" }}
                         </select>
                     </div>
+                    {{!-- The credit line, printed in the footer of every sheet built
+                          on this background. Editable BECAUSE it is a licence claim:
+                          an adapted background keeps its source's credit only while
+                          the source's writing survives in it, and that is the
+                          author's call to make, not a flag's. --}}
+                    <div class="bg-edit-row">
+                        <label for="{{@root.idp}}-system.attribution">{{ localize 'CAIRN.BgAuthor.Attribution' }}</label>
+                        <input type="text" id="{{@root.idp}}-system.attribution" name="system.attribution"
+                            value="{{system.attribution}}" placeholder="{{ localize 'CAIRN.BgAuthor.AttributionPlaceholder' }}" />
+                    </div>
+                    <p class="bg-edit-hint">{{ localize 'CAIRN.BgAuthor.AttributionHint' }}</p>
                     {{!-- Two bonds instead of one. A checkbox rather than prose,
                           because the shipped 2e backgrounds say it in a sentence that
                           `mentionsSecondBond` matches, and a custom background cannot
@@ -132,6 +143,15 @@
                             the editor branch shows, from the same helper. }}
                         <strong>{{ localize 'CAIRN.BackgroundSource' }}:</strong> {{sourceLabel}}
                     </p>
+
+                    {{!-- A shipped background is locked, so its credit shows here
+                          rather than in an input — a Warden should be able to read
+                          whose text they are about to duplicate before they do. --}}
+                    {{#if system.attribution}}
+                    <p class="background-attribution">
+                        <strong>{{ localize 'CAIRN.BgAuthor.Attribution' }}:</strong> {{system.attribution}}
+                    </p>
+                    {{/if}}
 
                     {{#if system.names.length}}
                     <h3>{{ localize 'CAIRN.BackgroundNames' }}</h3>

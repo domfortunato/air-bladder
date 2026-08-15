@@ -11,9 +11,8 @@ flags:
 system:
   source: 2e
   archetype: Thief
-  description: >-
-    <p>All property is theft, and you know how to redistribute worldly goods to
-    the most deserving. You are often the most deserving.</p>
+  attribution: Backgrounds for Cairn — Gordon McCormick, after BECMI D&D by Frank Mentzer · CC BY-SA 4.0
+  description: <p>All property is theft, and you know how to redistribute worldly goods to the most deserving. You are often the most deserving.</p>
   names:
     - Greegan
     - Tasslehoff
@@ -41,9 +40,7 @@ system:
         - description: Moving Silently. Take a pair of Quiet Boots.
           items:
             - name: Quiet Boots
-        - description: >-
-            Finding and Removing Traps. Take a pair of serpent skin Anti-poison
-            Gloves.
+        - description: Finding and Removing Traps. Take a pair of serpent skin Anti-poison Gloves.
           items:
             - name: Anti-poison Gloves
         - description: Climbing Walls. Take a Bag of Climbing Chalk.

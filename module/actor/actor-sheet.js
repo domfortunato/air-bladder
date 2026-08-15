@@ -2131,25 +2131,31 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       ["air-bladder/icons/", "CAIRN.PrintCreditGameIcons"],
     ];
     const artCredit = ART_CREDITS.find(([prefix]) => (actor.img ?? "").includes(prefix))?.[1];
-    // The seven shipped class backgrounds are Gordon McCormick's "Backgrounds
-    // for Cairn", CC BY-SA 4.0 like Cairn itself but a DIFFERENT author — and
-    // this page reproduces his prose: the tagline under Traits and both rolled
-    // question/answer pairs are his sentences verbatim. The Yochai Gal line
-    // above does not attribute him, so his text earns its own line (user ask
-    // 2026-08-15). Only that text: a Cairn 2e character prints one line still.
-    // Keyed on the background document's OWN flag rather than on which pack it
-    // came from, exactly as the art credit is keyed on the image path. The
-    // sheet offers "Duplicate into Custom Backgrounds" and `toObject` carries
-    // flags through, so a duplicated Cleric changes pack id and stays
-    // McCormick's; keying on the pack would drop the credit at the moment a
-    // Warden starts adapting it, which is when ShareAlike matters most. A
-    // Warden's own homebrew has no flag and gets no line — we cannot attribute
-    // what we do not know, and guessing would put a real person's name on
-    // someone else's writing.
-    const textCredit = bg?.getFlag?.("air-bladder", "backgroundSource") === "class-backgrounds"
-      ? "CAIRN.PrintCreditClassBackgrounds" : "";
-    const credits = [L("CAIRN.PrintCreditText"), textCredit ? L(textCredit) : "", artCredit ? L(artCredit) : ""]
-      .filter(Boolean).join(" ");
+    // …and the background credits whoever WROTE it, straight off the document's
+    // own `attribution` field. The shipped class backgrounds carry Gordon
+    // McCormick's citation because the page reproduces his prose — the tagline
+    // under Traits and both rolled question/answer pairs are his sentences
+    // verbatim, and the Yochai Gal line above does not attribute him.
+    //
+    // This was a FLAG lookup for one day (2026-08-15) and the field replaced it
+    // the same day, on the user's reading: derived from provenance, the credit
+    // could never be turned off, so a Warden who duplicated a Cleric and
+    // rewrote every word was stuck printing his name over their own writing.
+    // A field is editable, so the line belongs to whoever owns the text. The
+    // canon 2e and Barebones backgrounds ship with it EMPTY and print one
+    // credit as before — Cairn's own line is unconditional, and filling theirs
+    // would name Yochai Gal twice.
+    //
+    // Authored text on the printed page: it goes into the joined string that
+    // reaches `{{ credits }}`, which escapes. Never move it to a triple-stash.
+    // The other two lines are sentences and end in a stop; an authored citation
+    // ends in "CC BY-SA 4.0" and ran straight into the art credit beside it. The
+    // stop is added HERE rather than asked of the author, because "remember to
+    // end with a period" is not a thing a licence field should demand.
+    const bgCredit = String(bg?.system?.attribution ?? "").trim();
+    const credits = [L("CAIRN.PrintCreditText"),
+      bgCredit && (/[.!?]$/.test(bgCredit) ? bgCredit : `${bgCredit}.`),
+      artCredit ? L(artCredit) : ""].filter(Boolean).join(" ");
 
     const context = {
       lang: game.i18n.lang,

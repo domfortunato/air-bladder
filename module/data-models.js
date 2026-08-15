@@ -672,6 +672,25 @@ class BackgroundData extends CairnDataModel {
       source: str("2e"),
       archetype: str(),
       description: html(),
+      // Who wrote this background and under what terms, printed in the footer of
+      // any character sheet built on it. A FIELD rather than a lookup, and that is
+      // the whole point: the seven shipped class backgrounds are Gordon
+      // McCormick's, and the credit used to be derived from their provenance flag,
+      // which meant a Warden could duplicate one, rewrite every word, and never be
+      // able to stop the sheet crediting him (user ruling 2026-08-15). Whoever owns
+      // the text owns the line.
+      //
+      // Empty on the canon 2e and Barebones backgrounds ON PURPOSE. Cairn's own
+      // credit prints on EVERY sheet unconditionally — the page reproduces its
+      // rules whether a background is involved or not — so filling this with
+      // Yochai Gal would print him twice.
+      //
+      // Plain text, never HTML: it reaches the print page through the escaped
+      // `{{ credits }}` stash, and an authored string is treated as hostile here
+      // the way every other authored string is. Not localized either — an
+      // attribution is a citation, and the shipped value is worded to survive
+      // being read in any language.
+      attribution: str(),
       names: strList(),
       startingGear: objList(),
       containers: objList(),

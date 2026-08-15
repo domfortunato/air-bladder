@@ -11,9 +11,8 @@ flags:
 system:
   source: 2e
   archetype: Wizard
-  description: >-
-    <p>You have dedicated yourself to a great and worthy cause. Divine powers
-    help you in your quests.</p>
+  attribution: Backgrounds for Cairn — Gordon McCormick, after BECMI D&D by Frank Mentzer · CC BY-SA 4.0
+  description: <p>You have dedicated yourself to a great and worthy cause. Divine powers help you in your quests.</p>
   names:
     - Aleena
     - Petra
@@ -38,9 +37,7 @@ system:
   tables:
     - question: What is the source of your power?
       options:
-        - description: >-
-            The Celestial Realms and the Darkness Above. Take an Astrolabe of
-            Control Weather.
+        - description: The Celestial Realms and the Darkness Above. Take an Astrolabe of Control Weather.
           items:
             - name: Astrolabe of Control Weather
         - description: The Wood Spirits. Take a Hazel Rod of Control Plants.
@@ -49,9 +46,7 @@ system:
         - description: The Deep Sea. Take a Pure Water Vial of Cone of Foam.
           items:
             - name: Pure Water Vial of Cone of Foam
-        - description: >-
-            The Old Powers of the Earth. Take an Ancient Dark Stone of Summon
-            Idol.
+        - description: The Old Powers of the Earth. Take an Ancient Dark Stone of Summon Idol.
           items:
             - name: Ancient Dark Stone of Summon Idol
         - description: A Wise Philosophy. Take a Talisman of Pacify.

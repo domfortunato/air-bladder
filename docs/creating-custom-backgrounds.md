@@ -64,7 +64,7 @@ top-right corner of the box — so an empty Description can look like a static p
 rather than something you can type in.
 
 **Details** is the authoring form. It has a toolbar with **Test ×10** and
-**Duplicate into Custom Backgrounds**, then four sections.
+**Duplicate into Custom Backgrounds**, then five sections.
 
 ### Source and Archetype
 
@@ -75,6 +75,31 @@ background by definition.
 group the background sits under in the picker. It is *only* used there — it never
 appears on a character sheet — but leaving it blank means the background sits
 ungrouped, which looks like a mistake to a player.
+
+### Credit line
+
+Who wrote this background, and under what licence. One line — a title, a name,
+a licence. It is the only field here that leaves your world: whatever you type
+prints in the footer of every character sheet built on this background, beside
+Cairn's own credit.
+
+**Leave it empty for your own unshared work.** Cairn's credit prints on every
+sheet regardless, because the page reproduces Cairn's rules whether a background
+is involved or not. An empty field simply prints nothing extra. Fill it in when
+you are handing the background to someone else, so your name travels with it:
+
+    Bramblewick — A. Warden · CC BY-SA 4.0
+
+**If you duplicated someone else's background, their credit is already in the
+box.** Duplicate a Cleric and you get *Backgrounds for Cairn — Gordon McCormick,
+after BECMI D&D by Frank Mentzer · CC BY-SA 4.0*, because that is whose writing
+you are starting from. Keep it while any of their words remain — that is what
+CC BY-SA asks of you, and adding your own name beside theirs is the usual way to
+put it. Once you have rewritten the thing entirely and none of their text is
+left, the box is yours to empty and replace.
+
+Air Bladder never guesses at this. It reads the box and prints it, so nothing
+puts a name on your writing that you did not put there yourself.
 
 ### Example Names
 
@@ -162,14 +187,6 @@ backgrounds Air Bladder ships in **Backgrounds (Custom)** — Fighter, Cleric,
 Magic-User, Thief, Dwarf, Elf, Halfling, from Gordon McCormick's *Backgrounds for
 Cairn*. "Custom" here means *not published in the Cairn 2e Player's Guide*, whoever
 wrote it, so third-party sets and your own arrive through the same switch.
-
-One thing those seven do that yours will not: a character built on one prints an
-extra line in the footer of their sheet, crediting Gordon McCormick and the
-CC BY-SA 4.0 licence his text carries, because the printed page reproduces his
-words. A background you wrote yourself prints only Cairn's own credit — Air
-Bladder has no way to know who wrote yours, and would rather say nothing than
-put the wrong name on it. If you share your work, put your name and terms in the
-background's description.
 
 So turning off *Offer canon Cairn 2e backgrounds* does **not** leave players rolling
 only what you wrote — the shipped class backgrounds are still in the pool. For a pool

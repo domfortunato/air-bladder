@@ -11,10 +11,8 @@ flags:
 system:
   source: 2e
   archetype: Fighter
-  description: >-
-    <p>You hail from underneath the mountains, and have traveled to the surface
-    realm far from your clan. You know the rocks as true friends, have a keen
-    eye for battle, and know the songs of old.</p>
+  attribution: Backgrounds for Cairn — Gordon McCormick, after BECMI D&D by Frank Mentzer · CC BY-SA 4.0
+  description: <p>You hail from underneath the mountains, and have traveled to the surface realm far from your clan. You know the rocks as true friends, have a keen eye for battle, and know the songs of old.</p>
   names:
     - Thorvald
     - Flint
@@ -45,17 +43,13 @@ system:
         - description: It is a Giant Slayer (Enhanced damage against all types of Giants).
           items:
             - name: Axe
-        - description: >-
-            It was forged with silver-ice (always stays at room temperature
-            regardless of surroundings).
+        - description: It was forged with silver-ice (always stays at room temperature regardless of surroundings).
           items:
             - name: Axe
         - description: It was bonded to you at birth (you never lose its grip).
           items:
             - name: Axe
-        - description: >-
-            It contains an ancient spirit who whispers advice to you. They have
-            your best interests at heart.
+        - description: It contains an ancient spirit who whispers advice to you. They have your best interests at heart.
           items:
             - name: Axe
         - description: It's not an axe, it's a Warhammer (d10, bulky) of the outcast clan.

@@ -638,22 +638,33 @@ const r = await page.evaluate(async ({ xssName }) => {
   }
   await pc.sheet.close();
 
-  // The seven shipped class backgrounds are Gordon McCormick's "Backgrounds for
-  // Cairn" — CC BY-SA 4.0 like Cairn itself, but a DIFFERENT author, and this
-  // page reproduces his prose. So one built on his text prints his line too
-  // (user ask 2026-08-15). The PAIR is the assertion: the SHIPPED Cleric, read
-  // out of the pack rather than planted, so the leg goes red if the flag it
-  // keys on ever stops being authored there — and beside it the plain world
-  // background from pass 1, which must print the Yochai Gal line and NOTHING
-  // more. Putting a real person's name on a Warden's own homebrew is the
-  // failure this credit could introduce, so it is tested, not assumed.
-  // The portrait is restored first: the art line and the text line have to
+  // The footer credits whoever WROTE the background, off the document's own
+  // `system.attribution`. The seven shipped class backgrounds carry Gordon
+  // McCormick's citation because the page reproduces his prose; a background
+  // with an empty field prints Cairn's credit and nothing more.
+  //
+  // Four prints, because the EDITABILITY is the feature (user ruling
+  // 2026-08-15, replacing the flag lookup this probe tested for one day): the
+  // shipped Cleric prints his line; a Warden's own background prints no author
+  // line at all — putting a real name on someone else's writing is the failure
+  // this could introduce; a COPY of the Cleric with the field cleared prints no
+  // author line either, which is the whole reason the field replaced the flag
+  // (derived from provenance, the credit could never be turned off, so a
+  // rewritten duplicate was stuck crediting him); and an authored value reaches
+  // the page as TEXT, never as markup.
+  // The portrait is restored first: the art line and the credit line have to
   // coexist, and the route-prefix pass left the image pointing at nothing.
   await pc.update({ img: "systems/air-bladder/art/jon-aspeheim/portraits/dwarf_01.webp",
     "system.contentSource": "2e" }, { render: false });
   const cleric = (await game.packs.get("air-bladder.backgrounds-custom")?.getDocuments() ?? [])
     .find((d) => d.name === "Cleric");
-  out.clericFlag = cleric?.getFlag("air-bladder", "backgroundSource") ?? null;
+  out.clericAttribution = cleric?.system?.attribution ?? null;
+  // A world copy with the credit CLEARED — a Warden who rewrote it. Its uuid,
+  // not the pack's, so nothing writes to a shipped compendium.
+  const clericCopy = cleric
+    ? await ItemImpl.create({ ...cleric.toObject(), _id: undefined, name: "ZZ Cleric Rewritten",
+      system: { ...cleric.toObject().system, attribution: "" } })
+    : null;
   const creditsFor = async (bgUuid) => {
     await pc.update({ "system.backgroundUuid": bgUuid }, { render: false });
     await pc.sheet.render(true);
@@ -667,21 +678,33 @@ const r = await page.evaluate(async ({ xssName }) => {
     try {
       pc.sheet.element?.querySelector('[data-action="printSheet"]')?.click();
       for (let i = 0; i < 60 && !popup9?.document?.querySelector("footer.credits"); i++) await sleep(150);
-      const text = popup9?.document?.querySelector("footer.credits")?.textContent ?? "";
+      const foot = popup9?.document?.querySelector("footer.credits");
+      const seen = { text: foot?.textContent ?? "", tags: [...(foot?.querySelectorAll("*") ?? [])].map((e) => e.tagName) };
       popup9?.close();
-      return text;
+      return seen;
     } finally {
       window.open = origOpen;
       await pc.sheet.close();
     }
   };
-  out.creditsCustomBg = cleric ? await creditsFor(cleric.uuid) : "";
-  out.creditsPlainBg = await creditsFor(bgItem.uuid);
-  out.creditClassBg = game.i18n.localize("CAIRN.PrintCreditClassBackgrounds");
+  out.creditsCustomBg = cleric ? (await creditsFor(cleric.uuid)).text : "";
+  out.creditsPlainBg = (await creditsFor(bgItem.uuid)).text;
+  out.creditsCleared = clericCopy ? (await creditsFor(clericCopy.uuid)).text : "";
+  // Authored free text on the printed page, treated as hostile like every other
+  // authored string here: the credits value is pre-joined and rendered through
+  // the escaped {{ credits }} stash, so a payload must arrive as ONE text node.
+  const attrInj = 'ZZ Homebrew <img src=x onerror="window.__creditXSS=1"> · CC BY 4.0';
+  await bgItem.update({ "system.attribution": attrInj });
+  const injSeen = await creditsFor(bgItem.uuid);
+  out.creditsAuthored = injSeen.text;
+  out.creditsAuthoredTags = injSeen.tags;
+  out.creditsInjFired = window.__creditXSS === 1;
+  out.attrInj = attrInj;
   out.creditCairnText = game.i18n.localize("CAIRN.PrintCreditText");
+  if (clericCopy) out.clericCopyId = clericCopy.id;
 
   out.ids = { pc: pc.id, sack: sack.id, npc: npc.id, falcon: falcon.id };
-  out.itemIds = [bgItem.id];
+  out.itemIds = [bgItem.id, ...(out.clericCopyId ? [out.clericCopyId] : [])];
   return out;
 }, { xssName: XSS_ITEM });
 
@@ -778,20 +801,31 @@ check("credits match the art ON the page", /Yochai Gal/.test(r.creditsText)
   && /Aspeheim/.test(r.creditsText) && !/Tlomdev/.test(r.creditsText)
   && r.creditsSmall !== null && r.creditsSmall < 10,
   `${r.creditsSmall}px — an Aspeheim portrait credits Aspeheim and NEVER Tlomdev; the text credit always prints`);
-check("a shipped class background is flagged as one", r.clericFlag === "class-backgrounds",
-  `flag="${r.clericFlag}" — the credit keys on the DOCUMENT'S flag, not on its pack, so a Cleric `
-  + "duplicated into a Warden's world compendium keeps carrying its author; if this flag ever "
-  + "stops being authored, the two legs below stop meaning anything");
-check("…and its page credits Gordon McCormick", r.creditsCustomBg.includes(r.creditClassBg)
-  && /CC BY-SA 4\.0/.test(r.creditsCustomBg) && r.creditsCustomBg.includes(r.creditCairnText)
-  && /Aspeheim/.test(r.creditsCustomBg),
-  `"${r.creditsCustomBg}" — his prose is on the page (the tagline and both Q&A pairs), and the `
+check("a shipped class background carries its author's credit",
+  /McCormick/.test(r.clericAttribution ?? "") && /CC BY-SA 4\.0/.test(r.clericAttribution ?? ""),
+  `attribution="${r.clericAttribution}" — authored in the pack, not derived; if it stops being `
+  + "authored there the leg below stops meaning anything");
+check("…and its page prints that credit", r.creditsCustomBg.includes(r.clericAttribution ?? " ")
+  && r.creditsCustomBg.includes(r.creditCairnText) && /Aspeheim/.test(r.creditsCustomBg),
+  `"${r.creditsCustomBg}" — his prose is on the page (the tagline and both Q&A pairs) and the `
   + "Yochai Gal line does not attribute him; all three lines coexist");
-check("control: a plain background credits him NOT AT ALL",
+check("control: a background with no credit prints no author line",
   !/McCormick/.test(r.creditsPlainBg) && r.creditsPlainBg.includes(r.creditCairnText),
   `"${r.creditsPlainBg}" — same character, same print, background swapped: a Warden's own writing `
   + "must never carry a real author's name, and the Cairn line still prints because the page still "
   + "reproduces Cairn's rules");
+check("a rewritten copy can CLEAR the credit", r.creditsCleared !== ""
+  && !/McCormick/.test(r.creditsCleared) && r.creditsCleared.includes(r.creditCairnText),
+  `"${r.creditsCleared}" — a copy of the shipped Cleric with the field emptied. This is why the `
+  + "field replaced the flag lookup (2026-08-15): derived from provenance the credit could never be "
+  + "turned off, so a Warden who duplicated a Cleric and rewrote every word printed his name over "
+  + "their own writing with no way to stop it");
+check("an authored credit prints as TEXT, never markup",
+  r.creditsAuthored.includes(r.attrInj) && r.creditsAuthoredTags.length === 0
+  && r.creditsInjFired === false,
+  `tags=${JSON.stringify(r.creditsAuthoredTags)} fired=${r.creditsInjFired} — the credits value is `
+  + "pre-joined and rendered through the escaped {{ credits }} stash; a triple-stash here would put a "
+  + "Warden's free text on the executable path");
 check("empty Notes prints NOTHING — heading included", r.emptyNotesGone === true,
   "user ruling 2026-08-11, retiring the pencil-room exception — Notes takes the empty-sections-are-OMITTED rule like every other section");
 check("Notes takes the MIN-ROOM rule (PC only)",

@@ -442,6 +442,15 @@ for (const bg of BACKGROUNDS) {
     system: {
       source: "2e",
       archetype: bg.archetype,
+      // The credit that prints in the footer of every character sheet built on
+      // one of these. Worded as a CITATION rather than a sentence, deliberately:
+      // the field is authored data and never goes through the content overlay,
+      // so this string is what a Spanish player reads too — a title, two names
+      // and a licence code travel; "Background from … after … text licensed …"
+      // would not. A Warden who duplicates one of these and rewrites it can
+      // clear this; while any of McCormick's writing survives, CC BY-SA says
+      // keep it.
+      attribution: "Backgrounds for Cairn — Gordon McCormick, after BECMI D&D by Frank Mentzer · CC BY-SA 4.0",
       description: `<p>${bg.description}</p>`,
       names: bg.names,
       startingGear: bg.startingGear,

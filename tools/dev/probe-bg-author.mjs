@@ -225,6 +225,21 @@ try {
     // point: a hand-made table cannot carry the gold/gear payload the 2e rows do, so the
     // bond must come back with the text and zero gold rather than fabricating either.
     out.hasBondsTableField = !!root.querySelector('input[name="system.bondsTable"]');
+
+    // The credit line (2026-08-15). The PERSISTENCE half is what is worth
+    // asserting: AppV2 does not submit on change unless the sheet asks for it,
+    // so a field can render perfectly and save nothing — and a licence claim
+    // that silently fails to save is worse than no field at all.
+    const attrInput = root.querySelector('input[name="system.attribution"]');
+    out.hasAttributionField = !!attrInput;
+    if (attrInput) {
+      attrInput.value = "ZZ Probe Credit — A. Warden · CC BY-SA 4.0";
+      attrInput.dispatchEvent(new Event("change", { bubbles: true }));
+      for (let i = 0; i < 40 && !bg.system.attribution; i++) await new Promise((r) => setTimeout(r, 100));
+      out.attributionSaved = bg.system.attribution;
+      await bg.update({ "system.attribution": "" });
+      out.attributionCleared = bg.system.attribution;
+    }
     const customTable = await getDocumentClass("RollTable").create({
       name: "ZZ Probe Bonds",
       formula: "1d1",
@@ -347,8 +362,25 @@ try {
       hasEditor: !!roRoot.querySelector(".background-editor"),
       gearListed: roRoot.querySelectorAll(".background-gear li").length,
       tables: roRoot.querySelectorAll(".background-table").length,
+      // A canon 2e background carries no credit line, so the row must be ABSENT
+      // rather than empty — Cairn's own credit prints on every sheet anyway, and
+      // a blank "Credit line:" label on twenty shipped backgrounds is noise.
+      attrRow: !!roRoot.querySelector(".background-attribution"),
     };
     await roSheet.close();
+
+    // …and a shipped CLASS background shows whose text it is, because the
+    // sheet is locked: a Warden about to duplicate it cannot read the field
+    // in an input, so the read-only view is the only place that tells them.
+    const cbPack = game.packs.get("air-bladder.backgrounds-custom");
+    const cleric = (await cbPack?.getDocuments() ?? []).find((d) => d.name === "Cleric");
+    if (cleric) {
+      await cleric.sheet.render(true);
+      for (let i = 0; i < 30 && !cleric.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
+      const cRoot = sheetRoot(cleric.sheet);
+      out.classAttrRow = cRoot?.querySelector(".background-attribution")?.textContent?.trim() ?? null;
+      await cleric.sheet.close();
+    }
     return out;
   });
 } catch (e) {
@@ -389,6 +421,11 @@ const checks = [
   ["an NPC refuses a background instead of pocketing it", result.dropOnNpc?.pocketed === false && result.dropOnNpc?.items === 0 && result.dropOnNpc?.confirmAppeared === false],
   ["locked shipped bg → read-only view", result.readOnly?.hasReadOnly === true && result.readOnly?.hasEditor === false],
   ["read-only view lists gear + 2 tables", result.readOnly?.gearListed > 0 && result.readOnly?.tables === 2],
+  ["\"Credit line\" field on the authoring form", result.hasAttributionField === true],
+  ["typing a credit PERSISTS, and it can be cleared again",
+    result.attributionSaved === "ZZ Probe Credit — A. Warden · CC BY-SA 4.0" && result.attributionCleared === ""],
+  ["a canon 2e background shows NO credit row", result.readOnly?.attrRow === false],
+  ["a shipped class background shows its author", /McCormick/.test(result.readOnly?.classAttrRow ?? "")],
 ];
 
 console.log(`\n${FOUNDRY_URL}\n`);

@@ -11,10 +11,8 @@ flags:
 system:
   source: 2e
   archetype: Thief
-  description: >-
-    <p>Adventure, excitement, most halflings do not crave these things but you
-    are different! Some spirit drives you to seek out new experiences in the
-    wide world far from the safety of home.</p>
+  attribution: Backgrounds for Cairn — Gordon McCormick, after BECMI D&D by Frank Mentzer · CC BY-SA 4.0
+  description: <p>Adventure, excitement, most halflings do not crave these things but you are different! Some spirit drives you to seek out new experiences in the wide world far from the safety of home.</p>
   names:
     - Ranon
     - Mims
@@ -42,34 +40,21 @@ system:
     - question: How are you different to the stay at home halflings?
       options:
         - description: You have no fear, and terror is an alien concept to you.
-        - description: >-
-            You always wanted to see the deep woods after an encounter with a
-            forest spirit when you were young. Take a Faery Mark on your hand or
-            face.
-        - description: >-
-            You were friends with a wizard who disappeared and one day you will
-            find them again. Take a Scroll of Mirrorwalk (petty).
+        - description: You always wanted to see the deep woods after an encounter with a forest spirit when you were young. Take a Faery Mark on your hand or face.
+        - description: You were friends with a wizard who disappeared and one day you will find them again. Take a Scroll of Mirrorwalk (petty).
           items:
             - name: Scroll (Mirrorwalk)
-        - description: >-
-            You were found as a babe during a magical storm. Any magic has a 2
-            in 6 chance of not affecting you.
-        - description: >-
-            You long for battle as in the tales of the tall folk. Take a Boar
-            Spear (d10 bulky).
+        - description: You were found as a babe during a magical storm. Any magic has a 2 in 6 chance of not affecting you.
+        - description: You long for battle as in the tales of the tall folk. Take a Boar Spear (d10 bulky).
           items:
             - name: Boar Spear
-        - description: >-
-            You are addicted to stealing coins and jewels. You don't care to
-            keep them, but you have to collect them all… Take an extra 3d6 Gold.
+        - description: You are addicted to stealing coins and jewels. You don't care to keep them, but you have to collect them all… Take an extra 3d6 Gold.
     - question: What home comfort did you bring with you?
       options:
         - description: A Cooking Pot that doubles as a helmet (+1 Armor).
           items:
             - name: Cooking Pot
-        - description: >-
-            A Shield (+1 Armor) with attachable legs to turn it into a
-            functioning table.
+        - description: A Shield (+1 Armor) with attachable legs to turn it into a functioning table.
           items:
             - name: Shield
         - description: Powdered Lemon Drink (petty, restores d4 STR).
@@ -78,14 +63,10 @@ system:
         - description: Granny's Hot Tea Cup - liquid inside never cools.
           items:
             - name: Granny's Hot Tea Cup
-        - description: >-
-            Old Fletch's Pillow - creates a zone of silence around the head of
-            anyone laying on it.
+        - description: Old Fletch's Pillow - creates a zone of silence around the head of anyone laying on it.
           items:
             - name: Old Fletch's Pillow
-        - description: >-
-            A Bag of Marbles (petty), including one which soothes the mind if
-            played with.
+        - description: A Bag of Marbles (petty), including one which soothes the mind if played with.
           items:
             - name: Bag of Marbles
 ownership:
