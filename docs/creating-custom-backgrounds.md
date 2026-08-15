@@ -163,6 +163,14 @@ Magic-User, Thief, Dwarf, Elf, Halfling, from Gordon McCormick's *Backgrounds fo
 Cairn*. "Custom" here means *not published in the Cairn 2e Player's Guide*, whoever
 wrote it, so third-party sets and your own arrive through the same switch.
 
+One thing those seven do that yours will not: a character built on one prints an
+extra line in the footer of their sheet, crediting Gordon McCormick and the
+CC BY-SA 4.0 licence his text carries, because the printed page reproduces his
+words. A background you wrote yourself prints only Cairn's own credit — Air
+Bladder has no way to know who wrote yours, and would rather say nothing than
+put the wrong name on it. If you share your work, put your name and terms in the
+background's description.
+
 So turning off *Offer canon Cairn 2e backgrounds* does **not** leave players rolling
 only what you wrote — the shipped class backgrounds are still in the pool. For a pool
 that is genuinely yours alone, switch those seven off individually with the **eye

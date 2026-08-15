@@ -2131,7 +2131,24 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       ["air-bladder/icons/", "CAIRN.PrintCreditGameIcons"],
     ];
     const artCredit = ART_CREDITS.find(([prefix]) => (actor.img ?? "").includes(prefix))?.[1];
-    const credits = [L("CAIRN.PrintCreditText"), artCredit ? L(artCredit) : ""]
+    // The seven shipped class backgrounds are Gordon McCormick's "Backgrounds
+    // for Cairn", CC BY-SA 4.0 like Cairn itself but a DIFFERENT author — and
+    // this page reproduces his prose: the tagline under Traits and both rolled
+    // question/answer pairs are his sentences verbatim. The Yochai Gal line
+    // above does not attribute him, so his text earns its own line (user ask
+    // 2026-08-15). Only that text: a Cairn 2e character prints one line still.
+    // Keyed on the background document's OWN flag rather than on which pack it
+    // came from, exactly as the art credit is keyed on the image path. The
+    // sheet offers "Duplicate into Custom Backgrounds" and `toObject` carries
+    // flags through, so a duplicated Cleric changes pack id and stays
+    // McCormick's; keying on the pack would drop the credit at the moment a
+    // Warden starts adapting it, which is when ShareAlike matters most. A
+    // Warden's own homebrew has no flag and gets no line — we cannot attribute
+    // what we do not know, and guessing would put a real person's name on
+    // someone else's writing.
+    const textCredit = bg?.getFlag?.("air-bladder", "backgroundSource") === "class-backgrounds"
+      ? "CAIRN.PrintCreditClassBackgrounds" : "";
+    const credits = [L("CAIRN.PrintCreditText"), textCredit ? L(textCredit) : "", artCredit ? L(artCredit) : ""]
       .filter(Boolean).join(" ");
 
     const context = {

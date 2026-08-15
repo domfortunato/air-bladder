@@ -638,6 +638,48 @@ const r = await page.evaluate(async ({ xssName }) => {
   }
   await pc.sheet.close();
 
+  // The seven shipped class backgrounds are Gordon McCormick's "Backgrounds for
+  // Cairn" — CC BY-SA 4.0 like Cairn itself, but a DIFFERENT author, and this
+  // page reproduces his prose. So one built on his text prints his line too
+  // (user ask 2026-08-15). The PAIR is the assertion: the SHIPPED Cleric, read
+  // out of the pack rather than planted, so the leg goes red if the flag it
+  // keys on ever stops being authored there — and beside it the plain world
+  // background from pass 1, which must print the Yochai Gal line and NOTHING
+  // more. Putting a real person's name on a Warden's own homebrew is the
+  // failure this credit could introduce, so it is tested, not assumed.
+  // The portrait is restored first: the art line and the text line have to
+  // coexist, and the route-prefix pass left the image pointing at nothing.
+  await pc.update({ img: "systems/air-bladder/art/jon-aspeheim/portraits/dwarf_01.webp",
+    "system.contentSource": "2e" }, { render: false });
+  const cleric = (await game.packs.get("air-bladder.backgrounds-custom")?.getDocuments() ?? [])
+    .find((d) => d.name === "Cleric");
+  out.clericFlag = cleric?.getFlag("air-bladder", "backgroundSource") ?? null;
+  const creditsFor = async (bgUuid) => {
+    await pc.update({ "system.backgroundUuid": bgUuid }, { render: false });
+    await pc.sheet.render(true);
+    await sleep(600);
+    let popup9 = null;
+    window.open = (...a) => {
+      popup9 = origOpen.apply(window, a);
+      Object.defineProperty(popup9, "print", { configurable: true, value: () => {} });
+      return popup9;
+    };
+    try {
+      pc.sheet.element?.querySelector('[data-action="printSheet"]')?.click();
+      for (let i = 0; i < 60 && !popup9?.document?.querySelector("footer.credits"); i++) await sleep(150);
+      const text = popup9?.document?.querySelector("footer.credits")?.textContent ?? "";
+      popup9?.close();
+      return text;
+    } finally {
+      window.open = origOpen;
+      await pc.sheet.close();
+    }
+  };
+  out.creditsCustomBg = cleric ? await creditsFor(cleric.uuid) : "";
+  out.creditsPlainBg = await creditsFor(bgItem.uuid);
+  out.creditClassBg = game.i18n.localize("CAIRN.PrintCreditClassBackgrounds");
+  out.creditCairnText = game.i18n.localize("CAIRN.PrintCreditText");
+
   out.ids = { pc: pc.id, sack: sack.id, npc: npc.id, falcon: falcon.id };
   out.itemIds = [bgItem.id];
   return out;
@@ -736,6 +778,20 @@ check("credits match the art ON the page", /Yochai Gal/.test(r.creditsText)
   && /Aspeheim/.test(r.creditsText) && !/Tlomdev/.test(r.creditsText)
   && r.creditsSmall !== null && r.creditsSmall < 10,
   `${r.creditsSmall}px — an Aspeheim portrait credits Aspeheim and NEVER Tlomdev; the text credit always prints`);
+check("a shipped class background is flagged as one", r.clericFlag === "class-backgrounds",
+  `flag="${r.clericFlag}" — the credit keys on the DOCUMENT'S flag, not on its pack, so a Cleric `
+  + "duplicated into a Warden's world compendium keeps carrying its author; if this flag ever "
+  + "stops being authored, the two legs below stop meaning anything");
+check("…and its page credits Gordon McCormick", r.creditsCustomBg.includes(r.creditClassBg)
+  && /CC BY-SA 4\.0/.test(r.creditsCustomBg) && r.creditsCustomBg.includes(r.creditCairnText)
+  && /Aspeheim/.test(r.creditsCustomBg),
+  `"${r.creditsCustomBg}" — his prose is on the page (the tagline and both Q&A pairs), and the `
+  + "Yochai Gal line does not attribute him; all three lines coexist");
+check("control: a plain background credits him NOT AT ALL",
+  !/McCormick/.test(r.creditsPlainBg) && r.creditsPlainBg.includes(r.creditCairnText),
+  `"${r.creditsPlainBg}" — same character, same print, background swapped: a Warden's own writing `
+  + "must never carry a real author's name, and the Cairn line still prints because the page still "
+  + "reproduces Cairn's rules");
 check("empty Notes prints NOTHING — heading included", r.emptyNotesGone === true,
   "user ruling 2026-08-11, retiring the pencil-room exception — Notes takes the empty-sections-are-OMITTED rule like every other section");
 check("Notes takes the MIN-ROOM rule (PC only)",
