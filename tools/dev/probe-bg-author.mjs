@@ -39,7 +39,7 @@ const BOND_TEXT = "You owe the ferryman a debt he will collect.";
  */
 const LITTER = {
   items: ["Probe Background ZZ", SWORD, "ZZ Probe background"],
-  actors: ["zz-bg-drop", "zz-bb-drop", "zz-bg-drop-npc"],
+  actors: ["zz-bg-drop", "zz-bb-drop", "zz-bg-drop-npc", "zz-credit"],
   tables: ["ZZ Probe Bonds"],
 };
 const sweepLitter = async () => {
@@ -140,6 +140,10 @@ try {
     if (!root) throw new Error("authoring sheet element never rendered");
 
     out.hasEditor = !!root.querySelector(".background-editor");
+    // A background opens on Description, which is prose with a hover-only edit
+    // button — so nothing on screen says the authoring form exists. An editable
+    // one points at Details.
+    out.editHint = root.querySelector(".bg-tab-hint")?.textContent?.trim() ?? null;
     // Source is deliberately NOT a pick-list: a GM must not be able to make their
     // background undiscoverable by choosing another source. It renders as fixed text.
     out.sourceVal = root.querySelector(".bg-source-fixed")?.textContent.trim();
@@ -366,6 +370,9 @@ try {
       // rather than empty — Cairn's own credit prints on every sheet anyway, and
       // a blank "Credit line:" label on twenty shipped backgrounds is noise.
       attrRow: !!roRoot.querySelector(".background-attribution"),
+      // Locked, and this probe runs as GM: the hint must point at Duplicate,
+      // not at an authoring form that is not there.
+      lockedHint: roRoot.querySelector(".bg-tab-hint")?.textContent?.trim() ?? null,
     };
     await roSheet.close();
 
@@ -380,6 +387,64 @@ try {
       const cRoot = sheetRoot(cleric.sheet);
       out.classAttrRow = cRoot?.querySelector(".background-attribution")?.textContent?.trim() ?? null;
       await cleric.sheet.close();
+    }
+    return out;
+  });
+
+  stage("the credit on a CHARACTER's sheet, not just the printed page");
+  result.sheetCredit = await page.evaluate(async () => {
+    const sheetRoot = (app) => (app.element instanceof HTMLElement ? app.element : app.element?.[0]);
+    const creditOf = async (bg) => {
+      const actor = await Actor.create({ name: "zz-credit", type: "character" });
+      await actor.update({ "system.contentSource": "2e", "system.backgroundUuid": bg.uuid,
+        "system.background": bg.name });
+      await actor.sheet.render(true);
+      for (let i = 0; i < 30 && !actor.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
+      const root = sheetRoot(actor.sheet);
+      const el = root?.querySelector(".background-credit");
+      const out = { present: !!el, text: el?.textContent?.trim() ?? null,
+        // The credit is authored free text. If it ever renders through a triple
+        // stash, markup pasted into the field becomes real elements here.
+        html: el?.innerHTML ?? null };
+      await actor.sheet.close();
+      await actor.delete();
+      return out;
+    };
+    const cleric = (await game.packs.get("air-bladder.backgrounds-custom")?.getDocuments() ?? [])
+      .find((d) => d.name === "Cleric");
+    const canon = (await game.packs.get("air-bladder.backgrounds-2e")?.getDocuments() ?? [])
+      .find((d) => d.name === "Jongleur");
+    const out = { credited: cleric ? await creditOf(cleric) : null,
+                  uncredited: canon ? await creditOf(canon) : null };
+
+    // CHANGING THE BACKGROUND MUST CHANGE THE CREDIT. The line is read live off
+    // the linked document every render rather than copied onto the actor, so a
+    // character who swaps a credited background for an uncredited one must lose
+    // the line entirely — a stale credit is a false attribution, which is the
+    // one failure this feature can introduce.
+    if (cleric && canon) {
+      const actor = await Actor.create({ name: "zz-credit", type: "character" });
+      await actor.update({ "system.contentSource": "2e", "system.backgroundUuid": cleric.uuid,
+        "system.background": cleric.name });
+      await actor.sheet.render(true);
+      for (let i = 0; i < 30 && !actor.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
+      const root = () => (actor.sheet.element instanceof HTMLElement
+        ? actor.sheet.element : actor.sheet.element?.[0]);
+      out.beforeSwap = root()?.querySelector(".background-credit")?.textContent?.trim() ?? null;
+
+      await actor.update({ "system.backgroundUuid": canon.uuid, "system.background": canon.name });
+      await actor.sheet.render(true);
+      await new Promise((r) => setTimeout(r, 300));
+      out.afterSwap = root()?.querySelector(".background-credit")?.textContent?.trim() ?? null;
+
+      // …and back again, so "it cleared" is not just the sheet failing to render.
+      await actor.update({ "system.backgroundUuid": cleric.uuid, "system.background": cleric.name });
+      await actor.sheet.render(true);
+      await new Promise((r) => setTimeout(r, 300));
+      out.afterSwapBack = root()?.querySelector(".background-credit")?.textContent?.trim() ?? null;
+
+      await actor.sheet.close();
+      await actor.delete();
     }
     return out;
   });
@@ -426,6 +491,19 @@ const checks = [
     result.attributionSaved === "ZZ Probe Credit — A. Warden · CC BY-SA 4.0" && result.attributionCleared === ""],
   ["a canon 2e background shows NO credit row", result.readOnly?.attrRow === false],
   ["a shipped class background shows its author", /McCormick/.test(result.readOnly?.classAttrRow ?? "")],
+  ["an editable bg points at the Details tab", /Details/.test(result.editHint ?? "")],
+  ["a locked bg points at Duplicate instead", /Duplicate/.test(result.readOnly?.lockedHint ?? "")],
+  ["a character's sheet shows the background's credit",
+    /McCormick/.test(result.sheetCredit?.credited?.text ?? "")],
+  ["an uncredited background prints no empty line",
+    result.sheetCredit?.uncredited?.present === false],
+  ["the sheet credit is text, never markup",
+    !/[<>]/.test(result.sheetCredit?.credited?.html ?? "")],
+  ["changing the background CLEARS a stale credit",
+    /McCormick/.test(result.sheetCredit?.beforeSwap ?? "")
+      && result.sheetCredit?.afterSwap === null],
+  ["...and swapping back restores it (not just a dead sheet)",
+    /McCormick/.test(result.sheetCredit?.afterSwapBack ?? "")],
 ];
 
 console.log(`\n${FOUNDRY_URL}\n`);

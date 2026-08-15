@@ -2016,6 +2016,17 @@ textarea.omen-input {
     color: var(--ab-muted);
 }
 
+/* The background's credit line in Background & Notes. Muted like the source
+   label above: it is a citation the page owes, not something a player reads at
+   the table, and it must not compete with the bonds and questions above it.
+   No small-caps — a licence code and two proper names are not decoration. */
+.background-credit {
+    margin: 8px 0 0;
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--ab-muted);
+}
+
 /* Dice + magnifier beside the background name: re-roll it, or open the picker.
    Sit tight against the name so they read as controls on it, not on the line. */
 .background-roll,
@@ -3135,6 +3146,30 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     font-size: 0.85em;
     font-style: italic;
     opacity: 0.75;
+}
+
+/* The "the form is on Details" pointer above a background's description. Same
+   look as .bg-edit-hint, which cannot be reused directly: that selector is
+   scoped to .background-editor and this hint lives in the description tab,
+   outside it — and on a locked background there is no .background-editor at
+   all.
+
+   Colour is set EXPLICITLY rather than inherited-and-dimmed the way
+   .bg-edit-hint does it. The description tab inherits full-strength body text
+   (#222 light, #efe6d8 dark) — readable either way, but it makes an aside look
+   like content, which matters more now the hint sits ABOVE the description.
+   --ab-muted is the token for exactly this ("secondary: hints, labels") and
+   flips with the theme, which a hard-coded colour would not. */
+.bg-tab-hint {
+    margin: 0 0 10px;
+    /* Full size, NOT the 0.85em .bg-edit-hint uses. That hint sits inside a form
+       the reader is already looking at; this one has to be read by someone who
+       has not yet noticed there is anywhere else to go, and shrinking it below
+       the description it sits above made it read as fine print. Italic and
+       --ab-muted still mark it as an aside. */
+    font-size: 1em;
+    font-style: italic;
+    color: var(--ab-muted);
 }
 
 /* Example names — a wrapping list of small pills. */

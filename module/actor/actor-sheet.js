@@ -1225,6 +1225,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       ? cleanDescription(await foundry.applications.ux.TextEditor.implementation.enrichHTML(
           t("bg.desc", bg.system.description), { relativeTo: this.actor }))
       : "";
+    // The background's credit line, shown in Background & Notes. Same field the
+    // printed footer uses, off the SAME `bg` already resolved above — no second
+    // lookup. Deliberately NOT through `t()`, unlike the description and name
+    // beside it: this is authored data, and a citation's two names, title and
+    // licence code are what a reader in any language needs. Empty for the canon
+    // 2e and Barebones backgrounds by design, and empty renders nothing.
+    context.backgroundAttribution = String(bg?.system?.attribution ?? "").trim();
     // Translated background name for the header (generated case). The editable
     // input for a hand-made character keeps the raw system.background so a Warden
     // never edits a translated string.

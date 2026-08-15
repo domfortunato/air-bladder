@@ -19,6 +19,24 @@
         </nav>
             <section class="content">
                 <div class="tab {{tabs.description.cssClass}}" data-group="primary" data-tab="description">
+                    {{!-- A background OPENS on this tab, and this tab is prose with a
+                          hover-only edit button — so the authoring form behind Details
+                          is invisible until someone thinks to look. The wording follows
+                          what the reader can actually do: an editable background points
+                          at the form, a locked shipped one points a GM at Duplicate, and
+                          a player looking at a locked background is told nothing, because
+                          there is nothing there for them.
+
+                          ABOVE the prose-mirror, not below it. The editor stretches to
+                          fill the tab (measured 526px in a default 640px window), which
+                          pushed the hint ~130px past the scroll fold — present in the DOM,
+                          invisible without scrolling, which is the one thing a
+                          discoverability hint cannot afford. --}}
+                    {{#if isBackgroundEditor}}
+                    <p class="bg-tab-hint">{{ localize 'CAIRN.BgAuthor.EditOnDetails' }}</p>
+                    {{else}}{{#if isGM}}
+                    <p class="bg-tab-hint">{{ localize 'CAIRN.BgAuthor.DuplicateOnDetails' }}</p>
+                    {{/if}}{{/if}}
                     <prose-mirror name="system.description" value="{{system.description}}" toggled collaborate relative
                         data-document-uuid="{{item.uuid}}">{{{enrichedDescription}}}</prose-mirror>
                 </div>

@@ -248,6 +248,16 @@
                     </div>
                     {{/each}}
                     {{/if}}
+                    {{!-- The background's credit, below the bonds and questions it
+                          belongs to and above the player's own notes. DOUBLE stash:
+                          this is authored free text, unlike the enriched
+                          backgroundDescription in the header, and must never be parsed
+                          as markup. Absent when empty — the canon 2e and Barebones
+                          backgrounds ship it that way on purpose, and a bare label over
+                          nothing reads as a fault. --}}
+                    {{#if backgroundAttribution}}
+                    <p class="background-credit">{{backgroundAttribution}}</p>
+                    {{/if}}
                     {{#if showNotesDivider}}<hr class="notes-divider" />{{/if}}
                     {{!-- TOGGLED since 2026-08-02, reversing the always-active decision
                           recorded here: the user reads a permanent toolbar over an empty
