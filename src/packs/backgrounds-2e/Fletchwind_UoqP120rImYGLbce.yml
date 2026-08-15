@@ -49,22 +49,22 @@ system:
       options:
         - description: 'Western Yew (d6, bulky). Can be wielded as a blunt weapon (d6). Noisy.'
           items:
-            - name: Western Yew
+            - name: Western Yew Bow
         - description: 'Sessile Oak (d8, bulky). Slams into targets. On Critical Damage something is torn off.'
           items:
-            - name: Sessile Oak
+            - name: Sessile Oak Bow
         - description: 'Stone Pine (d6, bulky). Produces one use of Sticky Sap per day. The sap is highly explosive.'
           items:
-            - name: Stone Pine
+            - name: Stone Pine Bow
         - description: 'White Ash (d6, bulky). Can be used in place of a shield in melee combat (+1 Armor).'
           items:
-            - name: White Ash
+            - name: White Ash Bow
         - description: 'Striped Bamboo (d6). Collapsible, it only requires one slot (but still requires both hands).'
           items:
-            - name: Striped Bamboo
+            - name: Striped Bamboo Bow
         - description: 'Wych Elm (d6, bulky). Protects the bearer from poisons and toxins, so long as they are holding it.'
           items:
-            - name: Wych Elm
+            - name: Wych Elm Bow
 ownership:
   default: 0
 _stats:

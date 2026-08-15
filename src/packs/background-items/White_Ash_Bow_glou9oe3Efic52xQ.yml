@@ -1,5 +1,5 @@
-_id: ccZE9pYyyPRjAvWv
-name: Wych Elm
+_id: glou9oe3Efic52xQ
+name: White Ash Bow
 type: weapon
 img: systems/air-bladder/icons/weapons.svg
 effects: []
@@ -9,7 +9,7 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: Protects the bearer from poisons and toxins, so long as they are holding it.
+  description: Can be used in place of a shield in melee combat (+1 Armor).
   weightless: false
   equipped: false
   bulky: true
@@ -26,4 +26,4 @@ ownership:
 _stats:
   systemId: air-bladder
   coreVersion: '14.365'
-_key: '!items!ccZE9pYyyPRjAvWv'
+_key: '!items!glou9oe3Efic52xQ'

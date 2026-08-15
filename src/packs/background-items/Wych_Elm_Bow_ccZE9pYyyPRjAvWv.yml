@@ -1,5 +1,5 @@
-_id: gkq99A9ZRrQNO5Gq
-name: Striped Bamboo
+_id: ccZE9pYyyPRjAvWv
+name: Wych Elm Bow
 type: weapon
 img: systems/air-bladder/icons/weapons.svg
 effects: []
@@ -9,10 +9,10 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: Collapsible, it only requires one slot (but still requires both hands).
+  description: Protects the bearer from poisons and toxins, so long as they are holding it.
   weightless: false
   equipped: false
-  bulky: false
+  bulky: true
   cost: 0
   quantity: 1
   uses:
@@ -26,4 +26,4 @@ ownership:
 _stats:
   systemId: air-bladder
   coreVersion: '14.365'
-_key: '!items!gkq99A9ZRrQNO5Gq'
+_key: '!items!ccZE9pYyyPRjAvWv'

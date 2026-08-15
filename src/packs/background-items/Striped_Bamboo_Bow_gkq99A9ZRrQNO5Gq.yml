@@ -1,5 +1,5 @@
-_id: WWdRr7zErYvdSxiV
-name: Stone Pine
+_id: gkq99A9ZRrQNO5Gq
+name: Striped Bamboo Bow
 type: weapon
 img: systems/air-bladder/icons/weapons.svg
 effects: []
@@ -9,10 +9,10 @@ flags:
   air-bladder:
     gearSource: 2e
 system:
-  description: Produces one use of Sticky Sap per day. The sap is highly explosive.
+  description: Collapsible, it only requires one slot (but still requires both hands).
   weightless: false
   equipped: false
-  bulky: true
+  bulky: false
   cost: 0
   quantity: 1
   uses:
@@ -26,4 +26,4 @@ ownership:
 _stats:
   systemId: air-bladder
   coreVersion: '14.365'
-_key: '!items!WWdRr7zErYvdSxiV'
+_key: '!items!gkq99A9ZRrQNO5Gq'

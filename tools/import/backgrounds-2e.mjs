@@ -104,9 +104,14 @@ const ADDITIONS = {
   Mountebank: { containers: [{ name: "Cart", slots: 4 }] },
   // NOT Fletchwind. Its SRD gear line reads "Bow (see table)", which looks like a
   // missing item but is a pointer: the "What kind of wood is your bow made from?"
-  // table grants the bow itself, and each option (Western Yew, White Ash, ...) is
-  // a real bulky d6/d8 weapon in the pool. Adding a generic Bow here gives every
-  // Fletchwind two bows. Verified before removing it again.
+  // table grants the bow itself, and each option (Western Yew Bow, White Ash Bow,
+  // ...) is a real bulky d6/d8 weapon in the pool. Adding a generic Bow here gives
+  // every Fletchwind two bows. Verified before removing it again.
+  // The pool items were renamed from the bare wood to "<Wood> Bow" on 2026-08-15
+  // (user ruling): the SRD option text names the material, so an inventory row
+  // reading "Western Yew" told the player nothing about what they were carrying.
+  // The option PROSE still reads "Western Yew (d6, bulky)…" — that is SRD text and
+  // this script re-sources it, so do not append "Bow" there.
 
   // "Take 20gp worth of items from the gear table" — a player-choice shopping
   // grant that generation could not express, so these two options handed over
