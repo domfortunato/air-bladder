@@ -3159,7 +3159,17 @@ ol.combat-tracker li.combatant.cairn-drop-below {
    (#222 light, #efe6d8 dark) — readable either way, but it makes an aside look
    like content, which matters more now the hint sits ABOVE the description.
    --ab-muted is the token for exactly this ("secondary: hints, labels") and
-   flips with the theme, which a hard-coded colour would not. */
+   flips with the theme, which a hard-coded colour would not.
+
+   IT SITS ON ITS OWN SURFACE (user report 2026-08-15: "this is blending
+   together"). Italic + --ab-muted was not enough on its own — two full-size
+   paragraphs of the same measure, 10px apart, read as one document whose first
+   sentence happens to be in italics, so a Cleric's pointer looked like the
+   Cleric's own prose. Nothing in this system's CONTENT ever paints a
+   background, so a panel is a distinction the description cannot accidentally
+   acquire, and it needs no reading to work. Size, position and wording are
+   unchanged: all three are recorded decisions (see the note on font-size, and
+   the ABOVE-the-prose-mirror note in the template). */
 .bg-tab-hint {
     margin: 0 0 10px;
     /* Full size, NOT the 0.85em .bg-edit-hint uses. That hint sits inside a form
@@ -3170,6 +3180,25 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     font-size: 1em;
     font-style: italic;
     color: var(--ab-muted);
+    /* Flex so a wrapped second line indents under the TEXT, not under the icon. */
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 8px 10px;
+    border-radius: 3px;
+    background: var(--ab-wash);
+    /* Inset shadow, not border-left, and --ab-rule-strong, not --ab-accent —
+       both for the reasons already recorded at .chat-message.whisper above: a
+       border shorthand loses to core's unlayered one, and the teal accent is
+       tuned for near-black backdrops. This panel sits on the sheet surface,
+       which is parchment in light mode, where the accent washes out. */
+    box-shadow: inset 3px 0 0 var(--ab-rule-strong);
+}
+
+.bg-tab-hint > i {
+    /* Optically centred on the first line rather than box-aligned to it. */
+    margin-top: 0.15em;
+    opacity: 0.8;
 }
 
 /* Example names — a wrapping list of small pills. */

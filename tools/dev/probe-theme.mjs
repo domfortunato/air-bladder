@@ -246,6 +246,18 @@ try {
       "system.description": "<p>Theme probe prose, so the Description tab is not blank.</p>",
     });
 
+    // The BACKGROUND sheet, added 2026-08-15 with the .bg-tab-hint callout. It is
+    // the only surface here that paints --ab-muted text on --ab-wash rather than
+    // on the plain sheet surface, and a pairing no sheet in this list renders is a
+    // pairing this gate cannot measure — which is the whole job. Its description
+    // is planted so the tab is not blank, and it is EDITABLE (a world item), the
+    // path that shows the hint at all.
+    const bg = await Item.create({
+      name: "Theme Probe Background", type: "background",
+      system: { source: "2e", archetype: "Fighter",
+        description: "<p>Theme probe prose, so the Description tab is not blank.</p>" },
+    });
+
     const open = async (doc) => {
       await doc.sheet.render(true);
       const node = () => {
@@ -260,7 +272,7 @@ try {
     };
 
     return {
-      actorId: actor.id, npcId: npc.id,
+      actorId: actor.id, npcId: npc.id, bgId: bg.id,
       weaponId: weapon.id, weaponOwned: !!weapon.parent,
       // `slug` is explicit because it names the screenshot file, and the class name
       // it used to be derived from is `CairnActorSheet` for BOTH actors — so adding
@@ -269,6 +281,7 @@ try {
         { ...(await open(actor)), what: `${actor.name} (character)`, slug: "character" },
         { ...(await open(npc)), what: `${npc.name} (npc)`, slug: "npc" },
         { ...(await open(weapon)), what: `${weapon.name} (weapon)`, slug: "weapon" },
+        { ...(await open(bg)), what: `${bg.name} (background)`, slug: "background" },
       ],
     };
   });
@@ -369,11 +382,12 @@ try {
     }
   }
 
-  await page.evaluate(async ([a, n, w, owned]) => {
+  await page.evaluate(async ([a, n, w, owned, b]) => {
     if (!owned) await game.items.get(w)?.delete();
+    await game.items.get(b)?.delete();
     await game.actors.get(a)?.delete();
     await game.actors.get(n)?.delete();
-  }, [targets.actorId, targets.npcId, targets.weaponId, targets.weaponOwned]);
+  }, [targets.actorId, targets.npcId, targets.weaponId, targets.weaponOwned, targets.bgId]);
 
   /**
    * Light is the shipping, accepted appearance, so it is the BASELINE: only a

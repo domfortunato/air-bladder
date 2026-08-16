@@ -118,6 +118,34 @@ try {
     // AppV1's `element` is a jQuery object; ApplicationV2's is the HTMLElement.
     // Works either way so this probe survives sheet-class churn.
     const sheetRoot = (app) => (app.element instanceof HTMLElement ? app.element : app.element?.[0]);
+    /**
+     * What makes the hint read as CHROME rather than as the background's own
+     * first sentence: it paints a surface, and content prose here never does.
+     * Both facts are measured off the rendered box, never off the markup —
+     * reading textContent is exactly what let this hint ship 132px below the
+     * scroll fold with a green leg (a2283514), and "the panel is in the
+     * stylesheet" would fail the same way.
+     */
+    const measureHint = (scope) => {
+      const el = scope?.querySelector(".bg-tab-hint");
+      if (!el) return null;
+      const cs = getComputedStyle(el);
+      const prose = scope.querySelector("prose-mirror");
+      // .window-content is the scroller: AppV2 supplies no scrolling of its own
+      // and css/cairn.css restores it there explicitly.
+      const scroller = el.closest(".window-content") ?? scope;
+      const r = el.getBoundingClientRect();
+      const s = scroller.getBoundingClientRect();
+      return {
+        text: el.textContent.trim(),
+        bg: cs.backgroundColor,
+        proseBg: prose ? getComputedStyle(prose).backgroundColor : null,
+        shadow: cs.boxShadow,
+        icon: !!el.querySelector("i"),
+        // Wholly inside the visible box of its own scroll container.
+        inView: r.height > 0 && r.top >= s.top - 1 && r.bottom <= s.bottom + 1,
+      };
+    };
 
     // getDocumentClass, not the bare Item global — the same convention as the
     // Actor/RollTable creates below, and the class a real user's create goes
@@ -144,6 +172,7 @@ try {
     // button — so nothing on screen says the authoring form exists. An editable
     // one points at Details.
     out.editHint = root.querySelector(".bg-tab-hint")?.textContent?.trim() ?? null;
+    out.hintBox = measureHint(root);
     // Source is deliberately NOT a pick-list: a GM must not be able to make their
     // background undiscoverable by choosing another source. It renders as fixed text.
     out.sourceVal = root.querySelector(".bg-source-fixed")?.textContent.trim();
@@ -352,6 +381,34 @@ try {
   stage("read-only view of a locked shipped background");
   result.readOnly = await page.evaluate(async () => {
     const sheetRoot = (app) => (app.element instanceof HTMLElement ? app.element : app.element?.[0]);
+    /**
+     * What makes the hint read as CHROME rather than as the background's own
+     * first sentence: it paints a surface, and content prose here never does.
+     * Both facts are measured off the rendered box, never off the markup —
+     * reading textContent is exactly what let this hint ship 132px below the
+     * scroll fold with a green leg (a2283514), and "the panel is in the
+     * stylesheet" would fail the same way.
+     */
+    const measureHint = (scope) => {
+      const el = scope?.querySelector(".bg-tab-hint");
+      if (!el) return null;
+      const cs = getComputedStyle(el);
+      const prose = scope.querySelector("prose-mirror");
+      // .window-content is the scroller: AppV2 supplies no scrolling of its own
+      // and css/cairn.css restores it there explicitly.
+      const scroller = el.closest(".window-content") ?? scope;
+      const r = el.getBoundingClientRect();
+      const s = scroller.getBoundingClientRect();
+      return {
+        text: el.textContent.trim(),
+        bg: cs.backgroundColor,
+        proseBg: prose ? getComputedStyle(prose).backgroundColor : null,
+        shadow: cs.boxShadow,
+        icon: !!el.querySelector("i"),
+        // Wholly inside the visible box of its own scroll container.
+        inView: r.height > 0 && r.top >= s.top - 1 && r.bottom <= s.bottom + 1,
+      };
+    };
     const roPack = game.packs.get("air-bladder.backgrounds-2e");
     const roDocs = await roPack.getDocuments();
     const roBg = roDocs.find((d) => d.name === "Jongleur") ?? roDocs[0];
@@ -373,20 +430,41 @@ try {
       // Locked, and this probe runs as GM: the hint must point at Duplicate,
       // not at an authoring form that is not there.
       lockedHint: roRoot.querySelector(".bg-tab-hint")?.textContent?.trim() ?? null,
+      // …and it must read as chrome here too. This path is the tighter one for
+      // the in-view half: no authoring form below to absorb the panel's height.
+      hintBox: measureHint(roRoot),
     };
     await roSheet.close();
 
     // …and a shipped CLASS background shows whose text it is, because the
     // sheet is locked: a Warden about to duplicate it cannot read the field
     // in an input, so the read-only view is the only place that tells them.
+    //
+    // THE LOCK IS ESTABLISHED, NOT ASSUMED (2026-08-15). This leg shipped
+    // reading whatever state the world happened to be in, and went red the next
+    // day because a Warden had unlocked backgrounds-custom to look around: an
+    // unlocked pack renders the EDITOR branch, which has no .background-attribution
+    // at all, so a green-then-red leg reported nothing about the code. The
+    // precondition trap in its other direction — stale world state SATISFYING an
+    // assertion is the documented one, and world state DEFEATING one costs the
+    // same hour. Restored in the finally below, and the restore is asserted.
     const cbPack = game.packs.get("air-bladder.backgrounds-custom");
+    const lockWas = cbPack?.locked ?? null;
     const cleric = (await cbPack?.getDocuments() ?? []).find((d) => d.name === "Cleric");
     if (cleric) {
-      await cleric.sheet.render(true);
-      for (let i = 0; i < 30 && !cleric.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
-      const cRoot = sheetRoot(cleric.sheet);
-      out.classAttrRow = cRoot?.querySelector(".background-attribution")?.textContent?.trim() ?? null;
-      await cleric.sheet.close();
+      try {
+        if (lockWas === false) await cbPack.configure({ locked: true });
+        await cleric.sheet.render(true);
+        for (let i = 0; i < 30 && !cleric.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
+        const cRoot = sheetRoot(cleric.sheet);
+        out.clericLocked = cbPack.locked;
+        out.clericReadOnly = !!cRoot?.querySelector(".background-details");
+        out.classAttrRow = cRoot?.querySelector(".background-attribution")?.textContent?.trim() ?? null;
+        await cleric.sheet.close();
+      } finally {
+        if (lockWas === false) await cbPack.configure({ locked: false });
+        out.lockRestored = cbPack.locked === lockWas;
+      }
     }
     return out;
   });
@@ -394,6 +472,34 @@ try {
   stage("the credit on a CHARACTER's sheet, not just the printed page");
   result.sheetCredit = await page.evaluate(async () => {
     const sheetRoot = (app) => (app.element instanceof HTMLElement ? app.element : app.element?.[0]);
+    /**
+     * What makes the hint read as CHROME rather than as the background's own
+     * first sentence: it paints a surface, and content prose here never does.
+     * Both facts are measured off the rendered box, never off the markup —
+     * reading textContent is exactly what let this hint ship 132px below the
+     * scroll fold with a green leg (a2283514), and "the panel is in the
+     * stylesheet" would fail the same way.
+     */
+    const measureHint = (scope) => {
+      const el = scope?.querySelector(".bg-tab-hint");
+      if (!el) return null;
+      const cs = getComputedStyle(el);
+      const prose = scope.querySelector("prose-mirror");
+      // .window-content is the scroller: AppV2 supplies no scrolling of its own
+      // and css/cairn.css restores it there explicitly.
+      const scroller = el.closest(".window-content") ?? scope;
+      const r = el.getBoundingClientRect();
+      const s = scroller.getBoundingClientRect();
+      return {
+        text: el.textContent.trim(),
+        bg: cs.backgroundColor,
+        proseBg: prose ? getComputedStyle(prose).backgroundColor : null,
+        shadow: cs.boxShadow,
+        icon: !!el.querySelector("i"),
+        // Wholly inside the visible box of its own scroll container.
+        inView: r.height > 0 && r.top >= s.top - 1 && r.bottom <= s.bottom + 1,
+      };
+    };
     const creditOf = async (bg) => {
       const actor = await Actor.create({ name: "zz-credit", type: "character" });
       await actor.update({ "system.contentSource": "2e", "system.backgroundUuid": bg.uuid,
@@ -490,9 +596,24 @@ const checks = [
   ["typing a credit PERSISTS, and it can be cleared again",
     result.attributionSaved === "ZZ Probe Credit — A. Warden · CC BY-SA 4.0" && result.attributionCleared === ""],
   ["a canon 2e background shows NO credit row", result.readOnly?.attrRow === false],
-  ["a shipped class background shows its author", /McCormick/.test(result.readOnly?.classAttrRow ?? "")],
+  ["a shipped class background shows its author",
+    result.readOnly?.clericLocked === true && result.readOnly?.clericReadOnly === true
+      && /McCormick/.test(result.readOnly?.classAttrRow ?? "")],
+  ["...and the world's own pack lock is put back", result.readOnly?.lockRestored === true],
   ["an editable bg points at the Details tab", /Details/.test(result.editHint ?? "")],
   ["a locked bg points at Duplicate instead", /Duplicate/.test(result.readOnly?.lockedHint ?? "")],
+  // The hint SITS ON ITS OWN SURFACE, both paths. Italic + muted alone read as
+  // the background's own first sentence (user report 2026-08-15) — two full-size
+  // paragraphs of one measure look like one document. Content prose here never
+  // paints a background, so this is the distinction, and it is asserted against
+  // the prose beside it rather than against a literal colour, which would break
+  // the moment the palette moves or the scheme flips.
+  ["the hint paints its own surface, on BOTH paths",
+    [result.hintBox, result.readOnly?.hintBox].every((h) =>
+      h && h.icon === true && /inset/.test(h.shadow ?? "")
+      && !/^(transparent|rgba\(0, 0, 0, 0\))$/.test(h.bg ?? "") && h.bg !== h.proseBg)],
+  ["…and is visible without scrolling, on BOTH paths",
+    result.hintBox?.inView === true && result.readOnly?.hintBox?.inView === true],
   ["a character's sheet shows the background's credit",
     /McCormick/.test(result.sheetCredit?.credited?.text ?? "")],
   ["an uncredited background prints no empty line",

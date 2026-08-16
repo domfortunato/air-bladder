@@ -31,11 +31,17 @@
                           fill the tab (measured 526px in a default 640px window), which
                           pushed the hint ~130px past the scroll fold — present in the DOM,
                           invisible without scrolling, which is the one thing a
-                          discoverability hint cannot afford. --}}
+                          discoverability hint cannot afford.
+
+                          The SAME icon on both, deliberately: it marks the VOICE, and
+                          both lines are the app talking rather than the background. An
+                          icon per destination (a pencil here, a copy there) would spend
+                          the one signal that tells these apart from the prose below on
+                          a distinction the sentence already makes. --}}
                     {{#if isBackgroundEditor}}
-                    <p class="bg-tab-hint">{{ localize 'CAIRN.BgAuthor.EditOnDetails' }}</p>
+                    <p class="bg-tab-hint"><i class="fas fa-circle-info"></i>{{ localize 'CAIRN.BgAuthor.EditOnDetails' }}</p>
                     {{else}}{{#if isGM}}
-                    <p class="bg-tab-hint">{{ localize 'CAIRN.BgAuthor.DuplicateOnDetails' }}</p>
+                    <p class="bg-tab-hint"><i class="fas fa-circle-info"></i>{{ localize 'CAIRN.BgAuthor.DuplicateOnDetails' }}</p>
                     {{/if}}{{/if}}
                     <prose-mirror name="system.description" value="{{system.description}}" toggled collaborate relative
                         data-document-uuid="{{item.uuid}}">{{{enrichedDescription}}}</prose-mirror>
