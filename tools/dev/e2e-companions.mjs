@@ -326,16 +326,53 @@ const legacy = await page.evaluate(async () => {
       { id: "bbbbbbbbbbbbbbbb", html: orphan, names: ["Cart"], source: "background" },
     ] } },
   });
-  return { id: a.id, before: a.system.notes, ledger: (a.getFlag("air-bladder", "grantNotes") ?? []).length };
+  // A HAND-EDITED line (review #15). The player rewrote the bullet, so the
+  // ledger's recorded html no longer matches what is on the sheet. That miss is
+  // intended — the field is theirs — but the first version deleted the whole
+  // flag anyway, in the same write that failed to use it: the bullet stayed,
+  // nothing was left to find it by, and no later version could ever retry. The
+  // matched record must go and the missed one must STAY.
+  const editedFrom = "<strong>Companion: Owl</strong> <em>[Bond]</em> — ZZ It watches.";
+  const editedTo = "<strong>Companion: Owl</strong> <em>[Bond]</em> — ZZ It watches me sleep.";
+  const alsoGranted = "<strong>Transport: Mule</strong> <em>[Background]</em> — ZZ Patient.";
+  const edited = await ActorImpl.create({
+    name: "ZZ Legacy Edited", type: "character",
+    system: { notes: `<ul><li>${editedTo}</li><li>${alsoGranted}</li></ul>` },
+    flags: { "air-bladder": { grantNotes: [
+      { id: "cccccccccccccccc", html: editedFrom, names: ["Owl"], source: "bond:0" },
+      { id: "dddddddddddddddd", html: alsoGranted, names: ["Mule"], source: "background" },
+    ] } },
+  });
+  // And one where NOTHING matches: the document must not be written at all, so
+  // the next load meets exactly the same state and tries again.
+  const untouched = await ActorImpl.create({
+    name: "ZZ Legacy Untouched", type: "character",
+    system: { notes: "<ul><li>ZZ Nothing here was ever written by generation.</li></ul>" },
+    flags: { "air-bladder": { grantNotes: [
+      { id: "eeeeeeeeeeeeeeee", html: editedFrom, names: ["Owl"], source: "bond:0" },
+    ] } },
+  });
+  return {
+    id: a.id, before: a.system.notes,
+    ledger: (a.getFlag("air-bladder", "grantNotes") ?? []).length,
+    editedId: edited.id, editedBefore: edited.system.notes,
+    untouchedId: untouched.id, untouchedBefore: untouched.system.notes,
+  };
 });
 check("the legacy fixture really carries bullets and a ledger",
   legacy.ledger === 2 && (legacy.before.match(/<li>/g) ?? []).length === 3,
   `ledger=${legacy.ledger} bullets=${(legacy.before.match(/<li>/g) ?? []).length}`);
+check("and the hand-edited fixture's recorded line really does NOT match the sheet",
+  legacy.editedBefore.includes("ZZ It watches me sleep.")
+  && !legacy.editedBefore.includes("ZZ It watches.</strong>"),
+  "or the leg below would pass for the wrong reason");
 
 console.log("  note  reloading, so the ready-hook removal runs for real");
 const removalLog = [];
+const leftoverLog = [];
 page.on("console", (m) => {
-  if (/removed grant notes from \d+ character/.test(m.text())) removalLog.push(m.text());
+  if (/removed \d+ grant note\(s\) from \d+ character/.test(m.text())) removalLog.push(m.text());
+  if (/recorded line no longer matches/.test(m.text())) leftoverLog.push(m.text());
 });
 await page.reload({ waitUntil: "networkidle", timeout: 60000 });
 await page.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
@@ -361,6 +398,35 @@ check("and the ledger flag is unset", swept.ledger === null || swept.ledger === 
   JSON.stringify(swept.ledger));
 check("the removal named itself as the writer", removalLog.length > 0,
   removalLog[0] ?? "nothing logged — something else emptied the notes");
+
+// Review #15: the miss is intended, losing the record of it is not.
+const missed = await page.evaluate(({ editedId, untouchedId }) => {
+  const e = game.actors.get(editedId);
+  const u = game.actors.get(untouchedId);
+  return {
+    editedNotes: e.system.notes,
+    editedLedger: e.getFlag("air-bladder", "grantNotes") ?? null,
+    untouchedNotes: u.system.notes,
+    untouchedLedger: u.getFlag("air-bladder", "grantNotes") ?? null,
+  };
+}, legacy);
+check("a hand-edited line stays on the sheet, as it should",
+  missed.editedNotes.includes("ZZ It watches me sleep."), JSON.stringify(missed.editedNotes));
+check("its neighbour that DID match went",
+  !missed.editedNotes.includes("ZZ Patient."), JSON.stringify(missed.editedNotes));
+check("and the ledger keeps ONLY the record that missed — the bullet stays findable",
+  Array.isArray(missed.editedLedger) && missed.editedLedger.length === 1
+  && missed.editedLedger[0]?.names?.[0] === "Owl",
+  `${JSON.stringify(missed.editedLedger)} — dropping the whole flag here leaves a bullet nothing can ever `
+  + "find again: no marker, no flag, and a console line reporting success");
+check("an actor where nothing matched is not written at all",
+  missed.untouchedNotes === legacy.untouchedBefore
+  && Array.isArray(missed.untouchedLedger) && missed.untouchedLedger.length === 1,
+  `notes ${missed.untouchedNotes === legacy.untouchedBefore ? "identical" : "CHANGED"}, `
+  + `ledger ${JSON.stringify(missed.untouchedLedger)}`);
+check("and both are NAMED in a warning, or nobody ever learns", leftoverLog.length > 0
+  && leftoverLog[0].includes("ZZ Legacy Edited") && leftoverLog[0].includes("ZZ Legacy Untouched"),
+  leftoverLog[0] ?? "nothing warned — a silent miss is the whole defect");
 
 /* ---------------------------------------------------------------------------
  * 4. The player path: Alice's grant goes through the broker (players lack
@@ -441,7 +507,7 @@ await page.evaluate(async ({ ids, grantIds, ravenId, rerollIds }) => {
     reroll.keeperId, ...(reroll.beastIds ?? []),
     stock.keeperId, ...(stock.cartIds ?? []),
     pair.keeperId, ...(pair.madeIds ?? []),
-    legacy.id,
+    legacy.id, legacy.editedId, legacy.untouchedId,
   ],
 });
 

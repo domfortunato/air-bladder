@@ -1573,29 +1573,118 @@ const migrateGrimoirePages = async () => {
  * state test would re-answer the question on every load. This one selects on the
  * flag, and once the flag is gone nothing in the system writes another — the
  * state cannot recur, so a state test is exact and free.
+ *
+ * WHICH IS ONLY TRUE IF THE FLAG OUTLIVES THE MISS (review #15). The first
+ * version pushed the notes AND the flag deletion unconditionally, so a record
+ * whose string did not match lost its bullet's only description in the same
+ * write that failed to use it — leaving a bullet nothing could ever find again,
+ * no marker to clear, no flag to select on, and a console line reporting
+ * success. The accepted case above and the unrecoverable case were the same
+ * case. So a record is dropped from the ledger only when its bullet actually
+ * went, the flag goes only when the ledger empties, an actor nothing changed on
+ * is not written at all, and whatever is left over is NAMED — the shape
+ * `migrateGrimoirePages` already uses for what it cannot resolve.
  */
+
+/**
+ * Strip the recorded bullets from one actor's notes.
+ * @param {CairnActor} actor
+ * @returns {{notes: string, unmatched: object[], removed: number, write: boolean}|null}
+ *   null only when this actor carries no ledger at all. `write` false means
+ *   nothing about the document changed — it is still REPORTED, which is the
+ *   difference between "left alone" and "silently skipped".
+ */
+const grantNoteRemoval = (actor) => {
+  const ledger = actor.getFlag("air-bladder", "grantNotes");
+  if (!Array.isArray(ledger) || !ledger.length) return null;
+  const before = String(actor.system.notes ?? "");
+  let notes = before;
+  const unmatched = [];
+  let removed = 0;
+  for (const rec of ledger) {
+    const body = String(rec?.html ?? "").trim();
+    // A record with no html describes no bullet, so there is nothing to miss:
+    // it is dropped rather than kept as permanent unfinished business.
+    if (!body) continue;
+    const bullet = `<li>${body}</li>`;
+    if (!notes.includes(bullet)) { unmatched.push(rec); continue; }
+    notes = notes.split(bullet).join("");
+    removed += 1;
+  }
+  // A list left holding nothing goes with its last bullet; a list still
+  // holding the player's own items stays exactly as they left it.
+  notes = notes.split("<ul></ul>").join("").trim();
+  // Nothing removed AND nothing to drop from the ledger: leave the document
+  // alone entirely, so the next load tries again on exactly the same state.
+  // Returned rather than skipped, because an actor NOTHING matched on is the
+  // one most in need of naming — the probe caught this exact hole, where the
+  // warning listed the partial miss and stayed silent about the total one.
+  const write = removed > 0 || unmatched.length !== ledger.length;
+  return { notes, unmatched, removed, write };
+};
+
+/** The change to write for one removal, flag deletion included when it is due. */
+const grantNoteUpdate = ({ notes, unmatched }) => ({
+  "system.notes": notes,
+  // ForcedDeletion, not the legacy `-=key: null` spelling: the shipped client
+  // marks that `@deprecated since v14 until v16` (common/data/fields.mjs), and
+  // under this repo's own FAILURE trip-wire the warning THROWS — swallowed by
+  // `phase`, so the migration would silently do nothing, forever, with no
+  // marker to say it had tried. connections.js writes it this way already.
+  "flags.air-bladder.grantNotes": unmatched.length
+    ? unmatched
+    : new foundry.data.operators.ForcedDeletion(),
+});
+
 const removeGrantNotes = async () => {
   const updates = [];
+  const leftovers = [];
+  let removed = 0;
   for (const actor of game.actors) {
-    const ledger = actor.getFlag("air-bladder", "grantNotes");
-    if (!Array.isArray(ledger) || !ledger.length) continue;
-    let notes = String(actor.system.notes ?? "");
-    for (const rec of ledger) {
-      const body = String(rec?.html ?? "").trim();
-      if (!body) continue;
-      notes = notes.split(`<li>${body}</li>`).join("");
-    }
-    // A list left holding nothing goes with its last bullet; a list still
-    // holding the player's own items stays exactly as they left it.
-    notes = notes.split("<ul></ul>").join("").trim();
-    updates.push({ _id: actor.id, "system.notes": notes,
-      "flags.air-bladder.-=grantNotes": null });
+    const r = grantNoteRemoval(actor);
+    if (!r) continue;
+    removed += r.removed;
+    if (r.unmatched.length) leftovers.push(`${actor.name} (${r.unmatched.length})`);
+    if (r.write) updates.push({ _id: actor.id, ...grantNoteUpdate(r) });
   }
-  if (!updates.length) return;
-  // abNoStatusCard: a migration must not greet the Warden with a change-log
-  // card per character it touched.
-  await Actor.implementation.updateDocuments(updates, { abNoStatusCard: true });
-  console.log(`Air Bladder | removed grant notes from ${updates.length} character(s)`);
+  if (updates.length) {
+    // abNoStatusCard: a migration must not greet the Warden with a change-log
+    // card per character it touched.
+    await Actor.implementation.updateDocuments(updates, { abNoStatusCard: true });
+  }
+
+  // An unlinked token keeps its own copy of the actor in its delta, and the
+  // world actor says nothing about it — the same reason migrateGrimoirePages
+  // walks the scenes. These cannot ride the batch above: a token actor is
+  // addressed through its own document, not by `_id` in game.actors.
+  let tokenActors = 0;
+  for (const scene of game.scenes) {
+    for (const token of scene.tokens) {
+      if (token.actorLink || !token.actor) continue;
+      const r = grantNoteRemoval(token.actor);
+      if (!r) continue;
+      removed += r.removed;
+      if (r.unmatched.length) {
+        leftovers.push(`${token.name} on ${scene.name} (${r.unmatched.length})`);
+      }
+      if (!r.write) continue;
+      await token.actor.update(grantNoteUpdate(r), { abNoStatusCard: true });
+      tokenActors += 1;
+    }
+  }
+
+  const touched = updates.length + tokenActors;
+  if (touched) {
+    console.log(`Air Bladder | removed ${removed} grant note(s) from ${touched} character(s)`);
+  }
+  // NAMED, never a bare count: the bullet is still on the sheet and the only
+  // way anyone finds out is here. Its ledger record is kept, so this repeats
+  // each load until someone deletes the line — which is the point.
+  if (leftovers.length) {
+    console.warn(`Air Bladder | grant notes whose recorded line no longer matches what is on the `
+      + `sheet, left in place with their record kept so they stay findable: ${leftovers.join(", ")}. `
+      + `A line edited by hand is the player's now — delete it on the sheet if it is not wanted.`);
+  }
 };
 
 /**
