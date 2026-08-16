@@ -8,7 +8,6 @@ import { connectionHeadroom, maxConnections, connectedOwnershipShape, OWNERSHIP_
 import { SETTINGS_NS } from "./settings.js";
 import { glogEnabled, GLOG_SPELL_PACKS } from "./glog.js";
 import { t } from "./i18n-content.js";
-import { applyGrantNotes, GRANT_NOTE_ID } from "./grant-notes.js";
 
 // Foundry validates a document flag's scope against real package ids, so flags
 // use the system id "air-bladder" (NOT the internal "cairn" JS/settings namespace,
@@ -683,9 +682,9 @@ export const applyChoiceTables = async (bg) => {
     // The option's own prose rides along with the container spec. What the
     // background PROMISED about this beast — "4 HP. +6 slots (only +2 slots if
     // carrying two people)" — belongs ON the beast, not only in the question
-    // list on the character it is connected to. See noteWithGrant.
+    // list on the character it is connected to.
     out.containers.push(...(opt.containers ?? []).map((c) => ({
-      ...c, grantSource: `question:${i}`, grantNote: opt.description ?? "",
+      ...c, grantSource: `question:${i}`,
     })));
     out.gold += gold;
     out.questions.push({ question: table.question ?? "", answer: opt.description ?? "", gold });
@@ -857,7 +856,7 @@ const containerKindFor = (name) => (/\b(wagon|cart|sled|sledge)\b/i.test(name) ?
  * Each container is flagged with the question that granted it, so a re-roll or a
  * regenerate can delete exactly those and leave bought/manual containers alone.
  * @param {CairnActor} actor
- * @param {Object[]} specs  {name, slots, grantSource, grantNote?, load?, carried_by?}
+ * @param {Object[]} specs  {name, slots, grantSource, load?, carried_by?}
  * @returns {Promise<CairnActor[]>}  the containers created
  */
 export const grantContainers = async (actor, specs) => {
@@ -930,18 +929,7 @@ export const grantContainers = async (actor, specs) => {
         ?? ({ mount: "companion", vehicle: "transport", worn: "container", pile: "container" }[kind] ?? "companion"),
     };
   });
-  // The grant's own words onto the character, before the GM/player fork below
-  // and before anything can throw: a beast that lands with no line saying what
-  // it is and what it does is the half of this the player actually reads.
-  // Positional: noteIds[i] is the ledger record speaking for entries[i], and it
-  // rides onto that entry's Actor below. Without the stamp the record is joined
-  // to its things by name, which is the player's to change (review #14).
-  const noteIds = await applyGrantNotes(actor, entries.map((e) => ({
-    role: e.role, cls: e.cls, source: e.spec.grantSource, name: e.spec.name,
-    prose: e.spec.grantNote, stockProse: e.doc?.system.description ?? "",
-  })));
-
-  const payloads = entries.map(({ spec, doc, art, cls, role }, i) => {
+  const payloads = entries.map(({ spec, doc, art, cls, role }) => {
     return {
       type: "npc",
       name: spec.name,
@@ -974,10 +962,7 @@ export const grantContainers = async (actor, specs) => {
         ...(doc ? { abilities: doc.system.toObject().abilities } : {}),
       },
       flags: {
-        [FLAG_SCOPE]: {
-          grantSource: spec.grantSource ?? "background",
-          ...(noteIds[i] ? { [GRANT_NOTE_ID]: noteIds[i] } : {}),
-        },
+        [FLAG_SCOPE]: { grantSource: spec.grantSource ?? "background" },
       },
     };
   });

@@ -19,7 +19,6 @@ import { registerWardenDamageControl } from "./warden-damage.js";
 import { registerSettings, SETTINGS_NS, migrateSettingsNamespace } from "./settings.js";
 import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS, deriveNpcRole } from "./data-models.js";
 import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNERSHIP_SYNC_FLAG } from "./connections.js";
-import { GRANT_NOTE_ID } from "./grant-notes.js";
 import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName, actorDisplayName } from "./i18n-content.js";
 import { injectEncounterButton } from "./encounters.js";
 import { bindGrimoireFatigueButton } from "./grimoire.js";
@@ -674,20 +673,14 @@ async function handleGrantActors(msg, senderId) {
           }])),
       } : {}),
     },
-    // Only the two flags generation uses to find its own grants later: which
-    // roll granted this, and which line on the keeper's notes speaks for it.
-    // The note id must survive the wire — the player wrote that line on their
-    // own client a moment ago, and a beast that arrives without the stamp has a
-    // bullet on the sheet that nothing can ever take back. Shape-checked rather
-    // than trusted: a crafted value cannot delete a line (removal only ever
-    // drops records nothing claims), but it could keep a dead one alive, and an
-    // id is a known 16-character shape so there is no reason to accept another.
+    // The ONE flag generation uses to find its own grants later: which roll
+    // granted this. The note-id flag travelled beside it until 2026-08-16 and
+    // went with the grant notes themselves; the whitelist is the wall, so a
+    // retired flag must leave it rather than sit there accepting a value
+    // nothing reads.
     flags: {
       [FLAG_SCOPE]: {
         grantSource: String(p?.flags?.[FLAG_SCOPE]?.grantSource ?? "background"),
-        ...(/^[a-zA-Z0-9]{16}$/.test(String(p?.flags?.[FLAG_SCOPE]?.[GRANT_NOTE_ID] ?? ""))
-          ? { [GRANT_NOTE_ID]: String(p.flags[FLAG_SCOPE][GRANT_NOTE_ID]) }
-          : {}),
       },
     },
   })).filter((p) => p.name);
@@ -955,6 +948,8 @@ Hooks.once("ready", async () => {
   await phase("mount -> companion restamp", migrateMountToCompanion);
 
   await phase("grimoire page keys", migrateGrimoirePages);
+
+  await phase("grant notes removal", removeGrantNotes);
 
   await phase("connections flatten + ownership migration", flattenConnections);
 
@@ -1553,6 +1548,54 @@ const migrateGrimoirePages = async () => {
       + ` the books out one at a time: the last book on the shelf takes what is left.`);
   }
   await game.settings.set(SETTINGS_NS, "grimoire-keys-stamped", true);
+};
+
+/**
+ * Take the grant bullets back off every character that has them (user ruling
+ * 2026-08-16: "I want this gone").
+ *
+ * Generation used to write one line onto a character's Background & Notes for
+ * each thing a background, question or bond granted them — "Companion: Raven
+ * [Question] — A Raven Familiar…" — and keep a LEDGER of exactly what it wrote
+ * in `flags.air-bladder.grantNotes` so a deleted beast could take its own line
+ * away again. The feature is gone; the granted Actors are NOT, and are not
+ * touched here.
+ *
+ * The ledger is what makes the removal safe, and it is the only reason this can
+ * be done at all. `notes` is an htmlField the PLAYER owns, so nothing here
+ * recomputes what an earlier version of the code would have written and matches
+ * on that — it deletes the exact string the ledger recorded. A player who has
+ * since edited a line by hand simply keeps it, which is the right way round for
+ * a field that is theirs.
+ *
+ * NO MARKER SETTING, unlike every migration above, and the difference is real:
+ * those undo states a Warden can put BACK (a role, an ownership default), so a
+ * state test would re-answer the question on every load. This one selects on the
+ * flag, and once the flag is gone nothing in the system writes another — the
+ * state cannot recur, so a state test is exact and free.
+ */
+const removeGrantNotes = async () => {
+  const updates = [];
+  for (const actor of game.actors) {
+    const ledger = actor.getFlag("air-bladder", "grantNotes");
+    if (!Array.isArray(ledger) || !ledger.length) continue;
+    let notes = String(actor.system.notes ?? "");
+    for (const rec of ledger) {
+      const body = String(rec?.html ?? "").trim();
+      if (!body) continue;
+      notes = notes.split(`<li>${body}</li>`).join("");
+    }
+    // A list left holding nothing goes with its last bullet; a list still
+    // holding the player's own items stays exactly as they left it.
+    notes = notes.split("<ul></ul>").join("").trim();
+    updates.push({ _id: actor.id, "system.notes": notes,
+      "flags.air-bladder.-=grantNotes": null });
+  }
+  if (!updates.length) return;
+  // abNoStatusCard: a migration must not greet the Warden with a change-log
+  // card per character it touched.
+  await Actor.implementation.updateDocuments(updates, { abNoStatusCard: true });
+  console.log(`Air Bladder | removed grant notes from ${updates.length} character(s)`);
 };
 
 /**

@@ -209,254 +209,158 @@ check("with DEX 16, not the schema's 10", grant.stats?.DEX === 16 && grant.stats
   `DEX=${grant.stats?.DEX} STR=${grant.stats?.STR} hp=${grant.stats?.hp} — the abilities-copy leg; only hp and armorOverride were copied before`);
 check("the keeper is untouched", grant.keeperUntouched,
   "a 0-slot companion is not inventory and costs no capacity");
-check("a QUESTION's grant writes NO bullet", grant.notes === "",
-  `keeper notes=${JSON.stringify(grant.notes)} — user ruling 2026-08-13. applyChoiceTables stores `
-  + "`answer: opt.description` and hands the spec `grantNote: opt.description`, the SAME string, so a "
-  + "bullet here is a verbatim second copy of what already prints under QUESTIONS");
-check("and not on the beast", !grant.beastNotes,
+check("generation writes NO note on the character", grant.notes === "",
+  `keeper notes=${JSON.stringify(grant.notes)} — the grant bullets are GONE (user ruling 2026-08-16). `
+  + "They were one line per granted thing on Background & Notes; the ruling is that a character sheet "
+  + "does not list the beasts and carts a roll handed over. The things themselves still exist");
+check("and none on the beast either", !grant.beastNotes,
   `beast notes=${JSON.stringify(grant.beastNotes)} — its own description already carries the same words`);
 
 /* ---------------------------------------------------------------------------
- * 3a. A grant the BACKGROUND makes outright — Mountebank's cart — states no
- *     prose of its own. It still gets a bullet, off the pack document's stock
- *     description; "Transport: Cart" alone tells a player less than the
- *     compendium already knows.
+ * 3a. A BACKGROUND grant writes nothing either. This was the POSITIVE control
+ *     for the old suppression rule — background lines landed while question
+ *     lines were suppressed — and it is now the leg that would catch a HALF
+ *     removal, which is exactly what a partial cut of a two-source feature
+ *     looks like.
  * ------------------------------------------------------------------------- */
 const stock = await page.evaluate(async () => {
   const ActorImpl = CONFIG.Actor.documentClass;
   const { grantContainers } = await import("/systems/air-bladder/module/character-generator.js");
   const keeper = await ActorImpl.create({ name: "ZZ Mountebank", type: "character" });
   await grantContainers(keeper, [{ name: "Cart", slots: 4, grantSource: "background" }]);
-  const doc = (await game.packs.get("air-bladder.mounts-transports").getDocuments())
-    .find((d) => d.name === "Cart");
+  const kids = game.actors.filter((a) => a.system?.connectedTo === keeper.uuid);
   return {
     notes: keeper.system.notes,
-    stockProse: doc?.system.description ?? null,
+    ledger: keeper.getFlag("air-bladder", "grantNotes") ?? null,
+    stamped: kids.some((a) => a.getFlag("air-bladder", "grantNoteId")),
+    carted: kids.map((a) => a.name),
     keeperId: keeper.id,
-    cartIds: game.actors.filter((a) => a.system?.connectedTo === keeper.uuid).map((a) => a.id),
+    cartIds: kids.map((a) => a.id),
   };
 });
-check("a BACKGROUND's grant still writes one, off STOCK prose",
-  stock.notes === `<ul><li><strong>Transport: Cart</strong> <em>[Background]</em> — ${stock.stockProse}</li></ul>`,
-  `notes=${JSON.stringify(stock.notes)} — Mountebank's cart has no option text and appears under no question, `
-  + "so this line is the only place a player reads it. It is also the POSITIVE CONTROL for the suppression "
-  + "above: bullets still land, and they land on the CHARACTER");
+check("a BACKGROUND grant writes none either — no ledger, no stamp",
+  stock.notes === "" && !stock.ledger && !stock.stamped,
+  `notes=${JSON.stringify(stock.notes)} ledger=${JSON.stringify(stock.ledger)} stamped=${stock.stamped} `
+  + "— the ledger flag and the per-Actor note-id stamp existed only to take a line back off later");
+check("...while the cart itself still lands",
+  JSON.stringify(stock.carted) === JSON.stringify(["Cart"]),
+  `${JSON.stringify(stock.carted)} — the ruling took the NOTES, not the grants`);
 
 /* ---------------------------------------------------------------------------
- * 3a-ii. One option, TWO things, ONE line. The Bonekeeper's burial wagon "came
- *     with a stubborn old donkey" — both Actors are made, but the sentence that
- *     describes them both is printed once, filed under the Transport.
+ * 3a-ii. One option, TWO things: both Actors are still made. (The one line that
+ *     used to describe them both went with the rest.)
  * ------------------------------------------------------------------------- */
 const pair = await page.evaluate(async () => {
   const ActorImpl = CONFIG.Actor.documentClass;
   const { grantContainers } = await import("/systems/air-bladder/module/character-generator.js");
-  const prose = "A burial wagon (+6 slots, slow) from your last job. It came with a stubborn old donkey (+4 slots, only +2 slots if pulling wagon).";
   const keeper = await ActorImpl.create({ name: "ZZ Bonekeeper", type: "character" });
   const made = await grantContainers(keeper, [
-    { name: "Burial Wagon", slots: 6, grantSource: "question:0", grantNote: prose },
-    { name: "Donkey", slots: 4, grantSource: "question:0", grantNote: prose },
-  ]);
-  // The ONE-OPTION-ONE-LINE rule, asserted on grantLines itself with a source
-  // that still writes. Shipped question content can no longer reach the grouping
-  // (its lines are suppressed), but a background may carry authored prose on a
-  // container spec, and the rule is the same there.
-  const { grantLines } = await import("/systems/air-bladder/module/grant-notes.js");
-  const lines = grantLines([
-    { role: "companion", cls: "donkey", source: "background", prose, name: "Donkey" },
-    { role: "transport", cls: "wagon", source: "background", prose, name: "Burial Wagon" },
+    { name: "Burial Wagon", slots: 6, grantSource: "question:0" },
+    { name: "Donkey", slots: 4, grantSource: "question:0" },
   ]);
   return {
-    prose, notes: keeper.system.notes, beasts: made.map((a) => a.name).sort(),
-    bullets: (keeper.system.notes.match(/<li>/g) ?? []).length,
-    grouped: lines.length,
-    groupedHead: lines[0]?.html.match(/<strong>([^<]*)<\/strong>/)?.[1] ?? null,
-    groupedNames: (lines[0]?.names ?? []).slice().sort(),
+    notes: keeper.system.notes, beasts: made.map((a) => a.name).sort(),
     keeperId: keeper.id, madeIds: made.map((a) => a.id),
   };
 });
 check("one option granting two things makes BOTH", JSON.stringify(pair.beasts) === JSON.stringify(["Burial Wagon", "Donkey"]),
   JSON.stringify(pair.beasts));
-check("...and the question writes no line for either", pair.bullets === 0 && pair.notes === "",
-  `notes=${JSON.stringify(pair.notes)} — the answer prints that sentence under QUESTIONS already`);
-check("shared prose is still ONE line, filed under the Transport", pair.grouped === 1
-  && pair.groupedHead === "Transport: Wagon" && JSON.stringify(pair.groupedNames) === JSON.stringify(["Burial Wagon", "Donkey"]),
-  `lines=${pair.grouped} head=${JSON.stringify(pair.groupedHead)} — asserted on grantLines directly, with the `
-  + "source a background: a bullet each printed the same sentence twice, and the rule survives the ruling "
-  + "above even though shipped question content no longer reaches it");
+check("...and still writes nothing", pair.notes === "", JSON.stringify(pair.notes));
 
 /* ---------------------------------------------------------------------------
- * 3b. ...and the prose reaching grantContainers is the OPTION'S OWN. The roll
- *     is random; the assertion is not — every container spec must carry the
- *     description of the answer applyChoiceTables recorded for that question.
- * ------------------------------------------------------------------------- */
-const prose = await page.evaluate(async () => {
-  const { applyChoiceTables } = await import("/systems/air-bladder/module/character-generator.js");
-  const bg = (await game.packs.get("air-bladder.backgrounds-2e").getDocuments())
-    .find((d) => d.name === "Outrider");
-  if (!bg) return { error: "no Outrider in backgrounds-2e" };
-  const out = await applyChoiceTables(bg);
-  return {
-    granted: out.containers.length,
-    matched: out.containers.every((c) => {
-      const idx = Number(String(c.grantSource).split(":")[1]);
-      return !!c.grantNote && c.grantNote === out.questions[idx]?.answer;
-    }),
-    sample: out.containers[0]?.grantNote ?? null,
-  };
-});
-check("a question's container carries THAT option's words — the same string as the ANSWER", !prose.error
-  && prose.granted >= 1 && prose.matched,
-  prose.error ?? `granted=${prose.granted} sample=${JSON.stringify(prose.sample)} — this equality is what `
-  + "licenses the suppression above. If it ever stops holding, a question grant carries prose the sheet does "
-  + "NOT print and suppressing its line would lose it, so this leg guards that ruling as much as the grant");
-
-/* ---------------------------------------------------------------------------
- * 3c. A re-rolled question SWAPS the bullet. Without the prune the character
- *     accumulates a line about every horse they were ever briefly promised,
- *     and the beast those lines describe was deleted with the re-roll.
+ * 3c. A re-rolled question swaps the beast and LEAVES THE NOTES FIELD ALONE.
+ *     The field is the player's, so the removal had to be a line never written
+ *     rather than a rewrite of what they typed; the fixture types something so
+ *     the difference is visible.
  * ------------------------------------------------------------------------- */
 const reroll = await page.evaluate(async () => {
   const ActorImpl = CONFIG.Actor.documentClass;
   const gen = await import("/systems/air-bladder/module/character-generator.js");
   const first = "Rivertooth: Impressively strong. 4 HP. +6 slots.";
-  const second = "Stray Fogger: Wild but very fast. 4 HP. +2 slots.";
+  const mine = "<p>The player's own line, which must survive.</p>";
   const keeper = await ActorImpl.create({
-    name: "ZZ Rerouted", type: "character",
-    system: { notes: "<p>The player's own line, which must survive.</p>" },
+    name: "ZZ Rerouted", type: "character", system: { notes: mine },
   });
-  await gen.grantContainers(keeper, [{ name: "Rivertooth", grantSource: "question:0", grantNote: first }]);
+  await gen.grantContainers(keeper, [{ name: "Rivertooth", grantSource: "question:0" }]);
   const afterFirst = keeper.system.notes;
   // The sheet records the answer, then re-rolls; replaceGrantedContainers reads
   // the OLD answer off the actor, so the probe stands the actor in that state.
   await keeper.update({ "system.questions": [{ question: "What breed?", answer: first, gold: 0 }] });
-  await gen.replaceGrantedContainers(keeper, "question:0",
-    [{ name: "Stray Fogger", grantNote: second }]);
-  const afterSecond = keeper.system.notes;
-  const beasts = game.actors.filter((a) => a.system?.connectedTo === keeper.uuid).map((a) => a.name);
+  await gen.replaceGrantedContainers(keeper, "question:0", [{ name: "Stray Fogger" }]);
   return {
-    first, second, afterFirst, afterSecond, beasts,
-    keptPlayerLine: afterSecond.includes("The player's own line, which must survive."),
+    mine, afterFirst, afterSecond: keeper.system.notes,
+    beasts: game.actors.filter((a) => a.system?.connectedTo === keeper.uuid).map((a) => a.name),
     keeperId: keeper.id,
     beastIds: game.actors.filter((a) => a.system?.connectedTo === keeper.uuid).map((a) => a.id),
   };
 });
-check("a re-roll swaps the beast and writes no line either way",
-  !reroll.afterFirst.includes("<li>") && !reroll.afterSecond.includes("<li>")
-  && JSON.stringify(reroll.beasts) === JSON.stringify(["Stray Fogger"]),
-  `first=${JSON.stringify(reroll.afterFirst)} second=${JSON.stringify(reroll.afterSecond)} `
-  + `beasts=${JSON.stringify(reroll.beasts)} — both answers print under QUESTIONS, so neither is repeated here`);
-check("the player's own notes survive it", reroll.keptPlayerLine
-  && reroll.afterSecond === "<p>The player's own line, which must survive.</p>",
-  `notes=${JSON.stringify(reroll.afterSecond)} — untouched, byte for byte; the suppression must be `
-  + "a line never written, never a rewrite of the field");
+check("a re-roll swaps the beast",
+  JSON.stringify(reroll.beasts) === JSON.stringify(["Stray Fogger"]),
+  JSON.stringify(reroll.beasts));
+check("and the player's own notes survive it, byte for byte",
+  reroll.afterFirst === reroll.mine && reroll.afterSecond === reroll.mine,
+  `first=${JSON.stringify(reroll.afterFirst)} second=${JSON.stringify(reroll.afterSecond)}`);
 
 /* ---------------------------------------------------------------------------
- * 3d. The line is removed BY THE DELETE, not by the path that caused it — so a
- *     Warden deleting the beast straight out of the directory cleans up too,
- *     and half a pair keeps the sentence that describes them both.
+ * 3d. The one-time removal, across a real RELOAD: a world that already carries
+ *     grant bullets loses them, and loses ONLY them.
+ *
+ *     The fixture is the shape that makes the difference visible — a grant
+ *     bullet, the player's OWN bullet in the same list, and their own paragraph
+ *     beside it — because the removal deletes the exact html the ledger
+ *     recorded and nothing else. A blunt "strip the list" would satisfy a
+ *     bullet-count leg while taking their line with it.
  * ------------------------------------------------------------------------- */
-const gone = await page.evaluate(async () => {
+const legacy = await page.evaluate(async () => {
   const ActorImpl = CONFIG.Actor.documentClass;
-  const { grantContainers } = await import("/systems/air-bladder/module/character-generator.js");
-  const prose = "A burial wagon (+6 slots, slow). It came with a stubborn old donkey.";
-  const keeper = await ActorImpl.create({ name: "ZZ Deleter", type: "character" });
-  // BACKGROUND-sourced, so a line is actually written: with a question source
-  // there would be nothing to prune and every assertion below would pass on an
-  // empty string — green for the wrong reason, which is the failure mode this
-  // file exists to avoid.
-  const made = await grantContainers(keeper, [
-    { name: "Burial Wagon", slots: 6, grantSource: "background", grantNote: prose },
-    { name: "Donkey", slots: 4, grantSource: "background", grantNote: prose },
-  ]);
-  const written = keeper.system.notes;
-  const ledger = (keeper.getFlag("air-bladder", "grantNotes") ?? []).length;
-  // Half the pair: the sentence describes both, so it stays.
-  await made.find((a) => a.name === "Donkey").delete();
-  const afterHalf = keeper.system.notes;
-  await made.find((a) => a.name === "Burial Wagon").delete();
-  return {
-    written, ledger, afterHalf, afterBoth: keeper.system.notes,
-    ledgerAfter: (keeper.getFlag("air-bladder", "grantNotes") ?? []).length,
-    keeperId: keeper.id,
-  };
+  const granted = "<strong>Companion: Raven</strong> <em>[Question]</em> — ZZ It remembers.";
+  const orphan = "<strong>Transport: Cart</strong> <em>[Background]</em> — ZZ Long gone.";
+  const notes = `<p>ZZ My own paragraph.</p><ul><li>${granted}</li>`
+    + `<li>ZZ My own bullet.</li><li>${orphan}</li></ul>`;
+  const a = await ActorImpl.create({
+    name: "ZZ Legacy Notes", type: "character", system: { notes },
+    flags: { "air-bladder": { grantNotes: [
+      { id: "aaaaaaaaaaaaaaaa", html: granted, names: ["Raven"], source: "question:0" },
+      // A record whose things are ALREADY gone: the removal must not care
+      // whether anything still answers for a line, only that it wrote it.
+      { id: "bbbbbbbbbbbbbbbb", html: orphan, names: ["Cart"], source: "background" },
+    ] } },
+  });
+  return { id: a.id, before: a.system.notes, ledger: (a.getFlag("air-bladder", "grantNotes") ?? []).length };
 });
-check("a ledger records what was written", gone.ledger === 1 && gone.written.includes("<li>"),
-  `ledger=${gone.ledger} written=${JSON.stringify(gone.written)} — removal reads what WAS written, never a `
-  + "recomputation of it; a format change must not orphan a line. The written check is explicit because an "
-  + "empty note would satisfy every prune assertion below by accident");
-check("deleting half a pair keeps the line", gone.afterHalf === gone.written,
-  `notes=${JSON.stringify(gone.afterHalf)} — the sentence describes both`);
-check("deleting the rest takes the line and the record", gone.afterBoth === "" && gone.ledgerAfter === 0,
-  `notes=${JSON.stringify(gone.afterBoth)} ledger=${gone.ledgerAfter} — a Warden deleting the beast from the directory travels the same seam as a re-roll`);
+check("the legacy fixture really carries bullets and a ledger",
+  legacy.ledger === 2 && (legacy.before.match(/<li>/g) ?? []).length === 3,
+  `ledger=${legacy.ledger} bullets=${(legacy.before.match(/<li>/g) ?? []).length}`);
 
-/* ---------------------------------------------------------------------------
- * 3e. A record is joined to its things by ID, not by NAME (review #14). Two
- *     failures, mirror images of each other, both invisible while every fixture
- *     keeps the name it was minted with — which is why this section renames one
- *     and duplicates another instead of testing the happy path again.
- * ------------------------------------------------------------------------- */
-const renamed = await page.evaluate(async () => {
-  const ActorImpl = CONFIG.Actor.documentClass;
-  const { grantContainers } = await import("/systems/air-bladder/module/character-generator.js");
-  const r = {};
-
-  // Two SEPARATE records — different prose, so neither line speaks for the
-  // other. 3d above already covers one sentence covering a pair.
-  const keeper = await ActorImpl.create({ name: "ZZ Renamer", type: "character" });
-  const made = await grantContainers(keeper, [
-    { name: "Cart", slots: 4, grantSource: "background", grantNote: "ZZ A serviceable cart." },
-    { name: "Mule", slots: 4, grantSource: "background", grantNote: "ZZ A stubborn mule." },
-  ]);
-  const cart = made.find((a) => a.name === "Cart");
-  const mule = made.find((a) => a.name === "Mule");
-  r.stamped = made.every((a) => /^[a-zA-Z0-9]{16}$/.test(String(a.getFlag("air-bladder", "grantNoteId") ?? "")));
-  r.distinct = new Set(made.map((a) => a.getFlag("air-bladder", "grantNoteId"))).size;
-  r.ledger = (keeper.getFlag("air-bladder", "grantNotes") ?? []).length;
-
-  await cart.update({ name: "ZZ Bessie" });   // an ordinary rename, the player's to make
-  await mule.delete();                        // ...and an unrelated deletion, which prunes
-
-  const after = keeper.system.notes ?? "";
-  r.cartAlive = !!game.actors.get(cart.id);
-  r.keptCart = after.includes("ZZ A serviceable cart.");
-  r.droppedMule = !after.includes("ZZ A stubborn mule.");
-  r.ledgerAfter = (keeper.getFlag("air-bladder", "grantNotes") ?? []).length;
-  r.after = after;
-
-  // The mirror image: two things SHARING a name under one source. A live "Ox"
-  // answers a name match for both records, so under names neither line is ever
-  // pruned and the dead one's bullet outlives it.
-  const twin = await ActorImpl.create({ name: "ZZ Twins", type: "character" });
-  const oxen = await grantContainers(twin, [
-    { name: "Ox", slots: 4, grantSource: "background", grantNote: "ZZ The near ox." },
-    { name: "Ox", slots: 4, grantSource: "background", grantNote: "ZZ The off ox." },
-  ]);
-  r.twinLedger = (twin.getFlag("air-bladder", "grantNotes") ?? []).length;
-  // WHICH ox is deleted is deliberately not asserted — a batched create returns
-  // its documents in id order, so picking "the first" picks a coin flip.
-  await oxen[0].delete();
-  r.twinBullets = ((twin.system.notes ?? "").match(/<li>/g) ?? []).length;
-  r.twinLedgerAfter = (twin.getFlag("air-bladder", "grantNotes") ?? []).length;
-  r.twinAfter = twin.system.notes ?? "";
-
-  r.keeperId = keeper.id;
-  r.twinId = twin.id;
-  r.leftIds = [cart.id, ...oxen.map((a) => a.id)];
-  return r;
+console.log("  note  reloading, so the ready-hook removal runs for real");
+const removalLog = [];
+page.on("console", (m) => {
+  if (/removed grant notes from \d+ character/.test(m.text())) removalLog.push(m.text());
 });
-check("every granted thing is stamped with its record", renamed.stamped && renamed.distinct === 2,
-  `stamped=${renamed.stamped} distinct ids=${renamed.distinct} of 2 — the join is the id, so a grant that `
-  + "arrives without one has a line nothing can ever take back");
-check("renaming a grant does not orphan its line", renamed.keptCart && renamed.cartAlive,
-  `cart alive=${renamed.cartAlive} notes=${JSON.stringify(renamed.after)} — "Cart" became "ZZ Bessie", which `
-  + "is the player's to do; under the name match her line vanished when the mule beside her died");
-check("...while the sibling's deletion still takes the sibling's",
-  renamed.droppedMule && renamed.ledgerAfter === 1 && renamed.ledger === 2,
-  `ledger ${renamed.ledger} -> ${renamed.ledgerAfter} notes=${JSON.stringify(renamed.after)}`);
-check("two things sharing a name are not each other",
-  renamed.twinLedger === 2 && renamed.twinBullets === 1 && renamed.twinLedgerAfter === 1,
-  `ledger ${renamed.twinLedger} -> ${renamed.twinLedgerAfter} bullets=${renamed.twinBullets} `
-  + `notes=${JSON.stringify(renamed.twinAfter)} — a surviving "Ox" answered for the dead one under names`);
+await page.reload({ waitUntil: "networkidle", timeout: 60000 });
+await page.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
+await dismissChrome(page);
+// The migrations are awaited phases inside the ready hook, not part of `ready`
+// itself, so game.ready can be true a beat before they have written.
+await page.waitForTimeout(3000);
+
+const swept = await page.evaluate((id) => {
+  const a = game.actors.get(id);
+  return { notes: a.system.notes, ledger: a.getFlag("air-bladder", "grantNotes") ?? null };
+}, legacy.id);
+check("both grant bullets are gone", !swept.notes.includes("ZZ It remembers.")
+  && !swept.notes.includes("ZZ Long gone."),
+  JSON.stringify(swept.notes));
+check("the player's own bullet and paragraph are untouched",
+  swept.notes.includes("<li>ZZ My own bullet.</li>")
+  && swept.notes.includes("<p>ZZ My own paragraph.</p>"),
+  `${JSON.stringify(swept.notes)} — the removal deletes the exact html the ledger recorded, so a line a `
+  + "player has since edited by hand would not match and would stay, which is the right way round for a "
+  + "field they own");
+check("and the ledger flag is unset", swept.ledger === null || swept.ledger === undefined,
+  JSON.stringify(swept.ledger));
+check("the removal named itself as the writer", removalLog.length > 0,
+  removalLog[0] ?? "nothing logged — something else emptied the notes");
 
 /* ---------------------------------------------------------------------------
  * 4. The player path: Alice's grant goes through the broker (players lack
@@ -482,12 +386,8 @@ try {
       const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       const pc = game.actors.get(pcId);
       const { grantContainers } = await import("/systems/air-bladder/module/character-generator.js");
-      const prose = "Raven Familiar: it remembers what you cannot. 2 HP. +0 slots.";
-      // BACKGROUND-sourced: a question's line is suppressed by ruling, and the
-      // claim under test here is that the note is written on HER client at all,
-      // which an empty string could never show.
       const returned = await grantContainers(pc, [
-        { name: "Raven Familiar", grantSource: "background", grantNote: prose },
+        { name: "Raven Familiar", grantSource: "background" },
       ]);
       // The player's side returns [] — the documents appear when the GM's
       // client answers the socket.
@@ -509,7 +409,6 @@ try {
         // Her CHARACTER's notes. She owns the PC, so this write is hers to make
         // — the socket only ever brokers the Actor she cannot create.
         notes: pc.system.notes ?? null,
-        prose,
         ravenId: raven?.id ?? null,
       };
     }, prep));
@@ -525,9 +424,9 @@ check("the broker mints her raven as a COMPANION", alice.minted && alice.role ==
   && alice.DEX === 11 && alice.WIL === 13,
   `role=${alice.role} DEX=${alice.DEX} WIL=${alice.WIL} — GRANTABLE_ROLES must name the new role, or the clamp derives and hands her a container`);
 check("and she owns it", alice.owned, "connection drives ownership, monsters never touched");
-check("a PLAYER's own character gets the bullet",
-  alice.notes === `<ul><li><strong>Companion: Raven</strong> <em>[Background]</em> — ${alice.prose}</li></ul>`,
-  `notes=${JSON.stringify(alice.notes)} — written on HER client, before the fork to the broker; nothing about it crosses the socket`);
+check("a PLAYER's own character gets no bullet either", alice.notes === "",
+  `notes=${JSON.stringify(alice.notes)} — the write ran on HER client, before the fork to the broker, so `
+  + "the player path is where a surviving copy of it would hide");
 
 /* ----------------------------------------------------------- teardown ---- */
 await page.evaluate(async ({ ids, grantIds, ravenId, rerollIds }) => {
@@ -542,8 +441,7 @@ await page.evaluate(async ({ ids, grantIds, ravenId, rerollIds }) => {
     reroll.keeperId, ...(reroll.beastIds ?? []),
     stock.keeperId, ...(stock.cartIds ?? []),
     pair.keeperId, ...(pair.madeIds ?? []),
-    gone.keeperId,
-    renamed.keeperId, renamed.twinId, ...(renamed.leftIds ?? []),
+    legacy.id,
   ],
 });
 

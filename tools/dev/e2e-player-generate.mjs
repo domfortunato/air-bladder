@@ -135,6 +135,32 @@ try {
   }));
   console.log(`\n  Alice ${t.canCreate ? "holds" : "lacks"} ACTOR_CREATE — ${t.canCreate ? "direct" : "relay"} path\n`);
 
+  // ESTABLISH the switch the whole file stands on, right at the top. Every leg
+  // below clicks Alice's Generate PC button, and the Warden's
+  // `allow-player-generate` is what puts it there — the dev world keeps it OFF
+  // by the user's choice, so the first click threw "no Generate PC button" and
+  // took the whole run with it. The switch section near the end captured and
+  // restored it properly; the twenty legs before it assumed. Third time this
+  // family has been bitten (this file's own marketplace legs 2026-08-09,
+  // dev:directory-buttons 2026-08-14), and the tell is the same every time: a
+  // setting a GM cannot feel, because every Warden-side surface reads
+  // `isGM || setting`. Captured ONCE, here; the finally restores THIS value.
+  priorSwitch = await gm.evaluate((k) => game.settings.get("air-bladder", k), "allow-player-generate");
+  if (priorSwitch !== true) {
+    await gm.evaluate((k) => game.settings.set("air-bladder", k, true), "allow-player-generate");
+    console.log(`  note  allow-player-generate was ${priorSwitch} - set on for the run, restored after`);
+  }
+  const gotButton = await (async () => {
+    for (let i = 0; i < 40; i++) {
+      if (await alice.evaluate(() => !!document.querySelector("#cairn-character-gen-button .create-character-generator-button"))) return true;
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    return false;
+  })();
+  gotButton
+    ? ok("precondition: Alice's directory shows Generate PC")
+    : fail("precondition: no Generate PC button on Alice's directory even with the switch on");
+
   // Spy Alice's socket emits for the whole run (installed once, read per leg).
   await alice.evaluate(() => {
     game._probeEmits = [];
@@ -503,8 +529,10 @@ try {
   // leaves nothing worse than a hidden button; the finally puts it back anyway.
   console.log("\nthe Warden's switch");
   const SWITCH = "allow-player-generate";
-  priorSwitch = await gm.evaluate((k) => game.settings.get("air-bladder", k), SWITCH);
-  // ESTABLISH the on-state (same rule as the marketplace section above).
+  // NO re-capture here: `priorSwitch` was taken at the top of the run, before
+  // anything set it on. Reading it again now would record the value this probe
+  // itself wrote, and the finally would restore the PROBE's state as if it were
+  // the Warden's - a leaked setting wearing a restore's clothes.
   await gm.evaluate((k) => game.settings.set("air-bladder", k, true), SWITCH);
 
   const genButton = (page) => page.evaluate(() =>
