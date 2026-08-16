@@ -2187,7 +2187,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       lang: game.i18n.lang,
       isChar,
       credits,
-      name: actor.name,
+      // THROUGH the overlay, like every other name on this page (review #15).
+      // It was the one that was not: the containers below, the item rows, the
+      // subtitle and the statblock prose all route, so a Spanish Warden printed
+      // a transport titled "Cart" over a cargo list in Spanish, while the sheet
+      // it was printed from said "Carreta". `actorDisplayName` is the one place
+      // the never-localize-a-PC gate lives (2026-08-04), which is exactly why
+      // the raw read had to become this call and not a bare `t()`.
+      name: actorDisplayName(actor),
       portrait: abs(actor.img),
       // The "Compatible with Cairn 2e" badge, top right of a character page
       // (user ask 2026-08-16 — the header's right side was empty). The SAME

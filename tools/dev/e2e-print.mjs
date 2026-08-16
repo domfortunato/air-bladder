@@ -599,6 +599,54 @@ const r = await page.evaluate(async ({ xssName }) => {
   popup3?.close();
   await npc.sheet.close();
 
+  // Fourth pass, review #15: the header NAME reached the page raw while every
+  // other name on it — the containers, the item rows, the subtitle, the
+  // statblock prose — went through the content overlay. A Spanish Warden
+  // printed a transport titled "Cart" over a cargo list in Spanish, from a
+  // sheet whose own title bar said "Carreta". Both halves in ONE pass, because
+  // the fix is `actorDisplayName`, not a bare `t()`: a monster's header must
+  // translate AND a player character's must never (the 2026-08-04 gate, and
+  // the reason the raw read could not simply be wrapped). The overlay is
+  // installed IN-PAGE and restored in a finally — no world write, no language
+  // change; both names are planted under monster.name so the PC leg fails if
+  // the gate goes, rather than passing because nothing was offered.
+  const i18n = await import(`/systems/${game.system.id}/module/i18n-content.js`);
+  const printUnder = async (actor) => {
+    await actor.sheet.render(true);
+    await sleep(400);
+    const calls = [];
+    let popup = null;
+    window.open = (...a) => {
+      popup = origOpen.apply(window, a);
+      Object.defineProperty(popup, "print", { configurable: true, value: () => calls.push(1) });
+      return popup;
+    };
+    actor.sheet.element.querySelector('[data-action="printSheet"]')?.click();
+    for (let i = 0; i < 60 && !calls.length; i++) await sleep(150);
+    window.open = origOpen;
+    const got = {
+      h1: popup?.document?.querySelector("header h1")?.textContent?.trim() ?? null,
+      title: popup?.document?.title ?? null,
+    };
+    popup?.close();
+    await actor.sheet.close();
+    return got;
+  };
+  try {
+    i18n._setOverlay({ "monster.name": {
+      [npc.name]: "ZZ-BESTIA-TRADUCIDA",
+      [pc.name]: "ZZ-PJ-NO-TRADUCIBLE",
+    } });
+    out.overlayInstalled = i18n.contentLocalized();
+    const beast = await printUnder(npc);
+    out.overlayNpcH1 = beast.h1;
+    out.overlayNpcTitle = beast.title;
+    const player = await printUnder(pc);
+    out.overlayPcH1 = player.h1;
+    out.overlayPcName = pc.name;
+  } finally { i18n._setOverlay(null); }
+  out.overlayRemoved = !i18n.contentLocalized();
+
   // Things print too (user ruling 2026-08-11, superseding 2026-08-08's "a
   // cart prints on its keeper's page" — the Warden had forgotten containers
   // hold gear worth handing across the table). A thing's page is its CARGO:
@@ -979,6 +1027,17 @@ check("no PC-only sections", r.npcNoPcSections && !r.npcNotesHeader && r.npcCred
 check("the monster credits Tlomdev, not Aspeheim", /Tlomdev/.test(r.npcCreditsText)
   && !/Aspeheim/.test(r.npcCreditsText) && /Yochai Gal/.test(r.npcCreditsText),
   "the attribution follows the portrait's gallery");
+check("precondition: the overlay installed and came back off", r.overlayInstalled && r.overlayRemoved,
+  `installed=${r.overlayInstalled} removed=${r.overlayRemoved} — or the two legs below say nothing`);
+check("the printed HEADER goes through the content overlay",
+  r.overlayNpcH1 === "ZZ-BESTIA-TRADUCIDA" && r.overlayNpcTitle === "ZZ-BESTIA-TRADUCIDA",
+  `h1="${r.overlayNpcH1}" title="${r.overlayNpcTitle}" — it was the ONE name on the page that did not `
+  + "(review #15): the containers, item rows, subtitle and statblock prose all routed, so a Spanish "
+  + 'Warden printed a transport titled "Cart" over a cargo list in Spanish');
+check("and a player character's header never does", r.overlayPcH1 === r.overlayPcName,
+  `h1="${r.overlayPcH1}" name="${r.overlayPcName}" — the 2026-08-04 gate, which is why the fix is `
+  + "actorDisplayName rather than a bare t(); her name is planted in the overlay too, so this fails "
+  + "if the gate goes rather than passing because nothing was on offer");
 
 console.log("\nthe thing's page");
 check("a container prints its cargo with the AUTHORED slot fraction",
