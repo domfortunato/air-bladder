@@ -27,12 +27,17 @@
       {{/if}}
       <a class="cairn-item-title" data-action="itemDescription">
         {{#markItemUsed item}}
-        {{#boldIf item.system.equipped}}{{#if (eq item.type "spellbook")}}{{ spellbookPrefix item.name item.system.scroll }}{{/if}}{{item.name}}{{/boldIf}}
+        {{#boldIf item.system.equipped}}{{#if (eq item.type "spellbook")}}{{ spellbookPrefix item.name item.system.scroll item.system.bound }}{{/if}}{{item.name}}{{/boldIf}}
         {{/markItemUsed}}
       </a>
-      {{#if item.system.grantLabel}}
+      {{!-- The grant tag says how the CARRIER came by an item. A bound page is
+            not the carrier's, it is the book's — and the thing a background
+            actually handed over was a spellscroll, which stopped existing when
+            it was written into the Grimoire (user ruling 2026-08-16). Same
+            reasoning as the Weightless suppression below. --}}
+      {{#if item.system.grantLabel}}{{#unless item.system.bound}}
       <div class="cairn-item-tag cairn-grant-tag">{{item.system.grantLabel}}</div>
-      {{/if}}
+      {{/unless}}{{/if}}
       {{#if item.system.blast}}
       <div class="cairn-item-tag">{{ localize 'CAIRN.Blast' }}</div>
       {{/if}}

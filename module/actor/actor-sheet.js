@@ -9,8 +9,8 @@ import { NPC_ROLES } from "../data-models.js";
 import { atConnectionLimit, maxConnections, connectionsUiEnabled, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
 import { actorDisplayName, localizeNameDesc, sourceOf, t } from "../i18n-content.js";
 import { FATIGUE_NAME } from "../item/item.js";
-import { castFromGrimoire, castScroll, grimoiresOn, pagesOfGrimoire, ensureGrimoireKey }
-  from "../grimoire.js";
+import { castFromGrimoire, castScroll, grimoiresOn, pagesOfGrimoire, ensureGrimoireKey,
+  groupPagesUnderBooks } from "../grimoire.js";
 import { pickArt } from "../art-picker.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -900,26 +900,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // saying which book each was from (issue #17's display half). An UNCLAIMED
     // page — legacy and unkeyed, on an actor holding more than one book — stays
     // exactly where the sort put it rather than being filed under a guess.
-    const isPage = (i) => i.type === "spellbook" && i.system.bound;
-    if (context.items.some(isPage)) {
-      const claimed = new Map();
-      for (const book of grimoiresOn(this.actor)) {
-        for (const p of pagesOfGrimoire(this.actor, book)) {
-          if (!claimed.has(p.id)) claimed.set(p.id, book.id);
-        }
-      }
-      if (claimed.size) {
-        const grouped = [];
-        for (const i of context.items) {
-          if (claimed.has(i._id)) continue; // emitted under its own book, below
-          grouped.push(i);
-          if (i.type === "item" && i.system.grimoire) {
-            grouped.push(...context.items.filter((p) => claimed.get(p._id) === i._id));
-          }
-        }
-        context.items = grouped;
-      }
-    }
+    context.items = groupPagesUnderBooks(this.actor, context.items, (i) => i._id);
 
     // The npc sheet's description editor is TOGGLED (npc-sheet.html), so this is
     // its light-DOM DISPLAY half: translated via monster.desc — the namespace the
@@ -2046,12 +2027,26 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // A row per item, Kettlewright's annotations: (petty), (N uses), (dN),
     // bulky and quantity. Notes are TEXT assembled here and escaped by the
     // template — item names are authored free text.
-    const rows = (items, nameNs) => this._sortItemsForDisplay(items, nameNs).map((it) => {
+    // `owner` is the actor these items belong to, which is NOT always the one
+    // being printed: the connected sections below render a companion's gear,
+    // and grouping a page under a book asks about that companion's shelf.
+    const rows = (owner, items, nameNs) => groupPagesUnderBooks(
+      owner, this._sortItemsForDisplay(items, nameNs), (i) => i.id,
+    ).map((it) => {
       const notes = [];
+      // A bound page is the book's, not the carrier's, so it carries neither of
+      // the two annotations that describe how the CARRIER got it (user ruling
+      // 2026-08-16): not Petty — the page weighs nothing because the Grimoire
+      // holds it, which the grouping already says — and not the grant tag,
+      // because "Background" describes a spellscroll a background handed over,
+      // and that scroll stopped existing when it was written into the book.
+      // The inventory tab has suppressed Petty on a page since it shipped; this
+      // is the printed page catching up, and the grant tag going on both.
+      const isPage = it.type === "spellbook" && it.system.bound;
       // The translator's strings AS WRITTEN — no locale-less case transform
       // (review #11: the print page was the only surface lowercasing a
       // localized value, wrong for any language that capitalises the term).
-      if (it.system.weightless) notes.push(`(${L("CAIRN.Weightless")})`);
+      if (it.system.weightless && !isPage) notes.push(`(${L("CAIRN.Weightless")})`);
       const uses = it.system.uses?.value ?? 0;
       // formatCount, not a hand-rolled binary fork (review #11): the item
       // sheet and marketplace both learned this in review #9, and the fork
@@ -2069,7 +2064,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // UNGATED grantLabelRaw, deliberately: system.grantLabel is emptied
       // whenever the INVENTORY switch is off, and the two switches must not
       // couple (the probe's inv-off leg is the witness).
-      if (printGrantTags && it.system.grantLabelRaw) notes.push(`[${it.system.grantLabelRaw}]`);
+      if (printGrantTags && it.system.grantLabelRaw && !isPage) notes.push(`[${it.system.grantLabelRaw}]`);
       if (it.system.bulky) notes.push(`(${L("CAIRN.Bulky")})`);
       if ((it.system.quantity ?? 1) > 1) notes.push(`×${it.system.quantity}`);
       // The OWNING actor's namespace, and Fatigue relabelled from the UI key —
@@ -2085,13 +2080,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // registered helper, so the two surfaces cannot drift — idempotence
       // included: a stored name already carrying a prefix gets no second one.
       const prefix = it.type === "spellbook"
-        ? Handlebars.helpers.spellbookPrefix(it.name, it.system.scroll)
+        ? Handlebars.helpers.spellbookPrefix(it.name, it.system.scroll, it.system.bound)
         : "";
-      return { name: `${prefix}${name}`, notes: notes.join(" ") };
+      // `page` indents the row under its book, the printed answer to the
+      // inventory's Page chip — a chip would be a badge on a paper sheet.
+      return { name: `${prefix}${name}`, notes: notes.join(" "), page: isPage };
     });
 
     const isChar = actor.type === "character";
-    const mainRows = rows(actor.items.contents, this._itemNamespaces(actor).nameNs);
+    const mainRows = rows(actor, actor.items.contents, this._itemNamespaces(actor).nameNs);
     // The status line: critical, plus deprived/panicked as text on an NPC
     // page. A CHARACTER prints those two as ALWAYS-PRESENT mark boxes
     // instead (user ask 2026-08-10: the paper sheet needs somewhere to
@@ -2192,8 +2189,25 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       credits,
       name: actor.name,
       portrait: abs(actor.img),
+      // The "Compatible with Cairn 2e" badge, top right of a character page
+      // (user ask 2026-08-16 — the header's right side was empty). The SAME
+      // unmodified file the sheet shows, shipped under CC BY-SA 4.0 from
+      // cairnrpg.com/resources/logos; its attribution to Yochai Gal is the
+      // footer credit that already prints on every page, which is why no
+      // caption rides with it here (see logo/README.md — ship it unmodified).
+      // Character pages only, matching the on-screen surface.
+      compatBadge: isChar ? abs(`systems/${game.system.id}/logo/Cairn-2e-Compatible.png`) : "",
       subtitle,
-      subtitleSource: !isChar ? "" : isCustomBg ? L("CAIRN.PrintSourceCustom") : sourceLabel(sys.contentSource),
+      // The source line prints only where it SAYS something (user ask
+      // 2026-08-16). Canon 2e is dropped: the compatibility badge above it now
+      // states Cairn 2e outright, and a parenthetical repeating the picture
+      // beside it is noise. Custom stays — it is the one thing nothing else on
+      // the page says — and so does Barebones, which names a different
+      // generator rather than restating the badge.
+      subtitleSource: !isChar ? ""
+        : isCustomBg ? L("CAIRN.PrintSourceCustom")
+          : sys.contentSource === "2e" ? ""
+            : sourceLabel(sys.contentSource),
       // Barebones only, below the background, labelled per the user's exact
       // wording (2026-08-08). Same gate as the sheet: contentSource AND the
       // world setting, read live.
@@ -2251,7 +2265,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         used: c.system.slotsUsed,
         max: c.system.slotsMax,
         showSlots: (c.system.slots ?? 0) > 0,
-        rows: rows(c.items.contents, this._itemNamespaces(c).nameNs),
+        rows: rows(c, c.items.contents, this._itemNamespaces(c).nameNs),
       })).filter((s) => s.showSlots || s.rows.length),
       // A character's description is the player's own prose; an NPC's is the
       // statblock prose the overlay files under monster.desc.

@@ -134,8 +134,28 @@ const r = await page.evaluate(async ({ xssName }) => {
       { name: "Detect Magic", type: "spellbook" },
       { name: "Charm Person", type: "spellbook", system: { scroll: true } },
       { name: "Spellbook (Fireball)", type: "spellbook" },
+      // A Grimoire and two of its pages (user report 2026-08-16: the printed
+      // sheet scattered the pages up and down the alphabet with the book in
+      // the middle, and printed each as "Spellbook — X"). ONE page carries a
+      // grant flag and both are weightless, because the ruling is that a page
+      // shows neither annotation — those describe how the CARRIER came by a
+      // thing, and a page is the book's.
+      { name: "ZZ Print Tome", type: "item",
+        system: { grimoire: true, grimoirePages: 4, bulky: true } },
+      { name: "Zephyr", type: "spellbook",
+        system: { bound: true, weightless: true },
+        flags: { "air-bladder": { grantSource: "background" } } },
+      { name: "Anthem", type: "spellbook", system: { bound: true, weightless: true } },
       { name: xssName, type: "item" },
     ]);
+    // The pages name the book, the way the transmute writes them. Done after
+    // the create so the book's key exists to be read (CairnItem._preCreate
+    // mints it), and it is what the grouping and the travel bundle both match
+    // on — issue #17.
+    const tomeKey = pc.items.find((i) => i.name === "ZZ Print Tome")?.system.grimoireKey;
+    await pc.updateEmbeddedDocuments("Item", ["Zephyr", "Anthem"].map((n) => ({
+      _id: pc.items.find((i) => i.name === n).id, "system.boundTo": tomeKey,
+    })));
   } finally { game.settings.get = origGetGlog; }
   if (pc.items.find((i) => i.name === "Detect Magic")?.system.scroll) {
     return { error: "planted book arrived as a scroll DESPITE the shadow — the seam is not reading game.settings.get" };
@@ -377,6 +397,53 @@ const r = await page.evaluate(async ({ xssName }) => {
   out.scrollPrefixed = bodyOne.includes(`${scrollP}Charm Person`);
   out.prefixNotDoubled = bodyOne.includes("Spellbook (Fireball)")
     && !bodyOne.includes(`${bookP}Spellbook (Fireball)`);
+  // A GRIMOIRE'S PAGES (user report 2026-08-16). Three claims, each its own
+  // capture: they follow the book instead of sorting away from it; they wear
+  // the page prefix rather than the book's; and they carry neither the Petty
+  // note nor the grant tag. Read off the real <li> list, in order — a
+  // substring test on the body could not tell "after the book" from
+  // "anywhere on the page", which is exactly the reported defect.
+  const invItems = [...(doc?.querySelectorAll("ul.inv li") ?? [])];
+  const invTexts = invItems.map((li) => li.textContent.replace(/\s+/g, " ").trim());
+  const pageP = game.i18n.localize("CAIRN.SpellPagePrefix").replace(/\s+/g, " ");
+  const tomeAt = invTexts.findIndex((tx) => tx.startsWith("ZZ Print Tome"));
+  out.pageOrder = { tomeAt, rows: invTexts.slice(Math.max(0, tomeAt), tomeAt + 3) };
+  out.pagesFollowBook = tomeAt >= 0
+    && invTexts[tomeAt + 1]?.startsWith(`${pageP}Anthem`)
+    && invTexts[tomeAt + 2]?.startsWith(`${pageP}Zephyr`);
+  // Indented, which is what the paper page has instead of the inventory's
+  // "Page" chip — measured, not asserted from the class name.
+  out.pageIndented = tomeAt >= 0 && invItems[tomeAt + 1]
+    && parseFloat(popup.getComputedStyle(invItems[tomeAt + 1]).paddingLeft)
+      > parseFloat(popup.getComputedStyle(invItems[tomeAt]).paddingLeft);
+  // Neither annotation, and the grant tag leg means something only because
+  // the SWITCH is on — Rations proves that in its own leg below.
+  out.pageNoNotes = !invTexts.some((tx) => /^Spell\b.*(Anthem|Zephyr)/.test(tx)
+    && /\(|\[/.test(tx.replace(/^[^—]*— /, "")));
+  out.pageNotBookPrefixed = !bodyOne.includes(`${bookP}Anthem`)
+    && !bodyOne.includes(`${bookP}Zephyr`);
+  // The compatibility badge, top right (user ask 2026-08-16). The SHIPPED
+  // file, unmodified: the src must be the logo/ path, and the rendered box
+  // must keep the badge's own 750x600 aspect — logo/README.md forbids
+  // recolouring or cropping it, and a squashed render is a crop.
+  const badge = doc?.querySelector("header.pc img.compat");
+  out.badgeSrc = badge?.getAttribute("src") ?? null;
+  out.badgeAspect = badge
+    ? Math.abs((badge.clientWidth / badge.clientHeight) - (750 / 600)) < 0.02 : null;
+  // The badge must not be what SETS the header's height, or it buys the empty
+  // corner at pagination's expense. Measured against the two things that were
+  // already there rather than against a number: the header is as tall as its
+  // tallest child, and the badge must not be it. (A flat pixel threshold was
+  // tried first and was wrong — the name block is the tallest element on this
+  // fixture and always was, so the number it asserted said nothing about the
+  // badge.) The paper legs below are the other half: page counts at both
+  // sizes, which is what "does not mess up spacing" actually means.
+  const hdrH = (sel) => {
+    const el = doc?.querySelector(sel);
+    return el ? Math.round(el.getBoundingClientRect().height) : null;
+  };
+  out.header = { total: hdrH("header.pc"), portrait: hdrH("header.pc img.portrait"),
+    who: hdrH("header.pc .who"), badge: hdrH("header.pc img.compat") };
   // "(Petty)" as the translator wrote it — review #11 removed the print
   // page's locale-less toLowerCase, the only case transform of a localized
   // value in module/.
@@ -453,6 +520,43 @@ const r = await page.evaluate(async ({ xssName }) => {
   out.condBoxesFilled = condBoxes2.length === 2
     && condBoxes2.every((b) => b.textContent.trim() === "✕");
   popup2?.close();
+
+  // Pass 2b: a CANON 2e character prints NO source line at all (user ask
+  // 2026-08-16). The badge above it already says Cairn 2e, and a parenthetical
+  // restating the picture beside it is noise. Its own pass because neither of
+  // the other two can reach the branch: pass 1's background is a world item
+  // (custom by MEMBERSHIP, whatever contentSource says) and pass 2 is
+  // Barebones — so this needs a background from the shipped pack.
+  const canonBg = (await game.packs.get("air-bladder.backgrounds-2e")?.getDocuments())?.[0];
+  out.canonBgFound = !!canonBg;
+  if (canonBg) {
+    // BOTH fields: `backgroundUuid` is what decides custom-vs-canon, and
+    // `system.background` is the stored NAME the subtitle prints. Setting the
+    // uuid alone left the old name on the page, which is how the name leg
+    // earned its keep on its first run.
+    await pc.update({ "system.contentSource": "2e", "system.backgroundUuid": canonBg.uuid,
+      "system.background": canonBg.name });
+    const calls2b = [];
+    let popup2b = null;
+    window.open = (...a) => {
+      popup2b = origOpen.apply(window, a);
+      Object.defineProperty(popup2b, "print", { configurable: true, value: () => calls2b.push(1) });
+      return popup2b;
+    };
+    try {
+      pc.sheet.element.querySelector('[data-action="printSheet"]')?.click();
+      for (let i = 0; i < 60 && !calls2b.length; i++) await sleep(150);
+    } finally { window.open = origOpen; }
+    const doc2b = popup2b?.document;
+    // Both halves: no source element, AND the background name still prints —
+    // an empty header would satisfy the first on its own.
+    out.canonNoSource = !doc2b?.querySelector("header.pc .bg-source");
+    out.canonSubtitle = doc2b?.querySelector("header.pc .background")?.textContent?.trim() ?? null;
+    out.canonBgName = canonBg.name;
+    // The badge is on this page too — it is not a custom-background thing.
+    out.canonBadge = !!doc2b?.querySelector("header.pc img.compat");
+    popup2b?.close();
+  }
 
   await pc.sheet.close();
 
@@ -761,6 +865,18 @@ check("KW's item annotations", r.knifeNote && r.rationsNote && r.pettyNote,
   `(d6)=${r.knifeNote} (3 uses)=${r.rationsNote} (Petty)=${r.pettyNote} — Petty as the translator wrote it, uses via formatCount`);
 check("an armor row states its Armor points", r.vestNote === true,
   `wanted "ZZ Print Vest (${r.armorPointsWanted})" — the book's own notation (user ask 2026-08-11); armor 2 on the fixture, not the schema's initial 1, so the leg reads the VALUE`);
+check("a Grimoire's pages print UNDER it, in order", r.pagesFollowBook,
+  JSON.stringify(r.pageOrder));
+check("and indented, the paper page's answer to the Page chip", r.pageIndented);
+check("a page wears the page prefix, never the book's", r.pageNotBookPrefixed);
+check("and carries neither the Petty note nor the grant tag", r.pageNoNotes,
+  "both describe how the CARRIER got a thing; a page is the book's");
+check("the compatibility badge prints top right, unmodified",
+  (r.badgeSrc ?? "").includes("/logo/Cairn-2e-Compatible.png") && r.badgeAspect === true,
+  `src=${r.badgeSrc} aspect-ok=${r.badgeAspect}`);
+check("and the badge is not what sets the header's height",
+  r.header?.badge > 0 && r.header.badge <= Math.max(r.header.portrait, r.header.who),
+  JSON.stringify(r.header));
 check("spellbook rows print their prefixes", r.bookPrefixed && r.scrollPrefixed,
   `book=${r.bookPrefixed} scroll=${r.scrollPrefixed} — the same helper the inventory uses, so the two surfaces cannot drift`);
 check("a stored prefix is not doubled", r.prefixNotDoubled,
@@ -782,6 +898,12 @@ check("the source, parenthetical and italic", r.headerSource === r.customLabel
   `"${r.headerSource}" style=${r.headerSourceItalic} — a world-item background is CUSTOM by membership`);
 check("Barebones is not custom", r.sourcePass2 === r.barebonesLabel,
   `pass2="${r.sourcePass2}" — the plain source-label branch`);
+check("a canon 2e background prints NO source line", r.canonBgFound && r.canonNoSource,
+  "the badge above it already says Cairn 2e (user ask 2026-08-16)");
+check("and the background NAME still prints", r.canonSubtitle === r.canonBgName?.toUpperCase()
+  || (r.canonSubtitle ?? "").toUpperCase() === (r.canonBgName ?? "").toUpperCase(),
+  `"${r.canonSubtitle}" vs "${r.canonBgName}" — an empty header would pass the leg above alone`);
+check("the badge is on a canon page too", r.canonBadge === true);
 check("both mark boxes print FILLED when the conditions are on", r.condBoxesFilled,
   "pass 2 set deprived+panicked — the boxes arrive pre-marked, not re-blanked");
 check("KW's two-column band", JSON.stringify(r.bandLeft) === JSON.stringify(r.bandLeftWanted)

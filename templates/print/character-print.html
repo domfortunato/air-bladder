@@ -41,7 +41,15 @@
     line-height: 1.45;
   }
   header.pc { display: flex; align-items: center; gap: 1.25rem; margin-bottom: 1.5rem; }
-  header.pc img { width: 90px; height: 90px; object-fit: cover; border-radius: 50%; border: 2px solid #000; }
+  /* The name block takes the slack so the compatibility badge sits hard right
+     (user ask 2026-08-16: the header's right side was empty paper). min-width:0
+     so a long name wraps rather than shoving the badge off the page. */
+  header.pc .who { flex: 1; min-width: 0; }
+  /* 110px wide is 88px tall at the badge's own 750x600, so the header row stays
+     the portrait's 90px and pagination stays where it was. Never scaled off its
+     aspect, never recoloured, never cropped — logo/README.md. */
+  header.pc img.compat { width: 110px; height: auto; border: 0; border-radius: 0; margin-left: auto; }
+  header.pc img.portrait { width: 90px; height: 90px; object-fit: cover; border-radius: 50%; border: 2px solid #000; }
   header.pc h1 { font-size: 2rem; letter-spacing: 0.06em; text-transform: uppercase; line-height: 1.1; }
   header.pc .background { font-size: 1.05rem; letter-spacing: 0.12em; text-transform: uppercase; color: #333; }
   header.pc .pronouns { font-size: 0.9rem; color: #444; font-style: italic; }
@@ -69,14 +77,20 @@
   ul.inv { list-style: none; }
   ul.inv li { border-bottom: 1px dashed #999; padding: 0.1rem 0; }
   ul.inv li .notes { color: #333; font-style: italic; }
+  /* A Grimoire's pages are indented under it, which is how the paper page says
+     what the inventory's "Page" chip says on screen (a chip would read as a
+     badge here). The em is deliberate: it survives both paper sizes, where a
+     percentage indent does not. */
+  ul.inv li.page { padding-left: 1.4em; }
   .inv-head { font-style: italic; font-weight: bold; margin: 0.5rem 0 0.2rem; }
   ul.plain { list-style: none; }
   ul.plain li { margin-bottom: 0.35rem; }
   /* Kettlewright's band: two explicit columns, print-safe (never CSS
      columns, which fragment unpredictably across page breaks). */
   .band.has-side { display: grid; grid-template-columns: 11fr 9fr; column-gap: 2rem; align-items: start; }
-  /* The source parenthetical sits inside the uppercase background line and
-     must not shout with it. */
+  /* The source parenthetical is its OWN line under the background name (user
+     ask 2026-08-16, once the badge took the space beside it), and must not
+     shout with the uppercase line above. */
   .bg-source { font-style: italic; text-transform: none; letter-spacing: normal; font-size: 0.85rem; color: #444; }
   header.pc .failed-career { font-size: 0.95rem; color: #333; }
   header.pc .failed-career .fc-label { font-style: italic; }
@@ -163,13 +177,15 @@
 <tbody><tr><td>
 
 <header class="pc">
-  {{#if portrait}}<img src="{{ portrait }}" alt="{{ name }}">{{/if}}
-  <div>
+  {{#if portrait}}<img class="portrait" src="{{ portrait }}" alt="{{ name }}">{{/if}}
+  <div class="who">
     <h1>{{ name }}</h1>
-    {{#if subtitle}}<div class="background">{{ subtitle }}{{#if subtitleSource}} <span class="bg-source">({{ subtitleSource }})</span>{{/if}}</div>{{/if}}
+    {{#if subtitle}}<div class="background">{{ subtitle }}</div>{{/if}}
+    {{#if subtitleSource}}<div class="bg-source">({{ subtitleSource }})</div>{{/if}}
     {{#if failedCareer}}<div class="failed-career"><span class="fc-label">{{ localize "CAIRN.PrintFailedCareer" }}</span> {{ failedCareer }}</div>{{/if}}
     {{#if pronouns}}<div class="pronouns">{{ pronouns }}</div>{{/if}}
   </div>
+  {{#if compatBadge}}<img class="compat" src="{{ compatBadge }}" alt="{{ localize 'CAIRN.CompatibleAlt' }}">{{/if}}
 </header>
 
 {{!-- Kettlewright's two-column band (user rulings 2026-08-08): Stats and
@@ -210,14 +226,14 @@
   <div class="inv-head">{{ localize "CAIRN.PrintSlotsUsed" }}{{#if main.showSlots}} ( {{ main.used }} / {{ main.max }} ){{/if}}</div>
   <ul class="inv">
     {{#each main.rows}}
-    <li>{{ name }}{{#if notes}} <span class="notes">{{ notes }}</span>{{/if}}</li>
+    <li{{#if page}} class="page"{{/if}}>{{ name }}{{#if notes}} <span class="notes">{{ notes }}</span>{{/if}}</li>
     {{/each}}
   </ul>
   {{#each containers}}
   <div class="inv-head">{{ name }}{{#if showSlots}} ( {{ used }} / {{ max }} ){{/if}}</div>
   <ul class="inv">
     {{#each rows}}
-    <li>{{ name }}{{#if notes}} <span class="notes">{{ notes }}</span>{{/if}}</li>
+    <li{{#if page}} class="page"{{/if}}>{{ name }}{{#if notes}} <span class="notes">{{ notes }}</span>{{/if}}</li>
     {{/each}}
   </ul>
   {{/each}}

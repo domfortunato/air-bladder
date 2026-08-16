@@ -64,6 +64,43 @@ export const pagesOfGrimoire = (actor, book) => {
 };
 
 /**
+ * Re-order an already-sorted item list so each bound page follows the book it
+ * belongs to. Display order only — nothing is written, and `sort` values are
+ * untouched.
+ *
+ * Shared by the inventory tab and the printed page ON PURPOSE: those two
+ * surfaces have drifted before (review #12, when print built rows in insertion
+ * order while the sheet sorted), and the printed sheet showed it again the day
+ * the sheet learned to group — pages scattered up and down the alphabet with
+ * the Grimoire in the middle, reported 2026-08-16.
+ *
+ * An UNCLAIMED page — legacy and unkeyed, on an actor holding more than one
+ * book — is left exactly where the sort put it rather than filed under a guess.
+ * @param {CairnActor} actor  the OWNER of these items, not the sheet's actor:
+ *                            print renders a connected companion's gear too
+ * @param {Array} list        rows or documents, in display order
+ * @param {(row:any)=>string} idOf  reads an item id off a list entry
+ * @returns {Array} a new array; `list` is never mutated
+ */
+export const groupPagesUnderBooks = (actor, list, idOf) => {
+  const claimed = new Map();
+  for (const book of grimoiresOn(actor)) {
+    for (const p of pagesOfGrimoire(actor, book)) {
+      if (!claimed.has(p.id)) claimed.set(p.id, book.id);
+    }
+  }
+  if (!claimed.size) return list;
+  const out = [];
+  for (const row of list) {
+    if (claimed.has(idOf(row))) continue; // emitted under its own book, below
+    out.push(row);
+    const here = idOf(row);
+    out.push(...list.filter((r) => claimed.get(idOf(r)) === here));
+  }
+  return out;
+};
+
+/**
  * The book's key, minting and persisting one if it predates the field. Called
  * at the moment a page is about to name it — the transmute — so a legacy book
  * acquires its identity on first use rather than waiting for the migration.

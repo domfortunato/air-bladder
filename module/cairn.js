@@ -2508,12 +2508,21 @@ const configureHandleBar = () => {
     return bare ? [prefix, `${bare} (`, `${bare}(`] : [];
   };
 
-  Handlebars.registerHelper("spellbookPrefix", function (name, scroll) {
+  // A BOUND PAGE is a third kind, and it reads "Spell — " (user ruling
+  // 2026-08-16). A scroll written into a Grimoire stops being a scroll — the
+  // transmute clears the flag — so it fell through to the book wording and a
+  // page rendered "Spellbook — Animate Object", which names the object it is
+  // no longer and says nothing about the book it is now in. There is no
+  // spellbook on that row at all; there is a Grimoire, one line above it.
+  Handlebars.registerHelper("spellbookPrefix", function (name, scroll, bound) {
     const n = String(name ?? "");
-    const localized = game.i18n.localize(scroll ? "CAIRN.SpellscrollPrefix" : "CAIRN.SpellbookPrefix");
+    const key = bound ? "CAIRN.SpellPagePrefix"
+      : scroll ? "CAIRN.SpellscrollPrefix" : "CAIRN.SpellbookPrefix";
+    const localized = game.i18n.localize(key);
     const localizedForms = [
       ...prefixForms(game.i18n.localize("CAIRN.SpellbookPrefix")),
       ...prefixForms(game.i18n.localize("CAIRN.SpellscrollPrefix")),
+      ...prefixForms(game.i18n.localize("CAIRN.SpellPagePrefix")),
     ];
     // `p &&` is load-bearing: "".startsWith("") is true, so one language file
     // shipping an empty prefix would strip the prefix off every row in the game.
