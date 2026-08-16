@@ -45,6 +45,14 @@ A Grimoire costs 300gp in labor and special inks and is *always found, made or t
 
 A warden can edit a Grimoire's **spellpage capacity** in — `Pages` on the Grimoire's item sheet, 10 by default. Edit the capacity there if your table uses larger or meaner tomes. Each spellpage holds one spell that was formerly a spellscroll.
 
+## Moving a Grimoire between sheets
+
+**A book's pages travel with it, and only its own.** Drag a Grimoire from one sheet to another and its spellpages go along in the same move — to another character, into a crate, out of one again. They cannot be dragged separately: a page belongs to a book, not to whoever is holding it that day.
+
+That holds when a crate is holding several books at once. Each one keeps the pages that were written into it, so taking one library off the shelf leaves the others exactly as they were.
+
+One exception, and it only ever concerns pages bound in an earlier version of Air Bladder, before a page recorded which book it was in. Your world is repaired the first time you open it after updating — but only where the answer is readable, meaning a sheet holding one book. If two or more of those older books are sitting on the *same* sheet, nothing in the saved data says which pages belong to which, so they are left where they are rather than guessed at, and they stay behind when either book leaves. Move the books off one at a time and the last one out takes what remains, or transmute the spells afresh into the book you want them in. The repair names any such sheet in the browser console (F12) when it runs.
+
 ## Transmuting spellscrolls into a Grimoire's pages
 
 While a character carries a Grimoire that is not yet full, every unbound Spellscroll in their inventory grows a **Transmute into the Grimoire** control on its row. Click the control and confirm the dialog and the spell becomes a **spell page**:

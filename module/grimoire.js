@@ -23,6 +23,62 @@ import { SETTINGS_NS } from "./settings.js";
 export const MISHAPS_TABLE_NAME = "GLOG Magic: Mishaps";
 
 /**
+ * Every Grimoire `actor` holds. A CHARACTER carries at most one — the one-book
+ * wall, enforced in CairnItem — but a pile, a crate or a mule may hold a
+ * library, and that is the case every "the grimoire" lookup used to get wrong.
+ * @param {CairnActor|null} actor
+ * @returns {CairnItem[]}
+ */
+export const grimoiresOn = (actor) =>
+  actor ? actor.items.filter((i) => i.type === "item" && i.system?.grimoire) : [];
+
+/**
+ * The pages belonging to ONE book (issue #17, fsmalecho, 2026-08-16).
+ *
+ * A page names its book by `system.boundTo`, matching the book's
+ * `system.grimoireKey`. Both are `system` data rather than ids on purpose: a
+ * book moving between sheets is a create-then-delete, so its `_id` changes
+ * every journey while `system` copies across verbatim.
+ *
+ * An UNKEYED page — bound before the field existed, in a world
+ * `migrateGrimoirePages` has not opened yet — belongs to the book only when the
+ * actor holds exactly ONE. That was the whole rule before this fix, and it was
+ * right in exactly that case: on a character it still is, because a character
+ * may only ever carry one. On a multi-book actor an unkeyed page belongs to
+ * nobody nameable, so it stays where it is. Guessing is what the bug did:
+ * dragging one of two books out of a pile took all six pages with it, past the
+ * book's own capacity, and left the other book empty.
+ * @param {CairnActor} actor
+ * @param {CairnItem} book
+ * @returns {CairnItem[]}
+ */
+export const pagesOfGrimoire = (actor, book) => {
+  if (!actor || !book) return [];
+  const key = book.system?.grimoireKey ?? "";
+  const sole = grimoiresOn(actor).length === 1;
+  return actor.items.filter((i) => {
+    if (i.type !== "spellbook" || !i.system.bound) return false;
+    const to = i.system.boundTo ?? "";
+    return to && key ? to === key : !to && sole;
+  });
+};
+
+/**
+ * The book's key, minting and persisting one if it predates the field. Called
+ * at the moment a page is about to name it — the transmute — so a legacy book
+ * acquires its identity on first use rather than waiting for the migration.
+ * @param {CairnItem} book
+ * @returns {Promise<string>}
+ */
+export const ensureGrimoireKey = async (book) => {
+  const key = book?.system?.grimoireKey ?? "";
+  if (key) return key;
+  const minted = foundry.utils.randomID();
+  await book.update({ "system.grimoireKey": minted });
+  return minted;
+};
+
+/**
  * Resolve a spell's DISPLAYED text against the dice just rolled.
  *
  * The shape — per-power blocks and bracketed expressions — is adopted from
@@ -226,9 +282,13 @@ const reportCast = async (actor, spell, dice) => {
  */
 export const castFromGrimoire = async (actor) => {
   if (actor?.type !== "character") return null;
-  const book = actor.items.find((i) => i.type === "item" && i.system.grimoire);
+  const book = grimoiresOn(actor)[0];
   if (!book) return null;
-  const pages = actor.items.filter((i) => i.type === "spellbook" && i.system.bound);
+  // This book's pages, not every page on the actor. Identical on a character
+  // (the one-book wall), and it is the wall that is doing that work — reading
+  // the actor's whole shelf here would be a second place to fix if it ever
+  // moved.
+  const pages = pagesOfGrimoire(actor, book);
   if (!pages.length) {
     ui.notifications.warn(game.i18n.format("CAIRN.Notify.GrimoireNoPages", { name: book.name }));
     return null;

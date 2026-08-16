@@ -587,6 +587,14 @@ class ItemData extends CairnDataModel {
       // document; the wall is a statement about the actor's whole inventory).
       grimoire: bool(),
       grimoirePages: int(10),
+      // THIS BOOK'S IDENTITY, minted once in CairnItem._preCreate and carried
+      // for the document's whole life (issue #17, 2026-08-16). A page names its
+      // book by this key, which is why it cannot be the item's `_id`: a book
+      // moving between sheets is a create-then-delete, so its id changes on
+      // every journey while `system` copies across verbatim. Empty on a
+      // document written before the field existed; migrateGrimoirePages stamps
+      // those, and every reader tolerates the blank meanwhile.
+      grimoireKey: str(),
     };
   }
 }
@@ -651,6 +659,14 @@ class SpellbookData extends CairnDataModel {
       // clears it. A bound page is weightless (PAGE_PINNED), never equippable,
       // never a scroll, and travels with the Grimoire when the book moves.
       bound: bool(),
+      // WHICH Grimoire — the book's `grimoireKey`, written by the transmute
+      // (issue #17, 2026-08-16). `bound` alone answers "is this page in a
+      // book", which is the whole question on a CHARACTER, who may carry only
+      // one; it is not the question on a pile, which may hold a library. With
+      // only the boolean, dragging one book out of a two-book pile took every
+      // page in it, past its own capacity, and left the other book empty.
+      // Blank on a page bound before the field existed — see grimoireKey.
+      boundTo: str(),
     };
   }
 }

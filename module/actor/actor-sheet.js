@@ -9,7 +9,8 @@ import { NPC_ROLES } from "../data-models.js";
 import { atConnectionLimit, maxConnections, connectionsUiEnabled, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
 import { actorDisplayName, localizeNameDesc, sourceOf, t } from "../i18n-content.js";
 import { FATIGUE_NAME } from "../item/item.js";
-import { castFromGrimoire, castScroll } from "../grimoire.js";
+import { castFromGrimoire, castScroll, grimoiresOn, pagesOfGrimoire, ensureGrimoireKey }
+  from "../grimoire.js";
 import { pickArt } from "../art-picker.js";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -872,9 +873,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
             && (i.system.uses?.value ?? 0) > 0
             ? { ...i, system: { ...i.system, canCastScroll: true } } : i);
       }
-      const grimoire = this.actor.items.find((i) => i.type === "item" && i.system.grimoire);
-      const pageCount = this.actor.items.filter((i) => i.type === "spellbook" && i.system.bound).length;
+      const grimoire = grimoiresOn(this.actor)[0];
       if (grimoire) {
+        const pageCount = pagesOfGrimoire(this.actor, grimoire).length;
         const hasRoom = pageCount < (grimoire.system.grimoirePages ?? 0);
         context.items = context.items.map((i) => {
           if (i.type === "spellbook" && !i.system.bound) {
@@ -885,17 +886,38 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
           }
           return i;
         });
-        // Pages render GROUPED under the book: pull the bound pages out of the
-        // alphabetical list and re-insert them (still alphabetical among
-        // themselves) right after the Grimoire's row. Display order only — the
-        // stored documents and their `sort` values are untouched.
-        const pages = context.items.filter((i) => i.type === "spellbook" && i.system.bound);
-        if (pages.length) {
-          const rest = context.items.filter((i) => !(i.type === "spellbook" && i.system.bound));
-          const at = rest.findIndex((i) => i._id === grimoire.id);
-          rest.splice(at + 1, 0, ...pages);
-          context.items = rest;
+      }
+    }
+
+    // Pages render GROUPED UNDER THEIR OWN BOOK: pull each book's pages out of
+    // the alphabetical list and re-insert them (still alphabetical among
+    // themselves) right after that book's row. Display order only — the stored
+    // documents and their `sort` values are untouched.
+    //
+    // Runs for ANY actor, unlike the affordances above: the transmute and the
+    // cast belong to the book's carrier, but a pile holding two recovered
+    // libraries used to list six pages in one alphabetical run with nothing
+    // saying which book each was from (issue #17's display half). An UNCLAIMED
+    // page — legacy and unkeyed, on an actor holding more than one book — stays
+    // exactly where the sort put it rather than being filed under a guess.
+    const isPage = (i) => i.type === "spellbook" && i.system.bound;
+    if (context.items.some(isPage)) {
+      const claimed = new Map();
+      for (const book of grimoiresOn(this.actor)) {
+        for (const p of pagesOfGrimoire(this.actor, book)) {
+          if (!claimed.has(p.id)) claimed.set(p.id, book.id);
         }
+      }
+      if (claimed.size) {
+        const grouped = [];
+        for (const i of context.items) {
+          if (claimed.has(i._id)) continue; // emitted under its own book, below
+          grouped.push(i);
+          if (i.type === "item" && i.system.grimoire) {
+            grouped.push(...context.items.filter((p) => claimed.get(p._id) === i._id));
+          }
+        }
+        context.items = grouped;
       }
     }
 
@@ -2620,10 +2642,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const item = this.actor.getOwnedItem(row?.dataset.itemId);
     if (!item || item.type !== "spellbook" || item.system.bound) return;
     if (this.actor.type !== "character") return;
-    const grimoire = this.actor.items.find((i) => i.type === "item" && i.system.grimoire);
+    const grimoire = grimoiresOn(this.actor)[0];
     if (!grimoire) return;
-    const pageCount = this.actor.items.filter(
-      (i) => i.type === "spellbook" && i.system.bound).length;
+    const pageCount = pagesOfGrimoire(this.actor, grimoire).length;
     if (pageCount >= (grimoire.system.grimoirePages ?? 0)) {
       ui.notifications.warn(game.i18n.format("CAIRN.Notify.GrimoireFull",
         { name: grimoire.name }));
@@ -2639,7 +2660,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       modal: true,
     });
     if (!proceed) return;
-    await item.update({ "system.bound": true });
+    // The page names ITS book (issue #17). The key is minted here if the book
+    // predates the field, so a legacy Grimoire acquires an identity the first
+    // time a page needs to name it rather than waiting for the migration.
+    await item.update({
+      "system.bound": true,
+      "system.boundTo": await ensureGrimoireKey(grimoire),
+    });
   }
 
   /**
@@ -3850,6 +3877,17 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       await created.update(patch, { abNoStatusCard: true });
     }
 
+    // WHICH pages travel is decided HERE, before the source loses the book —
+    // the removal below deletes it, and pagesOfGrimoire reads the source's
+    // shelf to resolve an unkeyed legacy page ("only one book, so only one
+    // answer"). Asked afterwards, a two-book shelf would look like a one-book
+    // shelf and hand over exactly the pages issue #17 was about, and a one-book
+    // shelf would look like none and hand over nothing.
+    const travellingPages = originalActor
+      && originalItem.type === "item" && originalItem.system?.grimoire
+      ? pagesOfGrimoire(originalActor, originalItem)
+      : [];
+
     // Target received it. Only a real transfer FROM another actor removes a unit
     // from the source. A drop from a compendium (no owning actor) is a COPY —
     // never write to the pack document, or the pool's master item gets its
@@ -3864,20 +3902,26 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
 
     // PAGES TRAVEL WITH THE BOOK (2026-08-09 ruling, #10's replacement): a
-    // Grimoire moving off an actor bundles every bound page in the same move —
-    // to another character, to an Item Pile, anywhere this handler can take it.
-    // A recovered book is the book WITH its spells. The pages are weightless,
-    // so they cannot fail a capacity check the book itself just passed, and
-    // they move via createEmbeddedDocuments — the same door generation uses —
-    // so the bound-page drop refusal above never sees them.
-    if (originalActor
-        && originalItem.type === "item" && originalItem.system?.grimoire) {
-      const pages = originalActor.items.filter(
-        (i) => i.type === "spellbook" && i.system.bound);
-      if (pages.length) {
-        await this.actor.createEmbeddedDocuments("Item", pages.map((p) => p.toObject()));
-        await originalActor.deleteEmbeddedDocuments("Item", pages.map((p) => p.id));
-      }
+    // Grimoire moving off an actor bundles ITS OWN bound pages in the same move
+    // — to another character, to an Item Pile, anywhere this handler can take
+    // it. A recovered book is the book WITH its spells. The pages are
+    // weightless, so they cannot fail a capacity check the book itself just
+    // passed, and they move via createEmbeddedDocuments — the same door
+    // generation uses — so the bound-page drop refusal above never sees them.
+    //
+    // ITS OWN, and that word is issue #17 (fsmalecho, 2026-08-16). This asked
+    // for every bound page on the source, which is the same set on a CHARACTER
+    // — the one-book wall guarantees it — and wrong on anything that can hold a
+    // library: dragging one of two books out of a pile took all six pages,
+    // three of them past the receiving book's own capacity, and left the other
+    // book standing there empty. pagesOfGrimoire matches by key, and says so
+    // for the unkeyed legacy case too — resolved above, while the book was
+    // still on its shelf.
+    if (travellingPages.length) {
+      await this.actor.createEmbeddedDocuments("Item",
+        travellingPages.map((p) => p.toObject()));
+      await originalActor.deleteEmbeddedDocuments("Item",
+        travellingPages.map((p) => p.id));
     }
     return created;
   }

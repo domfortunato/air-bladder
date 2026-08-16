@@ -165,6 +165,24 @@ export class CairnItem extends Item {
       return false;
     }
 
+    // A GRIMOIRE'S IDENTITY (issue #17, 2026-08-16), minted here so every route
+    // that makes a book gets one: the Reliquary drag, the Create Item dialog,
+    // an importer, a macro, a module. A book MOVING between sheets is a
+    // create-then-delete carrying its `system` across, so it arrives holding
+    // its key and the pages naming it stay its own.
+    //
+    // A key already worn by a book on the SAME parent is a DUPLICATE, not a
+    // move — nothing is in two places on one actor — and gets a fresh one, or
+    // the copy and the original would share one library between them.
+    if (this.type === "item" && this.system.grimoire) {
+      const key = this.system.grimoireKey;
+      const clash = key && this.parent?.items.some((i) =>
+        i !== this && i.type === "item" && i.system?.grimoire && i.system.grimoireKey === key);
+      if (!key || clash) {
+        this.updateSource({ system: { grimoireKey: foundry.utils.randomID() } });
+      }
+    }
+
     // A page arriving bound (the travel bundle copies pages between actors)
     // holds its invariant from the first write, same as a scroll does below.
     if (this.type === "spellbook" && this.system.bound) {
@@ -238,6 +256,15 @@ export class CairnItem extends Item {
     // only an API write can even try.
     if (this.system.bound && changed.system?.bound === false) {
       delete changed.system.bound;
+    }
+
+    // WHICH book is as permanent as the binding: a write CLEARING `boundTo`
+    // while one is set is stripped the same way, or a page could be orphaned
+    // into the state issue #17 was about — bound, with no book to name. Writing
+    // one over a BLANK stays legal, because that is the transmute stamping a
+    // page for the first time and the migration stamping a legacy one.
+    if (this.system.boundTo && changed.system?.boundTo === "") {
+      delete changed.system.boundTo;
     }
 
     const scrollChanged = changed.system?.scroll !== undefined;

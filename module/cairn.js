@@ -954,6 +954,8 @@ Hooks.once("ready", async () => {
 
   await phase("mount -> companion restamp", migrateMountToCompanion);
 
+  await phase("grimoire page keys", migrateGrimoirePages);
+
   await phase("connections flatten + ownership migration", flattenConnections);
 
   // Stray sync flags: a player can connect or break while NO GM client is
@@ -1449,6 +1451,108 @@ const migrateMountToCompanion = async () => {
     console.log(`Air Bladder | role restamped on ${updates.length} npc(s) (mount -> companion)`);
   }
   await game.settings.set(SETTINGS_NS, "companion-restamped", true);
+};
+
+/**
+ * Give every Grimoire an identity and every bound page its book's name
+ * (issue #17, fsmalecho 2026-08-16).
+ *
+ * Before this, `bound` was a boolean and nothing recorded WHICH book a page was
+ * in. That is the whole question on a character — the one-book wall means there
+ * is only one answer — and unanswerable on a pile, so dragging one of two books
+ * out of a crate took every page in it. The code now matches pages to books by
+ * `boundTo`/`grimoireKey`; this stamps what already exists.
+ *
+ * Two cases, and the split is the point:
+ *
+ *   - **One book on the actor** — every unkeyed page is that book's, by
+ *     construction. That is the whole of a character (the one-book wall) and
+ *     of most piles, and no ordering is consulted: a page transmuted from a
+ *     scroll the character already carried can sit anywhere in the inventory.
+ *   - **Two or more** — the data does not say, so NOTHING is matched and the
+ *     actor is named in the log. A first draft assigned each page to the
+ *     nearest preceding book in the actor's item order, reasoning that the only
+ *     route that puts pages on a multi-book actor is the travel bundle, which
+ *     creates the book and then its pages. `dev:grimoire` refuted it flat:
+ *     an embedded collection does NOT come back in creation order after a
+ *     reload (a page planted first came back between two planted later), so the
+ *     rule filed pages under whichever book the read order happened to reach —
+ *     a guess wearing the clothes of evidence, and permanent once written.
+ *     Left alone, those pages stay put when a book moves, which a Warden can
+ *     see and undo.
+ *
+ * World items and unlinked-token deltas are covered too — a Grimoire in the
+ * Items directory gets its key here rather than at first use.
+ *
+ * Marker-gated (`grimoire-keys-stamped`), set only after the writes land so a
+ * failed run retries rather than recording itself done.
+ */
+const migrateGrimoirePages = async () => {
+  if (game.settings.get(SETTINGS_NS, "grimoire-keys-stamped")) return;
+  let books = 0;
+  let pages = 0;
+  const unresolved = [];
+
+  /** @param {Document|null} parent  the owning Actor, or null for world items */
+  const stamp = async (parent, items) => {
+    const updates = [];
+    const shelf = items.filter((i) => i.type === "item" && i.system?.grimoire);
+    if (!shelf.length) return;
+    // Key the books first: a page's assignment below reads the key back off the
+    // pending update, not off the document, which has not been written yet.
+    const keyOf = new Map();
+    for (const b of shelf) {
+      const key = b.system.grimoireKey || foundry.utils.randomID();
+      keyOf.set(b.id, key);
+      if (!b.system.grimoireKey) {
+        updates.push({ _id: b.id, "system.grimoireKey": key });
+        books++;
+      }
+    }
+    // Pages are matched to books only INSIDE AN INVENTORY, and only where the
+    // inventory holds ONE book. The Items directory is not an inventory: a
+    // loose book and a loose page sitting in the sidebar are not a library, so
+    // "there is only one book here" says nothing about them. World books still
+    // get their key above — that half is unconditional.
+    const sole = parent && shelf.length === 1 ? keyOf.get(shelf[0].id) : null;
+    const loose = parent
+      ? items.filter((i) => i.type === "spellbook" && i.system.bound && !i.system.boundTo)
+      : [];
+    for (const i of loose) {
+      if (!sole) continue;
+      updates.push({ _id: i.id, "system.boundTo": sole });
+      pages++;
+    }
+    if (!sole && loose.length) unresolved.push(`${parent.name} (${loose.length})`);
+    if (!updates.length) return;
+    // abNoStatusCard: a migration must not greet the Warden with a change-log
+    // card per book it touched (the spellscroll migration's precedent).
+    if (parent) await parent.updateEmbeddedDocuments("Item", updates, { abNoStatusCard: true });
+    else await getDocumentClass("Item").updateDocuments(updates, { abNoStatusCard: true });
+  };
+
+  await stamp(null, [...game.items]);
+  for (const actor of game.actors) await stamp(actor, [...actor.items]);
+  // An unlinked token carries its own item copies in its delta; the world
+  // actor's inventory says nothing about them. Linked tokens ARE the world
+  // actor already handled above.
+  for (const scene of game.scenes) {
+    for (const token of scene.tokens) {
+      if (token.actorLink || !token.actor) continue;
+      await stamp(token.actor, [...token.actor.items]);
+    }
+  }
+
+  if (books || pages) {
+    console.log(`Air Bladder | grimoire keys: ${books} book(s) stamped, ${pages} page(s) matched to theirs`);
+  }
+  if (unresolved.length) {
+    console.warn(`Air Bladder | bound pages sitting with SEVERAL Grimoires, where nothing in the`
+      + ` data says which book each belongs to: ${unresolved.join(", ")}. They are left as they`
+      + ` are — they stay put when a book moves, rather than travelling with the wrong one. Move`
+      + ` the books out one at a time: the last book on the shelf takes what is left.`);
+  }
+  await game.settings.set(SETTINGS_NS, "grimoire-keys-stamped", true);
 };
 
 /**

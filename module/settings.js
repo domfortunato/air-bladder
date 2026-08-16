@@ -32,9 +32,11 @@ export const SETTING_KEYS = [
   // disabled-backgrounds is Warden CONFIGURATION (which 2e backgrounds are
   // switched off), not a migration marker — it must ride the namespace
   // migration like custom-portrait-list does. It was registered without being
-  // listed here (review #9); the three completion markers (roles-restamped,
-  // companion-restamped, connections-migrated) stay unlisted on purpose,
-  // because losing one only re-runs an idempotent migration.
+  // listed here (review #9); the four completion markers (roles-restamped,
+  // companion-restamped, grimoire-keys-stamped, connections-migrated) stay
+  // unlisted on purpose, because losing one only re-runs an idempotent
+  // migration — the grimoire stamp skips anything already keyed, so a second
+  // pass writes nothing.
   "custom-portrait-folder", "custom-portrait-list", "min-age",
   "disabled-backgrounds",
   // Internal but CONFIGURATION, not a marker: the parked-Connections flag
@@ -147,6 +149,20 @@ export const registerSettings = () => {
   // `roles-restamped`, which is long true in every existing world and would
   // skip exactly the population this exists for.
   game.settings.register(SETTINGS_NS, "companion-restamped", {
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false,
+  });
+
+  // Completion marker for the Grimoire page-key stamp (issue #17, 2026-08-16):
+  // every book gets an identity, every bound page names its own. Marker-gated
+  // rather than state-gated for the usual reason — an unkeyed page can also be
+  // one a Warden has legitimately left unmatched (the migration leaves the
+  // unreadable case alone on purpose), and a state test would re-ask that
+  // question on every load. `config: false`, so it cannot disturb the
+  // positional grouping below.
+  game.settings.register(SETTINGS_NS, "grimoire-keys-stamped", {
     scope: "world",
     config: false,
     type: Boolean,

@@ -57,8 +57,21 @@
  *      free slots the cast refuses with the no-dice warning.
  *  10. Travel: dropping the book on a pile moves it AND every page; dropping
  *      it back brings the library home; a page dragged alone is refused.
+ *  10b. TWO books on one shelf (issue #17, fsmalecho 2026-08-16): each book
+ *      keeps its own pages through the move, the one left behind keeps its
+ *      library, the receiving book stays inside its page cap, and the pile's
+ *      own sheet groups each page under the book it belongs to.
+ *  10c. The unkeyed legacy page, both ways round: ambiguous on a two-book
+ *      shelf, so it stays; unambiguous when one book remains, so it travels.
  *  11. Alice casts from her own character end-to-end: public card + whisper
  *      addressed to Alice, not the GM.
+ *  12. The stamp migration, across a real RELOAD: books written before
+ *      `grimoireKey` existed get one; a page on a shelf holding ONE book is
+ *      matched to it wherever it sits in the inventory; and on a shelf holding
+ *      two, NO page is matched and the shelf is named in the log — nothing in
+ *      the data says which book, and the item order is not the creation order
+ *      to fall back on (measured here: a page planted first came back between
+ *      two planted after it).
  *
  * Everything planted is swept from Node in finally, names and ids printed.
  */
@@ -209,10 +222,17 @@ try {
     return it.system.bound ? {
       bound: it.system.bound, weightless: it.system.weightless,
       slotsUsed: a.system.slotsUsed,
+      boundTo: it.system.boundTo,
+      bookKey: a.items.find((i) => i.system?.grimoire)?.system.grimoireKey,
     } : null;
   }, fx.casterId);
   check(alpha?.bound === true && alpha?.weightless === true,
     "the confirm binds it: bound + weightless", JSON.stringify(alpha));
+  // WHICH book, not just "a book" (issue #17). Everything in leg 10b stands on
+  // the transmute writing this, so it is asserted where it is written.
+  check(!!alpha?.bookKey && alpha?.boundTo === alpha?.bookKey,
+    "the page names ITS book: boundTo === the book's key",
+    `${alpha?.boundTo} / ${alpha?.bookKey}`);
   check(alpha?.slotsUsed === before.slotsUsed - 1,
     "the page freed its slot", `${before.slotsUsed} -> ${alpha?.slotsUsed}`);
 
@@ -557,7 +577,153 @@ try {
     "and came home the same way", JSON.stringify(travel.afterBack));
   check(travel.pageRefused, "a page dragged on its own is refused, and stays");
 
-  /* -------------------------------------- 10b. a scroll casts with NO book -- */
+  /* ------------------------------ 10b. two books on one shelf (issue #17) -- */
+  // fsmalecho, 2026-08-16: two Grimoires with pages in one container, drag one
+  // out, and it took EVERY page in the container — three of them past its own
+  // capacity — leaving the second book empty. The shelf is the point: a
+  // CHARACTER may only carry one book, so the old "every bound page on the
+  // source" was right there and unanswerable anywhere else.
+  const shelfFx = await gm.evaluate(async () => {
+    const shelf = await CONFIG.Actor.documentClass.create({
+      name: "ZZ Grim Shelf", type: "npc",
+      system: { role: "container", containerClass: "pile", slots: 20 },
+    });
+    const reader = await CONFIG.Actor.documentClass.create({
+      name: "ZZ Grim Reader", type: "character" });
+    await shelf.createEmbeddedDocuments("Item", [
+      { name: "ZZ Grim Tome One", type: "item",
+        system: { grimoire: true, grimoirePages: 3, bulky: true } },
+      { name: "ZZ Grim Tome Two", type: "item",
+        system: { grimoire: true, grimoirePages: 3, bulky: true } },
+    ]);
+    const one = shelf.items.find((i) => i.name === "ZZ Grim Tome One");
+    const two = shelf.items.find((i) => i.name === "ZZ Grim Tome Two");
+    // Pages in the shape the transmute writes (asserted in leg 2), interleaved
+    // so nothing can pass by taking a contiguous slice of the inventory.
+    await shelf.createEmbeddedDocuments("Item", [
+      { name: "ZZ Grim Page A1", type: "spellbook",
+        system: { bound: true, boundTo: one.system.grimoireKey, description: "<p>a</p>" } },
+      { name: "ZZ Grim Page B1", type: "spellbook",
+        system: { bound: true, boundTo: two.system.grimoireKey, description: "<p>b</p>" } },
+      { name: "ZZ Grim Page A2", type: "spellbook",
+        system: { bound: true, boundTo: one.system.grimoireKey, description: "<p>c</p>" } },
+      { name: "ZZ Grim Page B2", type: "spellbook",
+        system: { bound: true, boundTo: two.system.grimoireKey, description: "<p>d</p>" } },
+      { name: "ZZ Grim Page A3", type: "spellbook",
+        system: { bound: true, boundTo: one.system.grimoireKey, description: "<p>e</p>" } },
+      { name: "ZZ Grim Page B3", type: "spellbook",
+        system: { bound: true, boundTo: two.system.grimoireKey, description: "<p>f</p>" } },
+    ]);
+    return {
+      shelfId: shelf.id, readerId: reader.id,
+      keysDiffer: !!one.system.grimoireKey && !!two.system.grimoireKey
+        && one.system.grimoireKey !== two.system.grimoireKey,
+      pages: shelf.items.filter((i) => i.system?.bound).length,
+    };
+  });
+  cleanup.actorIds.push(shelfFx.shelfId, shelfFx.readerId);
+  check(shelfFx.keysDiffer && shelfFx.pages === 6,
+    "two books minted DIFFERENT keys, six pages planted", JSON.stringify(shelfFx));
+
+  const shelf = await gm.evaluate(async ({ shelfId, readerId }) => {
+    const sh = game.actors.get(shelfId);
+    const reader = game.actors.get(readerId);
+    await reader.sheet.render(true);
+    const one = sh.items.find((i) => i.name === "ZZ Grim Tome One");
+    const warns = [];
+    const orig = ui.notifications.warn;
+    ui.notifications.warn = (m) => { warns.push(String(m)); };
+    let moved;
+    try {
+      moved = await reader.sheet._onDropItem(
+        { preventDefault: () => {}, target: reader.sheet.element }, one);
+    } finally { ui.notifications.warn = orig; }
+    const named = (a, f) => a.items.filter(f).map((i) => i.name).sort();
+    // The shelf's own sheet must now group the survivors under the book they
+    // belong to — a pile shows pages, and used to show them in one
+    // undifferentiated alphabetical run.
+    await sh.sheet.render(true);
+    await new Promise((r) => setTimeout(r, 400));
+    const rows = [...sh.sheet.element.querySelectorAll("[data-item-id]")];
+    const rowAt = (name) => rows.findIndex((r) => r.textContent.includes(name));
+    return {
+      moved: !!moved, warns,
+      order: {
+        book: rowAt("ZZ Grim Tome Two"),
+        pages: ["ZZ Grim Page B1", "ZZ Grim Page B2", "ZZ Grim Page B3"].map(rowAt),
+      },
+      readerBooks: named(reader, (i) => i.system?.grimoire),
+      readerPages: named(reader, (i) => i.system?.bound),
+      shelfBooks: named(sh, (i) => i.system?.grimoire),
+      shelfPages: named(sh, (i) => i.system?.bound),
+    };
+  }, shelfFx);
+  check(shelf.moved && shelf.readerBooks.length === 1
+    && shelf.readerPages.join() === "ZZ Grim Page A1,ZZ Grim Page A2,ZZ Grim Page A3",
+    "one book out of two takes ITS OWN three pages, not the shelf's six",
+    JSON.stringify(shelf.readerPages));
+  check(shelf.shelfBooks.join() === "ZZ Grim Tome Two"
+    && shelf.shelfPages.join() === "ZZ Grim Page B1,ZZ Grim Page B2,ZZ Grim Page B3",
+    "the book left behind keeps its library", JSON.stringify(shelf.shelfPages));
+  check(shelf.readerPages.length <= 3,
+    "and the receiving book is not over its own page cap",
+    `${shelf.readerPages.length} of 3`);
+  // Alphabetically "Page" sorts BEFORE "Tome", so an ungrouped list puts all
+  // three pages above the book. Grouped, the book leads and its pages follow it
+  // contiguously — the differential is the sort order itself.
+  const { book: bookRow, pages: pageRows } = shelf.order;
+  check(bookRow >= 0 && pageRows.every((p, n) => p === bookRow + 1 + n),
+    "a pile groups the pages under the book they belong to",
+    `book at ${bookRow}, pages at ${pageRows.join(",")}`);
+
+  /* ------------------------- 10c. the unkeyed legacy page, both ways round -- */
+  // A page bound before `boundTo` existed names no book. With ONE book on the
+  // actor there is only one answer and it travels, exactly as it did before
+  // this fix; with TWO there is no answer in the data, so it stays put — which
+  // is recoverable, where leaving with the wrong book is not.
+  const legacy = await gm.evaluate(async ({ shelfId, readerId }) => {
+    const sh = game.actors.get(shelfId);   // holds Tome Two + its 3 keyed pages
+    const reader = game.actors.get(readerId);
+    await sh.createEmbeddedDocuments("Item", [
+      // No boundTo, ever set — the legacy shape, not a cleared field.
+      { name: "ZZ Grim Page Legacy", type: "spellbook",
+        system: { bound: true, description: "<p>old</p>" } },
+      { name: "ZZ Grim Tome Three", type: "item",
+        system: { grimoire: true, grimoirePages: 3, bulky: true } },
+    ]);
+    const three = sh.items.find((i) => i.name === "ZZ Grim Tome Three");
+    // TWO books present: the unkeyed page belongs to neither nameably.
+    const pc2 = await CONFIG.Actor.documentClass.create({
+      name: "ZZ Grim Reader Two", type: "character" });
+    await pc2.sheet.render(true);
+    await pc2.sheet._onDropItem({ preventDefault: () => {}, target: pc2.sheet.element }, three);
+    const afterAmbiguous = {
+      took: pc2.items.filter((i) => i.system?.bound).map((i) => i.name),
+      left: sh.items.some((i) => i.name === "ZZ Grim Page Legacy"),
+    };
+    // Now ONE book remains (Tome Two) — the unkeyed page is unambiguous again.
+    const two = sh.items.find((i) => i.name === "ZZ Grim Tome Two");
+    const pc3 = await CONFIG.Actor.documentClass.create({
+      name: "ZZ Grim Reader Three", type: "character" });
+    await pc3.sheet.render(true);
+    await pc3.sheet._onDropItem({ preventDefault: () => {}, target: pc3.sheet.element }, two);
+    return {
+      afterAmbiguous,
+      soleTook: pc3.items.filter((i) => i.system?.bound).map((i) => i.name).sort(),
+      ids: [pc2.id, pc3.id],
+      readerUntouched: reader.items.filter((i) => i.system?.bound).length,
+    };
+  }, shelfFx);
+  cleanup.actorIds.push(...legacy.ids);
+  check(legacy.afterAmbiguous.took.length === 0 && legacy.afterAmbiguous.left,
+    "an unkeyed page on a TWO-book shelf travels with neither, and stays",
+    JSON.stringify(legacy.afterAmbiguous));
+  check(legacy.soleTook.join() === "ZZ Grim Page B1,ZZ Grim Page B2,ZZ Grim Page B3,ZZ Grim Page Legacy",
+    "with ONE book left it is unambiguous again, and travels", JSON.stringify(legacy.soleTook));
+  check(legacy.readerUntouched === 3,
+    "and nothing reached across to the first reader's library", String(legacy.readerUntouched));
+
+  /* -------------------------------------- 10d. a scroll casts with NO book -- */
   // The hack's rule: a scroll works exactly like a recorded spell, destroyed
   // after its single use. Gated on enable-glog-magic, which the probe SHADOWS
   // in-page — flipping the real setting would convert the dev world.
@@ -702,6 +868,98 @@ try {
   } finally {
     await alicePage.close();
   }
+
+  /* --------------------------- 12. the stamp migration, across a reload ---- */
+  // Legacy shape planted the only way it can be: `boundTo` is never written
+  // (a page created without it), and the book's key is CLEARED after creation,
+  // because _preCreate mints one for every route that makes a book. Then the
+  // marker is dropped and the world reloaded, so the real ready-hook phase runs
+  // exactly as it does for a Warden opening their world after the update.
+  const legacyFx = await gm.evaluate(async () => {
+    const shelf = await CONFIG.Actor.documentClass.create({
+      name: "ZZ Grim Old Shelf", type: "npc",
+      system: { role: "container", containerClass: "pile", slots: 20 },
+    });
+    const solo = await CONFIG.Actor.documentClass.create({
+      name: "ZZ Grim Old Solo", type: "character" });
+    // TWO books and three unkeyed pages: nothing in the data says which book
+    // any of them is in, so the migration must match NONE of them. It is worth
+    // knowing why there is no positional answer — this fixture is planted in a
+    // deliberate order and comes back from the reload in a different one, which
+    // is what killed the first draft's "nearest preceding book" rule.
+    await shelf.createEmbeddedDocuments("Item", [
+      { name: "ZZ Grim Old Stray", type: "spellbook", system: { bound: true } },
+      { name: "ZZ Grim Old One", type: "item", system: { grimoire: true, bulky: true } },
+      { name: "ZZ Grim Old P1", type: "spellbook", system: { bound: true } },
+      { name: "ZZ Grim Old Two", type: "item", system: { grimoire: true, bulky: true } },
+      { name: "ZZ Grim Old P2", type: "spellbook", system: { bound: true } },
+    ]);
+    // The single-book case, where ORDER MUST BE IGNORED: the page was
+    // transmuted from a scroll the character already had, so it precedes the
+    // book — the ordinary case, and a positional rule would miss exactly it.
+    await solo.createEmbeddedDocuments("Item", [
+      { name: "ZZ Grim Old Early", type: "spellbook", system: { bound: true } },
+      { name: "ZZ Grim Old Book", type: "item", system: { grimoire: true, bulky: true } },
+    ]);
+    const strip = async (actor) => actor.updateEmbeddedDocuments("Item",
+      actor.items.filter((i) => i.system?.grimoire)
+        .map((i) => ({ _id: i.id, "system.grimoireKey": "" })));
+    await strip(shelf);
+    await strip(solo);
+    const state = (a) => a.items.map((i) => ({
+      n: i.name, key: i.system.grimoireKey ?? null, to: i.system.boundTo ?? null }));
+    await game.settings.set(game.system.id, "grimoire-keys-stamped", false);
+    return { shelfId: shelf.id, soloId: solo.id, shelf: state(shelf), solo: state(solo) };
+  });
+  cleanup.actorIds.push(legacyFx.shelfId, legacyFx.soloId);
+  const preStamped = [...legacyFx.shelf, ...legacyFx.solo]
+    .filter((i) => i.key || i.to).length;
+  check(preStamped === 0, "the legacy fixtures really are unkeyed before the reload",
+    `${preStamped} already stamped`);
+
+  console.log("  note  reloading, so the ready-hook migration runs for real");
+  const migrationLog = [];
+  const migrationWarn = [];
+  gm.on("console", (m) => {
+    if (/grimoire keys: /.test(m.text())) migrationLog.push(m.text());
+    if (/bound pages sitting with SEVERAL/.test(m.text())) migrationWarn.push(m.text());
+  });
+  await gm.reload({ waitUntil: "networkidle", timeout: 60000 });
+  await gm.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
+  await dismissChrome(gm);
+  // The migrations are awaited phases inside the ready hook, not part of
+  // `ready` itself, so game.ready can be true a beat before they have written.
+  await gm.waitForTimeout(3000);
+
+  const stamped = await gm.evaluate(({ shelfId, soloId }) => {
+    const read = (id) => {
+      const a = game.actors.get(id);
+      const m = {};
+      for (const i of a.items) m[i.name] = i.system.grimoire
+        ? { key: i.system.grimoireKey } : { to: i.system.boundTo };
+      return m;
+    };
+    return { shelf: read(shelfId), solo: read(soloId),
+      marker: game.settings.get(game.system.id, "grimoire-keys-stamped") };
+  }, legacyFx);
+  const sh = stamped.shelf;
+  check(!!sh["ZZ Grim Old One"].key && !!sh["ZZ Grim Old Two"].key
+    && sh["ZZ Grim Old One"].key !== sh["ZZ Grim Old Two"].key,
+    "every legacy book came out with its own key");
+  check(["ZZ Grim Old Stray", "ZZ Grim Old P1", "ZZ Grim Old P2"]
+    .every((n) => sh[n].to === ""),
+    "on a TWO-book shelf no page is matched — the data does not say which book",
+    JSON.stringify(sh));
+  check(migrationWarn.length > 0 && migrationWarn[0].includes("ZZ Grim Old Shelf"),
+    "and the shelf is NAMED in the log, so a Warden can find what to sort out",
+    migrationWarn[0] ?? "nothing warned");
+  check(stamped.solo["ZZ Grim Old Early"].to === stamped.solo["ZZ Grim Old Book"].key
+    && !!stamped.solo["ZZ Grim Old Book"].key,
+    "a page BEFORE the only book is still matched — one book, one answer",
+    JSON.stringify(stamped.solo));
+  check(migrationLog.length > 0, "the migration named itself as the writer",
+    migrationLog[0] ?? "nothing logged — something else wrote the keys");
+  check(stamped.marker === true, "and the marker is set, so it does not run again");
 
   check(gmErrors.length === 0, "zero console errors on the GM client", gmErrors[0] ?? "");
 } finally {
