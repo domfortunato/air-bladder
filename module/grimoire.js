@@ -365,7 +365,16 @@ export const castFromGrimoire = async (actor) => {
           dice: Number(button.form?.elements?.dice?.value) || 1,
         }),
       },
-      { action: "cancel", label: L("CAIRN.Cancel"), callback: () => null },
+      // `false`, never `null`: DialogV2 resolves a button as
+      // `(await callback(...)) ?? button.action` (dialog.mjs:273), so `null` is
+      // indistinguishable from NO callback and falls through to the string
+      // "cancel" — truthy at every call site. The kettlewright-import options
+      // dialog was fixed for this in review #9 and the same line was written
+      // three more times afterwards; `false` survives the `??` and reads as the
+      // refusal it is. Here the damage was masked ("cancel".pageId is
+      // undefined, so the guard below bailed by accident), which is exactly how
+      // it survived to be copied into castScroll, where it was not masked.
+      { action: "cancel", label: L("CAIRN.Cancel"), callback: () => false },
     ],
     rejectClose: false,
   });
@@ -426,7 +435,15 @@ export const castScroll = async (actor, scroll) => {
         action: "cast", label: L("CAIRN.GrimoireCast"), icon: "fas fa-hand-sparkles", default: true,
         callback: (_ev, button) => Number(button.form?.elements?.dice?.value) || 1,
       },
-      { action: "cancel", label: L("CAIRN.Cancel"), callback: () => null },
+      // `false`, never `null` — see castFromGrimoire above for why. THIS is the
+      // site where it bit: `picked` is read as the dice count with no shape
+      // test, so Cancel resolved "cancel", passed the guard below, and reached
+      // `new Roll("canceld6")` — which throws `Unresolved StringTerm` into an
+      // action handler core never awaits, so the player saw a dialog close and
+      // nothing else, with the error only in their console. The scroll's charge
+      // survived by the ordering below (the spend follows the card), not by any
+      // guard.
+      { action: "cancel", label: L("CAIRN.Cancel"), callback: () => false },
     ],
     rejectClose: false,
   });

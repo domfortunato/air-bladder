@@ -3929,8 +3929,27 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // for the unkeyed legacy case too — resolved above, while the book was
     // still on its shelf.
     if (travellingPages.length) {
+      // RE-STAMPED from the book that actually arrived, never from the copied
+      // value. `_preCreate` re-mints `grimoireKey` when the arriving book wears
+      // one a book on THIS actor already has (item.js), and the pages were
+      // resolved off the source before that happened — so a verbatim
+      // `toObject()` hands them over naming the old key, and the pre-existing
+      // book claims them. That is issue #17's exact symptom, produced by the
+      // code that closed it: a keyed book duplicated with its ACTOR (embedded
+      // items skip `_preCreate` entirely, client-backend.mjs:80-110) gives two
+      // books one key, and moving one onto the other put four pages under a
+      // cap-3 book while the arriving book stood empty.
+      //
+      // Only when the arrival HAS a key: an unkeyed legacy book leaves its
+      // pages unkeyed too, which is what `pagesOfGrimoire`'s one-book fallback
+      // still reads.
+      const arrivedKey = created?.system?.grimoireKey ?? "";
       await this.actor.createEmbeddedDocuments("Item",
-        travellingPages.map((p) => p.toObject()));
+        travellingPages.map((p) => {
+          const data = p.toObject();
+          if (arrivedKey) data.system.boundTo = arrivedKey;
+          return data;
+        }));
       await originalActor.deleteEmbeddedDocuments("Item",
         travellingPages.map((p) => p.id));
     }

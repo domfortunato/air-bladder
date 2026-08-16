@@ -113,7 +113,13 @@ export const reseedSpellTable = async () => {
           packId: button.form?.elements?.pack?.value,
         }),
       },
-      { action: "cancel", label: L("CAIRN.Cancel"), callback: () => null },
+      // `false`, never `null`: DialogV2 resolves a button as
+      // `(await callback(...)) ?? button.action` (dialog.mjs:273), so `null`
+      // falls through to the string "cancel". The guard below happened to
+      // survive it — `"cancel".tableId` is undefined — but that is a property
+      // read on a string, not a defence, and the comment beside it was stating
+      // a true outcome for the wrong reason. Review #9's kettlewright fix.
+      { action: "cancel", label: L("CAIRN.Cancel"), callback: () => false },
     ],
     rejectClose: false,
   });

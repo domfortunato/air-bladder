@@ -63,6 +63,12 @@
  *      own sheet groups each page under the book it belongs to.
  *  10c. The unkeyed legacy page, both ways round: ambiguous on a two-book
  *      shelf, so it stays; unambiguous when one book remains, so it travels.
+ *  10d. A DUPLICATED actor's book (review #15): duplicating an actor copies its
+ *      book's key, so moving that copy back makes `_preCreate` re-mint the
+ *      arrival — and the pages must be re-stamped from the book that actually
+ *      landed, or the pre-existing book claims them all over again.
+ *  10e. The scroll cast, including CANCEL: the dialog's Cancel resolves null
+ *      rather than its own action string, posts no card and spends no charge.
  *  11. Alice casts from her own character end-to-end: public card + whisper
  *      addressed to Alice, not the GM.
  *  12. The stamp migration, across a real RELOAD: books written before
@@ -723,7 +729,70 @@ try {
   check(legacy.readerUntouched === 3,
     "and nothing reached across to the first reader's library", String(legacy.readerUntouched));
 
-  /* -------------------------------------- 10d. a scroll casts with NO book -- */
+  /* --------------------- 10d. a DUPLICATED actor's book, and its key clash -- */
+  // Review #15. `grimoireKey` is minted in `_preCreate`, which the client runs
+  // for the operation's TOP-LEVEL documents only (client-backend.mjs:80-110) —
+  // so duplicating an ACTOR copies its book's key verbatim and two books end up
+  // wearing one. Moving one onto the other then makes `_preCreate` re-mint the
+  // ARRIVAL, while the pages were resolved off the source still naming the old
+  // key: the pre-existing book claims them, four under a cap of three, and the
+  // book that owns them lands empty. Issue #17's symptom, produced by the code
+  // that closed it. On a PILE because a character can never hold the colliding
+  // pair — the one-book wall guarantees it.
+  const dup = await gm.evaluate(async () => {
+    const pileA = await CONFIG.Actor.documentClass.create({
+      name: "ZZ Grim Dup A", type: "npc",
+      system: { role: "container", containerClass: "pile", slots: 20 },
+    });
+    // Through createEmbeddedDocuments, the way a Reliquary drag makes one, so
+    // `_preCreate` runs and the book is properly KEYED. (A book riding inside
+    // the Actor.create payload skips it and gets no key at all — a different
+    // gap, and not the one this leg is about.)
+    await pileA.createEmbeddedDocuments("Item", [
+      { name: "ZZ Grim Dup Tome", type: "item",
+        system: { grimoire: true, grimoirePages: 3, bulky: true } },
+    ]);
+    const bookA = pileA.items.find((i) => i.system?.grimoire);
+    await pileA.createEmbeddedDocuments("Item", [
+      { name: "ZZ Grim Dup Page One", type: "spellbook",
+        system: { bound: true, boundTo: bookA.system.grimoireKey, description: "<p>1</p>" } },
+      { name: "ZZ Grim Dup Page Two", type: "spellbook",
+        system: { bound: true, boundTo: bookA.system.grimoireKey, description: "<p>2</p>" } },
+    ]);
+    // The Actor Directory's own Duplicate action: clone(..., {save: true}).
+    const pileB = await pileA.clone({ name: "ZZ Grim Dup B" }, { save: true });
+    const bookB = pileB.items.find((i) => i.system?.grimoire);
+    const keyB = bookB.system.grimoireKey;
+    const keysCollide = !!keyB && bookA.system.grimoireKey === keyB;
+
+    await pileA.sheet.render(true);
+    const moved = await pileA.sheet._onDropItem(
+      { preventDefault: () => {}, target: pileA.sheet.element }, bookB);
+
+    const grim = await import(`/systems/${game.system.id}/module/grimoire.js`);
+    const arrived = pileA.items.find((i) => i.system?.grimoire && i.id !== bookA.id);
+    return {
+      ids: [pileA.id, pileB.id],
+      keysCollide, moved: !!moved,
+      reminted: !!arrived && arrived.system.grimoireKey !== keyB,
+      underOld: grim.pagesOfGrimoire(pileA, bookA).map((p) => p.name).sort(),
+      underArrived: arrived
+        ? grim.pagesOfGrimoire(pileA, arrived).map((p) => p.name).sort() : [],
+      cap: bookA.system.grimoirePages,
+    };
+  });
+  cleanup.actorIds.push(...dup.ids);
+  check(dup.keysCollide,
+    "duplicating an ACTOR copies its book's key — the collision is real");
+  check(dup.moved && dup.reminted,
+    "and _preCreate re-mints the arriving book on that clash");
+  check(dup.underOld.length === 2 && dup.underArrived.length === 2,
+    "each book keeps its OWN two pages across the re-mint",
+    `old ${JSON.stringify(dup.underOld)}, arrived ${JSON.stringify(dup.underArrived)}`);
+  check(dup.underOld.length <= dup.cap && dup.underArrived.length <= dup.cap,
+    "and neither book is pushed past its page cap", `cap ${dup.cap}`);
+
+  /* -------------------------------------- 10e. a scroll casts with NO book -- */
   // The hack's rule: a scroll works exactly like a recorded spell, destroyed
   // after its single use. Gated on enable-glog-magic, which the probe SHADOWS
   // in-page — flipping the real setting would convert the dev world.
@@ -767,6 +836,68 @@ try {
   }, scrollFx.id);
   check(offState?.probed && !offState.solo && !offState.used,
     "setting shadowed OFF: no scroll row offers Cast (the gate's differential)");
+
+  // Cancel really cancels (review #15). DialogV2 resolves a button as
+  // `(await callback(...)) ?? button.action` (dialog.mjs:273), so a callback
+  // returning `null` is indistinguishable from NO callback and falls through to
+  // the STRING "cancel" — truthy, past `if (!picked)`, into
+  // `new Roll("canceld6")`, which throws `Unresolved StringTerm` into an action
+  // handler core never awaits. The player saw the dialog close and nothing at
+  // all; the error reached only their console. Run BEFORE the cast leg below,
+  // while the scroll is still unspent, so "it kept its charge" is an assertion
+  // rather than a tautology about an already-spent scroll.
+  const cancelRun = await gm.evaluate(async (id) => {
+    const { castScroll } = await import(`/systems/${game.system.id}/module/grimoire.js`);
+    const a = game.actors.get(id);
+    const origGet = game.settings.get;
+    const ns = game.system.id;
+    game.settings.get = function (scope, key, ...rest) {
+      if (scope === ns && key === "enable-glog-magic") return true;
+      return origGet.call(this, scope, key, ...rest);
+    };
+    try {
+      const solo = a.items.find((x) => x.name === "ZZ Scroll Solo");
+      const usesBefore = solo.system.uses.value;
+      const msgsBefore = game.messages.size;
+      let resolved = "NEVER SETTLED", threw = null;
+      const p = castScroll(a, solo).then(
+        (v) => { resolved = v; },
+        (e) => { threw = String(e?.message ?? e); });
+      let clicked = false;
+      for (let t = 0; t < 40; t++) {
+        const dlg = [...foundry.applications.instances.values()]
+          .find((x) => x.constructor.name === "DialogV2"
+            && x.element?.querySelector('select[name="dice"]')
+            && !x.element?.querySelector('select[name="page"]'));
+        if (dlg) {
+          dlg.element.querySelector('[data-action="cancel"]').click();
+          clicked = true;
+          break;
+        }
+        await new Promise((r) => setTimeout(r, 150));
+      }
+      await p;
+      await new Promise((r) => setTimeout(r, 300));
+      return {
+        clicked, resolved, threw, usesBefore,
+        usesAfter: solo.system.uses.value,
+        newMessages: game.messages.size - msgsBefore,
+      };
+    } finally { game.settings.get = origGet; }
+  }, scrollFx.id);
+  check(cancelRun.clicked, "the scroll cast dialog offers a Cancel button to press");
+  check(cancelRun.threw === null,
+    "Cancel throws nothing", cancelRun.threw ?? "");
+  check(cancelRun.resolved === null,
+    "and resolves null, not the button's own action string",
+    JSON.stringify(cancelRun.resolved));
+  // NOT a witness for the fix above, and the control says so: with `() => null`
+  // restored, the two legs above red and this one stays green, because the
+  // spend follows the card and the throw lands in between. It guards the
+  // ORDERING instead — a future reorder that spent first would red it.
+  check(cancelRun.newMessages === 0 && cancelRun.usesAfter === cancelRun.usesBefore,
+    "no card posted, and the scroll keeps its charge",
+    `${cancelRun.newMessages} message(s), uses ${cancelRun.usesBefore} -> ${cancelRun.usesAfter}`);
 
   const scrollCastRun = await gm.evaluate(async ({ id, seq }) => {
     const { castScroll } = await import(`/systems/${game.system.id}/module/grimoire.js`);
