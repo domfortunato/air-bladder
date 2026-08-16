@@ -422,14 +422,14 @@ const r = await page.evaluate(async ({ xssName }) => {
     && /\(|\[/.test(tx.replace(/^[^—]*— /, "")));
   out.pageNotBookPrefixed = !bodyOne.includes(`${bookP}Anthem`)
     && !bodyOne.includes(`${bookP}Zephyr`);
-  // The compatibility badge, top right (user ask 2026-08-16). The SHIPPED
-  // file, unmodified: the src must be the logo/ path, and the rendered box
-  // must keep the badge's own 750x600 aspect — logo/README.md forbids
+  // The "For Use With Cairn" stamp, top right (user ask 2026-08-16). The
+  // SHIPPED file, unmodified: the src must be the logo/ path, and the rendered
+  // box must keep the stamp's own 338x218 aspect — logo/README.md forbids
   // recolouring or cropping it, and a squashed render is a crop.
   const badge = doc?.querySelector("header.pc img.compat");
   out.badgeSrc = badge?.getAttribute("src") ?? null;
   out.badgeAspect = badge
-    ? Math.abs((badge.clientWidth / badge.clientHeight) - (750 / 600)) < 0.02 : null;
+    ? Math.abs((badge.clientWidth / badge.clientHeight) - (338 / 218)) < 0.02 : null;
   // The badge must not be what SETS the header's height, or it buys the empty
   // corner at pagination's expense. Measured against the two things that were
   // already there rather than against a number: the header is as tall as its
@@ -872,7 +872,7 @@ check("a page wears the page prefix, never the book's", r.pageNotBookPrefixed);
 check("and carries neither the Petty note nor the grant tag", r.pageNoNotes,
   "both describe how the CARRIER got a thing; a page is the book's");
 check("the compatibility badge prints top right, unmodified",
-  (r.badgeSrc ?? "").includes("/logo/Cairn-2e-Compatible.png") && r.badgeAspect === true,
+  (r.badgeSrc ?? "").includes("/logo/Cairn_Stamp.jpg") && r.badgeAspect === true,
   `src=${r.badgeSrc} aspect-ok=${r.badgeAspect}`);
 check("and the badge is not what sets the header's height",
   r.header?.badge > 0 && r.header.badge <= Math.max(r.header.portrait, r.header.who),

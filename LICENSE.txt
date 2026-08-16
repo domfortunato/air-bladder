@@ -70,9 +70,11 @@ Spanish translation — CC BY-SA 4.0, © Malecho (https://github.com/fsmalecho)
     Castilian (es-ES) translation. As a derivative of the CC BY-SA game text it
     inherits that licence, ShareAlike included.
 
-"Compatible with Cairn 2e" badge — CC BY-SA 4.0, © Yochai Gal
+Cairn compatibility marks — CC BY-SA 4.0, © Yochai Gal
     logo/  — used per the terms at https://cairnrpg.com/resources/logos
-    Ship it unmodified; see logo/README.md.
+    The "For Use With Cairn" stamp the sheets display, and the older
+    "Compatible with Cairn 2e" badge it replaced. Ship them unmodified;
+    see logo/README.md.
 
 Air Bladder logo and monster art — © Lydia Comer. ALL RIGHTS RESERVED.
     art/lydia-comer/  — https://linktr.ee/lydiadidmyink

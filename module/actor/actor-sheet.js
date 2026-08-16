@@ -2196,7 +2196,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // footer credit that already prints on every page, which is why no
       // caption rides with it here (see logo/README.md — ship it unmodified).
       // Character pages only, matching the on-screen surface.
-      compatBadge: isChar ? abs(`systems/${game.system.id}/logo/Cairn-2e-Compatible.png`) : "",
+      compatBadge: isChar ? abs(`systems/${game.system.id}/logo/Cairn_Stamp.jpg`) : "",
       subtitle,
       // The source line prints only where it SAYS something (user ask
       // 2026-08-16). Canon 2e is dropped: the compatibility badge above it now
