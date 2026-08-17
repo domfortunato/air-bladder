@@ -23,7 +23,7 @@ export const SETTINGS_NS = "air-bladder";
 export const SETTING_KEYS = [
   // General
   "use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
-  "show-grant-tags-print",
+  "show-grant-tags-print", "show-omens",
   "use-warden-title", "change-log", "auto-record-scars", "enable-glog-magic",
   // Character Generation
   "content-source-2e", "content-source-custom", "content-source-barebones",
@@ -278,6 +278,42 @@ export const registerSettings = () => {
     type: Boolean,
     default: true,
     requiresReload: false,
+  });
+
+  // Cairn 2e hands the party's YOUNGEST member an omen; a table that does not
+  // use the rule had no way to get the field off the sheet (user ask
+  // 2026-08-17). Off hides the Omen checkbox and field on every character sheet
+  // AND drops the printed page's Omen section — ONE switch, both surfaces, by
+  // ruling: a field a Warden has hidden must not reappear on paper. That is
+  // deliberately NOT the show-grant-tags / show-grant-tags-print split, which
+  // exists because a grant tag is an annotation both surfaces legitimately
+  // show; switching omens off says the table does not use the rule at all.
+  // Stored omen TEXT is never touched and returns if this goes back on.
+  //
+  // NOT the return of `show-omens-barebones` (removed 2026-08-09, see the note
+  // below): that one LENT the 2e field to Barebones. This one WITHDRAWS it from
+  // 2e. Opposite direction, and a new key, so no world's orphaned row for the
+  // old one can be read as a value for this.
+  //
+  // General, not Character Generation: an omen is not generated —
+  // character-generator.js lands every new character with omenEnabled false —
+  // so this is a rules/display question and belongs beside use-panic, not among
+  // the parameters of the character being made. World-scoped and it applies to
+  // everyone including the Warden; it is a table preference, not a permission
+  // like allow-player-randomization.
+  //
+  // The sheet reads it in _prepareContext, so the fan is what makes "read live"
+  // true for a sheet already open (the review #13 rule rerenderActorSheets
+  // exists for) — hence no reload.
+  game.settings.register(SETTINGS_NS, "show-omens", {
+    name: "CAIRN.Settings.ShowOmens.label",
+    hint: "CAIRN.Settings.ShowOmens.hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+    requiresReload: false,
+    onChange: rerenderActorSheets,
   });
 
   // `show-features-section` was registered here and is GONE (2026-08-09, user

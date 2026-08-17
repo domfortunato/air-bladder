@@ -701,6 +701,10 @@
       "hint": "Print each granted item's Background / Bond / Question tag beside it, in italics and brackets.",
       "label": "Show grant-source tags on printed sheets"
     },
+    "ShowOmens": {
+      "hint": "Cairn 2e gives the party's youngest member an omen. Turn this off for a game that does not use them: the Omen checkbox and field leave every character sheet, and printed sheets drop their Omen section. Any omen already written is kept on the character and comes back if you switch this on again.",
+      "label": "Show omens on character sheets"
+    },
     "UseCairnDiceNotation": {
       "hint": "Interpret Cairn dice notation like 'd6+d6' as described in the rules.",
       "label": "Use Cairn dice notation: 'd6+d6' as keep highest"

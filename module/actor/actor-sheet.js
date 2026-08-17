@@ -1267,7 +1267,21 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // used to be able to lend it via show-omens-barebones; the lending was
     // removed 2026-08-09. A legacy Barebones character's stored omen text
     // survives on the document — only the field hides.)
-    context.showOmen = this.actor.system.contentSource !== "barebones";
+    //
+    // ...and since 2026-08-17 a Warden can switch the field off for 2e too
+    // (show-omens, default ON) — a table that does not use the youngest-member
+    // rule. Read live and fanned by the setting's onChange, so flipping it
+    // empties an OPEN sheet. Content source stays first: it is the structural
+    // answer, and Barebones hides the field whatever the switch says.
+    //
+    // Render-only, deliberately: #onRollOmen and the .omen-enable listener are
+    // NOT gated, because both are reachable only through DOM this context does
+    // not render, and render-only is the settled shape for a display toggle
+    // here (showFailedCareer, _mayRandomize). The affordance/enforcement split
+    // this repo insists on governs ACQUISITION — walking past a slot limit —
+    // not whether a field is drawn. Stored omen text is never cleared.
+    context.showOmen = this.actor.system.contentSource !== "barebones"
+      && game.settings.get(SETTINGS_NS, "show-omens");
     // The omen shows t("table.result", …) on BOTH surfaces — the read span and
     // the TEXTAREA — with the submit anchored back to the stored English in
     // _processFormData (2026-08-06, Malecho's second omen report). The textarea
@@ -2280,7 +2294,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // Bonds, the omen and scars are table text — through the overlay
       // (table.result), the same routing the sheet gives them.
       bonds: (sys.bonds ?? []).map((b) => t("table.result", String(b?.description ?? "").trim())).filter(Boolean),
-      omen: sys.omenEnabled ? t("table.result", String(sys.omen ?? "").trim()) : "",
+      // The Warden's show-omens switch reaches the PAPER too (ruling
+      // 2026-08-17: one switch, both surfaces — a field hidden on the sheet
+      // must not reappear in print). No template change needed: the section is
+      // `{{#if omen}}`, so an empty string drops it whole, heading included —
+      // the same empty-sections-are-OMITTED rule the disabled omen already
+      // rode.
+      omen: sys.omenEnabled && game.settings.get(SETTINGS_NS, "show-omens")
+        ? t("table.result", String(sys.omen ?? "").trim())
+        : "",
       scars: (sys.scars ?? []).map((s) => t("table.result", s)),
       notes: await enrich(sys.notes),
     };

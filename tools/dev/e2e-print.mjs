@@ -722,8 +722,12 @@ const r = await page.evaluate(async ({ xssName }) => {
       pc.sheet.element?.querySelector('[data-action="printSheet"]')?.click();
       for (let i = 0; i < 60 && !popup8?.document?.querySelector("footer.credits"); i++) await sleep(150);
       const text = (popup8?.document?.body?.innerText ?? "").replace(/\s+/g, " ");
+      // The HEADINGS as well as the text: an absent marker alone would pass on
+      // a section that still printed its heading over nothing, which is the
+      // placeholder behaviour this page's empty-sections rule forbids.
+      const headings = [...(popup8?.document?.querySelectorAll("h2") ?? [])].map((h) => h.textContent.trim());
       popup8?.close();
-      return text;
+      return { text, headings };
     } finally {
       game.settings.get = origGet2;
       window.open = origOpen;
@@ -732,9 +736,31 @@ const r = await page.evaluate(async ({ xssName }) => {
   };
   const wantTag = `Rations (3 uses) [${game.i18n.localize("CAIRN.GrantBackground")}]`;
   out.grantTagWanted = wantTag;
-  out.grantTagOn = (await printWithShadow({ "show-grant-tags-print": true })).includes(wantTag);
-  out.grantTagOff = !(await printWithShadow({ "show-grant-tags-print": false })).includes(wantTag);
-  out.grantTagInvOff = (await printWithShadow({ "show-grant-tags-print": true, "show-grant-tags": false })).includes(wantTag);
+  out.grantTagOn = (await printWithShadow({ "show-grant-tags-print": true })).text.includes(wantTag);
+  out.grantTagOff = !(await printWithShadow({ "show-grant-tags-print": false })).text.includes(wantTag);
+  out.grantTagInvOff = (await printWithShadow({ "show-grant-tags-print": true, "show-grant-tags": false }))
+    .text.includes(wantTag);
+
+  // The Warden's show-omens switch reaches the PAPER (ruling 2026-08-17: one
+  // switch, both surfaces — a field hidden on the sheet must not reappear in
+  // print). Same shadow, both directions, on a pc whose omen is ENABLED — pass
+  // 1's disabled-omen leg above covers the omenEnabled half and cannot say
+  // anything about this one, so the marker is its own string and the flag is
+  // put back afterwards for the passes that follow.
+  const omenMark = "ZZ OMEN SWITCH the wells answer back.";
+  const omenHead = game.i18n.localize("CAIRN.Omen");
+  await pc.update({ "system.omenEnabled": true, "system.omen": omenMark });
+  try {
+    const on = await printWithShadow({ "show-omens": true });
+    out.omenSwitchOn = on.text.includes(omenMark) && on.headings.includes(omenHead);
+    const off = await printWithShadow({ "show-omens": false });
+    out.omenSwitchOff = !off.text.includes(omenMark) && !off.headings.includes(omenHead);
+    out.omenSwitchOffHeadings = off.headings;
+  } finally {
+    await pc.update({ "system.omenEnabled": false, "system.omen": "ZZ OMEN MARKER laughter from the wells." });
+  }
+  // Hiding is not erasing — read off the document after the shadow is gone.
+  out.omenSwitchTextKept = pc.system.omen;
   await pc.sheet.close();
 
   // Fourth pass: the route prefix (review #13 #7). abs() used to resolve
@@ -1057,6 +1083,13 @@ check("the print switch turns them off", r.grantTagOff === true && r.grantTagOn 
   `off-hidden=${r.grantTagOff} (precondition on-shown=${r.grantTagOn}, or absence passes for the wrong reason)`);
 check("independent of the INVENTORY switch", r.grantTagInvOff === true && r.grantTagOn === true,
   `inv-off-still-shown=${r.grantTagInvOff} — items re-prepared under the shadow so system.grantLabel is EMPTY; only the ungated grantLabelRaw can print this tag`);
+
+check("an ENABLED omen prints, text and heading", r.omenSwitchOn === true,
+  "the precondition for the switch leg below — without it, an absent omen passes for the wrong reason");
+check("the show-omens switch drops the printed Omen section", r.omenSwitchOff === true && r.omenSwitchOn === true,
+  `off-hidden=${r.omenSwitchOff} (headings then: ${JSON.stringify(r.omenSwitchOffHeadings)}) — one switch covers the sheet AND the paper, and the heading must go with the text, never print over nothing`);
+check("the hidden omen's TEXT survives on the actor", r.omenSwitchTextKept?.length > 0,
+  `system.omen after the prints: "${r.omenSwitchTextKept}" — hiding is not erasing`);
 
 console.log("\nthe route prefix");
 check("a prefixed host keeps its portraits", (r.prefixedSrc ?? "").includes("/pfx-probe/systems/air-bladder/"),
