@@ -62,6 +62,21 @@ const PAGE_PINNED = {
 };
 
 /**
+ * Is an incoming update value an attempt to CLEAR the field rather than set it?
+ *
+ * Three spellings land in the same place and the guards below must catch all
+ * three: `""`, `null` (a StringField casts it back to blank), and v14's
+ * `ForcedDeletion` operator — deleting a schema field's key leaves it taking
+ * its blank initial. A guard testing only `=== ""` is walked past by the
+ * spelling the platform itself now recommends
+ * (common/data/operators.mjs:81, the replacement for `-=key: null`).
+ * @param {*} value
+ * @returns {boolean}
+ */
+const isClearing = (value) => !value
+  || (value instanceof foundry.data.operators.ForcedDeletion);
+
+/**
  * Extend the basic Item with some very simple modifications.
  * @extends {Item}
  */
@@ -248,6 +263,20 @@ export class CairnItem extends Item {
   async _preUpdate(changed, options, user) {
     const allowed = await super._preUpdate(changed, options, user);
     if (allowed === false) return false;
+
+    // A BOOK'S identity is as permanent as a page's binding below, and for a
+    // worse reason: clearing `grimoireKey` orphans every page naming it, and
+    // there is NO way back — `ensureGrimoireKey` mints a fresh key on next use
+    // rather than restoring the old one, so the pages stay pointed at a key no
+    // book wears. Stripped rather than refused, the scroll-pin precedent: the
+    // rest of the edit lands and the clearing silently does not. The sheet
+    // offers no control; only an API write can even try. (Review #15.)
+    if (this.type === "item" && this.system.grimoire && this.system.grimoireKey
+        && changed.system && "grimoireKey" in changed.system
+        && isClearing(changed.system.grimoireKey)) {
+      delete changed.system.grimoireKey;
+    }
+
     if (this.type !== "spellbook") return;
 
     // Binding is FOREVER (2026-08-09 ruling #12): a write clearing `bound` is
@@ -263,7 +292,8 @@ export class CairnItem extends Item {
     // into the state issue #17 was about — bound, with no book to name. Writing
     // one over a BLANK stays legal, because that is the transmute stamping a
     // page for the first time and the migration stamping a legacy one.
-    if (this.system.boundTo && changed.system?.boundTo === "") {
+    if (this.system.boundTo && changed.system && "boundTo" in changed.system
+        && isClearing(changed.system.boundTo)) {
       delete changed.system.boundTo;
     }
 

@@ -645,6 +645,42 @@ export class CairnActor extends Actor {
       }
       this.updateSource(changes);
     }
+
+    // A GRIMOIRE riding inside the CREATION PAYLOAD gets its identity here,
+    // because nothing else can give it one. `CairnItem._preCreate` mints
+    // `grimoireKey` for every route that creates an item as its own operation,
+    // but the client preCreates only the operation's TOP-LEVEL documents
+    // (client-backend.mjs:80-110) — an `Actor.create({items: [...]})` reaches
+    // neither it nor `_preCreateOperation`. Measured on review #15's fixture: a
+    // book made that way arrived with `grimoireKey: ""`, worked only through the
+    // one-book fallback, and detached every page the moment a second book joined
+    // the actor. Reached by an Adventure import, a module, a macro, or any
+    // builder that hands an actor its inventory in one call.
+    //
+    // NOT a schema-level `initial`, which is where the ART seam for this exact
+    // gap lives (`CairnItem.getDefaultArtwork`) and is the obvious place to
+    // reach for. That works for `img` because the value is DERIVED and stable:
+    // `clean()` falls back to a field's initial whenever the stored value is
+    // undefined (common/data/fields.mjs:237) and `_initializeSource` cleans on
+    // EVERY construction (common/abstract/data.mjs:280-285), so a RANDOM initial
+    // would hand a different key to every load of any document written before
+    // the field existed — the shipped Reliquary book included, since its pack
+    // YAML states none. An identity must be minted once and stored.
+    //
+    // Only a MISSING key is filled. A key already present is a copy of a real
+    // book — actor duplication — and keeping it is right: every page lookup is
+    // within one actor, and moving one of the pair onto the other re-mints at
+    // the item seam (probe leg 10d).
+    const payload = this._source.items;
+    if (Array.isArray(payload) && payload.length) {
+      let minted = 0;
+      const items = payload.map((i) => {
+        if (i?.type !== "item" || !i.system?.grimoire || i.system.grimoireKey) return i;
+        minted += 1;
+        return { ...i, system: { ...i.system, grimoireKey: foundry.utils.randomID() } };
+      });
+      if (minted) this.updateSource({ items });
+    }
   }
 
   /**

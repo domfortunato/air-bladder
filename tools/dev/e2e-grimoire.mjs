@@ -28,7 +28,9 @@
  *      out a PAGE: scroll off, uses cleared. Before any page exists the book
  *      row has no Cast control; after the first it does.
  *   3. Bound is forever: a direct un-bind write is stripped, a hostile write
- *      (bound off, weightless off) leaves both pinned.
+ *      (bound off, weightless off) leaves both pinned. A BOOK's identity is
+ *      just as permanent — a write clearing `grimoireKey` is stripped while
+ *      the rest of that same write lands (review #15).
  *   4. The one-book wall, BOTH layers independently: the drop handler returns
  *      null (affordance), and a bare createEmbeddedDocuments is refused by
  *      _preCreate (enforcement). An npc PILE takes two books happily — the
@@ -67,7 +69,11 @@
  *      book's key, so moving that copy back makes `_preCreate` re-mint the
  *      arrival — and the pages must be re-stamped from the book that actually
  *      landed, or the pre-existing book claims them all over again.
- *  10e. The scroll cast, including CANCEL: the dialog's Cancel resolves null
+ *  10e. The same mechanism's other half: a book riding inside an
+ *      `Actor.create` PAYLOAD reaches no item-level create seam at all, so it
+ *      is keyed on the actor side — and its page stays its own when a second
+ *      book joins the shelf, which an unkeyed book could not manage.
+ *  10f. The scroll cast, including CANCEL: the dialog's Cancel resolves null
  *      rather than its own action string, posts no card and spends no charge.
  *  11. Alice casts from her own character end-to-end: public card + whisper
  *      addressed to Alice, not the GM.
@@ -261,15 +267,39 @@ try {
 
   /* --------------------------------------------------- 3. bound is forever */
   const pinned = await gm.evaluate(async (id) => {
-    const it = game.actors.get(id).items.find((i) => i.name === "ZZ Spell Alpha");
+    const actor = game.actors.get(id);
+    const it = actor.items.find((i) => i.name === "ZZ Spell Alpha");
     await it.update({ "system.bound": false });
     const afterUnbind = it.system.bound;
     await it.update({ system: { bound: false, weightless: false, equipped: true } });
-    return { afterUnbind, bound: it.system.bound, weightless: it.system.weightless, equipped: it.system.equipped };
+    // And the BOOK's half of the same rule (review #15). Alpha is bound to this
+    // key by now (leg 2), so a cleared key would orphan a real page — and
+    // unrecoverably, since ensureGrimoireKey mints a FRESH one on next use
+    // rather than restoring what was lost. The name edit rides along to prove
+    // the write is STRIPPED rather than refused: the rest of it must land.
+    const book = actor.items.find((i) => i.name === "ZZ Grim Tome");
+    const keyBefore = book.system.grimoireKey;
+    await book.update({ name: "ZZ Grim Tome II", "system.grimoireKey": "" });
+    const grim = await import(`/systems/${game.system.id}/module/grimoire.js`);
+    const stillHeld = grim.pagesOfGrimoire(actor, book).map((p) => p.name);
+    // Read the rename BEFORE putting the name back, or the assertion below is
+    // one that cannot fail — it would be checking the restore, not the write.
+    const renamed = book.name === "ZZ Grim Tome II";
+    await book.update({ name: "ZZ Grim Tome" });
+    return {
+      afterUnbind, bound: it.system.bound, weightless: it.system.weightless,
+      equipped: it.system.equipped,
+      keyKept: !!keyBefore && book.system.grimoireKey === keyBefore,
+      renamed, stillHeld,
+    };
   }, fx.casterId);
   check(pinned.afterUnbind === true, "a direct un-bind write is stripped");
   check(pinned.bound === true && pinned.weightless === true && pinned.equipped === false,
     "a hostile write leaves every pin in place", JSON.stringify(pinned));
+  check(pinned.keyKept, "a write CLEARING a book's grimoireKey is stripped too");
+  check(pinned.renamed && pinned.stillHeld.length > 0,
+    "and only that half: the same write's rename landed, pages still held",
+    JSON.stringify(pinned.stillHeld));
 
   /* -------------------------------------------------- 4. the one-book wall */
   const wall = await gm.evaluate(async ({ casterId, pileId }) => {
@@ -792,7 +822,56 @@ try {
   check(dup.underOld.length <= dup.cap && dup.underArrived.length <= dup.cap,
     "and neither book is pushed past its page cap", `cap ${dup.cap}`);
 
-  /* -------------------------------------- 10e. a scroll casts with NO book -- */
+  /* -------------------- 10e. a book riding inside the CREATION PAYLOAD -- */
+  // The other half of 10d's mechanism (review #15). Items handed to
+  // `Actor.create` reach neither `CairnItem._preCreate` nor
+  // `_preCreateOperation`, so before the fix a book made this way came back
+  // `grimoireKey: ""` — measured, and it is what the fixture for 10d did by
+  // accident. An unkeyed book works only through the one-book fallback and
+  // detaches every page the moment a second book joins the actor, which is
+  // asserted here rather than argued: the second book is added the ordinary
+  // way and the first must keep its page.
+  const payload = await gm.evaluate(async () => {
+    const pile = await CONFIG.Actor.documentClass.create({
+      name: "ZZ Grim Payload", type: "npc",
+      system: { role: "container", containerClass: "pile", slots: 20 },
+      items: [
+        { name: "ZZ Grim Payload Tome", type: "item",
+          system: { grimoire: true, grimoirePages: 3, bulky: true } },
+      ],
+    });
+    const book = pile.items.find((i) => i.system?.grimoire);
+    const key = book.system.grimoireKey;
+    await pile.createEmbeddedDocuments("Item", [
+      { name: "ZZ Grim Payload Page", type: "spellbook",
+        system: { bound: true, boundTo: key, description: "<p>p</p>" } },
+      // A SECOND book, the ordinary way. With the first one keyed this changes
+      // nothing; unkeyed, it is what took the page away.
+      { name: "ZZ Grim Payload Tome Two", type: "item",
+        system: { grimoire: true, grimoirePages: 3, bulky: true } },
+    ]);
+    const grim = await import(`/systems/${game.system.id}/module/grimoire.js`);
+    const second = pile.items.find((i) => i.system?.grimoire && i.id !== book.id);
+    return {
+      id: pile.id, key,
+      held: grim.pagesOfGrimoire(pile, book).map((p) => p.name),
+      otherHeld: grim.pagesOfGrimoire(pile, second).map((p) => p.name),
+      // BOTH non-empty, not merely different: with the fix defeated the first
+      // key is "" and any real key differs from it, so a bare inequality is a
+      // leg that stays green through the very defect the leg above catches.
+      distinct: !!second && !!key && !!second.system.grimoireKey
+        && second.system.grimoireKey !== key,
+    };
+  });
+  cleanup.actorIds.push(payload.id);
+  check(!!payload.key,
+    "a book created INSIDE an Actor.create payload is keyed", payload.key || "empty");
+  check(payload.distinct, "and the next book on the shelf gets a different key");
+  check(payload.held.length === 1 && payload.otherHeld.length === 0,
+    "so its page stays its own once a second book joins the shelf",
+    `first ${JSON.stringify(payload.held)}, second ${JSON.stringify(payload.otherHeld)}`);
+
+  /* -------------------------------------- 10f. a scroll casts with NO book -- */
   // The hack's rule: a scroll works exactly like a recorded spell, destroyed
   // after its single use. Gated on enable-glog-magic, which the probe SHADOWS
   // in-page — flipping the real setting would convert the dev world.
@@ -1002,10 +1081,20 @@ try {
 
   /* --------------------------- 12. the stamp migration, across a reload ---- */
   // Legacy shape planted the only way it can be: `boundTo` is never written
-  // (a page created without it), and the book's key is CLEARED after creation,
-  // because _preCreate mints one for every route that makes a book. Then the
-  // marker is dropped and the world reloaded, so the real ready-hook phase runs
-  // exactly as it does for a Warden opening their world after the update.
+  // (a page created without it), and the book's key is stripped after creation,
+  // because every create route mints one. Then the marker is dropped and the
+  // world reloaded, so the real ready-hook phase runs exactly as it does for a
+  // Warden opening their world after the update.
+  //
+  // THE STRIP GOES THROUGH THE RAW SOCKET (review #15), and the reason is the
+  // point of the fix it now sits behind: `_preUpdate` strips a write clearing
+  // `grimoireKey`, so the document layer can no longer produce this shape at
+  // all — which is exactly what a legacy book IS, a record written before the
+  // field existed rather than one somebody cleared. The precondition check
+  // below caught the change the moment the guard landed; it reported "3 already
+  // stamped" and the migration then had nothing to do while every leg after it
+  // still passed on keys minted at CREATE. A fixture that quietly stops being
+  // the thing under test is the failure mode this leg's precondition exists for.
   const legacyFx = await gm.evaluate(async () => {
     const shelf = await CONFIG.Actor.documentClass.create({
       name: "ZZ Grim Old Shelf", type: "npc",
@@ -1032,21 +1121,51 @@ try {
       { name: "ZZ Grim Old Early", type: "spellbook", system: { bound: true } },
       { name: "ZZ Grim Old Book", type: "item", system: { grimoire: true, bulky: true } },
     ]);
-    const strip = async (actor) => actor.updateEmbeddedDocuments("Item",
-      actor.items.filter((i) => i.system?.grimoire)
-        .map((i) => ({ _id: i.id, "system.grimoireKey": "" })));
+    const strip = async (actor) => foundry.helpers.SocketInterface.dispatch("modifyDocument", {
+      type: "Item", action: "update",
+      operation: {
+        parentUuid: actor.uuid,
+        updates: actor.items.filter((i) => i.system?.grimoire)
+          .map((i) => ({ _id: i.id, system: { grimoireKey: "" } })),
+        diff: false,
+      },
+    });
     await strip(shelf);
     await strip(solo);
-    const state = (a) => a.items.map((i) => ({
-      n: i.name, key: i.system.grimoireKey ?? null, to: i.system.boundTo ?? null }));
+    // And READ raw as well, for the same reason. A manual dispatch is not the
+    // backend's own path, so nothing applies the response to THIS client — the
+    // local documents still hold the key that was minted at create, and a
+    // precondition read off them reports the fixture unplanted when the
+    // database says otherwise. The reload is what the migration will see, so
+    // the database is the only honest witness. (Measured: the local read said
+    // "3 already stamped" while the run that followed stamped 3 books.)
+    const state = async (a) => {
+      const res = await foundry.helpers.SocketInterface.dispatch("modifyDocument", {
+        type: "Item", action: "get",
+        operation: {
+          parentUuid: a.uuid, query: { _id__in: a.items.map((i) => i.id) },
+          broadcast: false,
+        },
+      });
+      return (res?.result ?? []).map((i) => ({
+        n: i.name, key: i.system?.grimoireKey ?? null, to: i.system?.boundTo ?? null }));
+    };
+    const shelfState = await state(shelf);
+    const soloState = await state(solo);
     await game.settings.set(game.system.id, "grimoire-keys-stamped", false);
-    return { shelfId: shelf.id, soloId: solo.id, shelf: state(shelf), solo: state(solo) };
+    return {
+      shelfId: shelf.id, soloId: solo.id, shelf: shelfState, solo: soloState,
+      // An empty raw read would make the precondition below pass by having
+      // nothing to look at, which is the one way it must never pass.
+      readEmpty: !shelfState.length || !soloState.length,
+    };
   });
   cleanup.actorIds.push(legacyFx.shelfId, legacyFx.soloId);
   const preStamped = [...legacyFx.shelf, ...legacyFx.solo]
     .filter((i) => i.key || i.to).length;
-  check(preStamped === 0, "the legacy fixtures really are unkeyed before the reload",
-    `${preStamped} already stamped`);
+  check(preStamped === 0 && !legacyFx.readEmpty,
+    "the legacy fixtures really are unkeyed before the reload",
+    legacyFx.readEmpty ? "the raw read returned nothing" : `${preStamped} already stamped`);
 
   console.log("  note  reloading, so the ready-hook migration runs for real");
   const migrationLog = [];
