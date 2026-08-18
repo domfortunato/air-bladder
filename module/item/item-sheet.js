@@ -271,6 +271,14 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       form: {
         template: `systems/air-bladder/templates/item/${this.item.type}-sheet.html`,
         templates: [],
+        // AppV2 restores scroll only for the selectors named here — a part with
+        // no `scrollable` is replaced wholesale and the pane jumps to the top
+        // (handlebars-application.mjs `_preSyncPartState`, which walks
+        // `part.scrollable || []`). The authoring form is a real scroll box, so
+        // a Warden editing table 2 / option 6 was thrown back to the top on
+        // every render. The empty string means the part element ITSELF, which
+        // is what core's own forked combat-tracker part uses.
+        scrollable: [".background-editor", ""],
       },
     };
   }
@@ -557,11 +565,27 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const on = (selector, handler) =>
       el.querySelectorAll(selector).forEach((node) => node.addEventListener("change", handler));
 
+    // THESE COMMITS MUST NOT RE-RENDER, and the reason is data loss rather than
+    // flicker. A bare `item.update()` re-renders, AppV2 replaces the whole part
+    // (handlebars-application.mjs `_replaceHTML`), and the replacement is built
+    // from STORED data — so whatever the Warden has typed into the NEXT field
+    // since tabbing into it, and not yet committed, is silently discarded. Tab
+    // and keep typing and the characters vanish as the previous field lands.
+    //
+    // `render: false` is the fix, not an `id` on each input. `_syncPartState`
+    // restores focus, scroll positions and `<details>` state — it does NOT
+    // restore input VALUES, so an id would put the cursor back in a field that
+    // had just been reset to its stored text. Skipping the render is also
+    // simply correct here: the DOM already holds exactly what the author typed,
+    // so there is nothing for a re-render to tell it. Same reasoning, and the
+    // same one-word fix, as the `.scar-check` handler on the actor sheet.
+    const commit = (data, render = false) => item.update(data, { render });
+
     // --- Example names ---------------------------------------------------------
     on(".bg-name-input", async (ev) => {
       const names = [...(item.system.names ?? [])];
       names[Number(ev.currentTarget.dataset.i)] = ev.currentTarget.value;
-      await item.update({ "system.names": names });
+      await commit({ "system.names": names });
     });
 
     // --- Starting gear ---------------------------------------------------------
@@ -570,8 +594,14 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       const i = Number(ev.currentTarget.dataset.i);
       gear[i].name = ev.currentTarget.value;
       // Typing a name over a snapshot converts the row back to a by-name pointer.
+      // That flips `isSnapshot`, which draws the camera badge beside this input,
+      // so THIS commit — alone among the six — has something on screen to
+      // correct and must render. Only on the conversion itself: once the
+      // snapshot is gone, further typing in the same field renders nothing, so
+      // the ordinary case still cannot eat a neighbouring field's keystrokes.
+      const wasSnapshot = !!gear[i].itemData;
       delete gear[i].itemData;
-      await item.update({ "system.startingGear": gear });
+      await commit({ "system.startingGear": gear }, wasSnapshot);
     });
     on(".bg-gear-uses", async (ev) => {
       const gear = foundry.utils.deepClone(item.system.startingGear ?? []);
@@ -579,25 +609,25 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       const v = parseInt(ev.currentTarget.value, 10);
       if (Number.isNaN(v) || v <= 0) delete gear[i].uses;
       else gear[i].uses = v;
-      await item.update({ "system.startingGear": gear });
+      await commit({ "system.startingGear": gear });
     });
 
     // --- The two d6 tables -----------------------------------------------------
     on(".bg-table-question", async (ev) => {
       const tables = this._normalizedTables();
       tables[Number(ev.currentTarget.dataset.t)].question = ev.currentTarget.value;
-      await item.update({ "system.tables": tables });
+      await commit({ "system.tables": tables });
     });
     on(".bg-option-desc", async (ev) => {
       const tables = this._normalizedTables();
       tables[Number(ev.currentTarget.dataset.t)].options[Number(ev.currentTarget.dataset.o)].description = ev.currentTarget.value;
-      await item.update({ "system.tables": tables });
+      await commit({ "system.tables": tables });
     });
     on(".bg-option-gold", async (ev) => {
       const tables = this._normalizedTables();
       const v = parseInt(ev.currentTarget.value, 10);
       tables[Number(ev.currentTarget.dataset.t)].options[Number(ev.currentTarget.dataset.o)].bonusGold = Number.isNaN(v) ? 0 : Math.max(0, v);
-      await item.update({ "system.tables": tables });
+      await commit({ "system.tables": tables });
     });
   }
 

@@ -181,6 +181,42 @@ try {
     out.optionCount = root.querySelectorAll(".bg-edit-option").length;
     out.optionDropZones = root.querySelectorAll('[data-drop="option"]').length;
 
+    // TYPING IN ONE FIELD MUST SURVIVE THE FIELD BEFORE IT COMMITTING.
+    // The authoring inputs are class-managed and reach no form submit, so a
+    // commit that re-renders rebuilds them from STORED data and throws away
+    // whatever is typed and uncommitted in the field the author has moved to.
+    // Tab-and-type is the ordinary way to fill this form, so the loss is not an
+    // edge case. `firstCommitted` is the precondition: without it a green
+    // `secondSurvives` would only mean nothing had happened at all.
+    // Switch to Details FIRST. The authoring form lives on that tab and a
+    // background opens on Description, so its inputs are in a hidden panel —
+    // and `.focus()` on a hidden element is a no-op, which would make the caret
+    // assertion below one that can never pass. (Setting `.value` and firing
+    // `change` still work there, so the data-loss half would have looked fine
+    // while the focus half was measuring nothing.)
+    await sheet.changeTab("details", "primary");
+    await new Promise((r) => setTimeout(r, 300));
+
+    const descs = [...root.querySelectorAll(".bg-option-desc")];
+    out.typingFields = descs.length;
+    if (descs.length >= 2) {
+      descs[0].focus();
+      descs[0].value = "ZZ FIRST COMMITTED";
+      descs[0].dispatchEvent(new Event("change", { bubbles: true }));
+      descs[1].focus();
+      descs[1].value = "ZZ SECOND IN FLIGHT";
+      await new Promise((r) => setTimeout(r, 1200));
+      const after = [...sheetRoot(sheet).querySelectorAll(".bg-option-desc")];
+      out.typing = {
+        firstCommitted: bg.system.tables?.[0]?.options?.[0]?.description === "ZZ FIRST COMMITTED",
+        secondSurvives: after[1]?.value === "ZZ SECOND IN FLIGHT",
+        secondValue: after[1]?.value ?? null,
+        focusKept: document.activeElement === after[1],
+        activeWas: document.activeElement?.className || document.activeElement?.tagName,
+        sameNode: after[1] === descs[1],
+      };
+    }
+
     // Handler: add an example name via a real click. Under ApplicationV2 this is a
     // declarative `data-action`, so a native click is what exercises the wiring —
     // there is no handler bound to the element to trigger directly any more.
@@ -573,6 +609,11 @@ const checks = [
   ["12 options padded", result.optionCount === 12],
   ["12 option drop zones", result.optionDropZones === 12],
   ["name-add handler persists", result.namesAfterAdd === 1],
+  // Precondition first, or the leg under it passes on a form where nothing ran.
+  ["precondition: the first field's edit really commits", result.typing?.firstCommitted === true],
+  ["typing in the NEXT field survives that commit",
+    result.typing?.secondSurvives === true, `got "${result.typing?.secondValue}"`],
+  ["...and the caret stays where the author put it", result.typing?.focusKept === true],
   ["gear drop → snapshot w/ itemData", result.gearSnapshot?.hasItemData === true && result.gearSnapshot?.name === SWORD],
   ["gear snapshot kept type+bulky", result.gearSnapshot?.type === "weapon" && result.gearSnapshot?.bulky === true],
   ["option drop → snapshot w/ itemData", result.optionSnapshot?.hasItemData === true],
