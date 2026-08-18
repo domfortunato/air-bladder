@@ -663,7 +663,7 @@
       "label": "Offer custom Cairn 2e backgrounds"
     },
     "CustomPortraitFolder": {
-      "hint": "A folder of your own character portraits (relative to the Foundry data root). When it holds images, new characters and NPCs use them instead of the shipped Jon Aspeheim art, and the portrait picker gains a 'Custom' tab. Leave empty or unfilled to use only the shipped portraits. The default folder is created for you — just drop images in and click Refresh in the picker.",
+      "hint": "A folder of your own character portraits (relative to the Foundry data root). When it holds images, new characters and NPCs use them instead of the shipped tlomdev humanoid art, and the portrait picker gains a 'Custom' tab. Leave empty or unfilled to use only the shipped portraits. The default folder is created for you — just drop images in and click Refresh in the picker.",
       "label": "Custom character portrait folder"
     },
     "EnableGlogMagic": {

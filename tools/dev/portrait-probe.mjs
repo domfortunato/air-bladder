@@ -50,14 +50,40 @@ try {
     // eventually killed with "Target crashed" rather than anything naming a
     // dialog. Only bites when >1 content source is enabled, which is why it
     // looked like an intermittent hang.
-    const actor = await CG.createActorWithCharacter(await CG.generateCharacter(null, "2e"));
+    //
+    // The custom-portrait list read is SHADOWED across this create, so these
+    // legs test the SHIPPED default instead of the Warden's own folder. A
+    // non-empty custom folder wins by design, so without this the three
+    // assertions below are decided by world state rather than by the
+    // generator — and in a world carrying custom portraits they simply fail,
+    // naming a path that is not a defect. Read-shadow only, never a write.
+    const tl = await CG.getTlomdevManifest();
+    const defDir = `${tl?.artDir ?? "systems/air-bladder/art/tlomdev"}/humanoid`;
+    const defNames = (tl?.categories ?? []).find((c) => c.key === "humanoid")?.names ?? [];
+    const origGet = game.settings.get;
+    game.settings.get = function (ns, key, ...rest) {
+      if (key === "custom-portrait-list") return [];
+      return origGet.call(this, ns, key, ...rest);
+    };
+    let actor;
+    try {
+      actor = await CG.createActorWithCharacter(await CG.generateCharacter(null, "2e"));
+    } finally {
+      game.settings.get = origGet;
+    }
     const img1 = actor.img;
     const tok1 = actor.prototypeToken.texture.src;
     const base1 = img1.split("/").pop();
+    // The generated default is tlomdev's `humanoid` folder since 2026-08-18
+    // (user ruling) — it was the Aspeheim PAIRS before, which is why the token
+    // test flipped from "paired art" to "its own token": tlomdev ships no token
+    // half, exactly as a custom upload does not.
     const gen = {
-      imgFromPack: img1.startsWith(m.portraitDir + "/"),
-      imgIsShipped: m.names.includes(base1),
-      tokenPaired: tok1 === `${m.tokenDir}/${base1}`,
+      defaultDir: defDir,
+      defaultCount: defNames.length,
+      imgFromPack: img1.startsWith(defDir + "/"),
+      imgIsShipped: defNames.includes(base1),
+      tokenPaired: tok1 === img1,
       img: img1,
       token: tok1,
     };
@@ -99,9 +125,10 @@ try {
     fail(r.error);
   } else {
     console.log(`  manifest: ${r.manifest.count} paired images (${r.manifest.portraitDir} / ${r.manifest.tokenDir})`);
-    r.gen.imgFromPack ? ok("generated portrait comes from the shipped folder") : fail(`portrait not from the shipped folder: ${r.gen.img}`);
-    r.gen.imgIsShipped ? ok("generated portrait is one of the manifest images") : fail(`portrait not in the manifest: ${r.gen.img}`);
-    r.gen.tokenPaired ? ok(`token is the paired art (${r.gen.token.split("/").pop()})`) : fail(`token not paired with portrait: ${r.gen.token}`);
+    console.log(`  default pool: ${r.gen.defaultCount} images (${r.gen.defaultDir})`);
+    r.gen.imgFromPack ? ok("generated portrait comes from the default shipped folder") : fail(`portrait not from ${r.gen.defaultDir}: ${r.gen.img}`);
+    r.gen.imgIsShipped ? ok("generated portrait is one of that folder's images") : fail(`portrait not in the default folder's manifest: ${r.gen.img}`);
+    r.gen.tokenPaired ? ok(`token is the portrait itself (${r.gen.token.split("/").pop()}) — tlomdev ships no token half`) : fail(`token is not the portrait: ${r.gen.token}`);
 
     r.persist.img ? ok("REGENERATE PRESERVES the portrait") : fail(`regenerate changed the portrait to ${r.persist.after}`);
     r.persist.token ? ok("REGENERATE PRESERVES the paired token") : fail("regenerate changed the token");

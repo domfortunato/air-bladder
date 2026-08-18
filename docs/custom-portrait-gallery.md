@@ -6,8 +6,8 @@ non-goals below are deferred, not forgotten.
 A GM can point Air Bladder at a folder of their own character portraits. When that
 folder holds images, new characters and NPCs draw from it and the portrait
 picker gains a **Custom** tab; when it is empty, everything falls back to the
-shipped Jon Aspeheim art. This is a **per-GM / per-world local pool** — it does not
-travel inside shared content (see Non-goals).
+shipped tlomdev **humanoid** art. This is a **per-GM / per-world local pool** — it
+does not travel inside shared content (see Non-goals).
 
 ## Decisions (settled with the user)
 
@@ -15,8 +15,18 @@ travel inside shared content (see Non-goals).
   (image paths don't resolve across installs — the same portability wall as
   snapshot-on-drop items; embedding image data would bloat the shared unit).
 - **Auto-assignment replaces, doesn't merge:** a non-empty custom folder is the
-  *only* source for auto-assigned portraits; Aspeheim is the fallback when it's
-  empty. (Confirmed wording: "draw only from custom; if empty, default to Aspeheim.")
+  *only* source for auto-assigned portraits; the shipped gallery is the fallback
+  when it's empty. (Confirmed wording, 2026-07-26: "draw only from custom; if
+  empty, default to Aspeheim.")
+- **The shipped fallback is tlomdev's `humanoid` folder** — 70 drawings of people
+  — since **2026-08-18**, by ruling, superseding the Aspeheim wording above for
+  characters, NPCs and hirelings alike. Aspeheim's gallery still ships and is
+  still offered in the picker wherever faces belong; it is simply no longer what
+  generation *assigns*. Two consequences worth knowing: a tlomdev drawing is its
+  own token, so a generated actor no longer gets the 256px canvas art Aspeheim's
+  paired half provided, and nothing rewrites an existing actor — an `img` is
+  copied onto the document at creation and never re-read, so every character made
+  before that date keeps the portrait and paired token it already has.
 - **Default folder is created for the GM**, empty, and is GM-overridable — so the
   common case is zero setup (drop images in, Refresh). It lives at the Foundry data
   root (`air-bladder-portraits/`), **never inside the system folder** (overwritten
@@ -53,8 +63,10 @@ travel inside shared content (see Non-goals).
   limit logs a warning — a short list otherwise looks exactly like a small
   collection. The cache stays a FLAT list of paths; the picker derives the folder
   structure from it at display time.
-- **Auto-assign** (`randomPortraitPair()`): custom-first, else the shipped pair.
-  Feeds both PC and NPC creation (they share the code path).
+- **Auto-assign** (`randomPortraitPair()`): custom-first, else a random path from
+  the shipped default folder. Feeds PC, NPC and hireling creation, plus a
+  Kettlewright import with no portrait of its own (they share the code path), so
+  changing the default folder changes all of them at once.
 - **Picker** (`_onEditPortrait`, shared by PC + NPC sheets): a
   `[ Jon Aspeheim ] [ Custom ]` tab toggle. The Custom tab shows when there are
   custom portraits **or** the viewer is a GM (so a GM sees it even when empty, with

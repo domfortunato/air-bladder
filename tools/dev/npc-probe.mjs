@@ -89,7 +89,24 @@ try {
     };
 
     // 2. Create an NPC and match it against its book statblock.
-    const actor = await CG.createNpc();
+    //
+    // The custom-portrait list read is SHADOWED for this create, so the portrait
+    // leg below tests the SHIPPED default rather than whatever the Warden has
+    // dropped in their own folder. Without it the leg is decided by world state:
+    // this dev world carries 282 custom portraits, which win by design, so the
+    // assertion passed or failed on a fact about the folder rather than about
+    // the generator. Read-shadow only — the world's setting is never written.
+    const origGet = game.settings.get;
+    game.settings.get = function (ns, key, ...rest) {
+      if (key === "custom-portrait-list") return [];
+      return origGet.call(this, ns, key, ...rest);
+    };
+    let actor;
+    try {
+      actor = await CG.createNpc();
+    } finally {
+      game.settings.get = origGet;
+    }
     const book = list.find((h) => h.name === actor.system.profession);
     if (!book) return { error: `generated profession "${actor.system.profession}" is not in the catalogue` };
 
@@ -111,7 +128,11 @@ try {
       armorDerived: (actor.system.armor ?? 0) === (book.armor ?? 0),
       armorGot: actor.system.armor ?? 0,
       armorBook: book.armor ?? 0,
-      portrait: !!actor.img && actor.img.includes("/jon-aspeheim/portraits"),
+      // The generated default moved to tlomdev's `humanoid` folder on
+      // 2026-08-18 (user ruling), for characters and npcs alike. Aspeheim's
+      // gallery still ships and is still offered in the picker; it is simply
+      // no longer what generation ASSIGNS.
+      portrait: !!actor.img && actor.img.includes("/tlomdev/humanoid/"),
     };
 
     // 3b. The armor check above is vacuous when the rolled statblock prints 0

@@ -251,21 +251,50 @@ export const refreshCustomPortraits = async () => {
 };
 
 /**
- * A random {img, token} portrait pair for a new character/hireling. Draws ONLY
- * from the GM's custom pool when it is non-empty (a custom portrait is its own
- * token); otherwise from the shipped Aspeheim pairs. Null only if BOTH are empty.
+ * The tlomdev category every generated actor's portrait is drawn from
+ * (user ruling 2026-08-18, replacing the Aspeheim pairs for characters, NPCs
+ * and hirelings alike). 70 drawings of people; the sibling folders are beasts,
+ * statues and the like, so the KEY is the whole of the decision.
+ */
+const DEFAULT_PORTRAIT_CATEGORY = "humanoid";
+
+/**
+ * Every path in the default portrait category, or [] when the manifest is
+ * missing or has been re-keyed. Callers treat empty as "no shipped pool".
+ * @returns {Promise<String[]>}
+ */
+const defaultPortraitPool = async () => {
+  const tl = await getTlomdevManifest();
+  const dir = tl?.artDir ?? "systems/air-bladder/art/tlomdev";
+  const cat = (tl?.categories ?? []).find((c) => c.key === DEFAULT_PORTRAIT_CATEGORY);
+  return (cat?.names ?? []).map((n) => `${dir}/${DEFAULT_PORTRAIT_CATEGORY}/${n}`);
+};
+
+/**
+ * A random {img, token} portrait pair for a new character/hireling/npc. Draws
+ * ONLY from the GM's custom pool when it is non-empty; otherwise from tlomdev's
+ * `humanoid` folder. Null only if BOTH are empty.
+ *
+ * THE TOKEN IS THE PORTRAIT. Aspeheim's gallery was the one paired set this
+ * drew from — two folders sharing a filename, a 1000px face and a 256px token
+ * drawn for the canvas — and tlomdev ships no token half, so a drawing is its
+ * own token exactly as a custom upload is. That is a real loss of the prepped
+ * canvas art and it was accepted at ruling time; the 240px source is already
+ * token-sized, and the sheet portrait renders well below its own resolution.
+ *
+ * Aspeheim's gallery still SHIPS and is still offered in the picker for every
+ * face-wearing role — this changes what generation ASSIGNS, nothing else. And
+ * nothing rewrites an existing actor: an img is copied onto the document at
+ * creation and never re-read, so every character made before today keeps the
+ * portrait and paired token it already has.
  * @returns {Promise<{img:String, token:String}|null>}
  */
 export const randomPortraitPair = async () => {
   const custom = getCustomPortraitPaths();
-  if (custom.length) {
-    const path = custom[Math.floor(Math.random() * custom.length)];
-    return { img: path, token: path };
-  }
-  const m = await getPortraitManifest();
-  if (!m?.names?.length) return null;
-  const name = m.names[Math.floor(Math.random() * m.names.length)];
-  return { img: `${m.portraitDir}/${name}`, token: `${m.tokenDir}/${name}` };
+  const pool = custom.length ? custom : await defaultPortraitPool();
+  if (!pool.length) return null;
+  const path = pool[Math.floor(Math.random() * pool.length)];
+  return { img: path, token: path };
 };
 
 /**
@@ -321,8 +350,8 @@ const categoryPoolFor = (img, dir, categories) => {
  * CATEGORY — a beast stays a beast rather than turning into a librarian's
  * portrait. Only when the current image is from no known gallery folder (the
  * default mystery-man, a pasted URL, a Kind glyph) does it fall back to the
- * auto-assignment pool (custom when non-empty, else Aspeheim), which was the
- * die's whole behaviour before this rule.
+ * auto-assignment pool (custom when non-empty, else the generator's own default
+ * folder), which was the die's whole behaviour before this rule.
  *
  * Avoids returning the current image while the pool holds anything else, so
  * the die always visibly does something.
@@ -357,7 +386,12 @@ export const randomPortraitInSameFolder = async (current) => {
     const tl = await getTlomdevManifest();
     pool = categoryPoolFor(img, tl?.artDir ?? "systems/air-bladder/art/tlomdev", tl?.categories ?? []);
   }
-  if (!pool) pool = custom.length ? custom : aspeheim;
+  // Unknown art falls back to whatever GENERATION would have assigned, so the
+  // die and the generator cannot disagree about what the house pool is. That is
+  // tlomdev's `humanoid` folder since 2026-08-18 — it was Aspeheim before, and
+  // an Aspeheim portrait still re-rolls within Aspeheim above, because the
+  // gallery still ships and this branch is only for art from no known folder.
+  if (!pool) pool = custom.length ? custom : await defaultPortraitPool();
 
   if (!pool.length) return null;
   const others = pool.filter((src) => src !== img);
