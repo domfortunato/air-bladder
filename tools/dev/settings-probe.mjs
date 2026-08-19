@@ -69,6 +69,24 @@ try {
       .filter((k) => k.startsWith(`${mod.SETTINGS_NS}.`))
       .map((k) => k.slice(mod.SETTINGS_NS.length + 1))
       .filter((k) => !mod.SETTING_KEYS.includes(k) && !MARKERS.includes(k));
+    // REGISTRATION ORDER, which is the thing the group headers are built out of
+    // (review #16). `game.settings.settings` is a Map, so its key order IS the
+    // order register() was called in, and the headers this system injects are
+    // positional — everything between two anchors renders under that heading.
+    // Only CONFIG-VISIBLE settings are read: a `config: false` key never renders,
+    // so it cannot move anything, which is exactly why the markers and the parked
+    // Connections flag are registered first and are not in the group lists.
+    out.liveOrder = [...game.settings.settings.entries()]
+      .filter(([k, cfg]) => k.startsWith(`${mod.SETTINGS_NS}.`) && cfg.config)
+      .map(([k]) => k.slice(mod.SETTINGS_NS.length + 1));
+    out.groups = mod.SETTING_GROUPS.map((g) => ({ anchor: g.anchor, title: g.title, keys: g.keys }));
+    out.declaredOrder = mod.SETTING_GROUPS.flatMap((g) => g.keys);
+    // A visible key belonging to no group is the drift this cannot otherwise see:
+    // it would render under whichever header it happened to land after.
+    out.ungrouped = out.liveOrder.filter((k) => !out.declaredOrder.includes(k));
+    // ...and the other way, so a group cannot name a key that is gone or hidden.
+    out.groupPhantoms = out.declaredOrder.filter((k) => !out.liveOrder.includes(k));
+
     out.systemId = game.system.id;
     out.knownPackage = !!(game.system.id === "air-bladder");
 
@@ -103,6 +121,46 @@ try {
   !r.unlisted.length
     ? ok("every registered key is in SETTING_KEYS (markers exempt) — the migration carries it")
     : fail(`registered but NOT in SETTING_KEYS (namespace migration would drop them): ${r.unlisted.join(", ")}`);
+
+  /* ---- registration ORDER, which decides what lands under each header ---- */
+  // Until 2026-08-19 nothing checked this at all: a `register()` call moved by
+  // one line silently re-files its setting under a different heading, and the
+  // only detector was a Warden reading the tab. The declaration is
+  // SETTING_GROUPS in settings.js; this is the code being checked against it.
+  !r.groupPhantoms.length
+    ? ok(`all ${r.declaredOrder.length} grouped keys are registered and visible`)
+    : fail(`SETTING_GROUPS names key(s) that are not registered as visible settings: ${r.groupPhantoms.join(", ")}`);
+  !r.ungrouped.length
+    ? ok("every visible setting belongs to a declared group")
+    : fail("visible setting(s) in no group — each renders under whichever header it happens to follow: "
+        + r.ungrouped.join(", "));
+
+  const sameOrder = JSON.stringify(r.liveOrder) === JSON.stringify(r.declaredOrder);
+  if (sameOrder) {
+    ok(`registration order matches SETTING_GROUPS across ${r.groups.length} groups`);
+  } else {
+    // Name the FIRST divergence rather than dumping both lists: the failure is
+    // almost always one moved call, and two 25-item arrays hide it.
+    let at = 0;
+    while (at < Math.max(r.liveOrder.length, r.declaredOrder.length)
+      && r.liveOrder[at] === r.declaredOrder[at]) at++;
+    const live = r.liveOrder[at];
+    const decl = r.declaredOrder[at];
+    const where = live === undefined ? `declared "${decl}" is registered somewhere else, or not at all`
+      : decl === undefined ? `registered "${live}" runs past the end of the declaration`
+      : `registered "${live}", declared "${decl}"`;
+    fail(`registration order diverges at position ${at}: ${where}`
+      + " — a moved register() call re-files a setting under a different header");
+  }
+
+  // The anchors specifically, because they are what the headers are inserted
+  // before: a group whose anchor is not its own first key puts its heading in
+  // the middle of the group above.
+  const badAnchors = r.groups.filter((g) => g.keys[0] !== g.anchor);
+  !badAnchors.length
+    ? ok(`each group's header anchors on its own first setting (${r.groups.map((g) => g.anchor).join(", ")})`)
+    : fail("group(s) whose anchor is not their first key, so the header lands mid-group: "
+        + badAnchors.map((g) => `${g.title} anchors "${g.anchor}", starts "${g.keys[0]}"`).join("; "));
 
   console.log(`  values now: ${JSON.stringify(r.sample)}`);
   console.log(`  stored (old cairn.*): ${r.storedOld.length} | stored (air-bladder.*): ${r.storedNew.length}`);

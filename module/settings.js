@@ -105,16 +105,61 @@ const rerenderActorSheets = () => {
 };
 
 /**
- * Registration ORDER is meaningful here, not cosmetic.
+ * The Configure Settings tab, as the Warden reads it: three groups, in order,
+ * each naming the setting its header is inserted before and every VISIBLE key
+ * that falls under it.
  *
- * The Configure Settings tab is grouped by inserting a header before the first
- * setting of each group (cairn.js renderSettingsConfig anchors on use-panic,
- * content-source-2e and max-equip-slots). Foundry renders settings in
- * registration order, so everything between two anchors is what lands under that
- * heading. Move a register() call and you silently move the setting into a
- * different section. Keep the three blocks below contiguous and in this order —
- * it is the order they appear on the tab: General, then Character Generation,
- * then Inventory & Encumbrance.
+ * Registration ORDER is meaningful here, not cosmetic. Foundry renders settings
+ * in registration order and this system inserts an `<h3>` before each anchor
+ * (cairn.js `renderSettingsConfig`), so everything between two anchors is what
+ * lands under that heading. Move a `register()` call and the setting silently
+ * moves into a different section — no error, and a Warden reading the tab is the
+ * only detector there was until 2026-08-19 (review #16).
+ *
+ * This list is what `npm run dev:settings` compares the LIVE registration order
+ * against, so it is the declaration and the code is checked against it. It also
+ * feeds the header insertion, which used to keep its own copy of the three
+ * anchors in cairn.js — a second list of the same thing, in the file furthest
+ * from the one that decides it.
+ *
+ * `config: false` settings are deliberately absent: they never render, so they
+ * cannot disturb the positional grouping no matter where they sit, which is why
+ * the markers and the parked-Connections flag are registered first.
+ */
+export const SETTING_GROUPS = [
+  {
+    anchor: "use-panic",
+    title: "CAIRN.Settings.GroupGeneral",
+    keys: [
+      "use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
+      "show-grant-tags-print", "show-omens", "use-warden-title", "change-log",
+      "auto-record-scars", "enable-glog-magic",
+    ],
+  },
+  {
+    anchor: "content-source-2e",
+    title: "CAIRN.Settings.GroupGeneration",
+    keys: [
+      "content-source-2e", "content-source-custom", "content-source-barebones",
+      "barebones-failed-career", "show-generate-header", "allow-player-generate",
+      "allow-player-randomization", "show-generation-rolls",
+      "custom-portrait-folder", "min-age",
+    ],
+  },
+  {
+    anchor: "max-equip-slots",
+    title: "CAIRN.Settings.GroupInventory",
+    keys: [
+      "max-equip-slots", "character-inventory-limit", "allow-player-marketplace",
+      "use-gold-threshold", "enable-inventory-reorder",
+    ],
+  },
+];
+
+/**
+ * Keep the three blocks below contiguous and in the order above — it is the
+ * order they appear on the tab: General, then Character Generation, then
+ * Inventory & Encumbrance.
  */
 export const registerSettings = () => {
   // Not a setting anyone sets: the completion marker for the role migration.

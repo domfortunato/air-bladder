@@ -103,7 +103,12 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   then `enable-glog-magic` rode a topic branch whose cherry-picks never carried
   this line, caught only when the branch merged — so each settings change updates
   them in its own commit, this one dated 2026-08-17 for `show-omens`) —
-  **registration ORDER is load-bearing**, because Foundry's group headers are positional. Two went on
+  **registration ORDER is load-bearing**, because Foundry's group headers are
+  positional — GATED since 2026-08-19 (review #16): `SETTING_GROUPS` in
+  `settings.js` declares the three groups, their anchors and every visible key
+  under each, `cairn.js` inserts the headers from it rather than from its own
+  copy, and `dev:settings` compares it against the live registration order
+  (`game.settings.settings` is a Map, so its key order IS that order). Two went on
   2026-07-31, both because the thing they toggled stopped existing:
   `show-containers-tab` (the Connections tab was structural then — see the
   2026-08-09 parking below — and a display toggle that hides a graph which goes

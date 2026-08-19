@@ -316,6 +316,12 @@ try {
     // hidden by design (custom-portrait-list, an internal cache written by a GM
     // scan), so comparing against the raw key list reads a deliberate omission as
     // a missing setting.
+    // What each header SHOULD hold, from the one declaration of it. Localized
+    // here because this probe attributes rows by the rendered header TEXT, which
+    // is what a Warden reads; `SETTING_GROUPS` carries the i18n key.
+    out.expectedGroups = settings.SETTING_GROUPS.map((g) => ({
+      header: game.i18n.localize(g.title), keys: g.keys,
+    }));
     out.declaredKeys = settings.SETTING_KEYS.filter(
       (k) => game.settings.settings.get(`${NS}.${k}`)?.config
     );
@@ -501,39 +507,39 @@ try {
   // "reordering SETTING_KEYS breaks the migration" — was not real: that loop is
   // order-independent, and the stored key string never changed, so no configured
   // value was disturbed.
-  const EXPECTED = {
-    // `show-gold-not-cost` sat between use-gold-threshold and the late
-    // `show-container-actors` until 2026-07-31 (it swapped a CONTAINER SHEET's
-    // Cost box for a Gold box, and that sheet went with the `container` type).
-    // `show-container-actors` followed it out on 2026-08-02, by ruling: the
-    // directory always lists container actors, so a toggle for hiding them
-    // governed nothing a Warden should switch. Both removed rather than left
-    // registered, exactly as `show-containers-tab` was.
-    // The three Warden switches of the 2026-08-08 batch: allow-player-marketplace
-    // beside the inventory limit it polices, allow-player-generate beside the
-    // Generate-header toggle (directory button and sheet button, side by side),
-    // change-log at the end of General. This table went stale-red for that batch
-    // because dev:ui-parity was not on its run list — the probe-orphan lesson.
-    "Inventory & Encumbrance": ["max-equip-slots", "character-inventory-limit", "allow-player-marketplace",
-      "use-gold-threshold", "enable-inventory-reorder"],
-    // show-omens-barebones and show-bonds-barebones left this list 2026-08-09:
-    // the Barebones lending they toggled was removed outright (user ruling),
-    // Barebones sheets never show Omen and generation never mints a bond.
-    "Character Generation": ["content-source-2e", "content-source-custom", "content-source-barebones",
-      "barebones-failed-career", "show-generate-header",
-      "allow-player-generate", "allow-player-randomization", "show-generation-rolls",
-      "custom-portrait-folder", "min-age"],
-    // show-features-section left this list 2026-08-09: the Features UI it
-    // toggled was removed outright (user ruling); the field survives, orphaned.
-    "General Settings": ["use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
-      "use-warden-title", "change-log", "auto-record-scars", "enable-glog-magic"],
-  };
-  for (const [group, keys] of Object.entries(EXPECTED)) {
-    const got = r.grouped?.[group] ?? [];
+  // The expected contents come from `SETTING_GROUPS` in module/settings.js. They
+  // used to be a table right here, and it was the FOURTH copy of the same
+  // grouping — settings.js registers it, cairn.js anchored headers off three
+  // hard-coded keys, dev:settings counted it, and this listed it out. It drifted,
+  // as a fourth copy does: `show-omens` (2026-08-17) and `show-grant-tags-print`
+  // (2026-08-18) both joined General without this table following, so this leg
+  // was RED for two days with nothing wrong behind it. That is the same shape as
+  // the stale-red it already carried a note about, which is why the answer this
+  // time was to delete the copy rather than update it (review #16).
+  //
+  // What that copy recorded, kept because it is a record of REMOVALS and the list
+  // it lived on no longer exists: `show-gold-not-cost` sat between
+  // use-gold-threshold and `show-container-actors` until 2026-07-31 (it swapped a
+  // CONTAINER SHEET's Cost box for a Gold box, and that sheet went with the
+  // `container` type); `show-container-actors` followed on 2026-08-02 by ruling,
+  // since the directory always lists container actors; `show-omens-barebones` and
+  // `show-bonds-barebones` left Character Generation on 2026-08-09 with the
+  // Barebones lending they toggled; `show-features-section` left General the same
+  // day with the Features UI, the field surviving orphaned.
+  //
+  // This is still a DIFFERENT measurement from dev:settings' order gate, and both
+  // are worth having: that one reads the registration Map, this one reads the
+  // rendered tab and attributes each row to the header above it. A header that
+  // fails to insert moves nothing in the Map and everything on the screen.
+  for (const { header, keys } of r.expectedGroups ?? []) {
+    const got = r.grouped?.[header] ?? [];
     const same = got.length === keys.length && keys.every((k, i) => got[i] === k);
-    same ? ok(`"${group}" holds exactly its ${keys.length} settings, in order`)
-         : fail(`"${group}" mis-grouped:\n        expected ${keys.join(", ")}\n        got      ${got.join(", ")}`);
+    same ? ok(`"${header}" holds exactly its ${keys.length} settings, in order`)
+         : fail(`"${header}" mis-grouped:\n        expected ${keys.join(", ")}\n        got      ${got.join(", ")}`);
   }
+  r.expectedGroups?.length === 3
+    ? ok("three groups were declared to check", r.expectedGroups.map((g) => g.header).join(" / "))
+    : fail("three groups were declared to check", `SETTING_GROUPS yielded ${r.expectedGroups?.length ?? 0} — the loop above may have checked nothing`);
 
   // Warden title.
   r.wardenSetting === true

@@ -16,7 +16,7 @@ import { CairnCombat, CairnCombatTracker, registerCombatOrderGuard } from "./com
 import { createCairnMacro, rollItemMacro } from "./macros.js";
 import { Damage, DAMAGE_APPLIED_FLAG, DAMAGE_SOURCE_FLAG } from "./damage.js";
 import { registerWardenDamageControl } from "./warden-damage.js";
-import { registerSettings, SETTINGS_NS, migrateSettingsNamespace } from "./settings.js";
+import { registerSettings, SETTINGS_NS, SETTING_GROUPS, migrateSettingsNamespace } from "./settings.js";
 import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS, deriveNpcRole } from "./data-models.js";
 import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName, actorDisplayName, LOCALIZED_DIRECTORIES } from "./i18n-content.js";
@@ -2049,13 +2049,11 @@ Hooks.on("renderDialogV2", function abSpellscrollTypeOption(dialog, element) {
 Hooks.on("renderSettingsConfig", (app, element) => {
   const root = element; // raw HTMLElement in v14, same as every render hook
   if (!root) return;
-  const groups = [
-    ["use-panic", "CAIRN.Settings.GroupGeneral"],
-    ["content-source-2e", "CAIRN.Settings.GroupGeneration"],
-    ["max-equip-slots", "CAIRN.Settings.GroupInventory"],
-  ];
-  for (const [key, titleKey] of groups) {
-    const group = root.querySelector(`[name="${SETTINGS_NS}.${key}"]`)?.closest(".form-group");
+  // The anchors come from settings.js, where the registration order they depend
+  // on is declared and gated. They used to be a second copy here, in the file
+  // furthest from the one that decides them.
+  for (const { anchor, title: titleKey } of SETTING_GROUPS) {
+    const group = root.querySelector(`[name="${SETTINGS_NS}.${anchor}"]`)?.closest(".form-group");
     if (!group || group.previousElementSibling?.classList?.contains("cairn-settings-header")) continue;
     const header = document.createElement("h3");
     header.className = "cairn-settings-header";
