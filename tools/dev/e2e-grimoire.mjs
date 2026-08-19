@@ -441,6 +441,7 @@ try {
             whisperFlavor: whisper?.flavor ?? "",
             whisperTo: whisper?.whisper ?? [],
             whisperId: whisper?.id, publicId: publicCard?.id,
+            flag: publicCard?.getFlag("air-bladder", "glogCast") ?? null,
             userId: game.user.id,
           };
         }
@@ -514,6 +515,104 @@ try {
     "one die: the dice line takes its _one form (magic die, singular)");
   check(!castC.whisperContent.includes(noMishapText),
     "one die: NO mishap sentence at all — a single die cannot double");
+
+  /* ------------------------ 7b. the public card speaks the VIEWER's language */
+  // A ChatMessage is composed once, on the caster's client, and then read in
+  // every log at the table — so a name or a sentence localized on the way IN
+  // freezes the caster's language onto everyone else's screen, and no
+  // re-render ever corrects it. This card did exactly that (review #16).
+  //
+  // The leg casts under one overlay and reads the card back under ANOTHER,
+  // which is what tells a card REBUILT per viewer from a stale one that merely
+  // happens to be in the right language. Both overlays are installed in-page
+  // (`_setOverlay`), no world write, restored in a finally.
+  const castLangSetup = await gm.evaluate(async (id) => {
+    const i18n = await import(`/systems/${game.system.id}/module/i18n-content.js`);
+    const alpha = game.actors.get(id).items.find((x) => x.name === "ZZ Spell Alpha");
+    const desc = alpha.system.description ?? "";
+    i18n._setOverlay({
+      "item.name": { "ZZ Spell Alpha": "ZZ-CASTER-NAME" },
+      "item.desc": { [desc]: "ZZ-CASTER-DESC [sum*10]" },
+    });
+    return {
+      desc,
+      // The precondition. If t() does not move THIS string on THIS client, a
+      // card that comes out English proves nothing at all.
+      live: i18n.contentLocalized() && i18n.t("item.name", "ZZ Spell Alpha") === "ZZ-CASTER-NAME",
+    };
+  }, fx.casterId);
+  check(castLangSetup.live,
+    "precondition: the caster's client has a live overlay that renames the spell");
+
+  // [4,4] again: sum 8, so [sum*10] must land on 80 in whatever language.
+  const castL = await seedCast(gm, [0.4, 0.4]);
+  check(!castL.error && castL.rollTotal === 8, "seeded [4,4] under the caster's overlay", castL.error ?? "");
+  check(castL.publicContent.includes("ZZ Spell Alpha")
+    && !castL.publicContent.includes("ZZ-CASTER-NAME")
+    && !castL.publicContent.includes("ZZ-CASTER-DESC"),
+    "the STORED card is English, though the caster's own client is not",
+    castL.publicContent);
+  check(castL.flag?.name === "ZZ Spell Alpha" && castL.flag?.desc === castLangSetup.desc
+    && castL.flag?.dice === 2 && castL.flag?.sum === 8,
+    "and it carries the English source plus the dice, which is what a viewer rebuilds from",
+    JSON.stringify(castL.flag));
+
+  const viewerLeg = await gm.evaluate(async ({ cardId, desc }) => {
+    const i18n = await import(`/systems/${game.system.id}/module/i18n-content.js`);
+    const card = game.messages.get(cardId);
+    const out = { storedFlavor: card?.flavor ?? "" };
+    const origFmt = game.i18n.format.bind(game.i18n);
+    // `game.i18n.format = fn` DOES NOT WORK and does not say so:
+    // Localization's methods are defined non-writable and non-configurable on
+    // the prototype, so a plain assignment is a silent no-op in sloppy mode
+    // and every call still reaches core. Defining an OWN property on the
+    // instance is what shadows it — and `delete` is what restores. Costed an
+    // hour reading a green fix as a red one.
+    const shadowFormat = (fn) => Object.defineProperty(game.i18n, "format",
+      { value: fn, configurable: true, writable: true });
+    try {
+      // A DIFFERENT overlay: this is the other client at the table.
+      i18n._setOverlay({
+        "item.name": { "ZZ Spell Alpha": "ZZ-VIEWER-NAME" },
+        "item.desc": { [desc]: "ZZ-VIEWER-DESC [sum*10]" },
+      });
+      const el = await card.renderHTML();
+      out.h3 = el.querySelector(".grimoire-cast-card h3")?.textContent ?? "";
+      out.effect = el.querySelector(".grimoire-cast-effect")?.textContent ?? "";
+      // The flavor is INTERFACE language, not the content overlay, so making
+      // the viewer differ from the caster means making game.i18n answer
+      // differently. The string is not under test — whether the header is
+      // rebuilt from the key or read out of the stored bytes is.
+      shadowFormat((k, d) => (k === "CAIRN.GrimoireCastFlavor" ? "ZZ-VIEWER-FLAVOR" : origFmt(k, d)));
+      out.shadowTook = game.i18n.format("CAIRN.GrimoireCastFlavor", {}) === "ZZ-VIEWER-FLAVOR";
+      const el2 = await card.renderHTML();
+      out.flavor = el2.querySelector(".flavor-text")?.textContent ?? "";
+      // Idempotence: a second render of the same message must not stack or
+      // drift — the chat log re-renders constantly.
+      delete game.i18n.format;
+      const el3 = await card.renderHTML();
+      out.h3Again = el3.querySelector(".grimoire-cast-card h3")?.textContent ?? "";
+      out.cards = el3.querySelectorAll(".grimoire-cast-card").length;
+    } finally {
+      delete game.i18n.format;
+      i18n._setOverlay(null);
+    }
+    return out;
+  }, { cardId: castL.publicId, desc: castLangSetup.desc });
+
+  check(viewerLeg.h3 === "ZZ-VIEWER-NAME",
+    "RENDERED, the spell's name is the VIEWER's — not the caster's, not the stored English",
+    viewerLeg.h3);
+  check(viewerLeg.effect.includes("ZZ-VIEWER-DESC") && viewerLeg.effect.includes("80"),
+    "and the effect is the viewer's sentence resolved with the caster's dice (sum 8 -> 80)",
+    viewerLeg.effect);
+  check(viewerLeg.shadowTook,
+    "precondition: the interface-language shadow actually took (defineProperty, not assignment)");
+  check(viewerLeg.flavor.includes("ZZ-VIEWER-FLAVOR") && !viewerLeg.storedFlavor.includes("ZZ-VIEWER-FLAVOR"),
+    "the flavor header is rebuilt per viewer too, not read out of the stored bytes",
+    `${viewerLeg.storedFlavor} -> ${viewerLeg.flavor}`);
+  check(viewerLeg.h3Again === "ZZ-VIEWER-NAME" && viewerLeg.cards === 1,
+    "and re-rendering is idempotent: one card, same name");
 
   /* --------------------------------------- 8. the Fatigue button, full pack */
   const fatigue = await gm.evaluate(async ({ casterId, whisperId }) => {

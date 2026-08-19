@@ -21,7 +21,7 @@ import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS, deriveNpcRole } from "./data-model
 import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName, actorDisplayName } from "./i18n-content.js";
 import { injectEncounterButton } from "./encounters.js";
-import { bindGrimoireFatigueButton } from "./grimoire.js";
+import { bindGrimoireFatigueButton, localizeGlogCastCard } from "./grimoire.js";
 import { nameableTokens } from "./utils.js";
 
 Hooks.once("init", async function () {
@@ -2494,6 +2494,11 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   // per render, spent-state read from the message flag, ownership re-checked
   // in the handler.
   bindGrimoireFatigueButton(message, html);
+
+  // The GLOG public cast card, rebuilt in THIS viewer's language out of the
+  // English it was stored with (module/grimoire.js). Display-only, no write —
+  // the same footing as the table-draw localization at the top of this hook.
+  localizeGlogCastCard(message, html);
 
   // Roll Str Save.
   //
