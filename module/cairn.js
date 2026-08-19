@@ -19,7 +19,7 @@ import { registerWardenDamageControl } from "./warden-damage.js";
 import { registerSettings, SETTINGS_NS, migrateSettingsNamespace } from "./settings.js";
 import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS, deriveNpcRole } from "./data-models.js";
 import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNERSHIP_SYNC_FLAG } from "./connections.js";
-import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName, actorDisplayName } from "./i18n-content.js";
+import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName, actorDisplayName, LOCALIZED_DIRECTORIES } from "./i18n-content.js";
 import { injectEncounterButton } from "./encounters.js";
 import { bindGrimoireFatigueButton, localizeGlogCastCard } from "./grimoire.js";
 import { nameableTokens } from "./utils.js";
@@ -275,8 +275,10 @@ const worldDisplayName = (doc) => {
  * Registered per directory rather than once, because each is a separate
  * Application whose render hook is named after it.
  */
-for (const dir of ["ActorDirectory", "ItemDirectory", "JournalDirectory", "RollTableDirectory"]) {
-  Hooks.on(`render${dir}`, (app, html) => {
+// The list lives in i18n-content.js beside the late-load refresh that must
+// re-render exactly these — see LOCALIZED_DIRECTORIES for why it is one list.
+for (const { hook } of LOCALIZED_DIRECTORIES) {
+  Hooks.on(`render${hook}`, (app, html) => {
     if (!contentLocalized()) return;
     localizeDirectoryNames(html, app.collection, worldDisplayName);
     wrapTranslatedSearch(app, worldDisplayName);

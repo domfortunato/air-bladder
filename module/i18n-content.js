@@ -60,15 +60,53 @@ export const loadContentOverlay = async () => {
 };
 
 /**
- * Re-render open document sheets so a late overlay load corrects any content
- * names already drawn in English. Guarded: `foundry.applications.instances` may
- * not exist at i18nInit, and only rendered document sheets are touched.
+ * The world sidebar tabs whose entry names this system rewrites: the hook that
+ * localizes each, and the `ui` key that reaches the same application.
+ *
+ * ONE list, read twice — `cairn.js` registers the render hooks from it, and
+ * `refreshLocalizedApps` below re-renders from it. Two lists is how a fifth
+ * directory gets a hook and no late-load refresh, which stays invisible until
+ * somebody's overlay fetch is slow.
  */
-const refreshLocalizedApps = () => {
-  const apps = foundry?.applications?.instances;
-  if (!apps) return;
-  for (const app of apps.values()) {
-    if (app?.document && app.rendered) app.render(false);
+export const LOCALIZED_DIRECTORIES = [
+  { hook: "ActorDirectory", ui: "actors" },
+  { hook: "ItemDirectory", ui: "items" },
+  { hook: "JournalDirectory", ui: "journal" },
+  { hook: "RollTableDirectory", ui: "tables" },
+];
+
+/**
+ * Re-render what a late overlay load left in English.
+ *
+ * It used to touch ONLY `app.document && app.rendered`, and the comment above
+ * its one caller named "a compendium tab restored from the sidebar" as the case
+ * it existed for — which that test excludes, because a Compendium window carries
+ * `.collection` and never `.document` (verified 14.365). So did every other
+ * surface this system localizes: all four world directory tabs, the compendium
+ * sidebar and the combat tracker are applications without a `.document` too.
+ * Review #16.
+ *
+ * The sidebar tabs are NAMED rather than swept by `.collection`, because that
+ * property does not separate them from the tabs that must be left alone —
+ * `ChatLog` carries one as well, and re-rendering a long chat log to correct a
+ * directory row is not a trade worth making. The compendium SIDEBAR carries
+ * neither property, so no sweep could have found it at all.
+ *
+ * Guarded throughout: this runs at i18nInit, where `foundry.applications` and
+ * `ui` may not be populated, and it is a no-op when nothing is open — the
+ * common case, since i18nInit is early.
+ */
+export const refreshLocalizedApps = () => {
+  for (const app of foundry?.applications?.instances?.values() ?? []) {
+    if (!app?.rendered) continue;
+    // A document sheet, or an open compendium BROWSER. `metadata.packageName`
+    // is what tells a CompendiumCollection from the other collections a
+    // sidebar tab can be holding.
+    if (app.document || app.collection?.metadata?.packageName) app.render(false);
+  }
+  for (const key of [...LOCALIZED_DIRECTORIES.map((d) => d.ui), "compendium", "combat"]) {
+    const app = globalThis.ui?.[key];
+    if (app?.rendered) app.render(false);
   }
 };
 

@@ -31,6 +31,11 @@
  *      every keystroke, so no render hook can reach them. Both halves, plus a
  *      control — before the fix, typing the translation listed NOTHING and
  *      typing the English listed a row reading the English.
+ *   7. A LATE overlay load repairs what it finds already drawn (review #16).
+ *      `refreshLocalizedApps` re-rendered only `app.document` applications, and
+ *      not one localized surface in this system is one of those — the four world
+ *      directories carry `.collection`, the compendium sidebar carries neither.
+ *      Its own comment named the case it was excluding.
  *
  * Everything planted is swept from Node with ids printed, and the combat is
  * deleted before the actors. The overlay is installed in-page via `_setOverlay`
@@ -52,6 +57,13 @@ const BG_ES = "ZZ-TRASFONDO-TRADUCIDO";
 const SIDEBAR_PACK = "air-bladder.monsters";
 const SIDEBAR_EN = "Gorilla";
 const SIDEBAR_ES = "ZZ-BICHO-TRADUCIDO";
+
+// Section 7 plants one npc and reads one shipped pack entry. Its sentinels are
+// distinct from section 6's on purpose: a shared one could not tell "the
+// refresh worked" from "section 6 left the row translated".
+const LATE_EN = "ZZ Late Ghoul";
+const LATE_ES = "ZZ-DEMONIO-TARDE";
+const LATE_PACK_ES = "ZZ-BICHO-TARDE";
 
 let failures = 0;
 const ok = (l, d = "") => console.log(`  ok    ${l.padEnd(52)} ${d}`);
@@ -289,6 +301,85 @@ else {
   sidebar.controlEn?.includes(SIDEBAR_EN)
     ? ok("control: overlay off, the English row reads English", SIDEBAR_EN)
     : fail("control: overlay off, the English row reads English", JSON.stringify(sidebar.controlEn));
+}
+
+/* --- 7. a late overlay load repairs what is already on screen ----------- */
+// The fetch behind the overlay resolves on its own schedule: `i18nInit` is
+// fired with `Hooks.callAll`, which discards the promise, so a slow read lands
+// AFTER the sidebar has drawn. `refreshLocalizedApps` exists for exactly that,
+// and it was passing over every surface that needed it.
+//
+// Staged in three steps because the middle one is the precondition that makes
+// the third mean anything: English on screen, overlay installed with NO
+// re-render (still English — nothing else is quietly redrawing these), then the
+// refresh alone.
+console.log("\na late overlay load repairs what is already drawn");
+
+const late = await page.evaluate(async (fx) => {
+  const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const Actor = CONFIG.Actor.documentClass;
+  const out = { ids: [] };
+  let browser = null;
+  try {
+    i18n._setOverlay(null);
+    const ghoul = await Actor.create({ name: fx.EN, type: "npc" });
+    out.ids.push(ghoul.id);
+
+    const pack = game.packs.get(fx.PACK);
+    out.fixture = !!pack?.index?.find((e) => e.name === fx.PACK_EN);
+    if (!out.fixture) return out;
+    browser = await pack.render(true);
+    await ui.actors.render(true);
+    await sleep(900);
+
+    const dirRow = () => document
+      .querySelector(`#actors [data-entry-id="${ghoul.id}"] .entry-name`)?.textContent.trim() ?? null;
+    const packRow = () => {
+      const el = pack.apps?.find((a) => a.rendered)?.element;
+      const id = pack.index.find((e) => e.name === fx.PACK_EN || e.name === fx.PACK_ES)?._id;
+      return el?.querySelector(`[data-entry-id="${id}"] .entry-name`)?.textContent.trim() ?? null;
+    };
+    out.before = { dir: dirRow(), pack: packRow() };
+
+    // Installed, but nothing asks for a redraw. Anything that moves here is
+    // something else re-rendering, and the leg below would be measuring it.
+    i18n._setOverlay({ "monster.name": { [fx.EN]: fx.ES, [fx.PACK_EN]: fx.PACK_ES } });
+    await sleep(500);
+    out.installed = { dir: dirRow(), pack: packRow() };
+
+    i18n.refreshLocalizedApps();
+    await sleep(1200);
+    out.after = { dir: dirRow(), pack: packRow() };
+  } catch (e) {
+    out.error = `${e.name}: ${e.message}`;
+  } finally {
+    i18n._setOverlay(null);
+    await browser?.close().catch(() => {});
+    for (const id of out.ids) await game.actors.get(id)?.delete().catch(() => {});
+    out.swept = out.ids.every((id) => !game.actors.get(id));
+  }
+  return out;
+}, { EN: LATE_EN, ES: LATE_ES, PACK: SIDEBAR_PACK, PACK_EN: SIDEBAR_EN, PACK_ES: LATE_PACK_ES });
+
+if (late.error) fail("the late-load legs ran", late.error);
+else if (!late.fixture) fail(`precondition: ${SIDEBAR_PACK} still ships "${SIDEBAR_EN}"`, "the fixture is gone");
+else {
+  late.before?.dir === LATE_EN && late.before?.pack === SIDEBAR_EN
+    ? ok("baseline: both surfaces read English", `${late.before.dir} | ${late.before.pack}`)
+    : fail("baseline: both surfaces read English", JSON.stringify(late.before));
+  late.installed?.dir === LATE_EN && late.installed?.pack === SIDEBAR_EN
+    ? ok("installing the overlay alone changes nothing", "so the refresh below is what moves them")
+    : fail("installing the overlay alone changes nothing", JSON.stringify(late.installed));
+  late.after?.dir === LATE_ES
+    ? ok("the refresh repairs a world DIRECTORY row", LATE_ES)
+    : fail("the refresh repairs a world DIRECTORY row", `read "${late.after?.dir}"`);
+  late.after?.pack === LATE_PACK_ES
+    ? ok("and an open compendium BROWSER row", LATE_PACK_ES)
+    : fail("and an open compendium BROWSER row", `read "${late.after?.pack}"`);
+  late.swept
+    ? ok("late-load fixtures swept", "")
+    : fail("late-load fixtures swept", "documents left behind");
 }
 
 /* ----------------------------------------------------------- teardown ------ */
