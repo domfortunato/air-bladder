@@ -33,19 +33,27 @@ const ASSETS = [
   { from: "logo", filter: (f) => f === "Cairn-2e-Compatible_white.jpg" },
   // Screenshots.
   { from: "docs/images", filter: (f) => f.endsWith(".png") },
-  // Alegreya, self-hosted so the page makes no external requests.
-  { from: "fonts", filter: (f) => f.endsWith(".woff2") },
+  // Alegreya, self-hosted so the page makes no external requests. The OFL
+  // notice travels WITH the fonts: clause 2 requires the copyright notice and
+  // licence accompany every copy, and a built site is a copy — it served three
+  // woff2 files and no notice at all until 2026-08-18. The zip half was fixed
+  // and gated in the 2026-07-30 rewrite; nothing had ever looked at the site.
+  {
+    from: "fonts",
+    filter: (f) => f.endsWith(".woff2") || f === "OFL.txt" || f === "license.txt",
+    requires: ["OFL.txt", "license.txt"],
+  },
 ];
 
 function copyFiltered(from, to, filter) {
   fs.mkdirSync(to, { recursive: true });
-  let n = 0;
+  const copied = [];
   for (const entry of fs.readdirSync(from, { withFileTypes: true })) {
     if (!entry.isFile() || !filter(entry.name)) continue;
     fs.copyFileSync(path.join(from, entry.name), path.join(to, entry.name));
-    n++;
+    copied.push(entry.name);
   }
-  return n;
+  return copied;
 }
 
 fs.rmSync(outRoot, { recursive: true, force: true });
@@ -65,19 +73,29 @@ console.log(`site/ -> _site/                  ${pages} file(s)`);
 fs.writeFileSync(path.join(outRoot, ".nojekyll"), "");
 
 let total = 0;
-for (const { from, filter } of ASSETS) {
+for (const { from, filter, requires = [] } of ASSETS) {
   const src = path.join(root, ...from.split("/"));
   if (!fs.existsSync(src)) {
     console.error(`Missing asset folder: ${from}`);
     process.exit(1);
   }
-  const n = copyFiltered(src, path.join(outRoot, ...from.split("/")), filter);
-  if (n === 0) {
+  const copied = copyFiltered(src, path.join(outRoot, ...from.split("/")), filter);
+  if (copied.length === 0) {
     console.error(`No files matched in ${from} — the page would render broken.`);
     process.exit(1);
   }
-  console.log(`${from}/`.padEnd(32) + `${n} file(s)`);
-  total += n;
+  // A missing NOTICE breaks nothing on screen, which is exactly why it needs
+  // saying out loud. The filter is the line anyone edits, and fonts render
+  // perfectly well with their licence stripped off — nothing else here would
+  // ever have mentioned it.
+  const absent = requires.filter((f) => !copied.includes(f));
+  if (absent.length) {
+    console.error(`${from}/ is missing its required notice: ${absent.join(", ")}. `
+      + "The licence has to travel with the files it covers.");
+    process.exit(1);
+  }
+  console.log(`${from}/`.padEnd(32) + `${copied.length} file(s)`);
+  total += copied.length;
 }
 
 console.log(`\nBuilt _site/ — ${pages} page file(s) + ${total} asset(s).`);

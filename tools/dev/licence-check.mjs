@@ -266,6 +266,40 @@ unnamedArtists.length === 0
   ? ok(`both READMEs name every credited artist (${creditedArtists.length})`)
   : fail(`gallery artists missing from a CC BY attribution:\n        ${unnamedArtists.join("\n        ")}`);
 
+// The CLASS icons in icons/ are a SECOND game-icons attribution with a second,
+// much shorter author list -- and it is restated in four places, not two,
+// because the landing page credits them as well. That page read "Lorc,
+// Delapouite & Skoll" from before the donkey arrived and brought SeregaCthtuf
+// with it, so a published page was making a CC BY attribution one author short
+// of the art it was attributing (review #16). The READMEs and LICENSE.txt were
+// all correct, which is the point: three copies agreeing proves nothing about
+// the fourth when nothing compares them.
+//
+// Read from the per-icon TABLE, never the prose sentence above it. The table is
+// what tools/import/icons.mjs writes a row into, so it is right by
+// construction; the sentence is hand-kept and drifts on exactly the occasion
+// these four do.
+const ICON_CREDIT_SITES = ["README.md", "README.es.md", "LICENSE.txt", "site/index.html"];
+const classIconAuthors = [...new Set(
+  [...read("icons/CREDITS.md").matchAll(/^\|[^|\n]*\|[^|\n]*\|[^|\n]*\|\s*([^|\n]+?)\s*\|/gm)]
+    .map((m) => m[1].trim())
+    .filter((a) => a && a !== "author" && !/^-+$/.test(a)),
+)].sort();
+
+const unnamedIconArtists = [];
+if (!classIconAuthors.length) {
+  unnamedIconArtists.push("icons/CREDITS.md: no per-icon table to read authors from");
+} else {
+  for (const file of ICON_CREDIT_SITES) {
+    const missing = classIconAuthors.filter((a) => !read(file).includes(a));
+    if (missing.length) unnamedIconArtists.push(`${file}: does not name ${missing.join(", ")}`);
+  }
+}
+unnamedIconArtists.length === 0
+  ? ok(`every class-icon author is named at all ${ICON_CREDIT_SITES.length} attribution sites `
+    + `(${classIconAuthors.length})`)
+  : fail(`class-icon authors missing from a CC BY attribution:\n        ${unnamedIconArtists.join("\n        ")}`);
+
 // LICENSE.txt states the contributor count in prose. It is the same drift as
 // the two above and computed right here, so it is checked here rather than
 // carrying a one-entry site list of its own.
