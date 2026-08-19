@@ -449,6 +449,40 @@ try {
     }
 
     /* ---- 6. two GMs, one portrait scan -------------------------------------- */
+
+    // Poll until no client has written custom-portrait-list for a whole quiet
+    // period, so a login-time scan cannot be counted as part of the change
+    // below. Fails loudly rather than proceeding into a leg it would poison.
+    const settleWrites = async (pages) => {
+      for (const p of pages) {
+        await p.evaluate(() => {
+          if (globalThis.__b2Settle) return;
+          const orig = game.settings.set;
+          globalThis.__b2Settle = { orig, last: Date.now() };
+          game.settings.set = function (ns, key, ...rest) {
+            if (ns === "air-bladder" && key === "custom-portrait-list") {
+              globalThis.__b2Settle.last = Date.now();
+            }
+            return orig.call(this, ns, key, ...rest);
+          };
+        });
+      }
+      const deadline = Date.now() + 30000;
+      let quiet = false;
+      while (Date.now() < deadline && !quiet) {
+        await pages[0].waitForTimeout(500);
+        const ages = [];
+        for (const p of pages) ages.push(await p.evaluate(() => Date.now() - globalThis.__b2Settle.last));
+        quiet = ages.every((a) => a >= 5000);
+      }
+      for (const p of pages) {
+        await p.evaluate(() => {
+          game.settings.set = globalThis.__b2Settle.orig;
+          delete globalThis.__b2Settle;
+        });
+      }
+      if (!quiet) fail("the portrait-list writes never went quiet", "the single-writer legs below would count somebody else's scan");
+    };
     console.log("\nportrait-folder scan single-writer");
 
     await page.evaluate(async () => {
@@ -458,6 +492,20 @@ try {
     cleanup.gm2Made = true;
     gm2Page = await (await browser.newContext({ viewport: VIEWPORT })).newPage();
     await joinAs(gm2Page, "ZZ PROBE GM2");
+
+    // SETTLE BEFORE SPYING. A GM's login runs the same portrait scan this leg
+    // is about (cairn.js ready hook, activeGM-gated exactly as the onChange is),
+    // and joining GM2 makes GM2 the elected activeGM — so its scan writes
+    // custom-portrait-list once, ~2.5s after game.ready, entirely legitimately.
+    // The spy went on immediately after joinAs and counted that straggler, so
+    // the deliberate change below made two and both legs red: 0 and 2, reported
+    // as "two GMs raced" when one GM had written twice for two different and
+    // correct reasons. Observed directly before it was fixed — spy installed,
+    // NO folder change made, and GM2 still logged a write at t+2543ms.
+    //
+    // Waiting for quiet rather than sleeping a guessed number: the leg below
+    // measures a window, so the window has to start empty.
+    await settleWrites([page, gm2Page]);
 
     const activeName = await page.evaluate(() => game.users.activeGM?.name ?? null);
     const idlePage = activeName === "ZZ PROBE GM2" ? page : gm2Page;

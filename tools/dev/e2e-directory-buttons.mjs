@@ -563,16 +563,32 @@ try {
       document.querySelector("#actors .create-character-generator-button")?.click();
       // The SOURCE question is asked on the CLICKING client (the player's own
       // picker, same as the direct path — asked on the answering side it
-      // would hang the request on the Warden's screen). The dev world has
-      // both sources enabled, so the picker appears here; answer 2e. A world
-      // with one source shows none and the wait below simply drains.
-      let srcBtn = null;
+      // would hang the request on the Warden's screen). WHICH question she is
+      // asked depends on the world, and this used to assume one of the two:
+      //
+      //   2+ sources enabled -> the source picker, buttons named for a source
+      //   0 or 1, and a PLAYER -> a plain Yes/No confirm (2026-08-08 user ask:
+      //     an accidental click must not silently roll a PC). The Warden's own
+      //     button skips it, which is why no Warden-side leg ever saw this.
+      //
+      // It waited only for the picker, on a written-down belief that this world
+      // had both sources on. It has 2e alone — the user's own content choice —
+      // so a player gets the confirm, the wait drained, the dialog was left
+      // sitting unanswered, and promptContentSource never resolved: no emit, no
+      // mint, and three legs reporting a broken relay that works. Note the
+      // comment was stale twice over, because the confirm shipped AFTER it was
+      // written and nothing sends a comment red.
+      //
+      // So answer whatever is actually on screen. Both are real worlds, the
+      // relay must work in both, and neither needs a world setting written.
+      let picked = null;
       const tPick = Date.now();
-      while (Date.now() - tPick < 4000 && !srcBtn) {
-        srcBtn = document.querySelector('dialog button[data-action="2e"]');
-        if (!srcBtn) await sleep(150);
+      while (Date.now() - tPick < 6000 && !picked) {
+        const btn = document.querySelector('dialog button[data-action="2e"]')
+          ?? document.querySelector('dialog button[data-action="yes"]');
+        if (btn) { picked = btn.dataset.action; btn.click(); break; }
+        await sleep(150);
       }
-      srcBtn?.click();
       const t0 = Date.now();
       let fresh = [];
       while (Date.now() - t0 < 30000) {
@@ -580,7 +596,7 @@ try {
         if (fresh.length) break;
         await sleep(300);
       }
-      if (!fresh.length) return { minted: false };
+      if (!fresh.length) return { minted: false, picked };
       const actor = game.actors.get(fresh[0]);
       // The pcGenerated answer renders the sheet — poll for the window.
       //
@@ -616,18 +632,30 @@ try {
         type: actor.type,
         level: actor.ownership?.[game.user.id],
         sheetOpen,
+        picked,
       };
     });
     relayMintedUuid = mint.uuid ?? null;
     mint.minted && mint.type === "character" && mint.level === 3
-      ? ok("her click minted a character through the Warden's client", `${mint.name} — Alice OWNER`)
+      ? ok("her click minted a character through the Warden's client", `${mint.name} — Alice OWNER, via the ${mint.picked ?? "(none)"} prompt`)
       : fail("her click minted a character through the Warden's client", JSON.stringify(mint));
     mint.sheetOpen
       ? ok("and the sheet opened on HER client", "the pcGenerated answer landed")
       : fail("and the sheet opened on HER client", JSON.stringify(mint));
+    // The two outcomes are OPPOSITE causes and the message used to name only
+    // one of them: "a second GM answered too" was printed for a count of ZERO,
+    // which is nothing answering at all. It cost a full triage pass chasing a
+    // live-GM confound that was not there — the relay had never been reached,
+    // because the source prompt above went unanswered. A count is not a
+    // diagnosis; say which way it went.
     mint.count === 1
       ? ok("exactly one character arrived", "no double-mint")
-      : fail(`expected exactly one new character, got ${mint.count ?? 0}`, "a second GM client answered too — the live-GM confound, or the in-flight guard broke");
+      : fail(
+        `expected exactly one new character, got ${mint.count ?? 0}`,
+        mint.count > 1
+          ? "a second GM client answered too — the live-GM confound, or the in-flight guard broke"
+          : "nothing arrived — the legs above say where it stopped, not this one",
+      );
   } finally {
     // Restore BOTH preconditions from NODE via the GM page, unconditionally and
     // to the values captured at entry — not to "on", which would leave the

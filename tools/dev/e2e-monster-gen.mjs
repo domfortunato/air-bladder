@@ -177,6 +177,7 @@ await dismissChrome(page);
 
 let createdId = null;
 let permsPrior = null;
+let genPrior = null;
 
 try {
   await withSettings(page, async () => {
@@ -438,9 +439,23 @@ try {
 
   /* --- Alice: Warden-only means no button even WITH actor-create ---------- */
 
-  // Grant Alice's role ACTOR_CREATE first. Without it she gets no generator
-  // section at all and the assertion below passes with the isGM gate deleted —
-  // this probe's own fail-witness run proved that. Restored in the finally.
+  // TWO preconditions, and the Alice leg is vacuous without either.
+  //
+  // ACTOR_CREATE, or she gets no generator section at all and the assertion
+  // below passes with the isGM gate deleted — this probe's own fail-witness
+  // run proved that.
+  //
+  // `allow-player-generate`, for the same reason and by a different route:
+  // cairn.js gates the whole player-side section on it, so with the switch off
+  // the section is absent no matter what her role holds. The dev world keeps it
+  // OFF — the user's own choice about their own world — so this probe was red
+  // on somebody's ordinary play decision, reporting a missing button that was
+  // never missing. Fifth time for this class (dev:playergen, dev:container-link,
+  // dev:directory-buttons, and that last one fixed the SAME pair of
+  // preconditions in its own file without this one following).
+  //
+  // Both are restored to the values captured here, never to "on": a test run
+  // must not leave the Warden's switch flipped.
   permsPrior = await page.evaluate(async () => {
     const prior = JSON.stringify(game.settings.get("core", "permissions"));
     const next = JSON.parse(prior);
@@ -452,6 +467,11 @@ try {
     return prior;
   });
   if (!permsPrior) fail("no Alice user in the world — run `npm run dev:players` first");
+  genPrior = await page.evaluate(async () => {
+    const prior = game.settings.get("air-bladder", "allow-player-generate");
+    if (!prior) await game.settings.set("air-bladder", "allow-player-generate", true);
+    return prior;
+  });
 
   console.log("\njoining as Alice (with ACTOR_CREATE)");
   const aliceContext = await browser.newContext({ viewport: VIEWPORT });
@@ -483,6 +503,11 @@ try {
     await page.evaluate(async (p) => {
       await game.settings.set("core", "permissions", JSON.parse(p));
     }, permsPrior).catch(() => {});
+  }
+  if (genPrior === false) {
+    await page.evaluate(async () => {
+      await game.settings.set("air-bladder", "allow-player-generate", false);
+    }).catch(() => {});
   }
   await page.evaluate(async (prefix) => {
     for (const a of game.actors.filter((x) => x.name.startsWith(prefix))) await a.delete();
