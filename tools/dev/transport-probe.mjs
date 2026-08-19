@@ -235,6 +235,88 @@ try {
       belowLands: capBelowLands === true && !!belowMule,
     };
 
+    // 3e. THE NAMES IN THOSE TWO REFUSALS (review #16). Both toasts name the
+    //     BUYER, and the buyer is a different kind of thing in each. The
+    //     nesting wall answers a THING — a mule, a cart — whose name is
+    //     overlay-translated like any creature's, and the toast has to agree
+    //     with the sheet title it answers. The ceiling wall is reachable ONLY
+    //     by a character (it sits BELOW canKeepConnected), so the name there is
+    //     player-authored and must never be translated: the 2026-08-04 gate,
+    //     which `actorDisplayName` is the one place to hold. Both sites read a
+    //     bare t("monster.name") until now, so a PC named for a creature was
+    //     renamed in a toast addressed to their own player.
+    //
+    //     The overlay is installed IN-PAGE (`_setOverlay`, the house pattern)
+    //     with entries invented here — no world write, and no dependence on
+    //     what the shipped Spanish pack happens to call a mule. Restored in a
+    //     finally, or every leg after this one runs translated.
+    const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+    const warns = [];
+    const origWarn = ui.notifications.warn;
+    ui.notifications.warn = (m, ...rest) => {
+      warns.push(String(m));
+      return origWarn.call(ui.notifications, m, ...rest);
+    };
+    // The token PC below is a WORLD actor with a token on a scene; both are
+    // torn down, the scene first (deleting the actor under a live token leaves
+    // the scene holding a dangling actorId).
+    const tokenBase = await CONFIG.Actor.documentClass.create({
+      name: "PROBE Token PC", type: "character",
+    });
+    made.push(tokenBase);
+    let names;
+    let tokenScene = null;
+    try {
+      i18n._setOverlay({ "monster.name": {
+        "Mule": "PROBE Mula",
+        "PROBE Capped": "PROBE Encajado",
+        "PROBE Token PC": "PROBE Ficha",
+      } });
+      warns.length = 0;
+      await mkt.acquireTransport(muleActor, muleRow, false);
+      const nestToast = warns[warns.length - 1] ?? "";
+      warns.length = 0;
+      // TAKE, not buy: the gold wall sits ABOVE the ceiling wall, so a paid
+      // attempt could be refused for the wrong reason and still read as a pass.
+      // `capped` is back AT the cap here — 3d deleted one child and bought one.
+      await mkt.acquireTransport(capped, muleRow, false);
+      const capToast = warns[warns.length - 1] ?? "";
+      warns.length = 0;
+      // And a character can reach the NESTING toast after all: canKeepConnected
+      // refuses an UNLINKED TOKEN outright (a synthetic actor is never a
+      // keeper), so a token PC buying a mule is answered by the wall whose
+      // buyer is "a thing" everywhere else. That is the branch the shared
+      // helper exists for, and the only path in the marketplace that reaches
+      // it — without this leg the nesting site's fix is untested.
+      tokenScene = await CONFIG.Scene.documentClass.create({ name: "PROBE Token Scene" });
+      const [tokDoc] = await tokenScene.createEmbeddedDocuments("Token", [
+        { name: "PROBE Token PC", actorId: tokenBase.id, actorLink: false, x: 0, y: 0 },
+      ]);
+      const tokRefused = await mkt.acquireTransport(tokDoc.actor, muleRow, false);
+      const tokToast = warns[warns.length - 1] ?? "";
+      names = {
+        overlayLive: i18n.contentLocalized(),
+        // The token buy must actually have been REFUSED, or no toast fired and
+        // the two assertions under it read an empty string as clean.
+        tokenRefused: tokRefused === false,
+        tokenEnglish: tokToast.includes("PROBE Token PC"),
+        tokenNotTranslated: !tokToast.includes("PROBE Ficha"),
+        tokToast,
+        // The precondition, and it is the whole leg: if a THING's name does not
+        // translate here, the overlay is not live and the PC assertion below
+        // cannot fail no matter what the code does.
+        thingTranslated: nestToast.includes("PROBE Mula"),
+        pcEnglish: capToast.includes("PROBE Capped"),
+        pcNotTranslated: !capToast.includes("PROBE Encajado"),
+        nestToast,
+        capToast,
+      };
+    } finally {
+      i18n._setOverlay(null);
+      ui.notifications.warn = origWarn;
+      await tokenScene?.delete().catch(() => {});
+    }
+
     // 4. Edit the Mule ACTOR document (the one the shop row references now);
     //    a newly bought one must reflect it -- the reference guarantee.
     const wasLocked = aPack.locked;
@@ -290,7 +372,7 @@ try {
     };
 
     for (const a of made) { try { await a.delete(); } catch { /* already gone */ } }
-    return { setup, mount, worn, legacy, vehicle, nesting, capLeg, edit, afford, directory };
+    return { setup, mount, worn, legacy, vehicle, nesting, capLeg, names, edit, afford, directory };
   });
 
   if (r.error) {
@@ -356,6 +438,19 @@ try {
     r.capLeg.belowLands
       ? ok("   witness: one child fewer and the same purchase lands")
       : fail(`below the cap the buy still refused — the refusal was not the count: ${JSON.stringify(r.capLeg)}`);
+
+    r.names.overlayLive && r.names.thingTranslated
+      ? ok("   precondition: with the overlay live a THING's name DOES translate", `"${r.names.nestToast}"`)
+      : fail(`the overlay is not reaching the nesting toast, so the PC leg below is vacuous: ${JSON.stringify(r.names)}`);
+    r.names.pcEnglish && r.names.pcNotTranslated
+      ? ok("   a PC's name is NEVER run through the monster overlay", "the ceiling toast is reachable by characters only")
+      : fail(`the ceiling toast renamed the buyer: "${r.names.capToast}"`);
+    r.names.tokenRefused
+      ? ok("   precondition: an unlinked token PC IS refused at the nesting wall")
+      : fail("an unlinked token PC bought a mule — no toast fired, the leg below is vacuous");
+    r.names.tokenEnglish && r.names.tokenNotTranslated
+      ? ok("   and the nesting toast leaves a token PC's name alone too")
+      : fail(`the nesting toast renamed a token PC: "${r.names.tokToast}"`);
 
     r.edit.flowed ? ok(`EDIT FLOWS THROUGH: capacity ${r.edit.expected} on the next one bought`) : fail(`document edit did not flow through (got ${r.edit.got}, expected ${r.edit.expected})`);
 

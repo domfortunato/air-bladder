@@ -1,7 +1,7 @@
 import { findTableItems } from "./compendium.js";
 import { iconForTransport, TRANSPORT_KINDS } from "./icons.js";
 import { atConnectionLimit, maxConnections, connectedOwnershipShape, OWNERSHIP_SYNC_FLAG } from "./connections.js";
-import { localizeNameDesc, t } from "./i18n-content.js";
+import { actorDisplayName, localizeNameDesc, t } from "./i18n-content.js";
 import { formatCount } from "./utils.js";
 import { SETTINGS_NS } from "./settings.js";
 
@@ -305,10 +305,13 @@ export const acquireTransport = async (actor, doc, pay) => {
   // any more: an npc mule IS a container, and its own sheet carries the shop
   // link this guard exists for (review #5). canKeepConnected holds the rule.
   if (!actor.canKeepConnected) {
-    // t() the name: both these guards fire only when the buyer is a THING (a
-    // Mule, a Backpack) whose name IS in monster.name — same rule as the row
-    // labels above, and the toast must agree with the sheet title it answers.
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoNesting", { name: t("monster.name", actor.name) }));
+    // actorDisplayName, not a bare t(). This guard mostly refuses a THING (a
+    // Mule, a Backpack) whose name IS in monster.name, and the toast must agree
+    // with the sheet title it answers — but canKeepConnected also refuses an
+    // unlinked TOKEN, and a token can be a player character, whose name is
+    // NEVER localized (the 2026-08-04 gate). One helper holds that gate so no
+    // call site re-decides it; it is what actor.js uses for this same message.
+    ui.notifications.warn(game.i18n.format("CAIRN.Notify.NoNesting", { name: actorDisplayName(actor) }));
     return false;
   }
   // The connection ceiling, refused at the till like the two walls above it —
@@ -316,7 +319,13 @@ export const acquireTransport = async (actor, doc, pay) => {
   // in its creation data and never calls `connectActor`, so the cap wall there
   // never sees it.
   if (atConnectionLimit(actor)) {
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.ConnectionLimit", { name: t("monster.name", actor.name), max: maxConnections() }));
+    // Past the guard above, so the buyer is a CHARACTER and nothing else can
+    // reach this line — the name is ALWAYS player-authored here. It used to go
+    // through monster.name on the reasoning quoted above, which is true of that
+    // guard and false of this one: a PC named Horse or Mule was renamed to
+    // whatever the Spanish pack calls the creature, in a toast addressed to
+    // their own player. Review #16.
+    ui.notifications.warn(game.i18n.format("CAIRN.Notify.ConnectionLimit", { name: actorDisplayName(actor), max: maxConnections() }));
     return false;
   }
   // Give it a real portrait AND a matching map token; fall back to the class icon
