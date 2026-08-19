@@ -379,7 +379,11 @@ export const castFromGrimoire = async (actor) => {
   // moved.
   const pages = pagesOfGrimoire(actor, book);
   if (!pages.length) {
-    ui.notifications.warn(game.i18n.format("CAIRN.Notify.GrimoireNoPages", { name: book.name }));
+    // Through the overlay, like the page names in the picker below — this
+    // refusal and that list name the same book. The two dice refusals under it
+    // name the CASTER and stay raw: a character's name is never localized.
+    ui.notifications.warn(game.i18n.format("CAIRN.Notify.GrimoireNoPages",
+      { name: t("item.name", book.name) }));
     return null;
   }
   const maxDice = magicDice(actor);

@@ -205,9 +205,15 @@ const owned = (fn) => function (event, target) {
     // the pack is locked, or this user fails `editPermission` on the document.
     // Name whichever it is, because the fix is different for each.
     const pack = this.document?.pack ? game.packs.get(this.document.pack) : null;
+    // `actorDisplayName`, not a bare `.name`: this wrapper only ever runs on an
+    // ACTOR sheet, and the refusal is most often about a compendium monster,
+    // whose sheet title beside it is translated. The helper carries the
+    // character gate, so a PC's player-authored name still comes through
+    // untouched. `pack.title` needs nothing — core localizes a pack LABEL per
+    // viewer already (compendium-collection.mjs:46).
     ui.notifications.warn(pack?.locked
       ? game.i18n.format("CAIRN.Notify.PackLocked", { pack: pack.title ?? pack.collection })
-      : game.i18n.format("CAIRN.Notify.NotEditable", { name: this.document?.name ?? "" }));
+      : game.i18n.format("CAIRN.Notify.NotEditable", { name: actorDisplayName(this.document) }));
     return undefined;
   }
   return fn.call(this, event, target);
@@ -2721,15 +2727,23 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const pageCount = pagesOfGrimoire(this.actor, grimoire).length;
     if (pageCount >= (grimoire.system.grimoirePages ?? 0)) {
       ui.notifications.warn(game.i18n.format("CAIRN.Notify.GrimoireFull",
-        { name: grimoire.name }));
+        { name: t("item.name", grimoire.name) }));
       return;
     }
     // Names go into dialog HTML and are user-authored text.
+    //
+    // Both are shipped Items — the Grimoire out of the Reliquary, the spell out
+    // of a spellbook pack — so both read through the content overlay, exactly as
+    // the page picker two files over does (grimoire.js). Without it a Spanish
+    // player clicks Transmute on a row reading "Cuerda" and is asked to bind
+    // "Rope": the same item wearing two names in one gesture. Translate first,
+    // escape second — the overlay is keyed on the authored English, and escaping
+    // first would hand it entity-mangled text that can never match.
     const esc = foundry.utils.escapeHTML;
     const proceed = await foundry.applications.api.DialogV2.confirm({
       content: game.i18n.format(
         item.system.scroll ? "CAIRN.GrimoireTransmuteScrollQ" : "CAIRN.GrimoireTransmuteQ",
-        { spell: esc(item.name), book: esc(grimoire.name) }),
+        { spell: esc(t("item.name", item.name)), book: esc(t("item.name", grimoire.name)) }),
       rejectClose: false,
       modal: true,
     });
@@ -3155,7 +3169,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       window: { title: game.i18n.localize("CAIRN.UnlinkContainerTitle") },
       content: `<div class="cairn-confirm"><p class="cairn-confirm-q">${
         game.i18n.format("CAIRN.UnlinkContainerQ", {
-          name: foundry.utils.escapeHTML(child.name),
+          // The child is a THING (a sack, a mule), never a character, so this is
+          // monster.name territory — and `actorDisplayName` is what says so in
+          // one place. Parked UI today (connections-ui-enabled), which is
+          // precisely why it is fixed now: the flag flip must not restore a
+          // dialog that disagrees with the sheet behind it.
+          name: foundry.utils.escapeHTML(actorDisplayName(child)),
         })}</p></div>`,
       rejectClose: false,
       modal: true,
@@ -3897,7 +3916,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (this.actor.isThing) {
       if ((this.actor.system.slotsUsed ?? 0) + need > (this.actor.system.slotsMax ?? 0)) {
         ui.notifications.warn(
-          game.i18n.format("CAIRN.Notify.ContainerFull", { name: originalItem.name })
+          // The ITEM being refused, which is nearly always pack gear — the row
+          // the player just dragged shows its translated name.
+          game.i18n.format("CAIRN.Notify.ContainerFull", { name: t("item.name", originalItem.name) })
         );
         return null;
       }

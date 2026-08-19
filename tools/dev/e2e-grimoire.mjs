@@ -215,6 +215,36 @@ try {
   check(!before.castOnBook, "no pages yet: the book row offers no Cast control");
   check(before.transmuteOnAlpha, "a spellbook row offers Transmute while the book is carried");
 
+  // The EMPTY-book refusal, while the book is still empty. It names the book,
+  // so it goes through the content overlay like every other name a player reads
+  // (review #16) -- the picker two lines below it in grimoire.js always did.
+  // Reached the stale-sheet way, since the control the guard answers is exactly
+  // the one this state does not render: a sheet drawn while the book had pages,
+  // clicked after they left.
+  const emptyRefusal = await gm.evaluate(async (id) => {
+    const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+    const a = game.actors.get(id);
+    const warns = [];
+    const origWarn = ui.notifications.warn;
+    ui.notifications.warn = (m) => { warns.push(String(m)); return null; };
+    try {
+      i18n._setOverlay({ "item.name": { "ZZ Grim Tome": "ZZ-TOMO" } });
+      const book = a.items.find((i) => i.system?.grimoire);
+      const row = [...a.sheet.element.querySelectorAll("[data-item-id]")]
+        .find((r) => r.dataset.itemId === book.id);
+      await a.sheet.constructor.DEFAULT_OPTIONS.actions.grimoireCast
+        .call(a.sheet, { preventDefault: () => {} }, row);
+      return { said: warns.join(" | "), pages: a.items.filter((i) => i.system?.bound).length };
+    } finally {
+      ui.notifications.warn = origWarn;
+      i18n._setOverlay(null);
+    }
+  }, fx.casterId);
+  check(emptyRefusal.pages === 0 && !!emptyRefusal.said,
+    "the empty book refuses a cast at all", JSON.stringify(emptyRefusal));
+  check(emptyRefusal.said?.includes("ZZ-TOMO") && !emptyRefusal.said?.includes("ZZ Grim Tome"),
+    "…naming the translated book, not the stored English", `"${emptyRefusal.said}"`);
+
   // Click the real control, confirm the real dialog.
   await gm.evaluate((id) => {
     const el = game.actors.get(id).sheet.element;
@@ -264,6 +294,48 @@ try {
   check(grouped?.adjacent && grouped?.pageClass && grouped?.chip,
     "the page renders grouped under the book, indented, chipped", JSON.stringify(grouped));
   check(grouped?.castOnBook, "with a page bound, the book row offers Cast");
+
+  /* ------------------------- 2b. the transmute confirm, in Spanish -------- */
+  // Both names in the ask are shipped Items -- the Grimoire out of the
+  // Reliquary, the spell out of a spellbook pack -- and the row the player just
+  // clicked shows each of them translated. Review #16: the ask was built from
+  // stored English, so a Spanish player clicked Transmute on "Cuerda" and was
+  // asked to bind "Rope". Dismissed rather than accepted: leg 5 counts the
+  // pages this would have added.
+  const spanishAsk = await gm.evaluate(async (id) => {
+    const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const a = game.actors.get(id);
+    const out = {};
+    try {
+      i18n._setOverlay({ "item.name": {
+        "ZZ Grim Tome": "ZZ-TOMO", "ZZ Spell Beta": "ZZ-BETA-ES",
+      } });
+      [...a.sheet.element.querySelectorAll("[data-item-id]")]
+        .find((r) => r.textContent.includes("ZZ Spell Beta"))
+        ?.querySelector('[data-action="pageTransmute"]')?.click();
+      let dlg = null;
+      for (let i = 0; i < 60 && !dlg; i++) {
+        await sleep(100);
+        dlg = [...foundry.applications.instances.values()]
+          .find((x) => x.constructor.name === "DialogV2" && x.element?.querySelector(".dialog-content"));
+      }
+      out.ask = dlg?.element?.querySelector(".dialog-content")?.textContent
+        ?.replace(/\s+/g, " ").trim() ?? null;
+      await dlg?.close().catch(() => {});
+      await sleep(300);
+      out.stillUnbound = a.items.find((i) => i.name === "ZZ Spell Beta")?.system.bound === false;
+    } finally {
+      i18n._setOverlay(null);
+    }
+    return out;
+  }, fx.casterId);
+
+  check(!!spanishAsk.ask && spanishAsk.ask.includes("ZZ-BETA-ES") && spanishAsk.ask.includes("ZZ-TOMO"),
+    "the transmute confirm names BOTH documents translated", `"${spanishAsk.ask}"`);
+  check(!!spanishAsk.ask && !spanishAsk.ask.includes("ZZ Spell Beta") && !spanishAsk.ask.includes("ZZ Grim Tome"),
+    "…and neither in stored English", `"${spanishAsk.ask}"`);
+  check(spanishAsk.stillUnbound, "dismissing the confirm binds nothing");
 
   /* --------------------------------------------------- 3. bound is forever */
   const pinned = await gm.evaluate(async (id) => {
@@ -390,14 +462,21 @@ try {
     const warns = [];
     const orig = ui.notifications.warn;
     ui.notifications.warn = (m) => { warns.push(String(m)); };
+    // The full-book refusal names the book, so it reads through the overlay too
+    // (review #16). Installed here rather than in its own leg because the
+    // fixture it needs -- a book at capacity -- is this leg's.
+    const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+    i18n._setOverlay({ "item.name": { "ZZ Grim Tome": "ZZ-TOMO" } });
     try {
       await a.sheet.constructor.prototype.constructor
         .DEFAULT_OPTIONS.actions.pageTransmute.call(a.sheet, { preventDefault: () => {} }, target);
-    } finally { ui.notifications.warn = orig; }
-    return { bound: delta.system.bound, warned: warns.length > 0 };
+    } finally { ui.notifications.warn = orig; i18n._setOverlay(null); }
+    return { bound: delta.system.bound, warned: warns.length > 0, said: warns.join(" | ") };
   }, fx.casterId);
   check(fullEnforced.bound === false && fullEnforced.warned,
     "and the handler refuses with the full warning (enforcement)");
+  check(fullEnforced.said?.includes("ZZ-TOMO") && !fullEnforced.said?.includes("ZZ Grim Tome"),
+    "the full-book refusal names the translated book", `"${fullEnforced.said}"`);
 
   /* -------------------------------------------------- 6. the cast, seeded -- */
   const seedCast = async (page, sequence, diceVal = "2") => page.evaluate(async ({ id, seq, diceVal }) => {

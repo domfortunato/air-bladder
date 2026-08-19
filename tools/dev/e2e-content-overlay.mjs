@@ -1425,6 +1425,200 @@ else {
 
 /* -------------------------------------------- */
 
+// The DETACH confirm, on the same footing as the delete confirm above (review
+// #16). Parked UI -- the header line it lives on renders only under the
+// connections shadow -- and that is exactly why it is covered: one flag flip
+// restores this dialog, and it must not come back naming a cart the sheet
+// behind it calls something else. `DialogV2.confirm` is stubbed and answered
+// NO, so the leg reads the ask and writes nothing.
+//
+// The link is planted DANGLING, and that is load-bearing rather than
+// convenient. `#onConnectionDetach` has two exits: a live keeper routes
+// through `keeper.unlinkOwnedContainer`, whose confirm has read
+// `actorDisplayName` all along, and a dangling one raises its OWN dialog --
+// which is the copy that named the child in stored English. A leg pointed at
+// the live-keeper case passes with the fix reverted, because it is measuring
+// the other file. It did, before this comment existed.
+//
+// Dangling by a made-up uuid, not by deleting the keeper: the keeper-delete
+// hook (cairn.js) clears `connectedTo` and stamps `formerlyBelongedTo`, so a
+// deleted keeper leaves no link to detach at all.
+console.log("\ndetach confirm names the translation (dangling keeper)");
+
+const detachLeg = await page.evaluate(async () => {
+  const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const Actor = CONFIG.Actor.documentClass;
+  const DialogV2 = foundry.applications.api.DialogV2;
+  const out = { ids: [] };
+  const origConfirm = DialogV2.confirm;
+  const origGet = game.settings.get;
+  let asked = null;
+  DialogV2.confirm = async (args) => { asked = args; return false; };
+  game.settings.get = function (ns, key) {
+    if (key === "connections-ui-enabled") return true;
+    return origGet.call(this, ns, key);
+  };
+  let cart = null;
+  try {
+    const DEAD = "Actor.zzzzzzzzzzzzzzzz"; // resolves to nothing, forever
+    cart = await Actor.create({
+      name: "ZZ Detach Cart", type: "npc",
+      system: { role: "transport", slots: 4, connectedTo: DEAD },
+    });
+    out.ids.push(cart.id);
+    out.dangling = !game.actors.find((a) => a.uuid === cart.system.connectedTo);
+    i18n._setOverlay({ "monster.name": { "ZZ Detach Cart": "ZZ-CARRO" } });
+    await cart.sheet.render(true);
+    for (let i = 0; i < 60 && !cart.sheet.element; i++) await sleep(100);
+    await sleep(300);
+    const control = cart.sheet.element?.querySelector('[data-action="connectionDetach"]');
+    out.control = !!control;
+    control?.click();
+    for (let i = 0; i < 40 && asked === null; i++) await sleep(100);
+    out.ask = String(asked?.content ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    await cart.sheet.close().catch(() => {});
+    out.stillConnected = cart.system.connectedTo === DEAD;
+  } finally {
+    DialogV2.confirm = origConfirm;
+    game.settings.get = origGet;
+    i18n._setOverlay(null);
+    for (const id of out.ids) await game.actors.get(id)?.delete().catch(() => {});
+    out.swept = out.ids.every((id) => !game.actors.get(id));
+  }
+  return out;
+});
+
+if (!detachLeg.dangling) fail("precondition: the planted keeper really is unresolvable", "a live keeper routes past the dialog under test");
+else if (!detachLeg.control) fail("the connected child offers a detach control", "leg vacuous — the shadow did not restore the header line");
+else {
+  detachLeg.ask.includes("ZZ-CARRO") && !detachLeg.ask.includes("ZZ Detach Cart")
+    ? ok("detach confirm names the translation", `"${detachLeg.ask}"`)
+    : fail("detach confirm names the translation", `asked "${detachLeg.ask}"`);
+  detachLeg.stillConnected
+    ? ok("answering no detaches nothing", "")
+    : fail("answering no detaches nothing", "the link was broken anyway");
+  detachLeg.swept
+    ? ok("detach fixtures swept", "")
+    : fail("detach fixtures swept", "documents left behind");
+}
+
+/* -------------------------------------------- */
+
+// A REFUSAL names a document too, and it is the same rule (review #16). The row
+// a player just dragged shows the translation; a toast answering it in stored
+// English makes one thing wear two names in a single gesture -- the failure the
+// directory sweep was built to end, arriving through a surface nobody had swept.
+//
+// Two refusals, because they take their name from opposite sides of the naming
+// ruling: the capacity refusal names an ITEM (always through the overlay), the
+// permission refusal names an ACTOR (through it unless the actor is a player
+// character, whose name is never localized). The PC leg is the one that would
+// pass vacuously if `actorDisplayName` were replaced by a bare `t()`, so its
+// overlay entry is PLANTED -- a name the gate must refuse to use, not a miss.
+console.log("\nrefusals name the translation");
+
+const refusalLeg = await page.evaluate(async () => {
+  const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const Actor = CONFIG.Actor.documentClass;
+  const Item = CONFIG.Item.documentClass;
+  const out = { actorIds: [], itemIds: [] };
+  const warns = [];
+  const origWarn = ui.notifications.warn;
+  ui.notifications.warn = (m) => { warns.push(String(m)); return null; };
+  try {
+    i18n._setOverlay({
+      "item.name": { "ZZ Probe Lantern": "ZZ-FAROL" },
+      "monster.name": { "ZZ Probe Ghoul": "ZZ-DEMONIO", "ZZ Probe Hero": "ZZ-NUNCA" },
+    });
+
+    /* capacity: a BULKY item (2 slots) onto a one-slot crate */
+    const crate = await Actor.create({
+      name: "ZZ Probe Crate", type: "npc", system: { role: "container", slots: 1 },
+    });
+    const lantern = await Item.create({
+      name: "ZZ Probe Lantern", type: "item", system: { bulky: true },
+    });
+    out.actorIds.push(crate.id);
+    out.itemIds.push(lantern.id);
+    out.slotsMax = crate.system.slotsMax;
+    warns.length = 0;
+    out.createdAnyway = !!(await crate.sheet._onDropItem({ preventDefault: () => {} }, lantern));
+    out.full = warns.join(" | ");
+
+    /* permission: the `owned` wrapper's toast, on a rendered sheet whose
+       isEditable is shadowed on the INSTANCE (never a permission write -- this
+       harness is the GM, and demoting the GM is not something a probe may do).
+       The control is clicked for real; it renders either way, which is the whole
+       reason the wrapper has to say something. */
+    const shadowUneditable = (sheet) =>
+      Object.defineProperty(sheet, "isEditable", { value: false, configurable: true });
+    const clickPortrait = async (actor) => {
+      await actor.sheet.render(true);
+      for (let i = 0; i < 60 && !actor.sheet.element; i++) await sleep(100);
+      await sleep(200);
+      const img = actor.sheet.element?.querySelector('.portrait[data-action="editPortrait"]');
+      if (!img) return { clicked: false, warns: [] };
+      shadowUneditable(actor.sheet);
+      warns.length = 0;
+      img.click();
+      await sleep(300);
+      delete actor.sheet.isEditable;
+      const said = warns.join(" | ");
+      await actor.sheet.close().catch(() => {});
+      return { clicked: true, said };
+    };
+
+    const ghoul = await Actor.create({
+      name: "ZZ Probe Ghoul", type: "npc", system: { role: "monster" },
+    });
+    out.actorIds.push(ghoul.id);
+    out.monster = await clickPortrait(ghoul);
+
+    const hero = await Actor.create({ name: "ZZ Probe Hero", type: "character" });
+    out.actorIds.push(hero.id);
+    out.pc = await clickPortrait(hero);
+  } finally {
+    ui.notifications.warn = origWarn;
+    i18n._setOverlay(null);
+    for (const id of out.actorIds) await game.actors.get(id)?.delete().catch(() => {});
+    for (const id of out.itemIds) await game.items.get(id)?.delete().catch(() => {});
+    out.swept = out.actorIds.every((id) => !game.actors.get(id))
+      && out.itemIds.every((id) => !game.items.get(id));
+  }
+  return out;
+});
+
+if (refusalLeg.slotsMax !== 1 || refusalLeg.createdAnyway) {
+  fail("the crate refuses a bulky item", `slotsMax=${refusalLeg.slotsMax}, created=${refusalLeg.createdAnyway} — the leg is measuring nothing`);
+} else {
+  refusalLeg.full.includes("ZZ-FAROL")
+    ? ok("the capacity refusal names the translation", `"${refusalLeg.full}"`)
+    : fail("the capacity refusal names the translation", `said "${refusalLeg.full}"`);
+  !refusalLeg.full.includes("ZZ Probe Lantern")
+    ? ok("…and not the stored English", "")
+    : fail("…and not the stored English", `said "${refusalLeg.full}"`);
+}
+
+if (!refusalLeg.monster?.clicked) fail("the monster sheet offered a portrait control", "leg vacuous");
+else {
+  refusalLeg.monster.said.includes("ZZ-DEMONIO")
+    ? ok("the permission refusal names the translation", `"${refusalLeg.monster.said}"`)
+    : fail("the permission refusal names the translation", `said "${refusalLeg.monster.said}"`);
+}
+if (!refusalLeg.pc?.clicked) fail("the character sheet offered a portrait control", "control leg vacuous");
+else {
+  refusalLeg.pc.said.includes("ZZ Probe Hero") && !refusalLeg.pc.said.includes("ZZ-NUNCA")
+    ? ok("control: a PC keeps its player-authored name", "the overlay entry is planted and unused")
+    : fail("control: a PC keeps its player-authored name", `said "${refusalLeg.pc.said}"`);
+}
+refusalLeg.swept
+  ? ok("refusal fixtures swept", "")
+  : fail("refusal fixtures swept", "documents left behind");
+
+/* -------------------------------------------- */
+
 // The four generic class names stay scoped under .cairn (review #9 finding 14).
 // Foundry's layer order (`system` after `applications`, foundry2.css:5) makes
 // an unscoped system rule beat core's own regardless of specificity — bare
