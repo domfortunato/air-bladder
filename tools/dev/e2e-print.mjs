@@ -1022,7 +1022,7 @@ check("a shipped class background carries its author's credit",
   /McCormick/.test(r.clericAttribution ?? "") && /CC BY-SA 4\.0/.test(r.clericAttribution ?? ""),
   `attribution="${r.clericAttribution}" — authored in the pack, not derived; if it stops being `
   + "authored there the leg below stops meaning anything");
-check("…and its page prints that credit", r.creditsCustomBg.includes(r.clericAttribution ?? " ")
+check("…and its page prints that credit", r.creditsCustomBg.includes(r.clericAttribution ?? "\u0000")
   && r.creditsCustomBg.includes(r.creditCairnText) && /Aspeheim/.test(r.creditsCustomBg),
   `"${r.creditsCustomBg}" — his prose is on the page (the tagline and both Q&A pairs) and the `
   + "Yochai Gal line does not attribute him; all three lines coexist");
