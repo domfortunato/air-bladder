@@ -331,7 +331,6 @@ const late = await page.evaluate(async (fx) => {
     if (!out.fixture) return out;
     browser = await pack.render(true);
     await ui.actors.render(true);
-    await sleep(900);
 
     const dirRow = () => document
       .querySelector(`#actors [data-entry-id="${ghoul.id}"] .entry-name`)?.textContent.trim() ?? null;
@@ -340,7 +339,16 @@ const late = await page.evaluate(async (fx) => {
       const id = pack.index.find((e) => e.name === fx.PACK_EN || e.name === fx.PACK_ES)?._id;
       return el?.querySelector(`[data-entry-id="${id}"] .entry-name`)?.textContent.trim() ?? null;
     };
+
+    // POLLED, not slept. A fixed wait for a compendium window to draw is a race,
+    // and its failure shape is a matched PAIR — the baseline reads null and so
+    // does the repair — which is indistinguishable from the fix not working. One
+    // such pair was seen on 2026-08-19 and never reproduced in nine reruns; this
+    // is the mechanism that could produce it, so the wait is gone rather than
+    // lengthened.
+    for (let i = 0; i < 60 && (dirRow() === null || packRow() === null); i++) await sleep(100);
     out.before = { dir: dirRow(), pack: packRow() };
+    out.drew = out.before.dir !== null && out.before.pack !== null;
 
     // Installed, but nothing asks for a redraw. Anything that moves here is
     // something else re-rendering, and the leg below would be measuring it.
@@ -364,6 +372,7 @@ const late = await page.evaluate(async (fx) => {
 
 if (late.error) fail("the late-load legs ran", late.error);
 else if (!late.fixture) fail(`precondition: ${SIDEBAR_PACK} still ships "${SIDEBAR_EN}"`, "the fixture is gone");
+else if (!late.drew) fail("precondition: both surfaces drew at all", JSON.stringify(late.before) + " — a null here is a render that never landed, not an English row");
 else {
   late.before?.dir === LATE_EN && late.before?.pack === SIDEBAR_EN
     ? ok("baseline: both surfaces read English", `${late.before.dir} | ${late.before.pack}`)

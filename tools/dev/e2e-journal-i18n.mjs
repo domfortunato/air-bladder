@@ -142,6 +142,9 @@ const BLOCK_ES = "ZZ-BLOQUE-TRADUCIDO";
 const NAME_ES = "ZZ-DIARIO-TRADUCIDO";
 const HEADING_EN = "Attributes";
 const HEADING_ES = "ZZ-ENCABEZADO-TRADUCIDO";
+// The TOC has two row shapes, and `journal.pageName` reaches only the second
+// (review #16). Its own sentinel, so a page row cannot pass on a heading's.
+const PAGE_ES = "ZZ-PAGINA-TRADUCIDA";
 
 const subjectBlock = [...emitted.block].find((b) => b.startsWith("<em>These rules are the same"));
 subjectBlock
@@ -168,13 +171,22 @@ const shown = await page.evaluate(async (fx) => {
       .some((n) => n.innerHTML.trim() === fx.BLOCK_ES),
     heading: [...(el?.querySelectorAll(".journal-page-content h2") ?? [])]
       .some((n) => n.innerHTML.trim() === fx.HEADING_ES),
-    toc: [...(el?.querySelectorAll("nav.toc a") ?? [])].some((n) => n.textContent.trim() === fx.HEADING_ES),
+    // A heading row: `a.heading-link` inside the page it belongs to.
+    toc: [...(el?.querySelectorAll("nav.toc a.heading-link") ?? [])].some((n) => n.textContent.trim() === fx.HEADING_ES),
+    // A PAGE row, which is not a link at all — `span.page-title` in a
+    // `div.page-heading`, with the name repeated in the index bubble's tooltip.
+    // A `nav.toc a` selector never reached either, which is why the
+    // `journal.pageName` namespace went unasked-for.
+    pageTitle: [...(el?.querySelectorAll("nav.toc .page-title") ?? [])].some((n) => n.textContent.trim() === fx.PAGE_ES),
+    pageTip: [...(el?.querySelectorAll("nav.toc .page-index") ?? [])].some((n) => n.dataset.tooltipText === fx.PAGE_ES),
     title: el?.querySelector(".window-title")?.textContent?.trim() ?? null,
   });
   try {
+    out.pageName = doc.pages.contents[0]?.name ?? null;
     i18n._setOverlay({
       "journal.block": { [fx.subjectBlock]: fx.BLOCK_ES, [fx.HEADING_EN]: fx.HEADING_ES },
       "journal.name": { "Core Rules for Players": fx.NAME_ES },
+      "journal.pageName": { [out.pageName]: fx.PAGE_ES },
     });
     if (!i18n.contentLocalized()) return { error: "overlay did not install" };
 
@@ -209,12 +221,27 @@ const shown = await page.evaluate(async (fx) => {
       for (const h of saved) Hooks.on("renderJournalEntryPageSheet", h.fn ?? h);
     }
     out.hooksRestored = (Hooks.events?.renderJournalEntryPageSheet ?? []).length === saved.length;
+
+    // A SECOND control, for a second hook. The one above isolates the PAGE
+    // hook, which draws the prose; the TOC and the window title are drawn by
+    // `renderJournalEntrySheet`, so the legs about them are unattributed until
+    // that one is taken off too.
+    const eHooks = Hooks.events?.renderJournalEntrySheet ?? [];
+    const eSaved = eHooks.map((h) => h);
+    for (const h of eSaved) Hooks.off("renderJournalEntrySheet", h.fn ?? h);
+    try {
+      out.entryOff = readBack(await open());
+      await doc.sheet.close();
+    } finally {
+      for (const h of eSaved) Hooks.on("renderJournalEntrySheet", h.fn ?? h);
+    }
+    out.entryHooksRestored = (Hooks.events?.renderJournalEntrySheet ?? []).length === eSaved.length;
     return out;
   } finally {
     i18n._setOverlay(null);
     await doc.sheet.close().catch(() => {});
   }
-}, { subjectBlock, BLOCK_ES, NAME_ES, HEADING_EN, HEADING_ES });
+}, { subjectBlock, BLOCK_ES, NAME_ES, HEADING_EN, HEADING_ES, PAGE_ES });
 
 if (shown.error) fail("the overlay installed", shown.error);
 else {
@@ -227,6 +254,13 @@ else {
     : fail("and the contents list beside it agrees", "the TOC stayed English");
   shown.on?.title === NAME_ES ? ok("the window title carries the entry name", NAME_ES)
     : fail("the window title carries the entry name", `title read "${shown.on?.title}"`);
+  shown.pageName
+    ? ok("precondition: the entry has a named page to key on", `"${shown.pageName}"`)
+    : fail("precondition: the entry has a named page to key on", "no page name — the two legs below are vacuous");
+  shown.on?.pageTitle ? ok("a PAGE row in the contents list reads its translation", PAGE_ES)
+    : fail("a PAGE row in the contents list reads its translation", "journal.pageName never reached the TOC");
+  shown.on?.pageTip ? ok("and the tooltip on its index bubble agrees", "no English name on hover over a Spanish row")
+    : fail("and the tooltip on its index bubble agrees", "the tooltip kept the stored English");
 
   console.log("\nedit mode is left alone — its save writes what it shows");
   shown.editIsEditMode
@@ -243,6 +277,12 @@ else {
   shown.hooksRestored
     ? ok("and the hook came back", "later runs are not testing a disabled system")
     : fail("and the hook came back", "the hook was left off");
+  shown.entryOff?.pageTitle === false && shown.entryOff?.pageTip === false && shown.entryOff?.toc === false
+    ? ok("with the ENTRY hook off, the whole contents list is English", "the TOC legs measure that hook, not the page one")
+    : fail("with the ENTRY hook off, the whole contents list is English", JSON.stringify(shown.entryOff));
+  shown.entryHooksRestored
+    ? ok("and that one came back too", "")
+    : fail("and that one came back too", "renderJournalEntrySheet was left off");
 }
 
 console.log(`\nconsole errors: ${errors.length}`);

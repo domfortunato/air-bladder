@@ -593,16 +593,25 @@ Hooks.on("renderJournalEntryPageSheet", (app, element) => {
 });
 
 /**
- * The entry sheet's chrome: the window title, and the table-of-contents links
- * down the left. Both are built from text core captured before the hook above
- * ran, so without this a Spanish reader gets Spanish prose under an English
- * title with an English contents list beside it — the "one surface, two
- * answers" tell, on one screen.
+ * The entry sheet's chrome: the window title, and the table of contents down the
+ * left. Both are built from text core captured before the hook above ran, so
+ * without this a Spanish reader gets Spanish prose under an English title with an
+ * English contents list beside it — the "one surface, two answers" tell, on one
+ * screen.
  *
- * The TOC is written through `textContent`, and only when NEITHER side carries
- * markup: a heading's overlay key is its innerHTML, so a marked-up heading's
- * translation contains tags that would render as literal text in a link. Those
- * simply stay English, which is the overlay's standing way of missing.
+ * The TOC has TWO row shapes and they are not interchangeable, which is what the
+ * first version of this got wrong (review #16). A HEADING inside a page is
+ * `a.heading-link`. A PAGE is not a link at all: v14 draws it as
+ * `div.page-heading > span.page-title`, with the name repeated in the
+ * `data-tooltip-text` of the index bubble beside it. So a selector of `nav.toc a`
+ * reaches the headings and nothing else, and the `journal.pageName` half of the
+ * old single loop could never fire — a namespace the extractor fills for every
+ * page of every translatable journal, asked for by nothing.
+ *
+ * Written through `textContent`, and only when NEITHER side carries markup: a
+ * heading's overlay key is its innerHTML, so a marked-up heading's translation
+ * contains tags that would render as literal text in a link. Those stay English,
+ * which is the overlay's standing way of missing.
  */
 Hooks.on("renderJournalEntrySheet", (app, element) => {
   if (!contentLocalized() || !element) return;
@@ -611,14 +620,26 @@ Hooks.on("renderJournalEntrySheet", (app, element) => {
     const title = element.querySelector(".window-title");
     if (title) title.textContent = esName;
   }
-  for (const link of element.querySelectorAll("nav.toc a")) {
+
+  // Headings, which are the bulk of every shipped entry.
+  for (const link of element.querySelectorAll("nav.toc a.heading-link")) {
     const en = link.textContent.trim();
     if (!en || en.includes("<")) continue;
-    // A TOC row is either a heading inside a page (journal.block) or the page
-    // itself (journal.pageName); try both, heading first — headings outnumber
-    // pages by an order of magnitude in every shipped entry.
-    const es = translationOf("journal.block", en) ?? translationOf("journal.pageName", en);
+    const es = translationOf("journal.block", en);
     if (es !== undefined && es !== en && !es.includes("<")) link.textContent = es;
+  }
+
+  // The page rows they sit under. The tooltip on the index bubble is the same
+  // string a second time — leaving it behind gives the row an English name on
+  // hover and a Spanish one on screen, which is the same tell one element wide.
+  for (const title of element.querySelectorAll("nav.toc .page-title")) {
+    const en = title.textContent.trim();
+    if (!en || en.includes("<")) continue;
+    const es = translationOf("journal.pageName", en);
+    if (es === undefined || es === en || es.includes("<")) continue;
+    title.textContent = es;
+    const tip = title.closest(".page-heading")?.querySelector("[data-tooltip-text]");
+    if (tip?.dataset.tooltipText === en) tip.dataset.tooltipText = es;
   }
 });
 
