@@ -358,6 +358,13 @@
         "warden-npcs",
         "warden-monsters"
       ]
+    },
+    {
+      "name": "Air Bladder - Macros",
+      "sorting": "a",
+      "packs": [
+        "macros"
+      ]
     }
   ],
   "scripts": [],

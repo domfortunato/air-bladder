@@ -26,7 +26,11 @@
  *      listing and third-party installers read.
  *   3. Nothing in `packs` points at a `path` that is missing from `src/packs/`,
  *      which is the source of truth (`packs/` is generated and gitignored).
- *   4. Every `languages[]` entry names a file that exists, and every interface
+ *   4. Every declared pack is named by exactly one `packFolders` entry, and
+ *      every name those entries use is a real pack. Added 2026-08-19 (review
+ *      #16): `macros` shipped unfiled and sat loose at the root of the
+ *      Compendium sidebar for ten days, because nothing looks at that key.
+ *   5. Every `languages[]` entry names a file that exists, and every interface
  *      file in `lang/` is declared. Added 2026-08-07 (review #10): this was the
  *      one manifest key a contributor's PR routinely touches and the only
  *      file-naming key nothing checked.
@@ -142,7 +146,64 @@ for (const pack of (manifest.packs ?? []).filter(isWardenPack)) {
   }
 }
 
-/* 4. Languages -------------------------------------------------------------- */
+/* 4. packFolders coverage --------------------------------------------------- */
+
+// A pack no `packFolders` entry names is never filed ANYWHERE — not in a world
+// that already exists, not in a fresh one — and it sits loose at the root of the
+// Compendium sidebar under every folder. Nothing logs it and nothing errors; it
+// just looks like an oversight in a place nobody diffs, which is how the macros
+// pack sat at the root from the day it shipped (2026-08-08) until review #16
+// found it ten days later.
+//
+// The mechanism was measured against 14.365 rather than reasoned about, because
+// it decides whether the fix needs a world migration and the plausible reading
+// says it does. `World#updateActivePacks` runs the folder sync whenever a pack
+// is newly DEFINED (dist/packages/world.mjs), `db.disconnect()` does
+// `packs.clear()` (dist/database/database.mjs) and a fresh server process starts
+// with that Map empty — so the sync runs on EVERY world launch. What it will not
+// do is MOVE anything: the per-pack line is `if (!("folder" in r)) r.folder =
+// folderId`, so a record that already carries a folder — a Warden's drag, or an
+// earlier sync — keeps it forever. Filing a pack that has NEVER had one therefore
+// lands by manifest alone, confirmed on the dev world 2026-08-19: declare the
+// folder, restart, and macros is inside it with no migration code. Re-foldering a
+// pack that has one is the open upstream request foundryvtt/foundryvtt#9309.
+//
+// Checked in both directions, for the reason check:fields walks htmlFields both
+// ways: the same sync skips a name it cannot resolve (`if (!db.packs.has(id))
+// continue`), so a typo here reads as a filed pack and files nothing there.
+
+const declaredPacks = new Set((manifest.packs ?? []).map((p) => p.name));
+const filed = new Map();
+const walkFolders = (folders, trail = []) => {
+  for (const f of folders ?? []) {
+    const here = [...trail, f?.name ?? "(unnamed)"];
+    const label = here.join(" / ");
+    for (const name of f?.packs ?? []) {
+      if (filed.has(name)) {
+        fail(`pack "${name}" is named by two packFolders entries ("${filed.get(name)}" and "${label}") — `
+          + "the sync files it under whichever it reaches last");
+      } else filed.set(name, label);
+      if (!declaredPacks.has(name)) {
+        fail(`packFolders entry "${label}" names "${name}", which is not a declared pack — `
+          + "the folder sync skips a name it cannot resolve, so this line files nothing");
+      }
+    }
+    walkFolders(f?.folders, here);
+  }
+};
+
+const packFolders = manifest.packFolders ?? [];
+if (!packFolders.length) {
+  fail("no packFolders declared — every pack would sit loose at the root of the Compendium sidebar");
+} else {
+  walkFolders(packFolders);
+  const unfiled = [...declaredPacks].filter((n) => !filed.has(n));
+  unfiled.length === 0
+    ? ok(`all ${declaredPacks.size} packs are filed, across ${packFolders.length} packFolders`)
+    : fail(`pack(s) no packFolders entry names, so they sit loose at the sidebar root: ${unfiled.join(", ")}`);
+}
+
+/* 5. Languages -------------------------------------------------------------- */
 
 // The failure mode is why this is worth a gate. A declared path that 404s does
 // NOT throw and does not stop the world loading: `#loadTranslationFile` logs
