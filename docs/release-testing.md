@@ -232,6 +232,24 @@ NONE-default npc** (the shape the ownership pass raises to LIMITED) —
 `npm run dev:connections-migration` covers all three on `:30000`, but they are exactly
 the documents a fresh world cannot hold.
 
+For the grimoire one (`migrateGrimoirePages`, 0.1.17), seed a **loose world book**, an
+**inventory holding exactly one book plus an unbound page**, an **unlinked token whose
+delta holds the same pair**, and — as the negative case — an **inventory holding TWO
+books and an unbound page**, which the migration must refuse to resolve while still
+keying both books.
+
+**And this is the migration that proves the recipe is not optional.** `CairnItem._preCreate`
+mints a `grimoireKey` for any grimoire book that arrives without one (item.js, the
+"born named" fix), so under 0.1.17 a keyless book **cannot be created at all** — every
+planted book is born already keyed and the book-keying half of the migration has nothing
+to do. Planting produces a green run that tested half the code. Seeded under the real
+0.1.16 the fields are not empty, they are ABSENT (`grimoireKey` and `boundTo` have zero
+occurrences in that tag's `data-models.js`), which is a state no amount of planting under
+the new version can reproduce. Verified 2026-08-19 by installing the published 0.1.16
+zip, seeding, swapping 0.1.17 in over it, and booting the same world: all three branches
+keyed, both pages bound, every key distinct. **When a `_preCreate` guarantees the very
+field a migration backfills, the previous version is the only way to get the input.**
+
 Note what a RETIRED TYPE does to that recipe. Since the `container` type was removed
 (2026-07-31) a document of that type has no data model to load against, so the previous
 version can no longer seed one — "a container" above now means an npc with
