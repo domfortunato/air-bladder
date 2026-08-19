@@ -749,6 +749,7 @@ const r = await page.evaluate(async ({ xssName }) => {
   // put back afterwards for the passes that follow.
   const omenMark = "ZZ OMEN SWITCH the wells answer back.";
   const omenHead = game.i18n.localize("CAIRN.Omen");
+  const origSource = pc.system.contentSource;
   await pc.update({ "system.omenEnabled": true, "system.omen": omenMark });
   try {
     const on = await printWithShadow({ "show-omens": true });
@@ -756,9 +757,29 @@ const r = await page.evaluate(async ({ xssName }) => {
     const off = await printWithShadow({ "show-omens": false });
     out.omenSwitchOff = !off.text.includes(omenMark) && !off.headings.includes(omenHead);
     out.omenSwitchOffHeadings = off.headings;
+    // The CONTENT-SOURCE half of the same gate, which print carried for a day
+    // without (review #16). Barebones ships no omens table, so its characters
+    // never show one — and a LEGACY Barebones character can still hold an
+    // enabled flag AND stored text, which is exactly the document that printed
+    // an Omen its own sheet hides. The switch is shadowed ON here, so nothing
+    // but the content source can be what drops the section.
+    //
+    // A real fixture write rather than a shadow: contentSource is document
+    // data, not a setting, and this is the probe's OWN pc. Restored in the
+    // finally, and the restore is ASSERTED — later passes read this actor.
+    out.omenSourceBefore = origSource;
+    await pc.update({ "system.contentSource": "barebones" });
+    const bare = await printWithShadow({ "show-omens": true });
+    out.omenBarebonesOff = !bare.text.includes(omenMark) && !bare.headings.includes(omenHead);
+    out.omenBarebonesHeadings = bare.headings;
   } finally {
-    await pc.update({ "system.omenEnabled": false, "system.omen": "ZZ OMEN MARKER laughter from the wells." });
+    await pc.update({
+      "system.omenEnabled": false,
+      "system.omen": "ZZ OMEN MARKER laughter from the wells.",
+      "system.contentSource": origSource,
+    });
   }
+  out.omenSourceRestored = pc.system.contentSource === origSource;
   // Hiding is not erasing — read off the document after the shadow is gone.
   out.omenSwitchTextKept = pc.system.omen;
   await pc.sheet.close();
@@ -1090,6 +1111,11 @@ check("the show-omens switch drops the printed Omen section", r.omenSwitchOff ==
   `off-hidden=${r.omenSwitchOff} (headings then: ${JSON.stringify(r.omenSwitchOffHeadings)}) — one switch covers the sheet AND the paper, and the heading must go with the text, never print over nothing`);
 check("the hidden omen's TEXT survives on the actor", r.omenSwitchTextKept?.length > 0,
   `system.omen after the prints: "${r.omenSwitchTextKept}" — hiding is not erasing`);
+check("a BAREBONES character prints no Omen even with the switch ON", r.omenBarebonesOff === true,
+  `headings then: ${JSON.stringify(r.omenBarebonesHeadings)} — the gate's other half; `
+  + "Barebones ships no omens table, and a legacy one keeps its enabled flag and its text");
+check("and the fixture's content source is restored", r.omenSourceRestored === true,
+  `was ${r.omenSourceBefore} — later passes read this same actor`);
 
 console.log("\nthe route prefix");
 check("a prefixed host keeps its portraits", (r.prefixedSrc ?? "").includes("/pfx-probe/systems/air-bladder/"),

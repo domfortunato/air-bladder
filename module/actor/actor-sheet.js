@@ -156,6 +156,33 @@ const slideDown = (el) => {
  * player the switch allows can flip that flag themselves via toggleGeneration,
  * so refusing on it would enforce nothing.
  */
+/**
+ * May this actor's Omen be shown AT ALL? Two terms, and both surfaces need
+ * both — which is the whole reason this is a function.
+ *
+ * The CONTENT source is structural: Barebones ships no omens table, so the
+ * field is 2e's alone whatever any switch says (the lending setting that used
+ * to hand it to Barebones was removed 2026-08-09; a legacy Barebones
+ * character's stored omen and its `omenEnabled` flag both survive on the
+ * document). The SETTING is the Warden's, 2026-08-17: a 2e table that does not
+ * use the youngest-member rule turns the field off, on the sheet and on paper
+ * alike — one switch, both surfaces, so a field hidden on screen cannot
+ * reappear in print.
+ *
+ * Print carried only the second term for a day (review #16), which is exactly
+ * the case the first one exists for: a legacy Barebones character whose sheet
+ * hides the Omen printed one.
+ *
+ * Neither term looks at `system.omenEnabled` — that is the CHARACTER's own
+ * switch, asked separately by each surface, and folding it in here would make
+ * "this table uses omens" and "this character has one" the same question.
+ * @param {CairnActor} actor
+ * @returns {boolean}
+ */
+const omenVisible = (actor) =>
+  actor?.system?.contentSource !== "barebones"
+  && game.settings.get(SETTINGS_NS, "show-omens");
+
 const mayRandomize = (fn) => function (event, target) {
   if (!this._mayRandomize()) {
     ui.notifications.warn(game.i18n.localize("CAIRN.Notify.RandomizationDisabled"));
@@ -1280,8 +1307,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // here (showFailedCareer, _mayRandomize). The affordance/enforcement split
     // this repo insists on governs ACQUISITION — walking past a slot limit —
     // not whether a field is drawn. Stored omen text is never cleared.
-    context.showOmen = this.actor.system.contentSource !== "barebones"
-      && game.settings.get(SETTINGS_NS, "show-omens");
+    context.showOmen = omenVisible(this.actor);
     // The omen shows t("table.result", …) on BOTH surfaces — the read span and
     // the TEXTAREA — with the submit anchored back to the stored English in
     // _processFormData (2026-08-06, Malecho's second omen report). The textarea
@@ -2300,7 +2326,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // `{{#if omen}}`, so an empty string drops it whole, heading included —
       // the same empty-sections-are-OMITTED rule the disabled omen already
       // rode.
-      omen: sys.omenEnabled && game.settings.get(SETTINGS_NS, "show-omens")
+      //
+      // `omenVisible`, not the setting alone: this read carried ONLY the switch
+      // and so printed an Omen section for a legacy Barebones character whose
+      // own sheet hides it (review #16). The sheet reads the same helper, which
+      // is what stops the two answering differently again.
+      omen: sys.omenEnabled && omenVisible(actor)
         ? t("table.result", String(sys.omen ?? "").trim())
         : "",
       scars: (sys.scars ?? []).map((s) => t("table.result", s)),
