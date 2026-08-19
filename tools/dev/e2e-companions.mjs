@@ -343,8 +343,9 @@ const legacy = await page.evaluate(async () => {
       { id: "dddddddddddddddd", html: alsoGranted, names: ["Mule"], source: "background" },
     ] } },
   });
-  // And one where NOTHING matches: the document must not be written at all, so
-  // the next load meets exactly the same state and tries again.
+  // And one where NOTHING matches. Its notes must come through byte-identical —
+  // but its RECORD must still move off the flag the migration selects on, or
+  // the next load meets the same state and warns again, and again, forever.
   const untouched = await ActorImpl.create({
     name: "ZZ Legacy Untouched", type: "character",
     system: { notes: "<ul><li>ZZ Nothing here was ever written by generation.</li></ul>" },
@@ -352,11 +353,47 @@ const legacy = await page.evaluate(async () => {
       { id: "eeeeeeeeeeeeeeee", html: editedFrom, names: ["Owl"], source: "bond:0" },
     ] } },
   });
+  // An UNLINKED TOKEN that diverged in its NOTES ONLY (review #16). A delta is a
+  // sparse overlay merged onto the base actor, so this token's own notes are its
+  // own while its LEDGER is still the world actor's. Clear world actors first
+  // and the ledger is gone before the token walk looks: it reports no flag, the
+  // walk skips it, and this bullet can never be found again.
+  const tokenGranted = "<strong>Companion: Toad</strong> <em>[Bond]</em> — ZZ It croaks.";
+  const base = await ActorImpl.create({
+    name: "ZZ Legacy Token Base", type: "character",
+    system: { notes: `<ul><li>${tokenGranted}</li></ul>` },
+    flags: { "air-bladder": { grantNotes: [
+      { id: "ffffffffffffffff", html: tokenGranted, names: ["Toad"], source: "bond:0" },
+    ] } },
+  });
+  const scene = await CONFIG.Scene.documentClass.create({ name: "ZZ Legacy Scene" });
+  const [tok] = await scene.createEmbeddedDocuments("Token", [{
+    name: "ZZ Legacy Token", actorId: base.id, actorLink: false, x: 0, y: 0,
+  }]);
+  // The divergence: the player added a line to THIS token's copy. Written
+  // through the synthetic actor, so it lands in the delta and nowhere else.
+  await tok.actor.update({
+    "system.notes": `<ul><li>${tokenGranted}</li><li>ZZ The token's own line.</li></ul>`,
+  });
+  // And one that diverged in NOTHING. The world batch reaches it through its
+  // base actor, so the token walk must leave it alone rather than write the
+  // same text into its delta — that would MINT an override, pinning this
+  // token's notes away from the actor they still follow.
+  const [plain] = await scene.createEmbeddedDocuments("Token", [{
+    name: "ZZ Legacy Plain Token", actorId: a.id, actorLink: false, x: 200, y: 0,
+  }]);
   return {
     id: a.id, before: a.system.notes,
     ledger: (a.getFlag("air-bladder", "grantNotes") ?? []).length,
     editedId: edited.id, editedBefore: edited.system.notes,
     untouchedId: untouched.id, untouchedBefore: untouched.system.notes,
+    tokenBaseId: base.id, sceneId: scene.id, tokenId: tok.id,
+    tokenBefore: tok.actor.system.notes,
+    tokenDeltaKeys: Object.keys(tok.delta._source.system ?? {}),
+    tokenDeltaHasLedger: tok.delta._source.flags?.["air-bladder"]?.grantNotes !== undefined,
+    tokenSeesLedger: (tok.actor.getFlag("air-bladder", "grantNotes") ?? []).length,
+    plainTokenId: plain.id,
+    plainDeltaKeys: Object.keys(plain.delta._source.system ?? {}),
   };
 });
 check("the legacy fixture really carries bullets and a ledger",
@@ -366,6 +403,15 @@ check("and the hand-edited fixture's recorded line really does NOT match the she
   legacy.editedBefore.includes("ZZ It watches me sleep.")
   && !legacy.editedBefore.includes("ZZ It watches.</strong>"),
   "or the leg below would pass for the wrong reason");
+// The precondition that makes the token leg mean anything: its notes must be
+// the DELTA'S and its ledger must NOT be. A delta that happened to carry the
+// flag too would be found whatever order the migration ran in, and the leg
+// would pass while the defect stood.
+check("the unlinked token's notes are its own while its ledger is the world actor's",
+  legacy.tokenDeltaKeys.includes("notes") && legacy.tokenDeltaHasLedger === false
+  && legacy.tokenSeesLedger === 1 && legacy.tokenBefore.includes("ZZ The token's own line."),
+  `delta system keys ${JSON.stringify(legacy.tokenDeltaKeys)}, delta carries ledger `
+  + `${legacy.tokenDeltaHasLedger}, token sees ${legacy.tokenSeesLedger} record(s)`);
 
 console.log("  note  reloading, so the ready-hook removal runs for real");
 const removalLog = [];
@@ -406,27 +452,86 @@ const missed = await page.evaluate(({ editedId, untouchedId }) => {
   return {
     editedNotes: e.system.notes,
     editedLedger: e.getFlag("air-bladder", "grantNotes") ?? null,
+    editedKept: e.getFlag("air-bladder", "grantNotesUnmatched") ?? null,
     untouchedNotes: u.system.notes,
     untouchedLedger: u.getFlag("air-bladder", "grantNotes") ?? null,
+    untouchedKept: u.getFlag("air-bladder", "grantNotesUnmatched") ?? null,
   };
 }, legacy);
 check("a hand-edited line stays on the sheet, as it should",
   missed.editedNotes.includes("ZZ It watches me sleep."), JSON.stringify(missed.editedNotes));
 check("its neighbour that DID match went",
   !missed.editedNotes.includes("ZZ Patient."), JSON.stringify(missed.editedNotes));
-check("and the ledger keeps ONLY the record that missed — the bullet stays findable",
-  Array.isArray(missed.editedLedger) && missed.editedLedger.length === 1
-  && missed.editedLedger[0]?.names?.[0] === "Owl",
-  `${JSON.stringify(missed.editedLedger)} — dropping the whole flag here leaves a bullet nothing can ever `
+check("and ONLY the record that missed is kept — the bullet stays findable",
+  Array.isArray(missed.editedKept) && missed.editedKept.length === 1
+  && missed.editedKept[0]?.names?.[0] === "Owl",
+  `${JSON.stringify(missed.editedKept)} — dropping it outright leaves a bullet nothing can ever `
   + "find again: no marker, no flag, and a console line reporting success");
-check("an actor where nothing matched is not written at all",
-  missed.untouchedNotes === legacy.untouchedBefore
-  && Array.isArray(missed.untouchedLedger) && missed.untouchedLedger.length === 1,
-  `notes ${missed.untouchedNotes === legacy.untouchedBefore ? "identical" : "CHANGED"}, `
-  + `ledger ${JSON.stringify(missed.untouchedLedger)}`);
+check("an actor where nothing matched keeps its notes byte-identical",
+  missed.untouchedNotes === legacy.untouchedBefore,
+  missed.untouchedNotes === legacy.untouchedBefore ? "" : `CHANGED to ${JSON.stringify(missed.untouchedNotes)}`);
+check("and its record is kept too, so a total miss is reported rather than skipped",
+  Array.isArray(missed.untouchedKept) && missed.untouchedKept.length === 1,
+  JSON.stringify(missed.untouchedKept));
+// Review #16: kept, but NOT on the flag this migration selects on. Leaving it
+// there is what made the warning permanent — and its own advice could not stop
+// it, since deleting the line by hand is exactly what makes a match impossible.
+check("both records move OFF the selector, or nothing can ever be terminal",
+  (missed.editedLedger === null || missed.editedLedger === undefined)
+  && (missed.untouchedLedger === null || missed.untouchedLedger === undefined),
+  `edited ${JSON.stringify(missed.editedLedger)}, untouched ${JSON.stringify(missed.untouchedLedger)}`);
 check("and both are NAMED in a warning, or nobody ever learns", leftoverLog.length > 0
   && leftoverLog[0].includes("ZZ Legacy Edited") && leftoverLog[0].includes("ZZ Legacy Untouched"),
   leftoverLog[0] ?? "nothing warned — a silent miss is the whole defect");
+
+// The unlinked token, whose ledger lived on the world actor while its notes did
+// not. Ordered wrong, the world batch clears that ledger first and this token is
+// simply never seen again.
+const tokenSwept = await page.evaluate(({ sceneId, tokenId, plainTokenId }) => {
+  const scene = game.scenes.get(sceneId);
+  const t = scene?.tokens.get(tokenId);
+  const p = scene?.tokens.get(plainTokenId);
+  return {
+    notes: t?.actor?.system?.notes ?? null,
+    ledger: t?.actor?.getFlag("air-bladder", "grantNotes") ?? null,
+    plainNotes: p?.actor?.system?.notes ?? null,
+    plainDeltaKeys: Object.keys(p?.delta?._source?.system ?? {}),
+  };
+}, legacy);
+check("an unlinked token's own notes lose the bullet too",
+  typeof tokenSwept.notes === "string" && !tokenSwept.notes.includes("ZZ It croaks."),
+  `${JSON.stringify(tokenSwept.notes)} — the delta carries the notes and the base actor carries the `
+  + "ledger, so clearing the base first makes this token unreachable for good");
+check("and the line the token's own player added survives",
+  (tokenSwept.notes ?? "").includes("ZZ The token's own line."), JSON.stringify(tokenSwept.notes));
+check("a token that diverged in nothing is cleaned through its base, not overridden",
+  !(tokenSwept.plainNotes ?? "x").includes("ZZ It remembers.")
+  && tokenSwept.plainDeltaKeys.length === 0,
+  `notes ${JSON.stringify(tokenSwept.plainNotes)}, delta system keys `
+  + `${JSON.stringify(tokenSwept.plainDeltaKeys)} — writing here would pin this token's notes away `
+  + "from the actor they still follow, to say what that actor is about to say anyway");
+
+/* ---------------------------------------------------------------------------
+ * 3e. And it has to be able to STOP (review #16). A migration whose warning
+ *     repeats on every load for the life of the world is not finished; it is
+ *     just loud. Reload a second time on the swept state: nothing may be said
+ *     again, and what missed must still be there to read.
+ * ------------------------------------------------------------------------- */
+const warnedOnce = leftoverLog.length;
+console.log("  note  reloading a SECOND time, on the state the first pass left");
+await page.reload({ waitUntil: "networkidle", timeout: 60000 });
+await page.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
+await dismissChrome(page);
+await page.waitForTimeout(3000);
+check("the leftovers warning is not repeated on the next load",
+  leftoverLog.length === warnedOnce,
+  `said ${leftoverLog.length - warnedOnce} more time(s) — ${leftoverLog[warnedOnce] ?? ""}`);
+const kept = await page.evaluate(({ editedId }) => {
+  const e = game.actors.get(editedId);
+  return { kept: e.getFlag("air-bladder", "grantNotesUnmatched") ?? null };
+}, legacy);
+check("and what missed is still readable afterwards, or silence is just forgetting",
+  Array.isArray(kept.kept) && kept.kept[0]?.names?.[0] === "Owl", JSON.stringify(kept.kept));
 
 /* ---------------------------------------------------------------------------
  * 4. The player path: Alice's grant goes through the broker (players lack
@@ -495,21 +600,32 @@ check("a PLAYER's own character gets no bullet either", alice.notes === "",
   + "the player path is where a surviving copy of it would hide");
 
 /* ----------------------------------------------------------- teardown ---- */
-await page.evaluate(async ({ ids, grantIds, ravenId, rerollIds }) => {
+const cleaned = await page.evaluate(async ({ ids, grantIds, ravenId, rerollIds, sceneId }) => {
+  // The scene goes FIRST, so its unlinked token is never left pointing at an
+  // actor this loop has already deleted.
+  await game.scenes.get(sceneId)?.delete();
   for (const id of [ids.legacyId, grantIds.falconId, grantIds.keeperId, ravenId, ...rerollIds].filter(Boolean)) {
     await game.actors.get(id)?.delete();
   }
   const witch = game.actors.getName("ZZ Witch");
   await witch?.delete();
+  // Asserted, not assumed: this run is the first to plant a SCENE, and a scene
+  // left behind is clutter in someone's real world rather than a stray actor
+  // the next run overwrites.
+  return { scenesLeft: game.scenes.filter((s) => s.name.startsWith("ZZ ")).length };
 }, {
   ids: role.ids, grantIds: grant.ids, ravenId: alice.ravenId ?? null,
+  sceneId: legacy.sceneId,
   rerollIds: [
     reroll.keeperId, ...(reroll.beastIds ?? []),
     stock.keeperId, ...(stock.cartIds ?? []),
     pair.keeperId, ...(pair.madeIds ?? []),
-    legacy.id, legacy.editedId, legacy.untouchedId,
+    legacy.id, legacy.editedId, legacy.untouchedId, legacy.tokenBaseId,
   ],
 });
+
+check("the fixture scene is gone again", cleaned.scenesLeft === 0,
+  `${cleaned.scenesLeft} ZZ scene(s) still in the world`);
 
 const errs = errors.filter((e) => !/ZZ /.test(e));
 check("zero console errors", errs.length === 0, errs.join(" | "));

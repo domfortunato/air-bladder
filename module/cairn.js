@@ -1574,25 +1574,39 @@ const migrateGrimoirePages = async () => {
  * flag, and once the flag is gone nothing in the system writes another — the
  * state cannot recur, so a state test is exact and free.
  *
- * WHICH IS ONLY TRUE IF THE FLAG OUTLIVES THE MISS (review #15). The first
+ * WHICH IS ONLY TRUE IF THE MISS OUTLIVES THE FLAG (review #15). The first
  * version pushed the notes AND the flag deletion unconditionally, so a record
  * whose string did not match lost its bullet's only description in the same
  * write that failed to use it — leaving a bullet nothing could ever find again,
  * no marker to clear, no flag to select on, and a console line reporting
  * success. The accepted case above and the unrecoverable case were the same
- * case. So a record is dropped from the ledger only when its bullet actually
- * went, the flag goes only when the ledger empties, an actor nothing changed on
- * is not written at all, and whatever is left over is NAMED — the shape
- * `migrateGrimoirePages` already uses for what it cannot resolve.
+ * case. So a record that missed is KEPT, and whatever is left over is NAMED —
+ * the shape `migrateGrimoirePages` already uses for what it cannot resolve.
+ *
+ * KEEPING IT IN `grantNotes` HAD NO TERMINAL STATE (review #16). That fix left
+ * the record where this migration SELECTS, and skipped the write entirely when
+ * nothing matched — so a total miss met the identical state on the next load
+ * and warned again, and again, for the life of the world. The warning's own
+ * advice could not stop it either: deleting the line by hand is precisely what
+ * makes a match impossible, which is the condition that keeps it coming.
+ *
+ * So the two jobs are split across two flags. `grantNotes` is what this selects
+ * on and it ALWAYS goes, on the single load that reads it; the records that
+ * missed move to `grantNotesUnmatched`, which nothing selects on and nothing
+ * ever writes again. The description stays where a person can read it, the
+ * state cannot recur, and the warning is said once. The notes field itself is
+ * still touched only when a bullet actually left it, so an actor nothing
+ * matched on is still byte-identical afterwards.
  */
 
 /**
  * Strip the recorded bullets from one actor's notes.
  * @param {CairnActor} actor
- * @returns {{notes: string, unmatched: object[], removed: number, write: boolean}|null}
- *   null only when this actor carries no ledger at all. `write` false means
- *   nothing about the document changed — it is still REPORTED, which is the
- *   difference between "left alone" and "silently skipped".
+ * @returns {{notes: string, unmatched: object[], removed: number}|null}
+ *   null only when this actor carries no ledger at all. Anything else is
+ *   written exactly once, including the actor NOTHING matched on: that one is
+ *   both the most in need of naming and the one that used to be skipped, which
+ *   is what left the warning with no way to ever stop.
  */
 const grantNoteRemoval = (actor) => {
   const ledger = actor.getFlag("air-bladder", "grantNotes");
@@ -1614,38 +1628,73 @@ const grantNoteRemoval = (actor) => {
   // A list left holding nothing goes with its last bullet; a list still
   // holding the player's own items stays exactly as they left it.
   notes = notes.split("<ul></ul>").join("").trim();
-  // Nothing removed AND nothing to drop from the ledger: leave the document
-  // alone entirely, so the next load tries again on exactly the same state.
-  // Returned rather than skipped, because an actor NOTHING matched on is the
-  // one most in need of naming — the probe caught this exact hole, where the
-  // warning listed the partial miss and stayed silent about the total one.
-  const write = removed > 0 || unmatched.length !== ledger.length;
-  return { notes, unmatched, removed, write };
+  return { notes, unmatched, removed };
 };
 
-/** The change to write for one removal, flag deletion included when it is due. */
-const grantNoteUpdate = ({ notes, unmatched }) => ({
-  "system.notes": notes,
+/** The change to write for one removal. The ledger flag always goes with it. */
+const grantNoteUpdate = ({ notes, unmatched, removed }) => ({
+  // The notes are the PLAYER'S field. Touch them only when a bullet actually
+  // left, so an actor nothing matched on comes through byte-identical rather
+  // than merely unchanged-looking — the trim above would otherwise rewrite it.
+  ...(removed ? { "system.notes": notes } : {}),
   // ForcedDeletion, not the legacy `-=key: null` spelling: the shipped client
   // marks that `@deprecated since v14 until v16` (common/data/fields.mjs), and
   // under this repo's own FAILURE trip-wire the warning THROWS — swallowed by
   // `phase`, so the migration would silently do nothing, forever, with no
   // marker to say it had tried. connections.js writes it this way already.
-  "flags.air-bladder.grantNotes": unmatched.length
-    ? unmatched
-    : new foundry.data.operators.ForcedDeletion(),
+  //
+  // UNCONDITIONAL, and the second flag is why that is safe now: the ledger is
+  // the selector, so leaving it behind is what made a miss permanent business.
+  "flags.air-bladder.grantNotes": new foundry.data.operators.ForcedDeletion(),
+  // What missed, kept where nothing selects on it. Read by no code, ever — it
+  // exists so the bullet on the sheet still has a description somewhere.
+  ...(unmatched.length ? { "flags.air-bladder.grantNotesUnmatched": unmatched } : {}),
 });
 
 const removeGrantNotes = async () => {
   const updates = [];
   const leftovers = [];
   let removed = 0;
+
+  // UNLINKED TOKENS FIRST, and the order is the whole of this pass. An unlinked
+  // token keeps its own copy of the actor in its delta, and the world actor says
+  // nothing about it — the same reason migrateGrimoirePages walks the scenes.
+  // But a delta is a SPARSE overlay merged onto the base actor
+  // (`common/documents/actor-delta.mjs`, applyDelta -> mergeObject over a plain
+  // ObjectField), so a token that diverged only in its notes still reads its
+  // LEDGER off the world actor. Clear the world actors first and that ledger is
+  // gone before this loop looks: the synthetic actor reports no flag, the walk
+  // skips it, and the bullet this walk exists for stays on the token for good.
+  // Reversed, the flag is still there to select on and the batch below cleans
+  // the base a beat later. These cannot ride that batch either way — a token
+  // actor is addressed through its own document, not by `_id` in game.actors.
+  let tokenActors = 0;
+  for (const scene of game.scenes) {
+    for (const token of scene.tokens) {
+      if (token.actorLink || !token.actor) continue;
+      // Only a delta carrying its OWN notes needs this. A token that inherits
+      // them is already covered by the batch below, and writing it here would
+      // MINT an override that did not exist — pinning that token's notes away
+      // from the actor they still follow, to say a thing the base actor is
+      // about to say anyway.
+      if (token.delta?._source?.system?.notes === undefined) continue;
+      const r = grantNoteRemoval(token.actor);
+      if (!r) continue;
+      removed += r.removed;
+      if (r.unmatched.length) {
+        leftovers.push(`${token.name} on ${scene.name} (${r.unmatched.length})`);
+      }
+      await token.actor.update(grantNoteUpdate(r), { abNoStatusCard: true });
+      tokenActors += 1;
+    }
+  }
+
   for (const actor of game.actors) {
     const r = grantNoteRemoval(actor);
     if (!r) continue;
     removed += r.removed;
     if (r.unmatched.length) leftovers.push(`${actor.name} (${r.unmatched.length})`);
-    if (r.write) updates.push({ _id: actor.id, ...grantNoteUpdate(r) });
+    updates.push({ _id: actor.id, ...grantNoteUpdate(r) });
   }
   if (updates.length) {
     // abNoStatusCard: a migration must not greet the Warden with a change-log
@@ -1653,37 +1702,19 @@ const removeGrantNotes = async () => {
     await Actor.implementation.updateDocuments(updates, { abNoStatusCard: true });
   }
 
-  // An unlinked token keeps its own copy of the actor in its delta, and the
-  // world actor says nothing about it — the same reason migrateGrimoirePages
-  // walks the scenes. These cannot ride the batch above: a token actor is
-  // addressed through its own document, not by `_id` in game.actors.
-  let tokenActors = 0;
-  for (const scene of game.scenes) {
-    for (const token of scene.tokens) {
-      if (token.actorLink || !token.actor) continue;
-      const r = grantNoteRemoval(token.actor);
-      if (!r) continue;
-      removed += r.removed;
-      if (r.unmatched.length) {
-        leftovers.push(`${token.name} on ${scene.name} (${r.unmatched.length})`);
-      }
-      if (!r.write) continue;
-      await token.actor.update(grantNoteUpdate(r), { abNoStatusCard: true });
-      tokenActors += 1;
-    }
-  }
-
   const touched = updates.length + tokenActors;
   if (touched) {
     console.log(`Air Bladder | removed ${removed} grant note(s) from ${touched} character(s)`);
   }
-  // NAMED, never a bare count: the bullet is still on the sheet and the only
-  // way anyone finds out is here. Its ledger record is kept, so this repeats
-  // each load until someone deletes the line — which is the point.
+  // NAMED, never a bare count: the bullet is still on the sheet and this is the
+  // only way anyone finds out. Said ONCE — the ledger it selects on has just
+  // gone, so there is no load after this one that can say it again.
   if (leftovers.length) {
     console.warn(`Air Bladder | grant notes whose recorded line no longer matches what is on the `
-      + `sheet, left in place with their record kept so they stay findable: ${leftovers.join(", ")}. `
-      + `A line edited by hand is the player's now — delete it on the sheet if it is not wanted.`);
+      + `sheet, left exactly as they are: ${leftovers.join(", ")}. A line edited by hand is the `
+      + `player's now — delete it on the sheet if it is not wanted. What generation originally `
+      + `wrote is kept on each of them under flags.air-bladder.grantNotesUnmatched, because this `
+      + `is the last time anything reports it.`);
   }
 };
 
