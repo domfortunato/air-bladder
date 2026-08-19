@@ -25,6 +25,12 @@
  *   4. The COMBAT TRACKER row reads the translation, and a PC combatant does not.
  *   5. CONTROL: with the overlay uninstalled every one of those reads English
  *      again — so the legs above measure the overlay and not some other kindness.
+ *   6. The compendium SIDEBAR's DOCUMENT search (2026-08-19, review #16), which
+ *      is a different application from the browser and a different code path
+ *      from everything above: its rows are built inside `_onSearchFilter` on
+ *      every keystroke, so no render hook can reach them. Both halves, plus a
+ *      control — before the fix, typing the translation listed NOTHING and
+ *      typing the English listed a row reading the English.
  *
  * Everything planted is swept from Node with ids printed, and the combat is
  * deleted before the actors. The overlay is installed in-page via `_setOverlay`
@@ -39,6 +45,13 @@ const GEAR_EN = "ZZ Dirrope";
 const GEAR_ES = "ZZ-CUERDA-TRADUCIDA";
 const BG_EN = "ZZ Dirbackground";
 const BG_ES = "ZZ-TRASFONDO-TRADUCIDO";
+
+// Section 6 reads a SHIPPED entry rather than planting one, because the
+// compendium sidebar searches pack INDEXES and a world document is invisible to
+// it. One word, so the query is a single term either way.
+const SIDEBAR_PACK = "air-bladder.monsters";
+const SIDEBAR_EN = "Gorilla";
+const SIDEBAR_ES = "ZZ-BICHO-TRADUCIDO";
 
 let failures = 0;
 const ok = (l, d = "") => console.log(`  ok    ${l.padEnd(52)} ${d}`);
@@ -202,6 +215,80 @@ else {
   c.wolf === MONSTER_EN && c.rope === GEAR_EN && c.bg === BG_EN && c.tracker === MONSTER_EN
     ? ok("everything reads English again", "so the legs above measure the overlay")
     : fail("everything reads English again", JSON.stringify(c));
+}
+
+/* --- 6. the compendium SIDEBAR's document search ------------------------- */
+// Plants NOTHING: it reads a SHIPPED pack entry, so there is no world write and
+// nothing to sweep. The entry is looked up by name and its absence FAILS rather
+// than skipping — a leg whose fixture has quietly gone is a leg that passes for
+// the wrong reason.
+//
+// The directory must be rendered AFTER the overlay is installed. The hook that
+// installs the wrap returns early when nothing is localized, which is the right
+// behaviour in an English world and exactly what makes the ordering load-bearing
+// here.
+console.log("\nthe compendium sidebar's document search");
+const sidebar = await page.evaluate(async (fx) => {
+  const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const res = {};
+  const dir = ui.compendium;
+  try {
+    const pack = game.packs.get(fx.PACK);
+    res.fixture = !!pack?.index?.find((e) => e.name === fx.EN);
+    if (!res.fixture) return res;
+
+    const rows = async (q) => {
+      const input = dir.element.querySelector('input[type="search"]');
+      if (!input) return null;
+      input.value = q;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      await sleep(600);
+      const names = [...dir.element.querySelectorAll("li[data-document-match]")]
+        .map((li) => li.querySelector("a[data-name]")?.textContent?.trim());
+      input.value = "";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      await sleep(300);
+      return names;
+    };
+
+    i18n._setOverlay({ "monster.name": { [fx.EN]: fx.ES } });
+    await dir.render(true);
+    await sleep(500);
+    res.wrapped = !!dir._abDocSearchWrapped;
+    res.es = await rows(fx.ES);
+    res.en = await rows(fx.EN);
+
+    // CONTROL, and note what it does NOT do: the wrap stays installed. It reads
+    // `contentLocalized()` on every call, so an English world gets core's
+    // behaviour back without a re-render — which is the property being asserted.
+    i18n._setOverlay(null);
+    res.controlEs = await rows(fx.ES);
+    res.controlEn = await rows(fx.EN);
+  } catch (e) {
+    res.error = `${e.name}: ${e.message}`;
+  } finally {
+    i18n._setOverlay(null);
+  }
+  return res;
+}, { PACK: SIDEBAR_PACK, EN: SIDEBAR_EN, ES: SIDEBAR_ES });
+
+if (sidebar.error) fail("the sidebar legs ran", sidebar.error);
+else if (!sidebar.fixture) fail(`precondition: ${SIDEBAR_PACK} still ships "${SIDEBAR_EN}"`, "the fixture is gone — pick another shipped entry");
+else if (!sidebar.wrapped) fail("the directory wrapped its document search", "renderCompendiumDirectory fired with nothing localized");
+else {
+  sidebar.es?.includes(SIDEBAR_ES)
+    ? ok("typing the translation lists the document", `${sidebar.es.length} row(s): ${sidebar.es.join(", ")}`)
+    : fail("typing the translation lists the document", JSON.stringify(sidebar.es));
+  sidebar.en?.includes(SIDEBAR_ES) && !sidebar.en?.includes(SIDEBAR_EN)
+    ? ok("typing the English still lists it, reading the translation", "additive match, translated row")
+    : fail("typing the English still lists it, reading the translation", JSON.stringify(sidebar.en));
+  sidebar.controlEs?.length === 0
+    ? ok("control: overlay off, the translation matches nothing", "core's word tree is English-only")
+    : fail("control: overlay off, the translation matches nothing", JSON.stringify(sidebar.controlEs));
+  sidebar.controlEn?.includes(SIDEBAR_EN)
+    ? ok("control: overlay off, the English row reads English", SIDEBAR_EN)
+    : fail("control: overlay off, the English row reads English", JSON.stringify(sidebar.controlEn));
 }
 
 /* ----------------------------------------------------------- teardown ------ */

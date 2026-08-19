@@ -288,30 +288,150 @@ for (const dir of ["ActorDirectory", "ItemDirectory", "JournalDirectory", "RollT
 // names from the index, so re-translating every render is idempotent. Drag is
 // safe (it uses data-entry-id, not text); SEARCH is not, which is why the
 // matcher wrap exists — see wrapTranslatedSearch above.
+/**
+ * Which overlay namespace a PACK's entry names live under, from its metadata.
+ *
+ * A pack is single-type, so the namespace is a property of the PACK — unlike the
+ * world sidebar above, which must decide per DOCUMENT because its Actor list
+ * mixes player characters (never localized) with everything else. A compendium
+ * Actor pack holds monsters and mounts and no PCs, which is what lets this skip
+ * the `actorDisplayName` gate.
+ *
+ * Named document types come FIRST, and the `item.name` fallthrough is the last
+ * resort rather than the catch-all it used to be. Deriving by elimination put
+ * JournalEntry and Macro rows through `item.name` — latent (no name collides
+ * today) but wrong in the same way the extractor's fallthrough was, and it
+ * quietly contradicted the macro skip's stated reason for existing ("macro names
+ * have no overlay surface" is only true if nothing looks them up here). A Macro
+ * pack resolves to no namespace at all and is left alone.
+ *
+ * ONE copy, read by the compendium browser and by the sidebar's document search
+ * below. A second copy of a mapping is how the Macro fallthrough got written in
+ * the first place.
+ */
+const packNameNamespace = (meta) =>
+  meta?.type === "Actor" ? "monster.name" :
+  meta?.type === "RollTable" ? "table.name" :
+  meta?.type === "JournalEntry" ? "journal.name" :
+  meta?.type === "Macro" ? null :
+  (meta?.name ?? "").startsWith("backgrounds") ? "bg.name" :
+  "item.name";
+
 Hooks.on("renderCompendium", (app, html) => {
   if (!contentLocalized()) return;
-  const meta = app.collection?.metadata;
-  // Named document types come FIRST, and the `item.name` fallthrough is the last
-  // resort rather than the catch-all it used to be. Deriving by elimination put
-  // JournalEntry and Macro rows through `item.name` — latent (no name collides
-  // today) but wrong in the same way the extractor's fallthrough was, and it
-  // quietly contradicted the macro skip's stated reason for existing ("macro
-  // names have no overlay surface" is only true if nothing looks them up here).
-  // A Macro pack now resolves to no namespace at all and is left alone.
-  const ns =
-    meta?.type === "Actor" ? "monster.name" :
-    meta?.type === "RollTable" ? "table.name" :
-    meta?.type === "JournalEntry" ? "journal.name" :
-    meta?.type === "Macro" ? null :
-    (meta?.name ?? "").startsWith("backgrounds") ? "bg.name" :
-    "item.name";
+  const ns = packNameNamespace(app.collection?.metadata);
   if (ns === null) return;
-  // A pack is single-type, so the namespace is a property of the PACK here —
-  // unlike the world sidebar above, which must decide per document because its
-  // Actor list mixes player characters (never localized) with everything else.
   const displayOf = (e) => t(ns, e.name ?? "");
   localizeDirectoryNames(html, app.collection, displayOf);
   wrapTranslatedSearch(app, displayOf);
+});
+
+/**
+ * The compendium SIDEBAR's DOCUMENT search (2026-08-19, review #16).
+ *
+ * Typing in the compendium tab does two things: it filters the pack rows — whose
+ * labels core already localizes per viewer — and, beneath them, it lists matching
+ * DOCUMENTS drawn from every pack's index. That second list is the one surface of
+ * the search story nobody had counted. Measured before anything was touched, with
+ * one monster translated: typing the English listed it and the row read the
+ * English, and typing the translation listed nothing at all. So in the one place a
+ * Warden goes to find a thing BY NAME, the name they can see everywhere else is
+ * both unsearchable and unreadable.
+ *
+ * Neither half is reachable from a render hook, which is why this wraps the app
+ * instead of sweeping the DOM: the rows are built inside `_onSearchFilter`, on
+ * every keystroke, long after `renderCompendiumDirectory` has fired. Both wraps
+ * are ADDITIVE and per instance, exactly like `wrapTranslatedSearch` above — core
+ * runs first and untouched, so an English query can never lose a match to this,
+ * and a signature change upstream degrades to "translated search stops matching"
+ * rather than throwing on every keystroke.
+ */
+const wrapCompendiumDocumentSearch = (app) => {
+  if (app._abDocSearchWrapped) return;
+  app._abDocSearchWrapped = true;
+
+  // Core's word-tree semantics, reproduced: a name matches when EVERY term of the
+  // query prefix-matches some word of it (helpers/document-index.mjs, "Result must
+  // prefix-match all terms"). `DocumentIndex`'s own cleaner is a private method, so
+  // this is a re-implementation and is allowed to drift from it — what drift costs
+  // is a translated query that stops matching, never a wrong English result.
+  const words = (s) => foundry.applications.ux.SearchFilter.cleanQuery(s ?? "")
+    .toLocaleLowerCase(game.i18n.lang)
+    .replace(/['`\u2019]/g, "")
+    .replaceAll("-", " ")
+    .split(/[^\p{Alphabetic}\p{Mark}\p{Decimal_Number}\p{Join_Control}]+/u)
+    .filter(Boolean);
+
+  if (typeof app._matchSearchDocuments === "function") {
+    const coreMatch = app._matchSearchDocuments.bind(app);
+    app._matchSearchDocuments = (query, documents, ...rest) => {
+      coreMatch(query, documents, ...rest);
+      try {
+        if (!contentLocalized() || !query) return;
+        const stop = CONFIG.i18n?.searchStopWords;
+        const terms = words(query).filter((w) => w.length > 1 && !stop?.has?.(w));
+        if (!terms.length) return;
+        // The same guards core's own lookup applies, for the same reasons: the
+        // type-filter chips, pack VISIBILITY (the Warden packs are ownership NONE
+        // and must not surface for a player), and a cap — core takes 25 per type,
+        // and an unbounded pass on a two-letter query would bury the English
+        // results this is supposed to be adding to.
+        const filters = app.activeFilters ?? new Set();
+        const seen = new Set([...documents].map((d) => d?.uuid));
+        let added = 0;
+        for (const pack of game.packs) {
+          if (added >= 25) break;
+          if (!pack.visible) continue;
+          if (filters.size && !filters.has(pack.documentName)) continue;
+          const ns = packNameNamespace(pack.metadata);
+          if (ns === null) continue;
+          for (const entry of pack.index) {
+            if (added >= 25) break;
+            if (seen.has(entry.uuid)) continue;
+            const display = t(ns, entry.name ?? "");
+            if (!display || display === entry.name) continue;
+            const have = words(display);
+            if (!terms.every((term) => have.some((w) => w.startsWith(term)))) continue;
+            documents.add(entry);
+            seen.add(entry.uuid);
+            added++;
+          }
+        }
+      } catch (err) {
+        console.warn("Air Bladder | translated compendium document-search pass failed; English search is unaffected", err);
+      }
+    };
+  }
+
+  if (typeof app._onMatchSearchDocuments === "function") {
+    const coreRender = app._onMatchSearchDocuments.bind(app);
+    app._onMatchSearchDocuments = (entries, listEl, ...rest) => {
+      coreRender(entries, listEl, ...rest);
+      try {
+        if (!contentLocalized()) return;
+        // Keyed on the text core has just written, which is the stored English —
+        // the overlay's key. Core removes and rebuilds these rows on every
+        // keystroke, so there is no half-translated state to be idempotent about;
+        // a second pass over a translated row would miss and leave it alone anyway.
+        for (const li of listEl?.querySelectorAll?.("li[data-document-match]") ?? []) {
+          const el = li.querySelector("a[data-name]");
+          if (!el || el.children.length) continue;
+          const ns = packNameNamespace(foundry.utils.parseUuid(li.dataset.uuid)?.collection?.metadata);
+          if (ns === null) continue;
+          const english = el.textContent.trim();
+          const display = t(ns, english);
+          if (display && display !== english) el.textContent = display;
+        }
+      } catch (err) {
+        console.warn("Air Bladder | translated compendium document-search render failed; names stay English", err);
+      }
+    };
+  }
+};
+
+Hooks.on("renderCompendiumDirectory", (app) => {
+  if (!contentLocalized()) return;
+  wrapCompendiumDocumentSearch(app);
 });
 
 // Table draws to chat: localize the drawn result text into the active language.

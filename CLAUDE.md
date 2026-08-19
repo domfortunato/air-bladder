@@ -214,10 +214,17 @@ against the reason, not against the fact.
   two names on one screen** (2026-08-14 ruling, review #14 finding 14). For six
   rounds exactly ONE `.entry-name` sweep existed — the compendium browser — so a
   Goblin dragged into the world had an English sidebar row, a Spanish sheet
-  header, an English tracker row and a Spanish damage card. World directories
-  and the combat tracker are covered now (`localizeDirectoryNames` /
-  `worldDisplayName` in `cairn.js`, `_prepareTurnContext` in `combat.js`), and
-  two rules travel with any new surface: **rewriting names breaks SEARCH** —
+  header, an English tracker row and a Spanish damage card. World directories,
+  the combat tracker and the compendium SIDEBAR's document search are covered
+  now (`localizeDirectoryNames` / `worldDisplayName` /
+  `wrapCompendiumDocumentSearch` in `cairn.js`, `_prepareTurnContext` in
+  `combat.js`). The sidebar one (2026-08-19, review #16) had to WRAP the app
+  rather than sweep a render: its rows are rebuilt inside `_onSearchFilter` on
+  every keystroke, so no render hook is ever near them, and both halves needed
+  covering — the match (typing the translation found nothing) and the row text
+  (which read the stored English). "Is there a hook for this?" is the wrong
+  first question about a new surface. Two rules travel with any new surface:
+  **rewriting names breaks SEARCH** —
   core matches the query against the COLLECTION, never the DOM, so typing the
   Spanish empties the list unless `wrapTranslatedSearch` is applied too — and a
   WORLD list needs a per-DOCUMENT namespace, not a per-collection one, because
