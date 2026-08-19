@@ -437,6 +437,20 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   #dragDrop = null;
 
+  /**
+   * Rows whose description panel is open, by `data-item-id` (an item id, or a
+   * connected actor's uuid for a container row).
+   *
+   * SHEET state, not document state, so it lives on the instance and dies with
+   * it. It has to live SOMEWHERE, though: until 2026-08-19 it lived only in the
+   * DOM, and `submitOnChange` re-runs `_prepareContext` on every committed
+   * keystroke, so editing a quantity three rows down closed the description you
+   * had opened to read while editing it. Core has no facility for this —
+   * foundryvtt/foundryvtt#12063 asked for one and was closed — which makes it
+   * the application's job rather than a gap to work around.
+   */
+  #expandedRows = new Set();
+
   /* -------------------------------------------- */
 
   /**
@@ -1519,6 +1533,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       game.settings.get(SETTINGS_NS, "show-grant-tags") && this.actor.type === "character"
     );
 
+    // Re-open whatever the player had open. ABOVE the isEditable wall, because
+    // reading a description is a read: an observer who expanded a row keeps it
+    // expanded through a re-render exactly as an owner does.
+    this.#restoreExpandedRows();
+
     const on = (selector, type, handler) =>
       el.querySelectorAll(selector).forEach((node) => node.addEventListener(type, handler));
 
@@ -1730,22 +1749,93 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
-   * Expand or collapse a row's description panel. `build` returns the panel
-   * element for the closed→open direction; nothing else differs between an item
-   * and a container.
+   * The panel a row shows when expanded: a container's contents, or an item's
+   * description plus its critical-damage line.
+   *
+   * Derived from the ROW alone, with no event — which is what lets the click
+   * below and the re-render restore share it. Two builders for one panel is how
+   * a restore comes back translating the item half and not the container half.
+   * @param {HTMLElement} row
+   * @returns {HTMLElement|null}
    * @private
    */
-  _toggleRowDescription(row, build) {
+  _buildRowDescription(row) {
+    if (row.dataset.isContainer) {
+      const container = game.actors.find((a) => a.uuid === row.dataset.itemId);
+      if (!container) return null;
+      // Built with textContent so a container's item names can't inject
+      // HTML/script into the keeper's (or GM's) sheet when the row is expanded.
+      const div = document.createElement("div");
+      div.className = "item-description";
+      // What a container holds is gear, whatever the KEEPER is — so item.name,
+      // not this keeper's namespaces.
+      div.textContent = container.items.map((it) => t("item.name", it.name)).join(", ");
+      return div;
+    }
+    const item = this.actor.items.get(row.dataset.itemId);
+    if (!item) return null;
+    const crit = cleanDescription(item.system.criticalDamage) !== ""
+      ? `<div><i class="fa-regular fa-skull"></i> <i>${cleanDescription(item.system.criticalDamage)}</i></div>`
+      : "";
+    const div = document.createElement("div");
+    div.className = "item-description";
+    // Localized like the row above it (_itemNamespaces), and sanitized AFTER —
+    // the overlay is a shipped file, but it reaches innerHTML, so it goes
+    // through the same cleaner the stored string does rather than around it.
+    // criticalDamage is not translated because it is not EXTRACTED: no shipped
+    // item carries any, so there is nothing for a translator to have filled.
+    const desc = t(this._itemNamespaces().descNs, item.system.description);
+    div.innerHTML = `${cleanDescription(desc)}${crit}`;
+    return div;
+  }
+
+  /**
+   * Expand or collapse a row's description panel, and REMEMBER which it is —
+   * see `#expandedRows` for why the DOM alone was not enough.
+   * @private
+   */
+  _toggleRowDescription(row) {
+    const id = row.dataset.itemId;
     if (row.classList.contains("expanded")) {
       const summary = row.querySelector(":scope > .item-description");
       if (summary) slideUp(summary, () => summary.remove());
+      this.#expandedRows.delete(id);
     } else {
-      const panel = build();
+      const panel = this._buildRowDescription(row);
       if (!panel) return;
       row.append(panel);
       slideDown(panel);
+      this.#expandedRows.add(id);
     }
     row.classList.toggle("expanded");
+  }
+
+  /**
+   * Put every remembered panel back after a render, WITHOUT the slide.
+   *
+   * The animation is the whole reason this is not just a second call to the
+   * toggle: a row that was already open must come back open, not re-open. With
+   * `submitOnChange` committing on every keystroke, animating here would make
+   * the panel flicker under the cursor of whoever was typing.
+   *
+   * A row can be legitimately gone — the item dropped, the container
+   * disconnected, the row filtered out — so a missing one is FORGOTTEN rather
+   * than carried, or the set would grow stale ids for the life of the sheet.
+   * @private
+   */
+  #restoreExpandedRows() {
+    if (!this.#expandedRows.size) return;
+    for (const id of [...this.#expandedRows]) {
+      const row = this.element?.querySelector(`.cairn-items-list-row[data-item-id="${CSS.escape(id)}"]`);
+      if (!row) { this.#expandedRows.delete(id); continue; }
+      // A partial render leaves untouched parts alone, so a panel may already
+      // be sitting there; appending a second one is the bug this guard stops.
+      if (row.classList.contains("expanded")) continue;
+      const panel = this._buildRowDescription(row);
+      if (!panel) { this.#expandedRows.delete(id); continue; }
+      row.append(panel);
+      row.classList.add("expanded");
+    }
   }
 
   /**
@@ -2824,38 +2914,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     event.preventDefault();
     const row = CairnActorSheet.#row(target);
     if (!row) return;
-    if (row.dataset.isContainer) {
-      this._toggleRowDescription(row, () => {
-        const container = game.actors.find((a) => a.uuid === row.dataset.itemId);
-        if (!container) return null;
-        // Built with textContent so a container's item names can't inject
-        // HTML/script into the keeper's (or GM's) sheet when the row is expanded.
-        const div = document.createElement("div");
-        div.className = "item-description";
-        // What a container holds is gear, whatever the KEEPER is — so item.name,
-        // not this keeper's namespaces.
-        div.textContent = container.items.map((it) => t("item.name", it.name)).join(", ");
-        return div;
-      });
-      return;
-    }
-    this._toggleRowDescription(row, () => {
-      const item = this.actor.items.get(row.dataset.itemId);
-      if (!item) return null;
-      const crit = cleanDescription(item.system.criticalDamage) !== ""
-        ? `<div><i class="fa-regular fa-skull"></i> <i>${cleanDescription(item.system.criticalDamage)}</i></div>`
-        : "";
-      const div = document.createElement("div");
-      div.className = "item-description";
-      // Localized like the row above it (_itemNamespaces), and sanitized AFTER —
-      // the overlay is a shipped file, but it reaches innerHTML, so it goes
-      // through the same cleaner the stored string does rather than around it.
-      // criticalDamage is not translated because it is not EXTRACTED: no shipped
-      // item carries any, so there is nothing for a translator to have filled.
-      const desc = t(this._itemNamespaces().descNs, item.system.description);
-      div.innerHTML = `${cleanDescription(desc)}${crit}`;
-      return div;
-    });
+    this._toggleRowDescription(row);
   }
 
   /**

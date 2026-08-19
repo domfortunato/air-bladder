@@ -1,6 +1,6 @@
 /**
- * Characterisation probe: the two sheet behaviours nothing else asserts, and
- * that an ApplicationV2 port is most likely to break SILENTLY.
+ * Characterisation probe: the sheet behaviours nothing else asserts, and that
+ * an ApplicationV2 port is most likely to break SILENTLY.
  *
  * Written against the AppV1 sheets deliberately, so it is green BEFORE the port
  * and the port is what turns it red. Per docs/release-testing.md, a test that
@@ -237,7 +237,14 @@ console.log("\nopening an item's sheet is a READ — the wall is for writes (rev
 // and `delete` puts it straight back.
 const dbl = await page.evaluate(async (id) => {
   const a = game.actors.get(id);
-  await a.createEmbeddedDocuments("Item", [{ name: "ZZ Readable Rope", type: "item" }]);
+  // The description is not decoration: the expanded-row legs below compare the
+  // panel TEXT across a re-render, and an item with no description makes that
+  // comparison "" === "" — a leg that passes on an empty div appended by
+  // anything at all.
+  await a.createEmbeddedDocuments("Item", [{
+    name: "ZZ Readable Rope", type: "item",
+    system: { description: "ZZ PROBE DESCRIPTION TEXT" },
+  }]);
   const sheet = a.sheet;
   Object.defineProperty(sheet, "isEditable", { get: () => false, configurable: true });
   try {
@@ -277,6 +284,82 @@ dbl.editable === false && dbl.walled === true
 dbl.rowFound && dbl.opened
   ? ok("double-click still opens the item sheet", "same answer as the pencil beside it")
   : fail("double-click still opens the item sheet", `row=${dbl.rowFound} opened=${dbl.opened}`);
+
+/* ------------------------------------------- 3. expanded descriptions ---- */
+// The third silent one, and the one the port actually broke (review #16).
+// `submitOnChange` re-runs `_prepareContext` on every committed keystroke, and
+// an expanded description panel lived only in the DOM — so opening a
+// description to read it and then editing ANY field on the sheet closed it
+// again. No error, nothing in the console, and it looks like a mis-click.
+//
+// Driven the way a player drives it: a real form commit, not `actor.update`.
+// Both directions are asserted, because "restore what was open" and "leave
+// alone what was closed" are separate bugs — a restore that re-expanded
+// everything would pass a one-direction leg.
+console.log("\nan expanded description survives a re-render");
+
+const expand = await page.evaluate(async (id) => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const a = game.actors.get(id);
+  const sheet = a.sheet;
+  const out = {};
+  await sheet.render(true);
+  await sleep(500);
+  const item = a.items.find((i) => i.name === "ZZ Readable Rope");
+  out.itemFound = !!item;
+  if (!item) return out;
+
+  // Re-queried every time: a render REPLACES these nodes, so a handle taken
+  // before the commit points at a detached row and would report "still open"
+  // about DOM nobody can see.
+  const row = () => sheet.element?.querySelector(`.cairn-items-list-row[data-item-id="${item.id}"]`);
+  const panels = () => row()?.querySelectorAll(".item-description") ?? [];
+  const commit = async (value) => {
+    const input = sheet.element?.querySelector('input[name="system.pronouns"]');
+    if (!input) return false;
+    input.value = value;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    await sleep(1400);
+    return a.system.pronouns === value;
+  };
+
+  row()?.querySelector('[data-action="itemDescription"]')?.click();
+  await sleep(500);
+  out.opened = panels().length === 1;
+  out.textBefore = panels()[0]?.textContent.trim() ?? null;
+
+  out.committed = await commit("probe/one");
+  out.stillOpen = panels().length === 1;
+  out.textAfter = panels()[0]?.textContent.trim() ?? null;
+  out.classAfter = !!row()?.classList.contains("expanded");
+  out.panelCount = panels().length;
+
+  row()?.querySelector('[data-action="itemDescription"]')?.click();
+  await sleep(600);
+  out.closed = panels().length === 0;
+  out.committedAgain = await commit("probe/two");
+  out.stayedClosed = panels().length === 0;
+  return out;
+}, actorId);
+
+if (!expand.itemFound) fail("precondition: the readable item is on the sheet", "no ZZ Readable Rope");
+else if (!expand.opened) fail("precondition: clicking the title opens one panel", JSON.stringify(expand));
+else if (!expand.textBefore) fail("precondition: the panel has text to compare", "an empty panel makes the text leg vacuous");
+else if (!expand.committed) fail("precondition: a form change commits", "submitOnChange did not fire — the re-render under test never happened");
+else {
+  expand.stillOpen && expand.classAfter
+    ? ok("still open after a committed edit", `"${expand.textAfter}"`)
+    : fail("still open after a committed edit", `open=${expand.stillOpen} class=${expand.classAfter}`);
+  expand.textAfter === expand.textBefore
+    ? ok("and it says the same thing", "rebuilt from the same builder as the click")
+    : fail("and it says the same thing", `"${expand.textBefore}" -> "${expand.textAfter}"`);
+  expand.panelCount === 1
+    ? ok("exactly one panel, not two", "the restore appends nothing to a row already open")
+    : fail("exactly one panel, not two", `${expand.panelCount} panels`);
+  expand.closed && expand.committedAgain && expand.stayedClosed
+    ? ok("a closed row stays closed", "the other direction, which a re-expand-everything bug would pass")
+    : fail("a closed row stays closed", `closed=${expand.closed} committed=${expand.committedAgain} stayed=${expand.stayedClosed}`);
+}
 
 console.log("\nConfigure Sheet names the system, not the class (review #14)");
 
