@@ -50,7 +50,16 @@ const ARMORED_FEATURES = ["Carapace", "Shell", "Scales"];
 // The game-icons categories a monster portrait may draw from. A constant, not
 // a manifest scan: "tools" and "armor" are categories too, and a monster
 // wearing a spanner for a face is not a fallback anyone asked for.
-const CREATURE_CATEGORIES = ["animals", "birds", "creatures", "fish", "heads", "mammals", "reptiles", "skull"];
+//
+// EXPORTED so `dev:monster-gen` can judge a generated portrait against this
+// list instead of keeping its own copy. It kept one, the two disagreed the day
+// birds were added to the gallery (7044e916, 2026-08-01 — that commit touched
+// the gallery, the manifest, the picker and this line, and not the probe), and
+// the probe then redded whenever a random draw happened to land on a bird. An
+// intermittent red on a release gate is worse than a permanent one: it reads as
+// a flake, and this project's own rule is that a probe failing once and passing
+// on re-run is a race, not a flake. It was neither. It was a second copy.
+export const CREATURE_CATEGORIES = ["animals", "birds", "creatures", "fish", "heads", "mammals", "reptiles", "skull"];
 const MONSTER_ICON_FALLBACK = "systems/air-bladder/icons/monster.svg";
 
 /** One weighted pick. @param {Array<[any, Number]>} pairs @returns {any} */

@@ -56,7 +56,13 @@ const KEEP_NAME = "ZZ Monster Gen A";
 const LADDER = [3, 6, 10, 14, 18];
 const DEX_LADDER = [6, 10, 14];
 const ARMOR_NAMES = ["Tough Hide", "Carapace", "Shell", "Scales"];
-const CREATURE_CATEGORIES = ["animals", "creatures", "fish", "heads", "mammals", "reptiles", "skull"];
+// READ FROM THE SYSTEM, never declared here. This was a literal, and it went
+// stale the day birds were added to the gallery (7044e916, 2026-08-01): the
+// generator drew a bird, the probe called it "not a creature category", and
+// because the draw is random it redded only sometimes — for eighteen days,
+// wearing the shape of a flake. Filled from game.cairn.monsterGenerator below,
+// which is the same module the generator itself reads, so the two cannot part.
+let CREATURE_CATEGORIES = null;
 const ICON_PREFIX = "systems/air-bladder/art/game-icons/";
 const ICON_FALLBACK = "systems/air-bladder/icons/monster.svg";
 const CORE_BAG = "icons/svg/item-bag.svg";
@@ -182,6 +188,19 @@ let genPrior = null;
 try {
   await withSettings(page, async () => {
     /* --- stale state, then the button ----------------------------------- */
+
+    // The real list, from the loaded system. A missing or empty read is fatal
+    // rather than tolerated: `[].includes(x)` is false for every x, so an
+    // undefined list would fail EVERY portrait, and a silent `?? []` would
+    // turn this leg into a permanent red with a misleading message.
+    CREATURE_CATEGORIES = await page.evaluate(
+      () => globalThis.game?.cairn?.monsterGenerator?.CREATURE_CATEGORIES ?? null,
+    );
+    if (!Array.isArray(CREATURE_CATEGORIES) || !CREATURE_CATEGORIES.length) {
+      fail("could not read CREATURE_CATEGORIES from the system", "every portrait leg below would red on a bad read, not on the art");
+    } else {
+      ok(`portrait categories read from the system (${CREATURE_CATEGORIES.length})`, CREATURE_CATEGORIES.join(", "));
+    }
 
     const setup = await page.evaluate(async (prefix) => {
       // Stale actors first: a leftover from an aborted run would satisfy the
