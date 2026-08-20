@@ -101,7 +101,11 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   `PERSON_ROLES` is the list to reach for when the question is "is this
   somebody" — the biography block, the connection line, the auto-portrait. Ask
   for a role by name only where the two genuinely differ, which is two places:
-  which job field shows, and whether there is a day rate.
+  which job field shows, and whether the day-rate mechanic is offered at
+  all — the For Hire box AND the rate row, which are one question and must be
+  asked with one gate (`showForHire`). The box read `isNpcPerson` for a day
+  after the split, so an NPC was offered a checkbox whose only effect is a row
+  its role never shows.
   The biography sentence is **second person for a character, third for both npc
   roles** (2026-08-20) — one `_wording` call inside `_buildTraitSentence`, which
   the printed page shares. A Spanish client keeps its translated "Eres…" until a

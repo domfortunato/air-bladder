@@ -57,8 +57,16 @@ await withSettings(page, async () => {
       await s.render(true);
       for (let i = 0; i < 60 && !s.element; i++) await sleep(100);
       const c = await s._prepareContext({});
+      // The RENDERED sheet, not just the context: what a Warden is offered is
+      // what the template chose to draw, and a flag can be right while the
+      // `{{#if}}` reading it names a different one.
+      const dom = {
+        forHire: !!s.element?.querySelector(".for-hire-check"),
+        dayRate: !!s.element?.querySelector(".day-rate-input"),
+      };
       await s.close();
       return {
+        dom,
         sentence: c.traitSentence ?? "",
         rows: (c.traitRows ?? []).map((t) => t.key),
         labels: (c.traitRows ?? []).map((t) => t.label),
@@ -233,6 +241,15 @@ check(N.isNpcPerson === true && H.isNpcPerson === true,
   "both are PEOPLE — isNpcPerson covers the pair", "");
 
 console.log("\none row, two names");
+// The user's ask, in the same breath as the split: "NPCs do not need the For
+// Hire or Day Rate fields." The rate was gated on the role from the start; the
+// CHECKBOX was not — it read isNpcPerson, which was the same set as "hireling"
+// until this change put a second role in it. So the NPC sheet offered a box
+// whose only effect is a row the NPC role never shows.
+check(NC.dom?.forHire === false && NC.dom?.dayRate === false,
+  "an NPC is offered NEITHER For Hire nor a rate", JSON.stringify(NC.dom));
+check(HC.dom?.forHire === true && HC.dom?.dayRate === true,
+  "a hireling is offered both", JSON.stringify(HC.dom));
 check(NC.showBackground && !NC.showCareer, "the NPC sheet shows Background, not Career", "");
 check(HC.showCareer && !HC.showBackground, "the hireling sheet shows Career, not Background", "");
 check(NC.showBiography && HC.showBiography, "both get the biography block", "");

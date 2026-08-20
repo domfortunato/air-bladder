@@ -153,15 +153,20 @@
                   own ::before glyph — a second box drawn inside ours). It sits
                   OUTSIDE everything it hides: unticking it must never remove
                   the way to tick it again, the old checkboxes' deadlock
-                  lesson. Its gate is the PERSON, not showCareer, which it used
-                  to ride inside.
+                  lesson. Its gate is the HIRELING (showForHire), not
+                  showCareer, which it used to ride inside — a separate flag
+                  because the career row is a field and this is a mechanic, and
+                  the two must be movable apart. It read isNpcPerson until
+                  2026-08-20, which was the same set until the split put a
+                  second role in it and handed the NPC sheet a checkbox with
+                  nothing behind it.
 
                   The controls are the registered connectionAttach /
                   connectionDetach actions — the same handlers, gates and
                   dialogs the tab used; only their home moved. --}}
             {{#if showConnectionLine}}
             <div class="profession-line connection-line">
-                {{#if system.isNpcPerson}}
+                {{#if showForHire}}
                 <label class="for-hire-label" data-tooltip="{{ localize 'CAIRN.ForHireTip' }}">
                     <input type="checkbox" class="for-hire-check" name="system.forHire" {{checked system.forHire}} />
                     {{ localize 'CAIRN.ForHire' }}

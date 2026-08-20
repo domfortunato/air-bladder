@@ -828,6 +828,20 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // never drift into looking like different controls.
       context.showCareer = role === "hireling";
       context.showBackground = role === "npc";
+      // FOR HIRE IS THE HIRELING'S BOX, and only theirs (user ask, in the same
+      // breath as the split: "NPCs do not need the For Hire or Day Rate
+      // fields"). It gated on isNpcPerson, which was the same thing as "is a
+      // hireling" right up until the split gave that predicate a second role —
+      // so the NPC sheet was offering a checkbox whose only effect, the day
+      // rate, is gated on the role it is not. Ticking it did nothing visible.
+      //
+      // Separate from showCareer even though both read "role is hireling": the
+      // career row is a FIELD and this is a mechanic that happens to belong to
+      // the same role, and the template must be able to move one without the
+      // other. The stored boolean is never cleared — an NPC re-roled to
+      // hireling gets its old answer back, like every other field the two
+      // roles do not share.
+      context.showForHire = role === "hireling";
       // Faction shows for anyone who can take sides — either person OR a
       // monster; things have no politics. It used to ride the Career gate,
       // which is why Monsters never saw it: a job is a person's, and a monster
@@ -877,8 +891,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // their gates verbatim; only their template home moved.
       const hired = role === "hireling" && this.actor.system.forHire === true;
       // Parked (2026-08-09): with the Connections UI off, the line never gains
-      // a label or a control — but it still RENDERS for a person, because
-      // showConnectionLine's isNpcPerson arm below is what keeps the For Hire
+      // a label or a control — but it still RENDERS for a hireling, because
+      // showConnectionLine's showForHire arm below is what keeps the For Hire
       // checkbox on screen, and For Hire is the day-rate mechanic, not
       // connections. The builder is skipped, not the line.
       if (!connectionsUiEnabled()) {
@@ -908,9 +922,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         context.connectionLine = { attach: context.canManageConnections };
       }
       // The line renders whenever it has something to say — and ALWAYS for a
-      // person, whose For Hire checkbox lives on it and must stay visible while
-      // unticked (the deadlock lesson: never hidden by anything it hides).
-      context.showConnectionLine = context.system.isNpcPerson
+      // HIRELING, whose For Hire checkbox lives on it and must stay visible
+      // while unticked (the deadlock lesson: never hidden by anything it
+      // hides). It was isNpcPerson until 2026-08-20 for exactly that reason,
+      // and follows the checkbox now that the checkbox has narrowed: with the
+      // Connections UI parked an NPC's line has nothing at all to put in it, so
+      // rendering it drew an empty row under the Background.
+      context.showConnectionLine = context.showForHire
         || !!(context.connectionLine
           && (context.connectionLine.label || context.connectionLine.attach));
     }
