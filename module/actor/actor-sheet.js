@@ -2652,13 +2652,29 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         return;
       }
       const isNpc = ["hireling", "npc"].includes(this.actor.type);
+      // THE WARNING HAS TO MATCH WHAT THE BUTTON DOES, and after the
+      // 2026-08-20 split one string could not: the shipped wording promises
+      // that "everything it is carrying will be deleted" and that "abilities,
+      // HP, career and day rate will be replaced", which is exactly
+      // regenerateHireling and none of regenerateNpc — an NPC keeps its gear
+      // and its statblock and gets a new Background, traits, pronouns and age.
+      // A Warden who cancelled to save gear that was never at risk was talked
+      // out of the feature by its own dialog.
+      //
+      // The unsuffixed CAIRN.NpcRegenerator* pair is the HIRELING's now. Not
+      // renamed to say so: its text is still exactly right for that role and
+      // renaming would orphan a translation that is still correct, for a
+      // reader the comment can serve instead.
+      const metNpc = isNpc && this.actor.npcRole === "npc";
+      const titleKey = metNpc ? "CAIRN.NpcRoleRegeneratorTitle"
+        : isNpc ? "CAIRN.NpcRegeneratorTitle" : "CAIRN.CharacterRegeneratorTitle";
+      const confirmKey = metNpc ? "CAIRN.NpcRoleRegeneratorConfirm"
+        : isNpc ? "CAIRN.NpcRegeneratorConfirm" : "CAIRN.CharacterRegeneratorConfirm";
       // DialogV2.confirm already makes "No" the default button, so V1's
       // defaultYes: false has no equivalent to carry over.
       const confirm = await foundry.applications.api.DialogV2.confirm({
-        window: {
-          title: game.i18n.localize(isNpc ? "CAIRN.NpcRegeneratorTitle" : "CAIRN.CharacterRegeneratorTitle"),
-        },
-        content: `<p>${game.i18n.localize(isNpc ? "CAIRN.NpcRegeneratorConfirm" : "CAIRN.CharacterRegeneratorConfirm")}</p>`,
+        window: { title: game.i18n.localize(titleKey) },
+        content: `<p>${game.i18n.localize(confirmKey)}</p>`,
         rejectClose: false,
       });
       if (!confirm) return;

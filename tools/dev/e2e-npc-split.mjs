@@ -148,6 +148,41 @@ await withSettings(page, async () => {
         const c = await ctxOf(a);
         out.gate[role] = { bio: c.showBiography, career: c.showCareer, background: c.showBackground };
       }
+      /* --- 5. the warning matches what the button does -------------------- */
+      // Through the REAL frame button and the REAL dialog, not by reading the
+      // two keys: what broke here was a BRANCH, and a string compare cannot see
+      // which branch a handler took. Dismissing the dialog writes nothing
+      // (rejectClose: false -> null -> the handler returns), so this leg costs
+      // the actors nothing and needs no restore of its own.
+      //
+      // show-generate-header is a world setting and gates the Roll button, so
+      // it is set BEFORE the render that builds the frame — a frame is built
+      // once. withSettings puts it back.
+      await game.settings.set("air-bladder", "show-generate-header", true);
+      const warningOf = async (actor) => {
+        await actor.update({ "system.generationEnabled": true });
+        const s = actor.sheet;
+        await s.render(true);
+        for (let i = 0; i < 60 && !s.element?.querySelector('[data-action="rollActor"]'); i++) await sleep(100);
+        // By the id DIFFERENCE: a dialog closing from an earlier leg lingers in
+        // the instances map, and picking it up would read a stale warning.
+        const seen = new Set(foundry.applications.instances.keys());
+        s.element?.querySelector('[data-action="rollActor"]')?.click();
+        let dlg = null;
+        for (let i = 0; i < 60 && !dlg; i++) {
+          await sleep(100);
+          dlg = [...foundry.applications.instances.entries()]
+            .filter(([id]) => !seen.has(id))
+            .map(([, app]) => app)
+            .find((app) => app instanceof foundry.applications.api.DialogV2 && app.rendered);
+        }
+        const text = dlg ? `${dlg.title ?? ""} :: ${dlg.element?.textContent ?? ""}` : "";
+        await dlg?.close();
+        await s.close();
+        return text;
+      };
+      out.npcWarning = await warningOf(npc);
+      out.hireWarning = await warningOf(hire);
     } catch (e) {
       out.errors.push(`threw: ${e.message}`);
     }
@@ -237,6 +272,21 @@ check(A.quirk === "PROBE-quirk" && A.goal === "PROBE-goal",
 check(B.role === "npc" && B.background === "PROBE-background" && B.dayRate === 7
   && B.quirk === "PROBE-quirk" && B.virtue === "PROBE-virtue" && B.physique === "PROBE-phys",
   "and back again returns everything untouched", JSON.stringify(B));
+
+console.log("\nthe re-roll warning matches what the button does");
+const NW = R.npcWarning ?? ""; const HW = R.hireWarning ?? "";
+// One string served both roles until 2026-08-20 and it described the hireling:
+// it promised an NPC that everything it carried would be deleted and that its
+// statblock, career and day rate would be replaced. regenerateNpc does none of
+// those. A Warden cancelling to protect gear that was never at risk was talked
+// out of the feature by its own dialog.
+check(/Background/.test(NW) && !/deleted/i.test(NW),
+  "an NPC is told what actually changes", JSON.stringify(NW.slice(0, 100)));
+check(/deleted/i.test(HW) && /day rate/i.test(HW),
+  "a hireling is still warned about its gear", JSON.stringify(HW.slice(0, 100)));
+// The control for a future single-string regression: both legs above pass if
+// the two roles share a warning that happens to mention Background.
+check(NW !== "" && NW !== HW, "the two roles get DIFFERENT warnings", "");
 
 console.log("\nnothing that is not a person gets a biography");
 for (const role of ["monster", "companion", "transport", "container"]) {

@@ -509,6 +509,8 @@
   "CAIRN.Npc": "NPC",
   "CAIRN.NpcRegeneratorConfirm": "Are you sure you want to roll this NPC again?</p><p>Everything it is carrying will be deleted, and its abilities, HP, career and day rate will be replaced. This cannot be undone.",
   "CAIRN.NpcRegeneratorTitle": "Roll this NPC again?",
+  "CAIRN.NpcRoleRegeneratorConfirm": "Are you sure you want to roll this NPC again?</p><p>Its Background, traits, pronouns and age will be replaced, and its coins and status marks cleared. Its name, portrait, notes and everything it is carrying are kept. This cannot be undone.",
+  "CAIRN.NpcRoleRegeneratorTitle": "Roll this NPC again?",
   "CAIRN.Omen": "Omen",
   "CAIRN.OmenPlaceholder": "If you are the youngest member of the party, check the Omen box and the roll button to receive an omen.",
   "CAIRN.OmenTableMissing": "The Omens table (air-bladder.tables-2e) could not be found.",
