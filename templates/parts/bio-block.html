@@ -1,8 +1,10 @@
-{{!-- The biography block: pronouns + age, the eight-trait sentence and
+{{!-- The biography block: pronouns + age, the trait sentence and its
       pick-lists, then Omen (showOmen) and Scars (showScars). MOVED verbatim
       from character-sheet.html (2026-08-01) when role-npc PEOPLE got the same
       block — the character sheet includes it ungated, the npc sheet behind
-      `{{#if showBiography}}` (role npc only). Context comes from
+      `{{#if showBiography}}` (BOTH person roles since the 2026-08-20 split:
+      npc and hireling. An NPC's grid is ten rows, a hireling's eight — Quirk
+      and Goal are the NPC's). Context comes from
       `_prepareBiographyContext` plus the flags each caller sets. --}}
                         {{#if traitRows}}
                         <div class="character-traits">
