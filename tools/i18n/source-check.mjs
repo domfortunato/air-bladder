@@ -22,8 +22,17 @@
  *              first two are structurally blind to. See CATEGORY_LABELS below.
  *   rawattr    a `{{{ }}}` inside an HTML attribute, where not escaping means a
  *              quotation mark in the value ends the attribute. Added 2026-08-07.
+ *   duplicate  the same key declared twice in one object of a lang file.
+ *              JSON.parse keeps the LAST and says nothing, so the file still
+ *              loads, still flattens to the same key set, and the earlier
+ *              string simply stops being used. Added 2026-08-20, after a new
+ *              die on the NPC sheet was given `CAIRN.RollBackground` — a key
+ *              the character sheet's background die already had — and silently
+ *              re-worded that one's tooltip. This is the only class here that
+ *              reads the lang files as TEXT, because it is invisible to
+ *              anything that parses them first.
  *
- * All five are errors. A warning that is permanently non-zero is a gate nobody
+ * All six are errors. A warning that is permanently non-zero is a gate nobody
  * reads, which is the failure mode this file exists to correct.
  *
  *   node tools/i18n/source-check.mjs [--verbose]
@@ -31,6 +40,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "./lib.mjs";
+import { duplicateKeys } from "./validate.mjs";
 
 const VERBOSE = process.argv.includes("--verbose");
 
@@ -438,6 +448,23 @@ for (const f of TPL_FILES) {
   }
 }
 
+/**
+ * Every lang file, TEXT not parsed — including the translators', because a
+ * duplicate there wastes exactly the work this project asks them for: two rows
+ * translated, one of them dead. `lang/content/` is scanned too; it is keyed on
+ * English source strings, so a repeat there means one of two translations of
+ * the same sentence never renders.
+ */
+const langFiles = [
+  ...walk(path.join(ROOT, "lang"), /\.json$/),
+];
+const duplicates = [];
+for (const f of langFiles) {
+  for (const d of duplicateKeys(fs.readFileSync(f, "utf8"))) {
+    duplicates.push({ site: `${rel(f)}:${d.line}`, what: `"${d.key}" was already declared at line ${d.first} — JSON.parse keeps THIS one and drops that one` });
+  }
+}
+
 const list = (label, rows, fmt) => {
   console.log(`  ${rows.length ? "x" : "ok -"} ${label}: ${rows.length}`);
   for (const r of rows) console.log(`      ${fmt(r)}`);
@@ -456,7 +483,9 @@ list("hardcoded user-visible strings", hardcoded, (h) => `${h.site}   ${h.what}`
 list("manifest categories with no label key", unlabelled, (r) => `${r.key}   needs ${r.label}`);
 list("hardcoded pack labels in system.json", packLabels, (r) => `${r.site}   ${r.what}`);
 list("unescaped {{{ }}} inside an HTML attribute", rawAttrs, (r) => `${r.site}   ${r.what}`);
+list("keys declared twice in one lang file", duplicates, (r) => `${r.site}   ${r.what}`);
 
-const bad = missing.length + unused.length + hardcoded.length + unlabelled.length + packLabels.length + rawAttrs.length;
+const bad = missing.length + unused.length + hardcoded.length + unlabelled.length + packLabels.length
+  + rawAttrs.length + duplicates.length;
 console.log(bad ? `\n${bad} problem(s).\n` : "");
 process.exit(bad ? 1 : 0);

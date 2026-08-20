@@ -113,3 +113,67 @@ export const flattenLang = (obj, prefix = "", out = {}) => {
   }
   return out;
 };
+/**
+ * Duplicate keys inside one object of a raw lang JSON, as
+ * `{key, line, first}` rows (`first` is the line the winner was declared on).
+ *
+ * JSON.parse KEEPS THE LAST and reports nothing, so a duplicate is invisible to
+ * every gate here: en.json and the translation both parse, both flatten to the
+ * same key set, and the only symptom is that one of the two strings silently
+ * stops being used. That is how `CAIRN.RollBackground` came to be declared twice
+ * on 2026-08-20 — the NPC sheet's Background die was given a key the character
+ * sheet's already had, and the later declaration quietly re-worded the earlier
+ * one's tooltip.
+ *
+ * Tokenised rather than matched by indentation on purpose: these files nest
+ * (a settings entry has its own `label` and `hint`), so a line regex reports
+ * every sibling object as a duplicate of the last. Only keys in the SAME object
+ * collide, which is what the frame stack tracks.
+ *
+ * @param {String} raw the file's text, not its parsed form
+ * @returns {{key: String, line: Number, first: Number}[]}
+ */
+export const duplicateKeys = (raw) => {
+  const dupes = [];
+  const stack = [{ isObject: false, keys: null, path: "", lastKey: null }];
+  let line = 1;
+  let str = null;
+  let strLine = 1;
+  for (let i = 0; i < raw.length; i++) {
+    const c = raw[i];
+    if (c === "\n") { line += 1; continue; }
+    if (c === '"') {                       // a string token: key or value, not known yet
+      let s = "";
+      let j = i + 1;
+      for (; j < raw.length && raw[j] !== '"'; j++) {
+        if (raw[j] === "\\") { s += raw[j + 1]; j += 1; continue; }
+        if (raw[j] === "\n") line += 1;
+        s += raw[j];
+      }
+      str = s;
+      strLine = line;
+      i = j;
+      continue;
+    }
+    const top = stack[stack.length - 1];
+    if (c === ":" && top.isObject && str !== null) {   // the string before it WAS a key
+      const first = top.keys.get(str);
+      const full = top.path ? `${top.path}.${str}` : str;
+      if (first !== undefined) dupes.push({ key: full, line: strLine, first });
+      else top.keys.set(str, strLine);
+      top.lastKey = str;
+      str = null;
+      continue;
+    }
+    if (c === "{" || c === "[") {
+      const path = top.isObject && top.lastKey
+        ? (top.path ? `${top.path}.${top.lastKey}` : top.lastKey)
+        : top.path;
+      stack.push({ isObject: c === "{", keys: c === "{" ? new Map() : null, path, lastKey: null });
+      continue;
+    }
+    if ((c === "}" || c === "]") && stack.length > 1) { stack.pop(); continue; }
+    if (c === ",") str = null;
+  }
+  return dupes;
+};
