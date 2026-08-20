@@ -574,7 +574,7 @@ export class CairnActor extends Actor {
     if (isNpcPerson && !data.img) {
       try {
         const { randomPortraitPair } = await import("../character-generator.js");
-        const pair = await randomPortraitPair();
+        const pair = await randomPortraitPair("npc");
         if (pair) {
           const changes = { img: pair.img };
           if (data.prototypeToken?.texture?.src === undefined) {

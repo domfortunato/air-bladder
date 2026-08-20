@@ -38,7 +38,7 @@
  * must not be able to read it as covering her drawings too.
  */
 
-import { getPortraitManifest, getCustomPortraitPaths, customPortraitFolder, refreshCustomPortraits, getGameIconManifest, getTlomdevManifest, getLydiaManifest } from "./character-generator.js";
+import { getPortraitManifest, getCustomPortraitPaths, customPortraitFolder, reservedPortraitCategory, refreshCustomPortraits, getGameIconManifest, getTlomdevManifest, getLydiaManifest } from "./character-generator.js";
 
 /**
  * Category display names, localized rather than title-cased in place so a
@@ -75,11 +75,35 @@ const tlomdevCategoryLabel = (key) => game.i18n.localize(`CAIRN.TlomdevCategory.
  */
 const tidyFolderWord = (w) => (/^[a-z]/.test(w) ? w.charAt(0).toUpperCase() + w.slice(1) : w);
 
-const customCategoryLabel = (key) => {
+/**
+ * The four reserved folder names ARE ours (issue #18), so unlike a Warden's own
+ * folder they have an English source a translator can work from. Keyed by
+ * CATEGORY rather than by folder name: `reservedPortraitCategory` owns the
+ * alias list (pc/pcs, monster/monsters…) and this must not become a second copy
+ * of it. Static keys, not a template — the i18n source gate records
+ * `CAIRN.<prefix>${` as a dynamic prefix and would then count every CAIRN key
+ * as used, blinding the unused-key check.
+ */
+const RESERVED_LABEL_KEYS = {
+  pc: "CAIRN.CustomPortraitCategory.Pc",
+  npc: "CAIRN.CustomPortraitCategory.Npc",
+  monster: "CAIRN.CustomPortraitCategory.Monster",
+  companion: "CAIRN.CustomPortraitCategory.Companion",
+};
+
+const customCategoryLabel = (key, { reserved = true } = {}) => {
   let name = key;
   try { name = decodeURIComponent(key); } catch { /* leave a malformed escape as-is */ }
-  return name.split("/").filter(Boolean)
-    .map((seg) => seg.replace(/[-_]+/g, " ").trim().split(/\s+/).map(tidyFolderWord).join(" "))
+  const segs = name.split("/").filter(Boolean);
+  return segs
+    .map((seg, i) => {
+      // Only the FIRST segment can be reserved — the rule is top-level-only, so
+      // a "Kindred/npc" folder is an ordinary one and must not wear the badge.
+      const cat = reserved && i === 0 ? reservedPortraitCategory(segs[0]) : null;
+      const labelKey = cat ? RESERVED_LABEL_KEYS[cat] : null;
+      if (labelKey) return game.i18n.localize(labelKey);
+      return seg.replace(/[-_]+/g, " ").trim().split(/\s+/).map(tidyFolderWord).join(" ");
+    })
     .join(" / ");
 };
 
@@ -261,7 +285,15 @@ export async function pickArt({
         ? `<div class="cairn-folder-group">${attr(customCategoryLabel(parent))}</div>`
         : "";
       const tiles = items
-        .map(({ key, names }) => folderTile(dir, key, names, customCategoryLabel(leafOf(key)), customCategoryLabel(key)))
+        .map(({ key, names }) => folderTile(
+          dir, key, names,
+          // A NESTED folder's leaf is never the key's first segment, so it can
+          // never be a reserved name — "Kindred/npc" must caption as "Npc", not
+          // borrow the reserved "NPCs" label. The tooltip below passes the full
+          // key, where the first segment is judged on its own merits.
+          customCategoryLabel(leafOf(key), { reserved: !key.includes("/") }),
+          customCategoryLabel(key),
+        ))
         .join("");
       return `${heading}${tiles}`;
     }).join("");

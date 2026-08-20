@@ -164,6 +164,150 @@ export const getCustomPortraitPaths = () => {
   return Array.isArray(list) ? list.filter((s) => typeof s === "string" && s) : [];
 };
 
+/* --- Reserved category folders (issue #18, fsmalecho) ----------------------
+ * A Warden can keep one custom folder per KIND of thing being made: a folder
+ * named `pc`, `npc`, `monster` or `companion` at the TOP LEVEL of the custom
+ * folder becomes that category's auto-assignment pool. Everything else is one
+ * general pool, which is what a Warden using none of these names has always
+ * had.
+ *
+ * Reserved by CONVENTION rather than by four more settings, deliberately:
+ * registration order on the settings tab is positional and load-bearing, a
+ * second folder setting is a second folder to scan on every Warden's login
+ * (the scan is one HTTP round trip per directory, capped at 200), and the
+ * picker already renders subfolders as tiles. Nothing here adds a register()
+ * call, so the counts in CLAUDE.md stand.
+ *
+ * THE GENERAL POOL EXCLUDES THE RESERVED FOLDERS, and that is a ruling rather
+ * than an implementation detail. If it did not, a Warden who filed only
+ * `monster/` would have every player character generated from monster art —
+ * the reserved folder would have made things worse for the one category they
+ * had bothered to sort.
+ *
+ * No cross-category fallback either: a Warden with only `pc/` filled gets the
+ * shipped art on NPCs, not their PC art. "NPCs borrow PC art but monsters do
+ * not" is a rule nobody can hold in their head.
+ *
+ * TOP LEVEL only, so `Kindred/monster` is an ordinary folder — but anything
+ * NESTED inside a reserved one counts toward it, which keeps the "file them
+ * however you like" promise inside each category.
+ *
+ * `character`/`characters` is deliberately NOT reserved. It is the likeliest
+ * name for a folder a Warden already uses to mean ALL their portraits, and
+ * capturing it would silently take their NPC art away.
+ */
+export const PORTRAIT_CATEGORIES = ["pc", "npc", "monster", "companion"];
+
+const RESERVED_FOLDERS = new Map([
+  ["pc", "pc"], ["pcs", "pc"],
+  ["npc", "npc"], ["npcs", "npc"],
+  ["monster", "monster"], ["monsters", "monster"],
+  ["companion", "companion"], ["companions", "companion"],
+]);
+
+/**
+ * The category a top-level folder name reserves, or null for an ordinary one.
+ * Percent-decoded first: `browse` hands back web paths, so a folder arrives as
+ * "OSR%20Fantasy". None of the reserved names contains a character that
+ * encodes, but decoding is what keeps that true of the COMPARISON rather than
+ * true by luck.
+ *
+ * EXPORTED so the art picker can label a reserved folder tile without keeping
+ * a second copy of the alias list. A second copy of one list is this project's
+ * most-repeated bug: CREATURE_CATEGORIES, the settings groups and the pack
+ * count have each gone stale that way.
+ * @param {String} segment
+ * @returns {String|null}
+ */
+export const reservedPortraitCategory = (segment) => {
+  let name = String(segment ?? "");
+  try { name = decodeURIComponent(name); } catch { /* malformed escape: match as written */ }
+  return RESERVED_FOLDERS.get(name.trim().toLowerCase()) ?? null;
+};
+
+/**
+ * The flat cached list, bucketed into the four reserved categories plus
+ * `general`. Derived on every call rather than cached: the list changes under
+ * a Warden's Refresh and there is no invalidation hook worth owning for a walk
+ * over a few hundred strings.
+ *
+ * A path that does not sit under the configured root falls to GENERAL — the
+ * same rule `splitCustomPaths` states in art-picker.js: a path this cannot
+ * classify must never become a path this hides.
+ * @returns {Object<String, String[]>}
+ */
+const customBuckets = () => {
+  const root = customPortraitFolder().replace(/\/+$/, "");
+  const prefix = root ? `${root}/` : "";
+  const buckets = { general: [] };
+  for (const cat of PORTRAIT_CATEGORIES) buckets[cat] = [];
+  for (const p of getCustomPortraitPaths()) {
+    const rest = prefix && p.startsWith(prefix) ? p.slice(prefix.length) : null;
+    const cut = rest === null ? -1 : rest.indexOf("/");
+    const cat = cut > 0 ? reservedPortraitCategory(rest.slice(0, cut)) : null;
+    buckets[cat ?? "general"].push(p);
+  }
+  return buckets;
+};
+
+/**
+ * The categories that inherit the GENERAL pool when they have no reserved
+ * folder of their own — and the two that do not.
+ *
+ * The general pool is historically a pool of PEOPLE: until this change the
+ * custom folder fed exactly three things, all of them someone with a face
+ * (a player character, an npc person, a Kettlewright import). So `pc` and
+ * `npc` inheriting it IS the old behaviour, unchanged for every Warden who
+ * never adopts a reserved name.
+ *
+ * `monster` and `companion` deliberately do NOT inherit it, and that is the
+ * opposite of what it looks like. Both already have a category-appropriate
+ * shipped fallback — game-icons creature glyphs for a monster, the pack
+ * document's own art or a class icon for a beast — and handing them the
+ * general pool instead would mean a Warden with an unsorted folder of
+ * portraits woke up to every generated monster wearing a shopkeeper's face
+ * and every granted mule wearing a woman's. Neither of them ever drew from
+ * this pool before; opting in by naming a folder is how they start.
+ */
+const GENERAL_POOL_CATEGORIES = new Set(["pc", "npc"]);
+
+/**
+ * The custom images a category may draw from: its own reserved folder when
+ * that holds anything, else the general pool for the two categories above,
+ * else nothing. Empty means "no custom art for this category" and the caller
+ * falls back to whatever shipped art it owns — which is NOT the same art for
+ * every category, so that fallback stays with the caller rather than being
+ * decided here.
+ *
+ * `null` asks for the general pool outright, which is what an un-converted
+ * caller gets and what every caller got before this existed.
+ * @param {String|null} [category] one of PORTRAIT_CATEGORIES
+ * @returns {String[]}
+ */
+export const customPoolFor = (category = null) => {
+  const buckets = customBuckets();
+  if (!category) return buckets.general;
+  if (buckets[category]?.length) return buckets[category];
+  return GENERAL_POOL_CATEGORIES.has(category) ? buckets.general : [];
+};
+
+/**
+ * The portrait category an actor belongs to, or null for one that wears no
+ * portrait at all (a cart, a chest — they take class icons from the container
+ * gallery). Reads `npcRole` where it exists so hireling, the npc alias, lands
+ * on npc without a second copy of that mapping.
+ * @param {Actor} actor
+ * @returns {String|null}
+ */
+export const portraitCategoryFor = (actor) => {
+  if (!actor) return null;
+  if (actor.type === "character") return "pc";
+  const role = actor.npcRole
+    ?? (["npc", "hireling"].includes(actor.type) ? (actor.system?.role || "npc") : null);
+  if (role === "monster" || role === "companion") return role;
+  return role === "npc" ? "npc" : null;
+};
+
 /**
  * Ensure the custom-portrait folder exists (GM-side; needs FILES permission).
  * Non-fatal: a host that forbids creation just leaves it absent and the feature
@@ -275,6 +419,14 @@ const defaultPortraitPool = async () => {
  * ONLY from the GM's custom pool when it is non-empty; otherwise from tlomdev's
  * `humanoid` folder. Null only if BOTH are empty.
  *
+ * `category` picks WHICH custom pool (issue #18): a reserved `pc/` or `npc/`
+ * folder when the Warden keeps one, else the general pool. Omitting it asks
+ * for the general pool, which is what every caller got before categories
+ * existed — so an un-converted caller behaves exactly as it always did. The
+ * shipped fallback is NOT category-aware and must not become so here: monsters
+ * have their own (game-icons creatures, in monster-generator.js) and would be
+ * badly served by 70 drawings of people.
+ *
  * THE TOKEN IS THE PORTRAIT. Aspeheim's gallery was the one paired set this
  * drew from — two folders sharing a filename, a 1000px face and a 256px token
  * drawn for the canvas — and tlomdev ships no token half, so a drawing is its
@@ -287,10 +439,11 @@ const defaultPortraitPool = async () => {
  * nothing rewrites an existing actor: an img is copied onto the document at
  * creation and never re-read, so every character made before today keeps the
  * portrait and paired token it already has.
+ * @param {String|null} [category] one of PORTRAIT_CATEGORIES
  * @returns {Promise<{img:String, token:String}|null>}
  */
-export const randomPortraitPair = async () => {
-  const custom = getCustomPortraitPaths();
+export const randomPortraitPair = async (category = null) => {
+  const custom = customPoolFor(category);
   const pool = custom.length ? custom : await defaultPortraitPool();
   if (!pool.length) return null;
   const path = pool[Math.floor(Math.random() * pool.length)];
@@ -355,19 +508,34 @@ const categoryPoolFor = (img, dir, categories) => {
  *
  * Avoids returning the current image while the pool holds anything else, so
  * the die always visibly does something.
+ *
+ * `category` scopes the CUSTOM half (issue #18). The promise in the first
+ * sentence was never kept for custom art: every custom image was one folder as
+ * far as this function was concerned, so the die on a monster wearing the
+ * Warden's art could hand it a shopkeeper's face. With a reserved folder in
+ * play the pool is that folder, so a monster stays a monster — the same
+ * promise the category galleries below already make.
  * @param {String} current the actor's current img
+ * @param {String|null} [category] one of PORTRAIT_CATEGORIES, from portraitCategoryFor
  * @returns {Promise<String|null>} a portrait src, or null when every pool is empty
  */
-export const randomPortraitInSameFolder = async (current) => {
+export const randomPortraitInSameFolder = async (current, category = null) => {
   const img = String(current ?? "");
   const m = await getPortraitManifest();
   const portraitDir = m?.portraitDir ?? "systems/air-bladder/art/jon-aspeheim/portraits";
   const aspeheim = (m?.names ?? []).map((n) => `${portraitDir}/${n}`);
-  const custom = getCustomPortraitPaths();
+  const custom = customPoolFor(category);
+  // The WHOLE cached list, only to answer "is this image custom art at all".
+  // `customPoolFor` can legitimately return nothing (a monster in a world with
+  // no `monster/` folder inherits no general pool), and testing membership
+  // against that would send a monster wearing the Warden's own art down to the
+  // bottom fallback and hand it a tlomdev human. Today that case re-rolls
+  // inside the custom folder, and it still does.
+  const customAll = getCustomPortraitPaths();
 
   let pool = null;
   if (aspeheim.includes(img)) pool = aspeheim;
-  if (!pool && custom.includes(img)) pool = custom;
+  if (!pool && customAll.includes(img)) pool = custom.length ? custom : customAll;
   if (!pool) {
     // Lydia's gallery is flat, so the whole of it is the folder — a dragon can
     // roll into a were-rat, which is the same promise the category galleries
@@ -969,10 +1137,30 @@ export const grantContainers = async (actor, specs) => {
   // sensible fallbacks for one-off beasts the pack doesn't carry. `kind` only
   // matters on the no-document path (icon + class inference by name); a resolved
   // Actor carries its class outright.
+  // A one-off beast the pack does not carry takes the Warden's own art when
+  // they keep a reserved `companion/` folder (issue #18), else the class icon
+  // it has always taken. Two bounds, both deliberate:
+  //
+  //   - A RESOLVED document's own art always wins. Same doctrine as the
+  //     `!data.img` guard on the npc auto-portrait: something that arrived
+  //     wearing art keeps it. So a granted Rivertooth keeps its illustration
+  //     and only a "Mangy Wolfdog" gets a face from the folder.
+  //   - `customPoolFor("companion")` is the reserved folder ALONE — it inherits
+  //     no general pool — so this is silent for every Warden who has not named
+  //     one, and a folder of human portraits never lands on a mule.
+  //
+  // Rolled per spec rather than once, so two granted beasts are two beasts.
+  const companionArt = () => {
+    const pool = customPoolFor("companion");
+    return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+  };
   const resolve = (spec) => {
     const doc = docs.find((d) => d.name.toLowerCase() === String(spec.name).toLowerCase());
     const kind = doc ? (doc.system.role === "companion" ? "mount" : "vehicle") : containerKindFor(spec.name);
-    return { doc, kind, art: doc?.img ?? iconForTransport(spec.name, kind) };
+    const art = doc?.img
+      ?? (kind === "mount" ? companionArt() : null)
+      ?? iconForTransport(spec.name, kind);
+    return { doc, kind, art };
   };
 
   /* A granted beast or vehicle is ALWAYS an Actor now.
@@ -2541,7 +2729,7 @@ export const createActorWithCharacter = async (characterData, { folder = null, o
   // characterToActorData deliberately omits img/texture.src, so Regenerate (which
   // goes through updateActorWithCharacter with the same data) cannot disturb a
   // portrait the player picked -- the persistence is by omission.
-  const pair = await randomPortraitPair();
+  const pair = await randomPortraitPair("pc");
   if (pair) {
     data.img = pair.img;
     data.prototypeToken.texture = { src: pair.token };
@@ -2907,7 +3095,7 @@ const npcToActorData = (h) => ({
  */
 export const createNpc = async ({ folder = null } = {}) => {
   const data = npcToActorData(await generateNpc());
-  const pair = await randomPortraitPair();
+  const pair = await randomPortraitPair("npc");
   if (pair) {
     data.img = pair.img;
     data.prototypeToken = { ...(data.prototypeToken ?? {}), texture: { src: pair.token } };

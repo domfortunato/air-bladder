@@ -1,4 +1,4 @@
-import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, regenerateNpc, rerollNpcProfession, rerollNpcName, rerollNpcFaction, rollNameFromTable, rollAge } from "../character-generator.js";
+import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, rerollNpcProfession, rerollNpcName, rerollNpcFaction, rollNameFromTable, rollAge } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel } from "../utils.js";
@@ -2609,12 +2609,17 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * the auto-assignment pool (custom when non-empty, else Aspeheim), which was
    * this die's whole behaviour before the rule. Reuses _setPortrait so the
    * paired token swaps too (non-Aspeheim art is its own token).
+   *
+   * The ACTOR decides which custom folder counts (issue #18): a reserved
+   * `monster/` folder keeps a monster's die inside it. Passed from here rather
+   * than derived down there, because the die is the one caller that has the
+   * actor in hand — everything else knows only what it is making.
    * @this {CairnActorSheet}
    */
   static async #onRollPortrait(event) {
     event.preventDefault();
     event.stopPropagation();
-    const src = await randomPortraitInSameFolder(this.actor.img);
+    const src = await randomPortraitInSameFolder(this.actor.img, portraitCategoryFor(this.actor));
     if (!src) return;
     await this._setPortrait(src);
   }

@@ -40,6 +40,7 @@
     "dev:container-link": "node tools/dev/e2e-container-link.mjs",
     "dev:item-pile": "node tools/dev/e2e-item-pile.mjs",
     "dev:portrait-folder": "node tools/dev/e2e-portrait-folder.mjs",
+    "dev:portrait-categories": "node tools/dev/e2e-portrait-categories.mjs",
     "dev:directory-buttons": "node tools/dev/e2e-directory-buttons.mjs",
     "dev:warden-rename": "node tools/dev/e2e-warden-rename.mjs",
     "dev:icons": "node tools/dev/e2e-icons.mjs",

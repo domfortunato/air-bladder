@@ -1,7 +1,7 @@
 import { CairnActor } from "./actor/actor.js";
 import { Cairn } from "./config.js";
 import { compendiumInfoFromString, findCompendiumItem, resultText } from "./compendium.js";
-import { getGameIconManifest } from "./character-generator.js";
+import { getGameIconManifest, customPoolFor } from "./character-generator.js";
 // Aliased: the tier config is locally `t` throughout generateMonster.
 import { t as tr } from "./i18n-content.js";
 
@@ -266,13 +266,27 @@ const monsterToActorData = (m) => ({
 });
 
 /**
- * A random portrait from the game-icons creature categories, or the shipped
- * monster glyph when the manifest is unavailable (fetch failed, curation
- * re-cut without these categories). Uniform over icons, not categories, so a
- * 20-icon category does not outweigh a 200-icon one per icon.
+ * A random portrait for a generated monster, in three steps: the Warden's own
+ * art when they keep a reserved `monster/` folder (issue #18), else the
+ * game-icons creature categories, else the shipped monster glyph when the
+ * manifest is unavailable (fetch failed, curation re-cut without these
+ * categories). Uniform over icons, not categories, so a 20-icon category does
+ * not outweigh a 200-icon one per icon.
+ *
+ * Monsters had never touched the custom pool at all before this. It was wired
+ * to `randomPortraitPair`, and a monster does not take a portrait pair — so
+ * this is the half of the issue that adds a capability rather than re-routing
+ * one. `customPoolFor("monster")` is the reserved folder when there is one and
+ * the general pool otherwise, so a Warden who keeps unsorted custom art starts
+ * seeing it on monsters too, which is the ask.
+ *
+ * NEVER `defaultPortraitPool()`: that is 70 drawings of people, and a monster
+ * must not roll a librarian's face. This ladder is its own.
  * @returns {Promise<String>}
  */
 const randomMonsterIcon = async () => {
+  const custom = customPoolFor("monster");
+  if (custom.length) return custom[Math.floor(Math.random() * custom.length)];
   const manifest = await getGameIconManifest();
   const iconDir = manifest?.iconDir;
   if (!iconDir) return MONSTER_ICON_FALLBACK;

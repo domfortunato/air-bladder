@@ -538,7 +538,7 @@ export const kettlewrightToActorData = async (json) => {
     data.img = stock;
     data.prototypeToken.texture = { src: stock };
   } else {
-    const pair = await randomPortraitPair();
+    const pair = await randomPortraitPair("pc");
     if (pair) {
       data.img = pair.img;
       data.prototypeToken.texture = { src: pair.token };

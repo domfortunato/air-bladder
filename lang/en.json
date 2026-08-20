@@ -177,6 +177,10 @@
   "CAIRN.CriticalDamageToggle": "Critical Damage (STR): mark or clear. A critically wounded PC can only crawl until stabilized.",
   "CAIRN.Current": "Current",
   "CAIRN.CustomBackgroundsPack": "Custom Backgrounds",
+  "CAIRN.CustomPortraitCategory.Companion": "Companions",
+  "CAIRN.CustomPortraitCategory.Monster": "Monsters",
+  "CAIRN.CustomPortraitCategory.Npc": "NPCs",
+  "CAIRN.CustomPortraitCategory.Pc": "Player Characters",
   "CAIRN.CustomPortraitsEmpty": "No custom portraits found. Drop images into your custom portrait folder, then Refresh.",
   "CAIRN.Damage": "Damage",
   "CAIRN.DamageApplied": "Damage applied: {list}",
@@ -664,7 +668,7 @@
       "label": "Offer custom Cairn 2e backgrounds"
     },
     "CustomPortraitFolder": {
-      "hint": "A folder of your own character portraits (relative to the Foundry data root). When it holds images, new characters and NPCs use them instead of the shipped tlomdev humanoid art, and the portrait picker gains a 'Custom' tab. Leave empty or unfilled to use only the shipped portraits. The default folder is created for you — just drop images in and click Refresh in the picker.",
+      "hint": "A folder of your own character portraits (relative to the Foundry data root). When it holds images, new characters and NPCs use them instead of the shipped tlomdev humanoid art, and the portrait picker gains a 'Custom' tab. Name a subfolder 'pc', 'npc', 'monster' or 'companion' and it becomes the pool for that kind alone; monsters and companions use your art only when such a folder exists. Leave empty or unfilled to use only the shipped portraits. The default folder is created for you — just drop images in and click Refresh in the picker.",
       "label": "Custom character portrait folder"
     },
     "EnableGlogMagic": {
