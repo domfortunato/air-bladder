@@ -76,7 +76,7 @@ without it changing face.
 
 ## The eight tables behind it
 
-All of them ship as RollTables in the **Warden: Monsters** compendium:
+All of them ship as RollTables in the **Warden — Monsters** compendium:
 
 - `Warden: Monster - Appearance (Physique)`
 - `Warden: Monster - Appearance (Feature)`

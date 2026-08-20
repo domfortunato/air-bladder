@@ -82,6 +82,7 @@ const journalShell = (id, name, pages) => [
 // stay repo-side on purpose.
 const ROSTER = [
   ["encounter-tables.md", "Encounter Tables"],
+  ["generating-npcs.md", "Generating NPCs and Hirelings"],
   ["generating-monsters.md", "Generating Monsters"],
   ["generating-factions.md", "Generating Factions"],
   ["creating-custom-backgrounds.md", "Creating Custom Backgrounds"],
