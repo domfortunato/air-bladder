@@ -3293,6 +3293,59 @@ const rollNpcTraits = async () => ({
   ...(await rollTextItems(CONFIG.Cairn?.npcGenerator?.traits ?? {})),
 });
 
+/**
+ * The gear an NPC's Background hands them, resolved the same way a Barebones
+ * character's and a hireling's are: by-NAME references into the editable gear
+ * pool, so a Warden editing an item changes what every NPC generated afterwards
+ * carries.
+ *
+ * The items come from the nearest BAREBONES background
+ * (Cairn.npcGenerator.backgroundGear), because that is the only background list
+ * in the system whose entries carry gear — an NPC Background is a word off a
+ * d20 table and a 2e background grants far more than a stranger should have.
+ * Lord and Politician map to nothing and get nothing.
+ *
+ * Through `resolveStartingGear`, NOT a bare `resolveRefs`. Nine Barebones
+ * backgrounds write a row as an INSTRUCTION rather than an item ("Random
+ * Additional Gear", "Scroll of Random Spellbook", "Spellbook") and a plain
+ * reference lookup drops every one of them without a word. Two of the eighteen
+ * targets carry one: a Peddler arrived with a Sack and nothing else. That is
+ * the whole reason the shared resolver is exported.
+ *
+ * What it deliberately does NOT do is grant CONTAINERS. Exactly two Barebones
+ * backgrounds declare one — the Merchant's Wagon and the Peddler's Cart — and a
+ * container is a second ACTOR, connected, which the Actor Directory always
+ * lists. A Warden generating a dozen NPCs would be minting carts faster than
+ * they can want them, and the Connections UI they would manage them through is
+ * parked. A hireling's career grants no container either, so items-only is also
+ * the answer that matches the other person role.
+ *
+ * Tagged grantSource "background", the whole set and not just the interesting
+ * half: `tagBackgroundGear` deliberately leaves rations/torches/lanterns
+ * untagged so a PC's sheet shows no source chip on them, and an NPC cannot
+ * afford that — a re-rolled Background finds its old gear BY the tag, so an
+ * untagged grant would survive every re-roll and pile up. The hireling's
+ * buildHirelingItems tags all of its own for the same reason.
+ * @param {String} background  the ENGLISH table text stored on the actor
+ * @returns {Promise<Object[]>}
+ */
+const buildNpcItems = async (background) => {
+  const target = Cairn.npcGenerator?.backgroundGear?.[String(background ?? "").trim()];
+  if (!target) return [];
+  const bg = await getBarebonesBackgroundByName(target);
+  if (!bg) return [];
+  const items = await resolveStartingGear(bg);
+  return items.map((item) => {
+    if (item.type === "weapon" || item.type === "armor") item.system.equipped = true;
+    return withGrantSource(item, "background");
+  });
+};
+
+/** Every item on an actor that its Background granted. @returns {String[]} ids */
+const npcGrantedItemIds = (actor) => actor.items
+  .filter((i) => i.getFlag(FLAG_SCOPE, "grantSource") === "background")
+  .map((i) => i.id);
+
 /** One Background off the Warden's Guide table, or "" when it is missing. */
 const rollNpcBackground = async () => {
   const [packName, tableName] = compendiumInfoFromString(CONFIG.Cairn?.npcGenerator?.background ?? "");
@@ -3309,9 +3362,10 @@ export const generateNpc = async () => {
   // the Roll objects would have no reader (see characterGenerator's `rolls`).
   const abilityRolls = await rollAbilities(Cairn.npcGenerator.ability);
   const hpRoll = await rollHitProtection(Cairn.npcGenerator.hitProtection);
+  const background = await rollNpcBackground();
   return {
     name: await rollNpcName(),
-    background: await rollNpcBackground(),
+    background,
     abilities: {
       STR: abilityRolls.STR.total,
       DEX: abilityRolls.DEX.total,
@@ -3325,6 +3379,7 @@ export const generateNpc = async () => {
     pronouns: "",
     age: String(await rollAge(Cairn.characterGenerator2e.biography.age)),
     traits: await rollNpcTraits(),
+    items: await buildNpcItems(background),
   };
 };
 
@@ -3348,9 +3403,9 @@ const npcToActorData = (n) => ({
     critical: false,
     armorOverride: null,
   },
-  // Stated, and empty. `items: []` rather than omitting the key so the intent
-  // survives a reader wondering whether gear was forgotten.
-  items: [],
+  // Three items, or none for a Background with no Barebones counterpart. Still
+  // stated rather than omitted, so an empty pack reads as a decision.
+  items: n.items ?? [],
 });
 
 /**
@@ -3376,15 +3431,20 @@ export const createNpc = async ({ folder = null } = {}) => {
  * of traits and a new pronouns/age — a whole new person. Keeps the name,
  * portrait and free-form notes by OMISSION, exactly as regenerateHireling does.
  *
- * Items are NOT touched, which is the one place this differs from its hireling
- * twin. A hireling's gear IS its career, so a regenerate replaces it; an NPC's
- * gear was never granted by anything, so whatever a Warden put on this actor is
- * theirs and a re-rolled Background has no claim on it.
+ * Items: only what the OLD Background granted is deleted, and the new one's
+ * put in its place. This differs from the hireling twin, which deletes
+ * everything the actor carries — a hireling's whole inventory IS its career,
+ * while an NPC keeps anything a Warden gave it by hand. The two are told apart
+ * by the grantSource flag and nothing else, which is why buildNpcItems tags
+ * every item it makes rather than only the interesting ones.
  * @param {CairnActor} actor
  * @returns {Promise<CairnActor>}
  */
 export const regenerateNpc = async (actor) => {
   const n = await generateNpc();
+  const stale = npcGrantedItemIds(actor);
+  if (stale.length) await actor.deleteEmbeddedDocuments("Item", stale, { render: false, abNoStatusCard: true });
+  if (n.items?.length) await actor.createEmbeddedDocuments("Item", n.items, { render: false, abNoStatusCard: true });
   await actor.update({
     system: {
       role: "npc",
@@ -3414,10 +3474,10 @@ export const regenerateNpc = async (actor) => {
 };
 
 /**
- * Re-roll only an NPC's BACKGROUND, leaving everything else alone — the
- * Background die, the counterpart of the hireling's Career die. Unlike that
- * one it changes nothing else: a hireling's career carries its statblock and
- * its gear, an NPC's background carries one word.
+ * Re-roll an NPC's BACKGROUND and the gear that Background grants — the
+ * Background die, the counterpart of the hireling's Career die. It stops there:
+ * a hireling's career carries its statblock TOO, and re-rolling a Background
+ * must not re-roll the person.
  *
  * Avoids returning the current value while the table holds anything else, so
  * the die always visibly does something.
@@ -3432,6 +3492,12 @@ export const rerollNpcBackground = async (actor) => {
     if (rolled && rolled !== current) break;
   }
   if (!rolled) return actor;
+  // Old grant out, new grant in — the same shape as rerollHirelingCareer, and
+  // `render: false` on both so one update renders rather than three.
+  const stale = npcGrantedItemIds(actor);
+  if (stale.length) await actor.deleteEmbeddedDocuments("Item", stale, { render: false, abNoStatusCard: true });
+  const items = await buildNpcItems(rolled);
+  if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false, abNoStatusCard: true });
   await actor.update({ "system.background": rolled });
   return actor;
 };

@@ -23,7 +23,7 @@ if you have granted it.
 | where it comes from | the Warden's Guide NPC table (d20) | the 2e careers list (12 of them) |
 | day rate | none | yes, from the career |
 | stat block | **rolled** — 3d6 a piece, 1d6 HP | fixed by the career |
-| gear | **none**, and the pack is empty | the career's whole loadout, equipped |
+| gear | its Background's Barebones counterpart (2 or 3 items; two grant none) | the career's whole loadout, equipped |
 | extra traits | **Quirk, Goal**, plus NPC Virtue and Vice | 2e Virtue and Vice |
 
 Nothing is locked in. The **Role** dropdown at the top of any of these sheets
@@ -56,12 +56,11 @@ is the one to use when you want the new person filed straight into a folder.
 - **A portrait and a matching token.** If you have set up a custom portrait
   folder with an `npc` subfolder, it draws from there — see
   [Using Your Own Portraits](using-your-own-portraits.md).
-- **An empty pack.** Ten slots, nothing in them.
+- **The gear its Background grants** — see the table below. Two Backgrounds
+  grant nothing, and an NPC of any Background can be given whatever else you
+  like.
 - **A rolled stat block**: 3d6 for each of STR, DEX and WIL, and 1d6 Hit
   Protection — the same dice a player character is made with.
-
-The empty pack is deliberate. An NPC's gear is not a table in Cairn, so none is
-invented; give them whatever the fiction says they have.
 
 The stat block is a starting point, not a verdict. The Warden's Guide gives NPCs
 no numbers at all, on the reasoning that most of them never get into a fight, so
@@ -105,11 +104,11 @@ Roll NPC asks first, and it asks two different questions:
 
 - On a **hireling**: everything it is carrying will be deleted, and its
   abilities, HP, Career and day rate replaced. A whole new working person.
-- On an **NPC**: its Background, stat block, traits and age are replaced, its
-  pronouns cleared, coins and status marks cleared — and its **name, portrait,
-  notes and everything it is carrying are kept**. An NPC's gear was never granted by a
-  table, so a new Background has no claim on it. The new stat block arrives at
-  full, so a re-rolled NPC is never carrying the last one's wounds.
+- On an **NPC**: its Background, stat block, traits and age are replaced,
+  along with the gear the old Background granted; its pronouns, coins and
+  status marks are cleared. Its **name, portrait, notes and anything you gave
+  it by hand are kept** — only granted gear is taken back. The new stat block
+  arrives at full, so a re-rolled NPC never carries the last one's wounds.
 
 Both keep the name and the portrait, so you can re-roll the shopkeeper the party
 has already met without them changing face. Neither can be undone.
@@ -122,7 +121,7 @@ else:
 | Die | What it does |
 |---|---|
 | beside the name | a new name off the d60 |
-| beside **Background** | a new Background (NPC role) |
+| beside **Background** | a new Background **and the gear it grants** (NPC role) |
 | beside **Career** | a new Career — **and its stat block and gear with it**, because in 2e a career *is* those things |
 | beside **Faction** | a side, off `Warden: NPC - Faction` |
 | beside **Age** | 2d20 + 10, floored and capped by your settings |
@@ -167,15 +166,16 @@ from the 2e hireling examples, which is why there is no "Careers" compendium to
 edit. To use a career the book does not have, type it into the Career field and
 set the rate yourself.
 
-## If you need a Background to mean something mechanically
+## What an NPC is carrying, and where it comes from
 
-An NPC's Background is a word and nothing else — nothing reads it, and that is
-the point. But the Cairn Barebones list of 100 backgrounds DOES carry three
-items each, so if you want to know what a given NPC plausibly has on them, or
-you are turning an NPC the party met into a playable character, this is the
-nearest Barebones background for each row of the d20 table.
+An NPC's Background is a word off a d20 table, and a word grants nothing. The
+Cairn Barebones list of 100 backgrounds is the one list in this system whose
+entries DO carry gear, so each row of the NPC table points at its nearest
+Barebones counterpart and an NPC arrives holding that gear — resolved out of
+the same editable item packs a Barebones character and a hireling draw from, so
+editing an item changes what every NPC generated afterwards carries.
 
-| d20 | NPC Background | Nearest Barebones background | d100 | its three items |
+| d20 | NPC Background | Barebones counterpart | d100 | what you get |
 |---|---|---|---|---|
 | 1 | Academic | Scribe | 82 | Candle, Parchment & Ink, Stylus |
 | 2 | Assassin | **Assassin** | 5 | Garrotte, Mask, Poison |
@@ -185,44 +185,51 @@ nearest Barebones background for each row of the d20 table.
 | 6 | Gravedigger | **Gravedigger** | 45 | Alcohol, Ladder, Shovel |
 | 7 | Guard | **Guard** | 46 | Lantern, Manacles, Whistle |
 | 8 | Healer | Herbalist | 48 | Antitoxin, Mugwort, Sack |
-| 9 | Jailer | **Jailer** | 54 | Chain 10ft, Manacles, Whistle |
+| 9 | Jailer | **Jailer** | 54 | Chain, 10ft, Manacles, Whistle |
 | 10 | Laborer | Gardener | 42 | Gloves, Sack, Shovel |
 | 11 | Lord | — | | |
-| 12 | Merchant | **Merchant** | 64 | Random Additional Gear, Stylus, Wagon |
+| 12 | Merchant | **Merchant** | 64 | Random Additional Gear, Stylus *(plus a Wagon — not granted, see below)* |
 | 13 | Monk | **Monk** | 67 | Candle, Cloak, Songbook |
-| 14 | Mystic | Hermit | 49 | Blanket, Pole 10ft, Smoking Herbs |
+| 14 | Mystic | Hermit | 49 | Blanket, Pole, 10ft, Smoking Herbs |
 | 15 | Outlander | Vagabond | 96 | Blanket, Poncho, Rope |
-| 16 | Peddler | **Peddler** | 73 | Random Additional Gear, Sack, Cart |
+| 16 | Peddler | **Peddler** | 73 | Random Additional Gear, Sack *(plus a Cart — not granted, see below)* |
 | 17 | Politician | — | | |
 | 18 | Spy | **Spy** | 86 | Disguise Kit, Garrotte, Mirror |
 | 19 | Thief | **Thief** | 92 | Caltrops, Grappling Hook, Lockpicks |
 | 20 | Thug | Highway Robber | 50 | Grappling Hook, Rope, Signal Flag |
 
-Eleven of them are the same word in both lists, in **bold** above. Seven need a
-translation, and two get none:
+Eleven are the same word in both lists, in **bold**. Seven needed a
+translation, and two get nothing at all:
 
-- **Lord and Politician have no Barebones equivalent, and that is not an
-  oversight.** Every one of the 100 is an occupation — what you did before
-  adventuring — so hereditary rank and elected office have nowhere to sit. That
-  is exactly why both words are on a table the WARDEN rolls: they say where
-  someone stands in the world, which is what you need about a person the party
-  meets, and not a set of skills a starting character brings.
-- **Thug is not Thief**, even though the mapping looks obvious, because Thief is
-  already row 19. Highway Robber keeps the distinction the table draws: one
-  takes by stealth, the other by force.
-- **Healer and Academic are the loosest of the seven**, because Barebones splits
-  each across several trades. A healer could as well be Apothecary, Physician,
-  Barber Surgeon or Leech Collector; an academic could be Librarian,
-  Philosopher, Astrologer or Cartographer. Herbalist and Scribe are the picks,
-  not the only answers.
+- **Lord and Politician grant no inventory**, and that is not an oversight.
+  Every one of the 100 Barebones backgrounds is an OCCUPATION — what you did
+  before adventuring — so hereditary rank and elected office have nowhere to
+  sit. That is exactly why both words are on a table the WARDEN rolls: they say
+  where someone stands in the world, which is what you need about a person the
+  party meets, not a set of skills a starting character brings. A Lord arrives
+  with an empty pack; give them what the fiction says they carry.
+- **Thug is not Thief**, obvious as that looks, because Thief is already row 19.
+  Highway Robber keeps the distinction the table draws: one takes by stealth,
+  the other by force.
+- **Healer and Academic are the loosest**, because Barebones splits each across
+  several trades — a healer could as well be Apothecary, Physician, Barber
+  Surgeon or Leech Collector. Herbalist and Scribe are picks, not verdicts.
+- **"Random Additional Gear" is a real roll, not a missing item.** Two of these
+  name it, and it means a roll on the Barebones Additional Gear d100, rerolled
+  if it duplicates something the Background already gave.
+- **The Merchant's Wagon and the Peddler's Cart are NOT granted.** A transport
+  is a second Actor, connected to its keeper and always listed in the Actor
+  Directory, and generating a dozen NPCs should not mint a dozen carts. Buy or
+  make one if the peddler needs it. A hireling's career grants no transport
+  either.
 
-**Nothing in the system reads this table.** It is a reference for you, not a
-rule: no die consults it, and typing "Lord" into an NPC gives them exactly what
-typing "Scribe" does, which is a word on a sheet.
+Everything granted this way is tagged, so re-rolling the Background takes back
+exactly what the last one gave and leaves anything you added by hand alone.
 
 ## What generation will not do
 
-- **It rolls no gear for an NPC.** See above.
+- **It grants no transport.** A Merchant or Peddler NPC gets their items but
+  not the Wagon or Cart the Barebones background lists — see above.
 - **It automates no rules text.** A trait, a quirk or a goal is prose. Nothing
   reads it, nothing rolls it, nothing applies it — that is yours to play.
 - **It rolls no faction at creation.** Whose side someone is on is a decision

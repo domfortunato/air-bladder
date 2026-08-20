@@ -90,6 +90,18 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   generator left at the schema's 10/10/10 and 6 has not declined to invent
   numbers, it has invented three identical ones. `Cairn.npcGenerator.ability` /
   `.hitProtection`, beside the Barebones pair they copy.
+  **And it arrives CARRYING something (2026-08-20, user ask):**
+  `Cairn.npcGenerator.backgroundGear` maps each d20 Background to its nearest
+  BAREBONES background — the only background list here whose entries hold gear —
+  and `buildNpcItems` resolves it through the shared `resolveStartingGear`, NOT
+  `resolveRefs`: nine Barebones backgrounds write a row as an INSTRUCTION
+  ("Random Additional Gear") that a plain lookup drops in silence, which left a
+  generated Peddler holding a Sack and nothing else. **Lord and Politician map to
+  nothing on purpose** — all 100 Barebones backgrounds are occupations, so rank
+  and office have no counterpart, which is the same reason those two words are
+  on a Warden's table and not in character creation. **Containers are NOT
+  granted** (the Merchant's Wagon, the Peddler's Cart): a transport is a second
+  Actor the directory always lists, and a hireling's career grants none either.
   **PRONOUNS ARE NEVER ROLLED (2026-08-20, user ruling), on BOTH person
   generators.** They were a uniform pick of he/him, she/her, they/them from
   2026-08-01, justified in a comment as "a generated stranger needs an answer

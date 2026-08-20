@@ -238,6 +238,100 @@ await withSettings(page, async () => {
         str: ha.STR?.max, dex: ha.DEX?.max, wil: ha.WIL?.max, hp: hurt.system.hp?.max,
         full: ha.STR?.value === ha.STR?.max && hurt.system.hp?.value === hurt.system.hp?.max,
       };
+      /* --- 7. the Background grants gear ---------------------------------- */
+      // User ask, 2026-08-20: an NPC arrives carrying what its Background says
+      // it should, through the same by-name resolution a Barebones PC and a 2e
+      // hireling use. The mapping is READ from config, never copied here — a
+      // probe holding its own copy of a list is the fourth-copy failure this
+      // repo has already paid for twice.
+      const MAP = CONFIG.Cairn?.npcGenerator?.backgroundGear ?? {};
+      const gearNamesOf = async (bbName) => {
+        const bg = bbName ? await cg.getBarebonesBackgroundByName(bbName) : null;
+        return (bg?.system?.startingGear ?? []).map((g) => g.name).sort();
+      };
+      const grantedOf = (a) => a.items
+        .filter((i) => i.getFlag("air-bladder", "grantSource") === "background")
+        .map((i) => i.name).sort();
+
+      // (a) Whatever THIS run happened to roll, the gear must match that
+      //     Background's counterpart. Asserting the rule rather than a fixture
+      //     means the leg keeps working when the mapping changes.
+      out.grant = {
+        background: npc.system.background,
+        target: MAP[npc.system.background] ?? null,
+        want: await gearNamesOf(MAP[npc.system.background]),
+        got: npc.items.map((i) => i.name).sort(),
+        tagged: grantedOf(npc),
+      };
+
+      // (b) The mapping must cover the table. Every row except Lord and
+      //     Politician has a counterpart, and those two have none BY DECISION —
+      //     asserted in both directions so neither a silent gap nor a silent
+      //     addition passes.
+      const rows = (out.backgroundTable ?? []).filter(Boolean);
+      out.coverage = {
+        rows: rows.length,
+        missing: rows.filter((r) => !MAP[r]),
+        strays: Object.keys(MAP).filter((k) => !rows.includes(k)),
+        targetsResolve: (await Promise.all(Object.values(MAP)
+          .map(async (t) => ((await gearNamesOf(t)).length ? null : t)))).filter(Boolean),
+      };
+
+      // (c) Deterministic, and the two things (a) cannot reach: a Background
+      //     with NO counterpart grants nothing, and a re-roll takes back only
+      //     what it gave. The die is pinned in page to the row whose text is
+      //     "Lord" — mid-bucket, and INVERTED, because core maps a face as
+      //     ceil((1-u)*faces).
+      //
+      //     BOTH ends are pinned, and the first one is the fix for a real
+      //     flake: this read `before` off whatever createNpc happened to roll,
+      //     so on the 2-in-20 runs that landed Lord or Politician the "its old
+      //     gear went with it" leg had nothing to lose and failed. A
+      //     precondition that holds 90% of the time is a race, not a flake —
+      //     establish it.
+      const rowFor = (text) => bgTable?.results
+        .find((r) => (r.type === "text" ? r.description : r.name) === text)?.range?.[0] ?? null;
+      const faces = Math.max(...(bgTable?.results ?? [{ range: [1, 20] }]).map((r) => r.range[1]));
+      const granting = rows.find((r) => MAP[r]);
+      const origRnd = CONFIG.Dice.randomUniform;
+      const rollOnto = async (actor, text) => {
+        CONFIG.Dice.randomUniform = () => 1 - (rowFor(text) - 0.5) / faces;
+        try { await cg.rerollNpcBackground(actor); } finally { CONFIG.Dice.randomUniform = origRnd; }
+      };
+      const gift = await cg.createNpc();
+      await gift.createEmbeddedDocuments("Item", [{ name: "ZZ Warden Gift", type: "item" }]);
+      await rollOnto(gift, granting);
+      out.reroll = { granting, before: grantedOf(gift), wantBefore: await gearNamesOf(MAP[granting]) };
+      await rollOnto(gift, "Lord");
+      out.reroll.background = gift.system.background;
+      out.reroll.granted = grantedOf(gift);
+      out.reroll.handKept = gift.items.some((i) => i.name === "ZZ Warden Gift");
+
+      // (d) The INSTRUCTION row, pinned, because the leg above only meets one
+      //     by chance — two of the eighteen targets carry one and a 1-in-10
+      //     assertion is not a gate. Derived from the data, not named here: a
+      //     row whose target declares a gear entry that is an instruction
+      //     rather than an item ("Random Additional Gear"). Without
+      //     resolveStartingGear these come back an item short, silently.
+      const INSTRUCTIONS = ["random additional gear", "scroll of random spellbook",
+        "spellbook", "random spellbook"];
+      const declaredOf = async (bbName) => {
+        const bg = bbName ? await cg.getBarebonesBackgroundByName(bbName) : null;
+        return (bg?.system?.startingGear ?? []).map((g) => String(g.name));
+      };
+      let instructionRow = null;
+      for (const r of rows) {
+        if (!MAP[r]) continue;
+        const decl = await declaredOf(MAP[r]);
+        if (decl.some((d) => INSTRUCTIONS.includes(d.trim().toLowerCase()))) { instructionRow = r; break; }
+      }
+      out.instruction = { row: instructionRow, declared: await declaredOf(MAP[instructionRow]) };
+      if (instructionRow) {
+        await rollOnto(gift, instructionRow);
+        out.instruction.background = gift.system.background;
+        out.instruction.granted = grantedOf(gift);
+      }
+
     } catch (e) {
       out.errors.push(`threw: ${e.message}`);
     }
@@ -266,7 +360,19 @@ check(!!N.background && (R.backgroundTable ?? []).includes(N.background),
   "Background comes off the Warden's Guide table", JSON.stringify(N.background));
 check(N.profession === "" && N.dayRate === 0 && N.showDayRate === false,
   "no Career, no rate, no day-rate row", JSON.stringify({ career: N.profession, rate: N.dayRate }));
-check(N.items === 0, "arrives with an EMPTY inventory", `${N.items} item(s)`);
+const G = R.grant ?? {}; const COV = R.coverage ?? {}; const RR = R.reroll ?? {};
+const same = (a, b) => JSON.stringify(a ?? []) === JSON.stringify(b ?? []);
+// COUNT, not names, and this is the leg that found the defect. Nine Barebones
+// backgrounds write a row as an instruction ("Random Additional Gear") whose
+// resolved name is whatever the d100 handed over, so comparing names would
+// have to special-case them — while comparing the COUNT says the thing that
+// actually matters: no declared row was silently dropped. A bare resolveRefs
+// left a Peddler holding a Sack and nothing else.
+check(G.want?.length > 0 ? G.got?.length === G.want?.length : G.got?.length === 0,
+  "every declared row resolved — none dropped",
+  `${G.background} -> ${G.target}: ${JSON.stringify(G.want)} => ${JSON.stringify(G.got)}`);
+check(G.tagged?.length === G.got?.length,
+  "and EVERY piece is tagged, mundane included", `${G.tagged?.length}/${G.got?.length} tagged`);
 // Not pinned to 10 — inherited from the Warden's max-equip-slots setting, whose
 // default is 10. Asserting the number would freeze a setting the Warden owns.
 check(N.slotsMax === 10, "ten slots, from the Warden's own setting", `${N.slotsMax}`);
@@ -301,6 +407,32 @@ const RB = R.regenBefore ?? {}; const RA = R.regenAfter ?? {};
 check(RA.full === true, "a full re-roll heals as it replaces", "value === max");
 check(inRange({ str: RA.str, dex: RA.dex, wil: RA.wil, hp: RA.hp }) && tuple(RB) !== tuple(RA),
   "and the numbers it lands on are new ones", `${tuple(RB)} -> ${tuple(RA)}`);
+
+console.log("\nthe Background says what an NPC is carrying");
+// The mapping covers the table in BOTH directions. A missing row grants
+// nothing silently; a stray key is a word no die can ever produce.
+check(same(COV.missing, ["Lord", "Politician"]),
+  "only Lord and Politician map to nothing", JSON.stringify(COV.missing));
+check(COV.strays?.length === 0, "and the map invents no row the table lacks", JSON.stringify(COV.strays));
+check(COV.targetsResolve?.length === 0,
+  "every target names a real Barebones background with gear", JSON.stringify(COV.targetsResolve));
+// Pinned die, so this is a fact and not a coincidence.
+check(RR.background === "Lord", "re-rolled onto Lord with the die pinned", JSON.stringify(RR.background));
+check(RR.granted?.length === 0,
+  "a Background with no counterpart grants NOTHING", JSON.stringify(RR.granted));
+check(same(RR.before, RR.wantBefore) && RR.before?.length > 0,
+  "precondition: it was carrying a granting Background's gear",
+  `${RR.granting}: ${JSON.stringify(RR.before)}`);
+check(RR.before?.length > 0 && RR.granted?.length === 0,
+  "and the previous Background's gear went with it", `${JSON.stringify(RR.before)} -> []`);
+check(RR.handKept === true,
+  "while the Warden's own item survives — grantSource is the whole difference", "");
+const IN = R.instruction ?? {};
+check(!!IN.row && IN.background === IN.row,
+  "pinned onto a Background whose gear names an INSTRUCTION", `${IN.row}: ${JSON.stringify(IN.declared)}`);
+check(IN.granted?.length === IN.declared?.length,
+  "the instruction row resolved to a real item, not nothing",
+  `${IN.declared?.length} declared -> ${JSON.stringify(IN.granted)}`);
 
 console.log("\na hireling is somebody the party pays");
 check(H.role === "hireling", "role hireling", JSON.stringify(H.role));

@@ -41,8 +41,15 @@ Cairn.characterGenerator2e = {
 // Warden's Guide "NPC Tables" — already shipped in warden-npcs, twenty entries
 // each, and until this split only `Name` and `Faction` had a reader.
 //
-// roll(), never draw(): these are the WARDEN'S tables and a draw would dirty
-// their drawn state — the same invariant the monster tables document below.
+// These are the WARDEN'S tables and their drawn state must stay clean. The NAME
+// and FACTION dice take `table.roll()`, which cannot mark anything. BACKGROUND
+// and the four TRAITS go through `drawTableText` -> `table.draw()`, and that is
+// safe for TWO independent reasons, both of which have to hold: every one of
+// these tables is `replacement: true`, AND core skips the drawn-marking write
+// entirely for a table that lives in a pack (`if (!this.replacement && !this.pack)`,
+// client/documents/roll-table.mjs:109). Faction is the one that could ever be a
+// WORLD table — findTableByName resolves world-first — which is exactly why it
+// is on the roll() path and must stay there.
 Cairn.npcGenerator = {
   name: "air-bladder.warden-npcs;Warden: NPC - Name",
   // The Faction die's table, by NAME ONLY — no pack prefix, deliberately: it
@@ -73,6 +80,48 @@ Cairn.npcGenerator = {
   // as broken, and a rolled stranger is the answer the table actually wanted.
   ability: "3d6",
   hitProtection: "1d6",
+  // What an NPC of each Background is CARRYING (2026-08-20, user ask). The d20
+  // table names positions in the world; the Barebones list of 100 names TRADES,
+  // and a trade is the only background in this system that carries gear — three
+  // items each. So an NPC gets the gear of its nearest Barebones counterpart,
+  // through the same resolveRefs path a Barebones PC and a 2e hireling use.
+  //
+  // Keyed on the ENGLISH table text, and that is load-bearing: `drawTableText`
+  // returns the raw result, NOT the content overlay's translation, so
+  // `system.background` stores English in every language while the SHEET shows
+  // `backgroundDisplay`. A map keyed on what the Warden reads would miss on
+  // every non-English client. (The read/stored split, module/i18n-content.js.)
+  //
+  // Eleven of the twenty are the same word in both lists. Seven need a
+  // translation. LORD and POLITICIAN are deliberately absent and grant nothing:
+  // every one of the 100 Barebones backgrounds is an OCCUPATION, so rank and
+  // office have no counterpart — which is exactly why those two words are on a
+  // table the Warden rolls and not in character creation. Absent, not null, so
+  // a plain lookup answers undefined and the grant is empty.
+  //
+  // Thug -> Highway Robber, not Thief: Thief is already row 19 of the same
+  // table, so the obvious mapping would have collided. One takes by stealth,
+  // the other by force.
+  backgroundGear: {
+    Academic: "Scribe",
+    Assassin: "Assassin",
+    Blacksmith: "Blacksmith",
+    Farmer: "Farmer",
+    General: "Knight",
+    Gravedigger: "Gravedigger",
+    Guard: "Guard",
+    Healer: "Herbalist",
+    Jailer: "Jailer",
+    Laborer: "Gardener",
+    Merchant: "Merchant",
+    Monk: "Monk",
+    Mystic: "Hermit",
+    Outlander: "Vagabond",
+    Peddler: "Peddler",
+    Spy: "Spy",
+    Thief: "Thief",
+    Thug: "Highway Robber",
+  },
 };
 
 // Monster generation (SRD "Creating Monsters", CC BY-SA 4.0 — the design of
