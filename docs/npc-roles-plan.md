@@ -38,6 +38,16 @@ Four things the split settled, so they are not re-argued:
   For Hire and Day Rate, and Career becomes Background.
 - **Two directory buttons**, Generate NPC and Generate Hireling, plus both in the
   Create Actor "+" switchboard.
+- **A generated NPC's stat block is ROLLED** — 3d6 a piece and 1d6 Hit
+  Protection, from `Cairn.npcGenerator.ability` / `.hitProtection`. This
+  REVERSES the split's own out-of-scope line, the next day and at the user's
+  ask. That line reasoned that the Warden's Guide gives NPCs no stat block, so
+  none should be invented; what it missed is that a generator which leaves the
+  schema's 10/10/10 and 6 in place has not declined to invent numbers — it has
+  invented three identical ones and hidden that it did. A hireling's statblock
+  comes off its career and an NPC has no career, so an NPC is made the way every
+  other person in Cairn is made. The numbers stay a starting point: nothing
+  reads them differently to a hand-typed one.
 
 Two fields, never one relabelled: a hireling's Career lives in `profession` and
 an NPC's Background in `background`. Sharing a key would have made every re-role

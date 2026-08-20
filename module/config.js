@@ -64,6 +64,15 @@ Cairn.npcGenerator = {
     virtue: "air-bladder.warden-npcs;Warden: NPC - Virtue",
     vice: "air-bladder.warden-npcs;Warden: NPC - Vice",
   },
+  // Role `npc` only, and the one thing here that is NOT a Warden's Guide table
+  // (2026-08-20, user ask). A hireling's statblock comes off its career; an NPC
+  // has no career, so it is ROLLED — Cairn's own person-making dice, the same
+  // pair Barebones creation uses below and a 2e character uses above. The
+  // Warden's Guide gives NPCs no statblock at all, which is why 10/10/10 and 6
+  // HP stood here until now; a generator sitting at its schema defaults reads
+  // as broken, and a rolled stranger is the answer the table actually wanted.
+  ability: "3d6",
+  hitProtection: "1d6",
 };
 
 // Monster generation (SRD "Creating Monsters", CC BY-SA 4.0 — the design of

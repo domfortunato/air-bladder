@@ -22,7 +22,7 @@ if you have granted it.
 | job field | **Background** — Academic, Gravedigger, Peddler, Spy | **Career** — Blacksmith, Navigator, Trapper |
 | where it comes from | the Warden's Guide NPC table (d20) | the 2e careers list (12 of them) |
 | day rate | none | yes, from the career |
-| stat block | 10 / 10 / 10, 6 HP — a placeholder | rolled from the career |
+| stat block | **rolled** — 3d6 a piece, 1d6 HP | fixed by the career |
 | gear | **none**, and the pack is empty | the career's whole loadout, equipped |
 | extra traits | **Quirk, Goal**, plus NPC Virtue and Vice | 2e Virtue and Vice |
 
@@ -54,11 +54,17 @@ is the one to use when you want the new person filed straight into a folder.
   folder with an `npc` subfolder, it draws from there — see
   [Using Your Own Portraits](using-your-own-portraits.md).
 - **An empty pack.** Ten slots, nothing in them.
-- **A placeholder stat block**: 10 / 10 / 10 and 6 HP.
+- **A rolled stat block**: 3d6 for each of STR, DEX and WIL, and 1d6 Hit
+  Protection — the same dice a player character is made with.
 
-Those last two are deliberate. The Warden's Guide gives NPCs no stat block and
-no equipment, so none is invented — an NPC who never fights never needs one, and
-one who does gets whatever you decide they have. Type over the numbers.
+The empty pack is deliberate. An NPC's gear is not a table in Cairn, so none is
+invented; give them whatever the fiction says they have.
+
+The stat block is a starting point, not a verdict. The Warden's Guide gives NPCs
+no numbers at all, on the reasoning that most of them never get into a fight, so
+these are here to save you inventing three of them when one does. Type over
+anything that does not suit — a hedge wizard with WIL 17 is a decision, not a die
+roll.
 
 ## What a hireling arrives with
 
@@ -96,10 +102,11 @@ Roll NPC asks first, and it asks two different questions:
 
 - On a **hireling**: everything it is carrying will be deleted, and its
   abilities, HP, Career and day rate replaced. A whole new working person.
-- On an **NPC**: its Background, traits, pronouns and age are replaced, coins
-  and status marks cleared — and its **name, portrait, notes and everything it
-  is carrying are kept**. An NPC's gear was never granted by a table, so a new
-  Background has no claim on it.
+- On an **NPC**: its Background, stat block, traits, pronouns and age are
+  replaced, coins and status marks cleared — and its **name, portrait, notes
+  and everything it is carrying are kept**. An NPC's gear was never granted by a
+  table, so a new Background has no claim on it. The new stat block arrives at
+  full, so a re-rolled NPC is never carrying the last one's wounds.
 
 Both keep the name and the portrait, so you can re-roll the shopkeeper the party
 has already met without them changing face. Neither can be undone.
@@ -159,7 +166,7 @@ set the rate yourself.
 
 ## What generation will not do
 
-- **It invents no stat block for an NPC.** See above.
+- **It rolls no gear for an NPC.** See above.
 - **It automates no rules text.** A trait, a quirk or a goal is prose. Nothing
   reads it, nothing rolls it, nothing applies it — that is yours to play.
 - **It rolls no faction at creation.** Whose side someone is on is a decision

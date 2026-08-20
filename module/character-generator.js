@@ -3029,7 +3029,13 @@ const buildHirelingItems = async (entry) => {
   });
 };
 
-const hirelingAbilityData = (abilities) => ({
+/**
+ * A generated person's abilities, at full. Shared by BOTH person generators
+ * since 2026-08-20 — a hireling's numbers come off its career and an NPC's off
+ * 3d6, but a fresh person is a fresh person, and the two must not differ on
+ * whether `max` gets written.
+ */
+const personAbilityData = (abilities) => ({
   STR: { value: abilities.STR, max: abilities.STR },
   DEX: { value: abilities.DEX, max: abilities.DEX },
   WIL: { value: abilities.WIL, max: abilities.WIL },
@@ -3071,7 +3077,7 @@ const hirelingToActorData = (h) => ({
     forHire: true,
     profession: h.profession ?? "",
     dayRate: h.rate ?? 0,
-    abilities: hirelingAbilityData(h.abilities),
+    abilities: personAbilityData(h.abilities),
     hp: { value: h.hp, max: h.hp },
     // The rolled biography (generateHireling): identity fields, kept by every
     // partial re-roll and replaced only by a full regenerate.
@@ -3130,7 +3136,7 @@ export const regenerateHireling = async (actor) => {
       forHire: true,
       profession: h.profession,
       dayRate: h.rate,
-      abilities: hirelingAbilityData(h.abilities),
+      abilities: personAbilityData(h.abilities),
       hp: { value: h.hp, max: h.hp },
       // The biography re-rolls with everything else: a regenerate is a whole
       // new person. The PARTIAL re-rolls below keep all three by OMISSION —
@@ -3180,7 +3186,7 @@ export const rerollHirelingCareer = async (actor) => {
       forHire: true,
       profession: h?.name ?? "",
       dayRate: h?.rate ?? 0,
-      abilities: hirelingAbilityData(h?.abilities ?? { STR: 10, DEX: 10, WIL: 10 }),
+      abilities: personAbilityData(h?.abilities ?? { STR: 10, DEX: 10, WIL: 10 }),
       hp: { value: h?.hp ?? 6, max: h?.hp ?? 6 },
       critical: false,
     },
@@ -3291,17 +3297,32 @@ const rollNpcBackground = async () => {
 };
 
 /** Generate a full NPC person. @returns {Promise<Object>} */
-export const generateNpc = async () => ({
-  name: await rollNpcName(),
-  background: await rollNpcBackground(),
-  // Same three paths a hireling's biography uses, so the two cannot diverge on
-  // anything that is not the point of the split: rollAge honours the Warden's
-  // min/max age settings, pronouns are a uniform pick (a generated stranger
-  // needs an answer on arrival; a player states their own).
-  pronouns: ["he/him", "she/her", "they/them"][Math.floor(Math.random() * 3)],
-  age: String(await rollAge(Cairn.characterGenerator2e.biography.age)),
-  traits: await rollNpcTraits(),
-});
+export const generateNpc = async () => {
+  // Rolled, not looked up (2026-08-20, user ask): a hireling's numbers arrive
+  // with its career and an NPC has no career, so an NPC is made the way every
+  // other person in Cairn is — 3d6 a piece and 1d6 Hit Protection. No `rolls`
+  // key beside them: neither person generator posts a generation chat card, so
+  // the Roll objects would have no reader (see characterGenerator's `rolls`).
+  const abilityRolls = await rollAbilities(Cairn.npcGenerator.ability);
+  const hpRoll = await rollHitProtection(Cairn.npcGenerator.hitProtection);
+  return {
+    name: await rollNpcName(),
+    background: await rollNpcBackground(),
+    abilities: {
+      STR: abilityRolls.STR.total,
+      DEX: abilityRolls.DEX.total,
+      WIL: abilityRolls.WIL.total,
+    },
+    hp: hpRoll.total,
+    // Same three paths a hireling's biography uses, so the two cannot diverge on
+    // anything that is not the point of the split: rollAge honours the Warden's
+    // min/max age settings, pronouns are a uniform pick (a generated stranger
+    // needs an answer on arrival; a player states their own).
+    pronouns: ["he/him", "she/her", "they/them"][Math.floor(Math.random() * 3)],
+    age: String(await rollAge(Cairn.characterGenerator2e.biography.age)),
+    traits: await rollNpcTraits(),
+  };
+};
 
 /** @returns {Object} Foundry create/update data for a generated NPC. */
 const npcToActorData = (n) => ({
@@ -3312,6 +3333,8 @@ const npcToActorData = (n) => ({
     // Off-by-default, stated rather than inherited — see characterToActorData.
     generationEnabled: false,
     background: n.background ?? "",
+    abilities: personAbilityData(n.abilities),
+    hp: { value: n.hp, max: n.hp },
     pronouns: n.pronouns ?? "",
     age: n.age ?? "",
     traits: n.traits ?? {},
@@ -3345,9 +3368,9 @@ export const createNpc = async ({ folder = null } = {}) => {
 };
 
 /**
- * Full re-roll of an existing NPC: a new Background, a new set of traits and a
- * new pronouns/age — a whole new person. Keeps the name, portrait and free-form
- * notes by OMISSION, exactly as regenerateHireling does.
+ * Full re-roll of an existing NPC: a new Background, a new statblock, a new set
+ * of traits and a new pronouns/age — a whole new person. Keeps the name,
+ * portrait and free-form notes by OMISSION, exactly as regenerateHireling does.
  *
  * Items are NOT touched, which is the one place this differs from its hireling
  * twin. A hireling's gear IS its career, so a regenerate replaces it; an NPC's
@@ -3362,6 +3385,11 @@ export const regenerateNpc = async (actor) => {
     system: {
       role: "npc",
       background: n.background,
+      // A whole new person is a whole new statblock, the same as its hireling
+      // twin — and BOTH halves of each ability, so a re-rolled NPC arrives at
+      // full rather than carrying the last one's damage on a new maximum.
+      abilities: personAbilityData(n.abilities),
+      hp: { value: n.hp, max: n.hp },
       pronouns: n.pronouns,
       age: n.age,
       traits: n.traits,

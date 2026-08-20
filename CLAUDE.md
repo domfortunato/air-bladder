@@ -84,6 +84,12 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   Guide table plus Quirk / Goal / Virtue / Vice off that book's NPC tables
   (already shipped in `warden-npcs`; only `Name` and `Faction` had a reader
   before). Two fields, never one relabelled: `profession` and `background`.
+  **A generated NPC's statblock is ROLLED — 3d6 and 1d6 HP (2026-08-20, user
+  ask, the day after the split).** The plan had it out of scope on the reasoning
+  that the Warden's Guide gives NPCs no stats so none should be invented; a
+  generator left at the schema's 10/10/10 and 6 has not declined to invent
+  numbers, it has invented three identical ones. `Cairn.npcGenerator.ability` /
+  `.hitProtection`, beside the Barebones pair they copy.
   Three things about this that WILL bite if forgotten:
   - **`migrateData` no longer converts stored "hireling"** — the key is in the
     enum again. Putting that conversion back would undo every write
