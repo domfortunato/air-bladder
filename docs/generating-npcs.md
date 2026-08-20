@@ -167,6 +167,59 @@ from the 2e hireling examples, which is why there is no "Careers" compendium to
 edit. To use a career the book does not have, type it into the Career field and
 set the rate yourself.
 
+## If you need a Background to mean something mechanically
+
+An NPC's Background is a word and nothing else — nothing reads it, and that is
+the point. But the Cairn Barebones list of 100 backgrounds DOES carry three
+items each, so if you want to know what a given NPC plausibly has on them, or
+you are turning an NPC the party met into a playable character, this is the
+nearest Barebones background for each row of the d20 table.
+
+| d20 | NPC Background | Nearest Barebones background | d100 | its three items |
+|---|---|---|---|---|
+| 1 | Academic | Scribe | 82 | Candle, Parchment & Ink, Stylus |
+| 2 | Assassin | **Assassin** | 5 | Garrotte, Mask, Poison |
+| 3 | Blacksmith | **Blacksmith** | 14 | Bellows, Hammer, Iron Tongs |
+| 4 | Farmer | **Farmer** | 37 | Rope, Sack, Shovel |
+| 5 | General | Knight | 57 | Gloves, Signal Flag, Whetstone |
+| 6 | Gravedigger | **Gravedigger** | 45 | Alcohol, Ladder, Shovel |
+| 7 | Guard | **Guard** | 46 | Lantern, Manacles, Whistle |
+| 8 | Healer | Herbalist | 48 | Antitoxin, Mugwort, Sack |
+| 9 | Jailer | **Jailer** | 54 | Chain 10ft, Manacles, Whistle |
+| 10 | Laborer | Gardener | 42 | Gloves, Sack, Shovel |
+| 11 | Lord | — | | |
+| 12 | Merchant | **Merchant** | 64 | Random Additional Gear, Stylus, Wagon |
+| 13 | Monk | **Monk** | 67 | Candle, Cloak, Songbook |
+| 14 | Mystic | Hermit | 49 | Blanket, Pole 10ft, Smoking Herbs |
+| 15 | Outlander | Vagabond | 96 | Blanket, Poncho, Rope |
+| 16 | Peddler | **Peddler** | 73 | Random Additional Gear, Sack, Cart |
+| 17 | Politician | — | | |
+| 18 | Spy | **Spy** | 86 | Disguise Kit, Garrotte, Mirror |
+| 19 | Thief | **Thief** | 92 | Caltrops, Grappling Hook, Lockpicks |
+| 20 | Thug | Highway Robber | 50 | Grappling Hook, Rope, Signal Flag |
+
+Eleven of them are the same word in both lists, in **bold** above. Seven need a
+translation, and two get none:
+
+- **Lord and Politician have no Barebones equivalent, and that is not an
+  oversight.** Every one of the 100 is an occupation — what you did before
+  adventuring — so hereditary rank and elected office have nowhere to sit. That
+  is exactly why both words are on a table the WARDEN rolls: they say where
+  someone stands in the world, which is what you need about a person the party
+  meets, and not a set of skills a starting character brings.
+- **Thug is not Thief**, even though the mapping looks obvious, because Thief is
+  already row 19. Highway Robber keeps the distinction the table draws: one
+  takes by stealth, the other by force.
+- **Healer and Academic are the loosest of the seven**, because Barebones splits
+  each across several trades. A healer could as well be Apothecary, Physician,
+  Barber Surgeon or Leech Collector; an academic could be Librarian,
+  Philosopher, Astrologer or Cartographer. Herbalist and Scribe are the picks,
+  not the only answers.
+
+**Nothing in the system reads this table.** It is a reference for you, not a
+rule: no die consults it, and typing "Lord" into an NPC gives them exactly what
+typing "Scribe" does, which is a word on a sheet.
+
 ## What generation will not do
 
 - **It rolls no gear for an NPC.** See above.
