@@ -86,7 +86,12 @@ const ROSTER = [
   ["generating-factions.md", "Generating Factions"],
   ["creating-custom-backgrounds.md", "Creating Custom Backgrounds"],
   ["sharing-custom-backgrounds.md", "Sharing Custom Backgrounds"],
-  ["custom-portrait-gallery.md", "Custom Portrait Gallery"],
+  // `custom-portrait-gallery.md` used to sit here and is deliberately gone
+  // (2026-08-20). It is a design record — decisions, code paths, non-goals —
+  // and a Warden reading the in-game journal was being shown sentences naming
+  // JavaScript functions. The pairing is the one monsters already use:
+  // generating-monsters.md ships, monster-generation.md does not.
+  ["using-your-own-portraits.md", "Using Your Own Portraits"],
   ["glog-magic.md", "GLOG Magic in Foundry"],
   ["supplied-macros.md", "Supplied Macros"],
 ];
