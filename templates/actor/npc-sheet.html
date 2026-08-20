@@ -373,9 +373,14 @@
                               shipped NPC has ever used. Free-form notes belong on
                               the Notes tab; the field survives in NpcData, so
                               anything typed into it before is still on the doc. --}}
+                        {{!-- NO heading over this editor (2026-08-20, user ask). The tab
+                              is called Description and this is the only editor on it,
+                              so the word was printed twice a centimetre apart. It was
+                              added when a SECOND, unlabelled editor sat above this one;
+                              that one went on 2026-08-09 and the label outlived its
+                              reason. --}}
                         <div class="npc-description-section">
-                            <h3 class="cairn-section-label npc-description-label">{{ localize 'CAIRN.Description' }}</h3>
-                            {{!-- TOGGLED, unlike the notes editors, and joining the seven item
+                            {{!-- TOGGLED, like the notes editors, and joining the seven item
                                   templates' shape on their reasoning: a toggled editor carries TWO
                                   inputs — the `value` attribute is the submitted English source,
                                   the light-DOM child is display-only — so the enriched, TRANSLATED
@@ -383,11 +388,20 @@
                                   (activation swaps in `value`, prosemirror-editor.mjs:204). This
                                   was the statblock prose of 204 monsters rendering raw `value` in
                                   every language, with @UUID links as literal text. This sheet's
-                                  Notes editor joined the toggled shape on 2026-08-02; the
-                                  CHARACTER sheet's notes keep their recorded always-active
-                                  decision (character-sheet.html). --}}
+                                  Notes editor joined the toggled shape on 2026-08-02, and the
+                                  character sheet's did later the SAME DAY — this comment said
+                                  that one kept an always-active decision until 2026-08-20, by
+                                  which time it had been toggled for eighteen days. --}}
+                            {{!-- The empty-state hint is the same real element the Notes
+                                  editor carries, for the same reason (2026-08-20, user:
+                                  "does not show up until you hover over it"). An inactive
+                                  toggled editor with nothing in it renders NOTHING, and
+                                  core reveals its pencil only on hover — so an NPC with no
+                                  prose had a Description tab that looked empty of even a
+                                  field. Never enriched or translated: it is a UI string,
+                                  and it is swapped out by activation before any submit. --}}
                             <prose-mirror name="system.description" value="{{system.description}}" toggled collaborate relative
-                                data-document-uuid="{{actor.uuid}}">{{{enrichedDescription}}}</prose-mirror>
+                                data-document-uuid="{{actor.uuid}}">{{#if system.description}}{{{enrichedDescription}}}{{else}}<p class="cairn-editor-placeholder">{{descriptionPlaceholder}}</p>{{/if}}</prose-mirror>
                         </div>
                     </div>
                 </div>

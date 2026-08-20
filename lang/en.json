@@ -230,6 +230,7 @@
   "CAIRN.DeprivedTip": "A PC that lacks a crucial need (such as food or rest) is <strong>Deprived</strong>. Anyone <strong>Deprived</strong> for more than a day adds <strong>Fatigue</strong> to their inventory, one for each day. A <strong>Deprived</strong> PC cannot recover HP, Attributes, or item slots from <strong>Fatigue</strong>.",
   "CAIRN.DeprivedTipNpc": "A character that lacks a crucial need (such as food or rest) is <strong>Deprived</strong>. Anyone <strong>Deprived</strong> for more than a day adds <strong>Fatigue</strong> to their inventory, one for each day. A <strong>Deprived</strong> character cannot recover HP, Attributes, or item slots from <strong>Fatigue</strong>.",
   "CAIRN.Description": "Description",
+  "CAIRN.DescriptionPlaceholder": "Click here to add a description.",
   "CAIRN.DexTip": "Used for saves requiring poise, speed, reflexes, dodging, climbing, sneaking, balancing, etc.",
   "CAIRN.DieOfFate": "Die of Fate",
   "CAIRN.DieOfFateTip": "At the Warden's request, roll 1d6 whenever the outcome of an event is uncertain or to simulate an element of randomness and chance.",

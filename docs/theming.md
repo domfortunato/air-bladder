@@ -85,7 +85,7 @@ scheme-independent by construction:
 - the black label bars (`--ab-bar` / `--ab-on-bar`) — the sheet's signature, and legible on
   either scheme, so they are deliberately *not* flipped.
 
-## Two Foundry facts that cost time, recorded so they don't again
+## Three Foundry facts that cost time, recorded so they don't again
 
 **1. The light backdrop is an image, not a colour.** Foundry's light theme sets
 `--background: url(ui/parchment.jpg)`; only dark resolves it to a colour
@@ -107,6 +107,23 @@ Both resolve through fixed-dark variables defined *only inside that block*, so o
 `--color-text-primary` does nothing. This matters beyond the probe: **most of the original
 28 findings were this, not our stylesheet**, and they fix themselves the moment the class
 is gone. Our real debt was the three colours above.
+
+**3. A bare heading tag on an AppV2 sheet renders 28px Signika** — measured
+2026-08-20 by injecting an unclassed `<h3>` into a live NPC sheet and reading
+its computed style. So any heading added to a sheet must state its own face on
+the ELEMENT; inheriting from a styled ancestor does not survive.
+
+Do not read fact 2 as licence to skip that. The comment on the class that used
+to carry this face blamed `body.game .app h1..h6`, and that attribution is
+wrong: an AppV2 sheet is `.application` and matches neither `.app` nor anything
+inside one (`el.matches(".app") || el.closest(".app")` → false, same
+measurement). The 28px comes from elsewhere in core and does NOT evaporate with
+the V1 layer. A correct-sounding wrong reason is how a load-bearing class gets
+deleted as legacy.
+
+The class itself (`.cairn-section-label`) is gone as of 2026-08-20 — its last
+caller, the NPC Description tab's heading, was removed because the tab already
+says the word. Re-add it from this note if a sheet ever wants a heading again.
 
 ## How this is kept honest
 

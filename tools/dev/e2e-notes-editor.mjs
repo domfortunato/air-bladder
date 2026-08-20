@@ -57,15 +57,21 @@ try {
   // character" otherwise — a distinct key, not a _wording() variant. Commit is
   // CLICK-AWAY (bindEditorClickAwaySave covers active toggled editors), then a
   // re-open proves the display half serves the prose instead of the hint.
-  for (const { label, type, system, expectHint } of [
-    { label: "character (toggled since 2026-08-02)", type: "character", system: {}, expectHint: "Click here to add notes about this character." },
-    { label: "hireling (npc sheet, person)", type: "hireling", system: {}, expectHint: "Click here to add notes about this character." },
-    { label: "npc, role monster", type: "npc", system: { role: "monster" }, expectHint: "Click here to add notes about this monster." },
+  // The DESCRIPTION editor is the fourth case (2026-08-20). Same toggled shape,
+  // different tab, and it never had the hint — so an NPC with no prose showed a
+  // Description tab with nothing on it that looked like a field. The user's
+  // words: it "does not show up until you hover over it". Its hint takes ONE
+  // key for all six roles, because four of them are a crate, a cart, a mount
+  // and a monster and any wording naming the subject is wrong for most of them.
+  for (const { label, type, system, field, tab, expectHint } of [
+    { label: "character (toggled since 2026-08-02)", type: "character", system: {}, field: "system.notes", tab: "notes", expectHint: "Click here to add notes about this character." },
+    { label: "hireling (npc sheet, person)", type: "hireling", system: {}, field: "system.notes", tab: "notes", expectHint: "Click here to add notes about this character." },
+    { label: "npc, role monster", type: "npc", system: { role: "monster" }, field: "system.notes", tab: "notes", expectHint: "Click here to add notes about this monster." },
+    { label: "npc description tab (2026-08-20)", type: "npc", system: { role: "npc" }, field: "system.description", tab: "description", expectHint: "Click here to add a description." },
   ]) {
     console.log(`\n${label}`);
-    const field = "system.notes";
 
-    const setup = await page.evaluate(async ({ type, system, field }) => {
+    const setup = await page.evaluate(async ({ type, system, field, tab }) => {
       for (const a of game.actors.filter((a) => a.name.startsWith("ZZ Notes"))) await a.delete();
       const actor = await CONFIG.Actor.documentClass.create({ name: `ZZ Notes ${type}`, type, system });
       await actor.update({ [field]: "" });
@@ -73,7 +79,7 @@ try {
       for (let i = 0; i < 40 && !actor.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
       await new Promise((r) => setTimeout(r, 700));
       const el = actor.sheet.element;
-      el.querySelector('.tabs .item[data-tab="notes"]')?.click();
+      el.querySelector(`.tabs .item[data-tab="${tab}"]`)?.click();
       await new Promise((r) => setTimeout(r, 400));
       const pm = el.querySelector(`prose-mirror[name="${field}"]`);
       const hint = pm?.querySelector(".cairn-editor-placeholder");
@@ -91,12 +97,12 @@ try {
       await new Promise((r) => setTimeout(r, 500));
       out.opened = pm?.querySelector(".editor-content")?.getAttribute("contenteditable") === "true";
       return out;
-    }, { type, system, field });
+    }, { type, system, field, tab });
 
     if (!setup.found) { fail("editor present", `no prose-mirror[name="${field}"]`); continue; }
     ok("editor present", field);
     setup.toggled
-      ? ok("the editor is toggled", "display half + pencil, like the Description")
+      ? ok("the editor is toggled", "display half + pencil")
       : fail("the editor is toggled", "no `toggled` attribute — still always-active");
     setup.hintText === expectHint && setup.hintVisible
       ? ok("the display half carries the empty-state hint", JSON.stringify(setup.hintText))
@@ -114,7 +120,7 @@ try {
       continue;
     }
 
-    const after = await page.evaluate(async ({ id, field, typed }) => {
+    const after = await page.evaluate(async ({ id, field, tab, typed }) => {
       const actor = game.actors.get(id);
       // Click-away commits (the same mechanism as the character leg).
       actor.sheet.element.querySelector(".window-content")
@@ -126,7 +132,7 @@ try {
       await actor.sheet.render(true);
       for (let i = 0; i < 40 && !actor.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
       await new Promise((r) => setTimeout(r, 700));
-      actor.sheet.element.querySelector('.tabs .item[data-tab="notes"]')?.click();
+      actor.sheet.element.querySelector(`.tabs .item[data-tab="${tab}"]`)?.click();
       await new Promise((r) => setTimeout(r, 400));
       const pm = actor.sheet.element.querySelector(`prose-mirror[name="${field}"]`);
       const res = {
@@ -137,7 +143,7 @@ try {
       await actor.sheet.close();
       await actor.delete();
       return res;
-    }, { id: setup.id, field, typed: TYPED });
+    }, { id: setup.id, field, tab, typed: TYPED });
 
     after.stored.includes(TYPED)
       ? ok("click-away saved what was typed", JSON.stringify(after.stored.slice(0, 60)))
@@ -160,29 +166,32 @@ try {
   // inert so text selection and links keep working, and the pencil is the way
   // in. Colour is compared against the token the page itself resolves, so the
   // legs are scheme-agnostic.
-  console.log("\ndiscoverability (character notes tab)");
-  const disco = await page.evaluate(async () => {
+  // Run against BOTH editors since 2026-08-20: the npc Description editor shares
+  // the treatment by SELECTOR LIST rather than by a copied CSS block, and a
+  // shared rule is exactly the thing that gets narrowed by someone tidying the
+  // selector they recognise. Character notes and npc description, same five legs.
+  const discoOf = ({ type, system, field, tab }) => page.evaluate(async ({ type, system, field, tab }) => {
     for (const a of game.actors.filter((a) => a.name.startsWith("ZZ Notes"))) await a.delete();
-    const actor = await CONFIG.Actor.documentClass.create({ name: "ZZ Notes disco", type: "character" });
-    await actor.update({ "system.notes": "" });
+    const actor = await CONFIG.Actor.documentClass.create({ name: "ZZ Notes disco", type, system });
+    await actor.update({ [field]: "" });
     const hexToRgb = (h) => {
       const m = h.trim().match(/^#?([0-9a-f]{6})$/i);
       if (!m) return h.trim();
       const n = parseInt(m[1], 16);
       return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
     };
-    const openOnNotes = async () => {
+    const openOn = async () => {
       await actor.sheet.render(true);
       for (let i = 0; i < 40 && !actor.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
       await new Promise((r) => setTimeout(r, 700));
-      actor.sheet.element.querySelector('.tabs .item[data-tab="notes"]')?.click();
+      actor.sheet.element.querySelector(`.tabs .item[data-tab="${tab}"]`)?.click();
       await new Promise((r) => setTimeout(r, 400));
-      return actor.sheet.element.querySelector('prose-mirror[name="system.notes"]');
+      return actor.sheet.element.querySelector(`prose-mirror[name="${field}"]`);
     };
     const out = {};
 
     // Empty state: field look + unhovered pencil.
-    let pm = await openOnNotes();
+    let pm = await openOn();
     const cs = getComputedStyle(pm);
     out.field = { borderStyle: cs.borderStyle, background: cs.backgroundColor };
     const btn = pm.querySelector("button.toggle");
@@ -203,8 +212,8 @@ try {
     // Content boundary: with notes present, a click ON the text stays inert;
     // the pencil still opens it. Fresh render so the editor starts inactive.
     await actor.sheet.close();
-    await actor.update({ "system.notes": "<p>Existing prose the player may want to select.</p>" });
-    pm = await openOnNotes();
+    await actor.update({ [field]: "<p>Existing prose the player may want to select.</p>" });
+    pm = await openOn();
     pm.querySelector(".editor-content")?.click();
     await new Promise((r) => setTimeout(r, 800));
     out.contentClickInert = pm.classList.contains("inactive");
@@ -218,23 +227,30 @@ try {
     await actor.sheet.close();
     await actor.delete();
     return out;
-  });
+  }, { type, system, field, tab });
 
-  disco.field.borderStyle !== "none" && disco.field.background !== "rgba(0, 0, 0, 0)"
-    ? ok("the empty notes editor reads as a field", `border ${disco.field.borderStyle}, bg ${disco.field.background}`)
-    : fail("the empty notes editor reads as a field", JSON.stringify(disco.field));
-  disco.pencil && disco.pencil.display === "block" && disco.pencil.color === disco.pencil.muted
-    ? ok("the pencil is visible UNHOVERED, in the palette colour", disco.pencil.color)
-    : fail("the pencil is visible UNHOVERED, in the palette colour", JSON.stringify(disco.pencil));
-  disco.clickActivates
-    ? ok("a click on the empty display area activates the editor")
-    : fail("a click on the empty display area activates the editor", "still inactive after the click");
-  disco.contentClickInert
-    ? ok("with content present, a click on the text stays inert", "selection and links keep working")
-    : fail("with content present, a click on the text stays inert", "the click activated the editor");
-  disco.pencilOpens
-    ? ok("...and the pencil still opens it")
-    : fail("...and the pencil still opens it", "pencil click did not activate");
+  for (const c of [
+    { label: "character notes tab", type: "character", system: {}, field: "system.notes", tab: "notes" },
+    { label: "npc description tab", type: "npc", system: { role: "npc" }, field: "system.description", tab: "description" },
+  ]) {
+    console.log(`\ndiscoverability (${c.label})`);
+    const disco = await discoOf(c);
+    disco.field.borderStyle !== "none" && disco.field.background !== "rgba(0, 0, 0, 0)"
+      ? ok("the empty editor reads as a field", `border ${disco.field.borderStyle}, bg ${disco.field.background}`)
+      : fail("the empty editor reads as a field", JSON.stringify(disco.field));
+    disco.pencil && disco.pencil.display === "block" && disco.pencil.color === disco.pencil.muted
+      ? ok("the pencil is visible UNHOVERED, in the palette colour", disco.pencil.color)
+      : fail("the pencil is visible UNHOVERED, in the palette colour", JSON.stringify(disco.pencil));
+    disco.clickActivates
+      ? ok("a click on the empty display area activates the editor")
+      : fail("a click on the empty display area activates the editor", "still inactive after the click");
+    disco.contentClickInert
+      ? ok("with content present, a click on the text stays inert", "selection and links keep working")
+      : fail("with content present, a click on the text stays inert", "the click activated the editor");
+    disco.pencilOpens
+      ? ok("...and the pencil still opens it")
+      : fail("...and the pencil still opens it", "pencil click did not activate");
+  }
 
   /* -------------------------------------------- */
   /*  Item sheets — closing must not eat the text  */

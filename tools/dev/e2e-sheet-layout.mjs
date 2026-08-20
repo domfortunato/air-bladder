@@ -231,25 +231,14 @@ try {
           gold: edge(".npc-vitals-line .gold-counter > label"),
           armor: edge(".armor-counter > label"),
         };
-        // The Description-tab section heading must wear the house face, pinned
-        // ABSOLUTELY. Until the Features UI went (2026-08-09) this compared the
-        // Features header against the description label — two headings, same
-        // face — and the comparison form died with its second subject, but the
-        // trap it guarded is intact: core's `body.game .app h1,...,h6` (the V1
-        // compatibility layer) styles the TAG directly, so an <h3> that loses
-        // `.cairn-section-label` silently renders 28px Signika, and no
-        // comparison remains to catch it. Typography only, no geometry — so an
-        // inactive tab still resolves it. Measured 2026-07-29.
-        const face = (sel) => {
-          const el = root.querySelector(sel);
-          if (!el) return null;
-          const cs = getComputedStyle(el);
-          const family = cs.fontFamily.split(",")[0].replace(/["']/g, "").trim();
-          return `${family} ${cs.fontSize} ${cs.fontWeight} ${cs.fontVariantCaps}`;
-        };
-        entry.headings = {
-          description: face(".npc-description-label"),
-        };
+        // A heading leg lived here and lost its last subject on 2026-08-20: the
+        // Description tab's "Description" heading went (the tab already says the
+        // word), and the Features header — its only sibling — went 2026-08-09.
+        // There is no heading tag on either actor sheet now, so the leg had
+        // nothing to measure and a green with no subject is worse than no leg.
+        // The fact it guarded is real and moved to docs/theming.md: a bare
+        // heading tag on an AppV2 sheet renders 28px Signika. Restore this leg
+        // pointed at the new element if a heading ever comes back.
       }
       // The inanimate sheet must not strand the grid's 1fr: the tab section has
       // to END where the grid ends. Overlap/spill checks cannot see this one —
@@ -311,12 +300,6 @@ try {
       else ok(r.type, `npc header: Gold and Armor label bars line up (right edge ${b.gold})`);
     }
 
-    const hd = r.headings;
-    if (hd) {
-      if (!hd.description) fail(r.type, "description tab: the Description heading was not found");
-      else if (hd.description !== "Alegreya 17px 700 small-caps") fail(r.type, `description tab: the heading renders "${hd.description}" — expected the house face (Alegreya 17px 700 small-caps); core's h1..h6 tag rule has probably reached it`);
-      else ok(r.type, `description tab: the Description heading wears the house face (${hd.description})`);
-    }
 
     const f = r.inanimateFill;
     if (r.type === "inanimate") {

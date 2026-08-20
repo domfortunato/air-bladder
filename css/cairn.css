@@ -614,13 +614,21 @@
    is indistinguishable from static page text. Border + wash + radius say
    "this is an input"; the click-to-edit binding in _onRender makes the empty
    area act like one. Kept separate from the pencil block below so each
-   probe witness disables exactly one thing. */
-.cairn .tab[data-tab="notes"] prose-mirror.inactive {
+   probe witness disables exactly one thing.
+
+   THE NPC DESCRIPTION EDITOR JOINED IT ON 2026-08-20, on the user report that
+   it "does not show up until you hover over it" — which is exactly the 08-08
+   finding, on the one toggled editor that never got the fix. A selector list
+   rather than a second copy of the block: two copies of a four-rule treatment
+   is two things to drift. */
+.cairn .tab[data-tab="notes"] prose-mirror.inactive,
+.cairn .npc-description-section prose-mirror.inactive {
     border: 1px solid var(--ab-edge);
     background: var(--ab-wash);
     border-radius: 6px;
 }
-.cairn .tab[data-tab="notes"] prose-mirror.inactive .editor-content {
+.cairn .tab[data-tab="notes"] prose-mirror.inactive .editor-content,
+.cairn .npc-description-section prose-mirror.inactive .editor-content {
     /* Core pads the display half right-only (0.5rem, unlayered —
        foundry2.css:13592), which jams text against the new border. */
     padding: 0 10px !important;
@@ -634,13 +642,15 @@
    `display` override would beat core's `[disabled] { display: none }` and
    leave a dead pencil floating over the open editor. !important throughout —
    core's rules are unlayered, this file is @layer system. */
-.cairn .tab[data-tab="notes"] prose-mirror.inactive > button.icon.toggle:enabled {
+.cairn .tab[data-tab="notes"] prose-mirror.inactive > button.icon.toggle:enabled,
+.cairn .npc-description-section prose-mirror.inactive > button.icon.toggle:enabled {
     display: block !important;
     color: var(--ab-muted) !important;
     top: 6px !important;
     right: 6px !important;
 }
-.cairn .tab[data-tab="notes"] prose-mirror.inactive > button.icon.toggle:enabled:hover {
+.cairn .tab[data-tab="notes"] prose-mirror.inactive > button.icon.toggle:enabled:hover,
+.cairn .npc-description-section prose-mirror.inactive > button.icon.toggle:enabled:hover {
     color: var(--ab-accent) !important;
 }
 
@@ -935,34 +945,18 @@
     height: 100%;
 }
 
-/* One heading style for a labelled section on a Description tab — the NPC's
-   description label is the caller left (the Features list header shared it
-   until the Features UI went, 2026-08-09). It has to
-   be stated on the heading ELEMENT, not inherited -- core's
-   `body.game .app h1,...,h6` (foundry2.css, the V1 compatibility layer) targets
-   the tag directly, so the `!important` font-family on `.cairn-items-list-header`
-   below never reaches an <h3> inside it. Left to core, such a heading renders
-   28px Signika beside the sheet's 17px small-caps Alegreya labels.
-   Typography only -- no border; the NPC label draws its own rule line. */
-.cairn-section-label {
-    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
-    font-variant: small-caps;
-    font-size: 17px;
-    font-weight: bold;
-    color: var(--ab-ink);
-    line-height: 1;
-    margin: 0;
-}
+/* `.cairn-section-label` lived here and had no caller left once the NPC
+   description heading went (2026-08-20, user ask) — the Features list header,
+   its only other user, went on 2026-08-09. The Foundry fact it carried is
+   REAL and is now in docs/theming.md: a bare heading tag on an AppV2 sheet
+   renders 28px Signika, so a heading added here must state its own face. What
+   that comment got wrong is WHY — it blamed `body.game .app h1..h6`, and an
+   AppV2 sheet does not match `.app` at all (measured). */
 
 /******************************************************************************
  * Items list.                                                                *
  ******************************************************************************/
 
-/* In the 36px list header the heading shares a line with the "Add ..." control,
-   so it takes the row's line-height rather than hugging its own text. */
-.cairn-items-list-header .cairn-section-label {
-    line-height: inherit;
-}
 
 .cairn-items-list-header {
     border-bottom: 1px solid var(--ab-rule);
@@ -2887,20 +2881,15 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     grid-template-rows: repeat(3, 36px);
 }
 
-/* Description tab: a labelled description editor. The
-   heading exists so the single remaining editor reads as the description rather
-   than as a second, unlabelled notes box (the Notes tab owns free-form notes). */
+/* Description tab: the sheet's one description editor, UNLABELLED since
+   2026-08-20. The heading here read "Description" directly under a tab called
+   Description; it was written when a second, unlabelled notes box sat above it,
+   and that box went on 2026-08-09. What tells the reader this is a field now is
+   the border+wash the editor shares with Notes, not a word. */
 .cairn-npc-sheet .npc-description-section {
     display: flex;
     flex-direction: column;
     min-height: 220px;
-}
-
-/* Typography comes from `.cairn-section-label`; this adds only the rule line
-   under it. */
-.cairn-npc-sheet .npc-description-label {
-    border-bottom: 1px solid var(--ab-rule);
-    margin: 0 0 4px 0;
 }
 
 /* The description CONTENT reads two points larger than core's 14px default

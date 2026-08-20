@@ -1048,6 +1048,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // documented un-translation hazard (#onRollActor's precedent).
       context.notesPlaceholder = game.i18n.localize(
         this.actor.npcRole === "monster" ? "CAIRN.NotesPlaceholderMonster" : "CAIRN.NotesPlaceholder");
+      // The Description editor got the same hint on 2026-08-20 (user: it "does
+      // not show up until you hover over it"). ONE key, deliberately not the
+      // notes pair's role branch: this sheet serves six roles and the other
+      // four are a cart, a crate, a mount and a monster, so any wording that
+      // names what it is describing is wrong for most of them.
+      context.descriptionPlaceholder = game.i18n.localize("CAIRN.DescriptionPlaceholder");
     }
 
     // The NAME INPUT's display half, and the ONE place the PC exclusion is
@@ -1647,7 +1653,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // the now-visible pencil is the way in. The emptiness test is the
     // placeholder element itself: the template renders it exactly when the
     // stored notes are empty.
-    on('.tab[data-tab="notes"] prose-mirror', "click", (ev) => {
+    // The npc sheet's Description editor joined this on 2026-08-20 — it is the
+    // same toggled editor with the same empty display half, and the hint below
+    // is what makes the click meaningful.
+    on('.tab[data-tab="notes"] prose-mirror, .npc-description-section prose-mirror', "click", (ev) => {
       const pm = ev.currentTarget;
       if (!pm.classList.contains("inactive")) return;
       if (ev.target.closest("a, button")) return;
