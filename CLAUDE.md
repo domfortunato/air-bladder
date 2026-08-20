@@ -90,6 +90,14 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   generator left at the schema's 10/10/10 and 6 has not declined to invent
   numbers, it has invented three identical ones. `Cairn.npcGenerator.ability` /
   `.hitProtection`, beside the Barebones pair they copy.
+  **PRONOUNS ARE NEVER ROLLED (2026-08-20, user ruling), on BOTH person
+  generators.** They were a uniform pick of he/him, she/her, they/them from
+  2026-08-01, justified in a comment as "a generated stranger needs an answer
+  on arrival". They do not: there is no table for pronouns and no die should
+  decide them. Stated `pronouns: ""` rather than omitted, so a full re-roll —
+  a whole new person — clears the last one's. Note the asymmetry with the
+  statblock above: numbers are a starting point a Warden edits, a person's
+  pronouns are not something to be given a placeholder.
   Three things about this that WILL bite if forgotten:
   - **`migrateData` no longer converts stored "hireling"** — the key is in the
     enum again. Putting that conversion back would undo every write

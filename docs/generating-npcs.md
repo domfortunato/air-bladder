@@ -48,8 +48,11 @@ is the one to use when you want the new person filed straight into a folder.
 - **Ten traits**: the six appearance ones a player character rolls — Physique,
   Skin, Hair, Face, Speech, Clothing — plus **Quirk**, **Goal**, **Virtue** and
   **Vice** off the Warden's Guide NPC lists.
-- **Pronouns and an age.** The age respects your minimum- and maximum-age
-  settings, the same as a player character's.
+- **An age**, respecting your minimum- and maximum-age settings, the same as a
+  player character's.
+- **Blank pronouns.** Generation does not choose them — there is no table for
+  pronouns and no die should decide them. The field is at the top of the
+  Description tab; fill it in when you know.
 - **A portrait and a matching token.** If you have set up a custom portrait
   folder with an `npc` subfolder, it draws from there — see
   [Using Your Own Portraits](using-your-own-portraits.md).
@@ -102,9 +105,9 @@ Roll NPC asks first, and it asks two different questions:
 
 - On a **hireling**: everything it is carrying will be deleted, and its
   abilities, HP, Career and day rate replaced. A whole new working person.
-- On an **NPC**: its Background, stat block, traits, pronouns and age are
-  replaced, coins and status marks cleared — and its **name, portrait, notes
-  and everything it is carrying are kept**. An NPC's gear was never granted by a
+- On an **NPC**: its Background, stat block, traits and age are replaced, its
+  pronouns cleared, coins and status marks cleared — and its **name, portrait,
+  notes and everything it is carrying are kept**. An NPC's gear was never granted by a
   table, so a new Background has no claim on it. The new stat block arrives at
   full, so a re-rolled NPC is never carrying the last one's wounds.
 

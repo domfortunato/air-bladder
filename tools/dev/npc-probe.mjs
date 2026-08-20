@@ -27,15 +27,18 @@
  *      portrait opens the picker, and no checkbox is left on Foundry's own styling.
  *   7b. CLICK the portrait, because a present `data-action` proves only that the
  *      attribute is there: it must really open the gallery.
- *   8. NPC-role sheet parity (2026-08-01): a generated NPC arrives with pronouns,
- *      an age and eight traits; all of them — plus scarEnabled and a picked scar —
+ *   8. NPC-role sheet parity (2026-08-01): a generated NPC arrives with an age
+ *      and eight traits, and BLANK pronouns (2026-08-20 ruling — they were a
+ *      uniform pick of three until then); all of them — plus scarEnabled and a
+ *      picked scar —
  *      ROUND-TRIP through the real sheet (written via the form, read off the
  *      document, surviving a re-render). Witness: the same write path drops an
  *      UNDECLARED sibling key, so the greens are load-bearing on the NpcData
  *      declarations rather than on Foundry keeping whatever it is handed.
  *   9. Identity is kept by omission: profession and name re-rolls leave
  *      pronouns/age/traits alone (seeded with sentinels first, so "unchanged" is
- *      observable), and regenerateHireling — a whole new person — replaces all three.
+ *      observable), while regenerateHireling — a whole new person — replaces age
+ *      and traits and CLEARS the pronouns the last one carried.
  *  10. The role gate: the biography block is ABSENT on a monster, a mount and a
  *      container-role npc, present on the person from step 8. Witness in-page:
  *      `_prepareContext` patched to force showBiography on a monster, and the
@@ -342,19 +345,25 @@ try {
       await settle(400);
     }
 
-    // 8. A generated NPC is a PERSON: pronouns, age and eight traits arrive
-    //    filled, and every biography field round-trips through the real sheet.
+    // 8. A generated NPC is a PERSON: age and eight traits arrive filled, and
+    //    every biography field round-trips through the real sheet.
+    //    PRONOUNS ARE THE EXCEPTION and must arrive BLANK (2026-08-20 ruling):
+    //    they were a uniform pick of three until then. Asserted positively —
+    //    the differential below cannot see this one, because a bare npc is
+    //    blank too.
     const el8 = () => (actor.sheet.element instanceof HTMLElement ? actor.sheet.element : actor.sheet.element?.[0]);
-    const PRONOUN_SET = ["he/him", "she/her", "they/them"];
     const bioGen = {
-      pronounsValid: PRONOUN_SET.includes(actor.system.pronouns),
+      pronounsBlank: actor.system.pronouns === "",
       pronouns: actor.system.pronouns,
       ageValid: /^\d+$/.test(actor.system.age ?? "") && Number(actor.system.age) >= 12,
       age: actor.system.age,
       traitsFilled: Object.values(actor.system.traits ?? {}).filter(Boolean).length,
     };
     // Differential: a bare Create Actor npc carries NONE of it — the schema
-    // initial is "" — so the greens above cannot be satisfied by the model alone.
+    // initial is "" — so the greens above cannot be satisfied by the model
+    // alone. It covers AGE and TRAITS only: pronouns are blank on both sides
+    // since the 2026-08-20 ruling, so a differential can no longer speak to
+    // them and must not be read as if it does.
     const bareNpc = await CONFIG.Actor.documentClass.create({ name: "PROBE bare npc", type: "npc" });
     bioGen.bare = {
       pronouns: bareNpc.system.pronouns,
@@ -442,7 +451,7 @@ try {
     await CG.rerollNpcName(actor);
     identity.nameKeeps = idSnapshot() === seeded;
     await CG.regenerateHireling(actor);
-    identity.regenPronouns = PRONOUN_SET.includes(actor.system.pronouns);
+    identity.regenPronouns = actor.system.pronouns === "";
     identity.regenAge = actor.system.age !== "999" && /^\d+$/.test(actor.system.age ?? "");
     // The EIGHT the sentinel wrote, not every key on the schema. `traits` gained
     // `quirk` and `goal` on 2026-08-20 for the NPC role, and a hireling leaves
@@ -627,11 +636,11 @@ try {
     else ok("the Deprived confirmation reads as being about this NPC");
 
     console.log("\n  a generated NPC is a person");
-    r.bioGen.pronounsValid ? ok(`pronouns arrive filled (${r.bioGen.pronouns})`) : fail(`pronouns are "${r.bioGen.pronouns}" — not one of he/him, she/her, they/them`);
+    r.bioGen.pronounsBlank ? ok("pronouns arrive BLANK — never rolled") : fail(`pronouns arrive as "${r.bioGen.pronouns}" — generation must not decide them`);
     r.bioGen.ageValid ? ok(`age arrives filled (${r.bioGen.age})`) : fail(`age is "${r.bioGen.age}" — expected a rolled number`);
     r.bioGen.traitsFilled === 8 ? ok("all eight traits arrive filled") : fail(`only ${r.bioGen.traitsFilled}/8 traits filled`);
-    r.bioGen.bare.pronouns === "" && r.bioGen.bare.age === "" && r.bioGen.bare.traitsFilled === 0
-      ? ok("   differential: a bare Create Actor npc has none of it (the schema alone cannot green the above)")
+    r.bioGen.bare.age === "" && r.bioGen.bare.traitsFilled === 0
+      ? ok("   differential: a bare npc has no age or traits (the schema alone cannot green those two)")
       : fail(`a bare npc arrived with biography values: ${JSON.stringify(r.bioGen.bare)}`);
 
     console.log("\n  the biography round-trips through the sheet");
@@ -650,7 +659,7 @@ try {
     r.identity.profKeeps ? ok("profession re-roll keeps pronouns/age/traits") : fail("profession re-roll disturbed the identity fields");
     r.identity.nameKeeps ? ok("name re-roll keeps pronouns/age/traits") : fail("name re-roll disturbed the identity fields");
     r.identity.regenPronouns && r.identity.regenAge && r.identity.regenTraits
-      ? ok("regenerateHireling replaces all three — a whole new person")
+      ? ok("regenerateHireling replaces age and traits and CLEARS pronouns — a whole new person")
       : fail(`regenerateHireling left a sentinel behind: ${JSON.stringify(r.identity)}`);
 
     console.log("\n  the biography block is role-gated");

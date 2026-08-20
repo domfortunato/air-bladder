@@ -3052,10 +3052,14 @@ export const generateHireling = async () => {
     hp: h?.hp ?? 6,
     // A person, not just a statblock (2026-08-01): the biography the PC
     // generator rolls, through the SAME paths — rollAge honours the Warden's
-    // minimum-age floor, rollTextItems draws the eight tables-2e trait tables —
-    // plus pronouns, a uniform pick with no PC equivalent (a player states
-    // their own; a generated stranger needs an answer on arrival).
-    pronouns: ["he/him", "she/her", "they/them"][Math.floor(Math.random() * 3)],
+    // minimum-age floor, rollTextItems draws the eight tables-2e trait tables.
+    // PRONOUNS ARE NEVER ROLLED (2026-08-20, user ruling). They were a uniform
+    // pick of three from 2026-08-01 until now, on the reasoning that a
+    // generated stranger needs an answer on arrival. They do not: pronouns are
+    // not a trait off a table and there is no table for them, so the dice were
+    // deciding something no die should. Stated blank rather than omitted, so a
+    // full re-roll — a whole new person — clears the last one's.
+    pronouns: "",
     age: String(await rollAge(Cairn.characterGenerator2e.biography.age)),
     traits: await rollTextItems(Cairn.characterGenerator2e.biography.items),
     items: await buildHirelingItems(h),
@@ -3314,11 +3318,11 @@ export const generateNpc = async () => {
       WIL: abilityRolls.WIL.total,
     },
     hp: hpRoll.total,
-    // Same three paths a hireling's biography uses, so the two cannot diverge on
+    // Same paths a hireling's biography uses, so the two cannot diverge on
     // anything that is not the point of the split: rollAge honours the Warden's
-    // min/max age settings, pronouns are a uniform pick (a generated stranger
-    // needs an answer on arrival; a player states their own).
-    pronouns: ["he/him", "she/her", "they/them"][Math.floor(Math.random() * 3)],
+    // min/max age settings, and pronouns are left BLANK for the Warden to
+    // state — see generateHireling for the ruling.
+    pronouns: "",
     age: String(await rollAge(Cairn.characterGenerator2e.biography.age)),
     traits: await rollNpcTraits(),
   };
