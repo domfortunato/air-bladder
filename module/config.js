@@ -30,18 +30,40 @@ Cairn.characterGenerator2e = {
   }
 };
 
-// NPC generation. The statblocks themselves are shipped runtime data
-// (module/npc-careers-2e.json); only the name source is configurable. A 2e
-// character takes its name from its background's name list, which an NPC has
-// no equivalent of — so it draws from the Warden's 2e NPC name table.
+// The two PERSON generators (2026-08-20 split). Both draw names from the same
+// table — it is the Warden's Guide NPC name list, and a hireling has no other
+// source: a 2e character takes its name from its background's name list, which
+// neither of these has an equivalent of.
+//
+// The HIRELING's statblock is shipped runtime data (module/npc-careers-2e.json,
+// the twelve 2e careers) rather than a table, so only the name is configurable
+// here. The NPC's four traits and Background ARE tables, and they are the
+// Warden's Guide "NPC Tables" — already shipped in warden-npcs, twenty entries
+// each, and until this split only `Name` and `Faction` had a reader.
+//
+// roll(), never draw(): these are the WARDEN'S tables and a draw would dirty
+// their drawn state — the same invariant the monster tables document below.
 Cairn.npcGenerator = {
   name: "air-bladder.warden-npcs;Warden: NPC - Name",
   // The Faction die's table, by NAME ONLY — no pack prefix, deliberately: it
   // resolves world-first (findTableByName), so a Warden's own RollTable named
   // "Warden: NPC - Faction" always beats the shipped warden-npcs copy and
-  // their faction list survives a system update. roll(), never draw() — the
-  // same invariant the monster tables document below.
+  // their faction list survives a system update.
   faction: "Warden: NPC - Faction",
+  // Role `npc` only. `background` answers the same question `profession` does
+  // for a hireling, off a different table — which is the whole of what
+  // separates the two generators.
+  background: "air-bladder.warden-npcs;Warden: NPC - Background",
+  // The four NPC traits. `virtue` and `vice` deliberately COLLIDE by key with
+  // the 2e biography tables above and differ by SOURCE: an NPC is "Shrewd" off
+  // the Warden's Guide list, a character "Honest" off tables-2e. Same stored
+  // key, so nothing is lost when a Warden changes an actor's role.
+  traits: {
+    quirk: "air-bladder.warden-npcs;Warden: NPC - Quirk",
+    goal: "air-bladder.warden-npcs;Warden: NPC - Goal",
+    virtue: "air-bladder.warden-npcs;Warden: NPC - Virtue",
+    vice: "air-bladder.warden-npcs;Warden: NPC - Vice",
+  },
 };
 
 // Monster generation (SRD "Creating Monsters", CC BY-SA 4.0 — the design of

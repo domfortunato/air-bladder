@@ -942,6 +942,16 @@ check("a disabled omen is OMITTED", r.omenOmitted && !r.omenHeader,
 check("traits compose to prose, age included",
   /Towering Physique/.test(r.traitsProse) && /40 years old/.test(r.traitsProse),
   `"${r.traitsProse}" — the sheet's own _buildTraitSentence, not a second composer`);
+// SECOND PERSON on a character's page, and it has to be asserted here because
+// the printed page is the OTHER caller of that builder (2026-08-20). The
+// sentence went third-person for the two npc person roles in the same change,
+// through `_wording`, which keys off the actor's TYPE — so the one way to get
+// this wrong is to make it unconditional and hand a player "They are 40 years
+// old" on their own character sheet. The NPC direction is asserted on the sheet
+// in dev:npc-split; this is the half only paper can show.
+check("...and it stays SECOND person for a character",
+  /\bYou\b/.test(r.traitsProse) && !/\bThey\b/.test(r.traitsProse),
+  `"${r.traitsProse}"`);
 check("stats carry the numbers", /12\/12/.test(r.statsText) && /6\/6/.test(r.statsText)
   && /11/.test(r.statsText) && /5\/5/.test(r.statsText),
   `"${r.statsText.slice(0, 90)}"`);

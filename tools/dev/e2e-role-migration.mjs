@@ -49,6 +49,8 @@ const RATED = "ZZ Role Rated NPC";
 const MONSTER = "ZZ Role Monster";
 const LEGACY = "ZZ Role Legacy NPC";
 const PLANTED = "ZZ Role Planted Hireling";
+const SPLIT = "ZZ Role Pre-Split Person";
+const SURVIVOR = "ZZ Role Real NPC";
 const RATE = 5;
 
 let failed = false;
@@ -149,22 +151,36 @@ try {
     };
   });
   // The collapse, first: this is the one holding the shrunk enum up.
-  shim.retired.role === "npc" && shim.retired.forHire === true
-    ? ok('a stored role "hireling" reads npc + forHire — the enum never sees it')
+  // INVERTED 2026-08-20. Until the split this asserted that a stored
+  // "hireling" was rewritten to npc + forHire, because "hireling" was not in
+  // the enum and an unconverted one failed validation on load. The split put
+  // the key back, so the conversion is GONE from migrateData — deliberately,
+  // and its removal is load-bearing: left in, it would undo every write
+  // migrateHirelingSplit makes, on the next read, silently. This leg is what
+  // notices it coming back.
+  shim.retired.role === "hireling"
+    ? ok('a stored role "hireling" reads hireling — the key is in the enum again, nothing converts it')
     : fail(`role "hireling" came back as ${JSON.stringify(shim.retired)}`);
+  // The forHire half of that shim went with it: nothing sets the flag on a
+  // stored "hireling" any more, because the role is not a rename of anything.
+  // The value now comes from the schema initial (true) or from the source, and
+  // an explicit false is respected because nothing is there to overwrite it.
   shim.retiredUnticked.forHire === false
-    ? ok("...but an explicit forHire:false beside it is respected")
+    ? ok("...and an explicit forHire:false beside it is respected")
     : fail(`forHire:false was overwritten to ${JSON.stringify(shim.retiredUnticked.forHire)}`);
-  shim.roleDiff?.role === "npc" && shim.roleDiff?.forHire === true
-    ? ok("an attempted WRITE of the retired role converts too (migrateData over a diff)")
+  shim.roleDiff?.role === "hireling"
+    ? ok("an attempted WRITE of the role passes through unchanged (migrateData over a diff)")
     : fail(`the diff came back ${JSON.stringify(shim.roleDiff)}`);
   shim.plainForHire === true
     ? ok("forHire initials to true, so an un-migrated npc reads as available")
     : fail(`forHire initialled to ${JSON.stringify(shim.plainForHire)} — every existing `
       + "hireling would come out of the collapse unavailable");
 
-  shim.forHire === "npc" && shim.forHireKept === true
-    ? ok("a source carrying only forHire reads npc (the initial), keeping the flag")
+  // "hireling" since the split — forHire is not evidence of a pre-roles
+  // document (it is a live schema field), so this falls through to the initial
+  // exactly as a bare source does, and the initial is hireling.
+  shim.forHire === "hireling" && shim.forHireKept === true
+    ? ok("a source carrying only forHire reads hireling (the initial), keeping the flag")
     : fail(`forHire:true came back ${JSON.stringify({ role: shim.forHire, forHire: shim.forHireKept })}`);
   // `forHire` is a LIVE field again since the hireling collapse, so it is not
   // evidence of a legacy source and must not arm the derivation. The two legs
@@ -187,11 +203,14 @@ try {
   // pre-roles document — in an update diff it is just the field being written.
   // It used to derive (a mount class gave "mount"), and that clause is what made
   // the two failures below reachable.
-  shim.classAlone === "npc"
+  shim.classAlone === "hireling"
     ? ok("a Kind alone does NOT derive — it is not evidence of a legacy source")
     : fail(`a Kind alone derived ${JSON.stringify(shim.classAlone)}`);
-  shim.plain === "npc"
-    ? ok("everything else derives npc")
+  // "hireling" since 2026-08-20: a document with nothing to derive FROM
+  // predates both person roles, and the ruling is that those are hirelings —
+  // the same answer migrateHirelingSplit gives every stored "npc".
+  shim.plain === "hireling"
+    ? ok("everything else derives hireling")
     : fail(`plain derived ${JSON.stringify(shim.plain)}`);
   !shim.diffKeys.includes("role")
     ? ok("migrateData over a Kind diff injects no role", `kept ${shim.diffKeys.join(", ")}`)
@@ -256,8 +275,8 @@ try {
     };
   }, { h: HIRELING, r: RATED, m: MONSTER, l: LEGACY, p: PLANTED, rate: RATE });
 
-  if (ids.stored.every((s) => s === "npc")) {
-    ok("seeded a hireling-type doc and two npcs, all presenting role npc");
+  if (ids.stored.every((s) => s === "hireling")) {
+    ok("seeded a hireling-type doc and two npcs, all presenting role hireling");
   } else {
     fail(`seed failed — stored roles ${JSON.stringify(ids.stored)}; nothing below can be trusted`);
     throw new Error("preconditions failed — not reloading");
@@ -278,10 +297,15 @@ try {
       + "The collapse assertions below would pass on a document that was already correct");
   }
   const plantedClientReads = await page.evaluate((id) => game.actors.get(id)?._source.system.role, ids.planted);
-  plantedClientReads === "npc"
-    ? ok("...and the client still reads npc, which is why the migration must be blind")
-    : fail(`the client reads ${JSON.stringify(plantedClientReads)} from a planted hireling — `
-      + "if it were observable the migration could select on it");
+  // ALSO INVERTED 2026-08-20, and this is the pair to the shim leg above. The
+  // client used to read "npc" here because migrateData rewrote the source at
+  // initialization, which is exactly why migrateNpcRoles has to be blind. With
+  // the conversion gone the database value is visible, which is what lets
+  // migrateHirelingSplit SELECT — and selecting is that migration's whole
+  // safety property, since a real NPC stores "npc" once it has run.
+  plantedClientReads === "hireling"
+    ? ok("...and the client reads it straight from the database now — nothing rewrites it on the way")
+    : fail(`the client reads ${JSON.stringify(plantedClientReads)} from a planted hireling`);
 
   /* --- run the real migrations ------------------------------------------ */
 
@@ -306,8 +330,8 @@ try {
   /* --- 1. the collapse: the planted document is converted IN THE DB ------ */
 
   const plantedAfter = await rawRole(ids.planted);
-  if (plantedAfter === "npc") ok('the planted "hireling" is npc in the DATABASE now — the blind re-stamp landed');
-  else fail(`the database still holds ${JSON.stringify(plantedAfter)} — the migration did not convert it`);
+  if (plantedAfter === "hireling") ok('the planted "hireling" is still hireling in the DATABASE — the restamp wrote back what it read');
+  else fail(`the database holds ${JSON.stringify(plantedAfter)} — something converted a role that is valid again`);
 
   if (migrationLog.length) ok(`the migration named itself as the writer — "${migrationLog[0]}"`);
   else fail("the stored role changed but the migration logged nothing — something else wrote it");
@@ -322,8 +346,8 @@ try {
 
   /* --- 2. the hireling-TYPE doc needs nothing, and shows its rate -------- */
 
-  if (after.hireling?.stored === "npc" && after.hireling?.forHire === true) {
-    ok("the pre-fold hireling reads role npc + for hire, needing no write at all");
+  if (after.hireling?.stored === "hireling" && after.hireling?.forHire === true) {
+    ok("the pre-fold hireling reads role hireling + for hire, needing no write at all");
   } else {
     fail(`the hireling is ${JSON.stringify(after.hireling)}`);
   }
@@ -357,12 +381,12 @@ try {
 
   /* --- 3. the rate-without-a-reason npc, and the plain one --------------- */
 
-  if (after.rated?.forHire === true && after.rated?.stored === "npc") {
+  if (after.rated?.forHire === true && after.rated?.stored === "hireling") {
     ok("an npc carrying a day rate reads for hire (the Roll-NPC case, now the initial)");
   } else {
     fail(`the rated npc is ${JSON.stringify(after.rated)}`);
   }
-  if (after.monster?.stored === "npc") ok("a plain npc was left role npc");
+  if (after.monster?.stored === "hireling") ok("a plain npc takes the schema initial, which is hireling since the split");
   else fail(`the plain npc is ${JSON.stringify(after.monster)}`);
 
   /* --- 3b. the legacy-key npc: derived role persisted, key deleted -------- */
@@ -424,6 +448,129 @@ try {
   else fail("the untick was reverted — the collapse re-stamped a field the Warden had changed");
   if (finalState.marker === true) ok("the completion marker is set, so the re-stamp is one-shot");
   else fail(`marker ${JSON.stringify(finalState)} — the migration will run again every load`);
+
+  /* --- 5. the NPC/Hireling split (2026-08-20) ---------------------------- */
+  //
+  // The third migration, and the only one of the three that SELECTS. A stored
+  // "npc" is what every person in a pre-split world holds, and it is also what
+  // a genuine new NPC holds the moment this has run — so the marker is not a
+  // convenience here, it is the only thing standing between "convert the
+  // world's hirelings once" and "convert the world's NPCs every load".
+  //
+  // Planted through the raw socket, and that is the whole reason this leg can
+  // exist at all. Under the new code the schema initial is `hireling` and
+  // `_preCreate` never writes "npc" for a person, so a document created through
+  // any document method is born already migrated and the migration would be
+  // tested against nothing — the exact `_preCreate` trap that made two earlier
+  // attempts at the grimoire migration vacuous. The socket bypasses
+  // `cleanData`, so what lands in the database is byte-for-byte what an
+  // upgraded world holds.
+
+  console.log("\nthe npc -> hireling split");
+
+  const splitState = await page.evaluate(async ({ name, rate }) => {
+    for (const s of game.actors.filter((a) => a.name === name)) await s.delete();
+    const Cls = CONFIG.Actor.documentClass;
+    const doc = await Cls.create({ name, type: "npc", system: { profession: "Torchbearer", dayRate: rate } });
+    await foundry.helpers.SocketInterface.dispatch("modifyDocument", {
+      type: "Actor", action: "update",
+      operation: {
+        updates: [{ _id: doc.id, system: { role: "npc", forHire: true, profession: "Torchbearer", dayRate: rate } }],
+        diff: false, recursive: true, noHook: false, render: false, modifiedTime: Date.now(),
+      },
+    });
+    // EVERY OTHER role-npc actor in this world, so the reload below cannot cost
+    // the Warden anything. Clearing the marker re-arms a migration that
+    // converts all of them, which is correct behaviour and still a real write
+    // to documents this probe did not create. Snapshot, then put them back.
+    const bystanders = game.actors
+      .filter((a) => a.id !== doc.id && ["npc", "hireling"].includes(a.type)
+        && a._source?.system?.role === "npc")
+      .map((a) => a.id);
+    await game.settings.set("air-bladder", "hireling-split", false);
+    return { id: doc.id, bystanders };
+  }, { name: SPLIT, rate: RATE });
+
+  const splitBefore = await rawRole(splitState.id);
+  if (splitBefore === "npc") {
+    ok('planted a genuine pre-split person — the database holds role "npc"');
+  } else {
+    fail(`the split plant did not land — the database holds ${JSON.stringify(splitBefore)}; `
+      + "the assertions below would pass on a document that was never in the old state");
+  }
+  if (splitState.bystanders.length) {
+    console.log(`  note  ${splitState.bystanders.length} other role-npc actor(s) will be converted and restored`);
+  }
+
+  const splitLog = [];
+  page.on("console", (mm) => {
+    if (/npc -> hireling on \d+ document\(s\)/.test(mm.text())) splitLog.push(mm.text());
+  });
+
+  await page.reload({ waitUntil: "networkidle", timeout: 60000 });
+  await page.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
+  await dismissChrome(page);
+  await page.waitForTimeout(3000);
+
+  const splitAfter = await rawRole(splitState.id);
+  if (splitAfter === "hireling") ok("the pre-split person is a HIRELING in the database now");
+  else fail(`the database still holds ${JSON.stringify(splitAfter)} — the split did not convert it`);
+
+  if (splitLog.length) ok(`the split named itself as the writer — "${splitLog[0]}"`);
+  else fail("the stored role changed but the split logged nothing — something else wrote it");
+
+  const splitShown = await page.evaluate((id) => {
+    const a = game.actors.get(id);
+    return {
+      role: a?.system.role, profession: a?.system.profession,
+      dayRate: a?.system.dayRate, forHire: a?.system.forHire,
+      showDayRate: a?.system.showDayRate,
+    };
+  }, splitState.id);
+  splitShown.profession === "Torchbearer" && splitShown.dayRate === RATE && splitShown.showDayRate === true
+    ? ok(`its Career and rate survived and the day-rate row still shows (${splitShown.dayRate})`)
+    : fail(`the converted person reads ${JSON.stringify(splitShown)} — the split cost it something`);
+
+  // THE SAFETY PROPERTY. A real NPC made after the migration stores exactly the
+  // value it converts, so a second pass would turn every one of them into a
+  // hireling. The marker is what makes that impossible, and this is the leg
+  // that proves the marker is doing it — not the migration being clever.
+  const marked = await page.evaluate(() => game.settings.get("air-bladder", "hireling-split"));
+  marked === true
+    ? ok("the marker is set, so the split is one-shot")
+    : fail(`marker ${JSON.stringify(marked)} — the split will run again on the next load`);
+
+  const survivorId = await page.evaluate(async (name) => {
+    for (const s of game.actors.filter((a) => a.name === name)) await s.delete();
+    const a = await CONFIG.Actor.documentClass.create({ name, type: "npc", system: { role: "npc" } });
+    return a.id;
+  }, SURVIVOR);
+
+  await page.reload({ waitUntil: "networkidle", timeout: 60000 });
+  await page.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
+  await dismissChrome(page);
+  await page.waitForTimeout(3000);
+
+  const survived = await rawRole(survivorId);
+  survived === "npc"
+    ? ok("a REAL npc made after the split survives a reload as an npc — the marker holds")
+    : fail(`a genuine npc was converted to ${JSON.stringify(survived)} — the split ran twice`);
+
+  // Put the bystanders back before anything else can observe them converted.
+  const restored = await page.evaluate(async (ids2) => {
+    let n = 0;
+    for (const id of ids2) {
+      const a = game.actors.get(id);
+      if (!a || a._source.system.role !== "hireling") continue;
+      await a.update({ "system.role": "npc" }, { diff: false });
+      n += 1;
+    }
+    const left = ids2.filter((id) => game.actors.get(id)?._source.system.role !== "npc").length;
+    return { n, left };
+  }, splitState.bystanders);
+  restored.left === 0
+    ? ok(`restored ${restored.n} bystander(s) the split converted`, "the world is as it was found")
+    : fail(`${restored.left} bystander(s) are still hirelings — this probe changed the Warden's world`);
 } catch (e) {
   fail(`threw: ${e.message}`);
 } finally {
@@ -432,6 +579,11 @@ try {
       for (const id of Object.values(all)) await game.actors.get(id)?.delete();
     }, { hire: ids.hire, rated: ids.rated, mon: ids.mon, legacy: ids.legacy, planted: ids.planted }).catch(() => {});
   }
+  // The split leg names its actors rather than holding ids, so it can clean up
+  // even when it threw before the ids came back.
+  await page.evaluate(async (names) => {
+    for (const n of names) for (const a of game.actors.filter((x) => x.name === n)) await a.delete();
+  }, [SPLIT, SURVIVOR]).catch(() => {});
 }
 
 if (errors.length) { console.log(""); for (const e of errors) fail(`console error: ${e}`); }

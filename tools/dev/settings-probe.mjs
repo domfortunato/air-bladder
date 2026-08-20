@@ -63,8 +63,14 @@ try {
     // walk had been reporting a deliberately-unlisted marker as a misfiled
     // setting: a RED probe with nothing wrong behind it. A marker added without
     // its line here fails exactly like the defect this leg exists to catch.
+    // `hireling-split` joined 2026-08-20 (the NPC/Hireling split). Note the
+    // exemption's stated reason — "losing one only re-runs an idempotent
+    // migration" — is NOT true of that one: re-running it would convert every
+    // real NPC in the world into a hireling. It is exempt because it postdates
+    // the namespace move and so has no old value to carry, which is the reason
+    // that actually applies to all five.
     const MARKERS = ["roles-restamped", "companion-restamped", "connections-migrated",
-      "grimoire-keys-stamped"];
+      "grimoire-keys-stamped", "hireling-split"];
     out.unlisted = [...game.settings.settings.keys()]
       .filter((k) => k.startsWith(`${mod.SETTINGS_NS}.`))
       .map((k) => k.slice(mod.SETTINGS_NS.length + 1))

@@ -3,7 +3,7 @@ import { CairnActor } from "./actor/actor.js";
 import { CairnActorSheet } from "./actor/actor-sheet.js";
 import { CairnItem, FATIGUE_NAME, SPELLSCROLL_NAME } from "./item/item.js";
 import { CairnItemSheet } from "./item/item-sheet.js";
-import { createCharacter, createNpc, requestPcGeneration, enabledContentSources, FLAG_SCOPE, awaitDiceAnimation, findGenerationRollMessage } from "./character-generator.js";
+import { createCharacter, createNpc, createHireling, requestPcGeneration, enabledContentSources, FLAG_SCOPE, awaitDiceAnimation, findGenerationRollMessage } from "./character-generator.js";
 import * as characterGenerator from "./character-generator.js";
 import { createMonster } from "./monster-generator.js";
 import * as monsterGenerator from "./monster-generator.js";
@@ -1090,6 +1090,13 @@ Hooks.once("ready", async () => {
 
   await phase("mount -> companion restamp", migrateMountToCompanion);
 
+  // AFTER the two restamps above, and the order is not arbitrary: both write
+  // back the value they READ, and a document this phase has already turned into
+  // a hireling would simply be rewritten as one. Running it first would be
+  // harmless too — but this way the two blind passes never see a value that
+  // only exists because of this one.
+  await phase("npc -> hireling split", migrateHirelingSplit);
+
   await phase("grimoire page keys", migrateGrimoirePages);
 
   await phase("grant notes removal", removeGrantNotes);
@@ -1557,6 +1564,102 @@ const migrateNpcRoles = async () => {
     console.log(`Air Bladder | stamped role on ${updates.length} npc(s)`);
   }
   await game.settings.set(SETTINGS_NS, "roles-restamped", true);
+};
+
+/**
+ * The NPC/Hireling split (2026-08-20): every person stored as `role: "npc"`
+ * becomes `role: "hireling"`, because that is what `npc` MEANT until this
+ * release — a Career, a For Hire box and a Day Rate — and the key is being
+ * reused for the new NPC role, which has none of those.
+ *
+ * User ruling: EVERY one of them, not a split on `forHire`. The 2026-08-01
+ * collapse demoted the hireling role to that boolean precisely so the
+ * distinction survived, so `forHire ? hireling : npc` was available and was
+ * deliberately not taken — a person made BEFORE that date had `forHire`
+ * deleted by the 2026-07-31 migration and reads the schema initial `true`, so
+ * the signal is exact only for the last three weeks of documents. Converting
+ * everything means nothing on any sheet disappears and no Warden is handed an
+ * NPC they did not ask for; they re-role the handful that should be.
+ *
+ * THIS ONE SELECTS, AND ITS SIBLINGS CANNOT. `migrateNpcRoles` and
+ * `migrateMountToCompanion` are blind restamps because `migrateData` rewrites
+ * their source value at initialization, so a stored "hireling" or "mount" is
+ * unobservable from a client and a filter on it matches nothing, ever. Nothing
+ * rewrites a stored "npc", so `_source.system.role` reads it honestly here.
+ *
+ * And selecting is not a nicety, it is the whole safety property: after this
+ * runs, a genuine NEW npc stores exactly the value this converts. A blind
+ * restamp would turn every real NPC in the world into a hireling on the second
+ * pass. The marker is what stops there being a second pass, and it is set only
+ * after the writes land, so a failed run retries rather than recording itself
+ * done.
+ *
+ * DELTAS NEED THEIR OWN WALK, for the same reason the selection works. Both
+ * siblings argue that unlinked-token deltas need no pass "because they store
+ * differences from a base this flips" — true only while `migrateData` does the
+ * flipping. It does not here, so a delta that explicitly stores `role: "npc"`
+ * would keep it and the token would come back a new-style NPC while its world
+ * actor is a hireling.
+ *
+ * WORLD COMPENDIA TOO. A Warden's own NPC pack is not in `game.actors`, and an
+ * unswept one imports as the new NPC role for the rest of the world's life —
+ * with the day rate still stored and no longer shown. Only world-scoped packs:
+ * the system's own ship no `role: "npc"` document at all (205 monster, 11
+ * companion, 4 transport, 2 container — checked), and a module's pack is not
+ * ours to write.
+ */
+const migrateHirelingSplit = async () => {
+  if (game.settings.get(SETTINGS_NS, "hireling-split")) return;
+  let count = 0;
+
+  // `_source`, never the prepared value: the prepared one has already been
+  // through migrateData and the schema, and the question here is what the
+  // DATABASE holds.
+  const storedNpc = (doc) => doc?._source?.system?.role === "npc";
+
+  const updates = game.actors
+    .filter((a) => ["npc", "hireling"].includes(a.type) && storedNpc(a))
+    .map((a) => ({ _id: a.id, "system.role": "hireling" }));
+  if (updates.length) {
+    await Actor.updateDocuments(updates, { diff: false });   // one batch, so it can't half-finish
+    count += updates.length;
+  }
+
+  // Unlinked tokens: writing through the synthetic `token.actor` updates the
+  // delta. Linked tokens ARE the world actor already handled above.
+  for (const scene of game.scenes) {
+    for (const token of scene.tokens) {
+      if (token.actorLink || !token.actor) continue;
+      if (!storedNpc(token.delta)) continue;
+      await token.actor.update({ "system.role": "hireling" }, { diff: false });
+      count += 1;
+    }
+  }
+
+  // World compendia. Unlocked around the write and locked back exactly as it
+  // was found — a Warden who keeps their NPC pack locked must not discover it
+  // unlocked afterwards.
+  for (const pack of game.packs) {
+    if (pack.metadata.packageType !== "world" || pack.metadata.type !== "Actor") continue;
+    const docs = await pack.getDocuments();
+    const stale = docs.filter((d) => ["npc", "hireling"].includes(d.type) && storedNpc(d));
+    if (!stale.length) continue;
+    const wasLocked = pack.locked;
+    try {
+      if (wasLocked) await pack.configure({ locked: false });
+      for (const doc of stale) {
+        await doc.update({ "system.role": "hireling" }, { diff: false });
+        count += 1;
+      }
+    } catch (err) {
+      console.warn(`Air Bladder | could not split roles in world pack "${pack.metadata.label}":`, err);
+    } finally {
+      if (wasLocked) await pack.configure({ locked: true });
+    }
+  }
+
+  if (count) console.log(`Air Bladder | npc -> hireling on ${count} document(s)`);
+  await game.settings.set(SETTINGS_NS, "hireling-split", true);
 };
 
 /**
@@ -2193,6 +2296,7 @@ Hooks.on("renderActorDirectory", (app, html) => {
           <button class="create-npc-button"><i class="fas fa-user-plus"></i>${game.i18n.localize(
           "CAIRN.CreateNpc"
         )}</button>
+          <button class="create-hireling-button"><i class="fas fa-hand-holding-dollar"></i>${game.i18n.localize("CAIRN.CreateHireling")}</button>
           ${game.user.isGM ? `<button class="create-monster-button"><i class="fas fa-dragon"></i>${game.i18n.localize("CAIRN.CreateMonster")}</button>` : ""}
           <button class="create-mount-button"><i class="fas fa-horse"></i>${game.i18n.localize("CAIRN.CreateCompanion")}</button>
           <button class="create-transport-button"><i class="fas fa-cart-flatbed"></i>${game.i18n.localize("CAIRN.CreateTransport")}</button>
@@ -2208,12 +2312,20 @@ Hooks.on("renderActorDirectory", (app, html) => {
           const actor = await createCharacter();
           if (actor) actor.sheet.render(true);
         });
-      section
-        .querySelector(".create-npc-button")
-        .addEventListener("click", async () => {
-          const actor = await createNpc();
+      // The two person roles get a button each (2026-08-20). Two buttons rather
+      // than one that asks: a Warden knows which they are making before they
+      // reach for the mouse, and the tier picker on Generate Monster is a
+      // dialog because the tier is a real CHOICE about the thing being made,
+      // not a fork in which thing.
+      for (const [cls, make] of [
+        ["create-npc-button", createNpc],
+        ["create-hireling-button", createHireling],
+      ]) {
+        section.querySelector(`.${cls}`)?.addEventListener("click", async () => {
+          const actor = await make();
           if (actor) actor.sheet.render(true);
         });
+      }
       // The three thing roles share one name+Type workflow
       // (CairnActor.createThing): pre-filtered kinds plus Other, minting an
       // unconnected npc of that role. ACTOR_CREATE-gated like Create NPC —

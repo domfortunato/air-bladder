@@ -5,10 +5,43 @@ records the decisions and their reasons so the build doesn't re-argue them.
 
 **STATUS: BUILT, same day.** Gated by `npm run dev:roles` (the sheet composition,
 keeping matrix, cycle guard, tab reset, art/Kind decoupling) and
-`npm run dev:role-migration` (both migration layers); the migration's one
+`npm run dev:role-migration` (all three migration layers); the migration's one
 non-obvious constraint — "role absent in the database" is not observable from a
 running client, so selection keys on type + legacy keys + day rate — is documented
 in `migrateNpcRoles` (module/cairn.js).
+
+**AMENDED 2026-08-20: the table below is true again.** Hireling and NPC were
+collapsed into one role on 2026-08-01 (see the note under the table) and split
+apart again on 2026-08-20, at the user's ask. The collapse's argument was that
+being for hire is not a different KIND of person, only a fact about one — sound
+while the two roles shared a sheet, a stat block, a generator and a career table
+and differed in whether one row rendered. What was missing was a third thing: an
+NPC with a **Background** off the Warden's Guide table and Quirk / Goal / Virtue
+/ Vice off that book's NPC tables. Once that exists the two are different kinds
+of person and the collapse's argument stops applying.
+
+The split is gated by `npm run dev:npc-split` (what each role IS, the trait
+pick-lists, the sentence's grammatical person, and a re-role round trip that
+loses nothing) and by the third leg of `dev:role-migration`.
+
+Four things the split settled, so they are not re-argued:
+
+- **Every existing role-`npc` person became a Hireling**, not a split on
+  `forHire`. That boolean holds the distinction exactly for anything made after
+  2026-08-01 and reads the schema initial `true` for anything older, so the
+  signal is only three weeks deep. Converting everything means nothing on any
+  sheet disappears and no Warden is handed an NPC they did not ask for.
+- **Both roles draw names from the same d60 table.** It IS the Warden's Guide
+  NPC name list, and a hireling has no other source.
+- **The NPC keeps everything the person had** — stat block, the six appearance
+  traits, pronouns, age, faction — and gains the four NPC traits. It loses only
+  For Hire and Day Rate, and Career becomes Background.
+- **Two directory buttons**, Generate NPC and Generate Hireling, plus both in the
+  Create Actor "+" switchboard.
+
+Two fields, never one relabelled: a hireling's Career lives in `profession` and
+an NPC's Background in `background`. Sharing a key would have made every re-role
+a chance for `_preUpdate`'s day-rate autofill to fire on somebody who has none.
 
 ## The problem
 

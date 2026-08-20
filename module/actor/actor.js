@@ -1,6 +1,6 @@
 import { SETTINGS_NS } from "../settings.js";
 import { iconForItem, iconForTransport, containerClassSlots, CONTAINER_CLASSES, ICON_DIR } from "../icons.js";
-import { THING_ROLES } from "../data-models.js";
+import { THING_ROLES, PERSON_ROLES } from "../data-models.js";
 import {
   atConnectionLimit, maxConnections, connectionsUiEnabled,
   connectedOwnershipShape, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG,
@@ -235,6 +235,7 @@ export class CairnActor extends Actor {
     const choices = [
       ["character", game.i18n.localize(CONFIG.Actor.typeLabels?.character ?? "TYPES.Actor.character")],
       ["npc", game.i18n.localize("CAIRN.RoleNpc")],
+      ["hireling", game.i18n.localize("CAIRN.RoleHireling")],
       ...(game.user.isGM ? [["monster", game.i18n.localize("CAIRN.RoleMonster")]] : []),
       ["companion", game.i18n.localize("CAIRN.RoleCompanion")],
       ["transport", game.i18n.localize("CAIRN.RoleTransport")],
@@ -274,6 +275,12 @@ export class CairnActor extends Actor {
     } else if (picked === "npc") {
       const { createNpc } = await import("../character-generator.js");
       actor = await createNpc({ folder });
+    } else if (picked === "hireling") {
+      // Note this mints TYPE npc with ROLE hireling — the `hireling` type is a
+      // registered alias kept only so existing documents keep their ids, and
+      // nothing new is ever created under it.
+      const { createHireling } = await import("../character-generator.js");
+      actor = await createHireling({ folder });
     } else if (picked === "monster") {
       const { createMonster } = await import("../monster-generator.js");
       actor = await createMonster({ folder });
@@ -485,11 +492,12 @@ export class CairnActor extends Actor {
     if (allowed === false) return false;
 
     // A document created as the still-registered `hireling` alias should READ as
-    // one everywhere role is consulted, so stamp the role it obviously means —
-    // `npc` since the collapse, with `forHire` taking the initial `true`.
-    // Explicit creation data wins, as everywhere in this method.
+    // one everywhere role is consulted, so stamp the role it obviously means.
+    // That was `npc` between the 2026-08-01 collapse and the 2026-08-20 split;
+    // it is `hireling` again now, and the two agree once more. Explicit
+    // creation data wins, as everywhere in this method.
     if (data.type === "hireling" && data.system?.role === undefined) {
-      this.updateSource({ "system.role": "npc" });
+      this.updateSource({ "system.role": "hireling" });
     }
 
     // An NPC PERSON is a player-facing figure, so it gets the linked token a
@@ -714,8 +722,12 @@ export class CairnActor extends Actor {
     // `{"system.role": "npc"}` (any API caller). getProperty would miss the
     // second: it walks dot paths and cannot see a key that CONTAINS the dots.
     const flat = foundry.utils.flattenObject(changed);
-    if (flat["system.role"] !== "npc") return;
-    if (this.npcRole === "npc") return;                       // already a person
+    // EITHER person role since 2026-08-20: an NPC and a hireling are both
+    // somebody, and a Warden re-roling a monster into either wants the same
+    // token defaults. The second test is what makes this a TRANSITION rather
+    // than a re-enforcement sweep — becoming a person, not being one.
+    if (!PERSON_ROLES.includes(flat["system.role"])) return;
+    if (PERSON_ROLES.includes(this.npcRole)) return;          // already a person
 
     const D = CONST.TOKEN_DISPOSITIONS;
     if (this.prototypeToken.disposition === D.HOSTILE
@@ -763,8 +775,14 @@ export class CairnActor extends Actor {
     // the box must stay visible while unticked or there is no way to tick it
     // again — the deadlock the retired `inanimate`/`forHire` checkboxes taught,
     // now that one of them is back as a checkbox.
-    this.system.isNpcPerson = this.npcRole === "npc";
-    this.system.showDayRate = this.npcRole === "npc" && this.system.forHire === true;
+    // BOTH person roles (2026-08-20). `isNpcPerson` answers "is this somebody
+    // rather than a monster or a crate", which is what every consumer of it
+    // means — the biography block, the connection line, the auto-portrait. It
+    // is deliberately NOT "is this the npc role": that question is asked
+    // directly where the two people genuinely differ, and there are only two
+    // such places on the whole sheet (the job field and the day rate).
+    this.system.isNpcPerson = PERSON_ROLES.includes(this.npcRole);
+    this.system.showDayRate = this.npcRole === "hireling" && this.system.forHire === true;
     this.system.canKeep = this.canKeepConnected;
     // Round 2: Gold follows the role too. Companions and things hide the COUNTER;
     // the stored value and the coins-take-slots rule are untouched, so a chest
@@ -1156,8 +1174,10 @@ export class CairnActor extends Actor {
    * capacity read as an injury (HP 0) rather than as a full hold? A character
    * does by type; an npc-typed document does when it is a PERSON — role npc,
    * which covers a hireling-typed alias too, since `npcRole` answers with the
-   * stored role or "npc". Monster, mount, transport and container are exempt:
-   * a crate at exactly its capacity is in its normal state.
+   * stored role or "npc". Since the 2026-08-20 split that means EITHER person
+   * role — an innkeeper and a hired guard are equally people, and encumbrance
+   * is a rule about people. Monster, companion, transport and container are
+   * exempt: a crate at exactly its capacity is in its normal state.
    *
    * A GETTER, deliberately, because the rule is stated in two places — the
    * derived zero in `_prepareCharacterData` and the submit strip in the
@@ -1168,7 +1188,7 @@ export class CairnActor extends Actor {
    * @returns {boolean}
    */
   get livesByPlayerRules() {
-    return this.type === "character" || this.npcRole === "npc";
+    return this.type === "character" || PERSON_ROLES.includes(this.npcRole);
   }
 
   /**
@@ -1492,16 +1512,18 @@ export class CairnActor extends Actor {
       // Typing a Career the 2e catalogue KNOWS brings its day rate, exactly as
       // a known Kind brings its capacity above, under the same "a typed value
       // wins" rule: only while the stored rate is still 0, and never over a
-      // rate the same update names — which is also what keeps regenerateNpc
-      // and rerollNpcProfession out of here, since both set profession and
-      // dayRate in one write. Role npc only (nothing else has a career), and
+      // rate the same update names — which is also what keeps
+      // regenerateHireling and rerollHirelingCareer out of here, since both set
+      // profession and dayRate in one write. Role HIRELING only: since the
+      // 2026-08-20 split nothing else has a career at all, and the NPC role's
+      // Background is a different field off a different table. And
       // matched case-insensitively so a Warden typing "bandit" gets the
       // Bandit's rate. The import is dynamic for the same reason _preCreate's
       // is: character-generator.js imports this module, so a static import
       // would be a cycle.
       const prof = flat["system.profession"];
       if (prof && prof !== this.system.profession
-        && (flat["system.role"] ?? this.npcRole) === "npc"
+        && (flat["system.role"] ?? this.npcRole) === "hireling"
         && !Number(this.system.dayRate)
         && flat["system.dayRate"] === undefined) {
         try {

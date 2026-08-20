@@ -35,7 +35,7 @@
  *      declarations rather than on Foundry keeping whatever it is handed.
  *   9. Identity is kept by omission: profession and name re-rolls leave
  *      pronouns/age/traits alone (seeded with sentinels first, so "unchanged" is
- *      observable), and regenerateNpc — a whole new person — replaces all three.
+ *      observable), and regenerateHireling — a whole new person — replaces all three.
  *  10. The role gate: the biography block is ABSENT on a monster, a mount and a
  *      container-role npc, present on the person from step 8. Witness in-page:
  *      `_prepareContext` patched to force showBiography on a monster, and the
@@ -101,9 +101,15 @@ try {
       if (key === "custom-portrait-list") return [];
       return origGet.call(this, ns, key, ...rest);
     };
+    // createHIRELING, not createNpc (2026-08-20). This whole probe is about the
+    // 2e careers catalogue — the twelve statblocks, their gear references and
+    // their day rates — and after the split that is the hireling's generator.
+    // `createNpc` now makes the OTHER person: a Background off a RollTable, no
+    // career and no gear at all, so every assertion below would fail on a
+    // generator working exactly as intended.
     let actor;
     try {
-      actor = await CG.createNpc();
+      actor = await CG.createHireling();
     } finally {
       game.settings.get = origGet;
     }
@@ -142,7 +148,7 @@ try {
     let armorCase = null;
     if (armored) {
       for (let i = 0; i < 200 && actor.system.profession !== armored.name; i++) {
-        await CG.rerollNpcProfession(actor);
+        await CG.rerollHirelingCareer(actor);
       }
       if (actor.system.profession === armored.name) {
         armorCase = {
@@ -173,9 +179,9 @@ try {
       // compare the stale pre-edit item and always fail. Then cycle back to it
       // (re-roll avoids the current profession, so it wanders); bounded so a miss
       // cannot hang the probe.
-      await CG.rerollNpcProfession(actor);
+      await CG.rerollHirelingCareer(actor);
       for (let i = 0; i < 200 && actor.system.profession !== book.name; i++) {
-        await CG.rerollNpcProfession(actor);
+        await CG.rerollHirelingCareer(actor);
       }
       if (actor.system.profession === book.name) {
         const it = actor.items.find((x) => x.name.toLowerCase() === poolDoc.name.toLowerCase());
@@ -190,7 +196,7 @@ try {
     //    grantSource, so _replace-by-source must not touch it).
     await actor.createEmbeddedDocuments("Item", [{ name: "PROBE GM Item", type: "item" }]);
     const beforeProf = actor.system.profession;
-    await CG.rerollNpcProfession(actor);
+    await CG.rerollHirelingCareer(actor);
     const survive = {
       gmItemKept: !!actor.items.find((i) => i.name === "PROBE GM Item"),
       professionChanged: actor.system.profession !== beforeProf,
@@ -424,22 +430,26 @@ try {
     // 9. Identity by omission. Sentinels first, so "unchanged" is observable
     //    (a re-roll that wrote fresh random values would still differ from a
     //    fresh random baseline — it can never differ from PROBE sentinels).
+    const SENTINEL_TRAITS = ["physique", "skin", "hair", "face", "speech", "clothing", "virtue", "vice"];
     await actor.update({ system: {
       pronouns: "PROBE/pronouns", age: "999",
-      traits: { physique: "PROBE-physique", skin: "PROBE-skin", hair: "PROBE-hair", face: "PROBE-face",
-        speech: "PROBE-speech", clothing: "PROBE-clothing", virtue: "PROBE-virtue", vice: "PROBE-vice" },
+      traits: Object.fromEntries(SENTINEL_TRAITS.map((k) => [k, `PROBE-${k}`])),
     } });
     const idSnapshot = () => JSON.stringify([actor.system.pronouns, actor.system.age, actor.system.traits]);
     const seeded = idSnapshot();
-    await CG.rerollNpcProfession(actor);
+    await CG.rerollHirelingCareer(actor);
     const identity = { profKeeps: idSnapshot() === seeded };
     await CG.rerollNpcName(actor);
     identity.nameKeeps = idSnapshot() === seeded;
-    await CG.regenerateNpc(actor);
+    await CG.regenerateHireling(actor);
     identity.regenPronouns = PRONOUN_SET.includes(actor.system.pronouns);
     identity.regenAge = actor.system.age !== "999" && /^\d+$/.test(actor.system.age ?? "");
-    identity.regenTraits = Object.values(actor.system.traits ?? {})
-      .every((v) => v && !String(v).startsWith("PROBE-"));
+    // The EIGHT the sentinel wrote, not every key on the schema. `traits` gained
+    // `quirk` and `goal` on 2026-08-20 for the NPC role, and a hireling leaves
+    // both blank — correctly — so an `Object.values(...).every(v => v)` over the
+    // whole object fails on a generator doing exactly the right thing.
+    identity.regenTraits = SENTINEL_TRAITS
+      .every((k) => actor.system.traits?.[k] && !String(actor.system.traits[k]).startsWith("PROBE-"));
 
     // 10. The role gate: no biography block on anything that is not a person.
     const gate = {};
@@ -490,8 +500,14 @@ try {
     // 11. Career → day-rate autofill.
     const careers = await CG.getNpcCareers2e();
     const knownCareer = careers.find((h) => (h.rate ?? 0) > 0);
+    // Role HIRELING (2026-08-20): the autofill it exercises is
+    // CairnActor._preUpdate's "a career the catalogue knows brings its rate",
+    // and that gate is role-hireling only. Nothing else has a career at all —
+    // the NPC role's Background is a different field off a different table with
+    // no rate behind it — so seeding `npc` here would have tested a rule
+    // against an actor the rule deliberately excludes.
     const mkPerson = (name, sys = {}) => CONFIG.Actor.documentClass.create({
-      name, type: "npc", system: { role: "npc", generationEnabled: false, ...sys },
+      name, type: "npc", system: { role: "hireling", generationEnabled: false, ...sys },
     });
     const fill = { career: knownCareer?.name, rate: knownCareer?.rate };
     if (knownCareer) {
@@ -634,8 +650,8 @@ try {
     r.identity.profKeeps ? ok("profession re-roll keeps pronouns/age/traits") : fail("profession re-roll disturbed the identity fields");
     r.identity.nameKeeps ? ok("name re-roll keeps pronouns/age/traits") : fail("name re-roll disturbed the identity fields");
     r.identity.regenPronouns && r.identity.regenAge && r.identity.regenTraits
-      ? ok("regenerateNpc replaces all three — a whole new person")
-      : fail(`regenerateNpc left a sentinel behind: ${JSON.stringify(r.identity)}`);
+      ? ok("regenerateHireling replaces all three — a whole new person")
+      : fail(`regenerateHireling left a sentinel behind: ${JSON.stringify(r.identity)}`);
 
     console.log("\n  the biography block is role-gated");
     for (const role of ["monster", "mount", "container"]) {

@@ -1,11 +1,41 @@
-import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, rerollNpcProfession, rerollNpcName, rerollNpcFaction, rollNameFromTable, rollAge } from "../character-generator.js";
+import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, rollNameFromTable, rollAge } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel } from "../utils.js";
 import { resultText } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES } from "../icons.js";
-import { NPC_ROLES } from "../data-models.js";
+import { NPC_ROLES, PERSON_ROLES } from "../data-models.js";
+
+/**
+ * The roles with something to randomize: the two people and the monster.
+ * Companions, transports and containers have nothing to roll, so their sheets
+ * carry neither the Roll button nor the Randomization toggle (ruled
+ * 2026-08-02). One list because the test is made in two places that must agree
+ * — `_getFrameButtons` builds the buttons and `#syncGenerationButtons` hides
+ * them per render, and a frame renders once.
+ */
+const GENERATING_ROLES = [...PERSON_ROLES, "monster"];
+
+/**
+ * Labels for the four Warden's Guide NPC traits, keyed by the stored trait key.
+ *
+ * Static keys, not `CAIRN.Trait.${pascal(key)}` — the i18n source gate records a
+ * template as a DYNAMIC PREFIX, which would make every `CAIRN.` key count as
+ * used and blind the unused-key check (the same reason art-picker.js spells its
+ * gallery label keys out).
+ *
+ * Only consulted for a row whose table came from the NPC map: `virtue` and
+ * `vice` exist in BOTH trait sets, and a character's must keep reading its
+ * tables-2e name through the content overlay, where a translator has already
+ * done it.
+ */
+const NPC_TRAIT_LABELS = {
+  quirk: "CAIRN.Trait.Quirk",
+  goal: "CAIRN.Trait.Goal",
+  virtue: "CAIRN.Trait.Virtue",
+  vice: "CAIRN.Trait.Vice",
+};
 import { atConnectionLimit, maxConnections, connectionsUiEnabled, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
 import { actorDisplayName, localizeNameDesc, sourceOf, t } from "../i18n-content.js";
 import { FATIGUE_NAME } from "../item/item.js";
@@ -504,13 +534,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     // npc and hireling are one thing, so both get the NPC generation controls.
     const isNpc = ["hireling", "npc"].includes(this.actor.type);
-    // Thing roles — mount, transport, container — get NEITHER button (ruled
+    // Thing roles — companion, transport, container — get NEITHER button (ruled
     // 2026-08-02): there is nothing to randomize about a cart, so a Roll
     // button and a Randomization readout are noise on its title bar. Only a
-    // PERSON (role npc) or a monster generates. The role can change under an
-    // open sheet and the frame builds once, so #syncGenerationButtons applies
-    // the same test per render to the buttons this frame did build.
-    const rollableRole = !isNpc || ["npc", "monster"].includes(this.actor.npcRole);
+    // PERSON (either role since the 2026-08-20 split) or a monster generates.
+    // The role can change under an open sheet and the frame builds once, so
+    // #syncGenerationButtons applies the same test per render to the buttons
+    // this frame did build.
+    const rollableRole = !isNpc || GENERATING_ROLES.includes(this.actor.npcRole);
     // Print sits to the RIGHT of Pop Out (user ruling 2026-08-08).
     if (!(isChar || isNpc) || !rollableRole || !this.actor.isOwner) return [popOut, ...print, ...buttons];
 
@@ -670,7 +701,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // direction — a mount re-typed into a person — gets its buttons on the
     // next sheet open; a frame cannot grow buttons it never built.)
     const thing = ["hireling", "npc"].includes(this.actor.type)
-      && !["npc", "monster"].includes(this.actor.npcRole);
+      && !GENERATING_ROLES.includes(this.actor.npcRole);
     // The Warden's allow-player-randomization switch: a player loses BOTH
     // buttons while it is off (the setting's onChange re-renders open sheets,
     // which is what brings this sync back around live). Same per-render shape
@@ -790,14 +821,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       context.roleChoices = Object.fromEntries(NPC_ROLES.map((r) => [
         r, game.i18n.localize(`CAIRN.Role${r.charAt(0).toUpperCase()}${r.slice(1)}`),
       ]));
-      // One role now, not two: people have careers, and being for hire is a
-      // checkbox on the same row rather than a different kind of person.
-      context.showCareer = role === "npc";
-      // Faction shows for anyone who can take sides — a person OR a monster;
-      // things have no politics. It used to ride the Career gate, which is why
-      // Monsters never saw it: Career is a person's job, and a monster has a
-      // side without one.
-      context.showFaction = ["npc", "monster"].includes(role);
+      // The job field is ONE row wearing two names (2026-08-20): a hireling has
+      // a Career off the 2e careers catalogue, an NPC a Background off the
+      // Warden's Guide table. Mutually exclusive on purpose — the template
+      // renders one row and one die, so the two can never be shown together and
+      // never drift into looking like different controls.
+      context.showCareer = role === "hireling";
+      context.showBackground = role === "npc";
+      // Faction shows for anyone who can take sides — either person OR a
+      // monster; things have no politics. It used to ride the Career gate,
+      // which is why Monsters never saw it: a job is a person's, and a monster
+      // has a side without one.
+      context.showFaction = GENERATING_ROLES.includes(role);
       context.showKind = ["companion", "transport", "container"].includes(role);
       // The Type select's rows: the CONTAINER_CLASSES table filtered to the
       // current role, so a class added there appears here with nothing else to
@@ -817,6 +852,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // (randomCareer's repeat-exclusion, _preUpdate's day-rate fill), so the
       // input shows t() and the submit maps back through sourceOf().
       context.professionDisplay = t("npc.career", this.actor.system.profession);
+      // The NPC role's Background, same display half, different namespace: a
+      // Background is a RollTable result, a Career a catalogue entry. Its submit
+      // half is in _processFormData beside the career's.
+      context.backgroundDisplay = t("table.result", this.actor.system.background);
       // Every role says plain "Notes" (user ruling 2026-08-08). The person role
       // used to mirror the character sheet's "Background & Notes" wording; that
       // parity read as noise on an NPC, so only the character sheet keeps it.
@@ -836,7 +875,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // to" once unlinked, and nothing if it was never connected. The controls
       // reuse the registered connectionAttach/connectionDetach actions and
       // their gates verbatim; only their template home moved.
-      const hired = role === "npc" && this.actor.system.forHire === true;
+      const hired = role === "hireling" && this.actor.system.forHire === true;
       // Parked (2026-08-09): with the Connections UI off, the line never gains
       // a label or a control — but it still RENDERS for a person, because
       // showConnectionLine's isNpcPerson arm below is what keeps the For Hire
@@ -1025,18 +1064,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // with its frame buttons gone (_getFrameButtons) a stored `true` from
       // an earlier toggle would otherwise keep live dice with no way left to
       // turn them off. Render-only — the stored flag is untouched.
-      context.generationEnabled = ["npc", "monster"].includes(this.actor.npcRole)
+      context.generationEnabled = GENERATING_ROLES.includes(this.actor.npcRole)
         && this.actor.system.generationEnabled !== false
         // ...and never for a player while the Warden's switch is off — the
         // whole surface goes, not just the title-bar toggle (ruled 2026-08-09).
         && this._mayRandomize();
       // A PERSON gets the character's biography block — pronouns, age, the
-      // eight traits, scars — on the Description tab (2026-08-01). Role npc
-      // only: a monster, mount, transport or container has no pronouns, and
-      // showBiography false keeps the whole partial out of the render. Omen
-      // stays a player-character thing — it is the youngest PARTY member's
-      // burden, and no npc is one.
-      context.showBiography = this.actor.npcRole === "npc";
+      // traits, scars — on the Description tab (2026-08-01). EITHER person role
+      // since the 2026-08-20 split: a monster, companion, transport or
+      // container has no pronouns, and showBiography false keeps the whole
+      // partial out of the render. Omen stays a player-character thing — it is
+      // the youngest PARTY member's burden, and no npc is one.
+      context.showBiography = PERSON_ROLES.includes(this.actor.npcRole);
       if (context.showBiography) {
         await this._prepareBiographyContext(context);
         context.showScars = true;
@@ -1191,10 +1230,29 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * @private
    */
   async _prepareBiographyContext(context) {
-    // Trait pick-lists: each trait's source table (from the 2e biography config,
-    // which already points at air-bladder.tables-2e) supplies a <select> of
-    // options so a player can pick a value (or keep an off-table one).
-    const mapping = CONFIG.Cairn?.characterGenerator2e?.biography?.items ?? {};
+    // Trait pick-lists: each trait's source table supplies a <select> of options
+    // so a player can pick a value (or keep an off-table one).
+    //
+    // WHICH tables depends on the role (2026-08-20). A character or a hireling
+    // gets 2e's eight; an NPC gets the six APPEARANCE ones plus the Warden's
+    // Guide Quirk, Goal, Virtue and Vice. The last two collide by key on
+    // purpose — same stored field, different list — and the spread order is
+    // what settles it: the NPC map is second, so its Virtue wins for an NPC and
+    // the 2e one is simply never reached.
+    //
+    // The rows a role does not use are ABSENT rather than blank, which is what
+    // keeps an NPC from showing an empty "Physique" it can never fill and a
+    // character from showing a "Goal". A value already stored under a key the
+    // current role does not list stays in the document untouched — nothing here
+    // writes — so re-roling an actor and re-roling it back loses nothing.
+    const biography2e = CONFIG.Cairn?.characterGenerator2e?.biography?.items ?? {};
+    const npcTraits = CONFIG.Cairn?.npcGenerator?.traits ?? {};
+    const mapping = this.actor.npcRole === "npc"
+      ? {
+        ...Object.fromEntries(Object.entries(biography2e).filter(([k]) => !(k in npcTraits))),
+        ...npcTraits,
+      }
+      : biography2e;
     const byPack = {};
     for (const ref of Object.values(mapping)) {
       const [packName] = ref.split(";");
@@ -1207,9 +1265,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       const texts = table ? table.results.map(resultText).sort() : [];
       return {
         key,
-        // The trait-category label IS a tables-2e table name (Physique, Skin…),
-        // so localize it via the same table.name namespace as the compendium list.
-        label: t("table.name", tableName),
+        // A tables-2e trait's label IS its table name (Physique, Skin…), so it
+        // localizes through the same table.name namespace as the compendium
+        // list. The four NPC tables cannot: they are named "Warden: NPC -
+        // Quirk", which is a table name a Warden browses by and a terrible
+        // label to put beside a select. Those take a UI key instead — the
+        // labels are ours, and a UI translator can do them without touching
+        // the content overlay.
+        label: NPC_TRAIT_LABELS[key] && key in npcTraits
+          ? game.i18n.localize(NPC_TRAIT_LABELS[key])
+          : t("table.name", tableName),
         value,
         // Display-only: the <option> VALUE stays the English trait text (what
         // system.traits.<key> stores on save), only the visible label is
@@ -2041,6 +2106,27 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   /**
    * Build the live "You have a ... Physique, ..." sentence from the current trait
    * values + age, so it always reflects the dropdowns. Empty traits are skipped.
+   *
+   * SECOND PERSON for a character, THIRD for anyone else (2026-08-20, user
+   * ruling): a player reads "You are Honest and Vain" on their own sheet, and a
+   * Warden reads "They are…" on an NPC's or a hireling's. Routed through
+   * `_wording`, which is how every other NPC-worded string on this sheet
+   * resolves, rather than a second sentence builder — the wording differs, the
+   * assembly does not, and two builders is how the two drift.
+   *
+   * `_wording` answers with the `…Npc` variant only when THIS language has one,
+   * so a Spanish client keeps its translated second-person string until a
+   * translator adds the variants. That is deliberate and is the whole reason it
+   * passes `fallback: false` — see the helper. A missing variant must never
+   * mean serving English over a working translation.
+   *
+   * Pronoun-accurate wording ("He is…", "She is…") is NOT done, though the
+   * pronouns are right there on the document: Spanish adjectives agree in
+   * gender, so per-pronoun variants would multiply the translator's work by
+   * three for every clause in the sentence.
+   *
+   * The printed character page shares this builder (`traitsProse`), so the
+   * ruling reaches paper with no second change.
    * @param {Object} traits
    * @param {String} age
    * @returns {String}
@@ -2052,7 +2138,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // and each trait VALUE goes through the content overlay (table.result), so a
     // Spanish world reads coherent Spanish once both the UI keys and the trait
     // tables are translated. Age is a number and is never overlaid.
-    const F = (k, data) => game.i18n.format(k, data);
+    const F = (k, data) => game.i18n.format(this._wording(k), data);
     const val = (key) => {
       const raw = String(traits?.[key] ?? "").trim();
       return raw ? t("table.result", raw) : "";
@@ -2081,8 +2167,22 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     if (val("clothing")) parts.push(F("CAIRN.Bio.Clothing", { value: val("clothing") }));
 
+    // The two NPC-only traits (2026-08-20). Nobody else stores them, so no gate
+    // is needed — an empty value is skipped like every other clause.
+    //
+    // Quirk gets a clause that NAMES it ("Their Quirk is Missing Ear") rather
+    // than being folded into the adjective list below, and that is a wording
+    // decision with a reason: the Warden's Guide list is not all adjectives.
+    // "They are Gaunt" reads, "They are Missing Ear" and "They are Bright Eyes"
+    // do not, and a phrasing that is wrong for a third of a d20 table is wrong.
+    if (val("quirk")) parts.push(F("CAIRN.Bio.Quirk", { value: val("quirk") }));
+
     const viceVirtue = [val("vice"), val("virtue")].filter(Boolean);
     if (viceVirtue.length) parts.push(F("CAIRN.Bio.ViceVirtue", { list: andList(viceVirtue) }));
+
+    // Every entry on the Goals table is a noun — Ascension, Revenge, Wealth —
+    // so one verb carries all twenty.
+    if (val("goal")) parts.push(F("CAIRN.Bio.Goal", { value: val("goal") }));
 
     const ageStr = String(age ?? "").trim();
     if (ageStr) parts.push(F("CAIRN.Bio.Age", { value: ageStr }));
@@ -2263,11 +2363,19 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // below); it is only the summary that goes.
 
     // The line under the name: a character's background (source parenthetical
-    // beside it, user ruling 2026-08-08), a person's role and career, a
-    // monster's role. Overlay-routed like the sheet header.
-    const role = actor.npcRole ?? "npc";
+    // beside it, user ruling 2026-08-08), a person's role and job, a monster's
+    // role. Overlay-routed like the sheet header.
+    //
+    // "Job" is two fields since the 2026-08-20 split, and the printed line asks
+    // the same question the sheet does: a hireling's Career (`profession`), an
+    // NPC's Background (`background`). Read from the role rather than by
+    // falling back through both keys — a hireling stores a blank `background`
+    // and an NPC a blank `profession`, so a fallback chain would print the
+    // wrong one the moment a Warden re-roled somebody.
+    const role = actor.npcRole ?? "hireling";
     const roleLabel = isChar ? "" : L(`CAIRN.Role${role.charAt(0).toUpperCase()}${role.slice(1)}`);
-    const career = !isChar && role === "npc" ? t("table.result", String(sys.profession ?? "").trim()) : "";
+    const jobField = role === "hireling" ? sys.profession : role === "npc" ? sys.background : "";
+    const career = isChar ? "" : t("table.result", String(jobField ?? "").trim());
     const subtitle = isChar
       ? t("bg.name", sys.background ?? "")
       : career ? game.i18n.format("CAIRN.PrintRoleCareer", { role: roleLabel, career }) : roleLabel;
@@ -2554,8 +2662,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         rejectClose: false,
       });
       if (!confirm) return;
-      if (isNpc) await regenerateNpc(this.actor);
-      else await regenerateActor(this.actor);
+      // Two person roles since 2026-08-20, and they regenerate differently: a
+      // hireling gets a whole new career, statblock and loadout, an NPC a new
+      // Background and traits with their gear left alone. Keyed on the ROLE,
+      // not the type — a `hireling`-TYPED document reads role hireling through
+      // npcRole whatever it stores, so the alias is covered by the same test.
+      if (isNpc) {
+        if (this.actor.npcRole === "npc") await regenerateNpc(this.actor);
+        else await regenerateHireling(this.actor);
+      } else await regenerateActor(this.actor);
     } finally {
       this._rerolling = false;
     }
@@ -2658,14 +2773,22 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
-   * Profession-only die: swap to a different example statblock and adopt the
-   * whole of it (a 2e career's stats ARE its profession). Keeps the name,
-   * portrait, notes and any GM-added gear.
+   * The die beside the job field, which is two fields wearing one control:
+   * a hireling's **Career** and an NPC's **Background**. One action because the
+   * template renders one row — `showCareer` and `showBackground` are mutually
+   * exclusive — and one handler is what stops the two drifting into separate
+   * dice that behave differently for no reason a Warden could name.
+   *
+   * They do different work, and the asymmetry is the split itself: a 2e
+   * career's stats ARE its profession, so re-rolling one adopts a whole new
+   * statblock and loadout. A Background is one word off a table and touches
+   * nothing else. Both keep the name, portrait and notes.
    * @this {CairnActorSheet}
    */
   static async #onRollProfession(event) {
     event.preventDefault();
-    await rerollNpcProfession(this.actor);
+    if (this.actor.npcRole === "npc") await rerollNpcBackground(this.actor);
+    else await rerollHirelingCareer(this.actor);
   }
 
   /**
@@ -3805,6 +3928,21 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         ? this.actor.system.profession
         : sourceOf("npc.career", prof);
       foundry.utils.setProperty(data, "system.profession", anchored);
+    }
+
+    // The NPC role's Background, on the same split (2026-08-20). Its namespace
+    // is `table.result` — it comes off a RollTable, not the careers catalogue —
+    // and it is NOT a match key: nothing looks a Background up, so this exists
+    // purely so an untouched submit on a translated sheet does not quietly
+    // store the Spanish over the English. ANCHOR ONLY, no `sourceOf` fallback:
+    // the reverse lookup earns its keep for career because typing a known
+    // career's Spanish label must still fire the day-rate autofill, and there
+    // is no autofill here to be worth the many-to-one risk. A Warden who types
+    // their own word gets their own word stored, which is the right answer for
+    // a field nothing matches against.
+    const bg = foundry.utils.getProperty(data, "system.background");
+    if (bg !== undefined && bg === t("table.result", this.actor.system.background)) {
+      foundry.utils.setProperty(data, "system.background", this.actor.system.background);
     }
 
     // The name's submit half (2026-08-04, corrected the same day by review),

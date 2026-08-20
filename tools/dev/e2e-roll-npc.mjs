@@ -73,6 +73,12 @@ try {
         name,
         type: "npc",
         system: {
+          // STATED, not inherited from the schema initial. This probe is about
+          // the hireling flow — career, day rate, statblock — and after the
+          // 2026-08-20 split the initial happens to be `hireling` anyway. A
+          // precondition a probe gets by accident is one that moves the day
+          // somebody changes the default.
+          role: "hireling",
           abilities: { STR: { value: seed.str, max: seed.str } },
           hp: { value: seed.hp, max: seed.hp },
           profession: seed.profession,
@@ -161,14 +167,16 @@ try {
     }
 
     // The upgrade-regression fix rides here too: a re-roll writes a day rate, so it
-    // must set BOTH things that gate the day-rate row — role npc and forHire —
-    // or it stores an invisible number. It was one thing (role "hireling") until
-    // the collapse split the fact in two.
+    // must set BOTH things that gate the day-rate row — role hireling and forHire —
+    // or it stores an invisible number. It was one thing (role "hireling"), then two
+    // (role "npc" + forHire) after the 2026-08-01 collapse, and is one-and-a-half
+    // again after the 2026-08-20 split: the role carries the meaning and forHire
+    // still gates the row, so BOTH are still checked.
     const roled = await page.evaluate((id) => {
       const a = game.actors.get(id);
       return { role: a.system.role, forHire: a.system.forHire, dayRate: a.system.dayRate };
     }, npcId);
-    if (roled.role === "npc" && roled.forHire === true) ok(`a regenerated npc is role npc and for hire (day rate ${roled.dayRate})`);
+    if (roled.role === "hireling" && roled.forHire === true) ok(`a regenerated hireling is role hireling and for hire (day rate ${roled.dayRate})`);
     else fail(`regeneration stored dayRate ${roled.dayRate} with ${JSON.stringify(roled)} — the sheet will never show it`);
   });
 } finally {

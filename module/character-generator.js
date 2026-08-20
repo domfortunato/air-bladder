@@ -2775,8 +2775,8 @@ export const updateActorWithCharacter = async (actor, characterData) => {
   if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false, abNoStatusCard: true });
   // `characterToActorData` clears `critical` unconditionally, and regenerating is
   // REPLACING this person, not healing them -- without this the rebuild announces a
-  // stabilization that never happened. Same argument and same flag as regenerateNpc
-  // and rerollNpcProfession; this path and regenerateMonster were the two that
+  // stabilization that never happened. Same argument and same flag as regenerateHireling
+  // and rerollHirelingCareer; this path and regenerateMonster were the two that
   // missed it. See CairnActor#_onUpdate.
   await actor.update(data, { abNoStatusCard: true });
   await grantContainers(actor, characterData.containers);
@@ -3021,7 +3021,7 @@ const rollNpcName = () =>
  * @param {Object} entry
  * @returns {Promise<Object[]>}
  */
-const buildNpcItems = async (entry) => {
+const buildHirelingItems = async (entry) => {
   const items = await resolveRefs(entry?.gear ?? []);
   return items.map((item) => {
     if (item.type === "weapon" || item.type === "armor") item.system.equipped = true;
@@ -3029,14 +3029,14 @@ const buildNpcItems = async (entry) => {
   });
 };
 
-const npcAbilityData = (abilities) => ({
+const hirelingAbilityData = (abilities) => ({
   STR: { value: abilities.STR, max: abilities.STR },
   DEX: { value: abilities.DEX, max: abilities.DEX },
   WIL: { value: abilities.WIL, max: abilities.WIL },
 });
 
-/** Generate a full NPC from a random 2e statblock. @returns {Promise<Object>} */
-export const generateNpc = async () => {
+/** Generate a full HIRELING from a random 2e career. @returns {Promise<Object>} */
+export const generateHireling = async () => {
   const h = await randomCareer();
   return {
     name: await rollNpcName(),
@@ -3052,28 +3052,28 @@ export const generateNpc = async () => {
     pronouns: ["he/him", "she/her", "they/them"][Math.floor(Math.random() * 3)],
     age: String(await rollAge(Cairn.characterGenerator2e.biography.age)),
     traits: await rollTextItems(Cairn.characterGenerator2e.biography.items),
-    items: await buildNpcItems(h),
+    items: await buildHirelingItems(h),
   };
 };
 
-/** @returns {Object} Foundry create/update data for a generated NPC. */
-const npcToActorData = (h) => ({
+/** @returns {Object} Foundry create/update data for a generated hireling. */
+const hirelingToActorData = (h) => ({
   name: h.name || "NPC",
-  // `npc`, not `hireling`: the two are one type now and the directory button that
-  // makes these says "Generate NPC". A generated one IS for hire, so `forHire`
-  // says so and its day rate shows — that was the `hireling` ROLE until the
-  // collapse (2026-08-01), and it is a boolean beside the rate it gates now.
+  // TYPE npc, ROLE hireling. The `hireling` type is a registered alias kept only
+  // so existing documents keep their ids (see ACTOR_DATA_MODELS); nothing new is
+  // ever minted under it. The role is what says this person is for hire, and
+  // `forHire` rides along because it gates the rate row.
   type: "npc",
   system: {
-    role: "npc",
+    role: "hireling",
     // Off-by-default, stated rather than inherited — see characterToActorData.
     generationEnabled: false,
     forHire: true,
     profession: h.profession ?? "",
     dayRate: h.rate ?? 0,
-    abilities: npcAbilityData(h.abilities),
+    abilities: hirelingAbilityData(h.abilities),
     hp: { value: h.hp, max: h.hp },
-    // The rolled biography (generateNpc): identity fields, kept by every
+    // The rolled biography (generateHireling): identity fields, kept by every
     // partial re-roll and replaced only by a full regenerate.
     pronouns: h.pronouns ?? "",
     age: h.age ?? "",
@@ -3093,8 +3093,8 @@ const npcToActorData = (h) => ({
  * omission).
  * @returns {Promise<CairnActor>}
  */
-export const createNpc = async ({ folder = null } = {}) => {
-  const data = npcToActorData(await generateNpc());
+export const createHireling = async ({ folder = null } = {}) => {
+  const data = hirelingToActorData(await generateHireling());
   const pair = await randomPortraitPair("npc");
   if (pair) {
     data.img = pair.img;
@@ -3113,24 +3113,24 @@ export const createNpc = async ({ folder = null } = {}) => {
  * @param {CairnActor} actor
  * @returns {Promise<CairnActor>}
  */
-export const regenerateNpc = async (actor) => {
-  const h = await generateNpc();
+export const regenerateHireling = async (actor) => {
+  const h = await generateHireling();
   await actor.deleteEmbeddedDocuments("Item", [], { deleteAll: true, render: false, abNoStatusCard: true });
   // createEmbeddedDocuments, never `items` inside the update: the update route
   // creates embedded documents without firing createItem hooks. Same order as
-  // rerollNpcProfession below — create render:false, then one update renders.
+  // rerollHirelingCareer below — create render:false, then one update renders.
   // abNoStatusCard keeps the rebuild out of the change log, like the update's.
   if (h.items?.length) await actor.createEmbeddedDocuments("Item", h.items, { render: false, abNoStatusCard: true });
   await actor.update({
     system: {
-      // Set alongside the rate, never separately: role npc AND forHire gate the
-      // day-rate row between them, so writing a rate without both stores a
+      // Set alongside the rate, never separately: role hireling AND forHire gate
+      // the day-rate row between them, so writing a rate without both stores a
       // number the sheet will never render.
-      role: "npc",
+      role: "hireling",
       forHire: true,
       profession: h.profession,
       dayRate: h.rate,
-      abilities: npcAbilityData(h.abilities),
+      abilities: hirelingAbilityData(h.abilities),
       hp: { value: h.hp, max: h.hp },
       // The biography re-rolls with everything else: a regenerate is a whole
       // new person. The PARTIAL re-rolls below keep all three by OMISSION —
@@ -3140,7 +3140,7 @@ export const regenerateNpc = async (actor) => {
       traits: h.traits,
       critical: false,
       // A whole new person resets the same defensive/status/wealth fields the
-      // create payload (npcToActorData) sets — omitting them left the OLD npc's
+      // create payload (hirelingToActorData) sets — omitting them left the OLD npc's
       // armorOverride, gold, deprived and panicked on the regenerated one.
       armorOverride: null,
       gold: 0,
@@ -3165,9 +3165,9 @@ export const regenerateNpc = async (actor) => {
  * @param {CairnActor} actor
  * @returns {Promise<CairnActor>}
  */
-export const rerollNpcProfession = async (actor) => {
+export const rerollHirelingCareer = async (actor) => {
   const h = await randomCareer(actor.system.profession);
-  const items = await buildNpcItems(h);
+  const items = await buildHirelingItems(h);
   const stale = actor.items
     .filter((i) => i.getFlag(FLAG_SCOPE, "grantSource") === "profession")
     .map((i) => i.id);
@@ -3175,17 +3175,17 @@ export const rerollNpcProfession = async (actor) => {
   if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false, abNoStatusCard: true });
   await actor.update({
     system: {
-      // See regenerateNpc: the pair travels with the rate it gates.
-      role: "npc",
+      // See regenerateHireling: the pair travels with the rate it gates.
+      role: "hireling",
       forHire: true,
       profession: h?.name ?? "",
       dayRate: h?.rate ?? 0,
-      abilities: npcAbilityData(h?.abilities ?? { STR: 10, DEX: 10, WIL: 10 }),
+      abilities: hirelingAbilityData(h?.abilities ?? { STR: 10, DEX: 10, WIL: 10 }),
       hp: { value: h?.hp ?? 6, max: h?.hp ?? 6 },
       critical: false,
     },
   }, {
-    // Same as regenerateNpc: a re-rolled career is a new statblock, not a
+    // Same as regenerateHireling: a re-rolled career is a new statblock, not a
     // recovery, so the cleared `critical` stays out of chat.
     abNoStatusCard: true,
   });
@@ -3228,5 +3228,178 @@ export const rerollNpcFaction = async (actor) => {
   const { results } = await table.roll();
   const raw = resultText(results[0]).trim();
   if (raw) await actor.update({ "system.faction": t("table.result", raw) });
+  return actor;
+};
+
+
+/* ==========================================================================
+ * NPCs — the people the party MEETS (2026-08-20)
+ *
+ * The other half of the hireling/npc split. A hireling is a statblock with a
+ * day rate; an NPC is somebody: a Background off the Warden's Guide table, and
+ * four traits — Quirk, Goal, Virtue, Vice — off that book's NPC tables, which
+ * have shipped in `warden-npcs` all along with nothing reading them.
+ *
+ * Two deliberate absences, and both are the point rather than an omission:
+ *
+ *   - NO GEAR. An NPC arrives with an empty inventory. Slots are NOT written
+ *     either, so `calcCurrentMaxSlots` falls through to the Warden's
+ *     `max-equip-slots` setting (ten by default) — writing 10 here would
+ *     override a Warden who chose eight, to say the thing their setting
+ *     already says.
+ *   - NO ROLLED STATS. Abilities and HP take the schema defaults (10/10/10,
+ *     6 HP). The Warden's Guide gives NPCs no stat line, and a generator that
+ *     invented one would be making up rules — the house position everywhere
+ *     else in this system. A Warden fills them in if the innkeeper ends up in
+ *     a fight.
+ *
+ * Faction is likewise not rolled, matching hirelings: it stays the sheet's own
+ * die, because a campaign's factions are the Warden's to hand out.
+ * ======================================================================== */
+
+/**
+ * The six APPEARANCE traits of the 2e biography, without virtue and vice.
+ *
+ * An NPC shows all ten trait rows, but its Virtue and Vice come off the
+ * Warden's Guide NPC lists rather than tables-2e — same stored keys, different
+ * source. Derived from the 2e config by subtraction rather than written out
+ * again, so a table re-pointed there reaches NPCs too and the two lists cannot
+ * drift.
+ * @returns {Object<String,String>} key -> "pack;Table Name"
+ */
+const appearanceTables = () => {
+  const all = CONFIG.Cairn?.characterGenerator2e?.biography?.items ?? {};
+  return Object.fromEntries(Object.entries(all).filter(([k]) => !["virtue", "vice"].includes(k)));
+};
+
+/**
+ * Roll an NPC's ten traits: the six appearance ones from tables-2e, then the
+ * four NPC ones. Order matters — the NPC tables are second, so their virtue and
+ * vice WIN over the 2e pair if `appearanceTables` ever stops filtering them out.
+ * @returns {Promise<Object<String,String>>}
+ */
+const rollNpcTraits = async () => ({
+  ...(await rollTextItems(appearanceTables())),
+  ...(await rollTextItems(CONFIG.Cairn?.npcGenerator?.traits ?? {})),
+});
+
+/** One Background off the Warden's Guide table, or "" when it is missing. */
+const rollNpcBackground = async () => {
+  const [packName, tableName] = compendiumInfoFromString(CONFIG.Cairn?.npcGenerator?.background ?? "");
+  if (!packName) return "";
+  return drawTableText(packName, tableName);
+};
+
+/** Generate a full NPC person. @returns {Promise<Object>} */
+export const generateNpc = async () => ({
+  name: await rollNpcName(),
+  background: await rollNpcBackground(),
+  // Same three paths a hireling's biography uses, so the two cannot diverge on
+  // anything that is not the point of the split: rollAge honours the Warden's
+  // min/max age settings, pronouns are a uniform pick (a generated stranger
+  // needs an answer on arrival; a player states their own).
+  pronouns: ["he/him", "she/her", "they/them"][Math.floor(Math.random() * 3)],
+  age: String(await rollAge(Cairn.characterGenerator2e.biography.age)),
+  traits: await rollNpcTraits(),
+});
+
+/** @returns {Object} Foundry create/update data for a generated NPC. */
+const npcToActorData = (n) => ({
+  name: n.name || "NPC",
+  type: "npc",
+  system: {
+    role: "npc",
+    // Off-by-default, stated rather than inherited — see characterToActorData.
+    generationEnabled: false,
+    background: n.background ?? "",
+    pronouns: n.pronouns ?? "",
+    age: n.age ?? "",
+    traits: n.traits ?? {},
+    gold: 0,
+    deprived: false,
+    panicked: false,
+    critical: false,
+    armorOverride: null,
+  },
+  // Stated, and empty. `items: []` rather than omitting the key so the intent
+  // survives a reader wondering whether gear was forgotten.
+  items: [],
+});
+
+/**
+ * Create a fully-generated NPC actor with a random portrait + paired token
+ * (assigned on creation only, like a player character; re-rolls preserve it by
+ * omission).
+ * @returns {Promise<CairnActor>}
+ */
+export const createNpc = async ({ folder = null } = {}) => {
+  const data = npcToActorData(await generateNpc());
+  const pair = await randomPortraitPair("npc");
+  if (pair) {
+    data.img = pair.img;
+    data.prototypeToken = { ...(data.prototypeToken ?? {}), texture: { src: pair.token } };
+  }
+  // Folder threaded from the createDialog switchboard (2026-08-02).
+  if (folder) data.folder = folder;
+  return CairnActor.create(data);
+};
+
+/**
+ * Full re-roll of an existing NPC: a new Background, a new set of traits and a
+ * new pronouns/age — a whole new person. Keeps the name, portrait and free-form
+ * notes by OMISSION, exactly as regenerateHireling does.
+ *
+ * Items are NOT touched, which is the one place this differs from its hireling
+ * twin. A hireling's gear IS its career, so a regenerate replaces it; an NPC's
+ * gear was never granted by anything, so whatever a Warden put on this actor is
+ * theirs and a re-rolled Background has no claim on it.
+ * @param {CairnActor} actor
+ * @returns {Promise<CairnActor>}
+ */
+export const regenerateNpc = async (actor) => {
+  const n = await generateNpc();
+  await actor.update({
+    system: {
+      role: "npc",
+      background: n.background,
+      pronouns: n.pronouns,
+      age: n.age,
+      traits: n.traits,
+      critical: false,
+      // The same defensive/status/wealth reset regenerateHireling does: a whole
+      // new person must not inherit the last one's armorOverride or panic.
+      armorOverride: null,
+      gold: 0,
+      deprived: false,
+      panicked: false,
+    },
+  }, {
+    // Regenerating is REPLACING this person, not healing them: clearing
+    // `critical` here must not announce a stabilization in chat.
+    abNoStatusCard: true,
+  });
+  return actor;
+};
+
+/**
+ * Re-roll only an NPC's BACKGROUND, leaving everything else alone — the
+ * Background die, the counterpart of the hireling's Career die. Unlike that
+ * one it changes nothing else: a hireling's career carries its statblock and
+ * its gear, an NPC's background carries one word.
+ *
+ * Avoids returning the current value while the table holds anything else, so
+ * the die always visibly does something.
+ * @param {CairnActor} actor
+ * @returns {Promise<CairnActor>}
+ */
+export const rerollNpcBackground = async (actor) => {
+  const current = String(actor.system.background ?? "").trim();
+  let rolled = "";
+  for (let i = 0; i < 8; i++) {
+    rolled = await rollNpcBackground();
+    if (rolled && rolled !== current) break;
+  }
+  if (!rolled) return actor;
+  await actor.update({ "system.background": rolled });
   return actor;
 };

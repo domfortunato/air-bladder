@@ -305,22 +305,34 @@ if (!truth?.length) {
 }
 
 /* ---------------------------------------------------------------------------
- * The Hireling scrub must not quietly un-happen.
+ * Dead names that must not come back.
  *
- * The NPC generator was called "hireling" everywhere until 2026-08-01, when the
- * hireling ROLE collapsed into npc + forHire and the identifiers were renamed
- * wholesale (createHireling -> createNpc and friends, module/hirelings-2e.json
- * -> npc-careers-2e.json). A stale branch, an old patch or a copy-paste from
- * the fork can bring one back, and it would still parse -- the import would
- * just resolve to nothing at runtime, or a probe would quietly exercise a
- * function that no longer exists.
+ * This guard was written on 2026-08-01, when the hireling ROLE collapsed into
+ * npc + forHire and every identifier was renamed wholesale. It watched for the
+ * whole family — createHireling, generateHireling, hirelingToActorData and the
+ * rest — because a stale branch or a copy-paste from the fork could bring one
+ * back and it would still PARSE: the import would resolve to nothing at
+ * runtime, or a probe would quietly exercise a function that no longer exists.
+ *
+ * MOST OF THAT LIST LEFT ON 2026-08-20, when the split gave the hireling its
+ * role back and the generator family with it. `createHireling` and friends are
+ * live exports again, and a gate that fails on live code is not a gate, it is
+ * an obstacle — the one thing this repo has repeatedly paid for is a red check
+ * with nothing wrong behind it, because that is what teaches the override
+ * reflex.
+ *
+ * What remains is what is still genuinely dead, and stays dead: the old data
+ * FILE (`hirelings-2e`, now `npc-careers-2e.json`), its reader
+ * (`getHirelings2e`, now `getNpcCareers2e`) and the config key that pointed at
+ * it (`hirelingGenerator`, folded into `npcGenerator`). Those three are what a
+ * stale patch would silently break, and none of them has a legitimate use.
  *
  * Two exemptions, both named rather than implied: this file (it spells the
  * pattern out in order to look for it), and the SRC line of
  * tools/import/npc-careers-2e.mjs -- upstream's file is resources/hirelings.md
  * and their name is not ours to rename.
  * ------------------------------------------------------------------------- */
-const SCRUBBED = /createHireling|regenerateHireling|rerollHireling|hirelingToActorData|generateHireling|getHirelings2e|hirelingGenerator|hirelings-2e/;
+const SCRUBBED = /getHirelings2e|hirelingGenerator|hirelings-2e/;
 const SELF = "tools/dev/ref-audit.mjs";
 const SRC_EXEMPT = "tools/import/npc-careers-2e.mjs";
 const scrubHits = [];

@@ -65,6 +65,28 @@
                 <a class="profession-roll" data-action="rollProfession" title="{{ localize 'CAIRN.RollProfession' }}"><i class="fas fa-dice-d20"></i></a>
                 {{/if}}
                 {{/if}}
+                {{!-- The NPC role's answer to the same question (2026-08-20).
+                      Different FIELD, not a relabelled one: a hireling's Career
+                      is a match key into the 2e careers catalogue (day-rate
+                      autofill, reroll exclusion) while a Background is one word
+                      off the Warden's Guide table, and sharing `profession`
+                      between them would have made every re-role a chance to
+                      autofill a day rate onto somebody who has none.
+
+                      showCareer and showBackground are mutually exclusive, so
+                      the two never render together — one row, one die, and the
+                      die (rollProfession) dispatches on the role. The classes
+                      are the career row's on purpose: css/cairn.css styles
+                      `.profession-input`/`.profession-roll`, and this is the
+                      same control saying a different word. --}}
+                {{#if showBackground}}
+                <span class="background-label">{{ localize 'CAIRN.Background' }}</span>
+                <input class="profession-input" type="text" name="system.background"
+                    value="{{backgroundDisplay}}" placeholder="{{ localize 'CAIRN.Background' }}" />
+                {{#if generationEnabled}}
+                <a class="profession-roll" data-action="rollProfession" title="{{ localize 'CAIRN.RollBackground' }}"><i class="fas fa-dice-d20"></i></a>
+                {{/if}}
+                {{/if}}
                 {{!-- The KIND, labelled "Type" (a label only — the field stays
                       `system.containerClass`, because renaming it is a
                       migration and this is a label): what a

@@ -63,8 +63,13 @@ let failed = false;
 const ok = (m, d = "") => console.log(`  ok    ${m}${d ? `  ${d}` : ""}`);
 const fail = (m, d = "") => { console.error(`  FAIL  ${m}${d ? `  ${d}` : ""}`); failed = true; };
 
-const GM_BUTTONS = 8;
-const PLAYER_BUTTONS = 5;
+// Nine and six since 2026-08-20: the NPC/Hireling split gave each person role
+// its own Generate button. A COUNT rather than a list of labels, deliberately —
+// the labels are i18n keys and a translated world would fail a list compare
+// while the row is perfectly correct; what this leg is for is a button that
+// silently stopped being injected.
+const GM_BUTTONS = 9;
+const PLAYER_BUTTONS = 6;
 
 try {
   // A prior aborted run must not satisfy (or trip) this one's assertions.

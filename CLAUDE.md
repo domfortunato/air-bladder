@@ -76,9 +76,37 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   HIDDEN from the Create Actor dialog since 2026-08-01** (`abHideHirelingType`, the
   inverse of the spellscroll hook) — a registered subtype is always offered, and
   the `container` type proved what happens when a retired one stays on the menu.
-  The matching `hireling` ROLE is gone the same day: being for hire is a
-  `forHire` boolean beside the day rate it gates, so `NPC_ROLES` is five entries
-  and `migrateData` converts every stored "hireling" on read.
+  The matching `hireling` ROLE went the same day and **CAME BACK on 2026-08-20**
+  (user ask). `NPC_ROLES` is SIX entries — `npc`, `hireling`, `monster`,
+  `companion`, `transport`, `container` — because the split finally gave the two
+  people something to differ about: a hireling has a **Career** off the 2e
+  careers catalogue with a day rate, an NPC a **Background** off the Warden's
+  Guide table plus Quirk / Goal / Virtue / Vice off that book's NPC tables
+  (already shipped in `warden-npcs`; only `Name` and `Faction` had a reader
+  before). Two fields, never one relabelled: `profession` and `background`.
+  Three things about this that WILL bite if forgotten:
+  - **`migrateData` no longer converts stored "hireling"** — the key is in the
+    enum again. Putting that conversion back would undo every write
+    `migrateHirelingSplit` makes, on the next read, silently.
+  - **That migration SELECTS, and its siblings cannot.** Nothing rewrites a
+    stored "npc", so `_source` reads it honestly — and selecting is the safety
+    property, because a real NPC stores "npc" once the migration has run. Its
+    marker (`hireling-split`) is the only thing preventing a second pass from
+    converting every genuine NPC in the world.
+  - **The schema initial is `hireling`.** A document that states no role
+    predates the split, and every one of those is a hireling by the same ruling.
+    Consequence for probes: a planted document is born already migrated, so the
+    migration can only be tested through a raw-socket plant (`dev:role-migration`
+    does exactly that).
+  `PERSON_ROLES` is the list to reach for when the question is "is this
+  somebody" — the biography block, the connection line, the auto-portrait. Ask
+  for a role by name only where the two genuinely differ, which is two places:
+  which job field shows, and whether there is a day rate.
+  The biography sentence is **second person for a character, third for both npc
+  roles** (2026-08-20) — one `_wording` call inside `_buildTraitSentence`, which
+  the printed page shares. A Spanish client keeps its translated "Eres…" until a
+  translator adds the `CAIRN.Bio.*Npc` keys; that is the point of
+  `has(key, false)` and must not be "fixed".
   **`container` was a fourth type and is GONE (2026-07-31)** — a container is an
   npc with `role: container`, and leaving the retired model registered meant the
   Create Actor dialog went on offering it (Foundry lists every registered
@@ -94,10 +122,10 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   `journals-glog`, and on 2026-08-10 `journals-2e` and `journals-docs`; this
   count went stale TWICE in one day, both times by the hand that had just
   corrected it — a new pack's commit must carry this line)
-- 26 GM-visible settings in `module/settings.js` (33 `register` calls; `roles-restamped`,
-  `companion-restamped`, `grimoire-keys-stamped`, `connections-migrated`,
-  `custom-portrait-list`, `disabled-backgrounds` and `connections-ui-enabled`
-  are internal, `config: false`;
+- 26 GM-visible settings in `module/settings.js` (34 `register` calls; `roles-restamped`,
+  `companion-restamped`, `hireling-split`, `grimoire-keys-stamped`,
+  `connections-migrated`, `custom-portrait-list`, `disabled-backgrounds` and
+  `connections-ui-enabled` are internal, `config: false`;
   counts have gone stale three times — `allow-player-randomization` outdated them
   (review #13's catch, its third "record claiming what the code does not say"),
   then `enable-glog-magic` rode a topic branch whose cherry-picks never carried
@@ -484,7 +512,7 @@ What belongs here is what those two files do not say:
 
 ## Testing
 
-**`docs/release-testing.md` is the full list — 95 probes (`check:probes` states
+**`docs/release-testing.md` is the full list — 96 probes (`check:probes` states
 the current count), what each covers, and what to run before tagging vs after
 publishing. Keep it in step with `package.json`; a probe not listed there runs
 only when someone remembers it.**

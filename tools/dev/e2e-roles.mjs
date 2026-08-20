@@ -138,7 +138,7 @@ try {
       // generationEnabled seeded TRUE: the schema default flipped to false
       // (2026-08-02) and the faction-die visibility below is exactly what the
       // flag gates — explicit creation data wins over the initial.
-      system: { abilities: { STR: { value: 0, max: 0 }, DEX: { value: 0, max: 0 }, WIL: { value: 0, max: 0 } }, gold: 25, role: "npc", forHire: true, dayRate: 5, generationEnabled: true },
+      system: { abilities: { STR: { value: 0, max: 0 }, DEX: { value: 0, max: 0 }, WIL: { value: 0, max: 0 } }, gold: 25, role: "hireling", forHire: true, dayRate: 5, generationEnabled: true },
     });
     const sheet = a.sheet;
     await sheet.render(true);
@@ -165,7 +165,7 @@ try {
 
     // And back again — the one-way trap.
     const reachable = !!sheet.element.querySelector(".role-select");
-    await pickRole(sheet, "npc");
+    await pickRole(sheet, "hireling");
     const backAgain = read(sheet);
     const storedOff = a.system.role;
     const goldStoredBack = a.system.gold;
@@ -251,7 +251,7 @@ try {
   out.reachable
     ? ok("the role select is still on screen", "outside every block it hides")
     : bad("the role select is still on screen", "TRAPPED — nothing left to pick with");
-  out.storedOff === "npc" && backAgain.hp && backAgain.str && backAgain.dayRate
+  out.storedOff === "hireling" && backAgain.hp && backAgain.str && backAgain.dayRate
     && backAgain.gold && backAgain.faction && out.goldStoredBack === 25
     ? ok("picking NPC back restores stat block + rate + Gold", "25gp intact, Faction back too")
     : bad("picking NPC back restores stat block + rate + Gold", JSON.stringify({ stored: out.storedOff, goldStored: out.goldStoredBack, ...backAgain }));
@@ -378,7 +378,7 @@ try {
     const Cls = CONFIG.Actor.documentClass;
     const mk = (name, system) => Cls.create({ name, type: "npc", system });
     const pc = await Cls.create({ name: "ZZ Roles PC", type: "character" });
-    const h = await mk("ZZ Roles Hireling", { role: "npc", connectedTo: pc.uuid });
+    const h = await mk("ZZ Roles Hireling", { role: "hireling", connectedTo: pc.uuid });
     const m = await mk("ZZ Roles Mount", { role: "mount", containerClass: "horse" });
     const s = await mk("ZZ Roles Sack", { role: "container", containerClass: "sack" });
     const b1 = await mk("ZZ Roles NPC A", { role: "npc" });
@@ -733,7 +733,7 @@ try {
     const pc = await Cls.create({ name: "ZZ Roles Dir PC", type: "character" });
     // BOTH children hang off the PC now — the hireling no longer keeps the
     // sack, because nothing but a character keeps anything.
-    const h = await Cls.create({ name: "ZZ Roles Dir Hireling", type: "npc", system: { role: "npc", connectedTo: pc.uuid } });
+    const h = await Cls.create({ name: "ZZ Roles Dir Hireling", type: "npc", system: { role: "hireling", connectedTo: pc.uuid } });
     const s = await Cls.create({
       name: "ZZ Roles Dir Sack", type: "npc",
       system: { role: "container", containerClass: "sack", connectedTo: pc.uuid, hp: { value: 0, max: 0 }, generationEnabled: false },
@@ -886,7 +886,7 @@ try {
     // most to say.
     const h = await Cls.create({
       name: "ZZ Roles Parked Hire", type: "npc",
-      system: { role: "npc", connectedTo: pc.uuid, dayRate: 5 },
+      system: { role: "hireling", connectedTo: pc.uuid, dayRate: 5 },
     });
     await h.sheet.render(true);
     await sleep(900);

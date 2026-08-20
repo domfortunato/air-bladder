@@ -34,14 +34,33 @@ const fields = foundry.data.fields;
  * two independent booleans could say "for-hire inanimate chest"; one role field
  * cannot express nonsense. Order here is the sheet's pick-list order.
  *
- * **`hireling` was the sixth and is GONE (2026-08-01).** Being for hire is not a
- * different KIND of person, it is a fact about one — which is why the two roles
- * shared a sheet, a stat block, a generator and a career table, and differed only
- * in whether one row rendered. It comes back as `forHire`, a boolean beside the
- * day rate it gates, and the enum keeps its promise that a role says what
- * something IS. Every stored "hireling" is converted by `migrateData` below on
- * read and by the world migration in cairn.js on write; the `hireling` TYPE stays
- * registered (ids are immutable) but is hidden from Create Actor.
+ * **`hireling` IS BACK (2026-08-20), and `npc` now means something else.** It
+ * was retired on 2026-08-01 on the reasoning that being for hire is not a
+ * different KIND of person, only a fact about one — true of the two roles as
+ * they then were, which shared a sheet, a stat block, a generator and a career
+ * table and differed in whether one row rendered. What was missing was the
+ * third thing: an NPC the party MEETS, who has a Background rather than a
+ * Career and whose Quirk, Goal, Virtue and Vice come off the Warden's Guide
+ * NPC tables. Once that exists the two are genuinely different kinds of
+ * person, and the collapse's own argument stops applying.
+ *
+ * So the key is RESTORED rather than invented: `hireling` meant exactly this
+ * before the collapse, and a world that never ran the 2026-08-01 migration
+ * still stores it. Everything that was role `npc` becomes `hireling` — see
+ * `migrateHirelingSplit` in cairn.js — and `npc` is reused for the new role.
+ *
+ * TWO CONSEQUENCES THAT WILL BITE IF FORGOTTEN. The `migrateData` conversion
+ * of stored "hireling" is GONE from below, and its removal is load-bearing:
+ * left in place it would flip every write that migration makes straight back
+ * on the next read. And because nothing rewrites a stored "npc", that value IS
+ * observable in `_source` — unlike "hireling" and "mount", whose migrations
+ * had to be blind. The split migration therefore selects, and MUST: after its
+ * marker is set, a genuine new NPC stores "npc" too.
+ *
+ * `forHire` stays. It is redundant with role `hireling` and is kept anyway —
+ * retiring it is a second migration for nothing a user could see. The
+ * `hireling` TYPE also stays registered (ids are immutable) and stays hidden
+ * from Create Actor.
  *
  * **`mount` EVOLVED into `companion` (2026-08-08, user ruling).** The role was
  * never really about riding — the generator already mapped every one-off
@@ -51,10 +70,22 @@ const fields = foundry.data.fields;
  * migration in cairn.js restamps on write, and the pack YAML was rewritten by
  * its importer in the same commit.
  */
-export const NPC_ROLES = ["npc", "monster", "companion", "transport", "container"];
+export const NPC_ROLES = ["npc", "hireling", "monster", "companion", "transport", "container"];
 
 /** Roles that hide the stat block — what `inanimate` used to mean. */
 export const THING_ROLES = ["transport", "container"];
+
+/**
+ * The roles that are a PERSON: somebody with pronouns, an age, a biography and
+ * a name a player will remember. Two of them since the 2026-08-20 split.
+ *
+ * A list rather than two `||`s at each site, because the sites are many and
+ * they must agree — the biography block, the connection line, the auto-assigned
+ * portrait, the sheet's own `isNpcPerson`. Where the two people genuinely
+ * DIFFER the code asks for the role by name instead, and there are only two
+ * such questions: which job field shows, and whether there is a day rate.
+ */
+export const PERSON_ROLES = ["npc", "hireling"];
 
 /* `KEEPER_ROLES` stood here and is GONE (2026-08-01, the flat graph). It listed
    the roles allowed to keep connections, and the flat rule leaves none: keeping
@@ -66,9 +97,15 @@ export const THING_ROLES = ["transport", "container"];
 /**
  * Derive a role for a document minted before `role` existed, from what it
  * already stores. The mapping is the one settled in docs/npc-roles-plan.md;
- * "everything else" is deliberately `npc`, which means a pre-roles monster
- * IMPORTED into a world derives npc (nothing stored distinguishes it) — the
- * shipped pack sources carry `role: monster` explicitly instead.
+ * "everything else" is deliberately `hireling`, which means a pre-roles monster
+ * IMPORTED into a world derives hireling (nothing stored distinguishes it) —
+ * the shipped pack sources carry `role: monster` explicitly instead.
+ *
+ * That fallthrough answered `npc` until 2026-08-20 and now answers `hireling`,
+ * for the same reason the split migration turns every stored `npc` into one: a
+ * document minted before roles existed predates BOTH of today's person roles,
+ * and the new `npc` — Background, Quirk, Goal — is a thing nobody could have
+ * been. A Warden re-roles the handful that should be.
  */
 export const deriveNpcRole = (src = {}) => {
   // `forHire` is deliberately NOT consulted. It used to come first and return
@@ -82,7 +119,7 @@ export const deriveNpcRole = (src = {}) => {
   const clsRole = containerClassRole(src.containerClass ?? "");
   if (src.inanimate === true) return clsRole === "transport" ? "transport" : "container";
   if (clsRole === "companion") return "companion";
-  return "npc";
+  return "hireling";
 };
 
 /* -------------------------------------------- */
@@ -113,11 +150,24 @@ const optInt = () =>
 const strList = () => new fields.ArrayField(new fields.StringField(), { required: true });
 
 /**
- * The eight 2e descriptive traits (Physique … Vice), one pick-list each on the
- * sheet's Description tab, drawn from the tables-2e tables. Factored out of
- * CharacterData when role-npc PEOPLE got the same biography block (2026-08-01),
- * so the two schemas cannot drift a key apart — the sheet binds
- * `system.traits.<key>` from ONE list of keys either way.
+ * The descriptive traits, one pick-list each on the sheet's Description tab.
+ * Factored out of CharacterData when role-npc PEOPLE got the same biography
+ * block (2026-08-01), so the two schemas cannot drift a key apart — the sheet
+ * binds `system.traits.<key>` from ONE list of keys either way.
+ *
+ * The first eight are 2e's, from the tables-2e tables. `quirk` and `goal`
+ * joined on 2026-08-20 for the new `npc` role, whose four traits come off the
+ * Warden's Guide NPC tables — and TWO of those four are `virtue` and `vice`,
+ * which already existed. Same stored keys, different SOURCE table by role: an
+ * NPC's Virtue is drawn from "Warden: NPC - Virtue", a character's from
+ * tables-2e "Virtue". Nothing about the field changes, so re-roling an actor
+ * never loses the value; the sheet's pick-list already keeps an off-table one
+ * (its `customValue` branch).
+ *
+ * `quirk` and `goal` sit on the SHARED helper, so a character carries two
+ * blank strings it never shows. Deliberate, and the same call as the orphaned
+ * `features`: a schema cannot vary by role, and an unread "" costs nothing
+ * next to two models drifting apart.
  */
 const traits = () => new fields.SchemaField({
   physique: str(),
@@ -128,6 +178,8 @@ const traits = () => new fields.SchemaField({
   clothing: str(),
   virtue: str(),
   vice: str(),
+  quirk: str(),
+  goal: str(),
 });
 
 /**
@@ -268,16 +320,27 @@ class CharacterData extends CairnDataModel {
 }
 
 /**
- * One model for every non-player actor. The `hireling` type was folded into this
+ * One model for every non-player actor. The `hireling` TYPE was folded into this
  * one: a hireling was only ever an NPC you were paying, so it carried a parallel
  * schema and a parallel sheet for the sake of three fields. `profession` and
- * `dayRate` now live here, the day rate showing only when `role: npc` and
- * `forHire` is set (the `hireling` ROLE was retired 2026-08-01 and `migrateData`
- * converts it away; the gate is `role === "npc" && forHire === true`, actor.js:638).
- * `hireling` is NOT migrated away -- it stays registered as an alias of this
- * model (see ACTOR_DATA_MODELS below for why a real retirement would cost every
- * existing hireling its document id); an alias-typed document reads as role
- * hireling regardless of its stored role (CairnActor#npcRole).
+ * `dayRate` live here, the day rate showing only when `role: hireling` and
+ * `forHire` is set (actor.js `showDayRate`). The `hireling` TYPE is NOT migrated
+ * away -- it stays registered as an alias of this model (see ACTOR_DATA_MODELS
+ * below for why a real retirement would cost every existing hireling its
+ * document id); an alias-typed document reads as role hireling regardless of
+ * what it stores (CairnActor#npcRole).
+ *
+ * TWO PEOPLE ROLES since 2026-08-20, and the distinction is which fields they
+ * read rather than which fields exist:
+ *
+ *   - `hireling` — someone the party PAYS. Career (`profession`), For Hire,
+ *     Day Rate, and a statblock rolled from the 2e careers catalogue.
+ *   - `npc` — someone the party MEETS. Background (`background`), no rate, and
+ *     Quirk / Goal / Virtue / Vice off the Warden's Guide NPC tables.
+ *
+ * Both keys are on one schema because a schema cannot vary by role, so an NPC
+ * still STORES a `dayRate` of 0 and a hireling still stores a blank
+ * `background`. Neither is shown, and that is the whole difference.
  *
  * The union is deliberate rather than minimal: the 205 shipped monsters are `npc`
  * documents and 204 of them carry `system.description`, so the merged sheet keeps
@@ -288,6 +351,11 @@ class NpcData extends CairnDataModel {
   static defineSchema() {
     return {
       ...vitals(),
+      // Role `npc`'s job, labelled "Background" on the sheet and rolled from
+      // "Warden: NPC - Background". The field is older than that use and was
+      // read by nothing on the npc side; role `hireling` keeps its own answer in
+      // `profession` (labelled "Career"), so the two never contend for a key and
+      // re-roling an actor loses neither.
       background: str(),
       description: html(),
       biography: html(),
@@ -307,27 +375,30 @@ class NpcData extends CairnDataModel {
       // --- folded in from the retired `hireling` type ---
       // OFF by default since 2026-08-02, same reasoning as CharacterData's.
       generationEnabled: bool(),
-      // Labelled "Career" on the sheet; the stored key stays `profession` so
-      // migrated hirelings keep their value without a rename pass.
+      // Role `hireling`'s job, labelled "Career" on the sheet. The stored key
+      // stays `profession` so no rename pass is ever needed, and role `npc`
+      // answers the same question in `background` instead.
       profession: str(),
       dayRate: money(0),
-      // Is this person available to hire? The retired `hireling` ROLE, demoted to
-      // the boolean it always was — see NPC_ROLES. Initially TRUE, which is the
-      // asked-for default and also what makes the collapse lossless: a world
+      // Is this person available to hire? Initially TRUE, which is the asked-for
+      // default and also what made the 2026-08-01 collapse lossless: a world
       // whose hirelings had `forHire` deleted by the 2026-07-31 role migration
       // reads the initial and lands back where it started.
       //
-      // It gates the day-rate row (with role npc), nothing else. It is NOT the
-      // pre-roles `forHire`: that one also decided the ROLE, which is exactly the
-      // overloading the roles work took apart, and `deriveNpcRole` is the only
-      // thing that still reads it that way — on a pre-roles source, once.
+      // REDUNDANT since the 2026-08-20 split — role `hireling` already says
+      // "this person is for hire" — and kept anyway. Retiring it would be a
+      // second migration for nothing a Warden could see, and it still carries
+      // one real distinction: a hireling the party has already engaged, whom a
+      // Warden unticks to take off the market without changing what they are.
+      // It gates the day-rate row (with role hireling) and nothing else.
       forHire: bool(true),
       // --- a person is a person (2026-08-01) ---------------------------------
       // An npc with role `npc` is an innkeeper, a rival captain, a hired guard —
       // and the PC sheet gives a person pronouns, an age, eight descriptive
       // traits and scars, while this model gave them none of that, purely
       // because the sheet grew out of the old hireling sheet. These close the
-      // gap. Only role npc ever SHOWS them (the sheet's showBiography gate);
+      // gap. Only the two PERSON roles ever SHOW them (the sheet's
+      // showBiography gate, which is npc + hireling since 2026-08-20);
       // they live on the shared model because a schema cannot vary by role, and
       // an unread "" on a crate costs nothing. `faction` is the one field a PC
       // has no counterpart of: whose interests this person serves. All plain
@@ -342,7 +413,14 @@ class NpcData extends CairnDataModel {
       // What this actor IS to the party — the one discriminator (NPC_ROLES
       // above). Replaces `forHire` and `inanimate`, both of which migrateData
       // below still reads so pre-roles documents derive the right value.
-      role: new fields.StringField({ required: true, blank: false, initial: "npc", choices: NPC_ROLES }),
+      //
+      // `initial` is HIRELING, not npc (2026-08-20). A document that states no
+      // role at all reaches this from somewhere older than the split, and every
+      // such document is a hireling by the same ruling `deriveNpcRole` and the
+      // split migration follow. Making it `npc` would silently hand the NEW
+      // role — Background, Quirk, Goal, no day rate — to legacy people who were
+      // paid by the day.
+      role: new fields.StringField({ required: true, blank: false, initial: "hireling", choices: NPC_ROLES }),
       deprived: bool(),
       panicked: bool(),
       critical: bool(),
@@ -447,22 +525,22 @@ class NpcData extends CairnDataModel {
     // (the Burial Wagon pack doc) states slots outright, and the Bonekeeper
     // grant's spec.slots wins regardless.
     if (source && source.containerClass === "funeralwagon") source.containerClass = "wagon";
-    // The hireling-role collapse (2026-08-01), and it MUST ship in the same
-    // commit as the shrunk NPC_ROLES: `migrateData` runs BEFORE choices
-    // validation (common/data/fields.mjs:234 via common/abstract/data.mjs:77-81),
-    // so this is what stops every stored "hireling" failing the enum on load.
-    //
-    // Guarded on the LITERAL value, never on absence — the docblock above is the
-    // whole reason: this also runs on update diffs, where "absent" says nothing.
-    // A literal `role: "hireling"` is unambiguous whichever it is, and converting
-    // an attempted write is the right answer for one too.
-    if (source && source.role === "hireling") {
-      source.role = "npc";
-      // Only when nothing has said otherwise. The role WAS the statement "for
-      // hire", so this is a rename, not an assumption — but an explicit false
-      // arriving alongside it is a caller who means it.
-      if (source.forHire === undefined) source.forHire = true;
-    }
+    /* The hireling→npc conversion stood HERE from 2026-08-01 and is DELETED
+       (2026-08-20, the split). Removing it is not tidying, and re-adding it
+       would be the single most destructive edit available in this file:
+       `migrateHirelingSplit` writes `role: "hireling"` onto every person in the
+       world, and a shim converting that back on read would undo all of it while
+       the migration reported itself done and set its marker. The bug would be
+       invisible — the sheet would show what the shim said, not what the
+       database held.
+
+       Nothing replaces it, and nothing needs to: "hireling" is a valid member
+       of NPC_ROLES again, so a world that never ran the 2026-08-01 migration
+       and still stores it now loads correctly with no conversion at all. That
+       is the whole reason the key was restored rather than a new one invented.
+
+       The mount→companion shim below is NOT the same case and stays: "mount"
+       was never re-admitted to the enum. */
     // The mount→companion evolution (2026-08-08), same shape and same
     // constraints as the hireling shim above: it MUST ship in the commit that
     // renames the enum entry (migrateData runs BEFORE choices validation, so

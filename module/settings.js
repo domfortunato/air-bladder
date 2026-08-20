@@ -32,11 +32,17 @@ export const SETTING_KEYS = [
   // disabled-backgrounds is Warden CONFIGURATION (which 2e backgrounds are
   // switched off), not a migration marker — it must ride the namespace
   // migration like custom-portrait-list does. It was registered without being
-  // listed here (review #9); the four completion markers (roles-restamped,
-  // companion-restamped, grimoire-keys-stamped, connections-migrated) stay
-  // unlisted on purpose, because losing one only re-runs an idempotent
-  // migration — the grimoire stamp skips anything already keyed, so a second
-  // pass writes nothing.
+  // listed here (review #9); the five completion markers (roles-restamped,
+  // companion-restamped, hireling-split, grimoire-keys-stamped,
+  // connections-migrated) stay unlisted on purpose. Every one of them dates
+  // from AFTER the namespace move, so there is no "cairn.<key>" value for this
+  // list to carry across — listing them would iterate keys that cannot exist.
+  //
+  // The old wording here said the reason was that losing a marker only re-runs
+  // an idempotent migration. True of the other four — the grimoire stamp skips
+  // anything already keyed — and NOT true of `hireling-split`, which selects on
+  // a stored `role: "npc"` that a real NPC also carries once it has run. Do not
+  // reason about any new marker from that sentence; reason about the migration.
   "custom-portrait-folder", "custom-portrait-list", "min-age", "max-age",
   "disabled-backgrounds",
   // Internal but CONFIGURATION, not a marker: the parked-Connections flag
@@ -194,6 +200,24 @@ export const registerSettings = () => {
   // `roles-restamped`, which is long true in every existing world and would
   // skip exactly the population this exists for.
   game.settings.register(SETTINGS_NS, "companion-restamped", {
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false,
+  });
+
+  // Completion marker for the NPC/Hireling split (2026-08-20): every person who
+  // was role `npc` becomes role `hireling`, because that is what role `npc`
+  // MEANT until this release and the key is being reused for the new NPC.
+  //
+  // MARKER-GATED AND IT MUST BE, more strictly than either sibling above. Those
+  // two are blind restamps whose "before" value is unobservable, so re-running
+  // them is harmless. This one selects on a stored `role: "npc"` — and once it
+  // has run, a genuine NEW npc stores exactly that. A second pass would convert
+  // every real NPC in the world into a hireling, silently. The marker is the
+  // only thing standing between those two states, so it is set only after the
+  // writes land: a failed run must retry, never record itself done.
+  game.settings.register(SETTINGS_NS, "hireling-split", {
     scope: "world",
     config: false,
     type: Boolean,
