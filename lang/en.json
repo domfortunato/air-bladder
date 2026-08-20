@@ -335,6 +335,7 @@
   "CAIRN.ItemRemoveQuantity": "Remove",
   "CAIRN.ItemUnequip": "Unequip",
   "CAIRN.Items": "Items",
+  "CAIRN.KWImport.AgeLowered": "Age lowered from {from} to {to}, the Warden's maximum age.",
   "CAIRN.KWImport.AgeRaised": "Age raised from {from} to {to}, the Warden's minimum age.",
   "CAIRN.KWImport.BadJson": "That file isn't valid JSON — pick a Kettlewright character export.",
   "CAIRN.KWImport.BadShape": "That JSON doesn't look like a Kettlewright character export.",
@@ -677,6 +678,10 @@
     "GroupGeneral": "General Settings",
     "GroupGeneration": "Character Generation",
     "GroupInventory": "Inventory & Encumbrance",
+    "MaxAge": {
+      "hint": "A ceiling on every generated character's age, applied wherever the age die is rolled. Generation and the sheet's age re-roll never produce an age above this. Default 50 (the highest a 2d20 + 10 roll can give), which switches the ceiling off. If it is set below the minimum age, the minimum wins.",
+      "label": "Maximum character age (ceiling for the 2d20 + 10 roll)"
+    },
     "MaxEquipSlots": {
       "hint": "Maximum equipment slots for player characters, used for encumbrance tracking.",
       "label": "Maximum inventory slots per character"

@@ -94,7 +94,7 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   `journals-glog`, and on 2026-08-10 `journals-2e` and `journals-docs`; this
   count went stale TWICE in one day, both times by the hand that had just
   corrected it — a new pack's commit must carry this line)
-- 25 GM-visible settings in `module/settings.js` (32 `register` calls; `roles-restamped`,
+- 26 GM-visible settings in `module/settings.js` (33 `register` calls; `roles-restamped`,
   `companion-restamped`, `grimoire-keys-stamped`, `connections-migrated`,
   `custom-portrait-list`, `disabled-backgrounds` and `connections-ui-enabled`
   are internal, `config: false`;
@@ -102,7 +102,7 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   (review #13's catch, its third "record claiming what the code does not say"),
   then `enable-glog-magic` rode a topic branch whose cherry-picks never carried
   this line, caught only when the branch merged — so each settings change updates
-  them in its own commit, this one dated 2026-08-17 for `show-omens`) —
+  them in its own commit, this one dated 2026-08-19 for `max-age`) —
   **registration ORDER is load-bearing**, because Foundry's group headers are
   positional — GATED since 2026-08-19 (review #16): `SETTING_GROUPS` in
   `settings.js` declares the three groups, their anchors and every visible key

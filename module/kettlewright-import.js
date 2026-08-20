@@ -1,6 +1,6 @@
 import { resolveGearItem, buildGearItem } from "./gear.js";
 import { resultText } from "./compendium.js";
-import { getBackgroundsFor, withGrantSource, randomPortraitPair, kettlewrightPortraitPath, FLAG_SCOPE } from "./character-generator.js";
+import { getBackgroundsFor, withGrantSource, randomPortraitPair, kettlewrightPortraitPath, clampAge, FLAG_SCOPE } from "./character-generator.js";
 import { SETTINGS_NS } from "./settings.js";
 import { CairnActor } from "./actor/actor.js";
 import { FATIGUE_NAME } from "./item/item.js";
@@ -442,15 +442,27 @@ export const kettlewrightToActorData = async (json) => {
     const parsed = parseTraitSentence(traitText);
     traits = { ...parsed.traits, ...(await resolveVirtueVice(parsed.pair)) };
     age = parsed.age;
-    // The Warden's "min-age" floor applies to an imported character too. Generation
-    // enforces it in rollAge; an import bypasses that entirely, so a Kettlewright
-    // character could walk in younger than the setting allows. An age we could not
-    // parse is left blank rather than invented — unknown is not the same as young.
+    // The Warden's age BOUNDS apply to an imported character too. Generation
+    // enforces them in rollAge; an import bypasses that entirely, so a
+    // Kettlewright character could walk in younger — or, since issue #21, older —
+    // than the settings allow. An age we could not parse is left blank rather
+    // than invented — unknown is not the same as young.
+    //
+    // clampAge, not a second transcription of the rule: the floor was written out
+    // by hand here once already, and adding a ceiling the same way would be two
+    // copies of a bound that must agree with generation. It also carries the
+    // floor-wins ruling for free.
     const floor = Number(game.settings.get(SETTINGS_NS, "min-age")) || 0;
+    const ceiling = Number(game.settings.get(SETTINGS_NS, "max-age")) || 0;
     const parsedAge = parseInt(age, 10);
-    if (Number.isFinite(parsedAge) && parsedAge < floor) {
-      report.ageRaised = { from: parsedAge, to: floor };
-      age = String(floor);
+    if (Number.isFinite(parsedAge)) {
+      const held = clampAge(parsedAge, floor, ceiling);
+      // Which way it moved is what the Warden is told: raised reads as "your
+      // minimum", lowered as "your maximum", and reporting the wrong one on a
+      // conflict would name a setting that did not decide it.
+      if (held > parsedAge) report.ageRaised = { from: parsedAge, to: held };
+      else if (held < parsedAge) report.ageLowered = { from: parsedAge, to: held };
+      if (held !== parsedAge) age = String(held);
     }
     report.traits = Object.keys(traits).length;
     report.age = age;
@@ -615,9 +627,14 @@ const showImportSummary = async (actor, report) => {
   } else if (report.traits) {
     parts.push(`<p class="kwi-ok"><i class="fas fa-check"></i> ${F("CAIRN.KWImport.TraitsMapped", { count: report.traits, age: esc(report.age) || "—" })}</p>`);
   }
-  // Say so when the age on the sheet is not the age in the export.
+  // Say so when the age on the sheet is not the age in the export. Two keys, not
+  // one with a direction placeholder: each names the SETTING that moved it, and a
+  // translator needs both sentences whole.
   if (report.ageRaised) {
     parts.push(`<p class="kwi-warn"><i class="fas fa-circle-exclamation"></i> ${F("CAIRN.KWImport.AgeRaised", report.ageRaised)}</p>`);
+  }
+  if (report.ageLowered) {
+    parts.push(`<p class="kwi-warn"><i class="fas fa-circle-exclamation"></i> ${F("CAIRN.KWImport.AgeLowered", report.ageLowered)}</p>`);
   }
 
   const dialog = new foundry.applications.api.DialogV2({

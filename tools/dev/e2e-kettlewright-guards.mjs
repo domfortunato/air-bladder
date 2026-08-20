@@ -11,6 +11,11 @@
  *      Generation enforces it in rollAge; an import goes nowhere near that, so
  *      without this a Kettlewright character walks in younger than allowed.
  *
+ *   4. And the "max-age" ceiling (issue #21) the same way, reported with its own
+ *      string — an age moved DOWN names the maximum, not the minimum. Both bounds
+ *      go through the shared clampAge, so this leg is also what catches the
+ *      importer drifting from generation.
+ *
  *   npm run dev:kw-guards        (dev world on :30000, which runs the working tree)
  *
  * All three go through the real button — including the options dialog that now
@@ -28,6 +33,10 @@ const fixture = path.join(ROOT, "tools", "dev", "fixtures", "kettlewright-solene
 const base = JSON.parse(fs.readFileSync(fixture, "utf8"));
 const FIXTURE_AGE = 36; // as written in the export's traits sentence
 const FLOOR = FIXTURE_AGE + 4;
+// The mirror of FLOOR, for the max-age ceiling (issue #21). Derived from the
+// fixture rather than written as a literal, so a fixture whose age changes moves
+// both bounds with it instead of silently making one of them not bind.
+const CEILING = FIXTURE_AGE - 4;
 
 // A background no world can have. Derived from the real export so everything else
 // about it stays valid — only the one field under test changes.
@@ -131,6 +140,28 @@ await withSettings(page, async () => {
     return { age: a?.system?.age ?? "", summary: [...document.querySelectorAll(".kwi-summary")].pop()?.textContent ?? "" };
   });
 });
+/* 4. max-age ceiling (issue #21) ----------------------------------------------
+ * The same shape one bound along. Solene is deleted first so the second import
+ * lands a FRESH actor — re-importing over the existing one would read her
+ * already-floored age back and the leg would pass on the previous run's work. */
+await page.evaluate(async () => { await game.actors.getName("Solene")?.delete(); });
+
+let madeSoleneCapped, capped;
+await withSettings(page, async () => {
+  file = fixture;
+  await page.evaluate(async (c) => {
+    // Floor switched off: this leg is about the ceiling, and a floor above the
+    // ceiling would make the RULING (floor wins) decide it instead.
+    await game.settings.set("air-bladder", "min-age", 5);
+    await game.settings.set("air-bladder", "max-age", c);
+  }, CEILING);
+  madeSoleneCapped = await importAndWait("Solene");
+  capped = await page.evaluate(() => {
+    const a = game.actors.getName("Solene");
+    return { age: a?.system?.age ?? "", summary: [...document.querySelectorAll(".kwi-summary")].pop()?.textContent ?? "" };
+  });
+});
+
 await page.evaluate(async () => {
   await game.actors.getName("Solene")?.delete();
   for (const a of game.actors.filter((a) => a.name === "Guardrail")) await a.delete();
@@ -166,6 +197,13 @@ console.log("\nmin-age floor");
 check("imported", madeSolene, `floor=${FLOOR}, export says ${FIXTURE_AGE}`);
 check("age raised", aged.age === String(FLOOR), `age=${JSON.stringify(aged.age)}`);
 check("summary says so", /\b36\b[\s\S]*\b40\b|raised/i.test(aged.summary), aged.summary ? "summary rendered" : "no summary");
+
+console.log("\nmax-age ceiling");
+check("imported", madeSoleneCapped, `ceiling=${CEILING}, export says ${FIXTURE_AGE}`);
+check("age lowered", capped.age === String(CEILING), `age=${JSON.stringify(capped.age)}`);
+// "lowered", not just the numbers: the two directions have their own strings, and
+// reporting the RAISED one here would name a setting that did not decide it.
+check("summary says so", /lowered/i.test(capped.summary), capped.summary ? "summary rendered" : "no summary");
 
 // The refusal itself is an ui.notifications.error, which Foundry also writes to the
 // console — that one is the feature working, not a fault.

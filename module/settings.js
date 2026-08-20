@@ -37,7 +37,7 @@ export const SETTING_KEYS = [
   // unlisted on purpose, because losing one only re-runs an idempotent
   // migration — the grimoire stamp skips anything already keyed, so a second
   // pass writes nothing.
-  "custom-portrait-folder", "custom-portrait-list", "min-age",
+  "custom-portrait-folder", "custom-portrait-list", "min-age", "max-age",
   "disabled-backgrounds",
   // Internal but CONFIGURATION, not a marker: the parked-Connections flag
   // (2026-08-09) must ride the namespace migration — losing it would re-park
@@ -143,7 +143,7 @@ export const SETTING_GROUPS = [
       "content-source-2e", "content-source-custom", "content-source-barebones",
       "barebones-failed-career", "show-generate-header", "allow-player-generate",
       "allow-player-randomization", "show-generation-rolls",
-      "custom-portrait-folder", "min-age",
+      "custom-portrait-folder", "min-age", "max-age",
     ],
   },
   {
@@ -713,6 +713,33 @@ export const registerSettings = () => {
     config: true,
     type: Number,
     default: 21,
+    requiresReload: false,
+  });
+
+  // The ceiling to the floor above (issue #21, fsmalecho: a Warden could set a
+  // minimum age but not a maximum). Same choke point, same scope, same group --
+  // it belongs beside min-age, and its position here is what puts it there,
+  // because the grouping is positional (see SETTING_GROUPS).
+  //
+  // DEFAULT 50 because 2d20 + 10 tops out at 50: the ceiling ships switched off
+  // and adding it aged nobody's existing characters. That mirrors min-age's off
+  // switch (below 12) rather than inventing a sentinel like 0-means-none.
+  //
+  // The FLOOR WINS if a Warden sets this below min-age -- clampAge in
+  // character-generator.js holds that rule, and holds it in ONE place so the
+  // Kettlewright importer cannot drift from generation.
+  //
+  // No onChange fan and no reload: this is read at ROLL time, not in
+  // _prepareContext, so unlike the display toggles there is no open sheet
+  // showing a stale value. It bounds the age DIE only -- the sheet's age field
+  // is free text and always has been, for the floor as much as for this.
+  game.settings.register(SETTINGS_NS, "max-age", {
+    name: "CAIRN.Settings.MaxAge.label",
+    hint: "CAIRN.Settings.MaxAge.hint",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 50,
     requiresReload: false,
   });
 

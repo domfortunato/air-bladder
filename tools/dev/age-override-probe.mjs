@@ -9,6 +9,11 @@
  *      (no on/off toggle).
  *   4. rollAge() ALWAYS floors the roll at min-age — both generation and the sheet
  *      re-roll go through it — and a floor below 12 never binds (the off switch).
+ *   5. rollAge() also CEILINGS the roll at max-age (issue #21), with the same
+ *      off-by-an-unreachable-value shape: 50 is the highest 2d20 + 10 can give, so
+ *      the shipped default never binds and adding it aged nobody's characters.
+ *      And the RULING: a ceiling set BELOW the floor loses — the age comes out at
+ *      the floor, never beneath the minimum the same Warden set.
  *
  * This probe drives `min-age` to 99 and MUST put it back. It once did not: it
  * threw between the two (`sheet._onRollAge` had gone in the AppV2 port) and its
@@ -38,7 +43,23 @@ try {
     // --- 4. rollAge always floors; a floor below 12 is the off switch --------
     const gen = await import("/systems/air-bladder/module/character-generator.js");
     const prevMin = game.settings.get(NS, "min-age");
+    const prevMax = game.settings.get(NS, "max-age");
     out.hasEnabledSetting = game.settings.settings.has(`${NS}.min-age-enabled`);
+    out.hasMaxAge = game.settings.settings.has(`${NS}.max-age`);
+    out.maxDefault = game.settings.settings.get(`${NS}.max-age`)?.default ?? null;
+
+    // ESTABLISH the ceiling OFF before testing the FLOOR, and off means 0 — a
+    // blank Number field, which `|| 0` in clampAge reads as "no ceiling".
+    //
+    // Not merely because a world carrying a low max-age would cap the 99-floor
+    // rolls and red them for a reason that has nothing to do with the floor
+    // (the allow-player-generate lesson, one setting along). Also because 50
+    // would make these legs pass only BY the floor-wins ruling — with min 99 and
+    // a ceiling of 50 the age is 99 solely because the ceiling is raised to meet
+    // the floor. That coupling was real and a negative control found it: breaking
+    // the ruling redded a FLOOR leg. A leg should fail for its own reason, so
+    // the floor is tested with no ceiling at all and the ruling has its own leg.
+    await game.settings.set(NS, "max-age", 0);
 
     // A floor below the lowest 2d20 + 10 roll (12) never binds -> natural spread.
     await game.settings.set(NS, "min-age", 5);
@@ -80,7 +101,47 @@ try {
     }
     out.sheetAge = Number(actor.system.age);
 
+    // --- 5. the ceiling (issue #21) ---------------------------------------
+    // Floor switched off first: these legs are about max-age alone.
+    await game.settings.set(NS, "min-age", 5);
+
+    // 50 is the top of 2d20 + 10, so it never binds. This is the shipped
+    // default, and the leg is the proof that adding a ceiling aged nobody.
+    await game.settings.set(NS, "max-age", 50);
+    const ceilOff = [];
+    for (let i = 0; i < 40; i++) ceilOff.push(await gen.rollAge("2d20 + 10"));
+    out.ceilOffMin = Math.min(...ceilOff);
+    out.ceilOffMax = Math.max(...ceilOff);
+
+    await game.settings.set(NS, "max-age", 15);
+    const ceilOn = [];
+    for (let i = 0; i < 40; i++) ceilOn.push(await gen.rollAge("2d20 + 10"));
+    out.ceilOnMax = Math.max(...ceilOn);
+    out.ceilOnMin = Math.min(...ceilOn);
+
+    // THE RULING: a ceiling under the floor loses, exactly.
+    await game.settings.set(NS, "min-age", 30);
+    await game.settings.set(NS, "max-age", 20);
+    const conflict = [];
+    for (let i = 0; i < 40; i++) conflict.push(await gen.rollAge("2d20 + 10"));
+    out.conflictMin = Math.min(...conflict);
+    out.conflictMax = Math.max(...conflict);
+
+    // The SHEET re-roll obeys the ceiling too, driven by the same real click on
+    // the rendered control rather than by calling the handler.
+    await game.settings.set(NS, "min-age", 5);
+    await game.settings.set(NS, "max-age", 14);
+    const beforeCeil = Number(actor.system.age);
+    const ageBtn2 = actor.sheet.element?.querySelector?.('[data-action="rollAge"]');
+    out.ageBtn2Found = !!ageBtn2;
+    ageBtn2?.click();
+    for (let i = 0; i < 30 && Number(actor.system.age) === beforeCeil; i++) {
+      await new Promise((res) => setTimeout(res, 100));
+    }
+    out.sheetCeilAge = Number(actor.system.age);
+
     await game.settings.set(NS, "min-age", prevMin);
+    await game.settings.set(NS, "max-age", prevMax);
 
     // --- 1/2/3. render the settings config and read the air-bladder section ---
     const SC = foundry.applications?.settings?.SettingsConfig ?? globalThis.SettingsConfig;
@@ -107,6 +168,9 @@ try {
       return null;
     };
     out.minAgeGroup = groupOf("min-age");
+    out.maxAgeGroup = groupOf("max-age");
+    const maxInput = root.querySelector(`[name="${NS}.max-age"]`);
+    out.maxAgeInputType = maxInput?.getAttribute("type") ?? maxInput?.tagName?.toLowerCase() ?? null;
     // The min-age number field really is a number input defaulting to 21.
     const minInput = root.querySelector(`[name="${NS}.min-age"]`);
     out.minAgeInputType = minInput?.getAttribute("type") ?? minInput?.tagName?.toLowerCase() ?? null;
@@ -154,6 +218,40 @@ try {
   r.sheetAge >= 99
     ? ok(`the sheet's age re-roll obeyed the override (re-rolled to ${r.sheetAge})`)
     : fail(`the sheet re-roll produced ${r.sheetAge}, below the 99 floor`);
+
+  // 5. the ceiling (issue #21)
+  r.hasMaxAge
+    ? ok("a max-age setting is registered")
+    : fail("no max-age setting is registered — every ceiling leg below is vacuous");
+  r.maxDefault === 50
+    ? ok("max-age ships at 50, the top of 2d20 + 10, so it cannot bind on upgrade")
+    : fail(`max-age default is ${r.maxDefault}, expected 50 — a binding default re-ages existing worlds`);
+  r.maxAgeGroup === "Character Generation"
+    ? ok("the maximum-age setting sits under Character Generation, beside the floor")
+    : fail(`max-age group placement: ${r.maxAgeGroup}`);
+  r.maxAgeInputType === "number"
+    ? ok("the maximum-age value is a number field")
+    : fail(`max-age field type is "${r.maxAgeInputType}", expected number`);
+  r.ceilOffMax > 40 && r.ceilOffMin >= 12
+    ? ok(`ceiling 50 never binds: ages still reach the top (saw ${r.ceilOffMin}..${r.ceilOffMax})`)
+    : fail(`ceiling 50 produced ${r.ceilOffMin}..${r.ceilOffMax} — it is clamping when it must not`);
+  r.ceilOnMax <= 15
+    ? ok(`ceiling 15: every rolled age <= 15 (highest ${r.ceilOnMax})`)
+    : fail(`ceiling 15 let an age of ${r.ceilOnMax} through`);
+  // Not vacuous, and the leg above says why: with the ceiling off the same 40
+  // rolls reached past 40, so a ceiling doing nothing would show that spread here.
+  r.ceilOnMin >= 12
+    ? ok(`...and it did not drag ages below the die's own floor (lowest ${r.ceilOnMin})`)
+    : fail(`ceiling 15 produced ${r.ceilOnMin}, below the lowest roll 2d20 + 10 can give`);
+  r.conflictMin === 30 && r.conflictMax === 30
+    ? ok("THE RULING: max 20 under min 30 yields exactly 30 — the floor wins")
+    : fail(`min 30 / max 20 produced ${r.conflictMin}..${r.conflictMax}, expected a flat 30`);
+  r.ageBtn2Found
+    ? ok("the sheet control is still present for the ceiling leg")
+    : fail("no [data-action=rollAge] control — the ceiling re-roll check proves nothing");
+  r.sheetCeilAge <= 14
+    ? ok(`the sheet's age re-roll obeyed the ceiling (re-rolled to ${r.sheetCeilAge})`)
+    : fail(`the sheet re-roll produced ${r.sheetCeilAge}, above the 14 ceiling`);
 
   await page.evaluate(async (id) => { try { await game.actors.get(id)?.delete(); } catch { /* gone */ } }, r.actorId);
 } catch (e) {

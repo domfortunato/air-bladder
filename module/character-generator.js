@@ -439,18 +439,57 @@ export const rollHitProtection = async (formula) => evaluateFormula(formula);
 export const rollGold = async (formula) => evaluateFormula(formula);
 
 /**
- * Roll an age from the formula (2d20 + 10 by default), then floor it at the
- * "min-age" setting (default 21): the result is the greater of the roll and the
- * floor. Always applied — a Warden who wants no floor sets min-age below 12, the
- * lowest a 2d20 + 10 roll can produce, so it never binds. This is the single
- * choke point for age (generation AND the sheet's age re-roll both go through
- * here), so every character sheet gets the floor.
+ * Hold an age between the Warden's floor and ceiling, floor winning a conflict.
+ *
+ * ONE copy of the rule, exported because the Kettlewright importer applies the
+ * same bounds to an age it PARSED rather than rolled (kettlewright-import.js).
+ * That path already had its own transcription of the floor, and a second copy of
+ * a rule is how the two quietly stop agreeing — the lesson this repo has paid for
+ * in the settings groups, the icon credits and the monster art categories.
+ *
+ * Either bound is off when 0 (or unset), which is what `|| 0` on a Number setting
+ * yields for a Warden who blanked the field.
+ * @param {Number} age @param {Number} floor @param {Number} ceiling
+ * @returns {Number}
+ */
+export const clampAge = (age, floor, ceiling) => {
+  const aged = Math.max(age, floor || 0);
+  // Math.max(ceiling, floor) is the ruling: a ceiling below the floor is raised
+  // to it, so the result is never below the minimum the same Warden set.
+  return ceiling ? Math.min(aged, Math.max(ceiling, floor || 0)) : aged;
+};
+
+/**
+ * Roll an age from the formula (2d20 + 10 by default), then hold it between the
+ * "min-age" floor (default 21) and the "max-age" ceiling (default 50).
+ *
+ * Each is switched off by a value the roll can never reach: a floor below 12 and
+ * a ceiling at or above 50 are the extremes of 2d20 + 10, so neither binds. That
+ * is why the ceiling ships at 50 — it is a no-op in every existing world, and
+ * adding it changed nobody's characters.
+ *
+ * THE FLOOR WINS A CONFLICT (issue #21, ruled 2026-08-19). A Warden who sets the
+ * ceiling below the floor gets exactly the floor: the ceiling is raised to meet
+ * it rather than allowed to produce an age the same Warden's minimum forbids.
+ * The floor is the older rule and this docblock has always said it is always
+ * applied. Do not "simplify" the inner Math.max away — it is the ruling, and
+ * `dev:age-override` has a leg on it.
+ *
+ * ROLLS ONLY, and deliberately. Age is a free-text input on the sheet
+ * (templates/parts/bio-block.html) with this die beside it, so a hand-typed age
+ * is nobody's business but the player's; neither bound has ever constrained it.
+ * This is not a missing enforcement half — it is the floor's settled scope, and
+ * the ceiling inherits it.
+ *
+ * The single choke point for age: all four generation call sites and the sheet's
+ * re-roll come through here, so both bounds land everywhere at once.
  * @param {String} formula @returns {Promise<Number>}
  */
 export const rollAge = async (formula) => {
   const rolled = (await evaluateFormula(formula)).total;
   const floor = Number(game.settings.get(SETTINGS_NS, "min-age")) || 0;
-  return Math.max(rolled, floor);
+  const ceiling = Number(game.settings.get(SETTINGS_NS, "max-age")) || 0;
+  return clampAge(rolled, floor, ceiling);
 };
 
 /**
