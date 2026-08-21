@@ -2,7 +2,10 @@ import { CairnActor } from "./actor/actor.js";
 import { compendiumInfoFromString, drawTableText, resultText, findTableByName } from "./compendium.js";
 import { Cairn } from "./config.js";
 import { evaluateFormula, formatCount } from "./utils.js";
-import { resolveGearItem, GEAR_ALIASES, spellScrollItem } from "./gear.js";
+import {
+  resolveGearItem, GEAR_ALIASES, spellScrollItem,
+  orderGrantedItems, isLightGear, RATIONS_RE,
+} from "./gear.js";
 import { containerClass, iconForTransport } from "./icons.js";
 import { connectionHeadroom, maxConnections, connectedOwnershipShape, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { SETTINGS_NS } from "./settings.js";
@@ -745,14 +748,29 @@ export const withGrantSource = (item, source) => ({
   flags: { ...(item.flags ?? {}), [FLAG_SCOPE]: { ...(item.flags?.[FLAG_SCOPE] ?? {}), grantSource: source } },
 });
 
-/** Mundane background gear that needs no "Background" source chip — light and
- *  food whose provenance nobody tracks. Left untagged on purpose. */
-const UNTAGGED_MUNDANE_GEAR = /\b(rations?|torch(es)?|lanterns?)\b/i;
+/**
+ * Mundane background gear that needs no "Background" source chip — light and
+ * food whose provenance nobody tracks. Left untagged on purpose.
+ *
+ * Asked of the SHARED classification in gear.js rather than of a second regex
+ * of its own, so "what counts as a light" is decided in one place: the ordering
+ * rules and this rule were two overlapping lists, and a third copy of a list is
+ * a third thing to drift. One consequence, intended rather than incidental —
+ * the old regex named only rations, torches and lanterns, so a granted CANDLE
+ * wore a Background chip until now and no longer does. That is exactly what the
+ * sentence above says should happen to it.
+ *
+ * PC path only: buildNpcItems tags every grant it makes, chip or no chip,
+ * because an untagged grant is indistinguishable from a Warden's own gift and
+ * would survive every re-roll.
+ */
+const isUntaggedMundaneGear = (name) =>
+  RATIONS_RE.test(String(name ?? "")) || isLightGear(name);
 
 /** Tag built starting gear "background" (so it can show a source chip later),
  *  EXCEPT the mundane items above, which stay untagged. */
 const tagBackgroundGear = (items) =>
-  items.map((it) => (UNTAGGED_MUNDANE_GEAR.test(it.name) ? it : withGrantSource(it, "background")));
+  items.map((it) => (isUntaggedMundaneGear(it.name) ? it : withGrantSource(it, "background")));
 
 /* -------------------------------------------------------------------------- */
 /*  Bonds                                                                       */
@@ -1530,7 +1548,12 @@ export const generate2eCharacter = async (chosenBg = null) => {
     bonds,
     age,
     traits,
-    items: [...gear, ...bondItems, ...choices.items],
+    // Arranged before it is handed over (gear.js orderGrantedItems): weapons,
+    // armor, everything else in the order it was granted, the light with its
+    // fuel beneath it, Rations last. It writes each item's `sort`, which is
+    // Foundry's own field, so the player can drag any row afterwards and the
+    // printed page follows without knowing this happened.
+    items: orderGrantedItems([...gear, ...bondItems, ...choices.items]),
     // Container Actors cannot ride in items[]; they are minted after the actor
     // exists (createActorWithCharacter / updateActorWithCharacter).
     // A background can grant a container outright as well as from a choice table
@@ -1886,7 +1909,12 @@ export const generateBarebonesCharacter = async (chosenBg = null) => {
     bonds: [],
     age: String(await rollAge(Cairn.characterGenerator2e.biography.age)),
     traits: await rollTextItems(Cairn.characterGenerator2e.biography.items),
-    items: [...bgItems, ...base, ...(weapon ? [weapon] : []), ...(armor ? [armor] : []), ...extras, ...failedCareerItems],
+    // Ordered, exactly as 2e above; the build order here is already close but
+    // the rolled weapon and armor arrive AFTER the background's three items.
+    items: orderGrantedItems([
+      ...bgItems, ...base, ...(weapon ? [weapon] : []), ...(armor ? [armor] : []),
+      ...extras, ...failedCareerItems,
+    ]),
     containers,
     questions: [],
   };
@@ -3062,7 +3090,7 @@ export const generateHireling = async () => {
     pronouns: "",
     age: String(await rollAge(Cairn.characterGenerator2e.biography.age)),
     traits: await rollTextItems(Cairn.characterGenerator2e.biography.items),
-    items: await buildHirelingItems(h),
+    items: orderGrantedItems(await buildHirelingItems(h)),
   };
 };
 
@@ -3392,6 +3420,43 @@ const npcGrantedItemIds = (actor, sources = ["background"]) => actor.items
   .filter((i) => sources.includes(i.getFlag(FLAG_SCOPE, "grantSource")))
   .map((i) => i.id);
 
+/**
+ * Re-arrange an EXISTING actor's whole inventory by the granted-loadout rules.
+ *
+ * Only regenerateNpc needs this, and only because it is the one full
+ * regeneration that KEEPS items: it deletes just the tagged grant, so a
+ * Warden's own untagged gifts survive at whatever sort they had — 0 for
+ * anything never dragged, which renders ABOVE every item the new loadout
+ * numbered. Its hireling twin deletes the inventory outright and needs none of
+ * this.
+ *
+ * Ordinary acquisition is deliberately NOT re-arranged: a newly created item
+ * appends instead (CairnItem._preCreateOperation), because the arrangement is
+ * the state a generated person ARRIVES in, not a rule enforced for life over a
+ * list its owner is free to drag.
+ *
+ * Shims rather than the documents themselves — orderGrantedItems writes `sort`
+ * onto whatever it is handed, and writing it onto a live document would be a
+ * mutation outside an update.
+ *
+ * BOUND GRIMOIRE PAGES are skipped, the same exception CairnItem.#appendSort
+ * makes on the create side and for the same reason: groupPagesUnderBooks files
+ * a page under its book, so its own position never shows and all that would
+ * change is the order of a book's pages among themselves — from alphabetical
+ * to whatever order actor.items happens to hold. This is an UPDATE, so it does
+ * not pass through that seam and has to say so itself.
+ * @param {CairnActor} actor
+ */
+const reorderInventory = async (actor) => {
+  const shims = actor.items
+    .filter((i) => !i.system?.bound)
+    .map((i) => ({ _id: i.id, name: i.name, type: i.type }));
+  const updates = orderGrantedItems(shims).map((i) => ({ _id: i._id, sort: i.sort }));
+  if (updates.length) {
+    await actor.updateEmbeddedDocuments("Item", updates, { render: false, abNoStatusCard: true });
+  }
+};
+
 /** One Background off the Warden's Guide table, or "" when it is missing. */
 const rollNpcBackground = async () => {
   const [packName, tableName] = compendiumInfoFromString(CONFIG.Cairn?.npcGenerator?.background ?? "");
@@ -3425,7 +3490,7 @@ export const generateNpc = async () => {
     pronouns: "",
     age: String(await rollAge(Cairn.characterGenerator2e.biography.age)),
     traits: await rollNpcTraits(),
-    items: await buildNpcGear(background),
+    items: orderGrantedItems(await buildNpcGear(background)),
   };
 };
 
@@ -3491,6 +3556,10 @@ export const regenerateNpc = async (actor) => {
   const stale = npcGrantedItemIds(actor, ["background", "npc-kit"]);
   if (stale.length) await actor.deleteEmbeddedDocuments("Item", stale, { render: false, abNoStatusCard: true });
   if (n.items?.length) await actor.createEmbeddedDocuments("Item", n.items, { render: false, abNoStatusCard: true });
+  // The WHOLE inventory, not only the batch just created — see reorderInventory.
+  // render:false here too, so this and the delete and the create above still
+  // resolve into the single render the update below performs.
+  await reorderInventory(actor);
   await actor.update({
     system: {
       role: "npc",

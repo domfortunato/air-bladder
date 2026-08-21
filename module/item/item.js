@@ -119,6 +119,10 @@ export class CairnItem extends Item {
    * the extras leaves the rest of that background's gear to land, where returning
    * false would take the boots and the rope with them. One warning for the batch,
    * not one per book.
+   *
+   * It also decides WHERE A NEW ROW LANDS — see `#appendSort` below. Both
+   * questions need the BATCH rather than the document, which is why they share
+   * this seam.
    * @override
    */
   static async _preCreateOperation(documents, operation, user) {
@@ -126,7 +130,67 @@ export class CairnItem extends Item {
     if (allowed === false) return false;
 
     const parent = operation?.parent;
-    if (parent?.type !== "character") return;
+    if (parent?.type === "character" && CairnItem.#enforceOneBook(documents, parent) === false) {
+      return false;
+    }
+    CairnItem.#appendSort(documents, parent);
+  }
+
+  /**
+   * Give an arriving item a place at the END of the list rather than the top.
+   *
+   * A generated loadout arrives ARRANGED — weapons, armor, everything else,
+   * light, Rations (gear.js `orderGrantedItems`) — and those payloads carry
+   * explicit non-zero sorts, which this leaves alone. Everything ELSE created on
+   * an actor arrives at `sort: 0`, the field's initial
+   * (common/data/fields.mjs:3974-3983), and 0 is ABOVE every numbered row: with
+   * nothing here, buying one thing at the marketplace put it at the top of the
+   * pack, over the sword.
+   *
+   * That was already true before any of the ordering work, which is why this is
+   * a fix and not merely its support: the first drag renormalises every sibling
+   * to positive values (`performIntegerSort`), and the next new item landed
+   * above all of them.
+   *
+   * `sort` being 0 IS the discriminator. An item deliberately created at 0 is
+   * indistinguishable from one that stated nothing, and appending it is harmless.
+   *
+   * Ungated by `enable-inventory-reorder`: that setting decides whether the
+   * sheet READS `sort`, and writing a meaningful one into a world that currently
+   * ignores it costs nothing while meaning the order is already right the day a
+   * Warden turns it on.
+   *
+   * Actors only — a world or compendium item has no actor parent, and the
+   * sidebar does its own ordering.
+   *
+   * A BOUND GRIMOIRE PAGE is deliberately left at 0, and it is the one exception
+   * worth knowing: a page has no place in the flat list, because
+   * `groupPagesUnderBooks` lifts every page out and re-files it under its own
+   * book. All that survives is its order relative to its SIBLING pages, and that
+   * has always been alphabetical — `_sortItemsForDisplay` falls through to the
+   * display name when sorts tie. Numbering pages here would silently change that
+   * to the order they were transmuted in, which nobody asked for; there is no
+   * unbind path, so a page never re-enters the list needing a position.
+   * @param {CairnItem[]} documents  temporary instances, mutated via updateSource
+   * @param {Document|null} parent
+   */
+  static #appendSort(documents, parent) {
+    if (parent?.documentName !== "Actor") return;
+    let next = parent.items.reduce((max, i) => Math.max(max, i.sort ?? 0), 0);
+    for (const doc of documents) {
+      if (doc.sort || doc.system?.bound) continue;
+      next += CONST.SORT_INTEGER_DENSITY;
+      doc.updateSource({ sort: next });
+    }
+  }
+
+  /**
+   * The one-book wall's batch half, split out of `_preCreateOperation` so that
+   * method can go on to place sorts for EVERY parent rather than returning early
+   * for anything that is not a character.
+   * @returns {false|void} false when the splice left nothing to create
+   */
+  static #enforceOneBook(documents, parent) {
     const isGrimoire = (d) => d?.type === "item" && d?.system?.grimoire;
     // Seeded from the parent for completeness only: a book arriving at a
     // character who already has one was refused one seam up and is not in

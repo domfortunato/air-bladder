@@ -221,6 +221,40 @@ editable type packs 2e uses rather than a parallel set. Three code sites cite
 this rule (`module/settings.js`, `module/actor/actor-sheet.js`,
 `tools/import/barebones.mjs`); they cited this file for it before it said so.
 
+**A generated loadout arrives ARRANGED (2026-08-21, user ask).** Five bands, top
+to bottom: weapons, armor, everything else in the order it was granted, light
+sources with each one's fuel directly beneath it, Rations. `orderGrantedItems`
+(`module/gear.js`) writes it as each item's `sort` at all four generators plus
+`regenerateNpc` — the one full regenerate that keeps items, and so the one that
+has to arrange the whole inventory rather than only its own batch. Four things
+that will bite:
+
+- **`sort` is only READ when `enable-inventory-reorder` is on** (the default).
+  With it off `_sortItemsForDisplay` sorts alphabetically and the arrangement is
+  invisible — correctly: a Warden who turned manual ordering off asked for an
+  automatic order.
+- **It is a one-time state, not a standing rule** (user ruling). A later
+  acquisition APPENDS — `CairnItem.#appendSort` gives any sort-less item on an
+  actor `max + DENSITY`. That is a fix in its own right, not just support:
+  core gives a new embedded item `sort: 0`, which is ABOVE every numbered row,
+  so buying one thing put it at the top of the pack over the sword. Already true
+  before any of this, since the first drag renormalises every sibling to
+  positive values. Every partial re-roll and the marketplace ride that seam and
+  needed no change of their own.
+- **A BOUND GRIMOIRE PAGE is deliberately left at 0.** `groupPagesUnderBooks`
+  lifts every page out of the flat list and re-files it under its book, so a
+  page's own position is never used and only its order among SIBLING pages
+  survives — alphabetical, via the display-name tie-break. Numbering pages
+  changed that to transmute order, which `dev:print` caught and nobody asked
+  for.
+- **"Light source" is a NAME, not a field**, and the two halves are asymmetric
+  on purpose: sources are a keyword regex (right for the Wisp Lantern and the
+  Torch Fungus too), fuel is an exact map, because `\boil\b` would swallow Fire
+  Oil and Miracle Oil. `UNTAGGED_MUNDANE_GEAR` asks the same classification
+  rather than keeping its own overlapping copy, which newly leaves a granted
+  Candle without a Background chip — intended, and what that rule always said
+  it meant.
+
 ## Deliberate deviations from Foundry practice
 
 Listed so a review does not re-litigate them. If you disagree with one, argue
@@ -551,7 +585,7 @@ What belongs here is what those two files do not say:
 
 ## Testing
 
-**`docs/release-testing.md` is the full list — 96 probes (`check:probes` states
+**`docs/release-testing.md` is the full list — 97 probes (`check:probes` states
 the current count), what each covers, and what to run before tagging vs after
 publishing. Keep it in step with `package.json`; a probe not listed there runs
 only when someone remembers it.**

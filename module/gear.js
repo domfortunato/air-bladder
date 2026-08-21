@@ -70,6 +70,114 @@ export const GEAR_ALIASES = new Map([
   ["tent (fits 2)", "Tent"],
 ]);
 
+/* -------------------------------------------------------------------------- */
+/*  What a granted item IS, for ordering it                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Light sources, BY NAME. There is no field for this: `weapon` and `armor` are
+ * Item types, but a Torch, a Candle and a Lantern are all plain `type: "item"`
+ * and nothing in the data says any of them gives light.
+ *
+ * A keyword match rather than an exact list, because it is right for the
+ * background-items pack too — a Wisp Lantern and a Torch Fungus ("when crushed,
+ * it creates a heatless light") are genuine light sources and an exact list
+ * would have to grow an entry per background. The known cost is the Candle of
+ * Ward, a ward that happens to burn, which files here; one item in the wrong
+ * block, against a rule that keeps working when someone adds a Bullseye Lantern.
+ */
+export const LIGHT_SOURCE_RE = /\b(torch(es)?|lanterns?|lamps?|candles?)\b/i;
+
+/**
+ * What FEEDS a light source: lowercased fuel name → lowercased source name, so
+ * the oil can be filed directly beneath the lamp it belongs to.
+ *
+ * An exact map and NOT a regex, and the asymmetry with LIGHT_SOURCE_RE above is
+ * deliberate: `\boil\b` would swallow Fire Oil (a thrown incendiary) and
+ * Miracle Oil, neither of which has ever gone into a lantern. A keyword rule is
+ * safe for lights because every word in it names a light; there is no such word
+ * for fuel.
+ */
+export const LIGHT_FUEL = new Map([
+  ["oil can", "lantern"],
+]);
+
+/** Food, which sits at the very bottom of a granted loadout. */
+export const RATIONS_RE = /\brations?\b/i;
+
+/** True for a light source or the fuel that feeds one — the block that sits
+ *  directly above Rations. */
+export const isLightGear = (name) =>
+  LIGHT_SOURCE_RE.test(String(name ?? "")) || LIGHT_FUEL.has(String(name ?? "").trim().toLowerCase());
+
+/**
+ * The five ordering bands a granted loadout is arranged into, lowest first.
+ * Tested IN ORDER, which is what settles the one real overlap: the Candle
+ * Helmet is `type: "armor"`, so it files as armor rather than as a light.
+ */
+export const GRANT_BANDS = { weapon: 0, armor: 1, other: 2, light: 3, rations: 4 };
+
+/** Which band a built item belongs to. @param {Object} item @returns {Number} */
+export const grantBand = (item) => {
+  if (item?.type === "weapon") return GRANT_BANDS.weapon;
+  if (item?.type === "armor") return GRANT_BANDS.armor;
+  const name = String(item?.name ?? "");
+  if (RATIONS_RE.test(name)) return GRANT_BANDS.rations;
+  if (isLightGear(name)) return GRANT_BANDS.light;
+  return GRANT_BANDS.other;
+};
+
+/**
+ * Arrange a freshly built loadout and write each item's `sort`: weapons, then
+ * armor, then everything else in the order the generator built it, then the
+ * light sources with each one's fuel directly beneath it, then Rations.
+ *
+ * `sort` is Foundry's own field and the one `_sortItemsForDisplay` honours when
+ * drag-to-reorder is on, so the player can still drag any row afterwards and
+ * the printed page follows without knowing this function exists. Spaced by
+ * CONST.SORT_INTEGER_DENSITY, matching core, so `performIntegerSort` has room
+ * to insert between two rows rather than having to renormalise the whole list
+ * on the first drag.
+ *
+ * Stable within a band: the "everything else" band keeps build order, which is
+ * the order the generator granted things in and the only order it has.
+ *
+ * @param {Object[]} items  built item payloads, mutated in place and returned
+ * @returns {Object[]}
+ */
+export const orderGrantedItems = (items) => {
+  const list = items ?? [];
+  const bands = [[], [], [], [], []];
+  for (const item of list) bands[grantBand(item)].push(item);
+
+  // The light band pairs up: each fuel goes directly beneath the source it
+  // feeds. A fuel whose source was never granted keeps its place in the band
+  // rather than being dropped or promoted — an oil can with no lamp is still
+  // lamp oil, and the Warden can see they are short a lamp.
+  const lights = bands[GRANT_BANDS.light];
+  const sources = lights.filter((i) => !LIGHT_FUEL.has(String(i.name ?? "").trim().toLowerCase()));
+  const fuels = lights.filter((i) => LIGHT_FUEL.has(String(i.name ?? "").trim().toLowerCase()));
+  const paired = [];
+  const placed = new Set();
+  for (const source of sources) {
+    paired.push(source);
+    const lower = String(source.name ?? "").toLowerCase();
+    for (const fuel of fuels) {
+      if (placed.has(fuel)) continue;
+      const feeds = LIGHT_FUEL.get(String(fuel.name ?? "").trim().toLowerCase());
+      if (feeds && lower.includes(feeds)) { paired.push(fuel); placed.add(fuel); }
+    }
+  }
+  // An orphan keeps its place rather than being tracked on the payload itself:
+  // a scratch property set on a built item would ride into the created document.
+  for (const fuel of fuels) if (!placed.has(fuel)) paired.push(fuel);
+  bands[GRANT_BANDS.light] = paired;
+
+  const ordered = bands.flat();
+  ordered.forEach((item, i) => { item.sort = (i + 1) * CONST.SORT_INTEGER_DENSITY; });
+  return ordered;
+};
+
 /**
  * A grant may name a spell as "Spellbook (X)", "Scroll (X)", or "X Spellbook".
  * Return the bare spell name X (to resolve against SPELL_PACKS), else null.
