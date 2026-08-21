@@ -209,14 +209,21 @@ await withSettings(page, async () => {
       // not the schema's 10/10/10 and 6. FIVE of them, because a single rolled
       // statblock is indistinguishable from a fixed one — a generator that
       // wrote a constant would pass every range check on earth.
+      // SOURCE hp, never derived. The kit runs the whole Barebones equipment
+      // procedure since 2026-08-21, so a generated NPC can legitimately land
+      // ENCUMBERED — the same overflow-is-owed rule a generated PC lives under
+      // — and encumbered derives hp.value to 0. The claim here is what
+      // generation WROTE; the derived zero is the encumbrance rule's, owned
+      // by dev:enc-damage.
       out.rolled = [];
       for (let i = 0; i < 5; i++) {
         const a = await cg.createNpc();
         const ab = a.system.abilities ?? {};
+        const hp = a._source.system.hp ?? {};
         out.rolled.push({
-          str: ab.STR?.value, dex: ab.DEX?.value, wil: ab.WIL?.value, hp: a.system.hp?.value,
+          str: ab.STR?.value, dex: ab.DEX?.value, wil: ab.WIL?.value, hp: hp.value,
           full: ab.STR?.value === ab.STR?.max && ab.DEX?.value === ab.DEX?.max
-            && ab.WIL?.value === ab.WIL?.max && a.system.hp?.value === a.system.hp?.max,
+            && ab.WIL?.value === ab.WIL?.max && hp.value === hp.max,
         });
       }
 
@@ -240,9 +247,11 @@ await withSettings(page, async () => {
       await hurt.update({ "system.hp.value": 1, "system.abilities.STR.value": 3 });
       await cg.regenerateNpc(hurt);
       const ha = hurt.system.abilities ?? {};
+      // SOURCE hp again — the regenerated loadout can encumber, same as above.
       out.regenAfter = {
         str: ha.STR?.max, dex: ha.DEX?.max, wil: ha.WIL?.max, hp: hurt.system.hp?.max,
-        full: ha.STR?.value === ha.STR?.max && hurt.system.hp?.value === hurt.system.hp?.max,
+        full: ha.STR?.value === ha.STR?.max
+          && hurt._source.system.hp?.value === hurt._source.system.hp?.max,
       };
       /* --- 7. the Background grants gear ---------------------------------- */
       // User ask, 2026-08-20: an NPC arrives carrying what its Background says
@@ -260,6 +269,9 @@ await withSettings(page, async () => {
         .map((i) => i.name).sort();
       const grantedOf = (a) => bySource(a, "background");
       const kitOf = (a) => bySource(a, "npc-kit");
+      const kitIds = (a) => a.items
+        .filter((i) => i.getFlag("air-bladder", "grantSource") === "npc-kit")
+        .map((i) => i.id).sort();
 
       // (a) Whatever THIS run happened to roll, the gear must match that
       //     Background's counterpart. Asserting the rule rather than a fixture
@@ -323,9 +335,22 @@ await withSettings(page, async () => {
         out.errors.push("six consecutive NPCs landed a counterpart-less Background — the mapping has shrunk, or the die is broken");
         return out;
       }
+      // The kit at BIRTH (2026-08-21, user ruling): the WHOLE Barebones
+      // equipment procedure — rations, torch, a rolled weapon and armor, and
+      // the Additional Gear roll(s), a SECOND one exactly when the armor came
+      // up None, which makes five a count by CONSTRUCTION and not this run's
+      // luck. Captured on the ESTABLISHED fixture, not the random `npc` above,
+      // so the leg needs no Lord-shaped conditional.
+      out.birthKit = {
+        names: kitOf(gift),
+        weaponEquipped: gift.items.some((i) => i.type === "weapon" && i.system.equipped === true
+          && i.getFlag("air-bladder", "grantSource") === "npc-kit"),
+      };
       await gift.createEmbeddedDocuments("Item", [{ name: "ZZ Warden Gift", type: "item" }]);
+      const kitIdsAtBirth = kitIds(gift);
       await rollOnto(gift, granting);
-      out.reroll = { granting, before: grantedOf(gift), wantBefore: await gearNamesOf(MAP[granting]) };
+      out.reroll = { granting, before: grantedOf(gift), wantBefore: await gearNamesOf(MAP[granting]),
+        kitIdsAtBirth, kitIdsAfterSwap: kitIds(gift) };
       await rollOnto(gift, "Lord");
       out.reroll.background = gift.system.background;
       out.reroll.granted = grantedOf(gift);
@@ -355,6 +380,15 @@ await withSettings(page, async () => {
         await rollOnto(gift, instructionRow);
         out.instruction.background = gift.system.background;
         out.instruction.granted = grantedOf(gift);
+        // This swap arrives FROM Lord, whose landing unpacked the bag — so it
+        // must pack a FRESH kit, exactly as generating this Background would
+        // (2026-08-21; the reported miss). No count here: the pinned die can
+        // starve rollAdditionalGear's duplicate retries, so only the named
+        // pieces and the weapon are by construction in this pass.
+        out.instruction.kit = kitOf(gift);
+        out.instruction.kitWeaponEquipped = gift.items.some((i) => i.type === "weapon"
+          && i.system.equipped === true
+          && i.getFlag("air-bladder", "grantSource") === "npc-kit");
       }
 
       // (e) A WHOLE new person replaces the kit as well. The two sources part
@@ -434,16 +468,23 @@ const same = (a, b) => JSON.stringify(a ?? []) === JSON.stringify(b ?? []);
 check(G.want?.length > 0 ? G.got?.length === G.want?.length : G.got?.length === 0,
   "every declared row resolved — none dropped",
   `${G.background} -> ${G.target}: ${JSON.stringify(G.want)} => ${JSON.stringify(G.got)}`);
-// The KIT, which is what a Background alone could not supply: an NPC was
-// arriving with two or three items where a hireling arrives with six off its
-// career. Rations and a Torch are named, the third is a roll, so the leg names
-// the two and counts the three.
+// The KIT, which is what a Background alone could not supply. Since 2026-08-21
+// (user ruling) it is the WHOLE Barebones equipment procedure — rations, torch,
+// a rolled weapon and armor, and the Additional Gear roll(s), a second one
+// exactly when the armor came up None. Five items by CONSTRUCTION either way,
+// which is what makes the count a witness for the no-armor compensation rule
+// rather than this run's luck.
 check(G.target
-  ? (G.kit?.includes("Rations") && G.kit?.includes("Torch") && G.kit?.length === 3)
+  ? (G.kit?.includes("Rations") && G.kit?.includes("Torch") && G.kit?.length === 5)
   : G.kit?.length === 0,
-  G.target ? "plus a kit: rations, a torch and one random find"
+  G.target ? "plus a kit: the whole Barebones equipment procedure, five items"
     : "a counterpart-less Background packs NO kit either (2026-08-21)",
   JSON.stringify(G.kit));
+const BK = R.birthKit ?? {};
+check(BK.names?.length === 5 && BK.names?.includes("Rations") && BK.names?.includes("Torch")
+  && BK.weaponEquipped === true,
+  "the kit carries a rolled weapon, EQUIPPED — Barebones step 5 reaches the NPC",
+  JSON.stringify(BK));
 check(G.untagged?.length === 0,
   "and NOTHING arrives untagged — every item has an owner", JSON.stringify(G.untagged));
 // Not pinned to 10 — inherited from the Warden's max-equip-slots setting, whose
@@ -500,19 +541,34 @@ check(RR.before?.length > 0 && RR.granted?.length === 0,
   "and the previous Background's gear went with it", `${JSON.stringify(RR.before)} -> []`);
 check(RR.handKept === true,
   "while the Warden's own item survives — grantSource is the whole difference", "");
-check(RR.kitKept?.length === 3,
-  "and so does the kit — a new trade does not unpack the bag", JSON.stringify(RR.kitKept));
+// Two rulings, one boundary. A trade-for-trade swap keeps the bag — the SAME
+// documents, because a name compare would call a replacement a survival — while
+// landing Lord or Politician UNPACKS it (2026-08-21, user ruling, reversing the
+// same day's "a new station does not unpack the bag"): a swapped NPC ends up
+// holding what GENERATING that Background grants, which for those two is
+// nothing at all.
+check(same(RR.kitIdsAtBirth, RR.kitIdsAfterSwap) && RR.kitIdsAtBirth?.length > 0,
+  "a trade-for-trade swap keeps the bag — the same kit, by id",
+  `${RR.kitIdsAtBirth?.length} at birth -> ${RR.kitIdsAfterSwap?.length} after`);
+check(RR.kitKept?.length === 0,
+  "landing Lord unpacks the bag — the kit goes with the gear (2026-08-21)",
+  JSON.stringify(RR.kitKept));
 const IN = R.instruction ?? {};
 check(!!IN.row && IN.background === IN.row,
   "pinned onto a Background whose gear names an INSTRUCTION", `${IN.row}: ${JSON.stringify(IN.declared)}`);
 check(IN.granted?.length === IN.declared?.length,
   "the instruction row resolved to a real item, not nothing",
   `${IN.declared?.length} declared -> ${JSON.stringify(IN.granted)}`);
+check(IN.kit?.includes("Rations") && IN.kit?.includes("Torch") && IN.kitWeaponEquipped === true,
+  "and swapping OFF Lord packs a FRESH kit, weapon included (2026-08-21)",
+  JSON.stringify(IN.kit));
 const RG = R.regen ?? {};
 // `shared === 0` is the load-bearing half either way; the count the landing
-// owes depends on what it landed on — a fresh kit for a mapped Background,
-// NOTHING for Lord/Politician (2026-08-21).
-check(RG.before === 3 && RG.shared === 0 && (RG.landedMapped ? RG.after === 3 : RG.after === 0),
+// owes depends on what it landed on — a fresh five-item kit for a mapped
+// Background, NOTHING for Lord/Politician (2026-08-21). `before` is bounded
+// below rather than pinned: the kit it replaces was packed under pass (d)'s
+// pinned die, where the Additional Gear retries can starve.
+check(RG.before >= 3 && RG.shared === 0 && (RG.landedMapped ? RG.after === 5 : RG.after === 0),
   "a WHOLE re-roll replaces the kit too, by id",
   `${RG.before} -> ${RG.after}, ${RG.shared} shared (landed "${RG.landed}")`);
 check(RG.handKept === true, "and still keeps the Warden's own item", "");

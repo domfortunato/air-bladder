@@ -101,18 +101,28 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   and office have no counterpart, which is the same reason those two words are
   on a Warden's table and not in character creation. **And since 2026-08-21
   they GENERATE with no items at all, kit included** (user ruling, reversing
-  "the kit does not care what you do for a living") — GENERATION-scoped: the
-  Background die or picker landing Lord on an existing NPC still leaves the
-  kit they packed, because a new station does not unpack the bag. The guard
-  lives in `buildNpcGear`, not `buildNpcKit`, for exactly that reason. **Containers are NOT
+  "the kit does not care what you do for a living"). This was GENERATION-scoped
+  for a few hours — "a new station does not unpack the bag" — and the user
+  REVERSED that the same day: the Background die or picker landing Lord or
+  Politician on an existing NPC now WIPES the granted items, kit included
+  (`applyNpcBackground`), so after any swap an NPC holds what GENERATING the
+  new Background grants. The Warden's own untagged items always stay. **Containers are NOT
   granted** (the Merchant's Wagon, the Peddler's Cart): a transport is a second
   Actor the directory always lists, and a hireling's career grants none either.
-  **A KIT rides alongside** — Rations, Torch and one Additional Gear roll, the
-  rest of the Barebones equipment procedure minus the rolled weapon and armor,
-  because a Background alone left an NPC on three items where a hireling arrives
-  with six (Lord and Politician excepted, above). It is tagged **`npc-kit`, deliberately not `background`**: two
-  sources, two lifetimes — the Background die replaces only `background`, a full
-  regenerate replaces both, and `grantSourceLabel` maps an unknown source to ""
+  **A KIT rides alongside — the WHOLE Barebones equipment procedure since
+  2026-08-21** (user ruling; it was Rations, Torch and one Additional Gear roll
+  for a day): rations, torch, a rolled weapon and armor both equipped, and the
+  Additional Gear roll(s) with the no-armor compensation roll, via the same
+  `rollBarebonesEquipment` the Barebones character generator runs — one routine,
+  not a copy — because a Background alone left an NPC on three items where a
+  hireling arrives with six. Consequence accepted with eyes open: a generated
+  NPC can land ENCUMBERED (derived HP 0), the same overflow-is-owed rule a
+  generated PC lives under — probes reading a generated NPC's HP must read
+  `_source`, never derived. It is tagged **`npc-kit`, deliberately not `background`**: two
+  sources, two lifetimes — the Background die replaces only `background` (and
+  REPACKS a kit when none survives, so a Politician swapped to Peddler matches
+  a generated Peddler — presence is the test, never the old Background's name),
+  a full regenerate replaces both, and `grantSourceLabel` maps an unknown source to ""
   so rations never wear a "Background" chip. **Everything a generator gives an
   NPC must be tagged**, mundane items included: untagged is how a Warden's own
   gift is recognised, so an untagged grant survives every re-roll and piles up.

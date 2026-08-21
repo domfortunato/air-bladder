@@ -1824,6 +1824,43 @@ export const resolveStartingGear = async (bg, avoid = new Set()) => {
 };
 
 /**
+ * Steps 5 and 6 of the Barebones equipment procedure: Rations and a Torch, a
+ * rolled Weapon and Armor — both equipped, and "None" armor buys a SECOND
+ * Additional Gear roll — then the Additional Gear roll(s). Five items by
+ * construction.
+ *
+ * Shared by the Barebones character generator and the NPC kit since 2026-08-21
+ * (user ruling): a generated NPC runs the SAME procedure a Barebones character
+ * does, weapon and armor included, superseding the rations-torch-and-one-find
+ * subset — and with the armor table now in play for NPCs, the no-armor
+ * compensation roll comes with it, retiring the old "paying out for a loss
+ * nobody took" carve-out. One routine, not a copy, so the two cannot drift.
+ * @param {Set<string>} avoid  lower-cased names already granted; grows with
+ *   every item handed out so the gear rolls cannot duplicate
+ * @returns {Promise<Object[]>}
+ */
+const rollBarebonesEquipment = async (avoid = new Set()) => {
+  // Every Barebones character starts with these; they come from the SRD's
+  // procedure, not from the background, so a PC's carry no source chip.
+  const base = await resolveRefs([{ name: "Rations", uses: 3 }, { name: "Torch", uses: 3 }]);
+  for (const i of base) avoid.add(i.name.toLowerCase());
+
+  // Step 5: Armor and Weapon, both equipped. "None" armor buys an extra gear roll.
+  const weapon = (await rollBarebonesTable("Barebones: Creation - Weapon"))?.item ?? null;
+  if (weapon) { weapon.system.equipped = true; avoid.add(weapon.name.toLowerCase()); }
+  const armor = (await rollBarebonesTable("Barebones: Creation - Armor"))?.item ?? null;
+  if (armor) { armor.system.equipped = true; avoid.add(armor.name.toLowerCase()); }
+
+  // Step 6 — Additional Gear, always.
+  const extras = [];
+  for (let i = 0; i < 1 + (armor ? 0 : 1); i++) {
+    const x = await rollAdditionalGear(avoid);
+    if (x) { extras.push(x); avoid.add(x.name.toLowerCase()); }
+  }
+  return [...base, ...(weapon ? [weapon] : []), ...(armor ? [armor] : []), ...extras];
+};
+
+/**
  * Generate a Cairn Barebones character: a random d100 background (a name plus
  * three items), 3d6 abilities, 1d6 HP, 3d6 coins, the same eight traits and age
  * as 2e, and the SRD's equipment procedure — the background's gear, the base
@@ -1852,28 +1889,11 @@ export const generateBarebonesCharacter = async (chosenBg = null) => {
   const bgItems = tagBackgroundGear(await resolveStartingGear(bg, avoid));
   const containers = (bg.system.containers ?? []).map((c) => ({ ...c, grantSource: "background" }));
 
-  // Every Barebones character starts with these; they come from the background's
-  // table in the SRD, not from the background, so they carry no source chip.
-  const base = (await resolveRefs([{ name: "Rations", uses: 3 }, { name: "Torch", uses: 3 }]));
-
-  // Step 5: Armor and Weapon, both equipped. "None" armor buys an extra gear roll.
-  const weaponRoll = await rollBarebonesTable("Barebones: Creation - Weapon");
-  const weapon = weaponRoll?.item ?? null;
-  if (weapon) { weapon.system.equipped = true; avoid.add(weapon.name.toLowerCase()); }
-
-  const armorRoll = await rollBarebonesTable("Barebones: Creation - Armor");
-  const armor = armorRoll?.item ?? null;
-  if (armor) { armor.system.equipped = true; avoid.add(armor.name.toLowerCase()); }
-  const extraGearRoll = !armor;
-
-  // Step 6 — Additional Gear, always. Barebones generation mints no bonds:
-  // the retired show-bonds-barebones setting (removed 2026-08-09) used to let
-  // a lent 2e bond REPLACE this step; bonds are 2e's alone now.
-  const extras = [];
-  for (let i = 0; i < 1 + (extraGearRoll ? 1 : 0); i++) {
-    const x = await rollAdditionalGear(avoid);
-    if (x) { extras.push(x); avoid.add(x.name.toLowerCase()); }
-  }
+  // Steps 5 and 6 — the shared equipment procedure (rollBarebonesEquipment).
+  // Barebones generation mints no bonds: the retired show-bonds-barebones
+  // setting (removed 2026-08-09) used to let a lent 2e bond REPLACE step 6;
+  // bonds are 2e's alone now.
+  const equipment = await rollBarebonesEquipment(avoid);
 
   // A failed career (Knave-style): a second background name, plus one Petty
   // keepsake item drawn from that career's gear (weightless, so it costs no slot).
@@ -1911,10 +1931,7 @@ export const generateBarebonesCharacter = async (chosenBg = null) => {
     traits: await rollTextItems(Cairn.characterGenerator2e.biography.items),
     // Ordered, exactly as 2e above; the build order here is already close but
     // the rolled weapon and armor arrive AFTER the background's three items.
-    items: orderGrantedItems([
-      ...bgItems, ...base, ...(weapon ? [weapon] : []), ...(armor ? [armor] : []),
-      ...extras, ...failedCareerItems,
-    ]),
+    items: orderGrantedItems([...bgItems, ...equipment, ...failedCareerItems]),
     containers,
     questions: [],
   };
@@ -3395,16 +3412,16 @@ const buildNpcItems = async (background, avoid = new Set()) => {
 };
 
 /**
- * The KIT every generated NPC carries whatever their Background: Rations and a
- * Torch, plus one roll on the Barebones Additional Gear table. Straight off the
- * Barebones equipment procedure (generateBarebonesCharacter), because the
- * Background alone left an NPC with two or three items while a hireling arrives
- * with six off its career — user report, 2026-08-20, and the fix is to run the
- * same procedure rather than to pad the list.
- *
- * ONE Additional Gear roll, not the two a PC gets for rolling no armor: that
- * second roll compensates a character who rolled None on a table an NPC never
- * touches, so handing it over would be paying out for a loss nobody took.
+ * The KIT every generated NPC carries whatever their Background: the WHOLE
+ * Barebones equipment procedure — rations, a torch, a rolled weapon and armor
+ * (equipped), and the Additional Gear roll(s) — via the same
+ * rollBarebonesEquipment the Barebones character generator runs (user ruling
+ * 2026-08-21, superseding the previous day's rations-torch-and-one-find
+ * subset: an NPC's generation grant uses the SAME randomization a Barebones
+ * character gets, weapons and armor included). The kit exists because the
+ * Background alone left an NPC with two or three items while a hireling
+ * arrives with six off its career — user report, 2026-08-20 — and the fix has
+ * always been to run the procedure rather than to pad the list.
  *
  * Tagged "npc-kit", and BOTH halves of that matter. Tagged, so a full re-roll
  * can find it — an untagged grant is indistinguishable from a Warden's gift and
@@ -3414,13 +3431,8 @@ const buildNpcItems = async (background, avoid = new Set()) => {
  * @param {Set<string>} avoid  lower-cased names already granted
  * @returns {Promise<Object[]>}
  */
-const buildNpcKit = async (avoid = new Set()) => {
-  const base = await resolveRefs([{ name: "Rations", uses: 3 }, { name: "Torch", uses: 3 }]);
-  for (const i of base) avoid.add(i.name.toLowerCase());
-  const extra = await rollAdditionalGear(avoid);
-  if (extra) avoid.add(extra.name.toLowerCase());
-  return [...base, ...(extra ? [extra] : [])].map((i) => withGrantSource(i, "npc-kit"));
-};
+const buildNpcKit = async (avoid = new Set()) =>
+  (await rollBarebonesEquipment(avoid)).map((i) => withGrantSource(i, "npc-kit"));
 
 /**
  * Everything a newly generated NPC carries, in one `avoid` set so the Additional
@@ -3433,10 +3445,10 @@ const buildNpcGear = async (background) => {
   // NOTHING AT ALL, kit included (user ruling 2026-08-21, reversing the
   // 2026-08-20 "the kit does not care what you do for a living"). Rank and
   // office arrive empty-handed; the Warden equips them deliberately or not at
-  // all. GENERATION-scoped on purpose: the Background DIE landing Lord on an
-  // existing NPC still leaves the kit they already packed — a new station does
-  // not unpack the bag — which is why this guard lives here and not in
-  // buildNpcKit.
+  // all. Later the same day the Background die and picker gained the SAME
+  // emptiness on an existing NPC — applyNpcBackground wipes the kit when one
+  // of these two lands — retiring the "a new station does not unpack the bag"
+  // scoping this guard carried for a few hours.
   if (!Cairn.npcGenerator?.backgroundGear?.[String(background ?? "").trim()]) return [];
   const avoid = new Set(["rations", "torch"]);
   const items = await buildNpcItems(background, avoid);
@@ -3548,8 +3560,9 @@ const npcToActorData = (n) => ({
     critical: false,
     armorOverride: null,
   },
-  // Three items, or none for a Background with no Barebones counterpart. Still
-  // stated rather than omitted, so an empty pack reads as a decision.
+  // The Background's gear and the kit, or none for a Background with no
+  // Barebones counterpart. Still stated rather than omitted, so an empty pack
+  // reads as a decision.
   items: n.items ?? [],
   // Players get a LIMITED view of a generated NPC (user ruling 2026-08-21).
   // CairnActor._preCreate has defaulted every unconnected person-npc to
@@ -3637,10 +3650,14 @@ export const regenerateNpc = async (actor) => {
  * a hireling's career carries its statblock TOO, and re-rolling a Background
  * must not re-roll the person.
  *
- * The KIT survives, on the same reasoning: rations, a torch and a random find
- * are not a trade, so changing what someone does for a living does not change
- * whether they packed food. It seeds `avoid` instead, so a Background whose
- * gear rolls on the Additional Gear table cannot hand back what they carry.
+ * The KIT survives a trade-for-trade swap: changing what someone does for a
+ * living does not change whether they packed food. Two exceptions, both
+ * 2026-08-21 (user ruling): landing Lord or Politician WIPES it — the NPC ends
+ * up holding what generating that Background grants, which for those two is
+ * nothing — and a swap that finds NO kit (the NPC was one of those two, or was
+ * generated as one) packs a fresh one. A surviving kit seeds `avoid`, so a
+ * Background whose gear rolls on the Additional Gear table cannot hand back
+ * what they carry.
  *
  * Avoids returning the current value while the table holds anything else, so
  * the die always visibly does something.
@@ -3661,8 +3678,9 @@ export const rerollNpcBackground = async (actor) => {
 /**
  * The CHOSEN-Background half (2026-08-21, user ask): the magnifying glass
  * beside the Background field. Same apply as the die, so a picked Politician
- * and a rolled one are the same event — the old trade's gear goes, the kit
- * stays, and a counterpart-less Background simply grants nothing new.
+ * and a rolled one are the same event — the old trade's gear goes, and the kit
+ * follows applyNpcBackground's rules: kept trade-for-trade, wiped by a
+ * counterpart-less Background, repacked when none survives.
  * @param {CairnActor} actor @param {String} text  the ENGLISH table text
  * @returns {Promise<CairnActor>}
  */
@@ -3673,16 +3691,32 @@ export const pickNpcBackground = async (actor, text) =>
  *  disagree about what changing a Background means. @private */
 const applyNpcBackground = async (actor, rolled) => {
   if (!rolled) return actor;
+  // A counterpart-less Background — Lord and Politician — takes EVERYTHING the
+  // generators gave, kit included (user ruling 2026-08-21, reversing the same
+  // day's "a new station does not unpack the bag"): after any swap the NPC
+  // holds what GENERATING the new Background would grant, and for those two
+  // that is nothing. The Warden's own items are untagged and stay, as
+  // everywhere.
+  const geared = !!Cairn.npcGenerator?.backgroundGear?.[String(rolled).trim()];
   // Old grant out, new grant in — the same shape as applyHirelingCareer, and
   // `render: false` on both so one update renders rather than three.
-  const stale = npcGrantedItemIds(actor, ["background"]);
+  const stale = npcGrantedItemIds(actor, geared ? ["background"] : ["background", "npc-kit"]);
   if (stale.length) await actor.deleteEmbeddedDocuments("Item", stale, { render: false, abNoStatusCard: true });
   // Seeded from what the actor still carries — the kit and any Warden gift — so
   // an instruction row rolls something they do not already have.
   const avoid = new Set(actor.items
     .filter((i) => !stale.includes(i.id))
     .map((i) => i.name.toLowerCase()));
-  const items = await buildNpcItems(rolled, avoid);
+  const items = geared ? await buildNpcItems(rolled, avoid) : [];
+  // A kit only when NONE survives — this NPC was, or was generated as, a Lord
+  // or Politician, whose bag is empty by the ruling above. PRESENCE is the
+  // test, never the old Background's name: however the kit went missing, a
+  // geared Background packs one, exactly as generation would (the reported
+  // miss, 2026-08-21: a Politician swapped to Peddler held the Peddler's Sack
+  // and nothing else).
+  if (geared && npcGrantedItemIds(actor, ["npc-kit"]).length === 0) {
+    items.push(...await buildNpcKit(avoid));
+  }
   if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false, abNoStatusCard: true });
   // Same whole-inventory arrangement a career swap gets — see applyHirelingCareer.
   await reorderInventory(actor);

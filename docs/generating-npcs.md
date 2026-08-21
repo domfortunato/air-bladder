@@ -23,7 +23,7 @@ if you have granted it.
 | where it comes from | the Warden's Guide NPC table (d20) | the 2e careers list (12 of them) |
 | day rate | none | yes, from the career |
 | stat block | **rolled** — 3d6 a piece, 1d6 HP | fixed by the career |
-| gear | a kit, plus its Background's Barebones counterpart — six items; a Lord or Politician arrives with **nothing at all** | the career's whole loadout, equipped |
+| gear | a full Barebones equipment kit — weapon and armor included — plus its Background's Barebones counterpart; a Lord or Politician arrives with **nothing at all** | the career's whole loadout, equipped |
 | extra traits | **Quirk, Goal**, plus NPC Virtue and Vice | 2e Virtue and Vice |
 
 Nothing is locked in. The **Role** dropdown at the top of any of these sheets
@@ -56,12 +56,13 @@ is the one to use when you want the new person filed straight into a folder.
 - **A portrait and a matching token.** If you have set up a custom portrait
   folder with an `npc` subfolder, it draws from there — see
   [Using Your Own Portraits](using-your-own-portraits.md).
-- **Rations, a torch and one random find** — the same three the Barebones
-  equipment procedure gives a starting character — plus **the gear its
-  Background grants**; see the table below. The exception is a **Lord or
-  Politician, who arrives with no items at all**, kit included: rank and
-  office pack nothing, and you give them exactly what the fiction says they
-  carry.
+- **The full Barebones equipment kit** — Rations, a torch, a rolled weapon
+  and armor (both worn), and a roll on Additional Gear, a second when the
+  armor comes up None: the same procedure a starting Barebones character goes
+  through — plus **the gear its Background grants**; see the table below. The
+  exception is a **Lord or Politician, who arrives with no items at all**,
+  kit included: rank and office pack nothing, and you give them exactly what
+  the fiction says they carry.
 - **A rolled stat block**: 3d6 for each of STR, DEX and WIL, and 1d6 Hit
   Protection — the same dice a player character is made with.
 
@@ -125,7 +126,7 @@ else:
 | Die | What it does |
 |---|---|
 | beside the name | a new name off the d60 |
-| beside **Background** | a new Background **and the gear it grants** — the kit stays (NPC role) |
+| beside **Background** | a new Background **and the gear it grants** — the kit stays between ordinary trades; landing **Lord or Politician empties the whole pack**, and rolling back off one repacks it (NPC role) |
 | beside **Career** | a new Career — **and its stat block and gear with it**, because in 2e a career *is* those things |
 | beside **Faction** | a side, off `Warden: NPC - Faction` |
 | beside **Age** | 2d20 + 10, floored and capped by your settings |
@@ -144,7 +145,9 @@ random one — the same control a player character's background row has:
   day rate and loadout. Picking one adopts the whole career — stat block, rate
   and gear — exactly as the die would.
 - **Background** (NPC): choose from the d20 table. The old trade's gear is
-  swapped for the new trade's; the kit stays.
+  swapped for the new trade's; the kit stays — except that picking **Lord or
+  Politician empties the pack entirely**, and picking your way back off one
+  packs a fresh kit.
 - **Faction**: choose from your faction table (your own world table of the same
   name wins, as always).
 
@@ -259,30 +262,33 @@ translation, and two get nothing at all:
   make one if the peddler needs it. A hireling's career grants no transport
   either.
 
-**Every other NPC also carries a kit**: Rations, a Torch and one roll on the
-Barebones Additional Gear table, which is where the other half of a full pack
-comes from. It is the same procedure a Barebones character goes through, minus
-the rolled weapon and armor — an innkeeper should not arrive in mail because
-the dice said so. That brings a typical NPC to six items, the same as a
-hireling off its career.
+**Every other NPC also carries a kit**: the whole equipment procedure a
+Barebones character goes through — Rations, a Torch, a rolled weapon and
+armor (both worn), and a roll on the Barebones Additional Gear table, a
+second when the armor comes up None. That brings a typical NPC to eight or
+nine items, a real pack — full enough that some arrive **encumbered**,
+exactly as a freshly generated player character can. That is not a bug in
+either case: they were owed the gear, and deciding what gets put down is
+part of meeting them.
 
 A note on the Background **die** (as against generation): rolling an existing
-NPC's Background onto Lord or Politician removes the old trade's gear and
-grants nothing new, but **the kit they already packed stays** — a new station
-does not unpack the bag. Only generation — the button, or Roll NPC — makes a
-Lord empty-handed.
+NPC's Background onto Lord or Politician removes **everything generation
+granted — the trade's gear and the kit alike** — so the swap leaves them
+exactly as generating them would: empty-handed. Rolling between two ordinary
+trades keeps the bag, and rolling your way back off Lord or Politician packs
+a fresh kit, so the NPC ends up matching a generated one whichever way the
+die walked them there.
 
 Both are tagged, and the tags are what tell them apart when you re-roll:
 
-- **The Background die** replaces the Background's gear and leaves the kit
-  alone. Changing what someone does for a living does not unpack their bag.
+- **The Background die** replaces the Background's gear; between ordinary
+  trades it leaves the kit alone, with the Lord and Politician exception
+  above.
 - **Roll NPC** replaces both, because that is a different person.
 - **Anything you added by hand is never touched by either.**
 
 ## What generation will not do
 
-- **It rolls no weapon or armor for an NPC** — that part of the Barebones
-  procedure is left out on purpose; arm them yourself if they need it.
 - **It grants no transport.** A Merchant or Peddler NPC gets their items but
   not the Wagon or Cart the Barebones background lists — see above.
 - **It automates no rules text.** A trait, a quirk or a goal is prose. Nothing

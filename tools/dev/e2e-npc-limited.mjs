@@ -26,8 +26,9 @@
  *      magnifying glass is still offered (that is the ask's whole point), and
  *      the apply halves adopt what was picked — a career with its statblock,
  *      rate and gear; a Background with its gear, the kit kept. The pick of a
- *      counterpart-less Background (Politician) grants nothing new and keeps
- *      the kit — the generation-only half of the Lord ruling. The prompt
+ *      counterpart-less Background (Politician) grants nothing new and
+ *      UNPACKS the kit (2026-08-21, reversing the generation-only scoping the
+ *      Lord ruling carried for a few hours). The prompt
  *      DIALOGS share promptFailedCareer's proven shape and are not re-proven
  *      here; the applies and the affordances are what this batch added.
  *
@@ -315,25 +316,26 @@ try {
         .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0)).at(-1)?.name ?? ""),
     };
 
-    // Apply: a picked Background swaps the trade's gear and keeps the kit —
-    // including onto Politician, which grants nothing new (generation-only
-    // half of the Lord ruling).
+    // Apply: a picked Background swaps the trade's gear — and since 2026-08-21
+    // (user ruling, reversing the same day's generation-only scoping) a picked
+    // Politician UNPACKS the kit too: the NPC ends up holding what generating
+    // that Background grants, which is nothing.
     const npc = game.actors.get(npcId);
-    const kitBefore = npc.items
-      .filter((i) => i.getFlag("air-bladder", "grantSource") === "npc-kit").map((i) => i.id).sort();
     await cg.pickNpcBackground(npc, "Blacksmith");
     out.bg = {
       landed: npc.system.background,
       granted: npc.items.filter((i) => i.getFlag("air-bladder", "grantSource") === "background").length,
+      // After a geared pick a kit is GUARANTEED — kept if it survived birth,
+      // repacked if the npc was born Lord/Politician — which frees this pass
+      // from the 2-in-20 birth race the old before-the-pick capture carried.
+      kitCount: npc.items.filter((i) => i.getFlag("air-bladder", "grantSource") === "npc-kit").length,
     };
     await cg.pickNpcBackground(npc, "Politician");
     out.bg.politician = npc.system.background;
     out.bg.politicianGranted = npc.items
       .filter((i) => i.getFlag("air-bladder", "grantSource") === "background").length;
-    out.bg.kitKept = npc.items
-      .filter((i) => i.getFlag("air-bladder", "grantSource") === "npc-kit").map((i) => i.id).sort()
-      .join() === kitBefore.join();
-    out.bg.kitCount = kitBefore.length;
+    out.bg.kitAfter = npc.items
+      .filter((i) => i.getFlag("air-bladder", "grantSource") === "npc-kit").length;
     return out;
   }, { npcId: setup.npcId, hireId: setup.hireId });
 
@@ -360,11 +362,12 @@ try {
   const BG = pick.bg ?? {};
   if (BG.landed === "Blacksmith" && BG.granted > 0) ok(`a picked Background grants its gear (${BG.granted} item(s))`);
   else fail(`background pick: landed "${BG.landed}", granted ${BG.granted}`);
-  if (BG.politician === "Politician" && BG.politicianGranted === 0 && BG.kitKept && BG.kitCount === 3) {
-    ok("picked onto Politician: no new gear, and the kit survives by id — generation-only, as ruled");
+  if (BG.politician === "Politician" && BG.politicianGranted === 0
+    && BG.kitCount === 5 && BG.kitAfter === 0) {
+    ok("picked onto Politician: no new gear, and the kit is UNPACKED (2026-08-21)");
   } else {
     fail(`Politician pick: landed "${BG.politician}", granted ${BG.politicianGranted}, `
-      + `kitKept ${BG.kitKept} (of ${BG.kitCount})`);
+      + `kit ${BG.kitCount} -> ${BG.kitAfter}`);
   }
 } finally {
   await restore();
