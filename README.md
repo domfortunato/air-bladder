@@ -51,6 +51,8 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 
 *Print a clean character sheet — stats, inventory, background, bonds and omen on one or two pages, ready for the table.*
 
+Pre-generated Player Characters are also available on <a href="https://domfortunato.itch.io/cairn-2e-pre-gens" target="_blank" rel="noopener">Dom Bosco's Itch Page</a>.
+
 <img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/game-settings.png" alt="The Warden's game settings" width="480">
 
 *The Warden's game settings, grouped by section — shown here in dark mode.*

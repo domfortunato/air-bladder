@@ -82,6 +82,8 @@ Air Bladder es un sistema complementario amigable, no el sistema oficial de Cair
 
 *Imprime una hoja de personaje limpia: características, inventario, trasfondo, vínculos y augurio en una o dos páginas, lista para la mesa.*
 
+También hay Personajes Jugadores pregenerados disponibles en la <a href="https://domfortunato.itch.io/cairn-2e-pre-gens" target="_blank" rel="noopener">página de itch.io de Dom Bosco</a>.
+
 <img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/game-settings.png" alt="La configuración de juego del Guardián" width="480">
 
 *La configuración de juego del Guardián, agrupada por secciones — mostrada aquí en modo oscuro.*
