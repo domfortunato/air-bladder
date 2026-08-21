@@ -97,7 +97,10 @@ Cairn.npcGenerator = {
   // every one of the 100 Barebones backgrounds is an OCCUPATION, so rank and
   // office have no counterpart — which is exactly why those two words are on a
   // table the Warden rolls and not in character creation. Absent, not null, so
-  // a plain lookup answers undefined and the grant is empty.
+  // a plain lookup answers undefined and the grant is empty. Since 2026-08-21
+  // absence suppresses the KIT too, at GENERATION only (buildNpcGear): a Lord
+  // arrives with no items at all, while the Background die landing Lord on an
+  // existing NPC still leaves the bag they packed.
   //
   // Thug -> Highway Robber, not Thief: Thief is already row 19 of the same
   // table, so the obvious mapping would have collided. One takes by stealth,

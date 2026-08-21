@@ -111,16 +111,24 @@ export const isLightGear = (name) =>
   LIGHT_SOURCE_RE.test(String(name ?? "")) || LIGHT_FUEL.has(String(name ?? "").trim().toLowerCase());
 
 /**
- * The five ordering bands a granted loadout is arranged into, lowest first.
- * Tested IN ORDER, which is what settles the one real overlap: the Candle
- * Helmet is `type: "armor"`, so it files as armor rather than as a light.
+ * The six ordering bands a granted loadout is arranged into, lowest first.
+ * Tested IN ORDER, which is what settles the overlaps: the Candle Helmet is
+ * `type: "armor"`, so it files as armor rather than as a light, and a
+ * spellbook named for a candle would still file as a book — type outranks
+ * name throughout.
+ *
+ * `book` (2026-08-21, user ask): spellbooks and spellscrolls sort together
+ * near the top, directly after weapons and armor. One band for both because
+ * they are one TYPE — a scroll is a spellbook with the `scroll` flag — and
+ * a type test is the only marker that survives renaming a spell.
  */
-export const GRANT_BANDS = { weapon: 0, armor: 1, other: 2, light: 3, rations: 4 };
+export const GRANT_BANDS = { weapon: 0, armor: 1, book: 2, other: 3, light: 4, rations: 5 };
 
 /** Which band a built item belongs to. @param {Object} item @returns {Number} */
 export const grantBand = (item) => {
   if (item?.type === "weapon") return GRANT_BANDS.weapon;
   if (item?.type === "armor") return GRANT_BANDS.armor;
+  if (item?.type === "spellbook") return GRANT_BANDS.book;
   const name = String(item?.name ?? "");
   if (RATIONS_RE.test(name)) return GRANT_BANDS.rations;
   if (isLightGear(name)) return GRANT_BANDS.light;
@@ -147,7 +155,7 @@ export const grantBand = (item) => {
  */
 export const orderGrantedItems = (items) => {
   const list = items ?? [];
-  const bands = [[], [], [], [], []];
+  const bands = [[], [], [], [], [], []];
   for (const item of list) bands[grantBand(item)].push(item);
 
   // The light band pairs up: each fuel goes directly beneath the source it

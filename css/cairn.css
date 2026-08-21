@@ -2857,6 +2857,40 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     opacity: 1;
 }
 
+/* LIMITED view (2026-08-21): the whole sheet for a limited viewer is portrait,
+   name, description — tokens only, both themes for free. The portrait is not
+   clickable here (no editPortrait action in the limited branch), so no cursor. */
+.cairn .cairn-limited-sheet {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    text-align: center;
+}
+
+.cairn .cairn-limited-sheet .portrait {
+    height: 200px;
+    width: auto;
+    max-width: 100%;
+    cursor: default;
+}
+
+.cairn .cairn-limited-name {
+    font-family: "Alegreya", Times, "Times New Roman", Georgia, serif;
+    font-variant: small-caps;
+    color: var(--ab-ink);
+    border: none;
+    margin: 0;
+}
+
+.cairn .cairn-limited-description {
+    color: var(--ab-ink);
+    text-align: left;
+    width: 100%;
+    overflow-y: auto;
+}
+
 /* Row 1 sizes to the name stack, which is taller or shorter than a character's
    header depending on whether "For Hire" is ticked (the day-rate row appears), so
    it is `auto` rather than the character sheet's fixed track. */

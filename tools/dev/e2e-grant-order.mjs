@@ -17,6 +17,9 @@
  *   - A Barebones **Oil Collector** grants "Lantern, Oil Can, Sealable Bottle",
  *     and the Barebones kit adds Rations and a Torch, so its light band holds a
  *     paired lamp AND a loose torch.
+ *   - A Barebones **Acolyte** grants a "Spellbook" instruction row, the book
+ *     band's fixture (2026-08-21): the resolved book — a scroll under GLOG,
+ *     same type — must sit after the rolled weapon/armor, before the rest.
  *   - A **hireling** takes a random career, and that is safe to leave random:
  *     all twelve in npc-careers-2e.json begin "Rations, <a light>", so the two
  *     bands this is about are present by construction rather than by luck.
@@ -50,7 +53,7 @@ let failed = false;
 const ok = (m) => console.log(`  ok    ${m}`);
 const fail = (m) => { console.error(`  FAIL  ${m}`); failed = true; };
 
-const BANDS = ["weapon", "armor", "other", "light", "rations"];
+const BANDS = ["weapon", "armor", "book", "other", "light", "rations"];
 
 /**
  * The in-page helpers, built inside each evaluate by `new Function` rather than
@@ -62,14 +65,17 @@ const HELPERS = `
   const LIGHT_RE = /\\b(torch(es)?|lanterns?|lamps?|candles?)\\b/i;
   const FUEL = new Set(["oil can"]);
   const RATIONS_RE = /\\brations?\\b/i;
-  // Restated on purpose — see the file docstring.
+  // Restated on purpose — see the file docstring. Books (spellbooks AND
+  // scrolls — one TYPE, a scroll is a flag) sit together after armor
+  // (2026-08-21, user ask).
   const bandOf = (name, type) => {
     if (type === "weapon") return 0;
     if (type === "armor") return 1;
+    if (type === "spellbook") return 2;
     const n = String(name ?? "");
-    if (RATIONS_RE.test(n)) return 4;
-    if (LIGHT_RE.test(n) || FUEL.has(n.trim().toLowerCase())) return 3;
-    return 2;
+    if (RATIONS_RE.test(n)) return 5;
+    if (LIGHT_RE.test(n) || FUEL.has(n.trim().toLowerCase())) return 4;
+    return 3;
   };
   // The rendered row order, mapped back to each item's STORED name. Reading the
   // row TEXT would read the content overlay's translation instead, so the same
@@ -148,6 +154,7 @@ try {
     };
     out.marchguard = await bg("air-bladder.backgrounds-2e", "Marchguard");
     out.oilCollector = await bg("air-bladder.backgrounds-barebones", "Oil Collector");
+    out.acolyte = await bg("air-bladder.backgrounds-barebones", "Acolyte");
     return out;
   });
   saved = setup.saved;
@@ -156,7 +163,8 @@ try {
     fail("enable-inventory-reorder would not turn on — nothing below reads `sort`");
     throw new Error("precondition not established");
   }
-  for (const [key, label] of [["marchguard", "2e Marchguard"], ["oilCollector", "Barebones Oil Collector"]]) {
+  for (const [key, label] of [["marchguard", "2e Marchguard"], ["oilCollector", "Barebones Oil Collector"],
+    ["acolyte", "Barebones Acolyte"]]) {
     if (!setup[key]) fail(`the ${label} background is not in this world — its leg cannot run`);
   }
 
@@ -180,7 +188,18 @@ try {
       } else if (kind === "hireling") {
         actor = await gen.createHireling();
       } else {
-        actor = await gen.createNpc();
+        // ESTABLISH a Background that grants gear. Since 2026-08-21 a Lord or
+        // Politician generates with NO ITEMS AT ALL, and a loadout of zero
+        // bands would fail the "nothing to order" guard below on the 2-in-20
+        // rolls that land one — the precondition-off-a-random-roll race.
+        // Bounded and loud, the npc-split probe's shape.
+        const MAP = CONFIG.Cairn?.npcGenerator?.backgroundGear ?? {};
+        for (let tries = 0; tries < 6 && !actor; tries++) {
+          const cand = await gen.createNpc();
+          if (MAP[cand.system.background]) actor = cand;
+          else await cand.delete();
+        }
+        if (!actor) return { error: "npc: six creations in a row landed a no-gear Background" };
       }
       if (!actor) return { error: `${kind}: no actor was created` };
       await actor.update({ name: `ZZ GrantOrder ${kind}` });
@@ -221,8 +240,25 @@ try {
 
   const twoE = report("2e (Marchguard)", await generate("2e", setup.marchguard));
   const bare = report("barebones (Oil Collector)", await generate("barebones", setup.oilCollector));
+  const acolyte = report("barebones (Acolyte)", await generate("barebones", setup.acolyte));
   report("hireling (random career)", await generate("hireling", null));
   report("npc (random background)", await generate("npc", null));
+
+  // The BOOK band: the Acolyte's resolved Spellbook is a real precondition —
+  // its background declares the instruction row — so an absence is a finding,
+  // and its position is what the 2026-08-21 rule adds over plain monotonicity.
+  if (acolyte && !acolyte.error) {
+    const rows = acolyte.rows;
+    const book = rows.findIndex((r) => r.type === "spellbook");
+    if (book < 0) {
+      fail("Acolyte: no spellbook in the loadout — the instruction row did not resolve");
+    } else if (!rows.slice(0, book).every((r) => r.band <= 2)
+        || !rows.slice(book + 1).every((r) => r.band >= 2)) {
+      fail(`Acolyte: the book at row ${book + 1} has a later band above it or an earlier one below`);
+    } else {
+      ok(`Acolyte: "${rows[book].name}" sits after weapons/armor, before everything else`);
+    }
+  }
 
   /* --- 2. the tail: the light block, then Rations ----------------------------- */
 
@@ -232,8 +268,11 @@ try {
     if (!res || res.error) return;
     const rows = res.rows;
     const last = rows[rows.length - 1];
-    if (last.band !== 4) fail(`${label}: the last row is "${last.name}" (${BANDS[last.band]}), not Rations`);
-    else ok(`${label}: "${last.name}" is the last row`);
+    // By NAME into BANDS, never a literal index — the book band's arrival
+    // (2026-08-21) moved every band below it and a hardcoded 4 went stale.
+    if (last.band !== BANDS.indexOf("rations")) {
+      fail(`${label}: the last row is "${last.name}" (${BANDS[last.band]}), not Rations`);
+    } else ok(`${label}: "${last.name}" is the last row`);
 
     const lantern = rows.findIndex((r) => /lantern/i.test(r.name));
     const oil = rows.findIndex((r) => /^oil can$/i.test(r.name));
@@ -281,7 +320,7 @@ try {
         out = {
           names: rows.map((r) => r.name),
           paired: lantern >= 0 && oil === lantern + 1,
-          rationsLast: !!last && H.bandOf(last.name, last.type) === 4,
+          rationsLast: !!last && H.bandOf(last.name, last.type) === 5,
         };
       } finally {
         await actor.updateEmbeddedDocuments("Item", was, { render: false });

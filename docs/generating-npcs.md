@@ -23,7 +23,7 @@ if you have granted it.
 | where it comes from | the Warden's Guide NPC table (d20) | the 2e careers list (12 of them) |
 | day rate | none | yes, from the career |
 | stat block | **rolled** — 3d6 a piece, 1d6 HP | fixed by the career |
-| gear | a kit, plus its Background's Barebones counterpart — six items, or three if the Background grants none | the career's whole loadout, equipped |
+| gear | a kit, plus its Background's Barebones counterpart — six items; a Lord or Politician arrives with **nothing at all** | the career's whole loadout, equipped |
 | extra traits | **Quirk, Goal**, plus NPC Virtue and Vice | 2e Virtue and Vice |
 
 Nothing is locked in. The **Role** dropdown at the top of any of these sheets
@@ -56,11 +56,12 @@ is the one to use when you want the new person filed straight into a folder.
 - **A portrait and a matching token.** If you have set up a custom portrait
   folder with an `npc` subfolder, it draws from there — see
   [Using Your Own Portraits](using-your-own-portraits.md).
-- **Rations, a torch and one random find.** Every NPC carries these whatever
-  they do for a living — the same three the Barebones equipment procedure
-  gives a starting character.
-- **The gear its Background grants**, on top of that — see the table below.
-  Two Backgrounds grant none, and those NPCs still get the kit.
+- **Rations, a torch and one random find** — the same three the Barebones
+  equipment procedure gives a starting character — plus **the gear its
+  Background grants**; see the table below. The exception is a **Lord or
+  Politician, who arrives with no items at all**, kit included: rank and
+  office pack nothing, and you give them exactly what the fiction says they
+  carry.
 - **A rolled stat block**: 3d6 for each of STR, DEX and WIL, and 1d6 Hit
   Protection — the same dice a player character is made with.
 
@@ -130,7 +131,38 @@ else:
 | beside **Age** | 2d20 + 10, floored and capped by your settings |
 | on the portrait | another face from the same folder |
 
-Players see these only if you have turned on **Allow players to randomize**.
+**These dice are yours alone.** On an NPC or hireling sheet a player never sees
+them — not even a player who owns the hireling, and whatever **Allow players
+to randomize** says. That setting still governs player characters only.
+
+### Picking instead of rolling
+
+Beside the die, the **magnifying glass** picks a specific value instead of a
+random one — the same control a player character's background row has:
+
+- **Career** (hireling): choose from the twelve 2e careers, each shown with its
+  day rate and loadout. Picking one adopts the whole career — stat block, rate
+  and gear — exactly as the die would.
+- **Background** (NPC): choose from the d20 table. The old trade's gear is
+  swapped for the new trade's; the kit stays.
+- **Faction**: choose from your faction table (your own world table of the same
+  name wins, as always).
+
+The pickers do not go away when you turn **Randomization** off — that is the
+point of them. Off means "no dice"; a deliberate choice is not a die.
+
+## What players see
+
+A generated NPC arrives with **Limited** default ownership: players see its
+name and portrait in the directory, and opening the sheet shows them the
+portrait, the name and the Description field — no stat block, no inventory, no
+notes, and no Print button. Put anything the players may read in
+**Description**; keep your secrets in **Notes**.
+
+A generated hireling arrives **Limited** too — it is meant to be handed to a
+player whole, so grant ownership as usual when the party hires them, and until
+you do, players see its limited view like any stranger's. However much of a
+hireling a player owns, its generation dice stay yours (above).
 
 ## Changing your mind
 
@@ -204,13 +236,14 @@ editing an item changes what every NPC generated afterwards carries.
 Eleven are the same word in both lists, in **bold**. Seven needed a
 translation, and two get nothing at all:
 
-- **Lord and Politician grant no inventory**, and that is not an oversight.
-  Every one of the 100 Barebones backgrounds is an OCCUPATION — what you did
-  before adventuring — so hereditary rank and elected office have nowhere to
-  sit. That is exactly why both words are on a table the WARDEN rolls: they say
-  where someone stands in the world, which is what you need about a person the
-  party meets, not a set of skills a starting character brings. A Lord arrives
-  with an empty pack; give them what the fiction says they carry.
+- **Lord and Politician generate with no items at all** — no gear, no kit —
+  and that is not an oversight. Every one of the 100 Barebones backgrounds is
+  an OCCUPATION — what you did before adventuring — so hereditary rank and
+  elected office have nowhere to sit. That is exactly why both words are on a
+  table the WARDEN rolls: they say where someone stands in the world, which is
+  what you need about a person the party meets, not a set of skills a starting
+  character brings. A Lord arrives with an empty pack; give them what the
+  fiction says they carry.
 - **Thug is not Thief**, obvious as that looks, because Thief is already row 19.
   Highway Robber keeps the distinction the table draws: one takes by stealth,
   the other by force.
@@ -226,13 +259,18 @@ translation, and two get nothing at all:
   make one if the peddler needs it. A hireling's career grants no transport
   either.
 
-**Every NPC also carries a kit**, whatever their Background: Rations, a Torch
-and one roll on the Barebones Additional Gear table, which is where the other
-half of a full pack comes from. It is the same procedure a Barebones
-character goes through, minus the rolled weapon and armor — an innkeeper
-should not arrive in mail because the dice said so. That brings a typical NPC
-to six items, the same as a hireling off its career, and a Lord or Politician
-to three.
+**Every other NPC also carries a kit**: Rations, a Torch and one roll on the
+Barebones Additional Gear table, which is where the other half of a full pack
+comes from. It is the same procedure a Barebones character goes through, minus
+the rolled weapon and armor — an innkeeper should not arrive in mail because
+the dice said so. That brings a typical NPC to six items, the same as a
+hireling off its career.
+
+A note on the Background **die** (as against generation): rolling an existing
+NPC's Background onto Lord or Politician removes the old trade's gear and
+grants nothing new, but **the kit they already packed stays** — a new station
+does not unpack the bag. Only generation — the button, or Roll NPC — makes a
+Lord empty-handed.
 
 Both are tagged, and the tags are what tell them apart when you re-roll:
 

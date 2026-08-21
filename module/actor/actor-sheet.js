@@ -1,4 +1,4 @@
-import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, rollNameFromTable, rollAge } from "../character-generator.js";
+import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, rollNameFromTable, rollAge } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel } from "../utils.js";
@@ -290,6 +290,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       rollName: owned(mayRandomize(CairnActorSheet.#onRollName)),
       rollProfession: owned(mayRandomize(CairnActorSheet.#onRollProfession)),
       rollFaction: owned(mayRandomize(CairnActorSheet.#onRollFaction)),
+      // The person-sheet pickers (2026-08-21): a deliberate choice, not a die,
+      // but they ride mayRandomize anyway — on an npc-type sheet that helper
+      // answers Warden-only, and the pickers are Warden tools by the same
+      // ruling that hides the dice from players.
+      pickProfession: owned(mayRandomize(CairnActorSheet.#onPickProfession)),
+      pickFaction: owned(mayRandomize(CairnActorSheet.#onPickFaction)),
       // Inventory
       itemCreate: owned(CairnActorSheet.#onItemCreate),
       itemShop: owned(CairnActorSheet.#onItemShop),
@@ -529,8 +535,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // the button no longer has a role test, so #syncGenerationButtons no
     // longer syncs it. NO ownership gate, deliberately: the page renders
     // exactly what the sheet already shows this viewer, so being able to
-    // open the sheet IS the gate.
-    const print = [{ action: "printSheet", icon: "fas fa-print", label: "CAIRN.Print" }];
+    // open the sheet IS the gate — which is exactly why a LIMITED viewer
+    // loses it (2026-08-21): their sheet shows portrait, name and description,
+    // and the print page would hand them the statblock the limited view
+    // exists to withhold. Frame-time is fine — per-viewer ownership cannot
+    // change under that viewer's own open sheet without a re-render anyway,
+    // and the handler repeats the test for the crafted-client case.
+    const print = this.document.limited ? []
+      : [{ action: "printSheet", icon: "fas fa-print", label: "CAIRN.Print" }];
 
     // npc and hireling are one thing, so both get the NPC generation controls.
     const isNpc = ["hireling", "npc"].includes(this.actor.type);
@@ -677,7 +689,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * the enforcement cannot disagree.
    */
   _mayRandomize() {
-    return game.user.isGM || game.settings.get(SETTINGS_NS, "allow-player-randomization");
+    if (game.user.isGM) return true;
+    // On an npc-type sheet the whole randomization surface — dice, pickers,
+    // both frame buttons — is the Warden's alone (user ruling 2026-08-21): a
+    // player who owns a hireling must never see its dice, whatever the
+    // allow-player-randomization switch says. That switch keeps meaning what
+    // it always meant, but only for player CHARACTERS.
+    if (["npc", "hireling"].includes(this.actor.type)) return false;
+    return game.settings.get(SETTINGS_NS, "allow-player-randomization");
   }
 
   /**
@@ -1093,6 +1112,17 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         // ...and never for a player while the Warden's switch is off — the
         // whole surface goes, not just the title-bar toggle (ruled 2026-08-09).
         && this._mayRandomize();
+      // The pickers (2026-08-21) are deliberately NOT inside generationEnabled:
+      // "when randomization is toggled off the picker should be available" is
+      // the ask's exact wording, so they hang off the viewer's permission alone
+      // — Warden-only on this sheet type (_mayRandomize) — and person roles
+      // only, because Career, Background and Faction are the person rows.
+      context.canPickGeneration = PERSON_ROLES.includes(this.actor.npcRole)
+        && this._mayRandomize();
+      // LIMITED view (2026-08-21): portrait, name, description — nothing else.
+      // `document.limited` is core's own "highest ownership is exactly LIMITED",
+      // so the Warden and any observer-or-better viewer never see this branch.
+      context.limitedView = this.document.limited;
       // A PERSON gets the character's biography block — pronouns, age, the
       // traits, scars — on the Description tab (2026-08-01). EITHER person role
       // since the 2026-08-20 split: a monster, companion, transport or
@@ -2229,6 +2259,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static #onPrintSheet(event) {
     event.preventDefault();
+    // The limited view's other half: the button above is the affordance, this
+    // is the enforcement (the two-layer rule every guard here follows).
+    if (this.document.limited) return;
     const win = window.open("", "_blank");
     if (!win) {
       ui.notifications.warn(game.i18n.localize("CAIRN.Notify.PrintBlocked"));
@@ -2843,6 +2876,26 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   static async #onRollFaction(event) {
     event.preventDefault();
     await rerollNpcFaction(this.actor);
+  }
+
+  /**
+   * Career / Background picker (2026-08-21): the magnifying glass beside the
+   * die, dispatching on role exactly as the die does. Offered whether or not
+   * Randomization is on — a deliberate choice is not randomization — and to
+   * the Warden only (see _mayRandomize's npc-type gate).
+   * @this {CairnActorSheet}
+   */
+  static async #onPickProfession(event) {
+    event.preventDefault();
+    if (this.actor.npcRole === "npc") await promptNpcBackground(this.actor);
+    else await promptHirelingCareer(this.actor);
+  }
+
+  /** Faction picker: the same world-first table the Faction die rolls.
+   *  @this {CairnActorSheet} */
+  static async #onPickFaction(event) {
+    event.preventDefault();
+    await promptNpcFaction(this.actor);
   }
 
   /* -------------------------------------------- */

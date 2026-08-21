@@ -99,13 +99,18 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   generated Peddler holding a Sack and nothing else. **Lord and Politician map to
   nothing on purpose** — all 100 Barebones backgrounds are occupations, so rank
   and office have no counterpart, which is the same reason those two words are
-  on a Warden's table and not in character creation. **Containers are NOT
+  on a Warden's table and not in character creation. **And since 2026-08-21
+  they GENERATE with no items at all, kit included** (user ruling, reversing
+  "the kit does not care what you do for a living") — GENERATION-scoped: the
+  Background die or picker landing Lord on an existing NPC still leaves the
+  kit they packed, because a new station does not unpack the bag. The guard
+  lives in `buildNpcGear`, not `buildNpcKit`, for exactly that reason. **Containers are NOT
   granted** (the Merchant's Wagon, the Peddler's Cart): a transport is a second
   Actor the directory always lists, and a hireling's career grants none either.
   **A KIT rides alongside** — Rations, Torch and one Additional Gear roll, the
   rest of the Barebones equipment procedure minus the rolled weapon and armor,
   because a Background alone left an NPC on three items where a hireling arrives
-  with six. It is tagged **`npc-kit`, deliberately not `background`**: two
+  with six (Lord and Politician excepted, above). It is tagged **`npc-kit`, deliberately not `background`**: two
   sources, two lifetimes — the Background die replaces only `background`, a full
   regenerate replaces both, and `grantSourceLabel` maps an unknown source to ""
   so rations never wear a "Background" chip. **Everything a generator gives an
@@ -141,6 +146,22 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   asked with one gate (`showForHire`). The box read `isNpcPerson` for a day
   after the split, so an NPC was offered a checkbox whose only effect is a row
   its role never shows.
+  **Three player-facing rulings landed 2026-08-21.** (1) A generated NPC stamps
+  `ownership.default` LIMITED explicitly — though `CairnActor._preCreate` has
+  defaulted every unconnected person-npc there since 2026-08-01, hirelings
+  included — and the npc sheet gained a LIMITED VIEW: portrait, name,
+  description, nothing else, and NO Print button (print's "shows nothing the
+  sheet does not" claim went false the day the sheet started withholding).
+  That rendering is what the ruling actually added: LIMITED used to open the
+  full sheet, so the level was a label with no wall behind it. (2) **The randomization surface on npc-type sheets is the
+  Warden's alone** — `_mayRandomize` refuses any player on type npc/hireling
+  regardless of `allow-player-randomization`, which now governs player
+  CHARACTERS only. (3) **Pickers** (magnifying glass) beside Career, Background
+  and Faction — deliberately OUTSIDE the `generationEnabled` template gate,
+  because "available when Randomization is off" was the ask; they share one
+  apply with the dice (`applyHirelingCareer` / `applyNpcBackground`), so a
+  picked career and a rolled one are the same event, and both re-arrange the
+  whole inventory (`reorderInventory`) so a swap reads like a fresh person.
   The biography sentence is **second person for a character, third for both npc
   roles** (2026-08-20) — one `_wording` call inside `_buildTraitSentence`, which
   the printed page shares. A Spanish client keeps its translated "Eres…" until a
@@ -221,13 +242,15 @@ editable type packs 2e uses rather than a parallel set. Three code sites cite
 this rule (`module/settings.js`, `module/actor/actor-sheet.js`,
 `tools/import/barebones.mjs`); they cited this file for it before it said so.
 
-**A generated loadout arrives ARRANGED (2026-08-21, user ask).** Five bands, top
-to bottom: weapons, armor, everything else in the order it was granted, light
-sources with each one's fuel directly beneath it, Rations. `orderGrantedItems`
-(`module/gear.js`) writes it as each item's `sort` at all four generators plus
-`regenerateNpc` — the one full regenerate that keeps items, and so the one that
-has to arrange the whole inventory rather than only its own batch. Four things
-that will bite:
+**A generated loadout arrives ARRANGED (2026-08-21, user ask).** Six bands, top
+to bottom: weapons, armor, **spellbooks and spellscrolls together** (one band
+because they are one TYPE — a scroll is a flag), everything else in the order
+it was granted, light sources with each one's fuel directly beneath it,
+Rations. `orderGrantedItems` (`module/gear.js`) writes it as each item's `sort`
+at all four generators plus `regenerateNpc` — the one full regenerate that
+keeps items — and a career/Background swap (die or picker) re-arranges the
+whole inventory too, or its replacement gear would append in career-list order
+with Rations on top. Four things that will bite:
 
 - **`sort` is only READ when `enable-inventory-reorder` is on** (the default).
   With it off `_sortItemsForDisplay` sorts alphabetically and the arrangement is

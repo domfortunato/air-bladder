@@ -3203,14 +3203,39 @@ export const regenerateHireling = async (actor) => {
  * @param {CairnActor} actor
  * @returns {Promise<CairnActor>}
  */
-export const rerollHirelingCareer = async (actor) => {
-  const h = await randomCareer(actor.system.profession);
+export const rerollHirelingCareer = async (actor) =>
+  applyHirelingCareer(actor, await randomCareer(actor.system.profession));
+
+/**
+ * The CHOSEN-career half of the pair (2026-08-21, user ask): the magnifying
+ * glass beside the Career field, the same deliberate-choice affordance the PC
+ * sheet's background picker is. Adopts the WHOLE career exactly as the die
+ * does — statblock, rate, gear — because a career's stats ARE its identity;
+ * a picker that swapped only the word would leave a Blacksmith with a
+ * scholar's arms.
+ * @param {CairnActor} actor @param {String} name  the ENGLISH career name
+ * @returns {Promise<CairnActor>}
+ */
+export const pickHirelingCareer = async (actor, name) => {
+  const h = (await getNpcCareers2e()).find((c) => c.name === name);
+  return h ? applyHirelingCareer(actor, h) : actor;
+};
+
+/** Shared by the Career die and the Career picker — one apply, so the two can
+ *  never disagree about what adopting a career means. @private */
+const applyHirelingCareer = async (actor, h) => {
   const items = await buildHirelingItems(h);
   const stale = actor.items
     .filter((i) => i.getFlag(FLAG_SCOPE, "grantSource") === "profession")
     .map((i) => i.id);
   if (stale.length) await actor.deleteEmbeddedDocuments("Item", stale, { render: false, abNoStatusCard: true });
   if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false, abNoStatusCard: true });
+  // Arrange the RESULT (2026-08-21). A career swap replaces the whole granted
+  // loadout, and without this the new items ride the append seam in career-list
+  // order — Rations first, the sword last, the arrangement inverted. The same
+  // whole-inventory pass regenerateNpc runs, and for the same reason: what a
+  // swap leaves behind should read like a freshly generated person.
+  await reorderInventory(actor);
   await actor.update({
     system: {
       // See regenerateHireling: the pair travels with the rate it gates.
@@ -3404,6 +3429,15 @@ const buildNpcKit = async (avoid = new Set()) => {
  * @returns {Promise<Object[]>}
  */
 const buildNpcGear = async (background) => {
+  // A Background with no Barebones counterpart — Lord and Politician — grants
+  // NOTHING AT ALL, kit included (user ruling 2026-08-21, reversing the
+  // 2026-08-20 "the kit does not care what you do for a living"). Rank and
+  // office arrive empty-handed; the Warden equips them deliberately or not at
+  // all. GENERATION-scoped on purpose: the Background DIE landing Lord on an
+  // existing NPC still leaves the kit they already packed — a new station does
+  // not unpack the bag — which is why this guard lives here and not in
+  // buildNpcKit.
+  if (!Cairn.npcGenerator?.backgroundGear?.[String(background ?? "").trim()]) return [];
   const avoid = new Set(["rations", "torch"]);
   const items = await buildNpcItems(background, avoid);
   return [...items, ...(await buildNpcKit(avoid))];
@@ -3517,6 +3551,15 @@ const npcToActorData = (n) => ({
   // Three items, or none for a Background with no Barebones counterpart. Still
   // stated rather than omitted, so an empty pack reads as a decision.
   items: n.items ?? [],
+  // Players get a LIMITED view of a generated NPC (user ruling 2026-08-21).
+  // CairnActor._preCreate has defaulted every unconnected person-npc to
+  // LIMITED since 2026-08-01, so this is the generator stating its intent
+  // explicitly rather than inheriting it — the same pattern as
+  // generationEnabled above — and what the ruling actually ADDED is the
+  // sheet's limited RENDERING: LIMITED used to open the full sheet, stats and
+  // all, so the level was a label with no wall behind it. Create-time only —
+  // regenerateNpc must not reset whatever the Warden has granted since.
+  ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.LIMITED },
 });
 
 /**
@@ -3612,7 +3655,25 @@ export const rerollNpcBackground = async (actor) => {
     if (rolled && rolled !== current) break;
   }
   if (!rolled) return actor;
-  // Old grant out, new grant in — the same shape as rerollHirelingCareer, and
+  return applyNpcBackground(actor, rolled);
+};
+
+/**
+ * The CHOSEN-Background half (2026-08-21, user ask): the magnifying glass
+ * beside the Background field. Same apply as the die, so a picked Politician
+ * and a rolled one are the same event — the old trade's gear goes, the kit
+ * stays, and a counterpart-less Background simply grants nothing new.
+ * @param {CairnActor} actor @param {String} text  the ENGLISH table text
+ * @returns {Promise<CairnActor>}
+ */
+export const pickNpcBackground = async (actor, text) =>
+  applyNpcBackground(actor, String(text ?? "").trim());
+
+/** Shared by the Background die and picker — one apply, so the two can never
+ *  disagree about what changing a Background means. @private */
+const applyNpcBackground = async (actor, rolled) => {
+  if (!rolled) return actor;
+  // Old grant out, new grant in — the same shape as applyHirelingCareer, and
   // `render: false` on both so one update renders rather than three.
   const stale = npcGrantedItemIds(actor, ["background"]);
   if (stale.length) await actor.deleteEmbeddedDocuments("Item", stale, { render: false, abNoStatusCard: true });
@@ -3623,6 +3684,121 @@ export const rerollNpcBackground = async (actor) => {
     .map((i) => i.name.toLowerCase()));
   const items = await buildNpcItems(rolled, avoid);
   if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false, abNoStatusCard: true });
+  // Same whole-inventory arrangement a career swap gets — see applyHirelingCareer.
+  await reorderInventory(actor);
   await actor.update({ "system.background": rolled });
+  return actor;
+};
+
+/* --------------------------------------------------------------------------
+ * The person-sheet pickers (2026-08-21, user ask): the magnifying glass the PC
+ * sheet's background row already has, brought to the Career, Background and
+ * Faction rows — a Warden picks a specific value instead of rolling one, and
+ * the picker is offered whether or not the Randomization toggle is on, because
+ * a deliberate choice is not randomization. All three share promptFailedCareer's
+ * dialog shape: radio rows, a Random row on top, ENGLISH value stored where the
+ * stored string is a match key, translated label shown.
+ * ------------------------------------------------------------------------ */
+
+/** One radio-list picker dialog. `rows` are {value, label, tag?}; resolves the
+ *  chosen value, BG_RANDOM for the Random row, or false. @private */
+const promptFromRows = (titleKey, rows, current = null) => {
+  let list = `<label class="bg-pick-row"><input type="radio" name="bg" value="${BG_RANDOM}"${current ? "" : " checked"}>
+    <span class="bg-pick-name"><i class="fas fa-dice"></i> ${game.i18n.localize("CAIRN.RandomBackground")}</span></label>`;
+  for (const row of rows) {
+    list += `<label class="bg-pick-row"><input type="radio" name="bg" value="${bgEsc(row.value)}"${row.value === current ? " checked" : ""}>
+      <span class="bg-pick-name">${bgEsc(row.label)}</span>${row.tag ? `<span class="bg-pick-tag">${row.tag}</span>` : ""}</label>`;
+  }
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (v) => { if (!done) { done = true; resolve(v); } };
+    const dialog = new foundry.applications.api.DialogV2({
+      window: { title: game.i18n.localize(titleKey), icon: "fas fa-magnifying-glass" },
+      position: { width: 420 },
+      content: `<div class="bg-picker single"><div class="bg-pick-list">${list}</div></div>`,
+      buttons: [
+        {
+          action: "choose",
+          label: game.i18n.localize("CAIRN.Choose"),
+          default: true,
+          callback: () => {
+            const form = dialog.element.querySelector("form") ?? dialog.element;
+            finish(form?.elements?.bg?.value || BG_RANDOM);
+          },
+        },
+        { action: "cancel", label: game.i18n.localize("CAIRN.Cancel"), callback: () => finish(false) },
+      ],
+    });
+    const origClose = dialog.close.bind(dialog);
+    dialog.close = (...a) => { finish(false); return origClose(...a); };
+    dialog.render(true);
+  });
+};
+
+/**
+ * Pick a hireling's career by name, or Random (which defers to the die's own
+ * path so "random" means the same thing both ways). Applies on choice.
+ * @param {CairnActor} actor @returns {Promise<CairnActor>}
+ */
+export const promptHirelingCareer = async (actor) => {
+  const careers = await getNpcCareers2e();
+  if (!careers.length) return actor;
+  const current = String(actor.system.profession ?? "").trim();
+  const rows = [...careers]
+    .sort((a, b) => t("npc.career", a.name).localeCompare(t("npc.career", b.name), game.i18n.lang))
+    .map((c) => ({
+      value: c.name,
+      label: t("npc.career", c.name),
+      // The rate and the loadout are what a Warden picks a career FOR.
+      tag: bgEsc(`${c.rate ?? 0} ${game.i18n.localize("CAIRN.DayRateSuffix")} · `
+        + (c.gear ?? []).map((g) => t("item.name", g.name ?? g)).join(", ")),
+    }));
+  const choice = await promptFromRows("CAIRN.PickCareer", rows, current);
+  if (!choice) return actor;
+  if (choice === BG_RANDOM) return rerollHirelingCareer(actor);
+  return pickHirelingCareer(actor, choice);
+};
+
+/**
+ * Pick an NPC's Background from the Warden's Guide d20 table, or Random via
+ * the die's own path. The VALUE is the raw English row text — the stored
+ * string is the backgroundGear match key — while the label shows the
+ * translation, exactly the read/stored split the sheet input already does.
+ * @param {CairnActor} actor @returns {Promise<CairnActor>}
+ */
+export const promptNpcBackground = async (actor) => {
+  const [packName, tableName] = compendiumInfoFromString(CONFIG.Cairn?.npcGenerator?.background ?? "");
+  const pack = packName ? game.packs.get(packName) : null;
+  const table = pack ? (await pack.getDocuments()).find((d) => d.name === tableName) : null;
+  if (!table) return actor;
+  const current = String(actor.system.background ?? "").trim();
+  const rows = table.results.map((r) => String(resultText(r)).trim()).filter(Boolean)
+    .map((text) => ({ value: text, label: t("table.result", text) }))
+    .sort((a, b) => a.label.localeCompare(b.label, game.i18n.lang));
+  const choice = await promptFromRows("CAIRN.PickBackground", rows, current);
+  if (!choice) return actor;
+  if (choice === BG_RANDOM) return rerollNpcBackground(actor);
+  return pickNpcBackground(actor, choice);
+};
+
+/**
+ * Pick a faction off the same world-first table the Faction die rolls. The
+ * stored value is the TRANSLATED text, matching rerollNpcFaction's ratified
+ * bake — a faction is world content in the session's language, and unlike
+ * career it is a match key for nothing. Random defers to the die.
+ * @param {CairnActor} actor @returns {Promise<CairnActor>}
+ */
+export const promptNpcFaction = async (actor) => {
+  const tableName = CONFIG.Cairn?.npcGenerator?.faction;
+  const table = tableName ? await findTableByName(tableName) : null;
+  if (!table) return actor;
+  const rows = table.results.map((r) => t("table.result", String(resultText(r)).trim())).filter(Boolean)
+    .map((text) => ({ value: text, label: text }))
+    .sort((a, b) => a.label.localeCompare(b.label, game.i18n.lang));
+  const current = String(actor.system.faction ?? "").trim();
+  const choice = await promptFromRows("CAIRN.PickFaction", rows, current);
+  if (!choice) return actor;
+  if (choice === BG_RANDOM) return rerollNpcFaction(actor);
+  await actor.update({ "system.faction": choice });
   return actor;
 };

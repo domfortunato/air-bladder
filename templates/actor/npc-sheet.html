@@ -10,6 +10,22 @@
           its name though the field it was named for is gone: css/cairn.css and
           the sheet-layout probe both hang off it, and the layout it describes
           is unchanged. It now follows the role — THING_ROLES have no stats. --}}
+    {{#if limitedView}}
+    {{!-- LIMITED view (2026-08-21, user ruling): portrait, name, description
+          — the Foundry convention for a limited actor sheet. No statblock, no
+          items, no notes, no traits, no career or faction: an NPC's numbers
+          are the Warden's. Everything below the {{else}} is the full sheet,
+          which a limited viewer's render never reaches; print is gated to
+          match (_getFrameButtons / #onPrintSheet), or the Print button would
+          hand over exactly the page this branch withholds. --}}
+    <div class="cairn-limited-sheet">
+        <img class="portrait" src="{{actor.img}}" alt="" />
+        <h1 class="cairn-limited-name">{{nameDisplay}}</h1>
+        {{#if enrichedDescription}}
+        <div class="cairn-limited-description">{{{enrichedDescription}}}</div>
+        {{/if}}
+    </div>
+    {{else}}
     <div class="charater-sheet-grid{{#if system.isThing}} inanimate-grid{{/if}}">
         <!-- Portrait: click for the same gallery a player character gets (shipped
              art + the GM's custom portraits + paste-a-URL + Browse), the die rolls
@@ -64,6 +80,14 @@
                 {{#if generationEnabled}}
                 <a class="profession-roll" data-action="rollProfession" title="{{ localize 'CAIRN.RollProfession' }}"><i class="fas fa-dice-d20"></i></a>
                 {{/if}}
+                {{!-- The picker sits OUTSIDE generationEnabled on purpose
+                      (2026-08-21, user ask): turning Randomization off is what
+                      makes a deliberate pick the only way to set a Career, so
+                      the magnifying glass must survive the toggle. Warden-only
+                      — canPickGeneration rides _mayRandomize's npc-type gate. --}}
+                {{#if canPickGeneration}}
+                <a class="profession-roll profession-pick" data-action="pickProfession" title="{{ localize 'CAIRN.PickCareer' }}"><i class="fas fa-magnifying-glass"></i></a>
+                {{/if}}
                 {{/if}}
                 {{!-- The NPC role's answer to the same question (2026-08-20).
                       Different FIELD, not a relabelled one: a hireling's Career
@@ -85,6 +109,9 @@
                     value="{{backgroundDisplay}}" placeholder="{{ localize 'CAIRN.Background' }}" />
                 {{#if generationEnabled}}
                 <a class="profession-roll" data-action="rollProfession" title="{{ localize 'CAIRN.RollBackground' }}"><i class="fas fa-dice-d20"></i></a>
+                {{/if}}
+                {{#if canPickGeneration}}
+                <a class="profession-roll profession-pick" data-action="pickProfession" title="{{ localize 'CAIRN.PickBackground' }}"><i class="fas fa-magnifying-glass"></i></a>
                 {{/if}}
                 {{/if}}
                 {{!-- The KIND, labelled "Type" (a label only — the field stays
@@ -135,6 +162,9 @@
                     value="{{system.faction}}" />
                 {{#if generationEnabled}}
                 <a class="profession-roll" data-action="rollFaction" title="{{ localize 'CAIRN.RollFaction' }}"><i class="fas fa-dice-d20"></i></a>
+                {{/if}}
+                {{#if canPickGeneration}}
+                <a class="profession-roll profession-pick" data-action="pickFaction" title="{{ localize 'CAIRN.PickFaction' }}"><i class="fas fa-magnifying-glass"></i></a>
                 {{/if}}
             </div>
             {{/if}}
@@ -433,3 +463,4 @@
             </section>
         </div>
     </div>
+{{/if}}

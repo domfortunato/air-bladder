@@ -94,12 +94,18 @@ await withSettings(page, async () => {
         traits: npc.system.traits, items: npc.items.size,
         slotsMax: npc.system.slotsMax, name: npc.name,
         hp: npc.system.hp?.max, str: npc.system.abilities?.STR?.max,
+        // 2026-08-21: players get a LIMITED view of a generated NPC.
+        ownershipDefault: npc.ownership?.default,
       };
       out.hire = {
         role: hire.system.role, background: hire.system.background,
         profession: hire.system.profession, dayRate: hire.system.dayRate,
         showDayRate: hire.system.showDayRate, isNpcPerson: hire.system.isNpcPerson,
         traits: hire.system.traits, items: hire.items.size, name: hire.name,
+        // A hireling arrives LIMITED as well — not from the generator but
+        // from CairnActor._preCreate's 2026-08-01 person-npc default; the
+        // Warden raises it when the party actually hires them.
+        ownershipDefault: hire.ownership?.default,
       };
 
       // The Background must come off the SHIPPED table, not be any old string.
@@ -301,7 +307,22 @@ await withSettings(page, async () => {
         CONFIG.Dice.randomUniform = () => 1 - (rowFor(text) - 0.5) / faces;
         try { await cg.rerollNpcBackground(actor); } finally { CONFIG.Dice.randomUniform = origRnd; }
       };
-      const gift = await cg.createNpc();
+      // ESTABLISH a mapped Background at birth. Since 2026-08-21 a Lord or
+      // Politician generates with NO items at all — kit included — so the
+      // 2-in-20 creation that lands one would leave the kit legs below nothing
+      // to keep: the exact "precondition off a random roll" race this probe
+      // already fixed once. Bounded and LOUD: six misses in a row is one in
+      // sixty-four million, or the mapping shrank.
+      let gift = null;
+      for (let tries = 0; tries < 6 && !gift; tries++) {
+        const cand = await cg.createNpc();
+        if (MAP[cand.system.background]) gift = cand;
+        else await cand.delete();
+      }
+      if (!gift) {
+        out.errors.push("six consecutive NPCs landed a counterpart-less Background — the mapping has shrunk, or the die is broken");
+        return out;
+      }
       await gift.createEmbeddedDocuments("Item", [{ name: "ZZ Warden Gift", type: "item" }]);
       await rollOnto(gift, granting);
       out.reroll = { granting, before: grantedOf(gift), wantBefore: await gearNamesOf(MAP[granting]) };
@@ -352,6 +373,26 @@ await withSettings(page, async () => {
         after: kitIdsAfter.length,
         shared: kitIdsAfter.filter((id) => kitIdsBefore.includes(id)).length,
         handKept: gift.items.some((i) => i.name === "ZZ Warden Gift"),
+        // What the regenerate happened to land on decides what "replaced"
+        // looks like: a mapped Background packs a fresh kit, Lord/Politician
+        // pack NOTHING (2026-08-21) — and zero shared ids proves the
+        // replacement either way.
+        landed: gift.system.background,
+        landedMapped: !!MAP[gift.system.background],
+      };
+
+      /* --- 8. a Lord GENERATES empty-handed (2026-08-21, user ruling) ------ */
+      // Pinned GENERATION, not a pinned re-roll: the ruling is scoped to what a
+      // person ARRIVES with, and the constant pin is safe here precisely
+      // because the Lord path never reaches the Additional Gear table — there
+      // is no retry loop for a constant die to starve.
+      CONFIG.Dice.randomUniform = () => 1 - (rowFor("Lord") - 0.5) / faces;
+      let lord = null;
+      try { lord = await cg.createNpc(); } finally { CONFIG.Dice.randomUniform = origRnd; }
+      out.lordGen = {
+        background: lord.system.background,
+        items: lord.items.map((i) => i.name),
+        ownershipDefault: lord.ownership?.default,
       };
 
     } catch (e) {
@@ -397,8 +438,12 @@ check(G.want?.length > 0 ? G.got?.length === G.want?.length : G.got?.length === 
 // arriving with two or three items where a hireling arrives with six off its
 // career. Rations and a Torch are named, the third is a roll, so the leg names
 // the two and counts the three.
-check(G.kit?.includes("Rations") && G.kit?.includes("Torch") && G.kit?.length === 3,
-  "plus a kit: rations, a torch and one random find", JSON.stringify(G.kit));
+check(G.target
+  ? (G.kit?.includes("Rations") && G.kit?.includes("Torch") && G.kit?.length === 3)
+  : G.kit?.length === 0,
+  G.target ? "plus a kit: rations, a torch and one random find"
+    : "a counterpart-less Background packs NO kit either (2026-08-21)",
+  JSON.stringify(G.kit));
 check(G.untagged?.length === 0,
   "and NOTHING arrives untagged — every item has an owner", JSON.stringify(G.untagged));
 // Not pinned to 10 — inherited from the Warden's max-equip-slots setting, whose
@@ -464,10 +509,29 @@ check(IN.granted?.length === IN.declared?.length,
   "the instruction row resolved to a real item, not nothing",
   `${IN.declared?.length} declared -> ${JSON.stringify(IN.granted)}`);
 const RG = R.regen ?? {};
-check(RG.before === 3 && RG.after === 3 && RG.shared === 0,
+// `shared === 0` is the load-bearing half either way; the count the landing
+// owes depends on what it landed on — a fresh kit for a mapped Background,
+// NOTHING for Lord/Politician (2026-08-21).
+check(RG.before === 3 && RG.shared === 0 && (RG.landedMapped ? RG.after === 3 : RG.after === 0),
   "a WHOLE re-roll replaces the kit too, by id",
-  `${RG.before} -> ${RG.after}, ${RG.shared} shared`);
+  `${RG.before} -> ${RG.after}, ${RG.shared} shared (landed "${RG.landed}")`);
 check(RG.handKept === true, "and still keeps the Warden's own item", "");
+const LG = R.lordGen ?? {};
+console.log("\na Lord arrives OWNING nothing and SHOWING little");
+check(LG.background === "Lord", "generated onto Lord with the die pinned", JSON.stringify(LG.background));
+check(LG.items?.length === 0,
+  "and arrives with NO items at all — no gear, no kit (2026-08-21)", JSON.stringify(LG.items));
+// The ownership stamps (2026-08-21): an NPC generates at default LIMITED so
+// players see a face and a name, never a statblock; a hireling deliberately
+// stamps nothing, because it is meant to be handed over whole.
+// Literal levels — these checks run NODE-side, where Foundry's CONST does not
+// exist (LIMITED = 1, NONE = 0; common/constants.mjs DOCUMENT_OWNERSHIP_LEVELS).
+check(R.npc?.ownershipDefault === 1 && LG.ownershipDefault === 1,
+  "a generated NPC stamps default ownership LIMITED",
+  `npc ${R.npc?.ownershipDefault}, lord ${LG.ownershipDefault}`);
+check(R.hire?.ownershipDefault === 1,
+  "a generated hireling is LIMITED too — CairnActor._preCreate's 2026-08-01 default",
+  `hire ${R.hire?.ownershipDefault}`);
 
 console.log("\na hireling is somebody the party pays");
 check(H.role === "hireling", "role hireling", JSON.stringify(H.role));

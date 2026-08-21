@@ -90,6 +90,7 @@
     "dev:roll-npc": "node tools/dev/e2e-roll-npc.mjs",
     "dev:npc-split": "node tools/dev/e2e-npc-split.mjs",
     "dev:grant-order": "node tools/dev/e2e-grant-order.mjs",
+    "dev:npc-limited": "node tools/dev/e2e-npc-limited.mjs",
     "dev:gen-dice": "node tools/dev/e2e-generation-dice.mjs",
     "dev:monster-gen": "node tools/dev/e2e-monster-gen.mjs",
     "dev:faction-gen": "node tools/dev/e2e-faction-gen.mjs",
