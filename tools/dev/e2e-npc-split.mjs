@@ -249,9 +249,11 @@ await withSettings(page, async () => {
         const bg = bbName ? await cg.getBarebonesBackgroundByName(bbName) : null;
         return (bg?.system?.startingGear ?? []).map((g) => g.name).sort();
       };
-      const grantedOf = (a) => a.items
-        .filter((i) => i.getFlag("air-bladder", "grantSource") === "background")
+      const bySource = (a, src) => a.items
+        .filter((i) => i.getFlag("air-bladder", "grantSource") === src)
         .map((i) => i.name).sort();
+      const grantedOf = (a) => bySource(a, "background");
+      const kitOf = (a) => bySource(a, "npc-kit");
 
       // (a) Whatever THIS run happened to roll, the gear must match that
       //     Background's counterpart. Asserting the rule rather than a fixture
@@ -260,8 +262,9 @@ await withSettings(page, async () => {
         background: npc.system.background,
         target: MAP[npc.system.background] ?? null,
         want: await gearNamesOf(MAP[npc.system.background]),
-        got: npc.items.map((i) => i.name).sort(),
-        tagged: grantedOf(npc),
+        got: grantedOf(npc),
+        kit: kitOf(npc),
+        untagged: npc.items.filter((i) => !i.getFlag("air-bladder", "grantSource")).map((i) => i.name),
       };
 
       // (b) The mapping must cover the table. Every row except Lord and
@@ -305,6 +308,7 @@ await withSettings(page, async () => {
       await rollOnto(gift, "Lord");
       out.reroll.background = gift.system.background;
       out.reroll.granted = grantedOf(gift);
+      out.reroll.kitKept = kitOf(gift);
       out.reroll.handKept = gift.items.some((i) => i.name === "ZZ Warden Gift");
 
       // (d) The INSTRUCTION row, pinned, because the leg above only meets one
@@ -331,6 +335,24 @@ await withSettings(page, async () => {
         out.instruction.background = gift.system.background;
         out.instruction.granted = grantedOf(gift);
       }
+
+      // (e) A WHOLE new person replaces the kit as well. The two sources part
+      //     company exactly here: the Background die leaves the kit alone
+      //     because changing someone's trade does not unpack their bag, while a
+      //     regenerate is a different human being. Compared by item ID, not by
+      //     name — a fresh Rations is a different document with the same name,
+      //     and a name compare would call a replacement a survival.
+      const kitIdsBefore = gift.items
+        .filter((i) => i.getFlag("air-bladder", "grantSource") === "npc-kit").map((i) => i.id);
+      await cg.regenerateNpc(gift);
+      const kitIdsAfter = gift.items
+        .filter((i) => i.getFlag("air-bladder", "grantSource") === "npc-kit").map((i) => i.id);
+      out.regen = {
+        before: kitIdsBefore.length,
+        after: kitIdsAfter.length,
+        shared: kitIdsAfter.filter((id) => kitIdsBefore.includes(id)).length,
+        handKept: gift.items.some((i) => i.name === "ZZ Warden Gift"),
+      };
 
     } catch (e) {
       out.errors.push(`threw: ${e.message}`);
@@ -371,8 +393,14 @@ const same = (a, b) => JSON.stringify(a ?? []) === JSON.stringify(b ?? []);
 check(G.want?.length > 0 ? G.got?.length === G.want?.length : G.got?.length === 0,
   "every declared row resolved — none dropped",
   `${G.background} -> ${G.target}: ${JSON.stringify(G.want)} => ${JSON.stringify(G.got)}`);
-check(G.tagged?.length === G.got?.length,
-  "and EVERY piece is tagged, mundane included", `${G.tagged?.length}/${G.got?.length} tagged`);
+// The KIT, which is what a Background alone could not supply: an NPC was
+// arriving with two or three items where a hireling arrives with six off its
+// career. Rations and a Torch are named, the third is a roll, so the leg names
+// the two and counts the three.
+check(G.kit?.includes("Rations") && G.kit?.includes("Torch") && G.kit?.length === 3,
+  "plus a kit: rations, a torch and one random find", JSON.stringify(G.kit));
+check(G.untagged?.length === 0,
+  "and NOTHING arrives untagged — every item has an owner", JSON.stringify(G.untagged));
 // Not pinned to 10 — inherited from the Warden's max-equip-slots setting, whose
 // default is 10. Asserting the number would freeze a setting the Warden owns.
 check(N.slotsMax === 10, "ten slots, from the Warden's own setting", `${N.slotsMax}`);
@@ -427,12 +455,19 @@ check(RR.before?.length > 0 && RR.granted?.length === 0,
   "and the previous Background's gear went with it", `${JSON.stringify(RR.before)} -> []`);
 check(RR.handKept === true,
   "while the Warden's own item survives — grantSource is the whole difference", "");
+check(RR.kitKept?.length === 3,
+  "and so does the kit — a new trade does not unpack the bag", JSON.stringify(RR.kitKept));
 const IN = R.instruction ?? {};
 check(!!IN.row && IN.background === IN.row,
   "pinned onto a Background whose gear names an INSTRUCTION", `${IN.row}: ${JSON.stringify(IN.declared)}`);
 check(IN.granted?.length === IN.declared?.length,
   "the instruction row resolved to a real item, not nothing",
   `${IN.declared?.length} declared -> ${JSON.stringify(IN.granted)}`);
+const RG = R.regen ?? {};
+check(RG.before === 3 && RG.after === 3 && RG.shared === 0,
+  "a WHOLE re-roll replaces the kit too, by id",
+  `${RG.before} -> ${RG.after}, ${RG.shared} shared`);
+check(RG.handKept === true, "and still keeps the Warden's own item", "");
 
 console.log("\na hireling is somebody the party pays");
 check(H.role === "hireling", "role hireling", JSON.stringify(H.role));

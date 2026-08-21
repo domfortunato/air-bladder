@@ -102,6 +102,15 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   on a Warden's table and not in character creation. **Containers are NOT
   granted** (the Merchant's Wagon, the Peddler's Cart): a transport is a second
   Actor the directory always lists, and a hireling's career grants none either.
+  **A KIT rides alongside** — Rations, Torch and one Additional Gear roll, the
+  rest of the Barebones equipment procedure minus the rolled weapon and armor,
+  because a Background alone left an NPC on three items where a hireling arrives
+  with six. It is tagged **`npc-kit`, deliberately not `background`**: two
+  sources, two lifetimes — the Background die replaces only `background`, a full
+  regenerate replaces both, and `grantSourceLabel` maps an unknown source to ""
+  so rations never wear a "Background" chip. **Everything a generator gives an
+  NPC must be tagged**, mundane items included: untagged is how a Warden's own
+  gift is recognised, so an untagged grant survives every re-roll and piles up.
   **PRONOUNS ARE NEVER ROLLED (2026-08-20, user ruling), on BOTH person
   generators.** They were a uniform pick of he/him, she/her, they/them from
   2026-08-01, justified in a comment as "a generated stranger needs an answer

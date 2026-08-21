@@ -3329,21 +3329,67 @@ const rollNpcTraits = async () => ({
  * @param {String} background  the ENGLISH table text stored on the actor
  * @returns {Promise<Object[]>}
  */
-const buildNpcItems = async (background) => {
+const buildNpcItems = async (background, avoid = new Set()) => {
   const target = Cairn.npcGenerator?.backgroundGear?.[String(background ?? "").trim()];
   if (!target) return [];
   const bg = await getBarebonesBackgroundByName(target);
   if (!bg) return [];
-  const items = await resolveStartingGear(bg);
+  const items = await resolveStartingGear(bg, avoid);
   return items.map((item) => {
     if (item.type === "weapon" || item.type === "armor") item.system.equipped = true;
     return withGrantSource(item, "background");
   });
 };
 
-/** Every item on an actor that its Background granted. @returns {String[]} ids */
-const npcGrantedItemIds = (actor) => actor.items
-  .filter((i) => i.getFlag(FLAG_SCOPE, "grantSource") === "background")
+/**
+ * The KIT every generated NPC carries whatever their Background: Rations and a
+ * Torch, plus one roll on the Barebones Additional Gear table. Straight off the
+ * Barebones equipment procedure (generateBarebonesCharacter), because the
+ * Background alone left an NPC with two or three items while a hireling arrives
+ * with six off its career — user report, 2026-08-20, and the fix is to run the
+ * same procedure rather than to pad the list.
+ *
+ * ONE Additional Gear roll, not the two a PC gets for rolling no armor: that
+ * second roll compensates a character who rolled None on a table an NPC never
+ * touches, so handing it over would be paying out for a loss nobody took.
+ *
+ * Tagged "npc-kit", and BOTH halves of that matter. Tagged, so a full re-roll
+ * can find it — an untagged grant is indistinguishable from a Warden's gift and
+ * would pile up one kit per re-roll. Not "background", because grantSourceLabel
+ * maps an unknown source to "" and rations wearing a "Background" chip is the
+ * very thing tagBackgroundGear exists to avoid on the character sheet.
+ * @param {Set<string>} avoid  lower-cased names already granted
+ * @returns {Promise<Object[]>}
+ */
+const buildNpcKit = async (avoid = new Set()) => {
+  const base = await resolveRefs([{ name: "Rations", uses: 3 }, { name: "Torch", uses: 3 }]);
+  for (const i of base) avoid.add(i.name.toLowerCase());
+  const extra = await rollAdditionalGear(avoid);
+  if (extra) avoid.add(extra.name.toLowerCase());
+  return [...base, ...(extra ? [extra] : [])].map((i) => withGrantSource(i, "npc-kit"));
+};
+
+/**
+ * Everything a newly generated NPC carries, in one `avoid` set so the Additional
+ * Gear roll cannot hand back something the Background already gave. Rations and
+ * Torch seed it up front for the same reason the PC path seeds them.
+ * @returns {Promise<Object[]>}
+ */
+const buildNpcGear = async (background) => {
+  const avoid = new Set(["rations", "torch"]);
+  const items = await buildNpcItems(background, avoid);
+  return [...items, ...(await buildNpcKit(avoid))];
+};
+
+/**
+ * The NPC items a generator owns, by source. "background" is the Background's
+ * own gear, which the Background die replaces; "npc-kit" is the rations, torch
+ * and random item, which only a WHOLE new person replaces. Anything untagged is
+ * the Warden's and is never touched.
+ * @param {CairnActor} actor @param {String[]} sources @returns {String[]} ids
+ */
+const npcGrantedItemIds = (actor, sources = ["background"]) => actor.items
+  .filter((i) => sources.includes(i.getFlag(FLAG_SCOPE, "grantSource")))
   .map((i) => i.id);
 
 /** One Background off the Warden's Guide table, or "" when it is missing. */
@@ -3379,7 +3425,7 @@ export const generateNpc = async () => {
     pronouns: "",
     age: String(await rollAge(Cairn.characterGenerator2e.biography.age)),
     traits: await rollNpcTraits(),
-    items: await buildNpcItems(background),
+    items: await buildNpcGear(background),
   };
 };
 
@@ -3431,18 +3477,18 @@ export const createNpc = async ({ folder = null } = {}) => {
  * of traits and a new pronouns/age — a whole new person. Keeps the name,
  * portrait and free-form notes by OMISSION, exactly as regenerateHireling does.
  *
- * Items: only what the OLD Background granted is deleted, and the new one's
- * put in its place. This differs from the hireling twin, which deletes
- * everything the actor carries — a hireling's whole inventory IS its career,
- * while an NPC keeps anything a Warden gave it by hand. The two are told apart
- * by the grantSource flag and nothing else, which is why buildNpcItems tags
- * every item it makes rather than only the interesting ones.
+ * Items: everything GENERATION gave — the Background's gear and the kit alike —
+ * is deleted and re-granted, because this is a different person. What survives
+ * is whatever a Warden added by hand, which differs from the hireling twin:
+ * that one deletes the whole inventory, since a hireling's inventory IS its
+ * career. The two are told apart by the grantSource flag and nothing else,
+ * which is why both builders tag every item they make.
  * @param {CairnActor} actor
  * @returns {Promise<CairnActor>}
  */
 export const regenerateNpc = async (actor) => {
   const n = await generateNpc();
-  const stale = npcGrantedItemIds(actor);
+  const stale = npcGrantedItemIds(actor, ["background", "npc-kit"]);
   if (stale.length) await actor.deleteEmbeddedDocuments("Item", stale, { render: false, abNoStatusCard: true });
   if (n.items?.length) await actor.createEmbeddedDocuments("Item", n.items, { render: false, abNoStatusCard: true });
   await actor.update({
@@ -3479,6 +3525,11 @@ export const regenerateNpc = async (actor) => {
  * a hireling's career carries its statblock TOO, and re-rolling a Background
  * must not re-roll the person.
  *
+ * The KIT survives, on the same reasoning: rations, a torch and a random find
+ * are not a trade, so changing what someone does for a living does not change
+ * whether they packed food. It seeds `avoid` instead, so a Background whose
+ * gear rolls on the Additional Gear table cannot hand back what they carry.
+ *
  * Avoids returning the current value while the table holds anything else, so
  * the die always visibly does something.
  * @param {CairnActor} actor
@@ -3494,9 +3545,14 @@ export const rerollNpcBackground = async (actor) => {
   if (!rolled) return actor;
   // Old grant out, new grant in — the same shape as rerollHirelingCareer, and
   // `render: false` on both so one update renders rather than three.
-  const stale = npcGrantedItemIds(actor);
+  const stale = npcGrantedItemIds(actor, ["background"]);
   if (stale.length) await actor.deleteEmbeddedDocuments("Item", stale, { render: false, abNoStatusCard: true });
-  const items = await buildNpcItems(rolled);
+  // Seeded from what the actor still carries — the kit and any Warden gift — so
+  // an instruction row rolls something they do not already have.
+  const avoid = new Set(actor.items
+    .filter((i) => !stale.includes(i.id))
+    .map((i) => i.name.toLowerCase()));
+  const items = await buildNpcItems(rolled, avoid);
   if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false, abNoStatusCard: true });
   await actor.update({ "system.background": rolled });
   return actor;

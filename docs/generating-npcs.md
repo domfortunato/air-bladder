@@ -23,7 +23,7 @@ if you have granted it.
 | where it comes from | the Warden's Guide NPC table (d20) | the 2e careers list (12 of them) |
 | day rate | none | yes, from the career |
 | stat block | **rolled** — 3d6 a piece, 1d6 HP | fixed by the career |
-| gear | its Background's Barebones counterpart (2 or 3 items; two grant none) | the career's whole loadout, equipped |
+| gear | a kit, plus its Background's Barebones counterpart — six items, or three if the Background grants none | the career's whole loadout, equipped |
 | extra traits | **Quirk, Goal**, plus NPC Virtue and Vice | 2e Virtue and Vice |
 
 Nothing is locked in. The **Role** dropdown at the top of any of these sheets
@@ -56,9 +56,11 @@ is the one to use when you want the new person filed straight into a folder.
 - **A portrait and a matching token.** If you have set up a custom portrait
   folder with an `npc` subfolder, it draws from there — see
   [Using Your Own Portraits](using-your-own-portraits.md).
-- **The gear its Background grants** — see the table below. Two Backgrounds
-  grant nothing, and an NPC of any Background can be given whatever else you
-  like.
+- **Rations, a torch and one random find.** Every NPC carries these whatever
+  they do for a living — the same three the Barebones equipment procedure
+  gives a starting character.
+- **The gear its Background grants**, on top of that — see the table below.
+  Two Backgrounds grant none, and those NPCs still get the kit.
 - **A rolled stat block**: 3d6 for each of STR, DEX and WIL, and 1d6 Hit
   Protection — the same dice a player character is made with.
 
@@ -104,11 +106,12 @@ Roll NPC asks first, and it asks two different questions:
 
 - On a **hireling**: everything it is carrying will be deleted, and its
   abilities, HP, Career and day rate replaced. A whole new working person.
-- On an **NPC**: its Background, stat block, traits and age are replaced,
-  along with the gear the old Background granted; its pronouns, coins and
-  status marks are cleared. Its **name, portrait, notes and anything you gave
-  it by hand are kept** — only granted gear is taken back. The new stat block
-  arrives at full, so a re-rolled NPC never carries the last one's wounds.
+- On an **NPC**: its Background, stat block, traits and age are replaced, and
+  so is everything generation gave it — the Background's gear AND the kit,
+  because this is a different person. Its pronouns, coins and status marks
+  are cleared. Its **name, portrait, notes and anything you gave it by hand
+  are kept**. The new stat block arrives at full, so a re-rolled NPC never
+  carries the last one's wounds.
 
 Both keep the name and the portrait, so you can re-roll the shopkeeper the party
 has already met without them changing face. Neither can be undone.
@@ -121,7 +124,7 @@ else:
 | Die | What it does |
 |---|---|
 | beside the name | a new name off the d60 |
-| beside **Background** | a new Background **and the gear it grants** (NPC role) |
+| beside **Background** | a new Background **and the gear it grants** — the kit stays (NPC role) |
 | beside **Career** | a new Career — **and its stat block and gear with it**, because in 2e a career *is* those things |
 | beside **Faction** | a side, off `Warden: NPC - Faction` |
 | beside **Age** | 2d20 + 10, floored and capped by your settings |
@@ -223,11 +226,25 @@ translation, and two get nothing at all:
   make one if the peddler needs it. A hireling's career grants no transport
   either.
 
-Everything granted this way is tagged, so re-rolling the Background takes back
-exactly what the last one gave and leaves anything you added by hand alone.
+**Every NPC also carries a kit**, whatever their Background: Rations, a Torch
+and one roll on the Barebones Additional Gear table, which is where the other
+half of a full pack comes from. It is the same procedure a Barebones
+character goes through, minus the rolled weapon and armor — an innkeeper
+should not arrive in mail because the dice said so. That brings a typical NPC
+to six items, the same as a hireling off its career, and a Lord or Politician
+to three.
+
+Both are tagged, and the tags are what tell them apart when you re-roll:
+
+- **The Background die** replaces the Background's gear and leaves the kit
+  alone. Changing what someone does for a living does not unpack their bag.
+- **Roll NPC** replaces both, because that is a different person.
+- **Anything you added by hand is never touched by either.**
 
 ## What generation will not do
 
+- **It rolls no weapon or armor for an NPC** — that part of the Barebones
+  procedure is left out on purpose; arm them yourself if they need it.
 - **It grants no transport.** A Merchant or Peddler NPC gets their items but
   not the Wagon or Cart the Barebones background lists — see above.
 - **It automates no rules text.** A trait, a quirk or a goal is prose. Nothing
