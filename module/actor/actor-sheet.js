@@ -2483,9 +2483,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // stop is added HERE rather than asked of the author, because "remember to
     // end with a period" is not a thing a licence field should demand.
     const bgCredit = String(bg?.system?.attribution ?? "").trim();
+    // The generated-with line is unconditional and joined LAST (user ask
+    // 2026-08-21): every footer, every role, ENDS with it.
     const credits = [L("CAIRN.PrintCreditText"),
       bgCredit && (/[.!?]$/.test(bgCredit) ? bgCredit : `${bgCredit}.`),
-      artCredit ? L(artCredit) : ""].filter(Boolean).join(" ");
+      artCredit ? L(artCredit) : "",
+      L("CAIRN.PrintCreditGenerated")].filter(Boolean).join(" ");
 
     const context = {
       lang: game.i18n.lang,

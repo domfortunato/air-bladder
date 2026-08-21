@@ -901,6 +901,7 @@ const r = await page.evaluate(async ({ xssName }) => {
   out.creditsInjFired = window.__creditXSS === 1;
   out.attrInj = attrInj;
   out.creditCairnText = game.i18n.localize("CAIRN.PrintCreditText");
+  out.creditGenerated = game.i18n.localize("CAIRN.PrintCreditGenerated");
   if (clericCopy) out.clericCopyId = clericCopy.id;
 
   out.ids = { pc: pc.id, sack: sack.id, npc: npc.id, falcon: falcon.id };
@@ -1029,6 +1030,18 @@ check("credits match the art ON the page", /Yochai Gal/.test(r.creditsText)
   && /Aspeheim/.test(r.creditsText) && !/Tlomdev/.test(r.creditsText)
   && r.creditsSmall !== null && r.creditsSmall < 10,
   `${r.creditsSmall}px — an Aspeheim portrait credits Aspeheim and NEVER Tlomdev; the text credit always prints`);
+// Every footer ENDS with the generated-with line (user ask 2026-08-21) —
+// unconditional and joined LAST, so the claim is ends-with, not includes:
+// PC and monster pages both, which is the shared builder covering every role.
+// The localize guard keeps this leg red if the key ever goes missing, when
+// endsWith would otherwise be asked about the raw key string.
+check("every footer ends with the generated-with line",
+  r.creditGenerated !== "CAIRN.PrintCreditGenerated"
+  && r.creditsText.trim().endsWith(r.creditGenerated)
+  && r.npcCreditsText.trim().endsWith(r.creditGenerated),
+  `line="${r.creditGenerated}" pc="…${r.creditsText.trim().slice(-55)}" `
+  + `npc="…${r.npcCreditsText.trim().slice(-55)}" — the site line closes the credits on `
+  + "every printed page, all roles (user ask 2026-08-21)");
 check("a shipped class background carries its author's credit",
   /McCormick/.test(r.clericAttribution ?? "") && /CC BY-SA 4\.0/.test(r.clericAttribution ?? ""),
   `attribution="${r.clericAttribution}" — authored in the pack, not derived; if it stops being `
