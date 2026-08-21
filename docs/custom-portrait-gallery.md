@@ -1,17 +1,16 @@
 # Custom character portrait gallery — the design of record
 
 **Status:** Built (2026-07-26), verified live. Per-category folders added
-2026-08-20 (issue #18). The deliberate non-goals below are deferred, not
-forgotten.
+2026-08-20 (issue #18).
 
 **This is the design record, not the Warden guide.** How a Warden actually
 uses this — where the setting is, what to name a folder, what draws from
 which pool — is [using-your-own-portraits.md](using-your-own-portraits.md),
-and that is the one that ships into the in-game System Docs journal. This
-file records the decisions and the code paths, on the same split monsters
-use: `generating-monsters.md` ships, `monster-generation.md` does not. It
-sat in the journal roster until 2026-08-20, which meant Wardens were being
-shown sentences naming JavaScript functions.
+which ships into the in-game System Docs journal. This file records the
+decisions and the code paths, on the same split monsters use:
+`generating-monsters.md` ships, `monster-generation.md` does not. It sat in
+the journal roster until 2026-08-20, which meant Wardens were being shown
+sentences naming JavaScript functions.
 
 A GM can point Air Bladder at a folder of their own character portraits. When that
 folder holds images, new characters and NPCs draw from it and the portrait
