@@ -22,10 +22,12 @@
  *      the enforcement leg calls the wrapped action directly, because a hidden
  *      control is an affordance and a crafted client must meet a refusal.
  *
- *   3. The Warden's pickers: with an actor's Randomization toggle OFF the
- *      magnifying glass is still offered (that is the ask's whole point), and
- *      the apply halves adopt what was picked — a career with its statblock,
- *      rate and gear; a Background with its gear, the kit kept. The pick of a
+ *   3. The Warden's pickers: the magnifying glass rides the actor's
+ *      Randomization toggle exactly like the die — OFF removes both, ON
+ *      offers both (2026-08-21 pm, reversing that morning's survive-the-toggle
+ *      ruling) — and the apply halves adopt what was picked — a career with
+ *      its statblock, rate and gear; a Background with its gear, the kit
+ *      kept. The pick of a
  *      counterpart-less Background (Politician) grants nothing new and
  *      UNPACKS the kit (2026-08-21, reversing the generation-only scoping the
  *      Lord ruling carried for a few hours). The prompt
@@ -279,7 +281,8 @@ try {
     const cg = game.cairn.characterGenerator;
     const out = {};
 
-    // Affordance: Randomization OFF, the magnifying glass still offered.
+    // Affordance: Randomization OFF removes the pickers WITH the dice
+    // (2026-08-21 pm, reversing that morning's survive-the-toggle ruling).
     const hire = game.actors.get(hireId);
     await hire.update({ "system.generationEnabled": false });
     await hire.sheet.render(true);
@@ -341,8 +344,8 @@ try {
 
   console.log("\n4. the Warden's pickers");
   const HO = pick.hireOff ?? {};
-  if (!HO.die && HO.pick && HO.factionPick) {
-    ok("Randomization OFF: the die goes, the Career and Faction pickers stay");
+  if (!HO.die && !HO.pick && !HO.factionPick) {
+    ok("Randomization OFF: the pickers go WITH the die (2026-08-21 reversal)");
   } else {
     fail(`with the toggle off: die ${HO.die}, careerPick ${HO.pick}, factionPick ${HO.factionPick}`);
   }

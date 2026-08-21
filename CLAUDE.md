@@ -167,11 +167,19 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   Warden's alone** — `_mayRandomize` refuses any player on type npc/hireling
   regardless of `allow-player-randomization`, which now governs player
   CHARACTERS only. (3) **Pickers** (magnifying glass) beside Career, Background
-  and Faction — deliberately OUTSIDE the `generationEnabled` template gate,
-  because "available when Randomization is off" was the ask; they share one
-  apply with the dice (`applyHirelingCareer` / `applyNpcBackground`), so a
-  picked career and a rolled one are the same event, and both re-arrange the
-  whole inventory (`reorderInventory`) so a swap reads like a fresh person.
+  and Faction — they landed that morning deliberately OUTSIDE the
+  `generationEnabled` template gate ("available when Randomization is off" was
+  the ask), and the user REVERSED that the same evening: `canPickGeneration`
+  is now `generationEnabled` narrowed to person roles, so pickers and dice
+  ride ONE toggle, which is where the PC sheet's pickers always sat. They
+  share one apply with the dice (`applyHirelingCareer` / `applyNpcBackground`),
+  so a picked career and a rolled one are the same event, and both re-arrange
+  the whole inventory (`reorderInventory`) so a swap reads like a fresh person.
+  (4, 2026-08-21 pm) **A fresh person-role sheet OPENS on Items**, the PC's
+  default, while the nav still leads with Description (the 2026-08-01 order
+  ruling stands) and monsters/things still open on Description —
+  `initialTabId` in `actor-sheet.js`, role-aware because a list-head initial
+  cannot say two different things for one type.
   The biography sentence is **second person for a character, third for both npc
   roles** (2026-08-20) — one `_wording` call inside `_buildTraitSentence`, which
   the printed page shares. A Spanish client keeps its translated "Eres…" until a

@@ -30,12 +30,13 @@
  *    switching the role to Monster removes the tab under you — the sheet must
  *    land on a rendered tab, not a blank body.
  *
- * 5. **Tab ORDER (2026-08-01).** Description leads the npc sheet — nav, panels
- *    AND the tab a fresh sheet opens on, which takes a `tabGroups` override
- *    because core seeds the group from static TABS at construction. The
- *    character sheet still leads with Items; that leg is what stops a
- *    "reorder both" regression, and it doubles as the order-reader's
- *    differential witness.
+ * 5. **Tab ORDER (2026-08-01) and the person-role INITIAL (2026-08-21).**
+ *    Description still leads the npc sheet's nav and panels, but a fresh
+ *    PERSON-role sheet (npc, hireling) OPENS on Items — the PC's default,
+ *    asked for — while a monster still opens on Description. The initial
+ *    takes a `tabGroups` override because core seeds the group from static
+ *    TABS at construction. The character-sheet leg stops a "reorder both"
+ *    regression and doubles as the order-reader's differential witness.
  *
  * 6. **Both directions, either end — ONE verb, player-usable (2026-08-01).**
  *    A connected actor's tab shows its upward keeper as a line breakable from
@@ -625,7 +626,7 @@ try {
   // stops a "reorder both" regression, and it doubles as the differential
   // witness for the order reader: the same reader on the PC sheet must come
   // back with Items first, so it demonstrably distinguishes the two orders.
-  console.log("\nDescription leads the npc sheet; the character sheet is untouched");
+  console.log("\nDescription leads the npc nav; a fresh person sheet opens on Items");
   const order = await page.evaluate(async () => {
     const Cls = CONFIG.Actor.documentClass;
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -646,25 +647,28 @@ try {
     await pc.sheet.render(true);
     await sleep(900);
     const asPc = read(pc.sheet);
+    const mon = await Cls.create({ name: "ZZ Roles Order Monster", type: "npc", system: { role: "monster" } });
+    await mon.sheet.render(true);
+    await sleep(900);
+    const asMonster = read(mon.sheet);
     await npc.sheet.close();
     await pc.sheet.close();
+    await mon.sheet.close();
 
-    // FAIL-WITNESS (in-page): the pre-fix shape — the group's initial hardcoded
-    // back to "items" the way the static TABS default had it (core seeds
-    // tabGroups from static TABS at construction, so this is exactly what the
-    // tabGroups override + config.initial exist to beat). A FRESH npc sheet
-    // must then open standing on Items again, or "opens on Description" is not
-    // load-bearing.
+    // FAIL-WITNESS (in-page): the pre-fix shape — the group's initial re-tied
+    // to the list head (ids[0], "description") with no role branch, the way
+    // 2026-08-01 built it. A FRESH person npc must then open standing on
+    // Description again, or "opens on Items" is not load-bearing.
     const proto = Object.values(CONFIG.Actor.sheetClasses.npc)[0].cls.prototype;
     const origCfg = proto._getTabsConfig;
     proto._getTabsConfig = function (group) {
       const config = origCfg.call(this, group);
-      // Both halves of the pre-fix shape: the static initial AND the
-      // constructor seed both said "items" (the fixed method has already run
-      // its reset by now, so the seed must be re-imposed here).
+      // Both halves of the pre-fix shape: the config initial AND the
+      // constructor seed both followed the list head (the fixed method has
+      // already run by now, so the seed must be re-imposed here).
       if (config) {
-        config.initial = "items";
-        this.tabGroups[group] = "items";
+        config.initial = "description";
+        this.tabGroups[group] = "description";
       }
       return config;
     };
@@ -675,8 +679,8 @@ try {
     await npc2.sheet.close();
     proto._getTabsConfig = origCfg;
 
-    await npc.delete(); await pc.delete(); await npc2.delete();
-    return { asNpc, asPc, control };
+    await npc.delete(); await pc.delete(); await mon.delete(); await npc2.delete();
+    return { asNpc, asPc, asMonster, control };
   });
 
   // THREE tabs on the npc sheet since 2026-08-02 — the child end's Connections
@@ -690,18 +694,22 @@ try {
     && JSON.stringify(order.asNpc.panels) === JSON.stringify(NPC_ORDER)
     ? ok("npc nav AND panels run Description → Items → Notes")
     : bad("npc nav AND panels run Description → Items → Notes", JSON.stringify({ nav: order.asNpc.nav, panels: order.asNpc.panels }));
-  order.asNpc.active === "description"
-    && JSON.stringify(order.asNpc.activeVisible) === JSON.stringify(["description"])
-    ? ok("a fresh npc sheet OPENS on Description", "tabGroups override beats the static TABS seed")
-    : bad("a fresh npc sheet OPENS on Description", JSON.stringify({ active: order.asNpc.active, visible: order.asNpc.activeVisible }));
+  order.asNpc.active === "items"
+    && JSON.stringify(order.asNpc.activeVisible) === JSON.stringify(["items"])
+    ? ok("a fresh person-npc sheet OPENS on Items (2026-08-21)", "the PC's default, without the PC's nav order")
+    : bad("a fresh person-npc sheet OPENS on Items (2026-08-21)", JSON.stringify({ active: order.asNpc.active, visible: order.asNpc.activeVisible }));
+  order.asMonster.active === "description"
+    && JSON.stringify(order.asMonster.activeVisible) === JSON.stringify(["description"])
+    ? ok("a fresh monster sheet still opens on Description", "the Items initial is the person roles' alone")
+    : bad("a fresh monster sheet still opens on Description", JSON.stringify({ active: order.asMonster.active, visible: order.asMonster.activeVisible }));
   JSON.stringify(order.asPc.nav) === JSON.stringify(PC_ORDER)
     && JSON.stringify(order.asPc.panels) === JSON.stringify(PC_ORDER)
     && order.asPc.active === "items"
     ? ok("the character sheet still leads with Items", "the reorder did not spread")
     : bad("the character sheet still leads with Items", JSON.stringify({ nav: order.asPc.nav, active: order.asPc.active }));
-  order.control === "items"
-    ? ok("   control: initial forced back to \"items\" reopens on Items", "the opens-on-Description assertion can fail")
-    : bad("   control: initial forced back to \"items\" reopens on Items", `active=${order.control} — assertion not load-bearing`);
+  order.control === "description"
+    ? ok("   control: initial re-tied to the list head reopens on Description", "the opens-on-Items assertion can fail")
+    : bad("   control: initial re-tied to the list head reopens on Description", `active=${order.control} — assertion not load-bearing`);
 
   /* ---- the header connection line, either end — FLAT since 2026-08-01 ---- */
   // The child end's facts moved from the Connections tab to the header line

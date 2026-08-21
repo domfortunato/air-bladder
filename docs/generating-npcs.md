@@ -151,8 +151,9 @@ random one — the same control a player character's background row has:
 - **Faction**: choose from your faction table (your own world table of the same
   name wins, as always).
 
-The pickers do not go away when you turn **Randomization** off — that is the
-point of them. Off means "no dice"; a deliberate choice is not a die.
+The pickers ride the same **Randomization** toggle as the dice: turning it off
+removes the whole surface, magnifying glasses included. Flip it on to roll or
+to pick.
 
 ## What players see
 

@@ -78,13 +78,25 @@ const TAB_IDS = {
   // opens an NPC to remember who they are — statblock, biography —
   // and reaches for the inventory second. The character sheet deliberately
   // keeps Items first; the reorder is the NPC's alone. The order here must
-  // match the hand-written nav in npc-sheet.html, and `_getTabsConfig` takes
-  // the group's initial from ids[0], so this list is also what the sheet
-  // OPENS on.
+  // match the hand-written nav in npc-sheet.html. This list is ORDER only —
+  // the tab a fresh sheet OPENS on is `initialTabId` below, which is
+  // role-aware since 2026-08-21.
   npc: ["description", "items", "notes"],
   // Same set as npc: one sheet, one tab set. A hireling used to get only
   // items+notes, so anything written in its Description was unreachable.
   hireling: ["description", "items", "notes"],
+};
+
+/** The tab a FRESH sheet opens on. Role-aware since 2026-08-21 (user ask):
+ *  a PERSON-role sheet (npc, hireling) opens on Items, the character's
+ *  default, while the nav ORDER above is untouched — Description still leads
+ *  the bar, the sheet just stands on Items. Monsters and things keep the
+ *  list head (Description), so the 2026-08-01 "remember who they are"
+ *  reasoning survives where no inventory-first ask displaced it. `npcRole`
+ *  is null on a character, whose list already leads with Items. */
+const initialTabId = (doc) => {
+  const ids = TAB_IDS[doc?.type] ?? ["items"];
+  return PERSON_ROLES.includes(doc?.npcRole) ? "items" : ids[0];
 };
 
 /**
@@ -364,16 +376,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   };
 
   /**
-   * The tab a FRESH sheet opens on, per actor type. Core seeds `tabGroups`
-   * from static TABS at construction (application.mjs:287-290 — and its own
-   * doc says "subclasses may override this property to define default tabs"),
-   * so by first render the group already holds the static's "items" and
-   * `_prepareTabs`'s `??=` never consults `_getTabsConfig`'s initial. Without
-   * this override the npc sheet — whose list leads with Description since
-   * 2026-08-01 — would open standing on Items regardless. A subclass field
+   * The tab a FRESH sheet opens on, per actor type and role. Core seeds
+   * `tabGroups` from static TABS at construction (application.mjs:287-290 —
+   * and its own doc says "subclasses may override this property to define
+   * default tabs"), so by first render the group already holds the static's
+   * "items" and `_prepareTabs`'s `??=` never consults `_getTabsConfig`'s
+   * initial. Without this override a monster sheet — whose initial is
+   * Description — would open standing on Items regardless. A subclass field
    * initialises after every parent constructor, so `options.document` is set.
    */
-  tabGroups = { primary: (TAB_IDS[this.options.document?.type] ?? ["items"])[0] };
+  tabGroups = { primary: initialTabId(this.options.document) };
 
   /* -------------------------------------------- */
 
@@ -434,12 +446,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const ids = (TAB_IDS[this.actor.type] ?? ["items"])
       .filter((id) => id !== "containers" || this.actor.system.showContainersTab);
     config.tabs = ids.map((id) => ({ id, label: TAB_LABELS[id] }));
-    // The group's initial follows the FIRST id of the type's list, not the
-    // static TABS default ("items") — the npc list leads with Description now,
-    // and an initial the list does not lead with opens the sheet on a tab that
-    // is not first, or (via the reset below) lands a vanished-tab reset on the
-    // wrong one.
-    config.initial = ids[0] ?? config.initial;
+    // The group's initial is ROLE-aware (`initialTabId`), not the static TABS
+    // default ("items") and not blindly the list head: a person-role sheet
+    // opens on Items (2026-08-21) under a nav that still leads with
+    // Description, a monster on Description. The vanished-tab reset below
+    // lands on the same answer. The includes() guard is for the character
+    // list only, whose head IS the initial, so it never actually filters —
+    // but an initial the filtered list dropped would strand the reset.
+    const initial = initialTabId(this.actor);
+    config.initial = ids.includes(initial) ? initial : (ids[0] ?? config.initial);
     // Losing your last container removes the tab you were standing on.
     // `_prepareTabs` only defaults the group when it is unset (`??=`), so without
     // this the group keeps pointing at a tab that is no longer rendered and NO
@@ -1112,13 +1127,17 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         // ...and never for a player while the Warden's switch is off — the
         // whole surface goes, not just the title-bar toggle (ruled 2026-08-09).
         && this._mayRandomize();
-      // The pickers (2026-08-21) are deliberately NOT inside generationEnabled:
-      // "when randomization is toggled off the picker should be available" is
-      // the ask's exact wording, so they hang off the viewer's permission alone
-      // — Warden-only on this sheet type (_mayRandomize) — and person roles
-      // only, because Career, Background and Faction are the person rows.
-      context.canPickGeneration = PERSON_ROLES.includes(this.actor.npcRole)
-        && this._mayRandomize();
+      // The pickers ride the SAME Randomization toggle as the dice (2026-08-21
+      // pm, user ask — REVERSING that morning's ruling, which kept them
+      // available with the toggle off): "only available when Randomization is
+      // toggled ON". So this is generationEnabled narrowed to person roles,
+      // because Career, Background and Faction are the person rows — a
+      // monster keeps its faction die but has never had the picker. Still
+      // Warden-only on this sheet type via generationEnabled's _mayRandomize
+      // term, and the character sheet needs no counterpart: its pickers
+      // always sat inside the template's generationEnabled blocks.
+      context.canPickGeneration = context.generationEnabled
+        && PERSON_ROLES.includes(this.actor.npcRole);
       // LIMITED view (2026-08-21): portrait, name, description — nothing else.
       // `document.limited` is core's own "highest ownership is exactly LIMITED",
       // so the Warden and any observer-or-better viewer never see this branch.
