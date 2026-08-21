@@ -3,8 +3,8 @@
   The printable character sheet — one standalone page, modelled on
   Kettlewright's /print/ layout (user-supplied example, 2026-08-08): header,
   then KW's two-column band — Stats and Inventory (Main + one section per
-  connected holder) on the left; Traits and the background's description on
-  the right — then full-width: the background's Q&A as
+  connected holder) on the left; the background's description then Traits on
+  the right (2026-08-21) — then full-width: the background's Q&A as
   separate paragraphs (KW smushes them into one blob, ruled against
   2026-08-08), Description, Bonds, Omen, Scars, Notes, and a
   small-type credits footer. Empty sections are OMITTED
@@ -189,9 +189,9 @@
 </header>
 
 {{!-- Kettlewright's two-column band (user rulings 2026-08-08): Stats and
-      Items left; Traits, the background's description and Connections right.
-      With nothing for the right column the band collapses to one column
-      (hasSide) rather than printing at half width. --}}
+      Items left; the background's description then Traits right (Background
+      on top since 2026-08-21). With nothing for the right column the band
+      collapses to one column (hasSide) rather than printing at half width. --}}
 <div class="band{{#if hasSide}} has-side{{/if}}">
 <div class="col-main">
 {{!-- A thing's page is its cargo (user ruling 2026-08-11, the ruling that
@@ -243,19 +243,20 @@
 
 {{#if hasSide}}
 <div class="col-side">
-{{#if traitsProse}}
-<section>
-  <h2>{{ localize "CAIRN.Traits" }}</h2>
-  <p>{{ traitsProse }}</p>
-</section>
-{{/if}}
-
-{{!-- The background's DESCRIPTION rides the right column under Traits (user
-      ruling 2026-08-08); its Q&A prints full-width below the band. --}}
+{{!-- The background's DESCRIPTION tops the right column, Traits below it
+      (user ruling 2026-08-21, reversing 2026-08-08's under-Traits order);
+      its Q&A prints full-width below the band. --}}
 {{#if backgroundDesc}}
 <section>
   <h2>{{ localize "CAIRN.Background" }}</h2>
   <div class="prose">{{{ backgroundDesc }}}</div>
+</section>
+{{/if}}
+
+{{#if traitsProse}}
+<section>
+  <h2>{{ localize "CAIRN.Traits" }}</h2>
+  <p>{{ traitsProse }}</p>
 </section>
 {{/if}}
 

@@ -2545,11 +2545,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       marks: isChar ? { deprived: !!sys.deprived, panicked: !!sys.panicked } : null,
       traitsProse,
       // Kettlewright's two-column band (user rulings 2026-08-08): Stats and
-      // Items on the left; Traits and the background's description beside
-      // them. With nothing for the right column — a monster, usually — the
-      // band collapses to one column rather than printing at half width. The
-      // Q&A prints full-width below the band. Connections was the third
-      // right-column section until 2026-08-13; see above.
+      // Items on the left; the background's description then Traits beside
+      // them (Background on top since 2026-08-21). With nothing for the right
+      // column — a monster, usually — the band collapses to one column rather
+      // than printing at half width. The Q&A prints full-width below the
+      // band. Connections was the third right-column section until
+      // 2026-08-13; see above.
       hasSide: !!(traitsProse || backgroundDesc),
       backgroundDesc,
       questions,

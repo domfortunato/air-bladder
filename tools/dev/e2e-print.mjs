@@ -346,13 +346,14 @@ const r = await page.evaluate(async ({ xssName }) => {
   // custom label is what must print (custom is MEMBERSHIP, not a stored
   // source; the character stores contentSource "2e").
   out.customLabel = `(${game.i18n.localize("CAIRN.PrintSourceCustom")})`;
-  // Kettlewright's band (user rulings 2026-08-08): Stats+Items left; Traits,
-  // the background's description and Connections right; the Q&A full-width
-  // BELOW the band under its own Questions heading.
+  // Kettlewright's band (user rulings 2026-08-08): Stats+Items left; the
+  // background's description then Traits right (Background on top since the
+  // 2026-08-21 ruling — it opened under Traits for its first two weeks); the
+  // Q&A full-width BELOW the band under its own Questions heading.
   out.bandLeft = [...(doc?.querySelectorAll(".band .col-main h2") ?? [])].map((h) => h.textContent.trim());
   out.bandRight = [...(doc?.querySelectorAll(".band .col-side h2") ?? [])].map((h) => h.textContent.trim());
   out.bandLeftWanted = ["CAIRN.PrintStats", "CAIRN.Items"].map((k) => game.i18n.localize(k));
-  out.bandRightWanted = ["CAIRN.Traits", "CAIRN.Background"].map((k) => game.i18n.localize(k));
+  out.bandRightWanted = ["CAIRN.Background", "CAIRN.Traits"].map((k) => game.i18n.localize(k));
   out.bandIsGrid = doc ? popup.getComputedStyle(doc.querySelector(".band")).display : null;
   out.qOutsideBand = !doc?.querySelector(".band p.q")
     && h2s.includes(game.i18n.localize("CAIRN.PrintQuestions"));
