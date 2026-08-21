@@ -244,6 +244,13 @@ const dbl = await page.evaluate(async (id) => {
   await a.createEmbeddedDocuments("Item", [{
     name: "ZZ Readable Rope", type: "item",
     system: { description: "ZZ PROBE DESCRIPTION TEXT" },
+  }, {
+    // For the recharge-line legs below (issue #22): a relic's Recharge
+    // condition joins the expanded panel with the critical-damage treatment —
+    // an icon and italics. The Rope above is the absence control: no recharge,
+    // no line.
+    name: "ZZ Relic Wand", type: "item",
+    system: { description: "ZZ WAND DESC", recharge: "ZZ RECHARGE CONDITION", uses: { value: 1, max: 1 } },
   }]);
   const sheet = a.sheet;
   Object.defineProperty(sheet, "isEditable", { get: () => false, configurable: true });
@@ -339,6 +346,25 @@ const expand = await page.evaluate(async (id) => {
   out.closed = panels().length === 0;
   out.committedAgain = await commit("probe/two");
   out.stayedClosed = panels().length === 0;
+
+  // The relic's Recharge condition in the expanded panel (issue #22, user ask
+  // 2026-08-21): the critical-damage treatment — an icon and italics. The text
+  // must sit inside an <i> that is NOT the icon, or "italic" would pass on the
+  // icon element alone; the Rope's panel is the absence control.
+  const wand = a.items.find((i) => i.name === "ZZ Relic Wand");
+  const wandRow = sheet.element?.querySelector(`.cairn-items-list-row[data-item-id="${wand?.id}"]`);
+  wandRow?.querySelector('[data-action="itemDescription"]')?.click();
+  await sleep(500);
+  const wpanel = wandRow?.querySelector(":scope > .item-description");
+  const line = wpanel?.querySelector("i.fa-arrows-rotate")?.closest("div");
+  out.recharge = {
+    icon: !!line,
+    italic: [...(line?.querySelectorAll("i") ?? [])]
+      .find((el) => !el.classList.contains("fa-arrows-rotate"))?.textContent.trim() ?? null,
+  };
+  row()?.querySelector('[data-action="itemDescription"]')?.click();
+  await sleep(500);
+  out.recharge.ropeIcon = !!row()?.querySelector(":scope > .item-description .fa-arrows-rotate");
   return out;
 }, actorId);
 
@@ -359,6 +385,12 @@ else {
   expand.closed && expand.committedAgain && expand.stayedClosed
     ? ok("a closed row stays closed", "the other direction, which a re-expand-everything bug would pass")
     : fail("a closed row stays closed", `closed=${expand.closed} committed=${expand.committedAgain} stayed=${expand.stayedClosed}`);
+  expand.recharge?.icon && expand.recharge?.italic === "ZZ RECHARGE CONDITION"
+    ? ok("a relic's Recharge line: icon and italics (issue #22)", `"${expand.recharge.italic}"`)
+    : fail("a relic's Recharge line: icon and italics (issue #22)", JSON.stringify(expand.recharge));
+  expand.recharge?.ropeIcon === false
+    ? ok("no recharge, no line", "the Rope's panel carries no arrows-rotate icon")
+    : fail("no recharge, no line", `ropeIcon=${expand.recharge?.ropeIcon}`);
 }
 
 console.log("\nConfigure Sheet names the system, not the class (review #14)");

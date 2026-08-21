@@ -367,7 +367,12 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         html ?? "", { relativeTo: this.item }));
     context.enrichedDescription = await enrich(descSrc);
     context.enrichedCriticalDamage = await enrich(this.item.system.criticalDamage);
-    context.enrichedRecharge = await enrich(this.item.system.recharge);
+    // Recharge rides the overlay like the description above (issue #22 put it
+    // on the inventory panel, which made this tab the one recharge surface
+    // still English on a Spanish client). Display only — the prose-mirror's
+    // `value=` attribute still carries the stored English, so editing edits
+    // the source. criticalDamage stays raw: not extracted, nothing to show.
+    context.enrichedRecharge = await enrich(t("item.recharge", this.item.system.recharge));
 
     // "Charges" and "Uses" are ONE counter. Across all 46 shipped relics the
     // distinction is exactly this: a relic that states a recharge condition has

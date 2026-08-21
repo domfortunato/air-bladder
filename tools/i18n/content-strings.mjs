@@ -246,4 +246,9 @@ export function* stringsFromDoc(doc, pack) {
   // Item (gear, weapons, armor, spellbooks, transports, market-goods, background-items).
   if (doc.name) yield* emit({ ns: "item.name", en: doc.name, context: doc.type ?? "item" });
   if (doc.system?.description) yield* emit({ ns: "item.desc", en: doc.system.description, context: `${name} · description` });
+  // A relic's Recharge condition (issue #22, 2026-08-21): shown on the
+  // expanded inventory row and the item sheet's Recharge tab, both through
+  // t("item.recharge"). criticalDamage stays unextracted — no shipped item
+  // carries any.
+  if (doc.system?.recharge) yield* emit({ ns: "item.recharge", en: doc.system.recharge, context: `${name} · recharge` });
 }

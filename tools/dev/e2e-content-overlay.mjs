@@ -425,8 +425,10 @@ try {
 
     const EN_NAME = "ZZ Probe Rope";
     const EN_DESC = "Twenty-five ZZ feet of probe rope, for climbing.";
+    const EN_RECHARGE = "ZZ leave the rope coiled under a new moon.";
     const ES_NAME = "ZZ-CUERDA-SONDA";
     const ES_DESC = "ZZ-DESCRIPCION-TRADUCIDA";
+    const ES_RECHARGE = "ZZ-RECARGA-TRADUCIDA";
     const ES_SCAR = "ZZ-CICATRIZ";
     const ES_SCAR_DESC = "ZZ-DETALLE-DE-CICATRIZ";
 
@@ -434,11 +436,13 @@ try {
       name: "ZZ Overlay Sheet Probe", type: "character",
       system: { contentSource: "2e", scarEnabled: true },
     });
-    const out = { actorId: actor.id, EN_NAME, EN_DESC, ES_NAME, ES_DESC, ES_SCAR, ES_SCAR_DESC };
+    const out = { actorId: actor.id, EN_NAME, EN_DESC, EN_RECHARGE, ES_NAME, ES_DESC, ES_RECHARGE, ES_SCAR, ES_SCAR_DESC };
     let sheetOpen = null;
     try {
+      // `relic: true` so the item sheet grows its Recharge tab — the panel line
+      // itself keys on the recharge TEXT, like the Charges relabel does.
       const [item] = await actor.createEmbeddedDocuments("Item", [
-        { name: EN_NAME, type: "item", system: { description: EN_DESC } },
+        { name: EN_NAME, type: "item", system: { description: EN_DESC, relic: true, recharge: EN_RECHARGE } },
       ]);
 
       // Key the scar rows off the REAL shipped table — the strings a translator
@@ -456,6 +460,7 @@ try {
       i18n._setOverlay({
         "item.name": { [norm(EN_NAME)]: ES_NAME },
         "item.desc": { [norm(EN_DESC)]: ES_DESC },
+        "item.recharge": { [norm(EN_RECHARGE)]: ES_RECHARGE },
         "table.result": { [norm(scarEn)]: ES_SCAR },
         "table.resultDesc": { [norm(scarDescEn)]: ES_SCAR_DESC },
       });
@@ -472,7 +477,13 @@ try {
       out.rowName = row?.querySelector(".cairn-item-title")?.textContent.trim() ?? null;
       row?.querySelector('[data-action="itemDescription"]')?.click();
       await settle(300);
-      out.panelText = row?.querySelector(".item-description")?.textContent.trim() ?? null;
+      const panel = row?.querySelector(".item-description");
+      out.panelText = panel?.textContent.trim() ?? null;
+      // The recharge line (issue #22), anchored by its icon — the whole-panel
+      // text above now carries description AND recharge, so the desc leg below
+      // asserts membership plus the English's absence rather than equality.
+      out.panelRecharge = panel?.querySelector(".fa-arrows-rotate")
+        ?.closest("div")?.textContent.trim() ?? null;
 
       // ---- scars: two visible strings localized, the stored value English ----
       const opt = [...(root?.querySelectorAll(".scar-option") ?? [])]
@@ -495,12 +506,20 @@ try {
       // The submitted half. Inactive, so `value` reads `_value` — the `value=`
       // attribute the template set from the STORED string (prosemirror-editor.mjs:192).
       out.pmValue = pm?.value ?? null;
+      // The Recharge tab's editor, same display/value split as the description
+      // (issue #22: the field joined the overlay, so the tab must read Spanish
+      // while a submit still sends the stored English).
+      const pmR = item.sheet.element?.querySelector('prose-mirror[name="system.recharge"]');
+      out.pmRechargeFound = !!pmR;
+      out.pmRechargeDisplay = pmR?.querySelector(".editor-content")?.textContent.trim() ?? null;
+      out.pmRechargeValue = pmR?.value ?? null;
       out.sheetTitle = item.sheet.title;
       await item.sheet.close();
       await settle(400);
       // Read the source AFTER closing: disconnectedCallback saves an ACTIVE editor,
       // so this is where a leaked translation would land if the split ever broke.
       out.storedDesc = item._source.system.description;
+      out.storedRecharge = item._source.system.recharge;
       out.storedName = item._source.name;
     } finally {
       i18n._setOverlay(null);
@@ -514,9 +533,13 @@ try {
   inv.rowName === inv.ES_NAME
     ? ok("row name translated", `"${inv.rowName}"`)
     : fail("row name translated", `row reads "${inv.rowName}"`);
-  inv.panelText === inv.ES_DESC
+  inv.panelText?.includes(inv.ES_DESC) && !inv.panelText?.includes(inv.EN_DESC)
     ? ok("expanded panel translated", `"${inv.panelText}"`)
-    : fail("expanded panel translated", `panel reads ${JSON.stringify(inv.panelText)}, want "${inv.ES_DESC}"`);
+    : fail("expanded panel translated", `panel reads ${JSON.stringify(inv.panelText)}, want "${inv.ES_DESC}" and no English`);
+  inv.panelRecharge === inv.ES_RECHARGE && !inv.panelText?.includes(inv.EN_RECHARGE)
+    ? ok("panel recharge line translated (issue #22)", `"${inv.panelRecharge}"`)
+    : fail("panel recharge line translated (issue #22)",
+      `line reads ${JSON.stringify(inv.panelRecharge)}, want "${inv.ES_RECHARGE}" and no English`);
 
   inv.scarEn && inv.scarDescEn
     ? ok("scar row has both strings", `"${inv.scarEn}"`)
@@ -546,12 +569,21 @@ try {
   inv.pmValue === inv.EN_DESC
     ? ok("editor VALUE English", "what activation loads and a submit sends")
     : fail("editor VALUE English", `value is ${JSON.stringify(inv.pmValue)} — the Spanish can reach the document`);
+  inv.pmRechargeFound
+    ? ok("recharge editor found", "system.relic grew the tab")
+    : fail("recharge editor found", "no prose-mirror[name=system.recharge]");
+  inv.pmRechargeDisplay === inv.ES_RECHARGE
+    ? ok("recharge DISPLAY translated (issue #22)", `"${inv.pmRechargeDisplay}"`)
+    : fail("recharge DISPLAY translated (issue #22)", `shows ${JSON.stringify(inv.pmRechargeDisplay)}`);
+  inv.pmRechargeValue === inv.EN_RECHARGE
+    ? ok("recharge VALUE English", "the same display/value split as the description")
+    : fail("recharge VALUE English", `value is ${JSON.stringify(inv.pmRechargeValue)}`);
   inv.sheetTitle?.includes(inv.ES_NAME)
     ? ok("window title translated", `"${inv.sheetTitle}"`)
     : fail("window title translated", `title is ${JSON.stringify(inv.sheetTitle)}`);
-  inv.storedDesc === inv.EN_DESC && inv.storedName === inv.EN_NAME
-    ? ok("STORED item untouched", "name and description still English after close")
-    : fail("STORED item untouched", `name=${JSON.stringify(inv.storedName)} desc=${JSON.stringify(inv.storedDesc)}`);
+  inv.storedDesc === inv.EN_DESC && inv.storedName === inv.EN_NAME && inv.storedRecharge === inv.EN_RECHARGE
+    ? ok("STORED item untouched", "name, description and recharge still English after close")
+    : fail("STORED item untouched", `name=${JSON.stringify(inv.storedName)} desc=${JSON.stringify(inv.storedDesc)} recharge=${JSON.stringify(inv.storedRecharge)}`);
 } catch (e) {
   fail("sheet surfaces", `${e.name}: ${e.message}`);
 } finally {
@@ -631,7 +663,22 @@ try {
       out.pmDisplay = pm?.querySelector(".editor-content")?.textContent.trim() ?? null;
       out.pmValue = pm?.value ?? null; // inactive → the submitted _value
 
-      const careerInput = pRoot?.querySelector('input[name="system.profession"]');
+      await person.sheet.close();
+
+      // The CAREER input belongs to the HIRELING since the 2026-08-20 split —
+      // the npc sheet shows Background, not Career, so this pass's original
+      // role-npc fixture stopped rendering the input the day the split landed
+      // (its two legs sat red until 2026-08-21, when this probe ran as an
+      // issue-#22 neighbor). Same overlay, its own fixture.
+      const hire = await CONFIG.Actor.documentClass.create({
+        name: "ZZ Overlay Hireling", type: "npc",
+        system: { role: "hireling", profession: "Blacksmith" },
+      });
+      out.ids.push(hire.id);
+      await hire.sheet.render(true);
+      for (let i = 0; i < 60 && !hire.sheet.element; i++) await settle(100);
+      await settle(500);
+      const careerInput = hire.sheet.element?.querySelector('input[name="system.profession"]');
       out.careerShown = careerInput?.value ?? null;
       // The submit half: leave a DIFFERENT translated label in the box, commit,
       // and the document must store that career's ENGLISH source.
@@ -640,8 +687,8 @@ try {
         careerInput.dispatchEvent(new Event("change", { bubbles: true }));
         await settle(700);
       }
-      out.careerStored = person.system.profession;
-      await person.sheet.close();
+      out.careerStored = hire.system.profession;
+      await hire.sheet.close();
 
       // ---- a CONTAINER npc: the Type select shows the label, stores the key.
       // The control is a strict select since 2026-08-02, with free text behind

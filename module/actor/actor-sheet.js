@@ -1899,6 +1899,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const crit = cleanDescription(item.system.criticalDamage) !== ""
       ? `<div><i class="fa-regular fa-skull"></i> <i>${cleanDescription(item.system.criticalDamage)}</i></div>`
       : "";
+    // A relic's Recharge condition, the crit line's treatment — icon plus
+    // italics (Malecho's ask, issue #22). Keyed on the TEXT, not the relic
+    // flag, the same rule the Charges relabel follows. THROUGH the overlay,
+    // unlike criticalDamage: shipped relics carry recharge prose (all 46), so
+    // a Spanish client would otherwise read English under a translated
+    // description — `item.recharge` is extracted since 2026-08-21. Flat ns on
+    // every carrier: no monster-embedded item ships recharge text, so a
+    // monster-side namespace would be rows nothing fills.
+    const rechargeText = t("item.recharge", item.system.recharge ?? "");
+    const recharge = cleanDescription(rechargeText) !== ""
+      ? `<div><i class="fa-regular fa-arrows-rotate"></i> <i>${cleanDescription(rechargeText)}</i></div>`
+      : "";
     const div = document.createElement("div");
     div.className = "item-description";
     // Localized like the row above it (_itemNamespaces), and sanitized AFTER —
@@ -1907,7 +1919,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // criticalDamage is not translated because it is not EXTRACTED: no shipped
     // item carries any, so there is nothing for a translator to have filled.
     const desc = t(this._itemNamespaces().descNs, item.system.description);
-    div.innerHTML = `${cleanDescription(desc)}${crit}`;
+    div.innerHTML = `${cleanDescription(desc)}${crit}${recharge}`;
     return div;
   }
 
