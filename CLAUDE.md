@@ -237,7 +237,10 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   (`module/settings-menus.js`, modelled on core's own `DiceConfig`) that
   renders its group's rows with core's `formGroup` helper and saves the way
   `SettingsConfig` does — `reloadConfirm` included. `SETTING_GROUPS` in
-  `settings.js` is the ONE declaration (id, title, hint, icon, keys, and the
+  `settings.js` is the ONE declaration (id, title, button — the text ON the
+  button names what it opens, "Configure Inventory" not a shared "Configure",
+  user ruling 2026-08-22 after Dice So Nice's per-menu buttons — hint, icon,
+  keys, and the
   per-group decorations: the Barebones sub-option disable — whose master
   checkbox lives in ANOTHER app, so Hacks greys it from the STORED value at
   render, not live — and the bolded product names), consumed by the menu

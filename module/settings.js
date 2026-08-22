@@ -153,6 +153,10 @@ export const SETTING_GROUPS = [
   {
     id: "general",
     title: "CAIRN.Settings.GroupGeneral",
+    // `button` is the text ON the button, naming what it opens (user ruling
+    // 2026-08-22, after Dice So Nice's per-menu buttons; a shared "Configure"
+    // said nothing four times). `title` is the row label beside it.
+    button: "CAIRN.Settings.GroupGeneralButton",
     hint: "CAIRN.Settings.GroupGeneralHint",
     icon: "fa-solid fa-gears",
     keys: [
@@ -164,6 +168,7 @@ export const SETTING_GROUPS = [
   {
     id: "generation",
     title: "CAIRN.Settings.GroupGeneration",
+    button: "CAIRN.Settings.GroupGenerationButton",
     hint: "CAIRN.Settings.GroupGenerationHint",
     icon: "fa-solid fa-user-plus",
     keys: [
@@ -189,6 +194,7 @@ export const SETTING_GROUPS = [
   {
     id: "inventory",
     title: "CAIRN.Settings.GroupInventory",
+    button: "CAIRN.Settings.GroupInventoryButton",
     hint: "CAIRN.Settings.GroupInventoryHint",
     icon: "fa-solid fa-weight-hanging",
     keys: [
@@ -202,6 +208,7 @@ export const SETTING_GROUPS = [
     // characters, moved out of General and Character Generation respectively.
     id: "hacks",
     title: "CAIRN.Settings.GroupHacks",
+    button: "CAIRN.Settings.GroupHacksButton",
     hint: "CAIRN.Settings.GroupHacksHint",
     icon: "fa-solid fa-flask",
     keys: ["enable-glog-magic", "barebones-failed-career"],

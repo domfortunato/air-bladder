@@ -186,6 +186,11 @@ try {
     const root = app.element;
     const buttons = [...root.querySelectorAll(`button[data-action="openSubmenu"][data-key^="${NS}."]`)];
     out.buttonKeys = buttons.map((b) => b.dataset.key);
+    // Each button names what it opens (user ruling 2026-08-22, after Dice So
+    // Nice's per-menu buttons): its text is the group's localized `button`
+    // key, never a shared "Configure".
+    out.buttonText = buttons.map((b) => b.textContent.trim());
+    out.expectedText = mod.SETTING_GROUPS.map((g) => game.i18n.localize(g.button));
     out.looseRows = [...root.querySelectorAll(`[name^="${NS}."]`)].map((i) => i.name);
     out.indexed = buttons.map((b) => !!b.closest(".form-group")?.querySelector("[data-searchable]"));
     const search = root.querySelector("input[type=search]");
@@ -263,6 +268,12 @@ try {
   ui.control && Object.values(ui.control).every(Boolean)
     ? ok("control: without the searchable index the same label query hides every button")
     : fail(`control failed — the leg is not load-bearing: ${JSON.stringify(ui.control)}`);
+
+  const textMatch = JSON.stringify(ui.buttonText) === JSON.stringify(ui.expectedText)
+    && ui.expectedText.every((t) => t && !t.startsWith("CAIRN."));
+  textMatch
+    ? ok(`each button names what it opens — ${ui.buttonText.map((t) => `"${t}"`).join(", ")}`)
+    : fail(`button text ${JSON.stringify(ui.buttonText)} vs declared ${JSON.stringify(ui.expectedText)}`);
 
   /* ---- every app: rows in declared order, hints per registration, nothing lost */
   const apps = await page.evaluate(async () => {

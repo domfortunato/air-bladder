@@ -20,7 +20,7 @@ Some think that GLOG makes magic more powerful and interesting in Cairn. Here is
 
 ## Turning it on
 
-**Configure Settings → Air Bladder → GLOG & Other Hacks → Configure → Use GLOG Magic (converts all spellbooks!)**
+**Configure Settings → Air Bladder → GLOG & Other Hacks → Configure Hacks → Use GLOG Magic (converts all spellbooks!)**
 
 The exclamation mark is earned. Turning this ON converts the whole world, once, immediately:
 

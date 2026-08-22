@@ -42,6 +42,7 @@ const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
  * @typedef {object} SettingGroup
  * @property {string} id            Menu key, `<namespace>.<id>`; also the app id suffix.
  * @property {string} title         i18n key — the button's row label AND the window title.
+ * @property {string} button        i18n key — the text ON the button, naming what it opens.
  * @property {string} hint          i18n key — the one-line description under the button.
  * @property {string} icon          Font Awesome classes for the button and the window.
  * @property {string[]} keys        Setting keys, in the order the rows render.
@@ -230,7 +231,10 @@ export const registerSettingMenus = (namespace, groups) => {
   for (const group of groups) {
     game.settings.registerMenu(namespace, group.id, {
       name: group.title,
-      label: "CAIRN.Settings.MenuConfigure",
+      // The button names what it opens, per group — "Configure Inventory", not
+      // a shared "Configure" (user ruling 2026-08-22, after Dice So Nice's
+      // per-menu buttons). `dev:settings` asserts each button's text.
+      label: group.button,
       hint: group.hint,
       icon: group.icon,
       type: makeSettingsGroupMenu(namespace, group),

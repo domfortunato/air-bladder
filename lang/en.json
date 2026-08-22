@@ -696,17 +696,20 @@
       "label": "Use GLOG Magic (converts all spellbooks!)"
     },
     "GroupGeneral": "General Settings",
+    "GroupGeneralButton": "Configure General Settings",
     "GroupGeneralHint": "Panic, dice notation, item icons, grant tags, omens, the Warden title, the change log and scars.",
     "GroupGeneration": "Character Generation",
+    "GroupGenerationButton": "Configure Character Generation",
     "GroupGenerationHint": "Which content sources are offered, what players may generate or randomize, the portrait folder and the age formula.",
     "GroupHacks": "GLOG & Other Hacks",
+    "GroupHacksButton": "Configure Hacks",
     "GroupHacksHint": "Optional rule hacks: GLOG Magic, and a Knave-style failed career for Barebones characters.",
     "GroupInventory": "Inventory & Encumbrance",
+    "GroupInventoryButton": "Configure Inventory",
     "GroupInventoryHint": "Slot limit, the inventory cap, the marketplace and the coins-per-slot threshold.",
     "MaxEquipSlots": {
       "label": "Maximum inventory slots per character"
     },
-    "MenuConfigure": "Configure",
     "ShowGenerateHeader": {
       "label": "Show a Roll Character button on the character sheet header"
     },
