@@ -95,6 +95,10 @@ const ROSTER = [
   ["using-your-own-portraits.md", "Using Your Own Portraits"],
   ["glog-magic.md", "GLOG Magic in Foundry"],
   ["supplied-macros.md", "Supplied Macros"],
+  // The Age formula setting's hint names this page by title ("the Dice
+  // Formulas page of the System Docs journal") — renaming the entry breaks
+  // that pointer, which no gate checks.
+  ["dice-formulas.md", "Dice Formulas"],
 ];
 const idOf = new Map(ROSTER.map(([f, name]) => [f, idFor(`air-bladder-system-docs:${f}`)]));
 

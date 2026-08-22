@@ -14,11 +14,12 @@
  *   2. `age-formula` is registered (String, under Character Generation, a
  *      text field) and `min-age` / `max-age` are NOT — neither in the
  *      registry nor on the rendered form.
- *   3. The DEFAULT `{2d20 + 10, 21}kh` preserves released behavior exactly:
- *      it is max(2d20 + 10, 21), so dice pinned to minimum give 21 (the old
- *      floor, now IN the formula) and pinned to maximum give 50. The pool
- *      form survives both dice-notation dialects — its "+"-separated pieces
- *      are not bare dice, so the keep-highest rewrite never claims it.
+ *   3. The DEFAULT is RAW Cairn: `2d20 + 10` (user ruling, 2026-08-21 —
+ *      rules as written win over preserving the old min-age 21 default,
+ *      which was an override, not the game). Dice pinned to minimum give
+ *      12, pinned to maximum 50. A Warden who wants the old floor writes
+ *      the pool form `{2d20 + 10, 21}kh` themselves — max(roll, 21), the
+ *      hint's own example.
  *   4. The setting GOVERNS the roll everywhere rollAge reaches: a constant
  *      formula lands every age on it — generation and the sheet's REAL
  *      age-die click included — and a range formula's pinned extremes are its
@@ -50,7 +51,7 @@ try {
     const out = {};
     const gen = await import("/systems/air-bladder/module/character-generator.js");
     // What every real call site passes: the config formula, as the fallback.
-    const FALLBACK = CONFIG.Cairn?.characterGenerator2e?.biography?.age ?? "{2d20 + 10, 21}kh";
+    const FALLBACK = CONFIG.Cairn?.characterGenerator2e?.biography?.age ?? "2d20 + 10";
 
     out.hasAgeFormula = game.settings.settings.has(`${NS}.age-formula`);
     out.hasMinAge = game.settings.settings.has(`${NS}.min-age`);
@@ -82,6 +83,24 @@ try {
     out.formulaInputType = input?.getAttribute("type") ?? input?.tagName?.toLowerCase() ?? null;
     out.minAgeOnForm = !!root.querySelector(`[name="${NS}.min-age"]`);
     out.maxAgeOnForm = !!root.querySelector(`[name="${NS}.max-age"]`);
+
+    // Hint surfacing (2026-08-21): the compact rows had hidden EVERY hint
+    // since the first commit. Text settings now show theirs; compact rows
+    // carry theirs as a hover tooltip. Computed display is read off the hint
+    // element itself, so a hidden ancestor category cannot fake either state.
+    const rowOf = (key) => root.querySelector(`[name="${NS}.${key}"]`)?.closest(".form-group");
+    const ageRow = rowOf("age-formula");
+    out.ageCompact = !!ageRow?.classList.contains("cairn-setting-compact");
+    const ageHint = ageRow?.querySelector(".hint");
+    out.ageHintDisplay = ageHint ? getComputedStyle(ageHint).display : "missing";
+    out.ageHintText = ageHint?.textContent ?? "";
+    const folderHint = rowOf("custom-portrait-folder")?.querySelector(".hint");
+    out.folderHintDisplay = folderHint ? getComputedStyle(folderHint).display : "missing";
+    const reorderRow = rowOf("enable-inventory-reorder");
+    out.compactTooltip = reorderRow?.dataset.tooltip ?? "";
+    out.compactHintExpected = game.i18n.localize(game.settings.settings.get(`${NS}.enable-inventory-reorder`)?.hint ?? "");
+    const reorderHint = reorderRow?.querySelector(".hint");
+    out.compactHintDisplay = reorderHint ? getComputedStyle(reorderHint).display : "missing";
     await app.close();
 
     // Everything past here SETS the new setting; against a build without it,
@@ -95,9 +114,9 @@ try {
       try { return await gen.rollAge(formula); } finally { CONFIG.Dice.randomUniform = orig; }
     };
 
-    // --- 3. the default preserves the released 21..50 ------------------------
+    // --- 3. the default is RAW 2d20 + 10 -------------------------------------
     await game.settings.set(NS, "age-formula", out.formulaDefault);
-    out.defLow = await pinned(0.9999, FALLBACK);   // every die -> 1: 2d20+10 = 12, kh keeps 21
+    out.defLow = await pinned(0.9999, FALLBACK);   // every die -> 1: 2d20+10 = 12
     out.defHigh = await pinned(0.0001, FALLBACK);  // every die -> max: 50
     const spread = [];
     for (let i = 0; i < 40; i++) spread.push(await gen.rollAge(FALLBACK));
@@ -181,25 +200,35 @@ try {
   !r.minAgeOnForm && !r.maxAgeOnForm
     ? ok("...and neither renders on the settings form")
     : fail(`retired bounds still on the form: min-age=${r.minAgeOnForm}, max-age=${r.maxAgeOnForm}`);
-  r.formulaDefault === "{2d20 + 10, 21}kh"
-    ? ok("the default is {2d20 + 10, 21}kh — max(2d20+10, 21), the released 21-floor behavior")
-    : fail(`age-formula default is ${JSON.stringify(r.formulaDefault)}, expected "{2d20 + 10, 21}kh"`);
+  r.formulaDefault === "2d20 + 10"
+    ? ok("the default is RAW Cairn 2d20 + 10 (the 21 floor was an override, not the game)")
+    : fail(`age-formula default is ${JSON.stringify(r.formulaDefault)}, expected "2d20 + 10"`);
   r.formulaGroup === "Character Generation"
     ? ok("the age-formula setting sits under Character Generation")
     : fail(`age-formula group placement: ${r.formulaGroup}`);
   r.formulaInputType === "text"
     ? ok("the formula is a text field")
     : fail(`age-formula field type is "${r.formulaInputType}", expected text`);
+  !r.ageCompact && r.ageHintDisplay !== "none" && r.ageHintDisplay !== "missing"
+    && r.ageHintText.includes("Dice Formulas")
+    ? ok("the Age formula row SHOWS its hint, naming the Dice Formulas guide")
+    : fail(`age hint: compact=${r.ageCompact}, display=${r.ageHintDisplay}, text=${JSON.stringify((r.ageHintText || "").slice(0, 60))}`);
+  r.folderHintDisplay !== "none" && r.folderHintDisplay !== "missing"
+    ? ok("the portrait-folder row (the other text setting) shows its hint too")
+    : fail(`folder hint display: ${r.folderHintDisplay}`);
+  r.compactTooltip && r.compactTooltip === r.compactHintExpected && r.compactHintDisplay === "none"
+    ? ok("a compact row hides its hint but carries it as a hover tooltip")
+    : fail(`compact row: tooltip=${JSON.stringify((r.compactTooltip || "").slice(0, 40))}, hint display=${r.compactHintDisplay}`);
 
   // 3. the default's behavior
-  r.defLow === 21
-    ? ok("default, dice pinned low: exactly 21 — the floor lives in the formula now")
-    : fail(`pinned-low default gave ${r.defLow}, expected 21`);
+  r.defLow === 12
+    ? ok("default, dice pinned low: exactly 12 — RAW, no floor")
+    : fail(`pinned-low default gave ${r.defLow}, expected 12`);
   r.defHigh === 50
     ? ok("default, dice pinned high: exactly 50")
     : fail(`pinned-high default gave ${r.defHigh}, expected 50`);
-  r.defMin >= 21 && r.defMax <= 50
-    ? ok(`40 natural default rolls stay in 21..50 (saw ${r.defMin}..${r.defMax})`)
+  r.defMin >= 12 && r.defMax <= 50
+    ? ok(`40 natural default rolls stay in 12..50 (saw ${r.defMin}..${r.defMax})`)
     : fail(`default rolls strayed to ${r.defMin}..${r.defMax}`);
 
   // 4. the setting governs
@@ -225,15 +254,15 @@ try {
     : fail(`the sheet re-roll produced ${r.sheetAge}, expected 9`);
 
   // 5. invalid vs blank
-  r.invalidAge === 21 && r.warnsAfterInvalid >= 1
+  r.invalidAge === 12 && r.warnsAfterInvalid >= 1
     ? ok("an invalid formula falls back to the default AND warns")
-    : fail(`invalid formula: age ${r.invalidAge} (expected 21), warns ${r.warnsAfterInvalid}`);
+    : fail(`invalid formula: age ${r.invalidAge} (expected 12), warns ${r.warnsAfterInvalid}`);
   (r.warnText ?? "").includes("not dice")
     ? ok("the warning names the rejected formula")
     : fail(`warning text does not name the formula: ${JSON.stringify(r.warnText)}`);
-  r.blankAge === 21 && r.warnsAfterBlank === r.warnsAfterInvalid
+  r.blankAge === 12 && r.warnsAfterBlank === r.warnsAfterInvalid
     ? ok("a blank formula falls back silently — blank is reset, not a mistake")
-    : fail(`blank formula: age ${r.blankAge} (expected 21), warns went ${r.warnsAfterInvalid} -> ${r.warnsAfterBlank}`);
+    : fail(`blank formula: age ${r.blankAge} (expected 12), warns went ${r.warnsAfterInvalid} -> ${r.warnsAfterBlank}`);
 
   if (r.actorId) {
     await page.evaluate(async (id) => { try { await game.actors.get(id)?.delete(); } catch { /* gone */ } }, r.actorId);

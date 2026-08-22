@@ -212,15 +212,30 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   REPLACED `min-age` and `max-age` two days after the ceiling landed: Malecho's
   cap-of-30 test came out all 30s, because clamping 2d20+10 piles ~57% of rolls
   onto that bound — the cap worked as coded and the DESIGN was the defect, so
-  the Warden edits the dice now and the default `{2d20 + 10, 21}kh` preserves
-  the released 21-floor exactly; the Kettlewright importer's clamp on PARSED
-  ages retired with it, an imported age lands verbatim) —
+  the Warden edits the dice now. The default is RAW `2d20 + 10` (user ruling,
+  same day): a `{2d20 + 10, 21}kh` default briefly preserved the retired
+  min-age's 21 floor and was REVERSED within hours — rules as written win,
+  the floor was an override, and ages 12–20 are possible again out of the
+  box; the pool form survives as the hint's example and the user's own
+  preference. `docs/dice-formulas.md` (roster guide, site card, both
+  READMEs) explains the notation, and the hint names it BY TITLE — renaming
+  the journal entry breaks a pointer no gate checks. The Kettlewright
+  importer's clamp on PARSED ages retired too, an imported age lands
+  verbatim) —
   **registration ORDER is load-bearing**, because Foundry's group headers are
   positional — GATED since 2026-08-19 (review #16): `SETTING_GROUPS` in
   `settings.js` declares the three groups, their anchors and every visible key
   under each, `cairn.js` inserts the headers from it rather than from its own
   copy, and `dev:settings` compares it against the live registration order
-  (`game.settings.settings` is a Map, so its key order IS that order). Two went on
+  (`game.settings.settings` is a Map, so its key order IS that order).
+  **Hints render since 2026-08-21, and not before — EVER**: the compact-row
+  CSS (`cairn-setting-compact`, in since the first commit) hid every
+  air-bladder hint while the registrations and translators kept writing
+  them, which surfaced the day a hint was told to carry real instruction
+  (the Age formula's). Now TEXT settings (`cairn-setting-text` — Age
+  formula, portrait folder) show the hint beneath and every compact row
+  carries its localized hint as `data-tooltip`; `dev:age-override` holds
+  three legs on this split. Two went on
   2026-07-31, both because the thing they toggled stopped existing:
   `show-containers-tab` (the Connections tab was structural then — see the
   2026-08-09 parking below — and a display toggle that hides a graph which goes

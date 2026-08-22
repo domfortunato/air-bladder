@@ -646,7 +646,7 @@
   "CAIRN.SetLimit": "Set limit",
   "CAIRN.Settings": {
     "AgeFormula": {
-      "hint": "The dice rolled for every generated person's age, and by the age die on sheets. Default {2d20 + 10, 21}kh: roll 2d20 + 10, but never below 21. Want a range? Write dice that produce it — 2d6 + 18 gives ages 20 to 30. Leave blank for the default. With Cairn dice notation on, d20 + d20 keeps the highest die; 2d20 + 10 adds. The age field itself stays free text.",
+      "hint": "The dice rolled for every generated person's age, and by the age die on sheets. Default 2d20 + 10, the book's roll. Want a minimum? {2d20 + 10, 21}kh rolls 2d20 + 10 but never below 21. Want a range? 2d6 + 18 gives ages 20 to 30. Leave blank for the default. With Cairn dice notation on, d20 + d20 keeps the highest die; 2d20 + 10 adds. Every option is explained on the Dice Formulas page of the System Docs journal, and at airbladder.xyz under Guides.",
       "label": "Age formula for generated characters"
     },
     "AllowPlayerGenerate": {

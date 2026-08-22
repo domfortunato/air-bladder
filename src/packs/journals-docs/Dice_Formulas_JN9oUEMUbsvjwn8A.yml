@@ -1,0 +1,26 @@
+_id: JN9oUEMUbsvjwn8A
+name: Dice Formulas
+pages:
+  - _id: tx0Bdyl5SgQTxtpQ
+    name: Dice Formulas
+    type: text
+    title:
+      show: false
+      level: 1
+    text:
+      content: '<p>Air Bladder reads dice formulas in a few places a Warden can edit — a weapon&#39;s damage, a monster&#39;s attack, and the <strong>Age formula</strong> setting under Character Generation. This page is what those formulas can say.</p> <h2>The basics</h2> <p>A die is <code>NdX</code>: <code>1d20</code> rolls one twenty-sider, <code>2d6</code> rolls two six-siders and adds them. Plain numbers add on: <code>2d20 + 10</code> rolls two d20s, adds them together, then adds 10 — ages 12 to 50, the book&#39;s roll and the Age formula&#39;s default. Any number of faces works: <code>1d31 + 19</code> is a real roll, ages 20 to 50 with every age equally likely.</p> <p>A formula can also be just a number: <code>30</code> means every roll comes out 30.</p> <h2>Cairn&#39;s plus sign</h2> <p>Cairn&#39;s rules write &quot;roll two dice and keep the highest&quot; as <code>d8 + d8</code>, so with <strong>Use Cairn dice notation</strong> on (the default), the system reads <code>+</code> the way the book does — and what is on each side decides which meaning applies:</p> <table> <thead> <tr> <th>You write</th> <th>It means</th> <th>Result</th> </tr> </thead> <tbody><tr> <td><code>2d8</code></td> <td>roll two d8 and add them</td> <td>2–16</td> </tr> <tr> <td><code>d8 + d8</code></td> <td>roll two d8, keep the highest</td> <td>1–8</td> </tr> <tr> <td><code>2d20 + 10</code></td> <td>roll, add, plus 10</td> <td>12–50</td> </tr> </tbody></table> <p>Only the die-plus-die form keeps the highest. With the notation setting off, <code>+</code> always adds and <code>d8 + d8</code> is simply 2–16.</p> <h2>Minimums and maximums</h2> <p>Braces compare two rolls and keep one, which is how a formula says &quot;but never below&quot; or &quot;but never above&quot;:</p> <table> <thead> <tr> <th>You write</th> <th>It means</th> </tr> </thead> <tbody><tr> <td><code>{2d20 + 10, 21}kh</code></td> <td>roll 2d20 + 10, but never below 21 (<strong>k</strong>eep <strong>h</strong>ighest)</td> </tr> <tr> <td><code>{2d20 + 10, 40}kl</code></td> <td>roll 2d20 + 10, but never above 40 (<strong>k</strong>eep <strong>l</strong>owest)</td> </tr> </tbody></table> <p>These work whether the Cairn notation setting is on or off — the brace form belongs to Foundry itself.</p> <p>Prefer shaping the dice over capping them where you can: a cap piles results onto the boundary (capping <code>2d20 + 10</code> at 30 makes more than half of all rolls exactly 30), while dice sized to the range spread across it.</p> <h2>Age formula recipes</h2> <table> <thead> <tr> <th>You want</th> <th>Write</th> </tr> </thead> <tbody><tr> <td>The book&#39;s roll, ages 12–50</td> <td><code>2d20 + 10</code> (the default)</td> </tr> <tr> <td>No characters under 21</td> <td><code>{2d20 + 10, 21}kh</code></td> </tr> <tr> <td>Ages 20–30, the middle most likely</td> <td><code>2d6 + 18</code></td> </tr> <tr> <td>Ages 20–50, all equally likely</td> <td><code>1d31 + 19</code></td> </tr> <tr> <td>Everyone arrives the same age</td> <td><code>30</code></td> </tr> </tbody></table> <h2>When a formula does not parse</h2> <p>A formula the dice reader cannot understand is not rolled: the default is used instead and a warning names the text that was rejected, so a typo never silently changes what the setting does. A <strong>blank</strong> field just means &quot;use the default&quot;, with no warning.</p> <p>The age box on a character&#39;s sheet stays free text either way — a typed age is never checked against any formula.</p> <p>Foundry&#39;s own dice reference covers the full notation, modifiers and all: <a href="https://foundryvtt.com/article/dice/">foundryvtt.com/article/dice</a>.</p>'
+      format: 1
+    sort: 0
+    ownership:
+      default: -1
+    flags: {}
+    _key: '!journal.pages!JN9oUEMUbsvjwn8A.tx0Bdyl5SgQTxtpQ'
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!journal!JN9oUEMUbsvjwn8A'

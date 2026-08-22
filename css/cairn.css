@@ -2970,12 +2970,16 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     margin-top: 0;
 }
 
-/* Every setting renders as one compact row: the label carries the whole
-   description as plain (non-bold) body text on one line, the control sits at the
-   far right, and there is no hint beneath. Foundry splits each row 50/50 (label |
-   form-fields), which crushes a long label, so we give the label the full width
-   and take the control out of flow, pinned right. The .form-group qualifier
-   out-specifies core's `.form-group .form-fields`. */
+/* Every CHECKBOX/NUMBER setting renders as one compact row: the label carries
+   the whole description as plain (non-bold) body text on one line, the control
+   sits at the far right, and there is no hint beneath — the registered hint
+   rides the row as a hover tooltip instead (cairn.js sets data-tooltip,
+   2026-08-21; before that the hints were written and shown NOWHERE). TEXT
+   settings are the exception (.cairn-setting-text below): they keep core's
+   layout and show the hint. Foundry splits each row 50/50 (label |
+   form-fields), which crushes a long label, so we give the label the full
+   width and take the control out of flow, pinned right. The .form-group
+   qualifier out-specifies core's `.form-group .form-fields`. */
 .cairn-setting-compact {
     position: relative;
     padding-right: 70px;      /* room for the pinned control (checkbox or number) */
@@ -3018,6 +3022,20 @@ ol.combat-tracker li.combatant.cairn-drop-below {
 
 .cairn-setting-compact .hint {
     display: none;
+}
+
+/* A TEXT setting (the Age formula, the custom portrait folder) is the
+   exception to the compact row: its value does not fit a pinned 70px box and
+   its hint is real instruction — formula recipes, folder rules — not a longer
+   restatement of the label. Core's own form-group layout stands; the label
+   goes bold so the row reads as a heading over its hint. */
+.cairn-setting-text label {
+    font-weight: 700;
+}
+
+.cairn-setting-text .hint {
+    color: var(--ab-muted);
+    font-size: 12px;
 }
 
 /******************************************************************************

@@ -2194,7 +2194,24 @@ Hooks.on("renderSettingsConfig", (app, element) => {
   }
 
   root.querySelectorAll(`[name^="${SETTINGS_NS}."]`).forEach((input) => {
-    input.closest(".form-group")?.classList.add("cairn-setting-compact");
+    const group = input.closest(".form-group");
+    if (!group) return;
+    // A TEXT setting (the Age formula, the portrait folder) keeps core's
+    // stacked layout WITH its hint visible (2026-08-21, user report): real
+    // instruction does not fit a one-line label, and a formula box pinned
+    // into the compact row's 70px gutter was unusable anyway. Until this,
+    // NO air-bladder hint had ever rendered — the compact rule hid every
+    // one since the first commit while the registrations kept writing them.
+    if (input.matches('input[type="text"]')) {
+      group.classList.add("cairn-setting-text");
+      return;
+    }
+    group.classList.add("cairn-setting-compact");
+    // The compact row's label IS the description, but the longer registered
+    // hint now surfaces as a hover tooltip instead of being written and
+    // shown nowhere. Localized here because data-tooltip is rendered as-is.
+    const cfg = game.settings.settings.get(input.name);
+    if (cfg?.hint) group.dataset.tooltip = game.i18n.localize(cfg.hint);
   });
 
   // Barebones sub-options are meaningless unless Barebones character sheets are

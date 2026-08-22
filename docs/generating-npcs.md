@@ -129,7 +129,7 @@ else:
 | beside **Background** | a new Background **and the gear it grants** — the kit stays between ordinary trades; landing **Lord or Politician empties the whole pack**, and rolling back off one repacks it (NPC role) |
 | beside **Career** | a new Career — **and its stat block and gear with it**, because in 2e a career *is* those things |
 | beside **Faction** | a side, off `Warden: NPC - Faction` |
-| beside **Age** | your **Age formula** setting (default: 2d20 + 10, never below 21) |
+| beside **Age** | your **Age formula** setting (default: 2d20 + 10 — see [Dice Formulas](dice-formulas.md)) |
 | on the portrait | another face from the same folder |
 
 **These dice are yours alone.** On an NPC or hireling sheet a player never sees

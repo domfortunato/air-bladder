@@ -739,11 +739,14 @@ export const registerSettings = () => {
   // age". The cap worked as coded; the design was the defect. Editing the
   // DICE gives a range as a distribution, which no clamp can.
   //
-  // The default is the config's one copy (see config.js): the pool form
-  // {2d20 + 10, 21}kh is max(2d20 + 10, 21), so the released 21-floor
-  // behavior is preserved exactly and upgrading ages nobody. A retired
-  // min-age or max-age value survives as an orphaned world row, the
-  // established precedent -- never re-read, never reused as a key.
+  // The default is the config's one copy (see config.js): RAW 2d20 + 10,
+  // by user ruling -- rules as written win over preserving the retired
+  // min-age's 21 default, which was an override, not the game. So upgrading
+  // CAN change ages (12..20 are possible again out of the box), accepted
+  // with eyes open; a Warden who wants the floor back writes the pool form
+  // {2d20 + 10, 21}kh, the hint's own example. A retired min-age or max-age
+  // value survives as an orphaned world row, the established precedent --
+  // never re-read, never reused as a key.
   //
   // No onChange fan and no reload: read at ROLL time, not in
   // _prepareContext, so no open sheet shows a stale value. It governs the

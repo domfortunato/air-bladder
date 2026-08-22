@@ -31,6 +31,7 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 - Custom 2e backgrounds — seven ship in the **Backgrounds (Custom)** compendium; [create and lint your own](https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md), then [share them across worlds](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md)
 - Pop-out and **printable** character sheets — print the whole character on one or two pages
 - [Supplied macros](https://github.com/domfortunato/air-bladder/blob/master/docs/supplied-macros.md) — four Warden switches for the hotbar, no trip into Game Settings
+- A Warden-editable **Age formula** — generated ages roll whatever dice you write; the [dice formulas guide](https://github.com/domfortunato/air-bladder/blob/master/docs/dice-formulas.md) covers Cairn's keep-highest plus sign, minimums and maximums, and ready-made recipes
 - Three portrait-picker galleries: 80 character portraits by [Jon Aspeheim](https://jonaspeheim.itch.io/), 368 creature & NPC tokens by [tlomdev](https://tlomdev.itch.io/) (an imported Kettlewright character keeps its face), and 17 monsters drawn for Air Bladder by [Lydia Comer](https://linktr.ee/lydiadidmyink)
 - Minimal automation — buttons for rest, restoring abilities, panic and critical damage
 - Impaired and Enhanced damage rolls — pick one when you roll; a panicked character rolls impaired automatically
