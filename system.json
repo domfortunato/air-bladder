@@ -287,6 +287,12 @@
       "system": "air-bladder"
     },
     {
+      "name": "journals-vald",
+      "label": "CAIRN.Pack.journals-vald",
+      "type": "JournalEntry",
+      "system": "air-bladder"
+    },
+    {
       "name": "macros",
       "label": "CAIRN.Pack.macros",
       "type": "Macro",
@@ -346,7 +352,8 @@
       "packs": [
         "journals-2e",
         "journals-docs",
-        "journals-glog"
+        "journals-glog",
+        "journals-vald"
       ]
     },
     {

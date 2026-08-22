@@ -195,11 +195,13 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
 - `module/actor/actor-sheet.js` is the largest file
 - `module/damage.js` holds Cairn's damage flow
 - Data models in `module/data-models.js` (TypeDataModel; `template.json` is gone,
-  sub-types are declared in `system.json` `documentTypes`); 29 compendium packs
-  (24 on `master` — the GLOG branch added `spellbooks-glog`, `tables-glog`,
-  `journals-glog`, and on 2026-08-10 `journals-2e` and `journals-docs`; this
+  sub-types are declared in `system.json` `documentTypes`); 30 compendium packs
+  (29 on `master` since 0.1.17 — `journals-vald`, the Warden's Guide setting
+  chapter as one nine-page book, is dev-only until the next release; this
   count went stale TWICE in one day, both times by the hand that had just
-  corrected it — a new pack's commit must carry this line)
+  corrected it, and its "N on master" parenthetical went stale a THIRD way by
+  surviving two releases — a new pack's commit must carry this line, and so
+  must the release that moves the master count)
 - 25 GM-visible settings in `module/settings.js` (33 `register` calls; `roles-restamped`,
   `companion-restamped`, `hireling-split`, `grimoire-keys-stamped`,
   `connections-migrated`, `custom-portrait-list`, `disabled-backgrounds` and
@@ -647,7 +649,7 @@ What belongs here is what those two files do not say:
 
 ## Testing
 
-**`docs/release-testing.md` is the full list — 97 probes (`check:probes` states
+**`docs/release-testing.md` is the full list — 98 probes (`check:probes` states
 the current count), what each covers, and what to run before tagging vs after
 publishing. Keep it in step with `package.json`; a probe not listed there runs
 only when someone remembers it.**

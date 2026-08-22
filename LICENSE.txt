@@ -44,7 +44,9 @@ Game text — CC BY-SA 4.0, © Yochai Gal
     tables and their descriptions, and the JOURNALS that carry the rules text
     itself — the Cairn 2e Rules compendium holds "Overview & Principles" and
     "Core Rules for Players", transcribed from the 2e text and shipping as
-    readable pages rather than as a link to it.
+    readable pages rather than as a link to it, and the Vald compendium holds
+    the Warden's Guide setting chapter of the same name, fetched from the
+    Cairn SRD by tools/import/vald.mjs.
     Two packs are not this: the macros pack holds no game text, and the System
     Docs journals are this project's own writing, generated from docs/ by
     tools/import/system-docs.mjs. Both are covered by the Code clause above.

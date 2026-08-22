@@ -38,7 +38,7 @@ import { VIEWPORT, joinAsGM, dismissChrome, watchErrors, watchdog } from "./lib.
 import { readPack } from "../i18n/lib.mjs";
 import { stringsFromDoc } from "../i18n/content-strings.mjs";
 
-const PLAYER_PACKS = ["journals-2e", "journals-glog"];
+const PLAYER_PACKS = ["journals-2e", "journals-glog", "journals-vald"];
 
 let failures = 0;
 const ok = (l, d = "") => console.log(`  ok    ${l.padEnd(50)} ${d}`);
@@ -92,7 +92,20 @@ const domKeys = await page.evaluate(async (packs) => {
         await new Promise((r) => setTimeout(r, 200));
       }
       await new Promise((r) => setTimeout(r, 400));
-      for (const content of doc.sheet.element?.querySelectorAll(".journal-page-content") ?? []) {
+      // EVERY page, not just the one the sheet opened on: single-page view
+      // holds one page's content in the DOM at a time, and the multi-page
+      // Vald book would otherwise contribute only its Introduction — with
+      // both of its tables (the td/th keys that went through the importer's
+      // header promotion) never meeting this comparison at all.
+      for (const pd of [...doc.pages.contents].sort((a, b) => a.sort - b.sort)) {
+        doc.sheet.goToPage(pd.id);
+        let content = null;
+        for (let n = 0; n < 50 && !content; n++) {
+          content = doc.sheet.element?.querySelector(
+            `.journal-entry-page[data-page-id="${pd.id}"] .journal-page-content`);
+          if (!content) await new Promise((r) => setTimeout(r, 200));
+        }
+        if (!content) { out.blocks.push(`__PAGE_NEVER_RENDERED__ ${doc.name}: ${pd.name}`); continue; }
         for (const node of content.querySelectorAll(BLOCKS)) {
           if (node.querySelector(BLOCKS)) continue;
           const en = node.innerHTML.trim();
@@ -116,9 +129,9 @@ const unmatched = [...new Set(domKeys.blocks)].filter((k) => !emitted.block.has(
 const [enriched, broken] = [unmatched.filter((k) => ENRICHED_DOM.test(k)),
   unmatched.filter((k) => !ENRICHED_DOM.test(k))];
 
-domKeys.rendered === 4
-  ? ok("all four player journals rendered", `${domKeys.blocks.length} block(s) read from the live DOM`)
-  : fail("all four player journals rendered", `${domKeys.rendered} of 4`);
+domKeys.rendered === 5
+  ? ok("all five player journals rendered", `${domKeys.blocks.length} block(s) read from the live DOM`)
+  : fail("all five player journals rendered", `${domKeys.rendered} of 5`);
 broken.length === 0
   ? ok("every key the DOM asks for is one the extractor emits", "offline parser and Chromium agree")
   : fail("every key the DOM asks for is one the extractor emits",
@@ -145,6 +158,10 @@ const HEADING_ES = "ZZ-ENCABEZADO-TRADUCIDO";
 // The TOC has two row shapes, and `journal.pageName` reaches only the second
 // (review #16). Its own sentinel, so a page row cannot pass on a heading's.
 const PAGE_ES = "ZZ-PAGINA-TRADUCIDA";
+// The IN-PAGE title header (journals-vald, 2026-08-21 — the first translatable
+// pack whose pages SHOW their titles). A sibling of .journal-page-content, so
+// the block sweep never reaches it; its own sentinel, on its own fixture.
+const VALD_PAGE_ES = "ZZ-TITULO-VALD";
 
 const subjectBlock = [...emitted.block].find((b) => b.startsWith("<em>These rules are the same"));
 subjectBlock
@@ -183,15 +200,51 @@ const shown = await page.evaluate(async (fx) => {
   });
   try {
     out.pageName = doc.pages.contents[0]?.name ?? null;
+    // The Vald fixture, resolved BEFORE the overlay installs so its first
+    // page's real name keys the map — a literal here would be silently
+    // orphaned by an upstream SRD rename.
+    const vpack = game.packs.get("air-bladder.journals-vald");
+    const vdoc = vpack ? await vpack.getDocument([...vpack.index.keys()][0]) : null;
+    out.valdPageName = vdoc
+      ? [...vdoc.pages.contents].sort((a, b) => a.sort - b.sort)[0]?.name ?? null
+      : null;
     i18n._setOverlay({
       "journal.block": { [fx.subjectBlock]: fx.BLOCK_ES, [fx.HEADING_EN]: fx.HEADING_ES },
       "journal.name": { "Core Rules for Players": fx.NAME_ES },
-      "journal.pageName": { [out.pageName]: fx.PAGE_ES },
+      "journal.pageName": { [out.pageName]: fx.PAGE_ES, [out.valdPageName]: fx.VALD_PAGE_ES },
     });
     if (!i18n.contentLocalized()) return { error: "overlay did not install" };
 
     out.on = readBack(await open());
     await doc.sheet.close();
+
+    // The IN-PAGE title header, on the Vald fixture: the first translatable
+    // pack whose pages SHOW their titles, so no rules-journal page can stand
+    // this leg. The header is a SIBLING of .journal-page-content — the block
+    // sweep never touches it — and it reads journal.pageName like the TOC row.
+    if (!vdoc) out.valdHeader = "pack missing";
+    else {
+      const first = [...vdoc.pages.contents].sort((a, b) => a.sort - b.sort)[0];
+      await vdoc.sheet.render(true);
+      for (let n = 0; n < 50 && !vdoc.sheet.element?.querySelector(".journal-page-content"); n++) {
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      // The sheet REMEMBERS its position across opens — the key-agreement walk
+      // in part 1 leaves it on the LAST page — so turn to the first page
+      // rather than keying the overlay on whatever happens to be showing.
+      // This also makes the leg honest about the real path: a page-turn
+      // render is how a reader reaches any page after the first.
+      vdoc.sheet.goToPage(first.id);
+      let harticle = null;
+      for (let n = 0; n < 50 && !harticle; n++) {
+        harticle = vdoc.sheet.element?.querySelector(`.journal-entry-page[data-page-id="${first.id}"]`);
+        if (!harticle) await new Promise((r) => setTimeout(r, 200));
+      }
+      await new Promise((r) => setTimeout(r, 400));
+      out.valdHeader = [...(harticle?.querySelectorAll(".journal-page-header :is(h1,h2,h3,h4,h5,h6)") ?? [])]
+        .some((n) => n.textContent.trim() === fx.VALD_PAGE_ES);
+      await vdoc.sheet.close();
+    }
 
     // EDIT mode: the editor's save writes what it shows, so it must show stored
     // English. Reached through the page sheet directly with mode "edit" — the
@@ -241,7 +294,7 @@ const shown = await page.evaluate(async (fx) => {
     i18n._setOverlay(null);
     await doc.sheet.close().catch(() => {});
   }
-}, { subjectBlock, BLOCK_ES, NAME_ES, HEADING_EN, HEADING_ES, PAGE_ES });
+}, { subjectBlock, BLOCK_ES, NAME_ES, HEADING_EN, HEADING_ES, PAGE_ES, VALD_PAGE_ES });
 
 if (shown.error) fail("the overlay installed", shown.error);
 else {
@@ -261,6 +314,15 @@ else {
     : fail("a PAGE row in the contents list reads its translation", "journal.pageName never reached the TOC");
   shown.on?.pageTip ? ok("and the tooltip on its index bubble agrees", "no English name on hover over a Spanish row")
     : fail("and the tooltip on its index bubble agrees", "the tooltip kept the stored English");
+  shown.valdPageName
+    ? ok("precondition: the Vald book has a named first page", `"${shown.valdPageName}"`)
+    : fail("precondition: the Vald book has a named first page",
+        shown.valdHeader === "pack missing" ? "journals-vald is not in the world — build packs" : "no page name");
+  shown.valdHeader === true
+    ? ok("the shown page TITLE reads its translated name", VALD_PAGE_ES)
+    : fail("the shown page TITLE reads its translated name",
+        shown.valdHeader === "pack missing" ? "journals-vald is not in the world — build packs"
+          : "the page header stayed English — a sibling of .journal-page-content, the block sweep never reaches it");
 
   console.log("\nedit mode is left alone — its save writes what it shows");
   shown.editIsEditMode

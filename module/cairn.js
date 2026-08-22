@@ -590,6 +590,17 @@ const localizeJournalBlocks = (root) => {
 Hooks.on("renderJournalEntryPageSheet", (app, element) => {
   if (!contentLocalized() || !app.isView) return;
   localizeJournalBlocks(element?.querySelector?.(".journal-page-content") ?? element);
+  // The page's own displayed title (title.show pages — the Vald book is the
+  // first translatable pack that has any): core renders it in a HEADER that
+  // is a SIBLING of .journal-page-content (templates/journal/pages/text/
+  // view.hbs), so the block sweep above never reaches it. Same namespace and
+  // same markup guard as the TOC page row in the entry-sheet hook below.
+  const heading = element?.querySelector?.(".journal-page-header :is(h1,h2,h3,h4,h5,h6)");
+  if (heading) {
+    const en = heading.textContent.trim();
+    const es = en && !en.includes("<") ? translationOf("journal.pageName", en) : undefined;
+    if (es !== undefined && es !== en && !es.includes("<")) heading.textContent = es;
+  }
 });
 
 /**
