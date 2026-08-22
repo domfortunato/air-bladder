@@ -351,8 +351,6 @@
   "CAIRN.ItemRemoveQuantity": "Remove",
   "CAIRN.ItemUnequip": "Unequip",
   "CAIRN.Items": "Items",
-  "CAIRN.KWImport.AgeLowered": "Age lowered from {from} to {to}, the Warden's maximum age.",
-  "CAIRN.KWImport.AgeRaised": "Age raised from {from} to {to}, the Warden's minimum age.",
   "CAIRN.KWImport.BadJson": "That file isn't valid JSON — pick a Kettlewright character export.",
   "CAIRN.KWImport.BadShape": "That JSON doesn't look like a Kettlewright character export.",
   "CAIRN.KWImport.BgMatched": "Background matched: {name}.",
@@ -430,6 +428,7 @@
     "ApplyDamageWardenOnly": "Only the Warden can apply damage.",
     "BackgroundNotCharacter": "Only a player character has a background.",
     "BackgroundWrongSource": "That is a {backgroundEdition} background and this is a {characterEdition} character. A character does not change edition.",
+    "BadAgeFormula": "The Age formula setting (\"{formula}\") is not a valid dice formula — the default was rolled instead.",
     "Bought": "Bought {name} for {cost} gold.",
     "CannotConnect": "{name} can't be connected — monsters never join a party's connections.",
     "ChangeLogOff": "The change log is off.",
@@ -646,6 +645,10 @@
   "CAIRN.ScrollTip": "A spellscroll is this spell written once on paper: petty, a single use, and gone when it is read. Marking one sets all of that and shows it as a scroll in the inventory.",
   "CAIRN.SetLimit": "Set limit",
   "CAIRN.Settings": {
+    "AgeFormula": {
+      "hint": "The dice rolled for every generated person's age, and by the age die on sheets. Default {2d20 + 10, 21}kh: roll 2d20 + 10, but never below 21. Want a range? Write dice that produce it — 2d6 + 18 gives ages 20 to 30. Leave blank for the default. With Cairn dice notation on, d20 + d20 keeps the highest die; 2d20 + 10 adds. The age field itself stays free text.",
+      "label": "Age formula for generated characters"
+    },
     "AllowPlayerGenerate": {
       "hint": "Offer players the Generate PC button in the Actors sidebar. Turn off to hide it from every player mid-session — the shipped 'Toggle Player Generate PC' macro flips this. The Warden's own button never hides.",
       "label": "Let players generate characters"
@@ -701,17 +704,9 @@
     "GroupGeneral": "General Settings",
     "GroupGeneration": "Character Generation",
     "GroupInventory": "Inventory & Encumbrance",
-    "MaxAge": {
-      "hint": "A ceiling on every generated character's age, applied wherever the age die is rolled. Generation and the sheet's age re-roll never produce an age above this. Default 50 (the highest a 2d20 + 10 roll can give), which switches the ceiling off. If it is set below the minimum age, the minimum wins.",
-      "label": "Maximum character age (ceiling for the 2d20 + 10 roll)"
-    },
     "MaxEquipSlots": {
       "hint": "Maximum equipment slots for player characters, used for encumbrance tracking.",
       "label": "Maximum inventory slots per character"
-    },
-    "MinAge": {
-      "hint": "A floor on every generated character's age, applied to all character sheets. Generation and the sheet's age re-roll never produce an age below this. Default 21; set it below 12 (the lowest a 2d20 + 10 roll can give) to switch the floor off.",
-      "label": "Minimum character age (floor for the 2d20 + 10 roll)"
     },
     "ShowGenerateHeader": {
       "hint": "Show 'Regenerate' button at character sheet header",

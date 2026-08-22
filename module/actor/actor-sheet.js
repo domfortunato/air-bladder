@@ -3647,16 +3647,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   /* -------------------------------------------- */
 
   /**
-   * Re-roll the character's age (2d20 + 10 by default) into the age field. The
-   * formula lives in config so it matches what generation uses.
+   * Re-roll the character's age (the Warden's age-formula setting, default
+   * {2d20 + 10, 21}kh) into the age field.
    * @this {CairnActorSheet}
    */
   static async #onRollAge(event) {
     event.preventDefault();
-    const formula = CONFIG.Cairn?.characterGenerator2e?.biography?.age ?? "2d20 + 10";
     // rollAge (not evaluateFormula) so the sheet re-roll obeys the Warden's
-    // minimum-age override, exactly as generation does.
-    const total = await rollAge(formula);
+    // age-formula setting, exactly as generation does — the config value is
+    // only the FALLBACK for a blank or invalid setting.
+    const total = await rollAge(CONFIG.Cairn?.characterGenerator2e?.biography?.age);
     await this.actor.update({ "system.age": String(total) });
   }
 

@@ -200,7 +200,7 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   `journals-glog`, and on 2026-08-10 `journals-2e` and `journals-docs`; this
   count went stale TWICE in one day, both times by the hand that had just
   corrected it — a new pack's commit must carry this line)
-- 26 GM-visible settings in `module/settings.js` (34 `register` calls; `roles-restamped`,
+- 25 GM-visible settings in `module/settings.js` (33 `register` calls; `roles-restamped`,
   `companion-restamped`, `hireling-split`, `grimoire-keys-stamped`,
   `connections-migrated`, `custom-portrait-list`, `disabled-backgrounds` and
   `connections-ui-enabled` are internal, `config: false`;
@@ -208,7 +208,13 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   (review #13's catch, its third "record claiming what the code does not say"),
   then `enable-glog-magic` rode a topic branch whose cherry-picks never carried
   this line, caught only when the branch merged — so each settings change updates
-  them in its own commit, this one dated 2026-08-19 for `max-age`) —
+  them in its own commit, this one dated 2026-08-21 for `age-formula`, which
+  REPLACED `min-age` and `max-age` two days after the ceiling landed: Malecho's
+  cap-of-30 test came out all 30s, because clamping 2d20+10 piles ~57% of rolls
+  onto that bound — the cap worked as coded and the DESIGN was the defect, so
+  the Warden edits the dice now and the default `{2d20 + 10, 21}kh` preserves
+  the released 21-floor exactly; the Kettlewright importer's clamp on PARSED
+  ages retired with it, an imported age lands verbatim) —
   **registration ORDER is load-bearing**, because Foundry's group headers are
   positional — GATED since 2026-08-19 (review #16): `SETTING_GROUPS` in
   `settings.js` declares the three groups, their anchors and every visible key

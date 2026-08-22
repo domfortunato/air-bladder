@@ -592,8 +592,8 @@ export const kettlewrightPortraitPath = async (name) => {
  * These three return the evaluated Roll, NOT its total, so the generation chat
  * card (postGenerationRolls) can hand the real Roll objects to ChatMessage and
  * let Dice So Nice animate them. Callers read `.total` themselves. rollAge is
- * deliberately NOT part of this: age is excluded from the card, and it applies
- * the min-age floor, so its return value is not the roll's total anyway.
+ * deliberately NOT part of this: age is excluded from the card, and it answers
+ * with a NUMBER off the Warden's age-formula setting, not a Roll.
  */
 
 /** @param {String} formula @returns {Promise<{STR:Roll,DEX:Roll,WIL:Roll}>} */
@@ -610,57 +610,46 @@ export const rollHitProtection = async (formula) => evaluateFormula(formula);
 export const rollGold = async (formula) => evaluateFormula(formula);
 
 /**
- * Hold an age between the Warden's floor and ceiling, floor winning a conflict.
+ * Roll an age from the Warden's `age-formula` setting, falling back to the
+ * caller's formula (the config's one copy, `{2d20 + 10, 21}kh`) when the
+ * setting is blank or does not parse.
  *
- * ONE copy of the rule, exported because the Kettlewright importer applies the
- * same bounds to an age it PARSED rather than rolled (kettlewright-import.js).
- * That path already had its own transcription of the floor, and a second copy of
- * a rule is how the two quietly stop agreeing — the lesson this repo has paid for
- * in the settings groups, the icon credits and the monster art categories.
+ * This REPLACED the min-age/max-age clamp (2026-08-21, issue #21 both ways —
+ * fsmalecho asked for the ceiling AND then reported what clamping did):
+ * holding 2d20 + 10 under a ceiling of 30 made ~57% of rolls exactly 30,
+ * because a clamp piles the distribution onto its bound. The cap worked as
+ * coded; the design was the defect. The Warden edits the DICE now, so a
+ * chosen range arrives as a spread — and with no bounds left to conflict,
+ * the floor-wins ruling retired with them. A retired min-age or max-age
+ * world row is orphaned data, never read again and never reused as a key.
  *
- * Either bound is off when 0 (or unset), which is what `|| 0` on a Number setting
- * yields for a Warden who blanked the field.
- * @param {Number} age @param {Number} floor @param {Number} ceiling
- * @returns {Number}
- */
-export const clampAge = (age, floor, ceiling) => {
-  const aged = Math.max(age, floor || 0);
-  // Math.max(ceiling, floor) is the ruling: a ceiling below the floor is raised
-  // to it, so the result is never below the minimum the same Warden set.
-  return ceiling ? Math.min(aged, Math.max(ceiling, floor || 0)) : aged;
-};
-
-/**
- * Roll an age from the formula (2d20 + 10 by default), then hold it between the
- * "min-age" floor (default 21) and the "max-age" ceiling (default 50).
- *
- * Each is switched off by a value the roll can never reach: a floor below 12 and
- * a ceiling at or above 50 are the extremes of 2d20 + 10, so neither binds. That
- * is why the ceiling ships at 50 — it is a no-op in every existing world, and
- * adding it changed nobody's characters.
- *
- * THE FLOOR WINS A CONFLICT (issue #21, ruled 2026-08-19). A Warden who sets the
- * ceiling below the floor gets exactly the floor: the ceiling is raised to meet
- * it rather than allowed to produce an age the same Warden's minimum forbids.
- * The floor is the older rule and this docblock has always said it is always
- * applied. Do not "simplify" the inner Math.max away — it is the ruling, and
- * `dev:age-override` has a leg on it.
+ * Blank falls back SILENTLY — blank is "reset to default", not a mistake. A
+ * non-blank formula that fails Roll.validate falls back too and WARNS,
+ * naming the rejected text: a typo the Warden never hears about is just
+ * "the setting does nothing". Validation is on the RAW text, which is right
+ * in both dice-notation dialects — the Cairn keep-highest rewrite only maps
+ * valid arithmetic to valid pool syntax.
  *
  * ROLLS ONLY, and deliberately. Age is a free-text input on the sheet
- * (templates/parts/bio-block.html) with this die beside it, so a hand-typed age
- * is nobody's business but the player's; neither bound has ever constrained it.
- * This is not a missing enforcement half — it is the floor's settled scope, and
- * the ceiling inherits it.
+ * (templates/parts/bio-block.html) with this die beside it, so a hand-typed
+ * age is nobody's business but the player's — the old bounds never
+ * constrained it and the formula does not either. Since 2026-08-21 an
+ * IMPORTED age is verbatim too (kettlewright-import.js): parsed, not rolled.
  *
- * The single choke point for age: all four generation call sites and the sheet's
- * re-roll come through here, so both bounds land everywhere at once.
- * @param {String} formula @returns {Promise<Number>}
+ * The single choke point for age: all four generation call sites and the
+ * sheet's re-roll come through here, so the setting lands everywhere at once.
+ * @param {String} fallback @returns {Promise<Number>}
  */
-export const rollAge = async (formula) => {
-  const rolled = (await evaluateFormula(formula)).total;
-  const floor = Number(game.settings.get(SETTINGS_NS, "min-age")) || 0;
-  const ceiling = Number(game.settings.get(SETTINGS_NS, "max-age")) || 0;
-  return clampAge(rolled, floor, ceiling);
+export const rollAge = async (fallback) => {
+  const configured = String(game.settings.get(SETTINGS_NS, "age-formula") ?? "").trim();
+  let formula = configured || fallback;
+  if (!Roll.validate(formula)) {
+    if (configured) {
+      ui.notifications.warn(game.i18n.format("CAIRN.Notify.BadAgeFormula", { formula: configured }));
+    }
+    formula = fallback;
+  }
+  return (await evaluateFormula(formula)).total;
 };
 
 /**

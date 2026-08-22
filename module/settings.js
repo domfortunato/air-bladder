@@ -1,3 +1,5 @@
+import { Cairn } from "./config.js";
+
 /**
  * The namespace every game setting is registered under.
  *
@@ -43,7 +45,7 @@ export const SETTING_KEYS = [
   // anything already keyed — and NOT true of `hireling-split`, which selects on
   // a stored `role: "npc"` that a real NPC also carries once it has run. Do not
   // reason about any new marker from that sentence; reason about the migration.
-  "custom-portrait-folder", "custom-portrait-list", "min-age", "max-age",
+  "custom-portrait-folder", "custom-portrait-list", "age-formula",
   "disabled-backgrounds",
   // Internal but CONFIGURATION, not a marker: the parked-Connections flag
   // (2026-08-09) must ride the namespace migration — losing it would re-park
@@ -149,7 +151,7 @@ export const SETTING_GROUPS = [
       "content-source-2e", "content-source-custom", "content-source-barebones",
       "barebones-failed-career", "show-generate-header", "allow-player-generate",
       "allow-player-randomization", "show-generation-rolls",
-      "custom-portrait-folder", "min-age", "max-age",
+      "custom-portrait-folder", "age-formula",
     ],
   },
   {
@@ -730,40 +732,31 @@ export const registerSettings = () => {
   // rest of generation. It also floors the age of an IMPORTED Kettlewright
   // character (kettlewright-import.js), which is a secondary consumer, not the
   // setting's purpose. Placement is positional -- see the ordering note above.
-  game.settings.register(SETTINGS_NS, "min-age", {
-    name: "CAIRN.Settings.MinAge.label",
-    hint: "CAIRN.Settings.MinAge.hint",
+  // The Warden's age FORMULA (issue #21, both halves fsmalecho's). This
+  // REPLACES min-age and max-age (2026-08-21, user ruling): clamping a bell
+  // curve piles ages onto the bound -- with a ceiling of 30, ~57% of 2d20+10
+  // rolls came out exactly 30, which reads as "every character is the same
+  // age". The cap worked as coded; the design was the defect. Editing the
+  // DICE gives a range as a distribution, which no clamp can.
+  //
+  // The default is the config's one copy (see config.js): the pool form
+  // {2d20 + 10, 21}kh is max(2d20 + 10, 21), so the released 21-floor
+  // behavior is preserved exactly and upgrading ages nobody. A retired
+  // min-age or max-age value survives as an orphaned world row, the
+  // established precedent -- never re-read, never reused as a key.
+  //
+  // No onChange fan and no reload: read at ROLL time, not in
+  // _prepareContext, so no open sheet shows a stale value. It governs the
+  // age DIE only -- the sheet's age field is free text and always has been.
+  // Blank falls back to the default silently; a formula that does not parse
+  // falls back too and WARNS (rollAge in character-generator.js).
+  game.settings.register(SETTINGS_NS, "age-formula", {
+    name: "CAIRN.Settings.AgeFormula.label",
+    hint: "CAIRN.Settings.AgeFormula.hint",
     scope: "world",
     config: true,
-    type: Number,
-    default: 21,
-    requiresReload: false,
-  });
-
-  // The ceiling to the floor above (issue #21, fsmalecho: a Warden could set a
-  // minimum age but not a maximum). Same choke point, same scope, same group --
-  // it belongs beside min-age, and its position here is what puts it there,
-  // because the grouping is positional (see SETTING_GROUPS).
-  //
-  // DEFAULT 50 because 2d20 + 10 tops out at 50: the ceiling ships switched off
-  // and adding it aged nobody's existing characters. That mirrors min-age's off
-  // switch (below 12) rather than inventing a sentinel like 0-means-none.
-  //
-  // The FLOOR WINS if a Warden sets this below min-age -- clampAge in
-  // character-generator.js holds that rule, and holds it in ONE place so the
-  // Kettlewright importer cannot drift from generation.
-  //
-  // No onChange fan and no reload: this is read at ROLL time, not in
-  // _prepareContext, so unlike the display toggles there is no open sheet
-  // showing a stale value. It bounds the age DIE only -- the sheet's age field
-  // is free text and always has been, for the floor as much as for this.
-  game.settings.register(SETTINGS_NS, "max-age", {
-    name: "CAIRN.Settings.MaxAge.label",
-    hint: "CAIRN.Settings.MaxAge.hint",
-    scope: "world",
-    config: true,
-    type: Number,
-    default: 50,
+    type: String,
+    default: Cairn.characterGenerator2e.biography.age,
     requiresReload: false,
   });
 

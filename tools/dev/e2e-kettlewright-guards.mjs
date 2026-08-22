@@ -7,14 +7,13 @@
  *      that both names the background and says how to get past it.
  *   2. Gate OFF: the same file imports, background kept as plain text, no
  *      questions — and the summary says what that cost.
- *   3. The Warden's "min-age" floor applies to imported characters too.
- *      Generation enforces it in rollAge; an import goes nowhere near that, so
- *      without this a Kettlewright character walks in younger than allowed.
- *
- *   4. And the "max-age" ceiling (issue #21) the same way, reported with its own
- *      string — an age moved DOWN names the maximum, not the minimum. Both bounds
- *      go through the shared clampAge, so this leg is also what catches the
- *      importer drifting from generation.
+ *   3. An imported age is VERBATIM (2026-08-21). The min-age floor and the
+ *      max-age ceiling are RETIRED with the age-formula setting: the formula
+ *      governs the DICE, and an imported age was never rolled — it joins the
+ *      hand-typed age under "nobody's business but the player's". The old
+ *      bounds are SHADOWED at their old keys in-page (a read shadow, never a
+ *      write), so this leg witnesses the retirement both ways: red while any
+ *      bound still clamps, green when the parse lands untouched.
  *
  *   npm run dev:kw-guards        (dev world on :30000, which runs the working tree)
  *
@@ -26,16 +25,16 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors, confirmImportOptions, withSettings } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, watchErrors, confirmImportOptions } from "./lib.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const fixture = path.join(ROOT, "tools", "dev", "fixtures", "kettlewright-solene.json");
 const base = JSON.parse(fs.readFileSync(fixture, "utf8"));
 const FIXTURE_AGE = 36; // as written in the export's traits sentence
+// Shadow values for the RETIRED bounds — both would bind if any bound still
+// applied. Derived from the fixture rather than written as literals, so a
+// fixture whose age changes keeps them binding instead of silently not.
 const FLOOR = FIXTURE_AGE + 4;
-// The mirror of FLOOR, for the max-age ceiling (issue #21). Derived from the
-// fixture rather than written as a literal, so a fixture whose age changes moves
-// both bounds with it instead of silently making one of them not bind.
 const CEILING = FIXTURE_AGE - 4;
 
 // A background no world can have. Derived from the real export so everything else
@@ -123,44 +122,37 @@ await page.evaluate(async () => {
   for (const a of game.actors.filter((a) => a.name === "Guardrail")) await a.delete();
 });
 
-/* 3. min-age floor -----------------------------------------------------------
- * Wrapped in withSettings because this drives `min-age` and this file is
- * top-level statements with no enclosing try: a throw anywhere between the set
- * and the restore below would abort the script and leave the floor raised in the
- * world. That exact leak, from a different probe, had every character generated
- * afterwards come out aged 99 with a dead-looking age re-roll. The restore has to
- * run in Node to survive a throw inside page.evaluate. */
+/* 3. an imported age is VERBATIM (2026-08-21) ---------------------------------
+ * A read SHADOW at the retired keys, never a write: the retired settings are no
+ * longer registered, so game.settings.set on them would throw — and a shadow is
+ * how a probe defeats a fix in-page anyway. Pre-retirement code read min-age /
+ * max-age here and would clamp the fixture's 36 to the 40 floor; the fixed
+ * importer reads neither, so the age lands as exported and the summary carries
+ * no raised/lowered line. Restored in a Node-level finally-equivalent below the
+ * read, so a throw inside the import cannot leave the page's settings.get
+ * wrapped. */
 let madeSolene, aged;
-await withSettings(page, async () => {
-  file = fixture;
-  await page.evaluate((f) => game.settings.set("air-bladder", "min-age", f), FLOOR);
+file = fixture;
+await page.evaluate(({ floor, ceiling }) => {
+  const orig = game.settings.get;
+  window.__kwAgeShadow = orig;
+  game.settings.get = function (ns, key) {
+    if (ns === "air-bladder" && key === "min-age") return floor;
+    if (ns === "air-bladder" && key === "max-age") return ceiling;
+    return orig.call(this, ns, key);
+  };
+}, { floor: FLOOR, ceiling: CEILING });
+try {
   madeSolene = await importAndWait("Solene");
   aged = await page.evaluate(() => {
     const a = game.actors.getName("Solene");
     return { age: a?.system?.age ?? "", summary: [...document.querySelectorAll(".kwi-summary")].pop()?.textContent ?? "" };
   });
-});
-/* 4. max-age ceiling (issue #21) ----------------------------------------------
- * The same shape one bound along. Solene is deleted first so the second import
- * lands a FRESH actor — re-importing over the existing one would read her
- * already-floored age back and the leg would pass on the previous run's work. */
-await page.evaluate(async () => { await game.actors.getName("Solene")?.delete(); });
-
-let madeSoleneCapped, capped;
-await withSettings(page, async () => {
-  file = fixture;
-  await page.evaluate(async (c) => {
-    // Floor switched off: this leg is about the ceiling, and a floor above the
-    // ceiling would make the RULING (floor wins) decide it instead.
-    await game.settings.set("air-bladder", "min-age", 5);
-    await game.settings.set("air-bladder", "max-age", c);
-  }, CEILING);
-  madeSoleneCapped = await importAndWait("Solene");
-  capped = await page.evaluate(() => {
-    const a = game.actors.getName("Solene");
-    return { age: a?.system?.age ?? "", summary: [...document.querySelectorAll(".kwi-summary")].pop()?.textContent ?? "" };
+} finally {
+  await page.evaluate(() => {
+    if (window.__kwAgeShadow) { game.settings.get = window.__kwAgeShadow; delete window.__kwAgeShadow; }
   });
-});
+}
 
 await page.evaluate(async () => {
   await game.actors.getName("Solene")?.delete();
@@ -193,17 +185,11 @@ check("kept as text", ungated.background === "Cheesemonger" && !ungated.uuid, `u
 check("no questions", ungated.questions === 0, `questions=${ungated.questions}`);
 check("summary warns", /re-rolled|plain text/i.test(ungated.summary), ungated.summary ? "warning rendered" : "no summary");
 
-console.log("\nmin-age floor");
-check("imported", madeSolene, `floor=${FLOOR}, export says ${FIXTURE_AGE}`);
-check("age raised", aged.age === String(FLOOR), `age=${JSON.stringify(aged.age)}`);
-check("summary says so", /\b36\b[\s\S]*\b40\b|raised/i.test(aged.summary), aged.summary ? "summary rendered" : "no summary");
-
-console.log("\nmax-age ceiling");
-check("imported", madeSoleneCapped, `ceiling=${CEILING}, export says ${FIXTURE_AGE}`);
-check("age lowered", capped.age === String(CEILING), `age=${JSON.stringify(capped.age)}`);
-// "lowered", not just the numbers: the two directions have their own strings, and
-// reporting the RAISED one here would name a setting that did not decide it.
-check("summary says so", /lowered/i.test(capped.summary), capped.summary ? "summary rendered" : "no summary");
+console.log("\nimported age is verbatim (the bounds are retired)");
+check("imported", madeSolene, `export says ${FIXTURE_AGE}; retired bounds shadowed at ${FLOOR}/${CEILING}`);
+check("age verbatim", aged.age === String(FIXTURE_AGE), `age=${JSON.stringify(aged.age)}`);
+check("no bound line", !/raised|lowered/i.test(aged.summary) && !!aged.summary,
+  aged.summary ? "summary carries no age warning" : "no summary");
 
 // The refusal itself is an ui.notifications.error, which Foundry also writes to the
 // console — that one is the feature working, not a fault.

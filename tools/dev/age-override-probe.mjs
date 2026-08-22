@@ -1,27 +1,36 @@
 #!/usr/bin/env node
 /**
- * The minimum-age floor + the settings-tab reorder.
+ * The Warden's age FORMULA + the settings-tab reorder.
+ *
+ * min-age (in since the first commit, default 21 and BINDING) and max-age
+ * (2026-08-19, issue #21) are RETIRED (2026-08-21, user ruling on Malecho's
+ * follow-up report): clamping a bell curve piles ages onto the bound — with a
+ * ceiling of 30, ~57% of 2d20+10 rolls came out exactly 30, which a Warden
+ * reads as "every character is the same age". The cap worked as coded; the
+ * DESIGN was the defect. One `age-formula` setting replaces both: the Warden
+ * edits the dice, so a chosen range is a DISTRIBUTION, not a spike at a clamp.
  *
  *   1. Settings sections render General → Character Generation → Inventory.
- *      (Item 2 here was the Features toggle's relabel; the setting was removed
- *      with the Features UI, 2026-08-09, and the leg went with it.)
- *   3. The single min-age setting sits under the Character Generation header
- *      (no on/off toggle).
- *   4. rollAge() ALWAYS floors the roll at min-age — both generation and the sheet
- *      re-roll go through it — and a floor below 12 never binds (the off switch).
- *   5. rollAge() also CEILINGS the roll at max-age (issue #21), with the same
- *      off-by-an-unreachable-value shape: 50 is the highest 2d20 + 10 can give, so
- *      the shipped default never binds and adding it aged nobody's characters.
- *      And the RULING: a ceiling set BELOW the floor loses — the age comes out at
- *      the floor, never beneath the minimum the same Warden set.
+ *   2. `age-formula` is registered (String, under Character Generation, a
+ *      text field) and `min-age` / `max-age` are NOT — neither in the
+ *      registry nor on the rendered form.
+ *   3. The DEFAULT `{2d20 + 10, 21}kh` preserves released behavior exactly:
+ *      it is max(2d20 + 10, 21), so dice pinned to minimum give 21 (the old
+ *      floor, now IN the formula) and pinned to maximum give 50. The pool
+ *      form survives both dice-notation dialects — its "+"-separated pieces
+ *      are not bare dice, so the keep-highest rewrite never claims it.
+ *   4. The setting GOVERNS the roll everywhere rollAge reaches: a constant
+ *      formula lands every age on it — generation and the sheet's REAL
+ *      age-die click included — and a range formula's pinned extremes are its
+ *      own bounds, nobody clamping anything.
+ *   5. A formula that does not parse falls back to the caller's default and
+ *      WARNS, naming the rejected text, so a Warden's typo is heard about. A
+ *      BLANK field falls back silently — blank is "reset", not a mistake.
  *
- * This probe drives `min-age` to 99 and MUST put it back. It once did not: it
- * threw between the two (`sheet._onRollAge` had gone in the AppV2 port) and its
- * in-page restore never ran, so the dev world kept a floor of 99 and every
- * character generated afterwards was aged 99, with the age re-roll appearing dead
- * because it floored to 99 too. Hence `withSettings`, whose restore runs in Node
- * and therefore survives a throw inside `page.evaluate`. Do not move the restore
- * back inside the evaluate.
+ * Dice are pinned via CONFIG.Dice.randomUniform (INVERTED: ceil((1-u)*faces),
+ * so u near 1 pins every die to 1 and u near 0 to its maximum) and restored
+ * in-page; settings writes ride withSettings so the restore runs in Node —
+ * the min-age-99 leak lesson (2026-07-29) stands whatever the key is called.
  */
 import { chromium } from "playwright";
 import { VIEWPORT, joinAsGM, watchErrors, withSettings } from "./lib.mjs";
@@ -39,55 +48,92 @@ try {
   const r = await withSettings(page, () => page.evaluate(async () => {
     const NS = "air-bladder";
     const out = {};
-
-    // --- 4. rollAge always floors; a floor below 12 is the off switch --------
     const gen = await import("/systems/air-bladder/module/character-generator.js");
-    const prevMin = game.settings.get(NS, "min-age");
-    const prevMax = game.settings.get(NS, "max-age");
-    out.hasEnabledSetting = game.settings.settings.has(`${NS}.min-age-enabled`);
+    // What every real call site passes: the config formula, as the fallback.
+    const FALLBACK = CONFIG.Cairn?.characterGenerator2e?.biography?.age ?? "{2d20 + 10, 21}kh";
+
+    out.hasAgeFormula = game.settings.settings.has(`${NS}.age-formula`);
+    out.hasMinAge = game.settings.settings.has(`${NS}.min-age`);
     out.hasMaxAge = game.settings.settings.has(`${NS}.max-age`);
-    out.maxDefault = game.settings.settings.get(`${NS}.max-age`)?.default ?? null;
+    out.formulaDefault = game.settings.settings.get(`${NS}.age-formula`)?.default ?? null;
 
-    // ESTABLISH the ceiling OFF before testing the FLOOR, and off means 0 — a
-    // blank Number field, which `|| 0` in clampAge reads as "no ceiling".
-    //
-    // Not merely because a world carrying a low max-age would cap the 99-floor
-    // rolls and red them for a reason that has nothing to do with the floor
-    // (the allow-player-generate lesson, one setting along). Also because 50
-    // would make these legs pass only BY the floor-wins ruling — with min 99 and
-    // a ceiling of 50 the age is 99 solely because the ceiling is raised to meet
-    // the floor. That coupling was real and a negative control found it: breaking
-    // the ruling redded a FLOOR leg. A leg should fail for its own reason, so
-    // the floor is tested with no ceiling at all and the ruling has its own leg.
-    await game.settings.set(NS, "max-age", 0);
+    // --- 1/2. render the settings config; section order + our fields ---------
+    const SC = foundry.applications?.settings?.SettingsConfig ?? globalThis.SettingsConfig;
+    const app = new SC();
+    await app.render(true);
+    for (let i = 0; i < 25; i++) {
+      if (app.element instanceof HTMLElement) break;
+      await new Promise((res) => setTimeout(res, 200));
+    }
+    await new Promise((res) => setTimeout(res, 400));
+    const root = app.element instanceof HTMLElement ? app.element : app.element?.[0];
+    out.headerOrder = [...root.querySelectorAll("h3.cairn-settings-header")].map((h) => h.textContent.trim());
+    const groupOf = (key) => {
+      let el = root.querySelector(`[name="${NS}.${key}"]`)?.closest(".form-group");
+      while (el) {
+        if (el.previousElementSibling?.classList?.contains?.("cairn-settings-header"))
+          return el.previousElementSibling.textContent.trim();
+        el = el.previousElementSibling;
+      }
+      return null;
+    };
+    out.formulaGroup = groupOf("age-formula");
+    const input = root.querySelector(`[name="${NS}.age-formula"]`);
+    out.formulaInputType = input?.getAttribute("type") ?? input?.tagName?.toLowerCase() ?? null;
+    out.minAgeOnForm = !!root.querySelector(`[name="${NS}.min-age"]`);
+    out.maxAgeOnForm = !!root.querySelector(`[name="${NS}.max-age"]`);
+    await app.close();
 
-    // A floor below the lowest 2d20 + 10 roll (12) never binds -> natural spread.
-    await game.settings.set(NS, "min-age", 5);
-    const off = [];
-    for (let i = 0; i < 40; i++) off.push(await gen.rollAge("2d20 + 10"));
-    out.offMin = Math.min(...off);
-    out.offMax = Math.max(...off);
+    // Everything past here SETS the new setting; against a build without it,
+    // game.settings.set throws and one absence would red every leg. Return
+    // instead, and let each Node-side leg fail for its own reason.
+    if (!out.hasAgeFormula) return out;
 
-    await game.settings.set(NS, "min-age", 99);
-    const on = [];
-    for (let i = 0; i < 40; i++) on.push(await gen.rollAge("2d20 + 10"));
-    out.onMin = Math.min(...on);
+    const pinned = async (u, formula) => {
+      const orig = CONFIG.Dice.randomUniform;
+      CONFIG.Dice.randomUniform = () => u;
+      try { return await gen.rollAge(formula); } finally { CONFIG.Dice.randomUniform = orig; }
+    };
 
-    // The sheet's age re-roll must obey it too — generate a character, then
-    // exercise the sheet handler and read the persisted age.
+    // --- 3. the default preserves the released 21..50 ------------------------
+    await game.settings.set(NS, "age-formula", out.formulaDefault);
+    out.defLow = await pinned(0.9999, FALLBACK);   // every die -> 1: 2d20+10 = 12, kh keeps 21
+    out.defHigh = await pinned(0.0001, FALLBACK);  // every die -> max: 50
+    const spread = [];
+    for (let i = 0; i < 40; i++) spread.push(await gen.rollAge(FALLBACK));
+    out.defMin = Math.min(...spread);
+    out.defMax = Math.max(...spread);
+
+    // --- 4. the setting governs --------------------------------------------
+    await game.settings.set(NS, "age-formula", "7");
+    const sevens = [];
+    for (let i = 0; i < 3; i++) sevens.push(await gen.rollAge(FALLBACK));
+    out.constAges = sevens;
+
+    await game.settings.set(NS, "age-formula", "2d6 + 18");
+    out.rangeLow = await pinned(0.9999, FALLBACK);   // 2 + 18
+    out.rangeHigh = await pinned(0.0001, FALLBACK);  // 12 + 18
+    const range = [];
+    for (let i = 0; i < 40; i++) range.push(await gen.rollAge(FALLBACK));
+    out.rangeMin = Math.min(...range);
+    out.rangeMax = Math.max(...range);
+
+    // Generation obeys it: a constant formula, a generated character.
+    await game.settings.set(NS, "age-formula", "7");
     const pack = game.packs.get(`${NS}.backgrounds-2e`);
     const bg = (await pack.getDocuments())[0];
     const actor = await gen.createActorWithCharacter(await gen.generate2eCharacter(bg));
     out.actorId = actor.id;
+    out.genAge = Number(actor.system.age);
     // Generated actors land with Randomization OFF (2026-08-02); the rollAge
     // die below is what the flag hides, so switch it on first.
     await actor.update({ "system.generationEnabled": true });
-    out.genAge = Number(actor.system.age);          // 2. generation obeyed it
-    // 4. The SHEET's re-roll obeys it too. ApplicationV2 keeps its handlers in
-    //    private static methods reachable only through the `actions` map, so a
-    //    probe drives them the way a user does — by clicking the element that
-    //    carries the data-action. (This used to call `sheet._onRollAge` direct,
-    //    which stopped existing at the AppV2 port and threw.)
+
+    // The SHEET's re-roll obeys it too — the real click on the rendered die
+    // (AppV2 keeps handlers behind the actions map, so a probe drives the
+    // element the way a user does). A DIFFERENT constant than generation's,
+    // so the change is observable: 7 -> 9.
+    await game.settings.set(NS, "age-formula", "9");
     await actor.sheet.render(true);
     for (let i = 0; i < 30 && !(actor.sheet.element instanceof HTMLElement); i++) {
       await new Promise((res) => setTimeout(res, 100));
@@ -101,81 +147,21 @@ try {
     }
     out.sheetAge = Number(actor.system.age);
 
-    // --- 5. the ceiling (issue #21) ---------------------------------------
-    // Floor switched off first: these legs are about max-age alone.
-    await game.settings.set(NS, "min-age", 5);
-
-    // 50 is the top of 2d20 + 10, so it never binds. This is the shipped
-    // default, and the leg is the proof that adding a ceiling aged nobody.
-    await game.settings.set(NS, "max-age", 50);
-    const ceilOff = [];
-    for (let i = 0; i < 40; i++) ceilOff.push(await gen.rollAge("2d20 + 10"));
-    out.ceilOffMin = Math.min(...ceilOff);
-    out.ceilOffMax = Math.max(...ceilOff);
-
-    await game.settings.set(NS, "max-age", 15);
-    const ceilOn = [];
-    for (let i = 0; i < 40; i++) ceilOn.push(await gen.rollAge("2d20 + 10"));
-    out.ceilOnMax = Math.max(...ceilOn);
-    out.ceilOnMin = Math.min(...ceilOn);
-
-    // THE RULING: a ceiling under the floor loses, exactly.
-    await game.settings.set(NS, "min-age", 30);
-    await game.settings.set(NS, "max-age", 20);
-    const conflict = [];
-    for (let i = 0; i < 40; i++) conflict.push(await gen.rollAge("2d20 + 10"));
-    out.conflictMin = Math.min(...conflict);
-    out.conflictMax = Math.max(...conflict);
-
-    // The SHEET re-roll obeys the ceiling too, driven by the same real click on
-    // the rendered control rather than by calling the handler.
-    await game.settings.set(NS, "min-age", 5);
-    await game.settings.set(NS, "max-age", 14);
-    const beforeCeil = Number(actor.system.age);
-    const ageBtn2 = actor.sheet.element?.querySelector?.('[data-action="rollAge"]');
-    out.ageBtn2Found = !!ageBtn2;
-    ageBtn2?.click();
-    for (let i = 0; i < 30 && Number(actor.system.age) === beforeCeil; i++) {
-      await new Promise((res) => setTimeout(res, 100));
+    // --- 5. invalid falls back with a warning; blank falls back silently ----
+    const warns = [];
+    const origWarn = ui.notifications.warn;
+    ui.notifications.warn = function (m, ...rest) { warns.push(String(m)); return origWarn.call(this, m, ...rest); };
+    try {
+      await game.settings.set(NS, "age-formula", "not dice");
+      out.invalidAge = await pinned(0.9999, FALLBACK);  // the fallback's floor case
+      out.warnsAfterInvalid = warns.length;
+      out.warnText = warns[0] ?? "";
+      await game.settings.set(NS, "age-formula", "");
+      out.blankAge = await pinned(0.9999, FALLBACK);
+      out.warnsAfterBlank = warns.length;
+    } finally {
+      ui.notifications.warn = origWarn;
     }
-    out.sheetCeilAge = Number(actor.system.age);
-
-    await game.settings.set(NS, "min-age", prevMin);
-    await game.settings.set(NS, "max-age", prevMax);
-
-    // --- 1/2/3. render the settings config and read the air-bladder section ---
-    const SC = foundry.applications?.settings?.SettingsConfig ?? globalThis.SettingsConfig;
-    const app = new SC();
-    await app.render(true);
-    for (let i = 0; i < 25; i++) {
-      if ((app.element instanceof HTMLElement ? app.element : app.element?.[0])) break;
-      await new Promise((res) => setTimeout(res, 200));
-    }
-    await new Promise((res) => setTimeout(res, 400));
-    const root = app.element instanceof HTMLElement ? app.element : app.element?.[0];
-
-    out.headerOrder = [...root.querySelectorAll("h3.cairn-settings-header")].map((h) => h.textContent.trim());
-
-    // Which header each of our settings sits under: walk backwards to the
-    // nearest preceding cairn-settings-header.
-    const groupOf = (key) => {
-      let el = root.querySelector(`[name="${NS}.${key}"]`)?.closest(".form-group");
-      while (el) {
-        if (el.previousElementSibling?.classList?.contains?.("cairn-settings-header"))
-          return el.previousElementSibling.textContent.trim();
-        el = el.previousElementSibling;
-      }
-      return null;
-    };
-    out.minAgeGroup = groupOf("min-age");
-    out.maxAgeGroup = groupOf("max-age");
-    const maxInput = root.querySelector(`[name="${NS}.max-age"]`);
-    out.maxAgeInputType = maxInput?.getAttribute("type") ?? maxInput?.tagName?.toLowerCase() ?? null;
-    // The min-age number field really is a number input defaulting to 21.
-    const minInput = root.querySelector(`[name="${NS}.min-age"]`);
-    out.minAgeInputType = minInput?.getAttribute("type") ?? minInput?.tagName?.toLowerCase() ?? null;
-
-    await app.close();
     return out;
   }));
 
@@ -185,75 +171,73 @@ try {
     ? ok(`settings sections in order: ${r.headerOrder.join(" → ")}`)
     : fail(`section order is ${JSON.stringify(r.headerOrder)}, expected ${JSON.stringify(wanted)}`);
 
-  // 3. single age setting under Character Generation, no on/off toggle.
-  //    It sat under General until 2026-07-28; it is a parameter of the character
-  //    being generated, and settings grouping is positional, so it moved.
-  !r.hasEnabledSetting
-    ? ok("no separate min-age on/off toggle exists (the value is the only control)")
-    : fail("a min-age-enabled toggle is still registered");
-  r.minAgeGroup === "Character Generation"
-    ? ok("the minimum-age setting sits under Character Generation")
-    : fail(`min-age group placement: ${r.minAgeGroup}`);
-  r.minAgeInputType === "number"
-    ? ok("the minimum-age value is a number field")
-    : fail(`min-age field type is "${r.minAgeInputType}", expected number`);
+  // 2. one formula setting, two retired bounds
+  r.hasAgeFormula
+    ? ok("an age-formula setting is registered")
+    : fail("no age-formula setting is registered — every roll leg below is vacuous");
+  !r.hasMinAge && !r.hasMaxAge
+    ? ok("min-age and max-age are RETIRED — neither is registered")
+    : fail(`retired bounds still registered: min-age=${r.hasMinAge}, max-age=${r.hasMaxAge}`);
+  !r.minAgeOnForm && !r.maxAgeOnForm
+    ? ok("...and neither renders on the settings form")
+    : fail(`retired bounds still on the form: min-age=${r.minAgeOnForm}, max-age=${r.maxAgeOnForm}`);
+  r.formulaDefault === "{2d20 + 10, 21}kh"
+    ? ok("the default is {2d20 + 10, 21}kh — max(2d20+10, 21), the released 21-floor behavior")
+    : fail(`age-formula default is ${JSON.stringify(r.formulaDefault)}, expected "{2d20 + 10, 21}kh"`);
+  r.formulaGroup === "Character Generation"
+    ? ok("the age-formula setting sits under Character Generation")
+    : fail(`age-formula group placement: ${r.formulaGroup}`);
+  r.formulaInputType === "text"
+    ? ok("the formula is a text field")
+    : fail(`age-formula field type is "${r.formulaInputType}", expected text`);
 
-  // 4. floor behaviour
-  r.offMin >= 12 && r.offMax <= 50 && r.offMax > r.offMin
-    ? ok(`floor below 12 never binds: ages spread naturally across 12..50 (saw ${r.offMin}..${r.offMax})`)
-    : fail(`floor of 5 produced ${r.offMin}..${r.offMax}, expected a 12..50 spread`);
-  r.onMin >= 99
-    ? ok(`floor 99: every rolled age >= 99 (lowest ${r.onMin})`)
-    : fail(`floor 99 let an age of ${r.onMin} through`);
-  r.genAge >= 99
-    ? ok(`generation obeyed the override (generated age ${r.genAge})`)
-    : fail(`a generated character came out age ${r.genAge}, below the 99 floor`);
-  // Assert the control EXISTS before trusting what it produced. Generation also
-  // obeys the floor, so if the click silently did nothing, sheetAge would still
-  // be >= 99 and the check below would pass green having exercised nothing —
-  // which is exactly how this probe rotted unnoticed.
+  // 3. the default's behavior
+  r.defLow === 21
+    ? ok("default, dice pinned low: exactly 21 — the floor lives in the formula now")
+    : fail(`pinned-low default gave ${r.defLow}, expected 21`);
+  r.defHigh === 50
+    ? ok("default, dice pinned high: exactly 50")
+    : fail(`pinned-high default gave ${r.defHigh}, expected 50`);
+  r.defMin >= 21 && r.defMax <= 50
+    ? ok(`40 natural default rolls stay in 21..50 (saw ${r.defMin}..${r.defMax})`)
+    : fail(`default rolls strayed to ${r.defMin}..${r.defMax}`);
+
+  // 4. the setting governs
+  JSON.stringify(r.constAges) === JSON.stringify([7, 7, 7])
+    ? ok("a constant formula lands every age on it (7, 7, 7)")
+    : fail(`constant formula "7" produced ${JSON.stringify(r.constAges)}`);
+  r.rangeLow === 20 && r.rangeHigh === 30
+    ? ok("2d6 + 18 pinned extremes are 20 and 30 — the range is the dice's own")
+    : fail(`2d6+18 pinned extremes were ${r.rangeLow}/${r.rangeHigh}, expected 20/30`);
+  r.rangeMin >= 20 && r.rangeMax <= 30
+    ? ok(`40 natural 2d6+18 rolls stay in 20..30 (saw ${r.rangeMin}..${r.rangeMax})`)
+    : fail(`2d6+18 rolls strayed to ${r.rangeMin}..${r.rangeMax}`);
+  r.genAge === 7
+    ? ok("generation obeyed the setting (generated age 7)")
+    : fail(`a generated character came out age ${r.genAge}, expected 7`);
+  // Assert the control EXISTS before trusting what it produced — the lesson
+  // from this probe's own rot (the AppV2 casualty).
   r.ageBtnFound
     ? ok("the sheet exposes a [data-action=rollAge] control")
     : fail("no [data-action=rollAge] control on the rendered sheet — the re-roll check below proves nothing");
-  r.sheetAge >= 99
-    ? ok(`the sheet's age re-roll obeyed the override (re-rolled to ${r.sheetAge})`)
-    : fail(`the sheet re-roll produced ${r.sheetAge}, below the 99 floor`);
+  r.sheetAge === 9
+    ? ok("the sheet's real age-die click obeyed the setting (7 -> 9)")
+    : fail(`the sheet re-roll produced ${r.sheetAge}, expected 9`);
 
-  // 5. the ceiling (issue #21)
-  r.hasMaxAge
-    ? ok("a max-age setting is registered")
-    : fail("no max-age setting is registered — every ceiling leg below is vacuous");
-  r.maxDefault === 50
-    ? ok("max-age ships at 50, the top of 2d20 + 10, so it cannot bind on upgrade")
-    : fail(`max-age default is ${r.maxDefault}, expected 50 — a binding default re-ages existing worlds`);
-  r.maxAgeGroup === "Character Generation"
-    ? ok("the maximum-age setting sits under Character Generation, beside the floor")
-    : fail(`max-age group placement: ${r.maxAgeGroup}`);
-  r.maxAgeInputType === "number"
-    ? ok("the maximum-age value is a number field")
-    : fail(`max-age field type is "${r.maxAgeInputType}", expected number`);
-  r.ceilOffMax > 40 && r.ceilOffMin >= 12
-    ? ok(`ceiling 50 never binds: ages still reach the top (saw ${r.ceilOffMin}..${r.ceilOffMax})`)
-    : fail(`ceiling 50 produced ${r.ceilOffMin}..${r.ceilOffMax} — it is clamping when it must not`);
-  r.ceilOnMax <= 15
-    ? ok(`ceiling 15: every rolled age <= 15 (highest ${r.ceilOnMax})`)
-    : fail(`ceiling 15 let an age of ${r.ceilOnMax} through`);
-  // Not vacuous, and the leg above says why: with the ceiling off the same 40
-  // rolls reached past 40, so a ceiling doing nothing would show that spread here.
-  r.ceilOnMin >= 12
-    ? ok(`...and it did not drag ages below the die's own floor (lowest ${r.ceilOnMin})`)
-    : fail(`ceiling 15 produced ${r.ceilOnMin}, below the lowest roll 2d20 + 10 can give`);
-  r.conflictMin === 30 && r.conflictMax === 30
-    ? ok("THE RULING: max 20 under min 30 yields exactly 30 — the floor wins")
-    : fail(`min 30 / max 20 produced ${r.conflictMin}..${r.conflictMax}, expected a flat 30`);
-  r.ageBtn2Found
-    ? ok("the sheet control is still present for the ceiling leg")
-    : fail("no [data-action=rollAge] control — the ceiling re-roll check proves nothing");
-  r.sheetCeilAge <= 14
-    ? ok(`the sheet's age re-roll obeyed the ceiling (re-rolled to ${r.sheetCeilAge})`)
-    : fail(`the sheet re-roll produced ${r.sheetCeilAge}, above the 14 ceiling`);
+  // 5. invalid vs blank
+  r.invalidAge === 21 && r.warnsAfterInvalid >= 1
+    ? ok("an invalid formula falls back to the default AND warns")
+    : fail(`invalid formula: age ${r.invalidAge} (expected 21), warns ${r.warnsAfterInvalid}`);
+  (r.warnText ?? "").includes("not dice")
+    ? ok("the warning names the rejected formula")
+    : fail(`warning text does not name the formula: ${JSON.stringify(r.warnText)}`);
+  r.blankAge === 21 && r.warnsAfterBlank === r.warnsAfterInvalid
+    ? ok("a blank formula falls back silently — blank is reset, not a mistake")
+    : fail(`blank formula: age ${r.blankAge} (expected 21), warns went ${r.warnsAfterInvalid} -> ${r.warnsAfterBlank}`);
 
-  await page.evaluate(async (id) => { try { await game.actors.get(id)?.delete(); } catch { /* gone */ } }, r.actorId);
+  if (r.actorId) {
+    await page.evaluate(async (id) => { try { await game.actors.get(id)?.delete(); } catch { /* gone */ } }, r.actorId);
+  }
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {

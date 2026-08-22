@@ -16,7 +16,17 @@ Cairn.characterGenerator2e = {
     // (actor-sheet.js), which is what lets a Spanish client re-word it.
     // Left in place it read as the sentence's authority, and an edit to it
     // would have changed nothing a user could see.
-    age: "2d20 + 10",
+    //
+    // The age formula: 2e's 2d20 + 10, held at the released 21 floor by the
+    // POOL form — {A, B}kh is max(A, B), and its "+"-separated pieces are not
+    // bare dice, so the Cairn keep-highest rewrite never claims it and it
+    // means the same thing in both dice-notation dialects. This is the ONE
+    // copy: the `age-formula` setting registers it as its default and rollAge
+    // falls back to it when the Warden's own formula is blank or invalid.
+    // (min-age/max-age clamping is RETIRED, 2026-08-21 — issue #21: clamping
+    // piled most ages onto the bound; a Warden who wants a range edits the
+    // dice instead.)
+    age: "{2d20 + 10, 21}kh",
     items: {
       physique: "air-bladder.tables-2e;Physique",
       skin: "air-bladder.tables-2e;Skin",
