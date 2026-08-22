@@ -137,12 +137,14 @@ await withSettings(page, async () => {
       await put(`${FULL}/npc`, "npc-face.png");
       await put(`${FULL}/monster`, "monster-face.png");
       await put(`${FULL}/companion`, "companion-face.png");
-      // A SECOND image in two of them, purely so the portrait die has somewhere
-      // to go. With one image in the folder, "the die stayed in monster/" is an
-      // unfailable leg — the die avoids the current image only while the pool
-      // holds anything else, so a one-image pool returns what it already had
-      // and the assertion passes on a fix that is not there.
+      // A SECOND image in three of them, purely so the portrait die has
+      // somewhere to go. With one image in the folder, "the die stayed in
+      // monster/" is an unfailable leg — the die avoids the current image only
+      // while the pool holds anything else, so a one-image pool returns what it
+      // already had and the assertion passes on a fix that is not there. npc/
+      // gets one for the hireling leg below, for the same reason.
       await put(`${FULL}/pc`, "pc-face-2.png");
+      await put(`${FULL}/npc`, "npc-face-2.png");
       await put(`${FULL}/monster`, "monster-face-2.png");
       await put(MON, "mon-loose.png");
       await put(`${MON}/monster`, "mon-only.png");
@@ -150,7 +152,7 @@ await withSettings(page, async () => {
       await put(`${FLAT}/faces`, "flat-face.png");
 
       /* --- 1. all four folders present ------------------------------------ */
-      out.fullList = await useFolder(FULL, 7);
+      out.fullList = await useFolder(FULL, 8);
       out.poolGeneral = cg.customPoolFor(null);
       out.poolPc = cg.customPoolFor("pc");
       out.poolNpc = cg.customPoolFor("npc");
@@ -206,6 +208,32 @@ await withSettings(page, async () => {
         }
         await ms.close();
       }
+
+      // A HIRELING SHARES npc/ (user ruling 2026-08-21): both person roles draw
+      // from the one folder, on the sheet die as everywhere the generator
+      // already passes "npc" by hand. Through the real button, because the die
+      // is the one surface that maps ACTOR to category — and the person set
+      // grew on 2026-08-20, so a mapping that still reads `role === "npc"`
+      // sends a hireling to the general pool, and one wearing custom art
+      // re-rolls from the WHOLE cached list, monster faces included.
+      const hire = await Cls.create({
+        name: "ZZ Cat Hireling", type: "npc",
+        system: { role: "hireling", generationEnabled: true },
+        img: `${FULL}/npc/npc-face.png`,
+      });
+      out.hirelingCategory = cg.portraitCategoryFor(hire) ?? null;
+      const hs = hire.sheet;
+      await hs.render(true);
+      const hireArmed = await until(() => !!hs.element?.querySelector('[data-action="rollPortrait"]'));
+      if (!hireArmed) {
+        out.errors.push("the portrait die never rendered on the hireling sheet");
+      } else {
+        const was = hire.img;
+        hs.element.querySelector('[data-action="rollPortrait"]').click();
+        await until(() => hire.img !== was);
+        out.dieViaHireling = { was, now: hire.img };
+      }
+      await hs.close();
 
       // The picker still offers the WHOLE tree, with the reserved tiles named.
       const sheet = keeper.sheet;
@@ -284,7 +312,7 @@ await browser.close();
 /* -------------------------------------------------------------------------- */
 
 console.log("\nall four reserved folders present");
-check(R.fullList?.length === 7, "seven images cached", `${R.fullList?.length} file(s)`);
+check(R.fullList?.length === 8, "eight images cached", `${R.fullList?.length} file(s)`);
 check(R.poolGeneral?.length === 1 && R.poolGeneral[0].endsWith("loose-face.png"),
   "the general pool is the loose image ALONE", JSON.stringify(R.poolGeneral));
 check(allUnder(R.poolPc, `${FULL}/pc`), "pc pool is pc/", JSON.stringify(R.poolPc));
@@ -311,6 +339,11 @@ check(allUnder(R.diePc, `${FULL}/pc`), "a character re-rolls inside pc/", `${R.d
 // already had would satisfy "still in monster/" without doing anything.
 check(R.dieViaSheet?.now?.startsWith(`${FULL}/monster/`) && R.dieViaSheet.now !== R.dieViaSheet.was,
   "the sheet die moves, and stays in monster/", JSON.stringify(R.dieViaSheet));
+// The hireling shares npc/ — the person set is two roles, one folder.
+check(R.hirelingCategory === "npc",
+  "a hireling maps to the npc category", JSON.stringify(R.hirelingCategory));
+check(R.dieViaHireling?.now?.startsWith(`${FULL}/npc/`) && R.dieViaHireling.now !== R.dieViaHireling.was,
+  "the hireling's die moves, and stays in npc/", JSON.stringify(R.dieViaHireling));
 
 console.log("\nthe picker still offers the whole tree");
 // Auto-assignment is scoped; BROWSING is not. Hiding a folder from the gallery

@@ -5,7 +5,9 @@
  * Three answers, not two, since the hireling-role collapse (2026-08-01):
  *
  *   - **character** — FRIENDLY and linked. A PC is the party.
- *   - **npc person** (role `npc`, stated or defaulted) — NEUTRAL and linked.
+ *   - **npc person** (role `npc` OR `hireling`, stated or defaulted) — NEUTRAL
+ *     and linked. Two roles since the 2026-08-20 split brought `hireling` back;
+ *     the person question is PERSON_ROLES, never one role's literal.
  *     Linked because HP edited on the token must reach the sheet; NEUTRAL
  *     because role npc is now every person in the world who is not a monster —
  *     an innkeeper, a captain, a rival — and a green ring on all of them is a
@@ -90,6 +92,14 @@ const out = await page.evaluate(async () => {
   await gen.update({ name: "ZZ Tok Generated NPC" });
   snap(gen, "generated npc (createNpc)", "NEUTRAL", true, true);
 
+  // The other person generator: the directory's "Generate Hireling" button,
+  // whose payload is TYPE npc, ROLE hireling (hirelingToActorData). The person
+  // set grew to two roles at the 2026-08-20 split, so this is the route a
+  // `role === "npc"` person test silently drops.
+  const hgen = await game.cairn.characterGenerator.createHireling();
+  await hgen.update({ name: "ZZ Tok Generated Hireling" });
+  snap(hgen, "generated hireling (createHireling)", "NEUTRAL", true, true);
+
   // A monster: same type, role stated. The specificity control — if this comes
   // out neutral and linked the branch is too wide and every shipped monster is
   // affected.
@@ -105,13 +115,15 @@ const out = await page.evaluate(async () => {
   const legacy = await Cls.create({ name: "ZZ Tok Legacy Hireling", type: "hireling" });
   snap(legacy, "legacy `hireling` type", "NEUTRAL", true, true);
 
-  // An npc created with the RETIRED role value, which is what a stale macro, an
-  // old export or a third-party module would still send. migrateData converts it
-  // on the way in, so it must arrive as a person — role npc, for hire — rather
-  // than failing the shrunk enum.
-  const retired = await Cls.create({ name: "ZZ Tok Retired Role", type: "npc", system: { role: "hireling" } });
-  snap(retired, "npc created with the retired role hireling", "NEUTRAL", true, true);
-  res.retiredConverted = { role: retired.system.role, forHire: retired.system.forHire };
+  // An npc STATING role `hireling` — the live role again since the 2026-08-20
+  // split, and the exact shape the generator emits. This case asserted a
+  // conversion to role npc while the collapse's migrateData shim existed; the
+  // shim is deliberately deleted (converting would undo every write
+  // migrateHirelingSplit makes, on the next read), so the role must now be
+  // STORED as stated — and the person defaults must apply to it.
+  const hired = await Cls.create({ name: "ZZ Tok Hireling Role", type: "npc", system: { role: "hireling" } });
+  snap(hired, "npc stating the hireling role", "NEUTRAL", true, true);
+  res.hirelingRoleKept = { role: hired.system.role };
 
   // Positive control: if this is not friendly+linked the branch is dead entirely
   // and every assertion above would be meaningless.
@@ -212,7 +224,7 @@ const out = await page.evaluate(async () => {
   await late.update({ "system.role": "monster" });
   res.demotedStaysNeutral = late.prototypeToken.disposition === D.NEUTRAL;
 
-  for (const a of [gen, mon, bare, legacy, retired, pc, explicit, viaGlobal, late, chosen]) await a.delete();
+  for (const a of [gen, hgen, mon, bare, legacy, hired, pc, explicit, viaGlobal, late, chosen]) await a.delete();
   return res;
 });
 
@@ -234,11 +246,11 @@ for (const c of out.cases) {
   }
 }
 
-if (out.retiredConverted?.role === "npc" && out.retiredConverted?.forHire === true) {
-  ok("the retired role converts on the way in — npc, for hire (migrateData, not the enum)");
+if (out.hirelingRoleKept?.role === "hireling") {
+  ok("role hireling is stored as stated — nothing converts the live role");
 } else {
-  fail(`a creation stating role "hireling" stored ${JSON.stringify(out.retiredConverted)} — `
-    + "the collapse shim is not running, and the shrunk enum has nothing else protecting it");
+  fail(`a creation stating role "hireling" stored ${JSON.stringify(out.hirelingRoleKept)} — `
+    + "something is converting a LIVE role on the way in; the deleted collapse shim must stay deleted");
 }
 
 if (out.explicitKept) ok("an explicitly-stated disposition still wins (_preCreate fills only unstated fields)");

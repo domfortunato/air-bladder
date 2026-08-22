@@ -512,16 +512,22 @@ export class CairnActor extends Actor {
     // arrived red-ringed and unlinked, so HP edited on the token never reached the
     // sheet.
     //
-    // The test was `role === "hireling"` and is now role `npc` OR ABSENT, which
-    // is the collapse working: being for hire stopped being a role, so the thing
-    // that matters is "this npc is a person". Absent counts because a hand-made
-    // one from Create Actor states nothing and takes the schema initial `npc`.
-    // The old warning against widening to plain `npc` does not apply to it —
-    // that was about the 205 shipped monsters, and every one of them (all 220
-    // npc-typed pack documents, checked) states `role: monster` outright, as does
-    // every programmatic creation in `module/`.
+    // The test was `role === "hireling"`, then role `npc` OR ABSENT after the
+    // collapse — and the 2026-08-20 split grew the person set back to TWO, so
+    // it is PERSON_ROLES or absent now. The split's follow-ups were all one
+    // shape, a predicate that stayed true while its set grew, and this line
+    // repeated it: `hirelingToActorData` emits TYPE npc, ROLE hireling, so for
+    // a day every generated hireling fell through to Foundry's schema defaults
+    // again — red-ringed, unlinked, blind — with nothing thrown or logged
+    // (dev:token-defaults holds both hireling cases now). Absent counts
+    // because a hand-made one from Create Actor states nothing and takes the
+    // schema initial `hireling`. The old warning against widening to plain
+    // `npc` does not apply: all 220 npc-typed pack documents state
+    // `role: monster` outright, as does every programmatic creation in
+    // `module/`.
     const isNpcPerson = data.type === "hireling"
-      || (data.type === "npc" && (data.system?.role === undefined || data.system?.role === "npc"));
+      || (data.type === "npc"
+        && (data.system?.role === undefined || PERSON_ROLES.includes(data.system.role)));
     if (data.type === "character" || isNpcPerson) {
       const changes = {};
       // The decision this note used to defer, taken 2026-08-02: sight ON for

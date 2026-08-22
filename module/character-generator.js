@@ -10,6 +10,7 @@ import { containerClass, iconForTransport } from "./icons.js";
 import { connectionHeadroom, maxConnections, connectedOwnershipShape, OWNERSHIP_SYNC_FLAG } from "./connections.js";
 import { SETTINGS_NS } from "./settings.js";
 import { glogEnabled, GLOG_SPELL_PACKS } from "./glog.js";
+import { PERSON_ROLES } from "./data-models.js";
 import { t } from "./i18n-content.js";
 
 // Foundry validates a document flag's scope against real package ids, so flags
@@ -297,8 +298,11 @@ export const customPoolFor = (category = null) => {
 /**
  * The portrait category an actor belongs to, or null for one that wears no
  * portrait at all (a cart, a chest — they take class icons from the container
- * gallery). Reads `npcRole` where it exists so hireling, the npc alias, lands
- * on npc without a second copy of that mapping.
+ * gallery). BOTH person roles land on `npc`: a hireling SHARES the npc folder
+ * (user ruling 2026-08-21), deliberately not a fifth reserved name — the
+ * generator's own call sites have always passed "npc" for hirelings, and this
+ * mapping said `role === "npc"` instead, which went stale the day the split
+ * brought the hireling role back and sent the sheet die to the general pool.
  * @param {Actor} actor
  * @returns {String|null}
  */
@@ -308,7 +312,7 @@ export const portraitCategoryFor = (actor) => {
   const role = actor.npcRole
     ?? (["npc", "hireling"].includes(actor.type) ? (actor.system?.role || "npc") : null);
   if (role === "monster" || role === "companion") return role;
-  return role === "npc" ? "npc" : null;
+  return PERSON_ROLES.includes(role) ? "npc" : null;
 };
 
 /**

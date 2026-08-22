@@ -64,7 +64,7 @@ the pool for that kind of thing alone:
 | folder | used for | when you have no such folder |
 |---|---|---|
 | `pc` (or `pcs`) | player characters, and a Kettlewright import with no portrait | everything else in the custom folder, then the shipped tlomdev `humanoid` art |
-| `npc` (or `npcs`) | generated NPCs, and an NPC person you make by hand | the same |
+| `npc` (or `npcs`) | generated NPCs and hirelings, and an NPC person you make by hand | the same |
 | `monster` (or `monsters`) | generated monsters | the shipped game-icons creature glyphs — **not** your other portraits |
 | `companion` (or `companions`) | a granted beast the Mounts & Transports pack does not carry | its class icon — **not** your other portraits |
 
@@ -122,7 +122,12 @@ reserved tiles are captioned "Player Characters", "NPCs", "Monsters" and
   and hands back the category's bucket, or the general one for `pc`/`npc` when
   they have no folder of their own. `portraitCategoryFor(actor)` maps an actor to
   its category — that is what lets the portrait die re-roll a monster inside
-  `monster/`. `reservedPortraitCategory` is the single copy of the name/alias
+  `monster/`. **A hireling shares `npc/`** (user ruling 2026-08-21), deliberately
+  not a fifth reserved name: the mapping asks `PERSON_ROLES`, because its old
+  `role === "npc"` test went stale the day the split brought the hireling role
+  back and sent the die on a hireling to the general pool — the whole custom
+  list, monster faces included, when general was empty.
+  `reservedPortraitCategory` is the single copy of the name/alias
   list; the picker imports it rather than keeping a second one.
 - **Monsters and companions reach it from their own paths.** A generated monster
   goes through `randomMonsterIcon` (`monster-generator.js`), which now tries

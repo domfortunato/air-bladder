@@ -63,7 +63,7 @@ becomes the pool for that kind of thing alone:
 | Folder | Used for |
 |---|---|
 | `pc` | player characters, including ones a player generates themselves |
-| `npc` | generated NPCs, and NPC people you create by hand |
+| `npc` | generated NPCs and hirelings, and NPC people you create by hand |
 | `monster` | generated monsters |
 | `companion` | a granted beast that is not one of the shipped mounts |
 
@@ -140,6 +140,7 @@ air-bladder-portraits/          →  monsters draw from monster/
 | Generate a player character (yours or a player's) | `pc` |
 | Import a Kettlewright character with no portrait of its own | `pc` |
 | Generate an NPC | `npc` |
+| Generate a hireling | `npc` |
 | Create an NPC person by hand | `npc` |
 | Generate a monster | `monster` |
 | A background grants a beast the shipped mounts pack does not carry | `companion` |
