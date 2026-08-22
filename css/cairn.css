@@ -2973,8 +2973,10 @@ ol.combat-tracker li.combatant.cairn-drop-below {
 /* Every CHECKBOX/NUMBER setting renders as one compact row: the label carries
    the whole description as plain (non-bold) body text on one line, the control
    sits at the far right, and there is no hint beneath — the registered hint
-   rides the row as a hover tooltip instead (cairn.js sets data-tooltip,
-   2026-08-21; before that the hints were written and shown NOWHERE). TEXT
+   rides the row as a hover tooltip instead (cairn.js sets data-tooltip-text,
+   2026-08-21; -text since review #17, because data-tooltip renders as HTML
+   and truncated a hint at its first `<`. Before any of that the hints were
+   written and shown NOWHERE). TEXT
    settings are the exception (.cairn-setting-text below): they keep core's
    layout and show the hint. Foundry splits each row 50/50 (label |
    form-fields), which crushes a long label, so we give the label the full

@@ -2466,7 +2466,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const role = actor.npcRole ?? "hireling";
     const roleLabel = isChar ? "" : L(`CAIRN.Role${role.charAt(0).toUpperCase()}${role.slice(1)}`);
     const jobField = role === "hireling" ? sys.profession : role === "npc" ? sys.background : "";
-    const career = isChar ? "" : t("table.result", String(jobField ?? "").trim());
+    // The overlay NAMESPACE splits with the field: the sheet header shows a
+    // hireling's Career through `npc.career` and an NPC's Background through
+    // `table.result` (_prepareContext, professionDisplay/backgroundDisplay),
+    // and the printed line must ask the same one — all twelve careers are
+    // translated under npc.career and none under table.result, so one lookup
+    // for both printed "Blacksmith" under a sheet reading "Herrero"
+    // (review #17).
+    const career = isChar ? ""
+      : t(role === "hireling" ? "npc.career" : "table.result", String(jobField ?? "").trim());
     const subtitle = isChar
       ? t("bg.name", sys.background ?? "")
       : career ? game.i18n.format("CAIRN.PrintRoleCareer", { role: roleLabel, career }) : roleLabel;

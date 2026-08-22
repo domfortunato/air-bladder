@@ -746,6 +746,7 @@
       "label": "Use the 2e \"Panicked\" condition for all player characters"
     },
     "UseWardenTitle": {
+      "hint": "Relabel the Gamemaster role as \"Warden\" wherever Foundry names it, and rename the default Gamemaster account to match. Turning this off restores the account's original name. Takes effect after a reload.",
       "label": "Call GM \"Warden\""
     }
   },

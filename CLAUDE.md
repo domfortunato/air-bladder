@@ -202,9 +202,11 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   corrected it, and its "N on master" parenthetical went stale a THIRD way by
   surviving two releases — a new pack's commit must carry this line, and so
   must the release that moves the master count)
-- 25 GM-visible settings in `module/settings.js` (33 `register` calls; `roles-restamped`,
+- 25 GM-visible settings in `module/settings.js` (34 `register` calls; `roles-restamped`,
   `companion-restamped`, `hireling-split`, `grimoire-keys-stamped`,
-  `connections-migrated`, `custom-portrait-list`, `disabled-backgrounds` and
+  `connections-migrated`, `art-migration-generation` (2026-08-21, review #17 —
+  the art sweep's generation marker), `custom-portrait-list`,
+  `disabled-backgrounds` and
   `connections-ui-enabled` are internal, `config: false`;
   counts have gone stale three times — `allow-player-randomization` outdated them
   (review #13's catch, its third "record claiming what the code does not say"),

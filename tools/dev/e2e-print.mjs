@@ -628,16 +628,28 @@ const r = await page.evaluate(async ({ xssName }) => {
     const got = {
       h1: popup?.document?.querySelector("header h1")?.textContent?.trim() ?? null,
       title: popup?.document?.title ?? null,
+      sub: popup?.document?.querySelector("header .background")?.textContent?.trim() ?? null,
     };
     popup?.close();
     await actor.sheet.close();
     return got;
   };
   try {
-    i18n._setOverlay({ "monster.name": {
-      [npc.name]: "ZZ-BESTIA-TRADUCIDA",
-      [pc.name]: "ZZ-PJ-NO-TRADUCIBLE",
-    } });
+    // The job line's namespace SPLITS with the role (review #17): a
+    // hireling's Career translates under `npc.career`, an NPC's Background
+    // under `table.result` — the sheet header already asked the right one
+    // per role and print asked table.result for both, so a Spanish sheet
+    // read "Herrero" over a printed page reading "Blacksmith". Each fixture
+    // job is translated ONLY under its own namespace, so a lookup through
+    // the wrong one comes back English and the leg goes red.
+    i18n._setOverlay({
+      "monster.name": {
+        [npc.name]: "ZZ-BESTIA-TRADUCIDA",
+        [pc.name]: "ZZ-PJ-NO-TRADUCIBLE",
+      },
+      "npc.career": { "ZZ Trade Alpha": "ZZ-CARRERA-TRADUCIDA" },
+      "table.result": { "ZZ Origin Beta": "ZZ-ORIGEN-TRADUCIDO" },
+    });
     out.overlayInstalled = i18n.contentLocalized();
     const beast = await printUnder(npc);
     out.overlayNpcH1 = beast.h1;
@@ -645,6 +657,16 @@ const r = await page.evaluate(async ({ xssName }) => {
     const player = await printUnder(pc);
     out.overlayPcH1 = player.h1;
     out.overlayPcName = pc.name;
+    const hire = await Actor.create({ name: "ZZ Print Hireling", type: "npc",
+      system: { role: "hireling", profession: "ZZ Trade Alpha" } });
+    const person = await Actor.create({ name: "ZZ Print Person", type: "npc",
+      system: { role: "npc", background: "ZZ Origin Beta" } });
+    try {
+      out.hirelingSub = (await printUnder(hire)).sub;
+      out.personSub = (await printUnder(person)).sub;
+    } finally {
+      await Actor.deleteDocuments([hire.id, person.id]);
+    }
   } finally { i18n._setOverlay(null); }
   out.overlayRemoved = !i18n.contentLocalized();
 
@@ -1109,6 +1131,13 @@ check("and a player character's header never does", r.overlayPcH1 === r.overlayP
   `h1="${r.overlayPcH1}" name="${r.overlayPcName}" — the 2026-08-04 gate, which is why the fix is `
   + "actorDisplayName rather than a bare t(); her name is planted in the overlay too, so this fails "
   + "if the gate goes rather than passing because nothing was on offer");
+check("a hireling's printed Career asks npc.career, the sheet header's namespace",
+  (r.hirelingSub ?? "").includes("ZZ-CARRERA-TRADUCIDA"),
+  `subtitle="${r.hirelingSub}" — careers translate under npc.career and nowhere else, so a `
+  + 'table.result lookup printed "Blacksmith" under a sheet reading "Herrero" (review #17)');
+check("and an NPC's printed Background still asks table.result",
+  (r.personSub ?? "").includes("ZZ-ORIGEN-TRADUCIDO"),
+  `subtitle="${r.personSub}" — the other half of the role split must keep its own namespace`);
 
 console.log("\nthe thing's page");
 check("a container prints its cargo with the AUTHORED slot fraction",

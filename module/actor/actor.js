@@ -1761,13 +1761,21 @@ export class CairnActor extends Actor {
   }
 
   /**
-   * Stash the ledger's "old" side for item updates. Runs on the initiating
-   * client before the write goes out; the values ride `options`, keyed per
-   * ITEM id for the reason _preUpdate's actor stash is keyed per actor id —
-   * one shared options object serves the whole batch. SOURCE values on
-   * purpose: CairnItem.prepareData clamps DERIVED uses.value to max, so a
-   * derived read here could show a value the write never stored — the same
-   * "the ledger records what was WRITTEN" rule as the field half.
+   * Stash the ledger's "old" side for item updates. Descendant preUpdate is
+   * dispatched from the database RESPONSE on EVERY client
+   * (client-backend.mjs:319 — the document-level `_preUpdate` at :237 is the
+   * one that runs pre-request, on the initiating client only), just before
+   * the in-memory items apply the change — so `this.items.get()` still reads
+   * the old values, and the stash rides each client's own LOCAL `options`
+   * object to the `_onUpdate` reader on that same client. This comment used
+   * to claim the pre-request mechanism; the behaviour was correct anyway,
+   * but only because every client re-derives the same stash from its own
+   * replica (review #17). Keyed per ITEM id for the reason _preUpdate's
+   * actor stash is keyed per actor id — one shared options object serves the
+   * whole batch. SOURCE values on purpose: CairnItem.prepareData clamps
+   * DERIVED uses.value to max, so a derived read here could show a value the
+   * write never stored — the same "the ledger records what was WRITTEN" rule
+   * as the field half.
    * @override
    */
   _preUpdateDescendantDocuments(parent, collection, changes, options, userId) {

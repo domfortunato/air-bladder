@@ -34,9 +34,10 @@ export const SETTING_KEYS = [
   // disabled-backgrounds is Warden CONFIGURATION (which 2e backgrounds are
   // switched off), not a migration marker — it must ride the namespace
   // migration like custom-portrait-list does. It was registered without being
-  // listed here (review #9); the five completion markers (roles-restamped,
+  // listed here (review #9); the six completion markers (roles-restamped,
   // companion-restamped, hireling-split, grimoire-keys-stamped,
-  // connections-migrated) stay unlisted on purpose. Every one of them dates
+  // connections-migrated, art-migration-generation) stay unlisted on purpose.
+  // Every one of them dates
   // from AFTER the namespace move, so there is no "cairn.<key>" value for this
   // list to carry across — listing them would iterate keys that cannot exist.
   //
@@ -226,6 +227,20 @@ export const registerSettings = () => {
     default: false,
   });
 
+  // Completion marker for the art-path migrations (review #17): which
+  // GENERATION of cairn.js's ART_MOVES/ART_REENCODED tables this world has
+  // been swept to. A NUMBER, not the usual boolean, because those tables
+  // grow — a future art move adds a rule, and a stamp made before the rule
+  // existed must not block it (bump ART_MIGRATION_GENERATION beside the
+  // tables). Before this the sweep ran marker-less on every GM load,
+  // forever, pack.getDocuments() round trips included.
+  game.settings.register(SETTINGS_NS, "art-migration-generation", {
+    scope: "world",
+    config: false,
+    type: Number,
+    default: 0,
+  });
+
   // Completion marker for the Grimoire page-key stamp (issue #17, 2026-08-16):
   // every book gets an identity, every bound page names its own. Marker-gated
   // rather than state-gated for the usual reason — an unkeyed page can also be
@@ -407,6 +422,10 @@ export const registerSettings = () => {
   // cairn.js; reload to take effect.
   game.settings.register(SETTINGS_NS, "use-warden-title", {
     name: "CAIRN.Settings.UseWardenTitle.label",
+    // The one visible setting that had no hint (review #17) — which meant no
+    // tooltip at all once hints surfaced (2026-08-21), on the one setting
+    // that renames a User document.
+    hint: "CAIRN.Settings.UseWardenTitle.hint",
     scope: "world",
     config: true,
     type: Boolean,
@@ -719,19 +738,6 @@ export const registerSettings = () => {
     requiresReload: false,
   });
 
-  // A minimum age applied to EVERY generated character, no toggle. Age rolls as
-  // 2d20 + 10 (12..50) and the final age is the greater of that roll and this
-  // floor, so no character comes out younger than the Warden wants. Always in
-  // effect (default 21); to switch it off, set it below 12 -- the lowest a
-  // 2d20 + 10 roll can produce -- so the floor never binds. Applied in
-  // character-generator.js rollAge, the single choke point for generation AND
-  // the sheet's age re-roll, so it needs no reload.
-  //
-  // Grouped here rather than under General (where it sat until 2026-07-28): it is
-  // a parameter of the character being made, and a Warden looks for it beside the
-  // rest of generation. It also floors the age of an IMPORTED Kettlewright
-  // character (kettlewright-import.js), which is a secondary consumer, not the
-  // setting's purpose. Placement is positional -- see the ordering note above.
   // The Warden's age FORMULA (issue #21, both halves fsmalecho's). This
   // REPLACES min-age and max-age (2026-08-21, user ruling): clamping a bell
   // curve piles ages onto the bound -- with a ceiling of 30, ~57% of 2d20+10
@@ -752,7 +758,12 @@ export const registerSettings = () => {
   // _prepareContext, so no open sheet shows a stale value. It governs the
   // age DIE only -- the sheet's age field is free text and always has been.
   // Blank falls back to the default silently; a formula that does not parse
-  // falls back too and WARNS (rollAge in character-generator.js).
+  // -- or carries an `@` reference, which Roll.validate cannot be trusted
+  // about -- falls back too and WARNS (rollAge in character-generator.js).
+  //
+  // Grouped under Character Generation, where min-age sat before it: a
+  // parameter of the character being made, looked for beside the rest of
+  // generation. Placement is positional -- see the ordering note above.
   game.settings.register(SETTINGS_NS, "age-formula", {
     name: "CAIRN.Settings.AgeFormula.label",
     hint: "CAIRN.Settings.AgeFormula.hint",

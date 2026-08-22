@@ -97,7 +97,12 @@ try {
     const folderHint = rowOf("custom-portrait-folder")?.querySelector(".hint");
     out.folderHintDisplay = folderHint ? getComputedStyle(folderHint).display : "missing";
     const reorderRow = rowOf("enable-inventory-reorder");
-    out.compactTooltip = reorderRow?.dataset.tooltip ?? "";
+    // data-tooltip-TEXT since review #17: the manager renders data-tooltip as
+    // cleaned HTML (its docstring says to use -text for plain strings,
+    // tooltip-manager.mjs:214-220), so a hint containing "<" truncated there.
+    // The old attribute is read too, to assert the swap left nothing behind.
+    out.compactTooltip = reorderRow?.dataset.tooltipText ?? "";
+    out.compactTooltipOldAttr = reorderRow?.dataset.tooltip ?? "";
     out.compactHintExpected = game.i18n.localize(game.settings.settings.get(`${NS}.enable-inventory-reorder`)?.hint ?? "");
     const reorderHint = reorderRow?.querySelector(".hint");
     out.compactHintDisplay = reorderHint ? getComputedStyle(reorderHint).display : "missing";
@@ -178,6 +183,19 @@ try {
       await game.settings.set(NS, "age-formula", "");
       out.blankAge = await pinned(0.9999, FALLBACK);
       out.warnsAfterBlank = warns.length;
+
+      // --- @-references (review #17): the validator LIES about this class --
+      // CONTROL first: Roll.validate still ACCEPTS the formula the guard
+      // refuses — it stubs every @ref to "1" before evaluating
+      // (dice/roll.mjs:772-790), while real evaluation resolves them
+      // {missing: "0"}. If this control ever goes false, core fixed the stub
+      // and the rollAge guard may be retirable. Pre-fix, "@bonus + 3" passed
+      // the gate and made every age exactly 3, with no warning anywhere.
+      out.atStillValidates = Roll.validate("@bonus + 3");
+      await game.settings.set(NS, "age-formula", "@bonus + 3");
+      out.atAge = await pinned(0.9999, FALLBACK);   // fallback's floor: 12
+      out.warnsAfterAt = warns.length;
+      out.atWarnText = warns[warns.length - 1] ?? "";
     } finally {
       ui.notifications.warn = origWarn;
     }
@@ -217,8 +235,11 @@ try {
     ? ok("the portrait-folder row (the other text setting) shows its hint too")
     : fail(`folder hint display: ${r.folderHintDisplay}`);
   r.compactTooltip && r.compactTooltip === r.compactHintExpected && r.compactHintDisplay === "none"
-    ? ok("a compact row hides its hint but carries it as a hover tooltip")
-    : fail(`compact row: tooltip=${JSON.stringify((r.compactTooltip || "").slice(0, 40))}, hint display=${r.compactHintDisplay}`);
+    ? ok("a compact row hides its hint but carries it as a data-tooltip-text hover tooltip")
+    : fail(`compact row: tooltip-text=${JSON.stringify((r.compactTooltip || "").slice(0, 40))}, hint display=${r.compactHintDisplay}`);
+  !r.compactTooltipOldAttr
+    ? ok("...and the old data-tooltip (rendered as HTML — review #17) is gone")
+    : fail(`compact row still carries data-tooltip: ${JSON.stringify((r.compactTooltipOldAttr || "").slice(0, 40))}`);
 
   // 3. the default's behavior
   r.defLow === 12
@@ -263,6 +284,15 @@ try {
   r.blankAge === 12 && r.warnsAfterBlank === r.warnsAfterInvalid
     ? ok("a blank formula falls back silently — blank is reset, not a mistake")
     : fail(`blank formula: age ${r.blankAge} (expected 12), warns went ${r.warnsAfterInvalid} -> ${r.warnsAfterBlank}`);
+  r.atStillValidates
+    ? ok('CONTROL: Roll.validate still accepts "@bonus + 3" — the trap the @ guard refuses is live')
+    : fail("Roll.validate now refuses @-references — core changed under us; the rollAge @ guard may be retirable");
+  r.atAge === 12 && r.warnsAfterAt === r.warnsAfterBlank + 1
+    ? ok("an @-reference formula falls back to the default AND warns (pre-fix it rolled with the ref zeroed: every age 3)")
+    : fail(`@ formula: age ${r.atAge} (expected 12, and 3 means the ref was silently zeroed), warns ${r.warnsAfterBlank} -> ${r.warnsAfterAt}`);
+  (r.atWarnText ?? "").includes("@bonus")
+    ? ok("the @ warning names the rejected formula")
+    : fail(`@ warning does not name the formula: ${JSON.stringify(r.atWarnText)}`);
 
   if (r.actorId) {
     await page.evaluate(async (id) => { try { await game.actors.get(id)?.delete(); } catch { /* gone */ } }, r.actorId);

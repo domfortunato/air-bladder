@@ -68,9 +68,12 @@ try {
     // migration" — is NOT true of that one: re-running it would convert every
     // real NPC in the world into a hireling. It is exempt because it postdates
     // the namespace move and so has no old value to carry, which is the reason
-    // that actually applies to all five.
+    // that actually applies to all six.
+    // `art-migration-generation` joined 2026-08-21 (review #17's generation
+    // gate on the art sweep — a Number, not a boolean, so a new rule in the
+    // art tables can invalidate old stamps by bumping the constant).
     const MARKERS = ["roles-restamped", "companion-restamped", "connections-migrated",
-      "grimoire-keys-stamped", "hireling-split"];
+      "grimoire-keys-stamped", "hireling-split", "art-migration-generation"];
     out.unlisted = [...game.settings.settings.keys()]
       .filter((k) => k.startsWith(`${mod.SETTINGS_NS}.`))
       .map((k) => k.slice(mod.SETTINGS_NS.length + 1))

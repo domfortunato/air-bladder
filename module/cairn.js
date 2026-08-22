@@ -654,6 +654,52 @@ Hooks.on("renderJournalEntrySheet", (app, element) => {
   }
 });
 
+/**
+ * The entry sheet's page SEARCH, the half the hook above cannot reach: core
+ * matches the query against the COLLECTION (`page.name`, the stored English —
+ * journal-entry-sheet.mjs:1073-1088), never the DOM, so once the TOC shows
+ * Spanish page names, typing one of them empties the list. Same defect the
+ * directory and compendium wraps close (review #16), one more surface
+ * (review #17); the Vald book's nine titled pages are what make it visible.
+ *
+ * A PROTOTYPE wrap, the one surface where the recorded per-instance shape
+ * CANNOT work: the sheet constructs its SearchFilter once with `??=` and
+ * captures `this._onSearchFilter.bind(this)` at that moment
+ * (journal-entry-sheet.mjs:484-488) — during the first render, before any
+ * render hook fires — so an instance patch would sit shadowed behind a bound
+ * reference to the original for that sheet's whole life. Wrapped at init,
+ * before any instance exists, so every bind captures the wrapped method.
+ * Still ADDITIVE and still degrade-don't-throw: core runs first and
+ * untouched, an English query can never lose a match to this, and a failure
+ * in our pass logs and leaves English search working.
+ *
+ * DOM-only, a real limit accepted with eyes open: core also records matches
+ * in a private #filteredPages set that a mid-query RE-RENDER consults
+ * (journal-entry-sheet.mjs:520), which we cannot reach — so a
+ * translated-only match re-hides on a re-render until the next keystroke.
+ * Overlay degradation, not a wall.
+ */
+Hooks.once("init", () => {
+  const proto = foundry.applications.sheets.journal.JournalEntrySheet?.prototype;
+  if (!proto || typeof proto._onSearchFilter !== "function" || proto._abPageSearchWrapped) return;
+  proto._abPageSearchWrapped = true;
+  const coreFilter = proto._onSearchFilter;
+  proto._onSearchFilter = function (event, query, rgx, html) {
+    coreFilter.call(this, event, query, rgx, html);
+    try {
+      if (!contentLocalized() || !query) return;
+      for (const el of html?.querySelectorAll?.("[data-page-id][hidden]") ?? []) {
+        const page = this.entry?.pages?.get?.(el.dataset.pageId);
+        const es = translationOf("journal.pageName", page?.name ?? "");
+        if (es === undefined) continue;
+        if (foundry.applications.ux.SearchFilter.testQuery(rgx, es)) el.hidden = false;
+      }
+    } catch (err) {
+      console.warn("Air Bladder | translated journal page-search pass failed; English search is unaffected", err);
+    }
+  };
+});
+
 // Cairn calls the Game Master the "Warden". When the setting is on, override
 // the localized GM role labels before any UI that reads them renders (Players
 // list, User Management, permission dialogs). Settings are readable by `setup`,
@@ -881,9 +927,19 @@ Hooks.once("init", () => {
     // refusal must clear the flag.
     if (msg?.action === "ownershipSync") {
       if (game.users.activeGM !== game.user) return;
-      const child = await fromUuid(msg.childUuid);
-      if (!(child instanceof getDocumentClass("Actor")) || child.pack || child.parent) return;
-      await syncPendingOwnership(child, { requester: game.users.get(senderId) ?? null });
+      // Caught, the handler's own standing rule (review #17): a throw here —
+      // fromUuid THROWS on a malformed uuid rather than returning null, and
+      // the ownership write itself can be refused — otherwise escapes an
+      // async socket handler nothing awaits, as an anonymous unhandled
+      // rejection. Console only, no toast: a missed sync self-heals, because
+      // the ready sweep re-syncs every pending flag on the next GM load.
+      try {
+        const child = await fromUuid(msg.childUuid);
+        if (!(child instanceof getDocumentClass("Actor")) || child.pack || child.parent) return;
+        await syncPendingOwnership(child, { requester: game.users.get(senderId) ?? null });
+      } catch (err) {
+        console.error(`Air Bladder | ownershipSync request from ${game.users.get(senderId)?.name ?? senderId} failed:`, err);
+      }
       return;
     }
     // A permission-less player's Generate PC. The payload carries NOTHING and
@@ -1013,6 +1069,15 @@ Hooks.once("init", () => {
     grantActorsInFlight.add(senderId);
     try {
       await handleGrantActors(msg, senderId);
+    } catch (err) {
+      // handleGrantActors catches its own CREATION phase, but its validation
+      // phase — fromUuid THROWS on a malformed ownerUuid — ran bare, and a
+      // throw there escaped this async handler anonymously: the player's
+      // whole grant lost with nothing on either screen, the exact silence
+      // the inner catch was built to prevent (review #17).
+      const player = game.users.get(senderId)?.name ?? senderId;
+      console.error(`Air Bladder | grant request from ${player} failed:`, err);
+      ui.notifications.error(game.i18n.format("CAIRN.Notify.GrantFailedFor", { player }));
     } finally {
       grantActorsInFlight.delete(senderId);
     }
@@ -1220,6 +1285,17 @@ const migrateIconsToSvg = async () => {
  * referenced document, so a Warden's own gear or monster table keeps pointing
  * at the old path after every actor in the world has been fixed.
  */
+/**
+ * Bump this when ART_MOVES or ART_REENCODED below gains a rule. The stored
+ * `art-migration-generation` marker is what stops migrateArtPaths re-reading
+ * every world pack on every GM load (review #17), so a NEW rule must
+ * invalidate every stamp made before it existed — a marker stamped before a
+ * rule is the inverse of the "predicate stayed true while its set grew"
+ * family, and just as silent. The 2026-08-04 art/ move plus the WebP
+ * re-encode are generation 1.
+ */
+const ART_MIGRATION_GENERATION = 1;
+
 const ART_MOVES = [
   ["systems/air-bladder/character_portraits/", "systems/air-bladder/art/jon-aspeheim/portraits/"],
   ["systems/air-bladder/character_tokens/", "systems/air-bladder/art/jon-aspeheim/tokens/"],
@@ -1296,6 +1372,13 @@ const movedArt = (src) => {
 };
 
 const migrateArtPaths = async () => {
+  // Generation-gated (review #17): this sweep ran on EVERY GM load, forever —
+  // including a `pack.getDocuments()` round trip per world pack, the recorded
+  // per-call cost — while its rationale only ever argued why it must sweep,
+  // never why it must sweep again. Stamped only after the writes land (the
+  // migrateMountToCompanion shape), so a failed run retries; a new rule in
+  // the tables above must bump ART_MIGRATION_GENERATION to re-open it.
+  if (game.settings.get(SETTINGS_NS, "art-migration-generation") >= ART_MIGRATION_GENERATION) return;
   let count = 0;
 
   const itemUpdates = game.items.filter((i) => movedArt(i.img)).map((i) => ({ _id: i.id, img: movedArt(i.img) }));
@@ -1392,6 +1475,7 @@ const migrateArtPaths = async () => {
   }
 
   if (count) console.log(`Air Bladder | repointed ${count} document(s) at the art/ gallery folders`);
+  await game.settings.set(SETTINGS_NS, "art-migration-generation", ART_MIGRATION_GENERATION);
 };
 
 /**
@@ -1649,27 +1733,45 @@ const migrateHirelingSplit = async () => {
 
   // World compendia. Unlocked around the write and locked back exactly as it
   // was found — a Warden who keeps their NPC pack locked must not discover it
-  // unlocked afterwards.
+  // unlocked afterwards. ONE batched write per pack (review #17), the same
+  // rule the world-actor batch above follows: the per-document loop this
+  // replaces was a server round trip per NPC and could throw midway, leaving
+  // a pack half-converted. Each pack still fails independently — one bad pack
+  // must not cost the others their conversion.
+  let packFailed = false;
   for (const pack of game.packs) {
     if (pack.metadata.packageType !== "world" || pack.metadata.type !== "Actor") continue;
-    const docs = await pack.getDocuments();
-    const stale = docs.filter((d) => ["npc", "hireling"].includes(d.type) && storedNpc(d));
-    if (!stale.length) continue;
-    const wasLocked = pack.locked;
     try {
-      if (wasLocked) await pack.configure({ locked: false });
-      for (const doc of stale) {
-        await doc.update({ "system.role": "hireling" }, { diff: false });
-        count += 1;
+      const docs = await pack.getDocuments();
+      const stale = docs.filter((d) => ["npc", "hireling"].includes(d.type) && storedNpc(d));
+      if (!stale.length) continue;
+      const wasLocked = pack.locked;
+      try {
+        if (wasLocked) await pack.configure({ locked: false });
+        await getDocumentClass("Actor").updateDocuments(
+          stale.map((d) => ({ _id: d.id, "system.role": "hireling" })),
+          { pack: pack.collection, diff: false });
+        count += stale.length;
+      } finally {
+        if (wasLocked) await pack.configure({ locked: true });
       }
     } catch (err) {
+      packFailed = true;
       console.warn(`Air Bladder | could not split roles in world pack "${pack.metadata.label}":`, err);
-    } finally {
-      if (wasLocked) await pack.configure({ locked: true });
     }
   }
 
   if (count) console.log(`Air Bladder | npc -> hireling on ${count} document(s)`);
+  // The docblock's own contract, actually kept (review #17): the marker is
+  // set only after the writes LAND. A pack failure above is caught so the
+  // other packs still convert — but stamping over it would record the one
+  // migration that can never safely re-run as done while documents still
+  // store the old meaning of "npc". Selection is what makes the retry safe:
+  // everything already converted no longer matches.
+  if (packFailed) {
+    console.warn("Air Bladder | hireling split incomplete — marker not set; it will retry on the next GM load");
+    return;
+  }
   await game.settings.set(SETTINGS_NS, "hireling-split", true);
 };
 
@@ -2220,9 +2322,13 @@ Hooks.on("renderSettingsConfig", (app, element) => {
     group.classList.add("cairn-setting-compact");
     // The compact row's label IS the description, but the longer registered
     // hint now surfaces as a hover tooltip instead of being written and
-    // shown nowhere. Localized here because data-tooltip is rendered as-is.
+    // shown nowhere. `data-tooltip-text`, NOT `data-tooltip`: the manager
+    // renders data-tooltip as cleaned HTML and its own docstring says to use
+    // -text for plain strings (tooltip-manager.mjs:214-220) — a hint reading
+    // "d20 < 10" would truncate at the `<` (review #17). -text renders
+    // verbatim; it is still not auto-localized, so the localize stays.
     const cfg = game.settings.settings.get(input.name);
-    if (cfg?.hint) group.dataset.tooltip = game.i18n.localize(cfg.hint);
+    if (cfg?.hint) group.dataset.tooltipText = game.i18n.localize(cfg.hint);
   });
 
   // Barebones sub-options are meaningless unless Barebones character sheets are

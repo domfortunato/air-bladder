@@ -343,6 +343,25 @@ export class CairnItem extends Item {
 
     if (this.type !== "spellbook") return;
 
+    // The OPERATOR spelling, normalized before any guard reads it (review
+    // #17): a ForcedDeletion resets a field to its schema initial — false,
+    // for these two required booleans — and is a truthy OBJECT, so it walked
+    // straight past every equality and truthiness test below: an un-bind the
+    // bound guard was built to strip, or a scroll reset that took the
+    // BECOMING-scroll branch and pinned scroll uses onto a non-scroll. On a
+    // required boolean the operator IS a plain `false` write (and passing it
+    // through to the schema draws a "may not be undefined" validation
+    // complaint on its way to the same end state — dev:grimoire's console
+    // gate caught that), so it is rewritten to one here and the guards below
+    // reason about booleans only. The STRING fields (`boundTo`,
+    // `grimoireKey`) keep their isClearing guards instead — blank is a legal
+    // stored value there, so clearing means something different.
+    for (const key of ["bound", "scroll"]) {
+      if (changed.system?.[key] instanceof foundry.data.operators.ForcedDeletion) {
+        changed.system[key] = false;
+      }
+    }
+
     // Binding is FOREVER (2026-08-09 ruling #12): a write clearing `bound` is
     // stripped rather than refused, the scroll-pin precedent — the rest of the
     // edit lands, the un-bind silently does not. The sheet offers no control;
@@ -363,6 +382,9 @@ export class CairnItem extends Item {
 
     const scrollChanged = changed.system?.scroll !== undefined;
     if (scrollChanged) {
+      // Safe to read as truthiness only because the normalization above has
+      // already rewritten a ForcedDeletion to plain `false` — un-normalized,
+      // the truthy operator took this branch while resetting the flag.
       const becomingScroll = !!changed.system.scroll;
       foundry.utils.mergeObject(changed, {
         system: becomingScroll ? { ...SCROLL_PINNED, "uses.value": 1 } : BOOK_PINNED,
@@ -375,18 +397,22 @@ export class CairnItem extends Item {
       if (this.img === was || this.img === this.constructor.DEFAULT_ICON) {
         changed.img = becomingScroll ? SPELLSCROLL_ICON : SPELLBOOK_ICON;
       }
-    } else if (this.system.scroll && !changed.system?.bound) {
+    } else if (this.system.scroll && changed.system?.bound !== true) {
       // No transition: just hold the invariant for a scroll being edited. The
-      // `!changed.system?.bound` term lets the transmute through — becoming a
-      // page IS the one legal exit from being a scroll, and PAGE_PINNED below
-      // writes the scroll flag off in the same breath.
+      // `!== true` term lets the transmute through — becoming a page IS the
+      // one legal exit from being a scroll, and PAGE_PINNED below writes the
+      // scroll flag off in the same breath. `!== true` rather than the old
+      // `!changed.system?.bound`: only a genuine binding write may skip the
+      // hold, never merely a truthy value (review #17).
       foundry.utils.mergeObject(changed, { system: SCROLL_PINNED });
     }
 
     // The page invariant, held on the transition AND on every later edit —
     // merged LAST, over the scroll handling above, so a scroll being transmuted
-    // ends weightless whatever BOOK_PINNED said a line earlier.
-    if (changed.system?.bound || (this.system.bound && changed.system?.bound !== false)) {
+    // ends weightless whatever BOOK_PINNED said a line earlier. `=== true`,
+    // not truthy: only a genuine binding write may dress an item in
+    // PAGE_PINNED (review #17).
+    if (changed.system?.bound === true || (this.system.bound && changed.system?.bound !== false)) {
       foundry.utils.mergeObject(changed, { system: { ...PAGE_PINNED } });
     }
   }

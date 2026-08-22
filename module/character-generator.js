@@ -615,7 +615,7 @@ export const rollGold = async (formula) => evaluateFormula(formula);
 
 /**
  * Roll an age from the Warden's `age-formula` setting, falling back to the
- * caller's formula (the config's one copy, `{2d20 + 10, 21}kh`) when the
+ * caller's formula (the config's one copy, RAW `2d20 + 10`) when the
  * setting is blank or does not parse.
  *
  * This REPLACED the min-age/max-age clamp (2026-08-21, issue #21 both ways —
@@ -632,7 +632,9 @@ export const rollGold = async (formula) => evaluateFormula(formula);
  * naming the rejected text: a typo the Warden never hears about is just
  * "the setting does nothing". Validation is on the RAW text, which is right
  * in both dice-notation dialects — the Cairn keep-highest rewrite only maps
- * valid arithmetic to valid pool syntax.
+ * valid arithmetic to valid pool syntax. A formula carrying an `@` reference
+ * is refused the same way, BEFORE Roll.validate gets a say — see the guard
+ * below for why the validator cannot be trusted about that class.
  *
  * ROLLS ONLY, and deliberately. Age is a free-text input on the sheet
  * (templates/parts/bio-block.html) with this die beside it, so a hand-typed
@@ -647,7 +649,16 @@ export const rollGold = async (formula) => evaluateFormula(formula);
 export const rollAge = async (fallback) => {
   const configured = String(game.settings.get(SETTINGS_NS, "age-formula") ?? "").trim();
   let formula = configured || fallback;
-  if (!Roll.validate(formula)) {
+  // `@` references refused before validation — warden-damage.js's guard,
+  // copied because the same two client stubs make Roll.validate lie about the
+  // whole class: it replaces every `@ref` with "1" before evaluating
+  // (dice/roll.mjs:772-790) so it ACCEPTS them, while real evaluation resolves
+  // them with `{missing: "0"}` (:689-701) — so "2d20 + @bonus" passed the gate
+  // and rolled "2d20 + 0", and "@x + 3" made every age exactly 3, with the
+  // warn-and-fall-back contract unreachable for the one input class that
+  // needed it most (review #17). Generation has no actor to resolve against,
+  // so refusing is the honest answer, not a workaround.
+  if (formula.includes("@") || !Roll.validate(formula)) {
     if (configured) {
       ui.notifications.warn(game.i18n.format("CAIRN.Notify.BadAgeFormula", { formula: configured }));
     }

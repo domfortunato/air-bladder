@@ -153,7 +153,15 @@ export const runGlogConversion = async () => {
     }
     if (!updates.length) return;
     converted += updates.length;
-    if (parent) await parent.updateEmbeddedDocuments("Item", updates);
+    // abNoStatusCard: this sweep is a migration in all but name — without the
+    // flag, flipping the toggle on a live world greeted every converted book's
+    // owners (and the Warden) with one whispered ledger card per spellbook,
+    // "By: Gamemaster", because setting `scroll` pins a one-shot `uses`
+    // counter into the same write (CairnItem._preUpdate) and `uses` is a
+    // ledgered field. The spellscroll migration passes the flag for exactly
+    // this (cairn.js); the sweep predates the item ledger and never learned
+    // (review #17). Embedded items only — the ledger posts for nothing else.
+    if (parent) await parent.updateEmbeddedDocuments("Item", updates, { abNoStatusCard: true });
     else await Item.updateDocuments(updates);
   };
 

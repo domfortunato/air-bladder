@@ -243,6 +243,34 @@ const shown = await page.evaluate(async (fx) => {
       await new Promise((r) => setTimeout(r, 400));
       out.valdHeader = [...(harticle?.querySelectorAll(".journal-page-header :is(h1,h2,h3,h4,h5,h6)") ?? [])]
         .some((n) => n.textContent.trim() === fx.VALD_PAGE_ES);
+
+      // The page SEARCH (review #17): core matches the query against
+      // `page.name` — the stored English — so typing the Spanish name used to
+      // empty the list. Driven through the REAL input, deliberately: the
+      // sheet's SearchFilter captured its callback with `bind` at
+      // construction, so a probe calling `_onSearchFilter` directly would
+      // stay green even where a keystroke does not — the exact reason the
+      // fix had to wrap the PROTOTYPE before any sheet existed.
+      const sorted = [...vdoc.pages.contents].sort((a, b) => a.sort - b.sort);
+      const secondPage = sorted[1] ?? null;
+      const sInput = vdoc.sheet.element?.querySelector("search input");
+      out.searchInputFound = !!sInput;
+      const runQuery = async (q) => {
+        sInput.value = q;
+        sInput.dispatchEvent(new Event("input", { bubbles: true }));
+        await new Promise((r) => setTimeout(r, 500));
+        const row = (pid) => vdoc.sheet.element?.querySelector(`nav.toc [data-page-id="${pid}"]`);
+        return {
+          first: row(first.id)?.hidden ?? null,
+          second: secondPage ? row(secondPage.id)?.hidden ?? null : null,
+        };
+      };
+      if (sInput && secondPage) {
+        out.searchEs = await runQuery(fx.VALD_PAGE_ES);         // Spanish: first shown, second hidden
+        out.searchNone = await runQuery("ZZ-NADA-SIN-PAGINA");  // nonsense: both hidden
+        out.searchEn = await runQuery(secondPage.name);         // untranslated English: still matches
+        await runQuery("");                                     // restore: clear the filter
+      }
       await vdoc.sheet.close();
     }
 
@@ -324,6 +352,21 @@ else {
         shown.valdHeader === "pack missing" ? "journals-vald is not in the world — build packs"
           : "the page header stayed English — a sibling of .journal-page-content, the block sweep never reaches it");
 
+  console.log("\nthe page search (review #17)");
+  shown.searchInputFound
+    ? ok("precondition: the entry sheet has a search input", "")
+    : fail("precondition: the entry sheet has a search input", "no `search input` element — the three legs below are vacuous");
+  shown.searchEs?.first === false && shown.searchEs?.second === true
+    ? ok("typing the TRANSLATED page name filters to that page", VALD_PAGE_ES)
+    : fail("typing the TRANSLATED page name filters to that page",
+        `first hidden=${shown.searchEs?.first}, second hidden=${shown.searchEs?.second} — core matches stored English only`);
+  shown.searchNone?.first === true && shown.searchNone?.second === true
+    ? ok("a nonsense query hides everything", "the translated pass is not an unconditional un-hide")
+    : fail("a nonsense query hides everything", JSON.stringify(shown.searchNone));
+  shown.searchEn?.second === false
+    ? ok("an untranslated English page name still matches", "the wrap is additive — core runs first, untouched")
+    : fail("an untranslated English page name still matches", JSON.stringify(shown.searchEn));
+
   console.log("\nedit mode is left alone — its save writes what it shows");
   shown.editIsEditMode
     ? ok("precondition: the page really opened for editing", "isView false")
@@ -346,6 +389,38 @@ else {
     ? ok("and that one came back too", "")
     : fail("and that one came back too", "renderJournalEntrySheet was left off");
 }
+
+// NEGATIVE CONTROL for the search wrap, overlay OFF (the finally above
+// uninstalled it): the same Spanish query must now match NOTHING — proving the
+// un-hide rode the translation, not some accident of core's matcher. Restores
+// its own state: the query is cleared and the sheet closed.
+const searchControl = await page.evaluate(async (fx) => {
+  const vpack = game.packs.get("air-bladder.journals-vald");
+  if (!vpack) return { skipped: "pack missing" };
+  const vdoc = await vpack.getDocument([...vpack.index.keys()][0]);
+  const first = [...vdoc.pages.contents].sort((a, b) => a.sort - b.sort)[0];
+  await vdoc.sheet.render(true);
+  for (let n = 0; n < 50 && !vdoc.sheet.element?.querySelector("search input"); n++) {
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  const inp = vdoc.sheet.element?.querySelector("search input");
+  if (!inp) return { skipped: "no search input" };
+  try {
+    inp.value = fx.VALD_PAGE_ES;
+    inp.dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 500));
+    return { firstHidden: vdoc.sheet.element?.querySelector(`nav.toc [data-page-id="${first.id}"]`)?.hidden ?? null };
+  } finally {
+    inp.value = "";
+    inp.dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 300));
+    await vdoc.sheet.close();
+  }
+}, { VALD_PAGE_ES });
+searchControl.firstHidden === true
+  ? ok("CONTROL: with the overlay off, the Spanish query matches nothing", "the search wrap's match rode the translation")
+  : fail("CONTROL: with the overlay off, the Spanish query matches nothing",
+      searchControl.skipped ?? `first hidden=${searchControl.firstHidden}`);
 
 console.log(`\nconsole errors: ${errors.length}`);
 for (const e of errors.slice(0, 8)) console.log(`  ${e}`);

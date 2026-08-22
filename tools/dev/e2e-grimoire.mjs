@@ -358,11 +358,53 @@ try {
     // one that cannot fail — it would be checking the restore, not the write.
     const renamed = book.name === "ZZ Grim Tome II";
     await book.update({ name: "ZZ Grim Tome" });
+
+    // The OPERATOR spelling of the same attacks (review #17): ForcedDeletion
+    // resets a field to its schema initial — false, for these booleans — and
+    // is a truthy OBJECT, so the old `=== false` guard stripped the plain
+    // spelling while waving the operator through. The platform itself
+    // recommends this spelling (operators.mjs, the `-=key` replacement), so
+    // it is the FIRST thing a scripted client reaches for.
+    const FD = () => new foundry.data.operators.ForcedDeletion();
+    await it.update({ system: { bound: FD() } });
+    const boundAfterFD = it.system.bound;
+    // The string half was already isClearing-guarded (#15) — regression leg.
+    await book.update({ "system.grimoireKey": FD() });
+    const keyAfterFD = book.system.grimoireKey;
+    // A scroll reset by the operator must come out a clean BOOK — pre-fix the
+    // truthy operator took the BECOMING-scroll branch, leaving a non-scroll
+    // wearing scroll pins and a one-shot counter.
+    const [fdScroll] = await actor.createEmbeddedDocuments("Item", [{
+      name: "ZZ FD Scroll", type: "spellbook", system: { scroll: true, description: "<p>x</p>" },
+    }]);
+    await fdScroll.update({ system: { scroll: FD() } });
+    const s = actor.items.get(fdScroll.id).system;
+    const scrollFD = { scroll: s.scroll, usesMax: s.uses?.max ?? null, usesValue: s.uses?.value ?? null, weightless: s.weightless };
+    // And an UNBOUND spellbook must not be touched at all by an operator
+    // riding on `bound` — pre-fix the truthy operator satisfied the page
+    // invariant's `changed.system?.bound` term and merged PAGE_PINNED onto a
+    // non-page. Asserted as before/after NO-OP rather than against literals,
+    // because what the create produces is world-dependent: a GLOG world's
+    // arrival seam turns a plain spellbook into a scroll (this leg's first
+    // draft learned that the hard way).
+    const [fdBook] = await actor.createEmbeddedDocuments("Item", [{
+      name: "ZZ FD Book", type: "spellbook", system: { description: "<p>y</p>" },
+    }]);
+    const snap = (i) => ({
+      bound: i.system.bound, scroll: i.system.scroll, weightless: i.system.weightless,
+      equipped: i.system.equipped, usesMax: i.system.uses?.max ?? null, usesValue: i.system.uses?.value ?? null,
+    });
+    const bookBefore = snap(actor.items.get(fdBook.id));
+    await fdBook.update({ system: { bound: FD() } });
+    const bookFD = { before: bookBefore, after: snap(actor.items.get(fdBook.id)) };
+    await actor.deleteEmbeddedDocuments("Item", [fdScroll.id, fdBook.id]);
+
     return {
       afterUnbind, bound: it.system.bound, weightless: it.system.weightless,
       equipped: it.system.equipped,
       keyKept: !!keyBefore && book.system.grimoireKey === keyBefore,
       renamed, stillHeld,
+      boundAfterFD, keyAfterFD, keyBefore, scrollFD, bookFD,
     };
   }, fx.casterId);
   check(pinned.afterUnbind === true, "a direct un-bind write is stripped");
@@ -372,6 +414,18 @@ try {
   check(pinned.renamed && pinned.stillHeld.length > 0,
     "and only that half: the same write's rename landed, pages still held",
     JSON.stringify(pinned.stillHeld));
+  check(pinned.boundAfterFD === true,
+    "a ForcedDeletion on `bound` is stripped like the plain spelling (review #17)");
+  check(pinned.keyAfterFD === pinned.keyBefore,
+    "…and on `grimoireKey` (the isClearing guard, regression)");
+  check(pinned.scrollFD?.scroll === false && pinned.scrollFD?.usesMax === 0
+      && pinned.scrollFD?.usesValue === 0 && pinned.scrollFD?.weightless === false,
+    "a ForcedDeletion on `scroll` lands as a clean BOOK, not a non-scroll in scroll pins",
+    JSON.stringify(pinned.scrollFD));
+  check(pinned.bookFD?.after?.bound === false
+      && JSON.stringify(pinned.bookFD?.before) === JSON.stringify(pinned.bookFD?.after),
+    "a ForcedDeletion on an unbound item's `bound` is a complete no-op — nothing dressed in PAGE_PINNED",
+    JSON.stringify(pinned.bookFD));
 
   /* -------------------------------------------------- 4. the one-book wall */
   const wall = await gm.evaluate(async ({ casterId, pileId }) => {
