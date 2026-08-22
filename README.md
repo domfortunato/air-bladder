@@ -56,7 +56,7 @@ Pre-generated Player Characters are also available on <a href="https://domfortun
 
 <img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/game-settings.png" alt="The Warden's game settings" width="480">
 
-*The Warden's game settings, grouped by section — shown here in dark mode.*
+*The Warden's game settings — four submenus, one open — shown here in dark mode.*
 
 ## Status
 

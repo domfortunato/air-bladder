@@ -1215,22 +1215,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const byDisplayName = (a, b) =>
       displayNameOf(a).localeCompare(displayNameOf(b), game.i18n.lang);
     const sorted = [...items];
-    if (game.settings.get(SETTINGS_NS, "enable-inventory-reorder")) {
-      // Manual order: honour each item's stored `sort` (Foundry's native field,
-      // written by the drag-to-reorder handler), falling back to name. Fatigue is
-      // NOT forced last here — with reorder on, the player controls placement.
-      sorted.sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || byDisplayName(a, b));
-    } else {
-      sorted.sort(byDisplayName);
-      sorted.sort((a, b) =>
-        a.system.equipped && !b.system.equipped
-          ? -1
-          : a.system.equipped === b.system.equipped
-          ? 0
-          : 1
-      );
-      sorted.sort((a, b) => (a.name === FATIGUE_NAME ? 1 : b.name === FATIGUE_NAME ? -1 : 0));
-    }
+    // Manual order, always (the `enable-inventory-reorder` gate retired
+    // 2026-08-22, user ruling): honour each item's stored `sort` — Foundry's
+    // native field, written by the drag-to-reorder handler and by the
+    // generators' orderGrantedItems — falling back to display name. Fatigue is
+    // NOT forced last; the player controls placement. The retired off-path
+    // sorted equipped-first alphabetical with Fatigue last.
+    sorted.sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || byDisplayName(a, b));
     return sorted;
   }
 
@@ -1478,7 +1469,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // fix must land on the state a real user is in, not just one the template
     // can render.
     context.omenDisplay = t("table.result", this.actor.system.omen);
-    // Barebones-only flavour: the career that didn't work out. Grants nothing.
+    // Barebones-only: the career that didn't work out — a name, plus the one
+    // keepsake item below (this line read "Grants nothing" until 2026-08-22).
     // Read the setting live, so a Warden switching it off hides the line on an
     // already-generated character rather than only affecting the next one.
     // Localized like the pickers that set them (promptFailedCareer shows
@@ -1657,12 +1649,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // so their state is re-applied here, on every render of the content.
     this.#syncGenerationButtons();
 
-    // When drag-to-reorder is enabled, mark the sheet so item rows show a grab
-    // cursor and the reorder hint appears.
-    el.classList.toggle(
-      "cairn-reorder-enabled",
-      game.settings.get(SETTINGS_NS, "enable-inventory-reorder")
-    );
+    // Drag-to-reorder is always on (its setting retired 2026-08-22), so the
+    // sheet always carries the class that gives item rows a grab cursor and
+    // shows the reorder hint. The class stays because the CSS keys on it.
+    el.classList.add("cairn-reorder-enabled");
     // When grant-source tags are on, mark the sheet so the footer hint under the
     // inventory explains the Background / Bond / Question chips. Character-only:
     // those chips are set at character generation, so no other actor type has them.
@@ -3745,8 +3735,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /** Magnifier on the Barebones "Failed career" line: choose a different one.
-   *  Flavour only — stores a name and grants nothing, so unlike the background
-   *  swap there is no gear to reconcile. @this {CairnActorSheet} */
+   *  Stores the name, then swaps the ONE keepsake item for one drawn from the
+   *  new career's gear (`_grantFailedCareerItem`) — that item, not a loadout,
+   *  is all a failed career grants, so unlike the background swap there is no
+   *  other gear to reconcile. @this {CairnActorSheet} */
   static async #onPickFailedCareer(event) {
     event.preventDefault();
     const result = await promptFailedCareer(this.actor.system.failedCareer);
@@ -4178,13 +4170,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
 
     // Same-actor drop: this is a reorder within our own inventory, not a
-    // transfer. Honour it only when the GM has enabled drag-to-reorder.
+    // transfer. Always honoured — the `enable-inventory-reorder` gate that used
+    // to sit here retired 2026-08-22 (drag-to-reorder is always on).
     if (this.actor === originalActor) {
-      if (game.settings.get(SETTINGS_NS, "enable-inventory-reorder")) {
-        await this._onSortItem(event, originalItem);
-        return originalItem;
-      }
-      return null;
+      await this._onSortItem(event, originalItem);
+      return originalItem;
     }
 
     // A transfer takes the item off ANOTHER actor's sheet, so it needs write
@@ -4372,8 +4362,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
-   * Reorder an item within this actor's own inventory by drag-and-drop, gated on
-   * the "enable-inventory-reorder" setting. Only real embedded items take part:
+   * Reorder an item within this actor's own inventory by drag-and-drop (always
+   * on — the "enable-inventory-reorder" gate retired 2026-08-22). Only real
+   * embedded items take part:
    * dropping onto a gold-slot / worn-container row (no embedded item) is a no-op.
    * ActorSheetV2 ships its own version, but it assumes every sibling row carries a
    * real embedded item and throws on ours, which include gold-slot rows.

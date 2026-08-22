@@ -178,7 +178,7 @@ option grants 300 gold and the rest grant 10.
 
 A finished background is still invisible until you switch the source on:
 
-**Game Settings → Configure Settings → Air Bladder → "Offer custom Cairn 2e backgrounds"**
+**Game Settings → Configure Settings → Air Bladder → Character Generation → Configure → "Offer custom Cairn 2e backgrounds"**
 
 With it on, your custom backgrounds join the picker's **Custom** section.
 

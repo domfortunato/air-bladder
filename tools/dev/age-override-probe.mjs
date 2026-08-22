@@ -58,55 +58,59 @@ try {
     out.hasMaxAge = game.settings.settings.has(`${NS}.max-age`);
     out.formulaDefault = game.settings.settings.get(`${NS}.age-formula`)?.default ?? null;
 
-    // --- 1/2. render the settings config; section order + our fields ---------
+    // --- 1/2. the settings window, then the Character Generation submenu ----
+    // Since 2026-08-22 every Warden-facing setting lives behind one of three
+    // registerMenu submenus (settings-menus.js): the main window shows three
+    // buttons and no air-bladder rows, and the age formula is a row of the
+    // Character Generation app. Hints render beneath every row there — core's
+    // own formGroup layout — so the compact-row/tooltip split this probe used
+    // to hold went with the flat list.
+    const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
     const SC = foundry.applications?.settings?.SettingsConfig ?? globalThis.SettingsConfig;
-    const app = new SC();
-    await app.render(true);
+    const cfgApp = new SC();
+    await cfgApp.render(true);
     for (let i = 0; i < 25; i++) {
-      if (app.element instanceof HTMLElement) break;
-      await new Promise((res) => setTimeout(res, 200));
+      if (cfgApp.element instanceof HTMLElement) break;
+      await sleep(200);
     }
-    await new Promise((res) => setTimeout(res, 400));
-    const root = app.element instanceof HTMLElement ? app.element : app.element?.[0];
-    out.headerOrder = [...root.querySelectorAll("h3.cairn-settings-header")].map((h) => h.textContent.trim());
-    const groupOf = (key) => {
-      let el = root.querySelector(`[name="${NS}.${key}"]`)?.closest(".form-group");
-      while (el) {
-        if (el.previousElementSibling?.classList?.contains?.("cairn-settings-header"))
-          return el.previousElementSibling.textContent.trim();
-        el = el.previousElementSibling;
-      }
-      return null;
-    };
-    out.formulaGroup = groupOf("age-formula");
-    const input = root.querySelector(`[name="${NS}.age-formula"]`);
-    out.formulaInputType = input?.getAttribute("type") ?? input?.tagName?.toLowerCase() ?? null;
-    out.minAgeOnForm = !!root.querySelector(`[name="${NS}.min-age"]`);
-    out.maxAgeOnForm = !!root.querySelector(`[name="${NS}.max-age"]`);
+    await sleep(400);
+    const cfgRoot = cfgApp.element;
+    const mod = await import("/systems/air-bladder/module/settings.js");
+    out.declaredMenus = mod.SETTING_GROUPS.map((g) => g.id);
+    out.menuOrder = [...cfgRoot.querySelectorAll(`button[data-action="openSubmenu"][data-key^="${NS}."]`)]
+      .map((b) => b.dataset.key.slice(NS.length + 1));
+    out.minAgeOnForm = !!cfgRoot.querySelector(`[name="${NS}.min-age"]`);
+    out.maxAgeOnForm = !!cfgRoot.querySelector(`[name="${NS}.max-age"]`);
+    out.formulaOnFlatList = !!cfgRoot.querySelector(`[name="${NS}.age-formula"]`);
+    await cfgApp.close();
 
-    // Hint surfacing (2026-08-21): the compact rows had hidden EVERY hint
-    // since the first commit. Text settings now show theirs; compact rows
-    // carry theirs as a hover tooltip. Computed display is read off the hint
-    // element itself, so a hidden ancestor category cannot fake either state.
-    const rowOf = (key) => root.querySelector(`[name="${NS}.${key}"]`)?.closest(".form-group");
-    const ageRow = rowOf("age-formula");
-    out.ageCompact = !!ageRow?.classList.contains("cairn-setting-compact");
-    const ageHint = ageRow?.querySelector(".hint");
-    out.ageHintDisplay = ageHint ? getComputedStyle(ageHint).display : "missing";
-    out.ageHintText = ageHint?.textContent ?? "";
-    const folderHint = rowOf("custom-portrait-folder")?.querySelector(".hint");
-    out.folderHintDisplay = folderHint ? getComputedStyle(folderHint).display : "missing";
-    const reorderRow = rowOf("enable-inventory-reorder");
-    // data-tooltip-TEXT since review #17: the manager renders data-tooltip as
-    // cleaned HTML (its docstring says to use -text for plain strings,
-    // tooltip-manager.mjs:214-220), so a hint containing "<" truncated there.
-    // The old attribute is read too, to assert the swap left nothing behind.
-    out.compactTooltip = reorderRow?.dataset.tooltipText ?? "";
-    out.compactTooltipOldAttr = reorderRow?.dataset.tooltip ?? "";
-    out.compactHintExpected = game.i18n.localize(game.settings.settings.get(`${NS}.enable-inventory-reorder`)?.hint ?? "");
-    const reorderHint = reorderRow?.querySelector(".hint");
-    out.compactHintDisplay = reorderHint ? getComputedStyle(reorderHint).display : "missing";
-    await app.close();
+    const menu = game.settings.menus.get(`${NS}.generation`);
+    out.generationMenu = !!menu;
+    const app = menu ? new menu.type() : null;
+    if (app) { await app.render(true); await sleep(600); }
+    const root = app?.element;
+    const input = root?.querySelector(`[name="${NS}.age-formula"]`);
+    out.formulaInApp = !!input;
+    out.formulaInputType = input?.getAttribute("type") ?? input?.tagName?.toLowerCase() ?? null;
+    out.minAgeInApp = !!root?.querySelector(`[name="${NS}.min-age"]`);
+    out.maxAgeInApp = !!root?.querySelector(`[name="${NS}.max-age"]`);
+
+    // Hint surfacing: computed display is read off the hint element itself,
+    // so a hidden ancestor cannot fake the state (the lesson of 2026-08-21,
+    // when it turned out no air-bladder hint had EVER rendered).
+    const hintOf = (key) => root?.querySelector(`[name="${NS}.${key}"]`)?.closest(".form-group")?.querySelector(".hint");
+    const display = (el) => (el ? getComputedStyle(el).display : "missing");
+    out.ageHintDisplay = display(hintOf("age-formula"));
+    out.ageHintText = hintOf("age-formula")?.textContent ?? "";
+    out.folderHintDisplay = display(hintOf("custom-portrait-folder"));
+    // A CHECKBOX row too: the old compact rows hid theirs and carried the
+    // text as a hover tooltip instead. In the submenu every row shows its
+    // hint and nothing carries data-tooltip-text.
+    out.checkboxHintDisplay = display(hintOf("show-generation-rolls"));
+    out.checkboxHintText = hintOf("show-generation-rolls")?.textContent?.trim() ?? "";
+    out.checkboxHintExpected = game.i18n.localize(game.settings.settings.get(`${NS}.show-generation-rolls`)?.hint ?? "");
+    out.tooltipTextCount = root ? root.querySelectorAll("[data-tooltip-text]").length : -1;
+    if (app) await app.close();
 
     // Everything past here SETS the new setting; against a build without it,
     // game.settings.set throws and one absence would red every leg. Return
@@ -202,11 +206,13 @@ try {
     return out;
   }));
 
-  // 1. section order
-  const wanted = ["General Settings", "Character Generation", "Inventory & Encumbrance"];
-  JSON.stringify(r.headerOrder) === JSON.stringify(wanted)
-    ? ok(`settings sections in order: ${r.headerOrder.join(" → ")}`)
-    : fail(`section order is ${JSON.stringify(r.headerOrder)}, expected ${JSON.stringify(wanted)}`);
+  // 1. the submenu buttons, in declared order; the formula is behind one
+  JSON.stringify(r.menuOrder) === JSON.stringify(r.declaredMenus)
+    ? ok(`settings submenus in order: ${r.menuOrder.join(" → ")}`)
+    : fail(`submenu order is ${JSON.stringify(r.menuOrder)}, expected ${JSON.stringify(r.declaredMenus)}`);
+  !r.formulaOnFlatList
+    ? ok("the age formula is not a loose row on the main settings window (it lives in a submenu)")
+    : fail("age-formula renders on the flat list — it should be config:false behind the Generation submenu");
 
   // 2. one formula setting, two retired bounds
   r.hasAgeFormula
@@ -215,31 +221,30 @@ try {
   !r.hasMinAge && !r.hasMaxAge
     ? ok("min-age and max-age are RETIRED — neither is registered")
     : fail(`retired bounds still registered: min-age=${r.hasMinAge}, max-age=${r.hasMaxAge}`);
-  !r.minAgeOnForm && !r.maxAgeOnForm
-    ? ok("...and neither renders on the settings form")
-    : fail(`retired bounds still on the form: min-age=${r.minAgeOnForm}, max-age=${r.maxAgeOnForm}`);
+  !r.minAgeOnForm && !r.maxAgeOnForm && !r.minAgeInApp && !r.maxAgeInApp
+    ? ok("...and neither renders on the settings window nor in the Generation submenu")
+    : fail(`retired bounds still on a form: window min=${r.minAgeOnForm}/max=${r.maxAgeOnForm}, submenu min=${r.minAgeInApp}/max=${r.maxAgeInApp}`);
   r.formulaDefault === "2d20 + 10"
     ? ok("the default is RAW Cairn 2d20 + 10 (the 21 floor was an override, not the game)")
     : fail(`age-formula default is ${JSON.stringify(r.formulaDefault)}, expected "2d20 + 10"`);
-  r.formulaGroup === "Character Generation"
-    ? ok("the age-formula setting sits under Character Generation")
-    : fail(`age-formula group placement: ${r.formulaGroup}`);
+  r.generationMenu && r.formulaInApp
+    ? ok("the age-formula setting sits in the Character Generation submenu")
+    : fail(`age-formula placement: generation menu registered=${r.generationMenu}, formula rendered in it=${r.formulaInApp}`);
   r.formulaInputType === "text"
     ? ok("the formula is a text field")
     : fail(`age-formula field type is "${r.formulaInputType}", expected text`);
-  !r.ageCompact && r.ageHintDisplay !== "none" && r.ageHintDisplay !== "missing"
-    && r.ageHintText.includes("Dice Formulas")
+  r.ageHintDisplay !== "none" && r.ageHintDisplay !== "missing" && r.ageHintText.includes("Dice Formulas")
     ? ok("the Age formula row SHOWS its hint, naming the Dice Formulas guide")
-    : fail(`age hint: compact=${r.ageCompact}, display=${r.ageHintDisplay}, text=${JSON.stringify((r.ageHintText || "").slice(0, 60))}`);
+    : fail(`age hint: display=${r.ageHintDisplay}, text=${JSON.stringify((r.ageHintText || "").slice(0, 60))}`);
   r.folderHintDisplay !== "none" && r.folderHintDisplay !== "missing"
     ? ok("the portrait-folder row (the other text setting) shows its hint too")
     : fail(`folder hint display: ${r.folderHintDisplay}`);
-  r.compactTooltip && r.compactTooltip === r.compactHintExpected && r.compactHintDisplay === "none"
-    ? ok("a compact row hides its hint but carries it as a data-tooltip-text hover tooltip")
-    : fail(`compact row: tooltip-text=${JSON.stringify((r.compactTooltip || "").slice(0, 40))}, hint display=${r.compactHintDisplay}`);
-  !r.compactTooltipOldAttr
-    ? ok("...and the old data-tooltip (rendered as HTML — review #17) is gone")
-    : fail(`compact row still carries data-tooltip: ${JSON.stringify((r.compactTooltipOldAttr || "").slice(0, 40))}`);
+  r.checkboxHintDisplay !== "none" && r.checkboxHintDisplay !== "missing" && r.checkboxHintText === r.checkboxHintExpected
+    ? ok("a checkbox row shows its hint beneath too — every submenu row does; the compact-row tooltip split is gone")
+    : fail(`checkbox row hint: display=${r.checkboxHintDisplay}, text=${JSON.stringify((r.checkboxHintText || "").slice(0, 40))}`);
+  r.tooltipTextCount === 0
+    ? ok("...and nothing in the submenu carries data-tooltip-text any more")
+    : fail(`${r.tooltipTextCount} element(s) in the Generation submenu still carry data-tooltip-text`);
 
   // 3. the default's behavior
   r.defLow === 12

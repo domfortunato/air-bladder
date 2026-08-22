@@ -287,49 +287,42 @@ try {
     await game.settings.set(NS, "content-source-barebones", wasBB);
     await game.settings.set(NS, "barebones-failed-career", wasCareer);
 
-    // --- Settings sheet: grouped headers + compact rows.
+    // --- Settings window: one submenu button per group, no loose rows (2026-08-22).
     const cfg = new foundry.applications.settings.SettingsConfig();
     await cfg.render(true);
     await new Promise((res) => setTimeout(res, 900));
     const cfgEl = cfg.element;
-    out.settingHeaders = [...cfgEl.querySelectorAll(".cairn-settings-header")].map((h) => h.textContent);
-    out.compactRows = cfgEl.querySelectorAll(".cairn-setting-compact").length;
+    out.settingButtons = [...cfgEl.querySelectorAll(`button[data-action="openSubmenu"][data-key^="${NS}."]`)]
+      .map((b) => b.dataset.key.slice(NS.length + 1));
+    out.looseRows = [...cfgEl.querySelectorAll(`[name^="${NS}."]`)].map((i) => i.name.slice(NS.length + 1));
     out.settingsUnmapped = /Unmapped/i.test(cfgEl.textContent);
-
-    // Which group each setting ACTUALLY lands under. The headers are positional
-    // -- inserted before an anchor setting -- so a register() call in the wrong
-    // place silently files a setting under the wrong heading. Walk the rendered
-    // rows in order and attribute each to the last header seen.
-    out.grouped = {};
-    let current = null;
-    for (const el of cfgEl.querySelectorAll(".cairn-settings-header, .form-group")) {
-      if (el.classList.contains("cairn-settings-header")) { current = el.textContent; continue; }
-      const input = el.querySelector(`[name^="${NS}."]`);
-      if (!input || !current) continue;
-      (out.grouped[current] ??= []).push(input.name.slice(NS.length + 1));
-    }
-
-    // Every registered setting must be reachable on this tab -- a key that is
-    // registered but never rendered is invisible to a Warden.
-    const settings = await import("/systems/air-bladder/module/settings.js");
-    // Only settings registered with `config: true` appear on this tab. One is
-    // hidden by design (custom-portrait-list, an internal cache written by a GM
-    // scan), so comparing against the raw key list reads a deliberate omission as
-    // a missing setting.
-    // What each header SHOULD hold, from the one declaration of it. Localized
-    // here because this probe attributes rows by the rendered header TEXT, which
-    // is what a Warden reads; `SETTING_GROUPS` carries the i18n key.
-    out.expectedGroups = settings.SETTING_GROUPS.map((g) => ({
-      header: game.i18n.localize(g.title), keys: g.keys,
-    }));
-    out.declaredKeys = settings.SETTING_KEYS.filter(
-      (k) => game.settings.settings.get(`${NS}.${k}`)?.config
-    );
-    out.hiddenKeys = settings.SETTING_KEYS.filter(
-      (k) => game.settings.settings.has(`${NS}.${k}`) && !game.settings.settings.get(`${NS}.${k}`)?.config
-    );
-    out.renderedKeys = [...cfgEl.querySelectorAll(`[name^="${NS}."]`)].map((i) => i.name.slice(NS.length + 1));
     await cfg.close();
+
+    // Which group each setting ACTUALLY renders in: open every submenu app and
+    // read its rows in DOM order. The rendered truth, as opposed to
+    // dev:settings' read of the declaration and the registration Map.
+    const settings = await import("/systems/air-bladder/module/settings.js");
+    out.grouped = {};
+    out.expectedGroups = [];
+    for (const g of settings.SETTING_GROUPS) {
+      // Attributed by the rendered TITLE, which is what a Warden reads;
+      // `SETTING_GROUPS` carries the i18n key.
+      const header = game.i18n.localize(g.title);
+      out.expectedGroups.push({ id: g.id, header, keys: g.keys });
+      const menu = game.settings.menus.get(`${NS}.${g.id}`);
+      if (!menu) { out.grouped[header] = null; continue; }
+      const app = new menu.type();
+      await app.render(true);
+      await new Promise((res) => setTimeout(res, 600));
+      out.grouped[header] = [...app.element.querySelectorAll(`[name^="${NS}."]`)].map((i) => i.name.slice(NS.length + 1));
+      await app.close();
+    }
+    // Every grouped key must be reachable in SOME submenu — a key that is
+    // registered but never rendered is invisible to a Warden. The internal
+    // keys are hidden by design (caches and flags no settings UI shows).
+    out.declaredKeys = settings.SETTING_GROUPS.flatMap((g) => g.keys);
+    out.hiddenKeys = settings.INTERNAL_SETTING_KEYS;
+    out.renderedKeys = Object.values(out.grouped).flat().filter(Boolean);
 
     // Warden title: the GM role label is overridden, and the default account
     // renamed. Both are gated on use-warden-title.
@@ -354,6 +347,9 @@ try {
     // a re-registration in the WRONG group would fail two assertions instead of
     // one and neither would name the real problem.
     out.goldNotCostGone = !game.settings.settings.has(`${NS}.show-gold-not-cost`);
+    // And `enable-inventory-reorder` (2026-08-22, by ruling: drag-to-reorder
+    // is always on, not optional) — the sheet reads `sort` unconditionally now.
+    out.reorderSettingGone = !game.settings.settings.has(`${NS}.enable-inventory-reorder`);
     actor.prepareData();
     out.derivedOffByDefault = actor.system.showContainersTab === false;
     await actor.sheet.render(true);
@@ -473,27 +469,29 @@ try {
       : fail(`Barebones header sizes unequal or missing: ${JSON.stringify(r.bbHeaderSizes)}`);
   }
 
-  // Settings sheet.
-  r.settingHeaders?.length === 3
-    ? ok(`settings are grouped under 3 headers (${r.settingHeaders.join(" / ")})`)
-    : fail(`expected 3 settings group headers, got ${JSON.stringify(r.settingHeaders)}`);
-  r.compactRows === r.declaredKeys?.length
-    ? ok(`all ${r.compactRows} settings render as compact rows`)
-    : fail(`expected ${r.declaredKeys?.length} compact setting rows, got ${r.compactRows}`);
+  // Settings window.
+  r.settingButtons?.length === r.expectedGroups?.length && r.settingButtons?.length > 0
+    ? ok(`the settings window shows one submenu button per declared group (${r.settingButtons.join(" / ")})`)
+    : fail(`expected ${r.expectedGroups?.length} submenu buttons, got ${JSON.stringify(r.settingButtons)}`);
+  r.looseRows?.length === 0
+    ? ok("no air-bladder setting renders as a loose row on the flat list — all behind submenus (2026-08-22)")
+    : fail(`loose air-bladder rows on the main settings window: ${r.looseRows?.join(", ")}`);
   r.settingsUnmapped === false
     ? ok("no settings land in Foundry's \"Unmapped\" bucket")
     : fail("some settings are still Unmapped");
 
-  // Every registered key is reachable on the tab.
+  // Every grouped key is reachable in some submenu.
   const missingFromTab = (r.declaredKeys ?? []).filter((k) => !r.renderedKeys?.includes(k));
   missingFromTab.length === 0
-    ? ok(`every configurable setting (${r.declaredKeys.length}) is reachable on the Configure Settings tab`
-        + (r.hiddenKeys?.length ? ` (${r.hiddenKeys.length} hidden by design: ${r.hiddenKeys.join(", ")})` : ""))
-    : fail(`registered but not rendered: ${missingFromTab.join(", ")}`);
+    ? ok(`every grouped setting (${r.declaredKeys.length}) is reachable in a submenu`
+        + (r.hiddenKeys?.length ? ` (${r.hiddenKeys.length} internal by design: ${r.hiddenKeys.join(", ")})` : ""))
+    : fail(`declared but not rendered in any submenu: ${missingFromTab.join(", ")}`);
 
-  // Each setting under the RIGHT heading, not merely under some heading. Group
-  // headers are POSITIONAL — Foundry renders them in registration order — so this
-  // is the guard against a new setting silently landing under the wrong one.
+  // Each setting in the RIGHT submenu, in the declared order — read off the
+  // rendered apps. Until 2026-08-22 the grouping was POSITIONAL headers in the
+  // flat list and this leg walked rows attributing each to the header above it;
+  // the submenus made order a property of the declaration, and this now reads
+  // each app's rows directly.
   //
   // Brought back in step 2026-07-28: three settings had been added since these
   // lists were written, and the probe could not report it because it crashed on a
@@ -537,9 +535,12 @@ try {
     same ? ok(`"${header}" holds exactly its ${keys.length} settings, in order`)
          : fail(`"${header}" mis-grouped:\n        expected ${keys.join(", ")}\n        got      ${got.join(", ")}`);
   }
-  r.expectedGroups?.length === 3
-    ? ok("three groups were declared to check", r.expectedGroups.map((g) => g.header).join(" / "))
-    : fail("three groups were declared to check", `SETTING_GROUPS yielded ${r.expectedGroups?.length ?? 0} — the loop above may have checked nothing`);
+  // Four since 2026-08-22 (user ask): General, Character Generation, Inventory
+  // & Encumbrance, and GLOG & Other Hacks. A group added or removed is a ruling
+  // and updates this number, the way a settings count does.
+  r.expectedGroups?.length === 4
+    ? ok("four groups were declared to check", r.expectedGroups.map((g) => g.header).join(" / "))
+    : fail("four groups were declared to check", `SETTING_GROUPS yielded ${r.expectedGroups?.length ?? 0} — the loop above may have checked the wrong set`);
 
   // Warden title.
   r.wardenSetting === true
@@ -562,6 +563,9 @@ try {
   r.goldNotCostGone
     ? ok("show-gold-not-cost is no longer registered")
     : fail("show-gold-not-cost is registered again — it has no Cost box left to govern");
+  r.reorderSettingGone
+    ? ok("enable-inventory-reorder is no longer registered — drag-to-reorder is always on")
+    : fail("enable-inventory-reorder is registered again — reorder was ruled always-on (2026-08-22)");
   r.derivedOffByDefault
     ? ok("system.showContainersTab is false while the Connections UI is parked")
     : fail("the derived flag is true with the Connections UI parked — a gate is missing");

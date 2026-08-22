@@ -202,7 +202,8 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   corrected it, and its "N on master" parenthetical went stale a THIRD way by
   surviving two releases — a new pack's commit must carry this line, and so
   must the release that moves the master count)
-- 25 GM-visible settings in `module/settings.js` (34 `register` calls; `roles-restamped`,
+- 24 Warden-facing settings in `module/settings.js` (33 `register` calls + 3 `registerMenu`,
+  ALL `config: false` since 2026-08-22 — see the submenu paragraph below; `roles-restamped`,
   `companion-restamped`, `hireling-split`, `grimoire-keys-stamped`,
   `connections-migrated`, `art-migration-generation` (2026-08-21, review #17 —
   the art sweep's generation marker), `custom-portrait-list`,
@@ -226,20 +227,41 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   the journal entry breaks a pointer no gate checks. The Kettlewright
   importer's clamp on PARSED ages retired too, an imported age lands
   verbatim) —
-  **registration ORDER is load-bearing**, because Foundry's group headers are
-  positional — GATED since 2026-08-19 (review #16): `SETTING_GROUPS` in
-  `settings.js` declares the three groups, their anchors and every visible key
-  under each, `cairn.js` inserts the headers from it rather than from its own
-  copy, and `dev:settings` compares it against the live registration order
-  (`game.settings.settings` is a Map, so its key order IS that order).
-  **Hints render since 2026-08-21, and not before — EVER**: the compact-row
-  CSS (`cairn-setting-compact`, in since the first commit) hid every
-  air-bladder hint while the registrations and translators kept writing
-  them, which surfaced the day a hint was told to carry real instruction
-  (the Age formula's). Now TEXT settings (`cairn-setting-text` — Age
-  formula, portrait folder) show the hint beneath and every compact row
-  carries its localized hint as `data-tooltip`; `dev:age-override` holds
-  three legs on this split. Two went on
+  **Since 2026-08-22 the 24 live behind FOUR `registerMenu` SUBMENUS** (user
+  ruling, "one submenu per group" — General, Character Generation, Inventory
+  & Encumbrance, and GLOG & Other Hacks, the fourth asked for the same day to
+  hold the GLOG toggle and the Barebones failed career): every one is
+  registered `config: false`, the main Configure Settings window shows four
+  buttons under Air Bladder and no loose rows, and each button opens a small
+  ApplicationV2
+  (`module/settings-menus.js`, modelled on core's own `DiceConfig`) that
+  renders its group's rows with core's `formGroup` helper and saves the way
+  `SettingsConfig` does — `reloadConfirm` included. `SETTING_GROUPS` in
+  `settings.js` is the ONE declaration (id, title, hint, icon, keys, and the
+  per-group decorations: the Barebones sub-option disable — whose master
+  checkbox lives in ANOTHER app, so Hacks greys it from the STORED value at
+  render, not live — and the bolded product names), consumed by the menu
+  registration and by `dev:settings`,
+  `dev:ui-parity` and `dev:age-override`. Consequences: **registration ORDER
+  is no longer load-bearing** — until this it was, because the grouping was
+  positional `<h3>` headers inserted into the flat list, gated since review
+  #16 with its own order leg, and that whole apparatus (headers, a
+  MutationObserver following core's search, compact rows, hint tooltips)
+  went with it; the gate is MEMBERSHIP now (every Warden-facing key in
+  exactly one group, `INTERNAL_SETTING_KEYS` the only exemption). **Hints
+  render beneath every row that registers one**, natively — the compact-row
+  CSS had hidden every air-bladder hint from the first commit until
+  2026-08-21, when the Age formula's hint was the first to need reading; the
+  submenus end the tooltip workaround that bridged the day. And `hint` is
+  OPTIONAL: the same day, ten hints that merely restated their label were
+  dropped (user ruling) — a label that says it all needs no hint, and
+  `dev:settings` asserts hint-per-REGISTRATION, never hint-per-row. The
+  search trade-off is dissolved
+  rather than accepted: core's settings search matches `[data-searchable]`
+  text inside a row (category-browser.mjs:228-232), so the one remaining
+  `renderSettingsConfig` hook stamps each button row with its settings'
+  labels and hints, and typing a setting's name still surfaces its button —
+  probed with an in-page control that strips the index. Two went on
   2026-07-31, both because the thing they toggled stopped existing:
   `show-containers-tab` (the Connections tab was structural then — see the
   2026-08-09 parking below — and a display toggle that hides a graph which goes
@@ -258,6 +280,11 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   `show-features-section` (the whole Features UI went; the `features` schema
   field STAYS on both actor models so anything recorded survives invisibly, the
   orphaned-`description` precedent).
+  **And `enable-inventory-reorder` went on 2026-08-22** (user ruling:
+  drag-to-reorder "should not be optional and just be an always-on setting")
+  — it gated whether the sheet read each item's `sort` and honoured a
+  same-actor drop as a reorder; both are unconditional now, and `dev:ui-parity`
+  asserts it unregistered like its two predecessors.
   **`show-omens` (2026-08-17) is NOT that first removal coming back** — the
   lending setting offered 2e's Omen field TO Barebones; this one withdraws it
   from 2e, for a table that does not use the youngest-member rule. New key, so
@@ -295,10 +322,11 @@ keeps items — and a career/Background swap (die or picker) re-arranges the
 whole inventory too, or its replacement gear would append in career-list order
 with Rations on top. Four things that will bite:
 
-- **`sort` is only READ when `enable-inventory-reorder` is on** (the default).
-  With it off `_sortItemsForDisplay` sorts alphabetically and the arrangement is
-  invisible — correctly: a Warden who turned manual ordering off asked for an
-  automatic order.
+- **`sort` is ALWAYS read (since 2026-08-22).** It used to be read only while
+  `enable-inventory-reorder` was on — with it off `_sortItemsForDisplay` sorted
+  equipped-first alphabetical and the arrangement was invisible, correctly for
+  a Warden who had asked for an automatic order. That toggle was retired by
+  user ruling ("should not be optional"), so manual order is the only order.
 - **It is a one-time state, not a standing rule** (user ruling). A later
   acquisition APPENDS — `CairnItem.#appendSort` gives any sort-less item on an
   actor `max + DENSITY`. That is a fix in its own right, not just support:

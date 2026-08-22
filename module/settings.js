@@ -1,4 +1,5 @@
 import { Cairn } from "./config.js";
+import { registerSettingMenus } from "./settings-menus.js";
 
 /**
  * The namespace every game setting is registered under.
@@ -54,7 +55,7 @@ export const SETTING_KEYS = [
   "connections-ui-enabled",
   // Inventory & Encumbrance
   "max-equip-slots", "character-inventory-limit", "allow-player-marketplace",
-  "use-gold-threshold", "enable-inventory-reorder",
+  "use-gold-threshold",
 ];
 
 /**
@@ -114,67 +115,115 @@ const rerenderActorSheets = () => {
 };
 
 /**
- * The Configure Settings tab, as the Warden reads it: three groups, in order,
- * each naming the setting its header is inserted before and every VISIBLE key
- * that falls under it.
+ * Internal CONFIGURATION keys: in SETTING_KEYS because they must ride the
+ * namespace migration, but Warden-invisible by design — caches and flags no
+ * settings UI ever shows. Everything else in SETTING_KEYS is Warden-facing and
+ * must belong to exactly one group below, which `npm run dev:settings` gates:
+ * a setting in neither list is registered, migrated, and unreachable.
+ */
+export const INTERNAL_SETTING_KEYS = [
+  "custom-portrait-list", "disabled-backgrounds", "connections-ui-enabled",
+];
+
+/**
+ * The Warden's settings, as SUBMENUS (2026-08-22, user ruling: "one submenu
+ * per group" — four of them, once GLOG & Other Hacks was asked for the same
+ * day): the main Configure Settings window shows one button per group under
+ * Air Bladder and nothing else, and each opens a small application holding
+ * that group's rows — see `settings-menus.js`. Every key listed here is
+ * registered `config: false`, which is what keeps it off the flat list.
  *
- * Registration ORDER is meaningful here, not cosmetic. Foundry renders settings
- * in registration order and this system inserts an `<h3>` before each anchor
- * (cairn.js `renderSettingsConfig`), so everything between two anchors is what
- * lands under that heading. Move a `register()` call and the setting silently
- * moves into a different section — no error, and a Warden reading the tab is the
- * only detector there was until 2026-08-19 (review #16).
+ * This is the ONE declaration of the grouping. `settings-menus.js` registers
+ * a menu per entry and renders its `keys` in this order; `dev:settings`,
+ * `dev:ui-parity` and `dev:age-override` read it to assert membership and
+ * order on the rendered apps. Until 2026-08-22 the grouping was three
+ * positional `<h3>` headers inserted into the flat list (cairn.js
+ * `renderSettingsConfig`), which made REGISTRATION ORDER load-bearing — a
+ * moved `register()` call silently re-filed a setting under another heading,
+ * the order needed its own gate (review #16), and the compact rows that went
+ * with it hid every hint for a year. None of that is true any more: the order
+ * of `register()` calls below is readability only, and the order a Warden
+ * sees is `keys`.
  *
- * This list is what `npm run dev:settings` compares the LIVE registration order
- * against, so it is the declaration and the code is checked against it. It also
- * feeds the header insertion, which used to keep its own copy of the three
- * anchors in cairn.js — a second list of the same thing, in the file furthest
- * from the one that decides it.
- *
- * `config: false` settings are deliberately absent: they never render, so they
- * cannot disturb the positional grouping no matter where they sit, which is why
- * the markers and the parked-Connections flag are registered first.
+ * Per-group decorations are declared here too, so the app stays generic:
+ * `subOptions` greys rows out while a master checkbox is off, `boldPhrases`
+ * bolds a localized phrase inside a label.
  */
 export const SETTING_GROUPS = [
   {
-    anchor: "use-panic",
+    id: "general",
     title: "CAIRN.Settings.GroupGeneral",
+    hint: "CAIRN.Settings.GroupGeneralHint",
+    icon: "fa-solid fa-gears",
     keys: [
       "use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
       "show-grant-tags-print", "show-omens", "use-warden-title", "change-log",
-      "auto-record-scars", "enable-glog-magic",
+      "auto-record-scars",
     ],
   },
   {
-    anchor: "content-source-2e",
+    id: "generation",
     title: "CAIRN.Settings.GroupGeneration",
+    hint: "CAIRN.Settings.GroupGenerationHint",
+    icon: "fa-solid fa-user-plus",
     keys: [
       "content-source-2e", "content-source-custom", "content-source-barebones",
-      "barebones-failed-career", "show-generate-header", "allow-player-generate",
+      "show-generate-header", "allow-player-generate",
       "allow-player-randomization", "show-generation-rolls",
       "custom-portrait-folder", "age-formula",
     ],
+    // The phrase is the SOURCE AS THE LABEL NAMES IT, which is not always the
+    // source's own name: the two 2e labels distinguish canon from custom, and
+    // the qualifier is the point of the sentence — bolding "Cairn 2e" inside
+    // "Offer canon Cairn 2e backgrounds" emphasises the half the reader already
+    // knew (user ask, 2026-08-07). `CAIRN.ContentSource2e` cannot simply be
+    // widened: it is the source's name, reused by the generation picker and
+    // utils' SOURCE_KEYS, where "canon Cairn 2e" would read as a different
+    // edition. Hence a key of its own.
+    boldPhrases: {
+      "content-source-2e": "CAIRN.ContentSourceCanon2e",
+      "content-source-custom": "CAIRN.ContentSourceCustom",
+      "content-source-barebones": "CAIRN.ContentSourceBarebones",
+    },
   },
   {
-    anchor: "max-equip-slots",
+    id: "inventory",
     title: "CAIRN.Settings.GroupInventory",
+    hint: "CAIRN.Settings.GroupInventoryHint",
+    icon: "fa-solid fa-weight-hanging",
     keys: [
       "max-equip-slots", "character-inventory-limit", "allow-player-marketplace",
-      "use-gold-threshold", "enable-inventory-reorder",
+      "use-gold-threshold",
     ],
+  },
+  {
+    // The optional rule hacks, in a menu of their own (2026-08-22, user ask):
+    // the GLOG Magic conversion and the Knave-style failed career for Barebones
+    // characters, moved out of General and Character Generation respectively.
+    id: "hacks",
+    title: "CAIRN.Settings.GroupHacks",
+    hint: "CAIRN.Settings.GroupHacksHint",
+    icon: "fa-solid fa-flask",
+    keys: ["enable-glog-magic", "barebones-failed-career"],
+    // The failed career is meaningless unless Barebones sheets are offered —
+    // and that master checkbox lives in the Character Generation menu, not
+    // here, so this app greys the row from the STORED value at render instead
+    // of following a checkbox live (settings-menus.js handles both shapes).
+    // Down to one carrier: the omen/bond lending settings went 2026-08-09.
+    subOptions: { master: "content-source-barebones", keys: ["barebones-failed-career"] },
   },
 ];
 
 /**
- * Keep the three blocks below contiguous and in the order above — it is the
- * order they appear on the tab: General, then Character Generation, then
- * Inventory & Encumbrance.
+ * The registration blocks below are kept roughly in group order for the
+ * reader's sake only — General, then Character Generation, then Inventory &
+ * Encumbrance, with the two Hacks settings still sitting in the blocks they
+ * grew up in. Nothing positional depends on it (see SETTING_GROUPS).
  */
 export const registerSettings = () => {
   // Not a setting anyone sets: the completion marker for the role migration.
-  // `config: false` means it is never rendered, so it cannot disturb the positional
-  // grouping described above no matter where it sits — it is first only so the
-  // three visible blocks stay contiguous and easy to read.
+  // `config: false` and in no group, so no settings UI ever shows it — it is
+  // first only so the grouped blocks stay contiguous and easy to read.
   //
   // A marker rather than a state test, because `system.role` is a PICK-LIST. The
   // three sibling migrations get away with selecting on current state because their
@@ -314,9 +363,8 @@ export const registerSettings = () => {
   // ---- General -------------------------------------------------------------
   game.settings.register(SETTINGS_NS, "use-panic", {
     name: "CAIRN.Settings.UsePanic.label",
-    hint: "CAIRN.Settings.UsePanic.hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true,
     requiresReload: true,
@@ -324,9 +372,8 @@ export const registerSettings = () => {
 
   game.settings.register(SETTINGS_NS, "use-cairn-dice-notation", {
     name: "CAIRN.Settings.UseCairnDiceNotation.label",
-    hint: "CAIRN.Settings.UseCairnDiceNotation.hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true,
     requiresReload: true,
@@ -334,9 +381,8 @@ export const registerSettings = () => {
 
   game.settings.register(SETTINGS_NS, "use-item-icons", {
     name: "CAIRN.Settings.UseItemIcons.label",
-    hint: "CAIRN.Settings.UseItemIcons.hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true,
     requiresReload: true,
@@ -345,9 +391,8 @@ export const registerSettings = () => {
   // Show a "Background / Bond / Question" chip on items that generation granted.
   game.settings.register(SETTINGS_NS, "show-grant-tags", {
     name: "CAIRN.Settings.ShowGrantTags.label",
-    hint: "CAIRN.Settings.ShowGrantTags.hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true,
     requiresReload: true,
@@ -358,9 +403,8 @@ export const registerSettings = () => {
   // print reads the ungated grantLabelRaw at print time, so no reload.
   game.settings.register(SETTINGS_NS, "show-grant-tags-print", {
     name: "CAIRN.Settings.ShowGrantTagsPrint.label",
-    hint: "CAIRN.Settings.ShowGrantTagsPrint.hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true,
     requiresReload: false,
@@ -395,7 +439,7 @@ export const registerSettings = () => {
     name: "CAIRN.Settings.ShowOmens.label",
     hint: "CAIRN.Settings.ShowOmens.hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true,
     requiresReload: false,
@@ -427,7 +471,7 @@ export const registerSettings = () => {
     // that renames a User document.
     hint: "CAIRN.Settings.UseWardenTitle.hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true,
     requiresReload: true,
@@ -444,7 +488,7 @@ export const registerSettings = () => {
     name: "CAIRN.Settings.ChangeLog.label",
     hint: "CAIRN.Settings.ChangeLog.hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true,
     requiresReload: false,
@@ -462,7 +506,7 @@ export const registerSettings = () => {
     name: "CAIRN.Settings.AutoRecordScars.label",
     hint: "CAIRN.Settings.AutoRecordScars.hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: false,
     requiresReload: false,
@@ -482,7 +526,7 @@ export const registerSettings = () => {
     name: "CAIRN.Settings.EnableGlogMagic.label",
     hint: "CAIRN.Settings.EnableGlogMagic.hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: false,
     onChange: async (value) => {
@@ -542,7 +586,7 @@ export const registerSettings = () => {
     name: "CAIRN.Settings.ContentSource2e.label",
     hint: "CAIRN.Settings.ContentSource2e.hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true,
     requiresReload: false,
@@ -557,7 +601,7 @@ export const registerSettings = () => {
     name: "CAIRN.Settings.ContentSourceCustom.label",
     hint: "CAIRN.Settings.ContentSourceCustom.hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: false,
     requiresReload: false,
@@ -568,22 +612,25 @@ export const registerSettings = () => {
     name: "CAIRN.Settings.ContentSourceBarebones.label",
     hint: "CAIRN.Settings.ContentSourceBarebones.hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true,
     requiresReload: false,
     onChange: enforceSourceFloor,
   });
 
-  // A second background name as pure flavor -- the career that didn't work out.
-  // Grants nothing; it is a story hook, not a mechanic. The sheet reads it in
-  // _prepareContext (the header's failed-career block), so the fan below is
-  // what makes "read live" true for a sheet already open.
+  // A second background name -- the career that didn't work out -- plus ONE
+  // item drawn at random from that career's gear, made weightless and tagged
+  // `failed-career` (character-generator.js `failedCareerItemFromBg`). This
+  // comment said "grants nothing" until 2026-08-22, and the hint said the
+  // same; the code never did. The sheet reads the setting in _prepareContext
+  // (the header's failed-career block), so the fan below is what makes "read
+  // live" true for a sheet already open.
   game.settings.register(SETTINGS_NS, "barebones-failed-career", {
     name: "CAIRN.Settings.BarebonesFailedCareer.label",
     hint: "CAIRN.Settings.BarebonesFailedCareer.hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: false,
     requiresReload: false,
@@ -600,9 +647,8 @@ export const registerSettings = () => {
   // the three settings retired in 2026-07/08.
   game.settings.register(SETTINGS_NS, "show-generate-header", {
     name: "CAIRN.Settings.ShowGenerateHeader.label",
-    hint: "CAIRN.Settings.ShowGenerateHeader.hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true,
     requiresReload: true,
@@ -623,9 +669,8 @@ export const registerSettings = () => {
   // its DOM separately), so the sweep covers both.
   game.settings.register(SETTINGS_NS, "allow-player-generate", {
     name: "CAIRN.Settings.AllowPlayerGenerate.label",
-    hint: "CAIRN.Settings.AllowPlayerGenerate.hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true,
     requiresReload: false,
@@ -649,9 +694,8 @@ export const registerSettings = () => {
   // mid-session.
   game.settings.register(SETTINGS_NS, "allow-player-randomization", {
     name: "CAIRN.Settings.AllowPlayerRandomization.label",
-    hint: "CAIRN.Settings.AllowPlayerRandomization.hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true,
     requiresReload: false,
@@ -671,7 +715,7 @@ export const registerSettings = () => {
     name: "CAIRN.Settings.ShowGenerationRolls.label",
     hint: "CAIRN.Settings.ShowGenerationRolls.hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true,
     requiresReload: false,
@@ -687,7 +731,7 @@ export const registerSettings = () => {
     name: "CAIRN.Settings.CustomPortraitFolder.label",
     hint: "CAIRN.Settings.CustomPortraitFolder.hint",
     scope: "world",
-    config: true,
+    config: false,
     type: String,
     default: "air-bladder-portraits",
     requiresReload: false,
@@ -768,7 +812,7 @@ export const registerSettings = () => {
     name: "CAIRN.Settings.AgeFormula.label",
     hint: "CAIRN.Settings.AgeFormula.hint",
     scope: "world",
-    config: true,
+    config: false,
     type: String,
     default: Cairn.characterGenerator2e.biography.age,
     requiresReload: false,
@@ -777,9 +821,8 @@ export const registerSettings = () => {
   // ---- Inventory & Encumbrance ---------------------------------------------
   game.settings.register(SETTINGS_NS, "max-equip-slots", {
     name: "CAIRN.Settings.MaxEquipSlots.label",
-    hint: "CAIRN.Settings.MaxEquipSlots.hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Number,
     default: 10,
     requiresReload: true,
@@ -787,9 +830,8 @@ export const registerSettings = () => {
 
   game.settings.register(SETTINGS_NS, "character-inventory-limit", {
     name: "CAIRN.Settings.CharacterInventoryLimit.label",
-    hint: "CAIRN.Settings.CharacterInventoryLimit.hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: false,
     requiresReload: true,
@@ -808,7 +850,7 @@ export const registerSettings = () => {
     name: "CAIRN.Settings.AllowPlayerMarketplace.label",
     hint: "CAIRN.Settings.AllowPlayerMarketplace.hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true,
     requiresReload: false,
@@ -821,7 +863,7 @@ export const registerSettings = () => {
     name: "CAIRN.Settings.UseGoldThreshold.label",
     hint: "CAIRN.Settings.UseGoldThreshold.hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Number,
     default: 100,
     requiresReload: true,
@@ -842,15 +884,17 @@ export const registerSettings = () => {
      went with it, so every container actor is simply always listed. The
      grayscale-thumbnail rule survives — it never depended on this setting. */
 
-  // Drag-to-reorder inventory items. On by default; turning it off keeps the
-  // item list's automatic order (equipped first, then alphabetical, Fatigue last).
-  game.settings.register(SETTINGS_NS, "enable-inventory-reorder", {
-    name: "CAIRN.Settings.EnableInventoryReorder.label",
-    hint: "CAIRN.Settings.EnableInventoryReorder.hint",
-    scope: "world",
-    config: true,
-    type: Boolean,
-    default: true,
-    requiresReload: true,
-  });
+  /* `enable-inventory-reorder` was registered here and is GONE (2026-08-22, by
+     ruling: drag-to-reorder "should not be optional and just be an always-on
+     setting"). It gated whether the sheet READ each item's `sort` and honoured
+     a same-actor drop as a reorder; with it off the list fell back to
+     equipped-first alphabetical and a generated loadout's arrangement was
+     invisible. Both paths are unconditional now. A stored value may sit unread
+     in old worlds — harmless, like the other retired keys. `dev:ui-parity`
+     asserts it is not registered, so re-adding it fails a gate. */
+
+  // The submenu buttons, in group order — registered after every
+  // setting so each app finds its keys registered when it opens. These are
+  // the only air-bladder rows the main settings window shows.
+  registerSettingMenus(SETTINGS_NS, SETTING_GROUPS);
 };

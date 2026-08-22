@@ -2949,95 +2949,74 @@ ol.combat-tracker li.combatant.cairn-drop-below {
 }
 
 /******************************************************************************
- * Configure Settings tab: grouped, compact rows.                             *
+ * Configure Settings submenus (settings-menus.js).                           *
  ******************************************************************************/
 
-/* Section headers injected into the GM's Configure Settings tab (cairn.js
-   renderSettingsConfig) to group the system's settings. Uses currentColor so it
-   adapts to Foundry's light/dark themes. */
-.cairn-settings-header {
-    margin: 1.1em 0 0.4em;
-    padding-bottom: 0.2em;
-    border-bottom: 1px solid;
-    opacity: 0.75;
-    font-weight: 700;
-    font-size: 0.95em;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+/* The four submenu apps render core's own standard-form rows — label,
+   control, hint beneath — so they need almost nothing of ours. The positional
+   headers and compact rows that used to live here (cairn-settings-header,
+   cairn-setting-compact, cairn-setting-text; 2026-07 to 2026-08-22) went with
+   the flat-list grouping: the submenus made them obsolete, hidden hints and
+   hover tooltips included. */
+
+/* Core's standard-form row gives the label a narrow column and a 32px line
+   height (sized for core's two-word labels) and the control the wider one.
+   Ours are the other way round: the label is a self-describing sentence — it
+   was the whole description while the compact rows hid the hints, and the
+   translations carry the same length — and the control is a checkbox or a
+   short box. So the label takes the row, tight-leaded; the control sits at
+   the right at its natural width; the hint keeps core's own line beneath. */
+.ab-settings-menu .form-group > label {
+    flex: 1 1 auto;
+    line-height: 1.35;
+    font-weight: 600;
 }
 
-.cairn-settings-header:first-child {
-    margin-top: 0;
-}
-
-/* Every CHECKBOX/NUMBER setting renders as one compact row: the label carries
-   the whole description as plain (non-bold) body text on one line, the control
-   sits at the far right, and there is no hint beneath — the registered hint
-   rides the row as a hover tooltip instead (cairn.js sets data-tooltip-text,
-   2026-08-21; -text since review #17, because data-tooltip renders as HTML
-   and truncated a hint at its first `<`. Before any of that the hints were
-   written and shown NOWHERE). TEXT
-   settings are the exception (.cairn-setting-text below): they keep core's
-   layout and show the hint. Foundry splits each row 50/50 (label |
-   form-fields), which crushes a long label, so we give the label the full
-   width and take the control out of flow, pinned right. The .form-group
-   qualifier out-specifies core's `.form-group .form-fields`. */
-.cairn-setting-compact {
-    position: relative;
-    padding-right: 70px;      /* room for the pinned control (checkbox or number) */
-    min-height: 28px;
-    align-items: center;
-}
-
-/* A Barebones sub-option greyed out because Barebones sheets aren't offered. */
-.cairn-setting-compact.cairn-setting-disabled {
-    opacity: 0.45;
-}
-
-.cairn-setting-compact label {
-    font-weight: 400;
-    flex: 1 1 auto;           /* label takes the full row width */
-}
-
-.cairn-setting-compact label strong {
-    font-weight: 700;         /* re-bold specific phrases (e.g. source names) */
-}
-
-.form-group.cairn-setting-compact .form-fields {
-    position: absolute;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    flex: none;
+.ab-settings-menu .form-group > .form-fields {
+    flex: 0 0 auto;
     width: auto;
     min-width: 0;
-    justify-content: flex-end;
 }
 
-/* Number settings (equipment limit, coins per slot) keep a small fixed-width box
-   at the right instead of a checkbox. */
-.form-group.cairn-setting-compact .form-fields input[type="number"] {
-    width: 56px;
-    flex: 0 0 auto;
+.ab-settings-menu .form-group > .form-fields input[type="number"] {
+    width: 64px;
     text-align: center;
 }
 
-.cairn-setting-compact .hint {
-    display: none;
+.ab-settings-menu .form-group > .form-fields input[type="text"] {
+    width: 240px;
 }
 
-/* A TEXT setting (the Age formula, the custom portrait folder) is the
-   exception to the compact row: its value does not fit a pinned 70px box and
-   its hint is real instruction — formula recipes, folder rules — not a longer
-   restatement of the label. Core's own form-group layout stands; the label
-   goes bold so the row reads as a heading over its hint. */
-.cairn-setting-text label {
-    font-weight: 700;
+/* AppV2 clamps a height:auto window to the viewport, and its .window-content
+   is a flex column that gives its children no flex and no scrolling (see the
+   restore block at the top of this file) — so a ten-row group on a short
+   screen clipped its own Save footer. The rows part scrolls; the footer stays
+   put at the bottom of the window. */
+.ab-settings-menu .ab-settings-rows {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
 }
 
-.cairn-setting-text .hint {
-    color: var(--ab-muted);
-    font-size: 12px;
+/* A rule beneath every row but the last (user ask, 2026-08-22). With hints
+   rendering under some rows and not others, a nine-row group read as one run
+   of text — the rule is what tells a row's hint from the next row's label.
+   --ab-rule is the item-list row separator, which is what these rows are;
+   it resolves on the app element (.application carries the dark palette).
+   `dev:settings` reads the computed border off every row. */
+.ab-settings-menu .ab-settings-rows > .form-group {
+    padding-block: 6px 8px;
+    border-bottom: 1px solid var(--ab-rule);
+}
+
+.ab-settings-menu .ab-settings-rows > .form-group:last-child {
+    border-bottom: none;
+}
+
+/* A sub-option greyed out because its master toggle is off (the Barebones
+   failed-career row while Barebones sheets are not offered). */
+.ab-settings-menu .form-group.cairn-setting-disabled {
+    opacity: 0.45;
 }
 
 /******************************************************************************

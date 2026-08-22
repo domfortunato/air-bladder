@@ -2255,135 +2255,37 @@ Hooks.on("renderDialogV2", function abSpellscrollTypeOption(dialog, element) {
    — exactly as before. */
 
 /**
- * Group and compact the system's rows in the GM's Configure Settings tab.
+ * Make the three settings SUBMENU buttons searchable by what they hold.
  *
- * Foundry renders a flat list of every setting with a bold name and a hint
- * beneath, which for seventeen settings is a wall of text. Insert section
- * headers before the first setting of each group, then collapse every row to one
- * compact line (full-width plain label, control pinned right, hint hidden).
+ * Since 2026-08-22 every Warden-facing setting lives behind one of three
+ * `registerMenu` buttons (settings-menus.js) and the main window shows no
+ * air-bladder rows at all. Core's settings search matches a row's label and
+ * hint plus any `[data-searchable]` text inside it (category-browser.mjs:
+ * 228-232) — so a button row, knowing only its own name, would stop matching
+ * "gold" the moment the gold-threshold row moved behind it. Stamp each button
+ * row with a hidden span listing the localized labels and hints of the
+ * settings inside, and the search keeps surfacing the right button: core's own
+ * mechanism, no filter of ours. This is all that remains of the positional-
+ * header hook that lived here until 2026-08-22; the grouping itself is in
+ * settings-menus.js, and nothing here is load-bearing for it.
  */
 Hooks.on("renderSettingsConfig", (app, element) => {
   const root = element; // raw HTMLElement in v14, same as every render hook
   if (!root) return;
-  // The anchors come from settings.js, where the registration order they depend
-  // on is declared and gated. They used to be a second copy here, in the file
-  // furthest from the one that decides them.
-  for (const { anchor, title: titleKey } of SETTING_GROUPS) {
-    const group = root.querySelector(`[name="${SETTINGS_NS}.${anchor}"]`)?.closest(".form-group");
-    if (!group || group.previousElementSibling?.classList?.contains("cairn-settings-header")) continue;
-    const header = document.createElement("h3");
-    header.className = "cairn-settings-header";
-    header.textContent = game.i18n.localize(titleKey);
-    group.parentNode.insertBefore(header, group);
-  }
-
-  // Core's settings search (CategoryBrowser._onSearchFilter,
-  // category-browser.mjs:215-248) toggles `hidden` on .form-group elements and
-  // nothing else, so a query would leave these <h3>s hovering over whatever
-  // rows survived from OTHER groups (review #6). React to core's toggles
-  // instead of trying to hook its private filter: a header stays visible
-  // exactly while some .form-group between it and the next header still is.
-  // Hiding via the `hidden` property rides the same core rule the rows use
-  // ([hidden] { display: none !important }, foundry2.css:5698).
-  const headers = [...root.querySelectorAll(".cairn-settings-header")];
-  if (headers.length) {
-    const syncHeaders = () => {
-      for (const header of headers) {
-        let anyVisible = false;
-        for (let el = header.nextElementSibling; el && !el.classList.contains("cairn-settings-header"); el = el.nextElementSibling) {
-          if (el.classList.contains("form-group") && !el.hidden) { anyVisible = true; break; }
-        }
-        header.hidden = !anyVisible;
-      }
-    };
-    // The observer dies with the rendered DOM; setting `hidden` on the <h3>s
-    // re-fires it once, recomputes the same answer and settles.
-    const observer = new MutationObserver((mutations) => {
-      if (mutations.some((m) => m.target.classList?.contains("form-group"))) syncHeaders();
+  for (const group of SETTING_GROUPS) {
+    const button = root.querySelector(`button[data-action="openSubmenu"][data-key="${SETTINGS_NS}.${group.id}"]`);
+    const row = button?.closest(".form-group");
+    if (!row || row.querySelector("[data-searchable]")) continue;
+    const words = group.keys.flatMap((key) => {
+      const cfg = game.settings.settings.get(`${SETTINGS_NS}.${key}`);
+      return cfg ? [cfg.name, cfg.hint].filter(Boolean).map((k) => game.i18n.localize(k)) : [];
     });
-    for (const parent of new Set(headers.map((h) => h.parentNode))) {
-      observer.observe(parent, { subtree: true, attributeFilter: ["hidden"] });
-    }
+    const index = document.createElement("span");
+    index.dataset.searchable = "";
+    index.hidden = true;
+    index.textContent = words.join(" ");
+    row.append(index);
   }
-
-  root.querySelectorAll(`[name^="${SETTINGS_NS}."]`).forEach((input) => {
-    const group = input.closest(".form-group");
-    if (!group) return;
-    // A TEXT setting (the Age formula, the portrait folder) keeps core's
-    // stacked layout WITH its hint visible (2026-08-21, user report): real
-    // instruction does not fit a one-line label, and a formula box pinned
-    // into the compact row's 70px gutter was unusable anyway. Until this,
-    // NO air-bladder hint had ever rendered — the compact rule hid every
-    // one since the first commit while the registrations kept writing them.
-    if (input.matches('input[type="text"]')) {
-      group.classList.add("cairn-setting-text");
-      return;
-    }
-    group.classList.add("cairn-setting-compact");
-    // The compact row's label IS the description, but the longer registered
-    // hint now surfaces as a hover tooltip instead of being written and
-    // shown nowhere. `data-tooltip-text`, NOT `data-tooltip`: the manager
-    // renders data-tooltip as cleaned HTML and its own docstring says to use
-    // -text for plain strings (tooltip-manager.mjs:214-220) — a hint reading
-    // "d20 < 10" would truncate at the `<` (review #17). -text renders
-    // verbatim; it is still not auto-localized, so the localize stays.
-    const cfg = game.settings.settings.get(input.name);
-    if (cfg?.hint) group.dataset.tooltipText = game.i18n.localize(cfg.hint);
-  });
-
-  // Barebones sub-options are meaningless unless Barebones character sheets are
-  // offered, so grey them out (and disable them) while that master toggle is off.
-  // Down to one carrier: the omen/bond lending settings were removed 2026-08-09.
-  const barebonesSubKeys = ["barebones-failed-career"];
-  const barebonesToggle = root.querySelector(`[name="${SETTINGS_NS}.content-source-barebones"]`);
-  const syncBarebonesSubs = () => {
-    const on = !!barebonesToggle?.checked;
-    for (const key of barebonesSubKeys) {
-      const input = root.querySelector(`[name="${SETTINGS_NS}.${key}"]`);
-      if (!input) continue;
-      input.disabled = !on;
-      input.closest(".form-group")?.classList.toggle("cairn-setting-disabled", !on);
-    }
-  };
-  if (barebonesToggle) {
-    barebonesToggle.addEventListener("change", syncBarebonesSubs);
-    syncBarebonesSubs();
-  }
-
-  // Bold the source name within the three Character Generation labels (Foundry
-  // renders setting names as plain text, so we do it here with text nodes).
-  // The phrase is LOCALIZED, not an English literal (review #6): the label this
-  // searches is the translated setting name, so an English phrase only ever
-  // matched where a translator happened to keep the product name verbatim. A
-  // language whose label drops the phrase still degrades to no bold — the
-  // i < 0 guard below — never to a wrong one.
-  const boldPhrase = (key, phraseKey) => {
-    const label = root.querySelector(`[name="${SETTINGS_NS}.${key}"]`)?.closest(".form-group")?.querySelector("label");
-    if (!label) return;
-    const phrase = game.i18n.localize(phraseKey);
-    const text = label.textContent;
-    const i = text.indexOf(phrase);
-    if (i < 0) return;
-    const strong = document.createElement("strong");
-    strong.textContent = phrase;
-    label.replaceChildren(
-      document.createTextNode(text.slice(0, i)),
-      strong,
-      document.createTextNode(text.slice(i + phrase.length)),
-    );
-  };
-  // The phrase is the SOURCE AS THE LABEL NAMES IT, which is not always the
-  // source's own name. The two 2e labels distinguish canon from custom, and the
-  // qualifier is the whole point of the sentence — bolding "Cairn 2e" inside
-  // "Offer canon Cairn 2e backgrounds" emphasises the half the reader already
-  // knew (user ask, 2026-08-07).
-  //
-  // `CAIRN.ContentSource2e` cannot simply be widened: it is the source's name
-  // and is reused by the generation picker and utils' SOURCE_KEYS, where "canon
-  // Cairn 2e" would read as a different edition. Hence a key of its own.
-  boldPhrase("content-source-2e", "CAIRN.ContentSourceCanon2e");
-  boldPhrase("content-source-custom", "CAIRN.ContentSourceCustom");
-  boldPhrase("content-source-barebones", "CAIRN.ContentSourceBarebones");
 });
 
 Hooks.on("renderActorDirectory", (app, html) => {

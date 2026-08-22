@@ -11,6 +11,15 @@
  * Nothing else catches it. The settings still register, still read, still take
  * their defaults, and every other probe passes — the only symptom is a GM who
  * cannot configure anything.
+ *
+ * Since 2026-08-22 "reachable" means something more specific: every
+ * Warden-facing setting is registered `config: false` and lives behind one of
+ * `registerMenu` submenus (module/settings-menus.js; four since the GLOG &
+ * Other Hacks ruling), so the flat list shows one button per group and no
+ * air-bladder rows. A setting that is registered, in SETTING_KEYS and in no
+ * group is registered, migrated — and unreachable. The declaration is
+ * SETTING_GROUPS; this probe checks membership against it, then opens every
+ * app and reads what it actually renders.
  */
 import { chromium } from "playwright";
 import { VIEWPORT, joinAsGM, watchErrors } from "./lib.mjs";
@@ -41,15 +50,12 @@ try {
     const mod = await import("/systems/air-bladder/module/settings.js");
     out.declared = mod.SETTING_KEYS.length;
     out.missing = mod.SETTING_KEYS.filter((k) => !game.settings.settings.has(`${mod.SETTINGS_NS}.${k}`));
-    // `ns` above counts CONFIG-VISIBLE settings, so compare like with like: a
-    // setting registered with `config: false` is deliberately absent from the UI
-    // (custom-portrait-list is an internal cache) and must not read as misfiled.
-    out.declaredVisible = mod.SETTING_KEYS.filter(
+    // Since the submenus (2026-08-22) EVERY air-bladder setting is config:false —
+    // the grouped ones because their rows live in the apps, the internal ones
+    // because nothing shows them. So these two must both be zero: a key that
+    // reads config:true has escaped back onto the flat list.
+    out.flatVisible = mod.SETTING_KEYS.filter(
       (k) => game.settings.settings.get(`${mod.SETTINGS_NS}.${k}`)?.config
-    ).length;
-    out.hidden = mod.SETTING_KEYS.filter(
-      (k) => game.settings.settings.has(`${mod.SETTINGS_NS}.${k}`) &&
-        !game.settings.settings.get(`${mod.SETTINGS_NS}.${k}`)?.config
     );
     // The REVERSE walk (review #9): every registered air-bladder key must be
     // in SETTING_KEYS or be one of the named migration markers. The forward
@@ -78,23 +84,26 @@ try {
       .filter((k) => k.startsWith(`${mod.SETTINGS_NS}.`))
       .map((k) => k.slice(mod.SETTINGS_NS.length + 1))
       .filter((k) => !mod.SETTING_KEYS.includes(k) && !MARKERS.includes(k));
-    // REGISTRATION ORDER, which is the thing the group headers are built out of
-    // (review #16). `game.settings.settings` is a Map, so its key order IS the
-    // order register() was called in, and the headers this system injects are
-    // positional — everything between two anchors renders under that heading.
-    // Only CONFIG-VISIBLE settings are read: a `config: false` key never renders,
-    // so it cannot move anything, which is exactly why the markers and the parked
-    // Connections flag are registered first and are not in the group lists.
-    out.liveOrder = [...game.settings.settings.entries()]
-      .filter(([k, cfg]) => k.startsWith(`${mod.SETTINGS_NS}.`) && cfg.config)
-      .map(([k]) => k.slice(mod.SETTINGS_NS.length + 1));
-    out.groups = mod.SETTING_GROUPS.map((g) => ({ anchor: g.anchor, title: g.title, keys: g.keys }));
-    out.declaredOrder = mod.SETTING_GROUPS.flatMap((g) => g.keys);
-    // A visible key belonging to no group is the drift this cannot otherwise see:
-    // it would render under whichever header it happened to land after.
-    out.ungrouped = out.liveOrder.filter((k) => !out.declaredOrder.includes(k));
-    // ...and the other way, so a group cannot name a key that is gone or hidden.
-    out.groupPhantoms = out.declaredOrder.filter((k) => !out.liveOrder.includes(k));
+
+    // MEMBERSHIP against SETTING_GROUPS (2026-08-22). Until the submenus this
+    // was an ORDER gate (review #16): the grouping was positional headers in
+    // the flat list, so a moved register() call re-filed a setting silently.
+    // Order is not load-bearing any more — each app renders its group's keys
+    // in the declared order, wherever they were registered — so what can go
+    // wrong now is membership: a Warden-facing key in no group (registered,
+    // migrated, unreachable), a group naming a key that is not registered, a
+    // key in two groups, or an INTERNAL key that a group exposes.
+    out.menus = [...game.settings.menus.keys()].filter((k) => k.startsWith(`${mod.SETTINGS_NS}.`));
+    out.groups = mod.SETTING_GROUPS.map((g) => ({ id: g.id, title: g.title, keys: g.keys }));
+    out.expectedMenus = mod.SETTING_GROUPS.map((g) => `${mod.SETTINGS_NS}.${g.id}`);
+    out.grouped = mod.SETTING_GROUPS.flatMap((g) => g.keys);
+    out.duplicates = out.grouped.filter((k, i) => out.grouped.indexOf(k) !== i);
+    out.groupPhantoms = out.grouped.filter((k) => !game.settings.settings.has(`${mod.SETTINGS_NS}.${k}`));
+    out.internal = mod.INTERNAL_SETTING_KEYS;
+    out.ungrouped = mod.SETTING_KEYS.filter(
+      (k) => !out.grouped.includes(k) && !mod.INTERNAL_SETTING_KEYS.includes(k)
+    );
+    out.internalGrouped = mod.INTERNAL_SETTING_KEYS.filter((k) => out.grouped.includes(k));
 
     out.systemId = game.system.id;
     out.knownPackage = !!(game.system.id === "air-bladder");
@@ -121,55 +130,35 @@ try {
 
   const mine = r.namespaces["air-bladder"] ?? 0;
   const stale = r.namespaces["cairn"] ?? 0;
-  mine === r.declaredVisible && !r.missing.length
-    ? ok(`all ${r.declared} declared settings registered under "air-bladder" — Foundry can map them`
-        + (r.hidden.length ? ` (${r.hidden.length} hidden by design: ${r.hidden.join(", ")})` : ""))
-    : fail(`${mine} config-visible vs ${r.declaredVisible} expected${r.missing.length ? `; missing: ${r.missing.join(", ")}` : ""}`);
+  !r.missing.length
+    ? ok(`all ${r.declared} declared settings are registered under "air-bladder" — Foundry can map them`)
+    : fail(`declared settings missing from the registry: ${r.missing.join(", ")}`);
+  mine === 0 && !r.flatVisible.length
+    ? ok("no air-bladder setting is config-visible on the flat list — every one lives behind a submenu")
+    : fail(`${mine} air-bladder setting(s) still render as loose rows on the flat list: ${r.flatVisible.join(", ")}`);
   stale === 0 ? ok(`nothing left under the unmappable "cairn" namespace`)
               : fail(`${stale} setting(s) still under "cairn" — they render as Unmapped`);
   !r.unlisted.length
     ? ok("every registered key is in SETTING_KEYS (markers exempt) — the migration carries it")
     : fail(`registered but NOT in SETTING_KEYS (namespace migration would drop them): ${r.unlisted.join(", ")}`);
 
-  /* ---- registration ORDER, which decides what lands under each header ---- */
-  // Until 2026-08-19 nothing checked this at all: a `register()` call moved by
-  // one line silently re-files its setting under a different heading, and the
-  // only detector was a Warden reading the tab. The declaration is
-  // SETTING_GROUPS in settings.js; this is the code being checked against it.
+  /* ---- membership: SETTING_GROUPS is the declaration, the apps render it -- */
+  JSON.stringify(r.menus) === JSON.stringify(r.expectedMenus)
+    ? ok(`the ${r.groups.length} submenus are registered, in group order (${r.groups.map((g) => g.id).join(", ")})`)
+    : fail(`registered menus ${JSON.stringify(r.menus)}, expected ${JSON.stringify(r.expectedMenus)}`);
   !r.groupPhantoms.length
-    ? ok(`all ${r.declaredOrder.length} grouped keys are registered and visible`)
-    : fail(`SETTING_GROUPS names key(s) that are not registered as visible settings: ${r.groupPhantoms.join(", ")}`);
+    ? ok(`all ${r.grouped.length} grouped keys are registered settings`)
+    : fail(`SETTING_GROUPS names key(s) that are not registered: ${r.groupPhantoms.join(", ")}`);
+  !r.duplicates.length
+    ? ok("no key sits in two groups")
+    : fail(`key(s) declared in more than one group: ${[...new Set(r.duplicates)].join(", ")}`);
   !r.ungrouped.length
-    ? ok("every visible setting belongs to a declared group")
-    : fail("visible setting(s) in no group — each renders under whichever header it happens to follow: "
+    ? ok(`every Warden-facing setting belongs to a group (${r.internal.length} internal keys exempt: ${r.internal.join(", ")})`)
+    : fail("Warden-facing setting(s) in no group — registered, migrated, and unreachable from any settings UI: "
         + r.ungrouped.join(", "));
-
-  const sameOrder = JSON.stringify(r.liveOrder) === JSON.stringify(r.declaredOrder);
-  if (sameOrder) {
-    ok(`registration order matches SETTING_GROUPS across ${r.groups.length} groups`);
-  } else {
-    // Name the FIRST divergence rather than dumping both lists: the failure is
-    // almost always one moved call, and two 25-item arrays hide it.
-    let at = 0;
-    while (at < Math.max(r.liveOrder.length, r.declaredOrder.length)
-      && r.liveOrder[at] === r.declaredOrder[at]) at++;
-    const live = r.liveOrder[at];
-    const decl = r.declaredOrder[at];
-    const where = live === undefined ? `declared "${decl}" is registered somewhere else, or not at all`
-      : decl === undefined ? `registered "${live}" runs past the end of the declaration`
-      : `registered "${live}", declared "${decl}"`;
-    fail(`registration order diverges at position ${at}: ${where}`
-      + " — a moved register() call re-files a setting under a different header");
-  }
-
-  // The anchors specifically, because they are what the headers are inserted
-  // before: a group whose anchor is not its own first key puts its heading in
-  // the middle of the group above.
-  const badAnchors = r.groups.filter((g) => g.keys[0] !== g.anchor);
-  !badAnchors.length
-    ? ok(`each group's header anchors on its own first setting (${r.groups.map((g) => g.anchor).join(", ")})`)
-    : fail("group(s) whose anchor is not their first key, so the header lands mid-group: "
-        + badAnchors.map((g) => `${g.title} anchors "${g.anchor}", starts "${g.keys[0]}"`).join("; "));
+  !r.internalGrouped.length
+    ? ok("no internal key is exposed by a group")
+    : fail(`INTERNAL_SETTING_KEYS exposed in a submenu: ${r.internalGrouped.join(", ")}`);
 
   console.log(`  values now: ${JSON.stringify(r.sample)}`);
   console.log(`  stored (old cairn.*): ${r.storedOld.length} | stored (air-bladder.*): ${r.storedNew.length}`);
@@ -180,25 +169,31 @@ try {
   hasPlayer ? ok(`a player account exists: ${r.users.filter((u) => u.endsWith("(role 1)")).join(", ")}`)
             : fail("no player-role account in this world");
 
-  /* ---- rendered UI: the injected group headers follow core's search ------- */
-  // Core's settings search (CategoryBrowser._onSearchFilter) toggles `hidden`
-  // on .form-group elements ONLY, so the system's injected <h3> headers used to
-  // hover over whatever rows other packages' settings left visible (review #6).
-  // cairn.js now mirrors the filter onto the headers with a MutationObserver.
+  /* ---- the main settings window: a button per group, searchable by contents */
+  // Core's settings search matches a row's label and hint plus any
+  // [data-searchable] text inside it (category-browser.mjs:228-232). A submenu
+  // button knows only its own name, so cairn.js stamps each button row with a
+  // hidden span of the labels and hints of the settings inside — a Warden
+  // typing a setting's name still finds the button that holds it.
   const ui = await page.evaluate(async () => {
     const out = {};
     const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+    const mod = await import("/systems/air-bladder/module/settings.js");
+    const NS = mod.SETTINGS_NS;
     const app = new foundry.applications.settings.SettingsConfig();
     await app.render(true);
     await sleep(800);
     const root = app.element;
-    const headers = [...root.querySelectorAll(".cairn-settings-header")];
-    out.headerCount = headers.length;
+    const buttons = [...root.querySelectorAll(`button[data-action="openSubmenu"][data-key^="${NS}."]`)];
+    out.buttonKeys = buttons.map((b) => b.dataset.key);
+    out.looseRows = [...root.querySelectorAll(`[name^="${NS}."]`)].map((i) => i.name);
+    out.indexed = buttons.map((b) => !!b.closest(".form-group")?.querySelector("[data-searchable]"));
     const search = root.querySelector("input[type=search]");
     out.hasSearch = !!search;
-    if (!search || !headers.length) { await app.close(); return out; }
+    if (!search || !buttons.length) { await app.close(); return out; }
 
-    const rowOf = (key) => root.querySelector(`[name="air-bladder.${key}"]`)?.closest(".form-group");
+    const rowOf = (id) => root.querySelector(`button[data-key="${id}"]`)?.closest(".form-group");
+    const hiddenMap = () => Object.fromEntries(out.buttonKeys.map((k) => [k.slice(NS.length + 1), !!rowOf(k)?.hidden]));
     const q = (text) => {
       search.value = text;
       search.dispatchEvent(new Event("input", { bubbles: true }));
@@ -211,49 +206,246 @@ try {
       return test();
     };
 
-    out.initialVisible = headers.map((h) => !h.hidden);
-
-    // 1. A query matching nothing of ours hides every system row — and must
-    //    now hide every header with them.
+    // 1. A query matching nothing hides every button.
     q("zzqx-no-such-setting");
-    await settled(() => ["use-panic", "content-source-2e", "max-equip-slots"].every((k) => rowOf(k)?.hidden));
-    out.noMatch = {
-      rowsHidden: ["use-panic", "content-source-2e", "max-equip-slots"].map((k) => !!rowOf(k)?.hidden),
-      headersHidden: headers.map((h) => h.hidden),
-    };
+    await settled(() => out.buttonKeys.every((k) => rowOf(k)?.hidden));
+    out.noMatch = hiddenMap();
 
-    // 2. A query matching exactly one Inventory row keeps that group's header
-    //    and drops the other two. The query is the row's own full label, read
-    //    from the DOM, so a relabel cannot silently break the leg.
-    const goldLabel = rowOf("use-gold-threshold")?.querySelector("label")?.textContent?.trim() ?? "";
+    // 2. A setting's own LABEL — read from its registration, so a relabel
+    //    cannot silently break the leg — surfaces only the button holding it.
+    const goldLabel = game.i18n.localize(game.settings.settings.get(`${NS}.use-gold-threshold`).name);
     q(goldLabel);
-    await settled(() => rowOf("use-gold-threshold") && !rowOf("use-gold-threshold").hidden && rowOf("use-panic")?.hidden);
-    out.oneGroup = { label: goldLabel, headersHidden: headers.map((h) => h.hidden) };
+    await settled(() => rowOf(`${NS}.inventory`) && !rowOf(`${NS}.inventory`).hidden && rowOf(`${NS}.general`)?.hidden);
+    out.oneGroup = { label: goldLabel, hidden: hiddenMap() };
 
     // 3. Clearing the query brings everything back.
     q("");
-    await settled(() => !rowOf("use-panic")?.hidden && headers.every((h) => !h.hidden));
-    out.cleared = headers.map((h) => h.hidden);
+    await settled(() => out.buttonKeys.every((k) => !rowOf(k)?.hidden));
+    out.cleared = hiddenMap();
+
+    // CONTROL, in-page and DOM-only: strip the searchable index and the same
+    // label query hides every button — which is what the leg above would read
+    // on a build without the hook, so it is demonstrably load-bearing. The
+    // buttons are all VISIBLE going in (the clear above), so the hide is a
+    // real transition to wait on — a query whose end state is already true
+    // would let the close race core's debounced filter, which then dereferences
+    // the closed app's null element.
+    root.querySelectorAll("[data-searchable]").forEach((el) => el.remove());
+    q(goldLabel);
+    await settled(() => out.buttonKeys.every((k) => rowOf(k)?.hidden));
+    out.control = hiddenMap();
+    q("");
+    await settled(() => out.buttonKeys.every((k) => !rowOf(k)?.hidden));
 
     await app.close();
     return out;
   });
 
-  ui.headerCount === 3 && ui.hasSearch
-    ? ok("settings window renders 3 injected group headers")
-    : fail(`expected 3 headers + a search box, got ${ui.headerCount} (search: ${ui.hasSearch})`);
-  ui.noMatch?.rowsHidden.every(Boolean)
-    ? ok("precondition: core's filter hides the system's rows")
-    : fail(`core filter never hid the anchor rows: ${JSON.stringify(ui.noMatch?.rowsHidden)}`);
-  ui.noMatch?.headersHidden.every(Boolean)
-    ? ok("no-match query hides all three headers")
-    : fail(`headers float over a no-match search: ${JSON.stringify(ui.noMatch?.headersHidden)}`);
-  JSON.stringify(ui.oneGroup?.headersHidden) === JSON.stringify([true, true, false])
-    ? ok("one-group query keeps only that group's header", `"${ui.oneGroup.label}"`)
-    : fail(`expected [true,true,false] (only Inventory shown), got ${JSON.stringify(ui.oneGroup?.headersHidden)}`);
-  ui.cleared?.every((h) => h === false)
-    ? ok("clearing the search restores the headers")
-    : fail(`headers still hidden after clearing: ${JSON.stringify(ui.cleared)}`);
+  const ids = (r.groups ?? []).map((g) => g.id);
+  JSON.stringify(ui.buttonKeys) === JSON.stringify(r.expectedMenus) && ui.hasSearch
+    ? ok(`settings window renders the ${r.expectedMenus.length} submenu buttons in group order + a search box`)
+    : fail(`expected buttons ${JSON.stringify(r.expectedMenus)} + search, got ${JSON.stringify(ui.buttonKeys)} (search: ${ui.hasSearch})`);
+  ui.looseRows?.length === 0
+    ? ok("...and no loose air-bladder row beside them")
+    : fail(`loose air-bladder rows on the main window: ${ui.looseRows?.join(", ")}`);
+  ui.indexed?.every(Boolean)
+    ? ok("each button row carries a [data-searchable] index of its settings")
+    : fail(`button rows without a searchable index: ${JSON.stringify(ui.indexed)}`);
+  ui.noMatch && Object.values(ui.noMatch).every(Boolean)
+    ? ok("no-match query hides every button")
+    : fail(`buttons survive a no-match search: ${JSON.stringify(ui.noMatch)}`);
+  ui.oneGroup && ui.oneGroup.hidden.inventory === false && ids.filter((id) => id !== "inventory").every((id) => ui.oneGroup.hidden[id] === true)
+    ? ok(`a setting's own label surfaces only the button holding it — "${ui.oneGroup.label}" → Inventory`)
+    : fail(`expected only inventory visible for "${ui.oneGroup?.label}", got ${JSON.stringify(ui.oneGroup?.hidden)}`);
+  ui.cleared && Object.values(ui.cleared).every((h) => h === false)
+    ? ok("clearing the search restores the buttons")
+    : fail(`buttons still hidden after clearing: ${JSON.stringify(ui.cleared)}`);
+  ui.control && Object.values(ui.control).every(Boolean)
+    ? ok("control: without the searchable index the same label query hides every button")
+    : fail(`control failed — the leg is not load-bearing: ${JSON.stringify(ui.control)}`);
+
+  /* ---- every app: rows in declared order, hints per registration, nothing lost */
+  const apps = await page.evaluate(async () => {
+    const out = { groups: [] };
+    const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+    const mod = await import("/systems/air-bladder/module/settings.js");
+    const NS = mod.SETTINGS_NS;
+    for (const g of mod.SETTING_GROUPS) {
+      const menu = game.settings.menus.get(`${NS}.${g.id}`);
+      const rec = { id: g.id, registered: !!menu, keys: g.keys };
+      if (!menu) { out.groups.push(rec); continue; }
+      const app = new menu.type();
+      await app.render(true);
+      await sleep(600);
+      const root = app.element;
+      rec.title = app.title;
+      rec.rendered = [...root.querySelectorAll(`[name^="${NS}."]`)].map((i) => i.name.slice(NS.length + 1));
+      // Hint per REGISTRATION: a row whose setting registers a hint shows it
+      // beneath (computed display off the hint element itself, so a hidden
+      // ancestor cannot fake the state — the compact-row lesson); a row whose
+      // setting registers none shows none. `hint` is optional, and ten that
+      // merely restated their label were dropped 2026-08-22 (user ruling).
+      rec.hints = g.keys.map((k) => {
+        const hint = root.querySelector(`[name="${NS}.${k}"]`)?.closest(".form-group")?.querySelector(".hint");
+        const shown = !!hint && getComputedStyle(hint).display !== "none" && !!hint.textContent.trim();
+        const expected = !!game.settings.settings.get(`${NS}.${k}`)?.hint;
+        return { key: k, shown, expected };
+      });
+      rec.tooltipText = root.querySelectorAll("[data-tooltip-text]").length;
+      rec.hasSave = !!root.querySelector('button[type="submit"]');
+      // A rule beneath every row but the last (user ask, 2026-08-22): with
+      // hints under some rows and not others the group read as one run of
+      // text. Computed border width off each row, so a dropped CSS rule —
+      // or a token the app element cannot resolve — reads as 0.
+      rec.rules = [...root.querySelectorAll(".ab-settings-rows > .form-group")]
+        .map((fg) => parseFloat(getComputedStyle(fg).borderBottomWidth) > 0);
+      await app.close();
+      out.groups.push(rec);
+    }
+    return out;
+  });
+
+  for (const g of apps.groups) {
+    if (!g.registered) { fail(`submenu "${g.id}" is not registered — its ${g.keys.length} settings are unreachable`); continue; }
+    const same = JSON.stringify(g.rendered) === JSON.stringify(g.keys);
+    same ? ok(`"${g.title}" renders exactly its ${g.keys.length} settings, in declared order`)
+         : fail(`"${g.title}" rows:\n        expected ${g.keys.join(", ")}\n        got      ${g.rendered.join(", ")}`);
+    const wrongHints = g.hints.filter((h) => h.shown !== h.expected);
+    const withHint = g.hints.filter((h) => h.expected).length;
+    !wrongHints.length
+      ? ok(`...each "${g.title}" row shows its hint beneath exactly when one is registered (${withHint} of ${g.hints.length})`)
+      : fail(`"${g.title}" hint mismatch: ${wrongHints.map((h) => `${h.key} (shown ${h.shown}, registered ${h.expected})`).join(", ")}`);
+    g.tooltipText === 0 && g.hasSave
+      ? ok(`...no data-tooltip-text carriers, and a Save button`)
+      : fail(`"${g.title}": ${g.tooltipText} data-tooltip-text carrier(s), save button ${g.hasSave}`);
+    const ruled = g.rules.slice(0, -1).every(Boolean) && g.rules.at(-1) === false;
+    ruled && g.rules.length === g.keys.length
+      ? ok(`...a rule beneath every row but the last (${g.rules.length - 1} of ${g.rules.length})`)
+      : fail(`"${g.title}" row rules: ${JSON.stringify(g.rules)} (expected all true but the last)`);
+  }
+
+  /* ---- saving through the REAL form: set, close, reopen shows it, restore - */
+  // `show-grant-tags-print` is the one row whose save has no other effect: no
+  // onChange, no requiresReload (a reload prompt would block the probe). The
+  // restore goes through the same form, and is asserted — a world setting
+  // left flipped would change what the NEXT probe's characters print.
+  const save = await page.evaluate(async () => {
+    const out = {};
+    const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+    const mod = await import("/systems/air-bladder/module/settings.js");
+    const NS = mod.SETTINGS_NS;
+    const KEY = "show-grant-tags-print";
+    const before = game.settings.get(NS, KEY);
+    out.before = before;
+    const menu = game.settings.menus.get(`${NS}.general`);
+    const open = async () => {
+      const app = new menu.type();
+      await app.render(true);
+      await sleep(600);
+      return app;
+    };
+    try {
+      const app = await open();
+      const box = app.element.querySelector(`[name="${NS}.${KEY}"]`);
+      out.boxShowsBefore = box?.checked;
+      box.checked = !before;
+      box.dispatchEvent(new Event("change", { bubbles: true }));
+      app.element.requestSubmit();           // the app IS the <form> (tag: "form")
+      await sleep(1200);
+      out.after = game.settings.get(NS, KEY);
+      out.closedOnSubmit = !app.rendered;
+      const app2 = await open();
+      const box2 = app2.element.querySelector(`[name="${NS}.${KEY}"]`);
+      out.reopenedShows = box2?.checked;
+      box2.checked = before;
+      box2.dispatchEvent(new Event("change", { bubbles: true }));
+      app2.element.requestSubmit();
+      await sleep(1200);
+      out.restored = game.settings.get(NS, KEY);
+    } finally {
+      if (game.settings.get(NS, KEY) !== before) await game.settings.set(NS, KEY, before);
+      out.finalValue = game.settings.get(NS, KEY);
+    }
+    return out;
+  });
+
+  save.boxShowsBefore === save.before
+    ? ok(`the General submenu shows the stored value (show-grant-tags-print = ${save.before})`)
+    : fail(`the row shows ${save.boxShowsBefore}, the setting reads ${save.before}`);
+  save.after === !save.before && save.closedOnSubmit
+    ? ok("Save through the real form writes the setting and closes the app")
+    : fail(`after save: setting ${save.after} (expected ${!save.before}), closed ${save.closedOnSubmit}`);
+  save.reopenedShows === !save.before
+    ? ok("reopening shows the saved value")
+    : fail(`reopened row shows ${save.reopenedShows}, expected ${!save.before}`);
+  save.restored === save.before && save.finalValue === save.before
+    ? ok("restored through the same form, and asserted")
+    : fail(`restore failed: via form ${save.restored}, final ${save.finalValue}, expected ${save.before}`);
+
+  /* ---- the Barebones sub-option greys from its master's STORED value ----- */
+  // The failed-career row lives in GLOG & Other Hacks while its master
+  // checkbox ("Offer Barebones sheets") is Character Generation's, so the
+  // Hacks app decides from the stored value at render. Both states are
+  // exercised by SHADOWING the read in-page — never a world write — with the
+  // wrapper lifted in a finally and asserted lifted.
+  const subs = await page.evaluate(async () => {
+    const out = {};
+    const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+    const mod = await import("/systems/air-bladder/module/settings.js");
+    const NS = mod.SETTINGS_NS;
+    const MASTER = "content-source-barebones";
+    const stored = game.settings.get(NS, MASTER);
+    const menu = game.settings.menus.get(`${NS}.hacks`);
+    const origGet = game.settings.get;
+    const renderWith = async (forced) => {
+      game.settings.get = function (ns, key, ...rest) {
+        if (ns === NS && key === MASTER) return forced;
+        return origGet.call(this, ns, key, ...rest);
+      };
+      try {
+        const app = new menu.type();
+        await app.render(true);
+        await sleep(600);
+        const sub = app.element.querySelector(`[name="${NS}.barebones-failed-career"]`);
+        const state = {
+          masterInApp: !!app.element.querySelector(`[name="${NS}.${MASTER}"]`),
+          subPresent: !!sub,
+          disabled: !!sub?.disabled,
+          greyed: !!sub?.closest(".form-group")?.classList.contains("cairn-setting-disabled"),
+          // The hint must NAME the master it follows, by the master's own
+          // label (user ask, 2026-08-22): the row greys out with no word of
+          // why, and the checkbox that un-greys it is in another app.
+          hint: sub?.closest(".form-group")?.querySelector(".hint")?.textContent ?? "",
+          masterLabel: game.i18n.localize(game.settings.settings.get(`${NS}.${MASTER}`).name),
+        };
+        await app.close();                // nothing submitted
+        return state;
+      } finally {
+        game.settings.get = origGet;
+      }
+    };
+    out.on = await renderWith(true);
+    out.off = await renderWith(false);
+    out.shadowLifted = game.settings.get === origGet;
+    out.untouched = game.settings.get(NS, MASTER) === stored;
+    return out;
+  });
+
+  subs.on?.subPresent && !subs.on.masterInApp
+    ? ok("the Barebones failed-career row lives in GLOG & Other Hacks, its master checkbox elsewhere")
+    : fail(`failed-career row present=${subs.on?.subPresent}, master in the Hacks app=${subs.on?.masterInApp}`);
+  subs.on && !subs.on.disabled && !subs.on.greyed
+    ? ok("with Barebones sheets offered (stored value, read-shadowed) the row is live")
+    : fail(`master on: disabled=${subs.on?.disabled}, greyed=${subs.on?.greyed}`);
+  subs.off?.disabled && subs.off?.greyed
+    ? ok("with Barebones sheets NOT offered the row is disabled and greyed")
+    : fail(`master off: disabled=${subs.off?.disabled}, greyed=${subs.off?.greyed}`);
+  subs.shadowLifted && subs.untouched
+    ? ok("...the read shadow is lifted and nothing was written")
+    : fail(`shadow lifted=${subs.shadowLifted}, setting untouched=${subs.untouched}`);
+  subs.on?.masterLabel && subs.on.hint.includes(subs.on.masterLabel)
+    ? ok(`the failed-career hint names its master by label — "${subs.on.masterLabel}"`)
+    : fail(`the failed-career hint does not name "${subs.on?.masterLabel}": "${subs.on?.hint}"`);
 
   /* ---- boldPhrase bolds the LOCALIZED product name ------------------------ */
   // The phrase used to be an English literal, so any language whose label
@@ -262,7 +454,8 @@ try {
   // sentinel label + sentinel phrase translation — an English world cannot see
   // this defect otherwise (foundry-localization-internals) — and expect the
   // <strong> to land on the sentinel phrase. All page-local, restored in-page;
-  // a fresh probe launches a fresh browser either way.
+  // a fresh probe launches a fresh browser either way. The rows live in the
+  // Character Generation submenu since 2026-08-22, so that is what renders.
   const bold = await page.evaluate(async () => {
     const out = {};
     const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
@@ -272,7 +465,7 @@ try {
     try {
       cfg.name = "Sentinel offering ZZQX custom sheets";
       foundry.utils.setProperty(game.i18n.translations, "CAIRN.ContentSourceCustom", "ZZQX custom");
-      const app = new foundry.applications.settings.SettingsConfig();
+      const app = new (game.settings.menus.get("air-bladder.generation").type)();
       await app.render(true);
       await sleep(800);
       const label = app.element.querySelector('[name="air-bladder.content-source-custom"]')
@@ -306,10 +499,10 @@ try {
   //
   // This is the same lesson the omen round paid for: a probe that plants a
   // consistent state tests the renderer, not the product. So: no stubs, no
-  // sentinels — open the real settings window and read the real labels.
+  // sentinels — open the real submenu and read the real labels.
   const real = await page.evaluate(async () => {
     const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
-    const app = new foundry.applications.settings.SettingsConfig();
+    const app = new (game.settings.menus.get("air-bladder.generation").type)();
     await app.render(true);
     await sleep(800);
     const read = (key, phraseKey) => {

@@ -18,7 +18,7 @@ wired, are recorded in [custom-portrait-gallery.md](custom-portrait-gallery.md).
 
 ## Setting the folder
 
-**Settings → Configure Settings → Air Bladder → Character Generation →
+**Settings → Configure Settings → Air Bladder → Character Generation → Configure →
 Custom character portrait folder.**
 
 It is already filled in with `air-bladder-portraits`, and that folder is

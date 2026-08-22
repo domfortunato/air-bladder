@@ -2454,10 +2454,12 @@ export const promptBackground = async (source, currentUuid = null) => {
 };
 
 /**
- * Pick a failed career: a second Barebones background NAME, flavour only.
+ * Pick a failed career: a second Barebones background NAME. The caller stores it
+ * and swaps the one keepsake item (`failedCareerItemFromBg` below); this returns
+ * only the name.
  *
  * Deliberately not `promptBackground`. That returns a document and swaps a real
- * background, gear and all; this stores a bare string and grants nothing. Sharing
+ * background, gear and all; this returns a bare string and swaps nothing. Sharing
  * one function would mean one of the two callers passing a flag saying "but don't
  * actually do the thing", which is how the system this descends from ended up with
  * four near-identical background swappers.
@@ -2515,7 +2517,8 @@ export const promptFailedCareer = async (currentName = null) => {
 /**
  * A random Barebones background name for the failed-career field, avoiding
  * `exclude` (normally the character's real background, mirroring generation).
- * Flavour only — grants nothing. Empty string if the pack is empty.
+ * Returns the name only; the keepsake item is the caller's to grant
+ * (`buildFailedCareerItem`). Empty string if the pack is empty.
  * @param {String} [exclude]
  * @returns {Promise<String>}
  */

@@ -651,7 +651,6 @@
       "label": "Age formula for generated characters"
     },
     "AllowPlayerGenerate": {
-      "hint": "Offer players the Generate PC button in the Actors sidebar. Turn off to hide it from every player mid-session — the shipped 'Toggle Player Generate PC' macro flips this. The Warden's own button never hides.",
       "label": "Let players generate characters"
     },
     "AllowPlayerMarketplace": {
@@ -659,7 +658,6 @@
       "label": "Let players buy and take from the marketplace"
     },
     "AllowPlayerRandomization": {
-      "hint": "Offer players the Randomization toggle on sheets they own, with the Roll button and every re-roll die behind it. Turn off to hide the whole randomization surface from every player mid-session — the shipped 'Toggle Player Randomization' macro flips this. The Warden keeps everything.",
       "label": "Let players use Randomization on their sheets"
     },
     "AutoRecordScars": {
@@ -667,7 +665,7 @@
       "label": "Automatically record scars on player character sheets"
     },
     "BarebonesFailedCareer": {
-      "hint": "Give Barebones characters a second background name as flavour — the career that didn't work out. Grants no items and no mechanics.",
+      "hint": "Give Barebones characters a second background name as flavour — the career that didn't work out — plus one item drawn at random from that career's gear, carried weightless as a keepsake. Only available while 'Offer Cairn Barebones character sheets' is on under Character Generation; the row is greyed out otherwise.",
       "label": "Give Barebones Characters a failed career (like Knave 2e)"
     },
     "ChangeLog": {
@@ -675,7 +673,6 @@
       "label": "Log manual changes to chat"
     },
     "CharacterInventoryLimit": {
-      "hint": "Equipment limit is defined per character instead of global value.",
       "label": "Set the equipment limit per-character instead of globally"
     },
     "ContentSource2e": {
@@ -698,19 +695,19 @@
       "hint": "The official Cairn GLOG Magic hack. Turning this ON converts the whole world: every canon spellbook anywhere becomes a single-use spellscroll carrying the GLOG wording of its spell, and generation hands out only GLOG and custom spells. Turning it off does NOT convert anything back.",
       "label": "Use GLOG Magic (converts all spellbooks!)"
     },
-    "EnableInventoryReorder": {
-      "hint": "When on, a player may drag an inventory row to reposition it; the manual order is kept.",
-      "label": "Let players drag inventory to reorder them"
-    },
     "GroupGeneral": "General Settings",
+    "GroupGeneralHint": "Panic, dice notation, item icons, grant tags, omens, the Warden title, the change log and scars.",
     "GroupGeneration": "Character Generation",
+    "GroupGenerationHint": "Which content sources are offered, what players may generate or randomize, the portrait folder and the age formula.",
+    "GroupHacks": "GLOG & Other Hacks",
+    "GroupHacksHint": "Optional rule hacks: GLOG Magic, and a Knave-style failed career for Barebones characters.",
     "GroupInventory": "Inventory & Encumbrance",
+    "GroupInventoryHint": "Slot limit, the inventory cap, the marketplace and the coins-per-slot threshold.",
     "MaxEquipSlots": {
-      "hint": "Maximum equipment slots for player characters, used for encumbrance tracking.",
       "label": "Maximum inventory slots per character"
     },
+    "MenuConfigure": "Configure",
     "ShowGenerateHeader": {
-      "hint": "Show 'Regenerate' button at character sheet header",
       "label": "Show a Roll Character button on the character sheet header"
     },
     "ShowGenerationRolls": {
@@ -718,11 +715,9 @@
       "label": "Show character generation dice rolls in chat"
     },
     "ShowGrantTags": {
-      "hint": "Show a Background / Bond / Question chip on items that character generation granted.",
       "label": "Show grant-source tags (Background / Bond / Question) on inventory"
     },
     "ShowGrantTagsPrint": {
-      "hint": "Print each granted item's Background / Bond / Question tag beside it, in italics and brackets.",
       "label": "Show grant-source tags on printed sheets"
     },
     "ShowOmens": {
@@ -730,7 +725,6 @@
       "label": "Show omens on character sheets"
     },
     "UseCairnDiceNotation": {
-      "hint": "Interpret Cairn dice notation like 'd6+d6' as described in the rules.",
       "label": "Use Cairn dice notation: 'd6+d6' as keep highest"
     },
     "UseGoldThreshold": {
@@ -738,11 +732,9 @@
       "label": "Gold that fills one inventory slot (0 = weightless)"
     },
     "UseItemIcons": {
-      "hint": "Show icons for some items in inventory to quickly recognize the type.",
       "label": "Show Item type icons (weapon, armor, fatigue) beside inventory"
     },
     "UsePanic": {
-      "hint": "Use 2e panic condition for player characters.",
       "label": "Use the 2e \"Panicked\" condition for all player characters"
     },
     "UseWardenTitle": {

@@ -155,10 +155,11 @@ export class CairnItem extends Item {
    * `sort` being 0 IS the discriminator. An item deliberately created at 0 is
    * indistinguishable from one that stated nothing, and appending it is harmless.
    *
-   * Ungated by `enable-inventory-reorder`: that setting decides whether the
-   * sheet READS `sort`, and writing a meaningful one into a world that currently
-   * ignores it costs nothing while meaning the order is already right the day a
-   * Warden turns it on.
+   * Ungated by any setting. It used to be "ungated by `enable-inventory-reorder`"
+   * — that toggle decided whether the sheet READ `sort`, and writing a
+   * meaningful one into a world that ignored it cost nothing. The toggle was
+   * retired 2026-08-22 (manual order is always on), so the sheet always reads
+   * what this writes.
    *
    * Actors only — a world or compendium item has no actor parent, and the
    * sidebar does its own ordering.

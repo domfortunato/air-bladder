@@ -87,7 +87,7 @@ También hay Personajes Jugadores pregenerados disponibles en la <a href="https:
 
 <img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/game-settings.png" alt="La configuración de juego del Guardián" width="480">
 
-*La configuración de juego del Guardián, agrupada por secciones — mostrada aquí en modo oscuro.*
+*La configuración de juego del Guardián — cuatro submenús, uno abierto — mostrada aquí en modo oscuro.*
 
 ## Estado
 

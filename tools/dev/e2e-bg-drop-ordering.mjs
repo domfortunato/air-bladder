@@ -54,15 +54,14 @@ const gmErrors = watchErrors(gm);
 await joinAsGM(gm);
 await dismissChrome(gm);
 
-/** Put the two settings back whatever happens; the world is the user's dev world. */
+/** Clean up whatever happens; the world is the user's dev world. */
 let saved = null;
 let aliceErrors = [];
 const restore = async () => {
   if (!saved) return;
-  await gm.evaluate(async (s) => {
+  await gm.evaluate(async () => {
     for (const a of game.actors.filter((a) => a.name?.startsWith("ZZ BGOrder"))) await a.delete();
-    await game.settings.set("air-bladder", "enable-inventory-reorder", s.reorder);
-  }, saved).catch((e) => fail(`could not restore world state: ${e.message}`));
+  }).catch((e) => fail(`could not restore world state: ${e.message}`));
 };
 
 try {
@@ -79,9 +78,9 @@ try {
 
     const out = {
       aliceId: alice.id,
-      saved: {
-        reorder: game.settings.get(NS, "enable-inventory-reorder"),
-      },
+      // Nothing to save any more: `sort` is always read since 2026-08-22 (the
+      // drag-to-reorder toggle retired), so no setting is flipped here.
+      saved: {},
       // The sentence a refused background swap must show, and the one it must NOT.
       // They are different keys because they refuse different operations: the
       // regenerate wording ends "ask them to re-roll it for you", which on a
@@ -263,7 +262,6 @@ try {
 
   const reorderDrop = (control) => gm.evaluate(async ({ control }) => {
     const NS = "air-bladder";
-    await game.settings.set(NS, "enable-inventory-reorder", true);
     const name = `ZZ BGOrder Reorder${control ? " Control" : ""}`;
     for (const a of game.actors.filter((a) => a.name === name)) await a.delete();
 

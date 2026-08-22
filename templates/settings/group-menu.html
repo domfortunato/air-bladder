@@ -1,0 +1,10 @@
+{{!-- One Configure Settings submenu: the rows of one SETTING_GROUPS group,
+     rendered with core's own formGroup helper so they look exactly like the
+     rows the main settings window draws — label, control, hint beneath.
+     One wrapper element, because a non-root Handlebars part must render a
+     single top-level element (HandlebarsApplicationMixin). --}}
+<div class="ab-settings-rows">
+{{#each entries as |entry|}}
+{{formGroup entry.field value=entry.value input=entry.input rootId=@root.rootId localize=true}}
+{{/each}}
+</div>

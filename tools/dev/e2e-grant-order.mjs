@@ -118,13 +118,12 @@ const restore = async () => {
       // A grant can connect a container Actor of its own, and that does not go
       // with its keeper.
       for (const a of game.actors.filter((a) => a.name?.startsWith("ZZ GrantOrder"))) await a.delete();
-      if (s) await game.settings.set("air-bladder", "enable-inventory-reorder", s.reorder);
       return game.actors.filter((a) => ids.includes(a.id) || a.name?.startsWith("ZZ GrantOrder")).length;
     }, { ids: made, s: saved });
     // ASSERT the restore rather than assume it: a delete that silently failed
     // leaves this probe's litter in the user's dev world.
     if (left) fail(`restore left ${left} probe actor(s) in the world`);
-    else if (made.length) ok(`restored: ${made.length} actor(s) removed, settings put back`);
+    else if (made.length) ok(`restored: ${made.length} actor(s) removed`);
   } catch (e) {
     fail(`could not restore world state: ${e.message}`);
   }
@@ -138,13 +137,11 @@ try {
     // A stale actor from an aborted run would satisfy preconditions this run
     // never established.
     for (const a of game.actors.filter((a) => a.name?.startsWith("ZZ GrantOrder"))) await a.delete();
-    const out = { saved: { reorder: game.settings.get(NS, "enable-inventory-reorder") } };
-    // ESTABLISH it. `sort` is read only when drag-to-reorder is on; with it off
-    // the sheet sorts alphabetically and every assertion below would be about
-    // the alphabet. It is on by default, so this is usually a no-op — but "the
-    // default says so" is not the same as having checked.
-    await game.settings.set(NS, "enable-inventory-reorder", true);
-    out.reorderNow = game.settings.get(NS, "enable-inventory-reorder");
+    // `sort` is ALWAYS read since 2026-08-22 — the drag-to-reorder toggle this
+    // probe used to ESTABLISH (and restore) is retired, so there is no setting
+    // whose off state could turn every assertion below into one about the
+    // alphabet. Nothing to save.
+    const out = { saved: {} };
 
     const bg = async (packId, name) => {
       const pack = game.packs.get(packId);
@@ -158,11 +155,6 @@ try {
     return out;
   });
   saved = setup.saved;
-
-  if (!setup.reorderNow) {
-    fail("enable-inventory-reorder would not turn on — nothing below reads `sort`");
-    throw new Error("precondition not established");
-  }
   for (const [key, label] of [["marchguard", "2e Marchguard"], ["oilCollector", "Barebones Oil Collector"],
     ["acolyte", "Barebones Acolyte"]]) {
     if (!setup[key]) fail(`the ${label} background is not in this world — its leg cannot run`);
