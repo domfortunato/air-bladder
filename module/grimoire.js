@@ -400,7 +400,7 @@ export const castFromGrimoire = async (actor) => {
     `<option value="${i + 1}">${i + 1}</option>`).join("");
   const picked = await foundry.applications.api.DialogV2.wait({
     window: {
-      title: game.i18n.format("CAIRN.GrimoireCastFrom", { book: book.name }),
+      title: game.i18n.format("CAIRN.GrimoireCastFrom", { book: t("item.name", book.name) }),
       icon: "fas fa-hand-sparkles",
     },
     position: { width: 400 },

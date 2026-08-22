@@ -2328,13 +2328,6 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // (public/scripts/foundry.mjs:2265) — and must NOT see an already-absolute
     // URL (a remote portrait): it strips and re-joins slashes, so a scheme'd
     // URL comes back mangled. Those are absolute already; pass them through.
-    // getRoute, not a bare origin join (review #13): a server behind a
-    // routePrefix serves systems/ and icons/ under that prefix, and resolving
-    // against location.origin alone printed every portrait and item icon as a
-    // broken image on such a host. getRoute prepends ROUTE_PREFIX
-    // (public/scripts/foundry.mjs:2265) — and must NOT see an already-absolute
-    // URL (a remote portrait): it strips and re-joins slashes, so a scheme'd
-    // URL comes back mangled. Those are absolute already; pass them through.
     const abs = (p) => {
       if (!p) return null;
       if (/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(p)) return p;
