@@ -20,7 +20,7 @@
                                     <label class="trait-label">{{ localize 'CAIRN.Age' }}</label>
                                     <input class="trait-input" type="text" name="system.age" value="{{system.age}}" />
                                     {{#if generationEnabled}}
-                                    <a class="age-roll" data-action="rollAge" title="{{ localize 'CAIRN.RollAge' }}"><i class="fas fa-dice-d20"></i></a>
+                                    <a class="age-roll" data-action="rollAge" data-tooltip="{{rollAgeTitle}}"><i class="fas fa-dice-d20"></i></a>
                                     {{/if}}
                                 </div>
                                 {{/if}}

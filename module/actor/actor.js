@@ -1158,12 +1158,17 @@ export class CairnActor extends Actor {
    * Warden had re-roled it to Mount on the sheet went on behaving as a hireling
    * everywhere, with the sheet showing the value it stored and the code reading
    * a different one. That is fixed by the collapse rather than in spite of it:
-   * both types now answer with the STORED role, and the alias falls back to the
-   * same `npc` initial an npc-typed document takes.
+   * both types answer with the STORED role, and the fallback is the schema's
+   * own initial — `hireling` since the 2026-08-20 split (a document stating no
+   * role predates both person roles, and every such document is a hireling by
+   * that ruling; see NpcData's `role` field). It read `npc` until review #18,
+   * the initial it was before the split; unreachable in practice, because a
+   * required, non-blank field is never falsy after cleaning — but a fallback
+   * that disagrees with the schema is a second answer waiting for a path.
    * @returns {string|null}
    */
   get npcRole() {
-    if (["npc", "hireling"].includes(this.type)) return this.system?.role || "npc";
+    if (["npc", "hireling"].includes(this.type)) return this.system?.role || "hireling";
     return null;
   }
 

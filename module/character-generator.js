@@ -175,8 +175,8 @@ export const getCustomPortraitPaths = () => {
  * general pool, which is what a Warden using none of these names has always
  * had.
  *
- * Reserved by CONVENTION rather than by four more settings, deliberately:
- * registration order on the settings tab is positional and load-bearing, a
+ * Reserved by CONVENTION rather than by four more settings, deliberately: it
+ * would be four more rows in the Character Generation submenu, a
  * second folder setting is a second folder to scan on every Warden's login
  * (the scan is one HTTP round trip per directory, capped at 200), and the
  * picker already renders subfolders as tiles. Nothing here adds a register()
@@ -647,24 +647,40 @@ export const rollGold = async (formula) => evaluateFormula(formula);
  * @param {String} fallback @returns {Promise<Number>}
  */
 export const rollAge = async (fallback) => {
-  const configured = String(game.settings.get(SETTINGS_NS, "age-formula") ?? "").trim();
-  let formula = configured || fallback;
-  // `@` references refused before validation — warden-damage.js's guard,
-  // copied because the same two client stubs make Roll.validate lie about the
-  // whole class: it replaces every `@ref` with "1" before evaluating
-  // (dice/roll.mjs:772-790) so it ACCEPTS them, while real evaluation resolves
-  // them with `{missing: "0"}` (:689-701) — so "2d20 + @bonus" passed the gate
-  // and rolled "2d20 + 0", and "@x + 3" made every age exactly 3, with the
-  // warn-and-fall-back contract unreachable for the one input class that
-  // needed it most (review #17). Generation has no actor to resolve against,
-  // so refusing is the honest answer, not a workaround.
-  if (formula.includes("@") || !Roll.validate(formula)) {
-    if (configured) {
-      ui.notifications.warn(game.i18n.format("CAIRN.Notify.BadAgeFormula", { formula: configured }));
-    }
-    formula = fallback;
+  const { formula, configured, usable } = effectiveAgeFormula(fallback);
+  if (!usable && configured) {
+    ui.notifications.warn(game.i18n.format("CAIRN.Notify.BadAgeFormula", { formula: configured }));
   }
   return (await evaluateFormula(formula)).total;
+};
+
+/**
+ * The formula the age die will ACTUALLY roll: the Warden's `age-formula`
+ * setting when it is set and usable, else `fallback`. ONE answer for the die
+ * above and for the sheet's tooltip beside Age (review #18 finding 10: the
+ * tooltip said "(2d20 + 10)" while the die obeyed the setting), so the two
+ * cannot disagree — the tooltip shows what a click will roll, fallback
+ * included.
+ *
+ * `usable` is the test rollAge always applied, moved here whole. `@`
+ * references are refused before validation — warden-damage.js's guard, copied
+ * because the same two client stubs make Roll.validate lie about the whole
+ * class: it replaces every `@ref` with "1" before evaluating
+ * (dice/roll.mjs:772-790) so it ACCEPTS them, while real evaluation resolves
+ * them with `{missing: "0"}` (:689-701) — so "2d20 + @bonus" passed the gate
+ * and rolled "2d20 + 0", and "@x + 3" made every age exactly 3, with the
+ * warn-and-fall-back contract unreachable for the one input class that needed
+ * it most (review #17). Generation has no actor to resolve against, so
+ * refusing is the honest answer, not a workaround.
+ * @param {string} fallback
+ * @returns {{formula: string, configured: string, usable: boolean}}
+ *   `configured` is the trimmed setting (blank when unset), for the warning.
+ */
+export const effectiveAgeFormula = (fallback) => {
+  const configured = String(game.settings.get(SETTINGS_NS, "age-formula") ?? "").trim();
+  const candidate = configured || String(fallback ?? "");
+  const usable = !candidate.includes("@") && Roll.validate(candidate);
+  return { formula: usable ? candidate : fallback, configured, usable };
 };
 
 /**
@@ -2838,6 +2854,54 @@ export const updateActorWithCharacter = async (actor, characterData) => {
   return actor;
 };
 
+/** Message flag (under FLAG_SCOPE) carrying a generation card's numbers. */
+export const GENERATION_ROLLS_FLAG = "generationRolls";
+
+/**
+ * The generation-rolls card body, built in THIS client's language from the
+ * numbers alone. Used at composition (the stored content, in the composer's
+ * language) and again on every render by `localizeGenerationCard` below — the
+ * stored card is the composer's, and on the player-request relay the composer
+ * is the Warden's client, so a player in another language read the Warden's
+ * labels (review #18; the GLOG cast card's precedent from #16). A plain string
+ * build rather than the Handlebars template it replaces, so the render-time
+ * rebuild is synchronous: the name is escaped, the numbers are numbers.
+ * @param {{name: string, hp: number, str: number, dex: number, wil: number, gold: number}} r
+ * @returns {string}
+ */
+export const generationRollsCard = ({ name, hp, str, dex, wil, gold }) => {
+  const L = (k) => game.i18n.localize(k);
+  const row = (label, value) =>
+    `<div class="gen-roll-row"><span class="gen-roll-label">${label}:</span> <span class="gen-roll-value">${Number(value)}</span></div>`;
+  const line = game.i18n.format("CAIRN.GenerationRolls", { name: foundry.utils.escapeHTML(String(name ?? "")) });
+  return `<div class="cairn-generation-rolls">
+    <div class="gen-rolls-title">${line}</div>
+    <div class="gen-rolls-grid">
+        ${row(L("CAIRN.HitProtection"), hp)}
+        ${row(L("STR"), str)}
+        ${row(L("DEX"), dex)}
+        ${row(L("WIL"), wil)}
+        ${row(L("CAIRN.Gold"), gold)}
+    </div>
+</div>`;
+};
+
+/**
+ * Rebuild a generation-rolls card in the VIEWER's language from its flag.
+ * Called from the renderChatMessageHTML hook (cairn.js), beside the GLOG cast
+ * card it copies. Display-only: the message is never written, so this runs on
+ * a player's client with no permission at all, and re-runs idempotently on
+ * every re-render because it rebuilds from the flag, not from what is shown.
+ * @param {ChatMessage} message
+ * @param {HTMLElement} html
+ */
+export const localizeGenerationCard = (message, html) => {
+  const r = message.getFlag(FLAG_SCOPE, GENERATION_ROLLS_FLAG);
+  if (!r) return;
+  const card = html.querySelector(".cairn-generation-rolls");
+  if (card) card.outerHTML = generationRollsCard(r);
+};
+
 /**
  * Post the five generation rolls -- HP, STR, DEX, WIL, Gold -- as ONE chat message.
  *
@@ -2881,22 +2945,21 @@ const postGenerationRolls = async (actor, characterData, roller = null, { waitFo
   // A chat failure must never cost the actor: it is already created and saved by
   // the time we get here, so this is reported and swallowed, never rethrown.
   try {
-    const content = await foundry.applications.handlebars.renderTemplate(
-      "systems/air-bladder/templates/chat/generation-rolls-card.html",
-      {
-        // Formatted here rather than with {{localize}}'s hash arguments so the
-        // key is a plain static reference the i18n gates can see, and so the
-        // character's name is escaped by Handlebars on the way out.
-        line: game.i18n.format("CAIRN.GenerationRolls", { name: actor.name }),
-        hp: rolls.hp.total,
-        str: rolls.STR.total,
-        dex: rolls.DEX.total,
-        wil: rolls.WIL.total,
-        // The BARE gold roll, not actor.system.gold -- bond and background-choice
-        // gold are added on top of it, and the card must agree with the dice.
-        gold: rolls.gold.total,
-      }
-    );
+    // The numbers the card shows, stored on the message as a FLAG so every
+    // viewer's client rebuilds the card in its own language at render
+    // (localizeGenerationCard, off the renderChatMessageHTML hook). The
+    // content stored beside it is the same card in the composer's language.
+    const numbers = {
+      name: actor.name,
+      hp: rolls.hp.total,
+      str: rolls.STR.total,
+      dex: rolls.DEX.total,
+      wil: rolls.WIL.total,
+      // The BARE gold roll, not actor.system.gold -- bond and background-choice
+      // gold are added on top of it, and the card must agree with the dice.
+      gold: rolls.gold.total,
+    };
+    const content = generationRollsCard(numbers);
     // The card's header names the PLAYER, not the character: it reads as one
     // sentence down the card -- "Warden" / "rolled a new character!" / "Ada".
     // getSpeaker would otherwise put the actor's name there, which duplicates the
@@ -2909,6 +2972,7 @@ const postGenerationRolls = async (actor, characterData, roller = null, { waitFo
       speaker,
       rolls: [rolls.hp, rolls.STR, rolls.DEX, rolls.WIL, rolls.gold],
       content,
+      flags: { [FLAG_SCOPE]: { [GENERATION_ROLLS_FLAG]: numbers } },
     });
     if (waitForDice) await awaitDiceAnimation(message?.id);
     return message ?? null;

@@ -620,7 +620,7 @@
   "CAIRN.RoleMonster": "Monster",
   "CAIRN.RoleNpc": "NPC",
   "CAIRN.RoleTransport": "Transport",
-  "CAIRN.RollAge": "Roll age (2d20 + 10)",
+  "CAIRN.RollAgeTitle": "Roll age ({formula})",
   "CAIRN.RollBackground": "Roll a random background",
   "CAIRN.RollDamage": "Roll Damage",
   "CAIRN.RollFaction": "Random faction (a world table named \"Warden: NPC - Faction\" takes precedence)",

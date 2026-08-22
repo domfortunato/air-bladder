@@ -93,6 +93,29 @@ const flag = await page.evaluate(async () => {
   await it.update({ "system.cost": 7 });
   out.spent = snap(it);
 
+  // ...and through the REAL sheet, which the API write above cannot stand in
+  // for: the sheet's submitOnChange carries the Scroll checkbox with EVERY
+  // edit, and `_preUpdate` sees the whole cleaned payload, not the diff — so a
+  // presence test (`changed.system.scroll !== undefined`) read every Cost edit
+  // as the book→scroll transition and refilled a spent scroll (review #18; the
+  // leg above was green the whole time because it sends no flag). Edit Cost on
+  // the open sheet and expect 0/1 to hold.
+  {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const sheet = it.sheet;
+    await sheet.render(true);
+    for (let i = 0; i < 60 && !sheet.element; i++) await sleep(100);
+    await sleep(300);
+    const cost = sheet.element?.querySelector('[name="system.cost"]');
+    if (cost) {
+      cost.value = "9";
+      cost.dispatchEvent(new Event("change", { bubbles: true }));
+      await sleep(1000);
+    }
+    out.spentViaSheet = { uses: snap(it).uses, cost: it.system.cost, hadCostInput: !!cost };
+    await sheet.close();
+  }
+
   await it.update({ "system.scroll": false });
   out.unticked = snap(it);
   await it.delete();
@@ -151,6 +174,8 @@ eq("the invariant survives a hostile write",
   { weightless: flag.attacked.weightless, max: flag.attacked.uses.max }, { weightless: true, max: 1 });
 eq("a spent scroll stays spent across an unrelated edit",
   flag.spent.uses, { value: 0, max: 1 });
+eq("...and across a Cost edit on the REAL sheet (the submit carries the Scroll flag)",
+  flag.spentViaSheet, { uses: { value: 0, max: 1 }, cost: 9, hadCostInput: true });
 eq("unticking restores the book",
   { weightless: flag.unticked.weightless, uses: flag.unticked.uses, img: flag.unticked.img },
   { weightless: false, uses: { value: 0, max: 0 }, img: BOOK_ICON });

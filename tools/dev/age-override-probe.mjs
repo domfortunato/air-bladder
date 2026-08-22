@@ -169,6 +169,18 @@ try {
     await new Promise((res) => setTimeout(res, 300));
     const ageBtn = actor.sheet.element?.querySelector?.('[data-action="rollAge"]');
     out.ageBtnFound = !!ageBtn;
+    // The die's TOOLTIP names the formula a click will roll (review #18 #10:
+    // it was a literal "(2d20 + 10)" while the die obeyed the setting) — read
+    // from `data-tooltip` (user ruling, not `title`) through the same helper
+    // the die reads, so under an invalid or blank setting it names the
+    // FALLBACK, which is what the click will actually roll.
+    out.fallback = FALLBACK;
+    out.tooltipFor9 = ageBtn?.dataset.tooltip ?? null;
+    const tooltipNow = async () => {
+      await actor.sheet.render(true);
+      await new Promise((res) => setTimeout(res, 400));
+      return actor.sheet.element?.querySelector?.('[data-action="rollAge"]')?.dataset.tooltip ?? null;
+    };
     ageBtn?.click();
     for (let i = 0; i < 30 && Number(actor.system.age) === out.genAge; i++) {
       await new Promise((res) => setTimeout(res, 100));
@@ -181,10 +193,12 @@ try {
     ui.notifications.warn = function (m, ...rest) { warns.push(String(m)); return origWarn.call(this, m, ...rest); };
     try {
       await game.settings.set(NS, "age-formula", "not dice");
+      out.tooltipInvalid = await tooltipNow();
       out.invalidAge = await pinned(0.9999, FALLBACK);  // the fallback's floor case
       out.warnsAfterInvalid = warns.length;
       out.warnText = warns[0] ?? "";
       await game.settings.set(NS, "age-formula", "");
+      out.tooltipBlank = await tooltipNow();
       out.blankAge = await pinned(0.9999, FALLBACK);
       out.warnsAfterBlank = warns.length;
 
@@ -197,6 +211,7 @@ try {
       // the gate and made every age exactly 3, with no warning anywhere.
       out.atStillValidates = Roll.validate("@bonus + 3");
       await game.settings.set(NS, "age-formula", "@bonus + 3");
+      out.tooltipAt = await tooltipNow();
       out.atAge = await pinned(0.9999, FALLBACK);   // fallback's floor: 12
       out.warnsAfterAt = warns.length;
       out.atWarnText = warns[warns.length - 1] ?? "";
@@ -278,6 +293,16 @@ try {
   r.sheetAge === 9
     ? ok("the sheet's real age-die click obeyed the setting (7 -> 9)")
     : fail(`the sheet re-roll produced ${r.sheetAge}, expected 9`);
+  // The die's tooltip (data-tooltip) names what a click will ROLL — the
+  // setting when usable, the fallback otherwise — through the helper the die
+  // itself reads. Before review #18 it was the literal "(2d20 + 10)".
+  r.tooltipFor9 && r.tooltipFor9.includes("9") && !r.tooltipFor9.includes("2d20")
+    ? ok(`the age die's tooltip names the configured formula ("${r.tooltipFor9}")`)
+    : fail(`tooltip under a setting of "9": ${JSON.stringify(r.tooltipFor9)} — expected it to name "9" and not the default`);
+  [["not dice", r.tooltipInvalid], ["blank", r.tooltipBlank], ["@bonus + 3", r.tooltipAt]]
+    .every(([, t]) => typeof t === "string" && t.includes(r.fallback))
+    ? ok(`...and the FALLBACK ("${r.fallback}") when the setting is invalid, blank, or an @-reference — what the click will roll`)
+    : fail(`fallback tooltips: invalid=${JSON.stringify(r.tooltipInvalid)}, blank=${JSON.stringify(r.tooltipBlank)}, @=${JSON.stringify(r.tooltipAt)}, want each to name "${r.fallback}"`);
 
   // 5. invalid vs blank
   r.invalidAge === 12 && r.warnsAfterInvalid >= 1

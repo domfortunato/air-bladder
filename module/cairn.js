@@ -3,7 +3,7 @@ import { CairnActor } from "./actor/actor.js";
 import { CairnActorSheet } from "./actor/actor-sheet.js";
 import { CairnItem, FATIGUE_NAME, SPELLSCROLL_NAME } from "./item/item.js";
 import { CairnItemSheet } from "./item/item-sheet.js";
-import { createCharacter, createNpc, createHireling, requestPcGeneration, enabledContentSources, FLAG_SCOPE, awaitDiceAnimation, findGenerationRollMessage } from "./character-generator.js";
+import { createCharacter, createNpc, createHireling, requestPcGeneration, enabledContentSources, FLAG_SCOPE, awaitDiceAnimation, findGenerationRollMessage, localizeGenerationCard } from "./character-generator.js";
 import * as characterGenerator from "./character-generator.js";
 import { createMonster } from "./monster-generator.js";
 import * as monsterGenerator from "./monster-generator.js";
@@ -1459,11 +1459,22 @@ const migrateArtPaths = async () => {
     const wasLocked = pack.locked;
     if (wasLocked) await pack.configure({ locked: false });
     try {
+      // Top-level art in ONE batched write per pack — `updateDocuments` with
+      // `{pack}` is how a compendium's documents are updated together, and
+      // the world passes above batch the same way. This wrote one round trip
+      // per document until review #18; latency only, the result is identical.
+      const topLevel = [];
       for (const d of docs) {
         const u = {};
         if (movedArt(d.img)) u.img = movedArt(d.img);
         if (movedArt(d.prototypeToken?.texture?.src)) u["prototypeToken.texture.src"] = movedArt(d.prototypeToken.texture.src);
-        if (Object.keys(u).length) { await d.update(u); count++; }
+        if (Object.keys(u).length) topLevel.push({ _id: d.id, ...u });
+      }
+      if (topLevel.length) {
+        await pack.documentClass.updateDocuments(topLevel, { pack: pack.collection });
+        count += topLevel.length;
+      }
+      for (const d of docs) {
         const owned = (d.items ?? []).filter((i) => movedArt(i.img)).map((i) => ({ _id: i.id, img: movedArt(i.img) }));
         if (owned.length) { await d.updateEmbeddedDocuments("Item", owned); count += owned.length; }
         const results = (d.results ?? []).filter((r) => movedArt(r.img)).map((r) => ({ _id: r.id, img: movedArt(r.img) }));
@@ -1596,15 +1607,20 @@ const migrateScrollsToSpellbooks = async () => {
 /**
  * Persist `system.role` on every npc-typed world actor, whatever it currently
  * derives to. ONE migration doing what two used to attempt: it stamps the role
- * on pre-roles documents (which store `forHire`/`inanimate` and no role at all)
- * AND converts `role: "hireling"`, retired from NPC_ROLES on 2026-08-01, into
- * the `npc` that `NpcData.migrateData` already substitutes on every read.
+ * on pre-roles documents (which store `forHire`/`inanimate` and no role at all).
+ * Until 2026-08-20 it ALSO folded `role: "hireling"` into `npc`, because a
+ * `migrateData` shim substituted that on every read; the split re-admitted
+ * `hireling` to NPC_ROLES, deleted the shim, and `migrateHirelingSplit` writes
+ * "hireling" back onto the people it covers — so this pass stamps whatever the
+ * document derives to and converts nothing (review #18 caught this paragraph
+ * still describing the fold).
  *
  * **It selects on NOTHING, and that is the entire design.** Both states it fixes
  * are invisible from a running client:
  *
- *   - `migrateData` rewrites `_source` during construction, so a document stored
- *     as "hireling" and one stored as "npc" read identically.
+ *   - `migrateData` rewrites `_source` during construction (the mount→companion
+ *     shim still does), so a stored legacy value and its replacement read
+ *     identically — the hireling→npc shim did exactly this until the split.
  *   - `cleanData` PRUNES unknown keys out of `_source`
  *     (`common/data/fields.mjs` `#cleanKeys`), so a legacy `inanimate` sitting in
  *     the database is not there to be found either.
@@ -2255,9 +2271,9 @@ Hooks.on("renderDialogV2", function abSpellscrollTypeOption(dialog, element) {
    — exactly as before. */
 
 /**
- * Make the three settings SUBMENU buttons searchable by what they hold.
+ * Make the four settings SUBMENU buttons searchable by what they hold.
  *
- * Since 2026-08-22 every Warden-facing setting lives behind one of three
+ * Since 2026-08-22 every Warden-facing setting lives behind one of four
  * `registerMenu` buttons (settings-menus.js) and the main window shows no
  * air-bladder rows at all. Core's settings search matches a row's label and
  * hint plus any `[data-searchable]` text inside it (category-browser.mjs:
@@ -2788,6 +2804,12 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   // English it was stored with (module/grimoire.js). Display-only, no write —
   // the same footing as the table-draw localization at the top of this hook.
   localizeGlogCastCard(message, html);
+
+  // The generation-rolls card, the same way (module/character-generator.js):
+  // rebuilt from the numbers in its flag in THIS viewer's language — the stored
+  // content is the composer's, and on the player-request relay the composer is
+  // the Warden's client (review #18).
+  localizeGenerationCard(message, html);
 
   // Roll Str Save.
   //

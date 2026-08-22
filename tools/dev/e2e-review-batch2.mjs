@@ -265,6 +265,12 @@ try {
         const origWarn = ui.notifications.warn;
         ui.notifications.warn = function (msg, ...rest) { warns.push(String(msg)); return origWarn.call(this, msg, ...rest); };
         const out = { editable: sheet.isEditable };
+        // Die of Fate is the one read roll rendered as a <button>, and core's
+        // DocumentSheetV2._onRender disables every form element on a non-
+        // editable sheet (document-sheet.mjs:230-237, 269-272) — so it alone
+        // of the read set was dead here (review #18). The anchors never were.
+        const dof = sheet.element.querySelector('[data-action="dieOfFate"]');
+        out.dieOfFate = { present: !!dof, tag: dof?.tagName ?? null, disabled: !!dof?.disabled };
         try {
           const before = game.messages.size;
           const target = document.createElement("a");
@@ -317,6 +323,10 @@ try {
         ? ok("rollDamage rolls from a locked pack", "(no PackLocked toast)")
         : fail(`rollDamage on a locked pack: rolled=${locked.rolled}, warns=${locked.rollWarns}`,
           "the read set is still wrapped in owned()");
+      locked.dieOfFate?.present && !locked.dieOfFate.disabled
+        ? ok("Die of Fate is clickable on a locked pack", "(the one read roll that is a <button>, re-enabled past core's disable)")
+        : fail(`Die of Fate on a locked pack: ${JSON.stringify(locked.dieOfFate)}`,
+          "core's _toggleDisabled(true) disables every form element; the read button must be re-enabled after super._onRender");
       locked.deleteWarned
         ? ok("itemDelete still warns", "(mutations stay walled)")
         : fail("itemDelete no longer warns on a locked pack — the wall moved too far");

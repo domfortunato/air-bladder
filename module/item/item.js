@@ -381,7 +381,19 @@ export class CairnItem extends Item {
       delete changed.system.boundTo;
     }
 
-    const scrollChanged = changed.system?.scroll !== undefined;
+    // A TRANSITION, not a presence. `_preUpdate` is handed the FULL cleaned
+    // payload, not the diff (client-backend.mjs:229-238), and the spellbook
+    // sheet submits the Scroll checkbox with every `submitOnChange` — so
+    // `!== undefined` alone was true for EVERY edit of a scroll's sheet, each
+    // one re-entered the becoming-scroll branch below and re-pinned
+    // `uses.value: 1`: a spent scroll refilled on a Cost edit, and the Uses
+    // field could never store 0 (review #18; dev:spellscroll's "stays spent"
+    // leg was green because it updated cost WITHOUT the flag the sheet always
+    // carries — it submits the real sheet now). Compared to the STORED flag,
+    // only a real tick or untick is a transition; a payload merely carrying the
+    // flag falls through to the hold branch, which leaves `uses.value` alone.
+    const scrollChanged = changed.system?.scroll !== undefined
+      && !!changed.system.scroll !== !!this.system.scroll;
     if (scrollChanged) {
       // Safe to read as truthiness only because the normalization above has
       // already rewritten a ForcedDeletion to plain `false` — un-normalized,

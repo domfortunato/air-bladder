@@ -47,10 +47,18 @@ if (branch !== "master") {
 const dirty = capture("git status --porcelain --untracked-files=no");
 if (dirty) die(`Working tree has uncommitted changes — commit or stash them first:\n${dirty}`);
 
-// 3. The tag must not already exist locally.
+// 3. The tag must not already exist locally...
 if (capture(`git tag --list ${version}`)) {
   die(`Tag ${version} already exists. Pick a new version, or remove it first:\n` +
       `    git tag -d ${version} && git push origin :refs/tags/${version}`);
+}
+// ...nor on origin. The local check alone missed a tag deleted here but still on
+// the remote — the release commit would land on master and only the tag push be
+// refused, leaving master bumped for a version that never shipped (review #18).
+// ls-remote needs the network; so does the push that follows.
+if (capture(`git ls-remote --tags origin refs/tags/${version}`)) {
+  die(`Tag ${version} already exists on origin. Pick a new version, or remove it first:\n` +
+      `    git push origin :refs/tags/${version}`);
 }
 
 // 4. Show what is about to ship. A forgotten merge shows up here as an empty list,
@@ -76,8 +84,9 @@ console.log(`✓ system.json version → ${version}`);
 run(`git add system.json`);
 run(`git commit -m "Release ${version}"`);
 run(`git tag -a ${version} -m "Air Bladder ${version}"`);
-run(`git push origin HEAD`);
-run(`git push origin ${version}`);
+// ONE atomic push: branch and tag land together or not at all, so a refused tag
+// can never leave master bumped without its release (review #18).
+run(`git push --atomic origin HEAD refs/tags/${version}`);
 
 console.log(`
 ✓ Release ${version} pushed to origin.

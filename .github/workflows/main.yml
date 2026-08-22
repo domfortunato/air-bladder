@@ -46,9 +46,15 @@ jobs:
     env:
       RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
-      # Checkout the triggering ref: the tagged commit on a tag push, or the selected
-      # branch on a manual run. No explicit `ref` needed.
+      # Checkout the RELEASE_TAG's commit on BOTH triggers. A tag push checks out
+      # the tag anyway (github.ref); a manual dispatch would otherwise build the
+      # BRANCH selected in the Actions UI while labelling the zip with
+      # `inputs.tag` — a rebuild of any non-HEAD release shipping newer code
+      # under an older number (review #18). `inputs.tag` is empty on a tag push,
+      # so the `||` falls through to the pushed ref.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       # Build the LevelDB compendia from src/packs/ (packs/ is gitignored)
       - uses: actions/setup-node@v4

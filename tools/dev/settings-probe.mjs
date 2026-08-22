@@ -393,6 +393,125 @@ try {
     ? ok("restored through the same form, and asserted")
     : fail(`restore failed: via form ${save.restored}, final ${save.finalValue}, expected ${save.before}`);
 
+  /* ---- saving ON before OFF: the content-source floor never fires mid-save */
+  // From 2e-only, untick 2e and tick Barebones in ONE Save. The writes land
+  // one `set` at a time and `enforceSourceFloor` (an onChange on all three
+  // source keys) reads the committed state between them: in form order the
+  // floor saw `2e=false` with the other two still off, switched 2e back on
+  // and toasted — both editions on and a false warning (review #18). The app
+  // writes values being switched ON first, so no intermediate state is
+  // all-off. The three source settings are written and RESTORED to their
+  // registered defaults, asserted — the dev world sits at defaults by the
+  // user's ask. (The restore itself goes ON-first for the same reason.)
+  const floor = await page.evaluate(async () => {
+    const out = {};
+    const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+    const mod = await import("/systems/air-bladder/module/settings.js");
+    const NS = mod.SETTINGS_NS;
+    const KEYS = ["content-source-2e", "content-source-custom", "content-source-barebones"];
+    const defaults = Object.fromEntries(KEYS.map((k) => [k, game.settings.settings.get(`${NS}.${k}`).default]));
+    const snap = () => Object.fromEntries(KEYS.map((k) => [k, game.settings.get(NS, k)]));
+    const warns = [];
+    const origWarn = ui.notifications.warn;
+    ui.notifications.warn = function (msg, ...rest) { warns.push(String(msg)); return origWarn.call(this, msg, ...rest); };
+    const seq = [];
+    const hookId = Hooks.on("updateSetting", (doc) => {
+      if (doc.key.startsWith(`${NS}.content-source`)) seq.push(`${doc.key.slice(NS.length + 1)}=${doc.value}`);
+    });
+    try {
+      // Precondition: Cairn 2e the only source on (2e written first, so the
+      // precondition itself never passes through all-off).
+      await game.settings.set(NS, "content-source-2e", true);
+      await game.settings.set(NS, "content-source-custom", false);
+      await game.settings.set(NS, "content-source-barebones", false);
+      out.precondition = snap();
+      seq.length = 0;
+      warns.length = 0;
+      const menu = game.settings.menus.get(`${NS}.generation`);
+      const app = new menu.type();
+      await app.render(true);
+      await sleep(600);
+      const e2 = app.element.querySelector(`[name="${NS}.content-source-2e"]`);
+      const bb = app.element.querySelector(`[name="${NS}.content-source-barebones"]`);
+      e2.checked = false;
+      e2.dispatchEvent(new Event("change", { bubbles: true }));
+      bb.checked = true;
+      bb.dispatchEvent(new Event("change", { bubbles: true }));
+      app.element.requestSubmit();
+      await sleep(1500);
+      out.after = snap();
+      out.writes = [...seq];
+      out.warns = [...warns];
+      if (app.rendered) await app.close();
+    } finally {
+      Hooks.off("updateSetting", hookId);
+      ui.notifications.warn = origWarn;
+      for (const k of KEYS) if (defaults[k] === true) await game.settings.set(NS, k, true);
+      for (const k of KEYS) if (defaults[k] !== true) await game.settings.set(NS, k, defaults[k]);
+    }
+    out.restored = snap();
+    out.restoreOk = KEYS.every((k) => out.restored[k] === defaults[k]);
+    return out;
+  });
+
+  floor.precondition?.["content-source-2e"] === true && floor.precondition?.["content-source-barebones"] === false
+    ? ok("precondition: Cairn 2e is the only background source on")
+    : fail(`precondition: ${JSON.stringify(floor.precondition)}`);
+  floor.after?.["content-source-2e"] === false && floor.after?.["content-source-barebones"] === true && floor.warns?.length === 0
+    ? ok("untick 2e + tick Barebones in ONE Save lands as asked — no floor toast, 2e off, Barebones on")
+    : fail(`after save: ${JSON.stringify(floor.after)}, writes ${JSON.stringify(floor.writes)}, warns ${JSON.stringify(floor.warns)}`);
+  floor.writes?.[0] === "content-source-barebones=true"
+    ? ok(`...because the ON write landed first: ${floor.writes.join(" → ")}`)
+    : fail(`write order ${JSON.stringify(floor.writes)} — the value being switched on did not land first`);
+  floor.restoreOk
+    ? ok("the three source settings are back at their registered defaults")
+    : fail(`restore failed: ${JSON.stringify(floor.restored)}`);
+
+  /* ---- Reset Defaults, per app ------------------------------------------- */
+  // Core's Reset Defaults (the main window's sidebar footer) skips every
+  // `config: false` setting (config.mjs:223-234) — which is every one of ours
+  // since the submenus, so the button that restored all of them before the
+  // submenus now restores none, silently (review #18). Each app carries its
+  // own, core's labels: flip a row in the FORM, click Reset, the row shows its
+  // default again; close WITHOUT saving, nothing written.
+  const reset = await page.evaluate(async () => {
+    const out = {};
+    const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+    const mod = await import("/systems/air-bladder/module/settings.js");
+    const NS = mod.SETTINGS_NS;
+    const KEY = "show-grant-tags-print";
+    out.def = game.settings.settings.get(`${NS}.${KEY}`).default;
+    const stored = game.settings.get(NS, KEY);
+    const menu = game.settings.menus.get(`${NS}.general`);
+    const app = new menu.type();
+    await app.render(true);
+    await sleep(600);
+    try {
+      const btn = app.element.querySelector('button[data-action="resetDefaults"]');
+      out.hasReset = !!btn;
+      out.resetLabel = btn?.textContent.trim() ?? "";
+      out.coreLabel = game.i18n.localize("SETTINGS.Reset");
+      const box = app.element.querySelector(`[name="${NS}.${KEY}"]`);
+      box.checked = !out.def;
+      box.dispatchEvent(new Event("change", { bubbles: true }));
+      out.flipped = box.checked;
+      btn?.click();
+      await sleep(300);
+      out.afterReset = box.checked;
+    } finally {
+      await app.close();                  // nothing submitted
+    }
+    out.untouched = game.settings.get(NS, KEY) === stored;
+    return out;
+  });
+
+  reset.hasReset && reset.resetLabel === reset.coreLabel
+    ? ok(`each submenu carries its own Reset Defaults button, core's label ("${reset.coreLabel}")`)
+    : fail(`reset button present=${reset.hasReset}, label "${reset.resetLabel}" vs core "${reset.coreLabel}"`);
+  reset.flipped === !reset.def && reset.afterReset === reset.def && reset.untouched
+    ? ok("Reset puts a flipped row back to its default IN THE FORM, and writes nothing until Save")
+    : fail(`flipped=${reset.flipped}, after reset=${reset.afterReset}, default=${reset.def}, untouched=${reset.untouched}`);
+
   /* ---- the Barebones sub-option greys from its master's STORED value ----- */
   // The failed-career row lives in GLOG & Other Hacks while its master
   // checkbox ("Offer Barebones sheets") is Character Generation's, so the

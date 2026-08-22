@@ -239,6 +239,21 @@ try {
 
   /* --- reload, and let the ready migration run --------------------------- */
 
+  // The sweep is GENERATION-gated since review #17 (`art-migration-generation`
+  // against cairn.js's ART_MIGRATION_GENERATION): a world that has stamped the
+  // current generation skips it on every later load, planted documents
+  // included — so this probe went red the day that gate landed (2026-08-21)
+  // and nobody ran it until review #18. Re-open the gate for ONE load by
+  // putting the marker back to 0; the migration re-stamps the generation after
+  // its writes land, which the poll below waits for and the assertion after it
+  // checks — the world ends exactly where it began.
+  const gen = await page.evaluate(async () => {
+    const NS = "air-bladder";
+    const before = game.settings.get(NS, "art-migration-generation");
+    await game.settings.set(NS, "art-migration-generation", 0);
+    return { before };
+  });
+
   await page.reload({ waitUntil: "networkidle", timeout: 60000 });
   await page.waitForFunction(() => globalThis.game?.ready === true, null, { timeout: 90000 });
 
@@ -267,6 +282,9 @@ try {
       packLocked: game.packs.get(p.packId)?.locked ?? null,
       result: table?.results.get(p.resultId)?.img ?? null,
       controls: p.controlIds.map((id) => game.items.get(id)?.img ?? null),
+      // The generation marker: re-stamped only after the sweep's last write,
+      // so it is the one "done" signal that cannot be read too early.
+      generation: game.settings.get("air-bladder", "art-migration-generation"),
     };
   }, planted);
 
@@ -290,7 +308,7 @@ try {
   // finally AFTER its last document write, as a settings round-trip. A poll
   // that stops when the PATHS are right reads the lock inside that window and
   // reports the re-lock missing — this probe's own trap, third appearance.
-  const done = (s) => s.packLocked === true && Object.values(s).flat()
+  const done = (s) => s.packLocked === true && s.generation >= 1 && Object.values(s).flat()
     .every((v) => v === null || v === true
       || (!STALE_PREFIX.test(String(v)) && !STALE_FORMAT.test(String(v)) && !STALE_SPACED.test(String(v))));
   for (; waited < 30000 && !done(after); waited += 250) {
@@ -341,6 +359,12 @@ try {
   after.packLocked === true
     ? ok("the world pack's LOCK was restored", "locked again after the write")
     : fail("the world pack's LOCK was restored", `locked=${after.packLocked}`);
+  // The gate, re-closed by the sweep itself: the marker is back at the current
+  // generation (the value it held before this probe re-opened it, or 1 on a
+  // world that had never stamped one), so the world ends where it began.
+  after.generation >= 1 && (gen.before === 0 || after.generation === gen.before)
+    ? ok("the generation marker is re-stamped after the sweep", `was ${gen.before}, re-opened to 0, now ${after.generation}`)
+    : fail("the generation marker is re-stamped after the sweep", `was ${gen.before}, now ${after.generation}`);
 
   const movedControls = UNTOUCHED.filter((s, i) => after.controls[i] !== s);
   movedControls.length === 0

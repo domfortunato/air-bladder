@@ -20,8 +20,10 @@ export const SETTINGS_NS = "air-bladder";
  * The order is a maintenance convention so this list mirrors registerSettings()
  * and a missing key is easy to spot -- it is NOT load-bearing. The migration
  * iterates it as an unordered set (each key is copied independently), and the dev
- * probes only filter and count it. Registration order IS load-bearing, but that
- * lives in registerSettings(), not here.
+ * probes only filter and count it. Nor is registration order load-bearing any
+ * more (2026-08-22): the Warden sees each setting inside its SETTING_GROUPS
+ * submenu, in that group's `keys` order — the positional headers that once made
+ * the `register()` order matter went with the flat list.
  */
 export const SETTING_KEYS = [
   // General
@@ -302,8 +304,7 @@ export const registerSettings = () => {
   // rather than state-gated for the usual reason — an unkeyed page can also be
   // one a Warden has legitimately left unmatched (the migration leaves the
   // unreadable case alone on purpose), and a state test would re-ask that
-  // question on every load. `config: false`, so it cannot disturb the
-  // positional grouping below.
+  // question on every load. `config: false`: internal, in no submenu.
   game.settings.register(SETTINGS_NS, "grimoire-keys-stamped", {
     scope: "world",
     config: false,
@@ -316,7 +317,7 @@ export const registerSettings = () => {
   // on a marker, not on state, because both things it writes are re-editable
   // — a Warden can re-raise an ownership default or re-break a link, and a
   // state test would put the migration's answer back on the next load.
-  // `config: false`, so it cannot disturb the positional grouping below.
+  // `config: false`: internal, in no submenu.
   game.settings.register(SETTINGS_NS, "connections-migrated", {
     scope: "world",
     config: false,
@@ -352,8 +353,7 @@ export const registerSettings = () => {
   // Barebones is all-or-nothing via its source checkbox). World state, NOT a
   // flag on the documents: the shipped packs are replaced wholesale on every
   // system update, so anything written into them is one release from gone.
-  // `config: false` — the picker is the whole UI, so it cannot disturb the
-  // positional grouping below.
+  // `config: false` — the picker is the whole UI; internal, in no submenu.
   game.settings.register(SETTINGS_NS, "disabled-backgrounds", {
     scope: "world",
     config: false,
@@ -383,7 +383,11 @@ export const registerSettings = () => {
     config: false,
     type: Boolean,
     default: true,
-    requiresReload: true,
+    // Read live at every use — `evaluateFormula` (utils.js) per roll and the
+    // Warden's dice builder (warden-damage.js) per dialog — so nothing needed
+    // the world reload the inherited `requiresReload: true` prompted for on
+    // every flip (review #18; the flag was the fork's).
+    requiresReload: false,
   });
 
   game.settings.register(SETTINGS_NS, "use-item-icons", {
@@ -814,7 +818,7 @@ export const registerSettings = () => {
   //
   // Grouped under Character Generation, where min-age sat before it: a
   // parameter of the character being made, looked for beside the rest of
-  // generation. Placement is positional -- see the ordering note above.
+  // generation. Placement is SETTING_GROUPS membership, not position.
   game.settings.register(SETTINGS_NS, "age-formula", {
     name: "CAIRN.Settings.AgeFormula.label",
     hint: "CAIRN.Settings.AgeFormula.hint",

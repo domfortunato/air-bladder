@@ -282,8 +282,10 @@ check("an @-reference is refused", dialog.atRefPostedNothing && dialog.atRefStil
  *    must survive Roll.validate on the way to a card.
  *
  * The DIALECT leg shadows `game.settings.get` in-page rather than writing the
- * world setting: `use-cairn-dice-notation` is requiresReload, and a leaked
- * setting is the 0.1.12 pre-tag lesson.
+ * world setting: `use-cairn-dice-notation` is the user's world's, and a leaked
+ * setting is the 0.1.12 pre-tag lesson. (It was `requiresReload` too, until
+ * review #18 found both of its readers live and dropped the flag; the shadow
+ * was never about the reload.)
  * ------------------------------------------------------------------------- */
 console.log("\nthe dice builder");
 const builder = await page.evaluate(async () => {
@@ -364,7 +366,7 @@ const builder = await page.evaluate(async () => {
   // THE DIALECT LEG. With Cairn notation OFF, `d6 + d6` is ARITHMETIC — a
   // builder that emitted it would say "keep highest" and roll a sum. Shadow the
   // read on the instance, then delete the shadow so the prototype's own method
-  // returns — no world write against a requiresReload setting.
+  // returns — no world write.
   const settings = game.settings;
   const origGet = settings.get.bind(settings);
   settings.get = (ns, key) =>
@@ -411,7 +413,7 @@ check("a built formula reaches a card", builder.uiPosted,
   "2d6 through Roll.validate and the real Roll button");
 check("the dialect is read from the setting", builder.uiKhOff === "{1d6,1d6}kh"
   && builder.settingRestored,
-  `shadowed off → "${builder.uiKhOff}", shadow deleted → true — no world write against a requiresReload setting`);
+  `shadowed off → "${builder.uiKhOff}", shadow deleted → true — no world write`);
 
 /* ---------------------------------------------------------------------------
  * 4. Where the damage LANDS.

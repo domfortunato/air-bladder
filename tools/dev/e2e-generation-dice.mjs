@@ -102,6 +102,25 @@ try {
     out.legs.on = describe(msgs);
     if (msgs.length === 1) {
       out.legs.on[0].contentHasName = String(msgs[0].content ?? "").includes(actor.name);
+      // The card is REBUILT per viewer at render, from the numbers in its flag
+      // (review #18): the stored content is the composer's language, and on
+      // the player-request relay the composer is the Warden's client. Shadow
+      // ONE label's localization with a sentinel and render the message — the
+      // sentinel must appear, which content localized at composition cannot
+      // do. Page-local, restored in a finally; the message is never written.
+      const origLoc = game.i18n.localize;
+      game.i18n.localize = function (key, ...rest) {
+        if (key === "CAIRN.Gold") return "ZZ-ORO-SENTINEL";
+        return origLoc.call(this, key, ...rest);
+      };
+      try {
+        const el = await msgs[0].renderHTML();
+        out.legs.on[0].rebuiltPerViewer = el.innerHTML.includes("ZZ-ORO-SENTINEL");
+        out.legs.on[0].flagNumbers = msgs[0].getFlag(NS, "generationRolls") ?? null;
+      } finally {
+        game.i18n.localize = origLoc;
+      }
+      out.legs.on[0].shadowLifted = game.i18n.localize === origLoc;
     }
     out.stored = {
       hp: actor.system.hp?.max,
@@ -187,6 +206,9 @@ try {
     m.contentHasName
       ? ok(`card names the character ("${r.actor.name}")`)
       : fail(`card content does not contain the character name "${r.actor.name}"`);
+    m.rebuiltPerViewer && m.flagNumbers && m.shadowLifted
+      ? ok("the card is rebuilt per viewer at render from its flag (a sentinel label rendered; shadow lifted)")
+      : fail(`card not rebuilt per viewer: sentinel rendered=${m.rebuiltPerViewer}, flag=${JSON.stringify(m.flagNumbers)}, shadow lifted=${m.shadowLifted}`);
 
     // The tie: the dice must BE the character, not decoration.
     const [hp, str, dex, wil, gold] = m.rollTotals;

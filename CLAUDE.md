@@ -28,8 +28,13 @@ manifest. Descends architecturally from a private fork of
   older from this machine. A minimum nobody has ever tested is a claim, not a
   fact. The same statement lives in `README.md`, `README.es.md`,
   `CONTRIBUTING.md` and `site/index.html` — change one, change all five.
-- Latest release **0.1.12** (2026-08-07). `system.json`'s `version` is rewritten by
-  CI from the git tag; don't trust the checked-in value.
+- Latest release **0.1.17** (2026-08-19). `system.json`'s `version` is bumped by
+  `npm run release` in the release commit on `master` (CI substitutes the same
+  tag into the manifest URLs), so on `dev` it lags until the post-release merge
+  — read the tag, not the file. This line said 0.1.12 through five releases
+  (flagged open in review #15, fixed in #18): a version in prose is a copy that
+  drifts, so update it in the post-release master→dev merge, the one
+  master→dev sync there is.
 - Node 24.x. `npm run release X.Y.Z` is the whole release — see `RELEASE.md`.
 
 ## Git: two branches, one direction
@@ -236,7 +241,12 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   ApplicationV2
   (`module/settings-menus.js`, modelled on core's own `DiceConfig`) that
   renders its group's rows with core's `formGroup` helper and saves the way
-  `SettingsConfig` does — `reloadConfirm` included. `SETTING_GROUPS` in
+  `SettingsConfig` does — `reloadConfirm` included, with one departure and one
+  addition (review #18): values switched ON are written before values switched
+  OFF, so the content-source floor's `onChange` never fires on a mid-save state
+  the Warden did not ask for; and each app carries its own Reset Defaults,
+  because core's skips `config: false` settings, which is every one of ours
+  now. `SETTING_GROUPS` in
   `settings.js` is the ONE declaration (id, title, button — the text ON the
   button names what it opens, "Configure Inventory" not a shared "Configure",
   user ruling 2026-08-22 after Dice So Nice's per-menu buttons — hint, icon,

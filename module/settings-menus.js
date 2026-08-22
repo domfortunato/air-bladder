@@ -27,7 +27,12 @@
  * finally rendering is the whole point). Submission mirrors
  * `SettingsConfig.#onSubmit` (config.mjs:243-263) and ends in the public
  * `SettingsConfig.reloadConfirm`, so flipping a `requiresReload` setting
- * still prompts the reload it always did.
+ * still prompts the reload it always did — with ONE departure, written on
+ * `#onSubmit`: values being switched on are written before values being
+ * switched off, so a multi-key invariant enforced by an `onChange` never
+ * fires on a state the Warden did not ask for. And each app carries its own
+ * Reset Defaults beside Save, because core's skips `config: false` settings
+ * — which, since the submenus, is every one of ours (both review #18).
  *
  * `registerMenu` takes a CLASS, not an instance (client-settings.mjs:185-194),
  * so `makeSettingsGroupMenu` stamps one tiny subclass per group — the same way
@@ -67,6 +72,7 @@ export class SettingsGroupMenu extends HandlebarsApplicationMixin(ApplicationV2)
     window: { contentClasses: ["standard-form"], title: "", icon: "fa-solid fa-gears" },
     position: { width: 600, height: "auto" },
     form: { closeOnSubmit: true, handler: SettingsGroupMenu.#onSubmit },
+    actions: { resetDefaults: SettingsGroupMenu.#onResetDefaults },
   };
 
   /** @override */
@@ -104,8 +110,40 @@ export class SettingsGroupMenu extends HandlebarsApplicationMixin(ApplicationV2)
     return {
       entries,
       rootId: this.id,
-      buttons: [{ type: "submit", icon: "fa-solid fa-floppy-disk", label: "SETTINGS.Save" }],
+      // Reset Defaults beside Save, because core's own Reset Defaults button
+      // (the main window's sidebar footer) skips every `config: false` setting
+      // (config.mjs:223-234) — which since the submenus is all of them. Before
+      // the submenus that button restored every Air Bladder setting; without
+      // this it restored none, silently (review #18). Both labels and the
+      // toast are core's own keys, so the two buttons read identically.
+      buttons: [
+        { type: "button", action: "resetDefaults", icon: "fa-solid fa-arrow-rotate-left", label: "SETTINGS.Reset" },
+        { type: "submit", icon: "fa-solid fa-floppy-disk", label: "SETTINGS.Save" },
+      ],
     };
+  }
+
+  /* -------------------------------------------- */
+
+  /**
+   * Put every row of this group back to its registered default — in the FORM
+   * only, exactly as core's `SettingsConfig.#onResetDefaults` does
+   * (config.mjs:223-234): nothing is written until Save, and the toast says
+   * so. `change` is dispatched per input so the sub-option greying follows.
+   * @this {SettingsGroupMenu}
+   */
+  static async #onResetDefaults() {
+    const ns = this.constructor.NAMESPACE;
+    for (const key of this.constructor.GROUP.keys) {
+      const id = `${ns}.${key}`;
+      const setting = game.settings.settings.get(id);
+      const input = this.form.elements[id];
+      if (!setting || !input) continue;
+      if (input.type === "checkbox") input.checked = setting.default;
+      else input.value = setting.default;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    ui.notifications.info("SETTINGS.ResetInfo", { localize: true });
   }
 
   /* -------------------------------------------- */
@@ -180,7 +218,23 @@ export class SettingsGroupMenu extends HandlebarsApplicationMixin(ApplicationV2)
   static async #onSubmit(_event, _form, formData) {
     let requiresClientReload = false;
     let requiresWorldReload = false;
-    for (const [id, value] of Object.entries(formData.object)) {
+    // ON before OFF. The writes land one `set` at a time, and a per-key
+    // `onChange` that enforces an invariant over SEVERAL keys — the content-
+    // source floor in settings.js, "at least one background source stays on"
+    // — reads the committed state between them. In form order, unticking 2e
+    // and ticking Barebones in one Save wrote `2e=false` first, the floor saw
+    // all three off and switched 2e back on with its toast, and the Warden
+    // ended with both editions on and a false warning (review #18; the flat
+    // list saved the same way). Writing every value being switched ON before
+    // any being switched OFF means each intermediate state's set of true keys
+    // is a SUPERSET of the final state's, so any such invariant that holds at
+    // the end holds at every step — and when the final state itself breaks
+    // it (every source unticked), the onChange still answers on the last
+    // write, exactly as before. A stable partition, so unrelated rows keep
+    // form order among themselves.
+    const entries = Object.entries(formData.object);
+    const ordered = [...entries.filter(([, v]) => v === true), ...entries.filter(([, v]) => v !== true)];
+    for (const [id, value] of ordered) {
       const setting = game.settings.settings.get(id);
       if (!setting) continue;
       const priorValue = game.settings.get(setting.namespace, setting.key, { document: true })?._source.value;

@@ -1,4 +1,4 @@
-import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, rollNameFromTable, rollAge } from "../character-generator.js";
+import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, rollNameFromTable, rollAge, effectiveAgeFormula } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel } from "../utils.js";
@@ -1294,6 +1294,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * @private
    */
   async _prepareBiographyContext(context) {
+    // The age die's tooltip names the formula a click will ROLL — the Warden's
+    // age-formula setting, or the config fallback when that is blank or
+    // unusable — through the same helper the die itself reads, so the two
+    // cannot disagree (review #18: a literal "(2d20 + 10)" outlived the
+    // setting by a day). Formatted here rather than with {{localize}} because
+    // the value is per-WORLD, not per-language; `data-tooltip` on the control
+    // (user ruling), so it looks like the Die of Fate's beside it.
+    context.rollAgeTitle = game.i18n.format("CAIRN.RollAgeTitle", {
+      formula: effectiveAgeFormula(CONFIG.Cairn?.characterGenerator2e?.biography?.age).formula,
+    });
     // Trait pick-lists: each trait's source table supplies a <select> of options
     // so a player can pick a value (or keep an off-table one).
     //
@@ -1644,6 +1654,19 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   async _onRender(context, options) {
     await super._onRender(context, options);
     const el = this.element;
+
+    // Die of Fate is a READ roll — anyone who can see the sheet may roll it,
+    // which is why `owned()` does not wrap it — but it is the one roll rendered
+    // as a <button>, and DocumentSheetV2._onRender (the super call above) has
+    // just run `_toggleDisabled(true)` over every form element of a
+    // non-editable sheet (document-sheet.mjs:230-237, 269-272). The anchors it
+    // shares the read set with are not form elements, so only this one went
+    // dead: a Warden with a locked-pack monster open could roll its attack but
+    // not the die (review #18). Re-enabled after super, for exactly that case.
+    if (!this.isEditable) {
+      const dof = el.querySelector('[data-action="dieOfFate"]');
+      if (dof) dof.disabled = false;
+    }
 
     // The title-bar generation buttons live on the frame, which is built once —
     // so their state is re-applied here, on every render of the content.
@@ -3638,8 +3661,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   /* -------------------------------------------- */
 
   /**
-   * Re-roll the character's age (the Warden's age-formula setting, default
-   * {2d20 + 10, 21}kh) into the age field.
+   * Re-roll the character's age (the Warden's age-formula setting, RAW
+   * `2d20 + 10` by default) into the age field.
    * @this {CairnActorSheet}
    */
   static async #onRollAge(event) {
@@ -3785,7 +3808,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       await this._replaceGrantedItems(`bond:${id}`, newItems);
       const gold = Math.max(0, (this.actor.system.gold ?? 0) - (bonds[idx].gold ?? 0) + drawn.gold);
       bonds[idx] = { id, description: drawn.description, gold: drawn.gold };
-      await this.actor.update({ "system.bonds": bonds, "system.gold": gold });
+      // abNoStatusCard, as on every other bond/question write: the gold swing
+      // is the die's, not the player's, and the ledger card read it as a manual
+      // edit otherwise (review #18 — this was the one member of the family
+      // without the flag).
+      await this.actor.update({ "system.bonds": bonds, "system.gold": gold }, { abNoStatusCard: true });
     } finally {
       this._rerolling = false;
     }

@@ -294,6 +294,10 @@ export const spawnEncounterFromMessage = async (message) => {
         const folder = await encounterFolder();
         for (let i = 0; i < count; i++) {
           const npc = await createNpc({ folder: folder.id });
+          // Document.create resolves undefined when a _preCreate refuses; the
+          // monster branch guards the same way through createMonster's `?? null`
+          // (review #18). A refused person is skipped, the rest still placed.
+          if (!npc) continue;
           placed += await spawnTokens(npc, 1, placed);
           placedNames.push(npc.name);
         }

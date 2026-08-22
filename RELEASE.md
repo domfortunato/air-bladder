@@ -101,6 +101,8 @@ publishes documentation for a version nobody can install yet.
 If a release's assets are missing or you need to rebuild without a new version:
 **Actions → Release Creation → Run workflow → enter the tag → Run.** This
 `workflow_dispatch` path (re)builds and re-attaches the assets to the existing tag.
+It checks out the TAG you enter, whichever branch the Run-workflow dialog shows —
+that picker only chooses which copy of the workflow file runs, never what is built.
 
 ## Redoing a version
 
