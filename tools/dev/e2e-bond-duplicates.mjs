@@ -28,16 +28,25 @@
  *      not null, and returns at all
  *   4. real generation, 3-row table, 8 runs: the two bonds always differ
  *   5. real generation, 1-row table: two bonds, both the same, no hang
- *   6. the SHEET's re-roll button, clicked: it never lands on the other bond
+ *   6. the SHEET's re-roll button, clicked with the dice pinned per click: it
+ *      walks past the other bond and itself onto the free row, five times; then
+ *      a NEGATIVE CONTROL pinned to the other bond forever, which must land the
+ *      duplicate through the cap — so the five greens were `avoid`, not the seed
  *
  * Dice are shadowed in-page (`CONFIG.Dice.randomUniform`, restored in finally) for
- * legs 1-3 only. The mapping is INVERTED — a face is `ceil((1 - u) * faces)` — so
- * `uFor` below is the whole reason those legs are readable.
+ * legs 1-3 and 6. The mapping is INVERTED — a face is `ceil((1 - u) * faces)` — so
+ * `uFor` is the whole reason those legs are readable.
  *
- * Legs 4 and 6 are probabilistic in their NEGATIVE direction and the numbers are
- * printed: with the fix removed, leg 4 catches the regression 96% of the time and
- * leg 6 87%. With the fix in place both are ~1e-4 from flaking. That asymmetry is
- * the acceptable one; a green run means what it says.
+ * Leg 4 is probabilistic in its NEGATIVE direction and the number is printed: with
+ * the fix removed it catches the regression 96% of the time, and with the fix in
+ * place it is ~1e-4 from flaking (one bond avoided on a 3-row table, so the cap
+ * returns a duplicate once in (1/3)^10 generations). Leg 6 used to run unpinned
+ * the same way and was NOT ~1e-4 from flaking, whatever this header said: the
+ * sheet avoids BOTH held bonds, so each attempt misses with 2/3 and the cap hands
+ * back a duplicate once in (2/3)^10 ≈ 1.7% of clicks — about 8% of five-click
+ * runs — and the 0.1.18 pre-tag battery lost that toss (2026-08-23). A
+ * miscounted probability read as a regression; pinning the dice is what makes a
+ * green mean what it says.
  *
  * Usage: npm run dev:bond-dupes
  */
@@ -203,12 +212,20 @@ try {
   }
 
   /* ------------------------------------------- 6. the sheet's button ------ */
-  stage("the sheet's re-roll button, clicked");
+  stage("the sheet's re-roll button, clicked with the dice pinned");
 
-  const actorId = await page.evaluate(async () => {
+  // The 3-row table maps face n to ROWS[n-1] (ranges [1,1] [2,2] [3,3]).
+  const ROWS = ["ZZ bond alpha", "ZZ bond beta", "ZZ bond gamma"];
+  const seeded = await page.evaluate(async (rows) => {
     const bg = game.items.getName("ZZ Bond Dupe Background");
     await bg.update({ "system.bondsTable": "ZZ Bonds Three" });
     const cd = await game.cairn.characterGenerator.generate2eCharacter(bg);
+    if ((cd?.bonds ?? []).length !== 2) return { count: (cd?.bonds ?? []).length };
+    // A chosen starting pair, not a rolled one: this leg is about the button
+    // (leg 4 already covers the generation), and every pinned sequence below is
+    // computed from what the character holds, so the start is fixed too.
+    cd.bonds[0].description = rows[0];
+    cd.bonds[1].description = rows[1];
     const actor = await getDocumentClass("Actor").create({ name: "ZZ Bond Dupe PC", type: "character" });
     await actor.update({
       "system.bonds": cd.bonds,
@@ -216,8 +233,10 @@ try {
       "system.generationEnabled": true,
     });
     await actor.sheet.render(true);
-    return actor.id;
-  });
+    return { id: actor.id, count: 2 };
+  }, ROWS);
+  if (seeded.count !== 2) throw new Error(`the sheet leg's character generated ${seeded.count} bond(s), not two`);
+  const actorId = seeded.id;
 
   // Bonds live on the Background & Notes tab, which is not the one a sheet opens
   // on — the re-roll link exists in the DOM but is not visible, and Playwright
@@ -225,20 +244,51 @@ try {
   await page.click('a[data-action="tab"][data-tab="notes"]');
   await page.waitForSelector('[data-action="rerollBond"]', { state: "visible", timeout: 15000 });
 
+  // Pin the dice for ONE click. `drawBond` rolls the table once per attempt, so
+  // the sequence IS the order of draws the handler sees; the last value pins
+  // forever, as in legs 1-3. `pin`/`unpin` bracket the click from Node because
+  // the click itself is Playwright's, not an in-page call to wrap in a finally.
+  const uFor = (n) => 1 - (n - 0.5) / 3;
+  const pin = (texts) => page.evaluate((seq) => {
+    let k = 0;
+    window.__zzUniform ??= CONFIG.Dice.randomUniform;
+    CONFIG.Dice.randomUniform = () => seq[Math.min(k++, seq.length - 1)];
+  }, texts.map((t) => uFor(ROWS.indexOf(t) + 1)));
+  const unpin = () => page.evaluate(() => {
+    if (!window.__zzUniform) return;
+    CONFIG.Dice.randomUniform = window.__zzUniform;
+    delete window.__zzUniform;
+  });
+  const readBonds = () => page.evaluate((id) => game.actors.get(id).system.bonds.map((b) => b.description), actorId);
+
+  const clickOnce = async (sequenceFor) => {
+    const before = await readBonds();
+    const free = ROWS.find((r) => !before.includes(r));
+    await pin(sequenceFor(before, free));
+    try {
+      const buttons = await page.$$('[data-action="rerollBond"]');
+      if (!buttons.length) return null;
+      await buttons[0].click();
+      await page.waitForFunction(
+        ([id, was]) => game.actors.get(id).system.bonds[0].description !== was,
+        [actorId, before[0]],
+        { timeout: 8000 },
+      ).catch(() => null);
+    } finally {
+      await unpin();
+    }
+    return { before, after: await readBonds() };
+  };
+
+  // Each click: first draw the OTHER bond, then the bond being replaced, then the
+  // free row. With `avoid` the re-roll walks past two duplicates onto the free
+  // row every time; without it the very first draw is the collision.
   const CLICKS = 5;
   const rerolls = [];
   for (let i = 0; i < CLICKS; i++) {
-    const before = await page.evaluate((id) => game.actors.get(id).system.bonds.map((b) => b.description), actorId);
-    const buttons = await page.$$('[data-action="rerollBond"]');
-    if (!buttons.length) { fail("no re-roll button on the sheet — the leg never ran"); break; }
-    await buttons[0].click();
-    await page.waitForFunction(
-      ([id, was]) => game.actors.get(id).system.bonds[0].description !== was,
-      [actorId, before[0]],
-      { timeout: 8000 },
-    ).catch(() => null);
-    const after = await page.evaluate((id) => game.actors.get(id).system.bonds.map((b) => b.description), actorId);
-    rerolls.push({ before, after });
+    const r = await clickOnce((before, free) => [before[1], before[0], free]);
+    if (!r) { fail("no re-roll button on the sheet — the leg never ran"); break; }
+    rerolls.push(r);
   }
 
   const clash = rerolls.find((r) => r.after.length === 2 && r.after[0] === r.after[1]);
@@ -246,16 +296,24 @@ try {
   if (!rerolls.length) {
     fail("the re-roll leg produced no results");
   } else if (clash) {
-    fail(`a re-roll landed on the character's other bond: ${JSON.stringify(clash.after)}`);
+    fail(`a re-roll landed on the character's other bond: ${JSON.stringify(clash.after)} — `
+      + "the pinned first draw IS the other bond, so `avoid` did not exclude it");
+  } else if (stuck.length) {
+    fail(`${stuck.length} re-roll(s) returned the SAME bond — the pinned second draw is the bond `
+      + "being replaced, so `avoid` excluded the other bond but not this one");
   } else {
-    ok(`${rerolls.length} re-rolls, none collided with the other bond `
-      + "(unfixed, this leg reds ~87% of the time)");
-    if (stuck.length) {
-      fail(`${stuck.length} re-roll(s) returned the SAME bond — with the other bond and itself both `
-        + "avoided on a 3-row table, only one row is left, so this means `avoid` never arrived");
-    } else {
-      ok("no re-roll handed back the bond it replaced");
-    }
+    ok(`${rerolls.length} re-rolls, each walked past the other bond and itself onto the free row`);
+  }
+
+  // NEGATIVE CONTROL on the real button: every draw pinned to the OTHER bond, so
+  // the cap hands it back and the clash appears. Proves the pinning reaches the
+  // handler's dice — the greens above are `avoid` at work, not a seed nobody used.
+  const control = await clickOnce((before) => [before[1]]);
+  if (control && control.after.length === 2 && control.after[0] === control.after[1]) {
+    ok("negative control: pinned to the other bond forever, the click lands the duplicate through the cap");
+  } else {
+    fail(`negative control did NOT reproduce the clash (${JSON.stringify(control?.after)}) — the pinning `
+      + "may not reach the button's dice, so the greens above prove less than they claim");
   }
 
   const left = await sweep();

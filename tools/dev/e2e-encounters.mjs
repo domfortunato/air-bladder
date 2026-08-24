@@ -321,7 +321,7 @@ try {
       tokensAdded: canvas.scene.tokens.size - beforeTokens,
       person: npc ? npc.type === "npc" && npc.npcRole === "npc" : false,
       inFolder: npc?.folder?.id === folderId,
-      statted: npc ? npc.system.hp.max > 0 && npc.system.profession !== "" : false,
+      statted: npc ? npc.system.hp.max > 0 && npc.system.background !== "" : false, // role npc: a Background, never a Career
       hasFace: npc ? !npc.img?.includes("mystery-man") : false,
     };
   }, { msgId: npcMsg, folderId: cleanup.folderId });

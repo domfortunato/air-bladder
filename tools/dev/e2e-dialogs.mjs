@@ -209,13 +209,19 @@ const switchboard = await page.evaluate(async () => {
   return out;
 });
 
+// SEVEN choices since the 2026-08-20 split: Player Character plus the six
+// NPC_ROLES, `hireling` among them as a ROLE (restored that day). The
+// "hireling" this probe used to refuse was the retired TYPE alias, which core
+// would list in its own type-picker — that picker is what must stay absent.
+// This leg said six, and "no hireling", until the 0.1.18 pre-tag battery: the
+// probe was outside the split's neighbor set.
 switchboard.opened
-  && JSON.stringify(switchboard.values) === JSON.stringify(["character", "npc", "monster", "companion", "transport", "container"])
-  ? ok("the switchboard offers the Warden six role choices", switchboard.values.join(", "))
-  : fail("the switchboard offers the Warden six role choices", JSON.stringify(switchboard));
-!switchboard.values.includes("hireling") && !switchboard.coreTypeSelect
-  ? ok("no hireling, no core type-picker", "roles, never types — unmintable by construction")
-  : fail("no hireling, no core type-picker", JSON.stringify(switchboard));
+  && JSON.stringify(switchboard.values) === JSON.stringify(["character", "npc", "hireling", "monster", "companion", "transport", "container"])
+  ? ok("the switchboard offers the Warden seven role choices", switchboard.values.join(", "))
+  : fail("the switchboard offers the Warden seven role choices", JSON.stringify(switchboard));
+!switchboard.coreTypeSelect
+  ? ok("no core type-picker", "roles, never types — the hireling TYPE is unmintable by construction")
+  : fail("no core type-picker", JSON.stringify(switchboard));
 switchboard.selected === "character" && switchboard.resolvedNull
   ? ok("defaults to Player Character; dismissing creates nothing")
   : fail("defaults to Player Character; dismissing creates nothing", JSON.stringify(switchboard));

@@ -3214,9 +3214,9 @@ const hirelingToActorData = (h) => ({
 });
 
 /**
- * Create a fully-generated NPC actor with a random portrait + paired token
+ * Create a fully-generated HIRELING actor with a random portrait + paired token
  * (assigned on creation only, like a player character; re-rolls preserve it by
- * omission).
+ * omission). `createNpc` below is its twin for the other person role.
  * @returns {Promise<CairnActor>}
  */
 export const createHireling = async ({ folder = null } = {}) => {

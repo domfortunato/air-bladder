@@ -280,7 +280,11 @@ const npcFields = await page.evaluate(async () => {
   await a.delete();
   return { defaults, persisted, closed };
 });
-const wantDefaults = { connectedTo: "", role: "npc", containerClass: "", cost: 0 };
+// `role` initial is `hireling` since the 2026-08-20 split (CLAUDE.md: a
+// document that states no role predates the split, and every one of those is
+// a hireling by ruling). This leg said "npc" until the 0.1.18 pre-tag battery
+// — the probe was outside the split's neighbor set.
+const wantDefaults = { connectedTo: "", role: "hireling", containerClass: "", cost: 0 };
 const wantStored = { connectedTo: "Actor.abcdef1234567890", role: "transport", containerClass: "crate", cost: 42 };
 for (const [k, v] of Object.entries(wantDefaults)) {
   if (npcFields.defaults[k] === v) ok(`${k} default`, JSON.stringify(v));
@@ -344,19 +348,36 @@ for (const [k, want] of [
 
 /* -------------------------------------------- */
 
-console.log("\nnpc generation");
-const hire = await page.evaluate(async () => {
-  const actor = await game.cairn.characterGenerator.createNpc();
-  if (!actor) return { error: "no NPC" };
-  const src = actor.toObject().system;
-  const out = { profession: src.profession, dayRate: src.dayRate, hp: src.hp?.value, str: src.abilities?.STR?.value, items: actor.items.size, armor: actor.system.armor };
-  await actor.delete();
+// Both person generators since the 2026-08-20 split: a HIRELING has a Career
+// (`profession`) with a day rate, an NPC a Background off the Warden's table
+// and no career. This section called createNpc and asked it for a profession
+// until the 0.1.18 pre-tag battery — the probe was outside the split's
+// neighbor set. HP is read from the SOURCE (toObject), never derived: a
+// generated NPC packs the whole Barebones kit and can land encumbered, which
+// zeroes the derived value while the rolled one stands.
+console.log("\nperson generation (both roles)");
+const people = await page.evaluate(async () => {
+  const gen = game.cairn.characterGenerator;
+  const read = (actor) => {
+    const src = actor.toObject().system;
+    return { role: src.role, profession: src.profession, background: src.background, dayRate: src.dayRate,
+      hp: src.hp?.value, str: src.abilities?.STR?.value, items: actor.items.size, armor: actor.system.armor };
+  };
+  const hireling = await gen.createHireling();
+  const npc = await gen.createNpc();
+  if (!hireling || !npc) return { error: "a generator returned nothing" };
+  const out = { hireling: read(hireling), npc: read(npc) };
+  await hireling.delete();
+  await npc.delete();
   return out;
 });
-if (hire.error) fail("npc", hire.error);
+if (people.error) fail("person generation", people.error);
 else {
-  ok("npc", `${hire.profession} @ ${hire.dayRate}/day, HP ${hire.hp}, STR ${hire.str}, ${hire.items} items, armor ${hire.armor}`);
-  if (!hire.profession || !hire.hp) fail("npc fields", "profession or hp missing");
+  const h = people.hireling, n = people.npc;
+  ok("hireling", `${h.profession} @ ${h.dayRate}/day, HP ${h.hp}, STR ${h.str}, ${h.items} items, armor ${h.armor}`);
+  if (h.role !== "hireling" || !h.profession || !h.hp) fail("hireling fields", `role ${h.role}, profession ${JSON.stringify(h.profession)}, hp ${h.hp}`);
+  ok("npc", `${n.background}, HP ${n.hp}, STR ${n.str}, ${n.items} items, armor ${n.armor}`);
+  if (n.role !== "npc" || !n.background || n.profession || !n.hp) fail("npc fields", `role ${n.role}, background ${JSON.stringify(n.background)}, profession ${JSON.stringify(n.profession)}, hp ${n.hp}`);
 }
 
 /* -------------------------------------------- */
