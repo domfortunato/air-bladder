@@ -30,7 +30,7 @@ manifest. Descends architecturally from a private fork of
   `CONTRIBUTING.md`, `site/index.html` and `docs/testing-dev-branch.md` —
   change one, change all six (the sixth was written after this list said
   "five" and nobody added it; review #19).
-- Latest release **0.1.17** (2026-08-19). `system.json`'s `version` is bumped by
+- Latest release **0.1.18** (2026-08-23). `system.json`'s `version` is bumped by
   `npm run release` in the release commit on `master` (CI substitutes the same
   tag into the manifest URLs), so on `dev` it lags until the post-release merge
   — read the tag, not the file. This line said 0.1.12 through five releases
@@ -221,12 +221,12 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   `npm run dev:token-names`.
 - Data models in `module/data-models.js` (TypeDataModel; `template.json` is gone,
   sub-types are declared in `system.json` `documentTypes`); 30 compendium packs
-  (29 on `master` since 0.1.17 — `journals-vald`, the Warden's Guide setting
-  chapter as one nine-page book, is dev-only until the next release; this
-  count went stale TWICE in one day, both times by the hand that had just
-  corrected it, and its "N on master" parenthetical went stale a THIRD way by
-  surviving two releases — a new pack's commit must carry this line, and so
-  must the release that moves the master count)
+  (30 on `master` too since 0.1.18 shipped `journals-vald`, the Warden's Guide
+  setting chapter as one nine-page book, on 2026-08-23; this count went stale
+  TWICE in one day, both times by the hand that had just corrected it, and its
+  "N on master" parenthetical went stale a THIRD way by surviving two releases
+  — a new pack's commit must carry this line, and so must the release that
+  moves the master count, which is what this post-release merge is doing)
 - 24 Warden-facing settings in `module/settings.js` (33 `register` calls + 4 `registerMenu` menus from ONE call site,
   ALL `config: false` since 2026-08-22 — see the submenu paragraph below; `roles-restamped`,
   `companion-restamped`, `hireling-split`, `grimoire-keys-stamped`,
