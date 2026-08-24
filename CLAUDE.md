@@ -27,7 +27,9 @@ manifest. Descends architecturally from a private fork of
   against the shipped 14.365 client and none of them verifiable on anything
   older from this machine. A minimum nobody has ever tested is a claim, not a
   fact. The same statement lives in `README.md`, `README.es.md`,
-  `CONTRIBUTING.md` and `site/index.html` — change one, change all five.
+  `CONTRIBUTING.md`, `site/index.html` and `docs/testing-dev-branch.md` —
+  change one, change all six (the sixth was written after this list said
+  "five" and nobody added it; review #19).
 - Latest release **0.1.17** (2026-08-19). `system.json`'s `version` is bumped by
   `npm run release` in the release commit on `master` (CI substitutes the same
   tag into the manifest URLs), so on `dev` it lags until the post-release merge
@@ -225,7 +227,7 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   corrected it, and its "N on master" parenthetical went stale a THIRD way by
   surviving two releases — a new pack's commit must carry this line, and so
   must the release that moves the master count)
-- 24 Warden-facing settings in `module/settings.js` (33 `register` calls + 3 `registerMenu`,
+- 24 Warden-facing settings in `module/settings.js` (33 `register` calls + 4 `registerMenu` menus from ONE call site,
   ALL `config: false` since 2026-08-22 — see the submenu paragraph below; `roles-restamped`,
   `companion-restamped`, `hireling-split`, `grimoire-keys-stamped`,
   `connections-migrated`, `art-migration-generation` (2026-08-21, review #17 —
@@ -449,7 +451,15 @@ against the reason, not against the fact.
   the combat tracker and the compendium SIDEBAR's document search are covered
   now (`localizeDirectoryNames` / `worldDisplayName` /
   `wrapCompendiumDocumentSearch` in `cairn.js`, `_prepareTurnContext` in
-  `combat.js`). The sidebar one (2026-08-19, review #16) had to WRAP the app
+  `combat.js`) — and since 2026-08-23 (review #19) the CHAT CARD HEADER:
+  core prints the raw speaker alias in `.message-sender` while the attack
+  line beneath it was translated, so a Mule's card read "Mule" over a sheet
+  reading "Mula". `localizeSpeakerName` in `cairn.js` follows the token's
+  name where the message was spoken as one (a Warden's "Goblin A" stays)
+  and the world actor's otherwise (a PC never localizes); a speaker nothing
+  resolves — a compendium sheet's roll — keeps core's text. The GLOG cast
+  flavor resolves the same name per viewer, so it agrees with the header
+  above it. The sidebar one (2026-08-19, review #16) had to WRAP the app
   rather than sweep a render: its rows are rebuilt inside `_onSearchFilter` on
   every keystroke, so no render hook is ever near them, and both halves needed
   covering — the match (typing the translation found nothing) and the row text

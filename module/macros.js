@@ -1,6 +1,6 @@
 import { evaluateFormula, getInfoFromDropData, askDamageQuality, damageFormulaFor, damageQualityLabel } from "./utils.js";
 import { SETTINGS_NS } from "./settings.js";
-import { t } from "./i18n-content.js";
+import { t, actorDisplayName } from "./i18n-content.js";
 
 /**
  * @param {Object} data
@@ -67,7 +67,10 @@ export const rollItemMacro = async (actorId, itemId) => {
   }
   const item = actor.items.get(itemId);
   if (!item) {
-    return ui.notifications.warn(game.i18n.format("CAIRN.Macro.NoItem", { name: actor.name }));
+    // The actor's DISPLAY name, the same gate the sheet header uses (a PC's
+    // name stays, a creature's translates) — nine lines above a weapon name
+    // that was already routed (review #19).
+    return ui.notifications.warn(game.i18n.format("CAIRN.Macro.NoItem", { name: actorDisplayName(actor) }));
   }
 
   // Show the weapon's name through the content overlay, exactly as the sheet's

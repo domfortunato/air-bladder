@@ -615,7 +615,10 @@ const showImportSummary = async (actor, report) => {
   // is nothing to report.
 
   const dialog = new foundry.applications.api.DialogV2({
-    window: { title: F("CAIRN.KWImport.SummaryTitle", { name: esc(actor.name) }), icon: "fas fa-file-import" },
+    // The RAW name: ApplicationV2 sets a window title through `innerText`
+    // (application.mjs:932), a text sink, so an escaped "&amp;" would render
+    // literally (review #19). `esc` is for the HTML built by hand below.
+    window: { title: F("CAIRN.KWImport.SummaryTitle", { name: actor.name }), icon: "fas fa-file-import" },
     position: { width: 460 },
     content: `<div class="kwi-summary">${parts.join("")}</div>`,
     buttons: [{ action: "ok", label: L("CAIRN.Close"), default: true }],

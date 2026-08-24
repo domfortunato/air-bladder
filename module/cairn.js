@@ -2574,6 +2574,43 @@ const attackerDisplayName = (speaker, scene) => {
   return tok ? tokenDisplayName(tok) : (speaker?.alias ?? "");
 };
 
+/**
+ * The card HEADER — `.message-sender`, `templates/sidebar/chat-message.hbs:4`
+ * — is the raw speaker alias. Core prints it, nothing here rewrote it, and the
+ * attack line two lines beneath it went through the overlay: one creature, one
+ * card, two names (review #19, observed as "Mule" over a sheet reading "Mula";
+ * the 2026-08-14 ruling names exactly this). Display-only, like everything in
+ * this hook: the message is never written.
+ *
+ * The same two rules the attack line follows. Spoken AS a token, the token's
+ * name rules (`tokenDisplayName` — a Warden's "Goblin A" stays "Goblin A");
+ * spoken as a world actor, that actor's (`actorDisplayName` — a player's
+ * character never localizes). A speaker nothing resolves — a compendium
+ * sheet's roll, a user speaking as themself, a Warden-typed alias that is not
+ * the actor's name — keeps what core printed.
+ *
+ * @param {ChatMessage} message
+ * @param {HTMLElement} html
+ * @param {TokenDocument} [token]  the speaker's token on the scene it spoke in
+ */
+const localizeSpeakerName = (message, html, token) => {
+  if (!contentLocalized()) return;
+  const header = html.querySelector(".message-sender");
+  if (!header) return;
+  const speaker = message.speaker ?? {};
+  const alias = speaker.alias ?? "";
+  if (!alias || header.textContent.trim() !== alias) return;
+  let display;
+  if (token) {
+    display = tokenDisplayName(token);
+  } else {
+    const actor = speaker.actor ? game.actors?.get(speaker.actor) : null;
+    if (!actor || actor.name !== alias) return;
+    display = actorDisplayName(actor);
+  }
+  if (display && display !== alias) header.textContent = display;
+};
+
 const nameDamageTargets = (message, html, scene) => {
   const label = html.querySelector(".flavor-dice-roll .dmg-label")
     // Cards posted before the class existed: the label is the child div that is
@@ -2823,6 +2860,10 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   const speaker = message.speaker ?? {};
   const scene = speaker.scene ? game.scenes?.get(speaker.scene) : canvas?.scene;
   const token = scene?.tokens?.get(speaker.token);
+
+  // The header, in this viewer's language, before the body rewrites below
+  // read it — see the docblock.
+  localizeSpeakerName(message, html, token);
 
   // All three before the player-trim at the bottom of this hook — see the
   // docblocks. And `offerUntargetedApply` before `showDamageApplied`, which greys

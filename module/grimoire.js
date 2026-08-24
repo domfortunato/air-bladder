@@ -15,7 +15,7 @@
  */
 import { FATIGUE_NAME } from "./item/item.js";
 import { findTableByName } from "./compendium.js";
-import { t } from "./i18n-content.js";
+import { t, tokenDisplayName, actorDisplayName } from "./i18n-content.js";
 import { formatCount } from "./utils.js";
 import { SETTINGS_NS } from "./settings.js";
 
@@ -217,11 +217,13 @@ const GLOG_CAST_FLAG = "glogCast";
  * treatment in its own colour). A future GLOG card must carry the tag too;
  * today these two messages are the only ones.
  *
- * The NAME passes through unchanged, deliberately: it is the speaker alias,
- * which core itself prints raw in `.message-sender` directly above this line
- * (`templates/sidebar/chat-message.hbs:4`). Running it through the creature
- * overlay here would put two different names on one card header — and the
- * caster is a character anyway, whose name never localizes.
+ * The NAME is whatever the caller resolved. At COMPOSE time that is the raw
+ * speaker alias — the stored card is English, like every stored card here.
+ * At RENDER time (`localizeGlogCastCard`) it is the same display name the
+ * card header now carries: since review #19 `cairn.js` translates
+ * `.message-sender` per viewer, so a flavor left raw would put two names on
+ * one header, the reverse of the reason this comment used to give for
+ * leaving it alone. A character's name never localizes either way.
  */
 const glogCastFlavor = (key, name) =>
   `<span class="glog-flavor-tag">GLOG</span> — ${game.i18n.format(key, { name: esc(name) })}`;
@@ -572,5 +574,23 @@ export const localizeGlogCastCard = (message, html) => {
   // (`templates/sidebar/chat-message.hbs:23-25`), so it is not reached by the
   // rebuild above and needs its own write.
   const flavor = html.querySelector(".flavor-text");
-  if (flavor) flavor.innerHTML = glogCastFlavor("CAIRN.GrimoireCastFlavor", f.alias);
+  if (flavor) flavor.innerHTML = glogCastFlavor("CAIRN.GrimoireCastFlavor", castDisplayName(message, f.alias));
+};
+
+/**
+ * The caster's name as THIS viewer's card header shows it (cairn.js
+ * `localizeSpeakerName`, review #19): the token's where the cast was spoken
+ * as one, the world actor's otherwise, and the stored alias when nothing
+ * resolves or the alias was not the actor's own name.
+ * @param {ChatMessage} message
+ * @param {String} alias  the alias the card was composed with
+ * @return {String}
+ */
+const castDisplayName = (message, alias) => {
+  const speaker = message.speaker ?? {};
+  const token = speaker.scene && speaker.token ? game.scenes?.get(speaker.scene)?.tokens?.get(speaker.token) : null;
+  if (token) return tokenDisplayName(token) || alias;
+  const actor = speaker.actor ? game.actors?.get(speaker.actor) : null;
+  if (!actor || actor.name !== alias) return alias;
+  return actorDisplayName(actor) || alias;
 };

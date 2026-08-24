@@ -52,12 +52,16 @@ jobs:
       # `inputs.tag` — a rebuild of any non-HEAD release shipping newer code
       # under an older number (review #18). `inputs.tag` is empty on a tag push,
       # so the `||` falls through to the pushed ref.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ inputs.tag || github.ref }}
+          # The whole history: check:translations below baselines on the
+          # PREVIOUS release tag, and a shallow checkout reaches no tag at all,
+          # on which the guard degrades to its first two rules and prints OK.
+          fetch-depth: 0
 
       # Build the LevelDB compendia from src/packs/ (packs/ is gitignored)
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: "24"
       - run: npm ci
@@ -89,17 +93,35 @@ jobs:
       - run: npm run check:probes
       - run: npm run i18n:check
       - run: npm run i18n:source
+      # The translation-loss guard — mandatory both sides of a release by user
+      # ruling (2026-08-11), and review #19 found it in neither this list nor
+      # the PR-merge recipe. On a tag checkout `git describe` names the tag
+      # being BUILT, so `--exclude` moves the baseline to the previous release:
+      # the one whose translations this build must not have lost.
+      - run: npm run check:translations -- --exclude "$RELEASE_TAG"
 
-      # Substitute the Manifest and Download URLs in the system.json
+      # Substitute the version and the manifest/download URLs in system.json.
+      # A node one-liner rather than a third-party action (review #19): the
+      # microsoft/variable-substitution@v1 this used is ARCHIVED (last push
+      # 2023-01) and declares `using: node12` — it ran on 0.1.17 only because
+      # GitHub forces retired runtimes onto Node 24, which its changelog ends
+      # in the autumn of 2026. The day that stops, a tag push builds, passes
+      # every gate above and dies here, and a tag is never re-cut on GitHub
+      # (RELEASE.md) — so the recovery would be a workflow edit plus a manual
+      # dispatch. Three keys, written back with the file's own 2-space indent.
       - name: Substitute Manifest and Download Links For Versioned Ones
-        id: sub_manifest_link_version
-        uses: microsoft/variable-substitution@v1
-        with:
-          files: "system.json"
         env:
-          version: ${{ env.RELEASE_TAG }}
-          manifest: https://github.com/${{github.repository}}/releases/latest/download/system.json
-          download: https://github.com/${{github.repository}}/releases/download/${{ env.RELEASE_TAG }}/system.zip
+          REPO: ${{ github.repository }}
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const m = JSON.parse(fs.readFileSync("system.json", "utf8"));
+            m.version = process.env.RELEASE_TAG;
+            m.manifest = `https://github.com/${process.env.REPO}/releases/latest/download/system.json`;
+            m.download = `https://github.com/${process.env.REPO}/releases/download/${process.env.RELEASE_TAG}/system.zip`;
+            fs.writeFileSync("system.json", JSON.stringify(m, null, 2) + "\n");
+            console.log(`system.json: version ${m.version}, download ${m.download}`);
+          '
 
       # Create a zip file with all files required by the system to add to the release
       # template.json was dropped when the sub-type schemas moved to TypeDataModel

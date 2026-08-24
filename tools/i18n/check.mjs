@@ -295,6 +295,28 @@ const enCount = Object.keys(en).length;
 const translated = enCount - missing.length - untranslated.length;
 const pct = Math.round((translated / enCount) * 100);
 
+/* ---- the PUBLISHED coverage figure ----------------------------------------
+ * Three public sites state this percentage in prose — both READMEs, which
+ * ship in the zip, and the landing page — as part of the translator's credit.
+ * It was set FROM this gate on 2026-08-02 ("the gate's number is the one to
+ * publish") and then sat at 72% through the restoration of 158 of his strings
+ * while the line above printed 90% (review #19): a number nothing compares to
+ * its source drifts exactly as far as nobody happens to look. So it is an
+ * ERROR here, not advisory — advisory is how it drifted — and the patterns
+ * are anchored on the sentence, so a reword fails rather than quietly
+ * matching nothing. Spanish only: the figure is the Spanish translation's.
+ */
+const COVERAGE_SITES = LANG === "es" ? [
+  ["README.md", /\((\d+)% of the current strings, by /],
+  ["README.es.md", /\(el (\d+) % de las cadenas actuales, por /],
+  ["site/index.html", /\((\d+)% of the interface and all the game content, by /],
+] : [];
+for (const [file, re] of COVERAGE_SITES) {
+  const m = fs.readFileSync(path.join(ROOT, file), "utf8").match(re);
+  if (!m) errors.push(`${file}: the Spanish-coverage sentence was not found — keep it, or move this gate's pattern with the reword`);
+  else if (Number(m[1]) !== pct) errors.push(`${file}: says ${m[1]}% translated; this gate says ${pct}% — publish the gate's number`);
+}
+
 console.log(`\nlang/${LANG}.json vs lang/en.json`);
 console.log(`  translated  : ${translated}/${enCount}  (${pct}%)`);
 console.log(`  missing     : ${missing.length}${missing.length ? `   e.g. ${missing.slice(0, 5).join(", ")}` : ""}`);

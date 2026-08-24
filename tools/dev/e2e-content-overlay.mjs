@@ -190,6 +190,68 @@ if (res.error) {
 
 /* -------------------------------------------- */
 
+console.log("\nchat card header names the speaker in the display language");
+
+// The card HEADER (`.message-sender`) is the raw speaker alias: core prints it,
+// and until review #19 nothing here rewrote it while the attack line beneath
+// went through the overlay — a Mule's card read "Mule" over a sheet reading
+// "Mula". Two speakers, two rules: a creature's header follows the overlay; a
+// CHARACTER's never does (the 2026-08-04 gate), even with its name in the
+// table — the control that catches an ungated lookup. Read by message id, not
+// `contents.at(-1)`: a ledger card could land between the two creates.
+const hdr = await page.evaluate(async () => {
+  const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+  const NAME = "ZZ Probe Beast";
+  const NAME_ES = "ZZ BESTIA-PROBE";
+  const created = [];
+  const messages = [];
+  const readHeader = async (msg) => {
+    for (let i = 0; i < 30; i++) {
+      const el = document.querySelector(`[data-message-id="${msg.id}"] .message-sender`);
+      if (el) return el.textContent.trim();
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    return null;
+  };
+  try {
+    i18n._setOverlay({ "monster.name": { [NAME]: NAME_ES } });
+    const beast = await Actor.create({ name: NAME, type: "npc", system: { role: "companion" } });
+    const hero = await Actor.create({ name: NAME, type: "character" });
+    created.push(beast, hero);
+    const m1 = await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor: beast }), content: "header probe" });
+    const m2 = await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ actor: hero }), content: "header probe" });
+    messages.push(m1, m2);
+    return {
+      NAME, NAME_ES,
+      beastHeader: await readHeader(m1),
+      heroHeader: await readHeader(m2),
+      beastStoredAlias: m1._source.speaker.alias,
+    };
+  } catch (e) {
+    return { error: String(e?.message ?? e) };
+  } finally {
+    for (const m of messages) await m.delete().catch(() => {});
+    for (const d of created) await d.delete().catch(() => {});
+    i18n._setOverlay(null);
+  }
+});
+
+if (hdr.error) {
+  fail("header probe setup", hdr.error);
+} else {
+  hdr.beastHeader === hdr.NAME_ES
+    ? ok("creature card header translated", `"${hdr.beastHeader}"`)
+    : fail("creature card header translated", `header reads ${JSON.stringify(hdr.beastHeader)}`);
+  hdr.heroHeader === hdr.NAME
+    ? ok("control: a character's header stays", `"${hdr.heroHeader}" — the PC gate holds`)
+    : fail("control: a character's header stays", `header reads ${JSON.stringify(hdr.heroHeader)}`);
+  hdr.beastStoredAlias === hdr.NAME
+    ? ok("stored alias untouched", "display-only")
+    : fail("stored alias untouched", `alias is ${JSON.stringify(hdr.beastStoredAlias)}`);
+}
+
+/* -------------------------------------------- */
+
 console.log("\nno overlay installed (English world)");
 
 const off = await page.evaluate(async () => {

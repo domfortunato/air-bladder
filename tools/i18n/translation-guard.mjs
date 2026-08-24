@@ -37,6 +37,11 @@
  *  loss, not housekeeping). Orphan-by-orphan hygiene stays i18n:repair's job.
  *
  * Baseline: the last release tag (git describe). Runs offline, no Foundry.
+ * `--exclude <tag>` moves the baseline past that tag: on a tag checkout — the
+ * release workflow — `git describe` names the tag being BUILT, and comparing a
+ * file with itself passes on anything (review #19). The workflow passes the
+ * tag it is building, so the baseline is the previous release, which is the
+ * one whose translations this build must not have lost.
  * A missing baseline (fresh clone without tags) degrades to rules 1+2 and
  * says so — never a silent pass.
  *
@@ -90,8 +95,12 @@ const gitShow = (ref, path) => {
   } catch { return null; }
 };
 
+const excludeAt = process.argv.indexOf("--exclude");
+const excludeTag = excludeAt > -1 ? process.argv[excludeAt + 1] : null;
 const lastTag = (() => {
-  try { return execFileSync("git", ["describe", "--tags", "--abbrev=0"], { cwd: ROOT }).toString().trim(); }
+  const args = ["describe", "--tags", "--abbrev=0"];
+  if (excludeTag) args.push("--exclude", excludeTag);
+  try { return execFileSync("git", args, { cwd: ROOT }).toString().trim(); }
   catch { return null; }
 })();
 

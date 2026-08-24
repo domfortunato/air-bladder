@@ -244,6 +244,9 @@ git checkout dev
 git merge --no-ff pr-<N> -m "Merge <who> <what> (PR #<N>)"
 
 npm run i18n:check                      # gates BEFORE the push (see above)
+npm run check:translations             # the loss guard: nothing the last release
+                                        # shipped may have vanished (this recipe is
+                                        # the one that once lost 158 strings)
 npm run i18n:check -- --glossary        # advisory
 
 git push origin dev                     # Gitea. Never push to the `github` remote.
