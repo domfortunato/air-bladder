@@ -1562,6 +1562,33 @@ export class CairnActor extends Actor {
     // operation-level flags a caller sets for the whole write, not per-document.)
     const stash = ((options.airBladder ??= {})[this.id] ??= {});
 
+    // A RENAME carries its tokens along — only the ones still wearing the OLD
+    // name (user ruling 2026-08-23: a token someone named on purpose keeps its
+    // name; this is core's own convention for the prototype token, applied to
+    // placed tokens too). Core copies the actor's name onto a token exactly
+    // once, at placement (common/documents/actor.mjs:96,155 seed only an EMPTY
+    // prototype name), and never again — so until this a player's rename left
+    // their token stale on every map. The prototype is rewritten HERE, inside
+    // the same write; the placed tokens are documents on other scenes, so
+    // _onUpdate does those from the former name stashed here. A TRANSITION,
+    // not a presence (review #18): the sheet's submit carries `name` every
+    // time. This runs for a SYNTHETIC (unlinked-token) actor too: the backend
+    // runs the pre-update phase on the Actor class FIRST and only then
+    // rewrites the request into an ActorDelta operation
+    // (client-backend.mjs `_updateDocuments` → `#adjustActorDeltaRequest`),
+    // so the stash travels with that operation and the synthetic actor's
+    // _onUpdate — called by ActorDelta._onUpdate with a shallow copy of the
+    // same options — reads it back. A `preUpdateActorDelta` hook, the obvious
+    // shape, never fires for this at all; it was tried first. The prototype
+    // is a base actor's alone.
+    if (typeof changed.name === "string" && changed.name !== this.name) {
+      stash.formerName = this.name;
+      const protoName = foundry.utils.getProperty(changed, "prototypeToken.name");
+      if (!this.isToken && protoName === undefined && this.prototypeToken?.name === this.name) {
+        foundry.utils.setProperty(changed, "prototypeToken.name", changed.name);
+      }
+    }
+
     // A changed link must re-render the FORMER owner's sheet too (an unlinked
     // mule has to vanish from the tab it was on), and by _onUpdate the old value
     // is gone.
@@ -1628,6 +1655,45 @@ export class CairnActor extends Actor {
     this._synchronizeOwnerSheets(stash.formerOwners ?? []);
     this.#announceStatusChange(stash, options, userId);
     this.#postChangeLog(stash, options, userId);
+    this.#renameMatchingTokens(stash, userId)
+      .catch((e) => console.error("Air Bladder | token rename after actor rename failed", e));
+  }
+
+  /**
+   * After a rename, carry every placed token still wearing the FORMER name
+   * along to the new one — every scene, linked or unlinked — and leave any
+   * token someone named on purpose alone (user ruling 2026-08-23; see the
+   * stash in _preUpdate). One batched write per scene, from the client that
+   * made the change: a token's permission level IS its actor's
+   * (common/documents/token.mjs:939-942, client token.mjs:272), so a player
+   * renaming their own character renames its tokens with no GM relay, and the
+   * `isOwner` filter drops the rare token this user could not write anyway.
+   * The target is the token's OWN actor's name — for an unlinked token that is
+   * the synthetic actor, refreshed by super._onUpdate before this runs, so a
+   * token wearing its delta's name is never "still the old name" and is
+   * skipped by the same test. A SYNTHETIC actor renamed through its token's
+   * sheet reaches here too (see _preUpdate) and owns exactly one token, its
+   * own. The three re-roll paths that used to rename the ACTIVE scene's
+   * tokens by hand ride this instead.
+   */
+  async #renameMatchingTokens(stash, userId) {
+    const former = stash.formerName;
+    if (former === undefined || former === this.name) return;
+    if (userId !== game.user.id) return;
+    if (this.isToken) {
+      const token = this.token;
+      if (token && token.name === former && token.isOwner) await token.update({ name: this.name });
+      return;
+    }
+    for (const scene of game.scenes) {
+      const updates = [];
+      for (const token of scene.tokens) {
+        if (token.actorId !== this.id || token.name !== former || !token.isOwner) continue;
+        const target = token.actor?.name ?? this.name;
+        if (target !== token.name) updates.push({ _id: token.id, name: target });
+      }
+      if (updates.length) await scene.updateEmbeddedDocuments("Token", updates);
+    }
   }
 
   /**

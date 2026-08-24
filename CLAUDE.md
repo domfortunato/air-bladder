@@ -199,6 +199,24 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   `spellbook`, `object`, `background`, `transport`
 - `module/actor/actor-sheet.js` is the largest file
 - `module/damage.js` holds Cairn's damage flow
+- **A token's name follows its actor's on rename — only where it still matched
+  the OLD name** (2026-08-23, user ruling after a player's rename left their
+  token stale on every map: "preserve custom token names"). Core copies the
+  name onto a token once, at placement, and never again
+  (common/documents/actor.mjs:96,155 seed only an EMPTY prototype name). The
+  rule is core's own prototype-token convention applied to placed tokens on
+  EVERY scene: `CairnActor._preUpdate` stashes the former name and rewrites the
+  prototype in the same write, `_onUpdate` batches one Token update per scene
+  from the writer's client (a token's permission level is its actor's, so a
+  player needs no relay). An UNLINKED token renamed through its own sheet
+  takes the SAME path: the backend runs the pre-update phase on the synthetic
+  Actor first and only then rewrites the request into an ActorDelta operation
+  (client-backend.mjs `_updateDocuments` → `#adjustActorDeltaRequest`), so the
+  stash travels and the synthetic actor's `_onUpdate` renames its one token —
+  a `preUpdateActorDelta` hook, the obvious shape, never fires for it and was
+  the first attempt. The three re-roll paths that used to rename the ACTIVE
+  scene's tokens by hand, unconditionally, ride this instead. Gate:
+  `npm run dev:token-names`.
 - Data models in `module/data-models.js` (TypeDataModel; `template.json` is gone,
   sub-types are declared in `system.json` `documentTypes`); 30 compendium packs
   (29 on `master` since 0.1.17 — `journals-vald`, the Warden's Guide setting
@@ -692,7 +710,7 @@ What belongs here is what those two files do not say:
 
 ## Testing
 
-**`docs/release-testing.md` is the full list — 98 probes (`check:probes` states
+**`docs/release-testing.md` is the full list — 99 probes (`check:probes` states
 the current count), what each covers, and what to run before tagging vs after
 publishing. Keep it in step with `package.json`; a probe not listed there runs
 only when someone remembers it.**

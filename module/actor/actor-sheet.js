@@ -2891,10 +2891,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       name = await rollNameFromTable(CONFIG.Cairn?.barebonesGenerator?.name, this.actor.name);
     }
     if (!name || name === this.actor.name) return;
+    // The tokens follow through CairnActor's rename rule (every scene, only
+    // the ones still wearing the old name) — this used to rename the ACTIVE
+    // scene's tokens by hand, unconditionally, and nothing else did.
     await this.actor.update({ name });
-    for (const token of this.actor.getActiveTokens()) {
-      await token.document.update({ name });
-    }
   }
 
   /**

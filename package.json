@@ -99,6 +99,7 @@
     "dev:bg-drop-order": "node tools/dev/e2e-bg-drop-ordering.mjs",
     "dev:token-defaults": "node tools/dev/e2e-token-defaults.mjs",
     "dev:bond-dupes": "node tools/dev/e2e-bond-duplicates.mjs",
+    "dev:token-names": "node tools/dev/e2e-token-names.mjs",
     "check:licence": "node tools/dev/licence-check.mjs",
     "check:manifest": "node tools/dev/manifest-check.mjs",
     "dev:npc-wording": "node tools/dev/e2e-npc-wording.mjs",

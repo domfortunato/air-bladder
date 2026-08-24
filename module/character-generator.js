@@ -2848,9 +2848,9 @@ export const updateActorWithCharacter = async (actor, characterData) => {
   // missed it. See CairnActor#_onUpdate.
   await actor.update(data, { abNoStatusCard: true });
   await grantContainers(actor, characterData.containers);
-  for (const token of actor.getActiveTokens()) {
-    await token.document.update({ name: actor.name });
-  }
+  // The tokens follow through CairnActor's rename rule (every scene, only the
+  // ones still wearing the old name) — this used to rename the ACTIVE scene's
+  // tokens by hand, unconditionally.
   return actor;
 };
 
@@ -3350,9 +3350,9 @@ const applyHirelingCareer = async (actor, h) => {
  */
 export const rerollNpcName = async (actor) => {
   await actor.update({ name: await rollNpcName() });
-  for (const token of actor.getActiveTokens()) {
-    await token.document.update({ name: actor.name });
-  }
+  // The tokens follow through CairnActor's rename rule (every scene, only the
+  // ones still wearing the old name) — this used to rename the ACTIVE scene's
+  // tokens by hand, unconditionally.
   return actor;
 };
 
