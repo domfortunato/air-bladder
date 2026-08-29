@@ -1,0 +1,142 @@
+{
+  "air-bladder": {
+    "system": "air-bladder",
+    "topology": "standard",
+    "quantity": "uses.value",
+    "aliases": {
+      "Torches": "Torch",
+      "Candles": "Candle",
+      "Antorcha": "Torch",
+      "Linterna": "Lantern",
+      "Vela": "Candle",
+      "Yelmo con vela": "Candle Helmet",
+      "Seta antorcha": "Torch Fungus",
+      "Mecha de luz tenue": "Wisp Lantern",
+      "Caracol brillante": "Glowsnail",
+      "Vara solar": "Sun Stick",
+      "Vela atrapaluz": "Lightsucker Candle"
+    },
+    "sources": {
+      "Torch": {
+        "name": "Torch",
+        "type": "equipment",
+        "consumable": true,
+        "states": 2,
+        "light": [
+          {
+            "bright": 20, "dim": 40, "angle": 360, "color": "#ff9329", "alpha": 0.5,
+            "animation": { "type": "torch", "speed": 5, "intensity": 5, "reverse": false }
+          }
+        ]
+      },
+      "Lantern": {
+        "name": "Lantern",
+        "type": "equipment",
+        "consumable": false,
+        "states": 2,
+        "light": [
+          {
+            "bright": 20, "dim": 40, "angle": 360, "color": "#eccd8b", "alpha": 0.4,
+            "animation": { "type": "torch", "speed": 2, "intensity": 3, "reverse": false }
+          }
+        ]
+      },
+      "Candle": {
+        "name": "Candle",
+        "type": "equipment",
+        "consumable": true,
+        "states": 2,
+        "light": [
+          {
+            "bright": 5, "dim": 10, "angle": 360, "color": "#ff9329", "alpha": 0.5,
+            "animation": { "type": "torch", "speed": 5, "intensity": 3, "reverse": false }
+          }
+        ]
+      },
+      "Candle Helmet": {
+        "name": "Candle Helmet",
+        "type": "equipment",
+        "consumable": true,
+        "states": 2,
+        "light": [
+          {
+            "bright": 5, "dim": 10, "angle": 360, "color": "#ff9329", "alpha": 0.5,
+            "animation": { "type": "torch", "speed": 5, "intensity": 3, "reverse": false }
+          }
+        ]
+      },
+      "Torch Fungus": {
+        "name": "Torch Fungus",
+        "type": "equipment",
+        "consumable": true,
+        "states": 2,
+        "light": [
+          { "bright": 10, "dim": 20, "angle": 360, "color": "#b9f2c8", "alpha": 0.35 }
+        ]
+      },
+      "Wisp Lantern": {
+        "name": "Wisp Lantern",
+        "type": "equipment",
+        "consumable": false,
+        "states": 2,
+        "light": [
+          {
+            "bright": 0, "dim": 15, "angle": 360, "color": "#a8c8ff", "alpha": 0.35,
+            "animation": { "type": "ghost", "speed": 3, "intensity": 3, "reverse": false }
+          }
+        ]
+      },
+      "Glowsnail": {
+        "name": "Glowsnail",
+        "type": "equipment",
+        "consumable": false,
+        "states": 2,
+        "light": [
+          { "bright": 0, "dim": 10, "angle": 360, "color": "#7fd9c4", "alpha": 0.3 }
+        ]
+      },
+      "Sun Stick": {
+        "name": "Sun Stick",
+        "type": "equipment",
+        "consumable": true,
+        "states": 2,
+        "light": [
+          {
+            "bright": 20, "dim": 40, "angle": 360, "color": "#fff1b0", "alpha": 0.4,
+            "animation": { "type": "sunburst", "speed": 1, "intensity": 2, "reverse": false }
+          }
+        ]
+      },
+      "Lightsucker Candle": {
+        "name": "Lightsucker Candle",
+        "type": "equipment",
+        "consumable": true,
+        "states": 2,
+        "light": [
+          { "negative": true, "bright": 10, "dim": 20, "angle": 360, "alpha": 0.5 }
+        ]
+      },
+      "Heatless Torch": {
+        "name": "Heatless Torch",
+        "type": "spell",
+        "consumable": false,
+        "states": 2,
+        "light": [
+          { "bright": 20, "dim": 40, "angle": 360, "color": "#d8f0ff", "alpha": 0.4 }
+        ]
+      },
+      "Lamp's Hue": {
+        "name": "Lamp's Hue",
+        "type": "spell",
+        "consumable": false,
+        "states": 2,
+        "light": [
+          {
+            "bright": 20, "dim": 40, "angle": 360, "color": "#ff9329", "alpha": 0.5,
+            "animation": { "type": "torch", "speed": 5, "intensity": 5, "reverse": false }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -66,6 +66,7 @@ Air Bladder es un sistema complementario amigable, no el sistema oficial de Cair
 - Tres galerías del selector de retratos: 80 retratos de personaje de [Jon Aspeheim](https://jonaspeheim.itch.io/), 368 tokens de criaturas y PNJ de [tlomdev](https://tlomdev.itch.io/) (un personaje importado de Kettlewright conserva su rostro) y 17 monstruos dibujados para Air Bladder por [Lydia Comer](https://linktr.ee/lydiadidmyink)
 - Automatización mínima — botones para descansar, restaurar características, pánico y daño crítico
 - Tiradas de daño mermadas y potenciadas — elige una al tirar; un personaje con pánico tira mermado automáticamente
+- Funciona con el módulo [Torch](https://github.com/League-of-Foundry-Developers/Torch) — un archivo de fuentes de luz ya preparado enciende antorchas, linternas, velas y las lámparas más raras directamente desde el inventario, gastando sus usos: [cómo configurarlo](https://github.com/domfortunato/air-bladder/blob/master/docs/torch-module.md)
 
 ## Capturas de pantalla
 

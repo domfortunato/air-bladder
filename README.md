@@ -35,6 +35,7 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 - Three portrait-picker galleries: 80 character portraits by [Jon Aspeheim](https://jonaspeheim.itch.io/), 368 creature & NPC tokens by [tlomdev](https://tlomdev.itch.io/) (an imported Kettlewright character keeps its face), and 17 monsters drawn for Air Bladder by [Lydia Comer](https://linktr.ee/lydiadidmyink)
 - Minimal automation — buttons for rest, restoring abilities, panic and critical damage
 - Impaired and Enhanced damage rolls — pick one when you roll; a panicked character rolls impaired automatically
+- Works with the [Torch](https://github.com/League-of-Foundry-Developers/Torch) module — a ready-made light-source file lights torches, lanterns, candles and the stranger lamps straight from the inventory, spending their uses: [set it up](https://github.com/domfortunato/air-bladder/blob/master/docs/torch-module.md)
 
 ## Screenshots
 
