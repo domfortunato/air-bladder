@@ -87,6 +87,7 @@
       "armor": {
         "htmlFields": [
           "description",
+          "criticalDamage",
           "recharge"
         ]
       },

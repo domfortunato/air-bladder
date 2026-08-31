@@ -102,19 +102,21 @@
             {{/each}}
         </nav>
             <section class="content">
+                {{!-- Empty-editor placeholders: display-half UI strings that
+                      double as the click-to-edit trigger. Rationale on the
+                      armor template, binding in item-sheet.js _onRender. --}}
                 <div class="tab {{tabs.description.cssClass}}" data-group="primary" data-tab="description">
                     <prose-mirror name="system.description" value="{{system.description}}" toggled collaborate relative
-                        data-document-uuid="{{item.uuid}}">{{{enrichedDescription}}}</prose-mirror>
+                        data-document-uuid="{{item.uuid}}">{{#if system.description}}{{{enrichedDescription}}}{{else}}<p class="cairn-editor-placeholder">{{ localize 'CAIRN.DescriptionPlaceholder' }}</p>{{/if}}</prose-mirror>
                 </div>
                 <div class="tab {{tabs.[crit-dmg].cssClass}}" data-group="primary" data-tab="crit-dmg">
                     <prose-mirror name="system.criticalDamage" value="{{system.criticalDamage}}" toggled collaborate relative
-                        data-document-uuid="{{item.uuid}}">{{{enrichedCriticalDamage}}}</prose-mirror>
+                        data-document-uuid="{{item.uuid}}">{{#if system.criticalDamage}}{{{enrichedCriticalDamage}}}{{else}}<p class="cairn-editor-placeholder">{{ localize 'CAIRN.CriticalDamagePlaceholder' }}</p>{{/if}}</prose-mirror>
                 </div>
                 {{#if system.relic}}
                 <div class="tab {{tabs.recharge.cssClass}}" data-group="primary" data-tab="recharge">
-                    <p class="recharge-hint">{{ localize 'CAIRN.RechargeHint' }}</p>
                     <prose-mirror name="system.recharge" value="{{system.recharge}}" toggled collaborate relative
-                        data-document-uuid="{{item.uuid}}">{{{enrichedRecharge}}}</prose-mirror>
+                        data-document-uuid="{{item.uuid}}">{{#if system.recharge}}{{{enrichedRecharge}}}{{else}}<p class="cairn-editor-placeholder">{{ localize 'CAIRN.RechargePlaceholder' }}</p>{{/if}}</prose-mirror>
                 </div>
                 {{/if}}
             </section>

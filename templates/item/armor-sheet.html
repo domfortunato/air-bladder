@@ -26,6 +26,29 @@
             </div>
         </div>
 
+        <!-- Damage + Blast (2026-08-30): armor carries the weapon's damage group
+             now — Tupshead Crown's horns are the shipped case. Placed as their
+             own row so every pairing above and below keeps its position; leaving
+             a formula empty leaves the inventory row's roll button off, exactly
+             as an empty-damage weapon behaves. This is the tenth counter, which
+             is why the armor grid override in cairn.css went: ten counters need
+             the BASE five-row set, the weapon's own count. -->
+        <div class="resource-counter long-counter">
+            <label class="large-resource-label" for="{{@root.idp}}-system.damageFormula">{{ localize 'CAIRN.Damage' }}</label>
+            <div class="resource-input-wrapper">
+                <input type="text" name="system.damageFormula" id="{{@root.idp}}-system.damageFormula"
+                       value="{{system.damageFormula}}" data-dtype="String" />
+            </div>
+        </div>
+
+        <div class="resource-counter long-counter">
+            <label class="large-resource-label" for="{{@root.idp}}-system.blast">{{ localize 'CAIRN.Blast' }}</label>
+            <div class="resource-input-wrapper">
+                <input type="checkbox" {{checked system.blast}} name="system.blast" id="{{@root.idp}}-system.blast"
+                    value="{{system.blast}}" data-dtype="Boolean" />
+            </div>
+        </div>
+
         <!-- Bulky -->
         <div class="resource-counter long-counter">
             <label class="large-resource-label" for="{{@root.idp}}-system.bulky">{{ localize 'CAIRN.Bulky' }}</label>
@@ -94,15 +117,28 @@
             {{/each}}
         </nav>
             <section class="content">
+                {{!-- Every editor's display half carries a placeholder when its
+                      field is empty (2026-08-30, the Tupshead Crown report): a
+                      toggled editor's only core affordance is a hover-only
+                      pencil, so an empty one was an invisible dead end. The
+                      placeholder is a UI string, never enriched or translated
+                      as content, and activation swaps it out for `value` before
+                      any submit — it can never be saved. It is also the
+                      click-to-edit trigger (item-sheet.js _onRender) and what
+                      replaced the recharge tab's standalone hint paragraph,
+                      which read as content sitting OUTSIDE the field. --}}
                 <div class="tab {{tabs.description.cssClass}}" data-group="primary" data-tab="description">
                     <prose-mirror name="system.description" value="{{system.description}}" toggled collaborate relative
-                        data-document-uuid="{{item.uuid}}">{{{enrichedDescription}}}</prose-mirror>
+                        data-document-uuid="{{item.uuid}}">{{#if system.description}}{{{enrichedDescription}}}{{else}}<p class="cairn-editor-placeholder">{{ localize 'CAIRN.DescriptionPlaceholder' }}</p>{{/if}}</prose-mirror>
+                </div>
+                <div class="tab {{tabs.[crit-dmg].cssClass}}" data-group="primary" data-tab="crit-dmg">
+                    <prose-mirror name="system.criticalDamage" value="{{system.criticalDamage}}" toggled collaborate relative
+                        data-document-uuid="{{item.uuid}}">{{#if system.criticalDamage}}{{{enrichedCriticalDamage}}}{{else}}<p class="cairn-editor-placeholder">{{ localize 'CAIRN.CriticalDamagePlaceholder' }}</p>{{/if}}</prose-mirror>
                 </div>
                 {{#if system.relic}}
                 <div class="tab {{tabs.recharge.cssClass}}" data-group="primary" data-tab="recharge">
-                    <p class="recharge-hint">{{ localize 'CAIRN.RechargeHint' }}</p>
                     <prose-mirror name="system.recharge" value="{{system.recharge}}" toggled collaborate relative
-                        data-document-uuid="{{item.uuid}}">{{{enrichedRecharge}}}</prose-mirror>
+                        data-document-uuid="{{item.uuid}}">{{#if system.recharge}}{{{enrichedRecharge}}}{{else}}<p class="cairn-editor-placeholder">{{ localize 'CAIRN.RechargePlaceholder' }}</p>{{/if}}</prose-mirror>
                 </div>
                 {{/if}}
             </section>

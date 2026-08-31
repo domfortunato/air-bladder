@@ -84,8 +84,10 @@
         </nav>
         <section class="content">
             <div class="tab {{tabs.description.cssClass}}" data-group="primary" data-tab="description">
+                {{!-- Placeholder = the click-to-edit trigger for an empty field;
+                      rationale on the armor template. --}}
                 <prose-mirror name="system.description" value="{{system.description}}" toggled collaborate relative
-                    data-document-uuid="{{item.uuid}}">{{{enrichedDescription}}}</prose-mirror>
+                    data-document-uuid="{{item.uuid}}">{{#if system.description}}{{{enrichedDescription}}}{{else}}<p class="cairn-editor-placeholder">{{ localize 'CAIRN.DescriptionPlaceholder' }}</p>{{/if}}</prose-mirror>
             </div>
         </section>
     </div>

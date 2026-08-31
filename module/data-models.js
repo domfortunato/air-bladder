@@ -683,9 +683,19 @@ class WeaponData extends CairnDataModel {
   }
 }
 
+/**
+ * Armor carries the damage group too (2026-08-30, user ruling "armor should
+ * learn damage"). The reliquary forced the question: Tupshead Crown is an armor
+ * whose horns strike at d6+d6, and with no damage field on this type that
+ * attack could only live as prose in the description. `withDamage` gives an
+ * armor the same structured Damage/Critical/Blast a weapon has — the inventory
+ * row's damage roll, the tags and the marketplace chips all read
+ * `damageFormula` generically, so they light up with no code of their own.
+ * Shipped armor stores no formula and is unchanged.
+ */
 class ArmorData extends CairnDataModel {
   static defineSchema() {
-    return { ...universal(), ...consumable(), ...relicFields(), armor: int(1) };
+    return { ...universal(), ...withDamage(), ...consumable(), ...relicFields(), armor: int(1) };
   }
 }
 

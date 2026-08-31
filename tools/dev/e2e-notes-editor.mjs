@@ -265,36 +265,72 @@ try {
   //
   // Closing is the assertion. Click-away is checked too, but it is the weaker of
   // the two: the X and Esc are not mousedowns inside the sheet.
-  for (const type of ["item", "weapon", "spellbook"]) {
-    console.log(`\n${type} (item sheet)`);
-    const field = "system.description";
+  //
+  // 2026-08-30: the way IN is asserted too, because an empty toggled editor on an
+  // item sheet had no way in a user could find (the Tupshead Crown report): no
+  // placeholder, no field look, a hover-only pencil, and a click on the blank
+  // display did nothing — the whole empty-state treatment was actor-sheet-only.
+  // So each leg now (1) asserts the placeholder element and its text, (2) opens
+  // the editor by CLICKING the display half — the click-to-edit binding, not the
+  // pencil pressed programmatically — and only then types and closes. The legs
+  // cover every empty field a compendium import actually lands with: description
+  // (97 shipped gear items are empty), criticalDamage (all 468 are), and recharge
+  // (29 of 46 relics) — the last two on armor as well, which learned the damage
+  // field group the same day.
+  for (const { type, field, tab, system, hintKey } of [
+    { type: "item", field: "system.description", tab: "description", system: {}, hintKey: "CAIRN.DescriptionPlaceholder" },
+    { type: "weapon", field: "system.description", tab: "description", system: {}, hintKey: "CAIRN.DescriptionPlaceholder" },
+    { type: "spellbook", field: "system.description", tab: "description", system: {}, hintKey: "CAIRN.DescriptionPlaceholder" },
+    { type: "weapon", field: "system.criticalDamage", tab: "crit-dmg", system: {}, hintKey: "CAIRN.CriticalDamagePlaceholder" },
+    { type: "armor", field: "system.criticalDamage", tab: "crit-dmg", system: {}, hintKey: "CAIRN.CriticalDamagePlaceholder" },
+    { type: "item", field: "system.recharge", tab: "recharge", system: { relic: true }, hintKey: "CAIRN.RechargePlaceholder" },
+    { type: "armor", field: "system.recharge", tab: "recharge", system: { relic: true }, hintKey: "CAIRN.RechargePlaceholder" },
+  ]) {
+    console.log(`\n${type} ${tab} (item sheet)`);
 
-    const setup = await page.evaluate(async ({ type, field }) => {
+    const setup = await page.evaluate(async ({ type, field, tab, system }) => {
       for (const i of game.items.filter((i) => i.name.startsWith("ZZ Notes"))) await i.delete();
-      const item = await CONFIG.Item.documentClass.create({ name: `ZZ Notes ${type}`, type });
+      const item = await CONFIG.Item.documentClass.create({ name: `ZZ Notes ${type} ${tab}`, type, system });
       await item.update({ [field]: "" });
       await item.sheet.render(true);
       for (let i = 0; i < 40 && !item.sheet.element; i++) await new Promise((r) => setTimeout(r, 100));
       await new Promise((r) => setTimeout(r, 700));
       const el = item.sheet.element;
-      const pm = el.querySelector(`prose-mirror[name="${field}"]`);
-      // Toggled editors open via a pencil button that Foundry keeps display:none
-      // until hover, so a real click is unreliable here — press it directly. The
-      // point of this probe is what happens on CLOSE, not how the toggle looks.
-      pm?.querySelector("button")?.click();
-      await new Promise((r) => setTimeout(r, 500));
+      el.querySelector(`nav.tabs [data-tab="${tab}"]`)?.click();
+      for (let i = 0; i < 40 && !el.querySelector(`.tab[data-tab="${tab}"]`)?.classList.contains("active"); i++) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      const pm = el.querySelector(`.tab[data-tab="${tab}"] prose-mirror[name="${field}"]`);
+      const hint = pm?.querySelector(".cairn-editor-placeholder");
       return {
         id: item.id,
         sheetId: el.id,
         found: !!pm,
-        opened: pm?.querySelector(".editor-content")?.getAttribute("contenteditable") === "true",
+        tabActive: !!el.querySelector(`.tab[data-tab="${tab}"].active`),
+        hintText: hint?.textContent ?? null,
       };
-    }, { type, field });
+    }, { type, field, tab, system });
 
-    if (!setup.found) { fail("editor present", `no prose-mirror[name="${field}"]`); continue; }
+    if (!setup.tabActive) { fail("tab reachable", `the ${tab} tab never activated`); continue; }
+    if (!setup.found) { fail("editor present", `no prose-mirror[name="${field}"] on the ${tab} tab`); continue; }
     ok("editor present", field);
-    setup.opened ? ok("editor opens for typing") : fail("editor opens for typing", "not contenteditable after toggle");
-    if (!setup.opened) continue;
+
+    const expected = await page.evaluate((k) => game.i18n.localize(k), hintKey);
+    setup.hintText === expected
+      ? ok("empty editor shows its placeholder", JSON.stringify(expected.slice(0, 40)))
+      : fail("empty editor shows its placeholder", `got ${JSON.stringify(setup.hintText)}`);
+
+    try {
+      // The user's path: click the blank display half. The click-to-edit binding
+      // routes it through core's toggle button; without the binding this times out.
+      await page.locator(`#${setup.sheetId} prose-mirror[name="${field}"]`).click({ timeout: 8000 });
+      await page.waitForSelector(`#${setup.sheetId} prose-mirror[name="${field}"] .editor-content[contenteditable="true"]`, { timeout: 8000 });
+      ok("clicking the empty display opens the editor");
+    } catch (e) {
+      fail("clicking the empty display opens the editor", e.message.split("\n")[0]);
+      await page.evaluate(async (id) => { const i = game.items.get(id); await i?.sheet?.close(); await i?.delete(); }, setup.id);
+      continue;
+    }
 
     try {
       await page.locator(`#${setup.sheetId} prose-mirror[name="${field}"] .editor-content`).click({ timeout: 8000 });

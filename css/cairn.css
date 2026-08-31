@@ -620,15 +620,25 @@
    it "does not show up until you hover over it" — which is exactly the 08-08
    finding, on the one toggled editor that never got the fix. A selector list
    rather than a second copy of the block: two copies of a four-rule treatment
-   is two things to drift. */
+   is two things to drift.
+
+   EVERY ITEM-SHEET EDITOR JOINED ON 2026-08-30 (the Tupshead Crown report,
+   third sighting of the same per-surface gap): an imported relic's empty
+   Recharge tab was a transparent, borderless editor under a hint paragraph
+   that read as content sitting outside a field. `.cairn.sheet.item` is the
+   application frame's class set, so one selector covers all seven item
+   templates' description / crit-dmg / recharge editors at once — the next new
+   editor on an item sheet is covered before it exists. */
 .cairn .tab[data-tab="notes"] prose-mirror.inactive,
-.cairn .npc-description-section prose-mirror.inactive {
+.cairn .npc-description-section prose-mirror.inactive,
+.cairn.sheet.item prose-mirror.inactive {
     border: 1px solid var(--ab-edge);
     background: var(--ab-wash);
     border-radius: 6px;
 }
 .cairn .tab[data-tab="notes"] prose-mirror.inactive .editor-content,
-.cairn .npc-description-section prose-mirror.inactive .editor-content {
+.cairn .npc-description-section prose-mirror.inactive .editor-content,
+.cairn.sheet.item prose-mirror.inactive .editor-content {
     /* Core pads the display half right-only (0.5rem, unlayered —
        foundry2.css:13592), which jams text against the new border. */
     padding: 0 10px !important;
@@ -643,14 +653,16 @@
    leave a dead pencil floating over the open editor. !important throughout —
    core's rules are unlayered, this file is @layer system. */
 .cairn .tab[data-tab="notes"] prose-mirror.inactive > button.icon.toggle:enabled,
-.cairn .npc-description-section prose-mirror.inactive > button.icon.toggle:enabled {
+.cairn .npc-description-section prose-mirror.inactive > button.icon.toggle:enabled,
+.cairn.sheet.item prose-mirror.inactive > button.icon.toggle:enabled {
     display: block !important;
     color: var(--ab-muted) !important;
     top: 6px !important;
     right: 6px !important;
 }
 .cairn .tab[data-tab="notes"] prose-mirror.inactive > button.icon.toggle:enabled:hover,
-.cairn .npc-description-section prose-mirror.inactive > button.icon.toggle:enabled:hover {
+.cairn .npc-description-section prose-mirror.inactive > button.icon.toggle:enabled:hover,
+.cairn.sheet.item prose-mirror.inactive > button.icon.toggle:enabled:hover {
     color: var(--ab-accent) !important;
 }
 
@@ -1054,7 +1066,11 @@
    re-introduce a shorter override without counting the counters. */
 
 
-.armor.item-sheet-grid,
+/* Armor left this shared override on 2026-08-30, when Damage and Blast made
+   its counters ten: ten need the BASE five-row set (tabs at seven), which is
+   exactly the weapon's shape, so armor now simply inherits the base grid.
+   Object stays at eight counters / four rows. Count the counters before
+   moving a type between blocks — the failure mode is documented below. */
 .object.item-sheet-grid {
     grid-template-rows: 46px 36px 36px 36px 36px 1fr;
 }
@@ -1063,7 +1079,6 @@
     grid-template-rows: 46px 36px 46px 1fr;
 }
 
-.armor.item-sheet-grid .item-sheet-section-tabs,
 .object.item-sheet-grid .item-sheet-section-tabs {
     grid-row-start: 6;
     grid-row-end: 6;

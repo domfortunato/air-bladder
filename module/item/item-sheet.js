@@ -69,10 +69,15 @@ const renderPreviewReport = (r) => {
 const TABLE_COUNT = 2;
 const OPTIONS_PER_TABLE = 6;
 
-/** The extra tab each item type carries beyond Description, if any. */
+/** The extra tab each item type carries beyond Description, if any. Armor
+ *  joined the crit-dmg pair on 2026-08-30, when ArmorData learned the damage
+ *  field group (Tupshead Crown's horns — see the data model). Unconditional
+ *  like the weapon's, not keyed on a formula being set: a tab that comes and
+ *  goes invites the vanishing-tab failure RELIC_TAB below documents. */
 const EXTRA_TABS = {
   item: { id: "crit-dmg", label: "CAIRN.CriticalDamage" },
   weapon: { id: "crit-dmg", label: "CAIRN.CriticalDamage" },
+  armor: { id: "crit-dmg", label: "CAIRN.CriticalDamage" },
   background: { id: "details", label: "CAIRN.BackgroundDetails" },
 };
 
@@ -540,6 +545,24 @@ export class CairnItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     await super._onRender(context, options);
     if (!this.isEditable) return;
     const el = this.element;
+
+    // Click-to-edit on an EMPTY editor's display half — the actor sheets'
+    // 2026-08-08 treatment, which the item sheet never inherited (the Tupshead
+    // Crown report, 2026-08-30: an imported relic's empty Recharge tab offered
+    // no visible way in at all). Same shape as actor-sheet.js: activation goes
+    // through core's own toggle button, never a reimplemented one; with content
+    // present the click stays inert so selection and links keep working; and
+    // the emptiness test is the placeholder element, which every item template
+    // renders exactly when the stored field is empty. Bound per render on the
+    // editor nodes themselves — they are replaced with the part, so nothing
+    // stacks.
+    el.querySelectorAll("prose-mirror").forEach((node) => node.addEventListener("click", (ev) => {
+      const pm = ev.currentTarget;
+      if (!pm.classList.contains("inactive")) return;
+      if (ev.target.closest("a, button")) return;
+      if (!pm.querySelector(".cairn-editor-placeholder")) return;
+      pm.querySelector("button.toggle")?.click();
+    }));
 
     // If it's bulky it cannot be weightless too. These fire on the input during
     // the target phase, before the change bubbles to the form and submitOnChange
