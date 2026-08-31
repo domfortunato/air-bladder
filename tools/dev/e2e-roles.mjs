@@ -32,7 +32,8 @@
  *
  * 5. **Tab ORDER (2026-08-01) and the person-role INITIAL (2026-08-21).**
  *    Description still leads the npc sheet's nav and panels, but a fresh
- *    PERSON-role sheet (npc, hireling) OPENS on Items — the PC's default,
+ *    PERSON-role sheet (npc, hireling) and a CONTAINER (2026-08-31) OPEN on
+ *    Items — the PC's default,
  *    asked for — while a monster still opens on Description. The initial
  *    takes a `tabGroups` override because core seeds the group from static
  *    TABS at construction. The character-sheet leg stops a "reorder both"
@@ -651,9 +652,14 @@ try {
     await mon.sheet.render(true);
     await sleep(900);
     const asMonster = read(mon.sheet);
+    const box = await Cls.create({ name: "ZZ Roles Order Container", type: "npc", system: { role: "container" } });
+    await box.sheet.render(true);
+    await sleep(900);
+    const asContainer = read(box.sheet);
     await npc.sheet.close();
     await pc.sheet.close();
     await mon.sheet.close();
+    await box.sheet.close();
 
     // FAIL-WITNESS (in-page): the pre-fix shape — the group's initial re-tied
     // to the list head (ids[0], "description") with no role branch, the way
@@ -679,8 +685,8 @@ try {
     await npc2.sheet.close();
     proto._getTabsConfig = origCfg;
 
-    await npc.delete(); await pc.delete(); await mon.delete(); await npc2.delete();
-    return { asNpc, asPc, asMonster, control };
+    await npc.delete(); await pc.delete(); await mon.delete(); await box.delete(); await npc2.delete();
+    return { asNpc, asPc, asMonster, asContainer, control };
   });
 
   // THREE tabs on the npc sheet since 2026-08-02 — the child end's Connections
@@ -700,8 +706,12 @@ try {
     : bad("a fresh person-npc sheet OPENS on Items (2026-08-21)", JSON.stringify({ active: order.asNpc.active, visible: order.asNpc.activeVisible }));
   order.asMonster.active === "description"
     && JSON.stringify(order.asMonster.activeVisible) === JSON.stringify(["description"])
-    ? ok("a fresh monster sheet still opens on Description", "the Items initial is the person roles' alone")
+    ? ok("a fresh monster sheet still opens on Description", "the Items initial is the person roles' and the container's")
     : bad("a fresh monster sheet still opens on Description", JSON.stringify({ active: order.asMonster.active, visible: order.asMonster.activeVisible }));
+  order.asContainer.active === "items"
+    && JSON.stringify(order.asContainer.activeVisible) === JSON.stringify(["items"])
+    ? ok("a fresh CONTAINER sheet opens on Items (2026-08-31)", "a container is opened for its contents")
+    : bad("a fresh CONTAINER sheet opens on Items (2026-08-31)", JSON.stringify({ active: order.asContainer.active, visible: order.asContainer.activeVisible }));
   JSON.stringify(order.asPc.nav) === JSON.stringify(PC_ORDER)
     && JSON.stringify(order.asPc.panels) === JSON.stringify(PC_ORDER)
     && order.asPc.active === "items"

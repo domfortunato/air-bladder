@@ -184,9 +184,14 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   the whole inventory (`reorderInventory`) so a swap reads like a fresh person.
   (4, 2026-08-21 pm) **A fresh person-role sheet OPENS on Items**, the PC's
   default, while the nav still leads with Description (the 2026-08-01 order
-  ruling stands) and monsters/things still open on Description —
-  `initialTabId` in `actor-sheet.js`, role-aware because a list-head initial
-  cannot say two different things for one type.
+  ruling stands) — `initialTabId` in `actor-sheet.js`, role-aware because a
+  list-head initial cannot say two different things for one type. **The
+  CONTAINER joined Items on 2026-08-31** (user ask — a container is opened
+  for its contents, and Description-first buried the only list anyone came
+  for); monsters and transports still open on Description. The set is
+  `ITEMS_FIRST_ROLES`, a named list rather than a person-predicate-plus-one,
+  because a role predicate that quietly grows is this split's
+  thrice-repeated bug.
   The biography sentence is **second person for a character, third for both npc
   roles** (2026-08-20) — one `_wording` call inside `_buildTraitSentence`, which
   the printed page shares. A Spanish client keeps its translated "Eres…" until a

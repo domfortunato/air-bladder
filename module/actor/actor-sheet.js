@@ -87,16 +87,24 @@ const TAB_IDS = {
   hireling: ["description", "items", "notes"],
 };
 
+/** The roles whose FRESH sheet stands on Items. The person roles came first
+ *  (2026-08-21, user ask); the CONTAINER joined on 2026-08-31 (user ask) —
+ *  a container is opened for its contents, so Description-first buried the
+ *  only list anyone came for. A named set rather than a predicate-plus-one,
+ *  because a role predicate that quietly grows is how three earlier bugs
+ *  happened (the split's lesson). Monster and transport keep the list head
+ *  (Description): the 2026-08-01 "remember who they are" reasoning survives
+ *  where no inventory-first ask displaced it. */
+const ITEMS_FIRST_ROLES = [...PERSON_ROLES, "container"];
+
 /** The tab a FRESH sheet opens on. Role-aware since 2026-08-21 (user ask):
- *  a PERSON-role sheet (npc, hireling) opens on Items, the character's
- *  default, while the nav ORDER above is untouched — Description still leads
- *  the bar, the sheet just stands on Items. Monsters and things keep the
- *  list head (Description), so the 2026-08-01 "remember who they are"
- *  reasoning survives where no inventory-first ask displaced it. `npcRole`
- *  is null on a character, whose list already leads with Items. */
+ *  an ITEMS_FIRST_ROLES sheet opens on Items, the character's default,
+ *  while the nav ORDER above is untouched — Description still leads the
+ *  bar, the sheet just stands on Items. `npcRole` is null on a character,
+ *  whose list already leads with Items. */
 const initialTabId = (doc) => {
   const ids = TAB_IDS[doc?.type] ?? ["items"];
-  return PERSON_ROLES.includes(doc?.npcRole) ? "items" : ids[0];
+  return ITEMS_FIRST_ROLES.includes(doc?.npcRole) ? "items" : ids[0];
 };
 
 /**
