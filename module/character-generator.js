@@ -796,11 +796,24 @@ const tagBackgroundGear = (items) =>
 /*  Bonds                                                                       */
 /* -------------------------------------------------------------------------- */
 
-/** The shipped 2e Bonds table. */
-const shippedBondsTable = async () => {
-  const pack = game.packs.get("air-bladder.tables-2e");
-  return pack ? (await pack.getDocuments()).find((t) => t.name === "Bonds") ?? null : null;
-};
+/**
+ * The DEFAULT Bonds table: the name "Bonds", resolved WORLD-FIRST (2026-08-31,
+ * user ask). Canon backgrounds store no bondsTable and live in a locked pack,
+ * so before this the only ways to give them custom bonds were forking all
+ * twenty or editing the shipped table — which a system update overwrites, the
+ * exact failure findTableByName's rationale names. Now a Warden creates a
+ * world RollTable named "Bonds" and every default draw uses it; deleting it
+ * restores the shipped `tables-2e` copy (the only shipped table with that
+ * name). Same contract as the Faction die (config.js). Importing the shipped
+ * table into the world preserves its rows' payload flags, so a Warden can
+ * start from the official twenty with gold and gear intact; rows they add by
+ * hand are narrative-only, the standing rule for hand-authored table content.
+ *
+ * Kettlewright's `findBondEntry` deliberately does NOT follow: it matches
+ * official Kettlewright bond text against the SHIPPED rows to recover their
+ * payloads, and a Warden's own table cannot hold those rows.
+ */
+const defaultBondsTable = async () => findTableByName("Bonds");
 
 /**
  * A bond's identity, for telling two of them apart. A stored bond keeps no
@@ -827,10 +840,11 @@ const bondKey = (text) => String(text ?? "").trim().toLowerCase();
 const BOND_DRAW_ATTEMPTS = 10;
 
 /**
- * Draw a Cairn 2e bond. With no argument this is the shipped `tables-2e` "Bonds"
- * table, whose each result carries its mechanical payload in flags.air-bladder
- * (starting gold and a gear reference, resolved here); the result text is the
- * narrative. Uses roll(), never draw(), so the table's drawn state is never mutated.
+ * Draw a Cairn 2e bond. With no argument this is the DEFAULT Bonds table — the
+ * name "Bonds" resolved world-first, see defaultBondsTable above — whose each
+ * result may carry its mechanical payload in flags.air-bladder (starting gold
+ * and a gear reference, resolved here); the result text is the narrative.
+ * Uses roll(), never draw(), so the table's drawn state is never mutated.
  *
  * `tableName` is a custom background's own bonds table. Such a table is NARRATIVE
  * ONLY by design: Foundry's RollTable UI cannot author custom flags, so a hand-made
@@ -839,9 +853,9 @@ const BOND_DRAW_ATTEMPTS = 10;
  * same call the system makes everywhere else about mechanical text. The shipped table
  * keeps its automatic payload because the importer writes those flags.
  *
- * A named table that cannot be found falls back to the shipped one, so a typo or a
- * table left behind when a background was shared degrades to a normal 2e bond rather
- * than to no bond at all.
+ * A named table that cannot be found falls back to the DEFAULT one — world "Bonds"
+ * first, then shipped — so a typo or a table left behind when a background was
+ * shared degrades to a normal bond rather than to no bond at all.
  *
  * `avoid` is the text of bonds the character already holds; a draw matching one of
  * them is re-rolled, up to BOND_DRAW_ATTEMPTS. Every caller passes it — generation
@@ -858,9 +872,9 @@ export const drawBond = async (tableName, { avoid = [] } = {}) => {
   // World-first, by name — the rationale lives on findTableByName.
   let table = wanted ? await findTableByName(wanted) : null;
   if (wanted && !table) {
-    console.warn(`Air Bladder | no RollTable named "${wanted}" — falling back to the 2e Bonds table`);
+    console.warn(`Air Bladder | no RollTable named "${wanted}" — falling back to the default Bonds table`);
   }
-  table ??= await shippedBondsTable();
+  table ??= await defaultBondsTable();
   if (!table) return null;
 
   // Re-roll a repeat. `taken` is built once; the table is not mutated by roll(),

@@ -32,6 +32,15 @@
  *      walks past the other bond and itself onto the free row, five times; then
  *      a NEGATIVE CONTROL pinned to the other bond forever, which must land the
  *      duplicate through the cap — so the five greens were `avoid`, not the seed
+ *   7. the WORLD-FIRST default (2026-08-31): a world RollTable named "Bonds"
+ *      overrides the shipped table for the DEFAULT path — the one canon
+ *      backgrounds take, since none stores a bondsTable — with its row's
+ *      payload flags honored; a named-table typo falls back to the same world
+ *      default; deleting the world table restores the shipped rows. A 1d1
+ *      table, so no seeding. A PRE-EXISTING world "Bonds" table is never
+ *      touched (only probe litter, recognised by its ZZ row text, is swept) —
+ *      the leg reports it and fails instead, because in the dev world its
+ *      existence is itself news
  *
  * Dice are shadowed in-page (`CONFIG.Dice.randomUniform`, restored in finally) for
  * legs 1-3 and 6. The mapping is INVERTED — a face is `ceil((1 - u) * faces)` — so
@@ -314,6 +323,62 @@ try {
   } else {
     fail(`negative control did NOT reproduce the clash (${JSON.stringify(control?.after)}) — the pinning `
       + "may not reach the button's dice, so the greens above prove less than they claim");
+  }
+
+  /* --------------------------- 7. the world-first default ("Bonds") ------- */
+  stage('a world RollTable named "Bonds" overrides the default');
+
+  const override = await page.evaluate(async () => {
+    const gen = await import(`/systems/${game.system.id}/module/character-generator.js`);
+    // The leg must create a world table named exactly "Bonds". A real one the
+    // Warden made is never deleted — only litter from a killed prior run,
+    // recognised by its ZZ row text — and finding a real one is reported as a
+    // failure rather than worked around, because nothing else in the dev world
+    // should be using that name.
+    for (const t of game.tables.filter((t) => t.name === "Bonds")) {
+      const first = t.results.contents[0];
+      const txt = (first?.type === "text" ? first.description : first?.name) ?? "";
+      if (txt.startsWith("ZZ ")) await t.delete();
+      else return { skip: `a real world table named "Bonds" already exists (${t.id})` };
+    }
+    const out = {};
+    const world = await getDocumentClass("RollTable").create({
+      name: "Bonds", formula: "1d1",
+      results: [{ type: "text", description: "ZZ world bond", range: [1, 1], flags: { "air-bladder": { gold: 7 } } }],
+    });
+    try {
+      // The default path — what every canon background takes.
+      const drawn = await gen.drawBond();
+      out.text = drawn?.description ?? null;
+      out.gold = drawn?.gold ?? null;
+      // A custom background's typo falls back to the same world default.
+      const fallback = await gen.drawBond("ZZ No Such Table");
+      out.fallbackText = fallback?.description ?? null;
+    } finally {
+      await world.delete();
+    }
+    const restored = await gen.drawBond();
+    out.restoredText = restored?.description ?? null;
+    return out;
+  });
+
+  if (override.skip) {
+    fail(`world-override leg skipped: ${override.skip}`);
+  } else {
+    if (override.text === "ZZ world bond") ok("the default draw uses the world table — canon backgrounds follow");
+    else fail(`the default draw ignored the world "Bonds" table — drew ${JSON.stringify(override.text)}`);
+
+    if (override.gold === 7) ok("a world row's payload flags are honored (gold 7)");
+    else fail(`world row payload lost — gold ${JSON.stringify(override.gold)}, wanted 7`);
+
+    if (override.fallbackText === "ZZ world bond") ok("a named table that cannot be found falls back to the world default");
+    else fail(`the typo fallback bypassed the world table — drew ${JSON.stringify(override.fallbackText)}`);
+
+    if (override.restoredText && override.restoredText !== "ZZ world bond") {
+      ok("deleting the world table restores the shipped rows");
+    } else {
+      fail(`after deleting the world table the draw returned ${JSON.stringify(override.restoredText)}`);
+    }
   }
 
   const left = await sweep();

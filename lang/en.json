@@ -33,7 +33,7 @@
   "CAIRN.BgAuthor.AttributionHint": "Who wrote this background, and under what licence. Whatever you type here prints in the footer of every character sheet built on it, so keep it to one line — a title, a name, and the licence. Leave it empty for your own unshared work: Cairn's own credit prints on every sheet regardless. If you adapted someone else's background, their credit is already here — keep it while any of their writing remains, and replace it with your own once none does.",
   "CAIRN.BgAuthor.AttributionPlaceholder": "Title — Author · CC BY-SA 4.0",
   "CAIRN.BgAuthor.BondsTable": "Bonds table",
-  "CAIRN.BgAuthor.BondsTableHint": "Name a RollTable of your own to draw this background's bonds from — make one under Tables, or in a compendium, and type its name here. Leave it empty for Cairn 2e's bonds. Your own rows give their text only: Foundry's table editor cannot record the starting gold and gear the 2e rows carry, so put anything mechanical into the row's text and let the player apply it.",
+  "CAIRN.BgAuthor.BondsTableHint": "Name a RollTable of your own to draw this background's bonds from — make one under Tables, or in a compendium, and type its name here. Leave it empty for the default — a world table named Bonds if you have made one, otherwise Cairn 2e's. Your own rows give their text only: Foundry's table editor cannot record the starting gold and gear the 2e rows carry, so put anything mechanical into the row's text and let the player apply it.",
   "CAIRN.BgAuthor.BondsTablePlaceholder": "Bonds",
   "CAIRN.BgAuthor.BonusGold": "Bonus gold",
   "CAIRN.BgAuthor.CopySuffix": "Copy",

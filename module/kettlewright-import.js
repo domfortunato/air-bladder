@@ -142,6 +142,11 @@ const retagGranted = (items, granted, source) => {
  * Find the Bonds-table entry a Kettlewright bond came from, by matching its text.
  * Returns the entry's mechanical payload — the items it grants — or null.
  * Read-only: never roll()s or draw()s, so the table's state is untouched.
+ * DELIBERATELY the SHIPPED table, not the world-first default the generator's
+ * drawBond resolves (2026-08-31): this matches official Kettlewright bond TEXT
+ * to recover the shipped rows' payload flags, and a Warden's own world "Bonds"
+ * table cannot hold those rows — resolving world-first here could only lose
+ * the match. Do not "align" it.
  * @param {String} text
  * @returns {Promise<{items: Object[], gold: Number}|null>}
  */
