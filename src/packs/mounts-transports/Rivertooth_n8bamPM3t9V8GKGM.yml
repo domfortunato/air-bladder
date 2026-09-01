@@ -6,6 +6,12 @@ prototypeToken:
   name: Rivertooth
   texture:
     src: systems/air-bladder/icons/horse.svg
+  disposition: -1
+  displayBars: 0
+  bar1:
+    attribute: abilities.STR
+  bar2:
+    attribute: hp
 items: []
 effects: []
 folder: CCMtMzMwK7XAuWfq
