@@ -1,0 +1,26 @@
+_id: mlSyCzimMvBjzxFH
+name: Customizing Bonds
+pages:
+  - _id: 3hI8M37EtbjchmMH
+    name: Customizing Bonds
+    type: text
+    title:
+      show: false
+      level: 1
+    text:
+      content: '<p>A <strong>bond</strong> is the tie a Cairn 2e character starts with: a short piece of prose, sometimes with starting gold or an item attached. Generation rolls one for every 2e character (Barebones characters get none — bonds are 2e&#39;s mechanic), and the character sheet&#39;s <strong>Background &amp; Notes</strong> tab keeps it, with a re-roll die, a ✕, and an <strong>Add a bond</strong> link where the rules allow more.</p> <p>Out of the box those rolls come from the shipped <strong>Bonds</strong> table — twenty rows in the <strong>Tables (2e)</strong> compendium. This page is about replacing them with your own.</p> <p>You need to be the Warden (GM).</p> <hr> <h2>Where a bond comes from</h2> <p>Every bond draw — generation, the sheet&#39;s re-roll die, <strong>Add a bond</strong> — resolves the same way:</p> <ol> <li>If the character&#39;s background names its own bonds table, that table is used. Custom backgrounds can do this; canon ones never do.</li> <li>Otherwise the draw looks for a <strong>RollTable in your world named <code>Bonds</code></strong> and uses it if one exists.</li> <li>Otherwise it uses the shipped <strong>Bonds</strong> table from <strong>Tables (2e)</strong>.</li> </ol> <p>So one world table named <code>Bonds</code> changes the bonds behind <em>everything</em> — canon backgrounds included — and deleting it puts everything back. There is nothing else to configure.</p> <hr> <h2>Replacing the bonds for the whole world</h2> <ol> <li>Open the <strong>Compendium</strong> sidebar tab → <strong>Tables (2e)</strong> → right-click <strong>Bonds</strong> → <strong>Import</strong>.</li> <li>The copy lands in your <strong>Rollable Tables</strong> sidebar, named <code>Bonds</code>. That name is the whole mechanism — keep it.</li> <li>Edit it there: reword rows, delete rows, add rows. Any number of rows works; set the table&#39;s roll formula to match (a thirty-row table wants <code>1d30</code>).</li> </ol> <p>The imported rows keep their hidden payload — the starting gold and the item each shipped bond grants arrive intact — so rewording a row keeps its mechanics.</p> <p><strong>Rows you add by hand grant their text only.</strong> Foundry&#39;s table editor has no way to author that payload, so a hand-written row carries no automatic gold or gear. Put anything mechanical into the prose — &quot;Take 20gp, and a Compass that points somewhere it shouldn&#39;t&quot; — and let the player apply it, which is how this system treats mechanical text everywhere.</p> <p><strong>Do not edit the copy inside Tables (2e) instead.</strong> A system compendium is overwritten wholesale when Air Bladder updates; your world&#39;s copy survives.</p> <hr> <h2>A bonds table for one background</h2> <p>A <strong>custom background</strong> can name its own table: the <strong>Bonds table</strong> box on its Details tab (see @UUID[Compendium.air-bladder.journals-docs.JournalEntry.yJJsiQGfqZwkGBV0]{Creating a custom 2e background}). Type the table&#39;s name — your world&#39;s tables are checked first, then every compendium. Leave the box empty and the background draws from the default above.</p> <p>A name that matches nothing does not break generation: the draw falls back to the default with a warning in the console, so a background shared to a world that lacks its table still hands out ordinary bonds.</p> <p>Canon backgrounds have no such box. To give just one of them special bonds, open it in <strong>Backgrounds (2e)</strong>, click <strong>Duplicate into Custom Backgrounds</strong>, set the box on the copy — and switch the original off with the <strong>eye toggle</strong> on its picker row, so the copy is the one that comes up.</p> <hr> <h2>Two bonds, and repeats</h2> <p>A character is entitled to one bond, plus one if their background grants two — the <strong>Grants two bonds</strong> checkbox on a custom background, or, for shipped backgrounds like the Fieldwarden, a description containing the sentence &quot;roll a second time on the bonds table&quot; — plus one more for each rolled question answer containing that sentence. The checkbox and the description together still count once.</p> <p>A drawn bond the character already holds is re-rolled, up to ten attempts, and then the repeat is accepted. That is deliberate: a bonds table with fewer rows than the character has bonds is perfectly legal — one row is a fine table — and there a repeat is a nuisance, while refusing it would leave the character short of what the rules owe them.</p>'
+      format: 1
+    sort: 0
+    ownership:
+      default: -1
+    flags: {}
+    _key: '!journal.pages!mlSyCzimMvBjzxFH.3hI8M37EtbjchmMH'
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!journal!mlSyCzimMvBjzxFH'

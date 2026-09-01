@@ -64,7 +64,7 @@ top-right corner of the box — so an empty Description can look like a static p
 rather than something you can type in.
 
 **Details** is the authoring form. It has a toolbar with **Test ×10** and
-**Duplicate into Custom Backgrounds**, then five sections.
+**Duplicate into Custom Backgrounds**, then six sections.
 
 ### Source and Archetype
 
@@ -100,6 +100,14 @@ left, the box is yours to empty and replace.
 
 Air Bladder never guesses at this. It reads the box and prints it, so nothing
 puts a name on your writing that you did not put there yourself.
+
+### Bonds
+
+Two fields most backgrounds never touch. **Grants two bonds** makes characters
+from this background roll on the bonds table twice instead of once. **Bonds
+table** names a RollTable of your own to draw this background's bonds from,
+instead of the default every other background uses. Both — and how bonds
+resolve in general — are covered in [Customizing bonds](customizing-bonds.md).
 
 ### Example Names
 
