@@ -507,25 +507,43 @@ export const kettlewrightToActorData = async (json) => {
     },
     type: "character",
   };
-  // Portraits: a custom absolute URL is used directly. A STOCK pick stores the
-  // bare filename of art we ship ourselves — Kettlewright's portraits are
-  // tlomdev's drawings, carried under tlomdev/kettlewright-portraits/ with
-  // Kettlewright's exact numbering for this mapping — so the imported character
-  // keeps the face its player chose, on portrait AND token (the art is drawn as
-  // a circular token; a random Aspeheim token under a tlomdev face would clash).
-  // default-portrait.webp is Kettlewright's "no pick" placeholder and an unknown
-  // name means a Kettlewright newer than the shipped set: both fall back to a
-  // random portrait + paired token exactly as generation does, so an import
-  // lands looking like a character rather than a blank silhouette. The player
-  // can swap it from the sheet's portrait gallery either way.
-  const stock = !json.custom_image && /^portrait\d+\.webp$/.test(String(json.image_url ?? ""))
-    ? await kettlewrightPortraitPath(json.image_url)
+  // Portraits. A STOCK pick stores the bare filename of art we ship ourselves —
+  // Kettlewright's portraits are tlomdev's drawings, carried under
+  // tlomdev/kettlewright-portraits/ with Kettlewright's exact numbering for this
+  // mapping — so the imported character keeps the face its player chose, on
+  // portrait AND token (the art is drawn as a circular token; a random Aspeheim
+  // token under a tlomdev face would clash).
+  //
+  // A custom absolute URL is used directly, but only when the Actor schema's own
+  // img field accepts it (2026-09-01, user ruling). Core's FilePathField refuses
+  // any path that does not END in an image extension (validators.mjs:18-22 —
+  // "https://host/myimage", ".../download?format=png"), and such a URL used to
+  // ride verbatim into CairnActor.create, which does not reject on a validation
+  // error — core logs it and resolves undefined — so the GM got a raw schema
+  // dump and no actor. Asking the real field, not a copy of its rule, means
+  // this check can never drift from what create() will actually accept.
+  //
+  // Everything else falls back to a random portrait + paired token exactly as
+  // generation does, so an import lands looking like a character rather than a
+  // blank silhouette — and when that fallback DISCARDS a face the player
+  // actually picked (an unusable URL, a name outside the shipped stock set),
+  // `report.portrait` says so and the summary dialog shows it (same ruling: a
+  // dropped reference must explain itself). default-portrait.webp is
+  // Kettlewright's "no pick" placeholder and an empty value chose nothing:
+  // both stay silent, because there is no face to mourn. The player can swap
+  // the portrait from the sheet's gallery either way.
+  const imageRef = String(json.image_url ?? "");
+  const stock = !json.custom_image && /^portrait\d+\.webp$/.test(imageRef)
+    ? await kettlewrightPortraitPath(imageRef)
     : null;
-  if (json.custom_image && isAbsoluteUrl(json.image_url)) data.img = json.image_url;
+  const customUrl = json.custom_image && isAbsoluteUrl(imageRef) ? imageRef : null;
+  if (customUrl && !CairnActor.schema.getField("img").validate(customUrl)) data.img = customUrl;
   else if (stock) {
     data.img = stock;
     data.prototypeToken.texture = { src: stock };
   } else {
+    if (customUrl) report.portrait = { dropped: customUrl, reason: "url" };
+    else if (imageRef && imageRef !== "default-portrait.webp") report.portrait = { dropped: imageRef, reason: "unknown" };
     const pair = await randomPortraitPair("pc");
     if (pair) {
       data.img = pair.img;
@@ -604,6 +622,15 @@ const showImportSummary = async (actor, report) => {
   }
   if (report.containers.length) {
     parts.push(`<p>${L("CAIRN.KWImport.ContainersFlattened")}</p><ul>${report.containers.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>`);
+  }
+  // A portrait reference the import had to discard — an unusable URL or a name
+  // outside the shipped stock set. The silent fallbacks (no pick, placeholder)
+  // never set this; a face the player chose must not vanish without a word.
+  if (report.portrait) {
+    const line = report.portrait.reason === "url"
+      ? F("CAIRN.KWImport.PortraitUrlDropped", { url: esc(report.portrait.dropped) })
+      : F("CAIRN.KWImport.PortraitUnknown", { name: esc(report.portrait.dropped) });
+    parts.push(`<p class="kwi-warn"><i class="fas fa-circle-exclamation"></i> ${line}</p>`);
   }
   // Traits either became structured fields or stayed prose — say which, because the
   // difference is visible on the sheet (populated dropdowns vs a paragraph in Notes).
@@ -758,7 +785,24 @@ export const importKettlewrightCharacter = async () => {
     return null;
   }
 
-  const actor = await CairnActor.create(data);
-  if (actor) await showImportSummary(actor, report);
+  // A failed create must explain itself (2026-09-01, user ruling). Two failure
+  // shapes, and only one of them throws: a genuine rejection reaches the catch,
+  // but a per-document VALIDATION error is caught by core inside
+  // ClientDatabaseBackend#preCreateDocumentArray, logged, and the document
+  // skipped — create() then RESOLVES undefined. So the null check is not
+  // paranoia; it is the branch the observed img failure actually took.
+  let actor = null;
+  try {
+    actor = await CairnActor.create(data);
+  } catch (e) {
+    console.error(e);
+    ui.notifications.error(game.i18n.format("CAIRN.KWImport.CreateFailed", { reason: e.message }), { permanent: true });
+    return null;
+  }
+  if (!actor) {
+    ui.notifications.error(game.i18n.localize("CAIRN.KWImport.CreateFailedConsole"), { permanent: true });
+    return null;
+  }
+  await showImportSummary(actor, report);
   return actor;
 };
