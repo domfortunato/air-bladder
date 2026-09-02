@@ -11,8 +11,14 @@
  * in a real Foundry — tools/dev/trait-parse-check.mjs already covers the parser in
  * isolation, so what this adds is the Foundry half: the table lookup that tells
  * virtue from vice, and the values actually reaching the actor.
+ *
+ * Also holds the summary's question line to its two branches (2026-09-03): a
+ * fully-matched run says "matched to their answers." and never mentions Notes,
+ * while a second import with one question's wording drifted past the tolerant
+ * matcher takes the warn branch ("1 of 2 … kept as text in Notes").
  */
 import { chromium } from "playwright";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { VIEWPORT, joinAsGM, watchErrors, confirmImportOptions } from "./lib.mjs";
@@ -83,7 +89,37 @@ const out = await page.evaluate(() => {
 
 const dlg = await page.$(".dialog-v2, .application.dialog, dialog.application");
 if (dlg) await dlg.screenshot({ path: "tools/dev/out/kw-traits-summary.png" });
-await page.evaluate(() => game.actors.getName("Solene")?.delete());
+
+// Shortfall run (2026-09-03): the same export with ONE question's wording
+// drifted past the tolerant matcher ("keepsake" -> "memento" in the notes
+// blob, a WORD change — spacing and punctuation are forgiven, words are not).
+// The summary must then take the warn branch and point at Notes, which the
+// fully-matched run above must NOT mention. Driven through the exported
+// performKettlewrightImport + showImportSummary pair rather than a second
+// file-chooser dance — same code the button path runs after the file is read.
+const fixtureJson = JSON.parse(readFileSync(fixture, "utf8"));
+const short = await page.evaluate(async (json) => {
+  const mod = await import("/systems/air-bladder/module/kettlewright-import.js");
+  const mutated = { ...json, name: "Solene Shortfall", notes: String(json.notes).replaceAll("keepsake", "memento") };
+  const { actor, report } = await mod.performKettlewrightImport(mutated);
+  if (!actor) return { error: "shortfall import created no actor" };
+  await mod.showImportSummary(actor, report);
+  await new Promise((r) => setTimeout(r, 400));
+  const summary = [...document.querySelectorAll(".kwi-summary")].pop();
+  const qs = actor.system.questions ?? [];
+  return {
+    report: { questions: report.questions, questionsTotal: report.questionsTotal },
+    warnTexts: [...(summary?.querySelectorAll("p.kwi-warn") ?? [])].map((p) => p.textContent.replace(/\s+/g, " ").trim()),
+    okTexts: [...(summary?.querySelectorAll("p.kwi-ok") ?? [])].map((p) => p.textContent.replace(/\s+/g, " ").trim()),
+    qCount: qs.length,
+    a0: qs[0]?.answer ?? "",
+    a1: qs[1]?.answer ?? "",
+  };
+}, fixtureJson);
+
+await page.evaluate(async () => {
+  for (const a of game.actors.filter((a) => a.name.startsWith("Solene"))) await a.delete();
+});
 await browser.close();
 
 let bad = 0;
@@ -111,6 +147,38 @@ check("a1 starts", a1.slice(0, 34), "Surgeon's Soap: A lye and ash bloc");
 if (/keepsake/i.test(a0)) { bad++; console.log("  FAIL  answer 0 ran on into question 1"); }
 // And the question text must not be left behind in Notes as well.
 if (/fraud exposed/i.test(out.notes)) { bad++; console.log("  FAIL  questions were ALSO left in Notes"); }
+
+// Summary wording (2026-09-03): the fully-matched run says so and stops — the
+// Notes mention belongs to the shortfall branch alone.
+console.log("");
+if (!out.summary.includes("Background questions: 2 matched to their answers.")) {
+  bad++; console.log(`  FAIL  matched summary line wrong or missing (summary: …${out.summary.slice(0, 180)})`);
+} else if (out.summary.includes("Notes tab")) {
+  bad++; console.log("  FAIL  the matched summary still points at the Notes tab");
+} else {
+  console.log('  ok    matched run: "2 matched to their answers." and no Notes mention');
+}
+
+// Shortfall run: 1 of 2 matched -> the warn line points at Notes, the ok line
+// stays away, and the matched half still landed structured while the drifted
+// question claimed no answer.
+if (short.error) {
+  bad++; console.log(`  FAIL  ${short.error}`);
+} else {
+  const warn = short.warnTexts.find((t) => t.includes("Background questions"));
+  if (warn && warn.includes("1 of 2 matched to their answers") && warn.includes("kept as text in Notes")) {
+    console.log(`  ok    shortfall run warns: ${warn}`);
+  } else {
+    bad++; console.log(`  FAIL  shortfall warn line: ${JSON.stringify(short.warnTexts)}`);
+  }
+  if (short.okTexts.some((t) => t.includes("Background questions"))) {
+    bad++; console.log("  FAIL  the shortfall run ALSO renders an ok questions line");
+  }
+  check("sf found", `${short.report.questions}/${short.report.questionsTotal}`, "1/2");
+  if (!(short.qCount === 2 && short.a0 && !short.a1)) {
+    bad++; console.log(`  FAIL  shortfall structure: qCount=${short.qCount} a0=${Boolean(short.a0)} a1=${JSON.stringify(short.a1)}`);
+  }
+}
 
 // A portrait must have been assigned: this export has no absolute image URL, so the
 // importer draws one at random exactly as generation does.

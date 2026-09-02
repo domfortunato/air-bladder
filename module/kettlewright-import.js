@@ -439,8 +439,14 @@ export const kettlewrightToActorData = async (json) => {
   // unmatched background means we don't know what the questions were, so the blob
   // stays in Notes untouched.
   let questions = [];
-  if (bgQuestions.length) {
+  if (bgQuestions.length && notes.trim()) {
     const qa = parseQuestionAnswers(notes, bgQuestions);
+    // The attempt is recorded whenever there was text to search, found or not:
+    // the summary line branches on completeness, and a zero-match run must say
+    // so rather than stay silent (user ruling 2026-09-03). Empty notes stay
+    // unreported — nothing was kept anywhere.
+    report.questions = qa.found;
+    report.questionsTotal = bgQuestions.length;
     if (qa.found) {
       // gold stays 0 deliberately. That field exists so a LATER re-roll can reverse
       // the gold this system granted; the import granted none (the character's gold
@@ -448,7 +454,6 @@ export const kettlewrightToActorData = async (json) => {
       // deduct coins the character may never have been given.
       questions = bgQuestions.map((q, i) => ({ question: q, answer: qa.answers[i], gold: 0 }));
       notes = qa.leftover;
-      report.questions = qa.found;
 
       // A Kettlewright answer is the option's own description verbatim, so it can
       // be traced back to the option — and therefore to the items that option
@@ -671,8 +676,15 @@ export const showImportSummary = async (actor, report) => {
   }
   // Traits either became structured fields or stayed prose — say which, because the
   // difference is visible on the sheet (populated dropdowns vs a paragraph in Notes).
-  if (report.questions) {
-    parts.push(`<p class="kwi-ok"><i class="fas fa-check"></i> ${F("CAIRN.KWImport.QuestionsMapped", { count: report.questions })}</p>`);
+  // Background questions: a full match is a clean win and says only that; a
+  // shortfall — partial OR zero — points at Notes, where the unclaimed text
+  // stayed (the silent zero was ruled out 2026-09-03). The Notes mention
+  // used to ride the success line too, which read as if the answers had
+  // landed as loose prose.
+  if (report.questionsTotal) {
+    parts.push(report.questions === report.questionsTotal
+      ? `<p class="kwi-ok"><i class="fas fa-check"></i> ${F("CAIRN.KWImport.QuestionsMapped", { count: report.questions })}</p>`
+      : `<p class="kwi-warn"><i class="fas fa-circle-exclamation"></i> ${F("CAIRN.KWImport.QuestionsPartial", { count: report.questions, total: report.questionsTotal })}</p>`);
   }
   if (report.traitsUnparsed) {
     parts.push(`<p class="kwi-warn"><i class="fas fa-circle-exclamation"></i> ${L("CAIRN.KWImport.TraitsUnparsed")}</p>`);
