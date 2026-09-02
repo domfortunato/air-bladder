@@ -1,4 +1,4 @@
-﻿<p align="center">
+<p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)"  srcset="art/lydia-comer/Airbladder06.webp">
     <source media="(prefers-color-scheme: light)" srcset="art/lydia-comer/Airbladder02.webp">
