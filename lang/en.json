@@ -366,7 +366,7 @@
   "CAIRN.KWImport.FallbackList": "Built from tags (review these — no matching item was found):",
   "CAIRN.KWImport.ImportFailed": "The import failed on the Warden's client — ask your Warden to check the console.",
   "CAIRN.KWImport.ImportFailedFor": "A Kettlewright import for {player} failed — see the console (F12) for details.",
-  "CAIRN.KWImport.ImportRequested": "Asked the Warden's client to import your character — a cold import can take half a minute.",
+  "CAIRN.KWImport.ImportRequested": "Importing your character — the sheet will open in a moment.",
   "CAIRN.KWImport.ImportedFor": "{player} imported \"{name}\" from Kettlewright.",
   "CAIRN.KWImport.ItemCounts": "Items: {matched} matched by name, {fallback} built from tags, {fatigue} fatigue.",
   "CAIRN.KWImport.NoWardenForImport": "No Warden is connected — a player's import needs one online.",

@@ -1108,9 +1108,11 @@ Hooks.once("init", () => {
       // "Kaid <the Unlucky>" — read verbatim from a hand-editable file —
       // would truncate the Warden's only oversight notice.
       if (kwImportInFlight.has(senderId)) {
-        // Answered, not dropped: a cold import runs ~25s, so a doubled click
-        // is likelier innocent than hostile, and a player whose second click
-        // vanishes cannot tell it from a hang.
+        // Answered, not dropped: an import takes long enough to double-click
+        // (seconds, not the half-minute this comment used to claim — that
+        // figure described the pre-2026-07-27 resolver and was stale when
+        // written), so a second click is likelier innocent than hostile, and
+        // a player whose second click vanishes cannot tell it from a hang.
         game.socket.emit(`system.${game.system.id}`, {
           action: "kwImported", userId: senderId, uuid: null, refused: "busy",
         }, { recipients: [senderId] });
