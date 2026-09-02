@@ -151,18 +151,24 @@ featGone.stored === 1
 const sheetSel = await page.evaluate((id) => `#${game.actors.get(id).sheet.element.id}`, actorId);
 
 /* --------------------------------------------------------- regenerate ---- */
-// DialogV2.confirm must default to No, replacing V1's defaultYes: false.
+// The destructive dialog's default must be the SAFE button. This was
+// DialogV2.confirm's "No" until 2026-09-02; Roll Character opens the
+// choose-what-to-re-roll checklist now, whose safe button is Cancel — and it
+// carries default:true explicitly, because DialogV2 autofocuses the FIRST
+// button when none is declared (dialog.mjs:228), which would make Enter a
+// full re-deal. The checklist's own contract lives in dev:reroll-dialog;
+// this leg keeps the cross-dialog rule: Enter never destroys.
 await page.locator(`${sheetSel} .window-header button[data-action="rollActor"]`).click();
 await page.waitForTimeout(600);
-const defaultIsNo = await page.evaluate(() => {
+const defaultIsSafe = await page.evaluate(() => {
   const d = document.querySelector("dialog.dialog");
   if (!d) return null;
   const auto = d.querySelector("button[autofocus]");
   return auto?.dataset.action ?? "none";
 });
-defaultIsNo === "no"
-  ? ok("confirm defaults to No", defaultIsNo)
-  : fail("confirm defaults to No", `autofocus is on "${defaultIsNo}"`);
+defaultIsSafe === "cancel"
+  ? ok("the Roll Character checklist defaults to Cancel", defaultIsSafe)
+  : fail("the Roll Character checklist defaults to Cancel", `autofocus is on "${defaultIsSafe}"`);
 await page.keyboard.press("Escape");
 await page.waitForTimeout(500);
 

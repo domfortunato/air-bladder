@@ -138,11 +138,24 @@ const out = await page.evaluate(async (fx) => {
 
     // --- the combat tracker --------------------------------------------------
     const scene = game.scenes.active ?? game.scenes.contents[0];
-    const [wolfTok, pcTok] = await scene.createEmbeddedDocuments("Token", [
+    // Looked up BY actorId, never destructured by position:
+    // createEmbeddedDocuments does NOT promise request order on 14.365
+    // (measured — dev:bg-drop-order's recorded lesson), and a reversed return
+    // here mispaired tokenId/actorId on the combatants below, which read as
+    // the tracker localizing exactly the wrong row (2026-09-02 gate run).
+    const madeToks = await scene.createEmbeddedDocuments("Token", [
       { name: fx.MONSTER_EN, actorId: wolf.id, actorLink: true, x: 300, y: 300, texture: { src: wolf.img } },
       { name: fx.MONSTER_EN, actorId: pc.id, actorLink: true, x: 400, y: 300, texture: { src: pc.img } },
     ]);
-    res.planted.tokenIds = [wolfTok.id, pcTok.id];
+    // Recorded from the raw result FIRST, so the guard's early return cannot
+    // leak a planted token past the Node-side sweep.
+    res.planted.tokenIds = madeToks.map((t) => t.id);
+    const wolfTok = madeToks.find((t) => t.actorId === wolf.id);
+    const pcTok = madeToks.find((t) => t.actorId === pc.id);
+    if (!wolfTok || !pcTok) {
+      res.error = "token create returned an unexpected pair — combatants cannot be paired honestly";
+      return res;
+    }
     res.planted.sceneId = scene.id;
     const combat = await Combat.create({ scene: scene.id });
     res.planted.combatId = combat.id;

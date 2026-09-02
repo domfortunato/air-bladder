@@ -140,6 +140,11 @@ try {
         text: el.textContent.trim(),
         bg: cs.backgroundColor,
         proseBg: prose ? getComputedStyle(prose).backgroundColor : null,
+        // Border treatments, for the two-surfaces leg: the hint's box is the
+        // inset accent bar (no full border), the editor's is its 1px field
+        // border since the 08-30 field look — see the leg's comment.
+        ownBorder: cs.borderTopWidth,
+        proseBorder: prose ? getComputedStyle(prose).borderTopWidth : null,
         shadow: cs.boxShadow,
         icon: !!el.querySelector("i"),
         // Wholly inside the visible box of its own scroll container.
@@ -439,6 +444,11 @@ try {
         text: el.textContent.trim(),
         bg: cs.backgroundColor,
         proseBg: prose ? getComputedStyle(prose).backgroundColor : null,
+        // Border treatments, for the two-surfaces leg: the hint's box is the
+        // inset accent bar (no full border), the editor's is its 1px field
+        // border since the 08-30 field look — see the leg's comment.
+        ownBorder: cs.borderTopWidth,
+        proseBorder: prose ? getComputedStyle(prose).borderTopWidth : null,
         shadow: cs.boxShadow,
         icon: !!el.querySelector("i"),
         // Wholly inside the visible box of its own scroll container.
@@ -530,6 +540,11 @@ try {
         text: el.textContent.trim(),
         bg: cs.backgroundColor,
         proseBg: prose ? getComputedStyle(prose).backgroundColor : null,
+        // Border treatments, for the two-surfaces leg: the hint's box is the
+        // inset accent bar (no full border), the editor's is its 1px field
+        // border since the 08-30 field look — see the leg's comment.
+        ownBorder: cs.borderTopWidth,
+        proseBorder: prose ? getComputedStyle(prose).borderTopWidth : null,
         shadow: cs.boxShadow,
         icon: !!el.querySelector("i"),
         // Wholly inside the visible box of its own scroll container.
@@ -645,14 +660,22 @@ const checks = [
   ["a locked bg points at Duplicate instead", /Duplicate/.test(result.readOnly?.lockedHint ?? "")],
   // The hint SITS ON ITS OWN SURFACE, both paths. Italic + muted alone read as
   // the background's own first sentence (user report 2026-08-15) — two full-size
-  // paragraphs of one measure look like one document. Content prose here never
-  // paints a background, so this is the distinction, and it is asserted against
-  // the prose beside it rather than against a literal colour, which would break
-  // the moment the palette moves or the scheme flips.
+  // paragraphs of one measure look like one document. Asserted against the
+  // prose beside it rather than a literal colour, which would break the moment
+  // the palette moves or the scheme flips. SINCE 5d454446 (2026-08-30) the
+  // prose is not bare either: the item-sheet field look paints the editor with
+  // the SAME --ab-wash the hint uses, so "backgrounds differ" stopped being
+  // the distinction (caught by the 2026-09-02 release gate run — this probe
+  // had not run since). The two-surfaces claim now reads as two different BOX
+  // treatments: the hint is a callout (icon + inset accent bar, no full
+  // border), the prose a bordered field — either a bg difference or that
+  // border split satisfies it, and both collapsing together is what fails.
   ["the hint paints its own surface, on BOTH paths",
     [result.hintBox, result.readOnly?.hintBox].every((h) =>
       h && h.icon === true && /inset/.test(h.shadow ?? "")
-      && !/^(transparent|rgba\(0, 0, 0, 0\))$/.test(h.bg ?? "") && h.bg !== h.proseBg)],
+      && !/^(transparent|rgba\(0, 0, 0, 0\))$/.test(h.bg ?? "")
+      && (h.bg !== h.proseBg
+        || (parseFloat(h.proseBorder ?? "0") > 0 && parseFloat(h.ownBorder ?? "0") === 0)))],
   ["…and is visible without scrolling, on BOTH paths",
     result.hintBox?.inView === true && result.readOnly?.hintBox?.inView === true],
   ["a character's sheet shows the background's credit",

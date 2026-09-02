@@ -68,8 +68,11 @@ const fail = (m, d = "") => { console.error(`  FAIL  ${m}${d ? `  ${d}` : ""}`);
 // the labels are i18n keys and a translated world would fail a list compare
 // while the row is perfectly correct; what this leg is for is a button that
 // silently stopped being injected.
+// Seven since 2026-09-02 (261abcd1): players got their own Import from
+// Kettlewright, riding the SAME allow-player-generate switch and relay shape
+// as Generate PC.
 const GM_BUTTONS = 9;
-const PLAYER_BUTTONS = 6;
+const PLAYER_BUTTONS = 7;
 
 try {
   // A prior aborted run must not satisfy (or trip) this one's assertions.
@@ -524,11 +527,16 @@ try {
     await dismissChrome(alicePage);
     const bare = await readAlice();
     // INVERTED 2026-08-02 (was: "no creation surface at all"): the generatePC
-    // relay gives a bare player exactly one button. Red witness: pre-relay
-    // code renders zero buttons here.
-    !bare.canCreate && bare.buttons.length === 1 && bare.buttons[0] === "Generate PC" && !bare.coreCreate
-      ? ok("without ACTOR_CREATE she sees exactly one button", "Generate PC — the relay's face")
-      : fail("without ACTOR_CREATE she sees exactly one button (Generate PC)", JSON.stringify(bare));
+    // relay gives a bare player a button. TWO since 2026-09-02: Import from
+    // Kettlewright rides the same relay, so a permission-less player keeps
+    // exactly the relay-backed pair and nothing that would need ACTOR_CREATE.
+    // Red witness: pre-relay code renders zero buttons here.
+    !bare.canCreate && bare.buttons.length === 2
+      && bare.buttons.includes("Generate PC") && bare.buttons.includes("Import from Kettlewright")
+      && !bare.coreCreate
+      ? ok("without ACTOR_CREATE she sees exactly the two relay-backed buttons",
+        "Generate PC + Import from Kettlewright")
+      : fail("without ACTOR_CREATE she sees exactly the two relay-backed buttons", JSON.stringify(bare));
 
     /* --- 6. the generatePC relay, as bare Alice ------------------------- */
     console.log("\nthe generatePC relay, as bare Alice");
