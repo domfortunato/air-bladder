@@ -665,12 +665,15 @@ export const registerSettings = () => {
     requiresReload: true,
   });
 
-  // The Warden's switch for the PLAYER-facing Generate PC button in the Actor
-  // Directory (both variants: the create-row button and the no-ACTOR_CREATE
-  // relay button). Sibling of show-generate-header above — that one gates the
-  // sheet's Regenerate button, this one gates the directory's Generate PC —
-  // and the toggle the shipped "Toggle Player Generate PC" macro flips. The
-  // GM's own button never hides: the read site ORs in isGM.
+  // The Warden's switch for the PLAYER-facing character-creation buttons in
+  // the Actor Directory — Generate PC AND, since 2026-09-01, Import from
+  // Kettlewright (both variants: the create-row buttons and the
+  // no-ACTOR_CREATE relay buttons; one switch by user ruling, one trust
+  // decision: may players mint their own characters). Sibling of
+  // show-generate-header above — that one gates the sheet's Regenerate
+  // button, this one gates the directory's pair — and the toggle the shipped
+  // "Toggle Player Character Creation" macro flips. The GM's own buttons
+  // never hide: the read site ORs in isGM.
   //
   // No reload: onChange fires on EVERY client (the settings-fanout primitive
   // the custom-portrait folder scan also rides), so each connected player's

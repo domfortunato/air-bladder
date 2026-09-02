@@ -71,8 +71,8 @@ still mints — mid-edit you get a partial dossier, never an error.
 ## Closing the loop: the Faction die on NPC and Monster sheets
 
 NPC and Monster sheets carry a **Faction** field in the header — free text,
-always editable. When **Randomization is On** (the toggle in the sheet's title
-bar), a d20 die appears beside it; clicking it rolls `Warden: NPC - Faction` —
+always editable. When **Character Creation Mode is On** (the toggle in the
+sheet's title bar), a d20 die appears beside it; clicking it rolls `Warden: NPC - Faction` —
 world first, same contract — and fills the field. It touches nothing else on
 the sheet.
 

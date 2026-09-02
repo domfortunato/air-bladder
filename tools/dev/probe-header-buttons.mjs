@@ -194,7 +194,7 @@ try {
   // THE NEW-DEFAULT LEG (2026-08-02). Its negative control is stashing
   // module/data-models.js + the generator payloads: the default reads On
   // again and all three of these go red.
-  initial.toggle?.text === "Randomization: Off" && initial.toggle?.icon === "fa-toggle-off"
+  initial.toggle?.text === "Character Creation Mode: Off" && initial.toggle?.icon === "fa-toggle-off"
     ? ok("the toggle opens reading Off", `"${initial.toggle.text}"`)
     : fail("the toggle opens reading Off", `text="${initial.toggle?.text}" icon=${initial.toggle?.icon}`);
   initial.roll?.hidden === true
@@ -211,7 +211,7 @@ try {
   on.roll?.text === "Roll Character" && on.roll?.hidden === false
     ? ok("Roll Character appears, with visible text")
     : fail("Roll Character appears, with visible text", `text="${on.roll?.text}" hidden=${on.roll?.hidden}`);
-  on.toggle?.text === "Randomization: On" && on.toggle?.icon === "fa-toggle-on"
+  on.toggle?.text === "Character Creation Mode: On" && on.toggle?.icon === "fa-toggle-on"
     ? ok("the toggle reads its state, not a tooltip")
     : fail("the toggle reads its state", `text="${on.toggle?.text}"`);
   on.bodyDice > 0
@@ -230,10 +230,10 @@ try {
     ? ok("both stay inside the title bar")
     : fail("both stay inside the title bar",
         `roll=${on.roll?.overflowsHeader} toggle=${on.toggle?.overflowsHeader}`);
-  afterUnrelated.roll?.text === "Roll Character" && afterUnrelated.toggle?.text === "Randomization: On"
+  afterUnrelated.roll?.text === "Roll Character" && afterUnrelated.toggle?.text === "Character Creation Mode: On"
     ? ok("an unrelated re-render leaves them intact", "gold changed; header unchanged")
     : fail("an unrelated re-render leaves them intact", JSON.stringify(afterUnrelated));
-  offAgain.roll?.hidden === true && offAgain.toggle?.text === "Randomization: Off"
+  offAgain.roll?.hidden === true && offAgain.toggle?.text === "Character Creation Mode: Off"
     ? ok("switching back off hides Roll again", "the round trip holds")
     : fail("switching back off hides Roll again", JSON.stringify(offAgain));
 
@@ -241,7 +241,7 @@ try {
   hireling.roll?.text === "Roll NPC"
     ? ok('a hireling reads "Roll NPC"', hireling.roll.text)
     : fail('a hireling reads "Roll NPC"', `text="${hireling.roll?.text}"`);
-  hireling.toggle?.text === "Randomization: Off" && hireling.roll?.hidden === true
+  hireling.toggle?.text === "Character Creation Mode: Off" && hireling.roll?.hidden === true
     ? ok("a bare hireling opens Off too", "the schema initial, not the generator")
     : fail("a bare hireling opens Off too", JSON.stringify({ toggle: hireling.toggle?.text, hidden: hireling.roll?.hidden }));
   // This used to assert an NPC sheet had NEITHER button, and it was correct when
@@ -255,7 +255,7 @@ try {
   // The stale assertion outlived the design by a day and stayed red, which is the
   // real lesson: an expectation written against a type split has to be revisited
   // when the split goes away, or the gate reports a decision as a defect.
-  npc.roll?.text === "Roll NPC" && npc.toggle?.text?.startsWith("Randomization")
+  npc.roll?.text === "Roll NPC" && npc.toggle?.text?.startsWith("Character Creation Mode")
     ? ok("an NPC sheet gets the same header as a hireling", `"${npc.roll.text}" | "${npc.toggle.text}"`)
     : fail("an NPC sheet gets the same header as a hireling",
       JSON.stringify({ roll: npc.roll, toggle: npc.toggle }));

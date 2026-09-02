@@ -295,18 +295,15 @@ export async function joinAs(page, name) {
 
 /**
  * Answer the Kettlewright importer's options dialog, which opens between the
- * import button and the file picker. Ticks or unticks the background gate, then
- * presses the button that opens the picker.
+ * import button and the file picker. Informational since the background gate
+ * retired (2026-09-01, user ruling), so answering it is pressing the button
+ * that opens the picker.
  *
- * Shared, because three e2es drive this flow and a dialog nobody dismisses looks
- * exactly like an importer that silently did nothing.
+ * Shared, because several e2es drive this flow and a dialog nobody dismisses
+ * looks exactly like an importer that silently did nothing.
  */
-export async function confirmImportOptions(page, { requireBackground = true } = {}) {
+export async function confirmImportOptions(page) {
   await page.waitForSelector(".kwi-options", { timeout: 15000 });
-  await page.evaluate((req) => {
-    const cb = document.querySelector('.kwi-options input[name="requireBackground"]');
-    if (cb && cb.checked !== req) cb.click();
-  }, requireBackground);
   await page.evaluate(() => {
     const btn = [...document.querySelectorAll(".dialog-v2 button, .application.dialog button, dialog.application button")]
       .find((b) => b.dataset.action === "import");

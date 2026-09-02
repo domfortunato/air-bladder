@@ -186,14 +186,24 @@ try {
     //    (This leg once had to force the bond-lending setting OFF first — with
     //    bonds on, step 6 was skipped and it measured nothing, and a leaked
     //    setting from an interrupted run looked exactly like a generation bug.
-    //    The setting is retired (2026-08-09); step 6 always runs now.)
+    //    That setting is retired (2026-08-09) — and the SAME failure came back
+    //    on 2026-09-02 through barebones-failed-career: a leaked `true` adds a
+    //    keepsake to the count, and the keepsake is null whenever the drawn
+    //    career's gear resolves to nothing, so the totals differed by exactly
+    //    that coin flip. ESTABLISH the precondition, never assume it.)
     const step6Bg = bgs.find((b) => b.name === "Beadle");   // fixed: gear is 3 plain items
+    const fcStep6Was = game.settings.get("air-bladder", "barebones-failed-career");
     let armored = null, unarmored = null, tries = 0;
-    for (; tries < 60 && (armored === null || unarmored === null); tries++) {
-      const d = await gen.generateBarebonesCharacter(step6Bg);
-      const hasArmor = d.items.some((i) => i.type === "armor");
-      if (hasArmor && armored === null) armored = d.items.length;
-      if (!hasArmor && unarmored === null) unarmored = d.items.length;
+    try {
+      await game.settings.set("air-bladder", "barebones-failed-career", false);
+      for (; tries < 60 && (armored === null || unarmored === null); tries++) {
+        const d = await gen.generateBarebonesCharacter(step6Bg);
+        const hasArmor = d.items.some((i) => i.type === "armor");
+        if (hasArmor && armored === null) armored = d.items.length;
+        if (!hasArmor && unarmored === null) unarmored = d.items.length;
+      }
+    } finally {
+      await game.settings.set("air-bladder", "barebones-failed-career", fcStep6Was);
     }
     const step6 = { armored, unarmored, tries, balanced: armored !== null && armored === unarmored };
 

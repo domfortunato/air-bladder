@@ -88,3 +88,15 @@ then the repeat is accepted. That is deliberate: a bonds table with fewer rows
 than the character has bonds is perfectly legal — one row is a fine table — and
 there a repeat is a nuisance, while refusing it would leave the character short
 of what the rules owe them.
+
+---
+
+## The same trick works for Omens
+
+The character sheet's omen die (and the picker beside it) resolves the same
+way: a **RollTable in your world named `Omens`** beats the shipped copy in
+**Tables (2e)**, and deleting it puts the shipped table back. Import the
+shipped **Omens** table exactly as step 1 above imports Bonds, keep the name,
+and edit freely — any number of rows works, and the die rolls whatever formula
+your table declares. Omen rows are plain prose: unlike bonds, nothing
+mechanical rides them, so there is nothing else to preserve.

@@ -35,7 +35,10 @@
         <div class="portrait-wrap">
             <img class="portrait" src="{{actor.img}}" data-action="editPortrait" title="{{ localize 'CAIRN.ChoosePortrait' }}" />
             {{#if generationEnabled}}
-            <a class="portrait-roll" data-action="rollPortrait" title="{{ localize 'CAIRN.RollPortrait' }}"><i class="fas fa-dice-d20"></i></a>
+            {{!-- Creation dice and pickers ride data-tooltip (bare i18n KEY,
+                  core-styled) since 2026-09-01 — one look with the character
+                  sheet's. Non-creation titles stay native. --}}
+            <a class="portrait-roll" data-action="rollPortrait" data-tooltip="CAIRN.RollPortrait"><i class="fas fa-dice-d20"></i></a>
             {{/if}}
         </div>
         <!-- Name, career/role, optional day rate, then HP + Gold -->
@@ -44,7 +47,7 @@
                 <input class="name-input" type="text" name="name" value="{{nameDisplay}}"
                     placeholder="{{ localize 'CAIRN.Name' }}" />
                 {{#if generationEnabled}}
-                <a class="name-roll" data-action="rollName" title="{{ localize 'CAIRN.RollName' }}"><i class="fas fa-dice-d20"></i></a>
+                <a class="name-roll" data-action="rollName" data-tooltip="CAIRN.RollName"><i class="fas fa-dice-d20"></i></a>
                 {{/if}}
             </div>
             {{!-- What this actor IS to the party — the one discriminator that
@@ -78,7 +81,7 @@
                 <input class="profession-input" type="text" name="system.profession"
                     value="{{professionDisplay}}" placeholder="{{ localize 'CAIRN.Career' }}" />
                 {{#if generationEnabled}}
-                <a class="profession-roll" data-action="rollProfession" title="{{ localize 'CAIRN.RollProfession' }}"><i class="fas fa-dice-d20"></i></a>
+                <a class="profession-roll" data-action="rollProfession" data-tooltip="CAIRN.RollProfession"><i class="fas fa-dice-d20"></i></a>
                 {{/if}}
                 {{!-- The picker rides the SAME toggle as the die (2026-08-21
                       pm, user ask, reversing that morning's survive-the-toggle
@@ -86,7 +89,7 @@
                       to person roles, here and at the Background and Faction
                       rows below. Warden-only via its _mayRandomize term. --}}
                 {{#if canPickGeneration}}
-                <a class="profession-roll profession-pick" data-action="pickProfession" title="{{ localize 'CAIRN.PickCareer' }}"><i class="fas fa-magnifying-glass"></i></a>
+                <a class="profession-roll profession-pick" data-action="pickProfession" data-tooltip="CAIRN.PickCareer"><i class="fas fa-list-ul"></i></a>
                 {{/if}}
                 {{/if}}
                 {{!-- The NPC role's answer to the same question (2026-08-20).
@@ -108,10 +111,10 @@
                 <input class="profession-input" type="text" name="system.background"
                     value="{{backgroundDisplay}}" placeholder="{{ localize 'CAIRN.Background' }}" />
                 {{#if generationEnabled}}
-                <a class="profession-roll" data-action="rollProfession" title="{{ localize 'CAIRN.RollBackground' }}"><i class="fas fa-dice-d20"></i></a>
+                <a class="profession-roll" data-action="rollProfession" data-tooltip="CAIRN.RollBackground"><i class="fas fa-dice-d20"></i></a>
                 {{/if}}
                 {{#if canPickGeneration}}
-                <a class="profession-roll profession-pick" data-action="pickProfession" title="{{ localize 'CAIRN.PickBackground' }}"><i class="fas fa-magnifying-glass"></i></a>
+                <a class="profession-roll profession-pick" data-action="pickProfession" data-tooltip="CAIRN.PickBackground"><i class="fas fa-list-ul"></i></a>
                 {{/if}}
                 {{/if}}
                 {{!-- The KIND, labelled "Type" (a label only — the field stays
@@ -161,10 +164,10 @@
                 <input class="profession-input" type="text" name="system.faction"
                     value="{{system.faction}}" />
                 {{#if generationEnabled}}
-                <a class="profession-roll" data-action="rollFaction" title="{{ localize 'CAIRN.RollFaction' }}"><i class="fas fa-dice-d20"></i></a>
+                <a class="profession-roll" data-action="rollFaction" data-tooltip="CAIRN.RollFaction"><i class="fas fa-dice-d20"></i></a>
                 {{/if}}
                 {{#if canPickGeneration}}
-                <a class="profession-roll profession-pick" data-action="pickFaction" title="{{ localize 'CAIRN.PickFaction' }}"><i class="fas fa-magnifying-glass"></i></a>
+                <a class="profession-roll profession-pick" data-action="pickFaction" data-tooltip="CAIRN.PickFaction"><i class="fas fa-list-ul"></i></a>
                 {{/if}}
             </div>
             {{/if}}
@@ -242,10 +245,10 @@
                     <label data-tooltip="{{ localize 'CAIRN.HitProtectionTip' }}">{{ localize 'CAIRN.HitProtection' }}</label>
                     <div class="resource-input-wrapper">
                         <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.value" id="{{@root.idp}}-system.hp.value"
-                               value="{{system.hp.value}}" data-dtype="Number" title="{{ localize 'CAIRN.Current' }}" />
+                               value="{{system.hp.value}}" data-dtype="Number" data-tooltip="{{currentTips.HP}}" />
                         <span> / </span>
                         <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.max"
-                               value="{{system.hp.max}}" data-dtype="Number" title="{{ localize 'CAIRN.Maximum' }}" />
+                               value="{{system.hp.max}}" data-dtype="Number" data-tooltip="{{maxTips.HP}}" />
                     </div>
                 </div>
                 {{#if system.showGold}}
@@ -286,14 +289,22 @@
                   these three facing Armor/Deprived/Panicked exactly. --}}
             {{#each system.abilities as |ability key|}}
             <div class="resource-counter {{key}}-counter {{#if (lookup ../abilityPeril key)}}peril{{/if}} {{#if (lookup ../abilityLow key)}}low{{/if}}">
+                {{!-- Inert while Character Creation Mode is On, exactly like
+                      the character sheet's copy of this anchor — see the note
+                      there (2026-09-01, user ruling: npc and hireling sheets
+                      behave the same way). --}}
+                {{#if ../generationEnabled}}
+                <a class="resource-roll save-roll-off" data-tooltip="{{ lookup ../abilityTips key }}"><i class="fas fa-dice-d20 roll-icon"></i> {{ localize key }}</a>
+                {{else}}
                 <a class="resource-roll" data-action="rollAbility" data-ability="{{key}}" data-roll="d20cs<=@abilities.{{key}}.value"
                     data-label="{{ localize 'CAIRN.Save' key=(localize key)}}" data-tooltip="{{ lookup ../abilityTips key }}"><i class="fas fa-dice-d20 roll-icon"></i> {{ localize key }}</a>
+                {{/if}}
                 <div class="resource-input-wrapper">
                     <input type="number" min="0" max="18" step="1" class="stat-input" name="system.abilities.{{key}}.value" value="{{ability.value}}"
-                        data-dtype="Number" title="{{ localize 'CAIRN.Current' }}" />
+                        data-dtype="Number" data-tooltip="{{ lookup ../currentTips key }}" />
                     <span> / </span>
                     <input type="number" min="0" max="18" step="1" class="stat-input" name="system.abilities.{{key}}.max" value="{{ability.max}}" data-dtype="Number"
-                        title="{{ localize 'CAIRN.Maximum' }}" />
+                        data-tooltip="{{ lookup ../maxTips key }}" />
                 </div>
                 {{#if (lookup ../criticalToggle key)}}
                 <a class="critical-toggle {{#if (lookup ../criticalActive key)}}active{{/if}}" data-action="toggleCritical" data-key="{{key}}"

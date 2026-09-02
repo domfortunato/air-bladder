@@ -1,4 +1,4 @@
-<p align="center">
+﻿<p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)"  srcset="art/lydia-comer/Airbladder06.webp">
     <source media="(prefers-color-scheme: light)" srcset="art/lydia-comer/Airbladder02.webp">
@@ -24,9 +24,9 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 
 ## Key Features
 
-- Random or manual character generation from Cairn 2e, **Custom Cairn 2e**, and Cairn Barebones backgrounds — each source toggles on or off
+- [Random character generation](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-characters.md) from Cairn 2e, **Custom Cairn 2e**, and Cairn Barebones backgrounds — each source toggles on or off, and the sheet's **Character Creation Mode** re-rolls single parts of the result
 - [NPC and Hireling](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-npcs.md), [Monster](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-monsters.md) and [Faction](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-factions.md) generators, [Encounter Tables](https://github.com/domfortunato/air-bladder/blob/master/docs/encounter-tables.md) with one-click Add to Scene, and more Warden-facing roll tables
-- .json character import from the official Cairn app, [Kettlewright](https://kettlewright.com/)
+- .json character import from the official Cairn app, [Kettlewright](https://kettlewright.com/) — for the Warden, and for players bringing in their own characters when the Warden allows (a Warden must be logged in)
 - **Optional GLOG Magic** — the official [GLOG hack](https://cairnrpg.com/hacks/glog-magic/) behind a Warden switch: cast from a found Grimoire with 1–4 Magic Dice, the rolled values written into the spell text, Mishaps on doubles — all 100 spells included; [how to run it](https://github.com/domfortunato/air-bladder/blob/master/docs/glog-magic.md)
 - Custom 2e backgrounds — seven ship in the **Backgrounds (Custom)** compendium; [create and lint your own](https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md), then [share them across worlds](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md)
 - Custom bonds — a world table named **Bonds** replaces the shipped 2e table for canon and custom backgrounds alike, and a custom background can name a table of its own; [customizing bonds](https://github.com/domfortunato/air-bladder/blob/master/docs/customizing-bonds.md)
@@ -66,7 +66,7 @@ Early, active development. Send feedback and art! The system is being rebuilt on
 
 ## Languages
 
-The interface is translated into **Spanish** (90% of the current strings, by [Malecho](https://github.com/fsmalecho)), and game *content* — backgrounds, items, spells, tables — is translated into Spanish only.
+The interface is translated into **Spanish** (86% of the current strings, by [Malecho](https://github.com/fsmalecho)), and game *content* — backgrounds, items, spells, tables — is translated into Spanish only.
 
 Danish, French, German, Polish and Brazilian Portuguese interface files are inherited from the original Cairn system. They cover **15–30%** of the current interface, predate most of this system's features, and are **not actively maintained** — a game in those languages is mostly English in practice. Anything untranslated falls back to English string by string, so a partial translation is always usable rather than broken.
 

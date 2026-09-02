@@ -163,8 +163,8 @@ portrait came from** — so a monster wearing your monster art rolls another
 monster, and a character rolls another character. It always moves, as long as
 the folder holds more than one image.
 
-If you cannot see the die, flip **Randomization** on with the toggle in the
-sheet's title bar.
+If you cannot see the die, flip **Character Creation Mode** on with the toggle
+in the sheet's title bar.
 
 ## The picker still shows everything
 

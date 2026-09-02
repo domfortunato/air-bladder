@@ -1,15 +1,17 @@
 _id: H6Km1985sJasHYtR
-name: Toggle Player Generate PC
+name: Toggle Player Character Creation
 type: script
 author: null
 img: icons/svg/dice-target.svg
 scope: global
 command: |-
-  // Flip the Warden's switch for the player-facing Generate PC button in the
-  // Actors sidebar (the allow-player-generate world setting). Connected
-  // players' directories update live — no reload. Warden-only: the server
-  // refuses a world-setting write from anyone else anyway; the check just
-  // says so politely.
+  // Flip the Warden's switch for the player-facing character-creation
+  // buttons in the Actors sidebar — Generate PC AND Import from Kettlewright
+  // (the allow-player-generate world setting; one switch, one trust
+  // decision: may players mint their own characters). Connected players'
+  // directories update live — no reload. Warden-only: the server refuses a
+  // world-setting write from anyone else anyway; the check just says so
+  // politely.
   if (!game.user.isGM) return ui.notifications.warn(game.i18n.localize("CAIRN.Notify.WardenOnly"));
   const KEY = "allow-player-generate";
   const on = !game.settings.get("air-bladder", KEY);

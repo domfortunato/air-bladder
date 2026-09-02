@@ -1,4 +1,4 @@
-import { regenerateActor, canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, rollNameFromTable, rollAge, effectiveAgeFormula } from "../character-generator.js";
+import { canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, resolveActorBackground, redealBackgroundGear, rerollAllBonds, reorderInventory, postGenerationRolls } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel } from "../utils.js";
@@ -351,6 +351,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // Description tab
       rollAge: owned(mayRandomize(CairnActorSheet.#onRollAge)),
       rollOmen: owned(mayRandomize(CairnActorSheet.#onRollOmen)),
+      pickOmen: owned(mayRandomize(CairnActorSheet.#onPickOmen)),
       toggleTraits: CairnActorSheet.#onToggleTraits,
       toggleScars: CairnActorSheet.#onToggleScars,
       // Background / failed career
@@ -362,9 +363,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // Notes tab — the bond/question controls live inside the template's
       // generationEnabled blocks, so they are surface too, add/remove included.
       rerollBond: owned(mayRandomize(CairnActorSheet.#onRerollBond)),
+      pickBond: owned(mayRandomize(CairnActorSheet.#onPickBond)),
       addBond: owned(mayRandomize(CairnActorSheet.#onAddBond)),
       removeBond: owned(mayRandomize(CairnActorSheet.#onRemoveBond)),
       rerollQuestion: owned(mayRandomize(CairnActorSheet.#onRerollQuestion)),
+      pickQuestion: owned(mayRandomize(CairnActorSheet.#onPickQuestion)),
     },
   };
 
@@ -439,6 +442,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
           "systems/air-bladder/templates/parts/container-list.html",
           "systems/air-bladder/templates/parts/bio-block.html",
         ],
+        // AppV2 restores scroll only for the selectors named here — a part
+        // with no `scrollable` is replaced wholesale and every scroll box
+        // inside it rebuilds at the top (handlebars-application.mjs
+        // `_preSyncPartState`). The expanded scar list is a real scroll box,
+        // so with submitOnChange re-rendering on every committed keystroke, a
+        // Warden editing scar 8 was thrown back to scar 1 each time. The
+        // empty string is the part element itself — the same pair the item
+        // sheet's authoring form names.
+        scrollable: [".scar-list", ""],
       },
     };
   }
@@ -771,6 +783,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const label = game.i18n.localize(on ? "CAIRN.RandomizationOn" : "CAIRN.RandomizationOff");
     toggle.setAttribute("aria-label", label);
     toggle.lastChild.textContent = label;
+    // The toggle reads "Character Creation Mode" (renamed from
+    // "Randomization", 2026-09-01, user ruling — the old name described the
+    // mechanism, not what a player can DO with it), and the tooltip follows
+    // the STATE (same day, same ask): Off says what turning it on unlocks —
+    // the discoverability fix for "generate, then re-roll parts until the
+    // character feels right", which is the intended loop — and On says what
+    // turning it off puts away. The KEY, not pre-localized text: core's
+    // TooltipManager localizes an i18n key it finds in data-tooltip
+    // (tooltip-manager.mjs:261-264) — the Roll-age die rides the same idiom —
+    // and it renders the value through innerHTML+cleanHTML, which would
+    // reshape a translation that ever carried an angle bracket.
+    toggle.dataset.tooltip = on ? "CAIRN.ToggleGenerationHintOn" : "CAIRN.ToggleGenerationHint";
     toggle.querySelector("i")?.classList.replace(
       on ? "fa-toggle-off" : "fa-toggle-on",
       on ? "fa-toggle-on" : "fa-toggle-off"
@@ -1123,18 +1147,20 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // too now that it shares the sheet — without it the per-field dice and the
     // ability tooltips were simply absent on an NPC.
     if (["hireling", "npc"].includes(this.actor.type)) {
-      this._computeStatContext(context);
       // Same random-generation switch as a character: gates the per-field dice
       // (name, profession, portrait). Role-gated since 2026-08-02: a thing
       // (mount, transport, container) has no generation surface at all, and
       // with its frame buttons gone (_getFrameButtons) a stored `true` from
       // an earlier toggle would otherwise keep live dice with no way left to
       // turn them off. Render-only — the stored flag is untouched.
+      // BEFORE _computeStatContext since 2026-09-01: the save dice go inert
+      // while the mode is On, so the ability tooltips branch on this flag.
       context.generationEnabled = GENERATING_ROLES.includes(this.actor.npcRole)
         && this.actor.system.generationEnabled !== false
         // ...and never for a player while the Warden's switch is off — the
         // whole surface goes, not just the title-bar toggle (ruled 2026-08-09).
         && this._mayRandomize();
+      this._computeStatContext(context);
       // The pickers ride the SAME Randomization toggle as the dice (2026-08-21
       // pm, user ask — REVERSING that morning's ruling, which kept them
       // available with the toggle off): "only available when Randomization is
@@ -1515,6 +1541,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.generationEnabled = this.actor.system.generationEnabled !== false
       && this._mayRandomize();
 
+    // While the mode is On, the HP and Gold labels also say where their
+    // numbers came from (2026-09-01, user's wording — ONE terse shared key,
+    // "no need to be so verbose"). Appended to the existing tips,
+    // pre-localized: a composite string cannot be a bare data-tooltip key.
+    // coinTip is derived in actor.js; the append lives here, never in the
+    // data model.
+    const rolledAt = context.generationEnabled
+      ? " " + game.i18n.localize("CAIRN.RolledAtCreation")
+      : "";
+    context.hpTip = game.i18n.localize("CAIRN.HitProtectionTip") + rolledAt;
+    context.goldTip = (this.actor.system.coinTip ?? "") + rolledAt;
+
     // Notes tab: bonds (a character can hold several) + the background's
     // re-rollable questions. Questions are 2e; bonds are 2e, but a legacy
     // Barebones character may still hold one from the retired lending
@@ -1579,6 +1617,8 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       context.criticalToggle = {};
       context.criticalActive = {};
       context.abilityTips = {};
+      context.currentTips = {};
+      context.maxTips = {};
       context.statusBanners = [];
       return;
     }
@@ -1604,7 +1644,33 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.criticalActive = { STR: strCritical };
 
     const L = (k) => game.i18n.localize(k);
-    context.abilityTips = { STR: L("CAIRN.StrTip"), DEX: L("CAIRN.DexTip"), WIL: L("CAIRN.WilTip") };
+    // While Character Creation Mode is On the save dice are inert (the
+    // template drops their data-action — see the ability anchors in both
+    // sheet templates), so all three tips say how to get the roll back
+    // instead of what the save is for (2026-09-01, user's wording). Relies on
+    // the callers computing context.generationEnabled FIRST.
+    context.abilityTips = context.generationEnabled
+      ? { STR: L("CAIRN.SaveRollOffTip"), DEX: L("CAIRN.SaveRollOffTip"), WIL: L("CAIRN.SaveRollOffTip") }
+      : { STR: L("CAIRN.StrTip"), DEX: L("CAIRN.DexTip"), WIL: L("CAIRN.WilTip") };
+    // The current/max boxes say WHICH side is which, per stat (2026-09-01,
+    // user ask — always on, not mode-gated): "Current Hit Protection",
+    // "Maximum STR". Formatted text, not a bare key, because the stat name is
+    // itself localized — the same reason CriticalDamageStatusFor formats.
+    // HitProtectionLong, not HitProtection: the short key is the label's "HP",
+    // and a tip that reads "Current HP" explains the abbreviation with itself.
+    const fmt = (key, name) => game.i18n.format(key, { name });
+    context.currentTips = {
+      HP: fmt("CAIRN.CurrentOf", L("CAIRN.HitProtectionLong")),
+      STR: fmt("CAIRN.CurrentOf", L("STR")),
+      DEX: fmt("CAIRN.CurrentOf", L("DEX")),
+      WIL: fmt("CAIRN.CurrentOf", L("WIL")),
+    };
+    context.maxTips = {
+      HP: fmt("CAIRN.MaximumOf", L("CAIRN.HitProtectionLong")),
+      STR: fmt("CAIRN.MaximumOf", L("STR")),
+      DEX: fmt("CAIRN.MaximumOf", L("DEX")),
+      WIL: fmt("CAIRN.MaximumOf", L("WIL")),
+    };
 
     const banners = [];
     if (dead) {
@@ -2769,6 +2835,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         return;
       }
       const isNpc = ["hireling", "npc"].includes(this.actor.type);
+      // A CHARACTER gets the choose-what-to-re-roll checklist (2026-09-02,
+      // user ask) instead of a yes/no in front of a wipe-and-rebuild. The
+      // dialog itself is the interrupt — Cancel and ✕ touch nothing, and an
+      // all-unchecked list re-rolls nothing — so no confirm stacks in front
+      // of it, promptMonsterTier's rule. The old CAIRN.CharacterRegenerator*
+      // pair retired with the confirm: its text promised the background would
+      // persist, which is now the Background checkbox's call.
+      if (!isNpc) {
+        const parts = await this._promptRerollParts();
+        if (parts) await this._applyRerollParts(parts);
+        return;
+      }
       // THE WARNING HAS TO MATCH WHAT THE BUTTON DOES, and after the
       // 2026-08-20 split one string could not: the shipped wording promises
       // that "everything it is carrying will be deleted" and that "abilities,
@@ -2782,11 +2860,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // renamed to say so: its text is still exactly right for that role and
       // renaming would orphan a translation that is still correct, for a
       // reader the comment can serve instead.
-      const metNpc = isNpc && this.actor.npcRole === "npc";
-      const titleKey = metNpc ? "CAIRN.NpcRoleRegeneratorTitle"
-        : isNpc ? "CAIRN.NpcRegeneratorTitle" : "CAIRN.CharacterRegeneratorTitle";
-      const confirmKey = metNpc ? "CAIRN.NpcRoleRegeneratorConfirm"
-        : isNpc ? "CAIRN.NpcRegeneratorConfirm" : "CAIRN.CharacterRegeneratorConfirm";
+      const metNpc = this.actor.npcRole === "npc";
+      const titleKey = metNpc ? "CAIRN.NpcRoleRegeneratorTitle" : "CAIRN.NpcRegeneratorTitle";
+      const confirmKey = metNpc ? "CAIRN.NpcRoleRegeneratorConfirm" : "CAIRN.NpcRegeneratorConfirm";
       // DialogV2.confirm already makes "No" the default button, so V1's
       // defaultYes: false has no equivalent to carry over.
       const confirm = await foundry.applications.api.DialogV2.confirm({
@@ -2800,12 +2876,244 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // Background and traits with their gear left alone. Keyed on the ROLE,
       // not the type — a `hireling`-TYPED document reads role hireling through
       // npcRole whatever it stores, so the alias is covered by the same test.
-      if (isNpc) {
-        if (this.actor.npcRole === "npc") await regenerateNpc(this.actor);
-        else await regenerateHireling(this.actor);
-      } else await regenerateActor(this.actor);
+      if (metNpc) await regenerateNpc(this.actor);
+      else await regenerateHireling(this.actor);
     } finally {
       this._rerolling = false;
+    }
+  }
+
+  /**
+   * The Roll Character checklist (2026-09-02, user ask): everything
+   * re-rollable, all checked by default, uncheck to keep. Starting gear and
+   * the two questions are CHILDREN of Background — a new Background deals its
+   * own — and while Background is checked they auto-check and gray, along
+   * with the top-level Bonds row (the entitlement is the Background's, so a
+   * re-rolled Background re-deals bonds with it). Background itself opens
+   * UNCHECKED when the player hand-picked it — the `backgroundChosen`
+   * provenance flag, absent (legacy) reading as rolled. Pronouns, scars,
+   * notes, connections and untagged gear are never listed: what cannot be
+   * checked is never touched.
+   * @returns {Promise<Object|null>}  {part: Boolean} per checkbox, or null
+   *   for Cancel/✕
+   * @private
+   */
+  async _promptRerollParts() {
+    const actor = this.actor;
+    const is2e = (actor.system.contentSource || "2e") !== "barebones";
+    const bg = await resolveActorBackground(actor);
+    const L = (k) => game.i18n.localize(k);
+    const row = (part, label, checked = true) =>
+      `<label class="reroll-row" data-part="${part}"><input type="checkbox" name="${part}"${checked ? " checked" : ""}>
+        <span class="reroll-label">${label}</span></label>`;
+
+    const bgChecked = actor.getFlag("air-bladder", "backgroundChosen") !== true;
+    let list = row("name", L("CAIRN.Name"));
+    list += row("background", L("CAIRN.Background"), bgChecked);
+    let children = row("gear", L("CAIRN.Reroll.StartingGear"));
+    const questionCount = is2e ? (bg?.system?.tables ?? []).length : 0;
+    for (let i = 0; i < questionCount; i++) {
+      children += row(`question${i}`, game.i18n.format("CAIRN.Reroll.Question", { num: i + 1 }));
+    }
+    list += `<div class="reroll-children" data-parent="background">${children}</div>`;
+    if (is2e) list += row("bonds", L("CAIRN.Reroll.Bonds"));
+    if (!is2e && (actor.system.failedCareer
+      || game.settings.get(SETTINGS_NS, "barebones-failed-career"))) {
+      list += row("failedCareer", L("CAIRN.Reroll.FailedCareer"));
+      list += `<div class="reroll-children" data-parent="failedCareer">${row("keepsake", L("CAIRN.Reroll.Keepsake"))}</div>`;
+    }
+    for (const ab of ["STR", "DEX", "WIL"]) list += row(ab, L(ab));
+    list += row("hp", L("CAIRN.HitProtectionLong"));
+    list += row("gold", L("CAIRN.Gold"));
+    list += row("age", L("CAIRN.Age"));
+    list += row("traits", L("CAIRN.Traits"));
+    list += row("portrait", L("CAIRN.Reroll.PortraitToken"));
+    if (is2e && actor.system.omenEnabled && game.settings.get(SETTINGS_NS, "show-omens")) {
+      list += row("omen", L("CAIRN.Omen"));
+    }
+
+    const content = `<div class="reroll-dialog">
+      <p class="reroll-lead">${L("CAIRN.Reroll.Lead")}</p>
+      <div class="reroll-list">${list}</div>
+      ${is2e ? `<p class="reroll-note reroll-note-questions">${L("CAIRN.Reroll.QuestionsNote")}</p>` : ""}
+      <p class="reroll-note reroll-note-pick">${L("CAIRN.Reroll.PickNote")}</p>
+    </div>`;
+
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = (v) => { if (!done) { done = true; resolve(v); } };
+      const dialog = new foundry.applications.api.DialogV2({
+        // The button's own face and label — the dialog is that button opened up.
+        window: { title: L("CAIRN.RegenerateCharacter"), icon: "fas fa-dice-d6" },
+        position: { width: 440 },
+        content,
+        buttons: [
+          {
+            action: "reroll",
+            label: L("CAIRN.Reroll.Button"),
+            default: true,
+            callback: () => {
+              const parts = {};
+              for (const input of dialog.element.querySelectorAll('.reroll-row input[type="checkbox"]')) {
+                parts[input.name] = input.checked;
+              }
+              finish(parts);
+            },
+          },
+          { action: "cancel", label: L("CAIRN.Cancel"), callback: () => finish(null) },
+        ],
+      });
+      const origClose = dialog.close.bind(dialog);
+      dialog.close = (...a) => { finish(null); return origClose(...a); };
+      // Listeners attached AFTER render — attributes in DialogV2 content are
+      // sanitized dead, so the gating rides real addEventListener calls.
+      dialog.render(true).then(() => {
+        const root = dialog.element;
+        const sync = () => {
+          for (const parent of ["background", "failedCareer"]) {
+            const box = root.querySelector(`input[name="${parent}"]`);
+            if (!box) continue;
+            const gated = [...root.querySelectorAll(`.reroll-children[data-parent="${parent}"] input`)];
+            // Bonds ride the Background box too — see the method comment.
+            if (parent === "background") {
+              const bonds = root.querySelector('input[name="bonds"]');
+              if (bonds) gated.push(bonds);
+            }
+            for (const input of gated) {
+              if (box.checked) { input.checked = true; input.disabled = true; }
+              else input.disabled = false;
+            }
+          }
+        };
+        root.addEventListener("change", (ev) => {
+          if (ev.target?.name === "background" || ev.target?.name === "failedCareer") sync();
+        });
+        sync();
+      });
+    });
+  }
+
+  /**
+   * Re-roll exactly what the checklist left checked, riding the per-field
+   * paths the sheet's own dice use — changeBackground, redealBackgroundGear,
+   * the question die's core, rerollAllBonds, the failed-career pair, the
+   * name/age/traits/portrait/omen rolls — so a checked box and its die are
+   * the same event. Scalar fields land in ONE batched update; the whole
+   * inventory is re-arranged once at the end when any grant moved; and the
+   * five-Roll generation card posts only when the whole statline re-rolled
+   * (a partial posts no card — the card's title says a new character was
+   * rolled, and a new WIL is not one).
+   *
+   * What a full (all-checked) run deliberately does NOT touch, unlike the
+   * retired wipe-and-rebuild: untagged items (a player's purchases, a
+   * Warden's gifts, the Barebones equipment kit — no tag, no reach), scars,
+   * pronouns, notes, and a disabled omen. `critical` clears only with a new
+   * STR; `armorOverride` only when the gear re-dealt.
+   * @param {Object} parts  the checklist's answers
+   * @private
+   */
+  async _applyRerollParts(parts) {
+    const actor = this.actor;
+    const is2e = (actor.system.contentSource || "2e") !== "barebones";
+    if (!Object.values(parts).some(Boolean)) return;
+    const itemsTouched = parts.background || parts.gear || parts.question0 || parts.question1
+      || parts.bonds || parts.failedCareer || parts.keepsake;
+
+    // Identity first: a checked Background re-deals gear and questions as one
+    // swap (and stamps the provenance flag rolled); unchecked, its freed
+    // children re-roll in place against the CURRENT background.
+    if (parts.background) {
+      await changeBackground(actor, null);
+    } else {
+      if (parts.gear) await redealBackgroundGear(actor);
+      for (const idx of [0, 1]) {
+        if (parts[`question${idx}`]) await this._rerollQuestionByIndex(idx);
+      }
+    }
+    if (parts.failedCareer) {
+      const name = await rollFailedCareerName(actor.system.background);
+      if (name) {
+        await actor.update({ "system.failedCareer": name }, { abNoStatusCard: true });
+        await this._grantFailedCareerItem(name);
+      }
+    } else if (parts.keepsake && actor.system.failedCareer) {
+      await this._grantFailedCareerItem(actor.system.failedCareer);
+    }
+    // After the background, so the entitlement is the new background's.
+    if (is2e && (parts.bonds || parts.background)) await rerollAllBonds(actor);
+
+    // The scalar fields, batched into one update.
+    const update = {};
+    const rolls = {};
+    const abilityFormula = is2e ? "3d6" : (CONFIG.Cairn?.barebonesGenerator?.ability ?? "3d6");
+    for (const ab of ["STR", "DEX", "WIL"]) {
+      if (!parts[ab]) continue;
+      const roll = await evaluateFormula(abilityFormula);
+      rolls[ab] = roll;
+      update[`system.abilities.${ab}.value`] = roll.total;
+      update[`system.abilities.${ab}.max`] = roll.total;
+    }
+    // A new STR is a new body — the critical wound does not carry over. Only
+    // then: re-rolling a portrait must not quietly heal anyone.
+    if (parts.STR) update["system.critical"] = false;
+    if (parts.hp) {
+      const roll = await evaluateFormula(is2e ? "1d6" : (CONFIG.Cairn?.barebonesGenerator?.hitProtection ?? "1d6"));
+      rolls.hp = roll;
+      update["system.hp.value"] = roll.total;
+      update["system.hp.max"] = roll.total;
+    }
+    if (parts.gold) {
+      // The BASE roll plus whatever the (new or surviving) bonds and question
+      // answers grant — the same sum generation writes. With gold unchecked,
+      // the bond/question paths above already traded their deltas instead.
+      const roll = await evaluateFormula(is2e
+        ? (CONFIG.Cairn?.characterGenerator2e?.gold ?? "3d6")
+        : (CONFIG.Cairn?.barebonesGenerator?.gold ?? "3d6"));
+      rolls.gold = roll;
+      const bondGold = (actor.system.bonds ?? []).reduce((n, b) => n + (b.gold ?? 0), 0);
+      const questionGold = (actor.system.questions ?? []).reduce((n, q) => n + (q.gold ?? 0), 0);
+      update["system.gold"] = roll.total + bondGold + questionGold;
+    }
+    if (parts.age) {
+      update["system.age"] = String(await rollAge(CONFIG.Cairn?.characterGenerator2e?.biography?.age));
+    }
+    if (parts.traits) {
+      update["system.traits"] = await rollTextItems(CONFIG.Cairn?.characterGenerator2e?.biography?.items);
+    }
+    if (parts.name) {
+      // The die's own sources, read AFTER any background swap so a 2e name
+      // suits the new background (#onRollName's character half).
+      let name = null;
+      if (is2e && actor.system.backgroundUuid) {
+        const newBg = await fromUuid(actor.system.backgroundUuid);
+        const names = newBg?.system?.names ?? [];
+        if (names.length) name = names[Math.floor(Math.random() * names.length)];
+      }
+      if (!name) name = await rollNameFromTable(CONFIG.Cairn?.barebonesGenerator?.name, actor.name);
+      if (name && name !== actor.name) update.name = name;
+    }
+    // A re-dealt loadout derives its own Armor, as at generation.
+    if (parts.background || parts.gear) update["system.armorOverride"] = null;
+    if (Object.keys(update).length) await actor.update(update, { abNoStatusCard: true });
+
+    if (parts.portrait) {
+      const src = await randomPortraitInSameFolder(actor.img, portraitCategoryFor(actor));
+      if (src) await this._setPortrait(src);
+    }
+    if (parts.omen && actor.system.omenEnabled) {
+      const omenTable = await findOmensTable();
+      if (omenTable) {
+        const { results } = await omenTable.roll();
+        await this._applyOmen(resultText(results?.[0]));
+      }
+    }
+
+    // One arrangement pass — the re-dealt grants land in their bands and
+    // everything untouched keeps its relative place.
+    if (itemsTouched) await reorderInventory(actor);
+
+    if (rolls.hp && rolls.STR && rolls.DEX && rolls.WIL && rolls.gold) {
+      await postGenerationRolls(actor, { rolls });
     }
   }
 
@@ -3685,20 +3993,50 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   /**
    * Roll the Omens table and drop the result into the omen field (enabled by its
    * checkbox). roll(), not draw(): the Omens table is read-only from here — the
-   * drawn text is stored on the actor, nothing is automated.
+   * drawn text is stored on the actor, nothing is automated. WORLD-FIRST since
+   * 2026-09-01 (user ask, findOmensTable): a Warden's own world table named
+   * "Omens" beats the shipped copy, exactly like the default Bonds table —
+   * this die was the last table read still pinned to the compendium.
    * @this {CairnActorSheet}
    */
   static async #onRollOmen(event) {
     event.preventDefault();
     if (!this.actor.system.omenEnabled) return;
-    const tables = await cachedPackDocuments("air-bladder.tables-2e");
-    const omenTable = tables.find((tbl) => tbl.name === "Omens");
+    const omenTable = await findOmensTable();
     if (!omenTable) {
       ui.notifications.warn(game.i18n.localize("CAIRN.OmenTableMissing"));
       return;
     }
     const { results } = await omenTable.roll();
-    await this.actor.update({ "system.omen": resultText(results?.[0]) });
+    await this._applyOmen(resultText(results?.[0]));
+  }
+
+  /**
+   * Magnifier beside the omen die (2026-09-01, user ask): pick a row off the
+   * same table the die rolls, for a player recreating a character they rolled
+   * with the books. A picked omen and a rolled one are the same event — one
+   * apply (_applyOmen), the npc Career/Background picker rule.
+   * @this {CairnActorSheet}
+   */
+  static async #onPickOmen(event) {
+    event.preventDefault();
+    if (!this.actor.system.omenEnabled) return;
+    const picked = await promptPickOmen(this.actor.system.omen);
+    if (picked === null) {
+      // No Omens table anywhere — the die's warning, verbatim.
+      ui.notifications.warn(game.i18n.localize("CAIRN.OmenTableMissing"));
+      return;
+    }
+    if (!picked) return;                     // cancelled
+    // The Random row defers to the die's own handler — "random" means one thing.
+    if (picked.random) return CairnActorSheet.#onRollOmen.call(this, event);
+    await this._applyOmen(picked.text);
+  }
+
+  /** ONE apply for the omen die and its picker: the stored value is always the
+   *  English source string (the display half translates, _prepareContext). */
+  async _applyOmen(text) {
+    await this.actor.update({ "system.omen": text });
   }
 
   /**
@@ -3802,8 +4140,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     try {
       const id = target.dataset.bondId;
       const bonds = this._effectiveBonds();
-      const idx = bonds.findIndex((b) => b.id === id);
-      if (idx < 0) return;
+      if (!bonds.some((b) => b.id === id)) return;
       // Avoid every bond held, INCLUDING the one being re-rolled: a re-roll that
       // hands back the same bond reads as a broken button, and a re-roll that
       // hands back a copy of the character's other bond is the duplicate this
@@ -3812,18 +4149,58 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         avoid: bonds.map((b) => b.description),
       });
       if (!drawn) return;
-      const newItems = (drawn.items ?? []).map((it) => withGrantSource(it, `bond:${id}`));
-      await this._replaceGrantedItems(`bond:${id}`, newItems);
-      const gold = Math.max(0, (this.actor.system.gold ?? 0) - (bonds[idx].gold ?? 0) + drawn.gold);
-      bonds[idx] = { id, description: drawn.description, gold: drawn.gold };
-      // abNoStatusCard, as on every other bond/question write: the gold swing
-      // is the die's, not the player's, and the ledger card read it as a manual
-      // edit otherwise (review #18 — this was the one member of the family
-      // without the flag).
-      await this.actor.update({ "system.bonds": bonds, "system.gold": gold }, { abNoStatusCard: true });
+      await this._applyBond(id, drawn);
     } finally {
       this._rerolling = false;
     }
+  }
+
+  /**
+   * Magnifier beside a bond's die (2026-09-01, user ask): pick a row off the
+   * RESOLVED bonds table — the same chain the die draws from — for a player
+   * recreating a book-rolled character. The dialog runs unguarded (it is just
+   * a list); the apply takes the same _rerolling guard as its die, and the
+   * Random row defers to the die's own handler.
+   * @this {CairnActorSheet}
+   */
+  static async #onPickBond(event, target) {
+    event.preventDefault();
+    const id = target.dataset.bondId;
+    const current = this._effectiveBonds().find((b) => b.id === id)?.description ?? "";
+    const picked = await promptPickBond(await this._bondsTableName(), current);
+    if (!picked) return;                     // cancelled, or no Bonds table anywhere (the die is silent too)
+    if (picked.random) return CairnActorSheet.#onRerollBond.call(this, event, target);
+    if (this._rerolling) return;
+    this._rerolling = true;
+    try {
+      await this._applyBond(id, picked);
+    } finally {
+      this._rerolling = false;
+    }
+  }
+
+  /**
+   * ONE apply for a bond's die and its picker (a picked bond and a rolled one
+   * are the same event): sync the `bond:<id>`-tagged grants, trade the gold
+   * (never below zero), replace the array entry under the SAME id — grants
+   * stay keyed to the row. Callers hold _rerolling; this re-reads the array
+   * inside that guard, so nothing moved since they looked.
+   * @param {String} id  the bond's stable id
+   * @param {{description:String, gold:Number, items:Object[]}} drawn
+   */
+  async _applyBond(id, drawn) {
+    const bonds = this._effectiveBonds();
+    const idx = bonds.findIndex((b) => b.id === id);
+    if (idx < 0) return;
+    const newItems = (drawn.items ?? []).map((it) => withGrantSource(it, `bond:${id}`));
+    await this._replaceGrantedItems(`bond:${id}`, newItems);
+    const gold = Math.max(0, (this.actor.system.gold ?? 0) - (bonds[idx].gold ?? 0) + drawn.gold);
+    bonds[idx] = { id, description: drawn.description, gold: drawn.gold };
+    // abNoStatusCard, as on every other bond/question write: the gold swing
+    // is the die's, not the player's, and the ledger card read it as a manual
+    // edit otherwise (review #18 — this was the one member of the family
+    // without the flag).
+    await this.actor.update({ "system.bonds": bonds, "system.gold": gold }, { abNoStatusCard: true });
   }
 
   /**
@@ -3904,37 +4281,90 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (this._rerolling) return;   // guard the double-click delete/create race
     this._rerolling = true;
     try {
-      const idx = Number(target.dataset.index);
-      // A question's option can grant a container (an Actor); bail before replacing
-      // anything if this user can't manage those (see canRegenerateContainers).
-      if (!canRegenerateContainers(this.actor, `question:${idx}`)) return;
-      const bg = this.actor.system.backgroundUuid
-        ? await fromUuid(this.actor.system.backgroundUuid)
-        : null;
-      const table = bg?.system?.tables?.[idx];
-      const options = table?.options ?? [];
-      if (!options.length) {
-        ui.notifications.warn(game.i18n.localize("CAIRN.RerollQuestionUnavailable"));
-        return;
-      }
-      const roll = await evaluateFormula(`1d${options.length}`);
-      const opt = options[roll.total - 1] ?? options[0];
-
-      const newItems = (await resolveRefs(opt.items)).map((it) => withGrantSource(it, `question:${idx}`));
-      await this._replaceGrantedItems(`question:${idx}`, newItems);
-      // An option may also grant a container (Outrider's horse breeds are one whole
-      // question of them), which is an Actor — swap those the same way.
-      await replaceGrantedContainers(this.actor, `question:${idx}`, opt.containers ?? []);
-      const questions = foundry.utils.duplicate(this.actor.system.questions ?? []);
-      const oldGold = questions[idx]?.gold ?? 0;
-      const newGold = opt.bonusGold ?? 0;
-      const gold = Math.max(0, (this.actor.system.gold ?? 0) - oldGold + newGold);
-      questions[idx] = { question: table.question ?? "", answer: opt.description ?? "", gold: newGold };
-      // abNoStatusCard: a question re-roll's gold swing is grant machinery.
-      await this.actor.update({ "system.questions": questions, "system.gold": gold }, { abNoStatusCard: true });
+      await this._rerollQuestionByIndex(Number(target.dataset.index));
     } finally {
       this._rerolling = false;
     }
+  }
+
+  /**
+   * The question die's core, shared with the Roll Character checklist (which
+   * holds `_rerolling` across its whole run): roll the table's d6 and apply.
+   * Callers hold the guard.
+   * @param {Number} idx  which question
+   * @private
+   */
+  async _rerollQuestionByIndex(idx) {
+    // A question's option can grant a container (an Actor); bail before replacing
+    // anything if this user can't manage those (see canRegenerateContainers).
+    if (!canRegenerateContainers(this.actor, `question:${idx}`)) return;
+    const bg = this.actor.system.backgroundUuid
+      ? await fromUuid(this.actor.system.backgroundUuid)
+      : null;
+    const table = bg?.system?.tables?.[idx];
+    const options = table?.options ?? [];
+    if (!options.length) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.RerollQuestionUnavailable"));
+      return;
+    }
+    const roll = await evaluateFormula(`1d${options.length}`);
+    const opt = options[roll.total - 1] ?? options[0];
+    await this._applyQuestionOption(idx, table.question ?? "", opt);
+  }
+
+  /**
+   * Magnifier beside a question's die (2026-09-01, user ask): choose which of
+   * the background's answers this character gives — for a player recreating a
+   * book-rolled character. Same container bail as the die, BEFORE offering a
+   * list we can't act on (#onPickBackground's rule); the Random row defers to
+   * the die's own handler; the apply is the die's, under the same guard.
+   * @this {CairnActorSheet}
+   */
+  static async #onPickQuestion(event, target) {
+    event.preventDefault();
+    const idx = Number(target.dataset.index);
+    if (!canRegenerateContainers(this.actor, `question:${idx}`)) return;
+    const bg = this.actor.system.backgroundUuid
+      ? await fromUuid(this.actor.system.backgroundUuid)
+      : null;
+    const picked = await promptPickQuestionOption(
+      bg, idx, this.actor.system.questions?.[idx]?.answer ?? "");
+    if (picked === null) {
+      // No background, or a background with no options — the die's warning.
+      ui.notifications.warn(game.i18n.localize("CAIRN.RerollQuestionUnavailable"));
+      return;
+    }
+    if (!picked) return;                     // cancelled
+    if (picked.random) return CairnActorSheet.#onRerollQuestion.call(this, event, target);
+    if (this._rerolling) return;
+    this._rerolling = true;
+    try {
+      await this._applyQuestionOption(idx, picked.question, picked.option);
+    } finally {
+      this._rerolling = false;
+    }
+  }
+
+  /**
+   * ONE apply for a question's die and its picker: swap the
+   * `question:<idx>`-tagged items AND containers (an option may grant an Actor
+   * — Outrider's horse breeds are one whole question of them), trade the
+   * gold, replace the answer. Callers hold _rerolling.
+   * @param {Number} idx  which question
+   * @param {String} question  the question's prompt text (stored beside the answer)
+   * @param {Object} opt  the chosen/rolled option off the background's table
+   */
+  async _applyQuestionOption(idx, question, opt) {
+    const newItems = (await resolveRefs(opt.items)).map((it) => withGrantSource(it, `question:${idx}`));
+    await this._replaceGrantedItems(`question:${idx}`, newItems);
+    await replaceGrantedContainers(this.actor, `question:${idx}`, opt.containers ?? []);
+    const questions = foundry.utils.duplicate(this.actor.system.questions ?? []);
+    const oldGold = questions[idx]?.gold ?? 0;
+    const newGold = opt.bonusGold ?? 0;
+    const gold = Math.max(0, (this.actor.system.gold ?? 0) - oldGold + newGold);
+    questions[idx] = { question, answer: opt.description ?? "", gold: newGold };
+    // abNoStatusCard: a question swap's gold swing is grant machinery.
+    await this.actor.update({ "system.questions": questions, "system.gold": gold }, { abNoStatusCard: true });
   }
 
   /* -------------------------------------------- */

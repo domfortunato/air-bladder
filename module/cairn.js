@@ -9,7 +9,7 @@ import { createMonster } from "./monster-generator.js";
 import * as monsterGenerator from "./monster-generator.js";
 import { generateFaction } from "./faction-generator.js";
 import { reseedSpellTable } from "./spell-tables.js";
-import { importKettlewrightCharacter } from "./kettlewright-import.js";
+import { importKettlewrightCharacter, performKettlewrightImport, sanitizeKettlewrightExport, showImportSummary } from "./kettlewright-import.js";
 import * as kettlewrightImport from "./kettlewright-import.js";
 import { Cairn } from "./config.js";
 import { CairnCombat, CairnCombatTracker, registerCombatOrderGuard } from "./combat.js";
@@ -776,6 +776,12 @@ const grantableRole = (sys) => {
  *  click (or a hostile loop) has the Warden's client minting a PC per emit. */
 const pcGenerationInFlight = new Set();
 
+/** Requesters with an importKW currently running on this client — the same
+ *  wall for the same reason, and imports are SLOWER (a cold one re-reads the
+ *  gear packs for ~25s), so the window a doubled click could slip through is
+ *  wider here than anywhere. */
+const kwImportInFlight = new Set();
+
 /** Requesters with a grantActors request running on this client. One at a time
  *  per sender, for the same reason pcGenerationInFlight exists: the connection
  *  ceiling is read after the handler's first await, so concurrent messages would
@@ -1052,6 +1058,138 @@ Hooks.once("init", () => {
           return;
         }
         await new Promise((r) => setTimeout(r, 150));
+      }
+      return;
+    }
+    // A permission-less player's Import from Kettlewright — the generatePC
+    // shape with one necessary difference: the payload CARRIES the parsed
+    // export, because the file lives on the player's machine. It is treated
+    // as inert data only: this client runs the same performKettlewrightImport
+    // the direct path runs, so a crafted payload can produce nothing a GM's
+    // own import of that JSON could not. WHO gets the character is senderId,
+    // the one fact a client cannot forge; the requester is stamped OWNER in
+    // the CREATE data. GM senders are refused — they hold the direct button.
+    if (msg?.action === "importKW") {
+      if (game.users.activeGM !== game.user) return;
+      const user = game.users.get(senderId);
+      if (!user || user.isGM) return;
+      // The Warden's switch, enforced where it is real: hiding the button is
+      // the affordance, this broker is the wall a crafted (or merely stale)
+      // client cannot script around. The refusal ANSWERS — a player must
+      // never be left waiting on a request that was silently dropped.
+      if (!game.settings.get(SETTINGS_NS, "allow-player-generate")) {
+        ui.notifications.info("CAIRN.KWImport.RefusedFor", { format: { player: user.name } });
+        game.socket.emit(`system.${game.system.id}`, {
+          action: "kwImported", userId: senderId, uuid: null, refused: "disabled",
+        }, { recipients: [senderId] });
+        return;
+      }
+      // Every answer below is addressed {recipients: [senderId]} — it carries
+      // the requester's own import (the report most of all) and a bare emit
+      // is a broadcast to every client. And every toast that interpolates a
+      // value uses the key + {format} form, which escapes each value: a
+      // pre-formatted message goes through cleanHTML whole, so a name like
+      // "Kaid <the Unlucky>" — read verbatim from a hand-editable file —
+      // would truncate the Warden's only oversight notice.
+      if (kwImportInFlight.has(senderId)) {
+        // Answered, not dropped: a cold import runs ~25s, so a doubled click
+        // is likelier innocent than hostile, and a player whose second click
+        // vanishes cannot tell it from a hang.
+        game.socket.emit(`system.${game.system.id}`, {
+          action: "kwImported", userId: senderId, uuid: null, refused: "busy",
+        }, { recipients: [senderId] });
+        return;
+      }
+      kwImportInFlight.add(senderId);
+      try {
+        // The clicking client already shape-checked, but this side re-checks
+        // everything a crafted emit could skip: a size cap a real export (a
+        // few KB) sits far under, then the grantActors doctrine — the wire's
+        // payload is not trusted, it is REBUILT field by field with every
+        // scalar coerced (sanitizeKettlewrightExport). The refusal is
+        // answered AND logged: the player's failure toast points at this
+        // console, so this console must have something to say.
+        const raw = msg.json;
+        const json = (raw && typeof raw === "object" && !Array.isArray(raw)
+          && JSON.stringify(raw).length <= 1_000_000)
+          ? sanitizeKettlewrightExport(raw) : null;
+        if (!json) {
+          console.warn(`Air Bladder | refused a Kettlewright import from ${user.name}: not a plausible character export`);
+          game.socket.emit(`system.${game.system.id}`, {
+            action: "kwImported", userId: senderId, uuid: null, failed: true,
+          }, { recipients: [senderId] });
+          return;
+        }
+        const outcome = await performKettlewrightImport(json, {
+          ownership: { [senderId]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
+        });
+        if (!outcome.actor) {
+          // create() resolved undefined: a validation error core caught and
+          // logged on THIS client, so this screen gets the pointer to it.
+          ui.notifications.error("CAIRN.KWImport.ImportFailedFor", { format: { player: user.name } });
+          game.socket.emit(`system.${game.system.id}`, {
+            action: "kwImported", userId: senderId, uuid: null, failed: true,
+          }, { recipients: [senderId] });
+          return;
+        }
+        // The Warden is told: a player import lands a full inventory and a
+        // statline read verbatim from a file the Warden never saw, so it
+        // must never be invisible on this screen.
+        ui.notifications.info("CAIRN.KWImport.ImportedFor", {
+          format: { player: user.name, name: outcome.actor.name },
+        });
+        game.socket.emit(`system.${game.system.id}`, {
+          action: "kwImported", userId: senderId, uuid: outcome.actor.uuid, report: outcome.report,
+        }, { recipients: [senderId] });
+      } catch (err) {
+        // Caught, answered, and released — the generatePC lesson: a throw out
+        // of an async socket handler nothing awaits loses the player's import
+        // with no console line and no toast on either screen.
+        console.error(`Air Bladder | importKW failed for ${user.name}:`, err);
+        ui.notifications.error("CAIRN.KWImport.ImportFailedFor", { format: { player: user.name } });
+        game.socket.emit(`system.${game.system.id}`, {
+          action: "kwImported", userId: senderId, uuid: null, failed: true,
+        }, { recipients: [senderId] });
+      } finally {
+        kwImportInFlight.delete(senderId);
+      }
+      return;
+    }
+    // The answer to an importKW, addressed by userId — the pcGenerated shape,
+    // plus the report, so the summary renders on the screen of the player who
+    // imported rather than the Warden's.
+    if (msg?.action === "kwImported") {
+      if (msg.userId !== game.user.id) return;
+      if (!game.users.get(senderId)?.isGM) return;
+      // Caught like its three siblings, and for the file's standing reason: a
+      // throw here — fromUuid on a mangled uuid, the summary dialog — escapes
+      // an async socket handler nothing awaits, as an anonymous unhandled
+      // rejection.
+      try {
+        if (!msg.uuid) {
+          if (msg.refused === "disabled") {
+            ui.notifications.warn("CAIRN.KWImport.NotAllowed", { localize: true });
+          } else if (msg.refused === "busy") {
+            ui.notifications.warn("CAIRN.KWImport.Busy", { localize: true });
+          } else {
+            ui.notifications.warn("CAIRN.KWImport.ImportFailed", { localize: true });
+          }
+          return;
+        }
+        // The custom emit can outrun the document broadcast — poll, don't race.
+        for (let i = 0; i < 20; i++) {
+          const actor = await fromUuid(msg.uuid);
+          if (actor) {
+            actor.sheet?.render(true);
+            // The summary AFTER the render call: showImportSummary's own
+            // bringToFront dance already handles the sheet racing it.
+            if (msg.report) await showImportSummary(actor, msg.report);
+            return;
+          }
+          await new Promise((r) => setTimeout(r, 150));
+        }
+      } catch (err) {
+        console.error("Air Bladder | kwImported answer failed:", err);
       }
       return;
     }
@@ -2354,7 +2492,7 @@ Hooks.on("renderActorDirectory", (app, html) => {
           <button class="create-transport-button"><i class="fas fa-cart-flatbed"></i>${game.i18n.localize("CAIRN.CreateTransport")}</button>
           <button class="create-container-button"><i class="fas fa-box-open"></i>${game.i18n.localize("CAIRN.CreateContainer")}</button>
           ${game.user.isGM ? `<button class="create-faction-button"><i class="fas fa-flag"></i>${game.i18n.localize("CAIRN.CreateFaction")}</button>` : ""}
-          ${game.user.isGM ? `<button class="import-kettlewright-button"><i class="fas fa-file-import"></i>${game.i18n.localize("CAIRN.KWImport.Button")}</button>` : ""}
+          ${allowGen ? `<button class="import-kettlewright-button"><i class="fas fa-file-import"></i>${game.i18n.localize("CAIRN.KWImport.Button")}</button>` : ""}
         </div>
         `
       );
@@ -2409,7 +2547,10 @@ Hooks.on("renderActorDirectory", (app, html) => {
           const entry = await generateFaction();
           if (entry) entry.sheet.render(true);
         });
-      // GM-only: import a Kettlewright character export into a new Actor.
+      // Import a Kettlewright character export into a new Actor. GM-only
+      // until 2026-09-01; now it rides allow-player-generate like Generate PC
+      // — a player HERE holds ACTOR_CREATE, so the import runs directly on
+      // their client and returns the actor to open.
       section
         .querySelector(".import-kettlewright-button")
         ?.addEventListener("click", async () => {
@@ -2424,9 +2565,11 @@ Hooks.on("renderActorDirectory", (app, html) => {
     // Warden's client to run the same generator and stamp them OWNER — the
     // generatePC relay above, the grantActors shape. Same section id as the
     // full row: it is the injected-already test, and the two variants are
-    // mutually exclusive per user. Generate PC is this variant's ONLY button,
-    // so the Warden's allow-player-generate switch gates the whole section —
-    // off, this player's directory simply has no generator row.
+    // mutually exclusive per user. Since 2026-09-01 the row carries Import
+    // from Kettlewright too (importKettlewrightCharacter relays for a player
+    // without ACTOR_CREATE — the importKW broker above); both buttons ride
+    // the Warden's allow-player-generate switch, which gates the whole
+    // section — off, this player's directory simply has no generator row.
     const section = document.createElement("header");
     section.classList.add("character-generator");
     section.classList.add("directory-header");
@@ -2439,12 +2582,18 @@ Hooks.on("renderActorDirectory", (app, html) => {
         <button class="create-character-generator-button"><i class="fas fa-dice-d6"></i>${game.i18n.localize(
         "CAIRN.CharacterGenerator"
       )}</button>
+        <button class="import-kettlewright-button"><i class="fas fa-file-import"></i>${game.i18n.localize("CAIRN.KWImport.Button")}</button>
       </div>
       `
     );
     section
       .querySelector(".create-character-generator-button")
       .addEventListener("click", () => requestPcGeneration());
+    // No sheet render here: the relay path returns null and the kwImported
+    // answer handler opens the sheet when the document lands.
+    section
+      .querySelector(".import-kettlewright-button")
+      .addEventListener("click", () => importKettlewrightCharacter());
   }
   const actors = html.querySelectorAll('.actor');
   actors.forEach((a) => {

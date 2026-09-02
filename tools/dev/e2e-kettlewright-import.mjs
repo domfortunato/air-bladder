@@ -38,8 +38,8 @@ page.on("filechooser", (fc) => fc.setFiles(tmp).catch(() => {}));
 await page.evaluate(() => document.querySelector(".import-kettlewright-button")?.click());
 
 // The button no longer opens the file chooser directly: it first shows an
-// OPTIONS dialog ("Require a matching background") whose Import button is what
-// actually calls the picker. Without this the probe sat on that dialog and
+// OPTIONS dialog (informational since the gate retired) whose Import button is
+// what actually calls the picker. Without this the probe sat on that dialog and
 // reported `summaryShown: true` — because the options dialog is a dialog too.
 // Assert we are on the right one rather than clicking whatever is on screen.
 await page.waitForSelector('[data-action="import"]', { timeout: 10000 }).catch(() => {});

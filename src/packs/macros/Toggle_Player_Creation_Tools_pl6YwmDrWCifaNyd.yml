@@ -1,14 +1,15 @@
 _id: pl6YwmDrWCifaNyd
-name: Toggle Player Randomization
+name: Toggle Player Creation Tools
 type: script
 author: null
 img: icons/svg/dice-target.svg
 scope: global
 command: |-
-  // Flip the Warden's switch for the sheet randomization surface as players
-  // see it (the allow-player-randomization world setting): the title-bar
-  // Randomization toggle, the Roll button and every re-roll die hide from
-  // players while it is off — even on an actor whose own Randomization is on.
+  // Flip the Warden's switch for the sheet Character Creation tools as
+  // players see them (the allow-player-randomization world setting): the
+  // title-bar Character Creation Mode toggle, the Roll button and every
+  // re-roll die hide from players while it is off — even on an actor whose
+  // own Character Creation Mode is on.
   // Open sheets update live on every client — no reload. The Warden keeps
   // everything. Warden-only: the server refuses a world-setting write from
   // anyone else anyway; the check just says so politely.

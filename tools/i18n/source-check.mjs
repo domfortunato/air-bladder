@@ -257,6 +257,14 @@ const scanTemplates = () => {
           // Any Handlebars in the value means it came from somewhere else; the
           // key check above is what covers whether THAT is localized.
           if (v.includes("{{") || !hasWords(v)) continue;
+          // A bare i18n KEY in data-tooltip is the RULED form (review #20
+          // finding 14; the creation dice migrated onto it 2026-09-01):
+          // core's TooltipManager localizes a key it finds there
+          // (tooltip-manager.mjs:261-264), so this is routed, not hardcoded.
+          // ONLY data-tooltip — the same key in title= renders raw. A typo'd
+          // key is still caught: collectKeys reads it as a reference and the
+          // `missing` check reports any key en.json lacks.
+          if (a === "data-tooltip" && /^CAIRN\.[\w.]+$/.test(v)) continue;
           hits.push({ site: `${rel(f)}:${lineOf(src, t.start)}`, what: `${a}="${v}"` });
         }
       }

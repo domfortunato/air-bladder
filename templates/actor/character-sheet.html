@@ -5,7 +5,11 @@
         <div class="portrait-wrap">
             <img class="portrait" src="{{actor.img}}" data-action="editPortrait" title="{{ localize 'CAIRN.ChoosePortrait' }}" />
             {{#if generationEnabled}}
-            <a class="portrait-roll" data-action="rollPortrait" title="{{ localize 'CAIRN.RollPortrait' }}"><i class="fas fa-dice-d20"></i></a>
+            {{!-- Creation dice and pickers carry data-tooltip (bare i18n KEY,
+                  core-styled — the Age die's ruled look, 2026-09-01) rather
+                  than native title=. Non-creation titles on this sheet stay
+                  native on purpose. --}}
+            <a class="portrait-roll" data-action="rollPortrait" data-tooltip="CAIRN.RollPortrait"><i class="fas fa-dice-d20"></i></a>
             {{/if}}
         </div>
         <!-- Name, background, HP and deprived -->
@@ -13,7 +17,7 @@
             <div class="name-line">
                 <input class="name-input" type="text" name="name" value="{{actor.name}}" placeholder="{{ localize 'CAIRN.Name' }}" />
                 {{#if generationEnabled}}
-                <a class="name-roll" data-action="rollName" title="{{ localize 'CAIRN.RollName' }}"><i class="fas fa-dice-d20"></i></a>
+                <a class="name-roll" data-action="rollName" data-tooltip="CAIRN.RollName"><i class="fas fa-dice-d20"></i></a>
                 {{/if}}
             </div>
             <div class="background-line">
@@ -23,8 +27,8 @@
                 {{/if}}
                 <span class="background-name">{{backgroundName}}</span>
                 {{#if generationEnabled}}
-                <a class="background-roll" data-action="rollBackground" title="{{ localize 'CAIRN.RollBackground' }}"><i class="fas fa-dice-d20"></i></a>
-                <a class="background-pick" data-action="pickBackground" title="{{ localize 'CAIRN.ChangeBackground' }}"><i class="fas fa-magnifying-glass"></i></a>
+                <a class="background-roll" data-action="rollBackground" data-tooltip="CAIRN.RollBackground"><i class="fas fa-dice-d20"></i></a>
+                <a class="background-pick" data-action="pickBackground" data-tooltip="CAIRN.ChangeBackground"><i class="fas fa-list-ul"></i></a>
                 {{/if}}
                 {{else}}
                 <input class="background-input" type="text" name="system.background" value="{{system.background}}"
@@ -45,31 +49,34 @@
                     <span class="failed-career-label">{{ localize 'CAIRN.FailedCareerLabel' }}</span>
                     <span class="failed-career-name">{{failedCareer}}</span>
                     {{#if generationEnabled}}
-                    <a class="failed-career-roll" data-action="rollFailedCareer" title="{{ localize 'CAIRN.RollFailedCareer' }}"><i class="fas fa-dice-d20"></i></a>
-                    <a class="failed-career-pick" data-action="pickFailedCareer" title="{{ localize 'CAIRN.ChangeFailedCareer' }}"><i class="fas fa-magnifying-glass"></i></a>
+                    <a class="failed-career-roll" data-action="rollFailedCareer" data-tooltip="CAIRN.RollFailedCareer"><i class="fas fa-dice-d20"></i></a>
+                    <a class="failed-career-pick" data-action="pickFailedCareer" data-tooltip="CAIRN.ChangeFailedCareer"><i class="fas fa-list-ul"></i></a>
                     {{/if}}
                 </div>
                 <div class="failed-career-item-line">
                     <span class="failed-career-item-label">{{ localize 'CAIRN.FailedCareerItemLabel' }}</span>
                     <span class="failed-career-item-name">{{failedCareerItem}}</span>
                     {{#if generationEnabled}}
-                    <a class="failed-career-item-roll" data-action="rollFailedCareerItem" title="{{ localize 'CAIRN.RollFailedCareerItem' }}"><i class="fas fa-dice-d20"></i></a>
+                    <a class="failed-career-item-roll" data-action="rollFailedCareerItem" data-tooltip="CAIRN.RollFailedCareerItem"><i class="fas fa-dice-d20"></i></a>
                     {{/if}}
                 </div>
             </div>
             {{/if}}
             <div class="resource-counter hp-counter {{#if hpLow}}low{{/if}}">
-                <label for="{{@root.idp}}-system.hp.value" data-tooltip="{{ localize 'CAIRN.HitProtectionTip' }}">{{ localize 'CAIRN.HitProtection' }}</label>
+                {{!-- hpTip appends "Rolled at creation." while the mode is On;
+                      the boxes say WHICH side is which, formatted per stat
+                      (currentTips/maxTips, _computeStatContext). --}}
+                <label for="{{@root.idp}}-system.hp.value" data-tooltip="{{hpTip}}">{{ localize 'CAIRN.HitProtection' }}</label>
                 <div class="resource-input-wrapper">
                     <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.value" id="{{@root.idp}}-system.hp.value"
-                           value="{{system.hp.value}}" data-dtype="Number" title="{{ localize 'CAIRN.Current' }}" />
+                           value="{{system.hp.value}}" data-dtype="Number" data-tooltip="{{currentTips.HP}}" />
                     <span> / </span>
-                    <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.max" value="{{system.hp.max}}" data-dtype="Number" title="{{ localize 'CAIRN.Maximum' }}" />
+                    <input type="number" min="0" max="18" step="1" class="stat-input" name="system.hp.max" value="{{system.hp.max}}" data-dtype="Number" data-tooltip="{{maxTips.HP}}" />
                 </div>
             </div>
             <div class="resource-counter deprived-counter long-counter {{#if system.maybeTooMuchGold }}overburdened-gold{{/if}}"
             {{#if system.maybeTooMuchGold }} title="{{localize 'CAIRN.OverburdenByGold'}}" {{/if}} >
-                <label for="{{@root.idp}}-system.gold" data-tooltip="{{ system.coinTip }}">
+                <label for="{{@root.idp}}-system.gold" data-tooltip="{{goldTip}}">
                     {{ localize 'CAIRN.Gold' }}
                 </label>
                 <div class="resource-input-wrapper">
@@ -93,14 +100,25 @@
         <div class="character-sheet-section-abilities">
             {{#each system.abilities as |ability key|}}
             <div class="resource-counter {{key}}-counter {{#if (lookup ../abilityPeril key)}}peril{{/if}} {{#if (lookup ../abilityLow key)}}low{{/if}}">
+                {{!-- While Character Creation Mode is On the save die is INERT
+                      (2026-09-01, user spec): no data-action — a display gate,
+                      not a wall — grayed by .save-roll-off, still hoverable so
+                      the tooltip (abilityTips, swapped to "turn the mode off")
+                      can say why. NEVER pointer-events:none — it kills the
+                      pointerenter TooltipManager needs (the disabled-Rest
+                      precedent below). --}}
+                {{#if ../generationEnabled}}
+                <a class="resource-roll save-roll-off" data-tooltip="{{ lookup ../abilityTips key }}"><i class="fas fa-dice-d20 roll-icon"></i> {{ localize key }}</a>
+                {{else}}
                 <a class="resource-roll" data-action="rollAbility" data-ability="{{key}}" data-roll="d20cs<=@abilities.{{key}}.value"
                     data-label="{{ localize 'CAIRN.Save' key=(localize key)}}" data-tooltip="{{ lookup ../abilityTips key }}"><i class="fas fa-dice-d20 roll-icon"></i> {{ localize key }}</a>
+                {{/if}}
                 <div class="resource-input-wrapper">
                     <input type="number" min="0" max="18" step="1" class="stat-input" name="system.abilities.{{key}}.value" value="{{ability.value}}"
-                        data-dtype="Number" title="{{ localize 'CAIRN.Current' }}" />
+                        data-dtype="Number" data-tooltip="{{ lookup ../currentTips key }}" />
                     <span> / </span>
                     <input type="number" min="0" max="18" step="1" class="stat-input" name="system.abilities.{{key}}.max" value="{{ability.max}}" data-dtype="Number"
-                        title="{{ localize 'CAIRN.Maximum' }}" />
+                        data-tooltip="{{ lookup ../maxTips key }}" />
                 </div>
                 {{#if (lookup ../criticalToggle key)}}
                 <a class="critical-toggle {{#if (lookup ../criticalActive key)}}active{{/if}}" data-action="toggleCritical" data-key="{{key}}"
@@ -226,24 +244,35 @@
                     {{#if showBonds}}
                     {{#each bonds}}
                     <div class="bond-block">
+                        {{!-- Die + pick-list button (2026-09-01): re-roll the bond, or
+                              pick one off the resolved Bonds table — a player
+                              recreating a book-rolled character needs the row
+                              they already rolled. --}}
                         <p class="bond-line"><strong>{{ localize 'CAIRN.Bond' }}:</strong>{{#if ../generationEnabled}}<a class="bond-reroll" data-action="rerollBond"
-                                data-bond-id="{{this.id}}" title="{{ localize 'CAIRN.RerollBond' }}"><i
-                                    class="fas fa-dice-d20"></i></a>{{#if @index}}<a class="bond-remove" data-action="removeBond"
-                                data-bond-id="{{this.id}}" title="{{ localize 'CAIRN.RemoveBond' }}"><i
+                                data-bond-id="{{this.id}}" data-tooltip="CAIRN.RerollBond"><i
+                                    class="fas fa-dice-d20"></i></a><a class="bond-pick" data-action="pickBond"
+                                data-bond-id="{{this.id}}" data-tooltip="CAIRN.PickBond"><i
+                                    class="fas fa-list-ul"></i></a>{{#if @index}}<a class="bond-remove" data-action="removeBond"
+                                data-bond-id="{{this.id}}" data-tooltip="CAIRN.RemoveBond"><i
                                     class="fas fa-xmark"></i></a>{{/if}}{{/if}}</p>
                         <p class="bond-answer">{{this.description}}</p>
                     </div>
                     {{/each}}
                     {{#if generationEnabled}}{{#if canAddBond}}
-                    <a class="bond-add" data-action="addBond" title="{{ localize 'CAIRN.AddBond' }}"><i class="fas fa-plus"></i> {{ localize 'CAIRN.AddBond' }}</a>
+                    <a class="bond-add" data-action="addBond" data-tooltip="CAIRN.AddBond"><i class="fas fa-plus"></i> {{ localize 'CAIRN.AddBond' }}</a>
                     {{/if}}{{/if}}
                     {{/if}}
                     {{#if is2eBackground}}
                     {{#each questions}}
                     <div class="question-block">
+                        {{!-- Die + pick-list button (2026-09-01), like the bond line:
+                              re-roll the answer, or choose it off the
+                              background's own options. --}}
                         <p class="question-line"><strong>{{this.question}}</strong>{{#if ../generationEnabled}}<a class="question-reroll" data-action="rerollQuestion"
-                                data-index="{{@index}}" title="{{ localize 'CAIRN.RerollQuestion' }}"><i
-                                    class="fas fa-dice-d20"></i></a>{{/if}}</p>
+                                data-index="{{@index}}" data-tooltip="CAIRN.RerollQuestion"><i
+                                    class="fas fa-dice-d20"></i></a><a class="question-pick" data-action="pickQuestion"
+                                data-index="{{@index}}" data-tooltip="CAIRN.PickQuestion"><i
+                                    class="fas fa-list-ul"></i></a>{{/if}}</p>
                         <p class="question-answer">{{this.answer}}</p>
                     </div>
                     {{/each}}

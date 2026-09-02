@@ -816,6 +816,35 @@ const tagBackgroundGear = (items) =>
 const defaultBondsTable = async () => findTableByName("Bonds");
 
 /**
+ * The table a bond actually comes from: the named table (a custom background's
+ * own `bondsTable`) when it resolves, else the default. Extracted from
+ * drawBond's head (2026-09-01) because the bond PICKER must list exactly the
+ * table the die would roll — resolving twice in two places is how they drift.
+ * @param {String} [tableName]
+ * @returns {Promise<RollTable|null>}
+ */
+export const resolveBondsTable = async (tableName) => {
+  const wanted = String(tableName ?? "").trim();
+  // World-first, by name — the rationale lives on findTableByName.
+  let table = wanted ? await findTableByName(wanted) : null;
+  if (wanted && !table) {
+    console.warn(`Air Bladder | no RollTable named "${wanted}" — falling back to the default Bonds table`);
+  }
+  return table ?? await defaultBondsTable();
+};
+
+/**
+ * The Omens table, WORLD-FIRST like the default Bonds table above (2026-09-01,
+ * user ask): a Warden expands or edits the omens by creating a world RollTable
+ * named "Omens", of any size — the die rolls the table's own formula and the
+ * picker lists every row. With no world table the shipped `tables-2e` copy
+ * serves as before. Rows are plain text; unlike Bonds, nothing mechanical
+ * rides an omen, so customizing is just authoring rows.
+ * @returns {Promise<RollTable|null>}
+ */
+export const findOmensTable = async () => findTableByName("Omens");
+
+/**
  * A bond's identity, for telling two of them apart. A stored bond keeps no
  * reference to the table row it came from — only prose, gold and an id minted at
  * draw time — so the text is all there is to compare, and it is enough: two rows
@@ -868,13 +897,7 @@ const BOND_DRAW_ATTEMPTS = 10;
  * @returns {Promise<{description:String, gold:Number, items:Object[]}|null>}
  */
 export const drawBond = async (tableName, { avoid = [] } = {}) => {
-  const wanted = String(tableName ?? "").trim();
-  // World-first, by name — the rationale lives on findTableByName.
-  let table = wanted ? await findTableByName(wanted) : null;
-  if (wanted && !table) {
-    console.warn(`Air Bladder | no RollTable named "${wanted}" — falling back to the default Bonds table`);
-  }
-  table ??= await defaultBondsTable();
+  const table = await resolveBondsTable(tableName);
   if (!table) return null;
 
   // Re-roll a repeat. `taken` is built once; the table is not mutated by roll(),
@@ -1578,6 +1601,9 @@ export const generate2eCharacter = async (chosenBg = null) => {
     rolls: { hp: hpRoll, STR: abilityRolls.STR, DEX: abilityRolls.DEX, WIL: abilityRolls.WIL, gold: goldRoll },
     background: bg.name,
     backgroundUuid: bg.uuid,
+    // Whether the background was handed in or drawn — the provenance flag's
+    // generation-time value (characterToActorData writes it onto the actor).
+    backgroundChosen: !!chosenBg,
     contentSource: "2e",
     bonds,
     age,
@@ -1958,6 +1984,7 @@ export const generateBarebonesCharacter = async (chosenBg = null) => {
     rolls: { hp: hpRoll, STR: abilityRolls.STR, DEX: abilityRolls.DEX, WIL: abilityRolls.WIL, gold: goldRoll },
     background: bg.name,
     backgroundUuid: bg.uuid,
+    backgroundChosen: !!chosenBg,   // see generate2eCharacter
     contentSource: "barebones",
     failedCareer,
     bonds: [],
@@ -2715,6 +2742,12 @@ export const changeBackground = async (actor, newBg = null) => {
     "system.backgroundUuid": bg.uuid,
     "system.questions": choices.questions,
     "system.gold": Math.max(0, (actor.system.gold ?? 0) - oldQGold + choices.gold - clampGold),
+    // Provenance (2026-09-02): did the player CHOOSE this background, or did a
+    // die deal it? The Roll Character dialog reads it to decide whether the
+    // Background box opens checked. This is THE seam — the die passes null,
+    // the picker and the drop pass a document, and the picker's Random row
+    // defers to the die's own handler, so "random" stores rolled both ways.
+    [`flags.${FLAG_SCOPE}.backgroundChosen`]: !!newBg,
   };
   // Write bonds only when the clamp bit — preservation stays the default, and
   // an untouched array is not re-written wholesale for nothing.
@@ -2740,6 +2773,112 @@ export const changeBackground = async (actor, newBg = null) => {
   }
 };
 
+/**
+ * The background document this actor's stored identity points at — by uuid,
+ * with regenerateActor's by-name fallback for a Barebones character generated
+ * before uuids were stored.
+ * @param {CairnActor} actor
+ * @returns {Promise<CairnItem|null>}
+ */
+export const resolveActorBackground = async (actor) => {
+  let bg = actor.system.backgroundUuid ? await fromUuid(actor.system.backgroundUuid) : null;
+  if (!bg && actor.system.contentSource === "barebones") {
+    bg = await getBarebonesBackgroundByName(actor.system.background);
+  }
+  return bg;
+};
+
+/**
+ * Re-deal the CURRENT background's starting gear without changing the
+ * background itself — the Roll Character dialog's "Starting gear" row, live
+ * only while its Background parent is unchecked (a checked Background goes
+ * through changeBackground, which re-deals gear as part of the swap).
+ *
+ * The delete matches changeBackground's out-with-the-old block: the
+ * "background" grant tag, plus untagged items matching the background's own
+ * reference names one apiece — which is ALSO what removes the chip-less
+ * mundane grants (a Torch is deliberately untagged, see tagBackgroundGear),
+ * not only legacy pre-tagging gear. Questions, bonds and the Barebones
+ * equipment kit are other rows' business and other tags (or, for the PC kit,
+ * deliberately no tag at all — the dialog never touches untagged gear beyond
+ * this name match).
+ * @param {CairnActor} actor
+ * @returns {Promise<Boolean>} false when refused or the background is gone
+ */
+export const redealBackgroundGear = async (actor) => {
+  // A background can grant a container outright; bail before deleting anything
+  // if this user can't manage those.
+  if (!canRegenerateContainers(actor, "background", "CAIRN.Notify.NoContainerBackground")) return false;
+  const bg = await resolveActorBackground(actor);
+  if (!bg) return false;
+
+  const toDelete = [];
+  const claimed = new Set();
+  for (const i of actor.items) {
+    if (String(i.getFlag(FLAG_SCOPE, "grantSource") ?? "") === "background") {
+      claimed.add(i.id); toDelete.push(i.id);
+    }
+  }
+  for (const g of bg.system.startingGear ?? []) {
+    const hit = actor.items.find(
+      (i) => !claimed.has(i.id) && !i.getFlag(FLAG_SCOPE, "grantSource") && i.name === g.name
+    );
+    if (hit) { claimed.add(hit.id); toDelete.push(hit.id); }
+  }
+  if (toDelete.length) await actor.deleteEmbeddedDocuments("Item", toDelete, { render: false, abNoStatusCard: true });
+
+  // In with the new — resolveStartingGear, weapons/armor equipped, exactly as
+  // changeBackground grants.
+  const gear = tagBackgroundGear(await resolveStartingGear(bg));
+  for (const it of gear) {
+    if (it.type === "weapon" || it.type === "armor") it.system.equipped = true;
+  }
+  if (gear.length) await actor.createEmbeddedDocuments("Item", gear, { render: false, abNoStatusCard: true });
+  await replaceGrantedContainers(actor, "background",
+    (bg.system.containers ?? []).map((c) => ({ ...c })));
+  return true;
+};
+
+/**
+ * Re-deal EVERY bond to the background's current entitlement — the Roll
+ * Character dialog's "Bond(s)" row, which also rides its Background box
+ * because the entitlement is the background's. Old bonds' tagged grants go
+ * and their gold comes back out; fresh draws follow generation exactly
+ * (the background's own bondsTable resolved world-first, `avoid` growing so
+ * a Fieldwarden's second bond cannot repeat the first).
+ * @param {CairnActor} actor
+ */
+export const rerollAllBonds = async (actor) => {
+  const bg = await resolveActorBackground(actor);
+  const entitlement = bondEntitlement(bg, actor.system.questions ?? []);
+  const oldBonds = foundry.utils.duplicate(actor.system.bonds ?? []);
+  // Every bond:<id> grant goes, the stored array's ids or not — a full re-deal
+  // claims orphans too, rather than leaving items no bond row can ever reach.
+  const staleIds = actor.items
+    .filter((i) => String(i.getFlag(FLAG_SCOPE, "grantSource") ?? "").startsWith("bond:"))
+    .map((i) => i.id);
+  if (staleIds.length) await actor.deleteEmbeddedDocuments("Item", staleIds, { render: false, abNoStatusCard: true });
+
+  const bonds = [];
+  const items = [];
+  let newGold = 0;
+  for (let i = 0; i < entitlement; i++) {
+    const rec = bondRecordFrom(await drawBond(bg?.system?.bondsTable, {
+      avoid: bonds.map((b) => b.description),
+    }));
+    if (!rec) continue;
+    bonds.push(rec.bond);
+    items.push(...rec.items);
+    newGold += rec.bond.gold;
+  }
+  if (items.length) await actor.createEmbeddedDocuments("Item", items, { render: false, abNoStatusCard: true });
+  const oldGold = oldBonds.reduce((n, b) => n + (b.gold ?? 0), 0);
+  await actor.update({
+    "system.bonds": bonds,
+    "system.gold": Math.max(0, (actor.system.gold ?? 0) - oldGold + newGold),
+  }, { abNoStatusCard: true });
+};
+
 /* -------------------------------------------------------------------------- */
 /*  Actor create / update                                                       */
 /* -------------------------------------------------------------------------- */
@@ -2750,6 +2889,12 @@ export const changeBackground = async (actor, newBg = null) => {
  */
 const characterToActorData = (characterData) => ({
   name: characterData.name,
+  // Provenance (2026-09-02): a background handed to the generator was CHOSEN,
+  // a drawn one was rolled. The Roll Character dialog reads this to decide the
+  // Background box's default. updateActorWithCharacter DELETES this key —
+  // regenerateActor persists the background rather than re-deciding it, so
+  // the stored answer must survive by omission, like the portrait.
+  flags: { [FLAG_SCOPE]: { backgroundChosen: !!characterData.backgroundChosen } },
   system: {
     // Generated actors land with the Randomization switch OFF, explicitly —
     // the schema initial says the same since 2026-08-02, but the generator's
@@ -2846,6 +2991,8 @@ export const updateActorWithCharacter = async (actor, characterData) => {
   // `render: false` + data-update last mirrors it: one render, inventory present.
   const items = data.items ?? [];
   delete data.items;
+  // Keep the stored background provenance — see characterToActorData's flags.
+  delete data.flags;
   // abNoStatusCard on both embedded writes: regenerating is machinery, and the
   // change log must not report a rebuild as a player emptying and refilling
   // their own pack. The data update below already carries the flag.
@@ -2931,11 +3078,13 @@ export const localizeGenerationCard = (message, html) => {
  * dice3d.showForRoll() would have animated on the Warden's screen alone, which a
  * Warden testing solo cannot tell apart from working.
  *
- * Called ONLY from createCharacter and regenerateActor, never from
- * createActorWithCharacter/updateActorWithCharacter: about fourteen dev probes
- * build characters through those directly, and they must stay chat-silent. Name,
- * background and portrait re-rolls never reach here at all -- none of them is a
- * Roll (two are Math.random picks, one is a table roll() with displayChat false).
+ * Called ONLY from createCharacter, regenerateActor and the sheet's Roll
+ * Character dialog (which posts it only when the whole statline re-rolled),
+ * never from createActorWithCharacter/updateActorWithCharacter: about fourteen
+ * dev probes build characters through those directly, and they must stay
+ * chat-silent. Name, background and portrait re-rolls never reach here at all
+ * -- none of them is a Roll (two are Math.random picks, one is a table roll()
+ * with displayChat false).
  *
  * The speaker reads "<Character> (<Roller>)" -- the character who was rolled, and
  * the person who rolled them. `roller` is passed explicitly rather than taken from
@@ -2952,7 +3101,7 @@ export const localizeGenerationCard = (message, html) => {
  * @returns {Promise<ChatMessage|null>}  the posted card, for a caller that wants
  *   to wait on it itself.
  */
-const postGenerationRolls = async (actor, characterData, roller = null, { waitForDice = true } = {}) => {
+export const postGenerationRolls = async (actor, characterData, roller = null, { waitForDice = true } = {}) => {
   const rolls = characterData?.rolls;
   if (!actor || !rolls) return;
   if (!game.settings.get(SETTINGS_NS, "show-generation-rolls")) return;
@@ -3554,12 +3703,12 @@ const npcGrantedItemIds = (actor, sources = ["background"]) => actor.items
 /**
  * Re-arrange an EXISTING actor's whole inventory by the granted-loadout rules.
  *
- * Only regenerateNpc needs this, and only because it is the one full
- * regeneration that KEEPS items: it deletes just the tagged grant, so a
+ * The re-rolls that KEEP items need this: regenerateNpc, and since 2026-09-02
+ * the sheet's Roll Character dialog (both delete just the tagged grants, so a
  * Warden's own untagged gifts survive at whatever sort they had — 0 for
  * anything never dragged, which renders ABOVE every item the new loadout
- * numbered. Its hireling twin deletes the inventory outright and needs none of
- * this.
+ * numbered). regenerateHireling deletes the inventory outright and needs none
+ * of this.
  *
  * Ordinary acquisition is deliberately NOT re-arranged: a newly created item
  * appends instead (CairnItem._preCreateOperation), because the arrangement is
@@ -3578,7 +3727,7 @@ const npcGrantedItemIds = (actor, sources = ["background"]) => actor.items
  * not pass through that seam and has to say so itself.
  * @param {CairnActor} actor
  */
-const reorderInventory = async (actor) => {
+export const reorderInventory = async (actor) => {
   const shims = actor.items
     .filter((i) => !i.system?.bound)
     .map((i) => ({ _id: i.id, name: i.name, type: i.type }));
@@ -3810,7 +3959,7 @@ const applyNpcBackground = async (actor, rolled) => {
 };
 
 /* --------------------------------------------------------------------------
- * The person-sheet pickers (2026-08-21, user ask): the magnifying glass the PC
+ * The person-sheet pickers (2026-08-21, user ask): the pick-list button the PC
  * sheet's background row already has, brought to the Career, Background and
  * Faction rows — a Warden picks a specific value instead of rolling one, and
  * the picker is offered whether or not the Randomization toggle is on, because
@@ -3832,7 +3981,7 @@ const promptFromRows = (titleKey, rows, current = null) => {
     let done = false;
     const finish = (v) => { if (!done) { done = true; resolve(v); } };
     const dialog = new foundry.applications.api.DialogV2({
-      window: { title: game.i18n.localize(titleKey), icon: "fas fa-magnifying-glass" },
+      window: { title: game.i18n.localize(titleKey), icon: "fas fa-list-ul" },
       position: { width: 420 },
       content: `<div class="bg-picker single"><div class="bg-pick-list">${list}</div></div>`,
       buttons: [
@@ -3920,4 +4069,92 @@ export const promptNpcFaction = async (actor) => {
   if (choice === BG_RANDOM) return rerollNpcFaction(actor);
   await actor.update({ "system.faction": choice });
   return actor;
+};
+
+/* --------------------------------------------------------------------------
+ * The character-sheet pickers (2026-09-01, user ask): Omen, Bond and the two
+ * background questions get a magnifying glass beside their dice, because a
+ * player who rolled a character with the BOOKS wants to recreate that exact
+ * character here — a random re-roll cannot reproduce a row they already
+ * rolled, a picker can. Same radio-row dialog as the pickers above, same
+ * stored-English/translated-label split. These three return a value rather
+ * than applying it (the sheet owns the applies, shared with each die), so the
+ * Random row comes back as {random: true} and the sheet defers to the die's
+ * own handler — "random" means one thing.
+ * ------------------------------------------------------------------------ */
+
+/**
+ * Pick an omen off the table the omen die rolls (world-first "Omens", see
+ * findOmensTable). Rows keep TABLE ORDER, not alphabetical: a player
+ * recreating a book-rolled character knows which numbered row they rolled.
+ * @param {String} [current]  the actor's stored omen (English)
+ * @returns {Promise<{text:String}|{random:true}|false|null>} null = no table
+ */
+export const promptPickOmen = async (current = "") => {
+  const table = await findOmensTable();
+  if (!table) return null;
+  const rows = table.results.map((r) => String(resultText(r)).trim()).filter(Boolean)
+    .map((text) => ({ value: text, label: t("table.result", text) }));
+  const choice = await promptFromRows("CAIRN.PickOmen", rows, String(current ?? "").trim() || null);
+  if (!choice) return false;
+  if (choice === BG_RANDOM) return { random: true };
+  return { text: choice };
+};
+
+/**
+ * Pick a bond off the RESOLVED bonds table — the background's own `bondsTable`
+ * when it names one, else the default (world "Bonds" first, then shipped):
+ * exactly the chain the die's drawBond follows, via the same resolveBondsTable.
+ * The chosen row comes back in drawBond's shape, payload flags resolved, so a
+ * picked bond and a rolled one go through ONE apply on the sheet. A
+ * hand-authored world row has no flags and comes back narrative-only, the
+ * standing rule for hand-authored table content.
+ * @param {String} [tableName]  the background's bondsTable, or "" for default
+ * @param {String} [current]  the bond's stored description (English)
+ * @returns {Promise<{description:String, gold:Number, items:Object[]}|{random:true}|false|null>}
+ */
+export const promptPickBond = async (tableName, current = "") => {
+  const table = await resolveBondsTable(tableName);
+  if (!table) return null;
+  const rows = table.results
+    .map((result) => ({ result, value: String(resultText(result)).trim() }))
+    .filter((row) => row.value)
+    .map((row) => ({ ...row, label: t("table.result", row.value) }));
+  const choice = await promptFromRows("CAIRN.PickBond", rows, String(current ?? "").trim() || null);
+  if (!choice) return false;
+  if (choice === BG_RANDOM) return { random: true };
+  const row = rows.find((r) => r.value === choice);
+  if (!row) return false;
+  return {
+    description: row.value,
+    gold: row.result.getFlag(FLAG_SCOPE, "gold") ?? 0,
+    items: await resolveRefs(row.result.getFlag(FLAG_SCOPE, "items") ?? []),
+  };
+};
+
+/**
+ * Pick a background question's answer off that question's own options. The
+ * VALUE is the option INDEX — options are anonymous, so unlike every other
+ * picker there is no match key to store — and the chosen option object comes
+ * back whole for the sheet's shared apply.
+ * @param {CairnItem|null} bg  the source background document
+ * @param {Number} idx  which question (0 or 1)
+ * @param {String} [currentAnswer]  the stored answer (English), pre-checks its row
+ * @returns {Promise<{option:Object, question:String}|{random:true}|false|null>} null = no options
+ */
+export const promptPickQuestionOption = async (bg, idx, currentAnswer = "") => {
+  const table = bg?.system?.tables?.[idx];
+  const options = table?.options ?? [];
+  if (!options.length) return null;
+  const rows = options.map((opt, i) => ({
+    value: String(i),
+    label: t("bg.optionDesc", opt.description ?? ""),
+  }));
+  const cur = options.findIndex((o) => (o.description ?? "") === currentAnswer);
+  const choice = await promptFromRows("CAIRN.PickQuestion", rows, cur >= 0 ? String(cur) : null);
+  if (!choice) return false;
+  if (choice === BG_RANDOM) return { random: true };
+  const option = options[Number(choice)];
+  if (!option) return false;
+  return { option, question: table.question ?? "" };
 };

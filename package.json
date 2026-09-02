@@ -83,6 +83,7 @@
     "dev:bg-tools": "node tools/dev/probe-bg-tools.mjs",
     "dev:kw-import": "node tools/dev/e2e-kettlewright-import.mjs",
     "dev:kw-import-data": "node tools/dev/probe-kettlewright-import.mjs",
+    "dev:kw-player-import": "node tools/dev/e2e-kw-player-import.mjs",
     "dev:directory-ui": "node tools/dev/probe-ui-batch.mjs",
     "dev:encounters": "node tools/dev/e2e-encounters.mjs",
     "dev:grimoire": "node tools/dev/e2e-grimoire.mjs",
@@ -116,7 +117,9 @@
     "dev:changelog": "node tools/dev/e2e-change-log.mjs",
     "dev:socket-grant": "node tools/dev/socket-grant-probe.mjs",
     "dev:listeners": "node tools/dev/e2e-listeners.mjs",
-    "dev:review-batch2": "node tools/dev/e2e-review-batch2.mjs"
+    "dev:review-batch2": "node tools/dev/e2e-review-batch2.mjs",
+    "dev:tooltip-picker": "node tools/dev/tooltip-picker-probe.mjs",
+    "dev:reroll-dialog": "node tools/dev/e2e-reroll-dialog.mjs"
   },
   "browserslist": [
     "last 3 versions"

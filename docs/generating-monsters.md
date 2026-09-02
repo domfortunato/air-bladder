@@ -60,8 +60,8 @@ arrives from an explicit button press.
 ## Re-rolling a monster
 
 Every monster sheet has a **Roll Monster** button in its title bar (the same
-dragon). If you don't see it, flip **Randomization** on with the toggle
-beside it.
+dragon). If you don't see it, flip **Character Creation Mode** on with the
+toggle beside it.
 
 Clicking Roll Monster opens the same tier picker with different wording —
 and here **the picker is also the confirmation**: it tells you the

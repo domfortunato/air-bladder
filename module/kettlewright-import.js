@@ -4,10 +4,14 @@ import { getBackgroundsFor, withGrantSource, randomPortraitPair, kettlewrightPor
 import { CairnActor } from "./actor/actor.js";
 import { FATIGUE_NAME } from "./item/item.js";
 import { Cairn } from "./config.js";
+import { SETTINGS_NS } from "./settings.js";
+import { t } from "./i18n-content.js";
 
 /**
  * One-way importer: a Kettlewright (kettlewright.com) character export JSON ->
- * a new Air Bladder `character` Actor. GM-only. Best-effort and lossy by design:
+ * a new Air Bladder `character` Actor — directly for a client that may create
+ * Actors, over the importKW relay (cairn.js) for a player who may not.
+ * Best-effort and lossy by design:
  * items and the background are matched by name where possible and otherwise built
  * from their raw text/tags, so nothing is lost — it just arrives less structured.
  *
@@ -178,9 +182,10 @@ const findBondEntry = async (text) => {
  * back into `system.questions`, which is what the sheet renders and re-rolls,
  * instead of sitting in Notes as undifferentiated prose.
  *
- * Matching is whitespace-tolerant and case-insensitive but otherwise exact: a
- * question either is the background's question or it isn't. Anything not claimed
- * by a question stays in Notes, so a player's own writing is never eaten.
+ * Matching is whitespace- and punctuation-spacing-tolerant and case-insensitive
+ * but otherwise exact: a question either is the background's question or it
+ * isn't. Anything not claimed by a question stays in Notes, so a player's own
+ * writing is never eaten.
  *
  * @param {String} notes
  * @param {String[]} questions  the background's prompts, in table order
@@ -194,10 +199,21 @@ export const parseQuestionAnswers = (notes, questions) => {
 
   // Locate each question in the blob. Escape it, then let any run of whitespace
   // match any other, so a rewrap or a stray double space doesn't lose the match.
+  //
+  // Whitespace BEFORE punctuation is optional in both directions: the SRD's
+  // Greenwise heading reads "How has the Wood failed you ?" — space before the
+  // mark, an upstream typo our pack mirrors faithfully — while Kettlewright's
+  // separately-maintained copy writes "you?", and that one character left the
+  // whole Q+A in Notes on a real import. Same lesson bestTextMatch encodes:
+  // the two copies of the game text drift, and exact matching keeps losing.
   const hits = [];
   questions.forEach((q, i) => {
     if (!q) return;
-    const pattern = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+    const pattern = q
+      .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+      .replace(/\s+(?=\\[?.]|[!,;:])/g, "")
+      .replace(/(\\[?.]|[!,;:])/g, "\\s*$1")
+      .replace(/\s+/g, "\\s+");
     const m = text.match(new RegExp(pattern, "i"));
     if (m?.index != null) hits.push({ i, start: m.index, end: m.index + m[0].length });
   });
@@ -386,6 +402,16 @@ export const kettlewrightToActorData = async (json) => {
     items.push(item);
     report[how].push(kw.name);
   }
+  // The pack keeps the EXPORT's order (2026-09-01, user ruling): an import is
+  // a faithful copy, so the list lands as the player saw it in Kettlewright —
+  // the six-band arrangement stays the signature of loadouts this system
+  // rolled. Stated explicitly because items nested in Actor.create data never
+  // reach Item._preCreateOperation (the grimoire-keys lesson), so nothing
+  // downstream assigns a sort: left alone they all land at core's 0, which is
+  // ABOVE every numbered row and displays as alphabetical. Spaced by
+  // SORT_INTEGER_DENSITY like orderGrantedItems, so the first drag has room
+  // to insert rather than renormalising the whole list.
+  items.forEach((item, i) => { item.sort = (i + 1) * CONST.SORT_INTEGER_DENSITY; });
 
   // --- Containers: flattened (dropped), recorded for the summary ------------
   for (const c of json.containers ?? []) {
@@ -507,6 +533,11 @@ export const kettlewrightToActorData = async (json) => {
     },
     type: "character",
   };
+  // Background provenance (2026-09-02): a MATCHED background was picked by the
+  // player in Kettlewright, so the Roll Character dialog must not offer to
+  // re-roll it by default. An unmatched one stores nothing — absent reads as
+  // rolled, the legacy default.
+  if (backgroundUuid) data.flags = { [FLAG_SCOPE]: { backgroundChosen: true } };
   // Portraits. A STOCK pick stores the bare filename of art we ship ourselves —
   // Kettlewright's portraits are tlomdev's drawings, carried under
   // tlomdev/kettlewright-portraits/ with Kettlewright's exact numbering for this
@@ -599,18 +630,24 @@ const pickJsonFileText = () =>
  * @param {CairnActor} actor @param {Object} report
  * @returns {Promise<void>}
  */
-const showImportSummary = async (actor, report) => {
+export const showImportSummary = async (actor, report) => {
   const L = (k) => game.i18n.localize(k);
   const F = (k, d) => game.i18n.format(k, d);
   const parts = [];
 
-  // An unmatched background only reaches here when the GM turned the gate off, so
-  // spell out what they gave up: without the background's question list there is
-  // nothing to split the answers against, and nothing to re-roll them from.
+  // An unmatched background always imports (the gate retired 2026-09-01), so
+  // this warning is where the cost lands after the options dialog's general
+  // one: without the background's question list there is nothing to split the
+  // answers against, and nothing to re-roll them from.
   if (report.background) {
+    // The MATCHED name is a shipped background's, so it rides the content
+    // overlay like every sibling surface (the picker, the sheet header, the
+    // change-background confirm). The unmatched branch stays raw on purpose:
+    // that string is the export's own, no pack document backs it, and a
+    // reverse lookup is forbidden (content-overlay rules).
     parts.push(
       report.background.matched
-        ? `<p class="kwi-ok"><i class="fas fa-check"></i> ${F("CAIRN.KWImport.BgMatched", { name: esc(report.background.name) })}</p>`
+        ? `<p class="kwi-ok"><i class="fas fa-check"></i> ${F("CAIRN.KWImport.BgMatched", { name: esc(t("bg.name", report.background.name)) })}</p>`
         : `<p class="kwi-warn"><i class="fas fa-circle-exclamation"></i> ${F("CAIRN.KWImport.BgUnmatched", { name: esc(report.background.name) })} ${L("CAIRN.KWImport.BgUnmatchedCost")}</p>`
     );
   }
@@ -669,7 +706,11 @@ const showImportSummary = async (actor, report) => {
   //
   // Worse, the sheet claims its z AFTER its own render hook fires, so the hook
   // alone isn't late enough either — hence the extra macrotask.
-  const raise = () => setTimeout(() => dialog.bringToFront?.(), 0);
+  // Guarded on `rendered`: bringToFront dereferences the app's #element
+  // unconditionally (application.mjs:1592) and throws once close() has torn
+  // it down — and a player can dismiss the summary inside the fallback
+  // window below.
+  const raise = () => setTimeout(() => { if (dialog.rendered) dialog.bringToFront(); }, 0);
   if (actor.sheet?.rendered) raise();
   else {
     let fallback = null;
@@ -688,16 +729,14 @@ const showImportSummary = async (actor, report) => {
 };
 
 /**
- * Ask what to do before the file dialog opens, because the answer decides whether
- * the file is even usable. One option today: whether a background that matches
- * nothing is refused.
+ * Say what is about to happen before the file dialog opens: what to pick, and
+ * that an unmatched background still imports, just less structured. Purely
+ * informational — the "Require a matching background" gate that used to live
+ * here RETIRED on 2026-09-01 (user ruling): the import always proceeds, and
+ * the warning in this dialog plus the summary's kept-as-text line replace the
+ * refusal.
  *
- * It defaults ON every time rather than remembering the last answer — it is a
- * safety gate, and a gate that silently stays open because of something you did
- * last week is not one. A Warden importing a run of custom-background characters
- * pays one extra click each.
- *
- * @returns {Promise<{requireBackground: Boolean}|null>} null if cancelled
+ * @returns {Promise<Boolean|null>} truthy to proceed, null if cancelled
  */
 const promptImportOptions = async () => {
   const L = (k) => game.i18n.localize(k);
@@ -707,11 +746,7 @@ const promptImportOptions = async () => {
     content: `
       <div class="kwi-options">
         <p>${L("CAIRN.KWImport.OptionsIntro")}</p>
-        <label class="kwi-check">
-          <input type="checkbox" name="requireBackground" checked>
-          <span>${L("CAIRN.KWImport.RequireBg")}</span>
-        </label>
-        <p class="kwi-hint">${L("CAIRN.KWImport.RequireBgHint")}</p>
+        <p class="kwi-hint">${L("CAIRN.KWImport.OptionsWarning")}</p>
       </div>`,
     buttons: [
       {
@@ -719,18 +754,14 @@ const promptImportOptions = async () => {
         label: L("CAIRN.KWImport.ChooseFile"),
         icon: "fas fa-file-import",
         default: true,
-        // The checkbox is read here rather than from a form submit: DialogV2 hands
-        // the button its own element, and this dialog has one field.
-        callback: (_ev, button) => ({
-          requireBackground: !!button.form?.elements?.requireBackground?.checked,
-        }),
+        callback: () => true,
       },
       // `false`, never `null`: DialogV2 resolves a button as
       // `(await callback(...)) ?? button.action` (dialog.mjs:273), so a
       // callback returning null falls through to the string "cancel" — truthy
       // at the call site, which made the Cancel BUTTON proceed to the file
-      // picker with `requireBackground` undefined, the safety gate silently
-      // off (review #9). Only the header ✕ resolved null and really
+      // picker anyway (review #9, back when this dialog carried the
+      // background gate). Only the header ✕ resolved null and really
       // cancelled. `false` survives the ?? and reads as the refusal it is.
       { action: "cancel", label: L("CAIRN.Cancel"), callback: () => false },
     ],
@@ -740,13 +771,135 @@ const promptImportOptions = async () => {
 };
 
 /**
- * GM flow: pick a Kettlewright export, parse it, create a new character Actor from
- * it, and show a review summary. Returns the created Actor (or null).
+ * Rebuild a Kettlewright export that arrived over the socket, field by field.
+ *
+ * The importKW broker's wall (cairn.js). Anything on that wire was composed
+ * by a client we do not control, and the doctrine grantActors set is that
+ * such a payload is not trusted, it is REBUILT — only known fields are
+ * copied, every scalar is coerced, free text is capped. The caps sit far
+ * above anything Kettlewright emits (a real export is a few KB), so a
+ * genuine export passes through unchanged in meaning; what cannot pass is a
+ * payload smuggling extra keys toward Actor.create, or an items array built
+ * to grind the Warden's client (each item is a sequential await against the
+ * gear packs, ~25s cold for a NORMAL inventory).
+ *
+ * Returns null when the payload is not plausibly a character export — the
+ * one refusal that is a judgement rather than a coercion — so the broker can
+ * answer `failed` instead of importing nonsense. The direct path does not
+ * call this: a GM's own file needs no wall their console doesn't already
+ * step over.
+ *
+ * @param {Object} json  a parsed object off the wire
+ * @returns {Object|null}
+ */
+export const sanitizeKettlewrightExport = (json) => {
+  if (!json || typeof json !== "object" || Array.isArray(json)) return null;
+  const items = Array.isArray(json.items) ? json.items : [];
+  const containers = Array.isArray(json.containers) ? json.containers : [];
+  // A character owns a few dozen items at the outside; hundreds is not a
+  // character, it is a payload aimed at the import loop.
+  if (items.length > 500 || containers.length > 100) return null;
+  const str = (v, cap) => (typeof v === "string" || typeof v === "number" ? String(v) : "").slice(0, cap);
+  const maybeNum = (v) => (v == null || !Number.isFinite(Number(v)) ? undefined : Number(v));
+  return {
+    name: str(json.name, 120),
+    background: str(json.background, 200),
+    custom_background: str(json.custom_background, 200),
+    items: items.map((it) => ({
+      name: str(it?.name, 200),
+      tags: (Array.isArray(it?.tags) ? it.tags : []).slice(0, 40).map((tag) => str(tag, 100)),
+      description: str(it?.description, 5000),
+      uses: maybeNum(it?.uses),
+      charges: maybeNum(it?.charges),
+      max_charges: maybeNum(it?.max_charges),
+      // Presence is the signal the skip-check reads (`carrying != null`).
+      ...(it?.carrying != null ? { carrying: true } : {}),
+    })),
+    containers: containers.map((c) => ({ id: maybeNum(c?.id) ?? 0, name: str(c?.name, 200) })),
+    description: str(json.description, 50_000),
+    notes: str(json.notes, 50_000),
+    traits: str(json.traits, 10_000),
+    bonds: str(json.bonds, 10_000),
+    scars: str(json.scars, 10_000),
+    omens: str(json.omens, 10_000),
+    strength: maybeNum(json.strength),
+    strength_max: maybeNum(json.strength_max),
+    dexterity: maybeNum(json.dexterity),
+    dexterity_max: maybeNum(json.dexterity_max),
+    willpower: maybeNum(json.willpower),
+    willpower_max: maybeNum(json.willpower_max),
+    hp: maybeNum(json.hp),
+    hp_max: maybeNum(json.hp_max),
+    gold: maybeNum(json.gold),
+    armor: str(json.armor, 10),
+    deprived: !!json.deprived,
+    panicked: !!json.panicked,
+    image_url: str(json.image_url, 2000),
+    custom_image: !!json.custom_image,
+  };
+};
+
+/**
+ * The trusted half of an import: convert and create.
+ * Runs on whichever client is allowed to WRITE — the importer itself on the
+ * direct path (a GM, or a player the Warden trusts with Create New Actors),
+ * or the active Warden's client answering a player's relay (the importKW
+ * broker in cairn.js). One function for both so the two paths cannot drift.
+ *
+ * Returns an outcome object rather than toasting, because the right screen
+ * for each message differs by caller: the direct flow speaks locally, the
+ * broker answers the requester over the socket.
+ *
+ * An unmatched background is NOT refused (the "Require a matching
+ * background" gate RETIRED 2026-09-01, user ruling — it used to be the one
+ * refusal here): the character always arrives, background kept as plain
+ * text, and the cost — no question list to split the answers against,
+ * nothing re-rollable — is stated up front in the options dialog and again
+ * by the summary's kept-as-text warning.
+ *
+ * Throws only on a create() REJECTION — a validation error does not reject
+ * (core catches it inside ClientDatabaseBackend#preCreateDocumentArray, logs
+ * it, and create RESOLVES undefined), which is why `actor: null` is a
+ * first-class outcome, not an impossibility.
+ *
+ * @param {Object} json  a parsed Kettlewright export
+ * @param {Object} [opts]
+ * @param {Object|null} [opts.ownership]  extra ownership for the CREATE data.
+ *   The relay mints on the Warden's client FOR a player, so the requester's
+ *   OWNER must be in the create data, not patched on after — the same rule
+ *   the generatePC relay records at createActorWithCharacter.
+ * @returns {Promise<{actor: CairnActor|null, report: Object}>}
+ */
+export const performKettlewrightImport = async (json, { ownership = null } = {}) => {
+  const { data, report } = await kettlewrightToActorData(json);
+  if (ownership) data.ownership = ownership;
+  const actor = await CairnActor.create(data);
+  return { actor: actor ?? null, report };
+};
+
+/**
+ * Pick a Kettlewright export, parse it, and turn it into a new character
+ * Actor — directly when this client may create one, through the Warden's
+ * client when it may not. Returns the created Actor (direct path) or null.
+ *
+ * GM-only until 2026-09-01 (no recorded reason — the original design simply
+ * predated the player-relay machinery); now open to players under the same
+ * switch that gates Generate PC, `allow-player-generate`, relabelled in the
+ * UI to cover both routes: one trust decision, "may players mint their own
+ * characters". The directory button hides while it is off; the check here is
+ * the belt for a directory rendered before the switch flipped.
  * @returns {Promise<CairnActor|null>}
  */
 export const importKettlewrightCharacter = async () => {
-  if (!game.user.isGM) {
-    ui.notifications.warn(game.i18n.localize("CAIRN.KWImport.GmOnly"));
+  if (!game.user.isGM && !game.settings.get(SETTINGS_NS, "allow-player-generate")) {
+    ui.notifications.warn(game.i18n.localize("CAIRN.KWImport.NotAllowed"));
+    return null;
+  }
+  // The relay needs a Warden online, and that is knowable NOW — refuse before
+  // the player fills the options dialog and picks a file, not after they have
+  // done both (requestPcGeneration asks in the same order).
+  if (!game.user.can("ACTOR_CREATE") && !game.users.activeGM) {
+    ui.notifications.warn(game.i18n.localize("CAIRN.KWImport.NoWardenForImport"));
     return null;
   }
   const options = await promptImportOptions();
@@ -764,45 +917,60 @@ export const importKettlewrightCharacter = async () => {
     ui.notifications.error(game.i18n.localize("CAIRN.KWImport.BadShape"));
     return null;
   }
-  const { data, report } = await kettlewrightToActorData(json);
 
-  // Refuse rather than half-import, unless the GM turned the gate off. Without a
-  // matching background there is no question list, so the answers stay an
-  // undifferentiated blob in Notes and none of the items a question granted can be
-  // traced to it — the character arrives looking complete while quietly missing the
-  // things that make it re-rollable. A named background nobody has is usually a
-  // Kettlewright custom one: the fix is either to author it here (Custom
-  // Backgrounds) and import again, or to accept the loss by unticking the gate,
-  // which is why the message names the background AND the escape.
-  if (options.requireBackground && !report.background?.matched) {
-    const name = report.background?.name;
-    ui.notifications.error(
-      name
-        ? game.i18n.format("CAIRN.KWImport.BgNoMatch", { name })
-        : game.i18n.localize("CAIRN.KWImport.BgMissing"),
-      { permanent: true },
-    );
-    return null;
+  // Direct path: this client may write, so the whole flow stays local.
+  if (game.user.can("ACTOR_CREATE")) {
+    let outcome;
+    try {
+      outcome = await performKettlewrightImport(json);
+    } catch (e) {
+      // A failed create must explain itself (2026-09-01, user ruling).
+      console.error(e);
+      // The key + {format} form, never a pre-formatted string: notify()
+      // escapes each format value and skips cleanHTML for a known key, where
+      // a pre-formatted message is cleaned WHOLE — an angle bracket in the
+      // value (an error message, a hand-edited name) silently truncates the
+      // toast (notifications.mjs:108-122). Same rule at every toast that
+      // interpolates a value this file or the broker shows.
+      ui.notifications.error("CAIRN.KWImport.CreateFailed", { format: { reason: e.message }, permanent: true });
+      return null;
+    }
+    if (!outcome.actor) {
+      // create() resolved undefined: a validation error core caught and logged.
+      ui.notifications.error(game.i18n.localize("CAIRN.KWImport.CreateFailedConsole"), { permanent: true });
+      return null;
+    }
+    await showImportSummary(outcome.actor, outcome.report);
+    return outcome.actor;
   }
 
-  // A failed create must explain itself (2026-09-01, user ruling). Two failure
-  // shapes, and only one of them throws: a genuine rejection reaches the catch,
-  // but a per-document VALIDATION error is caught by core inside
-  // ClientDatabaseBackend#preCreateDocumentArray, logged, and the document
-  // skipped — create() then RESOLVES undefined. So the null check is not
-  // paranoia; it is the branch the observed img failure actually took.
-  let actor = null;
-  try {
-    actor = await CairnActor.create(data);
-  } catch (e) {
-    console.error(e);
-    ui.notifications.error(game.i18n.format("CAIRN.KWImport.CreateFailed", { reason: e.message }), { permanent: true });
+  // Relay path: this player cannot create an Actor (a server wall, not a UI
+  // gate), so the PARSED export travels to the active Warden's client, which
+  // runs the same trusted half above and answers with kwImported (cairn.js) —
+  // the requester's client then opens the sheet and shows the summary. The
+  // file itself never leaves this machine; only its parsed content does.
+  //
+  // Re-read at emit time: the Warden the top-of-function check saw can have
+  // dropped during the two dialogs, and the recipients option needs a live id.
+  const gm = game.users.activeGM;
+  if (!gm) {
+    ui.notifications.warn(game.i18n.localize("CAIRN.KWImport.NoWardenForImport"));
     return null;
   }
-  if (!actor) {
-    ui.notifications.error(game.i18n.localize("CAIRN.KWImport.CreateFailedConsole"), { permanent: true });
+  // An export is a few KB; the server would relay up to 100 MB
+  // (maxHttpBufferSize) and the broker refuses over 1 MB anyway, so a giant
+  // file is refused HERE, before it crosses the wire.
+  if (text.length > 1_000_000) {
+    ui.notifications.error(game.i18n.localize("CAIRN.KWImport.TooLarge"));
     return null;
   }
-  await showImportSummary(actor, report);
-  return actor;
+  ui.notifications.info(game.i18n.localize("CAIRN.KWImport.ImportRequested"));
+  // Addressed to the answering Warden alone: a two-argument emit is a
+  // BROADCAST (handleCustomSocket takes {recipients} or falls back to
+  // broadcast.emit), and this payload is the player's whole parsed export —
+  // every other client's JS heap is no place for it.
+  game.socket.emit(`system.${game.system.id}`, {
+    action: "importKW", json,
+  }, { recipients: [gm.id] });
+  return null;
 };

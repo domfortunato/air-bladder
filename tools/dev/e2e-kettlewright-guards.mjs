@@ -2,12 +2,12 @@
 /**
  * What an import does regardless of what the export says:
  *
- *   1. Gate ON (the default): a background that matches nothing is refused
- *      outright — no half-imported character, no Actor left behind, and an error
- *      that both names the background and says how to get past it.
- *   2. Gate OFF: the same file imports, background kept as plain text, no
- *      questions — and the summary says what that cost.
- *   3. An imported age is VERBATIM (2026-08-21). The min-age floor and the
+ *   1. A background that matches nothing still imports — kept as plain text,
+ *      no questions — and the summary says what that cost. (The "Require a
+ *      matching background" gate RETIRED 2026-09-01, user ruling: the import
+ *      always proceeds, and the options dialog + summary warn instead. Its
+ *      refusal leg retired with it.)
+ *   2. An imported age is VERBATIM (2026-08-21). The min-age floor and the
  *      max-age ceiling are RETIRED with the age-formula setting: the formula
  *      governs the DICE, and an imported age was never rolled — it joins the
  *      hand-typed age under "nobody's business but the player's". The old
@@ -17,7 +17,7 @@
  *
  *   npm run dev:kw-guards        (dev world on :30000, which runs the working tree)
  *
- * All three go through the real button — including the options dialog that now
+ * All of it goes through the real button — including the options dialog that
  * precedes the file picker — because the rules live in the flow, not the mapping.
  */
 import fs from "node:fs";
@@ -84,11 +84,11 @@ page.off("filechooser", detectChooser);
 let file = bogus;
 page.on("filechooser", (fc) => fc.setFiles(file).catch((e) => console.log("setFiles failed:", e.message)));
 
-// The button now opens an options dialog before the file picker. Answer it the way
-// a Warden would: tick or untick the gate, then press the import button.
-const importAndWait = async (expectName, { requireBackground = true } = {}) => {
+// The button opens an options dialog before the file picker. Answer it the way
+// a Warden would: press the import button (informational since the gate retired).
+const importAndWait = async (expectName) => {
   await page.evaluate(() => document.querySelector(".import-kettlewright-button")?.click());
-  await confirmImportOptions(page, { requireBackground });
+  await confirmImportOptions(page);
   // ~25s cold (resolveGearItem re-reads the gear packs per item), ~3s warm.
   return page
     .waitForFunction((n) => !!game.actors.getName(n), expectName, { timeout: 60000 })
@@ -96,17 +96,8 @@ const importAndWait = async (expectName, { requireBackground = true } = {}) => {
     .catch(() => false);
 };
 
-/* 1. Gate ON: an unmatched background is refused ----------------------------- */
-const madeBogus = await importAndWait("Guardrail");
-const refusal = await page.evaluate(() => ({
-  actors: game.actors.filter((a) => a.name === "Guardrail").length,
-  // The message must name the background, or the GM cannot act on it.
-  error: [...document.querySelectorAll("#notifications .notification.error, .notification.error")]
-    .map((n) => n.textContent.trim()).join(" | "),
-}));
-
-/* 2. Gate OFF: the same file imports, as plain text -------------------------- */
-const madeUngated = await importAndWait("Guardrail", { requireBackground: false });
+/* 1. An unmatched background imports anyway, as plain text ------------------- */
+const madeUngated = await importAndWait("Guardrail");
 const ungated = await page.evaluate(() => {
   const a = game.actors.getName("Guardrail");
   return {
@@ -122,7 +113,7 @@ await page.evaluate(async () => {
   for (const a of game.actors.filter((a) => a.name === "Guardrail")) await a.delete();
 });
 
-/* 3. an imported age is VERBATIM (2026-08-21) ---------------------------------
+/* 2. an imported age is VERBATIM (2026-08-21) ---------------------------------
  * A read SHADOW at the retired keys, never a write: the retired settings are no
  * longer registered, so game.settings.set on them would throw — and a shadow is
  * how a probe defeats a fix in-page anyway. Pre-retirement code read min-age /
@@ -172,13 +163,7 @@ check("dialog closed", cancelState.dialogGone, "the options dialog is gone");
 check("no file picker", !chooserOpened, `chooserOpened=${chooserOpened}`);
 check("nothing created", cancelState.actors === 0, `actors=${cancelState.actors}`);
 
-console.log("\nunmatched background, gate ON");
-check("no actor", !madeBogus && refusal.actors === 0, `created=${refusal.actors}`);
-check("error shown", /cheesemonger/i.test(refusal.error), JSON.stringify(refusal.error.slice(0, 90)));
-// The refusal is only actionable if it says how to get past it.
-check("names escape", /untick/i.test(refusal.error), "message points at the checkbox");
-
-console.log("\nunmatched background, gate OFF");
+console.log("\nunmatched background imports anyway");
 check("imported", madeUngated, `background=${JSON.stringify(ungated.background)}`);
 check("kept as text", ungated.background === "Cheesemonger" && !ungated.uuid, `uuid=${JSON.stringify(ungated.uuid)}`);
 // No background means no question list to split the answers against.
@@ -191,9 +176,8 @@ check("age verbatim", aged.age === String(FIXTURE_AGE), `age=${JSON.stringify(ag
 check("no bound line", !/raised|lowered/i.test(aged.summary) && !!aged.summary,
   aged.summary ? "summary carries no age warning" : "no summary");
 
-// The refusal itself is an ui.notifications.error, which Foundry also writes to the
-// console — that one is the feature working, not a fault.
-const unexpected = errors.filter((e) => !/no Cairn 2e background matches/i.test(e));
-if (unexpected.length) { bad++; console.log("Console errors:\n" + unexpected.join("\n")); }
+// No expected console errors remain: the gate refusal that used to log one
+// retired with the gate.
+if (errors.length) { bad++; console.log("Console errors:\n" + errors.join("\n")); }
 console.log(bad === 0 ? "\nguards e2e passed" : `\nguards e2e FAILED — ${bad}`);
 process.exit(bad === 0 ? 0 : 1);

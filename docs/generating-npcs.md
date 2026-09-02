@@ -101,8 +101,9 @@ type that is not on the table survives too; it just shows as it is.
 ## Re-rolling
 
 Every person's sheet has a **Roll NPC** button in the title bar. If you don't
-see it, flip **Randomization** on with the toggle beside it — generated people
-arrive with it off, so a sheet you are showing a player has no dice on it.
+see it, flip **Character Creation Mode** on with the toggle beside it —
+generated people arrive with it off, so a sheet you are showing a player has
+no dice on it.
 
 Roll NPC asks first, and it asks two different questions:
 
@@ -120,8 +121,8 @@ has already met without them changing face. Neither can be undone.
 
 ## The dice on the sheet
 
-With Randomization on, each of these re-rolls one thing and touches nothing
-else:
+With Character Creation Mode on, each of these re-rolls one thing and touches
+nothing else:
 
 | Die | What it does |
 |---|---|
@@ -138,7 +139,7 @@ to randomize** says. That setting still governs player characters only.
 
 ### Picking instead of rolling
 
-Beside the die, the **magnifying glass** picks a specific value instead of a
+Beside the die, the **pick-list button** picks a specific value instead of a
 random one — the same control a player character's background row has:
 
 - **Career** (hireling): choose from the twelve 2e careers, each shown with its
@@ -151,9 +152,9 @@ random one — the same control a player character's background row has:
 - **Faction**: choose from your faction table (your own world table of the same
   name wins, as always).
 
-The pickers ride the same **Randomization** toggle as the dice: turning it off
-removes the whole surface, magnifying glasses included. Flip it on to roll or
-to pick.
+The pickers ride the same **Character Creation Mode** toggle as the dice:
+turning it off removes the whole surface, pick-list buttons included. Flip it
+on to roll or to pick.
 
 ## What players see
 

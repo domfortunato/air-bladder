@@ -32,7 +32,12 @@
                                  expand to change any individual trait. -->
                             <div class="trait-picklist-section">
                                 <div class="trait-picklist-header">
-                                    <label class="trait-picklist-label">{{ localize 'CAIRN.Traits' }}</label>
+                                    {{!-- While the mode is On, say where the traits came
+                                          from: they ARE rolled at generation off the 2e
+                                          tables — these pick-lists are the OVERRIDE
+                                          (2026-09-01; the first draft said the opposite
+                                          and the user corrected it). --}}
+                                    <label class="trait-picklist-label" {{#if generationEnabled}}data-tooltip="CAIRN.TraitsRolledTip"{{/if}}>{{ localize 'CAIRN.Traits' }}</label>
                                     <a class="trait-toggle" data-action="toggleTraits" title="{{ localize 'CAIRN.ToggleTraits' }}"><i
                                             class="fas {{#if traitsCollapsed}}fa-plus-square{{else}}fa-minus-square{{/if}}"></i></a>
                                 </div>
@@ -73,7 +78,13 @@
                                 <textarea class="omen-input" name="system.omen" rows="4"
                                     placeholder="{{ localize 'CAIRN.OmenPlaceholder' }}">{{omenDisplay}}</textarea>
                                 {{#if generationEnabled}}
-                                <a class="omen-roll" data-action="rollOmen" title="{{ localize 'CAIRN.RollOmen' }}"><i class="fas fa-dice-d20"></i></a>
+                                {{!-- Die + pick-list button (2026-09-01): roll the (world-first)
+                                      Omens table, or pick a row off it — a player
+                                      recreating a book-rolled character needs the row
+                                      they already rolled. Bare data-tooltip keys, the
+                                      Age die's ruled look. --}}
+                                <a class="omen-roll" data-action="rollOmen" data-tooltip="CAIRN.RollOmen"><i class="fas fa-dice-d20"></i></a>
+                                <a class="omen-pick" data-action="pickOmen" data-tooltip="CAIRN.PickOmen"><i class="fas fa-list-ul"></i></a>
                                 {{/if}}
                                 {{else}}
                                 <span class="omen-display">{{#if system.omen}}{{omenDisplay}}{{else}}{{ localize 'CAIRN.OmenPlaceholder' }}{{/if}}</span>

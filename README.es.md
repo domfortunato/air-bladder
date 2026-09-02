@@ -1,4 +1,4 @@
-<p align="center">
+﻿<p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)"  srcset="art/lydia-comer/Airbladder06.webp">
     <source media="(prefers-color-scheme: light)" srcset="art/lydia-comer/Airbladder02.webp">
@@ -55,9 +55,9 @@ Air Bladder es un sistema complementario amigable, no el sistema oficial de Cair
 
 ## Características principales
 
-- Generación aleatoria o manual de personajes a partir de trasfondos de Cairn 2e, **Cairn 2e personalizado** y Cairn Barebones — cada fuente se activa o desactiva
+- [Generación aleatoria de personajes](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-characters.md) a partir de trasfondos de Cairn 2e, **Cairn 2e personalizado** y Cairn Barebones — cada fuente se activa o desactiva, y el **Modo de creación de personaje** de la hoja permite volver a tirar partes sueltas del resultado
 - Generadores de [PNJ y seguidores](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-npcs.md), [monstruos](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-monsters.md) y [facciones](https://github.com/domfortunato/air-bladder/blob/master/docs/generating-factions.md), [tablas de encuentros](https://github.com/domfortunato/air-bladder/blob/master/docs/encounter-tables.md) con añadir a la escena en un clic, y más tablas de tiradas orientadas al Guardián
-- Importación de personajes en .json desde la aplicación oficial de Cairn, [Kettlewright](https://kettlewright.com/)
+- Importación de personajes en .json desde la aplicación oficial de Cairn, [Kettlewright](https://kettlewright.com/) — para el Guardián, y para que cada jugador traiga su propio personaje cuando el Guardián lo permita (debe haber un Guardián conectado)
 - **Magia GLOG opcional** — el [hack GLOG](https://cairnrpg.com/hacks/glog-magic/) oficial tras un interruptor del Guardián: lanza desde un grimorio encontrado con 1–4 dados de magia, los valores obtenidos se escriben en el texto del conjuro, percances con dobles — los 100 conjuros incluidos; [cómo usarlo](https://github.com/domfortunato/air-bladder/blob/master/docs/glog-magic.md)
 - Trasfondos de 2e personalizados — siete se incluyen en el compendio **Backgrounds (Custom)**; [crea y revisa los tuyos](https://github.com/domfortunato/air-bladder/blob/master/docs/creating-custom-backgrounds.md) y [compártelos entre mundos](https://github.com/domfortunato/air-bladder/blob/master/docs/sharing-custom-backgrounds.md)
 - Vínculos personalizados — una tabla del mundo llamada **Bonds** sustituye a la tabla de 2e incluida, tanto para los trasfondos canónicos como para los personalizados, y un trasfondo personalizado puede nombrar su propia tabla; [personalizar los vínculos](https://github.com/domfortunato/air-bladder/blob/master/docs/customizing-bonds.md)
@@ -97,7 +97,7 @@ Desarrollo temprano y activo. ¡Envía comentarios y arte! El sistema se está r
 
 ## Idiomas
 
-La interfaz está traducida al **español** (el 90 % de las cadenas actuales, por [Malecho](https://github.com/fsmalecho)), y el *contenido* del juego —trasfondos, objetos, hechizos, tablas— está traducido únicamente al español.
+La interfaz está traducida al **español** (el 86 % de las cadenas actuales, por [Malecho](https://github.com/fsmalecho)), y el *contenido* del juego —trasfondos, objetos, hechizos, tablas— está traducido únicamente al español.
 
 Los archivos de interfaz en alemán, danés, francés, polaco y portugués de Brasil se heredaron del sistema original de Cairn. Cubren entre el **15 % y el 30 %** de la interfaz actual, son anteriores a la mayoría de las funciones de este sistema y **no reciben mantenimiento**: en la práctica, una partida en esos idiomas está mayormente en inglés. Todo lo que no esté traducido recae en el inglés cadena por cadena, así que una traducción parcial siempre se puede usar en lugar de quedar rota.
 

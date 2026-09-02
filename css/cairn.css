@@ -1840,7 +1840,8 @@
 }
 
 .character-omen-scar .omen-row.omen-enabled .omen-label,
-.character-omen-scar .omen-row.omen-enabled .omen-roll {
+.character-omen-scar .omen-row.omen-enabled .omen-roll,
+.character-omen-scar .omen-row.omen-enabled .omen-pick {
     padding-top: 4px;
 }
 
@@ -1850,6 +1851,7 @@ textarea.omen-input {
 }
 
 .character-omen-scar .omen-roll,
+.character-omen-scar .omen-pick,
 .character-traits .age-roll {
     flex: 0 0 auto;
     cursor: pointer;
@@ -1970,7 +1972,9 @@ textarea.omen-input {
 }
 
 .bond-reroll,
-.question-reroll {
+.bond-pick,
+.question-reroll,
+.question-pick {
     margin-left: 6px;
     cursor: pointer;
     white-space: nowrap;
@@ -2156,6 +2160,55 @@ textarea.omen-input {
     padding-right: 4px;
 }
 
+/* ---- the Roll Character checklist (DialogV2, 2026-09-02) ----
+   One column of checkboxes; children (a Background's gear and questions, a
+   failed career's keepsake) indent under their parent and gray while it is
+   checked — the gating lives in the sheet's dialog listener, this is only
+   the look. */
+.reroll-dialog .reroll-lead {
+    margin: 0 0 6px;
+}
+
+.reroll-dialog .reroll-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: 6px 8px;
+    /* Tall enough for the longest list (2e with the Omen row: 15 rows) — a
+       420px cap quietly scrolled the last row out of sight, and a checklist
+       whose final option is invisible reads as complete. The vh term only
+       bites on a short screen, where scrolling beats overflowing the frame. */
+    max-height: max(60vh, 480px);
+    overflow-y: auto;
+}
+
+.reroll-dialog .reroll-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.reroll-dialog .reroll-row:has(input:disabled) {
+    opacity: 0.55;
+    cursor: default;
+}
+
+.reroll-dialog .reroll-children {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-left: 24px;
+}
+
+.reroll-dialog .reroll-note {
+    font-size: 12px;
+    color: var(--color-text-subtle);
+    margin: 6px 0 0;
+}
+
 /* Re-roll / pick controls on the failed-career line. Dimmed to match the label
    they follow -- this is flavour, and should not compete with the background
    controls above it. */
@@ -2335,6 +2388,15 @@ textarea.omen-input {
     font-size: 11px;
     margin-right: 3px;
     opacity: 0.9;
+}
+
+/* Save dice while Character Creation Mode is On (2026-09-01): grayed and
+   inert. The templates drop the data-action (that is what makes it dead);
+   this is only the look. NO pointer-events:none — the element must keep
+   receiving pointerenter or its "turn the mode off" tooltip never fires. */
+.resource-roll.save-roll-off {
+    opacity: 0.45;
+    cursor: default;
 }
 
 /* Confirmation dialogs: blank line before the yes/no question. */
@@ -3512,21 +3574,11 @@ ol.combat-tracker li.combatant.cairn-drop-below {
 }
 
 /* Kettlewright import: the pre-flight options dialog. Deliberately plain — this
-   is a Foundry dialog, so it wears the core skin; only the checkbox row needs
-   help, since a bare <input> + <span> otherwise sits misaligned. */
-.kwi-options .kwi-check {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    margin: 10px 0 4px;
-    cursor: pointer;
-}
-.kwi-options .kwi-check input {
-    flex: 0 0 auto;
-    margin: 0;
-}
+   is a Foundry dialog, so it wears the core skin. The checkbox row it once
+   styled retired with the background gate (2026-09-01); the hint styling now
+   dresses the dialog's warning paragraph. */
 .kwi-options .kwi-hint {
-    margin: 0 0 4px 26px;
+    margin: 0 0 4px;
     font-size: 12px;
     font-style: italic;
     color: var(--ab-muted);

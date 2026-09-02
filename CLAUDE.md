@@ -173,7 +173,8 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   full sheet, so the level was a label with no wall behind it. (2) **The randomization surface on npc-type sheets is the
   Warden's alone** — `_mayRandomize` refuses any player on type npc/hireling
   regardless of `allow-player-randomization`, which now governs player
-  CHARACTERS only. (3) **Pickers** (magnifying glass) beside Career, Background
+  CHARACTERS only. (3) **Pickers** (pick-list button, `fa-list-ul` since
+  2026-09-02 — it was a magnifier) beside Career, Background
   and Faction — they landed that morning deliberately OUTSIDE the
   `generationEnabled` template gate ("available when Randomization is off" was
   the ask), and the user REVERSED that the same evening: `canPickGeneration`
@@ -725,7 +726,7 @@ What belongs here is what those two files do not say:
 
 ## Testing
 
-**`docs/release-testing.md` is the full list — 99 probes (`check:probes` states
+**`docs/release-testing.md` is the full list — 102 probes (`check:probes` states
 the current count), what each covers, and what to run before tagging vs after
 publishing. Keep it in step with `package.json`; a probe not listed there runs
 only when someone remembers it.**

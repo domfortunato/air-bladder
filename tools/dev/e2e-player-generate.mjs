@@ -352,12 +352,13 @@ try {
 
   // ---- The randomization switch, on the same Alice-owned character --------
   // (allow-player-randomization — the THIRD Warden switch, 2026-08-09; its
-  // shipped macro is "Toggle Player Randomization".) Off hides the WHOLE
-  // surface from a player — title-bar toggle, Roll button, per-line dice —
-  // even on an actor whose OWN Randomization flag is on (the derivation is
-  // render-only; nothing is written to the actor), while the Warden keeps
-  // everything. Flipped from the GM client; restored in the Node-level
-  // finally with its two siblings.
+  // shipped macro is "Toggle Player Creation Tools", and the sheet toggle it
+  // governs reads "Character Creation Mode" since the 2026-09-01 rename.) Off
+  // hides the WHOLE surface from a player — title-bar toggle, Roll button,
+  // per-line dice — even on an actor whose OWN generationEnabled flag is on
+  // (the derivation is render-only; nothing is written to the actor), while
+  // the Warden keeps everything. Flipped from the GM client; restored in the
+  // Node-level finally with its two siblings.
   console.log("\nthe randomization switch");
   const RND = "allow-player-randomization";
   priorRand = await gm.evaluate((k) => game.settings.get("air-bladder", k), RND);

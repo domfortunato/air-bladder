@@ -169,6 +169,21 @@ runQA("Free-form notes only", "Just some thoughts.", MOUNTEBANK,
 // Unmatched background -> no questions to look for.
 runQA("No background questions", fixture.notes, [], { found: 0, leftover: fixture.notes });
 
+// Punctuation spacing must not decide a match (review #20 follow-up): the SRD's
+// Greenwise heading reads "How has the Wood failed you ?" — space before the
+// mark, upstream typo, mirrored faithfully by our pack — while Kettlewright's
+// copy of the same text writes "you?". One character of drift left the whole
+// Q+A in Notes on a real import (Moss, 2026-09-01). Both directions, because
+// either side may be the cleaner one.
+runQA("SRD space before ? vs clean export",
+  "How has the Wood failed you?\nA spirit cursed me.",
+  ["How has the Wood failed you ?"],
+  { found: 1, answers: ["A spirit cursed me."], leftover: "" });
+runQA("Clean question vs typo'd export",
+  "How has the Wood failed you ?\nA spirit cursed me.",
+  ["How has the Wood failed you?"],
+  { found: 1, answers: ["A spirit cursed me."], leftover: "" });
+
 /* -------------------------------------------------------------------------- */
 /*  bestTextMatch: answer -> the option it came from                            */
 /* -------------------------------------------------------------------------- */
