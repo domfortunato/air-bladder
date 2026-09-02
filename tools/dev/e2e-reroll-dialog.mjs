@@ -6,30 +6,38 @@
  *
  * The title-bar Roll Character button no longer nukes-and-rebuilds behind a
  * yes/no: it opens a checklist of everything re-rollable, all checked by
- * default, and re-rolls only what stays checked. Questions and starting gear
- * are CHILDREN of Background (a new Background deals its own), Bonds is
- * top-level but rides the Background box too (the entitlement is the
- * Background's), and Background itself defaults UNCHECKED when the player
- * hand-picked it — recorded by the new provenance flag
+ * default, and re-rolls only what stays checked. Name, questions and starting
+ * gear are CHILDREN of Background on 2e (a new Background deals its own —
+ * the name list is the background's, user ruling 2026-09-03), Bonds is
+ * top-level and INDEPENDENT (untied 2026-09-03: the book's Bonds table is
+ * generic and no shipped background names its own), a Barebones Name stays
+ * top-level (its spark table is generic too), and Background itself defaults
+ * UNCHECKED when the player hand-picked it — recorded by the provenance flag
  * `flags.air-bladder.backgroundChosen`, written wherever a background lands.
  *
  * Steps, driven headless as GM:
- *   1. ROWS. A 2e character (omen enabled) lists name / background with
+ *   1. ROWS. A 2e character (omen enabled) lists background with name +
  *      gear + both questions indented under it / bonds / STR / DEX / WIL /
- *      HP / gold / age / traits / portrait / omen — and both notes. A
- *      Barebones character lists failed career + keepsake instead of
- *      bonds/questions/omen, and no questions note.
+ *      HP / gold / age / traits / portrait / omen — and both notes, with the
+ *      ability rows spelled out ("STR (Strength)" etc., user ask
+ *      2026-09-03). A Barebones character leads with a top-level name and
+ *      lists failed career + keepsake instead of bonds/questions/omen, and
+ *      no questions note.
  *   2. DEFAULTS. Generation with a CHOSEN background stamps the flag true and
  *      the dialog opens with Background unchecked (children live); flag false
  *      (rolled) and flag absent (legacy) both open all-checked.
- *   3. GATING. Checking Background checks + disables its children AND the
- *      Bonds row; unchecking frees them. Failed career gates its keepsake.
+ *   3. GATING. Checking Background checks + disables its children — name
+ *      included — while Bonds stays live; unchecking frees them. Failed
+ *      career gates its keepsake; a Barebones name is never gated.
  *   4. PARTIAL. With dice seeded to max faces, re-rolling only the six
  *      stat fields changes exactly those (18/18/18, HP 6, gold 18 + grants,
  *      a new age) while name, background, gear, questions, bonds and traits
  *      survive BY VALUE. Unchecking everything changes nothing at all.
  *   5. FULL. The all-checked default re-rolls the background (uuid changes)
  *      and posts ONE chat message carrying the five generation Rolls.
+ *      5b (2026-09-03): a Background-ONLY run lands a name from the NEW
+ *      background's own list while bonds and the statline survive by value —
+ *      the tie and the untie proven in one gesture.
  *   6. PROVENANCE. changeBackground(null) stamps rolled, changeBackground(bg)
  *      stamps chosen; generation follows chosenBg; a matched Kettlewright
  *      import stamps chosen and an unmatched one stamps nothing.
@@ -158,6 +166,10 @@ try {
         out.rows2e = [...dlg.querySelectorAll(".reroll-row")].map((row) => row.dataset.part);
         const kids = dlg.querySelector('.reroll-children[data-parent="background"]');
         out.childRows = kids ? [...kids.querySelectorAll(".reroll-row")].map((row) => row.dataset.part) : [];
+        // The ability rows wear their own spelled-out labels (2026-09-03),
+        // not the sheet's shared STR/DEX/WIL keys.
+        out.abilityLabels = Object.fromEntries(["STR", "DEX", "WIL"].map((ab) =>
+          [ab, dlg.querySelector(`.reroll-row[data-part="${ab}"] .reroll-label`)?.textContent?.trim() ?? ""]));
         out.notes2e = {
           questions: dlg.querySelector(".reroll-note-questions")?.textContent?.trim() ?? "",
           pick: dlg.querySelector(".reroll-note-pick")?.textContent?.trim() ?? "",
@@ -172,13 +184,14 @@ try {
           omenListed: "omen" in s,
         };
 
-        // ---- 3. Gating: check Background → children + Bonds gray ----------
+        // ---- 3. Gating: check Background → children gray (name included);
+        // Bonds stays LIVE (untied 2026-09-03) --------------------------------
         applyStates(dlg, { background: true });
         const g = dialogState(dlg);
-        out.gatedOn = { gear: g.gear, question0: g.question0, question1: g.question1, bonds: g.bonds };
+        out.gatedOn = { name: g.name, gear: g.gear, question0: g.question0, question1: g.question1, bonds: g.bonds };
         applyStates(dlg, { background: false });
         const f = dialogState(dlg);
-        out.gatedOff = { gear: f.gear, bonds: f.bonds };
+        out.gatedOff = { name: f.name, gear: f.gear, bonds: f.bonds };
         await closeDialog(dlg);
       }
 
@@ -274,6 +287,26 @@ try {
         rollMessages: newMsgs.length,
         rollCount: newMsgs[0]?.rolls?.length ?? 0,
       };
+
+      // ---- 5b. Background-only (2026-09-03): the name rides the swap, the
+      // bonds and the statline do not — the tie and the untie in one run.
+      const keepBonds = JSON.stringify(actor.system.bonds);
+      const keepSTR = actor.system.abilities.STR.value;
+      dlg = await openDialog(sheet);
+      if (dlg) {
+        const all = Object.fromEntries(Object.keys(dialogState(dlg)).map((k) => [k, false]));
+        applyStates(dlg, { ...all, background: true });
+        // The gated Name child must have auto-checked with Background — the
+        // unchecking sweep above cannot reach a disabled box.
+        out.bgOnlyNameGated = dialogState(dlg).name;
+        await reroll(dlg, sheet);
+      }
+      const bgOnlyBg = actor.system.backgroundUuid ? await fromUuid(actor.system.backgroundUuid) : null;
+      out.bgOnly = {
+        nameFromNewBg: !!bgOnlyBg?.system?.names?.includes(actor.name),
+        bondsKept: JSON.stringify(actor.system.bonds) === keepBonds,
+        strKept: actor.system.abilities.STR.value === keepSTR,
+      };
       await sheet.close();
 
       // ---- 1b. The Barebones variant --------------------------------------
@@ -288,11 +321,16 @@ try {
       out.openedBb = !!dlg;
       if (dlg) {
         out.rowsBb = [...dlg.querySelectorAll(".reroll-row")].map((row) => row.dataset.part);
+        const bbKids = dlg.querySelector('.reroll-children[data-parent="background"]');
+        out.childRowsBb = bbKids ? [...bbKids.querySelectorAll(".reroll-row")].map((row) => row.dataset.part) : [];
         out.notesBb = {
           questions: !!dlg.querySelector(".reroll-note-questions"),
           pick: !!dlg.querySelector(".reroll-note-pick"),
         };
         const s = dialogState(dlg);
+        // A Barebones name draws from the generic spark table, so it must be
+        // LIVE while Background sits checked (which it does by default here).
+        out.bbNameFree = s.background?.checked ? s.name : "background not checked";
         out.keepsakeGated = { checked: s.keepsake?.checked, disabled: s.keepsake?.disabled };
         applyStates(dlg, { failedCareer: false });
         out.keepsakeFreed = dialogState(dlg).keepsake?.disabled === false;
@@ -574,14 +612,18 @@ try {
     fail(r.error);
   } else {
     // ---- 1. rows ----
-    const want2e = ["name", "background", "gear", "question0", "question1", "bonds",
+    const want2e = ["background", "name", "gear", "question0", "question1", "bonds",
       "STR", "DEX", "WIL", "hp", "gold", "age", "traits", "portrait", "omen"];
     r.opened2e && JSON.stringify(r.rows2e) === JSON.stringify(want2e)
-      ? ok("the 2e dialog lists every re-rollable part, in order")
+      ? ok("the 2e dialog lists every re-rollable part, in order (Background leads)")
       : fail(`2e rows: opened=${r.opened2e}, got ${JSON.stringify(r.rows2e)}`);
-    JSON.stringify(r.childRows) === JSON.stringify(["gear", "question0", "question1"])
-      ? ok("gear and both questions are indented under Background")
+    JSON.stringify(r.childRows) === JSON.stringify(["name", "gear", "question0", "question1"])
+      ? ok("name, gear and both questions are indented under Background")
       : fail(`background children: ${JSON.stringify(r.childRows)}`);
+    const wantLabels = { STR: "STR (Strength)", DEX: "DEX (Dexterity)", WIL: "WIL (Willpower)" };
+    JSON.stringify(r.abilityLabels) === JSON.stringify(wantLabels)
+      ? ok('the ability rows are spelled out ("STR (Strength)" …)')
+      : fail(`ability labels: ${JSON.stringify(r.abilityLabels)}`);
     r.notes2e?.questions?.includes("belong to the character's Background")
       && r.notes2e?.pick?.includes("choose instead of rolling")
       ? ok("both notes render (questions scope + pick-instead)")
@@ -592,6 +634,12 @@ try {
     r.openedBb && JSON.stringify(r.rowsBb) === JSON.stringify(wantBb)
       ? ok("the Barebones dialog swaps in failed career + keepsake, no bonds/questions/omen")
       : fail(`barebones rows: opened=${r.openedBb}, got ${JSON.stringify(r.rowsBb)}`);
+    JSON.stringify(r.childRowsBb) === JSON.stringify(["gear"])
+      ? ok("…with gear as Background's only child — the name stays top-level")
+      : fail(`barebones background children: ${JSON.stringify(r.childRowsBb)}`);
+    r.bbNameFree?.checked && r.bbNameFree?.disabled === false
+      ? ok("…and the Barebones name is live under a checked Background (spark table is generic)")
+      : fail(`barebones name state: ${JSON.stringify(r.bbNameFree)}`);
     r.notesBb && !r.notesBb.questions && r.notesBb.pick
       ? ok("…and carries the pick note but not the questions note")
       : fail(`barebones notes: ${JSON.stringify(r.notesBb)}`);
@@ -615,10 +663,14 @@ try {
 
     // ---- 3. gating ----
     const g = r.gatedOn ?? {};
-    [g.gear, g.question0, g.question1, g.bonds].every((s) => s?.checked && s?.disabled)
-      ? ok("checking Background checks + grays gear, both questions AND bonds")
+    [g.name, g.gear, g.question0, g.question1].every((s) => s?.checked && s?.disabled)
+      ? ok("checking Background checks + grays name, gear and both questions")
       : fail(`gating on: ${JSON.stringify(g)}`);
-    r.gatedOff?.gear?.disabled === false && r.gatedOff?.bonds?.disabled === false
+    g.bonds?.disabled === false
+      ? ok("…while Bonds stays live (untied 2026-09-03)")
+      : fail(`bonds under a checked Background: ${JSON.stringify(g.bonds)}`);
+    r.gatedOff?.name?.disabled === false && r.gatedOff?.gear?.disabled === false
+      && r.gatedOff?.bonds?.disabled === false
       ? ok("unchecking Background frees them")
       : fail(`gating off: ${JSON.stringify(r.gatedOff)}`);
     r.keepsakeGated?.checked && r.keepsakeGated?.disabled && r.keepsakeFreed
@@ -654,6 +706,18 @@ try {
     F.rollMessages === 1 && F.rollCount === 5
       ? ok("…and posts ONE chat message carrying the five generation Rolls")
       : fail(`full chat: ${F.rollMessages} message(s), ${F.rollCount} roll(s)`);
+
+    // ---- 5b. background-only: the tie and the untie (2026-09-03) ----
+    r.bgOnlyNameGated?.checked && r.bgOnlyNameGated?.disabled
+      ? ok("background-only: the Name child auto-checked with Background")
+      : fail(`background-only name box: ${JSON.stringify(r.bgOnlyNameGated)}`);
+    const B = r.bgOnly ?? {};
+    B.nameFromNewBg
+      ? ok("background-only: the landed name is one of the NEW background's own")
+      : fail(`background-only name: not in the new background's list (${JSON.stringify(B)})`);
+    B.bondsKept && B.strKept
+      ? ok("background-only: bonds and the statline survive by value")
+      : fail(`background-only kept: ${JSON.stringify(B)}`);
 
     // ---- 6. provenance ----
     r.provenanceDie === false

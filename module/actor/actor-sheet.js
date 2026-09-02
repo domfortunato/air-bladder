@@ -2905,11 +2905,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   /**
    * The Roll Character checklist (2026-09-02, user ask): everything
-   * re-rollable, all checked by default, uncheck to keep. Starting gear and
-   * the two questions are CHILDREN of Background — a new Background deals its
-   * own — and while Background is checked they auto-check and gray, along
-   * with the top-level Bonds row (the entitlement is the Background's, so a
-   * re-rolled Background re-deals bonds with it). Background itself opens
+   * re-rollable, all checked by default, uncheck to keep. Starting gear, the
+   * two questions AND — on 2e — the Name are CHILDREN of Background (a new
+   * Background deals its own, and a 2e name comes off the background's own
+   * example-name list, user ruling 2026-09-03); while Background is checked
+   * they auto-check and gray. Bonds is top-level and INDEPENDENT since the
+   * same day's ruling: the book's Bonds table is generic and no shipped
+   * background names its own `bondsTable`, so the old gate was pure friction
+   * (a custom background's table still governs when both boxes are checked —
+   * the apply deals bonds after the swap). A Barebones name stays top-level
+   * too: its spark table is no background's. Background itself opens
    * UNCHECKED when the player hand-picked it — the `backgroundChosen`
    * provenance flag, absent (legacy) reading as rolled. Pronouns, scars,
    * notes, connections and untagged gear are never listed: what cannot be
@@ -2928,9 +2933,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         <span class="reroll-label">${label}</span></label>`;
 
     const bgChecked = actor.getFlag("air-bladder", "backgroundChosen") !== true;
-    let list = row("name", L("CAIRN.Name"));
+    // A 2e Name is the Background's child (its list is the background's own);
+    // a Barebones name draws from the generic spark table and leads top-level.
+    let list = is2e ? "" : row("name", L("CAIRN.Name"));
     list += row("background", L("CAIRN.Background"), bgChecked);
-    let children = row("gear", L("CAIRN.Reroll.StartingGear"));
+    let children = is2e ? row("name", L("CAIRN.Name")) : "";
+    children += row("gear", L("CAIRN.Reroll.StartingGear"));
     const questionCount = is2e ? (bg?.system?.tables ?? []).length : 0;
     for (let i = 0; i < questionCount; i++) {
       children += row(`question${i}`, game.i18n.format("CAIRN.Reroll.Question", { num: i + 1 }));
@@ -2942,7 +2950,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       list += row("failedCareer", L("CAIRN.Reroll.FailedCareer"));
       list += `<div class="reroll-children" data-parent="failedCareer">${row("keepsake", L("CAIRN.Reroll.Keepsake"))}</div>`;
     }
-    for (const ab of ["STR", "DEX", "WIL"]) list += row(ab, L(ab));
+    // The dialog's own spelled-out labels (2026-09-03), not the sheet's
+    // shared STR/DEX/WIL keys — and spelled statically, because the i18n
+    // source gate records a template literal as a dynamic prefix and goes
+    // blind (the trait-labels rule at the top of this file).
+    list += row("STR", L("CAIRN.Reroll.STR"));
+    list += row("DEX", L("CAIRN.Reroll.DEX"));
+    list += row("WIL", L("CAIRN.Reroll.WIL"));
     list += row("hp", L("CAIRN.HitProtectionLong"));
     list += row("gold", L("CAIRN.Gold"));
     list += row("age", L("CAIRN.Age"));
@@ -3002,12 +3016,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
           for (const parent of ["background", "failedCareer"]) {
             const box = root.querySelector(`input[name="${parent}"]`);
             if (!box) continue;
+            // Only the indented children gate — Bonds rode the Background box
+            // until 2026-09-03 (see the method comment for the untying).
             const gated = [...root.querySelectorAll(`.reroll-children[data-parent="${parent}"] input`)];
-            // Bonds ride the Background box too — see the method comment.
-            if (parent === "background") {
-              const bonds = root.querySelector('input[name="bonds"]');
-              if (bonds) gated.push(bonds);
-            }
             for (const input of gated) {
               if (box.checked) { input.checked = true; input.disabled = true; }
               else input.disabled = false;
@@ -3091,8 +3102,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     } else if (parts.keepsake && actor.system.failedCareer) {
       await this._grantFailedCareerItem(actor.system.failedCareer);
     }
-    // After the background, so the entitlement is the new background's.
-    if (is2e && (parts.bonds || parts.background)) await rerollAllBonds(actor);
+    // Bonds re-deal only when THEIR box asked (untied from Background,
+    // 2026-09-03 — the book's table is generic). The call keeps its position
+    // after the background swap on purpose: when both boxes are checked, a
+    // custom background's own bondsTable still governs the deal.
+    if (is2e && parts.bonds) await rerollAllBonds(actor);
 
     // One arrangement pass, BEFORE the batched update below (review #21): the
     // re-dealt grants land in their bands and everything untouched keeps its
