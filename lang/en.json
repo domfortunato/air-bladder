@@ -837,7 +837,7 @@
   "CAIRN.WardenDamage.Sum": "Sum",
   "CAIRN.WardenDamage.Title": "Warden's Damage",
   "CAIRN.WardenDamage.Tool": "Warden's Damage — traps, environments, conditions",
-  "CAIRN.WardenRequired": "A Warden must be logged in",
+  "CAIRN.WardenRequired": "No Warden is online — this wakes when one logs in",
   "CAIRN.Weightless": "Petty",
   "CAIRN.WilTip": "Used for saves to persuade, deceive, interrogate, intimidate, charm, provoke, manipulate spells, etc.",
   "DEX": "DEX",
