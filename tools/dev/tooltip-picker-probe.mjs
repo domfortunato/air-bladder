@@ -33,6 +33,11 @@
  *      apply the die uses.
  *   8. A question picker lists that question's options off the background and
  *      picking one swaps the answer and its question:<idx> grants.
+ *   9. (2026-09-03) The NAME gets a pick-list button too: it lists the 2e
+ *      background's own example names (list order, behind the Random row)
+ *      and picking one renames the actor. The PORTRAIT's list button reuses
+ *      the img's own editPortrait action and opens the same gallery.
+ *      Both ride the creation gate — all four anchors gone while Off.
  * Exits non-zero on any failed assertion or console error.
  */
 
@@ -125,6 +130,19 @@ try {
       out.migrate.omenPickKey = root?.querySelector('a[data-action="pickOmen"]')?.dataset.tooltip ?? "";
       out.migrate.omenPickIcon = root?.querySelector('a[data-action="pickOmen"] i')?.className ?? "";
       out.migrate.bgPickIcon = rootOf()?.querySelector('a[data-action="pickBackground"] i')?.className ?? "";
+
+      // 2026-09-03: the name and the portrait carry pick-list buttons beside
+      // their dice — same icon, same creation gate — so a player knows they
+      // can pick a specific name or portrait, not only re-roll one.
+      const namePickEl = () => rootOf()?.querySelector('a[data-action="pickName"]');
+      const portraitPickEl = () => rootOf()?.querySelector("a.portrait-pick");
+      out.namePortrait = {
+        nameKey: namePickEl()?.dataset.tooltip ?? "",
+        nameIcon: namePickEl()?.querySelector("i")?.className ?? "",
+        portraitKey: portraitPickEl()?.dataset.tooltip ?? "",
+        portraitIcon: portraitPickEl()?.querySelector("i")?.className ?? "",
+        portraitAction: portraitPickEl()?.dataset.action ?? "",
+      };
 
       // Review #21 finding 7: the title→data-tooltip migration must not cost
       // the accessible NAME. Core pairs data-tooltip with aria-label
@@ -256,6 +274,34 @@ try {
         }
       }
 
+      // ---- 9. The name picker (2026-09-03) --------------------------------
+      // Lists the 2e background's own example names in LIST order behind the
+      // Random row; picking one renames the actor through the normal rename.
+      namePickEl()?.click();
+      dlg = await waitFor(() => document.querySelector(".bg-picker"), 10000);
+      out.namePicker = { opened: !!dlg };
+      if (dlg) {
+        const bg = await fromUuid(actor.system.backgroundUuid);
+        const values = [...dlg.querySelectorAll('input[name="bg"]')].map((i) => i.value);
+        out.namePicker.rows = values.slice(1);      // row 0 is Random
+        out.namePicker.want = bg.system.names ?? [];
+        const target = (bg.system.names ?? []).find((n) => n !== actor.name);
+        const rowInput = [...dlg.querySelectorAll('input[name="bg"]')].find((i) => i.value === target);
+        rowInput?.click();
+        dlg.closest(".application")?.querySelector('button[data-action="choose"]')?.click();
+        out.namePicker.applied = await waitFor(() => actor.name === target, 10000);
+        await waitFor(() => !document.querySelector(".bg-picker"), 5000);
+      }
+
+      // ---- 10. The portrait's list button opens the SAME gallery ----------
+      portraitPickEl()?.click();
+      const gallery = await waitFor(() => document.querySelector(".cairn-portrait-gallery"), 10000);
+      out.portraitPickOpens = !!gallery;
+      if (gallery) {
+        await foundry.applications.instances.get(gallery.closest(".application")?.id)?.close();
+        await waitFor(() => !document.querySelector(".cairn-portrait-gallery"), 5000);
+      }
+
       // ---- mode OFF: dice roll again, hints gone --------------------------
       await actor.update({ "system.generationEnabled": false });
       await waitFor(() => {
@@ -273,6 +319,13 @@ try {
       out.hintsOff = {
         hp: root?.querySelector('label[for$="system.hp.value"]')?.dataset.tooltip ?? "",
         gold: root?.querySelector('label[for$="system.gold"]')?.dataset.tooltip ?? "",
+      };
+      // The new pickers ride the same gate as their dice — all four gone Off.
+      out.namePortraitOff = {
+        namePick: !!root?.querySelector('a[data-action="pickName"]'),
+        nameDie: !!root?.querySelector('a[data-action="rollName"]'),
+        portraitPick: !!root?.querySelector("a.portrait-pick"),
+        portraitDie: !!root?.querySelector("a.portrait-roll"),
       };
       root?.querySelector('[data-tab="description"]')?.click();
       await wait(300);
@@ -366,6 +419,27 @@ try {
     badIcons.length === 0
       ? ok("all five picker anchors wear fa-list-ul")
       : fail(`picker icons not fa-list-ul: ${badIcons.map(([n, c]) => `${n}="${c}"`).join(", ")}`);
+
+    // 2026-09-03: the name and the portrait join the picker convention.
+    const NP = r.namePortrait ?? {};
+    NP.nameKey === "CAIRN.PickName" && NP.nameIcon.includes("fa-list-ul")
+      ? ok("a name picker sits beside the name die (CAIRN.PickName, fa-list-ul)")
+      : fail(`name pick anchor: key="${NP.nameKey}", icon="${NP.nameIcon}"`);
+    NP.portraitKey === "CAIRN.ChoosePortrait" && NP.portraitIcon.includes("fa-list-ul")
+      && NP.portraitAction === "editPortrait"
+      ? ok("the portrait's list button reuses editPortrait (CAIRN.ChoosePortrait, fa-list-ul)")
+      : fail(`portrait pick anchor: ${JSON.stringify(NP)}`);
+    const NPK = r.namePicker ?? {};
+    NPK.opened && NPK.want?.length && JSON.stringify(NPK.rows) === JSON.stringify(NPK.want) && NPK.applied
+      ? ok(`the name picker lists the background's ${NPK.want.length} names in list order and picking renames`)
+      : fail(`name picker: ${JSON.stringify({ opened: NPK.opened, rows: NPK.rows, want: NPK.want, applied: NPK.applied })}`);
+    r.portraitPickOpens === true
+      ? ok("the portrait's list button opens the same gallery")
+      : fail(`portrait pick: gallery opened=${JSON.stringify(r.portraitPickOpens)}`);
+    const NPO = r.namePortraitOff ?? {};
+    ["namePick", "nameDie", "portraitPick", "portraitDie"].every((k) => NPO[k] === false)
+      ? ok("all four name/portrait creation anchors vanish while the mode is Off")
+      : fail(`mode-off anchors: ${JSON.stringify(NPO)}`);
 
     // Review #21 finding 7: no icon-only control lost its accessible name.
     const ariaChar = r.aria?.char ?? [];

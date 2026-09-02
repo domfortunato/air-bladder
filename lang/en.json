@@ -569,6 +569,7 @@
   "CAIRN.PickBond": "Change bond",
   "CAIRN.PickCareer": "Choose a specific career (adopts its statblock + gear)",
   "CAIRN.PickFaction": "Choose a specific faction",
+  "CAIRN.PickName": "Choose a name",
   "CAIRN.PickOmen": "Change omen",
   "CAIRN.PickQuestion": "Choose the answer",
   "CAIRN.PopOut": "Pop Out",

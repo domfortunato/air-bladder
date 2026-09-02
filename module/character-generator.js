@@ -4209,6 +4209,38 @@ export const promptPickOmen = async (current = "") => {
 };
 
 /**
+ * Pick a name off the same sources the name die rolls (2026-09-03, user ask):
+ * a 2e background's own example names in LIST order (the book shows them as a
+ * strip, and a short list needs no sort), else the Barebones spark table in
+ * table order. Table rows ride t("table.result") like every table picker — a
+ * name is a proper noun the overlay will simply never match, which costs
+ * nothing. Returns a value, never applies: the sheet owns the rename, shared
+ * with the die (the standing pickers rule above).
+ * @param {CairnActor} actor
+ * @returns {Promise<{name:String}|{random:true}|false|null>} null = no source
+ */
+export const promptPickName = async (actor) => {
+  let rows = [];
+  if (actor.system.contentSource === "2e" && actor.system.backgroundUuid) {
+    const bg = await fromUuid(actor.system.backgroundUuid);
+    rows = (bg?.system?.names ?? []).map((n) => ({ value: n, label: n }));
+  }
+  if (!rows.length) {
+    const [packName, tableName] = compendiumInfoFromString(CONFIG.Cairn?.barebonesGenerator?.name ?? "");
+    const pack = packName ? game.packs.get(packName) : null;
+    const table = pack ? (await pack.getDocuments()).find((doc) => doc.name === tableName) : null;
+    rows = (table?.results ?? []).map((r) => String(resultText(r)).trim()).filter(Boolean)
+      .map((text) => ({ value: text, label: t("table.result", text) }));
+  }
+  if (!rows.length) return null;
+  const current = String(actor.name ?? "").trim();
+  const choice = await promptFromRows("CAIRN.PickName", rows, current || null);
+  if (!choice) return false;
+  if (choice === BG_RANDOM) return { random: true };
+  return { name: choice };
+};
+
+/**
  * Pick a bond off the RESOLVED bonds table — the background's own `bondsTable`
  * when it names one, else the default (world "Bonds" first, then shipped):
  * exactly the chain the die's drawBond follows, via the same resolveBondsTable.

@@ -48,14 +48,16 @@ A generated or imported character arrives quiet — no dice on the sheet. The
 creation tools back: a die beside each part of the character re-rolls that one thing —
 the name, the portrait, the age, the background (gear and all), the omen, a
 bond, a background question — and a **pick-list button** (the list icon)
-beside the background, failed career, omen, bond and question dice lets you
-choose instead of roll. The pickers are how you recreate a character you rolled with
+beside the name, background, failed career, omen, bond and question dice —
+and on the portrait — lets you choose instead of roll. The pickers are how you
+recreate a character you rolled with
 the book, paper and dice: pick the rows you already rolled, and the sheet
 grants whatever those rows grant. Traits stay hand-edited pick-lists either
 way. **Roll Character** opens a checklist of everything that can be re-rolled,
 all checked to begin with: uncheck what you want to keep, and only the rest is
-re-rolled. Starting gear and the two Background Questions ride the Background
-line — a new background deals its own, and bonds are re-dealt with it — and a
+re-rolled. The name, starting gear and the two Background Questions ride the
+Background line — a new background deals its own, name included — while bonds
+re-roll only when their own line is checked, and a
 background you picked by hand starts unchecked, so a full re-roll keeps it
 unless you say otherwise. What the list never offers it never touches: notes,
 scars, pronouns, and anything bought or given stay yours. While the mode is

@@ -1,4 +1,4 @@
-import { canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, resolveActorBackground, redealBackgroundGear, rerollAllBonds, reorderInventory, postGenerationRolls } from "../character-generator.js";
+import { canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, resolveActorBackground, redealBackgroundGear, rerollAllBonds, reorderInventory, postGenerationRolls } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
 import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel } from "../utils.js";
@@ -308,6 +308,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       editPortrait: owned(CairnActorSheet.#onEditPortrait),
       rollPortrait: owned(mayRandomize(CairnActorSheet.#onRollPortrait)),
       rollName: owned(mayRandomize(CairnActorSheet.#onRollName)),
+      pickName: owned(mayRandomize(CairnActorSheet.#onPickName)),
       rollProfession: owned(mayRandomize(CairnActorSheet.#onRollProfession)),
       rollFaction: owned(mayRandomize(CairnActorSheet.#onRollFaction)),
       // The person-sheet pickers (2026-08-21): a deliberate choice, not a die,
@@ -3292,6 +3293,25 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // the ones still wearing the old name) — this used to rename the ACTIVE
     // scene's tokens by hand, unconditionally, and nothing else did.
     await this.actor.update({ name });
+  }
+
+  /**
+   * Pick-list beside the name die (2026-09-03, user ask): the same sources
+   * the die rolls — the 2e background's example names, else the Barebones
+   * spark table — via promptPickName. Character sheets only; the npc sheets'
+   * name die keeps its Warden-only spark with no picker. Random defers to
+   * the die's handler ("random" means one thing), and a picked name applies
+   * through the normal rename, so placed tokens follow CairnActor's rule.
+   * @this {CairnActorSheet}
+   */
+  static async #onPickName(event) {
+    event.preventDefault();
+    if (["hireling", "npc"].includes(this.actor.type)) return;
+    const picked = await promptPickName(this.actor);
+    if (!picked) return;                      // cancelled, or no source at all
+    if (picked.random) return CairnActorSheet.#onRollName.call(this, event);
+    if (!picked.name || picked.name === this.actor.name) return;
+    await this.actor.update({ name: picked.name });
   }
 
   /**

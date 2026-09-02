@@ -485,13 +485,15 @@
    than on the bar — so it takes the sheet's secondary ink, exactly like the
    sibling profession-roll, and flips with the scheme. The hireling darkens it
    below to full ink to match its profession-roll. */
-.name-line .name-roll {
+.name-line .name-roll,
+.name-line .name-pick {
     flex: 0 0 auto;
     cursor: pointer;
     color: var(--ab-muted);
 }
 
-.name-line .name-roll:hover {
+.name-line .name-roll:hover,
+.name-line .name-pick:hover {
     color: var(--ab-ink);
 }
 
@@ -2575,8 +2577,10 @@ ol.combat-tracker li.combatant.cairn-drop-below {
 }
 
 /* Random-portrait die, overlaid bottom-right on the portrait. Gated by
-   generationEnabled in the template, matching the background roller. */
-.portrait-roll {
+   generationEnabled in the template, matching the background roller. The
+   pick-list twin (2026-09-03) shares the badge. */
+.portrait-roll,
+.portrait-pick {
     position: absolute;
     bottom: 4px;
     right: 4px;
@@ -2593,9 +2597,18 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     opacity: 0.85;
 }
 
-.portrait-roll:hover {
+.portrait-roll:hover,
+.portrait-pick:hover {
     opacity: 1;
     background: #000;
+}
+
+/* Character sheet only: two badges, the die to the LEFT of the list button
+   (user ask — the stacked bars sit to the right of the d20). Scoped because
+   the npc sheet renders the same .portrait-roll alone at right:4px; the
+   grid class's spelling is the shipped one. */
+.charater-sheet-grid .portrait-roll {
+    right: 32px;
 }
 
 .cairn-portrait-gallery {

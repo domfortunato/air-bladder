@@ -13,6 +13,9 @@
                   itself pairs the two (dialog.mjs:238-241) — localized TEXT,
                   because core never localizes aria-label. --}}
             <a class="portrait-roll" data-action="rollPortrait" data-tooltip="CAIRN.RollPortrait" aria-label="{{ localize 'CAIRN.RollPortrait' }}"><i class="fas fa-dice-d20"></i></a>
+            {{!-- The list button IS the portrait click, said out loud: same
+                  editPortrait action, one behavior with two affordances. --}}
+            <a class="portrait-pick" data-action="editPortrait" data-tooltip="CAIRN.ChoosePortrait" aria-label="{{ localize 'CAIRN.ChoosePortrait' }}"><i class="fas fa-list-ul"></i></a>
             {{/if}}
         </div>
         <!-- Name, background, HP and deprived -->
@@ -21,6 +24,7 @@
                 <input class="name-input" type="text" name="name" value="{{actor.name}}" placeholder="{{ localize 'CAIRN.Name' }}" />
                 {{#if generationEnabled}}
                 <a class="name-roll" data-action="rollName" data-tooltip="CAIRN.RollName" aria-label="{{ localize 'CAIRN.RollName' }}"><i class="fas fa-dice-d20"></i></a>
+                <a class="name-pick" data-action="pickName" data-tooltip="CAIRN.PickName" aria-label="{{ localize 'CAIRN.PickName' }}"><i class="fas fa-list-ul"></i></a>
                 {{/if}}
             </div>
             <div class="background-line">
