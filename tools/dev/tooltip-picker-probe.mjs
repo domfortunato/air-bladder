@@ -126,6 +126,19 @@ try {
       out.migrate.omenPickIcon = root?.querySelector('a[data-action="pickOmen"] i')?.className ?? "";
       out.migrate.bgPickIcon = rootOf()?.querySelector('a[data-action="pickBackground"] i')?.className ?? "";
 
+      // Review #21 finding 7: the title→data-tooltip migration must not cost
+      // the accessible NAME. Core pairs data-tooltip with aria-label
+      // (dialog.mjs:238-241), and aria-label is never localized by core, so
+      // every interactive icon-only control must carry one holding localized
+      // TEXT — not a raw key.
+      const bareAnchors = (rootEl) => [...(rootEl?.querySelectorAll("a[data-action][data-tooltip]") ?? [])]
+        .filter((a) => !a.textContent.trim())
+        .map((a) => ({ action: a.dataset.action, aria: a.getAttribute("aria-label") ?? "" }));
+      out.aria = {
+        char: bareAnchors(rootOf()),
+        wantPickBackground: game.i18n.localize("CAIRN.ChangeBackground"),
+      };
+
       // ---- 6. World-first Omens: plant, die, picker, cancel, restore ------
       worldOmens = await RollTable.create({
         name: "Omens", formula: "1d1",
@@ -281,6 +294,7 @@ try {
         hpCurrent: nRoot?.querySelector('input[name="system.hp.value"]')?.dataset.tooltip ?? "",
       };
       out.npcPickIcon = nRoot?.querySelector(".profession-pick i")?.className ?? "";
+      out.aria.npc = bareAnchors(nRoot);
       await nSheet.close();
 
       return out;
@@ -330,6 +344,19 @@ try {
     badIcons.length === 0
       ? ok("all five picker anchors wear fa-list-ul")
       : fail(`picker icons not fa-list-ul: ${badIcons.map(([n, c]) => `${n}="${c}"`).join(", ")}`);
+
+    // Review #21 finding 7: no icon-only control lost its accessible name.
+    const ariaChar = r.aria?.char ?? [];
+    const ariaNpc = r.aria?.npc ?? [];
+    const badAria = [...ariaChar, ...ariaNpc].filter((a) => !a.aria.trim() || a.aria.startsWith("CAIRN."));
+    ariaChar.length >= 8 && ariaNpc.length >= 4 && badAria.length === 0
+      ? ok(`all ${ariaChar.length + ariaNpc.length} icon-only creation controls carry a localized aria-label`)
+      : fail(`aria-labels: char=${ariaChar.length}, npc=${ariaNpc.length}, `
+        + `missing/raw: ${JSON.stringify(badAria.slice(0, 6))}`);
+    const pickBgAria = ariaChar.find((a) => a.action === "pickBackground");
+    pickBgAria?.aria === r.aria?.wantPickBackground
+      ? ok(`…and the background picker's is the tooltip's own sentence ("${pickBgAria?.aria}")`)
+      : fail(`pickBackground aria: ${JSON.stringify(pickBgAria)}, want "${r.aria?.wantPickBackground}"`);
 
     const S = r.savesOn ?? {};
     S.noAction && S.offClass && S.noLabel

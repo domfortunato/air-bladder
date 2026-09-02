@@ -383,10 +383,18 @@ with Rations on top. Four things that will bite:
 - **"Light source" is a NAME, not a field**, and the two halves are asymmetric
   on purpose: sources are a keyword regex (right for the Wisp Lantern and the
   Torch Fungus too), fuel is an exact map, because `\boil\b` would swallow Fire
-  Oil and Miracle Oil. `UNTAGGED_MUNDANE_GEAR` asks the same classification
-  rather than keeping its own overlapping copy, which newly leaves a granted
+  Oil and Miracle Oil. `isMundaneGear` asks the same classification
+  rather than keeping its own overlapping copy, which leaves a granted
   Candle without a Background chip — intended, and what that rule always said
-  it meant.
+  it meant. **Since 2026-09-02 mundane grants are TAGGED
+  `background-mundane`** (user ruling, review #21 finding 2 — reversing
+  "left untagged on purpose"): the chip stays off via `grantSourceLabel`'s
+  unknown→"" (the npc-kit precedent), but the tag gives the re-deal sweep
+  identity — the untagged name-matcher ate a player's BOUGHT Rations on the
+  second re-deal and let an instruction row's resolved item pile up. The
+  name-matcher survives for LEGACY pre-tagging characters only, skipping any
+  ref a tagged claim already satisfies; `BG_GRANT_SOURCES` is the pair every
+  background-gear sweep must ask for.
 
 ## Deliberate deviations from Foundry practice
 
@@ -726,7 +734,7 @@ What belongs here is what those two files do not say:
 
 ## Testing
 
-**`docs/release-testing.md` is the full list — 102 probes (`check:probes` states
+**`docs/release-testing.md` is the full list — 103 probes (`check:probes` states
 the current count), what each covers, and what to run before tagging vs after
 publishing. Keep it in step with `package.json`; a probe not listed there runs
 only when someone remembers it.**

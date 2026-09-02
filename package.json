@@ -119,7 +119,8 @@
     "dev:listeners": "node tools/dev/e2e-listeners.mjs",
     "dev:review-batch2": "node tools/dev/e2e-review-batch2.mjs",
     "dev:tooltip-picker": "node tools/dev/tooltip-picker-probe.mjs",
-    "dev:reroll-dialog": "node tools/dev/e2e-reroll-dialog.mjs"
+    "dev:reroll-dialog": "node tools/dev/e2e-reroll-dialog.mjs",
+    "dev:reroll-refusal": "node tools/dev/e2e-reroll-refusal.mjs"
   },
   "browserslist": [
     "last 3 versions"

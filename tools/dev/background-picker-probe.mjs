@@ -262,8 +262,9 @@ try {
       keptBought: !!actor.items.get(bought.id),
       // swapped
       // Checked against the WHOLE inventory, not the tagged subset: mundane
-      // background gear (Rations, Torch) is deliberately left untagged so it
-      // carries no source chip, and it still has to arrive.
+      // background gear (Rations, Torch) carries the chip-less
+      // "background-mundane" tag (untagged until 2026-09-02, review #21),
+      // and either way it still has to arrive.
       oldGearGone: before.bgGear.every((n) => newRefs.includes(n) || !actor.items.some((i) => i.name === n)),
       newGearPresent: newRefs.every((n) => actor.items.some((i) => i.name === n)),
       // The failure mode that matters for untagged gear: a swap that adds the new

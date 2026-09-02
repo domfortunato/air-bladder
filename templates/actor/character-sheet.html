@@ -8,8 +8,11 @@
             {{!-- Creation dice and pickers carry data-tooltip (bare i18n KEY,
                   core-styled — the Age die's ruled look, 2026-09-01) rather
                   than native title=. Non-creation titles on this sheet stay
-                  native on purpose. --}}
-            <a class="portrait-roll" data-action="rollPortrait" data-tooltip="CAIRN.RollPortrait"><i class="fas fa-dice-d20"></i></a>
+                  native on purpose. aria-label rides beside every one (review
+                  #21): a bare key is nothing to a screen reader, and core
+                  itself pairs the two (dialog.mjs:238-241) — localized TEXT,
+                  because core never localizes aria-label. --}}
+            <a class="portrait-roll" data-action="rollPortrait" data-tooltip="CAIRN.RollPortrait" aria-label="{{ localize 'CAIRN.RollPortrait' }}"><i class="fas fa-dice-d20"></i></a>
             {{/if}}
         </div>
         <!-- Name, background, HP and deprived -->
@@ -17,7 +20,7 @@
             <div class="name-line">
                 <input class="name-input" type="text" name="name" value="{{actor.name}}" placeholder="{{ localize 'CAIRN.Name' }}" />
                 {{#if generationEnabled}}
-                <a class="name-roll" data-action="rollName" data-tooltip="CAIRN.RollName"><i class="fas fa-dice-d20"></i></a>
+                <a class="name-roll" data-action="rollName" data-tooltip="CAIRN.RollName" aria-label="{{ localize 'CAIRN.RollName' }}"><i class="fas fa-dice-d20"></i></a>
                 {{/if}}
             </div>
             <div class="background-line">
@@ -27,8 +30,8 @@
                 {{/if}}
                 <span class="background-name">{{backgroundName}}</span>
                 {{#if generationEnabled}}
-                <a class="background-roll" data-action="rollBackground" data-tooltip="CAIRN.RollBackground"><i class="fas fa-dice-d20"></i></a>
-                <a class="background-pick" data-action="pickBackground" data-tooltip="CAIRN.ChangeBackground"><i class="fas fa-list-ul"></i></a>
+                <a class="background-roll" data-action="rollBackground" data-tooltip="CAIRN.RollBackground" aria-label="{{ localize 'CAIRN.RollBackground' }}"><i class="fas fa-dice-d20"></i></a>
+                <a class="background-pick" data-action="pickBackground" data-tooltip="CAIRN.ChangeBackground" aria-label="{{ localize 'CAIRN.ChangeBackground' }}"><i class="fas fa-list-ul"></i></a>
                 {{/if}}
                 {{else}}
                 <input class="background-input" type="text" name="system.background" value="{{system.background}}"
@@ -49,15 +52,15 @@
                     <span class="failed-career-label">{{ localize 'CAIRN.FailedCareerLabel' }}</span>
                     <span class="failed-career-name">{{failedCareer}}</span>
                     {{#if generationEnabled}}
-                    <a class="failed-career-roll" data-action="rollFailedCareer" data-tooltip="CAIRN.RollFailedCareer"><i class="fas fa-dice-d20"></i></a>
-                    <a class="failed-career-pick" data-action="pickFailedCareer" data-tooltip="CAIRN.ChangeFailedCareer"><i class="fas fa-list-ul"></i></a>
+                    <a class="failed-career-roll" data-action="rollFailedCareer" data-tooltip="CAIRN.RollFailedCareer" aria-label="{{ localize 'CAIRN.RollFailedCareer' }}"><i class="fas fa-dice-d20"></i></a>
+                    <a class="failed-career-pick" data-action="pickFailedCareer" data-tooltip="CAIRN.ChangeFailedCareer" aria-label="{{ localize 'CAIRN.ChangeFailedCareer' }}"><i class="fas fa-list-ul"></i></a>
                     {{/if}}
                 </div>
                 <div class="failed-career-item-line">
                     <span class="failed-career-item-label">{{ localize 'CAIRN.FailedCareerItemLabel' }}</span>
                     <span class="failed-career-item-name">{{failedCareerItem}}</span>
                     {{#if generationEnabled}}
-                    <a class="failed-career-item-roll" data-action="rollFailedCareerItem" data-tooltip="CAIRN.RollFailedCareerItem"><i class="fas fa-dice-d20"></i></a>
+                    <a class="failed-career-item-roll" data-action="rollFailedCareerItem" data-tooltip="CAIRN.RollFailedCareerItem" aria-label="{{ localize 'CAIRN.RollFailedCareerItem' }}"><i class="fas fa-dice-d20"></i></a>
                     {{/if}}
                 </div>
             </div>
@@ -249,11 +252,11 @@
                               recreating a book-rolled character needs the row
                               they already rolled. --}}
                         <p class="bond-line"><strong>{{ localize 'CAIRN.Bond' }}:</strong>{{#if ../generationEnabled}}<a class="bond-reroll" data-action="rerollBond"
-                                data-bond-id="{{this.id}}" data-tooltip="CAIRN.RerollBond"><i
+                                data-bond-id="{{this.id}}" data-tooltip="CAIRN.RerollBond" aria-label="{{ localize 'CAIRN.RerollBond' }}"><i
                                     class="fas fa-dice-d20"></i></a><a class="bond-pick" data-action="pickBond"
-                                data-bond-id="{{this.id}}" data-tooltip="CAIRN.PickBond"><i
+                                data-bond-id="{{this.id}}" data-tooltip="CAIRN.PickBond" aria-label="{{ localize 'CAIRN.PickBond' }}"><i
                                     class="fas fa-list-ul"></i></a>{{#if @index}}<a class="bond-remove" data-action="removeBond"
-                                data-bond-id="{{this.id}}" data-tooltip="CAIRN.RemoveBond"><i
+                                data-bond-id="{{this.id}}" data-tooltip="CAIRN.RemoveBond" aria-label="{{ localize 'CAIRN.RemoveBond' }}"><i
                                     class="fas fa-xmark"></i></a>{{/if}}{{/if}}</p>
                         <p class="bond-answer">{{this.description}}</p>
                     </div>
@@ -269,9 +272,9 @@
                               re-roll the answer, or choose it off the
                               background's own options. --}}
                         <p class="question-line"><strong>{{this.question}}</strong>{{#if ../generationEnabled}}<a class="question-reroll" data-action="rerollQuestion"
-                                data-index="{{@index}}" data-tooltip="CAIRN.RerollQuestion"><i
+                                data-index="{{@index}}" data-tooltip="CAIRN.RerollQuestion" aria-label="{{ localize 'CAIRN.RerollQuestion' }}"><i
                                     class="fas fa-dice-d20"></i></a><a class="question-pick" data-action="pickQuestion"
-                                data-index="{{@index}}" data-tooltip="CAIRN.PickQuestion"><i
+                                data-index="{{@index}}" data-tooltip="CAIRN.PickQuestion" aria-label="{{ localize 'CAIRN.PickQuestion' }}"><i
                                     class="fas fa-list-ul"></i></a>{{/if}}</p>
                         <p class="question-answer">{{this.answer}}</p>
                     </div>

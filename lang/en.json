@@ -615,6 +615,7 @@
   "CAIRN.Reroll.FailedCareer": "Failed career",
   "CAIRN.Reroll.Keepsake": "Keepsake item",
   "CAIRN.Reroll.Lead": "Everything checked is re-rolled. Uncheck what you want to keep.",
+  "CAIRN.Reroll.NoBackground": "This character doesn't have a matching background in this world and its starting gear cannot be re-rolled.",
   "CAIRN.Reroll.PickNote": "You can also choose instead of rolling: the list buttons on the sheet open pickers, and Age, HP, STR, DEX and WIL can simply be typed.",
   "CAIRN.Reroll.PortraitToken": "Portrait & token",
   "CAIRN.Reroll.Question": "Question #{num}",

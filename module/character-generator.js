@@ -770,7 +770,7 @@ export const withGrantSource = (item, source) => ({
 
 /**
  * Mundane background gear that needs no "Background" source chip — light and
- * food whose provenance nobody tracks. Left untagged on purpose.
+ * food whose provenance nobody tracks.
  *
  * Asked of the SHARED classification in gear.js rather than of a second regex
  * of its own, so "what counts as a light" is decided in one place: the ordering
@@ -779,18 +779,32 @@ export const withGrantSource = (item, source) => ({
  * the old regex named only rations, torches and lanterns, so a granted CANDLE
  * wore a Background chip until now and no longer does. That is exactly what the
  * sentence above says should happen to it.
- *
- * PC path only: buildNpcItems tags every grant it makes, chip or no chip,
- * because an untagged grant is indistinguishable from a Warden's own gift and
- * would survive every re-roll.
  */
-const isUntaggedMundaneGear = (name) =>
+const isMundaneGear = (name) =>
   RATIONS_RE.test(String(name ?? "")) || isLightGear(name);
 
-/** Tag built starting gear "background" (so it can show a source chip later),
- *  EXCEPT the mundane items above, which stay untagged. */
+/**
+ * The two sources background starting gear can carry: "background" wears the
+ * chip, "background-mundane" is the SAME lifetime with the chip suppressed —
+ * grantSourceLabel maps an unknown source to "", the npc-kit precedent. Every
+ * sweep that owns background gear must ask for both.
+ *
+ * Mundane grants were UNTAGGED until 2026-09-02 (user ruling, review #21
+ * finding 2), matched on re-deal by name instead — and the name-matcher ate a
+ * player's BOUGHT copy on the second re-deal (the fresh grant appended behind
+ * the purchase) while an instruction row's resolved item never matched at all
+ * and piled up. A tag is identity; the chip is display, and the two were
+ * conflated.
+ */
+const BG_GRANT_SOURCES = ["background", "background-mundane"];
+
+/** Tag built starting gear with its background source — "background" for gear
+ *  that shows the chip, "background-mundane" (chip-less) for rations and
+ *  light. Everything is tagged: an untagged grant is indistinguishable from a
+ *  Warden's gift or a purchase, which is exactly what buildNpcItems always
+ *  said about its own. */
 const tagBackgroundGear = (items) =>
-  items.map((it) => (isUntaggedMundaneGear(it.name) ? it : withGrantSource(it, "background")));
+  items.map((it) => withGrantSource(it, isMundaneGear(it.name) ? "background-mundane" : "background"));
 
 /* -------------------------------------------------------------------------- */
 /*  Bonds                                                                       */
@@ -2648,11 +2662,17 @@ const replaceFailedCareerKeepsake = async (actor, careerName) => {
  * semantics (granted items deleted, gold refunded). Before the clamp, a
  * detour through Fieldwarden left a second bond stored forever.
  * A null `newBg` picks a random one, never the current.
+ *
+ * Returns false on a refusal, true on a completed swap (review #21). Both
+ * refusals fire BEFORE the first delete, so a caller that aborts on false —
+ * the Roll Character checklist, whose gesture must apply whole or not at all
+ * — leaves the character exactly as it was. The sheet dice ignore it.
  * @param {CairnActor} actor
  * @param {CairnItem|null} [newBg]
+ * @returns {Promise<Boolean>}
  */
 export const changeBackground = async (actor, newBg = null) => {
-  if (!canRegenerateContainers(actor)) return; // bail before deleting anything
+  if (!canRegenerateContainers(actor)) return false; // bail before deleting anything
   const source = actor.system.contentSource || "2e";
   let bg = newBg;
   if (!bg) {
@@ -2663,7 +2683,7 @@ export const changeBackground = async (actor, newBg = null) => {
     if (!backgrounds.length) {
       ui.notifications?.warn(game.i18n.localize(
         source === "2e" && customOnly() ? "CAIRN.NoCustomBackgrounds" : "CAIRN.NoBackgrounds2e"));
-      return;
+      return false;
     }
     const pool = backgrounds.filter((b) => b.uuid !== actor.system.backgroundUuid);
     const from = pool.length ? pool : backgrounds;
@@ -2671,17 +2691,27 @@ export const changeBackground = async (actor, newBg = null) => {
   }
 
   // Out with the old: everything the OLD background put there, and nothing else.
-  // Matched by the grant tag; legacy untagged starting gear is matched by the old
-  // background's own reference names, one item apiece, so a character generated
-  // before tagging existed still swaps cleanly.
+  // Matched by the grant tag (both background sources — mundane grants are
+  // tagged too since 2026-09-02); LEGACY untagged starting gear is matched by
+  // the old background's reference names, one item apiece — but only for refs
+  // no tagged claim already satisfied, or the fallback eats a player's bought
+  // copy of a granted Rations (review #21 finding 2).
   const oldBg = actor.system.backgroundUuid ? await fromUuid(actor.system.backgroundUuid) : null;
   const toDelete = [];
   const claimed = new Set();
+  const claimedNames = new Map();
   for (const i of actor.items) {
     const src = String(i.getFlag(FLAG_SCOPE, "grantSource") ?? "");
-    if (src === "background" || src.startsWith("question:")) { claimed.add(i.id); toDelete.push(i.id); }
+    if (BG_GRANT_SOURCES.includes(src) || src.startsWith("question:")) {
+      claimed.add(i.id); toDelete.push(i.id);
+      // Only the background's own claims cover a startingGear ref below — a
+      // question-granted item of the same name is a different grant.
+      if (BG_GRANT_SOURCES.includes(src)) claimedNames.set(i.name, (claimedNames.get(i.name) ?? 0) + 1);
+    }
   }
   for (const g of oldBg?.system?.startingGear ?? []) {
+    const n = claimedNames.get(g.name) ?? 0;
+    if (n > 0) { claimedNames.set(g.name, n - 1); continue; }
     const hit = actor.items.find(
       (i) => !claimed.has(i.id) && !i.getFlag(FLAG_SCOPE, "grantSource") && i.name === g.name
     );
@@ -2771,6 +2801,7 @@ export const changeBackground = async (actor, newBg = null) => {
     await actor.update({ "system.failedCareer": fresh }, { abNoStatusCard: true });
     await replaceFailedCareerKeepsake(actor, fresh);
   }
+  return true;
 };
 
 /**
@@ -2794,14 +2825,14 @@ export const resolveActorBackground = async (actor) => {
  * only while its Background parent is unchecked (a checked Background goes
  * through changeBackground, which re-deals gear as part of the swap).
  *
- * The delete matches changeBackground's out-with-the-old block: the
- * "background" grant tag, plus untagged items matching the background's own
- * reference names one apiece — which is ALSO what removes the chip-less
- * mundane grants (a Torch is deliberately untagged, see tagBackgroundGear),
- * not only legacy pre-tagging gear. Questions, bonds and the Barebones
- * equipment kit are other rows' business and other tags (or, for the PC kit,
- * deliberately no tag at all — the dialog never touches untagged gear beyond
- * this name match).
+ * The delete matches changeBackground's out-with-the-old block: both
+ * background grant tags — a chip-less Torch carries "background-mundane"
+ * since 2026-09-02, see tagBackgroundGear — plus LEGACY untagged items
+ * matching the background's reference names one apiece, for refs no tagged
+ * claim already satisfied. Questions, bonds and the Barebones equipment kit
+ * are other rows' business and other tags (or, for the PC kit, deliberately
+ * no tag at all — the dialog never touches untagged gear beyond the legacy
+ * name match).
  * @param {CairnActor} actor
  * @returns {Promise<Boolean>} false when refused or the background is gone
  */
@@ -2810,16 +2841,29 @@ export const redealBackgroundGear = async (actor) => {
   // if this user can't manage those.
   if (!canRegenerateContainers(actor, "background", "CAIRN.Notify.NoContainerBackground")) return false;
   const bg = await resolveActorBackground(actor);
-  if (!bg) return false;
+  if (!bg) {
+    // Say why (review #21): an unmatched Kettlewright import stores no
+    // backgroundUuid, so its gear row lands exactly here — silently, this
+    // read as a dead button.
+    ui.notifications?.warn(game.i18n.localize("CAIRN.Reroll.NoBackground"));
+    return false;
+  }
 
   const toDelete = [];
   const claimed = new Set();
+  const claimedNames = new Map();
   for (const i of actor.items) {
-    if (String(i.getFlag(FLAG_SCOPE, "grantSource") ?? "") === "background") {
+    if (BG_GRANT_SOURCES.includes(String(i.getFlag(FLAG_SCOPE, "grantSource") ?? ""))) {
       claimed.add(i.id); toDelete.push(i.id);
+      claimedNames.set(i.name, (claimedNames.get(i.name) ?? 0) + 1);
     }
   }
   for (const g of bg.system.startingGear ?? []) {
+    // A ref the tag sweep already owns takes no legacy fallback — the
+    // name-match exists for pre-tagging characters only, and running it past
+    // a tagged claim is what ate a player's bought copy (review #21).
+    const n = claimedNames.get(g.name) ?? 0;
+    if (n > 0) { claimedNames.set(g.name, n - 1); continue; }
     const hit = actor.items.find(
       (i) => !claimed.has(i.id) && !i.getFlag(FLAG_SCOPE, "grantSource") && i.name === g.name
     );
@@ -3624,12 +3668,15 @@ const rollNpcTraits = async () => ({
  * parked. A hireling's career grants no container either, so items-only is also
  * the answer that matches the other person role.
  *
- * Tagged grantSource "background", the whole set and not just the interesting
- * half: `tagBackgroundGear` deliberately leaves rations/torches/lanterns
- * untagged so a PC's sheet shows no source chip on them, and an NPC cannot
- * afford that — a re-rolled Background finds its old gear BY the tag, so an
- * untagged grant would survive every re-roll and pile up. The hireling's
- * buildHirelingItems tags all of its own for the same reason.
+ * Tagged grantSource "background", the whole set under ONE tag — no
+ * "background-mundane" split here: an NPC's sweep asks for "background" and
+ * "npc-kit" only, and the chip question never arises because the npc sheet
+ * shows no grant chips. (The PC's tagBackgroundGear used to leave
+ * rations/torches/lanterns untagged for the chip's sake and this comment
+ * warned an NPC could not afford that; since 2026-09-02 the PC path tags them
+ * too — chip-less via "background-mundane" — so the two paths now differ only
+ * in how many source words they need.) The hireling's buildHirelingItems tags
+ * all of its own for the same reason.
  * @param {String} background  the ENGLISH table text stored on the actor
  * @returns {Promise<Object[]>}
  */

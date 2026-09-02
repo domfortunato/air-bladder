@@ -20,7 +20,10 @@
                                     <label class="trait-label">{{ localize 'CAIRN.Age' }}</label>
                                     <input class="trait-input" type="text" name="system.age" value="{{system.age}}" />
                                     {{#if generationEnabled}}
-                                    <a class="age-roll" data-action="rollAge" data-tooltip="{{rollAgeTitle}}"><i class="fas fa-dice-d20"></i></a>
+                                    {{!-- rollAgeTitle is pre-FORMATTED text (it carries the
+                                          Warden's formula), so the aria-label takes it
+                                          verbatim — no localize pass. --}}
+                                    <a class="age-roll" data-action="rollAge" data-tooltip="{{rollAgeTitle}}" aria-label="{{rollAgeTitle}}"><i class="fas fa-dice-d20"></i></a>
                                     {{/if}}
                                 </div>
                                 {{/if}}
@@ -83,8 +86,8 @@
                                       recreating a book-rolled character needs the row
                                       they already rolled. Bare data-tooltip keys, the
                                       Age die's ruled look. --}}
-                                <a class="omen-roll" data-action="rollOmen" data-tooltip="CAIRN.RollOmen"><i class="fas fa-dice-d20"></i></a>
-                                <a class="omen-pick" data-action="pickOmen" data-tooltip="CAIRN.PickOmen"><i class="fas fa-list-ul"></i></a>
+                                <a class="omen-roll" data-action="rollOmen" data-tooltip="CAIRN.RollOmen" aria-label="{{ localize 'CAIRN.RollOmen' }}"><i class="fas fa-dice-d20"></i></a>
+                                <a class="omen-pick" data-action="pickOmen" data-tooltip="CAIRN.PickOmen" aria-label="{{ localize 'CAIRN.PickOmen' }}"><i class="fas fa-list-ul"></i></a>
                                 {{/if}}
                                 {{else}}
                                 <span class="omen-display">{{#if system.omen}}{{omenDisplay}}{{else}}{{ localize 'CAIRN.OmenPlaceholder' }}{{/if}}</span>

@@ -795,6 +795,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // and it renders the value through innerHTML+cleanHTML, which would
     // reshape a translation that ever carried an angle bracket.
     toggle.dataset.tooltip = on ? "CAIRN.ToggleGenerationHintOn" : "CAIRN.ToggleGenerationHint";
+    // TooltipManager reads data-tooltip only on pointerenter, and the pointer
+    // is still ON the toggle at the moment of the click that flipped it — so
+    // the OLD sentence would stand until the pointer left and returned
+    // (review #21). Re-activate only when this very button is the one being
+    // tool-tipped; activate() re-reads the dataset (tooltip-manager.mjs:233).
+    if (game.tooltip.element === toggle) game.tooltip.activate(toggle);
     toggle.querySelector("i")?.classList.replace(
       on ? "fa-toggle-off" : "fa-toggle-on",
       on ? "fa-toggle-on" : "fa-toggle-off"
@@ -2928,7 +2934,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     list += row("age", L("CAIRN.Age"));
     list += row("traits", L("CAIRN.Traits"));
     list += row("portrait", L("CAIRN.Reroll.PortraitToken"));
-    if (is2e && actor.system.omenEnabled && game.settings.get(SETTINGS_NS, "show-omens")) {
+    // omenVisible, not an open-coded copy of its two terms (review #21): the
+    // character's own switch stays a separate question, as everywhere.
+    if (actor.system.omenEnabled && omenVisible(actor)) {
       list += row("omen", L("CAIRN.Omen"));
     }
 
@@ -2946,12 +2954,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         // The button's own face and label — the dialog is that button opened up.
         window: { title: L("CAIRN.RegenerateCharacter"), icon: "fas fa-dice-d6" },
         position: { width: 440 },
+        // MODAL (review #21): the sheet holds _rerolling for the dialog's whole
+        // life, so every die and picker on a still-clickable sheet would
+        // silently refuse. Inert is honest; clickable-but-dead is a bug report.
+        modal: true,
         content,
         buttons: [
           {
             action: "reroll",
             label: L("CAIRN.Reroll.Button"),
-            default: true,
             callback: () => {
               const parts = {};
               for (const input of dialog.element.querySelectorAll('.reroll-row input[type="checkbox"]')) {
@@ -2960,7 +2971,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
               finish(parts);
             },
           },
-          { action: "cancel", label: L("CAIRN.Cancel"), callback: () => finish(null) },
+          // Cancel is the DEFAULT on purpose (review #21): DialogV2 autofocuses
+          // the default button — the FIRST one when none is declared
+          // (dialog.mjs:228) — and Enter on an all-checked list must not be a
+          // full re-deal.
+          { action: "cancel", label: L("CAIRN.Cancel"), default: true, callback: () => finish(null) },
         ],
       });
       const origClose = dialog.close.bind(dialog);
@@ -2989,7 +3004,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
           if (ev.target?.name === "background" || ev.target?.name === "failedCareer") sync();
         });
         sync();
-      });
+      }).catch(() => finish(null));
+      // The catch resolves the promise a failed render would otherwise leave
+      // pending forever (review #21): #onRollActor awaits this inside its
+      // _rerolling try/finally, and a pending await runs no finally — the flag
+      // would latch on the cached sheet instance until a browser reload.
     });
   }
 
@@ -3016,18 +3035,37 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const actor = this.actor;
     const is2e = (actor.system.contentSource || "2e") !== "barebones";
     if (!Object.values(parts).some(Boolean)) return;
-    const itemsTouched = parts.background || parts.gear || parts.question0 || parts.question1
+    // The question indices come from the RENDERED rows (review #21): the
+    // builder lists one per background table, so a hardcoded [0, 1] here
+    // would silently drop a third question the dialog had offered.
+    const qIdx = Object.keys(parts)
+      .filter((k) => /^question\d+$/.test(k) && parts[k])
+      .map((k) => Number(k.slice("question".length)));
+    const itemsTouched = parts.background || parts.gear || qIdx.length > 0
       || parts.bonds || parts.failedCareer || parts.keepsake;
 
-    // Identity first: a checked Background re-deals gear and questions as one
-    // swap (and stamps the provenance flag rolled); unchecked, its freed
-    // children re-roll in place against the CURRENT background.
+    // Identity first — and a refusal aborts the WHOLE gesture (review #21).
+    // Every path here refuses BEFORE its first delete, so aborting on the
+    // signal leaves the character exactly as it was; swallowing it left a
+    // half-applied one — background kept, bonds re-dealt, statline re-rolled,
+    // armorOverride wiped. A checked Background re-deals gear and questions
+    // as one swap (and stamps the provenance flag rolled); unchecked, its
+    // freed children re-roll in place against the CURRENT background.
     if (parts.background) {
-      await changeBackground(actor, null);
+      if (!(await changeBackground(actor, null))) return;
     } else {
-      if (parts.gear) await redealBackgroundGear(actor);
-      for (const idx of [0, 1]) {
-        if (parts[`question${idx}`]) await this._rerollQuestionByIndex(idx);
+      // Pre-flight the container permission for every checked part before the
+      // FIRST delete: these run in sequence, and a refusal after the gear has
+      // re-dealt is the same half-applied gesture (an Outrider's horse is
+      // question-granted, so the scoped checks really do diverge). Each
+      // callee still asks again — an earlier ask, not a second authority.
+      if (parts.gear && !canRegenerateContainers(actor, "background", "CAIRN.Notify.NoContainerBackground")) return;
+      for (const idx of qIdx) {
+        if (!canRegenerateContainers(actor, `question:${idx}`)) return;
+      }
+      if (parts.gear && !(await redealBackgroundGear(actor))) return;
+      for (const idx of qIdx) {
+        if (!(await this._rerollQuestionByIndex(idx))) return;
       }
     }
     if (parts.failedCareer) {
@@ -3041,6 +3079,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     }
     // After the background, so the entitlement is the new background's.
     if (is2e && (parts.bonds || parts.background)) await rerollAllBonds(actor);
+
+    // One arrangement pass, BEFORE the batched update below (review #21): the
+    // re-dealt grants land in their bands and everything untouched keeps its
+    // relative place — and the update's render is what SHOWS it, so sorting
+    // after it displayed append order until the next unrelated touch of the
+    // sheet. Same seam as the two generator-side calls, which both sit before
+    // their final rendering write.
+    if (itemsTouched) await reorderInventory(actor);
 
     // The scalar fields, batched into one update.
     const update = {};
@@ -3100,17 +3146,24 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       const src = await randomPortraitInSameFolder(actor.img, portraitCategoryFor(actor));
       if (src) await this._setPortrait(src);
     }
-    if (parts.omen && actor.system.omenEnabled) {
+    if (parts.omen && actor.system.omenEnabled && omenVisible(actor)) {
       const omenTable = await findOmensTable();
       if (omenTable) {
         const { results } = await omenTable.roll();
-        await this._applyOmen(resultText(results?.[0]));
+        const text = resultText(results?.[0]);
+        // An empty or exhausted table returns {results: []} with core's own
+        // toast (roll-table.mjs:281-284) — bail rather than wiping the stored
+        // omen with "" (review #21). The die takes the same bail.
+        if (text) await this._applyOmen(text);
       }
     }
 
-    // One arrangement pass — the re-dealt grants land in their bands and
-    // everything untouched keeps its relative place.
-    if (itemsTouched) await reorderInventory(actor);
+    // Item-only runs may end with NO rendering write at all (review #21):
+    // every item op above passes render:false, and the one scalar the gear
+    // path writes — armorOverride: null — is a no-op diff on most characters,
+    // which core skips without rendering. One render here is cheap and makes
+    // the outcome visible in every combination.
+    if (itemsTouched) this.render(false);
 
     if (rolls.hp && rolls.STR && rolls.DEX && rolls.WIL && rolls.gold) {
       await postGenerationRolls(actor, { rolls });
@@ -4008,7 +4061,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       return;
     }
     const { results } = await omenTable.roll();
-    await this._applyOmen(resultText(results?.[0]));
+    const text = resultText(results?.[0]);
+    // An empty or exhausted table returns {results: []} with core's own toast
+    // (roll-table.mjs:281-284) — bail rather than wiping the stored omen with
+    // "" (review #21). Reachable since the world-first lookup: a Warden's own
+    // empty "Omens" table shadows the shipped one.
+    if (!text) return;
+    await this._applyOmen(text);
   }
 
   /**
@@ -4165,6 +4224,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onPickBond(event, target) {
     event.preventDefault();
+    // Refuse UP FRONT while a re-roll is in flight (review #21): the apply
+    // below checks the flag again AFTER the dialog, so a list offered during
+    // an operation is a choice that gets dropped in silence. The second check
+    // stays — it is what serializes the writes when a die lands mid-pick.
+    if (this._rerolling) return;
     const id = target.dataset.bondId;
     const current = this._effectiveBonds().find((b) => b.id === id)?.description ?? "";
     const picked = await promptPickBond(await this._bondsTableName(), current);
@@ -4290,14 +4354,17 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   /**
    * The question die's core, shared with the Roll Character checklist (which
    * holds `_rerolling` across its whole run): roll the table's d6 and apply.
-   * Callers hold the guard.
+   * Callers hold the guard. Returns false on a refusal — both bails fire
+   * BEFORE anything is replaced, so the checklist can abort its whole gesture
+   * on the signal (review #21); the die ignores it.
    * @param {Number} idx  which question
+   * @returns {Promise<Boolean>}  true when the question was re-rolled
    * @private
    */
   async _rerollQuestionByIndex(idx) {
     // A question's option can grant a container (an Actor); bail before replacing
     // anything if this user can't manage those (see canRegenerateContainers).
-    if (!canRegenerateContainers(this.actor, `question:${idx}`)) return;
+    if (!canRegenerateContainers(this.actor, `question:${idx}`)) return false;
     const bg = this.actor.system.backgroundUuid
       ? await fromUuid(this.actor.system.backgroundUuid)
       : null;
@@ -4305,11 +4372,12 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const options = table?.options ?? [];
     if (!options.length) {
       ui.notifications.warn(game.i18n.localize("CAIRN.RerollQuestionUnavailable"));
-      return;
+      return false;
     }
     const roll = await evaluateFormula(`1d${options.length}`);
     const opt = options[roll.total - 1] ?? options[0];
     await this._applyQuestionOption(idx, table.question ?? "", opt);
+    return true;
   }
 
   /**
@@ -4322,6 +4390,9 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   static async #onPickQuestion(event, target) {
     event.preventDefault();
+    // Same up-front refusal as #onPickBond (review #21) — don't offer a list
+    // whose choice the guarded apply below would drop.
+    if (this._rerolling) return;
     const idx = Number(target.dataset.index);
     if (!canRegenerateContainers(this.actor, `question:${idx}`)) return;
     const bg = this.actor.system.backgroundUuid

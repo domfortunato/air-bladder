@@ -60,6 +60,16 @@ const flattenKeys = (o, prefix = "") =>
   Object.entries(o).flatMap(([k, v]) =>
     v && typeof v === "object" ? flattenKeys(v, `${prefix}${k}.`) : [`${prefix}${k}`]);
 
+const flattenEntries = (o, prefix = "") =>
+  Object.entries(o).flatMap(([k, v]) =>
+    v && typeof v === "object" ? flattenEntries(v, `${prefix}${k}.`) : [[`${prefix}${k}`, v]]);
+
+/** en key → en value, for checks that care what a key SAYS, not just that it
+ *  exists (the bare-key data-tooltip exemption below). Built here, next to its
+ *  sibling, so the two can never parse different files. */
+const EN_VALUES = new Map(flattenEntries(
+  JSON.parse(fs.readFileSync(path.join(ROOT, "lang/en.json"), "utf8"))));
+
 const JS_FILES = walk(path.join(ROOT, "module"), /\.js$/);
 const TPL_FILES = walk(path.join(ROOT, "templates"), /\.(html|hbs)$/);
 
@@ -264,7 +274,23 @@ const scanTemplates = () => {
           // ONLY data-tooltip — the same key in title= renders raw. A typo'd
           // key is still caught: collectKeys reads it as a reference and the
           // `missing` check reports any key en.json lacks.
-          if (a === "data-tooltip" && /^CAIRN\.[\w.]+$/.test(v)) continue;
+          if (a === "data-tooltip" && /^CAIRN\.[\w.]+$/.test(v)) {
+            // The exemption holds only for a PARAMETER-FREE key (review #21):
+            // TooltipManager localizes with NO format data, and localize
+            // without data returns the string verbatim (localization.mjs:444),
+            // so a {placeholder} in the en value would hover as literal braces
+            // while every gate stayed green — the probes assert the ATTRIBUTE,
+            // never the rendered tooltip. A key en.json lacks stays exempt
+            // here; the `missing` check owns that failure.
+            const enVal = EN_VALUES.get(v);
+            if (typeof enVal === "string" && enVal.includes("{")) {
+              hits.push({
+                site: `${rel(f)}:${lineOf(src, t.start)}`,
+                what: `data-tooltip="${v}" — its en value carries {…}, which a bare-key tooltip renders literally`,
+              });
+            }
+            continue;
+          }
           hits.push({ site: `${rel(f)}:${lineOf(src, t.start)}`, what: `${a}="${v}"` });
         }
       }

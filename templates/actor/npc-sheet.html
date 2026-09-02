@@ -37,8 +37,10 @@
             {{#if generationEnabled}}
             {{!-- Creation dice and pickers ride data-tooltip (bare i18n KEY,
                   core-styled) since 2026-09-01 — one look with the character
-                  sheet's. Non-creation titles stay native. --}}
-            <a class="portrait-roll" data-action="rollPortrait" data-tooltip="CAIRN.RollPortrait"><i class="fas fa-dice-d20"></i></a>
+                  sheet's. Non-creation titles stay native. aria-label rides
+                  beside every one (review #21): localized TEXT, since core
+                  never localizes aria-label. --}}
+            <a class="portrait-roll" data-action="rollPortrait" data-tooltip="CAIRN.RollPortrait" aria-label="{{ localize 'CAIRN.RollPortrait' }}"><i class="fas fa-dice-d20"></i></a>
             {{/if}}
         </div>
         <!-- Name, career/role, optional day rate, then HP + Gold -->
@@ -47,7 +49,7 @@
                 <input class="name-input" type="text" name="name" value="{{nameDisplay}}"
                     placeholder="{{ localize 'CAIRN.Name' }}" />
                 {{#if generationEnabled}}
-                <a class="name-roll" data-action="rollName" data-tooltip="CAIRN.RollName"><i class="fas fa-dice-d20"></i></a>
+                <a class="name-roll" data-action="rollName" data-tooltip="CAIRN.RollName" aria-label="{{ localize 'CAIRN.RollName' }}"><i class="fas fa-dice-d20"></i></a>
                 {{/if}}
             </div>
             {{!-- What this actor IS to the party — the one discriminator that
@@ -81,7 +83,7 @@
                 <input class="profession-input" type="text" name="system.profession"
                     value="{{professionDisplay}}" placeholder="{{ localize 'CAIRN.Career' }}" />
                 {{#if generationEnabled}}
-                <a class="profession-roll" data-action="rollProfession" data-tooltip="CAIRN.RollProfession"><i class="fas fa-dice-d20"></i></a>
+                <a class="profession-roll" data-action="rollProfession" data-tooltip="CAIRN.RollProfession" aria-label="{{ localize 'CAIRN.RollProfession' }}"><i class="fas fa-dice-d20"></i></a>
                 {{/if}}
                 {{!-- The picker rides the SAME toggle as the die (2026-08-21
                       pm, user ask, reversing that morning's survive-the-toggle
@@ -89,7 +91,7 @@
                       to person roles, here and at the Background and Faction
                       rows below. Warden-only via its _mayRandomize term. --}}
                 {{#if canPickGeneration}}
-                <a class="profession-roll profession-pick" data-action="pickProfession" data-tooltip="CAIRN.PickCareer"><i class="fas fa-list-ul"></i></a>
+                <a class="profession-roll profession-pick" data-action="pickProfession" data-tooltip="CAIRN.PickCareer" aria-label="{{ localize 'CAIRN.PickCareer' }}"><i class="fas fa-list-ul"></i></a>
                 {{/if}}
                 {{/if}}
                 {{!-- The NPC role's answer to the same question (2026-08-20).
@@ -111,10 +113,10 @@
                 <input class="profession-input" type="text" name="system.background"
                     value="{{backgroundDisplay}}" placeholder="{{ localize 'CAIRN.Background' }}" />
                 {{#if generationEnabled}}
-                <a class="profession-roll" data-action="rollProfession" data-tooltip="CAIRN.RollBackground"><i class="fas fa-dice-d20"></i></a>
+                <a class="profession-roll" data-action="rollProfession" data-tooltip="CAIRN.RollBackground" aria-label="{{ localize 'CAIRN.RollBackground' }}"><i class="fas fa-dice-d20"></i></a>
                 {{/if}}
                 {{#if canPickGeneration}}
-                <a class="profession-roll profession-pick" data-action="pickProfession" data-tooltip="CAIRN.PickBackground"><i class="fas fa-list-ul"></i></a>
+                <a class="profession-roll profession-pick" data-action="pickProfession" data-tooltip="CAIRN.PickBackground" aria-label="{{ localize 'CAIRN.PickBackground' }}"><i class="fas fa-list-ul"></i></a>
                 {{/if}}
                 {{/if}}
                 {{!-- The KIND, labelled "Type" (a label only — the field stays
@@ -164,10 +166,10 @@
                 <input class="profession-input" type="text" name="system.faction"
                     value="{{system.faction}}" />
                 {{#if generationEnabled}}
-                <a class="profession-roll" data-action="rollFaction" data-tooltip="CAIRN.RollFaction"><i class="fas fa-dice-d20"></i></a>
+                <a class="profession-roll" data-action="rollFaction" data-tooltip="CAIRN.RollFaction" aria-label="{{ localize 'CAIRN.RollFaction' }}"><i class="fas fa-dice-d20"></i></a>
                 {{/if}}
                 {{#if canPickGeneration}}
-                <a class="profession-roll profession-pick" data-action="pickFaction" data-tooltip="CAIRN.PickFaction"><i class="fas fa-list-ul"></i></a>
+                <a class="profession-roll profession-pick" data-action="pickFaction" data-tooltip="CAIRN.PickFaction" aria-label="{{ localize 'CAIRN.PickFaction' }}"><i class="fas fa-list-ul"></i></a>
                 {{/if}}
             </div>
             {{/if}}
