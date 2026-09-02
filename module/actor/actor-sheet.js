@@ -1166,6 +1166,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         // ...and never for a player while the Warden's switch is off — the
         // whole surface goes, not just the title-bar toggle (ruled 2026-08-09).
         && this._mayRandomize();
+      // The save-die lock is NARROWER than the mode (2026-09-02, user ruling,
+      // review #21 finding 10): npc and hireling lock like a character, a
+      // MONSTER's save dice stay live — its statline belongs to the tier
+      // picker, not to per-field creation dice, and the mode must read the
+      // same across the npc types. The 2026-09-01 ruling named the person
+      // sheets; GENERATING_ROLES feeding the template gate was the accident.
+      context.saveRollOff = context.generationEnabled
+        && PERSON_ROLES.includes(this.actor.npcRole);
       this._computeStatContext(context);
       // The pickers ride the SAME Randomization toggle as the dice (2026-08-21
       // pm, user ask — REVERSING that morning's ruling, which kept them
@@ -1546,6 +1554,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // 2026-08-09). The Warden's own render is unaffected.
     context.generationEnabled = this.actor.system.generationEnabled !== false
       && this._mayRandomize();
+    // A character is always a person, so its save-die lock IS the mode —
+    // the narrowing lives on the npc sheet, where the monster role keeps
+    // live save dice (2026-09-02 ruling, review #21 finding 10).
+    context.saveRollOff = context.generationEnabled;
 
     // While the mode is On, the HP and Gold labels also say where their
     // numbers came from (2026-09-01, user's wording — ONE terse shared key,
@@ -1650,12 +1662,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     context.criticalActive = { STR: strCritical };
 
     const L = (k) => game.i18n.localize(k);
-    // While Character Creation Mode is On the save dice are inert (the
-    // template drops their data-action — see the ability anchors in both
-    // sheet templates), so all three tips say how to get the roll back
-    // instead of what the save is for (2026-09-01, user's wording). Relies on
-    // the callers computing context.generationEnabled FIRST.
-    context.abilityTips = context.generationEnabled
+    // While the save dice are locked (the template drops their data-action —
+    // see the ability anchors in both sheet templates), all three tips say
+    // how to get the roll back instead of what the save is for (2026-09-01,
+    // user's wording). saveRollOff, not generationEnabled: a monster keeps
+    // live save dice under the mode (2026-09-02 ruling), so its tips stay
+    // the saves' own. Relies on the callers computing context.saveRollOff
+    // FIRST.
+    context.abilityTips = context.saveRollOff
       ? { STR: L("CAIRN.SaveRollOffTip"), DEX: L("CAIRN.SaveRollOffTip"), WIL: L("CAIRN.SaveRollOffTip") }
       : { STR: L("CAIRN.StrTip"), DEX: L("CAIRN.DexTip"), WIL: L("CAIRN.WilTip") };
     // The current/max boxes say WHICH side is which, per stat (2026-09-01,

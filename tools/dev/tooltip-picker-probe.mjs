@@ -297,6 +297,28 @@ try {
       out.aria.npc = bareAnchors(nRoot);
       await nSheet.close();
 
+      // ---- 3c. A MONSTER's save dice stay LIVE under the mode -------------
+      // 2026-09-02 user ruling (review #21 finding 10): the save-die lock is
+      // the PERSON roles' — a monster's statline belongs to the tier picker,
+      // not to per-field creation dice, so Creation Mode must not deaden its
+      // saves. The lock rides context.saveRollOff, generationEnabled narrowed
+      // to PERSON_ROLES on the npc sheet.
+      const mon = track(await Actor.create({
+        name: "PROBE Tooltip Monster", type: "npc", system: { role: "monster" },
+      }));
+      await mon.update({ "system.generationEnabled": true });
+      const mSheet = mon.sheet;
+      await mSheet.render(true);
+      await wait(800);
+      const mRoot = mSheet.element instanceof HTMLElement ? mSheet.element : mSheet.element?.[0];
+      const mStr = mRoot?.querySelector(".STR-counter a.resource-roll");
+      out.monsterSavesOn = {
+        action: mStr?.dataset.action ?? "",
+        noOffClass: !!mStr && !mStr.classList.contains("save-roll-off"),
+        tip: mStr?.dataset.tooltip ?? "",
+      };
+      await mSheet.close();
+
       return out;
     } catch (e) {
       return { error: `${e.name}: ${e.message}\n${e.stack}` };
@@ -374,6 +396,14 @@ try {
     N.noAction && N.offClass && N.tip === "Turn off Character Creation Mode to roll saves."
       ? ok("the npc sheet's save dice take the same gate")
       : fail(`npc mode-On STR die: ${JSON.stringify(N)}`);
+    // The lock is the PERSON roles' (2026-09-02 ruling, review #21 finding
+    // 10): a monster's save dice roll even with the mode on, wearing the
+    // normal save tip rather than the turn-the-mode-off one.
+    const MS = r.monsterSavesOn ?? {};
+    MS.action === "rollAbility" && MS.noOffClass
+      && MS.tip.startsWith("Used for saves requiring physical power")
+      ? ok("…while a MONSTER's save dice stay live under the mode")
+      : fail(`monster mode-On STR die: ${JSON.stringify(MS)}`);
 
     const B = r.boxes ?? {};
     B.hpCurrent === "Current Hit Protection" && B.hpCurrentNoTitle

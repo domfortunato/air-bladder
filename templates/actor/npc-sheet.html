@@ -294,8 +294,12 @@
                 {{!-- Inert while Character Creation Mode is On, exactly like
                       the character sheet's copy of this anchor — see the note
                       there (2026-09-01, user ruling: npc and hireling sheets
-                      behave the same way). --}}
-                {{#if ../generationEnabled}}
+                      behave the same way). saveRollOff is that ruling's exact
+                      scope: generationEnabled narrowed to the PERSON roles,
+                      so a MONSTER's save dice stay live under the mode
+                      (2026-09-02 ruling, review #21 finding 10 — its statline
+                      belongs to the tier picker, not per-field dice). --}}
+                {{#if ../saveRollOff}}
                 <a class="resource-roll save-roll-off" data-tooltip="{{ lookup ../abilityTips key }}"><i class="fas fa-dice-d20 roll-icon"></i> {{ localize key }}</a>
                 {{else}}
                 <a class="resource-roll" data-action="rollAbility" data-ability="{{key}}" data-roll="d20cs<=@abilities.{{key}}.value"

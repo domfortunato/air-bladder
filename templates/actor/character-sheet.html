@@ -109,8 +109,11 @@
                       the tooltip (abilityTips, swapped to "turn the mode off")
                       can say why. NEVER pointer-events:none — it kills the
                       pointerenter TooltipManager needs (the disabled-Rest
-                      precedent below). --}}
-                {{#if ../generationEnabled}}
+                      precedent below). saveRollOff, not generationEnabled:
+                      on a character they are the same, but the npc sheet
+                      narrows the lock past the monster role (2026-09-02
+                      ruling) and the two anchors must read one flag. --}}
+                {{#if ../saveRollOff}}
                 <a class="resource-roll save-roll-off" data-tooltip="{{ lookup ../abilityTips key }}"><i class="fas fa-dice-d20 roll-icon"></i> {{ localize key }}</a>
                 {{else}}
                 <a class="resource-roll" data-action="rollAbility" data-ability="{{key}}" data-roll="d20cs<=@abilities.{{key}}.value"
