@@ -999,6 +999,13 @@ Hooks.once("init", () => {
           // client, so leaving it to default would head every character a player
           // rolled with the Warden's name instead.
           roller: user,
+          // No sheet opens on THIS client, so a dice wait here buys nothing and
+          // only delays the answer — before 2026-09-02 the Warden's client sat
+          // out its own full animation before emitting, and the player then
+          // waited out theirs: the animation paid twice, in series, on a click
+          // whose actual generation takes about a second. The player's client
+          // gives the dice their two seconds (the pcGenerated handler below).
+          waitForDice: false,
         });
         // A null actor is a real outcome (the Warden dismissed the
         // content-source picker); answer anyway, or the player's "rolling
@@ -1043,10 +1050,11 @@ Hooks.once("init", () => {
       for (let i = 0; i < 20; i++) {
         const actor = await fromUuid(msg.uuid);
         if (actor) {
-          // Let the dice land before the sheet covers them — the same rule the
-          // local paths get from postGenerationRolls, except that here the card
-          // was posted by the WARDEN's client and this one only received the
-          // broadcast, so there is no message id to hand over: find it by actor.
+          // Give the dice their two seconds before the sheet covers them — the
+          // same glimpse the local paths get from postGenerationRolls, except
+          // that here the card was posted by the WARDEN's client and this one
+          // only received the broadcast, so there is no message id to hand
+          // over: find it by actor.
           // Poll briefly, because the custom emit can outrun the chat broadcast
           // exactly as it can outrun the actor's (that is why this loop exists).
           for (let j = 0; j < 10; j++) {

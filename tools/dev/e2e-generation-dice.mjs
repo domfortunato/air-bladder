@@ -254,18 +254,24 @@ try {
     ? ok("name / portrait / background re-rolls posted nothing to chat")
     : fail(`field re-rolls posted ${r.legs.fieldRerolls.length} message(s) [${r.legs.fieldRerolls.map((m) => m.id).join(", ")}]`);
 
-  // ---- Leg 6: the dice land BEFORE the sheet opens -------------------------
+  // ---- Leg 6: two seconds of dice, then the sheet --------------------------
   // ChatMessage.create resolves when the document saves; Dice So Nice keeps
-  // animating for seconds after that. So opening the new character's sheet on
-  // that resolution put the sheet over the dice — the roll was spoiled by its
-  // own result. Ordering is the whole assertion: the last
-  // `diceSoNiceRollComplete` must precede the sheet's render.
+  // animating for seconds after that, so opening the sheet on that resolution
+  // spoiled the roll. The FIRST fix waited the whole animation out — and a
+  // five-roll DSN throw runs ~8s against a ~1.2s generation, which read as
+  // the system hanging. RULED 2026-09-02: the sheet MAY cover dice still in
+  // the air, just not immediately — a 2-second glimpse between the card
+  // landing and the sheet. awaitDiceAnimation now races DSN's completion
+  // against that cap, so this leg asserts the glimpse from both sides: the
+  // sheet holds off ~2s after the card, AND no longer waits the animation
+  // out (which is the red witness against the old wait-it-all-out build).
   //
-  // The control is what makes this leg mean anything, and it is IN-PAGE: stub
-  // DSN's own waitFor3DAnimationByMessageID to resolve immediately. That is
-  // precisely the pre-fix world — dice still animate, nobody waits for them —
-  // without editing a line of system source. If the order does NOT invert under
-  // it, the ordering check above is measuring nothing.
+  // The control is what makes the lower bound mean anything, and it is
+  // IN-PAGE: stub DSN's waitFor3DAnimationByMessageID to resolve immediately
+  // and the glimpse must COLLAPSE relative to the fixed run — proving the ~2s
+  // comes from the wait, not from generation or the render being slow (the
+  // render cost rides inside BOTH measurements, which is why the assertion
+  // is a difference, not an absolute).
   const order = await page.evaluate(async () => {
     if (typeof game.dice3d?.waitFor3DAnimationByMessageID !== "function") return { skipped: true };
     const gen = await import("/systems/air-bladder/module/character-generator.js");
@@ -274,15 +280,17 @@ try {
 
     // This leg runs OUTSIDE withSettings, so state its own preconditions rather
     // than inheriting whatever the previous block restored to: no card means no
-    // dice, and the ordering would be unobservable in a way that reads as green.
+    // dice, and the glimpse would be unobservable in a way that reads as green.
     const NS = "air-bladder";
     const wasShowing = game.settings.get(NS, "show-generation-rolls");
     if (!wasShowing) await game.settings.set(NS, "show-generation-rolls", true);
 
     const run = async () => {
-      const marks = [];
-      const onDice = () => marks.push({ what: "dice", t: performance.now() });
-      const onSheet = () => marks.push({ what: "sheet", t: performance.now() });
+      const marks = { card: null, sheet: null, diceLast: null };
+      const onCard = (m) => { if ((m.rolls?.length ?? 0) >= 5 && marks.card == null) marks.card = performance.now(); };
+      const onDice = () => { marks.diceLast = performance.now(); };
+      const onSheet = () => { if (marks.sheet == null) marks.sheet = performance.now(); };
+      Hooks.on("createChatMessage", onCard);
       Hooks.on("diceSoNiceRollComplete", onDice);
       Hooks.on("renderCairnActorSheet", onSheet);
       const before = new Set(game.messages.map((m) => m.id));
@@ -290,14 +298,23 @@ try {
       // content source and this evaluate waits on a modal nobody will answer.
       const actor = await gen.createCharacter({ source: "2e" });
       if (actor) { track.actors.push(actor.id); actor.sheet?.render(true); }
-      await sleep(1500);
+      // The animation now OUTLIVES the sheet, so listen it out rather than
+      // sleeping the fixed beat the old full wait used to cover.
+      const t0 = Date.now();
+      while (Date.now() - t0 < 15000 && !(marks.diceLast && marks.sheet)) await sleep(200);
+      await sleep(800); // let a trailing rollComplete land
+      Hooks.off("createChatMessage", onCard);
       Hooks.off("diceSoNiceRollComplete", onDice);
       Hooks.off("renderCairnActorSheet", onSheet);
       for (const m of game.messages) if (!before.has(m.id)) track.messages.push(m.id);
       await actor?.sheet?.close();
-      const dice = marks.filter((m) => m.what === "dice").pop();
-      const sheet = marks.filter((m) => m.what === "sheet").shift();
-      return { sawDice: !!dice, sawSheet: !!sheet, diceFirst: !!(dice && sheet && dice.t <= sheet.t) };
+      return {
+        sawCard: marks.card != null,
+        sawDice: marks.diceLast != null,
+        sawSheet: marks.sheet != null,
+        glimpseMs: marks.card != null && marks.sheet != null ? Math.round(marks.sheet - marks.card) : null,
+        sheetBeforeDiceEnd: !!(marks.sheet && marks.diceLast && marks.sheet < marks.diceLast),
+      };
     };
 
     const fixed = await run();
@@ -311,16 +328,19 @@ try {
   });
 
   if (order.skipped) {
-    fail("dice-before-sheet NOT CHECKED: Dice So Nice is not active in this world, so the ordering this leg exists for cannot be observed");
-  } else if (!order.fixed.sawDice || !order.fixed.sawSheet) {
-    fail(`dice-before-sheet: never observed both events (dice=${order.fixed.sawDice} sheet=${order.fixed.sawSheet}) — the leg proves nothing`);
+    fail("the dice glimpse NOT CHECKED: Dice So Nice is not active in this world, so the timing this leg exists for cannot be observed");
+  } else if (!order.fixed.sawCard || !order.fixed.sawDice || !order.fixed.sawSheet) {
+    fail(`the dice glimpse: never observed all three events (card=${order.fixed.sawCard} dice=${order.fixed.sawDice} sheet=${order.fixed.sawSheet}) — the leg proves nothing`);
   } else {
-    order.fixed.diceFirst
-      ? ok("the dice finish animating before the generated sheet opens")
-      : fail("the sheet opened while the dice were still in the air");
-    order.control.diceFirst === false
-      ? ok("control: stubbing DSN's wait puts the sheet back in front of the dice")
-      : fail("control: the order did NOT invert with the wait defeated — the leg above is not measuring the wait");
+    order.fixed.glimpseMs >= 1800
+      ? ok(`the sheet holds off ~2s after the card (${order.fixed.glimpseMs}ms)`)
+      : fail(`the sheet opened ${order.fixed.glimpseMs}ms after the card — the 2s dice glimpse is gone`);
+    order.fixed.glimpseMs <= 5000 && order.fixed.sheetBeforeDiceEnd
+      ? ok("and no longer waits the animation out", `sheet at ${order.fixed.glimpseMs}ms with the dice still rolling`)
+      : fail(`the sheet is still gated on the full animation (glimpse ${order.fixed.glimpseMs}ms, sheetBeforeDiceEnd=${order.fixed.sheetBeforeDiceEnd})`);
+    order.control.glimpseMs != null && order.fixed.glimpseMs - order.control.glimpseMs >= 1200
+      ? ok(`control: defeating the wait collapses the glimpse (${order.fixed.glimpseMs}ms -> ${order.control.glimpseMs}ms)`)
+      : fail(`control: the glimpse did NOT collapse with the wait defeated (${order.fixed.glimpseMs}ms -> ${order.control.glimpseMs}ms) — the lower bound above is not measuring the wait`);
   }
 } catch (e) {
   fail(`${e.name}: ${e.message}`);

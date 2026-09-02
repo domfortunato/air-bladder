@@ -3190,33 +3190,36 @@ export const postGenerationRolls = async (actor, characterData, roller = null, {
 };
 
 /**
- * Hold until Dice So Nice has finished throwing a message's dice.
+ * Give the dice their moment before the sheet covers them — TWO SECONDS, not
+ * the whole animation.
  *
- * The point is ORDERING, not decoration: `ChatMessage.create` resolves as soon as
- * the document is saved, but DSN animates for seconds afterwards, so a caller
- * that opened the new character's sheet on that resolution put the sheet on
- * screen while the dice were still in the air — the sheet spoiled its own roll.
- * Waiting here rather than at each render site fixes all three of them at once
- * (the Create Actor dialog, the directory button, and the player relay).
+ * `ChatMessage.create` resolves as soon as the document is saved, but DSN
+ * animates for seconds afterwards, so a caller that opened the new character's
+ * sheet on that resolution put the sheet on screen while the dice were still
+ * in the air — the sheet spoiled its own roll. The FIRST fix waited the whole
+ * animation out, and a five-roll DSN throw runs ~5-8s against a ~1.2s
+ * generation, which read as the system hanging. RULED 2026-09-02: the sheet
+ * MAY cover dice still rolling, just not immediately — two seconds of dice,
+ * then the sheet. So this races DSN's completion against the cap and resolves
+ * on whichever lands first. Waiting here rather than at each render site
+ * covers all three sheet-openers at once (the Create Actor dialog, the
+ * directory button, and the player relay).
  *
  * Safe with no DSN and safe with DSN configured away: `game.dice3d` is undefined
  * unless the module is active, and DSN's own API resolves immediately when its
  * visibility is "none", when `immediatelyDisplayChatMessages` is set, or when the
- * message is not animating (main.js, waitFor3DAnimationByMessageID). So the delay
- * happens exactly when there is an animation to wait for and never otherwise —
- * which is why this needs no setting of its own.
- *
- * The timeout is the part that earns its keep. DSN resolves on its
- * `diceSoNiceRollComplete` hook, and a hook that never fires (a failed throw, a
- * module error) would otherwise hang character generation forever with no error
- * anywhere. A cap turns the worst case back into today's behaviour.
+ * message is not animating (main.js, waitFor3DAnimationByMessageID). So the
+ * glimpse costs exactly nothing when there is nothing to glimpse — which is why
+ * this needs no setting of its own. The race also keeps the old hang-guard for
+ * free: a DSN hook that never fires (a failed throw, a module error) can hold
+ * generation for the cap and no longer.
  *
  * @param {string|null|undefined} messageId
  * @param {Object} [options]
- * @param {number} [options.timeoutMs=20000]
+ * @param {number} [options.timeoutMs=2000]  the glimpse, and the ceiling
  * @returns {Promise<boolean>}  true if the animation actually completed
  */
-export const awaitDiceAnimation = async (messageId, { timeoutMs = 20000 } = {}) => {
+export const awaitDiceAnimation = async (messageId, { timeoutMs = 2000 } = {}) => {
   if (!messageId || typeof game.dice3d?.waitFor3DAnimationByMessageID !== "function") return false;
   let timer = null;
   try {
@@ -3255,12 +3258,15 @@ export const findGenerationRollMessage = (actor) => {
  * @param {User|null} [options.roller]  who asked for this character. Only the
  *   generatePC relay passes it: there, this runs on the Warden's client for a
  *   player, and the chat card must credit the player, not whoever executed it.
+ * @param {boolean} [options.waitForDice=true]  the relay broker passes false —
+ *   no sheet opens on the answering client, so a dice wait there only delays
+ *   the pcGenerated answer; the player's client owns the glimpse.
  * @returns {Promise<CairnActor|null>}
  */
-export const createCharacter = async ({ folder = null, ownership = null, source = null, roller = null } = {}) => {
+export const createCharacter = async ({ folder = null, ownership = null, source = null, roller = null, waitForDice = true } = {}) => {
   const characterData = await generateCharacter(null, source);
   const actor = await createActorWithCharacter(characterData, { folder, ownership });
-  await postGenerationRolls(actor, characterData, roller);
+  await postGenerationRolls(actor, characterData, roller, { waitForDice });
   return actor;
 };
 
