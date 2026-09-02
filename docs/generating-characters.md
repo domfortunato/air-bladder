@@ -37,8 +37,8 @@ summary the Warden would; if their account cannot create actors, the Warden's
 client quietly does it for them and hands them the finished sheet, stamped as
 theirs. Both routes run through the Warden's client for a player who can't
 create actors themselves, so a Warden must be logged in — with no Warden
-connected, the buttons refuse with a message rather than leaving the player
-waiting. The Warden sees a notification either way — a player import arrives
+connected the buttons grey out (hovering says why), and they wake on their
+own the moment a Warden arrives. The Warden sees a notification either way — a player import arrives
 with whatever the file says, so it is never invisible.
 
 ## Make it yours: Character Creation Mode

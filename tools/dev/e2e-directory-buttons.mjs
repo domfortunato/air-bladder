@@ -538,6 +538,86 @@ try {
         "Generate PC + Import from Kettlewright")
       : fail("without ACTOR_CREATE she sees exactly the two relay-backed buttons", JSON.stringify(bare));
 
+    /* --- 5b. the offer greys without a Warden (2026-09-02) --------------- */
+    // The click-time refusals (section 6's guard leg) predate this; what was
+    // missing was the OFFER — a bare player's directory rendered both relay
+    // buttons live while no Warden was online, so the click failed where the
+    // row could have said so. Greying is the affordance, the refusal is the
+    // enforcement (the marketplace rule). Proven IN-PAGE: activeGM is a
+    // prototype getter, so an instance property shadows it on Alice's client
+    // alone and a delete restores it — no real GM logs out, because a live
+    // Warden session beside the probe would confound a real-disconnect leg.
+    console.log("\nthe offer greys without a Warden, as bare Alice");
+    const grey = await alicePage.evaluate(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const read = () => {
+        const btns = [...(document.getElementById("actors")?.querySelectorAll(".character-generator button") ?? [])];
+        return { count: btns.length, disabled: btns.map((b) => b.disabled), tips: btns.map((b) => b.dataset.tooltip ?? null) };
+      };
+      const out = { keyKnown: game.i18n.has("CAIRN.WardenRequired") };
+      Object.defineProperty(game.users, "activeGM", { get: () => null, configurable: true });
+      await ui.actors.render(true);
+      await sleep(500);
+      out.without = read();
+      // The liveness hook, driven at the seam core itself fires on any user's
+      // active flip (users.mjs:137). A render counter makes the scoping
+      // observable: a player's flip must re-render nothing, a GM's must
+      // re-render the row. Quiet-world caveat as in the relay legs — a live
+      // session re-rendering the directory inside this window is the standing
+      // confound, not a regression.
+      let renders = 0;
+      const proto = Object.getPrototypeOf(ui.actors);
+      const orig = proto.render;
+      ui.actors.render = function (...a) { renders += 1; return orig.apply(this, a); };
+      const gmUser = game.users.find((u) => u.isGM);
+      const playerUser = game.users.find((u) => !u.isGM);
+      Hooks.callAll("userConnected", playerUser, true);
+      await sleep(400);
+      out.playerFlipRenders = renders;
+      delete game.users.activeGM; // the Warden "returns"
+      Hooks.callAll("userConnected", gmUser, true);
+      await sleep(800);
+      out.gmFlipRenders = renders;
+      delete ui.actors.render; // restore the prototype lookup, not a copy
+      out.after = read();
+      out.restored = !!game.users.activeGM && ui.actors.render === orig;
+      return out;
+    });
+    grey.keyKnown
+      ? ok("the tooltip key exists", "CAIRN.WardenRequired")
+      : fail("CAIRN.WardenRequired is missing from lang/en.json — the tooltip would show the raw key");
+    grey.without.count === 2 && grey.without.disabled.every(Boolean)
+      && grey.without.tips.every((t) => t === "CAIRN.WardenRequired")
+      ? ok("with no Warden online both buttons render disabled, tooltip'd", "the greying is the affordance")
+      : fail("with no Warden online both buttons render disabled", JSON.stringify(grey.without));
+    grey.playerFlipRenders === 0
+      ? ok("a player's connect re-renders nothing", "the hook is scoped to GM flips")
+      : fail("a player's connect re-rendered the directory", `${grey.playerFlipRenders} render(s)`);
+    grey.gmFlipRenders >= 1 && grey.after.count === 2 && grey.after.disabled.every((d) => !d)
+      && grey.after.tips.every((t) => t === null)
+      ? ok("the Warden's arrival re-renders the row live", "buttons enabled, tooltips gone")
+      : fail("the Warden's arrival re-renders the row live", JSON.stringify({ renders: grey.gmFlipRenders, after: grey.after }));
+    grey.restored
+      ? ok("the shadows are off again", "the relay legs below are real")
+      : fail("a shadow did not restore — the relay legs below are suspect");
+
+    // The other half of the scoping: a client that HOLDS ACTOR_CREATE runs
+    // its imports and generation locally, so a GM flip must re-render nothing
+    // there — asserted on the probe's own Warden page.
+    const gmScope = await page.evaluate(async () => {
+      let renders = 0;
+      const proto = Object.getPrototypeOf(ui.actors);
+      const orig = proto.render;
+      ui.actors.render = function (...a) { renders += 1; return orig.apply(this, a); };
+      Hooks.callAll("userConnected", game.users.find((u) => u.isGM), true);
+      await new Promise((r) => setTimeout(r, 400));
+      delete ui.actors.render;
+      return { renders, restored: ui.actors.render === orig };
+    });
+    gmScope.renders === 0 && gmScope.restored
+      ? ok("an ACTOR_CREATE client ignores the flip entirely")
+      : fail("an ACTOR_CREATE client ignores the flip entirely", JSON.stringify(gmScope));
+
     /* --- 6. the generatePC relay, as bare Alice ------------------------- */
     console.log("\nthe generatePC relay, as bare Alice");
 

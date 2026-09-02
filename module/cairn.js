@@ -2594,6 +2594,21 @@ Hooks.on("renderActorDirectory", (app, html) => {
     section
       .querySelector(".import-kettlewright-button")
       .addEventListener("click", () => importKettlewrightCharacter());
+    // The OFFER tells the relay's truth: both buttons need an active Warden's
+    // client to answer, and rendering them live while none is online sells a
+    // click that can only refuse. Marketplace rule — the greying is the
+    // affordance, the refusal is the enforcement: the click-time guards in
+    // requestPcGeneration and importKettlewrightCharacter stay, for the
+    // rendered-then-the-Warden-drops race. A bare KEY in data-tooltip (core's
+    // TooltipManager localizes it at hover, and disabled controls still get
+    // pointerenter); the userConnected hook below re-renders this row the
+    // moment the answer changes, so the greying is live, not a snapshot.
+    if (!game.users.activeGM) {
+      for (const b of section.querySelectorAll("button")) {
+        b.disabled = true;
+        b.dataset.tooltip = "CAIRN.WardenRequired";
+      }
+    }
   }
   const actors = html.querySelectorAll('.actor');
   actors.forEach((a) => {
@@ -2615,6 +2630,37 @@ Hooks.on("renderActorDirectory", (app, html) => {
     const containerLine = actor.isThing || actor.npcRole === "companion";
     a.classList.toggle('cairn-grayscale-portrait', containerLine);
   });
+});
+
+/**
+ * Keep the bare player's greyed generator row honest LIVE. The hook above
+ * disables Generate PC / Import from Kettlewright while no Warden is online,
+ * and a directory rendered in that state would otherwise hold it until the
+ * player refreshed — worse than the click-time toast it replaced. Core fires
+ * `userConnected` on every client whenever any user's active flag flips,
+ * either direction (users.mjs:131-137), which is exactly and only when
+ * `activeGM` can change, so a re-render here makes the buttons wake the
+ * moment the Warden arrives and grey again when they leave.
+ *
+ * Scoped twice, because the event fires for EVERY user's connect and
+ * disconnect: only a GM's flip can change activeGM, and only a client
+ * without ACTOR_CREATE renders the relay variant at all (a Warden's or
+ * trusted player's buttons run locally and never depend on another GM being
+ * online — and their directory hook does real per-row work each render).
+ * After both gates the extra render happens only when a Warden actually
+ * arrives or leaves, on the clients whose row is wrong without it. The
+ * re-render itself is safe to repeat: core's directory preserves the typed
+ * search query and scroll across renders (document-directory.mjs:455-466),
+ * and the injection hook rebuilds the row from scratch every pass. Both
+ * instances covered — the popout is an independent application, and a
+ * non-forced render of a closed one is core's own no-op.
+ */
+Hooks.on("userConnected", (user, _connected) => {
+  if (!game.ready || !user.isGM) return;
+  if (game.user.can("ACTOR_CREATE")) return;
+  if (!game.settings.get(SETTINGS_NS, "allow-player-generate")) return;
+  ui.actors.render();
+  ui.actors.popout?.render();
 });
 
 /**
