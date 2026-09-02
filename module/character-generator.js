@@ -5,6 +5,7 @@ import { evaluateFormula, formatCount } from "./utils.js";
 import {
   resolveGearItem, GEAR_ALIASES, spellScrollItem,
   orderGrantedItems, isLightGear, RATIONS_RE,
+  CANONICAL_GEAR_PACKS, SPELL_PACKS,
 } from "./gear.js";
 import { containerClass, iconForTransport } from "./icons.js";
 import { connectionHeadroom, maxConnections, connectedOwnershipShape, OWNERSHIP_SYNC_FLAG } from "./connections.js";
@@ -3251,6 +3252,59 @@ export const findGenerationRollMessage = (actor) => {
     if (m.rolls?.length && m.speaker?.actor === actor.id) return m;
   }
   return null;
+};
+
+/**
+ * Everything the generators read from compendia, named once — the login
+ * pre-warm's shopping list, and dev:playergen reads it from HERE (the
+ * dev:monster-gen rule: a probe-side copy is a list that goes stale).
+ *
+ * `documents` are the packs generation loads WHOLE (`getDocuments()` on
+ * every run — deliberately uncached in this module, see resolveBackgrounds).
+ * `indexes` are the gear and spell packs, where resolveGearItem matches on
+ * the pack INDEX and materializes single documents — the index build is the
+ * once-per-session cost worth paying early (gear.js measured it at ~1.8s
+ * cold, 0ms warm). CUSTOM_BG_PACK is a world pack most worlds lack; the
+ * warmer skips what `game.packs.get` cannot find.
+ */
+export const GENERATION_PACKS = Object.freeze({
+  documents: Object.freeze([
+    BG_PACK_FOR["2e"],
+    BG_PACK_FOR.barebones,
+    SHIPPED_CUSTOM_BG_PACK,
+    CUSTOM_BG_PACK,
+    "air-bladder.tables-2e",
+    BAREBONES_TABLE_PACK,
+    "air-bladder.mounts-transports",
+  ]),
+  indexes: Object.freeze([...new Set([...CANONICAL_GEAR_PACKS, ...SPELL_PACKS, ...GLOG_SPELL_PACKS])]),
+});
+
+/**
+ * Run the reads generation runs, before anybody asks (user ask 2026-09-02).
+ *
+ * A client's FIRST generation of a session paid the whole cold start —
+ * measured ~6s against ~1.2s warm — and on the relay that client is the
+ * Warden's, so the first player to click Generate PC ate it. cairn.js fires
+ * this from ready on GM clients, a few seconds late so login rendering is
+ * not competing with it. Serial on purpose: one query in flight at a time is
+ * a background hum, seven at once is a login stutter. Failures warn and move
+ * on — a broken pack must not take the warm-up for the other six with it,
+ * and generation itself copes with an absent pack already.
+ */
+export const prewarmGenerationPacks = async () => {
+  const t0 = performance.now();
+  for (const key of GENERATION_PACKS.documents) {
+    const pack = game.packs.get(key);
+    if (!pack) continue;
+    try { await pack.getDocuments(); } catch (err) { console.warn(`Air Bladder | pre-warming ${key} failed:`, err); }
+  }
+  for (const key of GENERATION_PACKS.indexes) {
+    const pack = game.packs.get(key);
+    if (!pack) continue;
+    try { await pack.getIndex(); } catch (err) { console.warn(`Air Bladder | pre-warming ${key}'s index failed:`, err); }
+  }
+  console.debug(`Air Bladder | generation packs pre-warmed in ${Math.round(performance.now() - t0)}ms`);
 };
 
 /**

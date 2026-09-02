@@ -3,7 +3,7 @@ import { CairnActor } from "./actor/actor.js";
 import { CairnActorSheet } from "./actor/actor-sheet.js";
 import { CairnItem, FATIGUE_NAME, SPELLSCROLL_NAME } from "./item/item.js";
 import { CairnItemSheet } from "./item/item-sheet.js";
-import { createCharacter, createNpc, createHireling, requestPcGeneration, enabledContentSources, FLAG_SCOPE, awaitDiceAnimation, findGenerationRollMessage, localizeGenerationCard } from "./character-generator.js";
+import { createCharacter, createNpc, createHireling, requestPcGeneration, enabledContentSources, FLAG_SCOPE, awaitDiceAnimation, findGenerationRollMessage, localizeGenerationCard, prewarmGenerationPacks } from "./character-generator.js";
 import * as characterGenerator from "./character-generator.js";
 import { createMonster } from "./monster-generator.js";
 import * as monsterGenerator from "./monster-generator.js";
@@ -104,6 +104,14 @@ Hooks.once("ready", () => {
   // AT READY on purpose: this hook must register AFTER every module's
   // init-time hooks so it runs after them — see registerCombatOrderGuard.
   registerCombatOrderGuard();
+  // Pre-warm the generation packs on the Warden's client (user ask
+  // 2026-09-02): a client's FIRST generation of a session paid ~5s of
+  // compendium loading, and on the relay that client is the Warden's — so
+  // the first player to click Generate PC ate the whole cold start. GM
+  // clients only (they answer the relay, and their own buttons benefit
+  // too); a few seconds late so login rendering is not competing with it;
+  // fire-and-forget, because nothing may wait on a warm-up.
+  if (game.user.isGM) setTimeout(() => { prewarmGenerationPacks(); }, 3000);
   Hooks.on("hotbarDrop", (bar, data, slot) => {
     // A LOCKED bar must not be written to, and this hook is the only thing
     // standing in front of that. Core tests the hook's return value BEFORE its

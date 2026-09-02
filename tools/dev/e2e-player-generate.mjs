@@ -128,6 +128,33 @@ try {
   await joinAsGM(gm);
   await joinAs(alice, "Alice");
 
+  // ---- Leg 0: the Warden's client pre-warms the generation packs ----------
+  // The FIRST generation of a session paid ~5s of compendium loading on the
+  // answering client (measured 2026-09-02: ~6s cold vs ~1.2s warm) — so the
+  // first player who clicked Generate PC ate the whole cold start. A GM
+  // client now runs the same reads generation makes, fire-and-forget shortly
+  // after ready. The list is READ from the module (dev:monster-gen's rule:
+  // a probe-side copy is a list that goes stale), and the poll asserts every
+  // shipped pack on it holds LOADED documents with no generation having run.
+  // Red witness: without the warm nothing loads these and the poll drains.
+  console.log("\n  the Warden's client pre-warms the generation packs");
+  const warm = await gm.evaluate(async () => {
+    const gen = await import("/systems/air-bladder/module/character-generator.js");
+    const ids = gen.GENERATION_PACKS?.documents ?? [];
+    const shipped = ids.filter((k) => game.packs.get(k));
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const cold = () => shipped.filter((k) => game.packs.get(k).size === 0);
+    const t0 = Date.now();
+    while (Date.now() - t0 < 25000 && cold().length) await sleep(500);
+    return { exported: ids.length, shipped: shipped.length, cold: cold() };
+  });
+  warm.exported > 0 && warm.shipped > 0
+    ? ok(`GENERATION_PACKS names ${warm.exported} document packs (${warm.shipped} present in this world)`)
+    : fail(`GENERATION_PACKS is missing or empty (exported=${warm.exported}) — the pre-warm has no list to work from`);
+  warm.shipped > 0 && warm.cold.length === 0
+    ? ok("every one of them is loaded shortly after login, unprompted")
+    : fail(`still cold 25s after ready: ${warm.cold.join(", ") || "(n/a)"} — the pre-warm did not run`);
+
   const t = await alice.evaluate(() => ({
     confirm: game.i18n.localize("CAIRN.GeneratePcConfirmTitle"),
     picker: game.i18n.localize("CAIRN.ContentSourceTitle"),
