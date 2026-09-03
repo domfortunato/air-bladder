@@ -438,12 +438,19 @@ try {
       };
     }, planted);
 
+    // The re-lock is the sweep's LAST write — it lands after the pack book's
+    // rewrite is already readable, so a settle condition of content alone can
+    // wake between the two and read `locked: false` mid-flight (it did, in the
+    // 2026-09-02 release-gate run — the one red in an otherwise green suite).
+    // Settle on the lock too; a sweep that truly never re-locks still fails
+    // here after the full window.
     let state = null, waited = 0;
     for (; waited < 90000; waited += 500) {
       state = await readPlanted();
       const done = [state.world, state.ownedBook, state.ownedScroll, state.tokenBook, state.packBook, state.unique, state.alias]
         .every((s) => s && s.scroll === true)
-        && state.world.desc === pre.glogText;
+        && state.world.desc === pre.glogText
+        && state.packLocked === true;
       if (done) break;
       await page.waitForTimeout(500);
     }

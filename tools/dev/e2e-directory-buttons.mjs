@@ -444,6 +444,17 @@ try {
   console.log("\nthe permission matrix, as Alice");
   const alicePage = await (await browser.newContext({ viewport: VIEWPORT })).newPage();
   const aliceErrors = watchErrors(alicePage);
+  // Name the killer, don't guess it: this probe died once mid-evaluate with
+  // "Execution context was destroyed, most likely because of a navigation"
+  // (2026-09-02 release-gate run) and nothing in the probe's own flow
+  // navigates Alice — no code of ours reloads a page, and core's `reload`
+  // broadcast fires only from SettingsConfig.reloadConfirm's dialog. So log
+  // every top-frame navigation after join and any renderer crash; a repeat
+  // failure then carries its cause instead of a Playwright guess.
+  alicePage.on("framenavigated", (frame) => {
+    if (frame === alicePage.mainFrame()) console.log(`  note  Alice's page navigated: ${frame.url()}`);
+  });
+  alicePage.on("crash", () => console.log("  note  Alice's page CRASHED (renderer died)"));
   const priorPerms = await page.evaluate(() => game.settings.get("core", "permissions"));
   // The player legs need TWO preconditions, and only one of them was ever
   // established. `allow-player-generate` is the Warden's switch for the
