@@ -50,6 +50,10 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 
 *The character sheet — Items, Description, and Background & Notes tabs. Sheets follow your Foundry colour scheme; these are light.*
 
+<img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/sheet-creation-mode.png" alt="Character sheet with Character Creation Mode on" width="320">
+
+*In Character Creation Mode: On, you can roll for a new background, name, background questions, gear, etc., or you can pick specific table entries.*
+
 <img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/sheet-print.png" alt="A printed character sheet — the whole character on one or two pages" width="320">
 
 *Print a clean character sheet — stats, inventory, background, bonds and omen on one or two pages, ready for the table.*

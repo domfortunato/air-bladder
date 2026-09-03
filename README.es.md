@@ -81,6 +81,10 @@ Air Bladder es un sistema complementario amigable, no el sistema oficial de Cair
 
 *La hoja de personaje: pestañas de Equipo, Descripción, y Trasfondo y notas. Las hojas siguen el esquema de color de tu Foundry; estas están en modo claro.*
 
+<img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/sheet-creation-mode.png" alt="Hoja de personaje con la Aleatorización activada" width="320">
+
+*Con el modo «Aleatorización: activada», puedes tirar un nuevo trasfondo, nombre, preguntas de trasfondo, equipo, etc., o elegir entradas concretas de las tablas.*
+
 <img src="https://raw.githubusercontent.com/domfortunato/air-bladder/master/docs/images/sheet-print.png" alt="Una hoja de personaje impresa — el personaje entero en una o dos páginas" width="320">
 
 *Imprime una hoja de personaje limpia: características, inventario, trasfondo, vínculos y augurio en una o dos páginas, lista para la mesa.*
