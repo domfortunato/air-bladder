@@ -3077,8 +3077,11 @@ export const GENERATION_ROLLS_FLAG = "generationRolls";
  */
 export const generationRollsCard = ({ name, hp, str, dex, wil, gold }) => {
   const L = (k) => game.i18n.localize(k);
+  // The whole labelled line through ONE key, spans and colon included — the
+  // damage.js cardLine rule: French wants a space before the colon, and this
+  // card's entire point is rebuilding per viewer in the viewer's language.
   const row = (label, value) =>
-    `<div class="gen-roll-row"><span class="gen-roll-label">${label}:</span> <span class="gen-roll-value">${Number(value)}</span></div>`;
+    `<div class="gen-roll-row">${game.i18n.format("CAIRN.GenerationRollsRow", { label, value: Number(value) })}</div>`;
   const line = game.i18n.format("CAIRN.GenerationRolls", { name: foundry.utils.escapeHTML(String(name ?? "")) });
   return `<div class="cairn-generation-rolls">
     <div class="gen-rolls-title">${line}</div>

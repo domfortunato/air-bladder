@@ -31,6 +31,20 @@
  *   5. As PLAYER Alice, owner of the PC: the rename through her sheet renames
  *      her tokens on both scenes — a token's permission is its actor's, so no
  *      GM relay is needed.
+ *   6. ART follows the same rule (review #22): the sheet's _setPortrait —
+ *      the seam every picker path converges on — carries every placed token
+ *      still wearing the OLD art on BOTH scenes, leaves a token whose picture
+ *      was set on purpose alone, and never touches another actor's tokens.
+ *      The loop it replaced was getActiveTokens(): current scene only,
+ *      unconditional overwrite — with the canvas elsewhere it updated NOTHING,
+ *      which is this leg's red with the fix removed.
+ *   7. A direct prototype-art update on the unlinked monster's base actor
+ *      carries its tokens the same way (there was NO placed-token art pass on
+ *      this path at all before the rule).
+ *   8. Art picked on an unlinked token's OWN sheet (_setPortrait on the
+ *      synthetic actor): that one token is written DIRECTLY — ActorDelta
+ *      declares no prototypeToken field, so the linked-actor write shape
+ *      cannot carry it — and the sibling and base actor keep theirs.
  *
  * Two throwaway scenes and two throwaway actors, swept first and deleted in a
  * Node finally, so an aborted run leaves nothing for the next one to pass on.
@@ -78,7 +92,7 @@ const readTokens = (pg) => pg.evaluate((P) => {
   const out = {};
   for (const scene of game.scenes.filter((s) => s.name.startsWith(P))) {
     out[scene.name.endsWith("A") ? "A" : "B"] = scene.tokens.contents
-      .map((t) => ({ id: t.id, name: t.name, linked: t.actorLink, actorName: t.actor?.name ?? null }))
+      .map((t) => ({ id: t.id, name: t.name, linked: t.actorLink, actorName: t.actor?.name ?? null, src: t.texture?.src ?? null }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }
   return out;
@@ -266,6 +280,95 @@ try {
     t5 ? ok("her linked tokens on both scenes followed — written from HER client, no GM relay")
       : fail(`tokens after Alice's rename: ${JSON.stringify(await readTokens(page))}`);
   }
+
+  /* ---- 6. ART follows the rule — the sheet's _setPortrait ---------------- */
+  stage("6. portrait picked on the sheet: token art follows, both scenes");
+  const ART = {
+    pc: "icons/svg/cowled.svg", custom: "icons/svg/target.svg",
+    monster: "icons/svg/eye.svg", monsterCustom: "icons/svg/skull.svg",
+    delta: "icons/svg/pawprint.svg",
+  };
+  const r6 = await page.evaluate(async ({ pcId, N, ART }) => {
+    const pc = game.actors.get(pcId);
+    const before = pc.prototypeToken.texture.src;
+    // A linked token whose picture someone set ON PURPOSE (the alias token):
+    // it must keep its art through the portrait change.
+    const A = game.scenes.filter((s) => s.name.startsWith(N.pc.split(" PC")[0])).sort((a, b) => a.name.localeCompare(b.name))[0];
+    const alias = A.tokens.find((t) => t.name === N.alias);
+    await alias.update({ "texture.src": ART.custom });
+    // The REAL seam: every picker path (gallery, URL, browse) lands in
+    // _setPortrait. The canvas is on another scene, so the old
+    // getActiveTokens() loop would update zero tokens here.
+    const sheet = pc.sheet;
+    await sheet._setPortrait(ART.pc);
+    return { before, img: pc.img, proto: pc.prototypeToken.texture.src, canvasScene: canvas.scene?.name ?? null };
+  }, { pcId: setup.pcId, N: NAMES, ART });
+  const t6 = await until(page, (arg) => {
+    const scenes = game.scenes.filter((s) => s.name.startsWith(arg.P));
+    const linked = scenes.flatMap((s) => s.tokens.filter((t) => t.actorLink && t.name !== arg.alias));
+    return linked.length === 2 && linked.every((t) => t.texture?.src === arg.art) ? true : null;
+  }, { P: PREFIX, alias: NAMES.alias, art: ART.pc });
+  const tokens6 = await readTokens(page);
+  r6.img === ART.pc && r6.proto === ART.pc
+    ? ok(`_setPortrait set the actor and prototype art ("${ART.pc}")`)
+    : fail(`after _setPortrait: img="${r6.img}" proto="${r6.proto}"`);
+  t6 ? ok("both linked tokens wearing the old art follow — Scene A AND Scene B, canvas elsewhere")
+    : fail(`linked token art: ${JSON.stringify([...tokens6.A, ...tokens6.B].filter((t) => t.linked).map((t) => t.src))}`);
+  [...tokens6.A, ...tokens6.B].find((t) => t.name === NAMES.alias)?.src === ART.custom
+    ? ok(`the token whose picture was set on purpose keeps it ("${ART.custom}")`)
+    : fail("the hand-set token art was clobbered by the portrait change");
+  [...tokens6.A, ...tokens6.B].filter((t) => !t.linked).every((t) => t.src === r6.before)
+    ? ok("the monster's tokens — same old art, different actor — are untouched")
+    : fail(`monster token art moved: ${JSON.stringify([...tokens6.A, ...tokens6.B].filter((t) => !t.linked).map((t) => t.src))}`);
+
+  /* ---- 7. a direct prototype-art update on the unlinked base actor ------- */
+  stage("7. prototype art on the monster's base actor: unlinked tokens follow");
+  await page.evaluate(async ({ id, P, ART, goblin }) => {
+    // The unlinked token whose art was set on purpose keeps it (the goblin
+    // wears the custom NAME already — give it custom ART too).
+    const A = game.scenes.filter((s) => s.name.startsWith(P)).sort((a, b) => a.name.localeCompare(b.name))[0];
+    await A.tokens.find((t) => t.name === goblin).update({ "texture.src": ART.monsterCustom });
+    await game.actors.get(id).update({ "prototypeToken.texture.src": ART.monster });
+  }, { id: setup.monsterId, P: PREFIX, ART, goblin: NAMES.goblin });
+  const t7 = await until(page, (arg) => {
+    const scenes = game.scenes.filter((s) => s.name.startsWith(arg.P));
+    const un = scenes.flatMap((s) => s.tokens.filter((t) => !t.actorLink && t.name !== arg.goblin));
+    return un.length === 2 && un.every((t) => t.texture?.src === arg.art) ? true : null;
+  }, { P: PREFIX, goblin: NAMES.goblin, art: ART.monster });
+  const tokens7 = await readTokens(page);
+  t7 ? ok("both unlinked tokens wearing the old art follow the base actor — both scenes")
+    : fail(`unlinked token art: ${JSON.stringify([...tokens7.A, ...tokens7.B].filter((t) => !t.linked).map((t) => t.src))}`);
+  [...tokens7.A, ...tokens7.B].find((t) => t.name === NAMES.goblin)?.src === ART.monsterCustom
+    ? ok(`the hand-set unlinked token keeps its art ("${ART.monsterCustom}")`)
+    : fail("the goblin's hand-set art was clobbered");
+
+  /* ---- 8. art picked on an unlinked token's OWN sheet -------------------- */
+  stage("8. art picked on one unlinked token's own sheet");
+  const r8 = await page.evaluate(async ({ P, ART, NEW4 }) => {
+    const A = game.scenes.filter((s) => s.name.startsWith(P)).sort((a, b) => a.name.localeCompare(b.name))[0];
+    const token = A.tokens.find((t) => !t.actorLink && t.name === NEW4);
+    if (!token) return { noToken: true };
+    // The synthetic actor's sheet, the way a Warden reaches it from the
+    // canvas. _setPortrait must write THIS token directly — the delta has no
+    // prototypeToken field to carry it, and the canvas is on another scene so
+    // the old rendered-token loop finds nothing.
+    await token.actor.sheet._setPortrait(ART.delta);
+    return {
+      tokenId: token.id,
+      baseProto: game.actors.get(token.actorId).prototypeToken.texture.src,
+      baseImg: game.actors.get(token.actorId).img,
+    };
+  }, { P: PREFIX, ART, NEW4 });
+  const t8 = r8.noToken ? null : await until(page, (arg) => {
+    const A = game.scenes.filter((s) => s.name.startsWith(arg.P)).sort((a, b) => a.name.localeCompare(b.name))[0];
+    return A.tokens.get(arg.tokenId)?.texture?.src === arg.art ? true : null;
+  }, { P: PREFIX, tokenId: r8.tokenId, art: ART.delta });
+  const tokens8 = await readTokens(page);
+  t8 ? ok(`the token whose own sheet picked art follows ("${ART.delta}")`)
+    : fail(`token art after a token-sheet pick: ${JSON.stringify(tokens8.A?.map((t) => t.src))}`);
+  tokens8.B?.some((t) => !t.linked && t.src === ART.monster) && r8.baseProto === ART.monster && r8.baseImg !== ART.delta
+    ? ok("its sibling on Scene B and the base actor keep theirs")
+    : fail(`sibling/base after a token-sheet pick: B=${JSON.stringify(tokens8.B?.map((t) => t.src))}, baseProto="${r8.baseProto}", baseImg="${r8.baseImg}"`);
 
   /* ---- console errors ---------------------------------------------------- */
   const errs = [...errors, ...(aliceErrors ?? [])];

@@ -577,6 +577,68 @@ try {
     ? ok(`the failed-career hint names its master by label — "${subs.on.masterLabel}"`)
     : fail(`the failed-career hint does not name "${subs.on?.masterLabel}": "${subs.on?.hint}"`);
 
+  /* ---- Reset Defaults skips a greyed sub-option (review #22) -------------- */
+  // FormDataExtended omits `:disabled` controls (form-data-extended.mjs:23,118),
+  // so a default written into a disabled row showed in the form while Save
+  // silently kept the stored value — Reset looked like it worked and did
+  // nothing. The fix skips the row, so the form only ever shows what Save
+  // would write. Master read-shadowed OFF (the reachable case: "Offer
+  // Barebones sheets" off greys the failed-career row in Hacks) and the sub's
+  // own read shadowed to its NON-default, so a wrongly-reset box is visible.
+  // Form-side only — nothing is submitted and nothing written.
+  const resetSkip = await page.evaluate(async () => {
+    const out = {};
+    const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+    const mod = await import("/systems/air-bladder/module/settings.js");
+    const NS = mod.SETTINGS_NS;
+    const MASTER = "content-source-barebones";
+    const SUB = "barebones-failed-career";
+    const GLOG = "enable-glog-magic";
+    const subDef = game.settings.settings.get(`${NS}.${SUB}`).default;
+    const glogDef = game.settings.settings.get(`${NS}.${GLOG}`).default;
+    const origGet = game.settings.get;
+    game.settings.get = function (ns, key, ...rest) {
+      if (ns === NS && key === MASTER) return false;
+      if (ns === NS && key === SUB) return !subDef;
+      return origGet.call(this, ns, key, ...rest);
+    };
+    try {
+      const app = new (game.settings.menus.get(`${NS}.hacks`).type)();
+      await app.render(true);
+      await sleep(600);
+      const sub = app.element.querySelector(`[name="${NS}.${SUB}"]`);
+      const glog = app.element.querySelector(`[name="${NS}.${GLOG}"]`);
+      out.subDisabled = !!sub?.disabled;
+      out.subShows = sub?.checked;
+      // Flip a LIVE row so the same click proves Reset still resets what it can.
+      if (glog) { glog.checked = !glogDef; glog.dispatchEvent(new Event("change", { bubbles: true })); }
+      app.element.querySelector('button[data-action="resetDefaults"]')?.click();
+      await sleep(300);
+      out.subAfterReset = sub?.checked;
+      out.glogAfterReset = glog?.checked;
+      out.subDef = subDef;
+      out.glogDef = glogDef;
+      await app.close();
+    } finally {
+      game.settings.get = origGet;
+    }
+    out.shadowLifted = game.settings.get === origGet;
+    return out;
+  });
+
+  resetSkip.subDisabled && resetSkip.subShows === !resetSkip.subDef
+    ? ok("established: the failed-career row renders greyed, showing its (shadowed) stored non-default")
+    : fail(`resetSkip precondition: disabled=${resetSkip.subDisabled}, shows=${resetSkip.subShows}, default=${resetSkip.subDef}`);
+  resetSkip.subAfterReset === !resetSkip.subDef
+    ? ok("Reset SKIPS the greyed row — the form keeps showing what Save would keep (review #22)")
+    : fail(`the greyed row was reset in the form (now ${resetSkip.subAfterReset}) — Save would silently drop that`);
+  resetSkip.glogAfterReset === resetSkip.glogDef
+    ? ok("...while the live GLOG row in the same app still resets to its default")
+    : fail(`the live row did not reset: ${resetSkip.glogAfterReset} vs default ${resetSkip.glogDef}`);
+  resetSkip.shadowLifted
+    ? ok("...and the read shadow is lifted")
+    : fail("the settings read shadow is still in place");
+
   /* ---- boldPhrase bolds the LOCALIZED product name ------------------------ */
   // The phrase used to be an English literal, so any language whose label
   // translates or reorders the product name silently lost the bold (review #6:

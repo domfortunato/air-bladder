@@ -139,6 +139,13 @@ export class SettingsGroupMenu extends HandlebarsApplicationMixin(ApplicationV2)
       const setting = game.settings.settings.get(id);
       const input = this.form.elements[id];
       if (!setting || !input) continue;
+      // A disabled row is skipped, not written: FormDataExtended omits
+      // `:disabled` controls (form-data-extended.mjs:23,118), so a default put
+      // here showed in the form and then Save silently kept the stored value
+      // (review #22). Core's identical reset never meets this because core
+      // never disables a settings row; a greyed sub-option keeps what it has
+      // until its master is on again.
+      if (input.disabled) continue;
       if (input.type === "checkbox") input.checked = setting.default;
       else input.value = setting.default;
       input.dispatchEvent(new Event("change", { bubbles: true }));

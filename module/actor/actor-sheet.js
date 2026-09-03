@@ -567,18 +567,19 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // Print — EVERY sheet (2026-08-11, the third ruling in the chain:
     // characters only → people and monsters the same day → all, because the
     // user had forgotten Wardens print a container's cargo list too). A
-    // thing's PAGE differs — cargo, no statblock, see #fillPrintPage — but
-    // the button no longer has a role test, so #syncGenerationButtons no
-    // longer syncs it. NO ownership gate, deliberately: the page renders
-    // exactly what the sheet already shows this viewer, so being able to
-    // open the sheet IS the gate — which is exactly why a LIMITED viewer
-    // loses it (2026-08-21): their sheet shows portrait, name and description,
+    // thing's PAGE differs — cargo, no statblock, see #fillPrintPage. NO
+    // ownership gate on the ACTION, deliberately: the page renders exactly
+    // what the sheet already shows this viewer, so being able to open the
+    // sheet IS the gate — which is exactly why a LIMITED viewer loses the
+    // button (2026-08-21): their sheet shows portrait, name and description,
     // and the print page would hand them the statblock the limited view
-    // exists to withhold. Frame-time is fine — per-viewer ownership cannot
-    // change under that viewer's own open sheet without a re-render anyway,
-    // and the handler repeats the test for the crafted-client case.
-    const print = this.document.limited ? []
-      : [{ action: "printSheet", icon: "fas fa-print", label: "CAIRN.Print" }];
+    // exists to withhold. Built UNCONDITIONALLY and hidden per render by
+    // #syncGenerationButtons (review #22): a re-render is not a frame
+    // rebuild (application.mjs:553-557 — frame only on isFirstRender), so a
+    // frame-time ownership read left a demoted viewer a button whose handler
+    // bails silently, and gave a promoted one nothing until reopen. The
+    // handler still repeats the test for the crafted-client case.
+    const print = [{ action: "printSheet", icon: "fas fa-print", label: "CAIRN.Print" }];
 
     // npc and hireling are one thing, so both get the NPC generation controls.
     const isNpc = ["hireling", "npc"].includes(this.actor.type);
@@ -745,8 +746,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * @param {HTMLElement} [root] The frame, when it is not yet `this.element`.
    */
   #syncGenerationButtons(root = this.element) {
-    // Print is deliberately NOT synced here since 2026-08-11: every type and
-    // role prints, so there is no role test left to re-apply per render.
+    // Print still has no ROLE test (every type and role prints, 2026-08-11)
+    // but it regained a per-render OWNERSHIP test (review #22): the frame
+    // builds once, and ownership can change under an open sheet — the
+    // demote/promote re-render lands here, not in _getFrameButtons. Synced
+    // before the roll/toggle early-return because thing-role sheets build
+    // Print without either generation button.
+    root?.querySelector('.window-header button[data-action="printSheet"]')
+      ?.classList.toggle("cairn-header-hidden", this.document.limited);
     const roll = root?.querySelector('.window-header button[data-action="rollActor"]');
     const toggle = root?.querySelector('.window-header button[data-action="toggleGeneration"]');
     if (!roll && !toggle) return;
@@ -1147,6 +1154,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       ? this.actor.name
       : t("monster.name", this.actor.name);
 
+    // LIMITED view (npc 2026-08-21; characters too since review #22): portrait,
+    // name, description — nothing else. `document.limited` is core's own
+    // "highest ownership is exactly LIMITED", so the Warden and any
+    // observer-or-better viewer never see this branch. Shared, ONE writer:
+    // both actor templates carry the branch, and the character sheet rendering
+    // its full statblock to a LIMITED viewer was the wall's one gap.
+    context.limitedView = this.document.limited;
+
     if (this.actor.type === "character") await this._prepareCharacterContext(context);
 
     // Non-player actors reuse the character's STR/DEX/WIL/HP behaviour and
@@ -1187,10 +1202,6 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // always sat inside the template's generationEnabled blocks.
       context.canPickGeneration = context.generationEnabled
         && PERSON_ROLES.includes(this.actor.npcRole);
-      // LIMITED view (2026-08-21): portrait, name, description — nothing else.
-      // `document.limited` is core's own "highest ownership is exactly LIMITED",
-      // so the Warden and any observer-or-better viewer never see this branch.
-      context.limitedView = this.document.limited;
       // A PERSON gets the character's biography block — pronouns, age, the
       // traits, scars — on the Description tab (2026-08-01). EITHER person role
       // since the 2026-08-20 split: a monster, companion, transport or
@@ -2775,10 +2786,22 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   async _setPortrait(img) {
     const tokenSrc = (await pairedTokenFor(img)) ?? img;
-    await this.actor.update({ img, "prototypeToken.texture.src": tokenSrc });
-    for (const token of this.actor.getActiveTokens()) {
-      await token.document.update({ "texture.src": tokenSrc });
+    // An unlinked token's sheet writes its ONE token directly: ActorDelta
+    // declares no prototypeToken field (actor-delta.mjs defineSchema), so the
+    // prototype half of the linked write below would be silently dropped —
+    // and picking art on a token's own sheet means THIS token, so there is no
+    // old-value matching to apply. (The old getActiveTokens() loop covered
+    // this case only while the token was rendered on the current scene.)
+    if (this.actor.isToken) {
+      await this.actor.update({ img });
+      await this.actor.token?.update({ "texture.src": tokenSrc });
+      return;
     }
+    // Placed tokens follow through CairnActor's art rule (review #22): every
+    // scene, one batched write each, and only tokens still wearing the OLD
+    // art. The `getActiveTokens()` loop that lived here was current-scene
+    // only and overwrote hand-set token art unconditionally.
+    await this.actor.update({ img, "prototypeToken.texture.src": tokenSrc });
   }
 
   /**
@@ -2798,10 +2821,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * @private
    */
   async _setContainerArt(img) {
-    await this.actor.update({ img, "prototypeToken.texture.src": img });
-    for (const token of this.actor.getActiveTokens()) {
-      await token.document.update({ "texture.src": img });
+    // Both branches as in _setPortrait: an unlinked token's sheet writes its
+    // one token directly (the delta drops prototypeToken); otherwise placed
+    // tokens follow through CairnActor's art rule.
+    if (this.actor.isToken) {
+      await this.actor.update({ img });
+      await this.actor.token?.update({ "texture.src": img });
+      return;
     }
+    await this.actor.update({ img, "prototypeToken.texture.src": img });
   }
 
   /* -------------------------------------------- */

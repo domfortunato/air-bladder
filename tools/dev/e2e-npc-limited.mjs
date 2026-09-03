@@ -13,6 +13,19 @@
  *      restores exactly that state in-page (context.limitedView forced false on
  *      Alice's client) and must show her the stats.
  *
+ *   1b. A LIMITED viewer of a player CHARACTER gets the same wall (review #22,
+ *      user ruling 2026-09-02): portrait and name, no statblock, no items, no
+ *      Print — the character sheet rendered its FULL sheet to a LIMITED viewer
+ *      before this while the Print gate withheld the button on the stated
+ *      grounds of hiding what was already on screen. Same in-page negative
+ *      control as leg 1.
+ *
+ *   1c. The Print frame button follows LIVE ownership (review #22): the frame
+ *      builds once (isFirstRender only), so the button is built always and
+ *      synced per render — Alice's open sheet gains Print when the Warden
+ *      promotes her mid-session and loses it when demoted, the content
+ *      swapping between full and limited view in the same breath.
+ *
  *   2. A player NEVER sees the randomization surface on an npc-type sheet —
  *      dice, pickers, frame buttons — even as OWNER of the hireling, even with
  *      allow-player-randomization ON. The setting is ESTABLISHED on for the
@@ -196,6 +209,93 @@ try {
     fail(`the control did NOT reproduce (full grid ${limc.fullGrid}, stats ${limc.statText}) — `
       + "the limited branch cannot be shown to be load-bearing");
   }
+
+  /* --- Alice: a LIMITED player CHARACTER gets the same wall (review #22) ------ */
+
+  console.log("\n2b. what Alice sees of a LIMITED player character");
+  const pcId = await gm.evaluate(async (aliceId) => {
+    const pc = await getDocumentClass("Actor").create({
+      name: "ZZ Limited PC",
+      type: "character",
+      ownership: { default: 0, [aliceId]: CONST.DOCUMENT_OWNERSHIP_LEVELS.LIMITED },
+    });
+    return pc.id;
+  }, setup.aliceId);
+  saved.ids.push(pcId);
+  const pcLim = await openAs(alice, pcId, false);
+  if (pcLim.error) fail(`limited-character leg: ${pcLim.error}`);
+  else {
+    if (!pcLim.limited) fail("Alice is not LIMITED on the character — the leg is aimed at nothing");
+    if (pcLim.limitedBlock && !pcLim.fullGrid) ok("the character sheet renders the limited view, not the full grid");
+    else fail(`character limited block ${pcLim.limitedBlock}, full grid ${pcLim.fullGrid}`);
+    if (pcLim.name === "ZZ Limited PC") ok(`portrait block carries the name ("${pcLim.name}")`);
+    else fail(`limited character name: "${pcLim.name}"`);
+    if (!pcLim.statDice && !pcLim.statText && !pcLim.itemsTab) ok("no stats, no items tab");
+    else fail(`leaked: statDice ${pcLim.statDice}, statText ${pcLim.statText}, itemsTab ${pcLim.itemsTab}`);
+    if (!pcLim.printButton) ok("and no Print button");
+    else fail("the Print button is offered to a LIMITED character viewer");
+  }
+
+  console.log("   negative control: the same sheet with limitedView forced false");
+  const pcLimc = await openAs(alice, pcId, true);
+  if (pcLimc.error) fail(`limited-character control: ${pcLimc.error}`);
+  else if (pcLimc.fullGrid && pcLimc.statText) {
+    ok("reproduced — the pre-fix character sheet shows Alice the whole statblock");
+  } else {
+    fail(`the control did NOT reproduce (full grid ${pcLimc.fullGrid}, stats ${pcLimc.statText}) — `
+      + "the character limited branch cannot be shown to be load-bearing");
+  }
+
+  /* --- Alice: the Print button follows LIVE ownership (review #22) ------------ */
+
+  console.log("\n2c. Print follows a promote/demote under the OPEN sheet");
+  const printOpen = await alice.evaluate(async (id) => {
+    const sheet = game.actors.get(id).sheet;
+    await sheet.render(true);
+    for (let i = 0; i < 40 && !sheet.element; i++) await new Promise((r) => setTimeout(r, 150));
+    await new Promise((r) => setTimeout(r, 400));
+    const btn = sheet.element?.querySelector('.window-header button[data-action="printSheet"]');
+    return { built: !!btn, visible: !!btn && !btn.classList.contains("cairn-header-hidden") };
+  }, pcId);
+  printOpen.built && !printOpen.visible
+    ? ok("at LIMITED the Print button is BUILT but hidden — the frame can only build once")
+    : fail(`at LIMITED: built ${printOpen.built}, visible ${printOpen.visible}`);
+
+  const pollPrint = (want) => alice.evaluate(async ({ id, want }) => {
+    const sheet = game.actors.get(id).sheet;
+    for (let i = 0; i < 60; i++) {
+      const btn = sheet.element?.querySelector('.window-header button[data-action="printSheet"]');
+      const visible = !!btn && !btn.classList.contains("cairn-header-hidden");
+      if (visible === want.visible
+        && !!sheet.element?.querySelector(".charater-sheet-grid") === want.fullGrid) {
+        return { visible, fullGrid: want.fullGrid, ok: true };
+      }
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    const btn = sheet.element?.querySelector('.window-header button[data-action="printSheet"]');
+    return {
+      visible: !!btn && !btn.classList.contains("cairn-header-hidden"),
+      fullGrid: !!sheet.element?.querySelector(".charater-sheet-grid"),
+      ok: false,
+    };
+  }, { id: pcId, want });
+
+  await gm.evaluate(async ({ id, aliceId }) => {
+    await game.actors.get(id).update({ [`ownership.${aliceId}`]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER });
+  }, { id: pcId, aliceId: setup.aliceId });
+  const promoted = await pollPrint({ visible: true, fullGrid: true });
+  promoted.ok
+    ? ok("promoted to OWNER: the open sheet re-renders full and the Print button appears")
+    : fail(`after promote: print visible ${promoted.visible}, full grid ${promoted.fullGrid}`);
+
+  await gm.evaluate(async ({ id, aliceId }) => {
+    await game.actors.get(id).update({ [`ownership.${aliceId}`]: CONST.DOCUMENT_OWNERSHIP_LEVELS.LIMITED });
+  }, { id: pcId, aliceId: setup.aliceId });
+  const demoted = await pollPrint({ visible: false, fullGrid: false });
+  demoted.ok
+    ? ok("demoted to LIMITED: the sheet walls itself and the Print button hides — no reopen needed")
+    : fail(`after demote: print visible ${demoted.visible}, full grid ${demoted.fullGrid}`);
+  await alice.evaluate(async (id) => { await game.actors.get(id).sheet.close(); }, pcId);
 
   /* --- Alice: an OWNED hireling shows her no dice ----------------------------- */
 

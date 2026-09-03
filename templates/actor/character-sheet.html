@@ -1,5 +1,19 @@
 {{!-- No <form> here: ApplicationV2 supplies it (DocumentSheetV2 sets tag: "form").
       A nested one is dropped by the parser, taking this element's class with it. --}}
+    {{#if limitedView}}
+    {{!-- LIMITED view (review #22, user ruling 2026-09-02): the npc sheet's
+          2026-08-21 wall, extended to characters. LIMITED used to open the FULL
+          sheet here — statblock and inventory included — while the Print gate
+          withheld the button on the stated grounds of hiding what was already
+          on screen; now the level is a wall on every person-type. Portrait and
+          name only: a character's `system.description` is orphaned (see the
+          Description tab note below), so there is no prose counterpart of the
+          npc view's description to show. --}}
+    <div class="cairn-limited-sheet">
+        <img class="portrait" src="{{actor.img}}" alt="" />
+        <h1 class="cairn-limited-name">{{nameDisplay}}</h1>
+    </div>
+    {{else}}
     <div class="charater-sheet-grid">
         <!-- Portrait: click to pick from the shipped gallery, d20 to re-roll one -->
         <div class="portrait-wrap">
@@ -153,7 +167,10 @@
             <div class="resource-counter long-counter deprived-counter">
                 <label data-tooltip="{{ localize deprivedTipKey }}">{{ localize 'CAIRN.Deprived' }}</label>
                 <div class="resource-input-wrapper">
-                    <input type="checkbox" class="deprived-check" {{checked system.deprived}} />
+                    {{!-- id for core's focus restore: _preSyncPartState records
+                          focus only as #id or TAG[name] (review #22), and these
+                          class-managed controls deliberately carry no name. --}}
+                    <input type="checkbox" class="deprived-check" id="{{@root.idp}}-deprived-check" {{checked system.deprived}} />
                 </div>
             </div>
 
@@ -161,7 +178,7 @@
             <div class="resource-counter long-counter deprived-counter">
                 <label data-tooltip="{{ localize panickedTipKey }}">{{ localize 'CAIRN.Panicked' }}</label>
                 <div class="resource-input-wrapper">
-                    <input type="checkbox" class="panicked-check" {{checked system.panicked}} />
+                    <input type="checkbox" class="panicked-check" id="{{@root.idp}}-panicked-check" {{checked system.panicked}} />
                 </div>
             </div>
             {{/if}}
@@ -316,3 +333,4 @@
             </section>
         </div>
     </div>
+    {{/if}}

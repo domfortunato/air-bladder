@@ -323,6 +323,17 @@ export const spawnEncounterFromMessage = async (message) => {
       }));
     }
     return placed;
+  } catch (err) {
+    // A mid-spawn throw used to vanish: the onclick is fire-and-forget and
+    // this was try/FINALLY only, so a failed import or token mint left half
+    // an encounter placed, the card un-stamped, and the Warden told nothing.
+    // The card staying un-stamped is kept: the button still works, and the
+    // Warden — told, now — can see what landed before retrying. A retry
+    // re-places the specs that already succeeded (only actor imports dedupe);
+    // the toast is what makes that a visible cleanup rather than a mystery.
+    console.error("Air Bladder | encounter spawn failed", err);
+    ui.notifications.error(game.i18n.localize("CAIRN.Notify.EncounterFailed"));
+    return null;
   } finally {
     encounterSpawnInFlight.delete(message.id);
   }

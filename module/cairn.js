@@ -2669,16 +2669,18 @@ Hooks.on("renderActorDirectory", (app, html) => {
  * arrives or leaves, on the clients whose row is wrong without it. The
  * re-render itself is safe to repeat: core's directory preserves the typed
  * search query and scroll across renders (document-directory.mjs:455-466),
- * and the injection hook rebuilds the row from scratch every pass. Both
- * instances covered — the popout is an independent application, and a
- * non-forced render of a closed one is core's own no-op.
+ * and the injection hook rebuilds the row from scratch every pass. One call
+ * covers both instances — `AbstractSidebarTab#render` forwards a docked
+ * tab's render to its rendered popout (sidebar-tab.mjs:114-117), so an
+ * explicit popout render here drew the popped-out directory twice per flip
+ * (review #22; the "independent application" comment that justified it was
+ * the half core contradicts).
  */
 Hooks.on("userConnected", (user, _connected) => {
   if (!game.ready || !user.isGM) return;
   if (game.user.can("ACTOR_CREATE")) return;
   if (!game.settings.get(SETTINGS_NS, "allow-player-generate")) return;
   ui.actors.render();
-  ui.actors.popout?.render();
 });
 
 /**
@@ -3042,8 +3044,12 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   // "Add to scene" button (module/encounters.js). Injected per viewer, never
   // stored — a player's copy has nothing to trim. Async, and deliberately not
   // awaited: a pack-drawn table resolves through getDocument, and the hook
-  // chain must not stall on it; the button lands when it lands.
-  injectEncounterButton(message, html);
+  // chain must not stall on it; the button lands when it lands. Caught, not
+  // left to reject — Hooks.#call's try/catch is synchronous, so a rejection
+  // out of an async callback escapes it naming nothing (the hotbar-drop
+  // precedent at the top of this file).
+  injectEncounterButton(message, html).catch((err) =>
+    console.error("Air Bladder | encounter button injection failed", err));
 
   // The GLOG cast whisper's Add-N-Fatigue button (module/grimoire.js): wired
   // per render, spent-state read from the message flag, ownership re-checked

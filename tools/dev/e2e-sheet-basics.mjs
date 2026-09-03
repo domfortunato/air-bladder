@@ -173,6 +173,58 @@ for (const id of tabIds) {
     : fail(`tab "${id}" shows only itself`, `visible: [${state.visible.join(", ")}] of ${state.total}`);
 }
 
+console.log("\nclass-managed controls carry ids — focus survives the re-render (review #22)");
+
+// The class-managed controls (no `name` on purpose — their handlers own the
+// write) carried no id either, and core restores focus across a part
+// re-render only through `#id` or `TAG[name=…]` (handlebars-application.mjs
+// _preSyncPartState). So ticking Deprived rebuilt the sheet with the keyboard
+// focus dropped on the floor. The ids ride the sheet's idp prefix, the same
+// per-window uniqueness the named inputs already use.
+const idLeg = await page.evaluate((sel) => {
+  const out = {};
+  for (const cls of ["deprived-check", "panicked-check", "omen-enable", "scar-enable"]) {
+    const el = document.querySelector(`${sel} .${cls}`);
+    out[cls] = el ? (el.id || "MISSING") : null; // null = not rendered here, fine
+  }
+  return out;
+}, SHEET);
+const renderedIds = Object.entries(idLeg).filter(([, v]) => v !== null);
+renderedIds.length >= 2 && renderedIds.every(([, v]) => v !== "MISSING")
+  ? ok("rendered class-managed controls carry ids", renderedIds.map(([k]) => k).join(", "))
+  : fail("rendered class-managed controls carry ids", JSON.stringify(idLeg));
+
+// Omen's toggle, not Deprived's: toggling Deprived ON opens a confirmation
+// dialog (a probe answering dialogs is a different leg), while disabling the
+// Omen applies immediately and ends in the same full-render update.
+const focusLeg = await page.evaluate(async ({ id, sel }) => {
+  const a = game.actors.get(id);
+  document.querySelector(`${sel} nav.tabs [data-tab="description"]`)?.click();
+  await new Promise((r) => setTimeout(r, 400));
+  const box = document.querySelector(`${sel} .omen-enable`);
+  if (!box) return { noBox: true };
+  box.focus();
+  const out = { focusedBefore: document.activeElement === box };
+  box.click(); // omenEnabled true → false, applies with no dialog
+  for (let i = 0; i < 40 && game.actors.get(id).system.omenEnabled !== false; i++) {
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  await new Promise((r) => setTimeout(r, 800));
+  const after = document.querySelector(`${sel} .omen-enable`);
+  out.flipped = a.system.omenEnabled === false;
+  // The rebuilt node must be a NEW element, or the leg is measuring a render
+  // that never replaced anything and focus trivially "survives".
+  out.rebuilt = !!after && after !== box;
+  out.focusedAfter = document.activeElement === after;
+  await a.update({ "system.omenEnabled": true });
+  return out;
+}, { id: actorId, sel: SHEET });
+focusLeg.noBox
+  ? fail("focus survives toggling the Omen", "no .omen-enable on the sheet")
+  : focusLeg.focusedBefore && focusLeg.flipped && focusLeg.rebuilt && focusLeg.focusedAfter
+    ? ok("focus survives toggling the Omen", "the rebuilt checkbox holds focus again")
+    : fail("focus survives toggling the Omen", JSON.stringify(focusLeg));
+
 console.log("\nActiveEffect drops are refused (review #9 finding 16)");
 
 // The system renders no effects UI and no data model consumes them, so core's

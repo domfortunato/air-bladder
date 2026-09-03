@@ -80,8 +80,13 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
 - `CairnActor` (`module/actor/actor.js`) — types `character`, `npc`, `hireling`.
   `hireling` is an ALIAS of npc (same model, same sheet), kept because a type is
   immutable and retiring it would recreate every hireling with a new id. **It is
-  HIDDEN from the Create Actor dialog since 2026-08-01** (`abHideHirelingType`, the
-  inverse of the spellscroll hook) — a registered subtype is always offered, and
+  HIDDEN from the Create Actor dialog since 2026-08-01** — today by
+  `CairnActor.createDialog`, which replaces core's picker with the role
+  switchboard so no type list renders at all (the `abHideHirelingType` DOM hook
+  that first did this is GONE since 2026-08-02; the comment at its old site in
+  `cairn.js` records why, and this line named the dead hook as the live
+  mechanism for a month — review #22) — a registered subtype is otherwise
+  always offered, and
   the `container` type proved what happens when a retired one stays on the menu.
   The matching `hireling` ROLE went the same day and **CAME BACK on 2026-08-20**
   (user ask). `NPC_ROLES` is SIX entries — `npc`, `hireling`, `monster`,

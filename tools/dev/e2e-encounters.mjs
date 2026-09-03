@@ -40,6 +40,17 @@
  *      than one spec on a button — and the button joins them through
  *      Intl.ListFormat, not a hardcoded ", " that would stay English in every
  *      language. Read, never clicked.
+ *  10. A mid-spawn throw is CAUGHT and told (review #22): the handler was
+ *      try/finally only behind a fire-and-forget onclick, so a failed token
+ *      mint was pure silence. Planted in-page (Scene#createEmbeddedDocuments
+ *      shadowed for Token writes, restored in finally): the real click yields
+ *      the CAIRN.Notify.EncounterFailed toast, the card stays un-stamped, and
+ *      a retry with the shadow lifted completes — the lock released.
+ *  11. The injection seam (review #22): injectEncounterButton fires un-awaited
+ *      from the render hook (recorded intent), and its rejection used to
+ *      escape Hooks.#call's SYNCHRONOUS try/catch as an unhandled rejection
+ *      naming nothing. A message whose spent-stamp read throws must land in
+ *      the call site's catch, not as an unhandled rejection.
  *
  * Everything planted is swept from Node, names and ids printed. The
  * "Encounters" folder is deleted only when THIS run created it.
@@ -388,6 +399,111 @@ try {
     ? ok("two rows on one number join through Intl.ListFormat", `"${wantJoin}"`)
     : fail("two rows on one number join through Intl.ListFormat",
         `button read "${pairBtn?.text}", wanted it to contain "${wantJoin}"`);
+
+  /* ---------------- 10. a mid-spawn throw is CAUGHT and said (review #22) -- */
+  const failMsg = await draw(1);
+  await buttonState(gm, failMsg);
+  const caught = await gm.evaluate(async ({ msgId }) => {
+    const out = { toasts: [], consoleCaught: 0 };
+    const SceneCls = CONFIG.Scene.documentClass;
+    const origCreate = SceneCls.prototype.createEmbeddedDocuments;
+    const origError = console.error;
+    const origToast = ui.notifications.error.bind(ui.notifications);
+    SceneCls.prototype.createEmbeddedDocuments = async function (type, ...rest) {
+      if (type === "Token") throw new Error("ZZ Enc planted token failure");
+      return origCreate.call(this, type, ...rest);
+    };
+    // The planted failure's own console lines are swallowed (the catch's line
+    // counted, the toast's echo — core logs an error notification to console
+    // too — just dropped), so the zero-console-errors leg stays meaningful
+    // for everything else.
+    const wantText = game.i18n.localize("CAIRN.Notify.EncounterFailed");
+    console.error = (...a) => {
+      const s = String(a[0]);
+      if (/encounter spawn failed/.test(s)) { out.consoleCaught++; return; }
+      if (s.includes(wantText)) return;
+      return origError(...a);
+    };
+    ui.notifications.error = (...a) => { out.toasts.push(String(a[0])); return origToast(...a); };
+    try {
+      document.querySelector(`[data-message-id="${msgId}"] .encounter-spawn`)?.click();
+      for (let i = 0; i < 50 && !out.toasts.length; i++) await new Promise((r) => setTimeout(r, 200));
+    } finally {
+      SceneCls.prototype.createEmbeddedDocuments = origCreate;
+      console.error = origError;
+      ui.notifications.error = origToast;
+    }
+    out.want = game.i18n.localize("CAIRN.Notify.EncounterFailed");
+    out.stamped = !!game.messages.get(msgId)?.getFlag(game.system.id, "encounterSpawned");
+    return out;
+  }, { msgId: failMsg });
+  caught.toasts.length === 1 && caught.toasts[0] === caught.want && caught.consoleCaught === 1
+    ? ok("a mid-spawn throw is caught and TOLD", `"${caught.want}"`)
+    : fail("a mid-spawn throw is caught and TOLD", JSON.stringify(caught));
+  caught.stamped === false
+    ? ok("the failed card stays un-stamped — the button remains the retry", "")
+    : fail("the failed card stays un-stamped — the button remains the retry", "stamped after a failure");
+
+  const retry = await gm.evaluate(async ({ msgId }) => {
+    const before = canvas.scene.tokens.size;
+    document.querySelector(`[data-message-id="${msgId}"] .encounter-spawn`)?.click();
+    for (let i = 0; i < 50 && !game.messages.get(msgId)?.getFlag(game.system.id, "encounterSpawned"); i++) {
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    return {
+      stamped: !!game.messages.get(msgId)?.getFlag(game.system.id, "encounterSpawned"),
+      tokensAdded: canvas.scene.tokens.size - before,
+    };
+  }, { msgId: failMsg });
+  retry.stamped && retry.tokensAdded === 3
+    ? ok("the retry lands: the lock released and the spawn completes", `${retry.tokensAdded} tokens`)
+    : fail("the retry lands: the lock released and the spawn completes", JSON.stringify(retry));
+
+  /* ----------- 11. the injection seam: a rejected inject is caught too ----- */
+  const inj = await gm.evaluate(async ({ tableId }) => {
+    const out = { caught: 0, unhandled: 0 };
+    const onUn = (e) => {
+      if (/ZZ Enc planted getFlag/.test(String(e.reason?.message ?? e.reason))) { out.unhandled++; e.preventDefault(); }
+    };
+    window.addEventListener("unhandledrejection", onUn);
+    const origError = console.error;
+    console.error = (...a) => {
+      if (/encounter button injection failed/.test(String(a[0]))) { out.caught++; return; }
+      return origError(...a);
+    };
+    const div = document.createElement("div");
+    div.innerHTML = '<div class="table-draw"></div>';
+    // Enough of a ChatMessage for every render-hook handler to walk past;
+    // the one throwing read is the spent-stamp getFlag, which only the
+    // encounter injection asks for — and only AFTER its specs resolved.
+    const fake = {
+      id: "zzencfake11",
+      flags: { core: { RollTable: tableId } },
+      rolls: [{ total: 1, dice: [] }],
+      speaker: {},
+      whisper: [],
+      blind: false,
+      content: "",
+      author: game.user,
+      isContentVisible: true,
+      timestamp: Date.now(),
+      getFlag: (_scope, key) => {
+        if (key === "encounterSpawned") throw new Error("ZZ Enc planted getFlag");
+        return undefined;
+      },
+    };
+    try {
+      Hooks.callAll("renderChatMessageHTML", fake, div, {});
+      for (let i = 0; i < 25 && !out.caught && !out.unhandled; i++) await new Promise((r) => setTimeout(r, 200));
+    } finally {
+      console.error = origError;
+      window.removeEventListener("unhandledrejection", onUn);
+    }
+    return out;
+  }, { tableId: fx.tableId });
+  inj.caught === 1 && inj.unhandled === 0
+    ? ok("a rejected button injection is caught at the call site", "named in console, no unhandled rejection")
+    : fail("a rejected button injection is caught at the call site", JSON.stringify(inj));
 
   /* ------------------------------------------------------- console errors -- */
   const gmErrs = gmErrors.filter((e) => !/ZZ Enc/.test(e));

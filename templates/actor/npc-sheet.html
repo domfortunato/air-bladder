@@ -136,7 +136,7 @@
                       to its key. --}}
                 {{#if showKind}}
                 <span class="background-label">{{ localize 'CAIRN.Kind' }}</span>
-                <select class="kind-select">
+                <select class="kind-select" id="{{@root.idp}}-kind-select">
                     <option value=""{{#unless system.containerClass}} selected{{/unless}}></option>
                     {{#each kindOptions}}
                     <option value="{{key}}"{{#if selected}} selected{{/if}}>{{label}}</option>
@@ -345,7 +345,9 @@
             <div class="resource-counter long-counter deprived-counter">
                 <label data-tooltip="{{ localize deprivedTipKey }}">{{ localize 'CAIRN.Deprived' }}</label>
                 <div class="resource-input-wrapper">
-                    <input type="checkbox" class="deprived-check" {{checked system.deprived}} />
+                    {{!-- id for core's focus restore, as on the character sheet:
+                          class-managed controls carry no name (review #22). --}}
+                    <input type="checkbox" class="deprived-check" id="{{@root.idp}}-deprived-check" {{checked system.deprived}} />
                 </div>
             </div>
 
@@ -353,7 +355,7 @@
             <div class="resource-counter long-counter deprived-counter">
                 <label data-tooltip="{{ localize panickedTipKey }}">{{ localize 'CAIRN.Panicked' }}</label>
                 <div class="resource-input-wrapper">
-                    <input type="checkbox" class="panicked-check" {{checked system.panicked}} />
+                    <input type="checkbox" class="panicked-check" id="{{@root.idp}}-panicked-check" {{checked system.panicked}} />
                 </div>
             </div>
             {{/if}}

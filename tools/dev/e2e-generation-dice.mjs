@@ -113,14 +113,38 @@ try {
         if (key === "CAIRN.Gold") return "ZZ-ORO-SENTINEL";
         return origLoc.call(this, key, ...rest);
       };
+      // The row line rides ONE key, colon included (review #22 — the damage.js
+      // cardLine rule; French wants "PV : 16"). Shadow the FORMAT of that key
+      // with a sentinel that echoes its data: the rebuilt card must carry it,
+      // with the shadowed label inside — the label reached the key as data,
+      // it was not concatenated around it. `format` is a NON-WRITABLE
+      // prototype alias of localize in 14.365 (localization.mjs:481 —
+      // defineProperties with a bare value), so a plain assignment is a
+      // SILENT no-op; an own property via defineProperty is not, and a
+      // delete lifts it back to the prototype.
+      const origFmt = game.i18n.format;
+      Object.defineProperty(game.i18n, "format", {
+        value: function (key, data, ...rest) {
+          if (key === "CAIRN.GenerationRollsRow") return `ZZ-ROW-SENTINEL[${data?.label}=${data?.value}]`;
+          return origFmt.call(this, key, data, ...rest);
+        },
+        configurable: true,
+      });
       try {
         const el = await msgs[0].renderHTML();
         out.legs.on[0].rebuiltPerViewer = el.innerHTML.includes("ZZ-ORO-SENTINEL");
+        out.legs.on[0].rowKeyed = el.innerHTML.includes("ZZ-ROW-SENTINEL[ZZ-ORO-SENTINEL=");
         out.legs.on[0].flagNumbers = msgs[0].getFlag(NS, "generationRolls") ?? null;
       } finally {
         game.i18n.localize = origLoc;
+        delete game.i18n.format;
       }
-      out.legs.on[0].shadowLifted = game.i18n.localize === origLoc;
+      out.legs.on[0].shadowLifted = game.i18n.localize === origLoc && game.i18n.format === origFmt
+        && !Object.hasOwn(game.i18n, "format");
+      // Byte parity with the pre-key concatenation, off the STORED content —
+      // the move to a key must have no visual consequence in English.
+      out.legs.on[0].rowBytes =
+        /<span class="gen-roll-label">Gold:<\/span> <span class="gen-roll-value">\d+<\/span>/.test(msgs[0].content ?? "");
     }
     out.stored = {
       hp: actor.system.hp?.max,
@@ -209,6 +233,12 @@ try {
     m.rebuiltPerViewer && m.flagNumbers && m.shadowLifted
       ? ok("the card is rebuilt per viewer at render from its flag (a sentinel label rendered; shadow lifted)")
       : fail(`card not rebuilt per viewer: sentinel rendered=${m.rebuiltPerViewer}, flag=${JSON.stringify(m.flagNumbers)}, shadow lifted=${m.shadowLifted}`);
+    m.rowKeyed
+      ? ok("each row goes WHOLE through CAIRN.GenerationRollsRow — label, colon and value in one key (review #22)")
+      : fail("a row line did not route through CAIRN.GenerationRollsRow — the colon is back in code");
+    m.rowBytes
+      ? ok("the stored English row is byte-identical to the pre-key concatenation")
+      : fail("the stored row's markup drifted from the original span/colon bytes");
 
     // The tie: the dice must BE the character, not decoration.
     const [hp, str, dex, wil, gold] = m.rollTotals;

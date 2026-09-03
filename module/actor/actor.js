@@ -1589,6 +1589,18 @@ export class CairnActor extends Actor {
       }
     }
 
+    // The token's PICTURE follows the same rule as its name (review #22): a
+    // prototype-art change carries every placed token still wearing the FORMER
+    // art, and a token whose picture someone set on purpose keeps it. Stashed
+    // here for the same reason as formerName — by _onUpdate the old value is
+    // gone. Flattened because the sheet's art setters send the dotted key
+    // while the Kind stamp above sets the nested one; a transition, not a
+    // presence.
+    const protoArt = foundry.utils.flattenObject(changed ?? {})["prototypeToken.texture.src"];
+    if (typeof protoArt === "string" && protoArt !== this.prototypeToken?.texture?.src) {
+      stash.formerTokenArt = this.prototypeToken?.texture?.src;
+    }
+
     // A changed link must re-render the FORMER owner's sheet too (an unlinked
     // mule has to vanish from the tab it was on), and by _onUpdate the old value
     // is gone.
@@ -1657,6 +1669,8 @@ export class CairnActor extends Actor {
     this.#postChangeLog(stash, options, userId);
     this.#renameMatchingTokens(stash, userId)
       .catch((e) => console.error("Air Bladder | token rename after actor rename failed", e));
+    this.#restampMatchingTokenArt(stash, userId)
+      .catch((e) => console.error("Air Bladder | token art change after prototype art change failed", e));
   }
 
   /**
@@ -1691,6 +1705,40 @@ export class CairnActor extends Actor {
         if (token.actorId !== this.id || token.name !== former || !token.isOwner) continue;
         const target = token.actor?.name ?? this.name;
         if (target !== token.name) updates.push({ _id: token.id, name: target });
+      }
+      if (updates.length) await scene.updateEmbeddedDocuments("Token", updates);
+    }
+  }
+
+  /**
+   * After a prototype-art change, carry every placed token still wearing the
+   * FORMER art along to the new one — every scene, linked or unlinked — and
+   * leave any token whose picture someone set on purpose alone. The rename
+   * rule above, applied to the token's picture (review #22), and it replaces
+   * the `getActiveTokens()` loops the sheet's art setters used to run: those
+   * were CURRENT-scene only (client actor.mjs:281-290 — canvas.scene,
+   * rendered tokens, `[]` with no canvas), overwrote every token
+   * unconditionally, and left every other scene stale forever, since core
+   * copies texture onto a token exactly once, at placement. Same shape
+   * throughout: one batched write per scene, from the writer's own client,
+   * `isOwner`-filtered. A wildcard prototype's resolved files never equal the
+   * former prototype value, so randomImg tokens are naturally left alone.
+   */
+  async #restampMatchingTokenArt(stash, userId) {
+    const former = stash.formerTokenArt;
+    const target = this.prototypeToken?.texture?.src;
+    if (former === undefined || !target || former === target) return;
+    if (userId !== game.user.id) return;
+    // A synthetic actor never reaches past this line in practice: ActorDelta
+    // declares no prototypeToken field, so the change that stashed `former`
+    // is dropped in the rewrite and target === former above. The sheet's art
+    // setters write an unlinked token's texture directly instead.
+    if (this.isToken) return;
+    for (const scene of game.scenes) {
+      const updates = [];
+      for (const token of scene.tokens) {
+        if (token.actorId !== this.id || token.texture?.src !== former || !token.isOwner) continue;
+        updates.push({ _id: token.id, "texture.src": target });
       }
       if (updates.length) await scene.updateEmbeddedDocuments("Token", updates);
     }

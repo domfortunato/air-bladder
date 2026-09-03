@@ -618,6 +618,38 @@ try {
       ? ok("an ACTOR_CREATE client ignores the flip entirely")
       : fail("an ACTOR_CREATE client ignores the flip entirely", JSON.stringify(gmScope));
 
+    /* --- 5c. one flip renders the popout ONCE (review #22) ---------------- */
+    // The handler used to render ui.actors AND ui.actors.popout — but a docked
+    // tab's render already forwards to its rendered popout
+    // (sidebar-tab.mjs:114-117), so the popped-out directory drew twice per
+    // flip. Count the POPOUT's own render calls across one GM flip, on the
+    // bare-Alice client the handler runs for.
+    const popCount = await alicePage.evaluate(async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const pop = await ui.actors.renderPopout();
+      await sleep(600);
+      let renders = 0;
+      const proto = Object.getPrototypeOf(pop);
+      const orig = proto.render;
+      pop.render = function (...a) { renders += 1; return orig.apply(this, a); };
+      Hooks.callAll("userConnected", game.users.find((u) => u.isGM), true);
+      await sleep(800);
+      delete pop.render;
+      const out = {
+        renders,
+        restored: pop.render === orig,
+        isPopout: pop !== ui.actors && ui.actors.popout === pop,
+      };
+      try { await pop.close(); } catch { /* already gone */ }
+      return out;
+    });
+    popCount.isPopout && popCount.renders === 1
+      ? ok("one GM flip renders the popped-out directory exactly once", "the docked render forwards to it")
+      : fail("one GM flip renders the popped-out directory exactly once", JSON.stringify(popCount));
+    popCount.restored
+      ? ok("the popout render counter is off again")
+      : fail("the popout render counter did not restore — later popout legs are suspect");
+
     /* --- 6. the generatePC relay, as bare Alice ------------------------- */
     console.log("\nthe generatePC relay, as bare Alice");
 

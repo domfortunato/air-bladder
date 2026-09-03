@@ -70,7 +70,7 @@
                             {{#if showOmen}}
                             <div class="omen-row {{#if system.omenEnabled}}omen-enabled{{/if}}">
                                 <label class="omen-label">
-                                    <input type="checkbox" class="omen-enable" {{checked system.omenEnabled}} />
+                                    <input type="checkbox" class="omen-enable" id="{{@root.idp}}-omen-enable" {{checked system.omenEnabled}} />
                                     {{ localize 'CAIRN.Omen' }}
                                 </label>
                                 {{#if system.omenEnabled}}
@@ -97,7 +97,7 @@
                             <div class="scar-section">
                                 <div class="scar-header">
                                     <label class="scar-label">
-                                        <input type="checkbox" class="scar-enable" {{checked system.scarEnabled}} />
+                                        <input type="checkbox" class="scar-enable" id="{{@root.idp}}-scar-enable" {{checked system.scarEnabled}} />
                                         {{ localize 'CAIRN.ScarsSection' }}
                                     </label>
                                     {{#if system.scarEnabled}}
