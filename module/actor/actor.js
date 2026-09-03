@@ -1465,6 +1465,33 @@ export class CairnActor extends Actor {
   }
 
   /**
+   * The directory's right-click Import Data fed a KETTLEWRIGHT export gets a
+   * toast pointing at the right door, not a mangled actor (reported
+   * 2026-09-02: people read the two imports as one feature). The shapes are
+   * unmistakable — a Foundry actor export ALWAYS carries `type` and `system`,
+   * a Kettlewright export never does and always spells its stats out in
+   * snake_case at the top level — so a legitimate export can never trip this.
+   * Without it, core's `fromImport` validates the file against the Actor
+   * schema and throws a "type: may not be undefined" wall — into the import
+   * dialog's bare `.then()` (client-document.mjs:1088), so the user sees
+   * NOTHING happen. Refuse by toast and never by throw, for the same reason.
+   * @override
+   */
+  async importFromJSON(json) {
+    let parsed = null;
+    try { parsed = JSON.parse(json); } catch (_e) { /* let super throw core's own error */ }
+    const kettlewrightShaped = parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      && parsed.type === undefined && parsed.system === undefined
+      && ["strength", "dexterity", "willpower", "hp_max", "custom_background", "image_url"]
+        .some((key) => key in parsed);
+    if (kettlewrightShaped) {
+      ui.notifications.warn(game.i18n.localize("CAIRN.KWImport.WrongDoor"));
+      return this;
+    }
+    return super.importFromJSON(json);
+  }
+
+  /**
    * Two jobs, in the one `_preUpdate` this class is allowed to have.
    *
    * **npc / hireling** — `#applyNpcTokenDefaults`, above (picking the NPC role

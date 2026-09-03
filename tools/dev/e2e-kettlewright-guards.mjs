@@ -149,6 +149,54 @@ await page.evaluate(async () => {
   await game.actors.getName("Solene")?.delete();
   for (const a of game.actors.filter((a) => a.name === "Guardrail")) await a.delete();
 });
+
+/* 3. core's Import Data fed a Kettlewright export refuses with directions ----
+ * People confuse the directory's right-click Import Data (a Foundry document
+ * dump, replaces the actor) with Import from Kettlewright (a foreign format,
+ * mints a new one) — reported 2026-09-02. Feed the REAL fixture to
+ * importFromJSON on a planted actor: the override must toast WrongDoor and
+ * leave the actor byte-identical, and must NOT throw (the core dialog calls
+ * this in a bare .then, so a throw is an unhandled rejection). The control
+ * half proves a genuine Foundry export still imports through the same
+ * override — refusing everything would pass the first half just as well. */
+const wrongDoor = await page.evaluate(async (kw) => {
+  const target = await Actor.implementation.create({ name: "ZZ WrongDoor", type: "character" });
+  const before = { name: target.name, mtime: target._stats.modifiedTime };
+  const warns = [];
+  const shadow = (msg, opts) => { warns.push(String(msg)); };
+  Object.defineProperty(ui.notifications, "warn", { value: shadow, configurable: true, writable: true });
+  let threw = null;
+  try {
+    await target.importFromJSON(JSON.stringify(kw));
+  } catch (e) {
+    threw = String(e?.message ?? e);
+  } finally {
+    delete ui.notifications.warn;
+  }
+  const untouched = target.name === before.name && target._stats.modifiedTime === before.mtime;
+
+  // Control: a real Foundry export (type + system present) still round-trips.
+  const source = await Actor.implementation.create({ name: "ZZ WrongDoor Source", type: "character" });
+  await source.update({ "system.gold": 77 });
+  let controlThrew = null;
+  try {
+    await target.importFromJSON(JSON.stringify(source.toObject()));
+  } catch (e) {
+    controlThrew = String(e?.message ?? e);
+  }
+  const out = {
+    warns, threw, untouched,
+    shadowLifted: !Object.hasOwn(ui.notifications, "warn"),
+    controlThrew,
+    controlName: target.name,
+    controlGold: target.system.gold,
+  };
+  await target.delete();
+  await source.delete();
+  return out;
+}, base);
+const wrongDoorText = await page.evaluate(() => game.i18n.localize("CAIRN.KWImport.WrongDoor"));
+
 await browser.close();
 fs.rmSync(bogus, { force: true });
 
@@ -175,6 +223,16 @@ check("imported", madeSolene, `export says ${FIXTURE_AGE}; retired bounds shadow
 check("age verbatim", aged.age === String(FIXTURE_AGE), `age=${JSON.stringify(aged.age)}`);
 check("no bound line", !/raised|lowered/i.test(aged.summary) && !!aged.summary,
   aged.summary ? "summary carries no age warning" : "no summary");
+
+console.log("\ncore Import Data fed a Kettlewright export");
+check("refused with directions", wrongDoor.warns.some((w) => w === wrongDoorText || w === "CAIRN.KWImport.WrongDoor"),
+  `warns=${JSON.stringify(wrongDoor.warns)}`);
+check("no throw", wrongDoor.threw === null, `threw=${JSON.stringify(wrongDoor.threw)}`);
+check("actor untouched", wrongDoor.untouched, "name and _stats.modifiedTime unchanged");
+check("shadow lifted", wrongDoor.shadowLifted, "ui.notifications.warn restored to the prototype");
+check("a real Foundry export still imports", wrongDoor.controlThrew === null
+  && wrongDoor.controlName === "ZZ WrongDoor Source" && wrongDoor.controlGold === 77,
+  `threw=${JSON.stringify(wrongDoor.controlThrew)} name=${JSON.stringify(wrongDoor.controlName)} gold=${JSON.stringify(wrongDoor.controlGold)}`);
 
 // No expected console errors remain: the gate refusal that used to log one
 // retired with the gate.

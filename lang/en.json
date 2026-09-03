@@ -384,6 +384,7 @@
   "CAIRN.KWImport.TraitsLabel": "Traits (imported):",
   "CAIRN.KWImport.TraitsMapped": "Traits: {count} of 8 mapped to the character sheet, age {age}.",
   "CAIRN.KWImport.TraitsUnparsed": "Traits couldn't be read as the usual sentence — kept as text in Notes.",
+  "CAIRN.KWImport.WrongDoor": "This is a Kettlewright export — use Import from Kettlewright in the Actors tab.",
   "CAIRN.Kind": "Type",
   "CAIRN.KindHint": "your own word",
   "CAIRN.KindNamedCompanions": "Named Companions",
