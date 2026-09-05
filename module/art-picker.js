@@ -26,16 +26,14 @@
  *   tlomdev    tlomdev's token drawings (CC BY-SA 4.0), browsed category-first
  *              exactly like gameicons: the artist's own folders, plus
  *              Kettlewright's copies under "kettlewright-portraits".
- *   lydia      Lydia Comer's monster art, drawn for Air Bladder (© Lydia Comer,
- *              all rights reserved — NOT Creative Commons). A flat grid like
- *              `shipped` rather than a folder tree: 17 creatures is one screen.
+ *   lydia      ONE of Lydia Comer's two sets, named by value — "characters"
+ *              (femme and non-binary faces, on person sheets) or "monsters"
+ *              (creatures, on Monster sheets). Both CC BY 4.0. A flat grid
+ *              like `shipped` rather than a folder tree: a set is one screen.
  *              PAIRED like `shipped` too — picking sets the matching token.
  *
  * Every gallery that has a licence shows its credit under its own grid, never
- * globally: a credit under the wrong art is worse than none. Lydia's makes that
- * load-bearing rather than tidy — hers is the one grant here that is not a
- * public licence, and a viewer who reads the CC BY-SA line under tlomdev's grid
- * must not be able to read it as covering her drawings too.
+ * globally: a credit under the wrong art is worse than none.
  */
 
 import { getPortraitManifest, getCustomPortraitPaths, customPortraitFolder, reservedPortraitCategory, refreshCustomPortraits, getGameIconManifest, getTlomdevManifest, getLydiaManifest } from "./character-generator.js";
@@ -161,7 +159,8 @@ const attr = (s) => String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").rep
  * @param {Boolean}  [opts.custom]       offer the Warden's custom folder
  * @param {Boolean}  [opts.gameIcons]    offer the Game-Icons gallery
  * @param {Boolean}  [opts.tlomdev]      offer the Tlomdev gallery
- * @param {Boolean}  [opts.lydia]        offer the Lydia Comer gallery
+ * @param {String|false} [opts.lydia]    offer one Lydia Comer set, by name:
+ *                                       "characters" | "monsters" | false
  * @param {Object}   [opts.classes]      {label, cells:[{key,src,label,selected}], credit?}
  *                                       `credit` is an i18n key for the attribution
  *                                       line shown under the grid (the Kinds glyphs
@@ -204,10 +203,12 @@ export async function pickArt({
   const tlomdevCats = tlomdevManifest?.categories ?? [];
   const showTlomdev = tlomdev && tlomdevCats.length > 0;
 
-  const lydiaManifest = lydia ? await getLydiaManifest() : null;
-  const lydiaDir = lydiaManifest?.portraitDir ?? "systems/air-bladder/art/lydia-comer/portraits";
-  const lydiaPairs = lydiaManifest?.pairs ?? [];
-  const showLydia = lydia && lydiaPairs.length > 0;
+  // `lydia` names a SET, not a boolean — the manifest holds two.
+  const lydiaSet = lydia ? (await getLydiaManifest())?.sets?.[lydia] : null;
+  const lydiaDir = lydiaSet?.portraitDir
+    ?? `systems/air-bladder/art/lydia-comer/${lydia === "monsters" ? "portraits-monsters" : "portraits"}`;
+  const lydiaPairs = lydiaSet?.pairs ?? [];
+  const showLydia = !!lydia && lydiaPairs.length > 0;
 
   const cellFor = (src, label = null) => {
     const sel = src === current ? " selected" : "";
@@ -383,11 +384,11 @@ export async function pickArt({
   }
 
   if (showLydia) {
-    // A flat grid, not a folder tree: 17 drawings fit one pane, and the
+    // A flat grid, not a folder tree: a set fits one pane, and the
     // category-first shape exists to keep 2,275 <img> out of a single dialog.
-    // Filenames here are the artist's own titles ("Dire-Wolf"), so they read as
-    // captions once de-hyphenated — unlike a game-icons slug, which is a
-    // machine name and gets shown verbatim.
+    // Filenames here are the artist's own titles ("Dire-Wolf", "Femme07"), so
+    // they read as captions once de-hyphenated — unlike a game-icons slug,
+    // which is a machine name and gets shown verbatim.
     panes.push({
       id: "lydia",
       count: lydiaPairs.length,

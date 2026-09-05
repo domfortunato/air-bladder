@@ -1,6 +1,25 @@
-Air Bladder logo and related artwork
+Lydia Comer artwork — two licences
 
 Artist: Lydia Comer (https://linktr.ee/lydiadidmyink)
+
+GALLERIES — CC BY 4.0
+
+All images in the portraits/, tokens/, portraits-monsters/ and
+tokens-monsters/ subfolders are licensed under the Creative Commons 4.0
+Attribution License (CC BY 4.0).
+
+Artist: Lydia Comer — https://linktr.ee/lydiadidmyink
+Source: https://domfortunato.itch.io/lydia-comer
+
+No AI was used to create this artwork.
+
+For more details on the license, please visit:
+https://creativecommons.org/licenses/by/4.0/
+
+LOGO — ALL RIGHTS RESERVED
+
+The Air Bladder logo files in this folder (Airbladder01.webp,
+Airbladder02.webp, Airbladder06.webp):
 
 © Lydia Comer. All rights reserved. Licensed to the Air Bladder system for
 inclusion and redistribution as part of the system and its forks,

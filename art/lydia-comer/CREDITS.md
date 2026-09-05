@@ -1,57 +1,84 @@
-# Lydia Comer gallery
+# Lydia Comer galleries
 
-Every drawing here is by **[Lydia Comer](https://linktr.ee/lydiadidmyink)**, drawn for Air Bladder
-and licensed to it directly. It is **not** Creative Commons and not part of any
-of the system's other licence regimes: **© Lydia Comer, all rights reserved**,
-granted to Air Bladder for inclusion and redistribution as part of the system
-and its forks, and for use representing and promoting the project. Any use
-outside the Air Bladder project requires the artist's permission. Full terms:
-`license.txt` beside this file.
+Every drawing here is by **[Lydia Comer](https://linktr.ee/lydiadidmyink)**, licensed under
+the **Creative Commons Attribution 4.0** licence
+([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)). Source:
+<https://domfortunato.itch.io/lydia-comer>. No AI was used to create this artwork.
 
-**These files are re-encoded to WebP q95, and the `tokens/` half is sized
+The **logo** in the parent folder (`Airbladder01/02/06.webp`) is the same
+artist but NOT under CC BY: **© Lydia Comer, all rights reserved**, granted
+to Air Bladder directly. Both sets of terms: `license.txt` beside this file.
+
+**These files are re-encoded to WebP q95, and the token halves are sized
 for the canvas (400×400 — a map token draws at ~100px).** The portraits
 keep the artist's full 1000×1000: they are sheet art. Beyond that, nothing
 is cropped, recoloured or redrawn — this project's own practice rather than
-a term of the grant, which sets no bar on altering the artwork.
+a term of the licence, which sets no bar on altering the artwork.
 
 ## Shape
 
-A **paired** gallery, like Jon Aspeheim's: each creature ships as a square
-portrait and as the circle-cropped token drawn from it, matched **by stem**.
-Picking a portrait sets the paired token with it.
+Two **paired** galleries, like Jon Aspeheim's: each drawing ships as a
+square portrait and as the circle-cropped token drawn from it, matched **by
+stem**. Picking a portrait sets the paired token with it.
 
-| | |
-| --- | --- |
-| `portraits/` | square art, shown on the sheet (`actor.img`) |
-| `tokens/` | circle-cropped art, the prototype token texture |
+| set | folders | offered on |
+| --- | --- | --- |
+| characters | `portraits/`, `tokens/` | Player Character, NPC and Hireling sheets |
+| monsters | `portraits-monsters/`, `tokens-monsters/` | Monster sheets |
 
-Offered in the portrait picker's **Lydia Comer** tab on NPC, Hireling and
-Monster sheets. Not offered on Player Characters — these are creatures.
+## Characters
 
-The logo files (`Airbladder01/02/06.webp`) sit in the parent
-folder and are the same artist under the same grant, but they are not gallery
-art and the importer ignores them by name.
+| character | portrait | token |
+| --- | --- | --- |
+| Femme00 | `Femme00.webp` (292 KB) | `Femme00.webp` (62 KB) |
+| Femme01 | `Femme01.webp` (206 KB) | `Femme01.webp` (48 KB) |
+| Femme02 | `Femme02.webp` (161 KB) | `Femme02.webp` (47 KB) |
+| Femme04 | `Femme04.webp` (183 KB) | `Femme04.webp` (47 KB) |
+| Femme07 | `Femme07.webp` (174 KB) | `Femme07.webp` (55 KB) |
+| Femme08 | `Femme08.webp` (99 KB) | `Femme08.webp` (37 KB) |
+| Femme09 | `Femme09.webp` (95 KB) | `Femme09.webp` (40 KB) |
+| Femme10 | `Femme10.webp` (141 KB) | `Femme10.webp` (45 KB) |
+| Femme11 | `Femme11.webp` (245 KB) | `Femme11.webp` (61 KB) |
+| Femme12 | `Femme12.webp` (208 KB) | `Femme12.webp` (53 KB) |
+| Femme13 | `Femme13.webp` (217 KB) | `Femme13.webp` (44 KB) |
+| Femme15 | `Femme15.webp` (136 KB) | `Femme15.webp` (44 KB) |
+| Femme16 | `Femme16.webp` (248 KB) | `Femme16.webp` (58 KB) |
+| Femme17 | `Femme17.webp` (75 KB) | `Femme17.webp` (31 KB) |
+| Femme18 | `Femme18.webp` (227 KB) | `Femme18.webp` (44 KB) |
+| Femme19 | `Femme19.webp` (143 KB) | `Femme19.webp` (40 KB) |
+| Femme20 | `Femme20.webp` (165 KB) | `Femme20.webp` (49 KB) |
+| Femme21 | `Femme21.webp` (183 KB) | `Femme21.webp` (49 KB) |
+| Femme22 | `Femme22.webp` (154 KB) | `Femme22.webp` (48 KB) |
+| NB01 | `NB01.webp` (196 KB) | `NB01.webp` (46 KB) |
+| NB02 | `NB02.webp` (195 KB) | `NB02.webp` (52 KB) |
+| NB03 | `NB03.webp` (211 KB) | `NB03.webp` (58 KB) |
+| NB04 | `NB04.webp` (119 KB) | `NB04.webp` (41 KB) |
 
-## Contents
+## Monsters
 
 | creature | portrait | token |
 | --- | --- | --- |
-| Bad Bunny.webp | `Bad-Bunny.webp` (192 KB) | `Bad-Bunny.webp` (47 KB) |
-| Bandit Leader.webp | `Bandit-Leader.webp` (292 KB) | `Bandit-Leader.webp` (61 KB) |
-| Black Pudding.webp | `Black-Pudding.webp` (30 KB) | `Black-Pudding.webp` (20 KB) |
-| Dire Bear.webp | `Dire-Bear.webp` (287 KB) | `Dire-Bear.webp` (57 KB) |
-| Dire Fish.webp | `Dire-Fish.webp` (143 KB) | `Dire-Fish.webp` (48 KB) |
-| Dire Marsupial.webp | `Dire-Marsupial.webp` (305 KB) | `Dire-Marsupial.webp` (59 KB) |
-| Dire Wolf.webp | `Dire-Wolf.webp` (357 KB) | `Dire-Wolf.webp` (63 KB) |
-| Dragon.webp | `Dragon.webp` (221 KB) | `Dragon.webp` (48 KB) |
-| Dragon Turtle.webp | `Dragon-Turtle.webp` (364 KB) | `Dragon-Turtle.webp` (61 KB) |
-| Estrie Human.webp | `Estrie-Human.webp` (124 KB) | `Estrie-Human.webp` (39 KB) |
-| Fire Elemental.webp | `Fire-Elemental.webp` (155 KB) | `Fire-Elemental.webp` (46 KB) |
-| Gnome with Cock.webp | `Gnome-with-Cock.webp` (177 KB) | `Gnome-with-Cock.webp` (48 KB) |
-| Shrieking Gnoll.webp | `Shrieking-Gnoll.webp` (182 KB) | `Shrieking-Gnoll.webp` (52 KB) |
-| Stork Rider.webp | `Stork-Rider.webp` (158 KB) | `Stork-Rider.webp` (41 KB) |
-| Tentacles.webp | `Tentacles.webp` (408 KB) | `Tentacles.webp` (77 KB) |
-| Undead Mouse.webp | `Undead-Mouse.webp` (203 KB) | `Undead-Mouse.webp` (48 KB) |
-| Were Rat.webp | `Were-Rat.webp` (265 KB) | `Were-Rat.webp` (57 KB) |
+| Air Elemental | `Air-Elemental.webp` (125 KB) | `Air-Elemental.webp` (39 KB) |
+| Bad Bunny | `Bad-Bunny.webp` (192 KB) | `Bad-Bunny.webp` (47 KB) |
+| Bandit Leader | `Bandit-Leader.webp` (292 KB) | `Bandit-Leader.webp` (61 KB) |
+| Black Pudding | `Black-Pudding.webp` (30 KB) | `Black-Pudding.webp` (20 KB) |
+| Blink Dog | `Blink-Dog.webp` (187 KB) | `Blink-Dog.webp` (42 KB) |
+| Dire Bear | `Dire-Bear.webp` (287 KB) | `Dire-Bear.webp` (57 KB) |
+| Dire Fish | `Dire-Fish.webp` (143 KB) | `Dire-Fish.webp` (48 KB) |
+| Dire Marsupial | `Dire-Marsupial.webp` (305 KB) | `Dire-Marsupial.webp` (59 KB) |
+| Dire Wolf | `Dire-Wolf.webp` (357 KB) | `Dire-Wolf.webp` (63 KB) |
+| Dragon | `Dragon.webp` (221 KB) | `Dragon.webp` (48 KB) |
+| Dragon Turtle | `Dragon-Turtle.webp` (364 KB) | `Dragon-Turtle.webp` (61 KB) |
+| Estrie Human | `Estrie-Human.webp` (124 KB) | `Estrie-Human.webp` (39 KB) |
+| Fire Elemental | `Fire-Elemental.webp` (155 KB) | `Fire-Elemental.webp` (46 KB) |
+| Flumph | `Flumph.webp` (120 KB) | `Flumph.webp` (43 KB) |
+| Gnome with Cock | `Gnome-with-Cock.webp` (177 KB) | `Gnome-with-Cock.webp` (48 KB) |
+| Hellhound | `Hellhound.webp` (182 KB) | `Hellhound.webp` (50 KB) |
+| Shrieking Gnoll | `Shrieking-Gnoll.webp` (182 KB) | `Shrieking-Gnoll.webp` (52 KB) |
+| Stork Rider | `Stork-Rider.webp` (158 KB) | `Stork-Rider.webp` (41 KB) |
+| Tentacles | `Tentacles.webp` (408 KB) | `Tentacles.webp` (77 KB) |
+| Undead Mouse | `Undead-Mouse.webp` (203 KB) | `Undead-Mouse.webp` (48 KB) |
+| Water Elemental | `Water-Elemental.webp` (159 KB) | `Water-Elemental.webp` (47 KB) |
+| Were Rat | `Were-Rat.webp` (265 KB) | `Were-Rat.webp` (57 KB) |
 
-17 creatures, 34 files. Generated by `tools/import/lydia-comer.mjs`.
+23 characters and 22 creatures, 90 files. Generated by `tools/import/lydia-comer.mjs`.

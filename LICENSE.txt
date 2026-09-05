@@ -88,20 +88,24 @@ Cairn compatibility marks — CC BY-SA 4.0, © Yochai Gal
     "Compatible with Cairn 2e" badge it replaced. Ship them unmodified;
     see logo/README.md.
 
-Air Bladder logo and monster art — © Lydia Comer. ALL RIGHTS RESERVED.
-    art/lydia-comer/  — https://linktr.ee/lydiadidmyink
+Air Bladder logo — © Lydia Comer. ALL RIGHTS RESERVED.
+    art/lydia-comer/  — the three Airbladder logo files at the top of the
+    folder — https://linktr.ee/lydiadidmyink
     NOT a Creative Commons licence, and not covered by MIT. Licensed to the Air
     Bladder system for inclusion and redistribution as part of the system and
     its forks, and for use representing and promoting the project — the project
     website, package listings, and release announcements. Any use outside the
     Air Bladder project requires the artist's permission.
-    Two jobs, one grant. The logo files sit at the top of the folder; below
-    them, art/lydia-comer/portraits/ and art/lydia-comer/tokens/ hold 17
-    creatures drawn for this system, offered in the portrait picker and paired
-    portrait-to-token by filename stem. They ship re-encoded to WebP q95, the
-    tokens/ half sized for the canvas (400×400); beyond that the artwork is
-    left as drawn — this project's own practice, not a term of the grant,
-    which bounds USE, not modification.
+
+Monster and character art — CC BY 4.0, © Lydia Comer
+    art/lydia-comer/portraits/ tokens/ portraits-monsters/ tokens-monsters/
+    https://creativecommons.org/licenses/by/4.0/
+    https://domfortunato.itch.io/lydia-comer
+    The four gallery folders hold 22 creatures and 23 characters, offered in
+    the portrait picker and paired portrait-to-token by filename stem. The
+    artist states no AI was used. They ship re-encoded to WebP q95, the token
+    halves sized for the canvas (400×400); beyond that the artwork is left as
+    drawn — this project's own practice, not a licence term.
     Contents: art/lydia-comer/CREDITS.md.
     Full terms: art/lydia-comer/license.txt.
 

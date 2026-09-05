@@ -4566,21 +4566,23 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * Portrait picker — the actor counterpart to _pickContainerArt. Which
    * galleries appear is a ROLE question, not a type question:
    *
-   *   Player Character   Aspeheim + Custom + Tlomdev
-   *   NPC / Hireling     Aspeheim + Custom + Game-Icons + Tlomdev + Lydia
-   *   Monster            Custom + Game-Icons + Tlomdev + Lydia
+   *   Player Character   Aspeheim + Custom + Tlomdev + Lydia characters
+   *   NPC / Hireling     Aspeheim + Custom + Game-Icons + Tlomdev + Lydia characters
+   *   Monster            Custom + Game-Icons + Tlomdev + Lydia monsters
    *
-   * Aspeheim's art is human faces, so a Monster is not offered it. Lydia's is
-   * the mirror image — seventeen creatures drawn for this system, so a PLAYER
-   * CHARACTER is not offered it; the two exclusions are the same rule read from
-   * opposite ends, and between them every sheet keeps a gallery of faces and a
-   * gallery of beasts. Nothing else is withheld anywhere, and the URL row and
-   * Browse escape are on every sheet. Tlomdev's tokens are drawn for creatures
-   * AND people (its "human npcs" and Kettlewright folders are faces), so unlike
-   * either of those it appears everywhere. Thing roles (mount, transport,
-   * container) never reach here — _onEditPortrait routes them to the container
-   * gallery, which is not offered Lydia's art either: a mount wants a horse
-   * glyph, and her beasts are monsters rather than livestock.
+   * Lydia's gallery is TWO SETS since 2026-09-05, split the same way
+   * Aspeheim's exclusion reads: her characters (femme and non-binary faces)
+   * go where faces go — every person sheet, PCs included — and her monsters
+   * go where Aspeheim's faces do not. A Monster sheet is not offered the
+   * character set for the same reason it is not offered Aspeheim, and a
+   * person sheet is no longer offered her creatures: a set per role, never
+   * both. Nothing else is withheld anywhere, and the URL row and Browse
+   * escape are on every sheet. Tlomdev's tokens are drawn for creatures AND
+   * people (its "human npcs" and Kettlewright folders are faces), so it
+   * appears everywhere. Thing roles (mount, transport, container) never
+   * reach here — _onEditPortrait routes them to the container gallery, which
+   * is offered neither Lydia set: a mount wants a horse glyph, and her
+   * monsters are monsters rather than livestock.
    *
    * Picking swaps the portrait AND its token via _setPortrait.
    * @private
@@ -4595,7 +4597,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       custom: true,
       gameIcons: this.actor.type !== "character",
       tlomdev: true,
-      lydia: this.actor.type !== "character",
+      lydia: isMonster ? "monsters" : "characters",
       browseStart: (await getPortraitManifest())?.portraitDir ?? "systems/air-bladder/art/jon-aspeheim/portraits",
       onPick: (src) => this._setPortrait(src),
     });

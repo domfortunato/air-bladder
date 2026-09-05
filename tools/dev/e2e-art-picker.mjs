@@ -11,21 +11,27 @@
  * refactor breaks silently: a wrong tab set still renders, still picks, still
  * saves. The rule:
  *
- *   Player Character   Aspeheim + Custom + Tlomdev
- *   NPC / Hireling     Aspeheim + Custom + Game-Icons + Tlomdev + Lydia
- *   Monster            Custom + Game-Icons + Tlomdev + Lydia  (no faces here)
+ *   Player Character   Aspeheim + Custom + Tlomdev + Lydia characters
+ *   NPC / Hireling     Aspeheim + Custom + Game-Icons + Tlomdev + Lydia characters
+ *   Monster            Custom + Game-Icons + Tlomdev + Lydia monsters  (no faces here)
  *   Container / mount  Kinds + Custom + Game-Icons + Tlomdev
  *   Item / background  Custom + Game-Icons             (no Tlomdev — actors only)
  *
- * The two withholdings are each other's control and are asserted in the same
- * run: Aspeheim is human faces so a Monster is not offered it, Lydia's is
- * creatures so a PC is not. A pane that failed to render satisfies an absence
- * leg happily; it cannot also satisfy the presence leg one row up.
+ * Lydia's gallery is TWO SETS since 2026-09-05 (characters in portraits/ +
+ * tokens/, monsters in portraits-monsters/ + tokens-monsters/), and the tab
+ * wears the SAME LABEL on every sheet — so "the right set" cannot be read off
+ * the tab list and is asserted on the PANE CONTENT: the cell count and the
+ * folder the first cell points into. The withholdings are each other's
+ * control and are asserted in the same run: Aspeheim is human faces so a
+ * Monster is not offered it, and a Monster's Lydia pane holds her monsters
+ * while a person's holds her characters. A pane that failed to render
+ * satisfies an absence leg happily; it cannot also satisfy the presence leg
+ * one row up.
  *
- * PAIRED GALLERIES ARE THE OTHER RULE. Two of the five ship a portrait and a
- * separate token per image — Aspeheim's and Lydia's — while the other three are
- * their own tokens. So "token === portrait" is correct three times and wrong
- * twice, and it is precisely what the paired lookup produces when it fails
+ * PAIRED GALLERIES ARE THE OTHER RULE. Aspeheim's and both Lydia sets ship a
+ * portrait and a separate token per image, while the other galleries are
+ * their own tokens. So "token === portrait" is correct there and wrong here,
+ * and it is precisely what the paired lookup produces when it fails
  * (`?? img`) — with no error, on a sheet that looks fine.
  *
  * Lydia's halves used to be told apart by EXTENSION (.jpg square, .png circle,
@@ -84,8 +90,11 @@ const TL_KW_COUNT = TL_MANIFEST.categories.find((c) => c.key === "kettlewright-p
 const TL_BEAST_FIRST = TL_MANIFEST.categories.find((c) => c.key === "beast").names[0];
 const LY_MANIFEST = JSON.parse(fs.readFileSync(
   path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../module/lydia-manifest.json"), "utf8"));
-const LY_COUNT = LY_MANIFEST.pairs.length;
-const LY_FIRST = LY_MANIFEST.pairs[0];
+const LY_CHAR = LY_MANIFEST.sets.characters;
+const LY_MON = LY_MANIFEST.sets.monsters;
+const LY_CHAR_COUNT = LY_CHAR.pairs.length;
+const LY_MON_COUNT = LY_MON.pairs.length;
+const LY_MON_FIRST = LY_MON.pairs[0];
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: VIEWPORT });
@@ -124,9 +133,15 @@ try {
       // start-tab rule is "never land on an empty pane while one with art
       // exists", so emptiness is the thing to measure, not the pane's name.
       const shownCount = shown?.querySelectorAll(".cairn-portrait-choice, .cairn-icon-folder").length ?? 0;
+      // The Lydia tab wears one label on every sheet, so WHICH SET it holds
+      // is read off the pane: how many cells, and which folder the first one
+      // points into. The pane's body is pre-built, so no click is needed.
+      const lyPane = root?.querySelector('[data-pane="lydia"]');
+      const lydiaCells = lyPane?.querySelectorAll(".cairn-portrait-choice").length ?? 0;
+      const lydiaFirst = lyPane?.querySelector(".cairn-portrait-choice")?.dataset.src ?? null;
       await dlg?.close();
       await sheet.close();
-      return { labels, active, shownPane, shownCount };
+      return { labels, active, shownPane, shownCount, lydiaCells, lydiaFirst };
     };
 
     for (const [key, data] of [
@@ -170,14 +185,15 @@ try {
     return out;
   });
 
-  // The two exclusions are each other's control, and they are asserted in the
+  // The exclusions are each other's control, and they are asserted in the
   // same run on purpose: Aspeheim is withheld from a Monster because it is
-  // faces, Lydia is withheld from a PC because it is beasts. A pane that failed
+  // faces, and Lydia's tab — same label everywhere — must hold her CHARACTERS
+  // on a person sheet and her MONSTERS on a monster sheet. A pane that failed
   // to render at all would satisfy either "is not offered" leg on its own — it
   // cannot satisfy both an absence and a presence.
-  eq(tabs.pc.labels, ["Jon Aspeheim", "Custom", "Tlomdev"])
-    ? ok("a PC is offered Aspeheim + Custom + Tlomdev", "no Game-Icons, no Lydia")
-    : fail("a PC is offered Aspeheim + Custom + Tlomdev", JSON.stringify(tabs.pc.labels));
+  eq(tabs.pc.labels, ["Jon Aspeheim", "Custom", "Tlomdev", "Lydia Comer"])
+    ? ok("a PC is offered Aspeheim + Custom + Tlomdev + Lydia", "no Game-Icons")
+    : fail("a PC is offered Aspeheim + Custom + Tlomdev + Lydia", JSON.stringify(tabs.pc.labels));
   eq(tabs.npc.labels, ["Jon Aspeheim", "Custom", "Game-Icons", "Tlomdev", "Lydia Comer"])
     ? ok("an NPC is offered all five")
     : fail("an NPC is offered all five", JSON.stringify(tabs.npc.labels));
@@ -187,6 +203,17 @@ try {
   eq(tabs.monster.labels, ["Custom", "Game-Icons", "Tlomdev", "Lydia Comer"])
     ? ok("a Monster is offered no faces", "Aspeheim withheld, Tlomdev and Lydia not")
     : fail("a Monster is offered no faces", JSON.stringify(tabs.monster.labels));
+  // WHICH Lydia set, per sheet — the label cannot say, the pane does.
+  for (const [key, label, count, dir] of [
+    ["pc", "a PC's Lydia pane holds her characters", LY_CHAR_COUNT, LY_CHAR.portraitDir],
+    ["npc", "an NPC's Lydia pane holds her characters", LY_CHAR_COUNT, LY_CHAR.portraitDir],
+    ["legacy", "a legacy hireling's Lydia pane too", LY_CHAR_COUNT, LY_CHAR.portraitDir],
+    ["monster", "a Monster's Lydia pane holds her monsters", LY_MON_COUNT, LY_MON.portraitDir],
+  ]) {
+    tabs[key].lydiaCells === count && tabs[key].lydiaFirst?.startsWith(`${dir}/`)
+      ? ok(label, `${count} cells from ${dir.split("/").pop()}`)
+      : fail(label, JSON.stringify([tabs[key].lydiaCells, tabs[key].lydiaFirst]));
+  }
 
   // The trap: a hidden default would leave every tab inactive and the body
   // blank. And since 6466184 the rule is stronger — the first pane WITH
@@ -382,13 +409,12 @@ try {
       cellCount: cells.length,
       // Flat, not category-first: no folder tiles and no drill-down at all.
       folderTiles: pane.querySelectorAll(".cairn-icon-folder").length,
-      // Her grant is the one that is NOT a public licence, so the credit under
-      // this grid must not read as Creative Commons. Measured as the ABSENCE OF
-      // A LICENCE DEED LINK, not as the absence of the words: the line says
-      // "not Creative Commons" in as many words, and a text search for
-      // "Creative Commons" reds on the very phrase that makes the point.
-      // Every other gallery's credit links to creativecommons.org; hers links
-      // to the artist, at the same address her licence file names.
+      // CC BY 4.0 since 2026-09-05 — the INVERSE of what this leg held for a
+      // month. Her galleries used to be the one grant here that was not a
+      // public licence, and this asserted the ABSENCE of a deed link; the
+      // artist relicensed, so the credit must now carry the deed link the way
+      // every other gallery's does, alongside the artist's own link from her
+      // licence file.
       credit: pane.querySelector(".cairn-portrait-credit")?.textContent ?? "",
       creditCcLink: !!pane.querySelector('.cairn-portrait-credit a[href*="creativecommons.org"]'),
       creditArtistLink: pane.querySelector('.cairn-portrait-credit a')?.getAttribute("href") ?? "",
@@ -414,26 +440,30 @@ try {
     return out;
   });
 
-  !ly.missing && ly.cellCount === LY_COUNT && ly.folderTiles === 0
-    ? ok(`the Lydia pane is a flat grid of ${LY_COUNT}`, "no folder tiles")
-    : fail(`the Lydia pane is a flat grid of ${LY_COUNT}`, JSON.stringify(ly));
-  ly.facesLoaded === LY_COUNT
-    ? ok("every Lydia portrait resolves", `${LY_COUNT}/${LY_COUNT} decoded`)
-    : fail("every Lydia portrait resolves", `${ly.facesLoaded}/${LY_COUNT} — the manifest names a missing file`);
-  ly.firstLabel === LY_FIRST.portrait.replace(/\.[^.]+$/, "").replace(/-/g, " ")
+  !ly.missing && ly.cellCount === LY_MON_COUNT && ly.folderTiles === 0
+    ? ok(`the Lydia pane is a flat grid of ${LY_MON_COUNT}`, "no folder tiles")
+    : fail(`the Lydia pane is a flat grid of ${LY_MON_COUNT}`, JSON.stringify(ly));
+  ly.facesLoaded === LY_MON_COUNT
+    ? ok("every Lydia portrait resolves", `${LY_MON_COUNT}/${LY_MON_COUNT} decoded`)
+    : fail("every Lydia portrait resolves", `${ly.facesLoaded}/${LY_MON_COUNT} — the manifest names a missing file`);
+  ly.firstLabel === LY_MON_FIRST.portrait.replace(/\.[^.]+$/, "").replace(/-/g, " ")
     ? ok("captions are titles, not filenames", ly.firstLabel)
-    : fail("captions are titles, not filenames", JSON.stringify([ly.firstLabel, LY_FIRST.portrait]));
+    : fail("captions are titles, not filenames", JSON.stringify([ly.firstLabel, LY_MON_FIRST.portrait]));
   // The whole point of the section. Portrait is the square, token is the circle
   // — same filename since both went WebP, so a DIFFERENT FOLDER is the entire
   // difference, and `?? img` can never produce it.
-  ly.img === `${LY_MANIFEST.portraitDir}/${LY_FIRST.portrait}`
-    && ly.token === `${LY_MANIFEST.tokenDir}/${LY_FIRST.token}`
+  ly.img === `${LY_MON.portraitDir}/${LY_MON_FIRST.portrait}`
+    && ly.token === `${LY_MON.tokenDir}/${LY_MON_FIRST.token}`
     && ly.token !== ly.img
-    ? ok("picking sets the square AND its paired circle", `${LY_FIRST.portrait} -> ${LY_FIRST.token}`)
+    ? ok("picking sets the square AND its paired circle", `${LY_MON_FIRST.portrait} -> ${LY_MON_FIRST.token}`)
     : fail("picking sets the square AND its paired circle", JSON.stringify([ly.img, ly.token]));
-  /all rights reserved/i.test(ly.credit) && !/\bCC BY\b/i.test(ly.credit) && !ly.creditCcLink
-    ? ok("the credit says all rights reserved, no CC deed link")
-    : fail("the credit says all rights reserved, no CC deed link", JSON.stringify([ly.credit, ly.creditCcLink]));
+  // FLIPPED 2026-09-05: this used to require "all rights reserved" and FORBID
+  // the deed link. The galleries are CC BY 4.0 now, so the credit must say so
+  // and link the deed — the licence line under the art is the one place a
+  // player ever sees the terms.
+  /\bCC BY\b/i.test(ly.credit) && !/all rights reserved/i.test(ly.credit) && ly.creditCcLink
+    ? ok("the credit says CC BY and links the deed")
+    : fail("the credit says CC BY and links the deed", JSON.stringify([ly.credit, ly.creditCcLink]));
   ly.creditArtistLink === "https://linktr.ee/lydiadidmyink"
     ? ok("the credit links where her licence links", ly.creditArtistLink)
     : fail("the credit links where her licence links", JSON.stringify(ly.creditArtistLink));
@@ -512,11 +542,11 @@ try {
     out.portraitDir = m.portraitDir;
     out.tokenDir = m.tokenDir;
 
-    // A Lydia creature: the gallery is FLAT, so the whole of it is the folder,
-    // and the paired token must swap to the matching .png — the second paired
-    // gallery, and the only one where "roll stays in the folder" and "token is
-    // a different file from the portrait" have to hold at once.
-    const ly = await gen.getLydiaManifest();
+    // A Lydia creature: the SET is flat, so the whole set is the folder, and
+    // the paired token must swap with it — a paired gallery where "roll stays
+    // in the folder" and "token is a different file from the portrait" have
+    // to hold at once.
+    const ly = (await gen.getLydiaManifest()).sets.monsters;
     const firstLydia = `${ly.portraitDir}/${ly.pairs[0].portrait}`;
     await a.update({ img: firstLydia, "prototypeToken.texture.src": `${ly.tokenDir}/${ly.pairs[0].token}` });
     await clickDie();
@@ -527,11 +557,26 @@ try {
     out.lydiaTokenDir = ly.tokenDir;
     out.lydiaPairs = ly.pairs;
 
+    // And a Lydia CHARACTER: the die must stay in the characters set. The two
+    // sets share a parent folder and a manifest, so crossing — a femme face
+    // re-rolled into a black pudding — is exactly the miss a whole-gallery
+    // pool would produce, silently.
+    const lyc = (await gen.getLydiaManifest()).sets.characters;
+    const firstChar = `${lyc.portraitDir}/${lyc.pairs[0].portrait}`;
+    await a.update({ img: firstChar, "prototypeToken.texture.src": `${lyc.tokenDir}/${lyc.pairs[0].token}` });
+    await clickDie();
+    await until(() => a.img !== firstChar);
+    out.afterChar = a.img;
+    out.tokenAfterChar = a.prototypeToken?.texture?.src;
+    out.charPortraitDir = lyc.portraitDir;
+    out.charTokenDir = lyc.tokenDir;
+    out.charPairs = lyc.pairs;
+
     // No known folder: back to the auto-assignment pool (custom when the world
     // has any, else Aspeheim) — computed here, not assumed, so the leg does not
-    // depend on whether this world's custom folder happens to be empty. Lydia's
-    // gallery is deliberately NOT a fallback: it is monsters, and the die on an
-    // unrecognised image must not turn a hireling into a black pudding.
+    // depend on whether this world's custom folder happens to be empty. Neither
+    // Lydia set is ever the fallback: the die on an unrecognised image must not
+    // turn a hireling into a black pudding, nor hand it a stranger's face.
     await a.update({ img: "icons/svg/mystery-man.svg" });
     await clickDie();
     await until(() => a.img !== "icons/svg/mystery-man.svg");
@@ -556,8 +601,12 @@ try {
     : fail("an Aspeheim roll stays Aspeheim, token paired", JSON.stringify([roll.afterAspeheim, roll.tokenAfterAspeheim]));
   const rolledPair = roll.lydiaPairs?.find((p) => roll.afterLydia === `${roll.lydiaPortraitDir}/${p.portrait}`);
   rolledPair && roll.tokenAfterLydia === `${roll.lydiaTokenDir}/${rolledPair.token}`
-    ? ok("a Lydia roll stays Lydia, token paired", `${rolledPair.portrait} -> ${rolledPair.token}`)
-    : fail("a Lydia roll stays Lydia, token paired", JSON.stringify([roll.afterLydia, roll.tokenAfterLydia]));
+    ? ok("a Lydia monster roll stays a monster, token paired", `${rolledPair.portrait} -> ${rolledPair.token}`)
+    : fail("a Lydia monster roll stays a monster, token paired", JSON.stringify([roll.afterLydia, roll.tokenAfterLydia]));
+  const rolledChar = roll.charPairs?.find((p) => roll.afterChar === `${roll.charPortraitDir}/${p.portrait}`);
+  rolledChar && roll.tokenAfterChar === `${roll.charTokenDir}/${rolledChar.token}`
+    ? ok("a Lydia character roll stays a character, token paired", `${rolledChar.portrait} -> ${rolledChar.token}`)
+    : fail("a Lydia character roll stays a character, token paired", JSON.stringify([roll.afterChar, roll.tokenAfterChar]));
   roll.unknownLandsInPool && !roll.afterUnknown?.includes("/lydia-comer/")
     ? ok("an unknown image falls back to the auto pool", roll.afterUnknown.split("/").pop())
     : fail("an unknown image falls back to the auto pool", JSON.stringify(roll.afterUnknown));
@@ -577,10 +626,11 @@ try {
   // back — images silently absent, no error, a tile that simply never appeared.
   //
   // THE FIXTURE IS A REAL SHIPPED FOLDER, not planted files. `art/lydia-comer/`
-  // has exactly the shape under test — three loose images at the top AND two
-  // subfolders of real ones — so the scan being exercised is the real one, every
-  // <img> resolves, and NOTHING is written to disk. Foundry exposes no delete,
-  // so a probe that created real folders could never clean up after itself.
+  // has exactly the shape under test — three loose images at the top AND four
+  // subfolders of real ones (both halves of both sets since 2026-09-05) — so
+  // the scan being exercised is the real one, every <img> resolves, and
+  // NOTHING is written to disk. Foundry exposes no delete, so a probe that
+  // created real folders could never clean up after itself.
   //
   // Both settings are captured and restored, and the restoration is ASSERTED.
   // Restoring the folder re-fires its onChange, which rescans and puts the
@@ -671,13 +721,13 @@ try {
   cats.inSubfolders > 0
     ? ok("the scan reaches images inside subfolders", `${cats.inSubfolders} of ${cats.scanned} — this was 0 before the fix`)
     : fail("the scan reaches images inside subfolders", `${cats.scanned} found, none below the top level`);
-  eq(cats.tiles, ["Portraits", "Tokens"]) && cats.headings.length === 0
+  eq(cats.tiles, ["Portraits", "Portraits Monsters", "Tokens", "Tokens Monsters"]) && cats.headings.length === 0
     ? ok("each subfolder becomes a category tile", `${cats.tiles.join(" / ")}, no parent headings`)
     : fail("each subfolder becomes a category tile", JSON.stringify([cats.tiles, cats.headings]));
   cats.looseCells?.length === 3 && cats.looseCells.every((p) => !p.slice(lydiaRoot.length + 1).includes("/"))
     ? ok("loose top-level images still show in a flat grid", "the simple case costs no extra click")
     : fail("loose top-level images still show in a flat grid", JSON.stringify(cats.looseCells));
-  cats.drilled?.length === LY_COUNT && cats.drilled.every((p) => p.includes(`/${cats.firstKey}/`))
+  cats.drilled?.length === LY_CHAR_COUNT && cats.drilled.every((p) => p.includes(`/${cats.firstKey}/`))
     ? ok("clicking a tile drills into that folder alone", `${cats.drilled.length} in ${cats.firstKey}`)
     : fail("clicking a tile drills into that folder alone", `${cats.drilled?.length} cell(s), key ${cats.firstKey}`);
   cats.tileFace?.includes(`/${cats.firstKey}/`)
@@ -775,13 +825,21 @@ try {
     const dlg = [...foundry.applications.instances.values()]
       .find((x) => x.constructor.name === "DialogV2" && x.element?.querySelector(".cairn-portrait-gallery"));
     const labels = [...dlg.element.querySelectorAll(".cairn-portrait-tab")].map((b) => b.textContent.trim());
+    const lydiaFirst = dlg.element.querySelector('[data-pane="lydia"] .cairn-portrait-choice')?.dataset.src ?? null;
     await dlg.close(); await sheet.close(); await a.delete();
-    return { labels };
+    return { labels, lydiaFirst };
   });
 
   control.labels.includes("Jon Aspeheim")
     ? ok("control: forcing the role restores Aspeheim", control.labels.join(" / "))
     : fail("control: forcing the role restores Aspeheim", JSON.stringify(control.labels));
+  // The same defeat must also swap the Lydia SET: the role predicate drives
+  // both the Aspeheim tab and which of her sets the pane holds, and a set
+  // assertion that cannot be flipped this way could be passing off a
+  // hard-coded pane.
+  control.lydiaFirst?.startsWith(`${LY_CHAR.portraitDir}/`)
+    ? ok("control: and swaps her monsters for her characters", control.lydiaFirst.split("/").slice(-2).join("/"))
+    : fail("control: and swaps her monsters for her characters", JSON.stringify(control.lydiaFirst));
 
   console.log(`\nconsole errors: ${errors.length}`);
   for (const e of errors) console.log(`  ${e}`);

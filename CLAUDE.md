@@ -689,18 +689,24 @@ What belongs here is what those two files do not say:
 - **The Air Bladder logo is NOT Creative Commons.** All rights reserved, Lydia Comer,
   by bespoke grant. Do not treat it as CC, and do not reach for it as the manifest's
   cover image — that is the reason `media` is deliberately absent from `system.json`.
-  **Since 2026-08-04 the same grant also covers her MONSTERS** under
-  `art/lydia-comer/portraits|tokens/`, offered in the picker on NPC and Monster
-  sheets — a growing set, so do not state a count here.
-  They ship as WebP q95, and since 2026-08-04 the `tokens/` half is sized for
-  the canvas (400×400, user ruling — a map token draws at ~100px; portraits
-  keep the artist's full 1000×1000 because they are sheet art): 15.7 MB at
-  delivery, 4.6 MB shipped. **The grant went through two versions in one day
-  (2026-08-04) and the second is the one in force.** The first extended the original
-  "may not be modified" wording just far enough to permit format conversion;
-  the artist then replaced the whole notice with a shorter one that drops the
-  modification bar entirely and bounds USE instead — to Air Bladder, its forks,
-  and representing and promoting the project. So `tools/import/lydia-comer.mjs`
+  **Her GALLERIES are a different regime since 2026-09-05: CC BY 4.0**, the
+  artist's own relicence of everything non-logo, so one folder now holds two
+  regimes and `art/lydia-comer/license.txt` states both. TWO SETS: her
+  MONSTERS under `art/lydia-comer/portraits-monsters|tokens-monsters/`
+  (offered on Monster sheets; they lived in the plain folders from 2026-08-04
+  until the character batch arrived) and her CHARACTERS under
+  `art/lydia-comer/portraits|tokens/` (femme and non-binary faces, offered on
+  PC, NPC and Hireling sheets — picker-only, user ruling: generation pools
+  unchanged). Both are growing sets, so do not state a count here; the
+  `LYDIA_COUNT_SITES` regexes in `tools/dev/licence-check.mjs` name every
+  prose site that DOES state the two counts, and gate them.
+  They ship as WebP q95, tokens sized for the canvas (400×400, user ruling
+  2026-08-04 — a map token draws at ~100px; portraits keep the artist's full
+  1000×1000 because they are sheet art). **The grant went through two versions
+  in one day (2026-08-04), then the CC BY relicence superseded both for the
+  galleries** — the first extended "may not be modified" just far enough to
+  permit format conversion, the second bounded USE instead, and the logo alone
+  still sits under that use-bounded grant. So `tools/import/lydia-comer.mjs`
   touching only the format and the token size — never cropping, recolouring or
   redrawing — is HOUSE PRACTICE, not a licence term. Keep it; just do not cite
   the licence as the reason.
@@ -708,9 +714,11 @@ What belongs here is what those two files do not say:
   reachable and she rewrites it herself, so amend `art/lydia-comer/license.txt`
   BEFORE any code that depends on what it says, and never edit it to match code
   that already shipped.
-  The halves used to be told apart by extension (`.jpg` square, `.png` circle);
-  both are `.webp` now and only the FOLDER separates them, so an extension
-  migration (`ART_REENCODED` in `cairn.js`) carries existing worlds across.
+  The 17-monster move out of the plain folders is `LYDIA_MOVED_MONSTERS` in
+  `cairn.js`, generation 2 of the art migration, and its rules are pinned to
+  the 17 FILENAMES — never the folder prefix, because the vacated folders
+  refilled with character art in the same change and a player can pick a
+  character portrait before the first post-update GM load runs the sweep.
 - **All four picker galleries live under `art/`** (moved 2026-08-04):
   `art/jon-aspeheim/portraits|tokens/` (was the split `character_portraits/` +
   `character_tokens/`), `art/lydia-comer/`, `art/tlomdev/`, `art/game-icons/`.

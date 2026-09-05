@@ -357,7 +357,6 @@
   "CAIRN.KindHint": "tus propias palabras",
   "CAIRN.KindNamedMounts": "Monturas con nombre",
   "CAIRN.KindOther": "Otro...",
-  "CAIRN.LydiaCredit": "Ilustración de <a href=\"https://linktr.ee/lydiadidmyink\" target=\"_blank\" rel=\"noopener\">Lydia Comer</a> · © Lydia Comer, all rights reserved · licensed to Air Bladder, not Creative Commons",
   "CAIRN.Macro.NoActor": "El actor de esta macro ya no existe.",
   "CAIRN.Macro.NoItem": "{name} ya no tiene el objeto que genera esta macro.",
   "CAIRN.Macro.OwnedItemsOnly": "Solo puedes crear botones de macro para los objetos que poseas.",

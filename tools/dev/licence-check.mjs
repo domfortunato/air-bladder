@@ -312,13 +312,14 @@ if (statedArtists === undefined) {
   ok(`LICENSE.txt's contributor count matches CREDITS.md (${creditedArtists.length})`);
 }
 
-/* --- 6. the Lydia Comer gallery is PAIRED, and stated at its true size ------ */
+/* --- 6. the Lydia Comer galleries are PAIRED, and stated at their true size - */
 
-// This one is not a public licence: an all-rights-reserved grant to this system
-// alone. So the thing to hold is narrower than attribution -- it is that the
+// TWO SETS since 2026-09-05 (CC BY 4.0, both; the logo beside them stays the
+// all-rights-reserved grant): `characters` in portraits/ + tokens/, `monsters`
+// in portraits-monsters/ + tokens-monsters/. The thing to hold is that the
 // shipped tree still matches what the manifest and the notices claim, because
-// every consumer of this gallery (the picker, the portrait die, the paired-token
-// lookup) trusts the manifest and none of them can see the disk.
+// every consumer of these galleries (the picker, the portrait die, the
+// paired-token lookup) trusts the manifest and none of them can see the disk.
 //
 // The PAIRING is the load-bearing half. A portrait with no token is not a
 // missing file, it is an actor whose sheet shows the square and whose token on
@@ -333,47 +334,71 @@ if (statedArtists === undefined) {
 // container format is not this gate's business and should not be able to break
 // it again the next time the shipped format changes.
 const IMAGE = /\.(jpe?g|png|webp|gif|avif)$/i;
-const lydiaPortraits = readdirSync(join(ROOT, "art", "lydia-comer", "portraits")).filter((f) => IMAGE.test(f));
-const lydiaTokens = new Set(readdirSync(join(ROOT, "art", "lydia-comer", "tokens")).filter((f) => IMAGE.test(f)));
 const lydiaManifest = JSON.parse(read("module/lydia-manifest.json"));
 const stem = (f) => f.replace(/\.[^.]+$/, "");
-const lydiaTokenStems = new Set([...lydiaTokens].map(stem));
-
 const lydiaProblems = [];
-for (const p of lydiaPortraits) if (!lydiaTokenStems.has(stem(p))) lydiaProblems.push(`portraits/${p} has no paired token`);
-for (const t of lydiaTokens) if (!lydiaPortraits.some((p) => stem(p) === stem(t))) lydiaProblems.push(`tokens/${t} has no paired portrait`);
-if (lydiaManifest.pairs?.length !== lydiaPortraits.length) {
-  lydiaProblems.push(`module/lydia-manifest.json lists ${lydiaManifest.pairs?.length} pairs, disk holds ${lydiaPortraits.length}`);
-}
-for (const { portrait, token } of lydiaManifest.pairs ?? []) {
-  if (!lydiaPortraits.includes(portrait)) lydiaProblems.push(`manifest names portraits/${portrait}, which is not on disk`);
-  if (!lydiaTokens.has(token)) lydiaProblems.push(`manifest names tokens/${token}, which is not on disk`);
+const lydiaCounts = {};
+const LYDIA_SETS = { characters: ["portraits", "tokens"], monsters: ["portraits-monsters", "tokens-monsters"] };
+// A missing FOLDER is a finding, not a crash: readdirSync throwing here took
+// the whole gate down with a raw stack while every other check went unrun.
+const readImages = (dir) => {
+  try { return readdirSync(join(ROOT, "art", "lydia-comer", dir)).filter((f) => IMAGE.test(f)); }
+  catch { return null; }
+};
+for (const [setName, [pDir, tDir]] of Object.entries(LYDIA_SETS)) {
+  const portraits = readImages(pDir);
+  const tokens = readImages(tDir);
+  if (portraits === null || tokens === null) {
+    lydiaProblems.push(`${setName}: folder missing on disk (${portraits === null ? pDir : tDir})`);
+    continue;
+  }
+  const tokenStems = new Set(tokens.map(stem));
+  for (const p of portraits) if (!tokenStems.has(stem(p))) lydiaProblems.push(`${pDir}/${p} has no paired token`);
+  for (const t of tokens) if (!portraits.some((p) => stem(p) === stem(t))) lydiaProblems.push(`${tDir}/${t} has no paired portrait`);
+  const set = lydiaManifest.sets?.[setName];
+  if (set?.pairs?.length !== portraits.length) {
+    lydiaProblems.push(`module/lydia-manifest.json lists ${set?.pairs?.length} ${setName} pairs, disk holds ${portraits.length}`);
+  }
+  for (const { portrait, token } of set?.pairs ?? []) {
+    if (!portraits.includes(portrait)) lydiaProblems.push(`manifest names ${pDir}/${portrait}, which is not on disk`);
+    if (!tokens.includes(token)) lydiaProblems.push(`manifest names ${tDir}/${token}, which is not on disk`);
+  }
+  lydiaCounts[setName] = portraits.length;
 }
 // Named rather than inlined so the pass message can COUNT them. It said "4
 // sites" from a literal, and went stale the moment two more were added -- this
-// gate reporting a stale number about staleness.
+// gate reporting a stale number about staleness. Each entry names the SET its
+// captured number states — two galleries, two counts, and a site that states
+// both carries two entries with two patterns.
 const LYDIA_COUNT_SITES = [
-  ["LICENSE.txt", /hold (\d+)\s+creatures/],
-  ["README.md", /(\d+) creatures drawn for this system/],
-  ["README.es.md", /(\d+) criaturas dibujadas para este sistema/],
-  ["art/lydia-comer/CREDITS.md", /^(\d+) creatures, \d+ files\./m],
-  // Both READMEs state it a second time, up in the feature list. Two statements
-  // of one number in one file is the ordinary way a count goes stale.
-  // The anchor deliberately stops at the countable phrase: the 2026-08-10
-  // tightening pass folded the three gallery bullets into one and dropped the
-  // "A gallery of" lead-in, which is exactly how the 0.1.15 workflow failed
-  // at the tag — the gate anchored on wording, not on the fact it checks.
-  ["README.md", /(\d+) monsters drawn for Air Bladder/],
-  ["README.es.md", /(\d+) monstruos dibujados para Air Bladder/],
+  ["LICENSE.txt", /hold (\d+) creatures and \d+ characters/, "monsters"],
+  ["LICENSE.txt", /hold \d+ creatures and (\d+) characters/, "characters"],
+  ["README.md", /(\d+) creatures and \d+ characters \(source:/, "monsters"],
+  ["README.md", /\d+ creatures and (\d+) characters \(source:/, "characters"],
+  ["README.es.md", /(\d+) criaturas y \d+ personajes \(fuente:/, "monsters"],
+  ["README.es.md", /\d+ criaturas y (\d+) personajes \(fuente:/, "characters"],
+  ["art/lydia-comer/CREDITS.md", /^(\d+) characters and \d+ creatures, \d+ files\./m, "characters"],
+  ["art/lydia-comer/CREDITS.md", /^\d+ characters and (\d+) creatures, \d+ files\./m, "monsters"],
+  // Both READMEs state the numbers a second time, up in the feature list. Two
+  // statements of one number in one file is the ordinary way a count goes
+  // stale. The anchor deliberately stops at the countable phrase: the
+  // 2026-08-10 tightening pass folded the three gallery bullets into one and
+  // dropped the "A gallery of" lead-in, which is exactly how the 0.1.15
+  // workflow failed at the tag — the gate anchored on wording, not on the
+  // fact it checks.
+  ["README.md", /(\d+) monsters and \d+ characters by/, "monsters"],
+  ["README.md", /\d+ monsters and (\d+) characters by/, "characters"],
+  ["README.es.md", /(\d+) monstruos y \d+ personajes de/, "monsters"],
+  ["README.es.md", /\d+ monstruos y (\d+) personajes de/, "characters"],
 ];
-for (const [file, pattern] of LYDIA_COUNT_SITES) {
+for (const [file, pattern, setName] of LYDIA_COUNT_SITES) {
   const m = read(file).match(pattern);
   if (!m) lydiaProblems.push(`${file}: the count sentence this gate anchors on is gone (${pattern})`);
-  else if (Number(m[1]) !== lydiaPortraits.length) lydiaProblems.push(`${file}: says ${m[1]}, disk holds ${lydiaPortraits.length}`);
+  else if (Number(m[1]) !== lydiaCounts[setName]) lydiaProblems.push(`${file}: says ${m[1]} ${setName}, disk holds ${lydiaCounts[setName]}`);
 }
 lydiaProblems.length === 0
-  ? ok(`the Lydia Comer gallery is fully paired and stated at its true size (${lydiaPortraits.length} creatures, ${LYDIA_COUNT_SITES.length} sites)`)
-  : fail(`Lydia Comer gallery:\n        ${lydiaProblems.join("\n        ")}`);
+  ? ok(`the Lydia Comer galleries are fully paired and stated at their true size (${lydiaCounts.characters} characters + ${lydiaCounts.monsters} creatures, ${LYDIA_COUNT_SITES.length} sites)`)
+  : fail(`Lydia Comer galleries:\n        ${lydiaProblems.join("\n        ")}`);
 
 /* 8. The tlomdev modification indication is a LICENCE TERM, not a courtesy --- */
 

@@ -96,36 +96,37 @@ export const getTlomdevManifest = async () => {
   return _tlomdevManifest;
 };
 
-// The Lydia Comer gallery: her monster art (© Lydia Comer, all rights reserved,
-// by direct grant — NOT Creative Commons; see lydia-comer/license.txt). Same
-// lazy-fetch-and-cache shape as the three above, for the same reason.
+// The Lydia Comer galleries: her art (CC BY 4.0 since 2026-09-05; see
+// lydia-comer/license.txt — the logo beside them stays all rights reserved).
+// Same lazy-fetch-and-cache shape as the three above, for the same reason.
 //
-// Shaped unlike either of them: it is a PAIRED gallery, a flat list of
-// {portrait, token} the way Aspeheim's is, not category folders. Each creature
-// is a square drawing plus the circle-cropped token made from it, matched by
-// stem. `pairs` holds BOTH filenames rather than one shared name the way
-// portrait-manifest.json does — a habit from when the halves carried different
-// extensions (.jpg square, .png circle), kept now that both are .webp because
-// the two halves live in different folders and nothing should quietly depend on
-// their names agreeing.
+// Shaped unlike either of them: TWO PAIRED galleries under `sets` —
+// `characters` (portraits/ + tokens/) and `monsters` (portraits-monsters/ +
+// tokens-monsters/) — each a flat list of {portrait, token} the way Aspeheim's
+// is, not category folders. Each drawing is a square plus the circle-cropped
+// token made from it, matched by stem. `pairs` holds BOTH filenames rather
+// than one shared name the way portrait-manifest.json does — a habit from when
+// the halves carried different extensions (.jpg square, .png circle), kept now
+// that both are .webp because the two halves live in different folders and
+// nothing should quietly depend on their names agreeing.
 let _lydiaManifest = null;
 
-/** @returns {Promise<{portraitDir:String, tokenDir:String, pairs:{portrait:String, token:String}[]}>} */
+/** @returns {Promise<{sets: Object<String, {portraitDir:String, tokenDir:String, pairs:{portrait:String, token:String}[]}>}>} */
 export const getLydiaManifest = async () => {
   if (_lydiaManifest === null) {
     try {
       const resp = await fetch("systems/air-bladder/module/lydia-manifest.json");
-      _lydiaManifest = resp.ok ? await resp.json() : { pairs: [] };
+      _lydiaManifest = resp.ok ? await resp.json() : { sets: {} };
     } catch {
-      _lydiaManifest = { pairs: [] };
+      _lydiaManifest = { sets: {} };
     }
   }
   return _lydiaManifest;
 };
 
-/** Full portrait paths for the Lydia gallery, in manifest order. */
-const lydiaPortraits = (m) =>
-  (m?.pairs ?? []).map((p) => `${m.portraitDir}/${p.portrait}`);
+/** Full portrait paths for ONE Lydia set, in manifest order. */
+const lydiaSetPortraits = (set) =>
+  (set?.pairs ?? []).map((p) => `${set.portraitDir}/${p.portrait}`);
 
 // --- Custom portraits (GM-curated, per-world local pool) --------------------
 // A folder of the GM's own portraits, scanned into a world setting so players
@@ -460,17 +461,19 @@ export const randomPortraitPair = async (category = null) => {
 
 /**
  * The prepped token image paired with a portrait path, or null when the
- * portrait isn't from one of the two PAIRED galleries (e.g. a custom upload, a
+ * portrait isn't from one of the PAIRED galleries (e.g. a custom upload, a
  * game-icons glyph, a tlomdev drawing — each of which is its own token).
  * Callers decide the fallback.
  *
- * TWO galleries answer here. Aspeheim's halves share one filename across two
- * folders, so a basename lookup settles it. Lydia's manifest names both halves
- * and the lookup is by the PORTRAIT filename — which was load-bearing while the
- * halves were .jpg and .png, and is merely honest now that both are .webp.
- * Matching on the DIRECTORY as well as the name is the part that still matters:
- * an Aspeheim and a Lydia file could in principle share a stem, and the answer
- * must not depend on which gallery is consulted first.
+ * THREE galleries answer here: Aspeheim's, and both Lydia sets. Aspeheim's
+ * halves share one filename across two folders, so a basename lookup settles
+ * it. A Lydia set's manifest names both halves and the lookup is by the
+ * PORTRAIT filename — which was load-bearing while the halves were .jpg and
+ * .png, and is merely honest now that both are .webp. Matching on the
+ * DIRECTORY as well as the name is the part that still matters: an Aspeheim
+ * and a Lydia file could in principle share a stem — and so could the two
+ * Lydia sets — and the answer must not depend on which gallery is consulted
+ * first.
  * @param {String} portraitPath
  * @returns {Promise<String|null>}
  */
@@ -482,8 +485,11 @@ export const pairedTokenFor = async (portraitPath) => {
   if (m?.names?.includes(base) && src === `${m.portraitDir}/${base}`) return `${m.tokenDir}/${base}`;
 
   const l = await getLydiaManifest();
-  const pair = (l?.pairs ?? []).find((p) => src === `${l.portraitDir}/${p.portrait}`);
-  return pair ? `${l.tokenDir}/${pair.token}` : null;
+  for (const set of Object.values(l?.sets ?? {})) {
+    const pair = (set.pairs ?? []).find((p) => src === `${set.portraitDir}/${p.portrait}`);
+    if (pair) return `${set.tokenDir}/${pair.token}`;
+  }
+  return null;
 };
 
 /**
@@ -545,14 +551,18 @@ export const randomPortraitInSameFolder = async (current, category = null) => {
   if (aspeheim.includes(img)) pool = aspeheim;
   if (!pool && customAll.includes(img)) pool = custom.length ? custom : customAll;
   if (!pool) {
-    // Lydia's gallery is flat, so the whole of it is the folder — a dragon can
-    // roll into a were-rat, which is the same promise the category galleries
-    // make one folder down. It is never the FALLBACK pool at the bottom of this
-    // function, though: these are creatures, and the die on an actor wearing no
-    // known art must not turn a hireling into a black pudding.
+    // Each Lydia set is flat, so the whole SET is the folder — a dragon can
+    // roll into a were-rat, and a femme character into another femme, which is
+    // the same promise the category galleries make one folder down. The die
+    // never crosses sets: a monster stays a monster, a character a character.
+    // Neither set is ever the FALLBACK pool at the bottom of this function,
+    // though: the die on an actor wearing no known art must not hand it a
+    // black pudding, nor a stranger's face.
     const l = await getLydiaManifest();
-    const lydia = lydiaPortraits(l);
-    if (lydia.includes(img)) pool = lydia;
+    for (const set of Object.values(l?.sets ?? {})) {
+      const paths = lydiaSetPortraits(set);
+      if (paths.includes(img)) { pool = paths; break; }
+    }
   }
   if (!pool) {
     const gi = await getGameIconManifest();

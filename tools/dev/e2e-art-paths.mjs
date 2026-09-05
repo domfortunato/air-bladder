@@ -53,15 +53,28 @@ const MOVES = [
   // it into a claim that the migration must NOT finish its job.
   ["systems/air-bladder/tlomdev/beast/beast1.png", "systems/air-bladder/art/tlomdev/beast/beast1.webp"],
   ["systems/air-bladder/game-icons/weapons/axe-swing.svg", "systems/air-bladder/art/game-icons/weapons/axe-swing.svg"],
-  // TWO migrations on ONE path, and the only leg that chains across DIFFERENT
-  // extensions. A world last opened before the art/ restructure holds Lydia's
-  // gallery at the old PREFIX *and* in the old FORMAT — she shipped .jpg
-  // squares and .png circles until the grant was extended on 2026-08-04. Both
-  // rules have to fire, in order, or the result is a path that is wrong in a
-  // different way; and the migration runs once, so there is no second pass.
-  // This leg is what caught the chain being real: it was written expecting the
-  // prefix move alone and went red the moment the re-encode rule landed.
-  ["systems/air-bladder/lydia-comer/portraits/Dragon.jpg", "systems/air-bladder/art/lydia-comer/portraits/Dragon.webp"],
+  // THREE migrations on ONE path, and the only leg that chains across
+  // DIFFERENT extensions. A world last opened before the art/ restructure
+  // holds Lydia's gallery at the old PREFIX *and* in the old FORMAT — she
+  // shipped .jpg squares and .png circles until the grant was extended on
+  // 2026-08-04 — and since 2026-09-05 (generation 2) her 17 monsters also
+  // live in the -monsters folders, so the expectation lands there: the
+  // filename-pinned move rule and the re-encode have to fire, in order, or
+  // the result is a path that is wrong in a different way; and the migration
+  // runs once, so there is no second pass. This leg is what caught the chain
+  // being real: it was written expecting the prefix move alone and went red
+  // the moment the re-encode rule landed.
+  ["systems/air-bladder/lydia-comer/portraits/Dragon.jpg", "systems/air-bladder/art/lydia-comer/portraits-monsters/Dragon.webp"],
+];
+// Generation 2's own group (2026-09-05): the 17 monsters moved into
+// portraits-monsters/ + tokens-monsters/ when the character batch took over
+// the plain folders. This is the COMMON case — a generation-1 world holds
+// them art/-era and .webp already, so no other rule touches the path and
+// deleting the filename-pinned move rules fails exactly here. One leg per
+// half, because the halves are separate generated rules.
+const MOVED_MONSTERS = [
+  ["systems/air-bladder/art/lydia-comer/portraits/Dragon.webp", "systems/air-bladder/art/lydia-comer/portraits-monsters/Dragon.webp"],
+  ["systems/air-bladder/art/lydia-comer/tokens/Were-Rat.webp", "systems/air-bladder/art/lydia-comer/tokens-monsters/Were-Rat.webp"],
 ];
 // Already under art/, wrong format only — a world made AFTER the restructure but
 // BEFORE the WebP conversion. The prefix rule cannot see these at all, so this
@@ -73,7 +86,11 @@ const MOVES = [
 // conversion is the state of every world that has been tracking `dev`, and the
 // two galleries converted in different commits.
 const REENCODED = [
-  ["systems/air-bladder/art/lydia-comer/tokens/Dragon.png", "systems/air-bladder/art/lydia-comer/tokens/Dragon.webp"],
+  // Since generation 2 the lydia leg chains a MOVE as well — a .png of one of
+  // the 17 under the art/-era tokens/ folder is a monster, and lands in
+  // tokens-monsters/. The tlomdev leg below is now the one that isolates
+  // ART_REENCODED: right folder, wrong format, no move in play.
+  ["systems/air-bladder/art/lydia-comer/tokens/Dragon.png", "systems/air-bladder/art/lydia-comer/tokens-monsters/Dragon.webp"],
   ["systems/air-bladder/art/tlomdev/beast/beast1.png", "systems/air-bladder/art/tlomdev/beast/beast1.webp"],
 ];
 // The two tlomdev folders that lost their SPACES (2026-08-04). Each is a
@@ -88,11 +105,16 @@ const RENAMED = [
   ["systems/air-bladder/art/tlomdev/human npcs for itmod/npc1.png",
     "systems/air-bladder/art/tlomdev/human-npcs-for-itmod/npc1.webp"],
 ];
-// Must survive UNCHANGED. icons/ is stamped class art and stayed put; the URL is
-// a Warden's own image and was never ours to rewrite.
+// Must survive UNCHANGED. icons/ is stamped class art and stayed put; the URL
+// is a Warden's own image and was never ours to rewrite. The Femme path is
+// generation 2's negative control: it sits in the very folder the 17 monsters
+// left, so it is exactly what a folder-prefix move rule would wrongly drag
+// into portraits-monsters/ — the monster moves are FILENAME-pinned, and a
+// character picked into the vacated folder must stay put.
 const UNTOUCHED = [
   "systems/air-bladder/icons/generic-item.svg",
   "https://example.invalid/some/portrait.png",
+  "systems/air-bladder/art/lydia-comer/portraits/Femme00.webp",
 ];
 
 let failed = false;
@@ -110,7 +132,7 @@ try {
 
   /* --- plant one old path on every surface ------------------------------- */
 
-  planted = await page.evaluate(async ({ MOVES, UNTOUCHED, REENCODED, RENAMED }) => {
+  planted = await page.evaluate(async ({ MOVES, UNTOUCHED, REENCODED, RENAMED, MOVED_MONSTERS }) => {
     const old = MOVES.map(([from]) => from);
     const ActorCls = CONFIG.Actor.documentClass;
     const ItemCls = CONFIG.Item.documentClass;
@@ -127,6 +149,12 @@ try {
     const renamed = [];
     for (const [i, [from]] of RENAMED.entries()) {
       renamed.push(await ItemCls.create({ name: `zz-art-path-renamed-${i}`, type: "item", img: from }));
+    }
+    // The generation-2 surfaces: art/-era, right format, wrong FOLDER — only
+    // the filename-pinned monster moves can touch these.
+    const movedMon = [];
+    for (const [i, [from]] of MOVED_MONSTERS.entries()) {
+      movedMon.push(await ItemCls.create({ name: `zz-art-path-monster-${i}`, type: "item", img: from }));
     }
 
     const actor = await ActorCls.create({
@@ -191,6 +219,7 @@ try {
       itemId: item.id,
       reencIds: reencs.map((d) => d.id),
       renamedIds: renamed.map((d) => d.id),
+      movedMonIds: movedMon.map((d) => d.id),
       actorId: actor.id,
       ownedId: owned?.id ?? null,
       sceneId: scene.id,
@@ -207,6 +236,7 @@ try {
         item: item.img,
         reencs: reencs.map((d) => d.img),
         renamed: renamed.map((d) => d.img),
+        movedMon: movedMon.map((d) => d.img),
         actor: actor.img,
         proto: actor.prototypeToken?.texture?.src,
         owned: owned?.img,
@@ -219,7 +249,7 @@ try {
         controls: controls.map((id) => game.items.get(id)?.img),
       },
     };
-  }, { MOVES, UNTOUCHED, REENCODED, RENAMED });
+  }, { MOVES, UNTOUCHED, REENCODED, RENAMED, MOVED_MONSTERS });
 
   const wanted = {
     item: MOVES[3][0], actor: MOVES[0][0], proto: MOVES[1][0],
@@ -227,14 +257,16 @@ try {
     deltaImg: MOVES[0][0], deltaItem: MOVES[2][0], packActor: MOVES[0][0],
   };
   // Seven KINDS of surface, more documents than that — the re-encode kind is
-  // planted once per gallery. Counting documents rather than kinds keeps the
-  // number honest the next time a gallery is added.
-  const docs = Object.keys(wanted).length + REENCODED.length + RENAMED.length;
+  // planted once per gallery, the moved-monster kind once per folder half.
+  // Counting documents rather than kinds keeps the number honest the next
+  // time a gallery is added.
+  const docs = Object.keys(wanted).length + REENCODED.length + RENAMED.length + MOVED_MONSTERS.length;
   const badPlant = Object.entries(wanted).filter(([k, v]) => planted.seen[k] !== v)
     .concat(REENCODED.filter(([from], i) => planted.seen.reencs[i] !== from).map(([from]) => [`reenc:${from}`, from]))
-    .concat(RENAMED.filter(([from], i) => planted.seen.renamed[i] !== from).map(([from]) => [`renamed:${from}`, from]));
+    .concat(RENAMED.filter(([from], i) => planted.seen.renamed[i] !== from).map(([from]) => [`renamed:${from}`, from]))
+    .concat(MOVED_MONSTERS.filter(([from], i) => planted.seen.movedMon[i] !== from).map(([from]) => [`monster:${from}`, from]));
   badPlant.length === 0 && UNTOUCHED.every((s, i) => planted.seen.controls[i] === s)
-    ? ok("planted an old path on every surface", `${docs} documents + 2 controls`)
+    ? ok("planted an old path on every surface", `${docs} documents + ${UNTOUCHED.length} controls`)
     : fail("planted an old path on every surface", JSON.stringify({ badPlant, controls: planted.seen.controls }));
 
   /* --- reload, and let the ready migration run --------------------------- */
@@ -270,6 +302,7 @@ try {
       item: game.items.get(p.itemId)?.img ?? null,
       reencs: p.reencIds.map((id) => game.items.get(id)?.img ?? null),
       renamed: p.renamedIds.map((id) => game.items.get(id)?.img ?? null),
+      movedMon: p.movedMonIds.map((id) => game.items.get(id)?.img ?? null),
       actor: a?.img ?? null,
       proto: a?.prototypeToken?.texture?.src ?? null,
       owned: a?.items.get(p.ownedId)?.img ?? null,
@@ -304,13 +337,25 @@ try {
   // The art/-era SPACED folder paths carry no old prefix and (for the KW half)
   // no stale extension either — a third stale shape, or the poll stops early.
   const STALE_SPACED = /systems\/air-bladder\/art\/tlomdev\/(human npcs for itmod|Kettlewright Portraits)\//;
+  // Generation 2's own stale shape: one of the 17 moved monsters still in the
+  // plain art/-era folders, right format and all. FILENAME-scoped, never the
+  // folder prefix — those folders now hold the CHARACTER set, whose paths are
+  // legitimate; a prefix test would read the Femme00 control as permanently
+  // stale and this poll would never finish. Hand-written like every other
+  // expectation here, so a broken LYDIA_MOVED_MONSTERS list in cairn.js
+  // cannot make this file agree with it.
+  const STALE_MONSTER = new RegExp("systems/air-bladder/art/lydia-comer/(portraits|tokens)/("
+    + "Bad-Bunny|Bandit-Leader|Black-Pudding|Dire-Bear|Dire-Fish|Dire-Marsupial|Dire-Wolf"
+    + "|Dragon-Turtle|Dragon|Estrie-Human|Fire-Elemental|Gnome-with-Cock|Shrieking-Gnoll"
+    + "|Stork-Rider|Tentacles|Undead-Mouse|Were-Rat)\\.");
   // packLocked is part of "done": the migration re-locks the world pack in a
   // finally AFTER its last document write, as a settings round-trip. A poll
   // that stops when the PATHS are right reads the lock inside that window and
   // reports the re-lock missing — this probe's own trap, third appearance.
-  const done = (s) => s.packLocked === true && s.generation >= 1 && Object.values(s).flat()
+  const done = (s) => s.packLocked === true && s.generation >= 2 && Object.values(s).flat()
     .every((v) => v === null || v === true
-      || (!STALE_PREFIX.test(String(v)) && !STALE_FORMAT.test(String(v)) && !STALE_SPACED.test(String(v))));
+      || (!STALE_PREFIX.test(String(v)) && !STALE_FORMAT.test(String(v))
+        && !STALE_SPACED.test(String(v)) && !STALE_MONSTER.test(String(v))));
   for (; waited < 30000 && !done(after); waited += 250) {
     await page.waitForTimeout(250);
     after = await read();
@@ -351,6 +396,15 @@ try {
       ? ok(`migrated: ${label}`, want.replace("systems/air-bladder/art/", ""))
       : fail(`migrated: ${label}`, `got "${after.reencs[i]}", wanted "${want}"`);
   }
+  // One per folder half — the generation-2 monster move on its own, with no
+  // prefix or format rewrite to hide behind.
+  for (const [i, [, want]] of MOVED_MONSTERS.entries()) {
+    const half = want.includes("/tokens-monsters/") ? "tokens" : "portraits";
+    const label = `moved monster: ${half} half, into -monsters`;
+    after.movedMon[i] === want
+      ? ok(`migrated: ${label}`, want.replace("systems/air-bladder/art/", ""))
+      : fail(`migrated: ${label}`, `got "${after.movedMon[i]}", wanted "${want}"`);
+  }
   console.log(`        (migration settled after ${waited}ms)`);
 
   // The migration unlocks a locked pack to write and must put the lock back —
@@ -360,16 +414,16 @@ try {
     ? ok("the world pack's LOCK was restored", "locked again after the write")
     : fail("the world pack's LOCK was restored", `locked=${after.packLocked}`);
   // The gate, re-closed by the sweep itself: the marker is back at the current
-  // generation (the value it held before this probe re-opened it, or 1 on a
+  // generation (the value it held before this probe re-opened it, or 2 on a
   // world that had never stamped one), so the world ends where it began.
-  after.generation >= 1 && (gen.before === 0 || after.generation === gen.before)
+  after.generation >= 2 && (gen.before === 0 || after.generation === gen.before)
     ? ok("the generation marker is re-stamped after the sweep", `was ${gen.before}, re-opened to 0, now ${after.generation}`)
     : fail("the generation marker is re-stamped after the sweep", `was ${gen.before}, now ${after.generation}`);
 
   const movedControls = UNTOUCHED.filter((s, i) => after.controls[i] !== s);
   movedControls.length === 0
-    ? ok("control: icons/ and an external URL untouched", UNTOUCHED.length + " unchanged")
-    : fail("control: icons/ and an external URL untouched", JSON.stringify(after.controls));
+    ? ok("control: icons/, an external URL, a character path untouched", UNTOUCHED.length + " unchanged")
+    : fail("control: icons/, an external URL, a character path untouched", JSON.stringify(after.controls));
 
   console.log(`\nconsole errors: ${errors.length}`);
   for (const e of errors.slice(0, 8)) console.log(`  ${e}`);
@@ -386,6 +440,7 @@ try {
         await drop(() => game.items.get(p.itemId)?.delete());
         for (const id of p.reencIds) await drop(() => game.items.get(id)?.delete());
         for (const id of p.renamedIds) await drop(() => game.items.get(id)?.delete());
+        for (const id of p.movedMonIds) await drop(() => game.items.get(id)?.delete());
         // The world pack: unlock first or the delete is refused.
         await drop(async () => {
           const pk = game.packs.get(p.packId);
