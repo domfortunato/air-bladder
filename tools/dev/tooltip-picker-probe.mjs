@@ -131,6 +131,39 @@ try {
       out.migrate.omenPickIcon = root?.querySelector('a[data-action="pickOmen"] i')?.className ?? "";
       out.migrate.bgPickIcon = rootOf()?.querySelector('a[data-action="pickBackground"] i')?.className ?? "";
 
+      // ---- 5b. Per-trait dice (2026-09-05, user ask) ----------------------
+      // One die per trait row, left of its select, carrying the row's key;
+      // rolling writes THAT trait off its own table and no other. The rows
+      // render only while the pick-lists are EXPANDED, so expand first — and
+      // before the aria sweep below, so the eight new anchors are held to the
+      // same localized-aria-label rule as every other icon-only control.
+      root?.querySelector('a[data-action="toggleTraits"]')?.click();
+      await wait(300);
+      root = rootOf();
+      const traitDice = [...(root?.querySelectorAll('a[data-action="rollTrait"]') ?? [])];
+      out.traitDice = {
+        count: traitDice.length,
+        rows: root?.querySelectorAll(".trait-grid .trait-row").length ?? 0,
+        keys: traitDice.map((a) => a.dataset.key),
+        physTip: traitDice.find((a) => a.dataset.key === "physique")?.dataset.tooltip ?? "",
+      };
+      // Snapshot every trait, then CLEAR physique before rolling — a freshly
+      // generated value is already a table row, so "still a table row after
+      // the click" would pass without any click landing.
+      const traitsBefore = foundry.utils.deepClone(actor.system.traits ?? {});
+      const { resultText } = await import("/systems/air-bladder/module/compendium.js");
+      const physTable = (await game.packs.get("air-bladder.tables-2e").getDocuments())
+        .find((t) => t.name === "Physique");
+      const physTexts = physTable.results.map((res) => resultText(res));
+      await actor.update({ "system.traits.physique": "" });
+      await waitFor(() => rootOf()?.querySelector('a[data-action="rollTrait"][data-key="physique"]'), 5000);
+      rootOf()?.querySelector('a[data-action="rollTrait"][data-key="physique"]')?.click();
+      out.traitRoll = await waitFor(() => physTexts.includes(actor.system.traits?.physique ?? ""), 10000)
+        ? actor.system.traits.physique
+        : `physique is "${actor.system.traits?.physique}" (not a Physique-table row)`;
+      out.traitOthersKept = Object.entries(traitsBefore).filter(([k]) => k !== "physique")
+        .every(([k, v]) => (actor.system.traits?.[k] ?? "") === v);
+
       // 2026-09-03: the name and the portrait carry pick-list buttons beside
       // their dice — same icon, same creation gate — so a player knows they
       // can pick a specific name or portrait, not only re-roll one.
@@ -163,7 +196,11 @@ try {
         results: [{ type: CONST.TABLE_RESULT_TYPES.TEXT, description: "PROBE OMEN — the sky is a lid", range: [1, 1] }],
       });
       const omenWas = actor.system.omen;
-      omenDie?.click();
+      // Re-queried, not the capture above: the trait-dice leg's actor.update
+      // re-rendered the sheet, so `omenDie` is a detached node by now and a
+      // click on it goes nowhere.
+      await waitFor(() => rootOf()?.querySelector('a[data-action="rollOmen"]'), 5000);
+      rootOf()?.querySelector('a[data-action="rollOmen"]')?.click();
       out.omenDieWorld = await waitFor(() => actor.system.omen === "PROBE OMEN — the sky is a lid", 10000)
         ? actor.system.omen : `still "${actor.system.omen}" (was "${omenWas}")`;
 
@@ -330,6 +367,12 @@ try {
       root?.querySelector('[data-tab="description"]')?.click();
       await wait(300);
       out.hintsOff.traits = rootOf()?.querySelector(".trait-picklist-label")?.hasAttribute("data-tooltip") ?? false;
+      // The trait grid is still expanded (sheet-instance state), so the rows
+      // render — the DICE alone must be gone with the mode.
+      out.traitDiceOff = {
+        dice: rootOf()?.querySelectorAll('a[data-action="rollTrait"]').length ?? -1,
+        rows: rootOf()?.querySelectorAll(".trait-grid .trait-row").length ?? 0,
+      };
       await sheet.close();
 
       // ---- 3b. The npc sheet's save dice take the same gate ---------------
@@ -500,6 +543,26 @@ try {
     HN.traits === "CAIRN.TraitsRolledTip" && HF.traits === false
       ? ok("the traits header hints only while On")
       : fail(`traits header: on="${HN.traits}", off-has-attr=${HF.traits}`);
+
+    // Per-trait dice (2026-09-05): one per row, keyed, tooltip pre-formatted
+    // with the row's own label (the rollAgeTitle idiom — text, not a bare key).
+    const TD = r.traitDice ?? {};
+    TD.count === 8 && TD.count === TD.rows && new Set(TD.keys).size === 8
+      ? ok(`every expanded trait row carries its own die (${TD.count} of ${TD.rows}, keys distinct)`)
+      : fail(`trait dice: ${JSON.stringify(TD)}`);
+    TD.physTip === "Roll on the Physique table"
+      ? ok(`…each tooltip names its own table ("${TD.physTip}")`)
+      : fail(`physique die tooltip: "${TD.physTip}"`);
+    typeof r.traitRoll === "string" && r.traitRoll && !r.traitRoll.startsWith("physique is")
+      ? ok(`rolling the Physique die lands a Physique-table row ("${r.traitRoll}")`)
+      : fail(`trait roll: ${r.traitRoll}`);
+    r.traitOthersKept === true
+      ? ok("…and writes no other trait")
+      : fail("rolling one trait changed another");
+    const TDO = r.traitDiceOff ?? {};
+    TDO.dice === 0 && TDO.rows > 0
+      ? ok("mode Off: the rows stay, the trait dice vanish")
+      : fail(`mode-off trait dice: ${JSON.stringify(TDO)}`);
 
     r.omenDieWorld === "PROBE OMEN — the sky is a lid"
       ? ok("the omen DIE reads a world table named Omens (world-first)")

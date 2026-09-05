@@ -664,6 +664,7 @@
   "CAIRN.RollPortrait": "Random portrait",
   "CAIRN.RollProfession": "Random profession (re-rolls its statblock + gear)",
   "CAIRN.RollStrSave": "Roll STR save",
+  "CAIRN.RollTrait": "Roll on the {trait} table",
   "CAIRN.RolledAtCreation": "Rolled at creation.",
   "CAIRN.RollingDmgWithWeapon": "Rolling damage with {weapon}",
   "CAIRN.RollingDmgWithWeaponPanic": "Rolling damage with {weapon} (Panic)",

@@ -353,6 +353,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       rollAge: owned(mayRandomize(CairnActorSheet.#onRollAge)),
       rollOmen: owned(mayRandomize(CairnActorSheet.#onRollOmen)),
       pickOmen: owned(mayRandomize(CairnActorSheet.#onPickOmen)),
+      rollTrait: owned(mayRandomize(CairnActorSheet.#onRollTrait)),
       toggleTraits: CairnActorSheet.#onToggleTraits,
       toggleScars: CairnActorSheet.#onToggleScars,
       // Background / failed career
@@ -1345,6 +1346,36 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
+   * Which table each trait row reads — key -> "pack;Table Name", per role
+   * (2026-08-20). A character or a hireling gets 2e's eight; an NPC gets the
+   * six APPEARANCE ones plus the Warden's Guide Quirk, Goal, Virtue and Vice.
+   * The last two collide by key on purpose — same stored field, different
+   * list — and the spread order is what settles it: the NPC map is second, so
+   * its Virtue wins for an NPC and the 2e one is simply never reached.
+   *
+   * The rows a role does not use are ABSENT rather than blank, which is what
+   * keeps an NPC from showing an empty "Physique" it can never fill and a
+   * character from showing a "Goal". A value already stored under a key the
+   * current role does not list stays in the document untouched — nothing here
+   * writes — so re-roling an actor and re-roling it back loses nothing.
+   *
+   * ONE map for both consumers (the pick-list rows and the per-trait dice) —
+   * a second copy of a role predicate is this split's thrice-repeated bug.
+   * @returns {Object<String,String>}
+   * @private
+   */
+  _traitTableMapping() {
+    const biography2e = CONFIG.Cairn?.characterGenerator2e?.biography?.items ?? {};
+    const npcTraits = CONFIG.Cairn?.npcGenerator?.traits ?? {};
+    return this.actor.npcRole === "npc"
+      ? {
+        ...Object.fromEntries(Object.entries(biography2e).filter(([k]) => !(k in npcTraits))),
+        ...npcTraits,
+      }
+      : biography2e;
+  }
+
+  /**
    * The biography block (templates/parts/bio-block.html): trait pick-lists +
    * the constructed sentence, and the Scars checklist. Extracted from
    * _prepareCharacterContext when role-npc PEOPLE got the same block
@@ -1365,50 +1396,39 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       formula: effectiveAgeFormula(CONFIG.Cairn?.characterGenerator2e?.biography?.age).formula,
     });
     // Trait pick-lists: each trait's source table supplies a <select> of options
-    // so a player can pick a value (or keep an off-table one).
-    //
-    // WHICH tables depends on the role (2026-08-20). A character or a hireling
-    // gets 2e's eight; an NPC gets the six APPEARANCE ones plus the Warden's
-    // Guide Quirk, Goal, Virtue and Vice. The last two collide by key on
-    // purpose — same stored field, different list — and the spread order is
-    // what settles it: the NPC map is second, so its Virtue wins for an NPC and
-    // the 2e one is simply never reached.
-    //
-    // The rows a role does not use are ABSENT rather than blank, which is what
-    // keeps an NPC from showing an empty "Physique" it can never fill and a
-    // character from showing a "Goal". A value already stored under a key the
-    // current role does not list stays in the document untouched — nothing here
-    // writes — so re-roling an actor and re-roling it back loses nothing.
-    const biography2e = CONFIG.Cairn?.characterGenerator2e?.biography?.items ?? {};
-    const npcTraits = CONFIG.Cairn?.npcGenerator?.traits ?? {};
-    const mapping = this.actor.npcRole === "npc"
-      ? {
-        ...Object.fromEntries(Object.entries(biography2e).filter(([k]) => !(k in npcTraits))),
-        ...npcTraits,
-      }
-      : biography2e;
+    // so a player can pick a value (or keep an off-table one). The role's
+    // key -> table mapping comes from _traitTableMapping, which the per-trait
+    // dice read too — one map, so a row's die and its dropdown cannot disagree
+    // about where the trait comes from.
+    const mapping = this._traitTableMapping();
     const byPack = {};
     for (const ref of Object.values(mapping)) {
       const [packName] = ref.split(";");
       if (!(packName in byPack)) byPack[packName] = await cachedPackDocuments(packName);
     }
+    const npcTraits = CONFIG.Cairn?.npcGenerator?.traits ?? {};
     context.traitRows = Object.entries(mapping).map(([key, ref]) => {
       const [packName, tableName] = ref.split(";");
       const table = (byPack[packName] ?? []).find((tbl) => tbl.name === tableName);
       const value = this.actor.system.traits?.[key] ?? "";
       const texts = table ? table.results.map(resultText).sort() : [];
+      // A tables-2e trait's label IS its table name (Physique, Skin…), so it
+      // localizes through the same table.name namespace as the compendium
+      // list. The four NPC tables cannot: they are named "Warden: NPC -
+      // Quirk", which is a table name a Warden browses by and a terrible
+      // label to put beside a select. Those take a UI key instead — the
+      // labels are ours, and a UI translator can do them without touching
+      // the content overlay.
+      const label = NPC_TRAIT_LABELS[key] && key in npcTraits
+        ? game.i18n.localize(NPC_TRAIT_LABELS[key])
+        : t("table.name", tableName);
       return {
         key,
-        // A tables-2e trait's label IS its table name (Physique, Skin…), so it
-        // localizes through the same table.name namespace as the compendium
-        // list. The four NPC tables cannot: they are named "Warden: NPC -
-        // Quirk", which is a table name a Warden browses by and a terrible
-        // label to put beside a select. Those take a UI key instead — the
-        // labels are ours, and a UI translator can do them without touching
-        // the content overlay.
-        label: NPC_TRAIT_LABELS[key] && key in npcTraits
-          ? game.i18n.localize(NPC_TRAIT_LABELS[key])
-          : t("table.name", tableName),
+        label,
+        // The row's die tooltip, pre-formatted with the row's own label (the
+        // rollAgeTitle idiom — the value varies per row, so it cannot be a
+        // bare key the template localizes).
+        rollTitle: game.i18n.format("CAIRN.RollTrait", { trait: label }),
         value,
         // Display-only: the <option> VALUE stays the English trait text (what
         // system.traits.<key> stores on save), only the visible label is
@@ -4172,6 +4192,27 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    *  English source string (the display half translates, _prepareContext). */
   async _applyOmen(text) {
     await this.actor.update({ "system.omen": text });
+  }
+
+  /**
+   * Die beside each trait pick-list (2026-09-05, user ask): re-roll ONE trait
+   * off the same table its <select> lists — the row's key travels on the
+   * anchor, and the table comes from the same role mapping the rows were
+   * built from (_traitTableMapping), so the die and the dropdown cannot
+   * disagree about a trait's source. rollTextItems is generation's own path,
+   * so a per-row roll and a full generate are the same event one trait wide.
+   * A missing or exhausted table answers "" — bail rather than blanking the
+   * stored trait (the omen die's review-#21 rule).
+   * @this {CairnActorSheet}
+   */
+  static async #onRollTrait(event, target) {
+    event.preventDefault();
+    const key = target?.dataset.key;
+    const ref = this._traitTableMapping()[key];
+    if (!ref) return;
+    const rolled = (await rollTextItems({ [key]: ref }))[key];
+    if (!rolled) return;
+    await this.actor.update({ [`system.traits.${key}`]: rolled });
   }
 
   /**

@@ -6,11 +6,11 @@ as of 2026-09-05, measured against the last release (`0.1.19`).
 
 | | |
 | --- | --- |
-| English interface keys | 806 |
+| English interface keys | 807 |
 | translated in `lang/es.json` | 683 (85%) |
 | **changed under your translation** | **22** ← Part 1 |
 | **content you translated, now unreachable** | **3** ← Part 2 |
-| new interface keys, untranslated | 123 ← Part 3 |
+| new interface keys, untranslated | 124 ← Part 3 |
 | new content strings, untranslated | 2154 ← Part 4 |
 
 Only two files are yours, and only you should edit them: `lang/es.json`
@@ -184,7 +184,7 @@ to do — they are listed so the work is accounted for rather than vanishing.
 
 ---
 
-## Part 3 — new interface keys, untranslated (123)
+## Part 3 — new interface keys, untranslated (124)
 
 Ordinary outstanding work: these have no Spanish at all, so a Spanish client
 falls back to English for them. Nothing here is urgent — a missing key is visibly
@@ -252,7 +252,7 @@ untranslated, which is the honest failure.
 | `CAIRN.GameIconCategory.Metal` | Metal |
 | `CAIRN.GameIconCategory.Reptiles` | Reptiles |
 
-### General (42)
+### General (43)
 
 | key | English |
 | --- | --- |
@@ -289,6 +289,7 @@ untranslated, which is the honest failure.
 | `CAIRN.RechargePlaceholder` | Click here to set what it takes to recharge this relic. Left empty, its counter reads uses rather than charges. |
 | `CAIRN.RoleHireling` | Hireling |
 | `CAIRN.RollAgeTitle` | Roll age ({formula}) |
+| `CAIRN.RollTrait` | Roll on the {trait} table |
 | `CAIRN.RolledAtCreation` | Rolled at creation. |
 | `CAIRN.SaveRollOffTip` | Turn off Character Creation Mode to roll saves. |
 | `CAIRN.SpellPagePrefix` | Spell —  |

@@ -49,6 +49,17 @@
                                     {{#each traitRows}}
                                     <div class="trait-row">
                                         <label class="trait-label">{{this.label}}</label>
+                                        {{#if @root.generationEnabled}}
+                                        {{!-- Die per trait (2026-09-05, user ask): re-roll just
+                                              this row off its own table. LEFT of the select on
+                                              purpose — the Background line's icons hang off its
+                                              label the same way, and right of the select would
+                                              sit against the NEXT column's label in this
+                                              two-column grid. rollTitle is pre-formatted text
+                                              (it carries the row's label), the rollAgeTitle
+                                              idiom. --}}
+                                        <a class="trait-roll" data-action="rollTrait" data-key="{{this.key}}" data-tooltip="{{this.rollTitle}}" aria-label="{{this.rollTitle}}"><i class="fas fa-dice-d20"></i></a>
+                                        {{/if}}
                                         <select class="trait-input" name="system.traits.{{this.key}}">
                                             <option value="" {{#unless this.value}}selected{{/unless}}></option>
                                             {{#if this.customValue}}
