@@ -289,7 +289,7 @@ untranslated, which is the honest failure.
 | `CAIRN.RechargePlaceholder` | Click here to set what it takes to recharge this relic. Left empty, its counter reads uses rather than charges. |
 | `CAIRN.RoleHireling` | Hireling |
 | `CAIRN.RollAgeTitle` | Roll age ({formula}) |
-| `CAIRN.RollTrait` | Roll on the {trait} table |
+| `CAIRN.RollTrait` | Roll {trait} |
 | `CAIRN.RolledAtCreation` | Rolled at creation. |
 | `CAIRN.SaveRollOffTip` | Turn off Character Creation Mode to roll saves. |
 | `CAIRN.SpellPagePrefix` | Spell —  |

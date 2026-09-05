@@ -550,8 +550,8 @@ try {
     TD.count === 8 && TD.count === TD.rows && new Set(TD.keys).size === 8
       ? ok(`every expanded trait row carries its own die (${TD.count} of ${TD.rows}, keys distinct)`)
       : fail(`trait dice: ${JSON.stringify(TD)}`);
-    TD.physTip === "Roll on the Physique table"
-      ? ok(`…each tooltip names its own table ("${TD.physTip}")`)
+    TD.physTip === "Roll Physique"
+      ? ok(`…each tooltip names its own trait ("${TD.physTip}")`)
       : fail(`physique die tooltip: "${TD.physTip}"`);
     typeof r.traitRoll === "string" && r.traitRoll && !r.traitRoll.startsWith("physique is")
       ? ok(`rolling the Physique die lands a Physique-table row ("${r.traitRoll}")`)
