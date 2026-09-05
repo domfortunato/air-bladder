@@ -2432,7 +2432,15 @@ export const promptBackground = async (source, currentUuid = null) => {
   const showEyes = source === "2e" && game.user.isGM;
   const off = source === "2e" ? disabledBackgrounds() : new Set();
 
-  let list = `<label class="bg-pick-row"><input type="radio" name="bg" value="${BG_RANDOM}"${currentUuid ? "" : " checked"}>
+  // The group must OPEN with a member checked. A radio group holding no
+  // checked radio is CSS :indeterminate, and core styles that state for the
+  // checkbox half-checked look — transparent glyph, absolutely positioned —
+  // which on a radio renders every circle invisible and zero-width until a
+  // first click. So a current value that cannot take the check (on no row,
+  // or on a disabled one) hands it to Random, which is what Choose already
+  // resolves when nothing is checked.
+  const hasCurrent = !!currentUuid && all.some((bg) => bg.uuid === currentUuid && !off.has(bg.uuid));
+  let list = `<label class="bg-pick-row"><input type="radio" name="bg" value="${BG_RANDOM}"${hasCurrent ? "" : " checked"}>
     <span class="bg-pick-name"><i class="fas fa-dice"></i> ${game.i18n.localize("CAIRN.RandomBackground")}</span></label>`;
   const descs = {};
   for (const g of groups) {
@@ -2442,7 +2450,7 @@ export const promptBackground = async (source, currentUuid = null) => {
       // VALUE stays the uuid, so what gets chosen is unaffected by language.
       descs[bg.uuid] = t("bg.desc", bg.system.description ?? "");
       // A disabled row cannot be checked — including the pre-check on the
-      // character's current background; "nothing checked reads as Random".
+      // character's current background, which Random takes instead (above).
       const isOff = off.has(bg.uuid);
       const eye = showEyes
         ? `<button type="button" class="bg-pick-eye" data-uuid="${bg.uuid}"
@@ -2555,7 +2563,10 @@ export const promptFailedCareer = async (currentName = null) => {
   const sorted = [...backgrounds].sort((a, b) =>
     t("bg.name", a.name).localeCompare(t("bg.name", b.name), game.i18n.lang));
 
-  let list = `<label class="bg-pick-row"><input type="radio" name="bg" value="${BG_RANDOM}"${currentName ? "" : " checked"}>
+  // Random takes the check when currentName sits on no row — the
+  // :indeterminate rule at promptBackground's list.
+  const hasCurrent = !!currentName && sorted.some((bg) => bg.name === currentName);
+  let list = `<label class="bg-pick-row"><input type="radio" name="bg" value="${BG_RANDOM}"${hasCurrent ? "" : " checked"}>
     <span class="bg-pick-name"><i class="fas fa-dice"></i> ${game.i18n.localize("CAIRN.RandomBackground")}</span></label>`;
   for (const bg of sorted) {
     // Show the career's gear so the player can see what the keepsake item might be.
@@ -4091,7 +4102,11 @@ const applyNpcBackground = async (actor, rolled) => {
 /** One radio-list picker dialog. `rows` are {value, label, tag?}; resolves the
  *  chosen value, BG_RANDOM for the Random row, or false. @private */
 const promptFromRows = (titleKey, rows, current = null) => {
-  let list = `<label class="bg-pick-row"><input type="radio" name="bg" value="${BG_RANDOM}"${current ? "" : " checked"}>
+  // Random takes the check when `current` sits on no row — the
+  // :indeterminate rule at promptBackground's list. The NAME picker hits
+  // this routinely: a hand-edited name is rarely a bare row value.
+  const hasCurrent = !!current && rows.some((r) => r.value === current);
+  let list = `<label class="bg-pick-row"><input type="radio" name="bg" value="${BG_RANDOM}"${hasCurrent ? "" : " checked"}>
     <span class="bg-pick-name"><i class="fas fa-dice"></i> ${game.i18n.localize("CAIRN.RandomBackground")}</span></label>`;
   for (const row of rows) {
     list += `<label class="bg-pick-row"><input type="radio" name="bg" value="${bgEsc(row.value)}"${row.value === current ? " checked" : ""}>

@@ -191,6 +191,25 @@ try {
         ?.querySelector('button[data-action="cancel"]')?.click();
       await pickD;
 
+      // 3c. A CURRENT background that is disabled cannot take the pre-check —
+      //     but the check must land SOMEWHERE. A radio group with no checked
+      //     member is CSS :indeterminate, which core's checkbox-oriented
+      //     styling renders invisible (zero-width, transparent — the
+      //     name-picker bug, 2026-09-05), so Random takes it, visibly drawn.
+      await gen.toggleBackgroundDisabled(actor.system.backgroundUuid);
+      const pickC = gen.promptBackground("2e", actor.system.backgroundUuid);
+      await waitFor(() => document.querySelector(".bg-picker"));
+      const rootC = document.querySelector(".bg-picker");
+      const inputsC = [...(rootC?.querySelectorAll('input[name="bg"]') ?? [])];
+      const checkedC = inputsC.find((i) => i.checked);
+      disable.currentOffRandomChecked = !!checkedC && checkedC.value === "__random__";
+      disable.currentOffRadiosDrawn = inputsC.length > 0
+        && inputsC.every((i) => i.disabled || i.offsetWidth > 0);
+      document.querySelector(".bg-picker")?.closest(".application")
+        ?.querySelector('button[data-action="cancel"]')?.click();
+      await pickC;
+      await gen.toggleBackgroundDisabled(actor.system.backgroundUuid);
+
       // The floor: with every background but one already off, disabling the
       // last is REFUSED and the setting is untouched by the attempt.
       const pool = await gen.getBackgroundsFor("2e");
@@ -465,6 +484,9 @@ try {
     E.lastRefused
       ? ok("the last enabled background cannot be disabled (toast, setting untouched)")
       : fail("the floor failed: the last background was disabled or the setting changed");
+    E.currentOffRandomChecked && E.currentOffRadiosDrawn
+      ? ok("a disabled CURRENT background falls back to Random checked, radios drawn")
+      : fail(`current-disabled first render: randomChecked=${E.currentOffRandomChecked}, radiosDrawn=${E.currentOffRadiosDrawn}`);
 
     const S = r.swap;
     S.uuidLinked ? ok(`swapped to ${S.background}, linked by uuid`) : fail("swap did not relink the background uuid");

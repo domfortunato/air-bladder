@@ -177,6 +177,30 @@ try {
         portraitAction: portraitPickEl()?.dataset.action ?? "",
       };
 
+      // The picker must OPEN with its check landed and every radio drawn:
+      // a radio group with no checked member is CSS :indeterminate, and
+      // core's checkbox-oriented styling renders that state invisible —
+      // transparent, zero width — until a first click (reported 2026-09-05:
+      // a name matching no row checked nothing, so the list looked like a
+      // plain menu that "grew" radios when clicked). A current value on no
+      // row must fall back to checking Random. The rename IS the
+      // precondition: a generated name can legitimately sit in the list,
+      // which would check a row and pass with the fallback broken.
+      await actor.update({ name: "Zz Probe No Such Name" });
+      await waitFor(() => rootOf()?.querySelector('a[data-action="pickName"]'), 5000);
+      rootOf()?.querySelector('a[data-action="pickName"]')?.click();
+      const nameDlg = await waitFor(() => document.querySelector(".bg-picker"), 10000);
+      out.namePickerOpen = { opened: !!nameDlg };
+      if (nameDlg) {
+        const inputs = [...nameDlg.querySelectorAll('input[name="bg"]')];
+        const checked = inputs.find((i) => i.checked);
+        out.namePickerOpen.rows = inputs.length;
+        out.namePickerOpen.randomChecked = !!checked && checked === inputs[0];
+        out.namePickerOpen.allVisible = inputs.length > 0 && inputs.every((i) => i.offsetWidth > 0);
+        nameDlg.closest(".application")?.querySelector('button[data-action="cancel"]')?.click();
+        await waitFor(() => !document.querySelector(".bg-picker"), 5000);
+      }
+
       // Review #21 finding 7: the title→data-tooltip migration must not cost
       // the accessible NAME. Core pairs data-tooltip with aria-label
       // (dialog.mjs:238-241), and aria-label is never localized by core, so
@@ -468,6 +492,10 @@ try {
     NP.nameKey === "CAIRN.PickName" && NP.nameIcon.includes("fa-list-ul")
       ? ok("a name picker sits beside the name die (CAIRN.PickName, fa-list-ul)")
       : fail(`name pick anchor: key="${NP.nameKey}", icon="${NP.nameIcon}"`);
+    const NPF = r.namePickerOpen ?? {};
+    NPF.opened && NPF.randomChecked && NPF.allVisible
+      ? ok(`a current name on no row opens the picker with Random checked, radios drawn (${NPF.rows} rows)`)
+      : fail(`name picker first render: ${JSON.stringify(NPF)}`);
     NP.portraitKey === "CAIRN.ChoosePortrait" && NP.portraitIcon.includes("fa-list-ul")
       && NP.portraitAction === "editPortrait"
       ? ok("the portrait's list button reuses editPortrait (CAIRN.ChoosePortrait, fa-list-ul)")
