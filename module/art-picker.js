@@ -28,7 +28,7 @@
  *              Kettlewright's copies under "kettlewright-portraits".
  *   lydia      ONE of Lydia Comer's two sets, named by value — "characters"
  *              (femme and non-binary faces, on person sheets) or "monsters"
- *              (creatures, on Monster sheets). Both CC BY 4.0. A flat grid
+ *              (creatures, on Monster sheets). Both CC BY-SA 4.0. A flat grid
  *              like `shipped` rather than a folder tree: a set is one screen.
  *              PAIRED like `shipped` too — picking sets the matching token.
  *

@@ -96,7 +96,7 @@ export const getTlomdevManifest = async () => {
   return _tlomdevManifest;
 };
 
-// The Lydia Comer galleries: her art (CC BY 4.0 since 2026-09-05; see
+// The Lydia Comer galleries: her art (CC BY-SA 4.0; see
 // lydia-comer/license.txt — the logo beside them stays all rights reserved).
 // Same lazy-fetch-and-cache shape as the three above, for the same reason.
 //

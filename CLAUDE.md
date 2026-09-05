@@ -689,9 +689,14 @@ What belongs here is what those two files do not say:
 - **The Air Bladder logo is NOT Creative Commons.** All rights reserved, Lydia Comer,
   by bespoke grant. Do not treat it as CC, and do not reach for it as the manifest's
   cover image — that is the reason `media` is deliberately absent from `system.json`.
-  **Her GALLERIES are a different regime since 2026-09-05: CC BY 4.0**, the
+  **Her GALLERIES are a different regime since 2026-09-05: CC BY-SA 4.0**, the
   artist's own relicence of everything non-logo, so one folder now holds two
-  regimes and `art/lydia-comer/license.txt` states both. TWO SETS: her
+  regimes and `art/lydia-comer/license.txt` states both. (It was plain CC BY
+  for a few hours that day before she tightened it to ShareAlike — the user
+  first read the print footer's "CC BY 4.0" as a mistake, a comparison
+  established it was deliberate, she confirmed BY, then reversed to BY-SA the
+  same evening. Copies taken in the BY window keep BY, irrevocably; every
+  release that will ever carry the galleries ships BY-SA.) TWO SETS: her
   MONSTERS under `art/lydia-comer/portraits-monsters|tokens-monsters/`
   (offered on Monster sheets; they lived in the plain folders from 2026-08-04
   until the character batch arrived) and her CHARACTERS under
@@ -703,7 +708,7 @@ What belongs here is what those two files do not say:
   They ship as WebP q95, tokens sized for the canvas (400×400, user ruling
   2026-08-04 — a map token draws at ~100px; portraits keep the artist's full
   1000×1000 because they are sheet art). **The grant went through two versions
-  in one day (2026-08-04), then the CC BY relicence superseded both for the
+  in one day (2026-08-04), then the CC relicence superseded both for the
   galleries** — the first extended "may not be modified" just far enough to
   permit format conversion, the second bounded USE instead, and the logo alone
   still sits under that use-bounded grant. So `tools/import/lydia-comer.mjs`
