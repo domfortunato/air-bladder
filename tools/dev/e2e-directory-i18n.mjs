@@ -81,6 +81,7 @@ const planted = { actorIds: [], itemIds: [], combatId: null };
 const out = await page.evaluate(async (fx) => {
   const i18n = await import("/systems/air-bladder/module/i18n-content.js");
   const res = { planted: { actorIds: [], itemIds: [], combatId: null } };
+  let prevViewed;   // the tracker's combat before the probe re-points it
   const nameOf = (id) => document
     .querySelector(`#actors [data-entry-id="${id}"] .entry-name, #items [data-entry-id="${id}"] .entry-name`)
     ?.textContent?.trim() ?? null;
@@ -163,6 +164,17 @@ const out = await page.evaluate(async (fx) => {
       { tokenId: wolfTok.id, sceneId: scene.id, actorId: wolf.id },
       { tokenId: pcTok.id, sceneId: scene.id, actorId: pc.id },
     ]);
+    // The tracker renders the VIEWED combat, not the newest one. With a live
+    // encounter ACTIVE in the world (found 2026-09-07: the user's own game at
+    // round 2), every row lookup below read null, because ui.combat was
+    // showing THAT combat — a precondition satisfied by world state, twice
+    // reproduced across a server restart. Point the tracker at OURS for the
+    // reads, the way the v13 deprecation shim itself prescribes (shipped
+    // combat-tracker.mjs:786-789: assign ui.combat.viewed); restored in the
+    // finally. `active` is never touched — the table's real encounter is
+    // not the probe's to disturb.
+    prevViewed = ui.combat.viewed ?? null;
+    ui.combat.viewed = combat;
     await ui.combat.render(true);
     await new Promise((r) => setTimeout(r, 800));
     const rowName = (actorId) => {
@@ -187,6 +199,12 @@ const out = await page.evaluate(async (fx) => {
     return res;
   } finally {
     i18n._setOverlay(null);
+    // Give the tracker back whatever it was showing (undefined = the combat
+    // leg never ran, nothing to put back).
+    if (prevViewed !== undefined) {
+      ui.combat.viewed = prevViewed;
+      ui.combat.render();
+    }
   }
 }, { MONSTER_EN, MONSTER_ES, GEAR_EN, GEAR_ES, BG_EN, BG_ES });
 
