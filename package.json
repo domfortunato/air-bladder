@@ -84,6 +84,7 @@
     "dev:kw-import": "node tools/dev/e2e-kettlewright-import.mjs",
     "dev:kw-import-data": "node tools/dev/probe-kettlewright-import.mjs",
     "dev:kw-player-import": "node tools/dev/e2e-kw-player-import.mjs",
+    "dev:item-offer": "node tools/dev/e2e-item-offer.mjs",
     "dev:directory-ui": "node tools/dev/probe-ui-batch.mjs",
     "dev:encounters": "node tools/dev/e2e-encounters.mjs",
     "dev:grimoire": "node tools/dev/e2e-grimoire.mjs",

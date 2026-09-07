@@ -456,6 +456,14 @@ export class CairnItem extends Item {
         this.system.uses.value = this.system.uses.max;
     }
     this.system.isFatigue = this.name === FATIGUE_NAME;
+    // The give-to-another-character control (item-offer.js): characters only,
+    // never Fatigue (a cost is not a possession), never a Grimoire or its
+    // bound pages (they travel as a bundle the Warden drags — v1 exclusion).
+    // This is the AFFORDANCE half; canOfferItem is the enforcement behind it.
+    this.system.canGive = this.actor?.type === "character"
+      && !this.system.isFatigue
+      && !(this.type === "item" && this.system.grimoire)
+      && !this.system.bound;
 
     // Grant-source chip (Background / Bond / Question) shown beside the item's
     // other tags, so the three sources are distinguishable. Starting gear and

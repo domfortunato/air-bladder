@@ -136,6 +136,10 @@
       {{/if}}
       {{/unless}}
 
+      {{#if item.system.canGive}}
+      <a class="item-control item-give" data-action="itemGive" title="{{ localize 'CAIRN.Offer.GiveHint' }}"><i class="fas fa-hand-holding"></i></a>
+      {{/if}}
+
       {{#if (not item.system.isFatigue) }}
       <a class="item-control item-edit" data-action="itemEdit" title="{{ localize 'CAIRN.EditItem' }}"><i class="fas fa-edit"></i></a>
       {{/if}}

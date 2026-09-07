@@ -152,10 +152,20 @@ export class CairnCombat extends Combat {
           total: roll.total,
           dex,
         }),
-        flags: { "core.initiativeRoll": true },
+        // The outcome rides a flag so the render hook can colour the total
+        // (markInitiativeOutcome below) — display is per viewer, the fact is
+        // stored once.
+        flags: { "core.initiativeRoll": true, "air-bladder.save": pass ? "pass" : "fail" },
       }, messageOptions);
+      // "public", never the roll-mode dropdown (user ruling 2026-09-06): the
+      // save's outcome IS the turn order, table information by definition — a
+      // Warden's dropdown left on "Private GM Roll" gave players a wall of
+      // "Warden privately rolled some dice ???" while the tracker visibly
+      // re-sorted. A hidden combatant's card keeps the GM whisper: the token
+      // is concealed, so its save is too. An explicit messageMode argument
+      // still wins — that is a caller saying so, not a dropdown leaking in.
       const chatData = await roll.toMessage(messageData, {
-        messageMode: messageMode ?? (combatant.hidden ? "gm" : undefined),
+        messageMode: messageMode ?? (combatant.hidden ? "gm" : "public"),
         create: false,
       });
       if (messages.length) chatData.sound = null; // one sound for the set
@@ -374,6 +384,21 @@ export class CairnCombatTracker extends foundry.applications.sidebar.tabs.Combat
     }
   }
 }
+
+/**
+ * Colour a save card's total by its outcome — pass green, fail red (user ask
+ * 2026-09-06: "acts before the enemies" should read as a success at a glance).
+ * Display-only, added per viewer at render off the stored flag; the classes
+ * are styled in cairn.css with PINNED colours, because a chat tile is
+ * parchment in both client themes (the whisper-token doctrine there).
+ * @param {ChatMessage} message
+ * @param {HTMLElement} html
+ */
+export const markInitiativeOutcome = (message, html) => {
+  const outcome = message.getFlag("air-bladder", "save");
+  if (outcome !== "pass" && outcome !== "fail") return;
+  html.querySelector(".dice-total")?.classList.add(outcome === "pass" ? "cairn-save-pass" : "cairn-save-fail");
+};
 
 /**
  * Put the tracker's rows back in the order the render meant.

@@ -610,7 +610,16 @@ if you find one, deleting it is in scope, not a separate decision.
   - **Fatigue, always.** Casting fills a slot whether or not one is free, so
     refusing it does not protect the player, it cancels a cost — and makes
     casting cheapest exactly when the character is most loaded. `createOwnedItem`
-    takes `{ ignoreCapacity: true }` for this and nothing else so far.
+    takes `{ ignoreCapacity: true }` for this and for accepted gifts (below),
+    nothing else.
+  - **An accepted GIFT (2026-09-06, user ask).** The player-to-player hand-off
+    (`module/item-offer.js`) creates the recipient's half past a full pack —
+    but only after the recipient's own click on a confirm that names the cost
+    (HP 0 until a slot frees). An informed yes is the player deciding what to
+    carry, the same choice the generation case protects; refusing it would
+    cancel a gift, not protect anyone. The OFFER flow is also what a drop on
+    an unowned character sheet becomes — before this, that drop silently died
+    on core's owner wall.
 
   **Ordinary acquisition still refuses**, and that is deliberate, not a gap: a
   drop onto a full character (`_onDropItem`), the manual Create Item dialog, and
@@ -752,7 +761,7 @@ What belongs here is what those two files do not say:
 
 ## Testing
 
-**`docs/release-testing.md` is the full list — 103 probes (`check:probes` states
+**`docs/release-testing.md` is the full list — 104 probes (`check:probes` states
 the current count), what each covers, and what to run before tagging vs after
 publishing. Keep it in step with `package.json`; a probe not listed there runs
 only when someone remembers it.**

@@ -12,7 +12,8 @@ import { reseedSpellTable } from "./spell-tables.js";
 import { importKettlewrightCharacter, performKettlewrightImport, sanitizeKettlewrightExport, showImportSummary } from "./kettlewright-import.js";
 import * as kettlewrightImport from "./kettlewright-import.js";
 import { Cairn } from "./config.js";
-import { CairnCombat, CairnCombatTracker, registerCombatOrderGuard } from "./combat.js";
+import { CairnCombat, CairnCombatTracker, registerCombatOrderGuard, markInitiativeOutcome } from "./combat.js";
+import { handleOfferSocket, bindOfferCard } from "./item-offer.js";
 import { createCairnMacro, rollItemMacro } from "./macros.js";
 import { Damage, DAMAGE_APPLIED_FLAG, DAMAGE_SOURCE_FLAG } from "./damage.js";
 import { registerWardenDamageControl } from "./warden-damage.js";
@@ -926,6 +927,19 @@ async function handleGrantActors(msg, senderId) {
 
 Hooks.once("init", () => {
   game.socket.on(`system.${game.system.id}`, async (msg, senderId) => {
+    // The item-offer protocol (item-offer.js): peer-to-peer, answered by the
+    // offer message's AUTHOR (the giver's client) or a pending acceptor —
+    // never by the GM broker below, which is why it dispatches before the
+    // activeGM-gated actions. Caught here for the same reason ownershipSync
+    // is: a throw out of an un-awaited async socket handler names nothing.
+    if (typeof msg?.action === "string" && msg.action.startsWith("offer")) {
+      try {
+        await handleOfferSocket(msg, senderId);
+      } catch (err) {
+        console.error(`Air Bladder | offer socket (${msg.action}) from ${game.users.get(senderId)?.name ?? senderId} failed:`, err);
+      }
+      return;
+    }
     // A player's connect/break asks the active GM's client to apply the
     // ownership shape their own client is forbidden to write. NOTHING in the
     // message is trusted: the sync flag on the document is the authorization
@@ -3075,6 +3089,14 @@ Hooks.on("renderRollTableDirectory", (app, html) => {
 Hooks.on("renderChatMessageHTML", (message, html, data) => {
   // Display-only content overlay for RollTable draw cards (see above).
   localizeTableResults(html);
+
+  // The initiative save's total, coloured by outcome (module/combat.js).
+  markInitiativeOutcome(message, html);
+
+  // The item-offer card (module/item-offer.js): body rebuilt in THIS viewer's
+  // language off the flag, and the Accept/Decline/Cancel buttons injected for
+  // exactly the viewers who may press them — never stored in the content.
+  bindOfferCard(message, html);
 
   // A table-draw card whose drawn rows PARSE as encounters grows the Warden's
   // "Add to scene" button (module/encounters.js). Injected per viewer, never

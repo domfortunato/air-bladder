@@ -65,6 +65,7 @@ Air Bladder es un sistema complementario amigable, no el sistema oficial de Cair
 - [Macros incluidas](https://github.com/domfortunato/air-bladder/blob/master/docs/supplied-macros.md) — cuatro interruptores del Guardián para la barra de macros, sin pasar por la configuración del juego
 - Una **fórmula de edad** editable por el Guardián: las edades generadas tiran los dados que tú escribas; la [guía de fórmulas de dados](https://github.com/domfortunato/air-bladder/blob/master/docs/dice-formulas.md) explica el signo más de Cairn (conservar el mayor), mínimos y máximos, y recetas listas para usar
 - Tres galerías del selector de retratos: 80 retratos de personaje de [Jon Aspeheim](https://jonaspeheim.itch.io/), 368 tokens de criaturas y PNJ de [tlomdev](https://tlomdev.itch.io/) (un personaje importado de Kettlewright conserva su rostro) y 22 monstruos y 23 personajes de [Lydia Comer](https://linktr.ee/lydiadidmyink)
+- **Ofertas de objetos** entre jugadores — entrega un objeto desde su fila del inventario (o arrastrándolo a la ficha de otro personaje); la oferta es una tarjeta de chat que el otro jugador acepta o rechaza, y aceptar con la mochila llena simplemente lo deja sobrecargado tras un aviso que indica el coste
 - Automatización mínima — botones para descansar, restaurar características, pánico y daño crítico
 - Tiradas de daño mermadas y potenciadas — elige una al tirar; un personaje con pánico tira mermado automáticamente
 - Funciona con el módulo [Torch](https://github.com/League-of-Foundry-Developers/Torch) — un archivo de fuentes de luz ya preparado enciende antorchas, linternas, velas y las lámparas más raras directamente desde el inventario, gastando sus usos: [cómo configurarlo](https://github.com/domfortunato/air-bladder/blob/master/docs/torch-module.md)
@@ -101,7 +102,7 @@ Desarrollo temprano y activo. ¡Envía comentarios y arte! El sistema se está r
 
 ## Idiomas
 
-La interfaz está traducida al **español** (el 85 % de las cadenas actuales, por [Malecho](https://github.com/fsmalecho)), y el *contenido* del juego —trasfondos, objetos, hechizos, tablas— está traducido únicamente al español.
+La interfaz está traducida al **español** (el 81 % de las cadenas actuales, por [Malecho](https://github.com/fsmalecho)), y el *contenido* del juego —trasfondos, objetos, hechizos, tablas— está traducido únicamente al español.
 
 Los archivos de interfaz en alemán, danés, francés, polaco y portugués de Brasil se heredaron del sistema original de Cairn. Cubren entre el **15 % y el 30 %** de la interfaz actual, son anteriores a la mayoría de las funciones de este sistema y **no reciben mantenimiento**: en la práctica, una partida en esos idiomas está mayormente en inglés. Todo lo que no esté traducido recae en el inglés cadena por cadena, así que una traducción parcial siempre se puede usar en lugar de quedar rota.
 

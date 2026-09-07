@@ -371,3 +371,29 @@ export const resolveGearItem = async (name, { quantity = 1, uses } = {}) => {
   if (uses != null) item.system.uses = { value: uses, max: uses };
   return item;
 };
+
+/**
+ * The stack an arriving item may merge into — the ONE discriminator, shared by
+ * the cross-sheet drag-move (actor-sheet.js `_onDropItem`) and the offer
+ * delivery (item-offer.js), so the two can never disagree about what a stack
+ * is. A stack is only a stack when the flag-shaped discriminators agree:
+ * a spellbook and a spellscroll share name AND type (this file stores a
+ * scroll under the bare spell name), so a plain name+type test merged a
+ * dropped book into a scroll stack — the book was never created, and a
+ * cross-actor drop deleted the source scroll while bumping the target's book
+ * (review #9). A bound page and the loose book of the same spell are
+ * different things (the page is the book's), and a GRIMOIRE never stacks at
+ * all: each book carries its own pages, and quantity 2 on one document would
+ * make two libraries indistinguishable. Any future flag-style splitter joins
+ * this test rather than growing a new merge.
+ * @param {CairnActor} actor  the receiving actor
+ * @param {CairnItem|Object} itemLike  the arriving item or its plain data
+ * @returns {CairnItem|null}
+ */
+export const findMatchingStack = (actor, itemLike) =>
+  actor.items.find(
+    (it) => it.name === itemLike.name && it.type === itemLike.type
+      && !!it.system?.scroll === !!itemLike.system?.scroll
+      && !!it.system?.bound === !!itemLike.system?.bound
+      && !it.system?.grimoire && !itemLike.system?.grimoire
+  ) ?? null;

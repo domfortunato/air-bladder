@@ -1007,7 +1007,7 @@ export class CairnActor extends Actor {
     // each its own document write and sheet re-render. A fresh clone per copy:
     // the same object reference N times lets one document's write reach the rest.
     const n = Math.max(1, count);
-    await this.createEmbeddedDocuments(
+    const created = await this.createEmbeddedDocuments(
       "Item",
       Array.from({ length: n }, () => foundry.utils.deepClone(payload)),
     );
@@ -1015,6 +1015,10 @@ export class CairnActor extends Actor {
     // change refreshes the owner's open sheet. Ungated: an npc can be a
     // container now, and the call is a no-op for anything unconnected.
     this._synchronizeOwnerSheets();
+    // Returned since 2026-09-06: the offer delivery (item-offer.js) must
+    // distinguish a landed create from a refusal before it confirms the
+    // hand-off to the giver. Void before that, so nothing else reads it.
+    return created;
   }
 
   /* `createOwnedContainer` lived here and is gone with the `container` type

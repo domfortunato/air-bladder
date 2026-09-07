@@ -34,6 +34,7 @@ Air Bladder is a friendly companion system, not the official Cairn system. It de
 - [Supplied macros](https://github.com/domfortunato/air-bladder/blob/master/docs/supplied-macros.md) — four Warden switches for the hotbar, no trip into Game Settings
 - A Warden-editable **Age formula** — generated ages roll whatever dice you write; the [dice formulas guide](https://github.com/domfortunato/air-bladder/blob/master/docs/dice-formulas.md) covers Cairn's keep-highest plus sign, minimums and maximums, and ready-made recipes
 - Three portrait-picker galleries: 80 character portraits by [Jon Aspeheim](https://jonaspeheim.itch.io/), 368 creature & NPC tokens by [tlomdev](https://tlomdev.itch.io/) (an imported Kettlewright character keeps its face), and 22 monsters and 23 characters by [Lydia Comer](https://linktr.ee/lydiadidmyink)
+- Player-to-player **item offers** — give an item from its inventory row (or by dragging it onto another character's sheet); the offer is a chat card the other player accepts or declines, and accepting into a full pack simply over-burdens them after a warning that names the cost
 - Minimal automation — buttons for rest, restoring abilities, panic and critical damage
 - Impaired and Enhanced damage rolls — pick one when you roll; a panicked character rolls impaired automatically
 - Works with the [Torch](https://github.com/League-of-Foundry-Developers/Torch) module — a ready-made light-source file lights torches, lanterns, candles and the stranger lamps straight from the inventory, spending their uses: [set it up](https://github.com/domfortunato/air-bladder/blob/master/docs/torch-module.md)
@@ -70,7 +71,7 @@ Early, active development. Send feedback and art! The system is being rebuilt on
 
 ## Languages
 
-The interface is translated into **Spanish** (85% of the current strings, by [Malecho](https://github.com/fsmalecho)), and game *content* — backgrounds, items, spells, tables — is translated into Spanish only.
+The interface is translated into **Spanish** (81% of the current strings, by [Malecho](https://github.com/fsmalecho)), and game *content* — backgrounds, items, spells, tables — is translated into Spanish only.
 
 Danish, French, German, Polish and Brazilian Portuguese interface files are inherited from the original Cairn system. They cover **15–30%** of the current interface, predate most of this system's features, and are **not actively maintained** — a game in those languages is mostly English in practice. Anything untranslated falls back to English string by string, so a partial translation is always usable rather than broken.
 

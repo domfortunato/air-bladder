@@ -37,6 +37,8 @@ const NPC_TRAIT_LABELS = {
   vice: "CAIRN.Trait.Vice",
 };
 import { atConnectionLimit, maxConnections, connectionsUiEnabled, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
+import { findMatchingStack } from "../gear.js";
+import { canOfferItem, promptOfferTarget, createItemOffer, offerFromDrop } from "../item-offer.js";
 import { actorDisplayName, localizeNameDesc, sourceOf, t } from "../i18n-content.js";
 import { FATIGUE_NAME } from "../item/item.js";
 import { castFromGrimoire, castScroll, grimoiresOn, pagesOfGrimoire, ensureGrimoireKey,
@@ -320,6 +322,7 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // Inventory
       itemCreate: owned(CairnActorSheet.#onItemCreate),
       itemShop: owned(CairnActorSheet.#onItemShop),
+      itemGive: owned(CairnActorSheet.#onItemGive),
       // NOT owned(): editing only OPENS the item's own sheet (a read), which
       // enforces its own edit permission. Like printSheet above, being able to
       // open this actor sheet is the whole gate — owned() wrongly refused a
@@ -493,6 +496,17 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    * `draggable` class to every row — that class carries Foundry styling of its own.
    * @override
    */
+  /**
+   * @override — drops normally bind only on an editable sheet (core's
+   * default). An UNOWNED character sheet additionally accepts them so a
+   * player can drop-as-OFFER (item-offer.js): _onDropItem's first branch
+   * turns the would-be refusal into an offer card, and every other drop type
+   * still dies on core's own owner walls inside its _onDrop* handlers.
+   */
+  _canDragDrop() {
+    return this.isEditable || (this.actor?.type === "character" && !this.actor.isOwner);
+  }
+
   get _dragDrop() {
     return this.#dragDrop ??= new foundry.applications.ux.DragDrop.implementation({
       dragSelector: ".cairn-items-list-row",
@@ -3450,6 +3464,27 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   }
 
   /**
+   * Offer this row's item to another character (item-offer.js): the picker
+   * asks who, the offer is a public chat card the target's player answers.
+   * The template's `canGive` gate is the affordance; `canOfferItem` here is
+   * the enforcement behind it (the Fatigue two-layer doctrine).
+   * @this {CairnActorSheet}
+   */
+  static async #onItemGive(event, target) {
+    event.preventDefault();
+    const row = target.closest("[data-item-id]");
+    const item = this.actor.items.get(row?.dataset.itemId ?? "");
+    if (!item) return;
+    const eligible = canOfferItem(item);
+    if (!eligible.ok) {
+      ui.notifications.warn(eligible.reason, { localize: true });
+      return;
+    }
+    const to = await promptOfferTarget(this.actor, item);
+    if (to) await createItemOffer(this.actor, item, to);
+  }
+
+  /**
    * Open the marketplace (buy/take gear). Anything that cannot KEEP a
    * connection is scoped to gear only — no buying a cart into a sack.
    *
@@ -4802,6 +4837,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // The Actor the item currently belongs to; null for a world or compendium item.
     const originalActor = originalItem.actor;
 
+    // A sheet this user does NOT own cannot receive a create at all — until
+    // 2026-09-06 the drop silently died on core's owner wall. It is an OFFER
+    // now (item-offer.js): dropping your item on another player's character
+    // posts the give/accept card instead of writing anything. FIRST branch,
+    // deliberately — nothing below (the background intercept included) may
+    // write on a sheet the dropper does not own.
+    if (!this.actor.isOwner) {
+      return offerFromDrop(this.actor, originalItem);
+    }
+
     // A background ARRIVING here is not inventory. Dropping one CHANGES the
     // character's background — the same operation as the magnifier's picker — so it
     // is intercepted before any capacity check and before any create. Without this
@@ -4910,23 +4955,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // once that has actually succeeded. The old order created-then-decremented
     // unconditionally: a refused create (typically a permissions wall) threw AND
     // still decremented the source, so the item vanished.
-    const foundItem = this.actor.items.find(
-      (it) => it.name === originalItem.name && it.type === originalItem.type
-        // A stack is only a stack when the flag-shaped discriminators agree:
-        // a spellbook and a spellscroll share name AND type (gear.js stores a
-        // scroll under the bare spell name), so the name+type test merged a
-        // dropped book into a scroll stack — the book was never created, and
-        // a cross-actor drop deleted the source scroll while bumping the
-        // target's book (review #9). Any future flag-style splitter joins
-        // this test rather than growing a new merge.
-        && !!it.system?.scroll === !!originalItem.system?.scroll
-        // A bound page and the loose book of the same spell are different
-        // things (the page is the book's), and a GRIMOIRE never stacks at all:
-        // each book carries its own pages, and quantity 2 on one document
-        // would make two libraries indistinguishable.
-        && !!it.system?.bound === !!originalItem.system?.bound
-        && !it.system?.grimoire && !originalItem.system?.grimoire
-    );
+    // The stack discriminator lives in gear.js (findMatchingStack) since the
+    // offer delivery started merging by the same rule — one test, two
+    // callers, so they cannot disagree about what a stack is. Its review-#9
+    // history and the join-don't-grow rule are documented there.
+    const foundItem = findMatchingStack(this.actor, originalItem);
     let created = foundItem ?? null;
     if (foundItem) {
       await foundItem.update({ "system.quantity": (foundItem.system.quantity ?? 1) + 1 });
