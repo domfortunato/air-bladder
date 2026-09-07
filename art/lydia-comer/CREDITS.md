@@ -1,20 +1,21 @@
 # Lydia Comer galleries
 
 Every drawing here is by **[Lydia Comer](https://linktr.ee/lydiadidmyink)**, licensed under
-the **Creative Commons Attribution-ShareAlike 4.0** licence
-([CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)). Source:
+the **Creative Commons Attribution-NonCommercial-ShareAlike 4.0** licence
+([CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)). Source:
 <https://domfortunato.itch.io/lydia-comer>. No AI was used to create this artwork.
 
 The **logo** in the parent folder (`Airbladder01/02/06.webp`) is the same
-artist but NOT under CC BY-SA: **© Lydia Comer, all rights reserved**, granted
-to Air Bladder directly. Both sets of terms: `license.txt` beside this file.
+artist but NOT under CC BY-NC-SA: **© Lydia Comer, all rights reserved**,
+granted to Air Bladder directly. Both sets of terms: `license.txt` beside
+this file.
 
 **These files are re-encoded to WebP q95, and the token halves are sized
 for the canvas (400×400 — a map token draws at ~100px).** The portraits
 keep the artist's full 1000×1000: they are sheet art. Beyond that, nothing
 is cropped, recoloured or redrawn — this project's own practice rather than
 a term of the licence, which does not forbid altering the artwork; it only
-requires that adaptations be shared alike.
+requires that adaptations carry the same licence and stay noncommercial.
 
 ## Shape
 

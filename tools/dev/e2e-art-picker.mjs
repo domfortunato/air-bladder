@@ -458,7 +458,8 @@ try {
     ? ok("picking sets the square AND its paired circle", `${LY_MON_FIRST.portrait} -> ${LY_MON_FIRST.token}`)
     : fail("picking sets the square AND its paired circle", JSON.stringify([ly.img, ly.token]));
   // FLIPPED 2026-09-05: this used to require "all rights reserved" and FORBID
-  // the deed link. The galleries are CC BY 4.0 now, so the credit must say so
+  // the deed link. The galleries are CC BY-NC-SA 4.0 now (BY, then BY-SA,
+  // then NC-SA — \bCC BY\b matches every variant), so the credit must say so
   // and link the deed — the licence line under the art is the one place a
   // player ever sees the terms.
   /\bCC BY\b/i.test(ly.credit) && !/all rights reserved/i.test(ly.credit) && ly.creditCcLink

@@ -704,14 +704,24 @@ What belongs here is what those two files do not say:
 - **The Air Bladder logo is NOT Creative Commons.** All rights reserved, Lydia Comer,
   by bespoke grant. Do not treat it as CC, and do not reach for it as the manifest's
   cover image — that is the reason `media` is deliberately absent from `system.json`.
-  **Her GALLERIES are a different regime since 2026-09-05: CC BY-SA 4.0**, the
-  artist's own relicence of everything non-logo, so one folder now holds two
-  regimes and `art/lydia-comer/license.txt` states both. (It was plain CC BY
-  for a few hours that day before she tightened it to ShareAlike — the user
-  first read the print footer's "CC BY 4.0" as a mistake, a comparison
-  established it was deliberate, she confirmed BY, then reversed to BY-SA the
-  same evening. Copies taken in the BY window keep BY, irrevocably; every
-  release that will ever carry the galleries ships BY-SA.) TWO SETS: her
+  **Her GALLERIES are a different regime: CC BY-NC-SA 4.0 since 2026-09-07**,
+  the artist's own relicence of everything non-logo, so one folder holds two
+  regimes and `art/lydia-comer/license.txt` states both — SHE writes that
+  file, and it changed FIRST, before any code (the standing order of
+  operations). Her word has moved three times and the latest governs:
+  2026-09-05 CC BY for a few hours, BY-SA the same evening, then NC added
+  2026-09-07 with ShareAlike kept on her explicit say. Copies taken in each
+  window keep that window's licence, irrevocably — the BY/BY-SA exposure was
+  dev-mirror-only, since NO TAG has ever shipped the galleries under CC (the
+  17 monsters shipped in releases under the old bespoke grant); the first
+  release carrying CC Lydia art ships BY-NC-SA. NC consequence, eyes open:
+  the system as a WHOLE cannot be sold or go premium while her galleries
+  ship in it (aggregation stays fine — each work keeps its own licence; a
+  BY-NC-SA work cannot be REMIXED with BY-SA material at all, the SA
+  clauses conflict). `art/lydia-comer/CREDITS.md` and
+  `module/lydia-manifest.json` are GENERATED — the licence lines live in
+  `tools/import/lydia-comer.mjs`, and a hand edit to either output is
+  reverted by the next no-src rerun. TWO SETS: her
   MONSTERS under `art/lydia-comer/portraits-monsters|tokens-monsters/`
   (offered on Monster sheets; they lived in the plain folders from 2026-08-04
   until the character batch arrived) and her CHARACTERS under

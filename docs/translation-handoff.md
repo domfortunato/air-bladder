@@ -267,7 +267,7 @@ untranslated, which is the honest failure.
 | `CAIRN.Glog` | GLOG |
 | `CAIRN.HitProtectionLong` | Hit Protection |
 | `CAIRN.KindNamedCompanions` | Named Companions |
-| `CAIRN.LydiaCredit` | Art by <a href="https://linktr.ee/lydiadidmyink" target="_blank" rel="noopener">Lydia Comer</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a> |
+| `CAIRN.LydiaCredit` | Art by <a href="https://linktr.ee/lydiadidmyink" target="_blank" rel="noopener">Lydia Comer</a> · <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a> |
 | `CAIRN.MaximumOf` | Maximum {name} |
 | `CAIRN.NpcRoleRegeneratorConfirm` | Are you sure you want to roll this NPC again?</p><p>Its Background, abilities, HP, traits and age will be replaced, along with the gear its Background granted, and its pronouns, coins and status marks cleared. Its name, … |
 | `CAIRN.NpcRoleRegeneratorTitle` | Roll this NPC again? |
@@ -283,7 +283,7 @@ untranslated, which is the honest failure.
 | `CAIRN.PortraitTabTlomdev` | Tlomdev |
 | `CAIRN.PrintArmorPoints` | {armor} Armor |
 | `CAIRN.PrintCreditGenerated` | Generated and printed with http://airbladder.xyz for Foundry VTT. |
-| `CAIRN.PrintCreditLydiaComer` | Portrait by Lydia Comer, licensed CC BY-SA 4.0. |
+| `CAIRN.PrintCreditLydiaComer` | Portrait by Lydia Comer, licensed CC BY-NC-SA 4.0. |
 | `CAIRN.PrintRoleCareer` | {role} — {career} |
 | `CAIRN.PrintSlotsUsed` | Slots used |
 | `CAIRN.RechargePlaceholder` | Click here to set what it takes to recharge this relic. Left empty, its counter reads uses rather than charges. |
