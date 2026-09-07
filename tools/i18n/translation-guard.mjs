@@ -106,7 +106,29 @@ const lastTag = (() => {
 
 const en = flat(JSON.parse(readFileSync(join(LANG, "en.json"), "utf8")));
 
-const checkInterfaceFile = (name, raw, baselineRaw, label = name) => {
+/**
+ * Rule 3 exemptions — keys a RULING removed from a translator's file while
+ * en.json keeps the key. Each entry is scoped to the exact baseline tag it
+ * excuses, so it EXPIRES the moment the next release becomes the baseline
+ * and can never quietly excuse a future loss; a stale entry is history, not
+ * a hole. The commit named in the comment must record the ruling.
+ */
+const DELIBERATE_DROPS = {
+  "0.1.19": {
+    "lang/es.json": [
+      // 6d6d6107 + 8e2699d9 (user rulings, 2026-09-05): both rows faithfully
+      // translated the all-rights-reserved notice the Lydia relicence
+      // retired — a stale licence claim in Spanish is worse than the English
+      // fallback. The values stay recoverable in git; restoring them is the
+      // translator's to do, via the regenerated handoff.
+      "CAIRN.LydiaCredit",
+      "CAIRN.PrintCreditLydiaComer",
+    ],
+  },
+};
+
+const checkInterfaceFile = (name, raw, baselineRaw, label = name,
+  excused = DELIBERATE_DROPS[lastTag]?.[label] ?? []) => {
   let parsed;
   try { parsed = JSON.parse(raw); } catch (e) { fail(`${label} parses`, String(e.message).slice(0, 80)); return; }
   const keys = flat(parsed);
@@ -130,7 +152,10 @@ const checkInterfaceFile = (name, raw, baselineRaw, label = name) => {
   if (baselineRaw === null) { ok(`${label} shrink check`, `no baseline at ${lastTag ?? "(no tag)"} — new file, rules 1+2 only`); return; }
   let baseKeys;
   try { baseKeys = Object.keys(flat(JSON.parse(baselineRaw))); } catch { ok(`${label} shrink check`, "baseline unparseable — rules 1+2 only"); return; }
-  const lost = baseKeys.filter((k) => k in en && !(k in keys));
+  const gone = baseKeys.filter((k) => k in en && !(k in keys));
+  const excusedHits = gone.filter((k) => excused.includes(k));
+  if (excusedHits.length) ok(`${label} ruled drops excused against ${lastTag}`, excusedHits.join(", "));
+  const lost = gone.filter((k) => !excused.includes(k));
   lost.length === 0
     ? ok(`${label} lost no live translations since ${lastTag}`, `${keyList.length} keys (baseline ${baseKeys.length})`)
     : fail(`${label} lost no live translations since ${lastTag}`, `${lost.length} keys the last release shipped are GONE while en.json still has them: ${lost.slice(0, 8).join(", ")}${lost.length > 8 ? ", …" : ""}`);
@@ -176,12 +201,24 @@ if (process.argv.includes("--witness")) {
   const shrunk = Object.fromEntries(enSample.slice(0, 20).map((k) => [k, "x"]));
   expectFail("shrink", () =>
     checkInterfaceFile("shrink", JSON.stringify(shrunk), JSON.stringify(baseline), "witness:shrink"));
+  // 3b. An exemption must not blind the rule: with ONE lost key excused, the
+  //     other losses beside it must still go red…
+  expectFail("shrink beside an exemption", () =>
+    checkInterfaceFile("shrink2", JSON.stringify(shrunk), JSON.stringify(baseline), "witness:shrink2", [enSample[20]]));
+  // …and excusing EVERY lost key must pass, or the mechanism doesn't work.
+  {
+    const was = failed;
+    failed = false;
+    checkInterfaceFile("shrink3", JSON.stringify(shrunk), JSON.stringify(baseline), "witness:shrink3", enSample.slice(20));
+    if (failed) missed.push("exemption-pass"); else witnessed++;
+    failed = was;
+  }
   // 4. The overlay collapse.
   expectFail("overlay collapse", () =>
     checkOverlayFile("collapse", JSON.stringify({ a: "1" }), JSON.stringify(Object.fromEntries(Array.from({ length: 60 }, (_, i) => [`k${i}`, "v"]))), "witness:collapse"));
   console.log(missed.length === 0
-    ? `\nall ${witnessed} witness fixtures went red — the gate can fail\n`
-    : `\nWITNESS BROKEN: ${missed.join(", ")} did not fail — the gate is blind to its own class\n`);
+    ? `\nall ${witnessed} witness fixtures behaved — the gate can fail, and the exemption cannot blind it\n`
+    : `\nWITNESS BROKEN: ${missed.join(", ")} — the gate is blind to its own class\n`);
   process.exit(missed.length === 0 ? 0 : 1);
 }
 
