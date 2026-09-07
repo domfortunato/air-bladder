@@ -102,7 +102,12 @@ const offerViaPicker = async (page, itemName, targetName) => page.evaluate(async
   if (!dlg) return "no picker";
   const target = game.actors.getName(targetName);
   const radio = dlg.querySelector(`input[name="offerTarget"][value="${target?.uuid}"]`);
-  if (!radio) return "target not listed";
+  if (!radio) {
+    // Close the picker on a miss, or the stale dialog is what every later
+    // call finds first — one miss then cascades through the whole suite.
+    dlg.closest(".application")?.querySelector('button[data-action="cancel"]')?.click();
+    return "target not listed";
+  }
   radio.click();
   const confirm = dlg.closest(".application")?.querySelector('button[data-action="offer"]');
   if (!confirm) return "no offer button";
@@ -162,15 +167,28 @@ try {
       { name: "ZZ Grimoire", type: "item", system: { grimoire: true } },
       { name: "ZZ Bound Page", type: "spellbook", system: { bound: true } },
     ]);
+    // Default LIMITED, Bob OWNER: the picker lists only actors the giver can
+    // SEE (the same rule as the actor directory), so a teammate's character
+    // must be at least LIMITED for Alice to offer to it at all — the world
+    // shape the feature is for. Bob's OWNER entry is what gates the answer.
     const target = await Cls.create({
       name: "ZZ Offer Target", type: "character",
-      ownership: { default: 0, [bobU.id]: 3 },
+      ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.LIMITED, [bobU.id]: 3 },
     });
-    const bystander = await Cls.create({ name: "ZZ Offer Bystander", type: "character" });
+    // LIMITED, not NONE: the picker lists only actors the giver can SEE
+    // (core `visible` = LIMITED+, review #23 finding 6), and this one must
+    // stay listable by Alice so the hostile-accept leg has a target she can
+    // offer to and Bob cannot answer for.
+    const bystander = await Cls.create({ name: "ZZ Offer Bystander", type: "character",
+      ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.LIMITED } });
+    // Ownership NONE — the doppelganger the Warden is hiding. Its NAME must
+    // not leak into a player's picker.
+    const doppel = await Cls.create({ name: "ZZ Offer Doppelganger", type: "character",
+      ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE } });
     const npc = await Cls.create({ name: "ZZ Offer NPC", type: "npc" });
     await npc.createEmbeddedDocuments("Item", [{ name: "ZZ NPC Thing", type: "item" }]);
     return { giverId: giver.id, targetId: target.id, bystanderId: bystander.id, npcId: npc.id,
-      targetUuid: target.uuid, bystanderUuid: bystander.uuid };
+      targetUuid: target.uuid, bystanderUuid: bystander.uuid, doppelUuid: doppel.uuid };
   });
 
   /* ---- A. the give control appears exactly where it should --------------- */
@@ -204,17 +222,58 @@ try {
   });
   check("no give control on an npc sheet", npcControls === 0, `${npcControls} anchors`);
 
+  /* ---- B2. the picker lists only actors the giver can SEE ----------------- */
+  // Review #23 finding 6: an ownership-NONE character (a doppelganger the
+  // Warden is hiding) must not leak its NAME into a player's picker. Core's
+  // `visible` is LIMITED+, so the LIMITED bystander stays listed.
+  const pickerRows = (page, itemName) => page.evaluate(async (itemName) => {
+    const giver = game.actors.getName("ZZ Offer Giver");
+    const item = giver?.items.find((i) => i.name === itemName);
+    if (!item) return { err: "no item" };
+    await giver.sheet.render(true);
+    await new Promise((r) => setTimeout(r, 500));
+    const btn = giver.sheet.element?.querySelector(
+      `.cairn-items-list-row[data-item-id="${item.id}"] a[data-action="itemGive"]`);
+    if (!btn) return { err: "no give control" };
+    btn.click();
+    let dlg = null;
+    for (let i = 0; i < 40 && !dlg; i++) {
+      dlg = document.querySelector(".cairn-offer-picker");
+      if (!dlg) await new Promise((r) => setTimeout(r, 150));
+    }
+    if (!dlg) return { err: "no picker" };
+    const rows = [...dlg.querySelectorAll('input[name="offerTarget"]')].map((i) => ({
+      uuid: i.value, label: i.closest("label")?.textContent.trim() ?? "",
+    }));
+    dlg.closest(".application")?.querySelector('button[data-action="cancel"]')?.click();
+    await new Promise((r) => setTimeout(r, 300));
+    return { rows };
+  }, itemName);
+  const aliceRows = await pickerRows(alice, "ZZ Brass Lantern");
+  check("a player's picker omits an ownership-NONE character",
+    aliceRows.rows && !aliceRows.rows.some((r) => r.uuid === fix.doppelUuid)
+    && aliceRows.rows.some((r) => r.uuid === fix.bystanderUuid),
+    JSON.stringify(aliceRows.rows?.map((r) => r.label) ?? aliceRows));
+  const gmRows = await pickerRows(gm, "ZZ Brass Lantern");
+  check("the Warden's picker still lists it, marked Warden only",
+    gmRows.rows && gmRows.rows.some((r) => r.uuid === fix.doppelUuid && /Warden only/.test(r.label)),
+    JSON.stringify(gmRows.rows?.map((r) => r.label) ?? gmRows));
+
   /* ---- C. picker happy path: offer, per-viewer buttons, accept ----------- */
   console.log("\noffer and accept (picker path)");
   const pickResult = await offerViaPicker(alice, "ZZ Trail Rations", "ZZ Offer Target");
   check("the picker flow drives to a click", pickResult === "clicked", pickResult);
   // The picker's listing rules are asserted on a fresh open below (leg G re-opens);
-  // here the card is the subject.
-  const offer1 = await poll(gm, () => {
-    const msg = game.messages.contents.filter((m) => m.getFlag("air-bladder", "itemOffer")).at(-1);
+  // here the card is the subject. FRESH messages only, by name: the dev world
+  // can hold offer cards from earlier live play, and a poll that latches a
+  // stale one satisfies its precondition with state nobody planted — that
+  // exact miss sent this leg chasing a bygone accepted card of Bob's.
+  const offer1 = await poll(gm, (beforeIds) => {
+    const msg = game.messages.contents.filter((m) => !beforeIds.includes(m.id)
+      && m.getFlag("air-bladder", "itemOffer")?.item?.name === "ZZ Trail Rations").at(-1);
     return msg ? { id: msg.id, whisper: msg.whisper.length, author: msg.author?.name,
       state: msg.getFlag("air-bladder", "itemOffer")?.state } : null;
-  });
+  }, before.messages);
   check("a public offer card posts, authored by the giver",
     offer1 && offer1.whisper === 0 && offer1.author === "Alice" && offer1.state === "open",
     JSON.stringify(offer1));
@@ -264,10 +323,11 @@ try {
   /* ---- D. a half-spent item travels at its current uses ------------------ */
   const pickD = await offerViaPicker(alice, "ZZ Brass Lantern", "ZZ Offer Target");
   check("lantern offer drives to a click", pickD === "clicked", pickD);
+  // By name, or this poll latches leg C's card while it is still open.
   const offerD = await poll(gm, () => {
     const msg = game.messages.contents.filter((m) => m.getFlag("air-bladder", "itemOffer")).at(-1);
     const f = msg?.getFlag("air-bladder", "itemOffer");
-    return f?.state === "open" ? { id: msg.id } : null;
+    return f?.state === "open" && f?.item?.name === "ZZ Brass Lantern" ? { id: msg.id } : null;
   });
   if (offerD) {
     await new Promise((r) => setTimeout(r, 600));
@@ -541,6 +601,155 @@ try {
     check("a forged offerDone on an open offer deletes nothing", k3.state === "open" && k3.itemStill,
       JSON.stringify(k3));
   }
+
+  /* ---- M. a forged refusal cannot wedge an accept mid-flight -------------- */
+  // Review #23 finding 1: offerRefused must authenticate BEFORE clearing the
+  // pending-accept entry. The forged refusal (from the GM context — any
+  // non-author sender) is emitted in the same breath as Bob's real click:
+  // one hop, while the genuine release still waits on the author's flag
+  // write, so it lands inside the accept window. Pre-fix it cleared the
+  // entry and the release that followed was discarded as forged — accepted,
+  // settled false, nothing moved, no way out.
+  await alice.evaluate(async () => {
+    const giver = game.actors.getName("ZZ Offer Giver");
+    await giver.createEmbeddedDocuments("Item", [{ name: "ZZ Locket", type: "item" }]);
+  });
+  const pickM = await offerViaPicker(alice, "ZZ Locket", "ZZ Offer Target");
+  const offerM = pickM === "clicked" ? await poll(gm, () => {
+    const msg = game.messages.contents.filter((m) => m.getFlag("air-bladder", "itemOffer")).at(-1);
+    const f = msg?.getFlag("air-bladder", "itemOffer");
+    return f?.state === "open" && f?.item?.name === "ZZ Locket" ? { id: msg.id } : null;
+  }) : null;
+  if (offerM) {
+    await new Promise((r) => setTimeout(r, 600));
+    await clickCard(bob, offerM.id, "cairn-offer-accept");
+    await gm.evaluate((id) => {
+      const bobU = game.users.getName("Bob");
+      game.socket.emit(`system.${game.system.id}`, { action: "offerRefused", messageId: id, reason: "busy" },
+        { recipients: [bobU.id] });
+    }, offerM.id);
+    const doneM = await poll(gm, (id) =>
+      game.messages.get(id)?.getFlag("air-bladder", "itemOffer")?.settled || null, offerM.id, 8000);
+    const m = await gm.evaluate((id) => {
+      const f = game.messages.get(id)?.getFlag("air-bladder", "itemOffer");
+      const target = game.actors.getName("ZZ Offer Target");
+      const giver = game.actors.getName("ZZ Offer Giver");
+      return { state: f?.state, settled: f?.settled ?? false,
+        got: target?.items.filter((i) => i.name === "ZZ Locket").length ?? 0,
+        kept: !!giver?.items.find((i) => i.name === "ZZ Locket") };
+    }, offerM.id);
+    check("a forged refusal cannot wedge an accept mid-flight",
+      doneM === true && m.state === "accepted" && m.settled === true && m.got === 1 && m.kept === false,
+      JSON.stringify(m));
+  } else fail(`forged-refusal offer never posted (${pickM})`);
+
+  /* ---- N. settled is terminal: done/fail replays are refused -------------- */
+  // Review #23 finding 2: the terminal guard read state + acceptor but never
+  // `settled`, so the GENUINE acceptor could replay offerDone (one more
+  // giver-stack decrement per emit) or offerFail (reopening a completed
+  // offer for a second delivery).
+  await alice.evaluate(async () => {
+    const giver = game.actors.getName("ZZ Offer Giver");
+    await giver.createEmbeddedDocuments("Item", [{ name: "ZZ Heirloom", type: "item", system: { quantity: 3 } }]);
+  });
+  const pickN = await offerViaPicker(alice, "ZZ Heirloom", "ZZ Offer Target");
+  const offerN = pickN === "clicked" ? await poll(gm, () => {
+    const msg = game.messages.contents.filter((m) => m.getFlag("air-bladder", "itemOffer")).at(-1);
+    const f = msg?.getFlag("air-bladder", "itemOffer");
+    return f?.state === "open" && f?.item?.name === "ZZ Heirloom" ? { id: msg.id } : null;
+  }) : null;
+  if (offerN) {
+    await new Promise((r) => setTimeout(r, 600));
+    await clickCard(bob, offerN.id, "cairn-offer-accept");
+    const settledN = await poll(gm, (id) =>
+      game.messages.get(id)?.getFlag("air-bladder", "itemOffer")?.settled || null, offerN.id);
+    const qtyAfter = await gm.evaluate(() =>
+      game.actors.getName("ZZ Offer Giver")?.items.find((i) => i.name === "ZZ Heirloom")?.system.quantity ?? 0);
+    check("heirloom hand-off settles at giver 3 → 2 (precondition)", settledN === true && qtyAfter === 2,
+      `settled=${settledN} giverQty=${qtyAfter}`);
+    await bob.evaluate((id) => {
+      const aliceU = game.users.getName("Alice");
+      game.socket.emit(`system.${game.system.id}`, { action: "offerDone", messageId: id },
+        { recipients: [aliceU.id] });
+    }, offerN.id);
+    await new Promise((r) => setTimeout(r, 2500));
+    const qtyReplay = await gm.evaluate(() =>
+      game.actors.getName("ZZ Offer Giver")?.items.find((i) => i.name === "ZZ Heirloom")?.system.quantity ?? 0);
+    check("a replayed offerDone on a settled offer decrements nothing", qtyReplay === 2, `giverQty=${qtyReplay}`);
+    await bob.evaluate((id) => {
+      const aliceU = game.users.getName("Alice");
+      game.socket.emit(`system.${game.system.id}`, { action: "offerFail", messageId: id },
+        { recipients: [aliceU.id] });
+    }, offerN.id);
+    await new Promise((r) => setTimeout(r, 2500));
+    const n2 = await gm.evaluate((id) => {
+      const f = game.messages.get(id)?.getFlag("air-bladder", "itemOffer");
+      return { state: f?.state, settled: f?.settled };
+    }, offerN.id);
+    check("a replayed offerFail cannot reopen a settled offer",
+      n2.state === "accepted" && n2.settled === true, JSON.stringify(n2));
+  } else fail(`replay-leg offer never posted (${pickN})`);
+
+  /* ---- O. a compendium-context character cannot be an offer target -------- */
+  // Review #23 finding 7: a drop on a COMPENDIUM character posted an offer
+  // whose target resolves to a bare index entry — bindOfferCard's permission
+  // test then throws for every non-GM viewer and the card wears no buttons,
+  // not even the giver's Cancel. No shipped pack holds a character-type
+  // actor, so the pack CONTEXT is synthesized on an unsaved doc against a
+  // real pack id; the precondition is asserted so the leg cannot pass
+  // vacuously if the context stops taking.
+  const packDrop = await alice.evaluate(async () => {
+    const { offerFromDrop } = await import("/systems/air-bladder/module/item-offer.js");
+    const giver = game.actors.getName("ZZ Offer Giver");
+    const item = giver.items.find((i) => i.name === "ZZ Heirloom")
+      ?? giver.items.find((i) => !["Fatigue", "ZZ Grimoire", "ZZ Bound Page"].includes(i.name));
+    if (!item) return { err: "no eligible item" };
+    const ghost = new CONFIG.Actor.documentClass({ name: "ZZ Pack Ghost", type: "character" },
+      { pack: "air-bladder.monsters" });
+    if (!ghost.pack) return { err: "pack context did not take" };
+    const msgs = game.messages.size;
+    const DialogV2 = foundry.applications.api.DialogV2;
+    const orig = DialogV2.confirm;
+    DialogV2.confirm = async () => true; // if the confirm ever shows it says YES — only the wall can refuse
+    try { await offerFromDrop(ghost, item); }
+    finally { DialogV2.confirm = orig; }
+    await new Promise((r) => setTimeout(r, 800));
+    return { grew: game.messages.size > msgs };
+  });
+  check("a compendium-context character refuses the drop-offer", !packDrop.err && packDrop.grew === false,
+    JSON.stringify(packDrop));
+
+  /* ---- P. a background row travels too ------------------------------------ */
+  // RULED 2026-09-07 (review #23 finding 3): admit at the wire. The give
+  // affordance never gated on type, so the sanitizer's whitelist now covers
+  // every registered type and the button a background row already wore leads
+  // somewhere. Pre-fix the acceptor refused the delivery and the offer
+  // looped failed -> reopen forever. Runs late so the delivered row cannot
+  // disturb the over-burden leg's slot arithmetic.
+  await alice.evaluate(async () => {
+    const giver = game.actors.getName("ZZ Offer Giver");
+    await giver.createEmbeddedDocuments("Item", [{ name: "ZZ Old Life", type: "background" }]);
+  });
+  const pickP = await offerViaPicker(alice, "ZZ Old Life", "ZZ Offer Target");
+  const offerP = pickP === "clicked" ? await poll(gm, () => {
+    const msg = game.messages.contents.filter((m) => m.getFlag("air-bladder", "itemOffer")).at(-1);
+    const f = msg?.getFlag("air-bladder", "itemOffer");
+    return f?.state === "open" && f?.item?.name === "ZZ Old Life" ? { id: msg.id } : null;
+  }) : null;
+  if (offerP) {
+    await new Promise((r) => setTimeout(r, 600));
+    await clickCard(bob, offerP.id, "cairn-offer-accept");
+    const doneP = await poll(gm, (id) => {
+      const target = game.actors.getName("ZZ Offer Target");
+      const got = target?.items.find((i) => i.name === "ZZ Old Life");
+      const f = game.messages.get(id)?.getFlag("air-bladder", "itemOffer");
+      if (!got || !f?.settled) return null;
+      return { type: got.type,
+        giverStill: !!game.actors.getName("ZZ Offer Giver")?.items.find((i) => i.name === "ZZ Old Life") };
+    }, offerP.id);
+    check("a background-type item is delivered and settles",
+      doneP && doneP.type === "background" && doneP.giverStill === false, JSON.stringify(doneP));
+  } else fail(`background offer never posted (${pickP})`);
 
   /* ---- L. the drag route ------------------------------------------------- */
   console.log("\nthe drag route");

@@ -15,7 +15,7 @@
  */
 import { FATIGUE_NAME } from "./item/item.js";
 import { findTableByName } from "./compendium.js";
-import { t, tokenDisplayName, actorDisplayName } from "./i18n-content.js";
+import { t, speakerDisplayName } from "./i18n-content.js";
 import { formatCount } from "./utils.js";
 import { SETTINGS_NS } from "./settings.js";
 
@@ -573,24 +573,9 @@ export const localizeGlogCastCard = (message, html) => {
   // The flavor is the message HEADER, outside `.message-content`
   // (`templates/sidebar/chat-message.hbs:23-25`), so it is not reached by the
   // rebuild above and needs its own write.
+  // The caster's name resolves per viewer through the SHARED resolver
+  // (i18n-content.js `speakerDisplayName` — it moved there when the
+  // initiative save cards needed the identical rule, review #23 finding 8).
   const flavor = html.querySelector(".flavor-text");
-  if (flavor) flavor.innerHTML = glogCastFlavor("CAIRN.GrimoireCastFlavor", castDisplayName(message, f.alias));
-};
-
-/**
- * The caster's name as THIS viewer's card header shows it (cairn.js
- * `localizeSpeakerName`, review #19): the token's where the cast was spoken
- * as one, the world actor's otherwise, and the stored alias when nothing
- * resolves or the alias was not the actor's own name.
- * @param {ChatMessage} message
- * @param {String} alias  the alias the card was composed with
- * @return {String}
- */
-const castDisplayName = (message, alias) => {
-  const speaker = message.speaker ?? {};
-  const token = speaker.scene && speaker.token ? game.scenes?.get(speaker.scene)?.tokens?.get(speaker.token) : null;
-  if (token) return tokenDisplayName(token) || alias;
-  const actor = speaker.actor ? game.actors?.get(speaker.actor) : null;
-  if (!actor || actor.name !== alias) return alias;
-  return actorDisplayName(actor) || alias;
+  if (flavor) flavor.innerHTML = glogCastFlavor("CAIRN.GrimoireCastFlavor", speakerDisplayName(message, f.alias));
 };

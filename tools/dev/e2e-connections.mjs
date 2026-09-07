@@ -439,26 +439,54 @@ crafted.signed?.dflt === 2 && crafted.signed?.aliceLevel === 3 && crafted.signed
 // it on the next GM load. Close the GM context FIRST, then let Alice connect.
 console.log("\nthe GM-ready sweep catches a flag set while no GM was online");
 await gmContext.close();
-await alicePage.waitForTimeout(1500);
 
-const sweepSet = await alicePage.evaluate(async ({ pcUuid, sweepUuid }) => {
+// "No GM online" is ESTABLISHED here, not assumed: any OTHER live GM session —
+// a parked human Warden tab, an orphaned probe process still holding a GM
+// login — answers the relay the moment Alice connects, and this leg then reds
+// with the SIGNED shape ({flagStillSet:false, dflt:2}). That exact signature
+// sat undiagnosed as an intermittent from 2026-08-13 until 2026-09-07, when a
+// deliberately parked second Warden session reproduced it byte-for-byte. Poll
+// past our own closed context's disconnect broadcast; a GM still active after
+// that is somebody else's session, so fail NAMING it rather than measuring a
+// world it invalidates.
+const gmGone = await alicePage.evaluate(async () => {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  const pc = await fromUuid(pcUuid);
-  const sweepChild = await fromUuid(sweepUuid);
-  const returned = await pc.connectActor(sweepChild);
-  // Give any straggler GM three seconds to (wrongly) exist and answer; the
-  // flag surviving is the precondition the sweep leg stands on.
-  await sleep(3000);
-  return {
-    returned,
-    linked: sweepChild.system.connectedTo === pc.uuid,
-    flagStillSet: sweepChild.getFlag("air-bladder", "ownershipSyncPending") === true,
-    dflt: sweepChild.ownership.default,
-  };
-}, scene);
-sweepSet.returned && sweepSet.linked && sweepSet.flagStillSet
-  ? ok("with no GM online the flag WAITS", "link written, nobody answered")
-  : fail("with no GM online the flag WAITS", JSON.stringify(sweepSet));
+  for (let i = 0; i < 48; i++) {
+    if (!game.users.some((u) => u.isGM && u.active)) return { gone: true };
+    await sleep(250);
+  }
+  return { gone: false, active: game.users.filter((u) => u.isGM && u.active).map((u) => u.name) };
+});
+if (gmGone.gone) {
+  const sweepSet = await alicePage.evaluate(async ({ pcUuid, sweepUuid }) => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const pc = await fromUuid(pcUuid);
+    const sweepChild = await fromUuid(sweepUuid);
+    const returned = await pc.connectActor(sweepChild);
+    // Give any straggler GM three seconds to (wrongly) exist and answer; the
+    // flag surviving is the precondition the sweep leg stands on.
+    await sleep(3000);
+    return {
+      returned,
+      linked: sweepChild.system.connectedTo === pc.uuid,
+      flagStillSet: sweepChild.getFlag("air-bladder", "ownershipSyncPending") === true,
+      dflt: sweepChild.ownership.default,
+    };
+  }, scene);
+  sweepSet.returned && sweepSet.linked && sweepSet.flagStillSet
+    ? ok("with no GM online the flag WAITS", "link written, nobody answered")
+    : fail("with no GM online the flag WAITS", JSON.stringify(sweepSet));
+} else {
+  fail("with no GM online the flag WAITS",
+    `a GM session other than the probe's is still online (${gmGone.active.join(", ")}) — `
+    + "a parked Warden tab or an orphaned probe process holds a login; close it and re-run");
+  // Still write the link so the rejoin leg below has its document to poll —
+  // the foreign GM will sign it instantly, which that leg's shape accepts.
+  await alicePage.evaluate(async ({ pcUuid, sweepUuid }) => {
+    const pc = await fromUuid(pcUuid);
+    await pc.connectActor(await fromUuid(sweepUuid));
+  }, scene);
+}
 
 gmContext = await browser.newContext({ viewport: VIEWPORT });
 gmPage = await gmContext.newPage();

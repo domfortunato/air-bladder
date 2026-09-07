@@ -190,6 +190,29 @@ export const tokenDisplayName = (tok) =>
   tok?.actor?.type === "character" ? (tok?.name ?? "") : t("monster.name", tok?.name ?? "");
 
 /**
+ * A chat message SPEAKER's name as THIS viewer's card header shows it
+ * (cairn.js `localizeSpeakerName`, review #19): the token's where the message
+ * was spoken as one, the world actor's otherwise, and the stored alias when
+ * nothing resolves or the alias was not the actor's own name (a Warden's
+ * "Goblin A" stays "Goblin A"; a PC never localizes — the two helpers above
+ * carry that gate). One resolver, shared by every flavor that is rebuilt per
+ * viewer (GLOG cast cards, initiative save cards), so a card's flavor and its
+ * header can never disagree about a name.
+ * @param {ChatMessage} message
+ * @param {String} alias  the alias the card was composed with
+ * @return {String}
+ */
+export const speakerDisplayName = (message, alias) => {
+  const speaker = message?.speaker ?? {};
+  const token = speaker.scene && speaker.token
+    ? game.scenes?.get(speaker.scene)?.tokens?.get(speaker.token) : null;
+  if (token) return tokenDisplayName(token) || alias;
+  const actor = speaker.actor ? game.actors?.get(speaker.actor) : null;
+  if (!actor || actor.name !== alias) return alias;
+  return actorDisplayName(actor) || alias;
+};
+
+/**
  * Return a shallow copy of an item-like object ({ name, system: { description } })
  * with its display name/description translated under the given namespaces. The
  * original is NEVER mutated — callers hand this to a template, never back to a

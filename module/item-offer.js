@@ -112,7 +112,12 @@ export const buildOfferItemData = (item) => {
  */
 const sanitizeDelivery = (data) => {
   if (!data || typeof data !== "object") return null;
-  if (!["item", "weapon", "armor", "spellbook", "object"].includes(data.type)) return null;
+  // Every REGISTERED item type (ruled 2026-09-07, review #23 finding 3:
+  // "admit at the wire") — the give affordance never gated on type, so the
+  // wire matches it rather than looping a background offer failed -> reopen.
+  // The list stays explicit so garbage on the wire is still refused; a new
+  // item type must be added here or its offers hit that loop.
+  if (!["item", "weapon", "armor", "spellbook", "object", "background", "transport"].includes(data.type)) return null;
   if ((data.type === "item" && data.system?.grimoire) || data.system?.bound) return null;
   if (data.name === FATIGUE_NAME) return null;
   delete data._id;
@@ -134,18 +139,21 @@ const ownersOf = (actor) =>
 const esc = (s) => foundry.utils.escapeHTML(String(s ?? ""));
 
 /**
- * Pick who receives the offer: every OTHER world character, alphabetical
- * (PC names are player-authored and never localized). Offline targets stay
- * selectable — the offer waits in chat, and only the GIVER's presence gates
- * the accept. Radio list, first row pre-checked: a radio group with no
- * checked member is CSS :indeterminate, which core renders invisible.
+ * Pick who receives the offer: every OTHER world character THIS USER CAN SEE
+ * (core `visible` = LIMITED+ — an ownership-NONE character is a doppelganger
+ * the Warden is hiding, and its name must not leak into a player's picker;
+ * review #23 finding 6), alphabetical (PC names are player-authored and never
+ * localized). Offline targets stay selectable — the offer waits in chat, and
+ * only the GIVER's presence gates the accept. Radio list, first row
+ * pre-checked: a radio group with no checked member is CSS :indeterminate,
+ * which core renders invisible.
  * @param {CairnActor} giver
  * @param {CairnItem} item
  * @returns {Promise<CairnActor|null>}
  */
 export const promptOfferTarget = async (giver, item) => {
   const targets = game.actors
-    .filter((a) => a.type === "character" && a.id !== giver.id)
+    .filter((a) => a.type === "character" && a.id !== giver.id && a.visible)
     .sort((a, b) => a.name.localeCompare(b.name, game.i18n.lang));
   if (!targets.length) {
     ui.notifications.warn("CAIRN.Notify.OfferNoTargets", { localize: true });
@@ -258,8 +266,11 @@ export const bindOfferCard = (message, html) => {
     <div class="cairn-offer-state">${stateKey ? esc(game.i18n.format(stateKey, names)) : ""}</div>`;
   if (offer.state !== "open") return;
 
+  // `?.` on the permission test: the flag is player-writable data, and a uuid
+  // that resolves to something with no permission API (a compendium index
+  // entry) must degrade to no-buttons-for-you, not a render-hook throw.
   const target = foundry.utils.fromUuidSync(offer.targetActorUuid);
-  const canAnswer = !!target && (game.user.isGM || target.testUserPermission(game.user, "OWNER"));
+  const canAnswer = !!target && (game.user.isGM || !!target.testUserPermission?.(game.user, "OWNER"));
   const canCancel = game.user.isGM || message.isAuthor;
   if (!canAnswer && !canCancel) return;
   const actions = document.createElement("div");
@@ -343,6 +354,12 @@ const onDeclineClick = async (message) => {
     return;
   }
   if (game.user.isGM || message.isAuthor) {
+    // The same in-flight guard Cancel has (review #23 finding 5 ruling):
+    // never stamp declined while THIS client is mid-serve of an accept — a
+    // decline landing over an accepted write orphans the delivered item and
+    // the card lies "stays with giver". The cross-client replication window
+    // remains and is recorded with Cancel's as an accepted residual.
+    if (offersInFlight.has(message.id)) return;
     await message.setFlag(SCOPE, FLAG, { state: "declined" });
     return;
   }
@@ -510,7 +527,12 @@ export const handleOfferSocket = async (msg, senderId) => {
   if (msg.action === "offerDone" || msg.action === "offerFail") {
     if (!message?.isAuthor) return;
     const offer = message.getFlag(SCOPE, FLAG);
-    if (offer?.state !== "accepted" || senderId !== offer.acceptorUserId) return;
+    // `settled` is TERMINAL (review #23 finding 2): once the transaction has
+    // completed, a replayed offerDone must not decrement the giver's stack
+    // again and a replayed offerFail must not reopen the offer — without
+    // this the guard read only state + acceptor, and settling never changes
+    // the state.
+    if (offer?.state !== "accepted" || offer.settled || senderId !== offer.acceptorUserId) return;
     const names = offerNames(message, offer);
     if (msg.action === "offerFail") {
       await message.setFlag(SCOPE, FLAG, { state: "open", acceptorUserId: null });
@@ -525,8 +547,13 @@ export const handleOfferSocket = async (msg, senderId) => {
 
   if (msg.action === "offerRefused") {
     if (!pendingAccepts.has(msg.messageId) && !message) return;
-    pendingAccepts.delete(msg.messageId);
+    // Authenticate BEFORE clearing the pending entry — the same order
+    // offerRelease enforces, for the same reason (review #23 finding 1): a
+    // forged refusal landing inside the accept window must not strip the
+    // entry the genuine release is about to need, or the release is
+    // discarded as forged and the offer wedges at accepted + settled:false.
     if (message && message.author?.id !== senderId) return;
+    pendingAccepts.delete(msg.messageId);
     const key = REFUSAL_TOASTS[msg.reason];
     if (!key) return;
     const offer = message?.getFlag(SCOPE, FLAG);
@@ -549,7 +576,11 @@ export const handleOfferSocket = async (msg, senderId) => {
  */
 export const offerFromDrop = async (targetActor, item) => {
   const giver = item?.actor;
-  if (targetActor?.type !== "character" || giver?.type !== "character" || !item.isOwner) {
+  // `.pack` refuses a COMPENDIUM character (review #23 finding 7): its uuid
+  // resolves through fromUuidSync to a bare index entry with no permission
+  // API, so a card naming it would render button-less for every non-GM
+  // viewer — the giver could not even Cancel.
+  if (targetActor?.type !== "character" || targetActor.pack || giver?.type !== "character" || !item.isOwner) {
     ui.notifications.warn("CAIRN.Notify.DropFailed", { localize: true });
     return null;
   }

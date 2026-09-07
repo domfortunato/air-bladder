@@ -37,11 +37,56 @@ const FOUNDRY = "C:/Users/domin/foundry";
 const DEST = path.join(FOUNDRY, "backups");
 const KEEP = 24;
 
+/**
+ * The validation world is DISCOVERED, never named. The release process mints a
+ * fresh `rel-XXXX` world under ghtest-data for every release, so a world id
+ * hardcoded here goes stale the moment the next release lands — this line said
+ * `ab019` (dead since 0.1.10) for a month while the current validation world
+ * had no backup coverage at all, found 2026-09-07. Take the highest-numbered
+ * rel-XXXX; if none match the convention, fall back to the world with the
+ * newest file write, so a renamed convention degrades to a guess instead of
+ * to silence.
+ */
+const GHTEST_WORLDS = path.join(FOUNDRY, "ghtest-data", "Data", "worlds");
+const newestWrite = (dir) => {
+  let t = 0;
+  const walk = (d) => {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const p = path.join(d, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.isFile()) t = Math.max(t, fs.statSync(p).mtimeMs);
+    }
+  };
+  walk(dir);
+  return t;
+};
+const validationWorld = () => {
+  if (!fs.existsSync(GHTEST_WORLDS)) return null;
+  const worlds = fs.readdirSync(GHTEST_WORLDS, { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .map((e) => e.name);
+  const rel = worlds
+    .map((w) => ({ w, n: /^rel-(\d+)$/.exec(w)?.[1] }))
+    .filter((x) => x.n !== undefined)
+    .sort((a, b) => Number(a.n) - Number(b.n))
+    .at(-1);
+  if (rel) return rel.w;
+  let best = null;
+  for (const w of worlds) {
+    const t = newestWrite(path.join(GHTEST_WORLDS, w));
+    if (!best || t > best.t) best = { w, t };
+  }
+  return best?.w ?? null;
+};
+
 /** What gets copied. A missing source is skipped with a warning, never fatal. */
+const VALIDATION = validationWorld();
 const SOURCES = [
   { name: "packs", from: path.join(ROOT, "packs") },
   { name: "world-air-bladder-dev", from: path.join(FOUNDRY, "data", "Data", "worlds", "air-bladder-dev") },
-  { name: "world-ab019", from: path.join(FOUNDRY, "ghtest-data", "Data", "worlds", "ab019") },
+  ...(VALIDATION
+    ? [{ name: `world-${VALIDATION}`, from: path.join(GHTEST_WORLDS, VALIDATION) }]
+    : []),
 ];
 
 const arg = (flag) => {
@@ -124,6 +169,7 @@ const label = (arg("--label") ?? "").replace(/[^A-Za-z0-9._-]/g, "-").slice(0, 4
 const dir = path.join(DEST, label ? `${stamp}_${label}` : stamp);
 
 fs.mkdirSync(dir, { recursive: true });
+if (!VALIDATION) console.log(`  warning  no validation world found under ${GHTEST_WORLDS}`);
 let total = 0;
 for (const { name, from } of SOURCES) {
   if (!fs.existsSync(from)) { console.log(`  skipped  ${name.padEnd(28)} (not present: ${from})`); continue; }
@@ -140,7 +186,9 @@ fs.writeFileSync(path.join(dir, "README.txt"),
   + "                           `npm run extract:packs` to fold the content into\n"
   + "                           src/packs/ YAML where git can see it.\n"
   + "world-air-bladder-dev/  -> copy back over foundry/data/Data/worlds/air-bladder-dev\n"
-  + "world-ab019/            -> copy back over foundry/ghtest-data/Data/worlds/ab019\n\n"
+  + (VALIDATION
+    ? `world-${VALIDATION}/`.padEnd(24) + `-> copy back over foundry/ghtest-data/Data/worlds/${VALIDATION}\n\n`
+    : "\n")
   + "Stop Foundry before restoring anything: LevelDB holds a lock and a restore\n"
   + "under a running server produces a corrupt mix of both states.\n");
 

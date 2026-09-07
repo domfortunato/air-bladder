@@ -46,7 +46,7 @@
  *    label, with the DEX it was tested against stated nowhere.
  */
 
-import { t } from "./i18n-content.js";
+import { t, speakerDisplayName } from "./i18n-content.js";
 
 /**
  * Who makes the DEX save — i.e. who acts with the party (user ruling
@@ -152,10 +152,18 @@ export class CairnCombat extends Combat {
           total: roll.total,
           dex,
         }),
-        // The outcome rides a flag so the render hook can colour the total
+        // The outcome and the save's numbers ride flags so the render hook
+        // can colour the total AND rebuild the flavor per viewer
         // (markInitiativeOutcome below) — display is per viewer, the fact is
-        // stored once.
-        flags: { "core.initiativeRoll": true, "air-bladder.save": pass ? "pass" : "fail" },
+        // stored once. The stored flavor above stays the roller's-language
+        // bake for clients without the hook; cards from before saveTotal
+        // existed keep it unrebuilt.
+        flags: {
+          "core.initiativeRoll": true,
+          "air-bladder.save": pass ? "pass" : "fail",
+          "air-bladder.saveTotal": roll.total,
+          "air-bladder.saveDex": dex,
+        },
       }, messageOptions);
       // "public", never the roll-mode dropdown (user ruling 2026-09-06): the
       // save's outcome IS the turn order, table information by definition — a
@@ -391,6 +399,14 @@ export class CairnCombatTracker extends foundry.applications.sidebar.tabs.Combat
  * Display-only, added per viewer at render off the stored flag; the classes
  * are styled in cairn.css with PINNED colours, because a chat tile is
  * parchment in both client themes (the whisper-token doctrine there).
+ *
+ * The FLAVOR is rebuilt per viewer too (review #23 finding 8, the GLOG cast
+ * card's pattern): the stored flavor baked the roller's language and the raw
+ * combatant name at roll time, while the header (`localizeSpeakerName`) and
+ * the tracker translate per viewer — so an es client read "Mule" in the
+ * flavor under "Mula" above it, for exactly the FRIENDLY non-character
+ * combatants the a3150a99 ruling made public. Rebuilt from the numbers in
+ * the flag; a pre-rebuild card (no saveTotal) keeps its baked line.
  * @param {ChatMessage} message
  * @param {HTMLElement} html
  */
@@ -398,6 +414,15 @@ export const markInitiativeOutcome = (message, html) => {
   const outcome = message.getFlag("air-bladder", "save");
   if (outcome !== "pass" && outcome !== "fail") return;
   html.querySelector(".dice-total")?.classList.add(outcome === "pass" ? "cairn-save-pass" : "cairn-save-fail");
+  const total = message.getFlag("air-bladder", "saveTotal");
+  const dex = message.getFlag("air-bladder", "saveDex");
+  if (total === undefined || dex === undefined) return;
+  const flavor = html.querySelector(".flavor-text");
+  if (!flavor) return;
+  flavor.innerHTML = game.i18n.format(outcome === "pass" ? "CAIRN.Initiative.Pass" : "CAIRN.Initiative.Fail", {
+    name: foundry.utils.escapeHTML(speakerDisplayName(message, message.speaker?.alias ?? "")),
+    total, dex,
+  });
 };
 
 /**

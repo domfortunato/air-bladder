@@ -30,13 +30,16 @@ manifest. Descends architecturally from a private fork of
   `CONTRIBUTING.md`, `site/index.html` and `docs/testing-dev-branch.md` —
   change one, change all six (the sixth was written after this list said
   "five" and nobody added it; review #19).
-- Latest release **0.1.18** (2026-08-23). `system.json`'s `version` is bumped by
+- Latest release **0.1.19** (2026-09-02). `system.json`'s `version` is bumped by
   `npm run release` in the release commit on `master` (CI substitutes the same
-  tag into the manifest URLs), so on `dev` it lags until the post-release merge
+  tag into the manifest URLs), so on `dev` it lags until the post-release sync
   — read the tag, not the file. This line said 0.1.12 through five releases
-  (flagged open in review #15, fixed in #18): a version in prose is a copy that
-  drifts, so update it in the post-release master→dev merge, the one
-  master→dev sync there is.
+  (flagged open in review #15, fixed in #18), then went stale a THIRD time the
+  very release after that rule was written (0.1.19, caught in review #23):
+  a version in prose is a copy that drifts, so update it in the post-release
+  master→dev SYNC — which is usually a merge, but when `dev` has nothing of
+  its own it FAST-FORWARDS, no merge commit, and a rule hung on "the merge"
+  never fires. The sync is the trigger, however it lands.
 - Node 24.x. `npm run release X.Y.Z` is the whole release — see `RELEASE.md`.
 
 ## Git: two branches, one direction
