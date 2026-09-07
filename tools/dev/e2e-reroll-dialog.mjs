@@ -195,6 +195,25 @@ try {
         await closeDialog(dlg);
       }
 
+      // ---- 1b. show-traits OFF removes the age and traits rows ------------
+      // The omen row's exact precedent (it is conditional on omenVisible):
+      // a Warden who hid rolled flavor is not offered a re-roll of it. STR
+      // proves the list itself survived. Read-shadowed, restored in finally.
+      {
+        const origGetT = game.settings.get;
+        game.settings.get = function (ns, key, ...rest) {
+          if (key === "show-traits") return false;
+          return origGetT.call(this, ns, key, ...rest);
+        };
+        try {
+          dlg = await openDialog(sheet);
+          out.rowsTraitsOff = dlg ? [...dlg.querySelectorAll(".reroll-row")].map((row) => row.dataset.part) : null;
+          if (dlg) await closeDialog(dlg);
+        } finally {
+          game.settings.get = origGetT;
+        }
+      }
+
       // ---- 2b. Rolled (flag false) and legacy (flag absent) → all checked -
       await actor.setFlag(NS, "backgroundChosen", false);
       dlg = await openDialog(sheet);
@@ -628,6 +647,12 @@ try {
       && r.notes2e?.pick?.includes("choose instead of rolling")
       ? ok("both notes render (questions scope + pick-instead)")
       : fail(`notes: ${JSON.stringify(r.notes2e)}`);
+
+    Array.isArray(r.rowsTraitsOff)
+      && !r.rowsTraitsOff.includes("age") && !r.rowsTraitsOff.includes("traits")
+      && r.rowsTraitsOff.includes("STR")
+      ? ok("show-traits OFF removes the age and traits rows (STR row survives)")
+      : fail(`show-traits OFF rows: ${JSON.stringify(r.rowsTraitsOff)}`);
 
     const wantBb = ["name", "background", "gear", "failedCareer", "keepsake",
       "STR", "DEX", "WIL", "hp", "gold", "age", "traits", "portrait"];

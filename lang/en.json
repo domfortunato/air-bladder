@@ -797,6 +797,10 @@
       "hint": "Cairn 2e gives the party's youngest member an omen. Turn this off for a game that does not use them: the Omen checkbox and field leave every character sheet, and printed sheets drop their Omen section. Any omen already written is kept on the character and comes back if you switch this on again.",
       "label": "Show omens on character sheets"
     },
+    "ShowTraits": {
+      "hint": "Turn this off to keep rolled flavor out of sight: the age and trait rows and the trait sentence leave the character, NPC and hireling sheets, and printed pages drop their Traits section. Pronouns stay. Anything already rolled is kept on the actor and comes back if you switch this on again.",
+      "label": "Show rolled traits and age on character sheets"
+    },
     "UseCairnDiceNotation": {
       "label": "Use Cairn dice notation: 'd6+d6' as keep highest"
     },

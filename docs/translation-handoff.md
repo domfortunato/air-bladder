@@ -6,11 +6,11 @@ as of 2026-09-07, measured against the last release (`0.1.19`).
 
 | | |
 | --- | --- |
-| English interface keys | 843 |
+| English interface keys | 845 |
 | translated in `lang/es.json` | 683 (81%) |
 | **changed under your translation** | **22** ← Part 1 |
 | **content you translated, now unreachable** | **3** ← Part 2 |
-| new interface keys, untranslated | 160 ← Part 3 |
+| new interface keys, untranslated | 162 ← Part 3 |
 | new content strings, untranslated | 2154 ← Part 4 |
 
 Only two files are yours, and only you should edit them: `lang/es.json`
@@ -184,7 +184,7 @@ to do — they are listed so the work is accounted for rather than vanishing.
 
 ---
 
-## Part 3 — new interface keys, untranslated (160)
+## Part 3 — new interface keys, untranslated (162)
 
 Ordinary outstanding work: these have no Spanish at all, so a Spanish client
 falls back to English for them. Nothing here is urgent — a missing key is visibly
@@ -406,7 +406,7 @@ untranslated, which is the honest failure.
 | `CAIRN.Reroll.StartingGear` | Starting gear |
 | `CAIRN.Reroll.WIL` | WIL (Willpower) |
 
-### Settings (15)
+### Settings (17)
 
 | key | English |
 | --- | --- |
@@ -424,6 +424,8 @@ untranslated, which is the honest failure.
 | `CAIRN.Settings.ShowGrantTagsPrint.label` | Show grant-source tags on printed sheets |
 | `CAIRN.Settings.ShowOmens.hint` | Cairn 2e gives the party's youngest member an omen. Turn this off for a game that does not use them: the Omen checkbox and field leave every character sheet, and printed sheets drop their Omen section. Any omen already w… |
 | `CAIRN.Settings.ShowOmens.label` | Show omens on character sheets |
+| `CAIRN.Settings.ShowTraits.hint` | Turn this off to keep rolled flavor out of sight: the age and trait rows and the trait sentence leave the character, NPC and hireling sheets, and printed pages drop their Traits section. Pronouns stay. Anything already r… |
+| `CAIRN.Settings.ShowTraits.label` | Show rolled traits and age on character sheets |
 | `CAIRN.Settings.UseWardenTitle.hint` | Relabel the Gamemaster role as "Warden" wherever Foundry names it, and rename the default Gamemaster account to match. Turning this off restores the account's original name. Takes effect after a reload. |
 
 ### Trait (4)

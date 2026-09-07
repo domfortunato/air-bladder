@@ -235,6 +235,20 @@ const omenVisible = (actor) =>
   actor?.system?.contentSource !== "barebones"
   && game.settings.get(SETTINGS_NS, "show-omens");
 
+/**
+ * May rolled traits and age be shown AT ALL? One term — the Warden's
+ * show-traits switch (2026-09-07) — but a function for omenVisible's reason:
+ * every surface must ask the same question, and print once regressed for a
+ * day by open-coding one of omen's two terms (review #16). Governs the trait
+ * rows, the trait sentence and the AGE row on every person sheet, the
+ * printed Traits section, and the Roll Character checklist's age/traits
+ * rows. Pronouns are NOT this switch's business — never rolled, never
+ * hidden. No per-actor term: unlike omens, traits are every edition's and
+ * every person role's.
+ * @returns {boolean}
+ */
+const traitsVisible = () => game.settings.get(SETTINGS_NS, "show-traits");
+
 const mayRandomize = (fn) => function (event, target) {
   if (!this._mayRandomize()) {
     ui.notifications.warn(game.i18n.localize("CAIRN.Notify.RandomizationDisabled"));
@@ -1227,7 +1241,10 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       if (context.showBiography) {
         await this._prepareBiographyContext(context);
         context.showScars = true;
-        context.showAge = true;
+        // The show-traits switch reaches every person sheet (ruled in
+        // planning, 2026-09-07) — npc and hireling included.
+        context.showAge = traitsVisible();
+        context.showTraits = traitsVisible();
         context.showOmen = false;
       }
     }
@@ -1536,12 +1553,15 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // the character sheet's hardcoded tab keeps the long wording. The DYNAMIC,
     // data-driven rename stays dead: two characters must not disagree on what
     // their own tabs are called.
-    // Scars and Age are never generated — a player fills each in by hand after
-    // the fact — so they are NOT edition-specific and show on both. Only
+    // Scars are never generated — a player fills them in by hand after the
+    // fact — so they are NOT edition-specific and show on both. Only
     // character CREATION differs between 2e and Barebones (see CLAUDE.md,
-    // "One system, two generators").
+    // "One system, two generators"). Age and the trait rows ride the
+    // Warden's show-traits switch instead (2026-09-07, also edition-blind);
+    // render-only like showOmen below, and for the same reasons.
     context.showScars = true;
-    context.showAge = true;
+    context.showAge = traitsVisible();
+    context.showTraits = traitsVisible();
     // Omen is the one exception, and it is a CONTENT question rather than a rule:
     // Barebones ships no omens table, so the field is 2e's alone. (A Warden
     // used to be able to lend it via show-omens-barebones; the lending was
@@ -2572,7 +2592,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       !isChar && sys.panicked && L("CAIRN.Panicked"),
       sys.critical && L("CAIRN.CriticalDamage"),
     ].filter(Boolean).join(" · ");
-    const traitsProse = this._buildTraitSentence(sys.traits, sys.age);
+    // Empty when the Warden hides rolled flavor (show-traits, 2026-09-07):
+    // the {{#if traitsProse}} section drops heading and body together under
+    // the page's empty-sections rule, and hasSide collapses the band. Age
+    // reaches paper only inside this sentence, so it goes with it.
+    const traitsProse = traitsVisible() ? this._buildTraitSentence(sys.traits, sys.age) : "";
 
     // The background's own prose and its rolled question/answer pairs (user
     // additions 2026-08-08), routed exactly as the sheet routes them —
@@ -3022,8 +3046,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     list += row("WIL", L("CAIRN.Reroll.WIL"));
     list += row("hp", L("CAIRN.HitProtectionLong"));
     list += row("gold", L("CAIRN.Gold"));
-    list += row("age", L("CAIRN.Age"));
-    list += row("traits", L("CAIRN.Traits"));
+    // The omen row's precedent below: a Warden who hid rolled flavor is not
+    // offered a re-roll of it. An unoffered row's checkbox never exists, so
+    // parts.age / parts.traits stay falsy and the run cannot roll them.
+    if (traitsVisible()) {
+      list += row("age", L("CAIRN.Age"));
+      list += row("traits", L("CAIRN.Traits"));
+    }
     list += row("portrait", L("CAIRN.Reroll.PortraitToken"));
     // omenVisible, not an open-coded copy of its two terms (review #21): the
     // character's own switch stays a separate question, as everywhere.

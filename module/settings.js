@@ -28,7 +28,7 @@ export const SETTINGS_NS = "air-bladder";
 export const SETTING_KEYS = [
   // General
   "use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
-  "show-grant-tags-print", "show-omens",
+  "show-grant-tags-print", "show-traits", "show-omens",
   "use-warden-title", "change-log", "auto-record-scars", "enable-glog-magic",
   // Character Generation
   "content-source-2e", "content-source-custom", "content-source-barebones",
@@ -163,8 +163,8 @@ export const SETTING_GROUPS = [
     icon: "fa-solid fa-gears",
     keys: [
       "use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
-      "show-grant-tags-print", "show-omens", "use-warden-title", "change-log",
-      "auto-record-scars",
+      "show-grant-tags-print", "show-traits", "show-omens", "use-warden-title",
+      "change-log", "auto-record-scars",
     ],
   },
   {
@@ -449,6 +449,29 @@ export const registerSettings = () => {
   game.settings.register(SETTINGS_NS, "show-omens", {
     name: "CAIRN.Settings.ShowOmens.label",
     hint: "CAIRN.Settings.ShowOmens.hint",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: true,
+    requiresReload: false,
+    onChange: rerenderActorSheets,
+  });
+
+  // Rolled flavor off the sheet (user ask 2026-09-07, label wording theirs).
+  // Off hides the trait rows, the trait sentence and the AGE row on every
+  // PERSON sheet — character, npc AND hireling, one shared bio block, ruled
+  // in planning — and drops the printed page's Traits section, age riding
+  // inside the sentence. ONE switch, both surfaces: show-omens' ruling, and
+  // deliberately not the grant-tags split. PRONOUNS stay: they are never
+  // rolled (the standing ruling) and are not this switch's business. Stored
+  // traits and age are never touched and return when this goes back on;
+  // generation, imports and full re-rolls keep WRITING them — display only.
+  // General, beside show-omens, for show-omens' own reason: traits ARE
+  // rolled at generation, but this is a table-display question, not a
+  // parameter of the character being made. Same read-live fan.
+  game.settings.register(SETTINGS_NS, "show-traits", {
+    name: "CAIRN.Settings.ShowTraits.label",
+    hint: "CAIRN.Settings.ShowTraits.hint",
     scope: "world",
     config: false,
     type: Boolean,

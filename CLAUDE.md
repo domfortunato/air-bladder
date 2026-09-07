@@ -241,7 +241,7 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   "N on master" parenthetical went stale a THIRD way by surviving two releases
   — a new pack's commit must carry this line, and so must the release that
   moves the master count, which is what this post-release merge is doing)
-- 24 Warden-facing settings in `module/settings.js` (33 `register` calls + 4 `registerMenu` menus from ONE call site,
+- 25 Warden-facing settings in `module/settings.js` (34 `register` calls + 4 `registerMenu` menus from ONE call site,
   ALL `config: false` since 2026-08-22 — see the submenu paragraph below; `roles-restamped`,
   `companion-restamped`, `hireling-split`, `grimoire-keys-stamped`,
   `connections-migrated`, `art-migration-generation` (2026-08-21, review #17 —
@@ -252,7 +252,10 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   (review #13's catch, its third "record claiming what the code does not say"),
   then `enable-glog-magic` rode a topic branch whose cherry-picks never carried
   this line, caught only when the branch merged — so each settings change updates
-  them in its own commit, this one dated 2026-08-21 for `age-formula`, which
+  them in its own commit, this one dated 2026-09-07 for `show-traits` (rolled
+  traits + age hidden from every person sheet AND print, one switch both
+  surfaces per the show-omens ruling; pronouns stay; General, beside
+  show-omens). The previous update was 2026-08-21 for `age-formula`, which
   REPLACED `min-age` and `max-age` two days after the ceiling landed: Malecho's
   cap-of-30 test came out all 30s, because clamping 2d20+10 piles ~57% of rolls
   onto that bound — the cap worked as coded and the DESIGN was the defect, so
@@ -266,7 +269,7 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   the journal entry breaks a pointer no gate checks. The Kettlewright
   importer's clamp on PARSED ages retired too, an imported age lands
   verbatim) —
-  **Since 2026-08-22 the 24 live behind FOUR `registerMenu` SUBMENUS** (user
+  **Since 2026-08-22 the 25 live behind FOUR `registerMenu` SUBMENUS** (user
   ruling, "one submenu per group" — General, Character Generation, Inventory
   & Encumbrance, and GLOG & Other Hacks, the fourth asked for the same day to
   hold the GLOG toggle and the Barebones failed career): every one is

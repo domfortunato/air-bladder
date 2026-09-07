@@ -121,6 +121,56 @@ try {
       out.omenTextKept = a2.system.omen;
       out.omenSwitchRestored = game.settings.get(NS, "show-omens");
 
+      // 5. The traits-and-age switch (show-traits, default ON, 2026-09-07):
+      // the same read-shadow, both directions, context flags first — then the
+      // RENDERED sheet under the OFF shadow, because the pronouns row is the
+      // differential (never rolled, never hidden) and only the DOM can show
+      // it surviving while the grid, the age input and the sentence go. An
+      // npc sheet runs the same OFF leg: the switch governs every person
+      // sheet (ruled in planning), and the character alone cannot witness
+      // that scope.
+      const origGetT = game.settings.get;
+      const shadowT = (value) => {
+        game.settings.get = function (ns, key, ...rest) {
+          if (key === "show-traits") return value;
+          return origGetT.call(this, ns, key, ...rest);
+        };
+      };
+      const npcT = await Actor.create({ name: "ZZ Parity Traits Npc", type: "npc", system: { role: "npc" } });
+      out.made.push(npcT.id);
+      try {
+        shadowT(true);
+        const onCtx = await a2.sheet._prepareContext({});
+        out.traitsShownOn = onCtx.showTraits === true && onCtx.showAge === true;
+        shadowT(false);
+        const offCtx = await a2.sheet._prepareContext({});
+        out.traitsHiddenOff = offCtx.showTraits === false && offCtx.showAge === false;
+        const npcOff = await npcT.sheet._prepareContext({});
+        out.npcTraitsHiddenOff = npcOff.showTraits === false && npcOff.showAge === false;
+        await a2.sheet.render(true);
+        await new Promise((r) => setTimeout(r, 600));
+        const el = a2.sheet.element;
+        out.traitsDomOff = {
+          // The SECTION, not .trait-grid: the grid also vanishes when merely
+          // COLLAPSED (the sentence is the default view), so its absence
+          // cannot witness the switch.
+          section: !!el?.querySelector(".trait-picklist-section"),
+          age: !!el?.querySelector('input[name="system.age"]'),
+          sentence: !!el?.querySelector(".trait-sentence"),
+          pronouns: !!el?.querySelector(".pronouns-row"),
+        };
+        await a2.sheet.close();
+      } finally {
+        game.settings.get = origGetT;
+      }
+      // Values survive the hide — read with the shadow off.
+      out.traitsKept = Object.values(a2.system.traits ?? {}).some((v) => v)
+        && typeof a2.system.age === "string";
+      // Registration-aware, so a build without the setting reds this leg
+      // granularly instead of rejecting the whole evaluate.
+      out.traitsSwitchRestored = game.settings.settings.has(`${NS}.show-traits`)
+        ? game.settings.get(NS, "show-traits") : "UNREGISTERED";
+
       // the picker exists and is name-only (no gear side effects)
       out.hasPrompt = typeof gen.promptFailedCareer === "function";
       const before = a2.items.size;
@@ -172,6 +222,26 @@ try {
   typeof r.omenSwitchRestored === "boolean"
     ? ok(`the settings read is restored (show-omens reads ${r.omenSwitchRestored})`)
     : fail("game.settings.get was left shadowed");
+
+  r.traitsShownOn === true
+    ? ok("precondition: with show-traits ON the context shows traits and age")
+    : fail(`show-traits ON and the flags are not both true (${r.traitsShownOn}) — the legs below would pass vacuously`);
+  r.traitsHiddenOff === true
+    ? ok("the Warden's show-traits switch hides traits AND age on a 2e sheet")
+    : fail(`show-traits OFF and the context still shows them (${r.traitsHiddenOff}) — the setting is not read`);
+  r.npcTraitsHiddenOff === true
+    ? ok("   and on an npc sheet — the switch governs every person sheet")
+    : fail(`   npc sheet ignored the switch (${r.npcTraitsHiddenOff})`);
+  const dom = r.traitsDomOff ?? {};
+  dom.section === false && dom.age === false && dom.sentence === false && dom.pronouns === true
+    ? ok("   rendered OFF: section, age input and sentence gone, PRONOUNS stays", JSON.stringify(dom))
+    : fail("   rendered OFF: the DOM does not match the ruling", JSON.stringify(dom));
+  r.traitsKept === true
+    ? ok("   stored traits and age are KEPT while hidden — hiding is not erasing")
+    : fail(`   stored values did not survive the hide (${r.traitsKept})`);
+  typeof r.traitsSwitchRestored === "boolean"
+    ? ok(`   the settings read is restored (show-traits reads ${r.traitsSwitchRestored})`)
+    : fail("   game.settings.get was left shadowed by the traits legs");
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {

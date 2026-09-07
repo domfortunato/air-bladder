@@ -28,6 +28,10 @@
                                 </div>
                                 {{/if}}
                             </div>
+                            {{!-- showTraits (2026-09-07): the Warden's show-traits switch
+                                  hides the sentence and the whole pick-list section.
+                                  Pronouns above stay — never rolled, never hidden. --}}
+                            {{#if showTraits}}
                             {{#if traitSentence}}
                             <p class="trait-sentence">{{traitSentence}}</p>
                             {{/if}}
@@ -74,6 +78,7 @@
                                 </div>
                                 {{/unless}}
                             </div>
+                            {{/if}}
                         </div>
                         {{/if}}
                         {{#if showScars}}
