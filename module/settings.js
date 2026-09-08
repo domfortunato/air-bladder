@@ -701,9 +701,12 @@ export const registerSettings = () => {
   // No reload: onChange fires on EVERY client (the settings-fanout primitive
   // the custom-portrait folder scan also rides), so each connected player's
   // directory re-renders itself the moment the Warden flips it — the whole
-  // point of a mid-session switch. The pop-out directory is a second,
-  // independent ActorDirectory application (the render hook already handles
-  // its DOM separately), so the sweep covers both.
+  // point of a mid-session switch. ONE render, not a loop over every
+  // ActorDirectory instance: core forwards a docked tab's render to its
+  // rendered popout (sidebar-tab.mjs:114-117), so rendering both directly drew
+  // a popped-out directory TWICE per flip — the same shape review #22 fixed in
+  // the userConnected fan one handler away (cairn.js). `ui.actors.render()`
+  // covers docked and popout together, once each.
   game.settings.register(SETTINGS_NS, "allow-player-generate", {
     name: "CAIRN.Settings.AllowPlayerGenerate.label",
     scope: "world",
@@ -711,11 +714,7 @@ export const registerSettings = () => {
     type: Boolean,
     default: true,
     requiresReload: false,
-    onChange: () => {
-      for (const app of foundry.applications.instances.values()) {
-        if (app instanceof foundry.applications.sidebar.tabs.ActorDirectory && app.rendered) app.render();
-      }
-    },
+    onChange: () => ui.actors.render(),
   });
 
   // The Warden's switch for the SHEET's randomization surface as seen by

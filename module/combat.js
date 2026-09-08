@@ -414,9 +414,15 @@ export const markInitiativeOutcome = (message, html) => {
   const outcome = message.getFlag("air-bladder", "save");
   if (outcome !== "pass" && outcome !== "fail") return;
   html.querySelector(".dice-total")?.classList.add(outcome === "pass" ? "cairn-save-pass" : "cairn-save-fail");
-  const total = message.getFlag("air-bladder", "saveTotal");
-  const dex = message.getFlag("air-bladder", "saveDex");
-  if (total === undefined || dex === undefined) return;
+  // The numbers are NUMBERS: a message's flags are player-authorable and never
+  // server-sanitized, and game.i18n.format interpolates raw, so a crafted
+  // saveTotal string would land as markup in `innerHTML` below (review #24
+  // finding 2). Coercing both — the generation card's own rule — closes it and
+  // still keeps a pre-rebuild card (no saveTotal flag) on its baked line:
+  // Number(undefined) is NaN, which the finite gate refuses.
+  const total = Number(message.getFlag("air-bladder", "saveTotal"));
+  const dex = Number(message.getFlag("air-bladder", "saveDex"));
+  if (!Number.isFinite(total) || !Number.isFinite(dex)) return;
   const flavor = html.querySelector(".flavor-text");
   if (!flavor) return;
   flavor.innerHTML = game.i18n.format(outcome === "pass" ? "CAIRN.Initiative.Pass" : "CAIRN.Initiative.Fail", {

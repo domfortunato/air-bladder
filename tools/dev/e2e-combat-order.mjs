@@ -279,6 +279,29 @@ check("a character's flavor name never localizes",
 check("the overlay shadow is restored — the flavor reads plain again",
   /ZZ Init Mule/.test(flavorLeg.restored ?? ""), `restored="${flavorLeg.restored}"`);
 
+// The flavor is rebuilt per viewer from `saveTotal`/`saveDex`
+// (markInitiativeOutcome) and written to innerHTML; a message's flags are
+// player-authorable and never server-sanitized, and game.i18n.format is raw
+// substitution. So a flag carrying markup must not reach the card as a live
+// attribute. Asserted on the parsed element (a src-less img, never appended)
+// so the leg is deterministic and adds no console error; the live firing was
+// observed by hand during review #24. Finding 2.
+const saveXss = await page.evaluate(async () => {
+  const msg = new ChatMessage.implementation({
+    flavor: "zz seed",
+    speaker: { alias: "ZZ Init Hostile" },
+    flags: { "air-bladder": {
+      save: "pass",
+      saveTotal: '<img onerror="window.__zzSaveXss = 1">',
+      saveDex: 3,
+    } },
+  });
+  const el = await msg.renderHTML();
+  return { hasOnerror: !!el.querySelector(".flavor-text [onerror]") };
+});
+check("a hostile saveTotal flag cannot inject into the save card",
+  !saveXss.hasOnerror, `onerror-attr=${saveXss.hasOnerror}`);
+
 /* ---------------------------------------------------------------------------
  * 2. The tracker prints words, dividers, and a roll button — never numbers.
  * ------------------------------------------------------------------------- */

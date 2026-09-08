@@ -311,6 +311,13 @@ try {
       i18n._setOverlay({ "item.name": {
         "ZZ Grim Tome": "ZZ-TOMO", "ZZ Spell Beta": "ZZ-BETA-ES",
       } });
+      // Snapshot the DialogV2 ids BEFORE the click and find the one that is
+      // NEW: an earlier transmute confirm (ZZ Spell Alpha) can still be closing
+      // when this fires, and a find-by-constructor-name grabbed that lingering
+      // dialog's English text instead — the recorded "a closing DialogV2
+      // lingers" race. Id-difference is the fix.
+      const before = new Set([...foundry.applications.instances.values()]
+        .filter((x) => x.constructor.name === "DialogV2").map((x) => x.id));
       [...a.sheet.element.querySelectorAll("[data-item-id]")]
         .find((r) => r.textContent.includes("ZZ Spell Beta"))
         ?.querySelector('[data-action="pageTransmute"]')?.click();
@@ -318,7 +325,8 @@ try {
       for (let i = 0; i < 60 && !dlg; i++) {
         await sleep(100);
         dlg = [...foundry.applications.instances.values()]
-          .find((x) => x.constructor.name === "DialogV2" && x.element?.querySelector(".dialog-content"));
+          .find((x) => x.constructor.name === "DialogV2" && !before.has(x.id)
+            && x.element?.querySelector(".dialog-content"));
       }
       out.ask = dlg?.element?.querySelector(".dialog-content")?.textContent
         ?.replace(/\s+/g, " ").trim() ?? null;
@@ -746,6 +754,44 @@ try {
     `${viewerLeg.storedFlavor} -> ${viewerLeg.flavor}`);
   check(viewerLeg.h3Again === "ZZ-VIEWER-NAME" && viewerLeg.cards === 1,
     "and re-rendering is idempotent: one card, same name");
+
+  /* ------------------------------- 6b. a hostile desc flag cannot inject --- */
+  // The card body is rebuilt from `glogCast.desc` on EVERY viewer's client
+  // (localizeGlogCastCard), and a message's flags are player-authorable and
+  // NOT server-sanitized the way its `content` HTMLField is. So a card whose
+  // stored content is a benign shell but whose FLAG carries markup must come
+  // out with the dangerous attributes stripped — an `on*` handler and the
+  // `data-action` an injected control would dispatch through (the two
+  // cleanDescription is built to strip, utils.js). Asserted on the parsed
+  // element, never appended and with no loadable src, so the leg is
+  // deterministic and adds no console error; the live firing was observed by
+  // hand during review #24. Finding 1 (shipped 0.1.17-0.1.19, the player->GM
+  // XSS class the htmlFields control exists to wall off).
+  const castXss = await gm.evaluate(async () => {
+    const msg = new ChatMessage.implementation({
+      content: '<div class="grimoire-cast-card">seed</div>',
+      speaker: { alias: "ZZ Grim Caster" },
+      flags: { "air-bladder": { glogCast: {
+        name: "ZZ Spell Alpha",
+        desc: 'benign prose <img onerror="window.__zzGlogXss = 1">'
+          + '<span data-action="itemCreate">z</span>',
+        dice: 2, sum: 7, alias: "ZZ Grim Caster",
+      } } },
+    });
+    const el = await msg.renderHTML();
+    const effect = el.querySelector(".grimoire-cast-effect");
+    return {
+      hasOnerror: !!el.querySelector(".grimoire-cast-card [onerror]"),
+      hasDataAction: !!el.querySelector(".grimoire-cast-card [data-action]"),
+      keepsProse: (effect?.textContent ?? "").includes("benign prose"),
+    };
+  });
+  check(!castXss.hasOnerror && !castXss.hasDataAction,
+    "a hostile desc flag is stripped before the cast card renders it",
+    `onerror-attr=${castXss.hasOnerror} data-action=${castXss.hasDataAction}`);
+  check(castXss.keepsProse,
+    "and the benign description text survives the clean",
+    `effect kept prose=${castXss.keepsProse}`);
 
   /* --------------------------------------- 8. the Fatigue button, full pack */
   const fatigue = await gm.evaluate(async ({ casterId, whisperId }) => {

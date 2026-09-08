@@ -160,6 +160,47 @@ try {
     ? ok("no internal key is exposed by a group")
     : fail(`INTERNAL_SETTING_KEYS exposed in a submenu: ${r.internalGrouped.join(", ")}`);
 
+  /* ---- the player-generate fan-out renders each directory ONCE ------------ */
+  // `allow-player-generate`'s onChange re-renders the Actor Directory on every
+  // client so a mid-session flip lands live. Core forwards a DOCKED tab's
+  // render to its rendered popout (sidebar-tab.mjs:114-117), so rendering
+  // every ActorDirectory instance directly renders a popped-out one TWICE per
+  // flip — running its whole per-actor grayscale sweep twice. Review #24
+  // finding 3; the identical shape review #22 already fixed one handler away
+  // (the userConnected fan now calls ui.actors.render() once). The onChange
+  // is invoked with the CURRENT value — its body ignores the value and writes
+  // no setting, so the world is untouched.
+  const fan = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+    const counts = {};
+    const hookId = Hooks.on("renderActorDirectory", (app) => {
+      counts[app.id] = (counts[app.id] ?? 0) + 1;
+    });
+    try {
+      await ui.actors.renderPopout();
+      await sleep(400);
+      for (const k of Object.keys(counts)) delete counts[k];
+      // Control: one docked render forwards to exactly one popout render.
+      ui.actors.render();
+      await sleep(700);
+      const control = { ...counts };
+      for (const k of Object.keys(counts)) delete counts[k];
+      // The onChange under test.
+      const cfg = game.settings.settings.get("air-bladder.allow-player-generate");
+      cfg.onChange(game.settings.get("air-bladder", "allow-player-generate"));
+      await sleep(700);
+      return { control, onChange: { ...counts } };
+    } finally {
+      Hooks.off("renderActorDirectory", hookId);
+      ui.actors.popout?.close();
+    }
+  });
+  console.log(`  directory fan-out: control ${JSON.stringify(fan.control)}, onChange ${JSON.stringify(fan.onChange)}`);
+  (fan.onChange["actors-popout"] ?? 0) <= 1
+    ? ok("the player-generate onChange renders the popped-out directory once")
+    : fail(`the onChange renders the popped-out directory ${fan.onChange["actors-popout"]}x per flip `
+        + `(core forwards a docked render to its popout — render ui.actors once)`);
+
   console.log(`  values now: ${JSON.stringify(r.sample)}`);
   console.log(`  stored (old cairn.*): ${r.storedOld.length} | stored (air-bladder.*): ${r.storedNew.length}`);
 

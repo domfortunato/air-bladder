@@ -16,7 +16,7 @@
 import { FATIGUE_NAME } from "./item/item.js";
 import { findTableByName } from "./compendium.js";
 import { t, speakerDisplayName } from "./i18n-content.js";
-import { formatCount } from "./utils.js";
+import { cleanDescription, formatCount } from "./utils.js";
 import { SETTINGS_NS } from "./settings.js";
 
 /** The shipped Mishaps table's stored English name (tables-glog). */
@@ -232,11 +232,20 @@ const glogCastFlavor = (key, name) =>
  * The public card's body, from a display-ready name and description. ONE
  * builder, so the copy STORED (English) and the copy RENDERED (the viewer's
  * language) cannot drift into two different cards.
+ *
+ * The description is SANITIZED here, not trusted. At compose time it is the
+ * spell's `system.description`, already sanitized at rest by the spellbook's
+ * declared htmlFields — a harmless second pass. At RENDER time it is the
+ * translated `glogCast.desc` FLAG, and a message's flags are player-authorable
+ * and never server-sanitized, so this is the wall: without it a crafted flag
+ * put an `on*` handler on every viewer's card (review #24 finding 1). Cleaned
+ * BEFORE `resolveSpellText` so the trusted `grimoire-resolved` spans it adds
+ * are never stripped.
  */
 const glogCastBody = (name, desc, dice, sum) => [
   `<div class="grimoire-cast-card">`,
   `<h3>${esc(name)}</h3>`,
-  `<div class="grimoire-cast-effect">${resolveSpellText(desc, dice, sum)}</div>`,
+  `<div class="grimoire-cast-effect">${resolveSpellText(cleanDescription(desc), dice, sum)}</div>`,
   `</div>`,
 ].join("\n");
 
