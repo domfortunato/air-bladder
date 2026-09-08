@@ -30,7 +30,7 @@ manifest. Descends architecturally from a private fork of
   `CONTRIBUTING.md`, `site/index.html` and `docs/testing-dev-branch.md` —
   change one, change all six (the sixth was written after this list said
   "five" and nobody added it; review #19).
-- Latest release **0.1.19** (2026-09-02). `system.json`'s `version` is bumped by
+- Latest release **0.1.20** (2026-09-07). `system.json`'s `version` is bumped by
   `npm run release` in the release commit on `master` (CI substitutes the same
   tag into the manifest URLs), so on `dev` it lags until the post-release sync
   — read the tag, not the file. This line said 0.1.12 through five releases
