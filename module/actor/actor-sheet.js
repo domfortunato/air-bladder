@@ -2659,9 +2659,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // The footer credits the art actually ON the page (user ruling
     // 2026-08-08): the portrait's PATH picks its attribution line, so an
     // Aspeheim page never credits Tlomdev and vice versa. Lydia Comer's
-    // grant is NOT CC — her line says all rights reserved. A custom image
-    // or core's mystery-man earns no art line at all; the game-text credit
-    // always prints, because the page always reproduces licensed prose.
+    // line says CC BY-NC-SA 4.0 — her galleries' licence since 2026-09-07
+    // (only the logo stays all rights reserved, and a logo is never sheet
+    // art). A custom image or core's mystery-man earns no art line at all;
+    // the game-text credit always prints, because the page always
+    // reproduces licensed prose.
     const ART_CREDITS = [
       ["art/jon-aspeheim/", "CAIRN.PrintCreditAspeheim"],
       ["art/tlomdev/", "CAIRN.PrintCreditTlomdev"],
