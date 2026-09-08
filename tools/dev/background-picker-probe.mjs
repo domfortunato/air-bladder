@@ -61,6 +61,21 @@ try {
       while (Date.now() - t0 < ms) { if (test()) return true; await wait(100); }
       return false;
     };
+    // A resolved picker promise is not a GONE picker. DialogV2 removes its
+    // element after a close transition, so `document.querySelector(".bg-picker")`
+    // run straight after `await pick` can still return the dialog that just
+    // resolved — the next leg then waits on it, cancels IT, and the dialog it
+    // actually opened sits unanswered forever. That is how this probe hung at
+    // leg 3c in the 0.1.20 battery (2026-09-07), twice on a fresh server and
+    // never on a strained one: the world-setting round trip between the two
+    // dialogs used to outlast the close animation, and no longer does. Wait
+    // for the old one to leave before opening the next, and FAIL rather than
+    // hang if it never does. The recorded lingering-dialog trap, third site.
+    const pickerGone = async (leg) => {
+      if (!(await waitFor(() => !document.querySelector(".bg-picker"), 10000))) {
+        throw new Error(`leg ${leg}: the resolved picker never left the DOM`);
+      }
+    };
 
     // 1. Grouping, per edition.
     const g2e = await gen.getBackgroundsByArchetype("2e");
@@ -129,6 +144,7 @@ try {
       ?.querySelector('button[data-action="cancel"]')?.click();
     const cancelled = await pick;
     dialogInfo.cancelResolvesFalse = cancelled === false;
+    await pickerGone("3");
 
     // 3b. THE EYE TOGGLE (2026-08-04): every 2e row carries a Warden-only
     //     disable control — canon and custom alike; Barebones has none (its
@@ -190,6 +206,7 @@ try {
       document.querySelector(".bg-picker")?.closest(".application")
         ?.querySelector('button[data-action="cancel"]')?.click();
       await pickD;
+      await pickerGone("3b");
 
       // 3c. A CURRENT background that is disabled cannot take the pre-check —
       //     but the check must land SOMEWHERE. A radio group with no checked
@@ -208,6 +225,7 @@ try {
       document.querySelector(".bg-picker")?.closest(".application")
         ?.querySelector('button[data-action="cancel"]')?.click();
       await pickC;
+      await pickerGone("3c");
       await gen.toggleBackgroundDisabled(actor.system.backgroundUuid);
 
       // The floor: with every background but one already off, disabling the
@@ -373,6 +391,7 @@ try {
     document.querySelector(".bg-picker")?.closest(".application")
       ?.querySelector('button[data-action="cancel"]')?.click();
     await pick2;
+    await pickerGone("barebones");
 
     // 8. THE DOUBLE-CLICK on "Add a bond". The handler reads system.bonds,
     //    AWAITS a table draw, then writes the array it read — so two clicks in
