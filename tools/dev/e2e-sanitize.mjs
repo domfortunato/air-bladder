@@ -56,7 +56,12 @@ const scene = await gmPage.evaluate(async () => {
   await pc.update({ ownership: { default: 0, [alice.id]: 3 } });
   const [weapon] = await pc.createEmbeddedDocuments("Item", [{ name: "ZZ Sanitize Blade", type: "weapon" }]);
 
-  return { pcId: pc.id, pcUuid: pc.uuid, weaponId: weapon.id };
+  // The GM's view BEFORE the player writes, so the re-read below can wait for
+  // the broadcast to change it rather than for any particular content.
+  return {
+    pcId: pc.id, pcUuid: pc.uuid, weaponId: weapon.id,
+    before: { notes: pc.system.notes ?? "", desc: weapon.system.description ?? "" },
+  };
 });
 
 if (scene.error) {
@@ -112,11 +117,26 @@ check("Item.weapon system.description", written.itemDescription, written.itemErr
 // The client applies the server's response, so the values above are already what
 // was stored. Re-reading in the GM's session confirms it independently, and is the
 // form a viewer actually sees.
-
-const asGm = await gmPage.evaluate(({ pcId, weaponId }) => {
+//
+// POLL for the broadcast, never read on arrival. Alice's awaits resolve on HER
+// client's response; the GM's client learns of each write by a separate socket
+// broadcast, and an embedded-item update travels as its own message. Reading
+// the instant Alice's evaluate returned raced that second broadcast — in the
+// 0.1.20 battery (2026-09-07) the notes had landed and the description had not,
+// so the GM read "" and the leg reported benign content lost. The wait is for
+// the field to CHANGE from its pre-write value, not for any content, so a server
+// that stores the payload verbatim or strips it to nothing still reaches the
+// assertion below and fails there — bounded, so a write that never arrives
+// fails as "benign content lost" rather than hanging.
+const readAsGm = () => gmPage.evaluate(({ pcId, weaponId }) => {
   const pc = game.actors.get(pcId);
   return { notes: pc?.system.notes, desc: pc?.items.get(weaponId)?.system.description };
 }, { pcId: scene.pcId, weaponId: scene.weaponId });
+let asGm = await readAsGm();
+for (let waited = 0; waited < 10000 && (asGm.notes === scene.before.notes || asGm.desc === scene.before.desc); waited += 250) {
+  await gmPage.waitForTimeout(250);
+  asGm = await readAsGm();
+}
 
 check("as seen by the GM: notes", asGm.notes);
 check("as seen by the GM: description", asGm.desc);
