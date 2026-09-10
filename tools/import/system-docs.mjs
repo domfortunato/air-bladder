@@ -81,6 +81,10 @@ const journalShell = (id, name, pages) => [
 // documents (design-of-record files, plans, i18n process, release testing)
 // stay repo-side on purpose.
 const ROSTER = [
+  // The window that puts all 41 Warden tables on a button. First, because it
+  // is the surface a Warden reaches for at the table and the one that leads to
+  // most of the guides below it.
+  ["warden-dashboard.md", "The Warden's Dashboard"],
   ["encounter-tables.md", "Encounter Tables"],
   ["generating-characters.md", "Generating Characters"],
   ["generating-npcs.md", "Generating NPCs and Hirelings"],

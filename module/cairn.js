@@ -17,6 +17,7 @@ import { handleOfferSocket, bindOfferCard } from "./item-offer.js";
 import { createCairnMacro, rollItemMacro } from "./macros.js";
 import { Damage, DAMAGE_APPLIED_FLAG, DAMAGE_SOURCE_FLAG } from "./damage.js";
 import { registerWardenDamageControl } from "./warden-damage.js";
+import { registerWardenDashboardControl } from "./warden-dashboard.js";
 import { registerSettings, SETTINGS_NS, SETTING_GROUPS, migrateSettingsNamespace } from "./settings.js";
 import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS, deriveNpcRole } from "./data-models.js";
 import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNERSHIP_SYNC_FLAG } from "./connections.js";
@@ -87,6 +88,9 @@ Hooks.once("init", async function () {
   // so it sits with the rest of the system's registrations, and because the
   // scene-controls palette is not built until well after this.
   registerWardenDamageControl();
+  // Beside it, and for the same reason: both hang a GM-only button on the
+  // Token controls, and neither palette exists yet at this point.
+  registerWardenDashboardControl();
 });
 
 // The settings-namespace migration as a PROMISE the other ready callbacks can

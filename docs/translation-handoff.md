@@ -6,11 +6,11 @@ as of 2026-09-10, measured against the last release (`0.1.20`).
 
 | | |
 | --- | --- |
-| English interface keys | 846 |
-| translated in `lang/es.json` | 683 (81%) |
+| English interface keys | 907 |
+| translated in `lang/es.json` | 683 (75%) |
 | **changed under your translation** | **22** ← Part 1 |
 | **content you translated, now unreachable** | **3** ← Part 2 |
-| new interface keys, untranslated | 163 ← Part 3 |
+| new interface keys, untranslated | 224 ← Part 3 |
 | new content strings, untranslated | 2154 ← Part 4 |
 
 Only two files are yours, and only you should edit them: `lang/es.json`
@@ -184,7 +184,7 @@ to do — they are listed so the work is accounted for rather than vanishing.
 
 ---
 
-## Part 3 — new interface keys, untranslated (163)
+## Part 3 — new interface keys, untranslated (224)
 
 Ordinary outstanding work: these have no Spanish at all, so a Spanish client
 falls back to English for them. Nothing here is urgent — a missing key is visibly
@@ -238,6 +238,70 @@ untranslated, which is the honest failure.
 | `CAIRN.CustomPortraitCategory.Monster` | Monsters |
 | `CAIRN.CustomPortraitCategory.Npc` | NPCs |
 | `CAIRN.CustomPortraitCategory.Pc` | Player Characters |
+
+### Dashboard (59)
+
+| key | English |
+| --- | --- |
+| `CAIRN.Dashboard.Encounters.CityRuins` | City Ruins |
+| `CAIRN.Dashboard.Encounters.Dungeon` | Dungeon |
+| `CAIRN.Dashboard.Encounters.DungeonEvents` | Dungeon Events |
+| `CAIRN.Dashboard.Encounters.Forest` | Forest |
+| `CAIRN.Dashboard.Encounters.Hills` | Hills and Mountains |
+| `CAIRN.Dashboard.Encounters.Lake` | Lake |
+| `CAIRN.Dashboard.Encounters.Marshlands` | Marshlands |
+| `CAIRN.Dashboard.Encounters.Plains` | Plains |
+| `CAIRN.Dashboard.Encounters.WildernessEvents` | Wilderness Events |
+| `CAIRN.Dashboard.Factions.Advantage` | Advantage |
+| `CAIRN.Dashboard.Factions.AdvantageCount` | How Many Advantages |
+| `CAIRN.Dashboard.Factions.Agenda` | Agenda |
+| `CAIRN.Dashboard.Factions.Agent` | Agent |
+| `CAIRN.Dashboard.Factions.Obstacle` | Obstacle |
+| `CAIRN.Dashboard.Factions.TraitOne` | First Trait |
+| `CAIRN.Dashboard.Factions.TraitTwo` | Second Trait |
+| `CAIRN.Dashboard.Head.Combined` | Roll the lot |
+| `CAIRN.Dashboard.Head.Create` | Create |
+| `CAIRN.Dashboard.Head.Events` | Events |
+| `CAIRN.Dashboard.Head.Weather` | Weather |
+| `CAIRN.Dashboard.Monsters.AttackType` | Attack Type |
+| `CAIRN.Dashboard.Monsters.CriticalDamage` | Critical Damage |
+| `CAIRN.Dashboard.Monsters.Feature` | Feature |
+| `CAIRN.Dashboard.Monsters.Physique` | Physique |
+| `CAIRN.Dashboard.Monsters.Power` | Power |
+| `CAIRN.Dashboard.Monsters.Quirk` | Quirk |
+| `CAIRN.Dashboard.Monsters.Target` | Target |
+| `CAIRN.Dashboard.Monsters.Weakness` | Weakness |
+| `CAIRN.Dashboard.NoTables` | This world has no roll tables of its own yet. Any table you make here gets a button. |
+| `CAIRN.Dashboard.People.Background` | Background |
+| `CAIRN.Dashboard.People.Faction` | Faction |
+| `CAIRN.Dashboard.People.Goal` | Goal |
+| `CAIRN.Dashboard.People.Name` | Name |
+| `CAIRN.Dashboard.People.Quirk` | Quirk |
+| `CAIRN.Dashboard.People.Reaction` | Reaction |
+| `CAIRN.Dashboard.People.Vice` | Vice |
+| `CAIRN.Dashboard.People.Virtue` | Virtue |
+| `CAIRN.Dashboard.People.Wants` | What They Want |
+| `CAIRN.Dashboard.Set.CompleteFaction` | Complete Faction |
+| `CAIRN.Dashboard.Set.CompleteMonster` | Complete Monster |
+| `CAIRN.Dashboard.Set.CompleteNpc` | Complete NPC |
+| `CAIRN.Dashboard.Set.CompletePath` | Complete Path |
+| `CAIRN.Dashboard.Tab.Encounters` | Encounters |
+| `CAIRN.Dashboard.Tab.Factions` | Factions |
+| `CAIRN.Dashboard.Tab.Monsters` | Monsters |
+| `CAIRN.Dashboard.Tab.People` | People |
+| `CAIRN.Dashboard.Tab.Travel` | Travel |
+| `CAIRN.Dashboard.Tab.Yours` | Your Tables |
+| `CAIRN.Dashboard.Title` | Warden's Dashboard |
+| `CAIRN.Dashboard.Tool` | Warden's Dashboard: roll tables, generators and damage |
+| `CAIRN.Dashboard.Travel.Fall` | Fall |
+| `CAIRN.Dashboard.Travel.PathDifficulty` | Path Difficulty |
+| `CAIRN.Dashboard.Travel.PathDistance` | Path Distance |
+| `CAIRN.Dashboard.Travel.Spring` | Spring |
+| `CAIRN.Dashboard.Travel.Summer` | Summer |
+| `CAIRN.Dashboard.Travel.TerrainDifficulty` | Terrain Difficulty |
+| `CAIRN.Dashboard.Travel.WeatherDifficulty` | Weather Difficulty |
+| `CAIRN.Dashboard.Travel.Winter` | Winter |
+| `CAIRN.Dashboard.Visibility` | Who sees the result |
 
 ### FactionDossier (1)
 
@@ -334,11 +398,13 @@ untranslated, which is the honest failure.
 | --- | --- |
 | `CAIRN.MonsterGen.AttackName` | {type}* |
 
-### Notify (17)
+### Notify (19)
 
 | key | English |
 | --- | --- |
 | `CAIRN.Notify.BadAgeFormula` | The Age formula setting ("{formula}") is not a valid dice formula — the default was rolled instead. |
+| `CAIRN.Notify.DashboardNoTable` | No roll table named "{name}" was found, so nothing was rolled. |
+| `CAIRN.Notify.DashboardWardenOnly` | Only the Warden can open the dashboard. |
 | `CAIRN.Notify.EncounterFailed` | The encounter could not be added to the scene. |
 | `CAIRN.Notify.OfferAccepted` | {target} accepted {item}. |
 | `CAIRN.Notify.OfferAnswered` | This offer has already been answered. |

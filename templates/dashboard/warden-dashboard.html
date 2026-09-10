@@ -1,0 +1,101 @@
+{{!--
+  The Warden's Dashboard.
+
+  ONE ROOT ELEMENT, and it is not a style choice: an ApplicationV2 part that
+  renders several top-level elements fails outright with "Template part must
+  render a single HTML element", and the window never opens. The wrapper is
+  the flex column; the four bands inside it are its children.
+
+  ONE loop over `panelList`, where each entry already carries core's tab state
+  and its own buttons — see `_prepareContext`. The alternative was six
+  hand-written tab blocks and a Handlebars `lookup` chain to pair each with
+  its tab.
+
+  Every <button> is type="button" EXPLICITLY. The application element is a
+  <form> (`tag: "form"`), so a bare button is a submit button and rolling a
+  table would submit the window instead.
+--}}
+<div class="cairn-dashboard-inner">
+
+    <nav class="sheet-tabs tabs cairn-dashboard-tabs" data-group="primary">
+        {{#each panelList as |panel|}}
+            <a class="item {{panel.cssClass}}" data-action="tab" data-group="primary"
+               data-tab="{{panel.id}}">{{localize panel.label}}</a>
+        {{/each}}
+    </nav>
+
+    <div class="cairn-dashboard-visibility">
+        <label for="ab-dashboard-mode">{{localize "CAIRN.Dashboard.Visibility"}}</label>
+        <select id="ab-dashboard-mode" name="messageMode">
+            {{#each modes as |mode|}}
+                <option value="{{mode.value}}">{{mode.label}}</option>
+            {{/each}}
+        </select>
+    </div>
+
+    <section class="sheet-body cairn-dashboard-body">
+        {{#each panelList as |panel|}}
+            <div class="tab {{panel.cssClass}}" data-group="primary" data-tab="{{panel.id}}">
+
+                {{#if panel.empty}}
+                    <p class="hint">{{localize "CAIRN.Dashboard.NoTables"}}</p>
+                {{/if}}
+
+                {{#if panel.tables.length}}
+                    <div class="cairn-dashboard-grid">
+                        {{#each panel.tables as |btn|}}
+                            <button type="button" data-action="rollTable"
+                                    data-table="{{btn.table}}">{{btn.label}}</button>
+                        {{/each}}
+                    </div>
+                {{/if}}
+
+                {{#each panel.groups as |group|}}
+                    <h3 class="cairn-dashboard-head">{{group.head}}</h3>
+                    <div class="cairn-dashboard-grid">
+                        {{#each group.tables as |btn|}}
+                            <button type="button" data-action="rollTable"
+                                    data-table="{{btn.table}}">{{btn.label}}</button>
+                        {{/each}}
+                    </div>
+                {{/each}}
+
+                {{#if panel.sets.length}}
+                    <h3 class="cairn-dashboard-head">{{localize "CAIRN.Dashboard.Head.Combined"}}</h3>
+                    <div class="cairn-dashboard-grid">
+                        {{#each panel.sets as |set|}}
+                            <button type="button" data-action="rollSet" data-key="{{set.key}}"
+                                    data-tables="{{set.tables}}">{{set.label}}</button>
+                        {{/each}}
+                    </div>
+                {{/if}}
+
+                {{#if panel.creates.length}}
+                    <h3 class="cairn-dashboard-head">{{localize "CAIRN.Dashboard.Head.Create"}}</h3>
+                    <div class="cairn-dashboard-grid">
+                        {{#each panel.creates as |make|}}
+                            <button type="button" data-action="generate" data-gen="{{make.gen}}">
+                                <i class="{{make.icon}}"></i> {{make.label}}
+                            </button>
+                        {{/each}}
+                    </div>
+                {{/if}}
+
+            </div>
+        {{/each}}
+    </section>
+
+    {{!--
+      The damage tool sits OUTSIDE the tabs, so it is one click from wherever
+      the Warden is standing. It keeps its Token-controls button too: its
+      targets come from the aiming gesture, which is a token-layer operation,
+      so the palette entry sits beside the gesture that feeds it and this one
+      is the convenience.
+    --}}
+    <footer class="cairn-dashboard-footer">
+        <button type="button" data-action="wardenDamage">
+            <i class="fas fa-skull-crossbones"></i> {{damageLabel}}
+        </button>
+    </footer>
+
+</div>

@@ -1,0 +1,26 @@
+_id: YQuFB7LNfFSbLzCn
+name: 'The Warden''s Dashboard'
+pages:
+  - _id: Gf5Gywkjrlulzwib
+    name: 'The Warden''s Dashboard'
+    type: text
+    title:
+      show: false
+      level: 1
+    text:
+      content: '<p>Air Bladder ships forty-one tables for you to roll at the table: encounters by terrain, weather by season, what an NPC wants, what a monster looks like. The dashboard puts every one of them on a button, so you are not hunting through compendiums while the party waits.</p> <p>You need to be the Warden (GM). Players cannot open it.</p> <hr> <h2>Opening it</h2> <p>Click the <strong>d20</strong> in the Token controls, down the left of the map, beside the skull that opens <strong>Warden&#39;s Damage</strong>.</p> <p>The window remembers which tab you left it on. Drag its edge to resize it, and use the <strong>arrow</strong> in its title bar to pop it out into its own window, which is useful on a second monitor. Re-dock it from the <strong>⋮ menu</strong>.</p> <h2>The tabs</h2> <table> <thead> <tr> <th>Tab</th> <th>What is on it</th> </tr> </thead> <tbody><tr> <td><strong>Travel</strong></td> <td>Path difficulty and distance, terrain, and weather for each of the four seasons</td> </tr> <tr> <td><strong>Encounters</strong></td> <td>A table for each of the seven terrains, plus dungeon and wilderness events</td> </tr> <tr> <td><strong>People</strong></td> <td>Reaction, what they want, and the six tables that describe an NPC</td> </tr> <tr> <td><strong>Factions</strong></td> <td>Agenda, agent, obstacle, advantages and traits</td> </tr> <tr> <td><strong>Monsters</strong></td> <td>Appearance, ability, attack and traits</td> </tr> <tr> <td><strong>Your Tables</strong></td> <td>Every roll table you have made in this world</td> </tr> </tbody></table> <p><strong>Your Tables needs no setup.</strong> Make a roll table in the sidebar and it appears here with a button, named however you named it.</p> <h2>Who sees the result</h2> <p>The dropdown at the top of the window decides who sees what you roll, and it applies to every button under it. Leave it on the default and results go to everyone, the same as rolling a table from the sidebar. Pick a private setting when you are rolling something the party should not see yet.</p> <p>It is a per-window choice, so it does not disturb your usual dice settings.</p> <h2>Rolling the lot</h2> <p>Under <strong>Roll the lot</strong> on four of the tabs is a single button that rolls a whole set at once and reports it as one result: <strong>Complete Path</strong>, <strong>Complete NPC</strong>, <strong>Complete Faction</strong> and <strong>Complete Monster</strong>.</p> <p>These describe, they do not create. <strong>Complete NPC</strong> tells you a name, a background, a goal, a quirk, a vice and a virtue, and leaves it at that, which is what you want when someone the party will never meet again opens a door.</p> <h2>Creating instead</h2> <p>Under <strong>Create</strong> are the generators, the same ones the Actors sidebar offers. These do make something: a sheet you can open, edit and place on a map.</p> <p>So the pair on each tab is a choice about what you need. Roll the lot when you want to know. Create when you want a sheet.</p> <h2>Encounters place their own monsters</h2> <p>An encounter you roll here behaves exactly as one rolled from the compendium does: if its result names monsters, the card grows an <strong>Add to scene</strong> button that places them for you.</p> <p>That is the reason encounter tables have no &quot;roll the lot&quot; button. Rolling several encounter tables into one result would cost you that button, and placing the monsters is the whole point.</p> <h2>Related</h2> <ul> <li>@UUID[Compendium.air-bladder.journals-docs.JournalEntry.g6XIDuCiBPF41XM9]{Encounter Tables} — writing your own encounter tables, and how a row earns its Add to scene button.</li> <li>@UUID[Compendium.air-bladder.journals-docs.JournalEntry.Mpi2G5ctVjYKdC9A]{Generating NPCs and Hirelings} — what each kind of person arrives with.</li> <li>@UUID[Compendium.air-bladder.journals-docs.JournalEntry.dbJWZrebNcEvOgpZ]{Generating Monsters} — danger tiers, and what a rolled monster carries.</li> <li>@UUID[Compendium.air-bladder.journals-docs.JournalEntry.gFK4npERocroPaEG]{Tokens and Sheets} — which route gives every token its own damage.</li> </ul>'
+      format: 1
+    sort: 0
+    ownership:
+      default: -1
+    flags: {}
+    _key: '!journal.pages!YQuFB7LNfFSbLzCn.Gf5Gywkjrlulzwib'
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!journal!YQuFB7LNfFSbLzCn'

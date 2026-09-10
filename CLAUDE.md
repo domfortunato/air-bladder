@@ -252,6 +252,32 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   also tabs by TYPE, so an override aimed at NPCs lands on every monster too.
   Gates: `npm run dev:token-defaults` for the defaults, `dev:dialogs` for the
   hint.
+- **The Warden's Dashboard** (`module/warden-dashboard.js`, 2026-09-10, user
+  ask after the Mythic Bastionland fork's Gamemaster Dashboard) — a GM-only
+  ApplicationV2 on the Token controls beside the damage tool, putting all 41
+  Warden tables on a button, six tabs, resizable and detachable. A LAUNCHER:
+  everything on it is reachable another way and it owns no rules.
+  **THE RULE, and it is not cosmetic: a single-table draw posts CORE'S OWN
+  table card, always.** `encounters.js` grows its Add-to-scene button by
+  reading `flags.core.RollTable` and the message's roll, which only
+  `RollTable#toMessage` stamps, and hangs it inside `.table-draw`, which only
+  core's markup has. A card of our own kills that button on nine tables in
+  silence. Only the four COMBINED draws build a card, none of them touch an
+  encounter table, and every drawn value in one is ESCAPED (review #24's class
+  of per-viewer card rebuilds; this would be the fifth). Posting takes TWO
+  calls — `draw({displayChat:false})` then `toMessage` — because `draw`
+  forwards only `messageOptions` and never `messageData`, which is the defect
+  that made a monster's Scar post under the attacking player's name.
+  Button labels are UI KEYS, not the tables' names, per the ruling already at
+  `actor-sheet.js`'s trait rows: "Warden: NPC - Quirk" is a name a Warden
+  browses by and a terrible label. The Your Tables tab is the exception, since
+  those names are the Warden's content and go through the overlay's
+  `table.name` namespace. The generators and the damage tool on it are SECOND
+  call sites into the Actor Directory's own functions, never copies — and the
+  damage tool KEEPS its Token-controls button, because its targets come from
+  the aiming gesture and that is a token-layer operation. One more trap worth
+  the line: an AppV2 part must render exactly ONE root element, so the whole
+  window lives inside one wrapper div. Gate: `npm run dev:warden-dashboard`.
 - Data models in `module/data-models.js` (TypeDataModel; `template.json` is gone,
   sub-types are declared in `system.json` `documentTypes`); 30 compendium packs
   (30 on `master` too since 0.1.18 shipped `journals-vald`, the Warden's Guide
@@ -796,7 +822,7 @@ What belongs here is what those two files do not say:
 
 ## Testing
 
-**`docs/release-testing.md` is the full list — 104 probes (`check:probes` states
+**`docs/release-testing.md` is the full list — 105 probes (`check:probes` states
 the current count), what each covers, and what to run before tagging vs after
 publishing. Keep it in step with `package.json`; a probe not listed there runs
 only when someone remembers it.**

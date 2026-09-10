@@ -3647,3 +3647,84 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     font-style: italic;
     color: var(--ab-muted);
 }
+
+/* ---- The Warden's Dashboard ---------------------------------------------
+   A launcher, so it borrows core's button chrome and adds layout only.
+
+   The grid REFLOWS rather than stretching (`auto-fill` + `minmax`), which is
+   what makes this window safe to resize where Mythic Bastionland's fixed
+   twelve-column equivalent is not. Narrow it and the buttons re-column.
+
+   The window-content's one child is `.cairn-dashboard-inner`, because an
+   ApplicationV2 part must render exactly ONE root element — several and the
+   render throws and the window never opens. So the restored
+   `.cairn.sheet .window-content > * { flex: 1 }` lands on the wrapper, which
+   is what we want, and the wrapper is the flex column that lays out the four
+   bands. The BODY takes the slack and the scrolling; the tabs, the visibility
+   row and the damage button keep their natural height, so they stay put while
+   the panel scrolls under them. */
+.cairn-dashboard .cairn-dashboard-inner {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.cairn-dashboard .cairn-dashboard-body {
+    flex: 1 1 auto;
+    overflow: hidden auto;
+    min-height: 0;   /* a flex child will not shrink below its content without this */
+}
+
+/* Six tabs will not fit a narrowed window on one line, and core's `.sheet-tabs`
+   is `flex-wrap: nowrap`, so without this the strip pushes the window's own
+   content wider than the frame and the whole thing scrolls sideways. Core's
+   rule is in @layer blocks.base and this file is @layer system, declared
+   later, so no !important is needed. */
+.cairn-dashboard .cairn-dashboard-tabs {
+    flex-wrap: wrap;
+}
+
+.cairn-dashboard .cairn-dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 4px;
+    margin-bottom: 8px;
+}
+
+.cairn-dashboard .cairn-dashboard-grid button {
+    width: 100%;
+    margin: 0;
+}
+
+.cairn-dashboard .cairn-dashboard-head {
+    margin: 10px 0 4px;
+    padding-bottom: 2px;
+    border-bottom: 1px solid var(--ab-hairline);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ab-ink-muted);
+}
+
+.cairn-dashboard .cairn-dashboard-visibility {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin: 4px 0 6px;
+    font-size: 12px;
+    color: var(--ab-muted);
+}
+
+.cairn-dashboard .cairn-dashboard-visibility select {
+    flex: 1;
+}
+
+.cairn-dashboard .cairn-dashboard-footer {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--ab-line);
+}
+
+.cairn-dashboard .cairn-dashboard-footer button {
+    width: 100%;
+    margin: 0;
+}
