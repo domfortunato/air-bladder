@@ -11,7 +11,7 @@ You need to be the Warden (GM). Players cannot open it.
 
 ## Opening it
 
-Click the **d20** in the Token controls, down the left of the map, beside the
+Click the **clipboard** in the Token controls, down the left of the map, below the
 skull that opens **Warden's Damage**.
 
 The window remembers which tab you left it on. Drag its edge to resize it, and

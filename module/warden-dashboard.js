@@ -316,7 +316,7 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
     classes: ["cairn", "sheet", "cairn-dashboard"],
     window: {
       title: "CAIRN.Dashboard.Title",
-      icon: "fas fa-dice-d20",
+      icon: "fas fa-clipboard-list",
       resizable: true,
     },
     position: { width: 520, height: 620 },
@@ -536,7 +536,7 @@ export const registerWardenDashboardControl = () => {
     tools.abWardenDashboard = {
       name: "abWardenDashboard",
       title: "CAIRN.Dashboard.Tool",
-      icon: "fas fa-dice-d20",
+      icon: "fas fa-clipboard-list",
       order: Object.keys(tools).length,
       button: true,
       visible: game.user.isGM,
