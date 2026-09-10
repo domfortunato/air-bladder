@@ -182,6 +182,12 @@ try {
       tableFlag: foundry.utils.getProperty(m?.flags ?? {}, "core.RollTable") ?? null,
       rows: (m?.content.match(/cairn-set-row/g) ?? []).length,
       hasScript: /<script|onerror=|javascript:/i.test(m?.content ?? ""),
+      // The Complete Path bug, reported the day it shipped: the travel tables
+      // carry <strong>, and escaping the drawn value posted a card reading
+      // "&lt;strong&gt;Trails&lt;/strong&gt;" as literal text. Assert no
+      // escaped tag survives anywhere in the card, and that real markup does.
+      escapedTags: /&lt;\/?[a-z]/i.test(m?.content ?? ""),
+      rendersMarkup: /<(strong|em)>/i.test(m?.content ?? ""),
     };
   });
 
@@ -192,9 +198,39 @@ try {
   set.tableFlag === null
     ? ok("...and does NOT carry flags.core.RollTable, so it offers no spawn")
     : fail("...and does NOT carry flags.core.RollTable", String(set.tableFlag));
-  set.hasScript === false
-    ? ok("...with its drawn values escaped")
-    : fail("...with its drawn values escaped", "markup survived into the card");
+  set.hasScript === false && set.escapedTags === false
+    ? ok("...with its values ENRICHED, so no tags show as text")
+    : fail("...with its values enriched, not escaped",
+      JSON.stringify({ script: set.hasScript, escapedTags: set.escapedTags }));
+
+  // Complete Path specifically, because the TRAVEL tables are the ones whose
+  // rows carry <strong> and <em>. This is the leg that would have caught the
+  // shipped bug; the NPC set above has no markup to lose.
+  const marked = await page.evaluate(async () => {
+    const app = document.querySelector("#cairn-warden-dashboard");
+    app.querySelector('[data-action="tab"][data-tab="travel"]').click();
+    await new Promise((r) => setTimeout(r, 200));
+    const btn = app.querySelector('button[data-action="rollSet"][data-key="CAIRN.Dashboard.Set.CompletePath"]');
+    const had = game.messages.size;
+    btn.click();
+    for (let i = 0; i < 80 && game.messages.size === had; i++) await new Promise((r) => setTimeout(r, 100));
+    const c = game.messages.contents.at(-1)?.content ?? "";
+    // COUNT the <strong>s, never merely detect them: this card wraps every row
+    // LABEL in <strong> of its own, so "does it contain <strong>" is true even
+    // when every drawn value has been escaped to text. All three travel rows
+    // open with their own <strong>, so enriched is 6 and escaped is 3, and the
+    // first version of this leg was green under the very bug it was written
+    // for.
+    return {
+      strongs: (c.match(/<strong>/gi) ?? []).length,
+      rows: (c.match(/cairn-set-row/g) ?? []).length,
+      escapedTags: /&lt;\/?[a-z]/i.test(c),
+    };
+  });
+  marked.strongs > marked.rows && !marked.escapedTags
+    ? ok("Complete Path renders the travel tables' own markup",
+      `${marked.strongs} <strong> across ${marked.rows} rows`)
+    : fail("Complete Path renders the travel tables' own markup", JSON.stringify(marked));
 
   /* ---- 7. the visibility dropdown reaches the message ------------------ */
 

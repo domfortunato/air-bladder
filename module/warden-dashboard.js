@@ -248,14 +248,27 @@ const postTableDraw = async (name, messageMode) => {
  *
  * A card of our own, which is only safe because no set here contains an
  * encounter table — see the file docblock. It is built as a plain string in
- * the poster's language and every drawn value is ESCAPED.
+ * the poster's language.
  *
- * Escaping is a real decision, not a reflex. Review #24 found a shipped
- * cross-site scripting hole in the class of per-viewer card rebuilds, and this
- * would be the fifth such card. The six sets cover NPC, faction, monster and
- * travel tables, all plain prose, so escaping costs nothing that ships and
- * removes the class outright. Do NOT relax it to render a link without
- * re-reading that review first.
+ * THE DRAWN VALUE IS ENRICHED, NOT ESCAPED, and the first cut of this got it
+ * backwards. It escaped, on the stated reasoning that "the sets cover plain
+ * prose tables only" — which is false: the travel tables carry `<strong>` and
+ * `<em>`, so Complete Path posted a card reading "<strong>Trails</strong>" as
+ * literal text, tags and all. Reported by the user on the day it shipped.
+ *
+ * The safety here does not come from us. `TableResult#description` is a CORE
+ * `HTMLField` (common/documents/table-result.mjs:52), so Foundry's server
+ * sanitizes it on write — which is exactly why core's own card renders it with
+ * a triple-stache (templates/dice/table-result.hbs). Enriching through core's
+ * own call puts this card at core's trust level for core's own field, no lower
+ * and no higher. Review #24's finding was cards trusting PLAYER-authored
+ * flags; a table description is not one.
+ *
+ * `secrets: false` deliberately, where core passes `this.isOwner`: this card
+ * can be posted publicly from the visibility dropdown, and a secret block in a
+ * table description must not reach players merely because the Warden rolled it.
+ *
+ * The row LABEL stays escaped. It is a name, never markup.
  *
  * @param {string} labelKey
  * @param {string[]} names
@@ -269,18 +282,23 @@ const postSetDraw = async (labelKey, names, messageMode) => {
     const drawn = await table.draw({ displayChat: false });
     const result = drawn?.results?.[0];
     if (!result) continue;
+    // Core's own treatment of its own field: `TableResult#getHTML` enriches
+    // `description` exactly this way (table-result.mjs). A text row keeps its
+    // prose in `description`; anything else is identified by `name`, which is
+    // `resultText`'s rule and the reason `TableResult#text` is not read.
+    const raw = result.type === "text" ? result.description : result.name;
     rows.push({
       label: t("table.name", table.name),
-      // `resultText`'s job, inlined rather than imported, because a set only
-      // ever draws prose rows: `TableResult#text` is deprecated and a text
-      // row keeps its prose in `description`.
-      value: result.type === "text" ? result.description : result.name,
+      value: await foundry.applications.ux.TextEditor.implementation.enrichHTML(raw, {
+        relativeTo: result,
+        secrets: false,
+      }),
     });
   }
   if (!rows.length) return null;
   const esc = (s) => foundry.utils.escapeHTML(String(s ?? ""));
   const body = rows
-    .map((r) => `<div class="cairn-set-row"><strong>${esc(r.label)}</strong>: ${esc(r.value)}</div>`)
+    .map((r) => `<div class="cairn-set-row"><strong>${esc(r.label)}</strong>: ${r.value}</div>`)
     .join("\n");
   // `applyMode` is v14's way to turn a visibility choice into whisper/blind on
   // candidate data (chat-message.mjs:151). It is NOT a create option and there
