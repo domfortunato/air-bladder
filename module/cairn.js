@@ -957,6 +957,28 @@ Hooks.once("init", () => {
     // crafted client cannot skip it. It is the one field the server
     // authenticates. See syncPendingOwnership for what it refuses and why a
     // refusal must clear the flag.
+    // The Warden showed a table. EVERY client opens the popup, including other
+    // GMs — the point is that the table is on screen.
+    //
+    // `senderId` is the guard and the only field the server authenticates;
+    // nothing in `msg` is trusted. It does not need to be: the payload carries
+    // a uuid and no text, and `openShownTable` resolves it against the real
+    // document, so a crafted emit can at worst name a table that already
+    // exists. No markup ever crosses this wire.
+    //
+    // Caught for the handler's standing reason (review #17): fromUuid THROWS
+    // on a malformed uuid, and a throw here escapes an async socket handler
+    // nothing awaits, as an anonymous unhandled rejection.
+    if (msg?.action === "showTable") {
+      if (!game.users.get(senderId)?.isGM) return;
+      try {
+        const { openShownTable } = await import("./warden-dashboard.js");
+        await openShownTable(msg.uuid);
+      } catch (err) {
+        console.error(`Air Bladder | showing a table from ${game.users.get(senderId)?.name ?? senderId} failed:`, err);
+      }
+      return;
+    }
     if (msg?.action === "ownershipSync") {
       if (game.users.activeGM !== game.user) return;
       // Caught, the handler's own standing rule (review #17): a throw here —

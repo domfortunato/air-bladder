@@ -278,6 +278,26 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   the aiming gesture and that is a token-layer operation. One more trap worth
   the line: an AppV2 part must render exactly ONE root element, so the whole
   window lives inside one wrapper div. Gate: `npm run dev:warden-dashboard`.
+  **SHOWING a table to the players (2026-09-10, user ask the same day).** Every
+  table button is a PAIR — the name rolls, an eye SHOWS — and Foundry cannot do
+  this itself: `Journal.show` and `_showEntry` both return early for anything
+  that is not a JournalEntry or JournalEntryPage. So it is a broadcast on the
+  system socket plus a popup plus a chat card. **The payload is a BARE UUID and
+  nothing renderable ever crosses the wire** — every client resolves it and
+  renders from the real document, which is what keeps this out of review #24's
+  argument entirely; a crafted emit can at worst name a table that exists.
+  `senderId` is the guard (the one field the server authenticates) and its
+  removal is probe-covered. It works on a player's client only because pack
+  ownership `PLAYER: NONE` is sidebar concealment and not a read wall. The card
+  is PUBLIC regardless of the visibility dropdown, by ruling: a reveal that
+  whispers to the Warden is nonsense. Two traps: an AppV2 element id is stamped
+  at CONSTRUCTION from `options.id` with `{id}` filled from `uniqueId`
+  (`application.mjs:40`), so a `get id()` override is ignored and the window
+  renders as `app-59` where nothing can find it — override
+  `_initializeApplicationOptions` instead; and `labelForTable` maps a table's
+  browse name to its button's UI key on EACH client, so the popup, the card and
+  the roll card's speaker all read "Path Difficulty" rather than "Warden:
+  Travel - Path Difficulty" without any label travelling.
 - Data models in `module/data-models.js` (TypeDataModel; `template.json` is gone,
   sub-types are declared in `system.json` `documentTypes`); 30 compendium packs
   (30 on `master` too since 0.1.18 shipped `journals-vald`, the Warden's Guide

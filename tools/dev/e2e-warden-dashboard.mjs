@@ -27,7 +27,7 @@
  * Creates chat messages and one actor, and deletes exactly the ids it added.
  */
 import { chromium } from "playwright";
-import { VIEWPORT, joinAsGM, watchErrors, dismissChrome } from "./lib.mjs";
+import { VIEWPORT, joinAsGM, joinAs, watchErrors, dismissChrome } from "./lib.mjs";
 
 const browser = await chromium.launch();
 const page = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
@@ -107,8 +107,12 @@ try {
       tableFlag: foundry.utils.getProperty(m?.flags ?? {}, "core.RollTable") ?? null,
       rolls: m?.rolls?.length ?? 0,
       alias: m?.speaker?.alias ?? null,
-      wantedAlias: (await game.packs.get("air-bladder.warden-npcs").getIndex())
-        .find((e) => e.name === "Warden: NPC - Quirk")?.name ?? null,
+      // The BUTTON'S label, not the table's browse name: a card headed
+      // "Warden: NPC - Quirk" puts the internal naming convention in front of
+      // the table. Read from the rendered button so the probe cannot drift
+      // from the window it is testing.
+      wantedAlias: app.querySelector('button[data-action="rollTable"][data-table="Warden: NPC - Quirk"]')
+        ?.textContent.trim() ?? null,
     };
   });
 
@@ -256,6 +260,77 @@ try {
     ? ok("the dropdown is built from v14 message modes", whispered.modes.join(", "))
     : fail("the dropdown is built from v14 message modes", JSON.stringify(whispered.modes));
 
+  /* ---- 7b. showing a table to the players ------------------------------ */
+
+  // Every table button carries an eye; nothing else does. A combined draw
+  // rolls several tables, so there is no single table to show, and offering
+  // one would be a lie about what the button does.
+  const eyes = await page.evaluate(() => {
+    const app = document.querySelector("#cairn-warden-dashboard");
+    const pairs = app.querySelectorAll(".cairn-dashboard-pair");
+    return {
+      rollButtons: app.querySelectorAll('button[data-action="rollTable"]').length,
+      showButtons: app.querySelectorAll('button[data-action="showTable"]').length,
+      pairs: pairs.length,
+      // An eye anywhere inside a set or generator cell would mean the template
+      // grew one where it must not.
+      strays: [...app.querySelectorAll('button[data-action="rollSet"], button[data-action="generate"]')]
+        .filter((b) => b.parentElement?.querySelector('[data-action="showTable"]')).length,
+    };
+  });
+  eyes.showButtons === eyes.rollButtons && eyes.pairs === eyes.rollButtons
+    ? ok("every table button has an eye beside it", `${eyes.showButtons} pairs`)
+    : fail("every table button has an eye beside it", JSON.stringify(eyes));
+  eyes.strays === 0
+    ? ok("...and no combined draw or generator has one")
+    : fail("...and no combined draw or generator has one", `${eyes.strays} strays`);
+
+  // THE RULING THIS PROTECTS: a reveal is public. The dropdown is set to a
+  // PRIVATE mode first, so a handler that read `_messageMode` would whisper
+  // the card to the Warden and this leg would red.
+  const shown = await page.evaluate(async () => {
+    const app = document.querySelector("#cairn-warden-dashboard");
+    const select = app.querySelector("[name=messageMode]");
+    const restore = select.value;
+    select.value = "self";
+    app.querySelector('[data-action="tab"][data-tab="travel"]').click();
+    await new Promise((r) => setTimeout(r, 200));
+    const btn = app.querySelector('button[data-action="showTable"][data-table="Warden: Travel - Path Difficulty"]');
+    const had = game.messages.size;
+    btn.click();
+    for (let i = 0; i < 60 && game.messages.size === had; i++) await new Promise((r) => setTimeout(r, 100));
+    await new Promise((r) => setTimeout(r, 400));
+    const m = game.messages.contents.at(-1);
+    const c = m?.content ?? "";
+    select.value = restore;
+    return {
+      whisper: m?.whisper ?? [],
+      tableFlag: foundry.utils.getProperty(m?.flags ?? {}, "core.RollTable") ?? null,
+      rows: (c.match(/cairn-show-row/g) ?? []).length,
+      ranges: (c.match(/cairn-show-range">\s*\d/g) ?? []).length,
+      // Counted, never merely detected: this card supplies no <strong> of its
+      // own, but the Complete Path leg learned the lesson the hard way.
+      strongs: (c.match(/<strong>/gi) ?? []).length,
+      escapedTags: /&lt;\/?[a-z]/i.test(c),
+      popup: !!document.querySelector('[id^="cairn-shown-table-"]'),
+    };
+  });
+  shown.whisper.length === 0
+    ? ok("showing a table posts a PUBLIC card even with the dropdown private")
+    : fail("showing a table posts a PUBLIC card", `whispered to ${shown.whisper.length}`);
+  shown.rows === 3 && shown.ranges === 3
+    ? ok("...listing every row with its range", `${shown.rows} rows`)
+    : fail("...listing every row with its range", JSON.stringify({ rows: shown.rows, ranges: shown.ranges }));
+  shown.tableFlag === null
+    ? ok("...and carrying no table flag, since nothing was rolled")
+    : fail("...and carrying no table flag", String(shown.tableFlag));
+  shown.strongs === 3 && !shown.escapedTags
+    ? ok("...with the rows' own markup enriched", `${shown.strongs} <strong> in 3 rows`)
+    : fail("...with the rows' own markup enriched", JSON.stringify(shown));
+  shown.popup
+    ? ok("...and the Warden's own popup opened")
+    : fail("...and the Warden's own popup opened", "no cairn-shown-table window");
+
   /* ---- 8. a generator mints exactly one document ----------------------- */
 
   const made = await page.evaluate(async () => {
@@ -329,6 +404,75 @@ try {
   narrow.noHorizontalSpill
     ? ok("...and nothing spills sideways")
     : fail("...and nothing spills sideways");
+
+  /* ---- 11. a PLAYER actually receives it ------------------------------- */
+
+  // The leg that proves the feature rather than the plumbing. Everything above
+  // runs on the Warden's own client, where the popup is opened by a direct
+  // call — a socket emit is never delivered back to its sender — so none of it
+  // exercises the broadcast at all.
+  //
+  // Alice also proves the read: `warden-travel` ships PLAYER: NONE, and this
+  // only works because pack ownership is sidebar concealment rather than a
+  // read wall. If that ever changed, her popup would be empty and this reds.
+  const alice = await browser.newContext({ viewport: VIEWPORT }).then((c) => c.newPage());
+  const aliceErrors = watchErrors(alice);
+  try {
+    await joinAs(alice, "Alice");
+    await dismissChrome(alice);
+
+    const received = await page.evaluate(async () => {
+      const app = document.querySelector("#cairn-warden-dashboard");
+      app.querySelector('[data-action="tab"][data-tab="travel"]').click();
+      await new Promise((r) => setTimeout(r, 200));
+      app.querySelector('button[data-action="showTable"][data-table="Warden: Weather - Spring"]').click();
+      await new Promise((r) => setTimeout(r, 600));
+      return true;
+    });
+
+    const onAlice = await alice.evaluate(async () => {
+      for (let i = 0; i < 40 && !document.querySelector('[id^="cairn-shown-table-"]'); i++) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      const win = document.querySelector('[id^="cairn-shown-table-"]');
+      return {
+        opened: !!win,
+        rows: win?.querySelectorAll(".cairn-show-row").length ?? 0,
+        // Read the RENDERED text: an empty popup would still have rows.
+        text: win?.textContent.replace(/\s+/g, " ").trim().slice(0, 80) ?? "",
+      };
+    });
+    received && onAlice.opened
+      ? ok("a PLAYER's client opens the popup off the broadcast")
+      : fail("a PLAYER's client opens the popup off the broadcast", JSON.stringify(onAlice));
+    onAlice.rows === 6 && /Nice|Fair/.test(onAlice.text)
+      ? ok("...with the real rows in it, read from a pack she cannot browse", `${onAlice.rows} rows`)
+      : fail("...with the real rows in it", JSON.stringify(onAlice));
+
+    // A PLAYER emitting the action must be ignored. senderId is the guard and
+    // is the one field the server authenticates, so a crafted emit gets
+    // nowhere — assert the GM's client opens nothing new.
+    const before2 = await page.evaluate(() =>
+      document.querySelectorAll('[id^="cairn-shown-table-"]').length);
+    await alice.evaluate(async () => {
+      const t = await foundry.utils.fromUuid("Compendium.air-bladder.warden-travel.RollTable."
+        + (await game.packs.get("air-bladder.warden-travel").getIndex())
+          .find((e) => e.name === "Warden: Weather - Winter")._id);
+      game.socket.emit(`system.${game.system.id}`, { action: "showTable", uuid: t.uuid });
+      await new Promise((r) => setTimeout(r, 800));
+    });
+    const after2 = await page.evaluate(() =>
+      document.querySelectorAll('[id^="cairn-shown-table-"]').length);
+    after2 === before2
+      ? ok("a player emitting showTable is ignored", "senderId is the guard")
+      : fail("a player emitting showTable is ignored", `${before2} popups became ${after2}`);
+
+    aliceErrors.length === 0
+      ? ok("zero console errors on the player's client")
+      : fail("player console errors", JSON.stringify(aliceErrors).slice(0, 300));
+  } finally {
+    await alice.context().close();
+  }
 
   /* ---- cleanup --------------------------------------------------------- */
 

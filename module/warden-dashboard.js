@@ -235,10 +235,12 @@ const postTableDraw = async (name, messageMode) => {
   if (!drawn?.results?.length) return null;
   return table.toMessage(drawn.results, {
     roll: drawn.roll,
-    // The table speaks for itself. Its name goes through the content overlay
-    // so a Spanish client reads the Spanish table name, the same value the
-    // compendium row shows.
-    messageData: { speaker: { alias: t("table.name", table.name) } },
+    // The table speaks for itself, under the SAME label its button wears —
+    // "Path Difficulty", not the browse name "Warden: Travel - Path
+    // Difficulty". `labelForTable` falls back to the content overlay for a
+    // table the dashboard does not know, so a Warden's own table still reads
+    // in the viewer's language.
+    messageData: { speaker: { alias: labelForTable(table.name) } },
     messageOptions: { messageMode },
   });
 };
@@ -316,6 +318,179 @@ const postSetDraw = async (labelKey, names, messageMode) => {
 };
 
 /* -------------------------------------------- */
+/*  Showing a table to the players              */
+/* -------------------------------------------- */
+
+/** Socket action name, shared with the handler in `cairn.js`. */
+export const SHOW_TABLE_ACTION = "showTable";
+
+/**
+ * The label to put in front of a player for a table, derived LOCALLY.
+ *
+ * A shipped table is named "Warden: Travel - Path Difficulty" — a name a
+ * Warden browses by, and exactly what should not be shown to the table when
+ * the Warden reveals it. The dashboard's own buttons already solve this with
+ * UI keys, so this reuses that mapping.
+ *
+ * Derived on each client rather than sent, which is the point: the socket
+ * payload stays a bare uuid and nothing renderable crosses the wire. Every
+ * client has PANELS, so every client reaches the same label in its own
+ * language.
+ *
+ * A table the dashboard does not know — the Your Tables tab, or a Warden's own
+ * — falls back to its own name through the content overlay, which is right:
+ * that name is theirs and is what they will recognise.
+ */
+const labelForTable = (name) => {
+  for (const panel of Object.values(PANELS)) {
+    for (const [key, table] of [...(panel.tables ?? []), ...(panel.groups ?? []).flatMap((g) => g.tables)]) {
+      if (table === name) return game.i18n.localize(key);
+    }
+  }
+  return t("table.name", name);
+};
+
+/**
+ * One table's rows, rendered for display.
+ *
+ * Shared by the popup and the chat card so the two cannot drift, and built
+ * from the DOCUMENT every time — never from anything that crossed the socket.
+ * That is the security design: see `showTableToPlayers`.
+ *
+ * The row text is enriched, not escaped, for the reason `postSetDraw` now
+ * carries at length: `TableResult#description` is a core `HTMLField` and the
+ * server sanitizes it on write. `secrets: false` because this is being shown
+ * to players on purpose and a secret block must not ride along.
+ *
+ * @param {RollTable} table
+ * @returns {Promise<string>} HTML
+ */
+const renderTableRows = async (table) => {
+  const esc = (s) => foundry.utils.escapeHTML(String(s ?? ""));
+  const enrich = foundry.applications.ux.TextEditor.implementation.enrichHTML;
+  const rows = [];
+  for (const r of table.results) {
+    const [lo, hi] = r.range ?? [];
+    // "3" for a single number, "3-5" for a span. A Warden showing a table is
+    // showing the odds — that was the ruling — so the range is never dropped.
+    const range = lo === hi ? String(lo ?? "") : `${lo ?? ""}-${hi ?? ""}`;
+    const raw = r.type === "text" ? r.description : r.name;
+    rows.push(`<div class="cairn-show-row"><span class="cairn-show-range">${esc(range)}</span>`
+      + `<span class="cairn-show-text">${await enrich(raw, { relativeTo: r, secrets: false })}</span></div>`);
+  }
+  return `<div class="cairn-shown-table">
+  <div class="cairn-show-title">${esc(labelForTable(table.name))}</div>
+  <div class="cairn-show-formula">${esc(game.i18n.format("CAIRN.Dashboard.ShownOn", { formula: table.formula }))}</div>
+  ${rows.join("\n  ")}
+</div>`;
+};
+
+/**
+ * The popup every client opens when the Warden shows a table.
+ *
+ * Read-only and deliberately plain: it is a reveal, not a sheet. Not a
+ * DocumentSheet, because a player has no ownership of a Warden pack's table
+ * and a real sheet would offer them a Roll button and editable fields.
+ */
+class ShownTableView extends foundry.applications.api.ApplicationV2 {
+  /** @override */
+  static DEFAULT_OPTIONS = {
+    // `{id}` is substituted from `options.uniqueId` at CONSTRUCTION
+    // (application.mjs:40), which is why the id is set the way it is below and
+    // not with a `get id()`. A getter is too late: the element id, the
+    // `foundry.applications.instances` key and the frame are all stamped from
+    // the private field the constructor computed, so the window rendered with
+    // core's fallback "app-59" and nothing could find it.
+    id: "cairn-shown-table-{id}",
+    classes: ["cairn", "cairn-shown-table-view"],
+    window: { title: "CAIRN.Dashboard.Title", icon: "fas fa-eye" },
+    position: { width: 420 },
+  };
+
+  constructor(options) {
+    super(options);
+    this.table = options.table;
+  }
+
+  /**
+   * One window per table, so showing the same one twice raises it rather than
+   * stacking a second. `uniqueId` is core's own documented extension point for
+   * this (application.mjs:308).
+   * @override
+   */
+  _initializeApplicationOptions(options) {
+    const applied = super._initializeApplicationOptions(options);
+    applied.uniqueId = options.table.id;
+    return applied;
+  }
+
+  /** @override */
+  get title() {
+    return labelForTable(this.table.name);
+  }
+
+  /** @override */
+  async _renderHTML() {
+    return renderTableRows(this.table);
+  }
+
+  /** @override */
+  _replaceHTML(result, content) {
+    content.innerHTML = result;
+  }
+}
+
+/**
+ * Open the popup for a table on THIS client.
+ *
+ * Exported because the socket handler in `cairn.js` calls it, and because the
+ * Warden's own client calls it directly rather than listening to its own
+ * broadcast (a socket emit is not delivered back to its sender).
+ *
+ * @param {string} uuid  a RollTable uuid — world or compendium
+ */
+export const openShownTable = async (uuid) => {
+  // Resolve on the RECEIVING client, always. Nothing renderable travels in the
+  // message, so a crafted emit can at worst name a table that already exists.
+  const table = await foundry.utils.fromUuid(uuid);
+  if (!(table instanceof getDocumentClass("RollTable"))) return null;
+  const app = foundry.applications.instances.get(`cairn-shown-table-${table.id}`)
+    ?? new ShownTableView({ table });
+  return app.render({ force: true });
+};
+
+/**
+ * Show a table to everyone: the popup on every client, and a card in the log.
+ *
+ * TWO SURFACES BY RULING (2026-09-10): the popup is the reveal and the card is
+ * the record, for a player who was away or closed it.
+ *
+ * The card is PUBLIC regardless of the visibility dropdown, deliberately — a
+ * "show to players" that whispers to the Warden is nonsense. It carries no
+ * `flags.core.RollTable` because nothing was rolled, so it offers no
+ * Add-to-scene, which is correct.
+ *
+ * @param {string} name  the table's name, resolved world-first
+ */
+const showTableToPlayers = async (name) => {
+  const table = await findTableByName(name);
+  if (!table) {
+    ui.notifications.warn(game.i18n.format("CAIRN.Notify.DashboardNoTable", { name }));
+    return null;
+  }
+  // No `recipients`, so this BROADCASTS — and a socket emit never comes back
+  // to its sender, which is why the Warden's own popup is opened by hand.
+  game.socket.emit(`system.${game.system.id}`, { action: SHOW_TABLE_ACTION, uuid: table.uuid });
+  await openShownTable(table.uuid);
+  const card = await ChatMessage.create({
+    content: await renderTableRows(table),
+    speaker: { alias: game.i18n.localize("CAIRN.Dashboard.Title") },
+  });
+  ui.notifications.info(game.i18n.format("CAIRN.Notify.DashboardShown", { name: labelForTable(table.name) }));
+  return card;
+};
+
+/* -------------------------------------------- */
 /*  The window                                  */
 /* -------------------------------------------- */
 
@@ -340,6 +515,7 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
     position: { width: 520, height: 620 },
     actions: {
       rollTable: WardenDashboard._onRollTable,
+      showTable: WardenDashboard._onShowTable,
       rollSet: WardenDashboard._onRollSet,
       generate: WardenDashboard._onGenerate,
       wardenDamage: WardenDashboard._onWardenDamage,
@@ -446,6 +622,16 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
   /** @this {WardenDashboard} */
   static async _onRollTable(event, target) {
     await this._whileDisabled(target, () => postTableDraw(target.dataset.table, this._messageMode));
+  }
+
+  /**
+   * The eye on a table button. Deliberately does NOT read `_messageMode`: a
+   * reveal is public by ruling, and passing the dropdown here would let a
+   * Warden "show the players" a card only they can see.
+   * @this {WardenDashboard}
+   */
+  static async _onShowTable(event, target) {
+    await this._whileDisabled(target, () => showTableToPlayers(target.dataset.table));
   }
 
   /** @this {WardenDashboard} */

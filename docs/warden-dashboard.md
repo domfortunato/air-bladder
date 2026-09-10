@@ -41,6 +41,22 @@ when you are rolling something the party should not see yet.
 
 It is a per-window choice, so it does not disturb your usual dice settings.
 
+## Showing a table to the players
+
+Every table button has a small **eye** on its right edge. Click the name to
+roll the table. Click the eye to show it.
+
+Showing a table opens it on every player's screen and puts a copy in the chat
+log, so anyone who was away or closed the window can still find it. It lists
+every row with its numbers, because seeing the odds is usually the reason to
+show a travel or weather table at all.
+
+A shown table is always public. The **Who sees the result** dropdown governs
+what you *roll*, and it is deliberately ignored here: showing a table to the
+players privately would not mean anything.
+
+Nothing is rolled, so nothing is decided. The table is just on the screen.
+
 ## Rolling the lot
 
 Under **Roll the lot** on four of the tabs is a single button that rolls a whole

@@ -3696,6 +3696,78 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     margin: 0;
 }
 
+/* A table button is a PAIR: the name rolls it, the eye shows it to the
+   players. The pair occupies one grid cell, so the reflowing column count is
+   unchanged and a narrowed window behaves exactly as it did before. The eye is
+   fixed-width and the name takes the rest, so long labels shrink the label and
+   never the target you are aiming at. */
+.cairn-dashboard .cairn-dashboard-pair {
+    display: flex;
+    gap: 2px;
+    min-width: 0;
+}
+
+.cairn-dashboard .cairn-dashboard-pair > button:first-child {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.cairn-dashboard .cairn-dashboard-pair > .cairn-show-btn {
+    flex: 0 0 26px;
+    width: 26px;
+    padding: 0;
+    opacity: 0.75;
+}
+
+.cairn-dashboard .cairn-dashboard-pair > .cairn-show-btn:hover {
+    opacity: 1;
+}
+
+/* The popup every client opens when a table is shown, and the chat card that
+   records it. One rule set, because they render the same markup. */
+.cairn-shown-table {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.cairn-shown-table .cairn-show-title {
+    font-weight: 600;
+}
+
+/* The popup's own title bar already names the table, so the body's heading is
+   a duplicate THERE and only there. The chat card has no title bar and needs
+   it, which is why one render serves both and the CSS does the hiding. */
+.cairn-shown-table-view .cairn-show-title {
+    display: none;
+}
+
+.cairn-shown-table .cairn-show-formula {
+    margin-bottom: 4px;
+    font-size: 12px;
+    color: var(--ab-muted);
+}
+
+.cairn-shown-table .cairn-show-row {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    padding: 1px 0;
+    border-top: 1px solid var(--ab-hairline);
+}
+
+.cairn-shown-table .cairn-show-range {
+    flex: 0 0 3.2em;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--ab-muted);
+}
+
+.cairn-shown-table .cairn-show-text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
 .cairn-dashboard .cairn-dashboard-head {
     margin: 10px 0 4px;
     padding-bottom: 2px;

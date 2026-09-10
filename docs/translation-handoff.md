@@ -6,11 +6,11 @@ as of 2026-09-10, measured against the last release (`0.1.20`).
 
 | | |
 | --- | --- |
-| English interface keys | 907 |
+| English interface keys | 910 |
 | translated in `lang/es.json` | 683 (75%) |
 | **changed under your translation** | **22** ← Part 1 |
 | **content you translated, now unreachable** | **3** ← Part 2 |
-| new interface keys, untranslated | 224 ← Part 3 |
+| new interface keys, untranslated | 227 ← Part 3 |
 | new content strings, untranslated | 2154 ← Part 4 |
 
 Only two files are yours, and only you should edit them: `lang/es.json`
@@ -184,7 +184,7 @@ to do — they are listed so the work is accounted for rather than vanishing.
 
 ---
 
-## Part 3 — new interface keys, untranslated (224)
+## Part 3 — new interface keys, untranslated (227)
 
 Ordinary outstanding work: these have no Spanish at all, so a Spanish client
 falls back to English for them. Nothing here is urgent — a missing key is visibly
@@ -239,7 +239,7 @@ untranslated, which is the honest failure.
 | `CAIRN.CustomPortraitCategory.Npc` | NPCs |
 | `CAIRN.CustomPortraitCategory.Pc` | Player Characters |
 
-### Dashboard (59)
+### Dashboard (61)
 
 | key | English |
 | --- | --- |
@@ -285,6 +285,8 @@ untranslated, which is the honest failure.
 | `CAIRN.Dashboard.Set.CompleteMonster` | Complete Monster |
 | `CAIRN.Dashboard.Set.CompleteNpc` | Complete NPC |
 | `CAIRN.Dashboard.Set.CompletePath` | Complete Path |
+| `CAIRN.Dashboard.ShowTable` | Show this table to the players |
+| `CAIRN.Dashboard.ShownOn` | Rolled on {formula} |
 | `CAIRN.Dashboard.Tab.Encounters` | Encounters |
 | `CAIRN.Dashboard.Tab.Factions` | Factions |
 | `CAIRN.Dashboard.Tab.Monsters` | Monsters |
@@ -398,12 +400,13 @@ untranslated, which is the honest failure.
 | --- | --- |
 | `CAIRN.MonsterGen.AttackName` | {type}* |
 
-### Notify (19)
+### Notify (20)
 
 | key | English |
 | --- | --- |
 | `CAIRN.Notify.BadAgeFormula` | The Age formula setting ("{formula}") is not a valid dice formula — the default was rolled instead. |
 | `CAIRN.Notify.DashboardNoTable` | No roll table named "{name}" was found, so nothing was rolled. |
+| `CAIRN.Notify.DashboardShown` | Showed {name} to the players. |
 | `CAIRN.Notify.DashboardWardenOnly` | Only the Warden can open the dashboard. |
 | `CAIRN.Notify.EncounterFailed` | The encounter could not be added to the scene. |
 | `CAIRN.Notify.OfferAccepted` | {target} accepted {item}. |
