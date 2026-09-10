@@ -86,6 +86,10 @@ const ROSTER = [
   ["generating-npcs.md", "Generating NPCs and Hirelings"],
   ["generating-monsters.md", "Generating Monsters"],
   ["generating-factions.md", "Generating Factions"],
+  // What you do with what you generated, and the one page that explains why a
+  // Monster's tokens each take their own damage while an NPC's share a sheet
+  // (2026-09-10, after a player lost a session's damage tracking to it).
+  ["tokens-and-sheets.md", "Tokens and Sheets"],
   ["creating-custom-backgrounds.md", "Creating Custom Backgrounds"],
   ["sharing-custom-backgrounds.md", "Sharing Custom Backgrounds"],
   ["customizing-bonds.md", "Customizing Bonds"],

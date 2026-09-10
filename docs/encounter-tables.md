@@ -52,7 +52,8 @@ Click **Add to scene: 1d6 × Goblins** and, for each rolled row:
    — you get N tokens, never N copies of the actor. Rename or move the folder
    freely; it is recognized by an internal marker, not its name.
 3. **Tokens are placed on the scene you are viewing** — unlinked, clustered around
-   the centre of your current view, each on its own grid cell.
+   the centre of your current view, each on its own grid cell. Unlinked means
+   each one takes its own damage: [Tokens and Sheets](tokens-and-sheets.md).
 
 The card then reads **Added** and will not fire twice. Draw again for a fresh card
 with a fresh button. If no scene is open, the click refuses politely and nothing is

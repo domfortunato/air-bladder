@@ -303,6 +303,8 @@ Both are tagged, and the tags are what tell them apart when you re-roll:
 
 - [Generating Monsters](generating-monsters.md) — the same idea for things that
   fight, with a danger tier to pick.
+- [Tokens and Sheets](tokens-and-sheets.md) — why every token of one of these
+  people shares a sheet, and what to reach for when you want a crowd instead.
 - [Generating Factions](generating-factions.md) — for the groups these people
   belong to.
 - [Using Your Own Portraits](using-your-own-portraits.md) — how the `npc` folder

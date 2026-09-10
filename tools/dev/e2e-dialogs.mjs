@@ -180,8 +180,9 @@ await page.waitForTimeout(500);
 // abHideHirelingType hook (DOM surgery on core's rendered dialog) is deleted
 // with the dialog it operated on, so its withHookOff control is replaced by
 // STRUCTURAL assertions: the hook is no longer registered, the switchboard
-// lists exactly the six choices for a Warden, and no `select[name="type"]`
-// renders on the world create path.
+// lists exactly the seven choices for a Warden, and no `select[name="type"]`
+// renders on the world create path. (This comment said SIX while the leg below
+// asserted seven — the split's neighbour set again, one file further along.)
 const switchboard = await page.evaluate(async () => {
   const p = getDocumentClass("Actor").createDialog();
   let sel = null;
@@ -195,6 +196,15 @@ const switchboard = await page.evaluate(async () => {
     selected: sel?.value ?? null,
     coreTypeSelect: !!document.querySelector('dialog select[name="type"]'),
     hookGone: !(Hooks.events.renderDialogV2 ?? []).some((h) => h.fn?.name === "abHideHirelingType"),
+    // The hint that tells a Warden what the choice costs them (2026-09-10): a
+    // Monster's tokens each take their own damage, an NPC's all share one
+    // sheet. A player reported a session's worth of shared HP bars because
+    // nothing here said so. Read the RENDERED text and compare it to the
+    // LOCALIZED value rather than to an English literal — the leg then
+    // survives a wording change, and still proves the key resolved, since a
+    // missing key localizes to itself and the assertion rejects that.
+    hint: sel?.closest("dialog")?.querySelector("p.hint")?.textContent.trim() ?? null,
+    hintWanted: game.i18n.localize("CAIRN.CreateActorHint"),
   };
   // Dismiss WITHOUT creating — and dismiss WHATEVER opened: under the
   // negative control core's own dialog renders instead of the switchboard,
@@ -225,6 +235,12 @@ switchboard.opened
   && JSON.stringify(switchboard.values) === JSON.stringify(["character", "npc", "hireling", "monster", "companion", "transport", "container"])
   ? ok("the switchboard offers the Warden seven role choices", switchboard.values.join(", "))
   : fail("the switchboard offers the Warden seven role choices", JSON.stringify(switchboard));
+switchboard.hint
+  && switchboard.hint === switchboard.hintWanted
+  && switchboard.hintWanted !== "CAIRN.CreateActorHint"
+  ? ok("the switchboard says what the choice does to tokens", switchboard.hint)
+  : fail("the switchboard says what the choice does to tokens",
+    JSON.stringify({ rendered: switchboard.hint, localized: switchboard.hintWanted }));
 !switchboard.coreTypeSelect
   ? ok("no core type-picker", "roles, never types — the hireling TYPE is unmintable by construction")
   : fail("no core type-picker", JSON.stringify(switchboard));

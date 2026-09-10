@@ -40,6 +40,26 @@
  * skipped them silently; that case is the one that goes red if anyone moves
  * the defaults back.
  *
+ * **The linked half was challenged from the outside on 2026-09-10 and STANDS.**
+ * A player ran a session and reported that every token off one sheet shared its
+ * stats, which is this rule working exactly as written: they had built their
+ * enemies with the NPC button. Weighed and kept, so nobody re-argues it —
+ *
+ *   - it is what a Warden's Guide NPC and a hireling both want, and the OPPOSITE
+ *     was twice fixed here as a defect (`b3eefa6` and again after the split):
+ *     an unlinked person means HP typed on the token never reaches the sheet;
+ *   - Mythic Bastionland, the nearest sibling system, links its own npc type
+ *     (and squire and steed), unlinking only creature and warband. Upstream
+ *     Cairn leaves npc unlinked, so the family itself disagrees;
+ *   - the crowd case already has a correct route — Monster, plus the bestiary's
+ *     own `Bandit`, `Brigand`, `Brigand Leader` and `Acolyte`, all unlinked.
+ *
+ * What was missing was never the default, it was that nothing SAID so at the
+ * moment of choosing. Fixed as signposting: a hint under the Create Actor
+ * dropdown (`CAIRN.CreateActorHint`, gated by `dev:dialogs`) and the roster
+ * guide `docs/tokens-and-sheets.md`. Core's Prototype Token Overrides setting
+ * is not an escape hatch here — its schema drops `actorLink` on construction.
+ *
  * Usage: npm run dev:token-defaults
  */
 import { chromium } from "playwright";

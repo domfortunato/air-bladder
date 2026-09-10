@@ -170,6 +170,7 @@
   "CAIRN.ContentSourcePrompt": "Which edition should this character be generated from?",
   "CAIRN.ContentSourceTitle": "Choose a content source",
   "CAIRN.Cost": "Cost",
+  "CAIRN.CreateActorHint": "A Monster can be placed on the map many times, and each token takes its own damage. An NPC or Hireling is one person, so all of their tokens share one sheet.",
   "CAIRN.CreateActorPick": "What are you creating?",
   "CAIRN.CreateActorTitle": "Create Actor",
   "CAIRN.CreateCompanion": "Create Companion",

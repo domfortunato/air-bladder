@@ -255,7 +255,24 @@ export class CairnActor extends Actor {
       o.textContent = text;
       select.append(o);
     }
-    content.append(label, select);
+    // What the choice DOES, said where it is made (2026-09-10). A player
+    // reported a whole session of enemies sharing one HP bar: they had built
+    // them with the NPC button, which stamps a LINKED prototype because an NPC
+    // is one named person, while the Monster button leaves tokens unlinked so
+    // each takes its own damage. Both routes are right; nothing here said they
+    // differed, and the difference only shows up mid-fight. Ruled SIGNPOSTING
+    // rather than a default change or a setting — the linked default is what a
+    // Warden's Guide NPC and a hireling both want, and the crowd case already
+    // has the Monster route and the bestiary's own Bandit and Brigand.
+    // `p.hint` is core's own muted class: DialogV2's form carries
+    // `standard-form` (dialog.mjs:207) and core styles `.standard-form .hint`
+    // (foundry2.css:5460), so this needs no CSS of ours. Static text with no
+    // listener, so the dead-listener trap on rendered content does not apply.
+    // Full explanation: docs/tokens-and-sheets.md. Gate: npm run dev:dialogs.
+    const hint = document.createElement("p");
+    hint.className = "hint";
+    hint.textContent = game.i18n.localize("CAIRN.CreateActorHint");
+    content.append(label, select, hint);
     const picked = await foundry.applications.api.DialogV2.prompt({
       // Our own key, not core's DOCUMENT.Create format: the i18n:source gate
       // holds every literal key to en.json, and a system key also gives the

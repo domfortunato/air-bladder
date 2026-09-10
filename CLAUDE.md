@@ -233,6 +233,25 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   the first attempt. The three re-roll paths that used to rename the ACTIVE
   scene's tokens by hand, unconditionally, ride this instead. Gate:
   `npm run dev:token-names`.
+- **Token LINKING is decided by role at creation: a PERSON is linked, a monster
+  is not.** `_preCreate` stamps `actorLink: true` for `character` and for any
+  npc in `PERSON_ROLES` — including a role-less one, which the schema initial
+  makes a hireling — while monster, companion, transport and container fall
+  through to Foundry's own `false`. **RULED 2026-09-10 and the default is NOT
+  changing**, after a player reported a session of enemies sharing one HP bar:
+  linked is what a Warden's Guide NPC and a hireling both want (unlinked people
+  were twice fixed here as defects, HP typed on a token never reaching the
+  sheet), Mythic Bastionland links its own npc type too, and the crowd case
+  already has the Monster route plus the bestiary's `Bandit` and `Brigand`. The
+  fix was SIGNPOSTING, not behaviour: a hint under the Create Actor dropdown
+  (`CAIRN.CreateActorHint`) and `docs/tokens-and-sheets.md`, the roster guide
+  that explains both routes and where **Link Actor Data** lives. Core's
+  **Prototype Token Overrides** setting cannot express this and was tested:
+  its schema carries sight, ring, turn marker, display name, display bars,
+  disposition and lock rotation, and DROPS `actorLink` on construction — it
+  also tabs by TYPE, so an override aimed at NPCs lands on every monster too.
+  Gates: `npm run dev:token-defaults` for the defaults, `dev:dialogs` for the
+  hint.
 - Data models in `module/data-models.js` (TypeDataModel; `template.json` is gone,
   sub-types are declared in `system.json` `documentTypes`); 30 compendium packs
   (30 on `master` too since 0.1.18 shipped `journals-vald`, the Warden's Guide

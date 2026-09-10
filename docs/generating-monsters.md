@@ -55,7 +55,9 @@ arrives from an explicit button press.
   distinguishable in the directory until inspiration strikes. Rename freely.
 - **A portrait** drawn from the creature categories of the Game-Icons
   gallery, with the token wearing the same image — hostile and unlinked,
-  like the shipped monsters.
+  like the shipped monsters. Unlinked is what lets you place the same monster
+  a dozen times and damage each one separately; see
+  [Tokens and Sheets](tokens-and-sheets.md).
 
 ## Re-rolling a monster
 
