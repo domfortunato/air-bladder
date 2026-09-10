@@ -64,7 +64,7 @@ try {
       // Cloned from a shipped one so it is structurally valid without this probe
       // having to know the background schema.
       pack = game.packs.get("world.zz-probe-custom-bgs")
-        ?? await CompendiumCollection.createCompendium({
+        ?? await foundry.documents.collections.CompendiumCollection.createCompendium({
           label: "ZZ Probe Custom Backgrounds", name: "zz-probe-custom-bgs",
           type: "Item", packageType: "world",
         });
