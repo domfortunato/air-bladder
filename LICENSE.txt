@@ -51,6 +51,11 @@ Game text — CC BY-SA 4.0, © Yochai Gal
     Two packs are not this: the macros pack holds no game text, and the System
     Docs journals are this project's own writing, generated from docs/ by
     tools/import/system-docs.mjs. Both are covered by the Code clause above.
+    README.md and README.es.md ship in the release archive and travel HERE
+    rather than under the Code clause: both summarise and quote the Cairn 2e
+    text they credit, so ShareAlike reaches them. They were named by no clause
+    at all until this was written, which under the Code clause's "these and
+    only these" left two shipped documents with no grant.
     ATTRIBUTION IS REQUIRED AND SHAREALIKE IS NOT WAIVED. A derivative of this
     text must carry the same licence. The MIT grant below does not reach it and
     cannot be used to relicense it, including by a fork of this repository.

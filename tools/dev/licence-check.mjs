@@ -121,9 +121,18 @@ if (!failed) ok(`both files name the same ${LICENCES.length} regimes`);
 // LICENSE.txt naming one that is missing now fails loudly below instead.
 const workflow = readFileSync(join(ROOT, ".github/workflows/main.yml"), "utf8");
 const zipLine = workflow.split("\n").find((l) => l.includes("zip -r ./system.zip"));
-const shippedDirs = zipLine
-  ? zipLine.replace(/^.*zip -r \.\/system\.zip/, "").trim().split(/\s+/).filter((p) => p.endsWith("/"))
+const shippedArgs = zipLine
+  ? zipLine.replace(/^.*zip -r \.\/system\.zip/, "").trim().split(/\s+/).filter(Boolean)
   : [];
+const shippedDirs = shippedArgs.filter((p) => p.endsWith("/"));
+// THE FILES SHIP TOO, and this gate could not see them. `shippedDirs` was the
+// only list, filtered on a trailing slash, so check 4 below asked its question
+// of nine directories and silently skipped the four FILE arguments — while its
+// own comment says the question is "is everything that ships named". README.md
+// and README.es.md rode every release that way, named by no clause, under a
+// LICENSE.txt whose MIT grant says "these and only these". A check that cannot
+// fail on a whole category of input reads exactly like a check that passed.
+const shippedFiles = shippedArgs.filter((p) => !p.endsWith("/"));
 
 const topLevel = new Set(readdirSync(ROOT));
 for (const dir of shippedDirs) topLevel.add(dir.replace(/\/$/, ""));
@@ -158,12 +167,30 @@ if (!zipLine) {
     + "this check cannot tell what ships");
 } else {
   const named = [...paths].map((p) => p.split("/")[0]);
-  const unnamed = shippedDirs.filter((dir) => !named.includes(dir.replace(/\/$/, "")));
+  // A shipped FILE is named by a clause when it appears INSIDE the clause
+  // section, not merely somewhere in the file. The distinction is load-bearing:
+  // LICENSE.txt's own preamble points at README.md for the credits, so a test
+  // against the whole text called README.md "named" on the strength of a
+  // cross-reference that grants nothing — a green for the wrong reason, which
+  // is the failure this whole check exists to end. `paths` (check 3) is built
+  // from the whole text on purpose: there the question is whether a pointer
+  // rots, and a pointer in the preamble is still a pointer.
+  const clauses = licence.slice(
+    licence.indexOf("What ships under which licence"),
+    licence.indexOf("Permission is hereby granted"),
+  );
+  const namesFile = (f) => new RegExp(`(^|\\s)${f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\s|$|[.,])`, "m")
+    .test(clauses);
+  const unnamed = [
+    ...shippedDirs.filter((dir) => !named.includes(dir.replace(/\/$/, ""))),
+    ...shippedFiles.filter((f) => f !== "LICENSE.txt" && !namesFile(f)),
+  ];
   if (unnamed.length) {
     fail(`the release zip ships ${unnamed.join(", ")}, which LICENSE.txt names in no clause — `
       + 'and its MIT clause says "these and only these", so an unnamed path is excluded, not implied');
   } else {
-    ok(`every shipped directory is named by a clause (${shippedDirs.length} checked)`);
+    ok(`every shipped path is named by a clause `
+      + `(${shippedDirs.length} dirs + ${shippedFiles.length} files checked)`);
   }
 }
 

@@ -129,6 +129,34 @@ if (packsChecked < EXPECTED_PACKS) {
   ok(`all ${packsChecked} declared packs have sources in src/packs/`);
 }
 
+// THE OTHER DIRECTION, for the same reason check:fields walks htmlFields both
+// ways and this file already walks packFolders and languages both ways. Asking
+// only "does every declaration have sources" leaves the opposite failure
+// completely silent: a compendium authored as src/packs/<name>/*.yml whose
+// system.json entry was forgotten is never compiled (tools/packs.mjs builds
+// from the manifest list alone), is actively PRUNED from the built output as
+// "not in system.json", ships in no release, and is reported by nothing. Worse,
+// check:refs walks src/packs directly and would count it, so two totals that
+// look identical would be measuring different sets.
+//
+// Both of this file's other one-directional checks were closed after they bit —
+// packFolders when the macros pack sat unfiled for ten days, languages at
+// review #10. This was the last member of that set.
+// Named apart from the `declaredPacks` the packFolders check builds further
+// down: one `const` per scope, and a clash here is a module that will not load.
+const declaredPackNames = new Set((manifest.packs ?? []).map((p) => p.name));
+const packSrc = join(ROOT, "src", "packs");
+const onDiskPacks = existsSync(packSrc)
+  ? readdirSync(packSrc, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name)
+  : [];
+const undeclaredPacks = onDiskPacks.filter((name) => !declaredPackNames.has(name));
+if (undeclaredPacks.length) {
+  fail(`src/packs/ holds ${undeclaredPacks.join(", ")}, which system.json declares in no pack entry — `
+    + "an undeclared pack is never built, never shipped, and reported by nothing else");
+} else {
+  ok(`all ${onDiskPacks.length} pack source dirs are declared in system.json`);
+}
+
 // Warden-facing packs are hidden from players (review #13 fix #6): every
 // warden-* pack plus the macros pack must carry the ownership block, or the
 // next Warden pack added ships player-visible by default (base-package.mjs
