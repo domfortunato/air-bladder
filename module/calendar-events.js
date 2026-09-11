@@ -313,7 +313,7 @@ export const promptAddEvent = async (at) => {
           };
         },
       },
-      { action: "cancel", label: "Cancel" },
+      { action: "cancel", label: game.i18n.localize("CAIRN.Cancel") },
     ],
     rejectClose: false,
   });

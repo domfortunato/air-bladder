@@ -722,7 +722,7 @@ const promptSetDate = async () => {
           };
         },
       },
-      { action: "cancel", label: "Cancel" },
+      { action: "cancel", label: game.i18n.localize("CAIRN.Cancel") },
     ],
     rejectClose: false,
   });

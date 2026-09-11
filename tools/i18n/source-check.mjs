@@ -322,12 +322,32 @@ const JS_PATTERNS = [
   [/(?:^|[{,])\s*(title|label|hint|placeholder|flavor)\s*:\s*(["'])((?:[^"'\\]|\\.)*)\2/g, 3, "property"],
 ];
 
+/**
+ * A BARE CAPITALISED WORD IS A LABEL, not an id.
+ *
+ * The single-token exemption below is what a `label: "Cancel"` hides behind,
+ * and three of them shipped in one batch on `dev` before anybody noticed:
+ * DialogV2 localizes a button label, "Cancel" resolves through core's English
+ * fallback because core ships only English, and a Spanish Warden read "Cancel"
+ * on three dialogs while every other dialog in the session read "Cancelar".
+ *
+ * So single tokens stay exempt EXCEPT one shape: `Capitalised`, at least three
+ * letters, nothing else in it. An id, a class, a path fragment and a formula
+ * are all lowercase, kebab, dotted or mixed, so none of them match — measured
+ * across every `module/**\/*.js` in the tree, where this flags exactly zero
+ * false positives. `STR`/`DEX`/`WIL` are already excluded above it and are
+ * all-caps anyway.
+ */
+const bareLabelWord = (v) => /^[A-Z][a-z]{2,}$/.test(v);
+
 /** A literal that is a key, a path, a css class or a formula is not prose. */
 const looksTranslatable = (v) =>
   /[A-Za-z]{3}/.test(v) &&
   !/^(CAIRN|TYPES)\./.test(v) &&
   !/^(STR|DEX|WIL)$/.test(v) &&
-  !/^[\w.-]+$/.test(v) && // single token: an id, a class, a path fragment
+  // single token: an id, a class, a path fragment — unless it is a bare
+  // capitalised word, which is a label somebody forgot to key.
+  (!/^[\w.-]+$/.test(v) || bareLabelWord(v)) &&
   !/^(icons|systems|modules|worlds)\//.test(v);
 
 const scanJs = () => {

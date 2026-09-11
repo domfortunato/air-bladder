@@ -122,7 +122,7 @@ export const promptSetWeather = async () => {
           return { text: root.querySelector("[name=weather]")?.value ?? "" };
         },
       },
-      { action: "cancel", label: "Cancel" },
+      { action: "cancel", label: game.i18n.localize("CAIRN.Cancel") },
     ],
     rejectClose: false,
   });
