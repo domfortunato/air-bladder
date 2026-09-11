@@ -774,6 +774,118 @@ try {
       : fail(`${r.key}: shipped label and shipped phrase disagree — `
           + `phrase ${JSON.stringify(r.phrase)}, bolded ${JSON.stringify(r.bolded)}, label ${JSON.stringify(r.text)}`);
   }
+
+  /* ---- the namespace migration carries STRINGS and ARRAYS, not just flags -- */
+
+  // It could not, from the day `custom-portrait-folder` joined SETTING_KEYS
+  // until 2026-09-11. The migration ran `JSON.parse(old.value)` over a value
+  // that was ALREADY parsed: `Setting`'s `value` is a `JSONField` whose
+  // `initialize` parses, and `Setting#_initialize` assigns `_castType()`, which
+  // for a key under the UNREGISTERED `cairn` namespace has no `config` and
+  // returns the value untouched (setting.mjs:74). Booleans and Numbers survived
+  // by accident; Strings and Arrays threw, the Warden's value was silently
+  // replaced by the default, and — since the migration is deliberately not
+  // marker-gated — it failed again on EVERY GM load, forever.
+  //
+  // ENTIRELY IN MEMORY. The Setting documents are constructed unsaved and
+  // pushed into the world storage collection, and `game.settings.set` is
+  // SHADOWED to capture rather than to write, so this plants nothing in the dev
+  // world and leaves no orphan behind. Both are removed in the `finally`.
+  const migrated = await page.evaluate(async () => {
+    const { migrateSettingsNamespace, SETTINGS_NS } = await import(
+      "/systems/air-bladder/module/settings.js");
+    const store = game.settings.storage.get("world");
+    const S = getDocumentClass("Setting");
+    // One of each shape the migration has to carry. The two that threw are the
+    // String and the Array; the Boolean is the control that always worked, and
+    // it is here so a leg that passes proves the loop ran at all.
+    const planted = [
+      ["age-formula", "2d20 + 10"],
+      ["disabled-backgrounds", ["Cursed", "Fungal Forager"]],
+      ["use-panic", false],
+    ];
+    // EACH PLANTED DOC NEEDS ITS OWN `_id`. `WorldSettings` keys by the
+    // document's id, not by the key handed to `set()`, and an unsaved Setting
+    // has `id === null` — so three plants collapsed into ONE slot and only the
+    // last survived. The two legs below then read "undefined" on a correct
+    // build, which is the probe lying, not the code.
+    const probeIds = Object.fromEntries(planted.map(([k]) => [k, foundry.utils.randomID()]));
+    const probeKey = (k) => probeIds[k];
+    const origSet = game.settings.set;
+    const captured = {};
+    const warned = [];
+    const origWarn = console.warn;
+    // The migration's "already there?" test reads the STORE, not
+    // `game.settings.get` — so as long as this world holds its own
+    // `air-bladder.<key>` row the loop `continue`s and a leg could pass having
+    // migrated nothing. The rows are lifted out of the CLIENT-SIDE collection
+    // for the duration and put straight back; nothing is written or deleted
+    // server-side.
+    const lifted = [];
+    try {
+      for (const [k] of planted) {
+        // EVERY row for the key, not the first. A key can carry DUPLICATE
+        // Setting documents in a long-lived world — that is the `#setWorld`
+        // trap this repo records, where a two-argument `game.settings.get`
+        // shadow makes core create a second document instead of updating the
+        // first. Lifting one of two leaves `has()` true and the migration
+        // `continue`s, which is exactly how two of these three legs first read
+        // "undefined" on a correct build.
+        for (const existing of store.filter((s) => s.key === `${SETTINGS_NS}.${k}`)) {
+          lifted.push([existing.id, existing]);
+          store.delete(existing.id);
+        }
+        const d = new S({
+          _id: probeIds[k],
+          key: `cairn.${k}`,
+          value: JSON.stringify(planted.find(([n]) => n === k)[1]),
+        });
+        store.set(probeKey(k), d);
+      }
+      game.settings.set = async (ns, key, value) => { captured[key] = value; };
+      console.warn = (...a) => { warned.push(a.map(String).join(" ")); origWarn(...a); };
+      await migrateSettingsNamespace();
+    } finally {
+      game.settings.set = origSet;
+      console.warn = origWarn;
+      for (const [k] of planted) store.delete(probeKey(k));
+      for (const [id, doc] of lifted) store.set(id, doc);
+    }
+    return {
+      captured,
+      warned: warned.filter((w) => w.includes("could not migrate setting")),
+      // Only the rows THIS leg planted. The dev world carries a genuine legacy
+      // `cairn.show-bonds-barebones` (a retired key the migration ignores), so
+      // counting every `cairn.*` would fail on a clean system.
+      leftBehind: planted.filter(([k]) => store.has(probeKey(k))).map(([k]) => k),
+      stillThere: planted.filter(([k]) => !!store.find((s) => s.key === `${SETTINGS_NS}.${k}`)).length,
+    };
+  });
+
+  migrated.captured["age-formula"] === "2d20 + 10"
+    ? ok('the migration carries a STRING setting across — "2d20 + 10"')
+    : fail("the migration carries a STRING setting across — got "
+        + `${JSON.stringify(migrated.captured["age-formula"])}`);
+
+  Array.isArray(migrated.captured["disabled-backgrounds"])
+  && migrated.captured["disabled-backgrounds"].join(",") === "Cursed,Fungal Forager"
+    ? ok("...and an ARRAY setting, element for element")
+    : fail("...and an ARRAY setting — got "
+        + `${JSON.stringify(migrated.captured["disabled-backgrounds"])}`);
+
+  migrated.captured["use-panic"] === false
+    ? ok("...and the Boolean that always worked still does")
+    : fail(`...and the Boolean that always worked still does — got ${JSON.stringify(migrated.captured["use-panic"])}`);
+
+  migrated.warned.length === 0
+    ? ok("...with nothing logged as unmigratable")
+    : fail(`...with nothing logged as unmigratable — ${migrated.warned.join(" | ")}`);
+
+  migrated.leftBehind.length === 0 && migrated.stillThere === 3
+    ? ok("...and the probe left the world exactly as it found it")
+    : fail("...and the probe left the world exactly as it found it — "
+        + `planted still present: ${migrated.leftBehind.join(", ") || "none"}, `
+        + `real rows back: ${migrated.stillThere}/3`);
 } catch (e) {
   fail(`${e.name}: ${e.message}`);
 } finally {

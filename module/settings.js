@@ -88,7 +88,25 @@ export const migrateSettingsNamespace = async () => {
     const old = store.find((s) => s.key === `cairn.${key}`);
     if (!old || has(`${SETTINGS_NS}.${key}`)) continue;
     try {
-      await game.settings.set(SETTINGS_NS, key, JSON.parse(old.value));
+      // `old.value` IS ALREADY PARSED — do not parse it again. `Setting`'s
+      // `value` is a `JSONField`, whose `initialize` runs `JSON.parse`
+      // (common/data/fields.mjs), and `Setting#_initialize` then assigns
+      // `this._castType()` (setting.mjs:31-34). For a key under the
+      // UNREGISTERED `cairn` namespace `this.config` is undefined, so
+      // `_castType` returns the value untouched at its `typeof type !==
+      // "function"` line (:74).
+      //
+      // A second `JSON.parse` therefore ran over a live value. Booleans and
+      // Numbers survived by accident (`JSON.parse(false)` stringifies back to
+      // "false"); STRINGS AND ARRAYS THREW. Four of the keys above are one or
+      // the other — `custom-portrait-folder`, `age-formula`,
+      // `custom-portrait-list`, `disabled-backgrounds` — and every one of them
+      // was added to `SETTING_KEYS` after this line was written, when every
+      // listed key really was a Boolean or a Number. Because this migration is
+      // deliberately not marker-gated and `has()` stays false for a key that
+      // never lands, the failure repeated on EVERY GM load, forever, with the
+      // Warden's value silently replaced by the default.
+      await game.settings.set(SETTINGS_NS, key, old.value);
       moved.push(key);
     } catch (e) {
       console.warn(`Air Bladder | could not migrate setting "${key}":`, e);
