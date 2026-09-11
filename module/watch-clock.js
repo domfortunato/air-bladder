@@ -1,5 +1,6 @@
 import { SETTINGS_NS } from "./settings.js";
 import { describeTime } from "./game-time.js";
+import { openValdCalendar, valdCalendarAvailable } from "./vald-calendar.js";
 
 /**
  * The watch clock: what time it is, on everyone's screen.
@@ -47,15 +48,25 @@ class WatchClock extends foundry.applications.api.HandlebarsApplicationMixin(
     // reads core's colour variables instead of the system's parchment palette.
     classes: ["faded-ui", "flexcol", "cairn-watch-clock"],
     window: { frame: false, positioned: false },
+    actions: { openCalendar: () => openValdCalendar() },
   };
 
   static PARTS = {
     clock: { template: "systems/air-bladder/templates/ui/watch-clock.html" },
   };
 
-  /** @override */
+  /**
+   * THE CLOCK IS THE DOOR TO THE CALENDAR (user ruling 2026-09-10), and only
+   * where there is a calendar to open — under Foundry's own the panel stays
+   * exactly what it was, because a month grid naming January and a year like 0
+   * would contradict the honest "Day 12" on the line above it.
+   *
+   * Opening it changes nothing about who may move the world: the calendar is
+   * read-only for a player, and the Set button inside it is the Warden's.
+   * @override
+   */
   async _prepareContext() {
-    return describeTime();
+    return { ...describeTime(), calendar: valdCalendarAvailable() };
   }
 
   /**
@@ -137,5 +148,10 @@ export const closeWatchClock = async () => {
  * would otherwise land before anything was listening.
  */
 export const refreshWatchClock = () => {
-  if (clock?.rendered) clock.render();
+  // RETURNS THE RENDER PROMISE. A caller that awaits this has to actually get
+  // the new markup — a probe that awaited a bare `undefined` here read the
+  // PREVIOUS render's DOM and reported the clock as unchanged, which looked
+  // exactly like the feature not working.
+  if (!clock?.rendered) return null;
+  return clock.render();
 };

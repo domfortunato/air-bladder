@@ -228,6 +228,49 @@ export const localizeNameDesc = (obj, { nameNs = "item.name", descNs = "item.des
 };
 
 /**
+ * Block-level tags a journal page is translated at, ONE lookup per element.
+ * MUST stay identical to BLOCK_TAGS in tools/i18n/content-strings.mjs: the
+ * extractor emits `node.innerHTML` for exactly these and the overlay is keyed on
+ * it, so a tag in one list and not the other is a key nothing ever asks for.
+ * `npm run dev:journal-i18n` is what holds the two honest — it collects the real
+ * rendered DOM's keys and checks the extractor emits every one.
+ *
+ * IT LIVES HERE, beside `translationOf`, because two surfaces render journal
+ * prose now: the journal sheet (`cairn.js`) and the Vald calendar's festival
+ * panel. It moved out of `cairn.js` on 2026-09-10 so the "must stay identical
+ * to the extractor" contract has ONE home rather than one per reader.
+ */
+export const JOURNAL_BLOCKS = "p, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, figcaption";
+
+/**
+ * Translate a rendered page's prose, paragraph by paragraph.
+ *
+ * PARAGRAPH-level, ruled 2026-08-14: a page here is one `text.content` string of
+ * up to 14,000 characters, so keying the overlay on the whole page would hand a
+ * translator a rulebook page in one cell and orphan all of it on any English
+ * edit. Split this way an edit costs only the sentences it touched.
+ *
+ * Nested blocks are skipped so only the INNERMOST block owns its text — a `<li>`
+ * wrapping a nested list yields the inner items, never the outer's concatenation
+ * of them, which would otherwise be keyed on a string that is also its own
+ * children and fight them at render.
+ *
+ * `translationOf`, never `t`: the value written to innerHTML is then provably
+ * from our own overlay JSON and DOM text can never round-trip back out as
+ * markup — the same rule `swapResultNode` in `cairn.js` is written to.
+ */
+export const localizeJournalBlocks = (root) => {
+  if (!root) return;
+  for (const node of root.querySelectorAll(JOURNAL_BLOCKS)) {
+    if (node.querySelector(JOURNAL_BLOCKS)) continue;
+    const en = node.innerHTML.trim();
+    if (!en) continue;
+    const es = translationOf("journal.block", en);
+    if (es !== undefined && es !== en) node.innerHTML = es;
+  }
+};
+
+/**
  * Test / probe hook: install an overlay object directly, bypassing the fetch.
  * Used by offline unit checks and by the dev "partial overlay" fallback test.
  * Not part of the runtime path.

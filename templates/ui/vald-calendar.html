@@ -1,0 +1,123 @@
+{{!--
+  The Vald calendar: a month on the wall, and a panel for the day you picked.
+
+  ONE ROOT ELEMENT, like every other ApplicationV2 part here — several
+  top-level elements fail with "Template part must render a single HTML
+  element" and nothing renders at all.
+
+  A day is a <button>, not a <div>, so it is reachable from the keyboard and
+  announces itself. It only ever SELECTS: moving the world is the separate
+  button at the foot of the panel, and only the Warden sees that one.
+--}}
+<div class="cairn-calendar-inner">
+
+    <header class="cairn-calendar-head">
+        <button type="button" class="cairn-calendar-step" data-action="prevMonth"
+                data-tooltip="{{localize 'CAIRN.Calendar.PrevMonth'}}"
+                aria-label="{{localize 'CAIRN.Calendar.PrevMonth'}}">
+            <i class="fa-solid fa-chevron-left"></i>
+        </button>
+
+        <div class="cairn-calendar-title">
+            {{#if headSeasonIcon}}<i class="fa-solid {{headSeasonIcon}}"></i>{{/if}}
+            <span class="cairn-calendar-month">{{month.monthName}}</span>
+            <span class="cairn-calendar-year">{{month.year}}</span>
+        </div>
+
+        <button type="button" class="cairn-calendar-step" data-action="nextMonth"
+                data-tooltip="{{localize 'CAIRN.Calendar.NextMonth'}}"
+                aria-label="{{localize 'CAIRN.Calendar.NextMonth'}}">
+            <i class="fa-solid fa-chevron-right"></i>
+        </button>
+    </header>
+
+    <div class="cairn-calendar-grid" role="grid">
+        {{#each month.weekdays}}
+            <div class="cairn-calendar-weekday" role="columnheader"
+                 data-tooltip="{{this.name}}">{{this.abbr}}</div>
+        {{/each}}
+
+        {{!-- Computed, never assumed: under Vald every month opens on Market
+              Day, but that is a property of this config and not of calendars. --}}
+        {{#each month.leadingBlanks}}
+            <div class="cairn-calendar-blank" aria-hidden="true"></div>
+        {{/each}}
+
+        {{#each month.days}}
+            <button type="button" data-action="pickDay" data-day="{{this.dayOfMonth}}"
+                    class="cairn-calendar-day {{this.seasonClass}}{{#if this.isToday}} is-today{{/if}}{{#if this.selected}} is-selected{{/if}}{{#if this.festivals}} has-festival{{/if}}"
+                    data-tooltip="{{this.weekdayName}}{{#if this.festivalNames}} — {{this.festivalNames}}{{/if}}">
+                <span class="cairn-calendar-number">{{#if this.reclamationName}}{{this.reclamationName}}{{else}}{{this.dayOfMonth}}{{/if}}</span>
+                {{#if this.seasonBegins}}
+                    <i class="fa-solid {{this.seasonIcon}} cairn-calendar-season-mark"
+                       data-tooltip="{{localize 'CAIRN.Calendar.SeasonBegins' season=this.seasonName}}"></i>
+                {{/if}}
+                {{#if this.festivals}}<span class="cairn-calendar-dot" aria-hidden="true"></span>{{/if}}
+            </button>
+        {{/each}}
+    </div>
+
+    <section class="cairn-calendar-panel">
+        <h3 class="cairn-calendar-date">{{panel.dateLine}}</h3>
+
+        <div class="cairn-calendar-season">
+            {{#if panel.seasonIcon}}<i class="fa-solid {{panel.seasonIcon}}"></i>{{/if}}
+            <span>{{localize 'CAIRN.Time.SeasonOf' season=panel.seasonName}}</span>
+            {{#if panel.seasonBegins}}<em class="cairn-calendar-begins">{{panel.seasonBegins}}</em>{{/if}}
+        </div>
+
+        {{#if panel.reclamationNote}}
+            <p class="cairn-calendar-note">{{panel.reclamationNote}}</p>
+        {{/if}}
+
+        {{#if panel.isToday}}
+            <div class="cairn-calendar-weather">
+                <i class="fa-solid fa-cloud-sun"></i>
+                <span class="cairn-calendar-weather-text">
+                    {{#if panel.weatherUnknown}}
+                        <em>{{localize 'CAIRN.Calendar.WeatherUnknown'}}</em>
+                    {{else}}
+                        {{panel.weather}}
+                    {{/if}}
+                </span>
+                {{#if isGM}}
+                    <button type="button" class="cairn-calendar-pencil" data-action="setWeather"
+                            data-tooltip="{{localize 'CAIRN.Calendar.SetWeather'}}"
+                            aria-label="{{localize 'CAIRN.Calendar.SetWeather'}}">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                    </button>
+                {{/if}}
+            </div>
+        {{/if}}
+
+        {{#if panel.quiet}}
+            <p class="cairn-calendar-quiet">{{localize 'CAIRN.Calendar.Quiet'}}</p>
+        {{else}}
+            {{#each panel.festivals}}
+                <article class="cairn-calendar-festival">
+                    <h4>{{this.name}}</h4>
+                    {{#if this.span}}<p class="cairn-calendar-span">{{this.span}}</p>{{/if}}
+                    {{!-- Pack HTML, server-sanitized on write like every other
+                          journal page, so a triple-stache is correct here for
+                          the same reason core's own page view uses one. --}}
+                    <div class="cairn-calendar-festival-text">{{{this.text}}}</div>
+                </article>
+            {{/each}}
+        {{/if}}
+
+        <footer class="cairn-calendar-foot">
+            <button type="button" data-action="today"
+                    data-tooltip="{{localize 'CAIRN.Calendar.TodayTip'}}">
+                <i class="fa-solid fa-location-crosshairs"></i>
+                <span>{{localize 'CAIRN.Calendar.Today'}}</span>
+            </button>
+            {{#if isGM}}
+                <button type="button" data-action="setToDay"
+                        data-tooltip="{{localize 'CAIRN.Calendar.SetToDayTip'}}">
+                    <i class="fa-solid fa-calendar-check"></i>
+                    <span>{{localize 'CAIRN.Calendar.SetToDay'}}</span>
+                </button>
+            {{/if}}
+        </footer>
+    </section>
+</div>

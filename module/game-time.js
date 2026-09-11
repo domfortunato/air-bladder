@@ -130,12 +130,12 @@ export const VALD_CALENDAR_CONFIG = {
 
   days: {
     values: [
-      { name: "CAIRN.Vald.Day.Market", ordinal: 1 },
-      { name: "CAIRN.Vald.Day.Garden", ordinal: 2 },
-      { name: "CAIRN.Vald.Day.Song", ordinal: 3 },
-      { name: "CAIRN.Vald.Day.Tithe", ordinal: 4 },
-      { name: "CAIRN.Vald.Day.Bathing", ordinal: 5 },
-      { name: "CAIRN.Vald.Day.Resting", ordinal: 6 },
+      { name: "CAIRN.Vald.Day.Market", abbreviation: "CAIRN.Vald.DayAbbr.Market", ordinal: 1 },
+      { name: "CAIRN.Vald.Day.Garden", abbreviation: "CAIRN.Vald.DayAbbr.Garden", ordinal: 2 },
+      { name: "CAIRN.Vald.Day.Song", abbreviation: "CAIRN.Vald.DayAbbr.Song", ordinal: 3 },
+      { name: "CAIRN.Vald.Day.Tithe", abbreviation: "CAIRN.Vald.DayAbbr.Tithe", ordinal: 4 },
+      { name: "CAIRN.Vald.Day.Bathing", abbreviation: "CAIRN.Vald.DayAbbr.Bathing", ordinal: 5 },
+      { name: "CAIRN.Vald.Day.Resting", abbreviation: "CAIRN.Vald.DayAbbr.Resting", ordinal: 6 },
     ],
     // 12 × 24. NOT derived by core — it has to agree with the months above or
     // every single conversion is wrong.
@@ -467,6 +467,8 @@ export const describeTime = () => {
       watchLine,
       dateLine: game.i18n.format("CAIRN.Time.DayCount", { day }),
       seasonLine: "",
+      seasonIcon: "",
+      weather: "",
       tooltip: game.i18n.format("CAIRN.Time.Plain", { day, watch }),
     };
   }
@@ -476,13 +478,21 @@ export const describeTime = () => {
     ? game.i18n.format("CAIRN.Time.SeasonOf", { season: nameOf(season) })
     : "";
   const long = formatValdDate(components);
+  const weather = todayWeather();
   return {
     vald: true,
     watch,
     watchLine,
     dateLine: formatValdDate(components, { short: true }),
     seasonLine,
-    tooltip: [long, seasonLine, watchLine].filter(Boolean).join(" — "),
+    seasonIcon: seasonIconFor(season),
+    // A FOURTH LINE on the clock, present only once the Warden has called the
+    // weather (user ruling, on seeing the panel in place: bolder, and carry the
+    // weather). Absent rather than blank — the clock sits above the player list
+    // and takes the column's slack, so a line that appears grows UPWARD into
+    // empty space and nothing below it moves.
+    weather,
+    tooltip: [long, seasonLine, watchLine, weather].filter(Boolean).join(" — "),
   };
 };
 
@@ -535,6 +545,88 @@ export const weatherTableForToday = () => {
     ? VALD_WEATHER_BY_SEASON
     : CAIRN_WEATHER_BY_SEASON;
   return map[season.name];
+};
+
+/* -------------------------------------------- */
+/*  Season icons                                */
+/* -------------------------------------------- */
+
+/**
+ * Season -> the Font Awesome glyph that stands for it.
+ *
+ * Keyed on the raw `name` FIELD for the same reason the weather map above is:
+ * a localized key would answer differently per client.
+ *
+ * GLYPHS RATHER THAN DRAWN ART, by user ruling: they follow the theme's ink in
+ * both schemes, they cost nothing at load, and they add no row to
+ * `icons/CREDITS.md` or the `ICONS` table — a season icon should not drag a
+ * licence obligation behind it.
+ *
+ * THIS MAP IS THE ONE DECLARATION. The Dashboard's four Vald weather buttons
+ * READ it rather than restating it (user ask: "the same buttons used in the
+ * calendar display"), so the two surfaces cannot drift apart. A literal glyph
+ * written into `VALD_WEATHER_GROUP` is a bug, and `dev:vald-time` reds on it.
+ *
+ * Reclamation takes a star rather than a season's own weather sign: it is not
+ * a season anybody lives through, it is a week the calendar inserts.
+ */
+export const SEASON_ICONS = {
+  "CAIRN.Vald.Season.Dead": "fa-snowflake",
+  "CAIRN.Vald.Season.Dry": "fa-sun",
+  "CAIRN.Vald.Season.Wet": "fa-droplet",
+  "CAIRN.Vald.Season.Harvest": "fa-wheat-awn",
+  "CAIRN.Vald.Season.Reclamation": "fa-star",
+};
+
+/** The glyph for a season entry, or "" for one we do not know. */
+export const seasonIconFor = (season) => SEASON_ICONS[season?.name] ?? "";
+
+/** The season the world is standing in, or undefined. */
+export const currentSeason = (components = game.time.components) => seasonOf(components);
+
+/* -------------------------------------------- */
+/*  The weather of the day                      */
+/* -------------------------------------------- */
+
+const WEATHER_KEY = "vald-weather-today";
+
+/**
+ * One line of weather is plenty. A Warden pasting a paragraph would stretch
+ * every open calendar and the clock panel with it, on every client.
+ */
+export const WEATHER_MAX = 160;
+
+/**
+ * What the sky is doing today, or "" if nobody has said.
+ *
+ * Stored against the ABSOLUTE day number rather than a date, which is what
+ * makes yesterday's weather go stale by itself: nothing has to clear it, and
+ * no hook has to notice midnight. Setting the clock back to a day whose
+ * weather was called does NOT bring it back, and that is the honest reading —
+ * the Warden called the weather once, for the day the table was living in.
+ */
+export const todayWeather = () => {
+  try {
+    const stored = game.settings.get(SETTINGS_NS, WEATHER_KEY);
+    if (!stored || stored.day !== dayCount()) return "";
+    return String(stored.text ?? "");
+  } catch {
+    return "";
+  }
+};
+
+/**
+ * Say what the weather is. Empty puts it back to uncalled.
+ *
+ * Warden only, and the server refuses a player's write to a world setting in
+ * any case — the guard is the affordance, the scope is the enforcement.
+ */
+export const setTodayWeather = async (text) => {
+  if (!requireWarden()) return null;
+  const trimmed = String(text ?? "").trim().slice(0, WEATHER_MAX);
+  return game.settings.set(SETTINGS_NS, WEATHER_KEY, trimmed
+    ? { day: dayCount(), text: trimmed }
+    : { day: 0, text: "" });
 };
 
 /* -------------------------------------------- */
@@ -601,8 +693,12 @@ export const toNextMorning = async () => {
  * `componentsToTime` reads `year` and `day` and IGNORES `month`/`dayOfMonth`
  * entirely (calendar.mjs:96-118), so setting a date means doing this conversion
  * ourselves. A leap year's month lengths differ, hence the flag.
+ *
+ * EXPORTED so the calendar window builds its grid with this arithmetic rather
+ * than a second copy of it. Two copies of a month walk is how a leap week ends
+ * up rendering one day out of step with the clock above it.
  */
-const dayOfYear = (monthIndex, dayOfMonth, leap) => {
+export const dayOfYear = (monthIndex, dayOfMonth, leap) => {
   const months = calendar().months?.values ?? [];
   let day = 0;
   for (let i = 0; i < monthIndex && i < months.length; i++) {
@@ -651,4 +747,76 @@ export const monthChoices = (year = null) => {
   return (cal.months?.values ?? [])
     .map((m, index) => ({ index, label: nameOf(m), days: (leap ? (m.leapDays ?? m.days) : m.days) ?? 0 }))
     .filter((m) => m.days > 0);
+};
+
+/* -------------------------------------------- */
+/*  A month, laid out                           */
+/* -------------------------------------------- */
+
+/** The Reclamation days, by index, for the leap week's own cells. */
+export const reclamationDayName = (index) =>
+  game.i18n.localize(RECLAMATION_DAYS[index] ?? RECLAMATION_DAYS[0]);
+
+/**
+ * One month as a list of days, built from the LIVE calendar.
+ *
+ * Every cell round-trips `componentsToTime -> timeToComponents`, which is the
+ * same arithmetic `dev:vald-time`'s holiday leg checks against the Warden's
+ * Guide. Nothing here reads `VALD_CALENDAR_CONFIG`: a grid that disagreed with
+ * the clock above it would be worse than no grid.
+ *
+ * `leadingBlanks` comes from the first day's weekday and is COMPUTED, never
+ * assumed. Under Vald it is always zero — 24 days to a month and six to a week,
+ * so every month opens on Market Day — but that is a property of this config,
+ * not of calendars, and assuming it would break the first time somebody edits
+ * a month length.
+ *
+ * `seasonBegins` is true on the day a season's first day falls, which is what
+ * makes Vald's mid-month boundaries visible at all. It is read by comparing
+ * against the PREVIOUS day rather than against the config's `dayStart`, so it
+ * stays right under a calendar whose seasons we have never seen.
+ */
+export const buildMonth = ({ year, month }) => {
+  const cal = calendar();
+  const internalYear = Math.round(year) - (cal.years?.yearZero ?? 0);
+  const leap = cal.isLeapYear?.(internalYear) ?? false;
+  const entry = cal.months?.values?.[month];
+  const length = ((leap ? (entry?.leapDays ?? entry?.days) : entry?.days) ?? 0);
+  const perDay = secondsPerDay();
+  const todayTime = game.time.worldTime;
+  const todayIndex = Math.floor(todayTime / perDay);
+
+  const days = [];
+  for (let d = 1; d <= length; d++) {
+    const time = cal.componentsToTime({ year: internalYear, day: dayOfYear(month, d, leap) });
+    const components = cal.timeToComponents(time);
+    const season = cal.seasons?.values?.[components.season];
+    const before = cal.timeToComponents(time - perDay);
+    days.push({
+      dayOfMonth: d,
+      time,
+      absoluteDay: Math.floor(time / perDay),
+      isToday: Math.floor(time / perDay) === todayIndex,
+      weekday: components.dayOfWeek ?? 0,
+      weekdayName: nameOf(cal.days?.values?.[components.dayOfWeek]),
+      seasonKey: season?.name ?? "",
+      seasonName: nameOf(season),
+      seasonIcon: seasonIconFor(season),
+      seasonBegins: !!season?.name && before.season !== components.season,
+      reclamationName: entry?.name === "CAIRN.Vald.Month.Reclamation" ? reclamationDayName(d - 1) : "",
+    });
+  }
+
+  return {
+    year: Math.round(year),
+    month,
+    monthKey: entry?.name ?? "",
+    monthName: nameOf(entry),
+    reclamation: entry?.name === "CAIRN.Vald.Month.Reclamation",
+    leap,
+    length,
+    leadingBlanks: days.length ? new Array(days[0].weekday).fill(0).map((_, i) => i) : [],
+    weekdays: (cal.days?.values ?? []).map((w) => ({ name: nameOf(w), abbr: w.abbreviation ? game.i18n.localize(w.abbreviation) : nameOf(w) })),
+    days,
+  };
 };

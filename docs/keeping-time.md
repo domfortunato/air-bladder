@@ -22,7 +22,12 @@ Weather is rolled **once a day**, not once a watch.
 ## The watch clock
 
 A small panel sits above the player list, and everyone sees it. It shows the
-current watch, and the date underneath.
+current watch, the date underneath, the season, and — once you have called it —
+today's weather.
+
+With the Vald calendar switched on, the panel is also a button: **click it and
+the month calendar opens**. Anyone at the table can do that. It is read-only for
+players, so opening it changes nothing about who moves the clock.
 
 You can turn it off in **Configure Settings → Air Bladder → Configure General**,
 under **Show the watch clock**. That is one switch for the whole table, not a
@@ -57,8 +62,22 @@ clock is already on everyone's screen.
 
 Under the clock is a **Today's Weather** button. It rolls the weather table for
 the season the world is actually in, so you stop having to remember which season
-that is. It behaves like any other table button: click the name to roll, click
-the eye to show the table to the players.
+that is.
+
+It does two things the other table buttons do not, and both are deliberate.
+**The card goes out to everyone**, whatever the visibility dropdown says —
+weather the party is standing in is not a secret. And **the result becomes
+today's weather**: it appears on everybody's clock and on the calendar, and it
+clears itself when the day turns over. If you want a private look at a season's
+weather, roll that season's own table on the Travel tab instead; that one sets
+nothing.
+
+Beside it is **Set the Weather…**, because a d6 of seasonal weather has no row
+for a curse, a spell, or the thing in the valley. Type whatever the sky is
+doing. The season's own six rows are offered as suggestions, so the ordinary
+case is still one keystroke and a pick. **Leave the field empty and the weather
+goes back to uncalled**, which is how you undo a mistake. Nothing is posted to
+chat: the clock and the calendar carry it to everyone already.
 
 ---
 
@@ -115,6 +134,32 @@ costs the party and Vald's for what they see.
 
 **Today's Weather** picks the Vald table while the hack is on, and a Cairn one
 while it is off.
+
+### The calendar on the wall
+
+Click the watch clock, or press **Calendar** on the Dashboard, and the month
+opens: twenty-four days in six columns, today circled, and the day you last
+looked at highlighted. Everyone can open it.
+
+- **Each day is tinted with its season**, and the day a season *begins* carries
+  that season's mark. Vald's seasons turn over in the middle of a month, so this
+  is the only place you can see where the boundary actually falls.
+- **The days with something on them carry a dot.** Click one and its festival is
+  spelled out underneath, in the Warden's Guide's own words. The Splash Festival
+  and the Storm Dance run for three and five days, and every day of the run is
+  marked.
+- **Reclamation**, in a year that has one, is a row of six cells named Recognize
+  through Renew. It belongs to no month, so it sits on its own.
+- Today's weather shows beside the season, for today only. The pencil beside it
+  is yours.
+- **Set the world to this day** is at the foot of the panel and only you see it.
+  Clicking a day never moves the clock — it only opens it — so you can read
+  ahead without touching anything. The watch stays where it was: fixing the date
+  at dusk means the same dusk on another day, not dawn.
+
+The 24 festivals ship in the **Vald** compendium as their own journal entry,
+*Festivals of Vald*, so you can read them straight through, edit them, or hand
+them to your players outside the calendar.
 
 ### Switching it on and off
 

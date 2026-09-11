@@ -47,8 +47,13 @@ const fail = (l, d = "") => { console.log(`  FAIL  ${l.padEnd(50)} ${d}`); failu
 /* ------------------------------------------- the extractor's side, offline -- */
 
 const emitted = { block: new Set(), name: new Set(), pageName: new Set() };
+// COUNTED, never hardcoded. This said "five" until 2026-09-10, when the Vald
+// pack grew its festivals entry and a correct probe went red for a reason that
+// was not a defect. The number is a property of the packs, so read it off them.
+let playerEntries = 0;
 for (const pack of PLAYER_PACKS) {
   for (const { doc } of readPack(pack)) {
+    playerEntries += 1;
     for (const s of stringsFromDoc(doc, pack)) {
       if (s.ns === "journal.block") emitted.block.add(s.en);
       if (s.ns === "journal.name") emitted.name.add(s.en);
@@ -129,9 +134,9 @@ const unmatched = [...new Set(domKeys.blocks)].filter((k) => !emitted.block.has(
 const [enriched, broken] = [unmatched.filter((k) => ENRICHED_DOM.test(k)),
   unmatched.filter((k) => !ENRICHED_DOM.test(k))];
 
-domKeys.rendered === 5
-  ? ok("all five player journals rendered", `${domKeys.blocks.length} block(s) read from the live DOM`)
-  : fail("all five player journals rendered", `${domKeys.rendered} of 5`);
+domKeys.rendered === playerEntries
+  ? ok(`all ${playerEntries} player journals rendered`, `${domKeys.blocks.length} block(s) read from the live DOM`)
+  : fail("every player journal rendered", `${domKeys.rendered} of ${playerEntries}`);
 broken.length === 0
   ? ok("every key the DOM asks for is one the extractor emits", "offline parser and Chromium agree")
   : fail("every key the DOM asks for is one the extractor emits",

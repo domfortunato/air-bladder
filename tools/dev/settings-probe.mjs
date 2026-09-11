@@ -78,8 +78,16 @@ try {
     // `art-migration-generation` joined 2026-08-21 (review #17's generation
     // gate on the art sweep — a Number, not a boolean, so a new rule in the
     // art tables can invalidate old stamps by bumping the constant).
+    // `vald-weather-today` joined 2026-09-10 and is NOT a marker — it is a
+    // RECORD of something that happened at the table, the day's weather as the
+    // Warden called it. It is exempt for the reason that actually applies to
+    // all of these: it postdates the namespace move, so there is no
+    // "cairn.<key>" value for the migration to carry, and listing it would
+    // make that loop iterate a key which cannot exist. It is also worthless to
+    // carry — it goes stale the next day by design.
     const MARKERS = ["roles-restamped", "companion-restamped", "connections-migrated",
-      "grimoire-keys-stamped", "hireling-split", "art-migration-generation"];
+      "grimoire-keys-stamped", "hireling-split", "art-migration-generation",
+      "vald-weather-today"];
     out.unlisted = [...game.settings.settings.keys()]
       .filter((k) => k.startsWith(`${mod.SETTINGS_NS}.`))
       .map((k) => k.slice(mod.SETTINGS_NS.length + 1))

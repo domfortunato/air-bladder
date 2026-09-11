@@ -14,13 +14,21 @@
   Every <button> is type="button" EXPLICITLY. The application element is a
   <form> (`tag: "form"`), so a bare button is a submit button and rolling a
   table would submit the window instead.
+
+  GLYPH, THEN A LEFT-ALIGNED LABEL (user ruling 2026-09-10, "very crowded and
+  difficult to read"). The glyph sits in a fixed-width box so every label on a
+  tab starts at the same x and the eye runs down the column instead of reading
+  each button in turn. Centred runs of text were the actual defect; the gaps
+  were the symptom. Labels WRAP to a second line rather than truncating — a
+  hidden half-label is worse than a taller row, and the CSS lets the pair
+  stretch so the eye still matches the two halves.
 --}}
 <div class="cairn-dashboard-inner">
 
     <nav class="sheet-tabs tabs cairn-dashboard-tabs" data-group="primary">
         {{#each panelList as |panel|}}
             <a class="item {{panel.cssClass}}" data-action="tab" data-group="primary"
-               data-tab="{{panel.id}}">{{localize panel.label}}</a>
+               data-tab="{{panel.id}}"><i class="fa-solid {{panel.icon}}"></i>{{localize panel.label}}</a>
         {{/each}}
     </nav>
 
@@ -46,7 +54,10 @@
                         {{#each panel.tables as |btn|}}
                             <span class="cairn-dashboard-pair">
                                 <button type="button" data-action="rollTable"
-                                        data-table="{{btn.table}}">{{btn.label}}</button>
+                                        data-table="{{btn.table}}">
+                                    <i class="fa-solid {{btn.icon}}"></i>
+                                    <span>{{btn.label}}</span>
+                                </button>
                                 <button type="button" class="cairn-show-btn" data-action="showTable"
                                         data-table="{{btn.table}}"
                                         data-tooltip="{{localize 'CAIRN.Dashboard.ShowTable'}}"
@@ -62,7 +73,10 @@
                         {{#each group.tables as |btn|}}
                             <span class="cairn-dashboard-pair">
                                 <button type="button" data-action="rollTable"
-                                        data-table="{{btn.table}}">{{btn.label}}</button>
+                                        data-table="{{btn.table}}">
+                                    <i class="fa-solid {{btn.icon}}"></i>
+                                    <span>{{btn.label}}</span>
+                                </button>
                                 <button type="button" class="cairn-show-btn" data-action="showTable"
                                         data-table="{{btn.table}}"
                                         data-tooltip="{{localize 'CAIRN.Dashboard.ShowTable'}}"
@@ -77,7 +91,10 @@
                     <div class="cairn-dashboard-grid">
                         {{#each panel.sets as |set|}}
                             <button type="button" data-action="rollSet" data-key="{{set.key}}"
-                                    data-tables="{{set.tables}}">{{set.label}}</button>
+                                    data-tables="{{set.tables}}">
+                                <i class="fa-solid {{set.icon}}"></i>
+                                <span>{{set.label}}</span>
+                            </button>
                         {{/each}}
                     </div>
                 {{/if}}
@@ -87,7 +104,8 @@
                     <div class="cairn-dashboard-grid">
                         {{#each panel.creates as |make|}}
                             <button type="button" data-action="generate" data-gen="{{make.gen}}">
-                                <i class="{{make.icon}}"></i> {{make.label}}
+                                <i class="{{make.icon}}"></i>
+                                <span>{{make.label}}</span>
                             </button>
                         {{/each}}
                     </div>
@@ -106,7 +124,8 @@
     --}}
     <footer class="cairn-dashboard-footer">
         <button type="button" data-action="wardenDamage">
-            <i class="fas fa-skull-crossbones"></i> {{damageLabel}}
+            <i class="fas fa-skull-crossbones"></i>
+            <span>{{damageLabel}}</span>
         </button>
     </footer>
 

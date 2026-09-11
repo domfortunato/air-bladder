@@ -126,6 +126,7 @@ const rerenderActorSheets = () => {
  */
 export const INTERNAL_SETTING_KEYS = [
   "custom-portrait-list", "disabled-backgrounds", "connections-ui-enabled",
+  "vald-weather-today",
 ];
 
 /**
@@ -660,6 +661,31 @@ export const registerSettings = () => {
     // never change what a Warden's table already sees.
     default: false,
     requiresReload: true,
+  });
+
+  // Today's weather, as the Warden called it. INTERNAL — it is a record of
+  // something that happened at the table, not a preference anybody configures,
+  // so it never appears in a menu and is exempt from the membership gate.
+  //
+  // Stored as {day, text} against the ABSOLUTE day number, which is what makes
+  // yesterday's weather go stale with no clearing step and no midnight hook.
+  //
+  // THE `onChange` IS LOAD-BEARING, and this is the contrast with the switch
+  // above. `enable-vald-calendar` deliberately has none: it is read once at
+  // `init` and needs a reload anyway. This one is read by three surfaces that
+  // are already on screen when it changes — the watch clock, the calendar
+  // window and the Dashboard's time band — and a world setting reaches other
+  // clients through its own change handler or not at all. Without it the new
+  // line appears on the Warden's screen alone, until something unrelated
+  // happens to re-render.
+  game.settings.register(SETTINGS_NS, "vald-weather-today", {
+    scope: "world",
+    config: false,
+    type: Object,
+    default: { day: 0, text: "" },
+    onChange: () => {
+      Hooks.callAll("cairnWeatherChanged");
+    },
   });
 
   // ---- Character Generation ------------------------------------------------

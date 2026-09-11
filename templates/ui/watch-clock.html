@@ -5,18 +5,47 @@
   top-level elements fail with "Template part must render a single HTML
   element" and nothing renders at all.
 
-  The season line is CONDITIONAL rather than blank, because an empty div still
-  takes its line-height and would leave a gap under the date whenever the Vald
-  calendar is switched off.
+  Every line below the watch is CONDITIONAL rather than blank, because an
+  empty div still takes its line-height and would leave a gap whenever the
+  Vald calendar is switched off or the Warden has not called the weather.
 
-  No buttons, no links, nothing focusable. Every player sees this, only the
-  Warden may move the clock, and the cheapest way to honour that is to give a
-  player nothing to click. The controls live on the Warden's Dashboard.
+  THE INNER ELEMENT IS A BUTTON ONLY WHERE THERE IS A CALENDAR TO OPEN.
+  This used to say "no buttons, no links, nothing focusable", on the reasoning
+  that only the Warden may move the clock and the cheapest way to honour that
+  is to give a player nothing to click. That reasoning still holds and nothing
+  about it changed: opening the calendar does not move the world, and the
+  calendar itself offers a player no control that does. The clock is simply
+  the door to it (user ruling 2026-09-10). Under Foundry's own calendar there
+  is no door, and this renders exactly as it always did.
+
+  The controls that DO move the clock still live only on the Warden's
+  Dashboard.
 --}}
-<div class="cairn-watch-inner" data-tooltip="{{tooltip}}">
-    <div class="cairn-watch-line cairn-watch-watch">{{watchLine}}</div>
-    <div class="cairn-watch-line cairn-watch-date">{{dateLine}}</div>
-    {{#if seasonLine}}
-        <div class="cairn-watch-line cairn-watch-season">{{seasonLine}}</div>
-    {{/if}}
-</div>
+{{#if calendar}}
+    <button type="button" class="cairn-watch-inner" data-action="openCalendar"
+            data-tooltip="{{tooltip}}" aria-label="{{localize 'CAIRN.Calendar.Open'}}">
+        <i class="fa-solid fa-calendar-days cairn-watch-door" aria-hidden="true"></i>
+        <div class="cairn-watch-line cairn-watch-watch">{{watchLine}}</div>
+        <div class="cairn-watch-line cairn-watch-date">{{dateLine}}</div>
+        {{#if seasonLine}}
+            <div class="cairn-watch-line cairn-watch-season">
+                {{#if seasonIcon}}<i class="fa-solid {{seasonIcon}}"></i>{{/if}}
+                <span>{{seasonLine}}</span>
+            </div>
+        {{/if}}
+        {{#if weather}}
+            <div class="cairn-watch-line cairn-watch-weather">
+                <i class="fa-solid fa-cloud-sun"></i>
+                <span>{{weather}}</span>
+            </div>
+        {{/if}}
+    </button>
+{{else}}
+    <div class="cairn-watch-inner" data-tooltip="{{tooltip}}">
+        <div class="cairn-watch-line cairn-watch-watch">{{watchLine}}</div>
+        <div class="cairn-watch-line cairn-watch-date">{{dateLine}}</div>
+        {{#if seasonLine}}
+            <div class="cairn-watch-line cairn-watch-season">{{seasonLine}}</div>
+        {{/if}}
+    </div>
+{{/if}}

@@ -20,10 +20,11 @@ import { registerWardenDamageControl } from "./warden-damage.js";
 import { registerWardenDashboardControl } from "./warden-dashboard.js";
 import { installWorldCalendar, checkWorldCalendar } from "./game-time.js";
 import { renderWatchClock, refreshWatchClock } from "./watch-clock.js";
+import { refreshValdCalendar } from "./vald-calendar.js";
 import { registerSettings, SETTINGS_NS, SETTING_GROUPS, migrateSettingsNamespace } from "./settings.js";
 import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS, deriveNpcRole } from "./data-models.js";
 import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNERSHIP_SYNC_FLAG } from "./connections.js";
-import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName, actorDisplayName, LOCALIZED_DIRECTORIES } from "./i18n-content.js";
+import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName, actorDisplayName, LOCALIZED_DIRECTORIES, localizeJournalBlocks } from "./i18n-content.js";
 import { injectEncounterButton } from "./encounters.js";
 import { bindGrimoireFatigueButton, localizeGlogCastCard } from "./grimoire.js";
 import { nameableTokens } from "./utils.js";
@@ -105,14 +106,24 @@ Hooks.once("init", async function () {
   // Keep the watch clock in step. AT INIT rather than ready, for the socket
   // handler's reason: a world-time change that arrives while this client is
   // still connecting would otherwise land before anything was listening.
-  Hooks.on("updateWorldTime", () => {
+  const refreshTimeSurfaces = () => {
     refreshWatchClock();
+    refreshValdCalendar();
     // The Dashboard's time band, if a Warden has the window open. Imported
     // lazily so a player's client never loads the dashboard module at all.
     import("./warden-dashboard.js")
       .then(({ refreshDashboardTime }) => refreshDashboardTime())
       .catch((err) => console.error("air-bladder | the dashboard clock failed to follow:", err));
-  });
+  };
+  Hooks.on("updateWorldTime", refreshTimeSurfaces);
+
+  // The Warden called the weather. A WORLD SETTING REACHES OTHER CLIENTS ONLY
+  // THROUGH ITS OWN `onChange` — which is why `vald-weather-today` has one and
+  // `enable-vald-calendar` deliberately does not: the switch is read once at
+  // `init` and requires a reload, while this lands on three surfaces that are
+  // already on screen. The setting's handler fires this hook; this is what
+  // listens for it.
+  Hooks.on("cairnWeatherChanged", refreshTimeSurfaces);
 });
 
 // The settings-namespace migration as a PROMISE the other ready callbacks can
@@ -576,44 +587,6 @@ Hooks.on("renderRollTableSheet", (app) => {
 /* -------------------------------------------- */
 /*  Journals — the player-facing rules handouts */
 /* -------------------------------------------- */
-
-/**
- * Block-level tags a journal page is translated at, ONE lookup per element.
- * MUST stay identical to BLOCK_TAGS in tools/i18n/content-strings.mjs: the
- * extractor emits `node.innerHTML` for exactly these and the overlay is keyed on
- * it, so a tag in one list and not the other is a key nothing ever asks for.
- * `npm run dev:journal-i18n` is what holds the two honest — it collects the real
- * rendered DOM's keys and checks the extractor emits every one.
- */
-const JOURNAL_BLOCKS = "p, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, figcaption";
-
-/**
- * Translate a rendered page's prose, paragraph by paragraph.
- *
- * PARAGRAPH-level, ruled 2026-08-14: a page here is one `text.content` string of
- * up to 14,000 characters, so keying the overlay on the whole page would hand a
- * translator a rulebook page in one cell and orphan all of it on any English
- * edit. Split this way an edit costs only the sentences it touched.
- *
- * Nested blocks are skipped so only the INNERMOST block owns its text — a `<li>`
- * wrapping a nested list yields the inner items, never the outer's concatenation
- * of them, which would otherwise be keyed on a string that is also its own
- * children and fight them at render.
- *
- * `translationOf`, never `t`: the value written to innerHTML is then provably
- * from our own overlay JSON and DOM text can never round-trip back out as
- * markup — the same rule swapResultNode above is written to.
- */
-const localizeJournalBlocks = (root) => {
-  if (!root) return;
-  for (const node of root.querySelectorAll(JOURNAL_BLOCKS)) {
-    if (node.querySelector(JOURNAL_BLOCKS)) continue;
-    const en = node.innerHTML.trim();
-    if (!en) continue;
-    const es = translationOf("journal.block", en);
-    if (es !== undefined && es !== en) node.innerHTML = es;
-  }
-};
 
 /**
  * Every page sheet, whether it is drawn inside its entry's sheet or opened on

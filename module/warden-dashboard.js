@@ -32,7 +32,9 @@ import { openWardenDamage } from "./warden-damage.js";
 import {
   valdEnabled, describeTime, weatherTableForToday, monthChoices, WATCH_KEYS,
   advanceWatch, backWatch, advanceDay, toNextMorning, setDate,
+  SEASON_ICONS, seasonIconFor, currentSeason, setTodayWeather,
 } from "./game-time.js";
+import { openValdCalendar, valdCalendarAvailable, promptSetWeather } from "./vald-calendar.js";
 
 /* -------------------------------------------- */
 /*  What each tab holds                         */
@@ -42,26 +44,41 @@ import {
  * Every button, declared rather than written into the template, so the probe
  * can walk the same list the window renders and a missing table is one edit.
  *
- * `tables` and each group's `tables` are `[i18nKey, tableName]`. The table
- * name is the SHIPPED name; `findTableByName` resolves world-first, so a
+ * `tables` and each group's `tables` are `[i18nKey, tableName, icon]`. The
+ * table name is the SHIPPED name; `findTableByName` resolves world-first, so a
  * Warden who copied a table into their world and edited it gets their own.
+ *
+ * THE GLYPH IS THE THIRD MEMBER rather than a second map, so this stays the
+ * ONE description of a button and the probe keeps walking the list the window
+ * renders. It was added 2026-09-10 after the user's "very crowded and
+ * difficult to read": 45 buttons of centred text in one window read as a wall,
+ * and a glyph column with a LEFT-ALIGNED label beside it makes every label
+ * start at the same x, so the eye runs down the column instead of reading each
+ * button in turn. Centred text was the defect; the gaps were only the symptom.
+ *
+ * A WRONG GLYPH CLASS RENDERS NOTHING AND SAYS NOTHING — no error, no warning,
+ * no fallback mark, just an empty inline box that looks like deliberate
+ * spacing beside the label. So `dev:warden-dashboard` reads
+ * `getComputedStyle(el, "::before").content` rather than the class list it was
+ * handed. Every glyph here is Font Awesome 6 FREE; a Pro-only name fails the
+ * same silent way a typo does.
  */
 const PANELS = {
   travel: {
     tables: [
-      ["CAIRN.Dashboard.Travel.PathDifficulty", "Warden: Travel - Path Difficulty"],
-      ["CAIRN.Dashboard.Travel.PathDistance", "Warden: Travel - Path Distance"],
-      ["CAIRN.Dashboard.Travel.TerrainDifficulty", "Warden: Travel - Terrain Difficulty"],
+      ["CAIRN.Dashboard.Travel.PathDifficulty", "Warden: Travel - Path Difficulty", "fa-route"],
+      ["CAIRN.Dashboard.Travel.PathDistance", "Warden: Travel - Path Distance", "fa-ruler-horizontal"],
+      ["CAIRN.Dashboard.Travel.TerrainDifficulty", "Warden: Travel - Terrain Difficulty", "fa-mountain-sun"],
     ],
     groups: [
       {
         head: "CAIRN.Dashboard.Head.Weather",
         tables: [
-          ["CAIRN.Dashboard.Travel.WeatherDifficulty", "Warden: Weather - Difficulty"],
-          ["CAIRN.Dashboard.Travel.Spring", "Warden: Weather - Spring"],
-          ["CAIRN.Dashboard.Travel.Summer", "Warden: Weather - Summer"],
-          ["CAIRN.Dashboard.Travel.Fall", "Warden: Weather - Fall"],
-          ["CAIRN.Dashboard.Travel.Winter", "Warden: Weather - Winter"],
+          ["CAIRN.Dashboard.Travel.WeatherDifficulty", "Warden: Weather - Difficulty", "fa-cloud-bolt"],
+          ["CAIRN.Dashboard.Travel.Spring", "Warden: Weather - Spring", "fa-seedling"],
+          ["CAIRN.Dashboard.Travel.Summer", "Warden: Weather - Summer", "fa-fire"],
+          ["CAIRN.Dashboard.Travel.Fall", "Warden: Weather - Fall", "fa-leaf"],
+          ["CAIRN.Dashboard.Travel.Winter", "Warden: Weather - Winter", "fa-icicles"],
         ],
       },
     ],
@@ -79,20 +96,20 @@ const PANELS = {
 
   encounters: {
     tables: [
-      ["CAIRN.Dashboard.Encounters.Plains", "Warden: Encounters - Plains"],
-      ["CAIRN.Dashboard.Encounters.Forest", "Warden: Encounters - Forest"],
-      ["CAIRN.Dashboard.Encounters.Hills", "Warden: Encounters - Hills / Mountains"],
-      ["CAIRN.Dashboard.Encounters.Marshlands", "Warden: Encounters - Marshlands / Quagmire"],
-      ["CAIRN.Dashboard.Encounters.Lake", "Warden: Encounters - Lake"],
-      ["CAIRN.Dashboard.Encounters.CityRuins", "Warden: Encounters - City Ruins"],
-      ["CAIRN.Dashboard.Encounters.Dungeon", "Warden: Encounters - Dungeon"],
+      ["CAIRN.Dashboard.Encounters.Plains", "Warden: Encounters - Plains", "fa-wind"],
+      ["CAIRN.Dashboard.Encounters.Forest", "Warden: Encounters - Forest", "fa-tree"],
+      ["CAIRN.Dashboard.Encounters.Hills", "Warden: Encounters - Hills / Mountains", "fa-mountain"],
+      ["CAIRN.Dashboard.Encounters.Marshlands", "Warden: Encounters - Marshlands / Quagmire", "fa-frog"],
+      ["CAIRN.Dashboard.Encounters.Lake", "Warden: Encounters - Lake", "fa-water"],
+      ["CAIRN.Dashboard.Encounters.CityRuins", "Warden: Encounters - City Ruins", "fa-city"],
+      ["CAIRN.Dashboard.Encounters.Dungeon", "Warden: Encounters - Dungeon", "fa-dungeon"],
     ],
     groups: [
       {
         head: "CAIRN.Dashboard.Head.Events",
         tables: [
-          ["CAIRN.Dashboard.Encounters.DungeonEvents", "Warden: Events - Dungeon"],
-          ["CAIRN.Dashboard.Encounters.WildernessEvents", "Warden: Events - Wilderness"],
+          ["CAIRN.Dashboard.Encounters.DungeonEvents", "Warden: Events - Dungeon", "fa-door-open"],
+          ["CAIRN.Dashboard.Encounters.WildernessEvents", "Warden: Events - Wilderness", "fa-campground"],
         ],
       },
     ],
@@ -103,15 +120,15 @@ const PANELS = {
 
   people: {
     tables: [
-      ["CAIRN.Dashboard.People.Reaction", "Warden: NPC - Reactions"],
-      ["CAIRN.Dashboard.People.Wants", "Warden: NPC - What Do They Want?"],
-      ["CAIRN.Dashboard.People.Name", "Warden: NPC - Name"],
-      ["CAIRN.Dashboard.People.Background", "Warden: NPC - Background"],
-      ["CAIRN.Dashboard.People.Goal", "Warden: NPC - Goal"],
-      ["CAIRN.Dashboard.People.Quirk", "Warden: NPC - Quirk"],
-      ["CAIRN.Dashboard.People.Vice", "Warden: NPC - Vice"],
-      ["CAIRN.Dashboard.People.Virtue", "Warden: NPC - Virtue"],
-      ["CAIRN.Dashboard.People.Faction", "Warden: NPC - Faction"],
+      ["CAIRN.Dashboard.People.Reaction", "Warden: NPC - Reactions", "fa-face-smile"],
+      ["CAIRN.Dashboard.People.Wants", "Warden: NPC - What Do They Want?", "fa-comment-dots"],
+      ["CAIRN.Dashboard.People.Name", "Warden: NPC - Name", "fa-signature"],
+      ["CAIRN.Dashboard.People.Background", "Warden: NPC - Background", "fa-book-open"],
+      ["CAIRN.Dashboard.People.Goal", "Warden: NPC - Goal", "fa-bullseye"],
+      ["CAIRN.Dashboard.People.Quirk", "Warden: NPC - Quirk", "fa-masks-theater"],
+      ["CAIRN.Dashboard.People.Vice", "Warden: NPC - Vice", "fa-wine-bottle"],
+      ["CAIRN.Dashboard.People.Virtue", "Warden: NPC - Virtue", "fa-hand-holding-heart"],
+      ["CAIRN.Dashboard.People.Faction", "Warden: NPC - Faction", "fa-flag"],
     ],
     groups: [],
     sets: [
@@ -135,13 +152,13 @@ const PANELS = {
 
   factions: {
     tables: [
-      ["CAIRN.Dashboard.Factions.Agenda", "Warden: Faction - Agenda"],
-      ["CAIRN.Dashboard.Factions.Agent", "Warden: Faction - Agent"],
-      ["CAIRN.Dashboard.Factions.Obstacle", "Warden: Faction - Obstacle"],
-      ["CAIRN.Dashboard.Factions.Advantage", "Warden: Faction - Advantage"],
-      ["CAIRN.Dashboard.Factions.AdvantageCount", "Warden: Faction - Advantage (Count)"],
-      ["CAIRN.Dashboard.Factions.TraitOne", "Warden: Faction - Trait (Trait 1)"],
-      ["CAIRN.Dashboard.Factions.TraitTwo", "Warden: Faction - Trait (Trait 2)"],
+      ["CAIRN.Dashboard.Factions.Agenda", "Warden: Faction - Agenda", "fa-scroll"],
+      ["CAIRN.Dashboard.Factions.Agent", "Warden: Faction - Agent", "fa-user-secret"],
+      ["CAIRN.Dashboard.Factions.Obstacle", "Warden: Faction - Obstacle", "fa-road-barrier"],
+      ["CAIRN.Dashboard.Factions.Advantage", "Warden: Faction - Advantage", "fa-chess-rook"],
+      ["CAIRN.Dashboard.Factions.AdvantageCount", "Warden: Faction - Advantage (Count)", "fa-hashtag"],
+      ["CAIRN.Dashboard.Factions.TraitOne", "Warden: Faction - Trait (Trait 1)", "fa-tag"],
+      ["CAIRN.Dashboard.Factions.TraitTwo", "Warden: Faction - Trait (Trait 2)", "fa-tags"],
     ],
     groups: [],
     sets: [
@@ -162,14 +179,14 @@ const PANELS = {
 
   monsters: {
     tables: [
-      ["CAIRN.Dashboard.Monsters.Physique", "Warden: Monster - Appearance (Physique)"],
-      ["CAIRN.Dashboard.Monsters.Feature", "Warden: Monster - Appearance (Feature)"],
-      ["CAIRN.Dashboard.Monsters.Power", "Warden: Monster - Ability (Power)"],
-      ["CAIRN.Dashboard.Monsters.Target", "Warden: Monster - Ability (Target)"],
-      ["CAIRN.Dashboard.Monsters.AttackType", "Warden: Monster - Attack (Type)"],
-      ["CAIRN.Dashboard.Monsters.CriticalDamage", "Warden: Monster - Attack (Critical Damage)"],
-      ["CAIRN.Dashboard.Monsters.Quirk", "Warden: Monster - Trait (Quirk)"],
-      ["CAIRN.Dashboard.Monsters.Weakness", "Warden: Monster - Trait (Weakness)"],
+      ["CAIRN.Dashboard.Monsters.Physique", "Warden: Monster - Appearance (Physique)", "fa-paw"],
+      ["CAIRN.Dashboard.Monsters.Feature", "Warden: Monster - Appearance (Feature)", "fa-fingerprint"],
+      ["CAIRN.Dashboard.Monsters.Power", "Warden: Monster - Ability (Power)", "fa-bolt"],
+      ["CAIRN.Dashboard.Monsters.Target", "Warden: Monster - Ability (Target)", "fa-crosshairs"],
+      ["CAIRN.Dashboard.Monsters.AttackType", "Warden: Monster - Attack (Type)", "fa-khanda"],
+      ["CAIRN.Dashboard.Monsters.CriticalDamage", "Warden: Monster - Attack (Critical Damage)", "fa-burst"],
+      ["CAIRN.Dashboard.Monsters.Quirk", "Warden: Monster - Trait (Quirk)", "fa-masks-theater"],
+      ["CAIRN.Dashboard.Monsters.Weakness", "Warden: Monster - Trait (Weakness)", "fa-heart-crack"],
     ],
     groups: [],
     sets: [
@@ -210,16 +227,35 @@ const PANELS = {
  */
 const VALD_WEATHER_GROUP = {
   head: "CAIRN.Dashboard.Head.ValdWeather",
+  // THE GLYPHS ARE READ FROM `SEASON_ICONS`, NEVER RESTATED HERE. The user
+  // asked for "the same buttons used in the calendar display", and reading the
+  // map is what makes that true rather than merely true today: a literal
+  // written into this array is a second declaration that will drift, and
+  // `dev:vald-time` reds the moment one appears.
+  //
+  // Cairn's own four seasons above take DIFFERENT glyphs on purpose. Both
+  // groups sit on the Travel tab, and a snowflake in each would collapse two
+  // lists that answer different questions into one.
   tables: [
-    ["CAIRN.Dashboard.Travel.ValdDead", "Warden: Vald - Weather (Dead)"],
-    ["CAIRN.Dashboard.Travel.ValdDry", "Warden: Vald - Weather (Dry)"],
-    ["CAIRN.Dashboard.Travel.ValdWet", "Warden: Vald - Weather (Wet)"],
-    ["CAIRN.Dashboard.Travel.ValdHarvest", "Warden: Vald - Weather (Harvest)"],
+    ["CAIRN.Dashboard.Travel.ValdDead", "Warden: Vald - Weather (Dead)", SEASON_ICONS["CAIRN.Vald.Season.Dead"]],
+    ["CAIRN.Dashboard.Travel.ValdDry", "Warden: Vald - Weather (Dry)", SEASON_ICONS["CAIRN.Vald.Season.Dry"]],
+    ["CAIRN.Dashboard.Travel.ValdWet", "Warden: Vald - Weather (Wet)", SEASON_ICONS["CAIRN.Vald.Season.Wet"]],
+    ["CAIRN.Dashboard.Travel.ValdHarvest", "Warden: Vald - Weather (Harvest)", SEASON_ICONS["CAIRN.Vald.Season.Harvest"]],
   ],
 };
 
 /** Tab order, and the one place a tab id is spelled. */
 const TAB_IDS = ["travel", "encounters", "people", "factions", "monsters", "yours"];
+
+/** A glyph per tab, so the strip reads at a glance when the window is narrow. */
+const TAB_ICONS = {
+  travel: "fa-route",
+  encounters: "fa-paw",
+  people: "fa-users",
+  factions: "fa-flag",
+  monsters: "fa-dragon",
+  yours: "fa-table-list",
+};
 
 /**
  * The generators, resolved lazily.
@@ -252,9 +288,13 @@ const GENERATORS = {
  *
  * `drawn.roll` rather than any roll we made: `draw` reassigns it.
  *
+ * It returns the DRAWN ROWS as well as the message, because Today's Weather
+ * has to store what it rolled. Returning the message alone would have meant a
+ * second draw to find out, which is a second roll and a different answer.
+ *
  * @param {string} name          the table's name, resolved world-first
  * @param {string} messageMode   a key of CONFIG.ChatMessage.modes
- * @returns {Promise<ChatMessage|null>}
+ * @returns {Promise<{message: ChatMessage, results: TableResult[]}|null>}
  */
 const postTableDraw = async (name, messageMode) => {
   const table = await findTableByName(name);
@@ -264,7 +304,7 @@ const postTableDraw = async (name, messageMode) => {
   }
   const drawn = await table.draw({ displayChat: false });
   if (!drawn?.results?.length) return null;
-  return table.toMessage(drawn.results, {
+  const message = await table.toMessage(drawn.results, {
     roll: drawn.roll,
     // The table speaks for itself, under the SAME label its button wears —
     // "Path Difficulty", not the browse name "Warden: Travel - Path
@@ -274,6 +314,7 @@ const postTableDraw = async (name, messageMode) => {
     messageData: { speaker: { alias: labelForTable(table.name) } },
     messageOptions: { messageMode },
   });
+  return { message, results: drawn.results };
 };
 
 /**
@@ -637,7 +678,10 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
       icon: "fas fa-clipboard-list",
       resizable: true,
     },
-    position: { width: 520, height: 620 },
+    // WIDER AND TALLER since 2026-09-10, part of the readability pass: six
+    // tabs then sit on one row instead of wrapping, and the button grid gets
+    // four columns where it had three.
+    position: { width: 640, height: 680 },
     actions: {
       rollTable: WardenDashboard._onRollTable,
       showTable: WardenDashboard._onShowTable,
@@ -649,6 +693,9 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
       advanceDay: WardenDashboard._onAdvanceDay,
       nextMorning: WardenDashboard._onNextMorning,
       setDate: WardenDashboard._onSetDate,
+      rollWeather: WardenDashboard._onRollWeather,
+      setWeather: WardenDashboard._onSetWeather,
+      openCalendar: WardenDashboard._onOpenCalendar,
     },
   };
 
@@ -699,14 +746,17 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
   async _prepareContext(options) {
     const context = await super._prepareContext(options);
     const label = (k) => game.i18n.localize(k);
-    const buttons = (rows) => rows.map(([key, table]) => ({ label: label(key), table }));
+    const buttons = (rows) => rows.map(([key, table, icon]) => ({ label: label(key), table, icon }));
 
     // The Warden's own tables. `game.tables` is world tables only — compendium
     // tables never appear there — so this can never double up a shipped
     // button. Names go through the overlay because they are the Warden's
     // CONTENT, the rule every user-read list of names obeys here.
     const yours = game.tables.contents
-      .map((tbl) => ({ label: t("table.name", tbl.name), table: tbl.name }))
+      // A Warden's own tables declare nothing, so they all wear the same
+      // neutral glyph rather than none — a lone unglyphed column would read as
+      // a rendering fault beside five tabs that have them.
+      .map((tbl) => ({ label: t("table.name", tbl.name), table: tbl.name, icon: "fa-table-list" }))
       .sort((a, b) => a.label.localeCompare(b.label));
 
     // ONE list the template loops, each entry already carrying core's tab
@@ -717,6 +767,7 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
       const panel = PANELS[id] ?? {};
       return {
         ...context.tabs[id],
+        icon: TAB_ICONS[id],
         empty: id === "yours" && !yours.length,
         tables: id === "yours" ? yours : buttons(panel.tables ?? []),
         groups: [
@@ -732,6 +783,7 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
         sets: (panel.sets ?? []).map((s) => ({
           label: label(s.key),
           key: s.key,
+          icon: "fa-layer-group",
           tables: s.tables.join(";"),
         })),
         creates: (panel.creates ?? []).map((c) => ({ ...c, label: label(c.key) })),
@@ -756,6 +808,12 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
     const weather = weatherTableForToday();
     context.weatherTable = weather;
     context.weatherLabel = game.i18n.localize("CAIRN.Time.TodaysWeather");
+    // It wears the glyph of the season it will ACTUALLY roll, read from the
+    // same map the calendar renders from, so the button answers "which season
+    // am I in" before it is even pressed. `fa-cloud-sun` is the fallback for a
+    // calendar whose seasons we do not know.
+    context.weatherIcon = seasonIconFor(currentSeason()) || "fa-cloud-sun";
+    context.calendarOpen = valdCalendarAvailable();
     return context;
   }
 
@@ -821,6 +879,44 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
   /** @this {WardenDashboard} */
   static async _onWardenDamage(event, target) {
     await this._whileDisabled(target, () => openWardenDamage());
+  }
+
+  /**
+   * Today's Weather: roll it, show everyone, and make it the day's weather.
+   *
+   * THREE THINGS, and each is a ruling rather than a convenience.
+   *
+   * It posts CORE'S OWN CARD, through the same `postTableDraw` every other
+   * table button uses — THE RULE at the top of this file is untouched.
+   *
+   * It is PUBLIC regardless of the visibility dropdown, which is the ruling
+   * already made for showing a table to the players: weather the party is
+   * standing in is not secret. A Warden who wants a private look rolls the
+   * season's own table on the Travel tab, which sets nothing.
+   *
+   * And it STORES the drawn row, so the calendar and everyone's clock carry it
+   * until the day turns over. The four Vald season buttons on the Travel tab
+   * still obey the dropdown and store nothing: only Today's Weather is today's
+   * weather.
+   * @this {WardenDashboard}
+   */
+  static async _onRollWeather(event, target) {
+    await this._whileDisabled(target, async () => {
+      const drawn = await postTableDraw(target.dataset.table, "public");
+      const text = drawn?.results?.map((r) => String(r.type === "text" ? r.description : r.name))
+        .map((v) => v.replace(/<[^>]*>/g, "").trim()).filter(Boolean).join(", ");
+      if (text) await setTodayWeather(text);
+    });
+  }
+
+  /** @this {WardenDashboard} */
+  static async _onSetWeather(event, target) {
+    await this._whileDisabled(target, () => promptSetWeather());
+  }
+
+  /** @this {WardenDashboard} */
+  static async _onOpenCalendar(event, target) {
+    await this._whileDisabled(target, () => openValdCalendar());
   }
 
   /* -------------------------------------------- */

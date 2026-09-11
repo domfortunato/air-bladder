@@ -55,6 +55,12 @@ const TRANSLATABLE_JOURNAL_PACKS = new Set(["journals-2e", "journals-glog", "jou
  * no text of their own, and emitting them would key a parent on a string that
  * also exists as its children, so translating the child would leave the parent's
  * copy of it English and the two would fight at render time.
+ *
+ * MUST STAY IDENTICAL to `JOURNAL_BLOCKS` in `module/i18n-content.js` — a tag in
+ * one list and not the other is a key nothing ever asks for. (That constant
+ * lived in `module/cairn.js` until 2026-09-10; it moved beside `translationOf`
+ * when the Vald calendar became a second reader of journal prose.)
+ * `npm run dev:journal-i18n` holds the two honest.
  */
 const BLOCK_TAGS = "p, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, figcaption";
 

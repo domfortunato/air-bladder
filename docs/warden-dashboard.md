@@ -25,8 +25,14 @@ that move them: **Back a Watch**, **Advance a Watch**, **Advance a Day**, **To
 Next Morning** and **Set the Date…**. Everyone at the table sees the clock change
 at once, on the panel above their player list.
 
+With the Vald calendar switched on there is a **Calendar** button too, which
+opens the month grid.
+
 Beneath them, **Today's Weather** rolls the weather for the season you are
-actually in, so you do not have to remember which one that is.
+actually in, so you do not have to remember which one that is. That card always
+goes to everyone, and the result becomes the day's weather on everybody's clock
+and calendar. **Set the Weather…** beside it lets you simply say what the sky is
+doing, for the days no table has a row for.
 
 All of it is explained in [Keeping Time](keeping-time.md), including the Vald
 calendar and why there is no Make Camp button.

@@ -416,6 +416,141 @@ try {
     }
   }
 
+  /* ---- the clock again, in its VALD shape -------------------------------- */
+  //
+  // Four lines instead of two, a season glyph, and — the part that matters for
+  // a colour gate — the inner element becomes a real <button>. Core paints a
+  // button's ground, border and text from a later cascade layer, so without the
+  // system layer's `!important` the clock would render as a chrome button
+  // sitting inside its own panel. That is a light-mode failure by construction,
+  // which is exactly what this gate is for.
+  //
+  // The hack and the day's weather are both SHADOWED, never written: the
+  // world's setting is nobody's business here and the weather is a record of
+  // something that happened at somebody's table.
+  await page.evaluate(async () => {
+    const gt = await import("/systems/air-bladder/module/game-time.js");
+    const settings = game.settings;
+    window.__abRealGet2 = settings.get.bind(settings);
+    window.__abPrevCal2 = [CONFIG.time.worldCalendarConfig, CONFIG.time.worldCalendarClass];
+    settings.get = (ns, key) => {
+      if (ns !== "air-bladder") return window.__abRealGet2(ns, key);
+      if (key === "enable-vald-calendar") return true;
+      if (key === "vald-weather-today") return { day: gt.dayCount(), text: "Thunderstorms" };
+      return window.__abRealGet2(ns, key);
+    };
+    CONFIG.time.worldCalendarConfig = gt.VALD_CALENDAR_CONFIG;
+    CONFIG.time.worldCalendarClass = gt.ValdCalendar;
+    game.time.initializeCalendar();
+  });
+
+  for (const scheme of ["light", "dark"]) {
+    await page.evaluate(async (s) => {
+      const other = s === "dark" ? "light" : "dark";
+      document.body.classList.remove(`theme-${other}`);
+      document.body.classList.add("themed", `theme-${s}`);
+      const wc = await import("/systems/air-bladder/module/watch-clock.js");
+      await wc.refreshWatchClock();
+    }, scheme);
+    await page.waitForTimeout(250);
+    const lines = await page.evaluate(() => ({
+      isButton: !!document.querySelector("#cairn-watch-clock button.cairn-watch-inner"),
+      weather: !!document.querySelector("#cairn-watch-clock .cairn-watch-weather"),
+    }));
+    if (!lines.isButton || !lines.weather) {
+      console.error(`  FAIL  the Vald clock did not render its button and fourth line (${scheme})`);
+      process.exitCode = 1;
+    }
+    await page.evaluate(() => window.__abWarm(document.getElementById("cairn-watch-clock")));
+    const r = await page.evaluate(() => window.__abAudit("#cairn-watch-clock"));
+    if (r.error) throw new Error(r.error);
+    results.push({
+      what: "the watch clock, Vald shape (button, glyph, weather)", label: "WatchClockVald",
+      scheme, simulated: false, text: r.text, borders: r.borders,
+    });
+  }
+
+  await page.evaluate(async () => {
+    if (window.__abRealGet2) game.settings.get = window.__abRealGet2;
+    if (window.__abPrevCal2) {
+      [CONFIG.time.worldCalendarConfig, CONFIG.time.worldCalendarClass] = window.__abPrevCal2;
+      game.time.initializeCalendar();
+    }
+    delete window.__abRealGet2;
+    delete window.__abPrevCal2;
+    const wc = await import("/systems/air-bladder/module/watch-clock.js");
+    await wc.refreshWatchClock();
+  });
+
+  /* ---- the Vald calendar: a sheet, so the palette DOES apply ------------- */
+  //
+  // THE BOUNDARY, MEASURED. The clock above is chrome and reads core's
+  // variables; the calendar is an ordinary framed application sitting on the
+  // sheet ground, so it reads --ab-* throughout — including its five season
+  // tints, which are the first colours here that paint a BACKGROUND a reader
+  // has to see text through. That is exactly the shape that goes wrong in one
+  // scheme only, so both are measured.
+  //
+  // Opened with the hack SHADOWED on, never written: the world's own setting
+  // is nobody's business here and flipping it would require a reload.
+  const calendarOpened = await page.evaluate(async () => {
+    const gt = await import("/systems/air-bladder/module/game-time.js");
+    const vc = await import("/systems/air-bladder/module/vald-calendar.js");
+    const settings = game.settings;
+    window.__abRealGet = settings.get.bind(settings);
+    window.__abPrevCal = [CONFIG.time.worldCalendarConfig, CONFIG.time.worldCalendarClass];
+    settings.get = (ns, key) =>
+      (ns === "air-bladder" && key === "enable-vald-calendar" ? true : window.__abRealGet(ns, key));
+    CONFIG.time.worldCalendarConfig = gt.VALD_CALENDAR_CONFIG;
+    CONFIG.time.worldCalendarClass = gt.ValdCalendar;
+    game.time.initializeCalendar();
+    await vc.openValdCalendar();
+    return !!document.getElementById("cairn-vald-calendar");
+  });
+
+  if (!calendarOpened) {
+    console.error("  FAIL  the Vald calendar did not open — nothing to measure");
+    process.exitCode = 1;
+  } else {
+    for (const scheme of ["light", "dark"]) {
+      await page.evaluate((s) => {
+        const other = s === "dark" ? "light" : "dark";
+        document.body.classList.remove(`theme-${other}`);
+        document.body.classList.add("themed", `theme-${s}`);
+      }, scheme);
+      // RE-RENDER AFTER THE SWITCH, and this is not belt-and-braces. An element
+      // that existed before the body's theme class changed keeps its RESOLVED
+      // colours: `getComputedStyle(el).getPropertyValue("--ab-ink")` reports the
+      // new light value while `color` still paints the old dark one, and setting
+      // the custom property inline on that element changes nothing. Measured
+      // 2026-09-10 — the calendar reported five light-mode findings that did not
+      // exist, all of them the previous scheme's paint. A freshly created element
+      // beside the stale one read correctly, which is what told the two apart.
+      await page.evaluate(async () => {
+        await foundry.applications.instances.get("cairn-vald-calendar")?.render();
+      });
+      await page.waitForTimeout(250);
+      await page.evaluate(() => window.__abWarm(document.getElementById("cairn-vald-calendar")));
+      const r = await page.evaluate(() => window.__abAudit("#cairn-vald-calendar"));
+      if (r.error) throw new Error(r.error);
+      results.push({
+        what: "the Vald calendar", label: "ValdCalendar", scheme, simulated: false,
+        text: r.text, borders: r.borders,
+      });
+    }
+  }
+
+  await page.evaluate(async () => {
+    foundry.applications.instances.get("cairn-vald-calendar")?.close();
+    if (window.__abRealGet) game.settings.get = window.__abRealGet;
+    if (window.__abPrevCal) {
+      [CONFIG.time.worldCalendarConfig, CONFIG.time.worldCalendarClass] = window.__abPrevCal;
+      game.time.initializeCalendar();
+    }
+    delete window.__abRealGet;
+    delete window.__abPrevCal;
+  });
+
   await page.evaluate(async ([a, n, w, owned, b]) => {
     if (!owned) await game.items.get(w)?.delete();
     await game.items.get(b)?.delete();

@@ -78,6 +78,16 @@
     --ab-accent-wash: rgba(18, 163, 180, 0.12);   /* fatigue-row tint */
     --ab-ok-wash: rgba(34, 170, 102, 0.18);       /* snapshot chip fill */
 
+    /* The Vald calendar's season tints. FAINT on purpose: the grid has to stay
+       readable first, and the tint exists to make a MID-MONTH season boundary
+       visible at all — the glyph on the boundary day states it outright for
+       anyone who cannot see the difference. */
+    --ab-season-dead: rgba(120, 150, 190, 0.12);
+    --ab-season-dry: rgba(200, 160, 80, 0.12);
+    --ab-season-wet: rgba(80, 140, 190, 0.12);
+    --ab-season-harvest: rgba(190, 150, 60, 0.14);
+    --ab-season-reclamation: rgba(150, 120, 190, 0.14);
+
     /* Whisper tiles. Core paints every whispered message a cool lavender
        (--color-whisper-background #e8e8ef, foundry2.css:513) that clashes with
        the warm parchment of every other tile. These keep a whisper distinct but
@@ -156,6 +166,13 @@
        invisible against a near-black backdrop. */
     --ab-accent-wash: rgba(53, 200, 218, 0.18);
     --ab-ok-wash: rgba(79, 208, 138, 0.22);
+
+    /* The season tints go up for the same reason the washes above do. */
+    --ab-season-dead: rgba(140, 175, 215, 0.18);
+    --ab-season-dry: rgba(220, 180, 100, 0.18);
+    --ab-season-wet: rgba(100, 165, 215, 0.18);
+    --ab-season-harvest: rgba(215, 175, 80, 0.20);
+    --ab-season-reclamation: rgba(175, 145, 215, 0.20);
 
     /* --ab-whisper-bg/border are deliberately NOT overridden here — see the
        light block: the chat tile they paint is parchment in both themes. */
@@ -3684,16 +3701,55 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     flex-wrap: wrap;
 }
 
+/* WIDER CELLS AND LOOSER ROWS since 2026-09-10 (user: "very crowded and
+   difficult to read"). Rows are gapped more than columns on purpose, so a row
+   reads as a row rather than as part of a field of buttons. */
 .cairn-dashboard .cairn-dashboard-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 4px;
-    margin-bottom: 8px;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 8px 6px;
+    margin-bottom: 14px;
+    align-items: stretch;
 }
 
+/* GLYPH, THEN A LEFT-ALIGNED LABEL. Every label on a tab starts at the same x
+   because the glyph sits in a fixed 1.1em box, which is what lets the eye run
+   down the column instead of reading each button.
+
+   THE HEIGHT OVERRIDE IS LOAD-BEARING, not tidying. Core pins every <button>
+   to `height: var(--button-size)` with a matching min-height (foundry2.css,
+   @layer elements.forms), overflow stays visible, and a label that wraps to a
+   second line is therefore DRAWN OUTSIDE its own button — no error, no
+   clipping, nothing in the console. `dev:warden-dashboard` measures
+   scrollHeight against clientHeight on every button rather than trusting this
+   rule to have applied. */
 .cairn-dashboard .cairn-dashboard-grid button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
     width: 100%;
+    height: auto;
+    min-height: var(--button-size, 32px);
     margin: 0;
+    padding: 4px 8px;
+    text-align: left;
+    line-height: 1.2;
+}
+
+.cairn-dashboard .cairn-dashboard-grid button > i {
+    flex: 0 0 1.1em;
+    width: 1.1em;
+    text-align: center;
+}
+
+/* Labels WRAP rather than truncate: a hidden half-label is worse than a taller
+   row, and the pair stretches so the two halves still read as one control. */
+.cairn-dashboard .cairn-dashboard-grid button > span {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 /* A table button is a PAIR: the name rolls it, the eye shows it to the
@@ -3712,15 +3768,28 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     min-width: 0;
 }
 
+/* The eye loses its border and becomes a quiet glyph that lights on hover and
+   on focus. It is ALWAYS present — hiding it until hover costs discoverability
+   and does nothing at all on a touch screen. */
 .cairn-dashboard .cairn-dashboard-pair > .cairn-show-btn {
     flex: 0 0 26px;
     width: 26px;
+    min-height: 0;
     padding: 0;
-    opacity: 0.75;
+    justify-content: center;
+    border: none;
+    background: none;
+    opacity: 0.6;
 }
 
-.cairn-dashboard .cairn-dashboard-pair > .cairn-show-btn:hover {
+.cairn-dashboard .cairn-dashboard-pair > .cairn-show-btn > i {
+    flex: 0 0 auto;
+}
+
+.cairn-dashboard .cairn-dashboard-pair > .cairn-show-btn:hover,
+.cairn-dashboard .cairn-dashboard-pair > .cairn-show-btn:focus-visible {
     opacity: 1;
+    background: var(--ab-wash-strong);
 }
 
 /* The popup every client opens when a table is shown, and the chat card that
@@ -3769,12 +3838,12 @@ ol.combat-tracker li.combatant.cairn-drop-below {
 }
 
 .cairn-dashboard .cairn-dashboard-head {
-    margin: 10px 0 4px;
+    margin: 18px 0 8px;
     padding-bottom: 2px;
     border-bottom: 1px solid var(--ab-hairline);
     font-size: 13px;
     font-weight: 600;
-    color: var(--ab-ink-muted);
+    color: var(--ab-muted);
 }
 
 .cairn-dashboard .cairn-dashboard-visibility {
@@ -3839,29 +3908,58 @@ ol.combat-tracker li.combatant.cairn-drop-below {
 .cairn-dashboard .cairn-time-date,
 .cairn-dashboard .cairn-time-season {
     font-weight: 400;
-    color: var(--ab-ink-muted);
+    color: var(--ab-muted);
 }
 
 .cairn-dashboard .cairn-time-sep {
     color: var(--ab-faint);
 }
 
-/* The five controls reflow the way the table grids do, so a narrowed window
+/* The controls reflow the way the table grids do, so a narrowed window
    re-columns them instead of scrolling sideways. */
 .cairn-dashboard .cairn-time-controls {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-    gap: 4px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
 }
 
-.cairn-dashboard .cairn-time-controls button {
-    width: 100%;
+.cairn-dashboard .cairn-time-controls button,
+.cairn-dashboard .cairn-time-say-weather {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    flex: 1 1 130px;
+    height: auto;
+    min-height: var(--button-size, 32px);
     margin: 0;
+    padding: 4px 8px;
+    text-align: left;
+    line-height: 1.2;
+}
+
+.cairn-dashboard .cairn-time-controls button > i,
+.cairn-dashboard .cairn-time-say-weather > i {
+    flex: 0 0 1.1em;
+    width: 1.1em;
+    text-align: center;
+}
+
+.cairn-dashboard .cairn-time-controls button > span,
+.cairn-dashboard .cairn-time-say-weather > span {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 .cairn-dashboard .cairn-time-weather {
-    margin-top: 4px;
+    margin-top: 8px;
     margin-bottom: 0;
+}
+
+.cairn-dashboard .cairn-time-today-weather {
+    font-style: italic;
 }
 
 /* ---- The watch clock ------------------------------------------------------
@@ -3887,6 +3985,7 @@ ol.combat-tracker li.combatant.cairn-drop-below {
    `justify-content: space-between` has none left to redistribute — without it
    a third child pushes the player list into the middle of the screen. */
 .cairn-watch-clock {
+    position: relative; /* the calendar door is absolutely placed in the corner */
     pointer-events: all;
     flex: none;
     width: 200px;
@@ -3899,20 +3998,299 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     font-size: var(--font-size-12);
 }
 
+/* BOLDER, AND IT CARRIES THE WEATHER (user ruling, on seeing it in place).
+   Bigger here means taller and heavier type, never wider: the 200px is pinned
+   to #players-active so the two line up, and growing sideways would break that.
+
+   A FOURTH LINE IS SAFE BECAUSE OF WHERE THIS SITS. The panel is ABOVE
+   #players and takes the column's slack with `margin-top: auto`, so a line
+   that appears grows UPWARD into empty space and the player list does not
+   move. `dev:vald-time` measures the player list's position before and after
+   the Warden calls the weather, because that is the only way to know. */
+/* Under Vald this element is a real <button>, so its chrome is stated away
+   explicitly — otherwise the panel would have a button drawn inside itself.
+   Core pins a button's HEIGHT from a later layer, which is why `height: auto`
+   and `min-height: 0` are here; the colours need no `!important` (measured —
+   see the calendar's day cell for the full note). */
 .cairn-watch-clock .cairn-watch-inner {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 2px;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    text-align: left;
+    font-family: inherit;
+    font-size: inherit;
+}
+
+/* The door to the calendar, top-right of the panel and out of the text's way.
+   Only rendered when there is a calendar to open. */
+.cairn-watch-clock .cairn-watch-door {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    opacity: 0.5;
+}
+
+.cairn-watch-clock button.cairn-watch-inner {
+    cursor: pointer;
+}
+
+.cairn-watch-clock button.cairn-watch-inner:hover .cairn-watch-door,
+.cairn-watch-clock button.cairn-watch-inner:focus-visible .cairn-watch-door {
+    opacity: 1;
 }
 
 .cairn-watch-clock .cairn-watch-watch {
-    font-weight: 600;
+    font-weight: 700;
+    font-size: var(--font-size-14);
+    line-height: 1.2;
     color: var(--color-text-primary);
 }
 
 .cairn-watch-clock .cairn-watch-date,
-.cairn-watch-clock .cairn-watch-season {
+.cairn-watch-clock .cairn-watch-season,
+.cairn-watch-clock .cairn-watch-weather {
     color: var(--color-text-secondary);
+}
+
+.cairn-watch-clock .cairn-watch-season,
+.cairn-watch-clock .cairn-watch-weather {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+}
+
+.cairn-watch-clock .cairn-watch-weather {
+    font-style: italic;
+}
+
+/* ---- The Vald calendar ----------------------------------------------------
+   A month grid, today circled and the day you picked highlighted. Two markers
+   rather than one, because "what day is it" and "what am I reading about" are
+   different questions and a single marker answers neither well.
+
+   Season tints are the only place a Vald season paints anything. They are
+   deliberately faint: the grid has to stay readable first, and the tint is
+   there to make a MID-MONTH season boundary visible at all — which the icon on
+   the boundary day states outright for anyone who cannot see the difference. */
+.cairn-vald-calendar .cairn-calendar-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    height: 100%;
+    min-height: 0;
+}
+
+.cairn-vald-calendar .cairn-calendar-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.cairn-vald-calendar .cairn-calendar-title {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.cairn-vald-calendar .cairn-calendar-year {
+    color: var(--ab-muted);
+    font-size: 14px;
+}
+
+.cairn-vald-calendar .cairn-calendar-step,
+.cairn-vald-calendar .cairn-calendar-pencil {
+    flex: 0 0 auto;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--ab-ink);
+    opacity: 0.7;
+}
+
+.cairn-vald-calendar .cairn-calendar-step {
+    width: 32px;
+}
+
+.cairn-vald-calendar .cairn-calendar-step:hover,
+.cairn-vald-calendar .cairn-calendar-step:focus-visible,
+.cairn-vald-calendar .cairn-calendar-pencil:hover,
+.cairn-vald-calendar .cairn-calendar-pencil:focus-visible {
+    opacity: 1;
+}
+
+.cairn-vald-calendar .cairn-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 3px;
+}
+
+.cairn-vald-calendar .cairn-calendar-weekday {
+    padding: 2px 0;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ab-muted);
+}
+
+.cairn-vald-calendar .cairn-calendar-blank {
+    min-height: 1px;
+}
+
+/* A day is a BUTTON so it is reachable from the keyboard. Its ground, text and
+   border are stated explicitly rather than inherited, because core gives every
+   button a chrome appearance and a cell has to look like a cell.
+
+   NO `!important` HERE, and that is a measured result rather than an omission.
+   These declarations were shipped with `!important` for a day on the reading
+   that core's chrome, being in a later cascade layer, was winning — which is
+   true of a button's HEIGHT (see the dashboard grid above) and was NOT true of
+   its colours. The evidence had looked conclusive and was an artefact: an app
+   rendered under one theme keeps its RESOLVED colours when the body's theme
+   class changes, so every reading taken without re-rendering was the previous
+   scheme's paint. `dev:theme` re-renders now and carries the note. A correct
+   fix resting on a wrong cause is how the next person deletes a real one. */
+.cairn-vald-calendar .cairn-calendar-day {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    height: auto;
+    min-height: 42px;
+    margin: 0;
+    padding: 2px;
+    border: 1px solid var(--ab-hairline);
+    border-radius: 4px;
+    background: none;
+    color: var(--ab-ink);
+    font-size: 13px;
+    line-height: 1.1;
+}
+
+.cairn-vald-calendar .cairn-calendar-day:hover {
+    border-color: var(--ab-muted);
+}
+
+.cairn-vald-calendar .cairn-calendar-day.is-today .cairn-calendar-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.7em;
+    height: 1.7em;
+    padding: 0 0.2em;
+    border: 2px solid var(--ab-accent);
+    border-radius: 999px;
+    font-weight: 700;
+}
+
+.cairn-vald-calendar .cairn-calendar-day.is-selected {
+    border-color: var(--ab-accent);
+    box-shadow: inset 0 0 0 1px var(--ab-accent);
+}
+
+.cairn-vald-calendar .cairn-calendar-season-mark {
+    font-size: 10px;
+    opacity: 0.8;
+}
+
+.cairn-vald-calendar .cairn-calendar-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 999px;
+    background: currentColor;
+    opacity: 0.7;
+}
+
+/* The four seasons, faint. --ab-* tokens only, per docs/theming.md: this is a
+   sheet-style window and not Foundry chrome, unlike the watch clock. */
+.cairn-vald-calendar .cairn-season-dead { background: var(--ab-season-dead); }
+.cairn-vald-calendar .cairn-season-dry { background: var(--ab-season-dry); }
+.cairn-vald-calendar .cairn-season-wet { background: var(--ab-season-wet); }
+.cairn-vald-calendar .cairn-season-harvest { background: var(--ab-season-harvest); }
+.cairn-vald-calendar .cairn-season-reclamation { background: var(--ab-season-reclamation); }
+
+.cairn-vald-calendar .cairn-calendar-panel {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden auto;
+    padding-top: 6px;
+    border-top: 1px solid var(--ab-hairline);
+}
+
+.cairn-vald-calendar .cairn-calendar-date {
+    margin: 0 0 2px;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.cairn-vald-calendar .cairn-calendar-season,
+.cairn-vald-calendar .cairn-calendar-weather {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 4px;
+    color: var(--ab-muted);
+    font-size: 13px;
+}
+
+.cairn-vald-calendar .cairn-calendar-begins {
+    font-size: 12px;
+}
+
+.cairn-vald-calendar .cairn-calendar-pencil {
+    width: 24px;
+    height: 24px;
+    min-height: 0;
+}
+
+.cairn-vald-calendar .cairn-calendar-festival h4 {
+    margin: 8px 0 2px;
+    font-size: 14px;
+}
+
+.cairn-vald-calendar .cairn-calendar-span,
+.cairn-vald-calendar .cairn-calendar-quiet,
+.cairn-vald-calendar .cairn-calendar-note {
+    margin: 0 0 4px;
+    color: var(--ab-muted);
+    font-size: 12px;
+    font-style: italic;
+}
+
+.cairn-vald-calendar .cairn-calendar-festival-text p {
+    margin: 0 0 6px;
+}
+
+.cairn-vald-calendar .cairn-calendar-foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.cairn-vald-calendar .cairn-calendar-foot button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 auto;
+    height: auto;
+    min-height: var(--button-size, 32px);
+    margin: 0;
+    padding: 4px 8px;
+    line-height: 1.2;
 }
 
 /* ---- The offer picker's filter --------------------------------------------
@@ -3932,7 +4310,7 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     border-bottom: 1px solid var(--ab-line);
     font-size: 12px;
     font-weight: 600;
-    color: var(--ab-ink-muted);
+    color: var(--ab-muted);
 }
 
 .cairn-offer-picker .cairn-offer-group:first-of-type {

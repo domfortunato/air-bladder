@@ -62,7 +62,13 @@ try {
     out.rendered = !!app;
     if (app) {
       out.tabs = [...app.querySelectorAll('.tabs [data-action="tab"]')].map((a) => a.dataset.tab);
-      out.buttons = app.querySelectorAll('button[data-action="rollTable"]').length;
+      // `rollWeather` counts: Today's Weather IS a table button — it posts
+      // core's card through the same helper — it simply also stores what it
+      // rolled and forces the card public. Counting only `rollTable` would
+      // have quietly dropped it out of both this count and the pair
+      // invariant below, which is the half that would have gone unnoticed.
+      out.buttons = app.querySelectorAll(
+        'button[data-action="rollTable"], button[data-action="rollWeather"]').length;
       out.sets = app.querySelectorAll('button[data-action="rollSet"]').length;
       out.creates = app.querySelectorAll('button[data-action="generate"]').length;
       out.damage = app.querySelectorAll('button[data-action="wardenDamage"]').length;
@@ -276,11 +282,13 @@ try {
     const select = app.querySelector("[name=messageMode]");
     select.value = "gm";
     const t0 = game.time.worldTime;
-    await game.time.advance(8 * 3600);
-    // Poll for the band to actually redraw, so this is not a race: read the
-    // band's text until it changes, then check the dropdown.
+    // READ THE BAND BEFORE THE ADVANCE. Reading it after meant the redraw could
+    // already have happened while `advance` was resolving, so `before` was the
+    // NEW text, the poll loop saw no change, and the leg reported the band as
+    // dead. A leg that depends on losing a race is not a leg.
     const bandText = () => app.querySelector(".cairn-time-read")?.innerText;
     const before = bandText();
+    await game.time.advance(8 * 3600);
     for (let i = 0; i < 60 && bandText() === before; i++) {
       await new Promise((r) => setTimeout(r, 100));
     }
@@ -310,7 +318,8 @@ try {
     const app = document.querySelector("#cairn-warden-dashboard");
     const pairs = app.querySelectorAll(".cairn-dashboard-pair");
     return {
-      rollButtons: app.querySelectorAll('button[data-action="rollTable"]').length,
+      rollButtons: app.querySelectorAll(
+        'button[data-action="rollTable"], button[data-action="rollWeather"]').length,
       showButtons: app.querySelectorAll('button[data-action="showTable"]').length,
       pairs: pairs.length,
       // An eye anywhere inside a set or generator cell would mean the template
@@ -325,6 +334,137 @@ try {
   eyes.strays === 0
     ? ok("...and no combined draw or generator has one")
     : fail("...and no combined draw or generator has one", `${eyes.strays} strays`);
+
+  /* ---- the readability pass: a glyph on every button, and nothing clips -- */
+
+  // A WRONG OR PRO-ONLY FONT AWESOME CLASS RENDERS NOTHING AND SAYS NOTHING —
+  // no error, no warning, no fallback mark, just an empty inline box that
+  // reads as deliberate spacing beside the label. So this reads the RESOLVED
+  // glyph. "the button has an <i>" and "the class list is what I wrote" both
+  // pass under the very bug this is written for.
+  const glyphs = await page.evaluate(() => {
+    const app = document.querySelector("#cairn-warden-dashboard");
+    const out = { missing: [], empty: [], clipped: [], total: 0 };
+    // Every tab, not just the visible one: a hidden pane reports zeroes, so
+    // each is shown in turn and put back.
+    const panes = [...app.querySelectorAll('.tab[data-group="primary"]')];
+    const restore = panes.map((p) => p.className);
+    for (const pane of panes) {
+      panes.forEach((p) => p.classList.remove("active"));
+      pane.classList.add("active");
+      for (const btn of pane.querySelectorAll("button")) {
+        out.total += 1;
+        const i = btn.querySelector("i");
+        if (!i) { out.missing.push(btn.innerText.trim().slice(0, 24)); continue; }
+        const content = getComputedStyle(i, "::before").content;
+        if (!content || content === "none" || content === '""') {
+          out.empty.push(`${btn.innerText.trim().slice(0, 20)}: ${[...i.classList].join(".")}`);
+        }
+        // Nothing may clip. Core pins every <button> to --button-size with
+        // overflow visible, so a wrapped label is DRAWN OUTSIDE the button
+        // with no clipping and nothing in the console — measure, never trust
+        // the override to have applied.
+        if (btn.scrollHeight > btn.clientHeight + 1) {
+          out.clipped.push(`${btn.innerText.trim().slice(0, 20)} ${btn.scrollHeight}>${btn.clientHeight}`);
+        }
+      }
+    }
+    panes.forEach((p, n) => { p.className = restore[n]; });
+    // The band above the tabs is always visible, so it is measured plainly.
+    for (const btn of app.querySelectorAll(".cairn-dashboard-time button")) {
+      out.total += 1;
+      const i = btn.querySelector("i");
+      if (!i) { out.missing.push(`band: ${btn.innerText.trim().slice(0, 24)}`); continue; }
+      const content = getComputedStyle(i, "::before").content;
+      if (!content || content === "none" || content === '""') {
+        out.empty.push(`band ${btn.innerText.trim().slice(0, 20)}: ${[...i.classList].join(".")}`);
+      }
+      if (btn.scrollHeight > btn.clientHeight + 1) {
+        out.clipped.push(`band ${btn.innerText.trim().slice(0, 20)}`);
+      }
+    }
+    return out;
+  });
+
+  glyphs.missing.length === 0 && glyphs.total > 45
+    ? ok("every button on every tab carries a glyph", `${glyphs.total} buttons`)
+    : fail("a button with no glyph", JSON.stringify({ total: glyphs.total, missing: glyphs.missing.slice(0, 6) }));
+
+  glyphs.empty.length === 0
+    ? ok("...and every one of them RESOLVES to a real mark", "read from ::before, not the class list")
+    : fail("glyphs that render nothing", JSON.stringify(glyphs.empty.slice(0, 8)));
+
+  glyphs.clipped.length === 0
+    ? ok("...and no button clips its label", "measured, not assumed")
+    : fail("buttons clipping their labels", JSON.stringify(glyphs.clipped.slice(0, 8)));
+
+  // THE ONE THAT GUARDS THE USER'S ASK. "the same buttons used in the calendar
+  // display" is only true if the Dashboard READS `SEASON_ICONS` rather than
+  // restating it, so this compares the rendered classes against the map read
+  // in-page. A literal written into VALD_WEATHER_GROUP reds it.
+  const valdGlyphs = await page.evaluate(async () => {
+    const gt = await import("/systems/air-bladder/module/game-time.js");
+    const settings = game.settings;
+    const realGet = settings.get.bind(settings);
+    settings.get = (ns, key) =>
+      (ns === "air-bladder" && key === "enable-vald-calendar" ? true : realGet(ns, key));
+    try {
+      const app = foundry.applications.instances.get("cairn-warden-dashboard");
+      await app.render();
+      const el = app.element;
+      const want = {
+        Dead: gt.SEASON_ICONS["CAIRN.Vald.Season.Dead"],
+        Dry: gt.SEASON_ICONS["CAIRN.Vald.Season.Dry"],
+        Wet: gt.SEASON_ICONS["CAIRN.Vald.Season.Wet"],
+        Harvest: gt.SEASON_ICONS["CAIRN.Vald.Season.Harvest"],
+      };
+      const got = {};
+      for (const season of Object.keys(want)) {
+        const btn = el.querySelector(`button[data-table="Warden: Vald - Weather (${season})"]`);
+        const i = btn?.querySelector("i");
+        got[season] = i ? [...i.classList].find((c) => c.startsWith("fa-") && c !== "fa-solid") : null;
+      }
+      // Cairn's own four must take DIFFERENT glyphs: both groups sit on the
+      // Travel tab, and a snowflake in each collapses them into one list.
+      const cairn = ["Spring", "Summer", "Fall", "Winter"].map((s) => {
+        const i = el.querySelector(`button[data-table="Warden: Weather - ${s}"] i`);
+        return i ? [...i.classList].find((c) => c.startsWith("fa-") && c !== "fa-solid") : null;
+      });
+      return { want, got, cairn };
+    } finally {
+      settings.get = realGet;
+      await foundry.applications.instances.get("cairn-warden-dashboard")?.render();
+    }
+  });
+
+  JSON.stringify(valdGlyphs.got) === JSON.stringify(valdGlyphs.want)
+    ? ok("the four Vald weather buttons wear the calendar's own season glyphs",
+      Object.values(valdGlyphs.want).join(" "))
+    : fail("the Vald glyphs are restated, not read", JSON.stringify(valdGlyphs));
+
+  valdGlyphs.cairn.every((g) => g && !Object.values(valdGlyphs.want).includes(g))
+    ? ok("...and Cairn's own four take different glyphs beside them", valdGlyphs.cairn.join(" "))
+    : fail("Cairn's seasons share a glyph with Vald's", JSON.stringify(valdGlyphs.cairn));
+
+  // The width was raised to 640 so six tabs fit one row and the grid gets four
+  // columns. Measured, because "it looks fine here" is not an assertion.
+  const layout = await page.evaluate(() => {
+    const app = document.querySelector("#cairn-warden-dashboard");
+    const tabs = [...app.querySelectorAll('.tabs [data-action="tab"]')];
+    const tops = new Set(tabs.map((a) => Math.round(a.getBoundingClientRect().top)));
+    const grid = app.querySelector('.tab.active .cairn-dashboard-grid')
+      ?? app.querySelector(".cairn-dashboard-grid");
+    const cols = grid ? getComputedStyle(grid).gridTemplateColumns.split(" ").length : 0;
+    return { rows: tops.size, cols };
+  });
+
+  layout.rows === 1
+    ? ok("the six tabs sit on one row at the default width")
+    : fail("the tab strip wraps", `${layout.rows} rows`);
+
+  layout.cols >= 4
+    ? ok("...and the button grid renders four columns", `${layout.cols}`)
+    : fail("the grid is narrower than four columns", String(layout.cols));
 
   // THE RULING THIS PROTECTS: a reveal is public. The dropdown is set to a
   // PRIVATE mode first, so a handler that read `_messageMode` would whisper

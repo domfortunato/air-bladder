@@ -191,4 +191,13 @@ two agreeing in every theme, for free, and it is still no literal colours.
 
 The rule this qualifies is "every colour a SHEET picks goes in an `--ab-*` token".
 Anything we add to Foundry's own chrome follows the chrome. `dev:theme` reads the
-clock's contrast in both schemes.
+clock's contrast in both schemes, including the season and weather lines added
+2026-09-10 and the calendar glyph in its corner — all of which follow the same
+chrome variables the lines above them do.
+
+**The Vald calendar window is NOT exempt**, and the boundary is worth stating
+because the two shipped together. `.cairn-vald-calendar` is an ordinary framed
+application: it sits on the sheet ground, not on Foundry's chrome, so it reads
+`--ab-*` throughout. Its five season tints are tokens like everything else
+(`--ab-season-dead` and its four siblings, defined in both palettes and
+deliberately stronger in dark, for the reason `--ab-accent-wash` is).

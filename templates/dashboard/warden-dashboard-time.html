@@ -17,8 +17,12 @@
   calendar; the party decides whether they camped.
 
   Today's Weather renders only when the calendar in play HAS a season we know a
-  table for, and it is an ordinary rollTable button so it posts core's own card
-  — see THE RULE in warden-dashboard.js.
+  table for. It is `rollWeather` rather than `rollTable` because it does two
+  more things than an ordinary button — the card goes out PUBLIC whatever the
+  dropdown says, and the drawn row becomes the day's weather on everyone's
+  calendar — but it still posts CORE'S OWN card through the same helper, so
+  THE RULE in warden-dashboard.js is untouched. It keeps its eye, so the
+  probe's show/roll invariant still holds.
 --}}
 <div class="cairn-dashboard-time">
 
@@ -28,30 +32,55 @@
         <span class="cairn-time-date">{{time.dateLine}}</span>
         {{#if time.seasonLine}}
             <span class="cairn-time-sep">·</span>
-            <span class="cairn-time-season">{{time.seasonLine}}</span>
+            <span class="cairn-time-season">
+                {{#if time.seasonIcon}}<i class="fa-solid {{time.seasonIcon}}"></i>{{/if}}
+                {{time.seasonLine}}
+            </span>
+        {{/if}}
+        {{#if time.weather}}
+            <span class="cairn-time-sep">·</span>
+            <span class="cairn-time-today-weather">
+                <i class="fa-solid fa-cloud-sun"></i>
+                {{time.weather}}
+            </span>
         {{/if}}
     </div>
 
     <div class="cairn-time-controls">
         <button type="button" data-action="backWatch"
                 data-tooltip="{{localize 'CAIRN.Time.Tip.BackWatch'}}">
-            {{localize "CAIRN.Time.BackWatch"}}
+            <i class="fa-solid fa-backward-step"></i>
+            <span>{{localize "CAIRN.Time.BackWatch"}}</span>
         </button>
         <button type="button" data-action="advanceWatch"
                 data-tooltip="{{localize 'CAIRN.Time.Tip.AdvanceWatch'}}">
-            {{localize "CAIRN.Time.AdvanceWatch"}}
+            <i class="fa-solid fa-forward-step"></i>
+            <span>{{localize "CAIRN.Time.AdvanceWatch"}}</span>
         </button>
         <button type="button" data-action="advanceDay"
                 data-tooltip="{{localize 'CAIRN.Time.Tip.AdvanceDay'}}">
-            {{localize "CAIRN.Time.AdvanceDay"}}
+            <i class="fa-solid fa-calendar-day"></i>
+            <span>{{localize "CAIRN.Time.AdvanceDay"}}</span>
         </button>
         <button type="button" data-action="nextMorning"
                 data-tooltip="{{localize 'CAIRN.Time.Tip.NextMorning'}}">
-            {{localize "CAIRN.Time.NextMorning"}}
+            <i class="fa-solid fa-sun"></i>
+            <span>{{localize "CAIRN.Time.NextMorning"}}</span>
         </button>
         <button type="button" data-action="setDate">
-            {{localize "CAIRN.Time.SetDate"}}
+            <i class="fa-solid fa-pen-to-square"></i>
+            <span>{{localize "CAIRN.Time.SetDate"}}</span>
         </button>
+        {{#if calendarOpen}}
+            {{!-- A plain action, not a table pair, so the show/roll invariant
+                  is unaffected. Vald only: there is no month grid to open
+                  under Foundry's own calendar. --}}
+            <button type="button" data-action="openCalendar"
+                    data-tooltip="{{localize 'CAIRN.Calendar.Open'}}">
+                <i class="fa-solid fa-calendar-days"></i>
+                <span>{{localize "CAIRN.Dashboard.Calendar"}}</span>
+            </button>
+        {{/if}}
     </div>
 
     {{#if weatherTable}}
@@ -60,9 +89,10 @@
                   window: the probe asserts show buttons and roll buttons come
                   in equal numbers, and an un-paired one reds it. --}}
             <div class="cairn-dashboard-pair">
-                <button type="button" data-action="rollTable" data-table="{{weatherTable}}"
+                <button type="button" data-action="rollWeather" data-table="{{weatherTable}}"
                         data-tooltip="{{localize 'CAIRN.Time.Tip.TodaysWeather'}}">
-                    {{weatherLabel}}
+                    <i class="fa-solid {{weatherIcon}}"></i>
+                    <span>{{weatherLabel}}</span>
                 </button>
                 <button type="button" class="cairn-show-btn" data-action="showTable"
                         data-table="{{weatherTable}}"
@@ -70,6 +100,15 @@
                     <i class="fas fa-eye"></i>
                 </button>
             </div>
+            {{!-- The Warden may also just SAY what the weather is: a d6 of
+                  seasonal weather has no row for a curse, a spell, or the
+                  thing in the valley. Same function as the calendar's own
+                  pencil. --}}
+            <button type="button" class="cairn-time-say-weather" data-action="setWeather"
+                    data-tooltip="{{localize 'CAIRN.Calendar.SetWeatherHint'}}">
+                <i class="fa-solid fa-pen-to-square"></i>
+                <span>{{localize "CAIRN.Calendar.SetWeather"}}</span>
+            </button>
         </div>
     {{/if}}
 

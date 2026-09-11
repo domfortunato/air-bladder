@@ -1,0 +1,444 @@
+_id: iJLnFks9dMzwq2uV
+name: Festivals of Vald
+pages:
+  - _id: bbbFAc7kVMmygl01
+    name: First Light
+    type: text
+    title:
+      show: true
+      level: 1
+    text:
+      content: '<p>Commemorating the end of the first month of the new year. Torches and fire are lit all night, turning night to day.</p>'
+      format: 1
+    sort: 0
+    ownership:
+      default: -1
+    flags:
+      air-bladder:
+        valdMonth: 1
+        valdDay: 24
+        valdDays: 1
+    _key: '!journal.pages!iJLnFks9dMzwq2uV.bbbFAc7kVMmygl01'
+  - _id: QJ7iqMyC6bGneGqx
+    name: Dead Solstice
+    type: text
+    title:
+      show: true
+      level: 1
+    text:
+      content: '<p>Marks the shortest day of the year, and the midpoint of the Dead season.</p>'
+      format: 1
+    sort: 100
+    ownership:
+      default: -1
+    flags:
+      air-bladder:
+        valdMonth: 2
+        valdDay: 10
+        valdDays: 1
+    _key: '!journal.pages!iJLnFks9dMzwq2uV.QJ7iqMyC6bGneGqx'
+  - _id: u20MlUpFysIYWeAL
+    name: Whisper
+    type: text
+    title:
+      show: true
+      level: 1
+    text:
+      content: '<p>Speaking above a whisper is taboo. Silent auctions are common.</p>'
+      format: 1
+    sort: 200
+    ownership:
+      default: -1
+    flags:
+      air-bladder:
+        valdMonth: 2
+        valdDay: 11
+        valdDays: 1
+    _key: '!journal.pages!iJLnFks9dMzwq2uV.u20MlUpFysIYWeAL'
+  - _id: 62utSJ2d4OKyVAek
+    name: Lift the Veil
+    type: text
+    title:
+      show: true
+      level: 1
+    text:
+      content: '<p>The end of the Dead season is celebrated through solemn vows and humble gestures.</p>'
+      format: 1
+    sort: 300
+    ownership:
+      default: -1
+    flags:
+      air-bladder:
+        valdMonth: 3
+        valdDay: 9
+        valdDays: 1
+    _key: '!journal.pages!iJLnFks9dMzwq2uV.62utSJ2d4OKyVAek'
+  - _id: 2pGR8EPkTE7oQGUD
+    name: Veil’s Edge
+    type: text
+    title:
+      show: true
+      level: 1
+    text:
+      content: '<p>A day for honoring ancestors with offerings and prayers at family altars.</p>'
+      format: 1
+    sort: 400
+    ownership:
+      default: -1
+    flags:
+      air-bladder:
+        valdMonth: 3
+        valdDay: 17
+        valdDays: 1
+    _key: '!journal.pages!iJLnFks9dMzwq2uV.2pGR8EPkTE7oQGUD'
+  - _id: PWScXWIZ44MexyvK
+    name: Bartermoot
+    type: text
+    title:
+      show: true
+      level: 1
+    text:
+      content: '<p>Representatives from the smaller towns and villages trade steel for lumber in ritual arrangement with the denizens of the Wood.</p>'
+      format: 1
+    sort: 500
+    ownership:
+      default: -1
+    flags:
+      air-bladder:
+        valdMonth: 4
+        valdDay: 14
+        valdDays: 1
+    _key: '!journal.pages!iJLnFks9dMzwq2uV.PWScXWIZ44MexyvK'
+  - _id: NTZ8DcsECaDV8IC6
+    name: Dustset
+    type: text
+    title:
+      show: true
+      level: 1
+    text:
+      content: '<p>A carnival marked by parades and masquerades, where participants wear masks to protect from dust and wind.</p>'
+      format: 1
+    sort: 600
+    ownership:
+      default: -1
+    flags:
+      air-bladder:
+        valdMonth: 5
+        valdDay: 9
+        valdDays: 1
+    _key: '!journal.pages!iJLnFks9dMzwq2uV.NTZ8DcsECaDV8IC6'
+  - _id: lBDpuPxrgvo7ze46
+    name: Dry Equinox
+    type: text
+    title:
+      show: true
+      level: 1
+    text:
+      content: '<p>Marks the midpoint of the Dry season.</p>'
+      format: 1
+    sort: 700
+    ownership:
+      default: -1
+    flags:
+      air-bladder:
+        valdMonth: 5
+        valdDay: 10
+        valdDays: 1
+    _key: '!journal.pages!iJLnFks9dMzwq2uV.lBDpuPxrgvo7ze46'
+  - _id: SQIdPU929rdNdsin
+    name: Boughmeal
+    type: text
+    title:
+      show: true
+      level: 1
+    text:
+      content: '<p>A market day held exclusively within the Wood, where artisans and merchants from all over the realm meet to trade their wares.</p>'
+      format: 1
+    sort: 800
+    ownership:
+      default: -1
+    flags:
+      air-bladder:
+        valdMonth: 6
+        valdDay: 16
+        valdDays: 1
+    _key: '!journal.pages!iJLnFks9dMzwq2uV.SQIdPU929rdNdsin'
+  - _id: Oe1wcHv5vlB3qY5v
+    name: Parade of Ash
+    type: text
+    title:
+      show: true
+      level: 1
+    text:
+      content: '<p>In celebration of the final day of the Dry season, participants mark their faces with ash and play music. Most kinds of labor are frowned upon.</p>'
+      format: 1
+    sort: 900
+    ownership:
+      default: -1
+    flags:
+      air-bladder:
+        valdMonth: 6
+        valdDay: 24
+        valdDays: 1
+    _key: '!journal.pages!iJLnFks9dMzwq2uV.Oe1wcHv5vlB3qY5v'
+  - _id: tSlCBEqkXOnYOKfO
+    name: Splash Festival
+    type: text
+    title:
+      show: true
+      level: 1
+    text:
+      content: '<p>Celebrates the abundance of water, with boat races, contests, gifts, and water blessings.</p>'
+      format: 1
+    sort: 1000
+    ownership:
+      default: -1
+    flags:
+      air-bladder:
+        valdMonth: 7
+        valdDay: 5
+        valdDays: 3
+    _key: '!journal.pages!iJLnFks9dMzwq2uV.tSlCBEqkXOnYOKfO'
+  - _id: 2Z4UYdbmD4FQ3xCX
+    name: Float
+    type: text
+    title:
+      show: true
+      level: 1
+    text:
+      content: '<p>Communities build and decorate enormous boats or rafts to float down rivers.</p>'
+      format: 1
+    sort: 1100
+    ownership:
+      default: -1
+    flags:
+      air-bladder:
+        valdMonth: 7
+        valdDay: 14
+        valdDays: 1
+    _key: '!journal.pages!iJLnFks9dMzwq2uV.2Z4UYdbmD4FQ3xCX'
+  - _id: ICt9apnMXWBX1RCL
+    name: Highwater Fair
+    type: text
+    title:
+      show: true
+      level: 1
+    text:
+      content: '<p>A major trade event taking place when the waters are highest. Every major town and city celebrates with fairs and markets.</p>'
+      format: 1
+    sort: 1200
+    ownership:
+      default: -1
+    flags:
+      air-bladder:
+        valdMonth: 8
+        valdDay: 1
+        valdDays: 1
+    _key: '!journal.pages!iJLnFks9dMzwq2uV.ICt9apnMXWBX1RCL'
+  - _id: D4legL8sUtGJkAU9
+    name: Wet Solstice
+    type: text
+    title:
+      show: true
+      level: 1
+    text:
+      content: '<p>Marks the longest day of the year, and the midpoint of the Wet season.</p>'
+      format: 1
+    sort: 1300
+    ownership:
+      default: -1
+    flags:
+      air-bladder:
+        valdMonth: 8
+        valdDay: 10
+        valdDays: 1
+    _key: '!journal.pages!iJLnFks9dMzwq2uV.D4legL8sUtGJkAU9'
+  - _id: uZ9xeDIfY7zOYluj
+    name: First Plant
+    type: text
+    title:
+      show: true
+      level: 1
+    text:
+      content: '<p>A festival marking the beginning of planting season. Communities gather to plant the first seeds of the year together.</p>'
+      format: 1
+    sort: 1400
+    ownership:
+      default: -1
+    flags:
+      air-bladder:
+        valdMonth: 8
+        valdDay: 18
+        valdDays: 1
+    _key: '!journal.pages!iJLnFks9dMzwq2uV.uZ9xeDIfY7zOYluj'
+  - _id: PqGJIJ2kxoY1jCrU
+    name: Waterwish
+    type: text
+    title:
+      show: true
+      level: 1
+    text:
+      content: '<p>Participants write wishes on scrolls, place them into holes in a boulder, and roll it downhill. When it stops, any remaining wishes are thought to come true.</p>'
+      format: 1
+    sort: 1500
+    ownership:
+      default: -1
+    flags:
+      air-bladder:
+        valdMonth: 9
+        valdDay: 14
+        valdDays: 1
+    _key: '!journal.pages!iJLnFks9dMzwq2uV.PqGJIJ2kxoY1jCrU'
+  - _id: fk7XxNC1u5iwf7ME
+    name: Storm Dance
+    type: text
+    title:
+      show: true
+      level: 1
+    text:
+      content: '<p>Dances and betrothals meant to please the masters of storm and rain for a fruitful Harvest season ahead.</p>'
+      format: 1
+    sort: 1600
+    ownership:
+      default: -1
+    flags:
+      air-bladder:
+        valdMonth: 9
+        valdDay: 19
+        valdDays: 5
+    _key: '!journal.pages!iJLnFks9dMzwq2uV.fk7XxNC1u5iwf7ME'
+  - _id: 2s2Qz0wFjAwQdP4V
+    name: Harvest Festival
+    type: text
+    title:
+      show: true
+      level: 1
+    text:
+      content: '<p>Celebrates the start of the harvest with feasting and communal gatherings to begin harvesting crops.</p>'
+      format: 1
+    sort: 1700
+    ownership:
+      default: -1
+    flags:
+      air-bladder:
+        valdMonth: 10
+        valdDay: 4
+        valdDays: 1
+    _key: '!journal.pages!iJLnFks9dMzwq2uV.2s2Qz0wFjAwQdP4V'
+  - _id: bCXCJJms2yAs3giy
+    name: Gathering Night
+    type: text
+    title:
+      show: true
+      level: 1
+    text:
+      content: '<p>Communities come together to collect and store the harvested crops, followed by a night of storytelling and music.</p>'
+      format: 1
+    sort: 1800
+    ownership:
+      default: -1
+    flags:
+      air-bladder:
+        valdMonth: 10
+        valdDay: 24
+        valdDays: 1
+    _key: '!journal.pages!iJLnFks9dMzwq2uV.bCXCJJms2yAs3giy'
+  - _id: dDrolMshGXO20ADJ
+    name: Harvest Equinox
+    type: text
+    title:
+      show: true
+      level: 1
+    text:
+      content: '<p>Marks the midpoint of the Harvest season.</p>'
+      format: 1
+    sort: 1900
+    ownership:
+      default: -1
+    flags:
+      air-bladder:
+        valdMonth: 11
+        valdDay: 10
+        valdDays: 1
+    _key: '!journal.pages!iJLnFks9dMzwq2uV.dDrolMshGXO20ADJ'
+  - _id: JfM7UStTJRAACDo8
+    name: The Golden Hind
+    type: text
+    title:
+      show: true
+      level: 1
+    text:
+      content: '<p>Hunters from far and wide join a great hunt in search of a mythical stag amid great revelry.</p>'
+      format: 1
+    sort: 2000
+    ownership:
+      default: -1
+    flags:
+      air-bladder:
+        valdMonth: 11
+        valdDay: 12
+        valdDays: 1
+    _key: '!journal.pages!iJLnFks9dMzwq2uV.JfM7UStTJRAACDo8'
+  - _id: 4ygXWFdFOhnDG1CB
+    name: Firelight
+    type: text
+    title:
+      show: true
+      level: 1
+    text:
+      content: '<p>A day of kite-flying, wind chimes, and noisemakers. At night, massive bonfires are lit as dancers perform impressive fire dances.</p>'
+      format: 1
+    sort: 2100
+    ownership:
+      default: -1
+    flags:
+      air-bladder:
+        valdMonth: 11
+        valdDay: 18
+        valdDays: 1
+    _key: '!journal.pages!iJLnFks9dMzwq2uV.4ygXWFdFOhnDG1CB'
+  - _id: Q8owgIzyd1fDZ4op
+    name: Ember
+    type: text
+    title:
+      show: true
+      level: 1
+    text:
+      content: '<p>Pays homage to the setting sun and the hard work ahead preparing for the Dead season. Lantern release ceremonies are a common practice.</p>'
+      format: 1
+    sort: 2200
+    ownership:
+      default: -1
+    flags:
+      air-bladder:
+        valdMonth: 12
+        valdDay: 11
+        valdDays: 1
+    _key: '!journal.pages!iJLnFks9dMzwq2uV.Q8owgIzyd1fDZ4op'
+  - _id: uk4nh5A60edBN3va
+    name: Gloam
+    type: text
+    title:
+      show: true
+      level: 1
+    text:
+      content: '<p>The final grand feast of the year, celebrating gratitude for the harvest, with the sun as centerpiece. Pregnancies are common.</p>'
+      format: 1
+    sort: 2300
+    ownership:
+      default: -1
+    flags:
+      air-bladder:
+        valdMonth: 12
+        valdDay: 24
+        valdDays: 1
+    _key: '!journal.pages!iJLnFks9dMzwq2uV.uk4nh5A60edBN3va'
+folder: null
+sort: 100
+ownership:
+  default: 0
+flags: {}
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+_key: '!journal!iJLnFks9dMzwq2uV'
