@@ -26,23 +26,50 @@
 --}}
 <div class="cairn-dashboard-time">
 
-    <div class="cairn-time-read" data-tooltip="{{time.tooltip}}">
-        <span class="cairn-time-watch">{{time.watchLine}}</span>
-        <span class="cairn-time-sep">·</span>
-        <span class="cairn-time-date">{{time.dateLine}}</span>
+    {{!--
+      STACKED, LIKE THE CALENDAR'S DAY PANEL (user, 2026-09-11, with both
+      windows open side by side: "the top three lines of the Warden's dashboard
+      should look like the lines in the calendar"). These four facts used to
+      share one row separated by middle dots, which is the crowding the rest of
+      this window was fixed for.
+
+      So: the long date as a headline, then three quiet lines each led by its
+      own glyph in a fixed box, so all three labels start at the same x. The
+      same shape `.cairn-calendar-season` uses, deliberately.
+
+      THE WATCH GETS A LINE OF ITS OWN (user ruling, chosen from three
+      mockups). The panel has three lines because a calendar has no watch; this
+      is the surface where the clock is MOVED, so the watch stays legible
+      rather than being folded into the date.
+
+      NO TOOLTIP. It carried the long date, the season, the watch and the
+      weather joined — every word of which is now on screen, and a tooltip that
+      repeats what it covers is noise.
+    --}}
+    <div class="cairn-time-read">
+        <div class="cairn-time-date">{{time.dateLong}}</div>
+
+        {{!-- ONE glyph for all three watches. Per-watch glyphs would have to be
+              fa-sun / fa-cloud-sun / fa-moon, and the first two are already the
+              Dry season's and the weather line's — two suns stacked on a
+              Dry-season day is the collision the season glyphs avoid. --}}
+        <div class="cairn-time-watch">
+            <i class="fa-solid fa-hourglass-half"></i>
+            <span>{{time.watchLine}}</span>
+        </div>
+
         {{#if time.seasonLine}}
-            <span class="cairn-time-sep">·</span>
-            <span class="cairn-time-season">
+            <div class="cairn-time-season">
                 {{#if time.seasonIcon}}<i class="fa-solid {{time.seasonIcon}}"></i>{{/if}}
-                {{time.seasonLine}}
-            </span>
+                <span>{{time.seasonLine}}</span>
+            </div>
         {{/if}}
+
         {{#if time.weather}}
-            <span class="cairn-time-sep">·</span>
-            <span class="cairn-time-today-weather">
+            <div class="cairn-time-today-weather">
                 <i class="fa-solid fa-cloud-sun"></i>
-                {{time.weather}}
-            </span>
+                <span>{{time.weather}}</span>
+            </div>
         {{/if}}
     </div>
 

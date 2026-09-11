@@ -3927,38 +3927,51 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     border-bottom: 1px solid var(--ab-line);
 }
 
+/* A COLUMN, MATCHING THE CALENDAR'S DAY PANEL (user, 2026-09-11, with both
+   windows open: "the top three lines of the Warden's dashboard should look
+   like the lines in the calendar"). The four facts used to share one wrapped
+   row separated by middle dots; the panel stacks them, and so does this now.
+
+   Every number below is the panel's own — 22px headline, 15px quiet lines —
+   because "looks like the calendar" is a claim about both surfaces and a
+   second set of sizes would drift from it. See `.cairn-calendar-date` and
+   `.cairn-calendar-season`, which are the originals. */
 .cairn-dashboard .cairn-time-read {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 8px;
+    color: var(--ab-ink);
+}
+
+.cairn-dashboard .cairn-time-date {
+    margin-bottom: 2px;
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--ab-ink);
+}
+
+/* The three quiet lines. The glyph sits in a fixed box so all three labels
+   start at the same x — the same trick the button grid uses, and what makes a
+   stack read as a stack rather than as three unrelated rows. */
+.cairn-dashboard .cairn-time-watch,
+.cairn-dashboard .cairn-time-season,
+.cairn-dashboard .cairn-time-today-weather {
+    display: flex;
     align-items: baseline;
     gap: 6px;
-    margin-bottom: 6px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--ab-ink);
-}
-
-/* THE DATE IS THE HEADLINE (user ruling 2026-09-11: "twice as large or close
-   to it"). The watch follows it in weight rather than size, and the season and
-   the weather stay quiet beside them — doubling the whole line would make a
-   banner of what is meant to be context for the buttons below. */
-.cairn-dashboard .cairn-time-date {
-    font-size: 24px;
-    font-weight: 600;
-    color: var(--ab-ink);
-}
-
-.cairn-dashboard .cairn-time-watch {
-    font-size: 16px;
-}
-
-.cairn-dashboard .cairn-time-season {
+    font-size: 15px;
     font-weight: 400;
     color: var(--ab-muted);
 }
 
-.cairn-dashboard .cairn-time-sep {
-    color: var(--ab-faint);
+.cairn-dashboard .cairn-time-watch > i,
+.cairn-dashboard .cairn-time-season > i,
+.cairn-dashboard .cairn-time-today-weather > i {
+    flex: 0 0 1.1em;
+    width: 1.1em;
+    text-align: center;
 }
 
 /* The controls reflow the way the table grids do, so a narrowed window
@@ -4009,10 +4022,6 @@ ol.combat-tracker li.combatant.cairn-drop-below {
 .cairn-dashboard .cairn-time-events {
     margin-top: 8px;
     margin-bottom: 0;
-}
-
-.cairn-dashboard .cairn-time-today-weather {
-    font-style: italic;
 }
 
 /* ---- The watch clock ------------------------------------------------------

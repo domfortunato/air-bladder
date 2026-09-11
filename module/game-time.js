@@ -466,6 +466,10 @@ export const describeTime = () => {
       watch,
       watchLine,
       dateLine: game.i18n.format("CAIRN.Time.DayCount", { day }),
+      // The SAME string under this calendar, and deliberately so: there is no
+      // longer form of "Day 12", and a caller asking for the long date must
+      // not have to know which calendar is in play to get an answer.
+      dateLong: game.i18n.format("CAIRN.Time.DayCount", { day }),
       seasonLine: "",
       seasonIcon: "",
       weather: "",
@@ -484,6 +488,11 @@ export const describeTime = () => {
     watch,
     watchLine,
     dateLine: formatValdDate(components, { short: true }),
+    // The weekday-and-ordinal form the CALENDAR's day panel heads itself with.
+    // The Dashboard's band shows this one, so the two surfaces name the same
+    // day in the same words; the clock in the left column stays short, because
+    // it is 200px wide.
+    dateLong: long,
     seasonLine,
     seasonIcon: seasonIconFor(season),
     // A FOURTH LINE on the clock, present only once the Warden has called the

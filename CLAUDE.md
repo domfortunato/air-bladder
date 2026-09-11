@@ -490,9 +490,18 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   core's Public) and moved ABOVE the tab strip, where its scope is visible —
   sitting under the strip made a window-wide control read as Travel's own. The
   eye and Roll Today's Weather still post publicly by their own earlier
-  rulings. Type: the band's date is 24px, the calendar's day statement 22px,
-  the clock 14/18px, all three MEASURED by probe because a rule that stops
-  applying leaves no other trace.
+  rulings. Type: the band's date and the calendar's day statement are both
+  22px, the clock 14/18px, all MEASURED by probe because a rule that stops
+  applying leaves no other trace. **And a third pass the same day, from a
+  screenshot of both windows open: THE BAND STACKS LIKE THE CALENDAR'S DAY
+  PANEL** (user: "the top three lines of the Warden's dashboard should look
+  like the lines in the calendar") — the long date as a headline, then the
+  watch, the season and the weather as quiet glyph-led lines, no middle dots
+  and no tooltip, because every word it carried is now on screen. The WATCH
+  gets a line of its own by ruling, which is why the band has four where the
+  panel has three: this is the surface where the clock is moved. The band and
+  the panel now show the SAME STRING for a day (`describeTime().dateLong`),
+  and the probe compares the two surfaces rather than measuring each.
 - Data models in `module/data-models.js` (TypeDataModel; `template.json` is gone,
   sub-types are declared in `system.json` `documentTypes`); 30 compendium packs
   (30 on `master` too since 0.1.18 shipped `journals-vald`, the Warden's Guide

@@ -398,9 +398,23 @@ try {
       const content = app.querySelector(".window-content");
       const band = app.querySelector(".cairn-dashboard-time");
       const rollSel = 'button[data-action="rollTable"], button[data-action="rollWeather"]';
+      // WHAT THE BAND'S CONTENT ACTUALLY NEEDS, so the stretch leg can compare
+      // the used height against it rather than against a fraction of the
+      // window. The fraction was a proxy and it expired the day the band grew
+      // a fourth read line: 233px of 642px is a third, and entirely correct.
+      const cs = getComputedStyle(band);
+      const bandNatural = [...band.children].reduce((h, c) => {
+        const m = getComputedStyle(c);
+        return h + c.getBoundingClientRect().height
+          + parseFloat(m.marginTop) + parseFloat(m.marginBottom);
+      }, parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom)
+        + parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth));
+
       return {
         bandIsFirstChild: content.firstElementChild === band,
         bandHeight: Math.round(band.getBoundingClientRect().height),
+        bandNatural: Math.round(bandNatural),
+        bandGrows: cs.flexGrow !== "0",
         contentHeight: Math.round(content.getBoundingClientRect().height),
         tabs: app.querySelectorAll(".cairn-dashboard-tabs .item").length,
         rollButtons: app.querySelectorAll(rollSel).length,
@@ -433,12 +447,21 @@ try {
     ? ok("the time band is the first child of .window-content")
     : fail("the band is the window's first band", JSON.stringify(off));
 
-  // The `flex: 1` trap: with two PARTS the restored rule would give the band
-  // half the window. A third is generous; in practice it sits near a fifth.
-  off.bandHeight > 0 && off.bandHeight < off.contentHeight / 3
-    ? ok("the band takes its own height, not half the window",
-      `${off.bandHeight}px of ${off.contentHeight}px`)
-    : fail("the band is stretching", `${off.bandHeight}px of ${off.contentHeight}px`);
+  // The `flex: 1` trap: with two PARTS the restored
+  // `.cairn.sheet .window-content > * { flex: 1 }` would give the band half
+  // the window, while rendering perfectly and logging nothing.
+  //
+  // MEASURED AGAINST ITS OWN CONTENT, not against a fraction of the window.
+  // The old "less than a third" was a proxy, and it expired the day the band
+  // grew a fourth read line — 233px of 642px is over a third and is exactly
+  // right. What the rule actually says is "take what you need", so that is
+  // what this asks.
+  off.bandHeight > 0 && !off.bandGrows && off.bandHeight <= off.bandNatural + 2
+    ? ok("the band takes its own height, not a share of the window",
+      `${off.bandHeight}px, content needs ${off.bandNatural}px`)
+    : fail("the band is stretching", JSON.stringify({
+      height: off.bandHeight, natural: off.bandNatural, grows: off.bandGrows,
+    }));
 
   off.timeButtons === 5 && off.calendarButton === 0
     ? ok("five clock controls with the hack off: back, watch, day, next morning, set the date")
@@ -467,8 +490,16 @@ try {
     const realGet = settings.get.bind(settings);
     const prevConfig = CONFIG.time.worldCalendarConfig;
     const prevClass = CONFIG.time.worldCalendarClass;
-    settings.get = (ns, key, ...rest) =>
-      (ns === "air-bladder" && key === "enable-vald-calendar" ? true : realGet(ns, key, ...rest));
+    // The weather is shadowed too, because the band's fourth line is
+    // CONDITIONAL and this block asserts the full stack. Establishing it is
+    // the point: inheriting whatever the world happened to have called is how
+    // a leg ends up asserting three lines one run and four the next.
+    settings.get = (ns, key, ...rest) => {
+      if (ns !== "air-bladder") return realGet(ns, key, ...rest);
+      if (key === "enable-vald-calendar") return true;
+      if (key === "vald-weather-today") return { day: gt.dayCount(), text: "Sleet" };
+      return realGet(ns, key, ...rest);
+    };
     CONFIG.time.worldCalendarConfig = gt.VALD_CALENDAR_CONFIG;
     CONFIG.time.worldCalendarClass = gt.ValdCalendar;
     game.time.initializeCalendar();
@@ -524,15 +555,36 @@ try {
         panel: wd._labelForTable("Warden: NPC - Quirk"),
       };
 
-      // The type sizes the readability pass asked for, measured rather than
-      // trusted: a rule that stops applying leaves no other trace.
-      const size = (sel) => {
-        const node = el.querySelector(sel);
-        return node ? Math.round(parseFloat(getComputedStyle(node).fontSize)) : -1;
+      // THE BAND'S SHAPE, not just its type sizes. The sizes alone stayed
+      // green on the one-line version this replaced, so they cannot be the
+      // assertion: what was asked for is that these four facts STACK the way
+      // the calendar's day panel stacks its three.
+      const read = el.querySelector(".cairn-time-read");
+      const lines = [...read.children];
+      const size = (node) => (node ? Math.round(parseFloat(getComputedStyle(node).fontSize)) : -1);
+      const bandRead = {
+        classes: lines.map((n) => [...n.classList].find((c) => c.startsWith("cairn-time-")) ?? "?"),
+        // STACKED, proved by geometry: a flex ROW that merely wrapped would
+        // pass a count of four and fail this.
+        stacked: lines.every((n, i) => i === 0
+          || n.getBoundingClientRect().top >= lines[i - 1].getBoundingClientRect().bottom - 1),
+        sizes: lines.map(size),
+        // A wrong or Pro-only class renders an empty box in silence, so read
+        // the resolved mark rather than the class list.
+        glyphs: lines.slice(1).map((n) => {
+          const i = n.querySelector("i");
+          const c = i ? getComputedStyle(i, "::before").content : "";
+          return !!c && c !== "none" && c !== '""';
+        }),
+        // The separators the one-line version used.
+        seps: read.querySelectorAll(".cairn-time-sep").length,
+        dateText: read.querySelector(".cairn-time-date")?.innerText.trim() ?? "",
       };
-      const type = { date: size(".cairn-time-date"), watch: size(".cairn-time-watch") };
 
-      return { heads, valdButtons, valdPairs, seen, events, eventEyes, eventsOnTab, labels, type };
+      return {
+        heads, valdButtons, valdPairs, seen, events, eventEyes, eventsOnTab, labels,
+        band: bandRead,
+      };
     } finally {
       settings.get = realGet;
       CONFIG.time.worldCalendarConfig = prevConfig;
@@ -569,9 +621,25 @@ try {
       Object.values(on.labels).join(" / "))
     : fail("a table shows its browse name to the players", JSON.stringify(on.labels));
 
-  on.type.date >= 20 && on.type.watch >= 15
-    ? ok("the band's date is the headline", `${on.type.date}px date, ${on.type.watch}px watch`)
-    : fail("the band's type is small again", JSON.stringify(on.type));
+  // THE BAND READS LIKE THE CALENDAR'S DAY PANEL (user ruling 2026-09-11).
+  JSON.stringify(on.band.classes) === JSON.stringify([
+    "cairn-time-date", "cairn-time-watch", "cairn-time-season", "cairn-time-today-weather",
+  ]) && on.band.stacked
+    ? ok("the band stacks date, watch, season and weather, one line each")
+    : fail("the band is not stacked", JSON.stringify({
+      lines: on.band.classes, stacked: on.band.stacked,
+    }));
+
+  on.band.sizes[0] >= 20 && on.band.sizes.slice(1).every((s) => s > 0 && s <= 16)
+    ? ok("...with the date as the headline and the rest quiet under it",
+      `${on.band.sizes[0]}px over ${on.band.sizes.slice(1).join("/")}px`)
+    : fail("the band's type is wrong", JSON.stringify(on.band.sizes));
+
+  on.band.glyphs.every(Boolean) && on.band.seps === 0
+    ? ok("...each led by a glyph that RESOLVES, and no separators left")
+    : fail("a band glyph renders nothing", JSON.stringify({
+      glyphs: on.band.glyphs, seps: on.band.seps,
+    }));
 
   on.valdPairs === 4
     ? ok("...each of the four paired with an eye")
@@ -749,6 +817,16 @@ try {
     out.panelDateSize = px(el().querySelector(".cairn-calendar-date"));
     out.clockWatchSize = px(document.querySelector("#cairn-watch-clock .cairn-watch-watch"));
 
+    // THE SAME DAY IN THE SAME WORDS. "The Dashboard should look like the
+    // calendar" is a claim about two surfaces, so it takes a comparison and
+    // not two separate readings. Red before 2026-09-11, when the band showed
+    // the SHORT date ("6 Silence, 7728") against the panel's long one. Taken
+    // now, while the panel is still showing today.
+    out.panelDate = el().querySelector(".cairn-calendar-date")?.innerText.trim() ?? "";
+    const dash = foundry.applications.instances.get("cairn-warden-dashboard");
+    await dash?.render();
+    out.bandDate = dash?.element.querySelector(".cairn-time-date")?.innerText.trim() ?? "";
+
     // EVERY month opens on Market Day — checked by walking all twelve, not
     // restated. This is the grid's half of the weekday claim leg 10 proves
     // against the source.
@@ -910,6 +988,12 @@ try {
       `${cal.panelDateSize}px and ${cal.clockWatchSize}px`)
     : fail("the type is small again", JSON.stringify({
       panel: cal.panelDateSize, clock: cal.clockWatchSize,
+    }));
+
+  cal.bandDate && cal.bandDate === cal.panelDate
+    ? ok("...and the Dashboard names today in the calendar's own words", cal.bandDate)
+    : fail("the band and the panel disagree about today", JSON.stringify({
+      band: cal.bandDate, panel: cal.panelDate,
     }));
 
   cal.tintsDiffer && cal.boundaryGlyph === "fa-skull" && !cal.thirdHasMark

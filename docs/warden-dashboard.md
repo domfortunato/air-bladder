@@ -20,10 +20,12 @@ useful on a second monitor. Re-dock it from the **⋮ menu**.
 
 ## The clock
 
-Across the top, above the tabs, is the current watch and date, with the controls
-that move them: **Back a Watch**, **Advance a Watch**, **Advance a Day**, **To
-Next Morning** and **Set the Date…**. Everyone at the table sees the clock change
-at once, on the panel above their player list.
+Across the top, above the tabs, is today: the date, then the watch, the season
+and the weather beneath it, laid out the same way the calendar's day panel lays
+them out. Under that are the controls that move them: **Back a Watch**,
+**Advance a Watch**, **Advance a Day**, **To Next Morning** and **Set the
+Date…**. Everyone at the table sees the clock change at once, on the panel above
+their player list.
 
 With the Vald calendar switched on there is a **Calendar** button too, which
 opens the month grid.
