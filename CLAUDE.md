@@ -422,6 +422,49 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
     (out of `cairn.js`), because the journal sheet and the calendar are now two
     readers of journal prose and the "must stay identical to the extractor"
     contract needs ONE home. `dev:journal-i18n` still gates it.
+  **A WEATHER LOG AND THE WARDEN'S OWN DAYS** (`module/weather-log.js`,
+  `module/calendar-events.js`, 2026-09-11, both asked as "is it possible…").
+  The log writes one journal line every time the weather is rolled or set —
+  date, watch, season, whatever the calendar marks, the weather — one page per
+  month, readable by the whole table (user ruling), behind `weather-log`,
+  default off. The Warden's events are JOURNAL PAGES carrying the same
+  `flags.air-bladder` a festival does plus `valdYear`, `valdWatch` and
+  `wardenEvent`, so one reader serves both and editing an event is editing a
+  page. Five things that will bite:
+  - **NEITHER JOURNAL IS FOUND BY A STORED ID, and that is not a style
+    choice.** Awaiting `game.settings.set` does NOT guarantee the next
+    `game.settings.get` returns the new value — measured, intermittently — so
+    an identity that must be written and read back is missing for a few hundred
+    milliseconds, and the calendar renders inside that window. Both are found
+    by their own FLAG. Two internal settings were designed, built, and deleted
+    again over exactly this.
+  - **A PROBE THAT SHADOWS `game.settings.get` MUST FORWARD EVERY ARGUMENT.**
+    `#setWorld` asks `this.get(ns, key, {document: true})` for the Setting
+    DOCUMENT (client-settings.mjs:294); a two-argument shadow hands it a plain
+    value, `current?._id` is undefined, and core CREATES A SECOND Setting
+    document instead of updating the first. The write then silently does
+    nothing and the duplicate outlives the probe. The dev world had **131** of
+    them, across `core.time`, `custom-portrait-list` and more, from probes that
+    have shadowed this way for weeks. Every shadow in `tools/dev` forwards
+    `...rest` now.
+  - **DialogV2 REFUSES a content element with ANY attribute** — "config.content
+    element must have no attributes" (dialog.mjs:189), thrown from the
+    constructor, so the dialog never opens and the button does nothing. A
+    single `class` is enough. THREE dialogs here had one and shipped broken on
+    `dev`: Set the Date…, Set the Weather… and the new Add an event…. The class
+    goes on a wrapper INSIDE the bare `<div>`.
+  - **"Hidden" is CONCEALMENT, not a secret.** A JournalEntry with
+    `ownership.default: NONE` is still SENT to every player — it resolves on
+    their client, pages and text included. NONE buys `visible: false` and a
+    failing permission test, which keeps it off their sidebar and their
+    calendar. Same family as `foundry-pack-ownership-none`; the claim was
+    written as a wall first, measured second, and corrected. `docs/keeping-time.md`
+    tells a Warden the truth.
+  - **The log is written from the `cairnWeatherChanged` hook, by the ACTIVE GM
+    alone.** That hook fires on every client, so without the guard a table with
+    two Wardens logs every line twice. And the line is stored in the writing
+    GM's language, deliberately: it is a record, not a rendered surface, so the
+    content overlay does not apply.
   **The Dashboard's readability pass rode the same batch** (user: "very crowded
   and difficult to read"). CENTRED TEXT WAS THE DEFECT, not the gap size: a
   glyph column with a LEFT-ALIGNED label makes every label start at the same x,
@@ -460,7 +503,7 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   "N on master" parenthetical went stale a THIRD way by surviving two releases
   — a new pack's commit must carry this line, and so must the release that
   moves the master count, which is what this post-release merge is doing)
-- 27 Warden-facing settings in `module/settings.js` (37 `register` calls + 4 `registerMenu` menus from ONE call site,
+- 28 Warden-facing settings in `module/settings.js` (38 `register` calls + 4 `registerMenu` menus from ONE call site,
   ALL `config: false` since 2026-08-22 — see the submenu paragraph below; `roles-restamped`,
   `companion-restamped`, `hireling-split`, `grimoire-keys-stamped`,
   `connections-migrated`, `art-migration-generation` (2026-08-21, review #17 —
@@ -471,7 +514,10 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   (review #13's catch, its third "record claiming what the code does not say"),
   then `enable-glog-magic` rode a topic branch whose cherry-picks never carried
   this line, caught only when the branch merged — so each settings change updates
-  them in its own commit, this one dated 2026-09-10 for the TIME pair plus the
+  them in its own commit, this one dated 2026-09-11 for `weather-log` (General,
+  default OFF — switching it on makes this system CREATE a document in
+  somebody's world, which an update must never start doing by itself; see the
+  Keeping time paragraph) and before it 2026-09-10 for the TIME pair plus the
   internal `vald-weather-today` (the day's weather, `{day, text}` keyed on the
   ABSOLUTE day so yesterday's goes stale by itself — and the ONE setting here
   that NEEDS an `onChange`, because three surfaces are already on screen when

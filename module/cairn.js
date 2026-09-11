@@ -117,13 +117,32 @@ Hooks.once("init", async function () {
   };
   Hooks.on("updateWorldTime", refreshTimeSurfaces);
 
-  // The Warden called the weather. A WORLD SETTING REACHES OTHER CLIENTS ONLY
+  // The Warden rolled the weather. A WORLD SETTING REACHES OTHER CLIENTS ONLY
   // THROUGH ITS OWN `onChange` — which is why `vald-weather-today` has one and
   // `enable-vald-calendar` deliberately does not: the switch is read once at
   // `init` and requires a reload, while this lands on three surfaces that are
   // already on screen. The setting's handler fires this hook; this is what
   // listens for it.
   Hooks.on("cairnWeatherChanged", refreshTimeSurfaces);
+
+  // ...and, on ONE client, write it down. The log is off by default; the
+  // module is only fetched on a Warden's client, and only then, for the reason
+  // the dashboard's import above is dynamic.
+  Hooks.on("cairnWeatherChanged", () => {
+    if (!game.user?.isGM) return;
+    import("./weather-log.js")
+      .then(({ recordWeather }) => recordWeather())
+      .catch((err) => console.error("air-bladder | the weather log failed to write:", err));
+  });
+
+  // The Warden's own calendar events are journal PAGES, so the calendar has to
+  // follow the journal. These fire on every client, which is how a player's
+  // open calendar learns about an event the Warden just added — and how it
+  // loses one that was removed.
+  for (const hook of ["createJournalEntryPage", "updateJournalEntryPage",
+    "deleteJournalEntryPage", "deleteJournalEntry"]) {
+    Hooks.on(hook, () => refreshValdCalendar());
+  }
 });
 
 // The settings-namespace migration as a PROMISE the other ready callbacks can

@@ -3,6 +3,14 @@ import {
   currentWatch, setDate, todayWeather, setTodayWeather, weatherTableForToday, WEATHER_MAX,
 } from "./game-time.js";
 import { t, localizeJournalBlocks } from "./i18n-content.js";
+import {
+  marksByDay, watchLineFor, promptAddEvent, openEvent, removeEvent, _resetFestivals,
+} from "./calendar-events.js";
+
+// Re-exported so the probes keep one import site for the window and its
+// content. The cache itself lives with the festivals now, beside the Warden's
+// own events, because the two are one list from here on.
+export { _resetFestivals };
 
 /**
  * The calendar on the wall.
@@ -27,72 +35,14 @@ import { t, localizeJournalBlocks } from "./i18n-content.js";
  * reason is a LICENCE boundary rather than a technical one: `LICENSE.txt`
  * declares `module/ templates/ css/ tools/ lang/` to be MIT "and only these",
  * while every word of Cairn's text is CC BY-SA. See `tools/import/vald.mjs`,
- * which generates it. The consequence here is that this file looks the
- * festivals up by their DATA — a page carrying `flags.air-bladder.valdMonth` —
- * and never by entry or page NAME, which would break the moment a translator
- * touched it.
- */
-
-/* -------------------------------------------- */
-/*  The festivals                               */
-/* -------------------------------------------- */
-
-const VALD_PACK = "air-bladder.journals-vald";
-
-/** month/day -> the festivals on it. Built once; a compendium does not change under us. */
-let FESTIVALS = null;
-
-/**
- * Read the festivals out of the pack.
+ * which generates it. The consequence is that a festival is found by its DATA —
+ * a page carrying `flags.air-bladder.valdMonth` — and never by entry or page
+ * NAME, which would break the moment a translator touched it.
  *
- * Identity is the FLAGS, never the entry name or the page name. Both of those
- * go through the content overlay on a translated client, and a lookup keyed on
- * one would silently find nothing in Spanish — the exact failure the overlay's
- * own rule ("key on the English SOURCE, never on display text") exists to stop
- * being invented a second time.
- *
- * A span is filed on EVERY day it covers, each carrying which day of the run it
- * is, so the grid marks all three days of the Splash Festival rather than only
- * the first. Month lengths come from the live calendar, so a run crossing a
- * month boundary lands where it should even though none does today.
+ * THAT LOOKUP LIVES IN `calendar-events.js` since 2026-09-11, because the
+ * Warden's own events carry the same flags and the two are one list from the
+ * grid's point of view. This file is the WINDOW.
  */
-const loadFestivals = async () => {
-  if (FESTIVALS) return FESTIVALS;
-  const map = new Map();
-  const pack = game.packs.get(VALD_PACK);
-  if (!pack) {
-    FESTIVALS = map;
-    return map;
-  }
-  const months = (game.time.calendar?.months?.values ?? []).map((m) => m.days ?? 0);
-  const add = (month, day, value) => {
-    const key = `${month}/${day}`;
-    if (!map.has(key)) map.set(key, []);
-    map.get(key).push(value);
-  };
-
-  for (const entry of await pack.getDocuments()) {
-    for (const page of entry.pages ?? []) {
-      const f = page.flags?.["air-bladder"];
-      const month = Number(f?.valdMonth);
-      const day = Number(f?.valdDay);
-      if (!Number.isInteger(month) || !Number.isInteger(day)) continue;
-      const total = Math.max(1, Number(f?.valdDays) || 1);
-      let m = month - 1; // the flag is the source's 1-based number
-      let d = day;
-      for (let i = 0; i < total; i++) {
-        add(m, d, { id: page.id, name: page.name, text: page.text?.content ?? "", day: i + 1, total });
-        d += 1;
-        if (d > (months[m] ?? 0)) { d = 1; m = (m + 1) % Math.max(1, months.length); }
-      }
-    }
-  }
-  FESTIVALS = map;
-  return map;
-};
-
-/** Probe hook: forget the cache so a freshly built pack is picked up. */
-export const _resetFestivals = () => { FESTIVALS = null; };
 
 /* -------------------------------------------- */
 /*  Saying what the weather is                  */
@@ -113,7 +63,7 @@ export const _resetFestivals = () => { FESTIVALS = null; };
  * which of two inputs wins.
  *
  * EMPTY MEANS UNCALLED. Clearing the field puts the calendar back to "the
- * Warden has not called the weather yet", which is how a mistake is undone.
+ * Warden has not rolled the weather yet", which is how a mistake is undone.
  *
  * SILENT, like every other clock change. It is not a roll, so there is no card;
  * a Warden who wants to announce a rain of ash has chat, and the calendar
@@ -138,9 +88,17 @@ export const promptSetWeather = async () => {
     .map((r) => String(r.type === "text" ? r.description : r.name))
     .map((v) => v.replace(/<[^>]*>/g, "").trim()).filter(Boolean);
 
+  // A BARE <div> WITH NO ATTRIBUTES. DialogV2's constructor throws
+  // "config.content element must have no attributes" (dialog.mjs:189) — a
+  // class on the root is enough, and the dialog then never opens at all. This
+  // carried one from the day it was written and nothing caught it, because
+  // every probe reached `setTodayWeather` directly rather than through the
+  // button a Warden actually presses.
   const form = document.createElement("div");
-  form.classList.add("cairn-set-weather");
-  form.innerHTML = `
+  const inner = document.createElement("div");
+  inner.className = "cairn-set-weather";
+  form.append(inner);
+  inner.innerHTML = `
     <p class="hint">${esc(game.i18n.localize("CAIRN.Calendar.SetWeatherHint"))}</p>
     <div class="form-group">
       <label for="ab-weather-text">${esc(game.i18n.localize("CAIRN.Calendar.Weather"))}</label>
@@ -215,6 +173,9 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
       pickDay: ValdCalendarApp.#onPickDay,
       setToDay: ValdCalendarApp.#onSetToDay,
       setWeather: ValdCalendarApp.#onSetWeather,
+      addEvent: ValdCalendarApp.#onAddEvent,
+      editEvent: ValdCalendarApp.#onEditEvent,
+      removeEvent: ValdCalendarApp.#onRemoveEvent,
     },
   };
 
@@ -268,7 +229,9 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
       return this._prepareContext();
     }
 
-    const festivals = await loadFestivals();
+    // The YEAR is passed because the Warden's own events may be stamped with
+    // one. A festival recurs forever; "the coronation" happened in 7731.
+    const festivals = await marksByDay(this.#view.year);
     const selected = this.#selected?.year === this.#view.year && this.#selected?.month === this.#view.month
       ? this.#selected
       : null;
@@ -277,6 +240,9 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
       const on = festivals.get(`${this.#view.month}/${day.dayOfMonth}`) ?? [];
       day.festivals = on.length;
       day.festivalNames = on.map((f) => t("journal.pageName", f.name)).join(", ");
+      // A second marker rather than a second dot of the same colour: a day
+      // carrying a festival AND something the Warden wrote reads as two things.
+      day.wardenEvent = on.some((f) => f.warden);
       day.selected = selected?.day === day.dayOfMonth;
       day.seasonClass = day.seasonKey ? `cairn-season-${day.seasonKey.split(".").pop().toLowerCase()}` : "";
     }
@@ -303,6 +269,12 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
       span: f.total > 1
         ? game.i18n.format("CAIRN.Calendar.SpanDay", { name: t("journal.pageName", f.name), day: f.day, total: f.total })
         : "",
+      // The Warden's own: which watch it happens in, whether the party can see
+      // it, and the controls that only the Warden gets.
+      warden: f.warden,
+      watch: f.warden ? watchLineFor(f.watch) : "",
+      hidden: f.hidden,
+      uuid: f.uuid,
     }));
 
     return {
@@ -388,6 +360,29 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
 
   static async #onSetWeather() {
     await promptSetWeather();
+  }
+
+  /**
+   * Put something on the day that is open.
+   *
+   * THE DAY COMES FROM THE PANEL, not from today: a Warden adding an event is
+   * looking at the day they mean. `#selected` is null only while the panel is
+   * showing the month's first day, which is exactly what the fallback names.
+   *
+   * No render afterwards — creating the page fires `createJournalEntryPage`,
+   * which refreshes every open calendar including this one, on every client.
+   */
+  static async #onAddEvent() {
+    const at = this.#selected ?? { ...this.#view, day: 1 };
+    await promptAddEvent({ year: at.year, month: at.month, day: at.day });
+  }
+
+  static async #onEditEvent(event, target) {
+    await openEvent(target.dataset.uuid);
+  }
+
+  static async #onRemoveEvent(event, target) {
+    await removeEvent(target.dataset.uuid);
   }
 }
 

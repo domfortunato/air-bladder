@@ -52,7 +52,10 @@
                     <i class="fa-solid {{this.seasonIcon}} cairn-calendar-season-mark"
                        data-tooltip="{{localize 'CAIRN.Calendar.SeasonBegins' season=this.seasonName}}"></i>
                 {{/if}}
-                {{#if this.festivals}}<span class="cairn-calendar-dot" aria-hidden="true"></span>{{/if}}
+                {{#if this.festivals}}
+                    <span class="cairn-calendar-dot{{#if this.wardenEvent}} is-warden{{/if}}"
+                          aria-hidden="true"></span>
+                {{/if}}
             </button>
         {{/each}}
     </div>
@@ -94,13 +97,37 @@
             <p class="cairn-calendar-quiet">{{localize 'CAIRN.Calendar.Quiet'}}</p>
         {{else}}
             {{#each panel.festivals}}
-                <article class="cairn-calendar-festival">
-                    <h4>{{this.name}}</h4>
+                <article class="cairn-calendar-festival{{#if this.warden}} is-warden{{/if}}">
+                    <h4>
+                        {{this.name}}
+                        {{#if this.hidden}}
+                            <i class="fa-solid fa-eye-slash cairn-calendar-secret"
+                               data-tooltip="{{localize 'CAIRN.Calendar.EventHidden'}}"
+                               aria-label="{{localize 'CAIRN.Calendar.EventHidden'}}"></i>
+                        {{/if}}
+                    </h4>
                     {{#if this.span}}<p class="cairn-calendar-span">{{this.span}}</p>{{/if}}
+                    {{#if this.watch}}<p class="cairn-calendar-span">{{this.watch}}</p>{{/if}}
                     {{!-- Pack HTML, server-sanitized on write like every other
                           journal page, so a triple-stache is correct here for
-                          the same reason core's own page view uses one. --}}
+                          the same reason core's own page view uses one. The
+                          Warden's own events are pages too, and travel the
+                          same road. --}}
                     <div class="cairn-calendar-festival-text">{{{this.text}}}</div>
+                    {{#if this.warden}}
+                        {{#if ../isGM}}
+                            <p class="cairn-calendar-event-tools">
+                                <button type="button" data-action="editEvent" data-uuid="{{this.uuid}}">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                    <span>{{localize 'CAIRN.Calendar.EditEvent'}}</span>
+                                </button>
+                                <button type="button" data-action="removeEvent" data-uuid="{{this.uuid}}">
+                                    <i class="fa-solid fa-trash"></i>
+                                    <span>{{localize 'CAIRN.Calendar.RemoveEvent'}}</span>
+                                </button>
+                            </p>
+                        {{/if}}
+                    {{/if}}
                 </article>
             {{/each}}
         {{/if}}
@@ -116,6 +143,11 @@
                         data-tooltip="{{localize 'CAIRN.Calendar.SetToDayTip'}}">
                     <i class="fa-solid fa-calendar-check"></i>
                     <span>{{localize 'CAIRN.Calendar.SetToDay'}}</span>
+                </button>
+                <button type="button" data-action="addEvent"
+                        data-tooltip="{{localize 'CAIRN.Calendar.AddEventHint'}}">
+                    <i class="fa-solid fa-calendar-plus"></i>
+                    <span>{{localize 'CAIRN.Calendar.AddEvent'}}</span>
                 </button>
             {{/if}}
         </footer>

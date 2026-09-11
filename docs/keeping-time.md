@@ -58,11 +58,11 @@ claim.
 Nothing is posted to chat when the clock moves. It does not need to be — the
 clock is already on everyone's screen.
 
-## Today's Weather
+## Roll Today's Weather
 
-Under the clock is a **Today's Weather** button. It rolls the weather table for
-the season the world is actually in, so you stop having to remember which season
-that is.
+Under the clock is a **Roll Today's Weather** button. It rolls the weather table
+for the season the world is actually in, so you stop having to remember which
+season that is.
 
 It does two things the other table buttons do not, and both are deliberate.
 **The card goes out to everyone**, whatever the visibility dropdown says —
@@ -76,8 +76,25 @@ Beside it is **Set the Weather…**, because a d6 of seasonal weather has no row
 for a curse, a spell, or the thing in the valley. Type whatever the sky is
 doing. The season's own six rows are offered as suggestions, so the ordinary
 case is still one keystroke and a pick. **Leave the field empty and the weather
-goes back to uncalled**, which is how you undo a mistake. Nothing is posted to
+clears**, which is how you undo a mistake. Nothing is posted to
 chat: the clock and the calendar carry it to everyone already.
+
+## Keeping a weather log
+
+**Configure Settings → Air Bladder → General → Keep a weather log**, off by
+default. Switch it on and every time the weather is rolled or set, a line goes
+into a journal called **The Weather Log**: the date, the watch, the season,
+anything the calendar marks on that day, and the weather itself. One page per
+month.
+
+Everyone at the table can read it, which is most of the reason to keep one — a
+party can look back at what the weather did on the road. It is an ordinary
+journal, so you can edit a line you did not mean to write, and deleting the
+journal starts a fresh one the next time the weather is called.
+
+One thing to know: a line is written in the language of whoever's client wrote
+it, and it stays in that language. It is a record of what happened rather than
+part of the interface.
 
 ---
 
@@ -126,14 +143,17 @@ correcting the prose.
 Four tables, one per season, on the Travel tab under **Weather in Vald**. They
 describe the day: *Light snow*, *Thunderstorms*, *Warm and breezy*.
 
-**Cairn's own four seasons stay where they are**, and you want both. Cairn's
-Spring through Winter give you *severity* — Nice, Fair, Unpleasant, Inclement,
-Extreme — which is what costs a Fatigue or an extra watch and makes the terrain
-harder. Vald's four give you the *weather itself*. Roll Cairn's for what it
-costs the party and Vald's for what they see.
+**With the hack on, Cairn's own weather buttons stand down** — the four seasons
+and Weather Difficulty both. Two sets of weather on one tab means rolling both
+and getting answers that disagree about the same day. Vald's are what a Vald
+table wants.
 
-**Today's Weather** picks the Vald table while the hack is on, and a Cairn one
-while it is off.
+Cairn's five tables still ship and are still in the compendium browser, so a
+Warden who wants a severity roll — Nice, Fair, Unpleasant, Inclement, Extreme —
+can still reach one. They are simply not on the tab while you are running Vald.
+
+**Roll Today's Weather** picks the Vald table while the hack is on, and a Cairn
+one while it is off.
 
 ### The calendar on the wall
 
@@ -160,6 +180,29 @@ looked at highlighted. Everyone can open it.
 The 24 festivals ship in the **Vald** compendium as their own journal entry,
 *Festivals of Vald*, so you can read them straight through, edit them, or hand
 them to your players outside the calendar.
+
+### Putting your own days on it
+
+**Add an event…** sits beside Set the world to this day, and only you see it.
+Pick a day, say what happens, and it goes on the calendar beside the festivals.
+
+- **Which watch** it happens in, or all day.
+- **How many days** it runs, if it is more than one.
+- **Every year** makes it a standing fixture. Leave it unticked and it belongs
+  to the year you put it in.
+- **The party can see it** decides which of two journals it lands in: *The
+  Warden's Calendar*, which everyone can read, or *The Warden's Calendar
+  (hidden)*, which they cannot.
+
+Your events show with a coloured dot and a rule down the side, so they read
+apart from the Guide's own festivals. Each is an ordinary journal page — **Edit**
+opens it, so you can write as much as you like — and **Remove** deletes it.
+
+**A word on "hidden".** It keeps an event off the party's calendar and out of
+their journal sidebar, which is what you want for the thing arriving on the
+fourteenth. It is not encryption: Foundry still sends the journal to their
+browser, so a player who went looking with developer tools could read it. If
+something must not be readable at all, keep it outside the world.
 
 ### Switching it on and off
 

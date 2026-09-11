@@ -29,8 +29,8 @@ export const SETTING_KEYS = [
   // General
   "use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
   "show-grant-tags-print", "show-traits", "show-omens", "show-watch-clock",
-  "use-warden-title", "change-log", "auto-record-scars", "enable-glog-magic",
-  "enable-vald-calendar",
+  "weather-log", "use-warden-title", "change-log", "auto-record-scars",
+  "enable-glog-magic", "enable-vald-calendar",
   // Character Generation
   "content-source-2e", "content-source-custom", "content-source-barebones",
   "barebones-failed-career", "show-generate-header",
@@ -166,7 +166,7 @@ export const SETTING_GROUPS = [
     keys: [
       "use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
       "show-grant-tags-print", "show-traits", "show-omens", "show-watch-clock",
-      "use-warden-title", "change-log", "auto-record-scars",
+      "weather-log", "use-warden-title", "change-log", "auto-record-scars",
     ],
   },
   {
@@ -687,6 +687,28 @@ export const registerSettings = () => {
       Hooks.callAll("cairnWeatherChanged");
     },
   });
+
+  // A journal line every time the weather is rolled or set. OFF by default,
+  // and that default is not timidity: switching it on makes this system create
+  // a document in somebody's world, which an update must never start doing on
+  // its own.
+  game.settings.register(SETTINGS_NS, "weather-log", {
+    name: "CAIRN.Settings.WeatherLog.label",
+    hint: "CAIRN.Settings.WeatherLog.hint",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false,
+    requiresReload: false,
+  });
+
+  // WHICH journal holds the log is NOT a setting, and that is deliberate. It
+  // carries `flags.air-bladder.weatherLog` and is found by it, because awaiting
+  // `game.settings.set` does not guarantee the next `get` sees the new value —
+  // so an id kept here would be briefly missing after it was written, and a
+  // second line of weather inside that window would start a second journal.
+  // The same reasoning applies to the two calendar-event journals. See
+  // `module/weather-log.js` and `module/calendar-events.js`.
 
   // ---- Character Generation ------------------------------------------------
   // Which editions a Warden offers when generating a character. Both on means
