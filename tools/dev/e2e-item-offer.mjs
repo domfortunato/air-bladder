@@ -292,6 +292,59 @@ try {
     gmRows.rows && gmRows.rows.some((r) => r.uuid === fix.doppelUuid && /Warden only/.test(r.label)),
     JSON.stringify(gmRows.rows?.map((r) => r.label) ?? gmRows));
 
+  /* ---- B3. the picker's SEARCH BOX actually filters ----------------------- */
+
+  // It did not, from the day it was added until 2026-09-11. `promptOfferTarget`
+  // constructs DialogV2 directly and passed its wiring as a `render:` option —
+  // but `render` belongs to `DialogV2WaitOptions` and only the static `wait()`
+  // destructures it and binds a listener (dialog.mjs:403-419). Nothing reads
+  // `options.render` on a directly constructed dialog, so the callback sat on a
+  // frozen options object and typing did nothing at all.
+  //
+  // It matters because of what the same commit did: the list went from "every
+  // other player character" (three or four rows) to "every actor the user can
+  // see", which in a world with a bestiary is dozens of rows on every Give.
+  //
+  // ASSERTED AS A BEHAVIOUR CHANGE, not as a listener count: type a string that
+  // matches ONE row and require the others to go. A leg that only checked the
+  // box exists would have been green for the whole of that period.
+  const filtered = await alice.evaluate(async () => {
+    const giver = game.actors.getName("ZZ Offer Giver");
+    const item = giver?.items.find((i) => i.name === "ZZ Brass Lantern");
+    await giver.sheet.render(true);
+    await new Promise((r) => setTimeout(r, 500));
+    giver.sheet.element?.querySelector(
+      `.cairn-items-list-row[data-item-id="${item.id}"] a[data-action="itemGive"]`)?.click();
+    let dlg = null;
+    for (let i = 0; i < 40 && !dlg; i++) {
+      dlg = document.querySelector(".cairn-offer-picker");
+      if (!dlg) await new Promise((r) => setTimeout(r, 150));
+    }
+    if (!dlg) return { err: "no picker" };
+    const visible = () => [...dlg.querySelectorAll(".bg-pick-row")]
+      .filter((r) => !r.classList.contains("cairn-hidden")).length;
+    const field = dlg.querySelector(".cairn-offer-filter");
+    const before = visible();
+    // A string only the Target row carries. Typed as a real `input` event,
+    // which is what a keystroke raises.
+    field.value = "Target";
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 200));
+    const narrowed = visible();
+    field.value = "";
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 200));
+    const cleared = visible();
+    dlg.closest(".application")?.querySelector('button[data-action="cancel"]')?.click();
+    await new Promise((r) => setTimeout(r, 300));
+    return { hasField: !!field, before, narrowed, cleared };
+  });
+  check("the picker's search box hides the rows that do not match",
+    filtered.before > 1 && filtered.narrowed > 0 && filtered.narrowed < filtered.before,
+    JSON.stringify(filtered));
+  check("...and clearing it brings them all back",
+    filtered.cleared === filtered.before, JSON.stringify(filtered));
+
   /* ---- C. picker happy path: offer, per-viewer buttons, accept ----------- */
   console.log("\noffer and accept (picker path)");
   const pickResult = await offerViaPicker(alice, "ZZ Trail Rations", "ZZ Offer Target");
@@ -1139,6 +1192,50 @@ try {
   });
   check("...and canOfferItem refuses it too", observerRefused?.ok === false,
     JSON.stringify(observerRefused));
+
+  /* ---- P2. and the DRAG route agrees with the button -------------------- */
+
+  // The reversal above moved `canGive` and `canOfferItem` to ownership and left
+  // `offerFromDrop` asking `type === "character"`, so for months the two routes
+  // to one operation disagreed for exactly the givers the ruling was about: a
+  // player owning a hireling got the picker from the row button and a bare
+  // "drop failed" toast from the identical drag. Two affordances for one
+  // action must not answer differently.
+  await gm.evaluate(async () => {
+    const npc = game.actors.getName("ZZ Offer NPC");
+    await npc.update({ [`ownership.${game.users.getName("Alice").id}`]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER });
+  });
+  await new Promise((r) => setTimeout(r, 700));
+
+  const npcDrag = await alice.evaluate(async () => {
+    const npc = game.actors.getName("ZZ Offer NPC");
+    const target = game.actors.getName("ZZ Offer Target");
+    const item = npc?.items.find((i) => i.name === "ZZ NPC Sword");
+    if (!item) return { err: "no sword" };
+    if (!npc.isOwner) return { err: "Alice does not own the npc" };
+    await target.sheet.render(true);
+    await new Promise((r) => setTimeout(r, 700));
+    const DialogV2 = foundry.applications.api.DialogV2;
+    const origConfirm = DialogV2.confirm;
+    DialogV2.confirm = async () => true;
+    const dt = new DataTransfer();
+    dt.setData("text/plain", JSON.stringify({ type: "Item", uuid: item.uuid }));
+    let threw = null;
+    try { await target.sheet._onDrop(new DragEvent("drop", { dataTransfer: dt })); }
+    catch (e) { threw = e.message; }
+    finally { DialogV2.confirm = origConfirm; }
+    await new Promise((r) => setTimeout(r, 1200));
+    await target.sheet.close();
+    return { threw, ownsNpc: npc.isOwner, itemStill: !!npc.items.get(item.id) };
+  });
+  const npcDragOffer = await poll(gm, () => {
+    const msg = game.messages.contents.filter((m) => m.getFlag("air-bladder", "itemOffer")).at(-1);
+    const f = msg?.getFlag("air-bladder", "itemOffer");
+    return f?.state === "open" && f?.item?.name === "ZZ NPC Sword" ? true : null;
+  });
+  check("a player dragging off an npc they OWN posts an offer, like the button does",
+    !npcDrag.err && !npcDrag.threw && npcDragOffer === true && npcDrag.itemStill,
+    JSON.stringify(npcDrag));
 
   /* ---- Q. the Warden gives, and the PLAYER answers ----------------------- */
   console.log("\nthe Warden gives: one click only when nobody else could answer");

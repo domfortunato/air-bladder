@@ -288,12 +288,6 @@ export const promptOfferTarget = async (giver, item) => {
         <input type="search" class="cairn-offer-filter" autocomplete="off"
           placeholder="${esc(game.i18n.localize("CAIRN.Offer.PickerFilter"))}">
         <div class="bg-pick-list">${rows}</div></div>`,
-      // The filter's listener goes on the LIVE node. DialogV2 runs a string
-      // `content` through cleanHTML, so anything wired into the markup is dead
-      // by the time it renders — warden-damage.js's dice builder pays the same
-      // toll. Filtering reads the row's TEXT rather than a data attribute, for
-      // the same reason: nothing to be stripped.
-      render: (event, dlg) => wireOfferFilter(dlg.element),
       buttons: [
         {
           action: "offer",
@@ -309,6 +303,22 @@ export const promptOfferTarget = async (giver, item) => {
     });
     const origClose = dialog.close.bind(dialog);
     dialog.close = (...a) => { finish(null); return origClose(...a); };
+    // The filter's listener goes on the LIVE node. DialogV2 runs a string
+    // `content` through cleanHTML, so anything wired into the markup is dead
+    // by the time it renders — warden-damage.js's dice builder pays the same
+    // toll. Filtering reads the row's TEXT rather than a data attribute, for
+    // the same reason: nothing to be stripped.
+    //
+    // AS A LISTENER, NOT AS A `render:` OPTION, and that distinction is the
+    // whole bug this replaced. `render` belongs to `DialogV2WaitOptions`
+    // (dialog.mjs:66-72) and is destructured and bound by the static
+    // `wait()` alone (:403-419) — nothing reads `options.render` on a dialog
+    // constructed directly, so the callback sat on a frozen options object
+    // and the search box did nothing at all. This is the same
+    // `addEventListener("render", ...)` that `wait()` would have made, which
+    // is why it also survives a re-render. The two working sites in this
+    // repo (actor.js, warden-damage.js) both go through prompt/wait.
+    dialog.addEventListener("render", () => wireOfferFilter(dialog.element));
     dialog.render(true);
   });
 };
@@ -810,9 +820,17 @@ export const offerFromDrop = async (targetActor, item) => {
   const giver = item?.actor;
   // ONE question, asked here and in the picker and again at delivery, so the
   // three routes cannot drift — see canReceiveOffer for what it refuses and
-  // why it names no role. The GIVER stays character-only: handing something
-  // FROM an npc is the Warden's own drag and needs no card.
-  if (!canReceiveOffer(targetActor, giver) || giver?.type !== "character" || !item.isOwner) {
+  // why it names no role.
+  //
+  // THE GIVER GATE IS OWNERSHIP, matching `canGive` and `canOfferItem`. It
+  // read `type === "character"` until this fix, months after the 2026-09-10
+  // reversal swapped the other two, so the two routes to one operation
+  // disagreed for exactly the givers that ruling was about: a player owning a
+  // hireling got the picker from the row button and a bare "drop failed" from
+  // the identical drag. The comment here even justified it as "the Warden's
+  // own drag needs no card" — unreachable, since a GM owns every actor and
+  // never reaches this branch at all.
+  if (!canReceiveOffer(targetActor, giver) || !giver?.isOwner || !item.isOwner) {
     ui.notifications.warn("CAIRN.Notify.DropFailed", { localize: true });
     return null;
   }
