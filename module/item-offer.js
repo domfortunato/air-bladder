@@ -35,9 +35,9 @@
  * answered (`offerRefused` with a whitelisted reason), never silently dropped.
  */
 
-import { t } from "./i18n-content.js";
+import { t, actorDisplayName } from "./i18n-content.js";
 import { FATIGUE_NAME } from "./item/item.js";
-import { findMatchingStack } from "./gear.js";
+import { findMatchingStack, capacityVerdict, slotsNeeded } from "./gear.js";
 
 const SCOPE = "air-bladder";
 const FLAG = "itemOffer";
@@ -84,6 +84,46 @@ export const canOfferItem = (item) => {
   }
   return { ok: true };
 };
+
+/**
+ * May this actor RECEIVE an offer?
+ *
+ * DELIBERATELY NOT A ROLE LIST (2026-09-10, extending offers past
+ * character-to-character). Every role a Warden can mint is somebody or
+ * something a player might hand a rope to, and the three walls that decide who
+ * really can are already elsewhere and already generic: the PICKER shows only
+ * what this user may SEE, the CARD offers Accept only to an OWNER or the
+ * Warden, and DELIVERY runs on a client that owns the target. A role list here
+ * would be a fourth wall restating the first — and a role predicate that
+ * quietly grows is this codebase's thrice-repeated bug.
+ *
+ * That is also the whole answer for MONSTERS. A monster keeps Foundry's
+ * ownership NONE (`CairnActor._preCreate` excludes it from the LIMITED
+ * default), so it is not `visible` to a player and never reaches their picker.
+ * A Warden who wants one offerable raises it to Limited. No code, and the
+ * escape hatch stays open.
+ *
+ * TWO EXCLUSIONS, both about the document rather than the role:
+ *
+ * `.pack` — a compendium actor's uuid resolves to a bare index entry with no
+ * permission API, so a card naming it renders button-less for every non-GM
+ * viewer and the giver cannot even Cancel (review #23 finding 7).
+ *
+ * `.isToken` — the same refusal `canBeConnected` makes, plus one more reason.
+ * A synthetic token actor's uuid resolves only while that token exists on a
+ * scene this client holds, and the offer card is a PERMANENT chat message
+ * rebuilt per viewer FROM that uuid. Delete the token when the fight ends and
+ * every past card turns into "? offers ? to ?".
+ *
+ * @param {CairnActor} actor
+ * @param {CairnActor} [giver]
+ */
+export const canReceiveOffer = (actor, giver = null) =>
+  !!actor
+  && !actor.pack
+  && !actor.isToken
+  && (actor.type === "character" || actor.npcRole !== null)
+  && actor.uuid !== giver?.uuid;
 
 /**
  * The create payload for the recipient — built FRESH at accept time on the
@@ -139,6 +179,41 @@ const ownersOf = (actor) =>
 const esc = (s) => foundry.utils.escapeHTML(String(s ?? ""));
 
 /**
+ * Live-filter the target list by name.
+ *
+ * NOT POLISH. Before this change the list was every other player character —
+ * usually three or four rows. It is now every actor the user can see, and a
+ * world with a bestiary imported into the Actor Directory would put dozens of
+ * Limited npcs in front of a player on every single Give.
+ *
+ * A group header hides when nothing under it survives the filter, so the list
+ * never shows a heading with no rows.
+ */
+const wireOfferFilter = (root) => {
+  const field = root?.querySelector(".cairn-offer-filter");
+  const list = root?.querySelector(".bg-pick-list");
+  if (!field || !list) return;
+  field.addEventListener("input", () => {
+    const q = field.value.trim().toLowerCase();
+    let shownInGroup = 0;
+    let header = null;
+    const flush = () => { if (header) header.classList.toggle("cairn-hidden", shownInGroup === 0); };
+    for (const el of list.children) {
+      if (el.classList.contains("cairn-offer-group")) {
+        flush();
+        header = el;
+        shownInGroup = 0;
+        continue;
+      }
+      const hit = !q || el.textContent.toLowerCase().includes(q);
+      el.classList.toggle("cairn-hidden", !hit);
+      if (hit) shownInGroup++;
+    }
+    flush();
+  });
+};
+
+/**
  * Pick who receives the offer: every OTHER world character THIS USER CAN SEE
  * (core `visible` = LIMITED+ — an ownership-NONE character is a doppelganger
  * the Warden is hiding, and its name must not leak into a player's picker;
@@ -153,25 +228,55 @@ const esc = (s) => foundry.utils.escapeHTML(String(s ?? ""));
  */
 export const promptOfferTarget = async (giver, item) => {
   const targets = game.actors
-    .filter((a) => a.type === "character" && a.id !== giver.id && a.visible)
-    .sort((a, b) => a.name.localeCompare(b.name, game.i18n.lang));
+    .filter((a) => canReceiveOffer(a, giver) && a.visible)
+    .sort((a, b) => actorDisplayName(a).localeCompare(actorDisplayName(b), game.i18n.lang));
   if (!targets.length) {
     ui.notifications.warn("CAIRN.Notify.OfferNoTargets", { localize: true });
     return null;
   }
   const itemName = t("item.name", item.name);
+
+  // GROUPED, and CHARACTERS FIRST — which is not decoration. The pre-checked
+  // first row must be a character, so today's one-click case stays one click;
+  // and a radio group with no checked member is CSS :indeterminate, which core
+  // renders invisible. Headers are UI keys rather than role names, the ruling
+  // already at warden-dashboard.js: "container" is a word this codebase uses,
+  // not a word a player reads.
+  const GROUPS = [
+    ["CAIRN.Offer.GroupCharacters", (a) => a.type === "character"],
+    ["CAIRN.Offer.GroupPeople", (a) => ["npc", "hireling"].includes(a.npcRole)],
+    ["CAIRN.Offer.GroupCompanions", (a) => a.npcRole === "companion"],
+    ["CAIRN.Offer.GroupThings", (a) => a.isThing],
+    ["CAIRN.Offer.GroupMonsters", (a) => a.npcRole === "monster"],
+  ];
+
   let rows = "";
-  targets.forEach((a, i) => {
-    const owners = ownersOf(a);
-    const players = owners.map((u) => u.name).join(", ");
-    const label = owners.length === 0
-      ? game.i18n.format("CAIRN.Offer.PickerOptionUnowned", { name: a.name })
-      : owners.some((u) => u.active)
-        ? game.i18n.format("CAIRN.Offer.PickerOption", { name: a.name, players })
-        : game.i18n.format("CAIRN.Offer.PickerOptionOffline", { name: a.name, players });
-    rows += `<label class="bg-pick-row"><input type="radio" name="offerTarget" value="${a.uuid}"${i === 0 ? " checked" : ""}>
-      <span class="bg-pick-name">${esc(label)}</span></label>`;
-  });
+  let index = 0;
+  for (const [key, match] of GROUPS) {
+    const members = targets.filter(match);
+    if (!members.length) continue;
+    rows += `<h4 class="cairn-offer-group">${esc(game.i18n.localize(key))}</h4>`;
+    for (const a of members) {
+      const owners = ownersOf(a);
+      const players = owners.map((u) => u.name).join(", ");
+      // Names go through the content overlay, or a Spanish client picks "Mule"
+      // from this list and reads "Mula" on the sheet. A PC is never localized.
+      const shown = actorDisplayName(a);
+      // PickerOptionUnowned reads "{name} — Warden only", which is already
+      // exactly right for a Limited innkeeper or an unconnected crate. Reused,
+      // never duplicated.
+      const label = owners.length === 0
+        ? game.i18n.format("CAIRN.Offer.PickerOptionUnowned", { name: shown })
+        : owners.some((u) => u.active)
+          ? game.i18n.format("CAIRN.Offer.PickerOption", { name: shown, players })
+          : game.i18n.format("CAIRN.Offer.PickerOptionOffline", { name: shown, players });
+      rows += `<label class="bg-pick-row">
+        <input type="radio" name="offerTarget" value="${a.uuid}"${index === 0 ? " checked" : ""}>
+        <span class="bg-pick-name">${esc(label)}</span></label>`;
+      index++;
+    }
+  }
+
   const body = game.i18n.format("CAIRN.Offer.PickerBody", { item: esc(itemName), giver: esc(giver.name) });
   return new Promise((resolve) => {
     let done = false;
@@ -179,7 +284,16 @@ export const promptOfferTarget = async (giver, item) => {
     const dialog = new foundry.applications.api.DialogV2({
       window: { title: game.i18n.format("CAIRN.Offer.PickerTitle", { item: itemName }), icon: "fas fa-hand-holding" },
       position: { width: 420 },
-      content: `<div class="cairn-offer-picker"><p>${body}</p><div class="bg-pick-list">${rows}</div></div>`,
+      content: `<div class="cairn-offer-picker"><p>${body}</p>
+        <input type="search" class="cairn-offer-filter" autocomplete="off"
+          placeholder="${esc(game.i18n.localize("CAIRN.Offer.PickerFilter"))}">
+        <div class="bg-pick-list">${rows}</div></div>`,
+      // The filter's listener goes on the LIVE node. DialogV2 runs a string
+      // `content` through cleanHTML, so anything wired into the markup is dead
+      // by the time it renders — warden-damage.js's dice builder pays the same
+      // toll. Filtering reads the row's TEXT rather than a data attribute, for
+      // the same reason: nothing to be stripped.
+      render: (event, dlg) => wireOfferFilter(dlg.element),
       buttons: [
         {
           action: "offer",
@@ -218,24 +332,76 @@ export const createItemOffer = async (giver, item, target) => {
     itemId: item.id, acceptorUserId: null,
     item: { name: item.name, img: item.img, bulky: !!item.system?.bulky, weightless: !!item.system?.weightless },
   };
-  const fallback = `${giver.name} offers ${item.name} to ${target.name}.`;
+  // TARGET-FREE. This string is STORED on a public message and is the only
+  // part a client without the render hook reads. `bindOfferCard` rebuilds the
+  // full sentence per viewer, masking a target that viewer cannot see — but
+  // the stored copy reaches everyone unmasked, so it names nobody.
+  const fallback = `${giver.name} offers ${item.name}.`;
   const message = await foundry.documents.ChatMessage.implementation.create({
     speaker: foundry.documents.ChatMessage.implementation.getSpeaker({ actor: giver }),
     content: `<div class="cairn-offer-card">${esc(fallback)}</div>`,
     flags: { [SCOPE]: { [FLAG]: flag } },
   });
   ui.notifications.info("CAIRN.Notify.OfferPosted", {
-    format: { item: t("item.name", item.name), target: target.name },
+    format: { item: t("item.name", item.name), target: actorDisplayName(target) },
   });
   return message;
 };
 
-/** The names an offer card displays, resolved per VIEWER at render. */
-const offerNames = (message, offer) => ({
-  giver: foundry.utils.fromUuidSync(offer.giverActorUuid)?.name ?? message.speaker?.alias ?? "?",
-  target: foundry.utils.fromUuidSync(offer.targetActorUuid)?.name ?? "?",
-  item: t("item.name", offer.item?.name ?? "?"),
-});
+/**
+ * Accept an offer immediately, when the giver's own user owns the target.
+ *
+ * A container the player already keeps is the case where posting a card and
+ * waiting for somebody to click Accept is theatre — they are the somebody. The
+ * alternative is telling them to go and drag it, and the Connections UI is
+ * parked, so their mule is only reachable through the Actor Directory: two
+ * sheets open to stow a rope, when the Give button is right there.
+ *
+ * This is deliberately the SAME accept everyone else clicks rather than a
+ * second transfer path. The capacity verdict, the over-burden confirm and
+ * `runLocalTransfer` all still run, and the public card stays as an honest
+ * ledger line. A second copy of `_onDropItem`'s body — which carries the
+ * grimoire-page bundle, the sort seam and the status-card pin — would be a
+ * second thing to drift.
+ *
+ * @param {ChatMessage} message  what createItemOffer returned
+ * @param {CairnActor} target
+ */
+export const settleOwnOffer = async (message, target) => {
+  if (!message || !target?.isOwner) return null;
+  return onAcceptClick(message);
+};
+
+/**
+ * The names an offer card displays, resolved per VIEWER at render.
+ *
+ * Through the content overlay, or a Spanish client reads "Mule" on a card over
+ * a sheet reading "Mula" — the rule every user-read list of names here obeys.
+ * A player character is never localized.
+ *
+ * MASKED when the viewer cannot see the target. This card is PUBLIC and the
+ * flag is authored by a player's own client, so a crafted offer could name any
+ * actor that client holds — including a monster or a doppelganger the Warden
+ * is hiding. Enforcement is impossible (they own the message); this closes the
+ * display half, and it became worth doing the moment the legal target set grew
+ * past player characters.
+ */
+const offerNames = (message, offer) => {
+  const target = foundry.utils.fromUuidSync(offer.targetActorUuid);
+  const targetName = !target
+    ? "?"
+    : (target.visible || game.user.isGM)
+        ? actorDisplayName(target)
+        : game.i18n.localize("CAIRN.Offer.HiddenTarget");
+  return {
+    giver: (() => {
+      const g = foundry.utils.fromUuidSync(offer.giverActorUuid);
+      return g ? actorDisplayName(g) : (message.speaker?.alias ?? "?");
+    })(),
+    target: targetName,
+    item: t("item.name", offer.item?.name ?? "?"),
+  };
+};
 
 /**
  * Rebuild the offer card in THIS viewer's language and inject the buttons this
@@ -251,13 +417,22 @@ export const bindOfferCard = (message, html) => {
   if (!card) return;
 
   const names = offerNames(message, offer);
-  const stateKey = {
-    open: "CAIRN.Offer.StateOpen",
-    accepted: "CAIRN.Offer.StateAccepted",
-    declined: "CAIRN.Offer.StateDeclined",
-    cancelled: "CAIRN.Offer.StateCancelled",
-    lapsed: "CAIRN.Offer.StateLapsed",
-  }[offer.state];
+  // "Waiting for an answer from {target}'s player" is FALSE when nobody owns
+  // the target — a Limited innkeeper, an unconnected crate. DERIVED from live
+  // ownership, never stored: the flag is written by the giver's own client, so
+  // a stored "the Warden answers this" marker would be review #24's class
+  // exactly, while `Actor#ownership` is server-walled against every player.
+  const liveTarget = foundry.utils.fromUuidSync(offer.targetActorUuid);
+  const wardenAnswers = !!liveTarget && ownersOf(liveTarget).length === 0;
+  const stateKey = offer.state === "open" && wardenAnswers
+    ? "CAIRN.Offer.StateOpenWarden"
+    : {
+      open: "CAIRN.Offer.StateOpen",
+      accepted: "CAIRN.Offer.StateAccepted",
+      declined: "CAIRN.Offer.StateDeclined",
+      cancelled: "CAIRN.Offer.StateCancelled",
+      lapsed: "CAIRN.Offer.StateLapsed",
+    }[offer.state];
   card.innerHTML = `
     <div class="cairn-offer-body">
       <img src="${esc(offer.item?.img ?? "")}" alt="">
@@ -316,14 +491,30 @@ const onAcceptClick = async (message) => {
     ui.notifications.warn("CAIRN.Notify.OfferNotYours", { format: { target: target.name } });
     return;
   }
-  // The over-burden confirm: taking this leaves no free slot. `need` off the
-  // offer-time snapshot (bulky 2 / weightless 0 / else 1 — the derived-slots
-  // rule), the numbers off the live actor.
-  const need = offer.item?.bulky ? 2 : offer.item?.weightless ? 0 : 1;
-  if (need > 0 && (target.system.slotsUsed ?? 0) + need >= (target.system.slotsMax ?? 0)) {
+  // What happens if this lands? ONE test, shared with the drop handler, so an
+  // offer and a drag can never disagree about the same actor and the same
+  // item. `need` comes off the offer-time snapshot (the derived-slots rule),
+  // the numbers off the LIVE actor.
+  const need = slotsNeeded(offer.item);
+  const verdict = capacityVerdict(target, need);
+
+  // A THING, a companion or a monster simply has no room, and nobody may buy
+  // past it. "Overflow is owed" is a rule about a PERSON being handed what the
+  // rules give them; a crate has no Hit Protection to pay the cost with, so
+  // there is nothing to consent to. The offer stays OPEN — free a slot and
+  // accept — which is what every other refusal in this file does.
+  if (verdict === "full") {
+    ui.notifications.warn("CAIRN.Notify.OfferWontFit",
+      { format: { item: names.item, target: names.target } });
+    return;
+  }
+
+  // A person CAN buy it, with an informed click that names the cost.
+  if (verdict === "overburden") {
     const yes = await foundry.applications.api.DialogV2.confirm({
       window: { title: game.i18n.localize("CAIRN.Offer.OverburdenTitle") },
-      content: `<p>${esc(game.i18n.format("CAIRN.Offer.OverburdenBody", { item: names.item, target: target.name }))}</p>`,
+      content: `<p>${esc(game.i18n.format("CAIRN.Offer.OverburdenBody",
+        { item: names.item, target: names.target }))}</p>`,
       yes: { label: game.i18n.localize("CAIRN.Offer.OverburdenConfirm") },
       rejectClose: false,
     });
@@ -390,11 +581,20 @@ const onCancelClick = async (message) => {
 const deliverItem = async (target, rawData) => {
   const data = sanitizeDelivery(rawData);
   if (!data) return null;
+  // ENFORCEMENT, behind the affordance in onAcceptClick — the Fatigue
+  // two-layer doctrine, and necessary rather than belt-and-braces: this runs
+  // on the local fast path AND on the offerRelease socket leg, where the
+  // target was resolved from a flag the giver's client wrote.
+  if (!canReceiveOffer(target)) return null;
   const stack = findMatchingStack(target, data);
   if (stack) {
     await stack.update({ "system.quantity": (stack.system.quantity ?? 1) + 1 });
     return stack;
   }
+  // ...and the capacity door. `ignoreCapacity` below is what lets an accepted
+  // gift overflow a PERSON who clicked through the confirm; without this it
+  // would let one overflow a crate too, which nothing may.
+  if (capacityVerdict(target, slotsNeeded(data.system)) === "full") return null;
   // weightless threaded top-level: createOwnedItem rebuilds system.weightless
   // from it and would clobber the real value with undefined otherwise.
   const [created] = (await target.createOwnedItem(
@@ -576,11 +776,11 @@ export const handleOfferSocket = async (msg, senderId) => {
  */
 export const offerFromDrop = async (targetActor, item) => {
   const giver = item?.actor;
-  // `.pack` refuses a COMPENDIUM character (review #23 finding 7): its uuid
-  // resolves through fromUuidSync to a bare index entry with no permission
-  // API, so a card naming it would render button-less for every non-GM
-  // viewer — the giver could not even Cancel.
-  if (targetActor?.type !== "character" || targetActor.pack || giver?.type !== "character" || !item.isOwner) {
+  // ONE question, asked here and in the picker and again at delivery, so the
+  // three routes cannot drift — see canReceiveOffer for what it refuses and
+  // why it names no role. The GIVER stays character-only: handing something
+  // FROM an npc is the Warden's own drag and needs no card.
+  if (!canReceiveOffer(targetActor, giver) || giver?.type !== "character" || !item.isOwner) {
     ui.notifications.warn("CAIRN.Notify.DropFailed", { localize: true });
     return null;
   }
@@ -589,7 +789,11 @@ export const offerFromDrop = async (targetActor, item) => {
     ui.notifications.warn(eligible.reason, { localize: true });
     return null;
   }
-  const names = { item: t("item.name", item.name), target: targetActor.name, giver: giver.name };
+  const names = {
+    item: t("item.name", item.name),
+    target: actorDisplayName(targetActor),
+    giver: giver.name,
+  };
   const yes = await foundry.applications.api.DialogV2.confirm({
     window: { title: game.i18n.format("CAIRN.Offer.DragTitle", { item: names.item }) },
     content: `<p>${esc(game.i18n.format("CAIRN.Offer.DragBody", names))}</p>`,

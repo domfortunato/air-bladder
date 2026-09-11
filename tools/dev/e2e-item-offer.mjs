@@ -24,7 +24,7 @@
 import { chromium } from "playwright";
 import { VIEWPORT, joinAsGM, joinAs, watchErrors, watchdog } from "./lib.mjs";
 
-watchdog(420000, "item-offer e2e");
+watchdog(600000, "item-offer e2e");
 const browser = await chromium.launch();
 const gmCtx = await browser.newContext({ viewport: VIEWPORT });
 let alCtx = await browser.newContext({ viewport: VIEWPORT });
@@ -195,21 +195,47 @@ try {
   console.log("\nthe give control");
   const controls = await alice.evaluate(async () => {
     const giver = game.actors.getName("ZZ Offer Giver");
+    if (!giver) return { rows: -1, per: {}, err: "the giver has not reached this client" };
+
+    // ESTABLISH THE PRECONDITION, then render. The fixtures are created on the
+    // GM's client and reach this one over the socket, so the six items can
+    // arrive AFTER the actor does. Rendering first and polling afterwards does
+    // not help: the sheet settles with zero rows and nothing re-renders it, so
+    // the poll watches a finished, empty window until it gives up. Intermittent
+    // by nature — which makes it a race, not a flake.
+    for (let i = 0; i < 100 && giver.items.size < 6; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
     await giver.sheet.render(true);
-    await new Promise((r) => setTimeout(r, 600));
-    const root = giver.sheet.element;
+    // Now poll for the rows, re-rendering if the first pass raced anyway. A
+    // fixed sleep here also made both legs below meaningless: an unrendered
+    // sheet yields false for EVERY item, so "absent on Fatigue" was green
+    // precisely when nothing worked at all.
+    let root = null;
+    for (let i = 0; i < 60; i++) {
+      root = giver.sheet.element;
+      if (root?.querySelectorAll(".cairn-items-list-row").length === giver.items.size) break;
+      await new Promise((r) => setTimeout(r, 100));
+      if (i === 20) await giver.sheet.render(true);
+    }
     const per = {};
     for (const i of giver.items) {
       const row = root?.querySelector(`.cairn-items-list-row[data-item-id="${i.id}"]`);
       per[i.name] = !!row?.querySelector('a[data-action="itemGive"]');
     }
-    return per;
+    return { rows: root?.querySelectorAll(".cairn-items-list-row").length ?? -1, per };
   });
-  check("present on ordinary items", controls["ZZ Brass Lantern"] && controls["ZZ Trail Rations"] && controls["ZZ Anvil"],
-    JSON.stringify(controls));
+  // The precondition, asserted rather than assumed: without this the two legs
+  // below can both be satisfied by a sheet that never rendered.
+  check("the giver's sheet renders every row for its owner",
+    controls.rows === 6, JSON.stringify(controls));
+  check("present on ordinary items",
+    controls.per["ZZ Brass Lantern"] && controls.per["ZZ Trail Rations"] && controls.per["ZZ Anvil"],
+    JSON.stringify(controls.per));
   check("absent on Fatigue, the Grimoire and a bound page",
-    controls["Fatigue"] === false && controls["ZZ Grimoire"] === false && controls["ZZ Bound Page"] === false,
-    JSON.stringify(controls));
+    controls.per["Fatigue"] === false && controls.per["ZZ Grimoire"] === false
+      && controls.per["ZZ Bound Page"] === false,
+    JSON.stringify(controls.per));
 
   /* ---- B. never on an npc sheet ------------------------------------------ */
   const npcControls = await gm.evaluate(async () => {
@@ -787,23 +813,249 @@ try {
   check("dropping on an unowned character sheet posts an OFFER and moves nothing",
     !dragged.err && !dragged.threw && dragOffer === true && dragged.itemStill,
     JSON.stringify(dragged));
+  // REWRITTEN 2026-09-10. This leg used to assert "an npc sheet still refuses",
+  // and that claim INVERTED when offers grew past player characters. It is not
+  // deleted: the refusal role passes to a MONSTER, which is the one actor a
+  // player still cannot offer to — and it is refused by VISIBILITY (ownership
+  // NONE, which `CairnActor._preCreate` deliberately leaves monsters at) rather
+  // than by any rule naming monsters in the code.
   const npcDrop = await alice.evaluate(async () => {
     const giver = game.actors.getName("ZZ Offer Giver");
     const npc = game.actors.getName("ZZ Offer NPC");
     const item = giver.items.find((i) => i.name === "ZZ Bait")
       ?? giver.items.find((i) => !["Fatigue", "ZZ Grimoire", "ZZ Bound Page"].includes(i.name));
-    // Alice has no permission on the npc — she cannot even render its sheet
-    // meaningfully; the wall we assert is that no offer card appears.
     const msgs = game.messages.size;
+    const DialogV2 = foundry.applications.api.DialogV2;
+    const origConfirm = DialogV2.confirm;
+    DialogV2.confirm = async () => true;
     try {
+      await npc.sheet.render(true);
+      await new Promise((r) => setTimeout(r, 700));
       const dt = new DataTransfer();
       dt.setData("text/plain", JSON.stringify({ type: "Item", uuid: item.uuid }));
       await npc.sheet._onDrop(new DragEvent("drop", { dataTransfer: dt }));
-    } catch { /* refusal by throw is fine */ }
-    await new Promise((r) => setTimeout(r, 900));
-    return { grew: game.messages.size > msgs };
+    } catch { /* a refusal by throw would show up as no card below */ }
+    finally { DialogV2.confirm = origConfirm; }
+    await new Promise((r) => setTimeout(r, 1200));
+    await npc.sheet.close();
+    return {
+      grew: game.messages.size > msgs,
+      // NOTHING may be created by the drop itself, on either route.
+      npcGot: npc.items.filter((i) => i.name === item.name).length,
+      giverStill: !!giver.items.get(item.id),
+    };
   });
-  check("an npc sheet still refuses — no offer card", npcDrop.grew === false, JSON.stringify(npcDrop));
+  // ASSERT THE CARD, not that a handler ran: before this change drag-drop never
+  // BOUND on an unowned npc sheet at all (`_canDragDrop`), so no drop event was
+  // ever dispatched and any "the handler refused" assertion would have been
+  // testing nothing.
+  check("dropping on an unowned NPC sheet posts an offer, and moves nothing",
+    npcDrop.grew === true && npcDrop.npcGot === 0 && npcDrop.giverStill === true,
+    JSON.stringify(npcDrop));
+
+  /* ---- M. monsters, and the two-sided control ---------------------------- */
+  console.log("\nmonsters: visibility is the only gate");
+  await gm.evaluate(async () => {
+    await Actor.create({
+      name: "ZZ Offer Wolf", type: "npc", system: { role: "monster" },
+      ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE },
+    });
+  });
+  await new Promise((r) => setTimeout(r, 600));
+
+  const pickerNames = (p) => p.evaluate(async () => {
+    const { promptOfferTarget } = await import("/systems/air-bladder/module/item-offer.js");
+    const giver = game.actors.getName("ZZ Offer Giver");
+    const item = giver.items.find((i) => !["Fatigue", "ZZ Grimoire", "ZZ Bound Page"].includes(i.name));
+    const p = promptOfferTarget(giver, item);
+    await new Promise((r) => setTimeout(r, 500));
+    const dlg = [...foundry.applications.instances.values()]
+      .find((a) => a.element?.querySelector?.(".cairn-offer-picker"));
+    const rows = [...(dlg?.element.querySelectorAll(".bg-pick-name") ?? [])].map((n) => n.textContent.trim());
+    const groups = [...(dlg?.element.querySelectorAll(".cairn-offer-group") ?? [])].map((n) => n.textContent.trim());
+    dlg?.close();
+    await p;
+    return { rows, groups };
+  });
+
+  const hiddenWolf = await pickerNames(alice);
+  check("a monster at ownership NONE never reaches a player's picker",
+    !hiddenWolf.rows.some((r) => r.includes("Wolf")), JSON.stringify(hiddenWolf.rows));
+  check("...and the picker is grouped, Characters first",
+    hiddenWolf.groups[0] === "Characters" && hiddenWolf.groups.includes("People"),
+    JSON.stringify(hiddenWolf.groups));
+
+  // THE CONTROL, and it is the half that matters: raise the wolf to Limited and
+  // it MUST appear. A hardcoded monster exclusion would pass the leg above and
+  // fail this one, which is the only way to tell the two designs apart.
+  await gm.evaluate(async () => {
+    await game.actors.getName("ZZ Offer Wolf")
+      .update({ "ownership.default": CONST.DOCUMENT_OWNERSHIP_LEVELS.LIMITED });
+  });
+  await new Promise((r) => setTimeout(r, 700));
+  const shownWolf = await pickerNames(alice);
+  check("raising it to Limited makes it offerable — visibility is the only gate",
+    shownWolf.rows.some((r) => r.includes("Wolf")) && shownWolf.groups.includes("Monsters"),
+    JSON.stringify(shownWolf));
+
+  await gm.evaluate(async () => {
+    await game.actors.getName("ZZ Offer Wolf")
+      .update({ "ownership.default": CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE });
+  });
+  await new Promise((r) => setTimeout(r, 700));
+  const hiddenAgain = await pickerNames(alice);
+  check("...and dropping it back to None hides it again",
+    !hiddenAgain.rows.some((r) => r.includes("Wolf")), JSON.stringify(hiddenAgain.rows));
+
+  /* ---- N. a thing is FULL, and both routes agree ------------------------- */
+  console.log("\ncapacity: a crate is full, and nobody may buy past it");
+  await gm.evaluate(async (aliceName) => {
+    const aliceU = game.users.getName(aliceName);
+    const crate = await Actor.create({
+      name: "ZZ Offer Crate", type: "npc",
+      system: { role: "container", slots: 2 },
+      ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.LIMITED, [aliceU.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
+    });
+    await crate.createEmbeddedDocuments("Item", [
+      { name: "ZZ Crate Filler A", type: "item" },
+      { name: "ZZ Crate Filler B", type: "item" },
+    ]);
+  }, "Alice");
+  await new Promise((r) => setTimeout(r, 700));
+
+  const crateOffer = await alice.evaluate(async () => {
+    const { createItemOffer } = await import("/systems/air-bladder/module/item-offer.js");
+    const giver = game.actors.getName("ZZ Offer Giver");
+    const crate = game.actors.getName("ZZ Offer Crate");
+    const item = giver.items.find((i) => !["Fatigue", "ZZ Grimoire", "ZZ Bound Page"].includes(i.name));
+    const before = crate.items.size;
+    const msg = await createItemOffer(giver, item, crate);
+    // WAIT FOR THE BUTTON, then assert it was really there. Clicking a card
+    // that has not rendered yet is how "the crate refused" passes while
+    // nothing was ever clicked — the shape of a check that cannot fail.
+    let btn = null;
+    for (let i = 0; i < 60 && !btn; i++) {
+      btn = document.querySelector(`[data-message-id="${msg.id}"] .cairn-offer-accept`);
+      if (!btn) await new Promise((r) => setTimeout(r, 100));
+    }
+    const DialogV2 = foundry.applications.api.DialogV2;
+    const orig = DialogV2.confirm;
+    let confirmSeen = false;
+    DialogV2.confirm = async (...a) => { confirmSeen = true; return orig.call(DialogV2, ...a); };
+    try {
+      btn?.click();
+      await new Promise((r) => setTimeout(r, 1400));
+    } finally { DialogV2.confirm = orig; }
+    return {
+      clicked: !!btn,
+      crateGrew: crate.items.size > before,
+      giverStill: !!giver.items.get(item.id),
+      state: msg.getFlag("air-bladder", "itemOffer")?.state,
+      confirmSeen,
+      slots: `${crate.system.slotsUsed}/${crate.system.slotsMax}`,
+    };
+  });
+  check("an offer to a FULL container is refused, and the offer stays open",
+    crateOffer.clicked === true && crateOffer.crateGrew === false
+      && crateOffer.giverStill === true && crateOffer.state === "open"
+      // No over-burden confirm: a crate has no Hit Protection to pay with, so
+      // "full" is not a cost anyone may consent to.
+      && crateOffer.confirmSeen === false,
+    JSON.stringify(crateOffer));
+
+  const crateDrop = await gm.evaluate(async () => {
+    const giver = game.actors.getName("ZZ Offer Giver");
+    const crate = game.actors.getName("ZZ Offer Crate");
+    const item = giver.items.find((i) => !["Fatigue", "ZZ Grimoire", "ZZ Bound Page"].includes(i.name));
+    const before = crate.items.size;
+    await crate.sheet.render(true);
+    await new Promise((r) => setTimeout(r, 700));
+    const dt = new DataTransfer();
+    dt.setData("text/plain", JSON.stringify({ type: "Item", uuid: item.uuid }));
+    try { await crate.sheet._onDrop(new DragEvent("drop", { dataTransfer: dt })); } catch { /* refused */ }
+    await new Promise((r) => setTimeout(r, 900));
+    await crate.sheet.close();
+    return { grew: crate.items.size > before };
+  });
+  // THE ROUTE-AGREEMENT LEG. Before the shared verdict, the offer path went
+  // through `ignoreCapacity: true` unconditionally and the crate ended 4/2
+  // while the very same drag was refused.
+  check("...and a DRAG of the same item onto the same crate is refused too",
+    crateDrop.grew === false, JSON.stringify(crateDrop));
+
+  // THE COMPANION THAT KEEPS THE TWO ABOVE HONEST. Without it "the crate
+  // refused" is also satisfied by offers to containers never working at all —
+  // an assertion the surface can meet by being broken.
+  await gm.evaluate(async () => {
+    await game.actors.getName("ZZ Offer Crate").update({ "system.slots": 4 });
+  });
+  await new Promise((r) => setTimeout(r, 700));
+  const crateRoom = await alice.evaluate(async () => {
+    const { createItemOffer } = await import("/systems/air-bladder/module/item-offer.js");
+    const giver = game.actors.getName("ZZ Offer Giver");
+    const crate = game.actors.getName("ZZ Offer Crate");
+    const item = giver.items.find((i) => !["Fatigue", "ZZ Grimoire", "ZZ Bound Page"].includes(i.name));
+    const before = crate.items.size;
+    const msg = await createItemOffer(giver, item, crate);
+    let btn = null;
+    for (let i = 0; i < 60 && !btn; i++) {
+      btn = document.querySelector(`[data-message-id="${msg.id}"] .cairn-offer-accept`);
+      if (!btn) await new Promise((r) => setTimeout(r, 100));
+    }
+    btn?.click();
+    await new Promise((r) => setTimeout(r, 1600));
+    return {
+      clicked: !!btn,
+      landed: crate.items.size === before + 1,
+      state: msg.getFlag("air-bladder", "itemOffer")?.state,
+      // A thing STOWS what it is given — the drop route's rule, reached here
+      // through sanitizeDelivery rather than a second copy of it.
+      equipped: crate.items.contents.at(-1)?.system?.equipped,
+    };
+  });
+  check("...while the same crate WITH room accepts it, stowed",
+    crateRoom.clicked === true && crateRoom.landed === true
+      && crateRoom.state === "accepted" && crateRoom.equipped === false,
+    JSON.stringify(crateRoom));
+
+  /* ---- O. giving to something you already own settles in one click ------- */
+  console.log("\nyour own container: one click, no waiting for yourself");
+  // A FRESH item: by this point the earlier legs have given the giver's
+  // original stock away, and "no item" would make this leg red for a reason
+  // that has nothing to do with what it tests.
+  await gm.evaluate(async () => {
+    await game.actors.getName("ZZ Offer Giver")
+      .createEmbeddedDocuments("Item", [{ name: "ZZ Stowable Rope", type: "item" }]);
+  });
+  await new Promise((r) => setTimeout(r, 700));
+  const selfSettle = await (async () => {
+    const drove = await offerViaPicker(alice, "ZZ Stowable Rope", "ZZ Offer Crate");
+    await new Promise((r) => setTimeout(r, 1600));
+    return {
+      drove,
+      ...(await alice.evaluate(() => {
+        const crate = game.actors.getName("ZZ Offer Crate");
+        const msg = game.messages.contents.filter((m) => m.getFlag("air-bladder", "itemOffer")).at(-1);
+        const f = msg?.getFlag("air-bladder", "itemOffer");
+        return {
+          landed: crate.items.some((i) => i.name === "ZZ Stowable Rope"),
+          state: f?.state,
+          settled: f?.settled,
+          // No Accept button should ever have been needed — the card is a
+          // ledger line, not a question put to the person who asked it.
+          acceptStillOffered: !!document
+            .querySelector(`[data-message-id="${msg?.id}"] .cairn-offer-accept`),
+        };
+      })),
+    };
+  })();
+  // ASSERT THE ITEM LANDED, not that a card posted: an early return inside the
+  // accept would leave a perfectly good card and move nothing.
+  check("the Give button settles at once on a container you own",
+    selfSettle.drove === "clicked" && selfSettle.landed === true
+      && selfSettle.state === "accepted" && selfSettle.settled === true
+      && selfSettle.acceptStillOffered === false,
+    JSON.stringify(selfSettle));
 
   /* ---- teardown ----------------------------------------------------------- */
   const swept = await gm.evaluate(async (before) => {

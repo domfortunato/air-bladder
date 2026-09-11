@@ -53,6 +53,29 @@ them if you want the change to reach them.
 Switching an existing actor's **Role** to NPC or Hireling links its prototype
 token as well, unless you had already unlinked it yourself.
 
+## Handing something to a monster
+
+A player can offer an item to anyone they can see: another player's character,
+an innkeeper, a mule, a crate. **A monster is the exception, and it is because
+of permissions rather than any rule about monsters.**
+
+A monster is created with its permission at **None**, so players cannot see it
+in the Actors directory and it never appears in their give list. If you want one
+to be offerable — the party bribing a troll, feeding a guard dog — do two things:
+
+1. Set the monster's permission to **Limited** (right-click it in the Actors
+   directory, then **Configure Ownership**).
+2. Tick **Link Actor Data** on its token, if the creature the party is talking
+   to is on a map.
+
+**The second step matters more than it looks.** An unlinked token is its own
+copy, so a gift accepted on the directory entry lands on the entry and not on
+the creature standing in front of the party. That is the same split this page
+describes above.
+
+You answer the offer yourself. Nobody owns a monster or a Limited innkeeper, so
+the card waits for the Warden.
+
 ## Related
 
 - [Generating NPCs and Hirelings](generating-npcs.md) — the two kinds of person

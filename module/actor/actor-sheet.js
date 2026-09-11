@@ -38,7 +38,10 @@ const NPC_TRAIT_LABELS = {
 };
 import { atConnectionLimit, maxConnections, connectionsUiEnabled, brokenOwnershipShape, OWNERSHIP_SYNC_FLAG } from "../connections.js";
 import { findMatchingStack } from "../gear.js";
-import { canOfferItem, promptOfferTarget, createItemOffer, offerFromDrop } from "../item-offer.js";
+import {
+  canOfferItem, promptOfferTarget, createItemOffer, offerFromDrop,
+  canReceiveOffer, settleOwnOffer,
+} from "../item-offer.js";
 import { actorDisplayName, localizeNameDesc, sourceOf, t } from "../i18n-content.js";
 import { FATIGUE_NAME } from "../item/item.js";
 import { castFromGrimoire, castScroll, grimoiresOn, pagesOfGrimoire, ensureGrimoireKey,
@@ -512,13 +515,19 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
    */
   /**
    * @override — drops normally bind only on an editable sheet (core's
-   * default). An UNOWNED character sheet additionally accepts them so a
-   * player can drop-as-OFFER (item-offer.js): _onDropItem's first branch
-   * turns the would-be refusal into an offer card, and every other drop type
-   * still dies on core's own owner walls inside its _onDrop* handlers.
+   * default). An UNOWNED sheet additionally accepts them so a player can
+   * drop-as-OFFER (item-offer.js): _onDropItem's first branch turns the
+   * would-be refusal into an offer card, and every other drop type still dies
+   * on core's own owner walls inside its _onDrop* handlers.
+   *
+   * THIS WAS THE THIRD GATE, and the one nobody had counted (2026-09-10).
+   * While it read `type === "character"`, drag-drop never BOUND on an unowned
+   * npc or container sheet at all — so `_onDropItem` was never reached and the
+   * type test inside `offerFromDrop` was dead code for exactly the targets
+   * that change was about. It asks the same one question now.
    */
   _canDragDrop() {
-    return this.isEditable || (this.actor?.type === "character" && !this.actor.isOwner);
+    return this.isEditable || (!this.actor?.isOwner && canReceiveOffer(this.actor));
   }
 
   get _dragDrop() {
@@ -3512,7 +3521,14 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       return;
     }
     const to = await promptOfferTarget(this.actor, item);
-    if (to) await createItemOffer(this.actor, item, to);
+    if (!to) return;
+    const message = await createItemOffer(this.actor, item, to);
+    // Giving to something you already OWN — your own mule, your own crate —
+    // settles at once. Posting a card and waiting for somebody to click Accept
+    // is theatre when the somebody is you. It goes through the ordinary accept
+    // (settleOwnOffer), so the capacity verdict and the over-burden confirm
+    // still run and the public card is still the ledger line.
+    if (message && to.isOwner) await settleOwnOffer(message, to);
   }
 
   /**

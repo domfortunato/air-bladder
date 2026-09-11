@@ -3800,3 +3800,30 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     width: 100%;
     margin: 0;
 }
+/* ---- The offer picker's filter --------------------------------------------
+   The target list used to be every other player character, three or four
+   rows. It is now every actor the user can SEE, which in a world with an
+   imported bestiary is dozens — so the filter is part of the feature, not
+   polish on top of it. A group header hides when nothing under it survives,
+   or the list shows headings with no rows beneath them. */
+.cairn-offer-picker .cairn-offer-filter {
+    width: 100%;
+    margin-bottom: 6px;
+}
+
+.cairn-offer-picker .cairn-offer-group {
+    margin: 8px 0 2px;
+    padding-bottom: 2px;
+    border-bottom: 1px solid var(--ab-line);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ab-ink-muted);
+}
+
+.cairn-offer-picker .cairn-offer-group:first-of-type {
+    margin-top: 0;
+}
+
+.cairn-offer-picker .cairn-hidden {
+    display: none;
+}

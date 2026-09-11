@@ -397,3 +397,45 @@ export const findMatchingStack = (actor, itemLike) =>
       && !!it.system?.bound === !!itemLike.system?.bound
       && !it.system?.grimoire && !itemLike.system?.grimoire
   ) ?? null;
+
+/**
+ * What happens if `need` slots arrive on this actor? THREE verdicts.
+ *
+ * One test, because the same question was being spelled three different ways —
+ * the drop handler's strict projected check for a thing, its `isEncumbered()`
+ * check for everyone else, and the offer card's own arithmetic — and three
+ * spellings of one rule is three things to drift. It sits beside
+ * `findMatchingStack` for exactly that reason.
+ *
+ * THE THREE VERDICTS DIFFER IN WHO MAY BUY WHICH.
+ *
+ * - `"fits"` — nothing to decide.
+ * - `"overburden"` — a PERSON (a character, an npc or a hireling) would be left
+ *   with no free slot, which sets Hit Protection to 0 until something is
+ *   dropped or handed away. This is the case the rules OWE, and an informed
+ *   click may buy it: an accepted gift, generation, Fatigue. Ordinary
+ *   acquisition still refuses it.
+ * - `"full"` — a THING, a companion or a monster has no room. NOBODY may buy
+ *   this, on either route. "Overflow is owed, never merely allowed" is a rule
+ *   about a person being handed what the rules give them; a sack has no Hit
+ *   Protection to pay the cost with, so there is no cost to consent to — only
+ *   "it does not fit". It is also the only answer that keeps an offer from
+ *   disagreeing with the drop handler's own ContainerFull refusal.
+ *
+ * @param {CairnActor} actor
+ * @param {Number} need  slots the arriving item wants: bulky 2, weightless 0, else 1
+ * @returns {"fits"|"overburden"|"full"}
+ */
+export const capacityVerdict = (actor, need) => {
+  const used = actor?.system?.slotsUsed ?? 0;
+  const max = actor?.system?.slotsMax ?? 0;
+  // Weightless costs nothing and can never fill anything — the same exemption
+  // `createOwnedItem` already makes.
+  if (need <= 0) return "fits";
+  if (actor?.livesByPlayerRules) return used + need >= max ? "overburden" : "fits";
+  return used + need > max ? "full" : "fits";
+};
+
+/** Slots an item wants. Bulky 2, weightless 0, otherwise 1. */
+export const slotsNeeded = (itemLike) =>
+  (itemLike?.bulky ? 2 : itemLike?.weightless ? 0 : 1);

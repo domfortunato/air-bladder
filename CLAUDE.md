@@ -691,6 +691,45 @@ if you find one, deleting it is in scope, not a separate decision.
     cancel a gift, not protect anyone. The OFFER flow is also what a drop on
     an unowned character sheet becomes — before this, that drop silently died
     on core's owner wall.
+    **WIDENED 2026-09-10 (user ask) past character-to-character: a PC may now
+    offer to anything they can SEE** — a Limited innkeeper, a crate, a mule, a
+    companion. **Expressed as NO ROLE LIST**, deliberately (`canReceiveOffer`):
+    the three walls that decide who really can are already generic — the picker
+    shows only what this user can see, the card offers Accept only to an OWNER
+    or the Warden, and delivery runs on a client that owns the target — and a
+    role predicate that quietly grows is this codebase's thrice-repeated bug.
+    That is also the entire answer for MONSTERS: ownership NONE keeps them out
+    of a player's picker, and a Warden who wants one offerable raises it to
+    Limited. The probe's control is two-sided (raise it, it appears; drop it, it
+    goes), which is the only thing that tells this design apart from a hardcoded
+    monster exclusion. Two exclusions are about the DOCUMENT, not the role:
+    `.pack` (an index entry has no permission API) and **`.isToken`** — a
+    synthetic actor's uuid resolves only while its token exists, and the card is
+    a permanent message rebuilt per viewer FROM that uuid, so a token deleted
+    after the fight turns every past card into "? offers ? to ?".
+    **AND THE OVERFLOW RULE DOES NOT TRAVEL WITH IT.** `capacityVerdict`
+    (`module/gear.js`, one test now where three spellings used to live) returns
+    `overburden` only for a PERSON; a thing, a companion or a monster gets
+    `full`, which NOBODY may buy on EITHER route. "Overflow is owed" is a rule
+    about a person being handed what the rules give them — a crate has no Hit
+    Protection to pay the cost with, so there is nothing to consent to. It is
+    also the only answer that stops an offer disagreeing with the drop
+    handler's own `ContainerFull`, which it did: `deliverItem` passed
+    `ignoreCapacity: true` unconditionally and would have ended a 2-slot crate
+    at 4/2 while the identical drag was refused.
+    Three more things worth the lines. **`_canDragDrop` was a THIRD gate nobody
+    had counted** (`actor-sheet.js`): while it read `type === "character"`,
+    drag-drop never BOUND on an unowned npc or container sheet, so `_onDropItem`
+    was never reached and the type test inside `offerFromDrop` was dead code for
+    exactly the targets this change was about. **The card's waiting line is
+    DERIVED, never stored** — "waiting for {target}'s player" is false when
+    nobody owns the target, and a stored "the Warden answers this" marker would
+    be review #24's class exactly, since the flag is written by the giver's own
+    client; live `Actor#ownership` is server-walled and is read instead. And
+    **giving to something you already own settles in ONE click**
+    (`settleOwnOffer`), through the ordinary accept rather than a second
+    transfer path, because waiting for yourself to press Accept is theatre and
+    the Connections UI is parked.
 
   **Ordinary acquisition still refuses**, and that is deliberate, not a gap: a
   drop onto a full character (`_onDropItem`), the manual Create Item dialog, and
