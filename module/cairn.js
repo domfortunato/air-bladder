@@ -17,7 +17,7 @@ import { handleOfferSocket, bindOfferCard } from "./item-offer.js";
 import { createCairnMacro, rollItemMacro } from "./macros.js";
 import { Damage, DAMAGE_APPLIED_FLAG, DAMAGE_SOURCE_FLAG } from "./damage.js";
 import { registerWardenDamageControl } from "./warden-damage.js";
-import { registerWardenDashboardControl } from "./warden-dashboard.js";
+import { registerWardenDashboardControl, refreshDashboardTime } from "./warden-dashboard.js";
 import { installWorldCalendar, checkWorldCalendar } from "./game-time.js";
 import { renderWatchClock, refreshWatchClock } from "./watch-clock.js";
 import { refreshValdCalendar } from "./vald-calendar.js";
@@ -109,11 +109,18 @@ Hooks.once("init", async function () {
   const refreshTimeSurfaces = () => {
     refreshWatchClock();
     refreshValdCalendar();
-    // The Dashboard's time band, if a Warden has the window open. Imported
-    // lazily so a player's client never loads the dashboard module at all.
-    import("./warden-dashboard.js")
-      .then(({ refreshDashboardTime }) => refreshDashboardTime())
-      .catch((err) => console.error("air-bladder | the dashboard clock failed to follow:", err));
+    // The Dashboard's time band, if a Warden has the window open. It is a
+    // no-op on a player's client, where the dashboard is never constructed.
+    //
+    // STATIC, and the dynamic `import()` that used to stand here was
+    // theatre. Its comment claimed a player's client never loads the module —
+    // false the moment it was written, because line 20 of this same file
+    // imports it statically for the scene-control registration, and this file
+    // is the system's only `esmodules` entry. The dynamic form resolved from
+    // the already-populated module registry and bought nothing. The
+    // `cairnWeatherChanged` listener below is the genuine article: it guards
+    // on `isGM` first and reaches a module nothing else imports.
+    refreshDashboardTime();
   };
   Hooks.on("updateWorldTime", refreshTimeSurfaces);
 
