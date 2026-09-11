@@ -3832,6 +3832,27 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     display: none;
 }
 
+/* THE REVEAL MUST SCROLL. The restore at the top of this file is scoped
+   `.cairn.sheet` and this window is deliberately NOT a sheet (it is a reveal,
+   not a document sheet -- see ShownTableView), so it inherited core's flat
+   `overflow: hidden` on .window-content (foundry2.css:7030) and AppV2's
+   viewport clamp on .application (:6993). Measured before the fix on the Name
+   table: a 922px window over 1401px of content, 517px of it unreachable --
+   scrollbar absent, wheel dead, no resize handle. A Warden showing a table is
+   showing the odds, and a third of them were off the bottom.
+
+   The pair is deliberate: `flex: 1` lets the body take the window's height so
+   there is something for `overflow: auto` to act on. Without it the body is
+   `flex: 0 1 auto` and gets shrunk instead, which is the same trap the sheet
+   restore documents. */
+.cairn-shown-table-view .window-content {
+    overflow: hidden auto;
+}
+
+.cairn-shown-table-view .window-content > * {
+    flex: 1;
+}
+
 .cairn-shown-table .cairn-show-formula {
     margin-bottom: 4px;
     font-size: 12px;

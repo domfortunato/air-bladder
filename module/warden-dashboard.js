@@ -355,14 +355,35 @@ const postTableDraw = async (name, messageMode) => {
   }
   const drawn = await table.draw({ displayChat: false });
   if (!drawn?.results?.length) return null;
+  const label = labelForTable(table.name);
   const message = await table.toMessage(drawn.results, {
     roll: drawn.roll,
-    // The table speaks for itself, under the SAME label its button wears —
-    // "Path Difficulty", not the browse name "Warden: Travel - Path
-    // Difficulty". `labelForTable` falls back to the content overlay for a
-    // table the dashboard does not know, so a Warden's own table still reads
-    // in the viewer's language.
-    messageData: { speaker: { alias: labelForTable(table.name) } },
+    messageData: {
+      // The table speaks for itself, under the SAME label its button wears —
+      // "Path Difficulty", not the browse name "Warden: Travel - Path
+      // Difficulty".
+      //
+      // ALL FOUR SPEAKER FIELDS ARE STATED, and that is the fix rather than
+      // the style. `toMessage` merges this into `ChatMessage.getSpeaker()`
+      // (roll-table.mjs:54-61) and `mergeObject` recurses, so supplying
+      // `alias` alone left `scene`, `token` and `actor` naming WHATEVER TOKEN
+      // THE WARDEN HAD SELECTED on the canvas. Two things then read them:
+      // `localizeSpeakerName` resolves the token and rewrites the card header
+      // to its name (its token branch has no name guard, unlike its actor
+      // branch), and core enriches the description with
+      // `secrets: speakerActor?.isOwner`. A table is nobody's token.
+      speaker: { scene: null, actor: null, token: null, alias: label },
+      // AND THE FLAVOR, for the same reason the alias is overridden at all.
+      // Core stamps `TABLE.DrawFlavor` with the table's RAW name
+      // (roll-table.mjs:53-55) and stores it, so every card posted from this
+      // window printed "Warden: NPC - Reactions" one line under a sender that
+      // had been carefully relabelled "Reaction". Core's own sentence, core's
+      // own key, this window's label — no new string to translate.
+      flavor: game.i18n.format(`TABLE.DrawFlavor${drawn.results.length > 1 ? "Plural" : ""}`, {
+        number: drawn.results.length,
+        name: foundry.utils.escapeHTML(label),
+      }),
+    },
     messageOptions: { messageMode },
   });
   return { message, results: drawn.results };
@@ -411,7 +432,12 @@ const postSetDraw = async (labelKey, names, messageMode) => {
     // `description` exactly this way (table-result.mjs). A text row keeps its
     // prose in `description`; anything else is identified by `name`, which is
     // `resultText`'s rule and the reason `TableResult#text` is not read.
-    const raw = result.type === "text" ? result.description : result.name;
+    // THROUGH THE OVERLAY, like every other surface that shows a drawn row.
+    // Core's card is swept by `localizeTableResults`, which selects
+    // `.table-results li` — core's markup, which this card does not have. So a
+    // combined draw read English on a Spanish client while the same table
+    // rolled from the button beside it read Spanish.
+    const raw = t("table.result", result.type === "text" ? result.description : result.name);
     rows.push({
       label: t("table.name", table.name),
       value: await foundry.applications.ux.TextEditor.implementation.enrichHTML(raw, {
@@ -426,10 +452,16 @@ const postSetDraw = async (labelKey, names, messageMode) => {
     .map((r) => `<div class="cairn-set-row"><strong>${esc(r.label)}</strong>: ${r.value}</div>`)
     .join("\n");
   // `applyMode` is v14's way to turn a visibility choice into whisper/blind on
-  // candidate data (chat-message.mjs:151). It is NOT a create option and there
-  // is no `messageMode` field on the document, so this has to run over the data
-  // BEFORE create. Passing `undefined` falls back to the core setting, which is
-  // exactly what the dropdown's default should do.
+  // candidate data (chat-message.mjs:151), and there is no `messageMode` field
+  // on the document, so this runs over the data BEFORE create. Passing
+  // `undefined` falls back to the core setting, which is exactly what the
+  // dropdown's default should do.
+  //
+  // This comment used to add "it is NOT a create option", which is false:
+  // `ChatMessage._preCreate` reads `options.messageMode` and calls `applyMode`
+  // itself (chat-message.mjs:538), which is how `postTableDraw` above passes
+  // it. Either form reaches the same state. Said here because a confident
+  // wrong note about an API is how the next call site gets written badly.
   const chatData = {
     content: `<div class="cairn-dashboard-set">
   <div class="cairn-set-title">${esc(game.i18n.localize(labelKey))}</div>
@@ -513,7 +545,10 @@ const renderTableRows = async (table) => {
     // "3" for a single number, "3-5" for a span. A Warden showing a table is
     // showing the odds — that was the ruling — so the range is never dropped.
     const range = lo === hi ? String(lo ?? "") : `${lo ?? ""}-${hi ?? ""}`;
-    const raw = r.type === "text" ? r.description : r.name;
+    // THROUGH THE OVERLAY — see the same line in `postSetDraw`. This popup is
+    // rendered per client, so it is the one surface here that CAN read in the
+    // viewer's own language, and it was the one throwing English at them.
+    const raw = t("table.result", r.type === "text" ? r.description : r.name);
     rows.push(`<div class="cairn-show-row"><span class="cairn-show-range">${esc(range)}</span>`
       + `<span class="cairn-show-text">${await enrich(raw, { relativeTo: r, secrets: false })}</span></div>`);
   }
@@ -542,7 +577,16 @@ class ShownTableView extends foundry.applications.api.ApplicationV2 {
     // core's fallback "app-59" and nothing could find it.
     id: "cairn-shown-table-{id}",
     classes: ["cairn", "cairn-shown-table-view"],
-    window: { title: "CAIRN.Dashboard.Title", icon: "fas fa-eye" },
+    // RESIZABLE, and the CSS beside it restores scrolling. A revealed table is
+    // the one window here whose height is the CONTENT'S choice, not ours: the
+    // Name table is 60 rows. AppV2 clamps a `height: auto` window to the
+    // viewport (`.application { max-height: calc(100vh - ...) }`,
+    // foundry2.css:6993) and its `.window-content` is a flat `overflow: hidden`
+    // (:7030), so the rows past the fold were unreachable — no scrollbar, no
+    // wheel, no handle. The sheet rule at the top of cairn.css that restores
+    // this is scoped `.cairn.sheet`, and this window is deliberately not a
+    // sheet, so it needs its own.
+    window: { title: "CAIRN.Dashboard.Title", icon: "fas fa-eye", resizable: true },
     position: { width: 420 },
   };
 

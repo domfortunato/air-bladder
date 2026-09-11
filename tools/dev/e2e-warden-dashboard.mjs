@@ -186,16 +186,30 @@ try {
     const app = document.querySelector("#cairn-warden-dashboard");
     const btn = app.querySelector('button[data-action="rollTable"][data-table="Warden: NPC - Quirk"]');
     if (!btn) return { clicked: false };
+    // A TOKEN IS CONTROLLED ON PURPOSE, and legs 5a/5b below are meaningless
+    // without it. `toMessage` merges our speaker into `ChatMessage.getSpeaker()`,
+    // whose CASE 4 infers the speaker from the CONTROLLED TOKEN — so with
+    // nothing selected there is nothing to leak and a broken system reads
+    // exactly like a fixed one. Ask what ELSE makes the leg green.
+    const token = canvas?.tokens?.placeables?.[0] ?? null;
+    token?.control({ releaseOthers: true });
     const had = game.messages.size;
     btn.click();
     for (let i = 0; i < 40 && game.messages.size === had; i++) await new Promise((r) => setTimeout(r, 100));
     const m = game.messages.contents.at(-1);
+    token?.release();
     return {
       clicked: true,
       id: m?.id,
       tableFlag: foundry.utils.getProperty(m?.flags ?? {}, "core.RollTable") ?? null,
       rolls: m?.rolls?.length ?? 0,
       alias: m?.speaker?.alias ?? null,
+      controlledToken: token?.document?.name ?? null,
+      speakerToken: m?.speaker?.token ?? null,
+      speakerScene: m?.speaker?.scene ?? null,
+      speakerActor: m?.speaker?.actor ?? null,
+      flavor: m?.flavor ?? null,
+      browseName: "Warden: NPC - Quirk",
       // The BUTTON'S label, not the table's browse name: a card headed
       // "Warden: NPC - Quirk" puts the internal naming convention in front of
       // the table. Read from the rendered button so the probe cannot drift
@@ -254,6 +268,39 @@ try {
   drew.alias && drew.alias === drew.wantedAlias
     ? ok("the card speaks as the table, not the Warden's character", drew.alias)
     : fail("the card speaks as the table", JSON.stringify({ got: drew.alias, want: drew.wantedAlias }));
+
+  /* ---- 5a. ...and the WHOLE speaker is the table ------------------------ */
+
+  // The alias alone was never enough. `toMessage` merges `messageData` into
+  // `ChatMessage.getSpeaker()` and `mergeObject` RECURSES, so overriding just
+  // `alias` left `scene`, `token` and `actor` naming the token selected on the
+  // canvas. Two things read them: `localizeSpeakerName` resolves the token and
+  // rewrites the card header to ITS name (its token branch carries no
+  // name guard), and core enriches the description with
+  // `secrets: speakerActor?.isOwner`. So a Spanish client reading a Path
+  // Difficulty card saw it headed "Goblin".
+  //
+  // The leg needs a token selected to mean anything — see the control above.
+  drew.controlledToken
+    ? ok("a token was controlled for the speaker legs", drew.controlledToken)
+    : note("no token on the scene — legs 5a/5b prove nothing this run");
+
+  !drew.speakerToken && !drew.speakerScene && !drew.speakerActor
+    ? ok("...and carries no token, scene or actor from the canvas")
+    : fail("...and carries no token, scene or actor from the canvas",
+      JSON.stringify({ token: drew.speakerToken, scene: drew.speakerScene, actor: drew.speakerActor }));
+
+  /* ---- 5b. the FLAVOR does not leak the browse name -------------------- */
+
+  // Core stamps `TABLE.DrawFlavor` with the table's RAW name and STORES it
+  // (roll-table.mjs:53-55), so every card posted from this window printed
+  // "Warden: NPC - Quirk" one line below a sender deliberately relabelled
+  // "Quirk". `labelForTable` exists precisely to keep that string off a
+  // player's screen, and the same card was printing it.
+  drew.flavor && !drew.flavor.includes(drew.browseName)
+    ? ok("the flavor line names the button's label, not the browse name", drew.flavor)
+    : fail("the flavor line names the button's label, not the browse name",
+      JSON.stringify({ flavor: drew.flavor }));
 
   /* ---- 6. a combined draw is OURS, and is not core's ------------------- */
 
@@ -747,6 +794,144 @@ try {
   narrow.noHorizontalSpill
     ? ok("...and nothing spills sideways")
     : fail("...and nothing spills sideways");
+
+  /* ---- 10a. a LONG revealed table can be read to the end --------------- */
+
+  // A reveal's height is the CONTENT'S choice, not ours. AppV2 clamps a
+  // `height: auto` window to the viewport and its `.window-content` is a flat
+  // `overflow: hidden`; the restore at the top of cairn.css is scoped
+  // `.cairn.sheet`, and this window is deliberately not a sheet. Measured
+  // before the fix on the 60-row Name table: 884px of window over 1401px of
+  // content, 517px unreachable, no scrollbar, no wheel, no handle. A Warden
+  // showing a table is showing the odds, and a third of them were off the
+  // bottom.
+  //
+  // THE TABLE IS CHOSEN FOR BEING TALLER THAN THE WINDOW. A short one leaves
+  // nothing to scroll and the leg would pass on the broken build too, which is
+  // the same trap leg 5a's controlled token exists to avoid.
+  const tall = await page.evaluate(async () => {
+    const { openShownTable } = await import("/systems/air-bladder/module/warden-dashboard.js");
+    const pack = game.packs.get("air-bladder.warden-npcs");
+    const entry = (await pack.getIndex()).find((e) => e.name === "Warden: NPC - Name");
+    if (!entry) return { found: false };
+    await openShownTable(`Compendium.air-bladder.warden-npcs.RollTable.${entry._id}`);
+    // BY ITS OWN ID, never "the first .cairn-shown-table-view". The reveal leg
+    // above leaves the Weather (Spring) popup open, and one window per table is
+    // the whole point of `uniqueId` — so a bare find returned that THREE-row
+    // window and this leg failed on a correct build, reporting the 60-row table
+    // as short. Same family as the rollSet selector two legs up.
+    const wantId = `cairn-shown-table-${entry._id}`;
+    for (let i = 0; i < 40; i++) {
+      if (document.getElementById(wantId)) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    const app = foundry.applications.instances.get(wantId);
+    if (!app) return { found: true, opened: false };
+    const wc = app.element.querySelector(".window-content");
+    const r = wc.getBoundingClientRect();
+    return {
+      found: true,
+      opened: true,
+      id: wantId,
+      rows: wc.querySelectorAll(".cairn-show-row").length,
+      overflows: wc.scrollHeight > wc.clientHeight,
+      overflowY: getComputedStyle(wc).overflowY,
+      resizable: !!app.element.querySelector(".window-resize-handle"),
+      centre: { x: r.x + r.width / 2, y: r.y + r.height / 2 },
+    };
+  });
+
+  // THE WHEEL, AS A REAL GESTURE. The first cut of this leg set `scrollTop`
+  // from script and then asked whether the last row had come into view — and
+  // it stayed GREEN under its own control, because `overflow: hidden` still
+  // permits PROGRAMMATIC scrolling. It only stops the user. That is this
+  // repo's "an assertion that the surface also supplies" trap, caught here by
+  // running the control rather than by reading the leg.
+  if (tall.opened && tall.overflows) {
+    await page.mouse.move(tall.centre.x, tall.centre.y);
+    await page.mouse.wheel(0, 800);
+    await page.waitForTimeout(400);
+  }
+  const wheeled = await page.evaluate((id) => {
+    const app = foundry.applications.instances.get(id);
+    if (!app) return { scrolled: 0 };
+    const wc = app.element.querySelector(".window-content");
+    const out = { scrolled: wc.scrollTop };
+    app.close();
+    return out;
+  }, tall.id ?? "");
+
+  tall.opened && tall.overflows
+    ? ok("the Name table reveal is taller than its window", `${tall.rows} rows`)
+    : fail("the Name table reveal is taller than its window",
+      `${JSON.stringify(tall)} — without overflow this leg proves nothing`);
+  tall.overflowY === "auto" || tall.overflowY === "scroll"
+    ? ok("...and its body scrolls", tall.overflowY)
+    : fail("...and its body scrolls", `overflow-y: ${tall.overflowY}`);
+  wheeled.scrolled > 0
+    ? ok("...to the WHEEL, so a reader can reach the bottom rows", `${wheeled.scrolled}px`)
+    : fail("...to the WHEEL, so a reader can reach the bottom rows",
+      "the wheel moved nothing — overflow:hidden still allows scrollTop from script, "
+      + "which is why this is measured as a gesture");
+  tall.resizable
+    ? ok("...and the reveal can be resized")
+    : fail("...and the reveal can be resized", "no resize handle");
+
+  /* ---- 10b. a revealed row reads in the VIEWER'S language --------------- */
+
+  // The popup is rendered per client, so it is the one surface here that CAN
+  // answer in the viewer's own language — and it was the one handing them
+  // English. `renderTableRows` read the row raw and enriched it; the sweep that
+  // localizes a drawn row (`localizeTableResults`) selects `.table-results li`,
+  // which is CORE'S markup and not what this builds. So a Spanish Warden
+  // rolling Reactions posted a card reading "Hostil" while the eye beside the
+  // same button showed "Hostile".
+  //
+  // THE OVERLAY IS LOADED IN-PAGE by shadowing `game.i18n.lang` and calling the
+  // real loader, then put back. Nothing is written and no client changes
+  // language; switching a world's language would be a real write and a reload.
+  const spanish = await page.evaluate(async () => {
+    const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+    const wd = await import("/systems/air-bladder/module/warden-dashboard.js");
+    const realLang = Object.getOwnPropertyDescriptor(game.i18n, "lang");
+    try {
+      Object.defineProperty(game.i18n, "lang", { value: "es", configurable: true });
+      await i18n.loadContentOverlay();
+      if (!i18n.contentLocalized()) return { overlay: false };
+      // THROUGH THE SYSTEM'S OWN RESOLVER, which searches world-first across
+      // every pack. Naming the pack here hardcoded the wrong one — Reactions
+      // lives in `warden-encounters`, not `warden-npcs` — and a moved table
+      // would break the leg again for a reason that is not the subject.
+      const { findTableByName } = await import("/systems/air-bladder/module/compendium.js");
+      const table = await findTableByName("Warden: NPC - Reactions");
+      if (!table) return { overlay: true, text: "", noTable: true };
+      const id = `cairn-shown-table-${table.id}`;
+      await wd.openShownTable(table.uuid);
+      for (let i = 0; i < 40 && !foundry.applications.instances.get(id); i++) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      const app = foundry.applications.instances.get(id);
+      const text = app?.element.querySelector(".window-content")?.textContent ?? "";
+      app?.close();
+      return { overlay: true, text };
+    } finally {
+      if (realLang) Object.defineProperty(game.i18n, "lang", realLang);
+      else delete game.i18n.lang;
+      await i18n.loadContentOverlay();
+    }
+  });
+
+  if (!spanish.overlay) {
+    note("no Spanish content overlay loaded — the reveal's language leg proves nothing");
+  } else {
+    // Positive AND negative: "the Spanish is there" alone would pass on a row
+    // that happened to carry both, and "the English is gone" alone would pass
+    // on an empty popup.
+    /Hostil/.test(spanish.text) && !/Hostile/.test(spanish.text)
+      ? ok("a revealed row reads through the content overlay", "Hostil, not Hostile")
+      : fail("a revealed row reads through the content overlay",
+        `got ${JSON.stringify(spanish.text.slice(0, 160))}`);
+  }
 
   /* ---- 11. a PLAYER actually receives it ------------------------------- */
 
