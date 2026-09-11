@@ -60,8 +60,19 @@ import { openValdCalendar, valdCalendarAvailable, promptSetWeather } from "./val
  * no fallback mark, just an empty inline box that looks like deliberate
  * spacing beside the label. So `dev:warden-dashboard` reads
  * `getComputedStyle(el, "::before").content` rather than the class list it was
- * handed. Every glyph here is Font Awesome 6 FREE; a Pro-only name fails the
- * same silent way a typo does.
+ * handed.
+ *
+ * THE PALETTE IS FONT AWESOME 7 **PRO**, and this line used to say Free. That
+ * was wrong and it narrowed the choice for nothing: Foundry 14.365 bundles the
+ * Pro fonts (`app/public/fonts/fontawesome/` ships `fa-solid-900`,
+ * `fa-light-300`, `fa-thin-100`, the duotone and sharp families and a Pro
+ * LICENSE.txt), and the running client loads "Font Awesome 7 Pro" at four
+ * weights. MEASURED in-page, not read off a class list, because the CSS names
+ * a glyph whether or not the font carries it. So `fa-sunrise`, `fa-sun-dust`
+ * and the rest of the Pro set resolve here.
+ *
+ * What still fails silently is a TYPO — a class with no rule at all, whose
+ * `::before` content computes to `none`. That is the case the probe catches.
  */
 const PANELS = {
   travel: {

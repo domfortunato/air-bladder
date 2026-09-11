@@ -555,6 +555,35 @@ try {
         panel: wd._labelForTable("Warden: NPC - Quirk"),
       };
 
+      // A GLYPH MEANS ONE THING PER WINDOW (user ask 2026-09-11). Two rules,
+      // both scoped to the band, which is where the collision happened:
+      // nothing but a season may wear a season's mark, and no other mark
+      // appears twice. THREE repeats are deliberate and named here rather
+      // than discovered later — the eye is always "show to the players", the
+      // pen is always "type a value", and Today's Weather wears the glyph of
+      // the season it will roll so the button says which season you are in.
+      const DELIBERATE = ["fa-eye", "fa-pen-to-square"];
+      const markOf = (node) => [...node.classList]
+        .find((c) => c.startsWith("fa-") && !["fa-solid", "fa-regular", "fa-brands"].includes(c));
+      const seasonMarks = Object.values(gt.SEASON_ICONS);
+      const bandIcons = [...band.querySelectorAll("i")].map((i) => ({
+        mark: markOf(i) ?? "?",
+        // The two places a season's mark is allowed.
+        season: !!i.closest(".cairn-time-season") || !!i.closest('[data-action="rollWeather"]'),
+      }));
+      const counts = {};
+      for (const { mark } of bandIcons) counts[mark] = (counts[mark] ?? 0) + 1;
+      const glyphRules = {
+        // A season's mark somewhere that is not a season.
+        seasonMisuse: bandIcons.filter((g) => seasonMarks.includes(g.mark) && !g.season)
+          .map((g) => g.mark),
+        // Anything else showing up twice.
+        repeats: Object.entries(counts)
+          .filter(([mark, n]) => n > 1 && !DELIBERATE.includes(mark) && !seasonMarks.includes(mark))
+          .map(([mark, n]) => `${mark} x${n}`),
+        total: bandIcons.length,
+      };
+
       // THE BAND'S SHAPE, not just its type sizes. The sizes alone stayed
       // green on the one-line version this replaced, so they cannot be the
       // assertion: what was asked for is that these four facts STACK the way
@@ -583,7 +612,7 @@ try {
 
       return {
         heads, valdButtons, valdPairs, seen, events, eventEyes, eventsOnTab, labels,
-        band: bandRead,
+        band: bandRead, glyphRules,
       };
     } finally {
       settings.get = realGet;
@@ -640,6 +669,18 @@ try {
     : fail("a band glyph renders nothing", JSON.stringify({
       glyphs: on.band.glyphs, seps: on.band.seps,
     }));
+
+  // A GLYPH MEANS ONE THING PER WINDOW. Red before 2026-09-11: `fa-sun` was
+  // the Dry season's mark AND To Next Morning's, one row apart in this band.
+  on.glyphRules.seasonMisuse.length === 0
+    ? ok("...and no season's mark is worn by anything but a season",
+      `${on.glyphRules.total} glyphs in the band`)
+    : fail("a season's glyph is used for something else",
+      on.glyphRules.seasonMisuse.join(", "));
+
+  on.glyphRules.repeats.length === 0
+    ? ok("...and nothing else in the band appears twice", "eye and pen excepted, by ruling")
+    : fail("a glyph is doing two jobs in the band", on.glyphRules.repeats.join(", "));
 
   on.valdPairs === 4
     ? ok("...each of the four paired with an eye")

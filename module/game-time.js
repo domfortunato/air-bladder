@@ -582,10 +582,23 @@ export const weatherTableForToday = () => {
  * DEAD WEARS A SKULL, not a snowflake (user ruling 2026-09-11). It is the dead
  * season and not merely a cold one — and Cairn's own Winter button, two rows
  * above it on the same tab, already wears icicles.
+ *
+ * DRY WEARS SUN-DUST, not a plain sun, for two reasons (user ask, same day:
+ * "surely there is a better icon for Dry Season"). A plain sun says DAYTIME
+ * rather than arid; and `fa-sun` was already on To Next Morning, one row below
+ * the season line in the same band, so for seventy-two days a year the
+ * Dashboard showed the same mark twice for two different things. That button
+ * wears `fa-sunrise` now, which is what it actually does.
+ *
+ * THE RULE THIS ESTABLISHES: a season's mark belongs to the season, and
+ * nothing else on a surface may wear it. The one exception is Today's Weather,
+ * which wears the glyph of the season it will roll on purpose, so the button
+ * answers "which season am I in" before it is pressed. `dev:vald-time` gates
+ * both halves.
  */
 export const SEASON_ICONS = {
   "CAIRN.Vald.Season.Dead": "fa-skull",
-  "CAIRN.Vald.Season.Dry": "fa-sun",
+  "CAIRN.Vald.Season.Dry": "fa-sun-dust",
   "CAIRN.Vald.Season.Wet": "fa-droplet",
   "CAIRN.Vald.Season.Harvest": "fa-wheat-awn",
   "CAIRN.Vald.Season.Reclamation": "fa-star",

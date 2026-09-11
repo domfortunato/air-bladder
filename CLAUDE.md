@@ -473,8 +473,24 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   description of a button. Vald's four weather buttons READ `SEASON_ICONS`
   rather than restating it (user ask: "the same buttons used in the calendar
   display"), and Today's Weather wears the glyph of the season it will actually
-  roll. A WRONG OR PRO-ONLY FA CLASS RENDERS AN EMPTY BOX WITH NO ERROR, so the
+  roll. A MISSPELLED FA CLASS RENDERS AN EMPTY BOX WITH NO ERROR, so the
   probe reads `getComputedStyle(el, "::before").content`, never the class list.
+  **THE PALETTE IS FONT AWESOME 7 PRO, not Free** — measured 2026-09-11, after
+  this file and the code had both claimed Free for a day and narrowed the
+  choice for nothing. Foundry 14.365 BUNDLES the Pro fonts
+  (`app/public/fonts/fontawesome/`, Pro LICENSE.txt, solid/light/thin/duotone/
+  sharp) and the client loads "Font Awesome 7 Pro" at four weights, so
+  `fa-sunrise`, `fa-sun-dust` and the rest resolve. Verify a glyph by RENDERING
+  it, never by finding the class in `all.min.css` — that file names glyphs
+  whether or not the font carries them.
+  **A GLYPH MEANS ONE THING PER WINDOW** (user ask 2026-09-11, "suggestions on
+  avoiding duplicate icons"). A season's mark belongs to the season and nothing
+  else may wear it; `fa-sun` was Dry AND To Next Morning, one row apart, so for
+  seventy-two days a year the band showed one mark for two things. Dry is
+  `fa-sun-dust` now and that button is `fa-sunrise`. THREE repeats are
+  deliberate and declared rather than discovered: the eye is always "show to
+  the players", the pen is always "type a value", and Today's Weather wears its
+  season's glyph on purpose. `dev:vald-time` gates the rule in the band.
   **A SECOND PASS RODE 2026-09-11, off a screenshot.** The Dead season wears a
   SKULL now, not a snowflake, and one edit to `SEASON_ICONS` moved five
   surfaces because every one of them reads that map. **"Roll the lot" is gone
