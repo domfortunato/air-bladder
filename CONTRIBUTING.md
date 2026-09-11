@@ -75,4 +75,6 @@ contributor, and translators are credited by name.
 Please don't add generative-AI artwork. It will not be accepted.
 
 Who authored what already in the project, and how each claim can be checked, is
-recorded in [docs/provenance.md](docs/provenance.md).
+recorded in [docs/provenance.md](docs/provenance.md). The shape of the code — the
+import graph, which files carry the weight, and where the hard parts are — is in
+[docs/architecture.md](docs/architecture.md).

@@ -78,14 +78,18 @@ deleted. Full model in `docs/git-flow.md`; contributor-facing summary in
 ## Architecture
 
 Entry point `module/cairn.js`, registering document classes and sheets on `init`.
-~13,600 lines of hand-written JS across `module/` — 30,800 physical, but 56% of
+~13,100 lines of hand-written JS across `module/` — 30,840 physical, but 57% of
 that is comment prose. This line said "~7,500" for weeks and was measuring
-nothing anybody had counted; `wc -l` is not the number, and the difference
-matters to anyone estimating how much there is to learn. Everything else is
-content. **`docs/architecture.md` is the map**: the import graph in tiers, the
-six spine files nothing else works without, the fifteen independently-readable
-leaf features, and where the genuinely hard parts are. `docs/provenance.md` is
-the companion record of who authored what.
+nothing anybody had counted, then "~13,600" from a looser count than the
+string-aware one behind the figure now; `wc -l` is not the number, and the
+difference matters to anyone estimating how much there is to learn. Everything
+else is content. **`docs/architecture.md` is the map** (written 2026-09-11):
+the import graph in NINE tiers, the six spine files nothing else works without,
+the FOURTEEN leaf features that only the boot file or a sheet imports, and the
+five places where "explain it" is a real test. **It names functions, never line
+numbers** — a line in prose is a copy that drifts, and this file records
+several stale-number cases of exactly that. `docs/provenance.md` is the
+companion record of who authored what.
 
 - `CairnActor` (`module/actor/actor.js`) — types `character`, `npc`, `hireling`.
   `hireling` is an ALIAS of npc (same model, same sheet), kept because a type is
