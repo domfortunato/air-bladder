@@ -25,21 +25,27 @@
 --}}
 <div class="cairn-dashboard-inner">
 
+    {{!--
+      ABOVE THE TAB STRIP, not below it. There is ONE of these and it governs
+      every tab, but sitting between the strip and the tab's own content made
+      it read as Travel's own control (user, looking at it: "default on all
+      tabs"). Above the strip, its scope is visible.
+    --}}
+    <div class="cairn-dashboard-visibility">
+        <label for="ab-dashboard-mode">{{localize "CAIRN.Dashboard.Visibility"}}</label>
+        <select id="ab-dashboard-mode" name="messageMode">
+            {{#each modes as |mode|}}
+                <option value="{{mode.value}}" {{#if mode.selected}}selected{{/if}}>{{mode.label}}</option>
+            {{/each}}
+        </select>
+    </div>
+
     <nav class="sheet-tabs tabs cairn-dashboard-tabs" data-group="primary">
         {{#each panelList as |panel|}}
             <a class="item {{panel.cssClass}}" data-action="tab" data-group="primary"
                data-tab="{{panel.id}}"><i class="fa-solid {{panel.icon}}"></i>{{localize panel.label}}</a>
         {{/each}}
     </nav>
-
-    <div class="cairn-dashboard-visibility">
-        <label for="ab-dashboard-mode">{{localize "CAIRN.Dashboard.Visibility"}}</label>
-        <select id="ab-dashboard-mode" name="messageMode">
-            {{#each modes as |mode|}}
-                <option value="{{mode.value}}">{{mode.label}}</option>
-            {{/each}}
-        </select>
-    </div>
 
     <section class="sheet-body cairn-dashboard-body">
         {{#each panelList as |panel|}}
@@ -49,7 +55,7 @@
                     <p class="hint">{{localize "CAIRN.Dashboard.NoTables"}}</p>
                 {{/if}}
 
-                {{#if panel.tables.length}}
+                {{#if panel.hasGrid}}
                     <div class="cairn-dashboard-grid">
                         {{#each panel.tables as |btn|}}
                             <span class="cairn-dashboard-pair">
@@ -62,6 +68,31 @@
                                         data-table="{{btn.table}}"
                                         data-tooltip="{{localize 'CAIRN.Dashboard.ShowTable'}}"
                                         aria-label="{{localize 'CAIRN.Dashboard.ShowTable'}}"><i class="fas fa-eye"></i></button>
+                            </span>
+                        {{/each}}
+
+                        {{!--
+                          THE COMBINED DRAW SITS IN THE SAME GRID, and the
+                          heading it used to live under ("Roll the lot") is
+                          gone by user ruling. The tooltip carries what the
+                          heading was saying, since a button reading "Complete
+                          Path" does not say by itself that it rolls three.
+
+                          THE WRAPPER IS NOT `.cairn-dashboard-pair` AND MUST
+                          NOT BE. `dev:warden-dashboard` asserts pairs equal
+                          roll buttons, and separately counts a "stray" as any
+                          set button whose PARENT ELEMENT contains an eye — so
+                          a bare button dropped straight into this grid, which
+                          is full of eyes, reds a correct system.
+                        --}}
+                        {{#each panel.sets as |set|}}
+                            <span class="cairn-dashboard-solo">
+                                <button type="button" data-action="rollSet" data-key="{{set.key}}"
+                                        data-tables="{{set.tables}}"
+                                        data-tooltip="{{localize 'CAIRN.Dashboard.Tip.Set'}}">
+                                    <i class="fa-solid {{set.icon}}"></i>
+                                    <span>{{set.label}}</span>
+                                </button>
                             </span>
                         {{/each}}
                     </div>
@@ -86,21 +117,9 @@
                     </div>
                 {{/each}}
 
-                {{#if panel.sets.length}}
-                    <h3 class="cairn-dashboard-head">{{localize "CAIRN.Dashboard.Head.Combined"}}</h3>
-                    <div class="cairn-dashboard-grid">
-                        {{#each panel.sets as |set|}}
-                            <button type="button" data-action="rollSet" data-key="{{set.key}}"
-                                    data-tables="{{set.tables}}">
-                                <i class="fa-solid {{set.icon}}"></i>
-                                <span>{{set.label}}</span>
-                            </button>
-                        {{/each}}
-                    </div>
-                {{/if}}
-
                 {{#if panel.creates.length}}
                     <h3 class="cairn-dashboard-head">{{localize "CAIRN.Dashboard.Head.Create"}}</h3>
+                    {{#if panel.createHint}}<p class="hint">{{panel.createHint}}</p>{{/if}}
                     <div class="cairn-dashboard-grid">
                         {{#each panel.creates as |make|}}
                             <button type="button" data-action="generate" data-gen="{{make.gen}}">

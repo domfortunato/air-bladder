@@ -63,8 +63,14 @@ const shadowSources = (page, mode) => page.evaluate((mode) => {
     ? { "content-source-2e": true, "content-source-custom": false, "content-source-barebones": false }
     : { "content-source-2e": true, "content-source-custom": false, "content-source-barebones": true };
   if (!game.settings._probeOrigGet) game.settings._probeOrigGet = game.settings.get.bind(game.settings);
-  game.settings.get = (ns, key) =>
-    ns === NS && key in FORCED ? FORCED[key] : game.settings._probeOrigGet(ns, key);
+  // FORWARD EVERY ARGUMENT. `ClientSettings#set` asks `get(ns, key, {document:
+  // true})` for the Setting DOCUMENT, so a shadow that drops the third argument
+  // hands it a plain value, `current?._id` is undefined, and core CREATES A
+  // SECOND Setting document for that key rather than updating the first. Every
+  // world-setting write in the shadow's window then silently does nothing, and
+  // the duplicate document outlives the probe.
+  game.settings.get = (ns, key, ...rest) =>
+    (ns === NS && key in FORCED ? FORCED[key] : game.settings._probeOrigGet(ns, key, ...rest));
 }, mode);
 
 const unshadowSources = (page) => page.evaluate(() => {

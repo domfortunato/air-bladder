@@ -569,9 +569,13 @@ export const weatherTableForToday = () => {
  *
  * Reclamation takes a star rather than a season's own weather sign: it is not
  * a season anybody lives through, it is a week the calendar inserts.
+ *
+ * DEAD WEARS A SKULL, not a snowflake (user ruling 2026-09-11). It is the dead
+ * season and not merely a cold one — and Cairn's own Winter button, two rows
+ * above it on the same tab, already wears icicles.
  */
 export const SEASON_ICONS = {
-  "CAIRN.Vald.Season.Dead": "fa-snowflake",
+  "CAIRN.Vald.Season.Dead": "fa-skull",
   "CAIRN.Vald.Season.Dry": "fa-sun",
   "CAIRN.Vald.Season.Wet": "fa-droplet",
   "CAIRN.Vald.Season.Harvest": "fa-wheat-awn",
@@ -603,7 +607,7 @@ export const WEATHER_MAX = 160;
  * makes yesterday's weather go stale by itself: nothing has to clear it, and
  * no hook has to notice midnight. Setting the clock back to a day whose
  * weather was called does NOT bring it back, and that is the honest reading —
- * the Warden called the weather once, for the day the table was living in.
+ * the Warden rolled the weather once, for the day the table was living in.
  */
 export const todayWeather = () => {
   try {
@@ -616,7 +620,7 @@ export const todayWeather = () => {
 };
 
 /**
- * Say what the weather is. Empty puts it back to uncalled.
+ * Say what the weather is. Empty clears it.
  *
  * Warden only, and the server refuses a player's write to a world setting in
  * any case — the guard is the affordance, the scope is the enforcement.

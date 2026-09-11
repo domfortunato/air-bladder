@@ -433,11 +433,11 @@ try {
     const settings = game.settings;
     window.__abRealGet2 = settings.get.bind(settings);
     window.__abPrevCal2 = [CONFIG.time.worldCalendarConfig, CONFIG.time.worldCalendarClass];
-    settings.get = (ns, key) => {
-      if (ns !== "air-bladder") return window.__abRealGet2(ns, key);
+    settings.get = (ns, key, ...rest) => {
+      if (ns !== "air-bladder") return window.__abRealGet2(ns, key, ...rest);
       if (key === "enable-vald-calendar") return true;
       if (key === "vald-weather-today") return { day: gt.dayCount(), text: "Thunderstorms" };
-      return window.__abRealGet2(ns, key);
+      return window.__abRealGet2(ns, key, ...rest);
     };
     CONFIG.time.worldCalendarConfig = gt.VALD_CALENDAR_CONFIG;
     CONFIG.time.worldCalendarClass = gt.ValdCalendar;
@@ -499,8 +499,8 @@ try {
     const settings = game.settings;
     window.__abRealGet = settings.get.bind(settings);
     window.__abPrevCal = [CONFIG.time.worldCalendarConfig, CONFIG.time.worldCalendarClass];
-    settings.get = (ns, key) =>
-      (ns === "air-bladder" && key === "enable-vald-calendar" ? true : window.__abRealGet(ns, key));
+    settings.get = (ns, key, ...rest) =>
+      (ns === "air-bladder" && key === "enable-vald-calendar" ? true : window.__abRealGet(ns, key, ...rest));
     CONFIG.time.worldCalendarConfig = gt.VALD_CALENDAR_CONFIG;
     CONFIG.time.worldCalendarClass = gt.ValdCalendar;
     game.time.initializeCalendar();

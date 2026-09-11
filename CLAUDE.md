@@ -369,11 +369,18 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   the PLAYERS choose, and the no-automation deviation protects player-facing
   rules; the Warden moves the calendar and the party decides whether they
   camped. "To Next Morning" is the same jump without the claim, and nothing is
-  posted to chat. **Vald's weather sits ALONGSIDE Cairn's four seasons, never
-  replacing them** (user ruling): Cairn's are a severity ladder feeding
-  `Warden: Weather - Difficulty`, Vald's are descriptive and feed nothing, and a
-  Vald table wants both. The setting arbitrates in exactly ONE place, the
-  Today's Weather button, which must pick a single table. The clock is also the
+  posted to chat. **Vald's weather REPLACES Cairn's on the Dashboard —
+  Weather Difficulty included** (user ruling 2026-09-11, REVERSING the previous
+  day's "alongside, never replacing", which this file argued at length and
+  `VALD_WEATHER_GROUP` still records). The old reasoning was that Cairn's are a
+  severity ladder feeding `Warden: Weather - Difficulty` while Vald's are
+  descriptive, so a Vald table wants both. What it missed is what a Warden does
+  with two sets of weather buttons on one tab: rolls both, and gets answers that
+  contradict each other on the same day — the user's own example, "Cold and
+  clear" arriving as Vald Dead 1 and as Weather Difficulty 5. All nine tables
+  still SHIP; only the buttons swap, so a severity roll is still in the
+  compendium browser. `weatherTableForToday` had already made exactly this
+  choice for the band's own button; the tabs now agree with it. The clock is also the
   first surface here that is Foundry CHROME rather than a sheet, so it is the
   one place that reads core's colour variables instead of the `--ab-*` palette
   (`docs/theming.md`; `dev:theme` measures it). Gate: `npm run dev:vald-time`.
@@ -425,6 +432,24 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   display"), and Today's Weather wears the glyph of the season it will actually
   roll. A WRONG OR PRO-ONLY FA CLASS RENDERS AN EMPTY BOX WITH NO ERROR, so the
   probe reads `getComputedStyle(el, "::before").content`, never the class list.
+  **A SECOND PASS RODE 2026-09-11, off a screenshot.** The Dead season wears a
+  SKULL now, not a snowflake, and one edit to `SEASON_ICONS` moved five
+  surfaces because every one of them reads that map. **"Roll the lot" is gone
+  as a phrase** (user: "I do not like that phrase, let's remove it wherever we
+  can"), and the heading was deleted rather than renamed: each tab's combined
+  draw joined the grid at the top of its tab, wearing the tooltip the heading
+  used to be. **The two EVENT tables moved into the time band**, which renders
+  on every tab — and that exposed a defect worth the line: `labelForTable`
+  walked `PANELS` only, so anything declared elsewhere showed a PLAYER its
+  browse name. The Vald weather four had never been in `PANELS`, so a reveal
+  had always put "Warden: Vald - Weather (Dead)" on their screens. It walks
+  every declaration now. **Who sees the result opens PRIVATE** (`gm`, not
+  core's Public) and moved ABOVE the tab strip, where its scope is visible —
+  sitting under the strip made a window-wide control read as Travel's own. The
+  eye and Roll Today's Weather still post publicly by their own earlier
+  rulings. Type: the band's date is 24px, the calendar's day statement 22px,
+  the clock 14/18px, all three MEASURED by probe because a rule that stops
+  applying leaves no other trace.
 - Data models in `module/data-models.js` (TypeDataModel; `template.json` is gone,
   sub-types are declared in `system.json` `documentTypes`); 30 compendium packs
   (30 on `master` too since 0.1.18 shipped `journals-vald`, the Warden's Guide

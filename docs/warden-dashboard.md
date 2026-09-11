@@ -28,11 +28,15 @@ at once, on the panel above their player list.
 With the Vald calendar switched on there is a **Calendar** button too, which
 opens the month grid.
 
-Beneath them, **Today's Weather** rolls the weather for the season you are
+Beneath them, **Roll Today's Weather** rolls the weather for the season you are
 actually in, so you do not have to remember which one that is. That card always
 goes to everyone, and the result becomes the day's weather on everybody's clock
 and calendar. **Set the Weather…** beside it lets you simply say what the sky is
 doing, for the days no table has a row for.
+
+Under those sit **Dungeon Events** and **Wilderness Events**. They are here
+rather than on a tab because an event is something that happens as time passes,
+and the clock band is on screen whichever tab you are looking at.
 
 All of it is explained in [Keeping Time](keeping-time.md), including the Vald
 calendar and why there is no Make Camp button.
@@ -41,8 +45,8 @@ calendar and why there is no Make Camp button.
 
 | Tab | What is on it |
 |---|---|
-| **Travel** | Path difficulty and distance, terrain, and weather for each of the four seasons — plus Vald's own four if you have that switched on |
-| **Encounters** | A table for each of the seven terrains, plus dungeon and wilderness events |
+| **Travel** | Path difficulty and distance, terrain, and weather for each of the four seasons — or Vald's own four if you have that switched on |
+| **Encounters** | A table for each of the seven terrains |
 | **People** | Reaction, what they want, and the six tables that describe an NPC |
 | **Factions** | Agenda, agent, obstacle, advantages and traits |
 | **Monsters** | Appearance, ability, attack and traits |
@@ -53,10 +57,18 @@ here with a button, named however you named it.
 
 ## Who sees the result
 
-The dropdown at the top of the window decides who sees what you roll, and it
-applies to every button under it. Leave it on the default and results go to
-everyone, the same as rolling a table from the sidebar. Pick a private setting
-when you are rolling something the party should not see yet.
+The dropdown above the tabs decides who sees what you roll. There is one of it
+and it applies to every button on every tab.
+
+**It opens on Private to Gamemasters.** Most of what is on this window is
+something you want to know before the table does, so a roll stays yours unless
+you say otherwise. Set it to Public Roll when you want the party to see what
+came up.
+
+Two things ignore it on purpose. The **eye** always shows a table to everyone —
+showing a table privately would not mean anything — and **Roll Today's
+Weather** always posts publicly, because weather the party is standing in is
+not a secret.
 
 It is a per-window choice, so it does not disturb your usual dice settings.
 
@@ -76,11 +88,12 @@ players privately would not mean anything.
 
 Nothing is rolled, so nothing is decided. The table is just on the screen.
 
-## Rolling the lot
+## Rolling a whole set
 
-Under **Roll the lot** on four of the tabs is a single button that rolls a whole
-set at once and reports it as one result: **Complete Path**, **Complete NPC**,
-**Complete Faction** and **Complete Monster**.
+Four of the tabs carry one button that rolls several tables at once and reports
+them as a single result: **Complete Path**, **Complete NPC**, **Complete
+Faction** and **Complete Monster**. Each sits in the grid with the tables it
+draws from, and hovering it says what it will roll.
 
 These describe, they do not create. **Complete NPC** tells you a name, a
 background, a goal, a quirk, a vice and a virtue, and leaves it at that, which
@@ -91,8 +104,8 @@ is what you want when someone the party will never meet again opens a door.
 Under **Create** are the generators, the same ones the Actors sidebar offers.
 These do make something: a sheet you can open, edit and place on a map.
 
-So the pair on each tab is a choice about what you need. Roll the lot when you
-want to know. Create when you want a sheet.
+So the pair on each tab is a choice about what you need. Roll a complete set
+when you want to know. Create when you want a sheet.
 
 ## Encounters place their own monsters
 
@@ -100,9 +113,9 @@ An encounter you roll here behaves exactly as one rolled from the compendium
 does: if its result names monsters, the card grows an **Add to scene** button
 that places them for you.
 
-That is the reason encounter tables have no "roll the lot" button. Rolling
-several encounter tables into one result would cost you that button, and
-placing the monsters is the whole point.
+That is the reason the Encounters tab has no combined button. Rolling several
+encounter tables into one result would cost you that button, and placing the
+monsters is the whole point.
 
 ## Related
 

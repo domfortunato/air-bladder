@@ -112,4 +112,29 @@
         </div>
     {{/if}}
 
+    {{!--
+      The event tables, moved here off the Encounters tab (user ask
+      2026-09-11). An event is something that happens as time passes, so it
+      belongs beside the clock — and the band renders on every tab, so it is
+      one click from wherever the Warden is standing.
+
+      ITS OWN BLOCK, deliberately outside the weather's `{{#if weatherTable}}`.
+      Nested inside it, the events would vanish under any calendar this system
+      has no weather table for, which has nothing to do with them.
+    --}}
+    <div class="cairn-dashboard-grid cairn-time-events">
+        {{#each events as |btn|}}
+            <span class="cairn-dashboard-pair">
+                <button type="button" data-action="rollTable" data-table="{{btn.table}}">
+                    <i class="fa-solid {{btn.icon}}"></i>
+                    <span>{{btn.label}}</span>
+                </button>
+                <button type="button" class="cairn-show-btn" data-action="showTable"
+                        data-table="{{btn.table}}"
+                        data-tooltip="{{localize 'CAIRN.Dashboard.ShowTable'}}"
+                        aria-label="{{localize 'CAIRN.Dashboard.ShowTable'}}"><i class="fas fa-eye"></i></button>
+            </span>
+        {{/each}}
+    </div>
+
 </div>

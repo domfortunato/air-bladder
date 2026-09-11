@@ -49,6 +49,33 @@ try {
     journals: game.journal.contents.map((j) => j.id),
   }));
 
+  /* ---- the precondition, ESTABLISHED rather than inherited -------------- */
+
+  // THIS PROBE IS ABOUT THE DASHBOARD A DEFAULT WORLD SHOWS, so it shadows the
+  // Vald hack OFF for its whole run — the setting AND the calendar, because a
+  // world that switched the hack on installed the Vald calendar at `init` and
+  // shadowing the setting alone leaves every season name unrecognised, which
+  // hides Today's Weather and reds the count for a reason that has nothing to
+  // do with this window.
+  //
+  // Learned the expensive way on 2026-09-10, when five legs of `dev:vald-time`
+  // went red because somebody had switched the hack on in the dev world to
+  // look at the clock. `dev:vald-time` owns both states of this; here there is
+  // exactly one.
+  await page.evaluate(() => {
+    const settings = game.settings;
+    window.__abRealGet = settings.get.bind(settings);
+    window.__abPrevCalendar = [CONFIG.time.worldCalendarConfig, CONFIG.time.worldCalendarClass];
+    settings.get = (ns, key, ...rest) =>
+      (ns === "air-bladder" && key === "enable-vald-calendar" ? false : window.__abRealGet(ns, key, ...rest));
+    // `earthCalendarConfig` IS core's Simplified Gregorian and nothing here
+    // ever touches it, so it is the one handle on core's own calendar that
+    // survives a world which already installed Vald.
+    CONFIG.time.worldCalendarConfig = CONFIG.time.earthCalendarConfig;
+    CONFIG.time.worldCalendarClass = CONFIG.time.earthCalendarClass;
+    game.time.initializeCalendar();
+  });
+
   /* ---- 1. the control, and the window ---------------------------------- */
 
   const opened = await page.evaluate(async () => {
@@ -99,6 +126,59 @@ try {
   opened.notButtons === 0
     ? ok("every button is type=button, so none submits the form")
     : fail("every button is type=button", `${opened.notButtons} would submit`);
+
+  /* ---- 1a. the shape of a tab, after the readability pass -------------- */
+
+  const tabShape = await page.evaluate(async () => {
+    const el = document.querySelector("#cairn-warden-dashboard");
+    const band = el.querySelector(".cairn-dashboard-time");
+    // MEASURED AGAINST THE NEXT THING DOWN, not against the tab strip. The
+    // visibility row now sits between the two, so a band-to-tabs measurement
+    // would be dominated by that row's height and would stay green with the
+    // spacing this leg exists to guard removed.
+    const below = el.querySelector(".cairn-dashboard-visibility");
+    // Every combined draw shares its tab's FIRST grid now: the heading it used
+    // to sit under is gone by ruling, and a set button loose on the page would
+    // read as belonging to whatever was above it.
+    const sets = [...el.querySelectorAll('button[data-action="rollSet"]')];
+    el.querySelector('[data-action="tab"][data-tab="people"]').click();
+    await new Promise((r) => setTimeout(r, 150));
+    const peopleTab = el.querySelector('.tab[data-tab="people"]');
+    return {
+      setsInFirstGrid: sets.filter((b) => {
+        const tab = b.closest(".tab");
+        return tab && b.closest(".cairn-dashboard-grid") === tab.querySelector(".cairn-dashboard-grid");
+      }).length,
+      setsTooltipped: sets.filter((b) => b.dataset.tooltip).length,
+      // The retired heading, by its TEXT: the key is gone from lang/en.json, so
+      // a leftover `{{localize}}` would render the key itself.
+      headText: [...el.querySelectorAll(".cairn-dashboard-head")].map((h) => h.textContent.trim()),
+      createHints: peopleTab.querySelectorAll("p.hint").length,
+      createHintText: peopleTab.querySelector("p.hint")?.textContent.trim() ?? "",
+      // The gap the band was asked for, measured rather than assumed.
+      gap: Math.round(below.getBoundingClientRect().top - band.getBoundingClientRect().bottom),
+    };
+  });
+
+  tabShape.setsInFirstGrid === 4 && tabShape.setsTooltipped === 4
+    ? ok("every combined draw sits in its tab's first grid, and says what it does")
+    : fail("the combined draws are not in the first grid", JSON.stringify(tabShape));
+
+  // BOTH HALVES. "No heading says Roll the lot" is also true of a window that
+  // has lost its headings altogether, so the Create headings have to still be
+  // there for the absence to mean anything.
+  !tabShape.headText.some((h) => /lot|Combined/i.test(h))
+    && tabShape.headText.filter((h) => /create/i.test(h)).length === 3
+    ? ok('...and no heading says "Roll the lot"', tabShape.headText.join(" / "))
+    : fail("a heading still says Roll the lot", JSON.stringify(tabShape.headText));
+
+  tabShape.createHints === 1 && /linked to their tokens/.test(tabShape.createHintText)
+    ? ok("the People tab explains what Create makes", tabShape.createHintText)
+    : fail("the People tab's Create hint is missing", JSON.stringify(tabShape));
+
+  tabShape.gap >= 14
+    ? ok("...and the clock band is set off from what follows it", `${tabShape.gap}px`)
+    : fail("the clock band crowds the rest of the window", `${tabShape.gap}px`);
 
   /* ---- 2. a table button rolls ----------------------------------------- */
 
@@ -277,10 +357,17 @@ try {
   // resets this dropdown to Public on every tick of the world clock, because
   // `_syncPartState` restores no field VALUES. Which is the same fact
   // `_messageMode` reads the DOM at click time for.
+  //
+  // IT SETS "self", NOT "gm", AND THAT MATTERS AS OF 2026-09-11. This window
+  // now OPENS on "gm" (user ruling: the Warden's rolls are private until they
+  // say otherwise), so a leg that picked "gm" and read it back would pass on a
+  // re-render that had thrown the choice away — it would be asserting the new
+  // default rather than the Warden's choice. Fourth time a leg here has been
+  // its own control; the value has to be one nothing else would produce.
   const survivedTick = await page.evaluate(async () => {
     const app = document.querySelector("#cairn-warden-dashboard");
     const select = app.querySelector("[name=messageMode]");
-    select.value = "gm";
+    select.value = "self";
     const t0 = game.time.worldTime;
     // READ THE BAND BEFORE THE ADVANCE. Reading it after meant the redraw could
     // already have happened while `advance` was resolving, so `before` was the
@@ -305,9 +392,58 @@ try {
     ? ok("the time band redraws when the world clock moves")
     : fail("the time band redraws on a clock change", JSON.stringify(survivedTick));
 
-  survivedTick.mode === "gm"
+  survivedTick.mode === "self"
     ? ok("...without resetting the Warden's visibility choice")
     : fail("the clock reset the visibility dropdown", `it now reads "${survivedTick.mode}"`);
+
+  /* ---- 7a2. and a FRESH window opens private --------------------------- */
+
+  const freshMode = await page.evaluate(async () => {
+    const app = foundry.applications.instances.get("cairn-warden-dashboard");
+    await app.render();
+    const el = app.element;
+    const row = el.querySelector(".cairn-dashboard-visibility");
+    const select = el.querySelector("[name=messageMode]");
+    const tabs = el.querySelector(".cairn-dashboard-tabs");
+    // Which tab is showing must not change the answer: there is ONE of these
+    // and it governs all six.
+    select.value = "blind";
+    el.querySelector('[data-action="tab"][data-tab="monsters"]').click();
+    await new Promise((r) => setTimeout(r, 150));
+    const afterSwitch = el.querySelector("[name=messageMode]").value;
+    el.querySelector('[data-action="tab"][data-tab="travel"]').click();
+    await new Promise((r) => setTimeout(r, 150));
+    return {
+      value: select.value,
+      rows: el.querySelectorAll(".cairn-dashboard-visibility").length,
+      size: Math.round(parseFloat(getComputedStyle(row).fontSize)),
+      selectSize: Math.round(parseFloat(getComputedStyle(select).fontSize)),
+      // The row is ABOVE the strip, so its scope reads as the window's.
+      aboveTabs: !!(row.compareDocumentPosition(tabs) & Node.DOCUMENT_POSITION_FOLLOWING),
+      afterSwitch,
+    };
+  });
+
+  // Re-read the default after the render above, which is what a Warden opening
+  // the window gets. Set separately from the leg that changes it, or the two
+  // assertions would be one.
+  const openedMode = await page.evaluate(async () => {
+    const app = foundry.applications.instances.get("cairn-warden-dashboard");
+    await app.render();
+    return app.element.querySelector("[name=messageMode]").value;
+  });
+
+  openedMode === "gm"
+    ? ok("a freshly rendered dashboard opens Private to Gamemasters")
+    : fail("the dashboard opens on the wrong visibility", `"${openedMode}"`);
+
+  freshMode.rows === 1 && freshMode.aboveTabs && freshMode.afterSwitch === "blind"
+    ? ok("...from ONE control, above the tabs, that every tab shares")
+    : fail("the visibility control is not one shared control", JSON.stringify(freshMode));
+
+  freshMode.size >= 15 && freshMode.selectSize >= 15
+    ? ok("...and it is readable", `${freshMode.size}px label, ${freshMode.selectSize}px dropdown`)
+    : fail("the visibility row is too small", JSON.stringify(freshMode));
 
   /* ---- 7b. showing a table to the players ------------------------------ */
 
@@ -406,8 +542,8 @@ try {
     const gt = await import("/systems/air-bladder/module/game-time.js");
     const settings = game.settings;
     const realGet = settings.get.bind(settings);
-    settings.get = (ns, key) =>
-      (ns === "air-bladder" && key === "enable-vald-calendar" ? true : realGet(ns, key));
+    settings.get = (ns, key, ...rest) =>
+      (ns === "air-bladder" && key === "enable-vald-calendar" ? true : realGet(ns, key, ...rest));
     try {
       const app = foundry.applications.instances.get("cairn-warden-dashboard");
       await app.render();
@@ -424,17 +560,33 @@ try {
         const i = btn?.querySelector("i");
         got[season] = i ? [...i.classList].find((c) => c.startsWith("fa-") && c !== "fa-solid") : null;
       }
-      // Cairn's own four must take DIFFERENT glyphs: both groups sit on the
-      // Travel tab, and a snowflake in each collapses them into one list.
-      const cairn = ["Spring", "Summer", "Fall", "Winter"].map((s) => {
-        const i = el.querySelector(`button[data-table="Warden: Weather - ${s}"] i`);
-        return i ? [...i.classList].find((c) => c.startsWith("fa-") && c !== "fa-solid") : null;
-      });
-      return { want, got, cairn };
+      // SCOPED TO THE TAB BODY, never the whole window: Today's Weather lives
+      // in the band and carries a `data-table` of its own, so an unscoped
+      // query answers with the band's button and this leg stops meaning
+      // anything.
+      const body = el.querySelector(".cairn-dashboard-body");
+      const cairnSeasons = ["Spring", "Summer", "Fall", "Winter", "Difficulty"]
+        .filter((s) => body.querySelector(`button[data-table="Warden: Weather - ${s}"]`)).length;
+      return { want, got, cairnUnderVald: cairnSeasons };
     } finally {
       settings.get = realGet;
       await foundry.applications.instances.get("cairn-warden-dashboard")?.render();
     }
+  });
+
+  // The other half of the swap, read with the hack OFF — which is the state
+  // this whole probe runs in.
+  const cairnGlyphs = await page.evaluate(() => {
+    const body = document.querySelector("#cairn-warden-dashboard .cairn-dashboard-body");
+    const of = (s) => {
+      const i = body.querySelector(`button[data-table="Warden: Weather - ${s}"] i`);
+      return i ? [...i.classList].find((c) => c.startsWith("fa-") && c !== "fa-solid") : null;
+    };
+    return {
+      icons: ["Spring", "Summer", "Fall", "Winter"].map(of),
+      difficulty: of("Difficulty"),
+      vald: body.querySelectorAll('button[data-table^="Warden: Vald - Weather"]').length,
+    };
   });
 
   JSON.stringify(valdGlyphs.got) === JSON.stringify(valdGlyphs.want)
@@ -442,9 +594,19 @@ try {
       Object.values(valdGlyphs.want).join(" "))
     : fail("the Vald glyphs are restated, not read", JSON.stringify(valdGlyphs));
 
-  valdGlyphs.cairn.every((g) => g && !Object.values(valdGlyphs.want).includes(g))
-    ? ok("...and Cairn's own four take different glyphs beside them", valdGlyphs.cairn.join(" "))
-    : fail("Cairn's seasons share a glyph with Vald's", JSON.stringify(valdGlyphs.cairn));
+  // THE SWAP, BOTH WAYS (user ruling 2026-09-11, reversing the day before's
+  // "they stack"). Rolling both sets on one day produces answers that
+  // contradict each other, so under the hack Vald's REPLACES Cairn's. One
+  // direction alone would pass on a dashboard that had simply lost a group.
+  valdGlyphs.cairnUnderVald === 0
+    ? ok("...and under the hack Cairn's own weather group is gone, difficulty included")
+    : fail("Cairn's weather buttons survive under Vald", `${valdGlyphs.cairnUnderVald} still there`);
+
+  cairnGlyphs.icons.every((g) => g && !Object.values(valdGlyphs.want).includes(g))
+    && cairnGlyphs.difficulty && cairnGlyphs.vald === 0
+    ? ok("...and with the hack off Cairn's five are back and Vald's are not",
+      [...cairnGlyphs.icons, cairnGlyphs.difficulty].join(" "))
+    : fail("the weather swap does not reverse", JSON.stringify(cairnGlyphs));
 
   // The width was raised to 640 so six tabs fit one row and the grid gets four
   // columns. Measured, because "it looks fine here" is not an assertion.
@@ -659,6 +821,14 @@ try {
 
   const swept = await page.evaluate(async (b) => {
     foundry.applications.instances.get("cairn-warden-dashboard")?.close();
+    // Hand the world back exactly as it was found, hack and all.
+    if (window.__abRealGet) {
+      game.settings.get = window.__abRealGet;
+      [CONFIG.time.worldCalendarConfig, CONFIG.time.worldCalendarClass] = window.__abPrevCalendar;
+      game.time.initializeCalendar();
+      delete window.__abRealGet;
+      delete window.__abPrevCalendar;
+    }
     const msgs = game.messages.contents.filter((m) => !b.messages.includes(m.id)).map((m) => m.id);
     const actors = game.actors.contents.filter((a) => !b.actors.includes(a.id)).map((a) => a.id);
     const journals = game.journal.contents.filter((j) => !b.journals.includes(j.id)).map((j) => j.id);

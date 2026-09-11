@@ -3699,6 +3699,11 @@ ol.combat-tracker li.combatant.cairn-drop-below {
    later, so no !important is needed. */
 .cairn-dashboard .cairn-dashboard-tabs {
     flex-wrap: wrap;
+    /* The clock band above needs to read as a separate thing from the tabs
+       (user, 2026-09-11: "there should be a line break or space between the
+       calendar functions at the top and the row of tabs"). The band supplies
+       most of that gap; this keeps the strip off the visibility row. */
+    margin-top: 4px;
 }
 
 /* WIDER CELLS AND LOOSER ROWS since 2026-09-10 (user: "very crowded and
@@ -3750,6 +3755,22 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     min-width: 0;
     white-space: normal;
     overflow-wrap: anywhere;
+}
+
+/* A combined draw shares the tab's first grid with the table pairs, since the
+   heading it used to sit under is gone. The wrapper exists so the button fills
+   one grid cell exactly as a pair does — and so its PARENT is not the grid,
+   which `dev:warden-dashboard` scans for an eye when it checks that no set
+   button grew one. It is deliberately not `.cairn-dashboard-pair`: the same
+   probe counts those against the number of roll buttons. */
+.cairn-dashboard .cairn-dashboard-solo {
+    display: flex;
+    min-width: 0;
+}
+
+.cairn-dashboard .cairn-dashboard-solo > button {
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 /* A table button is a PAIR: the name rolls it, the eye shows it to the
@@ -3846,17 +3867,27 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     color: var(--ab-muted);
 }
 
+/* WHO SEES THE RESULT, at 16px rather than 12 (user ruling 2026-09-11). It
+   governs all 45 buttons under it and was reading as a footnote to them.
+
+   The SELECT needs the size stated on itself: a form control does not inherit
+   font-size from its parent, so styling the row alone leaves the dropdown
+   small beside its own label — the same fact that makes core's form controls
+   look consistent whatever a sheet does around them. */
 .cairn-dashboard .cairn-dashboard-visibility {
     display: flex;
     gap: 6px;
     align-items: center;
     margin: 4px 0 6px;
-    font-size: 12px;
+    font-size: 16px;
     color: var(--ab-muted);
 }
 
 .cairn-dashboard .cairn-dashboard-visibility select {
     flex: 1;
+    height: auto;
+    min-height: var(--input-height, 32px);
+    font-size: 16px;
 }
 
 .cairn-dashboard .cairn-dashboard-footer {
@@ -3889,8 +3920,10 @@ ol.combat-tracker li.combatant.cairn-drop-below {
    than trusting the rule to apply. */
 .cairn.sheet.cairn-dashboard .window-content > .cairn-dashboard-time {
     flex: 0 0 auto;
-    margin-bottom: 6px;
-    padding-bottom: 6px;
+    /* Roomier than it was, so the band and the tab strip do not read as one
+       block (user, 2026-09-11). */
+    margin-bottom: 14px;
+    padding-bottom: 10px;
     border-bottom: 1px solid var(--ab-line);
 }
 
@@ -3898,14 +3931,27 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
-    gap: 4px;
-    margin-bottom: 4px;
+    gap: 6px;
+    margin-bottom: 6px;
     font-size: 13px;
     font-weight: 600;
     color: var(--ab-ink);
 }
 
-.cairn-dashboard .cairn-time-date,
+/* THE DATE IS THE HEADLINE (user ruling 2026-09-11: "twice as large or close
+   to it"). The watch follows it in weight rather than size, and the season and
+   the weather stay quiet beside them — doubling the whole line would make a
+   banner of what is meant to be context for the buttons below. */
+.cairn-dashboard .cairn-time-date {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--ab-ink);
+}
+
+.cairn-dashboard .cairn-time-watch {
+    font-size: 16px;
+}
+
 .cairn-dashboard .cairn-time-season {
     font-weight: 400;
     color: var(--ab-muted);
@@ -3958,6 +4004,13 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     margin-bottom: 0;
 }
 
+/* The two event tables, beneath the weather. Same grid as everywhere else, so
+   they re-column with the window. */
+.cairn-dashboard .cairn-time-events {
+    margin-top: 8px;
+    margin-bottom: 0;
+}
+
 .cairn-dashboard .cairn-time-today-weather {
     font-style: italic;
 }
@@ -3995,7 +4048,10 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     border-radius: 8px;
     background: var(--color-cool-5-75);
     color: var(--color-text-secondary);
-    font-size: var(--font-size-12);
+    /* LARGER AGAIN on 2026-09-11 (user ask). It is read from across the room
+       at 12px and was not being read at all. Taller, never wider: the 200px
+       below is pinned to #players-active. */
+    font-size: var(--font-size-14);
 }
 
 /* BOLDER, AND IT CARRIES THE WEATHER (user ruling, on seeing it in place).
@@ -4048,7 +4104,7 @@ ol.combat-tracker li.combatant.cairn-drop-below {
 
 .cairn-watch-clock .cairn-watch-watch {
     font-weight: 700;
-    font-size: var(--font-size-14);
+    font-size: var(--font-size-18);
     line-height: 1.2;
     color: var(--color-text-primary);
 }
@@ -4214,6 +4270,13 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     opacity: 0.7;
 }
 
+/* The Warden's own days take the accent rather than the ink, so a day carrying
+   a festival AND something the Warden wrote does not read as one thing. */
+.cairn-vald-calendar .cairn-calendar-dot.is-warden {
+    background: var(--ab-accent);
+    opacity: 1;
+}
+
 /* The four seasons, faint. --ab-* tokens only, per docs/theming.md: this is a
    sheet-style window and not Foundry chrome, unlike the watch clock. */
 .cairn-vald-calendar .cairn-season-dead { background: var(--ab-season-dead); }
@@ -4230,10 +4293,16 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     border-top: 1px solid var(--ab-hairline);
 }
 
+/* THE STATEMENT ABOUT THE DAY, in the size the thing the panel is ABOUT
+   deserves (user ruling 2026-09-11: "much larger"). The season and the weather
+   beneath it come up with it rather than staying at 13px, because "the
+   statement about the day" reads onto either line and a scale that lifts only
+   one of them looks like a mistake. */
 .cairn-vald-calendar .cairn-calendar-date {
-    margin: 0 0 2px;
-    font-size: 15px;
+    margin: 0 0 4px;
+    font-size: 22px;
     font-weight: 600;
+    line-height: 1.2;
 }
 
 .cairn-vald-calendar .cairn-calendar-season,
@@ -4243,7 +4312,7 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     gap: 6px;
     margin-bottom: 4px;
     color: var(--ab-muted);
-    font-size: 13px;
+    font-size: 15px;
 }
 
 .cairn-vald-calendar .cairn-calendar-begins {
@@ -4257,8 +4326,8 @@ ol.combat-tracker li.combatant.cairn-drop-below {
 }
 
 .cairn-vald-calendar .cairn-calendar-festival h4 {
-    margin: 8px 0 2px;
-    font-size: 14px;
+    margin: 10px 0 2px;
+    font-size: 16px;
 }
 
 .cairn-vald-calendar .cairn-calendar-span,
@@ -4266,12 +4335,45 @@ ol.combat-tracker li.combatant.cairn-drop-below {
 .cairn-vald-calendar .cairn-calendar-note {
     margin: 0 0 4px;
     color: var(--ab-muted);
-    font-size: 12px;
+    font-size: 13px;
     font-style: italic;
 }
 
 .cairn-vald-calendar .cairn-calendar-festival-text p {
     margin: 0 0 6px;
+}
+
+/* An event the Warden wrote, marked off from the Guide's own festivals by a
+   rule down its left edge rather than by a colour, so it survives both
+   schemes and reads at a glance as "ours, not the book's". */
+.cairn-vald-calendar .cairn-calendar-festival.is-warden {
+    padding-left: 8px;
+    border-left: 2px solid var(--ab-accent);
+}
+
+.cairn-vald-calendar .cairn-calendar-secret {
+    margin-left: 4px;
+    color: var(--ab-muted);
+    font-size: 12px;
+}
+
+.cairn-vald-calendar .cairn-calendar-event-tools {
+    display: flex;
+    gap: 6px;
+    margin: 4px 0 0;
+}
+
+.cairn-vald-calendar .cairn-calendar-event-tools button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 auto;
+    height: auto;
+    min-height: 0;
+    margin: 0;
+    padding: 2px 8px;
+    font-size: 12px;
+    line-height: 1.3;
 }
 
 .cairn-vald-calendar .cairn-calendar-foot {

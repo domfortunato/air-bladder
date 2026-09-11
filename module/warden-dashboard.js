@@ -72,6 +72,10 @@ const PANELS = {
     ],
     groups: [
       {
+        // The id is read by `_prepareContext`, which HIDES this whole group
+        // while the Vald hack is on (user ruling 2026-09-11) — see
+        // `VALD_WEATHER_GROUP` for why that reverses an earlier ruling.
+        id: "weather",
         head: "CAIRN.Dashboard.Head.Weather",
         tables: [
           ["CAIRN.Dashboard.Travel.WeatherDifficulty", "Warden: Weather - Difficulty", "fa-cloud-bolt"],
@@ -104,15 +108,9 @@ const PANELS = {
       ["CAIRN.Dashboard.Encounters.CityRuins", "Warden: Encounters - City Ruins", "fa-city"],
       ["CAIRN.Dashboard.Encounters.Dungeon", "Warden: Encounters - Dungeon", "fa-dungeon"],
     ],
-    groups: [
-      {
-        head: "CAIRN.Dashboard.Head.Events",
-        tables: [
-          ["CAIRN.Dashboard.Encounters.DungeonEvents", "Warden: Events - Dungeon", "fa-door-open"],
-          ["CAIRN.Dashboard.Encounters.WildernessEvents", "Warden: Events - Wilderness", "fa-campground"],
-        ],
-      },
-    ],
+    // The two EVENT tables used to sit here. They moved into the time band
+    // (user ask 2026-09-11) — see `TIME_EVENTS`.
+    groups: [],
     // No combined draw here, deliberately: every table on this tab can carry
     // encounter rows, and a combined card would lose the Add-to-scene button.
     sets: [],
@@ -148,6 +146,11 @@ const PANELS = {
       { key: "CAIRN.CreateNpc", icon: "fas fa-user-plus", gen: "npc" },
       { key: "CAIRN.CreateHireling", icon: "fas fa-hand-holding-dollar", gen: "hireling" },
     ],
+    // A line under Create, because what these two buttons make is linked to
+    // its token and what the compendium's monsters make is not — the one
+    // thing about the roster that surprises people (docs/tokens-and-sheets.md).
+    // DECLARED, so the template stays generic and any panel may have one.
+    createHint: "CAIRN.Dashboard.People.CreateHint",
   },
 
   factions: {
@@ -211,19 +214,24 @@ const PANELS = {
 /**
  * Vald's weather, added to the Travel tab when the hack is on.
  *
- * A SECOND GROUP, ALONGSIDE CAIRN'S FOUR SEASONS — never replacing them (user
- * ruling 2026-09-10). The two answer different questions: Cairn's Spring to
- * Winter are a SEVERITY ladder (Nice, Fair, Unpleasant, Inclement, Extreme)
- * whose whole purpose is to feed `Warden: Weather - Difficulty` and cost a
- * Fatigue or a watch, while Vald's four are DESCRIPTIVE ("Light snow",
- * "Thunderstorms") and feed nothing. A Warden running Vald wants both: colour
- * from Vald, cost from Cairn. They stack; they are not alternatives.
+ * IT REPLACES CAIRN'S WEATHER GROUP RATHER THAN JOINING IT (user ruling
+ * 2026-09-11), and this REVERSES the ruling of the day before, which this
+ * docblock used to argue at length: that the two "stack; they are not
+ * alternatives", Cairn's four being a SEVERITY ladder feeding
+ * `Warden: Weather - Difficulty` while Vald's four merely describe the sky.
  *
- * The four tables SHIP UNCONDITIONALLY — only these buttons are gated — so
- * `check:warden` verifies them either way and a Warden with the hack off can
- * still find them in the compendium browser. That is this system's one gating
- * shape: a setting read live at the moment content is enumerated, never pack
- * ownership and never a folder.
+ * What the argument missed is what a Warden does with two sets of buttons on
+ * one tab: rolls both, and gets answers that contradict each other on the same
+ * day. The user's own example — "Cold and clear" can arrive as Vald Dead 1 and
+ * as Weather Difficulty 5, meaning two different things. One table has to win,
+ * and under the hack it is Vald's. `weatherTableForToday` already decided
+ * exactly this for the band's own button; the tabs now agree with it.
+ *
+ * The four tables SHIP UNCONDITIONALLY, and so do Cairn's — only the BUTTONS
+ * swap — so `check:warden` verifies all eight either way and a Warden who
+ * wants a severity roll can still reach it from the compendium browser. That
+ * is this system's one gating shape: a setting read live at the moment content
+ * is enumerated, never pack ownership and never a folder.
  */
 const VALD_WEATHER_GROUP = {
   head: "CAIRN.Dashboard.Head.ValdWeather",
@@ -243,6 +251,38 @@ const VALD_WEATHER_GROUP = {
     ["CAIRN.Dashboard.Travel.ValdHarvest", "Warden: Vald - Weather (Harvest)", SEASON_ICONS["CAIRN.Vald.Season.Harvest"]],
   ],
 };
+
+/**
+ * The two event tables, in the TIME BAND rather than on a tab (user ask
+ * 2026-09-11: "move the Events section to a section under the weather at the
+ * top"). They sat on the Encounters tab, which put them behind a click from
+ * wherever the Warden was standing — and an event is something that happens as
+ * time passes, which is what the band is about.
+ *
+ * The band renders on every tab, so these are always one click away. Same
+ * `[i18nKey, tableName, icon]` shape as everything in PANELS, so the same
+ * `buttons()` helper builds them and the same pair-with-an-eye markup renders
+ * them.
+ */
+const TIME_EVENTS = [
+  ["CAIRN.Dashboard.Encounters.DungeonEvents", "Warden: Events - Dungeon", "fa-door-open"],
+  ["CAIRN.Dashboard.Encounters.WildernessEvents", "Warden: Events - Wilderness", "fa-campground"],
+];
+
+/**
+ * Who sees a roll, before the Warden says otherwise.
+ *
+ * PRIVATE BY DEFAULT (user ruling 2026-09-11). It was core's own first mode,
+ * Public, which is the right default for the sidebar's Roll Table button and
+ * the wrong one for a window of 45 Warden tables: most of what is on it is
+ * something the Warden wants to know before the table does.
+ *
+ * TWO SURFACES DELIBERATELY IGNORE THIS, and both are earlier rulings rather
+ * than oversights: the eye SHOWS a table publicly whatever the dropdown says,
+ * and Today's Weather posts publicly because weather the party is standing in
+ * is not a secret.
+ */
+const DEFAULT_MESSAGE_MODE = "gm";
 
 /** Tab order, and the one place a tab id is spelled. */
 const TAB_IDS = ["travel", "encounters", "people", "factions", "monsters", "yours"];
@@ -412,15 +452,31 @@ export const SHOW_TABLE_ACTION = "showTable";
  * A table the dashboard does not know — the Your Tables tab, or a Warden's own
  * — falls back to its own name through the content overlay, which is right:
  * that name is theirs and is what they will recognise.
+ *
+ * IT WALKS EVERY DECLARATION, NOT JUST `PANELS`, and that is a fix rather than
+ * housekeeping: the Vald weather four have never been in `PANELS` — they are
+ * merged in at render — so showing one of them to the players put
+ * "Warden: Vald - Weather (Dead)" on their screen, the exact browse name this
+ * function exists to keep out of a player's view. Moving Events into the band
+ * would have made a second pair of them. Anything declared outside `PANELS`
+ * must be added here.
  */
 const labelForTable = (name) => {
-  for (const panel of Object.values(PANELS)) {
-    for (const [key, table] of [...(panel.tables ?? []), ...(panel.groups ?? []).flatMap((g) => g.tables)]) {
+  const groups = [
+    ...Object.values(PANELS).flatMap((p) => [...(p.groups ?? []), { tables: p.tables ?? [] }]),
+    VALD_WEATHER_GROUP,
+    { tables: TIME_EVENTS },
+  ];
+  for (const group of groups) {
+    for (const [key, table] of group.tables ?? []) {
       if (table === name) return game.i18n.localize(key);
     }
   }
   return t("table.name", name);
 };
+
+/** Probe hook: the label a player is shown for a table, without a socket. */
+export const _labelForTable = labelForTable;
 
 /**
  * One table's rows, rendered for display.
@@ -597,9 +653,15 @@ const promptSetDate = async () => {
   const esc = foundry.utils.escapeHTML;
   const L = (k) => esc(game.i18n.localize(k));
 
+  // A BARE <div> WITH NO ATTRIBUTES. DialogV2's constructor throws
+  // "config.content element must have no attributes" (dialog.mjs:189) — one
+  // class is enough to kill the dialog outright, and the button then does
+  // nothing with no error a Warden would see. The class goes inside.
   const form = document.createElement("div");
-  form.classList.add("cairn-set-date");
-  form.innerHTML = `
+  const inner = document.createElement("div");
+  inner.className = "cairn-set-date";
+  form.append(inner);
+  inner.innerHTML = `
     <p class="hint">${L("CAIRN.Time.SetDateHint")}</p>
     <div class="form-group">
       <label for="ab-date-year">${L("CAIRN.Time.Field.Year")}</label>
@@ -765,34 +827,53 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
     // markup and a Handlebars `lookup` chain to pair each with its tab.
     context.panelList = TAB_IDS.map((id) => {
       const panel = PANELS[id] ?? {};
+      const tables = id === "yours" ? yours : buttons(panel.tables ?? []);
+      const sets = (panel.sets ?? []).map((s) => ({
+        label: label(s.key),
+        key: s.key,
+        icon: "fa-layer-group",
+        tables: s.tables.join(";"),
+      }));
       return {
         ...context.tabs[id],
         icon: TAB_ICONS[id],
         empty: id === "yours" && !yours.length,
-        tables: id === "yours" ? yours : buttons(panel.tables ?? []),
+        tables,
+        sets,
+        // The combined draw now shares the tab's FIRST grid (user ruling
+        // 2026-09-11: the "Roll the lot" heading it used to live under is
+        // gone), so the grid has to render for either kind of button. Computed
+        // here rather than as `{{#if tables.length}}` in the template, which
+        // would silently swallow a tab that ever has a set and no tables.
+        hasGrid: tables.length > 0 || sets.length > 0,
         groups: [
-          ...(panel.groups ?? []),
+          // ONE EXPRESSION, BOTH HALVES OF THE SWAP. Under the hack Vald's
+          // weather REPLACES Cairn's rather than joining it (user ruling
+          // 2026-09-11, see VALD_WEATHER_GROUP), and writing the hide and the
+          // show as one conditional is what stops the two drifting into a tab
+          // with two weather groups or none.
+          //
           // Read LIVE, so flipping the hack shows up on the next render of
           // this window rather than needing one of its own. The reload the
           // setting asks for is about the CALENDAR, not about these buttons.
-          ...(id === "travel" && valdEnabled() ? [VALD_WEATHER_GROUP] : []),
+          ...(id === "travel" && valdEnabled()
+            ? [...(panel.groups ?? []).filter((g) => g.id !== "weather"), VALD_WEATHER_GROUP]
+            : (panel.groups ?? [])),
         ].map((g) => ({
           head: label(g.head),
           tables: buttons(g.tables),
         })),
-        sets: (panel.sets ?? []).map((s) => ({
-          label: label(s.key),
-          key: s.key,
-          icon: "fa-layer-group",
-          tables: s.tables.join(";"),
-        })),
         creates: (panel.creates ?? []).map((c) => ({ ...c, label: label(c.key) })),
+        createHint: panel.createHint ? label(panel.createHint) : "",
       };
     });
 
+    // `selected` is stamped here rather than left to the first option, because
+    // core's own first mode is Public and this window opens PRIVATE.
     context.modes = Object.entries(CONFIG.ChatMessage.modes).map(([value, cfg]) => ({
       value,
       label: game.i18n.localize(cfg.label),
+      selected: value === DEFAULT_MESSAGE_MODE,
     }));
     context.damageLabel = game.i18n.localize("CAIRN.WardenDamage.Title");
 
@@ -814,6 +895,9 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
     // calendar whose seasons we do not know.
     context.weatherIcon = seasonIconFor(currentSeason()) || "fa-cloud-sun";
     context.calendarOpen = valdCalendarAvailable();
+    // The event tables, in the band beneath the weather. Built by the same
+    // helper as every other pair, so they cannot drift out of shape.
+    context.events = buttons(TIME_EVENTS);
     return context;
   }
 

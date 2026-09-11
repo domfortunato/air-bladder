@@ -369,8 +369,11 @@ const builder = await page.evaluate(async () => {
   // returns — no world write.
   const settings = game.settings;
   const origGet = settings.get.bind(settings);
-  settings.get = (ns, key) =>
-    key === "use-cairn-dice-notation" ? false : origGet(ns, key);
+  // Forwards every argument: a two-argument shadow makes `settings.set` create
+  // a duplicate Setting document instead of updating the real one, because
+  // `#setWorld` asks this for the DOCUMENT and gets a bare value.
+  settings.get = (ns, key, ...rest) =>
+    (key === "use-cairn-dice-notation" ? false : origGet(ns, key, ...rest));
   f = await open();
   q(".wd-clear")?.click();
   q(".wd-die[data-die='6']")?.click();
