@@ -3523,12 +3523,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const to = await promptOfferTarget(this.actor, item);
     if (!to) return;
     const message = await createItemOffer(this.actor, item, to);
-    // Giving to something you already OWN — your own mule, your own crate —
+    // Giving to something you already own AND NOBODY ELSE COULD ANSWER FOR —
+    // your own mule, your own crate, an unowned innkeeper the Warden runs —
     // settles at once. Posting a card and waiting for somebody to click Accept
     // is theatre when the somebody is you. It goes through the ordinary accept
     // (settleOwnOffer), so the capacity verdict and the over-burden confirm
     // still run and the public card is still the ledger line.
-    if (message && to.isOwner) await settleOwnOffer(message, to);
+    //
+    // `settleOwnOffer` makes the second half of that test itself, and it has
+    // to: a GM owns every actor, so once the Warden could give, `isOwner` alone
+    // would have force-delivered into a player's pack past the confirm that
+    // exists to make them consent.
+    if (message) await settleOwnOffer(message, to);
   }
 
   /**

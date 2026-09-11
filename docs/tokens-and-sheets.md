@@ -76,6 +76,27 @@ describes above.
 You answer the offer yourself. Nobody owns a monster or a Limited innkeeper, so
 the card waits for the Warden.
 
+## Giving things away from a sheet you own
+
+The **Give** button on an item row is not only for player characters. It is on
+every sheet you own, which for you is all of them: open the dead goblin and hand
+its sword to whoever earned it, or empty a crate into the party without a single
+drag. A player gets it too on anything they own — a hireling, a connected mule.
+
+Two things worth knowing before you use it in a session.
+
+- **Giving to a player's character posts a card and waits for them.** You own
+  every actor in the world, so the system cannot tell "my own crate" from
+  "somebody else's character" by ownership alone. It asks whether anybody *else*
+  could answer: if somebody could, they do. That is on purpose — taking an item
+  can drop a character's Hit Protection to 0, and that is their choice to make.
+- **Giving to something nobody owns is one click.** An innkeeper, a crate, a
+  mule with no player attached: there is nobody to wait for, so it just happens
+  and the card is the record of it.
+
+Fatigue, a Grimoire and its bound pages still refuse, exactly as they do on a
+character.
+
 ## Related
 
 - [Generating NPCs and Hirelings](generating-npcs.md) — the two kinds of person

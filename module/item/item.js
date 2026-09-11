@@ -456,11 +456,21 @@ export class CairnItem extends Item {
         this.system.uses.value = this.system.uses.max;
     }
     this.system.isFatigue = this.name === FATIGUE_NAME;
-    // The give-to-another-character control (item-offer.js): characters only,
-    // never Fatigue (a cost is not a possession), never a Grimoire or its
-    // bound pages (they travel as a bundle the Warden drags — v1 exclusion).
+    // The Give control (item-offer.js). THE GATE IS OWNERSHIP, NOT TYPE
+    // (2026-09-10, user ruling reversing the original asymmetry: "whoever owns
+    // the NPC should be able to open it and give items without having to
+    // drag"). Anything you own can give: your character, a hireling, a
+    // connected mule, and — for the Warden — an innkeeper, a crate or a dead
+    // goblin. The drag already worked and is a real move; what it cost was two
+    // open sheets and a steady hand, per item, per player.
+    //
+    // Nothing else changes, because `templates/parts/items-list.html` is ONE
+    // partial every role's sheet renders: the button appears the moment this
+    // says yes, and the picker, the card, the capacity verdict and delivery are
+    // untouched. Still never Fatigue (a cost is not a possession), never a
+    // Grimoire or its bound pages (they travel as a bundle the Warden drags).
     // This is the AFFORDANCE half; canOfferItem is the enforcement behind it.
-    this.system.canGive = this.actor?.type === "character"
+    this.system.canGive = !!this.actor?.isOwner
       && !this.system.isFatigue
       && !(this.type === "item" && this.system.grimoire)
       && !this.system.bound;

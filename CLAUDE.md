@@ -814,6 +814,39 @@ if you find one, deleting it is in scope, not a separate decision.
     (`settleOwnOffer`), through the ordinary accept rather than a second
     transfer path, because waiting for yourself to press Accept is theatre and
     the Connections UI is parked.
+    **AND THE GIVER SIDE REVERSED ON 2026-09-10** (user ask: "whoever owns the
+    NPC should be able to open it and give items without having to drag"). This
+    section stated the opposite asymmetry in as many words — "giving FROM an NPC
+    is the Warden's own drag and needs no card" — and that is now history.
+    `canGive` and `canOfferItem` both swap `type === "character"` for `isOwner`,
+    and NOTHING ELSE CHANGES, because `templates/parts/items-list.html` is one
+    partial every role's sheet renders: the button appears on npc, monster,
+    container, transport and companion sheets the moment the gate says yes, and
+    the picker, the card, the capacity verdict and delivery are untouched. A
+    player who owns a hireling or a connected mule gets it too, which is the ask
+    read literally.
+    **THE ONE-CLICK SHORTCUT HAD TO TIGHTEN IN THE SAME BREATH, and this is the
+    trap worth remembering: a shortcut written for a player is not safe the day
+    a GM inherits it.** `settleOwnOffer` fired on `target.isOwner`, which was
+    exactly right while only a character could give — a player owning both ends
+    really was the only person with a say. A GM owns EVERY actor, so the moment
+    the Warden could give, that same line delivered straight into a player's
+    pack with no card and no confirm, past the very over-burden dialog that
+    exists to make them consent to Hit Protection 0. The user ruled the player
+    answers. The trigger is now `ownersOf(target).some(u => u !== game.user)` —
+    "nobody ELSE could answer" — so a player stowing a rope in their own crate
+    is still one click and the Warden handing one to Alice's character is not.
+    Probe-covered with a control that lands the item early.
+    **An unlinked token CAN give**, deliberately: monsters are unlinked by
+    ruling, so "open the dead goblin and hand the sword to Alice" is the
+    commonest case there is, and excluding token actors the way they are
+    excluded as TARGETS would make the feature miss its main use. The reason
+    for that exclusion still stands — a synthetic actor's uuid resolves only
+    while its token exists and the card is permanent — so a card whose GIVER no
+    longer resolves reads `CAIRN.Offer.HiddenTarget` ("someone"), the string
+    already used to mask a target the viewer cannot see. Deliberately NOT
+    `message.speaker.alias`, which would be friendlier and is a stored name
+    written by the giver's own client: review #24's class exactly.
 
   **Ordinary acquisition still refuses**, and that is deliberate, not a gap: a
   drop onto a full character (`_onDropItem`), the manual Create Item dialog, and

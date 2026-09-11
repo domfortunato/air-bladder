@@ -412,9 +412,9 @@ untranslated, which is the honest failure.
 | `CAIRN.Notify.OfferAccepted` | {target} accepted {item}. |
 | `CAIRN.Notify.OfferAnswered` | This offer has already been answered. |
 | `CAIRN.Notify.OfferBusy` | This offer is already being answered — give it a moment. |
-| `CAIRN.Notify.OfferCharacterOnly` | Only a character can give items this way. |
 | `CAIRN.Notify.OfferDeclinedBy` | {target}'s player declined {item}. |
 | `CAIRN.Notify.OfferFailed` | The hand-off failed — nothing was moved. The offer is open again. |
+| `CAIRN.Notify.OfferNotYourActor` | You can only give from a sheet you own. |
 | `CAIRN.Notify.OfferGiverOffline` | {giver}'s player is not connected — the offer stays open. Try again while they are online. |
 | `CAIRN.Notify.OfferLapsed` | {item} is no longer on {giver}'s sheet — the offer has lapsed. |
 | `CAIRN.Notify.OfferNoFatigue` | Fatigue can't be given away. |

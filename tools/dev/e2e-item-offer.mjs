@@ -237,16 +237,23 @@ try {
       && controls.per["ZZ Bound Page"] === false,
     JSON.stringify(controls.per));
 
-  /* ---- B. never on an npc sheet ------------------------------------------ */
-  const npcControls = await gm.evaluate(async () => {
+  /* ---- B. an npc sheet the viewer does NOT own ---------------------------- */
+  // THIS LEG INVERTED on 2026-09-10 and was rewritten rather than deleted. It
+  // used to read "no give control on an npc sheet", which was the old
+  // type-based gate stated as a test. The gate is OWNERSHIP now, so the
+  // question is no longer what KIND of sheet it is — it is whose. Alice, who
+  // does not own this npc, still gets nothing; the Warden does, and section P
+  // below is the other half.
+  const npcControls = await alice.evaluate(async () => {
     const npc = game.actors.getName("ZZ Offer NPC");
+    if (!npc) return -2;
     await npc.sheet.render(true);
     await new Promise((r) => setTimeout(r, 600));
     const n = npc.sheet.element?.querySelectorAll('a[data-action="itemGive"]').length ?? -1;
     await npc.sheet.close();
     return n;
   });
-  check("no give control on an npc sheet", npcControls === 0, `${npcControls} anchors`);
+  check("no give control on an npc a player does not own", npcControls === 0, `${npcControls} anchors`);
 
   /* ---- B2. the picker lists only actors the giver can SEE ----------------- */
   // Review #23 finding 6: an ownership-NONE character (a doppelganger the
@@ -1056,6 +1063,217 @@ try {
       && selfSettle.state === "accepted" && selfSettle.settled === true
       && selfSettle.acceptStillOffered === false,
     JSON.stringify(selfSettle));
+
+
+  /* ---- P. anything you own can GIVE -------------------------------------- */
+  console.log("\nthe giver gate is ownership, not type");
+
+  // The reversal (2026-09-10): "whoever owns the NPC should be able to open it
+  // and give items without having to drag". The gate moved from
+  // `type === "character"` to `isOwner` on both halves — the affordance on the
+  // item and the enforcement in `canOfferItem`.
+  await gm.evaluate(async () => {
+    const npc = game.actors.getName("ZZ Offer NPC");
+    // OBSERVER, not Limited: Alice has to SEE the item rows for "the control is
+    // absent" to mean anything. On a Limited sheet there are no rows at all, so
+    // the absence would be true of a feature that had never shipped.
+    await npc.update({ [`ownership.${game.users.getName("Alice").id}`]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER });
+    await npc.createEmbeddedDocuments("Item", [
+      { name: "ZZ NPC Sword", type: "weapon" },
+      { name: "Fatigue", type: "item" },
+    ]);
+  });
+  await new Promise((r) => setTimeout(r, 700));
+
+  const npcGive = await gm.evaluate(async () => {
+    const npc = game.actors.getName("ZZ Offer NPC");
+    await npc.sheet.render(true);
+    await new Promise((r) => setTimeout(r, 700));
+    const root = npc.sheet.element;
+    const rowOf = (name) => [...root.querySelectorAll(".cairn-items-list-row")]
+      .find((r) => r.innerText.includes(name));
+    const out = {
+      sword: !!rowOf("ZZ NPC Sword")?.querySelector('a[data-action="itemGive"]'),
+      fatigue: !!rowOf("Fatigue")?.querySelector('a[data-action="itemGive"]'),
+    };
+    await npc.sheet.close();
+    return out;
+  });
+
+  check("the Warden's own npc sheet offers a Give control", npcGive.sword,
+    npcGive.sword ? "" : "no itemGive anchor on the sword row");
+  check("...and Fatigue on it still refuses", !npcGive.fatigue,
+    npcGive.fatigue ? "Fatigue offered a Give control" : "");
+
+  // THE OTHER HALF, and it is the half that makes the first one mean anything:
+  // an absence alone also passes when the selector is wrong.
+  const observerGive = await alice.evaluate(async () => {
+    const npc = game.actors.getName("ZZ Offer NPC");
+    if (!npc) return { seen: false };
+    await npc.sheet.render(true);
+    await new Promise((r) => setTimeout(r, 700));
+    const root = npc.sheet.element;
+    const row = [...root.querySelectorAll(".cairn-items-list-row")]
+      .find((r) => r.innerText.includes("ZZ NPC Sword"));
+    const out = {
+      seen: true,
+      isOwner: npc.isOwner,
+      rowPresent: !!row,
+      control: !!row?.querySelector('a[data-action="itemGive"]'),
+    };
+    await npc.sheet.close();
+    return out;
+  });
+
+  check("a viewer who only OBSERVES the npc sees the row but no Give control",
+    observerGive.seen && !observerGive.isOwner && observerGive.rowPresent && !observerGive.control,
+    JSON.stringify(observerGive));
+
+  // ...and the enforcement behind it, reached at the wire rather than through
+  // the UI that is now absent.
+  const observerRefused = await alice.evaluate(async () => {
+    const { canOfferItem } = await import("/systems/air-bladder/module/item-offer.js");
+    const npc = game.actors.getName("ZZ Offer NPC");
+    const item = npc?.items.find((i) => i.name === "ZZ NPC Sword");
+    return canOfferItem(item);
+  });
+  check("...and canOfferItem refuses it too", observerRefused?.ok === false,
+    JSON.stringify(observerRefused));
+
+  /* ---- Q. the Warden gives, and the PLAYER answers ----------------------- */
+  console.log("\nthe Warden gives: one click only when nobody else could answer");
+
+  // An unowned target first: nobody else has a say, so this settles at once.
+  await gm.evaluate(async () => {
+    const Cls = getDocumentClass("Actor");
+    if (!game.actors.getName("ZZ Offer Innkeeper")) {
+      await Cls.create({
+        name: "ZZ Offer Innkeeper", type: "npc",
+        ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.LIMITED },
+      });
+    }
+  });
+  await new Promise((r) => setTimeout(r, 600));
+
+  const toUnowned = await gm.evaluate(async () => {
+    const { createItemOffer, settleOwnOffer } = await import("/systems/air-bladder/module/item-offer.js");
+    const npc = game.actors.getName("ZZ Offer NPC");
+    const inn = game.actors.getName("ZZ Offer Innkeeper");
+    const item = npc.items.find((i) => i.name === "ZZ NPC Sword");
+    const message = await createItemOffer(npc, item, inn);
+    await settleOwnOffer(message, inn);
+    await new Promise((r) => setTimeout(r, 900));
+    const f = message?.getFlag("air-bladder", "itemOffer");
+    return {
+      landed: inn.items.some((i) => i.name === "ZZ NPC Sword"),
+      gone: !npc.items.some((i) => i.name === "ZZ NPC Sword"),
+      settled: !!f?.settled,
+      state: f?.state,
+    };
+  });
+
+  check("the Warden gives to an unowned innkeeper in one click",
+    toUnowned.landed && toUnowned.gone && toUnowned.settled && toUnowned.state === "accepted",
+    JSON.stringify(toUnowned));
+
+  // THE LEG THAT GUARDS THE RULING. A GM owns every actor, so the untightened
+  // shortcut — `target.isOwner` alone — would deliver straight into a player's
+  // pack with no card and no confirm, past the very dialog that exists to make
+  // them consent to Hit Protection 0. Red under Part C's version of it.
+  // BOB owns `ZZ Offer Target` in this suite, not Alice.
+  await gm.evaluate(async () => {
+    const npc = game.actors.getName("ZZ Offer NPC");
+    await npc.createEmbeddedDocuments("Item", [{ name: "ZZ Warden Gift", type: "item" }]);
+  });
+  await new Promise((r) => setTimeout(r, 600));
+
+  const toAlice = await gm.evaluate(async () => {
+    const { createItemOffer, settleOwnOffer } = await import("/systems/air-bladder/module/item-offer.js");
+    const npc = game.actors.getName("ZZ Offer NPC");
+    const target = game.actors.getName("ZZ Offer Target");
+    const item = npc.items.find((i) => i.name === "ZZ Warden Gift");
+    const message = await createItemOffer(npc, item, target);
+    await settleOwnOffer(message, target);
+    await new Promise((r) => setTimeout(r, 900));
+    const f = message?.getFlag("air-bladder", "itemOffer");
+    return {
+      id: message?.id,
+      settled: !!f?.settled,
+      state: f?.state,
+      landedEarly: target.items.some((i) => i.name === "ZZ Warden Gift"),
+      stillWithNpc: npc.items.some((i) => i.name === "ZZ Warden Gift"),
+    };
+  });
+
+  check("giving to a PLAYER'S character waits for the player instead",
+    !toAlice.settled && toAlice.state === "open" && !toAlice.landedEarly && toAlice.stillWithNpc,
+    JSON.stringify(toAlice));
+
+  // And the player's own click is what moves it. The card is rebuilt per
+  // viewer, so the Accept button is theirs alone — the Warden's copy of the
+  // same message offers Cancel.
+  // POLLED. The card reaches her client over the socket and is rebuilt per
+  // viewer at render, so a single read can land before either has happened —
+  // and a leg that depends on winning a race is a race, not a leg.
+  const bobSees = await poll(bob, (id) => {
+    const row = document.querySelector(`.chat-message[data-message-id="${id}"]`);
+    return row?.querySelector(".cairn-offer-accept") ? { accept: true } : null;
+  }, toAlice.id);
+  if (!bobSees?.accept) {
+    const why = await bob.evaluate((id) => {
+      const msg = game.messages.get(id);
+      const f = msg?.getFlag("air-bladder", "itemOffer");
+      const target = foundry.utils.fromUuidSync(f?.targetActorUuid ?? "");
+      return {
+        hasMsg: !!msg, state: f?.state, targetUuid: f?.targetActorUuid,
+        resolved: !!target, owner: target?.testUserPermission?.(game.user, "OWNER"),
+        rowInDom: !!document.querySelector(`.chat-message[data-message-id="${id}"]`),
+      };
+    }, toAlice.id);
+    // Printed only on a miss. `owner:false` is the answer nine times in ten,
+    // and it is invisible from the button state alone.
+    console.log("  why   ", JSON.stringify(why));
+  }
+  check("...and the target's own player is the one offered Accept", !!bobSees?.accept,
+    JSON.stringify(bobSees ?? (await cardButtons(bob, toAlice.id))));
+
+  const clicked = await clickCard(bob, toAlice.id, "cairn-offer-accept");
+  await new Promise((r) => setTimeout(r, 2000));
+  const aliceAccepted = await gm.evaluate((id) => ({
+    landed: game.actors.getName("ZZ Offer Target").items.some((i) => i.name === "ZZ Warden Gift"),
+    state: game.messages.get(id)?.getFlag("air-bladder", "itemOffer")?.state,
+  }), toAlice.id);
+
+  check("...and their click is what moves it",
+    clicked && aliceAccepted.landed && aliceAccepted.state === "accepted",
+    JSON.stringify({ clicked, ...aliceAccepted }));
+
+  /* ---- R. a card whose giver is gone reads "someone" --------------------- */
+  // Monsters are unlinked by ruling, so an unlinked token giving is the
+  // commonest case there is — and a synthetic actor's uuid resolves only while
+  // its token exists, while the card is permanent and rebuilt per viewer FROM
+  // that uuid. The mask is the same string a hidden target uses, so no name is
+  // stored and no new player-authored field appears.
+  const hiddenGiver = await gm.evaluate(async () => {
+    const msg = game.messages.contents.filter((m) => m.getFlag("air-bladder", "itemOffer")).at(-1);
+    if (!msg) return { skipped: "no offer card" };
+    // Point the flag at a uuid that resolves to nothing, the way a deleted
+    // token's does, and re-render the card the way a viewer would.
+    const original = msg.getFlag("air-bladder", "itemOffer");
+    await msg.setFlag("air-bladder", "itemOffer", {
+      ...original, giverActorUuid: "Scene.zzzzzzzzzzzzzzzz.Token.zzzzzzzzzzzzzzzz.Actor.zzzzzzzzzzzzzzzz",
+    });
+    await new Promise((r) => setTimeout(r, 800));
+    const el = document.querySelector(`[data-message-id="${msg.id}"]`);
+    const text = el?.innerText ?? "";
+    await msg.setFlag("air-bladder", "itemOffer", original);
+    await new Promise((r) => setTimeout(r, 500));
+    return { text, mask: game.i18n.localize("CAIRN.Offer.HiddenTarget") };
+  });
+
+  check("a card whose giver no longer resolves reads the mask, not a broken name",
+    !hiddenGiver.skipped && hiddenGiver.text.includes(hiddenGiver.mask) && !hiddenGiver.text.includes("undefined"),
+    JSON.stringify({ mask: hiddenGiver.mask, text: hiddenGiver.text?.slice(0, 120) }));
 
   /* ---- teardown ----------------------------------------------------------- */
   const swept = await gm.evaluate(async (before) => {

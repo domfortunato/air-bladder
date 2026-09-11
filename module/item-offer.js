@@ -77,7 +77,7 @@ const offersInFlight = new Map();
  * @returns {{ok: Boolean, reason?: String}}  reason is a Notify key
  */
 export const canOfferItem = (item) => {
-  if (item?.actor?.type !== "character") return { ok: false, reason: "CAIRN.Notify.OfferCharacterOnly" };
+  if (!item?.actor?.isOwner) return { ok: false, reason: "CAIRN.Notify.OfferNotYourActor" };
   if (item.name === FATIGUE_NAME) return { ok: false, reason: "CAIRN.Notify.OfferNoFatigue" };
   if ((item.type === "item" && item.system?.grimoire) || item.system?.bound) {
     return { ok: false, reason: "CAIRN.Notify.OfferNoGrimoire" };
@@ -369,6 +369,23 @@ export const createItemOffer = async (giver, item, target) => {
  */
 export const settleOwnOffer = async (message, target) => {
   if (!message || !target?.isOwner) return null;
+  // ...AND NOBODY ELSE COULD ANSWER. `isOwner` alone was right while only a
+  // character could give, because a player owning both ends really was the
+  // only person with a say. THE DAY THE WARDEN COULD GIVE, IT STOPPED BEING
+  // RIGHT: a GM owns every actor, so this shortcut would have delivered
+  // straight into a player's pack with no card and no confirm — past the very
+  // over-burden dialog that exists to make them consent to Hit Protection 0.
+  // The user ruled the player answers.
+  //
+  // `ownersOf` is already "non-GM users with an explicit OWNER entry", and is
+  // already what the card's waiting line is derived from, so this asks the one
+  // question that was always meant: is there anybody ELSE to wait for? A
+  // shortcut written for a player is not safe the day a GM inherits it.
+  //
+  // "Else" is exact, not loose. A player handing a rope to their OWN crate is
+  // still the only person with a say, so that stays one click; the Warden
+  // handing one to Alice's character is not, so that posts a card and waits.
+  if (ownersOf(target).some((u) => u !== game.user)) return null;
   return onAcceptClick(message);
 };
 
@@ -394,9 +411,24 @@ const offerNames = (message, offer) => {
         ? actorDisplayName(target)
         : game.i18n.localize("CAIRN.Offer.HiddenTarget");
   return {
+    // A GIVER THAT NO LONGER RESOLVES reads "someone", the same mask the target
+    // uses. Monsters are unlinked by ruling, so "open the dead goblin and hand
+    // the sword to Alice" is the commonest case there is — and a synthetic
+    // token actor's uuid resolves only while its token exists, while this card
+    // is permanent and rebuilt per viewer FROM that uuid. Deleting the token
+    // after the fight would otherwise turn every past card into "? offers ?".
+    // No stored name and no new player-authored field, so review #24's class
+    // is not reopened; an accept after the token is gone still fails the
+    // re-verification that already runs at accept.
     giver: (() => {
       const g = foundry.utils.fromUuidSync(offer.giverActorUuid);
-      return g ? actorDisplayName(g) : (message.speaker?.alias ?? "?");
+      if (g) return actorDisplayName(g);
+      // THE MASK, NOT `message.speaker.alias`. The alias would be friendlier —
+      // it still names who it was — and it is a STORED name written by the
+      // giver's own client, which is review #24's class exactly. The uuid that
+      // no longer resolves is the only honest thing here, so it reads
+      // "someone", the same string a hidden target uses.
+      return game.i18n.localize("CAIRN.Offer.HiddenTarget");
     })(),
     target: targetName,
     item: t("item.name", offer.item?.name ?? "?"),
