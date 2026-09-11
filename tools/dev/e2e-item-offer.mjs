@@ -19,6 +19,31 @@
  * Three clients: GM (fixtures, bystander's ear, GM-path legs), Alice (giver),
  * Bob (acceptor). Every refusal leg asserts BOTH unchanged state AND specific
  * refusal evidence, so no wall can pass vacuously.
+ *
+ * A KNOWN FLAKE, RECORDED RATHER THAN FIXED (2026-09-11). "The Give button
+ * settles at once on a container you own" fails intermittently, and always the
+ * same way: the rope has LANDED, the state reads "accepted", and only the
+ * trailing `settled` flag — written by the giver's client after the delete
+ * round-trips — has not arrived when the fixed 1600ms wait expires. It is a
+ * race between the probe and the network, not a defect in the feature.
+ *
+ * What was tried, so nobody repeats it:
+ *   - Polling for `settled` on ALICE (the giver) instead of sleeping made it
+ *     REPRODUCIBLY WORSE — the offer stayed open past fifteen seconds.
+ *   - Polling from the GM instead was worse again, and differently.
+ *   - Moving this file's newest leg after every other leg changed nothing.
+ * Hammering `evaluate` on a client mid-transaction appears to perturb the very
+ * thing being measured, so the fixed wait stands until somebody understands why.
+ *
+ * Two traps that made diagnosis much harder, both worth knowing:
+ *   - A FAILING RUN DOES NOT FINISH ITS TEARDOWN, so it leaves its ZZ* fixtures
+ *     behind and the NEXT run's `getName` picks between duplicates. Consecutive
+ *     runs are therefore NOT independent samples. Sweep `ZZ *` actors between
+ *     runs before drawing any conclusion from a pass/fail sequence.
+ *   - On single runs this leg passed with either half of a change and failed
+ *     with both, which reads exactly like an interaction and is just noise.
+ *     Attributing an intermittent failure needs repeated runs per arm, each
+ *     from a swept world.
  */
 
 import { chromium } from "playwright";
@@ -336,14 +361,32 @@ try {
     await new Promise((r) => setTimeout(r, 200));
     const cleared = visible();
     dlg.closest(".application")?.querySelector('button[data-action="cancel"]')?.click();
-    await new Promise((r) => setTimeout(r, 300));
-    return { hasField: !!field, before, narrowed, cleared };
+    // WAIT FOR IT TO LEAVE THE DOM rather than sleeping at a guess. A DialogV2
+    // lingers while it closes, and `offerViaPicker` finds its dialog with a
+    // bare `document.querySelector(".cairn-offer-picker")` — so a picker still
+    // on its way out is what a later leg would pick up, the cascade that
+    // helper's own comment warns about. This is ordinary hygiene for any leg
+    // that opens a shared dialog, not a fix for a diagnosed failure: see the
+    // note in this probe's header about the settle leg's flake, which was NOT
+    // traced to this.
+    for (let i = 0; i < 60 && document.querySelector(".cairn-offer-picker"); i++) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    return {
+      hasField: !!field,
+      before,
+      narrowed,
+      cleared,
+      closed: !document.querySelector(".cairn-offer-picker"),
+    };
   });
   check("the picker's search box hides the rows that do not match",
     filtered.before > 1 && filtered.narrowed > 0 && filtered.narrowed < filtered.before,
     JSON.stringify(filtered));
   check("...and clearing it brings them all back",
     filtered.cleared === filtered.before, JSON.stringify(filtered));
+  check("...and it leaves no picker behind for a later leg to find",
+    filtered.closed === true, JSON.stringify(filtered));
 
   /* ---- C. picker happy path: offer, per-viewer buttons, accept ----------- */
   console.log("\noffer and accept (picker path)");
