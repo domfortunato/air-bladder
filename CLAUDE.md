@@ -78,7 +78,14 @@ deleted. Full model in `docs/git-flow.md`; contributor-facing summary in
 ## Architecture
 
 Entry point `module/cairn.js`, registering document classes and sheets on `init`.
-~7,500 lines of JS across `module/`; everything else is content.
+~13,600 lines of hand-written JS across `module/` — 30,800 physical, but 56% of
+that is comment prose. This line said "~7,500" for weeks and was measuring
+nothing anybody had counted; `wc -l` is not the number, and the difference
+matters to anyone estimating how much there is to learn. Everything else is
+content. **`docs/architecture.md` is the map**: the import graph in tiers, the
+six spine files nothing else works without, the fifteen independently-readable
+leaf features, and where the genuinely hard parts are. `docs/provenance.md` is
+the companion record of who authored what.
 
 - `CairnActor` (`module/actor/actor.js`) — types `character`, `npc`, `hireling`.
   `hireling` is an ALIAS of npc (same model, same sheet), kept because a type is

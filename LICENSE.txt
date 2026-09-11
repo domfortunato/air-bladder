@@ -36,6 +36,11 @@ Code — MIT
     The System Docs journals travel here for the same reason: they are this
     project's own Warden guides, generated from docs/ by
     tools/import/system-docs.mjs, and they reproduce no Cairn text.
+    docs/provenance.md is this project's own writing too, and is the record of
+    WHO AUTHORED WHAT across every category above — code, art, game text,
+    translations, audio and marketing copy — and of how each claim can be
+    checked. This file says which licence covers which path; that one says
+    whether a human made it.
 
 Game text — CC BY-SA 4.0, © Yochai Gal
     https://creativecommons.org/licenses/by-sa/4.0/

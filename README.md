@@ -96,9 +96,13 @@ To try **unreleased** work, clone the `dev` branch instead — that is where eve
 
 Pull requests welcome — open them against **`dev`**, not `master`. See [CONTRIBUTING.md](https://github.com/domfortunato/air-bladder/blob/master/CONTRIBUTING.md) for the details, and [docs/git-flow.md](https://github.com/domfortunato/air-bladder/blob/master/docs/git-flow.md) for how branches and releases work here.
 
-## AI Disclosure
+## How this system is built
 
-**Generative-AI art will never appear in this repo — ever.** The code, on the other hand, was written with [Claude Code](https://www.anthropic.com/claude-code), using Yochai Gal's original Cairn repo as a base.
+**Generative-AI art will never appear in this repo — ever.** Nothing under `art/` or `icons/` is machine-generated, and every set names its artist and its licence.
+
+The code is written with AI assistance, using [Claude Code](https://www.anthropic.com/claude-code), on a base inherited from Yochai Gal's original Cairn system. The design decisions in it — every ruling, constraint and reversal — are the maintainer's own, and are recorded as they were made, in the commit history and in `CLAUDE.md`.
+
+Who made what, per category, with the evidence for each: [docs/provenance.md](https://github.com/domfortunato/air-bladder/blob/master/docs/provenance.md).
 
 ## Credits & licenses
 

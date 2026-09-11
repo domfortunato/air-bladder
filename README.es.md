@@ -127,9 +127,13 @@ Para probar el trabajo **aún no publicado**, clona la rama `dev`: ahí vive tod
 
 Las *pull requests* son bienvenidas: ábrelas contra **`dev`**, no contra `master`. Consulta [CONTRIBUTING.md](https://github.com/domfortunato/air-bladder/blob/master/CONTRIBUTING.md) (en inglés) para los detalles, y [docs/git-flow.md](https://github.com/domfortunato/air-bladder/blob/master/docs/git-flow.md) para saber cómo funcionan aquí las ramas y las versiones.
 
-## Divulgación sobre IA
+## Cómo se construye este sistema
 
-**El arte generado por IA nunca aparecerá en este repositorio, jamás.** El código, en cambio, se escribió con [Claude Code](https://www.anthropic.com/claude-code), usando como base el repositorio original de Cairn de Yochai Gal.
+**El arte generado por IA nunca aparecerá en este repositorio, jamás.** Nada de lo que hay en `art/` o `icons/` está generado por una máquina, y cada colección nombra a su artista y su licencia.
+
+El código se escribe con asistencia de IA, usando [Claude Code](https://www.anthropic.com/claude-code), sobre una base heredada del sistema original de Cairn de Yochai Gal. Las decisiones de diseño que contiene —cada resolución, restricción y cambio de criterio— son del responsable del proyecto, y quedan registradas en el momento en que se tomaron, en el historial de *commits* y en `CLAUDE.md`.
+
+Quién hizo qué, por categoría y con las pruebas de cada caso: [docs/provenance.md](https://github.com/domfortunato/air-bladder/blob/master/docs/provenance.md) (en inglés).
 
 ## Créditos y licencias
 
