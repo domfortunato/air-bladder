@@ -165,8 +165,12 @@ const lineFor = async (weather) => {
  * can edit if it was a misclick.
  *
  * An empty value writes nothing: clearing the weather is not an entry.
+ *
+ * NOT EXPORTED, and never called directly — go through `recordWeather` below,
+ * which serializes it. Every step in here is a find-then-create or a
+ * read-then-update across an `await`.
  */
-export const recordWeather = async () => {
+const writeWeatherLine = async () => {
   if (!logEnabled()) return null;
   if (!game.user.isGM || game.users.activeGM !== game.user) return null;
   const weather = todayWeather();
@@ -200,4 +204,42 @@ export const recordWeather = async () => {
     : `${had}<ul>${li}</ul>`;
   await page.update({ "text.content": content });
   return entry;
+};
+
+/**
+ * The tail of the write chain. One line is written at a time, in order.
+ *
+ * THE ACTIVE-GM GUARD IS NOT ENOUGH ON ITS OWN, which is the whole reason this
+ * exists. That guard settles WHICH CLIENT writes; it says nothing about two
+ * writes racing ON that client, and every step of `writeWeatherLine` is a
+ * find-then-create or a read-then-update with an `await` in the middle:
+ *
+ *   - the journal itself, found by flag and created when absent,
+ *   - the month's page, found by flag and created when absent,
+ *   - the page's text, read, appended to, and written back.
+ *
+ * `cairnWeatherChanged` starts this without awaiting it (cairn.js), and
+ * `setTodayWeather` resolves as soon as the SETTING write lands, so a second
+ * weather change can arrive while the first create is still in flight. Both
+ * runs then find nothing and create — two journals both flagged as the log,
+ * or two pages for one month, or a second line silently clobbering the first.
+ * Once two journals exist the split is permanent and invisible: `find` returns
+ * whichever the collection indexes first and the other sits orphaned in the
+ * sidebar, readable by the whole table, indistinguishable from the Warden
+ * having deliberately started a fresh log.
+ *
+ * The same primitive this codebase already uses for this shape in five places
+ * (`offersInFlight`, `encounterSpawnInFlight`, `pcGenerationInFlight`,
+ * `kwImportInFlight`, `grantActorsInFlight`). A promise chain rather than a
+ * boolean, because a second line must be WRITTEN after the first, not dropped.
+ *
+ * A rejected write must not poison the chain, so the stored tail swallows it
+ * while the caller still receives it.
+ */
+let writing = Promise.resolve(null);
+
+export const recordWeather = () => {
+  const next = writing.then(writeWeatherLine, writeWeatherLine);
+  writing = next.catch(() => null);
+  return next;
 };

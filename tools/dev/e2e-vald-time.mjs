@@ -1508,6 +1508,70 @@ try {
       ? ok("...and the whole table can read it")
       : fail("the log did not reach the player", JSON.stringify(aliceReads));
 
+    /* ---- two writes at once make ONE journal and TWO lines --------------- */
+
+    // The active-GM guard settles WHICH CLIENT writes. It says nothing about
+    // two writes racing ON that client, and every step of the log is a
+    // find-then-create or a read-then-update across an `await`: the journal,
+    // the month's page, and the page text. `cairnWeatherChanged` starts
+    // `recordWeather` without awaiting it and `setTodayWeather` resolves as
+    // soon as the SETTING write lands, so a second change can arrive while the
+    // first create is still in flight. Both then find nothing and create — two
+    // journals both flagged as the log, or a second line clobbering the first.
+    // Once two exist the split is permanent and silent.
+    //
+    // FIRED WITHOUT AWAITING BETWEEN THEM, which is the only way to reproduce
+    // it: awaiting the first serialises the very thing under test, and the leg
+    // would pass on the broken build. Same trap as the controlled token in the
+    // dashboard probe.
+    const raced = await page.evaluate(async () => {
+      const settings = game.settings;
+      const realGet = settings.get.bind(settings);
+      // FORWARD EVERY ARGUMENT. `#setWorld` asks `get(ns, key, {document: true})`
+      // for the Setting DOCUMENT; a two-argument shadow hands back a plain
+      // value, `current?._id` is undefined, and core CREATES A SECOND Setting
+      // document instead of updating the first — 131 of those were swept out of
+      // this world once already.
+      settings.get = (ns, key, ...rest) =>
+        (ns === "air-bladder" && key === "weather-log" ? true : realGet(ns, key, ...rest));
+      try {
+        const wl = await import("/systems/air-bladder/module/weather-log.js");
+        const logs = () => game.journal.contents
+          .filter((j) => j.flags?.["air-bladder"]?.weatherLog);
+        // Start from no log at all, so the create is genuinely contended.
+        const existing = logs().map((j) => j.id);
+        if (existing.length) await getDocumentClass("JournalEntry").deleteDocuments(existing);
+        await new Promise((r) => setTimeout(r, 300));
+
+        const a = wl.recordWeather();
+        const b = wl.recordWeather();
+        await Promise.all([a, b]);
+        await new Promise((r) => setTimeout(r, 600));
+
+        const found = logs();
+        const entry = found[0];
+        return {
+          journals: found.length,
+          pages: entry?.pages?.size ?? 0,
+          lines: (entry?.pages?.contents?.[0]?.text?.content?.match(/<li>/g) ?? []).length,
+        };
+      } finally {
+        settings.get = realGet;
+      }
+    });
+
+    raced.journals === 1
+      ? ok("two weather writes at once make exactly ONE log journal")
+      : fail("two weather writes at once make exactly ONE log journal",
+        `${raced.journals} journals — the find-then-create is not serialized`);
+    raced.pages === 1
+      ? ok("...and exactly one page for the month")
+      : fail("...and exactly one page for the month", `${raced.pages} pages`);
+    raced.lines === 2
+      ? ok("...keeping BOTH lines, so neither write is lost")
+      : fail("...keeping BOTH lines, so neither write is lost",
+        `${raced.lines} lines — a second write read the page before the first landed`);
+
     /* ---- cleanup for 28 and 29 ------------------------------------------ */
 
     // THE WEATHER GOES BACK TOO. The log legs above call it several times, and
