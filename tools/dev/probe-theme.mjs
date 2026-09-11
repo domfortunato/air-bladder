@@ -382,6 +382,40 @@ try {
     }
   }
 
+  /* ---- the watch clock: Foundry's chrome, not a sheet -------------------- */
+  //
+  // The ONE surface here that is deliberately NOT painted from the --ab-*
+  // palette. It sits in #ui-left-column-1 wearing core's `faded-ui`, and the
+  // panel it has to match is a translucent dark slab in BOTH schemes — so it
+  // reads core's chrome variables instead (docs/theming.md). That makes it
+  // exactly the thing this gate exists for: an exception is only safe if
+  // somebody measures it, and "invisible in light mode" is the failure it would
+  // otherwise ship with.
+  //
+  // It has no tabs and is not a window, so it gets its own short pass rather
+  // than joining the sheet loop.
+  const clockPresent = await page.evaluate(() => !!document.getElementById("cairn-watch-clock"));
+  if (!clockPresent) {
+    console.error("  FAIL  the watch clock is not on screen — nothing to measure");
+    process.exitCode = 1;
+  } else {
+    for (const scheme of ["light", "dark"]) {
+      await page.evaluate((s) => {
+        const other = s === "dark" ? "light" : "dark";
+        document.body.classList.remove(`theme-${other}`);
+        document.body.classList.add("themed", `theme-${s}`);
+      }, scheme);
+      await page.waitForTimeout(250);
+      await page.evaluate(() => window.__abWarm(document.getElementById("cairn-watch-clock")));
+      const r = await page.evaluate(() => window.__abAudit("#cairn-watch-clock"));
+      if (r.error) throw new Error(r.error);
+      results.push({
+        what: "the watch clock (Foundry chrome)", label: "WatchClock", scheme, simulated: false,
+        text: r.text, borders: r.borders,
+      });
+    }
+  }
+
   await page.evaluate(async ([a, n, w, owned, b]) => {
     if (!owned) await game.items.get(w)?.delete();
     await game.items.get(b)?.delete();

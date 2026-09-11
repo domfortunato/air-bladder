@@ -1,6 +1,6 @@
 # The Warden's Dashboard
 
-Air Bladder ships forty-one tables for you to roll at the table: encounters by
+Air Bladder ships forty-five tables for you to roll at the table: encounters by
 terrain, weather by season, what an NPC wants, what a monster looks like. The
 dashboard puts every one of them on a button, so you are not hunting through
 compendiums while the party waits.
@@ -18,11 +18,24 @@ The window remembers which tab you left it on. Drag its edge to resize it, and
 use the **arrow** in its title bar to pop it out into its own window, which is
 useful on a second monitor. Re-dock it from the **⋮ menu**.
 
+## The clock
+
+Across the top, above the tabs, is the current watch and date, with the controls
+that move them: **Back a Watch**, **Advance a Watch**, **Advance a Day**, **To
+Next Morning** and **Set the Date…**. Everyone at the table sees the clock change
+at once, on the panel above their player list.
+
+Beneath them, **Today's Weather** rolls the weather for the season you are
+actually in, so you do not have to remember which one that is.
+
+All of it is explained in [Keeping Time](keeping-time.md), including the Vald
+calendar and why there is no Make Camp button.
+
 ## The tabs
 
 | Tab | What is on it |
 |---|---|
-| **Travel** | Path difficulty and distance, terrain, and weather for each of the four seasons |
+| **Travel** | Path difficulty and distance, terrain, and weather for each of the four seasons — plus Vald's own four if you have that switched on |
 | **Encounters** | A table for each of the seven terrains, plus dungeon and wilderness events |
 | **People** | Reaction, what they want, and the six tables that describe an NPC |
 | **Factions** | Agenda, agent, obstacle, advantages and traits |
@@ -95,3 +108,5 @@ placing the monsters is the whole point.
   rolled monster carries.
 - [Tokens and Sheets](tokens-and-sheets.md) — which route gives every token its
   own damage.
+- [Keeping Time](keeping-time.md) — watches, the watch clock, and the Vald
+  calendar.

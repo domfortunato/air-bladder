@@ -18,6 +18,8 @@ import { createCairnMacro, rollItemMacro } from "./macros.js";
 import { Damage, DAMAGE_APPLIED_FLAG, DAMAGE_SOURCE_FLAG } from "./damage.js";
 import { registerWardenDamageControl } from "./warden-damage.js";
 import { registerWardenDashboardControl } from "./warden-dashboard.js";
+import { installWorldCalendar, checkWorldCalendar } from "./game-time.js";
+import { renderWatchClock, refreshWatchClock } from "./watch-clock.js";
 import { registerSettings, SETTINGS_NS, SETTING_GROUPS, migrateSettingsNamespace } from "./settings.js";
 import { ACTOR_DATA_MODELS, ITEM_DATA_MODELS, deriveNpcRole } from "./data-models.js";
 import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNERSHIP_SYNC_FLAG } from "./connections.js";
@@ -91,6 +93,26 @@ Hooks.once("init", async function () {
   // Beside it, and for the same reason: both hang a GM-only button on the
   // Token controls, and neither palette exists yet at this point.
   registerWardenDashboardControl();
+
+  // The Vald calendar, if the hack is on. AFTER registerSettings() — it reads
+  // the setting — and the ordering against core is the trick that makes this
+  // a one-liner: `Hooks.callAll("init")` is client/game.mjs:652 while
+  // `new GameTime()` is game.mjs:722, so the calendar object is built after
+  // this hook returns and assigning CONFIG.time is enough. There is no
+  // initializeCalendar() to call and no race to lose.
+  installWorldCalendar();
+
+  // Keep the watch clock in step. AT INIT rather than ready, for the socket
+  // handler's reason: a world-time change that arrives while this client is
+  // still connecting would otherwise land before anything was listening.
+  Hooks.on("updateWorldTime", () => {
+    refreshWatchClock();
+    // The Dashboard's time band, if a Warden has the window open. Imported
+    // lazily so a player's client never loads the dashboard module at all.
+    import("./warden-dashboard.js")
+      .then(({ refreshDashboardTime }) => refreshDashboardTime())
+      .catch((err) => console.error("air-bladder | the dashboard clock failed to follow:", err));
+  });
 });
 
 // The settings-namespace migration as a PROMISE the other ready callbacks can
@@ -109,6 +131,15 @@ Hooks.once("ready", () => {
   // AT READY on purpose: this hook must register AFTER every module's
   // init-time hooks so it runs after them — see registerCombatOrderGuard.
   registerCombatOrderGuard();
+  // The watch clock, and a check that we still own the calendar we installed.
+  // WRAPPED, because `dev:smoke` asserts zero console errors on every world
+  // and a throw out of a ready callback would fail it everywhere.
+  try {
+    checkWorldCalendar();
+    renderWatchClock();
+  } catch (err) {
+    console.warn("air-bladder | the watch clock did not start:", err);
+  }
   // Pre-warm the generation packs on the Warden's client (user ask
   // 2026-09-02): a client's FIRST generation of a session paid ~5s of
   // compendium loading, and on the relay that client is the Warden's — so

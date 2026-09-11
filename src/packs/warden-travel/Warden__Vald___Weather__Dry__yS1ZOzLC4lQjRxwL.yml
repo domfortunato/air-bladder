@@ -1,0 +1,158 @@
+_id: yS1ZOzLC4lQjRxwL
+name: 'Warden: Vald - Weather (Dry)'
+img: icons/svg/d20-grey.svg
+description: >-
+  Vald weather for the Dry season. The Warden rolls d6 each day. See the
+  <em>Vald</em> journal for the calendar these seasons belong to.
+results:
+  - _id: nQF57umnqEOmFEkI
+    type: text
+    description: Hot and sunny
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 1
+      - 1
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!yS1ZOzLC4lQjRxwL.nQF57umnqEOmFEkI'
+  - _id: WWPTGq8Skv69NycT
+    type: text
+    description: Warm and sunny
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!yS1ZOzLC4lQjRxwL.WWPTGq8Skv69NycT'
+  - _id: lsGnCs4hkbgV8JD0
+    type: text
+    description: Warm and breezy
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!yS1ZOzLC4lQjRxwL.lsGnCs4hkbgV8JD0'
+  - _id: U4dDlJWJs9UhgjkP
+    type: text
+    description: Hot and humid
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!yS1ZOzLC4lQjRxwL.U4dDlJWJs9UhgjkP'
+  - _id: nm7yPM5W02jpXQrf
+    type: text
+    description: Occasional heatwave
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!yS1ZOzLC4lQjRxwL.nm7yPM5W02jpXQrf'
+  - _id: KZD44M9AIcq3SLRC
+    type: text
+    description: Dry and windy
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!yS1ZOzLC4lQjRxwL.KZD44M9AIcq3SLRC'
+formula: 1d6
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!tables!yS1ZOzLC4lQjRxwL'

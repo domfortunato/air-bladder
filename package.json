@@ -44,6 +44,7 @@
     "dev:directory-buttons": "node tools/dev/e2e-directory-buttons.mjs",
     "dev:warden-rename": "node tools/dev/e2e-warden-rename.mjs",
     "dev:warden-dashboard": "node tools/dev/e2e-warden-dashboard.mjs",
+    "dev:vald-time": "node tools/dev/e2e-vald-time.mjs",
     "dev:icons": "node tools/dev/e2e-icons.mjs",
     "dev:spellscroll": "node tools/dev/e2e-spellscroll.mjs",
     "dev:spell-pool": "node tools/dev/e2e-spell-pool.mjs",

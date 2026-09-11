@@ -94,6 +94,7 @@ const ROSTER = [
   // Monster's tokens each take their own damage while an NPC's share a sheet
   // (2026-09-10, after a player lost a session's damage tracking to it).
   ["tokens-and-sheets.md", "Tokens and Sheets"],
+  ["keeping-time.md", "Keeping Time"],
   ["creating-custom-backgrounds.md", "Creating Custom Backgrounds"],
   ["sharing-custom-backgrounds.md", "Sharing Custom Backgrounds"],
   ["customizing-bonds.md", "Customizing Bonds"],

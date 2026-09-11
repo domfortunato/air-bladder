@@ -1,0 +1,22 @@
+{{!--
+  The watch clock, in Foundry's left column beneath the player list.
+
+  ONE ROOT ELEMENT, like every other ApplicationV2 part here: several
+  top-level elements fail with "Template part must render a single HTML
+  element" and nothing renders at all.
+
+  The season line is CONDITIONAL rather than blank, because an empty div still
+  takes its line-height and would leave a gap under the date whenever the Vald
+  calendar is switched off.
+
+  No buttons, no links, nothing focusable. Every player sees this, only the
+  Warden may move the clock, and the cheapest way to honour that is to give a
+  player nothing to click. The controls live on the Warden's Dashboard.
+--}}
+<div class="cairn-watch-inner" data-tooltip="{{tooltip}}">
+    <div class="cairn-watch-line cairn-watch-watch">{{watchLine}}</div>
+    <div class="cairn-watch-line cairn-watch-date">{{dateLine}}</div>
+    {{#if seasonLine}}
+        <div class="cairn-watch-line cairn-watch-season">{{seasonLine}}</div>
+    {{/if}}
+</div>

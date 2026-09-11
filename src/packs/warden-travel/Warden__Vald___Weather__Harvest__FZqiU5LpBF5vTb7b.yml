@@ -1,0 +1,158 @@
+_id: FZqiU5LpBF5vTb7b
+name: 'Warden: Vald - Weather (Harvest)'
+img: icons/svg/d20-grey.svg
+description: >-
+  Vald weather for the Harvest season. The Warden rolls d6 each day. See the
+  <em>Vald</em> journal for the calendar these seasons belong to.
+results:
+  - _id: AVY3tvVBzarijZAe
+    type: text
+    description: Mild and sunny
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 1
+      - 1
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!FZqiU5LpBF5vTb7b.AVY3tvVBzarijZAe'
+  - _id: 0mJxcIPbLLJtcOC9
+    type: text
+    description: Cool and clear
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!FZqiU5LpBF5vTb7b.0mJxcIPbLLJtcOC9'
+  - _id: vAH1D7VgmhglyZnO
+    type: text
+    description: Warm and sunny
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!FZqiU5LpBF5vTb7b.vAH1D7VgmhglyZnO'
+  - _id: gp71Lp3FmItyuGEG
+    type: text
+    description: Warm and breezy
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!FZqiU5LpBF5vTb7b.gp71Lp3FmItyuGEG'
+  - _id: fV5Tf07bqWrButpm
+    type: text
+    description: Light rain
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!FZqiU5LpBF5vTb7b.fV5Tf07bqWrButpm'
+  - _id: n1ozMH9x9WgpbNaD
+    type: text
+    description: Heavy rain
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!FZqiU5LpBF5vTb7b.n1ozMH9x9WgpbNaD'
+formula: 1d6
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!tables!FZqiU5LpBF5vTb7b'

@@ -80,8 +80,11 @@ try {
   opened.tabs?.length === 6
     ? ok("six tabs", opened.tabs.join(", "))
     : fail("six tabs", JSON.stringify(opened.tabs));
-  // 41 shipped tables plus however many the world has of its own.
-  opened.buttons >= 41
+  // 41 shipped tables, plus Today's Weather in the time band, plus however many
+  // the world has of its own. The Vald weather four are NOT counted: they ship
+  // unconditionally but their buttons are gated on the hack, which is off in a
+  // default world — `dev:vald-time` owns both halves of that.
+  opened.buttons >= 42
     ? ok("every shipped table has a button", `${opened.buttons} table buttons`)
     : fail("every shipped table has a button", `only ${opened.buttons}`);
   opened.sets === 4 ? ok("four combined draws") : fail("four combined draws", String(opened.sets));
@@ -259,6 +262,44 @@ try {
   whispered.modes.includes("public") && whispered.modes.includes("gm")
     ? ok("the dropdown is built from v14 message modes", whispered.modes.join(", "))
     : fail("the dropdown is built from v14 message modes", JSON.stringify(whispered.modes));
+
+  /* ---- 7a. the clock must not eat the Warden's choice ------------------ */
+
+  // THE REGRESSION THIS EXISTS TO CATCH. The time band is a second AppV2 PART
+  // so it can redraw alone; `refreshDashboardTime` renders `parts: ["time"]`.
+  // A bare `render()` there looks identical, works, logs nothing — and silently
+  // resets this dropdown to Public on every tick of the world clock, because
+  // `_syncPartState` restores no field VALUES. Which is the same fact
+  // `_messageMode` reads the DOM at click time for.
+  const survivedTick = await page.evaluate(async () => {
+    const app = document.querySelector("#cairn-warden-dashboard");
+    const select = app.querySelector("[name=messageMode]");
+    select.value = "gm";
+    const t0 = game.time.worldTime;
+    await game.time.advance(8 * 3600);
+    // Poll for the band to actually redraw, so this is not a race: read the
+    // band's text until it changes, then check the dropdown.
+    const bandText = () => app.querySelector(".cairn-time-read")?.innerText;
+    const before = bandText();
+    for (let i = 0; i < 60 && bandText() === before; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    const out = {
+      mode: app.querySelector("[name=messageMode]").value,
+      bandMoved: bandText() !== before,
+    };
+    await game.time.set(t0);
+    await new Promise((r) => setTimeout(r, 300));
+    return out;
+  });
+
+  survivedTick.bandMoved
+    ? ok("the time band redraws when the world clock moves")
+    : fail("the time band redraws on a clock change", JSON.stringify(survivedTick));
+
+  survivedTick.mode === "gm"
+    ? ok("...without resetting the Warden's visibility choice")
+    : fail("the clock reset the visibility dropdown", `it now reads "${survivedTick.mode}"`);
 
   /* ---- 7b. showing a table to the players ------------------------------ */
 

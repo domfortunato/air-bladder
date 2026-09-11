@@ -28,8 +28,9 @@ export const SETTINGS_NS = "air-bladder";
 export const SETTING_KEYS = [
   // General
   "use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
-  "show-grant-tags-print", "show-traits", "show-omens",
+  "show-grant-tags-print", "show-traits", "show-omens", "show-watch-clock",
   "use-warden-title", "change-log", "auto-record-scars", "enable-glog-magic",
+  "enable-vald-calendar",
   // Character Generation
   "content-source-2e", "content-source-custom", "content-source-barebones",
   "barebones-failed-career", "show-generate-header",
@@ -163,8 +164,8 @@ export const SETTING_GROUPS = [
     icon: "fa-solid fa-gears",
     keys: [
       "use-panic", "use-cairn-dice-notation", "use-item-icons", "show-grant-tags",
-      "show-grant-tags-print", "show-traits", "show-omens", "use-warden-title",
-      "change-log", "auto-record-scars",
+      "show-grant-tags-print", "show-traits", "show-omens", "show-watch-clock",
+      "use-warden-title", "change-log", "auto-record-scars",
     ],
   },
   {
@@ -213,7 +214,7 @@ export const SETTING_GROUPS = [
     button: "CAIRN.Settings.GroupHacksButton",
     hint: "CAIRN.Settings.GroupHacksHint",
     icon: "fa-solid fa-flask",
-    keys: ["enable-glog-magic", "barebones-failed-career"],
+    keys: ["enable-glog-magic", "enable-vald-calendar", "barebones-failed-career"],
     // The failed career is meaningless unless Barebones sheets are offered —
     // and that master checkbox lives in the Character Generation menu, not
     // here, so this app greys the row from the STORED value at render instead
@@ -480,6 +481,38 @@ export const registerSettings = () => {
     onChange: rerenderActorSheets,
   });
 
+  // The watch clock in the left column (2026-09-10, user ask). A day in Cairn
+  // is three watches and the travel tables already price journeys in them, so
+  // this is CORE Cairn and is deliberately NOT behind the Vald hack — gating a
+  // 2e unit behind a setting-specific switch would be a category error.
+  //
+  // WORLD scope, not client, on show-omens' own reasoning: whether the table
+  // tracks watches at all is the Warden's call and the answer must be the same
+  // for everyone. No reload — each client renders or closes its own clock, the
+  // rerenderActorSheets fan shape applied to a different surface.
+  game.settings.register(SETTINGS_NS, "show-watch-clock", {
+    name: "CAIRN.Settings.ShowWatchClock.label",
+    hint: "CAIRN.Settings.ShowWatchClock.hint",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: true,
+    requiresReload: false,
+    onChange: async (value) => {
+      // Dynamic, because settings.js is imported at init and watch-clock.js
+      // reaches for `game.time`, which does not exist that early.
+      const { renderWatchClock, closeWatchClock } = await import("./watch-clock.js");
+      try {
+        if (value) await renderWatchClock();
+        else await closeWatchClock();
+      } catch (err) {
+        // Setting._onUpdate does not await onChange, so a throw here is an
+        // anonymous unhandled rejection — the glog precedent.
+        console.error("air-bladder | the watch clock failed to follow its setting:", err);
+      }
+    },
+  });
+
   // `show-features-section` was registered here and is GONE (2026-08-09, user
   // ruling): the Features list it toggled was removed outright — a
   // fork-inherited UI nobody here uses. The `system.features` field SURVIVES,
@@ -591,6 +624,42 @@ export const registerSettings = () => {
       // exists for). Both directions, and on every client the onChange reaches.
       rerenderActorSheets();
     },
+  });
+
+  // The Vald calendar and its four seasons (2026-09-10, user ask). Vald is one
+  // setting among many, so it is a HACK: with this off the world keeps
+  // Foundry's own calendar and the Dashboard shows a plain day count.
+  //
+  // THE OPPOSITE OF enable-glog-magic ABOVE, and the contrast is the point.
+  // GLOG converts the world one way with no rollback. This converts NOTHING:
+  // `core.time` is a fixed count of seconds that a calendar merely READS, so
+  // switching the hack REINTERPRETS the clock rather than rewriting it, and
+  // switching back restores the old reading exactly. That is why there is no
+  // onChange, no marker and no sweep — and why the hint can promise
+  // reversibility out loud where GLOG's has to warn.
+  //
+  // requiresReload is not laziness. The calendar is installed into CONFIG.time
+  // at init (module/game-time.js), so flipping it live would need
+  // game.time.initializeCalendar() plus a re-render of the clock, the
+  // Dashboard band and anything holding game.time.components — and
+  // Setting._onUpdate does not await onChange, so a write in here would race
+  // the reload prompt. One reload gives every client one consistent state at
+  // one moment. use-panic and use-item-icons set the precedent.
+  //
+  // ONE key, never a calendar/weather pair: settings-menus.js destructures
+  // `subOptions` as a single object, one master per group, and Hacks has
+  // already spent it on content-source-barebones. A second master here would
+  // mean reworking that first.
+  game.settings.register(SETTINGS_NS, "enable-vald-calendar", {
+    name: "CAIRN.Settings.EnableValdCalendar.label",
+    hint: "CAIRN.Settings.EnableValdCalendar.hint",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    // OFF by default, the auto-record-scars precedent: a system update must
+    // never change what a Warden's table already sees.
+    default: false,
+    requiresReload: true,
   });
 
   // ---- Character Generation ------------------------------------------------

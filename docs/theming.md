@@ -170,3 +170,25 @@ paper is white and the page exists to be printed. Its styles are inline in the t
 — it opens in a fresh window with no reach back to `css/cairn.css` — and none of them
 use theme tokens. Do not "fix" this by tokenising it; `dev:print` asserts the page
 computes black-on-white with the Foundry theme set dark.
+
+## The watch clock is exempt too — for the opposite reason
+
+`.cairn-watch-clock` (`module/watch-clock.js`, the panel above the player list) is
+the second surface that does not read the `--ab-*` palette, and the reason is not
+the print page's. The print page leaves the palette because it is always paper. This
+one leaves it because it is **not a sheet at all**.
+
+It lives inside `#ui-left-column-1`, beside Foundry's own player list, wearing core's
+`faded-ui` class. The panel it has to match is a translucent DARK slab with light text
+in **both** schemes — so `--ab-ink`, which is dark ink for parchment, is invisible on
+it in light mode. Painting it with our tokens would make it wrong in exactly the
+scheme most people use.
+
+So it reads **core's** chrome variables (`--color-cool-5-75`, `--color-cool-4`,
+`--color-text-primary`, `--color-text-secondary`), which are body-scoped in
+`foundry2.css` and are the same ones `#players` itself reads. That is what keeps the
+two agreeing in every theme, for free, and it is still no literal colours.
+
+The rule this qualifies is "every colour a SHEET picks goes in an `--ab-*` token".
+Anything we add to Foundry's own chrome follows the chrome. `dev:theme` reads the
+clock's contrast in both schemes.

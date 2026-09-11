@@ -1,0 +1,158 @@
+_id: YYY3FPafhZtDXiWB
+name: 'Warden: Vald - Weather (Dead)'
+img: icons/svg/d20-grey.svg
+description: >-
+  Vald weather for the Dead season. The Warden rolls d6 each day. See the
+  <em>Vald</em> journal for the calendar these seasons belong to.
+results:
+  - _id: Ei2Uf9ye01jGtnZd
+    type: text
+    description: Cold and clear
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 1
+      - 1
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!YYY3FPafhZtDXiWB.Ei2Uf9ye01jGtnZd'
+  - _id: V84A399jsrtu5iCj
+    type: text
+    description: Frosty mornings
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 2
+      - 2
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!YYY3FPafhZtDXiWB.V84A399jsrtu5iCj'
+  - _id: bnYhgrqjECHbGWZi
+    type: text
+    description: Overcast skies
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 3
+      - 3
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!YYY3FPafhZtDXiWB.bnYhgrqjECHbGWZi'
+  - _id: GmKPbHaXVFXHUNec
+    type: text
+    description: Light snow
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 4
+      - 4
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!YYY3FPafhZtDXiWB.GmKPbHaXVFXHUNec'
+  - _id: xOcGg3MP4OdTnOxl
+    type: text
+    description: Snow showers
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 5
+      - 5
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!YYY3FPafhZtDXiWB.xOcGg3MP4OdTnOxl'
+  - _id: HowwtRMOZnjF1ntZ
+    type: text
+    description: Freezing rain
+    img: icons/svg/d20-black.svg
+    weight: 1
+    range:
+      - 6
+      - 6
+    drawn: false
+    flags: {}
+    _stats:
+      coreVersion: '14.365'
+      systemId: null
+      systemVersion: null
+      createdTime: null
+      modifiedTime: null
+      lastModifiedBy: null
+      compendiumSource: null
+      duplicateSource: null
+      exportSource: null
+    name: ''
+    _key: '!tables.results!YYY3FPafhZtDXiWB.HowwtRMOZnjF1ntZ'
+formula: 1d6
+replacement: true
+displayRoll: true
+flags: {}
+folder: null
+sort: 0
+ownership:
+  default: 0
+_stats:
+  systemId: air-bladder
+  coreVersion: '14.365'
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!tables!YYY3FPafhZtDXiWB'

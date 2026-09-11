@@ -3800,6 +3800,121 @@ ol.combat-tracker li.combatant.cairn-drop-below {
     width: 100%;
     margin: 0;
 }
+
+/* ---- The Warden's clock, on the Dashboard --------------------------------
+   A BAND above the tabs, and its own ApplicationV2 part so it can re-render
+   alone when the world clock moves.
+
+   `flex: 0 0 auto` IS LOAD-BEARING. The top of this file restores
+   `.cairn.sheet .window-content > * { flex: 1 }`, which AppV2 drops and every
+   sheet grid here was laid out against. That rule was written when this window
+   had exactly one child; a second part makes two, and without this the band
+   takes half the window — while rendering perfectly, persisting everything and
+   logging nothing, which is the failure `dev:sheet-layout` exists for.
+
+   THE SELECTOR IS LONG ON PURPOSE. The restored rule is three classes plus a
+   universal (0,3,0); the obvious `.cairn-dashboard .cairn-dashboard-time` is
+   two (0,2,0) and LOSES. Measured: the band took 284px of a 582px window and
+   still looked plausible. Matching the restored rule's own shape and adding
+   one class is what wins it, and `dev:vald-time` measures the height rather
+   than trusting the rule to apply. */
+.cairn.sheet.cairn-dashboard .window-content > .cairn-dashboard-time {
+    flex: 0 0 auto;
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--ab-line);
+}
+
+.cairn-dashboard .cairn-time-read {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px;
+    margin-bottom: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ab-ink);
+}
+
+.cairn-dashboard .cairn-time-date,
+.cairn-dashboard .cairn-time-season {
+    font-weight: 400;
+    color: var(--ab-ink-muted);
+}
+
+.cairn-dashboard .cairn-time-sep {
+    color: var(--ab-faint);
+}
+
+/* The five controls reflow the way the table grids do, so a narrowed window
+   re-columns them instead of scrolling sideways. */
+.cairn-dashboard .cairn-time-controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 4px;
+}
+
+.cairn-dashboard .cairn-time-controls button {
+    width: 100%;
+    margin: 0;
+}
+
+.cairn-dashboard .cairn-time-weather {
+    margin-top: 4px;
+    margin-bottom: 0;
+}
+
+/* ---- The watch clock ------------------------------------------------------
+   THE ONE PLACE THIS FILE'S PALETTE RULE DOES NOT APPLY, and it is worth
+   saying why rather than looking like an oversight.
+
+   "No literal colours; every colour is an --ab-* token" was written for
+   SHEETS, which paint dark ink on parchment in light mode and invert in dark.
+   This element is not a sheet. It lives in #ui-left-column-1 beside the player
+   list, wearing core's own `faded-ui`, and the panel it has to match is a
+   translucent DARK slab with light text in BOTH schemes. Painting --ab-ink
+   here would be invisible in light mode.
+
+   So it reads CORE's chrome variables, which is exactly what makes it agree
+   with the player list it sits under, in every theme, for free. Still no
+   literal colours. Every variable below is body-scoped in foundry2.css and is
+   the same one #players itself reads. See docs/theming.md.
+
+   The 200px width and the margin are not arbitrary either: #players-active is
+   200px and deliberately OVERFLOWS this narrow column (the column is only as
+   wide as the control icons), so matching it is what makes the two read as
+   one stack. `margin-top: auto` absorbs the column's free space so core's
+   `justify-content: space-between` has none left to redistribute — without it
+   a third child pushes the player list into the middle of the screen. */
+.cairn-watch-clock {
+    pointer-events: all;
+    flex: none;
+    width: 200px;
+    margin-top: auto;
+    padding: 6px 8px;
+    border: 1px solid var(--color-cool-4);
+    border-radius: 8px;
+    background: var(--color-cool-5-75);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-12);
+}
+
+.cairn-watch-clock .cairn-watch-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.cairn-watch-clock .cairn-watch-watch {
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+.cairn-watch-clock .cairn-watch-date,
+.cairn-watch-clock .cairn-watch-season {
+    color: var(--color-text-secondary);
+}
+
 /* ---- The offer picker's filter --------------------------------------------
    The target list used to be every other player character, three or four
    rows. It is now every actor the user can SEE, which in a world with an

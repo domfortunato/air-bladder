@@ -29,6 +29,10 @@
 import { findTableByName } from "./compendium.js";
 import { t } from "./i18n-content.js";
 import { openWardenDamage } from "./warden-damage.js";
+import {
+  valdEnabled, describeTime, weatherTableForToday, monthChoices, WATCH_KEYS,
+  advanceWatch, backWatch, advanceDay, toNextMorning, setDate,
+} from "./game-time.js";
 
 /* -------------------------------------------- */
 /*  What each tab holds                         */
@@ -185,6 +189,33 @@ const PANELS = {
     ],
     creates: [{ key: "CAIRN.CreateMonster", icon: "fas fa-dragon", gen: "monster" }],
   },
+};
+
+/**
+ * Vald's weather, added to the Travel tab when the hack is on.
+ *
+ * A SECOND GROUP, ALONGSIDE CAIRN'S FOUR SEASONS — never replacing them (user
+ * ruling 2026-09-10). The two answer different questions: Cairn's Spring to
+ * Winter are a SEVERITY ladder (Nice, Fair, Unpleasant, Inclement, Extreme)
+ * whose whole purpose is to feed `Warden: Weather - Difficulty` and cost a
+ * Fatigue or a watch, while Vald's four are DESCRIPTIVE ("Light snow",
+ * "Thunderstorms") and feed nothing. A Warden running Vald wants both: colour
+ * from Vald, cost from Cairn. They stack; they are not alternatives.
+ *
+ * The four tables SHIP UNCONDITIONALLY — only these buttons are gated — so
+ * `check:warden` verifies them either way and a Warden with the hack off can
+ * still find them in the compendium browser. That is this system's one gating
+ * shape: a setting read live at the moment content is enumerated, never pack
+ * ownership and never a folder.
+ */
+const VALD_WEATHER_GROUP = {
+  head: "CAIRN.Dashboard.Head.ValdWeather",
+  tables: [
+    ["CAIRN.Dashboard.Travel.ValdDead", "Warden: Vald - Weather (Dead)"],
+    ["CAIRN.Dashboard.Travel.ValdDry", "Warden: Vald - Weather (Dry)"],
+    ["CAIRN.Dashboard.Travel.ValdWet", "Warden: Vald - Weather (Wet)"],
+    ["CAIRN.Dashboard.Travel.ValdHarvest", "Warden: Vald - Weather (Harvest)"],
+  ],
 };
 
 /** Tab order, and the one place a tab id is spelled. */
@@ -493,6 +524,100 @@ const showTableToPlayers = async (name) => {
 /* -------------------------------------------- */
 /*  The window                                  */
 /* -------------------------------------------- */
+/*  Setting the date                            */
+/* -------------------------------------------- */
+
+/**
+ * Ask the Warden for a date, and set the world clock to it.
+ *
+ * The month list is built from the LIVE calendar, so this dialog is right
+ * under Foundry's own calendar and under Vald's without knowing which it has —
+ * and `monthChoices` drops any month of zero days, which is how Vald's
+ * Reclamation is offered in a leap year and hidden in every other one.
+ *
+ * WATCHES, NOT HOURS. Cairn has no unit finer than a watch, so offering a
+ * Warden minutes would be inventing precision the rules do not have.
+ *
+ * The content is built as an ELEMENT rather than a string: DialogV2 sanitizes
+ * a string it is handed, and takes an element's markup verbatim. Values are
+ * read in the button callback because listeners attached to sanitized HTML are
+ * dead — the trap `warden-damage.js` already carries.
+ */
+const promptSetDate = async () => {
+  if (!game.user.isGM) {
+    ui.notifications.warn(game.i18n.localize("CAIRN.Notify.TimeWardenOnly"));
+    return null;
+  }
+  const now = game.time.components ?? {};
+  const cal = game.time.calendar;
+  const year = (now.year ?? 0) + (cal.years?.yearZero ?? 0);
+  const months = monthChoices(year);
+  const watchNow = Math.min(2, Math.max(0, Math.floor((now.hour ?? 0) / (cal.days.hoursPerDay / 3))));
+  const esc = foundry.utils.escapeHTML;
+  const L = (k) => esc(game.i18n.localize(k));
+
+  const form = document.createElement("div");
+  form.classList.add("cairn-set-date");
+  form.innerHTML = `
+    <p class="hint">${L("CAIRN.Time.SetDateHint")}</p>
+    <div class="form-group">
+      <label for="ab-date-year">${L("CAIRN.Time.Field.Year")}</label>
+      <input id="ab-date-year" type="number" name="year" value="${year}" step="1">
+    </div>
+    <div class="form-group">
+      <label for="ab-date-month">${L("CAIRN.Time.Field.Month")}</label>
+      <select id="ab-date-month" name="month">
+        ${months.map((m) => `<option value="${m.index}" data-days="${m.days}"
+          ${m.index === now.month ? "selected" : ""}>${esc(m.label)}</option>`).join("")}
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="ab-date-day">${L("CAIRN.Time.Field.Day")}</label>
+      <input id="ab-date-day" type="number" name="day" min="1"
+        value="${(now.dayOfMonth ?? 0) + 1}" step="1">
+    </div>
+    <div class="form-group">
+      <label for="ab-date-watch">${L("CAIRN.Time.Field.Watch")}</label>
+      <select id="ab-date-watch" name="watch">
+        ${WATCH_KEYS.map((k, i) => `<option value="${i}"
+          ${i === watchNow ? "selected" : ""}>${L(k)}</option>`).join("")}
+      </select>
+    </div>`;
+
+  const picked = await foundry.applications.api.DialogV2.wait({
+    window: { title: "CAIRN.Time.SetDateTitle" },
+    content: form,
+    buttons: [
+      {
+        action: "set",
+        label: "CAIRN.Time.SetDate",
+        default: true,
+        callback: (event, button, dialog) => {
+          const root = dialog.element ?? button.form;
+          const read = (name) => root.querySelector(`[name=${name}]`);
+          const monthEl = read("month");
+          const days = Number(monthEl.selectedOptions[0]?.dataset.days) || 1;
+          return {
+            year: Number(read("year").value),
+            month: Number(monthEl.value),
+            // CLAMPED here rather than by a `max` attribute, because the
+            // month select changes what the maximum is and a stale attribute
+            // would let a Warden set the 31st of a 24-day month.
+            dayOfMonth: Math.min(days, Math.max(1, Number(read("day").value) || 1)),
+            watch: Number(read("watch").value),
+          };
+        },
+      },
+      { action: "cancel", label: "Cancel" },
+    ],
+    rejectClose: false,
+  });
+
+  if (!picked || picked === "cancel" || !Number.isFinite(picked.year)) return null;
+  return setDate(picked);
+};
+
+/* -------------------------------------------- */
 
 class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixin(
   foundry.applications.api.ApplicationV2,
@@ -519,11 +644,32 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
       rollSet: WardenDashboard._onRollSet,
       generate: WardenDashboard._onGenerate,
       wardenDamage: WardenDashboard._onWardenDamage,
+      advanceWatch: WardenDashboard._onAdvanceWatch,
+      backWatch: WardenDashboard._onBackWatch,
+      advanceDay: WardenDashboard._onAdvanceDay,
+      nextMorning: WardenDashboard._onNextMorning,
+      setDate: WardenDashboard._onSetDate,
     },
   };
 
-  /** @override */
+  /**
+   * TWO PARTS, so the time band can re-render on its own.
+   *
+   * That is not an optimisation. `_syncPartState` restores no field VALUES, so
+   * a whole-window render on every world-time change would reset the Warden's
+   * visibility dropdown to Public underneath them — the same fact `_messageMode`
+   * exists for. `refreshDashboardTime` renders `parts: ["time"]` only, and the
+   * probe asserts the dropdown survives a time advance so nobody can simplify
+   * it back.
+   *
+   * THE TRAP THIS CREATES, and it is the family `dev:sheet-layout` exists for:
+   * `css/cairn.css` restores `.cairn.sheet .window-content > * { flex: 1 }`,
+   * written when this window had exactly one child. Two parts is two children,
+   * and the band would take half the window while rendering perfectly and
+   * logging nothing. The CSS pins it `flex: 0 0 auto`.
+   */
   static PARTS = {
+    time: { template: "systems/air-bladder/templates/dashboard/warden-dashboard-time.html" },
     body: { template: "systems/air-bladder/templates/dashboard/warden-dashboard.html" },
   };
 
@@ -573,7 +719,13 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
         ...context.tabs[id],
         empty: id === "yours" && !yours.length,
         tables: id === "yours" ? yours : buttons(panel.tables ?? []),
-        groups: (panel.groups ?? []).map((g) => ({
+        groups: [
+          ...(panel.groups ?? []),
+          // Read LIVE, so flipping the hack shows up on the next render of
+          // this window rather than needing one of its own. The reload the
+          // setting asks for is about the CALENDAR, not about these buttons.
+          ...(id === "travel" && valdEnabled() ? [VALD_WEATHER_GROUP] : []),
+        ].map((g) => ({
           head: label(g.head),
           tables: buttons(g.tables),
         })),
@@ -591,6 +743,19 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
       label: game.i18n.localize(cfg.label),
     }));
     context.damageLabel = game.i18n.localize("CAIRN.WardenDamage.Title");
+
+    // The time band. `describeTime` is the SAME call the watch clock makes, so
+    // the two surfaces can never drift into disagreeing about what time it is.
+    context.time = describeTime();
+
+    // Today's Weather is an ORDINARY rollTable button whose target is chosen
+    // here, so it goes down `postTableDraw` and posts CORE'S OWN card. THE
+    // RULE at the top of this file holds untouched. It is `undefined` under a
+    // calendar this system does not know, and the template then renders no
+    // button at all rather than rolling the wrong season's weather.
+    const weather = weatherTableForToday();
+    context.weatherTable = weather;
+    context.weatherLabel = game.i18n.localize("CAIRN.Time.TodaysWeather");
     return context;
   }
 
@@ -659,6 +824,41 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
   }
 
   /* -------------------------------------------- */
+  /*  Moving the clock                            */
+  /* -------------------------------------------- */
+  //
+  // None of these re-render this window themselves. Writing `core.time` fires
+  // `updateWorldTime` on EVERY client, and `cairn.js`'s listener re-renders the
+  // band from there — so the Warden's own window is refreshed by the same path
+  // that refreshes everyone's clock, and there is no second code path to keep
+  // in step.
+
+  /** @this {WardenDashboard} */
+  static async _onAdvanceWatch(event, target) {
+    await this._whileDisabled(target, () => advanceWatch());
+  }
+
+  /** @this {WardenDashboard} */
+  static async _onBackWatch(event, target) {
+    await this._whileDisabled(target, () => backWatch());
+  }
+
+  /** @this {WardenDashboard} */
+  static async _onAdvanceDay(event, target) {
+    await this._whileDisabled(target, () => advanceDay());
+  }
+
+  /** @this {WardenDashboard} */
+  static async _onNextMorning(event, target) {
+    await this._whileDisabled(target, () => toNextMorning());
+  }
+
+  /** @this {WardenDashboard} */
+  static async _onSetDate(event, target) {
+    await this._whileDisabled(target, () => promptSetDate());
+  }
+
+  /* -------------------------------------------- */
 
   /**
    * Pop Out, copied from the actor sheet's implementation rather than written
@@ -723,6 +923,22 @@ export const openWardenDashboard = async () => {
   }
   dashboard ??= new WardenDashboard();
   return dashboard.render({ force: true });
+};
+
+/**
+ * Redraw the time band, and ONLY the time band.
+ *
+ * Called from `cairn.js`'s `updateWorldTime` listener, so a Warden's open
+ * window follows a clock moved from anywhere — their own buttons, a macro, or
+ * a second GM's client.
+ *
+ * `parts: ["time"]` IS LOAD-BEARING. A bare `render()` would re-render the
+ * body too, and `_syncPartState` restores no field values, so the visibility
+ * dropdown would silently snap back to Public every time the clock moved. See
+ * `_messageMode`, which exists for the same fact.
+ */
+export const refreshDashboardTime = () => {
+  if (dashboard?.rendered) dashboard.render({ parts: ["time"] });
 };
 
 /**

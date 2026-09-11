@@ -1,0 +1,76 @@
+{{!--
+  The Warden's clock, above the Dashboard's tabs.
+
+  A BAND, NOT A SEVENTH TAB. The date is context for everything below it, and
+  a tab would put it one click away from every roll it informs. It is also the
+  only shape that keeps the tab strip at six, which the probe asserts.
+
+  ONE ROOT ELEMENT, like every part here.
+
+  Every <button> is type="button" EXPLICITLY: the application element is a
+  <form>, so a bare button is a submit button and advancing a watch would
+  submit the window instead.
+
+  "To Next Morning" is deliberately NOT called "Make Camp" (user ruling
+  2026-09-10). Make Camp is a Wilderness Action the PLAYERS choose, and the
+  no-automation deviation protects player-facing rules. The Warden moves the
+  calendar; the party decides whether they camped.
+
+  Today's Weather renders only when the calendar in play HAS a season we know a
+  table for, and it is an ordinary rollTable button so it posts core's own card
+  — see THE RULE in warden-dashboard.js.
+--}}
+<div class="cairn-dashboard-time">
+
+    <div class="cairn-time-read" data-tooltip="{{time.tooltip}}">
+        <span class="cairn-time-watch">{{time.watchLine}}</span>
+        <span class="cairn-time-sep">·</span>
+        <span class="cairn-time-date">{{time.dateLine}}</span>
+        {{#if time.seasonLine}}
+            <span class="cairn-time-sep">·</span>
+            <span class="cairn-time-season">{{time.seasonLine}}</span>
+        {{/if}}
+    </div>
+
+    <div class="cairn-time-controls">
+        <button type="button" data-action="backWatch"
+                data-tooltip="{{localize 'CAIRN.Time.Tip.BackWatch'}}">
+            {{localize "CAIRN.Time.BackWatch"}}
+        </button>
+        <button type="button" data-action="advanceWatch"
+                data-tooltip="{{localize 'CAIRN.Time.Tip.AdvanceWatch'}}">
+            {{localize "CAIRN.Time.AdvanceWatch"}}
+        </button>
+        <button type="button" data-action="advanceDay"
+                data-tooltip="{{localize 'CAIRN.Time.Tip.AdvanceDay'}}">
+            {{localize "CAIRN.Time.AdvanceDay"}}
+        </button>
+        <button type="button" data-action="nextMorning"
+                data-tooltip="{{localize 'CAIRN.Time.Tip.NextMorning'}}">
+            {{localize "CAIRN.Time.NextMorning"}}
+        </button>
+        <button type="button" data-action="setDate">
+            {{localize "CAIRN.Time.SetDate"}}
+        </button>
+    </div>
+
+    {{#if weatherTable}}
+        <div class="cairn-dashboard-grid cairn-time-weather">
+            {{!-- A PAIR with an eye, like every other table button on this
+                  window: the probe asserts show buttons and roll buttons come
+                  in equal numbers, and an un-paired one reds it. --}}
+            <div class="cairn-dashboard-pair">
+                <button type="button" data-action="rollTable" data-table="{{weatherTable}}"
+                        data-tooltip="{{localize 'CAIRN.Time.Tip.TodaysWeather'}}">
+                    {{weatherLabel}}
+                </button>
+                <button type="button" class="cairn-show-btn" data-action="showTable"
+                        data-table="{{weatherTable}}"
+                        data-tooltip="{{localize 'CAIRN.Dashboard.ShowTable'}}">
+                    <i class="fas fa-eye"></i>
+                </button>
+            </div>
+        </div>
+    {{/if}}
+
+</div>

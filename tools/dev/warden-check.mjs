@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Check the 34 Warden tables against the Cairn SRD.
+ * Check the 37 SRD-derived Warden tables against the Cairn SRD.
  *
  *   node tools/dev/warden-check.mjs [--verbose]
  *
@@ -15,8 +15,8 @@
  *
  * TWO KINDS OF TABLE.
  *
- * VERBATIM (22 tables, 480 rows) -- warden-npcs and warden-monsters. Each result
- * is one SRD cell, unchanged. Compared exactly.
+ * VERBATIM (26 tables, 504 rows) -- warden-npcs, warden-monsters, and Vald's
+ * four weather tables. Each result is one SRD cell, unchanged. Compared exactly.
  *
  * COMPOSED (11 tables, 56 rows) -- warden-encounters and warden-travel. The SRD
  * gives these as multi-column rows; ours merge them into one string with markup:
@@ -56,6 +56,7 @@ const FILES = {
   npc: "second-edition/wardens-guide/npc-tables.md",
   monsters: "second-edition/wardens-guide/creating-monsters.md",
   seeds: "second-edition/wardens-guide/setting-seeds.md",
+  vald: "second-edition/wardens-guide/vald.md",
 };
 
 /* ------------------------------------------------------------------- markdown */
@@ -217,6 +218,19 @@ const SPEC = [
   { name: "Warden: Travel - Path Difficulty", src: "procedures", heading: "### Path Difficulty", table: 0, rows: "body", cols: [0, 1, 2] },
   { name: "Warden: Travel - Path Distance", src: "procedures", heading: "### Path Difficulty", table: 1, rows: "body", cols: [0, 1] },
   { name: "Warden: Travel - Terrain Difficulty", src: "procedures", heading: "## Terrain Difficulty", rows: "body", cols: [0, 1, 2, 3] },
+
+  // -- Vald's own weather: one four-column SRD table -> four -------------------
+  // EXACT, not containment: each cell is one SRD phrase carried unchanged, so
+  // these belong with the verbatim tables above rather than the composed ones.
+  // Deliberately UNMARKED in the YAML — the <strong> on the Cairn seasonal
+  // tables marks a keyword "Warden: Weather - Difficulty" looks up, and
+  // "Cold and clear" is not one. (norm() strips markup from both sides anyway,
+  // so this gate could not catch such an addition; the discipline has to hold
+  // at authoring time.)
+  { name: "Warden: Vald - Weather (Dead)", src: "vald", heading: "## Weather in Vald", rows: "numbered", cols: [1], exact: true },
+  { name: "Warden: Vald - Weather (Dry)", src: "vald", heading: "## Weather in Vald", rows: "numbered", cols: [2], exact: true },
+  { name: "Warden: Vald - Weather (Wet)", src: "vald", heading: "## Weather in Vald", rows: "numbered", cols: [3], exact: true },
+  { name: "Warden: Vald - Weather (Harvest)", src: "vald", heading: "## Weather in Vald", rows: "numbered", cols: [4], exact: true },
 
   // -- 2d6, and TRANSPOSED in the SRD: ranges on one row, values on the next --
   { name: "Warden: NPC - Reactions", src: "core", heading: "## Reactions", transposed: true },

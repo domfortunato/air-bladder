@@ -254,7 +254,7 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   hint.
 - **The Warden's Dashboard** (`module/warden-dashboard.js`, 2026-09-10, user
   ask after the Mythic Bastionland fork's Gamemaster Dashboard) — a GM-only
-  ApplicationV2 on the Token controls beside the damage tool, putting all 41
+  ApplicationV2 on the Token controls beside the damage tool, putting all 45
   Warden tables on a button, six tabs, resizable and detachable. A LAUNCHER:
   everything on it is reachable another way and it owns no rules.
   **THE RULE, and it is not cosmetic: a single-table draw posts CORE'S OWN
@@ -298,6 +298,85 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   browse name to its button's UI key on EACH client, so the popup, the card and
   the roll card's speaker all read "Path Difficulty" rather than "Warden:
   Travel - Path Difficulty" without any label travelling.
+- **Keeping time** (`module/game-time.js`, `module/watch-clock.js`, 2026-09-10,
+  user ask) — **THIS SYSTEM'S FIRST USE OF `game.time`.** Two things live here
+  and they are NOT the same thing, which is the whole shape of the feature.
+  **WATCHES ARE CORE CAIRN 2e AND ARE NEVER GATED**: the Player's Guide
+  procedures say a day is three watches (morning, afternoon, night) of eight
+  hours each, the shipped travel tables already price a journey in them, and
+  gating a 2e unit behind a setting-specific switch would be a category error.
+  **THE VALD CALENDAR IS A HACK**, behind `enable-vald-calendar`. The user's
+  ruling split it exactly there.
+  Foundry 14 ships a real calendar (`client/data/calendar.mjs`), so Vald is a
+  CONFIGURATION rather than a clock we wrote, and world time is server-synced
+  and persisted in `core.time` for free. **Everything reads the LIVE
+  `game.time.calendar`, never our own config literal**, so the watch maths stays
+  right under Foundry's default, under Vald, and under a calendar module we have
+  never heard of.
+  **The hack CONVERTS NOTHING, and that is the contrast with `enable-glog-magic`
+  worth keeping.** `core.time` is a fixed count of seconds that a calendar merely
+  READS, so switching REINTERPRETS the clock rather than rewriting it and
+  switching back restores the old reading exactly — no marker, no sweep, no
+  onChange. The visible date DOES jump, which is why it `requiresReload` (one
+  consistent state on every client at one moment) and why the hint says to set
+  the date afterwards.
+  Six things that will bite if forgotten:
+  - **A BUG IN THE SHIPPED CLIENT.** `CalendarData#_decomposeTimeYears`
+    (`calendar.mjs:391-403`) runs its remainder-years walk in BOTH branches, so
+    the days a leap year has on top of a standard one decompose as day 0 of the
+    following year — for Vald that is the entire six-day Reclamation week, and
+    on core's own Gregorian it is the 31st of December. `ValdCalendar` overrides
+    the method core's own docstring nominates for exactly this ("factored out so
+    calendars which require advanced leap year handling can override"). Found by
+    an offline replica of core's arithmetic; the witness is a
+    `timeToComponents → componentsToTime` round trip, and `dev:vald-time` runs
+    2000 of them.
+  - **`leapStart` MUST be 0.** Core's two leap paths disagree for any other
+    value: `_decomposeTimeYears` measures the pre-leap run as
+    `Math.max(leapStart - 1, 0)` while `isLeapYear` compares against `leapStart`.
+  - **Seasons are DAY-OF-YEAR, not month.** Vald's boundaries are mid-month and
+    core tries `dayStart`/`dayEnd` FIRST, matching them against day of year
+    (`calendar.mjs:275-289`). A **Reclamation season entry is listed first** and
+    is load-bearing: without it the leap days match nothing, `components.season`
+    comes back one past the end, and core does not guard the lookup.
+  - **`yearZero: 7728` is read as an OFFSET** and core reads that field nowhere,
+    so the meaning was ours to pick. **7728 is therefore itself a Reclamation
+    year — OUR invention, the SRD gives no anchor, and it is FROZEN**: changing
+    it re-dates every world that has run on it.
+  - **TWO UPSTREAM ERRATA, RECORDED NOT FIXED.** The Warden's Guide says every
+    season lasts 72 days while its own "season begins" rows give Wet 69 and
+    Harvest 75; and it puts "the end of the Dead season" nineteen days before
+    Dry begins. We encode the dated rows. `docs/keeping-time.md` says so where a
+    Warden reads it, before somebody reports the arithmetic as our bug.
+  - **`#ui-left-column-1` is STATIC markup** in core's `templates/views/game.hbs`.
+    The scene controls and the player list replace their own `<template>`
+    placeholders once and thereafter rewrite only their own innerHTML, so a
+    sibling there survives both re-rendering and needs NO re-attach hook — which
+    is the answer to "is there a hook for this?", the question these notes
+    already record as the wrong one to ask first. The clock goes in BEFORE
+    `#players` with `margin-top: auto`, because the column is
+    `justify-content: space-between` with exactly two children and a third would
+    push the player list into the middle of the screen.
+  The DASHBOARD band is a SECOND AppV2 part so it can redraw alone.
+  `parts: ["time"]` is load-bearing, not an optimisation: `_syncPartState`
+  restores no field VALUES, so a bare `render()` silently resets the Warden's
+  visibility dropdown to Public on every tick — measured, and probe-covered. Two
+  parts also means two children of `.window-content`, so the restored
+  `> * { flex: 1 }` would give the band half the window; the pin needs a
+  selector that BEATS that rule's specificity, and the probe measures the height
+  rather than trusting the rule to apply.
+  **There is no Make Camp button, by ruling.** Make Camp is a Wilderness Action
+  the PLAYERS choose, and the no-automation deviation protects player-facing
+  rules; the Warden moves the calendar and the party decides whether they
+  camped. "To Next Morning" is the same jump without the claim, and nothing is
+  posted to chat. **Vald's weather sits ALONGSIDE Cairn's four seasons, never
+  replacing them** (user ruling): Cairn's are a severity ladder feeding
+  `Warden: Weather - Difficulty`, Vald's are descriptive and feed nothing, and a
+  Vald table wants both. The setting arbitrates in exactly ONE place, the
+  Today's Weather button, which must pick a single table. The clock is also the
+  first surface here that is Foundry CHROME rather than a sheet, so it is the
+  one place that reads core's colour variables instead of the `--ab-*` palette
+  (`docs/theming.md`; `dev:theme` measures it). Gate: `npm run dev:vald-time`.
 - Data models in `module/data-models.js` (TypeDataModel; `template.json` is gone,
   sub-types are declared in `system.json` `documentTypes`); 30 compendium packs
   (30 on `master` too since 0.1.18 shipped `journals-vald`, the Warden's Guide
@@ -306,7 +385,7 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   "N on master" parenthetical went stale a THIRD way by surviving two releases
   — a new pack's commit must carry this line, and so must the release that
   moves the master count, which is what this post-release merge is doing)
-- 25 Warden-facing settings in `module/settings.js` (34 `register` calls + 4 `registerMenu` menus from ONE call site,
+- 27 Warden-facing settings in `module/settings.js` (36 `register` calls + 4 `registerMenu` menus from ONE call site,
   ALL `config: false` since 2026-08-22 — see the submenu paragraph below; `roles-restamped`,
   `companion-restamped`, `hireling-split`, `grimoire-keys-stamped`,
   `connections-migrated`, `art-migration-generation` (2026-08-21, review #17 —
@@ -317,7 +396,12 @@ Entry point `module/cairn.js`, registering document classes and sheets on `init`
   (review #13's catch, its third "record claiming what the code does not say"),
   then `enable-glog-magic` rode a topic branch whose cherry-picks never carried
   this line, caught only when the branch merged — so each settings change updates
-  them in its own commit, this one dated 2026-09-07 for `show-traits` (rolled
+  them in its own commit, this one dated 2026-09-10 for the TIME pair —
+  `show-watch-clock` (General, world-scoped on show-omens' reasoning: whether
+  the table tracks watches at all is the Warden's call) and
+  `enable-vald-calendar` (Hacks; see the Keeping time paragraph below for why
+  it must be ONE key and why it needs a reload). The update before that was
+  2026-09-07 for `show-traits` (rolled
   traits + age hidden from every person sheet AND print, one switch both
   surfaces per the show-omens ruling; pronouns stay; General, beside
   show-omens). The previous update was 2026-08-21 for `age-formula`, which
@@ -881,7 +965,7 @@ What belongs here is what those two files do not say:
 
 ## Testing
 
-**`docs/release-testing.md` is the full list — 105 probes (`check:probes` states
+**`docs/release-testing.md` is the full list — 106 probes (`check:probes` states
 the current count), what each covers, and what to run before tagging vs after
 publishing. Keep it in step with `package.json`; a probe not listed there runs
 only when someone remembers it.**
