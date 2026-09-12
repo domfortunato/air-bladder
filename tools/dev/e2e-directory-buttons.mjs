@@ -400,8 +400,15 @@ try {
     // worth writing. A count read too early shows "nothing was created" whether
     // the fix works or not, and the negative control proved exactly that: with
     // the fix reverted the probe still passed.
+    // `createActorInteractive`, not `generateCharacter` (review #26). The
+    // dialog moved out of the generators on 2026-09-11 so that twenty probe
+    // call sites would stop hanging on a modal — which left this leg asking a
+    // now-silent function for its picker, and asserting that a function which
+    // no longer creates anything created nothing. It passed for neither
+    // reason. The invariant is unchanged and still worth holding: dismissing
+    // the creation dialog resolves null and mints nobody.
     const CG = game.cairn.characterGenerator;
-    const pending = CG.generateCharacter();
+    const pending = CG.createActorInteractive("character");
     await new Promise((res) => setTimeout(res, 1200));
     const dlg = [...document.querySelectorAll(".application.dialog, dialog.application")].pop();
     const closeBtn = dlg?.querySelector('[data-action="close"]');
@@ -430,7 +437,7 @@ try {
     ? ok("the content-source picker opens with a dismiss control")
     : fail("no content-source picker with a [data-action=close] appeared — the cancel check below proves nothing");
   cancel.resolvedNull
-    ? ok("dismissing the picker resolves generateCharacter() to null")
+    ? ok("dismissing the picker resolves createActorInteractive() to null")
     : fail(`dismissing the picker resolved to ${cancel.resolved}, not null — a character was generated`);
   cancel.after === cancel.before
     ? ok(`dismissing the picker created no actor (${cancel.before} before and after)`)
@@ -717,12 +724,25 @@ try {
       //
       // So answer whatever is actually on screen. Both are real worlds, the
       // relay must work in both, and neither needs a world setting written.
+      // ONE dialog with ONE affirmative button since 2026-09-11. It used to be
+      // a button per content source (`data-action="2e"`), or a bare yes/no
+      // confirm, and this loop looked for exactly those two. The empty-sheet
+      // feature replaced both with `promptCreation` — Cancel and Create, with
+      // the source as a DROPDOWN — so neither selector has matched since, and
+      // these three legs went red and stayed red without anyone running them
+      // (found in review #26, by running them). The content source is read off
+      // the select if there is one, so the leg still reports which edition it
+      // asked for.
       let picked = null;
       const tPick = Date.now();
       while (Date.now() - tPick < 6000 && !picked) {
-        const btn = document.querySelector('dialog button[data-action="2e"]')
-          ?? document.querySelector('dialog button[data-action="yes"]');
-        if (btn) { picked = btn.dataset.action; btn.click(); break; }
+        const btn = document.querySelector('dialog button[data-action="create"]');
+        if (btn) {
+          const sel = document.querySelector('dialog select[name="choice"]');
+          picked = sel ? sel.value : "create";
+          btn.click();
+          break;
+        }
         await sleep(150);
       }
       const t0 = Date.now();
