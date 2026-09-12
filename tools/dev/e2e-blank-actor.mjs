@@ -38,6 +38,14 @@
  *     where the roll/empty choice is made. It is a behaviour change to the most
  *     frequent action in the system and it should not be able to regress
  *     silently in either direction.
+ *  8. THE ENTER KEY (review #26). Clearing the box and pressing Enter must
+ *     answer blank. It answered NULL and created nothing, because every
+ *     DialogV2 button defaults to `type="submit"` and `default: true` buys
+ *     autofocus alone, so implicit submission fired the first submit button —
+ *     Cancel, declared first. The whole gesture the feature exists for was
+ *     dead from the keyboard on all four routes. Only a REAL keypress can see
+ *     it: `form.requestSubmit()` sets no submitter at all, and a scripted
+ *     `box.click()` does not move focus, so both report the feature working.
  *
  * Every leg was confirmed to FAIL with the feature removed before being kept —
  * see the witness list at the bottom of this file.
@@ -483,6 +491,37 @@ dialog.cancelled && "value" in dialog.cancelled && dialog.cancelled.value === nu
   ? ok("Cancel creates nothing")
   : fail(`Cancel resolved ${JSON.stringify(dialog.cancelled)}`);
 
+/* -- 8: the Enter key (review #26) ------------------------------------------
+ * Outside the evaluate above, and it has to be: the defect is what the BROWSER
+ * does with Enter, and every scripted stand-in is green against the broken
+ * build. `form.requestSubmit()` sets no submitter at all, and a programmatic
+ * `box.click()` does not even move focus — both were tried, both said the
+ * feature worked.
+ *
+ * Before the fix, every DialogV2 button defaulted to `type="submit"` and
+ * `default: true` bought autofocus and nothing else, so Enter fired the FIRST
+ * submit button. Cancel was declared first, so the exact gesture this feature
+ * exists for — clear the box, confirm — created nothing at all.
+ * -------------------------------------------------------------------------- */
+console.log("\nthe Enter key");
+await page.evaluate(() => {
+  window.__kbd = {};
+  game.cairn.characterGenerator.promptCreation("npc").then((a) => { window.__kbd.answer = a; });
+});
+await page.waitForSelector('dialog input[name="roll"]', { timeout: 15000 });
+await page.click('dialog input[name="roll"]');      // a REAL click, so focus lands on the box
+await page.keyboard.press("Enter");
+await page.waitForTimeout(700);
+const kbd = await page.evaluate(() => {
+  const out = { ...window.__kbd, stillOpen: !!document.querySelector('dialog input[name="roll"]') };
+  [...foundry.applications.instances.values()]
+    .filter((a) => a instanceof foundry.applications.api.DialogV2).forEach((d) => d.close());
+  return out;
+});
+kbd.answer && kbd.answer.blank === true
+  ? ok("clearing the box and pressing Enter answers blank — Enter reaches Create, not Cancel")
+  : fail(`Enter after clearing the box answered ${JSON.stringify(kbd.answer)} (want {blank:true})`);
+
 /* -- teardown --------------------------------------------------------------- */
 const swept = await page.evaluate(async (prefix) => {
   const doomed = game.actors.filter((a) => a.name?.startsWith(prefix));
@@ -536,6 +575,11 @@ process.exit(failed ? 1 : 0);
  *       control is the only thing that found the gap. Three bond paths exist
  *       (`_applyBond`, this handler, `rerollAllBonds`) and a fix to one reads
  *       exactly like a fix to all three.
+ *
+ *  h) `type: "button"` dropped from the creation dialog's Cancel entry
+ *     → 1 red, the Enter leg, and nothing else — the whole rest of the file
+ *       stayed green, which is the point: the feature works perfectly to a
+ *       mouse and is dead to the keyboard, and no other leg can see that.
  *
  * A METHOD NOTE, because it cost a wrong answer here. Witness (d) first
  * reported "nothing failed — the leg is not real". It was not: the anchor had

@@ -2210,7 +2210,17 @@ export const promptCreation = async (kind, { choices = null, choiceLabel = null,
     window: { title: game.i18n.localize(title ?? spec.title) },
     content,
     buttons: [
-      { action: "cancel", label: game.i18n.localize("CAIRN.Cancel") },
+      // `type: "button"`, and it is load-bearing rather than tidy. Every
+      // DialogV2 button defaults to `type="submit"` (dialog.mjs:227) and
+      // `default: true` sets AUTOFOCUS ONLY (`:241`), so the browser's implicit
+      // submission fires the FIRST submit button in the form — which was this
+      // one. Measured: untick the box, press Enter, and the dialog dispatched
+      // `cancel` and created nothing, on the one gesture this feature exists
+      // for. Core's own `confirm()` marks its negative button the same way
+      // (`:350`) for exactly this reason. A `type="button"` button still
+      // reaches `_onSubmit` through `_onClickButton`, so Cancel is unchanged
+      // to a mouse.
+      { action: "cancel", label: game.i18n.localize("CAIRN.Cancel"), type: "button" },
       {
         action: "create",
         label: game.i18n.localize("CAIRN.Create"),

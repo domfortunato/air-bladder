@@ -3099,6 +3099,18 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
           {
             action: "reroll",
             label: L("CAIRN.Reroll.Button"),
+            // `type: "button"` is what actually makes Cancel win the Enter key.
+            // The note below is right that Cancel is autofocused; it is wrong
+            // that this protects anything, because `default: true` sets
+            // autofocus ONLY (dialog.mjs:241) while every button defaults to
+            // `type="submit"` (`:227`), so implicit submission fires the FIRST
+            // submit button — this one. Measured before the fix: tick a row,
+            // press Enter, and the dialog resolved a full re-deal of
+            // background, name, gear, bonds, DEX, WIL, HP, gold, age, traits
+            // and portrait. Ticking rows is the whole reason this dialog
+            // opens, so focus is always inside the form at the moment the
+            // user commits.
+            type: "button",
             callback: () => {
               const parts = {};
               for (const input of dialog.element.querySelectorAll('.reroll-row input[type="checkbox"]')) {
@@ -3109,8 +3121,11 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
           },
           // Cancel is the DEFAULT on purpose (review #21): DialogV2 autofocuses
           // the default button — the FIRST one when none is declared
-          // (dialog.mjs:228) — and Enter on an all-checked list must not be a
-          // full re-deal.
+          // (dialog.mjs:228). That is half of what "Enter must not re-deal"
+          // needs; the other half is the `type: "button"` above, without which
+          // autofocus was decoration and Enter re-dealt anyway (review #26).
+          // Autofocus decides where the caret STARTS, the submit type decides
+          // what Enter hits from anywhere else in the form.
           { action: "cancel", label: L("CAIRN.Cancel"), default: true, callback: () => finish(null) },
         ],
       });
