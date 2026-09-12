@@ -443,6 +443,13 @@ for (const [setName, [pDir, tDir]] of Object.entries(LYDIA_SETS)) {
 const LYDIA_COUNT_SITES = [
   ["LICENSE.txt", /hold (\d+) creatures and \d+ characters/, "monsters"],
   ["LICENSE.txt", /hold \d+ creatures and (\d+) characters/, "characters"],
+  // The landing page states both counts too and was checked by NOTHING until
+  // 2026-09-12, when a seven-drawing delivery moved the character count and
+  // every gated site reported it while this one sat on the old number. Exactly
+  // the gap review #26 closed for the Aspeheim and tlomdev galleries, one file
+  // further along: a count is only as honest as the list that walks it.
+  ["site/index.html", /The (\d+) creatures and \d+ characters offered/, "monsters"],
+  ["site/index.html", /The \d+ creatures and (\d+) characters offered/, "characters"],
   ["README.md", /(\d+) creatures and \d+ characters \(source:/, "monsters"],
   ["README.md", /\d+ creatures and (\d+) characters \(source:/, "characters"],
   ["README.es.md", /(\d+) criaturas y \d+ personajes \(fuente:/, "monsters"],

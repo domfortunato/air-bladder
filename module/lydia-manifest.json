@@ -6,6 +6,10 @@
       "tokenDir": "systems/air-bladder/art/lydia-comer/tokens",
       "pairs": [
         {
+          "portrait": "Banditleader.webp",
+          "token": "Banditleader.webp"
+        },
+        {
           "portrait": "Femme00.webp",
           "token": "Femme00.webp"
         },
@@ -20,6 +24,14 @@
         {
           "portrait": "Femme04.webp",
           "token": "Femme04.webp"
+        },
+        {
+          "portrait": "Femme05.webp",
+          "token": "Femme05.webp"
+        },
+        {
+          "portrait": "Femme06.webp",
+          "token": "Femme06.webp"
         },
         {
           "portrait": "Femme07.webp",
@@ -48,6 +60,10 @@
         {
           "portrait": "Femme13.webp",
           "token": "Femme13.webp"
+        },
+        {
+          "portrait": "Femme14.webp",
+          "token": "Femme14.webp"
         },
         {
           "portrait": "Femme15.webp",
@@ -82,6 +98,14 @@
           "token": "Femme22.webp"
         },
         {
+          "portrait": "Femme23.webp",
+          "token": "Femme23.webp"
+        },
+        {
+          "portrait": "Knight04.webp",
+          "token": "Knight04.webp"
+        },
+        {
           "portrait": "NB01.webp",
           "token": "NB01.webp"
         },
@@ -96,6 +120,10 @@
         {
           "portrait": "NB04.webp",
           "token": "NB04.webp"
+        },
+        {
+          "portrait": "NB05.webp",
+          "token": "NB05.webp"
         }
       ]
     },

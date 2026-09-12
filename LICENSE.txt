@@ -125,7 +125,7 @@ Monster and character art — CC BY-NC-SA 4.0, © Lydia Comer
     art/lydia-comer/portraits/ tokens/ portraits-monsters/ tokens-monsters/
     https://creativecommons.org/licenses/by-nc-sa/4.0/
     https://domfortunato.itch.io/lydia-comer
-    The four gallery folders hold 22 creatures and 23 characters, offered in
+    The four gallery folders hold 22 creatures and 30 characters, offered in
     the portrait picker and paired portrait-to-token by filename stem. The
     artist states no AI was used. They ship re-encoded to WebP q95, the token
     halves sized for the canvas (400×400); beyond that the artwork is left as

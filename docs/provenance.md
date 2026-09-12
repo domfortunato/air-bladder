@@ -42,7 +42,7 @@ Eight sets ship. None is machine-generated.
 | Set | Path | Files | Artist | Licence | Human authorship |
 |---|---|--:|---|---|---|
 | Character portraits and tokens | `art/jon-aspeheim/` | 160 | Jon Aspeheim | CC BY 4.0 | **Stated by the artist** |
-| Character and creature galleries | `art/lydia-comer/portraits*`, `tokens*` | 90 | Lydia Comer | CC BY-NC-SA 4.0 | **Stated by the artist** |
+| Character and creature galleries | `art/lydia-comer/portraits*`, `tokens*` | 104 | Lydia Comer | CC BY-NC-SA 4.0 | **Stated by the artist** |
 | The Air Bladder logo | `art/lydia-comer/Airbladder0*.webp` | 3 | Lydia Comer | All rights reserved | Same artist, same commission |
 | Token drawings | `art/tlomdev/` | 368 | tlomdev | CC BY-SA 4.0 | Assessed, not stated — see below |
 | Picker icon gallery | `art/game-icons/` | 2,275 | 22 named game-icons.net contributors | CC BY 3.0 | Assessed, not stated — see below |
