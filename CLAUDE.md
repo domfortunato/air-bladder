@@ -256,7 +256,21 @@ companion record of who authored what.
   already has the Monster route plus the bestiary's `Bandit` and `Brigand`. The
   fix was SIGNPOSTING, not behaviour: a hint under the Create Actor dropdown
   (`CAIRN.CreateActorHint`) and `docs/tokens-and-sheets.md`, the roster guide
-  that explains both routes and where **Link Actor Data** lives. Core's
+  that explains both routes and where **Link Actor Data** lives.
+  **The signposting reached the DIRECTORY's own two person buttons on
+  2026-09-12** (user ask), which had carried none: `BLANK_KINDS` grew an
+  optional `note`, and the Create NPC and Create Hireling dialogs render
+  `CAIRN.Blank.LinkedPerson` as a second hint — one key for both, and OUTSIDE
+  the `offerBlank` gate, because unlike the hint above it the sentence is true
+  whether or not the empty-sheet box is offered. **Asked as "a control or a
+  reminder?" and RULED a reminder**: this dialog asks one question, the
+  empty-sheet feature's licence was that it added no wizard, and a control
+  would help only at the creation moment while Foundry's own helps for every
+  actor already in the world. A control later is not blocked by it.
+  One thing this file and the code BOTH used to overclaim, corrected the same
+  day: `#applyNpcTokenDefaults` cannot tell a DELIBERATE `false` from the
+  default `false`, so a monster the Warden unlinked by hand IS re-linked when
+  it is promoted to a person. Only disposition can carry that distinction. Core's
   **Prototype Token Overrides** setting cannot express this and was tested:
   its schema carries sight, ring, turn marker, display name, display bars,
   disposition and lock rotation, and DROPS `actorLink` on construction — it
@@ -852,6 +866,14 @@ sheet, because a JournalEntry has none.** So the pick-lists live IN THE
 DIALOG: six `<select>`s (Type, Agent, both Traits, Agenda, Obstacle), each in
 TABLE ORDER behind a Random row, plus the Advantage table as a tick-list
 capped at the SRD's four (`buildFactionPicks` in `faction-generator.js`).
+**And a NAME field since 2026-09-12** (user ask): typed, it is the entry's
+name and its page's, verbatim; empty, `buildFaction` drafts "The ⟨Trait⟩
+⟨Type⟩" exactly as before, so ONE decision names a rolled faction and a
+picked one. It sits FIRST and inside the pick section, so the rolled route is
+unchanged — and "name it, roll the rest" is just the cleared box with every
+list left on Random. A text field also makes Enter reachable for the first
+time on this dialog, which is why the probe asserts it fires CREATE: Cancel
+is `type: "button"` precisely so implicit submission cannot hit it.
 This is the one exception to the empty-sheet feature's "not one new picker",
 and it is the exception that proves the rule: there was nowhere for these
 pickers to already be. `promptCreation` grew `hint` and `manual` options for

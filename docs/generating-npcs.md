@@ -11,6 +11,13 @@ biography and a stat block. Each asks one question first — a tick-box reading
 **Use random generation.** — and clearing it opens an empty sheet instead (see
 [Generating characters](generating-characters.md#start-from-an-empty-sheet)).
 
+That window also tells you what the new person's tokens will do: **all of
+their tokens share one sheet**, because an NPC or a hireling is one person.
+That is what you want for an innkeeper and not what you want for six guards.
+When you need a crowd whose members take damage separately, make a Monster, or
+clear **Link Actor Data** on the actor's Prototype Token. Both routes are
+explained in [Tokens and Sheets](tokens-and-sheets.md).
+
 You need permission to create Actors. The Warden always has it; a player only
 if you have granted it.
 

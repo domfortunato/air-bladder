@@ -6,11 +6,11 @@ as of 2026-09-12, measured against the last release (`0.1.20`).
 
 | | |
 | --- | --- |
-| English interface keys | 1050 |
+| English interface keys | 1052 |
 | translated in `lang/es.json` | 694 (66%) |
 | **changed under your translation** | **24** ← Part 1 |
 | **content you translated, now unreachable** | **3** ← Part 2 |
-| new interface keys, untranslated | 356 ← Part 3 |
+| new interface keys, untranslated | 358 ← Part 3 |
 | new content strings, untranslated | 2231 ← Part 4 |
 
 Only two files are yours, and only you should edit them: `lang/es.json`
@@ -196,7 +196,7 @@ to do — they are listed so the work is accounted for rather than vanishing.
 
 ---
 
-## Part 3 — new interface keys, untranslated (356)
+## Part 3 — new interface keys, untranslated (358)
 
 Ordinary outstanding work: these have no Spanish at all, so a Spanish client
 falls back to English for them. Nothing here is urgent — a missing key is visibly
@@ -235,11 +235,12 @@ untranslated, which is the honest failure.
 | `CAIRN.Bio.SpeechNpc` | their Speech {value} |
 | `CAIRN.Bio.ViceVirtueNpc` | They are {list}. |
 
-### Blank (2)
+### Blank (3)
 
 | key | English |
 | --- | --- |
 | `CAIRN.Blank.HintFaction` | Deselect this option to choose each part of the faction from its table. |
+| `CAIRN.Blank.LinkedPerson` | All of their tokens share one sheet. Clear Link Actor Data on the Prototype Token if you want each one to take its own damage. |
 | `CAIRN.Blank.TitleFaction` | Create a new faction? |
 
 ### Calendar (33)
@@ -374,12 +375,13 @@ untranslated, which is the honest failure.
 | --- | --- |
 | `CAIRN.FactionDossier.Agenda` | <strong>Agenda:</strong> {value} |
 
-### FactionPick (2)
+### FactionPick (3)
 
 | key | English |
 | --- | --- |
 | `CAIRN.FactionPick.Advantages` | Advantages |
 | `CAIRN.FactionPick.AdvantagesHint` | Tick up to four. Leave them all clear to roll them. |
+| `CAIRN.FactionPick.NameHint` | Leave it empty to name the faction after its Trait and Type. |
 
 ### GameIconCategory (2)
 

@@ -2142,11 +2142,28 @@ const BLANK_HP = 3;
  * empty NPC sheet") rather than sharing one vague line: four translator rows
  * instead of one, and worth it, because "an empty sheet" on the monster dialog
  * does not tell a Warden what they are about to get.
+ *
+ * `note` is a SECOND sentence, and only the two person routes have one. An NPC
+ * and a hireling are created with their tokens LINKED (`CairnActor._preCreate`,
+ * ruled 2026-09-10 and not changing), which is right for one person and wrong
+ * for a crowd — a player reported a session of enemies sharing one HP bar. The
+ * answer chosen then was signposting rather than behaviour, and this is the
+ * surface that was missing it: the Create Actor switchboard carries
+ * `CAIRN.CreateActorHint`, the directory's own Create NPC and Create Hireling
+ * buttons carried nothing. ONE key for both, because the sentence is about a
+ * person and reads correctly either way.
+ *
+ * Deliberately NOT a checkbox (user ruling 2026-09-12, choosing between
+ * exactly those two). This dialog asks one question — roll or not — and the
+ * empty-sheet feature's whole licence was that it added no wizard; a second
+ * unrelated toggle is where that starts. Foundry's own control is one click
+ * away on the Prototype Token and works for every actor already in the world,
+ * which is where the need usually turns up.
  */
 const BLANK_KINDS = {
   character: { title: "CAIRN.GeneratePcConfirmTitle", hint: "CAIRN.Blank.HintCharacter", name: "CAIRN.Blank.NameCharacter" },
-  npc: { title: "CAIRN.Blank.TitleNpc", hint: "CAIRN.Blank.HintNpc", name: "CAIRN.Blank.NameNpc" },
-  hireling: { title: "CAIRN.Blank.TitleHireling", hint: "CAIRN.Blank.HintHireling", name: "CAIRN.Blank.NameHireling" },
+  npc: { title: "CAIRN.Blank.TitleNpc", hint: "CAIRN.Blank.HintNpc", name: "CAIRN.Blank.NameNpc", note: "CAIRN.Blank.LinkedPerson" },
+  hireling: { title: "CAIRN.Blank.TitleHireling", hint: "CAIRN.Blank.HintHireling", name: "CAIRN.Blank.NameHireling", note: "CAIRN.Blank.LinkedPerson" },
   monster: { title: "CAIRN.MonsterGen.TierTitle", hint: "CAIRN.Blank.HintMonster", name: "CAIRN.Blank.NameMonster" },
 };
 
@@ -2254,6 +2271,16 @@ export const promptCreation = async (kind, {
   // `blankIsFillableBy`. Withheld rather than disabled: a greyed checkbox with
   // no explanation is a worse answer than a dialog that simply confirms.
   if (offerBlank) content.append(label, hint);
+  // The kind's standing note — what a new NPC's or hireling's tokens will do.
+  // OUTSIDE the `offerBlank` gate, unlike the hint above it: that one explains
+  // the checkbox and is meaningless without it, while this one is true of the
+  // actor whoever is looking at this dialog is about to make.
+  if (spec.note) {
+    const note = document.createElement("p");
+    note.className = "hint";
+    note.textContent = game.i18n.localize(spec.note);
+    content.append(note);
+  }
   // The manual section rides the box: no box, no section. `hidden` as an
   // ATTRIBUTE, for the same innerHTML reason as the tick above.
   if (offerBlank && manual) {

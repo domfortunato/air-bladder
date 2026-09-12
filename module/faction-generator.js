@@ -19,6 +19,10 @@
  * "Warden: NPC - Faction" table — and the sheet die starts dealing it to NPCs
  * and Monsters. The generator invents candidates; the Warden's table is the
  * canon. Clicking again mints another dossier; nothing is ever overwritten.
+ *
+ * A Warden who already knows what the faction is called types it into the
+ * dialog and it is kept verbatim; the drafted "The <Trait> <Type>" is only
+ * what happens when nobody says otherwise, and it is meant to be replaced.
  */
 
 import { findTableByName, resultText } from "./compendium.js";
@@ -112,8 +116,13 @@ const PART_LABELS = {
  * was picked, so a probe planting a one-row world table still finds it in
  * the same place. A picked advantage list is taken as it stands, capped at
  * the SRD's four; an empty one rolls the whole procedure, count included.
- * @param {{type?: String, agent?: String, trait1?: String, trait2?: String,
- *          agenda?: String, obstacle?: String, advantages?: String[]}} [picks]
+ *
+ * A picked NAME is carried through untouched: there is no table to roll one
+ * from, so an absent name means the Warden did not type one and `buildFaction`
+ * drafts it from the Trait and the Type instead.
+ * @param {{name?: String, type?: String, agent?: String, trait1?: String,
+ *          trait2?: String, agenda?: String, obstacle?: String,
+ *          advantages?: String[]}} [picks]
  * @returns {Promise<Object>}
  */
 const rollFactionParts = async (picks = {}) => {
@@ -127,7 +136,8 @@ const rollFactionParts = async (picks = {}) => {
     : await rollAdvantages();
   const agenda = await part("agenda");
   const obstacle = await part("obstacle");
-  return { type, agent, trait1, trait2, advantages, agenda, obstacle };
+  const name = typeof picks.name === "string" ? picks.name.trim() : "";
+  return { name, type, agent, trait1, trait2, advantages, agenda, obstacle };
 };
 
 /**
@@ -137,13 +147,18 @@ const rollFactionParts = async (picks = {}) => {
  * Warden mid-edit should get a partial dossier, not an error.
  * @returns {Promise<JournalEntry|null>}
  */
-const buildFaction = async ({ type, agent, trait1, trait2, advantages, agenda, obstacle }) => {
-  // "The Enigmatic Cultists" — obviously a draft name, meant to be replaced.
-  // A localizable FORMAT key, because "The <trait> <type>" is English word
-  // order and a translator may need to reorder.
-  const name = trait1 && type
+const buildFaction = async ({ name: chosen, type, agent, trait1, trait2, advantages, agenda, obstacle }) => {
+  // A name the Warden typed wins outright and is kept verbatim — they already
+  // know what this faction is called, which is the whole reason the field
+  // exists. Otherwise "The Enigmatic Cultists": obviously a draft, meant to be
+  // replaced. A localizable FORMAT key, because "The <trait> <type>" is
+  // English word order and a translator may need to reorder.
+  //
+  // ONE decision, and it serves both the entry and its page below, so a
+  // rolled faction and a picked one can never be named by different rules.
+  const name = chosen || (trait1 && type
     ? game.i18n.format("CAIRN.FactionName", { trait: trait1, type })
-    : game.i18n.localize("CAIRN.Faction");
+    : game.i18n.localize("CAIRN.Faction"));
 
   // One key per WHOLE LINE, colon and bold included, the same shape as the
   // sibling MonsterGen.Desc* keys. Assembling `${label}:` in code hands the
@@ -201,8 +216,9 @@ const buildFaction = async ({ type, agent, trait1, trait2, advantages, agenda, o
 export const generateFaction = async (picks = {}) => buildFaction(await rollFactionParts(picks));
 
 /**
- * The picking surface: six lists, one per part, each led by Random, and a
- * tick-list of the Advantage table capped at the SRD's four. Built with the
+ * The picking surface: a Name field, six lists, one per part, each led by
+ * Random, and a tick-list of the Advantage table capped at the SRD's four.
+ * Every one of them is optional — what is left alone is rolled. Built with the
  * DOM API so a Warden's own table row can never be markup, and with
  * ATTRIBUTES wherever the state must survive DialogV2's innerHTML round trip
  * (`promptCreation`'s docblock): `selected` on Random, `value` on each box.
@@ -215,6 +231,36 @@ const buildFactionPicks = async () => {
 
   const element = document.createElement("div");
   element.className = "ab-faction-picks";
+
+  // The Warden's own name for the faction, FIRST because a name is the
+  // headline — nobody typing one should have to scroll past six lists to find
+  // the field. Left empty it changes nothing: `buildFaction` falls back to the
+  // drafted "The <Trait> <Type>", so one code path names a rolled faction and
+  // a picked one.
+  //
+  // Nothing here has to survive DialogV2's innerHTML round trip because the
+  // box starts EMPTY. If it ever needs a default, it must be
+  // `setAttribute("value", …)`: an `<input>`'s `.value` is a PROPERTY, which
+  // is exactly the trap the tick-list below is written around.
+  const nameGroup = document.createElement("div");
+  nameGroup.className = "form-group";
+  const nameLabel = document.createElement("label");
+  nameLabel.textContent = game.i18n.localize("CAIRN.Name");
+  const nameFields = document.createElement("div");
+  nameFields.className = "form-fields";
+  const nameInput = document.createElement("input");
+  nameInput.type = "text";
+  nameInput.name = "faction-name";
+  nameFields.append(nameInput);
+  // Core wraps a `.hint` inside a `.form-group` onto its own full-width line
+  // (`.standard-form .form-group .hint { flex: 0 0 100% }`, foundry2.css:5472),
+  // so the label/field row and the sentence beneath it need no CSS of ours.
+  const nameHint = document.createElement("p");
+  nameHint.className = "hint";
+  nameHint.textContent = game.i18n.localize("CAIRN.FactionPick.NameHint");
+  nameGroup.append(nameLabel, nameFields, nameHint);
+  element.append(nameGroup);
+
   for (const k of PARTS) {
     const group = document.createElement("div");
     group.className = "form-group";
@@ -267,9 +313,13 @@ const buildFactionPicks = async () => {
 
   return {
     element,
-    /** A partial picks object: a list left at Random is simply absent. */
+    /** A partial picks object: an empty name and a list left at Random are
+     *  simply absent. Whitespace alone is empty — a name is either typed or
+     *  it is not. */
     read: (form) => {
       const picks = {};
+      const typed = form.elements["faction-name"]?.value?.trim();
+      if (typed) picks.name = typed;
       for (const k of PARTS) {
         const v = form.elements[`faction-${k}`]?.value;
         if (v && v !== FACTION_RANDOM) picks[k] = v;

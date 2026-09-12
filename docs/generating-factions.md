@@ -25,9 +25,17 @@ entry, and nothing is ever overwritten. **Cancel** or **✕** creates nothing.
 
 ## Choosing the parts yourself
 
-Clear the box and the window grows a list for each part of the faction —
-**Type**, **Agent**, **First Trait**, **Second Trait**, **Agenda** and
-**Obstacle** — plus a tick-list for **Advantages**. Each list holds the rows
+Clear the box and the window grows a **Name** field, a list for each part of
+the faction — **Type**, **Agent**, **First Trait**, **Second Trait**,
+**Agenda** and **Obstacle** — plus a tick-list for **Advantages**.
+
+**Type a name and it is kept exactly as you wrote it**, on the entry and on
+its page. Leave it empty and the entry is named the way a rolled one is, from
+the Trait and the Type. If a faction already has a name and nothing else, that
+is the whole workflow: clear the box, type the name, leave every list on
+**Random**, and press **Create**.
+
+Each list holds the rows
 of its table in the table's own order, so a faction you rolled with the book
 and paper dice goes in by row. Every list starts on **Random**: leave a part
 there and it is rolled for you, so you can fix the two or three lines you care
@@ -51,9 +59,9 @@ Six lines, each rolled from its own table:
 | **Agenda** | What they are trying to do |
 | **Obstacle** | What stands in their way |
 
-The entry's name is drafted as **"The ⟨Trait⟩ ⟨Type⟩"** — *The Enigmatic
-Cultists* — and it is *meant* to be replaced once the faction earns a real name
-in your campaign.
+Unless you typed one in the Create Faction window, the entry's name is drafted
+as **"The ⟨Trait⟩ ⟨Type⟩"** — *The Enigmatic Cultists* — and it is *meant* to
+be replaced once the faction earns a real name in your campaign.
 
 **Dossiers are private by default.** Each journal is created with no player
 visibility — factions are the Warden's machinery. Grant Observer on an entry

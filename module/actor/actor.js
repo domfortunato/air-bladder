@@ -747,12 +747,19 @@ export class CairnActor extends Actor {
    * `forHire`, then on the hireling role, now on the npc-person edge — three
    * spellings of one fact, which is the argument the collapse was made on).
    *
-   * Only from the Foundry defaults, and only on the becoming-a-person edge. A
-   * Warden who has deliberately made an NPC hostile-ringed, or unlinked it on
-   * purpose, keeps that — the same "an explicit value wins" rule `_preCreate`
-   * follows, applied to a value chosen earlier rather than passed in the same
-   * breath. Leaving the role is not the mirror image and does nothing: ceasing
-   * to be a person is not a reason to turn something hostile.
+   * Only from the Foundry defaults, and only on the becoming-a-person edge —
+   * the same "an explicit value wins" rule `_preCreate` follows, applied to a
+   * value chosen earlier rather than passed in the same breath. Leaving the
+   * role is not the mirror image and does nothing: ceasing to be a person is
+   * not a reason to turn something hostile.
+   *
+   * **It cannot tell a DELIBERATE default from the default**, and this note
+   * used to claim it could ("a Warden who unlinked it on purpose keeps that").
+   * A stored `false` is a stored `false`: a monster the Warden unlinked by
+   * hand is promoted and re-linked exactly like one that was never touched,
+   * because every monster starts unlinked and nothing records the difference.
+   * The honest promise is the one `docs/tokens-and-sheets.md` now makes —
+   * untick it again after promoting.
    *
    * Only the prototype, which is all this can honestly promise. Tokens already on
    * a scene are their own documents and are left alone.

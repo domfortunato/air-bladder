@@ -12,11 +12,14 @@
  * "Warden: Faction - Agenda" must land on the page verbatim and must be the
  * only row its list offers, and a world "(Count)" copy forced to 4 must
  * yield exactly four DISTINCT advantages from the stock twenty. And the
- * MANUAL PATH — with the box cleared the six lists and the Advantages ticks
- * appear, every list in TABLE ORDER behind a Random row; a picked Type and
- * Trait name the faction, ticked advantages land verbatim, a list left at
- * Random still rolls; the cap disables every clear box once four are ticked;
- * and a cleared box with nothing picked rolls everything.
+ * MANUAL PATH — with the box cleared a Name field, the six lists and the
+ * Advantages ticks appear, every list in TABLE ORDER behind a Random row; a
+ * picked Type and Trait name the faction while the Name is left empty,
+ * ticked advantages land verbatim, a list left at Random still rolls; a
+ * TYPED name wins outright and names the page too while everything else is
+ * still rolled, and Enter in that field reaches Create rather than Cancel;
+ * the cap disables every clear box once four are ticked; and a cleared box
+ * with nothing picked rolls everything.
  *
  * Membership is asserted against the PINNED SRD columns, never "non-empty":
  * a wrong pool that returns something must still fail. All world state
@@ -62,6 +65,10 @@ const advantagesOf = (text) => {
   const m = text.match(/Advantages:<\/strong>\s*([^<]+)</);
   return m ? m[1].split(",").map((s) => s.trim()).filter(Boolean) : [];
 };
+const lineOf = (text, label) => {
+  const m = text.match(new RegExp(`${label}:</strong>\\s*([^<]+)<`));
+  return m ? m[1].trim() : "";
+};
 const nameRe = new RegExp(`^The (${TRAIT1.join("|")}) (${TYPE.join("|")})$`);
 const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
 
@@ -82,13 +89,20 @@ const openDialog = () => page.evaluate(async () => {
   return null;
 });
 
-/** The dialog's shape: the box, its state, the pick section, no tier select. */
+/** The dialog's shape: the box, its state, the pick section, the Name field,
+ *  no tier select. */
 const readShape = (id) => page.evaluate((id) => {
   const el = document.getElementById(id);
   if (!el) return null;
   const roll = el.querySelector('input[name="roll"]');
   const section = el.querySelector(".ab-creation-manual");
+  const nameBox = el.querySelector('input[name="faction-name"]');
   return {
+    named: !!nameBox,
+    nameEmpty: nameBox?.value === "",
+    // INSIDE the section, which is what makes it ride the cleared box rather
+    // than sit on the rolled route too.
+    nameInSection: !!nameBox && !!section?.contains(nameBox),
     title: el.querySelector(".window-title")?.textContent.trim() ?? "",
     roll: !!roll,
     ticked: !!roll?.checked,
@@ -97,6 +111,17 @@ const readShape = (id) => page.evaluate((id) => {
     visible: !!section && !section.hidden && section.offsetHeight > 0,
     choice: !!el.querySelector('select[name="choice"]'),
   };
+}, id);
+
+/** Focus the Name field and report whether it is even there. In-page rather
+ *  than through a Playwright locator so a MISSING field fails its leg instead
+ *  of throwing a 30s timeout that takes every later leg with it — which is
+ *  what the red phase does to it by construction. */
+const focusName = (id) => page.evaluate((id) => {
+  const box = document.getElementById(id)?.querySelector('input[name="faction-name"]');
+  if (!box) return false;
+  box.focus();
+  return document.activeElement === box;
 }, id);
 
 const clickIn = (id, selector) => page.evaluate(({ id, selector }) => {
@@ -130,6 +155,8 @@ const readJournal = (id) => page.evaluate(async (id) => {
   await entry.sheet?.close();
   return {
     name: entry.name,
+    // The page carries the name too, and one decision must set both.
+    pageName: entry.pages.contents[0]?.name ?? "",
     ownershipDefault: entry.ownership.default,
     rendered,
     text: entry.pages.contents[0]?.text?.content ?? "",
@@ -252,6 +279,13 @@ try {
       ? ok("clearing the box reveals the pick-lists")
       : fail("clearing the box reveals the pick-lists", JSON.stringify(shape));
 
+    // The Name field rides the same cleared box, and starts empty. This leg
+    // LEAVES it empty on purpose, which is what makes its "the picked Trait
+    // and Type name the faction" assertion below the fallback witness.
+    shape && shape.named && shape.nameEmpty && shape.nameInSection
+      ? ok("the Name field is there, empty, inside the section")
+      : fail("the Name field is there, empty, inside the section", JSON.stringify(shape));
+
     // The window must GROW to hold the section: an AppV2 window at `height:
     // auto` reflows on its own, and this is the measurement that says so.
     const fit = await page.evaluate((id) => {
@@ -325,8 +359,8 @@ try {
     } else {
       minted.push(made);
       manual.name === `The ${picked.trait1} ${picked.type}`
-        ? ok("the picked Trait and Type name the faction", `"${manual.name}"`)
-        : fail("the picked Trait and Type name the faction", `"${manual.name}" vs picks ${JSON.stringify(picked)}`);
+        ? ok("an empty Name still drafts it from the picks", `"${manual.name}"`)
+        : fail("an empty Name still drafts it from the picks", `"${manual.name}" vs picks ${JSON.stringify(picked)}`);
       const advs = advantagesOf(manual.text);
       advs.join("|") === picked.advantages.join("|")
         ? ok("the ticked advantages land verbatim, and only those", advs.join(", "))
@@ -337,7 +371,58 @@ try {
     }
   }
 
-  /* --- 5. the CAP, then a cleared box with nothing picked ---------------- */
+  /* --- 5. a TYPED NAME wins, and Enter in the field creates -------------- */
+  {
+    // TYPED with real keystrokes, never assigned: the value is read off the
+    // live form at Create time, and a `.value` write would not prove a Warden
+    // can reach the control at all.
+    const typed = `ZZ-Faction-Typed-${Date.now()}`;
+    const before = await journalIds();
+    const id = await openDialog();
+    await clickIn(id, 'input[name="roll"]');
+    if (!await focusName(id)) fail("the Name field can be typed into", "no input[name=faction-name]");
+    else await page.keyboard.type(typed);
+    await clickIn(id, 'button[data-action="create"]');
+    const made = await newJournal(before, 8000);
+    const named = made ? await readJournal(made) : null;
+    if (!named) {
+      fail("a typed name mints a dossier", "no JournalEntry appeared within 8s");
+    } else {
+      minted.push(made);
+      named.name === typed && named.pageName === typed
+        ? ok("a typed name names the entry AND its page", `"${named.name}"`)
+        : fail("a typed name names the entry AND its page",
+          JSON.stringify({ name: named.name, page: named.pageName, typed }));
+      // Naming it must not stop anything being rolled: every list was left on
+      // Random and nothing was ticked, so the six lines are still the dice.
+      const advs = advantagesOf(named.text);
+      const type = lineOf(named.text, "Type");
+      TYPE.includes(type) && advs.length >= 1 && advs.length <= 4 && advs.every((a) => ADVANTAGE.includes(a))
+        ? ok("naming it still rolls every line", `Type "${type}", ${advs.length} advantage(s)`)
+        : fail("naming it still rolls every line", JSON.stringify({ type, advs }));
+    }
+
+    // ENTER in the name field must reach CREATE, not Cancel. Every DialogV2
+    // button is `type="submit"` unless it says otherwise, and implicit
+    // submission fires the FIRST one — which is exactly why Cancel is declared
+    // `type: "button"`. The empty-sheet feature measured this from the other
+    // side: Enter dispatched `cancel` and created nothing, on the one gesture
+    // the feature existed for. A text field is the control that invites it.
+    const typedEnter = `ZZ-Faction-Enter-${Date.now()}`;
+    const beforeEnter = await journalIds();
+    const idEnter = await openDialog();
+    await clickIn(idEnter, 'input[name="roll"]');
+    if (await focusName(idEnter)) await page.keyboard.type(typedEnter);
+    await page.keyboard.press("Enter");
+    const madeEnter = await newJournal(beforeEnter, 8000);
+    const entered = madeEnter ? await readJournal(madeEnter) : null;
+    if (madeEnter) minted.push(madeEnter);
+    entered?.name === typedEnter
+      ? ok("Enter in the Name field creates, keeping the name", `"${entered.name}"`)
+      : fail("Enter in the Name field creates, keeping the name", JSON.stringify(entered));
+  }
+
+  /* --- 6. the CAP, then a cleared box with nothing picked ---------------- */
   {
     const before = await journalIds();
     const id = await openDialog();

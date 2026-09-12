@@ -987,6 +987,9 @@ try {
             roll: !!el.querySelector('input[name="roll"]'),
             tier: !!el.querySelector('select[name="choice"]'),
             lists: el.querySelectorAll(".ab-creation-manual select").length,
+            // Both buttons open the ONE dialog, so the Name field has to be
+            // here too — this is the claim that keeps the two routes together.
+            named: !!el.querySelector('.ab-creation-manual input[name="faction-name"]'),
           };
         }
         await new Promise((r) => setTimeout(r, 100));
@@ -1000,8 +1003,8 @@ try {
       fail("no Create button for faction");
     } else {
       const shape = await freshDialog(before);
-      shape && shape.roll && !shape.tier && shape.lists === 6
-        ? ok("Create faction asks first, with the empty-sheet checkbox and six pick-lists")
+      shape && shape.roll && !shape.tier && shape.lists === 6 && shape.named
+        ? ok("Create faction asks first, with the box, a Name and six pick-lists")
         : fail("Create faction opened no creation dialog", JSON.stringify(shape));
       const made = await page.evaluate(async ({ n, id }) => {
         document.getElementById(id)?.querySelector('button[data-action="create"]')?.click();

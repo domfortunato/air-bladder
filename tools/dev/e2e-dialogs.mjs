@@ -251,6 +251,50 @@ switchboard.hookGone
   ? ok("abHideHirelingType is no longer registered", "the surgery died with the dialog it operated on")
   : fail("abHideHirelingType is no longer registered", "still on renderDialogV2");
 
+/* ------------------------- Create NPC / Hireling: the LINKING reminder ---
+ * An NPC and a hireling are created with their tokens LINKED (ruled
+ * 2026-09-10 and not changing), which is right for one person and wrong for a
+ * crowd. The answer chosen then was signposting, and the Create Actor
+ * switchboard above got its sentence — the Actors directory's own Create NPC
+ * and Create Hireling buttons got nothing, which is the gap this closes
+ * (2026-09-12). It is a REMINDER and never a control: the dialog still asks
+ * one question, and Foundry's own Link Actor Data is the place to change it.
+ *
+ * Read the RENDERED text and compare it to the LOCALIZED value, the
+ * switchboard leg's own pattern: the leg survives a wording change, and still
+ * proves the key resolved, since a missing key localizes to itself and the
+ * assertion rejects that. The dialog is dismissed without creating anything.
+ */
+await page.evaluate(() => ui.sidebar.changeTab?.("actors", "primary") ?? ui.sidebar.activateTab?.("actors"));
+await page.waitForTimeout(600);
+for (const [cls, kind] of [["create-npc-button", "NPC"], ["create-hireling-button", "Hireling"]]) {
+  const seen = await page.evaluate(async (cls) => {
+    const before = new Set([...document.querySelectorAll(".application.dialog")].map((d) => d.id));
+    const btn = document.querySelector(`.${cls}`);
+    if (!btn) return { button: false };
+    btn.click();
+    let el = null;
+    for (let i = 0; i < 60 && !el; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+      el = [...document.querySelectorAll(".application.dialog")].find((d) => !before.has(d.id));
+    }
+    const out = {
+      button: true,
+      opened: !!el,
+      // EVERY hint in the dialog, because the reminder is the SECOND one and
+      // a leg that read only the first would pass on the empty-sheet line.
+      hints: el ? [...el.querySelectorAll("p.hint")].map((p) => p.textContent.trim()) : [],
+      wanted: game.i18n.localize("CAIRN.Blank.LinkedPerson"),
+    };
+    el?.querySelector('button[data-action="cancel"], [data-action="close"]')?.click();
+    await new Promise((r) => setTimeout(r, 400));
+    return out;
+  }, cls);
+  seen.opened && seen.hints.includes(seen.wanted) && seen.wanted !== "CAIRN.Blank.LinkedPerson"
+    ? ok(`Create ${kind} says what its tokens will do`, seen.wanted)
+    : fail(`Create ${kind} says what its tokens will do`, JSON.stringify(seen));
+}
+
 /* ------------------------------------------- impaired / enhanced damage ---
  * Cairn has no advantage or disadvantage: a damage roll is STANDARD (the weapon's
  * die), impaired (1d4 whatever the weapon) or enhanced (1d12 whatever the

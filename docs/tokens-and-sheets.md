@@ -51,7 +51,10 @@ documents and keep the behaviour they were placed with, so delete and re-place
 them if you want the change to reach them.
 
 Switching an existing actor's **Role** to NPC or Hireling links its prototype
-token as well, unless you had already unlinked it yourself.
+token as well. That is worth knowing before you promote a monster you had
+deliberately left unlinked: nothing can tell your choice apart from the
+setting a monster starts with, so untick **Link Actor Data** again after the
+promotion if you still want each token on its own.
 
 ## Handing something to a monster
 
