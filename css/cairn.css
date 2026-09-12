@@ -2156,6 +2156,21 @@ textarea.omen-input {
     border-bottom: 1px solid var(--color-border);
 }
 
+/* The creation dialog's "Use random generation." row. The class was set on the
+   label from the day the empty-sheet feature landed and matched no rule at all
+   (review #26), so the checkbox and its text sat flush against each other.
+   Not scoped to `.cairn` — this lives in a DialogV2, which is core chrome. */
+.ab-creation-roll {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.ab-creation-roll input[type="checkbox"] {
+    flex: 0 0 auto;
+}
+
 .bg-pick-row {
     display: grid;
     /* third column: the Warden's per-background eye toggle */

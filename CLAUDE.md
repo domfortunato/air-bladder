@@ -1263,10 +1263,13 @@ What belongs here is what those two files do not say:
 
 ## Testing
 
-**`docs/release-testing.md` is the full list — 106 probes (`check:probes` states
-the current count), what each covers, and what to run before tagging vs after
-publishing. Keep it in step with `package.json`; a probe not listed there runs
-only when someone remembers it.**
+**`docs/release-testing.md` is the full list — what each probe covers, and what to
+run before tagging vs after publishing. Keep it in step with `package.json`; a
+probe not listed there runs only when someone remembers it.** For the COUNT run
+`npm run check:probes`, which computes it. A figure used to sit in this
+sentence; it said 106 against a real 109 (review #26), the fourth number in this
+file to drift, and the parenthetical naming the gate as the authority did not
+save it — a number in prose is a copy whether or not it apologises for itself.
 
 - `npm run dev:smoke` — headless Chromium against the local dev world on :30000,
   which loads this working tree via a directory junction. Asserts the system

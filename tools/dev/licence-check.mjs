@@ -150,6 +150,44 @@ for (const p of [...paths].sort()) {
 }
 if (!missing) ok(`all ${paths.size} referenced paths exist (${[...paths].sort().join(", ")})`);
 
+/* 3b. …and a path that does NOT ship is declared as repo-only --------------- */
+
+// Check 3 asks whether a referenced path exists IN THE REPO. Nobody asked
+// whether it exists in the thing a user actually receives (review #26).
+// LICENSE.txt ships inside system.zip and is the only licence document an
+// installer gets, and four of its pointers lead out of that zip entirely.
+//
+// None of the four carries an attribution obligation — every path that does
+// (the CREDITS files, the per-gallery license.txt, fonts/OFL.txt,
+// logo/README.md) ships — so this is not a breach today. It is the gap that
+// makes one possible: a future clause delegating an attribution to a `docs/`
+// or `tools/` path would pass check 3, ship, and point at nothing.
+//
+// Named individually rather than by top-level root, so a NEW unshipped
+// reference fails even though a sibling is allowed.
+// The bare roots appear as their own entries because the extractor above
+// matches a first segment plus whatever follows, including nothing.
+const REPO_ONLY = new Set([
+  "docs/", "src/packs/", "tools/",
+  "src/packs/macros/",            // the four Warden macros, also compiled into packs/
+  "tools/import/system-docs.mjs", // named as the generator of the docs journal
+  "tools/import/vald.mjs",        // named as the fetcher of the Vald SRD text
+  "docs/provenance.md",           // the authorship record, pointed at for provenance
+]);
+let unshipped = 0;
+for (const p of [...paths].sort()) {
+  const root = `${p.split("/")[0]}/`;
+  if (shippedDirs.includes(root) || shippedFiles.includes(p)) continue;
+  if (REPO_ONLY.has(p)) continue;
+  fail(`LICENSE.txt points at "${p}", which is NOT in the release zip and is not declared repo-only. `
+    + "If it carries an attribution, ship it; if it is provenance only, add it to REPO_ONLY here "
+    + "and make sure LICENSE.txt says where to find it.");
+  unshipped++;
+}
+if (!unshipped) {
+  ok(`every path LICENSE.txt names either ships or is declared repo-only (${REPO_ONLY.size} repo-only)`);
+}
+
 /* 4. Every SHIPPED path is named by some clause ----------------------------- */
 
 // The other direction, and the one that was blind. Check 3 asks "does everything
@@ -426,6 +464,63 @@ for (const [file, pattern, setName] of LYDIA_COUNT_SITES) {
 lydiaProblems.length === 0
   ? ok(`the Lydia Comer galleries are fully paired and stated at their true size (${lydiaCounts.characters} characters + ${lydiaCounts.monsters} creatures, ${LYDIA_COUNT_SITES.length} sites)`)
   : fail(`Lydia Comer galleries:\n        ${lydiaProblems.join("\n        ")}`);
+
+/* 7b. The two OTHER galleries state counts too, and nothing compared them ---
+ *
+ * Jon Aspeheim's 80 and tlomdev's 368 are stated across several sites inside CC
+ * BY and CC BY-SA attributions — the very reason the two galleries above are
+ * gated — and were checked by nothing at all (review #26). Both were correct on
+ * the day this landed, which is exactly what the game-icons and Lydia counts
+ * were before they drifted. Same shape as LYDIA_COUNT_SITES: disk is the
+ * authority, prose is compared to it, and a reword fails loudly rather than
+ * matching nothing.
+ */
+const IMG_RE = /\.(webp|png|jpe?g|svg)$/i;
+const countImages = (dir) => {
+  const abs = join(ROOT, dir);
+  if (!existsSync(abs)) return 0;
+  let n = 0;
+  for (const e of readdirSync(abs, { withFileTypes: true })) {
+    if (e.isDirectory()) n += countImages(`${dir}/${e.name}`);
+    else if (IMG_RE.test(e.name)) n += 1;
+  }
+  return n;
+};
+
+const galleryProblems = [];
+// Aspeheim ships PAIRED portraits and tokens, and the published number is the
+// number of pairs — so the pairing is asserted rather than assumed.
+const aspPortraits = countImages("art/jon-aspeheim/portraits");
+const aspTokens = countImages("art/jon-aspeheim/tokens");
+if (aspPortraits !== aspTokens) {
+  galleryProblems.push(`jon-aspeheim: ${aspPortraits} portraits but ${aspTokens} tokens — these galleries pair`);
+}
+// tlomdev is one set counted whole, subfolders included: the Kettlewright
+// portraits are the same artist's work under the same clause.
+const tlomdevCount = countImages("art/tlomdev");
+
+const GALLERY_COUNT_SITES = [
+  ["README.md", /(\d+) character portraits by \[Jon Aspeheim\]/, () => aspPortraits, "Aspeheim portraits"],
+  ["README.md", /The (\d+) paired portrait\/token images/, () => aspPortraits, "Aspeheim portraits"],
+  ["README.es.md", /(\d+) retratos de personaje/, () => aspPortraits, "Aspeheim portraits"],
+  ["site/index.html", /(\d+) character portraits by/, () => aspPortraits, "Aspeheim portraits"],
+  ["README.md", /(\d+) creature & NPC tokens by \[tlomdev\]/, () => tlomdevCount, "tlomdev tokens"],
+  ["README.md", /The (\d+) black-and-white token drawings/, () => tlomdevCount, "tlomdev tokens"],
+  ["art/tlomdev/CREDITS.md", /(\d+) drawings\./, () => tlomdevCount, "tlomdev tokens"],
+  ["README.es.md", /(\d+) tokens de criaturas y PNJ/, () => tlomdevCount, "tlomdev tokens"],
+  ["README.es.md", /Los (\d+) dibujos de token/, () => tlomdevCount, "tlomdev tokens"],
+  ["LICENSE.txt", /(\d+) token drawings in the Tlomdev picker gallery/, () => tlomdevCount, "tlomdev tokens"],
+  ["docs/provenance.md", /\| `art\/tlomdev\/` \| (\d+) \|/, () => tlomdevCount, "tlomdev tokens"],
+  ["docs/provenance.md", /across (\d+) files, published as a paid asset pack/, () => tlomdevCount, "tlomdev tokens"],
+];
+for (const [file, pattern, want, label] of GALLERY_COUNT_SITES) {
+  const m = read(file).match(pattern);
+  if (!m) galleryProblems.push(`${file}: the ${label} count sentence this gate anchors on is gone (${pattern})`);
+  else if (Number(m[1]) !== want()) galleryProblems.push(`${file}: says ${m[1]} ${label}, disk holds ${want()}`);
+}
+galleryProblems.length === 0
+  ? ok(`the Aspeheim and tlomdev counts match disk (${aspPortraits} paired portraits + ${tlomdevCount} tokens, ${GALLERY_COUNT_SITES.length} sites)`)
+  : fail(`gallery counts:\n        ${galleryProblems.join("\n        ")}`);
 
 /* 8. The tlomdev modification indication is a LICENCE TERM, not a courtesy --- */
 

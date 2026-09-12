@@ -41,6 +41,12 @@ Code — MIT
     translations, audio and marketing copy — and of how each claim can be
     checked. This file says which licence covers which path; that one says
     whether a human made it.
+    A note on where to look: src/packs/, tools/ and docs/ are named above for
+    provenance and are NOT in the installed system — the release zip carries
+    the built packs, not their sources. Find them in the source repository at
+    https://github.com/domfortunato/air-bladder. Every notice that carries an
+    attribution obligation — the CREDITS files, each gallery's license.txt,
+    fonts/OFL.txt and logo/README.md — ships with the system.
 
 Game text — CC BY-SA 4.0, © Yochai Gal
     https://creativecommons.org/licenses/by-sa/4.0/
