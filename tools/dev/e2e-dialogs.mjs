@@ -285,6 +285,11 @@ for (const [cls, kind] of [["create-npc-button", "NPC"], ["create-hireling-butto
       // a leg that read only the first would pass on the empty-sheet line.
       hints: el ? [...el.querySelectorAll("p.hint")].map((p) => p.textContent.trim()) : [],
       wanted: game.i18n.localize("CAIRN.Blank.LinkedPerson"),
+      // The dialog must WRAP a long hint, not stretch to hold it on one line.
+      // `DialogV2.wait` inherits ApplicationV2's `width: "auto"` while core's
+      // own `prompt`/`confirm` merge width 400, so this note took the window
+      // to 777px until `promptCreation` stated one.
+      width: el ? Math.round(el.getBoundingClientRect().width) : 0,
     };
     el?.querySelector('button[data-action="cancel"], [data-action="close"]')?.click();
     await new Promise((r) => setTimeout(r, 400));
@@ -293,6 +298,9 @@ for (const [cls, kind] of [["create-npc-button", "NPC"], ["create-hireling-butto
   seen.opened && seen.hints.includes(seen.wanted) && seen.wanted !== "CAIRN.Blank.LinkedPerson"
     ? ok(`Create ${kind} says what its tokens will do`, seen.wanted)
     : fail(`Create ${kind} says what its tokens will do`, JSON.stringify(seen));
+  seen.width > 0 && seen.width <= 460
+    ? ok(`   …in a window that wrapped it`, `${seen.width}px, core's own dialog width`)
+    : fail(`Create ${kind} stretched to hold its hint on one line`, `${seen.width}px`);
 }
 
 /* ------------------------------------------- impaired / enhanced damage ---

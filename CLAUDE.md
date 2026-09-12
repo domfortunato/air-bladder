@@ -898,6 +898,15 @@ will bite:
   (application.mjs) clamps `top` into `[0, clientHeight − height]` on every
   `setPosition`, so the change handler calls `setPosition({height: "auto"})`
   after toggling the section and the window slides up only when it must.
+- **`DialogV2.wait` does NOT get core's 400px width; `confirm` and `prompt`
+  DO.** Both of those merge `position: {width: 400}` over the config
+  (dialog.mjs:353,374) and `wait` merges nothing, so a dialog built with it
+  inherits ApplicationV2's `width: "auto"` — and an auto-width window is as
+  wide as its LONGEST UNWRAPPED LINE. The NPC linking note rendered the
+  creation dialog at **777px**, nearly twice the Create Actor switchboard
+  beside it, which uses `prompt`. `promptCreation` states 400 now and a long
+  hint wraps. Reach for `wait` whenever a dialog needs two named buttons, and
+  state the width in the same breath.
 
 **A generated loadout arrives ARRANGED (2026-08-21, user ask).** Six bands, top
 to bottom: weapons, armor, **spellbooks and spellscrolls together** (one band

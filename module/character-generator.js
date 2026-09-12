@@ -2291,6 +2291,16 @@ export const promptCreation = async (kind, {
 
   const picked = await foundry.applications.api.DialogV2.wait({
     window: { title: game.i18n.localize(title ?? spec.title) },
+    // 400 is CORE'S OWN width for a question dialog — `DialogV2.confirm` and
+    // `DialogV2.prompt` both merge `position: {width: 400}` over the config
+    // (dialog.mjs:353,374) — but `wait`, which this uses because it needs two
+    // named buttons, does NOT. So this inherited ApplicationV2's
+    // `width: "auto"`, and an auto-width window is as wide as its longest
+    // unwrapped line: the linking note took the NPC dialog to 777px, nearly
+    // twice the switchboard beside it, which reads as a rendering fault. With
+    // a width set, a long hint wraps instead. Stated here rather than in CSS
+    // so every creation dialog is the width core would have given it.
+    position: { width: 400 },
     content,
     buttons: [
       // `type: "button"`, and it is load-bearing rather than tidy. Every
