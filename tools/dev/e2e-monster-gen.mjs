@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Generate Monster: the Warden's directory button, the tier picker, and the
+ * Create Monster: the Warden's directory button, the tier picker, and the
  * shape of what it mints.
  *
  * The generator is table-driven (the 8 Warden monster tables) with a stats
@@ -13,7 +13,7 @@
  *      her role holds ACTOR_CREATE. The grant is what makes the leg mean
  *      anything: without it Alice gets no generator section at all, and the
  *      assertion passed identically with the isGM gate deleted (caught by this
- *      probe's own fail-witness run, 2026-08-01). Her Generate PC button is
+ *      probe's own fail-witness run, 2026-08-01). Her Create PC button is
  *      asserted PRESENT as the non-vacuousness witness. A GM can never see the
  *      player half of a permission policy (lib.mjs joinAs);
  *   2. the tier picker opens, and DISMISSING it creates nothing — a ✕ is an
@@ -222,7 +222,7 @@ try {
     }, PREFIX);
 
     setup.button
-      ? ok("the GM's directory has the Generate Monster button")
+      ? ok("the GM's directory has the Create Monster button")
       : fail("no .create-monster-button in the GM's directory");
     if (!setup.button) return;
 
@@ -515,11 +515,11 @@ try {
   });
   if (aliceSees.isGM) fail("the Alice leg joined as a GM — it proves nothing");
   aliceSees.pcButton
-    ? ok("Alice (with ACTOR_CREATE) sees the Generate PC button — the leg is not vacuous")
+    ? ok("Alice (with ACTOR_CREATE) sees the Create PC button — the leg is not vacuous")
     : fail("Alice sees no generator section at all — the ACTOR_CREATE grant did not take, and the check below proves nothing");
   aliceSees.monsterButton
-    ? fail("Alice can see the Generate Monster button — Warden-only failed")
-    : ok("Alice has no Generate Monster button");
+    ? fail("Alice can see the Create Monster button — Warden-only failed")
+    : ok("Alice has no Create Monster button");
   errors.push(...aliceErrors);
   await aliceContext.close();
 } finally {

@@ -2182,9 +2182,19 @@ textarea.omen-input {
     cursor: pointer;
 }
 
-.bg-pick-row input[type="radio"] {
+.bg-pick-row input[type="radio"],
+.bg-pick-row input[type="checkbox"] {
     grid-column: 1;
     grid-row: 1 / 3;
+}
+
+/* The Create Faction dialog's pick-lists (2026-09-12): six dropdowns on core's
+   own `.standard-form .form-group` rows, then the Advantages tick-list. The
+   list is capped shorter than the background picker's so the whole dialog —
+   the box, six rows, twenty ticks and two buttons — fits a 1000px viewport
+   without the window growing off the bottom of the screen. */
+.ab-faction-picks .bg-pick-list {
+    max-height: 200px;
 }
 
 .bg-pick-name {

@@ -721,7 +721,7 @@ this rule (`module/settings.js`, `module/actor/actor-sheet.js`,
 `tools/import/barebones.mjs`); they cited this file for it before it said so.
 
 **AN EMPTY SHEET IS A THIRD ROUTE (2026-09-11, user ask relaying a Warden's).**
-Every creation route — Generate PC, NPC, Hireling, Monster, and the Create Actor
+Every creation route — Create PC, NPC, Hireling, Monster, and the Create Actor
 switchboard — opens one dialog carrying a ticked **"Use random generation."**
 Clear it and the actor arrives with nothing rolled, for a table that deals
 characters on paper and wants to transcribe one.
@@ -837,6 +837,45 @@ Six things that will bite:
   receiving side). Get it wrong and a player who cleared the box is handed a
   rolled character by a client that never saw it. Gate: `npm run dev:blank-actor`,
   plus the relay leg in `dev:playergen`.
+
+**THE BUTTONS SAY "CREATE", NOT "GENERATE" (2026-09-12, user ruling), AND A
+FACTION ASKS FIRST TOO.** Create PC / NPC / Hireling / Monster / Faction, and
+the dialog titles with them — a button that opens a dialog whose question is
+roll-or-not cannot be called Generate. `lang/es.json` had said "Crear" from
+the start and was not touched; the drift baselines for es/da/de/fr/pt-BR were
+advanced BY HAND for exactly those keys (their translations already meant
+"create"), and **pl was LEFT DRIFTED on purpose**: "Losuj postać" means "roll
+a character" and is genuinely wrong after the rename, so the translator must
+see it — never `--force`, which re-seeds everything.
+**The faction is the one route whose cleared box does not open an empty
+sheet, because a JournalEntry has none.** So the pick-lists live IN THE
+DIALOG: six `<select>`s (Type, Agent, both Traits, Agenda, Obstacle), each in
+TABLE ORDER behind a Random row, plus the Advantage table as a tick-list
+capped at the SRD's four (`buildFactionPicks` in `faction-generator.js`).
+This is the one exception to the empty-sheet feature's "not one new picker",
+and it is the exception that proves the rule: there was nowhere for these
+pickers to already be. `promptCreation` grew `hint` and `manual` options for
+it and NOTHING ELSE changed for the four actor kinds — their answer keeps its
+shape, and `dev:blank-actor` is the regression witness. Three things that
+will bite:
+- **`generateFaction(picks = {})` STAYS NON-INTERACTIVE**; the dialog lives in
+  `createFactionInteractive`, the wrapper both buttons call (the review #26
+  lesson: a generator that prompts hangs every probe that calls it).
+- **The lists read the WORLD-FIRST tables the roll reads**, so a Warden's own
+  canon faction names appear as Types once the loop-closing workflow has
+  added them — and a probe's sentinel table shows up as the list's only row.
+  Values are the TRANSLATED text, `promptNpcFaction`'s split: a faction is
+  world content in the session's language.
+- **An `<input>`'s `.value` is NOT an attribute** (an `<option>`'s is), and
+  DialogV2 serializes content through innerHTML, so the tick-list's boxes carry
+  `setAttribute("value")` or every ticked advantage reads as "on".
+- **An AppV2 window at `height: "auto"` GROWS DOWNWARD from where it opened.**
+  The dialog opens centred at 187px and un-hiding the lists made it 660px,
+  which on a 1000px viewport put Create and Cancel below the bottom of the
+  screen — the probe's reflow leg measured it, first run. `_updatePosition`
+  (application.mjs) clamps `top` into `[0, clientHeight − height]` on every
+  `setPosition`, so the change handler calls `setPosition({height: "auto"})`
+  after toggling the section and the window slides up only when it must.
 
 **A generated loadout arrives ARRANGED (2026-08-21, user ask).** Six bands, top
 to bottom: weapons, armor, **spellbooks and spellscrolls together** (one band

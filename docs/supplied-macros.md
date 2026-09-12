@@ -10,6 +10,6 @@ politely instead of failing in silence).
 | Macro | What it flips |
 | --- | --- |
 | **Toggle Change Log** | The manual-change log. Read live at every posting site, so it takes effect on the next change with no reload. |
-| **Toggle Player Character Creation** | The player-facing character-creation buttons in the Actors sidebar — **Generate PC** and **Import from Kettlewright**. Connected players' directories update live. |
+| **Toggle Player Character Creation** | The player-facing character-creation buttons in the Actors sidebar — **Create PC** and **Import from Kettlewright**. Connected players' directories update live. |
 | **Toggle Player Marketplace** | Player shopping. Open sheets update live — the Marketplace button hides or returns, and a purchase is refused even behind a stale, already-open shop dialog. |
 | **Toggle Player Creation Tools** | The sheet's Character Creation tools as players see them: the title-bar Character Creation Mode toggle, the Roll button and every re-roll die hide from players while it is off — even on an actor whose own Character Creation Mode is on. |

@@ -2121,6 +2121,10 @@ export const resolveContentSource = () => enabledContentSources()[0]?.key ?? "2e
  * whose documented purpose (docs/generating-characters.md) is already
  * "recreate a character you rolled with the book, paper and dice". The
  * step-by-step builder this project declined to write stays declined.
+ * The faction route (2026-09-12) is the one exception to "not one new
+ * picker", and it is the exception that proves the rule: a faction is a
+ * journal with no sheet, so there is nowhere for its pickers to already be —
+ * the cleared box reveals them inside this same dialog, one window, no wizard.
  *
  * The Warden is asked TOO, which is a deliberate reversal of the 2026-08-08
  * ruling that only players got a confirm. That ruling was about an accidental
@@ -2164,13 +2168,22 @@ const BLANK_KINDS = {
  *    the enable/disable wiring happens in `render` rather than on the nodes
  *    built below. `createThing`'s Other… reveal shipped dead exactly this way.
  *
- * @param {"character"|"npc"|"hireling"|"monster"} kind
+ * @param {"character"|"npc"|"hireling"|"monster"|"faction"} kind
  * @param {{choices?: {value:String,label:String,default?:Boolean}[],
  *          choiceLabel?: String, lockChoiceWhenBlank?: Boolean,
- *          title?: String}} [options]  `title` overrides the kind's own, which
- *   the character route uses to keep the existing "Choose a content source"
- *   heading on the only version of this dialog that asks about editions.
- * @returns {Promise<{blank: Boolean, choice: String|null}|null>} null = declined
+ *          title?: String, hint?: String,
+ *          manual?: {element: HTMLElement, read: Function, wire?: Function}}} [options]
+ *   `title` and `hint` override the kind's own; the character route uses
+ *   `title` to keep the existing "Choose a content source" heading on the only
+ *   version of this dialog that asks about editions. `manual` is the faction
+ *   route's picking surface (2026-09-12): a faction is a journal with no sheet
+ *   and no pickers, so the cleared box has nowhere to send a Warden except
+ *   this dialog. `element` is appended HIDDEN and shown while the box is
+ *   clear; `read(form)` turns its controls into the picks; `wire(dialog)` runs
+ *   once on render for anything that needs live listeners (the innerHTML rule
+ *   below: nothing wired on the nodes built here survives).
+ * @returns {Promise<{blank: Boolean, choice: String|null, manual?: Object}|null>}
+ *   null = declined; `manual` is present only when the option was given
  */
 /**
  * Would an empty sheet of this kind be FILLABLE by the user about to make one?
@@ -2199,8 +2212,13 @@ const blankIsFillableBy = (kind) => {
   return game.settings.get(SETTINGS_NS, "allow-player-randomization") === true;
 };
 
-export const promptCreation = async (kind, { choices = null, choiceLabel = null, lockChoiceWhenBlank = false, title = null } = {}) => {
-  const spec = BLANK_KINDS[kind];
+export const promptCreation = async (kind, {
+  choices = null, choiceLabel = null, lockChoiceWhenBlank = false, title = null, hint: hintKey = null, manual = null,
+} = {}) => {
+  // `?? {}` for a kind with no empty-sheet spec (faction), which must then
+  // pass its own `title` and `hint`. BLANK_KINDS stays four entries, so
+  // `createBlankActor` still answers null for anything that is not an actor.
+  const spec = BLANK_KINDS[kind] ?? {};
   const offerBlank = blankIsFillableBy(kind);
   const content = document.createElement("div"); // BARE — see the docblock
   if (choices?.length) {
@@ -2231,11 +2249,18 @@ export const promptCreation = async (kind, { choices = null, choiceLabel = null,
   // so this needs no CSS of ours — the same route createDialog's hint takes.
   const hint = document.createElement("p");
   hint.className = "hint";
-  hint.textContent = game.i18n.localize(spec.hint);
+  hint.textContent = game.i18n.localize(hintKey ?? spec.hint);
   // Only where the resulting sheet could actually be filled in — see
   // `blankIsFillableBy`. Withheld rather than disabled: a greyed checkbox with
   // no explanation is a worse answer than a dialog that simply confirms.
   if (offerBlank) content.append(label, hint);
+  // The manual section rides the box: no box, no section. `hidden` as an
+  // ATTRIBUTE, for the same innerHTML reason as the tick above.
+  if (offerBlank && manual) {
+    manual.element.classList.add("ab-creation-manual"); // what `render` finds it by
+    manual.element.setAttribute("hidden", "");
+    content.append(manual.element);
+  }
 
   const picked = await foundry.applications.api.DialogV2.wait({
     window: { title: game.i18n.localize(title ?? spec.title) },
@@ -2256,28 +2281,48 @@ export const promptCreation = async (kind, { choices = null, choiceLabel = null,
         action: "create",
         label: game.i18n.localize("CAIRN.Create"),
         default: true,
-        callback: (event, button) => ({
-          // `offerBlank &&` matters: with the checkbox withheld there is no
-          // `roll` element, and `!undefined?.checked` is TRUE — so the absent
-          // control would have read as "cleared" and handed exactly the
-          // stranded empty sheet this gate exists to prevent.
-          blank: offerBlank && !button.form.elements.roll?.checked,
-          choice: button.form.elements.choice?.value ?? null,
-        }),
+        callback: (event, button) => {
+          const out = {
+            // `offerBlank &&` matters: with the checkbox withheld there is no
+            // `roll` element, and `!undefined?.checked` is TRUE — so the absent
+            // control would have read as "cleared" and handed exactly the
+            // stranded empty sheet this gate exists to prevent.
+            blank: offerBlank && !button.form.elements.roll?.checked,
+            choice: button.form.elements.choice?.value ?? null,
+          };
+          // Only when asked for, so the four actor kinds' answer keeps its shape.
+          if (manual) out.manual = manual.read(button.form);
+          return out;
+        },
       },
     ],
     // Only where the dropdown exists to serve the ROLL. A monster's tier picks
     // nothing on an empty sheet, so it greys out; a character's content source
     // still decides what the empty sheet SHOWS — Barebones has a Failed Career
-    // row where 2e has an Omen — so that one stays live.
-    render: lockChoiceWhenBlank
+    // row where 2e has an Omen — so that one stays live. The manual section is
+    // the tier's mirror image: it exists to serve the EMPTY answer, so it shows
+    // while the box is clear and hides while it is ticked.
+    render: (lockChoiceWhenBlank || manual)
       ? (event, dialog) => {
         const roll = dialog.element.querySelector('input[name="roll"]');
-        const select = dialog.element.querySelector('select[name="choice"]');
-        if (!roll || !select) return;
-        const sync = () => { select.disabled = !roll.checked; };
-        roll.addEventListener("change", sync);
+        if (!roll) return;
+        const select = lockChoiceWhenBlank ? dialog.element.querySelector('select[name="choice"]') : null;
+        const section = manual ? dialog.element.querySelector(".ab-creation-manual") : null;
+        const sync = ({ reposition = false } = {}) => {
+          if (select) select.disabled = !roll.checked;
+          if (section) section.hidden = roll.checked;
+          // An AppV2 window at `height: "auto"` grows DOWNWARD from where it
+          // opened: measured, the dialog opened centred at 187px and the
+          // lists made it 660px, which on a 1000px viewport put Create and
+          // Cancel below the bottom of the screen. `_updatePosition`
+          // (application.mjs) clamps `top` into the viewport on every
+          // setPosition, so this slides the window up exactly when it must.
+          // Not on the initial sync — the window is still being placed.
+          if (reposition && section) dialog.setPosition({ height: "auto" });
+        };
+        roll.addEventListener("change", () => sync({ reposition: true }));
         sync();
+        if (manual) manual.wire?.(dialog);
       }
       : undefined,
     rejectClose: false,

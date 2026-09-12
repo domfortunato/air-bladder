@@ -1,13 +1,15 @@
 # Generating NPCs and hirelings
 
-Two buttons, two kinds of person. **Generate NPC** makes somebody the party
+Two buttons, two kinds of person. **Create NPC** makes somebody the party
 *meets* — an innkeeper, a rival, a hostage — with a Background off the Warden's
-Guide table and four traits of their own. **Generate Hireling** makes somebody
+Guide table and four traits of their own. **Create Hireling** makes somebody
 the party *pays*, with a Career off the 2e careers list, the gear that career
 carries and a day rate.
 
 Both arrive as complete Actors: a name, a portrait, a matching token, a
-biography and a stat block. Neither asks you a question first.
+biography and a stat block. Each asks one question first — a tick-box reading
+**Use random generation.** — and clearing it opens an empty sheet instead (see
+[Generating characters](generating-characters.md#start-from-an-empty-sheet)).
 
 You need permission to create Actors. The Warden always has it; a player only
 if you have granted it.
@@ -34,8 +36,8 @@ switches one into the other, and switching costs you nothing — see
 
 **Actors tab → the button row at the top.**
 
-- **Generate NPC** (the person-plus icon)
-- **Generate Hireling** (the coin-in-hand icon)
+- **Create NPC** (the person-plus icon)
+- **Create Hireling** (the coin-in-hand icon)
 
 Both also live in the folder **+** menu, under *What are you creating?*, which
 is the one to use when you want the new person filed straight into a folder.

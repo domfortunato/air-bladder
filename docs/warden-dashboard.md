@@ -104,9 +104,10 @@ is what you want when someone the party will never meet again opens a door.
 ## Creating instead
 
 Under **Create** are the generators, the same ones the Actors sidebar offers.
-These do make something: a sheet you can open, edit and place on a map. Each
-one asks first, in the same window you get from the sidebar, so you can pick a
-monster's tier or clear **Use random generation.** for an empty sheet.
+These do make something: a sheet you can open, edit and place on a map, or on
+the Factions tab a journal dossier. Each one asks first, in the same window
+you get from the sidebar, so you can pick a monster's tier, clear **Use random
+generation.** for an empty sheet, or pick a faction's parts from its tables.
 
 So the pair on each tab is a choice about what you need. Roll a complete set
 when you want to know. Create when you want a sheet.

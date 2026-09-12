@@ -333,11 +333,13 @@ const GENERATORS = {
   // confirm. The empty-sheet choice was unreachable from this window too,
   // while `docs/warden-dashboard.md` promised these were "the same ones the
   // Actors sidebar offers". One wrapper owns the dialog for all four kinds so
-  // a third call site cannot drift the way this one did.
+  // a third call site cannot drift the way this one did — and the faction
+  // has its own wrapper since 2026-09-12, when it gained the same dialog (with
+  // the pick-lists inside it, a journal having no sheet to carry them).
   npc: async () => (await import("./character-generator.js")).createActorInteractive("npc"),
   hireling: async () => (await import("./character-generator.js")).createActorInteractive("hireling"),
   monster: async () => (await import("./character-generator.js")).createActorInteractive("monster"),
-  faction: async () => (await import("./faction-generator.js")).generateFaction(),
+  faction: async () => (await import("./faction-generator.js")).createFactionInteractive(),
 };
 
 /* -------------------------------------------- */

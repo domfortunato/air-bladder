@@ -6,7 +6,7 @@ import { CairnItemSheet } from "./item/item-sheet.js";
 import { createCharacter, createActorInteractive, requestPcGeneration, enabledContentSources, FLAG_SCOPE, awaitDiceAnimation, findGenerationRollMessage, localizeGenerationCard, prewarmGenerationPacks } from "./character-generator.js";
 import * as characterGenerator from "./character-generator.js";
 import * as monsterGenerator from "./monster-generator.js";
-import { generateFaction } from "./faction-generator.js";
+import { createFactionInteractive } from "./faction-generator.js";
 import { reseedSpellTable } from "./spell-tables.js";
 import { importKettlewrightCharacter, performKettlewrightImport, sanitizeKettlewrightExport, showImportSummary } from "./kettlewright-import.js";
 import * as kettlewrightImport from "./kettlewright-import.js";
@@ -2714,13 +2714,15 @@ Hooks.on("renderActorDirectory", (app, html) => {
           if (actor) actor.sheet.render(true);
         });
       }
-      // Warden-only: one click, one faction dossier (a JournalEntry — a
-      // faction is campaign machinery, not an Actor). No confirm: creating a
-      // journal is non-destructive, and nothing is ever overwritten.
+      // Warden-only: a faction dossier (a JournalEntry — a faction is campaign
+      // machinery, not an Actor). It ASKS FIRST like the four above (2026-09-12,
+      // user ask), and its dialog is where the parts are picked when the box
+      // is cleared, since a journal has no sheet to carry pickers. Nothing is
+      // ever overwritten; a dismiss creates nothing.
       section
         .querySelector(".create-faction-button")
         ?.addEventListener("click", async () => {
-          const entry = await generateFaction();
+          const entry = await createFactionInteractive();
           if (entry) entry.sheet.render(true);
         });
       // Import a Kettlewright character export into a new Actor. GM-only

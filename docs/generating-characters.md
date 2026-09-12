@@ -5,9 +5,9 @@ ways to get one, and one loop for making the result yours. There is deliberately
 no step-by-step "character builder": the dice hand you a person, and the choices
 come after.
 
-## Generate PC
+## Create PC
 
-The **Generate PC** button sits above the Actors sidebar. Clicking it asks one
+The **Create PC** button sits above the Actors sidebar. Clicking it asks one
 question, then rolls everything a Cairn 2e character starts with — abilities,
 Hit Protection, a background with its gear and questions, traits, age, and a
 bond — and opens the finished sheet. With more than one content source enabled
@@ -20,8 +20,10 @@ and you get what you always got. Clear it and you get a character with nothing
 rolled: no background, no gear, no bonds, no traits, no age. Abilities start at
 10 and Hit Protection at 3, and you type over them.
 
-The same box sits on **Generate NPC**, **Generate Hireling** and **Generate
-Monster**, so any of the four can arrive empty.
+The same box sits on **Create NPC**, **Create Hireling** and **Create
+Monster**, so any of the four can arrive empty — and on **Create Faction**,
+where clearing it lets you pick each part of the faction from its table
+instead (see [Generating factions](generating-factions.md)).
 
 Players see the box only where they could use it. An empty sheet is filled in
 with the pick-list buttons, and those belong to Character Creation Mode — which

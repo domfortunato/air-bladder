@@ -23,6 +23,7 @@
 
 import { findTableByName, resultText } from "./compendium.js";
 import { t } from "./i18n-content.js";
+import { promptCreation } from "./character-generator.js";
 
 /** The suite, by shipped name. World copies of these names win by design. */
 const TABLES = {
@@ -66,21 +67,77 @@ const rollAdvantages = async () => {
 };
 
 /**
- * Roll a whole faction and mint its dossier. Returns the JournalEntry (the
- * caller renders it), or null only when creation itself failed. A missing
- * table degrades its line to an em-dash — the journal still mints, because a
+ * Every row of a table, in TABLE ORDER, each baked through t("table.result")
+ * and deduplicated; [] when the table is missing. The Create Faction dialog's
+ * lists are built from these.
+ *
+ * Table order rather than alphabetical, the omen picker's rule: a Warden who
+ * rolled row 14 on paper knows which row it was, and a sorted list would make
+ * them hunt for it. And the TRANSLATED text is the value, not the English —
+ * a faction is world content in the session's language, exactly the split
+ * `promptNpcFaction` already makes for the sheet's own Faction picker.
+ * @returns {Promise<String[]>}
+ */
+const tableRows = async (tableName) => {
+  const table = await findTableByName(tableName);
+  if (!table) return [];
+  const rows = new Set();
+  for (const r of table.results) {
+    const raw = String(resultText(r)).trim();
+    if (raw) rows.add(t("table.result", raw));
+  }
+  return [...rows];
+};
+
+/** The Random option's value in every list — never a row's own text. */
+const FACTION_RANDOM = "__random__";
+
+/** The six single-value parts, in the dossier's order. */
+const PARTS = ["type", "agent", "trait1", "trait2", "agenda", "obstacle"];
+
+/** The list labels, reusing keys that already exist where they do. */
+const PART_LABELS = {
+  type: "CAIRN.Type",
+  agent: "CAIRN.Dashboard.Factions.Agent",
+  trait1: "CAIRN.Dashboard.Factions.TraitOne",
+  trait2: "CAIRN.Dashboard.Factions.TraitTwo",
+  agenda: "CAIRN.Dashboard.Factions.Agenda",
+  obstacle: "CAIRN.Dashboard.Factions.Obstacle",
+};
+
+/**
+ * Every part of a faction: whatever was picked, and a roll for the rest.
+ *
+ * The roll order is the dossier's order, unchanged from the days when nothing
+ * was picked, so a probe planting a one-row world table still finds it in
+ * the same place. A picked advantage list is taken as it stands, capped at
+ * the SRD's four; an empty one rolls the whole procedure, count included.
+ * @param {{type?: String, agent?: String, trait1?: String, trait2?: String,
+ *          agenda?: String, obstacle?: String, advantages?: String[]}} [picks]
+ * @returns {Promise<Object>}
+ */
+const rollFactionParts = async (picks = {}) => {
+  const part = async (k) => (typeof picks[k] === "string" && picks[k]) ? picks[k] : rollText(TABLES[k]);
+  const type = await part("type");
+  const agent = await part("agent");
+  const trait1 = await part("trait1");
+  const trait2 = await part("trait2");
+  const advantages = Array.isArray(picks.advantages) && picks.advantages.length
+    ? picks.advantages.filter((a) => typeof a === "string" && a).slice(0, 4)
+    : await rollAdvantages();
+  const agenda = await part("agenda");
+  const obstacle = await part("obstacle");
+  return { type, agent, trait1, trait2, advantages, agenda, obstacle };
+};
+
+/**
+ * Mint the dossier from its parts. Returns the JournalEntry (the caller
+ * renders it), or null only when creation itself failed. A missing part
+ * degrades its line to an em-dash — the journal still mints, because a
  * Warden mid-edit should get a partial dossier, not an error.
  * @returns {Promise<JournalEntry|null>}
  */
-export const generateFaction = async () => {
-  const type = await rollText(TABLES.type);
-  const agent = await rollText(TABLES.agent);
-  const trait1 = await rollText(TABLES.trait1);
-  const trait2 = await rollText(TABLES.trait2);
-  const advantages = await rollAdvantages();
-  const agenda = await rollText(TABLES.agenda);
-  const obstacle = await rollText(TABLES.obstacle);
-
+const buildFaction = async ({ type, agent, trait1, trait2, advantages, agenda, obstacle }) => {
   // "The Enigmatic Cultists" — obviously a draft name, meant to be replaced.
   // A localizable FORMAT key, because "The <trait> <type>" is English word
   // order and a translator may need to reorder.
@@ -128,4 +185,140 @@ export const generateFaction = async () => {
     pages: [{ name, type: "text", text: { content } }],
   });
   return entry ?? null;
+};
+
+/**
+ * Roll a faction — or the parts of one nobody picked — and mint its dossier.
+ *
+ * NON-INTERACTIVE, and that is load-bearing (the review #26 lesson at
+ * `createActorInteractive`): a probe or a macro calls this and gets a
+ * journal, with no dialog anywhere. The zero-argument call is what it always
+ * was; `picks` is what the Create Faction dialog hands over when the Warden
+ * cleared "Use random generation." and chose from the lists.
+ * @param {Object} [picks]  see `rollFactionParts`
+ * @returns {Promise<JournalEntry|null>}
+ */
+export const generateFaction = async (picks = {}) => buildFaction(await rollFactionParts(picks));
+
+/**
+ * The picking surface: six lists, one per part, each led by Random, and a
+ * tick-list of the Advantage table capped at the SRD's four. Built with the
+ * DOM API so a Warden's own table row can never be markup, and with
+ * ATTRIBUTES wherever the state must survive DialogV2's innerHTML round trip
+ * (`promptCreation`'s docblock): `selected` on Random, `value` on each box.
+ * @returns {Promise<{element: HTMLElement, read: Function, wire: Function}>}
+ */
+const buildFactionPicks = async () => {
+  const rows = {};
+  for (const k of PARTS) rows[k] = await tableRows(TABLES[k]);
+  const advantageRows = await tableRows(TABLES.advantage);
+
+  const element = document.createElement("div");
+  element.className = "ab-faction-picks";
+  for (const k of PARTS) {
+    const group = document.createElement("div");
+    group.className = "form-group";
+    const label = document.createElement("label");
+    label.textContent = game.i18n.localize(PART_LABELS[k]);
+    const fields = document.createElement("div");
+    fields.className = "form-fields";
+    const select = document.createElement("select");
+    select.name = `faction-${k}`;
+    const random = document.createElement("option");
+    random.value = FACTION_RANDOM;
+    random.textContent = game.i18n.localize("CAIRN.RandomBackground");
+    random.setAttribute("selected", "");
+    select.append(random);
+    for (const row of rows[k]) {
+      const option = document.createElement("option");
+      option.value = row; // an option's value IS its attribute; an input's is not
+      option.textContent = row;
+      select.append(option);
+    }
+    fields.append(select);
+    group.append(label, fields);
+    element.append(group);
+  }
+
+  const advantages = document.createElement("div");
+  advantages.className = "form-group stacked ab-faction-advantages";
+  const heading = document.createElement("label");
+  heading.textContent = game.i18n.localize("CAIRN.FactionPick.Advantages");
+  const list = document.createElement("div");
+  list.className = "bg-pick-list";
+  for (const row of advantageRows) {
+    const item = document.createElement("label");
+    item.className = "bg-pick-row";
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.name = "faction-advantage";
+    box.setAttribute("value", row);
+    const text = document.createElement("span");
+    text.className = "bg-pick-name";
+    text.textContent = row;
+    item.append(box, text);
+    list.append(item);
+  }
+  const hint = document.createElement("p");
+  hint.className = "hint";
+  hint.textContent = game.i18n.localize("CAIRN.FactionPick.AdvantagesHint");
+  advantages.append(heading, list, hint);
+  element.append(advantages);
+
+  return {
+    element,
+    /** A partial picks object: a list left at Random is simply absent. */
+    read: (form) => {
+      const picks = {};
+      for (const k of PARTS) {
+        const v = form.elements[`faction-${k}`]?.value;
+        if (v && v !== FACTION_RANDOM) picks[k] = v;
+      }
+      const ticked = [...form.querySelectorAll('input[name="faction-advantage"]:checked')].map((b) => b.value);
+      if (ticked.length) picks.advantages = ticked.slice(0, 4);
+      return picks;
+    },
+    /** The cap: while four are ticked, every clear box is disabled. */
+    wire: (dialog) => {
+      const boxes = [...dialog.element.querySelectorAll('input[name="faction-advantage"]')];
+      const cap = () => {
+        const full = boxes.filter((b) => b.checked).length >= 4;
+        for (const b of boxes) if (!b.checked) b.disabled = full;
+      };
+      for (const b of boxes) b.addEventListener("change", cap);
+      cap();
+    },
+  };
+};
+
+/**
+ * The Create Faction dialog: the same "Use random generation." box every
+ * creation route opens with, and — because a faction has no sheet and so no
+ * pickers of its own — the lists appear in the dialog itself when the box is
+ * cleared. Resolves null when declined, `{}` when the box was left ticked
+ * (roll everything), or the Warden's picks.
+ * @returns {Promise<Object|null>}
+ */
+export const promptFactionCreation = async () => {
+  const manual = await buildFactionPicks();
+  const answer = await promptCreation("faction", {
+    title: "CAIRN.Blank.TitleFaction",
+    hint: "CAIRN.Blank.HintFaction",
+    manual,
+  });
+  if (!answer) return null;
+  return answer.blank ? (answer.manual ?? {}) : {};
+};
+
+/**
+ * The route both creation buttons take — the Actors sidebar's and the
+ * Warden's Dashboard's: ask, then mint. The generator underneath stays
+ * non-interactive; this wrapper is the only place the dialog lives, so a
+ * third call site cannot drift the way the Dashboard's once did (review #26).
+ * @returns {Promise<JournalEntry|null>} null = declined, nothing created
+ */
+export const createFactionInteractive = async () => {
+  const picks = await promptFactionCreation();
+  if (!picks) return null;
+  return generateFaction(picks);
 };

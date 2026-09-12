@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Player-side Generate PC behaviour — the roll-confirm and the Warden's two
+ * Player-side Create PC behaviour — the roll-confirm and the Warden's two
  * player switches (allow-player-generate, allow-player-marketplace). The
  * marketplace legs live HERE rather than in dev:marketplace because that
  * probe is a single GM page and these legs need this file's two-client
@@ -16,7 +16,7 @@
  * GM-only probe can literally not see the thing being probed.
  *
  * The roll-confirm legs (2026-08-08): with ONE or ZERO content sources
- * enabled, clicking Generate PC used to roll instantly — an accidental click
+ * enabled, clicking Create PC used to roll instantly — an accidental click
  * minted a character. A prompt interposed, so nothing is minted by accident.
  *
  * REWRITTEN 2026-09-11, and the two changes are deliberate reversals rather
@@ -119,10 +119,10 @@ const gmPollNewCharacter = async (before, ms = 45000) => {
 const dialogTitles = (page) => page.evaluate(() =>
   [...document.querySelectorAll(".application.dialog .window-title")].map((t) => t.textContent.trim()));
 
-/** Click Alice's Generate PC button (present on both directory variants). */
+/** Click Alice's Create PC button (present on both directory variants). */
 const clickGenerate = () => alice.evaluate(() => {
   const btn = document.querySelector("#cairn-character-gen-button .create-character-generator-button");
-  if (!btn) throw new Error("no Generate PC button on Alice's directory");
+  if (!btn) throw new Error("no Create PC button on Alice's directory");
   btn.click();
 });
 
@@ -144,7 +144,7 @@ try {
   // ---- Leg 0: the Warden's client pre-warms the generation packs ----------
   // The FIRST generation of a session paid ~5s of compendium loading on the
   // answering client (measured 2026-09-02: ~6s cold vs ~1.2s warm) — so the
-  // first player who clicked Generate PC ate the whole cold start. A GM
+  // first player who clicked Create PC ate the whole cold start. A GM
   // client now runs the same reads generation makes, fire-and-forget shortly
   // after ready. The list is READ from the module (dev:monster-gen's rule:
   // a probe-side copy is a list that goes stale), and the poll asserts every
@@ -176,9 +176,9 @@ try {
   console.log(`\n  Alice ${t.canCreate ? "holds" : "lacks"} ACTOR_CREATE — ${t.canCreate ? "direct" : "relay"} path\n`);
 
   // ESTABLISH the switch the whole file stands on, right at the top. Every leg
-  // below clicks Alice's Generate PC button, and the Warden's
+  // below clicks Alice's Create PC button, and the Warden's
   // `allow-player-generate` is what puts it there — the dev world keeps it OFF
-  // by the user's choice, so the first click threw "no Generate PC button" and
+  // by the user's choice, so the first click threw "no Create PC button" and
   // took the whole run with it. The switch section near the end captured and
   // restored it properly; the twenty legs before it assumed. Third time this
   // family has been bitten (this file's own marketplace legs 2026-08-09,
@@ -198,8 +198,8 @@ try {
     return false;
   })();
   gotButton
-    ? ok("precondition: Alice's directory shows Generate PC")
-    : fail("precondition: no Generate PC button on Alice's directory even with the switch on");
+    ? ok("precondition: Alice's directory shows Create PC")
+    : fail("precondition: no Create PC button on Alice's directory even with the switch on");
 
   // Spy Alice's socket emits for the whole run (installed once, read per leg).
   // `_probePayloads` keeps the whole message beside the action list, because the
@@ -247,7 +247,7 @@ try {
   };
   const emitsOf = (kind) => alice.evaluate((k) => game._probeEmits.filter((a) => a === k).length, kind);
 
-  console.log("one source, a player clicks Generate PC");
+  console.log("one source, a player clicks Create PC");
   await shadowSources(alice, "one");
 
   // -- The prompt appears, and Cancel creates nothing -----------------------
@@ -864,15 +864,15 @@ try {
   };
 
   (await genButton(alice)) && (await genButton(gm))
-    ? ok("switch on: both clients show Generate PC")
-    : fail("switch on: a Generate PC button is missing");
+    ? ok("switch on: both clients show Create PC")
+    : fail("switch on: a Create PC button is missing");
 
   // Live flip OFF: the GM writes, the onChange fires on Alice's client, her
   // ALREADY-OPEN directory re-renders and the hook reconciles — no reload.
   await gm.evaluate((k) => game.settings.set("air-bladder", k, false), SWITCH);
   (await waitButton(alice, false))
     ? ok("flip off: Alice's open directory lost the button, live")
-    : fail("flip off: Alice still shows Generate PC after 15s");
+    : fail("flip off: Alice still shows Create PC after 15s");
   (await genButton(gm))
     ? ok("flip off: the Warden keeps their own button")
     : fail("flip off: the WARDEN's button vanished — the isGM OR is gone");

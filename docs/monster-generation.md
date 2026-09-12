@@ -1,6 +1,6 @@
 # Monster generation — the design of record
 
-`module/monster-generator.js`, reached by the Warden-only **Generate Monster**
+`module/monster-generator.js`, reached by the Warden-only **Create Monster**
 button in the Actors directory and by the Roll header button on any
 monster-role NPC. This file records every number and rule in that module and
 why it is what it is; change one without the other and the next reader

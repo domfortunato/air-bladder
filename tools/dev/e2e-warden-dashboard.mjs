@@ -961,6 +961,77 @@ try {
       : fail(`Create ${kind} minted ${made} actor(s)`);
   }
 
+  // The FIFTH generator (2026-09-12): Create Faction on the Factions tab
+  // opens the same dialog — the box, no tier, and the pick-lists a journal
+  // has no sheet to carry — and Create mints exactly one JOURNAL; Cancel
+  // none. Red witness: the pre-dialog `generateFaction` call mints on the
+  // click, so no dialog appears and the Cancel leg "mints" one.
+  {
+    const clickFaction = () => page.evaluate(async () => {
+      const app = document.querySelector("#cairn-warden-dashboard");
+      app.querySelector('[data-action="tab"][data-tab="factions"]')?.click();
+      await new Promise((r) => setTimeout(r, 200));
+      const btn = app.querySelector('button[data-action="generate"][data-gen="faction"]')
+        ?? document.querySelector('#cairn-warden-dashboard button[data-gen="faction"]');
+      if (!btn) return null;
+      const n = game.journal.size;
+      btn.click();
+      return n;
+    });
+    const freshDialog = (prev) => page.evaluate(async (prev) => {
+      for (let i = 0; i < 80; i++) {
+        const el = [...document.querySelectorAll(".application.dialog")].find((d) => !prev.includes(d.id));
+        if (el) {
+          return {
+            id: el.id,
+            roll: !!el.querySelector('input[name="roll"]'),
+            tier: !!el.querySelector('select[name="choice"]'),
+            lists: el.querySelectorAll(".ab-creation-manual select").length,
+          };
+        }
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      return null;
+    }, prev);
+
+    let before = await dialogIds();
+    let had = await clickFaction();
+    if (had === null) {
+      fail("no Create button for faction");
+    } else {
+      const shape = await freshDialog(before);
+      shape && shape.roll && !shape.tier && shape.lists === 6
+        ? ok("Create faction asks first, with the empty-sheet checkbox and six pick-lists")
+        : fail("Create faction opened no creation dialog", JSON.stringify(shape));
+      const made = await page.evaluate(async ({ n, id }) => {
+        document.getElementById(id)?.querySelector('button[data-action="create"]')?.click();
+        for (let i = 0; i < 120 && game.journal.size === n; i++) await new Promise((r) => setTimeout(r, 100));
+        await new Promise((r) => setTimeout(r, 500));   // catch a second create, if any
+        const added = game.journal.size - n;
+        for (const app of foundry.applications.instances.values()) {
+          if (app.document?.documentName === "JournalEntry") await app.close();
+        }
+        await new Promise((r) => setTimeout(r, 200));
+        return added;
+      }, { n: had, id: shape?.id ?? "" });
+      made === 1
+        ? ok("   …and answering it mints exactly one journal")
+        : fail(`Create faction minted ${made} journal(s)`);
+
+      before = await dialogIds();
+      had = await clickFaction();
+      const again = await freshDialog(before);
+      const cancelled = await page.evaluate(async ({ n, id }) => {
+        document.getElementById(id)?.querySelector('button[data-action="cancel"]')?.click();
+        await new Promise((r) => setTimeout(r, 1500));
+        return game.journal.size - n;
+      }, { n: had, id: again?.id ?? "" });
+      cancelled === 0
+        ? ok("   …and Cancel mints none")
+        : fail(`Create faction's Cancel minted ${cancelled} journal(s)`);
+    }
+  }
+
   /* ---- 9. Pop Out, and re-docking ------------------------------------- */
 
   const detach = await page.evaluate(() => {

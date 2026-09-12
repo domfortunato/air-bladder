@@ -260,7 +260,7 @@ try {
     : fail("an NPC sheet gets the same header as a hireling",
       JSON.stringify({ roll: npc.roll, toggle: npc.toggle }));
   // A monster's Roll button says what its click does — the tier picker — and
-  // wears the SAME dragon as the directory's Generate Monster button. Seeded
+  // wears the SAME dragon as the directory's Create Monster button. Seeded
   // On, so this also proves the flag is per-actor, not global.
   monster.roll?.text === "Roll Monster" && monster.roll?.icon === "fa-dragon" && monster.roll?.hidden === false
     ? ok('a monster reads "Roll Monster"', `${monster.roll.icon}, visible`)

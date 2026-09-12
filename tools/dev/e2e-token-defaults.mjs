@@ -107,12 +107,12 @@ const out = await page.evaluate(async () => {
     return a;
   };
 
-  // The real path a Warden takes: the Actor Directory's "Generate NPC" button.
+  // The real path a Warden takes: the Actor Directory's "Create NPC" button.
   const gen = await game.cairn.characterGenerator.createNpc();
   await gen.update({ name: "ZZ Tok Generated NPC" });
   snap(gen, "generated npc (createNpc)", "NEUTRAL", true, true);
 
-  // The other person generator: the directory's "Generate Hireling" button,
+  // The other person generator: the directory's "Create Hireling" button,
   // whose payload is TYPE npc, ROLE hireling (hirelingToActorData). The person
   // set grew to two roles at the 2026-08-20 split, so this is the route a
   // `role === "npc"` person test silently drops.

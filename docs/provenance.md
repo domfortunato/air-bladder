@@ -117,7 +117,7 @@ own, by its own author.
 `background-archetypes.csv` — declared as "ours, not upstream's" in the
 importer ledger, because the SRD price list is names and numbers with no
 flavour. Also the hand-tended gear pool, the interface strings in
-`lang/en.json` (1,046 interface strings, a count `npm run i18n:check` holds to the file), the Warden guides in `docs/`, both READMEs, and the
+`lang/en.json` (1,050 interface strings, a count `npm run i18n:check` holds to the file), the Warden guides in `docs/`, both READMEs, and the
 listing description.
 
 **Translations.** `lang/es.json` and `lang/content/es.json` are by
