@@ -673,6 +673,48 @@ editable type packs 2e uses rather than a parallel set. Three code sites cite
 this rule (`module/settings.js`, `module/actor/actor-sheet.js`,
 `tools/import/barebones.mjs`); they cited this file for it before it said so.
 
+**AN EMPTY SHEET IS A THIRD ROUTE (2026-09-11, user ask relaying a Warden's).**
+Every creation route — Generate PC, NPC, Hireling, Monster, and the Create Actor
+switchboard — opens one dialog carrying a ticked **"Use random generation."**
+Clear it and the actor arrives with nothing rolled, for a table that deals
+characters on paper and wants to transcribe one.
+**IT IS NOT THE CHARACTER BUILDER THIS PROJECT DECLINED**, and the difference is
+the reason it was allowed: no build flow, no wizard, not one new picker. It lets
+an existing sheet start empty and leans on pickers that already ship, whose
+documented purpose is already "recreate a character you rolled with the book,
+paper and dice". `docs/generating-characters.md` still opens with "not built —
+dealt", and now says outright that if you have no character, you roll one.
+Six things that will bite:
+- **THE PROMPT LIVES IN ONE WRAPPER, `createActorInteractive`, and the four
+  generators underneath stay NON-INTERACTIVE.** `createCharacter`, `createNpc`,
+  `createHireling` and `createMonster` open no dialog at all. Twenty probe call
+  sites across eleven files call them directly, and putting the prompt inside
+  them left every one waiting on a modal nobody would answer — found by running
+  them, not by reading. `createMonster` therefore STOPPED prompting for a tier:
+  it takes one, and `promptMonsterCreation` asks.
+- **HP is 3, abilities keep the schema's 10/10/10** (user ruling). ZEROS were
+  asked for first and REVERSED on measurement: the sheet derives Dead from STR
+  0, Paralyzed from DEX 0 and Delirious from WIL 0, so an empty character would
+  have opened wearing three status banners — the state `_computeStatContext`
+  already documents for a crate.
+- **Character Creation Mode arrives ON**, against the 2026-08-02 "a sheet opens
+  quiet" default, which was about a GENERATED character. The mode is the only
+  thing that renders the pickers, and a bond and a question answer are
+  read-only prose, so a picker is the ONLY hand-entry path to either.
+- **The background die and picker had to be added to the NO-BACKGROUND branch**
+  of `character-sheet.html`. They hung off the generated branch alone, so a
+  character with no background stored had a text box and no way to reach the
+  table — and typing a name grants nothing, because the gear rides
+  `changeBackground`. Invisible while every character arrived generated.
+- **THE WARDEN IS ASKED NOW**, reversing 2026-08-08's "the Warden's own button
+  keeps rolling instantly". That ruling was about an accidental click, which
+  only ever threatened a player; this dialog is where the choice is MADE. One
+  extra click on the most frequent action, accepted with eyes open.
+- **The choice crosses the relay wire** (`blank`, coerced `=== true` on the
+  receiving side). Get it wrong and a player who cleared the box is handed a
+  rolled character by a client that never saw it. Gate: `npm run dev:blank-actor`,
+  plus the relay leg in `dev:playergen`.
+
 **A generated loadout arrives ARRANGED (2026-08-21, user ask).** Six bands, top
 to bottom: weapons, armor, **spellbooks and spellscrolls together** (one band
 because they are one TYPE — a scroll is a flag), everything else in the order

@@ -3,9 +3,8 @@ import { CairnActor } from "./actor/actor.js";
 import { CairnActorSheet } from "./actor/actor-sheet.js";
 import { CairnItem, FATIGUE_NAME, SPELLSCROLL_NAME } from "./item/item.js";
 import { CairnItemSheet } from "./item/item-sheet.js";
-import { createCharacter, createNpc, createHireling, requestPcGeneration, enabledContentSources, FLAG_SCOPE, awaitDiceAnimation, findGenerationRollMessage, localizeGenerationCard, prewarmGenerationPacks } from "./character-generator.js";
+import { createCharacter, createActorInteractive, requestPcGeneration, enabledContentSources, FLAG_SCOPE, awaitDiceAnimation, findGenerationRollMessage, localizeGenerationCard, prewarmGenerationPacks } from "./character-generator.js";
 import * as characterGenerator from "./character-generator.js";
-import { createMonster } from "./monster-generator.js";
 import * as monsterGenerator from "./monster-generator.js";
 import { generateFaction } from "./faction-generator.js";
 import { reseedSpellTable } from "./spell-tables.js";
@@ -1071,6 +1070,12 @@ Hooks.once("init", () => {
         const source = enabled.includes(msg.source) ? msg.source : (enabled[0] ?? "2e");
         const actor = await createCharacter({
           source,
+          // The empty-sheet choice the player made on their own client. Coerced
+          // rather than passed through: the wire is not trusted, and anything
+          // other than a literal true means roll, which is the safe reading —
+          // a rolled character can be emptied by hand, a silently empty one
+          // looks like generation broke.
+          blank: msg.blank === true,
           ownership: { [senderId]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
           // The generation chat card is headed by the ROLLER's name, and the
           // roller is the PLAYER who asked -- this branch runs on the Warden's
@@ -2620,23 +2625,23 @@ Hooks.on("renderActorDirectory", (app, html) => {
         </div>
         `
       );
-      section
-        .querySelector(".create-character-generator-button")
-        ?.addEventListener("click", async () => {
-          const actor = await createCharacter();
-          if (actor) actor.sheet.render(true);
-        });
       // The two person roles get a button each (2026-08-20). Two buttons rather
       // than one that asks: a Warden knows which they are making before they
-      // reach for the mouse, and the tier picker on Generate Monster is a
-      // dialog because the tier is a real CHOICE about the thing being made,
-      // not a fork in which thing.
-      for (const [cls, make] of [
-        ["create-npc-button", createNpc],
-        ["create-hireling-button", createHireling],
+      // reach for the mouse.
+      //
+      // All four go through createActorInteractive, the same route the Create
+      // Actor switchboard takes, so the creation dialog — roll one, or open an
+      // empty sheet to fill in by hand — has one definition and the two routes
+      // cannot drift. Every one of them is dismissible, and a dismiss creates
+      // nothing. The monster's tier lives in that dialog too.
+      for (const [cls, kind] of [
+        ["create-character-generator-button", "character"],
+        ["create-npc-button", "npc"],
+        ["create-hireling-button", "hireling"],
+        ["create-monster-button", "monster"], // Warden-only: monsters are the Warden's to mint
       ]) {
         section.querySelector(`.${cls}`)?.addEventListener("click", async () => {
-          const actor = await make();
+          const actor = await createActorInteractive(kind);
           if (actor) actor.sheet.render(true);
         });
       }
@@ -2654,14 +2659,6 @@ Hooks.on("renderActorDirectory", (app, html) => {
           if (actor) actor.sheet.render(true);
         });
       }
-      // Warden-only: monsters are the Warden's to mint. The tier picker inside
-      // createMonster is dismissible, and a dismiss creates nothing.
-      section
-        .querySelector(".create-monster-button")
-        ?.addEventListener("click", async () => {
-          const actor = await createMonster();
-          if (actor) actor.sheet.render(true);
-        });
       // Warden-only: one click, one faction dossier (a JournalEntry — a
       // faction is campaign machinery, not an Actor). No confirm: creating a
       // journal is non-destructive, and nothing is ever overwritten.

@@ -286,21 +286,14 @@ export class CairnActor extends Actor {
     // Dynamic imports, like _preCreate's portrait pair below: the generators
     // import this module, so a static import is a cycle.
     let actor = null;
-    if (picked === "character") {
-      const { createCharacter } = await import("../character-generator.js");
-      actor = await createCharacter({ folder });
-    } else if (picked === "npc") {
-      const { createNpc } = await import("../character-generator.js");
-      actor = await createNpc({ folder });
-    } else if (picked === "hireling") {
-      // Note this mints TYPE npc with ROLE hireling — the `hireling` type is a
-      // registered alias kept only so existing documents keep their ids, and
-      // nothing new is ever created under it.
-      const { createHireling } = await import("../character-generator.js");
-      actor = await createHireling({ folder });
-    } else if (picked === "monster") {
-      const { createMonster } = await import("../monster-generator.js");
-      actor = await createMonster({ folder });
+    // All four PERSON-ish kinds go through one interactive route, which opens
+    // the creation dialog (roll one, or an empty sheet to fill in by hand) and
+    // dispatches. Note the hireling branch inside it mints TYPE npc with ROLE
+    // hireling — the `hireling` type is a registered alias kept only so
+    // existing documents keep their ids, and nothing new is created under it.
+    if (["character", "npc", "hireling", "monster"].includes(picked)) {
+      const { createActorInteractive } = await import("../character-generator.js");
+      actor = await createActorInteractive(picked, { folder });
     } else {
       actor = await this.createThing(picked, { folder });
     }

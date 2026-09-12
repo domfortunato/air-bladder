@@ -17,9 +17,16 @@
  *
  * The roll-confirm legs (2026-08-08): with ONE or ZERO content sources
  * enabled, clicking Generate PC used to roll instantly — an accidental click
- * minted a character. Now a PLAYER gets a Yes/No confirm first; the Warden
- * does not (user ruling), and with 2+ sources the existing source picker IS
- * the interrupt, so the confirm must NOT stack in front of it.
+ * minted a character. A prompt interposed, so nothing is minted by accident.
+ *
+ * REWRITTEN 2026-09-11, and the two changes are deliberate reversals rather
+ * than drift. The prompt is now Cancel/Create rather than Yes/No, because it
+ * grew the empty-sheet checkbox and stopped being a question about certainty.
+ * And THE WARDEN IS ASKED NOW: the 2026-08-08 ruling exempted them because the
+ * risk was an accidental click, which only ever threatened a player, but the
+ * prompt is now where the roll-or-empty choice is made and a route that skips
+ * it cannot offer the choice at all. With 2+ sources the edition dropdown and
+ * the checkbox share ONE window, so the no-stacking rule is unchanged.
  *
  * The source count is forced by shadowing `game.settings.get` IN-PAGE on the
  * asserting client, never by writing the world settings: the probe's
@@ -195,35 +202,80 @@ try {
     : fail("precondition: no Generate PC button on Alice's directory even with the switch on");
 
   // Spy Alice's socket emits for the whole run (installed once, read per leg).
+  // `_probePayloads` keeps the whole message beside the action list, because the
+  // empty-sheet leg below needs to see WHAT crossed the wire, not just that
+  // something did — a relayed field that never left the sender and one the
+  // receiver ignores look identical from the far end.
   await alice.evaluate(() => {
     game._probeEmits = [];
+    game._probePayloads = [];
     const orig = game.socket.emit.bind(game.socket);
     game.socket.emit = (ev, data, ...rest) => {
-      if (ev === `system.${game.system.id}`) game._probeEmits.push(data?.action ?? "?");
+      if (ev === `system.${game.system.id}`) {
+        game._probeEmits.push(data?.action ?? "?");
+        game._probePayloads.push(foundry.utils.deepClone(data ?? {}));
+      }
       return orig(ev, data, ...rest);
     };
+    // And the ANSWERS coming back, which are how a leg knows the relay is idle
+    // again. An extra listener alongside the system's own; it reads and never
+    // acts.
+    game._probeAnswers = [];
+    game.socket.on(`system.${game.system.id}`, (msg) => {
+      if (msg?.action === "pcGenerated") game._probeAnswers.push(msg);
+    });
   });
+  /**
+   * Wait until the Warden's client has ANSWERED every generatePC sent so far.
+   *
+   * THE RELAY IS SINGLE-FLIGHT PER SENDER (`pcGenerationInFlight`, cairn.js): a
+   * second request from the same user while the first is still building is
+   * dropped in silence, which is right — it is what stops a doubled click
+   * minting two characters — and it means any leg that emits a second time
+   * must wait, or it is racing a lock rather than testing anything. Found the
+   * hard way: the empty-sheet leg below passed twice and then produced "no
+   * character appeared within 45s" on the third run, with a correct payload on
+   * the wire every time. A race, not a flake.
+   */
+  const awaitRelayIdle = async (expected, ms = 60000) => {
+    const t0 = Date.now();
+    while (Date.now() - t0 < ms) {
+      if (await alice.evaluate((n) => game._probeAnswers.length >= n, expected)) return true;
+      await new Promise((r) => setTimeout(r, 300));
+    }
+    return false;
+  };
   const emitsOf = (kind) => alice.evaluate((k) => game._probeEmits.filter((a) => a === k).length, kind);
 
   console.log("one source, a player clicks Generate PC");
   await shadowSources(alice, "one");
 
-  // -- The confirm appears, and No creates nothing --------------------------
+  // -- The prompt appears, and Cancel creates nothing -----------------------
+  //
+  // Yes/No became Cancel/Create on 2026-09-11, when the prompt grew the
+  // empty-sheet checkbox: the question stopped being "are you sure" and became
+  // "what shall I make". The interrupt this leg was written for is unchanged —
+  // an accidental click still cannot mint a character.
   let before = await snapshot();
   await clickGenerate();
   (await awaitDialog(alice, t.confirm))
-    ? ok("the Yes/No confirm appears before anything rolls")
-    : fail(`no confirm dialog (visible: ${JSON.stringify(await dialogTitles(alice))})`);
+    ? ok("the creation prompt appears before anything rolls")
+    : fail(`no creation dialog (visible: ${JSON.stringify(await dialogTitles(alice))})`);
+  const hasBox = await alice.evaluate(() =>
+    !!document.querySelector('.application.dialog input[name="roll"]:checked'));
+  hasBox
+    ? ok("   …carrying the roll checkbox, ticked")
+    : fail("the player's prompt has no ticked roll checkbox");
   await alice.evaluate(() => {
     [...document.querySelectorAll(".application.dialog button")]
-      .find((b) => b.dataset.action === "no")?.click();
+      .find((b) => b.dataset.action === "cancel")?.click();
   });
   await new Promise((r) => setTimeout(r, 3000));
   const afterNo = await snapshot();
   const emitsAfterNo = await emitsOf("generatePC");
   afterNo.actors.length === before.actors.length && emitsAfterNo === 0
-    ? ok("No: nothing created, nothing emitted")
-    : fail(`No leaked: ${afterNo.actors.length - before.actors.length} new actor(s), ${emitsAfterNo} generatePC emit(s)`);
+    ? ok("Cancel: nothing created, nothing emitted")
+    : fail(`Cancel leaked: ${afterNo.actors.length - before.actors.length} new actor(s), ${emitsAfterNo} generatePC emit(s)`);
 
   // -- ✕ is also a decline --------------------------------------------------
   await clickGenerate();
@@ -239,22 +291,98 @@ try {
     ? ok("✕: nothing created, nothing emitted")
     : fail(`✕ leaked: ${afterX.actors.length - before.actors.length} new actor(s), ${emitsAfterX} emit(s)`);
 
-  // -- Yes proceeds all the way to a character ------------------------------
+  // -- Create proceeds all the way to a character ---------------------------
   before = await snapshot();
   await clickGenerate();
   await awaitDialog(alice, t.confirm);
   await alice.evaluate(() => {
     [...document.querySelectorAll(".application.dialog button")]
-      .find((b) => b.dataset.action === "yes")?.click();
+      .find((b) => b.dataset.action === "create")?.click();
   });
   const made = await gmPollNewCharacter(before);
   made
-    ? ok("Yes: a character was created")
-    : fail("Yes: no character appeared within 45s");
+    ? ok("Create: a character was created")
+    : fail("Create: no character appeared within 45s");
   if (!t.canCreate) {
     (await emitsOf("generatePC")) === 1
       ? ok("   …via exactly one generatePC relay emit")
       : fail(`expected exactly 1 generatePC emit, saw ${await emitsOf("generatePC")}`);
+  }
+
+  // -- The EMPTY choice has to survive the wire -----------------------------
+  //
+  // The player answers the prompt on their OWN client and the Warden's client
+  // does the creating, so the checkbox is a value that has to travel. Get this
+  // wrong and a player who asked for an empty sheet is handed a rolled
+  // character by a machine that never saw the box — which looks like the
+  // feature simply not working, with nothing in any log to say why. This is
+  // the only leg that exercises the relay's `blank` field, and it matters most
+  // on the relay path, where two clients and a socket sit in between.
+  // The relay answers one request at a time. Let the previous one finish, or
+  // this emit lands on a held lock and vanishes — see awaitRelayIdle.
+  if (!t.canCreate) {
+    (await awaitRelayIdle(1))
+      ? ok("   …and the Warden's client has answered it")
+      : fail("no pcGenerated answer came back within 60s");
+  }
+  before = await snapshot();
+  // Capture the dialog ids FIRST and answer only a dialog that was not there
+  // before. A closing DialogV2 lingers in the DOM and the previous leg's
+  // dialog carries the SAME title, so both `awaitDialog` and `.at(-1)` can hand
+  // back the one on its way out — which is exactly what happened on this leg's
+  // first run: it unticked a corpse, the live dialog answered with its own
+  // default, and a fully rolled character came back looking like a wire bug.
+  const priorIds = await alice.evaluate(() =>
+    [...document.querySelectorAll(".application.dialog")].map((d) => d.id));
+  await clickGenerate();
+  const answered = await alice.evaluate(async (prior) => {
+    const seen = new Set(prior);
+    const deadline = Date.now() + 15000;
+    let el = null;
+    while (Date.now() < deadline && !el) {
+      el = [...document.querySelectorAll(".application.dialog")].find((d) => !seen.has(d.id)) ?? null;
+      if (!el) await new Promise((r) => setTimeout(r, 100));
+    }
+    if (!el) return { opened: false };
+    const box = el.querySelector('input[name="roll"]');
+    if (!box) return { opened: true, box: false };
+    box.checked = false;
+    box.dispatchEvent(new Event("change", { bubbles: true }));
+    const cleared = box.checked === false;
+    el.querySelector('button[data-action="create"]')?.click();
+    return { opened: true, box: true, cleared, id: el.id };
+  }, priorIds);
+  answered.opened && answered.box && answered.cleared
+    ? ok(`   …a fresh prompt (${answered.id}) had its box cleared`)
+    : fail(`could not clear the box: ${JSON.stringify(answered)}`);
+  // Read the wire itself. Split from the outcome deliberately: if the payload
+  // is right and the actor is rolled, the receiver is at fault; if the payload
+  // is wrong, the sender is. One leg that only checks the actor cannot say
+  // which, and this is a two-client path where that is the whole diagnosis.
+  const wire = await alice.evaluate(() =>
+    game._probePayloads.filter((p) => p.action === "generatePC").at(-1) ?? null);
+  wire?.blank === true
+    ? ok("   …and the emit carries blank: true")
+    : fail(`the generatePC emit did not carry blank: ${JSON.stringify(wire)}`);
+  const arrivedEmpty = await gmPollNewCharacter(before);
+  arrivedEmpty
+    ? ok("unticked: a character still arrives")
+    : fail("unticked: no character appeared within 45s");
+  if (arrivedEmpty) {
+    // _source, never derived — an empty character sits at HP 3 and the derived
+    // value would be answering the encumbrance rule instead.
+    const shape = await gm.evaluate((before) => {
+      const a = game.actors.find((x) => x.type === "character" && !before.actors.includes(x.id));
+      if (!a) return null;
+      const s = a._source.system;
+      return {
+        name: a.name, items: a.items.size, background: s.background ?? "",
+        hp: s.hp?.value, generationEnabled: s.generationEnabled,
+      };
+    }, before);
+    shape && shape.items === 0 && !shape.background && shape.hp === 3 && shape.generationEnabled === true
+      ? ok("   …and it is EMPTY — the checkbox crossed the wire", `"${shape.name}", HP ${shape.hp}`)
+      : fail(`the relayed character was not empty: ${JSON.stringify(shape)}`);
   }
 
   // ---- The marketplace switch, on the Alice-owned character just minted ---
@@ -519,23 +647,61 @@ try {
   const swept = await sweep(before);
   console.log(`  (cleaned up: ${swept.named.join(", ") || "nothing"}; ${swept.messages} chat message(s))`);
 
-  // -- The Warden is never asked --------------------------------------------
+  // -- The Warden IS asked, since 2026-09-11 ---------------------------------
+  //
+  // This leg asserted the OPPOSITE until the empty-sheet checkbox landed, and
+  // the reversal is deliberate rather than a regression. The 2026-08-08 ruling
+  // ("the Warden's own button keeps rolling instantly") was about an accidental
+  // click minting a character, which only ever threatened a player. The dialog
+  // is now where the roll-or-empty choice is MADE, so a route that skips it
+  // cannot offer the choice at all — and a Warden is the person who most wants
+  // an empty sheet. It costs one click on the most frequent action in the
+  // system, accepted with eyes open, and this leg is what stops it drifting
+  // back in either direction.
+  //
+  // The source resolution moved out of a dialog entirely: `resolveContentSource`
+  // answers it without asking, and `promptCreation` is what opens a window.
   console.log("\none source, the Warden");
   await shadowSources(gm, "one");
   const gmResult = await gm.evaluate(async () => {
-    const p = game.cairn.characterGenerator.promptContentSource();
-    // If the confirm regressed onto the GM path this promise never settles —
-    // race it against a beat long enough for any dialog to have rendered.
-    const src = await Promise.race([p, new Promise((r) => setTimeout(() => r("HUNG"), 4000))]);
-    const dialogOpen = !!document.querySelector(".application.dialog");
-    return { src, dialogOpen };
+    const cg = game.cairn.characterGenerator;
+    const src = cg.resolveContentSource();
+    const before = new Set([...document.querySelectorAll(".application.dialog")].map((d) => d.id));
+    const pending = cg.promptCreation("character");
+    // Settle on the dialog APPEARING, not on a fixed sleep, and find it by the
+    // id difference: a closing DialogV2 lingers, so a bare querySelector can
+    // hand back one that is already on its way out.
+    const deadline = Date.now() + 6000;
+    let el = null;
+    while (Date.now() < deadline && !el) {
+      el = [...document.querySelectorAll(".application.dialog")].find((d) => !before.has(d.id)) ?? null;
+      if (!el) await new Promise((r) => setTimeout(r, 100));
+    }
+    const hasCheckbox = !!el?.querySelector('input[name="roll"]');
+    el?.querySelector('button[data-action="cancel"]')?.click();
+    const answer = await Promise.race([pending, new Promise((r) => setTimeout(() => r("HUNG"), 4000))]);
+    return { src, dialogOpen: !!el, hasCheckbox, answer };
   });
-  gmResult.src === "2e" && !gmResult.dialogOpen
-    ? ok("promptContentSource resolves '2e' instantly, no dialog")
-    : fail(`GM path: resolved ${JSON.stringify(gmResult.src)}, dialog open: ${gmResult.dialogOpen}`);
+  gmResult.src === "2e"
+    ? ok("resolveContentSource answers '2e' without asking anybody")
+    : fail(`resolveContentSource returned ${JSON.stringify(gmResult.src)}`);
+  gmResult.dialogOpen && gmResult.hasCheckbox
+    ? ok("the Warden IS asked now, and the prompt carries the empty-sheet checkbox")
+    : fail(`GM path: dialog open ${gmResult.dialogOpen}, checkbox ${gmResult.hasCheckbox}`);
+  gmResult.answer === null
+    ? ok("the Warden's Cancel creates nothing")
+    : fail(`GM Cancel resolved ${JSON.stringify(gmResult.answer)}`);
   await unshadowSources(gm);
 
-  // -- Two sources: the PICKER appears, not the confirm ---------------------
+  // -- Two sources: ONE dialog, carrying both questions ---------------------
+  //
+  // These were two dialogs' worth of question and are now one: the edition
+  // dropdown and the roll checkbox share a window. The unstacked assertion is
+  // the same one it always was — two modals in a row for one click is the
+  // failure this leg was written to catch — and the source select must stay
+  // LIVE, because the edition decides what an EMPTY sheet shows (Barebones has
+  // a Failed Career row where 2e has an Omen), unlike the monster tier which
+  // greys out.
   console.log("\ntwo sources, a player");
   await shadowSources(alice, "two");
   before = await snapshot();
@@ -543,8 +709,21 @@ try {
   const sawPicker = await awaitDialog(alice, t.picker);
   const titlesNow = await dialogTitles(alice);
   sawPicker && !titlesNow.includes(t.confirm)
-    ? ok("the source picker appears, unstacked")
+    ? ok("one dialog carries both questions, unstacked")
     : fail(`expected the picker alone, saw: ${JSON.stringify(titlesNow)}`);
+  const twoSourceShape = await alice.evaluate(() => {
+    const el = [...document.querySelectorAll(".application.dialog")].at(-1);
+    const sel = el?.querySelector('select[name="choice"]');
+    const box = el?.querySelector('input[name="roll"]');
+    if (!sel || !box) return { sel: !!sel, box: !!box };
+    // Clear the box and confirm the edition select does NOT grey out.
+    box.checked = false;
+    box.dispatchEvent(new Event("change", { bubbles: true }));
+    return { sel: true, box: true, options: sel.options.length, staysLive: !sel.disabled };
+  });
+  twoSourceShape.sel && twoSourceShape.box && twoSourceShape.staysLive
+    ? ok(`   …an edition select (${twoSourceShape.options} rows) that stays live when the box is cleared`)
+    : fail(`two-source dialog shape: ${JSON.stringify(twoSourceShape)}`);
   await alice.evaluate(() => {
     [...document.querySelectorAll(".application.dialog")].at(-1)
       ?.querySelector('[data-action="close"]')?.click();

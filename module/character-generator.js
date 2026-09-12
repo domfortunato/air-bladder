@@ -1429,15 +1429,20 @@ export const requestPcGeneration = async () => {
     ui.notifications.warn(game.i18n.localize("CAIRN.Notify.NoWardenForPcGen"));
     return;
   }
-  // The SOURCE question is the player's, exactly as it is on the direct path —
-  // ask it HERE, on the clicking client, and send the answer. Asked on the
-  // answering side instead, generateCharacter's picker pops on the Warden's
-  // screen out of nowhere and the player's request hangs on someone else's
-  // modal (which is precisely how the first cut of this relay behaved).
-  const source = await promptContentSource();
-  if (!source) return; // ✕ is an instruction, here as everywhere
+  // The whole creation question is the player's, exactly as it is on the direct
+  // path — ask it HERE, on the clicking client, and send the answer. Asked on
+  // the answering side instead, the dialog pops on the Warden's screen out of
+  // nowhere and the player's request hangs on someone else's modal (which is
+  // precisely how the first cut of this relay behaved).
+  //
+  // Both halves travel, or a player who unticked the box would still be handed
+  // a rolled character by a Warden's client that never saw the checkbox.
+  const answer = await promptCharacterCreation();
+  if (!answer) return; // Cancel or ✕ is an instruction, here as everywhere
   ui.notifications.info(game.i18n.localize("CAIRN.Notify.PcGenRequested"));
-  game.socket.emit(`system.${game.system.id}`, { action: "generatePC", source });
+  game.socket.emit(`system.${game.system.id}`, {
+    action: "generatePC", source: answer.choice, blank: answer.blank,
+  });
 };
 
 /**
@@ -2052,53 +2057,271 @@ export const CONTENT_SOURCES = [
 export const enabledContentSources = () => CONTENT_SOURCES.filter((s) => s.enabled());
 
 /**
- * Which content source to generate from: the only enabled one, or a prompt when
- * a Warden has enabled both. Falls back to 2e if a Warden has turned everything
- * off, so the Generate button never dies silently — though since 2026-08-08 a
- * PLAYER is asked first when no chooser would appear, so for them "nothing"
- * is now a choice (null), never an accident.
- * @returns {Promise<String|null>} null = the user declined (confirm or picker ✕)
+ * The source to generate from when NOBODY is asked: the only enabled one, or
+ * the first of several, or 2e when a Warden has turned everything off — so a
+ * Generate button never dies silently. Deliberately non-interactive: the
+ * question, where there is one, is asked by `promptCreation` below, which folds
+ * it into the same dialog as the empty-sheet checkbox.
+ *
+ * Everything OFF is a configuration gap the Warden did not mean to create, so
+ * falling back is a kindness. A dismissed DIALOG is the opposite — an
+ * instruction — and its callers return null rather than landing here.
+ * Conflating the two once meant cancelling the picker silently made a 2e
+ * character (issue #6), which is the worse failure because it leaves a stray
+ * actor to delete.
+ * @returns {String}
  */
-export const promptContentSource = async () => {
-  const sources = enabledContentSources();
-  // With one or zero sources enabled, no chooser appears below — a player's
-  // click would mint a character instantly, so interpose a Yes/No first (user
-  // ask, 2026-08-08: an accidental click must not silently roll a PC). PLAYERS
-  // only — the Warden's own button keeps rolling instantly (user ruling). With
-  // 2+ sources the picker below is itself the interrupt, and its ✕ already
-  // means "not now", so a confirm there would double-stack. This runs on the
-  // ACTING user's client in both fresh paths (the GM directory button via
-  // createCharacter, and requestPcGeneration which deliberately prompts on the
-  // clicking player's client), so isGM is evaluated for the right person;
-  // Regenerate never reaches here (it passes a background/source).
-  if (sources.length <= 1 && !game.user.isGM) {
-    const go = await foundry.applications.api.DialogV2.confirm({
-      window: { title: game.i18n.localize("CAIRN.GeneratePcConfirmTitle") },
-      content: `<p>${game.i18n.localize("CAIRN.GeneratePcConfirm")}</p>`,
-      rejectClose: false, // ✕ resolves falsy — an instruction, like the picker's
-    });
-    if (!go) return null; // No or ✕: create nothing (callers already bail on null)
+export const resolveContentSource = () => enabledContentSources()[0]?.key ?? "2e";
+
+/* ==========================================================================
+ * Creating a person: roll one, or open an empty sheet
+ *
+ * Every route that makes a new person now opens ONE dialog carrying a checkbox:
+ * leave it ticked to roll, untick it to get an empty sheet to fill in by hand
+ * (user ask 2026-09-11, from a Warden who wanted to transcribe characters
+ * rolled at the table with the book and paper dice).
+ *
+ * THIS IS NOT A CHARACTER BUILDER, and the distinction is the whole reason it
+ * was allowed: it adds no build flow, no wizard and not one new picker. It lets
+ * an existing sheet start empty and leans on the pickers that already ship,
+ * whose documented purpose (docs/generating-characters.md) is already
+ * "recreate a character you rolled with the book, paper and dice". The
+ * step-by-step builder this project declined to write stays declined.
+ *
+ * The Warden is asked TOO, which is a deliberate reversal of the 2026-08-08
+ * ruling that only players got a confirm. That ruling was about an accidental
+ * click minting a character; this dialog is where the roll/empty choice is
+ * MADE, so a route that skips it cannot offer the choice at all. It costs the
+ * Warden one click on their most frequent action, accepted with eyes open.
+ * ======================================================================== */
+
+/** Hit Protection an empty sheet opens on. Deliberately NOT the schema's 6 —
+ *  user ruling 2026-09-11, roughly the middle of the 1d6 the rules deal. */
+const BLANK_HP = 3;
+
+/**
+ * What each route calls the thing it is making. The HINT names the sheet ("an
+ * empty NPC sheet") rather than sharing one vague line: four translator rows
+ * instead of one, and worth it, because "an empty sheet" on the monster dialog
+ * does not tell a Warden what they are about to get.
+ */
+const BLANK_KINDS = {
+  character: { title: "CAIRN.GeneratePcConfirmTitle", hint: "CAIRN.Blank.HintCharacter", name: "CAIRN.Blank.NameCharacter" },
+  npc: { title: "CAIRN.Blank.TitleNpc", hint: "CAIRN.Blank.HintNpc", name: "CAIRN.Blank.NameNpc" },
+  hireling: { title: "CAIRN.Blank.TitleHireling", hint: "CAIRN.Blank.HintHireling", name: "CAIRN.Blank.NameHireling" },
+  monster: { title: "CAIRN.MonsterGen.TierTitle", hint: "CAIRN.Blank.HintMonster", name: "CAIRN.Blank.NameMonster" },
+};
+
+/**
+ * The creation dialog: an optional dropdown, the roll checkbox, its hint, and
+ * Cancel / Create.
+ *
+ * Two DialogV2 traps are load-bearing here and neither shows up in testing that
+ * only reads values off the rendered form:
+ *
+ *  - The content element must carry ZERO attributes (dialog.mjs:187-190 throws
+ *    from the CONSTRUCTOR, so the dialog never opens and the button appears
+ *    dead). Children may carry whatever they like; three dialogs here shipped
+ *    broken on `dev` over a single `class` on the wrapper.
+ *  - Element content is serialized through `innerHTML` (dialog.mjs:190), so the
+ *    rendered dialog holds NEW nodes. Anything that is not an ATTRIBUTE is
+ *    lost — which is why the tick is `setAttribute("checked")` and not
+ *    `.checked = true`, the default option is `setAttribute("selected")`, and
+ *    the enable/disable wiring happens in `render` rather than on the nodes
+ *    built below. `createThing`'s Other… reveal shipped dead exactly this way.
+ *
+ * @param {"character"|"npc"|"hireling"|"monster"} kind
+ * @param {{choices?: {value:String,label:String,default?:Boolean}[],
+ *          choiceLabel?: String, lockChoiceWhenBlank?: Boolean,
+ *          title?: String}} [options]  `title` overrides the kind's own, which
+ *   the character route uses to keep the existing "Choose a content source"
+ *   heading on the only version of this dialog that asks about editions.
+ * @returns {Promise<{blank: Boolean, choice: String|null}|null>} null = declined
+ */
+export const promptCreation = async (kind, { choices = null, choiceLabel = null, lockChoiceWhenBlank = false, title = null } = {}) => {
+  const spec = BLANK_KINDS[kind];
+  const content = document.createElement("div"); // BARE — see the docblock
+  if (choices?.length) {
+    const prompt = document.createElement("p");
+    prompt.textContent = game.i18n.localize(choiceLabel);
+    const select = document.createElement("select");
+    select.name = "choice";
+    for (const c of choices) {
+      const option = document.createElement("option");
+      option.value = c.value;
+      option.textContent = game.i18n.localize(c.label);
+      if (c.default) option.setAttribute("selected", "");
+      select.append(option);
+    }
+    content.append(prompt, select);
   }
-  if (sources.length === 1) return sources[0].key;
-  if (!sources.length) return "2e";
-  const buttons = sources.map((s) => ({ action: s.key, label: game.i18n.localize(s.label) }));
-  const chosen = await foundry.applications.api.DialogV2.wait({
-    window: { title: game.i18n.localize("CAIRN.ContentSourceTitle") },
-    content: `<p>${game.i18n.localize("CAIRN.ContentSourcePrompt")}</p>`,
-    buttons,
+  const label = document.createElement("label");
+  label.className = "ab-creation-roll";
+  const box = document.createElement("input");
+  box.type = "checkbox";
+  box.name = "roll";
+  box.setAttribute("checked", ""); // an ATTRIBUTE, or the tick does not survive
+  const text = document.createElement("span");
+  text.textContent = game.i18n.localize("CAIRN.Blank.Roll");
+  label.append(box, text);
+  // `p.hint` is core's own muted class: DialogV2's form carries `standard-form`
+  // (dialog.mjs:207) and core styles `.standard-form .hint` (foundry2.css:5460),
+  // so this needs no CSS of ours — the same route createDialog's hint takes.
+  const hint = document.createElement("p");
+  hint.className = "hint";
+  hint.textContent = game.i18n.localize(spec.hint);
+  content.append(label, hint);
+
+  const picked = await foundry.applications.api.DialogV2.wait({
+    window: { title: game.i18n.localize(title ?? spec.title) },
+    content,
+    buttons: [
+      { action: "cancel", label: game.i18n.localize("CAIRN.Cancel") },
+      {
+        action: "create",
+        label: game.i18n.localize("CAIRN.Create"),
+        default: true,
+        callback: (event, button) => ({
+          blank: !button.form.elements.roll?.checked,
+          choice: button.form.elements.choice?.value ?? null,
+        }),
+      },
+    ],
+    // Only where the dropdown exists to serve the ROLL. A monster's tier picks
+    // nothing on an empty sheet, so it greys out; a character's content source
+    // still decides what the empty sheet SHOWS — Barebones has a Failed Career
+    // row where 2e has an Omen — so that one stays live.
+    render: lockChoiceWhenBlank
+      ? (event, dialog) => {
+        const roll = dialog.element.querySelector('input[name="roll"]');
+        const select = dialog.element.querySelector('select[name="choice"]');
+        if (!roll || !select) return;
+        const sync = () => { select.disabled = !roll.checked; };
+        roll.addEventListener("change", sync);
+        sync();
+      }
+      : undefined,
     rejectClose: false,
   });
-  // Dismissing the picker resolves null, and that is returned AS null: closing a
-  // chooser with ✕ is an explicit "not now", so nothing should be created.
-  //
-  // This used to default to the first source (2e) under the same "the Generate
-  // button never does nothing" rule that covers the no-sources-enabled case
-  // above. Those two are not the same case. Everything OFF is a configuration
-  // gap the Warden did not mean to create, so falling back is a kindness; a ✕ is
-  // an instruction. Conflating them meant cancelling the dialog silently made a
-  // 2e character (reported as issue #6), which is the more annoying of the two
-  // failures because it leaves a stray actor behind to delete.
-  return chosen ?? null;
+  // ✕ resolves null and Cancel resolves its own action string; both mean "not
+  // now", and nothing is created. Only the Create button's callback returns an
+  // object, so a truthy non-string is the one answer worth acting on.
+  return picked && picked !== "cancel" ? picked : null;
+};
+
+/**
+ * The character route's wrapper: the content-source dropdown only appears when
+ * a Warden has enabled more than one, exactly as the old picker did.
+ * @returns {Promise<{blank: Boolean, choice: String}|null>}
+ */
+const promptCharacterCreation = async () => {
+  const sources = enabledContentSources();
+  const answer = await promptCreation("character", sources.length > 1
+    ? {
+      choices: sources.map((s) => ({ value: s.key, label: s.label })),
+      choiceLabel: "CAIRN.ContentSourcePrompt",
+      // The edition question keeps its own heading, so a Warden who has both
+      // enabled sees the dialog they already know. Its PROMPT changed from
+      // "generated from" to "is": the dropdown now also decides what an EMPTY
+      // sheet shows, since Barebones has a Failed Career row where 2e has an
+      // Omen, so it must stay live and must stop naming generation.
+      title: "CAIRN.ContentSourceTitle",
+    }
+    : {});
+  if (!answer) return null;
+  return { blank: answer.blank, choice: answer.choice ?? resolveContentSource() };
+};
+
+/**
+ * The route every CREATION BUTTON takes: ask, then roll one or open an empty
+ * sheet. Both user-facing entry points call this and nothing else — the Create
+ * Actor switchboard (`actor.js`) and the Actor Directory's buttons
+ * (`cairn.js`) — so the dialog has exactly one definition and the two routes
+ * cannot drift apart.
+ *
+ * **The generators underneath stay NON-INTERACTIVE, and that separation is
+ * load-bearing rather than tidy.** `createCharacter`, `createNpc`,
+ * `createHireling` and `createMonster` roll one and return it, with no dialog
+ * anywhere. Twenty probe call sites across eleven files call them directly;
+ * putting the prompt inside them would have left every one of those waiting on
+ * a modal nobody was there to answer. A macro or a module calling them keeps
+ * working for the same reason.
+ *
+ * @param {"character"|"npc"|"hireling"|"monster"} kind
+ * @returns {Promise<CairnActor|null>} null = declined, and nothing is created
+ */
+export const createActorInteractive = async (kind, { folder = null } = {}) => {
+  if (kind === "character") {
+    const answer = await promptCharacterCreation();
+    if (!answer) return null;
+    return createCharacter({ folder, source: answer.choice, blank: answer.blank });
+  }
+  if (kind === "monster") {
+    // Imported here rather than at the top: monster-generator.js imports THIS
+    // module, so a static import back is a cycle — the same reason _preCreate
+    // and the switchboard reach for their generators dynamically.
+    const { promptMonsterCreation, createMonster } = await import("./monster-generator.js");
+    const answer = await promptMonsterCreation();
+    if (!answer) return null;
+    return answer.blank
+      ? createBlankActor("monster", { folder })
+      : createMonster({ folder, tier: answer.choice ?? "random" });
+  }
+  const answer = await promptCreation(kind);
+  if (!answer) return null;
+  if (answer.blank) return createBlankActor(kind, { folder });
+  return kind === "hireling" ? createHireling({ folder }) : createNpc({ folder });
+};
+
+/**
+ * An actor with nothing rolled: the sheet a Warden fills in by hand.
+ *
+ * Built here rather than through `characterToActorData`, which is private and
+ * dereferences `characterData.abilities.STR` unconditionally — it throws on a
+ * partial object, and giving it one would mean inventing a fake roll result to
+ * satisfy a mapper whose whole job is carrying roll results.
+ *
+ * Three deliberate choices, each of which reads as an oversight otherwise:
+ *
+ *  - **HP 3, abilities left alone.** The schema deals 10/10/10 and HP 6
+ *    (data-models.js `vitals`); the abilities keep theirs and Hit Protection is
+ *    overridden to 3 (user ruling). ZEROS were asked for first and reversed on
+ *    measurement: the sheet derives Dead from STR 0, Paralyzed from DEX 0 and
+ *    Delirious from WIL 0 (actor-sheet.js `_computeStatContext`), so an empty
+ *    character would have opened wearing all three banners at once — the same
+ *    state that function already documents for a crate.
+ *  - **Character Creation Mode ON**, against the 2026-08-02 "a sheet opens
+ *    quiet" default. That default is about a GENERATED character, which arrives
+ *    finished. This one is unfinished by definition, and the mode is the only
+ *    thing that renders the pickers — which are the entire point of the
+ *    feature, and the ONLY way in for a bond or a question answer, both of
+ *    which the sheet renders as read-only prose.
+ *  - **No portrait.** Every generator assigns a random pair on creation; here
+ *    the Warden is choosing everything else by hand, and the portrait picker is
+ *    already on the sheet because the mode is on.
+ *
+ * It writes no items and posts nothing to chat.
+ * @param {"character"|"npc"|"hireling"|"monster"} kind
+ * @returns {Promise<CairnActor|null>}
+ */
+export const createBlankActor = async (kind, { folder = null, ownership = null, source = null } = {}) => {
+  const spec = BLANK_KINDS[kind];
+  if (!spec) return null;
+  const data = {
+    name: game.i18n.localize(spec.name),
+    // `hireling` mints TYPE npc with ROLE hireling, like createHireling: the
+    // hireling TYPE is a registered alias kept only so existing documents keep
+    // their ids, and nothing new is ever created under it.
+    type: kind === "character" ? "character" : "npc",
+    system: { hp: { value: BLANK_HP, max: BLANK_HP }, generationEnabled: true },
+  };
+  if (kind === "character") data.system.contentSource = source ?? resolveContentSource();
+  else data.system.role = kind;
+  if (folder) data.folder = folder;
+  if (ownership) data.ownership = ownership;
+  // _preCreate supplies the rest: prototype-token sight, disposition and
+  // actorLink for a person, and the LIMITED ownership default for an npc.
+  return (await CairnActor.create(data)) ?? null;
 };
 
 /**
@@ -2110,10 +2333,11 @@ export const promptContentSource = async () => {
  * @returns {Promise<Object|null>}
  */
 export const generateCharacter = async (background = null, source = null) => {
-  const chosen = background?.system?.source ?? source ?? (await promptContentSource());
-  // Only reachable when the picker was dismissed or a player declined the
-  // roll-confirm — a background or an explicit source never yields null, so
-  // Regenerate cannot land here.
+  // No dialog here any more: the source question moved into promptCreation, so
+  // that it and the empty-sheet checkbox are asked once, together. Both callers
+  // pass a source (createCharacter from the dialog, regenerateActor from the
+  // actor), so the fallback is a safety net rather than a route.
+  const chosen = background?.system?.source ?? source ?? resolveContentSource();
   if (!chosen) return null;
   return chosen === "barebones"
     ? generateBarebonesCharacter(background)
@@ -3339,10 +3563,19 @@ export const prewarmGenerationPacks = async () => {
  * @param {boolean} [options.waitForDice=true]  the relay broker passes false —
  *   no sheet opens on the answering client, so a dice wait there only delays
  *   the pcGenerated answer; the player's client owns the glimpse.
+ * @param {String|null} [options.source]  omitted resolves to the enabled source
+ *   without asking. NOTHING here opens a dialog: the creation question belongs
+ *   to `createActorInteractive`, so a probe, a macro or the relay can roll a
+ *   character outright.
+ * @param {boolean} [options.blank=false]  open an empty sheet instead of
+ *   rolling. Set by the interactive wrapper, and carried over the wire by the
+ *   player relay so a Warden's client honours the checkbox the player ticked.
  * @returns {Promise<CairnActor|null>}
  */
-export const createCharacter = async ({ folder = null, ownership = null, source = null, roller = null, waitForDice = true } = {}) => {
-  const characterData = await generateCharacter(null, source);
+export const createCharacter = async ({ folder = null, ownership = null, source = null, blank = false, roller = null, waitForDice = true } = {}) => {
+  const chosenSource = source ?? resolveContentSource();
+  if (blank) return createBlankActor("character", { folder, ownership, source: chosenSource });
+  const characterData = await generateCharacter(null, chosenSource);
   const actor = await createActorWithCharacter(characterData, { folder, ownership });
   await postGenerationRolls(actor, characterData, roller, { waitForDice });
   return actor;

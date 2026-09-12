@@ -101,6 +101,7 @@
     "dev:role-migration": "node tools/dev/e2e-role-migration.mjs",
     "dev:bg-drop-guard": "node tools/dev/e2e-background-drop-guard.mjs",
     "dev:bg-drop-order": "node tools/dev/e2e-bg-drop-ordering.mjs",
+    "dev:blank-actor": "node tools/dev/e2e-blank-actor.mjs",
     "dev:token-defaults": "node tools/dev/e2e-token-defaults.mjs",
     "dev:bond-dupes": "node tools/dev/e2e-bond-duplicates.mjs",
     "dev:token-names": "node tools/dev/e2e-token-names.mjs",

@@ -1,7 +1,7 @@
 import { CairnActor } from "./actor/actor.js";
 import { Cairn } from "./config.js";
 import { compendiumInfoFromString, findCompendiumItem, resultText } from "./compendium.js";
-import { getGameIconManifest, customPoolFor } from "./character-generator.js";
+import { getGameIconManifest, customPoolFor, promptCreation } from "./character-generator.js";
 // Aliased: the tier config is locally `t` throughout generateMonster.
 import { t as tr } from "./i18n-content.js";
 
@@ -298,15 +298,46 @@ const randomMonsterIcon = async () => {
 };
 
 /**
- * The directory button's whole flow: ask the tier (dismiss = create nothing),
- * generate, create. The portrait doubles as the token texture — monsters have
- * no paired token art the way Aspeheim portraits do.
+ * The tier rows, as the creation dialog's dropdown. `promptMonsterTier`'s four
+ * BUTTONS survive for the regenerate path alone: there the dialog is a
+ * destructive confirm whose wording says what is about to be replaced, and it
+ * has no empty-sheet choice to offer. Creating is a different question, so it
+ * takes the shape every other creation route now has.
+ */
+const TIER_CHOICES = [
+  { value: "random", label: "CAIRN.MonsterGen.TierRandom", default: true },
+  { value: "standard", label: "CAIRN.MonsterGen.TierStandard" },
+  { value: "hardier", label: "CAIRN.MonsterGen.TierHardier" },
+  { value: "serious", label: "CAIRN.MonsterGen.TierSerious" },
+];
+
+/**
+ * The monster half of the creation dialog: the tier as a dropdown, plus the
+ * roll checkbox every creation route now carries. Called by
+ * `createActorInteractive`, which owns the dialog for all four kinds.
+ * @returns {Promise<{blank: Boolean, choice: String|null}|null>}
+ */
+export const promptMonsterCreation = () => promptCreation("monster", {
+  choices: TIER_CHOICES,
+  choiceLabel: "CAIRN.MonsterGen.TierPrompt",
+  // A tier chooses nothing on an empty sheet, so it greys out with the box.
+  lockChoiceWhenBlank: true,
+});
+
+/**
+ * Roll a monster and create it. NON-INTERACTIVE since 2026-09-11: it used to
+ * open the tier picker itself, and the picker moved out to
+ * `promptMonsterCreation` above when every creation route gained the
+ * empty-sheet checkbox. A caller that wants the dialog asks for it; a probe or
+ * a macro passes a tier and gets a monster.
+ *
+ * The portrait doubles as the token texture — monsters have no paired token art
+ * the way Aspeheim portraits do.
+ * @param {{folder?: Object|null, tier?: "standard"|"hardier"|"serious"|"random"}} [options]
  * @returns {Promise<CairnActor|null>}
  */
-export const createMonster = async ({ folder = null } = {}) => {
-  const choice = await promptMonsterTier();
-  if (!choice) return null;
-  const data = monsterToActorData(await generateMonster(choice));
+export const createMonster = async ({ folder = null, tier = "random" } = {}) => {
+  const data = monsterToActorData(await generateMonster(tier));
   const img = await randomMonsterIcon();
   data.img = img;
   data.prototypeToken.texture = { src: img };

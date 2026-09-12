@@ -107,16 +107,13 @@ await withSettings(page, async () => {
         await sleep(150);
       }
     };
-    /* createMonster opens the tier picker and waits on it, so the click has to
-     * happen while the promise is still in flight. "random" rather than a named
-     * tier: the tier decides nothing about art, and naming one would make this
-     * leg quietly depend on which buttons exist. */
+    /* createMonster is NON-INTERACTIVE since 2026-09-11: the tier picker moved
+     * out to promptMonsterCreation when every creation route gained the
+     * empty-sheet checkbox, so this passes a tier instead of racing a dialog.
+     * "random" rather than a named tier: the tier decides nothing about art,
+     * and naming one would make this leg quietly depend on the tier list. */
     const makeMonster = async (name) => {
-      const p = mg.createMonster();
-      const shown = await until(() => !!document.querySelector('dialog button[data-action="random"]'));
-      if (!shown) { out.errors.push("the tier dialog never opened"); return null; }
-      document.querySelector('dialog button[data-action="random"]').click();
-      const a = await p;
+      const a = await mg.createMonster({ tier: "random" });
       if (a) await a.update({ name });
       return a;
     };

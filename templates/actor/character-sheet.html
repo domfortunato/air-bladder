@@ -54,6 +54,17 @@
                 {{else}}
                 <input class="background-input" type="text" name="system.background" value="{{system.background}}"
                     placeholder="{{ localize 'CAIRN.Background' }}" />
+                {{! The die and the picker belong on THIS branch too (2026-09-11).
+                    They used to hang off the generated branch alone, so a
+                    character with no background stored had a text box and no way
+                    to reach the table — and typing a name grants nothing, because
+                    the gear rides changeBackground. That was invisible while every
+                    character arrived generated; an EMPTY sheet is nothing but this
+                    branch, and picking a background is the whole point of it. }}
+                {{#if generationEnabled}}
+                <a class="background-roll" data-action="rollBackground" data-tooltip="CAIRN.RollBackground" aria-label="{{ localize 'CAIRN.RollBackground' }}"><i class="fas fa-dice-d20"></i></a>
+                <a class="background-pick" data-action="pickBackground" data-tooltip="CAIRN.ChangeBackground" aria-label="{{ localize 'CAIRN.ChangeBackground' }}"><i class="fas fa-list-ul"></i></a>
+                {{/if}}
                 {{/if}}
                 {{#if system.contentSource}}
                 <span class="content-source-label">({{ localize 'CAIRN.Source' }} {{contentSourceLabel}})</span>

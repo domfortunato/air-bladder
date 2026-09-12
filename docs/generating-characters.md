@@ -1,17 +1,39 @@
 # Generating Characters
 
-Cairn characters are not built — they are dealt. Air Bladder gives you two ways
-to deal one, and one loop for making the result yours. There is deliberately no
-step-by-step "character builder": the dice hand you a person, and the choices
+Cairn characters are not built — they are dealt. Air Bladder gives you three
+ways to get one, and one loop for making the result yours. There is deliberately
+no step-by-step "character builder": the dice hand you a person, and the choices
 come after.
 
 ## Generate PC
 
-The **Generate PC** button sits above the Actors sidebar. One click
-rolls everything a Cairn 2e character starts with — abilities, Hit Protection,
-a background with its gear and questions, traits, age, and a bond — and opens
-the finished sheet. With more than one content source enabled (Custom 2e,
-Barebones), a picker asks which table to deal from first.
+The **Generate PC** button sits above the Actors sidebar. Clicking it asks one
+question, then rolls everything a Cairn 2e character starts with — abilities,
+Hit Protection, a background with its gear and questions, traits, age, and a
+bond — and opens the finished sheet. With more than one content source enabled
+(Custom 2e, Barebones), the same window asks which table to deal from.
+
+## Start from an empty sheet
+
+That question is a tick-box reading **Use random generation.** Leave it ticked
+and you get what you always got. Clear it and you get a character with nothing
+rolled: no background, no gear, no bonds, no traits, no age. Abilities start at
+10 and Hit Protection at 3, and you type over them.
+
+The same box sits on **Generate NPC**, **Generate Hireling** and **Generate
+Monster**, so any of the four can arrive empty.
+
+**This is not a character builder, and it is not the way to make a character.**
+It is for the table that rolls on paper. Deal your character with the book and
+your own dice, then open an empty sheet and put it in: type the numbers, and use
+the **pick-list buttons** for anything that comes off a table. Picking a
+background grants its gear exactly as rolling one would, which typing its name
+cannot do. An empty sheet arrives with **Character Creation Mode** already on so
+those buttons are there waiting; turn it off when you are finished and the sheet
+goes quiet.
+
+If you want a character and you do not have one already, roll it. That is the
+game.
 
 ## Import from Kettlewright
 
