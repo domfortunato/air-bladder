@@ -79,7 +79,11 @@ Warden's homebrew amulet can, and `tools/dev/e2e-data-model.mjs` now asserts it
 `numberOfUses`, `relic`, and `slots` on `item`/`weapon`/`armor`/`spellbook` **are**
 dead — verified individually, not as a group. They were stripped from the 381 pack
 YAML files that carried them (427 lines) so `build:packs` → `extract:packs` stays
-byte-stable; no importer re-adds them.
+byte-stable; no importer re-adds them. **That strip walked only the top level**, and
+so did `check:fields`: the 372 items embedded in the monster pack's actors carried
+`slots` and `numberOfUses` for two more months, dropped on load with nothing
+reporting it, until review #27 (2026-09-12) stripped them and taught the audit to
+recurse into `items[]`.
 
 ## The trap that nearly shipped
 
@@ -135,8 +139,9 @@ the next write with no error, no warning and no console output. Two new gates:
 - **`npm run check:fields`** (`tools/dev/field-audit.mjs`) — loads the real schemas
   under a stub `foundry` global and diffs them against every persisted `system.*`
   path: sheet `name=`/`target=` bindings attributed per sub-type, `"system.x"`
-  string literals in `module/`, and every `system` key in `src/packs`. Exits
-  non-zero on an undeclared path; lists pack fields that will be dropped.
+  string literals in `module/`, and every `system` key in `src/packs`, on the
+  top-level document AND on each embedded item. Exits non-zero on an undeclared
+  path; lists pack fields that will be dropped.
 - **`npm run dev:data-model`** (`tools/dev/e2e-data-model.mjs`) — drives the live
   world: generation on all 20 backgrounds, a field round-trip on all four Actor
   and all seven Item sub-types (reading **source** back, since derived data would

@@ -78,7 +78,7 @@ deleted. Full model in `docs/git-flow.md`; contributor-facing summary in
 ## Architecture
 
 Entry point `module/cairn.js`, registering document classes and sheets on `init`.
-~13,100 lines of hand-written JS across `module/` — 30,840 physical, but 57% of
+~13,100 lines of hand-written JS across `module/` — about 31,000 physical, but 57% of
 that is comment prose. This line said "~7,500" for weeks and was measuring
 nothing anybody had counted, then "~13,600" from a looser count than the
 string-aware one behind the figure now; `wc -l` is not the number, and the
@@ -1174,7 +1174,7 @@ not the other is a key nothing ever asks for. `npm run dev:journal-i18n` is
 what holds all of this honest: it imports the real extractor from Node, renders
 the real journals in Chromium, and asserts the two agree key for key.
 
-## Licensing — six regimes, and the traps
+## Licensing — seven regimes, and the traps
 
 **The inventory lives in `README.md` (canonical) and `LICENSE.txt`, and
 `check:licence` holds them in step.** It is not repeated here any more. This section

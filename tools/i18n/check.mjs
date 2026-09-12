@@ -351,6 +351,22 @@ for (const [file, re] of COVERAGE_SITES) {
   else if (Number(m[1]) !== pct) errors.push(`${file}: says ${m[1]}% translated; this gate says ${pct}% — publish the gate's number`);
 }
 
+/* ---- the PUBLISHED key count ---------------------------------------------
+ * docs/provenance.md states how many interface strings en.json holds, as part
+ * of the case for the official listing. It said 1,034 the day after en.json
+ * reached 1,045 (review #27). Same rule as the two figures above: anchored on
+ * the sentence, compared to the file, an ERROR when they disagree. Not gated
+ * on LANG: the count is the English file's, whichever translation is checked.
+ */
+const KEY_COUNT_SITES = [
+  ["docs/provenance.md", /`lang\/en\.json` \(([\d,]+) interface strings, /],
+];
+for (const [file, re] of KEY_COUNT_SITES) {
+  const m = fs.readFileSync(path.join(ROOT, file), "utf8").match(re);
+  if (!m) errors.push(`${file}: the en.json key-count sentence was not found - keep it, or move this gate's pattern with the reword`);
+  else if (Number(m[1].replace(/,/g, "")) !== enCount) errors.push(`${file}: says lang/en.json holds ${m[1]} interface strings; it holds ${enCount}`);
+}
+
 console.log(`\nlang/${LANG}.json vs lang/en.json`);
 console.log(`  translated  : ${translated}/${enCount}  (${pct}%)`);
 console.log(`  missing     : ${missing.length}${missing.length ? `   e.g. ${missing.slice(0, 5).join(", ")}` : ""}`);

@@ -2,7 +2,7 @@
 /**
  * LICENSE.txt must not shrink back to a bare MIT file.
  *
- * Air Bladder ships six licensing regimes, and until 2026-07-30 the root
+ * Air Bladder ships seven licensing regimes, and until 2026-07-30 the root
  * LICENSE.txt was 21 lines of unqualified MIT covering all of them — naming Yochai
  * Gal as a copyright holder OF THE SOFTWARE when his contribution is game text
  * under CC BY-SA, and purporting to grant sublicensing over Jon Aspeheim's CC BY
@@ -60,6 +60,11 @@ const readme = read("README.md");
 const LICENCES = [
   { name: "MIT", re: /\bMIT\b/ },
   { name: "CC BY-SA 4.0", re: /CC BY-SA 4\.0/ },
+  // Lydia Comer's galleries since 2026-09-07 (review #27: the relicence landed and
+  // this list did not follow it, so a reword dropping the NC term would have
+  // passed check 2 green -- the one term that decides whether the system may
+  // ever go paid). The CC BY-SA pattern above does NOT match "CC BY-NC-SA 4.0".
+  { name: "CC BY-NC-SA 4.0", re: /CC BY-NC-SA 4\.0/ },
   { name: "CC BY 4.0", re: /CC BY 4\.0/ },
   { name: "CC BY 3.0", re: /CC BY 3\.0/ },
   { name: "OFL 1.1", re: /OFL 1\.1|Open Font License,? Version 1\.1|Open Font License 1\.1/ },
@@ -73,7 +78,7 @@ console.log("\nLICENSE.txt vs README.md");
 const firstLine = licence.split("\n").find((l) => l.trim() !== "")?.trim() ?? "";
 if (/^(MIT|Apache|BSD|GNU|ISC|The MIT)\b/i.test(firstLine)) {
   fail(`LICENSE.txt opens with "${firstLine}" — it reads as a single-licence file. `
-    + "Six regimes ship here and MIT covers the code only; see README.md.");
+    + "Seven regimes ship here and MIT covers the code only; see README.md.");
 } else {
   ok(`LICENSE.txt opens as a multi-licence notice ("${firstLine}")`);
 }
@@ -379,7 +384,7 @@ if (statedArtists === undefined) {
 
 /* --- 6. the Lydia Comer galleries are PAIRED, and stated at their true size - */
 
-// TWO SETS since 2026-09-05 (CC BY 4.0, both; the logo beside them stays the
+// TWO SETS since 2026-09-05 (CC BY-NC-SA 4.0 since 2026-09-07, both; the logo beside them stays the
 // all-rights-reserved grant): `characters` in portraits/ + tokens/, `monsters`
 // in portraits-monsters/ + tokens-monsters/. The thing to hold is that the
 // shipped tree still matches what the manifest and the notices claim, because

@@ -85,8 +85,9 @@ It'll take a moment longer than usual the first time while it migrates.
 
 ## How to tell you're actually on dev
 
-**The version number won't help you** — dev and the current release both say
-`0.1.17`. To be sure, run this in the system folder:
+**The version number won't help you** — `system.json` on dev carries the last
+release's number until the next release is cut, so dev and the current release
+say the same thing. To be sure, run this in the system folder:
 
 ```sh
 cd <your Data folder>/systems/air-bladder

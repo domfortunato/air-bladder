@@ -230,17 +230,26 @@ for (const file of walk(at("module"), ".js")) {
 // Shipped pack data: a field the schema forgets is silently stripped from the
 // document on load, so authored content would quietly lose it.
 const packDrops = new Map();
+const auditSystem = (type, system, where) => {
+  if (!declared[type] || typeof system !== "object" || !system) return;
+  for (const key of Object.keys(system)) {
+    if (!declared[type].has(key)) {
+      const k = `${where}${type}.${key}`;
+      packDrops.set(k, (packDrops.get(k) ?? 0) + 1);
+    }
+  }
+};
 for (const file of walk(at("src", "packs"), ".yml")) {
   let doc;
   try { doc = yaml.load(readFile(file)); } catch { continue; }
   if (!doc || typeof doc !== "object") continue;
-  const type = doc.type;
-  if (!declared[type] || typeof doc.system !== "object" || !doc.system) continue;
-  for (const key of Object.keys(doc.system)) {
-    if (!declared[type].has(key)) {
-      const k = `${type}.${key}`;
-      packDrops.set(k, (packDrops.get(k) ?? 0) + 1);
-    }
+  auditSystem(doc.type, doc.system, "");
+  // An actor's embedded items are dropped on load by the SAME rule, and this
+  // walk read only the top level until review #27 (2026-09-12), which is how
+  // 372 dead `slots`/`numberOfUses` keys sat on the monster pack's items for
+  // two months while docs/data-model-migration.md said the strip was complete.
+  for (const it of Array.isArray(doc.items) ? doc.items : []) {
+    auditSystem(it?.type, it?.system, "items[].");
   }
 }
 

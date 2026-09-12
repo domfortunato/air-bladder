@@ -1,6 +1,6 @@
 # Who made what
 
-Air Bladder mixes work by several people under six licensing regimes, and it
+Air Bladder mixes work by several people under seven licensing regimes, and it
 was built with AI assistance. This document says, per category, **who authored
 what and how** — the question Foundry's content policy asks of a package, and a
 question the licence files answer only halfway. `README.md` and `LICENSE.txt`
@@ -107,7 +107,7 @@ cairnrpg.com rather than from Cairn 2e core. A gate that silently skipped those
 would be worth nothing here.
 
 **3. Inherited from the predecessor system.** `src/packs/monsters/` (205
-documents) and `src/packs/more-spellbooks/` (216) came from
+documents) and `src/packs/more-spellbooks/` (216; the pack has grown by one since) came from
 `yochaigal/Cairn-FoundryVTT` at this project's first commit. Filenames **and
 document ids** are identical to it, 205 for 205. The bestiary text is Cairn's
 own, by its own author.
@@ -117,7 +117,7 @@ own, by its own author.
 `background-archetypes.csv` — declared as "ours, not upstream's" in the
 importer ledger, because the SRD price list is names and numbers with no
 flavour. Also the hand-tended gear pool, the interface strings in
-`lang/en.json` (1,034 interface strings), the Warden guides in `docs/`, both READMEs, and the
+`lang/en.json` (1,045 interface strings, a count `npm run i18n:check` holds to the file), the Warden guides in `docs/`, both READMEs, and the
 listing description.
 
 **Translations.** `lang/es.json` and `lang/content/es.json` are by

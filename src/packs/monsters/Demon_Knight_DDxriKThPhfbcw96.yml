@@ -35,9 +35,7 @@ items:
         value: 0
         max: 0
       quantity: 1
-      slots: 2
       armor: null
-      numberOfUses: 0
     folder: null
     ownership:
       default: 0
@@ -72,9 +70,7 @@ items:
         value: 0
         max: 0
       quantity: 1
-      slots: 2
       armor: 3
-      numberOfUses: 0
     folder: null
     ownership:
       default: 0
@@ -111,9 +107,7 @@ items:
         value: 0
         max: 0
       quantity: 1
-      slots: 1
       armor: 0
-      numberOfUses: 0
     folder: null
     ownership:
       default: 0

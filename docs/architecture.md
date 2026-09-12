@@ -41,15 +41,18 @@ and a set of feature files that mostly do not know about each other.
 
 | | |
 |---|---|
-| `module/`, physical lines | **30,840** |
+| `module/`, physical lines | **~31,000** |
 | `module/`, code lines | **~13,100** |
 | Comment and blank share | **~57%** |
 | JavaScript files | 36 |
-| Handlebars templates | 21 files, 3,144 lines |
-| Stylesheet | 1 file, 4,454 lines |
-| Compendium source documents | 1,355 YAML files across 30 packs |
+| Handlebars templates | 21 files, ~3,200 lines |
+| Stylesheet | 1 file, ~4,500 lines |
+| Compendium source documents | ~1,350 YAML files across 30 packs |
 | Interface translations | 7 languages, plus 1 content overlay |
 | Development tooling | ~59,800 lines, none of it shipped to a browser |
+
+Rounded on purpose, measured 2026-09-12. An exact line count in prose drifts with
+every commit, and this table did, the day after it was written (review #27).
 
 **Do not size a job here with `wc -l`.** More than half of `module/` is prose.
 `connections.js` is 237 physical lines of which 67 are code; `compendium.js` is
