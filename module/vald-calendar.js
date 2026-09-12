@@ -294,7 +294,11 @@ class ValdCalendarApp extends foundry.applications.api.HandlebarsApplicationMixi
       // The weather belongs to TODAY and to no other day. A calendar that
       // showed "the weather" beside a day three weeks out would be claiming
       // something nobody has said.
-      weather: isToday ? todayWeather() : "",
+      // Through the overlay, as the clock and the band do (review #26). The
+      // "Set the Weather…" field above deliberately does NOT: that one is an
+      // editor bound to the stored value, and translating it would write the
+      // translation back over the English the overlay is keyed on.
+      weather: isToday ? t("table.result", todayWeather()) : "",
       weatherUnknown: isToday && !todayWeather(),
     };
   }

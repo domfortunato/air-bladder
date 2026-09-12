@@ -1,4 +1,5 @@
 import { SETTINGS_NS } from "./settings.js";
+import { t } from "./i18n-content.js";
 
 /**
  * Keeping time: Cairn's watches, and Vald's calendar.
@@ -482,7 +483,16 @@ export const describeTime = () => {
     ? game.i18n.format("CAIRN.Time.SeasonOf", { season: nameOf(season) })
     : "";
   const long = formatValdDate(components);
-  const weather = todayWeather();
+  // THROUGH THE OVERLAY (review #26). The stored value is the drawn row's
+  // ENGLISH, which is right — the overlay is keyed on English and the log is a
+  // record — but this is a RENDERED surface, and the chat card core posts from
+  // the very same click IS swept per viewer by `localizeTableResults`. So a
+  // Spanish player read the translated row in the card and the English string
+  // in the clock beside it, at the same time, until the day turned over.
+  // `t()` returns an unknown string unchanged, so weather a Warden simply TYPED
+  // passes through untouched — which is why the fix belongs at the read and
+  // never at the write.
+  const weather = t("table.result", todayWeather());
   return {
     vald: true,
     watch,

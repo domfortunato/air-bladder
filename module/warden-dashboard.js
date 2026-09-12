@@ -27,6 +27,7 @@
  */
 
 import { findTableByName } from "./compendium.js";
+import { cleanDescription } from "./utils.js";
 import { t } from "./i18n-content.js";
 import { openWardenDamage } from "./warden-damage.js";
 import {
@@ -35,6 +36,12 @@ import {
   SEASON_ICONS, seasonIconFor, currentSeason, setTodayWeather,
 } from "./game-time.js";
 import { openValdCalendar, valdCalendarAvailable, promptSetWeather } from "./vald-calendar.js";
+
+/** Flag namespace and the two card flags, both rebuilt per viewer — see
+ *  `localizeDashboardCard`. */
+const SCOPE = "air-bladder";
+const SET_CARD_FLAG = "dashboardSet";
+const SHOWN_CARD_FLAG = "dashboardShown";
 
 /* -------------------------------------------- */
 /*  What each tab holds                         */
@@ -446,9 +453,18 @@ const postSetDraw = async (labelKey, names, messageMode) => {
     // `.table-results li` — core's markup, which this card does not have. So a
     // combined draw read English on a Spanish client while the same table
     // rolled from the button beside it read Spanish.
-    const raw = t("table.result", result.type === "text" ? result.description : result.name);
+    const source = result.type === "text" ? result.description : result.name;
+    const raw = t("table.result", source);
     rows.push({
       label: t("table.name", table.name),
+      // The ENGLISH source travels in the flag, never the rendered HTML
+      // (review #26). Two reasons and both matter: the overlay is keyed on
+      // English, so a viewer can only translate what it is given in English;
+      // and a flag is client-authored and never server-sanitized, so storing
+      // enriched markup for a later `innerHTML` would be review #24's class
+      // exactly. Each viewer cleans, translates and enriches it themselves.
+      source,
+      tableName: table.name,
       value: await foundry.applications.ux.TextEditor.implementation.enrichHTML(raw, {
         relativeTo: result,
         secrets: false,
@@ -477,6 +493,21 @@ const postSetDraw = async (labelKey, names, messageMode) => {
   ${body}
 </div>`,
     speaker: { alias: game.i18n.localize("CAIRN.Dashboard.Title") },
+    // REBUILT PER VIEWER off this flag (review #26). The rows above already go
+    // through the overlay, which fixed the AUTHOR's copy and nothing else: the
+    // content is STORED, so a Spanish player still read the Warden's English.
+    // The precedent is the generation, save and GLOG cast cards. `label` is a
+    // table NAME (overlay namespace) and `value` is already-enriched HTML the
+    // server sanitized on write; the title is a UI key. Nothing here is
+    // player-authored, and every field is re-escaped on rebuild anyway.
+    flags: {
+      [SCOPE]: {
+        [SET_CARD_FLAG]: {
+          labelKey,
+          rows: rows.map((r) => ({ tableName: r.tableName, source: r.source })),
+        },
+      },
+    },
   };
   return ChatMessage.create(ChatMessage.applyMode(chatData, messageMode));
 };
@@ -641,6 +672,69 @@ class ShownTableView extends foundry.applications.api.ApplicationV2 {
  *
  * @param {string} uuid  a RollTable uuid — world or compendium
  */
+/**
+ * Rebuild the Dashboard's two hand-built chat cards in THIS viewer's language.
+ *
+ * Both are composed HTML rather than core's table card, so the stored content
+ * is whatever language the Warden's client was running. Review #25 routed
+ * their rows through the content overlay, which fixed the author's own copy
+ * and left every other reader exactly where they were — the divergence moved
+ * onto the players rather than going away. Same treatment as the generation,
+ * save and GLOG cast cards: the flag carries data, the render carries language.
+ *
+ * The SENDER line is rebuilt too. "The Warden's Dashboard" is a UI key stored
+ * as an alias by the composing client, so it was English above a body that had
+ * just been translated.
+ *
+ * The reveal card is ASYNC because it re-renders from the live document, and
+ * it is deliberately not awaited by the hook — same footing as the encounter
+ * button, and a rejection is caught rather than left to escape the hook's
+ * synchronous try/catch naming nothing.
+ *
+ * @param {ChatMessage} message
+ * @param {HTMLElement} html
+ */
+export const localizeDashboardCard = (message, html) => {
+  const relabelSender = () => {
+    const sender = html.querySelector(".message-sender");
+    if (sender) sender.textContent = game.i18n.localize("CAIRN.Dashboard.Title");
+  };
+
+  const set = message.getFlag(SCOPE, SET_CARD_FLAG);
+  if (set?.rows?.length) {
+    relabelSender();
+    const esc = (s) => foundry.utils.escapeHTML(String(s ?? ""));
+    (async () => {
+      const enrich = foundry.applications.ux.TextEditor.implementation.enrichHTML;
+      const parts = [];
+      for (const r of set.rows) {
+        // cleanDescription BEFORE enriching: the flag is client-authored and
+        // the server never sanitizes one, so this is the coercion review #24
+        // made a standing rule. `relativeTo` is deliberately absent — the
+        // TableResult the row came from is not resolved here, and an @UUID in
+        // the text still enriches without it.
+        const text = await enrich(cleanDescription(t("table.result", r.source)), { secrets: false });
+        parts.push(`<div class="cairn-set-row"><strong>${esc(t("table.name", r.tableName))}</strong>: ${text}</div>`);
+      }
+      const card = html.querySelector(".cairn-dashboard-set");
+      if (card) {
+        card.innerHTML = `<div class="cairn-set-title">${esc(game.i18n.localize(set.labelKey))}</div>\n${parts.join("\n")}`;
+      }
+    })().catch((err) => console.error("Air Bladder | combined-draw card rebuild failed", err));
+    return;
+  }
+
+  const uuid = message.getFlag(SCOPE, SHOWN_CARD_FLAG);
+  if (!uuid) return;
+  relabelSender();
+  (async () => {
+    const table = await fromUuid(uuid);
+    if (!table) return; // a deleted table keeps the card it was posted with
+    const card = html.querySelector(".cairn-shown-table");
+    if (card) card.outerHTML = await renderTableRows(table);
+  })().catch((err) => console.error("Air Bladder | shown-table card rebuild failed", err));
+};
+
 export const openShownTable = async (uuid) => {
   // Resolve on the RECEIVING client, always. Nothing renderable travels in the
   // message, so a crafted emit can at worst name a table that already exists.
@@ -677,6 +771,14 @@ const showTableToPlayers = async (name) => {
   const card = await ChatMessage.create({
     content: await renderTableRows(table),
     speaker: { alias: game.i18n.localize("CAIRN.Dashboard.Title") },
+    // A BARE UUID, exactly like the socket payload beside it, and rebuilt per
+    // viewer by `localizeDashboardCard` (review #26). The popup already reads
+    // in each client's own language because every client renders it from the
+    // real document; the CARD did not, because its content is stored. One
+    // gesture therefore put the Spanish popup and the English card on a
+    // player's screen at once — the failure review #25's own commit named and
+    // then fixed only for the author.
+    flags: { [SCOPE]: { [SHOWN_CARD_FLAG]: table.uuid } },
   });
   ui.notifications.info(game.i18n.format("CAIRN.Notify.DashboardShown", { name: labelForTable(table.name) }));
   return card;

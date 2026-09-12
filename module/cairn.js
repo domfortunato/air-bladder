@@ -16,7 +16,7 @@ import { handleOfferSocket, bindOfferCard } from "./item-offer.js";
 import { createCairnMacro, rollItemMacro } from "./macros.js";
 import { Damage, DAMAGE_APPLIED_FLAG, DAMAGE_SOURCE_FLAG } from "./damage.js";
 import { registerWardenDamageControl } from "./warden-damage.js";
-import { registerWardenDashboardControl, refreshDashboardTime } from "./warden-dashboard.js";
+import { registerWardenDashboardControl, refreshDashboardTime, localizeDashboardCard } from "./warden-dashboard.js";
 import { installWorldCalendar, checkWorldCalendar } from "./game-time.js";
 import { renderWatchClock, refreshWatchClock } from "./watch-clock.js";
 import { refreshValdCalendar } from "./vald-calendar.js";
@@ -3177,6 +3177,12 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   // content is the composer's, and on the player-request relay the composer is
   // the Warden's client (review #18).
   localizeGenerationCard(message, html);
+
+  // The Dashboard's two hand-built cards, the same way (module/warden-dashboard.js):
+  // the reveal card rebuilt from a bare table uuid, the combined draw from the
+  // ENGLISH sources in its flag. Both were composed once on the Warden's client
+  // and stored, so review #25's overlay fix reached the author and nobody else.
+  localizeDashboardCard(message, html);
 
   // Roll Str Save.
   //

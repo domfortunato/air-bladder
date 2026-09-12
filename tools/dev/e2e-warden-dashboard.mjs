@@ -721,6 +721,80 @@ try {
     ? ok("...and the Warden's own popup opened")
     : fail("...and the Warden's own popup opened", "no cairn-shown-table window");
 
+  /* ---- 7b. THE CARD READS IN THE VIEWER'S LANGUAGE (review #26) ---------
+   * Both dashboard cards are composed HTML, so their content is stored in
+   * whatever language the composing client was running. Review #25 routed the
+   * rows through the overlay, which fixed the AUTHOR's copy and moved the
+   * divergence onto everybody else: the reveal popup renders per client and
+   * read Spanish while the card beside it stayed English.
+   *
+   * Measured by installing an overlay AFTER the card is posted and
+   * re-rendering it — which is exactly the situation of a second client in
+   * another language, without needing one. The card is posted above with no
+   * overlay, so the stored content is English by construction.
+   * -------------------------------------------------------------------- */
+  const perViewer = await page.evaluate(async () => {
+    const i18n = await import("/systems/air-bladder/module/i18n-content.js");
+    const msg = game.messages.contents.reverse()
+      .find((m) => foundry.utils.getProperty(m.flags ?? {}, "air-bladder.dashboardShown"));
+    if (!msg) return { error: "the reveal card carries no uuid flag — nothing to rebuild from" };
+    const uuid = foundry.utils.getProperty(msg.flags, "air-bladder.dashboardShown");
+    const table = await fromUuid(uuid);
+    if (!table) return { error: `the flag's uuid does not resolve: ${uuid}` };
+    const firstRow = table.results.contents[0];
+    const EN = firstRow.type === "text" ? firstRow.description : firstRow.name;
+    const ES = "ZZ-TRANSLATED-ROW";
+    const before = msg.content.includes(ES);
+    try {
+      // The overlay's own key shape: whitespace collapsed and trimmed, NOT
+      // lowercased (i18n-content.js `normalizeKey`).
+      i18n._setOverlay({ "table.result": { [String(EN).replace(/\s+/g, " ").trim()]: ES } });
+      // `ui.chat.updateMessage`, not `ui.chat.render(true)`. The latter does
+      // NOT rebuild an already-rendered message's element, so the leg reported
+      // "still English" against a working fix — the probe was wrong, not the
+      // code. `updateMessage` re-runs `ChatMessage#renderHTML`, which is what
+      // fires `renderChatMessageHTML` (chat-message.mjs:393), so this is a
+      // fresh client's render of that one card.
+      await ui.chat.updateMessage(msg);
+      await new Promise((r) => setTimeout(r, 900));
+      const el = document.querySelector(`[data-message-id="${msg.id}"]`);
+      return {
+        storedEnglish: !before,
+        renderedTranslated: !!el && el.textContent.includes(ES),
+        storedStillEnglish: !msg.content.includes(ES),
+      };
+    } finally {
+      i18n._setOverlay(null);
+      await ui.chat.updateMessage(msg);
+      // CLOSE THE REVEAL POPUP the leg above left open. Two shown-table
+      // windows then overlap on screen, and the wheel leg further down aims a
+      // REAL mouse gesture at one of them by rect — so whichever window is on
+      // top eats the wheel. That leg reported "the wheel moved nothing" on
+      // correct builds whenever timing shifted, which is a race, not a flake.
+      // Its own comment already records being bitten by the same leftover
+      // window through a DOM selector; this is the same leftover reaching it
+      // through the cursor.
+      for (const app of foundry.applications.instances.values()) {
+        if (app.id?.startsWith("cairn-shown-table-")) await app.close();
+      }
+      await new Promise((r) => setTimeout(r, 300));
+    }
+  });
+  if (perViewer.error) {
+    fail("the reveal card can be rebuilt per viewer", perViewer.error);
+  } else {
+    perViewer.storedEnglish
+      ? ok("the reveal card is STORED in the composer's language")
+      : fail("the reveal card is STORED in the composer's language", "already translated before the overlay");
+    perViewer.renderedTranslated
+      ? ok("...and re-renders in THIS viewer's language off its uuid flag")
+      : fail("...and re-renders in THIS viewer's language",
+        "the card still read English with an overlay installed — stored content, not rebuilt");
+    perViewer.storedStillEnglish
+      ? ok("...without writing the translation back to the message")
+      : fail("...without writing the translation back", "the stored content changed");
+  }
+
   /* ---- 8. a generator ASKS FIRST, then mints exactly one document ------
    * This leg used to click and count. It passed for a fortnight while the
    * dashboard was calling the raw generators, which had stopped opening any

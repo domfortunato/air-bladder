@@ -277,7 +277,11 @@ export const promptOfferTarget = async (giver, item) => {
     }
   }
 
-  const body = game.i18n.format("CAIRN.Offer.PickerBody", { item: esc(itemName), giver: esc(giver.name) });
+  // `actorDisplayName`, never the stored name (review #26). The rows four
+  // lines above already go through it, so a Spanish client read "Mule" in this
+  // sentence and "Mula" in the list directly beneath it — one dialog, two
+  // names, built by the same function.
+  const body = game.i18n.format("CAIRN.Offer.PickerBody", { item: esc(itemName), giver: esc(actorDisplayName(giver)) });
   return new Promise((resolve) => {
     let done = false;
     const finish = (v) => { if (!done) { done = true; resolve(v); } };
@@ -530,7 +534,13 @@ const onAcceptClick = async (message) => {
     return;
   }
   if (!(game.user.isGM || target.testUserPermission(game.user, "OWNER"))) {
-    ui.notifications.warn("CAIRN.Notify.OfferNotYours", { format: { target: target.name } });
+    // `names.target`, computed three lines up and unused on this branch until
+    // review #26. It matters twice: the overlay, and the MASK. This line is
+    // reached only by someone who is neither the Warden nor an owner — exactly
+    // the reader `offerNames` hides a target from — so printing the stored name
+    // here handed back the name of an actor the card had just refused to show
+    // them.
+    ui.notifications.warn("CAIRN.Notify.OfferNotYours", { format: { target: names.target } });
     return;
   }
   // What happens if this lands? ONE test, shared with the drop handler, so an
@@ -583,7 +593,9 @@ const onDeclineClick = async (message) => {
   }
   const target = foundry.utils.fromUuidSync(offer.targetActorUuid);
   if (!(game.user.isGM || (target && target.testUserPermission(game.user, "OWNER")))) {
-    ui.notifications.warn("CAIRN.Notify.OfferNotYours", { format: { target: target?.name ?? "?" } });
+    // Through offerNames, for the overlay and the mask both — see the twin of
+    // this refusal in onAcceptClick.
+    ui.notifications.warn("CAIRN.Notify.OfferNotYours", { format: { target: offerNames(message, offer).target } });
     return;
   }
   if (game.user.isGM || message.isAuthor) {
@@ -725,7 +737,12 @@ export const handleOfferSocket = async (msg, senderId) => {
     }
     if (msg.action === "offerDecline") {
       await message.setFlag(SCOPE, FLAG, { state: "declined" });
-      ui.notifications.info("CAIRN.Notify.OfferDeclinedBy", { format: { target: target.name, item: t("item.name", offer.item?.name ?? "?") } });
+      // The item on this line already went through the overlay and the actor
+      // did not, which is how one sentence carried a translated item and an
+      // untranslated owner (review #26). This runs on the GIVER's client, who
+      // can see the target by construction, so the mask is not in play here —
+      // only the overlay.
+      ui.notifications.info("CAIRN.Notify.OfferDeclinedBy", { format: { target: actorDisplayName(target), item: t("item.name", offer.item?.name ?? "?") } });
       return;
     }
     offersInFlight.set(message.id, senderId);
