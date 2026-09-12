@@ -79,8 +79,12 @@ try {
   stage("character regenerate fires createItem hooks");
   const charRegen = await page.evaluate(async () => {
     const cg = game.cairn.characterGenerator;
-    // Source passed explicitly: a bare generateCharacter() falls through to the
-    // content-source dialog and hangs a headless page forever.
+    // Source passed explicitly. It USED to be load-bearing: a bare
+    // generateCharacter() fell through to the content-source dialog and hung a
+    // headless page forever. Since 2026-09-11 the generators open no dialog at
+    // all — twenty call sites like this one are exactly why the prompt moved
+    // out to one wrapper — so this now pins the edition rather than dodging a
+    // modal.
     const actor = await cg.createActorWithCharacter(await cg.generateCharacter(null, "2e"));
     await actor.update({ name: "ZZ Lifecycle Char" });
     let hooks = 0;

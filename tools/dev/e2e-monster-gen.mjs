@@ -237,13 +237,19 @@ try {
       fail("no tier picker appeared — nothing below can run");
       return;
     }
-    const tierButtons = await Promise.all(
-      ["standard", "hardier", "serious", "random"].map((t) =>
-        picker.locator(`button[data-action="${t}"]`).count()),
-    );
-    tierButtons.every((n) => n === 1)
-      ? ok("all four tier buttons render (standard/hardier/serious/random)")
-      : fail(`tier buttons found: ${JSON.stringify(tierButtons)}`);
+    // A DROPDOWN since 2026-09-11, not four buttons. The empty-sheet feature
+    // folded the tier into the shared creation dialog, so `promptMonsterTier`'s
+    // `data-action="standard"` buttons are gone from this route and the leg had
+    // been red ever since without anyone running it (review #26). The four
+    // tiers are OPTIONS now, and the roll checkbox rides alongside them.
+    const tierOptions = await picker.locator('select[name="choice"] option')
+      .evaluateAll((els) => els.map((e) => e.value));
+    ["standard", "hardier", "serious", "random"].every((t) => tierOptions.includes(t))
+      ? ok("all four tiers are offered (standard/hardier/serious/random)")
+      : fail(`tier options found: ${JSON.stringify(tierOptions)}`);
+    (await picker.locator('input[name="roll"]').count()) === 1
+      ? ok("...alongside the empty-sheet checkbox")
+      : fail("the monster dialog carries no empty-sheet checkbox");
 
     await picker.locator('[data-action="close"]').click();
     await page.waitForTimeout(3000);
@@ -258,7 +264,8 @@ try {
     await page.evaluate(() => document.querySelector(".create-monster-button").click());
     const picker2 = page.locator(DIALOG).last();
     await picker2.waitFor({ state: "visible", timeout: 5000 });
-    await picker2.locator('button[data-action="standard"]').click();
+    await picker2.locator('select[name="choice"]').selectOption("standard");
+    await picker2.locator('button[data-action="create"]').click();
 
     let born = null;
     for (let i = 0; i < 30 && !born; i++) {

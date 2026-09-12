@@ -44,12 +44,16 @@ try {
     const manifest = { count: m.names.length, portraitDir: m.portraitDir, tokenDir: m.tokenDir };
 
     // 2. Generate a character and inspect the assigned art.
-    // Pass the source EXPLICITLY. A bare generateCharacter() falls through to
-    // promptContentSource(), a DialogV2.wait() that blocks until a human
-    // answers — inside page.evaluate that never returns, and the renderer is
-    // eventually killed with "Target crashed" rather than anything naming a
-    // dialog. Only bites when >1 content source is enabled, which is why it
-    // looked like an intermittent hang.
+    // Pass the source EXPLICITLY. This once dodged a hang: a bare
+    // generateCharacter() fell through to promptContentSource(), a
+    // DialogV2.wait() that blocks until a human answers, so inside
+    // page.evaluate it never returned and the renderer was killed with "Target
+    // crashed" rather than anything naming a dialog. It only bit with >1
+    // content source enabled, which is why it looked intermittent. That whole
+    // class went on 2026-09-11, when the prompt moved out to
+    // `createActorInteractive` and the four generators became non-interactive
+    // — this hazard, across twenty call sites, is why. Kept because pinning the
+    // edition is worth doing for its own sake.
     //
     // The custom-portrait list read is SHADOWED across this create, so these
     // legs test the SHIPPED default instead of the Warden's own folder. A
