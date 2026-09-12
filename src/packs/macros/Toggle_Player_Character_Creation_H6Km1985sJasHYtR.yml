@@ -6,7 +6,7 @@ img: icons/svg/dice-target.svg
 scope: global
 command: |-
   // Flip the Warden's switch for the player-facing character-creation
-  // buttons in the Actors sidebar — Generate PC AND Import from Kettlewright
+  // buttons in the Actors sidebar — Create PC AND Import from Kettlewright
   // (the allow-player-generate world setting; one switch, one trust
   // decision: may players mint their own characters). Connected players'
   // directories update live — no reload. Warden-only: the server refuses a

@@ -489,6 +489,21 @@ companion record of who authored what.
     a fresh log on every write, twelve `dev:vald-time` legs red in the green
     phase of the red-first batch, which is the batch earning its keep. Measure
     a field before trusting a reviewer's name for it.
+    **AND A DANGLING ID IS "UNKNOWN", NOT "A PLAYER" (2026-09-12, review
+    #28).** `lastModifiedBy` is a bare user id that nothing sweeps when the
+    User is deleted, so `game.users.get()` missed and the guard answered FALSE
+    for a journal that genuinely is ours: delete the GM account that last
+    wrote the Calendar Events journal — an ordinary way to hand a world over
+    or reset a lost login — and every Warden event vanished from the grid
+    while the entry sat in the sidebar full of pages, with the next "Add an
+    event…" starting a SECOND one. Demoting that account did it too, and the
+    weather log had the same shape. Renamed `isWardenJournal`, because
+    `lastWrittenByWarden` described only its first line: an unresolvable
+    writer now falls back to the property this docblock already leaned on,
+    asked of the DOCUMENT — ours admit no player's write, so a decoy is still
+    refused (a TRUSTED player who makes a journal lands OWNER by an explicit
+    entry) while ours survive the account that wrote them. `dev:vald-time`
+    holds the whole truth table, and its control is the old one-liner.
     Two smaller things from the same review: a page's visibility is its
     ENTRY's ownership, so the calendar's refresh list carries
     `updateJournalEntry` — raising the hidden journal through core's ownership
@@ -500,6 +515,17 @@ companion record of who authored what.
     Enter three times on Advance Watch advanced one watch and stranded the
     focus on `<body>`, which made the template's "reachable from the keyboard"
     line a lie.
+    **THAT FIX REACHED FIVE BUTTONS OF 101, and the template said otherwise
+    for a day (review #28, measured on the running world).** `_whileDisabled`
+    restored focus only `if (button.id)`, and only the five clock buttons had
+    one — so Enter on any of the other ninety-six fired once and dropped focus
+    to `<body>`. Two different reasons, and both are fixed: the six controls
+    BELOW the clock in the time band (calendar, the weather pair, set weather,
+    the event pair) needed ids, because their part really is replaced under
+    them; the body's ninety-odd needed none, because nothing re-renders and
+    the node in hand is still live — the `&& button.id` term was what
+    suppressed them. It asks `button.isConnected` first now and falls back to
+    the id.
   - **A PROBE THAT SHADOWS `game.settings.get` MUST FORWARD EVERY ARGUMENT.**
     `#setWorld` asks `this.get(ns, key, {document: true})` for the Setting
     DOCUMENT (client-settings.mjs:294); a two-argument shadow hands it a plain
@@ -907,6 +933,14 @@ will bite:
   beside it, which uses `prompt`. `promptCreation` states 400 now and a long
   hint wraps. Reach for `wait` whenever a dialog needs two named buttons, and
   state the width in the same breath.
+  **THAT WAS ONE SITE OF FIVE, and review #28 measured the other four**: Set
+  the Weather (`vald-calendar.js`), Set the Date (`warden-dashboard.js`), Add
+  an event (`calendar-events.js`) and the monster tier prompt
+  (`monster-generator.js`). Set the Date opened at **589px beside the 640px
+  window that launched it** off a 92-character hint, and the two 131-character
+  ones were wider still. All five state 400 now; the remaining three `wait`
+  dialogs carry no line long enough to stretch, which is luck rather than
+  design — state the width anyway on the next one.
 - **A hint that NAMES A CONTROL emphasises it, which means the key carries
   `<strong>` and the paragraph is set with `innerHTML`.** "Clear Link Actor
   Data on the Prototype Token" is a sentence a Warden has to pick a label out
@@ -1068,6 +1102,43 @@ against the reason, not against the fact.
   Dashboard's cards under this rule and the older cards sat beside them
   unnoticed; the sweep after a fix in this class should grep every
   `flavor:` and every `content:` a card stores.
+  **THAT SWEEP WAS OWED AND WAS NOT DONE, AND REVIEW #28 FOUND WHAT IT WOULD
+  HAVE — the DAMAGE FLOW, the most-used cards in the system.** `_showDetails`
+  and `_showAbilityDetails` composed the whole detail card from `localize`
+  calls and stored it, and Apply-damage is Warden-only (bound under `isGM`,
+  and REMOVED from a player's copy), so every detail card that has ever
+  existed was in the Warden's language — under an attribution line that WAS
+  rebuilt per viewer, so a Spanish player read a Spanish attacker over English
+  "Damage:" and "HP:" lines with an English Roll STR save button on their own
+  character. They carry `damageCard` now: NUMBERS and two booleans, rebuilt by
+  `damageCardBody` through `localizeDamageCard`, with every value coerced
+  (`sanitizeDamageParts`) and `pool` checked against a set rather than
+  localized blind — `localize()` returns an unknown key VERBATIM, so a crafted
+  string would otherwise reach `innerHTML`. **ORDER IS LOAD-BEARING:** it runs
+  BEFORE `nameDamageSource`, which prepends to the same element, and before
+  the STR-save and Critical Damage bindings, which bind to what it replaces.
+  Three more in the same batch. The **d20 save card** — the damage flow's STR
+  save and the sheet's ability roll, both PUBLIC, both storing
+  "Success"/"Fail" and the Critical Damage button in the roller's language —
+  share ONE builder in `utils.js` (`d20CardBody`/`d20CardFlavor`, rebuilt by
+  `localizeD20Card`) that lives there because `actor-sheet.js` does not import
+  `damage.js` and adding that edge for a string is a cycle risk; the ABILITY
+  KEY travels, never `dataset.label`, which is a sentence already localized.
+  The **quality badge** now carries `data-quality` beside the label's
+  `data-weapon` and is rebuilt from the kind — it sat one line under an attack
+  sentence the hook had already translated. And the **weapon sentence on an
+  UNTARGETED card**: `nameDamageTargets` returned early when there was nobody
+  to name, so a card `offerUntargetedApply` deliberately builds without
+  `data-targets` stayed frozen in the roller's language for good, since
+  applying the damage later never adds the attribute.
+  **`TABLE.DrawFlavor` moved OUT from behind the overlay gate** in the same
+  pass. It is core INTERFACE chrome every language module translates, so
+  gating it on `contentLocalized()` — true only where an overlay file exists,
+  and `lang/content/` holds `es.json` alone against seven declared languages —
+  left every other locale reading the Warden's sentence; and its
+  `if (es === undefined) return` meant a Warden's own world table fell through
+  even on `es`. It rebuilds through `t()` now, whose miss is the English
+  source verbatim, which is the guarantee the whole overlay rests on.
 - **Pack YAML in `src/packs/` is the source of truth**; `packs/` is generated
   LevelDB, gitignored. Never edit `packs/`. `npm run build:packs` fails while
   Foundry has the world open (LevelDB EPERM) — stop the server first.
@@ -1259,6 +1330,24 @@ if you find one, deleting it is in scope, not a separate decision.
     "nobody ELSE could answer" — so a player stowing a rope in their own crate
     is still one click and the Warden handing one to Alice's character is not.
     Probe-covered with a control that lands the item early.
+    **AND `ownersOf` HAD TO WIDEN, because it answered that question with the
+    wrong test (2026-09-12, review #28).** It asked `testUserPermission` AND
+    an explicit `ownership[userId] >= OWNER` entry — "explicitly own" — which
+    silently excluded ownership granted through `ownership.default`, the first
+    row of core's own ownership dialog and the quickest way a Warden shares a
+    party mule or hireling with the whole table. `getUserLevel` folds
+    `default` (document.mjs:389) while the raw map never materialises per-user
+    entries (fields.mjs), so the two disagreed; it is also the shape
+    `toCompendium` leaves behind, since it strips per-user keys and keeps
+    `default`. For exactly those actors the helper answered "nobody", and
+    `settleOwnOffer` then found nobody else to wait for and delivered with no
+    card and no confirm — the very bypass the ruling above exists to prevent,
+    arriving by a second route. It is `answerersFor` now, ONE notion behind
+    the gate, the waiting line and the picker's label, because two spellings
+    of one test is this file's own thrice-repeated bug. Consequence accepted:
+    a `default: OWNER` actor's picker row names every player instead of
+    reading "Warden only", which is what is true. The probe's control is the
+    old predicate, and it reproduces the delivery live.
     **An unlinked token CAN give**, deliberately: monsters are unlinked by
     ruling, so "open the dead goblin and hand the sword to Alice" is the
     commonest case there is, and excluding token actors the way they are

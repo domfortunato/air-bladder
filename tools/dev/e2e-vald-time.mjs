@@ -1705,6 +1705,55 @@ try {
       ? ok("a player's flagged decoy captures nothing: the Warden's line lands in a journal a Warden made")
       : fail("the log wrote into a player's decoy journal", JSON.stringify(decoy));
 
+    /* ---- a writer who no longer exists ----------------------------------- */
+
+    // `_stats.lastModifiedBy` is a bare user id and nothing sweeps it when that
+    // User is deleted, so the guard's `game.users.get()` misses. Answering
+    // "not a Warden" there orphaned the journal PERMANENTLY: every Warden event
+    // vanished from the grid while the entry sat in the sidebar full of pages,
+    // and the next write started a second one (review #28). Delete the GM
+    // account that made the world, or demote it, and that is the state.
+    //
+    // Asked of the PREDICATE against plain objects rather than by deleting a
+    // user: a probe must never take a real world apart to make an assertion,
+    // and the four shapes below are the whole truth table. Both directions
+    // matter — the fallback must not hand a player's decoy back either.
+    const dangling = await page.evaluate(async () => {
+      const ce = await import("/systems/air-bladder/module/calendar-events.js");
+      const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+      const gm = game.users.find((u) => u.isGM);
+      const player = game.users.find((u) => !u.isGM);
+      if (!gm || !player) return { skipped: true };
+      const GONE = "zzzzGoneUser00000";
+      return {
+        // Ours: OBSERVER to the table, nobody named, writer gone.
+        oursGoneWriter: ce.isWardenJournal(
+          { _stats: { lastModifiedBy: GONE }, ownership: { default: L.OBSERVER } }),
+        // A TRUSTED player's own journal lands them OWNER by an explicit entry.
+        decoyGoneWriter: ce.isWardenJournal(
+          { _stats: { lastModifiedBy: GONE }, ownership: { default: L.NONE, [player.id]: L.OWNER } }),
+        // The two the guard already answered, unchanged.
+        liveWarden: ce.isWardenJournal(
+          { _stats: { lastModifiedBy: gm.id }, ownership: { default: L.OBSERVER } }),
+        livePlayer: ce.isWardenJournal(
+          { _stats: { lastModifiedBy: player.id }, ownership: { default: L.OBSERVER } }),
+      };
+    });
+    if (dangling.skipped) {
+      fail("the dangling-writer legs need a player user", "run npm run dev:players");
+    } else {
+      dangling.oursGoneWriter
+        ? ok("a journal whose writer was deleted is still ours", "unknown is not the same as a player")
+        : fail("a deleted GM orphans the calendar and the weather log",
+          "isWardenJournal answered false for a journal granting OBSERVER and naming nobody");
+      dangling.decoyGoneWriter === false
+        ? ok("...but a decoy with a deleted writer is still refused", "it names a player OWNER")
+        : fail("the fallback adopted a player's decoy", JSON.stringify(dangling));
+      (dangling.liveWarden === true && dangling.livePlayer === false)
+        ? ok("...and a resolvable writer still decides on its own", "GM true, player false")
+        : fail("the resolvable-writer answers changed", JSON.stringify(dangling));
+    }
+
     /* ---- two writes at once make ONE journal and TWO lines --------------- */
 
     // The active-GM guard settles WHICH CLIENT writes. It says nothing about

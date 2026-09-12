@@ -193,6 +193,119 @@ export const damageQualityLabel = (quality, { panicked = false } = {}) => {
   return "";
 };
 
+/**
+ * The quality badge as a DATUM rather than a sentence.
+ *
+ * `damageQualityLabel` returns text already in the composing client's language,
+ * and the roll card stores it — so a card whose attack line the render hook had
+ * just rebuilt into Spanish carried an English "Impaired" on the line directly
+ * beneath (review #28). The card's own answer to that problem is `data-weapon`:
+ * store the datum, rebuild the sentence per viewer. This is the same move for
+ * the badge, and the two now travel together on the same element.
+ *
+ * "" for an ordinary roll, so the template's `{{#if}}` still drops the line.
+ * @param {String} quality
+ * @param {Object} [opts]
+ * @param {Boolean} [opts.panicked]
+ * @return {""|"impaired"|"enhanced"|"panic"}
+ */
+export const damageQualityKind = (quality, { panicked = false } = {}) => {
+  if (quality === "impaired") return panicked ? "panic" : "impaired";
+  if (quality === "enhanced") return "enhanced";
+  return "";
+};
+
+/** The badge keys, by kind. Read by the per-viewer rebuild; a kind that is not
+ * a member finds nothing rather than reaching Object's own properties. */
+export const DAMAGE_QUALITY_KEYS = {
+  impaired: "CAIRN.DamageQuality.BadgeImpaired",
+  enhanced: "CAIRN.DamageQuality.BadgeEnhanced",
+  panic: "CAIRN.DamageQuality.BadgePanic",
+};
+
+/* -------------------------------------------------------------------------- */
+/*  The d20 result card, shared by two rollers                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * ONE builder for the d20 save card, with TWO callers: the damage flow's STR
+ * save (`Damage._rollStrSave`) and the sheet's ability roll
+ * (`#onRollAbility`). It lives HERE, in the leaf both already import, because
+ * `actor-sheet.js` does not import `damage.js` and adding that edge to give
+ * them a shared home would be a cycle risk for a string.
+ *
+ * WHY IT EXISTS AT ALL: both cards were composed in the ROLLING client's
+ * language and stored, and both are public — so every other player at the
+ * table read "Success"/"Fail" and the Critical Damage button in whoever's
+ * language happened to roll (review #28). That is the class review #27 closed
+ * for four other cards; these two sat beside them unnoticed. The rebuild reads
+ * numbers and an ability KEY from a flag and never stored text.
+ */
+export const D20_CARD_ABILITIES = new Set(["STR", "DEX", "WIL"]);
+
+/**
+ * The flavor line. Both kinds name the save the same way; the sheet's roll
+ * wraps it in "Rolling {what}", which is the one difference between them.
+ * @param {"save"|"abilityRoll"} kind
+ * @param {String} ability  a member of D20_CARD_ABILITIES
+ */
+export const d20CardFlavor = (kind, ability) => {
+  const save = game.i18n.format("CAIRN.Save", { key: game.i18n.localize(ability) });
+  return kind === "abilityRoll" ? game.i18n.format("CAIRN.RollingWhat", { what: save }) : save;
+};
+
+/**
+ * The card body. `formula` is ESCAPED on both the build and the rebuild, so the
+ * two paths agree byte for byte — and because a rebuild reads it from a flag,
+ * which is player-authorable and never server-sanitized (the review #24 class).
+ * It renders identically: the formula's own `<=` is text either way.
+ * @param {Object} p
+ * @param {String} p.formula
+ * @param {Number} p.rolled
+ * @param {Boolean} p.failed
+ * @param {Boolean} p.crit   offer the Mark Critical Damage button
+ */
+export const d20CardBody = ({ formula, rolled, failed, crit }) => {
+  const f = foundry.utils.escapeHTML(String(formula));
+  const result = game.i18n.localize(failed ? "CAIRN.Fail" : "CAIRN.Success");
+  const cls = failed ? "failure" : "success";
+  const critButton = crit
+    ? `<button type="button" class="mark-critical-damage">${game.i18n.localize("CAIRN.MarkCriticalDamage")}</button>`
+    : "";
+  return `<div class="dice-roll"><div class="dice-result"><div class="dice-formula">${f}</div>`
+    + `<div class="dice-tooltip" style="display: none;"><section class="tooltip-part"><div class="dice">`
+    + `<header class="part-header flexrow"><span class="part-formula">${f}</span></header>`
+    + `<ol class="dice-rolls"><li class="roll die d20">${rolled}</li></ol></div></section></div>`
+    + `<h4 class="dice-total ${cls}">${result} (${rolled})</h4></div></div>${critButton}`;
+};
+
+/**
+ * Rebuild a stored d20 card in THIS viewer's language, from its flag alone.
+ * Returns false when the message is not one of ours or the flag does not
+ * survive coercion, so a crafted flag leaves the stored card alone rather than
+ * rendering anything from it.
+ * @param {ChatMessage} message
+ * @param {HTMLElement} html
+ */
+export const localizeD20Card = (message, html) => {
+  const raw = message?.getFlag?.("air-bladder", "d20Card");
+  if (!raw || typeof raw !== "object") return false;
+  const { kind, ability } = raw;
+  if (kind !== "save" && kind !== "abilityRoll") return false;
+  if (typeof ability !== "string" || !D20_CARD_ABILITIES.has(ability)) return false;
+  const rolled = Number(raw.rolled);
+  if (!Number.isFinite(rolled)) return false;
+  const body = html.querySelector(".message-content");
+  if (!body) return false;
+  body.innerHTML = d20CardBody({
+    formula: raw.formula, rolled, failed: raw.failed === true, crit: raw.crit === true,
+  });
+  // The flavor sits OUTSIDE .message-content, in the header core renders.
+  const flavor = html.querySelector(".flavor-text");
+  if (flavor) flavor.textContent = d20CardFlavor(kind, ability);
+  return true;
+};
+
 /** The dice Font Awesome actually ships a glyph for. Exported for the Warden's
  * damage dice buttons — one list, not two to drift. */
 export const DIE_ICONS = new Set([4, 6, 8, 10, 12, 20]);

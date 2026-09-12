@@ -1379,6 +1379,58 @@ try {
     !toAlice.settled && toAlice.state === "open" && !toAlice.landedEarly && toAlice.stillWithNpc,
     JSON.stringify(toAlice));
 
+  /* ---- ...and ownership granted by DEFAULT counts as ownership ------------ */
+
+  // The same ruling, reached by the other route (review #28). `answerersFor`
+  // used to require an EXPLICIT `ownership[userId] >= OWNER` entry on top of
+  // `testUserPermission`, so a party actor shared the quickest way there is —
+  // core's own ownership dialog, Default -> Owner — answered "nobody owns
+  // this" and the Warden's gift was delivered with no card and no confirm.
+  // `getUserLevel` folds `default`; the raw map never materialises per-user
+  // entries, so the two disagreed. It is also the shape `toCompendium` leaves
+  // behind, since it strips per-user keys and keeps `default`.
+  //
+  // A PERSON, deliberately: for a crate `capacityVerdict` returns "full" and
+  // there is no over-burden confirm to skip, so the consent half of the harm
+  // only exists here.
+  const shared = await gm.evaluate(async () => {
+    const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+    const { createItemOffer, settleOwnOffer } = await import("/systems/air-bladder/module/item-offer.js");
+    const Cls = CONFIG.Actor.documentClass;
+    const hire = await Cls.create({
+      name: "ZZ Offer Shared Hireling", type: "npc",
+      system: { role: "hireling" },
+      ownership: { default: L.OWNER },
+    });
+    const npc = game.actors.getName("ZZ Offer NPC");
+    await npc.createEmbeddedDocuments("Item", [{ name: "ZZ Shared Gift", type: "item" }]);
+    const item = npc.items.find((i) => i.name === "ZZ Shared Gift");
+    // The premise, stated: no PLAYER is named on this actor, and a player still
+    // owns it. Without both, the leg could pass for the wrong reason — an
+    // explicit entry would satisfy the old predicate too and prove nothing.
+    // (A GM key may be present: core stamps the creating user OWNER.)
+    const player = game.users.find((u) => !u.isGM);
+    const namesNobody = !Object.entries(hire.ownership ?? {}).some(
+      ([k, v]) => k !== "default" && v >= CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER
+        && !game.users.get(k)?.isGM);
+    const playerOwns = !!player && hire.testUserPermission(player, "OWNER");
+    const message = await createItemOffer(npc, item, hire);
+    await settleOwnOffer(message, hire);
+    await new Promise((r) => setTimeout(r, 900));
+    const f = message?.getFlag("air-bladder", "itemOffer");
+    return {
+      namesNobody, playerOwns,
+      settled: !!f?.settled, state: f?.state,
+      landedEarly: hire.items.some((i) => i.name === "ZZ Shared Gift"),
+      stillWithNpc: npc.items.some((i) => i.name === "ZZ Shared Gift"),
+    };
+  });
+
+  check("an actor shared by DEFAULT ownership waits for its players too",
+    shared.namesNobody && shared.playerOwns && !shared.settled && shared.state === "open"
+    && !shared.landedEarly && shared.stillWithNpc,
+    `${JSON.stringify(shared)} — Default -> Owner grants ownership just as an explicit entry does, and the one-click shortcut must not treat it as unowned`);
+
   // And the player's own click is what moves it. The card is rebuilt per
   // viewer, so the Accept button is theirs alone — the Warden's copy of the
   // same message offers Cancel.

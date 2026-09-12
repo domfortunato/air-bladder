@@ -1,6 +1,6 @@
 import { findCompendiumItem, resultText } from './compendium.js'
 import { SETTINGS_NS } from './settings.js'
-import { evaluateFormula, askDamageTargets, concealmentWhisper } from './utils.js'
+import { evaluateFormula, askDamageTargets, concealmentWhisper, d20CardBody, d20CardFlavor } from './utils.js'
 import { postStatusCard } from './actor/actor.js'
 
 // The system's flag namespace, imported rather than re-declared: a second
@@ -71,6 +71,108 @@ const POOL_ZERO_STATUS = { STR: "dead", DEX: "paralyzed", WIL: "delirious" };
  */
 const cardLine = (label, value) =>
     '<p>' + game.i18n.format('CAIRN.DamageCardLine', { label, value }) + '</p>'
+
+/* -------------------------------------------------------------------------- */
+/*  The detail card, built from numbers                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The body of a damage detail card.
+ *
+ * ONE builder, TWO callers — `_showDetails`/`_showAbilityDetails` when the card
+ * is posted, and `localizeDamageCard` when any client renders it. That is the
+ * whole point: the card used to be composed once, in the WARDEN'S language, and
+ * stored. Apply-damage is Warden-only (cairn.js binds it under `isGM` and
+ * REMOVES it from a player's copy) and the damage tool refuses a non-GM, so
+ * every detail card that has ever existed was composed by the Warden — and the
+ * attribution line above it was already rebuilt per viewer, which left a
+ * Spanish player reading a Spanish attacker over English "Damage:" and "HP:"
+ * lines, with an English Roll STR save button on their own character (review
+ * #28). Every one of those keys is translated; they were simply never reached.
+ *
+ * It takes NUMBERS and booleans and nothing else, so there is no stored text to
+ * be in the wrong language and nothing authored to escape.
+ *
+ * @param {Object} p  a sanitized parts object — see sanitizeDamageParts
+ */
+const damageCardBody = (p) => {
+    let content
+    if (p.kind === 'ability') {
+        content = cardLine(game.i18n.localize('CAIRN.Damage'), p.dmg)
+        content += cardLine(game.i18n.localize(p.pool),
+            game.i18n.format('CAIRN.StatChange', { from: p.abl, to: p.newAbl }))
+    } else {
+        // ARMOR 0 DROPS THE BRACKET (user ruling 2026-08-07) — see _showDetails.
+        const breakdown = p.armor > 0
+            ? game.i18n.format('CAIRN.DamageBreakdown', { dmg: p.dmg, damage: p.damage, armor: p.armor })
+            : String(p.dmg)
+        content = cardLine(game.i18n.localize('CAIRN.Damage'), breakdown)
+        content += p.newHp !== p.hp
+            ? cardLine(game.i18n.localize('CAIRN.HitProtection'),
+                game.i18n.format('CAIRN.StatChange', { from: p.hp, to: p.newHp }))
+            : cardLine(game.i18n.localize('CAIRN.HitProtection'), p.hp)
+        if (p.newStr !== p.str) {
+            content += cardLine(game.i18n.localize('STR'),
+                game.i18n.format('CAIRN.StatChange', { from: p.str, to: p.newStr }))
+        }
+    }
+    if (p.save) {
+        content += '<p><strong>' + game.i18n.localize('CAIRN.StrSave') + '</strong></p>'
+        content += '<button type="button" class="roll-str-save">' + game.i18n.localize('CAIRN.RollStrSave') + '</button>'
+    }
+    if (p.scar) content += '<p class="cairn-scar-banner">' + game.i18n.localize('CAIRN.Scars') + '</p>'
+    return content
+}
+
+/** The three pools a hazard can be aimed at. A `pool` outside this set is not
+ * localized and not rendered: `localize()` returns an unknown key VERBATIM, so
+ * a crafted value would otherwise reach innerHTML as markup. */
+const ABILITY_POOLS = new Set(['STR', 'DEX', 'WIL'])
+
+/**
+ * Coerce a stored `damageCard` flag into numbers, or null.
+ *
+ * A message flag is written by a client and never server-sanitized, so this is
+ * the review #24 rule applied to a new card: every value that reaches the
+ * builder is a finite Number or an exact boolean, and anything else abandons
+ * the rebuild so the stored card simply stands. Nothing here is ever a string
+ * that reaches markup — `pool` is checked against a set, not localized blind.
+ */
+const sanitizeDamageParts = (raw) => {
+    if (!raw || typeof raw !== 'object') return null
+    const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null }
+    const save = raw.save === true
+    if (raw.kind === 'ability') {
+        if (typeof raw.pool !== 'string' || !ABILITY_POOLS.has(raw.pool)) return null
+        const dmg = num(raw.dmg), abl = num(raw.abl), newAbl = num(raw.newAbl)
+        if (dmg === null || abl === null || newAbl === null) return null
+        return { kind: 'ability', pool: raw.pool, dmg, abl, newAbl, save }
+    }
+    const out = { kind: 'hp', save, scar: raw.scar === true }
+    for (const k of ['dmg', 'damage', 'armor', 'hp', 'newHp', 'str', 'newStr']) {
+        const n = num(raw[k])
+        if (n === null) return null
+        out[k] = n
+    }
+    return out
+}
+
+/**
+ * Rebuild a damage detail card in THIS viewer's language (renderChatMessageHTML).
+ *
+ * Runs BEFORE `nameDamageSource`, which PREPENDS the attribution line to the
+ * same element — rebuilding afterwards would throw that line away — and before
+ * the STR-save and Critical Damage buttons are bound, since this replaces the
+ * elements they bind to.
+ * @param {ChatMessage} message
+ * @param {HTMLElement} html
+ */
+export const localizeDamageCard = (message, html) => {
+    const parts = sanitizeDamageParts(message?.getFlag?.('air-bladder', 'damageCard'))
+    if (!parts) return
+    const body = html.querySelector('.message-content')
+    if (body) body.innerHTML = damageCardBody(parts)
+}
 
 export class Damage {
 
@@ -398,10 +500,6 @@ export class Damage {
         // nothing is ever lost with the bracket -- and a hit fully absorbed by
         // armour always KEEPS its bracket, which is what stops "Damage: 0" from
         // reading like a broken card.
-        const breakdown = armor > 0
-            ? game.i18n.format('CAIRN.DamageBreakdown', { dmg, damage, armor })
-            : String(dmg)
-        let content = cardLine(game.i18n.localize('CAIRN.Damage'), breakdown)
         // The HP and STR lines were the same untranslatable concatenation, so they
         // move in the same breath -- one handoff to the translator rather than
         // two. ONE key SHARED by both: they are the same sentence, and a second
@@ -414,16 +512,6 @@ export class Damage {
         // because this half was sold as a translatability fix with no visual
         // consequence. It now lives in a key, so it can be changed later on
         // purpose rather than as a side effect.
-        if (newHp !== hp) {
-            content += cardLine(game.i18n.localize('CAIRN.HitProtection'),
-                game.i18n.format('CAIRN.StatChange', { from: hp, to: newHp }))
-        } else {
-            content += cardLine(game.i18n.localize('CAIRN.HitProtection'), hp)
-        }
-        if (newStr !== str) {
-            content += cardLine(game.i18n.localize('STR'),
-                game.i18n.format('CAIRN.StatChange', { from: str, to: newStr }))
-        }
 
         // Monsters take BOTH branches below on purpose (ratified 2026-08-01):
         // overflow past HP offers the STR-save button, and damage landing
@@ -435,17 +523,18 @@ export class Damage {
         // posted AFTER this card so the log reads "Damage: 5" and then "Dead".
         const died = newStr < str && newStr === 0;
 
-        // Monsters take BOTH branches below on purpose (ratified 2026-08-01):
-        // overflow past HP offers the STR-save button, and damage landing
-        // exactly on 0 HP rolls a Scar. Cairn's rules carve monsters out of
-        // neither, so no npcRole gate belongs here.
-        if (newStr < str) {
-            if (!died) {
-                content += '<p><strong>' + game.i18n.localize('CAIRN.StrSave') + '</strong></p>'
-                content += '<button type="button" class="roll-str-save">' + game.i18n.localize('CAIRN.RollStrSave') + '</button>'
-            }
-        } else if (newHp === 0 && hp !== 0) {
-            content += '<p class="cairn-scar-banner">' + game.i18n.localize('CAIRN.Scars') + '</p>'
+        // WHAT THE CARD SAYS, as numbers and two booleans. The markup is built
+        // from this by `damageCardBody` and rebuilt from the identical object on
+        // every client at render — see that function for why. The two branches
+        // stay mutually exclusive exactly as they were: overflow offers the
+        // save, a hit landing on 0 HP draws a Scar.
+        const parts = {
+            kind: 'hp', dmg, damage, armor, hp, newHp, str, newStr,
+            save: newStr < str && !died,
+            scar: !(newStr < str) && newHp === 0 && hp !== 0,
+        }
+        const content = damageCardBody(parts)
+        if (parts.scar) {
             // The TOKEN goes with it, or the scar card is posted in someone else's
             // name -- see _rollScarsTable. Deliberately NOT awaited even though
             // this method is async now: the damage card below must land first,
@@ -470,7 +559,10 @@ export class Damage {
             speaker: ChatMessage.getSpeaker({ token: token }),
             content: content,
         }
-        if (source) messageData.flags = { [FLAG_SCOPE]: { [DAMAGE_SOURCE_FLAG]: source } }
+        // The numbers ride along so every client can rebuild the body in its own
+        // language; the source rides beside them under its own key.
+        messageData.flags = { [FLAG_SCOPE]: { damageCard: parts } }
+        if (source) messageData.flags[FLAG_SCOPE][DAMAGE_SOURCE_FLAG] = source
         // The card is spoken AS the token, so its name is in the header whatever the
         // body says. A token the attack line was not allowed to name does not get
         // named here either -- see concealmentWhisper.
@@ -502,20 +594,21 @@ export class Damage {
 
         const { token, dmg, abl, newAbl, source, pool } = data
 
-        let content = cardLine(game.i18n.localize('CAIRN.Damage'), dmg)
-        content += cardLine(game.i18n.localize(pool),
-            game.i18n.format('CAIRN.StatChange', { from: abl, to: newAbl }))
-
         // STR loss owes a save, and it is not a second rule: combat's branch is
         // `newStr < str`, which direct STR damage lands in unchanged. Withheld
         // from a corpse for the reason it is there — the save decides whether the
         // character takes Critical Damage, and there is nothing left to decide.
         const zeroed = newAbl === 0 && abl > 0;
         const died = pool === "STR" && zeroed;
-        if (pool === "STR" && newAbl < abl && !died) {
-            content += '<p><strong>' + game.i18n.localize('CAIRN.StrSave') + '</strong></p>'
-            content += '<button type="button" class="roll-str-save">' + game.i18n.localize('CAIRN.RollStrSave') + '</button>'
+
+        // Numbers, not markup — the same rule as the combat card above, and the
+        // same builder. `pool` is the only string, and it is a localize KEY that
+        // the rebuild checks against ABILITY_POOLS before it goes near innerHTML.
+        const parts = {
+            kind: 'ability', pool, dmg, abl, newAbl,
+            save: pool === "STR" && newAbl < abl && !died,
         }
+        const content = damageCardBody(parts)
 
         const messageData = {
             // `author`, not `user` — the v12 rename; see the damage card above.
@@ -523,7 +616,8 @@ export class Damage {
             speaker: ChatMessage.getSpeaker({ token: token }),
             content: content,
         }
-        if (source) messageData.flags = { [FLAG_SCOPE]: { [DAMAGE_SOURCE_FLAG]: source } }
+        messageData.flags = { [FLAG_SCOPE]: { damageCard: parts } }
+        if (source) messageData.flags[FLAG_SCOPE][DAMAGE_SOURCE_FLAG] = source
         // Same concealment rule as _showDetails -- an ability hazard aimed at a
         // hidden creature must not name it in the header either.
         const whisper = concealmentWhisper(token)
@@ -632,22 +726,23 @@ export class Damage {
 
     static async _rollStrSave(token, html) {
         const roll = await evaluateFormula("d20cs<=@STR", token.actor.getRollData());
-        const label = game.i18n.format("CAIRN.Save", { key: game.i18n.localize("STR") });
         const rolled = roll.terms[0].results[0].result;
         const failed = roll.total === 0;
-        const result = failed ? game.i18n.localize("CAIRN.Fail") : game.i18n.localize("CAIRN.Success");
-        const resultCls = failed ? "failure" : "success";
         // A failed Critical Damage save means the character is taking Critical
         // Damage. STR was already reduced when the damage was applied, so this
         // only offers to flag the status (set by the button; not automatic, per
         // house style). Wired in cairn.js renderChatMessageHTML.
-        const critButton = failed
-            ? `<button type="button" class="mark-critical-damage">${game.i18n.localize("CAIRN.MarkCriticalDamage")}</button>`
-            : "";
+        //
+        // BUILT FROM THE SHARED d20 CARD, and flagged so every client rebuilds
+        // it. This card is PUBLIC, so before the flag existed the whole table
+        // read "Success"/"Fail" and the Critical Damage button in whatever
+        // language the roller happened to be using (review #28).
+        const card = { kind: "save", ability: "STR", formula: roll.formula, rolled, failed, crit: failed };
         roll.toMessage({
             speaker: ChatMessage.getSpeaker({ token: token }),
-            flavor: label,
-            content: `<div class="dice-roll"><div class="dice-result"><div class="dice-formula">${roll.formula}</div><div class="dice-tooltip" style="display: none;"><section class="tooltip-part"><div class="dice"><header class="part-header flexrow"><span class="part-formula">${roll.formula}</span></header><ol class="dice-rolls"><li class="roll die d20">${rolled}</li></ol></div></section></div><h4 class="dice-total ${resultCls}">${result} (${rolled})</h4></div></div>${critButton}`,
+            flavor: d20CardFlavor(card.kind, card.ability),
+            content: d20CardBody(card),
+            flags: { [FLAG_SCOPE]: { d20Card: card } },
         });
         html.querySelector(".roll-str-save").setAttribute('disabled', 'disabled')
     }

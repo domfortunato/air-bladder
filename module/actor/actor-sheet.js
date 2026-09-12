@@ -1,7 +1,7 @@
-import { canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, resolveActorBackground, redealBackgroundGear, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt } from "../character-generator.js";
+import { canRegenerateContainers, drawBond, bondRecordFrom, withGrantSource, bondEntitlement, resolveRefs, replaceGrantedContainers, promptBackground, changeBackground, promptFailedCareer, rollFailedCareerName, buildFailedCareerItem, getPortraitManifest, pairedTokenFor, randomPortraitInSameFolder, portraitCategoryFor, regenerateNpc, regenerateHireling, rerollNpcBackground, rerollHirelingCareer, rerollNpcName, rerollNpcFaction, promptHirelingCareer, promptNpcBackground, promptNpcFaction, promptPickOmen, promptPickBond, promptPickQuestionOption, promptPickName, findOmensTable, rollNameFromTable, rollAge, rollTextItems, effectiveAgeFormula, resolveActorBackground, redealBackgroundGear, rerollAllBonds, reorderInventory, postGenerationRolls, isHandBuilt, clearHandBuilt, FLAG_SCOPE } from "../character-generator.js";
 import { promptMonsterTier, regenerateMonster } from "../monster-generator.js";
 import { openMarketplace, TRANSPORTS_CATEGORY } from "../marketplace.js";
-import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel } from "../utils.js";
+import { evaluateFormula, cleanDescription, bindEditorClickAwaySave, formatCount, sourceLabel, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind, d20CardBody, d20CardFlavor, D20_CARD_ABILITIES } from "../utils.js";
 import { resultText } from "../compendium.js";
 import { SETTINGS_NS } from "../settings.js";
 import { CONTAINER_ART_CHOICES, CONTAINER_CLASSES } from "../icons.js";
@@ -3881,6 +3881,13 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         // sentence at render and cannot read it back out of localized prose.
         weapon: dataset.label ?? "",
         quality: damageQualityLabel(quality, { panicked }),
+        // The KIND rides beside the sentence, exactly as `weapon` rides beside
+        // the attack line, so the render hook can rebuild the badge per viewer
+        // instead of leaving one English word under a translated sentence.
+        qualityKind: damageQualityKind(quality, { panicked }),
+        // Which of the two whole-sentence weapon keys was used, so the hook can
+        // rebuild the line for a card that never got a target.
+        panic: panicked,
       }
     );
     roll.toMessage({ speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor });
@@ -4140,24 +4147,40 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const dataset = target.dataset;
     if (!dataset.roll) return;
     const roll = await evaluateFormula(dataset.roll, this.actor.getRollData());
-    // A whole-sentence key, not localize()+concat — the translator owns the word order.
-    const label = dataset.label ? game.i18n.format("CAIRN.RollingWhat", { what: dataset.label }) : "";
     const rolled = roll.terms[0].results[0].result;
     const failed = roll.total === 0;
-    const result = failed ? game.i18n.localize("CAIRN.Fail") : game.i18n.localize("CAIRN.Success");
-    const resultCls = failed ? "failure" : "success";
     const str = this.actor.system.abilities?.STR;
     const offerCrit =
       dataset.ability === "STR" && failed &&
       Number(str?.value) > 0 && Number(str?.value) < Number(str?.max);
-    const critButton = offerCrit
-      ? `<button type="button" class="mark-critical-damage">${game.i18n.localize("CAIRN.MarkCriticalDamage")}</button>`
-      : "";
-    roll.toMessage({
+
+    // THE SHARED d20 CARD, and the same flag the damage flow's STR save carries.
+    // This card is public, so before the rebuild existed every other player read
+    // "Success"/"Fail" and the Critical Damage button in the ROLLER's language
+    // (review #28) — the class review #27 closed for four other cards, which
+    // this one and its twin in damage.js sat beside.
+    //
+    // The ability KEY travels, never `dataset.label`: the label is a sentence
+    // already localized by the template, and a stored sentence is exactly what
+    // cannot be rebuilt. An ability outside the three keeps the old label-built
+    // flavor and no flag — nothing in the templates produces one, and a card
+    // that cannot be rebuilt must not claim it can.
+    const known = dataset.ability && D20_CARD_ABILITIES.has(dataset.ability);
+    const card = {
+      kind: "abilityRoll", ability: dataset.ability, formula: roll.formula,
+      rolled, failed, crit: offerCrit,
+    };
+    // A whole-sentence key, not localize()+concat — the translator owns the word order.
+    const flavor = known
+      ? d20CardFlavor(card.kind, card.ability)
+      : (dataset.label ? game.i18n.format("CAIRN.RollingWhat", { what: dataset.label }) : "");
+    const messageData = {
       speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-      flavor: label,
-      content: `<div class="dice-roll"><div class="dice-result"><div class="dice-formula">${roll.formula}</div><div class="dice-tooltip" style="display: none;"><section class="tooltip-part"><div class="dice"><header class="part-header flexrow"><span class="part-formula">${roll.formula}</span></header><ol class="dice-rolls"><li class="roll die d20">${rolled}</li></ol></div></section></div><h4 class="dice-total ${resultCls}">${result} (${rolled})</h4></div></div>${critButton}`,
-    });
+      flavor,
+      content: d20CardBody(card),
+    };
+    if (known) messageData.flags = { [FLAG_SCOPE]: { d20Card: card } };
+    roll.toMessage(messageData);
   }
 
   /**

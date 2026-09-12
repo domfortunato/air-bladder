@@ -1027,6 +1027,8 @@ try {
     ran: true, gmIsGM: gmBoth.isGM, aliceIsGM: alBoth.isGM,
     aliceSawCard: alBoth.present,
     gmText: gmBoth.text, aliceText: alBoth.text, aliceHiddenOnlyText: alHiddenOnly.text,
+    expectWeaponLine: await alicePage.evaluate(() =>
+      game.i18n.format("CAIRN.RollingDmgWithWeapon", { weapon: "ZZ Probe Mace" })),
     gmStrong: gmBoth.strongText, gmStrongWeight: gmBoth.strongWeight,
     aliceStrong: alBoth.strongText,
     injectedText: alInjected.text, injectedTags: alInjected.injectedTags,
@@ -1252,9 +1254,14 @@ const untargeted = await page.evaluate(async () => {
     ? (() => { const c = getComputedStyle(anchor.querySelector("i"), "::before").content;
       return c && c !== "none" && c !== '""' ? c : null; })()
     : null;
-  // The attack line must NOT appear: there is no target to name, so the card
-  // keeps the weapon sentence it was rolled with.
+  // The attack line must NOT appear -- there is no target to name -- and the
+  // weapon sentence underneath is REBUILT from `data-weapon` in this viewer's
+  // language rather than left as the roller composed it (review #28). The
+  // expected string is formatted HERE, from the same key, so the leg survives a
+  // translation instead of pinning an English literal.
   r.labelText = (row?.querySelector(".dmg-label")?.textContent ?? "").trim();
+  r.expectWeaponLine = game.i18n.format("CAIRN.RollingDmgWithWeapon", { weapon: "ZZ Probe Sling" });
+  r.storedLabelSentinel = "ZZ untargeted probe";
 
   // A card in the LEGACY shape — the wrapper with a plain child div, before
   // .dmg-label existed. This is what is actually sitting in the user's log.
@@ -1460,6 +1467,33 @@ const breakdown = await page.evaluate(async () => {
   // translatability fix with no visual consequence, and nothing else watches for
   // that promise being broken.
   r.overflow = await hit("ZZ Overflow Foe", 0, 2, 6);
+
+  // PER VIEWER (review #28). The body was composed once, on the WARDEN's
+  // client, and stored — and Apply-damage is Warden-only, so that is every
+  // detail card that has ever existed. The attribution line above it was
+  // already rebuilt per viewer, which left a Spanish player reading a Spanish
+  // attacker over English "Damage:" and "HP:" lines.
+  //
+  // The dashboard probe's measurement, and the status bar's beside it: shadow
+  // one key AFTER the card exists, force one re-render, and read the DOM. The
+  // stored content must NOT move — a rebuild that writes back to the message
+  // would be a per-viewer edit fighting every other client.
+  {
+    const m = game.messages.contents.slice().reverse()
+      .find((x) => x.getFlag("air-bladder", "damageCard"));
+    const real = game.i18n.localize.bind(game.i18n);
+    try {
+      game.i18n.localize = (k, ...a) => (k === "CAIRN.HitProtection" ? "ZZ-HP-LABEL" : real(k, ...a));
+      if (m) await ui.chat.updateMessage(m);
+      await sleep(600);
+      const el = document.querySelector(`[data-message-id="${m?.id}"] .message-content`);
+      r.perViewer = {
+        hasFlag: !!m?.getFlag("air-bladder", "damageCard"),
+        rendered: (el?.textContent ?? "").includes("ZZ-HP-LABEL"),
+        storedStillEnglish: !String(m?.content ?? "").includes("ZZ-HP-LABEL"),
+      };
+    } finally { game.i18n.localize = real; }
+  }
   // Compared against the PRE-FIX CONCATENATION rather than against a literal, and
   // that is the point: a chat message's content is parsed and re-serialized, so
   // the bare ">" in "=>" comes back as "&gt;" — a literal expectation fails while
@@ -1952,9 +1986,14 @@ check("Alice is told the visible one",
 // is not a leg that passes because nothing was resolved.
 check("and NOT the hidden one", attack.ran && !attack.aliceText?.includes("ZZ Unseen Foe"),
   `"${attack.aliceText}" - a token the Warden took off the board must not be named in a card the whole table reads`);
-check("nothing nameable falls back to the weapon",
-  attack.aliceHiddenOnlyText === "ZZ weapon sentence",
-  `"${attack.aliceHiddenOnlyText}" - with only a hidden target, she gets the original sentence, not a half-written one`);
+// REBUILT, not merely left alone (review #28). With only a hidden target there
+// is nobody to name, so the attack line must not be half-written -- but the
+// weapon sentence beneath it was composed in the ROLLER's language and stored,
+// and this is the branch that used to return before repairing it.
+check("nothing nameable rebuilds the weapon line",
+  attack.aliceHiddenOnlyText === attack.expectWeaponLine
+  && attack.aliceHiddenOnlyText !== "ZZ weapon sentence",
+  `"${attack.aliceHiddenOnlyText}" vs expected "${attack.expectWeaponLine}" - with only a hidden target she gets the weapon sentence in HER language, not the roller's stored one and not a half-written attack line`);
 
 // The target's name is BOLD. Asserted on the <strong>'s OWN text, so a <strong>
 // wrapped round the whole sentence would not satisfy it, and on the computed
@@ -2019,8 +2058,14 @@ check("its own tooltip", untargeted.anchorTooltip === "Apply damage — choose w
   `"${untargeted.anchorTooltip}" — a different tooltip from the targeted card's, because the rule is meant to be readable from the card`);
 check("and it draws a glyph", !!untargeted.anchorGlyph,
   `renders ${untargeted.anchorGlyph ?? "NOTHING"}`);
-check("the weapon sentence stands", untargeted.labelText === "ZZ untargeted probe",
-  `"${untargeted.labelText}" — no target to name, so the attack line must not half-write one`);
+// `offerUntargetedApply` builds its anchor with NO data-targets on purpose, so
+// this is the card the rewrite used to skip entirely -- and applying the damage
+// later never adds the attribute, so nothing ever repaired it. The stored
+// sentinel going away is the half that reds if the rebuild is dropped.
+check("the weapon sentence is rebuilt",
+  untargeted.labelText === untargeted.expectWeaponLine
+  && untargeted.labelText !== untargeted.storedLabelSentinel,
+  `"${untargeted.labelText}" vs expected "${untargeted.expectWeaponLine}" — no target to name, so the attack line must not half-write one, but the weapon sentence is still rebuilt in THIS viewer's language`);
 check("a LEGACY-shaped card gains one too", untargeted.legacyGainsAnchor,
   "the wrapper with a plain child div, before .dmg-label existed — what is actually sitting in the log");
 
@@ -2077,6 +2122,13 @@ check("no armour drops the bracket", /Damage<\/strong>: 6</.test(breakdown.bare)
   `"${(breakdown.bare.match(/Damage<\/strong>:[^<]*/) ?? [""])[0]}" — ruled, not an oversight: armor 0 implies dmg === damage, so the bracket carries nothing`);
 check("an absorbed hit KEEPS it", /Damage<\/strong>: 0 \(3 damage − 3 armor\)/.test(breakdown.absorbed),
   `"${(breakdown.absorbed.match(/Damage<\/strong>:[^<]*/) ?? [""])[0]}" — this is why the drop rule is armor-based and not result-based; a bare "Damage: 0" reads like a broken card`);
+// The card carries its NUMBERS and rebuilds its words, rather than carrying its
+// words. Both halves: the rebuild reaches the DOM, and the stored copy is left
+// exactly as posted.
+check("the detail card rebuilds per viewer",
+  breakdown.perViewer?.hasFlag === true && breakdown.perViewer?.rendered === true
+  && breakdown.perViewer?.storedStillEnglish === true,
+  `${JSON.stringify(breakdown.perViewer)} — the body was composed on the Warden's client and stored, so every player read the Warden's language (review #28)`);
 check("a spaced U+2212, not a hyphen", /−/.test(breakdown.armored) && !/6 damage - 2/.test(breakdown.armored),
   '"6-0" read as a range; the minus lives inside the key so a translator can change it');
 // The promise this half was sold on, asserted against the OLD construction posted

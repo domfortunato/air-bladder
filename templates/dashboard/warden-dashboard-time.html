@@ -73,7 +73,10 @@
         {{/if}}
     </div>
 
-    {{!-- Every control here carries a STABLE id (review #27). A click
+    {{!-- Every control here carries a STABLE id — the five clock buttons from
+          review #27, and the six BELOW them (calendar, weather pair, set
+          weather, event pair) which this line claimed for a day before they
+          had one, added in review #28. A click
           re-renders this part alone, and core restores keyboard focus across
           a part replacement only to an element it can name by `#id` or
           `[name]` (handlebars-application.mjs, _preSyncPartState); without
@@ -111,7 +114,7 @@
             {{!-- A plain action, not a table pair, so the show/roll invariant
                   is unaffected. Vald only: there is no month grid to open
                   under Foundry's own calendar. --}}
-            <button type="button" data-action="openCalendar"
+            <button type="button" data-action="openCalendar" id="cairn-warden-dashboard-open-calendar"
                     data-tooltip="{{localize 'CAIRN.Calendar.Open'}}">
                 <i class="fa-solid fa-calendar-days"></i>
                 <span>{{localize "CAIRN.Dashboard.Calendar"}}</span>
@@ -125,13 +128,14 @@
                   window: the probe asserts show buttons and roll buttons come
                   in equal numbers, and an un-paired one reds it. --}}
             <div class="cairn-dashboard-pair">
-                <button type="button" data-action="rollWeather" data-table="{{weatherTable}}"
+                <button type="button" id="cairn-warden-dashboard-roll-weather" data-action="rollWeather" data-table="{{weatherTable}}"
                         data-tooltip="{{localize 'CAIRN.Time.Tip.TodaysWeather'}}">
                     <i class="fa-solid {{weatherIcon}}"></i>
                     <span>{{weatherLabel}}</span>
                 </button>
                 <button type="button" class="cairn-show-btn" data-action="showTable"
                         data-table="{{weatherTable}}"
+                        id="cairn-warden-dashboard-show-weather"
                         data-tooltip="{{localize 'CAIRN.Dashboard.ShowTable'}}">
                     <i class="fas fa-eye"></i>
                 </button>
@@ -140,7 +144,7 @@
                   seasonal weather has no row for a curse, a spell, or the
                   thing in the valley. Same function as the calendar's own
                   pencil. --}}
-            <button type="button" class="cairn-time-say-weather" data-action="setWeather"
+            <button type="button" class="cairn-time-say-weather" id="cairn-warden-dashboard-set-weather" data-action="setWeather"
                     data-tooltip="{{localize 'CAIRN.Calendar.SetWeatherHint'}}">
                 <i class="fa-solid fa-pen-to-square"></i>
                 <span>{{localize "CAIRN.Calendar.SetWeather"}}</span>
@@ -161,12 +165,13 @@
     <div class="cairn-dashboard-grid cairn-time-events">
         {{#each events as |btn|}}
             <span class="cairn-dashboard-pair">
-                <button type="button" data-action="rollTable" data-table="{{btn.table}}">
+                <button type="button" id="cairn-warden-dashboard-event-{{@index}}" data-action="rollTable" data-table="{{btn.table}}">
                     <i class="fa-solid {{btn.icon}}"></i>
                     <span>{{btn.label}}</span>
                 </button>
                 <button type="button" class="cairn-show-btn" data-action="showTable"
                         data-table="{{btn.table}}"
+                        id="cairn-warden-dashboard-event-show-{{@index}}"
                         data-tooltip="{{localize 'CAIRN.Dashboard.ShowTable'}}"
                         aria-label="{{localize 'CAIRN.Dashboard.ShowTable'}}"><i class="fas fa-eye"></i></button>
             </span>

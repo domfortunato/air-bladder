@@ -890,6 +890,13 @@ const promptSetDate = async () => {
 
   const picked = await foundry.applications.api.DialogV2.wait({
     window: { title: "CAIRN.Time.SetDateTitle" },
+    // 400, stated: DialogV2.wait merges NO width where confirm and prompt
+    // merge 400 (dialog.mjs:353,374), so a wait() dialog inherits
+    // ApplicationV2's width "auto" and is as wide as its longest unwrapped
+    // line. This one's hint made it 589px beside the 640px window that
+    // opens it (review #28, measured). Reach for wait() when a dialog needs
+    // two named buttons, and state the width in the same breath.
+    position: { width: 400 },
     content: form,
     buttons: [
       {
@@ -1132,7 +1139,19 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
       await action();
     } finally {
       button.disabled = false;
-      if (hadFocus && button.id) this.element?.querySelector(`#${CSS.escape(button.id)}`)?.focus();
+      // THE ELEMENT FIRST, ITS ID ONLY AS A FALLBACK. Requiring an id was the
+      // bug: five of this window's 101 action buttons carry one, so Enter on
+      // any of the other ninety-six fired once and stranded focus on <body>,
+      // and Tab restarted from the top of the document (review #28, measured).
+      // Most of them need no id at all — nothing re-renders, so the node in
+      // hand is still the live one. The id path is for the TIME BAND, whose
+      // part really is replaced under it, and every control there now has one.
+      if (hadFocus) {
+        const live = button.isConnected
+          ? button
+          : (button.id ? this.element?.querySelector(`#${CSS.escape(button.id)}`) : null);
+        live?.focus();
+      }
     }
   }
 

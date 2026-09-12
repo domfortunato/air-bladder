@@ -111,6 +111,13 @@ export const promptSetWeather = async () => {
 
   const picked = await foundry.applications.api.DialogV2.wait({
     window: { title: "CAIRN.Calendar.SetWeatherTitle" },
+    // 400, stated: DialogV2.wait merges NO width where confirm and prompt
+    // merge 400 (dialog.mjs:353,374), so a wait() dialog inherits
+    // ApplicationV2's width "auto" and is as wide as its longest unwrapped
+    // line. This one's hint made it wide beside the 640px Dashboard window that
+    // opens it (review #28, measured). Reach for wait() when a dialog needs
+    // two named buttons, and state the width in the same breath.
+    position: { width: 400 },
     content: form,
     buttons: [
       {

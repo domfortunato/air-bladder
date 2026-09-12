@@ -1,4 +1,4 @@
-import { evaluateFormula, getInfoFromDropData, askDamageQuality, damageFormulaFor, damageQualityLabel } from "./utils.js";
+import { evaluateFormula, getInfoFromDropData, askDamageQuality, damageFormulaFor, damageQualityLabel, damageQualityKind } from "./utils.js";
 import { SETTINGS_NS } from "./settings.js";
 import { t, actorDisplayName } from "./i18n-content.js";
 
@@ -125,6 +125,10 @@ export const rollItemMacro = async (actorId, itemId) => {
     label: label, targets: targetIds,
     weapon: weaponName,
     quality: damageQualityLabel(quality, { panicked }),
+    // The datum the render hook rebuilds the badge from — see the sheet's
+    // roller and templates/chat/dmg-roll-card.html.
+    qualityKind: damageQualityKind(quality, { panicked }),
+    panic: panicked,
   };
   const msg = await foundry.applications.handlebars.renderTemplate(rollMessageTpl, tplData);
   roll.toMessage({    

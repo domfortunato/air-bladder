@@ -15,7 +15,7 @@
           data-hazard marks a card with no attacker: the attack-line rewrite
           stands off it (there is nobody to name and no weapon, so it would read
           "Dom attacks Lisbeth with !") and the Warden's own sentence stands. --}}
-    <div class="dmg-label" data-weapon="{{weapon}}"{{#if pool}} data-pool="{{pool}}"{{/if}}{{#if hazard}} data-hazard="1"{{/if}}>{{label}}</div>
+    <div class="dmg-label" data-weapon="{{weapon}}"{{#if pool}} data-pool="{{pool}}"{{/if}}{{#if hazard}} data-hazard="1"{{/if}}{{#if panic}} data-panic="1"{{/if}}>{{label}}</div>
 
     {{#if (isNotNull targets)}}
     <div class="icon-action">
@@ -26,8 +26,14 @@
     {{/if}}
 
     {{!-- Impaired / Enhanced, on its own line. Empty for a normal roll, so an
-          ordinary attack gains nothing. --}}
+          ordinary attack gains nothing.
+          data-quality is the KIND ("impaired" / "enhanced" / "panic") and the
+          text is the sentence for whoever rolled. The attack line above stores
+          both halves the same way and for the same reason: the hook rebuilds
+          the words per viewer, and without the datum there is nothing to
+          rebuild them from — which left an English "Impaired" sitting directly
+          under a Spanish attack line (review #28). --}}
     {{#if quality}}
-    <div class="dmg-quality">{{quality}}</div>
+    <div class="dmg-quality" data-quality="{{qualityKind}}">{{quality}}</div>
     {{/if}}
 </div>

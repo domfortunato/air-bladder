@@ -14,7 +14,7 @@ import { Cairn } from "./config.js";
 import { CairnCombat, CairnCombatTracker, registerCombatOrderGuard, markInitiativeOutcome } from "./combat.js";
 import { handleOfferSocket, bindOfferCard } from "./item-offer.js";
 import { createCairnMacro, rollItemMacro } from "./macros.js";
-import { Damage, DAMAGE_APPLIED_FLAG, DAMAGE_SOURCE_FLAG } from "./damage.js";
+import { Damage, DAMAGE_APPLIED_FLAG, DAMAGE_SOURCE_FLAG, localizeDamageCard } from "./damage.js";
 import { registerWardenDamageControl } from "./warden-damage.js";
 import { registerWardenDashboardControl, refreshDashboardTime, localizeDashboardCard } from "./warden-dashboard.js";
 import { installWorldCalendar, checkWorldCalendar } from "./game-time.js";
@@ -26,7 +26,7 @@ import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNE
 import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName, actorDisplayName, LOCALIZED_DIRECTORIES, localizeJournalBlocks } from "./i18n-content.js";
 import { injectEncounterButton, localizeEncounterQty, resolveTable } from "./encounters.js";
 import { bindGrimoireFatigueButton, localizeGlogCastCard } from "./grimoire.js";
-import { nameableTokens } from "./utils.js";
+import { nameableTokens, DAMAGE_QUALITY_KEYS, localizeD20Card } from "./utils.js";
 
 Hooks.once("init", async function () {
   game.cairn = {
@@ -568,6 +568,41 @@ const localizeResultCells = (cells) => {
   }
 };
 
+/**
+ * Rebuild a draw card's flavor line — "Drew 1 result from the X table".
+ *
+ * Core stamps `TABLE.DrawFlavor` with the table's RAW name (roll-table.mjs:53-55)
+ * and STORES the composed sentence, so a Spanish sidebar draw read a Spanish
+ * sentence around "Warden: NPC - Reactions" over Spanish rows — the one list of
+ * names on this card the overlay never reached (review #27). Rebuilt from the
+ * message's own table, resolved through core's id flag (world first, then the
+ * pack index — the encounter button's resolver), never parsed out of the stored
+ * sentence.
+ *
+ * `t()`, not `translationOf()`: a miss returns the English source VERBATIM,
+ * which is the whole guarantee the overlay rests on. The old code bailed on a
+ * miss instead, so a Warden's own world table — a name no overlay can know —
+ * kept the composing client's sentence even on a Spanish client, while the
+ * Dashboard's draw of the same table rebuilt correctly through `labelForTable`
+ * (review #28).
+ *
+ * Two cards claim this line themselves and are left alone: the Dashboard's
+ * draw, relabelled with its button's UI key in `localizeDashboardCard`, and the
+ * scar card.
+ */
+const relabelDrawFlavor = (message, flavor, count) => {
+  if (!flavor) return;
+  if (message.getFlag("air-bladder", "dashboardDraw") || message.getFlag("air-bladder", "scarCard")) return;
+  const tableId = message.getFlag("core", "RollTable");
+  if (!tableId) return;
+  resolveTable(tableId).then((table) => {
+    if (!table) return;
+    flavor.textContent = game.i18n.format(`TABLE.DrawFlavor${count > 1 ? "Plural" : ""}`, {
+      number: count, name: t("table.name", table.name),
+    });
+  }).catch((err) => console.error("Air Bladder | draw flavor localization failed", err));
+};
+
 const localizeTableResults = (message, root) => {
   const flavor = root?.querySelector?.(".flavor-text");
   // The scar card (damage.js) stores its flavor in the ACTING client's
@@ -578,9 +613,17 @@ const localizeTableResults = (message, root) => {
   if (flavor && message?.getFlag?.("air-bladder", "scarCard") === true) {
     flavor.textContent = game.i18n.localize("CAIRN.ScarFlavor");
   }
-  if (!contentLocalized()) return;
   const cells = root?.querySelectorAll?.(".table-results li");
   if (!cells?.length) return;
+  // BEFORE the overlay gate, for the reason the scar card above is: this
+  // sentence is core's own INTERFACE string (`TABLE.DrawFlavor`), which every
+  // language module translates, and it needs no content overlay to be worth
+  // rebuilding. Behind the gate it reached `es` alone — `lang/content/` holds
+  // one file while the manifest declares seven languages — so a player on de,
+  // fr, da, pl or pt-BR read the Warden's language on the flavor line of every
+  // sidebar draw (review #28).
+  relabelDrawFlavor(message, flavor, cells.length);
+  if (!contentLocalized()) return;
   // The table's own description heads the draw card (14.365 table-result.hbs
   // renders it above the roll) — `table.desc`, emitted by the extractor since
   // 2026-08-06. Guarded by the cells check above, so non-draw messages that
@@ -591,26 +634,6 @@ const localizeTableResults = (message, root) => {
     if (es !== undefined) tableDesc.innerHTML = es;
   }
   localizeResultCells(cells);
-  // The flavor line (review #27): core stamps `TABLE.DrawFlavor` with the
-  // table's RAW name (roll-table.mjs:53-55) and stores it, so a Spanish
-  // sidebar draw read a Spanish sentence around "Warden: NPC - Reactions" over
-  // Spanish rows — the one list of names on this card the overlay never
-  // reached. Rebuilt from the message's own table, resolved through core's id
-  // flag (world first, then the pack index — the encounter button's resolver),
-  // never parsed out of the stored sentence. Two cards claim this line
-  // themselves and are left alone: the Dashboard's draw, relabelled with its
-  // button's UI key in localizeDashboardCard, and the scar card above.
-  if (!flavor || message.getFlag("air-bladder", "dashboardDraw") || message.getFlag("air-bladder", "scarCard")) return;
-  const tableId = message.getFlag("core", "RollTable");
-  if (!tableId) return;
-  resolveTable(tableId).then((table) => {
-    if (!table) return;
-    const es = translationOf("table.name", table.name);
-    if (es === undefined) return;
-    flavor.textContent = game.i18n.format(`TABLE.DrawFlavor${cells.length > 1 ? "Plural" : ""}`, {
-      number: cells.length, name: es,
-    });
-  }).catch((err) => console.error("Air Bladder | draw flavor localization failed", err));
 };
 
 // The RollTable sheet's VIEW mode (14.365: the sticky default for any table
@@ -1008,19 +1031,6 @@ Hooks.once("init", () => {
       }
       return;
     }
-    // A player's connect/break asks the active GM's client to apply the
-    // ownership shape their own client is forbidden to write. NOTHING in the
-    // message is trusted: the sync flag on the document is the authorization
-    // (only the child's owners can have set it), and syncPendingOwnership
-    // recomputes the shape from the document's own connectedTo. A flagless
-    // uuid is a no-op; an embedded or compendium uuid is refused the same way
-    // grantActors refuses one.
-    //
-    // `senderId` is passed as well now — not as the authorization, which is
-    // still the flag, but so the BOTH-ENDS rule can be re-checked where a
-    // crafted client cannot skip it. It is the one field the server
-    // authenticates. See syncPendingOwnership for what it refuses and why a
-    // refusal must clear the flag.
     // The Warden showed a table. EVERY client opens the popup, including other
     // GMs — the point is that the table is on screen.
     //
@@ -1043,6 +1053,26 @@ Hooks.once("init", () => {
       }
       return;
     }
+    // A player's connect/break asks the active GM's client to apply the
+    // ownership shape their own client is forbidden to write. NOTHING in the
+    // message is trusted: the sync flag on the document is the authorization
+    // (only the child's owners can have set it), and syncPendingOwnership
+    // recomputes the shape from the document's own connectedTo. A flagless
+    // uuid is a no-op; an embedded or compendium uuid is refused the same way
+    // grantActors refuses one.
+    //
+    // `senderId` is passed as well now — not as the authorization, which is
+    // still the flag, but so the BOTH-ENDS rule can be re-checked where a
+    // crafted client cannot skip it. It is the one field the server
+    // authenticates. See syncPendingOwnership for what it refuses and why a
+    // refusal must clear the flag.
+    //
+    // (This block sat above the showTable branch for two days, because that
+    // branch was inserted between a comment and its code — so a paragraph
+    // saying the FLAG is the authorization introduced a branch whose guard is
+    // `senderId`. A correct-sounding comment on contradicting code reads as
+    // verification; review #28 caught it, and this file records the same
+    // failure twice elsewhere.)
     if (msg?.action === "ownershipSync") {
       if (game.users.activeGM !== game.user) return;
       // Caught, the handler's own standing rule (review #17): a throw here —
@@ -2986,6 +3016,46 @@ const localizeSpeakerName = (message, html, token) => {
   if (display && display !== alias) header.textContent = display;
 };
 
+/**
+ * Rebuild the "Rolling damage with {weapon}" sentence in THIS viewer's language.
+ *
+ * The weapon NAME is not translated and never has been — it is whatever the
+ * roller saw, and the content overlay is many-to-one so there is no way back
+ * from a translated name to a key. It is the SENTENCE around it that is
+ * rebuilt, from `data-weapon`, exactly as the attack line is.
+ *
+ * `textContent`, never innerHTML: a weapon name is authored free text, and this
+ * card renders in every player's log. Same rule as the attack line below.
+ *
+ * `data-panic` decides which of the two whole-sentence keys was used. It is an
+ * explicit datum rather than an inference from the quality badge — panic does
+ * force `impaired`, so the badge would answer correctly today, but that is a
+ * correlation two independent branches happen to maintain and not something
+ * this line should depend on.
+ */
+const relabelWeaponLine = (label) => {
+  const weapon = label?.dataset?.weapon ?? "";
+  if (!weapon) return;
+  label.textContent = game.i18n.format(
+    label.dataset.panic === "1" ? "CAIRN.RollingDmgWithWeaponPanic" : "CAIRN.RollingDmgWithWeapon",
+    { weapon });
+};
+
+/**
+ * Rebuild the Impaired / Enhanced badge from its KIND.
+ *
+ * It sat one line under an attack sentence the hook had already rebuilt, so a
+ * Spanish player read a Spanish sentence over an English "Impaired" (review
+ * #28). `hasOwn`, so a crafted kind finds no key rather than reaching Object's
+ * own members — the guard `localizeStatusCard` already uses.
+ */
+const localizeDamageQuality = (html) => {
+  const el = html.querySelector(".dmg-quality");
+  const kind = el?.dataset?.quality;
+  if (!kind || !Object.hasOwn(DAMAGE_QUALITY_KEYS, kind)) return;
+  el.textContent = game.i18n.localize(DAMAGE_QUALITY_KEYS[kind]);
+};
+
 const nameDamageTargets = (message, html, scene) => {
   const label = html.querySelector(".flavor-dice-roll .dmg-label")
     // Cards posted before the class existed: the label is the child div that is
@@ -3000,13 +3070,21 @@ const nameDamageTargets = (message, html, scene) => {
 
   const raw = html.querySelector(".apply-dmg")?.dataset.targets ?? "";
   const ids = raw.split(";").map((s) => s.trim()).filter(Boolean);
-  if (!ids.length) return;
+  // NO TARGETS: the attack line cannot be written — there is nobody to name —
+  // but the "Rolling damage with…" sentence underneath it still can, and it was
+  // composed in the ROLLER's language and stored. `offerUntargetedApply`
+  // deliberately builds its anchor without `data-targets` ("its ABSENCE is the
+  // signal"), so this early return used to leave every untargeted card frozen
+  // in one language for good — applying the damage later never adds the
+  // attribute, so nothing ever repaired it (review #28).
+  if (!ids.length) return relabelWeaponLine(label);
 
   const names = nameableTokens(ids, scene).map((n) => n.name);
   // Nothing this viewer may be told about: the weapon sentence stands rather
-  // than a half-written one. Naming the visible subset of a mixed group is fine
-  // — it reveals nothing about the one left out.
-  if (!names.length) return;
+  // than a half-written one — REBUILT, for the reason the no-targets branch
+  // above states. Naming the visible subset of a mixed group is fine — it
+  // reveals nothing about the one left out.
+  if (!names.length) return relabelWeaponLine(label);
 
   const attacker = attackerDisplayName(message.speaker, scene);
   if (!attacker) return;
@@ -3272,12 +3350,24 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   // an anchor this may have just built.
   offerUntargetedApply(html);
   nameDamageTargets(message, html, scene);
+  localizeDamageQuality(html);
   showDamageApplied(message, html, scene);
   // A DETAIL card, not the roll card the three above rewrite, so this is
   // independent of their ordering. It is still run beside them and before the
   // player-trim below, because it must reach a player's copy too: knowing what
   // hit you is not Warden-only information.
+  //
+  // ORDER IS LOAD-BEARING FOR THESE TWO. localizeDamageCard REPLACES the whole
+  // body from the card's numbers, so it must run BEFORE nameDamageSource, which
+  // PREPENDS the attribution line to the same element and would otherwise have
+  // it thrown away — and before the STR-save and Critical Damage bindings
+  // below, which bind to elements it replaces.
+  localizeDamageCard(message, html);
   nameDamageSource(message, html, scene);
+  // The d20 save card — the damage flow's STR save and the sheet's ability
+  // roll, one shared builder. Also before the binding below: it replaces the
+  // Mark Critical Damage button.
+  localizeD20Card(message, html);
 
   if (token?.actor) {
     if (token.actor.testUserPermission(game.user, "OWNER") || game.user.isGM) {

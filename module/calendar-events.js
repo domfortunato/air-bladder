@@ -147,14 +147,47 @@ export const _resetFestivals = () => { FESTIVALS = null; };
  * admit a player's write — OBSERVER or NONE by default — so a player's decoy
  * stays theirs and ours stay the Warden's; a Warden who edits a decoy by hand
  * has adopted it, which is fair.
+ *
+ * A DANGLING ID IS "UNKNOWN", NOT "A PLAYER" (review #28). `lastModifiedBy` is
+ * a ForeignDocumentField holding a bare user id (fields.mjs), and nothing
+ * sweeps it when that User is deleted — so `game.users.get()` misses and the
+ * first cut of this guard answered FALSE for a journal that genuinely is ours.
+ * Delete the GM account that last wrote the Calendar Events journal, an
+ * ordinary way to hand a world over or reset a lost login, and every Warden
+ * event vanished from the grid while the journal sat in the sidebar full of
+ * pages — and the next "Add an event…" started a SECOND one. Demoting that
+ * account below Assistant did the same, and the weather log had it too.
+ *
+ * So when the writer cannot be resolved we fall back to the property the
+ * docblock above already leans on, asked of the document rather than of a user
+ * record: OURS ADMIT NO PLAYER'S WRITE. A decoy is refused either way — a
+ * TRUSTED player who makes a journal lands OWNER on it by an explicit entry —
+ * while ours, which grant OBSERVER or NONE and name nobody, are still ours
+ * after the account that wrote them is gone. Named for the question it now
+ * answers: `lastWrittenByWarden` described only the first line of it.
  * @param {foundry.abstract.Document} doc
  * @returns {boolean}
  */
-export const lastWrittenByWarden = (doc) => !!game.users.get(doc?._stats?.lastModifiedBy)?.isGM;
+const noPlayerOwner = (doc) => {
+  const L = CONST.DOCUMENT_OWNERSHIP_LEVELS;
+  const own = doc?.ownership ?? {};
+  if ((own.default ?? L.NONE) >= L.OWNER) return false;
+  for (const [id, level] of Object.entries(own)) {
+    if (id === "default") continue;
+    if (level >= L.OWNER && !game.users.get(id)?.isGM) return false;
+  }
+  return true;
+};
+
+export const isWardenJournal = (doc) => {
+  const user = game.users.get(doc?._stats?.lastModifiedBy);
+  if (user) return user.isGM;
+  return noPlayerOwner(doc);
+};
 
 const eventsJournal = (hidden = false) => {
   const kind = hidden ? "hidden" : "shared";
-  return game.journal.find((j) => j.flags?.["air-bladder"]?.calendarEvents === kind && lastWrittenByWarden(j)) ?? null;
+  return game.journal.find((j) => j.flags?.["air-bladder"]?.calendarEvents === kind && isWardenJournal(j)) ?? null;
 };
 
 /** Make the journal for one kind. GM only — it is a world write. */
@@ -323,6 +356,13 @@ export const promptAddEvent = async (at) => {
 
   const picked = await foundry.applications.api.DialogV2.wait({
     window: { title: "CAIRN.Calendar.AddEventTitle" },
+    // 400, stated: DialogV2.wait merges NO width where confirm and prompt
+    // merge 400 (dialog.mjs:353,374), so a wait() dialog inherits
+    // ApplicationV2's width "auto" and is as wide as its longest unwrapped
+    // line. This one's hint made it wide beside the 640px Dashboard window that
+    // opens it (review #28, measured). Reach for wait() when a dialog needs
+    // two named buttons, and state the width in the same breath.
+    position: { width: 400 },
     content: form,
     buttons: [
       {

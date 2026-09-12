@@ -106,6 +106,12 @@ export const promptMonsterTier = async ({ regenerate = false } = {}) => {
       icon: "fas fa-dragon",
     },
     content: `<p>${game.i18n.localize(regenerate ? "CAIRN.MonsterGen.RegeneratePrompt" : "CAIRN.MonsterGen.TierPrompt")}</p>`,
+    // 400, stated: DialogV2.wait merges NO width where confirm and prompt merge
+    // 400 (dialog.mjs:353,374), so a wait() dialog inherits ApplicationV2's
+    // width "auto" and is as wide as its longest unwrapped line. The
+    // regenerate prompt is 131 characters and this dialog opens off a 600px
+    // actor sheet (review #28).
+    position: { width: 400 },
     buttons: [
       { action: "standard", label: game.i18n.localize("CAIRN.MonsterGen.TierStandard") },
       { action: "hardier", label: game.i18n.localize("CAIRN.MonsterGen.TierHardier") },

@@ -194,12 +194,24 @@ try {
     const token = canvas?.tokens?.placeables?.[0] ?? null;
     token?.control({ releaseOthers: true });
     const had = game.messages.size;
+    // KEYBOARD FOCUS SURVIVES THE DRAW (review #28). `_whileDisabled` disables
+    // the button while its work runs, and disabling the focused element drops
+    // focus to <body> — so without a restore, Enter on a table button fired
+    // ONCE and then did nothing, with Tab restarting from the top of the
+    // document. The restore used to require an id and only five of this
+    // window's 101 action buttons had one. Focused deliberately before the
+    // click, since a click alone does not focus a button in every browser.
+    btn.focus();
+    const focusedBefore = document.activeElement === btn;
     btn.click();
     for (let i = 0; i < 40 && game.messages.size === had; i++) await new Promise((r) => setTimeout(r, 100));
     const m = game.messages.contents.at(-1);
+    const focusedAfter = document.activeElement === btn;
+    const focusTag = document.activeElement?.tagName ?? null;
     token?.release();
     return {
       clicked: true,
+      focusedBefore, focusedAfter, focusTag,
       id: m?.id,
       tableFlag: foundry.utils.getProperty(m?.flags ?? {}, "core.RollTable") ?? null,
       rolls: m?.rolls?.length ?? 0,
@@ -220,6 +232,12 @@ try {
   });
 
   drew.clicked ? ok("a table button is wired") : fail("a table button is wired", "no Quirk button found");
+  // Both halves. Asserting only the "after" state passes on a build where the
+  // button was never focused to begin with.
+  (drew.focusedBefore && drew.focusedAfter)
+    ? ok("...and keeping the keyboard on it", "disabling the focused button drops focus to <body>; the restore puts it back")
+    : fail("a drawn table strands the keyboard",
+      `focusedBefore=${drew.focusedBefore} focusedAfter=${drew.focusedAfter} activeElement=${drew.focusTag} — Enter fires once and then nothing, and Tab restarts from the top of the document (review #28)`);
 
   /* ---- 3. THE RULE: it is core's card ---------------------------------- */
 

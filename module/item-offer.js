@@ -171,10 +171,32 @@ const sanitizeDelivery = (data) => {
 /*  The picker and the card                     */
 /* -------------------------------------------- */
 
-/** Non-GM players who explicitly own an actor, for the picker's labels. */
-const ownersOf = (actor) =>
-  game.users.filter((u) => !u.isGM && actor.testUserPermission(u, "OWNER", { exact: false })
-    && (actor.ownership?.[u.id] ?? 0) >= CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER);
+/**
+ * The non-GM users who can answer for an actor — who owns it, by any route.
+ *
+ * ONE notion, used by the picker's label, by the card's waiting line and by the
+ * one-click shortcut, because two spellings of one test is this file's own
+ * recorded bug and these three must never disagree about who has a say.
+ *
+ * IT ASKS `testUserPermission` AND NOTHING ELSE. It used to add
+ * `ownership[u.id] >= OWNER` on top — "explicitly own" — which quietly excluded
+ * ownership granted through `ownership.default`, the first row of core's own
+ * ownership dialog and the natural way a Warden shares a party mule or hireling
+ * with everyone (`getUserLevel` folds `default`, document.mjs:389; the raw map
+ * never materialises per-user entries, fields.mjs). It is also what
+ * `toCompendium` leaves behind, since it strips per-user keys and keeps
+ * `default`. So for exactly those actors this answered "nobody", and
+ * `settleOwnOffer` below then found nobody else to wait for and delivered with
+ * no card and no confirm — the bypass the 2026-09-10 ruling exists to prevent,
+ * arriving by a second route (review #28).
+ *
+ * Consequence accepted with eyes open: for a `default: OWNER` actor the picker
+ * now names every player rather than saying "Warden only". That is what is
+ * true, and a label that names three players is a smaller problem than a
+ * shortcut that skips a player's consent.
+ */
+const answerersFor = (actor) =>
+  game.users.filter((u) => !u.isGM && actor.testUserPermission(u, "OWNER", { exact: false }));
 
 const esc = (s) => foundry.utils.escapeHTML(String(s ?? ""));
 
@@ -281,7 +303,7 @@ export const promptOfferTarget = async (giver, item) => {
     if (!members.length) continue;
     rows += `<h4 class="cairn-offer-group">${esc(game.i18n.localize(key))}</h4>`;
     for (const a of members) {
-      const owners = ownersOf(a);
+      const owners = answerersFor(a);
       const players = owners.map((u) => u.name).join(", ");
       // Names go through the content overlay, or a Spanish client picks "Mule"
       // from this list and reads "Mula" on the sheet. A PC is never localized.
@@ -415,7 +437,7 @@ export const settleOwnOffer = async (message, target) => {
   // over-burden dialog that exists to make them consent to Hit Protection 0.
   // The user ruled the player answers.
   //
-  // `ownersOf` is already "non-GM users with an explicit OWNER entry", and is
+  // `answerersFor` is already "the non-GM users who can answer", and is
   // already what the card's waiting line is derived from, so this asks the one
   // question that was always meant: is there anybody ELSE to wait for? A
   // shortcut written for a player is not safe the day a GM inherits it.
@@ -423,7 +445,7 @@ export const settleOwnOffer = async (message, target) => {
   // "Else" is exact, not loose. A player handing a rope to their OWN crate is
   // still the only person with a say, so that stays one click; the Warden
   // handing one to Alice's character is not, so that posts a card and waits.
-  if (ownersOf(target).some((u) => u !== game.user)) return null;
+  if (answerersFor(target).some((u) => u !== game.user)) return null;
   return onAcceptClick(message);
 };
 
@@ -496,7 +518,7 @@ export const bindOfferCard = (message, html) => {
   // a stored "the Warden answers this" marker would be review #24's class
   // exactly, while `Actor#ownership` is server-walled against every player.
   const liveTarget = foundry.utils.fromUuidSync(offer.targetActorUuid);
-  const wardenAnswers = !!liveTarget && ownersOf(liveTarget).length === 0;
+  const wardenAnswers = !!liveTarget && answerersFor(liveTarget).length === 0;
   const stateKey = offer.state === "open" && wardenAnswers
     ? "CAIRN.Offer.StateOpenWarden"
     : {
