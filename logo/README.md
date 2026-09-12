@@ -27,6 +27,8 @@ render is a crop.
 
 `Cairn-2e-Compatible_white.jpg` is that same badge flattened onto an opaque
 white background — the badge artwork itself untouched — because the transparent
-PNG nearly vanishes on GitHub's dark theme (`6cf4db3`). Only `README.md` uses
-it. As an adaptation of the badge it carries the same CC BY-SA 4.0 licence and
-the same attribution to Yochai Gal.
+PNG nearly vanishes on GitHub's dark theme (`6cf4db3`). `README.md` and
+`README.es.md` use it, and nothing else does: the landing page used it too
+until 2026-09-12, under a credit line that called it unmodified, and now shows
+`Cairn_Stamp.jpg` like every other surface. As an adaptation of the badge it
+carries the same CC BY-SA 4.0 licence and the same attribution to Yochai Gal.

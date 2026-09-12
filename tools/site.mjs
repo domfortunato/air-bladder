@@ -29,8 +29,12 @@ const outRoot = path.join(root, "_site");
 const ASSETS = [
   // The wordmark: light/dark variants plus the no-preference fallback.
   { from: "art/lydia-comer", filter: (f) => /^Airbladder(01|02|06)\.webp$/.test(f) },
-  // The "Compatible with Cairn 2e" badge in the footer. Shipped unmodified.
-  { from: "logo", filter: (f) => f === "Cairn-2e-Compatible_white.jpg" },
+  // The "For Use With Cairn" stamp in the footer — the SAME mark the character
+  // sheet and the printed page display, shipped unmodified. It replaced the
+  // older "Compatible with Cairn 2e" badge here on 2026-09-12: the page had
+  // been showing the white-flattened variant, which logo/README.md records as
+  // an ADAPTATION, under a credit line claiming it was used unmodified.
+  { from: "logo", filter: (f) => f === "Cairn_Stamp.jpg" },
   // Screenshots.
   { from: "docs/images", filter: (f) => f.endsWith(".png") },
   // Alegreya, self-hosted so the page makes no external requests. The OFL
