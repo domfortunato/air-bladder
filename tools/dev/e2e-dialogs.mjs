@@ -284,7 +284,15 @@ for (const [cls, kind] of [["create-npc-button", "NPC"], ["create-hireling-butto
       // EVERY hint in the dialog, because the reminder is the SECOND one and
       // a leg that read only the first would pass on the empty-sheet line.
       hints: el ? [...el.querySelectorAll("p.hint")].map((p) => p.textContent.trim()) : [],
-      wanted: game.i18n.localize("CAIRN.Blank.LinkedPerson"),
+      // The key CARRIES `<strong>` around the control's name, so the expected
+      // value is the localized string with its tags stripped — and `emphasis`
+      // is what proves the markup actually rendered rather than printing as
+      // literal angle brackets, which is what `textContent` would have done.
+      wanted: game.i18n.localize("CAIRN.Blank.LinkedPerson").replace(/<[^>]+>/g, ""),
+      raw: game.i18n.localize("CAIRN.Blank.LinkedPerson"),
+      emphasis: el
+        ? [...el.querySelectorAll("p.hint strong")].map((s) => s.textContent.trim()).filter(Boolean)
+        : [],
       // The dialog must WRAP a long hint, not stretch to hold it on one line.
       // `DialogV2.wait` inherits ApplicationV2's `width: "auto"` while core's
       // own `prompt`/`confirm` merge width 400, so this note took the window
@@ -301,6 +309,14 @@ for (const [cls, kind] of [["create-npc-button", "NPC"], ["create-hireling-butto
   seen.width > 0 && seen.width <= 460
     ? ok(`   …in a window that wrapped it`, `${seen.width}px, core's own dialog width`)
     : fail(`Create ${kind} stretched to hold its hint on one line`, `${seen.width}px`);
+  // The control's name is EMPHASISED, and the emphasis is real markup: the
+  // name is what a Warden has to go and find. Its words are read off the
+  // rendered `<strong>` and required to be part of the localized string, so
+  // no English literal is pinned here either.
+  seen.emphasis?.length === 1 && seen.raw?.includes(seen.emphasis[0]) && !seen.hints.some((h) => h.includes("<strong>"))
+    ? ok(`   …with the control's name picked out`, seen.emphasis[0])
+    : fail(`Create ${kind} does not emphasise the control's name`,
+      JSON.stringify({ emphasis: seen.emphasis, hints: seen.hints }));
 }
 
 /* ------------------------------------------- impaired / enhanced damage ---

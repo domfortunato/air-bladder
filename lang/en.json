@@ -107,7 +107,7 @@
   "CAIRN.Blank.HintHireling": "Deselect this option to open an empty Hireling sheet.",
   "CAIRN.Blank.HintMonster": "Deselect this option to open an empty Monster sheet.",
   "CAIRN.Blank.HintNpc": "Deselect this option to open an empty NPC sheet.",
-  "CAIRN.Blank.LinkedPerson": "All of their tokens share one sheet. Clear Link Actor Data on the Prototype Token if you want each one to take its own damage.",
+  "CAIRN.Blank.LinkedPerson": "All of their tokens share one sheet. Clear <strong>Link Actor Data</strong> on the Prototype Token if you want each one to take its own damage.",
   "CAIRN.Blank.NameCharacter": "New Character",
   "CAIRN.Blank.NameHireling": "New Hireling",
   "CAIRN.Blank.NameMonster": "New Monster",

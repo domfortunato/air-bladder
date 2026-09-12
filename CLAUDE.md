@@ -907,6 +907,16 @@ will bite:
   beside it, which uses `prompt`. `promptCreation` states 400 now and a long
   hint wraps. Reach for `wait` whenever a dialog needs two named buttons, and
   state the width in the same breath.
+- **A hint that NAMES A CONTROL emphasises it, which means the key carries
+  `<strong>` and the paragraph is set with `innerHTML`.** "Clear Link Actor
+  Data on the Prototype Token" is a sentence a Warden has to pick a label out
+  of before they can go and find it. Sixteen keys here already carry markup
+  (`CAIRN.DeprivedTip`, `CAIRN.DamageCardLine`, the dossier lines) and
+  `combat.js` sets a flavor line the same way, so this is the established
+  route and not a new one — but `textContent` on such a key prints the angle
+  brackets on screen with nothing thrown, which is why `dev:dialogs` asserts a
+  real `<strong>` element and reads the emphasised words OFF it rather than
+  pinning an English literal.
 
 **A generated loadout arrives ARRANGED (2026-08-21, user ask).** Six bands, top
 to bottom: weapons, armor, **spellbooks and spellscrolls together** (one band

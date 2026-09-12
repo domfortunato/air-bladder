@@ -2278,7 +2278,14 @@ export const promptCreation = async (kind, {
   if (spec.note) {
     const note = document.createElement("p");
     note.className = "hint";
-    note.textContent = game.i18n.localize(spec.note);
+    // innerHTML rather than textContent, and deliberately: the note names a
+    // control by its Foundry label — "Link Actor Data" — and a Warden has to
+    // pick that out of a sentence to go and find it, so the key carries
+    // <strong>. Sixteen keys here already do (CAIRN.DeprivedTip, the
+    // DamageCardLine and dossier lines), and combat.js sets a flavor line the
+    // same way. The string comes from a lang file and nowhere else; nothing a
+    // user typed reaches it.
+    note.innerHTML = game.i18n.localize(spec.note);
     content.append(note);
   }
   // The manual section rides the box: no box, no section. `hidden` as an
