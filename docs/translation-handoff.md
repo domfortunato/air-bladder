@@ -240,7 +240,7 @@ untranslated, which is the honest failure.
 | key | English |
 | --- | --- |
 | `CAIRN.Blank.HintFaction` | Deselect this option to choose each part of the faction from its table. |
-| `CAIRN.Blank.LinkedPerson` | All of their tokens share one sheet. Clear Link Actor Data on the Prototype Token if you want each one to take its own damage. |
+| `CAIRN.Blank.LinkedPerson` | All of their tokens share one sheet. Clear <strong>Link Actor Data</strong> on the Prototype Token if you want each one to take its own damage. |
 | `CAIRN.Blank.TitleFaction` | Create a new faction? |
 
 ### Calendar (33)
