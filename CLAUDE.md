@@ -515,6 +515,36 @@ companion record of who authored what.
     refused (a TRUSTED player who makes a journal lands OWNER by an explicit
     entry) while ours survive the account that wrote them. `dev:vald-time`
     holds the whole truth table, and its control is the old one-liner.
+    **THAT FIX DID NOT WORK, AND THE PROBE SAID IT DID — review #29, and it is
+    the most expensive shape there is.** "Ours name nobody" is FALSE: the
+    SERVER stamps the requesting user as an explicit OWNER entry on any
+    document with an ownership field, GM included and with no role test
+    (`this.ownership && i && !(i.id in this.ownership) && this.updateSource(
+    {[\`ownership.${i.id}\`]: OWNER})` — `dist/database/backend/
+    server-document.mjs`, `ServerDocumentMixin#_preCreate`), supplying your own
+    `ownership` in the create data does not suppress it, and nothing sweeps it
+    when the account goes (`User._onDelete` deletes that user's Settings and
+    nothing else). So every journal we make carries the creating Warden's id at
+    OWNER, and the fallback hit that dangling entry, read `!undefined?.isGM` as
+    "a player owns this", and returned false for the exact document it exists
+    to recognise. **The leg was green because its FIXTURE was a hand-built
+    object naming nobody — a shape no world contains.** Verified against the
+    live world's own journal DB, which stores `{"default":0,"<gmId>":3}`. The
+    loop now treats an unresolvable id as unknown, and the truth table gained
+    the real shape plus a decoy naming a LIVE player, which is what proves the
+    widening did not gut the guard.
+    **DEMOTION IS STILL NOT COVERED, and the record now says so rather than
+    claiming otherwise.** A demoted account RESOLVES, so `isGM` is simply false
+    and the first line answers before the fallback — and the fallback would
+    refuse it too, since the ex-Warden's own OWNER entry now resolves to a
+    non-GM. That is byte-identical to a player's decoy: same explicit OWNER
+    entry, same resolvable non-GM. Ownership cannot separate them, so covering
+    it needs a different mechanism — ranking candidates instead of filtering
+    them, or dropping the server's creator stamp at creation so ours really do
+    name nobody — and not a wider test. Handing a world over by DELETING the
+    old account works; by demoting it does not. `dev:vald-time`'s `livePlayer`
+    row IS that shape, and its comment says so, so nobody "fixes" it by
+    accident.
     Two smaller things from the same review: a page's visibility is its
     ENTRY's ownership, so the calendar's refresh list carries
     `updateJournalEntry` — raising the hidden journal through core's ownership
@@ -537,6 +567,17 @@ companion record of who authored what.
     the node in hand is still live — the `&& button.id` term was what
     suppressed them. It asks `button.isConnected` first now and falls back to
     the id.
+    **AND IT READS THE BUTTON'S OWN DOCUMENT (review #29).** `hadFocus` was
+    `document.activeElement === button` against the bare global, and this
+    window offers **Pop Out** — core's detach opens a REAL second browser
+    window and reads `this.element.ownerDocument.defaultView` throughout
+    (`application.mjs:533-537,954-966`). So in a popped-out Dashboard the
+    comparison was never true, `hadFocus` stayed false, and the whole restore
+    never ran: the bug this helper exists for survived detachment on all 101
+    buttons, in a window whose own frame button is how you get there. Any
+    `document.` in an AppV2 that can detach is a bug waiting for someone to
+    press that control; `this.element` is already document-correct, which is
+    why the id fallback needed no change.
   - **A PROBE THAT SHADOWS `game.settings.get` MUST FORWARD EVERY ARGUMENT.**
     `#setWorld` asks `this.get(ns, key, {document: true})` for the Setting
     DOCUMENT (client-settings.mjs:294); a two-argument shadow hands it a plain
@@ -1142,6 +1183,43 @@ against the reason, not against the fact.
   to name, so a card `offerUntargetedApply` deliberately builds without
   `data-targets` stayed frozen in the roller's language for good, since
   applying the damage later never adds the attribute.
+  **AND A REBUILD MUST ASK `message.isContentVisible` FIRST — review #29, and
+  this one is a LEAK, not a language.** `ChatMessage#visible` returns true for
+  a whispered message when `isRoll` (`chat-message.mjs:101-104` — the caveat
+  `concealmentWhisper`'s own docblock already recorded, for the opposite
+  reason), so `renderChatMessageHTML` FIRES on clients that may not read the
+  result: core has already thrown the stored card away and written "rolled
+  privately" into `.message-content` and `.flavor-text` (`#renderRollContent`,
+  `:475-481`), which are exactly the two elements a rebuild replaces. So
+  `localizeD20Card` handed every player the die, the Success/Fail and the
+  Critical Damage button of a **Private GM Roll**, and showed a **Blind GM
+  Roll** back to the roller it was blind to — both producers post through
+  `Roll#toMessage`, which applies the chat-controls dropdown
+  (`roll.mjs:932,948`), so it needs no crafted anything. The DETAIL cards are
+  safe by construction (plain `ChatMessage.create`, no roll, so `visible` is
+  false for non-recipients and the hook never runs) and `localizeTableResults`
+  is safe by ordering (it returns on `.table-results li` being absent, which is
+  what core's substitution leaves) — but neither is a reason to omit the guard
+  on the next one. `combat.js` had already met this from the other side, forcing
+  `messageMode: "public"` on initiative saves.
+  **The sweep found two more, and the rule's own instruction is what found
+  them (review #29).** The **Apply-damage tooltip** is composed by
+  `dmg-roll-card.html` with a `localize` call and stored in the flavor — one
+  line under the two sentences #28 rebuilt on that very element — and the
+  button is REMOVED from a player's copy, so its reader is always the Warden
+  reading the roller's language; only the TARGETED card is relabelled, since
+  `offerUntargetedApply` builds its own anchor per viewer with a deliberately
+  different tooltip, and it must run BEFORE `showDamageApplied` so a spent card
+  keeps saying so. And **Die of Fate**, the last stored card in `module/` that
+  was neither rebuilt nor read by exactly one person: `rollFlavor` carries a
+  KIND and `ROLL_FLAVOR_KEYS` maps it, the smallest shape in the class.
+  **`data-panic` is now written on EVERY card, `"0"` as well as `"1"`.** It is
+  not a style choice: `data-weapon` shipped in `f23962cb` and `data-panic` in
+  `fb5db539`, so on every card already in a log absence was indistinguishable
+  from "not panicked", and the new rebuild rewrote those with the non-panic key
+  — silently dropping the "(Panic)" their own stored content still held, on
+  exactly the untargeted cards nothing ever repairs. Absence now means "older
+  than the attribute" and `relabelWeaponLine` leaves such a card alone.
   **`TABLE.DrawFlavor` moved OUT from behind the overlay gate** in the same
   pass. It is core INTERFACE chrome every language module translates, so
   gating it on `contentLocalized()` — true only where an overlay file exists,

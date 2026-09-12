@@ -15,7 +15,13 @@
           data-hazard marks a card with no attacker: the attack-line rewrite
           stands off it (there is nobody to name and no weapon, so it would read
           "Dom attacks Lisbeth with !") and the Warden's own sentence stands. --}}
-    <div class="dmg-label" data-weapon="{{weapon}}"{{#if pool}} data-pool="{{pool}}"{{/if}}{{#if hazard}} data-hazard="1"{{/if}}{{#if panic}} data-panic="1"{{/if}}>{{label}}</div>
+    {{!-- data-panic is written on EVERY card, "0" as well as "1", unlike the two
+          conditional attributes beside it. Its ABSENCE has to mean "posted
+          before this attribute existed" so that `relabelWeaponLine` can leave
+          such a card alone: rebuilding one with the non-panic key drops the
+          "(Panic)" its stored content still holds, and nothing ever repairs an
+          untargeted card. See that function for the whole reason. --}}
+    <div class="dmg-label" data-weapon="{{weapon}}"{{#if pool}} data-pool="{{pool}}"{{/if}}{{#if hazard}} data-hazard="1"{{/if}} data-panic="{{#if panic}}1{{else}}0{{/if}}">{{label}}</div>
 
     {{#if (isNotNull targets)}}
     <div class="icon-action">

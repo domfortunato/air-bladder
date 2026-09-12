@@ -74,9 +74,13 @@
     </div>
 
     {{!-- Every control here carries a STABLE id — the five clock buttons from
-          review #27, and the six BELOW them (calendar, weather pair, set
-          weather, event pair) which this line claimed for a day before they
-          had one, added in review #28. A click
+          review #27, and the ones BELOW them (calendar, the weather pair, set
+          weather, and a roll/show pair per TIME_EVENTS entry) which this line
+          claimed for a day before they had one, added in review #28. Six
+          markup sites, but the event pair is inside {{#each events}} and its
+          ids are generated from @index, so the rendered count follows
+          TIME_EVENTS and is eight today — read it as "every button", not as a
+          list to check off (review #29). A click
           re-renders this part alone, and core restores keyboard focus across
           a part replacement only to an element it can name by `#id` or
           `[name]` (handlebars-application.mjs, _preSyncPartState); without

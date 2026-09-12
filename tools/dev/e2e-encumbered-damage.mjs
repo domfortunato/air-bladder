@@ -1466,6 +1466,12 @@ const breakdown = await page.evaluate(async () => {
   // HP and STR must render exactly as they did. The keying was sold as a
   // translatability fix with no visual consequence, and nothing else watches for
   // that promise being broken.
+  // BY ID DIFFERENCE, not by recency. The per-viewer block below used to take
+  // the newest message carrying the flag, so once cards accumulate in the dev
+  // world a run in which this `hit` posted nothing would silently rebuild a
+  // PREVIOUS run's card and report green (review #29). Same shape as the
+  // `dev:directory-buttons` leftover that read the wrong Heavy Destrier.
+  const before = new Set(game.messages.contents.map((m) => m.id));
   r.overflow = await hit("ZZ Overflow Foe", 0, 2, 6);
 
   // PER VIEWER (review #28). The body was composed once, on the WARDEN's
@@ -1479,8 +1485,8 @@ const breakdown = await page.evaluate(async () => {
   // stored content must NOT move — a rebuild that writes back to the message
   // would be a per-viewer edit fighting every other client.
   {
-    const m = game.messages.contents.slice().reverse()
-      .find((x) => x.getFlag("air-bladder", "damageCard"));
+    const m = game.messages.contents
+      .find((x) => !before.has(x.id) && x.getFlag("air-bladder", "damageCard"));
     const real = game.i18n.localize.bind(game.i18n);
     try {
       game.i18n.localize = (k, ...a) => (k === "CAIRN.HitProtection" ? "ZZ-HP-LABEL" : real(k, ...a));
@@ -1762,6 +1768,135 @@ try {
 } catch (e) {
   status.error = `${e.name}: ${e.message}`;
 }
+
+const rebuilt = await (async () => {
+  const alicePage = await browser.newPage({ viewport: VIEWPORT });
+  await joinAs(alicePage, "Alice");
+
+  const posted = await page.evaluate(async () => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const utils = await import("/systems/air-bladder/module/utils.js");
+    const tpl = "systems/air-bladder/templates/chat/dmg-roll-card.html";
+    const out = {};
+
+    // One damage ROLL card carrying both the quality badge and a targets list,
+    // so the badge and the Apply tooltip are measured on the same card. The
+    // target id is deliberately not a real token: `nameDamageTargets` finds
+    // nothing nameable and takes the branch that rebuilds the weapon sentence,
+    // which leaves the badge and the tooltip as the things under test.
+    // BOTH halves of the badge. The template renders `.dmg-quality` only
+    // `{{#if quality}}` — the sentence is what makes the row exist and
+    // `qualityKind` is only the datum on it — so passing the kind alone builds
+    // a card with no badge at all and the leg reads null for the wrong reason.
+    const flavor = await foundry.applications.handlebars.renderTemplate(tpl, {
+      label: "ZZ stored label", weapon: "ZZ Probe Axe",
+      quality: "ZZ stored impaired", qualityKind: "impaired",
+      panic: false, targets: "zzznosuchtoken",
+    });
+    const dmgRoll = await new Roll("1d6").evaluate();
+    out.dmg = (await dmgRoll.toMessage({ flavor }, { rollMode: "publicroll" })).id;
+    // The template must now write data-panic on EVERY card, "0" included, so
+    // that its absence can mean "posted before the attribute existed".
+    out.panicAttr = String(flavor).match(/data-panic="([^"]*)"/)?.[1] ?? null;
+
+    // The d20 save card, twice: the shape `_rollStrSave` posts, once PUBLIC and
+    // once under the chat dropdown's Private GM Roll.
+    // FAILED, so the card carries the Mark Critical Damage button. That button
+    // is the sharpest thing on this card and the clearest single token of "the
+    // result leaked": the public control asserts it is THERE and the private
+    // leg asserts it is not.
+    const card = { kind: "save", ability: "STR", formula: "d20cs<=10", rolled: 4, failed: true, crit: true };
+    const mk = async (mode) => {
+      const roll = await new Roll("1d6").evaluate();
+      const msg = await roll.toMessage({
+        flavor: utils.d20CardFlavor(card.kind, card.ability),
+        content: utils.d20CardBody(card),
+        flags: { "air-bladder": { d20Card: card } },
+      }, { rollMode: mode });
+      return msg.id;
+    };
+    out.d20Public = await mk("publicroll");
+    out.d20Private = await mk("gmroll");
+
+    // Die of Fate, exactly as the sheet posts it.
+    const fate = await new Roll("1d6").evaluate();
+    out.fate = (await fate.toMessage({
+      flavor: game.i18n.localize("CAIRN.DieOfFate"),
+      flags: { "air-bladder": { rollFlavor: "dieOfFate" } },
+    }, { rollMode: "publicroll" })).id;
+
+    await sleep(400);
+    // The Warden's own read: the Apply tooltip, under a sentinel installed
+    // AFTER the card was composed. The button is REMOVED from a player's copy,
+    // so the Warden is the only reader this line ever has.
+    const real = game.i18n.localize.bind(game.i18n);
+    try {
+      game.i18n.localize = (k, ...a) => (k === "CAIRN.ApplyDamage" ? "ZZ-APPLY-TIP" : real(k, ...a));
+      await ui.chat.updateMessage(game.messages.get(out.dmg));
+      await sleep(400);
+      const btn = document.querySelector(`[data-message-id="${out.dmg}"] .apply-dmg[data-targets]`);
+      out.tooltipRendered = btn?.dataset?.tooltip ?? null;
+    } finally { game.i18n.localize = real; }
+    out.tooltipStored = String(game.messages.get(out.dmg)?.flavor ?? "");
+    return out;
+  });
+
+  const seen = await alicePage.evaluate(async (ids) => {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const real = game.i18n.localize.bind(game.i18n);
+    // THE SENTINEL GOES THROUGH `localize`, INCLUDING FOR THE d20 LINE.
+    // `d20CardFlavor` builds its sentence with `game.i18n.format("CAIRN.Save",
+    // {key: game.i18n.localize(ability)})`, so the natural sentinel is on
+    // `CAIRN.Save` — but a shadow installed on `game.i18n.format` did not take
+    // effect here (measured: the leg read the real "STR save" with the shadow
+    // in place, while the `localize` shadow beside it worked on the same page
+    // and in the same window). Shadowing the ABILITY key instead exercises the
+    // identical path through one function that is known to be shadowable, and
+    // it is arguably the better probe anyway: the ABILITY KEY travelling in the
+    // flag rather than a composed sentence is the actual design claim.
+    const SENTINELS = {
+      "CAIRN.DamageQuality.BadgeImpaired": "ZZ-IMPAIRED",
+      "CAIRN.DieOfFate": "ZZ-FATE",
+      STR: "ZZ-ABIL",
+    };
+    const out = {};
+    try {
+      game.i18n.localize = (k, ...a) => (SENTINELS[k] ?? real(k, ...a));
+      for (const id of Object.values(ids)) {
+        const m = game.messages.get(id);
+        if (m) await ui.chat.updateMessage(m);
+      }
+      await sleep(700);
+      const el = (id, sel) => document.querySelector(`[data-message-id="${id}"] ${sel}`);
+      out.quality = el(ids.dmg, ".dmg-quality")?.textContent?.trim() ?? null;
+      out.d20PublicFlavor = el(ids.d20Public, ".flavor-text")?.textContent?.trim() ?? null;
+      out.d20PublicBody = el(ids.d20Public, ".message-content")?.textContent ?? "";
+      out.fateFlavor = el(ids.fate, ".flavor-text")?.textContent?.trim() ?? null;
+      // The private card. Present in her log at all (core keeps a whispered ROLL
+      // visible), but its content must be core's substitution.
+      out.privatePresent = !!document.querySelector(`[data-message-id="${ids.d20Private}"]`);
+      out.privateBody = el(ids.d20Private, ".message-content")?.textContent ?? "";
+      out.privateFlavor = el(ids.d20Private, ".flavor-text")?.textContent?.trim() ?? "";
+      out.privateHasCrit = !!el(ids.d20Private, ".mark-critical-damage");
+      out.publicHasCrit = !!el(ids.d20Public, ".mark-critical-damage");
+      // She must not have the Warden's control on the damage card either.
+      out.aliceHasApply = !!el(ids.dmg, ".apply-dmg");
+      // STORED, read from the documents rather than the DOM: no rebuild may
+      // write its sentinel back to the message.
+      out.storedClean =
+        !String(game.messages.get(ids.dmg)?.flavor ?? "").includes("ZZ-IMPAIRED")
+        && !String(game.messages.get(ids.d20Public)?.flavor ?? "").includes("ZZ-ABIL")
+        && !String(game.messages.get(ids.fate)?.flavor ?? "").includes("ZZ-FATE");
+    } finally { game.i18n.localize = real; }
+    return out;
+  }, posted);
+
+  await page.evaluate(async (ids) => {
+    for (const id of Object.values(ids)) await game.messages.get(id)?.delete();
+  }, posted);
+  await alicePage.close();
+  return { posted, seen };
+})();
 
 await browser.close();
 
@@ -2217,6 +2352,76 @@ check("an unconcealed creature's cards stay public",
   `${status.visibleCardCount} card(s), none whispered=${status.visibleNoneWhispered}`);
 check("and Alice sees all of them", status.aliceSeesVisible === status.visibleCardCount,
   `${status.aliceSeesVisible}/${status.visibleCardCount} — knowing what happened to a creature on the board is not Warden-only`);
+
+/* ---------------------------------------------------------------------------
+ * FOUR MORE STORED CARDS REBUILT PER VIEWER — AND THE ONE THAT MUST NOT BE.
+ *
+ * Review #28 added four per-viewer rebuilds and gated two of them. The quality
+ * badge and the whole d20 save card shipped with NO probe at all: deleting
+ * `localizeDamageQuality` from the hook, dropping `data-quality` from the
+ * template, or removing the `d20Card` flag from either producer left every gate
+ * green (review #29). Two more of the same class were found by the sweep the
+ * rule asks for and are gated here too — the Apply-damage TOOLTIP, composed by
+ * the template one line under sentences that were already being rebuilt, and
+ * Die of Fate, the last stored card in `module/` that was neither rebuilt nor
+ * read by exactly one person.
+ *
+ * EVERY REBUILD LEG IS ITS OWN CONTROL. The sentinel is installed on ALICE's
+ * client after the card exists, so the string cannot have been composed with
+ * it: if the rebuild does not run she reads the Warden's stored English, and
+ * each leg asserts BOTH that she reads the sentinel AND that the stored content
+ * still does not contain it. A rebuild that wrote back to the message would
+ * fail the second half.
+ *
+ * THE LAST LEG IS THE OPPOSITE ASSERTION, and it is the reason this section
+ * exists at all. `ChatMessage#visible` is true for a whispered message when
+ * `isRoll` (chat-message.mjs:101-104), so the render hook FIRES on clients that
+ * may not read the result — core has already replaced the card with "rolled
+ * privately" (`#renderRollContent`, :475-481). A rebuild that writes the flag
+ * back into `.message-content` hands every player the die, the Success/Fail and
+ * the Critical Damage button. Its control is the leg above it: the identical
+ * card posted PUBLIC must still show all three, or "she cannot see it" would
+ * pass on a build where nothing rendered at all.
+ * ------------------------------------------------------------------------- */
+
+console.log("\nfour more stored cards, rebuilt per viewer");
+check("the template writes data-panic on every card",
+  rebuilt.posted.panicAttr === "0",
+  `data-panic="${rebuilt.posted.panicAttr}" — its ABSENCE has to mean "older than the attribute", or `
+  + "relabelWeaponLine rewrites a pre-fb5db539 panic card with the non-panic key and drops its (Panic)");
+check("the quality badge is rebuilt in the reader's language",
+  rebuilt.seen.quality === "ZZ-IMPAIRED",
+  `Alice reads "${rebuilt.seen.quality}" — composed on the Warden's client, so without the rebuild `
+  + "she reads his Impaired under an attack line already in hers");
+check("the Apply-damage tooltip is rebuilt in the reader's language",
+  rebuilt.posted.tooltipRendered === "ZZ-APPLY-TIP"
+  && !rebuilt.posted.tooltipStored.includes("ZZ-APPLY-TIP"),
+  `tooltip="${rebuilt.posted.tooltipRendered}" — the template localizes it into the STORED flavor, and `
+  + "the button is removed from a player's copy, so the Warden reads whatever language the roller had");
+check("...and only the Warden has that button at all", rebuilt.seen.aliceHasApply === false,
+  "the rebuild must not resurrect a Warden-only control on a player's copy");
+check("the d20 save card is rebuilt in the reader's language",
+  (rebuilt.seen.d20PublicFlavor ?? "").includes("ZZ-ABIL"),
+  `Alice reads "${rebuilt.seen.d20PublicFlavor}"`);
+check("Die of Fate is rebuilt in the reader's language",
+  rebuilt.seen.fateFlavor === "ZZ-FATE",
+  `Alice reads "${rebuilt.seen.fateFlavor}" — it ships on both sheets, so a player is as often the composer`);
+check("no rebuild writes its sentinel back to the stored message",
+  rebuilt.seen.storedClean === true,
+  "a per-viewer rebuild that edited the document would be one client's language fighting every other's");
+/* The leak, and its control. */
+check("control: a PUBLIC d20 card really does show the result",
+  rebuilt.seen.publicHasCrit && rebuilt.seen.d20PublicBody.includes("4"),
+  `body="${rebuilt.seen.d20PublicBody.trim()}" crit=${rebuilt.seen.publicHasCrit} — without this, "she cannot `
+  + 'see the private one" passes on a build where nothing rendered');
+check("a PRIVATE d20 roll stays private",
+  rebuilt.seen.privatePresent
+  && !rebuilt.seen.privateHasCrit
+  && !/\b4\b/.test(rebuilt.seen.privateBody)
+  && rebuilt.seen.privateFlavor !== rebuilt.seen.d20PublicFlavor,
+  `present=${rebuilt.seen.privatePresent} crit=${rebuilt.seen.privateHasCrit} `
+  + `body="${rebuilt.seen.privateBody.trim()}" flavor="${rebuilt.seen.privateFlavor}" — a whispered ROLL is `
+  + "still `visible`, so the hook fires on her client over core's 'rolled privately' substitution");
 
 if (errors.length) { bad++; console.log("Console errors:\n" + errors.join("\n")); }
 console.log(bad === 0 ? "\nencumbered-damage e2e passed" : `\nencumbered-damage e2e FAILED — ${bad}`);

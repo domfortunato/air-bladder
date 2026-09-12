@@ -1133,7 +1133,15 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
     // keep their focus through the same mechanism). Remember it here and put
     // it back on the button's REPLACEMENT by id: the element in hand is stale
     // once the part has been replaced.
-    const hadFocus = document.activeElement === button;
+    // THE BUTTON'S OWN DOCUMENT, not the workspace's. This window offers Pop
+    // Out (`_getFrameButtons`), and core's detach opens a REAL second browser
+    // window — it reads `this.element.ownerDocument.defaultView` throughout
+    // (application.mjs:533-537, 954-966). Against the bare global, a popped-out
+    // Dashboard's buttons are never `document.activeElement`, `hadFocus` stays
+    // false, and the whole restore below never runs: the bug this helper exists
+    // to fix survived detachment on all 101 buttons (review #29).
+    const doc = button.ownerDocument ?? document;
+    const hadFocus = doc.activeElement === button;
     button.disabled = true;
     try {
       await action();
@@ -1147,6 +1155,8 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
       // hand is still the live one. The id path is for the TIME BAND, whose
       // part really is replaced under it, and every control there now has one.
       if (hadFocus) {
+        // `this.element` is the live root in whichever document the window is
+        // in, so the id lookup follows a detached window without asking which.
         const live = button.isConnected
           ? button
           : (button.id ? this.element?.querySelector(`#${CSS.escape(button.id)}`) : null);

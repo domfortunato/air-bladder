@@ -161,10 +161,23 @@ export const _resetFestivals = () => { FESTIVALS = null; };
  * So when the writer cannot be resolved we fall back to the property the
  * docblock above already leans on, asked of the document rather than of a user
  * record: OURS ADMIT NO PLAYER'S WRITE. A decoy is refused either way — a
- * TRUSTED player who makes a journal lands OWNER on it by an explicit entry —
- * while ours, which grant OBSERVER or NONE and name nobody, are still ours
- * after the account that wrote them is gone. Named for the question it now
- * answers: `lastWrittenByWarden` described only the first line of it.
+ * TRUSTED player who makes a journal lands OWNER on it by an explicit entry,
+ * and that entry RESOLVES while they are still at the table — whereas ours name
+ * only the Warden who made them, whose id stops resolving the moment the
+ * account goes. Named for the question it now answers: `lastWrittenByWarden`
+ * described only the first line of it.
+ *
+ * DEMOTION IS STILL NOT COVERED, and saying so is cheaper than letting the next
+ * reader assume it is. An account demoted below Assistant still RESOLVES, so
+ * `game.users.get(...).isGM` is simply false and the first line answers false
+ * without reaching the fallback — and the fallback would refuse it too, since
+ * the ex-Warden's own OWNER entry now resolves to a non-GM. That shape is
+ * byte-identical to a player's decoy: the same explicit OWNER entry naming the
+ * same resolvable non-GM. Ownership cannot separate them, so covering demotion
+ * needs a different mechanism (ranking candidates rather than filtering them,
+ * or dropping the server's creator stamp at creation so ours really do name
+ * nobody) — not a wider test here. Handing a world over by DELETING the old
+ * account works; handing it over by demoting it does not.
  * @param {foundry.abstract.Document} doc
  * @returns {boolean}
  */
@@ -174,7 +187,23 @@ const noPlayerOwner = (doc) => {
   if ((own.default ?? L.NONE) >= L.OWNER) return false;
   for (const [id, level] of Object.entries(own)) {
     if (id === "default") continue;
-    if (level >= L.OWNER && !game.users.get(id)?.isGM) return false;
+    if (level < L.OWNER) continue;
+    const user = game.users.get(id);
+    // AN UNRESOLVABLE ID IS UNKNOWN HERE TOO — the same rule the caller applies
+    // to `lastModifiedBy`, and without it this whole fallback was dead (review
+    // #29). OURS DO NOT "NAME NOBODY", whatever the docblock above used to say:
+    // the SERVER stamps the requesting user as an explicit OWNER entry on any
+    // document that has an ownership field, with no role test —
+    // `this.ownership && i && !(i.id in this.ownership) && this.updateSource(
+    // {[`ownership.${i.id}`]: OWNER})` (dist/database/backend/server-document.mjs,
+    // ServerDocumentMixin#_preCreate). So every journal we make carries the
+    // creating Warden's id at OWNER, nothing sweeps it when that account goes,
+    // and `!undefined?.isGM` took the reject branch for the exact document this
+    // guard exists to recognise. Delete the Warden account and the fallback
+    // still answered false: events off the grid, a second journal on the next
+    // "Add an event…", a fresh weather log per write — the bug review #28
+    // reported as fixed.
+    if (user && !user.isGM) return false;
   }
   return true;
 };

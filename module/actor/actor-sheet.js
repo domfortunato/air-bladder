@@ -4234,9 +4234,16 @@ export class CairnActorSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   /** @this {CairnActorSheet} */
   static async #onDieOfFate() {
     const roll = await evaluateFormula("1d6");
+    // The flavor is STORED in the presser's language, so it is flagged and
+    // rebuilt per viewer (utils.js, localizeRollFlavor). This control sits on
+    // the character sheet AND the npc sheet, so the composer is as often a
+    // player as the Warden, and the card is public: before the flag, a Spanish
+    // player's Die of Fate read "Dado del destino" in every English log
+    // (review #29). The flag carries a KIND and no text.
     roll.toMessage({
       speaker: ChatMessage.getSpeaker({ actor: this.actor }),
       flavor: game.i18n.localize("CAIRN.DieOfFate"),
+      flags: { [FLAG_SCOPE]: { rollFlavor: "dieOfFate" } },
     });
   }
 

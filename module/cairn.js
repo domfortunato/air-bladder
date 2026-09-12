@@ -26,7 +26,7 @@ import { connectionHeadroom, connectedOwnershipShape, syncPendingOwnership, OWNE
 import { loadContentOverlay, t, translationOf, contentLocalized, tokenDisplayName, actorDisplayName, LOCALIZED_DIRECTORIES, localizeJournalBlocks } from "./i18n-content.js";
 import { injectEncounterButton, localizeEncounterQty, resolveTable } from "./encounters.js";
 import { bindGrimoireFatigueButton, localizeGlogCastCard } from "./grimoire.js";
-import { nameableTokens, DAMAGE_QUALITY_KEYS, localizeD20Card } from "./utils.js";
+import { nameableTokens, DAMAGE_QUALITY_KEYS, localizeD20Card, localizeRollFlavor } from "./utils.js";
 
 Hooks.once("init", async function () {
   game.cairn = {
@@ -3036,9 +3036,45 @@ const localizeSpeakerName = (message, html, token) => {
 const relabelWeaponLine = (label) => {
   const weapon = label?.dataset?.weapon ?? "";
   if (!weapon) return;
+  // A CARD OLDER THAN `data-panic` CANNOT BE REBUILT, and must be left alone
+  // rather than guessed at (review #29). `data-weapon` shipped in f23962cb and
+  // `data-panic` only in fb5db539, so every untargeted damage card already in a
+  // log carries the first and not the second — and the attribute is now written
+  // on EVERY card, "0" or "1", precisely so that its ABSENCE means "before this
+  // existed" instead of "not panicked". Without the distinction those older
+  // cards were rewritten with the non-panic key, silently dropping the "(Panic)"
+  // their own stored content still holds; a panicked character rolling at
+  // nothing targeted is the common Panic case, and nothing ever repairs the
+  // card. Same shape as the rest of the class — `localizeDamageQuality` and
+  // `localizeD20Card` both bail when their datum is missing.
+  if (label.dataset.panic === undefined) return;
   label.textContent = game.i18n.format(
     label.dataset.panic === "1" ? "CAIRN.RollingDmgWithWeaponPanic" : "CAIRN.RollingDmgWithWeapon",
     { weapon });
+};
+
+/**
+ * Say "Apply damage" on the burst button in THIS viewer's language.
+ *
+ * The tooltip is composed by `dmg-roll-card.html` with a `localize` call and
+ * STORED in the card's flavor, so it froze the roller's language for good —
+ * review #28 rebuilt the two sentences on this very element and did not sweep
+ * the line between them (review #29). The button is REMOVED from a player's
+ * copy at the bottom of this hook, so the reader is always the Warden: a
+ * Spanish player rolls damage and the English Warden hovers "Aplicar daño".
+ *
+ * Only the TARGETED card is touched. `offerUntargetedApply` builds its own
+ * anchor per viewer and gives it a deliberately DIFFERENT tooltip
+ * (`CAIRN.ApplyDamageChoose`), and `data-targets` is exactly what tells the two
+ * apart — its absence is that feature's own signal.
+ *
+ * Runs BEFORE `showDamageApplied`, which overwrites this with the spent card's
+ * "already applied" tooltip. That ordering is the point: a spent card must keep
+ * saying it is spent.
+ */
+const relabelApplyTooltip = (html) => {
+  const btn = html.querySelector(".apply-dmg[data-targets]");
+  if (btn) btn.dataset.tooltip = game.i18n.localize("CAIRN.ApplyDamage");
 };
 
 /**
@@ -3087,7 +3123,14 @@ const nameDamageTargets = (message, html, scene) => {
   if (!names.length) return relabelWeaponLine(label);
 
   const attacker = attackerDisplayName(message.speaker, scene);
-  if (!attacker) return;
+  // The THIRD early return, and it takes the rebuild for the same reason the
+  // two above do: the attack line cannot be written without a name for the
+  // attacker, but the weapon sentence underneath it never needed one. Left as a
+  // bare `return` when the other two were converted (review #29). Both current
+  // producers speak as an ACTOR, which always stamps a non-empty alias, so this
+  // is consistency rather than a bug anyone can reach today — which is exactly
+  // why it should not be left as the odd one out for the next reader to weigh.
+  if (!attacker) return relabelWeaponLine(label);
 
   // Whole-sentence keys with every placeholder inside, per the rule the two
   // "Rolling damage with…" keys already follow: word order is not universal, so
@@ -3351,6 +3394,9 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   offerUntargetedApply(html);
   nameDamageTargets(message, html, scene);
   localizeDamageQuality(html);
+  // Before showDamageApplied, which replaces this tooltip on a spent card —
+  // see its docblock.
+  relabelApplyTooltip(html);
   showDamageApplied(message, html, scene);
   // A DETAIL card, not the roll card the three above rewrite, so this is
   // independent of their ordering. It is still run beside them and before the
@@ -3368,6 +3414,10 @@ Hooks.on("renderChatMessageHTML", (message, html, data) => {
   // roll, one shared builder. Also before the binding below: it replaces the
   // Mark Critical Damage button.
   localizeD20Card(message, html);
+  // Die of Fate and anything else whose only localized surface is the flavour
+  // line. Cheap and unconditional: it returns on the first line for every
+  // message that does not carry the flag.
+  localizeRollFlavor(message, html);
 
   if (token?.actor) {
     if (token.actor.testUserPermission(game.user, "OWNER") || game.user.isGM) {

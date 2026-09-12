@@ -288,6 +288,19 @@ export const d20CardBody = ({ formula, rolled, failed, crit }) => {
  * @param {HTMLElement} html
  */
 export const localizeD20Card = (message, html) => {
+  // A CARD CORE HAS HIDDEN MUST STAY HIDDEN. `ChatMessage#visible` is true for
+  // a whispered message when `isRoll` (chat-message.mjs:101-104 — the caveat
+  // `concealmentWhisper` above already records), so this hook FIRES on clients
+  // that may not read the result: core has already thrown our stored card away
+  // and written "rolled privately" into `.message-content` and `.flavor-text`
+  // (`#renderRollContent`, chat-message.mjs:475-481), which are exactly the two
+  // elements below. Without this line a Private GM Roll save showed the whole
+  // table the die and the Critical Damage button, and a Blind GM Roll showed
+  // the roller their own result — the one thing blind exists to prevent.
+  // Both producers post through `Roll#toMessage`, which applies the client's
+  // chat-mode dropdown (roll.mjs:932,948), so this is reachable from the UI
+  // with no crafted anything.
+  if (!message?.isContentVisible) return false;
   const raw = message?.getFlag?.("air-bladder", "d20Card");
   if (!raw || typeof raw !== "object") return false;
   const { kind, ability } = raw;
@@ -303,6 +316,44 @@ export const localizeD20Card = (message, html) => {
   // The flavor sits OUTSIDE .message-content, in the header core renders.
   const flavor = html.querySelector(".flavor-text");
   if (flavor) flavor.textContent = d20CardFlavor(kind, ability);
+  return true;
+};
+
+/**
+ * Roll cards whose whole localized surface is a FLAVOUR LINE and nothing else.
+ *
+ * The d20 cards above carry a body worth rebuilding; these carry a sentence.
+ * Same rule, smallest possible shape: the flag holds a KIND, the receiver maps
+ * it to a key, and `Object.hasOwn` guards the lookup so a crafted kind reaches
+ * no member of `Object`'s own prototype.
+ *
+ * Die of Fate was the last stored card in `module/` that was neither rebuilt
+ * per viewer nor read by exactly one person (review #29's sweep — the one the
+ * class's own rule asks for after every fix in it, run over all 23
+ * `create`/`toMessage` sites). It ships on BOTH sheets, so a player can be the
+ * composer, and it posts under the chat-mode dropdown like any roll: a Spanish
+ * player pressing it put "Dado del destino" in every English log.
+ */
+export const ROLL_FLAVOR_KEYS = { dieOfFate: "CAIRN.DieOfFate" };
+
+/**
+ * Rebuild a stored roll card's flavour line in THIS viewer's language.
+ * @param {ChatMessage} message
+ * @param {HTMLElement} html
+ * @returns {boolean} whether the line was rebuilt
+ */
+export const localizeRollFlavor = (message, html) => {
+  // Hidden stays hidden, for the reason `localizeD20Card` states at length.
+  if (!message?.isContentVisible) return false;
+  const kind = message?.getFlag?.("air-bladder", "rollFlavor");
+  if (typeof kind !== "string" || !Object.hasOwn(ROLL_FLAVOR_KEYS, kind)) return false;
+  const flavor = html.querySelector(".flavor-text");
+  if (!flavor) return false;
+  // textContent, not innerHTML: nothing here is markup, and the value is
+  // reached through a whitelist rather than localized blind — `localize()`
+  // returns an unknown key VERBATIM, which is how a crafted string becomes
+  // markup on the other route.
+  flavor.textContent = game.i18n.localize(ROLL_FLAVOR_KEYS[kind]);
   return true;
 };
 
