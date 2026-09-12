@@ -74,6 +74,17 @@ deleted. Full model in `docs/git-flow.md`; contributor-facing summary in
   work on `master` would publish documentation for features nobody can install. And
   `dev` mirrors to GitHub in seconds, so people can clone it and test unreleased
   code.
+- **TWO ADDRESSES, ON PURPOSE, and this is CLOSED (user ruling 2026-09-12).**
+  `https://domfortunato.github.io/air-bladder/` is CANONICAL — it is what
+  `system.json`'s `url` and both READMEs say, and what Foundry shows as the
+  package's Website link. **`airbladder.xyz` REDIRECTS to it**, and exists so
+  nobody has to type the long one: that is why it, and not the canonical URL,
+  is what the printed sheet footer (`CAIRN.PrintCreditGenerated`) and the
+  age-formula hint say — those are the two surfaces a person reads on paper or
+  copies by hand. Nothing in the repo publishes the short domain, so a review
+  reading only the tree sees two unexplained addresses and calls it drift;
+  review #28 did. **It is not drift, there is nothing to reconcile, and it is
+  not to be raised again.**
 
 ## Architecture
 
