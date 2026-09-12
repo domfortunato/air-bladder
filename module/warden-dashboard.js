@@ -317,9 +317,18 @@ const TAB_ICONS = {
  * Directory already calls, never copies of their logic.
  */
 const GENERATORS = {
-  npc: async () => (await import("./character-generator.js")).createNpc(),
-  hireling: async () => (await import("./character-generator.js")).createHireling(),
-  monster: async () => (await import("./monster-generator.js")).createMonster(),
+  // `createActorInteractive`, NEVER the four generators underneath (review
+  // #26). Those became non-interactive when every creation route gained the
+  // empty-sheet checkbox, and this map was the one call site the change
+  // missed: Create -> Monster minted a random-tier monster instantly, with no
+  // tier question and no way to back out, where the picker had doubled as the
+  // confirm. The empty-sheet choice was unreachable from this window too,
+  // while `docs/warden-dashboard.md` promised these were "the same ones the
+  // Actors sidebar offers". One wrapper owns the dialog for all four kinds so
+  // a third call site cannot drift the way this one did.
+  npc: async () => (await import("./character-generator.js")).createActorInteractive("npc"),
+  hireling: async () => (await import("./character-generator.js")).createActorInteractive("hireling"),
+  monster: async () => (await import("./character-generator.js")).createActorInteractive("monster"),
   faction: async () => (await import("./faction-generator.js")).generateFaction(),
 };
 
@@ -1008,8 +1017,12 @@ class WardenDashboard extends foundry.applications.api.HandlebarsApplicationMixi
     const make = GENERATORS[target.dataset.gen];
     if (!make) return;
     await this._whileDisabled(target, async () => {
-      // Every generator returns the document it made, or nothing when its own
-      // dialog was dismissed. The Actor Directory's idiom, unchanged.
+      // Each entry returns the document it made, or nothing when the creation
+      // dialog was dismissed. The Actor Directory's idiom, unchanged — and
+      // true again since review #26: for a fortnight this said "its own
+      // dialog" of three functions that had stopped opening one, which is the
+      // correct-sounding comment on contradicting code this project keeps
+      // paying for.
       const doc = await make();
       if (doc) doc.sheet.render(true);
     });

@@ -721,22 +721,78 @@ try {
     ? ok("...and the Warden's own popup opened")
     : fail("...and the Warden's own popup opened", "no cairn-shown-table window");
 
-  /* ---- 8. a generator mints exactly one document ----------------------- */
+  /* ---- 8. a generator ASKS FIRST, then mints exactly one document ------
+   * This leg used to click and count. It passed for a fortnight while the
+   * dashboard was calling the raw generators, which had stopped opening any
+   * dialog at all (review #26): Create -> Monster minted a random-tier monster
+   * instantly, and the empty-sheet checkbox was unreachable from this window.
+   * Counting alone cannot see that, so the dialog is asserted before it is
+   * answered — and the monster leg checks the TIER dropdown is back, since
+   * that picker doubled as the confirm.
+   * ---------------------------------------------------------------------- */
 
-  const made = await page.evaluate(async () => {
-    const app = document.querySelector("#cairn-warden-dashboard");
-    app.querySelector('[data-action="tab"][data-tab="people"]').click();
-    await new Promise((r) => setTimeout(r, 200));
-    const btn = app.querySelector('button[data-action="generate"][data-gen="npc"]');
-    const had = game.actors.size;
-    btn.click();
-    for (let i = 0; i < 100 && game.actors.size === had; i++) await new Promise((r) => setTimeout(r, 100));
-    await new Promise((r) => setTimeout(r, 500));   // catch a second create, if any
-    return { added: game.actors.size - had };
-  });
-  made.added === 1
-    ? ok("Generate NPC mints exactly one actor")
-    : fail("Generate NPC mints exactly one actor", `${made.added} created`);
+  const dialogIds = () => page.evaluate(() =>
+    [...document.querySelectorAll(".application.dialog")].map((d) => d.id));
+
+  for (const kind of ["npc", "monster"]) {
+    const before = await dialogIds();
+    const had = await page.evaluate(async (k) => {
+      const app = document.querySelector("#cairn-warden-dashboard");
+      app.querySelector('[data-action="tab"][data-tab="people"]')?.click();
+      await new Promise((r) => setTimeout(r, 200));
+      const btn = app.querySelector(`button[data-action="generate"][data-gen="${k}"]`)
+        ?? document.querySelector(`#cairn-warden-dashboard button[data-gen="${k}"]`);
+      if (!btn) return null;
+      const n = game.actors.size;
+      btn.click();
+      return n;
+    }, kind);
+    if (had === null) { fail(`no Create button for ${kind}`); continue; }
+
+    // A CLOSING dialog lingers, so find the new one by id difference.
+    const shape = await page.evaluate(async (prev) => {
+      const fresh = async () => {
+        for (let i = 0; i < 80; i++) {
+          const el = [...document.querySelectorAll(".application.dialog")].find((d) => !prev.includes(d.id));
+          if (el) return el;
+          await new Promise((r) => setTimeout(r, 100));
+        }
+        return null;
+      };
+      const el = await fresh();
+      return el ? { opened: true, roll: !!el.querySelector('input[name="roll"]'), tier: !!el.querySelector('select[name="choice"]') } : { opened: false };
+    }, before);
+
+    shape.opened && shape.roll
+      ? ok(`Create ${kind} asks first, with the empty-sheet checkbox`)
+      : fail(`Create ${kind} opened no creation dialog`, JSON.stringify(shape));
+    if (kind === "monster") {
+      shape.tier
+        ? ok("   …and the monster tier dropdown is back on this route")
+        : fail("Create monster offered no tier");
+    }
+
+    const made = await page.evaluate(async (n) => {
+      document.querySelector('.application.dialog button[data-action="create"]')?.click();
+      for (let i = 0; i < 120 && game.actors.size === n; i++) await new Promise((r) => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 500));   // catch a second create, if any
+      const added = game.actors.size - n;
+      // CLOSE THE SHEET THIS OPENED. `_onGenerate` renders the new actor's
+      // sheet, and a floating sheet left over the canvas sits on top of the
+      // reveal window the wheel leg later aims a real mouse gesture at — which
+      // is exactly how it reported "the wheel moved nothing" once and passed on
+      // re-run. A leg that leaves windows open is a race it hands to the leg
+      // after it.
+      for (const app of foundry.applications.instances.values()) {
+        if (app.document?.documentName === "Actor") await app.close();
+      }
+      await new Promise((r) => setTimeout(r, 200));
+      return added;
+    }, had);
+    made === 1
+      ? ok(`   …and answering it mints exactly one ${kind}`)
+      : fail(`Create ${kind} minted ${made} actor(s)`);
+  }
 
   /* ---- 9. Pop Out, and re-docking ------------------------------------- */
 
